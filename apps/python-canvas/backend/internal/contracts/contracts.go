@@ -1,0 +1,321 @@
+// Package contracts owns the V1 transport contract for Python Canvas.
+package contracts
+
+import (
+	"fmt"
+	"strings"
+)
+
+const (
+	ProjectSnapshotVersionV1 = "v1"
+	ProjectPathV1            = "/api/v1/project"
+)
+
+// ProjectSnapshotV1 is the complete, normalized project document returned by
+// the V1 project endpoint.
+type ProjectSnapshotV1 struct {
+	Version        string           `json:"version"`
+	Project        ProjectV1        `json:"project"`
+	PythonTarget   PythonTargetV1   `json:"pythonTarget"`
+	Callables      []CallableV1     `json:"callables"`
+	Parameters     []ParameterV1    `json:"parameters"`
+	GeneratedCode  GeneratedCodeV1  `json:"generatedCode"`
+	Diagnostics    []DiagnosticV1   `json:"diagnostics"`
+	ProviderStatus ProviderStatusV1 `json:"providerStatus"`
+}
+
+type ProjectV1 struct {
+	ID       string `json:"id"`
+	Revision int    `json:"revision"`
+}
+
+type PythonTargetV1 struct {
+	Prefix string `json:"prefix"`
+	Suffix string `json:"suffix"`
+}
+
+type CallableV1 struct {
+	ID                 string   `json:"id"`
+	Name               string   `json:"name"`
+	AuthoredExpression string   `json:"authoredExpression"`
+	ParameterIDs       []string `json:"parameterIds"`
+}
+
+type ParameterPassingStyleV1 string
+
+const (
+	ParameterPassingStylePositionalOnlyV1      ParameterPassingStyleV1 = "positional_only"
+	ParameterPassingStylePositionalOrKeywordV1 ParameterPassingStyleV1 = "positional_or_keyword"
+	ParameterPassingStyleKeywordOnlyV1         ParameterPassingStyleV1 = "keyword_only"
+	ParameterPassingStyleVariadicPositionalV1  ParameterPassingStyleV1 = "variadic_positional"
+	ParameterPassingStyleVariadicKeywordV1     ParameterPassingStyleV1 = "variadic_keyword"
+)
+
+type ParameterV1 struct {
+	ID                 string                  `json:"id"`
+	Name               string                  `json:"name"`
+	PassingStyle       ParameterPassingStyleV1 `json:"passingStyle"`
+	TypeAnnotation     string                  `json:"typeAnnotation"`
+	Default            *string                 `json:"default"`
+	AuthoredExpression string                  `json:"authoredExpression"`
+}
+
+type GeneratedCodeV1 struct {
+	Code         string                   `json:"code"`
+	Body         string                   `json:"body"`
+	SourceRanges []GeneratedSourceRangeV1 `json:"sourceRanges"`
+}
+
+// GeneratedSourceRangeV1 uses byte offsets into GeneratedCodeV1.Code.
+type GeneratedSourceRangeV1 struct {
+	TargetID string `json:"targetId"`
+	Start    int    `json:"start"`
+	End      int    `json:"end"`
+}
+
+type DiagnosticSeverityV1 string
+
+const (
+	DiagnosticSeverityErrorV1       DiagnosticSeverityV1 = "error"
+	DiagnosticSeverityWarningV1     DiagnosticSeverityV1 = "warning"
+	DiagnosticSeverityInformationV1 DiagnosticSeverityV1 = "information"
+)
+
+type DiagnosticV1 struct {
+	ID       string               `json:"id"`
+	Severity DiagnosticSeverityV1 `json:"severity"`
+	Message  string               `json:"message"`
+	TargetID string               `json:"targetId"`
+}
+
+type ProviderV1 string
+
+const ProviderBasedpyrightV1 ProviderV1 = "basedpyright"
+
+type ProviderAvailabilityV1 string
+
+const ProviderAvailabilityUnavailableV1 ProviderAvailabilityV1 = "unavailable"
+
+type ProviderLifecycleStateV1 string
+
+const ProviderLifecycleStateNotStartedV1 ProviderLifecycleStateV1 = "not_started"
+
+type ProviderStatusV1 struct {
+	Provider ProviderV1               `json:"provider"`
+	Status   ProviderAvailabilityV1   `json:"status"`
+	State    ProviderLifecycleStateV1 `json:"state"`
+}
+
+type APIErrorCodeV1 string
+
+const (
+	APIErrorCodeInvalidRequestV1   APIErrorCodeV1 = "invalid_request"
+	APIErrorCodeMethodNotAllowedV1 APIErrorCodeV1 = "method_not_allowed"
+	APIErrorCodeNotFoundV1         APIErrorCodeV1 = "not_found"
+)
+
+type APIErrorV1 struct {
+	Code    APIErrorCodeV1 `json:"code"`
+	Message string         `json:"message"`
+}
+
+type ErrorResponseV1 struct {
+	Error APIErrorV1 `json:"error"`
+}
+
+// UnsupportedVersionError is returned whenever a document is not the V1
+// document this package owns.
+type UnsupportedVersionError struct {
+	Version string
+}
+
+func (err UnsupportedVersionError) Error() string {
+	return fmt.Sprintf("unsupported project snapshot version %q", err.Version)
+}
+
+// ValidationError identifies an invalid field in a V1 document.
+type ValidationError struct {
+	Field   string
+	Problem string
+}
+
+func (err ValidationError) Error() string {
+	return fmt.Sprintf("invalid project snapshot V1 %s: %s", err.Field, err.Problem)
+}
+
+// Validate accepts only the current V1 document shape. It intentionally does
+// not interpret, migrate, or alias earlier or later shapes.
+func (snapshot ProjectSnapshotV1) Validate() error {
+	if snapshot.Version != ProjectSnapshotVersionV1 {
+		return UnsupportedVersionError{Version: snapshot.Version}
+	}
+	if err := requireStableID("project.id", snapshot.Project.ID); err != nil {
+		return err
+	}
+	if snapshot.Project.Revision < 1 {
+		return ValidationError{Field: "project.revision", Problem: "must be at least 1"}
+	}
+	if snapshot.PythonTarget.Prefix == "" {
+		return ValidationError{Field: "pythonTarget.prefix", Problem: "must not be empty"}
+	}
+	if snapshot.PythonTarget.Suffix == "" {
+		return ValidationError{Field: "pythonTarget.suffix", Problem: "must not be empty"}
+	}
+	if snapshot.Callables == nil {
+		return ValidationError{Field: "callables", Problem: "must be an array"}
+	}
+	if snapshot.Parameters == nil {
+		return ValidationError{Field: "parameters", Problem: "must be an array"}
+	}
+	if snapshot.GeneratedCode.SourceRanges == nil {
+		return ValidationError{Field: "generatedCode.sourceRanges", Problem: "must be an array"}
+	}
+	if snapshot.Diagnostics == nil {
+		return ValidationError{Field: "diagnostics", Problem: "must be an array"}
+	}
+	if err := validateProviderStatus(snapshot.ProviderStatus); err != nil {
+		return err
+	}
+
+	targetIDs := map[string]struct{}{snapshot.Project.ID: {}}
+	parameterIDs := make(map[string]struct{}, len(snapshot.Parameters))
+	for index, parameter := range snapshot.Parameters {
+		field := fmt.Sprintf("parameters[%d]", index)
+		if err := requireStableID(field+".id", parameter.ID); err != nil {
+			return err
+		}
+		if _, exists := targetIDs[parameter.ID]; exists {
+			return ValidationError{Field: field + ".id", Problem: "must be unique"}
+		}
+		if strings.TrimSpace(parameter.Name) == "" {
+			return ValidationError{Field: field + ".name", Problem: "must not be empty"}
+		}
+		if !isPassingStyleV1(parameter.PassingStyle) {
+			return ValidationError{Field: field + ".passingStyle", Problem: "is not supported by V1"}
+		}
+		targetIDs[parameter.ID] = struct{}{}
+		parameterIDs[parameter.ID] = struct{}{}
+	}
+
+	for index, callable := range snapshot.Callables {
+		field := fmt.Sprintf("callables[%d]", index)
+		if err := requireStableID(field+".id", callable.ID); err != nil {
+			return err
+		}
+		if _, exists := targetIDs[callable.ID]; exists {
+			return ValidationError{Field: field + ".id", Problem: "must be unique"}
+		}
+		if strings.TrimSpace(callable.Name) == "" {
+			return ValidationError{Field: field + ".name", Problem: "must not be empty"}
+		}
+		if callable.ParameterIDs == nil {
+			return ValidationError{Field: field + ".parameterIds", Problem: "must be an array"}
+		}
+		seenParameterIDs := make(map[string]struct{}, len(callable.ParameterIDs))
+		for parameterIndex, parameterID := range callable.ParameterIDs {
+			parameterField := fmt.Sprintf("%s.parameterIds[%d]", field, parameterIndex)
+			if err := requireStableID(parameterField, parameterID); err != nil {
+				return err
+			}
+			if _, exists := parameterIDs[parameterID]; !exists {
+				return ValidationError{Field: parameterField, Problem: "must reference a parameter"}
+			}
+			if _, exists := seenParameterIDs[parameterID]; exists {
+				return ValidationError{Field: parameterField, Problem: "must not be repeated"}
+			}
+			seenParameterIDs[parameterID] = struct{}{}
+		}
+		targetIDs[callable.ID] = struct{}{}
+	}
+
+	for index, sourceRange := range snapshot.GeneratedCode.SourceRanges {
+		field := fmt.Sprintf("generatedCode.sourceRanges[%d]", index)
+		if err := validateSourceRange(field, sourceRange, len(snapshot.GeneratedCode.Code), targetIDs); err != nil {
+			return err
+		}
+	}
+
+	diagnosticIDs := make(map[string]struct{}, len(snapshot.Diagnostics))
+	for index, diagnostic := range snapshot.Diagnostics {
+		field := fmt.Sprintf("diagnostics[%d]", index)
+		if err := requireStableID(field+".id", diagnostic.ID); err != nil {
+			return err
+		}
+		if _, exists := diagnosticIDs[diagnostic.ID]; exists {
+			return ValidationError{Field: field + ".id", Problem: "must be unique"}
+		}
+		if !isDiagnosticSeverityV1(diagnostic.Severity) {
+			return ValidationError{Field: field + ".severity", Problem: "is not supported by V1"}
+		}
+		if strings.TrimSpace(diagnostic.Message) == "" {
+			return ValidationError{Field: field + ".message", Problem: "must not be empty"}
+		}
+		if _, exists := targetIDs[diagnostic.TargetID]; !exists {
+			return ValidationError{Field: field + ".targetId", Problem: "must reference a stable target ID"}
+		}
+		diagnosticIDs[diagnostic.ID] = struct{}{}
+	}
+
+	return nil
+}
+
+func requireStableID(field, value string) error {
+	if strings.TrimSpace(value) == "" {
+		return ValidationError{Field: field, Problem: "must not be empty"}
+	}
+	if value != strings.TrimSpace(value) {
+		return ValidationError{Field: field, Problem: "must not include surrounding whitespace"}
+	}
+	return nil
+}
+
+func validateProviderStatus(status ProviderStatusV1) error {
+	if status.Provider != ProviderBasedpyrightV1 {
+		return ValidationError{Field: "providerStatus.provider", Problem: "is not supported by V1"}
+	}
+	if status.Status != ProviderAvailabilityUnavailableV1 {
+		return ValidationError{Field: "providerStatus.status", Problem: "is not supported by V1"}
+	}
+	if status.State != ProviderLifecycleStateNotStartedV1 {
+		return ValidationError{Field: "providerStatus.state", Problem: "is not supported by V1"}
+	}
+	return nil
+}
+
+func isPassingStyleV1(style ParameterPassingStyleV1) bool {
+	switch style {
+	case ParameterPassingStylePositionalOnlyV1,
+		ParameterPassingStylePositionalOrKeywordV1,
+		ParameterPassingStyleKeywordOnlyV1,
+		ParameterPassingStyleVariadicPositionalV1,
+		ParameterPassingStyleVariadicKeywordV1:
+		return true
+	default:
+		return false
+	}
+}
+
+func isDiagnosticSeverityV1(severity DiagnosticSeverityV1) bool {
+	switch severity {
+	case DiagnosticSeverityErrorV1, DiagnosticSeverityWarningV1, DiagnosticSeverityInformationV1:
+		return true
+	default:
+		return false
+	}
+}
+
+func validateSourceRange(field string, sourceRange GeneratedSourceRangeV1, codeLength int, targetIDs map[string]struct{}) error {
+	if _, exists := targetIDs[sourceRange.TargetID]; !exists {
+		return ValidationError{Field: field + ".targetId", Problem: "must reference a stable target ID"}
+	}
+	if sourceRange.Start < 0 {
+		return ValidationError{Field: field + ".start", Problem: "must not be negative"}
+	}
+	if sourceRange.End < sourceRange.Start {
+		return ValidationError{Field: field + ".end", Problem: "must not precede start"}
+	}
+	if sourceRange.End > codeLength {
+		return ValidationError{Field: field + ".end", Problem: "must not exceed generated code length"}
+	}
+	return nil
+}

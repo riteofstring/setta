@@ -1,0 +1,27 @@
+{
+  "name": "@setta/python-canvas",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "dev": "vite",
+    "test": "vitest run",
+    "contract:generate": "go -C backend run ./cmd/generate-contract",
+    "contract:check": "go -C backend run ./cmd/generate-contract -check"
+  },
+  "dependencies": {
+    "@setta/workspace": "workspace:*",
+    "basedpyright": "1.39.9",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.12",
+    "@types/react-dom": "19.1.8",
+    "jsdom": "28.1.0",
+    "typescript": "6.0.3",
+    "vite": "6.4.3",
+    "vitest": "4.1.10"
+  }
+}
