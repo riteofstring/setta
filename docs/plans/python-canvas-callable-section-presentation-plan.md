@@ -1124,6 +1124,43 @@ bind this fix: restoring the unconditional `mt-1 pb-1` fails both focused cases,
 walkthrough with _the light Square Root card measured fieldToToolbarCssPx at 4 CSS px instead of the
 donor's 0_.
 
+One donor observation is deliberately left to a separate decision rather than folded in here: the
+same `getKwargsControlsContainerClassName` conditional also gives a Callable toolbar
+`bg-setta-50 dark:bg-setta-860` where an ordinary one inherits the section's background. This
+correction is scoped to the spacing the supervisor named, so the package's toolbar keeps its own
+background in every composition. The captures below show what that reads like beside main's.
+
+**Corrected-composition capture record.** All eight captures are rerun and committed at
+`docs/evidence/python-canvas-callable-presentation`, rendered from the immutable source candidate
+`bbb827aa36553f50031256d261c2fed6e0238ccf` and committed separately from it, as decision 15
+requires. The bundle replaces the rejected field-only set: it holds the **complete Square Root
+card** idle and focused and the Generated Python reader idle and clicked, in light and dark
+appearance, with eight CSS px of surrounding surface, beside
+`computed/presentation-metrics.json` — each crop's clip rectangle, SHA-256, computed geometry, and
+computed typography or paint against the donor values it was asserted against — and the
+hand-written README rewritten for this design. The capture asserts every donor value while it
+records, so it cannot file a capture of a drifted surface, and it names the source commit it
+rendered.
+
+In the light idle card the field's bottom and the Args toolbar's top are the same 259.39 CSS px and
+the header's bottom is the field's top, so both donor steps measure zero rather than the rejected
+four; the first parameter row follows the toolbar by the item list's own 8 CSS px, the field's
+inline inset matches the donor's 2 CSS px within the stated one-pixel tolerance on both edges, and
+the app's own content root and the package's content slot both report `0px` padding. In the light
+idle generated capture the block is one well-formed run of `start`, four `middle`, and `end` marks
+covering the six lines between the authored prefix and suffix, its text claims neither
+`import math` nor `state = SettaState()`, it ends 258 CSS px above the fixed 390px section's own
+bottom, and the wrapper's own `background-image` is `none` while the region carries the donor's
+gradient and 6px radius under the centred badge. The clicked captures repeat those values with no
+caret layer, no active line, and no inner outline; the section-selection chrome visible around them
+is ordinary workspace behaviour rather than part of this surface. This is unaccepted working
+evidence, not a regression lock.
+
+What remains in this phase: supervisor inspection of those eight images at full resolution and
+developer visual acceptance with its accepted-candidate record; then this phase's closing
+`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
+accepted candidate.
+
 ## Stop conditions
 
 Stop and request a scope decision if:

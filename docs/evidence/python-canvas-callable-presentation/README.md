@@ -19,7 +19,7 @@ section spends its life in, then reloads into each appearance before recording:
 
 | Surface          | States        | Appearances |
 | ---------------- | ------------- | ----------- |
-| Callable field   | idle, focused | light, dark |
+| Square Root card | idle, focused | light, dark |
 | Generated Python | idle, clicked | light, dark |
 
 Each image is a component crop with eight CSS px of surrounding surface, not a full-app screenshot,
@@ -28,15 +28,25 @@ paint in the metrics file beside the donor values it was asserted against.
 
 ## What the images have to show
 
-The Callable field is main's 16px-radius pill, and activation changes its border colour and nothing
+The Square Root crops are the whole card, because the composition is the point: the callable field
+begins at the section header's own boundary, the Args toolbar begins at the field's with a measured
+zero-pixel step, the first parameter row follows the toolbar by the item list's own eight pixels,
+and the field is inset from both card edges by nothing but its own 2px margin. Compare that
+continuous header → field → Args → parameters stack against main's
+`docs/evidence/phase0/reference/screenshots/27-root-callable-selected-with-params-light.png` and its
+dark counterpart.
+
+The field itself is main's 16px-radius pill, and activation changes its border colour and nothing
 else: its box may drift by at most one CSS px and its computed font family, size, weight, line
 height, and colour are identical across the swap.
 
-Generated Python is the donor's generated block: the blue region and its three-pixel leading rail
-hug the eight rendered document lines, the ends are rounded, and the compact uppercase
+Generated Python paints only the declared generated region. In this committed eight-line document
+the block runs from the end of the authored prefix to the start of the authored suffix, so the four
+generated body lines carry the blue region and its three-pixel leading rail while the two blank
+separators supply the donor's partial rounded boundary, and `import math` on line 1 and
+`state = SettaState()` on line 8 stay on the ordinary Code-section surface. The compact uppercase
 **GENERATED READ-ONLY** badge is centred on the block's upper boundary. The fixed 390px section
-leaves the rest of its height on the ordinary Code-section surface — in the light idle capture the
-block ends 232 CSS px above the section's own bottom. A real pointer click changes none of that
-paint and leaves the text non-editable, unfocused, caret-free, and free of an inner outline; the
-section's own selection chrome around the clicked captures is ordinary workspace behaviour, not
-part of this surface.
+leaves the rest of its height unpainted — in the light idle capture the block ends 258 CSS px above
+the section's own bottom. A real pointer click changes none of that paint and leaves the text
+non-editable, unfocused, caret-free, and free of an inner outline; the section's own selection
+chrome around the clicked captures is ordinary workspace behaviour, not part of this surface.
