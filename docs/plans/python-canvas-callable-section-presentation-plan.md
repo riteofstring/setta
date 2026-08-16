@@ -13,9 +13,10 @@ visual candidate. Supervisor comparison with donor source found that the candida
 composition. That zero-gap compact toolbar is now implemented and measured live, and the audit
 conflict it introduced — the item area reading its content-agnostic leading slot to select that
 spacing — is resolved by keying the composition to the declared renderer instead. The eight
-complete-section and generated-reader captures are rerun from that corrected candidate and are
-pixel-identical apart from the focused caret's phase. Supervisor inspection, developer visual
-acceptance, and this phase's closing `test --changed` and `test-levels` steps remain open.**
+complete-section and generated-reader captures are rerun from that corrected candidate. Six are
+byte-identical; the two focused crops differ only by sub-perceptual one-channel rasterization in the
+leading header glyph, while their field bands are byte-identical. Supervisor inspection, developer
+visual acceptance, and this phase's closing `test --changed` and `test-levels` steps remain open.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -1217,15 +1218,17 @@ Square Root card idle and focused and the Generated Python reader idle and click
 dark appearance, with eight CSS px of surrounding surface, beside `computed/presentation-metrics.json`
 and its hand-written README — and the harness again asserted every donor value while recording.
 
-The rerun confirms the correction changed no pixels. Six of the eight images are byte-identical to
-the bundle rendered from `bbb827aa36553f50031256d261c2fed6e0238ccf`; only the two focused Callable
-crops differ, by the blinking caret's phase inside the live editor. Every recorded rectangle, font
-property, and paint value is unchanged, so the light idle card still measures both donor steps at
-zero — the field's bottom and the Args toolbar's top at the same 259.39 CSS px, and the header's
-bottom at the field's top — with the item list's own 8 CSS px to the first parameter row and `0px`
-padding on both the app's content root and the package's content slot. In the metrics file only
-`capturedAt`, `sourceCommit`, and those two crops' SHA-256 values moved. This remains unaccepted
-working evidence, not a regression lock.
+Six of the eight images are byte-identical to the bundle rendered from
+`bbb827aa36553f50031256d261c2fed6e0238ccf`. The two focused Callable crops differ only by a
+maximum one-channel delta of 1 across 46 pixels in light and 36 in dark, confined to the leading
+header glyph above the field. The field bands are byte-identical, so the earlier attribution to a
+blinking caret is withdrawn; this is sub-perceptual header-glyph rasterization variance, not a
+composition change. Every recorded rectangle, font property, and paint value is unchanged, so the
+light idle card still measures both donor steps at zero — the field's bottom and the Args toolbar's
+top at the same 259.39 CSS px, and the header's bottom at the field's top — with the item list's own
+8 CSS px to the first parameter row and `0px` padding on both the app's content root and the
+package's content slot. In the metrics file only `capturedAt`, `sourceCommit`, and those two crops'
+SHA-256 values moved. This remains unaccepted working evidence, not a regression lock.
 
 Verification over this candidate: `code-policy test-levels --base bf336c346` reports a five-suite
 recommended and an eleven-suite full ordinary choice, and the authorized
