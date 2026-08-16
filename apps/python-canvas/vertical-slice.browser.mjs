@@ -424,6 +424,7 @@ async function runWalkthrough(client) {
 }
 
 async function main() {
+  run("pnpm", ["--filter", "@setta/workspace", "run", "build"]);
   run("pnpm", ["run", "build"], { cwd: appRoot });
 
   const temporaryDirectory = mkdtempSync(
