@@ -186,13 +186,7 @@ func (store *Store) CommitCallable(
 	if store.closed {
 		return contracts.ProjectSnapshotV1{}, ErrStoreClosed
 	}
-	if err := ctx.Err(); err != nil {
-		return contracts.ProjectSnapshotV1{}, err
-	}
-	if err := validateProjectAndSection(projectID, sectionID); err != nil {
-		return contracts.ProjectSnapshotV1{}, err
-	}
-	normalizedExpression, err := normalizeCallableExpression(expression)
+	normalizedExpression, err := validateCallableCommitInput(ctx, projectID, sectionID, expression)
 	if err != nil {
 		return contracts.ProjectSnapshotV1{}, err
 	}
@@ -203,37 +197,7 @@ func (store *Store) CommitCallable(
 		return contracts.ProjectSnapshotV1{}, ErrSignatureResolverRequired
 	}
 
-	request, err := buildSignatureRequest(store.state, normalizedExpression)
-	if err != nil {
-		return contracts.ProjectSnapshotV1{}, err
-	}
-	signature, err := resolver.ResolveCallableSignature(ctx, request)
-	if err != nil {
-		return contracts.ProjectSnapshotV1{}, fmt.Errorf("resolve callable signature: %w", err)
-	}
-	resolvedParameter, err := normalizeSignature(signature)
-	if err != nil {
-		return contracts.ProjectSnapshotV1{}, err
-	}
-
-	candidate := cloneState(store.state)
-	candidate.revision++
-	candidate.callable.Expression = normalizedExpression
-	parameterID := fmt.Sprintf("parameter:square-root:%d", candidate.nextParameterOrdinal)
-	candidate.nextParameterOrdinal++
-	candidate.callable.ParameterIDs = []string{parameterID}
-	candidate.parameter = &parameterState{
-		ID:             parameterID,
-		Name:           resolvedParameter.Name,
-		PassingStyle:   resolvedParameter.PassingStyle,
-		TypeAnnotation: resolvedParameter.TypeAnnotation,
-		Default:        copyStringPointer(resolvedParameter.Default),
-		Expression:     "",
-	}
-	if err := renderState(&candidate); err != nil {
-		return contracts.ProjectSnapshotV1{}, err
-	}
-	snapshot, err := candidate.validatedSnapshot()
+	candidate, snapshot, err := buildCallableCommitCandidate(ctx, store.state, normalizedExpression, resolver)
 	if err != nil {
 		return contracts.ProjectSnapshotV1{}, err
 	}
@@ -321,6 +285,59 @@ func newInitialState() (canonicalState, error) {
 		return canonicalState{}, err
 	}
 	return state, nil
+}
+
+func validateCallableCommitInput(ctx context.Context, projectID string, sectionID string, expression string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	if err := validateProjectAndSection(projectID, sectionID); err != nil {
+		return "", err
+	}
+	return normalizeCallableExpression(expression)
+}
+
+func buildCallableCommitCandidate(
+	ctx context.Context,
+	state canonicalState,
+	expression string,
+	resolver SignatureResolver,
+) (canonicalState, contracts.ProjectSnapshotV1, error) {
+	request, err := buildSignatureRequest(state, expression)
+	if err != nil {
+		return canonicalState{}, contracts.ProjectSnapshotV1{}, err
+	}
+	signature, err := resolver.ResolveCallableSignature(ctx, request)
+	if err != nil {
+		return canonicalState{}, contracts.ProjectSnapshotV1{}, fmt.Errorf("resolve callable signature: %w", err)
+	}
+	resolvedParameter, err := normalizeSignature(signature)
+	if err != nil {
+		return canonicalState{}, contracts.ProjectSnapshotV1{}, err
+	}
+
+	candidate := cloneState(state)
+	candidate.revision++
+	candidate.callable.Expression = expression
+	parameterID := fmt.Sprintf("parameter:square-root:%d", candidate.nextParameterOrdinal)
+	candidate.nextParameterOrdinal++
+	candidate.callable.ParameterIDs = []string{parameterID}
+	candidate.parameter = &parameterState{
+		ID:             parameterID,
+		Name:           resolvedParameter.Name,
+		PassingStyle:   resolvedParameter.PassingStyle,
+		TypeAnnotation: resolvedParameter.TypeAnnotation,
+		Default:        copyStringPointer(resolvedParameter.Default),
+		Expression:     "",
+	}
+	if err := renderState(&candidate); err != nil {
+		return canonicalState{}, contracts.ProjectSnapshotV1{}, err
+	}
+	snapshot, err := candidate.validatedSnapshot()
+	if err != nil {
+		return canonicalState{}, contracts.ProjectSnapshotV1{}, err
+	}
+	return candidate, snapshot, nil
 }
 
 func buildSignatureRequest(state canonicalState, expression string) (SignatureRequest, error) {

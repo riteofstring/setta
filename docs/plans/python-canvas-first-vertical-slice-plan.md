@@ -460,9 +460,8 @@ does not emit an invalid assignment. `GeneratedFile` owns a temporary `setta_gen
 uses same-directory replacement. Focused Go tests cover automatic reconciliation, positional-only
 rendering, deterministic output, exact ranges, unsupported signatures, failed mutation atomicity,
 the final expected file, and cleanup. `go test ./...` and generated-contract drift checking passed.
-The authorized repository profiles were attempted: their Go and contract-drift suites passed, while
-the JavaScript suites could not start because the disposable worktree had no dependencies and its
-frozen pnpm install could not resolve the package registry in this environment.
+After dependencies were materialized, the frozen six-selection acceptance passed both builds, both
+focused suites, contract drift, and the cross-language boundary.
 
 **Corrective audit evidence (2026-08-18):** the renderer now owns the candidate call cursor, so a
 callable such as `__init__` cannot resolve at the generated class header. Parameter transport rejects

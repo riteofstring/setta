@@ -55,23 +55,7 @@ func TestStoreAutomaticallyReconcilesCallableAndParameter(t *testing.T) {
 	}
 
 	resolver := signatureResolverFunc(func(ctx context.Context, request SignatureRequest) (CallableSignature, error) {
-		if ctx == nil {
-			t.Fatal("ResolveCallableSignature() context = nil")
-		}
-		if request.ProjectID != initialProjectID || request.SectionID != squareRootCallableID {
-			t.Fatalf("signature request identity = %#v", request)
-		}
-		if request.CallableExpression != "math.sqrt" {
-			t.Fatalf("signature request expression = %q, want math.sqrt", request.CallableExpression)
-		}
-		const wantSnapshot = "import math\n\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n\nstate = SettaState()"
-		if request.Code != wantSnapshot {
-			t.Fatalf("signature request code = %q, want %q", request.Code, wantSnapshot)
-		}
-		wantOffset := strings.Index(wantSnapshot, "math.sqrt(") + len("math.sqrt(")
-		if request.CallOffset != wantOffset {
-			t.Fatalf("signature request call offset = %d, want %d", request.CallOffset, wantOffset)
-		}
+		requireSquareRootSignatureRequest(t, ctx, request)
 		return squareRootSignature(), nil
 	})
 
@@ -85,41 +69,18 @@ func TestStoreAutomaticallyReconcilesCallableAndParameter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CommitCallable() error = %v", err)
 	}
-	if callableSnapshot.Project.Revision != 2 {
-		t.Fatalf("callable revision = %d, want 2", callableSnapshot.Project.Revision)
-	}
-	callable := callableSnapshot.Callables[0]
-	if callable.AuthoredExpression != "math.sqrt" || !reflect.DeepEqual(callable.ParameterIDs, []string{"parameter:square-root:1"}) {
-		t.Fatalf("callable after commit = %#v", callable)
-	}
-	if len(callableSnapshot.Parameters) != 1 {
-		t.Fatalf("parameters after callable commit = %#v", callableSnapshot.Parameters)
-	}
-	parameter := callableSnapshot.Parameters[0]
-	if parameter.ID != "parameter:square-root:1" || parameter.Name != "x" ||
-		parameter.PassingStyle != contracts.ParameterPassingStylePositionalOnlyV1 ||
-		parameter.TypeAnnotation != "float" || parameter.Default != nil || parameter.AuthoredExpression != "" {
-		t.Fatalf("parameter after callable commit = %#v", parameter)
-	}
+	requireCallableReconciliation(t, callableSnapshot)
+	requireReconciledParameter(t, callableSnapshot)
+	parameterID := callableSnapshot.Parameters[0].ID
 	const wantCallableCode = "import math\n\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n\nstate = SettaState()"
-	if callableSnapshot.GeneratedCode.Code != wantCallableCode || writer.code != wantCallableCode {
-		t.Fatalf("callable generated code = %q; materialized = %q; want %q", callableSnapshot.GeneratedCode.Code, writer.code, wantCallableCode)
-	}
+	requireMaterializedGeneratedCode(t, callableSnapshot, writer, wantCallableCode, "callable")
 
-	finalSnapshot, err := store.SetParameterExpression(initialProjectID, parameter.ID, "3")
+	finalSnapshot, err := store.SetParameterExpression(initialProjectID, parameterID, "3")
 	if err != nil {
 		t.Fatalf("SetParameterExpression() error = %v", err)
 	}
-	if finalSnapshot.Project.Revision != 3 {
-		t.Fatalf("parameter revision = %d, want 3", finalSnapshot.Project.Revision)
-	}
 	const wantFinalCode = "import math\n\nclass SettaState:\n    def __init__(state):\n        state.Square_Root__x = 3\n        state.Square_Root = math.sqrt(state.Square_Root__x)\n\nstate = SettaState()"
-	if finalSnapshot.GeneratedCode.Code != wantFinalCode || writer.code != wantFinalCode {
-		t.Fatalf("final generated code = %q; materialized = %q; want %q", finalSnapshot.GeneratedCode.Code, writer.code, wantFinalCode)
-	}
-	if len(writer.writes) != 3 {
-		t.Fatalf("materialized writes = %d, want initial, callable, and parameter writes", len(writer.writes))
-	}
+	requireParameterReconciliation(t, finalSnapshot, writer, wantFinalCode)
 }
 
 func TestStoreUsesCandidateCallOffsetWhenCallableMatchesClassHeader(t *testing.T) {
@@ -288,6 +249,80 @@ func TestStoreRejectsKeywordNamedSignatureParameterWithoutCommitting(t *testing.
 		t.Fatalf("CommitCallable() error = %v, want typed keyword-name failure", err)
 	}
 	requireUnchangedStore(t, store, writer, before, beforeCode)
+}
+
+func requireSquareRootSignatureRequest(t *testing.T, ctx context.Context, request SignatureRequest) {
+	t.Helper()
+	if ctx == nil {
+		t.Fatal("ResolveCallableSignature() context = nil")
+	}
+	if request.ProjectID != initialProjectID || request.SectionID != squareRootCallableID {
+		t.Fatalf("signature request identity = %#v", request)
+	}
+	if request.CallableExpression != "math.sqrt" {
+		t.Fatalf("signature request expression = %q, want math.sqrt", request.CallableExpression)
+	}
+	const wantSnapshot = "import math\n\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n\nstate = SettaState()"
+	if request.Code != wantSnapshot {
+		t.Fatalf("signature request code = %q, want %q", request.Code, wantSnapshot)
+	}
+	wantOffset := strings.Index(wantSnapshot, "math.sqrt(") + len("math.sqrt(")
+	if request.CallOffset != wantOffset {
+		t.Fatalf("signature request call offset = %d, want %d", request.CallOffset, wantOffset)
+	}
+}
+
+func requireCallableReconciliation(t *testing.T, snapshot contracts.ProjectSnapshotV1) {
+	t.Helper()
+	if snapshot.Project.Revision != 2 {
+		t.Fatalf("callable revision = %d, want 2", snapshot.Project.Revision)
+	}
+	callable := snapshot.Callables[0]
+	if callable.AuthoredExpression != "math.sqrt" || !reflect.DeepEqual(callable.ParameterIDs, []string{"parameter:square-root:1"}) {
+		t.Fatalf("callable after commit = %#v", callable)
+	}
+	if len(snapshot.Parameters) != 1 {
+		t.Fatalf("parameters after callable commit = %#v", snapshot.Parameters)
+	}
+}
+
+func requireReconciledParameter(t *testing.T, snapshot contracts.ProjectSnapshotV1) {
+	t.Helper()
+	parameter := snapshot.Parameters[0]
+	if parameter.ID != "parameter:square-root:1" || parameter.Name != "x" ||
+		parameter.PassingStyle != contracts.ParameterPassingStylePositionalOnlyV1 ||
+		parameter.TypeAnnotation != "float" || parameter.Default != nil || parameter.AuthoredExpression != "" {
+		t.Fatalf("parameter after callable commit = %#v", parameter)
+	}
+}
+
+func requireMaterializedGeneratedCode(
+	t *testing.T,
+	snapshot contracts.ProjectSnapshotV1,
+	writer *memoryGeneratedFileWriter,
+	wantCode string,
+	stage string,
+) {
+	t.Helper()
+	if snapshot.GeneratedCode.Code != wantCode || writer.code != wantCode {
+		t.Fatalf("%s generated code = %q; materialized = %q; want %q", stage, snapshot.GeneratedCode.Code, writer.code, wantCode)
+	}
+}
+
+func requireParameterReconciliation(
+	t *testing.T,
+	snapshot contracts.ProjectSnapshotV1,
+	writer *memoryGeneratedFileWriter,
+	wantCode string,
+) {
+	t.Helper()
+	if snapshot.Project.Revision != 3 {
+		t.Fatalf("parameter revision = %d, want 3", snapshot.Project.Revision)
+	}
+	requireMaterializedGeneratedCode(t, snapshot, writer, wantCode, "final")
+	if len(writer.writes) != 3 {
+		t.Fatalf("materialized writes = %d, want initial, callable, and parameter writes", len(writer.writes))
+	}
 }
 
 type signatureResolverFunc func(context.Context, SignatureRequest) (CallableSignature, error)

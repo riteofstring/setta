@@ -22,23 +22,8 @@ type dependencyNode struct {
 }
 
 func buildDependencyGraph(input Input) (dependencyGraph, error) {
-	if strings.TrimSpace(input.Prefix) == "" {
-		return dependencyGraph{}, invalidInput("prefix must not be empty")
-	}
-	if strings.TrimSpace(input.Suffix) == "" {
-		return dependencyGraph{}, invalidInput("suffix must not be empty")
-	}
-	if strings.TrimSpace(input.Callable.ID) == "" {
-		return dependencyGraph{}, invalidInput("callable ID must not be empty")
-	}
-	if strings.TrimSpace(input.Callable.Name) == "" {
-		return dependencyGraph{}, invalidInput("callable name must not be empty")
-	}
-	if len(input.Parameters) != len(input.Callable.ParameterIDs) {
-		return dependencyGraph{}, invalidInput("callable parameter IDs must match parameters")
-	}
-	if input.Callable.Expression == "" && len(input.Parameters) != 0 {
-		return dependencyGraph{}, invalidInput("an empty callable cannot have parameters")
+	if err := validateDependencyGraphInput(input); err != nil {
+		return dependencyGraph{}, err
 	}
 
 	sectionPath := sanitizePythonPath(input.Callable.Name)
@@ -84,6 +69,28 @@ func buildDependencyGraph(input Input) (dependencyGraph, error) {
 			dependencies: parameterIDs,
 		},
 	}, nil
+}
+
+func validateDependencyGraphInput(input Input) error {
+	if strings.TrimSpace(input.Prefix) == "" {
+		return invalidInput("prefix must not be empty")
+	}
+	if strings.TrimSpace(input.Suffix) == "" {
+		return invalidInput("suffix must not be empty")
+	}
+	if strings.TrimSpace(input.Callable.ID) == "" {
+		return invalidInput("callable ID must not be empty")
+	}
+	if strings.TrimSpace(input.Callable.Name) == "" {
+		return invalidInput("callable name must not be empty")
+	}
+	if len(input.Parameters) != len(input.Callable.ParameterIDs) {
+		return invalidInput("callable parameter IDs must match parameters")
+	}
+	if input.Callable.Expression == "" && len(input.Parameters) != 0 {
+		return invalidInput("an empty callable cannot have parameters")
+	}
+	return nil
 }
 
 func invalidInput(problem string) error {
