@@ -55,6 +55,33 @@ type rpcError struct {
 	Message string `json:"message"`
 }
 
+type publishDiagnosticsPayload struct {
+	URI         *string              `json:"uri"`
+	Version     *int                 `json:"version,omitempty"`
+	Diagnostics *[]diagnosticPayload `json:"diagnostics"`
+}
+
+type diagnosticPayload struct {
+	Range    *rangePayload             `json:"range"`
+	Severity diagnosticSeverityPayload `json:"severity,omitempty"`
+	Message  *string                   `json:"message"`
+}
+
+type rangePayload struct {
+	Start *positionPayload `json:"start"`
+	End   *positionPayload `json:"end"`
+}
+
+type positionPayload struct {
+	Line      *int `json:"line"`
+	Character *int `json:"character"`
+}
+
+type diagnosticSeverityPayload struct {
+	present bool
+	value   int
+}
+
 type documentSynchronization struct {
 	uri              string
 	previousVersion  int
@@ -625,32 +652,123 @@ func (session *Session) dispatch(envelope rpcEnvelope) {
 }
 
 func decodePublishDiagnostics(raw json.RawMessage) (PublishDiagnosticsParams, error) {
-	var params struct {
-		URI         *string         `json:"uri"`
-		Version     *int            `json:"version,omitempty"`
-		Diagnostics json.RawMessage `json:"diagnostics"`
-	}
-	if err := json.Unmarshal(raw, &params); err != nil {
+	payload, err := decodePublishDiagnosticsPayload(raw)
+	if err != nil {
 		return PublishDiagnosticsParams{}, err
 	}
-	if params.URI == nil || strings.TrimSpace(*params.URI) == "" {
+	return publishDiagnosticsFromPayload(payload)
+}
+
+func decodePublishDiagnosticsPayload(raw json.RawMessage) (publishDiagnosticsPayload, error) {
+	var payload publishDiagnosticsPayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return publishDiagnosticsPayload{}, err
+	}
+	return payload, nil
+}
+
+func publishDiagnosticsFromPayload(payload publishDiagnosticsPayload) (PublishDiagnosticsParams, error) {
+	if payload.URI == nil || strings.TrimSpace(*payload.URI) == "" {
 		return PublishDiagnosticsParams{}, errors.New("publishDiagnostics URI is required")
 	}
-	if len(params.Diagnostics) == 0 || strings.TrimSpace(string(params.Diagnostics)) == "null" {
+	if payload.Diagnostics == nil {
 		return PublishDiagnosticsParams{}, errors.New("publishDiagnostics diagnostics array is required")
 	}
-	var diagnostics []Diagnostic
-	if err := json.Unmarshal(params.Diagnostics, &diagnostics); err != nil {
-		return PublishDiagnosticsParams{}, fmt.Errorf("decode publishDiagnostics diagnostics: %w", err)
-	}
-	if diagnostics == nil {
-		return PublishDiagnosticsParams{}, errors.New("publishDiagnostics diagnostics must be an array")
+	diagnostics, err := diagnosticsFromPayload(*payload.Diagnostics)
+	if err != nil {
+		return PublishDiagnosticsParams{}, err
 	}
 	return PublishDiagnosticsParams{
-		URI:         *params.URI,
-		Version:     params.Version,
+		URI:         *payload.URI,
+		Version:     payload.Version,
 		Diagnostics: diagnostics,
 	}, nil
+}
+
+func diagnosticsFromPayload(payloads []diagnosticPayload) ([]Diagnostic, error) {
+	diagnostics := make([]Diagnostic, len(payloads))
+	for index, payload := range payloads {
+		diagnostic, err := diagnosticFromPayload(payload)
+		if err != nil {
+			return nil, fmt.Errorf("publishDiagnostics diagnostic %d is malformed: %w", index, err)
+		}
+		diagnostics[index] = diagnostic
+	}
+	return diagnostics, nil
+}
+
+func diagnosticFromPayload(payload diagnosticPayload) (Diagnostic, error) {
+	rangeValue, err := rangeFromPayload(payload.Range)
+	if err != nil {
+		return Diagnostic{}, err
+	}
+	if payload.Message == nil || strings.TrimSpace(*payload.Message) == "" {
+		return Diagnostic{}, errors.New("message is required")
+	}
+	severity, err := severityFromPayload(payload.Severity)
+	if err != nil {
+		return Diagnostic{}, err
+	}
+	return Diagnostic{
+		Range:    rangeValue,
+		Severity: severity,
+		Message:  *payload.Message,
+	}, nil
+}
+
+func rangeFromPayload(payload *rangePayload) (Range, error) {
+	if payload == nil {
+		return Range{}, errors.New("range is required")
+	}
+	start, err := positionFromPayload(payload.Start)
+	if err != nil {
+		return Range{}, fmt.Errorf("start: %w", err)
+	}
+	end, err := positionFromPayload(payload.End)
+	if err != nil {
+		return Range{}, fmt.Errorf("end: %w", err)
+	}
+	if positionPrecedes(end, start) {
+		return Range{}, errors.New("end position precedes start position")
+	}
+	return Range{Start: start, End: end}, nil
+}
+
+func positionFromPayload(payload *positionPayload) (Position, error) {
+	if payload == nil {
+		return Position{}, errors.New("position is required")
+	}
+	if payload.Line == nil || payload.Character == nil {
+		return Position{}, errors.New("line and character are required")
+	}
+	if *payload.Line < 0 || *payload.Character < 0 {
+		return Position{}, errors.New("line and character must be nonnegative")
+	}
+	return Position{Line: *payload.Line, Character: *payload.Character}, nil
+}
+
+func positionPrecedes(left Position, right Position) bool {
+	return left.Line < right.Line || left.Line == right.Line && left.Character < right.Character
+}
+
+func severityFromPayload(payload diagnosticSeverityPayload) (int, error) {
+	if !payload.present {
+		return 0, nil
+	}
+	if payload.value < 1 || payload.value > 4 {
+		return 0, errors.New("severity must be between 1 and 4")
+	}
+	return payload.value, nil
+}
+
+func (payload *diagnosticSeverityPayload) UnmarshalJSON(raw []byte) error {
+	payload.present = true
+	severity, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+	if err != nil {
+		return errors.New("severity must be an integer")
+	}
+	payload.value = severity
+	return nil
 }
 
 func (session *Session) failSession(cause error) {

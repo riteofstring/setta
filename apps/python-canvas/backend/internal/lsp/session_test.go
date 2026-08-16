@@ -38,20 +38,20 @@ func TestSessionReadLoopSignalsDiagnosticWaiterOnStreamFailure(t *testing.T) {
 	}
 }
 
-func TestSessionSignalsDiagnosticWaiterForMalformedPublishDiagnostics(t *testing.T) {
+func TestSessionSignalsDiagnosticWaiterForStructurallyMalformedPublishDiagnostic(t *testing.T) {
 	waiter := newDiagnosticWaiter()
 	session := sessionWithDiagnosticWaiter(waiter)
 
 	session.dispatch(rpcEnvelope{
 		Method: "textDocument/publishDiagnostics",
-		Params: json.RawMessage(`{"uri":"file:///temporary/setta_gen.py","version":1}`),
+		Params: json.RawMessage(`{"uri":"file:///temporary/setta_gen.py","version":1,"diagnostics":[{}]}`),
 	})
 
 	err := waitForDiagnosticFailure(t, waiter)
 	if !errors.Is(err, ErrSessionStreamFailed) {
 		t.Fatalf("waitForExactDiagnostics() error = %v, want session stream failure", err)
 	}
-	if !strings.Contains(err.Error(), "diagnostics array is required") {
+	if !strings.Contains(err.Error(), "diagnostic 0 is malformed") {
 		t.Fatalf("waitForExactDiagnostics() error = %v, want malformed publishDiagnostics cause", err)
 	}
 }
