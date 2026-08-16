@@ -456,18 +456,17 @@ for structural mutations.
 
 Gate: Python Canvas installs and runs without `setta-main` or another application.
 
-## Code Policy 0.7.0 compatibility
+## Code Policy 0.7.1 compatibility
 
 ### Audit result
 
-**Code Policy 0.7.0 supports the recommended repository shape; no Code Policy package change is
+**Code Policy 0.7.1 supports the recommended repository shape; no Code Policy package change is
 required to start or complete this monorepo.**
 
-Evidence from the exact locked release (`0.7.0`, digest
-`7589787c48e28eb40a34247693c7bc545723f50ce01abe4be1bedf9f6e521b8f`) is:
+Evidence from the exact locked release (`0.7.1`, digest
+`57f3938d3ca24c5e91ca72f5d7a7c7067ec409d29f8f9fa916a41dec89e754bd`) is:
 
-- `doctor --strict` passes the current repository and reports 715 governed files across the two
-  current modules.
+- `doctor --strict` passes the current repository across its two current modules.
 - The release ships a TypeScript+Go application template.
 - Its Go architecture reader resolves every nested `go.mod` and enforces declared module edges.
 - Its sealed TypeScript/JavaScript resolver understands pnpm workspace links, package exports,
@@ -522,24 +521,22 @@ Declare external inputs where applicable:
 Each declaration needs explicit resolution precedence, resolved-source diagnostics, compatibility
 validation, unavailable behavior, a quick contract suite, and a distinct full behavior suite.
 
-If repository-owned `.py` files are added for a packaged Python runtime, 0.7.0 supplies Ruff but
+If repository-owned `.py` files are added for a packaged Python runtime, 0.7.1 supplies Ruff but
 not Python type checking or Python import-architecture enforcement. Add honest module-scoped
 `typecheck` and `architecture` providers in `.code-policy.json`, or avoid checked-in Python runtime
 code. Do not label Ruff as proof it does not provide.
 
 ### Updated-tooling issues to fix in this repository
 
-The recent policy upgrade left two operational mismatches that are independent of the monorepo
-shape:
+One local operational mismatch remains independent of the monorepo shape:
 
 1. The installed launcher exists under `~/.local/share/code-policy/bin`, but that directory is not
    on this shell's `PATH`; the documented `code-policy` command currently returns “command not
    found.” Fix the developer/agent shell bootstrap or invoke the exact launcher path until it is
    fixed.
-2. `.code-policy.lock.json` pins 0.7.0/digest `7589787c...`, while
-   `.github/workflows/code-policy-security.yml` still selects the self-hosted runner label
-   `code-policy-0.6.0-9417a24a`. Provision/select a runner with the exact locked release before
-   relying on scheduled supply-chain verification.
+
+The security workflow now selects `code-policy-0.7.1-57f3938d`; that exact runner must be
+provisioned before relying on scheduled supply-chain verification.
 
 The project-owned section of `AGENTS.md` also says the repository contains no application or
 backend. Update that statement in the same reviewed policy/bootstrap phase that actually adds the
@@ -557,13 +554,13 @@ worth supporting across multiple repositories:
 - if self-hosted runner labels are intended to encode Code Policy releases, a validator that
   compares that convention with `.code-policy.lock.json`.
 
-Those are convenience and coverage improvements, not blockers. The 0.7.0 extension points are
+Those are convenience and coverage improvements, not blockers. The 0.7.1 extension points are
 already sufficient, and project-specific generator semantics should remain in this repository
 unless they become genuinely generic.
 
 ### Task-session bootstrap consequence
 
-Code Policy 0.7.0 intentionally freezes module ownership from the trusted starting commit and
+Code Policy 0.7.1 intentionally freezes module ownership from the trusted starting commit and
 refuses candidate edits to `.code-policy.json`. The first app scaffold and the policy config cannot
 bootstrap each other silently in one ordinary module session. Use one of these explicit sequences:
 
@@ -579,7 +576,8 @@ workspace modules. Do not widen a session from candidate config.
 
 During implementation:
 
-- run the exact locked Code Policy release, not the neighboring Code Policy checkout or 0.7.1;
+- run the exact locked Code Policy release, not the neighboring Code Policy checkout or another
+  installed release;
 - run `code-policy dependency-review --base <merge-target>` on a scripts-disabled candidate
   lockfile before installing any dependency change;
 - keep generated-contract, domain, compiler, LSP, execution, and UI tests focused at their owning
