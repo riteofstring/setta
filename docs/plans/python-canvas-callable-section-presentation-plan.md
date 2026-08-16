@@ -1156,7 +1156,26 @@ caret layer, no active line, and no inner outline; the section-selection chrome 
 is ordinary workspace behaviour rather than part of this surface. This is unaccepted working
 evidence, not a regression lock.
 
-What remains in this phase: supervisor inspection of those eight images at full resolution and
+**Leading-slot opacity audit correction.** The first independent audit of candidate
+`ae6f0a38005b8d8f311546b72a23972edee36f62` found one repository-contract conflict. The item-area
+contract says the leading slot is content-agnostic, but `renderItemArea` called
+`rendersLeadingContent` on the returned `ReactNode` to select toolbar spacing. Resolve only that
+conflict: the presence of the already-validated `renderLeadingContent` renderer declares the
+compact composition, and its returned content remains opaque. Render it normally, but do not
+branch on whether it returns an element, `null`, a boolean, a string, an array, or a fragment. A
+kind with the renderer declared therefore keeps compact toolbar spacing for all of its sections; a
+kind without it keeps ordinary spacing. Update the adjacent README wording to state that declared
+composition rule without weakening the content-agnostic boundary.
+
+This is a narrow audit correction. Do not build React-node emptiness classification, add null/array
+edge cases, extract shared test-helper infrastructure, or act on the audit's non-blocking
+recommendations. The existing two SectionContainer paths already distinguish a kind that declares
+leading content from one that does not. Because the source candidate changes, rerun and recommit
+the same eight headless captures from the new immutable source hash even though the Python Canvas
+renderer continues to return its field and the pixels are expected to remain unchanged.
+
+What remains in this phase: that opacity correction, fresh commit-bound capture evidence,
+supervisor confirmation that the eight images remain visually unchanged at full resolution, and
 developer visual acceptance with its accepted-candidate record; then this phase's closing
 `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
 accepted candidate.
