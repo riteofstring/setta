@@ -1,5 +1,12 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setWorkspaceDocumentChangeCallback } from "./documentChangeCallback";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { setSectionData } from "./sectionData";
 import { registerSectionKinds } from "./sectionKindRegistry";
@@ -10,8 +17,8 @@ import {
 } from "./stores";
 
 function loadTestDocument() {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
-  loadWorkspaceDocument({
+  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
         id: "panel",
@@ -38,26 +45,25 @@ describe("setSectionData", () => {
   beforeEach(loadTestDocument);
 
   afterEach(() => {
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
+    registerSectionKinds(testWorkspace.host, {});
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
   });
 
   it("replaces opaque section data and notifies the host once", () => {
     const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
-    setSectionData("panel", { control: "text", value: "after" });
+    testWorkspace.host.subscribe(onDocumentChange);
+    setSectionData(testWorkspace.host, "panel", { control: "text", value: "after" });
 
-    const panel = useWorkspaceDocument.getState().sections["panel"];
+    const panel = testWorkspace.document.getState().sections["panel"];
     expect(panel?.data).toEqual({ control: "text", value: "after" });
     expect(panel?.name).toBe("Panel");
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
   });
 
   it("fails loudly for an unknown section", () => {
-    expect(() => setSectionData("missing", {})).toThrowError(
+    expect(() => setSectionData(testWorkspace.host, "missing", {})).toThrowError(
       "Unknown section missing.",
     );
   });

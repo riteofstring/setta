@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import type { ZoomTransform } from "d3-zoom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useActiveSections, useWorkspaceDocument } from "../document/stores";
@@ -40,7 +48,7 @@ function setupZoomRuntime() {
     translateBy,
   } as unknown as NonNullable<typeof initialCanvasState.d3Zoom>;
 
-  useReactFlow.setState({ ...initialCanvasState, d3Selection, d3Zoom });
+  testWorkspace.reactFlow.setState({ ...initialCanvasState, d3Selection, d3Zoom });
 
   return {
     d3Selection,
@@ -56,29 +64,27 @@ function setupZoomRuntime() {
 describe("viewport zoom helpers", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    useWorkspaceOptions.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
-    useWorkspaceDocument.getState().reset();
-    useActiveSections.getState().reset();
-    useSectionRefs.getState().reset();
+    testWorkspace.options.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
+    testWorkspace.document.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
   });
 
   afterEach(() => {
-    zoomIn.cancel();
-    zoomOut.cancel();
     vi.useRealTimers();
-    useWorkspaceOptions.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
-    useWorkspaceDocument.getState().reset();
-    useActiveSections.getState().reset();
-    useSectionRefs.getState().reset();
+    testWorkspace.options.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
+    testWorkspace.document.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
     vi.unstubAllGlobals();
   });
 
   it("zoomIn scales by 1.2 through a zero-duration transition", () => {
     const { scaleBy, durations, transitionObject } = setupZoomRuntime();
 
-    zoomIn();
+    zoomIn(testWorkspace.host);
 
     expect(scaleBy).toHaveBeenCalledWith(transitionObject, 1.2);
     expect(durations).toEqual([0]);
@@ -87,7 +93,7 @@ describe("viewport zoom helpers", () => {
   it("zoomOut scales by 1/1.2", () => {
     const { scaleBy, transitionObject } = setupZoomRuntime();
 
-    zoomOut();
+    zoomOut(testWorkspace.host);
 
     expect(scaleBy).toHaveBeenCalledWith(transitionObject, 1 / 1.2);
   });
@@ -95,8 +101,8 @@ describe("viewport zoom helpers", () => {
   it("throttles repeated zoom commands to the 50ms window", () => {
     const { scaleBy } = setupZoomRuntime();
 
-    zoomIn();
-    zoomIn();
+    zoomIn(testWorkspace.host);
+    zoomIn(testWorkspace.host);
     expect(scaleBy).toHaveBeenCalledTimes(1);
 
     vi.advanceTimersByTime(50);
@@ -105,9 +111,9 @@ describe("viewport zoom helpers", () => {
 
   it("resetZoom scales to the default zoom level over a 100ms transition", () => {
     const { scaleTo, durations, transitionObject } = setupZoomRuntime();
-    useWorkspaceOptions.setState({ defaultZoomLevel: 1.5 });
+    testWorkspace.options.setState({ defaultZoomLevel: 1.5 });
 
-    resetZoom();
+    resetZoom(testWorkspace.host);
 
     expect(scaleTo).toHaveBeenCalledWith(transitionObject, 1.5);
     expect(durations).toEqual([100]);
@@ -115,9 +121,9 @@ describe("viewport zoom helpers", () => {
 
   it("matches frozen main's 100ms leading-pane map shift", () => {
     const { transform, durations, transitionObject } = setupZoomRuntime();
-    useReactFlow.setState({ transform: [15, 25, 1.5] });
+    testWorkspace.reactFlow.setState({ transform: [15, 25, 1.5] });
 
-    shiftWorkspaceMapForLeadingPane(295);
+    shiftWorkspaceMapForLeadingPane(testWorkspace.host, 295);
 
     expect(transform).toHaveBeenCalledWith(
       transitionObject,
@@ -131,10 +137,10 @@ describe("viewport zoom helpers", () => {
       matchMedia: vi.fn(() => ({ matches: true })),
     });
     const { d3Selection, durations, scaleTo, transform } = setupZoomRuntime();
-    useReactFlow.setState({ width: 800, height: 600 });
+    testWorkspace.reactFlow.setState({ width: 800, height: 600 });
 
-    resetZoom();
-    setCenter(100, 50, { zoom: 2, duration: 120 });
+    resetZoom(testWorkspace.host);
+    setCenter(testWorkspace.host, 100, 50, { zoom: 2, duration: 120 });
 
     expect(durations).toEqual([]);
     expect(scaleTo).toHaveBeenCalledWith(d3Selection, 1);
@@ -149,9 +155,9 @@ describe("viewport zoom helpers", () => {
       matchMedia: vi.fn(() => ({ matches: true })),
     });
     const { d3Selection, durations, transform } = setupZoomRuntime();
-    useReactFlow.setState({ width: 800, height: 600 });
+    testWorkspace.reactFlow.setState({ width: 800, height: 600 });
 
-    setCenter(100, 50, { zoom: 2 });
+    setCenter(testWorkspace.host, 100, 50, { zoom: 2 });
 
     expect(durations).toEqual([]);
     expect(transform).toHaveBeenCalledWith(
@@ -161,7 +167,7 @@ describe("viewport zoom helpers", () => {
   });
 
   it("fails loud when zooming before the zoom pane initialized", () => {
-    expect(() => resetZoom()).toThrowError(
+    expect(() => resetZoom(testWorkspace.host)).toThrowError(
       "Cannot zoom before the zoom pane initialized.",
     );
   });
@@ -169,39 +175,39 @@ describe("viewport zoom helpers", () => {
   // The keyboard chords ask these before they zoom, because the toolbar's buttons are simply
   // absent or disabled in the same situations.
   it("reports the zoom runtime as unavailable until the zoom pane initializes", () => {
-    expect(getIsZoomRuntimeReady()).toBe(false);
-    expect(getCanZoomIn()).toBe(false);
-    expect(getCanZoomOut()).toBe(false);
+    expect(getIsZoomRuntimeReady(testWorkspace.host)).toBe(false);
+    expect(getCanZoomIn(testWorkspace.host)).toBe(false);
+    expect(getCanZoomOut(testWorkspace.host)).toBe(false);
 
     setupZoomRuntime();
 
-    expect(getIsZoomRuntimeReady()).toBe(true);
-    expect(getCanZoomIn()).toBe(true);
-    expect(getCanZoomOut()).toBe(true);
+    expect(getIsZoomRuntimeReady(testWorkspace.host)).toBe(true);
+    expect(getCanZoomIn(testWorkspace.host)).toBe(true);
+    expect(getCanZoomOut(testWorkspace.host)).toBe(true);
   });
 
   it("reports each zoom direction as unavailable at its configured limit", () => {
     setupZoomRuntime();
-    useWorkspaceOptions.setState({ minZoom: 0.5, maxZoom: 2 });
+    testWorkspace.options.setState({ minZoom: 0.5, maxZoom: 2 });
 
-    useReactFlow.setState({ transform: [0, 0, 2] });
-    expect(getCanZoomIn()).toBe(false);
-    expect(getCanZoomOut()).toBe(true);
+    testWorkspace.reactFlow.setState({ transform: [0, 0, 2] });
+    expect(getCanZoomIn(testWorkspace.host)).toBe(false);
+    expect(getCanZoomOut(testWorkspace.host)).toBe(true);
 
-    useReactFlow.setState({ transform: [0, 0, 0.5] });
-    expect(getCanZoomIn()).toBe(true);
-    expect(getCanZoomOut()).toBe(false);
+    testWorkspace.reactFlow.setState({ transform: [0, 0, 0.5] });
+    expect(getCanZoomIn(testWorkspace.host)).toBe(true);
+    expect(getCanZoomOut(testWorkspace.host)).toBe(false);
   });
 
   it("setCenter centers the flow position in the area left visible by shell panes", () => {
     const { transform, durations, transitionObject } = setupZoomRuntime();
-    useReactFlow.setState({
+    testWorkspace.reactFlow.setState({
       width: 800,
       height: 600,
       viewportInsets: { top: 0, right: 100, bottom: 0, left: 200 },
     });
 
-    setCenter(100, 50, { zoom: 2, duration: 120 });
+    setCenter(testWorkspace.host, 100, 50, { zoom: 2, duration: 120 });
 
     expect(transform).toHaveBeenCalledTimes(1);
     const [target, applied] = getFirstTransformCall(transform);
@@ -216,13 +222,13 @@ describe("viewport zoom helpers", () => {
   // center in, and the section still has to travel.
   it("setCenter centers on the whole canvas when open panes cover it", () => {
     const { transform } = setupZoomRuntime();
-    useReactFlow.setState({
+    testWorkspace.reactFlow.setState({
       width: 320,
       height: 861,
       viewportInsets: { top: 0, right: 40, bottom: 0, left: 280 },
     });
 
-    setCenter(100, 50, { zoom: 2 });
+    setCenter(testWorkspace.host, 100, 50, { zoom: 2 });
 
     const [, applied] = getFirstTransformCall(transform);
     expect(applied.x).toBe(320 / 2 - 100 * 2);
@@ -231,10 +237,10 @@ describe("viewport zoom helpers", () => {
 
   it("setCenter defaults to the max zoom option", () => {
     const { transform } = setupZoomRuntime();
-    useReactFlow.setState({ width: 800, height: 600 });
-    useWorkspaceOptions.setState({ maxZoom: 4 });
+    testWorkspace.reactFlow.setState({ width: 800, height: 600 });
+    testWorkspace.options.setState({ maxZoom: 4 });
 
-    setCenter(0, 0);
+    setCenter(testWorkspace.host, 0, 0);
 
     const [, applied] = getFirstTransformCall(transform);
     expect(applied.k).toBe(4);
@@ -257,17 +263,17 @@ describe("viewport zoom helpers", () => {
       tagColor: null,
       children: [],
     };
-    useWorkspaceDocument.setState({ sections: { "section-a": section } });
-    useActiveSections.setState({ activeIds: ["section-a", "section-b"] });
-    useWorkspaceOptions.setState({ minZoom: 2, maxZoom: 10 });
-    useReactFlow.setState({
+    testWorkspace.document.setState({ sections: { "section-a": section } });
+    testWorkspace.activeSections.setState({ activeIds: ["section-a", "section-b"] });
+    testWorkspace.options.setState({ minZoom: 2, maxZoom: 10 });
+    testWorkspace.reactFlow.setState({
       width: 800,
       height: 600,
       domNode: {
         getBoundingClientRect: () => ({ x: 0, y: 0 }),
       } as unknown as HTMLDivElement,
     });
-    useSectionRefs.setState({
+    testWorkspace.sectionRefs.setState({
       selfOnly: {
         "section-a": {
           clientWidth: 200,
@@ -277,7 +283,7 @@ describe("viewport zoom helpers", () => {
       },
     });
 
-    focusWorkspaceSection("section-a");
+    focusWorkspaceSection(testWorkspace.host, "section-a");
 
     const [target, applied] = getFirstTransformCall(transform);
     expect(target).toBe(transitionObject);
@@ -285,7 +291,7 @@ describe("viewport zoom helpers", () => {
     expect(applied.x).toBe(195);
     expect(applied.y).toBe(205);
     expect(durations).toEqual([50]);
-    expect(useActiveSections.getState().activeIds).toEqual([
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([
       "section-a",
       "section-b",
     ]);
@@ -295,7 +301,7 @@ describe("viewport zoom helpers", () => {
   // covers the canvas. The travel runs against the whole canvas instead of failing.
   it("focuses a section from a pane that covers the canvas", () => {
     const { transform } = setupZoomRuntime();
-    useWorkspaceDocument.setState({
+    testWorkspace.document.setState({
       sections: {
         "section-a": {
           id: "section-a",
@@ -312,7 +318,7 @@ describe("viewport zoom helpers", () => {
         },
       },
     });
-    useReactFlow.setState({
+    testWorkspace.reactFlow.setState({
       width: 320,
       height: 861,
       viewportInsets: { top: 0, right: 40, bottom: 0, left: 280 },
@@ -320,7 +326,7 @@ describe("viewport zoom helpers", () => {
         getBoundingClientRect: () => ({ x: 0, y: 0 }),
       } as unknown as HTMLDivElement,
     });
-    useSectionRefs.setState({
+    testWorkspace.sectionRefs.setState({
       selfOnly: {
         "section-a": {
           clientWidth: 200,
@@ -330,7 +336,7 @@ describe("viewport zoom helpers", () => {
       },
     });
 
-    expect(() => focusWorkspaceSection("section-a")).not.toThrow();
+    expect(() => focusWorkspaceSection(testWorkspace.host, "section-a")).not.toThrow();
 
     const [, applied] = getFirstTransformCall(transform);
     expect(applied.k).toBe(1);
@@ -348,33 +354,33 @@ describe("viewport zoom helpers", () => {
 
   it("moves the canvas by the shortest distance that brings a focused element into view", () => {
     const { d3Selection, translateBy } = setupZoomRuntime();
-    useReactFlow.setState({ width: 800, height: 600 });
+    testWorkspace.reactFlow.setState({ width: 800, height: 600 });
 
-    movePaneToIncludeElement(elementAt(1000, 300));
+    movePaneToIncludeElement(testWorkspace.host, elementAt(1000, 300));
 
     expect(translateBy).toHaveBeenCalledWith(d3Selection, -300, -0);
   });
 
   it("leaves the canvas alone for an element already inside the padded pane", () => {
     const { translateBy } = setupZoomRuntime();
-    useReactFlow.setState({ width: 800, height: 600 });
+    testWorkspace.reactFlow.setState({ width: 800, height: 600 });
 
-    movePaneToIncludeElement(elementAt(400, 300));
+    movePaneToIncludeElement(testWorkspace.host, elementAt(400, 300));
 
     expect(translateBy).not.toHaveBeenCalled();
   });
 
   it("has nowhere to travel before the zoom pane initializes", () => {
-    useReactFlow.setState({ width: 800, height: 600 });
+    testWorkspace.reactFlow.setState({ width: 800, height: 600 });
 
-    expect(() => movePaneToIncludeElement(elementAt(1000, 300))).not.toThrow();
+    expect(() => movePaneToIncludeElement(testWorkspace.host, elementAt(1000, 300))).not.toThrow();
   });
 
   it("fails specifically for unknown and unmounted focus targets", () => {
-    expect(() => focusWorkspaceSection("missing")).toThrowError(
+    expect(() => focusWorkspaceSection(testWorkspace.host, "missing")).toThrowError(
       "Cannot focus unknown workspace section missing.",
     );
-    useWorkspaceDocument.setState({
+    testWorkspace.document.setState({
       sections: {
         known: {
           id: "known",
@@ -391,7 +397,7 @@ describe("viewport zoom helpers", () => {
         },
       },
     });
-    expect(() => focusWorkspaceSection("known")).toThrowError(
+    expect(() => focusWorkspaceSection(testWorkspace.host, "known")).toThrowError(
       "Cannot focus workspace section known before its canvas element mounted.",
     );
   });

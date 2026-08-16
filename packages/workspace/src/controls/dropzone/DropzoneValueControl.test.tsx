@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -73,14 +81,15 @@ describe("DropzoneValueControl", () => {
   afterEach(() => {
     act(() => root.unmount());
     host.remove();
-    useItemSelectionMode.getState().reset();
-    useSectionRefs.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
   });
 
   function mount(props: Partial<DropzoneValueControlProps> = {}) {
     act(() => {
       root.render(
-        <DropzoneValueControl
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<DropzoneValueControl
           ariaLabel="Assets"
           sectionId={SECTION_ID}
           controlId={CONTROL_ID}
@@ -89,7 +98,8 @@ describe("DropzoneValueControl", () => {
           onAccepted={() => {}}
           onRejected={() => {}}
           {...props}
-        />,
+        />
+        }</WorkspaceTestProvider>,
       );
     });
   }
@@ -155,7 +165,9 @@ describe("DropzoneValueControl", () => {
       "true",
     );
     const input = getFileInput();
-    expect(input.id).toBe("panel-dropzone-DropzoneFileInput");
+    expect(input.id).toBe(
+      `${testWorkspace.domId}-panel-dropzone-DropzoneFileInput`,
+    );
     expect(input.multiple).toBe(true);
     expect(input.getAttribute("aria-label")).toBe("Assets local files");
     for (const label of ["Local file...", "Server file..."]) {
@@ -339,7 +351,7 @@ describe("DropzoneValueControl", () => {
     const target = getDropTarget();
     expect(target.getAttribute("aria-busy")).toBe("true");
     expect(target.getAttribute("aria-describedby")).toBe(
-      "panel-dropzone-DropzoneError",
+      `${testWorkspace.domId}-panel-dropzone-DropzoneError`,
     );
     expect(host.querySelector('[role="status"]')?.textContent).toBe(
       "Uploading attachments.",
@@ -365,7 +377,7 @@ describe("DropzoneValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
     mount({ disabled: true, onServerFilePickerRequest: () => {} });
     expect(getFileInput().disabled).toBe(true);
     expect(getButton("Local file...").disabled).toBe(true);
@@ -386,7 +398,7 @@ describe("DropzoneValueControl", () => {
     });
     expect(document.activeElement).toBe(sectionRoot);
 
-    act(() => useItemSelectionMode.setState({ isSelectingItems: true }));
+    act(() => testWorkspace.itemSelectionMode.setState({ isSelectingItems: true }));
     expect(getFileInput().disabled).toBe(true);
     expect(getButton("Local file...").disabled).toBe(true);
     expect(getDropTarget().getAttribute("aria-disabled")).toBe("true");

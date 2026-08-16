@@ -1,6 +1,13 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import {
@@ -34,7 +41,7 @@ function makeSection(
 function loadTagColorDocument(
   overrides: Partial<WorkspaceSectionInput> = {},
 ): void {
-  loadWorkspaceDocument({
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: { leaf: makeSection("leaf", overrides) },
     topLevelSections: { leaf: { x: 0, y: 0, w: 240, h: 120, zIndex: 0 } },
     viewport: { x: 0, y: 0, zoom: 1 },
@@ -44,27 +51,26 @@ function loadTagColorDocument(
 
 describe("setSectionTagColor", () => {
   beforeEach(() => {
-    registerSectionKinds({ leaf: { renderContent: () => null } });
-    useWorkspaceCapabilities.getState().reset();
+    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    testWorkspace.capabilities.getState().reset();
     loadTagColorDocument();
   });
 
   afterEach(() => {
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
-    useWorkspaceCapabilities.getState().reset();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
+    registerSectionKinds(testWorkspace.host, {});
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
   });
 
   it("sets and clears the canonical color through one notification per change", () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    testWorkspace.host.subscribe(onChange);
 
-    setSectionTagColor("leaf", " A1B2C3 ");
+    setSectionTagColor(testWorkspace.host, "leaf", " A1B2C3 ");
 
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBe(
+    expect(testWorkspace.document.getState().sections["leaf"]?.tagColor).toBe(
       "#a1b2c3",
     );
     expect(onChange).toHaveBeenCalledOnce();
@@ -72,10 +78,10 @@ describe("setSectionTagColor", () => {
       "#a1b2c3",
     );
 
-    setSectionTagColor("leaf", null);
+    setSectionTagColor(testWorkspace.host, "leaf", null);
 
     expect(
-      useWorkspaceDocument.getState().sections["leaf"]?.tagColor,
+      testWorkspace.document.getState().sections["leaf"]?.tagColor,
     ).toBeNull();
     expect(onChange).toHaveBeenCalledTimes(2);
   });
@@ -83,38 +89,40 @@ describe("setSectionTagColor", () => {
   it("does not publish when the requested color is already current", () => {
     loadTagColorDocument({ tagColor: "#3b82f6" });
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    testWorkspace.host.subscribe(onChange);
 
-    setSectionTagColor("leaf", "3B82F6");
+    setSectionTagColor(testWorkspace.host, "leaf", "3B82F6");
 
     expect(onChange).not.toHaveBeenCalled();
   });
 
   it("rejects malformed, missing, locked, and capability-disabled requests before writing", () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
-    const originalSections = useWorkspaceDocument.getState().sections;
+    testWorkspace.host.subscribe(onChange);
+    const originalSections = testWorkspace.document.getState().sections;
 
-    expect(() => setSectionTagColor("leaf", "blue")).toThrow(
+    expect(() => setSectionTagColor(testWorkspace.host, "leaf", "blue")).toThrow(
       /six-digit hex color/,
     );
-    expect(() => setSectionTagColor("missing", "#123456")).toThrow(
+    expect(() => setSectionTagColor(testWorkspace.host, "missing", "#123456")).toThrow(
       /Unknown section missing/,
     );
 
     loadTagColorDocument({ positionAndSizeLocked: true });
-    expect(() => setSectionTagColor("leaf", "#123456")).toThrow(/locked/);
+    onChange.mockClear();
+    expect(() => setSectionTagColor(testWorkspace.host, "leaf", "#123456")).toThrow(/locked/);
 
     loadTagColorDocument();
-    useWorkspaceCapabilities.setState({ canEditLayout: false });
-    expect(() => setSectionTagColor("leaf", "#123456")).toThrow(
+    onChange.mockClear();
+    testWorkspace.capabilities.setState({ canEditLayout: false });
+    expect(() => setSectionTagColor(testWorkspace.host, "leaf", "#123456")).toThrow(
       /permission to edit workspace layout/,
     );
 
     expect(onChange).not.toHaveBeenCalled();
     expect(originalSections["leaf"]?.tagColor).toBeNull();
     expect(
-      useWorkspaceDocument.getState().sections["leaf"]?.tagColor,
+      testWorkspace.document.getState().sections["leaf"]?.tagColor,
     ).toBeNull();
   });
 });

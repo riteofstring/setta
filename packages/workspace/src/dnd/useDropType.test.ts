@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { CollisionPriority, CollisionType } from "@dnd-kit/abstract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GROUP_SECTION_KIND } from "../document/documentSelectors";
@@ -42,7 +50,7 @@ function makeSection(spec: SectionSpec): WorkspaceSection {
 }
 
 function seedDocument(specs: Array<SectionSpec>) {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
   const sections = Object.fromEntries(
     specs.map((spec) => [spec.id, makeSection(spec)]),
   );
@@ -55,7 +63,7 @@ function seedDocument(specs: Array<SectionSpec>) {
         { x: index * 20, y: 0, w: null, h: null, zIndex: index },
       ]),
   );
-  loadWorkspaceDocument({
+  loadWorkspaceDocument(testWorkspace.host, {
     sections,
     topLevelSections,
     viewport: null,
@@ -95,17 +103,17 @@ function collision({ id, containerId, intersectionRatio = 0 }: CollisionInput) {
 }
 
 function resetStores() {
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
-  useActiveSections.getState().reset();
-  useDndState.getState().reset();
-  useDndChildren.getState().reset();
+  testWorkspace.document.getState().reset();
+  testWorkspace.nodeInternals.getState().reset();
+  testWorkspace.activeSections.getState().reset();
+  testWorkspace.dndState.getState().reset();
+  testWorkspace.dndChildren.getState().reset();
 }
 
 describe("getBehaviorDropType", () => {
   beforeEach(() => {
     resetStores();
-    useDndState.setState({ draggingIds: [] });
+    testWorkspace.dndState.setState({ draggingIds: [] });
   });
 
   afterEach(() => {
@@ -118,7 +126,7 @@ describe("getBehaviorDropType", () => {
       { id: "dragged" },
     ]);
 
-    const behavior = getBehaviorDropType("dragged", "group");
+    const behavior = getBehaviorDropType(testWorkspace.host, "dragged", "group");
 
     expect(behavior).not.toBe(BehaviorDropTypeEnum.INVALID);
     expect(behavior).toBeNull();
@@ -128,7 +136,7 @@ describe("getBehaviorDropType", () => {
     // Validates parent-kind guard for non-container section kinds.
     seedDocument([{ id: "leaf-parent" }, { id: "dragged" }]);
 
-    expect(getBehaviorDropType("dragged", "leaf-parent")).toBe(
+    expect(getBehaviorDropType(testWorkspace.host, "dragged", "leaf-parent")).toBe(
       BehaviorDropTypeEnum.INVALID,
     );
   });
@@ -140,7 +148,7 @@ describe("getBehaviorDropType", () => {
       { id: "child", kind: GROUP_SECTION_KIND },
     ]);
 
-    expect(getBehaviorDropType("parent", "child")).toBe(
+    expect(getBehaviorDropType(testWorkspace.host, "parent", "child")).toBe(
       BehaviorDropTypeEnum.INVALID,
     );
   });
@@ -152,9 +160,9 @@ describe("getBehaviorDropType", () => {
       { id: "child", kind: GROUP_SECTION_KIND },
       { id: "other" },
     ]);
-    useDndState.setState({ draggingIds: ["other", "parent"] });
+    testWorkspace.dndState.setState({ draggingIds: ["other", "parent"] });
 
-    expect(getBehaviorDropType("other", "child")).toBe(
+    expect(getBehaviorDropType(testWorkspace.host, "other", "child")).toBe(
       BehaviorDropTypeEnum.INVALID,
     );
   });
@@ -171,17 +179,17 @@ describe("getOverId", () => {
 
   it("returns fallback over id when collisions are missing", () => {
     // Validates fallback behavior from raw over target.
-    expect(getOverId({ id: "fallback" }, null)).toBe("fallback");
-    expect(getOverId(null, null)).toBeNull();
+    expect(getOverId(testWorkspace.host, { id: "fallback" }, null)).toBe("fallback");
+    expect(getOverId(testWorkspace.host, null, null)).toBeNull();
   });
 
   it("prefers child collision over parent based on dndChildren mapping", () => {
     // Validates live parent/child store integration in over-id resolution.
-    updateDndChildren({
+    updateDndChildren(testWorkspace.host, {
       parent: ["child"],
     });
 
-    const overId = getOverId(null, [
+    const overId = getOverId(testWorkspace.host, null, [
       collision({ id: "parent", intersectionRatio: 10 }),
       collision({ id: "child", intersectionRatio: 1 }),
     ]);

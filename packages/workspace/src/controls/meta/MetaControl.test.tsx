@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -30,16 +38,16 @@ describe("MetaControl", () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     host.remove();
-    useItemSelectionMode.getState().reset();
-    useWorkspaceAppearance.getState().reset();
-    useSectionRefs.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.appearance.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
   });
 
   it("returns focus from the Button control to its section on Escape", async () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    useSectionRefs.setState({ withNested: { "meta-button": sectionRoot } });
+    testWorkspace.sectionRefs.setState({ withNested: { "meta-button": sectionRoot } });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     await mount({
@@ -65,7 +73,11 @@ describe("MetaControl", () => {
   });
 
   async function mount(props: MetaControlProps) {
-    await act(async () => root.render(createElement(MetaControl, props)));
+    await act(async () => root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(MetaControl, props)
+        }</WorkspaceTestProvider>,
+      ));
   }
 
   it("renders the full-area controlled Button with the frozen classes and optional title", async () => {
@@ -109,7 +121,7 @@ describe("MetaControl", () => {
     expect(onAction).not.toHaveBeenCalled();
 
     await act(async () =>
-      useItemSelectionMode.setState({ isSelectingItems: true }),
+      testWorkspace.itemSelectionMode.setState({ isSelectingItems: true }),
     );
     await mount({
       sectionId: "meta-button",
@@ -133,7 +145,9 @@ describe("MetaControl", () => {
       },
     });
 
-    const dummy = document.getElementById("meta-text-value-MetaControl");
+    const dummy = host.querySelector<HTMLElement>(
+      `#${testWorkspace.domId}-meta-text-value-MetaControl`,
+    );
     expect(dummy?.getAttribute("role")).toBe("textbox");
     expect(dummy?.getAttribute("aria-label")).toBe("Text value");
     expect(dummy?.textContent).toBe("threshold");
@@ -238,7 +252,9 @@ describe("MetaControl", () => {
     const colorInput = host.querySelector<HTMLInputElement>(
       "input[type='color']",
     );
-    expect(colorInput?.id).toBe("meta-color-value-ColorValueInput");
+    expect(colorInput?.id).toBe(
+      `${testWorkspace.domId}-meta-color-value-ColorValueInput`,
+    );
     expect(colorInput?.getAttribute("aria-label")).toBe("Color value");
   });
 
@@ -290,8 +306,8 @@ describe("MetaControl", () => {
         onValueChange: () => {},
       },
     });
-    const textAreaDummy = document.getElementById(
-      "meta-textarea-value-MetaControl",
+    const textAreaDummy = host.querySelector<HTMLElement>(
+      `#${testWorkspace.domId}-meta-textarea-value-MetaControl`,
     );
     expect(textAreaDummy?.className).toContain("min-h-24");
     expect(textAreaDummy?.textContent).toContain("second line");
@@ -310,7 +326,9 @@ describe("MetaControl", () => {
     const password = host.querySelector<HTMLInputElement>(
       "input[type='password']",
     );
-    expect(password?.id).toBe("meta-password-value-PasswordValueInput");
+    expect(password?.id).toBe(
+      `${testWorkspace.domId}-meta-password-value-PasswordValueInput`,
+    );
     expect(password?.closest(".single-cell-container")?.className).toContain(
       "h-full",
     );

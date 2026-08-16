@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import {

@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
@@ -55,7 +63,7 @@ function createItemTree(selectedItemIds: Array<string>) {
 }
 
 function getSection(sectionId: string): WorkspaceSection {
-  const section = useWorkspaceDocument.getState().sections[sectionId];
+  const section = testWorkspace.document.getState().sections[sectionId];
   if (!section) {
     throw new Error(`Missing test section ${sectionId}.`);
   }
@@ -66,14 +74,14 @@ function contextFor(
   sectionId: string,
   selectedIds: Array<string> = [sectionId],
 ) {
-  return createSectionCommandContext(
+  return createSectionCommandContext(testWorkspace.host,
     getSection(sectionId),
     selectedIds.map((id) => getSection(id)),
   );
 }
 
 function loadGroupDocument(): void {
-  loadWorkspaceDocument({
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       group: { ...createSection("group"), kind: "group", children: ["child"] },
       child: createSection("child"),
@@ -90,13 +98,13 @@ function loadGroupDocument(): void {
 
 describe("workspace command resolution", () => {
   beforeEach(() => {
-    registerWorkspaceCommands([]);
-    useWorkspaceCapabilities.getState().reset();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
-    registerSectionKinds({
+    registerWorkspaceCommands(testWorkspace.host, []);
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
+    registerSectionKinds(testWorkspace.host, {
       leaf: {
         renderContent: () => null,
         createItem: () => ({
@@ -110,9 +118,9 @@ describe("workspace command resolution", () => {
   });
 
   afterEach(() => {
-    registerSectionKinds({});
-    registerWorkspaceCommands([]);
-    useWorkspaceDocument.getState().reset();
+    registerSectionKinds(testWorkspace.host, {});
+    registerWorkspaceCommands(testWorkspace.host, []);
+    testWorkspace.document.getState().reset();
   });
 
   it("offers each surface the commands that apply to its target", () => {
@@ -174,7 +182,7 @@ describe("workspace command resolution", () => {
   });
 
   it("explains a disabled command the same way wherever it is offered", () => {
-    useWorkspaceCapabilities.setState({ canEditStructure: false });
+    testWorkspace.capabilities.setState({ canEditStructure: false });
     const context = contextFor("group");
     const reasons = (["context-menu", "header", "inspector"] as const).map(
       (surface) =>
@@ -192,7 +200,7 @@ describe("workspace command resolution", () => {
       ran: false,
       statusMessage: null,
     });
-    expect(useWorkspaceDocument.getState().sections["group"]).toBeDefined();
+    expect(testWorkspace.document.getState().sections["group"]).toBeDefined();
   });
 
   it("runs one canonical operation and reports its announcement", () => {
@@ -203,8 +211,8 @@ describe("workspace command resolution", () => {
       ran: true,
       statusMessage: "Group ungrouped.",
     });
-    expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
-    expect(useWorkspaceDocument.getState().sections["child"]).toBeDefined();
+    expect(testWorkspace.document.getState().sections["group"]).toBeUndefined();
+    expect(testWorkspace.document.getState().sections["child"]).toBeDefined();
   });
 
   it("chooses the parameter command that matches the item selection", () => {
@@ -216,7 +224,7 @@ describe("workspace command resolution", () => {
       ).map((entry) => entry.id),
     ).toEqual(["workspace.insert-item", "workspace.delete-last-item"]);
 
-    useWorkspaceDocument.setState((state) => ({
+    testWorkspace.document.setState((state) => ({
       sections: {
         ...state.sections,
         leaf: {
@@ -234,7 +242,7 @@ describe("workspace command resolution", () => {
   });
 
   it("explains a locked section once for every parameter command", () => {
-    useWorkspaceDocument.setState((state) => ({
+    testWorkspace.document.setState((state) => ({
       sections: {
         ...state.sections,
         leaf: { ...getSection("leaf"), positionAndSizeLocked: true },
@@ -253,7 +261,7 @@ describe("workspace command resolution", () => {
 
   it("hands host commands a detached frozen context", () => {
     const run = vi.fn();
-    registerWorkspaceCommands([
+    registerWorkspaceCommands(testWorkspace.host, [
       {
         id: "host-report",
         scope: "section",

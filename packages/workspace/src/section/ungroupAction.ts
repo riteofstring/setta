@@ -14,11 +14,13 @@ import {
 } from "../document/ungroupSections";
 import { getSectionRefsStore } from "./sectionRefs";
 import type { WorkspaceHost } from "../workspaceHost";
+import { isWorkspaceHostElement } from "../workspaceHostInternals";
 
 type UngroupFocusSurface = "canvas" | "outline";
 
 type UngroupFocusPlan = {
   groupId: string;
+  outlineRoot?: HTMLElement;
   surface: UngroupFocusSurface;
 };
 
@@ -52,9 +54,18 @@ function captureUngroupFocusPlan(
     return null;
   }
   const activeElement = document.activeElement;
+  if (!isWorkspaceHostElement(host, activeElement)) {
+    return null;
+  }
   const outlineItemId = getOutlineItemId(activeElement);
   if (outlineItemId && groupIds.includes(outlineItemId)) {
-    return { groupId: outlineItemId, surface: "outline" };
+    const outlineRoot = activeElement.closest<HTMLElement>(
+      '[role="tree"][aria-label="Workspace outline"]',
+    );
+    if (!outlineRoot) {
+      return null;
+    }
+    return { groupId: outlineItemId, outlineRoot, surface: "outline" };
   }
   const sectionRefs = getSectionRefsStore(host).getState();
   const groupId = groupIds.find((candidateId) =>
@@ -63,10 +74,13 @@ function captureUngroupFocusPlan(
   return groupId ? { groupId, surface: "canvas" } : null;
 }
 
-function getOutlineFocusTarget(sectionId: string): HTMLElement | null {
+function getOutlineFocusTarget(
+  outlineRoot: HTMLElement,
+  sectionId: string,
+): HTMLElement | null {
   return (
     [
-      ...document.querySelectorAll<HTMLElement>(
+      ...outlineRoot.querySelectorAll<HTMLElement>(
         "[data-workspace-outline-item]",
       ),
     ].find(
@@ -86,10 +100,10 @@ function restoreUngroupFocus(
   requestAnimationFrame(() => {
     if (plan.surface === "outline") {
       const target = targetSectionId
-        ? getOutlineFocusTarget(targetSectionId)
-        : document.querySelector<HTMLElement>(
-            '[role="tree"][aria-label="Workspace outline"]',
-          );
+        ? plan.outlineRoot
+          ? getOutlineFocusTarget(plan.outlineRoot, targetSectionId)
+          : null
+        : plan.outlineRoot ?? null;
       if (!target) {
         throw new Error("Cannot restore Outline focus after ungrouping.");
       }

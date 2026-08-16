@@ -1,9 +1,10 @@
 import * as Popover from "@radix-ui/react-popover";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { getReactFlowStore } from "../../canvas/store";
 import type { WorkspaceTextDirection } from "../../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
 import { useWorkspaceHost } from "../../workspaceHostContext";
+import { registerWorkspaceHostElement } from "../../workspaceHostInternals";
 
 // The reference's `StandardPopover` atom trimmed to the built-in controls' usage: a controlled
 // Radix popover portaled to the document body with the reference's default arrow paint. The
@@ -66,8 +67,17 @@ export function ControlPopover({
   onOpenChange: (newOpen: boolean) => void;
   direction: WorkspaceTextDirection;
 }) {
+  const host = useWorkspaceHost();
   useRepositionOnCanvasTransform(open);
   const workspaceScopeClassName = useWorkspaceScopeClassName();
+  const contentRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!content) {
+      return;
+    }
+    return registerWorkspaceHostElement(host, content);
+  }, [host, open]);
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
@@ -76,6 +86,7 @@ export function ControlPopover({
           className={`${workspaceScopeClassName} ${contentClasses}`}
           {...contentProps}
           dir={direction}
+          ref={contentRef}
         >
           <Popover.Arrow className={ARROW_CLASS_NAME} />
           {children}

@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { indentUnit } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
@@ -8,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import {
   getWorkspaceDocument,
-  setWorkspaceDocumentChangeCallback,
+
 } from "../document/documentChangeCallback";
 import { getSectionOrThrow } from "../document/documentSelectors";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
@@ -145,7 +153,7 @@ describe("built-in code section body", () => {
 
   beforeEach(() => {
     resizeCallbacksByTarget.clear();
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       leaf: { renderContent: () => null },
       [WORKSPACE_CODE_SECTION_KIND]: definition,
     });
@@ -159,20 +167,23 @@ describe("built-in code section body", () => {
       root.unmount();
     });
     host.remove();
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
-    useWorkspaceAppearance.getState().reset();
-    useResizeEvent.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    registerSectionKinds(testWorkspace.host, {});
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.appearance.getState().reset();
+    testWorkspace.resizeEvent.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   async function mount(section: WorkspaceSectionInput = makeCodeSection()) {
-    loadWorkspaceDocument(makeDocument(section));
+    loadWorkspaceDocument(testWorkspace.host, makeDocument(section));
     await act(async () => {
-      root.render(createElement(CodeSectionHarness));
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(CodeSectionHarness)
+        }</WorkspaceTestProvider>,
+      );
     });
   }
 
@@ -194,7 +205,7 @@ describe("built-in code section body", () => {
   }
 
   function getSectionData(): WorkspaceCodeSectionData {
-    const data = getWorkspaceDocument().sections[SECTION_ID]?.data;
+    const data = getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.data;
     return data as WorkspaceCodeSectionData;
   }
 
@@ -282,7 +293,7 @@ describe("built-in code section body", () => {
   it("commits each edit through one document mutation and one notification", async () => {
     const onDocumentChange = vi.fn();
     await mount();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
     await act(async () => {
       getView().dispatch({ changes: { from: 9, insert: "0" } });
     });
@@ -300,10 +311,10 @@ describe("built-in code section body", () => {
     });
     await act(async () => {
       const neighbour = getSectionOrThrow(
-        useWorkspaceDocument.getState(),
+        testWorkspace.document.getState(),
         "neighbour",
       );
-      useWorkspaceDocument.setState((state) => ({
+      testWorkspace.document.setState((state) => ({
         sections: {
           ...state.sections,
           neighbour: { ...neighbour, name: "renamed" },
@@ -330,7 +341,7 @@ describe("built-in code section body", () => {
   it("refuses a commit while the section is read-only", async () => {
     await mount(makeCodeSection({ readOnly: true }));
     const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
     await act(async () => {
       // A read-only state stops user commands; a direct dispatch still has to leave the document
       // alone, which is the reference's own guard.
@@ -370,7 +381,7 @@ describe("built-in code section body", () => {
   it("repaints when a host writes the typed section data", async () => {
     await mount();
     await act(async () => {
-      setWorkspaceCodeSectionData(SECTION_ID, {
+      setWorkspaceCodeSectionData(testWorkspace.host, SECTION_ID, {
         ...getSectionData(),
         language: "bash",
         code: "ls -la\n",

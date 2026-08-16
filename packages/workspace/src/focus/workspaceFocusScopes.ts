@@ -162,7 +162,11 @@ function handleFocusIn(host: WorkspaceHost, event: FocusEvent): void {
   if (!scopeId || !isWorkspaceFocusable(target)) {
     return;
   }
-  getFocusScopeState(host).lastFocusedByScope.set(scopeId, target);
+  const state = getFocusScopeState(host);
+  if (!state.scopeRoots.get(scopeId)?.contains(target)) {
+    return;
+  }
+  state.lastFocusedByScope.set(scopeId, target);
 }
 
 // Focus the scope's remembered element, or its first offered control. A scope that is not

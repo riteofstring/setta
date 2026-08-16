@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useNodeInternals } from "../document/stores";
 import type { Node } from "../document/types";
@@ -21,7 +29,7 @@ function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
 }
 
 function setNodes(nodes: Array<Node>) {
-  useNodeInternals.setState({
+  testWorkspace.nodeInternals.setState({
     x: new Map(nodes.map((node) => [node.id, node])),
   });
 }
@@ -39,7 +47,7 @@ function setupFitViewState(overrides: Partial<typeof initialCanvasState> = {}) {
     typeof initialCanvasState.d3Zoom
   >;
 
-  useReactFlow.setState({
+  testWorkspace.reactFlow.setState({
     ...initialCanvasState,
     width: 800,
     height: 600,
@@ -53,16 +61,16 @@ function setupFitViewState(overrides: Partial<typeof initialCanvasState> = {}) {
 
 describe("fitView", () => {
   beforeEach(() => {
-    useNodeInternals.getState().reset();
-    useWorkspaceOptions.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.options.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
-    useNodeInternals.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   it("caps initial fit zoom to the default zoom level", () => {
@@ -72,7 +80,7 @@ describe("fitView", () => {
     });
     setNodes([createNode({ id: "section-a", width: 100, height: 100 })]);
 
-    expect(fitView({ initial: true, maxZoom: 3 })).toBe(true);
+    expect(fitView(testWorkspace.host, { initial: true, maxZoom: 3 })).toBe(true);
 
     expect(transform).toHaveBeenCalledTimes(1);
     expect(transform).toHaveBeenCalledWith(
@@ -88,12 +96,12 @@ describe("fitView", () => {
       createNode({ id: "unmeasured", width: null, height: null }),
     ]);
 
-    expect(fitView({ nodes: [{ id: "target" }] })).toBe(true);
+    expect(fitView(testWorkspace.host, { nodes: [{ id: "target" }] })).toBe(true);
     expect(transform).toHaveBeenCalledTimes(1);
 
     transform.mockClear();
 
-    expect(fitView()).toBe(false);
+    expect(fitView(testWorkspace.host)).toBe(false);
     expect(transform).not.toHaveBeenCalled();
   });
 
@@ -101,7 +109,7 @@ describe("fitView", () => {
     const { d3Selection, transform } = setupFitViewState();
     setNodes([createNode({ id: "section-a" })]);
 
-    expect(fitView({ duration: 120 })).toBe(true);
+    expect(fitView(testWorkspace.host, { duration: 120 })).toBe(true);
     expect(transform).toHaveBeenCalledWith(
       transitionObject,
       expect.objectContaining({ k: expect.any(Number) }),
@@ -109,7 +117,7 @@ describe("fitView", () => {
 
     transform.mockClear();
 
-    expect(fitView({ duration: 0 })).toBe(true);
+    expect(fitView(testWorkspace.host, { duration: 0 })).toBe(true);
     expect(transform).toHaveBeenCalledWith(
       d3Selection,
       expect.objectContaining({ k: expect.any(Number) }),
@@ -122,7 +130,7 @@ describe("fitView", () => {
     });
     setNodes([createNode({ id: "section-a", width: 400, height: 100 })]);
 
-    expect(fitView({ duration: 0, padding: 0 })).toBe(true);
+    expect(fitView(testWorkspace.host, { duration: 0, padding: 0 })).toBe(true);
     expect(transform).toHaveBeenCalledWith(
       d3Selection,
       expect.objectContaining({ x: 200, y: 237.5, k: 1.25 }),
@@ -136,7 +144,7 @@ describe("fitView", () => {
     const { d3Selection, transform, transition } = setupFitViewState();
     setNodes([createNode({ id: "section-a" })]);
 
-    expect(fitView({ duration: 120 })).toBe(true);
+    expect(fitView(testWorkspace.host, { duration: 120 })).toBe(true);
 
     expect(transition).not.toHaveBeenCalled();
     expect(transform).toHaveBeenCalledWith(
@@ -151,18 +159,18 @@ describe("fitView", () => {
       const { transform } = setupFitViewState();
       setNodes([createNode({ id: "section-a" })]);
 
-      onFitViewHandler();
+      onFitViewHandler(testWorkspace.host);
 
       expect(transform).toHaveBeenCalledWith(
         transitionObject,
         expect.objectContaining({ k: expect.any(Number) }),
       );
-      expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+      expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
 
       vi.advanceTimersByTime(
-        useWorkspaceOptions.getState().transitionDuration + 10,
+        testWorkspace.options.getState().transitionDuration + 10,
       );
-      expect(useReactFlow.getState().fitViewOnInit).toBe(true);
+      expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(true);
     } finally {
       vi.useRealTimers();
     }
@@ -177,7 +185,7 @@ describe("fitView", () => {
       const { d3Selection, transform, transition } = setupFitViewState();
       setNodes([createNode({ id: "section-a" })]);
 
-      onFitViewHandler();
+      onFitViewHandler(testWorkspace.host);
 
       expect(transition).not.toHaveBeenCalled();
       expect(transform).toHaveBeenCalledWith(
@@ -185,9 +193,9 @@ describe("fitView", () => {
         expect.objectContaining({ k: expect.any(Number) }),
       );
       vi.advanceTimersByTime(9);
-      expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+      expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
       vi.advanceTimersByTime(1);
-      expect(useReactFlow.getState().fitViewOnInit).toBe(true);
+      expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(true);
     } finally {
       vi.useRealTimers();
     }
@@ -197,7 +205,7 @@ describe("fitView", () => {
     const { transform } = setupFitViewState({ fitViewOnInit: true });
     setNodes([createNode({ id: "section-a" })]);
 
-    onFitViewHandler();
+    onFitViewHandler(testWorkspace.host);
 
     expect(transform).not.toHaveBeenCalled();
   });

@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { beforeEach, describe, expect, it } from "vitest";
 import { setActiveSectionIds } from "../document/activeSections";
 import { useActiveSections } from "../document/stores";
@@ -19,7 +27,7 @@ function createNode(id: string, x: number, y: number): Node {
 }
 
 beforeEach(() => {
-  useActiveSections.getState().reset();
+  testWorkspace.activeSections.getState().reset();
 });
 
 describe("getDragItems", () => {
@@ -29,9 +37,9 @@ describe("getDragItems", () => {
       ["section-b", createNode("section-b", 160, 40)],
     ]);
 
-    setActiveSectionIds(["section-a", "section-b"]);
+    setActiveSectionIds(testWorkspace.host, ["section-a", "section-b"]);
 
-    const dragItems = getDragItems(
+    const dragItems = getDragItems(testWorkspace.host,
       nodeInternals,
       { x: 200, y: 120 },
       "section-a",
@@ -50,9 +58,9 @@ describe("getDragItems", () => {
       ["section-b", createNode("section-b", 160, 40)],
     ]);
 
-    setActiveSectionIds(["section-b"]);
+    setActiveSectionIds(testWorkspace.host, ["section-b"]);
 
-    const dragItems = getDragItems(
+    const dragItems = getDragItems(testWorkspace.host,
       nodeInternals,
       { x: 40, y: 40 },
       "section-a",
@@ -67,9 +75,9 @@ describe("getDragItems", () => {
       ["section-b", createNode("section-b", 160, 40)],
     ]);
 
-    setActiveSectionIds(["section-b"]);
+    setActiveSectionIds(testWorkspace.host, ["section-b"]);
 
-    const dragItems = getDragItems(nodeInternals, { x: 40, y: 40 });
+    const dragItems = getDragItems(testWorkspace.host, nodeInternals, { x: 40, y: 40 });
 
     expect(dragItems.map((item) => item.id)).toEqual(["section-b"]);
   });

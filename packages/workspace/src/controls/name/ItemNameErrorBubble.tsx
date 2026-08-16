@@ -8,6 +8,8 @@ import {
 import { createPortal } from "react-dom";
 import { getElementTextDirection } from "../../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
+import { useWorkspaceHost } from "../../workspaceHostContext";
+import { getWorkspaceSectionResizableId } from "../../section/sectionDomIds";
 
 // The reference `ParamNameInput` error bubble, positioned in the owning section's authored
 // coordinate space so canvas zoom does not distort its offset. The package adds an id for the
@@ -48,7 +50,7 @@ function clampBubbleLeft(
 }
 
 export function computeItemNameErrorBubblePosition(
-  sectionId: string,
+  containerId: string,
   liveEditorId: string,
   dummyEditorId: string,
   bubbleElement: HTMLDivElement | null,
@@ -56,9 +58,7 @@ export function computeItemNameErrorBubblePosition(
   const anchorElement =
     document.getElementById(liveEditorId) ??
     document.getElementById(dummyEditorId);
-  const containerElement = document.getElementById(
-    `${sectionId}-CustomResizable`,
-  );
+  const containerElement = document.getElementById(containerId);
   if (!anchorElement || !bubbleElement || !containerElement) {
     return null;
   }
@@ -93,7 +93,7 @@ export function computeItemNameErrorBubblePosition(
 
 function useItemNameErrorBubblePosition(
   errorMessage: string,
-  sectionId: string,
+  containerId: string,
   liveEditorId: string,
   dummyEditorId: string,
 ) {
@@ -104,7 +104,7 @@ function useItemNameErrorBubblePosition(
       return;
     }
     const nextPosition = computeItemNameErrorBubblePosition(
-      sectionId,
+      containerId,
       liveEditorId,
       dummyEditorId,
       bubbleRef.current,
@@ -112,7 +112,7 @@ function useItemNameErrorBubblePosition(
     if (nextPosition) {
       setBubblePosition(nextPosition);
     }
-  }, [dummyEditorId, errorMessage, liveEditorId, sectionId]);
+  }, [containerId, dummyEditorId, errorMessage, liveEditorId]);
 
   useLayoutEffect(() => {
     updateBubblePosition();
@@ -146,10 +146,12 @@ export function ItemNameErrorBubble({
   liveEditorId: string;
   sectionId: string;
 }) {
+  const host = useWorkspaceHost();
   const workspaceScopeClassName = useWorkspaceScopeClassName();
+  const containerId = getWorkspaceSectionResizableId(host, sectionId);
   const { bubblePosition, bubbleRef } = useItemNameErrorBubblePosition(
     errorMessage,
-    sectionId,
+    containerId,
     liveEditorId,
     dummyEditorId,
   );
@@ -157,7 +159,7 @@ export function ItemNameErrorBubble({
     return null;
   }
   const portalTarget =
-    document.getElementById(`${sectionId}-CustomResizable`) ?? document.body;
+    document.getElementById(containerId) ?? document.body;
   return createPortal(
     <div
       id={errorId}

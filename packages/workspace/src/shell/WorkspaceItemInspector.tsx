@@ -27,6 +27,7 @@ import {
   type WorkspaceInspectorItemControlKind,
 } from "./workspaceInspectorItemDefaults";
 import { useWorkspaceHost } from "../workspaceHostContext";
+import { getWorkspaceHostDomId } from "../workspaceHostInternals";
 
 type WorkspaceItemInspectorProps = {
   section: WorkspaceSection;
@@ -121,6 +122,7 @@ function ItemTypeField({
   sectionId: string;
 }) {
   const host = useWorkspaceHost();
+  const inputId = `${getWorkspaceHostDomId(host)}-inspector-item-type`;
   return (
     <div
       className="setta-workspace-inspector-field"
@@ -128,14 +130,14 @@ function ItemTypeField({
     >
       <label
         className="setta-workspace-inspector-label"
-        htmlFor="setta-inspector-item-type"
+        htmlFor={inputId}
       >
         UI type
       </label>
       <select
         className="setta-workspace-inspector-input"
         disabled={disabled}
-        id="setta-inspector-item-type"
+        id={inputId}
         onChange={(event) => {
           if (!isWorkspaceInspectorItemControlKind(event.currentTarget.value)) {
             throw new Error(

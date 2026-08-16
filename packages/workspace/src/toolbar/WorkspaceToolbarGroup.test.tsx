@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -72,7 +80,11 @@ const creationCommand: WorkspaceCreationCommand = {
   label: "Host note",
   group: "Host",
   createSection: (context): WorkspaceSectionInput => {
-    runs.push({ scope: "pane", workspacePosition: context.workspacePosition });
+    runs.push({
+      host: testWorkspace.host,
+      scope: "pane",
+      workspacePosition: context.workspacePosition,
+    });
     return {
       id: "created",
       kind: "sized",
@@ -96,7 +108,11 @@ describe("WorkspaceToolbarGroup", () => {
     placement: "before-viewport" | "before-minimap",
   ): Promise<void> {
     await act(async () => {
-      root.render(createElement(WorkspaceToolbarGroup, { placement }));
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(WorkspaceToolbarGroup, { placement })
+        }</WorkspaceTestProvider>,
+      );
     });
   }
 
@@ -113,16 +129,16 @@ describe("WorkspaceToolbarGroup", () => {
   beforeEach(() => {
     runs.length = 0;
     toggled = false;
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       sized: {
         renderContent: () => null,
         defaultSize: { width: 240, height: 120 },
       },
     });
-    registerWorkspaceCommands([reportCommand, toggleCommand, lockedCommand]);
-    registerWorkspaceCreationCommands([creationCommand]);
-    useReactFlow.setState({ ...initialCanvasState, width: 800, height: 600 });
-    loadWorkspaceDocument({
+    registerWorkspaceCommands(testWorkspace.host, [reportCommand, toggleCommand, lockedCommand]);
+    registerWorkspaceCreationCommands(testWorkspace.host, [creationCommand]);
+    testWorkspace.reactFlow.setState({ ...initialCanvasState, width: 800, height: 600 });
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: {},
       topLevelSections: {},
       viewport: { x: 0, y: 0, zoom: 1 },
@@ -138,19 +154,19 @@ describe("WorkspaceToolbarGroup", () => {
       root.unmount();
     });
     host.remove();
-    registerWorkspaceToolbarContributions([]);
-    registerWorkspaceCommands([]);
-    registerWorkspaceCreationCommands([]);
-    registerSectionKinds({});
-    useWorkspaceCapabilities.getState().reset();
-    useWorkspaceDocument.getState().reset();
-    useActiveSections.getState().reset();
-    useNodeInternals.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    registerWorkspaceToolbarContributions(testWorkspace.host, []);
+    registerWorkspaceCommands(testWorkspace.host, []);
+    registerWorkspaceCreationCommands(testWorkspace.host, []);
+    registerSectionKinds(testWorkspace.host, {});
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.document.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   it("renders nothing, including a divider, when the host contributes nothing here", async () => {
-    registerWorkspaceToolbarContributions([
+    registerWorkspaceToolbarContributions(testWorkspace.host, [
       {
         kind: "command",
         commandId: reportCommand.id,
@@ -165,7 +181,7 @@ describe("WorkspaceToolbarGroup", () => {
   });
 
   it("paints contributed controls in registration order and closes the group with one divider", async () => {
-    registerWorkspaceToolbarContributions([
+    registerWorkspaceToolbarContributions(testWorkspace.host, [
       {
         kind: "creation",
         commandId: creationCommand.id,
@@ -206,7 +222,7 @@ describe("WorkspaceToolbarGroup", () => {
   });
 
   it("runs a pane command with no position and presses a toggle from its checked state", async () => {
-    registerWorkspaceToolbarContributions([
+    registerWorkspaceToolbarContributions(testWorkspace.host, [
       {
         kind: "command",
         commandId: reportCommand.id,
@@ -237,7 +253,9 @@ describe("WorkspaceToolbarGroup", () => {
       toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(runs).toEqual([{ scope: "pane", workspacePosition: null }]);
+    expect(runs).toEqual([
+      { host: testWorkspace.host, scope: "pane", workspacePosition: null },
+    ]);
     expect(toggled).toBe(true);
 
     // A contributed control paints host-owned state, so the host's own re-render is what updates
@@ -253,7 +271,7 @@ describe("WorkspaceToolbarGroup", () => {
   });
 
   it("explains a refusing command in place and never runs it", async () => {
-    registerWorkspaceToolbarContributions([
+    registerWorkspaceToolbarContributions(testWorkspace.host, [
       {
         kind: "command",
         commandId: lockedCommand.id,
@@ -280,7 +298,7 @@ describe("WorkspaceToolbarGroup", () => {
   });
 
   it("creates a section in empty space, and refuses when structural editing is off", async () => {
-    registerWorkspaceToolbarContributions([
+    registerWorkspaceToolbarContributions(testWorkspace.host, [
       {
         kind: "creation",
         commandId: creationCommand.id,
@@ -296,17 +314,19 @@ describe("WorkspaceToolbarGroup", () => {
       );
     });
 
-    expect(runs).toEqual([{ scope: "pane", workspacePosition: null }]);
+    expect(runs).toEqual([
+      { host: testWorkspace.host, scope: "pane", workspacePosition: null },
+    ]);
     expect(
-      useWorkspaceDocument.getState().topLevelSections.created,
+      testWorkspace.document.getState().topLevelSections.created,
     ).toMatchObject({
       x: 24,
       y: 24,
     });
-    expect(getActiveSectionIds()).toEqual(["created"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["created"]);
 
     await act(async () => {
-      useWorkspaceCapabilities.setState({ canEditStructure: false });
+      testWorkspace.capabilities.setState({ canEditStructure: false });
     });
 
     const button = getButton("Host note");
@@ -322,12 +342,12 @@ describe("WorkspaceToolbarGroup", () => {
 
   it("repaints a contributed control when the workspace state behind it changes", async () => {
     const getDisabledReason = vi.fn(() =>
-      useWorkspaceDocument.getState().topLevelSections.created
+      testWorkspace.document.getState().topLevelSections.created
         ? "Already reported."
         : null,
     );
-    registerWorkspaceCommands([{ ...reportCommand, getDisabledReason }]);
-    registerWorkspaceToolbarContributions([
+    registerWorkspaceCommands(testWorkspace.host, [{ ...reportCommand, getDisabledReason }]);
+    registerWorkspaceToolbarContributions(testWorkspace.host, [
       {
         kind: "command",
         commandId: reportCommand.id,
@@ -342,7 +362,7 @@ describe("WorkspaceToolbarGroup", () => {
     ).toBe(null);
 
     await act(async () => {
-      loadWorkspaceDocument({
+      loadWorkspaceDocument(testWorkspace.host, {
         sections: {
           created: {
             id: "created",

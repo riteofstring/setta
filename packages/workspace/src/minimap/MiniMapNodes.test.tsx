@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, type JSX } from "react";
 import { createRoot } from "react-dom/client";
@@ -59,10 +67,10 @@ function createMiniMapNode(overrides: Partial<Node> & { id: string }): Node {
 }
 
 function resetMiniMapStores() {
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.setState({ x: new Map() });
-  useWorkspaceAppearance.getState().reset();
-  useReactFlow.setState({
+  testWorkspace.document.getState().reset();
+  testWorkspace.nodeInternals.setState({ x: new Map() });
+  testWorkspace.appearance.getState().reset();
+  testWorkspace.reactFlow.setState({
     ...initialCanvasState,
     fitViewOnInit: false,
     fitViewOnInitDone: true,
@@ -76,7 +84,7 @@ describe("MiniMapNodes", () => {
 
   afterEach(() => {
     resetMiniMapStores();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
     document.body.innerHTML = "";
   });
 
@@ -114,7 +122,7 @@ describe("MiniMapNodes", () => {
   });
 
   it("re-renders fill when only node style changes", async () => {
-    useNodeInternals.setState({
+    testWorkspace.nodeInternals.setState({
       x: new Map([
         [
           "section-a",
@@ -137,7 +145,7 @@ describe("MiniMapNodes", () => {
       );
 
       await act(async () => {
-        useNodeInternals.setState({
+        testWorkspace.nodeInternals.setState({
           x: new Map([
             [
               "section-a",
@@ -159,7 +167,7 @@ describe("MiniMapNodes", () => {
   });
 
   it("re-renders stroke when only the node kind changes", async () => {
-    useNodeInternals.setState({
+    testWorkspace.nodeInternals.setState({
       x: new Map([
         ["section-a", createMiniMapNode({ id: "section-a", kind: "note" })],
       ]),
@@ -178,7 +186,7 @@ describe("MiniMapNodes", () => {
       );
 
       await act(async () => {
-        useNodeInternals.setState({
+        testWorkspace.nodeInternals.setState({
           x: new Map([
             ["section-a", createMiniMapNode({ id: "section-a", kind: "card" })],
           ]),
@@ -194,10 +202,10 @@ describe("MiniMapNodes", () => {
   });
 
   it("re-renders fill when the document updates a section style without geometry changes", async () => {
-    useNodeInternals.setState({
+    testWorkspace.nodeInternals.setState({
       x: new Map([["section-a", createMiniMapNode({ id: "section-a" })]]),
     });
-    useWorkspaceDocument.setState({
+    testWorkspace.document.setState({
       sections: { "section-a": createSection({ id: "section-a" }) },
       topLevelSections: {
         "section-a": { x: 10, y: 20, w: 100, h: 80, zIndex: 0 },
@@ -216,7 +224,7 @@ describe("MiniMapNodes", () => {
       );
 
       await act(async () => {
-        useWorkspaceDocument.setState({
+        testWorkspace.document.setState({
           sections: {
             "section-a": createSection({
               id: "section-a",
@@ -235,10 +243,10 @@ describe("MiniMapNodes", () => {
   });
 
   it("re-renders fill when dark mode flips without a document commit", async () => {
-    useNodeInternals.setState({
+    testWorkspace.nodeInternals.setState({
       x: new Map([["section-a", createMiniMapNode({ id: "section-a" })]]),
     });
-    useWorkspaceDocument.setState({
+    testWorkspace.document.setState({
       sections: {
         "section-a": createSection({ id: "section-a", styleColor: "#ff0000" }),
       },
@@ -259,7 +267,7 @@ describe("MiniMapNodes", () => {
       );
 
       await act(async () => {
-        useWorkspaceAppearance.setState({ darkMode: true });
+        testWorkspace.appearance.setState({ darkMode: true });
       });
 
       expect(rendered.getRect("section-a")?.getAttribute("fill")).toBe(
@@ -319,7 +327,11 @@ async function renderReactiveMiniMap(element: JSX.Element): Promise<{
   const root = createRoot(host);
 
   await act(async () => {
-    root.render(<svg>{element}</svg>);
+    root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<svg>{element}</svg>
+        }</WorkspaceTestProvider>,
+      );
   });
 
   return {

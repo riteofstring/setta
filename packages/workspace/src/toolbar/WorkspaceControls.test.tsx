@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -19,13 +27,17 @@ describe("WorkspaceControls", () => {
   let root: Root;
 
   beforeEach(async () => {
-    useWorkspaceOptions.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.options.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
     await act(async () => {
-      root.render(createElement(WorkspaceControls));
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(WorkspaceControls)
+        }</WorkspaceTestProvider>,
+      );
     });
   });
 
@@ -34,12 +46,10 @@ describe("WorkspaceControls", () => {
       root.unmount();
     });
     host.remove();
-    zoomIn.cancel();
-    zoomOut.cancel();
-    registerWorkspaceToolbarContributions([]);
-    registerWorkspaceCommands([]);
-    useWorkspaceOptions.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    registerWorkspaceToolbarContributions(testWorkspace.host, []);
+    registerWorkspaceCommands(testWorkspace.host, []);
+    testWorkspace.options.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   function getButton(label: string): HTMLButtonElement {
@@ -99,7 +109,7 @@ describe("WorkspaceControls", () => {
   });
 
   it("seats contributed groups around the package groups, each closed by its own divider", async () => {
-    registerWorkspaceCommands([
+    registerWorkspaceCommands(testWorkspace.host, [
       {
         id: "host-before-viewport",
         scope: "pane",
@@ -115,7 +125,7 @@ describe("WorkspaceControls", () => {
         run: () => {},
       },
     ]);
-    registerWorkspaceToolbarContributions([
+    registerWorkspaceToolbarContributions(testWorkspace.host, [
       {
         kind: "command",
         commandId: "host-before-viewport",
@@ -131,7 +141,11 @@ describe("WorkspaceControls", () => {
     ]);
 
     await act(async () => {
-      root.render(createElement(WorkspaceControls));
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(WorkspaceControls)
+        }</WorkspaceTestProvider>,
+      );
     });
 
     expect(
@@ -161,7 +175,7 @@ describe("WorkspaceControls", () => {
     const status = host.querySelector('[role="status"]');
     expect(status?.textContent).toContain("Zoom 100%");
     await act(async () => {
-      useReactFlow.setState({ transform: [0, 0, 1.25] });
+      testWorkspace.reactFlow.setState({ transform: [0, 0, 1.25] });
     });
     expect(status?.textContent).toContain("Zoom 125%");
   });
@@ -171,15 +185,15 @@ describe("WorkspaceControls", () => {
     expect(getButton("zoom out").disabled).toBe(false);
 
     await act(async () => {
-      useReactFlow.setState({
-        transform: [0, 0, useWorkspaceOptions.getState().maxZoom],
+      testWorkspace.reactFlow.setState({
+        transform: [0, 0, testWorkspace.options.getState().maxZoom],
       });
     });
     expect(getButton("zoom in").disabled).toBe(true);
 
     await act(async () => {
-      useReactFlow.setState({
-        transform: [0, 0, useWorkspaceOptions.getState().minZoom],
+      testWorkspace.reactFlow.setState({
+        transform: [0, 0, testWorkspace.options.getState().minZoom],
       });
     });
     expect(getButton("zoom out").disabled).toBe(true);
@@ -192,7 +206,7 @@ describe("WorkspaceControls", () => {
       transition: () => ({ duration: () => transitionObject }),
     } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
     await act(async () => {
-      useReactFlow.setState({
+      testWorkspace.reactFlow.setState({
         d3Selection,
         d3Zoom: { scaleBy } as unknown as NonNullable<
           typeof initialCanvasState.d3Zoom
@@ -224,7 +238,7 @@ describe("WorkspaceControls", () => {
       transition: () => ({ duration: () => transitionObject }),
     } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
     await act(async () => {
-      useReactFlow.setState({
+      testWorkspace.reactFlow.setState({
         d3Selection,
         d3Zoom: { scaleBy } as unknown as NonNullable<
           typeof initialCanvasState.d3Zoom
@@ -250,7 +264,7 @@ describe("WorkspaceControls", () => {
       snapButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(useWorkspaceOptions.getState().snapToGrid).toBe(false);
+    expect(testWorkspace.options.getState().snapToGrid).toBe(false);
     expect(snapButton.getAttribute("aria-pressed")).toBe("false");
     expect(snapButton.className).not.toContain("bg-blue-500");
   });
@@ -264,7 +278,7 @@ describe("WorkspaceControls", () => {
       toggleButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(useWorkspaceOptions.getState().showMinimap).toBe(false);
+    expect(testWorkspace.options.getState().showMinimap).toBe(false);
     expect(toggleButton.getAttribute("aria-pressed")).toBe("false");
     expect(toggleButton.className).not.toContain("bg-blue-500");
   });
@@ -282,7 +296,7 @@ describe("WorkspaceControls", () => {
       sideButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(useWorkspaceOptions.getState().minimapSide).toBe("right");
+    expect(testWorkspace.options.getState().minimapSide).toBe("right");
     expect(sideButton.getAttribute("aria-label")).toBe("move minimap to left");
   });
 
@@ -291,7 +305,7 @@ describe("WorkspaceControls", () => {
     expect(fitButton.className).not.toContain("bg-blue-500");
 
     await act(async () => {
-      useReactFlow.setState({ fitViewOnInit: true });
+      testWorkspace.reactFlow.setState({ fitViewOnInit: true });
     });
 
     expect(fitButton.className).toContain("bg-blue-500");

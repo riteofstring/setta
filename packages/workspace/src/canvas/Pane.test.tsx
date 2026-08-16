@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -35,13 +43,13 @@ function createRect(
 }
 
 function resetState(): void {
-  registerWorkspaceCreationCommands([]);
-  registerWorkspaceCommands([]);
-  useWorkspaceMenuState.getState().reset();
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
-  useActiveSections.getState().reset();
-  useReactFlow.setState({ ...initialCanvasState });
+  registerWorkspaceCreationCommands(testWorkspace.host, []);
+  registerWorkspaceCommands(testWorkspace.host, []);
+  testWorkspace.menuState.getState().reset();
+  testWorkspace.document.getState().reset();
+  testWorkspace.nodeInternals.getState().reset();
+  testWorkspace.activeSections.getState().reset();
+  testWorkspace.reactFlow.setState({ ...initialCanvasState });
 }
 
 describe("Pane context-menu ownership", () => {
@@ -51,7 +59,7 @@ describe("Pane context-menu ownership", () => {
 
   beforeEach(async () => {
     resetState();
-    registerWorkspaceCreationCommands([
+    registerWorkspaceCreationCommands(testWorkspace.host, [
       {
         id: "host-note",
         label: "Host note",
@@ -65,13 +73,15 @@ describe("Pane context-menu ownership", () => {
     canvas = document.createElement("div");
     canvas.getBoundingClientRect = () => createRect(100, 50, 800, 600);
     document.body.append(host, canvas);
-    useReactFlow.setState({ domNode: canvas, transform: [-200, 100, 2] });
+    testWorkspace.reactFlow.setState({ domNode: canvas, transform: [-200, 100, 2] });
     root = createRoot(host);
     await act(async () => {
       root.render(
-        <Pane isSelecting={false}>
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<Pane isSelecting={false}>
           <span data-testid="pane-child">Child</span>
-        </Pane>,
+        </Pane>
+        }</WorkspaceTestProvider>,
       );
     });
   });
@@ -103,13 +113,13 @@ describe("Pane context-menu ownership", () => {
       pane.dispatchEvent(pointerEvent);
     });
     expect(pointerEvent.defaultPrevented).toBe(true);
-    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+    expect(testWorkspace.menuState.getState().invocation).toMatchObject({
       kind: "pane",
       clientPoint: { x: 500, y: 300 },
       context: { scope: "pane", workspacePosition: { x: 300, y: 75 } },
     });
 
-    useWorkspaceMenuState.getState().reset();
+    testWorkspace.menuState.getState().reset();
     const childEvent = new MouseEvent("contextmenu", {
       bubbles: true,
       cancelable: true,
@@ -120,7 +130,7 @@ describe("Pane context-menu ownership", () => {
         ?.dispatchEvent(childEvent);
     });
     expect(childEvent.defaultPrevented).toBe(false);
-    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+    expect(testWorkspace.menuState.getState().invocation).toBeNull();
   });
 
   it("anchors Shift+F10 at the pane's logical leading geometry", async () => {
@@ -137,7 +147,7 @@ describe("Pane context-menu ownership", () => {
         }),
       );
     });
-    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+    expect(testWorkspace.menuState.getState().invocation).toMatchObject({
       kind: "pane",
       clientPoint: { x: 408, y: 64 },
       direction: "rtl",

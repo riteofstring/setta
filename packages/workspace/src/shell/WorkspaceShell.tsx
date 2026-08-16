@@ -27,6 +27,7 @@ import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { WorkspaceControls } from "../toolbar/WorkspaceControls";
 import { WorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
 import { useWorkspaceHost } from "../workspaceHostContext";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals";
 import { WorkspaceInspector } from "./WorkspaceInspector";
 import { WorkspaceOutline } from "./WorkspaceOutline";
 import { WorkspaceShellPane } from "./WorkspaceShellPane";
@@ -383,6 +384,14 @@ export function WorkspaceShell({
   callbackRef.current = onViewStateChange;
 
   const displayState = liveViewState ?? viewState;
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) {
+      throw new Error("Workspace shell root did not mount.");
+    }
+    return registerWorkspaceHostElement(host, root);
+  }, [host]);
 
   const requestViewState = useCallback(
     (nextState: WorkspaceShellViewState, focusRequest?: FocusRequest): void => {

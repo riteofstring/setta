@@ -32,6 +32,7 @@ import {
 } from "../tooltip/WorkspaceTooltip";
 import { getReactFlowStore } from "./store";
 import { useWorkspaceHost } from "../workspaceHostContext";
+import { isWorkspaceHostElement } from "../workspaceHostInternals";
 import type { WorkspaceHost } from "../workspaceHost";
 import { isMacOs } from "./utils";
 
@@ -446,6 +447,9 @@ export function useCanvasKeyActivations() {
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (!isWorkspaceHostElement(host, event.target)) {
+        return;
+      }
       chordTracker.onKeyDown(event);
       handleTooltipKeyDown(event);
       runWorkspaceKeyBindings(host, event, macOS, chordTracker.heldKeysEqual);

@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -17,14 +25,18 @@ describe("WorkspaceBackground", () => {
   let root: Root;
 
   beforeEach(async () => {
-    useWorkspaceAppearance.getState().reset();
-    useWorkspaceOptions.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.appearance.getState().reset();
+    testWorkspace.options.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
     await act(async () => {
-      root.render(createElement(WorkspaceBackground));
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(WorkspaceBackground)
+        }</WorkspaceTestProvider>,
+      );
     });
   });
 
@@ -33,9 +45,9 @@ describe("WorkspaceBackground", () => {
       root.unmount();
     });
     host.remove();
-    useWorkspaceAppearance.getState().reset();
-    useWorkspaceOptions.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.appearance.getState().reset();
+    testWorkspace.options.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   it("renders the reference dot grid from the snap-grid and appearance defaults", () => {
@@ -51,7 +63,7 @@ describe("WorkspaceBackground", () => {
 
   it("tracks viewport translation and zoom", async () => {
     await act(async () => {
-      useReactFlow.setState({ transform: [4, 7, 2] });
+      testWorkspace.reactFlow.setState({ transform: [4, 7, 2] });
     });
 
     const pattern = requireElement("pattern");
@@ -66,7 +78,7 @@ describe("WorkspaceBackground", () => {
 
   it("uses the dark grid color from the appearance seam", async () => {
     await act(async () => {
-      useWorkspaceAppearance.setState({ darkMode: true });
+      testWorkspace.appearance.setState({ darkMode: true });
     });
 
     expect(requireElement("circle").getAttribute("fill")).toBe("#2b364a");
@@ -74,8 +86,8 @@ describe("WorkspaceBackground", () => {
 
   it("renders the line and cross variants with reference geometry", async () => {
     await act(async () => {
-      useWorkspaceOptions.setState({ gridPattern: "lines" });
-      useReactFlow.setState({ transform: [0, 0, 2] });
+      testWorkspace.options.setState({ gridPattern: "lines" });
+      testWorkspace.reactFlow.setState({ transform: [0, 0, 2] });
     });
 
     let line = requireElement("path");
@@ -83,7 +95,7 @@ describe("WorkspaceBackground", () => {
     expect(line.getAttribute("stroke-width")).toBe("4");
 
     await act(async () => {
-      useWorkspaceOptions.setState({ gridPattern: "cross" });
+      testWorkspace.options.setState({ gridPattern: "cross" });
     });
 
     line = requireElement("path");
@@ -95,12 +107,12 @@ describe("WorkspaceBackground", () => {
 
   it("hides the grid when grid snapping or grid visibility is disabled", async () => {
     await act(async () => {
-      useWorkspaceOptions.setState({ snapToGrid: false });
+      testWorkspace.options.setState({ snapToGrid: false });
     });
     expect(host.querySelector(".react-flow__background")).toBeNull();
 
     await act(async () => {
-      useWorkspaceOptions.setState({ snapToGrid: true, showGridLines: false });
+      testWorkspace.options.setState({ snapToGrid: true, showGridLines: false });
     });
     expect(host.querySelector(".react-flow__background")).toBeNull();
   });

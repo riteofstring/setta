@@ -1,6 +1,7 @@
 import { useWorkspaceCommandState } from "../commands/workspaceCommandResolution";
 import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip";
 import { useWorkspaceHost } from "../workspaceHostContext";
+import { getWorkspaceHostDomId } from "../workspaceHostInternals";
 import {
   COMPACT_TOUCH_TARGET_PROPS,
   CONTROLS_DIVIDER_CLASS_NAME,
@@ -14,8 +15,8 @@ import {
 } from "./workspaceToolbarEntries";
 import type { WorkspaceToolbarPlacement } from "./workspaceToolbarTypes";
 
-function getContributionDescriptionId(key: string): string {
-  return `setta-workspace-toolbar-reason-${key.replace(":", "-")}`;
+function getContributionDescriptionId(hostId: string, key: string): string {
+  return `${hostId}-toolbar-reason-${key.replace(":", "-")}`;
 }
 
 function WorkspaceToolbarContributionControl({
@@ -24,6 +25,7 @@ function WorkspaceToolbarContributionControl({
   entry: WorkspaceToolbarEntry;
 }) {
   const host = useWorkspaceHost();
+  const hostId = getWorkspaceHostDomId(host);
   const Icon = entry.icon;
   // The package's own zoom controls stop at the zoom limits with nothing to say, so they use the
   // reference's real `disabled`. A command that refuses has a sentence, and a control has to stay
@@ -50,7 +52,12 @@ function WorkspaceToolbarContributionControl({
         type="button"
         {...(entry.disabledReason === null
           ? {}
-          : { "aria-describedby": getContributionDescriptionId(entry.key) })}
+          : {
+              "aria-describedby": getContributionDescriptionId(
+                hostId,
+                entry.key,
+              ),
+            })}
         {...COMPACT_TOUCH_TARGET_PROPS}
         {...getWorkspaceTooltipHandlers(host, { content: entry.tooltip })}
       >
@@ -62,7 +69,10 @@ function WorkspaceToolbarContributionControl({
         </span>
       </button>
       {entry.disabledReason === null ? null : (
-        <span className="sr-only" id={getContributionDescriptionId(entry.key)}>
+        <span
+          className="sr-only"
+          id={getContributionDescriptionId(hostId, entry.key)}
+        >
           {entry.disabledReason}
         </span>
       )}

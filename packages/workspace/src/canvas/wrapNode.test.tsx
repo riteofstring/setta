@@ -1,10 +1,17 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import {
@@ -27,8 +34,8 @@ vi.mock("../section/container/SectionContainer", () => ({
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 function loadTestDocument() {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
-  loadWorkspaceDocument({
+  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       leaf: {
         id: "leaf",
@@ -65,23 +72,24 @@ describe("NodeWrapper", () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     host.remove();
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
-    useWorkspaceCapabilities.getState().reset();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
+    registerSectionKinds(testWorkspace.host, {});
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
   });
 
   it("disables the top-level drag behavior when layout editing is unavailable", async () => {
     await act(async () => {
       root.render(
-        createElement(NodeWrapper, {
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(NodeWrapper, {
           id: "leaf",
           isDraggable: true,
           resizeObserver: null,
           visibility: "visible",
-        }),
+        })
+        }</WorkspaceTestProvider>,
       );
     });
 
@@ -92,7 +100,7 @@ describe("NodeWrapper", () => {
     );
 
     await act(async () =>
-      useWorkspaceCapabilities.setState({ canEditLayout: false }),
+      testWorkspace.capabilities.setState({ canEditLayout: false }),
     );
 
     expect(node?.classList.contains(NO_PAN_CLASS_NAME)).toBe(false);

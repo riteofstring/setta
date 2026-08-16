@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { CollisionPriority, CollisionType } from "@dnd-kit/abstract";
 import { beforeEach, describe, expect, it } from "vitest";
 import { resolveOverCollision } from "./adapter/collisionCompare";
@@ -21,32 +29,32 @@ function collision(id: string, intersectionRatio: number): SettaCollision {
 
 describe("dnd collision integration", () => {
   beforeEach(() => {
-    useDndChildren.getState().reset();
-    useItemDndChildren.getState().reset();
-    useItemDndState.getState().reset();
+    testWorkspace.dndChildren.getState().reset();
+    testWorkspace.itemDndChildren.getState().reset();
+    testWorkspace.itemDndState.getState().reset();
   });
 
   it("resolves section over-collision with live dndChildren store mapping", () => {
     // Validates collision resolution pulls parentByChild from shared dnd store.
-    updateDndChildren({
+    updateDndChildren(testWorkspace.host, {
       parent: ["child"],
     });
 
-    const resolved = resolveOverCollision([
-      collision("parent", 10),
-      collision("child", 1),
-    ]);
+    const resolved = resolveOverCollision(
+      [collision("parent", 10), collision("child", 1)],
+      { child: "parent" },
+    );
 
     expect(resolved?.id).toBe("child");
   });
 
   it("promotes the resolved section collision to the front of the mapped drag event", () => {
     // Validates drag event mapping integrates the section collision promotion.
-    updateDndChildren({
+    updateDndChildren(testWorkspace.host, {
       parent: ["child"],
     });
 
-    const mapped = mapDragEvent(
+    const mapped = mapDragEvent(testWorkspace.host,
       {
         operation: {
           source: {
@@ -78,15 +86,15 @@ describe("dnd collision integration", () => {
     const parentId = "item-parent";
     const childId = "item-child";
 
-    updateItemChildren({
+    updateItemChildren(testWorkspace.host, {
       [parentId]: [childId],
     });
-    setItemDndState({ listKey });
+    setItemDndState(testWorkspace.host, { listKey });
 
     const parentDndId = getItemDndId(parentId, listKey);
     const childDndId = getItemDndId(childId, listKey);
 
-    const mapped = mapDragEvent(
+    const mapped = mapDragEvent(testWorkspace.host,
       {
         operation: {
           source: {

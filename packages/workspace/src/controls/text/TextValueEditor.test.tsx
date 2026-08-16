@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { EditorView } from "@codemirror/view";
 import { act, createElement } from "react";
@@ -27,7 +35,13 @@ import { TextValueEditor, type TextValueEditorProps } from "./TextValueEditor";
 
 const SECTION_ID = "panel";
 const ITEM_ID = "item-alpha";
-const DUMMY_ID = `${SECTION_ID}-${ITEM_ID}-ItemValueInput`;
+function getDummyId(): string {
+  return `${testWorkspace.domId}-${SECTION_ID}-${ITEM_ID}-ItemValueInput`;
+}
+
+function getLiveId(): string {
+  return `${testWorkspace.domId}-CodeMirror-${SECTION_ID}-${ITEM_ID}`;
+}
 
 describe("TextValueEditor", () => {
   let host: HTMLDivElement;
@@ -44,18 +58,19 @@ describe("TextValueEditor", () => {
       root.unmount();
     });
     host.remove();
-    useWorkspaceDocument.getState().reset();
-    useActiveSections.getState().reset();
-    useItemSelectionMode.getState().reset();
-    useWorkspaceAppearance.getState().reset();
-    useSectionRefs.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.document.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.appearance.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   async function mount(props: Partial<TextValueEditorProps> = {}) {
     await act(async () => {
       root.render(
-        createElement(TextValueEditor, {
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(TextValueEditor, {
           ariaLabel: "Threshold value",
           sectionId: SECTION_ID,
           itemId: ITEM_ID,
@@ -63,13 +78,14 @@ describe("TextValueEditor", () => {
           language: "python",
           onValueChange: () => {},
           ...props,
-        }),
+        })
+        }</WorkspaceTestProvider>,
       );
     });
   }
 
   function getDummy(): HTMLElement {
-    const dummy = document.getElementById(DUMMY_ID);
+    const dummy = host.querySelector<HTMLElement>(`#${getDummyId()}`);
     if (!dummy) {
       throw new Error("The idle dummy layer is not rendered.");
     }
@@ -140,12 +156,56 @@ describe("TextValueEditor", () => {
     expect(dummy.classList.contains("text-gray-600")).toBe(true);
   });
 
+  it("keeps overlapping hosts' idle editor ids distinct", async () => {
+    const secondWorkspace = createWorkspaceTestHost();
+    const secondDummyId = `${secondWorkspace.domId}-${SECTION_ID}-${ITEM_ID}-ItemValueInput`;
+    try {
+      await act(async () => {
+        root.render(
+          <div>
+            <WorkspaceTestProvider workspace={testWorkspace}>
+              <TextValueEditor
+                ariaLabel="First threshold value"
+                itemId={ITEM_ID}
+                language="python"
+                onValueChange={() => {}}
+                sectionId={SECTION_ID}
+                value="0.001"
+              />
+            </WorkspaceTestProvider>
+            <WorkspaceTestProvider workspace={secondWorkspace}>
+              <TextValueEditor
+                ariaLabel="Second threshold value"
+                itemId={ITEM_ID}
+                language="python"
+                onValueChange={() => {}}
+                sectionId={SECTION_ID}
+                value="0.002"
+              />
+            </WorkspaceTestProvider>
+          </div>,
+        );
+      });
+
+      expect(host.querySelector(`#${getDummyId()}`)?.textContent).toBe(
+        "0.001",
+      );
+      expect(host.querySelector(`#${secondDummyId}`)?.textContent).toBe(
+        "0.002",
+      );
+      expect(host.querySelectorAll('[role="textbox"]')).toHaveLength(2);
+    } finally {
+      await act(async () => {
+        root.render(null);
+      });
+      secondWorkspace.host.dispose();
+    }
+  });
+
   it("swaps to the live editor on primary mouse down and activates the section", async () => {
     await mount();
     await activate();
-    const liveWrapper = document.getElementById(
-      `CodeMirror-${SECTION_ID}-${ITEM_ID}`,
-    );
+    const liveWrapper = host.querySelector<HTMLElement>(`#${getLiveId()}`);
     const liveView = getLiveView();
     expect(liveWrapper).not.toBeNull();
     expect(liveWrapper?.hasAttribute("tabindex")).toBe(false);
@@ -155,9 +215,9 @@ describe("TextValueEditor", () => {
       "Threshold value",
     );
     // The dummy layer leaves once the live editor initializes.
-    expect(document.getElementById(DUMMY_ID)).toBeNull();
+    expect(host.querySelector(`#${getDummyId()}`)).toBeNull();
     // The input-focus intent made the owning section the single active section.
-    expect(useActiveSections.getState().activeIds).toEqual([SECTION_ID]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([SECTION_ID]);
   });
 
   it("reports each document change once through the controlled value seam", async () => {
@@ -197,7 +257,7 @@ describe("TextValueEditor", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     await mount();
@@ -214,7 +274,7 @@ describe("TextValueEditor", () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 1));
     });
-    expect(document.getElementById(DUMMY_ID)).not.toBeNull();
+    expect(host.querySelector(`#${getDummyId()}`)).not.toBeNull();
     expect(host.querySelector(".cm-editor")).toBeNull();
     document.removeEventListener("keydown", documentEscape);
     sectionRoot.remove();
@@ -228,11 +288,11 @@ describe("TextValueEditor", () => {
     expect(dummy.tabIndex).toBe(-1);
     await activate();
     expect(host.querySelector(".cm-editor")).toBeNull();
-    expect(useActiveSections.getState().activeIds).toEqual([]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([]);
   });
 
   it("disables package-wide and drops the divider focus treatment during item-select mode", async () => {
-    useItemSelectionMode.setState({ isSelectingItems: true });
+    testWorkspace.itemSelectionMode.setState({ isSelectingItems: true });
     await mount();
     const divider = host.querySelector("span.section-value");
     expect(

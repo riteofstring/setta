@@ -1,10 +1,17 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { updateNodeDimensionsFromResizeObserver } from "../canvas/nodeInternalsActions";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import {
@@ -15,6 +22,7 @@ import {
 import type { WorkspaceSectionInput } from "../document/types";
 import { useSectionRefs } from "./sectionRefs";
 import { ungroupSections } from "./ungroupAction";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals";
 
 function makeSection(
   id: string,
@@ -37,8 +45,8 @@ function makeSection(
 }
 
 function loadUngroupDocument(): void {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
-  loadWorkspaceDocument({
+  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       group: makeSection("group", "group", ["child-a", "child-b"]),
       "child-a": makeSection("child-a"),
@@ -56,8 +64,8 @@ function loadUngroupDocument(): void {
 
 describe("ungroupSections", () => {
   beforeEach(() => {
-    useWorkspaceCapabilities.getState().reset();
-    useReactFlow.setState({
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.reactFlow.setState({
       ...initialCanvasState,
       nodesSelectionDims: { x: 1, y: 2, width: 3, height: 4 },
     });
@@ -65,14 +73,13 @@ describe("ungroupSections", () => {
   });
 
   afterEach(() => {
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
-    useSectionRefs.getState().reset();
-    useWorkspaceCapabilities.getState().reset();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    registerSectionKinds(testWorkspace.host, {});
+    testWorkspace.sectionRefs.getState().reset();
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
     vi.unstubAllGlobals();
   });
 
@@ -80,21 +87,21 @@ describe("ungroupSections", () => {
     const onChange = vi.fn();
     let observedDocumentHasGroup = true;
     let observedActiveIds: Array<string> = [];
-    const unsubscribe = useNodeInternals.subscribe(() => {
+    const unsubscribe = testWorkspace.nodeInternals.subscribe(() => {
       observedDocumentHasGroup =
-        useWorkspaceDocument.getState().sections["group"] !== undefined;
-      observedActiveIds = useActiveSections.getState().activeIds;
+        testWorkspace.document.getState().sections["group"] !== undefined;
+      observedActiveIds = testWorkspace.activeSections.getState().activeIds;
     });
-    setWorkspaceDocumentChangeCallback(onChange);
+    testWorkspace.host.subscribe(onChange);
 
-    ungroupSections(["group"]);
+    ungroupSections(testWorkspace.host, ["group"]);
     unsubscribe();
 
     expect(observedDocumentHasGroup).toBe(false);
     expect(observedActiveIds).toEqual(["sibling"]);
-    expect(useNodeInternals.getState().x.has("group")).toBe(false);
-    expect(useNodeInternals.getState().x.has("child-a")).toBe(true);
-    expect(useReactFlow.getState().nodesSelectionDims).toBeNull();
+    expect(testWorkspace.nodeInternals.getState().x.has("group")).toBe(false);
+    expect(testWorkspace.nodeInternals.getState().x.has("child-a")).toBe(true);
+    expect(testWorkspace.reactFlow.getState().nodesSelectionDims).toBeNull();
     expect(onChange).toHaveBeenCalledOnce();
     expect(onChange.mock.calls[0]?.[0].activeIds).toEqual(["sibling"]);
   });
@@ -104,7 +111,7 @@ describe("ungroupSections", () => {
     const viewport = document.createElement("div");
     viewport.className = "react-flow__viewport";
     canvas.append(viewport);
-    useReactFlow.setState({ domNode: canvas });
+    testWorkspace.reactFlow.setState({ domNode: canvas });
 
     const childA = document.createElement("div");
     childA.dataset["id"] = "child-a";
@@ -118,18 +125,18 @@ describe("ungroupSections", () => {
       offsetWidth: { configurable: true, value: 141 },
       offsetHeight: { configurable: true, value: 91 },
     });
-    useSectionRefs.setState({
+    testWorkspace.sectionRefs.setState({
       withNested: { "child-a": childA, "child-b": childB },
     });
 
-    const reported: Array<ReturnType<typeof useWorkspaceDocument.getState>> =
+    const reported: Array<ReturnType<typeof testWorkspace.document.getState>> =
       [];
-    setWorkspaceDocumentChangeCallback(() => {
-      reported.push(useWorkspaceDocument.getState());
+    testWorkspace.host.subscribe(() => {
+      reported.push(testWorkspace.document.getState());
     });
 
-    ungroupSections(["group"]);
-    updateNodeDimensionsFromResizeObserver([
+    ungroupSections(testWorkspace.host, ["group"]);
+    updateNodeDimensionsFromResizeObserver(testWorkspace.host, [
       { target: childA } as unknown as ResizeObserverEntry,
       { target: childB } as unknown as ResizeObserverEntry,
     ]);
@@ -146,17 +153,17 @@ describe("ungroupSections", () => {
   });
 
   it("rejects unavailable structure capability without changing any store", () => {
-    const beforeDocument = useWorkspaceDocument.getState();
-    const beforeNodes = useNodeInternals.getState().x;
+    const beforeDocument = testWorkspace.document.getState();
+    const beforeNodes = testWorkspace.nodeInternals.getState().x;
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
-    useWorkspaceCapabilities.setState({ canEditStructure: false });
+    testWorkspace.host.subscribe(onChange);
+    testWorkspace.capabilities.setState({ canEditStructure: false });
 
-    expect(() => ungroupSections(["group"])).toThrow(
+    expect(() => ungroupSections(testWorkspace.host, ["group"])).toThrow(
       "Ungrouping requires permission to edit workspace structure.",
     );
-    expect(useWorkspaceDocument.getState()).toBe(beforeDocument);
-    expect(useNodeInternals.getState().x).toBe(beforeNodes);
+    expect(testWorkspace.document.getState()).toBe(beforeDocument);
+    expect(testWorkspace.nodeInternals.getState().x).toBe(beforeNodes);
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -171,17 +178,25 @@ describe("ungroupSections", () => {
     child.tabIndex = -1;
     group.appendChild(trigger);
     document.body.append(group, child);
-    useSectionRefs.setState({
+    const unregisterHostElement = registerWorkspaceHostElement(
+      testWorkspace.host,
+      group,
+    );
+    testWorkspace.sectionRefs.setState({
       withNested: { group, "child-a": child },
       selfOnly: { "child-a": child },
     });
     trigger.focus();
 
-    ungroupSections(["group"]);
+    try {
+      ungroupSections(testWorkspace.host, ["group"]);
 
-    expect(document.activeElement).toBe(child);
-    group.remove();
-    child.remove();
+      expect(document.activeElement).toBe(child);
+    } finally {
+      unregisterHostElement();
+      group.remove();
+      child.remove();
+    }
   });
 
   it("keeps an Outline invocation in the Outline after the group disappears", () => {
@@ -189,19 +204,30 @@ describe("ungroupSections", () => {
       callback(0);
       return 1;
     });
+    const outline = document.createElement("div");
+    outline.setAttribute("role", "tree");
+    outline.setAttribute("aria-label", "Workspace outline");
     const groupRow = document.createElement("div");
     groupRow.dataset["workspaceOutlineItem"] = "group";
     groupRow.tabIndex = 0;
     const childRow = document.createElement("div");
     childRow.dataset["workspaceOutlineItem"] = "child-a";
     childRow.tabIndex = -1;
-    document.body.append(groupRow, childRow);
+    outline.append(groupRow, childRow);
+    document.body.append(outline);
+    const unregisterHostElement = registerWorkspaceHostElement(
+      testWorkspace.host,
+      outline,
+    );
     groupRow.focus();
 
-    ungroupSections(["group"]);
+    try {
+      ungroupSections(testWorkspace.host, ["group"]);
 
-    expect(document.activeElement).toBe(childRow);
-    groupRow.remove();
-    childRow.remove();
+      expect(document.activeElement).toBe(childRow);
+    } finally {
+      unregisterHostElement();
+      outline.remove();
+    }
   });
 });

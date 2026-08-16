@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   addItemChild,
@@ -16,17 +24,17 @@ import {
 
 describe("itemDndChildren state", () => {
   beforeEach(() => {
-    useItemDndChildren.getState().reset();
+    testWorkspace.itemDndChildren.getState().reset();
   });
 
   it("builds forward and reverse item child maps", () => {
     // Validates map hydration for item parent/child relationships.
-    updateItemChildren({
+    updateItemChildren(testWorkspace.host, {
       parentA: ["child1", "child2"],
       parentB: ["child3"],
     });
 
-    const state = useItemDndChildren.getState();
+    const state = testWorkspace.itemDndChildren.getState();
     expect(state.x).toEqual({
       parentA: ["child1", "child2"],
       parentB: ["child3"],
@@ -40,31 +48,31 @@ describe("itemDndChildren state", () => {
 
   it("moves items between parents and updates reverse lookup", () => {
     // Validates add operation reorders destination list and updates parent mapping.
-    updateItemChildren({
+    updateItemChildren(testWorkspace.host, {
       parentA: ["child1", "child2"],
       parentB: ["child3"],
     });
 
-    addItemChild("parentA", "parentB", "child1", 0);
+    addItemChild(testWorkspace.host, "parentA", "parentB", "child1", 0);
 
-    const state = useItemDndChildren.getState();
+    const state = testWorkspace.itemDndChildren.getState();
     expect(state.x.parentA).toEqual(["child2"]);
     expect(state.x.parentB).toEqual(["child1", "child3"]);
-    expect(getItemDndParentId("child1")).toBe("parentB");
+    expect(getItemDndParentId(testWorkspace.host, "child1")).toBe("parentB");
   });
 
   it("replaces dragged items with a temporary placeholder", () => {
     // Validates placeholder insertion position and stale temp cleanup.
     const staleTempId = getTempItemDndId(getItemDndId("stale", "pinned"));
-    updateItemChildren({
+    updateItemChildren(testWorkspace.host, {
       parentA: ["item-a", "item-b", "item-c"],
       parentB: [staleTempId],
     });
 
-    replaceItemsWithTemp("active", "pinned", ["item-b", "item-c"]);
+    replaceItemsWithTemp(testWorkspace.host, "active", "pinned", ["item-b", "item-c"]);
 
     const tempId = getTempItemDndId(getItemDndId("active", "pinned"));
-    const state = useItemDndChildren.getState();
+    const state = testWorkspace.itemDndChildren.getState();
     expect(state.x.parentA).toEqual(["item-a", tempId]);
     expect(state.x.parentB).toEqual([]);
     expect(state.y[tempId]).toBe("parentA");
@@ -77,16 +85,16 @@ describe("itemDndChildren state", () => {
     // Validates list-key remapping for item collisions and sortable lookups.
     const listKey: ItemListKey = "pinned";
     const tempChildId = getTempItemDndId(getItemDndId("child2", listKey));
-    updateItemChildren({
+    updateItemChildren(testWorkspace.host, {
       parentA: ["child1", tempChildId],
     });
 
-    expect(getItemDndParentByChild(null)).toEqual({
+    expect(getItemDndParentByChild(testWorkspace.host, null)).toEqual({
       child1: "parentA",
       [tempChildId]: "parentA",
     });
 
-    expect(getItemDndParentByChild(listKey)).toEqual({
+    expect(getItemDndParentByChild(testWorkspace.host, listKey)).toEqual({
       [getItemDndId("child1", listKey)]: getItemDndId("parentA", listKey),
       [tempChildId]: getItemDndId("parentA", listKey),
     });
@@ -94,13 +102,13 @@ describe("itemDndChildren state", () => {
 
   it("supports explicit reset", () => {
     // Validates manual reset path clears both lookup maps.
-    updateItemChildren({
+    updateItemChildren(testWorkspace.host, {
       parentA: ["child1"],
     });
 
-    resetItemDndChildren();
+    resetItemDndChildren(testWorkspace.host);
 
-    const state = useItemDndChildren.getState();
+    const state = testWorkspace.itemDndChildren.getState();
     expect(state.x).toEqual({});
     expect(state.y).toEqual({});
   });

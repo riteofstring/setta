@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -35,14 +43,15 @@ describe("SliderValueControl", () => {
       root.unmount();
     });
     host.remove();
-    useItemSelectionMode.getState().reset();
-    useSectionRefs.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
   });
 
   async function mount(props: Partial<SliderValueControlProps> = {}) {
     await act(async () => {
       root.render(
-        <SliderValueControl
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<SliderValueControl
           ariaLabel="Gain value"
           sectionId={SECTION_ID}
           value="5"
@@ -51,7 +60,8 @@ describe("SliderValueControl", () => {
           step={1}
           onValueChange={() => {}}
           {...props}
-        />,
+        />
+        }</WorkspaceTestProvider>,
       );
     });
   }
@@ -245,7 +255,7 @@ describe("SliderValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     await mount();
@@ -271,7 +281,7 @@ describe("SliderValueControl", () => {
     expect(getThumb().getAttribute("data-disabled")).toBe("");
     expect(getNumericInput().disabled).toBe(true);
 
-    useItemSelectionMode.setState({ isSelectingItems: true });
+    testWorkspace.itemSelectionMode.setState({ isSelectingItems: true });
     await mount({ disabled: false });
     expect(getThumb().getAttribute("data-disabled")).toBe("");
     expect(getNumericInput().disabled).toBe(true);

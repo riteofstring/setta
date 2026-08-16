@@ -1,11 +1,19 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setItemDndState, useItemDndState } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import {
   getWorkspaceDocument,
-  setWorkspaceDocumentChangeCallback,
+
 } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import type { WorkspaceItemFactoryContext } from "../document/sectionKindRegistry";
@@ -24,7 +32,7 @@ import {
 } from "./itemAuthoringActions";
 
 function loadItemDocument(): void {
-  loadWorkspaceDocument({
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
         id: "panel",
@@ -56,7 +64,7 @@ function loadItemDocument(): void {
 }
 
 function getPanelItemTree(): WorkspaceSectionItemTree {
-  const itemTree = useWorkspaceDocument.getState().sections.panel?.itemTree;
+  const itemTree = testWorkspace.document.getState().sections.panel?.itemTree;
   if (!itemTree) {
     throw new Error("Expected the panel item tree.");
   }
@@ -95,7 +103,7 @@ describe("item authoring actions", () => {
       children: [],
       data: { value: "host default" },
     };
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       items: {
         renderContent: () => null,
         createItem: (context) => {
@@ -112,25 +120,24 @@ describe("item authoring actions", () => {
   });
 
   afterEach(() => {
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
-    useWorkspaceCapabilities.getState().reset();
-    useItemDndState.getState().reset();
-    useSectionRefs.getState().reset();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
+    registerSectionKinds(testWorkspace.host, {});
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.itemDndState.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
   it("calls the frozen host factory and atomically reports one selected insertion", () => {
     const notifications: Array<ReturnType<typeof getWorkspaceDocument>> = [];
-    setWorkspaceDocumentChangeCallback((document) =>
+    testWorkspace.host.subscribe((document) =>
       notifications.push(document),
     );
 
-    const inserted = insertWorkspaceItem("panel");
+    const inserted = insertWorkspaceItem(testWorkspace.host, "panel");
 
     expect(inserted).toEqual(factoryItem);
     expect(inserted).not.toBe(factoryItem);
@@ -143,7 +150,7 @@ describe("item authoring actions", () => {
       selectedItemIds: ["created"],
       items: { root: { children: ["alpha", "beta", "created"] } },
     });
-    expect(useActiveSections.getState().activeIds).toEqual(["panel"]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual(["panel"]);
     expect(notifications).toHaveLength(1);
     const notification = notifications[0];
     if (!notification) {
@@ -170,25 +177,25 @@ describe("item authoring actions", () => {
 
   it("rejects capability and drag gates before invoking the factory or writing", () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
-    const before = getWorkspaceDocument();
+    testWorkspace.host.subscribe(onChange);
+    const before = getWorkspaceDocument(testWorkspace.host);
 
-    useWorkspaceCapabilities.setState({ canEditStructure: false });
-    expect(() => insertWorkspaceItem("panel")).toThrow("requires permission");
+    testWorkspace.capabilities.setState({ canEditStructure: false });
+    expect(() => insertWorkspaceItem(testWorkspace.host, "panel")).toThrow("requires permission");
     expect(factoryContext).toBeNull();
 
-    useWorkspaceCapabilities.setState({ canEditStructure: true });
-    setItemDndState({ activeId: "alpha" });
-    expect(() => insertWorkspaceItem("panel")).toThrow("item drag is active");
+    testWorkspace.capabilities.setState({ canEditStructure: true });
+    setItemDndState(testWorkspace.host, { activeId: "alpha" });
+    expect(() => insertWorkspaceItem(testWorkspace.host, "panel")).toThrow("item drag is active");
     expect(factoryContext).toBeNull();
-    expect(getWorkspaceDocument()).toEqual(before);
+    expect(getWorkspaceDocument(testWorkspace.host)).toEqual(before);
     expect(onChange).not.toHaveBeenCalled();
   });
 
   it("rejects insertion and deletion while the section is locked", () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
-    useWorkspaceDocument.setState((state) => {
+    testWorkspace.host.subscribe(onChange);
+    testWorkspace.document.setState((state) => {
       const panel = state.sections.panel;
       if (!panel) {
         throw new Error("Expected the panel section.");
@@ -200,27 +207,27 @@ describe("item authoring actions", () => {
         },
       };
     });
-    const before = getWorkspaceDocument();
+    const before = getWorkspaceDocument(testWorkspace.host);
 
-    expect(() => insertWorkspaceItem("panel")).toThrow("is locked");
-    expect(() => deleteWorkspaceItems("panel", ["alpha"])).toThrow("is locked");
+    expect(() => insertWorkspaceItem(testWorkspace.host, "panel")).toThrow("is locked");
+    expect(() => deleteWorkspaceItems(testWorkspace.host, "panel", ["alpha"])).toThrow("is locked");
     expect(factoryContext).toBeNull();
-    expect(getWorkspaceDocument()).toEqual(before);
+    expect(getWorkspaceDocument(testWorkspace.host)).toEqual(before);
     expect(onChange).not.toHaveBeenCalled();
   });
 
   it("validates all deletion ids before one write and one notification", () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
-    const before = structuredClone(getWorkspaceDocument());
+    testWorkspace.host.subscribe(onChange);
+    const before = structuredClone(getWorkspaceDocument(testWorkspace.host));
 
-    expect(() => deleteWorkspaceItems("panel", ["alpha", "missing"])).toThrow(
+    expect(() => deleteWorkspaceItems(testWorkspace.host, "panel", ["alpha", "missing"])).toThrow(
       "unknown item missing",
     );
-    expect(getWorkspaceDocument()).toEqual(before);
+    expect(getWorkspaceDocument(testWorkspace.host)).toEqual(before);
     expect(onChange).not.toHaveBeenCalled();
 
-    expect(deleteSelectedWorkspaceItems("panel")).toEqual(["alpha"]);
+    expect(deleteSelectedWorkspaceItems(testWorkspace.host, "panel")).toEqual(["alpha"]);
     expect(getPanelItemTree().selectedItemIds).toEqual(["beta"]);
     expect(onChange).toHaveBeenCalledOnce();
   });
@@ -235,10 +242,10 @@ describe("item authoring actions", () => {
     const focus = vi.spyOn(betaRow, "focus");
     section.append(deleteButton, betaRow);
     document.body.append(section);
-    useSectionRefs.setState({ selfOnly: { panel: section }, withNested: {} });
+    testWorkspace.sectionRefs.setState({ selfOnly: { panel: section }, withNested: {} });
     deleteButton.focus();
 
-    deleteSelectedWorkspaceItems("panel");
+    deleteSelectedWorkspaceItems(testWorkspace.host, "panel");
 
     expect(document.activeElement).toBe(betaRow);
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });

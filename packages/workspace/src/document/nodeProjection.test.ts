@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { beforeEach, describe, expect, it } from "vitest";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
@@ -46,11 +54,11 @@ function makeDocumentState(
 
 describe("createNodesMapFromDocumentChildren", () => {
   beforeEach(() => {
-    useWorkspaceAppearance.getState().reset();
+    testWorkspace.appearance.getState().reset();
   });
 
   it("projects a top-level section into a node", () => {
-    const nodes = createNodesMapFromDocumentChildren(
+    const nodes = createNodesMapFromDocumentChildren(testWorkspace.host,
       makeDocumentState(),
       new Map(),
     );
@@ -78,7 +86,7 @@ describe("createNodesMapFromDocumentChildren", () => {
       },
       parentSectionMap: { leaf: "parent" },
     });
-    const nodes = createNodesMapFromDocumentChildren(state, new Map());
+    const nodes = createNodesMapFromDocumentChildren(testWorkspace.host, state, new Map());
     expect([...nodes.keys()]).toEqual(["parent"]);
   });
 
@@ -92,7 +100,7 @@ describe("createNodesMapFromDocumentChildren", () => {
       tempZIndex: 0,
       kind: "leaf",
     };
-    const nodes = createNodesMapFromDocumentChildren(
+    const nodes = createNodesMapFromDocumentChildren(testWorkspace.host,
       makeDocumentState(),
       new Map([["leaf", existing]]),
     );
@@ -108,13 +116,13 @@ describe("createNodesMapFromDocumentChildren", () => {
       sections: { leaf: makeSection("leaf", { styleColor: "#3b82f6" }) },
     });
 
-    const lightNodes = createNodesMapFromDocumentChildren(state, new Map());
+    const lightNodes = createNodesMapFromDocumentChildren(testWorkspace.host, state, new Map());
     expect(lightNodes.get("leaf")?.style).toEqual({
       background: requireTheme("#3b82f6", false).bg,
     });
 
-    useWorkspaceAppearance.setState({ darkMode: true });
-    const darkNodes = createNodesMapFromDocumentChildren(state, new Map());
+    testWorkspace.appearance.setState({ darkMode: true });
+    const darkNodes = createNodesMapFromDocumentChildren(testWorkspace.host, state, new Map());
     expect(darkNodes.get("leaf")?.style).toEqual({
       background: requireTheme("#3b82f6", true).bg,
     });
@@ -125,7 +133,7 @@ describe("createNodesMapFromDocumentChildren", () => {
       sections: { leaf: makeSection("leaf", { styleColor: "not-a-color" }) },
     });
     expect(() =>
-      createNodesMapFromDocumentChildren(state, new Map()),
+      createNodesMapFromDocumentChildren(testWorkspace.host, state, new Map()),
     ).toThrowError(/unparseable style color not-a-color/);
   });
 
@@ -133,14 +141,14 @@ describe("createNodesMapFromDocumentChildren", () => {
     const state = makeDocumentState({
       sections: { leaf: makeSection("leaf", { styleColor: "  " }) },
     });
-    const nodes = createNodesMapFromDocumentChildren(state, new Map());
+    const nodes = createNodesMapFromDocumentChildren(testWorkspace.host, state, new Map());
     expect(nodes.get("leaf")?.style).toBeUndefined();
   });
 
   it("fails loudly when a projected section record is missing", () => {
     const state = makeDocumentState({ sections: {} });
     expect(() =>
-      createNodesMapFromDocumentChildren(state, new Map()),
+      createNodesMapFromDocumentChildren(testWorkspace.host, state, new Map()),
     ).toThrowError(/Unknown section leaf/);
   });
 });

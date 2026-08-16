@@ -1,7 +1,14 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import type { WorkspaceItem, WorkspaceSection } from "../document/types";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import { filterWorkspaceSectionItems } from "./itemFiltering";
+
+let host: WorkspaceHost;
+
+beforeEach(() => {
+  host = createWorkspaceHost();
+});
 
 function makeBuiltInItem(
   id: string,
@@ -48,12 +55,13 @@ function makeSection(): WorkspaceSection {
 
 describe("package-owned item filtering", () => {
   afterEach(() => {
-    registerSectionKinds({});
+    registerSectionKinds(host, {});
+    host.dispose();
   });
 
   it("fuzzy-matches built-in labels, reveals ancestor paths, and keeps document order", () => {
-    registerSectionKinds({ parameters: { renderContent: () => null } });
-    const result = filterWorkspaceSectionItems(makeSection(), "op mm");
+    registerSectionKinds(host, { parameters: { renderContent: () => null } });
+    const result = filterWorkspaceSectionItems(host, makeSection(), "op mm");
 
     expect(result.filterActive).toBe(true);
     expect([...result.matchingItemIds]).toEqual(["momentum"]);
@@ -75,11 +83,11 @@ describe("package-owned item filtering", () => {
         ? String(data["keywords"] ?? "")
         : "";
     });
-    registerSectionKinds({
+    registerSectionKinds(host, {
       parameters: { renderContent: () => null, getItemSearchableText },
     });
 
-    const result = filterWorkspaceSectionItems(makeSection(), "worker");
+    const result = filterWorkspaceSectionItems(host, makeSection(), "worker");
     expect([...result.matchingItemIds]).toEqual(["custom"]);
     expect([...result.visibleItemIds]).toEqual(["custom"]);
     expect(getItemSearchableText).toHaveBeenCalledOnce();
@@ -87,11 +95,11 @@ describe("package-owned item filtering", () => {
 
   it("does not call custom contributions for an inactive filter", () => {
     const getItemSearchableText = vi.fn(() => "custom");
-    registerSectionKinds({
+    registerSectionKinds(host, {
       parameters: { renderContent: () => null, getItemSearchableText },
     });
 
-    const result = filterWorkspaceSectionItems(makeSection(), "   ");
+    const result = filterWorkspaceSectionItems(host, makeSection(), "   ");
     expect(result.filterActive).toBe(false);
     expect([...result.visibleItemIds]).toEqual([
       "alpha",
@@ -103,21 +111,21 @@ describe("package-owned item filtering", () => {
   });
 
   it("leaves custom items unsearchable without an explicit contribution", () => {
-    registerSectionKinds({ parameters: { renderContent: () => null } });
+    registerSectionKinds(host, { parameters: { renderContent: () => null } });
     expect(
-      filterWorkspaceSectionItems(makeSection(), "worker").matchingItemIds.size,
+      filterWorkspaceSectionItems(host, makeSection(), "worker").matchingItemIds.size,
     ).toBe(0);
   });
 
   it("fails specifically when a JavaScript host returns malformed searchable text", () => {
-    registerSectionKinds({
+    registerSectionKinds(host, {
       parameters: {
         renderContent: () => null,
         getItemSearchableText: (() => ["worker"]) as unknown as () => string,
       },
     });
     expect(() =>
-      filterWorkspaceSectionItems(makeSection(), "worker"),
+      filterWorkspaceSectionItems(host, makeSection(), "worker"),
     ).toThrowError(/non-string searchable text for item custom/);
   });
 });

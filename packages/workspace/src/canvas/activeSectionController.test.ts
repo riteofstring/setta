@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { beforeEach, describe, expect, it } from "vitest";
 import { getActiveSectionIds } from "../document/activeSections";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
@@ -42,12 +50,12 @@ function makeNode(id: string, zIndex: number): Node {
 }
 
 beforeEach(() => {
-  useActiveSections.getState().reset();
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
-  useItemSelectionMode.getState().reset();
-  useReactFlow.setState({ ...initialCanvasState });
-  useWorkspaceDocument.setState({
+  testWorkspace.activeSections.getState().reset();
+  testWorkspace.document.getState().reset();
+  testWorkspace.nodeInternals.getState().reset();
+  testWorkspace.itemSelectionMode.getState().reset();
+  testWorkspace.reactFlow.setState({ ...initialCanvasState });
+  testWorkspace.document.setState({
     sections: {
       "group-a": makeSection("group-a", ["child-a"]),
       "child-a": makeSection("child-a"),
@@ -55,7 +63,7 @@ beforeEach(() => {
     },
     parentSectionMap: { "child-a": "group-a" },
   });
-  useNodeInternals.setState({
+  testWorkspace.nodeInternals.setState({
     x: new Map([
       ["group-a", makeNode("group-a", 0)],
       ["leaf-b", makeNode("leaf-b", 1)],
@@ -65,98 +73,98 @@ beforeEach(() => {
 
 describe("applyActiveSectionChange", () => {
   it("replaces the selection on a plain section click and raises the highest ancestor", () => {
-    useActiveSections.setState({ activeIds: ["leaf-b"] });
+    testWorkspace.activeSections.setState({ activeIds: ["leaf-b"] });
 
-    const result = applyActiveSectionChange({
+    const result = applyActiveSectionChange(testWorkspace.host, {
       interaction: "section-click",
       sectionId: "child-a",
     });
 
     expect(result.activeIdsChanged).toBe(true);
-    expect(getActiveSectionIds()).toEqual(["child-a"]);
-    const nodes = useNodeInternals.getState().x;
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["child-a"]);
+    const nodes = testWorkspace.nodeInternals.getState().x;
     expect(nodes.get("group-a")?.zIndex).toBeGreaterThan(
       nodes.get("leaf-b")?.zIndex ?? 0,
     );
   });
 
   it("activates and raises the section when an editing control takes input focus", () => {
-    useActiveSections.setState({ activeIds: ["leaf-b"] });
+    testWorkspace.activeSections.setState({ activeIds: ["leaf-b"] });
 
-    const result = applyActiveSectionChange({
+    const result = applyActiveSectionChange(testWorkspace.host, {
       interaction: "input-focus",
       sectionId: "child-a",
     });
 
     expect(result.activeIdsChanged).toBe(true);
-    expect(getActiveSectionIds()).toEqual(["child-a"]);
-    const nodes = useNodeInternals.getState().x;
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["child-a"]);
+    const nodes = testWorkspace.nodeInternals.getState().x;
     expect(nodes.get("group-a")?.zIndex).toBeGreaterThan(
       nodes.get("leaf-b")?.zIndex ?? 0,
     );
   });
 
   it("toggles membership while the multi-selection key is held", () => {
-    useReactFlow.setState({ multiSelectionActive: true });
-    useActiveSections.setState({ activeIds: ["leaf-b"] });
+    testWorkspace.reactFlow.setState({ multiSelectionActive: true });
+    testWorkspace.activeSections.setState({ activeIds: ["leaf-b"] });
 
-    applyActiveSectionChange({
+    applyActiveSectionChange(testWorkspace.host, {
       interaction: "section-click",
       sectionId: "group-a",
     });
-    expect(getActiveSectionIds()).toEqual(["leaf-b", "group-a"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["leaf-b", "group-a"]);
 
-    applyActiveSectionChange({
+    applyActiveSectionChange(testWorkspace.host, {
       interaction: "section-click",
       sectionId: "leaf-b",
     });
-    expect(getActiveSectionIds()).toEqual(["group-a"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["group-a"]);
   });
 
   it("accepts explicit modifier state from selection surfaces outside the canvas", () => {
-    useReactFlow.setState({ multiSelectionActive: false });
-    useActiveSections.setState({ activeIds: ["leaf-b"] });
+    testWorkspace.reactFlow.setState({ multiSelectionActive: false });
+    testWorkspace.activeSections.setState({ activeIds: ["leaf-b"] });
 
-    applyActiveSectionChange({
+    applyActiveSectionChange(testWorkspace.host, {
       interaction: "section-click",
       sectionId: "group-a",
       multiSelectionActive: true,
     });
-    expect(getActiveSectionIds()).toEqual(["leaf-b", "group-a"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["leaf-b", "group-a"]);
 
-    useReactFlow.setState({ multiSelectionActive: true });
-    applyActiveSectionChange({
+    testWorkspace.reactFlow.setState({ multiSelectionActive: true });
+    applyActiveSectionChange(testWorkspace.host, {
       interaction: "section-click",
       sectionId: "group-a",
       multiSelectionActive: false,
     });
-    expect(getActiveSectionIds()).toEqual(["group-a"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["group-a"]);
   });
 
   it("clears the selection on a pane click without touching z-order", () => {
-    useActiveSections.setState({ activeIds: ["leaf-b"] });
-    const zBefore = useNodeInternals.getState().x.get("leaf-b")?.zIndex;
+    testWorkspace.activeSections.setState({ activeIds: ["leaf-b"] });
+    const zBefore = testWorkspace.nodeInternals.getState().x.get("leaf-b")?.zIndex;
 
-    const result = applyActiveSectionChange({ interaction: "pane-click" });
+    const result = applyActiveSectionChange(testWorkspace.host, { interaction: "pane-click" });
 
     expect(result.activeIdsChanged).toBe(true);
-    expect(getActiveSectionIds()).toEqual([]);
-    expect(useNodeInternals.getState().x.get("leaf-b")?.zIndex).toBe(zBefore);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual([]);
+    expect(testWorkspace.nodeInternals.getState().x.get("leaf-b")?.zIndex).toBe(zBefore);
   });
 
   it("applies marquee results verbatim", () => {
-    applyActiveSectionChange({
+    applyActiveSectionChange(testWorkspace.host, {
       interaction: "selection-rect",
       selectedIds: ["group-a", "leaf-b"],
     });
 
-    expect(getActiveSectionIds()).toEqual(["group-a", "leaf-b"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["group-a", "leaf-b"]);
   });
 
   it("routes section clicks through the item-mode branch using the document's item selection", () => {
-    useItemSelectionMode.setState({ isSelectingItems: true });
-    useActiveSections.setState({ activeIds: ["group-a"] });
-    useWorkspaceDocument.setState((state) => ({
+    testWorkspace.itemSelectionMode.setState({ isSelectingItems: true });
+    testWorkspace.activeSections.setState({ activeIds: ["group-a"] });
+    testWorkspace.document.setState((state) => ({
       sections: {
         ...state.sections,
         "leaf-b": {
@@ -174,18 +182,18 @@ describe("applyActiveSectionChange", () => {
     }));
 
     // Clicking a section without selected items keeps the current active ids.
-    applyActiveSectionChange({
+    applyActiveSectionChange(testWorkspace.host, {
       interaction: "section-click",
       sectionId: "child-a",
     });
-    expect(getActiveSectionIds()).toEqual(["group-a"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["group-a"]);
 
     // Clicking a section whose items are selected activates it.
-    const result = applyActiveSectionChange({
+    const result = applyActiveSectionChange(testWorkspace.host, {
       interaction: "section-click",
       sectionId: "leaf-b",
     });
     expect(result.reason).toBe("section-click:item-select-set");
-    expect(getActiveSectionIds()).toEqual(["leaf-b"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["leaf-b"]);
   });
 });

@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -19,7 +27,6 @@ import {
   useItemDndState,
 } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import {
   activateItemSelect,
   useItemSelectionMode,
@@ -103,8 +110,8 @@ function makeItemTree(): WorkspaceSectionItemTree {
 }
 
 function loadTestDocument() {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
-  loadWorkspaceDocument({
+  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
         id: "panel",
@@ -128,7 +135,7 @@ function loadTestDocument() {
 }
 
 function loadTypedSwitchDocument(helpText?: string, labelEditable = true) {
-  loadWorkspaceDocument({
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
         id: "panel",
@@ -238,20 +245,19 @@ describe("WorkspaceItemList", () => {
       root.unmount();
     });
     host.remove();
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
-    resetItemListViews();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
-    useWorkspaceCapabilities.getState().reset();
-    useItemSelectionMode.getState().reset();
-    useItemDndState.getState().reset();
-    useItemDndChildren.getState().reset();
-    registerWorkspaceCommands([]);
-    useWorkspaceMenuState.getState().reset();
-    useWorkspaceTooltip.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    registerSectionKinds(testWorkspace.host, {});
+    resetItemListViews(testWorkspace.host);
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.itemDndState.getState().reset();
+    testWorkspace.itemDndChildren.getState().reset();
+    registerWorkspaceCommands(testWorkspace.host, []);
+    testWorkspace.menuState.getState().reset();
+    testWorkspace.tooltip.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
     observedResizeTargets.clear();
   });
 
@@ -260,7 +266,8 @@ describe("WorkspaceItemList", () => {
   ) {
     await act(async () => {
       root.render(
-        createElement(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(
           "div",
           { "data-section-id": "panel" },
           createElement(
@@ -275,7 +282,8 @@ describe("WorkspaceItemList", () => {
               ...props,
             }),
           ),
-        ),
+        )
+        }</WorkspaceTestProvider>,
       );
     });
   }
@@ -336,7 +344,9 @@ describe("WorkspaceItemList", () => {
     await mount({ topLevelItemIds: ["item-switch"], renderItem: undefined });
 
     expect(
-      document.getElementById("ItemNameInput-panel-item-switch")?.textContent,
+      document.getElementById(
+        `${testWorkspace.domId}-ItemNameInput-panel-item-switch`,
+      )?.textContent,
     ).toBe("enabled");
     const toggle = host.querySelector<HTMLButtonElement>('[role="switch"]');
     if (!toggle) {
@@ -344,7 +354,7 @@ describe("WorkspaceItemList", () => {
     }
     act(() => toggle.click());
     expect(
-      useWorkspaceDocument.getState().sections.panel?.itemTree?.items[
+      testWorkspace.document.getState().sections.panel?.itemTree?.items[
         "item-switch"
       ]?.presentation?.control,
     ).toMatchObject({ kind: "switch", value: "false" });
@@ -366,7 +376,7 @@ describe("WorkspaceItemList", () => {
     await act(async () => {
       row.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
     });
-    expect(useWorkspaceTooltip.getState()).toMatchObject({
+    expect(testWorkspace.tooltip.getState()).toMatchObject({
       pages: [
         {
           content: "Enable the optional retry path.",
@@ -377,12 +387,12 @@ describe("WorkspaceItemList", () => {
     });
 
     await act(async () => {
-      enableWorkspaceTooltip();
+      enableWorkspaceTooltip(testWorkspace.host);
     });
-    expect(useWorkspaceTooltip.getState().isEnabled).toBe(true);
+    expect(testWorkspace.tooltip.getState().isEnabled).toBe(true);
 
     await act(async () => {
-      disableWorkspaceTooltip();
+      disableWorkspaceTooltip(testWorkspace.host);
       row.dispatchEvent(
         new MouseEvent("mouseout", {
           bubbles: true,
@@ -390,7 +400,7 @@ describe("WorkspaceItemList", () => {
         }),
       );
     });
-    expect(useWorkspaceTooltip.getState()).toMatchObject({
+    expect(testWorkspace.tooltip.getState()).toMatchObject({
       isEnabled: false,
       pages: [],
     });
@@ -398,7 +408,7 @@ describe("WorkspaceItemList", () => {
 
   it("styles and describes every diagnostic severity without relying on color alone", async () => {
     const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
     await mount({
       itemDiagnostics: {
         "item-a": [
@@ -446,14 +456,14 @@ describe("WorkspaceItemList", () => {
     await act(async () => {
       errorRow.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
     });
-    expect(useWorkspaceTooltip.getState().pages[0]).toMatchObject({
+    expect(testWorkspace.tooltip.getState().pages[0]).toMatchObject({
       title: "item-a",
       tone: "error",
     });
-    expect(useWorkspaceTooltip.getState().pages[0]?.content).toContain(
+    expect(testWorkspace.tooltip.getState().pages[0]?.content).toContain(
       "Choose a value below 10.",
     );
-    expect(useWorkspaceTooltip.getState().pages[0]?.content).toContain(
+    expect(testWorkspace.tooltip.getState().pages[0]?.content).toContain(
       "Review this value before running.",
     );
     expect(onDocumentChange).not.toHaveBeenCalled();
@@ -462,7 +472,7 @@ describe("WorkspaceItemList", () => {
   it("announces diagnostic replacement and clearing while preserving editor and row focus", async () => {
     loadTypedSwitchDocument();
     const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
     const typedProps = {
       topLevelItemIds: ["item-switch"],
       renderItem: undefined,
@@ -483,7 +493,7 @@ describe("WorkspaceItemList", () => {
     );
     const nameEditor = getRequiredElement<HTMLElement>(
       row,
-      "#ItemNameInput-panel-item-switch",
+      `#${testWorkspace.domId}-ItemNameInput-panel-item-switch`,
       "the typed item name editor",
     );
     const infoMarker = getRequiredElement<HTMLElement>(
@@ -596,7 +606,7 @@ describe("WorkspaceItemList", () => {
     );
 
     await act(async () => {
-      useWorkspaceCapabilities.setState({ canEditLayout: false });
+      testWorkspace.capabilities.setState({ canEditLayout: false });
     });
     expect(
       host.querySelector('[data-item-column-resize-handle="true"]'),
@@ -614,14 +624,16 @@ describe("WorkspaceItemList", () => {
     expect(staticLabel?.hasAttribute("tabindex")).toBe(false);
     expect(staticLabel?.hasAttribute("role")).toBe(false);
     expect(
-      document.getElementById("ItemNameInput-panel-item-switch"),
+      document.getElementById(
+        `${testWorkspace.domId}-ItemNameInput-panel-item-switch`,
+      ),
     ).toBeNull();
     expect(host.querySelector('[aria-label="enabled value"]')).not.toBeNull();
   });
 
   it("drags at canvas scale and persists once", async () => {
     const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
     await mount();
 
     const listOuter = getListOuter();
@@ -636,7 +648,7 @@ describe("WorkspaceItemList", () => {
       "257px",
     );
 
-    useReactFlow.setState({ transform: [0, 0, 2] });
+    testWorkspace.reactFlow.setState({ transform: [0, 0, 2] });
     const handle = host.querySelector<HTMLElement>(
       '[data-item-column-resize-handle="true"]',
     );
@@ -671,7 +683,7 @@ describe("WorkspaceItemList", () => {
       window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 7 }));
     });
     expect(
-      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+      testWorkspace.document.getState().sections["panel"]?.itemTree
         ?.itemColumnWidth,
     ).toBe(277);
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
@@ -683,7 +695,7 @@ describe("WorkspaceItemList", () => {
 
   it("commits the final pointer sample when release beats the animation frame", async () => {
     const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
     await mount();
 
     const listOuter = getListOuter();
@@ -697,7 +709,7 @@ describe("WorkspaceItemList", () => {
       throw new Error("expected the item-column surface");
     }
     act(() => resizeListOuter(listOuter, 550));
-    useReactFlow.setState({ transform: [0, 0, 2] });
+    testWorkspace.reactFlow.setState({ transform: [0, 0, 2] });
 
     await act(async () => {
       handle.dispatchEvent(
@@ -724,7 +736,7 @@ describe("WorkspaceItemList", () => {
       "277px",
     );
     expect(
-      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+      testWorkspace.document.getState().sections["panel"]?.itemTree
         ?.itemColumnWidth,
     ).toBe(277);
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
@@ -732,7 +744,7 @@ describe("WorkspaceItemList", () => {
 
   it("restores the authored split without committing when a pointer drag is canceled", async () => {
     const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
     await mount();
 
     const listOuter = getListOuter();
@@ -781,7 +793,7 @@ describe("WorkspaceItemList", () => {
       "257px",
     );
     expect(
-      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+      testWorkspace.document.getState().sections["panel"]?.itemTree
         ?.itemColumnWidth,
     ).toBe(undefined);
     expect(onDocumentChange).not.toHaveBeenCalled();
@@ -789,7 +801,7 @@ describe("WorkspaceItemList", () => {
 
   it("resizes the live split proportionally and double-click resets it", async () => {
     const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
     await mount();
 
     const listOuter = getListOuter();
@@ -822,7 +834,7 @@ describe("WorkspaceItemList", () => {
       "267px",
     );
     expect(
-      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+      testWorkspace.document.getState().sections["panel"]?.itemTree
         ?.itemColumnWidth,
     ).toBe(267);
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
@@ -832,7 +844,7 @@ describe("WorkspaceItemList", () => {
       "324px",
     );
     expect(
-      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+      testWorkspace.document.getState().sections["panel"]?.itemTree
         ?.itemColumnWidth,
     ).toBe(267);
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
@@ -851,7 +863,7 @@ describe("WorkspaceItemList", () => {
       "312px",
     );
     expect(
-      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+      testWorkspace.document.getState().sections["panel"]?.itemTree
         ?.itemColumnWidth,
     ).toBe(312);
     expect(onDocumentChange).toHaveBeenCalledOnce();
@@ -900,7 +912,7 @@ describe("WorkspaceItemList", () => {
       window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 9 }));
     });
     expect(
-      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+      testWorkspace.document.getState().sections["panel"]?.itemTree
         ?.itemColumnWidth,
     ).toBe(277);
   });
@@ -935,7 +947,7 @@ describe("WorkspaceItemList", () => {
   it("renders the nested-root layout when a non-group row has child rows", async () => {
     // The reference's "renders the nested-root layout when top-level params have child rows":
     // a leaf-styled row that carries children takes the subgrid nested-root layout.
-    loadWorkspaceDocument({
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         panel: {
           id: "panel",
@@ -1022,7 +1034,7 @@ describe("WorkspaceItemList", () => {
     shell.scrollTop = 48;
 
     await act(async () => {
-      activateItemSelect();
+      activateItemSelect(testWorkspace.host);
     });
 
     expect(host.querySelector("div.overflow-y-scroll")).toBe(shell);
@@ -1033,7 +1045,7 @@ describe("WorkspaceItemList", () => {
     const loadPanelWithStyleColor = (styleColor: string | null) => {
       const itemTree = makeItemTree();
       itemTree.selectedItemIds = ["item-a"];
-      loadWorkspaceDocument({
+      loadWorkspaceDocument(testWorkspace.host, {
         sections: {
           panel: {
             id: "panel",
@@ -1073,25 +1085,29 @@ describe("WorkspaceItemList", () => {
 
   it("registers its list view while mounted", async () => {
     await mount();
-    expect(resolveItemListView("panel", "item-c", LIST_KEY)?.listKey).toBe(
+    expect(resolveItemListView(testWorkspace.host, "panel", "item-c", LIST_KEY)?.listKey).toBe(
       LIST_KEY,
     );
 
     await act(async () => {
-      root.render(createElement(ItemDndContext, null));
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(ItemDndContext, null)
+        }</WorkspaceTestProvider>,
+      );
     });
-    expect(resolveItemListView("panel", "item-c", LIST_KEY)).toBeNull();
+    expect(resolveItemListView(testWorkspace.host, "panel", "item-c", LIST_KEY)).toBeNull();
   });
 
   it("updates its registered view in place on re-render", async () => {
     await mount();
-    expect(resolveItemListView("panel", "item-c", LIST_KEY)?.listKey).toBe(
+    expect(resolveItemListView(testWorkspace.host, "panel", "item-c", LIST_KEY)?.listKey).toBe(
       LIST_KEY,
     );
 
     await mount({ visibleItemIds: ["item-a", "item-b"] });
-    expect(resolveItemListView("panel", "item-c", LIST_KEY)).toBeNull();
-    expect(resolveItemListView("panel", "item-a", LIST_KEY)?.listKey).toBe(
+    expect(resolveItemListView(testWorkspace.host, "panel", "item-c", LIST_KEY)).toBeNull();
+    expect(resolveItemListView(testWorkspace.host, "panel", "item-a", LIST_KEY)?.listKey).toBe(
       LIST_KEY,
     );
   });
@@ -1104,18 +1120,18 @@ describe("WorkspaceItemList", () => {
       row.click();
     });
     expect(
-      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+      testWorkspace.document.getState().sections["panel"]?.itemTree
         ?.selectedItemIds,
     ).toEqual([]);
 
     await act(async () => {
-      activateItemSelect();
+      activateItemSelect(testWorkspace.host);
     });
     await act(async () => {
       getRowByContent(host, "item-a").click();
     });
     expect(
-      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+      testWorkspace.document.getState().sections["panel"]?.itemTree
         ?.selectedItemIds,
     ).toEqual(["item-a"]);
     expect(getRowByContent(host, "item-a").className).toContain("!bg-blue-700");
@@ -1124,7 +1140,7 @@ describe("WorkspaceItemList", () => {
       getRowByContent(host, "item-a").click();
     });
     expect(
-      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+      testWorkspace.document.getState().sections["panel"]?.itemTree
         ?.selectedItemIds,
     ).toEqual([]);
   });
@@ -1138,7 +1154,7 @@ describe("WorkspaceItemList", () => {
     expect(row.getAttribute("aria-pressed")).toBeNull();
 
     await act(async () => {
-      activateItemSelect();
+      activateItemSelect(testWorkspace.host);
     });
     row = getRowByContent(host, "item-a");
     expect(row.tabIndex).toBe(0);
@@ -1179,7 +1195,7 @@ describe("WorkspaceItemList", () => {
   });
 
   it("opens package and registered item actions from pointer and keyboard invocation", async () => {
-    registerWorkspaceCommands([
+    registerWorkspaceCommands(testWorkspace.host, [
       {
         id: "host-item",
         scope: "item",
@@ -1203,7 +1219,7 @@ describe("WorkspaceItemList", () => {
       row.dispatchEvent(pointerEvent);
     });
     expect(pointerEvent.defaultPrevented).toBe(true);
-    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+    expect(testWorkspace.menuState.getState().invocation).toMatchObject({
       kind: "item",
       context: {
         scope: "item",
@@ -1212,7 +1228,7 @@ describe("WorkspaceItemList", () => {
       },
     });
 
-    useWorkspaceMenuState.getState().reset();
+    testWorkspace.menuState.getState().reset();
     row = getRowByContent(host, "item-a");
     row.getBoundingClientRect = () =>
       ({ left: 10, right: 210, top: 30, width: 200, height: 24 }) as DOMRect;
@@ -1225,7 +1241,7 @@ describe("WorkspaceItemList", () => {
         }),
       );
     });
-    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+    expect(testWorkspace.menuState.getState().invocation).toMatchObject({
       kind: "item",
       clientPoint: { x: 22, y: 42 },
     });
@@ -1262,7 +1278,7 @@ describe("WorkspaceItemList", () => {
 
       expect(pointerEvent.defaultPrevented).toBe(false);
       expect(ancestorContextMenu).not.toHaveBeenCalled();
-      expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+      expect(testWorkspace.menuState.getState().invocation).toBeNull();
     } finally {
       document.body.removeEventListener("contextmenu", ancestorContextMenu);
     }
@@ -1273,12 +1289,12 @@ describe("WorkspaceItemList", () => {
 
     const tempId = getTempItemDndId(getItemDndId("item-a", LIST_KEY));
     await act(async () => {
-      updateItemChildren({
+      updateItemChildren(testWorkspace.host, {
         "item-root": ["item-a", "item-group", "item-b"],
         "item-group": ["item-c"],
       });
-      replaceItemsWithTemp("item-a", LIST_KEY, ["item-a"]);
-      setItemDndState({
+      replaceItemsWithTemp(testWorkspace.host, "item-a", LIST_KEY, ["item-a"]);
+      setItemDndState(testWorkspace.host, {
         activeId: "item-a",
         sectionId: "panel",
         listKey: LIST_KEY,
@@ -1295,7 +1311,7 @@ describe("WorkspaceItemList", () => {
       row.className.includes("bg-blue-500/40"),
     );
     expect(tempRow).not.toBeUndefined();
-    expect(useItemDndChildren.getState().x["item-root"]).toEqual([
+    expect(testWorkspace.itemDndChildren.getState().x["item-root"]).toEqual([
       tempId,
       "item-group",
       "item-b",

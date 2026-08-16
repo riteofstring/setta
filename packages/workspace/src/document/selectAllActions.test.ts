@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import {
@@ -5,7 +13,6 @@ import {
   resetItemListViews,
 } from "../items/itemListRegistry";
 import { getActiveSectionIds } from "./activeSections";
-import { setWorkspaceDocumentChangeCallback } from "./documentChangeCallback";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { registerSectionKinds } from "./sectionKindRegistry";
 import {
@@ -41,7 +48,7 @@ function makeSection(
 
 function getSelectedItemIds(sectionId: string): Array<string> {
   const itemTree =
-    useWorkspaceDocument.getState().sections[sectionId]?.itemTree;
+    testWorkspace.document.getState().sections[sectionId]?.itemTree;
   if (!itemTree) {
     throw new Error(`expected section ${sectionId} to carry an item tree`);
   }
@@ -53,8 +60,8 @@ const documentChangeSpy = vi.fn();
 // "panel" nests "nested-child" under "nested", so tree order and subtree pruning are both
 // observable; "group" holds "grouped", and "bare" has no parameters at all.
 function loadSelectionDocument(activeIds: Array<string>) {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
-  loadWorkspaceDocument({
+  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: makeSection("panel", {
         itemTree: {
@@ -81,68 +88,67 @@ function loadSelectionDocument(activeIds: Array<string>) {
     activeIds,
   });
   documentChangeSpy.mockClear();
-  setWorkspaceDocumentChangeCallback(documentChangeSpy);
+  testWorkspace.host.subscribe(documentChangeSpy);
 }
 
 describe("select-all actions", () => {
   beforeEach(() => {
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   afterEach(() => {
-    setWorkspaceDocumentChangeCallback(null);
-    resetItemListViews();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
-    registerSectionKinds({});
+    resetItemListViews(testWorkspace.host);
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
+    registerSectionKinds(testWorkspace.host, {});
   });
 
   it("selects every parameter the single active section shows, in tree order", () => {
     loadSelectionDocument(["panel"]);
-    registerItemListView("panel", {
+    registerItemListView(testWorkspace.host, "panel", {
       listKey: "main",
       topLevelItemIds: ["item-a", "nested"],
       visibleItemIds: new Set(["item-a", "nested", "nested-child"]),
       filterActive: false,
     });
 
-    expect(selectAllInWorkspace()).toBe(true);
+    expect(selectAllInWorkspace(testWorkspace.host)).toBe(true);
     expect(getSelectedItemIds("panel")).toEqual([
       "item-a",
       "nested",
       "nested-child",
     ]);
-    expect(getActiveSectionIds()).toEqual(["panel"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["panel"]);
     expect(documentChangeSpy).toHaveBeenCalledTimes(1);
   });
 
   it("leaves out rows a filter hides, including their children", () => {
     loadSelectionDocument(["panel"]);
-    registerItemListView("panel", {
+    registerItemListView(testWorkspace.host, "panel", {
       listKey: "main",
       topLevelItemIds: ["item-a", "nested"],
       visibleItemIds: new Set(["item-a"]),
       filterActive: true,
     });
 
-    expect(selectAllInWorkspace()).toBe(true);
+    expect(selectAllInWorkspace(testWorkspace.host)).toBe(true);
     expect(getSelectedItemIds("panel")).toEqual(["item-a"]);
   });
 
   it("keeps a complete selection unchanged without notifying again", () => {
     loadSelectionDocument(["panel"]);
-    registerItemListView("panel", {
+    registerItemListView(testWorkspace.host, "panel", {
       listKey: "main",
       topLevelItemIds: ["item-a", "nested"],
       visibleItemIds: new Set(["item-a", "nested", "nested-child"]),
       filterActive: false,
     });
-    selectAllInWorkspace();
+    selectAllInWorkspace(testWorkspace.host);
     documentChangeSpy.mockClear();
 
-    expect(selectAllInWorkspace()).toBe(true);
+    expect(selectAllInWorkspace(testWorkspace.host)).toBe(true);
     expect(getSelectedItemIds("panel")).toEqual([
       "item-a",
       "nested",
@@ -154,23 +160,23 @@ describe("select-all actions", () => {
   it("declines for a single active section with nothing to select", () => {
     loadSelectionDocument(["bare"]);
 
-    expect(selectAllInWorkspace()).toBe(false);
-    expect(getActiveSectionIds()).toEqual(["bare"]);
+    expect(selectAllInWorkspace(testWorkspace.host)).toBe(false);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["bare"]);
     expect(documentChangeSpy).not.toHaveBeenCalled();
   });
 
   it("declines while the single active section has no mounted list view", () => {
     loadSelectionDocument(["panel"]);
 
-    expect(selectAllInWorkspace()).toBe(false);
+    expect(selectAllInWorkspace(testWorkspace.host)).toBe(false);
     expect(getSelectedItemIds("panel")).toEqual([]);
   });
 
   it("selects every section, nested ones included, without a single active section", () => {
     loadSelectionDocument([]);
 
-    expect(selectAllInWorkspace()).toBe(true);
-    expect(getActiveSectionIds()).toEqual([
+    expect(selectAllInWorkspace(testWorkspace.host)).toBe(true);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual([
       "panel",
       "bare",
       "group",
@@ -182,8 +188,8 @@ describe("select-all actions", () => {
   it("selects every section from a multiple-section selection", () => {
     loadSelectionDocument(["panel", "bare"]);
 
-    expect(selectAllInWorkspace()).toBe(true);
-    expect(getActiveSectionIds()).toEqual([
+    expect(selectAllInWorkspace(testWorkspace.host)).toBe(true);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual([
       "panel",
       "bare",
       "group",
@@ -194,9 +200,9 @@ describe("select-all actions", () => {
   it("selects the top-level sections that are not groups", () => {
     loadSelectionDocument(["group"]);
 
-    selectAllTopLevelNonGroupSections();
+    selectAllTopLevelNonGroupSections(testWorkspace.host);
 
-    expect(getActiveSectionIds()).toEqual(["panel", "bare"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["panel", "bare"]);
     expect(documentChangeSpy).toHaveBeenCalledTimes(1);
   });
 });

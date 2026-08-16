@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -19,12 +27,12 @@ import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 function resetStores() {
-  useWorkspaceOptions.getState().reset();
-  useWorkspaceAppearance.getState().reset();
-  useWorkspaceDocument.getState().reset();
-  useActiveSections.getState().reset();
-  useNodeInternals.setState({ x: new Map() });
-  useReactFlow.setState({ ...initialCanvasState });
+  testWorkspace.options.getState().reset();
+  testWorkspace.appearance.getState().reset();
+  testWorkspace.document.getState().reset();
+  testWorkspace.activeSections.getState().reset();
+  testWorkspace.nodeInternals.setState({ x: new Map() });
+  testWorkspace.reactFlow.setState({ ...initialCanvasState });
 }
 
 describe("ResponsiveMiniMap", () => {
@@ -57,11 +65,15 @@ describe("ResponsiveMiniMap", () => {
   }
 
   it("renders the reference panel chrome at the bottom-left default", async () => {
-    useReactFlow.setState({
+    testWorkspace.reactFlow.setState({
       viewportInsets: { top: 0, right: 40, bottom: 0, left: 335 },
     });
     await act(async () => {
-      root.render(<ResponsiveMiniMap />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<ResponsiveMiniMap />
+        }</WorkspaceTestProvider>,
+      );
     });
 
     const panel = getPanel();
@@ -87,13 +99,17 @@ describe("ResponsiveMiniMap", () => {
   });
 
   it("flips to the bottom-right corner when the minimap side preference is right", async () => {
-    useWorkspaceOptions.setState({ minimapSide: "right" });
-    useReactFlow.setState({
+    testWorkspace.options.setState({ minimapSide: "right" });
+    testWorkspace.reactFlow.setState({
       viewportInsets: { top: 0, right: 500, bottom: 0, left: 40 },
     });
 
     await act(async () => {
-      root.render(<ResponsiveMiniMap />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<ResponsiveMiniMap />
+        }</WorkspaceTestProvider>,
+      );
     });
 
     const panel = getPanel();
@@ -104,10 +120,14 @@ describe("ResponsiveMiniMap", () => {
   });
 
   it("uses the dark mask colors in dark mode", async () => {
-    useWorkspaceAppearance.setState({ darkMode: true });
+    testWorkspace.appearance.setState({ darkMode: true });
 
     await act(async () => {
-      root.render(<ResponsiveMiniMap />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<ResponsiveMiniMap />
+        }</WorkspaceTestProvider>,
+      );
     });
 
     const mask = getPanel().querySelector(".react-flow__minimap-mask");
@@ -117,7 +137,11 @@ describe("ResponsiveMiniMap", () => {
 
   it("mounts inside the canvas wrapper and unmounts through the show-minimap preference", async () => {
     await act(async () => {
-      root.render(<WorkspaceCanvas />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceCanvas />
+        }</WorkspaceTestProvider>,
+      );
     });
 
     expect(
@@ -131,12 +155,12 @@ describe("ResponsiveMiniMap", () => {
     expect(host.querySelector('[data-testid="rf__minimap"]')).not.toBe(null);
 
     await act(async () => {
-      toggleMiniMap();
+      toggleMiniMap(testWorkspace.host);
     });
     expect(host.querySelector('[data-testid="rf__minimap"]')).toBe(null);
 
     await act(async () => {
-      toggleMiniMap();
+      toggleMiniMap(testWorkspace.host);
     });
     expect(host.querySelector('[data-testid="rf__minimap"]')).not.toBe(null);
   });

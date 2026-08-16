@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -65,12 +73,12 @@ function makeDocument(
 }
 
 function resetWorkspaceStores() {
-  registerSectionKinds({});
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
-  useActiveSections.getState().reset();
-  useWorkspaceAppearance.getState().reset();
-  useReactFlow.setState({ ...initialCanvasState });
+  registerSectionKinds(testWorkspace.host, {});
+  testWorkspace.document.getState().reset();
+  testWorkspace.nodeInternals.getState().reset();
+  testWorkspace.activeSections.getState().reset();
+  testWorkspace.appearance.getState().reset();
+  testWorkspace.reactFlow.setState({ ...initialCanvasState });
 }
 
 describe("built-in text section registration", () => {
@@ -101,46 +109,46 @@ describe("built-in text section registration", () => {
   });
 
   it("loads an omitted size at the reference's text block default", () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection(),
     });
-    loadWorkspaceDocument(makeDocument({ size: undefined }));
-    expect(getWorkspaceDocument().sections[SECTION_ID]?.size).toEqual({
+    loadWorkspaceDocument(testWorkspace.host, makeDocument({ size: undefined }));
+    expect(getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.size).toEqual({
       width: 500,
       height: 150,
     });
   });
 
   it("takes a host-supplied default size", () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
         defaultSize: { width: 320, height: 200 },
       }),
     });
-    loadWorkspaceDocument(makeDocument({ size: undefined }));
-    expect(getWorkspaceDocument().sections[SECTION_ID]?.size).toEqual({
+    loadWorkspaceDocument(testWorkspace.host, makeDocument({ size: undefined }));
+    expect(getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.size).toEqual({
       width: 320,
       height: 200,
     });
   });
 
   it("fails the load on malformed text section data", () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection(),
     });
     expect(() =>
-      loadWorkspaceDocument(makeDocument({ data: { text: "notes" } })),
+      loadWorkspaceDocument(testWorkspace.host, makeDocument({ data: { text: "notes" } })),
     ).toThrow(/Text section notes is missing its string format field/u);
   });
 
   it("fails the load on a format the registration does not allow", () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
         formats: ["markdown"],
       }),
     });
     expect(() =>
-      loadWorkspaceDocument(
+      loadWorkspaceDocument(testWorkspace.host,
         makeDocument({
           data: createWorkspaceTextSectionData({ format: "plaintext" }),
         }),
@@ -149,14 +157,14 @@ describe("built-in text section registration", () => {
   });
 
   it("refuses a typed write outside the registration's display modes", () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
         displayModes: ["edit"],
       }),
     });
-    loadWorkspaceDocument(makeDocument());
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
     expect(() =>
-      setWorkspaceTextSectionData(
+      setWorkspaceTextSectionData(testWorkspace.host,
         SECTION_ID,
         createWorkspaceTextSectionData({ displayMode: "render" }),
       ),
@@ -164,8 +172,8 @@ describe("built-in text section registration", () => {
   });
 
   it("fails a document naming the kind when the host leaves the built-in out", () => {
-    registerSectionKinds({ leaf: { renderContent: () => null } });
-    expect(() => loadWorkspaceDocument(makeDocument())).toThrow(
+    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    expect(() => loadWorkspaceDocument(testWorkspace.host, makeDocument())).toThrow(
       /Section kind setta\.text is not registered/u,
     );
   });
@@ -192,10 +200,12 @@ describe("built-in text section header", () => {
   async function renderHeader() {
     await act(async () => {
       root.render(
-        createElement(SectionHeader, {
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(SectionHeader, {
           sectionId: SECTION_ID,
           hasSectionStyleTheme: false,
-        }),
+        })
+        }</WorkspaceTestProvider>,
       );
     });
   }
@@ -203,25 +213,27 @@ describe("built-in text section header", () => {
   async function renderIcon() {
     await act(async () => {
       root.render(
-        createElement(HeaderIcon, {
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(HeaderIcon, {
           hasSectionStyleTheme: false,
           sectionId: SECTION_ID,
           sectionKind: WORKSPACE_TEXT_SECTION_KIND,
-        }),
+        })
+        }</WorkspaceTestProvider>,
       );
     });
     return host.querySelector("svg path")?.getAttribute("d") ?? null;
   }
 
   it("paints the section's own format, like the reference's text block header icon", async () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection(),
     });
-    loadWorkspaceDocument(makeDocument());
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
     const plaintextPath = await renderIcon();
     expect(plaintextPath).not.toBeNull();
     await act(async () => {
-      setWorkspaceTextSectionData(
+      setWorkspaceTextSectionData(testWorkspace.host,
         SECTION_ID,
         createWorkspaceTextSectionData({ format: "markdown" }),
       );
@@ -230,23 +242,23 @@ describe("built-in text section header", () => {
   });
 
   it("leaves the display-mode control out when the host asks it to", async () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
         showDisplayModeControl: false,
       }),
     });
-    loadWorkspaceDocument(makeDocument());
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
     await renderHeader();
     expect(host.querySelector("button[aria-label='Render text']")).toBeNull();
   });
 
   it("leaves the display-mode control out when one mode is forced", async () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
         displayModes: ["render"],
       }),
     });
-    loadWorkspaceDocument(
+    loadWorkspaceDocument(testWorkspace.host,
       makeDocument({
         data: createWorkspaceTextSectionData({ displayMode: "render" }),
       }),
@@ -256,10 +268,10 @@ describe("built-in text section header", () => {
   });
 
   it("contributes the control ahead of the container controls by default", async () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection(),
     });
-    loadWorkspaceDocument(makeDocument());
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
     await renderHeader();
     const labels = [...host.querySelectorAll("button[aria-label]")].map(
       (button) => button.getAttribute("aria-label"),

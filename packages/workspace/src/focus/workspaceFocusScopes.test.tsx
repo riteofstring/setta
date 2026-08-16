@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -61,8 +69,8 @@ function appendButton(parent: HTMLElement, label: string): HTMLButtonElement {
 // Two leaf sections whose layout order is the reverse of the order they are appended in, so a
 // reading-order failure cannot pass by accident.
 function loadCanvasDocument() {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
-  loadWorkspaceDocument({
+  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       lower: {
         id: "lower",
@@ -115,16 +123,20 @@ describe("workspace focus scopes", () => {
       root.unmount();
     });
     host.remove();
-    registerSectionKinds({});
-    useSectionRefs.getState().reset();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
+    registerSectionKinds(testWorkspace.host, {});
+    testWorkspace.sectionRefs.getState().reset();
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
   });
 
   async function mountScopes(scopeIds: ReadonlyArray<WorkspaceFocusScopeId>) {
     await act(async () => {
-      root.render(<ScopeHost scopeIds={scopeIds} />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<ScopeHost scopeIds={scopeIds} />
+        }</WorkspaceTestProvider>,
+      );
     });
   }
 
@@ -134,7 +146,7 @@ describe("workspace focus scopes", () => {
     const outline = appendButton(scopeRoot, "Outline");
     appendButton(scopeRoot, "Inspector");
 
-    expect(focusWorkspaceScope("leading-pane")).toBe(true);
+    expect(focusWorkspaceScope(testWorkspace.host, "leading-pane")).toBe(true);
     expect(document.activeElement).toBe(outline);
     expect(getWorkspaceFocusScopeId(outline)).toBe("leading-pane");
   });
@@ -155,7 +167,7 @@ describe("workspace focus scopes", () => {
     second.focus();
     trailing.focus();
 
-    expect(focusWorkspaceScope("leading-pane")).toBe(true);
+    expect(focusWorkspaceScope(testWorkspace.host, "leading-pane")).toBe(true);
     expect(document.activeElement).toBe(second);
   });
 
@@ -168,7 +180,7 @@ describe("workspace focus scopes", () => {
     second.focus();
     second.remove();
 
-    expect(focusWorkspaceScope("leading-pane")).toBe(true);
+    expect(focusWorkspaceScope(testWorkspace.host, "leading-pane")).toBe(true);
     expect(document.activeElement).toBe(first);
   });
 
@@ -181,7 +193,7 @@ describe("workspace focus scopes", () => {
     scopeRoot.appendChild(panel);
     const hiddenControl = appendButton(panel, "Hidden");
 
-    expect(focusWorkspaceScope("trailing-pane")).toBe(true);
+    expect(focusWorkspaceScope(testWorkspace.host, "trailing-pane")).toBe(true);
     expect(document.activeElement).toBe(tab);
     expect(document.activeElement).not.toBe(hiddenControl);
   });
@@ -190,11 +202,11 @@ describe("workspace focus scopes", () => {
     await mountScopes(["leading-pane"]);
     const scopeRoot = requireElement(host, '[data-scope-root="leading-pane"]');
 
-    expect(focusWorkspaceScope("trailing-pane")).toBe(false);
-    expect(focusWorkspaceScope("leading-pane")).toBe(false);
+    expect(focusWorkspaceScope(testWorkspace.host, "trailing-pane")).toBe(false);
+    expect(focusWorkspaceScope(testWorkspace.host, "leading-pane")).toBe(false);
 
     appendButton(scopeRoot, "Disabled").disabled = true;
-    expect(focusWorkspaceScope("leading-pane")).toBe(false);
+    expect(focusWorkspaceScope(testWorkspace.host, "leading-pane")).toBe(false);
   });
 
   it("offers the canvas sections in layout reading order rather than DOM order", async () => {
@@ -206,12 +218,12 @@ describe("workspace focus scopes", () => {
     scopeRoot.append(lowerRoot, upperRoot);
     const lowerControl = appendButton(lowerRoot, "Lower control");
     const upperControl = appendButton(upperRoot, "Upper control");
-    useSectionRefs.setState({
+    testWorkspace.sectionRefs.setState({
       withNested: { lower: lowerRoot, upper: upperRoot },
       selfOnly: { lower: lowerRoot, upper: upperRoot },
     });
 
-    expect(focusWorkspaceScope("canvas")).toBe(true);
+    expect(focusWorkspaceScope(testWorkspace.host, "canvas")).toBe(true);
     expect(document.activeElement).toBe(upperControl);
     expect(document.activeElement).not.toBe(lowerControl);
   });
@@ -224,9 +236,13 @@ describe("workspace focus scopes", () => {
     );
 
     await act(async () => {
-      root.render(<ScopeHost scopeIds={[]} />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<ScopeHost scopeIds={[]} />
+        }</WorkspaceTestProvider>,
+      );
     });
 
-    expect(focusWorkspaceScope("leading-pane")).toBe(false);
+    expect(focusWorkspaceScope(testWorkspace.host, "leading-pane")).toBe(false);
   });
 });

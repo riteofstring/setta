@@ -15,6 +15,7 @@ import {
 } from "../../interaction";
 import { handleSectionControlEscape } from "../sectionFocus";
 import { useWorkspaceHost } from "../../workspaceHostContext";
+import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
 import {
   assertDropzoneAttachments,
   assertDropzonePolicy,
@@ -230,6 +231,7 @@ function resolveDropzoneProps(
 function resolveDropzoneViewState(
   props: ResolvedDropzoneValueControlProps,
   isSelectingItems: boolean,
+  hostId: string,
 ): DropzoneViewState {
   const isDisabled = props.disabled || isSelectingItems;
   const remainingSlots = getDropzoneRemainingSlots(
@@ -243,7 +245,7 @@ function resolveDropzoneViewState(
     attachmentActionsDisabled: isDisabled || props.pending,
     remainingSlots,
     label: resolveDropzoneLabel(props.placeholder, props.attachments),
-    errorId: `${props.sectionId}-${props.controlId}-DropzoneError`,
+    errorId: `${hostId}-${props.sectionId}-${props.controlId}-DropzoneError`,
     hasError: Boolean(props.errorMessage),
   };
 }
@@ -252,11 +254,16 @@ export function DropzoneValueControl(props: DropzoneValueControlProps) {
   const resolvedProps = resolveDropzoneProps(props);
   assertDropzonePolicy(resolvedProps.policy);
   assertDropzoneAttachments(resolvedProps.attachments, resolvedProps.policy);
+  const host = useWorkspaceHost();
   const isSelectingItems = useItemSelectionModeForControl();
   return (
     <DropzoneValueControlView
       {...resolvedProps}
-      viewState={resolveDropzoneViewState(resolvedProps, isSelectingItems)}
+      viewState={resolveDropzoneViewState(
+        resolvedProps,
+        isSelectingItems,
+        getWorkspaceHostDomId(host),
+      )}
     />
   );
 }
@@ -264,6 +271,7 @@ export function DropzoneValueControl(props: DropzoneValueControlProps) {
 function DropzoneValueControlView(
   props: ResolvedDropzoneValueControlProps & { viewState: DropzoneViewState },
 ) {
+  const host = useWorkspaceHost();
   const { viewState } = props;
   const localFileButtonRef = useRef<HTMLButtonElement>(null);
   const interactions = useDropzoneInteractions({
@@ -278,7 +286,7 @@ function DropzoneValueControlView(
     <div className={ROOT_CLASS_NAME}>
       <input
         ref={interactions.fileInputRef}
-        id={`${props.sectionId}-${props.controlId}-DropzoneFileInput`}
+        id={`${getWorkspaceHostDomId(host)}-${props.sectionId}-${props.controlId}-DropzoneFileInput`}
         aria-label={`${props.ariaLabel} local files`}
         type="file"
         className="hidden"

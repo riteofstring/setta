@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { afterEach, describe, expect, it } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
@@ -46,8 +54,8 @@ function makeSection(id: string, children: Array<string> = []) {
 }
 
 afterEach(() => {
-  useReactFlow.setState({ ...initialCanvasState });
-  useSectionRefs.getState().reset();
+  testWorkspace.reactFlow.setState({ ...initialCanvasState });
+  testWorkspace.sectionRefs.getState().reset();
 });
 
 describe("section removal focus", () => {
@@ -57,12 +65,12 @@ describe("section removal focus", () => {
     outer.tabIndex = -1;
     leafShell.tabIndex = -1;
     document.body.append(outer, leafShell);
-    useSectionRefs.setState({
+    testWorkspace.sectionRefs.setState({
       withNested: { first: outer },
       selfOnly: { first: leafShell },
     });
 
-    focusSectionAfterEscape("first");
+    focusSectionAfterEscape(testWorkspace.host, "first");
 
     expect(document.activeElement).toBe(leafShell);
     outer.remove();
@@ -110,9 +118,9 @@ describe("section removal focus", () => {
     pane.tabIndex = -1;
     canvas.appendChild(pane);
     document.body.appendChild(canvas);
-    useReactFlow.setState({ domNode: canvas });
+    testWorkspace.reactFlow.setState({ domNode: canvas });
 
-    restoreFocusAfterSectionRemoval(null);
+    restoreFocusAfterSectionRemoval(testWorkspace.host, null);
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
     expect(document.activeElement).toBe(pane);

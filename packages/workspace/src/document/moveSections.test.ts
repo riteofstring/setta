@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GROUP_SECTION_KIND } from "./documentSelectors";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
@@ -34,8 +42,8 @@ function makeSection(
 }
 
 function loadTestDocument() {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
-  loadWorkspaceDocument({
+  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       leaf: makeSection("leaf"),
       group: makeSection("group", {
@@ -56,9 +64,9 @@ function loadTestDocument() {
 }
 
 function resetStores() {
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
-  useActiveSections.getState().reset();
+  testWorkspace.document.getState().reset();
+  testWorkspace.nodeInternals.getState().reset();
+  testWorkspace.activeSections.getState().reset();
 }
 
 describe("moveSections", () => {
@@ -71,27 +79,27 @@ describe("moveSections", () => {
   });
 
   it("reorders children within the same parent", () => {
-    moveSections({
+    moveSections(testWorkspace.host, {
       sectionIds: ["nested-b"],
       newParentId: "group",
       newIndex: 0,
       positionsById: null,
     });
 
-    const state = useWorkspaceDocument.getState();
+    const state = testWorkspace.document.getState();
     expect(state.sections["group"]?.children).toEqual(["nested-b", "nested-a"]);
     expect(state.parentSectionMap["nested-b"]).toBe("group");
   });
 
   it("moves a top-level section into a group and drops its layout and node", () => {
-    moveSections({
+    moveSections(testWorkspace.host, {
       sectionIds: ["leaf"],
       newParentId: "group",
       newIndex: 1,
       positionsById: null,
     });
 
-    const state = useWorkspaceDocument.getState();
+    const state = testWorkspace.document.getState();
     expect(state.sections["group"]?.children).toEqual([
       "nested-a",
       "leaf",
@@ -99,18 +107,18 @@ describe("moveSections", () => {
     ]);
     expect(state.parentSectionMap["leaf"]).toBe("group");
     expect(state.topLevelSections["leaf"]).toBeUndefined();
-    expect(useNodeInternals.getState().x.has("leaf")).toBe(false);
+    expect(testWorkspace.nodeInternals.getState().x.has("leaf")).toBe(false);
   });
 
   it("moves a nested section to the pane at the dropped position above every node", () => {
-    moveSections({
+    moveSections(testWorkspace.host, {
       sectionIds: ["nested-a"],
       newParentId: null,
       newIndex: 0,
       positionsById: { "nested-a": { x: 40, y: 80 } },
     });
 
-    const state = useWorkspaceDocument.getState();
+    const state = testWorkspace.document.getState();
     expect(state.sections["group"]?.children).toEqual(["nested-b"]);
     expect(state.parentSectionMap["nested-a"]).toBeUndefined();
     expect(state.topLevelSections["nested-a"]).toEqual({
@@ -121,21 +129,21 @@ describe("moveSections", () => {
       zIndex: 2,
     });
 
-    const node = useNodeInternals.getState().x.get("nested-a");
+    const node = testWorkspace.nodeInternals.getState().x.get("nested-a");
     expect(node?.position).toEqual({ x: 40, y: 80 });
     expect(node?.zIndex).toBe(2);
     expect(node?.tempZIndex).toBe(2);
   });
 
   it("keeps an already top-level section's z-index when repositioned on the pane", () => {
-    moveSections({
+    moveSections(testWorkspace.host, {
       sectionIds: ["leaf"],
       newParentId: null,
       newIndex: 0,
       positionsById: { leaf: { x: 500, y: 700 } },
     });
 
-    const state = useWorkspaceDocument.getState();
+    const state = testWorkspace.document.getState();
     expect(state.topLevelSections["leaf"]).toEqual({
       x: 500,
       y: 700,
@@ -147,7 +155,7 @@ describe("moveSections", () => {
 
   it("requires an index when nesting and positions when dropping on the pane", () => {
     expect(() =>
-      moveSections({
+      moveSections(testWorkspace.host, {
         sectionIds: ["leaf"],
         newParentId: "group",
         newIndex: null,
@@ -155,7 +163,7 @@ describe("moveSections", () => {
       }),
     ).toThrow("Expected newIndex when moving sections into parent.");
     expect(() =>
-      moveSections({
+      moveSections(testWorkspace.host, {
         sectionIds: ["nested-a"],
         newParentId: null,
         newIndex: 0,
@@ -167,22 +175,22 @@ describe("moveSections", () => {
   it("preserves a node z-raise that has not reached a layout commit", () => {
     // Selection raises the node z-index without immediately committing layout; the move
     // funnel mirrors node z-order into the document before rebuilding.
-    const nodes = new Map(useNodeInternals.getState().x);
+    const nodes = new Map(testWorkspace.nodeInternals.getState().x);
     const leafNode = nodes.get("leaf");
     if (!leafNode) {
       throw new Error("Missing leaf node.");
     }
     nodes.set("leaf", { ...leafNode, zIndex: 5, tempZIndex: 5 });
-    useNodeInternals.setState({ x: nodes });
+    testWorkspace.nodeInternals.setState({ x: nodes });
 
-    moveSections({
+    moveSections(testWorkspace.host, {
       sectionIds: ["nested-a"],
       newParentId: null,
       newIndex: 0,
       positionsById: { "nested-a": { x: 10, y: 10 } },
     });
 
-    const state = useWorkspaceDocument.getState();
+    const state = testWorkspace.document.getState();
     expect(state.topLevelSections["leaf"]?.zIndex).toBe(5);
     expect(state.topLevelSections["nested-a"]?.zIndex).toBe(6);
   });

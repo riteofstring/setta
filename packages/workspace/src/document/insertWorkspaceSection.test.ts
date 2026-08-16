@@ -1,9 +1,13 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
-import {
-  setWorkspaceDocumentChangeCallback,
-  type WorkspaceDocumentChangeCallback,
-} from "./documentChangeCallback";
 import { insertWorkspaceSection } from "./insertWorkspaceSection";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { registerSectionKinds } from "./sectionKindRegistry";
@@ -12,7 +16,7 @@ import {
   useNodeInternals,
   useWorkspaceDocument,
 } from "./stores";
-import type { WorkspaceSectionInput } from "./types";
+import type { WorkspaceDocument, WorkspaceSectionInput } from "./types";
 
 function createSection(
   id: string,
@@ -35,22 +39,22 @@ function createSection(
 }
 
 function resetStores(): void {
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
-  useActiveSections.getState().reset();
-  useReactFlow.setState({ ...initialCanvasState });
+  testWorkspace.document.getState().reset();
+  testWorkspace.nodeInternals.getState().reset();
+  testWorkspace.activeSections.getState().reset();
+  testWorkspace.reactFlow.setState({ ...initialCanvasState });
 }
 
 describe("insertWorkspaceSection", () => {
   beforeEach(() => {
     resetStores();
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       leaf: {
         renderContent: () => null,
         defaultSize: { width: 240, height: 120 },
       },
     });
-    loadWorkspaceDocument({
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: { existing: createSection("existing") },
       topLevelSections: {
         existing: { x: 10, y: 20, w: 240, h: 120, zIndex: 4 },
@@ -61,18 +65,17 @@ describe("insertWorkspaceSection", () => {
   });
 
   afterEach(() => {
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
+    registerSectionKinds(testWorkspace.host, {});
     resetStores();
   });
 
   it("resolves, inserts, selects, and reports a host-created section once", () => {
-    const onChange = vi.fn<WorkspaceDocumentChangeCallback>();
-    setWorkspaceDocumentChangeCallback(onChange);
+    const onChange = vi.fn<(document: WorkspaceDocument) => void>();
+    testWorkspace.host.subscribe(onChange);
 
-    insertWorkspaceSection(createSection("created"), { x: 125.5, y: -40 });
+    insertWorkspaceSection(testWorkspace.host, createSection("created"), { x: 125.5, y: -40 });
 
-    const state = useWorkspaceDocument.getState();
+    const state = testWorkspace.document.getState();
     expect(state.sections["created"]?.size).toEqual({
       width: 240,
       height: 120,
@@ -84,13 +87,13 @@ describe("insertWorkspaceSection", () => {
       h: 120,
       zIndex: 5,
     });
-    expect(useNodeInternals.getState().x.get("created")).toMatchObject({
+    expect(testWorkspace.nodeInternals.getState().x.get("created")).toMatchObject({
       position: { x: 125.5, y: -40 },
       width: 240,
       height: 120,
       zIndex: 5,
     });
-    expect(useActiveSections.getState().activeIds).toEqual(["created"]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual(["created"]);
     expect(onChange).toHaveBeenCalledOnce();
   });
 
@@ -99,16 +102,16 @@ describe("insertWorkspaceSection", () => {
       sectionExists: boolean;
       activeIds: Array<string>;
     }> = [];
-    const unsubscribe = useNodeInternals.subscribe(() => {
+    const unsubscribe = testWorkspace.nodeInternals.subscribe(() => {
       observed.push({
         sectionExists: Boolean(
-          useWorkspaceDocument.getState().sections["created"],
+          testWorkspace.document.getState().sections["created"],
         ),
-        activeIds: useActiveSections.getState().activeIds,
+        activeIds: testWorkspace.activeSections.getState().activeIds,
       });
     });
     try {
-      insertWorkspaceSection(createSection("created"), { x: 0, y: 0 });
+      insertWorkspaceSection(testWorkspace.host, createSection("created"), { x: 0, y: 0 });
     } finally {
       unsubscribe();
     }
@@ -117,21 +120,21 @@ describe("insertWorkspaceSection", () => {
 
   it("rejects duplicates, non-finite placement, and preclaimed children before mutation", () => {
     expect(() =>
-      insertWorkspaceSection(createSection("existing"), { x: 0, y: 0 }),
+      insertWorkspaceSection(testWorkspace.host, createSection("existing"), { x: 0, y: 0 }),
     ).toThrow(/duplicate workspace section existing/);
     expect(() =>
-      insertWorkspaceSection(createSection("invalid-position"), {
+      insertWorkspaceSection(testWorkspace.host, createSection("invalid-position"), {
         x: Number.NaN,
         y: 0,
       }),
     ).toThrow(/finite position/);
     expect(() =>
-      insertWorkspaceSection(
+      insertWorkspaceSection(testWorkspace.host,
         createSection("parent", { children: ["existing"] }),
         { x: 0, y: 0 },
       ),
     ).toThrow(/without existing child claims/);
-    expect(Object.keys(useWorkspaceDocument.getState().sections)).toEqual([
+    expect(Object.keys(testWorkspace.document.getState().sections)).toEqual([
       "existing",
     ]);
   });

@@ -35,6 +35,7 @@ import {
   getWorkspaceAppearanceStore,
   getWorkspaceDocumentStore,
 } from "./document/stores";
+import { setSelectedItems } from "./document/itemSelection";
 import { getDndChildrenStore } from "./dnd/dndChildren";
 import { getDndStateStore, setActiveDnd } from "./dnd/dndState";
 import { getItemDndStateStore, setItemDndState } from "./dnd/itemDndState";
@@ -73,6 +74,14 @@ function makeDocument(kind: string, name: string): WorkspaceDocumentInput {
         overflowMode: false,
         tagColor: null,
         children: [],
+        itemTree: {
+          rootId: "item-root",
+          items: {
+            "item-root": { id: "item-root", children: [ITEM_ID] },
+            [ITEM_ID]: { id: ITEM_ID, children: [], data: { owner: name } },
+          },
+          selectedItemIds: [],
+        },
       },
     },
     topLevelSections: {
@@ -150,6 +159,14 @@ describe("WorkspaceHost", () => {
     });
     alpha.loadDocument(makeDocument("alpha", "Alpha"));
     beta.loadDocument(makeDocument("beta", "Beta"));
+    expect(
+      alpha.getSnapshot().sections[SECTION_ID]?.itemTree?.items[ITEM_ID]
+        ?.data,
+    ).toEqual({ owner: "Alpha" });
+    expect(
+      beta.getSnapshot().sections[SECTION_ID]?.itemTree?.items[ITEM_ID]
+        ?.data,
+    ).toEqual({ owner: "Beta" });
 
     registerItemHandlers(alpha, [makeItemHandler("password")]);
     registerItemHandlers(beta, [makeItemHandler("dropzone")]);
@@ -313,8 +330,12 @@ describe("WorkspaceHost", () => {
 
     const observedAlpha: Array<string> = [];
     const observedBeta: Array<string> = [];
-    alpha.subscribe((document) => observedAlpha.push(document.activeIds.join(",")));
-    beta.subscribe((document) => observedBeta.push(document.activeIds.join(",")));
+    const unsubscribeAlpha = alpha.subscribe((document) =>
+      observedAlpha.push(document.activeIds.join(",")),
+    );
+    const unsubscribeBeta = beta.subscribe((document) =>
+      observedBeta.push(document.activeIds.join(",")),
+    );
     setActiveSectionIds(alpha, [SECTION_ID]);
     expect(observedAlpha).toEqual([SECTION_ID]);
     expect(observedBeta).toEqual([]);
@@ -323,6 +344,16 @@ describe("WorkspaceHost", () => {
     expect(getWorkspaceDocumentStore(beta).getState().sections[SECTION_ID]?.name).toBe(
       "Beta",
     );
+    unsubscribeAlpha();
+    unsubscribeBeta();
+
+    setSelectedItems(alpha, SECTION_ID, [ITEM_ID]);
+    expect(
+      alpha.getSnapshot().sections[SECTION_ID]?.itemTree?.selectedItemIds,
+    ).toEqual([ITEM_ID]);
+    expect(
+      beta.getSnapshot().sections[SECTION_ID]?.itemTree?.selectedItemIds,
+    ).toEqual([]);
 
     setWorkspaceColorMode(alpha, "dark");
     setWorkspaceColorMode(beta, "light");

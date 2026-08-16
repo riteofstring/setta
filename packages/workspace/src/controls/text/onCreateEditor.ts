@@ -10,14 +10,14 @@ export type TextValueActivationEvent =
 
 function fixPlaceholderCursor(
   host: WorkspaceHost,
-  editorId: string,
+  view: EditorView,
   value: string,
   placeholder: string | undefined,
 ) {
   // The cursor appears the wrong size when there's a placeholder text and when you're zoomed in.
   // This is a hacky solution to that problem.
   if (!value && placeholder) {
-    const cursors = document.querySelectorAll(`#${editorId} .cm-cursor`);
+    const cursors = view.dom.querySelectorAll(".cm-cursor");
     cursors.forEach((cursor) => {
       if (cursor instanceof HTMLElement) {
         cursor.style.height = `${14 * getReactFlowStore(host).getState().transform[2]}px`;
@@ -30,14 +30,12 @@ export function getOnCreateEditor({
   host,
   initialEvent,
   setRealIsInitialized,
-  editorId,
   value,
   placeholder,
 }: {
   host: WorkspaceHost;
   initialEvent: TextValueActivationEvent;
   setRealIsInitialized: (initialized: boolean) => void;
-  editorId: string;
   value: string;
   placeholder: string | undefined;
 }) {
@@ -52,7 +50,7 @@ export function getOnCreateEditor({
         view.dispatch({ selection: { anchor: pos, head: pos } });
       }
     }
-    fixPlaceholderCursor(host, editorId, value, placeholder);
+    fixPlaceholderCursor(host, view, value, placeholder);
     setRealIsInitialized(true);
   };
 }

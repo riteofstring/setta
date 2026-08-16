@@ -1,5 +1,12 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Node, WorkspaceSection } from "../document/types";
 import {
@@ -41,12 +48,11 @@ function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
 }
 
 beforeEach(() => {
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
+  testWorkspace.document.getState().reset();
+  testWorkspace.nodeInternals.getState().reset();
 });
 
 afterEach(() => {
-  setWorkspaceDocumentChangeCallback(null);
 });
 
 describe("node-internals publication", () => {
@@ -57,14 +63,14 @@ describe("node-internals publication", () => {
       position: { x: 100, y: 200 },
     });
     const nextPosition = { x: 35, y: 45 };
-    useNodeInternals.setState({
+    testWorkspace.nodeInternals.setState({
       x: new Map([
         [moving.id, moving],
         [untouched.id, untouched],
       ]),
     });
 
-    updateNodePositions([
+    updateNodePositions(testWorkspace.host, [
       {
         id: moving.id,
         position: nextPosition,
@@ -72,7 +78,7 @@ describe("node-internals publication", () => {
       },
     ]);
 
-    const nextNodes = useNodeInternals.getState().x;
+    const nextNodes = testWorkspace.nodeInternals.getState().x;
     expect(nextNodes.get(moving.id)).not.toBe(moving);
     expect(nextNodes.get(moving.id)?.position).toBe(nextPosition);
     expect(nextNodes.get(untouched.id)).toBe(untouched);
@@ -82,7 +88,7 @@ describe("node-internals publication", () => {
     const moving = createNode({ id: "moving", zIndex: 2, tempZIndex: 2 });
     const untouched = createNode({ id: "untouched", zIndex: 3, tempZIndex: 3 });
     const stale = createNode({ id: "stale", zIndex: 4, tempZIndex: 1004 });
-    useNodeInternals.setState({
+    testWorkspace.nodeInternals.setState({
       x: new Map([
         [moving.id, moving],
         [untouched.id, untouched],
@@ -90,9 +96,9 @@ describe("node-internals publication", () => {
       ]),
     });
 
-    raiseTempZIndex([{ id: moving.id }]);
+    raiseTempZIndex(testWorkspace.host, [{ id: moving.id }]);
 
-    const nextNodes = useNodeInternals.getState().x;
+    const nextNodes = testWorkspace.nodeInternals.getState().x;
     expect(nextNodes.get(moving.id)).toMatchObject({ tempZIndex: 1002 });
     expect(nextNodes.get(moving.id)).not.toBe(moving);
     expect(nextNodes.get(untouched.id)).toBe(untouched);
@@ -103,7 +109,7 @@ describe("node-internals publication", () => {
 
 describe("commitTopLevelLayoutToDocument", () => {
   it("purges layout entries for parented and unknown sections at the layout write", () => {
-    useWorkspaceDocument.setState({
+    testWorkspace.document.setState({
       sections: {
         top: createSection("top"),
         group: createSection("group", ["child"]),
@@ -116,7 +122,7 @@ describe("commitTopLevelLayoutToDocument", () => {
         ghost: { x: 0, y: 0, w: 10, h: 10, zIndex: 1 },
       },
     });
-    useNodeInternals.setState({
+    testWorkspace.nodeInternals.setState({
       x: new Map([
         ["top", createNode({ id: "top", position: { x: 5, y: 6 }, zIndex: 1 })],
         [
@@ -126,20 +132,20 @@ describe("commitTopLevelLayoutToDocument", () => {
       ]),
     });
 
-    commitTopLevelLayoutToDocument();
+    commitTopLevelLayoutToDocument(testWorkspace.host);
 
-    expect(useWorkspaceDocument.getState().topLevelSections).toEqual({
+    expect(testWorkspace.document.getState().topLevelSections).toEqual({
       top: { x: 5, y: 6, w: 100, h: 80, zIndex: 1 },
       group: { x: 200, y: 20, w: 100, h: 80, zIndex: 2 },
     });
   });
 
   it("writes node measurements verbatim, clearing a null measurement back to auto", () => {
-    useWorkspaceDocument.setState({
+    testWorkspace.document.setState({
       sections: { top: createSection("top") },
       topLevelSections: { top: { x: 1, y: 2, w: 200, h: 100, zIndex: 0 } },
     });
-    useNodeInternals.setState({
+    testWorkspace.nodeInternals.setState({
       x: new Map([
         [
           "top",
@@ -153,40 +159,40 @@ describe("commitTopLevelLayoutToDocument", () => {
       ]),
     });
 
-    commitTopLevelLayoutToDocument();
+    commitTopLevelLayoutToDocument(testWorkspace.host);
 
-    expect(useWorkspaceDocument.getState().topLevelSections).toEqual({
+    expect(testWorkspace.document.getState().topLevelSections).toEqual({
       top: { x: 1, y: 2, w: null, h: null, zIndex: 0 },
     });
   });
 
   it("notifies the document-change callback once per layout commit", () => {
-    useWorkspaceDocument.setState({
+    testWorkspace.document.setState({
       sections: { top: createSection("top") },
       topLevelSections: { top: { x: 1, y: 2, w: 200, h: 100, zIndex: 0 } },
     });
-    useNodeInternals.setState({
+    testWorkspace.nodeInternals.setState({
       x: new Map([
         ["top", createNode({ id: "top", position: { x: 5, y: 6 } })],
       ]),
     });
     let notified = 0;
-    setWorkspaceDocumentChangeCallback(() => {
+    testWorkspace.host.subscribe(() => {
       notified += 1;
     });
 
-    commitTopLevelLayoutToDocument();
+    commitTopLevelLayoutToDocument(testWorkspace.host);
 
     expect(notified).toBe(1);
   });
 
   it("does not publish or notify when node geometry already matches the document", () => {
     const layout = { x: 5, y: 6, w: 100, h: 80, zIndex: 1 };
-    useWorkspaceDocument.setState({
+    testWorkspace.document.setState({
       sections: { top: createSection("top") },
       topLevelSections: { top: layout },
     });
-    useNodeInternals.setState({
+    testWorkspace.nodeInternals.setState({
       x: new Map([
         [
           "top",
@@ -199,15 +205,15 @@ describe("commitTopLevelLayoutToDocument", () => {
         ],
       ]),
     });
-    const before = useWorkspaceDocument.getState().topLevelSections;
+    const before = testWorkspace.document.getState().topLevelSections;
     let notified = 0;
-    setWorkspaceDocumentChangeCallback(() => {
+    testWorkspace.host.subscribe(() => {
       notified += 1;
     });
 
-    commitTopLevelLayoutToDocument();
+    commitTopLevelLayoutToDocument(testWorkspace.host);
 
-    expect(useWorkspaceDocument.getState().topLevelSections).toBe(before);
+    expect(testWorkspace.document.getState().topLevelSections).toBe(before);
     expect(notified).toBe(0);
   });
 });

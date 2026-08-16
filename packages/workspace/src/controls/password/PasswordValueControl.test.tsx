@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -31,27 +39,31 @@ describe("PasswordValueControl", () => {
   afterEach(() => {
     act(() => root.unmount());
     host.remove();
-    useItemSelectionMode.getState().reset();
-    useSectionRefs.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
   });
 
   function mount(props: Partial<PasswordValueControlProps> = {}) {
     act(() => {
       root.render(
-        createElement(PasswordValueControl, {
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(PasswordValueControl, {
           ariaLabel: "Password value",
           sectionId: SECTION_ID,
           itemId: ITEM_ID,
           value: "secret",
           onValueChange: () => {},
           ...props,
-        }),
+        })
+        }</WorkspaceTestProvider>,
       );
     });
   }
 
   function getInput(): HTMLInputElement {
-    const input = document.getElementById(INPUT_ID);
+    const input = host.querySelector<HTMLInputElement>(
+      `#${testWorkspace.domId}-${INPUT_ID}`,
+    );
     if (!(input instanceof HTMLInputElement)) {
       throw new Error("The password input is not rendered.");
     }
@@ -141,7 +153,7 @@ describe("PasswordValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     mount({ savedValueAction: { pending: false, onReveal: () => {} } });
@@ -215,7 +227,7 @@ describe("PasswordValueControl", () => {
       )?.disabled,
     ).toBe(true);
 
-    useItemSelectionMode.setState({ isSelectingItems: true });
+    testWorkspace.itemSelectionMode.setState({ isSelectingItems: true });
     mount({ savedValueAction: { pending: false, onReveal } });
     expect(getInput().disabled).toBe(true);
     expect(getVisibilityToggle().disabled).toBe(true);

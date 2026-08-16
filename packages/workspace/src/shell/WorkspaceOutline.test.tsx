@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -77,7 +85,7 @@ function createNode(id: string, zIndex: number): Node {
 }
 
 function loadOutlineDocument(): void {
-  useWorkspaceDocument.setState({
+  testWorkspace.document.setState({
     sections: {
       alpha: createSection("alpha", "Alpha group", ["bravo", "charlie"]),
       bravo: createSection("bravo", "Bravo", [], {
@@ -96,7 +104,7 @@ function loadOutlineDocument(): void {
     viewport: null,
     parentSectionMap: { bravo: "alpha", charlie: "alpha" },
   });
-  useNodeInternals.setState({
+  testWorkspace.nodeInternals.setState({
     x: new Map([
       ["alpha", createNode("alpha", 0)],
       ["echo", createNode("echo", 1)],
@@ -132,18 +140,18 @@ describe("WorkspaceOutline", () => {
   const onChange = vi.fn<(state: WorkspaceShellOutlineViewState) => void>();
 
   beforeEach(async () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       leaf: {
         icon: LeafIcon,
         renderContent: () => null,
       },
     });
-    useActiveSections.getState().reset();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useItemSelectionMode.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
-    useWorkspaceMenuState.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
+    testWorkspace.menuState.getState().reset();
     loadOutlineDocument();
     focusWorkspaceSection.mockReset();
     onChange.mockReset();
@@ -151,7 +159,11 @@ describe("WorkspaceOutline", () => {
     document.body.appendChild(host);
     root = createRoot(host);
     await act(async () => {
-      root.render(<Harness onChange={onChange} />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<Harness onChange={onChange} />
+        }</WorkspaceTestProvider>,
+      );
     });
   });
 
@@ -160,10 +172,10 @@ describe("WorkspaceOutline", () => {
       root.unmount();
     });
     host.remove();
-    useActiveSections.getState().reset();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useWorkspaceMenuState.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.menuState.getState().reset();
   });
 
   function getRow(sectionId: string): HTMLDivElement {
@@ -300,16 +312,19 @@ describe("WorkspaceOutline", () => {
         new MouseEvent("click", { bubbles: true, button: 0 }),
       );
     });
-    expect(getActiveSectionIds()).toEqual(["bravo"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["bravo"]);
     expect(getRow("bravo").getAttribute("aria-selected")).toBe("true");
-    expect(focusWorkspaceSection).toHaveBeenLastCalledWith("bravo");
+    expect(focusWorkspaceSection).toHaveBeenLastCalledWith(
+      testWorkspace.host,
+      "bravo",
+    );
 
     await act(async () => {
       getRow("echo").dispatchEvent(
         new MouseEvent("click", { bubbles: true, button: 0, ctrlKey: true }),
       );
     });
-    expect(getActiveSectionIds()).toEqual(["bravo", "echo"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["bravo", "echo"]);
     expect(getRow("bravo").getAttribute("aria-selected")).toBe("true");
     expect(getRow("echo").getAttribute("aria-selected")).toBe("true");
   });
@@ -325,19 +340,19 @@ describe("WorkspaceOutline", () => {
       getRow("bravo").dispatchEvent(pointerEvent);
     });
     expect(pointerEvent.defaultPrevented).toBe(true);
-    expect(getActiveSectionIds()).toEqual(["bravo"]);
-    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["bravo"]);
+    expect(testWorkspace.menuState.getState().invocation).toMatchObject({
       kind: "section",
       clientPoint: { x: 140, y: 90 },
       surface: "outline",
       context: { scope: "section", section: { id: "bravo" } },
     });
 
-    useWorkspaceMenuState.getState().reset();
+    testWorkspace.menuState.getState().reset();
     getRow("alpha").getBoundingClientRect = () =>
       ({ left: 20, right: 220, top: 40, width: 200, height: 20 }) as DOMRect;
     await key("alpha", "F10", { shiftKey: true });
-    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+    expect(testWorkspace.menuState.getState().invocation).toMatchObject({
       kind: "section",
       clientPoint: { x: 32, y: 50 },
       surface: "outline",
@@ -355,7 +370,7 @@ describe("WorkspaceOutline", () => {
       );
     });
 
-    expect(getActiveSectionIds()).toEqual([]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual([]);
     expect(getRow("alpha").getAttribute("aria-expanded")).toBe("false");
     expect(
       host.querySelector('[data-workspace-outline-item="bravo"]'),
@@ -383,8 +398,11 @@ describe("WorkspaceOutline", () => {
     expect(document.activeElement).toBe(getRow("charlie"));
 
     await key("charlie", " ");
-    expect(getActiveSectionIds()).toEqual(["charlie"]);
-    expect(focusWorkspaceSection).toHaveBeenLastCalledWith("charlie");
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["charlie"]);
+    expect(focusWorkspaceSection).toHaveBeenLastCalledWith(
+      testWorkspace.host,
+      "charlie",
+    );
   });
 
   it("keeps renamed focus and restores deleted focus to the next row at the same position", async () => {
@@ -394,13 +412,13 @@ describe("WorkspaceOutline", () => {
     expect(document.activeElement).toBe(getRow("bravo"));
 
     await act(async () => {
-      setSectionName("bravo", "Bravo renamed");
+      setSectionName(testWorkspace.host, "bravo", "Bravo renamed");
     });
     expect(getRow("bravo").textContent).toContain("Bravo renamed");
     expect(document.activeElement).toBe(getRow("bravo"));
 
     await act(async () => {
-      deleteSection("bravo");
+      deleteSection(testWorkspace.host, "bravo");
     });
     expect(
       host.querySelector('[data-workspace-outline-item="bravo"]'),

@@ -37,6 +37,7 @@ import {
 } from "./workspaceOutlineModel";
 import type { WorkspaceShellOutlineViewState } from "./workspaceShellTypes";
 import { useWorkspaceHost } from "../workspaceHostContext";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals";
 
 const TYPEAHEAD_RESET_MS = 700;
 const OUTLINE_ACTIVATION_KEYS = new Set(["Enter", " "]);
@@ -241,6 +242,14 @@ export function WorkspaceOutline({
     () => new Set(projectedCollapsedGroupIds),
     [projectedCollapsedGroupIds],
   );
+
+  useLayoutEffect(() => {
+    const treeElement = treeRef.current;
+    if (!treeElement) {
+      throw new Error("Workspace Outline tree did not mount.");
+    }
+    return registerWorkspaceHostElement(host, treeElement);
+  }, [host]);
 
   const publishViewState = useCallback(
     (nextState: WorkspaceShellOutlineViewState): void => {

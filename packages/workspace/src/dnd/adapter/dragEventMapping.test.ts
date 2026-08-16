@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { CollisionPriority, CollisionType } from "@dnd-kit/abstract";
 import { beforeEach, describe, expect, it } from "vitest";
 import { useDndChildren } from "../dndChildren";
@@ -44,14 +52,14 @@ function collision(id: string, intersectionRatio: number): SettaCollision {
 
 describe("dragEventMapping", () => {
   beforeEach(() => {
-    useDndChildren.getState().reset();
-    useItemDndChildren.getState().reset();
-    useItemDndState.getState().reset();
+    testWorkspace.dndChildren.getState().reset();
+    testWorkspace.itemDndChildren.getState().reset();
+    testWorkspace.itemDndState.getState().reset();
   });
 
   it("returns null on drag start when source is missing", () => {
     // Validates null-safe handling for malformed drag-start operations.
-    const result = mapDragStartEvent({
+    const result = mapDragStartEvent(testWorkspace.host, {
       operation: {
         source: null,
       },
@@ -81,7 +89,7 @@ describe("dragEventMapping", () => {
       },
     };
 
-    const result = mapDragStartEvent(
+    const result = mapDragStartEvent(testWorkspace.host,
       {
         operation: {
           source: active as never,
@@ -142,7 +150,7 @@ describe("dragEventMapping", () => {
       },
     };
 
-    const resultFromDroppable = mapDragStartEvent(
+    const resultFromDroppable = mapDragStartEvent(testWorkspace.host,
       {
         operation: {
           source: active as never,
@@ -171,7 +179,7 @@ describe("dragEventMapping", () => {
       },
     };
 
-    const resultFromActiveRect = mapDragStartEvent(
+    const resultFromActiveRect = mapDragStartEvent(testWorkspace.host,
       {
         operation: {
           source: active as never,
@@ -198,7 +206,7 @@ describe("dragEventMapping", () => {
       },
     };
 
-    const result = mapDragEvent(
+    const result = mapDragEvent(testWorkspace.host,
       {
         operation: {
           source: null,
@@ -226,7 +234,7 @@ describe("dragEventMapping", () => {
       },
     };
 
-    const mapped = mapDragEvent(
+    const mapped = mapDragEvent(testWorkspace.host,
       {
         operation: {
           source: active as never,
@@ -252,10 +260,10 @@ describe("dragEventMapping", () => {
     const parentId = "parent";
     const childId = "child";
 
-    updateItemChildren({
+    updateItemChildren(testWorkspace.host, {
       [parentId]: [childId],
     });
-    setItemDndState({ listKey });
+    setItemDndState(testWorkspace.host, { listKey });
 
     const parentDndId = getItemDndId(parentId, listKey);
     const childDndId = getItemDndId(childId, listKey);
@@ -279,7 +287,7 @@ describe("dragEventMapping", () => {
       },
     };
 
-    const mapped = mapDragEvent(
+    const mapped = mapDragEvent(testWorkspace.host,
       {
         operation: {
           source: active as never,

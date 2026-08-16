@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { describe, expect, it } from "vitest";
 import { useReactFlow } from "../../canvas/store";
 import { applyZoomToTransform, transformToString } from "./zoom";
@@ -5,16 +13,16 @@ import { applyZoomToTransform, transformToString } from "./zoom";
 describe("zoom adapter utilities", () => {
   it("returns null and empty string for null transforms", () => {
     // Validates null-safe transform handling in drag style plumbing.
-    expect(applyZoomToTransform(null)).toBeNull();
+    expect(applyZoomToTransform(testWorkspace.host, null)).toBeNull();
     expect(transformToString(null)).toBe("");
   });
 
   it("normalizes translation by current react-flow zoom", () => {
     // Validates drag translation stays in flow-space regardless of viewport zoom.
-    useReactFlow.setState({ transform: [0, 0, 2] });
+    testWorkspace.reactFlow.setState({ transform: [0, 0, 2] });
 
     expect(
-      applyZoomToTransform({ x: 20, y: 10, scaleX: 1, scaleY: 1 }),
+      applyZoomToTransform(testWorkspace.host, { x: 20, y: 10, scaleX: 1, scaleY: 1 }),
     ).toEqual({
       x: 10,
       y: 5,

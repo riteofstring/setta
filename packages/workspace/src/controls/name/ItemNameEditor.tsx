@@ -22,6 +22,7 @@ import {
 } from "../text/textValueTheme";
 import { ItemNameErrorBubble } from "./ItemNameErrorBubble";
 import { useWorkspaceHost } from "../../workspaceHostContext";
+import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
 
 // The item-controls milestone's editable label: the reference `ParamNameInput` at its kwarg
 // presentation, behind a controlled proposed-name seam. The package owns only the two-layer
@@ -121,11 +122,15 @@ function getUnderlineClassName(
   return `single-cell-child ${layoutMargin} border-box self-end border-b border-setta-200/50 peer-focus-within/nameinput:border-blue-400 dark:border-setta-600/30 ${errorClassName}`;
 }
 
-function getElementIds(sectionId: string, itemId: string) {
+function getElementIds(
+  hostId: string,
+  sectionId: string,
+  itemId: string,
+) {
   return {
-    dummyEditorId: `ItemNameInput-${sectionId}-${itemId}`,
-    liveEditorId: `CodeMirror-${sectionId}-${itemId}-keyName`,
-    errorId: `ItemNameError-${sectionId}-${itemId}`,
+    dummyEditorId: `${hostId}-ItemNameInput-${sectionId}-${itemId}`,
+    liveEditorId: `${hostId}-CodeMirror-${sectionId}-${itemId}-keyName`,
+    errorId: `${hostId}-ItemNameError-${sectionId}-${itemId}`,
   };
 }
 
@@ -224,6 +229,7 @@ function ItemNameEditorCore({
   const hasError = errorMessage.length > 0;
   const theme = useTextValueTheme("green");
   const { dummyEditorId, errorId, liveEditorId } = getElementIds(
+    getWorkspaceHostDomId(host),
     sectionId,
     itemId,
   );
@@ -356,7 +362,6 @@ function LiveItemNameEditor({
     host,
     initialEvent,
     setRealIsInitialized: setLiveIsInitialized,
-    editorId: liveEditorId,
     value: name,
     placeholder,
   });

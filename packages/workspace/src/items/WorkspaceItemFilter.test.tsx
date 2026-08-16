@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -8,7 +16,6 @@ import { useItemDndChildren } from "../dnd/itemDndChildren";
 import { ItemDndContext } from "../dnd/ItemDndContext";
 import { getItemDndId, useItemDndState } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import {
   activateItemSelect,
   useItemSelectionMode,
@@ -105,7 +112,7 @@ function getCustomItemText(
 }
 
 function registerTestKind() {
-  registerSectionKinds({
+  registerSectionKinds(testWorkspace.host, {
     parameters: {
       renderContent: () => null,
       getItemSearchableText: ({ item }) =>
@@ -116,7 +123,7 @@ function registerTestKind() {
 
 function loadTestDocument(selectedItemIds: Array<string> = []) {
   registerTestKind();
-  loadWorkspaceDocument({
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
         id: "panel",
@@ -197,33 +204,33 @@ describe("WorkspaceItemFilter", () => {
     document.body.appendChild(host);
     root = createRoot(host);
     onDocumentChange.mockClear();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
   });
 
   afterEach(async () => {
     await act(async () => root.unmount());
     host.remove();
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
-    resetItemDragState();
-    resetItemListViews();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
-    useWorkspaceCapabilities.getState().reset();
-    useItemSelectionMode.getState().reset();
-    useItemDndState.getState().reset();
-    useItemDndChildren.getState().reset();
+    registerSectionKinds(testWorkspace.host, {});
+    resetItemDragState(testWorkspace.host);
+    resetItemListViews(testWorkspace.host);
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.itemDndState.getState().reset();
+    testWorkspace.itemDndChildren.getState().reset();
   });
 
   async function mount(): Promise<HTMLInputElement> {
-    const itemTree = useWorkspaceDocument.getState().sections.panel?.itemTree;
+    const itemTree = testWorkspace.document.getState().sections.panel?.itemTree;
     if (!itemTree) {
       throw new Error("The test panel lost its item tree.");
     }
     await act(async () => {
       root.render(
-        <WorkspaceItemFilterProvider sectionId="panel">
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceItemFilterProvider sectionId="panel">
           <WorkspaceItemAuthoringToolbar sectionId="panel" />
           <ItemDndContext>
             <WorkspaceItemList
@@ -233,11 +240,12 @@ describe("WorkspaceItemFilter", () => {
               renderItem={renderCustomItem}
             />
           </ItemDndContext>
-        </WorkspaceItemFilterProvider>,
+        </WorkspaceItemFilterProvider>
+        }</WorkspaceTestProvider>,
       );
     });
     const input = host.querySelector<HTMLInputElement>(
-      "#panel-parameter-filter",
+      `#${testWorkspace.domId}-panel-parameter-filter`,
     );
     if (!input) {
       throw new Error("The parameter filter input did not render.");
@@ -247,10 +255,11 @@ describe("WorkspaceItemFilter", () => {
 
   it("keeps filtering ephemeral, explains hidden selection, and gates structural movement", async () => {
     loadTestDocument(["alpha"]);
-    activateItemSelect();
+    onDocumentChange.mockClear();
+    activateItemSelect(testWorkspace.host);
     const input = await mount();
     const documentBeforeFilter = structuredClone(
-      useWorkspaceDocument.getState().sections,
+      testWorkspace.document.getState().sections,
     );
 
     await act(async () => setInputValue(input, "momentum"));
@@ -269,13 +278,13 @@ describe("WorkspaceItemFilter", () => {
       "1 matching parameter. 1 selected parameter is hidden by this filter.",
     );
     expect(
-      resolveItemListView("panel", "momentum", LIST_KEY)?.filterActive,
+      resolveItemListView(testWorkspace.host, "panel", "momentum", LIST_KEY)?.filterActive,
     ).toBe(true);
 
-    expect(moveSelectedItemsDown()).toBe(false);
-    handleItemDragStart(makeStartEvent("momentum"), null);
-    expect(useItemDndState.getState().activeId).toBeNull();
-    expect(useWorkspaceDocument.getState().sections).toEqual(
+    expect(moveSelectedItemsDown(testWorkspace.host)).toBe(false);
+    handleItemDragStart(testWorkspace.host, makeStartEvent("momentum"), null);
+    expect(testWorkspace.itemDndState.getState().activeId).toBeNull();
+    expect(testWorkspace.document.getState().sections).toEqual(
       documentBeforeFilter,
     );
     expect(onDocumentChange).not.toHaveBeenCalled();

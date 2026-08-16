@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -37,19 +45,21 @@ describe("DropdownValueControl", () => {
       root.unmount();
     });
     host.remove();
-    useItemSelectionMode.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
   });
 
   async function mount(props: Partial<DropdownValueControlProps> = {}) {
     await act(async () => {
       root.render(
-        createElement(DropdownValueControl, {
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(DropdownValueControl, {
           ariaLabel: "Choice value",
           value: "Beta",
           onValueChange: () => {},
           choices: CHOICES,
           ...props,
-        }),
+        })
+        }</WorkspaceTestProvider>,
       );
     });
   }
@@ -324,7 +334,7 @@ describe("DropdownValueControl", () => {
   });
 
   it("disables package-wide during item-select mode", async () => {
-    useItemSelectionMode.setState({ isSelectingItems: true });
+    testWorkspace.itemSelectionMode.setState({ isSelectingItems: true });
     await mount();
     expect(getInput().disabled).toBe(true);
     expect(getToggleButton().disabled).toBe(true);

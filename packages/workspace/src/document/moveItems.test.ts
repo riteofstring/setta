@@ -1,5 +1,12 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setWorkspaceDocumentChangeCallback } from "./documentChangeCallback";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { moveItems, orderItemIdsByParent } from "./moveItems";
 import { registerSectionKinds } from "./sectionKindRegistry";
@@ -52,8 +59,8 @@ function makeSection(
 }
 
 function loadTestDocument(childrenById: Record<string, Array<string>>) {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
-  loadWorkspaceDocument({
+  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       leaf: makeSection("leaf", { itemTree: makeItemTree(childrenById) }),
     },
@@ -64,7 +71,7 @@ function loadTestDocument(childrenById: Record<string, Array<string>>) {
 }
 
 function getLoadedItemTree(): WorkspaceSectionItemTree {
-  const itemTree = useWorkspaceDocument.getState().sections["leaf"]?.itemTree;
+  const itemTree = testWorkspace.document.getState().sections["leaf"]?.itemTree;
   if (!itemTree) {
     throw new Error("expected the test section to carry an item tree");
   }
@@ -80,19 +87,18 @@ describe("moveItems", () => {
       group: ["nested"],
     });
     documentChangeSpy.mockClear();
-    setWorkspaceDocumentChangeCallback(documentChangeSpy);
+    testWorkspace.host.subscribe(documentChangeSpy);
   });
 
   afterEach(() => {
-    setWorkspaceDocumentChangeCallback(null);
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
-    registerSectionKinds({});
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    registerSectionKinds(testWorkspace.host, {});
   });
 
   it("reorders items within the same parent and notifies the host once", () => {
-    moveItems({
+    moveItems(testWorkspace.host, {
       sectionId: "leaf",
       itemIds: ["b"],
       newParentId: "item-root",
@@ -113,7 +119,7 @@ describe("moveItems", () => {
   });
 
   it("keeps a multi-selection in its old-parent order regardless of the id order", () => {
-    moveItems({
+    moveItems(testWorkspace.host, {
       sectionId: "leaf",
       itemIds: ["b", "a"],
       newParentId: "item-root",
@@ -128,7 +134,7 @@ describe("moveItems", () => {
   });
 
   it("moves items across parents into a nested group", () => {
-    moveItems({
+    moveItems(testWorkspace.host, {
       sectionId: "leaf",
       itemIds: ["a"],
       newParentId: "group",
@@ -141,7 +147,7 @@ describe("moveItems", () => {
   });
 
   it("moves items into a childless item, the structural form of the reference's promotion", () => {
-    moveItems({
+    moveItems(testWorkspace.host, {
       sectionId: "leaf",
       itemIds: ["nested"],
       newParentId: "b",
@@ -154,19 +160,19 @@ describe("moveItems", () => {
   });
 
   it("leaves the tree untouched and silent for out-of-range indices", () => {
-    moveItems({
+    moveItems(testWorkspace.host, {
       sectionId: "leaf",
       itemIds: ["a"],
       newParentId: "item-root",
       newIndex: 3,
     });
-    moveItems({
+    moveItems(testWorkspace.host, {
       sectionId: "leaf",
       itemIds: ["a"],
       newParentId: "group",
       newIndex: -1,
     });
-    moveItems({
+    moveItems(testWorkspace.host, {
       sectionId: "leaf",
       itemIds: [],
       newParentId: "item-root",
@@ -185,13 +191,13 @@ describe("moveItems", () => {
     // The root has no parent and an unknown id has no parent-map entry: both abort before
     // anything mutates, the third documented silent-abort leg beside empty ids and
     // out-of-range indices.
-    moveItems({
+    moveItems(testWorkspace.host, {
       sectionId: "leaf",
       itemIds: ["item-root"],
       newParentId: "group",
       newIndex: 0,
     });
-    moveItems({
+    moveItems(testWorkspace.host, {
       sectionId: "leaf",
       itemIds: ["missing"],
       newParentId: "item-root",
@@ -208,7 +214,7 @@ describe("moveItems", () => {
 
   it("throws instead of nesting items into their own subtree", () => {
     expect(() =>
-      moveItems({
+      moveItems(testWorkspace.host, {
         sectionId: "leaf",
         itemIds: ["group"],
         newParentId: "nested",
@@ -219,15 +225,15 @@ describe("moveItems", () => {
   });
 
   it("throws for sections without an item tree", () => {
-    registerSectionKinds({ leaf: { renderContent: () => null } });
-    loadWorkspaceDocument({
+    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: { bare: makeSection("bare") },
       topLevelSections: { bare: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: [],
     });
     expect(() =>
-      moveItems({
+      moveItems(testWorkspace.host, {
         sectionId: "bare",
         itemIds: ["a"],
         newParentId: "b",

@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { beforeEach, describe, expect, it } from "vitest";
 import { setActiveSectionIds } from "../document/activeSections";
 import {
@@ -34,18 +42,18 @@ function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
 }
 
 function setNodes(nodes: Array<Node>) {
-  useNodeInternals.setState({
+  testWorkspace.nodeInternals.setState({
     x: new Map(nodes.map((node) => [node.id, node])),
   });
 }
 
 beforeEach(() => {
-  useNodeInternals.getState().reset();
-  useActiveSections.getState().reset();
-  useSectionRefs.getState().reset();
-  useWorkspaceDocument.getState().reset();
-  useWorkspaceOptions.getState().reset();
-  useReactFlow.setState({ ...initialCanvasState });
+  testWorkspace.nodeInternals.getState().reset();
+  testWorkspace.activeSections.getState().reset();
+  testWorkspace.sectionRefs.getState().reset();
+  testWorkspace.document.getState().reset();
+  testWorkspace.options.getState().reset();
+  testWorkspace.reactFlow.setState({ ...initialCanvasState });
 });
 
 function createSectionRefElement({
@@ -67,7 +75,7 @@ function createSectionRefElement({
 }
 
 function setCanvasDomNode() {
-  useReactFlow.setState({
+  testWorkspace.reactFlow.setState({
     domNode: {
       getBoundingClientRect: () => ({ x: 0, y: 0 }),
     } as unknown as HTMLDivElement,
@@ -110,10 +118,10 @@ describe("getNodesInside", () => {
       }),
     ]);
 
-    expect(getNodesInside({ x: 0, y: 0, width: 150, height: 140 })).toEqual([
+    expect(getNodesInside(testWorkspace.host, { x: 0, y: 0, width: 150, height: 140 })).toEqual([
       "section-a",
     ]);
-    expect(getNodesInside({ x: 0, y: 0, width: 400, height: 200 })).toEqual([
+    expect(getNodesInside(testWorkspace.host, { x: 0, y: 0, width: 400, height: 200 })).toEqual([
       "section-a",
       "section-b",
     ]);
@@ -130,10 +138,10 @@ describe("getNodesInside", () => {
     ]);
 
     expect(
-      getNodesInside({ x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], false),
+      getNodesInside(testWorkspace.host, { x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], false),
     ).toEqual([]);
     expect(
-      getNodesInside({ x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], true),
+      getNodesInside(testWorkspace.host, { x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], true),
     ).toEqual(["section-a"]);
   });
 
@@ -147,7 +155,7 @@ describe("getNodesInside", () => {
       }),
     ]);
 
-    expect(getNodesInside({ x: 0, y: 0, width: 500, height: 500 })).toEqual([]);
+    expect(getNodesInside(testWorkspace.host, { x: 0, y: 0, width: 500, height: 500 })).toEqual([]);
   });
 
   it("treats zero-sized node internals without a DOM ref as unmeasured", () => {
@@ -166,7 +174,7 @@ describe("getNodesInside", () => {
       }),
     ]);
 
-    expect(getNodesInside({ x: 0, y: 0, width: 200, height: 200 })).toEqual([]);
+    expect(getNodesInside(testWorkspace.host, { x: 0, y: 0, width: 200, height: 200 })).toEqual([]);
   });
 
   it("falls back to section DOM bounds for unmeasured node internals", () => {
@@ -179,7 +187,7 @@ describe("getNodesInside", () => {
         height: null,
       }),
     ]);
-    useSectionRefs.setState({
+    testWorkspace.sectionRefs.setState({
       selfOnly: {
         "section-a": createSectionRefElement({
           x: 40,
@@ -190,10 +198,10 @@ describe("getNodesInside", () => {
       },
     });
 
-    expect(getNodesInside({ x: 30, y: 50, width: 140, height: 100 })).toEqual([
+    expect(getNodesInside(testWorkspace.host, { x: 30, y: 50, width: 140, height: 100 })).toEqual([
       "section-a",
     ]);
-    expect(getNodesInside({ x: 500, y: 500, width: 10, height: 10 })).toEqual(
+    expect(getNodesInside(testWorkspace.host, { x: 500, y: 500, width: 10, height: 10 })).toEqual(
       [],
     );
   });
@@ -208,7 +216,7 @@ describe("getNodesInside", () => {
         height: 40,
       }),
     ]);
-    useSectionRefs.setState({
+    testWorkspace.sectionRefs.setState({
       selfOnly: {
         "section-a": createSectionRefElement({
           x: 40,
@@ -219,14 +227,14 @@ describe("getNodesInside", () => {
       },
     });
 
-    expect(getNodesInside({ x: 30, y: 50, width: 140, height: 100 })).toEqual([
+    expect(getNodesInside(testWorkspace.host, { x: 30, y: 50, width: 140, height: 100 })).toEqual([
       "section-a",
     ]);
   });
 
   it("falls back to nested section DOM geometry when a selectable section has no node internals entry", () => {
     setCanvasDomNode();
-    useWorkspaceDocument.setState({
+    testWorkspace.document.setState({
       sections: {
         "group-section": createWorkspaceSection("group-section", [
           "group-child-a",
@@ -243,7 +251,7 @@ describe("getNodesInside", () => {
         height: 220,
       }),
     ]);
-    useSectionRefs.setState({
+    testWorkspace.sectionRefs.setState({
       selfOnly: {
         "group-child-a": createSectionRefElement({
           x: 360,
@@ -254,7 +262,7 @@ describe("getNodesInside", () => {
       },
     });
 
-    expect(getNodesInside({ x: 350, y: 170, width: 140, height: 84 })).toEqual([
+    expect(getNodesInside(testWorkspace.host, { x: 350, y: 170, width: 140, height: 84 })).toEqual([
       "group-child-a",
     ]);
   });
@@ -262,7 +270,7 @@ describe("getNodesInside", () => {
 
 describe("getActiveSectionsBounds", () => {
   it("uses node internals geometry for active section bounds", () => {
-    setActiveSectionIds(["section-a", "section-b"]);
+    setActiveSectionIds(testWorkspace.host, ["section-a", "section-b"]);
     setNodes([
       createNode({
         id: "section-a",
@@ -278,7 +286,7 @@ describe("getActiveSectionsBounds", () => {
       }),
     ]);
 
-    expect(getActiveSectionsBounds()).toEqual({
+    expect(getActiveSectionsBounds(testWorkspace.host)).toEqual({
       x: 10,
       y: 20,
       width: 290,
@@ -288,7 +296,7 @@ describe("getActiveSectionsBounds", () => {
 
   it("does not let a selected descendant expand its selected ancestor's visible bounds", () => {
     setCanvasDomNode();
-    useWorkspaceDocument.setState({
+    testWorkspace.document.setState({
       sections: {
         group: {
           ...createWorkspaceSection("group", ["nested"]),
@@ -299,7 +307,7 @@ describe("getActiveSectionsBounds", () => {
       },
       parentSectionMap: { nested: "group" },
     });
-    setActiveSectionIds(["group", "nested"]);
+    setActiveSectionIds(testWorkspace.host, ["group", "nested"]);
     setNodes([
       createNode({
         id: "group",
@@ -308,7 +316,7 @@ describe("getActiveSectionsBounds", () => {
         height: 220,
       }),
     ]);
-    useSectionRefs.setState({
+    testWorkspace.sectionRefs.setState({
       selfOnly: {
         nested: createSectionRefElement({
           x: 140,
@@ -319,7 +327,7 @@ describe("getActiveSectionsBounds", () => {
       },
     });
 
-    expect(getActiveSectionsBounds()).toEqual({
+    expect(getActiveSectionsBounds(testWorkspace.host)).toEqual({
       x: 100,
       y: 80,
       width: 260,
@@ -328,7 +336,7 @@ describe("getActiveSectionsBounds", () => {
   });
 
   it("returns a zero rect when no active section has measured geometry", () => {
-    setActiveSectionIds(["section-a"]);
+    setActiveSectionIds(testWorkspace.host, ["section-a"]);
     setNodes([
       createNode({
         id: "section-a",
@@ -338,7 +346,7 @@ describe("getActiveSectionsBounds", () => {
       }),
     ]);
 
-    expect(getActiveSectionsBounds()).toEqual({
+    expect(getActiveSectionsBounds(testWorkspace.host)).toEqual({
       x: 0,
       y: 0,
       width: 0,
@@ -348,9 +356,9 @@ describe("getActiveSectionsBounds", () => {
 
   it("falls back to the section DOM ref for sections without measured node internals", () => {
     setCanvasDomNode();
-    useWorkspaceOptions.setState({ snapToGrid: false });
-    setActiveSectionIds(["nested-section"]);
-    useSectionRefs.setState({
+    testWorkspace.options.setState({ snapToGrid: false });
+    setActiveSectionIds(testWorkspace.host, ["nested-section"]);
+    testWorkspace.sectionRefs.setState({
       selfOnly: {
         "nested-section": createSectionRefElement({
           x: 30,
@@ -361,7 +369,7 @@ describe("getActiveSectionsBounds", () => {
       },
     });
 
-    expect(getActiveSectionsBounds()).toEqual({
+    expect(getActiveSectionsBounds(testWorkspace.host)).toEqual({
       x: 30,
       y: 40,
       width: 120,
@@ -371,8 +379,8 @@ describe("getActiveSectionsBounds", () => {
 
   it("skips snap-to-grid rounding when measuring with ignoreGrid", () => {
     setCanvasDomNode();
-    setActiveSectionIds(["nested-section"]);
-    useSectionRefs.setState({
+    setActiveSectionIds(testWorkspace.host, ["nested-section"]);
+    testWorkspace.sectionRefs.setState({
       selfOnly: {
         "nested-section": createSectionRefElement({
           x: 32,
@@ -384,13 +392,13 @@ describe("getActiveSectionsBounds", () => {
     });
 
     // The default 15px snap grid rounds the measured origin; ignoreGrid preserves it.
-    expect(getActiveSectionsBounds(false)).toEqual({
+    expect(getActiveSectionsBounds(testWorkspace.host, false)).toEqual({
       x: 30,
       y: 45,
       width: 120,
       height: 60,
     });
-    expect(getActiveSectionsBounds(true)).toEqual({
+    expect(getActiveSectionsBounds(testWorkspace.host, true)).toEqual({
       x: 32,
       y: 41,
       width: 120,
@@ -401,14 +409,14 @@ describe("getActiveSectionsBounds", () => {
 
 describe("getSectionRect", () => {
   it("returns null when no ref is registered", () => {
-    expect(getSectionRect("missing-section")).toBeNull();
+    expect(getSectionRect(testWorkspace.host, "missing-section")).toBeNull();
   });
 
   it("prefers the selfOnly ref and converts through the viewport transform", () => {
     setCanvasDomNode();
-    useWorkspaceOptions.setState({ snapToGrid: false });
-    useReactFlow.setState({ transform: [10, 20, 2] });
-    useSectionRefs.setState({
+    testWorkspace.options.setState({ snapToGrid: false });
+    testWorkspace.reactFlow.setState({ transform: [10, 20, 2] });
+    testWorkspace.sectionRefs.setState({
       selfOnly: {
         "section-a": createSectionRefElement({
           x: 110,
@@ -427,7 +435,7 @@ describe("getSectionRect", () => {
       },
     });
 
-    expect(getSectionRect("section-a", true)).toEqual({
+    expect(getSectionRect(testWorkspace.host, "section-a", true)).toEqual({
       x: 50,
       y: 100,
       width: 50,
@@ -511,14 +519,14 @@ describe("getViewportForBounds", () => {
 
 describe("getPaneRect", () => {
   it("projects only the unobscured canvas area into flow coordinates", () => {
-    useReactFlow.setState({
+    testWorkspace.reactFlow.setState({
       width: 800,
       height: 600,
       transform: [100, 50, 2],
       viewportInsets: { top: 0, right: 100, bottom: 0, left: 200 },
     });
 
-    expect(getPaneRect(useReactFlow.getState())).toEqual({
+    expect(getPaneRect(testWorkspace.host, testWorkspace.reactFlow.getState())).toEqual({
       x: 50,
       y: -25,
       width: 250,

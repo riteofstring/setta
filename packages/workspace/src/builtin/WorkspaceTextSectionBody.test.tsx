@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { EditorView } from "@codemirror/view";
 import { act, createElement, type ReactNode } from "react";
@@ -7,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import {
   getWorkspaceDocument,
-  setWorkspaceDocumentChangeCallback,
+
 } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
@@ -107,21 +115,24 @@ describe("built-in text section", () => {
     });
     host.remove();
     setClipboard(undefined);
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
-    useWorkspaceAppearance.getState().reset();
-    useResizeEvent.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    registerSectionKinds(testWorkspace.host, {});
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.appearance.getState().reset();
+    testWorkspace.resizeEvent.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   async function mount(section: WorkspaceSectionInput = makeTextSection()) {
-    registerSectionKinds({ [WORKSPACE_TEXT_SECTION_KIND]: definition });
-    loadWorkspaceDocument(makeDocument(section));
+    registerSectionKinds(testWorkspace.host, { [WORKSPACE_TEXT_SECTION_KIND]: definition });
+    loadWorkspaceDocument(testWorkspace.host, makeDocument(section));
     await act(async () => {
-      root.render(createElement(SectionHarness));
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(SectionHarness)
+        }</WorkspaceTestProvider>,
+      );
     });
   }
 
@@ -135,7 +146,7 @@ describe("built-in text section", () => {
   }
 
   function getSectionData(): WorkspaceTextSectionData {
-    return getWorkspaceDocument().sections[SECTION_ID]
+    return getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]
       ?.data as WorkspaceTextSectionData;
   }
 
@@ -185,7 +196,7 @@ describe("built-in text section", () => {
     expect(view.contentDOM.classList.contains("cm-lineWrapping")).toBe(true);
     expect(view.state.tabSize).toBe(4);
 
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
     await act(async () => {
       view.dispatch({ changes: { from: 5, insert: "!" } });
     });
@@ -325,7 +336,7 @@ describe("built-in text section", () => {
     const button = getDisplayModeButton();
     expect(button.getAttribute("aria-label")).toBe("Render Markdown");
 
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
     await act(async () => {
       button.click();
     });
@@ -360,11 +371,11 @@ describe("built-in text section", () => {
       root.unmount();
     });
     root = createRoot(host);
-    useWorkspaceDocument.getState().reset();
+    testWorkspace.document.getState().reset();
     await mount(makeTextSection({ readOnly: true }));
     expect(getView().state.readOnly).toBe(true);
     const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
     await act(async () => {
       getView().dispatch({ changes: { from: 0, insert: "#" } });
     });
@@ -393,7 +404,7 @@ describe("built-in text section", () => {
   it("repaints when a host writes the typed section data", async () => {
     await mount();
     await act(async () => {
-      setWorkspaceTextSectionData(SECTION_ID, {
+      setWorkspaceTextSectionData(testWorkspace.host, SECTION_ID, {
         ...getSectionData(),
         format: "markdown",
         text: "## Rewritten",

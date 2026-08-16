@@ -11,6 +11,7 @@ import {
   handleSectionControlEscape,
 } from "../sectionFocus";
 import { useWorkspaceHost } from "../../workspaceHostContext";
+import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
 
 // The item-controls milestone's color picker: the reference `ColorPickerInput` at the `ParamUI`
 // color presentation. With host-supplied choices it renders the recorded trigger — the rounded
@@ -150,9 +151,7 @@ function NativeColorPicker({
       />
       <input
         aria-label={ariaLabel}
-        // The reference's static `id="colorPicker"` duplicates across rows; the package keys
-        // the id like the text control's dummy layer so every row stays host-addressable.
-        id={`${sectionId}-${itemId}-ColorValueInput`}
+        id={`${getWorkspaceHostDomId(host)}-${sectionId}-${itemId}-ColorValueInput`}
         type="color"
         value={value}
         // The reference binds both `onInput` and React's `onChange` to the same native input

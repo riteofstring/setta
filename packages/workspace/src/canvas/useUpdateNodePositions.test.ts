@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { useActiveSections, useNodeInternals } from "../document/stores";
@@ -20,34 +28,34 @@ function createNode(): Node {
 
 describe("updatePositions", () => {
   beforeEach(() => {
-    useNodeInternals.setState({ x: new Map([["leaf", createNode()]]) });
-    useActiveSections.setState({ activeIds: ["leaf"] });
-    useWorkspaceOptions.setState({ snapToGrid: false });
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.nodeInternals.setState({ x: new Map([["leaf", createNode()]]) });
+    testWorkspace.activeSections.setState({ activeIds: ["leaf"] });
+    testWorkspace.options.setState({ snapToGrid: false });
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   afterEach(() => {
-    useWorkspaceCapabilities.getState().reset();
-    useWorkspaceOptions.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.options.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   it("blocks selected-section keyboard movement without layout capability", () => {
-    useWorkspaceCapabilities.setState({ canEditLayout: false });
+    testWorkspace.capabilities.setState({ canEditLayout: false });
 
-    updatePositions({ x: 1, y: 0, isShiftPressed: false });
+    updatePositions(testWorkspace.host, { x: 1, y: 0, isShiftPressed: false });
 
-    expect(useNodeInternals.getState().x.get("leaf")?.position).toEqual({
+    expect(testWorkspace.nodeInternals.getState().x.get("leaf")?.position).toEqual({
       x: 10,
       y: 20,
     });
 
-    useWorkspaceCapabilities.setState({ canEditLayout: true });
-    updatePositions({ x: 1, y: 0, isShiftPressed: false });
+    testWorkspace.capabilities.setState({ canEditLayout: true });
+    updatePositions(testWorkspace.host, { x: 1, y: 0, isShiftPressed: false });
 
-    expect(useNodeInternals.getState().x.get("leaf")?.position).toEqual({
+    expect(testWorkspace.nodeInternals.getState().x.get("leaf")?.position).toEqual({
       x: 15,
       y: 20,
     });

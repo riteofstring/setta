@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { CollisionPriority, CollisionType } from "@dnd-kit/abstract";
 import { beforeEach, describe, expect, it } from "vitest";
 import { useReactFlow } from "../../canvas/store";
@@ -86,15 +94,16 @@ function createCollision(id: string, rect: ClientRect): SettaCollision {
 
 describe("collision tracker", () => {
   beforeEach(() => {
-    useDndState.getState().reset();
-    useDndState.setState({ draggingIds: [] });
-    useReactFlow.setState({ transform: [0, 0, 1] });
+    testWorkspace.dndState.getState().reset();
+    testWorkspace.dndState.setState({ draggingIds: [] });
+    testWorkspace.reactFlow.setState({ transform: [0, 0, 1] });
   });
 
   it("keeps item row collisions alive via vertical overlap when horizontal overlap is gone", () => {
     // The reference's param-mode intersection fallback: a row dragged horizontally off its list
     // still collides through vertical overlap x active width.
     const tracker = createCollisionTracker({
+      host: testWorkspace.host,
       mode: "item",
       getParentByChild: () => ({}),
     });
@@ -132,6 +141,7 @@ describe("collision tracker", () => {
 
   it("boosts the previously resolved child collision and clears that state on reset", () => {
     const tracker = createCollisionTracker({
+      host: testWorkspace.host,
       mode: "section",
       getParentByChild: () => ({ child: "parent" }),
     });
@@ -171,6 +181,7 @@ describe("collision tracker", () => {
 
   it("uses the pointer with a symmetric dead band for cross-parent insertion", () => {
     const tracker = createCollisionTracker({
+      host: testWorkspace.host,
       mode: "section",
       getParentByChild: () => ({}),
     });
@@ -223,6 +234,7 @@ describe("collision tracker", () => {
 
   it("uses the pointer on the horizontal axis for cross-parent insertion", () => {
     const tracker = createCollisionTracker({
+      host: testWorkspace.host,
       mode: "section",
       getParentByChild: () => ({}),
     });
@@ -264,6 +276,7 @@ describe("collision tracker", () => {
 
   it("keeps each target's hysteresis snapshot when the resolved collision alternates", () => {
     const tracker = createCollisionTracker({
+      host: testWorkspace.host,
       mode: "section",
       getParentByChild: () => ({}),
     });
@@ -322,6 +335,7 @@ describe("collision tracker", () => {
 
   it("keeps direction-aware edges for sorting within the same parent", () => {
     const tracker = createCollisionTracker({
+      host: testWorkspace.host,
       mode: "section",
       getParentByChild: () => ({}),
     });

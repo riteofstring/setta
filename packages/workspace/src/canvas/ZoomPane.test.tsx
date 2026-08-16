@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -48,12 +56,14 @@ async function renderZoomPane(
   const root = createRoot(host);
   await act(async () => {
     root.render(
-      <div className="react-flow">
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<div className="react-flow">
         <ZoomPane {...zoomPaneOptions} {...overrides}>
           <div />
         </ZoomPane>
-      </div>,
-    );
+      </div>
+        }</WorkspaceTestProvider>,
+      );
   });
 
   const renderer = host.querySelector(".react-flow__renderer");
@@ -143,6 +153,7 @@ describe("shouldAllowZoomFilterEvent", () => {
     expect(
       shouldAllowZoomFilterEvent({
         event,
+        host: testWorkspace.host,
         panOnDrag: [1],
         panOnScroll: false,
         userSelectionActive: false,
@@ -163,6 +174,7 @@ describe("shouldAllowZoomFilterEvent", () => {
     expect(
       shouldAllowZoomFilterEvent({
         event,
+        host: testWorkspace.host,
         panOnDrag: true,
         panOnScroll: false,
         userSelectionActive: false,
@@ -183,6 +195,7 @@ describe("shouldAllowZoomFilterEvent", () => {
     expect(
       shouldAllowZoomFilterEvent({
         event,
+        host: testWorkspace.host,
         panOnDrag: true,
         panOnScroll: false,
         userSelectionActive: false,
@@ -213,10 +226,18 @@ describe("shouldAllowZoomFilterEvent", () => {
     } as const;
 
     expect(
-      shouldAllowZoomFilterEvent({ event: verticalEvent, ...options }),
+      shouldAllowZoomFilterEvent({
+        event: verticalEvent,
+        host: testWorkspace.host,
+        ...options,
+      }),
     ).toBe(false);
     expect(
-      shouldAllowZoomFilterEvent({ event: horizontalEvent, ...options }),
+      shouldAllowZoomFilterEvent({
+        event: horizontalEvent,
+        host: testWorkspace.host,
+        ...options,
+      }),
     ).toBe(true);
   });
 
@@ -235,6 +256,7 @@ describe("shouldAllowZoomFilterEvent", () => {
     expect(
       shouldAllowZoomFilterEvent({
         event: new MouseEvent("mousedown", { button: 0 }),
+        host: testWorkspace.host,
         panOnDrag: true,
         panOnScroll: false,
         userSelectionActive: true,
@@ -248,12 +270,12 @@ describe("shouldAllowZoomFilterEvent", () => {
 
 describe("getViewportInteractionActiveValue", () => {
   beforeEach(() => {
-    useNodeInternals.getState().reset();
-    useWorkspaceDocument.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.document.getState().reset();
     // A saved camera, so mounting the zoom pane does not arm the fit-on-init path on its own.
-    useWorkspaceDocument.setState({ viewport: { x: 0, y: 0, zoom: 1 } });
-    useWorkspaceOptions.getState().reset();
-    useReactFlow.setState({
+    testWorkspace.document.setState({ viewport: { x: 0, y: 0, zoom: 1 } });
+    testWorkspace.options.getState().reset();
+    testWorkspace.reactFlow.setState({
       ...initialCanvasState,
       width: 800,
       height: 600,
@@ -267,9 +289,9 @@ describe("getViewportInteractionActiveValue", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
-    useNodeInternals.getState().reset();
-    useWorkspaceDocument.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.document.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
     document.body.innerHTML = "";
   });
 
@@ -295,13 +317,14 @@ describe("getViewportInteractionActiveValue", () => {
     const wheelZoomTimeout = { current: setTimeout(() => undefined, 1000) };
     const canvas = document.createElement("div");
     canvas.setAttribute("data-viewport-interaction-active", "true");
-    useReactFlow.setState({
+    testWorkspace.reactFlow.setState({
       domNode: canvas,
       paneDragging: true,
       viewportInteractionActive: true,
     });
 
     resetViewportInteractionState({
+      host: testWorkspace.host,
       isPanScrolling: { current: true },
       isWheelZooming: { current: true },
       isZoomingOrPanning: { current: true },
@@ -309,8 +332,8 @@ describe("getViewportInteractionActiveValue", () => {
       wheelZoomTimeout,
     });
 
-    expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
-    expect(useReactFlow.getState().paneDragging).toBe(false);
+    expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(false);
+    expect(testWorkspace.reactFlow.getState().paneDragging).toBe(false);
     expect(canvas.hasAttribute("data-viewport-interaction-active")).toBe(false);
   });
 
@@ -333,8 +356,8 @@ describe("getViewportInteractionActiveValue", () => {
           }),
         );
       });
-      expect(useReactFlow.getState().transform).toEqual([-10, 0, 1]);
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([-10, 0, 1]);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
       expect(
         renderer.parentElement?.getAttribute(
           "data-viewport-interaction-active",
@@ -351,15 +374,15 @@ describe("getViewportInteractionActiveValue", () => {
         });
         target.dispatchEvent(manualEvent);
       });
-      expect(useReactFlow.getState().transform).toEqual([-10, 0, 1]);
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([-10, 0, 1]);
       expect(manualEvent?.defaultPrevented).toBe(true);
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
       target.classList.remove("setta-manual-wheel");
 
       await act(async () => {
         vi.advanceTimersByTime(150);
       });
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(false);
       expect(
         renderer.parentElement?.hasAttribute(
           "data-viewport-interaction-active",
@@ -375,9 +398,9 @@ describe("getViewportInteractionActiveValue", () => {
         });
         target.dispatchEvent(blockedEvent);
       });
-      expect(useReactFlow.getState().transform).toEqual([-10, 0, 1]);
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([-10, 0, 1]);
       expect(blockedEvent?.defaultPrevented).toBe(false);
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(false);
 
       let paneEvent: WheelEvent | undefined;
       await act(async () => {
@@ -388,9 +411,9 @@ describe("getViewportInteractionActiveValue", () => {
         });
         renderer.dispatchEvent(paneEvent);
       });
-      expect(useReactFlow.getState().transform).toEqual([-20, 0, 1]);
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([-20, 0, 1]);
       expect(paneEvent?.defaultPrevented).toBe(true);
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
     } finally {
       await act(async () => {
         root.unmount();
@@ -418,9 +441,9 @@ describe("getViewportInteractionActiveValue", () => {
         });
         target.dispatchEvent(verticalEvent);
       });
-      expect(useReactFlow.getState().transform).toEqual([0, 0, 1]);
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([0, 0, 1]);
       expect(verticalEvent?.defaultPrevented).toBe(false);
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(false);
 
       let horizontalEvent: WheelEvent | undefined;
       await act(async () => {
@@ -431,9 +454,9 @@ describe("getViewportInteractionActiveValue", () => {
         });
         target.dispatchEvent(horizontalEvent);
       });
-      expect(useReactFlow.getState().transform).toEqual([-20, 0, 1]);
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([-20, 0, 1]);
       expect(horizontalEvent?.defaultPrevented).toBe(true);
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
     } finally {
       await act(async () => {
         root.unmount();
@@ -446,7 +469,7 @@ describe("getViewportInteractionActiveValue", () => {
     const { host, renderer, root } = await renderZoomPane();
 
     try {
-      const d3Zoom = useReactFlow.getState().d3Zoom;
+      const d3Zoom = testWorkspace.reactFlow.getState().d3Zoom;
       if (!d3Zoom) {
         throw new Error("Expected ZoomPane to initialize d3 zoom state.");
       }
@@ -475,8 +498,8 @@ describe("getViewportInteractionActiveValue", () => {
         );
       });
 
-      expect(useReactFlow.getState().paneDragging).toBe(true);
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().paneDragging).toBe(true);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
 
       await act(async () => {
         renderer.dispatchEvent(
@@ -504,20 +527,20 @@ describe("getViewportInteractionActiveValue", () => {
       });
 
       // Drag teardown should not clear the active wheel burst prematurely.
-      expect(useReactFlow.getState().paneDragging).toBe(false);
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().paneDragging).toBe(false);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
 
       await act(async () => {
         vi.advanceTimersByTime(179);
       });
 
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
 
       await act(async () => {
         vi.advanceTimersByTime(1);
       });
 
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(false);
     } finally {
       await act(async () => {
         root.unmount();
@@ -527,7 +550,7 @@ describe("getViewportInteractionActiveValue", () => {
   });
 
   it("completes a pending initial fit after the zoom pane initializes d3 state", async () => {
-    useNodeInternals.setState({
+    testWorkspace.nodeInternals.setState({
       x: new Map([
         [
           "settings-core-node",
@@ -545,8 +568,8 @@ describe("getViewportInteractionActiveValue", () => {
     });
     // A document without a saved camera arms fit-on-init through the mount-time
     // `getInitialCanvasViewport`; the initialization effect then completes the fit.
-    useWorkspaceDocument.setState({ viewport: null });
-    useReactFlow.setState({
+    testWorkspace.document.setState({ viewport: null });
+    testWorkspace.reactFlow.setState({
       ...initialCanvasState,
       width: 800,
       height: 600,
@@ -555,9 +578,9 @@ describe("getViewportInteractionActiveValue", () => {
     const { host, root } = await renderZoomPane();
 
     try {
-      expect(useReactFlow.getState().fitViewOnInit).toBe(false);
-      expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
-      expect(useReactFlow.getState().transform).not.toEqual([0, 0, 1]);
+      expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
+      expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
+      expect(testWorkspace.reactFlow.getState().transform).not.toEqual([0, 0, 1]);
     } finally {
       await act(async () => {
         root.unmount();
@@ -567,7 +590,7 @@ describe("getViewportInteractionActiveValue", () => {
   });
 
   it("retries a pending initial fit when a document load marks fitViewOnInit after d3 is ready", async () => {
-    useNodeInternals.setState({
+    testWorkspace.nodeInternals.setState({
       x: new Map([
         [
           "settings-core-node",
@@ -588,22 +611,22 @@ describe("getViewportInteractionActiveValue", () => {
 
     try {
       // Mounting with the saved camera normalizes the fit flags instead of arming.
-      expect(useReactFlow.getState().fitViewOnInit).toBe(false);
-      expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
+      expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
+      expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
 
       // The shape of a mounted re-load without a saved camera: `armLoadedDocumentFitView`
       // arms while d3 is already initialized, and the initialization effect retries.
       await act(async () => {
-        useReactFlow.setState({
+        testWorkspace.reactFlow.setState({
           fitViewOnInit: true,
           fitViewOnInitDone: false,
           fitViewOnInitOptions: { nodes: [{ id: "settings-core-node" }] },
         });
       });
 
-      expect(useReactFlow.getState().fitViewOnInit).toBe(false);
-      expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
-      expect(useReactFlow.getState().transform).not.toEqual([0, 0, 1]);
+      expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
+      expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
+      expect(testWorkspace.reactFlow.getState().transform).not.toEqual([0, 0, 1]);
     } finally {
       await act(async () => {
         root.unmount();
@@ -615,17 +638,17 @@ describe("getViewportInteractionActiveValue", () => {
   it("clears the d3 handles on unmount so a load no longer sees a mounted canvas", async () => {
     const { host, root } = await renderZoomPane();
 
-    expect(useReactFlow.getState().d3Zoom).not.toBeNull();
-    expect(useReactFlow.getState().d3Selection).not.toBeNull();
-    expect(useReactFlow.getState().domNode).not.toBeNull();
+    expect(testWorkspace.reactFlow.getState().d3Zoom).not.toBeNull();
+    expect(testWorkspace.reactFlow.getState().d3Selection).not.toBeNull();
+    expect(testWorkspace.reactFlow.getState().domNode).not.toBeNull();
 
     await act(async () => {
       root.unmount();
     });
     host.remove();
 
-    expect(useReactFlow.getState().d3Zoom).toBeNull();
-    expect(useReactFlow.getState().d3Selection).toBeNull();
-    expect(useReactFlow.getState().domNode).toBeNull();
+    expect(testWorkspace.reactFlow.getState().d3Zoom).toBeNull();
+    expect(testWorkspace.reactFlow.getState().d3Selection).toBeNull();
+    expect(testWorkspace.reactFlow.getState().domNode).toBeNull();
   });
 });

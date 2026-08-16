@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -13,6 +14,7 @@ import { ResponsiveMiniMap } from "../minimap/ResponsiveMiniMap";
 import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { useWorkspaceHost } from "../workspaceHostContext";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals";
 import { useCanvasViewportDocumentSync } from "./documentViewportSync";
 import FlowRenderer from "./FlowRenderer";
 import { useCanvasKeyActivations } from "./keyActivations";
@@ -59,6 +61,14 @@ export function WorkspaceCanvas() {
   useCanvasKeyActivations();
   useWorkspacePointerLocation();
   useCanvasViewportDocumentSync();
+
+  useLayoutEffect(() => {
+    const root = focusVisibilityRootRef.current;
+    if (!root) {
+      throw new Error("Workspace canvas root did not mount.");
+    }
+    return registerWorkspaceHostElement(host, root);
+  }, [host]);
 
   useEffect(() => {
     if (ref.current) {

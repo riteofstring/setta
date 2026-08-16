@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
@@ -13,7 +21,6 @@ import {
   useItemDndState,
 } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import {
   activateItemSelect,
   useItemSelectionMode,
@@ -64,8 +71,8 @@ function makeItemTree(
 }
 
 function loadTestDocument(selectedItemIds: Array<string> = []) {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
-  loadWorkspaceDocument({
+  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
         id: "panel",
@@ -95,7 +102,7 @@ function loadTestDocument(selectedItemIds: Array<string> = []) {
 }
 
 function registerTestListView(overrides: { filterActive?: boolean } = {}) {
-  registerItemListView("panel", {
+  registerItemListView(testWorkspace.host, "panel", {
     listKey: LIST_KEY,
     topLevelItemIds: ["item-a", "item-group", "item-b"],
     visibleItemIds: new Set([
@@ -157,7 +164,7 @@ async function flushItemDragOver() {
 }
 
 function getPanelItemTree(): WorkspaceSectionItemTree {
-  const itemTree = useWorkspaceDocument.getState().sections["panel"]?.itemTree;
+  const itemTree = testWorkspace.document.getState().sections["panel"]?.itemTree;
   if (!itemTree) {
     throw new Error("expected the panel section to carry an item tree");
   }
@@ -170,29 +177,28 @@ describe("item drag lifecycle", () => {
   beforeEach(() => {
     loadTestDocument();
     registerTestListView();
-    activateItemSelect();
+    activateItemSelect(testWorkspace.host);
     changeCallback.mockClear();
-    setWorkspaceDocumentChangeCallback(changeCallback);
+    testWorkspace.host.subscribe(changeCallback);
   });
 
   afterEach(() => {
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
-    resetItemDragState();
-    resetItemListViews();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
-    useWorkspaceCapabilities.getState().reset();
-    useItemSelectionMode.getState().reset();
-    useItemDndState.getState().reset();
-    useItemDndChildren.getState().reset();
+    registerSectionKinds(testWorkspace.host, {});
+    resetItemDragState(testWorkspace.host);
+    resetItemListViews(testWorkspace.host);
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.itemDndState.getState().reset();
+    testWorkspace.itemDndChildren.getState().reset();
   });
 
   it("snapshots the tree, selects the active item, and inserts the temp placeholder on start", () => {
-    handleItemDragStart(makeStartEvent("item-a"), null);
+    handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
 
-    const state = useItemDndState.getState();
+    const state = testWorkspace.itemDndState.getState();
     expect(state.activeId).toBe("item-a");
     expect(state.sectionId).toBe("panel");
     expect(state.listKey).toBe(LIST_KEY);
@@ -212,7 +218,7 @@ describe("item drag lifecycle", () => {
     });
 
     expect(getPanelItemTree().selectedItemIds).toEqual(["item-a"]);
-    const children = useItemDndChildren.getState();
+    const children = testWorkspace.itemDndChildren.getState();
     expect(children.x["item-root"]).toEqual([TEMP_ID, "item-group", "item-b"]);
     expect(children.y[TEMP_ID]).toBe("item-root");
   });
@@ -220,37 +226,37 @@ describe("item drag lifecycle", () => {
   it("drags the shared-parent selection roots together and collapses cross-parent selections", () => {
     // A document load releases item-select mode, so each mid-test reload re-enters it.
     loadTestDocument(["item-c", "item-d"]);
-    activateItemSelect();
-    handleItemDragStart(makeStartEvent("item-c"), null);
-    expect(useItemDndState.getState().draggingIds).toEqual([
+    activateItemSelect(testWorkspace.host);
+    handleItemDragStart(testWorkspace.host, makeStartEvent("item-c"), null);
+    expect(testWorkspace.itemDndState.getState().draggingIds).toEqual([
       "item-c",
       "item-d",
     ]);
 
-    resetItemDragState();
+    resetItemDragState(testWorkspace.host);
     loadTestDocument(["item-a", "item-c"]);
-    activateItemSelect();
-    handleItemDragStart(makeStartEvent("item-a"), null);
+    activateItemSelect(testWorkspace.host);
+    handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
     // The reference's multi-parent toast stays application-side; the fallback drags only the
     // active item and collapses the selection to it.
-    expect(useItemDndState.getState().draggingIds).toEqual(["item-a"]);
+    expect(testWorkspace.itemDndState.getState().draggingIds).toEqual(["item-a"]);
     expect(getPanelItemTree().selectedItemIds).toEqual(["item-a"]);
   });
 
   it("refuses to start outside item-select mode, without a visible list view, or while filtered", () => {
-    useItemSelectionMode.getState().reset();
-    handleItemDragStart(makeStartEvent("item-a"), null);
-    expect(useItemDndState.getState().activeId).toBeNull();
+    testWorkspace.itemSelectionMode.getState().reset();
+    handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
+    expect(testWorkspace.itemDndState.getState().activeId).toBeNull();
 
-    activateItemSelect();
-    resetItemListViews();
-    handleItemDragStart(makeStartEvent("item-a"), null);
-    expect(useItemDndState.getState().activeId).toBeNull();
+    activateItemSelect(testWorkspace.host);
+    resetItemListViews(testWorkspace.host);
+    handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
+    expect(testWorkspace.itemDndState.getState().activeId).toBeNull();
 
     registerTestListView({ filterActive: true });
     changeCallback.mockClear();
-    handleItemDragStart(makeStartEvent("item-a"), null);
-    expect(useItemDndState.getState().activeId).toBeNull();
+    handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
+    expect(testWorkspace.itemDndState.getState().activeId).toBeNull();
     // The filter abort is side-effect-free: the selection collapse never commits and the
     // host is never notified, as the reference checks its filter before anything mutates.
     expect(getPanelItemTree().selectedItemIds).toEqual([]);
@@ -258,9 +264,9 @@ describe("item drag lifecycle", () => {
   });
 
   it("reorders the placeholder within the parent from a past-halfway collision", async () => {
-    handleItemDragStart(makeStartEvent("item-a"), null);
+    handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
 
-    handleItemDragMove(
+    handleItemDragMove(testWorkspace.host,
       makeMoveEvent([
         {
           id: getItemDndId("item-b", LIST_KEY),
@@ -271,7 +277,7 @@ describe("item drag lifecycle", () => {
     );
     await flushItemDragOver();
 
-    expect(useItemDndChildren.getState().x["item-root"]).toEqual([
+    expect(testWorkspace.itemDndChildren.getState().x["item-root"]).toEqual([
       "item-group",
       "item-b",
       TEMP_ID,
@@ -279,7 +285,7 @@ describe("item drag lifecycle", () => {
   });
 
   it("ignores collisions from other lists", async () => {
-    handleItemDragStart(makeStartEvent("item-a"), null);
+    handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
 
     const event = {
       active: makeStartEvent("item-a").active,
@@ -293,10 +299,10 @@ describe("item drag lifecycle", () => {
       ],
       over: null,
     } as unknown as DragMoveEvent;
-    handleItemDragMove(event);
+    handleItemDragMove(testWorkspace.host, event);
     await flushItemDragOver();
 
-    expect(useItemDndChildren.getState().x["item-root"]).toEqual([
+    expect(testWorkspace.itemDndChildren.getState().x["item-root"]).toEqual([
       TEMP_ID,
       "item-group",
       "item-b",
@@ -304,10 +310,10 @@ describe("item drag lifecycle", () => {
   });
 
   it("re-parents the placeholder into the hovered item when the trigger distance is met and commits the move", async () => {
-    handleItemDragStart(makeStartEvent("item-a"), null);
+    handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
     changeCallback.mockClear();
 
-    handleItemDragMove(
+    handleItemDragMove(testWorkspace.host,
       makeMoveEvent([
         {
           id: getItemDndId("item-c", LIST_KEY),
@@ -318,11 +324,11 @@ describe("item drag lifecycle", () => {
     );
     await flushItemDragOver();
 
-    const children = useItemDndChildren.getState();
+    const children = testWorkspace.itemDndChildren.getState();
     expect(children.x["item-c"]).toEqual([TEMP_ID]);
     expect(children.y[TEMP_ID]).toBe("item-c");
 
-    handleItemDragEnd();
+    handleItemDragEnd(testWorkspace.host);
 
     const itemTree = getPanelItemTree();
     expect(itemTree.items["item-root"]?.children).toEqual([
@@ -331,14 +337,14 @@ describe("item drag lifecycle", () => {
     ]);
     expect(itemTree.items["item-c"]?.children).toEqual(["item-a"]);
     expect(changeCallback).toHaveBeenCalledTimes(1);
-    expect(useItemDndState.getState().pendingReset).toBe(true);
+    expect(testWorkspace.itemDndState.getState().pendingReset).toBe(true);
   });
 
   it("treats a drop back at the original position as a no-op", () => {
-    handleItemDragStart(makeStartEvent("item-a"), null);
+    handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
     changeCallback.mockClear();
 
-    handleItemDragEnd();
+    handleItemDragEnd(testWorkspace.host);
 
     const itemTree = getPanelItemTree();
     expect(itemTree.items["item-root"]?.children).toEqual([
@@ -347,16 +353,16 @@ describe("item drag lifecycle", () => {
       "item-b",
     ]);
     expect(changeCallback).not.toHaveBeenCalled();
-    expect(useItemDndState.getState().pendingReset).toBe(true);
+    expect(testWorkspace.itemDndState.getState().pendingReset).toBe(true);
   });
 
   it("defers the reset on cancel", () => {
-    handleItemDragStart(makeStartEvent("item-a"), null);
-    handleItemDragCancel();
-    expect(useItemDndState.getState().pendingReset).toBe(true);
+    handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
+    handleItemDragCancel(testWorkspace.host);
+    expect(testWorkspace.itemDndState.getState().pendingReset).toBe(true);
 
-    resetItemDragState();
-    expect(useItemDndState.getState().activeId).toBeNull();
-    expect(useItemDndChildren.getState().x).toEqual({});
+    resetItemDragState(testWorkspace.host);
+    expect(testWorkspace.itemDndState.getState().activeId).toBeNull();
+    expect(testWorkspace.itemDndChildren.getState().x).toEqual({});
   });
 });

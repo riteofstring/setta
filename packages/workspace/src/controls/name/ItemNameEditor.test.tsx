@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { EditorView } from "@codemirror/view";
 import { act, createElement } from "react";
@@ -24,9 +32,17 @@ import { ItemNameEditor, type ItemNameEditorProps } from "./ItemNameEditor";
 
 const SECTION_ID = "panel";
 const ITEM_ID = "item-rename";
-const DUMMY_ID = `ItemNameInput-${SECTION_ID}-${ITEM_ID}`;
-const LIVE_ID = `CodeMirror-${SECTION_ID}-${ITEM_ID}-keyName`;
-const ERROR_ID = `ItemNameError-${SECTION_ID}-${ITEM_ID}`;
+function getDummyId(): string {
+  return `${testWorkspace.domId}-ItemNameInput-${SECTION_ID}-${ITEM_ID}`;
+}
+
+function getLiveId(): string {
+  return `${testWorkspace.domId}-CodeMirror-${SECTION_ID}-${ITEM_ID}-keyName`;
+}
+
+function getErrorId(): string {
+  return `${testWorkspace.domId}-ItemNameError-${SECTION_ID}-${ITEM_ID}`;
+}
 const DUPLICATE_ERROR =
   'Param name "enabled" already exists under this parent.';
 
@@ -37,7 +53,7 @@ describe("ItemNameEditor", () => {
 
   beforeEach(() => {
     sectionSurface = document.createElement("section");
-    sectionSurface.id = `${SECTION_ID}-CustomResizable`;
+    sectionSurface.id = `${testWorkspace.domId}-${SECTION_ID}-CustomResizable`;
     host = document.createElement("div");
     sectionSurface.appendChild(host);
     document.body.appendChild(sectionSurface);
@@ -49,31 +65,33 @@ describe("ItemNameEditor", () => {
       root.unmount();
     });
     sectionSurface.remove();
-    useWorkspaceDocument.getState().reset();
-    useActiveSections.getState().reset();
-    useItemSelectionMode.getState().reset();
-    useWorkspaceAppearance.getState().reset();
-    useSectionRefs.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.document.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.appearance.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   async function mount(props: Partial<ItemNameEditorProps> = {}) {
     await act(async () => {
       root.render(
-        createElement(ItemNameEditor, {
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(ItemNameEditor, {
           sectionId: SECTION_ID,
           itemId: ITEM_ID,
           name: "rename_me",
           language: "python",
           onNameChange: () => {},
           ...props,
-        }),
+        })
+        }</WorkspaceTestProvider>,
       );
     });
   }
 
   function getDummy(): HTMLElement {
-    const dummy = document.getElementById(DUMMY_ID);
+    const dummy = host.querySelector<HTMLElement>(`#${getDummyId()}`);
     if (!dummy) {
       throw new Error("The idle name layer is not rendered.");
     }
@@ -157,7 +175,7 @@ describe("ItemNameEditor", () => {
     expect(host.querySelector('[data-item-name-layer-stack="true"]')).toBe(
       stack,
     );
-    expect(document.getElementById(LIVE_ID)?.parentElement).toBe(stack);
+    expect(host.querySelector(`#${getLiveId()}`)?.parentElement).toBe(stack);
   });
 
   it("reports one proposed name per document change and rejects line breaks", async () => {
@@ -165,11 +183,11 @@ describe("ItemNameEditor", () => {
     await mount({ onNameChange });
     await activate();
     const view = getLiveView();
-    const liveWrapper = document.getElementById(LIVE_ID);
+    const liveWrapper = host.querySelector<HTMLElement>(`#${getLiveId()}`);
     expect(liveWrapper).not.toBeNull();
     expect(liveWrapper?.hasAttribute("tabindex")).toBe(false);
     expect(view.contentDOM.tabIndex).toBe(-1);
-    expect(useActiveSections.getState().activeIds).toEqual([SECTION_ID]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([SECTION_ID]);
     await act(async () => {
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: "renamed" },
@@ -201,7 +219,7 @@ describe("ItemNameEditor", () => {
     expect(status.textContent).toBe(DUPLICATE_ERROR);
     const dummy = getDummy();
     expect(dummy.getAttribute("aria-invalid")).toBe("true");
-    expect(dummy.getAttribute("aria-describedby")).toBe(ERROR_ID);
+    expect(dummy.getAttribute("aria-describedby")).toBe(getErrorId());
     for (const errorClass of [
       "text-red-500",
       "dark:text-red-300",
@@ -213,7 +231,7 @@ describe("ItemNameEditor", () => {
       '[data-item-name-layer-stack="true"] > span.single-cell-child',
     );
     expect(underline?.classList.contains("border-red-400")).toBe(true);
-    const bubble = document.getElementById(ERROR_ID);
+    const bubble = sectionSurface.querySelector<HTMLElement>(`#${getErrorId()}`);
     if (!bubble) {
       throw new Error("The duplicate-name error bubble did not render.");
     }
@@ -238,7 +256,7 @@ describe("ItemNameEditor", () => {
     await activate();
     const content = getLiveView().contentDOM;
     expect(content.getAttribute("aria-invalid")).toBe("true");
-    expect(content.getAttribute("aria-describedby")).toBe(ERROR_ID);
+    expect(content.getAttribute("aria-describedby")).toBe(getErrorId());
   });
 
   it("applies a host error while the live editor is already active", async () => {
@@ -250,12 +268,12 @@ describe("ItemNameEditor", () => {
     const liveView = getLiveView();
     expect(liveView.state.doc.toString()).toBe("enabled");
     expect(liveView.contentDOM.getAttribute("aria-invalid")).toBe("true");
-    expect(liveView.contentDOM.getAttribute("aria-describedby")).toBe(ERROR_ID);
-    expect(document.getElementById(ERROR_ID)?.textContent).toBe(
+    expect(liveView.contentDOM.getAttribute("aria-describedby")).toBe(getErrorId());
+    expect(sectionSurface.querySelector(`#${getErrorId()}`)?.textContent).toBe(
       DUPLICATE_ERROR,
     );
     expect(
-      document.getElementById(LIVE_ID)?.classList.contains("text-red-500"),
+      host.querySelector(`#${getLiveId()}`)?.classList.contains("text-red-500"),
     ).toBe(true);
   });
 
@@ -263,7 +281,7 @@ describe("ItemNameEditor", () => {
     const focusTarget = document.createElement("div");
     focusTarget.tabIndex = -1;
     document.body.appendChild(focusTarget);
-    useSectionRefs.setState({ withNested: { [SECTION_ID]: focusTarget } });
+    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: focusTarget } });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     const onBlur = vi.fn();
@@ -280,7 +298,7 @@ describe("ItemNameEditor", () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 1));
     });
-    expect(document.getElementById(DUMMY_ID)).not.toBeNull();
+    expect(host.querySelector(`#${getDummyId()}`)).not.toBeNull();
     expect(host.querySelector(".cm-editor")).toBeNull();
     document.removeEventListener("keydown", documentEscape);
     focusTarget.remove();
@@ -294,7 +312,7 @@ describe("ItemNameEditor", () => {
     await activate();
     expect(host.querySelector(".cm-editor")).toBeNull();
 
-    useItemSelectionMode.setState({ isSelectingItems: true });
+    testWorkspace.itemSelectionMode.setState({ isSelectingItems: true });
     await mount({ disabled: false });
     expect(getDummy().getAttribute("aria-disabled")).toBe("true");
     await activate();

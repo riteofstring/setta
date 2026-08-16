@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -27,14 +35,18 @@ describe("useShouldDisablePointerEvents", () => {
   let root: Root;
 
   beforeEach(async () => {
-    useReactFlow.setState({ ...initialCanvasState });
-    useDndState.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
+    testWorkspace.dndState.getState().reset();
     latest = null;
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
     await act(async () => {
-      root.render(createElement(Probe));
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(Probe)
+        }</WorkspaceTestProvider>,
+      );
     });
   });
 
@@ -43,8 +55,8 @@ describe("useShouldDisablePointerEvents", () => {
       root.unmount();
     });
     host.remove();
-    useReactFlow.setState({ ...initialCanvasState });
-    useDndState.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
+    testWorkspace.dndState.getState().reset();
   });
 
   it("keeps pointer events enabled by default", () => {
@@ -53,25 +65,25 @@ describe("useShouldDisablePointerEvents", () => {
 
   it("disables pointer events while a dnd mode is held, as the reference does", async () => {
     await act(async () => {
-      activateDndSortingMode();
+      activateDndSortingMode(testWorkspace.host);
     });
     expect(latest).toBe(true);
 
     await act(async () => {
-      useDndState.getState().reset();
-      activateDndMovingFreeMode();
+      testWorkspace.dndState.getState().reset();
+      activateDndMovingFreeMode(testWorkspace.host);
     });
     expect(latest).toBe(true);
   });
 
   it("disables pointer events while multi-select or zoom activation is held", async () => {
     await act(async () => {
-      useReactFlow.setState({ multiSelectionActive: true });
+      testWorkspace.reactFlow.setState({ multiSelectionActive: true });
     });
     expect(latest).toBe(true);
 
     await act(async () => {
-      useReactFlow.setState({
+      testWorkspace.reactFlow.setState({
         multiSelectionActive: false,
         zoomActivationKeyPressed: true,
       });
@@ -81,12 +93,12 @@ describe("useShouldDisablePointerEvents", () => {
 
   it("disables pointer events only once a marquee rect exists for the selection key", async () => {
     await act(async () => {
-      useReactFlow.setState({ selectionKeyPressed: true });
+      testWorkspace.reactFlow.setState({ selectionKeyPressed: true });
     });
     expect(latest).toBe(false);
 
     await act(async () => {
-      useReactFlow.setState({
+      testWorkspace.reactFlow.setState({
         userSelectionRect: {
           x: 0,
           y: 0,

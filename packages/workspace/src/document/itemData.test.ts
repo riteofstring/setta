@@ -1,5 +1,12 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setWorkspaceDocumentChangeCallback } from "./documentChangeCallback";
 import { getSectionItemTreeOrThrow } from "./documentSelectors";
 import { setItemData } from "./itemData";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
@@ -13,8 +20,8 @@ import {
 // The custom-row persistence funnel: one canonical opaque-data replacement and one notification.
 
 function loadTestDocument() {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
-  loadWorkspaceDocument({
+  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
         id: "panel",
@@ -54,19 +61,18 @@ describe("setItemData", () => {
   });
 
   afterEach(() => {
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
+    registerSectionKinds(testWorkspace.host, {});
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
   });
 
   it("replaces the item's opaque data and notifies the host once", () => {
     const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
-    setItemData("panel", "item-a", { label: "alpha", value: "0.5" });
+    testWorkspace.host.subscribe(onDocumentChange);
+    setItemData(testWorkspace.host, "panel", "item-a", { label: "alpha", value: "0.5" });
     const itemTree = getSectionItemTreeOrThrow(
-      useWorkspaceDocument.getState(),
+      testWorkspace.document.getState(),
       "panel",
     );
     expect(itemTree.items["item-a"]?.data).toEqual({
@@ -78,21 +84,21 @@ describe("setItemData", () => {
   });
 
   it("fails loudly for an unknown section or item", () => {
-    expect(() => setItemData("missing", "item-a", {})).toThrow();
-    expect(() => setItemData("panel", "missing", {})).toThrow();
-    expect(() => setItemData("panel", "item-root", {})).toThrowError(
+    expect(() => setItemData(testWorkspace.host, "missing", "item-a", {})).toThrow();
+    expect(() => setItemData(testWorkspace.host, "panel", "missing", {})).toThrow();
+    expect(() => setItemData(testWorkspace.host, "panel", "item-root", {})).toThrowError(
       "Section panel item item-root is the structural root and has no data.",
     );
   });
 
   it("refuses to create an opaque-data path on a typed built-in item", () => {
-    const document = useWorkspaceDocument.getState();
+    const document = testWorkspace.document.getState();
     const section = document.sections.panel;
     const itemTree = section?.itemTree;
     if (!section || !itemTree) {
       throw new Error("The item-data fixture lost its panel tree.");
     }
-    useWorkspaceDocument.setState({
+    testWorkspace.document.setState({
       sections: {
         ...document.sections,
         panel: {
@@ -119,7 +125,7 @@ describe("setItemData", () => {
         },
       },
     });
-    expect(() => setItemData("panel", "item-a", {})).toThrowError(
+    expect(() => setItemData(testWorkspace.host, "panel", "item-a", {})).toThrowError(
       "Section panel item item-a has a built-in presentation; use its typed mutation funnels.",
     );
   });

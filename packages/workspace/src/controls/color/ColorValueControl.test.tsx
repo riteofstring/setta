@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -47,22 +55,24 @@ describe("ColorValueControl", () => {
       root.unmount();
     });
     host.remove();
-    useItemSelectionMode.getState().reset();
-    useSectionRefs.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   async function mount(props: Partial<ColorValueControlProps> = {}) {
     await act(async () => {
       root.render(
-        createElement(ColorValueControl, {
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(ColorValueControl, {
           ariaLabel: "Accent color",
           sectionId: SECTION_ID,
           itemId: ITEM_ID,
           value: "#22c55e",
           onValueChange: () => {},
           ...props,
-        }),
+        })
+        }</WorkspaceTestProvider>,
       );
     });
   }
@@ -218,7 +228,7 @@ describe("ColorValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     await mount({ choices: CHOICES });
@@ -255,7 +265,7 @@ describe("ColorValueControl", () => {
     window.addEventListener("scroll", onScroll);
     window.addEventListener("resize", onResize);
     act(() => {
-      useReactFlow.setState({ transform: [12, -4, 1.5] });
+      testWorkspace.reactFlow.setState({ transform: [12, -4, 1.5] });
     });
     await flushAnimationFrame();
     expect(onScroll).toHaveBeenCalledTimes(1);
@@ -268,7 +278,7 @@ describe("ColorValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     await mount({ choices: CHOICES });
@@ -290,7 +300,7 @@ describe("ColorValueControl", () => {
   it("disables the configured trigger from the host flag and item-select mode", async () => {
     await mount({ choices: CHOICES, disabled: true });
     expect(getTrigger().disabled).toBe(true);
-    useItemSelectionMode.setState({ isSelectingItems: true });
+    testWorkspace.itemSelectionMode.setState({ isSelectingItems: true });
     await mount({ choices: CHOICES });
     expect(getTrigger().disabled).toBe(true);
   });
@@ -304,7 +314,7 @@ describe("ColorValueControl", () => {
     if (!input) {
       throw new Error("The native color input is not rendered.");
     }
-    expect(input.id).toBe(NATIVE_INPUT_ID);
+    expect(input.id).toBe(`${testWorkspace.domId}-${NATIVE_INPUT_ID}`);
     expect(input.value).toBe("#afbacf");
     expect(input.getAttribute("aria-label")).toBe("Accent color");
     for (const expectedClass of [

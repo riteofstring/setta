@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -38,13 +46,13 @@ function createSection(id: string): WorkspaceSection {
 }
 
 function resetState(): void {
-  useWorkspaceMenuState.getState().reset();
-  useWorkspaceCapabilities.getState().reset();
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
-  useActiveSections.getState().reset();
-  useDndState.getState().reset();
-  useReactFlow.setState({ ...initialCanvasState });
+  testWorkspace.menuState.getState().reset();
+  testWorkspace.capabilities.getState().reset();
+  testWorkspace.document.getState().reset();
+  testWorkspace.nodeInternals.getState().reset();
+  testWorkspace.activeSections.getState().reset();
+  testWorkspace.dndState.getState().reset();
+  testWorkspace.reactFlow.setState({ ...initialCanvasState });
 }
 
 describe("NodesSelection context menu", () => {
@@ -53,8 +61,8 @@ describe("NodesSelection context menu", () => {
 
   beforeEach(async () => {
     resetState();
-    registerSectionKinds({ leaf: { renderContent: () => null } });
-    loadWorkspaceDocument({
+    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         alpha: createSection("alpha"),
         bravo: createSection("bravo"),
@@ -66,21 +74,25 @@ describe("NodesSelection context menu", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["alpha", "bravo"],
     });
-    useReactFlow.setState({
+    testWorkspace.reactFlow.setState({
       nodesSelectionDims: { x: 0, y: 0, width: 250, height: 50 },
     });
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
     await act(async () => {
-      root.render(<NodesSelectionWrapper />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<NodesSelectionWrapper />
+        }</WorkspaceTestProvider>,
+      );
     });
   });
 
   afterEach(async () => {
     await act(async () => root.unmount());
     host.remove();
-    registerSectionKinds({});
+    registerSectionKinds(testWorkspace.host, {});
     resetState();
   });
 
@@ -105,7 +117,7 @@ describe("NodesSelection context menu", () => {
     });
     await act(async () => selection.dispatchEvent(pointerEvent));
     expect(pointerEvent.defaultPrevented).toBe(true);
-    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+    expect(testWorkspace.menuState.getState().invocation).toMatchObject({
       kind: "section",
       surface: "context-menu",
       context: {
@@ -114,7 +126,7 @@ describe("NodesSelection context menu", () => {
       },
     });
 
-    useWorkspaceMenuState.getState().reset();
+    testWorkspace.menuState.getState().reset();
     selection.getBoundingClientRect = () =>
       ({ left: 10, right: 260, top: 40, width: 250, height: 50 }) as DOMRect;
     await act(async () => {
@@ -126,7 +138,7 @@ describe("NodesSelection context menu", () => {
         }),
       );
     });
-    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+    expect(testWorkspace.menuState.getState().invocation).toMatchObject({
       kind: "section",
       clientPoint: { x: 22, y: 64 },
     });
@@ -134,11 +146,11 @@ describe("NodesSelection context menu", () => {
 
   it("removes the multi-selection bounds layer when only one section remains selected", async () => {
     await act(async () => {
-      useActiveSections.setState({ activeIds: ["alpha"] });
-      useReactFlow.getState().setNodesSelection(1);
+      testWorkspace.activeSections.setState({ activeIds: ["alpha"] });
+      testWorkspace.reactFlow.getState().setNodesSelection(1);
     });
 
-    expect(useReactFlow.getState().nodesSelectionDims).toBeNull();
+    expect(testWorkspace.reactFlow.getState().nodesSelectionDims).toBeNull();
     expect(host.querySelector(".react-flow__nodesselection-rect")).toBeNull();
   });
 });

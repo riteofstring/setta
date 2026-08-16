@@ -4,6 +4,7 @@ import { isGroupSection } from "../document/documentSelectors";
 import { getWorkspaceDocumentStore } from "../document/stores";
 import { getSectionRefsStore } from "../section/sectionRefs";
 import type { WorkspaceHost } from "../workspaceHost";
+import { isWorkspaceHostElement } from "../workspaceHostInternals";
 import { getOrderedTopLevelSectionIds } from "./topLevelSectionOrder";
 import {
   getWorkspaceFocusableElements,
@@ -16,13 +17,18 @@ import {
 // a click on it would leave focus.
 
 function getFocusedCanvasSectionId(
+  host: WorkspaceHost,
   orderedSectionIds: ReadonlyArray<string>,
 ): string | null {
   const activeElement =
     document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
-  if (!activeElement || getWorkspaceFocusScopeId(activeElement) !== "canvas") {
+  if (
+    !activeElement ||
+    !isWorkspaceHostElement(host, activeElement) ||
+    getWorkspaceFocusScopeId(activeElement) !== "canvas"
+  ) {
     return null;
   }
   const sectionNode = activeElement.closest(".react-flow__node");
@@ -35,10 +41,11 @@ function getFocusedCanvasSectionId(
 // From outside the canvas the move starts at the edge it is travelling from; from a section it
 // stops at the ends of the order rather than wrapping, which is the reference's behavior.
 function getAdjacentTopLevelSectionId(
+  host: WorkspaceHost,
   orderedSectionIds: ReadonlyArray<string>,
   direction: 1 | -1,
 ): string | null {
-  const currentId = getFocusedCanvasSectionId(orderedSectionIds);
+  const currentId = getFocusedCanvasSectionId(host, orderedSectionIds);
   if (currentId === null) {
     return (
       (direction === 1 ? orderedSectionIds[0] : orderedSectionIds.at(-1)) ??
@@ -77,7 +84,11 @@ export function focusAdjacentTopLevelSection(
   direction: 1 | -1,
 ): boolean {
   const orderedSectionIds = getOrderedTopLevelSectionIds(host);
-  const targetId = getAdjacentTopLevelSectionId(orderedSectionIds, direction);
+  const targetId = getAdjacentTopLevelSectionId(
+    host,
+    orderedSectionIds,
+    direction,
+  );
   if (targetId === null) {
     return false;
   }

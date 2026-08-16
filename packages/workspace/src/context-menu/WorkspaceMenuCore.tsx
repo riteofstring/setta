@@ -13,6 +13,10 @@ import type { WorkspaceTextDirection } from "../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import {
+  getWorkspaceHostDomId,
+  registerWorkspaceHostElement,
+} from "../workspaceHostInternals";
+import {
   placeWorkspaceMenu,
   type WorkspaceMenuClientPoint,
 } from "./workspaceMenuGeometry";
@@ -30,8 +34,8 @@ export type WorkspaceMenuEntry = {
   onSelect: () => void;
 };
 
-function getMenuEntryDescriptionId(entryId: string): string {
-  return `setta-workspace-menu-reason-${entryId}`;
+function getMenuEntryDescriptionId(hostId: string, entryId: string): string {
+  return `${hostId}-menu-reason-${entryId}`;
 }
 
 export function WorkspaceMenuEntryDescriptions({
@@ -39,6 +43,8 @@ export function WorkspaceMenuEntryDescriptions({
 }: {
   entries: ReadonlyArray<WorkspaceMenuEntry>;
 }) {
+  const host = useWorkspaceHost();
+  const hostId = getWorkspaceHostDomId(host);
   const describedEntries = entries.filter(
     (entry) => entry.description !== undefined,
   );
@@ -48,7 +54,7 @@ export function WorkspaceMenuEntryDescriptions({
   return (
     <div className="sr-only">
       {describedEntries.map((entry) => (
-        <span id={getMenuEntryDescriptionId(entry.id)} key={entry.id}>
+        <span id={getMenuEntryDescriptionId(hostId, entry.id)} key={entry.id}>
           {entry.description}
         </span>
       ))}
@@ -90,6 +96,14 @@ export function WorkspaceMenuCore({
   useLayoutEffect(() => {
     initialFocusRef.current = initialFocus;
   }, [initialFocus]);
+
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!content) {
+      throw new Error("Workspace menu content did not mount.");
+    }
+    return registerWorkspaceHostElement(host, content);
+  }, [host]);
 
   useLayoutEffect(() => {
     setPosition({ left: -9999, top: -9999, opacity: 0 });
@@ -148,6 +162,8 @@ export function WorkspaceMenuItem({
   entry: WorkspaceMenuEntry;
   registerElement: (element: HTMLDivElement | null) => void;
 }) {
+  const host = useWorkspaceHost();
+  const hostId = getWorkspaceHostDomId(host);
   const Icon = entry.icon;
   const content = (
     <>
@@ -181,7 +197,7 @@ export function WorkspaceMenuItem({
     entry.description === undefined
       ? {}
       : {
-          "aria-describedby": getMenuEntryDescriptionId(entry.id),
+          "aria-describedby": getMenuEntryDescriptionId(hostId, entry.id),
           title: entry.description,
         };
 

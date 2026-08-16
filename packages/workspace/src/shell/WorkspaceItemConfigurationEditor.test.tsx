@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -11,7 +19,6 @@ import {
   vi,
   type Mock,
 } from "vitest";
-import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import { useWorkspaceDocument } from "../document/stores";
@@ -77,8 +84,8 @@ describe("WorkspaceItemConfigurationEditor", () => {
     onChange = vi.fn();
     onEscape = vi.fn();
     onStatusChange = vi.fn();
-    registerSectionKinds({ leaf: { renderContent: () => null } });
-    setWorkspaceDocumentChangeCallback(onChange);
+    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    testWorkspace.host.subscribe(onChange);
   });
 
   afterEach(async () => {
@@ -86,12 +93,11 @@ describe("WorkspaceItemConfigurationEditor", () => {
       root.unmount();
     });
     host.remove();
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
+    registerSectionKinds(testWorkspace.host, {});
   });
 
   function loadControl(control: ValueControl): void {
-    loadWorkspaceDocument({
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         leaf: {
           id: "leaf",
@@ -125,26 +131,29 @@ describe("WorkspaceItemConfigurationEditor", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["leaf"],
     });
+    onChange.mockClear();
   }
 
   async function renderEditor(control: ValueControl): Promise<void> {
     await act(async () => {
       root.render(
-        <WorkspaceItemConfigurationEditor
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceItemConfigurationEditor
           control={control}
           disabled={false}
           itemId="item"
           onEscape={onEscape}
           onStatusChange={onStatusChange}
           sectionId="leaf"
-        />,
+        />
+        }</WorkspaceTestProvider>,
       );
     });
   }
 
   function getStoredControl(): ValueControl {
     const control =
-      useWorkspaceDocument.getState().sections["leaf"]?.itemTree?.items["item"]
+      testWorkspace.document.getState().sections["leaf"]?.itemTree?.items["item"]
         ?.presentation?.control;
     if (!control || control.kind === "group") {
       throw new Error("Expected a stored value control.");

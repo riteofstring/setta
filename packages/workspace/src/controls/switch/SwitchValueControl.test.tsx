@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -37,20 +45,22 @@ describe("SwitchValueControl", () => {
       root.unmount();
     });
     host.remove();
-    useItemSelectionMode.getState().reset();
-    useSectionRefs.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
   });
 
   async function mount(props: Partial<SwitchValueControlProps> = {}) {
     await act(async () => {
       root.render(
-        createElement(SwitchValueControl, {
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(SwitchValueControl, {
           ariaLabel: "Enabled value",
           sectionId: SECTION_ID,
           value: "true",
           onValueChange: () => {},
           ...props,
-        }),
+        })
+        }</WorkspaceTestProvider>,
       );
     });
   }
@@ -131,7 +141,7 @@ describe("SwitchValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     await mount();
@@ -161,7 +171,7 @@ describe("SwitchValueControl", () => {
   });
 
   it("disables package-wide during item-select mode", async () => {
-    useItemSelectionMode.setState({ isSelectingItems: true });
+    testWorkspace.itemSelectionMode.setState({ isSelectingItems: true });
     await mount();
     expect(getSwitch().disabled).toBe(true);
   });

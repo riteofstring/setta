@@ -1,6 +1,13 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { setWorkspaceDocumentChangeCallback } from "./documentChangeCallback";
 import {
   selectOnlyItem,
   toggleItemSelected,
@@ -58,7 +65,7 @@ function makeSection(
 
 function getSelectedItemIds(sectionId: string): Array<string> {
   const itemTree =
-    useWorkspaceDocument.getState().sections[sectionId]?.itemTree;
+    testWorkspace.document.getState().sections[sectionId]?.itemTree;
   if (!itemTree) {
     throw new Error(`expected section ${sectionId} to carry an item tree`);
   }
@@ -69,8 +76,8 @@ const documentChangeSpy = vi.fn();
 
 describe("item selection", () => {
   beforeEach(() => {
-    registerSectionKinds({ leaf: { renderContent: () => null } });
-    loadWorkspaceDocument({
+    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         "section-a": makeSection("section-a", {
           itemTree: makeItemTree(["a-1", "a-2"]),
@@ -88,83 +95,82 @@ describe("item selection", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: [],
     });
-    activateItemSelect();
+    activateItemSelect(testWorkspace.host);
     documentChangeSpy.mockClear();
-    setWorkspaceDocumentChangeCallback(documentChangeSpy);
+    testWorkspace.host.subscribe(documentChangeSpy);
   });
 
   afterEach(() => {
-    setWorkspaceDocumentChangeCallback(null);
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
-    useItemSelectionMode.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
-    registerSectionKinds({});
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
+    registerSectionKinds(testWorkspace.host, {});
   });
 
   it("toggles selection on the canonical tree and activates the section during item mode", () => {
-    toggleItemSelected("section-a", "a-1");
+    toggleItemSelected(testWorkspace.host, "section-a", "a-1");
     expect(getSelectedItemIds("section-a")).toEqual(["a-1"]);
-    expect(useActiveSections.getState().activeIds).toEqual(["section-a"]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual(["section-a"]);
     // One notification for the selection commit, one for the active-section commit — the
     // reference sends one toggle route and one active-ids route.
     expect(documentChangeSpy).toHaveBeenCalledTimes(2);
 
-    toggleItemSelected("section-a", "a-2");
-    toggleItemSelected("section-a", "a-1");
+    toggleItemSelected(testWorkspace.host, "section-a", "a-2");
+    toggleItemSelected(testWorkspace.host, "section-a", "a-1");
     expect(getSelectedItemIds("section-a")).toEqual(["a-2"]);
   });
 
   it("keeps the active ids for toggles while item selection mode is inactive", () => {
-    deactivateItemSelect();
-    useActiveSections.setState({ activeIds: ["section-b"] });
+    deactivateItemSelect(testWorkspace.host);
+    testWorkspace.activeSections.setState({ activeIds: ["section-b"] });
 
-    toggleItemSelected("section-a", "a-1");
+    toggleItemSelected(testWorkspace.host, "section-a", "a-1");
     expect(getSelectedItemIds("section-a")).toEqual(["a-1"]);
-    expect(useActiveSections.getState().activeIds).toEqual(["section-b"]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual(["section-b"]);
   });
 
   it("fails loudly for unknown items, the root item, and sections without items", () => {
-    expect(() => toggleItemSelected("section-a", "ghost")).toThrowError(
+    expect(() => toggleItemSelected(testWorkspace.host, "section-a", "ghost")).toThrowError(
       /Unknown item ghost/,
     );
-    expect(() => toggleItemSelected("section-a", "item-root")).toThrowError(
+    expect(() => toggleItemSelected(testWorkspace.host, "section-a", "item-root")).toThrowError(
       /Cannot select the root item item-root/,
     );
-    expect(() => toggleItemSelected("bare", "a-1")).toThrowError(
+    expect(() => toggleItemSelected(testWorkspace.host, "bare", "a-1")).toThrowError(
       /Section bare has no item tree/,
     );
   });
 
   it("clears selection across sections in one commit and reports whether anything changed", () => {
-    toggleItemSelected("section-a", "a-1");
-    toggleItemSelected("section-b", "b-1");
+    toggleItemSelected(testWorkspace.host, "section-a", "a-1");
+    toggleItemSelected(testWorkspace.host, "section-b", "b-1");
     documentChangeSpy.mockClear();
 
-    expect(unselectAllItems()).toBe(true);
+    expect(unselectAllItems(testWorkspace.host)).toBe(true);
     expect(getSelectedItemIds("section-a")).toEqual([]);
     expect(getSelectedItemIds("section-b")).toEqual([]);
     expect(documentChangeSpy).toHaveBeenCalledTimes(1);
 
-    expect(unselectAllItems()).toBe(false);
+    expect(unselectAllItems(testWorkspace.host)).toBe(false);
     expect(documentChangeSpy).toHaveBeenCalledTimes(1);
   });
 
   it("selects only the given item, replacing selections in every section", () => {
-    toggleItemSelected("section-a", "a-2");
-    toggleItemSelected("section-b", "b-1");
+    toggleItemSelected(testWorkspace.host, "section-a", "a-2");
+    toggleItemSelected(testWorkspace.host, "section-b", "b-1");
 
-    selectOnlyItem("section-a", "a-1");
+    selectOnlyItem(testWorkspace.host, "section-a", "a-1");
     expect(getSelectedItemIds("section-a")).toEqual(["a-1"]);
     expect(getSelectedItemIds("section-b")).toEqual([]);
   });
 
   it("leaves an already-sole selection untouched without notifying", () => {
-    toggleItemSelected("section-a", "a-1");
+    toggleItemSelected(testWorkspace.host, "section-a", "a-1");
     documentChangeSpy.mockClear();
 
-    selectOnlyItem("section-a", "a-1");
+    selectOnlyItem(testWorkspace.host, "section-a", "a-1");
     expect(getSelectedItemIds("section-a")).toEqual(["a-1"]);
     expect(documentChangeSpy).not.toHaveBeenCalled();
   });

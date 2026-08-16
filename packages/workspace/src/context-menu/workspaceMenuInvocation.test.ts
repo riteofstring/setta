@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getReactFlowStore, initialCanvasState } from "../canvas/store";
@@ -133,8 +141,7 @@ describe("workspace menu invocation", () => {
   });
 
   it("selects an unselected section and snapshots the resulting selection", () => {
-    openWorkspaceSectionMenu(
-      host,
+    openWorkspaceSectionMenu(host,
       "bravo",
       "context-menu",
       { x: 20, y: 30 },
@@ -188,8 +195,7 @@ describe("workspace menu invocation", () => {
 
   it("always snapshots item context for the package delete action", () => {
     expect(
-      openWorkspaceItemMenu(
-        host,
+      openWorkspaceItemMenu(host,
         "alpha",
         "alpha-item",
         { x: 20, y: 30 },

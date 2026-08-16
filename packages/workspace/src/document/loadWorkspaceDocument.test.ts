@@ -1,3 +1,11 @@
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 import type { ZoomTransform } from "d3-zoom";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
@@ -68,16 +76,16 @@ function makeDocument(
 }
 
 function resetWorkspaceStores() {
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
-  useActiveSections.getState().reset();
-  useWorkspaceAppearance.getState().reset();
-  useDndState.getState().reset();
-  useItemDndState.getState().reset();
-  useItemDndChildren.getState().reset();
-  useItemSelectionMode.getState().reset();
-  useReactFlow.setState({ ...initialCanvasState });
-  useWorkspaceMenuState.getState().reset();
+  testWorkspace.document.getState().reset();
+  testWorkspace.nodeInternals.getState().reset();
+  testWorkspace.activeSections.getState().reset();
+  testWorkspace.appearance.getState().reset();
+  testWorkspace.dndState.getState().reset();
+  testWorkspace.itemDndState.getState().reset();
+  testWorkspace.itemDndChildren.getState().reset();
+  testWorkspace.itemSelectionMode.getState().reset();
+  testWorkspace.reactFlow.setState({ ...initialCanvasState });
+  testWorkspace.menuState.getState().reset();
 }
 
 // A d3-zoom stand-in for the mounted-canvas re-load paths: it records applied transforms and
@@ -91,7 +99,7 @@ function mountFakeZoomRuntime() {
     },
   } as unknown as NonNullable<ReactFlowState["d3Zoom"]>;
   const fakeSelection = {} as NonNullable<ReactFlowState["d3Selection"]>;
-  useReactFlow.setState({
+  testWorkspace.reactFlow.setState({
     d3Zoom: fakeZoom,
     d3Selection: fakeSelection,
     width: 800,
@@ -102,23 +110,23 @@ function mountFakeZoomRuntime() {
 
 describe("loadWorkspaceDocument", () => {
   beforeEach(() => {
-    registerSectionKinds({ leaf: { renderContent: () => null } });
+    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
     resetWorkspaceStores();
   });
 
   afterEach(() => {
-    registerSectionKinds({});
+    registerSectionKinds(testWorkspace.host, {});
     resetWorkspaceStores();
   });
 
   it("publishes the document, derived nodes, and selection", () => {
-    loadWorkspaceDocument(makeDocument({ activeIds: ["leaf"] }));
+    loadWorkspaceDocument(testWorkspace.host, makeDocument({ activeIds: ["leaf"] }));
 
-    const documentState = useWorkspaceDocument.getState();
+    const documentState = testWorkspace.document.getState();
     expect(documentState.parentSectionMap).toEqual({ nested: "root" });
-    expect(useActiveSections.getState().activeIds).toEqual(["leaf"]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual(["leaf"]);
 
-    const nodes = useNodeInternals.getState().x;
+    const nodes = testWorkspace.nodeInternals.getState().x;
     expect([...nodes.keys()]).toEqual(["root", "leaf"]);
     expect(nodes.get("leaf")).toMatchObject({
       position: { x: 500, y: 0 },
@@ -132,27 +140,31 @@ describe("loadWorkspaceDocument", () => {
 
   it("releases an outgoing menu snapshot after the incoming document validates", () => {
     const owner = {} as HTMLElement;
-    publishWorkspaceMenuInvocation({
+    publishWorkspaceMenuInvocation(testWorkspace.host, {
       kind: "pane",
       clientPoint: { x: 40, y: 60 },
       direction: "ltr",
       owner,
-      context: { scope: "pane", workspacePosition: { x: 40, y: 60 } },
+      context: {
+        host: testWorkspace.host,
+        scope: "pane",
+        workspacePosition: { x: 40, y: 60 },
+      },
       workspacePosition: { x: 40, y: 60 },
     });
 
     expect(() =>
-      loadWorkspaceDocument(
+      loadWorkspaceDocument(testWorkspace.host,
         makeDocument({
           topLevelSections: { ghost: { x: 0, y: 0, w: 10, h: 10, zIndex: 0 } },
         }),
       ),
     ).toThrow(/Top-level layout references unknown section ghost/);
-    expect(useWorkspaceMenuState.getState().invocation).not.toBeNull();
+    expect(testWorkspace.menuState.getState().invocation).not.toBeNull();
 
-    loadWorkspaceDocument(makeDocument());
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
 
-    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+    expect(testWorkspace.menuState.getState().invocation).toBeNull();
   });
 
   it("lets reads during publication observe the full next state atomically", () => {
@@ -162,15 +174,15 @@ describe("loadWorkspaceDocument", () => {
     }> = [];
     // Node internals publish first; a subscriber reading the other stores at that moment
     // must already see the next document and selection, never the stale raw state.
-    const unsubscribe = useNodeInternals.subscribe(() => {
+    const unsubscribe = testWorkspace.nodeInternals.subscribe(() => {
       observed.push({
-        sectionCount: Object.keys(useWorkspaceDocument.getState().sections)
+        sectionCount: Object.keys(testWorkspace.document.getState().sections)
           .length,
-        activeIds: useActiveSections.getState().activeIds,
+        activeIds: testWorkspace.activeSections.getState().activeIds,
       });
     });
     try {
-      loadWorkspaceDocument(makeDocument({ activeIds: ["root"] }));
+      loadWorkspaceDocument(testWorkspace.host, makeDocument({ activeIds: ["root"] }));
     } finally {
       unsubscribe();
     }
@@ -178,11 +190,11 @@ describe("loadWorkspaceDocument", () => {
   });
 
   it("stores a null viewport for documents without a saved camera", () => {
-    loadWorkspaceDocument(makeDocument({ viewport: null }));
-    expect(useWorkspaceDocument.getState().viewport).toBeNull();
+    loadWorkspaceDocument(testWorkspace.host, makeDocument({ viewport: null }));
+    expect(testWorkspace.document.getState().viewport).toBeNull();
 
-    loadWorkspaceDocument(makeDocument({ viewport: { x: 8, y: 16, zoom: 2 } }));
-    expect(useWorkspaceDocument.getState().viewport).toEqual({
+    loadWorkspaceDocument(testWorkspace.host, makeDocument({ viewport: { x: 8, y: 16, zoom: 2 } }));
+    expect(testWorkspace.document.getState().viewport).toEqual({
       x: 8,
       y: 16,
       zoom: 2,
@@ -191,19 +203,19 @@ describe("loadWorkspaceDocument", () => {
 
   it("keeps measured node sizes over stored layout sizes on reload", () => {
     const document = makeDocument();
-    loadWorkspaceDocument(document);
+    loadWorkspaceDocument(testWorkspace.host, document);
 
-    const nodes = new Map(useNodeInternals.getState().x);
+    const nodes = new Map(testWorkspace.nodeInternals.getState().x);
     const leafNode = nodes.get("leaf");
     expect(leafNode).toBeDefined();
     if (!leafNode) {
       throw new Error("leaf node missing");
     }
     nodes.set("leaf", { ...leafNode, width: 320, height: 140 });
-    useNodeInternals.setState({ x: nodes });
+    testWorkspace.nodeInternals.setState({ x: nodes });
 
-    loadWorkspaceDocument(document);
-    expect(useNodeInternals.getState().x.get("leaf")).toMatchObject({
+    loadWorkspaceDocument(testWorkspace.host, document);
+    expect(testWorkspace.nodeInternals.getState().x.get("leaf")).toMatchObject({
       width: 320,
       height: 140,
     });
@@ -218,9 +230,9 @@ describe("loadWorkspaceDocument", () => {
       },
       topLevelSections: { root: { x: 0, y: 0, w: 400, h: 300, zIndex: 0 } },
     });
-    loadWorkspaceDocument(document);
-    expect(getHighestAncestor("deep")).toBe("root");
-    expect(getHighestAncestor("root")).toBe("root");
+    loadWorkspaceDocument(testWorkspace.host, document);
+    expect(getHighestAncestor(testWorkspace.host, "deep")).toBe("root");
+    expect(getHighestAncestor(testWorkspace.host, "root")).toBe("root");
   });
 
   it("rejects an unparseable style color even when the section is nested", () => {
@@ -232,7 +244,7 @@ describe("loadWorkspaceDocument", () => {
       topLevelSections: { root: { x: 0, y: 0, w: 400, h: 300, zIndex: 0 } },
     });
 
-    expect(() => loadWorkspaceDocument(document)).toThrowError(
+    expect(() => loadWorkspaceDocument(testWorkspace.host, document)).toThrowError(
       /Section nested has an unparseable style color not-a-color/,
     );
   });
@@ -243,31 +255,31 @@ describe("loadWorkspaceDocument", () => {
       topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
     });
 
-    expect(() => loadWorkspaceDocument(document)).toThrowError(
+    expect(() => loadWorkspaceDocument(testWorkspace.host, document)).toThrowError(
       /Section leaf has an unparseable style color 1g0000/,
     );
   });
 
   it("canonicalizes a valid tag color and rejects an invalid one before loading", () => {
-    loadWorkspaceDocument(
+    loadWorkspaceDocument(testWorkspace.host,
       makeDocument({
         sections: { leaf: makeSection("leaf", { tagColor: " A1B2C3 " }) },
         topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
       }),
     );
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBe(
+    expect(testWorkspace.document.getState().sections["leaf"]?.tagColor).toBe(
       "#a1b2c3",
     );
 
     expect(() =>
-      loadWorkspaceDocument(
+      loadWorkspaceDocument(testWorkspace.host,
         makeDocument({
           sections: { leaf: makeSection("leaf", { tagColor: "blue" }) },
           topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
         }),
       ),
     ).toThrow(/Section leaf tag color must be a six-digit hex color/);
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBe(
+    expect(testWorkspace.document.getState().sections["leaf"]?.tagColor).toBe(
       "#a1b2c3",
     );
   });
@@ -278,7 +290,7 @@ describe("loadWorkspaceDocument", () => {
       overflowMode: undefined,
     } as unknown as WorkspaceSection;
     expect(() =>
-      loadWorkspaceDocument(
+      loadWorkspaceDocument(testWorkspace.host,
         makeDocument({
           sections: { leaf: missingMode as WorkspaceSection },
           topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
@@ -287,7 +299,7 @@ describe("loadWorkspaceDocument", () => {
     ).toThrow(/Section leaf overflow mode must be a boolean/);
 
     expect(() =>
-      loadWorkspaceDocument(
+      loadWorkspaceDocument(testWorkspace.host,
         makeDocument({
           sections: { leaf: makeSection("leaf", { overflowMode: true }) },
           topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
@@ -295,7 +307,7 @@ describe("loadWorkspaceDocument", () => {
       ),
     ).toThrow(/Section leaf is not a group and cannot enable overflow mode/);
 
-    loadWorkspaceDocument(
+    loadWorkspaceDocument(testWorkspace.host,
       makeDocument({
         sections: {
           group: makeSection("group", { kind: "group", overflowMode: true }),
@@ -303,9 +315,9 @@ describe("loadWorkspaceDocument", () => {
         topLevelSections: { group: { x: 0, y: 0, w: 320, h: 180, zIndex: 0 } },
       }),
     );
-    expect(getWorkspaceDocument().sections["group"]?.overflowMode).toBe(true);
+    expect(getWorkspaceDocument(testWorkspace.host).sections["group"]?.overflowMode).toBe(true);
 
-    loadWorkspaceDocument(
+    loadWorkspaceDocument(testWorkspace.host,
       makeDocument({
         sections: {
           group: makeSection("group", {
@@ -319,13 +331,13 @@ describe("loadWorkspaceDocument", () => {
         },
       }),
     );
-    expect(getWorkspaceDocument().sections["group"]?.size).toEqual({
+    expect(getWorkspaceDocument(testWorkspace.host).sections["group"]?.size).toEqual({
       width: "auto",
       height: "auto",
     });
 
     expect(() =>
-      loadWorkspaceDocument(
+      loadWorkspaceDocument(testWorkspace.host,
         makeDocument({
           sections: {
             group: makeSection("group", {
@@ -349,7 +361,7 @@ describe("loadWorkspaceDocument", () => {
       },
       topLevelSections: { root: { x: 0, y: 0, w: 400, h: 300, zIndex: 0 } },
     });
-    expect(() => loadWorkspaceDocument(document)).toThrowError(
+    expect(() => loadWorkspaceDocument(testWorkspace.host, document)).toThrowError(
       /unknown child ghost/,
     );
   });
@@ -363,7 +375,7 @@ describe("loadWorkspaceDocument", () => {
       },
       topLevelSections: {},
     });
-    expect(() => loadWorkspaceDocument(document)).toThrowError(
+    expect(() => loadWorkspaceDocument(testWorkspace.host, document)).toThrowError(
       /claimed by parents/,
     );
   });
@@ -376,7 +388,7 @@ describe("loadWorkspaceDocument", () => {
       },
       topLevelSections: {},
     });
-    expect(() => loadWorkspaceDocument(document)).toThrowError(
+    expect(() => loadWorkspaceDocument(testWorkspace.host, document)).toThrowError(
       /cyclic parent chain/,
     );
   });
@@ -386,7 +398,7 @@ describe("loadWorkspaceDocument", () => {
       sections: { mismatched: makeSection("other") },
       topLevelSections: {},
     });
-    expect(() => loadWorkspaceDocument(document)).toThrowError(
+    expect(() => loadWorkspaceDocument(testWorkspace.host, document)).toThrowError(
       /does not match section id/,
     );
   });
@@ -397,13 +409,13 @@ describe("loadWorkspaceDocument", () => {
       topLevelSections: {},
       activeIds: [],
     });
-    expect(() => loadWorkspaceDocument(document)).toThrowError(
+    expect(() => loadWorkspaceDocument(testWorkspace.host, document)).toThrowError(
       /Section kind mystery is not registered/,
     );
   });
 
   it("resolves omitted sizes from the registered kind default, then auto/auto", () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       leaf: {
         renderContent: () => null,
         defaultSize: { width: 320, height: 180 },
@@ -423,11 +435,11 @@ describe("loadWorkspaceDocument", () => {
       group: groupWithoutSize,
       sized: makeSection("sized", { size: { width: 64, height: 48 } }),
     };
-    loadWorkspaceDocument(
+    loadWorkspaceDocument(testWorkspace.host,
       makeDocument({ sections, topLevelSections: {}, activeIds: [] }),
     );
 
-    const loaded = useWorkspaceDocument.getState().sections;
+    const loaded = testWorkspace.document.getState().sections;
     expect(loaded["leaf"]?.size).toEqual({ width: 320, height: 180 });
     expect(loaded["bare"]?.size).toEqual({ width: "auto", height: "auto" });
     expect(loaded["group"]?.size).toEqual({ width: "auto", height: "auto" });
@@ -435,7 +447,7 @@ describe("loadWorkspaceDocument", () => {
   });
 
   it("resolves an omitted meta-control size from the package control policy", () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       meta: {
         renderContent: () => null,
         presentation: {
@@ -449,7 +461,7 @@ describe("loadWorkspaceDocument", () => {
       kind: "meta",
       data: { control: "button" },
     });
-    loadWorkspaceDocument(
+    loadWorkspaceDocument(testWorkspace.host,
       makeDocument({
         sections: { meta: metaWithoutSize },
         topLevelSections: { meta: { x: 0, y: 0, w: 200, h: 44, zIndex: 0 } },
@@ -457,14 +469,14 @@ describe("loadWorkspaceDocument", () => {
       }),
     );
 
-    expect(useWorkspaceDocument.getState().sections["meta"]?.size).toEqual({
+    expect(testWorkspace.document.getState().sections["meta"]?.size).toEqual({
       width: 200,
       height: 44,
     });
   });
 
   it("preserves special and auto-only meta-control defaults when size is omitted", () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       slider: {
         renderContent: () => null,
         presentation: {
@@ -499,7 +511,7 @@ describe("loadWorkspaceDocument", () => {
     const { size: _dropzoneSize, ...dropzone } = makeSection("dropzone", {
       kind: "dropzone",
     });
-    loadWorkspaceDocument(
+    loadWorkspaceDocument(testWorkspace.host,
       makeDocument({
         sections: { slider, textarea, dropzone },
         topLevelSections: {},
@@ -507,7 +519,7 @@ describe("loadWorkspaceDocument", () => {
       }),
     );
 
-    const sections = useWorkspaceDocument.getState().sections;
+    const sections = testWorkspace.document.getState().sections;
     expect(sections["slider"]?.size).toEqual({ width: 200, height: "auto" });
     expect(sections["textarea"]?.size).toEqual({ width: 200, height: 98 });
     expect(sections["dropzone"]?.size).toEqual({ width: 240, height: 120 });
@@ -515,14 +527,14 @@ describe("loadWorkspaceDocument", () => {
 
   it("round-trips opaque section data into the emitted document", () => {
     const data = { body: "Leaf body", tags: ["a", "b"], pinned: true };
-    loadWorkspaceDocument(
+    loadWorkspaceDocument(testWorkspace.host,
       makeDocument({
         sections: { leaf: makeSection("leaf", { data }) },
         topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
         activeIds: [],
       }),
     );
-    expect(getWorkspaceDocument().sections["leaf"]?.data).toEqual(data);
+    expect(getWorkspaceDocument(testWorkspace.host).sections["leaf"]?.data).toEqual(data);
   });
 
   it("round-trips a valid item tree into the emitted document", () => {
@@ -537,19 +549,19 @@ describe("loadWorkspaceDocument", () => {
       selectedItemIds: ["a", "nested"],
       itemColumnWidth: 146.5,
     };
-    loadWorkspaceDocument(
+    loadWorkspaceDocument(testWorkspace.host,
       makeDocument({
         sections: { leaf: makeSection("leaf", { itemTree }) },
         topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
         activeIds: [],
       }),
     );
-    expect(getWorkspaceDocument().sections["leaf"]?.itemTree).toEqual(itemTree);
+    expect(getWorkspaceDocument(testWorkspace.host).sections["leaf"]?.itemTree).toEqual(itemTree);
   });
 
   it("rejects malformed item trees", () => {
     const load = (itemTree: WorkspaceSectionItemTree) =>
-      loadWorkspaceDocument(
+      loadWorkspaceDocument(testWorkspace.host,
         makeDocument({
           sections: { leaf: makeSection("leaf", { itemTree }) },
           topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
@@ -693,82 +705,82 @@ describe("loadWorkspaceDocument", () => {
 
   it("rejects top-level layouts and active ids for unknown sections", () => {
     expect(() =>
-      loadWorkspaceDocument(
+      loadWorkspaceDocument(testWorkspace.host,
         makeDocument({
           topLevelSections: { ghost: { x: 0, y: 0, w: 1, h: 1, zIndex: 0 } },
         }),
       ),
     ).toThrowError(/Top-level layout references unknown section ghost/);
     expect(() =>
-      loadWorkspaceDocument(makeDocument({ activeIds: ["ghost"] })),
+      loadWorkspaceDocument(testWorkspace.host, makeDocument({ activeIds: ["ghost"] })),
     ).toThrowError(/Active ids references unknown section ghost/);
   });
 
   it("re-applies a loaded camera through d3-zoom on a mounted canvas", () => {
-    loadWorkspaceDocument(makeDocument());
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
     const applied = mountFakeZoomRuntime();
-    useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
+    testWorkspace.reactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
 
-    loadWorkspaceDocument(
+    loadWorkspaceDocument(testWorkspace.host,
       makeDocument({ viewport: { x: 60, y: -40, zoom: 1.25 } }),
     );
 
     expect(applied).toHaveLength(1);
     expect(applied[0]).toMatchObject({ x: 60, y: -40, k: 1.25 });
-    expect(useReactFlow.getState().fitViewOnInit).toBe(false);
-    expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
+    expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
+    expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
   });
 
   it("arms and immediately completes fit-on-init when re-loading without a saved camera", () => {
-    loadWorkspaceDocument(makeDocument());
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
     const applied = mountFakeZoomRuntime();
 
     // The loaded layout carries measured sizes, so the armed fit completes without waiting for
     // a ResizeObserver pass; the fake d3 runtime records the fitted transform.
-    loadWorkspaceDocument(makeDocument({ viewport: null }));
+    loadWorkspaceDocument(testWorkspace.host, makeDocument({ viewport: null }));
 
-    expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
+    expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
     expect(applied).toHaveLength(1);
-    expect(useWorkspaceDocument.getState().viewport).toBeNull();
+    expect(testWorkspace.document.getState().viewport).toBeNull();
   });
 
   it("leaves the canvas fit flags alone when loading before the canvas mounts", () => {
-    loadWorkspaceDocument(makeDocument({ viewport: null }));
+    loadWorkspaceDocument(testWorkspace.host, makeDocument({ viewport: null }));
 
-    expect(useReactFlow.getState().fitViewOnInit).toBe(false);
-    expect(useReactFlow.getState().fitViewOnInitDone).toBe(false);
+    expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
+    expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(false);
   });
 
   it("force-ends the drag session and prunes dnd bookkeeping to the loaded document", () => {
-    loadWorkspaceDocument(makeDocument());
-    setDndDisabled("leaf", { draggable: false, droppable: true });
-    setDndDisabled("ghost", { draggable: false, droppable: false });
-    useDndState.setState({ isSorting: true, activeId: "leaf" });
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
+    setDndDisabled(testWorkspace.host, "leaf", { draggable: false, droppable: true });
+    setDndDisabled(testWorkspace.host, "ghost", { draggable: false, droppable: false });
+    testWorkspace.dndState.setState({ isSorting: true, activeId: "leaf" });
 
-    loadWorkspaceDocument(makeDocument());
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
 
-    const dndState = useDndState.getState();
+    const dndState = testWorkspace.dndState.getState();
     expect(dndState.isSorting).toBe(false);
     expect(dndState.activeId).toBeNull();
     expect(Object.keys(dndState.disabled)).toEqual(["leaf"]);
   });
 
   it("force-ends the item drag session and releases item-select mode", () => {
-    loadWorkspaceDocument(makeDocument());
-    activateItemSelect();
-    setItemDndState({ activeId: "item-a", sectionId: "leaf", listKey: "main" });
-    updateItemChildren({ "item-root": ["item-a"] });
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
+    activateItemSelect(testWorkspace.host);
+    setItemDndState(testWorkspace.host, { activeId: "item-a", sectionId: "leaf", listKey: "main" });
+    updateItemChildren(testWorkspace.host, { "item-root": ["item-a"] });
 
-    loadWorkspaceDocument(makeDocument());
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
 
-    expect(useItemDndState.getState().activeId).toBeNull();
-    expect(useItemDndChildren.getState().x).toEqual({});
-    expect(useItemSelectionMode.getState().isSelectingItems).toBe(false);
+    expect(testWorkspace.itemDndState.getState().activeId).toBeNull();
+    expect(testWorkspace.itemDndChildren.getState().x).toEqual({});
+    expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(false);
   });
 
   it("rejects an item tree on a group section", () => {
     expect(() =>
-      loadWorkspaceDocument(
+      loadWorkspaceDocument(testWorkspace.host,
         makeDocument({
           sections: {
             root: makeSection("root", {

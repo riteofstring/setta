@@ -1,6 +1,7 @@
 import { Resizable } from "re-resizable";
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -15,7 +16,11 @@ import {
 } from "../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import {
+  assertWorkspaceHostActive,
+  isWorkspaceHostElement,
+  registerWorkspaceHostElement,
+} from "../workspaceHostInternals";
 import type { WorkspaceHost } from "../workspaceHost";
 
 // Main's reusable quick-info lifecycle: hold Q to reveal the staged pages, use the auxiliary
@@ -26,9 +31,6 @@ const MOUSE_OFFSET_PX = 10;
 const VIEWPORT_CLAMP_MARGIN_PX = 8;
 const TOOLTIP_VIEWPORT_MAX_WIDTH = `calc(100vw - ${VIEWPORT_CLAMP_MARGIN_PX * 2}px)`;
 const COPIED_INDICATOR_DURATION_MS = 2000;
-const TOOLTIP_SURFACE_SELECTOR =
-  '[data-setta-workspace-tooltip-surface="true"]';
-
 type WorkspaceTooltipTone = "default" | "error" | "warning" | "info";
 
 type WorkspaceTooltipAnchor = {
@@ -56,6 +58,7 @@ type WorkspaceTooltipState = {
 type WorkspaceTooltipRuntime = {
   focusBeforeFreeze: HTMLElement | null;
   mouseLocation: WorkspaceTooltipAnchor;
+  surface: HTMLElement | null;
   store: StoreApi<WorkspaceTooltipState & { reset: () => void }>;
 };
 
@@ -65,6 +68,7 @@ function createWorkspaceTooltipRuntime(): WorkspaceTooltipRuntime {
   return {
     focusBeforeFreeze: null,
     mouseLocation: { x: 0, y: 0 },
+    surface: null,
     store: createStore(
       withResetFn<WorkspaceTooltipState>(() => ({
         anchor: null,
@@ -229,9 +233,11 @@ export function freezeWorkspaceTooltip(host: WorkspaceHost): boolean {
   if (state.isFrozen) {
     return true;
   }
+  const activeElement =
+    document.activeElement instanceof HTMLElement ? document.activeElement : null;
   getWorkspaceTooltipRuntime(host).focusBeforeFreeze =
-    document.activeElement instanceof HTMLElement
-      ? document.activeElement
+    activeElement && isWorkspaceHostElement(host, activeElement)
+      ? activeElement
       : null;
   getWorkspaceTooltipStore(host).setState({ isFrozen: true });
   return true;
@@ -242,7 +248,7 @@ export function closeFrozenWorkspaceTooltip(host: WorkspaceHost): boolean {
   if (!store.getState().isFrozen) {
     return false;
   }
-  const surface = document.querySelector<HTMLElement>(TOOLTIP_SURFACE_SELECTOR);
+  const surface = getWorkspaceTooltipRuntime(host).surface;
   const shouldRestoreFocus = surface?.contains(document.activeElement) ?? false;
   const runtime = getWorkspaceTooltipRuntime(host);
   const focusTarget = runtime.focusBeforeFreeze;
@@ -301,7 +307,7 @@ export function getIsFrozenWorkspaceTooltipFocused(host: WorkspaceHost): boolean
   if (!state.isEnabled || !state.isFrozen) {
     return false;
   }
-  const surface = document.querySelector<HTMLElement>(TOOLTIP_SURFACE_SELECTOR);
+  const surface = getWorkspaceTooltipRuntime(host).surface;
   return surface?.contains(document.activeElement) ?? false;
 }
 
@@ -329,6 +335,20 @@ export function WorkspaceTooltip() {
   const positionRef = useRef({ x: 0, y: 0 });
   const [tooltipWidth, setTooltipWidth] = useState(INITIAL_TOOLTIP_WIDTH_PX);
   useTrackMouseLocation(host);
+  useLayoutEffect(() => {
+    if (!boxElement) {
+      return;
+    }
+    const runtime = getWorkspaceTooltipRuntime(host);
+    runtime.surface = boxElement;
+    const unregister = registerWorkspaceHostElement(host, boxElement);
+    return () => {
+      unregister();
+      if (runtime.surface === boxElement) {
+        runtime.surface = null;
+      }
+    };
+  }, [boxElement, host]);
   useCopiedIndicator(host, copied);
   useFrozenTooltipFocus(boxElement, isFrozen);
   useTooltipFollower({

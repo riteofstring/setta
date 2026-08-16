@@ -1,8 +1,15 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import {
@@ -44,7 +51,7 @@ function makeSection(
 function loadTestDocument(
   groupOverrides: Partial<WorkspaceSectionInput> = {},
 ): void {
-  loadWorkspaceDocument({
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       group: makeSection("group", "group", {
         size: { width: "auto", height: "auto" },
@@ -74,7 +81,7 @@ function registerMeasuredGroup(width: number, height: number): HTMLElement {
       right: width,
       bottom: height,
     }) as DOMRect;
-  useSectionRefs.setState({ withNested: { group: element } });
+  testWorkspace.sectionRefs.setState({ withNested: { group: element } });
   return element;
 }
 
@@ -122,35 +129,34 @@ describe("getBoundedGroupSize", () => {
 
 describe("setGroupOverflowMode", () => {
   beforeEach(() => {
-    registerSectionKinds({ leaf: { renderContent: () => null } });
+    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
     loadTestDocument();
-    useSectionRefs.getState().reset();
-    useWorkspaceCapabilities.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
+    testWorkspace.capabilities.getState().reset();
   });
 
   afterEach(() => {
-    setWorkspaceDocumentChangeCallback(null);
-    registerSectionKinds({});
-    useSectionRefs.getState().reset();
-    useWorkspaceCapabilities.getState().reset();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
+    registerSectionKinds(testWorkspace.host, {});
+    testWorkspace.sectionRefs.getState().reset();
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
   });
 
   it("atomically enables bounded overflow, preserves visible size, and reports once", () => {
     registerMeasuredGroup(368.4, 241.7);
-    const nodes = new Map(useNodeInternals.getState().x);
+    const nodes = new Map(testWorkspace.nodeInternals.getState().x);
     const groupNode = nodes.get("group");
     if (!groupNode) {
       throw new Error("The test group node is unavailable.");
     }
     nodes.set("group", { ...groupNode, width: 368, height: 242 });
-    useNodeInternals.setState({ x: nodes });
+    testWorkspace.nodeInternals.setState({ x: nodes });
     const reported: Array<WorkspaceDocument> = [];
-    setWorkspaceDocumentChangeCallback((document) => reported.push(document));
+    testWorkspace.host.subscribe((document) => reported.push(document));
     const observed: Array<{ overflowMode: boolean; size: unknown }> = [];
-    const unsubscribe = useWorkspaceDocument.subscribe((state) => {
+    const unsubscribe = testWorkspace.document.subscribe((state) => {
       const group = state.sections["group"];
       if (group) {
         observed.push({ overflowMode: group.overflowMode, size: group.size });
@@ -158,7 +164,7 @@ describe("setGroupOverflowMode", () => {
     });
 
     try {
-      setGroupOverflowMode("group", true);
+      setGroupOverflowMode(testWorkspace.host, "group", true);
     } finally {
       unsubscribe();
     }
@@ -174,7 +180,7 @@ describe("setGroupOverflowMode", () => {
     expect(reported[0]?.activeIds).toEqual(["group"]);
     // The minimap continues to use the already-matching measured node bounds until the canvas's
     // resize observer confirms the fixed DOM geometry; the document action never clears them.
-    expect(useNodeInternals.getState().x.get("group")).toMatchObject({
+    expect(testWorkspace.nodeInternals.getState().x.get("group")).toMatchObject({
       width: 368,
       height: 242,
     });
@@ -188,14 +194,14 @@ describe("setGroupOverflowMode", () => {
     const measurement = vi.fn(() => ({ width: 999, height: 999 }) as DOMRect);
     const element = document.createElement("div");
     element.getBoundingClientRect = measurement;
-    useSectionRefs.setState({ withNested: { group: element } });
+    testWorkspace.sectionRefs.setState({ withNested: { group: element } });
     const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
 
-    setGroupOverflowMode("group", false);
-    setGroupOverflowMode("group", true);
+    setGroupOverflowMode(testWorkspace.host, "group", false);
+    setGroupOverflowMode(testWorkspace.host, "group", true);
 
-    expect(useWorkspaceDocument.getState().sections["group"]).toMatchObject({
+    expect(testWorkspace.document.getState().sections["group"]).toMatchObject({
       overflowMode: true,
       size: { width: 360, height: 220 },
     });
@@ -205,42 +211,44 @@ describe("setGroupOverflowMode", () => {
 
   it("does not publish when the requested mode is already current", () => {
     const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    testWorkspace.host.subscribe(onDocumentChange);
 
-    setGroupOverflowMode("group", false);
+    setGroupOverflowMode(testWorkspace.host, "group", false);
 
     expect(onDocumentChange).not.toHaveBeenCalled();
   });
 
   it("rejects invalid, locked, unmounted, and capability-disabled requests before writing", () => {
     const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
-    const originalSections = useWorkspaceDocument.getState().sections;
+    testWorkspace.host.subscribe(onDocumentChange);
+    const originalSections = testWorkspace.document.getState().sections;
 
-    expect(() => setGroupOverflowMode("group", "bounded" as never)).toThrow(
+    expect(() => setGroupOverflowMode(testWorkspace.host, "group", "bounded" as never)).toThrow(
       /must be a boolean/,
     );
-    expect(() => setGroupOverflowMode("leaf", true)).toThrow(/is not a group/);
-    expect(() => setGroupOverflowMode("missing", true)).toThrow(
+    expect(() => setGroupOverflowMode(testWorkspace.host, "leaf", true)).toThrow(/is not a group/);
+    expect(() => setGroupOverflowMode(testWorkspace.host, "missing", true)).toThrow(
       /Unknown section missing/,
     );
-    expect(() => setGroupOverflowMode("group", true)).toThrow(
+    expect(() => setGroupOverflowMode(testWorkspace.host, "group", true)).toThrow(
       /before its auto-sized surface/,
     );
 
     loadTestDocument({ positionAndSizeLocked: true });
-    expect(() => setGroupOverflowMode("group", true)).toThrow(/is locked/);
+    onDocumentChange.mockClear();
+    expect(() => setGroupOverflowMode(testWorkspace.host, "group", true)).toThrow(/is locked/);
 
     loadTestDocument();
-    useWorkspaceCapabilities.setState({ canEditLayout: false });
-    expect(() => setGroupOverflowMode("group", true)).toThrow(
+    onDocumentChange.mockClear();
+    testWorkspace.capabilities.setState({ canEditLayout: false });
+    expect(() => setGroupOverflowMode(testWorkspace.host, "group", true)).toThrow(
       /permission to edit workspace layout/,
     );
 
     expect(onDocumentChange).not.toHaveBeenCalled();
     expect(originalSections["group"]?.overflowMode).toBe(false);
     expect(
-      useWorkspaceDocument.getState().sections["group"]?.overflowMode,
+      testWorkspace.document.getState().sections["group"]?.overflowMode,
     ).toBe(false);
   });
 });

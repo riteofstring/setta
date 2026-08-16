@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -6,7 +14,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import {
@@ -73,14 +80,14 @@ function getMenuItems(): Array<HTMLElement> {
 }
 
 function resetState(): void {
-  registerWorkspaceCreationCommands([]);
-  registerWorkspaceCommands([]);
-  useWorkspaceMenuState.getState().reset();
-  useWorkspaceCapabilities.getState().reset();
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
-  useActiveSections.getState().reset();
-  useReactFlow.setState({ ...initialCanvasState });
+  registerWorkspaceCreationCommands(testWorkspace.host, []);
+  registerWorkspaceCommands(testWorkspace.host, []);
+  testWorkspace.menuState.getState().reset();
+  testWorkspace.capabilities.getState().reset();
+  testWorkspace.document.getState().reset();
+  testWorkspace.nodeInternals.getState().reset();
+  testWorkspace.activeSections.getState().reset();
+  testWorkspace.reactFlow.setState({ ...initialCanvasState });
 }
 
 describe("WorkspaceMenuLayer", () => {
@@ -103,19 +110,19 @@ describe("WorkspaceMenuLayer", () => {
       return 1;
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       leaf: {
         renderContent: () => null,
         defaultSize: { width: 200, height: 100 },
       },
     });
-    loadWorkspaceDocument({
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: { existing: createSection("existing") },
       topLevelSections: { existing: { x: 0, y: 0, w: 200, h: 100, zIndex: 0 } },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["existing"],
     });
-    registerWorkspaceCreationCommands([
+    registerWorkspaceCreationCommands(testWorkspace.host, [
       {
         id: "host-note",
         label: "Host note",
@@ -137,7 +144,7 @@ describe("WorkspaceMenuLayer", () => {
     canvas.getBoundingClientRect = () => createRect(100, 50, 800, 600);
     owner.getBoundingClientRect = () => createRect(20, 30, 200, 100);
     document.body.append(host, canvas, owner);
-    useReactFlow.setState({ domNode: canvas, transform: [0, 0, 1] });
+    testWorkspace.reactFlow.setState({ domNode: canvas, transform: [0, 0, 1] });
     root = createRoot(host);
   });
 
@@ -150,15 +157,18 @@ describe("WorkspaceMenuLayer", () => {
     owner.remove();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
-    registerSectionKinds({});
-    setWorkspaceDocumentChangeCallback(null);
+    registerSectionKinds(testWorkspace.host, {});
     resetState();
   });
 
   async function renderOpenPaneMenu(): Promise<void> {
-    expect(openWorkspacePaneMenu({ x: 150, y: 100 }, owner)).toBe(true);
+    expect(openWorkspacePaneMenu(testWorkspace.host, { x: 150, y: 100 }, owner)).toBe(true);
     await act(async () => {
-      root.render(<WorkspaceMenuLayer />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceMenuLayer />
+        }</WorkspaceTestProvider>,
+      );
     });
   }
 
@@ -198,7 +208,7 @@ describe("WorkspaceMenuLayer", () => {
         }),
       );
     });
-    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+    expect(testWorkspace.menuState.getState().invocation).toBeNull();
     expect(document.body.querySelector('[role="menu"]')).toBeNull();
     expect(document.activeElement).toBe(owner);
   });
@@ -226,22 +236,22 @@ describe("WorkspaceMenuLayer", () => {
     await act(async () => {
       item?.click();
     });
-    expect(useWorkspaceDocument.getState().sections["created"]?.data).toEqual({
+    expect(testWorkspace.document.getState().sections["created"]?.data).toEqual({
       body: "50,50",
     });
     expect(
-      useWorkspaceDocument.getState().topLevelSections["created"],
+      testWorkspace.document.getState().topLevelSections["created"],
     ).toMatchObject({
       x: 50,
       y: 50,
       zIndex: 1,
     });
-    expect(useActiveSections.getState().activeIds).toEqual(["created"]);
-    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual(["created"]);
+    expect(testWorkspace.menuState.getState().invocation).toBeNull();
   });
 
   it("deletes an item through the package action before separately grouped host actions", async () => {
-    loadWorkspaceDocument({
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         existing: {
           ...createSection("existing"),
@@ -260,7 +270,7 @@ describe("WorkspaceMenuLayer", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["existing"],
     });
-    registerWorkspaceCommands([
+    registerWorkspaceCommands(testWorkspace.host, [
       {
         id: "host-report",
         scope: "item",
@@ -270,12 +280,16 @@ describe("WorkspaceMenuLayer", () => {
       },
     ]);
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    testWorkspace.host.subscribe(onChange);
     expect(
-      openWorkspaceItemMenu("existing", "first", { x: 150, y: 100 }, owner),
+      openWorkspaceItemMenu(testWorkspace.host, "existing", "first", { x: 150, y: 100 }, owner),
     ).toBe(true);
     await act(async () => {
-      root.render(<WorkspaceMenuLayer />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceMenuLayer />
+        }</WorkspaceTestProvider>,
+      );
     });
 
     const entries = getMenuItems();
@@ -292,15 +306,15 @@ describe("WorkspaceMenuLayer", () => {
     });
 
     const itemTree =
-      useWorkspaceDocument.getState().sections["existing"]?.itemTree;
+      testWorkspace.document.getState().sections["existing"]?.itemTree;
     expect(itemTree?.items["first"]).toBeUndefined();
     expect(itemTree?.selectedItemIds).toEqual(["second"]);
     expect(onChange).toHaveBeenCalledOnce();
-    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+    expect(testWorkspace.menuState.getState().invocation).toBeNull();
   });
 
   it("keeps a locked section's item deletion visible but disabled", async () => {
-    loadWorkspaceDocument({
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         existing: {
           ...createSection("existing"),
@@ -320,7 +334,7 @@ describe("WorkspaceMenuLayer", () => {
       activeIds: ["existing"],
     });
     const hostAction = vi.fn();
-    registerWorkspaceCommands([
+    registerWorkspaceCommands(testWorkspace.host, [
       {
         id: "host-report",
         scope: "item",
@@ -330,10 +344,14 @@ describe("WorkspaceMenuLayer", () => {
       },
     ]);
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
-    openWorkspaceItemMenu("existing", "first", { x: 150, y: 100 }, owner);
+    testWorkspace.host.subscribe(onChange);
+    openWorkspaceItemMenu(testWorkspace.host, "existing", "first", { x: 150, y: 100 }, owner);
     await act(async () => {
-      root.render(<WorkspaceMenuLayer />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceMenuLayer />
+        }</WorkspaceTestProvider>,
+      );
     });
 
     const entries = getMenuItems();
@@ -351,25 +369,29 @@ describe("WorkspaceMenuLayer", () => {
       deleteParameter?.click();
     });
     expect(
-      useWorkspaceDocument.getState().sections.existing?.itemTree?.items.first,
+      testWorkspace.document.getState().sections.existing?.itemTree?.items.first,
     ).toBeDefined();
     expect(onChange).not.toHaveBeenCalled();
     expect(hostAction).not.toHaveBeenCalled();
   });
 
   it("exposes capability-disabled structural actions through menuitem semantics", async () => {
-    useWorkspaceCapabilities.setState({
+    testWorkspace.capabilities.setState({
       canEditStructure: false,
       canEditLayout: false,
     });
-    openWorkspaceSectionMenu(
+    openWorkspaceSectionMenu(testWorkspace.host,
       "existing",
       "context-menu",
       { x: 150, y: 100 },
       owner,
     );
     await act(async () => {
-      root.render(<WorkspaceMenuLayer />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceMenuLayer />
+        }</WorkspaceTestProvider>,
+      );
     });
 
     const entries = getMenuItems();
@@ -387,22 +409,30 @@ describe("WorkspaceMenuLayer", () => {
     expect(document.activeElement).toBe(entries[0]);
 
     await act(async () => {
-      root.render(null);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {null
+        }</WorkspaceTestProvider>,
+      );
     });
-    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+    expect(testWorkspace.menuState.getState().invocation).toBeNull();
   });
 
   it("dismisses a section menu without deleting valid multi-selection geometry", async () => {
     const selectionBounds = { x: 10, y: 20, width: 300, height: 120 };
-    useReactFlow.setState({ nodesSelectionDims: selectionBounds });
-    openWorkspaceSectionMenu(
+    testWorkspace.reactFlow.setState({ nodesSelectionDims: selectionBounds });
+    openWorkspaceSectionMenu(testWorkspace.host,
       "existing",
       "context-menu",
       { x: 150, y: 100 },
       owner,
     );
     await act(async () => {
-      root.render(<WorkspaceMenuLayer />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceMenuLayer />
+        }</WorkspaceTestProvider>,
+      );
     });
 
     const focusedItem =
@@ -417,13 +447,13 @@ describe("WorkspaceMenuLayer", () => {
       );
     });
 
-    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
-    expect(useReactFlow.getState().nodesSelectionDims).toEqual(selectionBounds);
+    expect(testWorkspace.menuState.getState().invocation).toBeNull();
+    expect(testWorkspace.reactFlow.getState().nodesSelectionDims).toEqual(selectionBounds);
     expect(document.activeElement).toBe(owner);
   });
 
   it("locks a mixed selection through one canonical structural action", async () => {
-    loadWorkspaceDocument({
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         existing: createSection("existing"),
         locked: { ...createSection("locked"), positionAndSizeLocked: true },
@@ -436,15 +466,19 @@ describe("WorkspaceMenuLayer", () => {
       activeIds: ["existing", "locked"],
     });
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
-    openWorkspaceSectionMenu(
+    testWorkspace.host.subscribe(onChange);
+    openWorkspaceSectionMenu(testWorkspace.host,
       "existing",
       "context-menu",
       { x: 150, y: 100 },
       owner,
     );
     await act(async () => {
-      root.render(<WorkspaceMenuLayer />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceMenuLayer />
+        }</WorkspaceTestProvider>,
+      );
     });
 
     const lockItem = document.body.querySelector<HTMLElement>(
@@ -465,17 +499,17 @@ describe("WorkspaceMenuLayer", () => {
     });
 
     expect(
-      useWorkspaceDocument.getState().sections["existing"]
+      testWorkspace.document.getState().sections["existing"]
         ?.positionAndSizeLocked,
     ).toBe(true);
     expect(
-      useWorkspaceDocument.getState().sections["locked"]?.positionAndSizeLocked,
+      testWorkspace.document.getState().sections["locked"]?.positionAndSizeLocked,
     ).toBe(true);
     expect(onChange).toHaveBeenCalledOnce();
   });
 
   it("renders the focused group-header action set and toggles canonical overflow", async () => {
-    loadWorkspaceDocument({
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         group: {
           ...createSection("group"),
@@ -492,7 +526,7 @@ describe("WorkspaceMenuLayer", () => {
       activeIds: ["group"],
     });
     const onHostAction = vi.fn();
-    registerWorkspaceCommands([
+    registerWorkspaceCommands(testWorkspace.host, [
       {
         id: "host-report",
         scope: "section",
@@ -511,10 +545,14 @@ describe("WorkspaceMenuLayer", () => {
       },
     ]);
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
-    openWorkspaceSectionHeaderMenu("group", { x: 150, y: 100 }, owner, "last");
+    testWorkspace.host.subscribe(onChange);
+    openWorkspaceSectionHeaderMenu(testWorkspace.host, "group", { x: 150, y: 100 }, owner, "last");
     await act(async () => {
-      root.render(<WorkspaceMenuLayer />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceMenuLayer />
+        }</WorkspaceTestProvider>,
+      );
     });
 
     const entries = getMenuItems();
@@ -543,11 +581,11 @@ describe("WorkspaceMenuLayer", () => {
       }),
     );
     expect(Object.isFrozen(onHostAction.mock.calls[0]?.[0])).toBe(true);
-    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+    expect(testWorkspace.menuState.getState().invocation).toBeNull();
     expect(document.activeElement).toBe(owner);
 
     await act(async () => {
-      openWorkspaceSectionHeaderMenu("group", { x: 150, y: 100 }, owner);
+      openWorkspaceSectionHeaderMenu(testWorkspace.host, "group", { x: 150, y: 100 }, owner);
     });
     const reopenedOverflow = document.body.querySelector<HTMLElement>(
       '[role="menuitemcheckbox"]',
@@ -557,14 +595,14 @@ describe("WorkspaceMenuLayer", () => {
     });
 
     expect(
-      useWorkspaceDocument.getState().sections["group"]?.overflowMode,
+      testWorkspace.document.getState().sections["group"]?.overflowMode,
     ).toBe(true);
     expect(onChange).toHaveBeenCalledOnce();
-    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+    expect(testWorkspace.menuState.getState().invocation).toBeNull();
     expect(document.activeElement).toBe(owner);
 
     await act(async () => {
-      openWorkspaceSectionHeaderMenu("group", { x: 150, y: 100 }, owner);
+      openWorkspaceSectionHeaderMenu(testWorkspace.host, "group", { x: 150, y: 100 }, owner);
     });
     const checkedOverflow = document.body.querySelector<HTMLElement>(
       '[role="menuitemcheckbox"]',
@@ -575,7 +613,7 @@ describe("WorkspaceMenuLayer", () => {
     ).not.toBeNull();
 
     await act(async () => {
-      useWorkspaceDocument.setState((state) => {
+      testWorkspace.document.setState((state) => {
         const group = state.sections["group"];
         if (!group) {
           throw new Error("Expected the header-menu group to remain loaded.");
@@ -596,7 +634,7 @@ describe("WorkspaceMenuLayer", () => {
   });
 
   it("targets the owning group when header ungroup opens from a mixed selection", async () => {
-    loadWorkspaceDocument({
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         group: {
           ...createSection("group"),
@@ -614,10 +652,14 @@ describe("WorkspaceMenuLayer", () => {
       activeIds: ["group", "leaf"],
     });
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
-    openWorkspaceSectionHeaderMenu("group", { x: 150, y: 100 }, owner);
+    testWorkspace.host.subscribe(onChange);
+    openWorkspaceSectionHeaderMenu(testWorkspace.host, "group", { x: 150, y: 100 }, owner);
     await act(async () => {
-      root.render(<WorkspaceMenuLayer />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceMenuLayer />
+        }</WorkspaceTestProvider>,
+      );
     });
 
     const ungroup = getMenuItems().find(
@@ -629,20 +671,20 @@ describe("WorkspaceMenuLayer", () => {
       ungroup?.click();
     });
 
-    expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
-    expect(useWorkspaceDocument.getState().sections["leaf"]).toBeDefined();
+    expect(testWorkspace.document.getState().sections["group"]).toBeUndefined();
+    expect(testWorkspace.document.getState().sections["leaf"]).toBeDefined();
     expect(
-      useWorkspaceDocument.getState().topLevelSections["child"],
+      testWorkspace.document.getState().topLevelSections["child"],
     ).toMatchObject({
       x: 20,
       y: 30,
     });
-    expect(useActiveSections.getState().activeIds).toEqual(["leaf"]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual(["leaf"]);
     expect(onChange).toHaveBeenCalledOnce();
   });
 
   it("ungroups a valid group selection through the canonical section action", async () => {
-    loadWorkspaceDocument({
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         group: {
           ...createSection("group"),
@@ -660,15 +702,19 @@ describe("WorkspaceMenuLayer", () => {
       activeIds: ["group"],
     });
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
-    openWorkspaceSectionMenu(
+    testWorkspace.host.subscribe(onChange);
+    openWorkspaceSectionMenu(testWorkspace.host,
       "group",
       "context-menu",
       { x: 150, y: 100 },
       owner,
     );
     await act(async () => {
-      root.render(<WorkspaceMenuLayer />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceMenuLayer />
+        }</WorkspaceTestProvider>,
+      );
     });
 
     const entries = getMenuItems();
@@ -686,9 +732,9 @@ describe("WorkspaceMenuLayer", () => {
       ungroup?.click();
     });
 
-    expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
+    expect(testWorkspace.document.getState().sections["group"]).toBeUndefined();
     expect(
-      useWorkspaceDocument.getState().topLevelSections["child"],
+      testWorkspace.document.getState().topLevelSections["child"],
     ).toMatchObject({
       x: 20,
       y: 30,
@@ -697,7 +743,7 @@ describe("WorkspaceMenuLayer", () => {
   });
 
   it("exposes but disables ungroup for a mixed group and leaf selection", async () => {
-    loadWorkspaceDocument({
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         group: {
           ...createSection("group"),
@@ -714,14 +760,18 @@ describe("WorkspaceMenuLayer", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["group", "leaf"],
     });
-    openWorkspaceSectionMenu(
+    openWorkspaceSectionMenu(testWorkspace.host,
       "group",
       "context-menu",
       { x: 150, y: 100 },
       owner,
     );
     await act(async () => {
-      root.render(<WorkspaceMenuLayer />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceMenuLayer />
+        }</WorkspaceTestProvider>,
+      );
     });
 
     const entries = getMenuItems();

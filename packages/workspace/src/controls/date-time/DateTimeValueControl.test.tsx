@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -46,20 +54,22 @@ describe("DateValueControl and TimeValueControl", () => {
   afterEach(() => {
     act(() => root.unmount());
     host.remove();
-    useItemSelectionMode.getState().reset();
-    useSectionRefs.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
   });
 
   function mountDate(props: Partial<DateValueControlProps> = {}): void {
     act(() => {
       root.render(
-        <DateValueControl
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<DateValueControl
           ariaLabel="Date value"
           sectionId={SECTION_ID}
           value="2026-12-31"
           onValueChange={() => {}}
           {...props}
-        />,
+        />
+        }</WorkspaceTestProvider>,
       );
     });
   }
@@ -67,13 +77,15 @@ describe("DateValueControl and TimeValueControl", () => {
   function mountTime(props: Partial<TimeValueControlProps> = {}): void {
     act(() => {
       root.render(
-        <TimeValueControl
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<TimeValueControl
           ariaLabel="Time value"
           sectionId={SECTION_ID}
           value="13:05"
           onValueChange={() => {}}
           {...props}
-        />,
+        />
+        }</WorkspaceTestProvider>,
       );
     });
   }
@@ -309,7 +321,7 @@ describe("DateValueControl and TimeValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     mountTime();
@@ -352,7 +364,7 @@ describe("DateValueControl and TimeValueControl", () => {
       host.querySelector<HTMLInputElement>('input[type="time"]')?.disabled,
     ).toBe(true);
 
-    useItemSelectionMode.setState({ isSelectingItems: true });
+    testWorkspace.itemSelectionMode.setState({ isSelectingItems: true });
     mountDate({ controlMode: "calendar" });
     const group = host.querySelector<HTMLElement>('[role="group"]');
     expect(group?.getAttribute("aria-disabled")).toBe("true");
@@ -369,24 +381,36 @@ describe("DateValueControl and TimeValueControl", () => {
   it("fails specifically on invalid public configuration", () => {
     expect(() =>
       renderToStaticMarkup(
-        createElement(DateValueControl, {
-          ariaLabel: "Date value",
-          sectionId: SECTION_ID,
-          value: "",
-          onValueChange: () => {},
-          displayFormat: "ambiguous" as DateDisplayFormat,
-        }),
+        createElement(
+          WorkspaceTestProvider,
+          {
+            workspace: testWorkspace,
+            children: createElement(DateValueControl, {
+              ariaLabel: "Date value",
+              sectionId: SECTION_ID,
+              value: "",
+              onValueChange: () => {},
+              displayFormat: "ambiguous" as DateDisplayFormat,
+            }),
+          },
+        ),
       ),
     ).toThrow("DateValueControl received invalid displayFormat: ambiguous.");
     expect(() =>
       renderToStaticMarkup(
-        createElement(TimeValueControl, {
-          ariaLabel: "Time value",
-          sectionId: SECTION_ID,
-          value: "",
-          onValueChange: () => {},
-          scale: 4,
-        }),
+        createElement(
+          WorkspaceTestProvider,
+          {
+            workspace: testWorkspace,
+            children: createElement(TimeValueControl, {
+              ariaLabel: "Time value",
+              sectionId: SECTION_ID,
+              value: "",
+              onValueChange: () => {},
+              scale: 4,
+            }),
+          },
+        ),
       ),
     ).toThrow(
       "TimeValueControl received invalid scale: 4; expected 0.5 through 3.",

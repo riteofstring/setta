@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
@@ -34,7 +42,7 @@ function loadSections(
   >,
   kind = "sized",
 ) {
-  loadWorkspaceDocument({
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: Object.fromEntries(
       Object.keys(layouts).map((id) => [id, createSectionInput(id, kind)]),
     ),
@@ -58,37 +66,37 @@ function loadSections(
 // The pane rectangle without a mounted canvas element is the transform over the measured canvas
 // size, which is what the reference sends as its viewport bounds.
 function setVisiblePane(width: number, height: number) {
-  useReactFlow.setState({ width, height, transform: [0, 0, 1] });
+  testWorkspace.reactFlow.setState({ width, height, transform: [0, 0, 1] });
 }
 
 function measureNode(sectionId: string, width: number, height: number) {
-  const nodes = new Map(useNodeInternals.getState().x);
+  const nodes = new Map(testWorkspace.nodeInternals.getState().x);
   const node = nodes.get(sectionId);
   if (!node) {
     throw new Error(`Missing node ${sectionId}.`);
   }
   nodes.set(sectionId, { ...node, width, height } satisfies Node);
-  useNodeInternals.setState({ x: nodes });
+  testWorkspace.nodeInternals.setState({ x: nodes });
 }
 
 describe("empty-space placement", () => {
   beforeEach(() => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       sized: {
         renderContent: () => null,
         defaultSize: { width: 240, height: 120 },
       },
       auto: { renderContent: () => null },
     });
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   afterEach(() => {
-    useWorkspaceDocument.getState().reset();
-    useActiveSections.getState().reset();
-    useNodeInternals.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
-    registerSectionKinds({});
+    testWorkspace.document.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
+    registerSectionKinds(testWorkspace.host, {});
   });
 
   it("places the first section inside the visible pane", () => {
@@ -96,7 +104,7 @@ describe("empty-space placement", () => {
     setVisiblePane(800, 600);
 
     expect(
-      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized")),
+      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "sized")),
     ).toEqual({
       position: { x: 24, y: 24 },
       panTo: null,
@@ -108,7 +116,7 @@ describe("empty-space placement", () => {
     setVisiblePane(800, 600);
 
     expect(
-      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized")),
+      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "sized")),
     ).toEqual({
       position: { x: 264, y: 24 },
       panTo: null,
@@ -121,7 +129,7 @@ describe("empty-space placement", () => {
     setVisiblePane(800, 600);
 
     expect(
-      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized"))
+      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "sized"))
         .position,
     ).toEqual({ x: 424, y: 24 });
   });
@@ -133,11 +141,11 @@ describe("empty-space placement", () => {
     // A 1 px tall reservation fits the 32 px gap between the two padded sections; the sized
     // section below proves the same gap rejects a section that reserves its real height.
     expect(
-      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "auto"))
+      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "auto"))
         .position,
     ).toEqual({ x: 24, y: 144 });
     expect(
-      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized"))
+      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "sized"))
         .position,
     ).not.toEqual({ x: 24, y: 144 });
   });
@@ -149,7 +157,7 @@ describe("empty-space placement", () => {
     // Below the workspace rather than beside it: the reference prefers the side that keeps the
     // occupied area closest to square.
     expect(
-      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized")),
+      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "sized")),
     ).toEqual({
       position: { x: 2000, y: 2144 },
       panTo: { x: 2200, y: 2204 },
@@ -160,7 +168,7 @@ describe("empty-space placement", () => {
     loadSections({ existing: { x: 2000, y: 2000 } });
 
     expect(
-      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized")),
+      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "sized")),
     ).toEqual({
       position: { x: 2000, y: 2144 },
       panTo: null,

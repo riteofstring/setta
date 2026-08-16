@@ -1,14 +1,17 @@
 import { memo } from "react";
 import { useWorkspaceAppearance } from "../document/stores";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import { getWorkspaceHostDomId } from "../workspaceHostInternals";
 import { useWorkspaceOptions } from "./options";
 import { useReactFlow } from "./store";
 
-const PATTERN_ID = "ReactFlowBackground";
 const PATTERN_OFFSET_DIVISOR = 2;
 
 // The visible canvas background from the frozen XYFlow fork. Pattern settings remain coupled to
 // the interaction grid so the dots/lines track the same coordinates used by drag and resize.
 export const WorkspaceBackground = memo(function WorkspaceBackground() {
+  const host = useWorkspaceHost();
+  const patternId = `${getWorkspaceHostDomId(host)}-background`;
   const snapToGrid = useWorkspaceOptions((state) => state.snapToGrid);
   const showGridLines = useWorkspaceOptions((state) => state.showGridLines);
   const gapXY = useWorkspaceOptions((state) => state.snapGrid);
@@ -56,7 +59,7 @@ export const WorkspaceBackground = memo(function WorkspaceBackground() {
       data-testid="rf__background"
     >
       <pattern
-        id={PATTERN_ID}
+        id={patternId}
         x={transform[0] % scaledGap[0]}
         y={transform[1] % scaledGap[1]}
         width={scaledGap[0]}
@@ -84,7 +87,7 @@ export const WorkspaceBackground = memo(function WorkspaceBackground() {
         y="0"
         width="100%"
         height="100%"
-        fill={`url(#${PATTERN_ID})`}
+        fill={`url(#${patternId})`}
       />
     </svg>
   );

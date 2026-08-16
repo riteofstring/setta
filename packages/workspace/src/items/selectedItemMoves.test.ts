@@ -1,8 +1,15 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import {
@@ -77,16 +84,16 @@ function loadPanel(
     register?: boolean;
   } = {},
 ) {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
   const itemTree = makeItemTree(childrenById, selectedItemIds);
-  loadWorkspaceDocument({
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: { panel: makeSection("panel", itemTree) },
     topLevelSections: { panel: { x: 0, y: 0, w: 280, h: 240, zIndex: 0 } },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
   });
   if (options.register !== false) {
-    registerItemListView("panel", {
+    registerItemListView(testWorkspace.host, "panel", {
       listKey: "main",
       topLevelItemIds: itemTree.items["item-root"]?.children ?? [],
       visibleItemIds: new Set(
@@ -96,12 +103,12 @@ function loadPanel(
     });
   }
   changeCallback.mockClear();
-  setWorkspaceDocumentChangeCallback(changeCallback);
+  testWorkspace.host.subscribe(changeCallback);
 }
 
 function getPanelItemTree(sectionId = "panel"): WorkspaceSectionItemTree {
   const itemTree =
-    useWorkspaceDocument.getState().sections[sectionId]?.itemTree;
+    testWorkspace.document.getState().sections[sectionId]?.itemTree;
   if (!itemTree) {
     throw new Error(`expected section ${sectionId} to carry an item tree`);
   }
@@ -117,20 +124,19 @@ function childrenOf(itemId: string, sectionId = "panel"): Array<string> {
 }
 
 afterEach(() => {
-  setWorkspaceDocumentChangeCallback(null);
-  registerSectionKinds({});
-  resetItemListViews();
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
-  useActiveSections.getState().reset();
-  useWorkspaceCapabilities.getState().reset();
+  registerSectionKinds(testWorkspace.host, {});
+  resetItemListViews(testWorkspace.host);
+  testWorkspace.document.getState().reset();
+  testWorkspace.nodeInternals.getState().reset();
+  testWorkspace.activeSections.getState().reset();
+  testWorkspace.capabilities.getState().reset();
   changeCallback.mockClear();
 });
 
 describe("moveSelectedItems offset moves", () => {
   it("moves a selected item down past its visible neighbor in one commit", () => {
     loadPanel({ "item-root": ["item-a", "item-b", "item-c"] }, ["item-a"]);
-    expect(moveSelectedItemsDown()).toBe(true);
+    expect(moveSelectedItemsDown(testWorkspace.host)).toBe(true);
     expect(childrenOf("item-root")).toEqual(["item-b", "item-a", "item-c"]);
     expect(changeCallback).toHaveBeenCalledTimes(1);
   });
@@ -140,7 +146,7 @@ describe("moveSelectedItems offset moves", () => {
       "item-a",
       "item-c",
     ]);
-    expect(moveSelectedItemsDown()).toBe(true);
+    expect(moveSelectedItemsDown(testWorkspace.host)).toBe(true);
     expect(childrenOf("item-root")).toEqual([
       "item-b",
       "item-a",
@@ -155,13 +161,13 @@ describe("moveSelectedItems offset moves", () => {
       "item-b",
       "item-c",
     ]);
-    expect(moveSelectedItemsUp()).toBe(true);
+    expect(moveSelectedItemsUp(testWorkspace.host)).toBe(true);
     expect(childrenOf("item-root")).toEqual(["item-b", "item-c", "item-a"]);
   });
 
   it("refuses to move past the boundary and leaves the tree untouched", () => {
     loadPanel({ "item-root": ["item-a", "item-b"] }, ["item-a"]);
-    expect(moveSelectedItemsUp()).toBe(false);
+    expect(moveSelectedItemsUp(testWorkspace.host)).toBe(false);
     expect(childrenOf("item-root")).toEqual(["item-a", "item-b"]);
     expect(changeCallback).not.toHaveBeenCalled();
   });
@@ -174,7 +180,7 @@ describe("moveSelectedItems offset moves", () => {
         visibleItemIds: ["item-a", "item-b"],
       },
     );
-    expect(moveSelectedItemsDown()).toBe(true);
+    expect(moveSelectedItemsDown(testWorkspace.host)).toBe(true);
     expect(childrenOf("item-root")).toEqual([
       "item-hidden",
       "item-b",
@@ -187,7 +193,7 @@ describe("moveSelectedItems offset moves", () => {
       { "item-root": ["item-a", "item-group"], "item-group": ["item-c"] },
       ["item-a", "item-c"],
     );
-    expect(moveSelectedItemsDown()).toBe(false);
+    expect(moveSelectedItemsDown(testWorkspace.host)).toBe(false);
     expect(changeCallback).not.toHaveBeenCalled();
   });
 });
@@ -197,42 +203,42 @@ describe("selected item move gating", () => {
     loadPanel({ "item-root": ["item-a", "item-b"] }, ["item-a"], {
       filterActive: true,
     });
-    expect(moveSelectedItemsDown()).toBe(false);
-    expect(indentSelectedItems()).toBe(false);
-    expect(unindentSelectedItems()).toBe(false);
+    expect(moveSelectedItemsDown(testWorkspace.host)).toBe(false);
+    expect(indentSelectedItems(testWorkspace.host)).toBe(false);
+    expect(unindentSelectedItems(testWorkspace.host)).toBe(false);
   });
 
   it("disables keyboard moves when a selected item is not visible", () => {
     loadPanel({ "item-root": ["item-a", "item-b"] }, ["item-a"], {
       visibleItemIds: ["item-b"],
     });
-    expect(moveSelectedItemsDown()).toBe(false);
+    expect(moveSelectedItemsDown(testWorkspace.host)).toBe(false);
   });
 
   it("disables keyboard moves without a registered list view", () => {
     loadPanel({ "item-root": ["item-a", "item-b"] }, ["item-a"], {
       register: false,
     });
-    expect(moveSelectedItemsDown()).toBe(false);
+    expect(moveSelectedItemsDown(testWorkspace.host)).toBe(false);
   });
 
   it("disables keyboard moves without the edit-structure capability", () => {
     loadPanel({ "item-root": ["item-a", "item-b"] }, ["item-a"]);
-    useWorkspaceCapabilities.setState({ canEditStructure: false });
-    expect(moveSelectedItemsDown()).toBe(false);
-    expect(indentSelectedItems()).toBe(false);
-    expect(unindentSelectedItems()).toBe(false);
+    testWorkspace.capabilities.setState({ canEditStructure: false });
+    expect(moveSelectedItemsDown(testWorkspace.host)).toBe(false);
+    expect(indentSelectedItems(testWorkspace.host)).toBe(false);
+    expect(unindentSelectedItems(testWorkspace.host)).toBe(false);
   });
 
   it("prefers the active section over document order when both hold selections", () => {
-    registerSectionKinds({ leaf: { renderContent: () => null } });
+    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
     const firstTree = makeItemTree({ "item-root": ["item-a", "item-b"] }, [
       "item-a",
     ]);
     const secondTree = makeItemTree({ "item-root": ["item-x", "item-y"] }, [
       "item-x",
     ]);
-    loadWorkspaceDocument({
+    loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         first: makeSection("first", firstTree),
         second: makeSection("second", secondTree),
@@ -244,16 +250,16 @@ describe("selected item move gating", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["second"],
     });
-    registerItemListView("second", {
+    registerItemListView(testWorkspace.host, "second", {
       listKey: "main",
       topLevelItemIds: ["item-x", "item-y"],
       visibleItemIds: new Set(["item-x", "item-y"]),
       filterActive: false,
     });
     changeCallback.mockClear();
-    setWorkspaceDocumentChangeCallback(changeCallback);
+    testWorkspace.host.subscribe(changeCallback);
 
-    expect(moveSelectedItemsDown()).toBe(true);
+    expect(moveSelectedItemsDown(testWorkspace.host)).toBe(true);
     expect(childrenOf("item-root", "second")).toEqual(["item-y", "item-x"]);
     expect(childrenOf("item-root", "first")).toEqual(["item-a", "item-b"]);
   });
@@ -266,7 +272,7 @@ describe("indentSelectedItems", () => {
       "item-a",
       "item-b",
     ]);
-    expect(indentSelectedItems()).toBe(true);
+    expect(indentSelectedItems(testWorkspace.host)).toBe(true);
     expect(childrenOf("item-root")).toEqual(["item-x"]);
     expect(childrenOf("item-x")).toEqual(["item-o", "item-a", "item-b"]);
     expect(changeCallback).toHaveBeenCalledTimes(1);
@@ -277,7 +283,7 @@ describe("indentSelectedItems", () => {
       "item-o",
       "item-b",
     ]);
-    expect(indentSelectedItems()).toBe(true);
+    expect(indentSelectedItems(testWorkspace.host)).toBe(true);
     expect(childrenOf("item-root")).toEqual(["item-x", "item-a"]);
     expect(childrenOf("item-x")).toEqual(["item-o"]);
     expect(childrenOf("item-a")).toEqual(["item-b"]);
@@ -285,7 +291,7 @@ describe("indentSelectedItems", () => {
 
   it("no-ops without a previous unselected sibling but still consumes the shortcut", () => {
     loadPanel({ "item-root": ["item-a", "item-b"] }, ["item-a"]);
-    expect(indentSelectedItems()).toBe(true);
+    expect(indentSelectedItems(testWorkspace.host)).toBe(true);
     expect(childrenOf("item-root")).toEqual(["item-a", "item-b"]);
     expect(changeCallback).not.toHaveBeenCalled();
   });
@@ -297,7 +303,7 @@ describe("unindentSelectedItems", () => {
       { "item-root": ["item-parent", "item-other"], "item-parent": ["item-x"] },
       ["item-x"],
     );
-    expect(unindentSelectedItems()).toBe(true);
+    expect(unindentSelectedItems(testWorkspace.host)).toBe(true);
     expect(childrenOf("item-root")).toEqual([
       "item-parent",
       "item-x",
@@ -316,7 +322,7 @@ describe("unindentSelectedItems", () => {
       },
       ["item-o", "item-b"],
     );
-    expect(unindentSelectedItems()).toBe(true);
+    expect(unindentSelectedItems(testWorkspace.host)).toBe(true);
     expect(childrenOf("item-root")).toEqual([
       "item-p",
       "item-o",
@@ -328,7 +334,7 @@ describe("unindentSelectedItems", () => {
 
   it("no-ops for a top-level selection but still consumes the shortcut", () => {
     loadPanel({ "item-root": ["item-a", "item-b"] }, ["item-a"]);
-    expect(unindentSelectedItems()).toBe(true);
+    expect(unindentSelectedItems(testWorkspace.host)).toBe(true);
     expect(childrenOf("item-root")).toEqual(["item-a", "item-b"]);
     expect(changeCallback).not.toHaveBeenCalled();
   });

@@ -1,11 +1,18 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import {
@@ -182,7 +189,7 @@ function createHelpItemDocument(helpText: string): WorkspaceDocumentInput {
 
 function getStoredItemPresentation() {
   const presentation =
-    useWorkspaceDocument.getState().sections.items?.itemTree?.items.value
+    testWorkspace.document.getState().sections.items?.itemTree?.items.value
       ?.presentation;
   if (!presentation) {
     throw new Error(
@@ -214,12 +221,19 @@ function getAccessibleDescription(control: HTMLElement): string {
 describe("WorkspaceInspector", () => {
   let host: HTMLDivElement;
   let root: Root;
+  const documentChangeObservers = new Set<Mock>();
+
+  function observeDocumentChanges(onChange: Mock): void {
+    documentChangeObservers.add(onChange);
+    testWorkspace.host.subscribe(onChange);
+  }
 
   beforeEach(() => {
+    documentChangeObservers.clear();
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       leaf: {
         renderContent: () => null,
         createItem: () => ({
@@ -257,12 +271,11 @@ describe("WorkspaceInspector", () => {
       root.unmount();
     });
     host.remove();
-    setWorkspaceDocumentChangeCallback(null);
-    registerWorkspaceCommands([]);
-    useWorkspaceCapabilities.getState().reset();
-    useItemSelectionMode.getState().reset();
-    useSectionRefs.getState().reset();
-    registerSectionKinds({});
+    registerWorkspaceCommands(testWorkspace.host, []);
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
+    registerSectionKinds(testWorkspace.host, {});
     vi.restoreAllMocks();
   });
 
@@ -270,14 +283,19 @@ describe("WorkspaceInspector", () => {
     document: WorkspaceDocumentInput,
     sectionTagColorPalette: WorkspaceSectionTagColorPalette = DEFAULT_SECTION_TAG_COLOR_PALETTE,
   ) {
-    loadWorkspaceDocument(document);
+    loadWorkspaceDocument(testWorkspace.host, document);
+    for (const onChange of documentChangeObservers) {
+      onChange.mockClear();
+    }
     const initialFocusRef = createRef<HTMLElement>();
     await act(async () => {
       root.render(
-        <WorkspaceInspector
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceInspector
           initialFocusRef={initialFocusRef}
           sectionTagColorPalette={sectionTagColorPalette}
-        />,
+        />
+        }</WorkspaceTestProvider>,
       );
     });
     return initialFocusRef;
@@ -294,7 +312,7 @@ describe("WorkspaceInspector", () => {
 
   it("keeps invalid section accents inside the pane and restores focus on Escape", async () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    observeDocumentChanges(onChange);
     await renderInspector(createDocument(["alpha"]));
     const accent = getLabeledControl<HTMLInputElement>(host, "Style accent");
 
@@ -322,7 +340,7 @@ describe("WorkspaceInspector", () => {
 
   it("sets and resets a color tag from an explicit host palette with textual cues", async () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    observeDocumentChanges(onChange);
     await renderInspector(createDocument(["alpha"]), [
       { color: "#123456", description: "Host slate" },
       { color: "#0f766e", description: "Host teal" },
@@ -340,7 +358,7 @@ describe("WorkspaceInspector", () => {
       colorTag.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    expect(useWorkspaceDocument.getState().sections["alpha"]?.tagColor).toBe(
+    expect(testWorkspace.document.getState().sections["alpha"]?.tagColor).toBe(
       "#0f766e",
     );
     expect(host.textContent).toContain("Host teal · #0f766e");
@@ -356,7 +374,7 @@ describe("WorkspaceInspector", () => {
     });
 
     expect(
-      useWorkspaceDocument.getState().sections["alpha"]?.tagColor,
+      testWorkspace.document.getState().sections["alpha"]?.tagColor,
     ).toBeNull();
     expect(colorTag.value).toBe("");
     expect(reset.disabled).toBe(true);
@@ -397,8 +415,8 @@ describe("WorkspaceInspector", () => {
 
   it("omits the canvas-owned value editor while keeping Inspector configuration editable", async () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
-    useItemSelectionMode.setState({ isSelectingItems: true });
+    observeDocumentChanges(onChange);
+    testWorkspace.itemSelectionMode.setState({ isSelectingItems: true });
     await renderInspector(
       createDocument(["items"], {
         items: makeItemSection({
@@ -465,7 +483,7 @@ describe("WorkspaceInspector", () => {
     });
 
     const control =
-      useWorkspaceDocument.getState().sections["items"]?.itemTree?.items[
+      testWorkspace.document.getState().sections["items"]?.itemTree?.items[
         "value"
       ]?.presentation?.control;
     expect(control).toMatchObject({
@@ -480,7 +498,7 @@ describe("WorkspaceInspector", () => {
 
   it("commits serializable item help from the labeled Inspector field", async () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    observeDocumentChanges(onChange);
     await renderInspector(
       createHelpItemDocument("Controls whether retries are enabled."),
     );
@@ -508,7 +526,7 @@ describe("WorkspaceInspector", () => {
 
   it("discards an escaped help draft and clears help with the textarea commit shortcut", async () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    observeDocumentChanges(onChange);
     await renderInspector(createHelpItemDocument("Keep this committed help."));
     const help = getLabeledControl<HTMLTextAreaElement>(host, "Help text");
 
@@ -564,7 +582,7 @@ describe("WorkspaceInspector", () => {
 
   it("resizes and resets group dimensions without disabling overflow", async () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    observeDocumentChanges(onChange);
     await renderInspector(
       createDocument(["group"], {
         group: makeSection("group", {
@@ -586,7 +604,7 @@ describe("WorkspaceInspector", () => {
       getButton(host, "Apply size").click();
     });
 
-    expect(useWorkspaceDocument.getState().sections["group"]?.size).toEqual({
+    expect(testWorkspace.document.getState().sections["group"]?.size).toEqual({
       width: 400,
       height: 260,
     });
@@ -600,12 +618,12 @@ describe("WorkspaceInspector", () => {
 
     expect(width.hasAttribute("aria-invalid")).toBe(false);
     expect(height.hasAttribute("aria-invalid")).toBe(false);
-    expect(useWorkspaceDocument.getState().sections["group"]?.size).toEqual({
+    expect(testWorkspace.document.getState().sections["group"]?.size).toEqual({
       width: "auto",
       height: "auto",
     });
     expect(
-      useWorkspaceDocument.getState().sections["group"]?.overflowMode,
+      testWorkspace.document.getState().sections["group"]?.overflowMode,
     ).toBe(true);
     expect(overflow.getAttribute("aria-pressed")).toBe("true");
     expect(
@@ -617,7 +635,7 @@ describe("WorkspaceInspector", () => {
       overflow.click();
     });
     expect(
-      useWorkspaceDocument.getState().sections["group"]?.overflowMode,
+      testWorkspace.document.getState().sections["group"]?.overflowMode,
     ).toBe(false);
     expect(overflow.getAttribute("aria-pressed")).toBe("false");
     expect(
@@ -628,7 +646,7 @@ describe("WorkspaceInspector", () => {
 
   it("changes a typed item's UI type through one complete presentation mutation", async () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    observeDocumentChanges(onChange);
     await renderInspector(
       createDocument(["items"], {
         items: makeItemSection({
@@ -646,7 +664,7 @@ describe("WorkspaceInspector", () => {
     });
 
     expect(
-      useWorkspaceDocument.getState().sections["items"]?.itemTree?.items[
+      testWorkspace.document.getState().sections["items"]?.itemTree?.items[
         "value"
       ]?.presentation?.control,
     ).toEqual({
@@ -655,6 +673,22 @@ describe("WorkspaceInspector", () => {
       configuration: { disabled: false, min: 0, max: 1, step: 0.1 },
     });
     expect(onChange).toHaveBeenCalledOnce();
+  });
+
+  it("scopes the typed item control id to its owning host", async () => {
+    await renderInspector(
+      createDocument(["items"], {
+        items: makeItemSection({
+          kind: "slider",
+          value: "5",
+          configuration: { disabled: false, min: 0, max: 10, step: 1 },
+        }),
+      }),
+    );
+
+    expect(getLabeledControl<HTMLSelectElement>(host, "UI type").id).toBe(
+      `${testWorkspace.domId}-inspector-item-type`,
+    );
   });
 
   it("shows a static item label as read-only instead of exposing a rename editor", async () => {
@@ -728,7 +762,7 @@ describe("WorkspaceInspector", () => {
 
   it("deletes one selected parameter and preserves Inspector focus on the surviving branch", async () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    observeDocumentChanges(onChange);
     await renderInspector(
       createDocument(["items"], {
         items: makeItemSection({
@@ -743,7 +777,7 @@ describe("WorkspaceInspector", () => {
 
     await act(async () => deleteParameter.click());
 
-    const itemTree = useWorkspaceDocument.getState().sections.items?.itemTree;
+    const itemTree = testWorkspace.document.getState().sections.items?.itemTree;
     expect(itemTree?.items.value).toBeUndefined();
     expect(itemTree?.selectedItemIds).toEqual(["other"]);
     expect(document.activeElement).toBe(getButton(host, "Add parameter"));
@@ -752,7 +786,7 @@ describe("WorkspaceInspector", () => {
 
   it("deletes a multi-selection and keeps the shared authoring actions focused", async () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    observeDocumentChanges(onChange);
     await renderInspector(
       createDocument(["items"], {
         items: makeItemSection(
@@ -770,7 +804,7 @@ describe("WorkspaceInspector", () => {
 
     await act(async () => deleteSelected.click());
 
-    const itemTree = useWorkspaceDocument.getState().sections.items?.itemTree;
+    const itemTree = testWorkspace.document.getState().sections.items?.itemTree;
     expect(itemTree?.items.root?.children).toEqual([]);
     expect(itemTree?.selectedItemIds).toEqual([]);
     expect(
@@ -781,7 +815,7 @@ describe("WorkspaceInspector", () => {
   });
 
   it("disables every multi-section action outside its owning capability", async () => {
-    useWorkspaceCapabilities.setState({
+    testWorkspace.capabilities.setState({
       canEditLayout: false,
       canEditStructure: false,
     });
@@ -794,7 +828,7 @@ describe("WorkspaceInspector", () => {
 
   it("shows explicit mixed state and applies each common multi-section action once", async () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    observeDocumentChanges(onChange);
     vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(
       "00000000-0000-4000-8000-000000000000",
     );
@@ -807,7 +841,7 @@ describe("WorkspaceInspector", () => {
       );
     });
     expect(
-      useWorkspaceDocument.getState().sections["alpha"]?.positionAndSizeLocked,
+      testWorkspace.document.getState().sections["alpha"]?.positionAndSizeLocked,
     ).toBe(true);
     expect(onChange).toHaveBeenCalledOnce();
 
@@ -818,7 +852,7 @@ describe("WorkspaceInspector", () => {
       );
     });
     const group =
-      useWorkspaceDocument.getState().sections[
+      testWorkspace.document.getState().sections[
         "group-00000000-0000-4000-8000-000000000000"
       ];
     expect(group?.children).toEqual(["alpha", "bravo"]);
@@ -827,7 +861,7 @@ describe("WorkspaceInspector", () => {
 
   it("ungroups a selected group and restores Inspector focus to the resulting empty branch", async () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    observeDocumentChanges(onChange);
     await renderInspector(
       createDocument(["group"], {
         group: makeSection("group", {
@@ -846,9 +880,9 @@ describe("WorkspaceInspector", () => {
       ungroup.click();
     });
 
-    expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
+    expect(testWorkspace.document.getState().sections["group"]).toBeUndefined();
     expect(
-      useWorkspaceDocument.getState().parentSectionMap["child-a"],
+      testWorkspace.document.getState().parentSectionMap["child-a"],
     ).toBeUndefined();
     expect(host.textContent).toContain("Select A Section to Edit");
     expect(document.activeElement).toBe(
@@ -876,13 +910,13 @@ describe("WorkspaceInspector", () => {
       getButton(host, "Delete").click();
     });
 
-    expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
+    expect(testWorkspace.document.getState().sections["group"]).toBeUndefined();
     expect(host.textContent).toContain("Select A Section to Edit");
   });
 
   it("offers a host command registered for the Inspector surface", async () => {
     const run = vi.fn();
-    registerWorkspaceCommands([
+    registerWorkspaceCommands(testWorkspace.host, [
       {
         id: "host-inspect",
         scope: "section",
@@ -920,7 +954,7 @@ describe("WorkspaceInspector", () => {
 
   it("renders a typed host contribution for custom section and item content", async () => {
     const contexts: Array<WorkspaceInspectorContributionContext> = [];
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       leaf: { renderContent: () => null },
       custom: {
         renderContent: () => null,
@@ -938,7 +972,7 @@ describe("WorkspaceInspector", () => {
     expect(host.textContent).toContain("Host section inspector");
 
     await act(async () => {
-      loadWorkspaceDocument(
+      loadWorkspaceDocument(testWorkspace.host,
         createDocument(["custom-items"], {
           "custom-items": makeSection("custom-items", {
             kind: "custom",
@@ -976,7 +1010,7 @@ describe("WorkspaceInspector", () => {
       }
     }).toThrow(TypeError);
     expect(
-      useWorkspaceDocument.getState().sections["custom-items"]?.itemTree?.items[
+      testWorkspace.document.getState().sections["custom-items"]?.itemTree?.items[
         "opaque"
       ]?.data,
     ).toEqual({ value: "host" });

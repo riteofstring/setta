@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -64,12 +72,12 @@ function makeDocument(
 }
 
 function resetWorkspaceStores() {
-  registerSectionKinds({});
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
-  useActiveSections.getState().reset();
-  useWorkspaceAppearance.getState().reset();
-  useReactFlow.setState({ ...initialCanvasState });
+  registerSectionKinds(testWorkspace.host, {});
+  testWorkspace.document.getState().reset();
+  testWorkspace.nodeInternals.getState().reset();
+  testWorkspace.activeSections.getState().reset();
+  testWorkspace.appearance.getState().reset();
+  testWorkspace.reactFlow.setState({ ...initialCanvasState });
 }
 
 describe("built-in code section registration", () => {
@@ -92,46 +100,46 @@ describe("built-in code section registration", () => {
   });
 
   it("loads an omitted size at the reference's code section default", () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection(),
     });
-    loadWorkspaceDocument(makeDocument({ size: undefined }));
-    expect(getWorkspaceDocument().sections[SECTION_ID]?.size).toEqual({
+    loadWorkspaceDocument(testWorkspace.host, makeDocument({ size: undefined }));
+    expect(getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.size).toEqual({
       width: 500,
       height: "auto",
     });
   });
 
   it("takes a host-supplied default size", () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
         defaultSize: { width: 320, height: 200 },
       }),
     });
-    loadWorkspaceDocument(makeDocument({ size: undefined }));
-    expect(getWorkspaceDocument().sections[SECTION_ID]?.size).toEqual({
+    loadWorkspaceDocument(testWorkspace.host, makeDocument({ size: undefined }));
+    expect(getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.size).toEqual({
       width: 320,
       height: 200,
     });
   });
 
   it("fails the load on malformed code section data", () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection(),
     });
     expect(() =>
-      loadWorkspaceDocument(makeDocument({ data: { code: "x = 1" } })),
+      loadWorkspaceDocument(testWorkspace.host, makeDocument({ data: { code: "x = 1" } })),
     ).toThrow(/Code section code is missing its string language field/u);
   });
 
   it("fails the load on a language the registration does not allow", () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
         languages: ["python", "json"],
       }),
     });
     expect(() =>
-      loadWorkspaceDocument(
+      loadWorkspaceDocument(testWorkspace.host,
         makeDocument({
           data: createWorkspaceCodeSectionData({ language: "bash" }),
         }),
@@ -140,14 +148,14 @@ describe("built-in code section registration", () => {
   });
 
   it("refuses a typed write outside the registration's languages", () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
         languages: ["python", "json"],
       }),
     });
-    loadWorkspaceDocument(makeDocument());
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
     expect(() =>
-      setWorkspaceCodeSectionData(
+      setWorkspaceCodeSectionData(testWorkspace.host,
         SECTION_ID,
         createWorkspaceCodeSectionData({ language: "yaml" }),
       ),
@@ -155,8 +163,8 @@ describe("built-in code section registration", () => {
   });
 
   it("fails a document naming the kind when the host leaves the built-in out", () => {
-    registerSectionKinds({ leaf: { renderContent: () => null } });
-    expect(() => loadWorkspaceDocument(makeDocument())).toThrow(
+    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    expect(() => loadWorkspaceDocument(testWorkspace.host, makeDocument())).toThrow(
       /Section kind setta\.code is not registered/u,
     );
   });
@@ -183,25 +191,27 @@ describe("built-in code section header icon", () => {
   async function renderIcon() {
     await act(async () => {
       root.render(
-        createElement(HeaderIcon, {
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(HeaderIcon, {
           hasSectionStyleTheme: false,
           sectionId: SECTION_ID,
           sectionKind: WORKSPACE_CODE_SECTION_KIND,
-        }),
+        })
+        }</WorkspaceTestProvider>,
       );
     });
     return host.querySelector("svg path")?.getAttribute("d") ?? null;
   }
 
   it("paints the section's own language, like the reference's code header icon", async () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection(),
     });
-    loadWorkspaceDocument(makeDocument());
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
     const pythonPath = await renderIcon();
     expect(pythonPath).not.toBeNull();
     await act(async () => {
-      setWorkspaceCodeSectionData(
+      setWorkspaceCodeSectionData(testWorkspace.host,
         SECTION_ID,
         createWorkspaceCodeSectionData({ language: "bash" }),
       );
@@ -210,20 +220,22 @@ describe("built-in code section header icon", () => {
   });
 
   it("takes a host-supplied icon instead", async () => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
         icon: ({ className }) =>
           createElement("i", { className, "data-host-icon": "true" }),
       }),
     });
-    loadWorkspaceDocument(makeDocument());
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
     await act(async () => {
       root.render(
-        createElement(HeaderIcon, {
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(HeaderIcon, {
           hasSectionStyleTheme: false,
           sectionId: SECTION_ID,
           sectionKind: WORKSPACE_CODE_SECTION_KIND,
-        }),
+        })
+        }</WorkspaceTestProvider>,
       );
     });
     expect(host.querySelector("[data-host-icon]")).not.toBeNull();

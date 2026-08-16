@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { computeItemNameErrorBubblePosition } from "./ItemNameErrorBubble";
 
 const SECTION_ID = "section";
+const CONTAINER_ID = `${SECTION_ID}-CustomResizable`;
 const LIVE_ID = "live-editor";
 const DUMMY_ID = "dummy-editor";
 
@@ -24,7 +25,7 @@ function rect(values: Partial<DOMRect>): DOMRect {
 
 function setupPositioningFixture(direction: "ltr" | "rtl") {
   const container = document.createElement("section");
-  container.id = `${SECTION_ID}-CustomResizable`;
+  container.id = CONTAINER_ID;
   container.dir = direction;
   Object.defineProperties(container, {
     offsetHeight: { value: 100 },
@@ -68,7 +69,12 @@ describe("item-name error bubble direction", () => {
     const bubble = setupPositioningFixture("ltr");
 
     expect(
-      computeItemNameErrorBubblePosition(SECTION_ID, LIVE_ID, DUMMY_ID, bubble),
+      computeItemNameErrorBubblePosition(
+        CONTAINER_ID,
+        LIVE_ID,
+        DUMMY_ID,
+        bubble,
+      ),
     ).toEqual({
       left: 20,
       top: 36,
@@ -80,7 +86,12 @@ describe("item-name error bubble direction", () => {
     const bubble = setupPositioningFixture("rtl");
 
     expect(
-      computeItemNameErrorBubblePosition(SECTION_ID, LIVE_ID, DUMMY_ID, bubble),
+      computeItemNameErrorBubblePosition(
+        CONTAINER_ID,
+        LIVE_ID,
+        DUMMY_ID,
+        bubble,
+      ),
     ).toEqual({
       left: 10,
       top: 36,

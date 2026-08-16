@@ -15,6 +15,7 @@ import {
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "../../interaction";
 import { getSectionSurfaceClassName } from "../sectionChrome";
+import { getWorkspaceSectionResizableId } from "../sectionDomIds";
 import {
   getResizeStartAutoSizeUpdate,
   isHeightResizeDirection,
@@ -299,7 +300,7 @@ export function CustomResizable({
 
   return (
     <ResizableWithScale
-      id={`${sectionId}-CustomResizable`} // IMPORTANT, used for section-scoped DOM lookups
+      id={getWorkspaceSectionResizableId(host, sectionId)}
       as="section"
       size={size}
       minHeight={minHeight}

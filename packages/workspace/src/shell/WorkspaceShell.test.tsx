@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -33,7 +41,8 @@ vi.mock("../canvas/viewportHelpers", () => ({
 vi.mock("../toolbar/WorkspaceControls", () => ({
   WorkspaceControls: () => <div data-testid="workspace-controls" />,
 }));
-vi.mock("../tooltip/WorkspaceTooltip", () => ({
+vi.mock("../tooltip/WorkspaceTooltip", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../tooltip/WorkspaceTooltip")>()),
   WorkspaceTooltip: () => <div data-testid="workspace-tooltip" />,
 }));
 
@@ -163,13 +172,17 @@ describe("WorkspaceShell", () => {
   let onChange: Mock<(viewState: WorkspaceShellViewState) => void>;
 
   beforeEach(async () => {
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
     onChange = vi.fn();
     await act(async () => {
-      root.render(<Harness onChange={onChange} />);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<Harness onChange={onChange} />
+        }</WorkspaceTestProvider>,
+      );
     });
     await resizeShell(800);
     onChange.mockClear();
@@ -182,7 +195,7 @@ describe("WorkspaceShell", () => {
     host.remove();
     observedResizeTargets.clear();
     shiftWorkspaceMapForLeadingPane.mockReset();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   function getShell(): HTMLElement {
@@ -271,7 +284,7 @@ describe("WorkspaceShell", () => {
     expect(
       host.querySelector('[data-testid="workspace-tooltip"]'),
     ).not.toBeNull();
-    expect(useReactFlow.getState().viewportInsets).toEqual({
+    expect(testWorkspace.reactFlow.getState().viewportInsets).toEqual({
       top: 0,
       right: 40,
       bottom: 0,
@@ -313,7 +326,7 @@ describe("WorkspaceShell", () => {
       getButton("Notes").click();
     });
 
-    expect(useReactFlow.getState().viewportInsets).toEqual({
+    expect(testWorkspace.reactFlow.getState().viewportInsets).toEqual({
       top: 0,
       right: 335,
       bottom: 0,
@@ -326,7 +339,7 @@ describe("WorkspaceShell", () => {
       getButton("Notes").click();
     });
 
-    expect(useReactFlow.getState().viewportInsets).toEqual({
+    expect(testWorkspace.reactFlow.getState().viewportInsets).toEqual({
       top: 0,
       right: 40,
       bottom: 0,
@@ -555,7 +568,10 @@ describe("WorkspaceShell", () => {
       );
     });
     expect(shiftWorkspaceMapForLeadingPane).toHaveBeenCalledOnce();
-    expect(shiftWorkspaceMapForLeadingPane).toHaveBeenLastCalledWith(-295);
+    expect(shiftWorkspaceMapForLeadingPane).toHaveBeenLastCalledWith(
+      testWorkspace.host,
+      -295,
+    );
 
     await act(async () => {
       getButton("Notes").dispatchEvent(
@@ -563,13 +579,18 @@ describe("WorkspaceShell", () => {
       );
     });
     expect(shiftWorkspaceMapForLeadingPane).toHaveBeenCalledTimes(2);
-    expect(shiftWorkspaceMapForLeadingPane).toHaveBeenLastCalledWith(295);
+    expect(shiftWorkspaceMapForLeadingPane).toHaveBeenLastCalledWith(
+      testWorkspace.host,
+      295,
+    );
   });
 
   it("lets hosts disable leading-pane map shifts and never shifts for the trailing pane", async () => {
     await act(async () => {
       root.render(
-        <Harness leadingPaneShiftsCanvas={false} onChange={onChange} />,
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<Harness leadingPaneShiftsCanvas={false} onChange={onChange} />
+        }</WorkspaceTestProvider>,
       );
     });
     shiftWorkspaceMapForLeadingPane.mockClear();

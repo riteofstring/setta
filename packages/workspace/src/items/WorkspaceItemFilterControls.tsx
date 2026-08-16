@@ -1,5 +1,7 @@
 import { FiX } from "react-icons/fi";
 import { useWorkspaceItemFilter } from "./WorkspaceItemFilterContext";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import { getWorkspaceHostDomId } from "../workspaceHostInternals";
 
 function formatCount(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`;
@@ -33,12 +35,14 @@ export function WorkspaceItemFilterControls({
 }: {
   sectionId: string;
 }) {
+  const host = useWorkspaceHost();
   const filter = useWorkspaceItemFilter();
   if (!filter) {
     return null;
   }
-  const inputId = `${sectionId}-parameter-filter`;
-  const statusId = `${sectionId}-parameter-filter-status`;
+  const hostId = getWorkspaceHostDomId(host);
+  const inputId = `${hostId}-${sectionId}-parameter-filter`;
+  const statusId = `${hostId}-${sectionId}-parameter-filter-status`;
   const hiddenSelectionMessage = `${formatCount(
     filter.hiddenSelectedItemCount,
     "selected parameter is",

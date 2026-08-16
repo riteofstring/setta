@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import type { ZoomTransform } from "d3-zoom";
 import { act, createElement } from "react";
@@ -34,7 +42,7 @@ function setupZoomRuntime() {
     typeof initialCanvasState.d3Zoom
   >;
 
-  useReactFlow.setState({
+  testWorkspace.reactFlow.setState({
     ...initialCanvasState,
     width: 800,
     height: 600,
@@ -63,13 +71,17 @@ describe("pointer location", () => {
   let root: Root;
 
   beforeEach(async () => {
-    useWorkspaceOptions.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.options.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
     await act(async () => {
-      root.render(createElement(PointerLocationHost));
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(PointerLocationHost)
+        }</WorkspaceTestProvider>,
+      );
     });
   });
 
@@ -79,8 +91,8 @@ describe("pointer location", () => {
       root.unmount();
     });
     host.remove();
-    useWorkspaceOptions.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    testWorkspace.options.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   async function movePointer(clientX: number, clientY: number) {
@@ -91,10 +103,10 @@ describe("pointer location", () => {
 
   it("centers the tracked pointer position at the default zoom level", async () => {
     const { durations, transform, transitionObject } = setupZoomRuntime();
-    useWorkspaceOptions.setState({ snapToGrid: false });
+    testWorkspace.options.setState({ snapToGrid: false });
     await movePointer(220, 140);
 
-    expect(zoomToPointerLocation()).toBe(true);
+    expect(zoomToPointerLocation(testWorkspace.host)).toBe(true);
 
     // The pointer sits at (200, 100) in flow coordinates once the canvas offset is removed.
     expect(transform).toHaveBeenCalledWith(transitionObject, expect.anything());
@@ -109,7 +121,7 @@ describe("pointer location", () => {
     const { transform } = setupZoomRuntime();
     await movePointer(220, 140);
 
-    expect(zoomToPointerLocation()).toBe(true);
+    expect(zoomToPointerLocation(testWorkspace.host)).toBe(true);
 
     const applied = getAppliedTransform(transform);
     expect(applied.x).toBe(400 - 195);
@@ -119,14 +131,14 @@ describe("pointer location", () => {
   it("declines until the canvas has seen a pointer", () => {
     const { transform } = setupZoomRuntime();
 
-    expect(zoomToPointerLocation()).toBe(false);
+    expect(zoomToPointerLocation(testWorkspace.host)).toBe(false);
     expect(transform).not.toHaveBeenCalled();
   });
 
   it("declines before the zoom pane initialized instead of throwing", async () => {
     await movePointer(220, 140);
 
-    expect(zoomToPointerLocation()).toBe(false);
+    expect(zoomToPointerLocation(testWorkspace.host)).toBe(false);
   });
 
   it("forgets the pointer when the canvas unmounts", async () => {
@@ -138,7 +150,7 @@ describe("pointer location", () => {
 
     await movePointer(300, 300);
 
-    expect(zoomToPointerLocation()).toBe(false);
+    expect(zoomToPointerLocation(testWorkspace.host)).toBe(false);
     expect(transform).not.toHaveBeenCalled();
   });
 });

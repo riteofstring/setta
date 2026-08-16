@@ -1,5 +1,11 @@
 /* @vitest-environment jsdom */
 
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import {
+  createWorkspaceTestHost,
+  type WorkspaceTestHost,
+  WorkspaceTestProvider,
+} from "../../../test/workspaceTestHost";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -16,6 +22,11 @@ import { DndSlot } from "./DndSlot";
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 describe("DndSlot", () => {
   let host: HTMLDivElement;
   let target: HTMLDivElement;
@@ -27,7 +38,7 @@ describe("DndSlot", () => {
     target.getBoundingClientRect = () =>
       ({ top: 40, left: 60, width: 200, height: 120 }) as DOMRect;
     document.body.append(host, target);
-    useSectionRefs.setState({ withNested: { target }, selfOnly: {} });
+    testWorkspace.sectionRefs.setState({ withNested: { target }, selfOnly: {} });
     root = createRoot(host);
   });
 
@@ -37,19 +48,21 @@ describe("DndSlot", () => {
     });
     host.remove();
     target.remove();
-    useSectionRefs.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
   });
 
   it("portals invalid feedback above the target and below the drag preview", async () => {
     target.dir = "rtl";
     await act(async () => {
       root.render(
-        createElement(DndSlot, {
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(DndSlot, {
           behaviorDropType: BehaviorDropTypeEnum.INVALID,
           children: createElement("div", null, "section"),
           isGroup: false,
           sectionId: "target",
-        }),
+        })
+        }</WorkspaceTestProvider>,
       );
     });
 

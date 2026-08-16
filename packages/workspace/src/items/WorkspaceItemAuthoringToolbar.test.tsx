@@ -1,11 +1,18 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setItemDndState, useItemDndState } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import {
@@ -21,7 +28,7 @@ import { WorkspaceItemAuthoringToolbar } from "./WorkspaceItemAuthoringToolbar";
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 function loadDocument(): void {
-  loadWorkspaceDocument({
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
         id: "panel",
@@ -63,7 +70,7 @@ function getButton(host: HTMLElement, label: string): HTMLButtonElement {
 }
 
 function getPanelItemTree(): WorkspaceSectionItemTree {
-  const itemTree = useWorkspaceDocument.getState().sections.panel?.itemTree;
+  const itemTree = testWorkspace.document.getState().sections.panel?.itemTree;
   if (!itemTree) {
     throw new Error("Expected the panel item tree.");
   }
@@ -90,7 +97,7 @@ describe("WorkspaceItemAuthoringToolbar", () => {
   let root: Root;
 
   beforeEach(() => {
-    registerSectionKinds({
+    registerSectionKinds(testWorkspace.host, {
       items: {
         renderContent: () => null,
         createItem: () => ({
@@ -109,24 +116,27 @@ describe("WorkspaceItemAuthoringToolbar", () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     host.remove();
-    registerSectionKinds({});
-    setWorkspaceDocumentChangeCallback(null);
-    useWorkspaceCapabilities.getState().reset();
-    useItemDndState.getState().reset();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
+    registerSectionKinds(testWorkspace.host, {});
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.itemDndState.getState().reset();
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
   });
 
   async function mount(): Promise<void> {
     await act(async () =>
-      root.render(<WorkspaceItemAuthoringToolbar sectionId="panel" />),
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceItemAuthoringToolbar sectionId="panel" />
+        }</WorkspaceTestProvider>,
+      ),
     );
   }
 
   it("uses native compact controls and routes every operation through one canonical commit", async () => {
     const onChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onChange);
+    testWorkspace.host.subscribe(onChange);
     await mount();
     expect(host.textContent).toContain("Args");
     expect(host.textContent).not.toContain("Parameters");
@@ -164,15 +174,15 @@ describe("WorkspaceItemAuthoringToolbar", () => {
   it("exposes accurate disabled states for capability, lock, drag, and a missing factory", async () => {
     await mount();
     await act(async () => {
-      useWorkspaceCapabilities.setState({ canEditStructure: false });
+      testWorkspace.capabilities.setState({ canEditStructure: false });
     });
     expect(
       [...host.querySelectorAll("button")].every((button) => button.disabled),
     ).toBe(true);
 
     await act(async () => {
-      useWorkspaceCapabilities.setState({ canEditStructure: true });
-      useWorkspaceDocument.setState((state) => {
+      testWorkspace.capabilities.setState({ canEditStructure: true });
+      testWorkspace.document.setState((state) => {
         const panel = state.sections.panel;
         if (!panel) {
           throw new Error("Expected the panel section.");
@@ -190,7 +200,7 @@ describe("WorkspaceItemAuthoringToolbar", () => {
     ).toBe(true);
 
     await act(async () => {
-      useWorkspaceDocument.setState((state) => {
+      testWorkspace.document.setState((state) => {
         const panel = state.sections.panel;
         if (!panel) {
           throw new Error("Expected the panel section.");
@@ -202,7 +212,7 @@ describe("WorkspaceItemAuthoringToolbar", () => {
           },
         };
       });
-      setItemDndState({ activeId: "alpha" });
+      setItemDndState(testWorkspace.host, { activeId: "alpha" });
     });
     expect(
       [...host.querySelectorAll("button")].every((button) => button.disabled),
@@ -210,8 +220,8 @@ describe("WorkspaceItemAuthoringToolbar", () => {
 
     await act(async () => root.unmount());
     root = createRoot(host);
-    useItemDndState.getState().reset();
-    registerSectionKinds({ items: { renderContent: () => null } });
+    testWorkspace.itemDndState.getState().reset();
+    registerSectionKinds(testWorkspace.host, { items: { renderContent: () => null } });
     await mount();
     expect(getButton(host, "Add parameter").disabled).toBe(true);
     expect(getButton(host, "Remove last parameter").disabled).toBe(false);

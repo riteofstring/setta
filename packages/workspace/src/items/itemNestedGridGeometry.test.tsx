@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -135,7 +143,7 @@ function renderRowContent(context: ItemRowRenderContext) {
 }
 
 function loadRejectedScene() {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
   // The rejected `options` group scene plus the reference's nested-root case: a non-group
   // row (`beta`) that carries a child, whose areas come from the stylesheet alone.
   const ids: Record<
@@ -157,7 +165,7 @@ function loadRejectedScene() {
     "item-beta": { label: "beta", children: ["item-gamma"] },
     "item-gamma": { label: "gamma", children: [] },
   };
-  loadWorkspaceDocument({
+  loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
         id: "panel",
@@ -240,7 +248,8 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
     root = createRoot(host);
     await act(async () => {
       root.render(
-        createElement(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(
           ItemDndContext,
           null,
           createElement(WorkspaceItemList, {
@@ -250,7 +259,8 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
             renderItem: renderRowContent,
             isGroupItem,
           }),
-        ),
+        )
+        }</WorkspaceTestProvider>,
       );
     });
   });
@@ -260,16 +270,16 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
       root.unmount();
     });
     host.remove();
-    registerSectionKinds({});
-    resetItemListViews();
-    useWorkspaceDocument.getState().reset();
-    useNodeInternals.getState().reset();
-    useActiveSections.getState().reset();
-    useWorkspaceCapabilities.getState().reset();
-    useItemSelectionMode.getState().reset();
-    useItemDndState.getState().reset();
-    useItemDndChildren.getState().reset();
-    useReactFlow.setState({ ...initialCanvasState });
+    registerSectionKinds(testWorkspace.host, {});
+    resetItemListViews(testWorkspace.host);
+    testWorkspace.document.getState().reset();
+    testWorkspace.nodeInternals.getState().reset();
+    testWorkspace.activeSections.getState().reset();
+    testWorkspace.capabilities.getState().reset();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.itemDndState.getState().reset();
+    testWorkspace.itemDndChildren.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
   function getRow(itemId: string): HTMLElement {

@@ -1,4 +1,12 @@
 /* @vitest-environment jsdom */
+import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+
 
 import { act, createRef } from "react";
 import { createRoot } from "react-dom/client";
@@ -107,7 +115,7 @@ describe("syncSelectedMiniMapNodes", () => {
   });
 
   it("keeps custom minimap nodes on the typed selection-sync contract", async () => {
-    useActiveSections.getState().reset();
+    testWorkspace.activeSections.getState().reset();
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
@@ -127,7 +135,8 @@ describe("syncSelectedMiniMapNodes", () => {
     try {
       await act(async () => {
         root.render(
-          <MinimapSvg
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<MinimapSvg
             elementWidth={200}
             elementHeight={150}
             x={0}
@@ -154,12 +163,13 @@ describe("syncSelectedMiniMapNodes", () => {
             ]}
             nodeComponent={CustomNode}
             enableSelectionSync
-          />,
-        );
+          />
+        }</WorkspaceTestProvider>,
+      );
       });
 
       await act(async () => {
-        useActiveSections.setState({ activeIds: ["section-a"] });
+        testWorkspace.activeSections.setState({ activeIds: ["section-a"] });
       });
 
       expect(
@@ -172,7 +182,7 @@ describe("syncSelectedMiniMapNodes", () => {
         root.unmount();
       });
       host.remove();
-      useActiveSections.getState().reset();
+      testWorkspace.activeSections.getState().reset();
     }
   });
 

@@ -21,6 +21,7 @@ import {
   type TextValueTheme,
 } from "./textValueTheme";
 import { useWorkspaceHost } from "../../workspaceHostContext";
+import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
 
 // The item-controls milestone's text value editor: the reference's two-layer
 // `TextInputCodeMirror` at the `ParamUI` text presentation, behind the package's controlled
@@ -236,7 +237,7 @@ function TextValueEditorCore({
     <>
       {!realIsInitialized && (
         <DummyCodeMirror
-          divId={`${sectionId}-${controlId}-${presentationConfig.dummyIdSuffix}`}
+          divId={`${getWorkspaceHostDomId(host)}-${sectionId}-${controlId}-${presentationConfig.dummyIdSuffix}`}
           code={value}
           onMouseDownCapture={localOnMouseDownCapture}
           onFocus={onFocus}
@@ -312,7 +313,7 @@ function LiveTextValueEditor({
   onBlur: () => void;
 }) {
   const host = useWorkspaceHost();
-  const editorId = `CodeMirror-${sectionId}-${controlId}`;
+  const editorId = `${getWorkspaceHostDomId(host)}-CodeMirror-${sectionId}-${controlId}`;
   const extensions = [
     ...getTextValueExtensions({ language, singleLine, wrapLines, onEscape }),
     EditorView.contentAttributes.of({ "aria-label": ariaLabel }),
@@ -321,7 +322,6 @@ function LiveTextValueEditor({
     host,
     initialEvent,
     setRealIsInitialized,
-    editorId,
     value,
     placeholder,
   });

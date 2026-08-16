@@ -7,6 +7,8 @@ import {
 } from "./collisionCompare";
 import type { SettaCollision } from "./types";
 
+const EMPTY_PARENT_BY_CHILD: Record<string, string | null> = {};
+
 type CollisionInput = {
   id: string;
   containerId?: string;
@@ -51,9 +53,11 @@ function collision({
 describe("collision comparison", () => {
   it("returns null for empty collision input", () => {
     // Validates null-safe behavior for no collision candidates.
-    expect(resolveOverCollision(null)).toBeNull();
-    expect(resolveOverCollision([])).toBeNull();
-    expect(resolveOverCollisionId(null, "fallback")).toBe("fallback");
+    expect(resolveOverCollision(null, EMPTY_PARENT_BY_CHILD)).toBeNull();
+    expect(resolveOverCollision([], EMPTY_PARENT_BY_CHILD)).toBeNull();
+    expect(
+      resolveOverCollisionId(null, "fallback", EMPTY_PARENT_BY_CHILD),
+    ).toBe("fallback");
   });
 
   it("prefers sortable container collisions over non-sortable", () => {
@@ -65,7 +69,9 @@ describe("collision comparison", () => {
       intersectionRatio: 1,
     });
 
-    expect(resolveOverCollision([plain, sortable])?.id).toBe("sortable");
+    expect(
+      resolveOverCollision([plain, sortable], EMPTY_PARENT_BY_CHILD)?.id,
+    ).toBe("sortable");
   });
 
   it("uses intersection ratio when both collisions are plain", () => {
@@ -73,7 +79,9 @@ describe("collision comparison", () => {
     const low = collision({ id: "low", intersectionRatio: 4 });
     const high = collision({ id: "high", intersectionRatio: 8 });
 
-    expect(resolveOverCollision([low, high])?.id).toBe("high");
+    expect(
+      resolveOverCollision([low, high], EMPTY_PARENT_BY_CHILD)?.id,
+    ).toBe("high");
   });
 
   it("uses sortable trigger distance when both collisions are sortable", () => {
@@ -93,7 +101,9 @@ describe("collision comparison", () => {
       triggerDist: 10,
     });
 
-    expect(resolveOverCollision([farther, nearer])?.id).toBe("nearer");
+    expect(
+      resolveOverCollision([farther, nearer], EMPTY_PARENT_BY_CHILD)?.id,
+    ).toBe("nearer");
   });
 
   it("keeps the earlier sortable collision when the nearer target has passed the trigger", () => {
@@ -113,7 +123,9 @@ describe("collision comparison", () => {
       triggerDist: 10,
     });
 
-    expect(resolveOverCollision([earlier, nearerPassed])?.id).toBe("earlier");
+    expect(
+      resolveOverCollision([earlier, nearerPassed], EMPTY_PARENT_BY_CHILD)?.id,
+    ).toBe("earlier");
   });
 
   it("prefers the nearer sortable collision when it is still before the trigger", () => {
@@ -133,9 +145,12 @@ describe("collision comparison", () => {
       triggerDist: -5,
     });
 
-    expect(resolveOverCollision([fartherPassed, nearerBefore])?.id).toBe(
-      "nearer-before",
-    );
+    expect(
+      resolveOverCollision(
+        [fartherPassed, nearerBefore],
+        EMPTY_PARENT_BY_CHILD,
+      )?.id,
+    ).toBe("nearer-before");
   });
 
   it("prefers an exactly-at-trigger sortable collision over a farther post-trigger candidate", () => {
@@ -155,9 +170,12 @@ describe("collision comparison", () => {
       triggerDist: 0,
     });
 
-    expect(resolveOverCollision([fartherPassed, nearerAtTrigger])?.id).toBe(
-      "nearer-at-trigger",
-    );
+    expect(
+      resolveOverCollision(
+        [fartherPassed, nearerAtTrigger],
+        EMPTY_PARENT_BY_CHILD,
+      )?.id,
+    ).toBe("nearer-at-trigger");
   });
 
   it("falls back to ratio when sortable distances tie", () => {
@@ -177,7 +195,9 @@ describe("collision comparison", () => {
       triggerDist: 10,
     });
 
-    expect(resolveOverCollision([lowRatio, highRatio])?.id).toBe("high-ratio");
+    expect(
+      resolveOverCollision([lowRatio, highRatio], EMPTY_PARENT_BY_CHILD)?.id,
+    ).toBe("high-ratio");
   });
 
   it("promotes child collision when best candidate is its parent", () => {
@@ -204,7 +224,10 @@ describe("collision comparison", () => {
       intersectionRatio: 1,
     });
 
-    const reordered = promoteBestCollision([plain, sortable]);
+    const reordered = promoteBestCollision(
+      [plain, sortable],
+      EMPTY_PARENT_BY_CHILD,
+    );
     expect(reordered.map((entry) => entry.id)).toEqual(["sortable", "plain"]);
   });
 });
