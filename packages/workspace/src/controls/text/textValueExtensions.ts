@@ -6,8 +6,9 @@ import {
 } from "./textValueLanguages";
 
 // The reference's `getExtensions` trimmed to the paths its text value editor reaches: line
-// wrapping, the declared language pack, the single-line transaction filter, and the Escape
-// binding. Autocomplete, tooltip parents, app undo/redo shortcut overrides, and the tab-scope
+// wrapping, the declared language pack, the single-line transaction filter, the optional
+// consumer-owned Enter commit seam, and the Escape binding. Autocomplete, tooltip parents, app
+// undo/redo shortcut overrides, and the tab-scope
 // focus navigation are application services and stay application-side; without a completion
 // source Escape always reports (the reference consults `completionStatus` first).
 
@@ -28,13 +29,47 @@ type TextValueExtensionsOptions = {
   singleLine: boolean;
   wrapLines: boolean | undefined;
   onEscape: () => void;
+  onCommit?: (value: string) => void;
+  disabled?: boolean;
 };
+
+function isComposing(event: KeyboardEvent, view: EditorView) {
+  return event.isComposing || event.keyCode === 229 || view.composing;
+}
+
+function hasModifier(event: KeyboardEvent) {
+  return event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
+}
+
+function isEnter(event: KeyboardEvent) {
+  return event.key === "Enter" || event.code === "Enter";
+}
+
+function getEnterCommit(
+  event: KeyboardEvent,
+  view: EditorView,
+  {
+    singleLine,
+    onCommit,
+    disabled,
+  }: Pick<TextValueExtensionsOptions, "singleLine" | "onCommit" | "disabled">,
+) {
+  if (!singleLine || !onCommit || disabled) {
+    return undefined;
+  }
+  if (isComposing(event, view) || hasModifier(event) || !isEnter(event)) {
+    return undefined;
+  }
+  return onCommit;
+}
 
 export function getTextValueExtensions({
   language,
   singleLine,
   wrapLines,
   onEscape,
+  onCommit,
+  disabled = false,
 }: TextValueExtensionsOptions): Array<Extension> {
   const extensions: Array<Extension> = [];
   const shouldWrap = wrapLines ?? !singleLine;
@@ -50,13 +85,24 @@ export function getTextValueExtensions({
   extensions.push(
     Prec.highest(
       EditorView.domEventHandlers({
-        keydown: (event) => {
+        keydown: (event, view) => {
           if (event.key === "Escape" || event.code === "Escape") {
             event.stopPropagation();
             onEscape();
             return true;
           }
-          return false;
+          const commit = getEnterCommit(event, view, {
+            singleLine,
+            onCommit,
+            disabled,
+          });
+          if (!commit) {
+            return false;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          commit(view.state.doc.toString());
+          return true;
         },
       }),
     ),

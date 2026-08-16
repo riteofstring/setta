@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { describe, expect, it } from "vitest";
 import * as workspace from "./index";
 
@@ -92,5 +93,20 @@ const RUNTIME_EXPORTS = [
 describe("public package API", () => {
   it("exports only the ratified runtime surface", () => {
     expect(Object.keys(workspace).sort()).toEqual([...RUNTIME_EXPORTS].sort());
+  });
+
+  it("exposes the text editor commit callback through the public root", () => {
+    const onCommit = (value: string) => value;
+    const props = {
+      ariaLabel: "Callable",
+      itemId: "callable-name",
+      onCommit,
+      onValueChange: () => {},
+      sectionId: "callable-section",
+      singleLine: true,
+      value: "math.sqrt",
+    } satisfies ComponentProps<typeof workspace.TextValueEditor>;
+
+    expect(props.onCommit("math.sqrt")).toBe("math.sqrt");
   });
 });

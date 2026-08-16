@@ -240,6 +240,81 @@ describe("TextValueEditor", () => {
     expect(onValueChange).toHaveBeenCalledWith("0.00123");
   });
 
+  it("commits the current single-line value on an unmodified Enter without inserting a newline", async () => {
+    const onCommit = vi.fn();
+    const onValueChange = vi.fn();
+    await mount({ onCommit, onValueChange, singleLine: true });
+    await activate();
+    const view = getLiveView();
+    await act(async () => {
+      view.dispatch({ changes: { from: 5, insert: "23" } });
+    });
+
+    const enter = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Enter",
+      key: "Enter",
+    });
+    await act(async () => {
+      view.contentDOM.dispatchEvent(enter);
+    });
+
+    expect(enter.defaultPrevented).toBe(true);
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith("0.00123");
+    expect(onValueChange).toHaveBeenCalledTimes(1);
+    expect(view.state.doc.toString()).toBe("0.00123");
+  });
+
+  it("does not commit modified or IME-composing Enter presses", async () => {
+    const onCommit = vi.fn();
+    await mount({ onCommit, singleLine: true });
+    await activate();
+    const view = getLiveView();
+
+    for (const init of [
+      { altKey: true },
+      { ctrlKey: true },
+      { metaKey: true },
+      { shiftKey: true },
+      { isComposing: true },
+    ]) {
+      const enter = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        code: "Enter",
+        key: "Enter",
+        ...init,
+      });
+      await act(async () => {
+        view.contentDOM.dispatchEvent(enter);
+      });
+    }
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(view.state.doc.toString()).toBe("0.001");
+  });
+
+  it("does not commit after the active editor becomes disabled", async () => {
+    const onCommit = vi.fn();
+    await mount({ onCommit, singleLine: true });
+    await activate();
+    await mount({ disabled: true, onCommit, singleLine: true });
+    const view = getLiveView();
+    const enter = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Enter",
+      key: "Enter",
+    });
+    await act(async () => {
+      view.contentDOM.dispatchEvent(enter);
+    });
+
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
   it("reuses the editor as the wrapped multiline text-area presentation", async () => {
     const onValueChange = vi.fn();
     await mount({

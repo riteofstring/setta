@@ -39,6 +39,7 @@ export type TextValueEditorProps = {
   itemId: string;
   value: string;
   onValueChange: (nextValue: string) => void;
+  onCommit?: (value: string) => void;
   placeholder?: string;
   language?: TextValueLanguage | null;
   singleLine?: boolean;
@@ -143,6 +144,7 @@ export function MetaTextValueEditor({
   controlId,
   value,
   onValueChange,
+  onCommit,
   placeholder,
   language = null,
   singleLine = false,
@@ -157,6 +159,7 @@ export function MetaTextValueEditor({
       controlId={controlId}
       value={value}
       onValueChange={onValueChange}
+      onCommit={onCommit}
       placeholder={placeholder}
       language={language}
       singleLine={singleLine}
@@ -174,6 +177,7 @@ function TextValueEditorCore({
   controlId,
   value,
   onValueChange,
+  onCommit,
   placeholder,
   language = null,
   singleLine = false,
@@ -267,6 +271,8 @@ function TextValueEditorCore({
           realIsInitialized={realIsInitialized}
           setRealIsInitialized={setRealIsInitialized}
           onValueChange={onValueChange}
+          onCommit={onCommit}
+          disabled={isDisabled}
           onEscape={() => focusSectionAfterEscape(host, sectionId)}
           onBlur={localOnBlur}
         />
@@ -292,6 +298,8 @@ function LiveTextValueEditor({
   realIsInitialized,
   setRealIsInitialized,
   onValueChange,
+  onCommit,
+  disabled,
   onEscape,
   onBlur,
 }: {
@@ -309,13 +317,22 @@ function LiveTextValueEditor({
   realIsInitialized: boolean;
   setRealIsInitialized: (initialized: boolean) => void;
   onValueChange: (nextValue: string) => void;
+  onCommit: ((value: string) => void) | undefined;
+  disabled: boolean;
   onEscape: () => void;
   onBlur: () => void;
 }) {
   const host = useWorkspaceHost();
   const editorId = `${getWorkspaceHostDomId(host)}-CodeMirror-${sectionId}-${controlId}`;
   const extensions = [
-    ...getTextValueExtensions({ language, singleLine, wrapLines, onEscape }),
+    ...getTextValueExtensions({
+      language,
+      singleLine,
+      wrapLines,
+      onEscape,
+      onCommit,
+      disabled,
+    }),
     EditorView.contentAttributes.of({ "aria-label": ariaLabel }),
   ];
   const onCreateEditor = getOnCreateEditor({

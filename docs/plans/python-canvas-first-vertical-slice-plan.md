@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-**Status: proposed; not yet authorized for implementation.**
+**Status: implementation in progress — Phase A is complete; Phase B is next.**
 
 This is the bounded implementation plan for the first useful Python Canvas consumer of
 `@setta/workspace`. It replaces the previous contents of this document, which described a fixed
@@ -411,6 +411,11 @@ export proof, and a small playground or fixture demonstration if needed to prove
 
 **Boundary:** package-focused tests, public API checks, package build, and the existing playground
 consumer remain green. No Python Canvas or LSP vocabulary enters the package.
+
+**Completed 2026-08-17:** `TextValueEditor.onCommit` is available from the public root and uses the
+current single-line editor value for an unmodified Enter. Focused tests cover modifier, IME, and
+disabled cases; the public API check, TypeScript check, workspace build, playground consumer test
+and build, and authorized Code Policy focused and recommended profiles passed.
 
 ### Phase B — reviewed app and policy bootstrap
 
