@@ -34,7 +34,7 @@ type TextValueExtensionsOptions = {
 };
 
 function isComposing(event: KeyboardEvent, view: EditorView) {
-  return event.isComposing || event.keyCode === 229 || view.composing;
+  return event.isComposing || view.composing;
 }
 
 function hasModifier(event: KeyboardEvent) {
