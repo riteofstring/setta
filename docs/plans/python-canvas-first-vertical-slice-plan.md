@@ -477,6 +477,13 @@ Implement the bounded LSP process/session, signature snapshot, parameter normali
 document synchronization, diagnostic waiting, UTF-16 conversion, source-range mapping, and explicit
 provider status.
 
+Keep Phase D inspection and implementation centered on the current app's `project`, `codegen`, and
+`contracts` seams plus the new `internal/lsp` package. When consulting the main-branch behavior
+reference, use only the session framing, signature-snapshot and parameter-normalization code, and
+the minimum diagnostic position conversion needed for this boundary. Do not audit or port the main
+project synchronizer, plugin system, Watch Code paths, HTTP/frontend mutation wiring, or Phase E UI;
+revisit one of those areas only if a concrete Phase D acceptance failure proves it necessary.
+
 Use fakes only for focused protocol failures. Add one integration test against the real pinned
 Basedpyright executable for `math.sqrt`, `missing_value`, and `3`.
 
