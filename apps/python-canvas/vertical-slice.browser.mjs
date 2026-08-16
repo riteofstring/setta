@@ -409,15 +409,16 @@ async function runWalkthrough(client) {
 
   await waitFor(
     client,
-    "editable parameter textbox after mapped undefined-name diagnostic",
+    "enabled parameter textbox after mapped undefined-name diagnostic",
     `(() => {
       const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
       return parameter instanceof HTMLElement &&
-        parameter.getAttribute("contenteditable") === "true" &&
+        parameter.getAttribute("aria-disabled") !== "true" &&
         parameter.getAttribute("aria-readonly") !== "true";
     })()`,
   );
 
+  await activateTextBox(client, parameterLabel);
   await selectAll(client);
   await insertText(client, "3");
   await waitFor(
