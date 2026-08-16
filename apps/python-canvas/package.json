@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "browser:test": "node vertical-slice.browser.mjs",
     "dev": "vite",
     "test": "vitest run",
     "contract:generate": "go -C backend run ./cmd/generate-contract",

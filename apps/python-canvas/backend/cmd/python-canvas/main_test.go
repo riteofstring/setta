@@ -1,13 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"testing"
 )
 
 func TestRunPassesRequestedPortToLoopbackServer(t *testing.T) {
 	var received uint16
-	err := run([]string{"-port", "0"}, func(port uint16) error {
+	err := run(context.Background(), []string{"-port", "0"}, func(_ context.Context, port uint16) error {
 		received = port
 		return nil
 	})
@@ -21,7 +22,7 @@ func TestRunPassesRequestedPortToLoopbackServer(t *testing.T) {
 
 func TestRunRejectsOutOfRangePortAndPositionalArguments(t *testing.T) {
 	for _, arguments := range [][]string{{"-port", "65536"}, {"unexpected"}} {
-		err := run(arguments, func(uint16) error {
+		err := run(context.Background(), arguments, func(context.Context, uint16) error {
 			return errors.New("server must not start")
 		})
 		if err == nil {

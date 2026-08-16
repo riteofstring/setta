@@ -1,6 +1,15 @@
-import { PROJECT_PATH_V1, type ProjectSnapshotV1 } from "./generatedContract";
+import {
+  PROJECT_CALLABLE_PATH_V1,
+  PROJECT_PARAMETER_PATH_V1,
+  PROJECT_PATH_V1,
+  type APIErrorCodeV1,
+  type CommitCallableRequestV1,
+  type ProjectSnapshotV1,
+  type SetParameterExpressionRequestV1,
+} from "./generatedContract";
 import {
   ProjectSnapshotValidationError,
+  parseErrorResponseV1,
   parseProjectSnapshotV1,
 } from "./runtimeContract";
 
@@ -17,20 +26,79 @@ export class ProjectClientError extends Error {
     message: string,
     public readonly status?: number,
     public readonly cause?: unknown,
+    public readonly code?: APIErrorCodeV1,
   ) {
     super(message);
   }
 }
 
+export type SetParameterExpressionInput =
+  SetParameterExpressionRequestV1 & {
+    parameterId: string;
+  };
+
 export async function fetchProjectSnapshot(
   fetchImplementation: typeof fetch = fetch,
 ): Promise<ProjectSnapshotV1> {
+  return requestProjectSnapshot(
+    PROJECT_PATH_V1,
+    { headers: { Accept: "application/json" }, method: "GET" },
+    fetchImplementation,
+  );
+}
+
+export async function commitCallable(
+  request: CommitCallableRequestV1,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV1> {
+  return requestProjectSnapshot(
+    PROJECT_CALLABLE_PATH_V1,
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export async function setParameterExpression(
+  request: SetParameterExpressionInput,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV1> {
+  const { parameterId, ...body } = request;
+  return requestProjectSnapshot(
+    parameterExpressionPath(parameterId),
+    jsonPost(body),
+    fetchImplementation,
+  );
+}
+
+function jsonPost(body: object): RequestInit {
+  return {
+    body: JSON.stringify(body),
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  };
+}
+
+function parameterExpressionPath(parameterId: string): string {
+  if (!/^[A-Za-z0-9:_-]+$/u.test(parameterId)) {
+    throw new ProjectClientError(
+      "invalid_response",
+      "Project endpoint returned an unsafe parameter ID.",
+    );
+  }
+  return `${PROJECT_PARAMETER_PATH_V1}${parameterId}`;
+}
+
+async function requestProjectSnapshot(
+  path: string,
+  init: RequestInit,
+  fetchImplementation: typeof fetch,
+): Promise<ProjectSnapshotV1> {
   let response: Response;
   try {
-    response = await fetchImplementation(PROJECT_PATH_V1, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-    });
+    response = await fetchImplementation(path, init);
   } catch (cause) {
     throw new ProjectClientError(
       "network",
@@ -41,11 +109,7 @@ export async function fetchProjectSnapshot(
   }
 
   if (!response.ok) {
-    throw new ProjectClientError(
-      "http",
-      `Project endpoint returned HTTP ${response.status}.`,
-      response.status,
-    );
+    throw await responseError(response);
   }
 
   let payload: unknown;
@@ -72,5 +136,36 @@ export async function fetchProjectSnapshot(
       );
     }
     throw cause;
+  }
+}
+
+async function responseError(response: Response): Promise<ProjectClientError> {
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch (cause) {
+    return new ProjectClientError(
+      "invalid_response",
+      "Project endpoint returned an invalid error response.",
+      response.status,
+      cause,
+    );
+  }
+  try {
+    const failure = parseErrorResponseV1(payload);
+    return new ProjectClientError(
+      "http",
+      failure.error.message,
+      response.status,
+      undefined,
+      failure.error.code,
+    );
+  } catch (cause) {
+    return new ProjectClientError(
+      "invalid_response",
+      "Project endpoint returned an invalid error response.",
+      response.status,
+      cause,
+    );
   }
 }

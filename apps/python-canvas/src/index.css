@@ -75,37 +75,58 @@ body {
 
 .python-canvas-callable-section {
   display: grid;
-  gap: 0.875rem;
+  gap: 1rem;
   min-inline-size: 0;
 }
 
-.python-canvas-callable-list {
-  display: grid;
-  gap: 0.75rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.python-canvas-callable {
+.python-canvas-callable-editor {
   display: grid;
   gap: 0.375rem;
   min-inline-size: 0;
 }
 
-.python-canvas-callable-name,
+.python-canvas-callable-editor [role="textbox"] {
+  min-block-size: 1.75rem;
+}
+
 .python-canvas-field-label {
   font-weight: 650;
 }
 
-.python-canvas-callable code {
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-
-.python-canvas-empty-state,
 .python-canvas-provider-status {
   color: #4c5a73;
+}
+
+.python-canvas-provider-status,
+.python-canvas-mutation-error {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.python-canvas-mutation-error {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid #b42318;
+  border-radius: 0.375rem;
+  background: #fff1f0;
+  color: #7a1b14;
+}
+
+.python-canvas-parameter-label {
+  display: grid;
+  gap: 0.125rem;
+  min-inline-size: 0;
+  margin: 0;
+  padding-block: 0.125rem;
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.python-canvas-parameter-metadata {
+  color: #4c5a73;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
 }
 
 .python-canvas-app :focus-visible {

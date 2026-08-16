@@ -9,6 +9,8 @@ import (
 const (
 	ProjectSnapshotVersionV1 = "v1"
 	ProjectPathV1            = "/api/v1/project"
+	ProjectCallablePathV1    = "/api/v1/project/callable"
+	ProjectParameterPathV1   = "/api/v1/project/parameters/"
 )
 
 // ProjectSnapshotV1 is the complete, normalized project document returned by
@@ -114,12 +116,44 @@ type ProviderStatusV1 struct {
 	State    ProviderLifecycleStateV1 `json:"state"`
 }
 
+// CommitCallableRequestV1 carries the authored callable expression through
+// the V1 mutation boundary. The project package owns semantic validation.
+type CommitCallableRequestV1 struct {
+	ProjectID          string `json:"projectId"`
+	SectionID          string `json:"sectionId"`
+	AuthoredExpression string `json:"authoredExpression"`
+}
+
+func (request CommitCallableRequestV1) Validate() error {
+	if err := requireRequestID("projectId", request.ProjectID); err != nil {
+		return err
+	}
+	return requireRequestID("sectionId", request.SectionID)
+}
+
+// SetParameterExpressionRequestV1 carries one authored Python expression.
+// The parameter ID remains in the exact route path so it cannot disagree with
+// a second body field.
+type SetParameterExpressionRequestV1 struct {
+	ProjectID          string `json:"projectId"`
+	AuthoredExpression string `json:"authoredExpression"`
+}
+
+func (request SetParameterExpressionRequestV1) Validate() error {
+	return requireRequestID("projectId", request.ProjectID)
+}
+
 type APIErrorCodeV1 string
 
 const (
-	APIErrorCodeInvalidRequestV1   APIErrorCodeV1 = "invalid_request"
-	APIErrorCodeMethodNotAllowedV1 APIErrorCodeV1 = "method_not_allowed"
-	APIErrorCodeNotFoundV1         APIErrorCodeV1 = "not_found"
+	APIErrorCodeInvalidRequestV1             APIErrorCodeV1 = "invalid_request"
+	APIErrorCodeMethodNotAllowedV1           APIErrorCodeV1 = "method_not_allowed"
+	APIErrorCodeNotFoundV1                   APIErrorCodeV1 = "not_found"
+	APIErrorCodeInvalidCallableV1            APIErrorCodeV1 = "invalid_callable"
+	APIErrorCodeInvalidParameterExpressionV1 APIErrorCodeV1 = "invalid_parameter_expression"
+	APIErrorCodeUnsupportedSignatureV1       APIErrorCodeV1 = "unsupported_signature"
+	APIErrorCodeProviderUnavailableV1        APIErrorCodeV1 = "provider_unavailable"
+	APIErrorCodeInternalV1                   APIErrorCodeV1 = "internal"
 )
 
 type APIErrorV1 struct {
@@ -316,6 +350,16 @@ func validateDiagnostics(diagnostics []DiagnosticV1, targetIDs map[string]struct
 }
 
 func requireStableID(field, value string) error {
+	if strings.TrimSpace(value) == "" {
+		return ValidationError{Field: field, Problem: "must not be empty"}
+	}
+	if value != strings.TrimSpace(value) {
+		return ValidationError{Field: field, Problem: "must not include surrounding whitespace"}
+	}
+	return nil
+}
+
+func requireRequestID(field, value string) error {
 	if strings.TrimSpace(value) == "" {
 		return ValidationError{Field: field, Problem: "must not be empty"}
 	}

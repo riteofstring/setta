@@ -1,15 +1,26 @@
 import {
   WORKSPACE_CODE_SECTION_KIND,
   createWorkspaceCodeSectionData,
+  setItemData,
+  setSectionData,
+  setWorkspaceCodeSectionData,
   type WorkspaceDocumentInput,
+  type WorkspaceHost,
 } from "@setta/workspace";
 
-import type {
-  CallableV1,
-  ProjectSnapshotV1,
-  ProviderStatusV1,
+import {
+  DIAGNOSTIC_SEVERITY_INFORMATION_V1,
+  type DiagnosticV1,
+  type ParameterV1,
+  type ProjectSnapshotV1,
 } from "../backend/generatedContract";
-import type { CallableSectionData } from "../sections/CallableSection";
+import {
+  PARAMETER_ITEM_ID,
+  PARAMETER_ITEM_ROOT_ID,
+  type CallableSectionData,
+  type ParameterItemData,
+  readParameterItemData,
+} from "../sections/CallableSection";
 
 export const CALLABLE_SECTION_KIND = "python-canvas.callable" as const;
 export const CALLABLE_SECTION_ID = "python-canvas:callable" as const;
@@ -25,14 +36,12 @@ export const GENERATED_PYTHON_SECTION_SIZE = {
 export function projectWorkspaceDocument(
   snapshot: ProjectSnapshotV1,
 ): WorkspaceDocumentInput {
-  const [callable] = snapshot.callables;
-
   return {
     sections: {
       [CALLABLE_SECTION_ID]: {
         id: CALLABLE_SECTION_ID,
         kind: CALLABLE_SECTION_KIND,
-        name: callable.name,
+        name: getCallable(snapshot).name,
         size: CALLABLE_SECTION_SIZE,
         overflowMode: false,
         isMinimized: false,
@@ -41,7 +50,22 @@ export function projectWorkspaceDocument(
         styleColor: null,
         tagColor: null,
         children: [],
-        data: projectCallableSectionData(callable, snapshot.providerStatus),
+        data: projectCallableSectionData(snapshot),
+        itemTree: {
+          rootId: PARAMETER_ITEM_ROOT_ID,
+          items: {
+            [PARAMETER_ITEM_ROOT_ID]: {
+              id: PARAMETER_ITEM_ROOT_ID,
+              children: [PARAMETER_ITEM_ID],
+            },
+            [PARAMETER_ITEM_ID]: {
+              id: PARAMETER_ITEM_ID,
+              children: [],
+              data: projectParameterItemData(snapshot),
+            },
+          },
+          selectedItemIds: [],
+        },
       },
       [GENERATED_PYTHON_SECTION_ID]: {
         id: GENERATED_PYTHON_SECTION_ID,
@@ -55,14 +79,7 @@ export function projectWorkspaceDocument(
         styleColor: null,
         tagColor: null,
         children: [],
-        data: createWorkspaceCodeSectionData({
-          code: snapshot.generatedCode.code,
-          language: "python",
-          wrapLines: true,
-          lineNumbers: true,
-          indentWidth: 4,
-          readOnly: true,
-        }),
+        data: projectGeneratedCodeData(snapshot),
       },
     },
     topLevelSections: {
@@ -86,20 +103,165 @@ export function projectWorkspaceDocument(
   };
 }
 
+// Applies one canonical Go response through the workspace public mutation
+// seams. The stable parameter slot is only a rendering vessel for this fixed
+// one-parameter slice; its application-owned data carries the backend ID and
+// never becomes a second semantic project model.
+export function applyProjectSnapshotToWorkspace(
+  host: WorkspaceHost,
+  snapshot: ProjectSnapshotV1,
+): void {
+  setSectionData(
+    host,
+    CALLABLE_SECTION_ID,
+    projectCallableSectionData(snapshot),
+  );
+  setItemData(
+    host,
+    CALLABLE_SECTION_ID,
+    PARAMETER_ITEM_ID,
+    projectParameterItemData(snapshot),
+  );
+  setWorkspaceCodeSectionData(
+    host,
+    GENERATED_PYTHON_SECTION_ID,
+    projectGeneratedCodeData(snapshot),
+  );
+}
+
+export function setParameterItemDisabled(
+  host: WorkspaceHost,
+  disabled: boolean,
+): void {
+  const data = readCurrentParameterItemData(host);
+  if (data.kind === "empty" || data.disabled === disabled) {
+    return;
+  }
+  setItemData(host, CALLABLE_SECTION_ID, PARAMETER_ITEM_ID, {
+    ...data,
+    disabled,
+  });
+}
+
+export function setParameterItemExpression(
+  host: WorkspaceHost,
+  parameterID: string,
+  authoredExpression: string,
+): void {
+  const data = readCurrentParameterItemData(host);
+  if (data.kind === "empty" || data.parameterId !== parameterID) {
+    return;
+  }
+  if (data.authoredExpression === authoredExpression) {
+    return;
+  }
+  setItemData(host, CALLABLE_SECTION_ID, PARAMETER_ITEM_ID, {
+    ...data,
+    authoredExpression,
+  });
+}
+
 function projectCallableSectionData(
-  callable: CallableV1,
-  providerStatus: ProviderStatusV1,
+  snapshot: ProjectSnapshotV1,
 ): CallableSectionData {
+  const callable = getCallable(snapshot);
+  const parameter = getCallableParameter(snapshot);
   return {
     callable: {
       authoredExpression: callable.authoredExpression,
       id: callable.id,
       name: callable.name,
     },
+    hasParameter: parameter !== null,
+    parameterDiagnostics:
+      parameter === null
+        ? []
+        : snapshot.diagnostics
+            .filter((diagnostic) => diagnostic.targetId === parameter.id)
+            .map(projectParameterDiagnostic),
     providerStatus: {
-      provider: providerStatus.provider,
-      status: providerStatus.status,
-      state: providerStatus.state,
+      provider: snapshot.providerStatus.provider,
+      status: snapshot.providerStatus.status,
+      state: snapshot.providerStatus.state,
     },
+  };
+}
+
+function readCurrentParameterItemData(host: WorkspaceHost): ParameterItemData {
+  const item =
+    host.getSnapshot().sections[CALLABLE_SECTION_ID]?.itemTree?.items[
+      PARAMETER_ITEM_ID
+    ];
+  if (item === undefined) {
+    throw new Error("Python Canvas projection is missing its parameter item.");
+  }
+  return readParameterItemData(item.data);
+}
+
+function projectParameterItemData(
+  snapshot: ProjectSnapshotV1,
+): ParameterItemData {
+  const parameter = getCallableParameter(snapshot);
+  if (parameter === null) {
+    return { kind: "empty" };
+  }
+  return {
+    authoredExpression: parameter.authoredExpression,
+    default: parameter.default,
+    disabled: false,
+    kind: "parameter",
+    name: parameter.name,
+    parameterId: parameter.id,
+    passingStyle: parameter.passingStyle,
+    typeAnnotation: parameter.typeAnnotation,
+  };
+}
+
+function projectGeneratedCodeData(snapshot: ProjectSnapshotV1) {
+  return createWorkspaceCodeSectionData({
+    code: snapshot.generatedCode.code,
+    language: "python",
+    wrapLines: true,
+    lineNumbers: true,
+    indentWidth: 4,
+    readOnly: true,
+  });
+}
+
+function getCallable(snapshot: ProjectSnapshotV1) {
+  const callable = snapshot.callables[0];
+  if (callable === undefined) {
+    throw new Error("Project snapshot is missing its callable.");
+  }
+  return callable;
+}
+
+function getCallableParameter(
+  snapshot: ProjectSnapshotV1,
+): ParameterV1 | null {
+  const callable = getCallable(snapshot);
+  if (callable.parameterIds.length === 0) {
+    if (snapshot.parameters.length !== 0) {
+      throw new Error("Project snapshot has parameters without a callable dependency.");
+    }
+    return null;
+  }
+  if (callable.parameterIds.length !== 1 || snapshot.parameters.length !== 1) {
+    throw new Error("Project snapshot exceeds the one-parameter Python Canvas boundary.");
+  }
+  const parameter = snapshot.parameters[0];
+  if (parameter === undefined || parameter.id !== callable.parameterIds[0]) {
+    throw new Error("Project snapshot callable parameter does not match its parameter record.");
+  }
+  return parameter;
+}
+
+function projectParameterDiagnostic(diagnostic: DiagnosticV1) {
+  return {
+    message: diagnostic.message,
+    severity:
+      diagnostic.severity === DIAGNOSTIC_SEVERITY_INFORMATION_V1
+        ? ("info" as const)
+        : diagnostic.severity,
   };
 }

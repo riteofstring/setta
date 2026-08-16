@@ -32,6 +32,7 @@ var (
 	ErrCallableExpressionInvalid   = errors.New("project: callable expression is invalid")
 	ErrParameterExpressionInvalid  = errors.New("project: parameter expression is invalid")
 	ErrLSPProviderRequired         = errors.New("project: LSP provider is required")
+	ErrProviderUnavailable         = errors.New("project: LSP provider is unavailable")
 	ErrUnsupportedSignature        = errors.New("project: callable signature is unsupported")
 	ErrStoreClosed                 = errors.New("project: store is closed")
 	ErrGeneratedFileWriterRequired = errors.New("project: generated file writer is required")
@@ -220,6 +221,7 @@ func (store *Store) CommitCallable(
 // coercion, renders the complete candidate, and commits it only after its
 // generated file is replaced.
 func (store *Store) SetParameterExpression(
+	ctx context.Context,
 	projectID string,
 	parameterID string,
 	expression string,
@@ -227,9 +229,15 @@ func (store *Store) SetParameterExpression(
 	if store == nil {
 		return contracts.ProjectSnapshotV1{}, ErrStoreClosed
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return contracts.ProjectSnapshotV1{}, err
+	}
 	if err := store.validateSetParameterExpressionLocked(projectID, parameterID, expression); err != nil {
 		return contracts.ProjectSnapshotV1{}, err
 	}
@@ -249,7 +257,7 @@ func (store *Store) SetParameterExpression(
 	if err := store.writer.Write(candidate.rendered.Code); err != nil {
 		return contracts.ProjectSnapshotV1{}, fmt.Errorf("materialize generated Python: %w", err)
 	}
-	applyProviderSynchronization(context.Background(), store.provider, store.writer.Path(), &candidate)
+	applyProviderSynchronization(ctx, store.provider, store.writer.Path(), &candidate)
 	snapshot, err := candidate.validatedSnapshot()
 	if err != nil {
 		return contracts.ProjectSnapshotV1{}, err
@@ -336,7 +344,10 @@ func buildCallableCommitCandidate(
 	}
 	signature, err := provider.ResolveCallableSignature(ctx, request)
 	if err != nil {
-		return canonicalState{}, fmt.Errorf("resolve callable signature: %w", err)
+		return canonicalState{}, fmt.Errorf(
+			"resolve callable signature: %w",
+			errors.Join(ErrProviderUnavailable, err),
+		)
 	}
 	resolvedParameter, err := normalizeSignature(signature)
 	if err != nil {

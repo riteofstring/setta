@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ProjectSnapshotValidationError,
+  parseErrorResponseV1,
   parseProjectSnapshotV1,
 } from "./runtimeContract";
 
@@ -156,6 +157,30 @@ describe("parseProjectSnapshotV1", () => {
           callable,
           { ...callable, id: "callable:other", name: "Other" },
         ],
+      }),
+    ).toThrow(ProjectSnapshotValidationError);
+  });
+});
+
+describe("parseErrorResponseV1", () => {
+  it("accepts only the generated V1 error shape", () => {
+    expect(
+      parseErrorResponseV1({
+        error: {
+          code: "provider_unavailable",
+          message: "Basedpyright is unavailable",
+        },
+      }),
+    ).toEqual({
+      error: {
+        code: "provider_unavailable",
+        message: "Basedpyright is unavailable",
+      },
+    });
+
+    expect(() =>
+      parseErrorResponseV1({
+        error: { code: "unknown", message: "Unavailable" },
       }),
     ).toThrow(ProjectSnapshotValidationError);
   });

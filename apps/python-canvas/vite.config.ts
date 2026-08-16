@@ -1,11 +1,17 @@
 import { defineConfig } from "vite";
 
+const apiProxy = {
+  "/api": {
+    target:
+      process.env.PYTHON_CANVAS_BACKEND_ORIGIN ?? "http://127.0.0.1:8080",
+  },
+};
+
 export default defineConfig({
   server: {
-    proxy: {
-      "/api": {
-        target: "http://127.0.0.1:8080",
-      },
-    },
+    proxy: apiProxy,
+  },
+  preview: {
+    proxy: apiProxy,
   },
 });

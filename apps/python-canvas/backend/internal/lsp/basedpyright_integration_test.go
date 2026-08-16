@@ -68,7 +68,7 @@ func TestPinnedBasedpyrightResolvesAndClearsMappedParameterDiagnostic(t *testing
 	}
 	requireReadyBasedpyrightStatus(t, callableSnapshot.ProviderStatus)
 
-	missingSnapshot, err := store.SetParameterExpression(initial.Project.ID, parameter.ID, "missing_value")
+	missingSnapshot, err := store.SetParameterExpression(ctx, initial.Project.ID, parameter.ID, "missing_value")
 	if err != nil {
 		t.Fatalf("SetParameterExpression(missing_value) error = %v", err)
 	}
@@ -80,7 +80,7 @@ func TestPinnedBasedpyrightResolvesAndClearsMappedParameterDiagnostic(t *testing
 		t.Fatalf("missing_value diagnostics = %#v, want an error for %q", missingSnapshot.Diagnostics, parameter.ID)
 	}
 
-	clearedSnapshot, err := store.SetParameterExpression(initial.Project.ID, parameter.ID, "3")
+	clearedSnapshot, err := store.SetParameterExpression(ctx, initial.Project.ID, parameter.ID, "3")
 	if err != nil {
 		t.Fatalf("SetParameterExpression(3) error = %v", err)
 	}

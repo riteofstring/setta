@@ -2,6 +2,8 @@
 
 export const PROJECT_SNAPSHOT_VERSION_V1 = "v1" as const;
 export const PROJECT_PATH_V1 = "/api/v1/project" as const;
+export const PROJECT_CALLABLE_PATH_V1 = "/api/v1/project/callable" as const;
+export const PROJECT_PARAMETER_PATH_V1 = "/api/v1/project/parameters/" as const;
 
 export const PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1 = "positional_only" as const;
 export const PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1 = "positional_or_keyword" as const;
@@ -41,7 +43,15 @@ export type ProviderLifecycleStateV1 =
   | typeof PROVIDER_LIFECYCLE_STATE_READY_V1
   | typeof PROVIDER_LIFECYCLE_STATE_PENDING_V1
   | typeof PROVIDER_LIFECYCLE_STATE_FAILED_V1;
-export type APIErrorCodeV1 = "invalid_request" | "method_not_allowed" | "not_found";
+export type APIErrorCodeV1 =
+  | "invalid_request"
+  | "method_not_allowed"
+  | "not_found"
+  | "invalid_callable"
+  | "invalid_parameter_expression"
+  | "unsupported_signature"
+  | "provider_unavailable"
+  | "internal";
 
 export interface ProjectSnapshotV1 {
   version: ProjectSnapshotVersionV1;
@@ -103,6 +113,17 @@ export interface ProviderStatusV1 {
   provider: ProviderV1;
   status: ProviderAvailabilityV1;
   state: ProviderLifecycleStateV1;
+}
+
+export interface CommitCallableRequestV1 {
+  projectId: string;
+  sectionId: string;
+  authoredExpression: string;
+}
+
+export interface SetParameterExpressionRequestV1 {
+  projectId: string;
+  authoredExpression: string;
 }
 
 export interface APIErrorV1 {

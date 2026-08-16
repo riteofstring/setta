@@ -1,10 +1,19 @@
 import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v1.json";
 import { describe, expect, it, vi } from "vitest";
 
-import { PROJECT_PATH_V1 } from "./generatedContract";
-import { ProjectClientError, fetchProjectSnapshot } from "./client";
+import {
+  PROJECT_CALLABLE_PATH_V1,
+  PROJECT_PARAMETER_PATH_V1,
+  PROJECT_PATH_V1,
+} from "./generatedContract";
+import {
+  ProjectClientError,
+  commitCallable,
+  fetchProjectSnapshot,
+  setParameterExpression,
+} from "./client";
 
-describe("fetchProjectSnapshot", () => {
+describe("Python Canvas project client", () => {
   it("uses one JSON GET request and validates the successful response", async () => {
     const response = createJsonResponse(projectSnapshotFixture);
     const fetchImplementation = vi.fn().mockResolvedValue(response);
@@ -18,39 +27,111 @@ describe("fetchProjectSnapshot", () => {
       method: "GET",
       headers: { Accept: "application/json" },
     });
-    expect(response.json).toHaveBeenCalledTimes(1);
   });
 
-  it("throws a typed error for a non-success response without parsing it", async () => {
-    const response = createJsonResponse({ error: "unavailable" }, false, 503);
+  it("commits the callable through the generated V1 route", async () => {
+    const response = createJsonResponse(projectSnapshotFixture);
+    const fetchImplementation = vi.fn().mockResolvedValue(response);
+
+    await commitCallable(
+      {
+        authoredExpression: "math.sqrt",
+        projectId: "project:python-canvas",
+        sectionId: "callable:square-root",
+      },
+      fetchImplementation as typeof fetch,
+    );
+
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      PROJECT_CALLABLE_PATH_V1,
+      {
+        body: JSON.stringify({
+          authoredExpression: "math.sqrt",
+          projectId: "project:python-canvas",
+          sectionId: "callable:square-root",
+        }),
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    );
+  });
+
+  it("sets the exact stable parameter ID through the generated V1 route", async () => {
+    const response = createJsonResponse(projectSnapshotFixture);
+    const fetchImplementation = vi.fn().mockResolvedValue(response);
+
+    await setParameterExpression(
+      {
+        authoredExpression: "3",
+        parameterId: "parameter:square-root:1",
+        projectId: "project:python-canvas",
+      },
+      fetchImplementation as typeof fetch,
+    );
+
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      `${PROJECT_PARAMETER_PATH_V1}parameter:square-root:1`,
+      {
+        body: JSON.stringify({
+          authoredExpression: "3",
+          projectId: "project:python-canvas",
+        }),
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    );
+  });
+
+  it("reports a typed V1 mutation failure", async () => {
+    const response = createJsonResponse(
+      {
+        error: {
+          code: "unsupported_signature",
+          message: "callable signature is not supported",
+        },
+      },
+      false,
+      422,
+    );
     const fetchImplementation = vi.fn().mockResolvedValue(response);
 
     await expect(
-      fetchProjectSnapshot(fetchImplementation as typeof fetch),
+      commitCallable(
+        {
+          authoredExpression: "math.sqrt",
+          projectId: "project:python-canvas",
+          sectionId: "callable:square-root",
+        },
+        fetchImplementation as typeof fetch,
+      ),
     ).rejects.toMatchObject({
+      code: "unsupported_signature",
       kind: "http",
-      status: 503,
+      status: 422,
     } satisfies Partial<ProjectClientError>);
-
-    expect(response.json).not.toHaveBeenCalled();
   });
 
-  it("throws a typed error when a successful response is not a valid V1 snapshot", async () => {
-    const response = createJsonResponse({
-      ...projectSnapshotFixture,
-      version: "v2",
-    });
-    const fetchImplementation = vi.fn().mockResolvedValue(response);
-    let error: unknown;
+  it("rejects unsafe parameter IDs before issuing a request", async () => {
+    const fetchImplementation = vi.fn();
 
-    try {
-      await fetchProjectSnapshot(fetchImplementation as typeof fetch);
-    } catch (caught) {
-      error = caught;
-    }
+    await expect(
+      setParameterExpression(
+        {
+          authoredExpression: "3",
+          parameterId: "parameter/other",
+          projectId: "project:python-canvas",
+        },
+        fetchImplementation as typeof fetch,
+      ),
+    ).rejects.toMatchObject({ kind: "invalid_response" });
 
-    expect(error).toBeInstanceOf(ProjectClientError);
-    expect(error).toMatchObject({ kind: "invalid_response", status: 200 });
+    expect(fetchImplementation).not.toHaveBeenCalled();
   });
 });
 

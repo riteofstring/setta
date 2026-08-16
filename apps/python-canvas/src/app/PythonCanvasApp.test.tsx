@@ -116,7 +116,7 @@ describe("PythonCanvasApp", () => {
       "Project could not be loaded.",
     );
     expect(app.querySelector("[role='alert']")?.textContent).toContain(
-      "Check that the Python Canvas backend is running",
+      "Check that the backend is running",
     );
     expect(app.querySelector("[data-testid='workspace-canvas']")).toBeNull();
     expect(host.dispose).toHaveBeenCalledTimes(1);
@@ -148,7 +148,7 @@ function createHostStub(): HostStub {
     dispose: vi.fn(),
     getSnapshot: vi.fn(),
     loadDocument: vi.fn(),
-    subscribe: vi.fn(),
+    subscribe: vi.fn().mockReturnValue(vi.fn()),
   };
 }
 

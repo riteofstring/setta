@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   WORKSPACE_CODE_SECTION_KIND,
   WorkspaceCanvas,
@@ -9,19 +9,51 @@ import {
   type WorkspaceHost,
 } from "@setta/workspace";
 
-import { fetchProjectSnapshot } from "../backend/client";
-import { CallableSection, readCallableSectionData } from "../sections/CallableSection";
 import {
+  ProjectClientError,
+  commitCallable,
+  fetchProjectSnapshot,
+  setParameterExpression,
+} from "../backend/client";
+import type { ProjectSnapshotV1 } from "../backend/generatedContract";
+import {
+  PARAMETER_ITEM_ID,
+  CallableSection,
+  readCallableSectionData,
+  readParameterItemData,
+} from "../sections/CallableSection";
+import {
+  CALLABLE_SECTION_ID,
   CALLABLE_SECTION_KIND,
   CALLABLE_SECTION_SIZE,
   GENERATED_PYTHON_SECTION_SIZE,
+  applyProjectSnapshotToWorkspace,
   projectWorkspaceDocument,
+  setParameterItemDisabled,
+  setParameterItemExpression,
 } from "./workspaceProjection";
+import {
+  PythonCanvasMutationContext,
+  type PythonCanvasMutationContextValue,
+} from "./PythonCanvasMutationContext";
+
+const parameterMutationDebounceMs = 300;
 
 type AppState =
   | { kind: "loading" }
   | { kind: "ready"; host: WorkspaceHost }
   | { kind: "error" };
+
+type MutationState =
+  | { kind: "idle" }
+  | { description: string; kind: "pending" }
+  | { kind: "error"; message: string };
+
+type AppController = {
+  commitCallable: (value: string) => void;
+  setCallableDraft: (value: string) => void;
+  setParameterExpression: (parameterID: string, value: string) => void;
+};
 
 export function registerPythonCanvasSectionKinds(host: WorkspaceHost): void {
   registerSectionKinds(host, {
@@ -44,6 +76,10 @@ export function registerPythonCanvasSectionKinds(host: WorkspaceHost): void {
 
 export function PythonCanvasApp() {
   const [state, setState] = useState<AppState>({ kind: "loading" });
+  const [callableDraft, setCallableDraft] = useState("");
+  const [mutation, setMutation] = useState<MutationState>({ kind: "idle" });
+  const controllerRef = useRef<AppController | null>(null);
+  const isProjectingRef = useRef(false);
 
   useEffect(() => {
     const host = createWorkspaceHost();
@@ -51,20 +87,211 @@ export function PythonCanvasApp() {
 
     let active = true;
     let disposed = false;
+    let snapshot: ProjectSnapshotV1 | null = null;
+    let parameterTimer: ReturnType<typeof setTimeout> | null = null;
+    let mutationChain = Promise.resolve();
+
     const disposeHost = () => {
       if (!disposed) {
         disposed = true;
         host.dispose();
       }
     };
-
-    const load = async () => {
+    const updateMutation = (next: MutationState) => {
+      if (active) {
+        setMutation(next);
+      }
+    };
+    const clearError = () => {
+      if (active) {
+        setMutation((current) =>
+          current.kind === "error" ? { kind: "idle" } : current,
+        );
+      }
+    };
+    const applyProjection = (nextSnapshot: ProjectSnapshotV1) => {
+      isProjectingRef.current = true;
       try {
-        const snapshot = await fetchProjectSnapshot();
+        applyProjectSnapshotToWorkspace(host, nextSnapshot);
+      } finally {
+        isProjectingRef.current = false;
+      }
+    };
+    const setParameterDisabled = (disabled: boolean) => {
+      isProjectingRef.current = true;
+      try {
+        setParameterItemDisabled(host, disabled);
+      } finally {
+        isProjectingRef.current = false;
+      }
+    };
+    const handleMutationError = (target: string, error: unknown) => {
+      updateMutation({
+        kind: "error",
+        message: mutationErrorMessage(target, error),
+      });
+    };
+    const enqueue = (operation: () => Promise<void>) => {
+      const run = async () => {
+        try {
+          await operation();
+        } catch (error) {
+          handleMutationError("project", error);
+        }
+      };
+      mutationChain = mutationChain.then(run, run);
+    };
+    const cancelScheduledParameterMutation = () => {
+      if (parameterTimer !== null) {
+        clearTimeout(parameterTimer);
+        parameterTimer = null;
+      }
+    };
+    const commitCallableMutation = (value: string) => {
+      cancelScheduledParameterMutation();
+      enqueue(async () => {
+        if (!active || snapshot === null) {
+          return;
+        }
+        updateMutation({
+          description: "Checking the callable with Basedpyright.",
+          kind: "pending",
+        });
+        setParameterDisabled(true);
+        try {
+          const nextSnapshot = await commitCallable({
+            authoredExpression: value,
+            projectId: snapshot.project.id,
+            sectionId: snapshot.callables[0].id,
+          });
+          if (!active) {
+            return;
+          }
+          snapshot = nextSnapshot;
+          applyProjection(nextSnapshot);
+          setCallableDraft(nextSnapshot.callables[0].authoredExpression);
+          updateMutation({ kind: "idle" });
+        } catch (error) {
+          if (!active) {
+            return;
+          }
+          setParameterDisabled(false);
+          handleMutationError("callable", error);
+        }
+      });
+    };
+    const scheduleParameterMutation = (parameterID: string, value: string) => {
+      cancelScheduledParameterMutation();
+      parameterTimer = setTimeout(() => {
+        parameterTimer = null;
+        enqueue(async () => {
+          if (!active || snapshot === null) {
+            return;
+          }
+          const parameter = snapshot.parameters.find(
+            (candidate) => candidate.id === parameterID,
+          );
+          if (parameter === undefined || parameter.authoredExpression === value) {
+            return;
+          }
+          updateMutation({
+            description: `Checking the ${parameter.name} expression with Basedpyright.`,
+            kind: "pending",
+          });
+          setParameterDisabled(true);
+          try {
+            const nextSnapshot = await setParameterExpression({
+              authoredExpression: value,
+              parameterId: parameterID,
+              projectId: snapshot.project.id,
+            });
+            if (!active) {
+              return;
+            }
+            snapshot = nextSnapshot;
+            applyProjection(nextSnapshot);
+            setCallableDraft(nextSnapshot.callables[0].authoredExpression);
+            updateMutation({ kind: "idle" });
+          } catch (error) {
+            if (!active) {
+              return;
+            }
+            setParameterDisabled(false);
+            handleMutationError(`${parameter.name} expression`, error);
+          }
+        });
+      }, parameterMutationDebounceMs);
+    };
+
+    controllerRef.current = {
+      commitCallable: (value) => {
         if (!active) {
           return;
         }
-        host.loadDocument(projectWorkspaceDocument(snapshot));
+        setCallableDraft(value);
+        clearError();
+        commitCallableMutation(value);
+      },
+      setCallableDraft: (value) => {
+        if (!active) {
+          return;
+        }
+        setCallableDraft(value);
+        clearError();
+      },
+      setParameterExpression: (parameterID, value) => {
+        if (!active) {
+          return;
+        }
+        clearError();
+        setParameterItemExpression(host, parameterID, value);
+      },
+    };
+
+    const unsubscribe = host.subscribe((document) => {
+      if (isProjectingRef.current || snapshot === null || !active) {
+        return;
+      }
+      const item =
+        document.sections[CALLABLE_SECTION_ID]?.itemTree?.items[
+          PARAMETER_ITEM_ID
+        ];
+      if (item === undefined) {
+        return;
+      }
+      const parameterItem = readParameterItemData(item.data);
+      if (parameterItem.kind === "empty" || parameterItem.disabled) {
+        return;
+      }
+      const parameter = snapshot.parameters.find(
+        (candidate) => candidate.id === parameterItem.parameterId,
+      );
+      if (
+        parameter === undefined ||
+        parameter.authoredExpression === parameterItem.authoredExpression
+      ) {
+        return;
+      }
+      scheduleParameterMutation(
+        parameterItem.parameterId,
+        parameterItem.authoredExpression,
+      );
+    });
+
+    const load = async () => {
+      try {
+        const initialSnapshot = await fetchProjectSnapshot();
+        if (!active) {
+          return;
+        }
+        snapshot = initialSnapshot;
+        isProjectingRef.current = true;
+        try {
+          host.loadDocument(projectWorkspaceDocument(initialSnapshot));
+        } finally {
+          isProjectingRef.current = false;
+        }
+        setCallableDraft(initialSnapshot.callables[0].authoredExpression);
         setState({ kind: "ready", host });
       } catch {
         if (!active) {
@@ -79,15 +306,35 @@ export function PythonCanvasApp() {
 
     return () => {
       active = false;
+      cancelScheduledParameterMutation();
+      controllerRef.current = null;
+      unsubscribe();
       disposeHost();
     };
   }, []);
+
+  const mutationContext = useMemo<PythonCanvasMutationContextValue>(
+    () => ({
+      callableDraft,
+      mutationError: mutation.kind === "error" ? mutation.message : null,
+      onCallableCommit: (value) => controllerRef.current?.commitCallable(value),
+      onCallableDraftChange: (value) =>
+        controllerRef.current?.setCallableDraft(value),
+      onParameterExpressionChange: (parameterID, value) =>
+        controllerRef.current?.setParameterExpression(parameterID, value),
+      pendingDescription:
+        mutation.kind === "pending" ? mutation.description : null,
+    }),
+    [callableDraft, mutation],
+  );
 
   const statusMessage =
     state.kind === "loading"
       ? "Loading project."
       : state.kind === "ready"
-        ? "Project loaded."
+        ? mutation.kind === "pending"
+          ? "Updating project."
+          : "Project loaded."
         : "Project could not be loaded.";
 
   return (
@@ -100,17 +347,26 @@ export function PythonCanvasApp() {
       </div>
       {state.kind === "error" ? (
         <p className="python-canvas-error" role="alert">
-          Unable to load the project. Check that the Python Canvas backend is
-          running and reload the page.
+          Unable to load Python Canvas. Check that the backend is running and
+          reload the page.
         </p>
       ) : null}
       {state.kind === "ready" ? (
         <div className="python-canvas-workspace">
-          <WorkspaceProvider host={state.host}>
-            <WorkspaceCanvas />
-          </WorkspaceProvider>
+          <PythonCanvasMutationContext.Provider value={mutationContext}>
+            <WorkspaceProvider host={state.host}>
+              <WorkspaceCanvas />
+            </WorkspaceProvider>
+          </PythonCanvasMutationContext.Provider>
         </div>
       ) : null}
     </main>
   );
+}
+
+function mutationErrorMessage(target: string, error: unknown): string {
+  if (error instanceof ProjectClientError) {
+    return `Unable to update ${target}. ${error.message}`;
+  }
+  return `Unable to update ${target}. Try again.`;
 }

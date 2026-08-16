@@ -16,8 +16,10 @@ import {
   PROVIDER_LIFECYCLE_STATE_PENDING_V1,
   PROVIDER_LIFECYCLE_STATE_READY_V1,
   type CallableV1,
+  type APIErrorCodeV1,
   type DiagnosticSeverityV1,
   type DiagnosticV1,
+  type ErrorResponseV1,
   type GeneratedCodeV1,
   type GeneratedSourceRangeV1,
   type ParameterPassingStyleV1,
@@ -69,6 +71,20 @@ export function parseProjectSnapshotV1(value: unknown): ProjectSnapshotV1 {
 
   validateSnapshotRelationships(snapshot);
   return snapshot;
+}
+
+export function parseErrorResponseV1(value: unknown): ErrorResponseV1 {
+  const response = readClosedRecord(value, "error response", ["error"]);
+  const error = readClosedRecord(response.error, "error response.error", [
+    "code",
+    "message",
+  ]);
+  return {
+    error: {
+      code: parseApiErrorCode(error.code),
+      message: readNonBlankString(error.message, "error response.error.message"),
+    },
+  };
 }
 
 function parseProject(value: unknown): ProjectV1 {
@@ -314,6 +330,23 @@ function parseDiagnosticSeverity(
   }
 }
 
+function parseApiErrorCode(value: unknown): APIErrorCodeV1 {
+  const code = readString(value, "error response.error.code");
+  switch (code) {
+    case "invalid_request":
+    case "method_not_allowed":
+    case "not_found":
+    case "invalid_callable":
+    case "invalid_parameter_expression":
+    case "unsupported_signature":
+    case "provider_unavailable":
+    case "internal":
+      return code;
+    default:
+      fail("error response.error.code", "is not supported by V1");
+  }
+}
+
 function validateSnapshotRelationships(snapshot: ProjectSnapshotV1): void {
   validateSnapshotRoot(snapshot);
 
@@ -502,6 +535,14 @@ function readString(value: unknown, field: string): string {
     fail(field, "must be a string");
   }
   return value;
+}
+
+function readNonBlankString(value: unknown, field: string): string {
+  const text = readString(value, field);
+  if (text.trim() === "") {
+    fail(field, "must not be empty");
+  }
+  return text;
 }
 
 function readStringOrNull(value: unknown, field: string): string | null {

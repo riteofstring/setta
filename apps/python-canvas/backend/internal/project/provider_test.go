@@ -46,7 +46,7 @@ func TestStoreCommitsWithExplicitProviderStatusWhenDiagnosticsArePendingOrUnavai
 
 	provider.syncErr = errors.New("server exited")
 	parameterID := pendingSnapshot.Parameters[0].ID
-	unavailableSnapshot, err := store.SetParameterExpression(initial.Project.ID, parameterID, "missing_value")
+	unavailableSnapshot, err := store.SetParameterExpression(context.Background(), initial.Project.ID, parameterID, "missing_value")
 	if err != nil {
 		t.Fatalf("SetParameterExpression() error = %v", err)
 	}

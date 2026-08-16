@@ -69,7 +69,7 @@ func TestStoreAutomaticallyReconcilesCallableAndParameter(t *testing.T) {
 	const wantCallableCode = "import math\n\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n\nstate = SettaState()"
 	requireMaterializedGeneratedCode(t, callableSnapshot, writer, wantCallableCode, "callable")
 
-	finalSnapshot, err := store.SetParameterExpression(initialProjectID, parameterID, "3")
+	finalSnapshot, err := store.SetParameterExpression(context.Background(), initialProjectID, parameterID, "3")
 	if err != nil {
 		t.Fatalf("SetParameterExpression() error = %v", err)
 	}
@@ -152,7 +152,7 @@ func TestStoreLeavesStateAndGeneratedFileUntouchedWhenMutationsFail(t *testing.T
 	parameterID := committedSnapshot.Parameters[0].ID
 
 	writer.writeErr = writeErr
-	_, err = store.SetParameterExpression(initialProjectID, parameterID, "3")
+	_, err = store.SetParameterExpression(context.Background(), initialProjectID, parameterID, "3")
 	if !errors.Is(err, writeErr) {
 		t.Fatalf("SetParameterExpression() error = %v, want materialization error", err)
 	}
@@ -167,7 +167,7 @@ func TestStoreLeavesStateAndGeneratedFileUntouchedWhenMutationsFail(t *testing.T
 		{name: "statement separator", expression: "3; state.other = 4"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			_, err := store.SetParameterExpression(initialProjectID, parameterID, testCase.expression)
+			_, err := store.SetParameterExpression(context.Background(), initialProjectID, parameterID, testCase.expression)
 			if !errors.Is(err, ErrParameterExpressionInvalid) {
 				t.Fatalf("SetParameterExpression() error = %v, want invalid expression", err)
 			}

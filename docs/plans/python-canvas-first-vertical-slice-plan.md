@@ -511,6 +511,16 @@ Implement the Callable registration, public commit editor, parameter projection,
 mutation controller, pending/unavailable status, read-only generated code section, and diagnostic
 registry adapter. Connect it to the real Go service through the Vite proxy.
 
+**Implementation progress (2026-08-18):** the app now has one public-workspace-host projection,
+strict V1 callable and parameter mutations, canonical response reconciliation, serialized authored
+updates, accessible provider/error status, and a read-only Generated Python section. The checked-in
+`vertical-slice.browser.mjs` suite builds the production frontend, starts the real Go service and
+Basedpyright, and drives the exact `math.sqrt` / `missing_value` / `3` walkthrough by accessible
+roles and labels. Its required local execution is blocked in this task environment before either
+application process starts: Node receives `listen EPERM: operation not permitted 127.0.0.1` while
+reserving a loopback port. The Phase E checkbox intentionally remains open until that same suite
+passes in an environment that permits local loopback sockets.
+
 Add one browser acceptance covering the exact walkthrough using accessible roles and labels. Reuse
 the repository's headless Chrome/CDP support if sufficient; any new browser dependency requires
 normal dependency review.

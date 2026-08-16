@@ -9,6 +9,8 @@ func TypeScriptV1() []byte {
 
 export const PROJECT_SNAPSHOT_VERSION_V1 = %q as const;
 export const PROJECT_PATH_V1 = %q as const;
+export const PROJECT_CALLABLE_PATH_V1 = %q as const;
+export const PROJECT_PARAMETER_PATH_V1 = %q as const;
 
 export const PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1 = %q as const;
 export const PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1 = %q as const;
@@ -48,7 +50,15 @@ export type ProviderLifecycleStateV1 =
   | typeof PROVIDER_LIFECYCLE_STATE_READY_V1
   | typeof PROVIDER_LIFECYCLE_STATE_PENDING_V1
   | typeof PROVIDER_LIFECYCLE_STATE_FAILED_V1;
-export type APIErrorCodeV1 = %q | %q | %q;
+export type APIErrorCodeV1 =
+  | %q
+  | %q
+  | %q
+  | %q
+  | %q
+  | %q
+  | %q
+  | %q;
 
 export interface ProjectSnapshotV1 {
   version: ProjectSnapshotVersionV1;
@@ -112,6 +122,17 @@ export interface ProviderStatusV1 {
   state: ProviderLifecycleStateV1;
 }
 
+export interface CommitCallableRequestV1 {
+  projectId: string;
+  sectionId: string;
+  authoredExpression: string;
+}
+
+export interface SetParameterExpressionRequestV1 {
+  projectId: string;
+  authoredExpression: string;
+}
+
 export interface APIErrorV1 {
   code: APIErrorCodeV1;
   message: string;
@@ -123,6 +144,8 @@ export interface ErrorResponseV1 {
 `,
 		ProjectSnapshotVersionV1,
 		ProjectPathV1,
+		ProjectCallablePathV1,
+		ProjectParameterPathV1,
 		ParameterPassingStylePositionalOnlyV1,
 		ParameterPassingStylePositionalOrKeywordV1,
 		ParameterPassingStyleKeywordOnlyV1,
@@ -141,5 +164,10 @@ export interface ErrorResponseV1 {
 		APIErrorCodeInvalidRequestV1,
 		APIErrorCodeMethodNotAllowedV1,
 		APIErrorCodeNotFoundV1,
+		APIErrorCodeInvalidCallableV1,
+		APIErrorCodeInvalidParameterExpressionV1,
+		APIErrorCodeUnsupportedSignatureV1,
+		APIErrorCodeProviderUnavailableV1,
+		APIErrorCodeInternalV1,
 	))
 }
