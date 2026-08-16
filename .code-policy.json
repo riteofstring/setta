@@ -1,13 +1,20 @@
 {
   "version": 3,
   "project": {
-    "kind": "library",
-    "capabilities": ["frontend", "ui"]
+    "kind": "application",
+    "capabilities": ["backend", "frontend", "ui"]
   },
   "scope": {
-    "generated": ["docs/evidence/**/*.json", "docs/evidence/**/*.json.gz"],
+    "generated": [
+      "apps/python-canvas/backend/internal/contracts/testdata/project-snapshot-v1.json",
+      "apps/python-canvas/src/backend/generatedContract.ts",
+      "docs/evidence/**/*.json",
+      "docs/evidence/**/*.json.gz"
+    ],
     "entryPoints": [
       "apps/playground/vitest.setup.ts",
+      "apps/python-canvas/backend/cmd/python-canvas/main.go",
+      "apps/python-canvas/src/main.tsx",
       "packages/workspace/tailwind-preset.mjs",
       "packages/workspace/tailwind.config.d.ts",
       "packages/workspace/vitest.setup.ts",
@@ -19,6 +26,9 @@
     ],
     "development": [
       "apps/playground/**",
+      "apps/python-canvas/vite.config.ts",
+      "apps/python-canvas/vitest.config.ts",
+      "apps/python-canvas/vitest.setup.ts",
       "fixtures/**",
       "packages/workspace/tailwind.config.js",
       "packages/workspace/vite.config.ts",
@@ -37,6 +47,15 @@
       "name": "playground",
       "paths": ["apps/playground/**"],
       "dependsOn": ["workspace"]
+    },
+    {
+      "name": "python-canvas-backend",
+      "paths": ["apps/python-canvas/backend/**"]
+    },
+    {
+      "name": "python-canvas-frontend",
+      "paths": ["apps/python-canvas/*", "apps/python-canvas/src/**"],
+      "dependsOn": ["workspace", "python-canvas-backend"]
     }
   ],
   "checks": [
@@ -61,6 +80,23 @@
       "provides": ["build"],
       "argv": ["pnpm", "--filter", "@setta/playground", "run", "build"],
       "modules": ["playground"],
+      "runOn": ["build"],
+      "timeoutSeconds": 900
+    },
+    {
+      "name": "python-canvas-backend-build",
+      "provides": ["build"],
+      "argv": ["go", "build", "./..."],
+      "cwd": "apps/python-canvas/backend",
+      "modules": ["python-canvas-backend"],
+      "runOn": ["build"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "python-canvas-frontend-build",
+      "provides": ["build"],
+      "argv": ["pnpm", "--filter", "@setta/python-canvas", "run", "build"],
+      "modules": ["python-canvas-frontend"],
       "runOn": ["build"],
       "timeoutSeconds": 900
     },
@@ -113,6 +149,27 @@
         "timeoutSeconds": 300
       },
       {
+        "name": "python-canvas-backend-focused",
+        "kind": "unit",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["python-canvas-backend"],
+        "argv": ["go", "test", "./..."],
+        "cwd": "apps/python-canvas/backend",
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "python-canvas-frontend-focused",
+        "kind": "component",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["python-canvas-frontend"],
+        "argv": ["pnpm", "--filter", "@setta/python-canvas", "test"],
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 600
+      },
+      {
         "name": "workspace-component",
         "kind": "component",
         "scope": "module",
@@ -131,6 +188,42 @@
         "argv": ["pnpm", "--filter", "@setta/playground", "test"],
         "runOn": ["recommended", "full"],
         "timeoutSeconds": 1200
+      },
+      {
+        "name": "python-canvas-contract-drift",
+        "kind": "contract",
+        "scope": "repository",
+        "cost": "quick",
+        "paths": [
+          "apps/python-canvas/backend/internal/contracts/**",
+          "apps/python-canvas/src/backend/generatedContract.ts",
+          "apps/python-canvas/package.json"
+        ],
+        "argv": ["pnpm", "--filter", "@setta/python-canvas", "run", "contract:check"],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "python-canvas-cross-language-boundary",
+        "kind": "contract",
+        "scope": "repository",
+        "cost": "quick",
+        "paths": [
+          "apps/python-canvas/backend/internal/contracts/**",
+          "apps/python-canvas/src/backend/**"
+        ],
+        "argv": [
+          "pnpm",
+          "--filter",
+          "@setta/python-canvas",
+          "exec",
+          "vitest",
+          "run",
+          "src/backend/generatedContract.test.ts",
+          "src/backend/runtimeContract.test.ts"
+        ],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 300
       },
       {
         "name": "packed-consumer-contract",
