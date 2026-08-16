@@ -262,6 +262,26 @@ describe("sectionKindRegistry", () => {
     );
   });
 
+  it("names the meta-control constraint when such a section carries items", () => {
+    registerSectionKinds(host, {
+      meta: {
+        renderContent: () => null,
+        presentation: {
+          type: "meta-control",
+          resolveControlKind: () => "button",
+          onEdit: () => {},
+        },
+      },
+    });
+
+    expect(() =>
+      getWorkspaceItemAreaPresentationOrThrow(host, {
+        id: "panel",
+        kind: "meta",
+      }),
+    ).toThrowError(/meta controls cannot carry item trees/);
+  });
+
   it("rejects an item-area presentation on package-owned meta placement", () => {
     expect(() =>
       registerSectionKinds(host, {

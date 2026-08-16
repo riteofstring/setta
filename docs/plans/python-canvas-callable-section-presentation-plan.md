@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-**Status: Phase A is complete, including its first audit corrections. Phase B has not started.**
+**Status: Phase A is complete, including its audit corrections. Phase B has not started.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -345,6 +345,24 @@ Verification: `code-policy test --changed` and the authorized `code-policy test 
 completed without findings over the nine ordinary suites (workspace 1156 tests, playground 40,
 Python Canvas frontend 34, cross-language boundary 9, plus the Go, contract-drift, and browser
 suites), with the workspace and playground TypeScript projects clean.
+
+**Phase A second audit-correction record.** The second independent audit found two bounded proof
+gaps. The playground now mounts its real public `WorkspaceCanvas` and observes that its item panel
+renders the `authoring-and-filter` toolbar, Args/filter surface, structural actions, ordering, and
+an add/delete round trip; changing the consumer to `filter-only` or `hidden` breaks this proof.
+The package's section-field fixture now uses the generic `expression` control id and `Expression`
+accessible name instead of Python Canvas's exact identity. Small adjacent test-quality cleanups make
+the public toolbar-mode proof exhaustive, inspect the registered leading field by rendered output,
+fail loudly on missing editor fixtures, and give the existing invalid meta-control/item-tree case
+its precise error. The toolbar-mode list backing that union is now module-private, since the union
+itself is the public surface and registration is its only runtime reader. No backend,
+browser-harness, dependency, Code Policy configuration, compatibility, migration, or transitional
+change belongs to this correction.
+
+Verification for this correction: the `code-policy` CLI is not installed in this task worktree, so
+the declared suite commands ran directly. The workspace (1157 tests), playground (43), and Python
+Canvas frontend (34) suites pass, the workspace, playground, and Python Canvas TypeScript projects
+are clean, and the packaged boundary check passes over both source and built artifacts.
 
 ### Phase B — production interaction, live visual acceptance, and closeout
 

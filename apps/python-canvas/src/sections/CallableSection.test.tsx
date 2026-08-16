@@ -56,16 +56,16 @@ describe("CallableSection", () => {
     const completionProvider = vi.fn();
     render({ callableCompletionProvider: completionProvider });
 
-    const callable = findEditor("Callable expression");
-    const parameter = findEditor("x expression");
-    expect(callable?.presentation).toBe("section-field");
-    expect(callable?.controlId).toBe("callable-expression");
-    expect(callable?.singleLine).toBe(true);
-    expect(callable?.completionProvider).toBe(completionProvider);
+    const callable = renderedEditor("Callable expression");
+    const parameter = renderedEditor("x expression");
+    expect(callable.presentation).toBe("section-field");
+    expect(callable.controlId).toBe("callable-expression");
+    expect(callable.singleLine).toBe(true);
+    expect(callable.completionProvider).toBe(completionProvider);
     // Parameter rows keep the package's item-row control and take no completions.
-    expect(parameter?.presentation).toBe("item-row");
-    expect(parameter?.controlId).toBe("python-canvas:callable:parameter");
-    expect(parameter?.completionProvider).toBeUndefined();
+    expect(parameter.presentation).toBe("item-row");
+    expect(parameter.controlId).toBe("python-canvas:callable:parameter");
+    expect(parameter.completionProvider).toBeUndefined();
     // No redundant visible label, and no idle sentence about the provider.
     expect(container?.textContent).not.toContain("Basedpyright");
     expect(container?.querySelector("[role='alert']")).toBeNull();
@@ -74,8 +74,8 @@ describe("CallableSection", () => {
   it("shows ordinary pending state as a compact adornment plus an app-owned live region", () => {
     render({ pendingDescription: "Checking the callable with Basedpyright." });
 
-    const callable = findEditor("Callable expression");
-    expect(callable?.disabled).toBe(true);
+    const callable = renderedEditor("Callable expression");
+    expect(callable.disabled).toBe(true);
     const adornment = container?.querySelector(".python-canvas-pending-mark");
     expect(adornment?.getAttribute("aria-hidden")).toBe("true");
     expect(adornment?.textContent).toBe("");
@@ -145,6 +145,9 @@ describe("CallableSection", () => {
   });
 });
 
+// These two app-owned renderers mount as siblings only to exercise them together. In production
+// the package places the field inside its item-filter provider ahead of the toolbar and list;
+// that order is proved package-side in SectionContainer's item-area cases.
 function render(
   overrides: Partial<
     React.ComponentProps<typeof PythonCanvasMutationContext.Provider>["value"]
@@ -176,8 +179,14 @@ function render(
   });
 }
 
-function findEditor(ariaLabel: string): Record<string, unknown> | undefined {
-  return mocks.editorProps.find((props) => props.ariaLabel === ariaLabel);
+function renderedEditor(ariaLabel: string): Record<string, unknown> {
+  const props = mocks.editorProps.find(
+    (candidate) => candidate.ariaLabel === ariaLabel,
+  );
+  if (props === undefined) {
+    throw new Error(`No editor renders with the accessible name ${ariaLabel}.`);
+  }
+  return props;
 }
 
 function parameterItem(): { data: unknown; id: string } {

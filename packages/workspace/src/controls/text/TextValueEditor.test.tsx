@@ -49,7 +49,7 @@ import { TextValueEditor, type TextValueEditorProps } from "./TextValueEditor";
 
 const SECTION_ID = "panel";
 const ITEM_ID = "item-alpha";
-const FIELD_ID = "callable-expression";
+const FIELD_ID = "expression";
 
 type ItemRowEditorProps = Extract<
   TextValueEditorProps,
@@ -626,7 +626,7 @@ describe("TextValueEditor section-field presentation", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(TextValueEditor, {
-            ariaLabel: "Callable expression",
+            ariaLabel: "Expression",
             sectionId: SECTION_ID,
             controlId: FIELD_ID,
             presentation: "section-field",
@@ -685,7 +685,7 @@ describe("TextValueEditor section-field presentation", () => {
     // No underlined value-column divider and no item-row placement classes at this placement.
     expect(host.querySelector("span.section-value")).toBeNull();
     const dummy = getFieldDummy();
-    expect(dummy.getAttribute("aria-label")).toBe("Callable expression");
+    expect(dummy.getAttribute("aria-label")).toBe("Expression");
     expect(dummy.textContent).toBe("math.sq");
     expect(dummy.classList.contains("section-value")).toBe(false);
   });

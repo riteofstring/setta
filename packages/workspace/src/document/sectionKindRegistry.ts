@@ -65,7 +65,9 @@ export type WorkspaceSectionKindIconProps = Readonly<{
 // The item toolbar is package-owned, so a kind that carries items declares which of its exact
 // behaviors it wants instead of leaving the package to infer one from a missing item factory,
 // a locked section, an empty tree, or application data.
-export const WORKSPACE_ITEM_TOOLBAR_MODES = [
+// The mode union is the public surface; this list stays module-private so registration has one
+// runtime source for it.
+const WORKSPACE_ITEM_TOOLBAR_MODES = [
   "authoring-and-filter",
   "filter-only",
   "hidden",
@@ -354,15 +356,21 @@ export function getWorkspaceItemAreaPresentationOrThrow(
   section: Pick<WorkspaceSection, "id" | "kind">,
 ): WorkspaceItemAreaPresentation {
   const definition = getRegisteredSectionKindOrThrow(host, section.kind);
-  const itemArea =
-    definition.presentation === undefined ? definition.itemArea : undefined;
-  if (!itemArea) {
+  // A meta-control kind cannot declare an item area at all, so name that constraint here rather
+  // than reporting the missing declaration it is forbidden to register.
+  if (definition.presentation !== undefined) {
+    throw new Error(
+      `Section ${section.id} carries an item tree, but section kind ${section.kind} registers a ` +
+        "meta-control presentation; meta controls cannot carry item trees.",
+    );
+  }
+  if (!definition.itemArea) {
     throw new Error(
       `Section ${section.id} carries an item tree, but section kind ${section.kind} does not ` +
         "declare an item-area presentation. Register one with an explicit toolbar mode.",
     );
   }
-  return itemArea;
+  return definition.itemArea;
 }
 
 export function getWorkspaceItemFactory(

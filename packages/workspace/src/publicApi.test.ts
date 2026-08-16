@@ -162,13 +162,18 @@ describe("public package API", () => {
       itemArea,
       renderContent: () => null,
     } satisfies workspace.SectionKindDefinition;
-    const modes: Array<workspace.WorkspaceItemToolbarMode> = [
-      "authoring-and-filter",
-      "filter-only",
-      "hidden",
-    ];
+    // Keyed by every public mode: adding, removing, or renaming one fails this exhaustiveness
+    // proof at compile time, which counting a hand-written array never could.
+    const presentationsByMode = {
+      "authoring-and-filter": { toolbar: "authoring-and-filter" },
+      "filter-only": itemArea,
+      hidden: { toolbar: "hidden" },
+    } satisfies Record<
+      workspace.WorkspaceItemToolbarMode,
+      workspace.WorkspaceItemAreaPresentation
+    >;
 
     expect(definition.itemArea.toolbar).toBe("filter-only");
-    expect(modes).toHaveLength(3);
+    expect(presentationsByMode[definition.itemArea.toolbar]).toBe(itemArea);
   });
 });

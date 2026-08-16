@@ -15,6 +15,7 @@ import {
   deleteSelectedWorkspaceItems,
   insertWorkspaceItem,
   setItemLabel,
+  WorkspaceCanvas,
   WorkspaceProvider,
   type WorkspaceHost,
   type WorkspaceSection,
@@ -702,5 +703,142 @@ describe("the playground item renderer presentation contract", () => {
       workspaceHost.getSnapshot().sections["item-panel"]?.itemTree;
     expect(itemTree?.items[inserted.id]).toBeUndefined();
     expect(itemTree?.selectedItemIds).toEqual(["item-rename"]);
+  });
+});
+
+// The registered kind declares which item toolbar the package composes, and only the package
+// renders it. These cases mount the whole playground document through the public canvas the app
+// itself uses, so the declared `authoring-and-filter` mode is read from the rendered item area
+// rather than from the registration literal: declaring `filter-only` or `hidden` would drop the
+// structural actions or the toolbar itself here.
+describe("the playground's declared item-area presentation", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  function getItemPanelBody(): HTMLElement {
+    const section = container.querySelector<HTMLElement>(
+      '[id$="-item-panel-CustomResizable"]',
+    );
+    if (!section) {
+      throw new Error("The canvas did not render the item panel section.");
+    }
+    return section;
+  }
+
+  function getItemToolbar(): HTMLElement {
+    const toolbar = getItemPanelBody().querySelector<HTMLElement>(
+      "[data-workspace-item-toolbar]",
+    );
+    if (!toolbar) {
+      throw new Error("The item panel section renders no item toolbar.");
+    }
+    return toolbar;
+  }
+
+  function getToolbarButton(label: string): HTMLButtonElement {
+    const button = getItemToolbar().querySelector<HTMLButtonElement>(
+      `button[aria-label="${label}"]`,
+    );
+    if (!button) {
+      throw new Error(`The item toolbar has no ${label} control.`);
+    }
+    return button;
+  }
+
+  function countTopLevelItems(): number {
+    const itemTree =
+      workspaceHost.getSnapshot().sections["item-panel"]?.itemTree;
+    return itemTree?.items[itemTree.rootId]?.children.length ?? 0;
+  }
+
+  beforeEach(() => {
+    workspaceHost = createWorkspaceHost();
+    registerPlaygroundSectionKinds(workspaceHost);
+    workspaceHost.loadDocument(playgroundDocument);
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    act(() => {
+      root.render(
+        createElement(
+          WorkspaceProvider,
+          { host: workspaceHost },
+          createElement(WorkspaceCanvas),
+        ),
+      );
+    });
+    // The canvas renders nodes only once it has measured its wrapper, which jsdom never does.
+    const wrapper = container.querySelector<HTMLElement>("div.react-flow");
+    const measure = wrapper ? observedResizeTargets.get(wrapper) : undefined;
+    if (!wrapper || !measure) {
+      throw new Error("The canvas wrapper is not observed for resizes.");
+    }
+    act(() => {
+      measure(
+        [
+          {
+            target: wrapper,
+            borderBoxSize: [],
+            contentRect: { width: 1200, height: 800 },
+          } as unknown as ResizeObserverEntry,
+        ],
+        new CapturingResizeObserver(measure) as unknown as ResizeObserver,
+      );
+    });
+  });
+
+  afterEach(() => {
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+    observedResizeTargets.clear();
+    vi.restoreAllMocks();
+    workspaceHost.dispose();
+  });
+
+  it("selects the full authoring toolbar for its editable item section", () => {
+    const toolbar = getItemToolbar();
+    expect(toolbar.dataset.workspaceItemToolbar).toBe("authoring-and-filter");
+    expect(
+      toolbar.querySelector(".setta-workspace-item-toolbar-label")?.textContent,
+    ).toBe("Args");
+    // The host's registered item factory and the loaded items keep both structural actions
+    // operable; the loaded document selects nothing, so only the selection action is disabled.
+    expect(getToolbarButton("Remove last parameter").disabled).toBe(false);
+    expect(getToolbarButton("Add parameter").disabled).toBe(false);
+    expect(getToolbarButton("Delete selected parameters").disabled).toBe(true);
+    // The retained filter surface belongs to the same toolbar in this mode.
+    expect(
+      toolbar.querySelector<HTMLInputElement>(
+        'input[aria-label], input[placeholder="Filter"]',
+      )?.placeholder,
+    ).toBe("Filter");
+  });
+
+  it("declares no leading content, so the toolbar opens the item area", () => {
+    const toolbar = getItemToolbar();
+    expect(toolbar.previousElementSibling).toBeNull();
+    const firstRow = getItemPanelBody().querySelector('[data-item-row="true"]');
+    if (!firstRow) {
+      throw new Error("The item panel section renders no item rows.");
+    }
+    expect(
+      toolbar.compareDocumentPosition(firstRow) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeGreaterThan(0);
+  });
+
+  it("authors through the toolbar the declared mode renders", () => {
+    const before = countTopLevelItems();
+    act(() => {
+      getToolbarButton("Add parameter").click();
+    });
+    expect(countTopLevelItems()).toBe(before + 1);
+
+    act(() => {
+      getToolbarButton("Delete selected parameters").click();
+    });
+    expect(countTopLevelItems()).toBe(before);
   });
 });

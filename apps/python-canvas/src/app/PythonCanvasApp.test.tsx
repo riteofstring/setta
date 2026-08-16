@@ -20,8 +20,17 @@ vi.mock("../backend/client", () => ({
 
 vi.mock("@setta/workspace", () => ({
   WORKSPACE_CODE_SECTION_KIND: "setta.code",
+  TextValueEditor: ({
+    ariaLabel,
+    presentation,
+  }: {
+    ariaLabel: string;
+    presentation: string;
+  }) => <div aria-label={ariaLabel} data-presentation={presentation} />,
   WorkspaceCanvas: () => <div data-testid="workspace-canvas" />,
-  WorkspaceProvider: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  WorkspaceProvider: ({ children }: { children?: ReactNode }) => (
+    <>{children}</>
+  ),
   createWorkspaceCodeSection: mocks.createWorkspaceCodeSection,
   createWorkspaceCodeSectionData: mocks.createWorkspaceCodeSectionData,
   createWorkspaceHost: mocks.createWorkspaceHost,
@@ -29,11 +38,11 @@ vi.mock("@setta/workspace", () => ({
 }));
 
 import type { WorkspaceHost } from "@setta/workspace";
-import { CallableExpressionField } from "../sections/CallableSection";
 import {
   PythonCanvasApp,
   registerPythonCanvasSectionKinds,
 } from "./PythonCanvasApp";
+import { PythonCanvasMutationContext } from "./PythonCanvasMutationContext";
 
 type HostStub = {
   dispose: ReturnType<typeof vi.fn>;
@@ -96,13 +105,15 @@ describe("PythonCanvasApp", () => {
     });
 
     expect(host.loadDocument).toHaveBeenCalledTimes(1);
-    expect(
-      mocks.registerSectionKinds.mock.invocationCallOrder[0],
-    ).toBeLessThan(host.loadDocument.mock.invocationCallOrder[0] ?? Infinity);
+    expect(mocks.registerSectionKinds.mock.invocationCallOrder[0]).toBeLessThan(
+      host.loadDocument.mock.invocationCallOrder[0] ?? Infinity,
+    );
     expect(app.querySelector("[role='status']")?.textContent).toBe(
       "Project loaded.",
     );
-    expect(app.querySelector("[data-testid='workspace-canvas']")).not.toBeNull();
+    expect(
+      app.querySelector("[data-testid='workspace-canvas']"),
+    ).not.toBeNull();
 
     unmountApp();
 
@@ -113,24 +124,22 @@ describe("PythonCanvasApp", () => {
     const host = createHostStub();
     registerPythonCanvasSectionKinds(host as unknown as WorkspaceHost);
 
-    const kinds = mocks.registerSectionKinds.mock.calls[0]?.[1] as Record<
-      string,
-      {
-        getItemSearchableText?: (context: unknown) => string;
-        itemArea?: {
-          renderLeadingContent?: (section: unknown) => ReactNode;
-          toolbar?: string;
-        };
-      }
-    >;
-    const callable = kinds["python-canvas.callable"];
-    expect(callable?.itemArea?.toolbar).toBe("filter-only");
-    expect(callable?.itemArea?.renderLeadingContent?.({})).toEqual(
-      <CallableExpressionField />,
+    const callable = registeredCallableKind();
+    expect(callable.itemArea.toolbar).toBe("filter-only");
+    // What the registered slot renders, not which component expression produced it: the compact
+    // callable field keeps its section-field placement and accessible name through any wrapper.
+    const leading = renderLeadingContent(
+      callable.itemArea.renderLeadingContent({}),
     );
+    const editor = leading.querySelector<HTMLElement>("[data-presentation]");
+    if (!editor) {
+      throw new Error("The registered leading content renders no editor.");
+    }
+    expect(editor.getAttribute("aria-label")).toBe("Callable expression");
+    expect(editor.dataset["presentation"]).toBe("section-field");
     // The retained filter searches the text the row actually shows.
     expect(
-      callable?.getItemSearchableText?.({
+      callable.getItemSearchableText({
         item: {
           data: {
             authoredExpression: "3",
@@ -150,7 +159,9 @@ describe("PythonCanvasApp", () => {
   it("replaces a failed load with an alert and disposes the unused host", async () => {
     const host = createHostStub();
     mocks.createWorkspaceHost.mockReturnValue(host);
-    mocks.fetchProjectSnapshot.mockRejectedValue(new Error("backend unavailable"));
+    mocks.fetchProjectSnapshot.mockRejectedValue(
+      new Error("backend unavailable"),
+    );
 
     const app = renderApp();
     await settle();
@@ -203,6 +214,56 @@ function createDeferred<T>() {
     reject = rejectPromise;
   });
   return { promise, resolve: resolve!, reject: reject! };
+}
+
+type CallableKindRegistration = {
+  getItemSearchableText: (context: unknown) => string;
+  itemArea: {
+    renderLeadingContent: (section: unknown) => ReactNode;
+    toolbar: string;
+  };
+};
+
+function registeredCallableKind(): CallableKindRegistration {
+  const kinds = mocks.registerSectionKinds.mock.calls[0]?.[1] as
+    Record<string, Partial<CallableKindRegistration>> | undefined;
+  const callable = kinds?.["python-canvas.callable"];
+  if (
+    callable?.itemArea?.renderLeadingContent === undefined ||
+    callable.getItemSearchableText === undefined
+  ) {
+    throw new Error(
+      "The callable kind registers no item area with leading content.",
+    );
+  }
+  return callable as CallableKindRegistration;
+}
+
+// The package places this node itself, so the test supplies only the app-owned mutation context
+// the field reads.
+function renderLeadingContent(node: ReactNode): HTMLDivElement {
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+  act(() => {
+    root?.render(
+      <PythonCanvasMutationContext.Provider
+        value={{
+          callableCompletionProvider: undefined,
+          callableDraft: "math.sq",
+          completionError: null,
+          mutationError: null,
+          onCallableCommit: vi.fn(),
+          onCallableDraftChange: vi.fn(),
+          onParameterExpressionChange: vi.fn(),
+          pendingDescription: null,
+        }}
+      >
+        {node}
+      </PythonCanvasMutationContext.Provider>,
+    );
+  });
+  return container;
 }
 
 function renderApp(): HTMLDivElement {
