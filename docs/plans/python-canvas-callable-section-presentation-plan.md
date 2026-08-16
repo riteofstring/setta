@@ -10,7 +10,9 @@ remains open. The developer rejected source candidate
 body and observes it through the package's documented public marks, but it is not an accepted
 visual candidate. Supervisor comparison with donor source found that the candidate's self-authored
 4px field-to-toolbar allowance contradicts main's explicit Callable `mt-0 pb-0` toolbar
-composition. That zero-gap compact toolbar is now implemented and measured live, so the remaining
+composition. That zero-gap compact toolbar is now implemented and measured live, and the audit
+conflict it introduced — the item area reading its content-agnostic leading slot to select that
+spacing — is resolved by keying the composition to the declared renderer instead. The remaining
 work is fresh complete-section and generated-reader captures from the corrected candidate.
 Supervisor inspection, developer visual acceptance, and this phase's closing `test --changed` and
 `test-levels` steps remain open.**
@@ -1174,11 +1176,43 @@ leading content from one that does not. Because the source candidate changes, re
 the same eight headless captures from the new immutable source hash even though the Python Canvas
 renderer continues to return its field and the pixels are expected to remain unchanged.
 
-What remains in this phase: that opacity correction, fresh commit-bound capture evidence,
-supervisor confirmation that the eight images remain visually unchanged at full resolution, and
-developer visual acceptance with its accepted-candidate record; then this phase's closing
-`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
-accepted candidate.
+**Leading-slot opacity record.** The conflict is resolved where it was introduced. `renderItemArea`
+no longer reads the leading slot's return value: the already-validated `renderLeadingContent`
+renderer is what declares the compact composition, so `followsLeadingContent` is
+`itemArea.renderLeadingContent !== undefined` and the returned node is rendered without being
+inspected. The `rendersLeadingContent` classifier is deleted rather than narrowed, so the package
+holds no notion of an empty React node at all. A kind that declares the renderer therefore composes
+the compact `mt-0 pb-0` toolbar for every one of its item-carrying sections, and a kind that
+declares none keeps the ordinary `mt-1 pb-1` step, because its toolbar then opens the item area
+directly under the section header. Nothing else moved: `WorkspaceItemToolbarMode`, the registered
+`itemArea` shape, `WorkspaceItemToolbar`'s own composition input, and
+`donorSectionComposition.fieldToToolbarCssPx` are untouched, and Python Canvas's declared renderer
+still returns its field, so the rendered surface is unchanged.
+
+The README states that rule where it already documents the item-area order: the compact spacing
+follows the composition the kind declares, not the toolbar mode it selects and not anything the
+slot renders. That paragraph still closes on the content-agnostic boundary, which the new sentence
+now reinforces instead of contradicting.
+
+Proofs are the existing ones, as this correction requires. The two `SectionContainer` paths still
+pin both spacings through the real registered item area — the declared kind with leading content,
+then the same kind without it — and the `WorkspaceItemToolbar` case still pins both on the rendered
+toolbar's own classes. No emptiness edge case, null/array fixture, or shared test helper is added.
+This correction is a contract fix with no rendered difference for any checked-in consumer, so it
+carries no new negative control of its own; the control that binds the spacing rule still holds,
+and restoring the unconditional `mt-1 pb-1` fails both of those cases.
+
+Verification for this correction: the locked release's `code-policy` CLI ran `check` over the
+worktree; its only finding is the `quality.deadCode` on `apps/python-canvas/vitest.setup.ts` this
+plan already reports, over a file this correction does not touch.
+`code-policy test --changed --base bf336c346` passes over the three impacted focused suites
+(workspace, playground, and the Python Canvas frontend's 38 tests), and the workspace, playground,
+and Python Canvas TypeScript projects are clean.
+
+What remains in this phase: fresh commit-bound capture evidence, supervisor confirmation that the
+eight images remain visually unchanged at full resolution, and developer visual acceptance with its
+accepted-candidate record; then this phase's closing `test --changed --base <trusted-base>` and
+`test-levels --base <trusted-base>` steps against the accepted candidate.
 
 ## Stop conditions
 

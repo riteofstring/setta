@@ -97,32 +97,23 @@ function renderItemArea(
   hasSectionStyleTheme: boolean,
 ) {
   const itemArea = getWorkspaceItemAreaPresentationOrThrow(host, section);
-  const leadingContent = itemArea.renderLeadingContent?.(section);
+  // The toolbar's compact spacing belongs to this composition rather than to the declared mode,
+  // and the declared leading renderer is what selects it. The slot stays content-agnostic: its
+  // return value is rendered and never inspected.
   return (
     <WorkspaceItemFilterProvider
       hasSectionStyleTheme={hasSectionStyleTheme}
       sectionId={section.id}
     >
-      {leadingContent}
+      {itemArea.renderLeadingContent?.(section)}
       {itemArea.toolbar === "hidden" ? null : (
         <WorkspaceItemToolbar
-          followsLeadingContent={rendersLeadingContent(leadingContent)}
+          followsLeadingContent={itemArea.renderLeadingContent !== undefined}
           mode={itemArea.toolbar}
           sectionId={section.id}
         />
       )}
       {content}
     </WorkspaceItemFilterProvider>
-  );
-}
-
-// The toolbar's compact spacing belongs to this composition, not to the declared mode, so it is
-// derived from what the leading slot actually renders: a kind that renders nothing there leaves a
-// toolbar directly under the section header, which keeps the ordinary item toolbar's own step.
-function rendersLeadingContent(leadingContent: ReactNode): boolean {
-  return (
-    leadingContent !== undefined &&
-    leadingContent !== null &&
-    leadingContent !== false
   );
 }
