@@ -390,7 +390,14 @@ specifically.
 
 An item-tree section's parameter filter follows the item-area toolbar mode its kind declares at
 registration: both toolbar-rendering modes present the same compact package-owned filter, while
-`hidden` presents none and leaves that list in its ordinary unfiltered context. Where the filter
+`hidden` presents none and leaves that list in its ordinary unfiltered context. The built-in
+`workspace.focus-item-filter` operation, bound to `Mod + K` by default, focuses the sole active
+section's rendered filter; with any other number of active sections, or where the declared item
+area renders no filter, it declines and leaves the chord to the browser. That filter's accessible
+name stays **Filter parameters**, and while its section is the sole active one its empty input
+advertises whichever chord the registry currently resolves for that operation — so rebinding or
+unbinding it through `registerWorkspaceKeyBindings` changes the advertisement as well as the
+dispatch, and an unbound operation leaves the ordinary **Filter** text. Where the filter
 renders, its query is local view state and never mutates or notifies the canonical document. Fuzzy
 matching uses built-in `presentation.label` values and preserves document order while revealing a
 matching item's ancestor path. Custom opaque items participate only when their owning section kind

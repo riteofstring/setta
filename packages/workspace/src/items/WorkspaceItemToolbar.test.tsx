@@ -279,12 +279,14 @@ describe("WorkspaceItemToolbar", () => {
     ]) {
       expect(host.querySelector(`button[aria-label="${label}"]`)).toBeNull();
     }
-    // The retained filter surface is the same one the full mode renders.
+    // The retained filter surface is the same one the full mode renders, down to advertising the
+    // focus binding: this document loads "panel" as its sole active section, and jsdom reports no
+    // Mac user agent, so the shipped "Mod + K" resolves to this platform's label.
     expect(
       host.querySelector<HTMLInputElement>(
         "input.setta-workspace-item-filter-input",
       )?.placeholder,
-    ).toBe("Filter");
+    ).toBe("Ctrl + K");
     expect(host.querySelector("label")?.textContent).toBe("Filter parameters");
   });
 

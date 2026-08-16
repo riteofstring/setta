@@ -145,7 +145,7 @@ Starting from `./scripts/run-python-canvas.sh`, the live app must demonstrate th
 4. The Args toolbar follows the callable editor. It uses the existing `authoring-and-filter`
    presentation and exposes working Remove Last, Add, and Delete Selected actions. The active
    section's empty filter displays the resolved platform label for the same configurable
-   `workspace.focus-item-filter` binding that focuses it (default `Mod + K`, shown as `⌘K` on
+   `workspace.focus-item-filter` binding that focuses it (default `Mod + K`, shown as `⌘ + K` on
    macOS); inactive sections display **Filter**. No string duplicated by Python Canvas may claim a
    shortcut the workspace dispatcher does not run.
 5. Signature-derived parameter rows follow the toolbar and retain workspace-owned item layout,
@@ -179,7 +179,8 @@ mutation:
    `Python expression` placeholder.
 5. Enter `missing_value`, observe its range-mapped diagnostic and regenerated Python, then enter
    `3` and observe the diagnostic clear.
-6. With Square Root active, the filter shows `⌘K` on macOS and that exact chord focuses the filter.
+6. With Square Root active, the filter shows `⌘ + K` on macOS and that exact chord focuses the
+   filter.
    Add creates one blank app-authored argument through the workspace factory and canonical Go
    mutation; name it `scale`, enter `2`, and observe its keyword argument in generated Python.
    Remove Last deletes it. Add two arguments, select them, and Delete Selected removes both in one
@@ -328,8 +329,8 @@ host and section, so the dispatcher never searches consumer DOM or relies on gen
 its section is the sole active section and its query is empty, the input placeholder is the
 descriptor's platform-formatted `chordLabel`; otherwise it is **Filter**. A host rebind or unbind is
 therefore reflected in both dispatch and display. Preserve the existing accessible label **Filter
-parameters**; a placeholder is not its name. Do not hardcode `⌘K`, inspect `navigator.platform` in
-Python Canvas, or install an app-level key listener.
+parameters**; a placeholder is not its name. Do not hardcode `⌘ + K`, inspect `navigator.platform`
+in Python Canvas, or install an app-level key listener.
 
 The leading slot is deliberately content-agnostic. Do not add `callable`, `expression`, `language`,
 `provider`, `pending`, or `diagnostic` fields to `SectionKindDefinition`.
@@ -760,7 +761,7 @@ presentation correction:
 - the idle section has no large provider-status paragraph;
 - Add, Remove Last, and Delete Selected are exposed by `authoring-and-filter` and each completes a
   real canonical round trip; no pin or edge control is shown without an app concept behind it;
-- the Args filter remains operable, displays the active binding's `⌘K` label on macOS, and is
+- the Args filter remains operable, displays the active binding's `⌘ + K` label on macOS, and is
   focused by that exact binding;
 - the Callable idle and focused states have stable geometry and identical computed typography;
 - complete light and dark Square Root section captures show donor-equivalent header-to-field,
@@ -1905,6 +1906,75 @@ authorized recommended verification; recapture the affected complete states from
 source commit; obtain a fresh read-only review; have the supervisor inspect the results and compare
 the real interactions with main; obtain developer acceptance; and run the closing
 `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps.
+
+**Item-filter focus binding record.** The package half of this phase's fourth correction is
+implemented: the generic shortcut exists, and the filter that answers to it advertises it. Nothing
+in Python Canvas changed, because the app's move to `authoring-and-filter` needs the canonical
+parameter-list mutation behind those actions and travels with it.
+
+The donor was read at `043d3b2e9c69caf99d1246f1408b3ad7194b7864` before editing, and each behavior
+maps to one owner here. `focusOnSearch` (`state/actions/sections/sectionParamFilter.ts`) focuses
+the Args filter of the sole active section, by `getActiveSectionUIIds().length === 1` and a
+`document.getElementById` over that section's generated `-args-filter` id, with
+`{ preventScroll: true }`; the built-in
+`workspace.focus-item-filter` operation does exactly that, except that the mounted filter publishes
+its own focus target instead of the dispatcher rebuilding a generated element id.
+`items/itemFilterFocusRegistry.ts` holds those targets behind the same host-scoped `WeakMap` the
+item list views already use, `WorkspaceItemFilterProvider` registers and withdraws one per section
+while it is mounted, and a second owner for one section fails rather than silently deciding which
+filter the chord reaches. `KwargsControls` (`useIsSolelySectionUIActive` plus
+`shortcutPrettified(x.shortcuts.searchShortcut)`) gives the empty filter its own shortcut text;
+`WorkspaceItemFilterControls` resolves the same string from the binding registry through the new
+package-internal `getWorkspaceKeyBindingChordLabel`, so display and dispatch answer from one
+registry and no literal chord exists in either package or app. Reading it at render is the pattern
+the playground's own shortcut list already uses.
+
+Two donor facts settle details this plan glossed. The reference's shipped `searchShortcut` really
+is `"Mod + K"`, and its own `shortcutPrettified` writes that as **`⌘ + K`** on macOS — spaces and
+all — which is byte-identical to what `formatWorkspaceChord` produces for the same parse. The
+plan's `⌘K` spelling was therefore an approximation of the donor rather than the donor, and every
+acceptance bullet above now names the donor's string. Second, the reference's `Mod + K` is one
+shortcut with two jobs: the sole active section's Args filter, or, failing that, its application
+header's project search. Only the first is a workspace surface, so the binding does that job and
+otherwise declines, leaving the chord to the browser; the built-in binding list's comment records
+that departure beside the reference chords it already names.
+
+Nothing consumer-facing grows. `WorkspaceItemToolbarMode`, the registered `itemArea` shape, and
+the package's exported key-binding surface are untouched — a host still rebinds or unbinds this
+operation through the existing `registerWorkspaceKeyBindings`, and doing so moves the placeholder
+as well as the chord. The filter's accessible name stays **Filter parameters**; the shortcut is a
+placeholder, which is not a name. The package README carries the reciprocal paragraph where it
+already documents that the filter follows the declared toolbar mode.
+
+Proofs: a registry case pins the shipped `Mod + K` default, its `Ctrl + K` and `⌘ + K` labels, and
+that the shipped defaults still carry no chord conflict; a second pins the one-binding label
+resolver over bound, unbound, and unknown ids. Four `WorkspaceItemFilter` cases drive the real
+dispatcher over a real keydown: the sole active section's empty filter reads `Ctrl + K` and reverts
+to `Filter` while a query is present or its section is not solely active, a host rebinding and then
+unbinding moves that text, the chord focuses the mounted filter and is declined — left to the
+browser — both without exactly one active section and where the declared item area renders no
+toolbar, and a second filter owner for one section is refused. The `filter-only` toolbar case
+proves the same advertising filter surfaces in both rendering modes.
+`WorkspaceItemFilterControls`'s four tone ternaries moved into a helper in the same edit, because
+the added placeholder rule pushed the component past `quality.complexity`; the extraction is
+behaviour-preserving.
+
+Verification for this batch: the locked release's `code-policy` CLI ran `check` over the changed
+files; its only finding is the `quality.deadCode` on `apps/python-canvas/vitest.setup.ts` this plan
+already reports, over a file this batch does not touch. `code-policy test --changed --base a68d67851`
+passes over its three focused suites, and the authorized
+`code-policy test --recommended --base a68d67851` passes all five: workspace focused and component
+(1193 tests across 143 files), playground focused and component (43), and Python Canvas frontend
+(42). The workspace and playground TypeScript projects are clean and the packaged boundary check
+passes over source and built artifacts. Two negative controls bind this fix: restoring the literal
+`placeholder="Filter"` fails the two placeholder cases and the `filter-only` toolbar case with
+_expected 'Ctrl + K' to be 'Filter'_, and dropping the provider's registration call fails the focus
+case — the chord is declined and the filter never takes focus — as well as the second-owner case.
+
+What this leaves in this phase, unchanged except for the shortcut half: Python Canvas's move to
+`authoring-and-filter` with the canonical parameter-list mutation behind it, the protected-range
+semantics with the canonical Python-target mutation, and then the recapture, read-only review,
+supervisor inspection, developer acceptance, and closing Code Policy steps.
 
 ## Stop conditions
 

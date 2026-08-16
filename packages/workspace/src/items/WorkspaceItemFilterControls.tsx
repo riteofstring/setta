@@ -1,4 +1,7 @@
 import { FiX } from "react-icons/fi";
+import { useActiveSections } from "../document/stores";
+import { getWorkspaceKeyBindingChordLabel } from "../keybindings/workspaceKeyBindingRegistry";
+import { FOCUS_ITEM_FILTER_BINDING_ID } from "./itemFilterFocusRegistry";
 import { useWorkspaceItemFilter } from "./WorkspaceItemFilterContext";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import { getWorkspaceHostDomId } from "../workspaceHostInternals";
@@ -30,6 +33,32 @@ function buildFilterStatusMessage({
   )} hidden by this filter.`;
 }
 
+function getFilterToneClassNames(hasSectionStyleTheme: boolean): {
+  clear: string;
+  hiddenSelection: string;
+  input: string;
+  sortIcon: string;
+} {
+  if (hasSectionStyleTheme) {
+    return {
+      clear:
+        "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)]",
+      hiddenSelection: "text-[color:var(--setta-section-style-text)]",
+      input:
+        "text-[color:var(--setta-section-style-text)] placeholder:text-[color:var(--setta-section-style-muted-text)] focus-visible:border-[color:var(--setta-section-style-outline)]",
+      sortIcon: "text-[color:var(--setta-section-style-muted-text)]",
+    };
+  }
+  return {
+    clear:
+      "text-setta-500 hover:text-setta-700 dark:text-setta-400 dark:hover:text-setta-200",
+    hiddenSelection: "text-setta-600 dark:text-setta-300",
+    input:
+      "text-setta-700 placeholder:text-setta-400 focus-visible:border-blue-300 dark:text-setta-300",
+    sortIcon: "text-setta-300 dark:text-setta-600",
+  };
+}
+
 export function WorkspaceItemFilterControls({
   sectionId,
 }: {
@@ -37,6 +66,9 @@ export function WorkspaceItemFilterControls({
 }) {
   const host = useWorkspaceHost();
   const filter = useWorkspaceItemFilter();
+  const isSolelyActiveSection = useActiveSections(
+    (state) => state.activeIds.length === 1 && state.activeIds[0] === sectionId,
+  );
   if (!filter) {
     return null;
   }
@@ -49,18 +81,20 @@ export function WorkspaceItemFilterControls({
     "selected parameters are",
   )} hidden by this filter.`;
   const statusMessage = buildFilterStatusMessage(filter);
-  const sortIconToneClassName = filter.hasSectionStyleTheme
-    ? "text-[color:var(--setta-section-style-muted-text)]"
-    : "text-setta-300 dark:text-setta-600";
-  const inputToneClassName = filter.hasSectionStyleTheme
-    ? "text-[color:var(--setta-section-style-text)] placeholder:text-[color:var(--setta-section-style-muted-text)] focus-visible:border-[color:var(--setta-section-style-outline)]"
-    : "text-setta-700 placeholder:text-setta-400 focus-visible:border-blue-300 dark:text-setta-300";
-  const clearToneClassName = filter.hasSectionStyleTheme
-    ? "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)]"
-    : "text-setta-500 hover:text-setta-700 dark:text-setta-400 dark:hover:text-setta-200";
-  const hiddenSelectionToneClassName = filter.hasSectionStyleTheme
-    ? "text-[color:var(--setta-section-style-text)]"
-    : "text-setta-600 dark:text-setta-300";
+  const toneClassNames = getFilterToneClassNames(filter.hasSectionStyleTheme);
+  // The reference's empty Args filter advertises the same shortcut that focuses it while its
+  // section is the sole active one, and reads "Filter" otherwise. The chord comes from the
+  // binding registry rather than from a literal, so a host that rebinds or unbinds
+  // `workspace.focus-item-filter` changes what this says as well as what the chord does. The
+  // accessible name stays "Filter parameters": a placeholder is not a name.
+  const focusChordLabel = getWorkspaceKeyBindingChordLabel(
+    host,
+    FOCUS_ITEM_FILTER_BINDING_ID,
+  );
+  const placeholder =
+    isSolelyActiveSection && filter.query.length === 0
+      ? (focusChordLabel ?? "Filter")
+      : "Filter";
 
   return (
     <>
@@ -70,12 +104,12 @@ export function WorkspaceItemFilterControls({
         </label>
         <i
           aria-hidden={true}
-          className={`gg-sort-az -me-2 ${sortIconToneClassName}`}
+          className={`gg-sort-az -me-2 ${toneClassNames.sortIcon}`}
         />
         <input
           aria-describedby={statusId}
           autoComplete="off"
-          className={`setta-workspace-item-filter-input min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 ps-3 text-xs [border-width:0_0_1px_0] ${inputToneClassName}`}
+          className={`setta-workspace-item-filter-input min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 ps-3 text-xs [border-width:0_0_1px_0] ${toneClassNames.input}`}
           id={inputId}
           onChange={(event) => filter.setQuery(event.currentTarget.value)}
           onKeyDown={(event) => {
@@ -83,7 +117,7 @@ export function WorkspaceItemFilterControls({
               event.currentTarget.blur();
             }
           }}
-          placeholder="Filter"
+          placeholder={placeholder}
           ref={filter.filterInputRef}
           spellCheck={false}
           type="text"
@@ -92,7 +126,7 @@ export function WorkspaceItemFilterControls({
         {filter.query.length > 0 ? (
           <button
             aria-label="Clear parameter filter"
-            className={`ms-1 inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-1 ${clearToneClassName}`}
+            className={`ms-1 inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-1 ${toneClassNames.clear}`}
             data-setta-workspace-touch-target="compact"
             onClick={filter.clearAndFocus}
             title="Clear parameter filter"
@@ -104,7 +138,7 @@ export function WorkspaceItemFilterControls({
       </search>
       {filter.hiddenSelectedItemCount > 0 ? (
         <p
-          className={`basis-full flex min-w-0 flex-wrap items-center gap-x-1 px-2 pb-1 text-[10px] leading-tight ${hiddenSelectionToneClassName}`}
+          className={`basis-full flex min-w-0 flex-wrap items-center gap-x-1 px-2 pb-1 text-[10px] leading-tight ${toneClassNames.hiddenSelection}`}
         >
           <span>{hiddenSelectionMessage}</span>
           <button
