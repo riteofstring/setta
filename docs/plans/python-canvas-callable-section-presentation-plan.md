@@ -4,16 +4,17 @@
 
 **Status: Phase A's structural cutover is complete, including its audit corrections. Phase B is
 reopened after developer rejection of candidate `838ad70b9116e0e9bb54993836cd4a38401f4773`
-and its evidence commit `668412c1a92e5f82d119587bf8348c51cdd4a700` on 2026-08-19. The
-captured post-setup field and generated-reader states matched a narrow set of donor metrics, but the
-actual application startup and callable workflow did not match main: `math.sqrt` was a placeholder
-rather than committed state, completion required an extra Enter before commit, parameter rows
-exposed raw analyzer metadata and an invented value placeholder, and persistent per-section
-compositor promotion made settled zoomed content visibly blurry. Those are blocking product
-defects. For every behavior included in this callable workflow, current main is the authoritative
-reference. Prior plan prose, tests, captures, or implementation choices that contradict main must
-be replaced rather than preserved. Supervisor visual inspection, developer visual acceptance, and
-this phase's closing verification remain open.**
+and its evidence commit `668412c1a92e5f82d119587bf8348c51cdd4a700` on 2026-08-19. Candidate
+`e5cb62bd8aa79c6fc77b59c4d685602089619615` corrected the callable field, startup state,
+completion commit, parameter-row copy, generated-region paint, and settled zoom crispness, but the
+developer's live comparison with main found two remaining product gaps: Python Canvas still hides
+main's real argument authoring controls and active filter shortcut, and it makes the complete
+Generated Python document non-editable even though main protects only the generated range. The
+earlier plan exclusions that required those gaps are withdrawn. For every behavior included in this
+callable workflow, current main is the authoritative reference. Prior plan prose, tests, captures,
+or implementation choices that contradict main must be replaced rather than preserved. Supervisor
+visual and interaction inspection, developer acceptance, and this phase's closing verification
+remain open.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -55,15 +56,21 @@ workflow that does exist.
    the workspace package.
 4. Python Canvas supplies the leading editor's value, Python language selection, completion
    provider, commit callback, pending/error adornment, and backend-derived item projection.
-5. The current vertical slice has no parameter-structure mutations. Its Args surface must not show
-   Add, Remove, or Delete controls that can never succeed. Filtering may remain available.
+5. Python Canvas implements real ordered-parameter authoring for this callable: Add, Remove Last,
+   Delete Selected, rename of app-authored parameters, value editing, reordering, and filtering.
+   The existing generic workspace item toolbar and item operations own the interaction; Python
+   Canvas projects each complete proposed parameter list into one backend-owned atomic mutation.
+   Do not add cosmetic or permanently disabled controls. Pinning and edge conversion remain absent
+   because this app has neither concept yet.
 6. Main is a visual and interaction donor, not a source module to import. Do not restore its global
    project store, OpenAPI wiring, share state, tool-preview state, measurement state, or LSP hooks.
-7. A narrow Go bootstrap change is expected so the shipped Square Root example starts from a real
-   canonical `math.sqrt` commit and its real provider-derived parameter. It must use the existing
-   store/provider transaction path rather than frontend fixtures or duplicated signature data. No
-   HTTP shape, generated contract, code-generation algorithm, LSP provider, or dependency change
-   is expected.
+7. The shipped Square Root example continues to start from a real canonical `math.sqrt` commit and
+   provider-derived parameter. The Go store remains the sole semantic owner. This correction may
+   directly replace the narrow parameter-expression mutation with one revision-bound, complete
+   ordered-parameter mutation and add one complete Python-target mutation for prefix and suffix.
+   Both validate and render the entire candidate, atomically materialize generated Python, and only
+   then publish one new snapshot. No frontend-only semantic state or duplicated signature data is
+   permitted.
 8. Make one direct public cutover. Do not add aliases, deprecated props, old/new rendering paths,
    adapters, migrations, feature flags, compatibility modes, or transitional code.
 9. The visual donor is current main commit `043d3b2e9c69caf99d1246f1408b3ad7194b7864`, not a
@@ -75,14 +82,16 @@ workflow that does exist.
    `frontend/src/components/Section/SectionParts/Search.tsx` and
    `frontend/src/components/Section/Layouts/CodeArea.tsx` in the clean `setta-main` worktree.
 10. `@setta/workspace` owns a generic generated-document presentation for its built-in Code
-    section: one non-editable document may identify exactly one generated region while text before
-    and after it keeps ordinary read-only paint. Python Canvas supplies that region from its
-    canonical backend response and does not recreate it with app CSS or private selectors. This is
-    presentation vocabulary, not a Python/code-generation backend concept.
+    section: one editable document identifies exactly one protected generated region. User edits
+    outside that range update the document and map the range; user transactions touching the range
+    are rejected atomically. Python Canvas supplies the range and persists the two editable outer
+    regions through its canonical backend. This is generic mixed-authority editor vocabulary, not a
+    Python/code-generation backend concept.
 11. Replace the rejected whole-document `generated-output` shape directly. The built-in Code
     section keeps required closed modes, but its generated variant must require one validated
-    region in the same document. Do not retain `generated-output`, make the region optional, infer
-    it from text, accept both shapes, or add an adapter.
+    protected region in the same document. Do not retain `generated-output`, make the region
+    optional, infer it from text, accept both shapes, or add an adapter. This is a direct semantic
+    correction to `generated-document`, not a second compatibility mode.
 12. Headless Chrome must capture the exact idle, focused/clicked, light, and dark states and record
     computed geometry and typography before developer review. The supervisor inspects those images;
     behavior-only browser success is not visual acceptance.
@@ -104,8 +113,9 @@ workflow that does exist.
     section-header hooks merely to make a capture script convenient.
 17. When this plan and main disagree about an included interaction, main wins. The mandatory source
     reading for this correction is main's `CallableArea.tsx`, `Search.tsx`, `ParamTextLabel.tsx`,
-    text-parameter branch in `ParamUI.tsx`, and CodeMirror `TextInputCodeMirror.tsx`,
-    `getExtensions.ts`, `getOnCreateEditor.ts`, and `useCodeMirrorStyle.ts`. Do not infer their
+    text-parameter branch in `ParamUI.tsx`, `KwargsControls.tsx`, and CodeMirror
+    `TextInputCodeMirror.tsx`, `getExtensions.ts`, `getOnCreateEditor.ts`,
+    `useCodeMirrorStyle.ts`, plus the generated Python branch of `CodeArea.tsx`. Do not infer their
     behavior from the rejected Python Canvas tests.
 18. Do not add backward compatibility, legacy support, migrations, feature flags, dual paths,
     deprecated props, or transitional code. Replace the rejected behavior directly.
@@ -132,18 +142,24 @@ Starting from `./scripts/run-python-canvas.sh`, the live app must demonstrate th
 3. Any normal pending state appears as a compact application-owned adornment associated with the
    editor. A genuine completion or mutation failure remains visible and accessible without turning
    ordinary idle state into a paragraph of infrastructure text.
-4. The Args toolbar follows the callable editor. For this slice it contains the Args label and
-   filter behavior, but no unavailable structural authoring actions.
+4. The Args toolbar follows the callable editor. It uses the existing `authoring-and-filter`
+   presentation and exposes working Remove Last, Add, and Delete Selected actions. The active
+   section's empty filter displays the resolved platform label for the same configurable
+   `workspace.focus-item-filter` binding that focuses it (default `Mod + K`, shown as `⌘K` on
+   macOS); inactive sections display **Filter**. No string duplicated by Python Canvas may claim a
+   shortcut the workspace dispatcher does not run.
 5. Signature-derived parameter rows follow the toolbar and retain workspace-owned item layout,
    filtering, selection, column sizing, diagnostics, and text-control interaction.
 6. The **Generated Python** section presents the canonical prefix, generated body, and suffix in
-   one reader. Only the declared generated region receives the light/dark blue block, donor leading
+   one editor. Only the declared generated region receives the light/dark blue block, donor leading
    rail, and centered compact **GENERATED READ-ONLY** badge. For the initial snapshot the generated
    content is lines 3–5; lines 1 and 7 retain ordinary Code-section paint, and the blank boundary
    lines may carry only the donor's partial rounded-edge geometry. The region hugs those lines
-   rather than filling unused fixed-section height. The whole reader remains selectable and
-   copyable but non-editable in this V1 slice, receives no text caret, reveals no inner black
-   outline, and does not change paint when clicked.
+   rather than filling unused fixed-section height. Prefix and suffix are ordinary editable Python;
+   edits persist through Go and survive the canonical response. The separator-bounded generated
+   range remains selectable and copyable but rejects typing, paste, cut, deletion, and replacement
+   transactions that touch it. A caret may exist only where authoring is allowed, no inner black
+   outline appears, and generated paint does not change when clicked.
 
 The corrected product walkthrough starts at the raw page load, before a test performs any setup
 mutation:
@@ -163,14 +179,26 @@ mutation:
    `Python expression` placeholder.
 5. Enter `missing_value`, observe its range-mapped diagnostic and regenerated Python, then enter
    `3` and observe the diagnostic clear.
-6. At a supported enlarged canvas zoom, wait for the gesture to settle. Text, icons, and borders
+6. With Square Root active, the filter shows `⌘K` on macOS and that exact chord focuses the filter.
+   Add creates one blank app-authored argument through the workspace factory and canonical Go
+   mutation; name it `scale`, enter `2`, and observe its keyword argument in generated Python.
+   Remove Last deletes it. Add two arguments, select them, and Delete Selected removes both in one
+   validated mutation. The provider-derived `x` row remains name-read-only while app-authored names
+   use the package's existing name editor.
+7. In Generated Python, add a prefix import and a suffix statement and observe both survive the
+   backend response and page reload while the generated body remains byte-for-byte protected.
+   Attempts to type inside, paste over, delete, or replace any part of the declared protected range
+   make no document or backend change. Undo and redo for accepted outer edits keep the protected
+   range aligned.
+8. At a supported enlarged canvas zoom, wait for the gesture to settle. Text, icons, and borders
    must be as crisp as the same main-branch scene. An idle or merely hovered section must not retain
    the package-only `will-change: transform`, `translateZ(0)`, hidden backface, or isolated
    compositor layer that main does not apply.
 
-At every stage, Generated Python's rendering algorithm, HTTP contract, and LSP ownership remain
-those already accepted. This correction changes the demo's canonical startup commit, the callable
-and parameter interaction/presentation, and the workspace's settled compositing behavior.
+At every stage, Generated Python's rendering algorithm and LSP ownership remain backend-owned.
+This correction directly replaces the too-narrow mutation contracts; it does not preserve the old
+parameter-expression route alongside the complete parameter-list mutation or add a second local
+prefix/suffix authority.
 
 ## Main donor boundary
 
@@ -184,8 +212,9 @@ ParamGroupContainer
 
 The donor's `SectionSearch` is not reusable package code. It directly reads the old global project
 state and depends on application OpenAPI calls, LSP waiting state, errors, share mode, tool previews,
-section-style state, and edge-handle measurements. The donor's `KwargsControls` also owns mutations
-that do not exist in the first Python Canvas slice.
+section-style state, and edge-handle measurements. The donor's `KwargsControls` also owns pin and
+edge mutations that do not exist in Python Canvas. Its add/remove/delete and active filter shortcut
+do exist here through generic workspace item and key-binding contracts.
 
 Reuse the composition and craft, not those dependencies. The new package surface must remain useful
 to a non-Python consumer that has an item tree and wants an arbitrary leading control.
@@ -201,11 +230,12 @@ background, three-pixel leading rail, rounded region ends, compact uppercase gen
 label, and explicit selection paint. The main implementation surrounds an immutable generated body
 with editable prefix and suffix. Python Canvas already receives the same three authoritative parts:
 `pythonTarget.prefix`, `generatedCode.body`, and `pythonTarget.suffix`, as well as their canonical
-combined `generatedCode.code`. This V1 slice has no prefix/suffix mutation endpoint, so the package
-does not make the outer text editable. It does preserve the donor's authority boundary visually:
-one generic declared generated region is painted, while prefix and suffix use ordinary read-only
-paint. Do not add fake local editing, placeholders such as **Add imports here**, transaction
-filters, completion endpoints, or Python/code-generation semantics to the package.
+combined `generatedCode.code`. The package enforces one declared protected range and maps it through
+accepted outer edits; Python Canvas splits the resulting document only at those validated offsets
+and sends the complete prefix/suffix candidate to Go. Do not find the body by substring, retain
+edits only in React state, or move Python/code-generation semantics into the package. Completion in
+the outer regions is not required by this correction; editability, highlighting, persistence, and
+range protection are.
 
 ## Ownership and dependency direction
 
@@ -216,9 +246,10 @@ filters, completion endpoints, or Python/code-generation semantics to the packag
 | Single-line section-field editor surface and lifecycle  | `@setta/workspace`     | Existing `TextValueEditor` with one explicit presentation |
 | Callable draft, completion, commit, and provider status | Python Canvas frontend | Props and application-owned adornment                     |
 | Callable/parameter semantic state and diagnostics       | Go backend             | Existing canonical V1 snapshot                            |
-| Parameter row structure and interaction                 | `@setta/workspace`     | Existing `WorkspaceItemList` and public controls          |
-| Editable/read-only/generated-region Code presentation   | `@setta/workspace`     | Required closed mode and one validated region             |
-| Generated Python source bytes                           | Go backend             | Existing canonical generated-code field                   |
+| Item row structure, authoring actions, and filter chord | `@setta/workspace`     | Existing item operations plus one built-in key binding    |
+| Parameter meaning, ordering, and mutation               | Go backend             | One complete revision-bound parameter-list mutation       |
+| Editable/read-only/protected-region Code presentation   | `@setta/workspace`     | Required closed mode and one validated mapped region      |
+| Prefix, generated body, suffix, and combined source     | Go backend             | One canonical Python target and generated-code response   |
 
 The dependency direction remains:
 
@@ -281,8 +312,24 @@ Do not place a control the section always needs in the leading slot without givi
 item tree.
 
 Update every current owner directly. The playground item section explicitly declares its intended
-mode, and Python Canvas declares `filter-only`. Do not preserve the old implicit-toolbar route.
+mode, and Python Canvas declares `authoring-and-filter` with a real item factory and backend
+reconciliation. Do not preserve the old implicit-toolbar route or a Python Canvas-only toolbar.
 Meta-control presentations remain headerless and cannot declare item-area presentation.
+
+### Item-filter shortcut
+
+Add one built-in workspace operation, `workspace.focus-item-filter`, to the existing key-binding
+registry with default chord `Mod + K`. It resolves the sole active section and focuses that
+section's mounted item filter; without exactly one eligible active section it declines and leaves
+the browser chord untouched. The filter provider registers and unregisters that focus target by
+host and section, so the dispatcher never searches consumer DOM or relies on generated IDs.
+
+`WorkspaceItemFilterControls` reads the resolved binding descriptor from the same registry. When
+its section is the sole active section and its query is empty, the input placeholder is the
+descriptor's platform-formatted `chordLabel`; otherwise it is **Filter**. A host rebind or unbind is
+therefore reflected in both dispatch and display. Preserve the existing accessible label **Filter
+parameters**; a placeholder is not its name. Do not hardcode `⌘K`, inspect `navigator.platform` in
+Python Canvas, or install an app-level key listener.
 
 The leading slot is deliberately content-agnostic. Do not add `callable`, `expression`, `language`,
 `provider`, `pending`, or `diagnostic` fields to `SectionKindDefinition`.
@@ -352,8 +399,8 @@ type WorkspaceCodeSectionData = WorkspaceCodeSectionCommon &
 
 Exact internal factoring may vary, but the public semantics are fixed. `editable` retains the
 ordinary authored editor. `read-only` retains ordinary Code-section paint but is non-editable.
-`generated-document` is also wholly non-editable in this slice and requires exactly one UTF-16
-CodeMirror-offset range whose intersecting lines receive donor generated-region paint. Reject a
+`generated-document` is editable outside exactly one protected UTF-16 CodeMirror-offset range whose
+intersecting lines receive donor generated-region paint. Reject a
 missing, empty, reversed, fractional, out-of-document, or mode-incompatible region at the existing
 data boundary. Do not retain `generated-output`, accept a generated region on either ordinary mode,
 support a list of ranges, or infer a range by searching the code.
@@ -365,18 +412,26 @@ boundaries, matching main's partial first/last-line geometry, while its only gen
 `generatedCode.body`. This is a frontend projection assertion over an already canonical response;
 it does not alter the Go or generated TypeScript contract.
 
-Both non-editable presentations use CodeMirror's read-only state and non-editable view contract
-rather than leaving a focusable `contenteditable` element that merely rejects transactions. Text
-remains selectable and copyable. The section wrapper keeps a coherent keyboard/focus target and
-accessible read-only naming, while Enter does not send focus into a nonexistent editing surface.
-The generated document must never show a caret, inner focus outline, active-line paint, or editable
-cursor.
+`read-only` uses CodeMirror's read-only state and non-editable view contract. `generated-document`
+uses the ordinary editable view plus one high-precedence transaction filter: every user transaction
+is accepted only when every change lies wholly before or wholly after the protected half-open range.
+Accepted changes map `from` and `to` through CodeMirror's change description so boundary insertions
+belong to the outer text and the region never drifts. Programmatic canonical replacement may replace
+the complete document and region together. The editor reports both the next text and mapped range
+through an internal generic change value; no CodeMirror type crosses the package root.
 
-The generated visuals belong to package source and its scoped stylesheet/theme. Expose only the
-closed mode, region value, and stable public observation needed by consumers/tests; do not export
-CodeMirror extensions, decoration classes, or package-private selectors and do not add an app
-`className` escape hatch. This is one presentation region, not a general protected-range or
-mixed-authority editor service.
+The generated document keeps the ordinary editor's focus/escape/undo lifecycle, syntax highlighting,
+selection, and copy behavior. Its prefix and suffix may show a caret and active line; the protected
+region uses a not-allowed cursor and refuses mutation. It must not show a second inner focus outline
+or repaint the generated block merely because the editor is focused. Tests cover insertion,
+deletion, replacement, paste, cut, undo, and redo at representative before/inside/across/after
+positions without expanding into an audit of every CodeMirror transaction annotation.
+
+The generated visuals and protection belong to package source and its scoped stylesheet/theme.
+Expose only the closed mode, region value, and stable public observation needed by consumers/tests;
+do not export CodeMirror extensions, decoration classes, or package-private selectors and do not
+add an app `className` escape hatch. This is one protected region required by the built-in Code
+section, not an arbitrary range list or application-extensible editor service.
 
 ## Python Canvas direct cutover
 
@@ -392,7 +447,8 @@ the new package presentation:
 - remove the large normal **Callable expression** label while retaining that exact accessible name;
 - remove the normal idle sentence about what Basedpyright will do after commit;
 - keep genuine completion and mutation failures distinct, visible, and accessible;
-- declare the item toolbar `filter-only` and render the existing `WorkspaceItemList` after it;
+- declare the item toolbar `authoring-and-filter`, register an app-owned item factory, and render
+  the existing `WorkspaceItemList` after it;
 - register application-owned searchable text from the canonical parameter name and displayed
   metadata so the retained filter operates on what the row actually shows; and
 - keep parameter items on the `item-row` editor presentation with completion disabled.
@@ -402,15 +458,64 @@ the new package presentation:
 - project Generated Python through `generated-document`, using the canonical prefix/body/suffix to
   verify the combined bytes and declare exactly one generated region; remove `generated-output`
   rather than accepting both document shapes; and
+- observe accepted generated-document edits through the ordinary host document subscription, split
+  prefix and suffix only at the mapped protected offsets, and reconcile them through the Go target
+  mutation; and
 - remove or narrow any broad app focus rule that paints inside package-owned editors, while
   retaining explicit accessible focus treatment on application-owned controls.
 
-The app must not reproduce the package's toolbar, filter, item rows, CodeMirror wrapper, focus
+The app must not reproduce the package's toolbar, filter, item actions, shortcut display,
+CodeMirror wrapper, focus
 behavior, or section chrome. App CSS may arrange its own status/error content but must not select
 package-private classes or depend on the toolbar's internal DOM.
 
-Do not enable Add, Remove, or Delete as cosmetic controls. Adding parameter-structure mutations
-requires a separate backend-semantic plan and is not implied by reproducing main's visual layout.
+### Canonical parameter-list mutation
+
+Replace the single-parameter projection and parameter-expression route directly. The callable owns
+an ordered list of parameter records. Provider-derived records retain provider-owned passing style,
+type/default metadata, and a non-editable name; app-authored records use positional-or-keyword
+passing, editable names, no fabricated type/default, and stable IDs proposed once by the app's item
+factory. A new authored parameter may have an empty name and value, matching main; the renderer
+omits any incomplete record until both a valid name and expression exist. Non-empty authored names
+must be valid non-keyword Python identifiers. The backend snapshot says explicitly whether a name is
+editable; the frontend never infers that from an ID, blank name, type, or list position.
+
+Use one complete ordered mutation with `projectId`, `callableId`, `expectedRevision`, and the
+proposed list of `{id, name, authoredExpression}` records. The store validates the full request
+before writing: IDs are stable and unique, immutable names are unchanged, new IDs do not collide,
+names/expressions satisfy their lexical and size bounds, and every retained record belongs to this
+callable. It then clones canonical state, preserves backend-only metadata for retained records,
+creates backend defaults for new records, applies order/deletions/edits, renders the whole module,
+atomically materializes it, synchronizes diagnostics, validates the response, and publishes one
+revision. A stale revision is a typed conflict. Delete Selected is therefore one transaction, not a
+loop of partial deletes.
+
+The workspace item tree uses the canonical parameter IDs directly. Its factory creates one complete
+blank app-authored item with a collision-resistant stable ID; Add, Remove Last, Delete Selected,
+drag reorder, `ItemNameEditor`, and `TextValueEditor` all change the controlled workspace document
+through existing package funnels. Python Canvas coalesces those proposals, sends the complete list,
+and replaces them with the canonical response. On a typed failure it restores the last canonical
+snapshot and presents the error. Do not keep the old parameter-expression route, fixed placeholder
+item, one-parameter parser, or parallel frontend parameter model.
+
+Committing a different callable continues to replace the callable's parameter list from the newly
+resolved provider signature. This slice does not attempt cross-callable reconciliation of custom
+parameters. Recommitting the same canonical callable remains idempotent.
+
+### Canonical Python-target mutation
+
+Move prefix and suffix from Go constants into canonical store state initialized to the same shipped
+values. Add one revision-bound mutation carrying the complete `{prefix, suffix}` target. Empty outer
+text is valid, because main permits deleting either region; NUL and oversized input are not. The
+store renders, materializes, synchronizes, validates, and commits through the same atomic candidate
+path as every other project mutation. The generated body is never accepted from the client.
+
+Python Canvas derives the proposal from the code section's validated `code` and mapped
+`generatedRegion`: `prefix = code.slice(0, from)` and `suffix = code.slice(to)`. It verifies the
+protected bytes equal the canonical separator/body/separator before sending. Debounce/coalesce
+ordinary typing, bind the request to the latest canonical revision, and reproject the response.
+Do not locate the body with string search, maintain an uncommitted second source model, or retain
+the old constant-only target path.
 
 ## Explicit non-goals
 
@@ -418,12 +523,12 @@ Do not use this work to add:
 
 - a workspace `CallableSection`, callable data schema, Python section kind, LSP status type, or
   backend adapter;
-- callable catalogs, arbitrary expressions, multiple callables, parameter add/remove/delete
-  mutations, parameter completion, hover, documentation, or completion resolve;
-- editable generated-code prefix/suffix regions, an imports placeholder, mixed-region mutation
-  filters, multiple generated regions, or a general protected-range editor;
-- changes to Go state, HTTP routes, generated TypeScript contracts, code generation, Basedpyright,
-  diagnostics mapping, or the wrapper script;
+- callable catalogs, arbitrary callable expressions, multiple callables, parameter completion,
+  hover, documentation, or completion resolve;
+- generated-code body editing, multiple protected regions, arbitrary host-supplied CodeMirror
+  extensions, or a general protected-range service;
+- Basedpyright provider replacement, outer-region LSP completion, execution, persistence to a
+  project file, or wrapper-script changes;
 - ports, edges, handles, variants, source discovery, execution, persistence, CLI, MCP, Watch Code,
   or the deferred workspace transaction core;
 - a general slot framework, arbitrary toolbar renderer, styling callback, public CodeMirror wrapper,
@@ -618,25 +723,34 @@ composition:
    main's Callable toolbar selects `mt-0 pb-0`; the field-to-toolbar gap is zero within one CSS
    pixel. Preserve the already-correct idle/focused box and type stability, and preserve ordinary
    item sections' existing `mt-1 pb-1` toolbar spacing.
-2. Replace `generated-output` directly with the required `generated-document` plus one validated
-   generated region. Update constructors, parser, actions, package root, README, playground,
-   packed-consumer fixtures, and Python Canvas in one cutover; old documents fail rather than
-   receiving compatibility handling.
-3. Rework the package-owned line decorations so only lines intersecting that declared region carry
-   generated paint. Retain main's partial first/last separator-line geometry, centered badge,
-   leading rail, explicit selection paint, unused-height behavior, and caret-free reader.
-4. Project the region from the existing canonical prefix/body/suffix fields, with an exact combined
-   byte/string assertion. Do not add a backend route, local prefix/suffix state, editing,
-   completions, or transaction filters.
-5. Update focused package, packed-boundary, playground, and Python Canvas tests. Delete the rejected
-   whole-document assumptions; do not preserve fixtures or parsing behavior for compatibility.
+2. Keep the completed `generated-output` to `generated-document` cutover and change that one mode
+   directly from whole-document read-only to editable outer text plus one protected, transaction-
+   mapped region. Update parser/actions/editor lifecycle, package root and README, playground,
+   packed-consumer fixtures, and Python Canvas together; do not introduce a second mode or preserve
+   the rejected behavior.
+3. Preserve the package-owned line decorations that paint only lines intersecting the declared
+   region, including main's partial first/last separator-line geometry, centered badge, leading
+   rail, selection paint, and unused-height behavior. Add range protection without changing those
+   visuals or forking the section editor.
+4. Add `workspace.focus-item-filter` to the existing binding registry and make the package filter
+   display that resolved binding for the sole active section. Switch Python Canvas to the existing
+   `authoring-and-filter` mode with its existing package item actions; do not copy main's toolbar or
+   hardcode a macOS shortcut in the app.
+5. Generalize the Go store from one fixed parameter pointer and constant target strings to an
+   ordered canonical parameter list plus mutable prefix/suffix. Replace the narrow parameter route
+   with the one complete revision-bound parameter-list mutation, add the target mutation, regenerate
+   the TypeScript contract, and cut the frontend client/projection/controller over in the same
+   phase. Do not retain old routes, request types, fixed item IDs, or parsing branches.
+6. Update focused backend, package, packed-boundary, playground, and Python Canvas tests. Delete the
+   rejected filter-only and whole-document-read-only assumptions; do not preserve fixtures or
+   parsing behavior for compatibility.
 
-The generated-document correction must port main's line decorations for one declared region rather
+The generated-document correction must keep main's line decorations for one declared region rather
 than approximate them with a whole-document or flex-wrapper background. Keep this generic and
 package-owned: decorate only the intersecting CodeMirror lines, center the badge at that region's
-upper boundary without changing document bytes, and leave prefix, suffix, and unused editor height
-on the ordinary Code-section surface. Do not introduce prefix/suffix editing, mutation protection,
-or a general range service.
+upper boundary without changing document bytes, protect and map exactly that range, and leave
+prefix, suffix, and unused editor height on the ordinary editable Code-section surface. Do not
+introduce a range list, extension hook, or Python-aware package logic.
 
 Then run the production frontend, real Go service, and pinned Basedpyright through the established
 headless-Chrome walkthrough. Extend only the assertions and evidence needed to prove this bounded
@@ -644,17 +758,22 @@ presentation correction:
 
 - the callable editor precedes the Args toolbar in rendered and keyboard order;
 - the idle section has no large provider-status paragraph;
-- no Add, Remove, or Delete parameter controls are exposed by the filter-only toolbar;
-- the Args filter remains operable;
+- Add, Remove Last, and Delete Selected are exposed by `authoring-and-filter` and each completes a
+  real canonical round trip; no pin or edge control is shown without an app concept behind it;
+- the Args filter remains operable, displays the active binding's `⌘K` label on macOS, and is
+  focused by that exact binding;
 - the Callable idle and focused states have stable geometry and identical computed typography;
 - complete light and dark Square Root section captures show donor-equivalent header-to-field,
   field-to-toolbar, toolbar-to-first-row, and inline-edge spacing, as well as the field's accepted
   border, background, radius, and typography;
-- Generated Python exposes `generated-document`, leaves prefix line 1 and suffix line 7 unpainted,
-  paints generated body lines 3–5 with the donor rail/region/badge, remains non-editable and
-  selectable, and has no inner caret/outline before or after a real pointer click;
+- Generated Python exposes `generated-document`, leaves prefix line 1 and suffix line 7 unpainted
+  and editable, paints generated body lines 3–5 with the donor rail/region/badge, rejects mutations
+  touching the protected separator/body/separator range, persists accepted outer edits through Go,
+  and has no inner outline before or after a real pointer click;
 - the accessible callable name, `math.sq` completion selection, one-Enter commit, `x` parameter,
   generated Python, diagnostic, and diagnostic-clear behavior remain intact; and
+- a blank authored parameter can be added, named, valued, reordered, removed, and bulk-deleted;
+  generated code includes it only after it has both a valid name and value; and
 - one Ctrl-C still cleans up the app processes through the existing wrapper.
 
 Use a fixed 1440x900 CSS-pixel viewport at device scale 1 and capture deterministic **complete
@@ -664,7 +783,7 @@ parameter row or the empty item area. A field-only crop is insufficient evidence
 header, field, toolbar, first-row, editor-content-box, and generated-region rectangles, along with
 font properties, border/radius/background values, editability, active element, and
 outline/caret-relevant values in machine-readable evidence bound to the exact candidate commit.
-Prove the authored prefix and suffix through the canonical reader text, their exclusion from the
+Prove the authored prefix and suffix through the canonical editor text, their exclusion from the
 documented generated-line marks, and at least one full reader line box outside each end of the
 generated block. Do not inspect or publish every private CodeMirror document line merely to obtain
 separate prefix-line and suffix-line rectangles.
@@ -687,13 +806,16 @@ session. Then run `code-policy test-levels --base <trusted-base>`, present its e
 full ordinary choices, and obtain the authorization required by the repository policy before either
 ordinary profile, `verify`, or `gate`. No supplemental mutation or risk suite is expected.
 
-No `.code-policy.json`, dependency manifest, or lockfile change is expected. If implementation
+No `.code-policy.json`, dependency manifest, or lockfile change is expected. The task boundary must
+include `workspace`, `playground`, `python-canvas-backend`, and `python-canvas-frontend`; this is a
+consumer-driven backend contract correction rather than a presentation-only continuation. If implementation
 requires one, stop and explain the exact missing ownership, suite, or dependency rather than folding
 it into this presentation plan.
 
-**Avoid rabbit holes:** verify the accepted callable flow and the exact changed workspace
-presentations. Do not audit unrelated sections, all responsive widths, every CodeMirror state,
-historical main parity, or speculative toolbar combinations.
+**Avoid rabbit holes:** verify the accepted callable flow, the three real generic toolbar actions,
+the one filter binding, the one protected editor range, and the two canonical backend mutations.
+Do not add pinning/edges, inspect unrelated sections, audit all responsive widths or every
+CodeMirror annotation, pursue outer-region completion, or generalize beyond the concrete consumer.
 
 **Rejected Phase B candidate record.** Candidate
 `1217367302fe4d3213f01d9064dff0ce2eefce37` established the following behavior evidence, but it is
@@ -1769,10 +1891,20 @@ focused card differs in 46 header pixels at a one-channel delta of 1. Recorded g
 typography, paint values, and composition are unchanged. The images and metrics still name the
 immutable source candidate above; the record corrections require no recapture.
 
-What remains in this phase: the supervisor's inspection of the fourteen images at full resolution;
-developer visual acceptance with its accepted-candidate record; and this phase's closing
-`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
-accepted candidate.
+The supervisor inspected those fourteen images and a real main-branch scene at full resolution.
+The developer then compared the live candidates directly. Candidate
+`e5cb62bd8aa79c6fc77b59c4d685602089619615` is close in field and region paint, but it is rejected
+as a product handoff: its filter-only toolbar omits main's working parameter authoring controls and
+active shortcut label, and its generated document prevents every outer edit. Those are exactly the
+two former exclusions this revision withdraws. The prior images remain historical rejected evidence
+and must be recaptured after the behavior correction; they are not accepted regression locks.
+
+What remains in this phase: implement the generic shortcut and protected-range semantics, the two
+canonical Go mutation paths, and the Python Canvas item/editor reconciliation; run focused and
+authorized recommended verification; recapture the affected complete states from an immutable
+source commit; obtain a fresh read-only review; have the supervisor inspect the results and compare
+the real interactions with main; obtain developer acceptance; and run the closing
+`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps.
 
 ## Stop conditions
 
@@ -1783,13 +1915,15 @@ Stop and request a scope decision if:
 - the section-field surface cannot reuse the sole existing editor lifecycle and completion adapter;
 - a public workspace type would need Python, callable, Basedpyright, LSP, HTTP, application error,
   or generated-contract vocabulary;
-- hiding structural controls would require fake successful mutations or frontend-only semantic
-  state;
+- real Add/Remove/Delete, rename/value, reorder, or outer-code editing cannot be represented as one
+  validated backend candidate without frontend-only semantic state;
 - the correction expands beyond the closed leading-content and toolbar-mode seams into a general
   layout/plugin framework;
 - the real completion, commit, parameter, code-generation, or diagnostics walkthrough regresses;
-- matching the donor requires editable prefix/suffix state, mutation-filtered protected ranges,
-  multiple/arbitrary region infrastructure, or Python/code-generation vocabulary in the package;
+- protecting the one generated range requires multiple/arbitrary region infrastructure or
+  Python/code-generation vocabulary in the package;
+- matching the requested toolbar requires adding pin, edge, port, or graph semantics to this slice
+  rather than using the existing generic item actions;
 - live developer evidence rejects the corrected states and fixing them would materially change the
   agreed generic boundary; or
 - Code Policy cannot own or verify the exact files without a protected configuration change.
@@ -1797,5 +1931,5 @@ Stop and request a scope decision if:
 The plan is complete when both phase markers are checked, the direct public cutovers contain no
 legacy or transitional surface, the established production walkthrough remains green, headless
 evidence proves the exact idle/focused/clicked states, the supervisor has inspected the captures,
-and the developer accepts the donor-matched complete Callable composition and the single generated
-region above the unchanged filter-only Args area.
+and the developer accepts the donor-matched complete Callable composition, working authoring/filter
+toolbar, and one protected generated region surrounded by persistently editable Python.
