@@ -172,6 +172,15 @@ expand it through Git history or other branches.
 Land each replaced owner and all of its callers as one coherent ownership cutover. A batch must not
 leave both global and instance APIs available, even temporarily at a committed boundary.
 
+For plan-loop execution, Phase 1 is one indivisible public cutover. Do not add or export a host,
+provider, context, or instance hook in one iteration while describing any required mutable-owner
+migration as remaining work for another iteration. Do not commit a scaffold, dormant parallel API,
+partially instance-scoped runtime, compatibility wrapper, or "in progress" public surface. Complete
+all Phase 1 owner migrations, playground migration, removals, focused proof, and plan status together
+before the first Phase 1 implementation commit. If that cannot be done coherently in one agent turn,
+return a clean `PLAN_IMPLEMENTATION_BLOCKED` explaining the plan-loop limitation rather than landing
+transitional code.
+
 ### Focused proof
 
 - Mount two providers simultaneously with overlapping section and item IDs, different documents,
