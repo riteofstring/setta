@@ -1242,6 +1242,14 @@ signature to the formatter-owned one-line form. This changes no behavior or rend
 it changes the source hash, so decision 15 requires one final recapture commit before developer
 review.
 
+**Final format recapture record.** The same eight captures are rerun from immutable source
+candidate `838ad70b9116e0e9bb54993836cd4a38401f4773`. The capture harness again passes every donor
+geometry, typography, generated-region, and interaction assertion. Seven images are byte-identical
+to the preceding bundle; the focused light card moves only within the already bounded
+sub-perceptual header-glyph rasterization variance. All recorded presentation values are unchanged;
+only `capturedAt`, `sourceCommit`, and that image's SHA-256 move. This remains working evidence for
+developer review, not an accepted regression lock.
+
 What remains in this phase: supervisor confirmation that the eight images remain visually unchanged
 at full resolution, and developer visual acceptance with its accepted-candidate record; then this
 phase's closing `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>`

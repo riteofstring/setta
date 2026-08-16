@@ -5,11 +5,11 @@
       "dark"
     ],
     "browser": "Chrome/152.0.7977.42",
-    "capturedAt": "2026-08-19T20:43:04.951Z",
+    "capturedAt": "2026-08-19T21:09:06.813Z",
     "committedCallable": "math.sqrt",
     "committedParameter": "3",
     "cropMarginCssPx": 8,
-    "sourceCommit": "7c3bea76ae3a5a11a4202116ad3932922a4a097e",
+    "sourceCommit": "838ad70b9116e0e9bb54993836cd4a38401f4773",
     "surface": "Production @setta/workspace and Python Canvas builds served by vite preview, the real Go service, and its pinned Basedpyright.",
     "viewport": {
       "deviceScaleFactor": 1,
@@ -242,7 +242,7 @@
         }
       },
       "screenshot": "screenshots/02-callable-section-focused-light-1440x900.png",
-      "screenshotSha256": "7a3baadd213720da5bcb85111b4543986d62227cd1e7ddece5cba2b44ef518a8",
+      "screenshotSha256": "81786c15fb8a935db5bfabe2aa90203fb33bc215baa02737bff4ee4576e0583c",
       "state": "focused",
       "surface": "callable-section"
     },
