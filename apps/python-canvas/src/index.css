@@ -149,22 +149,19 @@ body {
   color: light-dark(#7a1b14, #fecdca);
 }
 
+/* Main's ordinary parameter label is one truncating semibold name, so this is one line rather than
+ * the rejected candidate's name-over-metadata stack. Colour is inherited from the package's own
+ * section text, which owns both appearances. */
 .python-canvas-parameter-label {
-  display: grid;
-  gap: 0.125rem;
   min-inline-size: 0;
   margin: 0;
   padding-block: 0.125rem;
+  overflow: hidden;
   font-size: 0.75rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
-}
-
-.python-canvas-parameter-metadata {
-  color: light-dark(#4c5a73, #8b98ad);
-  font-size: 0.6875rem;
-  font-weight: 400;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* This app deliberately declares no focus rule. Every focus target in this view is rendered by

@@ -1339,6 +1339,95 @@ requested-outcome issue, the supervisor inspects the raw-startup and settled-zoo
 resolution, the live workflow matches main, and the developer receives the corrected application
 for visual acceptance.
 
+**Donor mapping for the main-parity correction.** The decision 17 files were read at
+`043d3b2e9c69caf99d1246f1408b3ad7194b7864` before editing. Each donor behavior this correction
+touches, and the owner it maps to here:
+
+| Donor behavior (main)                                                                   | Owner here                                        | State                   |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------- | ----------------------- |
+| `CallableArea`: search, then kwargs controls, then the param group                      | `@setta/workspace` item-area presentation         | done in Phase A         |
+| `Search`: value is `draftCallableName ?? codeInfoName` — canonical text, no placeholder | Go bootstrap + Python Canvas `callableDraft`      | this batch              |
+| `Search`: `keyComboActions.Enter` commits; `onTab` accepts completion or commits        | package `textValueExtensions` keymap              | open (third item)       |
+| `Search`: `onEscape` resets the draft to the canonical name unless a popup is open      | package Escape seam + Python Canvas revert        | open (third item)       |
+| `Search`: the pill's radius, padding, margin, type, and focus border                    | package `styles/sectionField.css`                 | done earlier in Phase B |
+| `Search`: spinner and callable-error right indicator                                    | Python Canvas end adornment and failure blocks    | done in Phase A         |
+| `Search`: LSP waiting state, tooltips, style themes, edge-handle measurement            | not ported — donor global state this plan refuses | out of scope            |
+| `ParamTextLabel`: the row shows the display name and nothing else                       | Python Canvas `ParameterItemRow` label            | this batch              |
+| `ParamUI` text branch: value editor whose placeholder is the parameter's `defaultVal`   | Python Canvas row placeholder                     | this batch              |
+| `ParamUI` text branch: the row control's own surface classes                            | package `item-row` presentation                   | done in Phase A         |
+| `TextInputCodeMirror`: idle highlighted layer swapped for a live editor on activation   | package `TextValueEditor`                         | done                    |
+| `getExtensions`: app bindings ahead of `completionKeymap` inside `Prec.highest`         | package `textValueExtensions` keymap              | open (third item)       |
+| `getOnCreateEditor`: focus, caret at the pressed point, and its zoomed-caret fix        | package `onCreateEditor`                          | open (sixth item)       |
+| `useCodeMirrorStyle`: GitHub light/dark themes over a transparent background            | package `textValueTheme`                          | done                    |
+
+Nothing in that mapping moves main's project store, OpenAPI transport, share/deployment state, or
+LSP hooks into either package.
+
+**Canonical startup and parameter-row record.** This correction's first, second, and fourth items
+are implemented; its third, fifth, and sixth remain open.
+
+The demo's `math.sqrt` is now a real commit rather than sample copy. `Store.BootstrapShippedExample`
+commits the shipped expression through `CommitCallable` — the same provider-backed transaction every
+later edit uses — and `serve` runs it after the store is built and before `ServeLoopback` accepts a
+request. The first GET therefore returns revision 2 with the committed callable, the real
+provider-derived `x` parameter, and `state.Square_Root = math.sqrt()`, measured live at 0.52 s to
+first response, so neither the wrapper's readiness window nor the browser harness's has to move. No
+HTTP route, generated contract, code-generation algorithm, or LSP provider changed, and the frontend
+still hard-codes no value, parameter, signature, diagnostic, or generated source. An unavailable
+provider fails the bootstrap rather than serving an empty demo, which is what makes the state real.
+
+With the value canonical, the callable field's `math.sqrt` placeholder is gone: the idle layer
+renders a placeholder inside the same accessible text box as a value, which is exactly how sample
+copy passed for committed state. The local draft is unchanged and still separate for ordinary
+edit behavior.
+
+The parameter row is main's ordinary text parameter. `ParamTextLabel` shows the display name alone,
+so the row's `passing style · type · default` line is gone, and `ParameterItemData` no longer
+carries `passingStyle` or `typeAnnotation` at all — the canonical `ParameterV1` still does, where
+code generation and diagnostics read them. The invented `Python expression` placeholder is replaced
+by main's `defaultVal`, so a parameter with a default offers it and `math.sqrt`'s `x`, which has
+none, offers nothing. The label stylesheet collapses to main's one truncating semibold line at its
+`font-semibold` weight, inheriting the package's own section text colour. The retained Args filter
+now searches the row's visible name, which is all the row shows.
+
+The capture harness no longer prepares its own subject. `commitOrdinarySectionState` — which
+selected the completion, committed it, and typed a parameter value before recording — is deleted;
+the harness waits for the canonical first render instead. That silent setup is why the rejected
+bundle certified a state the shipped application never booted into.
+
+Proofs: two `project` cases prove the bootstrap commits through the provider path with the ordinary
+single signature request and that a provider failure leaves the store untouched rather than serving
+an empty demo. Two `CallableSection` cases prove the row renders main's name-only label with no
+analyzer vocabulary and no placeholder on either editor, and that a real default becomes the value
+editor's placeholder. The projection and registry cases pin the narrowed item data and the
+name-only searchable text. In the production walkthrough a new raw-first-render assertion runs
+before any mutation and compares the rendered surface against the canonical response rather than a
+remembered string: the callable field, the `x` value editor, and the generated reader must each
+show the project's own text, the row must be labelled with the canonical name, and the section must
+not spell `positional`, `keyword only`, or `_SupportsFloat`. Because the field is never empty now,
+the walkthrough's two field-parity passes both compare text colour and the split
+`fieldValueTypeProperties` list is gone.
+
+Verification for this batch: `code-policy check` over the twelve changed files reports only the
+`quality.deadCode` finding on `apps/python-canvas/vitest.setup.ts` this plan already reports, over a
+file this batch does not touch. `code-policy test --changed --base addbd01be` passes, and the
+authorized `code-policy test --recommended --base addbd01be` passes all three suites it selects —
+the Python Canvas backend focused suite, the frontend focused suite (40 tests), and the production
+browser walkthrough against the production builds, the real Go service, pinned Basedpyright, and
+headless Chrome at 1440x900 device scale 1. The Python Canvas TypeScript project is clean. Two
+negative controls bind the walkthrough to this fix: removing the bootstrap call fails it with _the
+first canonical response committed `{"callable":"","generatesItsCall":false,"parameterNames":[]}`_,
+and restoring the invented parameter placeholder fails it with _the x value editor rendered "Python
+expression" while the canonical project holds ""_. The callable field's own removed placeholder is
+bound by the component case instead, because a placeholder cannot render over a value.
+
+What remains in this correction: main's commit-key behavior with its Escape revert, the removal of
+the package's persistent per-section compositor promotion, and the focused field's inner horizontal
+line at enlarged zoom; then the raw-startup and settled-zoom captures, the read-only review, the
+supervisor's inspection, and developer visual acceptance. The bundle currently checked in at
+`docs/evidence/python-canvas-callable-presentation` was rendered from the rejected workflow and is
+superseded working evidence; the recapture this correction requires replaces it.
+
 ## Stop conditions
 
 Stop and request a scope decision if:

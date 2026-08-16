@@ -33,13 +33,13 @@ import {
   callableSectionStateScript,
   enterCallableField,
   fieldTypeProperties,
-  fieldValueTypeProperties,
+  firstParameterSelector,
   generatedDocumentSelector,
   generatedDocumentStateScript,
   idleCallableSelector,
   itemToolbarSelector,
   liveCallableSelector,
-  selectSqrtCompletion,
+  replaceDraftWithSqrtCompletion,
   waitForEnabledCallableField,
 } from "./callable-presentation.mjs";
 
@@ -80,6 +80,132 @@ function withFilterControls(body) {
     }
     ${body}
   })()`;
+}
+
+// The analyzer vocabulary main's ordinary parameter row never shows. The rejected candidate printed
+// the passing style and Basedpyright's own type spelling under the parameter name.
+const analyzerRowSpellings = ["positional", "keyword only", "_SupportsFloat"];
+
+// What the Go service has already committed by the time it answers its first request: the shipped
+// callable, its one provider-derived parameter, and the call they generate.
+const shippedExample = {
+  callable: "math.sqrt",
+  generatesItsCall: true,
+  parameterNames: ["x"],
+};
+
+// What the raw first render shows, read through accessible names and this app's own label class.
+// A value editor's idle layer renders its placeholder inside the same accessible text box, so the
+// text these reads return is exactly what a person sees — whether it came from the project or from
+// invented sample copy.
+function renderedSectionValuesScript(callableLabel, parameterLabel) {
+  return `(() => {
+    const section = document.querySelector(${JSON.stringify(callableSectionSelector)});
+    const callable = document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
+    const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
+    const label = document.querySelector(${JSON.stringify(firstParameterSelector)});
+    const generated = document
+      .querySelector(${JSON.stringify(generatedDocumentSelector)})
+      ?.querySelector('[role="textbox"]');
+    if (
+      !(section instanceof HTMLElement) ||
+      !(callable instanceof HTMLElement) ||
+      !(parameter instanceof HTMLElement) ||
+      !(label instanceof HTMLElement) ||
+      !(generated instanceof HTMLElement)
+    ) {
+      return null;
+    }
+    return {
+      callableValue: callable.textContent ?? "",
+      generatedSource: generated.textContent ?? "",
+      parameterLabel: label.textContent ?? "",
+      parameterValue: parameter.textContent ?? "",
+      sectionText: section.textContent ?? "",
+    };
+  })()`;
+}
+
+// The developer exercised the application from a raw launch instead of the capture harness's
+// prepared state and found that the harness had certified an experience no first render produces:
+// the backend booted an empty callable and the field painted `math.sqrt` as placeholder copy. This
+// runs before the walkthrough mutates anything, and it compares the rendered surface against the
+// canonical response rather than against a remembered string, so a placeholder standing in for a
+// value fails it.
+async function assertRawFirstRender(client, backendOrigin, callableLabel) {
+  const canonical = await fetchCanonicalSnapshot(backendOrigin);
+  const parameter = assertShippedExampleIsAlreadyCommitted(canonical);
+  const rendered = await waitFor(
+    client,
+    "the shipped example's committed callable and parameter on the first render",
+    renderedSectionValuesScript(callableLabel, `${parameter.name} expression`),
+  );
+  assertRenderedSectionIsCanonical(rendered, canonical, parameter);
+}
+
+// The Go service commits the demo through its own store before it answers a request, so the very
+// first response is already canonical rather than an empty callable a test has to fill in.
+function assertShippedExampleIsAlreadyCommitted(canonical) {
+  const committed = {
+    callable: canonical.callables?.[0]?.authoredExpression ?? null,
+    generatesItsCall:
+      canonical.generatedCode?.code?.includes(
+        "state.Square_Root = math.sqrt()",
+      ) === true,
+    parameterNames: (canonical.parameters ?? []).map(
+      (parameter) => parameter.name,
+    ),
+  };
+  assertCanonicalValue(
+    shippedExample,
+    committed,
+    `The first canonical response committed ${JSON.stringify(committed)} instead of the shipped example's ${JSON.stringify(shippedExample)}.`,
+  );
+  return canonical.parameters[0];
+}
+
+// Everything the section shows is the canonical project's own text. `math.sqrt` has no default, so
+// its parameter's canonical expression is empty and the row must render an empty value rather than
+// an invented `Python expression` placeholder.
+function assertRenderedSectionIsCanonical(rendered, canonical, parameter) {
+  assertRenderedValueIsCanonical(
+    "callable field",
+    rendered.callableValue,
+    canonical.callables[0].authoredExpression,
+  );
+  assertRenderedValueIsCanonical(
+    `${parameter.name} value editor`,
+    rendered.parameterValue,
+    parameter.authoredExpression,
+  );
+  assertRenderedValueIsCanonical(
+    "generated Python reader",
+    rendered.generatedSource,
+    // The reader lays each line out as its own block, so its text carries the canonical lines in
+    // order without the newlines between them.
+    canonical.generatedCode.code.split("\n").join(""),
+  );
+  if (rendered.parameterLabel !== parameter.name) {
+    throw new Error(
+      `The parameter row labelled itself ${JSON.stringify(rendered.parameterLabel)} instead of the canonical name ${JSON.stringify(parameter.name)}.`,
+    );
+  }
+  const spelled = analyzerRowSpellings.filter((spelling) =>
+    rendered.sectionText.includes(spelling),
+  );
+  if (spelled.length > 0) {
+    throw new Error(
+      `The Square Root section exposed raw analyzer metadata: ${spelled.join(", ")}.`,
+    );
+  }
+}
+
+function assertRenderedValueIsCanonical(control, rendered, canonical) {
+  if (rendered !== canonical) {
+    throw new Error(
+      `The ${control} rendered ${JSON.stringify(rendered)} on the first render while the canonical project holds ${JSON.stringify(canonical)}.`,
+    );
+  }
 }
 
 function toolbarButtonNamesScript(toolbarExpression) {
@@ -162,11 +288,7 @@ function assertNoStructuralParameterControls(names) {
 // The developer rejected the previous candidate because clicking the callable field changed its
 // dimensions and its type. Measure the donor pill idle, click it, and require that the same
 // surface comes back with only its border colour changed.
-async function assertCallableFieldActivationParity(
-  client,
-  callableLabel,
-  typeProperties,
-) {
+async function assertCallableFieldActivationParity(client, callableLabel) {
   await waitForEnabledCallableField(client, callableLabel);
   const idle = await evaluate(
     client,
@@ -185,7 +307,12 @@ async function assertCallableFieldActivationParity(
   if (live === null) {
     throw new Error("The live callable field did not render its surface.");
   }
-  assertCallableFieldParity(idle, live, typeProperties, walkthroughAppearance);
+  assertCallableFieldParity(
+    idle,
+    live,
+    fieldTypeProperties,
+    walkthroughAppearance,
+  );
 
   await pressEscape(client);
   await waitFor(
@@ -396,12 +523,9 @@ async function runWalkthrough(client, backendOrigin) {
     })()`,
   );
 
+  await assertRawFirstRender(client, backendOrigin, callableLabel);
   await assertCallableFirstComposition(client, callableLabel);
-  await assertCallableFieldActivationParity(
-    client,
-    callableLabel,
-    fieldTypeProperties,
-  );
+  await assertCallableFieldActivationParity(client, callableLabel);
   await assertCallableEditorLeadsKeyboardOrder(client, callableLabel);
 
   const generatedSource = await assertGeneratedDocumentPresentation(
@@ -424,18 +548,16 @@ async function runWalkthrough(client, backendOrigin) {
   }
 
   const beforeCompletion = await fetchCanonicalSnapshot(backendOrigin);
-  await selectSqrtCompletion(client, callableLabel);
+  await replaceDraftWithSqrtCompletion(client, callableLabel);
 
   await waitFor(
     client,
-    "first completion Enter changing only the callable draft",
+    "the selected completion changing only the callable draft",
     `(() => {
       const callable = document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
-      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
       const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
       const generatedEditor = generated?.querySelector('[role="textbox"]');
       return callable?.textContent === "math.sqrt" &&
-        parameter === null &&
         generatedEditor?.textContent === ${JSON.stringify(generatedSource)};
     })()`,
   );
@@ -453,7 +575,9 @@ async function runWalkthrough(client, backendOrigin) {
     `(() => {
       const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
       const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
-      return parameter instanceof HTMLElement && generated?.textContent?.includes("state.Square_Root = math.sqrt()") === true;
+      return parameter instanceof HTMLElement &&
+        parameter.getAttribute("aria-disabled") !== "true" &&
+        generated?.textContent?.includes("state.Square_Root = math.sqrt()") === true;
     })()`,
   );
 
@@ -510,13 +634,8 @@ async function runWalkthrough(client, backendOrigin) {
   assertDonorSectionComposition(cardComposition, walkthroughAppearance);
 
   await assertArgsFilterRemainsOperable(client, parameterLabel);
-  // The committed callable is the state the section spends its life in, so repeat the parity pass
-  // over the real value, where both layers render the same highlighted text.
-  await assertCallableFieldActivationParity(
-    client,
-    callableLabel,
-    fieldValueTypeProperties,
-  );
+  // The field has to keep the donor surface after a real edit round trip, not only on first paint.
+  await assertCallableFieldActivationParity(client, callableLabel);
 }
 
 function assertCompletionDidNotMutateCanonicalProject(before, after) {

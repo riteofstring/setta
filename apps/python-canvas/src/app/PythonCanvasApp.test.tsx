@@ -145,7 +145,8 @@ describe("PythonCanvasApp", () => {
     }
     expect(editor.getAttribute("aria-label")).toBe("Callable expression");
     expect(editor.dataset["presentation"]).toBe("section-field");
-    // The retained filter searches the text the row actually shows.
+    // The retained filter searches the text the row actually shows, which is main's visible
+    // parameter name and nothing the analyzer spells.
     expect(
       callable.getItemSearchableText({
         item: {
@@ -156,12 +157,10 @@ describe("PythonCanvasApp", () => {
             kind: "parameter",
             name: "x",
             parameterId: "parameter:square-root:1",
-            passingStyle: "positional_only",
-            typeAnnotation: "float",
           },
         },
       }),
-    ).toBe("x positional only · float");
+    ).toBe("x");
   });
 
   it("replaces a failed load with an alert and disposes the unused host", async () => {

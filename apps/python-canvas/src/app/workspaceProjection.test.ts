@@ -109,12 +109,13 @@ describe("Python Canvas workspace projection", () => {
     });
     expect(
       readParameterItemData(callable?.itemTree?.items[PARAMETER_ITEM_ID]?.data),
-    ).toMatchObject({
+    ).toEqual({
       authoredExpression: "missing_value",
+      default: null,
+      disabled: false,
       kind: "parameter",
       name: "x",
       parameterId: "parameter:square-root:1",
-      passingStyle: "positional_only",
     });
     expect(
       host.getSnapshot().sections[GENERATED_PYTHON_SECTION_ID]?.data,

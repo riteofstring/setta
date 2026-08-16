@@ -9,13 +9,10 @@ import {
   runAgainstProductionApp,
 } from "./browser-processes.mjs";
 import {
-  activateTextBox,
   clickElementCenter,
   evaluate,
-  insertText,
   labeledSelector,
   navigate,
-  pressEnter,
   pressEscape,
   setEmulatedAppearance,
   textBoxSelector,
@@ -36,24 +33,27 @@ import {
   donorGeneratedDocument,
   donorSectionComposition,
   enterCallableField,
-  fieldValueTypeProperties,
+  fieldTypeProperties,
   generatedDocumentSelector,
   generatedDocumentStateScript,
   idleCallableSelector,
   liveCallableSelector,
-  selectSqrtCompletion,
   waitForEnabledCallableField,
 } from "./callable-presentation.mjs";
 
 // The visual-acceptance capture: it drives the same production surface as the vertical-slice
-// walkthrough, puts the Square Root section into its ordinary committed state, and records the
-// four states this presentation correction is judged on — Callable idle and focused, Generated
-// Python idle and clicked — in both appearances, as complete section crops plus machine-readable
-// geometry and typography. It asserts the donor values while it records, so it can never file a
-// capture of a surface that has drifted, but a passing run is evidence for review rather than
-// acceptance.
+// walkthrough and records the four states this presentation correction is judged on — Callable
+// idle and focused, Generated Python idle and clicked — in both appearances, as complete section
+// crops plus machine-readable geometry and typography. It asserts the donor values while it
+// records, so it can never file a capture of a surface that has drifted, but a passing run is
+// evidence for review rather than acceptance.
 //
-// The crops are whole cards. The developer rejected the previous bundle because its component
+// It records the raw first render. An earlier version committed the sample callable and typed a
+// parameter value before recording, so the images certified a state the shipped application never
+// booted into while the real startup went unexamined. The demo's canonical commit is the Go
+// service's own, made before it answers a request.
+//
+// The crops are whole cards. The developer rejected an earlier bundle because its component
 // crops of the callable field hid the composition around them: the card's own padding, the gap
 // above the field, and the Args surface below it are exactly what the images have to show.
 
@@ -69,10 +69,13 @@ const generatedLabel = "Generated Python generated code, read-only";
 // Each crop keeps this much of the surrounding surface so the pill's own border, the generated
 // region's rounded ends, and their immediate context are all visible in the image.
 const cropMarginCssPx = 8;
+// The shipped example the Go service commits before it serves anything. The capture waits for it
+// rather than performing it.
 const committedCallable = "math.sqrt";
-const committedParameter = "3";
 
-async function waitForLoadedSection(client) {
+// The canonical first render: the committed callable, its provider-derived parameter row, and the
+// generated call. Nothing here mutates the project.
+async function waitForCanonicalSectionState(client) {
   await waitFor(
     client,
     "Python Canvas accessible controls",
@@ -84,42 +87,16 @@ async function waitForLoadedSection(client) {
     })()`,
   );
   await waitForEnabledCallableField(client, callableLabel);
-}
-
-// The state the section spends its life in: a committed callable and a real parameter value, which
-// is also the state main's reference captures show.
-async function commitOrdinarySectionState(client) {
-  await selectSqrtCompletion(client, callableLabel);
-  await pressEnter(client);
   await waitFor(
     client,
-    "the committed callable projecting its parameter",
-    `(() => {
-      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
-      return parameter instanceof HTMLElement && parameter.getAttribute("aria-disabled") !== "true";
-    })()`,
-  );
-  await activateTextBox(client, parameterLabel);
-  await insertText(client, committedParameter);
-  await waitFor(
-    client,
-    "the parameter value reaching generated Python",
-    `document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))})?.textContent?.includes(
-      "state.Square_Root__x = ${committedParameter}",
-    ) === true`,
-  );
-}
-
-async function waitForCommittedSectionState(client) {
-  await waitForLoadedSection(client);
-  await waitFor(
-    client,
-    "the committed callable and parameter after reload",
+    "the shipped example's committed callable, parameter, and generated call",
     `(() => {
       const callable = document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
+      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
       const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
       return callable?.textContent === ${JSON.stringify(committedCallable)} &&
-        generated?.textContent?.includes("state.Square_Root__x = ${committedParameter}") === true;
+        parameter instanceof HTMLElement &&
+        generated?.textContent?.includes("state.Square_Root = math.sqrt()") === true;
     })()`,
   );
 }
@@ -191,12 +168,7 @@ async function captureCallableStates(client, appearance) {
     `The focused ${appearance} callable field`,
   );
   // The committed value renders on both layers, so this compares text colour as well as metrics.
-  assertCallableFieldParity(
-    idle,
-    focused,
-    fieldValueTypeProperties,
-    appearance,
-  );
+  assertCallableFieldParity(idle, focused, fieldTypeProperties, appearance);
   const focusedComposition = await readSurfaceState(
     client,
     callableSectionStateScript,
@@ -297,18 +269,13 @@ function writeCapture(records, surface, appearance, entry) {
 }
 
 async function capture(client, previewOrigin) {
-  await setEmulatedAppearance(client, appearances[0]);
-  await navigate(client, previewOrigin);
-  await waitForLoadedSection(client);
-  await commitOrdinarySectionState(client);
-
   const records = [];
   for (const appearance of appearances) {
-    // Reload into the appearance so both passes start from the same boot path with nothing
-    // focused, selected, or mid-transition.
+    // Load into the appearance so both passes start from the same boot path with nothing focused,
+    // selected, or mid-transition.
     await setEmulatedAppearance(client, appearance);
     await navigate(client, previewOrigin);
-    await waitForCommittedSectionState(client);
+    await waitForCanonicalSectionState(client);
 
     const callable = await captureCallableStates(client, appearance);
     const generated = await captureGeneratedStates(client, appearance);
@@ -353,7 +320,6 @@ async function main() {
           browser: browserVersion,
           capturedAt,
           committedCallable,
-          committedParameter,
           cropMarginCssPx,
           sourceCommit,
           surface:

@@ -205,6 +205,9 @@ function projectParameterItemData(
   if (parameter === null) {
     return { kind: "empty" };
   }
+  // The row is main's ordinary text parameter, so it is projected the name, the authored value, and
+  // the real default. The canonical passing style and type annotation stay where code generation
+  // and diagnostics read them rather than becoming permanent row copy.
   return {
     authoredExpression: parameter.authoredExpression,
     default: parameter.default,
@@ -212,8 +215,6 @@ function projectParameterItemData(
     kind: "parameter",
     name: parameter.name,
     parameterId: parameter.id,
-    passingStyle: parameter.passingStyle,
-    typeAnnotation: parameter.typeAnnotation,
   };
 }
 

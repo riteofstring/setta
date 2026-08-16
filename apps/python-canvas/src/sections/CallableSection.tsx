@@ -1,9 +1,4 @@
 import {
-  PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V1,
-  PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1,
-  PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1,
-  PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1,
-  PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1,
   PROVIDER_AVAILABILITY_AVAILABLE_V1,
   PROVIDER_AVAILABILITY_UNAVAILABLE_V1,
   PROVIDER_BASEDPYRIGHT_V1,
@@ -11,7 +6,6 @@ import {
   PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1,
   PROVIDER_LIFECYCLE_STATE_PENDING_V1,
   PROVIDER_LIFECYCLE_STATE_READY_V1,
-  type ParameterPassingStyleV1,
   type ProviderAvailabilityV1,
   type ProviderLifecycleStateV1,
   type ProviderV1,
@@ -48,6 +42,9 @@ export type CallableSectionData = {
   };
 };
 
+// The row shows what main's ordinary text parameter shows: its name, its value editor, and the
+// real default behind an empty one. Passing style and the provider's type spelling stay in the
+// canonical backend contract, where code generation and diagnostics own them.
 export type ParameterItemData =
   | { kind: "empty" }
   | {
@@ -57,8 +54,6 @@ export type ParameterItemData =
       kind: "parameter";
       name: string;
       parameterId: string;
-      passingStyle: ParameterPassingStyleV1;
-      typeAnnotation: string;
     };
 
 export function readCallableSectionData(value: unknown): CallableSectionData {
@@ -119,8 +114,6 @@ export function readParameterItemData(value: unknown): ParameterItemData {
     "kind",
     "name",
     "parameterId",
-    "passingStyle",
-    "typeAnnotation",
   ]);
   if (typeof value.disabled !== "boolean") {
     throw new Error("Callable parameter item disabled must be a boolean.");
@@ -135,11 +128,6 @@ export function readParameterItemData(value: unknown): ParameterItemData {
     kind: "parameter",
     name: readNonBlankString(value.name, "parameter.name"),
     parameterId: readStableId(value.parameterId, "parameter.parameterId"),
-    passingStyle: readPassingStyle(value.passingStyle),
-    typeAnnotation: readString(
-      value.typeAnnotation,
-      "parameter.typeAnnotation",
-    ),
   };
 }
 
@@ -147,6 +135,10 @@ export function readParameterItemData(value: unknown): ParameterItemData {
 // replaces the previous large label and the idle paragraph about what Basedpyright does after a
 // commit; ordinary pending state is a small adornment plus an app-owned live region, and only
 // genuine failures still claim a visible block.
+//
+// The field carries no placeholder. Like main's callable search it renders the canonical committed
+// expression, which the shipped demo commits before its first response; a placeholder here painted
+// `math.sqrt` as sample copy over an empty callable that no snapshot contained.
 export function CallableExpressionField() {
   const mutation = usePythonCanvasMutationContext();
   const pending = mutation.pendingDescription !== null;
@@ -166,7 +158,6 @@ export function CallableExpressionField() {
         language="python"
         onCommit={mutation.onCallableCommit}
         onValueChange={mutation.onCallableDraftChange}
-        placeholder="math.sqrt"
         presentation="section-field"
         sectionId={CALLABLE_SECTION_ID}
         singleLine
@@ -220,24 +211,27 @@ export function parameterItemSearchableText(item: { data?: unknown }): string {
   if (data.kind === "empty") {
     return "";
   }
-  return `${data.name} ${parameterMetadata(data)}`;
+  return data.name;
 }
 
+// Main's ordinary text parameter: the display name, then the value editor. The rejected candidate
+// printed the analyzer's passing style and type spelling under the name and offered a generic
+// `Python expression` placeholder no default supplies. A placeholder here means exactly what it
+// means in main — the value this parameter takes when the row is left empty — so a parameter
+// without a default shows none.
 function ParameterItemRow({ context }: { context: ItemRowRenderContext }) {
   const mutation = usePythonCanvasMutationContext();
   const data = readParameterItemData(context.item.data);
   if (data.kind === "empty") {
     return null;
   }
-  const metadata = parameterMetadata(data);
   return (
     <>
       <WorkspaceItemLabel
         className="python-canvas-parameter-label"
         isGroup={false}
       >
-        <span>{data.name}</span>
-        <span className="python-canvas-parameter-metadata">{metadata}</span>
+        {data.name}
       </WorkspaceItemLabel>
       <TextValueEditor
         ariaLabel={`${data.name} expression`}
@@ -248,7 +242,7 @@ function ParameterItemRow({ context }: { context: ItemRowRenderContext }) {
         onValueChange={(value) =>
           mutation.onParameterExpressionChange(data.parameterId, value)
         }
-        placeholder="Python expression"
+        placeholder={data.default ?? undefined}
         sectionId={context.sectionId}
         singleLine
         value={data.authoredExpression}
@@ -277,34 +271,6 @@ function providerFailureMessage(
     return "Basedpyright is unavailable. Try the change again when it is ready.";
   }
   return null;
-}
-
-function parameterMetadata(
-  data: Exclude<ParameterItemData, { kind: "empty" }>,
-): string {
-  const parts = [passingStyleLabel(data.passingStyle)];
-  if (data.typeAnnotation !== "") {
-    parts.push(data.typeAnnotation);
-  }
-  if (data.default !== null) {
-    parts.push(`default ${data.default}`);
-  }
-  return parts.join(" · ");
-}
-
-function passingStyleLabel(style: ParameterPassingStyleV1): string {
-  switch (style) {
-    case PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1:
-      return "positional only";
-    case PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1:
-      return "positional or keyword";
-    case PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V1:
-      return "keyword only";
-    case PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1:
-      return "variadic positional";
-    case PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1:
-      return "variadic keyword";
-  }
 }
 
 function readProviderStatus(
@@ -367,21 +333,6 @@ function readWorkspaceDiagnostic(
     ),
     severity,
   };
-}
-
-function readPassingStyle(value: unknown): ParameterPassingStyleV1 {
-  switch (value) {
-    case PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1:
-    case PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1:
-    case PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V1:
-    case PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1:
-    case PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1:
-      return value;
-    default:
-      throw new Error(
-        "Callable parameter item has an unsupported passing style.",
-      );
-  }
 }
 
 function requireExactFields(

@@ -22,6 +22,11 @@ const (
 	pythonPrefix           = "import math"
 	pythonSuffix           = "state = SettaState()"
 
+	// The expression the shipped Square Root example demonstrates. It is committed
+	// through the ordinary provider-backed path at startup, so nothing downstream
+	// has to invent it.
+	squareRootCallableExpression = "math.sqrt"
+
 	maxAuthoredExpressionBytes = 16 * 1024
 )
 
@@ -146,6 +151,18 @@ func InitialProjectSnapshot() contracts.ProjectSnapshotV1 {
 		panic(fmt.Sprintf("build initial Python Canvas project: %v", err))
 	}
 	return state.snapshot()
+}
+
+// BootstrapShippedExample commits the shipped Square Root example through the
+// same provider-backed transaction every later edit uses, so the first canonical
+// response already carries the real signature-derived parameter and its
+// generated Python. A caller runs it before the service accepts requests; the
+// provider owning the signature is what makes this state real rather than a
+// fixture, so an unavailable provider fails here instead of serving an empty
+// demo.
+func (store *Store) BootstrapShippedExample(ctx context.Context) error {
+	_, err := store.CommitCallable(ctx, initialProjectID, squareRootCallableID, squareRootCallableExpression)
+	return err
 }
 
 // Snapshot returns a defensive canonical response for the current revision.

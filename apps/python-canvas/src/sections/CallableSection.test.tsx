@@ -8,6 +8,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   editorProps: [] as Array<Record<string, unknown>>,
+  // The row the mocked item list renders. Every `render` call sets it.
+  parameterItem: { data: undefined as unknown, id: "" },
 }));
 
 vi.mock("@setta/workspace", () => ({
@@ -19,16 +21,20 @@ vi.mock("@setta/workspace", () => ({
       </div>
     );
   },
-  WorkspaceItemLabel: ({ children }: { children?: ReactNode }) => (
-    <>{children}</>
-  ),
+  WorkspaceItemLabel: ({
+    children,
+    className,
+  }: {
+    children?: ReactNode;
+    className?: string;
+  }) => <p className={className}>{children}</p>,
   WorkspaceItemList: ({
     renderItem,
   }: {
     renderItem: (context: unknown) => ReactNode;
   }) =>
     renderItem({
-      item: parameterItem(),
+      item: mocks.parameterItem,
       sectionId: "python-canvas:callable",
     }),
 }));
@@ -158,25 +164,33 @@ describe("CallableSection", () => {
     );
   });
 
-  it("projects the row's own name and metadata as the filter's searchable text", () => {
-    expect(parameterItemSearchableText(parameterItem())).toBe(
-      "x positional only",
+  it("projects the row's own visible name as the filter's searchable text", () => {
+    expect(parameterItemSearchableText(parameterItem())).toBe("x");
+    expect(parameterItemSearchableText(parameterItemWithDefault())).toBe(
+      "tolerance",
     );
-    expect(
-      parameterItemSearchableText({
-        data: {
-          authoredExpression: "3",
-          default: "1.0",
-          disabled: false,
-          kind: "parameter",
-          name: "tolerance",
-          parameterId: "parameter:square-root:2",
-          passingStyle: "keyword_only",
-          typeAnnotation: "float",
-        },
-      }),
-    ).toBe("tolerance keyword only · float · default 1.0");
     expect(parameterItemSearchableText({ data: { kind: "empty" } })).toBe("");
+  });
+
+  it("renders main's ordinary text parameter rather than analyzer metadata", () => {
+    render();
+
+    // Main's row shows the display name and nothing else. The rejected candidate printed the
+    // passing style and the provider's own type spelling underneath it.
+    const label = container?.querySelector(".python-canvas-parameter-label");
+    expect(label?.textContent).toBe("x");
+    expect(container?.textContent).not.toContain("positional");
+    expect(container?.textContent).not.toContain("_SupportsFloatOrIndex");
+    // `math.sqrt`'s parameter has no default, so its empty value editor offers no invented
+    // placeholder, and neither does the callable field above it.
+    expect(renderedEditor("x expression").placeholder).toBeUndefined();
+    expect(renderedEditor("Callable expression").placeholder).toBeUndefined();
+  });
+
+  it("offers a real default as the value editor's placeholder", () => {
+    render({}, callableData(), parameterItemWithDefault());
+
+    expect(renderedEditor("tolerance expression").placeholder).toBe("1.0");
   });
 });
 
@@ -188,7 +202,9 @@ function render(
     React.ComponentProps<typeof PythonCanvasMutationContext.Provider>["value"]
   > = {},
   data: CallableSectionData = callableData(),
+  item: { data: unknown; id: string } = parameterItem(),
 ) {
+  mocks.parameterItem = item;
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -224,6 +240,7 @@ function renderedEditor(ariaLabel: string): Record<string, unknown> {
   return props;
 }
 
+// The real `math.sqrt` parameter: a positional `x` with no default.
 function parameterItem(): { data: unknown; id: string } {
   return {
     data: {
@@ -233,8 +250,20 @@ function parameterItem(): { data: unknown; id: string } {
       kind: "parameter",
       name: "x",
       parameterId: "parameter:square-root:1",
-      passingStyle: "positional_only",
-      typeAnnotation: "",
+    },
+    id: "python-canvas:callable:parameter",
+  };
+}
+
+function parameterItemWithDefault(): { data: unknown; id: string } {
+  return {
+    data: {
+      authoredExpression: "",
+      default: "1.0",
+      disabled: false,
+      kind: "parameter",
+      name: "tolerance",
+      parameterId: "parameter:square-root:2",
     },
     id: "python-canvas:callable:parameter",
   };

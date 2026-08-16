@@ -47,6 +47,44 @@ func TestInitialProjectSnapshotIsCanonicalV1State(t *testing.T) {
 	}
 }
 
+func TestBootstrapShippedExampleCommitsTheDemoThroughTheProviderPath(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	store, provider := newStoreForTest(t, writer, func(ctx context.Context, request SignatureRequest) (CallableSignature, error) {
+		requireSquareRootSignatureRequest(t, ctx, request)
+		return squareRootSignature(), nil
+	})
+
+	if err := store.BootstrapShippedExample(context.Background()); err != nil {
+		t.Fatalf("BootstrapShippedExample() error = %v", err)
+	}
+
+	snapshot := store.Snapshot()
+	requireCallableReconciliation(t, snapshot)
+	requireReconciledParameter(t, snapshot)
+	const wantCode = "import math\n\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n\nstate = SettaState()"
+	requireMaterializedGeneratedCode(t, snapshot, writer, wantCode, "bootstrap")
+	if provider.resolveCalls != 1 {
+		t.Fatalf("bootstrap signature requests = %d, want the ordinary commit path's single request", provider.resolveCalls)
+	}
+}
+
+func TestBootstrapShippedExampleFailsRatherThanServingAnEmptyDemo(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	resolverErr := errors.New("signature unavailable")
+	store, _ := newStoreForTest(t, writer, func(context.Context, SignatureRequest) (CallableSignature, error) {
+		return CallableSignature{}, resolverErr
+	})
+	uncommitted := store.Snapshot()
+	uncommittedCode := writer.code
+
+	err := store.BootstrapShippedExample(context.Background())
+
+	if !errors.Is(err, resolverErr) {
+		t.Fatalf("BootstrapShippedExample() error = %v, want the provider failure", err)
+	}
+	requireUnchangedStore(t, store, writer, uncommitted, uncommittedCode)
+}
+
 func TestStoreAutomaticallyReconcilesCallableAndParameter(t *testing.T) {
 	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
 	store, _ := newStoreForTest(t, writer, func(ctx context.Context, request SignatureRequest) (CallableSignature, error) {

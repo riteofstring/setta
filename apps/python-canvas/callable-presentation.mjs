@@ -2,6 +2,7 @@ import {
   clickElementCenter,
   insertText,
   pressEnter,
+  selectAll,
   textBoxSelector,
   waitFor,
 } from "./browser-page.mjs";
@@ -24,7 +25,7 @@ export const callableSectionSelector =
 export const itemToolbarSelector = "[data-workspace-item-toolbar]";
 // The card's own header landmark, and the app's own first parameter label below the toolbar.
 const sectionHeaderSelector = `${callableSectionSelector} header`;
-const firstParameterSelector = ".python-canvas-parameter-label";
+export const firstParameterSelector = ".python-canvas-parameter-label";
 export const generatedDocumentSelector =
   '[data-workspace-section-editor="generated-document"]';
 // The block's own lines and its two ends, through the package's documented per-line hook. A region
@@ -63,15 +64,15 @@ const compositionToleranceCssPx = 1;
 // not by a layout step.
 const fieldGeometryToleranceCssPx = 1;
 
-// An empty field shows its own muted placeholder layer against CodeMirror's placeholder, so text
-// colour is compared only where both layers render the same committed value.
+// The shipped demo commits its callable before its first response, so this field always renders a
+// real value on both layers and text colour is compared with the rest of its type.
 export const fieldTypeProperties = [
+  "color",
   "fontFamily",
   "fontSize",
   "fontWeight",
   "lineHeight",
 ];
-export const fieldValueTypeProperties = [...fieldTypeProperties, "color"];
 
 // Frozen main's callable field (`SectionSearch`), as the package's scoped stylesheet ports it:
 // one 16px-radius pill with a one-pixel border, 4px block and 10px inline padding, 2px inline
@@ -607,12 +608,18 @@ export function assertNonEditingGeneratedText(stage, state) {
   }
 }
 
-// The product walkthrough's first Enter: it selects the accessible `sqrt` completion and changes
-// only the local draft. The second Enter, which commits, stays with the caller so the walkthrough
-// can prove the canonical project between them.
-export async function selectSqrtCompletion(client, callableLabel) {
+// The field opens on its canonical committed value, so the draft is replaced rather than typed
+// into. This selects the accessible `sqrt` completion and changes only the local draft; the commit
+// stays with the caller so the walkthrough can prove the canonical project between them.
+export async function replaceDraftWithSqrtCompletion(client, callableLabel) {
   await enterCallableField(client, callableLabel);
+  await selectAll(client);
   await insertText(client, "math.sq");
+  await waitFor(
+    client,
+    "the callable draft holding the replaced text",
+    `document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))})?.textContent === "math.sq"`,
+  );
   await waitFor(
     client,
     "accessible sqrt completion",
@@ -621,7 +628,7 @@ export async function selectSqrtCompletion(client, callableLabel) {
   await pressEnter(client);
   await waitFor(
     client,
-    "first completion Enter changing the callable draft",
+    "the completion changing the callable draft",
     `document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))})?.textContent === "math.sqrt"`,
   );
 }
