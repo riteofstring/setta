@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-**Status: Phase A is complete and Phase B is next.**
+**Status: Phases A and B are complete and Phase C is next.**
 
 This is the bounded implementation plan for the first useful Python Canvas consumer of
 `@setta/workspace`. It replaces the previous contents of this document, which described a fixed
@@ -422,13 +422,22 @@ uses generic editor labels, IDs, and values so the package stays consumer-neutra
 
 ### Phase B — reviewed app and policy bootstrap
 
-- [ ] App and policy bootstrap complete
+- [x] App and policy bootstrap complete
 
 Add the minimal private frontend and Go roots, generated transport types, initial canonical snapshot,
 strict HTTP decoding, frontend host lifecycle, and the protected Code Policy declarations above.
 
 **Boundary:** `doctor --strict`, both quick suites, contract drift, the cross-language boundary
 fixture, and both production builds pass from the new trusted base.
+
+**Implementation evidence (2026-08-17):** the private app has one Go-owned V1 snapshot contract,
+one strict frontend decoder, one app-owned Workspace host lifecycle, and exactly one projected
+Square Root Callable section plus the read-only Generated Python section. The accepted policy
+bootstrap owns separate backend and frontend modules, generated artifacts, focused suites,
+contract drift, the Go/TypeScript fixture boundary, and both builds. `agents check`,
+`doctor --strict`, architecture, the eight-suite recommended profile, all declared app checks, and
+an independent exact-commit review passed. No compatibility, legacy, migration, or transitional
+surface was introduced.
 
 ### Phase C — Go project and automatic codegen core
 
