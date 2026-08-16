@@ -47,6 +47,41 @@ describe("parseProjectSnapshotV1", () => {
     ).toThrow(ProjectSnapshotValidationError);
   });
 
+  it("accepts explicit available, pending, and failed provider states", () => {
+    expect(
+      parseProjectSnapshotV1({
+        ...projectSnapshotFixture,
+        providerStatus: {
+          provider: "basedpyright",
+          status: "available",
+          state: "ready",
+        },
+      }).providerStatus,
+    ).toEqual({ provider: "basedpyright", status: "available", state: "ready" });
+
+    expect(
+      parseProjectSnapshotV1({
+        ...projectSnapshotFixture,
+        providerStatus: {
+          provider: "basedpyright",
+          status: "available",
+          state: "pending",
+        },
+      }).providerStatus,
+    ).toEqual({ provider: "basedpyright", status: "available", state: "pending" });
+
+    expect(
+      parseProjectSnapshotV1({
+        ...projectSnapshotFixture,
+        providerStatus: {
+          provider: "basedpyright",
+          status: "unavailable",
+          state: "failed",
+        },
+      }).providerStatus,
+    ).toEqual({ provider: "basedpyright", status: "unavailable", state: "failed" });
+  });
+
   it("rejects dangling IDs, invalid ranges, and dangling diagnostic targets", () => {
     const [callable] = projectSnapshotFixture.callables;
     if (callable === undefined) {

@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-**Status: Phases A through C are complete and Phase D is next.**
+**Status: Phases A through D are complete and Phase E is next.**
 
 This is the bounded implementation plan for the first useful Python Canvas consumer of
 `@setta/workspace`. It replaces the previous contents of this document, which described a fixed
@@ -471,7 +471,7 @@ Focused tests cover all three corrections and preserve candidate/file atomicity.
 
 ### Phase D — real Basedpyright integration
 
-- [ ] Basedpyright integration complete
+- [x] Basedpyright integration complete
 
 Implement the bounded LSP process/session, signature snapshot, parameter normalization, canonical
 document synchronization, diagnostic waiting, UTF-16 conversion, source-range mapping, and explicit
@@ -490,6 +490,18 @@ Basedpyright executable for `math.sqrt`, `missing_value`, and `3`.
 **Boundary:** the real server produces the `x` parameter, maps the undefined-name diagnostic to its
 stable parameter ID, and clears it on the next exact generated revision without leaked temporary
 files or processes.
+
+**Implementation evidence (2026-08-18):** `internal/lsp` owns one pinned
+Basedpyright JSON-RPC session with explicit framing, versioned document synchronization, temporary
+signature snapshots, bounded diagnostic waiting, UTF-16 position conversion, signature parameter
+normalization, and orderly shutdown. The Go project now owns the provider lifecycle and maps only
+overlapping normalized diagnostic byte ranges to renderer-owned stable IDs; pending and failed
+provider states remain explicit canonical responses. Focused protocol and range tests cover malformed
+frames, UTF-16 boundaries, signature metadata, mapping, timeout/failure state, and cleanup. The real
+pinned-server integration resolves `math.sqrt` to positional-only `x`, maps `missing_value` to that
+parameter, clears it after `3` at the next revision, and removes the temporary workspace on close.
+`go test ./...`, the Python Canvas frontend test/build, generated-contract drift, the changed profile,
+and the recommended ordinary Code Policy profile passed.
 
 ### Phase E — frontend projection and browser acceptance
 

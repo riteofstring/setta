@@ -94,11 +94,19 @@ const ProviderBasedpyrightV1 ProviderV1 = "basedpyright"
 
 type ProviderAvailabilityV1 string
 
-const ProviderAvailabilityUnavailableV1 ProviderAvailabilityV1 = "unavailable"
+const (
+	ProviderAvailabilityAvailableV1   ProviderAvailabilityV1 = "available"
+	ProviderAvailabilityUnavailableV1 ProviderAvailabilityV1 = "unavailable"
+)
 
 type ProviderLifecycleStateV1 string
 
-const ProviderLifecycleStateNotStartedV1 ProviderLifecycleStateV1 = "not_started"
+const (
+	ProviderLifecycleStateNotStartedV1 ProviderLifecycleStateV1 = "not_started"
+	ProviderLifecycleStateReadyV1      ProviderLifecycleStateV1 = "ready"
+	ProviderLifecycleStatePendingV1    ProviderLifecycleStateV1 = "pending"
+	ProviderLifecycleStateFailedV1     ProviderLifecycleStateV1 = "failed"
+)
 
 type ProviderStatusV1 struct {
 	Provider ProviderV1               `json:"provider"`
@@ -272,17 +280,54 @@ func requireStableID(field, value string) error {
 	return nil
 }
 
+// Validate ensures a provider status remains inside the V1 transport
+// vocabulary before it becomes part of a canonical snapshot.
+func (status ProviderStatusV1) Validate() error {
+	return validateProviderStatus(status)
+}
+
 func validateProviderStatus(status ProviderStatusV1) error {
 	if status.Provider != ProviderBasedpyrightV1 {
 		return ValidationError{Field: "providerStatus.provider", Problem: "is not supported by V1"}
 	}
-	if status.Status != ProviderAvailabilityUnavailableV1 {
+	if !isProviderAvailabilityV1(status.Status) {
 		return ValidationError{Field: "providerStatus.status", Problem: "is not supported by V1"}
 	}
-	if status.State != ProviderLifecycleStateNotStartedV1 {
+	if !isProviderLifecycleStateV1(status.State) {
 		return ValidationError{Field: "providerStatus.state", Problem: "is not supported by V1"}
 	}
+	switch status.State {
+	case ProviderLifecycleStateNotStartedV1, ProviderLifecycleStateFailedV1:
+		if status.Status != ProviderAvailabilityUnavailableV1 {
+			return ValidationError{Field: "providerStatus", Problem: "has an invalid availability/lifecycle combination"}
+		}
+	case ProviderLifecycleStateReadyV1, ProviderLifecycleStatePendingV1:
+		if status.Status != ProviderAvailabilityAvailableV1 {
+			return ValidationError{Field: "providerStatus", Problem: "has an invalid availability/lifecycle combination"}
+		}
+	}
 	return nil
+}
+
+func isProviderAvailabilityV1(availability ProviderAvailabilityV1) bool {
+	switch availability {
+	case ProviderAvailabilityAvailableV1, ProviderAvailabilityUnavailableV1:
+		return true
+	default:
+		return false
+	}
+}
+
+func isProviderLifecycleStateV1(state ProviderLifecycleStateV1) bool {
+	switch state {
+	case ProviderLifecycleStateNotStartedV1,
+		ProviderLifecycleStateReadyV1,
+		ProviderLifecycleStatePendingV1,
+		ProviderLifecycleStateFailedV1:
+		return true
+	default:
+		return false
+	}
 }
 
 func isPassingStyleV1(style ParameterPassingStyleV1) bool {

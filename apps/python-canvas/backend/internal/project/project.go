@@ -32,6 +32,7 @@ var (
 	ErrCallableExpressionInvalid   = errors.New("project: callable expression is invalid")
 	ErrParameterExpressionInvalid  = errors.New("project: parameter expression is invalid")
 	ErrSignatureResolverRequired   = errors.New("project: signature resolver is required")
+	ErrLSPProviderRequired         = errors.New("project: LSP provider is required")
 	ErrUnsupportedSignature        = errors.New("project: callable signature is unsupported")
 	ErrStoreClosed                 = errors.New("project: store is closed")
 	ErrGeneratedFileWriterRequired = errors.New("project: generated file writer is required")
@@ -86,10 +87,11 @@ func (err UnsupportedSignatureError) Unwrap() error {
 // Store serializes project mutations and owns the canonical generated-file
 // artifact for its lifetime.
 type Store struct {
-	mu     sync.Mutex
-	state  canonicalState
-	writer GeneratedFileWriter
-	closed bool
+	mu       sync.Mutex
+	state    canonicalState
+	writer   GeneratedFileWriter
+	provider LSPProvider
+	closed   bool
 }
 
 type canonicalState struct {
@@ -98,6 +100,8 @@ type canonicalState struct {
 	parameter            *parameterState
 	nextParameterOrdinal int
 	rendered             codegen.Result
+	diagnostics          []contracts.DiagnosticV1
+	providerStatus       contracts.ProviderStatusV1
 }
 
 type callableState struct {
@@ -119,6 +123,19 @@ type parameterState struct {
 // NewStore creates the canonical V1 project and materializes its initial
 // generated file before making the store available to callers.
 func NewStore(writer GeneratedFileWriter) (*Store, error) {
+	return newStore(writer, nil)
+}
+
+// NewStoreWithProvider creates a store that owns one real LSP provider for
+// the lifetime of its generated document workspace.
+func NewStoreWithProvider(writer GeneratedFileWriter, provider LSPProvider) (*Store, error) {
+	if provider == nil {
+		return nil, ErrLSPProviderRequired
+	}
+	return newStore(writer, provider)
+}
+
+func newStore(writer GeneratedFileWriter, provider LSPProvider) (*Store, error) {
 	if writer == nil {
 		return nil, ErrGeneratedFileWriterRequired
 	}
@@ -129,7 +146,7 @@ func NewStore(writer GeneratedFileWriter) (*Store, error) {
 	if err := writer.Write(state.rendered.Code); err != nil {
 		return nil, fmt.Errorf("materialize initial generated Python: %w", err)
 	}
-	return &Store{state: state, writer: writer}, nil
+	return &Store{state: state, writer: writer, provider: provider}, nil
 }
 
 // InitialProjectSnapshot returns the canonical uncommitted V1 project state.
@@ -197,12 +214,17 @@ func (store *Store) CommitCallable(
 		return contracts.ProjectSnapshotV1{}, ErrSignatureResolverRequired
 	}
 
-	candidate, snapshot, err := buildCallableCommitCandidate(ctx, store.state, normalizedExpression, resolver)
+	candidate, err := buildCallableCommitCandidate(ctx, store.state, normalizedExpression, resolver)
 	if err != nil {
 		return contracts.ProjectSnapshotV1{}, err
 	}
 	if err := store.writer.Write(candidate.rendered.Code); err != nil {
 		return contracts.ProjectSnapshotV1{}, fmt.Errorf("materialize generated Python: %w", err)
+	}
+	applyProviderSynchronization(ctx, store.provider, store.writer.Path(), &candidate)
+	snapshot, err := candidate.validatedSnapshot()
+	if err != nil {
+		return contracts.ProjectSnapshotV1{}, err
 	}
 	store.state = candidate
 	return snapshot, nil
@@ -251,6 +273,11 @@ func (store *Store) SetParameterExpression(
 	if err := store.writer.Write(candidate.rendered.Code); err != nil {
 		return contracts.ProjectSnapshotV1{}, fmt.Errorf("materialize generated Python: %w", err)
 	}
+	applyProviderSynchronization(context.Background(), store.provider, store.writer.Path(), &candidate)
+	snapshot, err = candidate.validatedSnapshot()
+	if err != nil {
+		return contracts.ProjectSnapshotV1{}, err
+	}
 	store.state = candidate
 	return snapshot, nil
 }
@@ -267,7 +294,16 @@ func (store *Store) Close() error {
 		return nil
 	}
 	store.closed = true
-	return store.writer.Close()
+	var problems []error
+	if store.provider != nil {
+		if err := store.provider.Close(); err != nil {
+			problems = append(problems, err)
+		}
+	}
+	if err := store.writer.Close(); err != nil {
+		problems = append(problems, err)
+	}
+	return errors.Join(problems...)
 }
 
 func newInitialState() (canonicalState, error) {
@@ -280,6 +316,8 @@ func newInitialState() (canonicalState, error) {
 			ParameterIDs: []string{},
 		},
 		nextParameterOrdinal: 1,
+		diagnostics:          []contracts.DiagnosticV1{},
+		providerStatus:       initialProviderStatus(),
 	}
 	if err := renderState(&state); err != nil {
 		return canonicalState{}, err
@@ -302,18 +340,18 @@ func buildCallableCommitCandidate(
 	state canonicalState,
 	expression string,
 	resolver SignatureResolver,
-) (canonicalState, contracts.ProjectSnapshotV1, error) {
+) (canonicalState, error) {
 	request, err := buildSignatureRequest(state, expression)
 	if err != nil {
-		return canonicalState{}, contracts.ProjectSnapshotV1{}, err
+		return canonicalState{}, err
 	}
 	signature, err := resolver.ResolveCallableSignature(ctx, request)
 	if err != nil {
-		return canonicalState{}, contracts.ProjectSnapshotV1{}, fmt.Errorf("resolve callable signature: %w", err)
+		return canonicalState{}, fmt.Errorf("resolve callable signature: %w", err)
 	}
 	resolvedParameter, err := normalizeSignature(signature)
 	if err != nil {
-		return canonicalState{}, contracts.ProjectSnapshotV1{}, err
+		return canonicalState{}, err
 	}
 
 	candidate := cloneState(state)
@@ -331,13 +369,12 @@ func buildCallableCommitCandidate(
 		Expression:     "",
 	}
 	if err := renderState(&candidate); err != nil {
-		return canonicalState{}, contracts.ProjectSnapshotV1{}, err
+		return canonicalState{}, err
 	}
-	snapshot, err := candidate.validatedSnapshot()
-	if err != nil {
-		return canonicalState{}, contracts.ProjectSnapshotV1{}, err
+	if _, err := candidate.validatedSnapshot(); err != nil {
+		return canonicalState{}, err
 	}
-	return candidate, snapshot, nil
+	return candidate, nil
 }
 
 func buildSignatureRequest(state canonicalState, expression string) (SignatureRequest, error) {
@@ -513,12 +550,8 @@ func (state canonicalState) snapshot() contracts.ProjectSnapshotV1 {
 			Body:         state.rendered.Body,
 			SourceRanges: ranges,
 		},
-		Diagnostics: []contracts.DiagnosticV1{},
-		ProviderStatus: contracts.ProviderStatusV1{
-			Provider: contracts.ProviderBasedpyrightV1,
-			Status:   contracts.ProviderAvailabilityUnavailableV1,
-			State:    contracts.ProviderLifecycleStateNotStartedV1,
-		},
+		Diagnostics:    append([]contracts.DiagnosticV1{}, state.diagnostics...),
+		ProviderStatus: state.providerStatus,
 	}
 }
 
@@ -531,6 +564,7 @@ func cloneState(state canonicalState) canonicalState {
 		clone.parameter = &parameter
 	}
 	clone.rendered.SourceRanges = append([]codegen.SourceRange(nil), state.rendered.SourceRanges...)
+	clone.diagnostics = append([]contracts.DiagnosticV1{}, state.diagnostics...)
 	return clone
 }
 

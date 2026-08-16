@@ -14,8 +14,12 @@ export const DIAGNOSTIC_SEVERITY_WARNING_V1 = "warning" as const;
 export const DIAGNOSTIC_SEVERITY_INFORMATION_V1 = "information" as const;
 
 export const PROVIDER_BASEDPYRIGHT_V1 = "basedpyright" as const;
+export const PROVIDER_AVAILABILITY_AVAILABLE_V1 = "available" as const;
 export const PROVIDER_AVAILABILITY_UNAVAILABLE_V1 = "unavailable" as const;
 export const PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1 = "not_started" as const;
+export const PROVIDER_LIFECYCLE_STATE_READY_V1 = "ready" as const;
+export const PROVIDER_LIFECYCLE_STATE_PENDING_V1 = "pending" as const;
+export const PROVIDER_LIFECYCLE_STATE_FAILED_V1 = "failed" as const;
 
 export type ProjectSnapshotVersionV1 = typeof PROJECT_SNAPSHOT_VERSION_V1;
 export type ParameterPassingStyleV1 =
@@ -29,8 +33,14 @@ export type DiagnosticSeverityV1 =
   | typeof DIAGNOSTIC_SEVERITY_WARNING_V1
   | typeof DIAGNOSTIC_SEVERITY_INFORMATION_V1;
 export type ProviderV1 = typeof PROVIDER_BASEDPYRIGHT_V1;
-export type ProviderAvailabilityV1 = typeof PROVIDER_AVAILABILITY_UNAVAILABLE_V1;
-export type ProviderLifecycleStateV1 = typeof PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1;
+export type ProviderAvailabilityV1 =
+  | typeof PROVIDER_AVAILABILITY_AVAILABLE_V1
+  | typeof PROVIDER_AVAILABILITY_UNAVAILABLE_V1;
+export type ProviderLifecycleStateV1 =
+  | typeof PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1
+  | typeof PROVIDER_LIFECYCLE_STATE_READY_V1
+  | typeof PROVIDER_LIFECYCLE_STATE_PENDING_V1
+  | typeof PROVIDER_LIFECYCLE_STATE_FAILED_V1;
 export type APIErrorCodeV1 = "invalid_request" | "method_not_allowed" | "not_found";
 
 export interface ProjectSnapshotV1 {

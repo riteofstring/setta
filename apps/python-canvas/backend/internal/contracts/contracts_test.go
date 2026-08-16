@@ -134,6 +134,30 @@ func TestProjectSnapshotV1ValidateRequiresStableDiagnosticTarget(t *testing.T) {
 	}
 }
 
+func TestProviderStatusV1ValidateAcceptsExplicitLSPStates(t *testing.T) {
+	for _, status := range []ProviderStatusV1{
+		{
+			Provider: ProviderBasedpyrightV1,
+			Status:   ProviderAvailabilityAvailableV1,
+			State:    ProviderLifecycleStateReadyV1,
+		},
+		{
+			Provider: ProviderBasedpyrightV1,
+			Status:   ProviderAvailabilityAvailableV1,
+			State:    ProviderLifecycleStatePendingV1,
+		},
+		{
+			Provider: ProviderBasedpyrightV1,
+			Status:   ProviderAvailabilityUnavailableV1,
+			State:    ProviderLifecycleStateFailedV1,
+		},
+	} {
+		if err := status.Validate(); err != nil {
+			t.Fatalf("ProviderStatusV1.Validate(%#v) error = %v", status, err)
+		}
+	}
+}
+
 func validSnapshotForTest() ProjectSnapshotV1 {
 	return ProjectSnapshotV1{
 		Version: ProjectSnapshotVersionV1,

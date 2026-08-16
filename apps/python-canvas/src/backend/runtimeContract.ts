@@ -8,9 +8,13 @@ import {
   PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1,
   PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1,
   PROJECT_SNAPSHOT_VERSION_V1,
+  PROVIDER_AVAILABILITY_AVAILABLE_V1,
   PROVIDER_AVAILABILITY_UNAVAILABLE_V1,
   PROVIDER_BASEDPYRIGHT_V1,
+  PROVIDER_LIFECYCLE_STATE_FAILED_V1,
   PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1,
+  PROVIDER_LIFECYCLE_STATE_PENDING_V1,
+  PROVIDER_LIFECYCLE_STATE_READY_V1,
   type CallableV1,
   type DiagnosticSeverityV1,
   type DiagnosticV1,
@@ -197,17 +201,39 @@ function parseProviderStatus(value: unknown): ProviderStatusV1 {
   if (provider !== PROVIDER_BASEDPYRIGHT_V1) {
     fail("providerStatus.provider", "is not supported by V1");
   }
-  if (status !== PROVIDER_AVAILABILITY_UNAVAILABLE_V1) {
+  if (
+    status !== PROVIDER_AVAILABILITY_AVAILABLE_V1 &&
+    status !== PROVIDER_AVAILABILITY_UNAVAILABLE_V1
+  ) {
     fail("providerStatus.status", "is not supported by V1");
   }
-  if (state !== PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1) {
+  if (
+    state !== PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1 &&
+    state !== PROVIDER_LIFECYCLE_STATE_READY_V1 &&
+    state !== PROVIDER_LIFECYCLE_STATE_PENDING_V1 &&
+    state !== PROVIDER_LIFECYCLE_STATE_FAILED_V1
+  ) {
     fail("providerStatus.state", "is not supported by V1");
+  }
+  if (
+    (state === PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1 ||
+      state === PROVIDER_LIFECYCLE_STATE_FAILED_V1) &&
+    status !== PROVIDER_AVAILABILITY_UNAVAILABLE_V1
+  ) {
+    fail("providerStatus", "has an invalid availability/lifecycle combination");
+  }
+  if (
+    (state === PROVIDER_LIFECYCLE_STATE_READY_V1 ||
+      state === PROVIDER_LIFECYCLE_STATE_PENDING_V1) &&
+    status !== PROVIDER_AVAILABILITY_AVAILABLE_V1
+  ) {
+    fail("providerStatus", "has an invalid availability/lifecycle combination");
   }
 
   return {
     provider: PROVIDER_BASEDPYRIGHT_V1,
-    status: PROVIDER_AVAILABILITY_UNAVAILABLE_V1,
-    state: PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1,
+    status,
+    state,
   };
 }
 
