@@ -488,6 +488,14 @@ field carries `data-workspace-section-field`: that
 attribute is the one documented hook for observing or capturing the surface, and no field class,
 inner structure, or CodeMirror internal is public.
 
+Both placements share the reference's editing keys. A supplied `completionProvider` offers its
+options in a popup that takes Tab to accept one and the first Escape to close itself. An
+unmodified Enter belongs to a declared `onCommit`, popup or no popup, so a single-line field
+commits the draft it is showing rather than needing a second press; a control that declares no
+`onCommit` leaves that Enter to the popup. The Escape that reaches the editor reports to the
+optional `onEscape` before the package returns focus to the owning section: a caller holding an
+uncommitted draft restores its own canonical value there, because the package never guesses one.
+
 An ordinary kind whose sections carry an `itemTree` may also register `createItem(context)`. The host
 returns one complete serializable item with a stable ID, empty `children`, and its domain defaults;
 `context.section` is a detached, deeply frozen snapshot. `insertWorkspaceItem`,

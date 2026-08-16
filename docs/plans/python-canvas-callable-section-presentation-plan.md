@@ -1347,8 +1347,8 @@ touches, and the owner it maps to here:
 | --------------------------------------------------------------------------------------- | ------------------------------------------------- | ----------------------- |
 | `CallableArea`: search, then kwargs controls, then the param group                      | `@setta/workspace` item-area presentation         | done in Phase A         |
 | `Search`: value is `draftCallableName ?? codeInfoName` — canonical text, no placeholder | Go bootstrap + Python Canvas `callableDraft`      | this batch              |
-| `Search`: `keyComboActions.Enter` commits; `onTab` accepts completion or commits        | package `textValueExtensions` keymap              | open (third item)       |
-| `Search`: `onEscape` resets the draft to the canonical name unless a popup is open      | package Escape seam + Python Canvas revert        | open (third item)       |
+| `Search`: `keyComboActions.Enter` commits; `onTab` accepts completion or commits        | package `textValueExtensions` keymap              | this batch              |
+| `Search`: `onEscape` resets the draft to the canonical name unless a popup is open      | package Escape seam + Python Canvas revert        | this batch              |
 | `Search`: the pill's radius, padding, margin, type, and focus border                    | package `styles/sectionField.css`                 | done earlier in Phase B |
 | `Search`: spinner and callable-error right indicator                                    | Python Canvas end adornment and failure blocks    | done in Phase A         |
 | `Search`: LSP waiting state, tooltips, style themes, edge-handle measurement            | not ported — donor global state this plan refuses | out of scope            |
@@ -1356,7 +1356,7 @@ touches, and the owner it maps to here:
 | `ParamUI` text branch: value editor whose placeholder is the parameter's `defaultVal`   | Python Canvas row placeholder                     | this batch              |
 | `ParamUI` text branch: the row control's own surface classes                            | package `item-row` presentation                   | done in Phase A         |
 | `TextInputCodeMirror`: idle highlighted layer swapped for a live editor on activation   | package `TextValueEditor`                         | done                    |
-| `getExtensions`: app bindings ahead of `completionKeymap` inside `Prec.highest`         | package `textValueExtensions` keymap              | open (third item)       |
+| `getExtensions`: app bindings ahead of `completionKeymap` inside `Prec.highest`         | package `textValueExtensions` keymap              | this batch              |
 | `getOnCreateEditor`: focus, caret at the pressed point, and its zoomed-caret fix        | package `onCreateEditor`                          | open (sixth item)       |
 | `useCodeMirrorStyle`: GitHub light/dark themes over a transparent background            | package `textValueTheme`                          | done                    |
 
@@ -1427,6 +1427,84 @@ line at enlarged zoom; then the raw-startup and settled-zoom captures, the read-
 supervisor's inspection, and developer visual acceptance. The bundle currently checked in at
 `docs/evidence/python-canvas-callable-presentation` was rendered from the rejected workflow and is
 superseded working evidence; the recapture this correction requires replaces it.
+
+**Commit-key and Escape-revert record.** This correction's third item is implemented, together with
+the two repository-contract defects the independent audit of the preceding batch reported. Its
+fifth and sixth items remain open.
+
+The field's keys are main's. `getTextValueExtensions` now binds Tab to `acceptCompletion` while a
+popup is open — the reference's `tabToAutocomplete`, which every one of its text controls carries —
+and gives an unmodified Enter to a declared `onCommit` whether or not the popup is showing: the
+popup is closed and the ordinary commit path sends the draft the field is displaying. A control
+that declares no commit keeps CodeMirror's Enter-accepts binding, which is exactly what the
+reference's ordinary parameter rows have, so item-row completion behavior is unchanged. Escape was
+already the reference's: the popup takes the first one, and the one that reaches the editor now
+reports to an optional public `onEscape` before the package returns focus to the section. Python
+Canvas's controller answers it by restoring `snapshot.callables[0].authoredExpression`, which is
+the only value an abandoned local draft can go back to.
+
+One deliberate departure from a literal transcription. The reference's Enter combo action returns
+`void`, so its binding falls through to `completionKeymap` and `acceptCompletion` runs _after_ the
+commit — the field ends up displaying a name it never committed. The plan's own acceptance text
+asks for the commit and for the popup not to consume that Enter, so the popup is closed instead.
+Nothing else about the reference's Tab is ported: Tab outside an open popup stays the browser's own
+focus move rather than the reference's `moveFocus` manager and its no-completion commit, which the
+section's keyboard-order proof depends on.
+
+The audit's first finding is fixed by making the walkthrough's key steps discriminating rather than
+by weakening the boot state. Because the demo now boots committed, a sequence that begins and ends
+on `math.sqrt` cannot detect a commit at all: `CommitCallable` returns early on the expression it
+already holds, and the committed-projection wait is satisfied before the key is pressed. Every step
+therefore drives a second real callable, `math.floor`. Escape abandons its draft and the canonical
+project is unchanged; Tab accepts `floor` into the draft and the canonical project is still
+unchanged, which is now a real claim because committing that name would move every field the
+assertion reads; one Enter commits `math.floor` and the store and the generated reader both move to
+it; and one more Enter, pressed over an open popup, commits `math.sqrt` back. The rejected
+`replaceDraftWithSqrtCompletion` helper, whose `selectAll` the audit correctly read as a symptom, is
+replaced by draft/completion/idle-value primitives that leave every key to the walkthrough.
+
+The audit's second finding is fixed in the app's README, which described the pre-bootstrap startup
+and the rejected two-Enter commit. It now records that the service commits the shipped example
+before it accepts a request, that the field shows that committed value rather than a placeholder,
+and what Tab, Enter, and Escape do; its walkthrough paragraph describes the `math.floor` round trip
+and why the proof needs it. The package README states the same key contract beside the placements
+it already documents.
+
+Proofs: two `TextValueEditor` cases — one per placement — pin Tab accepting without committing,
+Escape belonging to the popup first, IME-composing Enter being ignored, and one unmodified Enter
+committing the shown draft over an open popup; a third pins that a control with no declared commit
+still leaves Enter to the popup; a fourth proves the public `onEscape` fires only for the Escape the
+popup did not take. The public-root proof carries the new prop, a `CallableSection` case pins that
+the field wires commit and revert and that a parameter row declares no revert, and a
+`PythonCanvasApp` case drives the app's own context: a draft of `math.floor` returns to the
+canonical `math.sqrt` on Escape. In the production walkthrough the four key steps above replace the
+insensitive pair.
+
+Two of the audit's four recommendations are answered here. Its fourth is settled by the donor rather
+than by code: main's Args filter is `matchSorter(..., { keys: ["name"] })` in `GetParamSwitch.tsx`,
+so matching the visible parameter name alone is main's behavior, not a narrowing of it. Its third is
+answered by replacing the two string assertions it named — which `requireExactFields` had already
+made unfailable — with the reader rejecting a row payload that carries `passingStyle` or
+`typeAnnotation`. Its second is a stated limit rather than a change: the mocked item label is the
+leaf element this app styles, so that suite judges what the app renders and not the package
+wrapper's layout, and the comment now says so. Its first — an ordering proof that `serve` bootstraps
+before `ServeLoopback` accepts a request — is not folded in here, because binding that order needs a
+seam in `serve` that this key-behavior batch has no other reason to open.
+
+Verification for this batch: `code-policy check` over the thirteen changed files reports only the
+`quality.deadCode` finding on `apps/python-canvas/vitest.setup.ts` this plan already reports, over a
+file this batch does not touch; a `quality.complexity` finding on the new completion keydown branch
+and two `quality.format` findings on files this batch edits were fixed rather than reported.
+`code-policy test --changed --base c45139527` passes, and the authorized
+`code-policy test --recommended --base c45139527` passes all six suites: workspace focused and
+component (1183 tests across 142 files), playground focused and component (43), Python Canvas
+frontend (42), and the production browser walkthrough against the production builds, the real Go
+service, pinned Basedpyright, and headless Chrome at 1440x900 device scale 1. The workspace,
+playground, and Python Canvas TypeScript projects are clean. Two negative controls bind this fix:
+giving the open popup the commit Enter again fails the walkthrough with _the math.sqrt call in
+generated Python did not occur within 30 seconds_ and fails both new key cases, and removing the
+field's `onEscape` wiring fails the walkthrough with _the idle callable field showing "math.sqrt"
+did not occur within 30 seconds_ and fails the two revert cases.
 
 ## Stop conditions
 

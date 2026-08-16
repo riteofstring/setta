@@ -9,6 +9,9 @@ export type PythonCanvasMutationContextValue = {
   pendingDescription: string | null;
   onCallableDraftChange: (value: string) => void;
   onCallableCommit: (value: string) => void;
+  // Escape abandoned an uncommitted callable draft, so the field goes back to the canonical
+  // committed expression, as main's callable search does.
+  onCallableRevert: () => void;
   onParameterExpressionChange: (parameterId: string, value: string) => void;
 };
 

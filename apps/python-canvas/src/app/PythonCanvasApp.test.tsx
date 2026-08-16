@@ -13,6 +13,10 @@ const mocks = vi.hoisted(() => ({
   createWorkspaceHost: vi.fn(),
   registerSectionKinds: vi.fn(),
   setWorkspaceColorMode: vi.fn(),
+  editorProps: [] as Array<Record<string, unknown>>,
+  // The package mounts the section content itself. A case that needs the app's own mutation
+  // context, rather than a hand-written one, puts that content where the package would.
+  renderCanvas: null as (() => ReactNode) | null,
 }));
 
 vi.mock("../backend/client", () => ({
@@ -21,14 +25,17 @@ vi.mock("../backend/client", () => ({
 
 vi.mock("@setta/workspace", () => ({
   WORKSPACE_CODE_SECTION_KIND: "setta.code",
-  TextValueEditor: ({
-    ariaLabel,
-    presentation,
-  }: {
-    ariaLabel: string;
-    presentation: string;
-  }) => <div aria-label={ariaLabel} data-presentation={presentation} />,
-  WorkspaceCanvas: () => <div data-testid="workspace-canvas" />,
+  TextValueEditor: (props: Record<string, unknown>) => {
+    mocks.editorProps.push(props);
+    return (
+      <div
+        aria-label={String(props.ariaLabel)}
+        data-presentation={String(props.presentation)}
+      />
+    );
+  },
+  WorkspaceCanvas: () =>
+    mocks.renderCanvas?.() ?? <div data-testid="workspace-canvas" />,
   WorkspaceProvider: ({ children }: { children?: ReactNode }) => (
     <>{children}</>
   ),
@@ -40,6 +47,7 @@ vi.mock("@setta/workspace", () => ({
 }));
 
 import type { WorkspaceHost } from "@setta/workspace";
+import { CallableExpressionField } from "../sections/CallableSection";
 import {
   PythonCanvasApp,
   registerPythonCanvasSectionKinds,
@@ -58,6 +66,8 @@ let root: Root | undefined;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.editorProps.length = 0;
+  mocks.renderCanvas = null;
   mocks.createWorkspaceCodeSection.mockReturnValue({});
   mocks.createWorkspaceCodeSectionData.mockImplementation(
     (overrides: Record<string, unknown>) => ({
@@ -163,6 +173,30 @@ describe("PythonCanvasApp", () => {
     ).toBe("x");
   });
 
+  // Main's callable search keeps its draft only until the field is left: Escape drops it for the
+  // name the project actually holds. The draft is local, so nothing but the canonical snapshot can
+  // supply that value.
+  it("abandons an uncommitted callable draft back to the canonical expression", async () => {
+    mocks.renderCanvas = () => <CallableExpressionField />;
+    const host = createHostStub();
+    mocks.createWorkspaceHost.mockReturnValue(host);
+    mocks.fetchProjectSnapshot.mockResolvedValue(committedSnapshot());
+
+    renderApp();
+    await settle();
+    expect(callableField().value).toBe("math.sqrt");
+
+    act(() => {
+      (callableField().onValueChange as (value: string) => void)("math.floor");
+    });
+    expect(callableField().value).toBe("math.floor");
+
+    act(() => {
+      (callableField().onEscape as () => void)();
+    });
+    expect(callableField().value).toBe("math.sqrt");
+  });
+
   it("replaces a failed load with an alert and disposes the unused host", async () => {
     const host = createHostStub();
     mocks.createWorkspaceHost.mockReturnValue(host);
@@ -203,6 +237,31 @@ describe("PythonCanvasApp", () => {
     expect(host.dispose).toHaveBeenCalledTimes(1);
   });
 });
+
+// The shipped service commits its example before it answers, so the canonical first response the
+// app renders already carries the expression.
+function committedSnapshot(): ReturnType<typeof parseProjectSnapshotV1> {
+  return parseProjectSnapshotV1({
+    ...projectSnapshotFixture,
+    callables: [
+      {
+        ...projectSnapshotFixture.callables[0],
+        authoredExpression: "math.sqrt",
+      },
+    ],
+  });
+}
+
+// The most recent props the callable field handed the package's editor.
+function callableField(): Record<string, unknown> {
+  const props = mocks.editorProps
+    .filter((candidate) => candidate.ariaLabel === "Callable expression")
+    .at(-1);
+  if (props === undefined) {
+    throw new Error("The callable field rendered no editor.");
+  }
+  return props;
+}
 
 function createHostStub(): HostStub {
   return {
@@ -262,6 +321,7 @@ function renderLeadingContent(node: ReactNode): HTMLDivElement {
           mutationError: null,
           onCallableCommit: vi.fn(),
           onCallableDraftChange: vi.fn(),
+          onCallableRevert: vi.fn(),
           onParameterExpressionChange: vi.fn(),
           pendingDescription: null,
         }}

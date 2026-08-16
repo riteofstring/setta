@@ -1,7 +1,6 @@
 import {
   clickElementCenter,
   insertText,
-  pressEnter,
   selectAll,
   textBoxSelector,
   waitFor,
@@ -608,28 +607,51 @@ export function assertNonEditingGeneratedText(stage, state) {
   }
 }
 
-// The field opens on its canonical committed value, so the draft is replaced rather than typed
-// into. This selects the accessible `sqrt` completion and changes only the local draft; the commit
-// stays with the caller so the walkthrough can prove the canonical project between them.
-export async function replaceDraftWithSqrtCompletion(client, callableLabel) {
+// The field opens on its canonical committed value, so a draft is replaced rather than typed into.
+// Every key that acts on that draft stays with the caller, because what the canonical project does
+// between those keys is exactly what the walkthrough is judging.
+export async function replaceCallableDraft(client, callableLabel, draft) {
   await enterCallableField(client, callableLabel);
   await selectAll(client);
-  await insertText(client, "math.sq");
+  await insertText(client, draft);
+  await waitForCallableDraft(client, callableLabel, draft);
+}
+
+export async function waitForCallableDraft(client, callableLabel, draft) {
   await waitFor(
     client,
-    "the callable draft holding the replaced text",
-    `document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))})?.textContent === "math.sq"`,
+    `the callable draft holding ${JSON.stringify(draft)}`,
+    `document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))})?.textContent === ${JSON.stringify(draft)}`,
   );
+}
+
+export async function waitForCallableCompletion(client, label) {
   await waitFor(
     client,
-    "accessible sqrt completion",
-    `Array.from(document.querySelectorAll('[role="option"]')).some((option) => option.textContent?.trim() === "sqrt")`,
+    `the accessible ${label} completion`,
+    `Array.from(document.querySelectorAll('[role="option"]')).some((option) => option.textContent?.trim() === ${JSON.stringify(label)})`,
   );
-  await pressEnter(client);
+}
+
+export async function waitForClosedCallableCompletion(client) {
   await waitFor(
     client,
-    "the completion changing the callable draft",
-    `document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))})?.textContent === "math.sqrt"`,
+    "the completion popup closing",
+    `document.querySelector('[role="option"]') === null`,
+  );
+}
+
+// Escape hands the field back to its section, so the value a reverted draft leaves behind is the
+// one the idle layer paints once the live editor is gone.
+export async function waitForIdleCallableValue(client, callableLabel, value) {
+  await waitFor(
+    client,
+    `the idle callable field showing ${JSON.stringify(value)}`,
+    `(() => {
+      const live = document.querySelector(${JSON.stringify(liveCallableSelector(callableLabel))});
+      const idle = document.querySelector(${JSON.stringify(idleCallableSelector(callableLabel))});
+      return live === null && idle?.textContent === ${JSON.stringify(value)};
+    })()`,
   );
 }
 

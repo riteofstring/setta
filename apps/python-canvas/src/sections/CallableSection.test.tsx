@@ -21,6 +21,9 @@ vi.mock("@setta/workspace", () => ({
       </div>
     );
   },
+  // The leaf element this app styles, without the package's own wrapper around it. These cases
+  // therefore judge what the app renders into the label, not how the package's item column lays it
+  // out, so the stylesheet's truncating single line is not proved here.
   WorkspaceItemLabel: ({
     children,
     className,
@@ -44,6 +47,7 @@ import {
   CallableExpressionField,
   CallableSection,
   parameterItemSearchableText,
+  readParameterItemData,
   type CallableSectionData,
 } from "./CallableSection";
 
@@ -85,6 +89,20 @@ describe("CallableSection", () => {
     // No redundant visible label, and no idle sentence about the provider.
     expect(container?.textContent).not.toContain("Basedpyright");
     expect(container?.querySelector("[role='alert']")).toBeNull();
+  });
+
+  // Main's callable search gives Enter to the commit and Escape to abandoning the draft. The field
+  // declares both seams; the package owns which key reaches which one.
+  it("commits the field's draft and abandons it back to the canonical expression", () => {
+    const onCallableCommit = vi.fn();
+    const onCallableRevert = vi.fn();
+    render({ onCallableCommit, onCallableRevert });
+
+    const callable = renderedEditor("Callable expression");
+    expect(callable.onCommit).toBe(onCallableCommit);
+    expect(callable.onEscape).toBe(onCallableRevert);
+    // Only the callable holds a draft of its own; a parameter row reports every change.
+    expect(renderedEditor("x expression").onEscape).toBeUndefined();
   });
 
   it("shows ordinary pending state as a compact adornment plus an app-owned live region", () => {
@@ -179,8 +197,20 @@ describe("CallableSection", () => {
     // passing style and the provider's own type spelling underneath it.
     const label = container?.querySelector(".python-canvas-parameter-label");
     expect(label?.textContent).toBe("x");
-    expect(container?.textContent).not.toContain("positional");
-    expect(container?.textContent).not.toContain("_SupportsFloatOrIndex");
+    // The analyzer's vocabulary cannot reach the row at all: the row payload's own reader rejects
+    // the two fields the rejected candidate printed, so a projection carrying them fails loud
+    // instead of quietly rendering them again.
+    for (const analyzerField of [
+      { passingStyle: "positional only" },
+      { typeAnnotation: "_SupportsFloatOrIndex" },
+    ]) {
+      expect(() =>
+        readParameterItemData({
+          ...(parameterItem().data as Record<string, unknown>),
+          ...analyzerField,
+        }),
+      ).toThrow("Callable section data contains unexpected fields.");
+    }
     // `math.sqrt`'s parameter has no default, so its empty value editor offers no invented
     // placeholder, and neither does the callable field above it.
     expect(renderedEditor("x expression").placeholder).toBeUndefined();
@@ -218,6 +248,7 @@ function render(
           mutationError: null,
           onCallableCommit: vi.fn(),
           onCallableDraftChange: vi.fn(),
+          onCallableRevert: vi.fn(),
           onParameterExpressionChange: vi.fn(),
           pendingDescription: null,
           ...overrides,

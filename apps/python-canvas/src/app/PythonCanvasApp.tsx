@@ -57,6 +57,7 @@ type MutationState =
 
 type AppController = {
   commitCallable: (value: string) => void;
+  revertCallableDraft: () => void;
   setCallableDraft: (value: string) => void;
   setParameterExpression: (parameterID: string, value: string) => void;
 };
@@ -258,6 +259,16 @@ export function PythonCanvasApp() {
         clearError();
         commitCallableMutation(value);
       },
+      revertCallableDraft: () => {
+        if (!active || snapshot === null) {
+          return;
+        }
+        // The canonical expression is the one the store last accepted, so an abandoned draft has
+        // nothing of its own left to keep.
+        setCallableDraft(snapshot.callables[0].authoredExpression);
+        setCompletionError(null);
+        clearError();
+      },
       setCallableDraft: (value) => {
         if (!active) {
           return;
@@ -346,6 +357,7 @@ export function PythonCanvasApp() {
       onCallableCommit: (value) => controllerRef.current?.commitCallable(value),
       onCallableDraftChange: (value) =>
         controllerRef.current?.setCallableDraft(value),
+      onCallableRevert: () => controllerRef.current?.revertCallableDraft(),
       onParameterExpressionChange: (parameterID, value) =>
         controllerRef.current?.setParameterExpression(parameterID, value),
       pendingDescription:

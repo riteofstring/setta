@@ -315,13 +315,13 @@ describe("TextValueEditor", () => {
     expect(view.state.doc.toString()).toBe("0.001");
   });
 
-  it("gives an active completion popup immediate Enter and Escape precedence before normal editor actions", async () => {
+  // The reference's completion keys: Tab accepts, Escape closes, and an unmodified Enter belongs
+  // to the declared commit even while the popup is showing. A rejected candidate spent that Enter
+  // on the popup and required a second one to commit, which is the behavior these assertions fail
+  // on if it returns.
+  it("gives an active completion popup Tab and Escape but never the declared commit's Enter", async () => {
     const onCommit = vi.fn();
-    const provider = vi.fn().mockResolvedValue({
-      from: 5,
-      options: [{ insertText: "sqrt", label: "sqrt" }],
-      to: 7,
-    });
+    const provider = sqrtCompletionProvider();
     await mount({
       completionProvider: provider,
       onCommit,
@@ -331,10 +331,7 @@ describe("TextValueEditor", () => {
     await activate();
     const view = getLiveView();
 
-    await act(async () => {
-      expect(startCompletion(view)).toBe(true);
-    });
-    await waitForCompletion(view, "active");
+    await openCompletionAtCaretEnd(view);
     expect(document.querySelector('[role="option"]')?.textContent).toContain(
       "sqrt",
     );
@@ -353,10 +350,21 @@ describe("TextValueEditor", () => {
     expect(onCommit).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(view.contentDOM);
 
-    await act(async () => {
-      expect(startCompletion(view)).toBe(true);
+    await openCompletionAtCaretEnd(view);
+    const tab = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Tab",
+      key: "Tab",
     });
-    await waitForCompletion(view, "active");
+    await act(async () => {
+      view.contentDOM.dispatchEvent(tab);
+    });
+    expect(tab.defaultPrevented).toBe(true);
+    expect(view.state.doc.toString()).toBe("math.sqrt");
+    expect(onCommit).not.toHaveBeenCalled();
+
+    await openCompletionAtCaretEnd(view);
     const composingEnter = new KeyboardEvent("keydown", {
       bubbles: true,
       cancelable: true,
@@ -367,36 +375,50 @@ describe("TextValueEditor", () => {
     await act(async () => {
       view.contentDOM.dispatchEvent(composingEnter);
     });
-    expect(view.state.doc.toString()).toBe("math.sq");
     expect(onCommit).not.toHaveBeenCalled();
     expect(completionStatus(view.state)).toBe("active");
-    const firstEnter = new KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      code: "Enter",
-      key: "Enter",
-    });
-    await act(async () => {
-      view.contentDOM.dispatchEvent(firstEnter);
-    });
-    expect(firstEnter.defaultPrevented).toBe(true);
-    expect(view.state.doc.toString()).toBe("math.sqrt");
-    expect(onCommit).not.toHaveBeenCalled();
 
-    const secondEnter = new KeyboardEvent("keydown", {
+    const enter = new KeyboardEvent("keydown", {
       bubbles: true,
       cancelable: true,
       code: "Enter",
       key: "Enter",
     });
     await act(async () => {
-      view.contentDOM.dispatchEvent(secondEnter);
+      view.contentDOM.dispatchEvent(enter);
     });
-    expect(secondEnter.defaultPrevented).toBe(true);
+    expect(enter.defaultPrevented).toBe(true);
+    expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith("math.sqrt");
+    expect(completionStatus(view.state)).not.toBe("active");
   });
 
-  it("aborts stale completion requests on document change and never adds a Tab binding", async () => {
+  // The reference's ordinary parameter rows declare no Enter action, so their popup keeps
+  // CodeMirror's own Enter-accepts binding. Only a declared commit takes that key away.
+  it("leaves Enter to the completion popup when the caller declares no commit", async () => {
+    await mount({
+      completionProvider: sqrtCompletionProvider(),
+      singleLine: true,
+      value: "math.sq",
+    });
+    await activate();
+    const view = getLiveView();
+
+    await openCompletionAtCaretEnd(view);
+    await act(async () => {
+      view.contentDOM.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          code: "Enter",
+          key: "Enter",
+        }),
+      );
+    });
+    expect(view.state.doc.toString()).toBe("math.sqrt");
+  });
+
+  it("aborts stale completion requests on document change and leaves an unaccompanied Tab to focus navigation", async () => {
     const first = createDeferred<{
       from: number;
       options: Array<{ label: string }>;
@@ -783,33 +805,34 @@ describe("TextValueEditor section-field presentation", () => {
     expect(view.state.doc.lines).toBe(1);
   });
 
-  it("gives an active completion popup Enter precedence before the commit", async () => {
+  // The field is the reference's callable search: Tab accepts an offered name into the draft and
+  // commits nothing, then one unmodified Enter commits the draft the field is showing. Both fail
+  // if the rejected candidate's popup-owns-Enter behavior returns.
+  it("accepts a completion on Tab and commits the shown draft on one Enter", async () => {
     const onCommit = vi.fn();
-    const completionProvider = vi.fn().mockResolvedValue({
-      from: 5,
-      options: [{ insertText: "sqrt", label: "sqrt" }],
-      to: 7,
+    await mountField({
+      completionProvider: sqrtCompletionProvider(),
+      onCommit,
     });
-    await mountField({ completionProvider, onCommit });
     await activateField();
     const view = getFieldView();
 
-    await act(async () => {
-      expect(startCompletion(view)).toBe(true);
-    });
-    await waitForCompletion(view, "active");
-    const firstEnter = new KeyboardEvent("keydown", {
+    await openCompletionAtCaretEnd(view);
+    const tab = new KeyboardEvent("keydown", {
       bubbles: true,
       cancelable: true,
-      code: "Enter",
-      key: "Enter",
+      code: "Tab",
+      key: "Tab",
     });
     await act(async () => {
-      view.contentDOM.dispatchEvent(firstEnter);
+      view.contentDOM.dispatchEvent(tab);
     });
+    expect(tab.defaultPrevented).toBe(true);
     expect(view.state.doc.toString()).toBe("math.sqrt");
     expect(onCommit).not.toHaveBeenCalled();
 
+    // Re-open the popup: the commit Enter has to win over a visible one, not merely over none.
+    await openCompletionAtCaretEnd(view);
     await act(async () => {
       view.contentDOM.dispatchEvent(
         new KeyboardEvent("keydown", {
@@ -820,7 +843,36 @@ describe("TextValueEditor section-field presentation", () => {
         }),
       );
     });
+    expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith("math.sqrt");
+  });
+
+  // Escape's two steps, in the reference's order: the popup takes the first one for itself, and
+  // only the one that reaches the editor tells the caller its draft is abandoned.
+  it("reports Escape to the caller only after the completion popup has taken its own", async () => {
+    const onEscape = vi.fn();
+    await mountField({
+      completionProvider: sqrtCompletionProvider(),
+      onEscape,
+    });
+    await activateField();
+    const view = getFieldView();
+
+    await openCompletionAtCaretEnd(view);
+    await act(async () => {
+      view.contentDOM.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+      );
+    });
+    expect(completionStatus(view.state)).not.toBe("active");
+    expect(onEscape).not.toHaveBeenCalled();
+
+    await act(async () => {
+      view.contentDOM.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+      );
+    });
+    expect(onEscape).toHaveBeenCalledTimes(1);
   });
 
   it("returns focus to the section container on Escape", async () => {
@@ -872,6 +924,26 @@ async function waitForCompletion(
   status: "active" | "pending",
 ): Promise<void> {
   await waitFor(() => completionStatus(view.state) === status);
+}
+
+// One `sqrt` offer for whatever the caret has reached, so the popup can be reopened over a draft
+// the previous accept already completed — the state a commit Enter has to win against.
+function sqrtCompletionProvider() {
+  return vi.fn(async (request: { cursorOffset: number }) => ({
+    from: 5,
+    options: [{ insertText: "sqrt", label: "sqrt" }],
+    to: request.cursorOffset,
+  }));
+}
+
+// A person completes at the end of what they typed; activation alone leaves the caret wherever
+// the pointer landed, which is not a position an offer can replace text at.
+async function openCompletionAtCaretEnd(view: EditorView): Promise<void> {
+  await act(async () => {
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    expect(startCompletion(view)).toBe(true);
+  });
+  await waitForCompletion(view, "active");
 }
 
 function createDeferred<T>() {

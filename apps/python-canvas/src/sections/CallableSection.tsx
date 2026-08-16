@@ -139,6 +139,10 @@ export function readParameterItemData(value: unknown): ParameterItemData {
 // The field carries no placeholder. Like main's callable search it renders the canonical committed
 // expression, which the shipped demo commits before its first response; a placeholder here painted
 // `math.sqrt` as sample copy over an empty callable that no snapshot contained.
+//
+// Its keys are main's: Tab accepts an offered completion into the draft, one unmodified Enter
+// commits the draft the field is showing even while the popup is open, and Escape — once the popup
+// has taken its own first Escape — abandons the draft for the canonical expression.
 export function CallableExpressionField() {
   const mutation = usePythonCanvasMutationContext();
   const pending = mutation.pendingDescription !== null;
@@ -157,6 +161,7 @@ export function CallableExpressionField() {
         }
         language="python"
         onCommit={mutation.onCallableCommit}
+        onEscape={mutation.onCallableRevert}
         onValueChange={mutation.onCallableDraftChange}
         presentation="section-field"
         sectionId={CALLABLE_SECTION_ID}

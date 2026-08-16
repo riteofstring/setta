@@ -5,9 +5,18 @@ through `@setta/workspace`. Go owns the in-memory project, generated Python,
 source ranges, and Basedpyright lifecycle; the React app projects canonical Go
 responses through the workspace public API. There is one **Callable** section
 named **Square Root** and one read-only **Generated Python** section.
-The callable editor supports narrow callable-name completion: type `math.sq`,
-select `sqrt`, then press Enter again to commit `math.sqrt` through the
-existing callable flow.
+
+The service commits the shipped Square Root example through its own store before
+it accepts a request, so the first response — and therefore the first render —
+already holds the committed `math.sqrt`, the `x` parameter Basedpyright derived
+from its signature, and the generated call. The callable editor shows that
+committed value rather than a placeholder standing in for one.
+
+Editing it supports narrow callable-name completion: replace the value with
+`math.fl`, and `floor` is offered. `Tab` accepts an offer into the local draft
+without committing it, one unmodified `Enter` commits the draft the field is
+showing even while the completion popup is open, and `Escape` — after the popup
+has taken its own first `Escape` — abandons the draft for the committed value.
 
 Inside the Callable section, the compact callable editor is the workspace's
 leading item-area content, so it precedes the Args toolbar and the
@@ -38,12 +47,16 @@ Go service, and pinned language server, run:
 pnpm --filter @setta/python-canvas run browser:test
 ```
 
-The walkthrough selects `sqrt` for `math.sq` with the keyboard, verifies that
-the selection changes only the local callable draft, then commits `math.sqrt`.
-It enters `missing_value` for `x`, then replaces it with `3`. Each accepted
-mutation automatically updates the read-only generated Python; the
-undefined-name diagnostic is mapped to `x` by the generated source range and
-clears after the final expression.
+The walkthrough asserts the raw first render against the canonical response
+before it changes anything. It then drives the callable keys through a second
+real callable, `math.floor`, because a key sequence that begins and ends on the
+committed `math.sqrt` cannot show whether anything was committed: `Escape`
+abandons a draft without touching the project, `Tab` accepts `floor` without
+committing it, one `Enter` commits `math.floor`, and one more commits
+`math.sqrt` back over an open popup. It then enters `missing_value` for `x` and
+replaces it with `3`. Each accepted mutation automatically updates the read-only
+generated Python; the undefined-name diagnostic is mapped to `x` by the
+generated source range and clears after the final expression.
 
 ## Deliberately deferred
 

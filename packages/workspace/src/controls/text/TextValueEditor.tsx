@@ -36,7 +36,8 @@ import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
 // `TextInputCodeMirror` at the `ParamUI` text presentation, behind the package's controlled
 // string seam. The idle layer is the highlighted dummy; a primary mouse-down capture or a
 // keyboard focus swaps in the live CodeMirror editor, every document change reports once
-// through the host subscription, and Escape returns focus to the owning section. Backend editor
+// through the host subscription, and Escape reports to the caller holding the draft before
+// returning focus to the owning section. Backend editor
 // services (completion, diagnostics, the waiting spinner) and the reference's error-message
 // plumbing stay application-side. The control disables from the host flag and, package-wide,
 // while item-select mode is active — the reference's interaction-first disabled contract with
@@ -60,6 +61,11 @@ type TextValueEditorBaseProps = {
   value: string;
   onValueChange: (nextValue: string) => void;
   onCommit?: (value: string) => void;
+  // Escape abandoned the editor without committing. A caller holding an uncommitted draft
+  // restores its canonical value here, exactly as the reference's callable search does. An open
+  // completion popup takes the first Escape for itself and this never runs for it. The package
+  // still returns focus to the owning section afterwards.
+  onEscape?: () => void;
   placeholder?: string;
   language?: TextValueLanguage | null;
   singleLine?: boolean;
@@ -255,6 +261,7 @@ function TextValueEditorCore({
   value,
   onValueChange,
   onCommit,
+  onEscape,
   placeholder,
   language = null,
   singleLine = false,
@@ -353,7 +360,12 @@ function TextValueEditorCore({
           onCommit={onCommit}
           disabled={isDisabled}
           completionProvider={completionProvider}
-          onEscape={() => focusSectionAfterEscape(host, sectionId)}
+          onEscape={() => {
+            // The caller drops its draft first, so the idle layer this Escape swaps back in
+            // already paints the value it restored.
+            onEscape?.();
+            focusSectionAfterEscape(host, sectionId);
+          }}
           onBlur={localOnBlur}
         />
       )}

@@ -129,10 +129,16 @@ describe("public package API", () => {
 
   it("types the section-field placement with its own optional end adornment", () => {
     const presentation: workspace.TextValueEditorPresentation = "section-field";
+    let abandonedDraft = false;
     const props = {
       ariaLabel: "Expression",
       controlId: "expression",
       endAdornment: null,
+      // The caller holding the draft is told when Escape abandoned it, so it can restore its own
+      // canonical value; the package never guesses what that value is.
+      onEscape: () => {
+        abandonedDraft = true;
+      },
       onValueChange: () => {},
       presentation,
       sectionId: "section-1",
@@ -141,6 +147,8 @@ describe("public package API", () => {
     } satisfies ComponentProps<typeof workspace.TextValueEditor>;
 
     expect(props.presentation).toBe("section-field");
+    props.onEscape();
+    expect(abandonedDraft).toBe(true);
     // The adornment belongs to the section-field placement alone.
     const itemRow: ComponentProps<typeof workspace.TextValueEditor> = {
       ariaLabel: "Expression",

@@ -39,8 +39,12 @@ import {
   idleCallableSelector,
   itemToolbarSelector,
   liveCallableSelector,
-  replaceDraftWithSqrtCompletion,
+  replaceCallableDraft,
+  waitForCallableCompletion,
+  waitForCallableDraft,
+  waitForClosedCallableCompletion,
   waitForEnabledCallableField,
+  waitForIdleCallableValue,
 } from "./callable-presentation.mjs";
 
 // The Callable section is observed through public surfaces only: its accessible section group,
@@ -92,6 +96,17 @@ const shippedExample = {
   callable: "math.sqrt",
   generatesItsCall: true,
   parameterNames: ["x"],
+};
+// The accessible completion the shipped expression's own text still offers, which is what makes an
+// open popup available to the commit Enter that has to win over it.
+const shippedCompletionLabel = "sqrt";
+
+// A second real callable the demo does not boot with. Committing it is what makes the canonical
+// project actually move, so the keys before the commit can be proved not to move it.
+const otherCallable = {
+  callable: "math.floor",
+  completion: "floor",
+  draft: "math.fl",
 };
 
 // What the raw first render shows, read through accessible names and this app's own label class.
@@ -507,6 +522,106 @@ async function assertArgsFilterRemainsOperable(client, parameterLabel) {
   );
 }
 
+// Main's callable search: Tab accepts an offer into the draft without committing, one unmodified
+// Enter commits the draft the field is showing even while the popup is open, and the Escape that
+// gets past the popup abandons the draft for the canonical name.
+//
+// Every step drives a second real callable through the field. The demo now boots on `math.sqrt`,
+// so a sequence that starts and ends there proves nothing: the store returns early when a commit
+// repeats the expression it already holds, and a wait for the committed projection is satisfied
+// before the key is even pressed. Only the last step returns the project to the shipped example.
+async function assertCallableKeysMatchMain(
+  client,
+  backendOrigin,
+  callableLabel,
+  generatedLabel,
+  generatedSource,
+) {
+  const shipped = await fetchCanonicalSnapshot(backendOrigin);
+
+  await replaceCallableDraft(client, callableLabel, otherCallable.draft);
+  await waitForCallableCompletion(client, otherCallable.completion);
+  await pressEscape(client);
+  await waitForClosedCallableCompletion(client);
+  // The popup takes the first Escape for itself, as it does in main, so the draft is still here.
+  await waitForCallableDraft(client, callableLabel, otherCallable.draft);
+  await pressEscape(client);
+  await waitForIdleCallableValue(
+    client,
+    callableLabel,
+    shippedExample.callable,
+  );
+  assertCanonicalProjectUnchanged(
+    "Abandoning a callable draft",
+    shipped,
+    await fetchCanonicalSnapshot(backendOrigin),
+  );
+
+  await replaceCallableDraft(client, callableLabel, otherCallable.draft);
+  await waitForCallableCompletion(client, otherCallable.completion);
+  await pressTab(client);
+  await waitForCallableDraft(client, callableLabel, otherCallable.callable);
+  await waitFor(
+    client,
+    "the accepted completion leaving generated Python alone",
+    `(() => {
+      const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
+      return generated?.querySelector('[role="textbox"]')?.textContent === ${JSON.stringify(generatedSource)};
+    })()`,
+  );
+  assertCanonicalProjectUnchanged(
+    "Accepting a completion with Tab",
+    shipped,
+    await fetchCanonicalSnapshot(backendOrigin),
+  );
+
+  // One Enter on the accepted draft, with no popup left to blame for it.
+  await pressEnter(client);
+  await assertCommittedCallable(client, backendOrigin, {
+    callableLabel,
+    expression: otherCallable.callable,
+    generatedLabel,
+  });
+
+  // And one Enter over an open popup, which is the press the rejected candidate spent on the
+  // completion and made a person repeat.
+  await replaceCallableDraft(client, callableLabel, shippedExample.callable);
+  await waitForCallableCompletion(client, shippedCompletionLabel);
+  await pressEnter(client);
+  await assertCommittedCallable(client, backendOrigin, {
+    callableLabel,
+    expression: shippedExample.callable,
+    generatedLabel,
+  });
+}
+
+// A commit is canonical when the store holds the new expression and the reader shows the call it
+// generates. Leaving the field afterwards proves the same value survives the Escape that abandons
+// an uncommitted draft.
+async function assertCommittedCallable(
+  client,
+  backendOrigin,
+  { callableLabel, expression, generatedLabel },
+) {
+  await waitFor(
+    client,
+    `the ${expression} call in generated Python`,
+    `(() => {
+      const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
+      return generated?.textContent?.includes(${JSON.stringify(`state.Square_Root = ${expression}()`)}) === true;
+    })()`,
+  );
+  const canonical = await fetchCanonicalSnapshot(backendOrigin);
+  const committed = canonical.callables?.[0]?.authoredExpression ?? null;
+  if (committed !== expression) {
+    throw new Error(
+      `One Enter left the canonical callable at ${JSON.stringify(committed)} instead of committing ${JSON.stringify(expression)}.`,
+    );
+  }
+  await pressEscape(client);
+  await waitForIdleCallableValue(client, callableLabel, expression);
+}
+
 async function runWalkthrough(client, backendOrigin) {
   const callableLabel = "Callable expression";
   const parameterLabel = "x expression";
@@ -547,27 +662,13 @@ async function runWalkthrough(client, backendOrigin) {
     throw new Error("Generated Python output accepted an authored mutation.");
   }
 
-  const beforeCompletion = await fetchCanonicalSnapshot(backendOrigin);
-  await replaceDraftWithSqrtCompletion(client, callableLabel);
-
-  await waitFor(
+  await assertCallableKeysMatchMain(
     client,
-    "the selected completion changing only the callable draft",
-    `(() => {
-      const callable = document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
-      const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
-      const generatedEditor = generated?.querySelector('[role="textbox"]');
-      return callable?.textContent === "math.sqrt" &&
-        generatedEditor?.textContent === ${JSON.stringify(generatedSource)};
-    })()`,
+    backendOrigin,
+    callableLabel,
+    generatedLabel,
+    generatedSource,
   );
-  const afterCompletion = await fetchCanonicalSnapshot(backendOrigin);
-  assertCompletionDidNotMutateCanonicalProject(
-    beforeCompletion,
-    afterCompletion,
-  );
-
-  await pressEnter(client);
 
   await waitFor(
     client,
@@ -638,31 +739,31 @@ async function runWalkthrough(client, backendOrigin) {
   await assertCallableFieldActivationParity(client, callableLabel);
 }
 
-function assertCompletionDidNotMutateCanonicalProject(before, after) {
+function assertCanonicalProjectUnchanged(stage, before, after) {
   assertCanonicalValue(
     before.project?.revision,
     after.project?.revision,
-    "Selecting a completion changed the canonical project revision.",
+    `${stage} changed the canonical project revision.`,
   );
   assertCanonicalValue(
     before.callables,
     after.callables,
-    "Selecting a completion committed or otherwise changed canonical callable records.",
+    `${stage} committed or otherwise changed canonical callable records.`,
   );
   assertCanonicalValue(
     before.parameters,
     after.parameters,
-    "Selecting a completion created or changed a canonical parameter.",
+    `${stage} created or changed a canonical parameter.`,
   );
   assertCanonicalValue(
     before.generatedCode,
     after.generatedCode,
-    "Selecting a completion changed the canonical generated code.",
+    `${stage} changed the canonical generated code.`,
   );
   assertCanonicalValue(
     before.diagnostics,
     after.diagnostics,
-    "Selecting a completion changed canonical diagnostics.",
+    `${stage} changed canonical diagnostics.`,
   );
 }
 
