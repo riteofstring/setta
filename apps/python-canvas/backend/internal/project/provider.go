@@ -14,7 +14,7 @@ import (
 // protocol details outside project while keeping semantic commits and their
 // generated document revision together.
 type LSPProvider interface {
-	SignatureResolver
+	ResolveCallableSignature(context.Context, SignatureRequest) (CallableSignature, error)
 	SynchronizeGeneratedDocument(context.Context, GeneratedDocumentRequest) (GeneratedDocumentResult, error)
 	Close() error
 }

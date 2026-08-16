@@ -52,7 +52,6 @@ func TestPinnedBasedpyrightResolvesAndClearsMappedParameterDiagnostic(t *testing
 		initial.Project.ID,
 		initial.Callables[0].ID,
 		"math.sqrt",
-		provider,
 	)
 	if err != nil {
 		t.Fatalf("CommitCallable(math.sqrt) error = %v", err)

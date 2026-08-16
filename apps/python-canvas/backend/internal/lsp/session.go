@@ -28,6 +28,7 @@ var (
 	ErrSessionClosed          = errors.New("lsp: session is closed")
 	ErrSessionNotStarted      = errors.New("lsp: session is not started")
 	ErrRequestTimedOut        = errors.New("lsp: request timed out")
+	ErrSessionStreamFailed    = errors.New("lsp: session stream failed")
 )
 
 type SessionOptions struct {
@@ -37,7 +38,9 @@ type SessionOptions struct {
 	RequestTimeout time.Duration
 }
 
-type diagnosticsCallback func(PublishDiagnosticsParams)
+// diagnosticsCallback receives either one valid publication or the terminal
+// stream/protocol failure that prevents any later publication from arriving.
+type diagnosticsCallback func(PublishDiagnosticsParams, error)
 
 type rpcEnvelope struct {
 	ID     json.RawMessage `json:"id,omitempty"`
@@ -50,6 +53,14 @@ type rpcEnvelope struct {
 type rpcError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+}
+
+type documentSynchronization struct {
+	uri              string
+	previousVersion  int
+	alreadyOpen      bool
+	previousCallback diagnosticsCallback
+	hadCallback      bool
 }
 
 // Session owns one child language-server process and its JSON-RPC state. One
@@ -73,6 +84,7 @@ type Session struct {
 	pending          map[string]chan rpcEnvelope
 	documentVersions map[string]int
 	callbacks        map[string]diagnosticsCallback
+	terminalErr      error
 	requestID        uint64
 }
 
@@ -107,6 +119,11 @@ func (session *Session) Start(ctx context.Context) error {
 	if session.isClosingOrClosedLocked() {
 		session.mu.Unlock()
 		return ErrSessionClosed
+	}
+	if session.terminalErr != nil {
+		failure := session.terminalErr
+		session.mu.Unlock()
+		return failure
 	}
 	if session.started {
 		session.mu.Unlock()
@@ -211,16 +228,36 @@ func (session *Session) SynchronizeDocument(
 		return err
 	}
 
+	synchronization, err := session.registerDocumentSynchronization(uri, version, callback)
+	if err != nil {
+		return err
+	}
+
+	method, params := documentSynchronizationNotification(synchronization.alreadyOpen, uri, languageID, version, content)
+	if err := session.notify(method, params, false); err != nil {
+		session.rollbackDocumentSynchronization(synchronization)
+		return err
+	}
+	return nil
+}
+
+func (session *Session) registerDocumentSynchronization(
+	uri string,
+	version int,
+	callback diagnosticsCallback,
+) (documentSynchronization, error) {
 	session.mu.Lock()
+	defer session.mu.Unlock()
 	if session.isClosingOrClosedLocked() {
-		session.mu.Unlock()
-		return ErrSessionClosed
+		return documentSynchronization{}, ErrSessionClosed
+	}
+	if session.terminalErr != nil {
+		return documentSynchronization{}, session.terminalErr
 	}
 	previousVersion, alreadyOpen := session.documentVersions[uri]
 	previousCallback, hadCallback := session.callbacks[uri]
 	if alreadyOpen && version <= previousVersion {
-		session.mu.Unlock()
-		return fmt.Errorf("lsp: document version %d does not advance %d", version, previousVersion)
+		return documentSynchronization{}, fmt.Errorf("lsp: document version %d does not advance %d", version, previousVersion)
 	}
 	session.documentVersions[uri] = version
 	if callback == nil {
@@ -228,25 +265,28 @@ func (session *Session) SynchronizeDocument(
 	} else {
 		session.callbacks[uri] = callback
 	}
-	session.mu.Unlock()
+	return documentSynchronization{
+		uri:              uri,
+		previousVersion:  previousVersion,
+		alreadyOpen:      alreadyOpen,
+		previousCallback: previousCallback,
+		hadCallback:      hadCallback,
+	}, nil
+}
 
-	method, params := documentSynchronizationNotification(alreadyOpen, uri, languageID, version, content)
-	if err := session.notify(method, params, false); err != nil {
-		session.mu.Lock()
-		if alreadyOpen {
-			session.documentVersions[uri] = previousVersion
-		} else {
-			delete(session.documentVersions, uri)
-		}
-		if hadCallback {
-			session.callbacks[uri] = previousCallback
-		} else {
-			delete(session.callbacks, uri)
-		}
-		session.mu.Unlock()
-		return err
+func (session *Session) rollbackDocumentSynchronization(synchronization documentSynchronization) {
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	if synchronization.alreadyOpen {
+		session.documentVersions[synchronization.uri] = synchronization.previousVersion
+	} else {
+		delete(session.documentVersions, synchronization.uri)
 	}
-	return nil
+	if synchronization.hadCallback {
+		session.callbacks[synchronization.uri] = synchronization.previousCallback
+	} else {
+		delete(session.callbacks, synchronization.uri)
+	}
 }
 
 func (session *Session) isClosingOrClosedLocked() bool {
@@ -420,6 +460,9 @@ func (session *Session) registerCall(allowClosing bool) (string, chan rpcEnvelop
 	response := make(chan rpcEnvelope, 1)
 	session.mu.Lock()
 	defer session.mu.Unlock()
+	if session.terminalErr != nil {
+		return "", nil, session.terminalErr
+	}
 	if !session.acceptsCallLocked(allowClosing) {
 		return "", nil, ErrSessionClosed
 	}
@@ -512,6 +555,11 @@ func (session *Session) writeEnvelope(payload map[string]any, allowClosing bool)
 		session.mu.Unlock()
 		return ErrSessionClosed
 	}
+	if session.terminalErr != nil {
+		failure := session.terminalErr
+		session.mu.Unlock()
+		return failure
+	}
 	stdin := session.stdin
 	session.mu.Unlock()
 	if stdin == nil {
@@ -535,7 +583,7 @@ func (session *Session) readLoop(stdout io.Reader) {
 	for {
 		envelope, err := readEnvelope(reader)
 		if err != nil {
-			session.failPending(err)
+			session.failSession(fmt.Errorf("lsp: read server stream: %w", err))
 			return
 		}
 		session.dispatch(envelope)
@@ -563,15 +611,71 @@ func (session *Session) dispatch(envelope rpcEnvelope) {
 	if envelope.Method != "textDocument/publishDiagnostics" {
 		return
 	}
-	var params PublishDiagnosticsParams
-	if err := json.Unmarshal(envelope.Params, &params); err != nil {
+	params, err := decodePublishDiagnostics(envelope.Params)
+	if err != nil {
+		session.failSession(fmt.Errorf("lsp: decode publishDiagnostics: %w", err))
 		return
 	}
 	session.mu.Lock()
 	callback := session.callbacks[params.URI]
 	session.mu.Unlock()
 	if callback != nil {
-		callback(params)
+		callback(params, nil)
+	}
+}
+
+func decodePublishDiagnostics(raw json.RawMessage) (PublishDiagnosticsParams, error) {
+	var params struct {
+		URI         *string         `json:"uri"`
+		Version     *int            `json:"version,omitempty"`
+		Diagnostics json.RawMessage `json:"diagnostics"`
+	}
+	if err := json.Unmarshal(raw, &params); err != nil {
+		return PublishDiagnosticsParams{}, err
+	}
+	if params.URI == nil || strings.TrimSpace(*params.URI) == "" {
+		return PublishDiagnosticsParams{}, errors.New("publishDiagnostics URI is required")
+	}
+	if len(params.Diagnostics) == 0 || strings.TrimSpace(string(params.Diagnostics)) == "null" {
+		return PublishDiagnosticsParams{}, errors.New("publishDiagnostics diagnostics array is required")
+	}
+	var diagnostics []Diagnostic
+	if err := json.Unmarshal(params.Diagnostics, &diagnostics); err != nil {
+		return PublishDiagnosticsParams{}, fmt.Errorf("decode publishDiagnostics diagnostics: %w", err)
+	}
+	if diagnostics == nil {
+		return PublishDiagnosticsParams{}, errors.New("publishDiagnostics diagnostics must be an array")
+	}
+	return PublishDiagnosticsParams{
+		URI:         *params.URI,
+		Version:     params.Version,
+		Diagnostics: diagnostics,
+	}, nil
+}
+
+func (session *Session) failSession(cause error) {
+	if cause == nil {
+		cause = ErrSessionClosed
+	}
+	failure := fmt.Errorf("%w: %w", ErrSessionStreamFailed, cause)
+
+	session.mu.Lock()
+	if session.terminalErr != nil {
+		session.mu.Unlock()
+		return
+	}
+	session.terminalErr = failure
+	callbacks := make([]diagnosticsCallback, 0, len(session.callbacks))
+	for _, callback := range session.callbacks {
+		if callback != nil {
+			callbacks = append(callbacks, callback)
+		}
+	}
+	session.mu.Unlock()
+
+	session.failPending(failure)
+	for _, callback := range callbacks {
+		callback(PublishDiagnosticsParams{}, failure)
 	}
 }
 

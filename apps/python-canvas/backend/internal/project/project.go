@@ -31,7 +31,6 @@ var (
 	ErrParameterNotFound           = errors.New("project: parameter not found")
 	ErrCallableExpressionInvalid   = errors.New("project: callable expression is invalid")
 	ErrParameterExpressionInvalid  = errors.New("project: parameter expression is invalid")
-	ErrSignatureResolverRequired   = errors.New("project: signature resolver is required")
 	ErrLSPProviderRequired         = errors.New("project: LSP provider is required")
 	ErrUnsupportedSignature        = errors.New("project: callable signature is unsupported")
 	ErrStoreClosed                 = errors.New("project: store is closed")
@@ -47,12 +46,6 @@ type SignatureRequest struct {
 	CallableExpression string
 	Code               string
 	CallOffset         int
-}
-
-// SignatureResolver is the narrow project-owned boundary used by the focused
-// fake now and the Basedpyright adapter in the next phase.
-type SignatureResolver interface {
-	ResolveCallableSignature(context.Context, SignatureRequest) (CallableSignature, error)
 }
 
 // CallableSignature is the normalized provider result before it becomes
@@ -120,12 +113,6 @@ type parameterState struct {
 	Expression     string
 }
 
-// NewStore creates the canonical V1 project and materializes its initial
-// generated file before making the store available to callers.
-func NewStore(writer GeneratedFileWriter) (*Store, error) {
-	return newStore(writer, nil)
-}
-
 // NewStoreWithProvider creates a store that owns one real LSP provider for
 // the lifetime of its generated document workspace.
 func NewStoreWithProvider(writer GeneratedFileWriter, provider LSPProvider) (*Store, error) {
@@ -181,7 +168,7 @@ func (store *Store) GeneratedFilePath() string {
 	return store.writer.Path()
 }
 
-// CommitCallable resolves one provider signature against a candidate snapshot,
+// CommitCallable resolves one signature through the store-owned provider,
 // renders the result, atomically replaces the generated file, and then commits
 // the next canonical revision.
 func (store *Store) CommitCallable(
@@ -189,7 +176,6 @@ func (store *Store) CommitCallable(
 	projectID string,
 	sectionID string,
 	expression string,
-	resolver SignatureResolver,
 ) (contracts.ProjectSnapshotV1, error) {
 	if store == nil {
 		return contracts.ProjectSnapshotV1{}, ErrStoreClosed
@@ -210,11 +196,11 @@ func (store *Store) CommitCallable(
 	if normalizedExpression == store.state.callable.Expression {
 		return store.state.snapshot(), nil
 	}
-	if resolver == nil {
-		return contracts.ProjectSnapshotV1{}, ErrSignatureResolverRequired
+	if store.provider == nil {
+		return contracts.ProjectSnapshotV1{}, ErrLSPProviderRequired
 	}
 
-	candidate, err := buildCallableCommitCandidate(ctx, store.state, normalizedExpression, resolver)
+	candidate, err := buildCallableCommitCandidate(ctx, store.state, normalizedExpression, store.provider)
 	if err != nil {
 		return contracts.ProjectSnapshotV1{}, err
 	}
@@ -342,13 +328,13 @@ func buildCallableCommitCandidate(
 	ctx context.Context,
 	state canonicalState,
 	expression string,
-	resolver SignatureResolver,
+	provider LSPProvider,
 ) (canonicalState, error) {
 	request, err := buildSignatureRequest(state, expression)
 	if err != nil {
 		return canonicalState{}, err
 	}
-	signature, err := resolver.ResolveCallableSignature(ctx, request)
+	signature, err := provider.ResolveCallableSignature(ctx, request)
 	if err != nil {
 		return canonicalState{}, fmt.Errorf("resolve callable signature: %w", err)
 	}

@@ -32,7 +32,6 @@ func TestStoreCommitsWithExplicitProviderStatusWhenDiagnosticsArePendingOrUnavai
 		initial.Project.ID,
 		initial.Callables[0].ID,
 		"math.sqrt",
-		provider,
 	)
 	if err != nil {
 		t.Fatalf("CommitCallable() error = %v", err)
@@ -40,6 +39,9 @@ func TestStoreCommitsWithExplicitProviderStatusWhenDiagnosticsArePendingOrUnavai
 	if pendingSnapshot.ProviderStatus.Status != contracts.ProviderAvailabilityAvailableV1 ||
 		pendingSnapshot.ProviderStatus.State != contracts.ProviderLifecycleStatePendingV1 {
 		t.Fatalf("pending provider status = %#v", pendingSnapshot.ProviderStatus)
+	}
+	if provider.resolveCalls != 1 || provider.synchronizeCalls != 1 {
+		t.Fatalf("owned provider calls = resolve %d, synchronize %d; want 1 each", provider.resolveCalls, provider.synchronizeCalls)
 	}
 
 	provider.syncErr = errors.New("server exited")
@@ -54,6 +56,9 @@ func TestStoreCommitsWithExplicitProviderStatusWhenDiagnosticsArePendingOrUnavai
 	}
 	if len(unavailableSnapshot.Diagnostics) != 0 {
 		t.Fatalf("unavailable diagnostics = %#v", unavailableSnapshot.Diagnostics)
+	}
+	if provider.synchronizeCalls != 2 {
+		t.Fatalf("owned provider synchronize calls = %d, want 2", provider.synchronizeCalls)
 	}
 }
 
@@ -103,12 +108,22 @@ func TestMapProviderDiagnosticsKeepsSameRangeDifferentSeverityIDsDistinct(t *tes
 }
 
 type recordingProvider struct {
-	pending bool
-	syncErr error
-	closed  bool
+	resolver         signatureResolverFunc
+	pending          bool
+	syncErr          error
+	closed           bool
+	resolveCalls     int
+	synchronizeCalls int
 }
 
-func (provider *recordingProvider) ResolveCallableSignature(context.Context, SignatureRequest) (CallableSignature, error) {
+func (provider *recordingProvider) ResolveCallableSignature(
+	ctx context.Context,
+	request SignatureRequest,
+) (CallableSignature, error) {
+	provider.resolveCalls++
+	if provider.resolver != nil {
+		return provider.resolver(ctx, request)
+	}
 	return squareRootSignature(), nil
 }
 
@@ -116,6 +131,7 @@ func (provider *recordingProvider) SynchronizeGeneratedDocument(
 	_ context.Context,
 	_ GeneratedDocumentRequest,
 ) (GeneratedDocumentResult, error) {
+	provider.synchronizeCalls++
 	if provider.syncErr != nil {
 		return GeneratedDocumentResult{}, provider.syncErr
 	}

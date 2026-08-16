@@ -9,7 +9,10 @@ import (
 )
 
 func TestTemporaryStoreMaterializesFinalGeneratedFileAndCleansUp(t *testing.T) {
-	store, err := NewTemporaryStore()
+	provider := &recordingProvider{resolver: func(context.Context, SignatureRequest) (CallableSignature, error) {
+		return squareRootSignature(), nil
+	}}
+	store, err := NewTemporaryStore(provider)
 	if err != nil {
 		t.Fatalf("NewTemporaryStore() error = %v", err)
 	}
@@ -29,9 +32,6 @@ func TestTemporaryStoreMaterializesFinalGeneratedFileAndCleansUp(t *testing.T) {
 		initialProjectID,
 		squareRootCallableID,
 		"math.sqrt",
-		signatureResolverFunc(func(context.Context, SignatureRequest) (CallableSignature, error) {
-			return squareRootSignature(), nil
-		}),
 	)
 	if err != nil {
 		t.Fatalf("CommitCallable() error = %v", err)

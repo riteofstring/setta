@@ -41,6 +41,69 @@ type BasedpyrightProvider struct {
 	closed            bool
 }
 
+// diagnosticWaiter carries one document's publications and the terminal
+// session failure that makes waiting for a matching publication impossible.
+type diagnosticWaiter struct {
+	publications chan PublishDiagnosticsParams
+	failures     chan error
+}
+
+func newDiagnosticWaiter() *diagnosticWaiter {
+	return &diagnosticWaiter{
+		publications: make(chan PublishDiagnosticsParams, 16),
+		failures:     make(chan error, 1),
+	}
+}
+
+func (waiter *diagnosticWaiter) notify(publication PublishDiagnosticsParams, failure error) {
+	if failure != nil {
+		select {
+		case waiter.failures <- failure:
+		default:
+		}
+		return
+	}
+	select {
+	case waiter.publications <- publication:
+	default:
+	}
+}
+
+func (waiter *diagnosticWaiter) takeFailure() error {
+	select {
+	case failure := <-waiter.failures:
+		return failure
+	default:
+		return nil
+	}
+}
+
+func (waiter *diagnosticWaiter) await(
+	ctx context.Context,
+	timeout <-chan time.Time,
+) (PublishDiagnosticsParams, error, bool) {
+	if failure := waiter.takeFailure(); failure != nil {
+		return PublishDiagnosticsParams{}, failure, false
+	}
+	select {
+	case failure := <-waiter.failures:
+		return PublishDiagnosticsParams{}, failure, false
+	case publication := <-waiter.publications:
+		return publication, nil, false
+	case <-ctx.Done():
+		return waiter.pendingOutcome()
+	case <-timeout:
+		return waiter.pendingOutcome()
+	}
+}
+
+func (waiter *diagnosticWaiter) pendingOutcome() (PublishDiagnosticsParams, error, bool) {
+	if failure := waiter.takeFailure(); failure != nil {
+		return PublishDiagnosticsParams{}, failure, false
+	}
+	return PublishDiagnosticsParams{}, nil, true
+}
+
 func NewBasedpyrightProvider(options BasedpyrightOptions) (*BasedpyrightProvider, error) {
 	executable, err := ResolvePinnedBasedpyrightExecutable(options.AppRoot)
 	if err != nil {
@@ -204,17 +267,11 @@ func (provider *BasedpyrightProvider) SynchronizeGeneratedDocument(
 		return project.GeneratedDocumentResult{}, fmt.Errorf("lsp: generated document does not match its canonical revision")
 	}
 
-	published := make(chan PublishDiagnosticsParams, 16)
-	callback := func(params PublishDiagnosticsParams) {
-		select {
-		case published <- params:
-		default:
-		}
-	}
-	if err := provider.session.SynchronizeDocument(ctx, path, "python", request.Revision, request.Code, callback); err != nil {
+	waiter := newDiagnosticWaiter()
+	if err := provider.session.SynchronizeDocument(ctx, path, "python", request.Revision, request.Code, waiter.notify); err != nil {
 		return project.GeneratedDocumentResult{}, err
 	}
-	return provider.waitForExactDiagnostics(ctx, request, published)
+	return provider.waitForExactDiagnostics(ctx, request, waiter)
 }
 
 func (provider *BasedpyrightProvider) resolveCanonicalPath(path string) (string, error) {
@@ -239,39 +296,62 @@ func (provider *BasedpyrightProvider) resolveCanonicalPath(path string) (string,
 func (provider *BasedpyrightProvider) waitForExactDiagnostics(
 	ctx context.Context,
 	request project.GeneratedDocumentRequest,
-	published <-chan PublishDiagnosticsParams,
+	waiter *diagnosticWaiter,
 ) (project.GeneratedDocumentResult, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	timeout := provider.diagnosticTimeout
-	if deadline, ok := ctx.Deadline(); ok {
-		remaining := time.Until(deadline)
-		if remaining <= 0 {
-			return pendingDiagnosticsResult(), nil
-		}
-		if remaining < timeout {
-			timeout = remaining
-		}
+	if waiter == nil {
+		return project.GeneratedDocumentResult{}, errors.New("lsp: diagnostics waiter is required")
+	}
+	if failure := waiter.takeFailure(); failure != nil {
+		return diagnosticWaitFailure(failure)
+	}
+	timeout, expired := effectiveDiagnosticTimeout(ctx, provider.diagnosticTimeout)
+	if expired {
+		return pendingDiagnosticsResult(), nil
 	}
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	for {
-		select {
-		case <-ctx.Done():
-			return pendingDiagnosticsResult(), nil
-		case <-timer.C:
-			return pendingDiagnosticsResult(), nil
-		case publication := <-published:
-			if publication.Version == nil || *publication.Version != request.Revision {
-				continue
-			}
-			return project.GeneratedDocumentResult{
-				Diagnostics:    normalizeDiagnostics(request.Code, publication.Diagnostics),
-				ProviderStatus: readyProviderStatus(),
-			}, nil
+		publication, failure, pending := waiter.await(ctx, timer.C)
+		if failure != nil {
+			return diagnosticWaitFailure(failure)
 		}
+		if pending {
+			return pendingDiagnosticsResult(), nil
+		}
+		if !matchesDocumentRevision(publication, request.Revision) {
+			continue
+		}
+		return project.GeneratedDocumentResult{
+			Diagnostics:    normalizeDiagnostics(request.Code, publication.Diagnostics),
+			ProviderStatus: readyProviderStatus(),
+		}, nil
 	}
+}
+
+func effectiveDiagnosticTimeout(ctx context.Context, configured time.Duration) (time.Duration, bool) {
+	deadline, hasDeadline := ctx.Deadline()
+	if !hasDeadline {
+		return configured, false
+	}
+	remaining := time.Until(deadline)
+	if remaining <= 0 {
+		return 0, true
+	}
+	if remaining < configured {
+		return remaining, false
+	}
+	return configured, false
+}
+
+func diagnosticWaitFailure(failure error) (project.GeneratedDocumentResult, error) {
+	return project.GeneratedDocumentResult{}, fmt.Errorf("lsp: wait for diagnostics: %w", failure)
+}
+
+func matchesDocumentRevision(publication PublishDiagnosticsParams, revision int) bool {
+	return publication.Version != nil && *publication.Version == revision
 }
 
 func normalizeDiagnostics(code string, diagnostics []Diagnostic) []project.ProviderDiagnostic {

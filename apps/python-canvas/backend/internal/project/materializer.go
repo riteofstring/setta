@@ -40,13 +40,17 @@ func NewTemporaryGeneratedFile() (*GeneratedFile, error) {
 	}, nil
 }
 
-// NewTemporaryStore creates a store backed by one temporary generated file.
-func NewTemporaryStore() (*Store, error) {
+// NewTemporaryStore creates a store that owns the provided LSP provider and
+// one temporary generated file.
+func NewTemporaryStore(provider LSPProvider) (*Store, error) {
+	if provider == nil {
+		return nil, ErrLSPProviderRequired
+	}
 	generatedFile, err := NewTemporaryGeneratedFile()
 	if err != nil {
 		return nil, err
 	}
-	store, err := NewStore(generatedFile)
+	store, err := NewStoreWithProvider(generatedFile, provider)
 	if err != nil {
 		_ = generatedFile.Close()
 		return nil, err
