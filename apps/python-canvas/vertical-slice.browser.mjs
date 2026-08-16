@@ -1,20 +1,8 @@
-import { mkdtempSync, rmSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { fileURLToPath } from "node:url";
 
-import { createCdpPage } from "../../scripts/lib/cdp-client.mjs";
 import {
   fetchCanonicalSnapshot,
-  reserveLoopbackPort,
-  run,
-  startHeadlessChrome,
-  startProcess,
-  stopHeadlessChrome,
-  stopProcess,
-  waitForHeadlessChrome,
-  waitForHttp,
+  runAgainstProductionApp,
 } from "./browser-processes.mjs";
 import {
   activateTextBox,
@@ -28,24 +16,36 @@ import {
   pressEscape,
   pressTab,
   selectAll,
+  setEmulatedAppearance,
   textBoxSelector,
   waitFor,
 } from "./browser-page.mjs";
+import {
+  assertCallableFieldParity,
+  assertDonorCallableFieldSurface,
+  assertDonorGeneratedRegion,
+  assertNonEditingGeneratedText,
+  callableFieldStateScript,
+  enterCallableField,
+  fieldTypeProperties,
+  fieldValueTypeProperties,
+  generatedOutputSelector,
+  generatedOutputStateScript,
+  idleCallableSelector,
+  liveCallableSelector,
+  selectSqrtCompletion,
+  waitForEnabledCallableField,
+} from "./callable-presentation.mjs";
 
-const appRoot = path.dirname(fileURLToPath(import.meta.url));
-const backendRoot = path.join(appRoot, "backend");
 // The Callable section is observed through public surfaces only: its accessible section group,
 // the package's one documented toolbar hook, and this app's own content root.
 const callableSectionSelector =
   '[role="group"][aria-label^="Square Root section"]';
 const itemToolbarSelector = "[data-workspace-item-toolbar]";
-const sectionFieldSelector = "[data-workspace-section-field]";
-const generatedOutputSelector =
-  '[data-workspace-section-editor="generated-output"]';
 const callableContentSelector = ".python-canvas-callable-section";
-// The activation swap may move the field's own box by less than a device pixel of rounding, but
-// not by a layout step.
-const fieldGeometryToleranceCssPx = 1;
+// The application follows the reader's system appearance, so this walkthrough pins the one it
+// asserts donor values for. The capture harness records both.
+const walkthroughAppearance = "light";
 
 // The Args filter's own controls, resolved from its accessible name and required to belong to
 // the rendered toolbar. Nothing here reads package-private toolbar structure.
@@ -156,69 +156,6 @@ function assertNoStructuralParameterControls(names) {
   }
 }
 
-function idleCallableSelector(callableLabel) {
-  return `${textBoxSelector(callableLabel)}:not([contenteditable="true"])`;
-}
-
-function liveCallableSelector(callableLabel) {
-  return `${textBoxSelector(callableLabel)}[contenteditable="true"]`;
-}
-
-async function waitForEnabledCallableField(client, callableLabel) {
-  await waitFor(
-    client,
-    "enabled callable editor after initial provider work",
-    `(() => {
-      const control = document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
-      return control instanceof HTMLElement && control.getAttribute("aria-disabled") !== "true";
-    })()`,
-  );
-}
-
-// The field's own box and the text layer inside it, read through the package's documented
-// section-field hook and this control's accessible name. Nothing here selects a package class.
-function callableFieldStateScript(textSelector) {
-  return `(() => {
-    const field = document.querySelector(${JSON.stringify(sectionFieldSelector)});
-    const text = document.querySelector(${JSON.stringify(textSelector)});
-    if (!(field instanceof HTMLElement) || !(text instanceof HTMLElement)) {
-      return null;
-    }
-    const rect = field.getBoundingClientRect();
-    const fieldStyle = window.getComputedStyle(field);
-    const textStyle = window.getComputedStyle(text);
-    return {
-      box: { height: rect.height, width: rect.width, x: rect.x, y: rect.y },
-      surface: {
-        backgroundColor: fieldStyle.backgroundColor,
-        borderRadius: fieldStyle.borderTopLeftRadius,
-        borderWidth: fieldStyle.borderTopWidth,
-        marginInline: fieldStyle.marginLeft + " " + fieldStyle.marginRight,
-        padding: fieldStyle.paddingTop + " " + fieldStyle.paddingRight + " " +
-          fieldStyle.paddingBottom + " " + fieldStyle.paddingLeft,
-      },
-      borderColor: fieldStyle.borderTopColor,
-      type: {
-        color: textStyle.color,
-        fontFamily: textStyle.fontFamily,
-        fontSize: textStyle.fontSize,
-        fontWeight: textStyle.fontWeight,
-        lineHeight: textStyle.lineHeight,
-      },
-    };
-  })()`;
-}
-
-// An empty field shows its own muted placeholder layer against CodeMirror's placeholder, so text
-// colour is compared only in the committed-value pass, where both layers render the same value.
-const fieldTypeProperties = [
-  "fontFamily",
-  "fontSize",
-  "fontWeight",
-  "lineHeight",
-];
-const fieldValueTypeProperties = [...fieldTypeProperties, "color"];
-
 // The developer rejected the previous candidate because clicking the callable field changed its
 // dimensions and its type. Measure the donor pill idle, click it, and require that the same
 // surface comes back with only its border colour changed.
@@ -235,21 +172,9 @@ async function assertCallableFieldActivationParity(
   if (idle === null) {
     throw new Error("The idle callable field did not render its surface.");
   }
-  assertDonorCallableFieldSurface(idle);
+  assertDonorCallableFieldSurface(idle, walkthroughAppearance);
 
-  await clickElementCenter(
-    client,
-    idleCallableSelector(callableLabel),
-    "The idle callable field",
-  );
-  await waitFor(
-    client,
-    "the clicked callable field mounting and focusing its live editor",
-    `(() => {
-      const live = document.querySelector(${JSON.stringify(liveCallableSelector(callableLabel))});
-      return live instanceof HTMLElement && document.activeElement === live;
-    })()`,
-  );
+  await enterCallableField(client, callableLabel);
   const live = await evaluate(
     client,
     callableFieldStateScript(liveCallableSelector(callableLabel)),
@@ -257,7 +182,7 @@ async function assertCallableFieldActivationParity(
   if (live === null) {
     throw new Error("The live callable field did not render its surface.");
   }
-  assertCallableFieldParity(idle, live, typeProperties);
+  assertCallableFieldParity(idle, live, typeProperties, walkthroughAppearance);
 
   await pressEscape(client);
   await waitFor(
@@ -266,95 +191,6 @@ async function assertCallableFieldActivationParity(
     `document.querySelector(${JSON.stringify(liveCallableSelector(callableLabel))}) === null`,
   );
 }
-
-function assertDonorCallableFieldSurface(state) {
-  const donorSurface = {
-    backgroundColor: "rgb(255, 255, 255)",
-    borderRadius: "16px",
-    borderWidth: "1px",
-    marginInline: "2px 2px",
-    padding: "4px 10px 4px 10px",
-  };
-  for (const [property, expected] of Object.entries(donorSurface)) {
-    if (state.surface[property] !== expected) {
-      throw new Error(
-        `The idle callable field rendered ${property} ${JSON.stringify(state.surface[property])} instead of the donor's ${JSON.stringify(expected)}.`,
-      );
-    }
-  }
-}
-
-function assertCallableFieldParity(idle, live, typeProperties) {
-  for (const [property, idleValue] of Object.entries(idle.box)) {
-    const drift = Math.abs(idleValue - live.box[property]);
-    if (drift > fieldGeometryToleranceCssPx) {
-      throw new Error(
-        `Activating the callable field moved its ${property} by ${String(drift)} CSS px.`,
-      );
-    }
-  }
-  for (const property of typeProperties) {
-    if (live.type[property] !== idle.type[property]) {
-      throw new Error(
-        `Activating the callable field changed ${property} from ${JSON.stringify(idle.type[property])} to ${JSON.stringify(live.type[property])}.`,
-      );
-    }
-  }
-  for (const [property, idleValue] of Object.entries(idle.surface)) {
-    if (live.surface[property] !== idleValue) {
-      throw new Error(
-        `Activating the callable field changed ${property} from ${JSON.stringify(idleValue)} to ${JSON.stringify(live.surface[property])}.`,
-      );
-    }
-  }
-  if (live.borderColor !== "rgb(59, 130, 246)") {
-    throw new Error(
-      `The focused callable field rendered the border colour ${JSON.stringify(live.borderColor)} instead of the donor's focus blue.`,
-    );
-  }
-  if (idle.borderColor === live.borderColor) {
-    throw new Error(
-      "The callable field's border colour did not change when it took focus.",
-    );
-  }
-}
-
-// The generated surface, its badge, and the text layer inside it, read through the package's
-// documented section-editor hook and this section's accessible name. Nothing here selects a
-// package class.
-const generatedOutputStateScript = `(() => {
-  const surface = document.querySelector(${JSON.stringify(generatedOutputSelector)});
-  const text = surface?.querySelector('[role="textbox"]');
-  if (!(surface instanceof HTMLElement) || !(text instanceof HTMLElement)) {
-    return null;
-  }
-  const surfaceStyle = window.getComputedStyle(surface);
-  const badgeStyle = window.getComputedStyle(surface, "::after");
-  const textStyle = window.getComputedStyle(text);
-  return {
-    region: {
-      backgroundImage: surfaceStyle.backgroundImage,
-      borderRadius: surfaceStyle.borderTopLeftRadius,
-    },
-    badge: {
-      backgroundColor: badgeStyle.backgroundColor,
-      content: badgeStyle.content,
-      textTransform: badgeStyle.textTransform,
-    },
-    text: {
-      contentEditable: text.getAttribute("contenteditable"),
-      isActiveElement: document.activeElement === text,
-      outlineStyle: textStyle.outlineStyle,
-      outlineWidth: textStyle.outlineWidth,
-      readOnly: text.getAttribute("aria-readonly"),
-      source: text.textContent,
-    },
-    // CodeMirror's own caret and active-line layers. A non-editing surface must mount neither,
-    // and their absence is the only DOM evidence that no caret is drawn.
-    hasCaretLayer: surface.querySelector(".cm-cursor") !== null,
-    hasActiveLine: surface.querySelector(".cm-activeLine") !== null,
-  };
-})()`;
 
 // The developer rejected the previous candidate because Generated Python was painted as an
 // ordinary editor whose still-editable content exposed a black caret line on click. Measure the
@@ -366,7 +202,7 @@ async function assertGeneratedOutputPresentation(client, generatedLabel) {
       `${generatedLabel} did not render the package's generated-output surface.`,
     );
   }
-  assertDonorGeneratedRegion(idle);
+  assertDonorGeneratedRegion(idle, walkthroughAppearance);
   assertNonEditingGeneratedText("The idle", idle);
 
   await clickElementCenter(
@@ -402,58 +238,6 @@ async function assertGeneratedOutputPresentation(client, generatedLabel) {
     );
   }
   return idle.text.source;
-}
-
-function assertDonorGeneratedRegion(state) {
-  // Chromium expands the rail's double-position stop into its two computed stops.
-  const donorRegion = {
-    backgroundImage:
-      "linear-gradient(90deg, rgb(96, 165, 250) 0px, rgb(96, 165, 250) 3px, rgb(219, 234, 254) 3px)",
-    borderRadius: "6px",
-  };
-  for (const [property, expected] of Object.entries(donorRegion)) {
-    if (state.region[property] !== expected) {
-      throw new Error(
-        `Generated Python rendered ${property} ${JSON.stringify(state.region[property])} instead of the donor's ${JSON.stringify(expected)}.`,
-      );
-    }
-  }
-  const donorBadge = {
-    backgroundColor: "rgb(37, 99, 235)",
-    content: '"Generated read-only"',
-    textTransform: "uppercase",
-  };
-  for (const [property, expected] of Object.entries(donorBadge)) {
-    if (state.badge[property] !== expected) {
-      throw new Error(
-        `The generated Python badge rendered ${property} ${JSON.stringify(state.badge[property])} instead of the donor's ${JSON.stringify(expected)}.`,
-      );
-    }
-  }
-}
-
-function assertNonEditingGeneratedText(stage, state) {
-  if (state.text.contentEditable !== "false") {
-    throw new Error(
-      `${stage} generated Python text is still an editing surface.`,
-    );
-  }
-  if (state.text.readOnly !== "true") {
-    throw new Error(`${stage} generated Python text is not named read-only.`);
-  }
-  if (state.text.isActiveElement) {
-    throw new Error(`${stage} generated Python text took the keyboard focus.`);
-  }
-  if (state.hasCaretLayer || state.hasActiveLine) {
-    throw new Error(
-      `${stage} generated Python painted a caret or an active line.`,
-    );
-  }
-  if (state.text.outlineStyle !== "none" && state.text.outlineWidth !== "0px") {
-    throw new Error(
-      `${stage} generated Python text drew the inner outline ${JSON.stringify(state.text.outlineStyle)}.`,
-    );
-  }
 }
 
 // Rendered order alone would not prove the section reads correctly by keyboard. Start from the last
@@ -630,14 +414,7 @@ async function runWalkthrough(client, backendOrigin) {
   }
 
   const beforeCompletion = await fetchCanonicalSnapshot(backendOrigin);
-  await activateTextBox(client, callableLabel);
-  await insertText(client, "math.sq");
-  await waitFor(
-    client,
-    "accessible sqrt completion",
-    `Array.from(document.querySelectorAll('[role="option"]')).some((option) => option.textContent?.trim() === "sqrt")`,
-  );
-  await pressEnter(client);
+  await selectSqrtCompletion(client, callableLabel);
 
   await waitFor(
     client,
@@ -756,94 +533,14 @@ function assertCanonicalValue(before, after, message) {
 }
 
 async function main() {
-  run("pnpm", ["--filter", "@setta/workspace", "run", "build"]);
-  run("pnpm", ["run", "build"], { cwd: appRoot });
-
-  const temporaryDirectory = mkdtempSync(
-    path.join(os.tmpdir(), "setta-python-canvas-browser-"),
+  await runAgainstProductionApp(
+    async ({ backendOrigin, client, previewOrigin }) => {
+      await setEmulatedAppearance(client, walkthroughAppearance);
+      await navigate(client, previewOrigin);
+      await runWalkthrough(client, backendOrigin);
+    },
   );
-  let backend = null;
-  let preview = null;
-  let browser = null;
-  let client = null;
-  try {
-    const backendPort = await reserveLoopbackPort();
-    const previewPort = await reserveLoopbackPort();
-    const backendOrigin = `http://127.0.0.1:${String(backendPort)}`;
-    const previewOrigin = `http://127.0.0.1:${String(previewPort)}`;
-    const backendBinary = path.join(temporaryDirectory, "python-canvas");
-    run("go", ["build", "-o", backendBinary, "./cmd/python-canvas"], {
-      cwd: backendRoot,
-    });
-
-    backend = startProcess(backendBinary, ["-port", String(backendPort)], {
-      cwd: appRoot,
-      label: "Python Canvas backend",
-    });
-    await waitForHttp(
-      backend,
-      `${backendOrigin}/api/v1/project`,
-      "Python Canvas backend",
-    );
-
-    preview = startProcess(
-      process.execPath,
-      [
-        path.join(appRoot, "node_modules/vite/bin/vite.js"),
-        "preview",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        String(previewPort),
-        "--strictPort",
-      ],
-      {
-        cwd: appRoot,
-        env: { PYTHON_CANVAS_BACKEND_ORIGIN: backendOrigin },
-        label: "Python Canvas production preview",
-      },
-    );
-    await waitForHttp(
-      preview,
-      previewOrigin,
-      "Python Canvas production preview",
-    );
-
-    browser = startHeadlessChrome();
-    const cdpPort = await waitForHeadlessChrome(browser);
-    const page = await createCdpPage(cdpPort);
-    client = page.client;
-    await Promise.all([
-      client.send("Page.enable"),
-      client.send("Runtime.enable"),
-      client.send("Emulation.setDeviceMetricsOverride", {
-        deviceScaleFactor: 1,
-        height: 900,
-        mobile: false,
-        width: 1_440,
-      }),
-    ]);
-    await navigate(client, previewOrigin);
-    await runWalkthrough(client, backendOrigin);
-    console.log("Python Canvas browser vertical slice passed.");
-  } finally {
-    client?.close();
-    try {
-      if (browser !== null) {
-        await stopHeadlessChrome(browser);
-      }
-    } finally {
-      try {
-        await stopProcess(preview);
-      } finally {
-        try {
-          await stopProcess(backend);
-        } finally {
-          rmSync(temporaryDirectory, { force: true, recursive: true });
-        }
-      }
-    }
-  }
+  console.log("Python Canvas browser vertical slice passed.");
 }
 
 await main();

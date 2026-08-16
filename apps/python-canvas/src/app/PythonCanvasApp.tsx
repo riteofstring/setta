@@ -6,6 +6,7 @@ import {
   createWorkspaceCodeSection,
   createWorkspaceHost,
   registerSectionKinds,
+  setWorkspaceColorMode,
   type TextValueCompletionProvider,
   type WorkspaceDocument,
   type WorkspaceHost,
@@ -100,6 +101,11 @@ export function PythonCanvasApp() {
 
   useEffect(() => {
     const host = createWorkspaceHost();
+    // The package paints a light and a dark surface, and this view has no appearance control of
+    // its own, so it follows the reader's system appearance and its own chrome does the same in
+    // index.css. Appearance is resolved before the document loads because node projection derives
+    // section-style backgrounds from it.
+    setWorkspaceColorMode(host, "system");
     registerPythonCanvasSectionKinds(host);
 
     let active = true;

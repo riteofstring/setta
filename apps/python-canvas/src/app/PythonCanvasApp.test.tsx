@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   createWorkspaceCodeSectionData: vi.fn(),
   createWorkspaceHost: vi.fn(),
   registerSectionKinds: vi.fn(),
+  setWorkspaceColorMode: vi.fn(),
 }));
 
 vi.mock("../backend/client", () => ({
@@ -35,6 +36,7 @@ vi.mock("@setta/workspace", () => ({
   createWorkspaceCodeSectionData: mocks.createWorkspaceCodeSectionData,
   createWorkspaceHost: mocks.createWorkspaceHost,
   registerSectionKinds: mocks.registerSectionKinds,
+  setWorkspaceColorMode: mocks.setWorkspaceColorMode,
 }));
 
 import type { WorkspaceHost } from "@setta/workspace";
@@ -108,6 +110,12 @@ describe("PythonCanvasApp", () => {
     expect(mocks.registerSectionKinds.mock.invocationCallOrder[0]).toBeLessThan(
       host.loadDocument.mock.invocationCallOrder[0] ?? Infinity,
     );
+    // This view has no appearance control, so it follows the reader's system appearance, and it
+    // resolves that before the document loads because node projection reads it.
+    expect(mocks.setWorkspaceColorMode).toHaveBeenCalledWith(host, "system");
+    expect(
+      mocks.setWorkspaceColorMode.mock.invocationCallOrder[0],
+    ).toBeLessThan(host.loadDocument.mock.invocationCallOrder[0] ?? Infinity);
     expect(app.querySelector("[role='status']")?.textContent).toBe(
       "Project loaded.",
     );

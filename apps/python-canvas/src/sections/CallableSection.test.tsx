@@ -103,6 +103,19 @@ describe("CallableSection", () => {
     );
   });
 
+  it("gives every app-owned colour both appearances", () => {
+    // The view follows the reader's system appearance, so a single-appearance colour here would
+    // frame the package's dark canvas in light page chrome.
+    expect(appStyles).toMatch(/^\s*color-scheme: light dark;$/mu);
+    const singleAppearanceColours = appStyles
+      .split("\n")
+      .filter(
+        (line) =>
+          /#[\da-f]{3,8}\b/iu.test(line) && !line.includes("light-dark("),
+      );
+    expect(singleAppearanceColours).toEqual([]);
+  });
+
   it("paints no app focus outline inside a package-owned surface", () => {
     // A descendant focus rule here reaches into the package's editors, which is how the rejected
     // candidate drew a browser outline inside generated Python.

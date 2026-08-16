@@ -237,6 +237,17 @@ export async function selectAll(client) {
   });
 }
 
+// The application follows the reader's system appearance, so the page's appearance is an input to
+// every check and capture rather than whatever the host machine happens to prefer.
+export async function setEmulatedAppearance(client, appearance) {
+  if (appearance !== "light" && appearance !== "dark") {
+    throw new Error(`Unknown workspace appearance: ${String(appearance)}.`);
+  }
+  await client.send("Emulation.setEmulatedMedia", {
+    features: [{ name: "prefers-color-scheme", value: appearance }],
+  });
+}
+
 export async function navigate(client, origin) {
   const loaded = client.waitForEvent("Page.loadEventFired", 15_000);
   await client.send("Page.navigate", { url: origin });
