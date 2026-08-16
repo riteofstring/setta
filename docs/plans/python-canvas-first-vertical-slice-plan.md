@@ -2,7 +2,8 @@
 
 ## Purpose and status
 
-**Status: Phases A through D are complete and Phase E is next.**
+**Status: Phases A through E are complete. Phase F implementation is complete
+and awaiting the required separate control-plane review.**
 
 This is the bounded implementation plan for the first useful Python Canvas consumer of
 `@setta/workspace`. It replaces the previous contents of this document, which described a fixed
@@ -538,6 +539,15 @@ in the app README.
 
 **Boundary:** focused, integration, browser, generated-contract, and production-build evidence is
 owned by the declared modules and selectable through Code Policy.
+
+**Implementation evidence (2026-08-18; awaiting required control-plane review):** the separate
+`9931b88ae` control-plane commit registers `python-canvas-browser` as a standard repository browser
+suite in the declared Python Canvas module scope. `doctor --strict`, the four-suite changed focused
+profile, and the nine-suite recommended ordinary profile passed; the registered browser suite also
+passed directly against the production frontend, real Go service, and pinned Basedpyright. The app
+README now gives the exact two-process local startup sequence and lists every deferred capability.
+The required owner review of the protected `.code-policy.json` closeout is not recorded here, so the
+phase remains unchecked.
 
 ## Verification
 
