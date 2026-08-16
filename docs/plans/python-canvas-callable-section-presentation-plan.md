@@ -5,15 +5,15 @@
 **Status: Phase A's structural cutover is complete, including its audit corrections. Phase B
 remains open. The developer rejected source candidate
 `666af132be38edf4186e80ad7cf4788c32ff9fd0` and its evidence commit
-`7abd2332d18fa89aef3b5b550e75737dd0e163a1` on 2026-08-19. The complete Callable section still
-had materially different outer padding and vertical adjacency from main, which the component-only
-field crops failed to reveal. Generated Python also incorrectly treated the prefix, generated body,
-and suffix as one generated block; for the shown canonical document only body lines 3–5 are
-generated content. Both defects are corrected in the source candidate recorded below, and the
-capture harness now records complete section crops. The rejected evidence bundle is still checked
-in and must be replaced by a capture rendered from the corrected candidate; that capture, the
-supervisor's inspection of it, developer visual acceptance, and this phase's closing
-`test --changed` and `test-levels` steps remain open.**
+`7abd2332d18fa89aef3b5b550e75737dd0e163a1` on 2026-08-19. Candidate
+`2679b147443f67400e219e4189098fb6008a3008` now models and paints only the canonical generated
+body and observes it through the package's documented public marks, but it is not an accepted
+visual candidate. Supervisor comparison with donor source found that the candidate's self-authored
+4px field-to-toolbar allowance contradicts main's explicit Callable `mt-0 pb-0` toolbar
+composition. The remaining correction is therefore a zero-gap compact toolbar immediately after
+leading content, followed by fresh complete-section and generated-reader captures. Supervisor
+inspection, developer visual acceptance, and this phase's closing `test --changed` and
+`test-levels` steps remain open.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -92,6 +92,10 @@ to the reusable workspace presentation boundary, followed by one direct Python C
 15. Capture evidence records an immutable source candidate. Commit generated evidence separately
     from the source commit it names; never repeatedly amend evidence into the commit whose hash the
     evidence embeds, because that hash cannot converge.
+16. Visual evidence must not create a public inspection API. Use the documented section-field,
+    item-toolbar, section-editor, and generated-line hooks together with accessible roles, ordinary
+    HTML landmarks, app-owned content, and bounding geometry. Do not add public document-line or
+    section-header hooks merely to make a capture script convenient.
 
 ## Acceptance experience
 
@@ -107,9 +111,11 @@ Starting from `./scripts/run-python-canvas.sh`, the live app must demonstrate th
    differs by at most 1 CSS px and computed `font-family`, `font-size`, `font-weight`, and
    `line-height` are identical.
    This match applies to the complete section composition, not just the field crop: the field sits
-   immediately below the header with main's narrow inline inset, and the Args surface begins
-   immediately at the field's lower boundary. Python Canvas must not add content-area padding or a
-   grid gap around package-owned section content.
+   immediately below the header with main's narrow inline inset, and the Args surface begins at the
+   field's lower boundary with a measured zero-pixel gap, within one CSS pixel of rounding. The
+   toolbar uses main's compact Callable block spacing (`mt-0 pb-0`), rather than the ordinary item
+   toolbar's `mt-1 pb-1`. Python Canvas must not add content-area padding or a grid gap around
+   package-owned section content.
 3. Any normal pending state appears as a compact application-owned adornment associated with the
    editor. A genuine completion or mutation failure remains visible and accessible without turning
    ordinary idle state into a paragraph of infrastructure text.
@@ -580,8 +586,10 @@ composition:
 
 1. Compare the complete Square Root section against main's accepted full-section captures, not the
    callable field alone. Remove Python Canvas's 14px content padding, remove the field's invented
-   block-start gap, and make the package-owned field/toolbar boundary match main. Preserve the
-   already-correct idle/focused box and type stability.
+   block-start gap, and make the package-owned field/toolbar boundary match main. In particular,
+   main's Callable toolbar selects `mt-0 pb-0`; the field-to-toolbar gap is zero within one CSS
+   pixel. Preserve the already-correct idle/focused box and type stability, and preserve ordinary
+   item sections' existing `mt-1 pb-1` toolbar spacing.
 2. Replace `generated-output` directly with the required `generated-document` plus one validated
    generated region. Update constructors, parser, actions, package root, README, playground,
    packed-consumer fixtures, and Python Canvas in one cutover; old documents fail rather than
@@ -625,9 +633,13 @@ Use a fixed 1440x900 CSS-pixel viewport at device scale 1 and capture determinis
 section crops** for Square Root idle/focused and Generated Python idle/clicked in both appearances.
 The Square Root crop must include the whole section card: header, field, Args toolbar, and first
 parameter row or the empty item area. A field-only crop is insufficient evidence. Record section,
-header, field, toolbar, first-row, editor, prefix-line, generated-region, and suffix-line rectangles,
-along with font properties, border/radius/background values, editability, active element, and
+header, field, toolbar, first-row, editor-content-box, and generated-region rectangles, along with
+font properties, border/radius/background values, editability, active element, and
 outline/caret-relevant values in machine-readable evidence bound to the exact candidate commit.
+Prove the authored prefix and suffix through the canonical reader text, their exclusion from the
+documented generated-line marks, and at least one full reader line box outside each end of the
+generated block. Do not inspect or publish every private CodeMirror document line merely to obtain
+separate prefix-line and suffix-line rectangles.
 Compare the complete section composition to the exact main-reference images and source tokens above,
 with any rescaling and small antialiasing tolerance stated. The supervisor must open and inspect
 every resulting image at original resolution before presenting the live section to the developer.
@@ -915,16 +927,18 @@ implementation directly removes the rejected mode and evidence. It must not pres
 legacy path, and it must not expand this correction into backend editing or an arbitrary protected-
 range editor.
 
-**Complete-composition and generated-region correction record.** Both rejected defects are fixed in
-one cutover, and no legacy shape survives either of them.
+**First complete-composition and generated-region correction record.** The generated-region defect
+is fixed without a legacy shape. The first composition candidate removed the app-owned padding but
+its final field-to-toolbar step was subsequently found not to match the donor.
 
-The composition is now the package's own. Python Canvas's `.python-canvas-callable-section-content`
-padding and the `contentClassName` that mounted it are gone, and the package's `section-field`
-surface no longer carries a `margin-block-start`, so the complete card is the continuous stack main
-shows: measured live at 1440x900, the field begins exactly at the header's boundary, the Args
-surface begins 4 CSS px below the field, the first parameter row follows the toolbar by the item
-list's own 8 CSS px, and the field is inset from both card edges by nothing but its own 2px margin.
-The app's remaining grid gap spaces only its own error rows, which is stated where it is declared.
+The composition candidate is the package's own. Python Canvas's
+`.python-canvas-callable-section-content` padding and the `contentClassName` that mounted it are
+gone, and the package's `section-field` surface no longer carries a `margin-block-start`. Measured
+live at 1440x900, the field begins exactly at the header's boundary, the Args surface begins 4 CSS
+px below the field, the first parameter row follows the toolbar by the item list's own 8 CSS px,
+and the field is inset from both card edges by nothing but its own 2px margin. The app's remaining
+grid gap spaces only its own error rows. The recorded 4px Args step was an approximation, not
+main's value; the supervisor correction record below supersedes that one metric.
 
 `generated-output` is replaced outright by `generated-document` plus one required
 `WorkspaceGeneratedRegion`. The public `WorkspaceCodeSectionData` is now a discriminated union, so a
@@ -948,11 +962,12 @@ unpainted. No backend, route, generated contract, or local prefix/suffix state c
 
 The evidence design is corrected with the source. The capture harness crops the **complete Square
 Root card** rather than the field, and records the section, header, field, toolbar, and first-row
-rectangles beside the donor composition it asserts while recording; the generated captures record
-each document line's mark, its rect, and the authored prefix and suffix lines' own paint. The
-production walkthrough gained the same two proofs: one complete-card composition assertion in the
-committed state, and one that the block is exactly the region between the target's prefix and
-suffix with those two authored lines unpainted.
+rectangles beside the donor composition it asserts while recording. Its first implementation
+inspected each private CodeMirror document line to record prefix and suffix paint; the
+consumer-boundary correction below supersedes that implementation with public block/content
+geometry and canonical text inclusion/exclusion. The production walkthrough gained the same two
+proofs: one complete-card composition assertion in the committed state, and one that the block is
+exactly the region between the target's prefix and suffix with those two authored lines unpainted.
 
 The playground authors the new shape from its own Inspector: selecting `generated-document` seeds a
 separator-bounded range and reveals two clamped offset controls, switching away drops the region
@@ -1046,6 +1061,35 @@ bundle at `docs/evidence/python-canvas-callable-presentation`; then supervisor i
 images, developer visual acceptance with its accepted-candidate record, and this phase's closing
 `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
 accepted candidate.
+
+**Independent re-review scope correction.** Re-review of candidate
+`2679b147443f67400e219e4189098fb6008a3008` correctly noticed that the older acceptance paragraph
+still asked for prefix-line and suffix-line rectangles after the consumer-boundary correction had
+removed the private document-line query. The requirement, not the public package API, is corrected
+above: the reader content box, generated block bounds, one full line box outside each block end, and
+canonical inclusion/exclusion proof establish the same outcome. Do not add
+`data-workspace-document-line`, `data-workspace-section-header`, or equivalent capture-only hooks.
+An interrupted attempt to do so was discarded before this plan revision and is not part of the
+candidate.
+
+**Supervisor donor-source correction.** The candidate is not yet a visual handoff. Direct inspection
+of donor `frontend/src/components/Section/SectionParts/kwargsControlsStyles.ts` at
+`043d3b2e9c69caf99d1246f1408b3ad7194b7864` found the exact conditional the prior evidence constant
+missed: a Callable toolbar uses `mt-0 pb-0`, while an ordinary toolbar uses `mt-1 pb-1`.
+`WorkspaceItemToolbar` currently applies `mt-1 pb-1` unconditionally, and
+`donorSectionComposition.fieldToToolbarCssPx: 4` merely blesses that candidate output. Replace the
+constant with zero and make the package render the compact toolbar when it directly follows its
+declared leading content. Keep this a package-internal composition input derived at
+`renderItemArea`; do not add another consumer-facing presentation mode or Python-specific branch.
+Focused component tests must pin both paths: leading-content item areas use the compact zero-gap
+toolbar, while item areas without leading content retain their existing ordinary spacing. The new
+headless capture must measure zero within the existing one-CSS-pixel tolerance and include the
+complete card, so the stale four-pixel approximation cannot be accepted again.
+
+What remains now: this one bounded package-internal toolbar correction, its focused tests and
+existing public evidence assertion, a fresh immutable source candidate and separate capture commit,
+supervisor inspection of every full-resolution image, developer visual acceptance, and the closing
+Code Policy steps. Do not address any other audit recommendation or broaden the public surface.
 
 ## Stop conditions
 
