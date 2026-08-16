@@ -333,16 +333,50 @@ async function runWalkthrough(client) {
     })()`,
   );
 
-  const generatedIsReadOnly = await evaluate(
+  const generatedEditor = await evaluate(
     client,
     `(() => {
       const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
-      const editor = generated?.querySelector('[contenteditable]');
-      return editor?.getAttribute("contenteditable") === "false";
+      const editor = generated?.querySelector('[role="textbox"]');
+      if (!(editor instanceof HTMLElement)) {
+        return null;
+      }
+      return {
+        source: editor.textContent,
+        isReadOnly: editor.getAttribute("aria-readonly") === "true",
+      };
     })()`,
   );
-  if (!generatedIsReadOnly) {
+  if (generatedEditor === null || !generatedEditor.isReadOnly) {
     throw new Error("Generated Python editor must be read-only.");
+  }
+  const generatedEditorFocused = await evaluate(
+    client,
+    `(() => {
+      const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
+      const editor = generated?.querySelector('[role="textbox"]');
+      if (!(editor instanceof HTMLElement)) {
+        return false;
+      }
+      editor.focus({ preventScroll: true });
+      return document.activeElement === editor;
+    })()`,
+  );
+  if (!generatedEditorFocused) {
+    throw new Error("Generated Python editor could not receive keyboard focus.");
+  }
+  await insertText(client, "attempted_mutation");
+  await delay(100);
+  const generatedSourceDidNotChange = await evaluate(
+    client,
+    `(() => {
+      const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
+      const editor = generated?.querySelector('[role="textbox"]');
+      return editor?.textContent === ${JSON.stringify(generatedEditor.source)};
+    })()`,
+  );
+  if (!generatedSourceDidNotChange) {
+    throw new Error("Generated Python editor accepted an authored mutation.");
   }
 
   await activateTextBox(client, callableLabel);
