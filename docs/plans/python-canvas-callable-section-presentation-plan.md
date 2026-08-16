@@ -3,10 +3,11 @@
 ## Purpose and status
 
 **Status: Phase A's structural cutover is complete, including its audit corrections. The Phase B
-candidate at `1217367302fe4d3213f01d9064dff0ce2eefce37` passed its automated walkthrough but was
-rejected in developer visual review on 2026-08-19. Phase B is reopened for a bounded visual
-correction: exact Callable field state parity and the Generated Python section's generic
-generated-output presentation.**
+candidate at `1217367302fe4d3213f01d9064dff0ce2eefce37` was rejected in developer visual review on
+2026-08-19. The first correction candidate at `84cf58de5bcb87c66189e148ea5394dce635413a`
+stabilizes the Callable field and makes Generated Python genuinely non-editable, but its generated
+paint was rejected in supervisor visual review: it fills the section's unused height and moves the
+badge away from the donor composition. Phase B remains open for that bounded correction.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -71,6 +72,14 @@ to the reusable workspace presentation boundary, followed by one direct Python C
     behavior-only browser success is not visual acceptance.
 13. Visual completion still requires developer-accepted live evidence. An automated threshold can
     reject a regression, but it cannot declare a new result aesthetically accepted.
+14. Generated-output paint follows the donor's line-scoped composition even when the entire
+    document is generated: the blue region and leading rail hug the rendered document lines, the
+    **GENERATED READ-ONLY** badge is centered over the generated block, and unused fixed-section
+    height is not painted as generated code. A full-height wrapper fill or corner badge is not a
+    close visual match.
+15. Capture evidence records an immutable source candidate. Commit generated evidence separately
+    from the source commit it names; never repeatedly amend evidence into the commit whose hash the
+    evidence embeds, because that hash cannot converge.
 
 ## Acceptance experience
 
@@ -92,8 +101,9 @@ Starting from `./scripts/run-python-canvas.sh`, the live app must demonstrate th
    filter behavior, but no unavailable structural authoring actions.
 5. Signature-derived parameter rows follow the toolbar and retain workspace-owned item layout,
    filtering, selection, column sizing, diagnostics, and text-control interaction.
-6. The **Generated Python** section presents its entire body as generated output: a light/dark blue
-   region with the donor's leading rail and compact **GENERATED READ-ONLY** badge. It is selectable
+6. The **Generated Python** section presents every rendered document line as generated output: a
+   light/dark blue block with the donor's leading rail and centered compact **GENERATED READ-ONLY**
+   badge. The block hugs the code rather than filling unused fixed-section height. It is selectable
    and copyable, but its text surface is not editable, does not receive a text caret, and does not
    reveal an inner black outline or change paint when clicked.
 
@@ -528,6 +538,13 @@ First correct the developer-rejected candidate without reopening Phase A's accep
 4. Update focused package, packed-boundary, playground, and Python Canvas tests. Do not preserve old
    fixtures or parsing behavior for compatibility.
 
+The generated-output correction must port main's line decorations for the whole document rather
+than approximate them with a background on the flex-filling editor wrapper. Keep this generic and
+package-owned: decorate the rendered CodeMirror document lines, center the badge at the generated
+block's upper boundary without changing the document bytes, and leave unused editor height on the
+ordinary Code-section surface. Do not introduce prefix/suffix editing, protected-range semantics,
+or a second public mode to accomplish this.
+
 Then run the production frontend, real Go service, and pinned Basedpyright through the established
 headless-Chrome walkthrough. Extend only the assertions and evidence needed to prove this bounded
 presentation correction:
@@ -551,6 +568,11 @@ outline/caret-relevant values in machine-readable evidence bound to the exact ca
 Compare component crops—not unrelated full-app pixels—to the exact main-reference images and source
 tokens above, with any small antialiasing tolerance stated. The supervisor must open and inspect
 every resulting image before presenting the live section to the developer.
+
+The capture script may require a clean source tree, but the resulting images and metrics must be a
+new evidence commit whose recorded source is its immutable parent candidate. The evidence commit is
+not itself the rendered source candidate. A rerun against a different source commit replaces the
+unaccepted evidence set; it does not amend the source and retry in a self-referential loop.
 
 Record the accepted candidate commit and concise developer observation in this plan. Only after
 acceptance may the captures become an accepted regression lock. If the developer rejects them,
@@ -673,20 +695,18 @@ keeps its wrapper as the section's focus and scroll target, names both non-edita
 read-only, and stops advertising `Enter` where there is no editor to enter. A position/size lock
 still turns an `editable` section read-only and never turns one into generated output.
 
-`generated-output` adds the donor's paint through `styles/generatedOutput.css`: main's
+The first `generated-output` candidate adds the donor's colour tokens through
+`styles/generatedOutput.css`: main's
 `GEN_CODE_READONLY_THEME` colours on its own custom properties, the blue light/dark region behind a
 three-pixel leading rail, six-pixel rounded ends, its explicit selection paint, and the compact 8px
 uppercase **GENERATED READ-ONLY** pill, with a forced-colours block restoring region, rail, and
-badge. Three deliberate departures from the donor, all consequences of this section being generated
-end to end rather than a protected range inside an editable document: the region is painted once on
-the section editor's own wrapper instead of per line, so there is no per-line decoration and the
-rail stays at the reader's left edge while the output scrolls; the badge sits in the region's top
-corner rather than centred over a separator line the whole-output case does not have; and the text
-keeps a text cursor rather than main's `not-allowed`, which in main marks an edit that would be
-refused. The surface also drops the reference's focus fill for a keyboard-only `:focus-visible` cue,
-because a pointer press must not repaint it, and it turns off `drawSelection` and the active-line
-paint — CodeMirror only draws the selection it owns, so a non-editable view would otherwise leave
-a reader's own selection invisible while they copied it.
+badge. That candidate deliberately painted the flex-filling wrapper once and moved the badge to its
+top corner. Supervisor inspection of its exact 1440×900 captures rejected both departures: the
+blue region became a 640×390 empty panel below eight lines of code, unlike main's generated block,
+and the badge lost the donor's centered relationship to that block. Replace those two choices with
+the donor's line-scoped composition. Retain the already-correct non-editable/selectable behavior,
+explicit selection paint, missing active-line/caret layers, and absence of an inner pointer-focus
+outline.
 
 Python Canvas projects Generated Python through that mode and no longer writes the boolean, and its
 broad `.python-canvas-app :focus-visible` rule is gone rather than narrowed: every focus target in
@@ -730,9 +750,19 @@ which passed three times. The workspace, playground, and Python Canvas TypeScrip
 clean and the packaged boundary check passes over source and built artifacts. One negative control
 binds the walkthrough to this fix: projecting `read-only` instead of `generated-output` fails it.
 
-What remains in this phase: the light and dark capture evidence with machine-readable geometry and
-typography bound to the exact candidate commit, the supervisor's inspection of those images,
-developer visual acceptance with its accepted-candidate record, and this phase's closing
+**Supervisor visual rejection record.** Headless captures rendered from
+`84cf58de5bcb87c66189e148ea5394dce635413a` prove that Callable idle/focused geometry and type are
+stable in light and dark appearance and that Generated Python remains caret-free after a real
+click. They also expose the unacceptable full-height generated fill and top-corner badge described
+above. Those captures are rejected working evidence, not a regression lock, and must not be
+committed as accepted evidence. The attempted capture additionally exposed a self-referential
+receipt error: amending the images into the commit hash recorded inside their metrics changes that
+hash forever. The next capture records the immutable corrected source commit and lands separately.
+
+What remains in this phase: replace the generated wrapper fill and corner badge with the donor's
+line-scoped generated block and centered badge; rerun all eight captures and commit their evidence
+against the immutable source candidate; obtain supervisor inspection and developer visual
+acceptance with its accepted-candidate record; then run this phase's closing
 `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps.
 
 ## Stop conditions
