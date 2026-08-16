@@ -2,8 +2,7 @@
 
 ## Purpose and status
 
-**Status: Phases A through E are complete. Phase F implementation is complete
-and awaiting the required separate control-plane review.**
+**Status: Phases A through F are complete.**
 
 This is the bounded implementation plan for the first useful Python Canvas consumer of
 `@setta/workspace`. It replaces the previous contents of this document, which described a fixed
@@ -521,6 +520,11 @@ roles and labels. It verifies the generated editor's read-only accessibility sta
 real keyboard text insertion while retaining selection support, then passed locally against the
 production frontend, real Go service, and real Basedpyright.
 
+**Corrective-review evidence (2026-08-18):** the workspace editor now locks an already-active text
+editor when it becomes disabled; browser acceptance reactivates the parameter editor from its
+rendered state before editing; and HTTP decoding distinguishes an absent `authoredExpression` from
+a present empty expression.
+
 Add one browser acceptance covering the exact walkthrough using accessible roles and labels. Reuse
 the repository's headless Chrome/CDP support if sufficient; any new browser dependency requires
 normal dependency review.
@@ -530,7 +534,7 @@ service, and real Basedpyright. All imports come from the `@setta/workspace` pub
 
 ### Phase F — verification closeout
 
-- [ ] Verification closeout complete
+- [x] Verification closeout complete
 
 Register the completed browser suite in `.code-policy.json` through a separate reviewed
 control-plane closeout so the implementation loop never widens its own active verification scope.
@@ -540,14 +544,14 @@ in the app README.
 **Boundary:** focused, integration, browser, generated-contract, and production-build evidence is
 owned by the declared modules and selectable through Code Policy.
 
-**Implementation evidence (2026-08-18; awaiting required control-plane review):** the separate
-`9931b88ae` control-plane commit registers `python-canvas-browser` as a standard repository browser
-suite in the declared Python Canvas module scope. `doctor --strict`, the four-suite changed focused
-profile, and the nine-suite recommended ordinary profile passed; the registered browser suite also
-passed directly against the production frontend, real Go service, and pinned Basedpyright. The app
-README now gives the exact two-process local startup sequence and lists every deferred capability.
-The required owner review of the protected `.code-policy.json` closeout is not recorded here, so the
-phase remains unchecked.
+**Closeout evidence (2026-08-18):** the exact `9931b88ae` protected control-plane commit was
+explicitly owner-approved and registers `python-canvas-browser` as a standard repository browser
+suite in the declared Python Canvas module scope. `code-policy doctor --strict`, the four-suite
+`code-policy test --changed --base main` profile, and the authorized nine-suite
+`code-policy test --recommended --base main` profile passed, including the production browser, Go,
+and pinned-Basedpyright walkthrough. The app README records the exact two-process local startup
+sequence and every deferred capability. The final bounded Agent 2 audit found no remaining
+technical issue.
 
 ## Verification
 
