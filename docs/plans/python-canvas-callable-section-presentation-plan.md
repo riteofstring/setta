@@ -1236,6 +1236,12 @@ recommended and an eleven-suite full ordinary choice, and the authorized
 Python Canvas frontend focused suites plus the workspace and playground component suites — and
 `code-policy check` over the recorded evidence reports no finding.
 
+**Format closeout correction.** The task-added `parameterItemSearchableText` signature is the only
+Prettier delta in `CallableSection.tsx`; the trusted-base file itself is formatted. Collapse that
+signature to the formatter-owned one-line form. This changes no behavior or rendered surface, but
+it changes the source hash, so decision 15 requires one final recapture commit before developer
+review.
+
 What remains in this phase: supervisor confirmation that the eight images remain visually unchanged
 at full resolution, and developer visual acceptance with its accepted-candidate record; then this
 phase's closing `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>`

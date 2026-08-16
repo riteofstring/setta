@@ -215,9 +215,7 @@ export function CallableSection({ data }: { data: CallableSectionData }) {
 
 // The retained filter is package-owned but these rows are application-opaque, so the app projects
 // exactly the text the row shows.
-export function parameterItemSearchableText(item: {
-  data?: unknown;
-}): string {
+export function parameterItemSearchableText(item: { data?: unknown }): string {
   const data = readParameterItemData(item.data);
   if (data.kind === "empty") {
     return "";
