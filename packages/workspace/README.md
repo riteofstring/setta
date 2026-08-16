@@ -479,8 +479,11 @@ canonical public operations used by the package toolbar, item menu, Inspector, a
 actions. The package appends insertions at the item root, validates the complete next tree, updates
 selection and focus, and reports exactly one document change. The operations reject unavailable
 structure capability, locked sections, and active item drags before invoking a factory or writing.
-A kind without a factory remains readable and deletable, while its Add parameter controls are
-disabled.
+A kind without a factory remains readable and deletable: the `authoring-and-filter` toolbar disables
+its Add parameter control, while `filter-only` and `hidden` render no toolbar Add control at all.
+The declared mode selects that toolbar and nothing else. It never changes structure capability, the
+registered factory, or these canonical operations, which the item menu, Inspector, and direct host
+actions keep calling under their own rules in every mode.
 
 That ordinary kind may also register `getItemSearchableText(context)` for custom opaque items.
 Built-in items always use their package-owned label, so the callback is invoked only for custom

@@ -376,6 +376,17 @@ a rendered filter. The item-area paragraph carries the reciprocal sentence and d
 `data-workspace-item-toolbar` as the one public hook for observing the selected mode, which was
 previously untracked DOM surface that only tests read.
 
+Completing that same reconciliation, the `createItem` paragraph held the last unconditional toolbar
+claim: it said a kind without a factory keeps disabled Add parameter controls, which describes
+`authoring-and-filter` alone, because the other two modes render no toolbar Add control at all. That
+sentence now states the missing-factory effect per mode and carries the reciprocal limit this mode
+set needs — the declared mode selects the toolbar and nothing else, so structure capability, the
+registered factory, and the canonical operations the item menu, Inspector, and direct host actions
+call behave the same in every mode. `SectionContainerContent` is the sole runtime reader of
+`itemArea.toolbar`, so that limit states the package's actual behavior rather than an aspiration.
+Phase B's context-menu bullet below still decides whether that surface stays as it is, and any
+change there updates this paragraph rather than contradicting it.
+
 The same audit's accessibility recommendation is applied: `.python-canvas-pending-mark` conveyed
 ordinary pending state through `background` alone on an `aria-hidden` dot, so forced colours could
 erase the only sighted cue while the live region stayed screen-reader-only. The app now restores it
@@ -393,7 +404,9 @@ acceptance judges that spacing deliberately.
 
 Verification for this correction: the `code-policy` CLI is still not installed in this task
 worktree, so the declared suite commands ran directly. The Python Canvas frontend suite passes (35
-tests) and its TypeScript project is clean. The workspace change is README prose only.
+tests) and its TypeScript project is clean. Both workspace changes are README prose; the package
+suite was re-run over the completing hunk and passes (1157 tests across 140 files), and the
+`itemArea.toolbar` reader claim was confirmed by inspecting every runtime reference to it.
 
 ### Phase B — production interaction, live visual acceptance, and closeout
 
