@@ -464,6 +464,12 @@ The authorized repository profiles were attempted: their Go and contract-drift s
 the JavaScript suites could not start because the disposable worktree had no dependencies and its
 frozen pnpm install could not resolve the package registry in this environment.
 
+**Corrective audit evidence (2026-08-18):** the renderer now owns the candidate call cursor, so a
+callable such as `__init__` cannot resolve at the generated class header. Parameter transport rejects
+statement separators before materialization, while code generation escapes Python keyword paths and
+the project rejects keyword-named provider parameters with a typed unsupported-signature failure.
+Focused tests cover all three corrections and preserve candidate/file atomicity.
+
 ### Phase D — real Basedpyright integration
 
 - [ ] Basedpyright integration complete

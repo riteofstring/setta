@@ -122,6 +122,35 @@ func TestStoreAutomaticallyReconcilesCallableAndParameter(t *testing.T) {
 	}
 }
 
+func TestStoreUsesCandidateCallOffsetWhenCallableMatchesClassHeader(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	store, err := NewStore(writer)
+	if err != nil {
+		t.Fatalf("NewStore() error = %v", err)
+	}
+
+	_, err = store.CommitCallable(
+		context.Background(),
+		initialProjectID,
+		squareRootCallableID,
+		"__init__",
+		signatureResolverFunc(func(_ context.Context, request SignatureRequest) (CallableSignature, error) {
+			const wantSnapshot = "import math\n\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = __init__()\n\nstate = SettaState()"
+			if request.Code != wantSnapshot {
+				t.Fatalf("signature request code = %q, want %q", request.Code, wantSnapshot)
+			}
+			wantOffset := strings.LastIndex(wantSnapshot, "__init__(") + len("__init__(")
+			if request.CallOffset != wantOffset {
+				t.Fatalf("signature request call offset = %d, want candidate call offset %d", request.CallOffset, wantOffset)
+			}
+			return squareRootSignature(), nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("CommitCallable() error = %v", err)
+	}
+}
+
 func TestStoreLeavesStateAndGeneratedFileUntouchedWhenMutationsFail(t *testing.T) {
 	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
 	store, err := NewStore(writer)
@@ -185,11 +214,22 @@ func TestStoreLeavesStateAndGeneratedFileUntouchedWhenMutationsFail(t *testing.T
 	}
 	requireUnchangedStore(t, store, writer, committedSnapshot, committedCode)
 
-	_, err = store.SetParameterExpression(initialProjectID, parameterID, "3\nstate.other = 4")
-	if !errors.Is(err, ErrParameterExpressionInvalid) {
-		t.Fatalf("SetParameterExpression() error = %v, want invalid expression", err)
+	writer.writeErr = nil
+	for _, testCase := range []struct {
+		name       string
+		expression string
+	}{
+		{name: "newline", expression: "3\nstate.other = 4"},
+		{name: "statement separator", expression: "3; state.other = 4"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := store.SetParameterExpression(initialProjectID, parameterID, testCase.expression)
+			if !errors.Is(err, ErrParameterExpressionInvalid) {
+				t.Fatalf("SetParameterExpression() error = %v, want invalid expression", err)
+			}
+			requireUnchangedStore(t, store, writer, committedSnapshot, committedCode)
+		})
 	}
-	requireUnchangedStore(t, store, writer, committedSnapshot, committedCode)
 }
 
 func TestStoreRejectsUnsupportedSignatureWithoutCommitting(t *testing.T) {
@@ -215,6 +255,37 @@ func TestStoreRejectsUnsupportedSignatureWithoutCommitting(t *testing.T) {
 	)
 	if !errors.Is(err, ErrUnsupportedSignature) {
 		t.Fatalf("CommitCallable() error = %v, want unsupported signature", err)
+	}
+	requireUnchangedStore(t, store, writer, before, beforeCode)
+}
+
+func TestStoreRejectsKeywordNamedSignatureParameterWithoutCommitting(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	store, err := NewStore(writer)
+	if err != nil {
+		t.Fatalf("NewStore() error = %v", err)
+	}
+	before := store.Snapshot()
+	beforeCode := writer.code
+
+	_, err = store.CommitCallable(
+		context.Background(),
+		initialProjectID,
+		squareRootCallableID,
+		"math.sqrt",
+		signatureResolverFunc(func(context.Context, SignatureRequest) (CallableSignature, error) {
+			return CallableSignature{Parameters: []SignatureParameter{{
+				Name:         "class",
+				PassingStyle: codegen.ParameterPassingStylePositionalOrKeyword,
+			}}}, nil
+		}),
+	)
+	if !errors.Is(err, ErrUnsupportedSignature) {
+		t.Fatalf("CommitCallable() error = %v, want unsupported signature", err)
+	}
+	var unsupported UnsupportedSignatureError
+	if !errors.As(err, &unsupported) || unsupported.Reason != "parameter name is a Python keyword" {
+		t.Fatalf("CommitCallable() error = %v, want typed keyword-name failure", err)
 	}
 	requireUnchangedStore(t, store, writer, before, beforeCode)
 }

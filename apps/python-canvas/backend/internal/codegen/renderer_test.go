@@ -49,6 +49,9 @@ func TestRenderProducesDeterministicPositionalOnlyModuleAndExactRanges(t *testin
 	if !reflect.DeepEqual(first.SourceRanges, wantRanges) {
 		t.Fatalf("Render().SourceRanges = %#v, want %#v", first.SourceRanges, wantRanges)
 	}
+	if first.CallableCallOffset != 127 {
+		t.Fatalf("Render().CallableCallOffset = %d, want 127", first.CallableCallOffset)
+	}
 	if !reflect.DeepEqual(second, first) {
 		t.Fatalf("second Render() = %#v, want byte-identical %#v", second, first)
 	}
@@ -84,5 +87,37 @@ func TestRenderOmitsBlankParameterExpressionUntilItIsAuthored(t *testing.T) {
 	wantRanges := []SourceRange{{TargetID: "callable:square-root", Start: 84, End: 93}}
 	if !reflect.DeepEqual(result.SourceRanges, wantRanges) {
 		t.Fatalf("Render().SourceRanges = %#v, want %#v", result.SourceRanges, wantRanges)
+	}
+	if result.CallableCallOffset != 94 {
+		t.Fatalf("Render().CallableCallOffset = %d, want 94", result.CallableCallOffset)
+	}
+}
+
+func TestRenderEscapesPythonKeywordsInGeneratedPaths(t *testing.T) {
+	t.Parallel()
+
+	result, err := Render(Input{
+		Prefix: "import math",
+		Suffix: "state = SettaState()",
+		Callable: Callable{
+			ID:           "callable:keyword",
+			Name:         "class",
+			Expression:   "math.sqrt",
+			ParameterIDs: []string{"parameter:keyword"},
+		},
+		Parameters: []Parameter{{
+			ID:           "parameter:keyword",
+			Name:         "class",
+			PassingStyle: ParameterPassingStylePositionalOrKeyword,
+			Expression:   "3",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	const wantCode = "import math\n\nclass SettaState:\n    def __init__(state):\n        state.class___class_ = 3\n        state.class_ = math.sqrt(class_=state.class___class_)\n\nstate = SettaState()"
+	if result.Code != wantCode {
+		t.Fatalf("Render().Code = %q, want %q", result.Code, wantCode)
 	}
 }

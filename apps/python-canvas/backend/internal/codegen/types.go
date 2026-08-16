@@ -53,4 +53,7 @@ type Result struct {
 	Code         string
 	Body         string
 	SourceRanges []SourceRange
+	// CallableCallOffset is the byte offset immediately inside the rendered
+	// callable's opening parenthesis, or -1 when no callable is rendered.
+	CallableCallOffset int
 }

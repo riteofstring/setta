@@ -331,17 +331,15 @@ func buildSignatureRequest(state canonicalState, expression string) (SignatureRe
 	if err := renderState(&candidate); err != nil {
 		return SignatureRequest{}, fmt.Errorf("render signature snapshot: %w", err)
 	}
-	callOffset := strings.Index(candidate.rendered.Code, expression+"(")
-	if callOffset < 0 {
+	if candidate.rendered.CallableCallOffset < 0 {
 		return SignatureRequest{}, fmt.Errorf("render signature snapshot: callable position not found")
 	}
-	callOffset += len(expression) + 1
 	return SignatureRequest{
 		ProjectID:          initialProjectID,
 		SectionID:          squareRootCallableID,
 		CallableExpression: expression,
 		Code:               candidate.rendered.Code,
-		CallOffset:         callOffset,
+		CallOffset:         candidate.rendered.CallableCallOffset,
 	}, nil
 }
 
@@ -355,6 +353,9 @@ func normalizeSignature(signature CallableSignature) (SignatureParameter, error)
 	parameter.Name = strings.TrimSpace(parameter.Name)
 	if !isPythonIdentifier(parameter.Name) {
 		return SignatureParameter{}, UnsupportedSignatureError{Reason: "parameter name is not a Python identifier"}
+	}
+	if codegen.IsPythonKeyword(parameter.Name) {
+		return SignatureParameter{}, UnsupportedSignatureError{Reason: "parameter name is a Python keyword"}
 	}
 	if parameter.PassingStyle != codegen.ParameterPassingStylePositionalOnly &&
 		parameter.PassingStyle != codegen.ParameterPassingStylePositionalOrKeyword {
@@ -381,7 +382,7 @@ func normalizeCallableExpression(expression string) (string, error) {
 		return "", ErrCallableExpressionInvalid
 	}
 	for _, component := range strings.Split(normalized, ".") {
-		if !isPythonIdentifier(component) || pythonKeywords[component] {
+		if !isPythonIdentifier(component) || codegen.IsPythonKeyword(component) {
 			return "", ErrCallableExpressionInvalid
 		}
 	}
@@ -389,9 +390,11 @@ func normalizeCallableExpression(expression string) (string, error) {
 }
 
 func validateParameterExpression(expression string) error {
+	// A parameter is rendered as one assignment right-hand side, so a statement
+	// separator cannot cross this transport boundary.
 	if len(expression) > maxAuthoredExpressionBytes ||
 		strings.ContainsRune(expression, '\x00') ||
-		strings.ContainsAny(expression, "\r\n") {
+		strings.ContainsAny(expression, "\r\n;") {
 		return ErrParameterExpressionInvalid
 	}
 	return nil
@@ -520,13 +523,4 @@ func copyStringPointer(value *string) *string {
 	}
 	copy := *value
 	return &copy
-}
-
-var pythonKeywords = map[string]bool{
-	"False": true, "None": true, "True": true, "and": true, "as": true, "assert": true,
-	"async": true, "await": true, "break": true, "class": true, "continue": true, "def": true,
-	"del": true, "elif": true, "else": true, "except": true, "finally": true, "for": true,
-	"from": true, "global": true, "if": true, "import": true, "in": true, "is": true,
-	"lambda": true, "nonlocal": true, "not": true, "or": true, "pass": true, "raise": true,
-	"return": true, "try": true, "while": true, "with": true, "yield": true,
 }
