@@ -243,6 +243,7 @@ describe("WorkspaceItemFilter", () => {
           {
             <WorkspaceItemFilterProvider sectionId="panel">
               <WorkspaceItemToolbar
+                followsLeadingContent={false}
                 mode="authoring-and-filter"
                 sectionId="panel"
               />

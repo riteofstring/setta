@@ -204,6 +204,20 @@ function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
   return element;
 }
 
+// The item toolbar's own block spacing, in the order the reference declares it.
+function getToolbarSpacing(root: ParentNode): Array<string> {
+  const toolbar = getRequiredElement(root, ".section-args");
+  return ["mt", "pb"].map((property) => {
+    const spacing = [...toolbar.classList].find((className) =>
+      new RegExp(`^${property}-\\d+$`).test(className),
+    );
+    if (!spacing) {
+      throw new Error(`Expected the item toolbar's ${property} spacing.`);
+    }
+    return spacing;
+  });
+}
+
 function getLeafRootItemIds(): Array<string> {
   const itemTree = testWorkspace.document.getState().sections.leaf?.itemTree;
   if (!itemTree) {
@@ -730,6 +744,47 @@ describe("SectionContainer", () => {
     ).not.toBeNull();
   });
 
+  it("composes a compact toolbar under leading content and keeps the ordinary step without it", async () => {
+    registerSectionKinds(testWorkspace.host, {
+      leaf: {
+        renderContent: renderSectionBody,
+        itemArea: {
+          renderLeadingContent: () =>
+            createElement("div", { "data-testid": "leading-content" }, "Lead"),
+          toolbar: "filter-only",
+        },
+      },
+    });
+    loadTestDocument({
+      leaf: {
+        itemTree: {
+          rootId: "root",
+          items: { root: { id: "root", children: [] } },
+          selectedItemIds: [],
+        },
+      },
+    });
+    await mount("leaf");
+
+    // The reference's callable card is continuous: its Args surface begins at the leading field's
+    // own boundary, so the toolbar directly below leading content carries no step above or below.
+    expect(getToolbarSpacing(host)).toEqual(["mt-0", "pb-0"]);
+
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    registerSectionKinds(testWorkspace.host, {
+      leaf: {
+        renderContent: renderSectionBody,
+        itemArea: { toolbar: "filter-only" },
+      },
+    });
+    await mount("leaf");
+
+    // An item area with no leading content keeps the ordinary item toolbar's existing spacing.
+    expect(host.querySelector('[data-testid="leading-content"]')).toBeNull();
+    expect(getToolbarSpacing(host)).toEqual(["mt-1", "pb-1"]);
+  });
+
   it("renders leading content and the item list with no toolbar in hidden mode", async () => {
     registerSectionKinds(testWorkspace.host, {
       leaf: {
@@ -752,7 +807,9 @@ describe("SectionContainer", () => {
     });
     await mount("leaf");
 
-    expect(host.querySelector('[data-testid="leading-content"]')).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="leading-content"]'),
+    ).not.toBeNull();
     expect(host.querySelector('[data-testid="section-body"]')).not.toBeNull();
     expect(host.querySelector(".section-args")).toBeNull();
     expect(

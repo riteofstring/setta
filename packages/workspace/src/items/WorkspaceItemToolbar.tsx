@@ -51,20 +51,27 @@ function isItemAuthoringMutationDisabled(
 // The registered item-area presentation selects which of these exact behaviors renders. The
 // `hidden` mode renders no toolbar at all, so it never reaches this component; the two visible
 // modes share one filter surface and one mutation implementation.
+//
+// `followsLeadingContent` is the item area's own composition input rather than a declared mode:
+// the reference gives a toolbar sitting directly on a section's leading control `mt-0 pb-0` and
+// every other item toolbar `mt-1 pb-1`.
 export function WorkspaceItemToolbar({
+  followsLeadingContent,
   mode,
   sectionId,
 }: {
+  followsLeadingContent: boolean;
   mode: Exclude<WorkspaceItemToolbarMode, "hidden">;
   sectionId: string;
 }) {
   const hasSectionStyleTheme =
     useWorkspaceItemFilter()?.hasSectionStyleTheme === true;
   const toneClasses = getItemAuthoringToneClasses(hasSectionStyleTheme);
+  const spacingClasses = followsLeadingContent ? "mt-0 pb-0" : "mt-1 pb-1";
 
   return (
     <div
-      className={`setta-workspace-item-toolbar section-args z-10 mt-1 flex min-w-0 shrink-0 flex-wrap overflow-hidden rounded-xl border-b border-solid px-1 pb-1 shadow-sm isolate ${toneClasses.container}`}
+      className={`setta-workspace-item-toolbar section-args z-10 flex min-w-0 shrink-0 flex-wrap overflow-hidden rounded-xl border-b border-solid px-1 shadow-sm isolate ${spacingClasses} ${toneClasses.container}`}
       data-tab-native="true"
       data-workspace-item-toolbar={mode}
     >

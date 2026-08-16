@@ -460,7 +460,10 @@ itemArea: {
 
 The package renders one coherent item area in this exact order: `renderLeadingContent(section)`
 when present, the toolbar selected by the declared mode, then `renderContent(section)`. One
-package-owned item-filter provider wraps all three regions. `authoring-and-filter` keeps the full
+package-owned item-filter provider wraps all three regions. A toolbar that renders directly under
+leading content takes the reference's compact block spacing so the two surfaces meet, while an item
+area that renders none keeps the ordinary toolbar's own step; that spacing follows the composition
+the package renders rather than the declared mode. `authoring-and-filter` keeps the full
 Args toolbar; `filter-only` renders the same Args/filter surface without the Add, Remove, and
 Delete actions; `hidden` renders no toolbar while the item list keeps its ordinary unfiltered
 context, so the parameter filter described above is present in exactly the two rendering modes. A

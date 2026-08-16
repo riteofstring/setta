@@ -46,12 +46,13 @@ const unpaintedSectionHeightCssPx = 100;
 
 // Main's card is a continuous header → field → Args → parameters stack. The package's own grid,
 // toolbar, and item list supply the only steps in it, so these are the whole composition's spacing
-// budget: the field begins at the header's boundary, the Args surface begins at the field's, the
-// item list keeps the package's own step below the toolbar, and the field spans the card with
-// nothing but its own 2px inline margin. The rejected candidate added this app's 14px content
-// padding and an invented 4px block gap on top of every one of them.
+// budget: the field begins at the header's boundary, the Args surface begins at the field's own
+// boundary because main's Callable toolbar is `mt-0 pb-0` where an ordinary one is `mt-1 pb-1`,
+// the item list keeps the package's own step below the toolbar, and the field spans the card with
+// nothing but its own 2px inline margin. The rejected candidates added this app's 14px content
+// padding, an invented block gap above the field, and the ordinary toolbar's 4px step below it.
 export const donorSectionComposition = {
-  fieldToToolbarCssPx: 4,
+  fieldToToolbarCssPx: 0,
   headerToFieldCssPx: 0,
   sectionToFieldInlineCssPx: 2,
   toolbarToFirstParameterCssPx: 8,

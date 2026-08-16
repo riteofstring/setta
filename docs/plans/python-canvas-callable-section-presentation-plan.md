@@ -10,9 +10,9 @@ remains open. The developer rejected source candidate
 body and observes it through the package's documented public marks, but it is not an accepted
 visual candidate. Supervisor comparison with donor source found that the candidate's self-authored
 4px field-to-toolbar allowance contradicts main's explicit Callable `mt-0 pb-0` toolbar
-composition. The remaining correction is therefore a zero-gap compact toolbar immediately after
-leading content, followed by fresh complete-section and generated-reader captures. Supervisor
-inspection, developer visual acceptance, and this phase's closing `test --changed` and
+composition. That zero-gap compact toolbar is now implemented and measured live, so the remaining
+work is fresh complete-section and generated-reader captures from the corrected candidate.
+Supervisor inspection, developer visual acceptance, and this phase's closing `test --changed` and
 `test-levels` steps remain open.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
@@ -1090,6 +1090,39 @@ What remains now: this one bounded package-internal toolbar correction, its focu
 existing public evidence assertion, a fresh immutable source candidate and separate capture commit,
 supervisor inspection of every full-resolution image, developer visual acceptance, and the closing
 Code Policy steps. Do not address any other audit recommendation or broaden the public surface.
+
+**Compact callable toolbar record.** The donor's conditional is ported. `WorkspaceItemToolbar` no
+longer hardcodes `mt-1 pb-1`: it takes a package-internal `followsLeadingContent` composition input
+and renders the reference's `mt-0 pb-0` when the toolbar sits directly on a section's leading
+control. `renderItemArea` derives that input from what the declared leading renderer actually
+returned, so the compact spacing follows the composition the package renders rather than a declared
+mode. Nothing consumer-facing grows: `WorkspaceItemToolbarMode` and the registered `itemArea` shape
+are untouched, there is no Python-specific branch, and an item area whose leading slot renders
+nothing keeps the ordinary toolbar's own step, because that toolbar then opens the item area
+directly under the section header. `donorSectionComposition.fieldToToolbarCssPx` is `0`, so the
+existing public composition assertion now measures the donor's zero step in both the production
+walkthrough and the capture instead of blessing the previous candidate's four pixels. The package
+README carries the reciprocal sentence beside the item-area order it already documents.
+
+Proofs: a `WorkspaceItemToolbar` case pins both spacings on the rendered toolbar's own classes, and
+a `SectionContainer` case pins the same two paths through the real registered item area — the
+declared kind with leading content, then the same kind without it. Both fail if the component
+reverts to one unconditional spacing.
+
+Verification for this correction: the locked release's `code-policy` CLI ran `check` over the seven
+changed files; its only finding is the `quality.deadCode` on `apps/python-canvas/vitest.setup.ts`
+this plan already reports, over a file this correction does not touch. The pre-existing
+`quality.format` finding on `packages/workspace/src/section/container/SectionContainer.test.tsx` is
+cleared with the policy-owned formatter rather than reported again, because this correction edits
+that file; the reflow is one existing assertion and no other reported finding's file is touched.
+`code-policy test --changed --base e0f0480d0` passes over this batch's three focused suites, and the
+authorized `code-policy test --recommended --base e0f0480d0` passes all six: workspace focused and
+component (1181 tests across 142 files), playground focused and component (43), Python Canvas
+frontend (38), and the production browser walkthrough against the production builds, the real Go
+service, pinned Basedpyright, and headless Chrome at 1440x900 device scale 1. Two negative controls
+bind this fix: restoring the unconditional `mt-1 pb-1` fails both focused cases, and it fails the
+walkthrough with _the light Square Root card measured fieldToToolbarCssPx at 4 CSS px instead of the
+donor's 0_.
 
 ## Stop conditions
 

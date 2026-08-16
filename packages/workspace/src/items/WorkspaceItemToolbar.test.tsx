@@ -137,6 +137,7 @@ describe("WorkspaceItemToolbar", () => {
 
   async function mount(
     mode: "authoring-and-filter" | "filter-only" = "authoring-and-filter",
+    followsLeadingContent = false,
   ): Promise<void> {
     await act(async () =>
       root.render(
@@ -145,10 +146,24 @@ describe("WorkspaceItemToolbar", () => {
             hasSectionStyleTheme={false}
             sectionId="panel"
           >
-            <WorkspaceItemToolbar mode={mode} sectionId="panel" />
+            <WorkspaceItemToolbar
+              followsLeadingContent={followsLeadingContent}
+              mode={mode}
+              sectionId="panel"
+            />
           </WorkspaceItemFilterProvider>
         </WorkspaceTestProvider>,
       ),
+    );
+  }
+
+  function getToolbarSpacing(): Array<string> {
+    const toolbar = host.querySelector<HTMLElement>(".section-args");
+    if (!toolbar) {
+      throw new Error("Expected the rendered item toolbar.");
+    }
+    return [...toolbar.classList].filter((className) =>
+      /^(mt|pb)-\d+$/.test(className),
     );
   }
 
@@ -271,5 +286,18 @@ describe("WorkspaceItemToolbar", () => {
       )?.placeholder,
     ).toBe("Filter");
     expect(host.querySelector("label")?.textContent).toBe("Filter parameters");
+  });
+
+  it("takes the reference's compact spacing only when it follows leading content", async () => {
+    // The reference gives a toolbar that sits directly on a section's leading control `mt-0 pb-0`,
+    // so the card reads as one continuous field → Args stack.
+    await mount("filter-only", true);
+    expect(getToolbarSpacing().sort()).toEqual(["mt-0", "pb-0"]);
+
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    // Every other item toolbar keeps the reference's ordinary step above and below it.
+    await mount("authoring-and-filter", false);
+    expect(getToolbarSpacing().sort()).toEqual(["mt-1", "pb-1"]);
   });
 });

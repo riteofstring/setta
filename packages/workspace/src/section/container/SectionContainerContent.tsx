@@ -97,16 +97,32 @@ function renderItemArea(
   hasSectionStyleTheme: boolean,
 ) {
   const itemArea = getWorkspaceItemAreaPresentationOrThrow(host, section);
+  const leadingContent = itemArea.renderLeadingContent?.(section);
   return (
     <WorkspaceItemFilterProvider
       hasSectionStyleTheme={hasSectionStyleTheme}
       sectionId={section.id}
     >
-      {itemArea.renderLeadingContent?.(section)}
+      {leadingContent}
       {itemArea.toolbar === "hidden" ? null : (
-        <WorkspaceItemToolbar mode={itemArea.toolbar} sectionId={section.id} />
+        <WorkspaceItemToolbar
+          followsLeadingContent={rendersLeadingContent(leadingContent)}
+          mode={itemArea.toolbar}
+          sectionId={section.id}
+        />
       )}
       {content}
     </WorkspaceItemFilterProvider>
+  );
+}
+
+// The toolbar's compact spacing belongs to this composition, not to the declared mode, so it is
+// derived from what the leading slot actually renders: a kind that renders nothing there leaves a
+// toolbar directly under the section header, which keeps the ordinary item toolbar's own step.
+function rendersLeadingContent(leadingContent: ReactNode): boolean {
+  return (
+    leadingContent !== undefined &&
+    leadingContent !== null &&
+    leadingContent !== false
   );
 }
