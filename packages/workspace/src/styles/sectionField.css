@@ -26,6 +26,16 @@
   border-color: rgb(96 165 250);
 }
 
+/* The surface signals focus through its border colour alone, and the live editor below suppresses
+ * the redundant native outline. Forced colours replace the authored border, so restore an explicit
+ * focus cue on the surface the same way the item filter input does. */
+@media (forced-colors: active) {
+  .setta-workspace-section-field:focus-within {
+    outline: 1px solid Highlight;
+    outline-offset: -1px;
+  }
+}
+
 .setta-workspace-section-field[data-disabled="true"] {
   background-color: rgb(226 232 240 / 45%);
 }

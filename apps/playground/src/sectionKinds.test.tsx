@@ -25,7 +25,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
 import {
   ItemListSectionBody,
-  createPlaygroundSectionKinds,
   registerPlaygroundSectionKinds,
 } from "./sectionKinds";
 
@@ -648,16 +647,6 @@ describe("the playground item renderer presentation contract", () => {
     expect(
       itemTree.items["item-options"]?.children.length,
     ).toBeGreaterThanOrEqual(2);
-  });
-
-  it("declares the full authoring toolbar for its editable item section", () => {
-    const itemList = createPlaygroundSectionKinds(workspaceHost)["item-list"];
-    if (!itemList || itemList.presentation !== undefined) {
-      throw new Error("The playground item-list kind is not an ordinary kind.");
-    }
-    expect(itemList.itemArea?.toolbar).toBe("authoring-and-filter");
-    // The editable panel wants only the package's own toolbar above its rows.
-    expect(itemList.itemArea?.renderLeadingContent).toBeUndefined();
   });
 
   it("supplies stable Python defaults through the public host item factory", () => {

@@ -24,10 +24,7 @@ import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenu
 import { useDndState } from "../dnd/dndState";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import {
-  registerSectionKinds,
-  type SectionKindDefinition,
-} from "../document/sectionKindRegistry";
+import { registerSectionKinds } from "../document/sectionKindRegistry";
 import {
   useActiveSections,
   useNodeInternals,
@@ -112,11 +109,10 @@ vi.mock("./utils", async (importOriginal) => {
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-// Every section this file loads carries an item tree, so its one registered kind declares the
-// package's ordinary editable item area.
-const LEAF_KIND: SectionKindDefinition = {
+// Every section this file loads carries an item tree, so its kind declares the editable item area.
+const LEAF_KIND = {
   renderContent: () => null,
-  itemArea: { toolbar: "authoring-and-filter" },
+  itemArea: { toolbar: "authoring-and-filter" as const },
 };
 
 function KeyActivationsHost() {

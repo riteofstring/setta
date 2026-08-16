@@ -31,7 +31,6 @@ import {
   type WorkspaceCodeSectionData,
   type WorkspaceCodeSectionLanguage,
   type WorkspaceDropzoneItemControlConfiguration,
-  type SectionKindDefinition,
   type WorkspaceInspectorContributionContext,
   type WorkspaceItem,
   type WorkspaceItemDiagnosticRegistry,
@@ -1070,21 +1069,12 @@ export function MetaControlSectionBody({
 }
 
 // Loading validates every non-group kind against the registry, so registration precedes the
-// initial document load. Registered sizes describe the inner section surface; the shell adds
-// a 1 px border on every side. The leaf's 200 x 122 renders the accepted 202 x 124 outer
-// geometry, and the item panel's 550 x 350 renders the recorded 552 x 352 `/settings` Dict
-// outer measurement from the Phase 4 gate.
+// initial document load. Registered sizes are inner surfaces; the shell adds a 1 px border per
+// side, so the leaf's 200 x 122 renders the accepted 202 x 124 outer geometry and the item panel's
+// 550 x 350 the recorded 552 x 352 `/settings` Dict outer measurement from the Phase 4 gate.
 export function registerPlaygroundSectionKinds(host: WorkspaceHost): void {
   registerPlaygroundItemHandlers(host);
-  registerSectionKinds(host, createPlaygroundSectionKinds(host));
-}
-
-// Exported so this host's own registration decisions — including which item-area presentation
-// each kind declares — stay inspectable without reaching into package registry state.
-export function createPlaygroundSectionKinds(
-  host: WorkspaceHost,
-): Record<string, SectionKindDefinition> {
-  return {
+  registerSectionKinds(host, {
     leaf: {
       renderContent: (section) => <LeafSectionBody section={section} />,
       renderInspector: (context) => (
@@ -1095,8 +1085,6 @@ export function createPlaygroundSectionKinds(
     },
     "item-list": {
       createItem: createPlaygroundCodeItem,
-      // This host's item panel is structurally editable, so it declares the full toolbar. The
-      // declaration is explicit: the package never infers a mode from the item factory above.
       itemArea: { toolbar: "authoring-and-filter" },
       renderContent: (section) => <ItemListSectionBody section={section} />,
       renderInspector: (context) => (
@@ -1133,5 +1121,5 @@ export function createPlaygroundSectionKinds(
           <PlaygroundTextSectionInspector sectionId={context.section.id} />
         ) : null,
     }),
-  };
+  });
 }

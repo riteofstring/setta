@@ -9,6 +9,10 @@ const itemToolbarStyles = readFileSync(
   new URL("./itemToolbar.css", import.meta.url),
   "utf8",
 );
+const sectionFieldStyles = readFileSync(
+  new URL("./sectionField.css", import.meta.url),
+  "utf8",
+);
 const focusVisibilityStyles = readFileSync(
   new URL("./workspaceFocusVisibility.css", import.meta.url),
   "utf8",
@@ -173,6 +177,15 @@ describe("workspace adaptive stylesheet contract", () => {
     );
     expect(itemToolbarStyles).toMatch(
       /@media \(forced-colors: active\)[^{]*\{[^}]*\.setta-workspace-item-filter-input:focus-visible[^}]*outline: 1px solid Highlight/su,
+    );
+  });
+
+  it("keeps the section field's focus cue visible once forced colours drop its border", () => {
+    expect(sectionFieldStyles).toMatch(
+      /\.setta-workspace-section-field-editor-live \*\s*\{[^}]*outline: 0/su,
+    );
+    expect(sectionFieldStyles).toMatch(
+      /@media \(forced-colors: active\)[^{]*\{[^}]*\.setta-workspace-section-field:focus-within[^}]*outline: 1px solid Highlight/su,
     );
   });
 

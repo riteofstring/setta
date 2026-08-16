@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-**Status: Phase A is complete; Phase B is next.**
+**Status: Phase A is complete, including its first audit corrections. Phase B has not started.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -152,6 +152,14 @@ modes mean:
 Do not infer a mode from a missing item factory, section lock, disabled buttons, item count, section
 name, or application data. The registered kind declares presentation once. A malformed combination
 must fail at the document/registration boundary rather than silently choosing a plausible toolbar.
+
+The declared presentation governs the item area only, so it applies to a kind's item-carrying
+sections. A kind may legitimately hold both item-carrying and plain sections — the existing
+`moveItems` contract already loads a plain section under an item kind — and a plain section renders
+`definition.renderContent(section)` with no leading slot and no toolbar. That combination is not
+malformed and must not fail; only an item-carrying section whose kind declares no presentation is.
+Do not place a control the section always needs in the leading slot without giving that section an
+item tree.
 
 Update every current owner directly. The playground item section explicitly declares its intended
 mode, and Python Canvas declares `filter-only`. Do not preserve the old implicit-toolbar route.
@@ -304,9 +312,39 @@ typed onto `section-field` alone and its surface owned by `styles/sectionField.c
 playground, packed-consumer fixture, and Python Canvas were cut over directly: the Callable kind
 declares `filter-only` with the compact editor as leading content, projects parameter searchable
 text, and drops the large label and idle provider sentence for an adornment, a live region, and
-failure-only blocks. Known pre-existing red: `quality.fileLength` on
-`apps/playground/src/sectionKinds.tsx` and `packages/workspace/src/canvas/keyActivations.test.tsx`
-(both already over their limits at the trusted base).
+failure-only blocks. The section-field surface signals focus through its border colour while the
+live editor suppresses the redundant native outline, so `styles/sectionField.css` also carries the
+package's established `forced-colors: active` focus fallback, proved by `adaptiveStyles.test.ts`
+alongside the existing item-filter fallback.
+
+**Phase A audit-correction record.** The first independent audit found five non-canonical fixture
+indentations and caught that this candidate, rather than the trusted base, had increased two files
+whose `quality.fileLength` exceptions carry exact subjects. All three corrections are applied and
+`.code-policy.json` is untouched.
+
+The five fixture hunks in `itemPresentation`, `itemSelection`, `moveItems`, `selectedItemMoves`,
+and `WorkspaceItemConfigurationEditor` now carry canonical indentation.
+`apps/playground/src/sectionKinds.tsx` is back to exactly 1125 lines: the test-only exported
+registry factory and its direct-inspection test are gone, `itemArea` is declared inside the
+existing registration object, and the accepted-geometry comment above it was rewrapped from five
+lines to four without dropping a fact. The playground's mode is still proved where it is observable
+— the package's own registry, document-load, and section-container tests own the three modes' exact
+behavior, while every playground component test loads the real registration and would fail loudly
+if its item-carrying section declared no item area.
+`packages/workspace/src/canvas/keyActivations.test.tsx` is back to exactly 2002 lines: the hoisted
+`LEAF_KIND` stays, its expanded type-only import is gone, its comment is one line, and its toolbar
+literal is narrowed locally with `as const`.
+
+The earlier “pre-existing red” claim was wrong and is withdrawn: the trusted base sits at exactly
+1125 and 2002 lines, and `code-policy check` now reports both files `WAIVED` at those exact
+subjects. That run's only remaining findings are the sealed JavaScript tool bundle and OSV-Scanner
+being uninstalled in this task worktree, which is tool-installation state rather than a repository
+finding.
+
+Verification: `code-policy test --changed` and the authorized `code-policy test --recommended` both
+completed without findings over the nine ordinary suites (workspace 1156 tests, playground 40,
+Python Canvas frontend 34, cross-language boundary 9, plus the Go, contract-drift, and browser
+suites), with the workspace and playground TypeScript projects clean.
 
 ### Phase B — production interaction, live visual acceptance, and closeout
 
