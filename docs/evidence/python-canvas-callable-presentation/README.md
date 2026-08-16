@@ -64,12 +64,23 @@ enlarged zoom they were found at. The scene is exactly doubled and settled, with
 on the card, and the card carries no compositor layer of its own — `will-change: auto`,
 `transform: none`, `backface-visibility: visible`, `isolation: auto` — so its text, icons, and
 borders are rasterized at the size they are displayed at rather than scaled from the layer a gesture
-left behind. Judge them for crispness against the same scene in main. Each of the six enlarged images
-holds the complete card: the section header, the full syntax-highlighted `math.sqrt` pill, the Args
-row, and the whole `x` parameter row. The doubled card measures 724 by 564 CSS px inside a canvas of
-1400 by 630, and the canvas's own minimap overlays the card's empty lower-left area — that is
-ordinary workspace chrome floating above the scene, not part of this surface. In the completion crop
-the popup is the whole list, parented to the canvas rather than to the section: it reaches roughly 60
-CSS px past the field's own bottom edge, is not inside the field or the section, and is what the
-page hit-tests at both of the points recorded in the metrics. The single horizontal line that used
-to cross the focused pill was all that survived of that popup when the section clipped it.
+left behind. Judge them for crispness against the same scene in main.
+
+Each of the six enlarged images holds the card's whole composition: the section header, the callable
+pill, the Args row, and the whole `x` parameter row. The doubled card measures 724 by 564 CSS px at
+`x: 18` in a canvas of 1400 by 630 at `x: 20`, so its header clears the application's status strip by
+64 CSS px, and the one part of it outside the canvas is 2 CSS px of its own left border, which goes
+unpainted — the whole of the harness's tolerance. Compare that flush left edge against the card's
+complete right border; nothing of the header, pill, Args surface, or parameter row is cut. The
+canvas's own minimap overlays the card's empty lower-left area — that is ordinary workspace chrome
+floating above the scene, not part of this surface.
+
+The enlarged idle and focused images show the committed `math.sqrt` in full and the Args row's label
+beside its Filter control. The two completion images show neither the complete name nor an uncovered
+Filter control, and that is the state rather than the crop: a completion popup is only ever open over
+a partial draft, so the pill holds the `math.sq` draft the popup answers, and the popup covers the
+Filter control on its way down past the field, leaving the `ARGS` label beside it. What those two
+images have to show is the popup itself, whole and parented to the canvas rather than to the section:
+two options, 500 CSS px wide, reaching roughly 60 CSS px past the field's own bottom edge, not inside
+the field or the section, and what the page hit-tests at both of the points recorded in the metrics. The single horizontal line that used to
+cross the focused pill was all that survived of that popup when the section clipped it.
