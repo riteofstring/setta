@@ -1,3 +1,4 @@
+import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import {
@@ -332,11 +333,14 @@ function LiveTextValueEditor({
   const host = useWorkspaceHost();
   const editorId = `${getWorkspaceHostDomId(host)}-CodeMirror-${sectionId}-${controlId}`;
   // @uiw/react-codemirror replaces extensions in a passive effect. Keep the current disabled
-  // state available to an already-installed Enter listener during that handoff.
+  // state and controlled value available to already-installed input extensions during that
+  // handoff.
   const disabledRef = useRef(disabled);
+  const valueRef = useRef(value);
   useLayoutEffect(() => {
     disabledRef.current = disabled;
-  }, [disabled]);
+    valueRef.current = value;
+  }, [disabled, value]);
   const extensions = [
     ...getTextValueExtensions({
       language,
@@ -345,6 +349,12 @@ function LiveTextValueEditor({
       onEscape,
       onCommit,
       isDisabled: () => disabledRef.current,
+    }),
+    EditorState.changeFilter.of((transaction) => {
+      if (!disabledRef.current || !transaction.docChanged) {
+        return true;
+      }
+      return transaction.newDoc.toString() === valueRef.current;
     }),
     EditorView.contentAttributes.of({ "aria-label": ariaLabel }),
   ];
@@ -365,7 +375,13 @@ function LiveTextValueEditor({
       onCreateEditor={onCreateEditor}
       theme={theme}
       extensions={extensions}
-      onChange={(nextValue) => onValueChange(nextValue)}
+      editable={!disabled}
+      readOnly={disabled}
+      onChange={(nextValue) => {
+        if (!disabledRef.current) {
+          onValueChange(nextValue);
+        }
+      }}
       onBlur={onBlur}
       indentWithTab={false} // the reference binds Tab in its app extensions; the package binds none
     />

@@ -315,6 +315,26 @@ describe("TextValueEditor", () => {
     expect(onCommit).not.toHaveBeenCalled();
   });
 
+  it("rejects authored document changes after the active editor becomes disabled", async () => {
+    const onValueChange = vi.fn();
+    await mount({ onValueChange });
+    await activate();
+    await mount({ disabled: true, onValueChange });
+
+    const view = getLiveView();
+    expect(view.contentDOM.getAttribute("contenteditable")).toBe("false");
+    await act(async () => {
+      view.dispatch({ changes: { from: 5, insert: "23" } });
+    });
+
+    expect(view.state.doc.toString()).toBe("0.001");
+    expect(onValueChange).not.toHaveBeenCalled();
+
+    await mount({ disabled: true, onValueChange, value: "0.002" });
+    expect(getLiveView().state.doc.toString()).toBe("0.002");
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
+
   it("reuses the editor as the wrapped multiline text-area presentation", async () => {
     const onValueChange = vi.fn();
     await mount({
