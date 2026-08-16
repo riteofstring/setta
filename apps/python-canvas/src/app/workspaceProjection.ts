@@ -224,7 +224,9 @@ function projectGeneratedCodeData(snapshot: ProjectSnapshotV1) {
     wrapLines: true,
     lineNumbers: true,
     indentWidth: 4,
-    readOnly: true,
+    // The whole section is Go-owned generated Python, so it selects the package's generic
+    // generated-output presentation instead of an ordinary editor the reader cannot author.
+    mode: "generated-output",
   });
 }
 

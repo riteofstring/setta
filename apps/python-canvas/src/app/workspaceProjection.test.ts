@@ -61,7 +61,7 @@ describe("Python Canvas workspace projection", () => {
       data: {
         code: snapshot.generatedCode.code,
         language: "python",
-        readOnly: true,
+        mode: "generated-output",
       },
     });
     expect(projectWorkspaceDocument(snapshot)).toEqual(document);
@@ -103,7 +103,10 @@ describe("Python Canvas workspace projection", () => {
     });
     expect(
       host.getSnapshot().sections[GENERATED_PYTHON_SECTION_ID]?.data,
-    ).toMatchObject({ code: next.generatedCode.code, readOnly: true });
+    ).toMatchObject({
+      code: next.generatedCode.code,
+      mode: "generated-output",
+    });
 
     host.dispose();
   });

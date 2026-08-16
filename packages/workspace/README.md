@@ -583,9 +583,20 @@ The Text section carries `text`, `format` (`plaintext` or `markdown`), `displayM
 rendered mode is GitHub-flavored Markdown with tables, task lists, inline code, fenced code with
 language-aware highlighting and a copy button, and KaTeX math, with raw HTML never parsed, or a
 whitespace-preserving block for plain text. The Code Editor section carries `code`, `language`,
-`wrapLines`, `lineNumbers`, `indentWidth`, and `readOnly` over the package's language set: Python,
-Bash, JavaScript, TypeScript, JSON, YAML, TOML, Markdown, and plain text. Locking a section, like
-its `readOnly` field, makes its editor read-only while it stays selectable and scrollable.
+`wrapLines`, `lineNumbers`, `indentWidth`, and a required `mode` over the package's language set:
+Python, Bash, JavaScript, TypeScript, JSON, YAML, TOML, Markdown, and plain text. `mode` is one of
+`editable`, `read-only`, or `generated-output`. Both non-editable modes keep the text selectable,
+copyable, and scrollable, and stop being editing surfaces rather than leaving a caret in one that
+refuses every keystroke: the wrapper stays the section's focus target, says it is read-only in its
+accessible name, and Enter no longer reaches into an editor. `generated-output` additionally paints
+the whole body as machine-written output — the reference's blue region, its leading rail, and its
+compact uppercase generated/read-only badge — and never shows a caret, an inner focus outline,
+active-line paint, or any repaint under a pointer press. Locking a section makes an `editable`
+section read-only; it never turns one into generated output. Both sections share that editor, so a
+read-only or locked Text section is non-editable the same way. The rendered surface carries
+`data-workspace-section-editor` with the presentation it resolved to: that attribute is the one
+documented hook for observing or capturing it, and no editor class, inner structure, or CodeMirror
+internal is public.
 
 Registration options are how a host customizes them:
 

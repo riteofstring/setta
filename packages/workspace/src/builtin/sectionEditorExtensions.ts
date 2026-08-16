@@ -10,9 +10,9 @@ import {
 // application service: no LSP completion source or `completionKeymap`, no tooltip parent, no app
 // undo/redo shortcut overrides, and no tab-scope focus navigation. What remains is the reference's
 // gutter border removal, its line wrapping, its language pack, its read-only state, and its Escape
-// binding, plus the authored indentation width this package's contract adds. Both built-in
-// content sections compile their editor from here, so the Code Editor and the Text section's edit
-// mode cannot drift apart.
+// binding, plus the authored indentation width and the non-editable view this package's contract
+// adds. Both built-in content sections compile their editor from here, so the Code Editor and the
+// Text section's edit mode cannot drift apart.
 
 // The reference's `CODEMIRROR_GUTTER_LAYOUT_FIX`.
 const GUTTER_LAYOUT_FIX = EditorView.baseTheme({
@@ -21,13 +21,27 @@ const GUTTER_LAYOUT_FIX = EditorView.baseTheme({
   "&dark .cm-gutters": { borderRight: "0" },
 });
 
+// The three presentations a section-scale editor supports. `editable` is the reference's own code
+// area; the other two are non-editable, and `generated-output` additionally paints the section as
+// machine-written output.
+export type WorkspaceSectionEditorPresentation =
+  | "editable"
+  | "read-only"
+  | "generated-output";
+
+export function isEditableSectionEditorPresentation(
+  presentation: WorkspaceSectionEditorPresentation,
+): boolean {
+  return presentation === "editable";
+}
+
 type SectionEditorExtensionsOptions = {
   // Plain text is the absence of a language pack rather than a mode of its own, exactly as the
   // reference's `getExtensions` resolves a null language to no support.
   language: WorkspaceEditorLanguage | null;
   wrapLines: boolean;
   indentWidth: number;
-  isReadOnly: boolean;
+  presentation: WorkspaceSectionEditorPresentation;
   onEscape: () => void;
 };
 
@@ -35,7 +49,7 @@ export function getSectionEditorExtensions({
   language,
   wrapLines,
   indentWidth,
-  isReadOnly,
+  presentation,
   onEscape,
 }: SectionEditorExtensionsOptions): Array<Extension> {
   const extensions: Array<Extension> = [GUTTER_LAYOUT_FIX];
@@ -50,8 +64,14 @@ export function getSectionEditorExtensions({
     indentUnit.of(" ".repeat(indentWidth)),
     EditorState.tabSize.of(indentWidth),
   );
-  if (isReadOnly) {
-    extensions.push(EditorState.readOnly.of(true));
+  // A non-editable section is non-editable in the view as well as in the state. Read-only state
+  // alone leaves a focusable `contenteditable` element that only refuses transactions, which is
+  // how the rejected candidate showed a caret in a surface nobody can author.
+  if (!isEditableSectionEditorPresentation(presentation)) {
+    extensions.push(
+      EditorState.readOnly.of(true),
+      EditorView.editable.of(false),
+    );
   }
   // The editor owns Escape ahead of the workspace's own chords: the reference's code area
   // returns focus to its wrapper, and letting the same keypress continue would clear the
@@ -80,15 +100,26 @@ export function getSectionEditorExtensions({
 // configure and no completion key for the editor to own.
 export function getSectionEditorBasicSetup({
   lineNumbers,
+  presentation,
 }: {
   lineNumbers: boolean;
+  presentation: WorkspaceSectionEditorPresentation;
 }) {
+  const isEditable = isEditableSectionEditorPresentation(presentation);
   return {
     autocompletion: false,
+    // CodeMirror draws its own selection over a hidden native one, and it only draws the
+    // selection the editor itself owns. A non-editable view never takes that selection, so the
+    // drawn layer would leave a reader's own selection invisible while they copy it.
+    drawSelection: isEditable,
     // Package-only design decision: the reference always shows both gutters, so the authored
     // line-number option owns the section's whole gutter column rather than leaving a fold
     // rail behind with nothing beside it.
     foldGutter: lineNumbers,
+    // Generated output has no cursor to follow, so the active-line paint would only mark a
+    // line the reader never placed. Ordinary read-only paint is unchanged.
+    highlightActiveLine: presentation !== "generated-output",
+    highlightActiveLineGutter: presentation !== "generated-output",
     lineNumbers,
   } as const;
 }

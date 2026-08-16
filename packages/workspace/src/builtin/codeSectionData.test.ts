@@ -4,6 +4,7 @@ import {
   getWorkspaceCodeSectionEditorLanguage,
   parseWorkspaceCodeSectionData,
   WORKSPACE_CODE_SECTION_LANGUAGES,
+  WORKSPACE_CODE_SECTION_MODES,
 } from "./codeSectionData";
 
 // The built-in code section's data is package-owned, so it is a parsed contract rather than
@@ -18,8 +19,35 @@ describe("code section data", () => {
       wrapLines: false,
       lineNumbers: true,
       indentWidth: 4,
-      readOnly: false,
+      mode: "editable",
     });
+  });
+
+  it("accepts every declared mode and rejects anything else", () => {
+    for (const mode of WORKSPACE_CODE_SECTION_MODES) {
+      const data = createWorkspaceCodeSectionData({ mode });
+      expect(parseWorkspaceCodeSectionData("code", data).mode).toBe(mode);
+    }
+    const { mode: _mode, ...withoutMode } = createWorkspaceCodeSectionData();
+    for (const data of [
+      withoutMode,
+      { ...withoutMode, mode: true },
+      { ...withoutMode, mode: "generated" },
+    ]) {
+      expect(() => parseWorkspaceCodeSectionData("code", data)).toThrow(
+        /one of the modes editable, read-only, generated-output/u,
+      );
+    }
+  });
+
+  it("rejects the boolean this mode replaced", () => {
+    const { mode: _mode, ...withoutMode } = createWorkspaceCodeSectionData();
+    expect(() =>
+      parseWorkspaceCodeSectionData("code", {
+        ...withoutMode,
+        readOnly: true,
+      }),
+    ).toThrow(/unknown field readOnly/u);
   });
 
   it("applies explicit creation overrides", () => {

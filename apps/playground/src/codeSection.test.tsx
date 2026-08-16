@@ -21,10 +21,8 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
-import {
-  PlaygroundCodeSectionInspector,
-  registerPlaygroundSectionKinds,
-} from "./sectionKinds";
+import { registerPlaygroundSectionKinds } from "./sectionKinds";
+import { PlaygroundCodeSectionInspector } from "./sectionOptionInspectors";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -81,7 +79,7 @@ describe("the playground's built-in code section", () => {
       language: "python",
       lineNumbers: true,
       indentWidth: 4,
-      readOnly: false,
+      mode: "editable",
       wrapLines: false,
     });
     expect(
@@ -101,13 +99,14 @@ describe("the playground's built-in code section", () => {
         ),
       );
     });
-    const language = container.querySelector<HTMLSelectElement>("select");
+    const [language, mode] =
+      container.querySelectorAll<HTMLSelectElement>("select");
     const [wrapLines, lineNumbers] =
       container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
     const indentWidth = container.querySelector<HTMLInputElement>(
       'input[type="number"]',
     );
-    if (!language || !wrapLines || !lineNumbers || !indentWidth) {
+    if (!language || !mode || !wrapLines || !lineNumbers || !indentWidth) {
       throw new Error(
         "The host code section Inspector lost one of its controls.",
       );
@@ -126,9 +125,22 @@ describe("the playground's built-in code section", () => {
     ).toBe(true);
     expect(wrapLines.closest("label")?.textContent).toContain("Wrap lines");
 
+    // The mode is a closed choice rather than a read-only switch, so the host authors all three
+    // presentations from the same typed write.
+    expect([...mode.options].map((option) => option.value)).toStrictEqual([
+      "editable",
+      "read-only",
+      "generated-output",
+    ]);
+    expect(mode.closest("label")?.textContent).toContain("Mode");
+
     act(() => {
       language.value = "yaml";
       language.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    act(() => {
+      mode.value = "generated-output";
+      mode.dispatchEvent(new Event("change", { bubbles: true }));
     });
     act(() => {
       wrapLines.click();
@@ -148,6 +160,7 @@ describe("the playground's built-in code section", () => {
       wrapLines: true,
       lineNumbers: false,
       indentWidth: 2,
+      mode: "generated-output",
     });
   });
 

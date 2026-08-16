@@ -13,11 +13,13 @@ export {
   WORKSPACE_CODE_SECTION_LANGUAGES,
   WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH,
   WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH,
+  WORKSPACE_CODE_SECTION_MODES,
   createWorkspaceCodeSectionData,
 } from "./builtin/codeSectionData";
 export type {
   WorkspaceCodeSectionData,
   WorkspaceCodeSectionLanguage,
+  WorkspaceCodeSectionMode,
 } from "./builtin/codeSectionData";
 export { createWorkspaceCodeSection } from "./builtin/codeSectionKind";
 export type { WorkspaceCodeSectionRegistration } from "./builtin/codeSectionKind";

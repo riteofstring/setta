@@ -661,6 +661,80 @@ rule, the light and dark capture evidence with machine-readable metrics, the sup
 of those images, developer visual acceptance, and this phase's closing `test --changed` and
 `test-levels` steps.
 
+**Generated-output correction record.** This phase's second, third, and fourth corrections are
+implemented. `WorkspaceCodeSectionData.readOnly` is gone: the contract now carries a required
+`mode` of `editable`, `read-only`, or `generated-output`, parsed at the same boundary, and a
+document still naming `readOnly` fails there as an unknown field. Both non-editable modes take
+CodeMirror's `EditorState.readOnly` **and** `EditorView.editable.of(false)`, so the text stops
+being an editing surface instead of refusing transactions inside a focusable `contenteditable`
+element — which is exactly what drew the rejected candidate's black caret line. The shared
+`WorkspaceSectionEditor` now takes that closed presentation rather than an `isReadOnly` boolean,
+keeps its wrapper as the section's focus and scroll target, names both non-editable presentations
+read-only, and stops advertising `Enter` where there is no editor to enter. A position/size lock
+still turns an `editable` section read-only and never turns one into generated output.
+
+`generated-output` adds the donor's paint through `styles/generatedOutput.css`: main's
+`GEN_CODE_READONLY_THEME` colours on its own custom properties, the blue light/dark region behind a
+three-pixel leading rail, six-pixel rounded ends, its explicit selection paint, and the compact 8px
+uppercase **GENERATED READ-ONLY** pill, with a forced-colours block restoring region, rail, and
+badge. Three deliberate departures from the donor, all consequences of this section being generated
+end to end rather than a protected range inside an editable document: the region is painted once on
+the section editor's own wrapper instead of per line, so there is no per-line decoration and the
+rail stays at the reader's left edge while the output scrolls; the badge sits in the region's top
+corner rather than centred over a separator line the whole-output case does not have; and the text
+keeps a text cursor rather than main's `not-allowed`, which in main marks an edit that would be
+refused. The surface also drops the reference's focus fill for a keyboard-only `:focus-visible` cue,
+because a pointer press must not repaint it, and it turns off `drawSelection` and the active-line
+paint — CodeMirror only draws the selection it owns, so a non-editable view would otherwise leave
+a reader's own selection invisible while they copied it.
+
+Python Canvas projects Generated Python through that mode and no longer writes the boolean, and its
+broad `.python-canvas-app :focus-visible` rule is gone rather than narrowed: every focus target in
+that view belongs to the package, so the app declares no focus rule at all and says why. Sharing one
+editor has one deliberate consequence beyond the Code section: a read-only or locked Text section is
+now non-editable the same way, and its component test says so instead of asserting the old
+`contenteditable="true"`.
+
+Two file extractions in this batch are forced by `quality.fileLength` and are behaviour-preserving.
+`apps/playground/src/sectionKinds.tsx` is waived at the exact subject `1125`, so any line-count
+change other than dropping below the shared 1000-line limit is a new finding, and the three-mode
+select cannot fit a boolean switch's line budget; its two Inspector contributions moved to
+`sectionOptionInspectors.tsx` and the registry is now 926 lines. The browser walkthrough was already
+1098 lines against that same 1000-line limit with no exception — a finding the earlier Phase B
+commits could not see because the `code-policy` CLI was unavailable to them — so its process and
+page harnesses moved to `browser-processes.mjs` and `browser-page.mjs`, leaving the walkthrough at
+846. Both new files sit directly under paths the existing module globs already own, and
+`.code-policy.json` is untouched.
+
+Proofs: `styles/generatedOutput.test.ts` pins the donor region, rail, badge, selection paint, and
+the absence of any plain `:focus` rule; `adaptiveStyles.test.ts` covers its forced-colours
+fallbacks; the code-section body suite proves both non-editable modes, the documented
+`data-workspace-section-editor` hook, the generated surface's missing caret, active line, and focus
+fill, that `Enter` stays on the wrapper, and that a lock does not manufacture generated output; the
+data suite proves every mode round-trips and that `readOnly` is rejected; the public-root proof is
+keyed by mode so adding or renaming one fails at compile time; the playground authors all three
+modes from its own Inspector; and a Python Canvas stylesheet case fails if the app reintroduces a
+descendant focus rule. In the production walkthrough the former "generated Python must accept
+keyboard focus" assertion is replaced, as this phase requires, by one that reads the donor region
+and badge, proves the text is non-editable, unfocusable, caret-free, and outline-free before and
+after a real pointer click, proves a real pointer drag still selects it, and only then proves typed
+input cannot reach it.
+
+Verification for this correction: the locked release's `code-policy` binary is present in this task
+worktree even though `code-policy` is not on `PATH`, so `code-policy check` ran over the 27 changed
+files; its only findings are the sealed JavaScript tool bundle and OSV-Scanner being uninstalled
+here, which is tool-installation state rather than a repository finding. All nine ordinary suites
+pass: workspace 1174 tests across 142 files, playground 43, Python Canvas frontend 36, the Go
+backend, contract drift, the cross-language boundary 9, and the production browser walkthrough,
+which passed three times. The workspace, playground, and Python Canvas TypeScript projects are
+clean and the packaged boundary check passes over source and built artifacts. One negative control
+binds the walkthrough to this fix: projecting `read-only` instead of `generated-output` fails it.
+
+What remains in this phase: the light and dark capture evidence with machine-readable geometry and
+typography bound to the exact candidate commit, the supervisor's inspection of those images,
+developer visual acceptance with its accepted-candidate record, and this phase's closing
+`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps.
+
 ## Stop conditions
 
 Stop and request a scope decision if:

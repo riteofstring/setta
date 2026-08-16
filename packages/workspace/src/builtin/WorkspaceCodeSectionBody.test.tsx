@@ -86,10 +86,10 @@ globalThis.ResizeObserver =
 
 // Freezes the built-in Code Editor section against the reference's `CoreCodeArea`: the editor
 // paints the section's authored language, gutters, wrapping, and indentation; every keystroke
-// commits through one document mutation; locking or the read-only option makes it read-only; and
-// its focusable wrapper is the keyboard's way in and out of an editor that owns Tab. The
-// controlled seam has to keep the same editor and the same selection across unrelated workspace
-// changes, which is what preserves cursor, undo history, scroll, and focus.
+// commits through one document mutation; locking or a non-editable mode stops it being an editing
+// surface at all; and its focusable wrapper is the keyboard's way in and out of an editor that
+// owns Tab. The controlled seam has to keep the same editor and the same selection across
+// unrelated workspace changes, which is what preserves cursor, undo history, scroll, and focus.
 
 const SECTION_ID = "code";
 const definition = createWorkspaceCodeSection();
@@ -191,6 +191,17 @@ describe("built-in code section body", () => {
         </WorkspaceTestProvider>,
       );
     });
+  }
+
+  // A case that compares two documents mounts the second one over a reset store, exactly as the
+  // suite's own teardown does.
+  async function remount(section: WorkspaceSectionInput) {
+    await act(async () => {
+      root.unmount();
+    });
+    root = createRoot(host);
+    testWorkspace.document.getState().reset();
+    await mount(section);
   }
 
   function getView(): EditorView {
@@ -333,20 +344,78 @@ describe("built-in code section body", () => {
     expect(view.state.doc.toString()).toBe("alpha = 1\nbeta = 2\n");
   });
 
-  it("makes a read-only section read-only without taking away its selection", async () => {
-    await mount(makeCodeSection({ readOnly: true }));
+  it("makes a read-only section non-editable and says so by name", async () => {
+    await mount(makeCodeSection({ mode: "read-only" }));
     const view = getView();
     expect(view.state.readOnly).toBe(true);
-    expect(view.contentDOM.getAttribute("contenteditable")).toBe("true");
+    // A read-only state alone leaves a focusable editing surface that merely refuses
+    // transactions; the view itself has to stop being one.
+    expect(view.contentDOM.getAttribute("contenteditable")).toBe("false");
+    expect(view.contentDOM.getAttribute("aria-readonly")).toBe("true");
+    const wrapper = getWrapper();
+    expect(wrapper.getAttribute("aria-label")).toBe("train.py code, read-only");
+    expect(wrapper.getAttribute("data-workspace-section-editor")).toBe(
+      "read-only",
+    );
+    // Nothing about it is generated output.
+    expect(wrapper.classList.contains("setta-workspace-generated-output")).toBe(
+      false,
+    );
   });
 
-  it("makes a locked section read-only", async () => {
+  it("presents a generated section as read-only output rather than an editor", async () => {
+    await mount(makeCodeSection({ mode: "generated-output" }));
+    const view = getView();
+    expect(view.state.readOnly).toBe(true);
+    expect(view.contentDOM.getAttribute("contenteditable")).toBe("false");
+    const wrapper = getWrapper();
+    expect(wrapper.getAttribute("data-workspace-section-editor")).toBe(
+      "generated-output",
+    );
+    expect(wrapper.classList.contains("setta-workspace-generated-output")).toBe(
+      true,
+    );
+    expect(wrapper.getAttribute("aria-label")).toBe(
+      "train.py generated code, read-only",
+    );
+    // The rejected candidate painted a caret and an active line over generated output, and it
+    // kept the reference's focus fill under a pointer press.
+    expect(view.dom.querySelector(".cm-activeLine")).toBeNull();
+    expect(wrapper.className).not.toContain("focus:bg-blue-200/70");
+    // Its text is still there to select and copy.
+    expect(view.dom.textContent).toContain("alpha = 1");
+    // Enter has no editing surface to reach, so it stays on the section's own focus target and
+    // the wrapper stops advertising a shortcut that does nothing.
+    expect(wrapper.getAttribute("aria-keyshortcuts")).toBeNull();
+    await act(async () => {
+      wrapper.focus();
+      wrapper.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }),
+      );
+    });
+    expect(document.activeElement).toBe(wrapper);
+  });
+
+  it("makes a locked section read-only without turning it into generated output", async () => {
     await mount(makeCodeSection({}, { positionAndSizeLocked: true }));
     expect(getView().state.readOnly).toBe(true);
+    expect(getWrapper().getAttribute("data-workspace-section-editor")).toBe(
+      "read-only",
+    );
+
+    await remount(
+      makeCodeSection(
+        { mode: "generated-output" },
+        { positionAndSizeLocked: true },
+      ),
+    );
+    expect(getWrapper().getAttribute("data-workspace-section-editor")).toBe(
+      "generated-output",
+    );
   });
 
   it("refuses a commit while the section is read-only", async () => {
-    await mount(makeCodeSection({ readOnly: true }));
+    await mount(makeCodeSection({ mode: "read-only" }));
     const onDocumentChange = vi.fn();
     testWorkspace.host.subscribe(onDocumentChange);
     await act(async () => {

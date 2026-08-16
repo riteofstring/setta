@@ -108,6 +108,7 @@ function TextSectionEditor({
   // Locking a section locks its content too, so a locked text section reads and scrolls but
   // cannot be edited.
   const isReadOnly = data.readOnly || section.positionAndSizeLocked;
+  const presentation = isReadOnly ? "read-only" : "editable";
 
   const onChange = useCallback(
     (nextText: string) => {
@@ -133,12 +134,16 @@ function TextSectionEditor({
 
   return (
     <WorkspaceSectionEditor
-      ariaLabel={`${section.name} text editor`}
+      ariaLabel={
+        isReadOnly
+          ? `${section.name} text, read-only`
+          : `${section.name} text editor`
+      }
       indentWidth={EDITOR_INDENT_WIDTH}
-      isReadOnly={isReadOnly}
       language={getWorkspaceTextSectionEditorLanguage(data.format)}
       lineNumbers
       onChange={onChange}
+      presentation={presentation}
       sectionId={sectionId}
       value={data.text}
       wrapLines

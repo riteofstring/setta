@@ -32,6 +32,7 @@ const RUNTIME_EXPORTS = [
   "WORKSPACE_CODE_SECTION_LANGUAGES",
   "WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH",
   "WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH",
+  "WORKSPACE_CODE_SECTION_MODES",
   "WORKSPACE_TEXT_SECTION_DEFAULT_FONT_SIZE",
   "WORKSPACE_TEXT_SECTION_DISPLAY_MODES",
   "WORKSPACE_TEXT_SECTION_FORMATS",
@@ -175,5 +176,31 @@ describe("public package API", () => {
 
     expect(definition.itemArea.toolbar).toBe("filter-only");
     expect(presentationsByMode[definition.itemArea.toolbar]).toBe(itemArea);
+  });
+
+  it("closes the built-in Code section on one required presentation mode", () => {
+    const generated = workspace.createWorkspaceCodeSectionData({
+      mode: "generated-output",
+    });
+    // Keyed by every public mode: adding, removing, or renaming one fails this exhaustiveness
+    // proof at compile time.
+    const dataByMode = {
+      editable: workspace.createWorkspaceCodeSectionData(),
+      "read-only": workspace.createWorkspaceCodeSectionData({
+        mode: "read-only",
+      }),
+      "generated-output": generated,
+    } satisfies Record<
+      workspace.WorkspaceCodeSectionMode,
+      workspace.WorkspaceCodeSectionData
+    >;
+
+    expect(dataByMode[generated.mode]).toBe(generated);
+    expect([...workspace.WORKSPACE_CODE_SECTION_MODES].sort()).toStrictEqual(
+      Object.keys(dataByMode).sort(),
+    );
+    // The boolean this mode replaces is gone from the contract, not accepted beside it.
+    // @ts-expect-error the code section no longer carries a readOnly field.
+    expect(generated.readOnly).toBeUndefined();
   });
 });

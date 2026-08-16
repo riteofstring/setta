@@ -162,10 +162,11 @@ body {
   overflow-wrap: anywhere;
 }
 
-.python-canvas-app :focus-visible {
-  outline-style: auto;
-  outline-offset: 2px;
-}
+/* This app deliberately declares no focus rule. Every focus target in this view is rendered by
+ * @setta/workspace, which owns its own focus treatment, and the descendant rule that used to live
+ * here painted a browser outline inside package editors — including the generated Python surface,
+ * whose whole point is that pointing at it changes nothing. An app-owned interactive control would
+ * bring its own focus rule with it. */
 
 @media (max-width: 42rem) {
   .python-canvas-app {

@@ -1,0 +1,80 @@
+/* The built-in Code section's generated-output presentation: the whole section body reads as
+ * machine-written output. It is frozen main's `GEN_CODE_READONLY_THEME` vocabulary — the
+ * blue-tinted light/dark region, its three-pixel leading rail, six-pixel rounded ends, explicit
+ * selection paint, and the compact uppercase generated/read-only badge — carried on main's own
+ * custom properties, so appearance changes only the colours.
+ *
+ * Main surrounds an editable prefix and suffix with one protected range, so it paints that region
+ * per line and marks its first and last line. Here the entire document is generated, so the
+ * region belongs to the section editor's own wrapper: one box, no per-line decoration, and a rail
+ * that stays at the reader's left edge while the output scrolls. The wrapper is the only element
+ * this stylesheet touches; nothing here selects a CodeMirror internal except the selection paint
+ * the reader's own selection needs. */
+
+.setta-workspace-generated-output {
+  --setta-workspace-generated-region: rgb(219 234 254);
+  --setta-workspace-generated-rail: rgb(96 165 250);
+  --setta-workspace-generated-badge: rgb(37 99 235);
+  --setta-workspace-generated-badge-text: rgb(239 246 255);
+
+  position: relative;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--setta-workspace-generated-rail) 0 3px, var(--setta-workspace-generated-region) 3px);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-generated-output {
+  --setta-workspace-generated-region: rgb(23 37 84);
+  --setta-workspace-generated-rail: rgb(37 99 235);
+  --setta-workspace-generated-badge: rgb(30 64 175);
+}
+
+/* Main's own badge: an 8px uppercase pill over the generated region. It is decorative, and the
+ * surface states the same fact to assistive technology through its accessible name. */
+.setta-workspace-generated-output::after {
+  content: "Generated read-only";
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-end: 6px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background-color: var(--setta-workspace-generated-badge);
+  color: var(--setta-workspace-generated-badge-text);
+  font-size: 8px;
+  line-height: 1.3;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* The output is selectable and copyable, so it keeps main's explicit selection paint rather than
+ * leaving the browser's default over a blue region. */
+.setta-workspace-generated-output .cm-line::selection,
+.setta-workspace-generated-output .cm-line ::selection {
+  background-color: hsl(246 98% 23%);
+  color: rgb(255 255 255);
+}
+
+/* Pointing at generated output must not change its paint, so the surface has no focus fill and
+ * takes a keyboard-only cue instead. */
+.setta-workspace-generated-output:focus-visible {
+  outline: 2px solid var(--setta-workspace-generated-badge);
+  outline-offset: -2px;
+}
+
+/* Forced colours drop the authored region, its rail, and the badge fill, so restore all three
+ * from the forced palette the way the package restores its other authored surfaces. */
+@media (forced-colors: active) {
+  .setta-workspace-generated-output {
+    border-inline-start: 3px solid CanvasText;
+    background: Canvas;
+  }
+
+  .setta-workspace-generated-output::after {
+    border: 1px solid CanvasText;
+    background-color: Canvas;
+    color: CanvasText;
+  }
+
+  .setta-workspace-generated-output:focus-visible {
+    outline-color: Highlight;
+  }
+}

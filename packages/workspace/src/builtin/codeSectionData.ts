@@ -5,7 +5,8 @@ import type { WorkspaceSectionData } from "../document/types";
 // package owns this shape, so it is parsed once at the load boundary and read back as a validated
 // internal type. The reference's code section carries the same editor state in its generated
 // `CodeSection` impl (`code`, `codeLanguage`); its file binding, freeze flag, LSP diagnostics, and
-// generated-code regions are application concepts and stay out of the package.
+// code generation are application concepts and stay out of the package. Only the presentation its
+// generated region established is package vocabulary, carried by this contract's mode.
 
 // The stable kind ID hosts register this section under. It is package-reserved: a document
 // naming it is a built-in code section, whatever else the host registers beside it.
@@ -13,6 +14,18 @@ export const WORKSPACE_CODE_SECTION_KIND = "setta.code";
 
 export type WorkspaceCodeSectionLanguage =
   WorkspaceEditorLanguage | "plaintext";
+
+// How the section presents its text. `editable` is the ordinary authored editor; `read-only`
+// keeps that paint without accepting edits; `generated-output` presents the whole body as
+// machine-written output. The section states which one it is, so nothing infers a presentation
+// from a lock, an empty document, or a host's own domain data.
+export type WorkspaceCodeSectionMode =
+  | "editable"
+  | "read-only"
+  | "generated-output";
+
+export const WORKSPACE_CODE_SECTION_MODES: ReadonlyArray<WorkspaceCodeSectionMode> =
+  ["editable", "read-only", "generated-output"];
 
 // The reference's `CodeLanguageEnum`, in its declared order.
 export const WORKSPACE_CODE_SECTION_LANGUAGES: ReadonlyArray<WorkspaceCodeSectionLanguage> =
@@ -41,12 +54,12 @@ export type WorkspaceCodeSectionData = {
   wrapLines: boolean;
   lineNumbers: boolean;
   indentWidth: number;
-  readOnly: boolean;
+  mode: WorkspaceCodeSectionMode;
 };
 
 const WORKSPACE_CODE_SECTION_FIELDS: ReadonlyArray<
   keyof WorkspaceCodeSectionData
-> = ["code", "language", "wrapLines", "lineNumbers", "indentWidth", "readOnly"];
+> = ["code", "language", "wrapLines", "lineNumbers", "indentWidth", "mode"];
 
 // The reference's code area opens empty, at Python, wrapped off, with its gutters and its
 // four-space indentation.
@@ -59,7 +72,7 @@ export function createWorkspaceCodeSectionData(
     wrapLines: false,
     lineNumbers: true,
     indentWidth: WORKSPACE_CODE_SECTION_DEFAULT_INDENT_WIDTH,
-    readOnly: false,
+    mode: "editable",
     ...overrides,
   };
 }
@@ -153,6 +166,23 @@ function getLanguage(
   return value as WorkspaceCodeSectionLanguage;
 }
 
+function getMode(
+  sectionId: string,
+  record: { [key: string]: WorkspaceSectionData },
+): WorkspaceCodeSectionMode {
+  const value = record["mode"];
+  if (
+    typeof value !== "string" ||
+    !WORKSPACE_CODE_SECTION_MODES.includes(value as WorkspaceCodeSectionMode)
+  ) {
+    throw new Error(
+      `Code section ${sectionId} needs one of the modes ` +
+        `${WORKSPACE_CODE_SECTION_MODES.join(", ")}.`,
+    );
+  }
+  return value as WorkspaceCodeSectionMode;
+}
+
 // The one parser for this contract. `loadWorkspaceDocument` runs it at the boundary so a
 // malformed document fails on load rather than on first paint, and the section body runs it
 // again over the live section so a later host write fails the same explicit way.
@@ -168,7 +198,7 @@ export function parseWorkspaceCodeSectionData(
     wrapLines: getBoolean(sectionId, record, "wrapLines"),
     lineNumbers: getBoolean(sectionId, record, "lineNumbers"),
     indentWidth: getIndentWidth(sectionId, record),
-    readOnly: getBoolean(sectionId, record, "readOnly"),
+    mode: getMode(sectionId, record),
   };
 }
 

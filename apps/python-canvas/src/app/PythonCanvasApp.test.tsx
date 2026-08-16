@@ -63,7 +63,7 @@ beforeEach(() => {
       indentWidth: 4,
       language: "plaintext",
       lineNumbers: true,
-      readOnly: false,
+      mode: "editable",
       wrapLines: true,
       ...overrides,
     }),

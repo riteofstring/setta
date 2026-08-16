@@ -103,6 +103,12 @@ describe("CallableSection", () => {
     );
   });
 
+  it("paints no app focus outline inside a package-owned surface", () => {
+    // A descendant focus rule here reaches into the package's editors, which is how the rejected
+    // candidate drew a browser outline inside generated Python.
+    expect(appStyles).not.toMatch(/\.python-canvas-[\w-]+\s+[^,{]*:focus/u);
+  });
+
   it("keeps mutation and completion failures distinct, visible, and accessible", () => {
     render({
       completionError: "Unable to load callable completions. Try again.",
