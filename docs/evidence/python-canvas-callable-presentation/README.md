@@ -13,18 +13,22 @@ commit whose hash it records.
 
 `pnpm --filter @setta/python-canvas run capture:presentation` drives the production
 `@setta/workspace` and Python Canvas builds, the real Go service, its pinned Basedpyright, and
-headless Chrome at 1440x900 CSS px with device scale 1. It commits `math.sqrt` and the parameter
-value `3` through the ordinary product walkthrough first, so every capture shows the state the
-section spends its life in, then reloads into each appearance before recording:
+headless Chrome at 1440x900 CSS px with device scale 1. It records the state the application boots
+into: the Go service commits the shipped `math.sqrt` example before it accepts a request, so the
+harness waits for that canonical first render instead of performing its own setup. It reloads into
+each appearance, records the shipped 1x composition, and only then pinch-zooms the canvas with the
+product's own gesture:
 
-| Surface          | States        | Appearances |
-| ---------------- | ------------- | ----------- |
-| Square Root card | idle, focused | light, dark |
-| Generated Python | idle, clicked | light, dark |
+| Surface                     | States                            | Appearances |
+| --------------------------- | --------------------------------- | ----------- |
+| Square Root card            | idle, focused                     | light, dark |
+| Generated Python            | idle, clicked                     | light, dark |
+| Square Root card at 2x zoom | idle, focused, completion showing | light, dark |
 
 Each image is a component crop with eight CSS px of surrounding surface, not a full-app screenshot,
 and each carries its own clip rectangle, SHA-256, computed geometry, and computed typography or
-paint in the metrics file beside the donor values it was asserted against.
+paint in the metrics file beside the donor values it was asserted against. The zoomed crops are
+clamped to the viewport, because a card the gesture has doubled no longer fits inside it.
 
 ## What the images have to show
 
@@ -36,17 +40,28 @@ continuous header → field → Args → parameters stack against main's
 `docs/evidence/phase0/reference/screenshots/27-root-callable-selected-with-params-light.png` and its
 dark counterpart.
 
-The field itself is main's 16px-radius pill, and activation changes its border colour and nothing
-else: its box may drift by at most one CSS px and its computed font family, size, weight, line
-height, and colour are identical across the swap.
+The field itself is main's 16px-radius pill holding the committed `math.sqrt`, and activation
+changes its border colour and nothing else: its box may drift by at most one CSS px and its computed
+font family, size, weight, line height, and colour are identical across the swap.
 
-Generated Python paints only the declared generated region. In this committed eight-line document
-the block runs from the end of the authored prefix to the start of the authored suffix, so the four
-generated body lines carry the blue region and its three-pixel leading rail while the two blank
-separators supply the donor's partial rounded boundary, and `import math` on line 1 and
-`state = SettaState()` on line 8 stay on the ordinary Code-section surface. The compact uppercase
+Generated Python paints only the declared generated region. In this seven-line document the block
+runs from the end of the authored prefix to the start of the authored suffix — five marked lines,
+so the three generated body lines carry the blue region and its three-pixel leading rail while the
+two blank separators supply the donor's partial rounded boundary, and `import math` on line 1 and
+`state = SettaState()` on line 7 stay on the ordinary Code-section surface. The compact uppercase
 **GENERATED READ-ONLY** badge is centred on the block's upper boundary. The fixed 390px section
-leaves the rest of its height unpainted — in the light idle capture the block ends 258 CSS px above
-the section's own bottom. A real pointer click changes none of that paint and leaves the text
+leaves the rest of its height unpainted — in the light idle capture the block ends 276.9 CSS px
+above the section's own bottom. A real pointer click changes none of that paint and leaves the text
 non-editable, unfocused, caret-free, and free of an inner outline; the section's own selection
 chrome around the clicked captures is ordinary workspace behaviour, not part of this surface.
+
+The zoomed crops are the two defects the developer rejected the previous candidate on, at the
+enlarged zoom they were found at. The scene is exactly doubled and settled, with the pointer resting
+on the card, and the card carries no compositor layer of its own — `will-change: auto`,
+`transform: none`, `backface-visibility: visible`, `isolation: auto` — so its text, icons, and
+borders are rasterized at the size they are displayed at rather than scaled from the layer a gesture
+left behind. Judge them for crispness against the same scene in main. In the completion crop the
+popup is the whole list, parented to the canvas rather than to the section: it reaches roughly 60
+CSS px past the field's own bottom edge, is not inside the field or the section, and is what the
+page hit-tests at both of the points recorded in the metrics. The single horizontal line that used
+to cross the focused pill was all that survived of that popup when the section clipped it.

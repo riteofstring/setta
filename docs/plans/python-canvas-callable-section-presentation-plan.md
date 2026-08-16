@@ -1632,6 +1632,41 @@ visual acceptance with its accepted-candidate record; and this phase's closing
 `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
 accepted candidate.
 
+**Raw-startup and settled-zoom capture record.** The bundle at
+`docs/evidence/python-canvas-callable-presentation` is replaced, rendered from the immutable source
+candidate `682e30b648e5e6237fe4d4ab3ae3fc08b99cb195` and committed separately from it, as decision 15
+requires. It is fourteen captures rather than eight: the complete Square Root card idle and focused,
+the Generated Python reader idle and clicked, and the settled 2x-zoomed card idle, focused, and with
+its completion popup open, in both appearances, with eight CSS px of surrounding surface. The
+harness records the state the service boots into — it waits for the canonical first render and
+performs no setup mutation of its own — and it asserts every donor value while it records, so it
+cannot file a capture of a drifted surface.
+
+`computed/presentation-metrics.json` carries each crop's clip rectangle, SHA-256, computed geometry,
+and computed typography or paint beside the donor values it was asserted against, and the
+hand-written README is rewritten for this design. In the light idle card the header's bottom and the
+field's top are the same 233.39 CSS px and the field's bottom and the Args toolbar's top are the same
+259.39, so both donor steps measure zero; the first parameter row follows the toolbar by the item
+list's own 8.5 CSS px, and the app's content root and the package's content slot both report `0px`
+padding. In the light idle generated capture the block is one run of `start`, three `middle`, and
+`end` marks over the five lines between the authored prefix and suffix, ending 276.9 CSS px above
+the fixed 390px section's own bottom while the wrapper's own `background-image` is `none`.
+
+The zoomed captures are the two rejected defects at the zoom they were found at. The gesture leaves
+the scene at exactly 2x with the pointer on the card, and the settled card reports
+`will-change: auto`, `transform: none`, `backface-visibility: visible`, and `isolation: auto` in
+every zoomed state, so nothing is scaled from a stale layer. The completion popup is 500 CSS px wide
+and reaches 60.4 CSS px past the field's own bottom edge, is inside neither the field nor the
+section, and is what the page hit-tests at both recorded points — where the rejected placement left
+only the horizontal line the developer saw across the pill. The zoomed crops are clamped to the
+1440x900 viewport, because a doubled card no longer fits inside it. This is unaccepted working
+evidence, not a regression lock.
+
+What remains in this phase: the fresh read-only review; the supervisor's inspection of these
+fourteen images at full resolution; developer visual acceptance with its accepted-candidate record;
+and this phase's closing `test --changed --base <trusted-base>` and
+`test-levels --base <trusted-base>` steps against the accepted candidate.
+
 ## Stop conditions
 
 Stop and request a scope decision if:
