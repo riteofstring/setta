@@ -407,6 +407,17 @@ async function runWalkthrough(client) {
     })()`,
   );
 
+  await waitFor(
+    client,
+    "editable parameter textbox after mapped undefined-name diagnostic",
+    `(() => {
+      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
+      return parameter instanceof HTMLElement &&
+        parameter.getAttribute("contenteditable") === "true" &&
+        parameter.getAttribute("aria-readonly") !== "true";
+    })()`,
+  );
+
   await selectAll(client);
   await insertText(client, "3");
   await waitFor(
