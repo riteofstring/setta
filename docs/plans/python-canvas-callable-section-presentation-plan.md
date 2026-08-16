@@ -2,16 +2,16 @@
 
 ## Purpose and status
 
-**Status: Phase A's structural cutover is complete, including its audit corrections. The Phase B
-candidate at `1217367302fe4d3213f01d9064dff0ce2eefce37` was rejected in developer visual review on
-2026-08-19, and the first correction candidate at `84cf58de5bcb87c66189e148ea5394dce635413a` was
-rejected in supervisor visual review for filling the section's unused height and moving the badge
-away from the donor composition. All four of Phase B's corrections are now implemented: the
-generated region is painted on the rendered document lines, so the block hugs the code and its
-badge is centred on the block's upper boundary. The corrected candidate is
-`666af132be38edf4186e80ad7cf4788c32ff9fd0` and its eight captures are committed at
-`docs/evidence/python-canvas-callable-presentation`. Phase B remains open for supervisor
-inspection, developer visual acceptance, and its closing test steps.**
+**Status: Phase A's structural cutover is complete, including its audit corrections. Phase B
+remains open. The developer rejected source candidate
+`666af132be38edf4186e80ad7cf4788c32ff9fd0` and its evidence commit
+`7abd2332d18fa89aef3b5b550e75737dd0e163a1` on 2026-08-19. The complete Callable section still
+has materially different outer padding and vertical adjacency from main, which the component-only
+field crops failed to reveal. Generated Python also incorrectly treats the prefix, generated body,
+and suffix as one generated block; for the shown canonical document only body lines 3–5 are
+generated content. The next candidate must correct both defects, replace the rejected evidence,
+pass independent review and ordinary verification again, and receive developer visual acceptance
+before Phase B closes.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -66,21 +66,27 @@ to the reusable workspace presentation boundary, followed by one direct Python C
    `01-full-workspace-dark-1440x900.png`. Its source-level visual contracts are
    `frontend/src/components/Section/SectionParts/Search.tsx` and
    `frontend/src/components/Section/Layouts/CodeArea.tsx` in the clean `setta-main` worktree.
-10. `@setta/workspace` owns a generic generated-output presentation for its built-in Code section.
-    Python Canvas selects that presentation but does not recreate it with app CSS or private
-    selectors. This is presentation vocabulary, not a Python/code-generation backend concept.
-11. Replace the built-in Code section's public `readOnly` boolean directly with one required closed
-    mode. Do not retain the boolean, infer a mode, accept both shapes, or add an adapter.
+10. `@setta/workspace` owns a generic generated-document presentation for its built-in Code
+    section: one non-editable document may identify exactly one generated region while text before
+    and after it keeps ordinary read-only paint. Python Canvas supplies that region from its
+    canonical backend response and does not recreate it with app CSS or private selectors. This is
+    presentation vocabulary, not a Python/code-generation backend concept.
+11. Replace the rejected whole-document `generated-output` shape directly. The built-in Code
+    section keeps required closed modes, but its generated variant must require one validated
+    region in the same document. Do not retain `generated-output`, make the region optional, infer
+    it from text, accept both shapes, or add an adapter.
 12. Headless Chrome must capture the exact idle, focused/clicked, light, and dark states and record
     computed geometry and typography before developer review. The supervisor inspects those images;
     behavior-only browser success is not visual acceptance.
 13. Visual completion still requires developer-accepted live evidence. An automated threshold can
     reject a regression, but it cannot declare a new result aesthetically accepted.
-14. Generated-output paint follows the donor's line-scoped composition even when the entire
-    document is generated: the blue region and leading rail hug the rendered document lines, the
-    **GENERATED READ-ONLY** badge is centered over the generated block, and unused fixed-section
-    height is not painted as generated code. A full-height wrapper fill or corner badge is not a
-    close visual match.
+14. Generated-document paint follows the donor's line-scoped composition for the declared region
+    only. In the canonical seven-line idle document, `import math` on line 1 and
+    `state = SettaState()` on line 7 remain on the ordinary Code-section surface; body lines 3–5
+    carry the blue region and leading rail, with the blank separator lines supplying only the
+    donor's partial rounded boundary and centered **GENERATED READ-ONLY** badge geometry. Unused
+    fixed-section height is not painted. A whole-document fill, a full-height fill, or a corner
+    badge is not a close visual match.
 15. Capture evidence records an immutable source candidate. Commit generated evidence separately
     from the source commit it names; never repeatedly amend evidence into the commit whose hash the
     evidence embeds, because that hash cannot converge.
@@ -98,6 +104,10 @@ Starting from `./scripts/run-python-canvas.sh`, the live app must demonstrate th
    colors. Moving from idle to focused/live changes the focus border color only: the outer rectangle
    differs by at most 1 CSS px and computed `font-family`, `font-size`, `font-weight`, and
    `line-height` are identical.
+   This match applies to the complete section composition, not just the field crop: the field sits
+   immediately below the header with main's narrow inline inset, and the Args surface begins
+   immediately at the field's lower boundary. Python Canvas must not add content-area padding or a
+   grid gap around package-owned section content.
 3. Any normal pending state appears as a compact application-owned adornment associated with the
    editor. A genuine completion or mutation failure remains visible and accessible without turning
    ordinary idle state into a paragraph of infrastructure text.
@@ -105,11 +115,14 @@ Starting from `./scripts/run-python-canvas.sh`, the live app must demonstrate th
    filter behavior, but no unavailable structural authoring actions.
 5. Signature-derived parameter rows follow the toolbar and retain workspace-owned item layout,
    filtering, selection, column sizing, diagnostics, and text-control interaction.
-6. The **Generated Python** section presents every rendered document line as generated output: a
-   light/dark blue block with the donor's leading rail and centered compact **GENERATED READ-ONLY**
-   badge. The block hugs the code rather than filling unused fixed-section height. It is selectable
-   and copyable, but its text surface is not editable, does not receive a text caret, and does not
-   reveal an inner black outline or change paint when clicked.
+6. The **Generated Python** section presents the canonical prefix, generated body, and suffix in
+   one reader. Only the declared generated region receives the light/dark blue block, donor leading
+   rail, and centered compact **GENERATED READ-ONLY** badge. For the initial snapshot the generated
+   content is lines 3–5; lines 1 and 7 retain ordinary Code-section paint, and the blank boundary
+   lines may carry only the donor's partial rounded-edge geometry. The region hugs those lines
+   rather than filling unused fixed-section height. The whole reader remains selectable and
+   copyable but non-editable in this V1 slice, receives no text caret, reveals no inner black
+   outline, and does not change paint when clicked.
 
 The existing product walkthrough must remain unchanged:
 
@@ -147,13 +160,16 @@ the live layer changes the border to the donor's blue focus color. Port that own
 into scoped package CSS. Do not translate it into nearby eight-pixel radii, translucent backgrounds,
 different borders, or editor-default type.
 
-Main's `GEN_CODE_READONLY_THEME` establishes the generated-output language: blue-tinted light/dark
+Main's `GEN_CODE_READONLY_THEME` establishes the generated-region language: blue-tinted light/dark
 background, three-pixel leading rail, rounded region ends, compact uppercase generated/read-only
-label, and explicit selection paint. The main implementation surrounds editable prefix and suffix
-with one protected generated range. Python Canvas currently has no prefix or suffix, so its whole
-Code section uses the generic generated-output mode. Do not add fake prefix/suffix editors,
-placeholders such as **Add imports here**, mixed-region transactions, or code-generation semantics
-to the package in this slice.
+label, and explicit selection paint. The main implementation surrounds an immutable generated body
+with editable prefix and suffix. Python Canvas already receives the same three authoritative parts:
+`pythonTarget.prefix`, `generatedCode.body`, and `pythonTarget.suffix`, as well as their canonical
+combined `generatedCode.code`. This V1 slice has no prefix/suffix mutation endpoint, so the package
+does not make the outer text editable. It does preserve the donor's authority boundary visually:
+one generic declared generated region is painted, while prefix and suffix use ordinary read-only
+paint. Do not add fake local editing, placeholders such as **Add imports here**, transaction
+filters, completion endpoints, or Python/code-generation semantics to the package.
 
 ## Ownership and dependency direction
 
@@ -165,7 +181,7 @@ to the package in this slice.
 | Callable draft, completion, commit, and provider status | Python Canvas frontend | Props and application-owned adornment                     |
 | Callable/parameter semantic state and diagnostics       | Go backend             | Existing canonical V1 snapshot                            |
 | Parameter row structure and interaction                 | `@setta/workspace`     | Existing `WorkspaceItemList` and public controls          |
-| Editable/read-only/generated Code section presentation  | `@setta/workspace`     | Required closed built-in Code section mode                |
+| Editable/read-only/generated-region Code presentation   | `@setta/workspace`     | Required closed mode and one validated region             |
 | Generated Python source bytes                           | Go backend             | Existing canonical generated-code field                   |
 
 The dependency direction remains:
@@ -277,29 +293,54 @@ package root.
 
 ### Built-in Code section mode cutover
 
-Replace `WorkspaceCodeSectionData.readOnly` with one required discriminant:
+The completed `readOnly`-boolean cutover remains correct, but the rejected whole-document
+`generated-output` variant does not. Replace it directly with a closed discriminated data shape
+equivalent to:
 
 ```ts
-type WorkspaceCodeSectionMode = "editable" | "read-only" | "generated-output";
+type WorkspaceGeneratedRegion = Readonly<{
+  from: number;
+  to: number;
+}>;
+
+type WorkspaceCodeSectionData = WorkspaceCodeSectionCommon &
+  (
+    | { code: string; mode: "editable" | "read-only" }
+    | {
+        code: string;
+        generatedRegion: WorkspaceGeneratedRegion;
+        mode: "generated-document";
+      }
+  );
 ```
 
-`editable` retains the ordinary authored editor. `read-only` retains ordinary Code-section paint
-but is non-editable. `generated-output` is also non-editable and selects the donor-derived generated
-region paint. A section position/size lock still prevents editing, but does not falsely turn an
-ordinary editor into generated output. Update constructors, parsing, actions, tests, README,
-playground fixtures, packed-consumer fixtures, and Python Canvas in one direct cutover; reject the
-old `readOnly` document field at the existing data boundary.
+Exact internal factoring may vary, but the public semantics are fixed. `editable` retains the
+ordinary authored editor. `read-only` retains ordinary Code-section paint but is non-editable.
+`generated-document` is also wholly non-editable in this slice and requires exactly one UTF-16
+CodeMirror-offset range whose intersecting lines receive donor generated-region paint. Reject a
+missing, empty, reversed, fractional, out-of-document, or mode-incompatible region at the existing
+data boundary. Do not retain `generated-output`, accept a generated region on either ordinary mode,
+support a list of ranges, or infer a range by searching the code.
 
-Both non-editable modes use CodeMirror's read-only state and non-editable view contract rather than
-leaving a focusable `contenteditable` element that merely rejects transactions. Text remains
-selectable and copyable. The section wrapper keeps a coherent keyboard/focus target and accessible
-read-only naming, while Enter does not send focus into a nonexistent editing surface. The generated
-mode must never show a caret, inner focus outline, active-line paint, or editable cursor.
+The Python Canvas projection verifies that
+`prefix + "\n\n" + body + "\n\n" + suffix === generatedCode.code` and then declares the range
+from the end of the prefix to the start of the suffix. That range includes the two blank separator
+boundaries, matching main's partial first/last-line geometry, while its only generated content is
+`generatedCode.body`. This is a frontend projection assertion over an already canonical response;
+it does not alter the Go or generated TypeScript contract.
+
+Both non-editable presentations use CodeMirror's read-only state and non-editable view contract
+rather than leaving a focusable `contenteditable` element that merely rejects transactions. Text
+remains selectable and copyable. The section wrapper keeps a coherent keyboard/focus target and
+accessible read-only naming, while Enter does not send focus into a nonexistent editing surface.
+The generated document must never show a caret, inner focus outline, active-line paint, or editable
+cursor.
 
 The generated visuals belong to package source and its scoped stylesheet/theme. Expose only the
-closed mode and stable public observation needed by consumers/tests; do not export CodeMirror
-extensions, decoration classes, or package-private selectors and do not add an app `className`
-escape hatch.
+closed mode, region value, and stable public observation needed by consumers/tests; do not export
+CodeMirror extensions, decoration classes, or package-private selectors and do not add an app
+`className` escape hatch. This is one presentation region, not a general protected-range or
+mixed-authority editor service.
 
 ## Python Canvas direct cutover
 
@@ -319,8 +360,12 @@ the new package presentation:
 - register application-owned searchable text from the canonical parameter name and displayed
   metadata so the retained filter operates on what the row actually shows; and
 - keep parameter items on the `item-row` editor presentation with completion disabled.
-- project Generated Python through the built-in Code section's required `generated-output` mode;
-  remove the former `readOnly: true` projection rather than accepting both document shapes; and
+- remove Python Canvas's callable content padding and any app-owned gap around the package's field,
+  toolbar, and item list; let the package-owned field and toolbar form the same adjacent stack as
+  main without selecting package-private DOM;
+- project Generated Python through `generated-document`, using the canonical prefix/body/suffix to
+  verify the combined bytes and declare exactly one generated region; remove `generated-output`
+  rather than accepting both document shapes; and
 - remove or narrow any broad app focus rule that paints inside package-owned editors, while
   retaining explicit accessible focus treatment on application-owned controls.
 
@@ -340,7 +385,7 @@ Do not use this work to add:
 - callable catalogs, arbitrary expressions, multiple callables, parameter add/remove/delete
   mutations, parameter completion, hover, documentation, or completion resolve;
 - editable generated-code prefix/suffix regions, an imports placeholder, mixed-region mutation
-  filters, or a general protected-range editor;
+  filters, multiple generated regions, or a general protected-range editor;
 - changes to Go state, HTTP routes, generated TypeScript contracts, code generation, Basedpyright,
   diagnostics mapping, or the wrapper script;
 - ports, edges, handles, variants, source discovery, execution, persistence, CLI, MCP, Watch Code,
@@ -528,23 +573,32 @@ claim was confirmed by inspecting every runtime reference to it.
 
 - [ ] Production acceptance and closeout complete
 
-First correct the developer-rejected candidate without reopening Phase A's accepted composition:
+Correct the second developer-rejected candidate without reopening Phase A's accepted generic item
+composition:
 
-1. Port the exact donor field geometry, light/dark paint, and typography into the package-owned
-   `section-field` surface. Eliminate the idle/live size and font change.
-2. Cut the built-in Code section directly from `readOnly` to the required closed mode and implement
-   the generic `generated-output` paint and non-editing behavior.
-3. Select `generated-output` in Python Canvas and remove the old boolean projection and any leaking
-   broad app focus outline.
-4. Update focused package, packed-boundary, playground, and Python Canvas tests. Do not preserve old
-   fixtures or parsing behavior for compatibility.
+1. Compare the complete Square Root section against main's accepted full-section captures, not the
+   callable field alone. Remove Python Canvas's 14px content padding, remove the field's invented
+   block-start gap, and make the package-owned field/toolbar boundary match main. Preserve the
+   already-correct idle/focused box and type stability.
+2. Replace `generated-output` directly with the required `generated-document` plus one validated
+   generated region. Update constructors, parser, actions, package root, README, playground,
+   packed-consumer fixtures, and Python Canvas in one cutover; old documents fail rather than
+   receiving compatibility handling.
+3. Rework the package-owned line decorations so only lines intersecting that declared region carry
+   generated paint. Retain main's partial first/last separator-line geometry, centered badge,
+   leading rail, explicit selection paint, unused-height behavior, and caret-free reader.
+4. Project the region from the existing canonical prefix/body/suffix fields, with an exact combined
+   byte/string assertion. Do not add a backend route, local prefix/suffix state, editing,
+   completions, or transaction filters.
+5. Update focused package, packed-boundary, playground, and Python Canvas tests. Delete the rejected
+   whole-document assumptions; do not preserve fixtures or parsing behavior for compatibility.
 
-The generated-output correction must port main's line decorations for the whole document rather
-than approximate them with a background on the flex-filling editor wrapper. Keep this generic and
-package-owned: decorate the rendered CodeMirror document lines, center the badge at the generated
-block's upper boundary without changing the document bytes, and leave unused editor height on the
-ordinary Code-section surface. Do not introduce prefix/suffix editing, protected-range semantics,
-or a second public mode to accomplish this.
+The generated-document correction must port main's line decorations for one declared region rather
+than approximate them with a whole-document or flex-wrapper background. Keep this generic and
+package-owned: decorate only the intersecting CodeMirror lines, center the badge at that region's
+upper boundary without changing document bytes, and leave prefix, suffix, and unused editor height
+on the ordinary Code-section surface. Do not introduce prefix/suffix editing, mutation protection,
+or a general range service.
 
 Then run the production frontend, real Go service, and pinned Basedpyright through the established
 headless-Chrome walkthrough. Extend only the assertions and evidence needed to prove this bounded
@@ -555,20 +609,26 @@ presentation correction:
 - no Add, Remove, or Delete parameter controls are exposed by the filter-only toolbar;
 - the Args filter remains operable;
 - the Callable idle and focused states have stable geometry and identical computed typography;
-- light and dark captures show donor-equivalent Callable borders, backgrounds, radius, and spacing;
-- Generated Python exposes the generic generated-output mode, blue rail/region/badge, non-editable
-  semantics, selectable text, and no inner caret/outline before or after a real pointer click;
+- complete light and dark Square Root section captures show donor-equivalent header-to-field,
+  field-to-toolbar, toolbar-to-first-row, and inline-edge spacing, as well as the field's accepted
+  border, background, radius, and typography;
+- Generated Python exposes `generated-document`, leaves prefix line 1 and suffix line 7 unpainted,
+  paints generated body lines 3–5 with the donor rail/region/badge, remains non-editable and
+  selectable, and has no inner caret/outline before or after a real pointer click;
 - the accessible callable name, `math.sq` completion selection, second-Enter commit, `x` parameter,
   generated Python, diagnostic, and diagnostic-clear behavior remain intact; and
 - one Ctrl-C still cleans up the app processes through the existing wrapper.
 
-Use a fixed 1440x900 CSS-pixel viewport at device scale 1 and capture deterministic component crops
-for Callable idle/focused and Generated Python idle/clicked in both appearances. Record computed
-rectangles, font properties, border/radius/background values, editability, active element, and
+Use a fixed 1440x900 CSS-pixel viewport at device scale 1 and capture deterministic **complete
+section crops** for Square Root idle/focused and Generated Python idle/clicked in both appearances.
+The Square Root crop must include the whole section card: header, field, Args toolbar, and first
+parameter row or the empty item area. A field-only crop is insufficient evidence. Record section,
+header, field, toolbar, first-row, editor, prefix-line, generated-region, and suffix-line rectangles,
+along with font properties, border/radius/background values, editability, active element, and
 outline/caret-relevant values in machine-readable evidence bound to the exact candidate commit.
-Compare component crops—not unrelated full-app pixels—to the exact main-reference images and source
-tokens above, with any small antialiasing tolerance stated. The supervisor must open and inspect
-every resulting image before presenting the live section to the developer.
+Compare the complete section composition to the exact main-reference images and source tokens above,
+with any rescaling and small antialiasing tolerance stated. The supervisor must open and inspect
+every resulting image at original resolution before presenting the live section to the developer.
 
 The capture script may require a clean source tree, but the resulting images and metrics must be a
 new evidence commit whose recorded source is its immutable parent candidate. The evidence commit is
@@ -751,7 +811,7 @@ clean and the packaged boundary check passes over source and built artifacts. On
 binds the walkthrough to this fix: projecting `read-only` instead of `generated-output` fails it.
 
 **Supervisor visual rejection record.** Headless captures rendered from
-`84cf58de5bcb87c66189e148ea5394dce635413a` prove that Callable idle/focused geometry and type are
+`84cf58de5d26ab80ec9cdc9bc433f61122225451` prove that Callable idle/focused geometry and type are
 stable in light and dark appearance and that Generated Python remains caret-free after a real
 click. They also expose the unacceptable full-height generated fill and top-corner badge described
 above. Those captures are rejected working evidence, not a regression lock, and must not be
@@ -833,6 +893,26 @@ What remains in this phase: supervisor inspection of those eight images and deve
 acceptance with its accepted-candidate record; then this phase's closing
 `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps.
 
+**Second developer visual rejection record.** The preceding capture record is superseded. Developer
+review of source candidate `666af132be38edf4186e80ad7cf4788c32ff9fd0` and evidence commit
+`7abd2332d18fa89aef3b5b550e75737dd0e163a1` found two blocking defects that the evidence design
+missed. First, the field-only Callable crops hid the complete card's layout: Python Canvas's
+`.python-canvas-callable-section-content { padding: 0.875rem; }`, the section-field's invented
+block-start margin, and the toolbar's adjacency leave much more space around the primary control
+than main. Main's accepted crop shows a continuous header → field → Args composition, with the
+field beginning at the header boundary and the Args surface beginning at the field boundary.
+Second, Python Canvas projected `generatedCode.code` as one whole generated output even though its
+already-parsed backend contract separately provides `pythonTarget.prefix`, `generatedCode.body`,
+and `pythonTarget.suffix`. The resulting blue block wrongly includes `import math` and
+`state = SettaState()`; only the body on lines 3–5 is generated content in the shown snapshot.
+
+This rejection withdraws three earlier assertions: the eight component crops are not adequate
+visual evidence; `generated-output` is not the correct public model; and Python Canvas does have
+prefix and suffix data even though it intentionally lacks prefix/suffix editing. The next
+implementation directly removes the rejected mode and evidence. It must not preserve either as a
+legacy path, and it must not expand this correction into backend editing or an arbitrary protected-
+range editor.
+
 ## Stop conditions
 
 Stop and request a scope decision if:
@@ -847,8 +927,8 @@ Stop and request a scope decision if:
 - the correction expands beyond the closed leading-content and toolbar-mode seams into a general
   layout/plugin framework;
 - the real completion, commit, parameter, code-generation, or diagnostics walkthrough regresses;
-- matching the whole-output donor requires public mixed generated/editable ranges, prefix/suffix
-  application state, or Python/code-generation vocabulary in the package;
+- matching the donor requires editable prefix/suffix state, mutation-filtered protected ranges,
+  multiple/arbitrary region infrastructure, or Python/code-generation vocabulary in the package;
 - live developer evidence rejects the corrected states and fixing them would materially change the
   agreed generic boundary; or
 - Code Policy cannot own or verify the exact files without a protected configuration change.
@@ -856,5 +936,5 @@ Stop and request a scope decision if:
 The plan is complete when both phase markers are checked, the direct public cutovers contain no
 legacy or transitional surface, the established production walkthrough remains green, headless
 evidence proves the exact idle/focused/clicked states, the supervisor has inspected the captures,
-and the developer accepts the donor-matched Callable field and generated-output section above the
-unchanged filter-only Args area.
+and the developer accepts the donor-matched complete Callable composition and the single generated
+region above the unchanged filter-only Args area.
