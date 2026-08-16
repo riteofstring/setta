@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-**Status: Phase A is complete and Phase B is next.**
+**Status: implementation in progress — Phase A corrective evidence is ready for audit; Phase B remains next.**
 
 This is the bounded implementation plan for the first useful Python Canvas consumer of
 `@setta/workspace`. It replaces the previous contents of this document, which described a fixed
@@ -406,23 +406,19 @@ Review the complete Basedpyright and frontend dependency change before installat
 
 ### Phase A — callable-editor commit seam
 
-- [x] Callable-editor commit seam complete
-
 Add the optional `TextValueEditor.onCommit` contract, focused keyboard/IME/disabled tests, public
 export proof, and a small playground or fixture demonstration if needed to prove consumption.
 
 **Boundary:** package-focused tests, public API checks, package build, and the existing playground
 consumer remain green. No Python Canvas or LSP vocabulary enters the package.
 
-**Implementation evidence (2026-08-17; corrective audit completed):** `TextValueEditor.onCommit` is
+**Implementation evidence (2026-08-17; corrective audit pending):** `TextValueEditor.onCommit` is
 available from the public root and uses the current single-line editor value for an unmodified
 Enter. Focused tests cover modifier, IME, and disabled cases, including the passive
 CodeMirror-extension handoff after an active editor becomes disabled. The public-root type proof
 uses generic editor labels, IDs, and values so the package stays consumer-neutral.
 
 ### Phase B — reviewed app and policy bootstrap
-
-- [ ] App and policy bootstrap complete
 
 Add the minimal private frontend and Go roots, generated transport types, initial canonical snapshot,
 strict HTTP decoding, frontend host lifecycle, and the protected Code Policy declarations above.
@@ -431,8 +427,6 @@ strict HTTP decoding, frontend host lifecycle, and the protected Code Policy dec
 fixture, and both production builds pass from the new trusted base.
 
 ### Phase C — Go project and automatic codegen core
-
-- [ ] Project and automatic codegen core complete
 
 Implement the one-section project state, callable and parameter mutations with fake signature input
 at the focused boundary, minimal dependency graph, renderer, source-range map, temporary generated
@@ -443,8 +437,6 @@ determinism, exact source ranges, failed-mutation atomicity, and the final expec
 generation endpoint or frontend renderer.
 
 ### Phase D — real Basedpyright integration
-
-- [ ] Basedpyright integration complete
 
 Implement the bounded LSP process/session, signature snapshot, parameter normalization, canonical
 document synchronization, diagnostic waiting, UTF-16 conversion, source-range mapping, and explicit
@@ -459,8 +451,6 @@ files or processes.
 
 ### Phase E — frontend projection and browser acceptance
 
-- [ ] Frontend projection and browser acceptance complete
-
 Implement the Callable registration, public commit editor, parameter projection, serialized
 mutation controller, pending/unavailable status, read-only generated code section, and diagnostic
 registry adapter. Connect it to the real Go service through the Vite proxy.
@@ -473,8 +463,6 @@ normal dependency review.
 service, and real Basedpyright. All imports come from the `@setta/workspace` public root.
 
 ### Phase F — verification closeout
-
-- [ ] Verification closeout complete
 
 Register the completed browser suite in `.code-policy.json` through a separate reviewed
 control-plane closeout so the implementation loop never widens its own active verification scope.
