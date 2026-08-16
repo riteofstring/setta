@@ -1,5 +1,8 @@
 import type { UniqueIdentifier } from "@dnd-kit/abstract";
-import { RestrictToHorizontalAxis, RestrictToVerticalAxis } from "@dnd-kit/abstract/modifiers";
+import {
+  RestrictToHorizontalAxis,
+  RestrictToVerticalAxis,
+} from "@dnd-kit/abstract/modifiers";
 import { SortableKeyboardPlugin } from "@dnd-kit/dom/sortable";
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
@@ -10,7 +13,13 @@ import { useWorkspaceDocument } from "../../document/stores";
 import { useDndProviderContext } from "./DndProviderContext";
 import { Context } from "./SortableContext";
 import { itemsEqual, rectSortingStrategy } from "./sorting";
-import type { ClientRect, Disabled, DndData, SettaCollision, SortingStrategy } from "./types";
+import type {
+  ClientRect,
+  Disabled,
+  DndData,
+  SettaCollision,
+  SortingStrategy,
+} from "./types";
 import { useCollisionDetector } from "./useCollisionDetector";
 import {
   DEFAULT_SORTABLE_TRANSITION,
@@ -63,7 +72,10 @@ export function useSortable({
   const shouldTrackSorting = sortingEnabled && isDragActive;
   const sortablePlugins = [SortableKeyboardPlugin];
   const feedback = getFeedback(sortingEnabled, isMovingFree, customData);
-  const sortableTransition = getSortableTransition(transition, shouldTrackSorting);
+  const sortableTransition = getSortableTransition(
+    transition,
+    shouldTrackSorting,
+  );
   const dragModifiers = getDragModifiers(isSortingMode, containerId);
   const data = useMemo(
     () => ({
@@ -159,8 +171,11 @@ function getFeedback(
   isMovingFree: boolean,
   customData: Record<string, unknown> | undefined,
 ): "none" | undefined {
-  const itemType = typeof customData?.type === "string" ? customData.type : null;
-  return sortingEnabled || isMovingFree || itemType === "item" ? "none" : undefined;
+  const itemType =
+    typeof customData?.type === "string" ? customData.type : null;
+  return sortingEnabled || isMovingFree || itemType === "item"
+    ? "none"
+    : undefined;
 }
 
 function getSortableTransition(
@@ -178,7 +193,9 @@ function getDragModifiers(isSortingMode: boolean, containerId: string) {
   const containerIsHorizontal =
     containerId in useWorkspaceDocument.getState().sections &&
     getSectionIsHorizontalOrientation(containerId);
-  return [containerIsHorizontal ? RestrictToHorizontalAxis : RestrictToVerticalAxis];
+  return [
+    containerIsHorizontal ? RestrictToHorizontalAxis : RestrictToVerticalAxis,
+  ];
 }
 
 function useIsDragActive(manager: ReturnType<typeof useDragDropManager>) {

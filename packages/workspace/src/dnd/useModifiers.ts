@@ -1,4 +1,7 @@
-import { RestrictToHorizontalAxis, RestrictToVerticalAxis } from "@dnd-kit/abstract/modifiers";
+import {
+  RestrictToHorizontalAxis,
+  RestrictToVerticalAxis,
+} from "@dnd-kit/abstract/modifiers";
 import _ from "lodash";
 import { getSectionIsHorizontalOrientation } from "../document/documentSelectors";
 import { useWorkspaceDocument } from "../document/stores";

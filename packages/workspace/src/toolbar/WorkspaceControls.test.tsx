@@ -10,7 +10,9 @@ import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry"
 import { WorkspaceControls } from "./WorkspaceControls";
 import { registerWorkspaceToolbarContributions } from "./workspaceToolbarRegistry";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("WorkspaceControls", () => {
   let host: HTMLDivElement;
@@ -41,7 +43,9 @@ describe("WorkspaceControls", () => {
   });
 
   function getButton(label: string): HTMLButtonElement {
-    const button = host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+    const button = host.querySelector<HTMLButtonElement>(
+      `button[aria-label="${label}"]`,
+    );
     if (!button) {
       throw new Error(`Missing toolbar button: ${label}`);
     }
@@ -62,17 +66,24 @@ describe("WorkspaceControls", () => {
       "move minimap to right",
     ]);
     expect(host.querySelector('[data-testid="rf__controls"]')).not.toBe(null);
-    expect(host.querySelector('[data-testid="rf__controls"]')?.getAttribute("role")).toBe("group");
-    expect(host.querySelector('[data-testid="rf__controls"]')?.getAttribute("aria-label")).toBe(
-      "Workspace view controls",
-    );
+    expect(
+      host.querySelector('[data-testid="rf__controls"]')?.getAttribute("role"),
+    ).toBe("group");
+    expect(
+      host
+        .querySelector('[data-testid="rf__controls"]')
+        ?.getAttribute("aria-label"),
+    ).toBe("Workspace view controls");
     expect(
       Array.from(host.querySelectorAll("button svg")).every(
         (icon) =>
-          icon.getAttribute("aria-hidden") === "true" && icon.getAttribute("focusable") === "false",
+          icon.getAttribute("aria-hidden") === "true" &&
+          icon.getAttribute("focusable") === "false",
       ),
     ).toBe(true);
-    expect(getButton("reset zoom").className).toContain("react-flow__controls-button");
+    expect(getButton("reset zoom").className).toContain(
+      "react-flow__controls-button",
+    );
     expect(
       Array.from(host.querySelectorAll("button")).every(
         (button) => button.dataset.settaWorkspaceTouchTarget === "compact",
@@ -81,7 +92,9 @@ describe("WorkspaceControls", () => {
     // The reference renders dividers only after the edge/plugin groups, which left with their
     // features — never between the viewport and minimap groups.
     expect(
-      host.querySelector('[data-testid="rf__controls"]')?.querySelectorAll("div"),
+      host
+        .querySelector('[data-testid="rf__controls"]')
+        ?.querySelectorAll("div"),
     ).toHaveLength(0);
   });
 
@@ -138,7 +151,9 @@ describe("WorkspaceControls", () => {
     ]);
     // The reference draws its rule after each contributed group, and never between its own groups.
     expect(
-      host.querySelector('[data-testid="rf__controls"]')?.querySelectorAll("div"),
+      host
+        .querySelector('[data-testid="rf__controls"]')
+        ?.querySelectorAll("div"),
     ).toHaveLength(2);
   });
 
@@ -156,12 +171,16 @@ describe("WorkspaceControls", () => {
     expect(getButton("zoom out").disabled).toBe(false);
 
     await act(async () => {
-      useReactFlow.setState({ transform: [0, 0, useWorkspaceOptions.getState().maxZoom] });
+      useReactFlow.setState({
+        transform: [0, 0, useWorkspaceOptions.getState().maxZoom],
+      });
     });
     expect(getButton("zoom in").disabled).toBe(true);
 
     await act(async () => {
-      useReactFlow.setState({ transform: [0, 0, useWorkspaceOptions.getState().minZoom] });
+      useReactFlow.setState({
+        transform: [0, 0, useWorkspaceOptions.getState().minZoom],
+      });
     });
     expect(getButton("zoom out").disabled).toBe(true);
   });
@@ -175,7 +194,9 @@ describe("WorkspaceControls", () => {
     await act(async () => {
       useReactFlow.setState({
         d3Selection,
-        d3Zoom: { scaleBy } as unknown as NonNullable<typeof initialCanvasState.d3Zoom>,
+        d3Zoom: { scaleBy } as unknown as NonNullable<
+          typeof initialCanvasState.d3Zoom
+        >,
       });
     });
 
@@ -188,7 +209,9 @@ describe("WorkspaceControls", () => {
     expect(scaleBy).toHaveBeenCalledWith(transitionObject, 1.2);
 
     await act(async () => {
-      getButton("zoom in").dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+      getButton("zoom in").dispatchEvent(
+        new MouseEvent("click", { bubbles: true, detail: 1 }),
+      );
     });
 
     expect(scaleBy).toHaveBeenCalledTimes(1);
@@ -203,12 +226,16 @@ describe("WorkspaceControls", () => {
     await act(async () => {
       useReactFlow.setState({
         d3Selection,
-        d3Zoom: { scaleBy } as unknown as NonNullable<typeof initialCanvasState.d3Zoom>,
+        d3Zoom: { scaleBy } as unknown as NonNullable<
+          typeof initialCanvasState.d3Zoom
+        >,
       });
     });
 
     await act(async () => {
-      getButton("zoom out").dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 }));
+      getButton("zoom out").dispatchEvent(
+        new MouseEvent("click", { bubbles: true, detail: 0 }),
+      );
     });
 
     expect(scaleBy).toHaveBeenCalledWith(transitionObject, 1 / 1.2);

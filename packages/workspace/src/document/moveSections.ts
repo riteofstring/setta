@@ -44,7 +44,12 @@ export function moveSections({
   const nextDocumentState =
     newParentId === null
       ? moveSectionsToPane({ documentState, sectionIds, positionsById })
-      : moveSectionsIntoParent({ documentState, sectionIds, newParentId, newIndex });
+      : moveSectionsIntoParent({
+          documentState,
+          sectionIds,
+          newParentId,
+          newIndex,
+        });
 
   const nextNodesMap = createNodesMapFromDocumentChildren(
     nextDocumentState,
@@ -86,9 +91,16 @@ function moveSectionsToPane({
   const movingSet = new Set(sectionIds);
   return {
     sections: removeSectionsFromParentChildren(documentState, movingSet),
-    topLevelSections: buildPaneDropLayouts(documentState, sectionIds, positionsById),
+    topLevelSections: buildPaneDropLayouts(
+      documentState,
+      sectionIds,
+      positionsById,
+    ),
     viewport: documentState.viewport,
-    parentSectionMap: withoutParentEntries(documentState.parentSectionMap, movingSet),
+    parentSectionMap: withoutParentEntries(
+      documentState.parentSectionMap,
+      movingSet,
+    ),
   };
 }
 
@@ -108,7 +120,8 @@ function buildPaneDropLayouts(
     }
     const existingLayout = topLevelSections[sectionId];
     const wasTopLevel =
-      existingLayout !== undefined && (documentState.parentSectionMap[sectionId] ?? null) === null;
+      existingLayout !== undefined &&
+      (documentState.parentSectionMap[sectionId] ?? null) === null;
     if (!wasTopLevel) {
       maxZIndex += 1;
     }
@@ -127,7 +140,8 @@ function buildPaneDropLayout({
   zIndex,
 }: {
   position: Position;
-  existingLayout: WorkspaceDocumentState["topLevelSections"][string] | undefined;
+  existingLayout:
+    WorkspaceDocumentState["topLevelSections"][string] | undefined;
   zIndex: number;
 }): WorkspaceDocumentState["topLevelSections"][string] {
   return {
@@ -173,9 +187,14 @@ function moveSectionsIntoParent({
   // Sections nested into a parent lose their top-level layout entry, mirroring the reference's
   // defensive node/layout cleanup when moving into a parent.
   const topLevelSections = Object.fromEntries(
-    Object.entries(documentState.topLevelSections).filter(([id]) => !movingSet.has(id)),
+    Object.entries(documentState.topLevelSections).filter(
+      ([id]) => !movingSet.has(id),
+    ),
   );
-  const parentSectionMap = withoutParentEntries(documentState.parentSectionMap, movingSet);
+  const parentSectionMap = withoutParentEntries(
+    documentState.parentSectionMap,
+    movingSet,
+  );
   for (const sectionId of sectionIds) {
     parentSectionMap[sectionId] = newParentId;
   }
@@ -194,8 +213,15 @@ function removeSectionsFromParentChildren(
 ): Record<string, WorkspaceSection> {
   const sections: Record<string, WorkspaceSection> = {};
   for (const [sectionId, section] of Object.entries(documentState.sections)) {
-    sections[sectionId] = section.children.some((childId) => movingSet.has(childId))
-      ? { ...section, children: section.children.filter((childId) => !movingSet.has(childId)) }
+    sections[sectionId] = section.children.some((childId) =>
+      movingSet.has(childId),
+    )
+      ? {
+          ...section,
+          children: section.children.filter(
+            (childId) => !movingSet.has(childId),
+          ),
+        }
       : section;
   }
   return sections;
@@ -226,13 +252,17 @@ function withoutParentEntries(
   movingSet: Set<string>,
 ): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(parentSectionMap).filter(([sectionId]) => !movingSet.has(sectionId)),
+    Object.entries(parentSectionMap).filter(
+      ([sectionId]) => !movingSet.has(sectionId),
+    ),
   );
 }
 
 function getMaxTopLevelZIndex(documentState: WorkspaceDocumentState): number {
   let maxZIndex = -1;
-  for (const [sectionId, layout] of Object.entries(documentState.topLevelSections)) {
+  for (const [sectionId, layout] of Object.entries(
+    documentState.topLevelSections,
+  )) {
     if ((documentState.parentSectionMap[sectionId] ?? null) !== null) {
       continue;
     }

@@ -7,7 +7,10 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "../interaction";
-import { getSectionEditorBasicSetup, getSectionEditorExtensions } from "./sectionEditorExtensions";
+import {
+  getSectionEditorBasicSetup,
+  getSectionEditorExtensions,
+} from "./sectionEditorExtensions";
 import { useSectionEditorHeight } from "./useSectionEditorHeight";
 
 // The section-scale editor both built-in content sections mount: the reference's `CoreCodeArea`
@@ -24,7 +27,7 @@ import { useSectionEditorHeight } from "./useSectionEditorHeight";
 
 const WRAPPER_BASE_CLASS_NAME = `${NO_PAN_CLASS_NAME} ${NO_DRAG_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} min-h-0 flex-1 cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent`;
 
-export type WorkspaceSectionEditorProps = {
+type WorkspaceSectionEditorProps = {
   ariaLabel: string;
   sectionId: string;
   value: string;
@@ -79,13 +82,17 @@ export function WorkspaceSectionEditor({
       }),
     [indentWidth, isReadOnly, language, onEscape, wrapLines],
   );
-  const basicSetup = useMemo(() => getSectionEditorBasicSetup({ lineNumbers }), [lineNumbers]);
+  const basicSetup = useMemo(
+    () => getSectionEditorBasicSetup({ lineNumbers }),
+    [lineNumbers],
+  );
 
   function onWrapperKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.target !== event.currentTarget || event.key !== "Enter") {
       return;
     }
-    const contentElement = event.currentTarget.querySelector("[contenteditable]");
+    const contentElement =
+      event.currentTarget.querySelector("[contenteditable]");
     if (contentElement instanceof HTMLElement) {
       event.preventDefault();
       event.stopPropagation();
@@ -96,14 +103,12 @@ export function WorkspaceSectionEditor({
   return (
     // The wrapper is the reference's own keyboard target: focusing it is how Escape leaves the
     // editor, and Enter is how the keyboard gets back in.
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <article
       aria-keyshortcuts="Enter Escape"
       aria-label={ariaLabel}
       className={`${WRAPPER_BASE_CLASS_NAME} ${overflowClassName} ${wheelClassName}`}
       onKeyDown={onWrapperKeyDown}
       ref={wrapperRef}
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
       tabIndex={0}
     >
       <CodeMirror

@@ -1,4 +1,7 @@
-import type { WorkspaceDocumentInput, WorkspaceSectionInput } from "@setta/workspace";
+import type {
+  WorkspaceDocumentInput,
+  WorkspaceSectionInput,
+} from "@setta/workspace";
 
 export const PERFORMANCE_PROFILE_COLUMNS = 16;
 export const PERFORMANCE_PROFILE_ROWS = 16;

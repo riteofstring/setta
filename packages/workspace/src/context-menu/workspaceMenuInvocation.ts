@@ -26,13 +26,19 @@ import {
 function getWorkspacePosition(clientPoint: WorkspaceMenuClientPoint): Position {
   const { domNode, transform } = useReactFlow.getState();
   if (!domNode) {
-    throw new Error("Workspace pane menu cannot open before the canvas DOM is initialized.");
+    throw new Error(
+      "Workspace pane menu cannot open before the canvas DOM is initialized.",
+    );
   }
-  return clientPointToWorkspacePosition(clientPoint, domNode.getBoundingClientRect(), {
-    x: transform[0],
-    y: transform[1],
-    zoom: transform[2],
-  });
+  return clientPointToWorkspacePosition(
+    clientPoint,
+    domNode.getBoundingClientRect(),
+    {
+      x: transform[0],
+      y: transform[1],
+      zoom: transform[2],
+    },
+  );
 }
 
 function getSelectedSectionContext(sectionId: string): {
@@ -50,7 +56,9 @@ function getSelectedSectionContext(sectionId: string): {
   const state = useWorkspaceDocument.getState();
   return {
     section: getSectionOrThrow(state, sectionId),
-    selectedSections: getActiveSectionIds().map((id) => getSectionOrThrow(state, id)),
+    selectedSections: getActiveSectionIds().map((id) =>
+      getSectionOrThrow(state, id),
+    ),
   };
 }
 
@@ -95,7 +103,8 @@ function publishWorkspaceSectionMenu({
   // Frozen main's header action belongs to the owning group even when that group is part of a
   // larger selection, so a header invocation targets its own section. Context menus keep acting
   // on the captured selection. The difference lives in the context, not in the command.
-  const selectedSections = surface === "header" ? [selection.section] : selection.selectedSections;
+  const selectedSections =
+    surface === "header" ? [selection.section] : selection.selectedSections;
   publishWorkspaceMenuInvocation({
     kind: "section",
     clientPoint,
@@ -143,7 +152,9 @@ export function openWorkspaceSelectionMenu(
 ): void {
   const sectionId = getActiveSectionIds().at(-1);
   if (!sectionId) {
-    throw new Error("Workspace selection menu requires at least one selected section.");
+    throw new Error(
+      "Workspace selection menu requires at least one selected section.",
+    );
   }
   openWorkspaceSectionMenu(sectionId, "context-menu", clientPoint, owner);
 }
@@ -158,14 +169,19 @@ export function openWorkspaceItemMenu(
   const section = getSectionOrThrow(state, sectionId);
   const itemTree = section.itemTree;
   if (!itemTree) {
-    throw new Error(`Workspace item menu section ${sectionId} has no item tree.`);
+    throw new Error(
+      `Workspace item menu section ${sectionId} has no item tree.`,
+    );
   }
   publishWorkspaceMenuInvocation({
     kind: "item",
     clientPoint,
     direction: getElementTextDirection(owner),
     owner,
-    context: createItemCommandContext(section, getItemOrThrow(itemTree, itemId)),
+    context: createItemCommandContext(
+      section,
+      getItemOrThrow(itemTree, itemId),
+    ),
   });
   return true;
 }

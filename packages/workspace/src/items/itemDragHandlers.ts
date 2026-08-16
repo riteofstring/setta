@@ -1,7 +1,11 @@
 import type { DragDropManager } from "@dnd-kit/dom";
 import { resolveOverCollisionId } from "../dnd/adapter/collisionCompare";
 import { rectFromBoundingRect } from "../dnd/adapter/rect";
-import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "../dnd/adapter/types";
+import type {
+  DragMoveEvent,
+  DragOverEvent,
+  DragStartEvent,
+} from "../dnd/adapter/types";
 import {
   addItemChild,
   getItemDndParentByChild,
@@ -35,7 +39,10 @@ import {
 } from "../document/itemTree";
 import { moveItems, orderItemIdsByParent } from "../document/moveItems";
 import { useWorkspaceDocument } from "../document/stores";
-import { filterCollisionsForListKey, resolveItemPlaceholderMovePlan } from "./itemDndMonitorUtils";
+import {
+  filterCollisionsForListKey,
+  resolveItemPlaceholderMovePlan,
+} from "./itemDndMonitorUtils";
 import { resolveItemListView } from "./itemListRegistry";
 
 // The reference's `ParamDndMonitor` drag lifecycle in item terms, minus the app-only branches:
@@ -86,15 +93,22 @@ type ItemDragOverInput = Pick<DragMoveEvent, "active" | "collisions" | "over">;
 let pendingItemDragOver: ItemDragOverInput | null = null;
 let itemDragOverRaf: number | null = null;
 
-export function handleItemDragStart(event: DragStartEvent, manager: DragDropManager | null) {
+export function handleItemDragStart(
+  event: DragStartEvent,
+  manager: DragDropManager | null,
+) {
   const dragData = getItemDragData(event);
   if (!dragData || !canStartItemDrag()) {
     return;
   }
   const { sectionId } = dragData;
 
-  const itemTree = getSectionItemTreeOrThrow(useWorkspaceDocument.getState(), sectionId);
-  const activeId = dragData.itemId ?? getItemIdFromDndId(String(event.active.id));
+  const itemTree = getSectionItemTreeOrThrow(
+    useWorkspaceDocument.getState(),
+    sectionId,
+  );
+  const activeId =
+    dragData.itemId ?? getItemIdFromDndId(String(event.active.id));
   const parentById = buildItemParentMap(itemTree);
   if (!Object.prototype.hasOwnProperty.call(parentById, activeId)) {
     return;
@@ -114,11 +128,21 @@ export function handleItemDragStart(event: DragStartEvent, manager: DragDropMana
     selectedItemIds: itemTree.selectedItemIds,
   });
 
-  const tree = buildItemTreeView(itemTree, view.topLevelItemIds, view.visibleItemIds);
+  const tree = buildItemTreeView(
+    itemTree,
+    view.topLevelItemIds,
+    view.visibleItemIds,
+  );
   const activeDndId = getItemDndId(activeId, view.listKey);
-  const draggingDndIds = draggingIds.map((itemId) => getItemDndId(itemId, view.listKey));
+  const draggingDndIds = draggingIds.map((itemId) =>
+    getItemDndId(itemId, view.listKey),
+  );
   const placeholderSize = measureItemDragSize(manager, draggingDndIds);
-  const activeRect = measureItemActiveRect(manager, activeDndId, event.activeRect);
+  const activeRect = measureItemActiveRect(
+    manager,
+    activeDndId,
+    event.activeRect,
+  );
 
   updateItemChildren(tree.visibleChildrenByParent);
   replaceItemsWithTemp(activeId, view.listKey, draggingIds);
@@ -158,7 +182,10 @@ export function handleItemDragEnd() {
     deferItemDragReset();
     return;
   }
-  const itemTree = getSectionItemTreeOrThrow(useWorkspaceDocument.getState(), itemState.sectionId);
+  const itemTree = getSectionItemTreeOrThrow(
+    useWorkspaceDocument.getState(),
+    itemState.sectionId,
+  );
   const ordering = resolveItemDragOrdering(itemTree, itemState);
   if (isItemDragAbort(ordering)) {
     deferItemDragReset();
@@ -217,7 +244,10 @@ function updateItemDragOver({ active, collisions, over }: ItemDragOverInput) {
   if (!hasActiveItemDragState(itemState) || !collisions) {
     return;
   }
-  const filteredCollisions = filterCollisionsForListKey(collisions, itemState.listKey);
+  const filteredCollisions = filterCollisionsForListKey(
+    collisions,
+    itemState.listKey,
+  );
   if (!filteredCollisions || filteredCollisions.length === 0) {
     return;
   }
@@ -247,8 +277,12 @@ function updateItemDragOver({ active, collisions, over }: ItemDragOverInput) {
   maybeMoveItemPlaceholder(placeholderMove);
 }
 
-function hasActiveItemDragState(itemState: ItemDndStoreState): itemState is ActiveItemDndState {
-  return Boolean(itemState.activeId && itemState.sectionId && itemState.listKey);
+function hasActiveItemDragState(
+  itemState: ItemDndStoreState,
+): itemState is ActiveItemDndState {
+  return Boolean(
+    itemState.activeId && itemState.sectionId && itemState.listKey,
+  );
 }
 
 function resolveDraggingItemIds({
@@ -282,14 +316,18 @@ function resolveDraggingItemIds({
   return [activeId];
 }
 
-function isItemDragAbort<T>(result: T | ItemDragAbort): result is ItemDragAbort {
+function isItemDragAbort<T>(
+  result: T | ItemDragAbort,
+): result is ItemDragAbort {
   return typeof result === "object" && result !== null && "reason" in result;
 }
 
 function resolveItemDragDropTarget(
   itemState: ActiveItemDndState,
 ): ItemDragDropTarget | ItemDragAbort {
-  const tempId = getTempItemDndId(getItemDndId(itemState.activeId, itemState.listKey));
+  const tempId = getTempItemDndId(
+    getItemDndId(itemState.activeId, itemState.listKey),
+  );
   const dndChildrenState = useItemDndChildren.getState();
   const newParentId = dndChildrenState.y[tempId] ?? null;
   if (!newParentId) {
@@ -318,7 +356,11 @@ function resolveItemDragOrdering(
   if (!oldParentId) {
     return { reason: "no-old-parent" };
   }
-  const orderedDraggingIds = orderItemIdsByParent(itemTree, oldParentId, itemState.draggingIds);
+  const orderedDraggingIds = orderItemIdsByParent(
+    itemTree,
+    oldParentId,
+    itemState.draggingIds,
+  );
   if (orderedDraggingIds.length === 0) {
     return { reason: "empty-ordered" };
   }
@@ -401,13 +443,19 @@ function resolveItemDragOverResolution({
   }
   return {
     overItemId: getItemIdFromDndId(normalizedOverId),
-    pastHalfway: getPastHalfwayFromCollisions(filteredCollisions, resolvedOverId) ?? false,
+    pastHalfway:
+      getPastHalfwayFromCollisions(filteredCollisions, resolvedOverId) ?? false,
     triggerDistCondition:
-      getCollisionTriggerDistCondition(resolvedOverId, filteredCollisions) ?? false,
+      getCollisionTriggerDistCondition(resolvedOverId, filteredCollisions) ??
+      false,
   };
 }
 
-function normalizeItemOverId(overId: string | null, sectionId: string, rootId: string | null) {
+function normalizeItemOverId(
+  overId: string | null,
+  sectionId: string,
+  rootId: string | null,
+) {
   if (!overId) {
     return null;
   }
@@ -537,14 +585,18 @@ function isItemDrag(active: DragStartEvent["active"]) {
   return (active.data?.current as ItemDragData | undefined)?.type === "item";
 }
 
-function getOverIdForListKey(over: DragOverEvent["over"] | null, listKey: ItemListKey | null) {
+function getOverIdForListKey(
+  over: DragOverEvent["over"] | null,
+  listKey: ItemListKey | null,
+) {
   if (!over) {
     return null;
   }
   if (!listKey) {
     return over.id;
   }
-  const data = over.data as { current?: { listKey?: ItemListKey | null } } | undefined;
+  const data = over.data as
+    { current?: { listKey?: ItemListKey | null } } | undefined;
   if (data?.current?.listKey !== listKey) {
     return null;
   }
@@ -613,7 +665,9 @@ function getCollisionTriggerDistCondition(
   }
 
   if (overId !== null) {
-    const matching = collisions.find((collision) => String(collision.id) === String(overId));
+    const matching = collisions.find(
+      (collision) => String(collision.id) === String(overId),
+    );
     if (matching && matching.triggerDistCondition !== undefined) {
       return Boolean(matching.triggerDistCondition);
     }
@@ -635,7 +689,9 @@ function getPastHalfwayFromCollisions(
     return null;
   }
 
-  const match = collisions.find((collision) => String(collision.id) === String(overId));
+  const match = collisions.find(
+    (collision) => String(collision.id) === String(overId),
+  );
   if (!match || match.pastHalfway === undefined) {
     return null;
   }
@@ -643,7 +699,10 @@ function getPastHalfwayFromCollisions(
   return Boolean(match.pastHalfway);
 }
 
-function measureItemDragSize(manager: DragDropManager | null, dndIds: Array<string>) {
+function measureItemDragSize(
+  manager: DragDropManager | null,
+  dndIds: Array<string>,
+) {
   let width = 0;
   let height = 0;
   for (const dndId of dndIds) {
@@ -671,7 +730,10 @@ function measureItemActiveRect(
   return getDroppableRect(manager, dndId) ?? fallbackRect ?? null;
 }
 
-function getDroppableRect(manager: DragDropManager | null, droppableId: string) {
+function getDroppableRect(
+  manager: DragDropManager | null,
+  droppableId: string,
+) {
   const shape = manager?.registry.droppables.get(droppableId)?.shape;
   if (!shape) {
     return null;

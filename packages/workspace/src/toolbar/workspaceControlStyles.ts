@@ -10,7 +10,10 @@ export const TOGGLE_CONTROL_CLASS_NAME =
 // carried the rest of its dividers left with their features.
 export const CONTROLS_DIVIDER_CLASS_NAME =
   "my-0.5 h-px w-full bg-setta-200/70 dark:bg-setta-800/70";
-export const DECORATIVE_ICON_PROPS = { "aria-hidden": true, focusable: "false" } as const;
+export const DECORATIVE_ICON_PROPS = {
+  "aria-hidden": true,
+  focusable: "false",
+} as const;
 export const COMPACT_TOUCH_TARGET_PROPS = {
   "data-setta-workspace-touch-target": "compact",
 } as const;

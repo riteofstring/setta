@@ -4,7 +4,10 @@ import { useDndProviderContext } from "./DndProviderContext";
 import { Context as SortableContext } from "./SortableContext";
 
 export function useCollisionDetector(): CollisionDetector {
-  const { isSorting, collisionDetector, sortingCollisionDetector } = useDndProviderContext();
+  const { isSorting, collisionDetector, sortingCollisionDetector } =
+    useDndProviderContext();
   const { sortingEnabled } = useContext(SortableContext);
-  return isSorting || sortingEnabled ? sortingCollisionDetector : collisionDetector;
+  return isSorting || sortingEnabled
+    ? sortingCollisionDetector
+    : collisionDetector;
 }

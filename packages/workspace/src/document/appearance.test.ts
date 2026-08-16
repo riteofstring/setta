@@ -10,7 +10,10 @@ import {
   type WorkspaceDocumentState,
 } from "./stores";
 
-const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(window, "matchMedia");
+const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "matchMedia",
+);
 
 function makeStyledDocument(): WorkspaceDocumentState {
   return {
@@ -52,10 +55,16 @@ function installMatchMedia(initialMatches: boolean) {
     },
     media: "(prefers-color-scheme: dark)",
     onchange: null,
-    addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+    addEventListener: (
+      _type: string,
+      listener: (event: MediaQueryListEvent) => void,
+    ) => {
       listeners.add(listener);
     },
-    removeEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+    removeEventListener: (
+      _type: string,
+      listener: (event: MediaQueryListEvent) => void,
+    ) => {
       listeners.delete(listener);
     },
   } as unknown as MediaQueryList;
@@ -141,7 +150,9 @@ describe("setWorkspaceColorMode", () => {
     const media = installMatchMedia(false);
 
     setWorkspaceColorMode("system");
-    expect(media.matchMedia).toHaveBeenCalledWith("(prefers-color-scheme: dark)");
+    expect(media.matchMedia).toHaveBeenCalledWith(
+      "(prefers-color-scheme: dark)",
+    );
     expect(media.listenerCount()).toBe(1);
     expect(useWorkspaceAppearance.getState()).toMatchObject({
       colorMode: "system",
@@ -159,8 +170,13 @@ describe("setWorkspaceColorMode", () => {
 
   it("fails specifically when system mode has no browser media-query API", () => {
     setWorkspaceColorMode("dark");
-    Object.defineProperty(window, "matchMedia", { configurable: true, value: undefined });
-    expect(() => setWorkspaceColorMode("system")).toThrowError(/requires window\.matchMedia/);
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: undefined,
+    });
+    expect(() => setWorkspaceColorMode("system")).toThrowError(
+      /requires window\.matchMedia/,
+    );
     expect(useWorkspaceAppearance.getState()).toMatchObject({
       colorMode: "dark",
       darkMode: true,
@@ -173,7 +189,9 @@ describe("setWorkspaceColorMode", () => {
       configurable: true,
       value: () => ({ matches: false }),
     });
-    expect(() => setWorkspaceColorMode("system")).toThrowError(/change-event support/);
+    expect(() => setWorkspaceColorMode("system")).toThrowError(
+      /change-event support/,
+    );
     expect(useWorkspaceAppearance.getState()).toMatchObject({
       colorMode: "dark",
       darkMode: true,
@@ -182,9 +200,9 @@ describe("setWorkspaceColorMode", () => {
 
   it("rejects unknown JavaScript inputs without disturbing the current mode", () => {
     setWorkspaceColorMode("dark");
-    expect(() => setWorkspaceColorMode("sepia" as WorkspaceColorMode)).toThrowError(
-      /Unknown workspace color mode: sepia/,
-    );
+    expect(() =>
+      setWorkspaceColorMode("sepia" as WorkspaceColorMode),
+    ).toThrowError(/Unknown workspace color mode: sepia/);
     expect(useWorkspaceAppearance.getState()).toMatchObject({
       colorMode: "dark",
       darkMode: true,

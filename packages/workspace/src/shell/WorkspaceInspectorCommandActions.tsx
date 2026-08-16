@@ -33,17 +33,24 @@ function CommandActionRow({
   // items, so two commands blocked by one lock print one reason.
   const reasons = [
     ...new Set(
-      entries.flatMap((entry) => (entry.disabledReason === null ? [] : [entry.disabledReason])),
+      entries.flatMap((entry) =>
+        entry.disabledReason === null ? [] : [entry.disabledReason],
+      ),
     ),
   ];
   return (
     <>
-      <div className="setta-workspace-inspector-actions" data-inspector-focus-key={focusKey}>
+      <div
+        className="setta-workspace-inspector-actions"
+        data-inspector-focus-key={focusKey}
+      >
         {children}
         {entries.map((entry) => (
           <button
             className={
-              entry.tone === "danger" ? "setta-workspace-inspector-danger-action" : undefined
+              entry.tone === "danger"
+                ? "setta-workspace-inspector-danger-action"
+                : undefined
             }
             disabled={entry.disabled}
             key={entry.id}
@@ -82,7 +89,11 @@ export function WorkspaceInspectorCommandActions({
     return null;
   }
   return (
-    <CommandActionRow entries={entries} focusKey={focusKey} onStatusChange={onStatusChange}>
+    <CommandActionRow
+      entries={entries}
+      focusKey={focusKey}
+      onStatusChange={onStatusChange}
+    >
       {children}
     </CommandActionRow>
   );

@@ -45,7 +45,10 @@ const TIME_FONT_OPTIONS: ReadonlyArray<ConfigurationOption> = [
   { label: "System", value: "system" },
 ];
 
-function handleEscape(event: KeyboardEvent<HTMLInputElement>, onEscape: () => void): void {
+function handleEscape(
+  event: KeyboardEvent<HTMLInputElement>,
+  onEscape: () => void,
+): void {
   if (event.key !== "Escape") {
     return;
   }
@@ -72,7 +75,8 @@ export function DateConfigurationEditor({
         onChange={(displayFormat) =>
           commit({
             ...configuration,
-            displayFormat: displayFormat as DateControl["configuration"]["displayFormat"],
+            displayFormat:
+              displayFormat as DateControl["configuration"]["displayFormat"],
           })
         }
         onEscape={onEscape}
@@ -86,7 +90,8 @@ export function DateConfigurationEditor({
         onChange={(controlMode) =>
           commit({
             ...configuration,
-            controlMode: controlMode as DateControl["configuration"]["controlMode"],
+            controlMode:
+              controlMode as DateControl["configuration"]["controlMode"],
           })
         }
         onEscape={onEscape}
@@ -135,7 +140,8 @@ export function DateConfigurationEditor({
               onChange={(selectionMode) =>
                 commit({
                   ...configuration,
-                  selectionMode: selectionMode as DateControl["configuration"]["selectionMode"],
+                  selectionMode:
+                    selectionMode as DateControl["configuration"]["selectionMode"],
                 })
               }
               onEscape={onEscape}
@@ -150,7 +156,8 @@ export function DateConfigurationEditor({
             onChange={(weekStart) =>
               commit({
                 ...configuration,
-                weekStart: weekStart as DateControl["configuration"]["weekStart"],
+                weekStart:
+                  weekStart as DateControl["configuration"]["weekStart"],
               })
             }
             onEscape={onEscape}
@@ -181,7 +188,8 @@ export function TimeConfigurationEditor({
         onChange={(controlMode) =>
           commit({
             ...configuration,
-            controlMode: controlMode as TimeControl["configuration"]["controlMode"],
+            controlMode:
+              controlMode as TimeControl["configuration"]["controlMode"],
           })
         }
         onEscape={onEscape}
@@ -195,7 +203,8 @@ export function TimeConfigurationEditor({
         onChange={(displayFormat) =>
           commit({
             ...configuration,
-            displayFormat: displayFormat as TimeControl["configuration"]["displayFormat"],
+            displayFormat:
+              displayFormat as TimeControl["configuration"]["displayFormat"],
           })
         }
         onEscape={onEscape}
@@ -208,7 +217,9 @@ export function TimeConfigurationEditor({
             checked={configuration.transparent}
             disabled={disabled}
             label="Transparent"
-            onChange={(transparent) => commit({ ...configuration, transparent })}
+            onChange={(transparent) =>
+              commit({ ...configuration, transparent })
+            }
             onEscape={onEscape}
           />
           <ConfigurationRow label="Clock Scale" name="time-scale">
@@ -220,7 +231,10 @@ export function TimeConfigurationEditor({
                   max="3"
                   min="0.5"
                   onChange={(event) =>
-                    commit({ ...configuration, scale: Number(event.currentTarget.value) })
+                    commit({
+                      ...configuration,
+                      scale: Number(event.currentTarget.value),
+                    })
                   }
                   onKeyDown={(event) => handleEscape(event, onEscape)}
                   step="0.1"

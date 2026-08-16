@@ -13,10 +13,17 @@ import {
 // - an auto-repeat keydown re-runs only the operations that accept repeats;
 // - the browser default is suppressed when the operation ran, and otherwise only for a binding
 //   that owns its chord even while declining.
-function runMatchedBinding(event: KeyboardEvent, binding: ResolvedWorkspaceKeyBinding): void {
+function runMatchedBinding(
+  event: KeyboardEvent,
+  binding: ResolvedWorkspaceKeyBinding,
+): void {
   const repeatBlocked = event.repeat && !binding.definition.allowRepeat;
   const ran = repeatBlocked ? false : binding.definition.run(event);
-  if (ran || (binding.definition.keepsChordWhenDeclined && binding.suppressesBrowserDefault)) {
+  if (
+    ran ||
+    (binding.definition.keepsChordWhenDeclined &&
+      binding.suppressesBrowserDefault)
+  ) {
     event.preventDefault();
   }
 }

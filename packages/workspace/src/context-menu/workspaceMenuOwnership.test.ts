@@ -9,9 +9,15 @@ import {
 
 describe("workspace context-menu ownership", () => {
   it("recognizes both authorized keyboard invocation paths", () => {
-    expect(isWorkspaceMenuKeyboardEvent({ key: "ContextMenu", shiftKey: false })).toBe(true);
-    expect(isWorkspaceMenuKeyboardEvent({ key: "F10", shiftKey: true })).toBe(true);
-    expect(isWorkspaceMenuKeyboardEvent({ key: "F10", shiftKey: false })).toBe(false);
+    expect(
+      isWorkspaceMenuKeyboardEvent({ key: "ContextMenu", shiftKey: false }),
+    ).toBe(true);
+    expect(isWorkspaceMenuKeyboardEvent({ key: "F10", shiftKey: true })).toBe(
+      true,
+    );
+    expect(isWorkspaceMenuKeyboardEvent({ key: "F10", shiftKey: false })).toBe(
+      false,
+    );
   });
 
   it.each(["button", "input", "textarea", "[contenteditable='true']"])(

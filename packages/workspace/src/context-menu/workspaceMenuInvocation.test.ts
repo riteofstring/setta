@@ -5,7 +5,11 @@ import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { WorkspaceSection } from "../document/types";
 import {
   openWorkspaceItemMenu,
@@ -66,7 +70,10 @@ describe("workspace menu invocation", () => {
     resetState();
     registerSectionKinds({ leaf: { renderContent: () => null } });
     loadWorkspaceDocument({
-      sections: { alpha: createSection("alpha", true), bravo: createSection("bravo") },
+      sections: {
+        alpha: createSection("alpha", true),
+        bravo: createSection("bravo"),
+      },
       topLevelSections: {
         alpha: { x: 0, y: 0, w: 200, h: 100, zIndex: 0 },
         bravo: { x: 300, y: 0, w: 200, h: 100, zIndex: 1 },
@@ -76,7 +83,14 @@ describe("workspace menu invocation", () => {
     });
     canvas = document.createElement("div");
     canvas.getBoundingClientRect = () =>
-      ({ left: 100, top: 50, right: 900, bottom: 650, width: 800, height: 600 }) as DOMRect;
+      ({
+        left: 100,
+        top: 50,
+        right: 900,
+        bottom: 650,
+        width: 800,
+        height: 600,
+      }) as DOMRect;
     owner = document.createElement("div");
     document.body.append(canvas, owner);
     useReactFlow.setState({ domNode: canvas, transform: [-200, 100, 2] });
@@ -123,7 +137,11 @@ describe("workspace menu invocation", () => {
       kind: "section",
       initialFocus: "first",
       surface: "context-menu",
-      context: { scope: "section", section: { id: "bravo" }, selectedSections: [{ id: "bravo" }] },
+      context: {
+        scope: "section",
+        section: { id: "bravo" },
+        selectedSections: [{ id: "bravo" }],
+      },
     });
     expect(Object.isFrozen(invocation?.context)).toBe(true);
   });
@@ -136,7 +154,10 @@ describe("workspace menu invocation", () => {
     expect(invocation).toMatchObject({
       kind: "section",
       surface: "outline",
-      context: { scope: "section", selectedSections: [{ id: "alpha" }, { id: "bravo" }] },
+      context: {
+        scope: "section",
+        selectedSections: [{ id: "alpha" }, { id: "bravo" }],
+      },
     });
   });
 
@@ -147,16 +168,26 @@ describe("workspace menu invocation", () => {
       kind: "section",
       initialFocus: "last",
       surface: "header",
-      context: { scope: "section", section: { id: "alpha" }, selectedSections: [{ id: "alpha" }] },
+      context: {
+        scope: "section",
+        section: { id: "alpha" },
+        selectedSections: [{ id: "alpha" }],
+      },
     });
   });
 
   it("always snapshots item context for the package delete action", () => {
-    expect(openWorkspaceItemMenu("alpha", "alpha-item", { x: 20, y: 30 }, owner)).toBe(true);
+    expect(
+      openWorkspaceItemMenu("alpha", "alpha-item", { x: 20, y: 30 }, owner),
+    ).toBe(true);
     const invocation = useWorkspaceMenuState.getState().invocation;
     expect(invocation).toMatchObject({
       kind: "item",
-      context: { scope: "item", section: { id: "alpha" }, item: { id: "alpha-item" } },
+      context: {
+        scope: "item",
+        section: { id: "alpha" },
+        item: { id: "alpha-item" },
+      },
     });
     expect(Object.isFrozen(invocation?.context)).toBe(true);
   });

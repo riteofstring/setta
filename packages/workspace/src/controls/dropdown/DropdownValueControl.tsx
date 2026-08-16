@@ -1,11 +1,25 @@
-import { memo, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  memo,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi2";
 import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "../../interaction";
-import { getElementTextDirection, type WorkspaceTextDirection } from "../../styles/textDirection";
+import {
+  getElementTextDirection,
+  type WorkspaceTextDirection,
+} from "../../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
-import type { ComboboxItem, ComboboxItemGroup, OnSelectedItemChange } from "./comboboxStateReducer";
+import type {
+  ComboboxItem,
+  ComboboxItemGroup,
+  OnSelectedItemChange,
+} from "./comboboxStateReducer";
 import { useDropdownCombobox } from "./useDropdownCombobox";
 
 // The item-controls milestone's dropdown: the reference `IdNameCombobox` at the `ParamUI`
@@ -48,7 +62,8 @@ const META_SEARCH_WRAPPER_CLASS_NAME = `flex min-w-0 mx-[2px] items-center relat
 // one-pixel authored borders produce main's recorded 18 px outer height.
 const INPUT_CLASS_NAME =
   "setta-workspace-native-reset flex-grow truncate outline-0 cursor-auto rounded-full text-xs font-mono text-setta-600 font-medium ps-3 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 bg-white dark:bg-setta-900 pe-6 h-4 my-auto";
-const RIGHT_ADORNMENT_CLASS_NAME = "absolute inset-y-0 end-0 grid select-none place-items-center";
+const RIGHT_ADORNMENT_CLASS_NAME =
+  "absolute inset-y-0 end-0 grid select-none place-items-center";
 // The reference `StandardSearchRightBtn` at the pill/small composition, verbatim (the trailing
 // end-1 rides along from the reference's pill class map even though the button is static).
 const TOGGLE_BUTTON_CLASS_NAME = `${NO_DRAG_CLASS_NAME} grid cursor-pointer place-items-center justify-center focus-visible:ring-2 bg-transparent text-setta-500 rounded-full p-0 h-4 w-4 hover:bg-blue-500 hover:text-white dark:text-setta-500 dark:hover:bg-blue-700 dark:hover:text-setta-100 end-1`;
@@ -56,7 +71,8 @@ const TOGGLE_BUTTON_CLASS_NAME = `${NO_DRAG_CLASS_NAME} grid cursor-pointer plac
 const TOGGLE_ICON_SIZE_PX = 10;
 const GROUP_HEADER_CLASS_NAME =
   "mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-400 first:pt-2";
-const ITEM_CLASS_NAME = "mx-1 cursor-pointer truncate rounded-lg px-2 py-[.125rem] text-xs";
+const ITEM_CLASS_NAME =
+  "mx-1 cursor-pointer truncate rounded-lg px-2 py-[.125rem] text-xs";
 const ITEM_HIGHLIGHTED_CLASS_NAME = "bg-setta-300/50 dark:bg-setta-900/50";
 
 type DropdownCombobox = ReturnType<typeof useDropdownCombobox>;
@@ -78,7 +94,12 @@ function toItemGroups(
       items: group.choices.map((choice) => ({ id: choice, name: choice })),
     }));
   }
-  return [{ group: "Choices", items: choices.map((choice) => ({ id: choice, name: choice })) }];
+  return [
+    {
+      group: "Choices",
+      items: choices.map((choice) => ({ id: choice, name: choice })),
+    },
+  ];
 }
 
 export function DropdownValueControl({ ...props }: DropdownValueControlProps) {
@@ -144,11 +165,17 @@ function DropdownCombobox({
   presentation: "item-row" | "meta-control";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const combobox = useDropdownCombobox({ allItems, value, onSelectedItemChange });
+  const combobox = useDropdownCombobox({
+    allItems,
+    value,
+    onSelectedItemChange,
+  });
   return (
     <div
       className={
-        presentation === "meta-control" ? META_OUTER_DIV_CLASS_NAME : ITEM_OUTER_DIV_CLASS_NAME
+        presentation === "meta-control"
+          ? META_OUTER_DIV_CLASS_NAME
+          : ITEM_OUTER_DIV_CLASS_NAME
       }
     >
       <search
@@ -184,14 +211,26 @@ function DropdownCombobox({
             })}
           >
             {combobox.isOpen ? (
-              <HiChevronUp aria-hidden="true" focusable="false" size={TOGGLE_ICON_SIZE_PX} />
+              <HiChevronUp
+                aria-hidden="true"
+                focusable="false"
+                size={TOGGLE_ICON_SIZE_PX}
+              />
             ) : (
-              <HiChevronDown aria-hidden="true" focusable="false" size={TOGGLE_ICON_SIZE_PX} />
+              <HiChevronDown
+                aria-hidden="true"
+                focusable="false"
+                size={TOGGLE_ICON_SIZE_PX}
+              />
             )}
           </button>
         </div>
       </search>
-      <DropdownComboboxList ariaLabel={ariaLabel} combobox={combobox} inputRef={inputRef}>
+      <DropdownComboboxList
+        ariaLabel={ariaLabel}
+        combobox={combobox}
+        inputRef={inputRef}
+      >
         <DropdownComboboxItems combobox={combobox} />
       </DropdownComboboxList>
     </div>
@@ -227,7 +266,8 @@ function DropdownComboboxList({
       const direction = getElementTextDirection(inputRef.current);
       setListDims({
         direction,
-        inlineOffset: direction === "rtl" ? window.innerWidth - rect.right : rect.left,
+        inlineOffset:
+          direction === "rtl" ? window.innerWidth - rect.right : rect.left,
         y: rect.bottom + yMargin,
         width: rect.width,
       });
@@ -240,8 +280,14 @@ function DropdownComboboxList({
       {...combobox.getMenuProps({ "aria-label": `${ariaLabel} choices` })}
       dir={listDims.direction}
       style={{
-        left: listDims.direction === "ltr" ? `${listDims.inlineOffset}px` : undefined,
-        right: listDims.direction === "rtl" ? `${listDims.inlineOffset}px` : undefined,
+        left:
+          listDims.direction === "ltr"
+            ? `${listDims.inlineOffset}px`
+            : undefined,
+        right:
+          listDims.direction === "rtl"
+            ? `${listDims.inlineOffset}px`
+            : undefined,
         top: `${listDims.y}px`,
         minWidth: listDims.width,
       }}
@@ -267,7 +313,10 @@ const DropdownComboboxItem = memo(function DropdownComboboxItem({
 }) {
   const bg = isHighlighted ? ITEM_HIGHLIGHTED_CLASS_NAME : "";
   return (
-    <dd className={`${ITEM_CLASS_NAME} ${bg}`} {...getItemProps({ item, index })}>
+    <dd
+      className={`${ITEM_CLASS_NAME} ${bg}`}
+      {...getItemProps({ item, index })}
+    >
       {itemString}
     </dd>
   );

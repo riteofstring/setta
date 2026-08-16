@@ -1,4 +1,8 @@
-import type { Position, WorkspaceItem, WorkspaceSection } from "../document/types";
+import type {
+  Position,
+  WorkspaceItem,
+  WorkspaceSection,
+} from "../document/types";
 import {
   cloneFrozenWorkspaceSnapshot,
   type WorkspaceSnapshot,
@@ -11,10 +15,18 @@ import type {
 
 // Document objects are replaced rather than mutated, so one detached snapshot per version serves
 // every command context that names it. Weak keys release the snapshot with the version it copied.
-const sectionSnapshots = new WeakMap<WorkspaceSection, WorkspaceSnapshot<WorkspaceSection>>();
-const itemSnapshots = new WeakMap<WorkspaceItem, WorkspaceSnapshot<WorkspaceItem>>();
+const sectionSnapshots = new WeakMap<
+  WorkspaceSection,
+  WorkspaceSnapshot<WorkspaceSection>
+>();
+const itemSnapshots = new WeakMap<
+  WorkspaceItem,
+  WorkspaceSnapshot<WorkspaceItem>
+>();
 
-function getSectionSnapshot(section: WorkspaceSection): WorkspaceSnapshot<WorkspaceSection> {
+function getSectionSnapshot(
+  section: WorkspaceSection,
+): WorkspaceSnapshot<WorkspaceSection> {
   const cached = sectionSnapshots.get(section);
   if (cached) {
     return cached;
@@ -24,7 +36,9 @@ function getSectionSnapshot(section: WorkspaceSection): WorkspaceSnapshot<Worksp
   return snapshot;
 }
 
-function getItemSnapshot(item: WorkspaceItem): WorkspaceSnapshot<WorkspaceItem> {
+function getItemSnapshot(
+  item: WorkspaceItem,
+): WorkspaceSnapshot<WorkspaceItem> {
   const cached = itemSnapshots.get(item);
   if (cached) {
     return cached;
@@ -40,7 +54,9 @@ export function createPaneCommandContext(
   return Object.freeze({
     scope: "pane" as const,
     workspacePosition:
-      workspacePosition === null ? null : cloneFrozenWorkspaceSnapshot(workspacePosition),
+      workspacePosition === null
+        ? null
+        : cloneFrozenWorkspaceSnapshot(workspacePosition),
   });
 }
 

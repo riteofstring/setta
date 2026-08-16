@@ -17,9 +17,18 @@ const PACKAGE_COMMAND_PREFIX = "workspace.";
 
 // A scope decides which surfaces can offer a command: pane commands only exist where the pane
 // itself is the target, and item commands never reach a section header or the section action row.
-const SURFACES_BY_SCOPE: Record<WorkspaceCommandScope, ReadonlyArray<WorkspaceCommandSurface>> = {
+const SURFACES_BY_SCOPE: Record<
+  WorkspaceCommandScope,
+  ReadonlyArray<WorkspaceCommandSurface>
+> = {
   pane: ["context-menu", "toolbar"],
-  section: ["context-menu", "header", "inspector", "inspector-parameters", "outline"],
+  section: [
+    "context-menu",
+    "header",
+    "inspector",
+    "inspector-parameters",
+    "outline",
+  ],
   item: ["context-menu", "inspector-parameters"],
 };
 
@@ -28,15 +37,24 @@ export type RegisteredWorkspaceCommand = {
   origin: "host" | "package";
 };
 
-const packageCommands: ReadonlyArray<RegisteredWorkspaceCommand> = Object.freeze(
-  builtInWorkspaceCommands.map((definition) =>
-    Object.freeze<RegisteredWorkspaceCommand>({ definition, origin: "package" }),
-  ),
-);
+const packageCommands: ReadonlyArray<RegisteredWorkspaceCommand> =
+  Object.freeze(
+    builtInWorkspaceCommands.map((definition) =>
+      Object.freeze<RegisteredWorkspaceCommand>({
+        definition,
+        origin: "package",
+      }),
+    ),
+  );
 
 let hostCommands: ReadonlyArray<RegisteredWorkspaceCommand> = [];
 
-function assertCommandFunction(id: string, role: string, value: unknown, required: boolean): void {
+function assertCommandFunction(
+  id: string,
+  role: string,
+  value: unknown,
+  required: boolean,
+): void {
   if (value === undefined) {
     if (required) {
       throw new Error(`Workspace command ${id} requires ${role}.`);
@@ -80,7 +98,9 @@ function assertCommandSurfaces(
       );
     }
     if (seen.has(surface)) {
-      throw new Error(`Workspace command ${id} lists the ${surface} surface twice.`);
+      throw new Error(
+        `Workspace command ${id} lists the ${surface} surface twice.`,
+      );
     }
     seen.add(surface);
   }
@@ -92,18 +112,34 @@ function validateHostCommand(
 ): RegisteredWorkspaceCommand {
   assertCommandId(command.id, ids);
   if (typeof command.label !== "string" || command.label.trim() === "") {
-    throw new Error(`Workspace command ${command.id} requires a non-empty label.`);
+    throw new Error(
+      `Workspace command ${command.id} requires a non-empty label.`,
+    );
   }
   if (!Object.hasOwn(SURFACES_BY_SCOPE, command.scope)) {
-    throw new Error(`Workspace command ${command.id} has unknown scope ${String(command.scope)}.`);
+    throw new Error(
+      `Workspace command ${command.id} has unknown scope ${String(command.scope)}.`,
+    );
   }
   assertCommandSurfaces(command.id, command.scope, command.surfaces);
   if (command.icon !== undefined && typeof command.icon !== "function") {
-    throw new Error(`Workspace command ${command.id} icon must be a component.`);
+    throw new Error(
+      `Workspace command ${command.id} icon must be a component.`,
+    );
   }
   assertCommandFunction(command.id, "run", command.run, true);
-  assertCommandFunction(command.id, "getDisabledReason", command.getDisabledReason, false);
-  assertCommandFunction(command.id, "getStatusMessage", command.getStatusMessage, false);
+  assertCommandFunction(
+    command.id,
+    "getDisabledReason",
+    command.getDisabledReason,
+    false,
+  );
+  assertCommandFunction(
+    command.id,
+    "getStatusMessage",
+    command.getStatusMessage,
+    false,
+  );
   assertCommandFunction(command.id, "isChecked", command.isChecked, false);
   return Object.freeze<RegisteredWorkspaceCommand>({
     definition: Object.freeze({
@@ -128,7 +164,9 @@ export function registerWorkspaceCommands(
     throw new Error("Workspace commands must be an array.");
   }
   const ids = new Set(packageCommands.map((command) => command.definition.id));
-  const validated = Object.freeze(commands.map((command) => validateHostCommand(command, ids)));
+  const validated = Object.freeze(
+    commands.map((command) => validateHostCommand(command, ids)),
+  );
   assertWorkspaceToolbarContributions(
     getWorkspaceToolbarContributions(),
     createWorkspaceToolbarCommandCatalog(
@@ -142,7 +180,10 @@ export function registerWorkspaceCommands(
 
 // Section headers ask for their surface on every document change, so the composed per-surface list
 // is built once per registration instead of once per question.
-const commandsBySurfaceKey = new Map<string, ReadonlyArray<RegisteredWorkspaceCommand>>();
+const commandsBySurfaceKey = new Map<
+  string,
+  ReadonlyArray<RegisteredWorkspaceCommand>
+>();
 
 export function getWorkspaceCommands(
   scope: WorkspaceCommandScope,
@@ -156,7 +197,8 @@ export function getWorkspaceCommands(
   const commands = Object.freeze(
     [...packageCommands, ...hostCommands].filter(
       (command) =>
-        command.definition.scope === scope && command.definition.surfaces.includes(surface),
+        command.definition.scope === scope &&
+        command.definition.surfaces.includes(surface),
     ),
   );
   commandsBySurfaceKey.set(key, commands);
@@ -169,8 +211,12 @@ export function listWorkspaceCommands(): ReadonlyArray<RegisteredWorkspaceComman
   return [...packageCommands, ...hostCommands];
 }
 
-export function getWorkspaceCommandOrThrow(id: string): RegisteredWorkspaceCommand {
-  const command = listWorkspaceCommands().find((candidate) => candidate.definition.id === id);
+export function getWorkspaceCommandOrThrow(
+  id: string,
+): RegisteredWorkspaceCommand {
+  const command = listWorkspaceCommands().find(
+    (candidate) => candidate.definition.id === id,
+  );
   if (!command) {
     throw new Error(`Workspace command ${id} is not registered.`);
   }

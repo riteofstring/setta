@@ -15,25 +15,32 @@ describe("performance profile document", () => {
     expect(Object.keys(performanceProfileDocument.sections)).toHaveLength(
       PERFORMANCE_PROFILE_SECTION_COUNT,
     );
-    expect(Object.keys(performanceProfileDocument.topLevelSections)).toHaveLength(
-      PERFORMANCE_PROFILE_SECTION_COUNT,
-    );
-    expect(performanceProfileDocument.viewport).toEqual({ x: 0, y: 0, zoom: 1 });
+    expect(
+      Object.keys(performanceProfileDocument.topLevelSections),
+    ).toHaveLength(PERFORMANCE_PROFILE_SECTION_COUNT);
+    expect(performanceProfileDocument.viewport).toEqual({
+      x: 0,
+      y: 0,
+      zoom: 1,
+    });
   });
 
   it("provides one visible, fixed-size drag target and a large measured plane", () => {
-    expect(performanceProfileDocument.sections[PERFORMANCE_PROFILE_DRAG_TARGET_ID]?.name).toBe(
-      "Performance drag target",
-    );
-    expect(performanceProfileDocument.topLevelSections[PERFORMANCE_PROFILE_DRAG_TARGET_ID]).toEqual(
-      {
-        x: 855,
-        y: 210,
-        w: 200,
-        h: 122,
-        zIndex: 19,
-      },
-    );
+    expect(
+      performanceProfileDocument.sections[PERFORMANCE_PROFILE_DRAG_TARGET_ID]
+        ?.name,
+    ).toBe("Performance drag target");
+    expect(
+      performanceProfileDocument.topLevelSections[
+        PERFORMANCE_PROFILE_DRAG_TARGET_ID
+      ],
+    ).toEqual({
+      x: 855,
+      y: 210,
+      w: 200,
+      h: 122,
+      zIndex: 19,
+    });
 
     const layouts = Object.values(performanceProfileDocument.topLevelSections);
     expect(Math.max(...layouts.map(({ x, w }) => x + (w ?? 0)))).toBe(4_295);

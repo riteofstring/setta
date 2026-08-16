@@ -26,8 +26,8 @@ export function PerformanceProfileApp() {
           @setta/workspace large-document profile
         </h1>
         <p className="playground-intro min-w-0 text-xs text-setta-500 dark:text-setta-400">
-          {PERFORMANCE_PROFILE_SECTION_COUNT} fixed-size top-level sections; package controls and
-          minimap enabled.
+          {PERFORMANCE_PROFILE_SECTION_COUNT} fixed-size top-level sections;
+          package controls and minimap enabled.
         </p>
         <button
           type="button"

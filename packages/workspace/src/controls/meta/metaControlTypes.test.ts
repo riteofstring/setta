@@ -12,24 +12,56 @@ import {
 
 describe("meta control sizing", () => {
   it("freezes the common default and minimum inner geometry", () => {
-    for (const kind of ["button", "color", "date", "rotary", "switch", "text", "time"] as const) {
-      expect(getMetaControlDefaultSize(kind)).toEqual({ width: 200, height: 44 });
-      expect(getMetaControlMinimumSize(kind)).toEqual({ width: 200, height: 32 });
+    for (const kind of [
+      "button",
+      "color",
+      "date",
+      "rotary",
+      "switch",
+      "text",
+      "time",
+    ] as const) {
+      expect(getMetaControlDefaultSize(kind)).toEqual({
+        width: 200,
+        height: 44,
+      });
+      expect(getMetaControlMinimumSize(kind)).toEqual({
+        width: 200,
+        height: 32,
+      });
     }
     expect(DEFAULT_META_CONTROL_SIZE).toEqual({ width: 200, height: 44 });
   });
 
   it("keeps compact auto-height controls intrinsic and freezes special large surfaces", () => {
     for (const kind of ["dropdown", "password", "slider"] as const) {
-      expect(getMetaControlDefaultSize(kind)).toEqual({ width: 200, height: "auto" });
-      expect(getMetaControlMinimumSize(kind)).toEqual({ width: 200, height: 32 });
+      expect(getMetaControlDefaultSize(kind)).toEqual({
+        width: 200,
+        height: "auto",
+      });
+      expect(getMetaControlMinimumSize(kind)).toEqual({
+        width: 200,
+        height: 32,
+      });
       expect(getMetaControlHeightSizeMode(kind)).toBe("auto-only");
     }
-    expect(getMetaControlDefaultSize("textarea")).toEqual({ width: 200, height: 98 });
-    expect(getMetaControlMinimumSize("textarea")).toEqual({ width: 200, height: 98 });
+    expect(getMetaControlDefaultSize("textarea")).toEqual({
+      width: 200,
+      height: 98,
+    });
+    expect(getMetaControlMinimumSize("textarea")).toEqual({
+      width: 200,
+      height: 98,
+    });
     expect(TEXTAREA_META_CONTROL_SIZE).toEqual({ width: 200, height: 98 });
-    expect(getMetaControlDefaultSize("dropzone")).toEqual({ width: 240, height: 120 });
-    expect(getMetaControlMinimumSize("dropzone")).toEqual({ width: 240, height: 120 });
+    expect(getMetaControlDefaultSize("dropzone")).toEqual({
+      width: 240,
+      height: 120,
+    });
+    expect(getMetaControlMinimumSize("dropzone")).toEqual({
+      width: 240,
+      height: 120,
+    });
     expect(DROPZONE_META_CONTROL_SIZE).toEqual({ width: 240, height: 120 });
   });
 

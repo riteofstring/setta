@@ -3,7 +3,12 @@ import _ from "lodash";
 import { useWorkspaceDocument } from "../document/stores";
 import type { Position } from "../document/types";
 import { prefersReducedWorkspaceMotion } from "../styles/motion";
-import { getD3Transition, getPaneRect, getSectionRect, getViewportForBounds } from "./graph";
+import {
+  getD3Transition,
+  getPaneRect,
+  getSectionRect,
+  getViewportForBounds,
+} from "./graph";
 import { useWorkspaceOptions } from "./options";
 import { getWorkspacePointerLocation } from "./pointerLocation";
 import { useReactFlow } from "./store";
@@ -30,7 +35,10 @@ function getZoomRuntime() {
   return { d3Zoom, d3Selection };
 }
 
-function getZoomTarget(selection: NonNullable<ReactFlowState["d3Selection"]>, duration?: number) {
+function getZoomTarget(
+  selection: NonNullable<ReactFlowState["d3Selection"]>,
+  duration?: number,
+) {
   if (prefersReducedWorkspaceMotion()) {
     return selection;
   }
@@ -68,11 +76,17 @@ export function getIsZoomRuntimeReady(): boolean {
 // The toolbar disables its zoom buttons at the configured limits. The chords ask the same
 // question, so a keypress at a limit does exactly what pressing the disabled button does.
 export function getCanZoomIn(): boolean {
-  return getIsZoomRuntimeReady() && useReactFlow.getState().transform[2] < getZoomLimits().maxZoom;
+  return (
+    getIsZoomRuntimeReady() &&
+    useReactFlow.getState().transform[2] < getZoomLimits().maxZoom
+  );
 }
 
 export function getCanZoomOut(): boolean {
-  return getIsZoomRuntimeReady() && useReactFlow.getState().transform[2] > getZoomLimits().minZoom;
+  return (
+    getIsZoomRuntimeReady() &&
+    useReactFlow.getState().transform[2] > getZoomLimits().minZoom
+  );
 }
 
 function getZoomLimits(): { minZoom: number; maxZoom: number } {
@@ -88,7 +102,9 @@ export function setCenter(x: number, y: number, options?: ZoomOptions) {
   const { maxZoom } = useWorkspaceOptions.getState();
   const visibleCanvas = getVisibleCanvasRect({ width, height }, viewportInsets);
   if (visibleCanvas.width <= 0 || visibleCanvas.height <= 0) {
-    throw new Error("Cannot center the workspace before the canvas has measurable bounds.");
+    throw new Error(
+      "Cannot center the workspace before the canvas has measurable bounds.",
+    );
   }
 
   const nextZoom = typeof options?.zoom === "number" ? options.zoom : maxZoom;
@@ -106,7 +122,8 @@ export function zoomToPointerLocation(): boolean {
   if (!pointer || !getIsZoomRuntimeReady()) {
     return false;
   }
-  const { defaultZoomLevel, transitionDuration } = useWorkspaceOptions.getState();
+  const { defaultZoomLevel, transitionDuration } =
+    useWorkspaceOptions.getState();
   const { x, y } = screenToFlowPosition(pointer);
   setCenter(x, y, { zoom: defaultZoomLevel, duration: transitionDuration });
   return true;
@@ -114,7 +131,11 @@ export function zoomToPointerLocation(): boolean {
 
 // The reference's `getRectTranslation` (`utils/graph.ts`): how far a point sits outside the
 // padded pane on each axis, and nothing at all when it is already inside.
-function getAxisOverflow(value: number, minimum: number, maximum: number): number {
+function getAxisOverflow(
+  value: number,
+  minimum: number,
+  maximum: number,
+): number {
   if (value < minimum) {
     return value - minimum;
   }
@@ -124,9 +145,21 @@ function getAxisOverflow(value: number, minimum: number, maximum: number): numbe
   return 0;
 }
 
-function getPaneTranslationForPoint(point: Position, pane: Rect, padding: number): Position | null {
-  const x = getAxisOverflow(point.x, pane.x + padding, pane.x + pane.width - padding);
-  const y = getAxisOverflow(point.y, pane.y + padding, pane.y + pane.height - padding);
+function getPaneTranslationForPoint(
+  point: Position,
+  pane: Rect,
+  padding: number,
+): Position | null {
+  const x = getAxisOverflow(
+    point.x,
+    pane.x + padding,
+    pane.x + pane.width - padding,
+  );
+  const y = getAxisOverflow(
+    point.y,
+    pane.y + padding,
+    pane.y + pane.height - padding,
+  );
   return x === 0 && y === 0 ? null : { x, y };
 }
 
@@ -178,12 +211,16 @@ export function focusWorkspaceSection(sectionId: string): void {
     );
   }
   if (rect.width <= 0 || rect.height <= 0) {
-    throw new Error(`Cannot focus workspace section ${sectionId} with empty canvas bounds.`);
+    throw new Error(
+      `Cannot focus workspace section ${sectionId} with empty canvas bounds.`,
+    );
   }
 
   const { width, height, viewportInsets } = useReactFlow.getState();
   if (width <= 0 || height <= 0) {
-    throw new Error("Cannot focus a workspace section before the canvas has measurable bounds.");
+    throw new Error(
+      "Cannot focus a workspace section before the canvas has measurable bounds.",
+    );
   }
   const { transitionDuration } = useWorkspaceOptions.getState();
   const viewport = getViewportForBounds(

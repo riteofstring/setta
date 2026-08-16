@@ -32,7 +32,10 @@ describe("dnd collision integration", () => {
       parent: ["child"],
     });
 
-    const resolved = resolveOverCollision([collision("parent", 10), collision("child", 1)]);
+    const resolved = resolveOverCollision([
+      collision("parent", 10),
+      collision("child", 1),
+    ]);
 
     expect(resolved?.id).toBe("child");
   });
@@ -57,7 +60,11 @@ describe("dnd collision integration", () => {
       } as never,
       {
         collisionObserver: {
-          collisions: [collision("parent", 20), collision("child", 1), collision("outside", 5)],
+          collisions: [
+            collision("parent", 20),
+            collision("child", 1),
+            collision("outside", 5),
+          ],
         },
       } as never,
     );

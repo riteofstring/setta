@@ -5,9 +5,14 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { useSectionRefs } from "../../section/sectionRefs";
-import { SwitchValueControl, type SwitchValueControlProps } from "./SwitchValueControl";
+import {
+  SwitchValueControl,
+  type SwitchValueControlProps,
+} from "./SwitchValueControl";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // Freezes the boolean switch against the reference `SwitchInput` at the `ParamUI` switch
 // presentation: the recorded Radix geometry and paint classes, the reference's checked parse
@@ -51,7 +56,9 @@ describe("SwitchValueControl", () => {
   }
 
   function getSwitch(): HTMLButtonElement {
-    const switchButton = host.querySelector<HTMLButtonElement>('button[role="switch"]');
+    const switchButton = host.querySelector<HTMLButtonElement>(
+      'button[role="switch"]',
+    );
     if (!switchButton) {
       throw new Error("The switch control is not rendered.");
     }
@@ -61,7 +68,9 @@ describe("SwitchValueControl", () => {
   it("renders the reference switch presentation inside the value-column wrapper", async () => {
     await mount();
     const wrapper = host.firstElementChild;
-    expect(wrapper?.className).toBe("section-value flex justify-self-start self-center");
+    expect(wrapper?.className).toBe(
+      "section-value flex justify-self-start self-center",
+    );
     const switchButton = getSwitch();
     expect(switchButton.getAttribute("aria-label")).toBe("Enabled value");
     // The recorded geometry: 10 px track and thumb (h-2.5/w-2.5), 3.2 px padding
@@ -128,7 +137,11 @@ describe("SwitchValueControl", () => {
     await mount();
     await act(async () => {
       getSwitch().dispatchEvent(
-        new KeyboardEvent("keydown", { code: "Escape", key: "Escape", bubbles: true }),
+        new KeyboardEvent("keydown", {
+          code: "Escape",
+          key: "Escape",
+          bubbles: true,
+        }),
       );
     });
     expect(document.activeElement).toBe(sectionRoot);

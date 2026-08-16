@@ -17,7 +17,11 @@ function getContributionDescriptionId(key: string): string {
   return `setta-workspace-toolbar-reason-${key.replace(":", "-")}`;
 }
 
-function WorkspaceToolbarContributionControl({ entry }: { entry: WorkspaceToolbarEntry }) {
+function WorkspaceToolbarContributionControl({
+  entry,
+}: {
+  entry: WorkspaceToolbarEntry;
+}) {
   const Icon = entry.icon;
   // The package's own zoom controls stop at the zoom limits with nothing to say, so they use the
   // reference's real `disabled`. A command that refuses has a sentence, and a control has to stay
@@ -48,7 +52,10 @@ function WorkspaceToolbarContributionControl({ entry }: { entry: WorkspaceToolba
         {...COMPACT_TOUCH_TARGET_PROPS}
         {...getWorkspaceTooltipHandlers({ content: entry.tooltip })}
       >
-        <span aria-hidden="true" className="setta-workspace-toolbar-contribution-icon">
+        <span
+          aria-hidden="true"
+          className="setta-workspace-toolbar-contribution-icon"
+        >
           <Icon />
         </span>
       </button>
@@ -64,7 +71,11 @@ function WorkspaceToolbarContributionControl({ entry }: { entry: WorkspaceToolba
 // One contributed group, in the reference's shape: the controls the host placed here, then the
 // rule the reference draws after a non-empty contributed group. A host that contributes nothing
 // here renders nothing, including the rule, so the accepted toolbar is unchanged.
-export function WorkspaceToolbarGroup({ placement }: { placement: WorkspaceToolbarPlacement }) {
+export function WorkspaceToolbarGroup({
+  placement,
+}: {
+  placement: WorkspaceToolbarPlacement;
+}) {
   useWorkspaceCommandState();
   const entries = resolveWorkspaceToolbarEntries(placement);
   if (entries.length === 0) {

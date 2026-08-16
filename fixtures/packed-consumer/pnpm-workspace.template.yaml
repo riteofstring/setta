@@ -5,7 +5,7 @@ packages:
 saveExact: true
 strictPeerDependencies: true
 
-minimumReleaseAge: 10080
+minimumReleaseAge: 43200
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 trustPolicy: no-downgrade

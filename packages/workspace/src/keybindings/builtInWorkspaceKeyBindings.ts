@@ -59,8 +59,10 @@ function runActiveSectionCommand(commandId: string): boolean {
   if (!primarySection) {
     return false;
   }
-  return runWorkspaceCommandById(commandId, createSectionCommandContext(primarySection, sections))
-    .ran;
+  return runWorkspaceCommandById(
+    commandId,
+    createSectionCommandContext(primarySection, sections),
+  ).ran;
 }
 
 function createSectionCommandBinding(
@@ -123,7 +125,9 @@ function activeSectionHasSelectedItems(): boolean {
 
 function activeSectionHasItemFilter(): boolean {
   const activeId = getActiveSectionIds()[0];
-  return activeId ? (getSectionItemVisibility(activeId)?.filterActive ?? false) : false;
+  return activeId
+    ? (getSectionItemVisibility(activeId)?.filterActive ?? false)
+    : false;
 }
 
 // The reference's Tab handling (`handleTabKeyDown`): hosts opt a subtree out with
@@ -170,7 +174,10 @@ function createItemIndentBinding(
 export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefinition> =
   Object.freeze([
     createSectionCommandBinding("workspace.group-sections", "Mod + G"),
-    createSectionCommandBinding("workspace.ungroup-sections", "Shift + Mod + G"),
+    createSectionCommandBinding(
+      "workspace.ungroup-sections",
+      "Shift + Mod + G",
+    ),
     createSectionCommandBinding("workspace.delete-sections", "Backspace"),
     createSectionCommandBinding("workspace.lock-sections", null),
     createSectionCommandBinding("workspace.unlock-sections", null),
@@ -229,28 +236,52 @@ export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefin
       "Shift + Tab",
       unindentSelectedItems,
     ),
-    createOperationBinding("workspace.fit-view", "Fit view", "F", false, onFitViewHandler),
-    createOperationBinding("workspace.zoom-in", "Zoom in", "Equal", true, () => {
-      if (!getCanZoomIn()) {
-        return false;
-      }
-      zoomIn();
-      return true;
-    }),
-    createOperationBinding("workspace.zoom-out", "Zoom out", "Minus", true, () => {
-      if (!getCanZoomOut()) {
-        return false;
-      }
-      zoomOut();
-      return true;
-    }),
-    createOperationBinding("workspace.reset-zoom", "Reset zoom", "Mod + Comma", false, () => {
-      if (!getIsZoomRuntimeReady()) {
-        return false;
-      }
-      resetZoom();
-      return true;
-    }),
+    createOperationBinding(
+      "workspace.fit-view",
+      "Fit view",
+      "F",
+      false,
+      onFitViewHandler,
+    ),
+    createOperationBinding(
+      "workspace.zoom-in",
+      "Zoom in",
+      "Equal",
+      true,
+      () => {
+        if (!getCanZoomIn()) {
+          return false;
+        }
+        zoomIn();
+        return true;
+      },
+    ),
+    createOperationBinding(
+      "workspace.zoom-out",
+      "Zoom out",
+      "Minus",
+      true,
+      () => {
+        if (!getCanZoomOut()) {
+          return false;
+        }
+        zoomOut();
+        return true;
+      },
+    ),
+    createOperationBinding(
+      "workspace.reset-zoom",
+      "Reset zoom",
+      "Mod + Comma",
+      false,
+      () => {
+        if (!getIsZoomRuntimeReady()) {
+          return false;
+        }
+        resetZoom();
+        return true;
+      },
+    ),
     createOperationBinding(
       "workspace.zoom-to-pointer",
       "Zoom to pointer",

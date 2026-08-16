@@ -13,10 +13,17 @@ import {
   toggleMinimized,
   togglePositionLock,
 } from "./sectionMutations";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "./stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "./stores";
 import type { WorkspaceSection } from "./types";
 
-function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): WorkspaceSection {
+function makeSection(
+  id: string,
+  overrides: Partial<WorkspaceSection> = {},
+): WorkspaceSection {
   return {
     id,
     kind: "leaf",
@@ -39,7 +46,10 @@ beforeEach(() => {
     sections: {
       leaf: makeSection("leaf"),
       "leaf-b": makeSection("leaf-b"),
-      group: makeSection("group", { kind: "group", children: ["nested", "nested-b"] }),
+      group: makeSection("group", {
+        kind: "group",
+        children: ["nested", "nested-b"],
+      }),
       nested: makeSection("nested"),
       "nested-b": makeSection("nested-b"),
     },
@@ -60,29 +70,42 @@ afterEach(() => {
 describe("per-flag section mutations", () => {
   it("renames a section", () => {
     setSectionName("leaf", "Renamed leaf");
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe("Renamed leaf");
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe(
+      "Renamed leaf",
+    );
   });
 
   it("toggles the position lock", () => {
     togglePositionLock("leaf");
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.positionAndSizeLocked).toBe(true);
+    expect(
+      useWorkspaceDocument.getState().sections["leaf"]?.positionAndSizeLocked,
+    ).toBe(true);
     togglePositionLock("leaf");
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.positionAndSizeLocked).toBe(false);
+    expect(
+      useWorkspaceDocument.getState().sections["leaf"]?.positionAndSizeLocked,
+    ).toBe(false);
   });
 
   it("toggles minimization", () => {
     toggleMinimized("leaf");
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.isMinimized).toBe(true);
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.isMinimized).toBe(
+      true,
+    );
   });
 
   it("toggles group orientation", () => {
     toggleGroupOrientation("group");
-    expect(useWorkspaceDocument.getState().sections["group"]?.isHorizontalOrientation).toBe(true);
+    expect(
+      useWorkspaceDocument.getState().sections["group"]
+        ?.isHorizontalOrientation,
+    ).toBe(true);
   });
 
   it("refuses to write orientation onto a non-group, as the reference funnel does", () => {
     toggleGroupOrientation("leaf");
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.isHorizontalOrientation).toBe(false);
+    expect(
+      useWorkspaceDocument.getState().sections["leaf"]?.isHorizontalOrientation,
+    ).toBe(false);
   });
 
   it("throws for an unknown section", () => {
@@ -92,13 +115,18 @@ describe("per-flag section mutations", () => {
   it("normalizes a style accent and reprojects its live node", () => {
     let observedDocumentAccent: string | null | undefined;
     const unsubscribe = useNodeInternals.subscribe(() => {
-      observedDocumentAccent = useWorkspaceDocument.getState().sections["leaf"]?.styleColor;
+      observedDocumentAccent =
+        useWorkspaceDocument.getState().sections["leaf"]?.styleColor;
     });
     setSectionStyleColor("leaf", "ABCDEF");
     unsubscribe();
 
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.styleColor).toBe("#abcdef");
-    expect(useNodeInternals.getState().x.get("leaf")?.style?.background).toMatch(/^#/u);
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.styleColor).toBe(
+      "#abcdef",
+    );
+    expect(
+      useNodeInternals.getState().x.get("leaf")?.style?.background,
+    ).toMatch(/^#/u);
     expect(observedDocumentAccent).toBe("#abcdef");
   });
 
@@ -108,8 +136,12 @@ describe("per-flag section mutations", () => {
 
     setSectionsPositionLocked(["leaf", "leaf-b"], true);
 
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.positionAndSizeLocked).toBe(true);
-    expect(useWorkspaceDocument.getState().sections["leaf-b"]?.positionAndSizeLocked).toBe(true);
+    expect(
+      useWorkspaceDocument.getState().sections["leaf"]?.positionAndSizeLocked,
+    ).toBe(true);
+    expect(
+      useWorkspaceDocument.getState().sections["leaf-b"]?.positionAndSizeLocked,
+    ).toBe(true);
     expect(onChange).toHaveBeenCalledOnce();
   });
 });
@@ -149,7 +181,9 @@ describe("deleteSection", () => {
 
     deleteSections(["leaf", "group"]);
 
-    expect(Object.keys(useWorkspaceDocument.getState().sections)).toEqual(["leaf-b"]);
+    expect(Object.keys(useWorkspaceDocument.getState().sections)).toEqual([
+      "leaf-b",
+    ]);
     expect(onChange).toHaveBeenCalledOnce();
   });
 });
@@ -173,7 +207,10 @@ describe("groupSections", () => {
       zIndex: 3,
     });
     expect(state.topLevelSections["leaf"]).toBeUndefined();
-    expect(Object.keys(state.topLevelSections)).toEqual(["created-group", "group"]);
+    expect(Object.keys(state.topLevelSections)).toEqual([
+      "created-group",
+      "group",
+    ]);
     expect(state.parentSectionMap["leaf"]).toBe("created-group");
     expect(useActiveSections.getState().activeIds).toEqual(["created-group"]);
   });
@@ -183,7 +220,10 @@ describe("groupSections", () => {
 
     const state = useWorkspaceDocument.getState();
     expect(state.sections["group"]?.children).toEqual(["created-nested-group"]);
-    expect(state.sections["created-nested-group"]?.children).toEqual(["nested", "nested-b"]);
+    expect(state.sections["created-nested-group"]?.children).toEqual([
+      "nested",
+      "nested-b",
+    ]);
     expect(state.parentSectionMap["created-nested-group"]).toBe("group");
   });
 

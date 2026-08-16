@@ -7,7 +7,8 @@ class ResizeObserverStub {
 }
 
 if (typeof globalThis.ResizeObserver === "undefined") {
-  (globalThis as { ResizeObserver?: unknown }).ResizeObserver = ResizeObserverStub;
+  (globalThis as { ResizeObserver?: unknown }).ResizeObserver =
+    ResizeObserverStub;
 }
 
 // jsdom does not measure DOM ranges, and CodeMirror's coordinate lookups (posAtCoords during

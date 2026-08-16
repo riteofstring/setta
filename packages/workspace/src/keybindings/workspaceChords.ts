@@ -78,10 +78,14 @@ function getKeyCode(chord: string, token: string): string {
   if (FUNCTION_KEY_TOKEN.test(token)) {
     return token.toUpperCase();
   }
-  throw new Error(`Workspace chord ${JSON.stringify(chord)} names an unknown key ${token}.`);
+  throw new Error(
+    `Workspace chord ${JSON.stringify(chord)} names an unknown key ${token}.`,
+  );
 }
 
-type ChordModifiers = { -readonly [Key in keyof Omit<ParsedWorkspaceChord, "keys">]: boolean };
+type ChordModifiers = {
+  -readonly [Key in keyof Omit<ParsedWorkspaceChord, "keys">]: boolean;
+};
 
 function addChordPart(
   chord: string,
@@ -91,7 +95,9 @@ function addChordPart(
 ): void {
   const token = part.trim().toLowerCase();
   if (token === "") {
-    throw new Error(`Workspace chord ${JSON.stringify(chord)} has an empty part.`);
+    throw new Error(
+      `Workspace chord ${JSON.stringify(chord)} has an empty part.`,
+    );
   }
   if (MODIFIER_TOKENS.has(token)) {
     modifiers[token as keyof ChordModifiers] = true;
@@ -100,13 +106,24 @@ function addChordPart(
   keys.add(getKeyCode(chord, token));
 }
 
-function hasNoChordKeys(modifiers: ChordModifiers, keys: ReadonlySet<string>): boolean {
-  return !modifiers.mod && !modifiers.ctrl && !modifiers.shift && !modifiers.alt && keys.size === 0;
+function hasNoChordKeys(
+  modifiers: ChordModifiers,
+  keys: ReadonlySet<string>,
+): boolean {
+  return (
+    !modifiers.mod &&
+    !modifiers.ctrl &&
+    !modifiers.shift &&
+    !modifiers.alt &&
+    keys.size === 0
+  );
 }
 
 export function parseWorkspaceChord(chord: string): ParsedWorkspaceChord {
   if (typeof chord !== "string") {
-    throw new Error(`Workspace chord ${JSON.stringify(chord)} must be a string.`);
+    throw new Error(
+      `Workspace chord ${JSON.stringify(chord)} must be a string.`,
+    );
   }
   const modifiers = { mod: false, ctrl: false, shift: false, alt: false };
   const keys = new Set<string>();
@@ -123,7 +140,10 @@ export function parseWorkspaceChord(chord: string): ParsedWorkspaceChord {
 // "Mod" is Control, so "Mod + G" and "Ctrl + G" are the same keypress there and share a signature;
 // on macOS they are different keys and keep their own. `matchesWorkspaceChord` folds them the same
 // way, so conflict detection answers for the platform the dispatcher will run on.
-export function getWorkspaceChordSignature(chord: ParsedWorkspaceChord, macOS: boolean): string {
+export function getWorkspaceChordSignature(
+  chord: ParsedWorkspaceChord,
+  macOS: boolean,
+): string {
   const modifiers = [
     macOS && chord.mod,
     macOS ? chord.ctrl : chord.ctrl || chord.mod,
@@ -166,7 +186,10 @@ function getKeyDisplay(code: string): string {
 // The reference prettifies a shortcut for display by substituting the platform's "Mod" symbol
 // (`shortcutPrettified`) and leaves the rest of the text alone. The package renders every chord
 // from its parse instead, so one binding reads the same however a host spelled it.
-export function formatWorkspaceChord(chord: ParsedWorkspaceChord, macOS: boolean): string {
+export function formatWorkspaceChord(
+  chord: ParsedWorkspaceChord,
+  macOS: boolean,
+): string {
   const parts: Array<string> = [];
   if (chord.mod) {
     parts.push(macOS ? "⌘" : "Ctrl");

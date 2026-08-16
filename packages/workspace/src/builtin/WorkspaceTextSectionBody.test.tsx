@@ -17,7 +17,10 @@ import {
   useWorkspaceAppearance,
   useWorkspaceDocument,
 } from "../document/stores";
-import type { WorkspaceDocumentInput, WorkspaceSectionInput } from "../document/types";
+import type {
+  WorkspaceDocumentInput,
+  WorkspaceSectionInput,
+} from "../document/types";
 import { SectionHeader } from "../section/header/SectionHeader";
 import { useResizeEvent } from "../section/resize/resizeEvents";
 import { setWorkspaceTextSectionData } from "./textSectionActions";
@@ -28,7 +31,9 @@ import {
 } from "./textSectionData";
 import { createWorkspaceTextSection } from "./textSectionKind";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // Freezes the built-in Text section against the reference's `TextBlock`: one section that either
 // renders Markdown or plain text, or edits it in the same section-scale editor the Code Editor
@@ -60,7 +65,9 @@ function makeTextSection(
 function makeDocument(section: WorkspaceSectionInput): WorkspaceDocumentInput {
   return {
     sections: { [SECTION_ID]: section },
-    topLevelSections: { [SECTION_ID]: { x: 0, y: 0, w: 500, h: null, zIndex: 0 } },
+    topLevelSections: {
+      [SECTION_ID]: { x: 0, y: 0, w: 500, h: null, zIndex: 0 },
+    },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
   };
@@ -79,7 +86,10 @@ describe("built-in text section", () => {
     return createElement(
       "div",
       null,
-      createElement(SectionHeader, { sectionId: SECTION_ID, hasSectionStyleTheme: false }),
+      createElement(SectionHeader, {
+        sectionId: SECTION_ID,
+        hasSectionStyleTheme: false,
+      }),
       definition.renderContent(section) as ReactNode,
     );
   }
@@ -125,11 +135,14 @@ describe("built-in text section", () => {
   }
 
   function getSectionData(): WorkspaceTextSectionData {
-    return getWorkspaceDocument().sections[SECTION_ID]?.data as WorkspaceTextSectionData;
+    return getWorkspaceDocument().sections[SECTION_ID]
+      ?.data as WorkspaceTextSectionData;
   }
 
   // jsdom implements no clipboard, so the copy affordance's two outcomes are driven from here.
-  function setClipboard(clipboard: { writeText: (value: string) => Promise<void> } | undefined) {
+  function setClipboard(
+    clipboard: { writeText: (value: string) => Promise<void> } | undefined,
+  ) {
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: clipboard,
@@ -160,7 +173,11 @@ describe("built-in text section", () => {
     await mount();
     const wrapper = host.querySelector<HTMLElement>("article");
     expect(wrapper?.getAttribute("aria-label")).toBe("Notes text editor");
-    for (const expectedClass of ["nopan", "nodrag", "setta-prevent-section-active-css"]) {
+    for (const expectedClass of [
+      "nopan",
+      "nodrag",
+      "setta-prevent-section-active-css",
+    ]) {
       expect(wrapper?.classList.contains(expectedClass)).toBe(true);
     }
     const view = getView();
@@ -179,7 +196,9 @@ describe("built-in text section", () => {
   });
 
   it("renders authored whitespace as plain text without a Markdown surface", async () => {
-    await mount(makeTextSection({ displayMode: "render", text: "alpha\n  indented" }));
+    await mount(
+      makeTextSection({ displayMode: "render", text: "alpha\n  indented" }),
+    );
     const block = host.querySelector("pre");
     expect(block?.textContent).toBe("alpha\n  indented");
     expect(host.querySelector(".setta-prose")).toBeNull();
@@ -212,7 +231,9 @@ describe("built-in text section", () => {
     );
     const surface = requireElement(".setta-prose");
     expect(surface.querySelector("h1")?.textContent).toBe("Heading");
-    expect(surface.querySelector("a")?.getAttribute("href")).toBe("https://example.com");
+    expect(surface.querySelector("a")?.getAttribute("href")).toBe(
+      "https://example.com",
+    );
     expect(surface.querySelector("table td")?.textContent).toBe("1");
     expect(surface.querySelectorAll("input[type='checkbox']")).toHaveLength(2);
     expect(surface.querySelector(".katex")).not.toBeNull();
@@ -226,16 +247,22 @@ describe("built-in text section", () => {
         text: "Run `train` first.\n\n```python\nalpha = 1\n```\n",
       }),
     );
-    expect(requireElement("[data-setta-inline-code]").textContent).toBe("train");
+    expect(requireElement("[data-setta-inline-code]").textContent).toBe(
+      "train",
+    );
     const codeBlock = requireElement("[data-setta-workspace-code-block]");
     expect(codeBlock.textContent).toContain("alpha = 1");
     // The parser's trailing newline is not a blank line the reader authored.
     expect(codeBlock.querySelectorAll(".cm-line")).toHaveLength(1);
-    expect(codeBlock.querySelector("button[aria-label='Copy code']")).not.toBeNull();
+    expect(
+      codeBlock.querySelector("button[aria-label='Copy code']"),
+    ).not.toBeNull();
   });
 
   it("copies a fence, and reports nothing copied when the browser refuses", async () => {
-    const writeText = vi.fn<(value: string) => Promise<void>>(() => Promise.resolve());
+    const writeText = vi.fn<(value: string) => Promise<void>>(() =>
+      Promise.resolve(),
+    );
     setClipboard({ writeText });
     await mount(
       makeTextSection({
@@ -267,9 +294,15 @@ describe("built-in text section", () => {
 
   it("keeps a paragraph that begins with inline code inline", async () => {
     await mount(
-      makeTextSection({ displayMode: "render", format: "markdown", text: "`alpha` starts here" }),
+      makeTextSection({
+        displayMode: "render",
+        format: "markdown",
+        text: "`alpha` starts here",
+      }),
     );
-    expect(host.querySelector("[data-setta-inline-code]")?.textContent).toBe("alpha");
+    expect(host.querySelector("[data-setta-inline-code]")?.textContent).toBe(
+      "alpha",
+    );
     expect(host.querySelector("[data-setta-workspace-code-block]")).toBeNull();
   });
 
@@ -297,14 +330,22 @@ describe("built-in text section", () => {
       button.click();
     });
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
-    expect(getSectionData()).toMatchObject({ displayMode: "render", text: "# Heading" });
+    expect(getSectionData()).toMatchObject({
+      displayMode: "render",
+      text: "# Heading",
+    });
     expect(host.querySelector(".setta-prose h1")?.textContent).toBe("Heading");
-    expect(getDisplayModeButton().getAttribute("aria-label")).toBe("Edit Markdown");
+    expect(getDisplayModeButton().getAttribute("aria-label")).toBe(
+      "Edit Markdown",
+    );
 
     await act(async () => {
       getDisplayModeButton().click();
     });
-    expect(getSectionData()).toMatchObject({ displayMode: "edit", text: "# Heading" });
+    expect(getSectionData()).toMatchObject({
+      displayMode: "edit",
+      text: "# Heading",
+    });
     expect(getView().state.doc.toString()).toBe("# Heading");
   });
 
@@ -332,10 +373,21 @@ describe("built-in text section", () => {
   });
 
   it("scales the rendered surface from the authored font size", async () => {
-    await mount(makeTextSection({ displayMode: "render", format: "markdown", fontSizePx: 20 }));
-    const surface = host.querySelector<HTMLElement>(".setta-prose")?.parentElement;
-    expect(surface?.style.getPropertyValue("--setta-workspace-text-body-size")).toBe("20px");
-    expect(surface?.style.getPropertyValue("--setta-workspace-text-h1-size")).toBe("40px");
+    await mount(
+      makeTextSection({
+        displayMode: "render",
+        format: "markdown",
+        fontSizePx: 20,
+      }),
+    );
+    const surface =
+      host.querySelector<HTMLElement>(".setta-prose")?.parentElement;
+    expect(
+      surface?.style.getPropertyValue("--setta-workspace-text-body-size"),
+    ).toBe("20px");
+    expect(
+      surface?.style.getPropertyValue("--setta-workspace-text-h1-size"),
+    ).toBe("40px");
   });
 
   it("repaints when a host writes the typed section data", async () => {

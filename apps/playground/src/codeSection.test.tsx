@@ -10,9 +10,14 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
-import { PlaygroundCodeSectionInspector, registerPlaygroundSectionKinds } from "./sectionKinds";
+import {
+  PlaygroundCodeSectionInspector,
+  registerPlaygroundSectionKinds,
+} from "./sectionKinds";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // The built-in Code Editor section reaches this unrelated host entirely through public package
 // APIs: it is registered beside the host's own kinds in the one registration call, its document
@@ -24,7 +29,10 @@ const SECTION_ID = "code-editor";
 // React tracks a controlled input's last value on the node itself, so a test that assigns
 // `value` directly is swallowed as "unchanged". Write through the native setter it wraps.
 function setNativeInputValue(input: HTMLInputElement, value: string) {
-  const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+  const descriptor = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  );
   if (!descriptor?.set) {
     throw new Error("This environment has no native input value setter.");
   }
@@ -63,24 +71,42 @@ describe("the playground's built-in code section", () => {
       readOnly: false,
       wrapLines: false,
     });
-    expect(getWorkspaceCodeSectionData(SECTION_ID).code).toContain("def train(");
+    expect(getWorkspaceCodeSectionData(SECTION_ID).code).toContain(
+      "def train(",
+    );
   });
 
   it("authors every typed option from host Inspector UI", () => {
     act(() => {
-      root.render(createElement(PlaygroundCodeSectionInspector, { sectionId: SECTION_ID }));
+      root.render(
+        createElement(PlaygroundCodeSectionInspector, {
+          sectionId: SECTION_ID,
+        }),
+      );
     });
     const language = container.querySelector<HTMLSelectElement>("select");
     const [wrapLines, lineNumbers] =
       container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-    const indentWidth = container.querySelector<HTMLInputElement>('input[type="number"]');
+    const indentWidth = container.querySelector<HTMLInputElement>(
+      'input[type="number"]',
+    );
     if (!language || !wrapLines || !lineNumbers || !indentWidth) {
-      throw new Error("The host code section Inspector lost one of its controls.");
+      throw new Error(
+        "The host code section Inspector lost one of its controls.",
+      );
     }
-    expect(container.querySelector("legend")?.textContent).toBe("Editor options");
-    expect(language.classList.contains("playground-section-option-control")).toBe(true);
-    expect(indentWidth.classList.contains("playground-section-option-number")).toBe(true);
-    expect(wrapLines.classList.contains("playground-section-option-switch")).toBe(true);
+    expect(container.querySelector("legend")?.textContent).toBe(
+      "Editor options",
+    );
+    expect(
+      language.classList.contains("playground-section-option-control"),
+    ).toBe(true);
+    expect(
+      indentWidth.classList.contains("playground-section-option-number"),
+    ).toBe(true);
+    expect(
+      wrapLines.classList.contains("playground-section-option-switch"),
+    ).toBe(true);
     expect(wrapLines.closest("label")?.textContent).toContain("Wrap lines");
 
     act(() => {

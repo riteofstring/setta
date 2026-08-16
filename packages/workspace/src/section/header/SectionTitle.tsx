@@ -23,18 +23,27 @@ type SectionTitleProps = {
 };
 
 export function SectionTitle({ sectionId, titleProps }: SectionTitleProps) {
-  const sectionName = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId).name);
+  const sectionName = useWorkspaceDocument(
+    (x) => getSectionOrThrow(x, sectionId).name,
+  );
   const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
 
   // As the reference, both title presentations attach the tooltip handlers so holding the
   // tooltip key while hovering shows the full name of a truncated title.
   if (canEditStructure) {
     return (
-      <EditableTitle sectionId={sectionId} sectionName={sectionName} titleProps={titleProps} />
+      <EditableTitle
+        sectionId={sectionId}
+        sectionName={sectionName}
+        titleProps={titleProps}
+      />
     );
   }
   return (
-    <h2 className={titleProps.fixed} {...getWorkspaceTooltipHandlers({ content: sectionName })}>
+    <h2
+      className={titleProps.fixed}
+      {...getWorkspaceTooltipHandlers({ content: sectionName })}
+    >
       {sectionName}
     </h2>
   );
@@ -65,7 +74,9 @@ function EditableTitle({
         onBlur={editable.onBlur}
         onKeyDown={editable.onKeyDown}
         titleProps={titleProps}
-        restoreFocusAfterKeyboardSubmit={editable.restoreFocusAfterKeyboardSubmit}
+        restoreFocusAfterKeyboardSubmit={
+          editable.restoreFocusAfterKeyboardSubmit
+        }
         {...getWorkspaceTooltipHandlers({ content: sectionName })}
       />
     </div>

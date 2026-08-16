@@ -5,7 +5,11 @@ import { WorkspaceItemLabel } from "./WorkspaceItemLabel";
 describe("WorkspaceItemLabel", () => {
   it("places a leaf label in the package-owned key slot", () => {
     const markup = renderToStaticMarkup(
-      <WorkspaceItemLabel className="consumer-label" isGroup={false} title="Leaf label">
+      <WorkspaceItemLabel
+        className="consumer-label"
+        isGroup={false}
+        title="Leaf label"
+      >
         Alpha
       </WorkspaceItemLabel>,
     );

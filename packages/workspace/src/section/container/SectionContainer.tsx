@@ -1,6 +1,9 @@
 import _ from "lodash";
 import React from "react";
-import { getSectionOrThrow, isGroupSection } from "../../document/documentSelectors";
+import {
+  getSectionOrThrow,
+  isGroupSection,
+} from "../../document/documentSelectors";
 import { useWorkspaceDocument } from "../../document/stores";
 import type { SectionDragListeners } from "./ContainerCore";
 import { ContainerSwitch } from "./ContainerSwitch";
@@ -20,7 +23,9 @@ function SectionContainerComponent({
   isTopLevel?: boolean;
   dragListeners?: SectionDragListeners;
 }) {
-  const isGroup = useWorkspaceDocument((x) => isGroupSection(getSectionOrThrow(x, sectionId)));
+  const isGroup = useWorkspaceDocument((x) =>
+    isGroupSection(getSectionOrThrow(x, sectionId)),
+  );
 
   return (
     <ContainerSwitch

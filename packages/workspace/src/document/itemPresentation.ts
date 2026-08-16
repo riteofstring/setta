@@ -38,13 +38,20 @@ const TEXT_LANGUAGES = new Set([
 ]);
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/iu;
 
-function assertRecord(value: unknown, owner: string): asserts value is UnknownRecord {
+function assertRecord(
+  value: unknown,
+  owner: string,
+): asserts value is UnknownRecord {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${owner} must be an object.`);
   }
 }
 
-function assertKnownFields(record: UnknownRecord, owner: string, fields: ReadonlyArray<string>) {
+function assertKnownFields(
+  record: UnknownRecord,
+  owner: string,
+  fields: ReadonlyArray<string>,
+) {
   const knownFields = new Set(fields);
   for (const field of Object.keys(record)) {
     if (!knownFields.has(field)) {
@@ -59,25 +66,38 @@ function assertString(value: unknown, owner: string): asserts value is string {
   }
 }
 
-function assertNullableString(value: unknown, owner: string): asserts value is string | null {
+function assertNullableString(
+  value: unknown,
+  owner: string,
+): asserts value is string | null {
   if (value !== null) {
     assertString(value, owner);
   }
 }
 
-function assertBoolean(value: unknown, owner: string): asserts value is boolean {
+function assertBoolean(
+  value: unknown,
+  owner: string,
+): asserts value is boolean {
   if (typeof value !== "boolean") {
     throw new Error(`${owner} must be a boolean.`);
   }
 }
 
-function assertFiniteNumber(value: unknown, owner: string): asserts value is number {
+function assertFiniteNumber(
+  value: unknown,
+  owner: string,
+): asserts value is number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new Error(`${owner} must be finite.`);
   }
 }
 
-function assertOption(value: unknown, owner: string, options: ReadonlyArray<string>): void {
+function assertOption(
+  value: unknown,
+  owner: string,
+  options: ReadonlyArray<string>,
+): void {
   if (typeof value !== "string" || !options.includes(value)) {
     throw new Error(`${owner} has unsupported value ${String(value)}.`);
   }
@@ -87,8 +107,18 @@ function assertBaseConfiguration(config: UnknownRecord, owner: string) {
   assertBoolean(config["disabled"], `${owner}.disabled`);
 }
 
-function assertTextConfiguration(config: UnknownRecord, owner: string, code: boolean) {
-  const fields = ["autocomplete", "disabled", "placeholder", "singleLine", "wrapLines"];
+function assertTextConfiguration(
+  config: UnknownRecord,
+  owner: string,
+  code: boolean,
+) {
+  const fields = [
+    "autocomplete",
+    "disabled",
+    "placeholder",
+    "singleLine",
+    "wrapLines",
+  ];
   assertKnownFields(config, owner, code ? [...fields, "language"] : fields);
   assertBaseConfiguration(config, owner);
   assertOption(config["autocomplete"], `${owner}.autocomplete`, ["off"]);
@@ -101,7 +131,12 @@ function assertTextConfiguration(config: UnknownRecord, owner: string, code: boo
 }
 
 function assertTextAreaConfiguration(config: UnknownRecord, owner: string) {
-  assertKnownFields(config, owner, ["autocomplete", "disabled", "language", "placeholder"]);
+  assertKnownFields(config, owner, [
+    "autocomplete",
+    "disabled",
+    "language",
+    "placeholder",
+  ]);
   assertBaseConfiguration(config, owner);
   assertOption(config["autocomplete"], `${owner}.autocomplete`, ["off"]);
   if (config["language"] !== null) {
@@ -120,7 +155,9 @@ function assertNumericConfiguration(config: UnknownRecord, owner: string) {
     throw new Error(`${owner}.min must be less than max.`);
   }
   if (config["step"] <= 0 || config["step"] > config["max"] - config["min"]) {
-    throw new Error(`${owner}.step must be greater than zero and no larger than max minus min.`);
+    throw new Error(
+      `${owner}.step must be greater than zero and no larger than max minus min.`,
+    );
   }
 }
 
@@ -145,7 +182,11 @@ function assertDropdownChoices(value: unknown, owner: string) {
     }
     for (const [choiceIndex, choice] of entry["choices"].entries()) {
       assertString(choice, `${owner}[${index}].choices[${choiceIndex}]`);
-      assertUniqueChoice(choice, `${owner}[${index}].choices[${choiceIndex}]`, seenChoices);
+      assertUniqueChoice(
+        choice,
+        `${owner}[${index}].choices[${choiceIndex}]`,
+        seenChoices,
+      );
     }
   }
   const hasStrings = value.some((entry) => typeof entry === "string");
@@ -155,7 +196,11 @@ function assertDropdownChoices(value: unknown, owner: string) {
   }
 }
 
-function assertUniqueChoice(choice: string, owner: string, seenChoices: Set<string>) {
+function assertUniqueChoice(
+  choice: string,
+  owner: string,
+  seenChoices: Set<string>,
+) {
   if (choice.trim() === "") {
     throw new Error(`${owner} must not be blank.`);
   }
@@ -179,7 +224,9 @@ function assertColorChoices(value: unknown, owner: string) {
     assertString(choice["color"], `${owner}[${index}].color`);
     assertString(choice["description"], `${owner}[${index}].description`);
     if (!HEX_COLOR_PATTERN.test(choice["color"])) {
-      throw new Error(`${owner}[${index}].color must be a six-digit hex color.`);
+      throw new Error(
+        `${owner}[${index}].color must be a six-digit hex color.`,
+      );
     }
     if (choice["description"].trim() === "") {
       throw new Error(`${owner}[${index}].description must not be blank.`);
@@ -202,9 +249,20 @@ function assertDateConfiguration(config: UnknownRecord, owner: string) {
     "weekStart",
   ]);
   assertBaseConfiguration(config, owner);
-  assertOption(config["displayFormat"], `${owner}.displayFormat`, ["iso", "us", "eu", "long"]);
-  assertOption(config["controlMode"], `${owner}.controlMode`, ["input", "calendar"]);
-  assertOption(config["selectionMode"], `${owner}.selectionMode`, ["single", "multiple"]);
+  assertOption(config["displayFormat"], `${owner}.displayFormat`, [
+    "iso",
+    "us",
+    "eu",
+    "long",
+  ]);
+  assertOption(config["controlMode"], `${owner}.controlMode`, [
+    "input",
+    "calendar",
+  ]);
+  assertOption(config["selectionMode"], `${owner}.selectionMode`, [
+    "single",
+    "multiple",
+  ]);
   assertOption(config["weekStart"], `${owner}.weekStart`, ["sunday", "monday"]);
   assertBoolean(config["includeTime"], `${owner}.includeTime`);
   assertOption(config["timeDisplayFormat"], `${owner}.timeDisplayFormat`, [
@@ -223,12 +281,19 @@ function assertTimeConfiguration(config: UnknownRecord, owner: string) {
     "transparent",
   ]);
   assertBaseConfiguration(config, owner);
-  assertOption(config["controlMode"], `${owner}.controlMode`, ["input", "display"]);
+  assertOption(config["controlMode"], `${owner}.controlMode`, [
+    "input",
+    "display",
+  ]);
   assertOption(config["displayFormat"], `${owner}.displayFormat`, [
     "twenty_four_hour",
     "twelve_hour",
   ]);
-  assertOption(config["font"], `${owner}.font`, ["clock", "monospace", "system"]);
+  assertOption(config["font"], `${owner}.font`, [
+    "clock",
+    "monospace",
+    "system",
+  ]);
   assertBoolean(config["transparent"], `${owner}.transparent`);
   assertFiniteNumber(config["scale"], `${owner}.scale`);
   if (config["scale"] < 0.5 || config["scale"] > 3) {
@@ -240,7 +305,10 @@ function assertPositiveIntegerOrNull(
   value: unknown,
   owner: string,
 ): asserts value is number | null {
-  if (value !== null && (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0)) {
+  if (
+    value !== null &&
+    (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0)
+  ) {
     throw new Error(`${owner} must be null or a positive safe integer.`);
   }
 }
@@ -279,7 +347,10 @@ function assertDropzonePolicy(
     "maxFileBytes",
     "maxTotalBytes",
   ]);
-  assertPositiveIntegerOrNull(value["maxAttachments"], `${owner}.maxAttachments`);
+  assertPositiveIntegerOrNull(
+    value["maxAttachments"],
+    `${owner}.maxAttachments`,
+  );
   if (
     typeof value["maxFileBytes"] !== "number" ||
     !Number.isSafeInteger(value["maxFileBytes"]) ||
@@ -294,7 +365,9 @@ function assertDropzonePolicy(
   for (const [index, prefix] of value["allowedMimePrefixes"].entries()) {
     assertString(prefix, `${owner}.allowedMimePrefixes[${index}]`);
     if (prefix.length === 0 || prefix.trim() !== prefix) {
-      throw new Error(`${owner}.allowedMimePrefixes[${index}] must be nonblank and trimmed.`);
+      throw new Error(
+        `${owner}.allowedMimePrefixes[${index}] must be nonblank and trimmed.`,
+      );
     }
   }
 }
@@ -312,7 +385,11 @@ function assertDropzoneAttachments(
   }
 }
 
-function assertDropzoneAttachment(value: unknown, owner: string, ids: Set<string>) {
+function assertDropzoneAttachment(
+  value: unknown,
+  owner: string,
+  ids: Set<string>,
+) {
   assertRecord(value, owner);
   assertKnownFields(value, owner, ["id", "kind", "name", "size"]);
   assertString(value["id"], `${owner}.id`);
@@ -326,8 +403,13 @@ function assertDropzoneAttachment(value: unknown, owner: string, ids: Set<string
   }
   ids.add(value["id"]);
   const size = value["size"];
-  if (size !== null && (typeof size !== "number" || !Number.isSafeInteger(size) || size < 0)) {
-    throw new Error(`${owner}.size must be null or a non-negative safe integer.`);
+  if (
+    size !== null &&
+    (typeof size !== "number" || !Number.isSafeInteger(size) || size < 0)
+  ) {
+    throw new Error(
+      `${owner}.size must be null or a non-negative safe integer.`,
+    );
   }
 }
 
@@ -350,7 +432,11 @@ function assertColorConfiguration(config: UnknownRecord, owner: string) {
 }
 
 function assertPasswordConfiguration(config: UnknownRecord, owner: string) {
-  assertKnownFields(config, owner, ["disabled", "placeholder", "savedValuePending"]);
+  assertKnownFields(config, owner, [
+    "disabled",
+    "placeholder",
+    "savedValuePending",
+  ]);
   assertBaseConfiguration(config, owner);
   assertNullableString(config["placeholder"], `${owner}.placeholder`);
   assertBoolean(config["savedValuePending"], `${owner}.savedValuePending`);
@@ -371,10 +457,17 @@ const CONTROL_CONFIGURATION_VALIDATORS = {
   dropzone: assertDropzoneConfiguration,
 } satisfies Record<ConfigurableItemControlKind, ConfigurationValidator>;
 
-function assertControlConfiguration(kind: string, config: UnknownRecord, owner: string) {
-  const validator = CONTROL_CONFIGURATION_VALIDATORS[kind as ConfigurableItemControlKind];
+function assertControlConfiguration(
+  kind: string,
+  config: UnknownRecord,
+  owner: string,
+) {
+  const validator =
+    CONTROL_CONFIGURATION_VALIDATORS[kind as ConfigurableItemControlKind];
   if (!validator) {
-    throw new Error(`${owner} belongs to the unknown configurable kind ${kind}.`);
+    throw new Error(
+      `${owner} belongs to the unknown configurable kind ${kind}.`,
+    );
   }
   validator(config, owner);
 }
@@ -398,7 +491,11 @@ export function assertWorkspaceItemControlPresentation(
     throw new Error(`${owner}.value must be a six-digit hex color.`);
   }
   assertRecord(control["configuration"], `${owner}.configuration`);
-  assertControlConfiguration(kind, control["configuration"], `${owner}.configuration`);
+  assertControlConfiguration(
+    kind,
+    control["configuration"],
+    `${owner}.configuration`,
+  );
 }
 
 export function assertWorkspaceItemControlConfiguration(
@@ -408,11 +505,21 @@ export function assertWorkspaceItemControlConfiguration(
   assertRecord(update, owner);
   assertKnownFields(update, owner, ["configuration", "kind"]);
   const kind = update["kind"];
-  if (typeof kind !== "string" || kind === "group" || !ITEM_CONTROL_KINDS.has(kind)) {
-    throw new Error(`${owner} names the unknown configurable kind ${String(kind)}.`);
+  if (
+    typeof kind !== "string" ||
+    kind === "group" ||
+    !ITEM_CONTROL_KINDS.has(kind)
+  ) {
+    throw new Error(
+      `${owner} names the unknown configurable kind ${String(kind)}.`,
+    );
   }
   assertRecord(update["configuration"], `${owner}.configuration`);
-  assertControlConfiguration(kind, update["configuration"], `${owner}.configuration`);
+  assertControlConfiguration(
+    kind,
+    update["configuration"],
+    `${owner}.configuration`,
+  );
 }
 
 export function assertWorkspaceItemPresentation(
@@ -420,13 +527,21 @@ export function assertWorkspaceItemPresentation(
   owner: string,
 ): asserts presentation is WorkspaceItemPresentation {
   assertRecord(presentation, owner);
-  assertKnownFields(presentation, owner, ["control", "helpText", "label", "labelEditable"]);
+  assertKnownFields(presentation, owner, [
+    "control",
+    "helpText",
+    "label",
+    "labelEditable",
+  ]);
   assertString(presentation["label"], `${owner}.label`);
   assertBoolean(presentation["labelEditable"], `${owner}.labelEditable`);
   if (Object.hasOwn(presentation, "helpText")) {
     assertString(presentation["helpText"], `${owner}.helpText`);
   }
-  assertWorkspaceItemControlPresentation(presentation["control"], `${owner}.control`);
+  assertWorkspaceItemControlPresentation(
+    presentation["control"],
+    `${owner}.control`,
+  );
 }
 
 export function assertWorkspaceItemPresentationBoundary(
@@ -437,7 +552,9 @@ export function assertWorkspaceItemPresentationBoundary(
   const owner = `Section ${sectionId} item ${item.id}`;
   if (item.id === rootId) {
     if (item.presentation !== undefined || item.data !== undefined) {
-      throw new Error(`${owner} is the structural root and cannot contain row content.`);
+      throw new Error(
+        `${owner} is the structural root and cannot contain row content.`,
+      );
     }
     return;
   }
@@ -445,7 +562,9 @@ export function assertWorkspaceItemPresentationBoundary(
     return;
   }
   if (item.data !== undefined) {
-    throw new Error(`${owner} cannot contain both a built-in presentation and opaque data.`);
+    throw new Error(
+      `${owner} cannot contain both a built-in presentation and opaque data.`,
+    );
   }
   assertWorkspaceItemPresentation(item.presentation, `${owner} presentation`);
 }

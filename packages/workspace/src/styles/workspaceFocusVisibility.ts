@@ -2,7 +2,9 @@ import { useEffect, type RefObject } from "react";
 
 const WORKSPACE_KEYBOARD_FOCUS_ATTRIBUTE = "data-workspace-keyboard-focus";
 
-export function useWorkspaceFocusVisibility(rootRef: RefObject<HTMLElement | null>): void {
+export function useWorkspaceFocusVisibility(
+  rootRef: RefObject<HTMLElement | null>,
+): void {
   useEffect(() => {
     const root = rootRef.current;
     if (!root) {
@@ -16,7 +18,11 @@ export function useWorkspaceFocusVisibility(rootRef: RefObject<HTMLElement | nul
       root.removeAttribute(WORKSPACE_KEYBOARD_FOCUS_ATTRIBUTE);
     };
     const handleFocusIn = (event: FocusEvent): void => {
-      if (event.target instanceof Node && keyboardFocusPending && root.contains(event.target)) {
+      if (
+        event.target instanceof Node &&
+        keyboardFocusPending &&
+        root.contains(event.target)
+      ) {
         root.setAttribute(WORKSPACE_KEYBOARD_FOCUS_ATTRIBUTE, "true");
       } else {
         root.removeAttribute(WORKSPACE_KEYBOARD_FOCUS_ATTRIBUTE);

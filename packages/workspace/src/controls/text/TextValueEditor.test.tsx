@@ -14,7 +14,9 @@ import {
 import { useSectionRefs } from "../../section/sectionRefs";
 import { TextValueEditor, type TextValueEditorProps } from "./TextValueEditor";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // Freezes the two-layer text value editor against the reference's `TextInputCodeMirror`
 // behavior: the highlighted idle dummy (and its placeholder form), the primary-mouse-down
@@ -77,7 +79,12 @@ describe("TextValueEditor", () => {
   async function activate() {
     await act(async () => {
       getDummy().dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, button: 0, clientX: 5, clientY: 5 }),
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          button: 0,
+          clientX: 5,
+          clientY: 5,
+        }),
       );
     });
   }
@@ -118,7 +125,11 @@ describe("TextValueEditor", () => {
     // The value-column divider carries the reference focus treatment while item-select mode
     // is inactive.
     const divider = host.querySelector("span.section-value");
-    expect(divider?.classList.contains("peer-focus-within/textinput:border-blue-400")).toBe(true);
+    expect(
+      divider?.classList.contains(
+        "peer-focus-within/textinput:border-blue-400",
+      ),
+    ).toBe(true);
   });
 
   it("renders the placeholder form when the value is empty", async () => {
@@ -132,13 +143,17 @@ describe("TextValueEditor", () => {
   it("swaps to the live editor on primary mouse down and activates the section", async () => {
     await mount();
     await activate();
-    const liveWrapper = document.getElementById(`CodeMirror-${SECTION_ID}-${ITEM_ID}`);
+    const liveWrapper = document.getElementById(
+      `CodeMirror-${SECTION_ID}-${ITEM_ID}`,
+    );
     const liveView = getLiveView();
     expect(liveWrapper).not.toBeNull();
     expect(liveWrapper?.hasAttribute("tabindex")).toBe(false);
     expect(liveView.contentDOM.tabIndex).toBe(-1);
     expect(liveView.state.doc.toString()).toBe("0.001");
-    expect(liveView.contentDOM.getAttribute("aria-label")).toBe("Threshold value");
+    expect(liveView.contentDOM.getAttribute("aria-label")).toBe(
+      "Threshold value",
+    );
     // The dummy layer leaves once the live editor initializes.
     expect(document.getElementById(DUMMY_ID)).toBeNull();
     // The input-focus intent made the owning section the single active section.
@@ -173,7 +188,9 @@ describe("TextValueEditor", () => {
       getLiveView().dispatch({ changes: { from: 10, insert: "\nthird line" } });
     });
     expect(onValueChange).toHaveBeenCalledTimes(1);
-    expect(onValueChange).toHaveBeenCalledWith("first line\nthird line\nsecond line");
+    expect(onValueChange).toHaveBeenCalledWith(
+      "first line\nthird line\nsecond line",
+    );
   });
 
   it("returns focus to the section container on Escape and restores the dummy", async () => {
@@ -187,7 +204,9 @@ describe("TextValueEditor", () => {
     await activate();
     const view = getLiveView();
     await act(async () => {
-      view.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      view.contentDOM.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
     });
     expect(document.activeElement).toBe(sectionRoot);
     expect(documentEscape).not.toHaveBeenCalled();
@@ -216,7 +235,11 @@ describe("TextValueEditor", () => {
     useItemSelectionMode.setState({ isSelectingItems: true });
     await mount();
     const divider = host.querySelector("span.section-value");
-    expect(divider?.classList.contains("peer-focus-within/textinput:border-blue-400")).toBe(false);
+    expect(
+      divider?.classList.contains(
+        "peer-focus-within/textinput:border-blue-400",
+      ),
+    ).toBe(false);
     await activate();
     expect(host.querySelector(".cm-editor")).toBeNull();
   });

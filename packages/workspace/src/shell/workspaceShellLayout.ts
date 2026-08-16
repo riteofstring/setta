@@ -53,7 +53,9 @@ export function createWorkspaceShellViewState({
   };
 }
 
-function cloneViewState(state: WorkspaceShellViewState): WorkspaceShellViewState {
+function cloneViewState(
+  state: WorkspaceShellViewState,
+): WorkspaceShellViewState {
   return {
     leading: { ...state.leading },
     trailing: { ...state.trailing },
@@ -84,25 +86,42 @@ export function getWorkspaceShellPaneMinimumWidth(
   pane: WorkspaceShellPane,
   shellWidth: number,
 ): number {
-  return Math.min(MINIMUM_WIDTH_BY_PANE[pane], getWorkspaceShellPaneMaximumWidth(shellWidth));
+  return Math.min(
+    MINIMUM_WIDTH_BY_PANE[pane],
+    getWorkspaceShellPaneMaximumWidth(shellWidth),
+  );
 }
 
-function clampPaneWidth(pane: WorkspaceShellPane, width: number, shellWidth: number): number {
+function clampPaneWidth(
+  pane: WorkspaceShellPane,
+  width: number,
+  shellWidth: number,
+): number {
   return Math.min(
     Math.max(width, getWorkspaceShellPaneMinimumWidth(pane, shellWidth)),
     getWorkspaceShellPaneMaximumWidth(shellWidth),
   );
 }
 
-export function isWorkspaceShellPaneFullWidth(width: number, shellWidth: number): boolean {
-  return width >= getWorkspaceShellPaneMaximumWidth(shellWidth) - FULL_WIDTH_EPSILON;
+export function isWorkspaceShellPaneFullWidth(
+  width: number,
+  shellWidth: number,
+): boolean {
+  return (
+    width >= getWorkspaceShellPaneMaximumWidth(shellWidth) - FULL_WIDTH_EPSILON
+  );
 }
 
-export function getWorkspaceShellPaneTrueWidth(pane: WorkspaceShellPaneViewState): number {
+export function getWorkspaceShellPaneTrueWidth(
+  pane: WorkspaceShellPaneViewState,
+): number {
   return pane.visible ? pane.width : WORKSPACE_SHELL_CLOSED_PANE_WIDTH;
 }
 
-function closePane(state: WorkspaceShellViewState, pane: WorkspaceShellPane): void {
+function closePane(
+  state: WorkspaceShellViewState,
+  pane: WorkspaceShellPane,
+): void {
   state[pane].visible = false;
 }
 
@@ -145,7 +164,11 @@ function resizePane(
     return;
   }
 
-  let oppositeWidth = clampPaneWidth(opposite, state[opposite].width, shellWidth);
+  let oppositeWidth = clampPaneWidth(
+    opposite,
+    state[opposite].width,
+    shellWidth,
+  );
   let overflow = nextWidth + oppositeWidth - shellWidth;
   if (overflow <= 0) {
     openPaneAtWidth(state, opposite, oppositeWidth, shellWidth);
@@ -158,7 +181,10 @@ function resizePane(
   );
   overflow = nextWidth + oppositeWidth - shellWidth;
   if (overflow > 0) {
-    nextWidth = Math.max(getWorkspaceShellPaneMinimumWidth(pane, shellWidth), nextWidth - overflow);
+    nextWidth = Math.max(
+      getWorkspaceShellPaneMinimumWidth(pane, shellWidth),
+      nextWidth - overflow,
+    );
   }
   if (nextWidth + oppositeWidth > shellWidth) {
     closePane(state, opposite);
@@ -186,7 +212,11 @@ function openPane(
     return;
   }
 
-  const oppositeWidth = clampPaneWidth(opposite, state[opposite].width, shellWidth);
+  const oppositeWidth = clampPaneWidth(
+    opposite,
+    state[opposite].width,
+    shellWidth,
+  );
   if (isWorkspaceShellPaneFullWidth(oppositeWidth, shellWidth)) {
     closePane(state, opposite);
     openPaneAtWidth(state, pane, targetWidth, shellWidth);
@@ -234,7 +264,9 @@ export function resizeWorkspaceShellPane(
   shellWidth: number,
 ): WorkspaceShellViewState {
   if (!Number.isFinite(width)) {
-    throw new Error(`Workspace shell ${pane} pane width must be finite; received ${width}.`);
+    throw new Error(
+      `Workspace shell ${pane} pane width must be finite; received ${width}.`,
+    );
   }
   const next = cloneViewState(state);
   resizePane(next, pane, width, shellWidth);
@@ -248,13 +280,22 @@ export function toggleWorkspaceShellPaneFullWidth(
 ): WorkspaceShellViewState {
   const next = cloneViewState(state);
   const currentWidth = clampPaneWidth(pane, next[pane].width, shellWidth);
-  if (next[pane].visible && isWorkspaceShellPaneFullWidth(currentWidth, shellWidth)) {
+  if (
+    next[pane].visible &&
+    isWorkspaceShellPaneFullWidth(currentWidth, shellWidth)
+  ) {
     const minimum = getWorkspaceShellPaneMinimumWidth(pane, shellWidth);
-    const candidate = clampPaneWidth(pane, next[pane].rememberedNonFullWidth, shellWidth);
+    const candidate = clampPaneWidth(
+      pane,
+      next[pane].rememberedNonFullWidth,
+      shellWidth,
+    );
     resizePane(
       next,
       pane,
-      isWorkspaceShellPaneFullWidth(candidate, shellWidth) ? minimum : candidate,
+      isWorkspaceShellPaneFullWidth(candidate, shellWidth)
+        ? minimum
+        : candidate,
       shellWidth,
     );
     return next;
@@ -264,7 +305,12 @@ export function toggleWorkspaceShellPaneFullWidth(
     next[pane].rememberedNonFullWidth = currentWidth;
   }
   closePane(next, getOppositePane(pane));
-  openPaneAtWidth(next, pane, getWorkspaceShellPaneMaximumWidth(shellWidth), shellWidth);
+  openPaneAtWidth(
+    next,
+    pane,
+    getWorkspaceShellPaneMaximumWidth(shellWidth),
+    shellWidth,
+  );
   return next;
 }
 
@@ -296,7 +342,12 @@ export function normalizeWorkspaceShellViewState(
     next = resizeWorkspaceShellPane(
       next,
       pane,
-      normalizePaneWidth(pane, state[pane].width, previousShellWidth, shellWidth),
+      normalizePaneWidth(
+        pane,
+        state[pane].width,
+        previousShellWidth,
+        shellWidth,
+      ),
       shellWidth,
     );
   }

@@ -21,8 +21,13 @@ import {
 export function ItemDndMonitor() {
   const manager = useDragDropManager();
   const pendingReset = useItemDndState((state) => state.pendingReset);
-  const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
-  const isIdle = useComputed(() => manager?.dragOperation.status.idle ?? true, [manager]).value;
+  const isSelectingItems = useItemSelectionMode(
+    (state) => state.isSelectingItems,
+  );
+  const isIdle = useComputed(
+    () => manager?.dragOperation.status.idle ?? true,
+    [manager],
+  ).value;
   const isDragging = useComputed(
     () => manager?.dragOperation.status.dragging ?? false,
     [manager],

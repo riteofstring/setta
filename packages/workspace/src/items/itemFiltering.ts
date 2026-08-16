@@ -1,20 +1,25 @@
 import { matchSorter } from "match-sorter";
 import { buildItemParentMap, getItemOrThrow } from "../document/itemTree";
 import { getWorkspaceItemSearchableText } from "../document/sectionKindRegistry";
-import type { WorkspaceSection, WorkspaceSectionItemTree } from "../document/types";
+import type {
+  WorkspaceSection,
+  WorkspaceSectionItemTree,
+} from "../document/types";
 
 // Frozen main's `GetParamSwitch` filter in item terms. It fuzzy-matches display names, keeps
 // canonical row order, and includes every ancestor on a matching item's path. The package uses
 // typed presentation labels directly and delegates only custom opaque item text to the owning
 // section kind's explicit frozen-snapshot callback.
 
-export type WorkspaceItemFilterResult = {
+type WorkspaceItemFilterResult = {
   filterActive: boolean;
   matchingItemIds: ReadonlySet<string>;
   visibleItemIds: ReadonlySet<string>;
 };
 
-function collectReachableItemIds(itemTree: WorkspaceSectionItemTree): Array<string> {
+function collectReachableItemIds(
+  itemTree: WorkspaceSectionItemTree,
+): Array<string> {
   const itemIds: Array<string> = [];
 
   function walk(parentId: string): void {
@@ -65,12 +70,17 @@ export function filterWorkspaceSectionItems(
 
   const candidates = itemIds.map((itemId) => ({
     itemId,
-    searchableText: getWorkspaceItemSearchableText(section, getItemOrThrow(itemTree, itemId)),
+    searchableText: getWorkspaceItemSearchableText(
+      section,
+      getItemOrThrow(itemTree, itemId),
+    ),
   }));
   const matchedCandidates = matchSorter(candidates, normalizedQuery, {
     keys: ["searchableText"],
   });
-  const matchingItemIds = new Set(matchedCandidates.map(({ itemId }) => itemId));
+  const matchingItemIds = new Set(
+    matchedCandidates.map(({ itemId }) => itemId),
+  );
 
   return {
     filterActive: true,

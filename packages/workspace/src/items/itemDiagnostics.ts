@@ -13,7 +13,8 @@ export type WorkspaceItemDiagnosticRegistry = Readonly<
   Record<string, ReadonlyArray<WorkspaceItemDiagnostic>>
 >;
 
-const EMPTY_WORKSPACE_ITEM_DIAGNOSTIC_REGISTRY: WorkspaceItemDiagnosticRegistry = Object.freeze({});
+const EMPTY_WORKSPACE_ITEM_DIAGNOSTIC_REGISTRY: WorkspaceItemDiagnosticRegistry =
+  Object.freeze({});
 
 const DIAGNOSTIC_SEVERITIES = new Set<WorkspaceItemDiagnosticSeverity>([
   "error",
@@ -29,13 +30,19 @@ const DIAGNOSTIC_PRIORITY: Record<WorkspaceItemDiagnosticSeverity, number> = {
 
 type UnknownRecord = Record<string, unknown>;
 
-function assertRecord(value: unknown, owner: string): asserts value is UnknownRecord {
+function assertRecord(
+  value: unknown,
+  owner: string,
+): asserts value is UnknownRecord {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${owner} must be an object.`);
   }
 }
 
-function assertKnownDiagnosticFields(diagnostic: UnknownRecord, owner: string): void {
+function assertKnownDiagnosticFields(
+  diagnostic: UnknownRecord,
+  owner: string,
+): void {
   const knownFields = new Set(["message", "severity"]);
   for (const field of Object.keys(diagnostic)) {
     if (!knownFields.has(field)) {
@@ -44,14 +51,21 @@ function assertKnownDiagnosticFields(diagnostic: UnknownRecord, owner: string): 
   }
 }
 
-function normalizeDiagnostic(value: unknown, owner: string): WorkspaceItemDiagnostic {
+function normalizeDiagnostic(
+  value: unknown,
+  owner: string,
+): WorkspaceItemDiagnostic {
   assertRecord(value, owner);
   assertKnownDiagnosticFields(value, owner);
   if (
     typeof value["severity"] !== "string" ||
-    !DIAGNOSTIC_SEVERITIES.has(value["severity"] as WorkspaceItemDiagnosticSeverity)
+    !DIAGNOSTIC_SEVERITIES.has(
+      value["severity"] as WorkspaceItemDiagnosticSeverity,
+    )
   ) {
-    throw new Error(`${owner} has unknown severity ${String(value["severity"])}.`);
+    throw new Error(
+      `${owner} has unknown severity ${String(value["severity"])}.`,
+    );
   }
   if (typeof value["message"] !== "string" || value["message"].trim() === "") {
     throw new Error(`${owner} requires a non-empty message.`);
@@ -87,14 +101,19 @@ export function normalizeWorkspaceItemDiagnosticRegistry(
       );
     }
     if (!Array.isArray(candidate)) {
-      throw new Error(`Diagnostics for ${sectionId}/${itemId} must be an array.`);
+      throw new Error(
+        `Diagnostics for ${sectionId}/${itemId} must be an array.`,
+      );
     }
     Object.defineProperty(normalized, itemId, {
       configurable: false,
       enumerable: true,
       value: Object.freeze(
         candidate.map((diagnostic, index) =>
-          normalizeDiagnostic(diagnostic, `Diagnostic ${sectionId}/${itemId}[${index}]`),
+          normalizeDiagnostic(
+            diagnostic,
+            `Diagnostic ${sectionId}/${itemId}[${index}]`,
+          ),
         ),
       ),
       writable: false,
@@ -136,12 +155,20 @@ export function getWorkspaceItemDiagnosticCountSummary(
   const parts = [
     formatDiagnosticCount(counts.error, "error", "errors"),
     formatDiagnosticCount(counts.warning, "warning", "warnings"),
-    formatDiagnosticCount(counts.info, "information message", "information messages"),
+    formatDiagnosticCount(
+      counts.info,
+      "information message",
+      "information messages",
+    ),
   ].filter((part): part is string => part !== null);
   return joinDiagnosticCountParts(parts);
 }
 
-function formatDiagnosticCount(count: number, singular: string, plural: string): string | null {
+function formatDiagnosticCount(
+  count: number,
+  singular: string,
+  plural: string,
+): string | null {
   if (count === 0) {
     return null;
   }

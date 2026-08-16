@@ -4,14 +4,20 @@ import { getNodes, updateNodePositions } from "./nodeInternalsActions";
 import { useWorkspaceOptions } from "./options";
 import { useReactFlow } from "./store";
 
-export const updatePositions = (params: { x: number; y: number; isShiftPressed: boolean }) => {
+export const updatePositions = (params: {
+  x: number;
+  y: number;
+  isShiftPressed: boolean;
+}) => {
   if (!useWorkspaceCapabilities.getState().canEditLayout) {
     return;
   }
   const { nodesSelectionDims, shiftNodesSelection } = useReactFlow.getState();
   const { snapGrid, snapToGrid } = useWorkspaceOptions.getState();
   const activeSectionIds = getActiveSectionIds();
-  const selectedNodes = getNodes().filter((n) => activeSectionIds.includes(n.id));
+  const selectedNodes = getNodes().filter((n) =>
+    activeSectionIds.includes(n.id),
+  );
   // by default a node moves 5px on each key press, or 20px if shift is pressed
   // if snap grid is enabled, we use that for the velocity.
   const xVelo = snapToGrid ? snapGrid[0] : 5;

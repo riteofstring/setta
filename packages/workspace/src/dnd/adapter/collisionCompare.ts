@@ -17,12 +17,15 @@ type SortableDistanceMetrics = {
   rawDist: number;
 };
 
-function getCollisionSortableContainerId(collision: SettaCollision | null): string | number | null {
+function getCollisionSortableContainerId(
+  collision: SettaCollision | null,
+): string | number | null {
   if (!collision) {
     return null;
   }
 
-  const droppableData = collision.data?.droppable?.data as CollisionDroppableData | undefined;
+  const droppableData = collision.data?.droppable?.data as
+    CollisionDroppableData | undefined;
   const containerId = droppableData?.current?.sortable?.containerId;
   return containerId ?? null;
 }
@@ -39,7 +42,9 @@ function getCollisionNumber(value: unknown): number | null {
   return value;
 }
 
-function getCollisionIntersectionRatio(collision: SettaCollision | null): number {
+function getCollisionIntersectionRatio(
+  collision: SettaCollision | null,
+): number {
   const value = collision?.data?.intersectionRatio;
   const resolved = getCollisionNumber(value);
   if (resolved === null) {
@@ -49,12 +54,16 @@ function getCollisionIntersectionRatio(collision: SettaCollision | null): number
   return resolved;
 }
 
-function getCollisionAbsTriggerDist(collision: SettaCollision | null): number | null {
+function getCollisionAbsTriggerDist(
+  collision: SettaCollision | null,
+): number | null {
   const value = collision?.data?.absTriggerDist;
   return getCollisionNumber(value);
 }
 
-function getCollisionTriggerDist(collision: SettaCollision | null): number | null {
+function getCollisionTriggerDist(
+  collision: SettaCollision | null,
+): number | null {
   const value = collision?.data?.triggerDist;
   return getCollisionNumber(value);
 }
@@ -75,8 +84,13 @@ function getSortableDistanceMetrics(
   return { absDist, rawDist };
 }
 
-function pickHigherRatioCollision(a: SettaCollision, b: SettaCollision): SettaCollision {
-  return getCollisionIntersectionRatio(b) > getCollisionIntersectionRatio(a) ? b : a;
+function pickHigherRatioCollision(
+  a: SettaCollision,
+  b: SettaCollision,
+): SettaCollision {
+  return getCollisionIntersectionRatio(b) > getCollisionIntersectionRatio(a)
+    ? b
+    : a;
 }
 
 function pickSortableDistanceCollision(
@@ -121,7 +135,11 @@ function getChildCollisionForParent(
     return null;
   }
 
-  return getChildCollisionForParentId(collisions, parentCollision.id, parentByChild);
+  return getChildCollisionForParentId(
+    collisions,
+    parentCollision.id,
+    parentByChild,
+  );
 }
 
 function getChildCollisionForParentId(
@@ -181,7 +199,11 @@ function pickBestCollision(
     bestCollision = compareCollisions(bestCollision, collision);
   }
 
-  const childCollision = getChildCollisionForParent(collisions, bestCollision, parentByChild);
+  const childCollision = getChildCollisionForParent(
+    collisions,
+    bestCollision,
+    parentByChild,
+  );
   return childCollision ?? bestCollision;
 }
 
@@ -193,12 +215,17 @@ export function resolveOverCollision(
     return null;
   }
 
-  const baseCollision = pickBestCollision(collisions, parentByChild) ?? collisions[0] ?? null;
+  const baseCollision =
+    pickBestCollision(collisions, parentByChild) ?? collisions[0] ?? null;
   if (!baseCollision) {
     return null;
   }
 
-  const childCollision = getChildCollisionForParentId(collisions, baseCollision.id, parentByChild);
+  const childCollision = getChildCollisionForParentId(
+    collisions,
+    baseCollision.id,
+    parentByChild,
+  );
   return childCollision ?? baseCollision;
 }
 

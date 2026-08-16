@@ -29,13 +29,22 @@ describe("pane menu keyboard filtering", () => {
       selectionEnd: 0,
     });
     expect(
-      getNextFilterInputState({ value: "filter", selectionStart: 3, selectionEnd: 3 }, "Backspace"),
+      getNextFilterInputState(
+        { value: "filter", selectionStart: 3, selectionEnd: 3 },
+        "Backspace",
+      ),
     ).toEqual({ nextValue: "fiter", nextSelection: 2, didChange: true });
     expect(
-      getNextFilterInputState({ value: "filter", selectionStart: 1, selectionEnd: 4 }, "Delete"),
+      getNextFilterInputState(
+        { value: "filter", selectionStart: 1, selectionEnd: 4 },
+        "Delete",
+      ),
     ).toEqual({ nextValue: "fer", nextSelection: 1, didChange: true });
     expect(
-      getNextFilterInputState({ value: "filter", selectionStart: 1, selectionEnd: 4 }, "x"),
+      getNextFilterInputState(
+        { value: "filter", selectionStart: 1, selectionEnd: 4 },
+        "x",
+      ),
     ).toEqual({ nextValue: "fxer", nextSelection: 2, didChange: true });
   });
 
@@ -48,7 +57,9 @@ describe("pane menu keyboard filtering", () => {
     expect(shouldDispatchFilterInputEvent(true, noOp)).toBe(true);
     expect(shouldEditableTargetHandleMenuKey(true, false)).toBe(true);
     expect(shouldEditableTargetHandleMenuKey(true, true)).toBe(false);
-    expect(["ArrowDown", "ArrowUp", "Home", "End"].every(isMenuNavigationKey)).toBe(true);
+    expect(
+      ["ArrowDown", "ArrowUp", "Home", "End"].every(isMenuNavigationKey),
+    ).toBe(true);
     expect(isMenuNavigationKey("Enter")).toBe(false);
   });
 });

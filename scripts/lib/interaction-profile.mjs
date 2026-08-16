@@ -153,7 +153,9 @@ function firstAfter(times, reference) {
 
 function requiredSingleMark(marks, label) {
   if (marks.length !== 1) {
-    throw new Error(`Expected exactly one ${label} event, saw ${String(marks.length)}.`);
+    throw new Error(
+      `Expected exactly one ${label} event, saw ${String(marks.length)}.`,
+    );
   }
   return marks[0];
 }
@@ -170,7 +172,10 @@ function handlerSpanMs(mark) {
 
 function overlappingLongTasks(longTasks, start, end) {
   return longTasks
-    .filter(([taskStart, duration]) => taskStart + duration >= start && taskStart <= end)
+    .filter(
+      ([taskStart, duration]) =>
+        taskStart + duration >= start && taskStart <= end,
+    )
     .map(([taskStart, duration]) => ({
       durationMs: round1(duration),
       startOffsetMs: round1(taskStart - start),
@@ -178,25 +183,37 @@ function overlappingLongTasks(longTasks, start, end) {
 }
 
 export function analyzeGestureSample(sample) {
-  const down = requiredSingleMark(eventMarks(sample.events, "pointerdown"), "pointerdown");
-  const up = requiredSingleMark(eventMarks(sample.events, "pointerup"), "pointerup");
+  const down = requiredSingleMark(
+    eventMarks(sample.events, "pointerdown"),
+    "pointerdown",
+  );
+  const up = requiredSingleMark(
+    eventMarks(sample.events, "pointerup"),
+    "pointerup",
+  );
   const moveMarks = eventMarks(sample.events, "pointermove");
   const moveCaptureTimes = moveMarks.map(({ capture }) => capture);
-  const anchorIndex = sample.frames.findLastIndex((time) => time <= down.capture);
+  const anchorIndex = sample.frames.findLastIndex(
+    (time) => time <= down.capture,
+  );
   const gestureFrames = sample.frames.slice(Math.max(anchorIndex, 0));
   const frameGaps = intervals(gestureFrames);
   const activationLimit = down.capture + ACTIVATION_WINDOW_MS;
   const activationGaps = [];
   const sustainedGaps = [];
   for (let index = 1; index < gestureFrames.length; index += 1) {
-    const destination = gestureFrames[index] <= activationLimit ? activationGaps : sustainedGaps;
+    const destination =
+      gestureFrames[index] <= activationLimit ? activationGaps : sustainedGaps;
     destination.push(frameGaps[index - 1]);
   }
   return {
     activation: gapStats(activationGaps),
     firstFrameAfterDownMs: firstAfter(sample.frames, down.capture),
     firstMutationAfterDownMs: firstAfter(sample.mutations, down.capture),
-    firstTargetMutationAfterDownMs: firstAfter(sample.targetMutations, down.capture),
+    firstTargetMutationAfterDownMs: firstAfter(
+      sample.targetMutations,
+      down.capture,
+    ),
     frameCount: gestureFrames.length,
     initialTargetStyle: sample.initialTargetStyle,
     finalTargetStyle: sample.finalTargetStyle,
@@ -241,7 +258,9 @@ export function cdpMetricsDelta(before, after) {
     delta[name] = (afterMap.get(name) ?? 0) - (beforeMap.get(name) ?? 0);
   }
   for (const name of CDP_DURATION_METRICS) {
-    delta[`${name}Ms`] = round1(((afterMap.get(name) ?? 0) - (beforeMap.get(name) ?? 0)) * 1_000);
+    delta[`${name}Ms`] = round1(
+      ((afterMap.get(name) ?? 0) - (beforeMap.get(name) ?? 0)) * 1_000,
+    );
   }
   return delta;
 }
@@ -252,7 +271,9 @@ export function selectCdpMetrics(metrics) {
     LayoutCount: Math.round(values.get("LayoutCount") ?? 0),
     RecalcStyleCount: Math.round(values.get("RecalcStyleCount") ?? 0),
     LayoutDurationMs: round1((values.get("LayoutDuration") ?? 0) * 1_000),
-    RecalcStyleDurationMs: round1((values.get("RecalcStyleDuration") ?? 0) * 1_000),
+    RecalcStyleDurationMs: round1(
+      (values.get("RecalcStyleDuration") ?? 0) * 1_000,
+    ),
     ScriptDurationMs: round1((values.get("ScriptDuration") ?? 0) * 1_000),
     TaskDurationMs: round1((values.get("TaskDuration") ?? 0) * 1_000),
   };

@@ -16,8 +16,11 @@ export const MANUAL_WHEEL_CLASS_NAME = "setta-manual-wheel";
 // Excludes an element from starting a canvas pan.
 export const NO_PAN_CLASS_NAME = "nopan";
 // Keeps a focused scalar control's Arrow keys with the control instead of section movement.
-export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION = "setta-prevent-arrow-keys-moving-section";
+export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
+  "setta-prevent-arrow-keys-moving-section";
 // Prevents the pressed-section outline treatment while the element is active.
-export const SETTA_PREVENT_SECTION_ACTIVE_CSS = "setta-prevent-section-active-css";
+export const SETTA_PREVENT_SECTION_ACTIVE_CSS =
+  "setta-prevent-section-active-css";
 // Prevents a click on the element from activating the enclosing section.
-export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER = "setta-prevent-section-on-click-trigger";
+export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
+  "setta-prevent-section-on-click-trigger";

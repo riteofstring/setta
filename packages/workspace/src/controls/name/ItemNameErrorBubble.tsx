@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { getElementTextDirection } from "../../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
@@ -27,7 +33,11 @@ function getBubbleScale(offsetSize: number, rectSize: number): number {
   return rectSize / offsetSize;
 }
 
-function clampBubbleLeft(nextLeft: number, maxLeft: number, margin: number): number {
+function clampBubbleLeft(
+  nextLeft: number,
+  maxLeft: number,
+  margin: number,
+): number {
   if (nextLeft > maxLeft) {
     return Math.max(margin, maxLeft);
   }
@@ -44,16 +54,25 @@ export function computeItemNameErrorBubblePosition(
   bubbleElement: HTMLDivElement | null,
 ): BubblePosition | null {
   const anchorElement =
-    document.getElementById(liveEditorId) ?? document.getElementById(dummyEditorId);
-  const containerElement = document.getElementById(`${sectionId}-CustomResizable`);
+    document.getElementById(liveEditorId) ??
+    document.getElementById(dummyEditorId);
+  const containerElement = document.getElementById(
+    `${sectionId}-CustomResizable`,
+  );
   if (!anchorElement || !bubbleElement || !containerElement) {
     return null;
   }
   const anchorRect = anchorElement.getBoundingClientRect();
   const bubbleRect = bubbleElement.getBoundingClientRect();
   const containerRect = containerElement.getBoundingClientRect();
-  const scaleX = getBubbleScale(containerElement.offsetWidth, containerRect.width);
-  const scaleY = getBubbleScale(containerElement.offsetHeight, containerRect.height);
+  const scaleX = getBubbleScale(
+    containerElement.offsetWidth,
+    containerRect.width,
+  );
+  const scaleY = getBubbleScale(
+    containerElement.offsetHeight,
+    containerRect.height,
+  );
   const margin = 6;
   const localAnchorLeft = (anchorRect.left - containerRect.left) / scaleX;
   const localTop = (anchorRect.top - containerRect.top) / scaleY;
@@ -137,7 +156,8 @@ export function ItemNameErrorBubble({
   if (!errorMessage) {
     return null;
   }
-  const portalTarget = document.getElementById(`${sectionId}-CustomResizable`) ?? document.body;
+  const portalTarget =
+    document.getElementById(`${sectionId}-CustomResizable`) ?? document.body;
   return createPortal(
     <div
       id={errorId}

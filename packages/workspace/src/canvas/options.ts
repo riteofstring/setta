@@ -67,7 +67,9 @@ export function toggleSnapToGrid() {
 }
 
 export function toggleMiniMap() {
-  useWorkspaceOptions.setState((state) => ({ showMinimap: !state.showMinimap }));
+  useWorkspaceOptions.setState((state) => ({
+    showMinimap: !state.showMinimap,
+  }));
 }
 
 export function toggleMiniMapSide() {

@@ -31,11 +31,15 @@ describe("dateTimeUtils", () => {
     expect(formatDateForDisplay("2026-12-31", "iso")).toBe("2026-12-31");
     expect(formatDateForDisplay("2026-12-31", "us")).toBe("12/31/2026");
     expect(formatDateForDisplay("2026-12-31", "eu")).toBe("31/12/2026");
-    expect(formatDateForDisplay("2026-12-31", "long")).toBe("December 31, 2026");
+    expect(formatDateForDisplay("2026-12-31", "long")).toBe(
+      "December 31, 2026",
+    );
   });
 
   it("normalizes datetime-local values and preserves date and time parts", () => {
-    expect(normalizeDateTimeToLocalIso("2026-12-31T09:30")).toBe("2026-12-31T09:30");
+    expect(normalizeDateTimeToLocalIso("2026-12-31T09:30")).toBe(
+      "2026-12-31T09:30",
+    );
     expect(splitIsoDateAndTimeParts("2026-12-31T09:30")).toEqual({
       dateIso: "2026-12-31",
       time24: "09:30",
@@ -43,7 +47,9 @@ describe("dateTimeUtils", () => {
   });
 
   it("combines date and time parts and formats datetime display", () => {
-    expect(combineIsoDateAndTimeParts("2026-12-31", "9:30 AM")).toBe("2026-12-31T09:30");
+    expect(combineIsoDateAndTimeParts("2026-12-31", "9:30 AM")).toBe(
+      "2026-12-31T09:30",
+    );
     expect(
       formatDateTimeForDisplay({
         raw: "2026-12-31T21:15",
@@ -54,7 +60,9 @@ describe("dateTimeUtils", () => {
   });
 
   it("formats local today from local date parts", () => {
-    expect(getLocalTodayIsoDate(new Date(2026, 1, 17, 23, 30, 0))).toBe("2026-02-17");
+    expect(getLocalTodayIsoDate(new Date(2026, 1, 17, 23, 30, 0))).toBe(
+      "2026-02-17",
+    );
   });
 
   it("keeps long dates stable in positive-offset timezones", () => {

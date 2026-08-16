@@ -19,18 +19,25 @@ file-length work can overlap canvas, drag-and-drop, and stylesheet files changed
 The final accepted-output gate is waiting on high-severity advisory
 `GHSA-2v37-7h3g-55p8`, introduced by `postcss -> nanoid@3.3.17`. The patched 3.x release,
 `nanoid@3.3.18`, was published at `2026-08-07 16:41:05 UTC` and becomes eligible under the
-repository's seven-day release-age policy after `2026-08-14 16:41:05 UTC`.
+shared 30-day release-age policy after `2026-09-06 16:41:05 UTC`.
 
-After that time:
+The patch can be admitted before that time only through the policy's exact `security-fix`
+release-age assessment and matching `minimumReleaseAgeExclude` selector. That is an owned risk
+decision and requires explicit approval. Whether the repository waits or records that assessment,
+the dependency refresh must also resolve every unrelated transitive release to an already eligible
+version.
+
+To close the finding:
 
 1. refresh the lockfile through the normal dependency resolver so the transitive dependency is
    `nanoid@3.3.18`;
-2. do not add an override, advisory ignore, release-age exception, trust downgrade, or broader
-   dependency update;
-3. confirm dependency policy, release age, vulnerability scanning, lock synchronization, and a
+2. do not add an override, advisory ignore, trust downgrade, or broad release-age exclusion;
+3. if closing before `2026-09-06`, record only the exact `nanoid@3.3.18` security-fix assessment
+   and remove it once the release reaches the hard minimum;
+4. confirm dependency policy, release age, vulnerability scanning, lock synchronization, and a
    frozen install all pass;
-4. run the all-files static gate and exact packed-consumer proof on the stable tree; and
-5. record the successful closeout in accepted evidence.
+5. run the all-files static gate and exact packed-consumer proof on the stable tree; and
+6. record the successful closeout in accepted evidence.
 
 If a different dependency change becomes necessary, stop and present the exact graph and policy
 impact before expanding the update.
@@ -41,7 +48,7 @@ The current adoption retains local providers because the pinned shared policy co
 all generic contracts. Once the separately implemented shared-policy work is reviewed and
 available:
 
-1. update the `.code-policy` pin intentionally;
+1. install the reviewed release and lock it in `.code-policy.lock.json`;
 2. migrate `.code-policy.json` to the new shared declarations;
 3. prove each shared replacement against the existing local provider before deleting it;
 4. remove local wrappers and workarounds whose complete behavior is now shared; and
@@ -106,11 +113,12 @@ gate.
 
 ## Verification
 
-Use the pinned `check_policy.sh` entry point and the shared policy's authorization rules.
+Use the installed `code-policy` entry point selected by `.code-policy.lock.json` and the shared
+policy's authorization rules.
 
 At minimum, completion requires:
 
-- `./check_policy.sh doctor --strict`;
+- `code-policy doctor --strict`;
 - all-file static policy checks;
 - changed-module tests for refactored parity owners;
 - offline and online supply-chain checks;
@@ -119,7 +127,7 @@ At minimum, completion requires:
 - the production browser performance profile; and
 - the authorized complete ordinary gate on the stable tree.
 
-Use `./check_policy.sh test-levels --base <trusted-base>` before broad verification and obtain any
+Use `code-policy test-levels --base <trusted-base>` before broad verification and obtain any
 authorization required by the shared policy. Do not substitute a passing technical check for the
 already accepted UX baselines.
 
@@ -138,7 +146,8 @@ Stop and return to the developer when:
 
 This plan is complete when:
 
-- the patched dependency passes without an exception or override;
+- the patched dependency passes without an override or vulnerability waiver, and any temporary
+  release-age assessment is exact and still valid;
 - shared and repository-specific policy have one clear owner per rule;
 - all three file-length exceptions are removed without UX regressions;
 - the package, packed consumer, supply chain, browser profile, and authorized final gate pass; and

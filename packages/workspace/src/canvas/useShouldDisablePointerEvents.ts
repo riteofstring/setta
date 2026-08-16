@@ -6,7 +6,9 @@ import { useReactFlow } from "./store";
 // is held. Its `moveSectionActivationKeyPressed` term is dropped: that key has no shipped
 // default binding, so the branch is unreachable in the reference.
 export function useShouldDisablePointerEvents() {
-  const isSortingOrMovingFree = useDndState((x) => x.isSorting || x.isMovingFree);
+  const isSortingOrMovingFree = useDndState(
+    (x) => x.isSorting || x.isMovingFree,
+  );
   const otherActivationPressed = useReactFlow(
     (x) =>
       (x.selectionKeyPressed && Boolean(x.userSelectionRect)) ||

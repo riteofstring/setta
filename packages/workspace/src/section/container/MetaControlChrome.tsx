@@ -48,7 +48,10 @@ export function MetaControlChrome({
             title="Edit meta control"
             data-meta-control-edit="true"
           >
-            <TbAdjustmentsHorizontal className={EDIT_ICON_CLASS_NAME} aria-hidden="true" />
+            <TbAdjustmentsHorizontal
+              className={EDIT_ICON_CLASS_NAME}
+              aria-hidden="true"
+            />
           </button>
         </div>
       </div>

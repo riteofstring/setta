@@ -1,6 +1,9 @@
 import { useReactFlow } from "../canvas/store";
 import { getTopLevelSectionIdsForDisplay } from "../document/documentSelectors";
-import { useWorkspaceDocument, type WorkspaceDocumentState } from "../document/stores";
+import {
+  useWorkspaceDocument,
+  type WorkspaceDocumentState,
+} from "../document/stores";
 import { useSectionRefs } from "../section/sectionRefs";
 
 type SectionControlKeyboardEvent = {
@@ -21,7 +24,9 @@ export function focusSectionAfterEscape(sectionId: string) {
   sectionRef.focus({ preventScroll: true });
 }
 
-function getSectionFocusElement(sectionId: string): HTMLElement | null | undefined {
+function getSectionFocusElement(
+  sectionId: string,
+): HTMLElement | null | undefined {
   const refs = useSectionRefs.getState();
   // Leaves expose their named section group through selfOnly; groups have only the named outer
   // container. Both are stable programmatic focus targets without adding a Tab stop.
@@ -48,14 +53,18 @@ export function resolveSectionFocusAfterRemoval(
   sectionId: string,
 ): string | null {
   if (!state.sections[sectionId]) {
-    throw new Error(`Cannot resolve removal focus for unknown section ${sectionId}.`);
+    throw new Error(
+      `Cannot resolve removal focus for unknown section ${sectionId}.`,
+    );
   }
   const parentId = state.parentSectionMap[sectionId] ?? null;
   let siblings: Array<string>;
   if (parentId) {
     const parent = state.sections[parentId];
     if (!parent) {
-      throw new Error(`Section ${sectionId} references unknown parent ${parentId}.`);
+      throw new Error(
+        `Section ${sectionId} references unknown parent ${parentId}.`,
+      );
     }
     siblings = parent.children;
   } else {
@@ -63,29 +72,44 @@ export function resolveSectionFocusAfterRemoval(
   }
   const index = siblings.indexOf(sectionId);
   if (index === -1) {
-    throw new Error(`Section ${sectionId} is missing from its rendered sibling order.`);
+    throw new Error(
+      `Section ${sectionId} is missing from its rendered sibling order.`,
+    );
   }
   return siblings[index + 1] ?? siblings[index - 1] ?? parentId;
 }
 
-export function restoreFocusAfterSectionRemoval(targetSectionId: string | null): void {
+export function restoreFocusAfterSectionRemoval(
+  targetSectionId: string | null,
+): void {
   requestAnimationFrame(() => {
     if (targetSectionId) {
       const section = getSectionFocusElement(targetSectionId);
       if (!section) {
-        throw new Error(`Cannot restore focus to unmounted section ${targetSectionId}.`);
+        throw new Error(
+          `Cannot restore focus to unmounted section ${targetSectionId}.`,
+        );
       }
       section.focus({ preventScroll: true });
       return;
     }
-    const pane = useReactFlow.getState().domNode?.querySelector<HTMLElement>(".react-flow__pane");
+    const pane = useReactFlow
+      .getState()
+      .domNode?.querySelector<HTMLElement>(".react-flow__pane");
     if (!pane) {
-      throw new Error("Cannot restore focus after section removal without a mounted canvas pane.");
+      throw new Error(
+        "Cannot restore focus after section removal without a mounted canvas pane.",
+      );
     }
     pane.focus({ preventScroll: true });
   });
 }
 
-export function captureSectionRemovalFocusTarget(sectionId: string): string | null {
-  return resolveSectionFocusAfterRemoval(useWorkspaceDocument.getState(), sectionId);
+export function captureSectionRemovalFocusTarget(
+  sectionId: string,
+): string | null {
+  return resolveSectionFocusAfterRemoval(
+    useWorkspaceDocument.getState(),
+    sectionId,
+  );
 }

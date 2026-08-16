@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { WorkspaceDocumentState } from "./stores";
 import type { WorkspaceSection } from "./types";
-import { canUngroupWorkspaceSections, prepareUngroupSections } from "./ungroupSections";
+import {
+  canUngroupWorkspaceSections,
+  prepareUngroupSections,
+} from "./ungroupSections";
 
 function makeSection(
   id: string,
@@ -32,7 +35,10 @@ function makeState(): WorkspaceDocumentState {
       "top-a": makeSection("top-a"),
       "top-b": makeSection("top-b"),
       parent: makeSection("parent", "group", ["nested-group", "sibling"]),
-      "nested-group": makeSection("nested-group", "group", ["nested-a", "nested-b"]),
+      "nested-group": makeSection("nested-group", "group", [
+        "nested-a",
+        "nested-b",
+      ]),
       "nested-a": makeSection("nested-a"),
       "nested-b": makeSection("nested-b"),
       sibling: makeSection("sibling"),
@@ -56,7 +62,10 @@ function makeState(): WorkspaceDocumentState {
   };
 }
 
-function requireSection(state: WorkspaceDocumentState, sectionId: string): WorkspaceSection {
+function requireSection(
+  state: WorkspaceDocumentState,
+  sectionId: string,
+): WorkspaceSection {
   const section = state.sections[sectionId];
   if (!section) {
     throw new Error(`Expected section ${sectionId}.`);
@@ -105,7 +114,10 @@ describe("prepareUngroupSections", () => {
     expect(prepared.focusTargetByGroupId.get("nested-group")).toBe("nested-a");
 
     expect(state.sections["top-group"]?.children).toEqual(["top-a", "top-b"]);
-    expect(state.sections["parent"]?.children).toEqual(["nested-group", "sibling"]);
+    expect(state.sections["parent"]?.children).toEqual([
+      "nested-group",
+      "sibling",
+    ]);
   });
 
   it("records validated mounted sizes for promoted top-level children", () => {
@@ -143,7 +155,9 @@ describe("prepareUngroupSections", () => {
         width: 0,
         height: 80,
       })),
-    ).toThrow("Promoted section top-a measurement must have positive finite dimensions.");
+    ).toThrow(
+      "Promoted section top-a measurement must have positive finite dimensions.",
+    );
   });
 
   it("flattens selected ancestor and descendant groups in document order", () => {
@@ -153,7 +167,10 @@ describe("prepareUngroupSections", () => {
       "inner-group",
       "top-b",
     ]);
-    state.sections["inner-group"] = makeSection("inner-group", "group", ["inner-a", "inner-b"]);
+    state.sections["inner-group"] = makeSection("inner-group", "group", [
+      "inner-a",
+      "inner-b",
+    ]);
     state.sections["inner-a"] = makeSection("inner-a");
     state.sections["inner-b"] = makeSection("inner-b");
     state.parentSectionMap["inner-group"] = "top-group";
@@ -198,7 +215,12 @@ describe("prepareUngroupSections", () => {
       ),
     ).toThrow("Cannot ungroup locked group locked-group.");
     expect(() =>
-      prepareUngroupSections(state, { activeIds: [] }, ["missing"], noPromotedSectionMeasurement),
+      prepareUngroupSections(
+        state,
+        { activeIds: [] },
+        ["missing"],
+        noPromotedSectionMeasurement,
+      ),
     ).toThrow("Unknown section missing.");
 
     const impossible = makeState();
@@ -228,6 +250,10 @@ describe("prepareUngroupSections", () => {
         requireSection(state, "standalone"),
       ]),
     ).toBe(false);
-    expect(canUngroupWorkspaceSections(state, [requireSection(state, "locked-group")])).toBe(false);
+    expect(
+      canUngroupWorkspaceSections(state, [
+        requireSection(state, "locked-group"),
+      ]),
+    ).toBe(false);
   });
 });

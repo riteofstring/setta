@@ -6,7 +6,7 @@ import { withResetFn } from "../state/storeUtils";
 // `state/hooks/sectionRef.ts`. `withNested` holds the outer container element (group chrome
 // included); `selfOnly` holds the leaf section shell. DOM measurement fallbacks (marquee
 // hit-testing, selection bounds) read whichever is registered.
-export type SectionRefsState = {
+type SectionRefsState = {
   withNested: Record<string, HTMLElement | null>;
   selfOnly: Record<string, HTMLElement | null>;
 };
@@ -45,7 +45,10 @@ function deleteSectionRef({ sectionId }: { sectionId: string }) {
   });
 }
 
-export function useSectionRefAndInit(sectionId: string, type: "withNested" | "selfOnly") {
+export function useSectionRefAndInit(
+  sectionId: string,
+  type: "withNested" | "selfOnly",
+) {
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {

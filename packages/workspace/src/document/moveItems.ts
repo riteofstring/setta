@@ -1,7 +1,14 @@
 import { insertIntoArray } from "./arrayUtils";
 import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
-import { getSectionItemTreeOrThrow, getSectionOrThrow } from "./documentSelectors";
-import { buildItemParentMap, getItemOrThrow, isDescendantOfItemSelection } from "./itemTree";
+import {
+  getSectionItemTreeOrThrow,
+  getSectionOrThrow,
+} from "./documentSelectors";
+import {
+  buildItemParentMap,
+  getItemOrThrow,
+  isDescendantOfItemSelection,
+} from "./itemTree";
 import { useWorkspaceDocument } from "./stores";
 import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types";
 
@@ -28,11 +35,19 @@ type PreparedItemMove = {
   remainingOldChildren: Array<string>;
 };
 
-export function moveItems({ sectionId, itemIds, newParentId, newIndex }: MoveItemsInput) {
+export function moveItems({
+  sectionId,
+  itemIds,
+  newParentId,
+  newIndex,
+}: MoveItemsInput) {
   if (itemIds.length === 0) {
     return;
   }
-  const itemTree = getSectionItemTreeOrThrow(useWorkspaceDocument.getState(), sectionId);
+  const itemTree = getSectionItemTreeOrThrow(
+    useWorkspaceDocument.getState(),
+    sectionId,
+  );
   commitSectionItemTree(
     sectionId,
     applyItemMoveToTree(itemTree, { itemIds, newParentId, newIndex }),
@@ -42,7 +57,10 @@ export function moveItems({ sectionId, itemIds, newParentId, newIndex }: MoveIte
 // One canonical commit and one host notification for however many tree changes the caller
 // folded together — the reference's keyboard actions apply a whole group-move batch through a
 // single optimistic dispatch. An unchanged tree commits and notifies nothing.
-export function commitSectionItemTree(sectionId: string, nextItemTree: WorkspaceSectionItemTree) {
+export function commitSectionItemTree(
+  sectionId: string,
+  nextItemTree: WorkspaceSectionItemTree,
+) {
   const documentState = useWorkspaceDocument.getState();
   const section = getSectionOrThrow(documentState, sectionId);
   if (getSectionItemTreeOrThrow(documentState, sectionId) === nextItemTree) {
@@ -77,7 +95,8 @@ function prepareItemMove(
 ): PreparedItemMove | null {
   const parentById = buildItemParentMap(itemTree);
   const [firstItemId] = itemIds;
-  const oldParentId = firstItemId === undefined ? null : (parentById[firstItemId] ?? null);
+  const oldParentId =
+    firstItemId === undefined ? null : (parentById[firstItemId] ?? null);
   if (!oldParentId) {
     return null;
   }
@@ -115,11 +134,21 @@ function applyCrossParentItemMove(
   prepared: PreparedItemMove,
 ): WorkspaceSectionItemTree {
   const movingIds = new Set(prepared.orderedItemIds);
-  if (isDescendantOfItemSelection(buildItemParentMap(itemTree), move.newParentId, movingIds)) {
-    throw new Error(`Cannot move items into their own subtree at ${move.newParentId}.`);
+  if (
+    isDescendantOfItemSelection(
+      buildItemParentMap(itemTree),
+      move.newParentId,
+      movingIds,
+    )
+  ) {
+    throw new Error(
+      `Cannot move items into their own subtree at ${move.newParentId}.`,
+    );
   }
   const newParent = getItemOrThrow(itemTree, move.newParentId);
-  const remainingNewChildren = newParent.children.filter((id) => !movingIds.has(id));
+  const remainingNewChildren = newParent.children.filter(
+    (id) => !movingIds.has(id),
+  );
   if (move.newIndex < 0 || move.newIndex > remainingNewChildren.length) {
     return itemTree;
   }
@@ -141,7 +170,9 @@ export function orderItemIdsByParent(
   itemIds: Array<string>,
 ): Array<string> {
   const itemSet = new Set(itemIds);
-  return getItemOrThrow(itemTree, parentId).children.filter((id) => itemSet.has(id));
+  return getItemOrThrow(itemTree, parentId).children.filter((id) =>
+    itemSet.has(id),
+  );
 }
 
 function withItemChildren(

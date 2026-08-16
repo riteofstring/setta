@@ -1,10 +1,17 @@
-import { KeyboardSensor, PointerActivationConstraints, PointerSensor } from "@dnd-kit/dom";
+import {
+  KeyboardSensor,
+  PointerActivationConstraints,
+  PointerSensor,
+} from "@dnd-kit/dom";
 import { useMemo } from "react";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME } from "../interaction";
 import { useDndState } from "./dndState";
-import { selectionDragHandle, selectionDragPrimaryId } from "./selectionDragHandle";
+import {
+  selectionDragHandle,
+  selectionDragPrimaryId,
+} from "./selectionDragHandle";
 
 // Both halves of the reference's `useDNDSensors.ts`: section drags have no distance
 // constraint — activation is gated purely by the held dnd mode — while item drags carry the
@@ -68,7 +75,11 @@ export function useSectionDndSensors() {
         const baseTarget = source.handle ?? source.element;
         const handleElement = selectionDragHandle.value;
         const primaryId = selectionDragPrimaryId.value;
-        if (handleElement && primaryId && String(source.id) === String(primaryId)) {
+        if (
+          handleElement &&
+          primaryId &&
+          String(source.id) === String(primaryId)
+        ) {
           return [baseTarget, handleElement];
         }
         return [baseTarget];

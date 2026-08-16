@@ -20,8 +20,14 @@ type HeaderIconProps = {
   hasSectionStyleTheme: boolean;
 };
 
-export function HeaderIcon({ sectionId, sectionKind, hasSectionStyleTheme }: HeaderIconProps) {
-  const themedIconClassName = hasSectionStyleTheme ? themedHeaderIconClassName : null;
+export function HeaderIcon({
+  sectionId,
+  sectionKind,
+  hasSectionStyleTheme,
+}: HeaderIconProps) {
+  const themedIconClassName = hasSectionStyleTheme
+    ? themedHeaderIconClassName
+    : null;
 
   if (sectionKind === GROUP_SECTION_KIND) {
     return (

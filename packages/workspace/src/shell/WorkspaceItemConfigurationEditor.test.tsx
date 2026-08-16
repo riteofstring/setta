@@ -2,24 +2,43 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+} from "vitest";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import { useWorkspaceDocument } from "../document/stores";
-import type { WorkspaceDocument, WorkspaceItemControlPresentation } from "../document/types";
+import type {
+  WorkspaceDocument,
+  WorkspaceItemControlPresentation,
+} from "../document/types";
 import { WorkspaceItemConfigurationEditor } from "./WorkspaceItemConfigurationEditor";
 import {
   createWorkspaceInspectorItemControl,
   WORKSPACE_INSPECTOR_ITEM_CONTROL_KINDS,
 } from "./workspaceInspectorItemDefaults";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
-type ValueControl = Exclude<WorkspaceItemControlPresentation, { kind: "group" }>;
+type ValueControl = Exclude<
+  WorkspaceItemControlPresentation,
+  { kind: "group" }
+>;
 
 function setInputValue(input: HTMLInputElement, value: string): void {
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  )?.set;
   if (!setter) {
     throw new Error("Expected a native input value setter.");
   }
@@ -27,7 +46,10 @@ function setInputValue(input: HTMLInputElement, value: string): void {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-function getLabeledControl<T extends HTMLElement>(host: HTMLElement, labelText: string): T {
+function getLabeledControl<T extends HTMLElement>(
+  host: HTMLElement,
+  labelText: string,
+): T {
   const label = [...host.querySelectorAll("label")].find(
     (candidate) => candidate.textContent?.trim() === labelText,
   );
@@ -122,8 +144,8 @@ describe("WorkspaceItemConfigurationEditor", () => {
 
   function getStoredControl(): ValueControl {
     const control =
-      useWorkspaceDocument.getState().sections["leaf"]?.itemTree?.items["item"]?.presentation
-        ?.control;
+      useWorkspaceDocument.getState().sections["leaf"]?.itemTree?.items["item"]
+        ?.presentation?.control;
     if (!control || control.kind === "group") {
       throw new Error("Expected a stored value control.");
     }
@@ -148,7 +170,9 @@ describe("WorkspaceItemConfigurationEditor", () => {
 
       expect(getStoredControl().configuration.disabled).toBe(true);
       expect(onChange).toHaveBeenCalledOnce();
-      expect(onStatusChange).toHaveBeenCalledWith(`${kind} configuration updated.`);
+      expect(onStatusChange).toHaveBeenCalledWith(
+        `${kind} configuration updated.`,
+      );
     },
   );
 
@@ -172,7 +196,9 @@ describe("WorkspaceItemConfigurationEditor", () => {
     expect(onChange).not.toHaveBeenCalled();
 
     await act(async () => {
-      minimum.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+      minimum.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+      );
     });
     expect(onEscape).toHaveBeenCalledOnce();
     expect(minimum.value).toBe("0");
@@ -182,7 +208,11 @@ describe("WorkspaceItemConfigurationEditor", () => {
       setInputValue(minimum, "5");
       minimum.blur();
     });
-    expect(getStoredControl().configuration).toMatchObject({ min: 5, max: 10, step: 1 });
+    expect(getStoredControl().configuration).toMatchObject({
+      min: 5,
+      max: 10,
+      step: 1,
+    });
     expect(onChange).toHaveBeenCalledOnce();
   });
 
@@ -194,11 +224,16 @@ describe("WorkspaceItemConfigurationEditor", () => {
     const textControl = createWorkspaceInspectorItemControl("text", "");
     loadControl(textControl);
     await renderEditor(textControl);
-    const placeholder = getLabeledControl<HTMLInputElement>(host, "Placeholder");
+    const placeholder = getLabeledControl<HTMLInputElement>(
+      host,
+      "Placeholder",
+    );
     await act(async () => {
       placeholder.focus();
       setInputValue(placeholder, "Canceled placeholder");
-      placeholder.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+      placeholder.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+      );
     });
     expect(placeholder.value).toBe("");
     expect(document.activeElement).toBe(focusTarget);
@@ -215,7 +250,9 @@ describe("WorkspaceItemConfigurationEditor", () => {
     await act(async () => {
       minimum.focus();
       setInputValue(minimum, "4");
-      minimum.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+      minimum.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+      );
     });
     expect(minimum.value).toBe("0");
     expect(document.activeElement).toBe(focusTarget);
@@ -228,13 +265,17 @@ describe("WorkspaceItemConfigurationEditor", () => {
     const control = createWorkspaceInspectorItemControl("dropdown", "");
     loadControl(control);
     await renderEditor(control);
-    const addChoice = host.querySelector<HTMLButtonElement>('button[aria-label="Add choice"]');
+    const addChoice = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Add choice"]',
+    );
     if (!addChoice) {
       throw new Error("Expected Add choice.");
     }
     await act(async () => addChoice.click());
 
-    expect(getStoredControl().configuration).toMatchObject({ choices: ["Choice 1"] });
+    expect(getStoredControl().configuration).toMatchObject({
+      choices: ["Choice 1"],
+    });
     expect(host.querySelector("textarea")).toBeNull();
     expect(onChange).toHaveBeenCalledOnce();
   });
@@ -243,7 +284,9 @@ describe("WorkspaceItemConfigurationEditor", () => {
     const control = createWorkspaceInspectorItemControl("dropdown", "");
     loadControl(control);
     await renderEditor(control);
-    const addGroup = host.querySelector<HTMLButtonElement>('button[aria-label="Add choice group"]');
+    const addGroup = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Add choice group"]',
+    );
     if (!addGroup) {
       throw new Error("Expected Add choice group.");
     }
@@ -279,7 +322,9 @@ describe("WorkspaceItemConfigurationEditor", () => {
     loadControl(control);
     await renderEditor(control);
     expect(host.textContent).toContain("Native colors");
-    const addColor = host.querySelector<HTMLButtonElement>('button[aria-label="Add color"]');
+    const addColor = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Add color"]',
+    );
     if (!addColor) {
       throw new Error("Expected Add color.");
     }
@@ -317,7 +362,10 @@ describe("WorkspaceItemConfigurationEditor", () => {
     };
     loadControl(control);
     await renderEditor(control);
-    const maximum = getLabeledControl<HTMLInputElement>(host, "Max attachments");
+    const maximum = getLabeledControl<HTMLInputElement>(
+      host,
+      "Max attachments",
+    );
     await act(async () => {
       maximum.focus();
       setInputValue(maximum, "1");
@@ -350,7 +398,9 @@ describe("WorkspaceItemConfigurationEditor", () => {
     };
     loadControl(control);
     await renderEditor(control);
-    expect(getLabeledControl<HTMLSelectElement>(host, "Selection").value).toBe("multiple");
+    expect(getLabeledControl<HTMLSelectElement>(host, "Selection").value).toBe(
+      "multiple",
+    );
     const includeTime = host.querySelector<HTMLButtonElement>(
       'button[role="switch"][aria-label="Include Time"]',
     );
@@ -380,7 +430,11 @@ describe("WorkspaceItemConfigurationEditor", () => {
     await renderEditor(stored);
 
     expect(host.querySelector('[aria-label="Transparent"]')).not.toBeNull();
-    expect(getLabeledControl<HTMLInputElement>(host, "Clock Scale").type).toBe("range");
-    expect(getLabeledControl<HTMLSelectElement>(host, "Clock Font").value).toBe("system");
+    expect(getLabeledControl<HTMLInputElement>(host, "Clock Scale").type).toBe(
+      "range",
+    );
+    expect(getLabeledControl<HTMLSelectElement>(host, "Clock Font").value).toBe(
+      "system",
+    );
   });
 });

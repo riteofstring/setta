@@ -31,7 +31,10 @@ import { WorkspaceCodeSectionBody } from "./WorkspaceCodeSectionBody";
 // registers itself.
 
 // The reference's `codeSectionDefault.size`.
-const WORKSPACE_CODE_SECTION_DEFAULT_SIZE: SectionSize = { width: 500, height: "auto" };
+const WORKSPACE_CODE_SECTION_DEFAULT_SIZE: SectionSize = {
+  width: 500,
+  height: "auto",
+};
 
 // The reference's `codeLanguageIconComponents`.
 const CODE_SECTION_LANGUAGE_ICONS: Record<
@@ -57,10 +60,15 @@ export type WorkspaceCodeSectionRegistration = {
   // Narrows the languages this registration accepts. A document naming a language outside the
   // list fails at load with the rest of the data contract.
   languages?: ReadonlyArray<WorkspaceCodeSectionLanguage>;
-  renderInspector?: (context: WorkspaceInspectorContributionContext) => ReactNode;
+  renderInspector?: (
+    context: WorkspaceInspectorContributionContext,
+  ) => ReactNode;
 };
 
-function CodeSectionLanguageIcon({ className, sectionId }: WorkspaceSectionKindIconProps) {
+function CodeSectionLanguageIcon({
+  className,
+  sectionId,
+}: WorkspaceSectionKindIconProps) {
   const language = useWorkspaceDocument((state) => {
     const section = getSectionOrThrow(state, sectionId);
     return parseWorkspaceCodeSectionData(sectionId, section.data).language;
@@ -76,11 +84,15 @@ function resolveAllowedLanguages(
     return WORKSPACE_CODE_SECTION_LANGUAGES;
   }
   if (languages.length === 0) {
-    throw new Error("A code section registration must allow at least one language.");
+    throw new Error(
+      "A code section registration must allow at least one language.",
+    );
   }
   for (const language of languages) {
     if (!WORKSPACE_CODE_SECTION_LANGUAGES.includes(language)) {
-      throw new Error(`A code section registration names the unknown language ${language}.`);
+      throw new Error(
+        `A code section registration names the unknown language ${language}.`,
+      );
     }
   }
   return Object.freeze([...languages]);
@@ -92,7 +104,10 @@ export function createWorkspaceCodeSection(
   const allowedLanguages = resolveAllowedLanguages(registration.languages);
   return {
     renderContent: (section: WorkspaceSection) => (
-      <WorkspaceCodeSectionBody allowedLanguages={allowedLanguages} section={section} />
+      <WorkspaceCodeSectionBody
+        allowedLanguages={allowedLanguages}
+        section={section}
+      />
     ),
     assertValidData: (section: WorkspaceSection) => {
       parseWorkspaceCodeSectionData(section.id, section.data, allowedLanguages);
@@ -101,7 +116,8 @@ export function createWorkspaceCodeSection(
     // The editor owns its own scroller, so the package body slot only has to give it the
     // section's remaining height.
     contentClassName: "flex min-h-0 flex-col",
-    defaultSize: registration.defaultSize ?? WORKSPACE_CODE_SECTION_DEFAULT_SIZE,
+    defaultSize:
+      registration.defaultSize ?? WORKSPACE_CODE_SECTION_DEFAULT_SIZE,
     ...(registration.renderInspector === undefined
       ? {}
       : { renderInspector: registration.renderInspector }),

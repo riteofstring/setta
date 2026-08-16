@@ -1,12 +1,17 @@
 import { EditorState } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
-import { getTextValueExtensions, TEXT_VALUE_BASIC_SETUP } from "./textValueExtensions";
+import {
+  getTextValueExtensions,
+  TEXT_VALUE_BASIC_SETUP,
+} from "./textValueExtensions";
 
 // Characterizes the reference's `getExtensions` behavior on the trimmed text-value path: the
 // wrap default, the single-line transaction filter, and the extension counts the reference's
 // own test freezes for wrap and language packs.
 
-function createState(options: Partial<Parameters<typeof getTextValueExtensions>[0]> = {}) {
+function createState(
+  options: Partial<Parameters<typeof getTextValueExtensions>[0]> = {},
+) {
   return EditorState.create({
     doc: "alpha",
     extensions: getTextValueExtensions({

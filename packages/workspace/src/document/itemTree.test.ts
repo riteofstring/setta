@@ -22,7 +22,9 @@ function makeItemTree(
   }
   return {
     rootId: "item-root",
-    items: Object.fromEntries([...ids].map((id) => [id, { id, children: childrenById[id] ?? [] }])),
+    items: Object.fromEntries(
+      [...ids].map((id) => [id, { id, children: childrenById[id] ?? [] }]),
+    ),
     selectedItemIds,
   };
 }
@@ -102,7 +104,9 @@ describe("getRootSelectedItemIds", () => {
         group: ["nested"],
       }),
     );
-    expect(getRootSelectedItemIds(parentById, ["group", "nested", "a"])).toEqual(["group", "a"]);
+    expect(
+      getRootSelectedItemIds(parentById, ["group", "nested", "a"]),
+    ).toEqual(["group", "a"]);
   });
 });
 
@@ -134,9 +138,15 @@ describe("isDescendantOfItemSelection", () => {
         group: ["nested"],
       }),
     );
-    expect(isDescendantOfItemSelection(parentById, "group", new Set(["group"]))).toBe(true);
-    expect(isDescendantOfItemSelection(parentById, "nested", new Set(["group"]))).toBe(true);
-    expect(isDescendantOfItemSelection(parentById, "a", new Set(["group"]))).toBe(false);
+    expect(
+      isDescendantOfItemSelection(parentById, "group", new Set(["group"])),
+    ).toBe(true);
+    expect(
+      isDescendantOfItemSelection(parentById, "nested", new Set(["group"])),
+    ).toBe(true);
+    expect(
+      isDescendantOfItemSelection(parentById, "a", new Set(["group"])),
+    ).toBe(false);
   });
 });
 
@@ -193,6 +203,8 @@ describe("getItemOrThrow", () => {
   it("returns known items and throws for unknown ids", () => {
     const itemTree = makeItemTree({ "item-root": ["a"] });
     expect(getItemOrThrow(itemTree, "a").id).toBe("a");
-    expect(() => getItemOrThrow(itemTree, "ghost")).toThrowError(/Unknown item ghost/);
+    expect(() => getItemOrThrow(itemTree, "ghost")).toThrowError(
+      /Unknown item ghost/,
+    );
   });
 });

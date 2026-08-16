@@ -31,9 +31,16 @@ describe("getDragItems", () => {
 
     setActiveSectionIds(["section-a", "section-b"]);
 
-    const dragItems = getDragItems(nodeInternals, { x: 200, y: 120 }, "section-a");
+    const dragItems = getDragItems(
+      nodeInternals,
+      { x: 200, y: 120 },
+      "section-a",
+    );
 
-    expect(dragItems.map((item) => item.id)).toEqual(["section-a", "section-b"]);
+    expect(dragItems.map((item) => item.id)).toEqual([
+      "section-a",
+      "section-b",
+    ]);
     expect(dragItems[0]?.distance).toEqual({ x: 190, y: 100 });
   });
 
@@ -45,7 +52,11 @@ describe("getDragItems", () => {
 
     setActiveSectionIds(["section-b"]);
 
-    const dragItems = getDragItems(nodeInternals, { x: 40, y: 40 }, "section-a");
+    const dragItems = getDragItems(
+      nodeInternals,
+      { x: 40, y: 40 },
+      "section-a",
+    );
 
     expect(dragItems.map((item) => item.id)).toEqual(["section-a"]);
   });

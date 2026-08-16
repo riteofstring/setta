@@ -11,7 +11,10 @@ import {
 // current section is a nested vertical group, then every descendant of the highest such
 // ancestor receives the width (excluding the resized section, which already has it).
 
-function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): WorkspaceSection {
+function makeSection(
+  id: string,
+  overrides: Partial<WorkspaceSection> = {},
+): WorkspaceSection {
   return {
     id,
     kind: "leaf",
@@ -33,7 +36,9 @@ function makeState(
   parentSectionMap: Record<string, string>,
 ): WorkspaceDocumentState {
   return {
-    sections: Object.fromEntries(sections.map((section) => [section.id, section])),
+    sections: Object.fromEntries(
+      sections.map((section) => [section.id, section]),
+    ),
     topLevelSections: {},
     viewport: null,
     parentSectionMap,
@@ -51,18 +56,27 @@ describe("setSelfParentSiblingChildrenWidths", () => {
       { "leaf-a": "group", "leaf-b": "group" },
     );
 
-    const { updatedSectionSizes } = setSelfParentSiblingChildrenWidths(state, "leaf-a", {
-      width: 240,
-    });
+    const { updatedSectionSizes } = setSelfParentSiblingChildrenWidths(
+      state,
+      "leaf-a",
+      {
+        width: 240,
+      },
+    );
 
     // The reference's predicate walk stops immediately for a leaf: only itself updates.
-    expect(updatedSectionSizes).toEqual({ "leaf-a": { width: 240, height: 50 } });
+    expect(updatedSectionSizes).toEqual({
+      "leaf-a": { width: 240, height: 50 },
+    });
   });
 
   it("climbs vertical group ancestry and writes the width across the whole subtree", () => {
     const state = makeState(
       [
-        makeSection("outer", { kind: "group", children: ["inner", "outer-leaf"] }),
+        makeSection("outer", {
+          kind: "group",
+          children: ["inner", "outer-leaf"],
+        }),
         makeSection("inner", { kind: "group", children: ["inner-leaf"] }),
         makeSection("outer-leaf"),
         makeSection("inner-leaf"),
@@ -70,9 +84,10 @@ describe("setSelfParentSiblingChildrenWidths", () => {
       { inner: "outer", "outer-leaf": "outer", "inner-leaf": "inner" },
     );
 
-    const { updatedSectionSizes, sections } = setSelfParentSiblingChildrenWidths(state, "inner", {
-      width: 300,
-    });
+    const { updatedSectionSizes, sections } =
+      setSelfParentSiblingChildrenWidths(state, "inner", {
+        width: 300,
+      });
 
     expect(Object.keys(updatedSectionSizes).sort()).toEqual([
       "inner",
@@ -99,23 +114,37 @@ describe("setSelfParentSiblingChildrenWidths", () => {
       { inner: "outer", "inner-leaf": "inner" },
     );
 
-    const { updatedSectionSizes } = setSelfParentSiblingChildrenWidths(state, "inner", {
-      width: 300,
-    });
+    const { updatedSectionSizes } = setSelfParentSiblingChildrenWidths(
+      state,
+      "inner",
+      {
+        width: 300,
+      },
+    );
 
     // A horizontal group does not climb to its parent; its own subtree still updates.
-    expect(Object.keys(updatedSectionSizes).sort()).toEqual(["inner", "inner-leaf"]);
+    expect(Object.keys(updatedSectionSizes).sort()).toEqual([
+      "inner",
+      "inner-leaf",
+    ]);
   });
 
   it("does not propagate height changes", () => {
     const state = makeState(
-      [makeSection("group", { kind: "group", children: ["leaf-a"] }), makeSection("leaf-a")],
+      [
+        makeSection("group", { kind: "group", children: ["leaf-a"] }),
+        makeSection("leaf-a"),
+      ],
       { "leaf-a": "group" },
     );
 
-    const { updatedSectionSizes } = setSelfParentSiblingChildrenWidths(state, "group", {
-      height: 400,
-    });
+    const { updatedSectionSizes } = setSelfParentSiblingChildrenWidths(
+      state,
+      "group",
+      {
+        height: 400,
+      },
+    );
 
     expect(updatedSectionSizes).toEqual({ group: { width: 100, height: 400 } });
   });

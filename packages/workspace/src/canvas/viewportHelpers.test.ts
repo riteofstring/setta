@@ -33,9 +33,12 @@ function setupZoomRuntime() {
       },
     }),
   } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
-  const d3Zoom = { scaleBy, scaleTo, transform, translateBy } as unknown as NonNullable<
-    typeof initialCanvasState.d3Zoom
-  >;
+  const d3Zoom = {
+    scaleBy,
+    scaleTo,
+    transform,
+    translateBy,
+  } as unknown as NonNullable<typeof initialCanvasState.d3Zoom>;
 
   useReactFlow.setState({ ...initialCanvasState, d3Selection, d3Zoom });
 
@@ -135,7 +138,10 @@ describe("viewport zoom helpers", () => {
 
     expect(durations).toEqual([]);
     expect(scaleTo).toHaveBeenCalledWith(d3Selection, 1);
-    expect(transform).toHaveBeenCalledWith(d3Selection, expect.objectContaining({ k: 2 }));
+    expect(transform).toHaveBeenCalledWith(
+      d3Selection,
+      expect.objectContaining({ k: 2 }),
+    );
   });
 
   it("does not schedule a zero-duration transition for reduced-motion centering", () => {
@@ -148,11 +154,16 @@ describe("viewport zoom helpers", () => {
     setCenter(100, 50, { zoom: 2 });
 
     expect(durations).toEqual([]);
-    expect(transform).toHaveBeenCalledWith(d3Selection, expect.objectContaining({ k: 2 }));
+    expect(transform).toHaveBeenCalledWith(
+      d3Selection,
+      expect.objectContaining({ k: 2 }),
+    );
   });
 
   it("fails loud when zooming before the zoom pane initialized", () => {
-    expect(() => resetZoom()).toThrowError("Cannot zoom before the zoom pane initialized.");
+    expect(() => resetZoom()).toThrowError(
+      "Cannot zoom before the zoom pane initialized.",
+    );
   });
 
   // The keyboard chords ask these before they zoom, because the toolbar's buttons are simply
@@ -274,7 +285,10 @@ describe("viewport zoom helpers", () => {
     expect(applied.x).toBe(195);
     expect(applied.y).toBe(205);
     expect(durations).toEqual([50]);
-    expect(useActiveSections.getState().activeIds).toEqual(["section-a", "section-b"]);
+    expect(useActiveSections.getState().activeIds).toEqual([
+      "section-a",
+      "section-b",
+    ]);
   });
 
   // Activating an Outline row is how a compact host reaches a section, and there its own pane
@@ -327,7 +341,9 @@ describe("viewport zoom helpers", () => {
   // The reference's `movePaneToIncludeElement`: keyboard focus travels the canvas only as far as
   // it must, and keeps the focused element 100px clear of the pane edges.
   function elementAt(x: number, y: number): HTMLElement {
-    return { getBoundingClientRect: () => ({ x, y }) } as unknown as HTMLElement;
+    return {
+      getBoundingClientRect: () => ({ x, y }),
+    } as unknown as HTMLElement;
   }
 
   it("moves the canvas by the shortest distance that brings a focused element into view", () => {
@@ -381,7 +397,9 @@ describe("viewport zoom helpers", () => {
   });
 });
 
-function getFirstTransformCall(transform: ReturnType<typeof vi.fn>): [unknown, ZoomTransform] {
+function getFirstTransformCall(
+  transform: ReturnType<typeof vi.fn>,
+): [unknown, ZoomTransform] {
   const call = transform.mock.calls[0];
   if (!call) {
     throw new Error("d3Zoom.transform was not called.");

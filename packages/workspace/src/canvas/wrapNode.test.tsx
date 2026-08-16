@@ -7,7 +7,11 @@ import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import { NO_PAN_CLASS_NAME } from "../interaction";
 import { NodeWrapper } from "./wrapNode";
 
@@ -18,7 +22,9 @@ vi.mock("../section/container/SectionContainer", () => ({
   SectionContainer: ({ sectionId }: { sectionId: string }) => sectionId,
 }));
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function loadTestDocument() {
   registerSectionKinds({ leaf: { renderContent: () => null } });
@@ -85,7 +91,9 @@ describe("NodeWrapper", () => {
       expect.objectContaining({ disabled: false, nodeId: "leaf" }),
     );
 
-    await act(async () => useWorkspaceCapabilities.setState({ canEditLayout: false }));
+    await act(async () =>
+      useWorkspaceCapabilities.setState({ canEditLayout: false }),
+    );
 
     expect(node?.classList.contains(NO_PAN_CLASS_NAME)).toBe(false);
     expect(useDragMock).toHaveBeenLastCalledWith(

@@ -1,4 +1,8 @@
-import { javascript, javascriptLanguage, typescriptLanguage } from "@codemirror/lang-javascript";
+import {
+  javascript,
+  javascriptLanguage,
+  typescriptLanguage,
+} from "@codemirror/lang-javascript";
 import { json, jsonLanguage } from "@codemirror/lang-json";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { python, pythonLanguage } from "@codemirror/lang-python";
@@ -18,7 +22,13 @@ const TOML_LANGUAGE = StreamLanguage.define(tomlMode);
 const SHELL_LANGUAGE = StreamLanguage.define(shellMode);
 
 export type TextValueLanguage =
-  "python" | "typescript" | "javascript" | "json" | "yaml" | "toml" | "markdown";
+  | "python"
+  | "typescript"
+  | "javascript"
+  | "json"
+  | "yaml"
+  | "toml"
+  | "markdown";
 
 // The built-in code section's editor vocabulary. The reference declares `bash` in its code
 // language enum but registers no CodeMirror mode for it, so a bash code section renders
@@ -38,7 +48,10 @@ type TextValueLanguageSupport = {
   getParser: () => TextValueParserLike;
 };
 
-const TEXT_VALUE_LANGUAGE_SUPPORT: Record<WorkspaceEditorLanguage, TextValueLanguageSupport> = {
+const TEXT_VALUE_LANGUAGE_SUPPORT: Record<
+  WorkspaceEditorLanguage,
+  TextValueLanguageSupport
+> = {
   bash: {
     getExtensions: () => [SHELL_LANGUAGE],
     getParser: () => SHELL_LANGUAGE.parser,

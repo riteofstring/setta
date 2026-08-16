@@ -25,9 +25,11 @@ const NodeRenderer = () => {
       return null;
     }
 
-    const observer = new ResizeObserver((entries: Array<ResizeObserverEntry>) => {
-      updateNodeDimensionsFromResizeObserver(entries);
-    });
+    const observer = new ResizeObserver(
+      (entries: Array<ResizeObserverEntry>) => {
+        updateNodeDimensionsFromResizeObserver(entries);
+      },
+    );
 
     resizeObserverRef.current = observer;
 

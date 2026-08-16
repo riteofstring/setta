@@ -4,8 +4,14 @@ import { screenToFlowPosition } from "../canvas/viewportPosition";
 import { getActiveSectionIds } from "../document/activeSections";
 import { getSectionChildren } from "../document/documentSelectors";
 import { moveSections } from "../document/moveSections";
-import { getSharedParentId, isDescendantOfSectionSelection } from "../document/sectionSelection";
-import { useWorkspaceDocument, type WorkspaceDocumentState } from "../document/stores";
+import {
+  getSharedParentId,
+  isDescendantOfSectionSelection,
+} from "../document/sectionSelection";
+import {
+  useWorkspaceDocument,
+  type WorkspaceDocumentState,
+} from "../document/stores";
 import type { DragEndEvent } from "./adapter";
 import { manualDndChildrenReset, useDndChildren } from "./dndChildren";
 import { getDndSectionId } from "./dndIds";
@@ -57,7 +63,8 @@ function onFreeMoveEnd({
     draggingIds,
     draggingRectsById: dndState.draggingRectsById,
     draggingSet,
-    isInvalidParent: (parentId) => isDescendantOfSectionSelection(state, parentId, draggingSet),
+    isInvalidParent: (parentId) =>
+      isDescendantOfSectionSelection(state, parentId, draggingSet),
     overId,
     parentSectionMap: state.parentSectionMap,
     sharedParentChildren:
@@ -81,7 +88,13 @@ function onFreeMoveEnd({
 export function useOnDragEnd() {
   const dummyRef = useRef<HTMLDivElement>(null);
 
-  function onDragEnd({ active, over, collisions, canceled, delta }: DragEndEvent) {
+  function onDragEnd({
+    active,
+    over,
+    collisions,
+    canceled,
+    delta,
+  }: DragEndEvent) {
     if (canceled) {
       forceDeactivateDnd();
       return;
@@ -101,7 +114,9 @@ export function useOnDragEnd() {
     }
     // don't reset isMovingFree or isSorting
     useDndState.getState().reset((api) => {
-      const dndState = api.getState() as ReturnType<typeof useDndState.getState>;
+      const dndState = api.getState() as ReturnType<
+        typeof useDndState.getState
+      >;
       return {
         isMovingFree: dndState.isMovingFree,
         isSorting: dndState.isSorting,
@@ -145,8 +160,11 @@ function resolveSortPlan({
   );
 }
 
-function resolveSortableParentId(active: DragEndEvent["active"]): string | null {
-  const activeData = active.data?.current as { sortable?: { containerId?: string } } | undefined;
+function resolveSortableParentId(
+  active: DragEndEvent["active"],
+): string | null {
+  const activeData = active.data?.current as
+    { sortable?: { containerId?: string } } | undefined;
   return activeData?.sortable?.containerId ?? null;
 }
 
@@ -172,7 +190,11 @@ function buildSortingMovePlanInput({
     draggingIds,
     draggingSet,
     ...resolveSortingFallback(parentId),
-    isInvalidTarget: isDescendantOfSectionSelection(state, parentId, draggingSet),
+    isInvalidTarget: isDescendantOfSectionSelection(
+      state,
+      parentId,
+      draggingSet,
+    ),
     over,
     parentId,
   };

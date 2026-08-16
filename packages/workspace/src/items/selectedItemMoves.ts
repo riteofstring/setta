@@ -86,8 +86,17 @@ function moveSelectedItemsByOffset(direction: -1 | 1): boolean {
   }
   const selectedSet = new Set(context.rootSelected);
   const moves: Array<ItemTreeMove> = [];
-  for (const group of getOffsetMoveGroups(direction, moveState.visibleSiblings, selectedSet)) {
-    const resolved = resolveItemOffsetMove({ direction, group, selectedSet, moveState });
+  for (const group of getOffsetMoveGroups(
+    direction,
+    moveState.visibleSiblings,
+    selectedSet,
+  )) {
+    const resolved = resolveItemOffsetMove({
+      direction,
+      group,
+      selectedSet,
+      moveState,
+    });
     if (!resolved) {
       continue;
     }
@@ -103,7 +112,10 @@ function moveSelectedItemsByOffset(direction: -1 | 1): boolean {
   }
   commitSectionItemTree(
     context.sectionId,
-    moves.reduce((tree, move) => applyItemMoveToTree(tree, move), context.itemTree),
+    moves.reduce(
+      (tree, move) => applyItemMoveToTree(tree, move),
+      context.itemTree,
+    ),
   );
   return true;
 }
@@ -134,7 +146,10 @@ export function unindentSelectedItems(): boolean {
     return false;
   }
   let tree = base.itemTree;
-  for (const group of buildItemParentMoveGroups(base.rootSelected, base.parentById)) {
+  for (const group of buildItemParentMoveGroups(
+    base.rootSelected,
+    base.parentById,
+  )) {
     tree = unindentItemParentGroup(tree, base.parentById, group);
   }
   commitSectionItemTree(base.sectionId, tree);
@@ -153,9 +168,15 @@ function getItemSelectionBase(): ItemSelectionBase | null {
   if (!visibility || visibility.filterActive) {
     return null;
   }
-  const itemTree = getSectionItemTreeOrThrow(useWorkspaceDocument.getState(), sectionId);
+  const itemTree = getSectionItemTreeOrThrow(
+    useWorkspaceDocument.getState(),
+    sectionId,
+  );
   const parentById = buildItemParentMap(itemTree);
-  const rootSelected = getRootSelectedItemIds(parentById, itemTree.selectedItemIds);
+  const rootSelected = getRootSelectedItemIds(
+    parentById,
+    itemTree.selectedItemIds,
+  );
   if (rootSelected.some((itemId) => !visibility.visibleItemIds.has(itemId))) {
     return null;
   }
@@ -173,17 +194,25 @@ function getItemMovementContext(): ItemMovementContext | null {
   if (!base) {
     return null;
   }
-  const sharedParent = getSharedItemParentId(base.parentById, base.rootSelected);
+  const sharedParent = getSharedItemParentId(
+    base.parentById,
+    base.rootSelected,
+  );
   if (!sharedParent) {
     return null;
   }
-  const topLevelItemIds = getItemOrThrow(base.itemTree, base.itemTree.rootId).children.filter(
-    (itemId) => base.visibleItemIds.has(itemId),
-  );
+  const topLevelItemIds = getItemOrThrow(
+    base.itemTree,
+    base.itemTree.rootId,
+  ).children.filter((itemId) => base.visibleItemIds.has(itemId));
   return {
     ...base,
     sharedParent,
-    tree: buildItemTreeView(base.itemTree, topLevelItemIds, base.visibleItemIds),
+    tree: buildItemTreeView(
+      base.itemTree,
+      topLevelItemIds,
+      base.visibleItemIds,
+    ),
   };
 }
 
@@ -201,14 +230,20 @@ function resolveSectionWithSelectedItems(): string | null {
   return null;
 }
 
-function getItemOffsetState(context: ItemMovementContext): ItemOffsetState | null {
-  const visibleSiblings = [...(context.tree.visibleChildrenByParent[context.sharedParent] ?? [])];
+function getItemOffsetState(
+  context: ItemMovementContext,
+): ItemOffsetState | null {
+  const visibleSiblings = [
+    ...(context.tree.visibleChildrenByParent[context.sharedParent] ?? []),
+  ];
   if (visibleSiblings.length === 0) {
     return null;
   }
   return {
     visibleSiblings,
-    fullChildren: [...getItemOrThrow(context.itemTree, context.sharedParent).children],
+    fullChildren: [
+      ...getItemOrThrow(context.itemTree, context.sharedParent).children,
+    ],
   };
 }
 
@@ -259,7 +294,8 @@ function findTargetVisibleIndex({
   selectedSet: ReadonlySet<string>;
 }): number | null {
   const boundaryId = direction < 0 ? group[0] : group[group.length - 1];
-  const boundaryIndex = boundaryId === undefined ? -1 : visibleSiblings.indexOf(boundaryId);
+  const boundaryIndex =
+    boundaryId === undefined ? -1 : visibleSiblings.indexOf(boundaryId);
   if (boundaryIndex < 0) {
     return null;
   }
@@ -290,7 +326,9 @@ function resolveItemOffsetMove({
   moveState: ItemOffsetState;
 }): ResolvedItemOffsetMove | null {
   const movingIds = new Set(group);
-  const remainingVisible = moveState.visibleSiblings.filter((itemId) => !movingIds.has(itemId));
+  const remainingVisible = moveState.visibleSiblings.filter(
+    (itemId) => !movingIds.has(itemId),
+  );
   const targetVisibleIndex = findTargetVisibleIndex({
     direction,
     group,
@@ -320,7 +358,10 @@ function resolveItemOffsetMove({
 
 // Later groups resolve against the sibling order the earlier groups already produced; the
 // canonical tree itself changes once, at the commit.
-function applyResolvedItemOffsetMove(moveState: ItemOffsetState, move: ResolvedItemOffsetMove) {
+function applyResolvedItemOffsetMove(
+  moveState: ItemOffsetState,
+  move: ResolvedItemOffsetMove,
+) {
   const movingIds = new Set(move.itemIds);
   moveState.visibleSiblings = insertIntoArray(
     move.remainingVisible,
@@ -342,7 +383,9 @@ function indentItemGroup(
 ): WorkspaceSectionItemTree {
   const currentChildren = getItemOrThrow(tree, parentId).children;
   const groupSet = new Set(group);
-  const orderedGroupIds = currentChildren.filter((itemId) => groupSet.has(itemId));
+  const orderedGroupIds = currentChildren.filter((itemId) =>
+    groupSet.has(itemId),
+  );
   const firstId = orderedGroupIds[0];
   if (firstId === undefined) {
     return tree;
@@ -384,7 +427,9 @@ function buildItemParentMoveGroups(
   for (const itemId of itemIds) {
     const parentId = parentById[itemId];
     if (!parentId) {
-      throw new Error(`Selected item ${itemId} has no parent in the item tree.`);
+      throw new Error(
+        `Selected item ${itemId} has no parent in the item tree.`,
+      );
     }
     const group = itemsByParent.get(parentId);
     if (group) {
@@ -393,7 +438,10 @@ function buildItemParentMoveGroups(
       itemsByParent.set(parentId, [itemId]);
     }
   }
-  return [...itemsByParent].map(([parentId, ids]) => ({ parentId, itemIds: ids }));
+  return [...itemsByParent].map(([parentId, ids]) => ({
+    parentId,
+    itemIds: ids,
+  }));
 }
 
 function unindentItemParentGroup(
@@ -405,9 +453,13 @@ function unindentItemParentGroup(
   if (!grandparentId) {
     return tree;
   }
-  const parentIndex = getItemOrThrow(tree, grandparentId).children.indexOf(group.parentId);
+  const parentIndex = getItemOrThrow(tree, grandparentId).children.indexOf(
+    group.parentId,
+  );
   if (parentIndex < 0) {
-    throw new Error(`Item ${group.parentId} is missing from its parent ${grandparentId}.`);
+    throw new Error(
+      `Item ${group.parentId} is missing from its parent ${grandparentId}.`,
+    );
   }
   return applyItemMoveToTree(tree, {
     itemIds: group.itemIds,

@@ -85,7 +85,9 @@ export function commitTopLevelLayoutToDocument() {
     (documentState.parentSectionMap[sectionId] ?? null) === null;
 
   const nextLayouts: Record<string, TopLevelSectionLayout> = {};
-  for (const [sectionId, layout] of Object.entries(documentState.topLevelSections)) {
+  for (const [sectionId, layout] of Object.entries(
+    documentState.topLevelSections,
+  )) {
     if (sectionId in documentState.sections && isTopLevel(sectionId)) {
       nextLayouts[sectionId] = { ...layout };
     }
@@ -109,7 +111,9 @@ export function commitTopLevelLayoutToDocument() {
   notifyWorkspaceDocumentChange();
 }
 
-export function updateNodeDimensionsFromResizeObserver(entries: Array<ResizeObserverEntry>) {
+export function updateNodeDimensionsFromResizeObserver(
+  entries: Array<ResizeObserverEntry>,
+) {
   if (!hasViewportNode()) {
     return;
   }
@@ -118,7 +122,8 @@ export function updateNodeDimensionsFromResizeObserver(entries: Array<ResizeObse
   const newNodes = new Map(currentNodes);
   let dimensionsChanged = false;
   for (const entry of entries) {
-    dimensionsChanged = applyNodeDimensionUpdate(newNodes, entry) || dimensionsChanged;
+    dimensionsChanged =
+      applyNodeDimensionUpdate(newNodes, entry) || dimensionsChanged;
   }
   if (dimensionsChanged) {
     useNodeInternals.setState({ x: newNodes });
@@ -128,7 +133,9 @@ export function updateNodeDimensionsFromResizeObserver(entries: Array<ResizeObse
 }
 
 function hasViewportNode() {
-  return !!useReactFlow.getState().domNode?.querySelector(".react-flow__viewport");
+  return !!useReactFlow
+    .getState()
+    .domNode?.querySelector(".react-flow__viewport");
 }
 
 function applyNodeDimensionUpdate(
@@ -141,7 +148,9 @@ function applyNodeDimensionUpdate(
   }
   const nodeId = target.getAttribute("data-id");
   if (!nodeId) {
-    throw new Error("Node resize observer received an element without a node id.");
+    throw new Error(
+      "Node resize observer received an element without a node id.",
+    );
   }
   const node = newNodes.get(nodeId);
   if (!node) {
@@ -165,7 +174,8 @@ function applyNodeDimensionUpdate(
 // sections keep their measurements, so the armed fit may be completable without waiting for a
 // ResizeObserver pass.
 export function maybeCompleteInitialFitView() {
-  const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions } = useReactFlow.getState();
+  const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions } =
+    useReactFlow.getState();
   if (!fitViewOnInit || fitViewOnInitDone) {
     return;
   }

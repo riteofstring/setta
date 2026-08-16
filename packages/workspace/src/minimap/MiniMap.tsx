@@ -15,7 +15,11 @@ import { getNodesBounds, getPaneRect } from "../canvas/graph";
 import { useReactFlow } from "../canvas/store";
 import type { CoordinateExtent, ReactFlowState, Rect } from "../canvas/types";
 import { getBoundsOfRects } from "../canvas/utils";
-import { useActiveSections, useNodeInternals, type NodeInternalsState } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  type NodeInternalsState,
+} from "../document/stores";
 import type { Node, Position } from "../document/types";
 import {
   areMiniMapNodesRenderableInputsEqual,
@@ -149,16 +153,24 @@ function getSelector(nodes: Array<Node>) {
 
     return {
       viewBB,
-      boundingRect: nodes.length > 0 ? getBoundsOfRects(getNodesBounds(nodes), viewBB) : viewBB,
+      boundingRect:
+        nodes.length > 0
+          ? getBoundsOfRects(getNodesBounds(nodes), viewBB)
+          : viewBB,
     };
   };
 }
 
-function getMiniMapDimension(value: number | string | undefined, fallback: number) {
+function getMiniMapDimension(
+  value: number | string | undefined,
+  fallback: number,
+) {
   return typeof value === "number" ? value : fallback;
 }
 
-function isMouseMoveEvent(sourceEvent: Event | null | undefined): sourceEvent is MouseEvent {
+function isMouseMoveEvent(
+  sourceEvent: Event | null | undefined,
+): sourceEvent is MouseEvent {
   return sourceEvent?.type === "mousemove";
 }
 
@@ -183,7 +195,8 @@ function createMiniMapPanHandler(viewScaleRef: { current: number }) {
     }
 
     const moveScale =
-      viewScaleRef.current * Math.max(panState.transform[2], Math.log(panState.transform[2]));
+      viewScaleRef.current *
+      Math.max(panState.transform[2], Math.log(panState.transform[2]));
     const position = {
       x: panState.transform[0] - event.sourceEvent.movementX * moveScale,
       y: panState.transform[1] - event.sourceEvent.movementY * moveScale,
@@ -407,7 +420,10 @@ function MiniMap(props: MiniMapProps) {
     "aria-label": ariaLabel,
   } = resolveMiniMapProps(props);
   const svgRef = useRef<SVGSVGElement>(null);
-  const nodes = useNodeInternals(selectNodes, areMiniMapNodesRenderableInputsEqual);
+  const nodes = useNodeInternals(
+    selectNodes,
+    areMiniMapNodesRenderableInputsEqual,
+  );
   const { boundingRect, viewBB } = useReactFlow(getSelector(nodes), shallow);
   const elementWidth = getMiniMapDimension(style?.width, defaultWidth);
   const elementHeight = getMiniMapDimension(style?.height, defaultHeight);
@@ -519,7 +535,10 @@ function getMiniMapAccessibilityProps({
   };
 }
 
-function renderMiniMapNodes(nodes: Array<Node> | null, minimapNodesProps: MiniMapNodesType) {
+function renderMiniMapNodes(
+  nodes: Array<Node> | null,
+  minimapNodesProps: MiniMapNodesType,
+) {
   return nodes ? (
     <MiniMapNodes nodes={nodes} {...minimapNodesProps} />
   ) : (
@@ -537,7 +556,11 @@ function renderMiniMapSelectionSync(
   return <MiniMapSelectionSync {...selectionSyncProps} />;
 }
 
-function MiniMapSelectionSync({ svgRef }: { svgRef?: RefObject<SVGSVGElement | null> }) {
+function MiniMapSelectionSync({
+  svgRef,
+}: {
+  svgRef?: RefObject<SVGSVGElement | null>;
+}) {
   useEffect(() => {
     const applySelection = (activeIds: Array<string>) => {
       syncSelectedMiniMapNodes(svgRef?.current, activeIds);
@@ -612,7 +635,11 @@ export function MinimapSvg({
     nodeComponent,
   });
   const selectionSyncProps = svgRef === undefined ? null : { svgRef };
-  const onKeyDown = createMiniMapKeyDownHandler({ onNavigate, viewBB, boundingRect });
+  const onKeyDown = createMiniMapKeyDownHandler({
+    onNavigate,
+    viewBB,
+    boundingRect,
+  });
   const accessibilityProps = getMiniMapAccessibilityProps({
     onNavigate,
     ariaLabel,

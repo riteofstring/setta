@@ -1,7 +1,10 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it } from "vitest";
-import { getElementTextDirection, getInlineDirectionSign } from "./textDirection";
+import {
+  getElementTextDirection,
+  getInlineDirectionSign,
+} from "./textDirection";
 
 afterEach(() => {
   document.documentElement.removeAttribute("dir");

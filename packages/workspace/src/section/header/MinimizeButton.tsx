@@ -10,8 +10,13 @@ type MinimizeButtonProps = {
   hasSectionStyleTheme?: boolean;
 };
 
-export function MinimizeButton({ sectionId, hasSectionStyleTheme = false }: MinimizeButtonProps) {
-  const isMinimized = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId).isMinimized);
+export function MinimizeButton({
+  sectionId,
+  hasSectionStyleTheme = false,
+}: MinimizeButtonProps) {
+  const isMinimized = useWorkspaceDocument(
+    (x) => getSectionOrThrow(x, sectionId).isMinimized,
+  );
   const label = isMinimized ? "Expand section" : "Minimize section";
 
   const colorClassName = hasSectionStyleTheme

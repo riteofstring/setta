@@ -11,7 +11,8 @@ import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
 // control popover opens from a section on the pan/zoom surface, which is exactly the case the
 // reference flags with `repositionOnCanvasTransform`.
 
-const ARROW_CLASS_NAME = "[fill:rgb(229,_231,_235)] dark:[fill:rgb(51,_65,_85)]";
+const ARROW_CLASS_NAME =
+  "[fill:rgb(229,_231,_235)] dark:[fill:rgb(51,_65,_85)]";
 
 // The canvas pans and zooms via CSS transforms, so Radix popovers portaled to document.body
 // need an explicit reposition signal to stay attached. One frame-coalesced synthetic

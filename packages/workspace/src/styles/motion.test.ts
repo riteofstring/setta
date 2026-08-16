@@ -7,7 +7,10 @@ import {
   WORKSPACE_REDUCED_MOTION_QUERY,
 } from "./motion";
 
-const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(window, "matchMedia");
+const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "matchMedia",
+);
 
 function installMotionPreference(matches: boolean) {
   const matchMedia = vi.fn((query: string) => ({
@@ -51,7 +54,10 @@ describe("workspace motion preference", () => {
   });
 
   it("uses the platform no-preference behavior when matchMedia is unavailable", () => {
-    Object.defineProperty(window, "matchMedia", { configurable: true, value: undefined });
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: undefined,
+    });
 
     expect(prefersReducedWorkspaceMotion()).toBe(false);
     expect(resolveWorkspaceMotionDuration(170)).toBe(170);

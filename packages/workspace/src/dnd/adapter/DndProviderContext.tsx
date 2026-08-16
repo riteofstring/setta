@@ -13,7 +13,9 @@ const DndProviderContext = createContext<DndProviderContextValue | null>(null);
 export function useDndProviderContext(): DndProviderContextValue {
   const context = useContext(DndProviderContext);
   if (!context) {
-    throw new Error("useDndProviderContext must be used within DragDropProvider");
+    throw new Error(
+      "useDndProviderContext must be used within DragDropProvider",
+    );
   }
   return context;
 }

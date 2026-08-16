@@ -1,10 +1,18 @@
 import { Resizable } from "re-resizable";
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import { HiCheck, HiOutlineDuplicate } from "react-icons/hi";
 import { createWithEqualityFn } from "zustand/traditional";
 import { withResetFn } from "../state/storeUtils";
-import { getElementTextDirection, type WorkspaceTextDirection } from "../styles/textDirection";
+import {
+  getElementTextDirection,
+  type WorkspaceTextDirection,
+} from "../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 
 // Main's reusable quick-info lifecycle: hold Q to reveal the staged pages, use the auxiliary
@@ -15,7 +23,8 @@ const MOUSE_OFFSET_PX = 10;
 const VIEWPORT_CLAMP_MARGIN_PX = 8;
 const TOOLTIP_VIEWPORT_MAX_WIDTH = `calc(100vw - ${VIEWPORT_CLAMP_MARGIN_PX * 2}px)`;
 const COPIED_INDICATOR_DURATION_MS = 2000;
-const TOOLTIP_SURFACE_SELECTOR = '[data-setta-workspace-tooltip-surface="true"]';
+const TOOLTIP_SURFACE_SELECTOR =
+  '[data-setta-workspace-tooltip-surface="true"]';
 
 type WorkspaceTooltipTone = "default" | "error" | "warning" | "info";
 
@@ -31,7 +40,7 @@ export type WorkspaceTooltipPage = (
   tone?: WorkspaceTooltipTone;
 };
 
-export type WorkspaceTooltipState = {
+type WorkspaceTooltipState = {
   anchor: WorkspaceTooltipAnchor | null;
   copied: boolean;
   direction: WorkspaceTextDirection;
@@ -65,7 +74,10 @@ type WorkspaceTooltipMouseHandlers = {
 };
 
 type WorkspaceTooltipFocusHandlers = {
-  onBlur: (event: { currentTarget: HTMLElement; relatedTarget?: EventTarget | null }) => void;
+  onBlur: (event: {
+    currentTarget: HTMLElement;
+    relatedTarget?: EventTarget | null;
+  }) => void;
   onFocus: (event: { currentTarget: HTMLElement }) => void;
 };
 
@@ -80,11 +92,16 @@ export function getWorkspaceTooltipHandlers(
 export function getWorkspaceTooltipHandlers(
   options: WorkspaceTooltipHandlerOptions,
   ...additionalPages: Array<WorkspaceTooltipPage>
-): WorkspaceTooltipMouseHandlers | (WorkspaceTooltipMouseHandlers & WorkspaceTooltipFocusHandlers) {
+):
+  | WorkspaceTooltipMouseHandlers
+  | (WorkspaceTooltipMouseHandlers & WorkspaceTooltipFocusHandlers) {
   const { stageOnFocus = false, ...firstPage } = options;
   const pages = [firstPage as WorkspaceTooltipPage, ...additionalPages];
 
-  function stagePages(currentTarget: HTMLElement, anchor: WorkspaceTooltipAnchor | null) {
+  function stagePages(
+    currentTarget: HTMLElement,
+    anchor: WorkspaceTooltipAnchor | null,
+  ) {
     if (useWorkspaceTooltip.getState().isFrozen) {
       return;
     }
@@ -119,11 +136,20 @@ export function getWorkspaceTooltipHandlers(
 
   function onFocus(event: { currentTarget: HTMLElement }) {
     const rect = event.currentTarget.getBoundingClientRect();
-    stagePages(event.currentTarget, { x: rect.right + MOUSE_OFFSET_PX, y: rect.top });
+    stagePages(event.currentTarget, {
+      x: rect.right + MOUSE_OFFSET_PX,
+      y: rect.top,
+    });
   }
 
-  function onBlur(event: { currentTarget: HTMLElement; relatedTarget?: EventTarget | null }) {
-    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) {
+  function onBlur(event: {
+    currentTarget: HTMLElement;
+    relatedTarget?: EventTarget | null;
+  }) {
+    if (
+      event.relatedTarget instanceof Node &&
+      event.currentTarget.contains(event.relatedTarget)
+    ) {
       return;
     }
     clearPages();
@@ -141,7 +167,11 @@ export function disableWorkspaceTooltip() {
   if (useWorkspaceTooltip.getState().isFrozen) {
     return;
   }
-  useWorkspaceTooltip.setState({ copied: false, isEnabled: false, pageIndex: 0 });
+  useWorkspaceTooltip.setState({
+    copied: false,
+    isEnabled: false,
+    pageIndex: 0,
+  });
 }
 
 export function freezeWorkspaceTooltip(): boolean {
@@ -152,7 +182,10 @@ export function freezeWorkspaceTooltip(): boolean {
   if (state.isFrozen) {
     return true;
   }
-  focusBeforeFreeze = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  focusBeforeFreeze =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
   useWorkspaceTooltip.setState({ isFrozen: true });
   return true;
 }
@@ -184,7 +217,8 @@ function moveWorkspaceTooltipPage(delta: number): boolean {
   if (!state.isEnabled || state.pages.length === 0) {
     return false;
   }
-  const pageIndex = (state.pageIndex + delta + state.pages.length) % state.pages.length;
+  const pageIndex =
+    (state.pageIndex + delta + state.pages.length) % state.pages.length;
   useWorkspaceTooltip.setState({ copied: false, pageIndex });
   return true;
 }
@@ -247,7 +281,13 @@ export function WorkspaceTooltip() {
   useCopiedIndicator(copied);
   useFrozenTooltipFocus(boxElement, isFrozen);
   useTooltipFollower({ anchor, boxElement, isEnabled, isFrozen, positionRef });
-  useTooltipViewportContainment({ boxElement, isEnabled, page, positionRef, tooltipWidth });
+  useTooltipViewportContainment({
+    boxElement,
+    isEnabled,
+    page,
+    positionRef,
+    tooltipWidth,
+  });
   const handleDragPointerDown = useFrozenTooltipDrag({
     boxElement,
     isFrozen,
@@ -321,7 +361,10 @@ function useCopiedIndicator(copied: boolean) {
   }, [copied]);
 }
 
-function useFrozenTooltipFocus(boxElement: HTMLDivElement | null, isFrozen: boolean) {
+function useFrozenTooltipFocus(
+  boxElement: HTMLDivElement | null,
+  isFrozen: boolean,
+) {
   useEffect(() => {
     if (isFrozen) {
       boxElement?.focus({ preventScroll: true });
@@ -413,7 +456,10 @@ function useFrozenTooltipDrag({
     const activeBox = boxElement;
     event.preventDefault();
     const rect = activeBox.getBoundingClientRect();
-    const offset = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    const offset = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
     activeCleanup?.();
     function handlePointerMove(pointerEvent: PointerEvent) {
       setClampedTooltipPosition(
@@ -433,7 +479,9 @@ function useFrozenTooltipDrag({
       setActiveCleanup(null);
     }
     setActiveCleanup(() => cleanup);
-    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("pointermove", handlePointerMove, {
+      passive: true,
+    });
     window.addEventListener("pointerup", finish);
     window.addEventListener("pointercancel", finish);
   };
@@ -510,7 +558,9 @@ function TooltipPortal({
           maxWidth={TOOLTIP_VIEWPORT_MAX_WIDTH}
           minWidth={INITIAL_TOOLTIP_WIDTH_PX}
           onResizeStop={(_event, _direction, _element, delta) => {
-            setTooltipWidth((width) => Math.max(INITIAL_TOOLTIP_WIDTH_PX, width + delta.width));
+            setTooltipWidth((width) =>
+              Math.max(INITIAL_TOOLTIP_WIDTH_PX, width + delta.width),
+            );
           }}
           size={{ height: "auto", width: tooltipWidth }}
         >
@@ -573,7 +623,9 @@ function TooltipSurface({
         </article>
       ) : null}
       <TooltipPageIndicator pageCount={pageCount} pageIndex={pageIndex} />
-      {page.content ? <TooltipShortcutFooter isFrozen={isFrozen} pageCount={pageCount} /> : null}
+      {page.content ? (
+        <TooltipShortcutFooter isFrozen={isFrozen} pageCount={pageCount} />
+      ) : null}
       <span aria-live="polite" className="sr-only">
         {copied ? "Copied to clipboard" : ""}
       </span>
@@ -601,13 +653,22 @@ function TooltipCopyButton({ copied }: { copied: boolean }) {
   );
 }
 
-function TooltipPageIndicator({ pageCount, pageIndex }: { pageCount: number; pageIndex: number }) {
+function TooltipPageIndicator({
+  pageCount,
+  pageIndex,
+}: {
+  pageCount: number;
+  pageIndex: number;
+}) {
   if (pageCount <= 1) {
     return null;
   }
   return (
     <>
-      <div aria-hidden="true" className="mt-4 flex items-center justify-center gap-2">
+      <div
+        aria-hidden="true"
+        className="mt-4 flex items-center justify-center gap-2"
+      >
         {Array.from({ length: pageCount }, (_, index) => (
           <span
             className={`h-2 w-2 rounded-full ${index === pageIndex ? "bg-blue-500" : "bg-setta-300 dark:bg-setta-600"}`}
@@ -620,13 +681,22 @@ function TooltipPageIndicator({ pageCount, pageIndex }: { pageCount: number; pag
   );
 }
 
-function TooltipShortcutFooter({ isFrozen, pageCount }: { isFrozen: boolean; pageCount: number }) {
+function TooltipShortcutFooter({
+  isFrozen,
+  pageCount,
+}: {
+  isFrozen: boolean;
+  pageCount: number;
+}) {
   const shortcutClassName = "font-black tracking-tighter";
   return (
     <p className="mt-4 border-t border-solid border-setta-100 pt-1 text-[10px] text-setta-500 dark:border-setta-700 dark:text-setta-600">
       {pageCount > 1 ? (
         <>
-          <kbd className={shortcutClassName}>{isFrozen ? "← / →" : "Q + ← / →"}</kbd> pages,{" "}
+          <kbd className={shortcutClassName}>
+            {isFrozen ? "← / →" : "Q + ← / →"}
+          </kbd>{" "}
+          pages,{" "}
         </>
       ) : null}
       <kbd className={shortcutClassName}>{isFrozen ? "C" : "Q + C"}</kbd> copy,{" "}
@@ -669,7 +739,9 @@ function getTooltipContentToneClassName(tone: WorkspaceTooltipTone): string {
   return "text-setta-700 dark:text-setta-300";
 }
 
-function getTooltipSecondaryContentToneClassName(tone: WorkspaceTooltipTone): string {
+function getTooltipSecondaryContentToneClassName(
+  tone: WorkspaceTooltipTone,
+): string {
   if (tone === "error") {
     return "border-red-200 text-red-900 dark:border-red-950 dark:text-red-100";
   }

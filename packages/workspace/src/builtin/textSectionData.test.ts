@@ -73,7 +73,9 @@ describe("built-in text section data", () => {
     Number.NaN,
   ])("rejects the unusable font size %s", (fontSizePx) => {
     const data = { ...createWorkspaceTextSectionData(), fontSizePx };
-    expect(() => parseWorkspaceTextSectionData("text", data)).toThrow("needs a fontSizePx between");
+    expect(() => parseWorkspaceTextSectionData("text", data)).toThrow(
+      "needs a fontSizePx between",
+    );
   });
 
   it("accepts both ends of the reference's font-size range", () => {
@@ -82,19 +84,35 @@ describe("built-in text section data", () => {
       WORKSPACE_TEXT_SECTION_MAXIMUM_FONT_SIZE,
     ]) {
       const data = createWorkspaceTextSectionData({ fontSizePx });
-      expect(parseWorkspaceTextSectionData("text", data).fontSizePx).toBe(fontSizePx);
+      expect(parseWorkspaceTextSectionData("text", data).fontSizePx).toBe(
+        fontSizePx,
+      );
     }
   });
 
   it("refuses a format or display mode this registration narrowed away", () => {
-    const markdownOnly = { formats: ["markdown"], displayModes: ["render", "edit"] } as const;
+    const markdownOnly = {
+      formats: ["markdown"],
+      displayModes: ["render", "edit"],
+    } as const;
     expect(() =>
-      parseWorkspaceTextSectionData("text", createWorkspaceTextSectionData(), markdownOnly),
+      parseWorkspaceTextSectionData(
+        "text",
+        createWorkspaceTextSectionData(),
+        markdownOnly,
+      ),
     ).toThrow("Allowed formats: markdown");
 
-    const renderOnly = { formats: ["plaintext", "markdown"], displayModes: ["render"] } as const;
+    const renderOnly = {
+      formats: ["plaintext", "markdown"],
+      displayModes: ["render"],
+    } as const;
     expect(() =>
-      parseWorkspaceTextSectionData("text", createWorkspaceTextSectionData(), renderOnly),
+      parseWorkspaceTextSectionData(
+        "text",
+        createWorkspaceTextSectionData(),
+        renderOnly,
+      ),
     ).toThrow("Allowed display modes: render");
   });
 

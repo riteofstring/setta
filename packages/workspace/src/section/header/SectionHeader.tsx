@@ -13,7 +13,8 @@ import { SectionTitle, type SectionTitleClassNames } from "./SectionTitle";
 // delete). Diagnostics, run/entry-code, attached-terminal, chat-follow, TextBlock display-mode,
 // and section-window controls left with their features. The measured-height tracking fed only
 // the params-area minimum height, which stayed application-side.
-const sectionHeaderBaseClassName = "section-title mx-2 flex flex-row items-center";
+const sectionHeaderBaseClassName =
+  "section-title mx-2 flex flex-row items-center";
 const editingTitleBaseClassName =
   "cursor-text nodrag px-1 py-0 leading-5 -ms-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full font-bold text-[.7rem] tracking-tight";
 const editingTitleDefaultClassName = `${editingTitleBaseClassName} dark:text-white`;
@@ -28,9 +29,16 @@ type SectionHeaderProps = {
   hasSectionStyleTheme: boolean;
 };
 
-export function SectionHeader({ sectionId, hasSectionStyleTheme }: SectionHeaderProps) {
-  const tagColor = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId).tagColor);
-  const sectionKind = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId).kind);
+export function SectionHeader({
+  sectionId,
+  hasSectionStyleTheme,
+}: SectionHeaderProps) {
+  const tagColor = useWorkspaceDocument(
+    (x) => getSectionOrThrow(x, sectionId).tagColor,
+  );
+  const sectionKind = useWorkspaceDocument(
+    (x) => getSectionOrThrow(x, sectionId).kind,
+  );
 
   return (
     <header
@@ -43,15 +51,30 @@ export function SectionHeader({ sectionId, hasSectionStyleTheme }: SectionHeader
         hasSectionStyleTheme={hasSectionStyleTheme}
       />
       <SectionTagColorIndicator tagColor={tagColor} />
-      <SectionCardTitle sectionId={sectionId} hasSectionStyleTheme={hasSectionStyleTheme} />
+      <SectionCardTitle
+        sectionId={sectionId}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
       <div
         className="z-10 ms-auto flex items-center"
         data-setta-workspace-compact-control-group="true"
       >
-        <SectionKindHeaderControls sectionId={sectionId} sectionKind={sectionKind} />
-        <LockPositionButton sectionId={sectionId} hasSectionStyleTheme={hasSectionStyleTheme} />
-        <MinimizeButton sectionId={sectionId} hasSectionStyleTheme={hasSectionStyleTheme} />
-        <DeleteOrHideButton sectionId={sectionId} hasSectionStyleTheme={hasSectionStyleTheme} />
+        <SectionKindHeaderControls
+          sectionId={sectionId}
+          sectionKind={sectionKind}
+        />
+        <LockPositionButton
+          sectionId={sectionId}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
+        <MinimizeButton
+          sectionId={sectionId}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
+        <DeleteOrHideButton
+          sectionId={sectionId}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
       </div>
     </header>
   );
@@ -77,7 +100,9 @@ function SectionKindHeaderControls({
   return <>{renderHeaderControls(section)}</>;
 }
 
-function getSectionHeaderStyle(hasSectionStyleTheme: boolean): CSSProperties | undefined {
+function getSectionHeaderStyle(
+  hasSectionStyleTheme: boolean,
+): CSSProperties | undefined {
   if (!hasSectionStyleTheme) {
     return undefined;
   }
@@ -107,7 +132,9 @@ function SectionCardTitle({
   sectionId: string;
   hasSectionStyleTheme: boolean;
 }) {
-  const isActiveSection = useActiveSections((x) => x.activeIds.includes(sectionId));
+  const isActiveSection = useActiveSections((x) =>
+    x.activeIds.includes(sectionId),
+  );
   return (
     <SectionTitle
       sectionId={sectionId}
@@ -124,9 +151,13 @@ function getTitleStyles({
   hasSectionStyleTheme: boolean;
 }): SectionTitleClassNames {
   return {
-    editing: hasSectionStyleTheme ? editingTitleBaseClassName : editingTitleDefaultClassName,
+    editing: hasSectionStyleTheme
+      ? editingTitleBaseClassName
+      : editingTitleDefaultClassName,
     notEditing: getNotEditingStyle({ isActiveSection, hasSectionStyleTheme }),
-    fixed: hasSectionStyleTheme ? fixedTitleBaseClassName : fixedTitleDefaultClassName,
+    fixed: hasSectionStyleTheme
+      ? fixedTitleBaseClassName
+      : fixedTitleDefaultClassName,
   };
 }
 

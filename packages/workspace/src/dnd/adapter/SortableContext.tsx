@@ -4,9 +4,17 @@ import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import React, { useEffect, useId, useMemo, useRef } from "react";
 import { getDndSectionId } from "../dndIds";
-import { clearSortingOverState, setSortingOverState } from "../sortingOverState";
+import {
+  clearSortingOverState,
+  setSortingOverState,
+} from "../sortingOverState";
 import { useDndProviderContext } from "./DndProviderContext";
-import { getSortedRects, itemsEqual, normalizeDisabled, rectSortingStrategy } from "./sorting";
+import {
+  getSortedRects,
+  itemsEqual,
+  normalizeDisabled,
+  rectSortingStrategy,
+} from "./sorting";
 import type { ClientRect, Disabled, SortingStrategy } from "./types";
 
 interface Props {
@@ -70,7 +78,10 @@ export function SortableContext({
   const { isSorting, isMovingFree } = useDndProviderContext();
   const isDragActive = useDragActive(manager);
   const sortingEnabled = isSortingEnabled(forceSorting, isSorting);
-  const shouldTrackSorting = shouldTrackActiveSorting(sortingEnabled, isDragActive);
+  const shouldTrackSorting = shouldTrackActiveSorting(
+    sortingEnabled,
+    isDragActive,
+  );
   const generatedId = useId();
   const containerId = getContainerId(id, generatedId);
   const items = useMemo<UniqueIdentifier[]>(
@@ -84,7 +95,12 @@ export function SortableContext({
     emptyRects,
   );
   const allowTemp = shouldAllowTemporaryActiveId(isMovingFree, isSorting);
-  const activeIndex = getSortableActiveIndex(shouldTrackSorting, active, items, allowTemp);
+  const activeIndex = getSortableActiveIndex(
+    shouldTrackSorting,
+    active,
+    items,
+    allowTemp,
+  );
   const resolvedOverId = useResolvedOverId(
     shouldTrackSorting,
     collisions,
@@ -97,7 +113,11 @@ export function SortableContext({
     collisions,
     resolvedOverId,
   );
-  const overIndex = getSortableOverIndex(shouldTrackSorting, resolvedOverId, items);
+  const overIndex = getSortableOverIndex(
+    shouldTrackSorting,
+    resolvedOverId,
+    items,
+  );
   const itemsHaveChanged = useItemsHaveChanged(items);
   const disableTransforms = getDisableTransforms(
     shouldTrackSorting,
@@ -108,7 +128,10 @@ export function SortableContext({
   const disabled = normalizeDisabled(disabledProp);
   const useDragOverlay = false;
   const useFrozenRects = shouldFreezeDroppableRects(shouldTrackSorting, active);
-  const frozenDroppableRectsRef = useFrozenDroppableRects(droppableRects, useFrozenRects);
+  const frozenDroppableRectsRef = useFrozenDroppableRects(
+    droppableRects,
+    useFrozenRects,
+  );
   const rectsForSorting = getRectsForSorting(
     useFrozenRects,
     frozenDroppableRectsRef.current,
@@ -122,7 +145,11 @@ export function SortableContext({
     resolvedPastHalfway,
     shouldTrackSorting,
   });
-  const sortedRects = useSortedRects(shouldTrackSorting, items, rectsForSorting);
+  const sortedRects = useSortedRects(
+    shouldTrackSorting,
+    items,
+    rectsForSorting,
+  );
 
   const contextValue = useMemo(
     (): ContextDescriptor => ({
@@ -173,7 +200,9 @@ function getActiveIndex(
   return items.indexOf(active.id);
 }
 
-function getSortableItemId(item: UniqueIdentifier | { id: UniqueIdentifier }): UniqueIdentifier {
+function getSortableItemId(
+  item: UniqueIdentifier | { id: UniqueIdentifier },
+): UniqueIdentifier {
   return typeof item === "object" && "id" in item ? item.id : item;
 }
 
@@ -181,7 +210,10 @@ function isSortingEnabled(forceSorting: boolean, isSorting: boolean): boolean {
   return forceSorting || isSorting;
 }
 
-function shouldTrackActiveSorting(sortingEnabled: boolean, isDragActive: boolean): boolean {
+function shouldTrackActiveSorting(
+  sortingEnabled: boolean,
+  isDragActive: boolean,
+): boolean {
   return sortingEnabled && isDragActive;
 }
 
@@ -189,7 +221,10 @@ function getContainerId(id: string | undefined, generatedId: string): string {
   return id ?? `${ID_PREFIX}-${generatedId}`;
 }
 
-function shouldAllowTemporaryActiveId(isMovingFree: boolean, isSorting: boolean): boolean {
+function shouldAllowTemporaryActiveId(
+  isMovingFree: boolean,
+  isSorting: boolean,
+): boolean {
   return isMovingFree || isSorting;
 }
 
@@ -199,7 +234,9 @@ function getFallbackOverId(
   return manager?.dragOperation.target?.id ?? null;
 }
 
-function useDragActive(manager: ReturnType<typeof useDragDropManager>): boolean {
+function useDragActive(
+  manager: ReturnType<typeof useDragDropManager>,
+): boolean {
   return useComputed(() => {
     if (!manager) {
       return false;
@@ -303,8 +340,16 @@ function useResolvedOverId(
   items: UniqueIdentifier[],
   fallbackOverId: UniqueIdentifier | null,
 ): UniqueIdentifier | null {
-  const collisionOverId = getSortingCollisionOverId(shouldTrackSorting, collisions, items);
-  const hasContainerCollision = hasCollisionId(shouldTrackSorting, collisions, containerId);
+  const collisionOverId = getSortingCollisionOverId(
+    shouldTrackSorting,
+    collisions,
+    items,
+  );
+  const hasContainerCollision = hasCollisionId(
+    shouldTrackSorting,
+    collisions,
+    containerId,
+  );
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null);
 
   return useMemo(() => {
@@ -329,7 +374,13 @@ function useResolvedOverId(
     }
 
     return fallbackOverId;
-  }, [collisionOverId, fallbackOverId, hasContainerCollision, items, shouldTrackSorting]);
+  }, [
+    collisionOverId,
+    fallbackOverId,
+    hasContainerCollision,
+    items,
+    shouldTrackSorting,
+  ]);
 }
 
 function getSortingCollisionOverId(
@@ -341,7 +392,10 @@ function getSortingCollisionOverId(
     return null;
   }
 
-  return getOverIdFromCollisions(collisions as Array<{ id: UniqueIdentifier }> | null, items);
+  return getOverIdFromCollisions(
+    collisions as Array<{ id: UniqueIdentifier }> | null,
+    items,
+  );
 }
 
 function hasCollisionId(
@@ -365,9 +419,9 @@ function getResolvedPastHalfway(
     return null;
   }
 
-  const matching = (collisions as Array<{ id: UniqueIdentifier; pastHalfway?: boolean }>).find(
-    (collision) => collision.id === resolvedOverId,
-  );
+  const matching = (
+    collisions as Array<{ id: UniqueIdentifier; pastHalfway?: boolean }>
+  ).find((collision) => collision.id === resolvedOverId);
   if (!matching || matching.pastHalfway === undefined) {
     return null;
   }
@@ -379,7 +433,10 @@ function useFrozenDroppableRects(
   droppableRects: Map<UniqueIdentifier, ClientRect>,
   useFrozenRects: boolean,
 ) {
-  const frozenDroppableRectsRef = useRef<Map<UniqueIdentifier, ClientRect> | null>(null);
+  const frozenDroppableRectsRef = useRef<Map<
+    UniqueIdentifier,
+    ClientRect
+  > | null>(null);
 
   useEffect(() => {
     if (!useFrozenRects) {
@@ -442,13 +499,27 @@ function useSortingOverStateSync(state: SortingOverSyncState): void {
   const resolvedSortingOverId = getSortingOverStateId(items, resolvedOverId);
 
   useEffect(() => {
-    if (!shouldTrackSorting || !hasCollisions(collisions) || !resolvedSortingOverId) {
+    if (
+      !shouldTrackSorting ||
+      !hasCollisions(collisions) ||
+      !resolvedSortingOverId
+    ) {
       clearSortingOverState(containerId);
       return;
     }
 
-    setSortingOverState(containerId, resolvedSortingOverId, resolvedPastHalfway);
-  }, [collisions, containerId, resolvedPastHalfway, resolvedSortingOverId, shouldTrackSorting]);
+    setSortingOverState(
+      containerId,
+      resolvedSortingOverId,
+      resolvedPastHalfway,
+    );
+  }, [
+    collisions,
+    containerId,
+    resolvedPastHalfway,
+    resolvedSortingOverId,
+    shouldTrackSorting,
+  ]);
 }
 
 function getSortingOverStateId(
@@ -502,7 +573,9 @@ function getOverIdFromCollisions(
   return null;
 }
 
-function getDroppableRects(droppables: Iterable<Droppable>): Map<UniqueIdentifier, ClientRect> {
+function getDroppableRects(
+  droppables: Iterable<Droppable>,
+): Map<UniqueIdentifier, ClientRect> {
   const rects = new Map<UniqueIdentifier, ClientRect>();
 
   for (const droppable of droppables) {

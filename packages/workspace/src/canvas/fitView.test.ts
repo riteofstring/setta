@@ -35,7 +35,9 @@ function setupFitViewState(overrides: Partial<typeof initialCanvasState> = {}) {
     id: "selection",
     transition,
   } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
-  const d3Zoom = { transform } as unknown as NonNullable<typeof initialCanvasState.d3Zoom>;
+  const d3Zoom = { transform } as unknown as NonNullable<
+    typeof initialCanvasState.d3Zoom
+  >;
 
   useReactFlow.setState({
     ...initialCanvasState,
@@ -73,7 +75,10 @@ describe("fitView", () => {
     expect(fitView({ initial: true, maxZoom: 3 })).toBe(true);
 
     expect(transform).toHaveBeenCalledTimes(1);
-    expect(transform).toHaveBeenCalledWith(d3Selection, expect.objectContaining({ k: 1 }));
+    expect(transform).toHaveBeenCalledWith(
+      d3Selection,
+      expect.objectContaining({ k: 1 }),
+    );
   });
 
   it("filters to explicit fitView targets before checking node measurement", () => {
@@ -154,7 +159,9 @@ describe("fitView", () => {
       );
       expect(useReactFlow.getState().fitViewOnInit).toBe(false);
 
-      vi.advanceTimersByTime(useWorkspaceOptions.getState().transitionDuration + 10);
+      vi.advanceTimersByTime(
+        useWorkspaceOptions.getState().transitionDuration + 10,
+      );
       expect(useReactFlow.getState().fitViewOnInit).toBe(true);
     } finally {
       vi.useRealTimers();

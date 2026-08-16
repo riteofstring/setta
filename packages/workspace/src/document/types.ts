@@ -42,7 +42,13 @@ export type WorkspaceSectionData =
   | { [key: string]: WorkspaceSectionData };
 
 export type WorkspaceItemTextLanguage =
-  "python" | "typescript" | "javascript" | "json" | "yaml" | "toml" | "markdown";
+  | "python"
+  | "typescript"
+  | "javascript"
+  | "json"
+  | "yaml"
+  | "toml"
+  | "markdown";
 
 export type WorkspaceItemAutocompletePolicy = "off";
 
@@ -50,71 +56,81 @@ export type WorkspaceItemControlBaseConfiguration = {
   disabled: boolean;
 };
 
-export type WorkspaceTextItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
-  autocomplete: WorkspaceItemAutocompletePolicy;
-  placeholder: string | null;
-  singleLine: boolean;
-  wrapLines: boolean;
-};
+export type WorkspaceTextItemControlConfiguration =
+  WorkspaceItemControlBaseConfiguration & {
+    autocomplete: WorkspaceItemAutocompletePolicy;
+    placeholder: string | null;
+    singleLine: boolean;
+    wrapLines: boolean;
+  };
 
-export type WorkspaceCodeItemControlConfiguration = WorkspaceTextItemControlConfiguration & {
-  language: WorkspaceItemTextLanguage;
-};
+export type WorkspaceCodeItemControlConfiguration =
+  WorkspaceTextItemControlConfiguration & {
+    language: WorkspaceItemTextLanguage;
+  };
 
-export type WorkspaceTextAreaItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
-  autocomplete: WorkspaceItemAutocompletePolicy;
-  language: WorkspaceItemTextLanguage | null;
-  placeholder: string | null;
-};
+export type WorkspaceTextAreaItemControlConfiguration =
+  WorkspaceItemControlBaseConfiguration & {
+    autocomplete: WorkspaceItemAutocompletePolicy;
+    language: WorkspaceItemTextLanguage | null;
+    placeholder: string | null;
+  };
 
-export type WorkspaceSwitchItemControlConfiguration = WorkspaceItemControlBaseConfiguration;
+export type WorkspaceSwitchItemControlConfiguration =
+  WorkspaceItemControlBaseConfiguration;
 
 export type WorkspaceDropdownChoiceGroup = {
   group: string;
   choices: Array<string>;
 };
 
-export type WorkspaceDropdownItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
-  choices: Array<string> | Array<WorkspaceDropdownChoiceGroup>;
-  placeholder: string | null;
-};
+export type WorkspaceDropdownItemControlConfiguration =
+  WorkspaceItemControlBaseConfiguration & {
+    choices: Array<string> | Array<WorkspaceDropdownChoiceGroup>;
+    placeholder: string | null;
+  };
 
 export type WorkspaceColorChoice = {
   color: string;
   description: string;
 };
 
-export type WorkspaceColorItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
-  choices: Array<WorkspaceColorChoice> | null;
-};
+export type WorkspaceColorItemControlConfiguration =
+  WorkspaceItemControlBaseConfiguration & {
+    choices: Array<WorkspaceColorChoice> | null;
+  };
 
-export type WorkspaceNumericItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
-  min: number;
-  max: number;
-  step: number;
-};
+export type WorkspaceNumericItemControlConfiguration =
+  WorkspaceItemControlBaseConfiguration & {
+    min: number;
+    max: number;
+    step: number;
+  };
 
-export type WorkspacePasswordItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
-  placeholder: string | null;
-  savedValuePending: boolean;
-};
+export type WorkspacePasswordItemControlConfiguration =
+  WorkspaceItemControlBaseConfiguration & {
+    placeholder: string | null;
+    savedValuePending: boolean;
+  };
 
-export type WorkspaceDateItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
-  displayFormat: "iso" | "us" | "eu" | "long";
-  controlMode: "input" | "calendar";
-  selectionMode: "single" | "multiple";
-  weekStart: "sunday" | "monday";
-  includeTime: boolean;
-  timeDisplayFormat: "twenty_four_hour" | "twelve_hour";
-};
+export type WorkspaceDateItemControlConfiguration =
+  WorkspaceItemControlBaseConfiguration & {
+    displayFormat: "iso" | "us" | "eu" | "long";
+    controlMode: "input" | "calendar";
+    selectionMode: "single" | "multiple";
+    weekStart: "sunday" | "monday";
+    includeTime: boolean;
+    timeDisplayFormat: "twenty_four_hour" | "twelve_hour";
+  };
 
-export type WorkspaceTimeItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
-  controlMode: "input" | "display";
-  displayFormat: "twenty_four_hour" | "twelve_hour";
-  transparent: boolean;
-  scale: number;
-  font: "clock" | "monospace" | "system";
-};
+export type WorkspaceTimeItemControlConfiguration =
+  WorkspaceItemControlBaseConfiguration & {
+    controlMode: "input" | "display";
+    displayFormat: "twenty_four_hour" | "twelve_hour";
+    transparent: boolean;
+    scale: number;
+    font: "clock" | "monospace" | "system";
+  };
 
 export type WorkspaceDropzoneAttachment = {
   id: string;
@@ -130,13 +146,14 @@ export type WorkspaceDropzonePolicy = {
   allowedMimePrefixes: Array<string>;
 };
 
-export type WorkspaceDropzoneItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
-  attachments: Array<WorkspaceDropzoneAttachment>;
-  policy: WorkspaceDropzonePolicy;
-  placeholder: string;
-  pending: boolean;
-  errorMessage: string | null;
-};
+export type WorkspaceDropzoneItemControlConfiguration =
+  WorkspaceItemControlBaseConfiguration & {
+    attachments: Array<WorkspaceDropzoneAttachment>;
+    policy: WorkspaceDropzonePolicy;
+    placeholder: string;
+    pending: boolean;
+    errorMessage: string | null;
+  };
 
 type WorkspaceValueItemControl<Kind extends string, Configuration> = {
   kind: Kind;
@@ -150,21 +167,42 @@ export type WorkspaceItemControlPresentation =
   | { kind: "group" }
   | WorkspaceValueItemControl<"text", WorkspaceTextItemControlConfiguration>
   | WorkspaceValueItemControl<"code", WorkspaceCodeItemControlConfiguration>
-  | WorkspaceValueItemControl<"textarea", WorkspaceTextAreaItemControlConfiguration>
+  | WorkspaceValueItemControl<
+      "textarea",
+      WorkspaceTextAreaItemControlConfiguration
+    >
   | WorkspaceValueItemControl<"switch", WorkspaceSwitchItemControlConfiguration>
-  | WorkspaceValueItemControl<"dropdown", WorkspaceDropdownItemControlConfiguration>
+  | WorkspaceValueItemControl<
+      "dropdown",
+      WorkspaceDropdownItemControlConfiguration
+    >
   | WorkspaceValueItemControl<"color", WorkspaceColorItemControlConfiguration>
-  | WorkspaceValueItemControl<"slider", WorkspaceNumericItemControlConfiguration>
-  | WorkspaceValueItemControl<"rotary", WorkspaceNumericItemControlConfiguration>
-  | WorkspaceValueItemControl<"password", WorkspacePasswordItemControlConfiguration>
+  | WorkspaceValueItemControl<
+      "slider",
+      WorkspaceNumericItemControlConfiguration
+    >
+  | WorkspaceValueItemControl<
+      "rotary",
+      WorkspaceNumericItemControlConfiguration
+    >
+  | WorkspaceValueItemControl<
+      "password",
+      WorkspacePasswordItemControlConfiguration
+    >
   | WorkspaceValueItemControl<"date", WorkspaceDateItemControlConfiguration>
   | WorkspaceValueItemControl<"time", WorkspaceTimeItemControlConfiguration>
-  | WorkspaceValueItemControl<"dropzone", WorkspaceDropzoneItemControlConfiguration>;
+  | WorkspaceValueItemControl<
+      "dropzone",
+      WorkspaceDropzoneItemControlConfiguration
+    >;
 
 export type WorkspaceItemControlKind = WorkspaceItemControlPresentation["kind"];
 
 export type WorkspaceItemControlConfiguration =
-  Exclude<WorkspaceItemControlPresentation, { kind: "group" }> extends infer Control
+  Exclude<
+    WorkspaceItemControlPresentation,
+    { kind: "group" }
+  > extends infer Control
     ? Control extends { kind: infer Kind; configuration: infer Configuration }
       ? { kind: Kind; configuration: Configuration }
       : never
@@ -233,7 +271,9 @@ export type WorkspaceSection = {
 // The load shape of a section: `size` may be omitted, in which case the kind's registered
 // default (or the reference's auto/auto default) applies at load. Canonical sections always
 // carry their resolved size, so a document emitted by the package loads back unchanged.
-export type WorkspaceSectionInput = Omit<WorkspaceSection, "size"> & { size?: SectionSize };
+export type WorkspaceSectionInput = Omit<WorkspaceSection, "size"> & {
+  size?: SectionSize;
+};
 
 // The controlled serializable workspace document: the canonical shape the document-change
 // callback and `getWorkspaceDocument` emit, and a valid `loadWorkspaceDocument` input. It

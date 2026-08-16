@@ -22,7 +22,10 @@ import {
 } from "./WorkspaceMenuCore";
 import type { WorkspaceMenuInvocation } from "./workspaceMenuState";
 import { closeWorkspaceMenu } from "./workspaceMenuState";
-import type { WorkspaceCreationCommand, WorkspaceCreationContext } from "./workspaceMenuTypes";
+import type {
+  WorkspaceCreationCommand,
+  WorkspaceCreationContext,
+} from "./workspaceMenuTypes";
 
 type PaneInvocation = Extract<WorkspaceMenuInvocation, { kind: "pane" }>;
 
@@ -35,7 +38,10 @@ function groupCommands(
     group.push(command);
     groups.set(command.group, group);
   }
-  return [...groups].map(([group, groupedCommands]) => ({ group, commands: groupedCommands }));
+  return [...groups].map(([group, groupedCommands]) => ({
+    group,
+    commands: groupedCommands,
+  }));
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -75,7 +81,8 @@ export function WorkspacePaneMenu({
         id: `create-${command.id}`,
         label: command.label,
         icon: command.icon,
-        disabled: !canEditStructure || (command.isDisabled?.(creationContext) ?? false),
+        disabled:
+          !canEditStructure || (command.isDisabled?.(creationContext) ?? false),
         onSelect: () => {
           const section = command.createSection(creationContext);
           // A pane request always carries the pointer's position; the package resolves a place
@@ -85,13 +92,27 @@ export function WorkspacePaneMenu({
           closeWorkspaceMenu();
         },
       })),
-    [canEditStructure, creationContext, filteredCommands, invocation.workspacePosition],
+    [
+      canEditStructure,
+      creationContext,
+      filteredCommands,
+      invocation.workspacePosition,
+    ],
   );
   const entriesByCommandId = useMemo(
-    () => new Map(commandEntries.map((entry) => [entry.id.slice("create-".length), entry])),
+    () =>
+      new Map(
+        commandEntries.map((entry) => [
+          entry.id.slice("create-".length),
+          entry,
+        ]),
+      ),
     [commandEntries],
   );
-  const groupedCommands = useMemo(() => groupCommands(filteredCommands), [filteredCommands]);
+  const groupedCommands = useMemo(
+    () => groupCommands(filteredCommands),
+    [filteredCommands],
+  );
 
   function registerItem(entryId: string, element: HTMLDivElement | null): void {
     if (element) {
@@ -118,7 +139,10 @@ export function WorkspacePaneMenu({
     if (!input) {
       throw new Error("Workspace pane menu filter is not mounted.");
     }
-    const next = getNextFilterInputState(getFilterInputState(input, resetInput), key);
+    const next = getNextFilterInputState(
+      getFilterInputState(input, resetInput),
+      key,
+    );
     if (shouldDispatchFilterInputEvent(resetInput, next)) {
       setQuery(next.nextValue);
     }
@@ -160,9 +184,14 @@ export function WorkspacePaneMenu({
     event.stopPropagation();
   }
 
-  function handleMenuKeyDownCapture(event: KeyboardEvent<HTMLDivElement>): void {
+  function handleMenuKeyDownCapture(
+    event: KeyboardEvent<HTMLDivElement>,
+  ): void {
     if (
-      shouldEditableTargetHandleMenuKey(isEditableTarget(event.target), didNavigateListRef.current)
+      shouldEditableTargetHandleMenuKey(
+        isEditableTarget(event.target),
+        didNavigateListRef.current,
+      )
     ) {
       return;
     }
@@ -214,7 +243,9 @@ export function WorkspacePaneMenu({
           {commandsInGroup.map((command) => {
             const entry = entriesByCommandId.get(command.id);
             if (!entry) {
-              throw new Error(`Workspace pane menu lost creation command ${command.id}.`);
+              throw new Error(
+                `Workspace pane menu lost creation command ${command.id}.`,
+              );
             }
             return (
               <WorkspaceMenuItem

@@ -79,7 +79,9 @@ describe("section removal focus", () => {
   it("returns the parent after its only nested child and the pane after the only root", () => {
     const nestedState = makeState();
     nestedState.sections["group"] = makeSection("group", ["nested-a"]);
-    expect(resolveSectionFocusAfterRemoval(nestedState, "nested-a")).toBe("group");
+    expect(resolveSectionFocusAfterRemoval(nestedState, "nested-a")).toBe(
+      "group",
+    );
 
     const rootState = makeState();
     rootState.sections = { first: makeSection("first") };

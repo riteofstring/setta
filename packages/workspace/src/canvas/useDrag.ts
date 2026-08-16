@@ -53,7 +53,9 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         const lastX = lastPos.current.x;
         const lastY = lastPos.current.y;
         if (lastX === null || lastY === null) {
-          throw new Error("Drag position update fired before the drag recorded a position.");
+          throw new Error(
+            "Drag position update fired before the drag recorded a position.",
+          );
         }
         const delta = { x: x - lastX, y: y - lastY };
         lastPos.current = { x, y };
@@ -64,13 +66,17 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
           const nextPosition = { x: x - n.distance.x, y: y - n.distance.y };
 
           if (dragEnd && snapToGrid) {
-            nextPosition.x = snapGrid[0] * Math.round(nextPosition.x / snapGrid[0]);
-            nextPosition.y = snapGrid[1] * Math.round(nextPosition.y / snapGrid[1]);
+            nextPosition.x =
+              snapGrid[0] * Math.round(nextPosition.x / snapGrid[0]);
+            nextPosition.y =
+              snapGrid[1] * Math.round(nextPosition.y / snapGrid[1]);
           }
 
           // we want to make sure that we only fire a change event when there is a change
           hasChange =
-            hasChange || n.position.x !== nextPosition.x || n.position.y !== nextPosition.y;
+            hasChange ||
+            n.position.x !== nextPosition.x ||
+            n.position.y !== nextPosition.y;
 
           n.position = nextPosition;
 
@@ -98,7 +104,10 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
           return;
         }
 
-        const [xMovement, yMovement] = calcAutoPan(mousePosition.current, containerBounds.current);
+        const [xMovement, yMovement] = calcAutoPan(
+          mousePosition.current,
+          containerBounds.current,
+        );
 
         if (xMovement !== 0 || yMovement !== 0) {
           const { transform, panBy } = useReactFlow.getState();
@@ -132,7 +141,11 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
       };
 
       const startAutoPanIfNeeded = (autoPanOnNodeDrag: boolean) => {
-        if (!autoPanStarted.current && dragStarted.current && autoPanOnNodeDrag) {
+        if (
+          !autoPanStarted.current &&
+          dragStarted.current &&
+          autoPanOnNodeDrag
+        ) {
           autoPanStarted.current = true;
           autoPan();
         }
@@ -156,8 +169,11 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         }
       };
 
-      const hasPointerMoved = (pointerPos: ReturnType<typeof getPointerPosition>) =>
-        lastPos.current.x !== pointerPos.xSnapped || lastPos.current.y !== pointerPos.ySnapped;
+      const hasPointerMoved = (
+        pointerPos: ReturnType<typeof getPointerPosition>,
+      ) =>
+        lastPos.current.x !== pointerPos.xSnapped ||
+        lastPos.current.y !== pointerPos.ySnapped;
 
       const finishDrag = () => {
         setDragging(false);
@@ -191,7 +207,8 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
           })
           .on("drag", (event: UseDragEvent) => {
             const pointerPos = getPointerPosition(event);
-            const { autoPanOnNodeDrag, nodeDragThreshold } = useReactFlow.getState();
+            const { autoPanOnNodeDrag, nodeDragThreshold } =
+              useReactFlow.getState();
 
             startAutoPanIfNeeded(autoPanOnNodeDrag);
             startDragOnceThresholdIsMet(event, pointerPos, nodeDragThreshold);
@@ -223,7 +240,8 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
           .filter((event: MouseEvent) => {
             const target = event.target as HTMLDivElement;
             const isDraggable =
-              !event.button && !hasSelector(target, `.${NO_DRAG_CLASS_NAME}`, nodeRef);
+              !event.button &&
+              !hasSelector(target, `.${NO_DRAG_CLASS_NAME}`, nodeRef);
 
             return isDraggable;
           });

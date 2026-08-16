@@ -46,7 +46,9 @@ export function MetaControl({
 }: MetaControlProps) {
   // Public TypeScript callers already have the discriminated union; this runtime assertion keeps
   // opaque-data adapters honest and preserves the package's specific no-fallback failure.
-  assertMetaControlKind((control as { kind?: unknown } | null | undefined)?.kind);
+  assertMetaControlKind(
+    (control as { kind?: unknown } | null | undefined)?.kind,
+  );
   return (
     <div className="col-span-full row-span-full flex h-full w-full items-stretch p-0">
       {renderMetaControl({ sectionId, sectionName, showSectionTitle, control })}
@@ -59,7 +61,9 @@ function renderMetaControl({
   sectionName,
   showSectionTitle,
   control,
-}: Required<Pick<MetaControlProps, "sectionId" | "sectionName" | "showSectionTitle">> &
+}: Required<
+  Pick<MetaControlProps, "sectionId" | "sectionName" | "showSectionTitle">
+> &
   Pick<MetaControlProps, "control">) {
   if (control.kind === "button") {
     return (
@@ -102,8 +106,12 @@ function ButtonControl({
   showSectionTitle: boolean;
   control: ButtonMetaControl;
 }) {
-  const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
-  const isDisabled = Boolean(control.disabled || control.pending || isSelectingItems);
+  const isSelectingItems = useItemSelectionMode(
+    (state) => state.isSelectingItems,
+  );
+  const isDisabled = Boolean(
+    control.disabled || control.pending || isSelectingItems,
+  );
   return (
     <MetaControlTitleStack
       showSectionTitle={showSectionTitle}

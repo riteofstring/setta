@@ -1,15 +1,30 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DragMoveEvent, DragStartEvent, SettaCollision } from "../dnd/adapter/types";
+import type {
+  DragMoveEvent,
+  DragStartEvent,
+  SettaCollision,
+} from "../dnd/adapter/types";
 import { useItemDndChildren } from "../dnd/itemDndChildren";
-import { getItemDndId, getTempItemDndId, useItemDndState } from "../dnd/itemDndState";
+import {
+  getItemDndId,
+  getTempItemDndId,
+  useItemDndState,
+} from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
-import { activateItemSelect, useItemSelectionMode } from "../document/itemSelectionMode";
+import {
+  activateItemSelect,
+  useItemSelectionMode,
+} from "../document/itemSelectionMode";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { WorkspaceSectionItemTree } from "../document/types";
 import {
   handleItemDragCancel,
@@ -41,7 +56,9 @@ function makeItemTree(
   }
   return {
     rootId: "item-root",
-    items: Object.fromEntries([...ids].map((id) => [id, { id, children: childrenById[id] ?? [] }])),
+    items: Object.fromEntries(
+      [...ids].map((id) => [id, { id, children: childrenById[id] ?? [] }]),
+    ),
     selectedItemIds,
   };
 }
@@ -81,7 +98,13 @@ function registerTestListView(overrides: { filterActive?: boolean } = {}) {
   registerItemListView("panel", {
     listKey: LIST_KEY,
     topLevelItemIds: ["item-a", "item-group", "item-b"],
-    visibleItemIds: new Set(["item-a", "item-group", "item-b", "item-c", "item-d"]),
+    visibleItemIds: new Set([
+      "item-a",
+      "item-group",
+      "item-b",
+      "item-c",
+      "item-d",
+    ]),
     filterActive: overrides.filterActive ?? false,
   });
 }
@@ -102,11 +125,20 @@ function makeStartEvent(itemId: string): DragStartEvent {
         },
       },
     },
-    activeRect: { top: 10, left: 10, right: 230, bottom: 42, width: 220, height: 32 },
+    activeRect: {
+      top: 10,
+      left: 10,
+      right: 230,
+      bottom: 42,
+      width: 220,
+      height: 32,
+    },
   } as unknown as DragStartEvent;
 }
 
-function makeMoveEvent(collisions: Array<Partial<SettaCollision> & { id: string }>): DragMoveEvent {
+function makeMoveEvent(
+  collisions: Array<Partial<SettaCollision> & { id: string }>,
+): DragMoveEvent {
   return {
     active: makeStartEvent("item-a").active,
     collisions: collisions.map((collision) => ({
@@ -190,7 +222,10 @@ describe("item drag lifecycle", () => {
     loadTestDocument(["item-c", "item-d"]);
     activateItemSelect();
     handleItemDragStart(makeStartEvent("item-c"), null);
-    expect(useItemDndState.getState().draggingIds).toEqual(["item-c", "item-d"]);
+    expect(useItemDndState.getState().draggingIds).toEqual([
+      "item-c",
+      "item-d",
+    ]);
 
     resetItemDragState();
     loadTestDocument(["item-a", "item-c"]);
@@ -227,12 +262,20 @@ describe("item drag lifecycle", () => {
 
     handleItemDragMove(
       makeMoveEvent([
-        { id: getItemDndId("item-b", LIST_KEY), pastHalfway: true, triggerDistCondition: false },
+        {
+          id: getItemDndId("item-b", LIST_KEY),
+          pastHalfway: true,
+          triggerDistCondition: false,
+        },
       ]),
     );
     await flushItemDragOver();
 
-    expect(useItemDndChildren.getState().x["item-root"]).toEqual(["item-group", "item-b", TEMP_ID]);
+    expect(useItemDndChildren.getState().x["item-root"]).toEqual([
+      "item-group",
+      "item-b",
+      TEMP_ID,
+    ]);
   });
 
   it("ignores collisions from other lists", async () => {
@@ -253,7 +296,11 @@ describe("item drag lifecycle", () => {
     handleItemDragMove(event);
     await flushItemDragOver();
 
-    expect(useItemDndChildren.getState().x["item-root"]).toEqual([TEMP_ID, "item-group", "item-b"]);
+    expect(useItemDndChildren.getState().x["item-root"]).toEqual([
+      TEMP_ID,
+      "item-group",
+      "item-b",
+    ]);
   });
 
   it("re-parents the placeholder into the hovered item when the trigger distance is met and commits the move", async () => {
@@ -262,7 +309,11 @@ describe("item drag lifecycle", () => {
 
     handleItemDragMove(
       makeMoveEvent([
-        { id: getItemDndId("item-c", LIST_KEY), pastHalfway: false, triggerDistCondition: true },
+        {
+          id: getItemDndId("item-c", LIST_KEY),
+          pastHalfway: false,
+          triggerDistCondition: true,
+        },
       ]),
     );
     await flushItemDragOver();
@@ -274,7 +325,10 @@ describe("item drag lifecycle", () => {
     handleItemDragEnd();
 
     const itemTree = getPanelItemTree();
-    expect(itemTree.items["item-root"]?.children).toEqual(["item-group", "item-b"]);
+    expect(itemTree.items["item-root"]?.children).toEqual([
+      "item-group",
+      "item-b",
+    ]);
     expect(itemTree.items["item-c"]?.children).toEqual(["item-a"]);
     expect(changeCallback).toHaveBeenCalledTimes(1);
     expect(useItemDndState.getState().pendingReset).toBe(true);
@@ -287,7 +341,11 @@ describe("item drag lifecycle", () => {
     handleItemDragEnd();
 
     const itemTree = getPanelItemTree();
-    expect(itemTree.items["item-root"]?.children).toEqual(["item-a", "item-group", "item-b"]);
+    expect(itemTree.items["item-root"]?.children).toEqual([
+      "item-a",
+      "item-group",
+      "item-b",
+    ]);
     expect(changeCallback).not.toHaveBeenCalled();
     expect(useItemDndState.getState().pendingReset).toBe(true);
   });

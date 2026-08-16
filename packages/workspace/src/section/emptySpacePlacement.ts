@@ -5,7 +5,11 @@ import { isGroupSection } from "../document/documentSelectors";
 import { getMetaControlPresentation } from "../document/sectionKindRegistry";
 import { resolveWorkspaceSectionSize } from "../document/sectionSize";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
-import type { Position, SectionSizeValue, WorkspaceSectionInput } from "../document/types";
+import type {
+  Position,
+  SectionSizeValue,
+  WorkspaceSectionInput,
+} from "../document/types";
 import { SECTION_SIZING_POLICY } from "./resize/sizingPolicy";
 
 // Where a section goes when nobody pointed at a place for it. The reference sends this decision to
@@ -20,7 +24,7 @@ import { SECTION_SIZING_POLICY } from "./resize/sizingPolicy";
 // (never below 1). A section that grows past its reservation once it mounts is the same outcome
 // the reference produces.
 
-export type WorkspaceEmptySpacePlacement = Readonly<{
+type WorkspaceEmptySpacePlacement = Readonly<{
   position: Position;
   // Set when the section did not land in the visible pane, so the canvas has to travel to it. The
   // reference's `panTo`: the point the viewport centers on.
@@ -35,13 +39,19 @@ const MINIMUM_GRID_STEP = 20;
 const MAXIMUM_GRID_STEP = 80;
 
 function resolveMinimumExtent(section: WorkspaceSectionInput): PlacementExtent {
-  const presentation = isGroupSection(section) ? null : getMetaControlPresentation(section);
+  const presentation = isGroupSection(section)
+    ? null
+    : getMetaControlPresentation(section);
   const minimumSize = presentation
     ? getMetaControlMinimumSize(presentation.resolveControlKind(section))
     : null;
   return {
     width: Math.max(1, SECTION_SIZING_POLICY.minWidth, minimumSize?.width ?? 0),
-    height: Math.max(1, SECTION_SIZING_POLICY.minHeight, minimumSize?.height ?? 0),
+    height: Math.max(
+      1,
+      SECTION_SIZING_POLICY.minHeight,
+      minimumSize?.height ?? 0,
+    ),
   };
 }
 
@@ -64,7 +74,11 @@ function resolveSectionExtent(
   const minimum = resolveMinimumExtent(section);
   return {
     width: resolveExtentDimension(measured.width, size.width, minimum.width),
-    height: resolveExtentDimension(measured.height, size.height, minimum.height),
+    height: resolveExtentDimension(
+      measured.height,
+      size.height,
+      minimum.height,
+    ),
   };
 }
 
@@ -117,11 +131,16 @@ function rectsIntersect(left: PlacementRect, right: PlacementRect): boolean {
   );
 }
 
-function intersectsAny(candidate: PlacementRect, rects: ReadonlyArray<PlacementRect>): boolean {
+function intersectsAny(
+  candidate: PlacementRect,
+  rects: ReadonlyArray<PlacementRect>,
+): boolean {
   return rects.some((rect) => rectsIntersect(candidate, rect));
 }
 
-function getOccupiedBounds(rects: ReadonlyArray<PlacementRect>): PlacementRect | null {
+function getOccupiedBounds(
+  rects: ReadonlyArray<PlacementRect>,
+): PlacementRect | null {
   const first = rects[0];
   if (!first) {
     return null;
@@ -176,7 +195,10 @@ function findPositionInBounds(
   return null;
 }
 
-function getRightBounds(bounds: PlacementRect, extent: PlacementExtent): PlacementRect {
+function getRightBounds(
+  bounds: PlacementRect,
+  extent: PlacementExtent,
+): PlacementRect {
   return {
     x: bounds.x + bounds.w,
     y: bounds.y - PLACEMENT_PADDING,
@@ -185,7 +207,10 @@ function getRightBounds(bounds: PlacementRect, extent: PlacementExtent): Placeme
   };
 }
 
-function getBottomBounds(bounds: PlacementRect, extent: PlacementExtent): PlacementRect {
+function getBottomBounds(
+  bounds: PlacementRect,
+  extent: PlacementExtent,
+): PlacementRect {
   return {
     x: bounds.x - PLACEMENT_PADDING,
     y: bounds.y + bounds.h,
@@ -202,9 +227,11 @@ function getAspectScore(
   extent: PlacementExtent,
 ): number {
   const width =
-    Math.max(bounds.x + bounds.w, candidate.x + extent.width) - Math.min(bounds.x, candidate.x);
+    Math.max(bounds.x + bounds.w, candidate.x + extent.width) -
+    Math.min(bounds.x, candidate.x);
   const height =
-    Math.max(bounds.y + bounds.h, candidate.y + extent.height) - Math.min(bounds.y, candidate.y);
+    Math.max(bounds.y + bounds.h, candidate.y + extent.height) -
+    Math.min(bounds.y, candidate.y);
   if (width <= 0 || height <= 0) {
     return Number.POSITIVE_INFINITY;
   }
@@ -256,7 +283,11 @@ function findPositionAfterExisting(
   if (!bounds) {
     return { x: PLACEMENT_PADDING, y: PLACEMENT_PADDING };
   }
-  const inside = findPositionInBounds(expandRect(bounds, PLACEMENT_PADDING), extent, rects);
+  const inside = findPositionInBounds(
+    expandRect(bounds, PLACEMENT_PADDING),
+    extent,
+    rects,
+  );
   if (inside) {
     return inside;
   }
@@ -293,14 +324,20 @@ export function resolveWorkspaceEmptySpacePlacement(
   // Without a measurable canvas there is no "visible" to prefer, so the search falls straight
   // through to the workspace's own layout and the canvas stays where it is.
   if (!pane) {
-    return Object.freeze({ position: findPositionAfterExisting(rects, extent), panTo: null });
+    return Object.freeze({
+      position: findPositionAfterExisting(rects, extent),
+      panTo: null,
+    });
   }
   // The reference's `shouldUseCreateTopLevelSectionViewport`: a pane looking at empty space far
   // from the workspace is not where new sections belong — they join the workspace, and the canvas
   // travels to them.
   if (rects.length > 0 && !intersectsAny(pane, rects)) {
     const position = findPositionAfterExisting(rects, extent);
-    return Object.freeze({ position, panTo: getPanTarget(position, extent, minimum) });
+    return Object.freeze({
+      position,
+      panTo: getPanTarget(position, extent, minimum),
+    });
   }
   const visible = findPositionInBounds(pane, extent, rects);
   if (visible) {
@@ -310,5 +347,8 @@ export function resolveWorkspaceEmptySpacePlacement(
     findPositionInBounds(getRightBounds(pane, extent), extent, rects) ??
     findPositionInBounds(getBottomBounds(pane, extent), extent, rects) ??
     findPositionAfterExisting(rects, extent);
-  return Object.freeze({ position: adjacent, panTo: getPanTarget(adjacent, extent, minimum) });
+  return Object.freeze({
+    position: adjacent,
+    panTo: getPanTarget(adjacent, extent, minimum),
+  });
 }

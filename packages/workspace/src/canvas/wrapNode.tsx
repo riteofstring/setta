@@ -32,7 +32,10 @@ const NodeWrapperComponent = ({
   const canEditLayout = useWorkspaceCapabilities((x) => x.canEditLayout);
   const nodeRef = useRef<HTMLDivElement>(null);
   const isDraggable =
-    _isDraggable && canEditLayout && section !== undefined && !section.positionAndSizeLocked;
+    _isDraggable &&
+    canEditLayout &&
+    section !== undefined &&
+    !section.positionAndSizeLocked;
 
   useEffect(() => {
     if (nodeRef.current) {

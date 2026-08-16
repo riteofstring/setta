@@ -19,7 +19,10 @@ export type ItemTreeView = {
   visibleChildrenByParent: Record<string, Array<string>>;
 };
 
-export function getItemOrThrow(itemTree: WorkspaceSectionItemTree, itemId: string): WorkspaceItem {
+export function getItemOrThrow(
+  itemTree: WorkspaceSectionItemTree,
+  itemId: string,
+): WorkspaceItem {
   const item = itemTree.items[itemId];
   if (!item) {
     throw new Error(`Unknown item ${itemId}.`);
@@ -155,11 +158,13 @@ export function resolveFullIndexForVisibleInsertion({
   }
   if (targetVisibleIndex === remainingVisible.length) {
     const lastVisible = remainingVisible[remainingVisible.length - 1];
-    const lastIndex = lastVisible === undefined ? -1 : remainingChildren.indexOf(lastVisible);
+    const lastIndex =
+      lastVisible === undefined ? -1 : remainingChildren.indexOf(lastVisible);
     return lastIndex >= 0 ? lastIndex + 1 : remainingChildren.length;
   }
   const anchorId = remainingVisible[targetVisibleIndex];
-  const anchorIndex = anchorId === undefined ? -1 : remainingChildren.indexOf(anchorId);
+  const anchorIndex =
+    anchorId === undefined ? -1 : remainingChildren.indexOf(anchorId);
   if (anchorIndex < 0) {
     return remainingChildren.length;
   }

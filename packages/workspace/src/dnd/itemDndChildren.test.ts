@@ -8,7 +8,11 @@ import {
   updateItemChildren,
   useItemDndChildren,
 } from "./itemDndChildren";
-import { getItemDndId, getTempItemDndId, type ItemListKey } from "./itemDndState";
+import {
+  getItemDndId,
+  getTempItemDndId,
+  type ItemListKey,
+} from "./itemDndState";
 
 describe("itemDndChildren state", () => {
   beforeEach(() => {

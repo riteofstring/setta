@@ -10,7 +10,7 @@ export type WorkspaceInspectorSelection =
   | { type: "multiple-items"; section: WorkspaceSection; itemCount: number }
   | { type: "multiple-sections"; sections: Array<WorkspaceSection> };
 
-export type WorkspaceInspectorLockState = "locked" | "mixed" | "unlocked";
+type WorkspaceInspectorLockState = "locked" | "mixed" | "unlocked";
 
 function getSingleSectionInspectorSelection(
   state: WorkspaceDocumentState,
@@ -22,7 +22,11 @@ function getSingleSectionInspectorSelection(
     return { type: "section", section };
   }
   if (itemTree.selectedItemIds.length > 1) {
-    return { type: "multiple-items", section, itemCount: itemTree.selectedItemIds.length };
+    return {
+      type: "multiple-items",
+      section,
+      itemCount: itemTree.selectedItemIds.length,
+    };
   }
   const itemId = itemTree.selectedItemIds[0];
   if (!itemId) {
@@ -41,7 +45,9 @@ export function getWorkspaceInspectorSelection(
   if (activeSectionIds.length > 1) {
     return {
       type: "multiple-sections",
-      sections: activeSectionIds.map((sectionId) => getSectionOrThrow(state, sectionId)),
+      sections: activeSectionIds.map((sectionId) =>
+        getSectionOrThrow(state, sectionId),
+      ),
     };
   }
   const sectionId = activeSectionIds[0];
@@ -51,7 +57,9 @@ export function getWorkspaceInspectorSelection(
   return getSingleSectionInspectorSelection(state, sectionId);
 }
 
-export function getWorkspaceInspectorSelectionKey(selection: WorkspaceInspectorSelection): string {
+export function getWorkspaceInspectorSelectionKey(
+  selection: WorkspaceInspectorSelection,
+): string {
   switch (selection.type) {
     case "empty":
       return "empty";
@@ -86,7 +94,9 @@ export function getWorkspaceInspectorSelectionStatus(
 export function getWorkspaceInspectorLockState(
   sections: ReadonlyArray<WorkspaceSection>,
 ): WorkspaceInspectorLockState {
-  const lockedCount = sections.filter((section) => section.positionAndSizeLocked).length;
+  const lockedCount = sections.filter(
+    (section) => section.positionAndSizeLocked,
+  ).length;
   if (lockedCount === 0) {
     return "unlocked";
   }
@@ -105,5 +115,7 @@ export function canGroupWorkspaceSections(
     return false;
   }
   const parentId = state.parentSectionMap[first.id] ?? null;
-  return sections.every((section) => (state.parentSectionMap[section.id] ?? null) === parentId);
+  return sections.every(
+    (section) => (state.parentSectionMap[section.id] ?? null) === parentId,
+  );
 }

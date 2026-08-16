@@ -9,7 +9,12 @@ import {
 } from "react";
 import { SortableContext, verticalListSortingStrategy } from "../dnd/adapter";
 import { useItemDndChildren } from "../dnd/itemDndChildren";
-import { getItemDndId, isTempItem, useItemDndState, type ItemListKey } from "../dnd/itemDndState";
+import {
+  getItemDndId,
+  isTempItem,
+  useItemDndState,
+  type ItemListKey,
+} from "../dnd/itemDndState";
 import type { WorkspaceItem } from "../document/types";
 import type { WorkspaceItemDiagnosticRegistry } from "./itemDiagnostics";
 
@@ -47,7 +52,10 @@ export function useItemListContext(): ItemListContextValue {
   return context;
 }
 
-export function useItemDndChildrenForParent(parentId: string, fallback: Array<string>) {
+export function useItemDndChildrenForParent(
+  parentId: string,
+  fallback: Array<string>,
+) {
   const context = useContext(ItemListContext);
   const { activeId, sectionId, listKey } = useItemDndState(
     (state) => ({
@@ -58,7 +66,10 @@ export function useItemDndChildrenForParent(parentId: string, fallback: Array<st
     _.isEqual,
   );
   const isActiveList = Boolean(
-    context && activeId && sectionId === context.sectionId && listKey === context.listKey,
+    context &&
+    activeId &&
+    sectionId === context.sectionId &&
+    listKey === context.listKey,
   );
   const tempChildren = useItemDndChildren(
     (state) => (isActiveList ? (state.x[parentId] ?? null) : null),
@@ -123,10 +134,14 @@ export function ItemListProvider({
     Boolean(activeInfo.activeId) &&
     activeInfo.sectionId === sectionId &&
     activeInfo.listKey === listKey;
-  const tempChildren = useItemDndChildren((state) => (isActiveList ? state.x : null), _.isEqual);
+  const tempChildren = useItemDndChildren(
+    (state) => (isActiveList ? state.x : null),
+    _.isEqual,
+  );
 
   const items = useMemo(() => {
-    const toDndId = (id: string) => (isTempItem(id) ? id : getItemDndId(id, listKey));
+    const toDndId = (id: string) =>
+      isTempItem(id) ? id : getItemDndId(id, listKey);
     if (isActiveList && tempChildren) {
       return flattenItemChildren(rootId, tempChildren).map(toDndId);
     }
@@ -149,7 +164,10 @@ export function ItemListProvider({
   );
 }
 
-function flattenItemChildren(rootId: string, childrenByParent: Record<string, Array<string>>) {
+function flattenItemChildren(
+  rootId: string,
+  childrenByParent: Record<string, Array<string>>,
+) {
   const flat: Array<string> = [];
 
   function walk(parentId: string) {

@@ -4,6 +4,8 @@ import { getWorkspaceScopeClassName } from "./workspaceScope";
 describe("getWorkspaceScopeClassName", () => {
   it("adds the package dark selector only for resolved dark appearance", () => {
     expect(getWorkspaceScopeClassName(false)).toBe("setta-workspace");
-    expect(getWorkspaceScopeClassName(true)).toBe("setta-workspace setta-workspace-dark");
+    expect(getWorkspaceScopeClassName(true)).toBe(
+      "setta-workspace setta-workspace-dark",
+    );
   });
 });

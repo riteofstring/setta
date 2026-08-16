@@ -19,7 +19,10 @@ import {
   useWorkspaceAppearance,
   useWorkspaceDocument,
 } from "../document/stores";
-import type { WorkspaceDocumentInput, WorkspaceSectionInput } from "../document/types";
+import type {
+  WorkspaceDocumentInput,
+  WorkspaceSectionInput,
+} from "../document/types";
 import { useResizeEvent } from "../section/resize/resizeEvents";
 import { setWorkspaceCodeSectionData } from "./codeSectionActions";
 import {
@@ -29,7 +32,9 @@ import {
 } from "./codeSectionData";
 import { createWorkspaceCodeSection } from "./codeSectionKind";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const resizeCallbacksByTarget = new Map<Element, Set<ResizeObserverCallback>>();
 
@@ -43,7 +48,8 @@ class CapturingResizeObserver {
 
   observe(target: Element) {
     this.targets.add(target);
-    const callbacks = resizeCallbacksByTarget.get(target) ?? new Set<ResizeObserverCallback>();
+    const callbacks =
+      resizeCallbacksByTarget.get(target) ?? new Set<ResizeObserverCallback>();
     callbacks.add(this.callback);
     resizeCallbacksByTarget.set(target, callbacks);
   }
@@ -61,7 +67,8 @@ class CapturingResizeObserver {
   }
 }
 
-globalThis.ResizeObserver = CapturingResizeObserver as unknown as typeof ResizeObserver;
+globalThis.ResizeObserver =
+  CapturingResizeObserver as unknown as typeof ResizeObserver;
 
 // Freezes the built-in Code Editor section against the reference's `CoreCodeArea`: the editor
 // paints the section's authored language, gutters, wrapping, and indentation; every keystroke
@@ -81,7 +88,10 @@ function makeCodeSection(
     id: SECTION_ID,
     kind: WORKSPACE_CODE_SECTION_KIND,
     name: "train.py",
-    data: createWorkspaceCodeSectionData({ code: "alpha = 1\nbeta = 2\n", ...data }),
+    data: createWorkspaceCodeSectionData({
+      code: "alpha = 1\nbeta = 2\n",
+      ...data,
+    }),
     isMinimized: false,
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
@@ -207,7 +217,11 @@ describe("built-in code section body", () => {
     const wrapper = getWrapper();
     expect(wrapper.getAttribute("aria-label")).toBe("train.py code editor");
     expect(wrapper.tabIndex).toBe(0);
-    for (const expectedClass of ["nopan", "nodrag", "setta-prevent-section-active-css"]) {
+    for (const expectedClass of [
+      "nopan",
+      "nodrag",
+      "setta-prevent-section-active-css",
+    ]) {
       expect(wrapper.classList.contains(expectedClass)).toBe(true);
     }
     // The section is auto-height, so the editor owns its overflow, exactly as the reference does.
@@ -257,7 +271,10 @@ describe("built-in code section body", () => {
     // locks that a horizontal trackpad gesture on this target never becomes canvas panning.
     expect(getWrapper().classList.contains("nowheel")).toBe(true);
 
-    Object.defineProperty(view.scrollDOM, "scrollWidth", { configurable: true, value: 300 });
+    Object.defineProperty(view.scrollDOM, "scrollWidth", {
+      configurable: true,
+      value: 300,
+    });
     await reportResize(view.scrollDOM);
     expect(getWrapper().classList.contains("nowheel")).toBe(false);
   });
@@ -282,9 +299,15 @@ describe("built-in code section body", () => {
       view.dispatch({ selection: { anchor: 3 } });
     });
     await act(async () => {
-      const neighbour = getSectionOrThrow(useWorkspaceDocument.getState(), "neighbour");
+      const neighbour = getSectionOrThrow(
+        useWorkspaceDocument.getState(),
+        "neighbour",
+      );
       useWorkspaceDocument.setState((state) => ({
-        sections: { ...state.sections, neighbour: { ...neighbour, name: "renamed" } },
+        sections: {
+          ...state.sections,
+          neighbour: { ...neighbour, name: "renamed" },
+        },
       }));
     });
     expect(getView()).toBe(view);
@@ -324,12 +347,16 @@ describe("built-in code section body", () => {
     const wrapper = getWrapper();
     await act(async () => {
       wrapper.focus();
-      wrapper.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+      wrapper.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }),
+      );
     });
     const view = getView();
     expect(document.activeElement).toBe(view.contentDOM);
     await act(async () => {
-      view.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+      view.contentDOM.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+      );
     });
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 20));

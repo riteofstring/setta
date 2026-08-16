@@ -13,7 +13,9 @@ type DragOperationShapeSyncProps = {
   enabled?: boolean;
 };
 
-export function DragOperationShapeSync({ enabled }: DragOperationShapeSyncProps = {}) {
+export function DragOperationShapeSync({
+  enabled,
+}: DragOperationShapeSyncProps = {}) {
   const manager = useDragDropManager();
   const { isSorting, isMovingFree } = useDndProviderContext();
   const {
@@ -35,7 +37,9 @@ export function DragOperationShapeSync({ enabled }: DragOperationShapeSyncProps 
     return sourceData?.current?.type ?? null;
   }, [manager]).value;
   const shouldSync =
-    enabled === undefined ? isSorting || isMovingFree || activeDragType === "item" : enabled;
+    enabled === undefined
+      ? isSorting || isMovingFree || activeDragType === "item"
+      : enabled;
   const baseRectRef = useRef<BoundingRectangle | null>(null);
   const activeIdRef = useRef<string | number | null>(null);
 
@@ -186,7 +190,10 @@ function resolveNextDragOperationShape({
   return {
     activeId,
     refreshedBaseRect,
-    shape: Rectangle.from(baseRect).translate(transform?.x ?? 0, transform?.y ?? 0),
+    shape: Rectangle.from(baseRect).translate(
+      transform?.x ?? 0,
+      transform?.y ?? 0,
+    ),
   };
 }
 
@@ -198,7 +205,8 @@ export function resolveDragBaseRect({
   droppable,
   fallbackRect,
 }: ResolveDragBaseRectArgs): ResolveDragBaseRectResult {
-  const needsFreshBaseRect = previousActiveId !== activeId || previousBaseRect === null;
+  const needsFreshBaseRect =
+    previousActiveId !== activeId || previousBaseRect === null;
   const refreshedBaseRect = needsFreshBaseRect
     ? resolveFreshDragBaseRect({
         selectionRect,

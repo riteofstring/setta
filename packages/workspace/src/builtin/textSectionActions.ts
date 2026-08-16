@@ -16,12 +16,16 @@ import {
 function getTextSection(sectionId: string): WorkspaceSection {
   const section = getSectionOrThrow(useWorkspaceDocument.getState(), sectionId);
   if (section.kind !== WORKSPACE_TEXT_SECTION_KIND) {
-    throw new Error(`Section ${sectionId} is a ${section.kind} section, not a text section.`);
+    throw new Error(
+      `Section ${sectionId} is a ${section.kind} section, not a text section.`,
+    );
   }
   return section;
 }
 
-export function getWorkspaceTextSectionData(sectionId: string): WorkspaceTextSectionData {
+export function getWorkspaceTextSectionData(
+  sectionId: string,
+): WorkspaceTextSectionData {
   const section = getTextSection(sectionId);
   return parseWorkspaceTextSectionData(sectionId, section.data);
 }
@@ -34,6 +38,9 @@ export function setWorkspaceTextSectionData(
   const nextData = parseWorkspaceTextSectionData(sectionId, data);
   // The registration owns which formats and display modes it accepts; ask it before the write
   // rather than duplicating its narrowing here.
-  getRegisteredSectionKindOrThrow(section.kind).assertValidData?.({ ...section, data: nextData });
+  getRegisteredSectionKindOrThrow(section.kind).assertValidData?.({
+    ...section,
+    data: nextData,
+  });
   setSectionData(sectionId, nextData);
 }

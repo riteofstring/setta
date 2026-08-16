@@ -3,7 +3,11 @@ import { registerSectionKinds } from "../document/sectionKindRegistry";
 import type { WorkspaceItem, WorkspaceSection } from "../document/types";
 import { filterWorkspaceSectionItems } from "./itemFiltering";
 
-function makeBuiltInItem(id: string, label: string, children: Array<string> = []): WorkspaceItem {
+function makeBuiltInItem(
+  id: string,
+  label: string,
+  children: Array<string> = [],
+): WorkspaceItem {
   return {
     id,
     children,
@@ -31,7 +35,11 @@ function makeSection(): WorkspaceSection {
         alpha: makeBuiltInItem("alpha", "Learning rate"),
         options: makeBuiltInItem("options", "Options", ["momentum"]),
         momentum: makeBuiltInItem("momentum", "Optimizer momentum"),
-        custom: { id: "custom", children: [], data: { keywords: "batch worker count" } },
+        custom: {
+          id: "custom",
+          children: [],
+          data: { keywords: "batch worker count" },
+        },
       },
       selectedItemIds: [],
     },
@@ -55,7 +63,12 @@ describe("package-owned item filtering", () => {
   it("searches custom items only through the owning kind's frozen text contribution", () => {
     const getItemSearchableText = vi.fn(({ section, item }) => {
       expect(Object.isFrozen(section)).toBe(true);
-      expect(Object.keys(section).sort()).toEqual(["data", "id", "kind", "name"]);
+      expect(Object.keys(section).sort()).toEqual([
+        "data",
+        "id",
+        "kind",
+        "name",
+      ]);
       expect(Object.isFrozen(item)).toBe(true);
       const data = item.data;
       return data && typeof data === "object" && !Array.isArray(data)
@@ -80,13 +93,20 @@ describe("package-owned item filtering", () => {
 
     const result = filterWorkspaceSectionItems(makeSection(), "   ");
     expect(result.filterActive).toBe(false);
-    expect([...result.visibleItemIds]).toEqual(["alpha", "options", "momentum", "custom"]);
+    expect([...result.visibleItemIds]).toEqual([
+      "alpha",
+      "options",
+      "momentum",
+      "custom",
+    ]);
     expect(getItemSearchableText).not.toHaveBeenCalled();
   });
 
   it("leaves custom items unsearchable without an explicit contribution", () => {
     registerSectionKinds({ parameters: { renderContent: () => null } });
-    expect(filterWorkspaceSectionItems(makeSection(), "worker").matchingItemIds.size).toBe(0);
+    expect(
+      filterWorkspaceSectionItems(makeSection(), "worker").matchingItemIds.size,
+    ).toBe(0);
   });
 
   it("fails specifically when a JavaScript host returns malformed searchable text", () => {
@@ -96,8 +116,8 @@ describe("package-owned item filtering", () => {
         getItemSearchableText: (() => ["worker"]) as unknown as () => string,
       },
     });
-    expect(() => filterWorkspaceSectionItems(makeSection(), "worker")).toThrowError(
-      /non-string searchable text for item custom/,
-    );
+    expect(() =>
+      filterWorkspaceSectionItems(makeSection(), "worker"),
+    ).toThrowError(/non-string searchable text for item custom/);
   });
 });

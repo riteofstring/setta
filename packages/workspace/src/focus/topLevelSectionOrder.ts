@@ -11,7 +11,9 @@ export function getOrderedTopLevelSectionIds(): Array<string> {
     .map((sectionId) => {
       const layout = state.topLevelSections[sectionId];
       if (!layout) {
-        throw new Error(`Top-level workspace section ${sectionId} has no layout.`);
+        throw new Error(
+          `Top-level workspace section ${sectionId} has no layout.`,
+        );
       }
       return { sectionId, layout };
     })

@@ -1,6 +1,9 @@
 import { useItemDndState } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { getSectionItemTreeOrThrow, getSectionOrThrow } from "../document/documentSelectors";
+import {
+  getSectionItemTreeOrThrow,
+  getSectionOrThrow,
+} from "../document/documentSelectors";
 import { getWorkspaceItemFactory } from "../document/sectionKindRegistry";
 import { useWorkspaceDocument } from "../document/stores";
 import {
@@ -41,17 +44,25 @@ function isItemAuthoringMutationDisabled(
   return !canEditStructure || itemDragActive || sectionLocked;
 }
 
-export function WorkspaceItemAuthoringToolbar({ sectionId }: { sectionId: string }) {
-  const canEditStructure = useWorkspaceCapabilities((state) => state.canEditStructure);
+export function WorkspaceItemAuthoringToolbar({
+  sectionId,
+}: {
+  sectionId: string;
+}) {
+  const canEditStructure = useWorkspaceCapabilities(
+    (state) => state.canEditStructure,
+  );
   const itemDragActive = useItemDndState((state) => state.activeId !== null);
-  const hasSectionStyleTheme = useWorkspaceItemFilter()?.hasSectionStyleTheme === true;
+  const hasSectionStyleTheme =
+    useWorkspaceItemFilter()?.hasSectionStyleTheme === true;
   const state = useWorkspaceDocument((documentState) => {
     const section = getSectionOrThrow(documentState, sectionId);
     const itemTree = getSectionItemTreeOrThrow(documentState, sectionId);
     return {
       canCreateItem: getWorkspaceItemFactory(section) !== null,
       hasSelectedItems: itemTree.selectedItemIds.length > 0,
-      hasTopLevelItems: (itemTree.items[itemTree.rootId]?.children.length ?? 0) > 0,
+      hasTopLevelItems:
+        (itemTree.items[itemTree.rootId]?.children.length ?? 0) > 0,
       sectionLocked: section.positionAndSizeLocked,
     };
   });
@@ -91,7 +102,9 @@ export function WorkspaceItemAuthoringToolbar({ sectionId }: { sectionId: string
           data-setta-workspace-touch-target="compact"
           disabled={mutationDisabled || !state.canCreateItem}
           onClick={() => insertWorkspaceItem(sectionId)}
-          title={state.canCreateItem ? "Add parameter" : "Add parameter unavailable"}
+          title={
+            state.canCreateItem ? "Add parameter" : "Add parameter unavailable"
+          }
           type="button"
         >
           <i aria-hidden={true} className="gg-math-plus !scale-50" />

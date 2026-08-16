@@ -6,12 +6,18 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getActiveSectionIds } from "../document/activeSections";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import { useSectionRefs } from "../section/sectionRefs";
 import { focusAdjacentTopLevelSection } from "./sectionNavigation";
 import { useWorkspaceFocusScope } from "./workspaceFocusScopes";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function CanvasScope() {
   const ref = useRef<HTMLDivElement>(null);
@@ -99,7 +105,9 @@ describe("focusAdjacentTopLevelSection", () => {
     await act(async () => {
       root.render(<CanvasScope />);
     });
-    const mountedScope = host.querySelector<HTMLElement>('[data-scope-root="canvas"]');
+    const mountedScope = host.querySelector<HTMLElement>(
+      '[data-scope-root="canvas"]',
+    );
     if (!mountedScope) {
       throw new Error("Canvas scope root did not mount.");
     }
@@ -167,7 +175,9 @@ describe("focusAdjacentTopLevelSection", () => {
 
     focusAdjacentTopLevelSection(1);
 
-    expect(document.activeElement).toBe(scopeRoot.querySelector('[data-id="middle"]'));
+    expect(document.activeElement).toBe(
+      scopeRoot.querySelector('[data-id="middle"]'),
+    );
   });
 
   it("stops at the ends of the order and leaves the selection alone", () => {

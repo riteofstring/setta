@@ -14,7 +14,14 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -36,7 +43,12 @@ const EXPECTED_CANVAS_SIZE = { height: 602, width: 1446 };
 const DRAG_TARGET_ID = "performance-drag-target";
 const PREVIEW_PORT = 4174;
 const PREVIEW_ORIGIN = `http://127.0.0.1:${String(PREVIEW_PORT)}`;
-const VIEWPORT = { deviceScaleFactor: 1, height: 696, mobile: false, width: 1492 };
+const VIEWPORT = {
+  deviceScaleFactor: 1,
+  height: 696,
+  mobile: false,
+  width: 1492,
+};
 const MOVE_COUNT = 96;
 const MOVE_PAUSE_MS = 7;
 const GESTURE_SETTLE_MS = 250;
@@ -87,7 +99,8 @@ function chromeBinaryPath() {
   if (process.platform !== "darwin") {
     throw new Error("Non-macOS performance profiles require --chrome-binary.");
   }
-  const defaultPath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+  const defaultPath =
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
   if (!existsSync(defaultPath)) {
     throw new Error(`Default Chrome binary does not exist: ${defaultPath}.`);
   }
@@ -95,7 +108,9 @@ function chromeBinaryPath() {
 }
 
 function startHeadlessChrome() {
-  const profileDirectory = mkdtempSync(path.join(os.tmpdir(), "setta-workspace-profile-chrome-"));
+  const profileDirectory = mkdtempSync(
+    path.join(os.tmpdir(), "setta-workspace-profile-chrome-"),
+  );
   const child = spawn(
     chromeBinaryPath(),
     [
@@ -136,13 +151,17 @@ async function waitForHeadlessChrome(browser) {
       const [rawPort] = readFileSync(portFile, "utf8").split("\n");
       const port = Number(rawPort);
       if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
-        throw new Error(`Headless Chrome wrote an invalid DevTools port: ${String(rawPort)}.`);
+        throw new Error(
+          `Headless Chrome wrote an invalid DevTools port: ${String(rawPort)}.`,
+        );
       }
       return port;
     }
     await delay(50);
   }
-  throw new Error("Headless Chrome did not expose a DevTools port within 15 seconds.");
+  throw new Error(
+    "Headless Chrome did not expose a DevTools port within 15 seconds.",
+  );
 }
 
 async function stopHeadlessChrome(browser) {
@@ -195,7 +214,9 @@ function directorySha256(relativeDirectory) {
   const directory = path.join(repositoryRoot, relativeDirectory);
   const files = [];
   const visit = (currentDirectory) => {
-    for (const entry of readdirSync(currentDirectory, { withFileTypes: true })) {
+    for (const entry of readdirSync(currentDirectory, {
+      withFileTypes: true,
+    })) {
       const absolutePath = path.join(currentDirectory, entry.name);
       if (entry.isDirectory()) {
         visit(absolutePath);
@@ -220,7 +241,15 @@ function startPreview() {
   const viteEntry = path.join(playgroundRoot, "node_modules/vite/bin/vite.js");
   const child = spawn(
     process.execPath,
-    [viteEntry, "preview", "--host", "127.0.0.1", "--port", String(PREVIEW_PORT), "--strictPort"],
+    [
+      viteEntry,
+      "preview",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      String(PREVIEW_PORT),
+      "--strictPort",
+    ],
     {
       cwd: playgroundRoot,
       env: process.env,
@@ -259,7 +288,9 @@ async function waitForPreview(preview) {
     }
     await delay(100);
   }
-  throw new Error("Playground production preview did not become ready within 15 seconds.");
+  throw new Error(
+    "Playground production preview did not become ready within 15 seconds.",
+  );
 }
 
 async function stopPreview(preview) {
@@ -282,7 +313,9 @@ async function stopPreview(preview) {
     delay(2_000).then(() => false),
   ]);
   if (!exitedForcibly) {
-    throw new Error(`Playground preview process ${String(preview.child.pid)} did not terminate.`);
+    throw new Error(
+      `Playground preview process ${String(preview.child.pid)} did not terminate.`,
+    );
   }
 }
 
@@ -429,14 +462,18 @@ function pageIssueCollector(client) {
     }),
     client.on("Log.entryAdded", ({ entry }) => {
       if (entry?.level === "error" || entry?.level === "warning") {
-        issues.push(`log ${entry.level}: ${entry.url ?? "unknown URL"}: ${entry.text}`);
+        issues.push(
+          `log ${entry.level}: ${entry.url ?? "unknown URL"}: ${entry.text}`,
+        );
       }
     }),
   ];
   return {
     assertNone(context) {
       if (issues.length > 0) {
-        throw new Error(`${context} emitted browser issues:\n${issues.join("\n")}`);
+        throw new Error(
+          `${context} emitted browser issues:\n${issues.join("\n")}`,
+        );
       }
     },
     clear() {
@@ -479,7 +516,11 @@ const RENDER_COUNTS_EXPRESSION = `(() => {
 async function prepareProfilePage(client, issues, scenario, pass) {
   issues.clear();
   await navigate(client, profileUrl(scenario, pass));
-  const load = await waitForProfileReady(client, issues, `${scenario} pass ${String(pass)}`);
+  const load = await waitForProfileReady(
+    client,
+    issues,
+    `${scenario} pass ${String(pass)}`,
+  );
   const counts = await evaluate(client, RENDER_COUNTS_EXPRESSION);
   assertInitialProfileCounts(counts);
   issues.assertNone(`${scenario} pass ${String(pass)} load`);
@@ -520,18 +561,30 @@ function gesturePath(start, vector) {
   const points = [];
   for (let step = 1; step <= MOVE_COUNT; step += 1) {
     const progress = step / MOVE_COUNT;
-    points.push({ x: start.x + vector.x * progress, y: start.y + vector.y * progress });
+    points.push({
+      x: start.x + vector.x * progress,
+      y: start.y + vector.y * progress,
+    });
   }
   return points;
 }
 
-async function dispatchGesture(client, start, vector, targetSelector, progressLabel) {
+async function dispatchGesture(
+  client,
+  start,
+  vector,
+  targetSelector,
+  progressLabel,
+) {
   await client.send("Input.dispatchMouseEvent", {
     type: "mouseMoved",
     x: start.x,
     y: start.y,
   });
-  await evaluate(client, `window.__settaInteractionProbe.begin(${JSON.stringify(targetSelector)})`);
+  await evaluate(
+    client,
+    `window.__settaInteractionProbe.begin(${JSON.stringify(targetSelector)})`,
+  );
   await delay(50);
   console.error(`[performance] ${progressLabel} pointer down`);
   await client.send("Input.dispatchMouseEvent", {
@@ -594,10 +647,14 @@ function validateGesture(metrics, label) {
     );
   }
   if (metrics.pageScrollDelta.x !== 0 || metrics.pageScrollDelta.y !== 0) {
-    throw new Error(`${label} scrolled the host page: ${JSON.stringify(metrics.pageScrollDelta)}.`);
+    throw new Error(
+      `${label} scrolled the host page: ${JSON.stringify(metrics.pageScrollDelta)}.`,
+    );
   }
   if (metrics.frameCount < 10) {
-    throw new Error(`${label} recorded only ${String(metrics.frameCount)} animation frames.`);
+    throw new Error(
+      `${label} recorded only ${String(metrics.frameCount)} animation frames.`,
+    );
   }
 }
 
@@ -662,10 +719,15 @@ async function measureGesture(client, issues, configuration) {
   );
   const { metrics: cdpAfter } = await client.send("Performance.getMetrics");
   const metrics = analyzeGestureSample(sample);
-  validateGesture(metrics, `${configuration.scenario} pass ${String(configuration.pass)}`);
+  validateGesture(
+    metrics,
+    `${configuration.scenario} pass ${String(configuration.pass)}`,
+  );
   const after = await evaluate(client, RENDER_COUNTS_EXPRESSION);
   assertMountedProfileCounts(after);
-  issues.assertNone(`${configuration.scenario} pass ${String(configuration.pass)}`);
+  issues.assertNone(
+    `${configuration.scenario} pass ${String(configuration.pass)}`,
+  );
   return {
     ...metrics,
     cdp: cdpMetricsDelta(cdpBefore, cdpAfter),
@@ -685,7 +747,9 @@ function maxLongTask(observations) {
 function median(values) {
   const ordered = [...values].sort((left, right) => left - right);
   const middle = Math.floor(ordered.length / 2);
-  return ordered.length % 2 === 0 ? (ordered[middle - 1] + ordered[middle]) / 2 : ordered[middle];
+  return ordered.length % 2 === 0
+    ? (ordered[middle - 1] + ordered[middle]) / 2
+    : ordered[middle];
 }
 
 function roundedMedian(values) {
@@ -696,31 +760,55 @@ function summarize(render, pan, drag) {
   return {
     culling: {
       culledTopLevelNodes: render[0].counts.culledTopLevelNodes,
-      mountedOffscreenTopLevelNodes: render[0].counts.mountedOffscreenTopLevelNodes,
+      mountedOffscreenTopLevelNodes:
+        render[0].counts.mountedOffscreenTopLevelNodes,
       mountedTopLevelNodes: render[0].counts.mountedTopLevelNodes,
       visibleTopLevelNodes: render[0].counts.visibleTopLevelNodes,
     },
     drag: {
-      maxActivationFrameGapMs: Math.max(...drag.map(({ activation }) => activation.maxGapMs)),
-      maxLongTaskMs: maxLongTask(drag),
-      maxSustainedFrameGapMs: Math.max(...drag.map(({ sustained }) => sustained.maxGapMs)),
-      medianFirstTargetMutationAfterDownMs: roundedMedian(
-        drag.map(({ firstTargetMutationAfterDownMs }) => firstTargetMutationAfterDownMs),
+      maxActivationFrameGapMs: Math.max(
+        ...drag.map(({ activation }) => activation.maxGapMs),
       ),
-      medianScriptDurationMs: roundedMedian(drag.map(({ cdp }) => cdp.ScriptDurationMs)),
-      medianTaskDurationMs: roundedMedian(drag.map(({ cdp }) => cdp.TaskDurationMs)),
+      maxLongTaskMs: maxLongTask(drag),
+      maxSustainedFrameGapMs: Math.max(
+        ...drag.map(({ sustained }) => sustained.maxGapMs),
+      ),
+      medianFirstTargetMutationAfterDownMs: roundedMedian(
+        drag.map(
+          ({ firstTargetMutationAfterDownMs }) =>
+            firstTargetMutationAfterDownMs,
+        ),
+      ),
+      medianScriptDurationMs: roundedMedian(
+        drag.map(({ cdp }) => cdp.ScriptDurationMs),
+      ),
+      medianTaskDurationMs: roundedMedian(
+        drag.map(({ cdp }) => cdp.TaskDurationMs),
+      ),
     },
     pan: {
-      maxActivationFrameGapMs: Math.max(...pan.map(({ activation }) => activation.maxGapMs)),
+      maxActivationFrameGapMs: Math.max(
+        ...pan.map(({ activation }) => activation.maxGapMs),
+      ),
       maxLongTaskMs: maxLongTask(pan),
-      maxSustainedFrameGapMs: Math.max(...pan.map(({ sustained }) => sustained.maxGapMs)),
-      medianScriptDurationMs: roundedMedian(pan.map(({ cdp }) => cdp.ScriptDurationMs)),
-      medianTaskDurationMs: roundedMedian(pan.map(({ cdp }) => cdp.TaskDurationMs)),
+      maxSustainedFrameGapMs: Math.max(
+        ...pan.map(({ sustained }) => sustained.maxGapMs),
+      ),
+      medianScriptDurationMs: roundedMedian(
+        pan.map(({ cdp }) => cdp.ScriptDurationMs),
+      ),
+      medianTaskDurationMs: roundedMedian(
+        pan.map(({ cdp }) => cdp.TaskDurationMs),
+      ),
     },
     render: {
       maxLongTaskMs: maxLongTask(render.map(({ load }) => load)),
-      medianNodeReadyAtMs: roundedMedian(render.map(({ load }) => load.nodeReadyAtMs)),
-      medianSettledAtMs: roundedMedian(render.map(({ load }) => load.settledAtMs)),
+      medianNodeReadyAtMs: roundedMedian(
+        render.map(({ load }) => load.nodeReadyAtMs),
+      ),
+      medianSettledAtMs: roundedMedian(
+        render.map(({ load }) => load.settledAtMs),
+      ),
     },
   };
 }
@@ -749,7 +837,9 @@ async function collectProfile(client, passes) {
   try {
     for (let pass = 1; pass <= passes; pass += 1) {
       console.error(`[performance] pan pass ${String(pass)}/${String(passes)}`);
-      console.error(`[performance] render pass ${String(pass)}/${String(passes)}`);
+      console.error(
+        `[performance] render pass ${String(pass)}/${String(passes)}`,
+      );
       const prepared = await prepareProfilePage(client, issues, "render", pass);
       const { metrics } = await client.send("Performance.getMetrics");
       render.push({ ...prepared, cdp: selectCdpMetrics(metrics), pass });
@@ -764,7 +854,9 @@ async function collectProfile(client, passes) {
       );
     }
     for (let pass = 1; pass <= passes; pass += 1) {
-      console.error(`[performance] drag pass ${String(pass)}/${String(passes)}`);
+      console.error(
+        `[performance] drag pass ${String(pass)}/${String(passes)}`,
+      );
       await prepareProfilePage(client, issues, "drag", pass);
       drag.push(
         await measureGesture(client, issues, {
@@ -796,7 +888,9 @@ async function main() {
     const page = await createCdpPage(cdpPort);
     client = page.client;
     await configureCdpClient(client);
-    console.error(`[performance] isolated headless CDP target ready on port ${String(cdpPort)}`);
+    console.error(
+      `[performance] isolated headless CDP target ready on port ${String(cdpPort)}`,
+    );
     const { product, userAgent } = await client.send("Browser.getVersion");
     const observations = await collectProfile(client, passes);
     const result = {
@@ -805,7 +899,9 @@ async function main() {
           packageDist: directorySha256("packages/workspace/dist"),
           playgroundDist: directorySha256("apps/playground/dist"),
         },
-        baseCommit: run("git", ["rev-parse", "HEAD"], { capture: true }).stdout.trim(),
+        baseCommit: run("git", ["rev-parse", "HEAD"], {
+          capture: true,
+        }).stdout.trim(),
         environment: {
           architecture: process.arch,
           chrome: product,

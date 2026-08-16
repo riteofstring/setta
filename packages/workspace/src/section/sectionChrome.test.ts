@@ -2,9 +2,13 @@
 // sectionChrome.ts emits on the slice-reachable paths (leaf/group chrome; no application-only
 // options). Any diff here is a parity change and needs reference re-verification, not a test edit.
 import { describe, expect, it } from "vitest";
-import { getSectionContainerShellClassName, getSectionSurfaceClassName } from "./sectionChrome";
+import {
+  getSectionContainerShellClassName,
+  getSectionSurfaceClassName,
+} from "./sectionChrome";
 
-const SHELL_BASE = "group/card-section transition-radius relative dndline outline w-min border";
+const SHELL_BASE =
+  "group/card-section transition-radius relative dndline outline w-min border";
 const SURFACE_BASE =
   "relative grid h-full transition-radius before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0";
 const INACTIVE_OUTLINE =

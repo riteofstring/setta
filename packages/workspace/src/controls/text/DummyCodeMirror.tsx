@@ -1,5 +1,12 @@
-import type { CSSProperties, FocusEventHandler, MouseEventHandler } from "react";
-import { buildHighlightedCodeLines, buildPlainCodeLines } from "./highlightedCodeLines";
+import type {
+  CSSProperties,
+  FocusEventHandler,
+  MouseEventHandler,
+} from "react";
+import {
+  buildHighlightedCodeLines,
+  buildPlainCodeLines,
+} from "./highlightedCodeLines";
 import { type TextValueLanguage } from "./textValueLanguages";
 import { getThemeScopeClassName, type TextValueTheme } from "./textValueTheme";
 
@@ -107,7 +114,10 @@ function PlaceholderCode({
   ariaInvalid,
   ariaDisabled,
   ariaMultiline,
-}: DummyInteractionProps & { placeholder: string | undefined; style: CSSProperties }) {
+}: DummyInteractionProps & {
+  placeholder: string | undefined;
+  style: CSSProperties;
+}) {
   // returns <br/> if no placeholder, so that the div takes up space
   return (
     <span

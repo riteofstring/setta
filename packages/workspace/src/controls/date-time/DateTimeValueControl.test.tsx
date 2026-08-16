@@ -13,12 +13,17 @@ import type {
   TimeValueControlProps,
 } from "./dateTimeTypes";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const SECTION_ID = "panel";
 
 function setInputValue(input: HTMLInputElement, value: string): void {
-  const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+  const valueSetter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  )?.set;
   if (!valueSetter) {
     throw new Error("The native input value setter is unavailable.");
   }
@@ -109,7 +114,9 @@ describe("DateValueControl and TimeValueControl", () => {
       timeDisplayFormat: "twelve_hour",
       onValueChange,
     });
-    const input = host.querySelector<HTMLInputElement>('input[type="datetime-local"]');
+    const input = host.querySelector<HTMLInputElement>(
+      'input[type="datetime-local"]',
+    );
     if (!input) {
       throw new Error("The datetime-local input is not rendered.");
     }
@@ -129,12 +136,22 @@ describe("DateValueControl and TimeValueControl", () => {
       weekStart: "monday",
       onValueChange,
     });
-    const group = host.querySelector<HTMLElement>('[role="group"][aria-label="Date value"]');
-    expect(group?.getAttribute("aria-disabled")).toBe("false");
-    const weekdayLabels = Array.from(group?.querySelectorAll(".uppercase span") ?? []).map(
-      (label) => label.textContent,
+    const group = host.querySelector<HTMLElement>(
+      '[role="group"][aria-label="Date value"]',
     );
-    expect(weekdayLabels).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    expect(group?.getAttribute("aria-disabled")).toBe("false");
+    const weekdayLabels = Array.from(
+      group?.querySelectorAll(".uppercase span") ?? [],
+    ).map((label) => label.textContent);
+    expect(weekdayLabels).toEqual([
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun",
+    ]);
 
     const selected = host.querySelector<HTMLButtonElement>(
       'button[aria-label="February 17, 2026"]',
@@ -144,9 +161,9 @@ describe("DateValueControl and TimeValueControl", () => {
     );
     expect(selected?.getAttribute("aria-selected")).toBe("true");
     expect(nextDate?.getAttribute("aria-selected")).toBe("false");
-    expect(group?.querySelector('[role="grid"]')?.getAttribute("aria-label")).toBe(
-      "Date value, February 2026",
-    );
+    expect(
+      group?.querySelector('[role="grid"]')?.getAttribute("aria-label"),
+    ).toBe("Date value, February 2026");
     act(() => nextDate?.click());
     expect(onValueChange).toHaveBeenCalledWith('["2026-02-17","2026-02-18"]');
   });
@@ -174,10 +191,16 @@ describe("DateValueControl and TimeValueControl", () => {
     selectedDate?.focus();
     act(() => {
       selectedDate?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }),
+        new KeyboardEvent("keydown", {
+          key: "ArrowRight",
+          bubbles: true,
+          cancelable: true,
+        }),
       );
     });
-    const nextDate = host.querySelector<HTMLButtonElement>('button[aria-label="March 1, 2026"]');
+    const nextDate = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="March 1, 2026"]',
+    );
     expect(document.activeElement).toBe(nextDate);
     expect(nextDate?.tabIndex).toBe(0);
     expect(host.textContent).toContain("March 2026");
@@ -193,7 +216,9 @@ describe("DateValueControl and TimeValueControl", () => {
 
     act(() => trailingDate?.click());
 
-    const focusedDate = host.querySelector<HTMLButtonElement>('button[aria-label="March 1, 2026"]');
+    const focusedDate = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="March 1, 2026"]',
+    );
     expect(onValueChange).toHaveBeenCalledWith("2026-03-01");
     expect(host.textContent).toContain("March 2026");
     expect(document.activeElement).toBe(focusedDate);
@@ -210,12 +235,18 @@ describe("DateValueControl and TimeValueControl", () => {
 
     act(() => {
       selectedDate?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true }),
+        new KeyboardEvent("keydown", {
+          key: "ArrowLeft",
+          bubbles: true,
+          cancelable: true,
+        }),
       );
     });
 
     expect(document.activeElement).toBe(
-      host.querySelector<HTMLButtonElement>('button[aria-label="March 1, 2026"]'),
+      host.querySelector<HTMLButtonElement>(
+        'button[aria-label="March 1, 2026"]',
+      ),
     );
   });
 
@@ -230,7 +261,8 @@ describe("DateValueControl and TimeValueControl", () => {
       onValueChange,
     });
     expect(host.textContent).toContain("2026-02-17 9:30 AM");
-    const timeInput = host.querySelector<HTMLInputElement>('input[type="time"]');
+    const timeInput =
+      host.querySelector<HTMLInputElement>('input[type="time"]');
     if (!timeInput) {
       throw new Error("The calendar time input is not rendered.");
     }
@@ -264,7 +296,9 @@ describe("DateValueControl and TimeValueControl", () => {
       scale: 1.8,
       font: "clock",
     });
-    const display = host.querySelector<HTMLElement>('output[aria-label="Time value: 1:05 PM"]');
+    const display = host.querySelector<HTMLElement>(
+      'output[aria-label="Time value: 1:05 PM"]',
+    );
     expect(display?.textContent).toBe("1:05 PM");
     expect(display?.classList.contains("tracking-[0.08em]")).toBe(true);
     expect(display?.style.fontSize).toBe("1.8em");
@@ -283,7 +317,11 @@ describe("DateValueControl and TimeValueControl", () => {
     input?.focus();
     act(() => {
       input?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          code: "Escape",
+          bubbles: true,
+        }),
       );
     });
     expect(document.activeElement).toBe(sectionRoot);
@@ -295,7 +333,11 @@ describe("DateValueControl and TimeValueControl", () => {
     selectedDate?.focus();
     act(() => {
       selectedDate?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          code: "Escape",
+          bubbles: true,
+        }),
       );
     });
     expect(document.activeElement).toBe(sectionRoot);
@@ -306,14 +348,18 @@ describe("DateValueControl and TimeValueControl", () => {
 
   it("disables native and calendar interactions through host and item-select state", () => {
     mountTime({ disabled: true });
-    expect(host.querySelector<HTMLInputElement>('input[type="time"]')?.disabled).toBe(true);
+    expect(
+      host.querySelector<HTMLInputElement>('input[type="time"]')?.disabled,
+    ).toBe(true);
 
     useItemSelectionMode.setState({ isSelectingItems: true });
     mountDate({ controlMode: "calendar" });
     const group = host.querySelector<HTMLElement>('[role="group"]');
     expect(group?.getAttribute("aria-disabled")).toBe("true");
     expect(
-      Array.from(group?.querySelectorAll("button") ?? []).every((button) => button.disabled),
+      Array.from(group?.querySelectorAll("button") ?? []).every(
+        (button) => button.disabled,
+      ),
     ).toBe(true);
     expect(host.querySelector("span.section-value")?.className).not.toContain(
       "peer-focus-within/textinput:border-blue-400",
@@ -342,6 +388,8 @@ describe("DateValueControl and TimeValueControl", () => {
           scale: 4,
         }),
       ),
-    ).toThrow("TimeValueControl received invalid scale: 4; expected 0.5 through 3.");
+    ).toThrow(
+      "TimeValueControl received invalid scale: 4; expected 0.5 through 3.",
+    );
   });
 });

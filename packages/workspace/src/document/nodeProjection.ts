@@ -1,6 +1,9 @@
 import type { CSSProperties } from "react";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
-import { getSectionOrThrow, getTopLevelSectionIdsForDisplay } from "./documentSelectors";
+import {
+  getSectionOrThrow,
+  getTopLevelSectionIdsForDisplay,
+} from "./documentSelectors";
 import {
   useWorkspaceAppearance,
   type NodeInternalsState,
@@ -18,7 +21,9 @@ function getSectionNodeStyle(
   }
   const theme = deriveSectionStyleTheme(styleColor, darkMode);
   if (!theme) {
-    throw new Error(`Section ${section.id} has an unparseable style color ${styleColor}.`);
+    throw new Error(
+      `Section ${section.id} has an unparseable style color ${styleColor}.`,
+    );
   }
   return { background: theme.bg };
 }
@@ -30,7 +35,10 @@ function nodeStylesMatch(
   if (currentStyle === undefined || nextStyle === undefined) {
     return currentStyle === nextStyle;
   }
-  return Object.keys(currentStyle).length === 1 && currentStyle.background === nextStyle.background;
+  return (
+    Object.keys(currentStyle).length === 1 &&
+    currentStyle.background === nextStyle.background
+  );
 }
 
 // Appearance changes are independent of canonical document projection. In particular, they must
@@ -43,7 +51,10 @@ export function reprojectNodeStylesForAppearance(
   let nextNodes = nodes;
 
   for (const [sectionId, node] of nodes) {
-    const nextStyle = getSectionNodeStyle(getSectionOrThrow(state, sectionId), darkMode);
+    const nextStyle = getSectionNodeStyle(
+      getSectionOrThrow(state, sectionId),
+      darkMode,
+    );
     if (nodeStylesMatch(node.style, nextStyle)) {
       continue;
     }

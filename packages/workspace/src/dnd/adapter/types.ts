@@ -1,4 +1,7 @@
-import type { Droppable as AbstractDroppable, Collision } from "@dnd-kit/abstract";
+import type {
+  Droppable as AbstractDroppable,
+  Collision,
+} from "@dnd-kit/abstract";
 import type { Draggable, Droppable } from "@dnd-kit/dom";
 import type { Coordinates } from "@dnd-kit/geometry";
 
@@ -23,7 +26,9 @@ export type Disabled = {
   droppable?: boolean;
 };
 
-export type DndData<T extends Record<string, unknown> = Record<string, unknown>> = {
+export type DndData<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = {
   current: T;
 };
 

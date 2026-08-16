@@ -19,11 +19,11 @@ reimplement those phases. Security, shared-policy migration, file-length debt, p
 and other non-UX closeout work live in
 `docs/plans/setta-workspace-technical-closeout-plan.md` and are outside this plan.
 
-This is the plan to pass to
-`scripts/automation/codex-loop/run-plan-implementation-loop.sh`. Launching the loop authorizes
-repository-actionable implementation in the earliest incomplete milestone. The loop must stop at
-the developer acceptance gate after each milestone. Only the developer can approve the result and
-allow the next milestone to begin.
+This is the plan to pass to `code-policy plan-loop` with the `workspace` and `playground` modules
+and an explicit verification selection. Launching the loop authorizes repository-actionable
+implementation in the earliest incomplete milestone. The loop must stop at the developer
+acceptance gate after each milestone. Only the developer can approve the result and allow the next
+milestone to begin.
 
 The frozen `../setta-main` worktree at commit `043d3b2e9` remains the authority for behavior it
 implements. Use it read-only. When a proposed reusable state does not exist in main, record that

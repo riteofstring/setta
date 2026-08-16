@@ -9,8 +9,14 @@ import type {
 
 const TOOLBAR_SURFACE: WorkspaceCommandSurface = "toolbar";
 const TOOLBAR_SCOPE: WorkspaceCommandScope = "pane";
-const PLACEMENTS: ReadonlyArray<WorkspaceToolbarPlacement> = ["before-viewport", "before-minimap"];
-const KINDS: ReadonlyArray<WorkspaceToolbarContribution["kind"]> = ["command", "creation"];
+const PLACEMENTS: ReadonlyArray<WorkspaceToolbarPlacement> = [
+  "before-viewport",
+  "before-minimap",
+];
+const KINDS: ReadonlyArray<WorkspaceToolbarContribution["kind"]> = [
+  "command",
+  "creation",
+];
 
 // The registered contributions on their own, so the toolbar that paints them, the registration
 // that validates them, and the two command registries that must not strand them can all reach the
@@ -23,7 +29,7 @@ type WorkspaceToolbarCommandSummary = {
   surfaces: ReadonlyArray<WorkspaceCommandSurface>;
 };
 
-export type WorkspaceToolbarCommandCatalog = Readonly<{
+type WorkspaceToolbarCommandCatalog = Readonly<{
   commandIds: ReadonlySet<string>;
   creationCommandIds: ReadonlySet<string>;
   toolbarCommandIds: ReadonlySet<string>;
@@ -43,7 +49,8 @@ export function createWorkspaceToolbarCommandCatalog(
       commands
         .filter(
           (command) =>
-            command.scope === TOOLBAR_SCOPE && command.surfaces.includes(TOOLBAR_SURFACE),
+            command.scope === TOOLBAR_SCOPE &&
+            command.surfaces.includes(TOOLBAR_SURFACE),
         )
         .map((command) => command.id),
     ),
@@ -69,7 +76,9 @@ function assertContributionCommand(
     return;
   }
   if (!catalog.commandIds.has(commandId)) {
-    throw new Error(`Workspace toolbar contribution names unregistered command ${commandId}.`);
+    throw new Error(
+      `Workspace toolbar contribution names unregistered command ${commandId}.`,
+    );
   }
   if (!catalog.toolbarCommandIds.has(commandId)) {
     throw new Error(
@@ -108,7 +117,8 @@ function validateContribution(
   }
   if (
     contribution.description !== undefined &&
-    (typeof contribution.description !== "string" || contribution.description.trim() === "")
+    (typeof contribution.description !== "string" ||
+      contribution.description.trim() === "")
   ) {
     throw new Error(
       `Workspace toolbar contribution ${contribution.commandId} description must be non-empty text.`,
@@ -128,7 +138,9 @@ export function assertWorkspaceToolbarContributions(
 ): ReadonlyArray<WorkspaceToolbarContribution> {
   const keys = new Set<string>();
   return Object.freeze(
-    contributions.map((contribution) => validateContribution(contribution, keys, catalog)),
+    contributions.map((contribution) =>
+      validateContribution(contribution, keys, catalog),
+    ),
   );
 }
 
@@ -138,7 +150,9 @@ export function getWorkspaceToolbarContributions(
   if (placement === undefined) {
     return registeredContributions;
   }
-  return registeredContributions.filter((contribution) => contribution.placement === placement);
+  return registeredContributions.filter(
+    (contribution) => contribution.placement === placement,
+  );
 }
 
 export function setWorkspaceToolbarContributions(

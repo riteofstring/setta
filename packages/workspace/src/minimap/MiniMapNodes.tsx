@@ -23,7 +23,12 @@ type RenderableMiniMapNode = Node & {
 };
 
 function isRenderableMiniMapNode(node: Node): node is RenderableMiniMapNode {
-  return node.width !== null && node.height !== null && node.width > 0 && node.height > 0;
+  return (
+    node.width !== null &&
+    node.height !== null &&
+    node.width > 0 &&
+    node.height > 0
+  );
 }
 
 const selectorNodes = (s: NodeInternalsState) =>
@@ -49,7 +54,10 @@ function areNodeStylesEqual(left: Node["style"], right: Node["style"]) {
   return true;
 }
 
-export function areMiniMapNodesRenderableInputsEqual(left: Array<Node>, right: Array<Node>) {
+export function areMiniMapNodesRenderableInputsEqual(
+  left: Array<Node>,
+  right: Array<Node>,
+) {
   if (left === right) {
     return true;
   }
@@ -124,7 +132,11 @@ function getMiniMapNodeVisuals(
     visuals.push({
       id: sectionId,
       kind: section.kind,
-      background: resolveMiniMapNodeBackground(sectionId, section.styleColor, darkMode),
+      background: resolveMiniMapNodeBackground(
+        sectionId,
+        section.styleColor,
+        darkMode,
+      ),
     });
   }
   visuals.sort((left, right) => left.id.localeCompare(right.id));
@@ -145,7 +157,9 @@ function resolveMiniMapNodeBackground(
   }
   const theme = deriveSectionStyleTheme(normalizedStyleColor, darkMode);
   if (!theme) {
-    throw new Error(`Section ${sectionId} has an unparseable style color ${styleColor}.`);
+    throw new Error(
+      `Section ${sectionId} has an unparseable style color ${styleColor}.`,
+    );
   }
   return theme.bg;
 }
@@ -181,7 +195,9 @@ function mergeMiniMapNodesWithVisuals(
   nodes: Array<Node>,
   nodeVisuals: Array<MiniMapNodeVisual>,
 ): Array<Node> {
-  const visualsById = new Map(nodeVisuals.map((nodeVisual) => [nodeVisual.id, nodeVisual]));
+  const visualsById = new Map(
+    nodeVisuals.map((nodeVisual) => [nodeVisual.id, nodeVisual]),
+  );
   return nodes.map((node) => {
     const nodeVisual = visualsById.get(node.id);
     if (!nodeVisual) {
@@ -192,7 +208,10 @@ function mergeMiniMapNodesWithVisuals(
       nodeVisual.background !== null
         ? { ...(node.style ?? {}), background: nodeVisual.background }
         : undefined;
-    if (node.kind === nodeVisual.kind && areNodeStylesEqual(node.style, nextStyle)) {
+    if (
+      node.kind === nodeVisual.kind &&
+      areNodeStylesEqual(node.style, nextStyle)
+    ) {
       return node;
     }
     return {
@@ -203,15 +222,21 @@ function mergeMiniMapNodesWithVisuals(
   });
 }
 
-const getAttrFunction = (func: string | GetMiniMapNodeAttribute): GetMiniMapNodeAttribute =>
-  typeof func === "function" ? func : () => func;
+const getAttrFunction = (
+  func: string | GetMiniMapNodeAttribute,
+): GetMiniMapNodeAttribute => (typeof func === "function" ? func : () => func);
 
 // The lint gate rejects the reference's underscore-prefixed component names; the memoized
 // components inline their named implementations instead.
-export const MiniMapNodesReactive = memo(function MiniMapNodesReactive(props: MiniMapNodesType) {
+export const MiniMapNodesReactive = memo(function MiniMapNodesReactive(
+  props: MiniMapNodesType,
+) {
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
-  const nodes = useNodeInternals(selectorNodes, areMiniMapNodesRenderableInputsEqual);
+  const nodes = useNodeInternals(
+    selectorNodes,
+    areMiniMapNodesRenderableInputsEqual,
+  );
   const nodeVisuals = useWorkspaceDocument(
     (state) => getMiniMapNodeVisuals(state, darkMode),
     areMiniMapNodeVisualsEqual,
@@ -223,7 +248,9 @@ export const MiniMapNodesReactive = memo(function MiniMapNodesReactive(props: Mi
   return null;
 });
 
-function resolveMiniMapNodesProps(props: MiniMapNodesType & { nodes: Array<Node> }) {
+function resolveMiniMapNodesProps(
+  props: MiniMapNodesType & { nodes: Array<Node> },
+) {
   return { ...defaultMiniMapNodesProps, ...props };
 }
 
@@ -247,7 +274,8 @@ export const MiniMapNodes = memo(function MiniMapNodes(
 
   const isBrowser = typeof window !== "undefined";
   const isChrome = isBrowser && "chrome" in window;
-  const shapeRendering = !isBrowser || isChrome ? "crispEdges" : "geometricPrecision";
+  const shapeRendering =
+    !isBrowser || isChrome ? "crispEdges" : "geometricPrecision";
 
   return (
     <>

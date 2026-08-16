@@ -2,7 +2,10 @@ import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
 import type { ReactNode } from "react";
-import { getTextValueLanguageParser, type TextValueParserLike } from "./textValueLanguages";
+import {
+  getTextValueLanguageParser,
+  type TextValueParserLike,
+} from "./textValueLanguages";
 import { getThemeHighlightStyle, type TextValueTheme } from "./textValueTheme";
 
 // The reference's server-render-style highlight, shared by every idle (non-editing) surface that
@@ -11,7 +14,11 @@ import { getThemeHighlightStyle, type TextValueTheme } from "./textValueTheme";
 // live editor registers, so the parse and the decoration walk have one owner.
 // https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
 
-function buildDecorationRangeSet(code: string, theme: TextValueTheme, parser: TextValueParserLike) {
+function buildDecorationRangeSet(
+  code: string,
+  theme: TextValueTheme,
+  parser: TextValueParserLike,
+) {
   const tree = parser.parse(code);
   const highlightStyle = getThemeHighlightStyle(theme);
   const markCache: Record<string, Decoration> = {};
@@ -20,14 +27,17 @@ function buildDecorationRangeSet(code: string, theme: TextValueTheme, parser: Te
     builder.add(
       from,
       to,
-      markCache[style] || (markCache[style] = Decoration.mark({ class: style })),
+      markCache[style] ||
+        (markCache[style] = Decoration.mark({ class: style })),
     );
   });
   // just the decorations NOT the code itself
   return builder.finish();
 }
 
-type DecorationCursor = ReturnType<ReturnType<typeof buildDecorationRangeSet>["iter"]>;
+type DecorationCursor = ReturnType<
+  ReturnType<typeof buildDecorationRangeSet>["iter"]
+>;
 
 function buildLineNodes(
   text: Text,

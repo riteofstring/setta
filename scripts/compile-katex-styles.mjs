@@ -31,11 +31,14 @@ const foldedSectionMarker = "/* KaTeX math presentation, folded from";
 
 // Resolved from the package's own manifest, so the folded rules and faces are the pinned copy
 // installed beside the `rehype-katex` that renders the markup they lay out. That pin is why
-// `katex` stays a declared dependency although no package source imports it any more, and why
-// both knip configurations (the repository's and the package's, one per run the quality gate
-// makes) name it: this build step is its only reader.
-const requireFromPackage = createRequire(path.join(packageRoot, "package.json"));
-const katexStylesheetPath = requireFromPackage.resolve("katex/dist/katex.min.css");
+// `katex` stays a declared dependency although package runtime source does not import it: this
+// build entry point is its authoritative reader.
+const requireFromPackage = createRequire(
+  path.join(packageRoot, "package.json"),
+);
+const katexStylesheetPath = requireFromPackage.resolve(
+  "katex/dist/katex.min.css",
+);
 const katexRoot = path.dirname(katexStylesheetPath);
 const katexVersion = requireFromPackage("katex/package.json").version;
 
@@ -52,7 +55,9 @@ function readBlocks(css) {
     if (character === "{") {
       depth += 1;
       if (depth > 1) {
-        throw new Error(`KaTeX stylesheet carries a nested block inside ${prelude.trim()}.`);
+        throw new Error(
+          `KaTeX stylesheet carries a nested block inside ${prelude.trim()}.`,
+        );
       }
       prelude = css.slice(preludeStart, index);
       bodyStart = index + 1;
@@ -65,7 +70,10 @@ function readBlocks(css) {
     if (depth !== 0) {
       throw new Error("KaTeX stylesheet closes a block that was never opened.");
     }
-    blocks.push({ prelude: prelude.trim(), body: css.slice(bodyStart, index).trim() });
+    blocks.push({
+      prelude: prelude.trim(),
+      body: css.slice(bodyStart, index).trim(),
+    });
     preludeStart = index + 1;
   }
   if (depth !== 0) {
@@ -79,13 +87,17 @@ function scopePrelude(prelude) {
   return selectors
     .map((selector) => {
       if (selector === "") {
-        throw new Error(`KaTeX stylesheet carries an empty selector in ${prelude}.`);
+        throw new Error(
+          `KaTeX stylesheet carries an empty selector in ${prelude}.`,
+        );
       }
       if (selector === "body") {
         return scopeSelectorPrefix;
       }
       if (!selector.startsWith(".katex")) {
-        throw new Error(`KaTeX stylesheet carries the unrecognized selector ${selector}.`);
+        throw new Error(
+          `KaTeX stylesheet carries the unrecognized selector ${selector}.`,
+        );
       }
       return `${scopeSelectorPrefix} ${selector}`;
     })
@@ -97,9 +109,13 @@ function inlineFontFace(body) {
     .split(";")
     .map((declaration) => declaration.trim())
     .filter((declaration) => declaration !== "");
-  const sourceDeclarations = declarations.filter((declaration) => declaration.startsWith("src:"));
+  const sourceDeclarations = declarations.filter((declaration) =>
+    declaration.startsWith("src:"),
+  );
   if (sourceDeclarations.length !== 1) {
-    throw new Error(`A KaTeX face declares ${String(sourceDeclarations.length)} src lists.`);
+    throw new Error(
+      `A KaTeX face declares ${String(sourceDeclarations.length)} src lists.`,
+    );
   }
   return declarations
     .map((declaration) => {
@@ -108,11 +124,15 @@ function inlineFontFace(body) {
       }
       const woff2 = /url\(([^)]+\.woff2)\)/u.exec(declaration);
       if (!woff2) {
-        throw new Error(`A KaTeX face declares no woff2 source: ${declaration}`);
+        throw new Error(
+          `A KaTeX face declares no woff2 source: ${declaration}`,
+        );
       }
       const fontPath = path.resolve(katexRoot, woff2[1]);
       if (!existsSync(fontPath)) {
-        throw new Error(`A KaTeX face names the missing font file ${fontPath}.`);
+        throw new Error(
+          `A KaTeX face names the missing font file ${fontPath}.`,
+        );
       }
       const encoded = readFileSync(fontPath).toString("base64");
       return `src:url(data:font/woff2;base64,${encoded}) format("woff2")`;
@@ -128,7 +148,9 @@ function foldKatexStylesheet() {
       return `${scopePrelude(prelude)}{${body}}`;
     }
     if (prelude !== "@font-face") {
-      throw new Error(`KaTeX stylesheet carries the unsupported at-rule ${prelude}.`);
+      throw new Error(
+        `KaTeX stylesheet carries the unsupported at-rule ${prelude}.`,
+      );
     }
     faceCount += 1;
     return `@font-face{${inlineFontFace(body)}}`;
@@ -137,7 +159,9 @@ function foldKatexStylesheet() {
 }
 
 if (!existsSync(stylesheetPath)) {
-  console.error(`${packageRootRelative}/dist/styles.css: missing; run the Tailwind build first`);
+  console.error(
+    `${packageRootRelative}/dist/styles.css: missing; run the Tailwind build first`,
+  );
   process.exit(1);
 }
 
@@ -146,7 +170,8 @@ const compiled = readFileSync(stylesheetPath, "utf8");
 // A rebuilt sheet carries no folded section; re-running this step over an already folded sheet
 // replaces that section instead of appending a second copy.
 const markerIndex = compiled.indexOf(foldedSectionMarker);
-const tailwindOutput = markerIndex === -1 ? compiled : compiled.slice(0, markerIndex);
+const tailwindOutput =
+  markerIndex === -1 ? compiled : compiled.slice(0, markerIndex);
 const folded = [
   `${foldedSectionMarker} katex@${katexVersion}: every rule scoped to the workspace`,
   " * surface, every face inlined as woff2. See scripts/compile-katex-styles.mjs. */",

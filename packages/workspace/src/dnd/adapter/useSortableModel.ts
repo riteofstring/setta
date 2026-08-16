@@ -1,7 +1,13 @@
 import type { UniqueIdentifier } from "@dnd-kit/abstract";
 import type { Coordinates } from "@dnd-kit/geometry";
 import { isValidIndex, resolveStrategyResult } from "./sorting";
-import type { ClientRect, Disabled, SettaCollision, SortingStrategy, Transform } from "./types";
+import type {
+  ClientRect,
+  Disabled,
+  SettaCollision,
+  SortingStrategy,
+  Transform,
+} from "./types";
 
 export type SortableTransition = {
   duration?: number;
@@ -57,8 +63,18 @@ export function buildSortablePresentationState({
   isSorting: boolean;
   transitionValue: string | undefined;
 } {
-  const relevantCollision = getTrackedCollision(collisions, items, overIndex, shouldTrackSorting);
-  const dragFlags = getDragFlags(activeIndex, index, isDragging, shouldTrackSorting);
+  const relevantCollision = getTrackedCollision(
+    collisions,
+    items,
+    overIndex,
+    shouldTrackSorting,
+  );
+  const dragFlags = getDragFlags(
+    activeIndex,
+    index,
+    isDragging,
+    shouldTrackSorting,
+  );
   const motionFlags = getMotionFlags({
     activeIndex,
     disableTransforms,
@@ -109,7 +125,9 @@ function getTrackedCollision(
     return null;
   }
 
-  const preferredId = isValidIndex(overIndex) ? (items[overIndex] ?? null) : null;
+  const preferredId = isValidIndex(overIndex)
+    ? (items[overIndex] ?? null)
+    : null;
   return getRelevantCollision(collisions, items, preferredId);
 }
 
@@ -158,10 +176,15 @@ function getMotionFlags({
   shouldDisplaceItem: boolean;
 } {
   return {
-    shouldDisableTransition: sortingEnabled && wasDragActive && itemsHaveChanged,
-    shouldDisplaceActiveItem: isSorting && !useDragOverlay && isActiveItem && !disableTransforms,
+    shouldDisableTransition:
+      sortingEnabled && wasDragActive && itemsHaveChanged,
+    shouldDisplaceActiveItem:
+      isSorting && !useDragOverlay && isActiveItem && !disableTransforms,
     shouldDisplaceItem:
-      isSorting && !disableTransforms && isValidIndex(activeIndex) && isValidIndex(overIndex),
+      isSorting &&
+      !disableTransforms &&
+      isValidIndex(activeIndex) &&
+      isValidIndex(overIndex),
   };
 }
 
@@ -256,7 +279,9 @@ export function getRelevantCollision(
   }
 
   if (preferredId) {
-    const preferredCollision = collisions.find((collision) => collision.id === preferredId);
+    const preferredCollision = collisions.find(
+      (collision) => collision.id === preferredId,
+    );
     return preferredCollision ?? null;
   }
 

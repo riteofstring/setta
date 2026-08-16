@@ -4,8 +4,14 @@ import type {
   ActiveSectionPolicyResult,
 } from "../document/activeSectionPolicy";
 import { resolveActiveSectionChange } from "../document/activeSectionPolicy";
-import { getActiveSectionIds, setActiveSectionIds } from "../document/activeSections";
-import { getHighestAncestor, getSectionHasSelectedItems } from "../document/documentSelectors";
+import {
+  getActiveSectionIds,
+  setActiveSectionIds,
+} from "../document/activeSections";
+import {
+  getHighestAncestor,
+  getSectionHasSelectedItems,
+} from "../document/documentSelectors";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { setZIndices } from "../document/sectionZIndices";
 import { useWorkspaceDocument } from "../document/stores";
@@ -49,7 +55,7 @@ type ItemToggleIntent = {
   sectionId: string;
 };
 
-export type ActiveSectionIntent =
+type ActiveSectionIntent =
   | SectionClickIntent
   | InputFocusIntent
   | GoToIntent
@@ -121,11 +127,17 @@ export function applyActiveSectionChange(
   const activeIds = getActiveSectionIds();
   const isSelectingItems = useItemSelectionMode.getState().isSelectingItems;
   const multiSelectionActive =
-    intent.interaction === "section-click" && intent.multiSelectionActive !== undefined
+    intent.interaction === "section-click" &&
+    intent.multiSelectionActive !== undefined
       ? intent.multiSelectionActive
       : useReactFlow.getState().multiSelectionActive;
 
-  const context = buildPolicyContext(intent, activeIds, isSelectingItems, multiSelectionActive);
+  const context = buildPolicyContext(
+    intent,
+    activeIds,
+    isSelectingItems,
+    multiSelectionActive,
+  );
   const decision = resolveActiveSectionChange(context);
   const activeIdsChanged = !_.isEqual(activeIds, decision.nextActiveIds);
 
@@ -136,7 +148,10 @@ export function applyActiveSectionChange(
     // inside one, so the reference raises the whole stack those two belong to.
     if (intent.interaction === "go-to") {
       setZIndices([intent.sectionId]);
-    } else if (intent.interaction === "section-click" || intent.interaction === "input-focus") {
+    } else if (
+      intent.interaction === "section-click" ||
+      intent.interaction === "input-focus"
+    ) {
       setZIndices([getHighestAncestor(intent.sectionId)]);
     }
   }

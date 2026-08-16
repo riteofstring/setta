@@ -58,7 +58,11 @@ function getLeafBody(section: WorkspaceSection): string {
 }
 
 function LeafSectionBody({ section }: { section: WorkspaceSection }) {
-  return <p className="text-xs text-setta-500 dark:text-setta-400">{getLeafBody(section)}</p>;
+  return (
+    <p className="text-xs text-setta-500 dark:text-setta-400">
+      {getLeafBody(section)}
+    </p>
+  );
 }
 
 function createPlaygroundCodeItem(): WorkspaceItem {
@@ -90,7 +94,8 @@ function PlaygroundInspectorContribution({
 }: {
   context: WorkspaceInspectorContributionContext;
 }) {
-  const identity = context.type === "section" ? context.section.name : context.item.id;
+  const identity =
+    context.type === "section" ? context.section.name : context.item.id;
   return (
     <div className="playground-host-pane">
       <p>Host Inspector contribution for {identity || "unnamed content"}.</p>
@@ -107,10 +112,17 @@ function updatePlaygroundCodeSection(
   sectionId: string,
   update: (current: WorkspaceCodeSectionData) => WorkspaceCodeSectionData,
 ) {
-  setWorkspaceCodeSectionData(sectionId, update(getWorkspaceCodeSectionData(sectionId)));
+  setWorkspaceCodeSectionData(
+    sectionId,
+    update(getWorkspaceCodeSectionData(sectionId)),
+  );
 }
 
-export function PlaygroundCodeSectionInspector({ sectionId }: { sectionId: string }) {
+export function PlaygroundCodeSectionInspector({
+  sectionId,
+}: {
+  sectionId: string;
+}) {
   const data = getWorkspaceCodeSectionData(sectionId);
   return (
     <div className="playground-host-pane">
@@ -204,10 +216,17 @@ function updatePlaygroundTextSection(
   sectionId: string,
   update: (current: WorkspaceTextSectionData) => WorkspaceTextSectionData,
 ) {
-  setWorkspaceTextSectionData(sectionId, update(getWorkspaceTextSectionData(sectionId)));
+  setWorkspaceTextSectionData(
+    sectionId,
+    update(getWorkspaceTextSectionData(sectionId)),
+  );
 }
 
-export function PlaygroundTextSectionInspector({ sectionId }: { sectionId: string }) {
+export function PlaygroundTextSectionInspector({
+  sectionId,
+}: {
+  sectionId: string;
+}) {
   const data = getWorkspaceTextSectionData(sectionId);
   return (
     <div className="playground-host-pane">
@@ -310,9 +329,10 @@ export const PLAYGROUND_UPDATED_ITEM_DIAGNOSTICS = {
   ],
 } satisfies WorkspaceItemDiagnosticRegistry;
 
-const PlaygroundItemDiagnosticsContext = createContext<WorkspaceItemDiagnosticRegistry>(
-  PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS,
-);
+const PlaygroundItemDiagnosticsContext =
+  createContext<WorkspaceItemDiagnosticRegistry>(
+    PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS,
+  );
 
 export function PlaygroundItemDiagnosticsProvider({
   children,
@@ -328,7 +348,9 @@ export function PlaygroundItemDiagnosticsProvider({
   );
 }
 
-function isColorValueChoice(candidate: WorkspaceSectionData): candidate is ColorValueChoice {
+function isColorValueChoice(
+  candidate: WorkspaceSectionData,
+): candidate is ColorValueChoice {
   return (
     candidate !== null &&
     typeof candidate === "object" &&
@@ -345,7 +367,9 @@ function getDropzoneAttachmentString(
 ): string {
   const value = attachment[field];
   if (typeof value !== "string") {
-    throw new Error(`${owner.id} has a malformed dropzone attachment ${field}.`);
+    throw new Error(
+      `${owner.id} has a malformed dropzone attachment ${field}.`,
+    );
   }
   return value;
 }
@@ -430,10 +454,15 @@ function describeDropzoneRejection(rejection: DropzoneRejection): string {
 }
 
 function getItemDropzoneConfiguration(): WorkspaceDropzoneItemControlConfiguration {
-  const item = getWorkspaceDocument().sections["item-panel"]?.itemTree?.items["item-dropzone"];
+  const item =
+    getWorkspaceDocument().sections["item-panel"]?.itemTree?.items[
+      "item-dropzone"
+    ];
   const control = item?.presentation?.control;
   if (!control || control.kind !== "dropzone") {
-    throw new Error("The playground item-dropzone lost its typed dropzone presentation.");
+    throw new Error(
+      "The playground item-dropzone lost its typed dropzone presentation.",
+    );
   }
   return control.configuration;
 }
@@ -460,7 +489,10 @@ function registerPlaygroundItemHandlers() {
           ...current,
           attachments: [
             ...current.attachments,
-            ...resolveAcceptedDropzoneAttachments({ id: "item-dropzone" }, result),
+            ...resolveAcceptedDropzoneAttachments(
+              { id: "item-dropzone" },
+              result,
+            ),
           ],
           errorMessage: null,
         })),
@@ -490,18 +522,26 @@ function registerPlaygroundItemHandlers() {
       onAttachmentRemove: (attachmentId) =>
         updateItemDropzoneConfiguration((current) => ({
           ...current,
-          attachments: current.attachments.filter((attachment) => attachment.id !== attachmentId),
+          attachments: current.attachments.filter(
+            (attachment) => attachment.id !== attachmentId,
+          ),
           errorMessage: null,
         })),
     },
   ]);
 }
 
-export function ItemListSectionBody({ section }: { section: WorkspaceSection }) {
+export function ItemListSectionBody({
+  section,
+}: {
+  section: WorkspaceSection;
+}) {
   const itemDiagnostics = useContext(PlaygroundItemDiagnosticsContext);
   const itemTree = section.itemTree;
   if (!itemTree) {
-    throw new Error(`Item panel section ${section.id} is missing its item tree.`);
+    throw new Error(
+      `Item panel section ${section.id} is missing its item tree.`,
+    );
   }
   return (
     <ItemDndContext>
@@ -515,17 +555,28 @@ export function ItemListSectionBody({ section }: { section: WorkspaceSection }) 
   );
 }
 
-function getMetaControlDataRecord(section: Pick<WorkspaceSection, "id" | "data">): {
+function getMetaControlDataRecord(
+  section: Pick<WorkspaceSection, "id" | "data">,
+): {
   [key: string]: WorkspaceSectionData;
 } {
   const data = section.data;
-  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
-    throw new Error(`Meta control section ${section.id} is missing its control data.`);
+  if (
+    data === null ||
+    data === undefined ||
+    typeof data !== "object" ||
+    Array.isArray(data)
+  ) {
+    throw new Error(
+      `Meta control section ${section.id} is missing its control data.`,
+    );
   }
   return data;
 }
 
-function getMetaControlKind(section: Pick<WorkspaceSection, "id" | "data">): MetaControlKind {
+function getMetaControlKind(
+  section: Pick<WorkspaceSection, "id" | "data">,
+): MetaControlKind {
   const kind = getMetaControlDataRecord(section)["control"];
   const knownKinds: ReadonlyArray<MetaControlKind> = [
     "button",
@@ -541,48 +592,81 @@ function getMetaControlKind(section: Pick<WorkspaceSection, "id" | "data">): Met
     "textarea",
     "time",
   ];
-  if (typeof kind === "string" && knownKinds.includes(kind as MetaControlKind)) {
+  if (
+    typeof kind === "string" &&
+    knownKinds.includes(kind as MetaControlKind)
+  ) {
     return kind as MetaControlKind;
   }
-  throw new Error(`Meta control section ${section.id} names the unknown control ${String(kind)}.`);
+  throw new Error(
+    `Meta control section ${section.id} names the unknown control ${String(kind)}.`,
+  );
 }
 
-function getMetaControlString(section: WorkspaceSection, field: string): string {
+function getMetaControlString(
+  section: WorkspaceSection,
+  field: string,
+): string {
   const value = getMetaControlDataRecord(section)[field];
   if (typeof value !== "string") {
-    throw new Error(`Meta control section ${section.id} is missing its string ${field} field.`);
+    throw new Error(
+      `Meta control section ${section.id} is missing its string ${field} field.`,
+    );
   }
   return value;
 }
 
-function getMetaControlBoolean(section: WorkspaceSection, field: string): boolean {
+function getMetaControlBoolean(
+  section: WorkspaceSection,
+  field: string,
+): boolean {
   const value = getMetaControlDataRecord(section)[field];
   if (typeof value !== "boolean") {
-    throw new Error(`Meta control section ${section.id} is missing its boolean ${field} field.`);
+    throw new Error(
+      `Meta control section ${section.id} is missing its boolean ${field} field.`,
+    );
   }
   return value;
 }
 
-function getMetaControlNumber(section: WorkspaceSection, field: string): number {
+function getMetaControlNumber(
+  section: WorkspaceSection,
+  field: string,
+): number {
   const value = getMetaControlDataRecord(section)[field];
   if (typeof value !== "number") {
-    throw new Error(`Meta control section ${section.id} is missing its numeric ${field} field.`);
+    throw new Error(
+      `Meta control section ${section.id} is missing its numeric ${field} field.`,
+    );
   }
   return value;
 }
 
-function getMetaControlNullableNumber(section: WorkspaceSection, field: string): number | null {
+function getMetaControlNullableNumber(
+  section: WorkspaceSection,
+  field: string,
+): number | null {
   const value = getMetaControlDataRecord(section)[field];
   if (value !== null && typeof value !== "number") {
-    throw new Error(`Meta control section ${section.id} has a malformed ${field} field.`);
+    throw new Error(
+      `Meta control section ${section.id} has a malformed ${field} field.`,
+    );
   }
   return value;
 }
 
-function getMetaControlStringArray(section: WorkspaceSection, field: string): Array<string> {
+function getMetaControlStringArray(
+  section: WorkspaceSection,
+  field: string,
+): Array<string> {
   const value = getMetaControlDataRecord(section)[field];
-  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) {
-    throw new Error(`Meta control section ${section.id} has a malformed ${field} field.`);
+  if (
+    !Array.isArray(value) ||
+    !value.every((entry) => typeof entry === "string")
+  ) {
+    throw new Error(
+      `Meta control section ${section.id} has a malformed ${field} field.`,
+    );
   }
   return value;
 }
@@ -594,7 +678,9 @@ function getMetaControlOption<const Option extends string>(
 ): Option {
   const value = getMetaControlDataRecord(section)[field];
   if (typeof value !== "string" || !options.includes(value as Option)) {
-    throw new Error(`Meta control section ${section.id} has an invalid ${field} field.`);
+    throw new Error(
+      `Meta control section ${section.id} has an invalid ${field} field.`,
+    );
   }
   return value as Option;
 }
@@ -633,7 +719,9 @@ export function commitPlaygroundMetaControlValue(
 ) {
   updateMetaControlData(sectionId, (current) => {
     if (current["control"] !== expectedKind) {
-      throw new Error(`Meta control section ${sectionId} is not a ${expectedKind} control.`);
+      throw new Error(
+        `Meta control section ${sectionId} is not a ${expectedKind} control.`,
+      );
     }
     return { ...current, value };
   });
@@ -647,7 +735,9 @@ function getMetaControlColorChoices(
     return undefined;
   }
   if (!Array.isArray(choices) || !choices.every(isColorValueChoice)) {
-    throw new Error(`Meta control section ${section.id} has malformed color choices.`);
+    throw new Error(
+      `Meta control section ${section.id} has malformed color choices.`,
+    );
   }
   return choices;
 }
@@ -658,10 +748,15 @@ function getMetaDropzoneAttachmentsFromData(
 ): Array<DropzoneAttachment> {
   const attachments = data["attachments"];
   if (!Array.isArray(attachments)) {
-    throw new Error(`Meta control section ${sectionId} has malformed dropzone attachments.`);
+    throw new Error(
+      `Meta control section ${sectionId} has malformed dropzone attachments.`,
+    );
   }
   return attachments.map((attachment) =>
-    parseDropzoneAttachment({ id: `Meta control section ${sectionId}` }, attachment),
+    parseDropzoneAttachment(
+      { id: `Meta control section ${sectionId}` },
+      attachment,
+    ),
   );
 }
 
@@ -670,11 +765,17 @@ function getMetaDropzonePolicy(section: WorkspaceSection): DropzonePolicy {
     maxAttachments: getMetaControlNullableNumber(section, "maxAttachments"),
     maxFileBytes: getMetaControlNumber(section, "maxFileBytes"),
     maxTotalBytes: getMetaControlNullableNumber(section, "maxTotalBytes"),
-    allowedMimePrefixes: getMetaControlStringArray(section, "allowedMimePrefixes"),
+    allowedMimePrefixes: getMetaControlStringArray(
+      section,
+      "allowedMimePrefixes",
+    ),
   };
 }
 
-function commitMetaDropzoneAccepted(section: WorkspaceSection, result: DropzoneAcceptedResult) {
+function commitMetaDropzoneAccepted(
+  section: WorkspaceSection,
+  result: DropzoneAcceptedResult,
+) {
   updateMetaControlData(section.id, (current) => ({
     ...current,
     attachments: [
@@ -715,7 +816,8 @@ function buildButtonOrTextMetaControl(
       value: getMetaControlString(section, "value"),
       language: "python",
       disabled: getMetaControlBoolean(section, "disabled"),
-      onValueChange: (value) => commitPlaygroundMetaControlValue(section.id, kind, value),
+      onValueChange: (value) =>
+        commitPlaygroundMetaControlValue(section.id, kind, value),
     };
   }
   return null;
@@ -736,7 +838,8 @@ function buildNumericMetaControl(
     max: getMetaControlNumber(section, "max"),
     step: getMetaControlNumber(section, "step"),
     disabled: getMetaControlBoolean(section, "disabled"),
-    onValueChange: (value) => commitPlaygroundMetaControlValue(section.id, kind, value),
+    onValueChange: (value) =>
+      commitPlaygroundMetaControlValue(section.id, kind, value),
   };
 }
 
@@ -751,7 +854,8 @@ function buildChoiceMetaControl(
     ariaLabel: `${section.name} value`,
     value: getMetaControlString(section, "value"),
     disabled: getMetaControlBoolean(section, "disabled"),
-    onValueChange: (value: string) => commitPlaygroundMetaControlValue(section.id, kind, value),
+    onValueChange: (value: string) =>
+      commitPlaygroundMetaControlValue(section.id, kind, value),
   };
   if (kind === "switch") {
     return { kind, ...shared, label: getMetaControlString(section, "label") };
@@ -764,7 +868,11 @@ function buildChoiceMetaControl(
       choices: getMetaControlColorChoices(section),
     };
   }
-  return { kind, ...shared, choices: getMetaControlStringArray(section, "choices") };
+  return {
+    kind,
+    ...shared,
+    choices: getMetaControlStringArray(section, "choices"),
+  };
 }
 
 function buildDateTimeMetaControl(
@@ -783,30 +891,53 @@ function buildDateTimeMetaControl(
     return {
       kind,
       ...shared,
-      displayFormat: getMetaControlOption(section, "displayFormat", ["iso", "us", "eu", "long"]),
-      controlMode: getMetaControlOption(section, "controlMode", ["input", "calendar"]),
-      selectionMode: getMetaControlOption(section, "selectionMode", ["single", "multiple"]),
-      weekStart: getMetaControlOption(section, "weekStart", ["sunday", "monday"]),
+      displayFormat: getMetaControlOption(section, "displayFormat", [
+        "iso",
+        "us",
+        "eu",
+        "long",
+      ]),
+      controlMode: getMetaControlOption(section, "controlMode", [
+        "input",
+        "calendar",
+      ]),
+      selectionMode: getMetaControlOption(section, "selectionMode", [
+        "single",
+        "multiple",
+      ]),
+      weekStart: getMetaControlOption(section, "weekStart", [
+        "sunday",
+        "monday",
+      ]),
       includeTime: getMetaControlBoolean(section, "includeTime"),
       timeDisplayFormat: getMetaControlOption(section, "timeDisplayFormat", [
         "twenty_four_hour",
         "twelve_hour",
       ]),
-      onValueChange: (value) => commitPlaygroundMetaControlValue(section.id, kind, value),
+      onValueChange: (value) =>
+        commitPlaygroundMetaControlValue(section.id, kind, value),
     };
   }
   return {
     kind,
     ...shared,
-    controlMode: getMetaControlOption(section, "controlMode", ["input", "display"]),
+    controlMode: getMetaControlOption(section, "controlMode", [
+      "input",
+      "display",
+    ]),
     displayFormat: getMetaControlOption(section, "displayFormat", [
       "twenty_four_hour",
       "twelve_hour",
     ]),
     transparent: getMetaControlBoolean(section, "transparent"),
     scale: getMetaControlNumber(section, "scale"),
-    font: getMetaControlOption(section, "font", ["clock", "monospace", "system"]),
-    onValueChange: (value) => commitPlaygroundMetaControlValue(section.id, kind, value),
+    font: getMetaControlOption(section, "font", [
+      "clock",
+      "monospace",
+      "system",
+    ]),
+    onValueChange: (value) =>
+      commitPlaygroundMetaControlValue(section.id, kind, value),
   };
 }
 
@@ -821,7 +952,8 @@ function buildPasswordOrDropzoneMetaControl(
       ariaLabel: `${section.name} value`,
       value: getMetaControlString(section, "value"),
       disabled: getMetaControlBoolean(section, "disabled"),
-      onValueChange: (value) => commitPlaygroundMetaControlValue(section.id, kind, value),
+      onValueChange: (value) =>
+        commitPlaygroundMetaControlValue(section.id, kind, value),
     };
   }
   if (kind !== "dropzone") {
@@ -871,15 +1003,18 @@ function buildPasswordOrDropzoneMetaControl(
     onAttachmentRemove: (attachmentId) =>
       updateMetaControlData(section.id, (current) => ({
         ...current,
-        attachments: getMetaDropzoneAttachmentsFromData(section.id, current).filter(
-          (attachment) => attachment.id !== attachmentId,
-        ),
+        attachments: getMetaDropzoneAttachmentsFromData(
+          section.id,
+          current,
+        ).filter((attachment) => attachment.id !== attachmentId),
         errorMessage: "",
       })),
   };
 }
 
-function getPlaygroundMetaControl(section: WorkspaceSection): MetaControlDefinition {
+function getPlaygroundMetaControl(
+  section: WorkspaceSection,
+): MetaControlDefinition {
   const kind = getMetaControlKind(section);
   const control =
     buildButtonOrTextMetaControl(section, kind) ??
@@ -888,14 +1023,20 @@ function getPlaygroundMetaControl(section: WorkspaceSection): MetaControlDefinit
     buildDateTimeMetaControl(section, kind) ??
     buildPasswordOrDropzoneMetaControl(section, kind);
   if (!control) {
-    throw new Error(`Meta control section ${section.id} has no adapter for ${kind}.`);
+    throw new Error(
+      `Meta control section ${section.id} has no adapter for ${kind}.`,
+    );
   }
   return control;
 }
 
 // The complete direct-on-canvas fixture is host-owned opaque data. The package composes every
 // built-in control, while this unrelated host owns values, actions, validation, and file metadata.
-export function MetaControlSectionBody({ section }: { section: WorkspaceSection }) {
+export function MetaControlSectionBody({
+  section,
+}: {
+  section: WorkspaceSection;
+}) {
   return (
     <MetaControl
       sectionId={section.id}
@@ -916,19 +1057,25 @@ export function registerPlaygroundSectionKinds(): void {
   registerSectionKinds({
     leaf: {
       renderContent: (section) => <LeafSectionBody section={section} />,
-      renderInspector: (context) => <PlaygroundInspectorContribution context={context} />,
+      renderInspector: (context) => (
+        <PlaygroundInspectorContribution context={context} />
+      ),
       contentClassName: "px-1",
       defaultSize: { width: 200, height: 122 },
     },
     "item-list": {
       createItem: createPlaygroundCodeItem,
       renderContent: (section) => <ItemListSectionBody section={section} />,
-      renderInspector: (context) => <PlaygroundInspectorContribution context={context} />,
+      renderInspector: (context) => (
+        <PlaygroundInspectorContribution context={context} />
+      ),
       defaultSize: { width: 550, height: 350 },
     },
     "meta-control": {
       renderContent: (section) => <MetaControlSectionBody section={section} />,
-      renderInspector: (context) => <PlaygroundInspectorContribution context={context} />,
+      renderInspector: (context) => (
+        <PlaygroundInspectorContribution context={context} />
+      ),
       presentation: {
         type: "meta-control",
         resolveControlKind: getMetaControlKind,

@@ -31,12 +31,26 @@ function setupPositioningFixture(direction: "ltr" | "rtl") {
     offsetWidth: { value: 200 },
   });
   container.getBoundingClientRect = () =>
-    rect({ left: 100, right: 500, top: 40, bottom: 240, width: 400, height: 200 });
+    rect({
+      left: 100,
+      right: 500,
+      top: 40,
+      bottom: 240,
+      width: 400,
+      height: 200,
+    });
 
   const anchor = document.createElement("div");
   anchor.id = LIVE_ID;
   anchor.getBoundingClientRect = () =>
-    rect({ left: 140, right: 220, top: 80, bottom: 100, width: 80, height: 20 });
+    rect({
+      left: 140,
+      right: 220,
+      top: 80,
+      bottom: 100,
+      width: 80,
+      height: 20,
+    });
   container.appendChild(anchor);
   document.body.appendChild(container);
 
@@ -53,7 +67,9 @@ describe("item-name error bubble direction", () => {
   it("aligns from the leading edge in ltr", () => {
     const bubble = setupPositioningFixture("ltr");
 
-    expect(computeItemNameErrorBubblePosition(SECTION_ID, LIVE_ID, DUMMY_ID, bubble)).toEqual({
+    expect(
+      computeItemNameErrorBubblePosition(SECTION_ID, LIVE_ID, DUMMY_ID, bubble),
+    ).toEqual({
       left: 20,
       top: 36,
       visible: true,
@@ -63,7 +79,9 @@ describe("item-name error bubble direction", () => {
   it("aligns from the trailing anchor edge in rtl", () => {
     const bubble = setupPositioningFixture("rtl");
 
-    expect(computeItemNameErrorBubblePosition(SECTION_ID, LIVE_ID, DUMMY_ID, bubble)).toEqual({
+    expect(
+      computeItemNameErrorBubblePosition(SECTION_ID, LIVE_ID, DUMMY_ID, bubble),
+    ).toEqual({
       left: 10,
       top: 36,
       visible: true,

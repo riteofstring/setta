@@ -9,21 +9,24 @@ type WorkspaceItemHandlerRegistrationBase = {
   itemId: string;
 };
 
-export type WorkspaceDropzoneItemHandlerRegistration = WorkspaceItemHandlerRegistrationBase & {
-  kind: "dropzone";
-  onAccepted: (result: DropzoneAcceptedResult) => void;
-  onRejected: (rejections: ReadonlyArray<DropzoneRejection>) => void;
-  onServerFilePickerRequest?: (request: DropzoneServerPickerRequest) => void;
-  onAttachmentRemove?: (attachmentId: string) => void;
-};
+export type WorkspaceDropzoneItemHandlerRegistration =
+  WorkspaceItemHandlerRegistrationBase & {
+    kind: "dropzone";
+    onAccepted: (result: DropzoneAcceptedResult) => void;
+    onRejected: (rejections: ReadonlyArray<DropzoneRejection>) => void;
+    onServerFilePickerRequest?: (request: DropzoneServerPickerRequest) => void;
+    onAttachmentRemove?: (attachmentId: string) => void;
+  };
 
-export type WorkspacePasswordItemHandlerRegistration = WorkspaceItemHandlerRegistrationBase & {
-  kind: "password";
-  onRevealSavedValue: () => void;
-};
+export type WorkspacePasswordItemHandlerRegistration =
+  WorkspaceItemHandlerRegistrationBase & {
+    kind: "password";
+    onRevealSavedValue: () => void;
+  };
 
 export type WorkspaceItemHandlerRegistration =
-  WorkspaceDropzoneItemHandlerRegistration | WorkspacePasswordItemHandlerRegistration;
+  | WorkspaceDropzoneItemHandlerRegistration
+  | WorkspacePasswordItemHandlerRegistration;
 
 const registrations = new Map<string, WorkspaceItemHandlerRegistration>();
 type UnknownRecord = Record<string, unknown>;
@@ -32,13 +35,20 @@ function getRegistrationKey(sectionId: string, itemId: string): string {
   return JSON.stringify([sectionId, itemId]);
 }
 
-function assertRecord(value: unknown, owner: string): asserts value is UnknownRecord {
+function assertRecord(
+  value: unknown,
+  owner: string,
+): asserts value is UnknownRecord {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${owner} must be an object.`);
   }
 }
 
-function assertKnownFields(record: UnknownRecord, owner: string, fields: ReadonlyArray<string>) {
+function assertKnownFields(
+  record: UnknownRecord,
+  owner: string,
+  fields: ReadonlyArray<string>,
+) {
   const knownFields = new Set(fields);
   for (const field of Object.keys(record)) {
     if (!knownFields.has(field)) {
@@ -53,14 +63,22 @@ function assertHandler(value: unknown, owner: string) {
   }
 }
 
-function assertIdentityField(registration: UnknownRecord, field: "itemId" | "sectionId") {
+function assertIdentityField(
+  registration: UnknownRecord,
+  field: "itemId" | "sectionId",
+) {
   const value = registration[field];
   if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`An item handler registration requires a nonblank ${field}.`);
+    throw new Error(
+      `An item handler registration requires a nonblank ${field}.`,
+    );
   }
 }
 
-function assertDropzoneRegistration(registration: UnknownRecord, owner: string) {
+function assertDropzoneRegistration(
+  registration: UnknownRecord,
+  owner: string,
+) {
   assertKnownFields(registration, owner, [
     "itemId",
     "kind",
@@ -73,10 +91,16 @@ function assertDropzoneRegistration(registration: UnknownRecord, owner: string) 
   assertHandler(registration["onAccepted"], `${owner} onAccepted`);
   assertHandler(registration["onRejected"], `${owner} onRejected`);
   if (registration["onServerFilePickerRequest"] !== undefined) {
-    assertHandler(registration["onServerFilePickerRequest"], `${owner} onServerFilePickerRequest`);
+    assertHandler(
+      registration["onServerFilePickerRequest"],
+      `${owner} onServerFilePickerRequest`,
+    );
   }
   if (registration["onAttachmentRemove"] !== undefined) {
-    assertHandler(registration["onAttachmentRemove"], `${owner} onAttachmentRemove`);
+    assertHandler(
+      registration["onAttachmentRemove"],
+      `${owner} onAttachmentRemove`,
+    );
   }
 }
 

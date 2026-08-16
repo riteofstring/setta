@@ -114,7 +114,9 @@ export function forceDeactivateDnd() {
 // sections. Mounted sections that survive the load keep their registrations — their mount
 // effects do not re-run — while entries for removed sections would otherwise linger forever.
 // Runs after the document publication so the children resync reads the loaded document.
-export function resetDndSessionForLoadedDocument(sectionIds: ReadonlySet<string>) {
+export function resetDndSessionForLoadedDocument(
+  sectionIds: ReadonlySet<string>,
+) {
   resetDndState();
   useDndState.setState((state) => ({
     disabled: Object.fromEntries(

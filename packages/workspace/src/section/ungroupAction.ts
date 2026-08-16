@@ -21,7 +21,9 @@ type UngroupFocusPlan = {
   surface: UngroupFocusSurface;
 };
 
-function measurePromotedSection(sectionId: string): UngroupPromotedSectionMeasurement | null {
+function measurePromotedSection(
+  sectionId: string,
+): UngroupPromotedSectionMeasurement | null {
   const section = useSectionRefs.getState().withNested[sectionId];
   if (!section || section.offsetWidth <= 0 || section.offsetHeight <= 0) {
     return null;
@@ -37,8 +39,13 @@ function getOutlineItemId(element: HTMLElement): string | null {
   );
 }
 
-function captureUngroupFocusPlan(groupIds: ReadonlyArray<string>): UngroupFocusPlan | null {
-  if (typeof document === "undefined" || !(document.activeElement instanceof HTMLElement)) {
+function captureUngroupFocusPlan(
+  groupIds: ReadonlyArray<string>,
+): UngroupFocusPlan | null {
+  if (
+    typeof document === "undefined" ||
+    !(document.activeElement instanceof HTMLElement)
+  ) {
     return null;
   }
   const activeElement = document.activeElement;
@@ -55,13 +62,20 @@ function captureUngroupFocusPlan(groupIds: ReadonlyArray<string>): UngroupFocusP
 
 function getOutlineFocusTarget(sectionId: string): HTMLElement | null {
   return (
-    [...document.querySelectorAll<HTMLElement>("[data-workspace-outline-item]")].find(
+    [
+      ...document.querySelectorAll<HTMLElement>(
+        "[data-workspace-outline-item]",
+      ),
+    ].find(
       (element) => element.dataset["workspaceOutlineItem"] === sectionId,
     ) ?? null
   );
 }
 
-function restoreUngroupFocus(plan: UngroupFocusPlan | null, targetSectionId: string | null): void {
+function restoreUngroupFocus(
+  plan: UngroupFocusPlan | null,
+  targetSectionId: string | null,
+): void {
   if (!plan) {
     return;
   }
@@ -69,7 +83,9 @@ function restoreUngroupFocus(plan: UngroupFocusPlan | null, targetSectionId: str
     if (plan.surface === "outline") {
       const target = targetSectionId
         ? getOutlineFocusTarget(targetSectionId)
-        : document.querySelector<HTMLElement>('[role="tree"][aria-label="Workspace outline"]');
+        : document.querySelector<HTMLElement>(
+            '[role="tree"][aria-label="Workspace outline"]',
+          );
       if (!target) {
         throw new Error("Cannot restore Outline focus after ungrouping.");
       }
@@ -78,16 +94,23 @@ function restoreUngroupFocus(plan: UngroupFocusPlan | null, targetSectionId: str
     }
     if (targetSectionId) {
       const refs = useSectionRefs.getState();
-      const target = refs.selfOnly[targetSectionId] ?? refs.withNested[targetSectionId];
+      const target =
+        refs.selfOnly[targetSectionId] ?? refs.withNested[targetSectionId];
       if (!target) {
-        throw new Error(`Cannot restore focus to ungrouped section ${targetSectionId}.`);
+        throw new Error(
+          `Cannot restore focus to ungrouped section ${targetSectionId}.`,
+        );
       }
       target.focus({ preventScroll: true });
       return;
     }
-    const pane = useReactFlow.getState().domNode?.querySelector<HTMLElement>(".react-flow__pane");
+    const pane = useReactFlow
+      .getState()
+      .domNode?.querySelector<HTMLElement>(".react-flow__pane");
     if (!pane) {
-      throw new Error("Cannot restore focus after ungrouping without a mounted canvas pane.");
+      throw new Error(
+        "Cannot restore focus after ungrouping without a mounted canvas pane.",
+      );
     }
     pane.focus({ preventScroll: true });
   });
@@ -98,7 +121,9 @@ function restoreUngroupFocus(plan: UngroupFocusPlan | null, targetSectionId: str
 // action surface and direct host invocation routes through this function.
 export function ungroupSections(groupIds: ReadonlyArray<string>): void {
   if (!useWorkspaceCapabilities.getState().canEditStructure) {
-    throw new Error("Ungrouping requires permission to edit workspace structure.");
+    throw new Error(
+      "Ungrouping requires permission to edit workspace structure.",
+    );
   }
   const currentDocument = useWorkspaceDocument.getState();
   const currentActiveSections = useActiveSections.getState();
@@ -129,6 +154,8 @@ export function ungroupSections(groupIds: ReadonlyArray<string>): void {
   notifyWorkspaceDocumentChange();
   restoreUngroupFocus(
     focusPlan,
-    focusPlan ? (prepared.focusTargetByGroupId.get(focusPlan.groupId) ?? null) : null,
+    focusPlan
+      ? (prepared.focusTargetByGroupId.get(focusPlan.groupId) ?? null)
+      : null,
   );
 }

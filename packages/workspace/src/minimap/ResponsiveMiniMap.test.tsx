@@ -14,7 +14,9 @@ import {
 } from "../document/stores";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function resetStores() {
   useWorkspaceOptions.getState().reset();
@@ -45,7 +47,9 @@ describe("ResponsiveMiniMap", () => {
   });
 
   function getPanel(): HTMLDivElement {
-    const panel = host.querySelector<HTMLDivElement>('[data-testid="rf__minimap"]');
+    const panel = host.querySelector<HTMLDivElement>(
+      '[data-testid="rf__minimap"]',
+    );
     if (!panel) {
       throw new Error("Missing minimap panel.");
     }
@@ -116,10 +120,14 @@ describe("ResponsiveMiniMap", () => {
       root.render(<WorkspaceCanvas />);
     });
 
-    expect(host.querySelector('[role="region"][aria-label="Workspace canvas"]')).not.toBeNull();
+    expect(
+      host.querySelector('[role="region"][aria-label="Workspace canvas"]'),
+    ).not.toBeNull();
     const pane = host.querySelector<HTMLElement>(".react-flow__pane");
     expect(pane?.getAttribute("role")).toBe("group");
-    expect(pane?.getAttribute("aria-keyshortcuts")).toBe("Escape Shift+F10 ContextMenu");
+    expect(pane?.getAttribute("aria-keyshortcuts")).toBe(
+      "Escape Shift+F10 ContextMenu",
+    );
     expect(host.querySelector('[data-testid="rf__minimap"]')).not.toBe(null);
 
     await act(async () => {

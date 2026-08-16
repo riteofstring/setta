@@ -141,11 +141,17 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
     const { userSelectionRect } = useReactFlow.getState();
     // We only want to trigger click functions when in selection mode if
     // the user did not move the mouse.
-    if (!userSelectionActive && userSelectionRect && event.target === container.current) {
+    if (
+      !userSelectionActive &&
+      userSelectionRect &&
+      event.target === container.current
+    ) {
       onClick();
     }
 
-    useReactFlow.getState().setNodesSelection(prevSelectedNodesCount.current, true);
+    useReactFlow
+      .getState()
+      .setNodesSelection(prevSelectedNodesCount.current, true);
     resetUserSelection();
   };
 
@@ -163,7 +169,10 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
     if (
       event.target === event.currentTarget &&
       isWorkspaceMenuKeyboardEvent(event.nativeEvent) &&
-      openWorkspacePaneMenu(getOwnerKeyboardMenuPoint(event.currentTarget), event.currentTarget)
+      openWorkspacePaneMenu(
+        getOwnerKeyboardMenuPoint(event.currentTarget),
+        event.currentTarget,
+      )
     ) {
       event.preventDefault();
       event.stopPropagation();
@@ -178,7 +187,12 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
     if (event.target !== container.current) {
       return;
     }
-    if (!openWorkspacePaneMenu({ x: event.clientX, y: event.clientY }, event.currentTarget)) {
+    if (
+      !openWorkspacePaneMenu(
+        { x: event.clientX, y: event.clientY },
+        event.currentTarget,
+      )
+    ) {
       return;
     }
     event.preventDefault();
@@ -190,7 +204,6 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
   // The canvas pane owns background selection gestures and Escape without presenting itself as a
   // false button.
   return (
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       className="react-flow__pane"
       role="group"

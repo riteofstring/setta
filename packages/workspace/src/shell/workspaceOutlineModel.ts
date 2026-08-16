@@ -62,9 +62,9 @@ export function filterWorkspaceOutlineTree(
   collect(tree);
 
   const matchingIds = new Set(
-    matchSorter(candidates, normalizedQuery, { keys: [(node) => node.section.name] }).map(
-      (node) => node.section.id,
-    ),
+    matchSorter(candidates, normalizedQuery, {
+      keys: [(node) => node.section.name],
+    }).map((node) => node.section.id),
   );
 
   function retainMatchingPaths(
@@ -128,7 +128,9 @@ function getVisibleAncestorId(
   return null;
 }
 
-function getFirstVisibleSectionId(entries: ReadonlyArray<WorkspaceOutlineEntry>): string | null {
+function getFirstVisibleSectionId(
+  entries: ReadonlyArray<WorkspaceOutlineEntry>,
+): string | null {
   const firstEntry = entries[0];
   return firstEntry ? firstEntry.section.id : null;
 }
@@ -138,11 +140,14 @@ function getReplacementSectionId(
   nextEntries: ReadonlyArray<WorkspaceOutlineEntry>,
   focusedSectionId: string,
 ): string | null {
-  const previousIndex = previousEntries.findIndex((entry) => entry.section.id === focusedSectionId);
+  const previousIndex = previousEntries.findIndex(
+    (entry) => entry.section.id === focusedSectionId,
+  );
   if (previousIndex < 0) {
     return getFirstVisibleSectionId(nextEntries);
   }
-  const replacement = nextEntries[Math.min(previousIndex, nextEntries.length - 1)];
+  const replacement =
+    nextEntries[Math.min(previousIndex, nextEntries.length - 1)];
   return replacement ? replacement.section.id : null;
 }
 
@@ -164,12 +169,20 @@ export function resolveWorkspaceOutlineFocus(
     return focusedSectionId;
   }
   if (state.sections[focusedSectionId]) {
-    const visibleAncestorId = getVisibleAncestorId(state, focusedSectionId, visibleIds);
+    const visibleAncestorId = getVisibleAncestorId(
+      state,
+      focusedSectionId,
+      visibleIds,
+    );
     if (visibleAncestorId !== null) {
       return visibleAncestorId;
     }
   }
-  return getReplacementSectionId(previousEntries, nextEntries, focusedSectionId);
+  return getReplacementSectionId(
+    previousEntries,
+    nextEntries,
+    focusedSectionId,
+  );
 }
 
 export function findWorkspaceOutlineTypeaheadMatch(
@@ -181,11 +194,15 @@ export function findWorkspaceOutlineTypeaheadMatch(
   if (entries.length === 0 || normalizedQuery === "") {
     return null;
   }
-  const currentIndex = entries.findIndex((entry) => entry.section.id === currentSectionId);
+  const currentIndex = entries.findIndex(
+    (entry) => entry.section.id === currentSectionId,
+  );
   for (let offset = 1; offset <= entries.length; offset += 1) {
     const index = (Math.max(currentIndex, 0) + offset) % entries.length;
     const entry = entries[index];
-    if (entry?.section.name.trim().toLocaleLowerCase().startsWith(normalizedQuery)) {
+    if (
+      entry?.section.name.trim().toLocaleLowerCase().startsWith(normalizedQuery)
+    ) {
       return entry.section.id;
     }
   }

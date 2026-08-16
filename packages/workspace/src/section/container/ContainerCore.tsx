@@ -14,7 +14,10 @@ import {
   shouldRetainNativeContextMenu,
 } from "../../context-menu/workspaceMenuOwnership";
 import { useHasTempNested } from "../../dnd/useDndUtils";
-import { getSectionOrThrow, GROUP_SECTION_KIND } from "../../document/documentSelectors";
+import {
+  getSectionOrThrow,
+  GROUP_SECTION_KIND,
+} from "../../document/documentSelectors";
 import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
 import { NO_WHEEL_CLASS_NAME } from "../../interaction";
 import { useIsScrollable } from "../../useIsScrollable";
@@ -112,13 +115,19 @@ function ContainerGroup({
   const section = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId));
   const positionAndSizeLocked = section.positionAndSizeLocked;
   const overflowMode = section.overflowMode;
-  const isActiveSection = useActiveSections((x) => x.activeIds.includes(sectionId));
+  const isActiveSection = useActiveSections((x) =>
+    x.activeIds.includes(sectionId),
+  );
   const disablePointerEvents = useShouldDisablePointerEvents();
   const { ref: overflowRef, isScrollable } = useIsScrollable();
 
   const outlineColor = getOutlineColor({ isActiveSection });
-  const pointerSelectClassName = getPointerSelectClassName(disablePointerEvents);
-  const outlineClassName = getGroupOutlineClassName(positionAndSizeLocked, outlineColor);
+  const pointerSelectClassName =
+    getPointerSelectClassName(disablePointerEvents);
+  const outlineClassName = getGroupOutlineClassName(
+    positionAndSizeLocked,
+    outlineColor,
+  );
   const groupStyle = getGroupStyle(style, overflowMode, section.size);
   const contentClassName = getContentClassName(overflowMode, isScrollable);
 
@@ -126,7 +135,10 @@ function ContainerGroup({
   // keyboard activation on the group itself for the repository's accessibility gate. The group
   // role leaves its title and header buttons exposed to assistive technology.
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget && isWorkspaceMenuKeyboardEvent(event.nativeEvent)) {
+    if (
+      event.target === event.currentTarget &&
+      isWorkspaceMenuKeyboardEvent(event.nativeEvent)
+    ) {
       event.preventDefault();
       event.stopPropagation();
       openWorkspaceSectionMenu(
@@ -137,7 +149,10 @@ function ContainerGroup({
       );
       return;
     }
-    if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+    if (
+      event.target === event.currentTarget &&
+      (event.key === "Enter" || event.key === " ")
+    ) {
       event.preventDefault();
       event.stopPropagation();
       applyActiveSectionChange({ interaction: "section-click", sectionId });
@@ -160,7 +175,6 @@ function ContainerGroup({
 
   // This surface owns pointer and programmatic-focus activation without hiding its real controls.
   return (
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       className={getGroupRootClassName(overflowMode, className)}
       {...commonProps}
@@ -179,7 +193,10 @@ function ContainerGroup({
         data-section-active={isActiveSection ? "true" : "false"}
         data-workspace-group-selection-outline="true"
       />
-      <GroupHeader sectionId={sectionId} pointerSelectClassName={pointerSelectClassName} />
+      <GroupHeader
+        sectionId={sectionId}
+        pointerSelectClassName={pointerSelectClassName}
+      />
       <div className={contentClassName} ref={overflowRef}>
         <EmptyGroupDropHint hasNested={hasNested} />
         {children}
@@ -213,7 +230,10 @@ function getGroupStyle(
   return groupStyle;
 }
 
-function getContentClassName(overflowMode: boolean, isScrollable: boolean): string {
+function getContentClassName(
+  overflowMode: boolean,
+  isScrollable: boolean,
+): string {
   if (!overflowMode) {
     return "z-10";
   }
@@ -222,11 +242,17 @@ function getContentClassName(overflowMode: boolean, isScrollable: boolean): stri
   return isScrollable ? `${className} ${NO_WHEEL_CLASS_NAME}` : className;
 }
 
-function getGroupRootClassName(overflowMode: boolean, className: string | undefined) {
+function getGroupRootClassName(
+  overflowMode: boolean,
+  className: string | undefined,
+) {
   return `group/group-section relative flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${overflowMode ? "min-h-0 min-w-0" : ""} ${className ?? ""}`;
 }
 
-function getGroupOutlineClassName(positionAndSizeLocked: boolean, outlineColor: string) {
+function getGroupOutlineClassName(
+  positionAndSizeLocked: boolean,
+  outlineColor: string,
+) {
   const lockClassName = positionAndSizeLocked
     ? "rounded-sm border-setta-400/90 dark:border-setta-975/35"
     : "rounded-3xl border-setta-50/50 dark:border-setta-700";
@@ -258,7 +284,10 @@ function GroupHeader({
       >
         <ChangeOrientationButton sectionId={sectionId} />
         <LockPositionButton sectionId={sectionId} />
-        <DeleteOrHideButton sectionId={sectionId} size="min-w-4 h-4 scale-150  " />
+        <DeleteOrHideButton
+          sectionId={sectionId}
+          size="min-w-4 h-4 scale-150  "
+        />
       </div>
     </div>
   );

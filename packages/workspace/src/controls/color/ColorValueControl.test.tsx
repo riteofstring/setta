@@ -6,9 +6,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../../canvas/store";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { useSectionRefs } from "../../section/sectionRefs";
-import { ColorValueControl, type ColorValueControlProps } from "./ColorValueControl";
+import {
+  ColorValueControl,
+  type ColorValueControlProps,
+} from "./ColorValueControl";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // Freezes the color control against the reference `ColorPickerInput` at the `ParamUI` color
 // presentation: the configured-choice trigger over the portaled 16 px swatch listbox, the
@@ -63,7 +68,9 @@ describe("ColorValueControl", () => {
   }
 
   function getTrigger(): HTMLButtonElement {
-    const trigger = host.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]');
+    const trigger = host.querySelector<HTMLButtonElement>(
+      'button[aria-haspopup="listbox"]',
+    );
     if (!trigger) {
       throw new Error("The configured color trigger is not rendered.");
     }
@@ -78,7 +85,9 @@ describe("ColorValueControl", () => {
 
   async function flushAnimationFrame() {
     await act(async () => {
-      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => resolve(null)),
+      );
     });
   }
 
@@ -99,12 +108,19 @@ describe("ColorValueControl", () => {
     }
     const trigger = getTrigger();
     expect(trigger.getAttribute("aria-label")).toBe("Accent color: Green");
-    for (const expectedClass of ["flex-1", "rounded-lg", "single-cell-container", "text-white"]) {
+    for (const expectedClass of [
+      "flex-1",
+      "rounded-lg",
+      "single-cell-container",
+      "text-white",
+    ]) {
       expect(trigger.classList.contains(expectedClass)).toBe(true);
     }
     // The rounded swatch paints the selected choice; the label and chevron ride the
     // auto-contrast layer.
-    const swatch = trigger.querySelector<HTMLElement>("div.single-cell-child.rounded-lg");
+    const swatch = trigger.querySelector<HTMLElement>(
+      "div.single-cell-child.rounded-lg",
+    );
     expect(swatch?.style.backgroundColor).toBe("rgb(34, 197, 94)");
     expect(trigger.querySelector("p")?.textContent).toBe("Green");
     expect(trigger.querySelector("i.gg-chevron-down")).not.toBeNull();
@@ -121,11 +137,21 @@ describe("ColorValueControl", () => {
     await openPopover();
     const listbox = document.querySelector('[role="listbox"]');
     expect(listbox?.getAttribute("aria-label")).toBe("Accent color choices");
-    expect(listbox?.parentElement?.classList.contains("setta-workspace")).toBe(true);
-    const options = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]'));
-    expect(options.map((option) => option.textContent)).toEqual(["Red", "Green", "Blue"]);
+    expect(listbox?.parentElement?.classList.contains("setta-workspace")).toBe(
+      true,
+    );
+    const options = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="option"]'),
+    );
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Red",
+      "Green",
+      "Blue",
+    ]);
     // The recorded 16 px round swatch inside each option row.
-    const optionSwatch = options[0]?.querySelector<HTMLElement>("div.h-4.w-4.rounded-full");
+    const optionSwatch = options[0]?.querySelector<HTMLElement>(
+      "div.h-4.w-4.rounded-full",
+    );
     expect(optionSwatch?.style.backgroundColor).toBe("rgb(239, 68, 68)");
     const blueOption = options.find((option) => option.textContent === "Blue");
     await act(async () => {
@@ -142,30 +168,47 @@ describe("ColorValueControl", () => {
 
     await openPopover();
 
-    expect(document.querySelector<HTMLElement>('[role="listbox"]')?.parentElement?.dir).toBe("rtl");
+    expect(
+      document.querySelector<HTMLElement>('[role="listbox"]')?.parentElement
+        ?.dir,
+    ).toBe("rtl");
   });
 
   it("keeps one listbox option tabbable and supports wrapped arrow, Home, and End navigation", async () => {
     await mount({ choices: CHOICES });
     await openPopover();
-    const options = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="option"]'));
+    const options = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[role="option"]'),
+    );
     expect(options.map((option) => option.tabIndex)).toEqual([-1, 0, -1]);
     options[1]?.focus();
     await act(async () => {
       options[1]?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }),
+        new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          bubbles: true,
+          cancelable: true,
+        }),
       );
     });
     expect(document.activeElement).toBe(options[2]);
     await act(async () => {
       options[2]?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }),
+        new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          bubbles: true,
+          cancelable: true,
+        }),
       );
     });
     expect(document.activeElement).toBe(options[0]);
     await act(async () => {
       options[0]?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "End", bubbles: true, cancelable: true }),
+        new KeyboardEvent("keydown", {
+          key: "End",
+          bubbles: true,
+          cancelable: true,
+        }),
       );
     });
     expect(document.activeElement).toBe(options[2]);
@@ -186,7 +229,11 @@ describe("ColorValueControl", () => {
     selectedOption?.focus();
     await act(async () => {
       selectedOption?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          code: "Escape",
+          bubbles: true,
+        }),
       );
     });
     await act(async () => {
@@ -227,7 +274,11 @@ describe("ColorValueControl", () => {
     await mount({ choices: CHOICES });
     await act(async () => {
       getTrigger().dispatchEvent(
-        new KeyboardEvent("keydown", { code: "Escape", key: "Escape", bubbles: true }),
+        new KeyboardEvent("keydown", {
+          code: "Escape",
+          key: "Escape",
+          bubbles: true,
+        }),
       );
     });
     expect(document.activeElement).toBe(sectionRoot);
@@ -246,7 +297,9 @@ describe("ColorValueControl", () => {
 
   it("renders the native path behind the eyedropper glyph without choices", async () => {
     await mount({ value: "#afbacf" });
-    expect(host.querySelector("i.gg-color-picker.single-cell-child")).not.toBeNull();
+    expect(
+      host.querySelector("i.gg-color-picker.single-cell-child"),
+    ).not.toBeNull();
     const input = host.querySelector<HTMLInputElement>('input[type="color"]');
     if (!input) {
       throw new Error("The native color input is not rendered.");
@@ -292,6 +345,8 @@ describe("ColorValueControl", () => {
 
   it("disables the native input from the host flag", async () => {
     await mount({ disabled: true });
-    expect(host.querySelector<HTMLInputElement>('input[type="color"]')?.disabled).toBe(true);
+    expect(
+      host.querySelector<HTMLInputElement>('input[type="color"]')?.disabled,
+    ).toBe(true);
   });
 });

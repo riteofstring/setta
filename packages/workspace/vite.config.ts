@@ -26,7 +26,8 @@ export default defineConfig({
     // ESM graph the browser build produces; `test.alias` never touches the build output.
     alias: {
       "@uiw/react-codemirror": "@uiw/react-codemirror/esm/index.js",
-      "@uiw/codemirror-theme-github": "@uiw/codemirror-theme-github/esm/index.js",
+      "@uiw/codemirror-theme-github":
+        "@uiw/codemirror-theme-github/esm/index.js",
       "@uiw/codemirror-themes": "@uiw/codemirror-themes/esm/index.js",
       "@uiw/codemirror-extensions-basic-setup":
         "@uiw/codemirror-extensions-basic-setup/esm/index.js",

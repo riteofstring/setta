@@ -8,7 +8,10 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "../interaction";
 import { useIsScrollable } from "../useIsScrollable";
-import { getWorkspaceTextSectionData, setWorkspaceTextSectionData } from "./textSectionActions";
+import {
+  getWorkspaceTextSectionData,
+  setWorkspaceTextSectionData,
+} from "./textSectionActions";
 import {
   getWorkspaceTextSectionEditorLanguage,
   parseWorkspaceTextSectionData,
@@ -49,7 +52,10 @@ type WorkspaceTextSectionBodyProps = {
   choices: WorkspaceTextSectionChoices;
 };
 
-export function WorkspaceTextSectionBody({ section, choices }: WorkspaceTextSectionBodyProps) {
+export function WorkspaceTextSectionBody({
+  section,
+  choices,
+}: WorkspaceTextSectionBodyProps) {
   const data = parseWorkspaceTextSectionData(section.id, section.data, choices);
   return data.displayMode === "render" ? (
     <RenderedText data={data} />
@@ -101,9 +107,16 @@ function TextSectionEditor({
 
   const onChange = useCallback(
     (nextText: string) => {
-      const liveSection = getSectionOrThrow(useWorkspaceDocument.getState(), sectionId);
+      const liveSection = getSectionOrThrow(
+        useWorkspaceDocument.getState(),
+        sectionId,
+      );
       const liveData = getWorkspaceTextSectionData(sectionId);
-      if (liveData.readOnly || liveSection.positionAndSizeLocked || liveData.text === nextText) {
+      if (
+        liveData.readOnly ||
+        liveSection.positionAndSizeLocked ||
+        liveData.text === nextText
+      ) {
         return;
       }
       setWorkspaceTextSectionData(sectionId, { ...liveData, text: nextText });

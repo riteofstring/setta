@@ -3,7 +3,11 @@ import { setWorkspaceDocumentChangeCallback } from "./documentChangeCallback";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { setSectionData } from "./sectionData";
 import { registerSectionKinds } from "./sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "./stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "./stores";
 
 function loadTestDocument() {
   registerSectionKinds({ leaf: { renderContent: () => null } });
@@ -53,6 +57,8 @@ describe("setSectionData", () => {
   });
 
   it("fails loudly for an unknown section", () => {
-    expect(() => setSectionData("missing", {})).toThrowError("Unknown section missing.");
+    expect(() => setSectionData("missing", {})).toThrowError(
+      "Unknown section missing.",
+    );
   });
 });

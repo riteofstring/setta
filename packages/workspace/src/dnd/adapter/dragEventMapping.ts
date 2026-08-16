@@ -75,7 +75,10 @@ export function mapDragEvent(
   };
 }
 
-function getCollisions(manager: DragDropManager, active: Draggable): SettaCollision[] {
+function getCollisions(
+  manager: DragDropManager,
+  active: Draggable,
+): SettaCollision[] {
   const collisions = manager.collisionObserver.collisions;
   if (!collisions || collisions.length === 0) {
     return [];
@@ -100,7 +103,9 @@ function getItemCollisionParentByChild(active: Draggable) {
 }
 
 function getActiveDragData(active: Draggable): ActiveDragData | null {
-  return (active.data as { current?: ActiveDragData } | undefined)?.current ?? null;
+  return (
+    (active.data as { current?: ActiveDragData } | undefined)?.current ?? null
+  );
 }
 
 function getManagerBoundingRect(

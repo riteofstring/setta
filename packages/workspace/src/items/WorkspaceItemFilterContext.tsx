@@ -24,7 +24,8 @@ type WorkspaceItemFilterContextValue = {
   visibleItemIds: ReadonlySet<string>;
 };
 
-const WorkspaceItemFilterContext = createContext<WorkspaceItemFilterContextValue | null>(null);
+const WorkspaceItemFilterContext =
+  createContext<WorkspaceItemFilterContextValue | null>(null);
 
 export function WorkspaceItemFilterProvider({
   children,
@@ -37,14 +38,21 @@ export function WorkspaceItemFilterProvider({
 }) {
   const [query, setQuery] = useState("");
   const filterInputRef = useRef<HTMLInputElement | null>(null);
-  const section = useWorkspaceDocument((state) => getSectionOrThrow(state, sectionId));
-  const result = useMemo(() => filterWorkspaceSectionItems(section, query), [query, section]);
+  const section = useWorkspaceDocument((state) =>
+    getSectionOrThrow(state, sectionId),
+  );
+  const result = useMemo(
+    () => filterWorkspaceSectionItems(section, query),
+    [query, section],
+  );
   const itemTree = section.itemTree;
   if (!itemTree) {
     throw new Error(`Section ${sectionId} has no item tree to filter.`);
   }
   const hiddenSelectedItemCount = result.filterActive
-    ? itemTree.selectedItemIds.filter((itemId) => !result.visibleItemIds.has(itemId)).length
+    ? itemTree.selectedItemIds.filter(
+        (itemId) => !result.visibleItemIds.has(itemId),
+      ).length
     : 0;
   const clearAndFocus = useCallback(() => {
     setQuery("");
@@ -62,7 +70,13 @@ export function WorkspaceItemFilterProvider({
       setQuery,
       visibleItemIds: result.visibleItemIds,
     }),
-    [clearAndFocus, hasSectionStyleTheme, hiddenSelectedItemCount, query, result],
+    [
+      clearAndFocus,
+      hasSectionStyleTheme,
+      hiddenSelectedItemCount,
+      query,
+      result,
+    ],
   );
 
   return (

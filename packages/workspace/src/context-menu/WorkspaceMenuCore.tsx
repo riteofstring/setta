@@ -11,7 +11,10 @@ import { createPortal } from "react-dom";
 import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandTypes";
 import type { WorkspaceTextDirection } from "../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
-import { placeWorkspaceMenu, type WorkspaceMenuClientPoint } from "./workspaceMenuGeometry";
+import {
+  placeWorkspaceMenu,
+  type WorkspaceMenuClientPoint,
+} from "./workspaceMenuGeometry";
 import { closeWorkspaceMenu } from "./workspaceMenuState";
 
 export type WorkspaceMenuEntry = {
@@ -35,7 +38,9 @@ export function WorkspaceMenuEntryDescriptions({
 }: {
   entries: ReadonlyArray<WorkspaceMenuEntry>;
 }) {
-  const describedEntries = entries.filter((entry) => entry.description !== undefined);
+  const describedEntries = entries.filter(
+    (entry) => entry.description !== undefined,
+  );
   if (describedEntries.length === 0) {
     return null;
   }
@@ -74,7 +79,11 @@ export function WorkspaceMenuCore({
   const contentRef = useRef<HTMLDivElement>(null);
   const initialFocusRef = useRef(initialFocus);
   const scopeClassName = useWorkspaceScopeClassName();
-  const [position, setPosition] = useState({ left: -9999, top: -9999, opacity: 0 });
+  const [position, setPosition] = useState({
+    left: -9999,
+    top: -9999,
+    opacity: 0,
+  });
 
   useLayoutEffect(() => {
     initialFocusRef.current = initialFocus;
@@ -85,7 +94,9 @@ export function WorkspaceMenuCore({
     const frame = requestAnimationFrame(() => {
       const content = contentRef.current;
       if (!content) {
-        throw new Error("Workspace menu content did not mount before placement.");
+        throw new Error(
+          "Workspace menu content did not mount before placement.",
+        );
       }
       const rect = content.getBoundingClientRect();
       const next = placeWorkspaceMenu({
@@ -203,11 +214,19 @@ export function WorkspaceMenuItem({
 }
 
 export function WorkspaceMenuLabel({ children }: { children: ReactNode }) {
-  return <DropdownMenu.Label className="setta-workspace-menu-label">{children}</DropdownMenu.Label>;
+  return (
+    <DropdownMenu.Label className="setta-workspace-menu-label">
+      {children}
+    </DropdownMenu.Label>
+  );
 }
 
 export function WorkspaceMenuGroup({ children }: { children: ReactNode }) {
-  return <DropdownMenu.Group className="setta-workspace-menu-group">{children}</DropdownMenu.Group>;
+  return (
+    <DropdownMenu.Group className="setta-workspace-menu-group">
+      {children}
+    </DropdownMenu.Group>
+  );
 }
 
 export function WorkspaceMenuSeparator() {
@@ -238,8 +257,10 @@ export function WorkspaceActionMenu({
   const entries = groups.flatMap((group) => group.entries);
 
   function focusInitialItem(): void {
-    const candidates = initialFocus === "last" ? [...entries].reverse() : entries;
-    const entry = candidates.find((candidate) => !candidate.disabled) ?? candidates[0];
+    const candidates =
+      initialFocus === "last" ? [...entries].reverse() : entries;
+    const entry =
+      candidates.find((candidate) => !candidate.disabled) ?? candidates[0];
     if (!entry) {
       throw new Error("Workspace action menu requires at least one entry.");
     }
@@ -256,10 +277,15 @@ export function WorkspaceActionMenu({
       kind={kind}
     >
       {groups.map((group, groupIndex) => (
-        <div key={`${group.label ?? "items"}-${groupIndex}`} role="presentation">
+        <div
+          key={`${group.label ?? "items"}-${groupIndex}`}
+          role="presentation"
+        >
           {groupIndex > 0 ? <WorkspaceMenuSeparator /> : null}
           <WorkspaceMenuGroup>
-            {group.label ? <WorkspaceMenuLabel>{group.label}</WorkspaceMenuLabel> : null}
+            {group.label ? (
+              <WorkspaceMenuLabel>{group.label}</WorkspaceMenuLabel>
+            ) : null}
             {group.entries.map((entry) => (
               <WorkspaceMenuItem
                 entry={entry}

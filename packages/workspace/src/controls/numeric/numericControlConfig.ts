@@ -24,10 +24,16 @@ export function assertNumericControlConfig(
     throw new Error(`${controlName} requires a finite step greater than zero.`);
   }
   if (step > max - min) {
-    throw new Error(`${controlName} requires step not to exceed max minus min.`);
+    throw new Error(
+      `${controlName} requires step not to exceed max minus min.`,
+    );
   }
 }
 
-export function clampNumericValue(value: number, min: number, max: number): number {
+export function clampNumericValue(
+  value: number,
+  min: number,
+  max: number,
+): number {
   return Math.min(Math.max(value, min), max);
 }

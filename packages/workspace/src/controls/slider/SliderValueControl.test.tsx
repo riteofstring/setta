@@ -5,9 +5,14 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { useSectionRefs } from "../../section/sectionRefs";
-import { SliderValueControl, type SliderValueControlProps } from "./SliderValueControl";
+import {
+  SliderValueControl,
+  type SliderValueControlProps,
+} from "./SliderValueControl";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // Freezes the package slider against the ordinary-row `SliderInput`: its exact class recipe,
 // Radix stepping and commit cadence, temporary numeric field parsing/clamping, Escape focus,
@@ -100,9 +105,13 @@ describe("SliderValueControl", () => {
       expect(sliderRoot.classList.contains(expectedClass)).toBe(true);
     }
     const track = sliderRoot.firstElementChild;
-    expect(track?.classList.contains("data-[orientation='horizontal']:h-[3px]")).toBe(true);
+    expect(
+      track?.classList.contains("data-[orientation='horizontal']:h-[3px]"),
+    ).toBe(true);
     expect(track?.classList.contains("bg-setta-200")).toBe(true);
-    expect(track?.firstElementChild?.classList.contains("bg-blue-500")).toBe(true);
+    expect(track?.firstElementChild?.classList.contains("bg-blue-500")).toBe(
+      true,
+    );
     const thumb = getThumb();
     expect(thumb.getAttribute("aria-label")).toBe("Gain value");
     expect(thumb.getAttribute("aria-valuemin")).toBe("0");
@@ -168,7 +177,11 @@ describe("SliderValueControl", () => {
     await mount({ value: "6", onValueChange, onValueCommit });
     await act(async () => {
       getThumb().dispatchEvent(
-        new KeyboardEvent("keyup", { key: "ArrowRight", code: "ArrowRight", bubbles: true }),
+        new KeyboardEvent("keyup", {
+          key: "ArrowRight",
+          code: "ArrowRight",
+          bubbles: true,
+        }),
       );
     });
     expect(onValueCommit).toHaveBeenCalledOnce();
@@ -180,7 +193,10 @@ describe("SliderValueControl", () => {
     const onValueCommit = vi.fn();
     await mount({ onValueChange, onValueCommit });
     const input = getNumericInput();
-    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
     if (!valueSetter) {
       throw new Error("The native input value setter is unavailable.");
     }
@@ -201,7 +217,10 @@ describe("SliderValueControl", () => {
     const onValueCommit = vi.fn();
     await mount({ onValueChange, onValueCommit });
     const input = getNumericInput();
-    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
     if (!valueSetter) {
       throw new Error("The native input value setter is unavailable.");
     }
@@ -233,7 +252,11 @@ describe("SliderValueControl", () => {
     for (const target of [getThumb(), getNumericInput()]) {
       await act(async () => {
         target.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+          new KeyboardEvent("keydown", {
+            key: "Escape",
+            code: "Escape",
+            bubbles: true,
+          }),
         );
       });
       expect(document.activeElement).toBe(sectionRoot);

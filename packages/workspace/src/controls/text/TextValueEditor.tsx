@@ -6,8 +6,14 @@ import { useItemSelectionModeForControl } from "../../document/itemSelectionMode
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { focusSectionAfterEscape } from "../sectionFocus";
 import { DummyCodeMirror } from "./DummyCodeMirror";
-import { getOnCreateEditor, type TextValueActivationEvent } from "./onCreateEditor";
-import { getTextValueExtensions, TEXT_VALUE_BASIC_SETUP } from "./textValueExtensions";
+import {
+  getOnCreateEditor,
+  type TextValueActivationEvent,
+} from "./onCreateEditor";
+import {
+  getTextValueExtensions,
+  TEXT_VALUE_BASIC_SETUP,
+} from "./textValueExtensions";
 import type { TextValueLanguage } from "./textValueLanguages";
 import {
   mountTextValueThemeStyles,
@@ -117,7 +123,13 @@ function wrapTextValueEditorLayers(
 }
 
 export function TextValueEditor({ itemId, ...props }: TextValueEditorProps) {
-  return <TextValueEditorCore {...props} controlId={itemId} presentation="item-row" />;
+  return (
+    <TextValueEditorCore
+      {...props}
+      controlId={itemId}
+      presentation="item-row"
+    />
+  );
 }
 
 // Package-internal composition seam for the direct-on-canvas text control. The public item-row
@@ -168,7 +180,8 @@ function TextValueEditorCore({
   presentation,
   metaMinimumHeight = false,
 }: TextValueEditorCoreProps) {
-  const [activationEvent, setActivationEvent] = useState<TextValueActivationEvent | null>(null);
+  const [activationEvent, setActivationEvent] =
+    useState<TextValueActivationEvent | null>(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;

@@ -21,13 +21,20 @@ export function ResizableWithScale({
 }: ResizableWithScaleProps) {
   const { scale, onResizeStart: onResizeStart_ } = useSetScaleOnResizeStart();
 
-  const localOnResizeStart: NonNullable<ResizableWithScaleProps["onResizeStart"]> = (...args) => {
+  const localOnResizeStart: NonNullable<
+    ResizableWithScaleProps["onResizeStart"]
+  > = (...args) => {
     onResizeStart?.(...args);
     onResizeStart_();
   };
 
   return (
-    <Resizable {...props} scale={scale} as={as} onResizeStart={localOnResizeStart}>
+    <Resizable
+      {...props}
+      scale={scale}
+      as={as}
+      onResizeStart={localOnResizeStart}
+    >
       {children}
     </Resizable>
   );

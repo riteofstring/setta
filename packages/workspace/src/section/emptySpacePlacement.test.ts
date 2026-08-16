@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { Node, WorkspaceSectionInput } from "../document/types";
 import { resolveWorkspaceEmptySpacePlacement } from "./emptySpacePlacement";
 
@@ -24,7 +28,10 @@ function createSectionInput(id: string, kind: string): WorkspaceSectionInput {
 }
 
 function loadSections(
-  layouts: Record<string, { x: number; y: number; w?: number | null; h?: number | null }>,
+  layouts: Record<
+    string,
+    { x: number; y: number; w?: number | null; h?: number | null }
+  >,
   kind = "sized",
 ) {
   loadWorkspaceDocument({
@@ -34,7 +41,13 @@ function loadSections(
     topLevelSections: Object.fromEntries(
       Object.entries(layouts).map(([id, layout], index) => [
         id,
-        { x: layout.x, y: layout.y, w: layout.w ?? null, h: layout.h ?? null, zIndex: index },
+        {
+          x: layout.x,
+          y: layout.y,
+          w: layout.w ?? null,
+          h: layout.h ?? null,
+          zIndex: index,
+        },
       ]),
     ),
     viewport: { x: 0, y: 0, zoom: 1 },
@@ -61,7 +74,10 @@ function measureNode(sectionId: string, width: number, height: number) {
 describe("empty-space placement", () => {
   beforeEach(() => {
     registerSectionKinds({
-      sized: { renderContent: () => null, defaultSize: { width: 240, height: 120 } },
+      sized: {
+        renderContent: () => null,
+        defaultSize: { width: 240, height: 120 },
+      },
       auto: { renderContent: () => null },
     });
     useReactFlow.setState({ ...initialCanvasState });
@@ -79,7 +95,9 @@ describe("empty-space placement", () => {
     loadSections({});
     setVisiblePane(800, 600);
 
-    expect(resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized"))).toEqual({
+    expect(
+      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized")),
+    ).toEqual({
       position: { x: 24, y: 24 },
       panTo: null,
     });
@@ -89,7 +107,9 @@ describe("empty-space placement", () => {
     loadSections({ existing: { x: 0, y: 0 } });
     setVisiblePane(800, 600);
 
-    expect(resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized"))).toEqual({
+    expect(
+      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized")),
+    ).toEqual({
       position: { x: 264, y: 24 },
       panTo: null,
     });
@@ -101,7 +121,8 @@ describe("empty-space placement", () => {
     setVisiblePane(800, 600);
 
     expect(
-      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized")).position,
+      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized"))
+        .position,
     ).toEqual({ x: 424, y: 24 });
   });
 
@@ -111,11 +132,13 @@ describe("empty-space placement", () => {
 
     // A 1 px tall reservation fits the 32 px gap between the two padded sections; the sized
     // section below proves the same gap rejects a section that reserves its real height.
-    expect(resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "auto")).position).toEqual(
-      { x: 24, y: 144 },
-    );
     expect(
-      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized")).position,
+      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "auto"))
+        .position,
+    ).toEqual({ x: 24, y: 144 });
+    expect(
+      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized"))
+        .position,
     ).not.toEqual({ x: 24, y: 144 });
   });
 
@@ -125,7 +148,9 @@ describe("empty-space placement", () => {
 
     // Below the workspace rather than beside it: the reference prefers the side that keeps the
     // occupied area closest to square.
-    expect(resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized"))).toEqual({
+    expect(
+      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized")),
+    ).toEqual({
       position: { x: 2000, y: 2144 },
       panTo: { x: 2200, y: 2204 },
     });
@@ -134,7 +159,9 @@ describe("empty-space placement", () => {
   it("stays where the layout says without a measurable canvas", () => {
     loadSections({ existing: { x: 2000, y: 2000 } });
 
-    expect(resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized"))).toEqual({
+    expect(
+      resolveWorkspaceEmptySpacePlacement(createSectionInput("new", "sized")),
+    ).toEqual({
       position: { x: 2000, y: 2144 },
       panTo: null,
     });

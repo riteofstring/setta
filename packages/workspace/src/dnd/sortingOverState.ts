@@ -23,6 +23,8 @@ export function resetSortingOverState(): void {
   }
 }
 
-export function getSortingOverState(containerId: string): SortingOverState | null {
+export function getSortingOverState(
+  containerId: string,
+): SortingOverState | null {
   return sortingOverStateByContainer[containerId] ?? null;
 }

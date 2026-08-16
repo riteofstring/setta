@@ -65,7 +65,8 @@
 }
 
 [data-workspace-keyboard-focus="true"] .setta-workspace-shell-tab:focus,
-[data-workspace-keyboard-focus="true"] .setta-workspace-shell-full-width-button:focus {
+[data-workspace-keyboard-focus="true"]
+  .setta-workspace-shell-full-width-button:focus {
   outline: 2px solid;
   outline-offset: 2px;
 }
@@ -86,7 +87,8 @@
   background-color: transparent;
 }
 
-[data-workspace-keyboard-focus="true"] .setta-workspace-shell-resize-handle:focus::after {
+[data-workspace-keyboard-focus="true"]
+  .setta-workspace-shell-resize-handle:focus::after {
   background-color: rgb(59 130 246);
 }
 
@@ -151,7 +153,8 @@
   color: rgb(182 192 211);
 }
 
-.setta-workspace.setta-workspace-dark .setta-workspace-outline-filter-input::placeholder {
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-outline-filter-input::placeholder {
   color: rgb(65 80 108);
 }
 
@@ -166,7 +169,8 @@
     border-color: Highlight;
   }
 
-  [data-workspace-keyboard-focus="true"] .setta-workspace-shell-resize-handle:focus::after {
+  [data-workspace-keyboard-focus="true"]
+    .setta-workspace-shell-resize-handle:focus::after {
     background-color: Highlight;
   }
 }

@@ -133,7 +133,9 @@ describe("collision comparison", () => {
       triggerDist: -5,
     });
 
-    expect(resolveOverCollision([fartherPassed, nearerBefore])?.id).toBe("nearer-before");
+    expect(resolveOverCollision([fartherPassed, nearerBefore])?.id).toBe(
+      "nearer-before",
+    );
   });
 
   it("prefers an exactly-at-trigger sortable collision over a farther post-trigger candidate", () => {
@@ -153,7 +155,9 @@ describe("collision comparison", () => {
       triggerDist: 0,
     });
 
-    expect(resolveOverCollision([fartherPassed, nearerAtTrigger])?.id).toBe("nearer-at-trigger");
+    expect(resolveOverCollision([fartherPassed, nearerAtTrigger])?.id).toBe(
+      "nearer-at-trigger",
+    );
   });
 
   it("falls back to ratio when sortable distances tie", () => {
@@ -183,8 +187,12 @@ describe("collision comparison", () => {
 
     const parentByChild = { child: "parent" };
 
-    expect(resolveOverCollision([parent, child], parentByChild)?.id).toBe("child");
-    expect(resolveOverCollisionId([parent, child], "fallback", parentByChild)).toBe("child");
+    expect(resolveOverCollision([parent, child], parentByChild)?.id).toBe(
+      "child",
+    );
+    expect(
+      resolveOverCollisionId([parent, child], "fallback", parentByChild),
+    ).toBe("child");
   });
 
   it("reorders collisions so the best candidate appears first", () => {

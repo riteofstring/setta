@@ -6,8 +6,14 @@ import { useItemSelectionModeForControl } from "../../document/itemSelectionMode
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { focusSectionAfterEscape } from "../sectionFocus";
 import { DummyCodeMirror } from "../text/DummyCodeMirror";
-import { getOnCreateEditor, type TextValueActivationEvent } from "../text/onCreateEditor";
-import { getTextValueExtensions, TEXT_VALUE_BASIC_SETUP } from "../text/textValueExtensions";
+import {
+  getOnCreateEditor,
+  type TextValueActivationEvent,
+} from "../text/onCreateEditor";
+import {
+  getTextValueExtensions,
+  TEXT_VALUE_BASIC_SETUP,
+} from "../text/textValueExtensions";
 import type { TextValueLanguage } from "../text/textValueLanguages";
 import {
   mountTextValueThemeStyles,
@@ -50,7 +56,9 @@ type ItemNameEditorCoreProps = ResolvedItemNameEditorProps & {
   reserveEndControlSpace: boolean;
 };
 
-function resolveItemNameEditorProps(props: ItemNameEditorProps): ResolvedItemNameEditorProps {
+function resolveItemNameEditorProps(
+  props: ItemNameEditorProps,
+): ResolvedItemNameEditorProps {
   return {
     ...props,
     errorMessage: props.errorMessage ?? "",
@@ -61,7 +69,10 @@ function resolveItemNameEditorProps(props: ItemNameEditorProps): ResolvedItemNam
   };
 }
 
-function getLayoutClassName(hasChildren: boolean, layoutPadding: string): string {
+function getLayoutClassName(
+  hasChildren: boolean,
+  layoutPadding: string,
+): string {
   if (hasChildren) {
     return `section-key-value grid-row-start-1 ${layoutPadding}`;
   }
@@ -100,7 +111,10 @@ function getLiveClassName(
   return `${NO_PAN_CLASS_NAME} ${NO_DRAG_CLASS_NAME} single-cell-child cursor-text self-end select-text [&_*]:!outline-0 [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs min-w-0 placeholder:text-setta-300 dark:placeholder:text-setta-600 py-[.125rem] ${layoutPadding} ${endControlClassName} peer/nameinput font-mono dark:focus-visible:border-blue-400 ${getErrorClassName(hasError)}`;
 }
 
-function getUnderlineClassName(hasChildren: boolean, hasError: boolean): string {
+function getUnderlineClassName(
+  hasChildren: boolean,
+  hasError: boolean,
+): string {
   const layoutMargin = hasChildren ? "mx-[2px]" : "";
   const errorClassName = hasError ? "border-red-400" : "";
   return `single-cell-child ${layoutMargin} border-box self-end border-b border-setta-200/50 peer-focus-within/nameinput:border-blue-400 dark:border-setta-600/30 ${errorClassName}`;
@@ -123,7 +137,8 @@ function useItemNameActivation({
   isDisabled: boolean;
   onBlur: (() => void) | undefined;
 }) {
-  const [activationEvent, setActivationEvent] = useState<TextValueActivationEvent | null>(null);
+  const [activationEvent, setActivationEvent] =
+    useState<TextValueActivationEvent | null>(null);
   const [liveIsInitialized, setLiveIsInitialized] = useState(false);
 
   function localOnBlur() {
@@ -163,7 +178,10 @@ function useItemNameActivation({
 
 export function ItemNameEditor(props: ItemNameEditorProps) {
   return (
-    <ItemNameEditorCore {...resolveItemNameEditorProps(props)} reserveEndControlSpace={false} />
+    <ItemNameEditorCore
+      {...resolveItemNameEditorProps(props)}
+      reserveEndControlSpace={false}
+    />
   );
 }
 
@@ -181,7 +199,10 @@ export function BuiltInItemNameEditor(
   );
 }
 
-function ItemNameEditorCore({ reserveEndControlSpace, ...props }: ItemNameEditorCoreProps) {
+function ItemNameEditorCore({
+  reserveEndControlSpace,
+  ...props
+}: ItemNameEditorCoreProps) {
   const {
     sectionId,
     itemId,
@@ -199,7 +220,10 @@ function ItemNameEditorCore({ reserveEndControlSpace, ...props }: ItemNameEditor
   const isDisabled = disabled || isSelectingItems;
   const hasError = errorMessage.length > 0;
   const theme = useTextValueTheme("green");
-  const { dummyEditorId, errorId, liveEditorId } = getElementIds(sectionId, itemId);
+  const { dummyEditorId, errorId, liveEditorId } = getElementIds(
+    sectionId,
+    itemId,
+  );
   const {
     activationEvent,
     liveIsInitialized,
@@ -215,14 +239,22 @@ function ItemNameEditorCore({ reserveEndControlSpace, ...props }: ItemNameEditor
 
   return (
     <>
-      <div className={getLayerStackClassName(hasChildren)} data-item-name-layer-stack="true">
+      <div
+        className={getLayerStackClassName(hasChildren)}
+        data-item-name-layer-stack="true"
+      >
         {!liveIsInitialized && (
           <DummyCodeMirror
             divId={dummyEditorId}
             code={name}
             onMouseDownCapture={localOnMouseDownCapture}
             onFocus={onFocus}
-            className={getDummyClassName(hasChildren, isDisabled, hasError, reserveEndControlSpace)}
+            className={getDummyClassName(
+              hasChildren,
+              isDisabled,
+              hasError,
+              reserveEndControlSpace,
+            )}
             singleLine={true}
             wrapLines={true}
             theme={theme}
@@ -245,15 +277,26 @@ function ItemNameEditorCore({ reserveEndControlSpace, ...props }: ItemNameEditor
             liveIsInitialized={liveIsInitialized}
             setLiveIsInitialized={setLiveIsInitialized}
             onNameChange={onNameChange}
-            onEscape={() => (onEscape ? onEscape() : focusSectionAfterEscape(sectionId))}
+            onEscape={() =>
+              onEscape ? onEscape() : focusSectionAfterEscape(sectionId)
+            }
             onBlur={localOnBlur}
-            className={getLiveClassName(hasChildren, hasError, reserveEndControlSpace)}
+            className={getLiveClassName(
+              hasChildren,
+              hasError,
+              reserveEndControlSpace,
+            )}
             errorId={hasError ? errorId : undefined}
           />
         )}
         <span className={getUnderlineClassName(hasChildren, hasError)} />
       </div>
-      <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+      <span
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
         {errorMessage}
       </span>
       <ItemNameErrorBubble
@@ -297,7 +340,12 @@ function LiveItemNameEditor({
   errorId: string | undefined;
 }) {
   const extensions = [
-    ...getTextValueExtensions({ language, singleLine: true, wrapLines: true, onEscape }),
+    ...getTextValueExtensions({
+      language,
+      singleLine: true,
+      wrapLines: true,
+      onEscape,
+    }),
     getCodeMirrorContentAttributes(errorId),
   ];
   const onCreateEditor = getOnCreateEditor({

@@ -2,7 +2,11 @@ import _ from "lodash";
 import React, { type CSSProperties, type ReactNode } from "react";
 import { useDndMode, useDndState } from "../../dnd/dndState";
 import { useHighlightDroppable } from "../../dnd/useDndUtils";
-import { Container, type SectionDragListeners, type SectionDragRef } from "./ContainerCore";
+import {
+  Container,
+  type SectionDragListeners,
+  type SectionDragRef,
+} from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
 // The reference's `ContainerWrappers.tsx` minus the view-mode visibility styling, which left
@@ -33,7 +37,11 @@ function DndSlotAndDndWatcherComponent({
   });
 
   return (
-    <DndSlot behaviorDropType={behaviorDropType} isGroup={isGroup} sectionId={sectionId}>
+    <DndSlot
+      behaviorDropType={behaviorDropType}
+      isGroup={isGroup}
+      sectionId={sectionId}
+    >
       <DndWatcherAndContainer
         isGroup={isGroup}
         sectionId={sectionId}
@@ -69,7 +77,8 @@ function DndWatcherAndContainerComponent({
 }: DndWatcherProps & { style: CSSProperties }) {
   const { isDraggingSelection } = useDndState(
     (state) => ({
-      isDraggingSelection: state.activeId !== null && state.draggingIds.includes(sectionId),
+      isDraggingSelection:
+        state.activeId !== null && state.draggingIds.includes(sectionId),
     }),
     _.isEqual,
   );
@@ -80,9 +89,12 @@ function DndWatcherAndContainerComponent({
     if (isTopLevel) {
       return trueDragListeners;
     }
-    const { onPointerDown, onMouseDown, onTouchStart, ...rest } = trueDragListeners;
+    const { onPointerDown, onMouseDown, onTouchStart, ...rest } =
+      trueDragListeners;
     const wrap =
-      <E extends React.SyntheticEvent<HTMLDivElement>>(handler: (event: E) => void) =>
+      <E extends React.SyntheticEvent<HTMLDivElement>>(
+        handler: (event: E) => void,
+      ) =>
       (event: E) => {
         event.stopPropagation();
         handler(event);
@@ -118,11 +130,17 @@ function DndWatcherAndContainerComponent({
   );
 }
 
-function maybeGetOpacityStyle(isDraggingSelection: boolean, isSorting: boolean): CSSProperties {
+function maybeGetOpacityStyle(
+  isDraggingSelection: boolean,
+  isSorting: boolean,
+): CSSProperties {
   if (isDraggingSelection) {
     return { opacity: isSorting ? 0.85 : 0.5 };
   }
   return {};
 }
 
-const DndWatcherAndContainer = React.memo(DndWatcherAndContainerComponent, _.isEqual);
+const DndWatcherAndContainer = React.memo(
+  DndWatcherAndContainerComponent,
+  _.isEqual,
+);

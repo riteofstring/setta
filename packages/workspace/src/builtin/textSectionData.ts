@@ -13,10 +13,8 @@ export const WORKSPACE_TEXT_SECTION_KIND = "setta.text";
 
 // The reference's `TextBlockFormatEnum`, in its declared order.
 export type WorkspaceTextSectionFormat = "plaintext" | "markdown";
-export const WORKSPACE_TEXT_SECTION_FORMATS: ReadonlyArray<WorkspaceTextSectionFormat> = [
-  "plaintext",
-  "markdown",
-];
+export const WORKSPACE_TEXT_SECTION_FORMATS: ReadonlyArray<WorkspaceTextSectionFormat> =
+  ["plaintext", "markdown"];
 
 // The reference's `TextBlockDisplayModeEnum`, in its declared order.
 export type WorkspaceTextSectionDisplayMode = "render" | "edit";
@@ -40,13 +38,9 @@ export type WorkspaceTextSectionData = {
   readOnly: boolean;
 };
 
-const WORKSPACE_TEXT_SECTION_FIELDS: ReadonlyArray<keyof WorkspaceTextSectionData> = [
-  "text",
-  "format",
-  "displayMode",
-  "fontSizePx",
-  "readOnly",
-];
+const WORKSPACE_TEXT_SECTION_FIELDS: ReadonlyArray<
+  keyof WorkspaceTextSectionData
+> = ["text", "format", "displayMode", "fontSizePx", "readOnly"];
 
 // The reference's text block opens empty and plain, at its 14 px base. Its generated default
 // display mode is Render, but `ensureTextBlockDisplayMode` overrides every creation request to
@@ -68,12 +62,23 @@ function getDataRecord(
   sectionId: string,
   data: WorkspaceSectionData | undefined,
 ): { [key: string]: WorkspaceSectionData } {
-  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
-    throw new Error(`Text section ${sectionId} is missing its text section data.`);
+  if (
+    data === null ||
+    data === undefined ||
+    typeof data !== "object" ||
+    Array.isArray(data)
+  ) {
+    throw new Error(
+      `Text section ${sectionId} is missing its text section data.`,
+    );
   }
   for (const key of Object.keys(data)) {
-    if (!(WORKSPACE_TEXT_SECTION_FIELDS as ReadonlyArray<string>).includes(key)) {
-      throw new Error(`Text section ${sectionId} carries the unknown field ${key}.`);
+    if (
+      !(WORKSPACE_TEXT_SECTION_FIELDS as ReadonlyArray<string>).includes(key)
+    ) {
+      throw new Error(
+        `Text section ${sectionId} carries the unknown field ${key}.`,
+      );
     }
   }
   return data;
@@ -86,7 +91,9 @@ function getString(
 ): string {
   const value = record[field];
   if (typeof value !== "string") {
-    throw new Error(`Text section ${sectionId} is missing its string ${field} field.`);
+    throw new Error(
+      `Text section ${sectionId} is missing its string ${field} field.`,
+    );
   }
   return value;
 }
@@ -98,12 +105,17 @@ function getBoolean(
 ): boolean {
   const value = record[field];
   if (typeof value !== "boolean") {
-    throw new Error(`Text section ${sectionId} is missing its boolean ${field} field.`);
+    throw new Error(
+      `Text section ${sectionId} is missing its boolean ${field} field.`,
+    );
   }
   return value;
 }
 
-function getFontSizePx(sectionId: string, record: { [key: string]: WorkspaceSectionData }): number {
+function getFontSizePx(
+  sectionId: string,
+  record: { [key: string]: WorkspaceSectionData },
+): number {
   const value = record["fontSizePx"];
   if (
     typeof value !== "number" ||

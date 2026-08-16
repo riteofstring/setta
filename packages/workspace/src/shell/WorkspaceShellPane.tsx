@@ -1,4 +1,9 @@
-import { useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import {
+  useRef,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
 import { RiExpandDiagonalLine } from "react-icons/ri";
 import { useWorkspaceFocusScope } from "../focus/workspaceFocusScopes";
 import {
@@ -24,8 +29,15 @@ type WorkspaceShellPaneProps = {
   shellWidth: number;
   instanceId: string;
   regionStyle: CSSProperties;
-  registerPanel: (pane: WorkspaceShellPane, element: HTMLDivElement | null) => void;
-  registerTab: (pane: WorkspaceShellPane, tabId: string, element: HTMLButtonElement | null) => void;
+  registerPanel: (
+    pane: WorkspaceShellPane,
+    element: HTMLDivElement | null,
+  ) => void;
+  registerTab: (
+    pane: WorkspaceShellPane,
+    tabId: string,
+    element: HTMLButtonElement | null,
+  ) => void;
   onActivateTab: (pane: WorkspaceShellPane, tabId: string) => void;
   onClosePane: (pane: WorkspaceShellPane) => void;
   onToggleFullWidth: (pane: WorkspaceShellPane) => void;
@@ -34,14 +46,24 @@ type WorkspaceShellPaneProps = {
     pane: WorkspaceShellPane,
     tabId: string,
   ) => void;
-  onResizeKeyDown: (event: KeyboardEvent<HTMLDivElement>, pane: WorkspaceShellPane) => void;
-  onResizePointerDown: (event: PointerEvent<HTMLDivElement>, pane: WorkspaceShellPane) => void;
+  onResizeKeyDown: (
+    event: KeyboardEvent<HTMLDivElement>,
+    pane: WorkspaceShellPane,
+  ) => void;
+  onResizePointerDown: (
+    event: PointerEvent<HTMLDivElement>,
+    pane: WorkspaceShellPane,
+  ) => void;
   onResizePointerMove: (event: PointerEvent<HTMLDivElement>) => void;
   onResizePointerUp: (event: PointerEvent<HTMLDivElement>) => void;
   onResizePointerCancel: (event: PointerEvent<HTMLDivElement>) => void;
 };
 
-function getTabDomId(instanceId: string, pane: WorkspaceShellPane, tabId: string): string {
+function getTabDomId(
+  instanceId: string,
+  pane: WorkspaceShellPane,
+  tabId: string,
+): string {
   return `${instanceId}-${pane}-tab-${tabId}`;
 }
 
@@ -59,11 +81,20 @@ function PaneRail({
   tabs,
 }: Pick<
   WorkspaceShellPaneProps,
-  "instanceId" | "onActivateTab" | "onTabKeyDown" | "pane" | "paneState" | "registerTab" | "tabs"
+  | "instanceId"
+  | "onActivateTab"
+  | "onTabKeyDown"
+  | "pane"
+  | "paneState"
+  | "registerTab"
+  | "tabs"
 >) {
   const panelId = getPanelDomId(instanceId, pane);
   return (
-    <div className="setta-workspace-shell-rail" data-workspace-shell-rail={pane}>
+    <div
+      className="setta-workspace-shell-rail"
+      data-workspace-shell-rail={pane}
+    >
       <div
         className="setta-workspace-shell-tablist"
         role="tablist"
@@ -125,7 +156,11 @@ function getPaneMeasurements(
   shellWidth: number,
 ) {
   if (shellWidth <= 0) {
-    return { fullWidth: false, maximumWidth: paneState.width, minimumWidth: paneState.width };
+    return {
+      fullWidth: false,
+      maximumWidth: paneState.width,
+      minimumWidth: paneState.width,
+    };
   }
   return {
     fullWidth: isWorkspaceShellPaneFullWidth(paneState.width, shellWidth),
@@ -135,7 +170,6 @@ function getPaneMeasurements(
 }
 
 /* The ARIA Window Splitter pattern makes its separator focusable and interactive by design. */
-/* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */
 function PaneSurfaceContent({
   fullWidth,
   maximumWidth,
@@ -168,7 +202,11 @@ function PaneSurfaceContent({
           title={fullWidth ? "Restore width" : "Full width"}
           type="button"
         >
-          <RiExpandDiagonalLine aria-hidden={true} focusable="false" size={13} />
+          <RiExpandDiagonalLine
+            aria-hidden={true}
+            focusable="false"
+            size={13}
+          />
         </button>
       ) : null}
       <div
@@ -180,7 +218,9 @@ function PaneSurfaceContent({
         role="tabpanel"
         tabIndex={-1}
       >
-        <h2 className="setta-workspace-shell-pane-title">{selectedTab.label}</h2>
+        <h2 className="setta-workspace-shell-pane-title">
+          {selectedTab.label}
+        </h2>
         <div className="setta-workspace-shell-pane-body">
           {selectedTab.renderContent({
             pane,
@@ -210,7 +250,6 @@ function PaneSurfaceContent({
     </>
   );
 }
-/* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */
 
 function PaneSurface(props: WorkspaceShellPaneProps) {
   const { pane, paneState, shellWidth, tabs } = props;
@@ -234,7 +273,11 @@ function PaneSurface(props: WorkspaceShellPaneProps) {
       inert={!paneState.visible}
       style={paneStyle}
     >
-      <PaneSurfaceContent {...measurements} props={props} selectedTab={selectedTab} />
+      <PaneSurfaceContent
+        {...measurements}
+        props={props}
+        selectedTab={selectedTab}
+      />
     </div>
   );
 }
@@ -243,7 +286,10 @@ function PaneSurface(props: WorkspaceShellPaneProps) {
 // focus to the tab that reopens it rather than to nothing.
 export function WorkspaceShellPane(props: WorkspaceShellPaneProps) {
   const regionRef = useRef<HTMLElement>(null);
-  useWorkspaceFocusScope(props.pane === "leading" ? "leading-pane" : "trailing-pane", regionRef);
+  useWorkspaceFocusScope(
+    props.pane === "leading" ? "leading-pane" : "trailing-pane",
+    regionRef,
+  );
   return (
     <aside
       aria-label={`${props.pane === "leading" ? "Leading" : "Trailing"} workspace pane`}

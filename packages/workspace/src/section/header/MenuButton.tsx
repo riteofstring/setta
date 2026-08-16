@@ -87,7 +87,11 @@ function ActionMenuButton({
   );
 }
 
-export function MenuButton({ sectionId, sectionKind, hasSectionStyleTheme }: MenuButtonProps) {
+export function MenuButton({
+  sectionId,
+  sectionKind,
+  hasSectionStyleTheme,
+}: MenuButtonProps) {
   const unClickableIconWrapperClassName = hasSectionStyleTheme
     ? "nodrag flex select-none items-center justify-center rounded-full p-0.5 me-1 aspect-square font-semibold leading-none text-[color:var(--setta-section-style-muted-text)] outline-none motion-safe:transition-colors motion-safe:duration-150"
     : "nodrag flex select-none items-center justify-center rounded-full p-0.5 me-1 aspect-square font-semibold leading-none text-setta-700 outline-none motion-safe:transition-colors motion-safe:duration-150 dark:text-setta-200";
@@ -98,7 +102,10 @@ export function MenuButton({ sectionId, sectionKind, hasSectionStyleTheme }: Men
   const hasActions = useWorkspaceDocument((state) => {
     const section = state.sections[sectionId];
     return section
-      ? hasApplicableWorkspaceCommands("header", createLiveSectionCommandContext(section))
+      ? hasApplicableWorkspaceCommands(
+          "header",
+          createLiveSectionCommandContext(section),
+        )
       : false;
   });
   if (hasActions) {

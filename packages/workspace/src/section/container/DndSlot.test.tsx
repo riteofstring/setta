@@ -4,11 +4,17 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BehaviorDropTypeEnum } from "../../dnd/dropTypes";
-import { DRAG_PREVIEW_Z_INDEX, DROP_FEEDBACK_Z_INDEX, DROP_TARGET_Z_INDEX } from "../../dnd/layers";
+import {
+  DRAG_PREVIEW_Z_INDEX,
+  DROP_FEEDBACK_Z_INDEX,
+  DROP_TARGET_Z_INDEX,
+} from "../../dnd/layers";
 import { useSectionRefs } from "../sectionRefs";
 import { DndSlot } from "./DndSlot";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("DndSlot", () => {
   let host: HTMLDivElement;
@@ -47,7 +53,9 @@ describe("DndSlot", () => {
       );
     });
 
-    const overlay = document.body.querySelector<HTMLElement>("[data-dnd-slot-overlay='true']");
+    const overlay = document.body.querySelector<HTMLElement>(
+      "[data-dnd-slot-overlay='true']",
+    );
     expect(overlay?.style.position).toBe("fixed");
     expect(overlay?.style.top).toBe("40px");
     expect(overlay?.style.left).toBe("60px");

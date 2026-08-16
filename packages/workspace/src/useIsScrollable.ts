@@ -13,8 +13,12 @@ export function useIsScrollable() {
 
     function checkScrollable() {
       if (elementRef.current) {
-        setIsScrollableVertical(elementRef.current.scrollHeight > elementRef.current.clientHeight);
-        setIsScrollableHorizontal(elementRef.current.scrollWidth > elementRef.current.clientWidth);
+        setIsScrollableVertical(
+          elementRef.current.scrollHeight > elementRef.current.clientHeight,
+        );
+        setIsScrollableHorizontal(
+          elementRef.current.scrollWidth > elementRef.current.clientWidth,
+        );
       }
     }
 

@@ -13,7 +13,11 @@ type UseDroppableArguments = Omit<
   collisionDetector?: CollisionDetector;
 };
 
-export function useDroppable({ data, collisionDetector, ...input }: UseDroppableArguments) {
+export function useDroppable({
+  data,
+  collisionDetector,
+  ...input
+}: UseDroppableArguments) {
   const wrappedData = useMemo<DndData | undefined>(() => {
     if (!data) {
       return undefined;

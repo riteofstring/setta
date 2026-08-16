@@ -9,12 +9,16 @@ import {
 const SYSTEM_DARK_MODE_QUERY = "(prefers-color-scheme: dark)";
 
 let systemColorSchemeQuery: MediaQueryList | null = null;
-let systemColorSchemeListener: ((event: MediaQueryListEvent) => void) | null = null;
+let systemColorSchemeListener: ((event: MediaQueryListEvent) => void) | null =
+  null;
 
 function reprojectWorkspaceNodes() {
   const documentState = useWorkspaceDocument.getState();
   const currentNodes = useNodeInternals.getState().x;
-  const nextNodes = reprojectNodeStylesForAppearance(documentState, currentNodes);
+  const nextNodes = reprojectNodeStylesForAppearance(
+    documentState,
+    currentNodes,
+  );
   if (nextNodes !== currentNodes) {
     useNodeInternals.setState({ x: nextNodes });
   }
@@ -30,14 +34,20 @@ function publishAppearance(colorMode: WorkspaceColorMode, darkMode: boolean) {
 
 function stopSystemColorSchemeSync() {
   if (systemColorSchemeQuery && systemColorSchemeListener) {
-    systemColorSchemeQuery.removeEventListener("change", systemColorSchemeListener);
+    systemColorSchemeQuery.removeEventListener(
+      "change",
+      systemColorSchemeListener,
+    );
   }
   systemColorSchemeQuery = null;
   systemColorSchemeListener = null;
 }
 
 function getSystemColorSchemeQuery(): MediaQueryList {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+  if (
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function"
+  ) {
     throw new Error(
       "System workspace color mode requires window.matchMedia; choose light or dark during server rendering.",
     );
@@ -47,7 +57,9 @@ function getSystemColorSchemeQuery(): MediaQueryList {
     typeof mediaQuery.addEventListener !== "function" ||
     typeof mediaQuery.removeEventListener !== "function"
   ) {
-    throw new Error("System workspace color mode requires MediaQueryList change-event support.");
+    throw new Error(
+      "System workspace color mode requires MediaQueryList change-event support.",
+    );
   }
   return mediaQuery;
 }

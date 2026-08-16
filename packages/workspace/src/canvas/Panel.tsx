@@ -8,7 +8,8 @@ type PanelProps = HTMLAttributes<HTMLDivElement> & {
   children: ReactNode;
 };
 
-const selector = (s: ReactFlowState) => (s.userSelectionActive ? "none" : "all");
+const selector = (s: ReactFlowState) =>
+  s.userSelectionActive ? "none" : "all";
 
 function Panel({ position, children, className, style, ...rest }: PanelProps) {
   const pointerEvents = useReactFlow(selector);

@@ -8,12 +8,18 @@ import { useDndState } from "../dnd/dndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { WorkspaceSection } from "../document/types";
 import { NodesSelectionWrapper } from "./NodesSelection";
 import { initialCanvasState, useReactFlow } from "./store";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function createSection(id: string): WorkspaceSection {
   return {
@@ -49,7 +55,10 @@ describe("NodesSelection context menu", () => {
     resetState();
     registerSectionKinds({ leaf: { renderContent: () => null } });
     loadWorkspaceDocument({
-      sections: { alpha: createSection("alpha"), bravo: createSection("bravo") },
+      sections: {
+        alpha: createSection("alpha"),
+        bravo: createSection("bravo"),
+      },
       topLevelSections: {
         alpha: { x: 0, y: 0, w: 100, h: 50, zIndex: 0 },
         bravo: { x: 150, y: 0, w: 100, h: 50, zIndex: 1 },
@@ -57,7 +66,9 @@ describe("NodesSelection context menu", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["alpha", "bravo"],
     });
-    useReactFlow.setState({ nodesSelectionDims: { x: 0, y: 0, width: 250, height: 50 } });
+    useReactFlow.setState({
+      nodesSelectionDims: { x: 0, y: 0, width: 250, height: 50 },
+    });
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -74,7 +85,9 @@ describe("NodesSelection context menu", () => {
   });
 
   function getSelection(): HTMLDivElement {
-    const selection = host.querySelector<HTMLDivElement>(".react-flow__nodesselection-rect");
+    const selection = host.querySelector<HTMLDivElement>(
+      ".react-flow__nodesselection-rect",
+    );
     if (!selection) {
       throw new Error("Missing selection rectangle.");
     }
@@ -95,7 +108,10 @@ describe("NodesSelection context menu", () => {
     expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
       kind: "section",
       surface: "context-menu",
-      context: { scope: "section", selectedSections: [{ id: "alpha" }, { id: "bravo" }] },
+      context: {
+        scope: "section",
+        selectedSections: [{ id: "alpha" }, { id: "bravo" }],
+      },
     });
 
     useWorkspaceMenuState.getState().reset();

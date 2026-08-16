@@ -15,7 +15,8 @@ function clamp(value: number, minimum: number, maximum: number): number {
 
 export function getItemColumnMargin(maxNestedDepth: number): number {
   return (
-    BASE_ITEM_COLUMN_MARGIN_PX + Math.max(0, NESTED_ITEM_COLUMN_MARGIN_PX * (maxNestedDepth - 1))
+    BASE_ITEM_COLUMN_MARGIN_PX +
+    Math.max(0, NESTED_ITEM_COLUMN_MARGIN_PX * (maxNestedDepth - 1))
   );
 }
 
@@ -25,7 +26,10 @@ export function calculateBoundedItemColumnWidth(
   maxNestedDepth: number,
 ): number {
   const margin = getItemColumnMargin(maxNestedDepth);
-  const maximum = Math.max(margin, containerWidth - MIN_ITEM_VALUE_COLUMN_WIDTH_PX);
+  const maximum = Math.max(
+    margin,
+    containerWidth - MIN_ITEM_VALUE_COLUMN_WIDTH_PX,
+  );
   return clamp(rawWidth, margin, maximum);
 }
 
@@ -37,7 +41,9 @@ export function getItemColumnCssWidth(rawWidth: number): number {
   return rawWidth - ITEM_COLUMN_CENTER_OFFSET_PX;
 }
 
-export function getDeepestItemDepth(itemTree: WorkspaceSectionItemTree): number {
+export function getDeepestItemDepth(
+  itemTree: WorkspaceSectionItemTree,
+): number {
   let maximumDepth = 1;
   const root = itemTree.items[itemTree.rootId];
   if (!root) {

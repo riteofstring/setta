@@ -22,7 +22,9 @@ describe("calendarGrid", () => {
       year: 2027,
       monthIndex: 10,
     });
-    expect(resolveCalendarAnchorDate("", new Date("2026-05-18T12:00:00Z"))).toEqual({
+    expect(
+      resolveCalendarAnchorDate("", new Date("2026-05-18T12:00:00Z")),
+    ).toEqual({
       year: 2026,
       monthIndex: 4,
     });

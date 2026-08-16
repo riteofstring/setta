@@ -13,7 +13,9 @@ describe("zoom adapter utilities", () => {
     // Validates drag translation stays in flow-space regardless of viewport zoom.
     useReactFlow.setState({ transform: [0, 0, 2] });
 
-    expect(applyZoomToTransform({ x: 20, y: 10, scaleX: 1, scaleY: 1 })).toEqual({
+    expect(
+      applyZoomToTransform({ x: 20, y: 10, scaleX: 1, scaleY: 1 }),
+    ).toEqual({
       x: 10,
       y: 5,
       scaleX: 1,

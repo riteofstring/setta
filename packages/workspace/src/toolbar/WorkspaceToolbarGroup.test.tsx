@@ -15,12 +15,18 @@ import { getActiveSectionIds } from "../document/activeSections";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { WorkspaceSectionInput } from "../document/types";
 import { WorkspaceToolbarGroup } from "./WorkspaceToolbarGroup";
 import { registerWorkspaceToolbarContributions } from "./workspaceToolbarRegistry";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function Icon() {
   return createElement("svg");
@@ -86,14 +92,18 @@ describe("WorkspaceToolbarGroup", () => {
   let host: HTMLDivElement;
   let root: Root;
 
-  async function render(placement: "before-viewport" | "before-minimap"): Promise<void> {
+  async function render(
+    placement: "before-viewport" | "before-minimap",
+  ): Promise<void> {
     await act(async () => {
       root.render(createElement(WorkspaceToolbarGroup, { placement }));
     });
   }
 
   function getButton(label: string): HTMLButtonElement {
-    const button = host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+    const button = host.querySelector<HTMLButtonElement>(
+      `button[aria-label="${label}"]`,
+    );
     if (!button) {
       throw new Error(`Missing contributed control: ${label}`);
     }
@@ -104,7 +114,10 @@ describe("WorkspaceToolbarGroup", () => {
     runs.length = 0;
     toggled = false;
     registerSectionKinds({
-      sized: { renderContent: () => null, defaultSize: { width: 240, height: 120 } },
+      sized: {
+        renderContent: () => null,
+        defaultSize: { width: 240, height: 120 },
+      },
     });
     registerWorkspaceCommands([reportCommand, toggleCommand, lockedCommand]);
     registerWorkspaceCreationCommands([creationCommand]);
@@ -138,7 +151,12 @@ describe("WorkspaceToolbarGroup", () => {
 
   it("renders nothing, including a divider, when the host contributes nothing here", async () => {
     registerWorkspaceToolbarContributions([
-      { kind: "command", commandId: reportCommand.id, icon: Icon, placement: "before-viewport" },
+      {
+        kind: "command",
+        commandId: reportCommand.id,
+        icon: Icon,
+        placement: "before-viewport",
+      },
     ]);
 
     await render("before-minimap");
@@ -148,17 +166,33 @@ describe("WorkspaceToolbarGroup", () => {
 
   it("paints contributed controls in registration order and closes the group with one divider", async () => {
     registerWorkspaceToolbarContributions([
-      { kind: "creation", commandId: creationCommand.id, icon: Icon, placement: "before-viewport" },
-      { kind: "command", commandId: reportCommand.id, icon: Icon, placement: "before-viewport" },
-      { kind: "command", commandId: toggleCommand.id, icon: Icon, placement: "before-minimap" },
+      {
+        kind: "creation",
+        commandId: creationCommand.id,
+        icon: Icon,
+        placement: "before-viewport",
+      },
+      {
+        kind: "command",
+        commandId: reportCommand.id,
+        icon: Icon,
+        placement: "before-viewport",
+      },
+      {
+        kind: "command",
+        commandId: toggleCommand.id,
+        icon: Icon,
+        placement: "before-minimap",
+      },
     ]);
 
     await render("before-viewport");
 
-    expect(Array.from(host.querySelectorAll("button")).map((button) => button.ariaLabel)).toEqual([
-      "Host note",
-      "Report the workspace",
-    ]);
+    expect(
+      Array.from(host.querySelectorAll("button")).map(
+        (button) => button.ariaLabel,
+      ),
+    ).toEqual(["Host note", "Report the workspace"]);
     expect(host.querySelectorAll("div")).toHaveLength(1);
     expect(host.querySelector("div")?.className).toContain("h-px");
     expect(
@@ -166,24 +200,40 @@ describe("WorkspaceToolbarGroup", () => {
         (button) => button.dataset.settaWorkspaceTouchTarget === "compact",
       ),
     ).toBe(true);
-    expect(host.querySelector("button span")?.getAttribute("aria-hidden")).toBe("true");
+    expect(host.querySelector("button span")?.getAttribute("aria-hidden")).toBe(
+      "true",
+    );
   });
 
   it("runs a pane command with no position and presses a toggle from its checked state", async () => {
     registerWorkspaceToolbarContributions([
-      { kind: "command", commandId: reportCommand.id, icon: Icon, placement: "before-minimap" },
-      { kind: "command", commandId: toggleCommand.id, icon: Icon, placement: "before-minimap" },
+      {
+        kind: "command",
+        commandId: reportCommand.id,
+        icon: Icon,
+        placement: "before-minimap",
+      },
+      {
+        kind: "command",
+        commandId: toggleCommand.id,
+        icon: Icon,
+        placement: "before-minimap",
+      },
     ]);
 
     await render("before-minimap");
 
-    expect(getButton("Report the workspace").getAttribute("aria-pressed")).toBe(null);
+    expect(getButton("Report the workspace").getAttribute("aria-pressed")).toBe(
+      null,
+    );
     const toggle = getButton("Highlight the workspace");
     expect(toggle.getAttribute("aria-pressed")).toBe("false");
     expect(toggle.className).not.toContain("bg-blue-500");
 
     await act(async () => {
-      getButton("Report the workspace").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton("Report the workspace").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
       toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
@@ -194,13 +244,22 @@ describe("WorkspaceToolbarGroup", () => {
     // it — the same contract the panes, the Outline, and the Inspector already follow.
     await render("before-minimap");
 
-    expect(getButton("Highlight the workspace").getAttribute("aria-pressed")).toBe("true");
-    expect(getButton("Highlight the workspace").className).toContain("bg-blue-500");
+    expect(
+      getButton("Highlight the workspace").getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(getButton("Highlight the workspace").className).toContain(
+      "bg-blue-500",
+    );
   });
 
   it("explains a refusing command in place and never runs it", async () => {
     registerWorkspaceToolbarContributions([
-      { kind: "command", commandId: lockedCommand.id, icon: Icon, placement: "before-minimap" },
+      {
+        kind: "command",
+        commandId: lockedCommand.id,
+        icon: Icon,
+        placement: "before-minimap",
+      },
     ]);
 
     await render("before-minimap");
@@ -208,8 +267,12 @@ describe("WorkspaceToolbarGroup", () => {
     const button = getButton("Publish the workspace");
     expect(button.getAttribute("aria-disabled")).toBe("true");
     expect(button.disabled).toBe(false);
-    const reason = host.querySelector(`#${button.getAttribute("aria-describedby")}`);
-    expect(reason?.textContent).toBe("Connect a project to publish this workspace.");
+    const reason = host.querySelector(
+      `#${button.getAttribute("aria-describedby")}`,
+    );
+    expect(reason?.textContent).toBe(
+      "Connect a project to publish this workspace.",
+    );
 
     await act(async () => {
       button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -218,16 +281,25 @@ describe("WorkspaceToolbarGroup", () => {
 
   it("creates a section in empty space, and refuses when structural editing is off", async () => {
     registerWorkspaceToolbarContributions([
-      { kind: "creation", commandId: creationCommand.id, icon: Icon, placement: "before-viewport" },
+      {
+        kind: "creation",
+        commandId: creationCommand.id,
+        icon: Icon,
+        placement: "before-viewport",
+      },
     ]);
 
     await render("before-viewport");
     await act(async () => {
-      getButton("Host note").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton("Host note").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
 
     expect(runs).toEqual([{ scope: "pane", workspacePosition: null }]);
-    expect(useWorkspaceDocument.getState().topLevelSections.created).toMatchObject({
+    expect(
+      useWorkspaceDocument.getState().topLevelSections.created,
+    ).toMatchObject({
       x: 24,
       y: 24,
     });
@@ -250,15 +322,24 @@ describe("WorkspaceToolbarGroup", () => {
 
   it("repaints a contributed control when the workspace state behind it changes", async () => {
     const getDisabledReason = vi.fn(() =>
-      useWorkspaceDocument.getState().topLevelSections.created ? "Already reported." : null,
+      useWorkspaceDocument.getState().topLevelSections.created
+        ? "Already reported."
+        : null,
     );
     registerWorkspaceCommands([{ ...reportCommand, getDisabledReason }]);
     registerWorkspaceToolbarContributions([
-      { kind: "command", commandId: reportCommand.id, icon: Icon, placement: "before-minimap" },
+      {
+        kind: "command",
+        commandId: reportCommand.id,
+        icon: Icon,
+        placement: "before-minimap",
+      },
     ]);
 
     await render("before-minimap");
-    expect(getButton("Report the workspace").getAttribute("aria-disabled")).toBe(null);
+    expect(
+      getButton("Report the workspace").getAttribute("aria-disabled"),
+    ).toBe(null);
 
     await act(async () => {
       loadWorkspaceDocument({
@@ -276,12 +357,16 @@ describe("WorkspaceToolbarGroup", () => {
             children: [],
           },
         },
-        topLevelSections: { created: { x: 0, y: 0, w: null, h: null, zIndex: 0 } },
+        topLevelSections: {
+          created: { x: 0, y: 0, w: null, h: null, zIndex: 0 },
+        },
         viewport: { x: 0, y: 0, zoom: 1 },
         activeIds: [],
       });
     });
 
-    expect(getButton("Report the workspace").getAttribute("aria-disabled")).toBe("true");
+    expect(
+      getButton("Report the workspace").getAttribute("aria-disabled"),
+    ).toBe("true");
   });
 });

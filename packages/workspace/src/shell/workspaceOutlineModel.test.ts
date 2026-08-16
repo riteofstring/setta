@@ -80,7 +80,9 @@ describe("workspace Outline model", () => {
     const tree = createWorkspaceOutlineTree(createDocument());
 
     expect(
-      getWorkspaceOutlineVisibleEntries(tree, ["group-charlie"]).map((entry) => entry.section.id),
+      getWorkspaceOutlineVisibleEntries(tree, ["group-charlie"]).map(
+        (entry) => entry.section.id,
+      ),
     ).toEqual(["alpha", "bravo", "group-charlie", "echo"]);
     expect(tree[0]?.children[1]?.children[0]?.section.id).toBe("delta");
   });
@@ -90,15 +92,15 @@ describe("workspace Outline model", () => {
     const filtered = filterWorkspaceOutlineTree(tree, "dlt");
 
     expect(
-      getWorkspaceOutlineVisibleEntries(filtered, []).map((entry) => entry.section.id),
+      getWorkspaceOutlineVisibleEntries(filtered, []).map(
+        (entry) => entry.section.id,
+      ),
     ).toEqual(["alpha", "group-charlie", "delta"]);
-    expect(getWorkspaceOutlineVisibleEntries(tree, []).map((entry) => entry.section.id)).toEqual([
-      "alpha",
-      "bravo",
-      "group-charlie",
-      "delta",
-      "echo",
-    ]);
+    expect(
+      getWorkspaceOutlineVisibleEntries(tree, []).map(
+        (entry) => entry.section.id,
+      ),
+    ).toEqual(["alpha", "bravo", "group-charlie", "delta", "echo"]);
     expect(filterWorkspaceOutlineTree(tree, "missing")).toEqual([]);
   });
 
@@ -106,9 +108,13 @@ describe("workspace Outline model", () => {
     const state = createDocument();
     const tree = createWorkspaceOutlineTree(state);
     const previous = getWorkspaceOutlineVisibleEntries(tree, []);
-    const collapsed = getWorkspaceOutlineVisibleEntries(tree, ["group-charlie"]);
+    const collapsed = getWorkspaceOutlineVisibleEntries(tree, [
+      "group-charlie",
+    ]);
 
-    expect(resolveWorkspaceOutlineFocus(state, previous, collapsed, "delta")).toBe("group-charlie");
+    expect(
+      resolveWorkspaceOutlineFocus(state, previous, collapsed, "delta"),
+    ).toBe("group-charlie");
 
     const deletedState = createDocument();
     delete deletedState.sections.bravo;
@@ -125,9 +131,14 @@ describe("workspace Outline model", () => {
       createWorkspaceOutlineTree(deletedState),
       [],
     );
-    expect(resolveWorkspaceOutlineFocus(deletedState, previous, afterDelete, "bravo")).toBe(
-      "group-charlie",
-    );
+    expect(
+      resolveWorkspaceOutlineFocus(
+        deletedState,
+        previous,
+        afterDelete,
+        "bravo",
+      ),
+    ).toBe("group-charlie");
   });
 
   it("prunes collapsed ids that no longer name groups", () => {
@@ -147,8 +158,14 @@ describe("workspace Outline model", () => {
       [],
     );
 
-    expect(findWorkspaceOutlineTypeaheadMatch(entries, "echo", "br")).toBe("bravo");
-    expect(findWorkspaceOutlineTypeaheadMatch(entries, "bravo", "d")).toBe("delta");
-    expect(findWorkspaceOutlineTypeaheadMatch(entries, "alpha", "z")).toBeNull();
+    expect(findWorkspaceOutlineTypeaheadMatch(entries, "echo", "br")).toBe(
+      "bravo",
+    );
+    expect(findWorkspaceOutlineTypeaheadMatch(entries, "bravo", "d")).toBe(
+      "delta",
+    );
+    expect(
+      findWorkspaceOutlineTypeaheadMatch(entries, "alpha", "z"),
+    ).toBeNull();
   });
 });

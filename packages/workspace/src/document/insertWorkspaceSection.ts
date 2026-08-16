@@ -25,10 +25,14 @@ export function insertWorkspaceSection(
   }
   const sectionId = sectionInput.id.trim();
   if (sectionId !== sectionInput.id) {
-    throw new Error("A created workspace section id cannot have leading or trailing whitespace.");
+    throw new Error(
+      "A created workspace section id cannot have leading or trailing whitespace.",
+    );
   }
   if (sectionInput.children.length !== 0) {
-    throw new Error("A creation command must return one section without existing child claims.");
+    throw new Error(
+      "A creation command must return one section without existing child claims.",
+    );
   }
 
   const current = useWorkspaceDocument.getState();
@@ -62,7 +66,10 @@ export function insertWorkspaceSection(
     },
     parentSectionMap: validated.parentSectionMap,
   };
-  const nextNodes = createNodesMapFromDocumentChildren(nextDocument, useNodeInternals.getState().x);
+  const nextNodes = createNodesMapFromDocumentChildren(
+    nextDocument,
+    useNodeInternals.getState().x,
+  );
   const nextActiveSections = { activeIds: [sectionId] };
   runWithAtomicallyPublishedWorkspaceStores(
     {

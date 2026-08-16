@@ -1,6 +1,9 @@
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
-import { getSectionOrThrow, isGroupSection } from "../document/documentSelectors";
+import {
+  getSectionOrThrow,
+  isGroupSection,
+} from "../document/documentSelectors";
 import { assertValidSectionOverflowMode } from "../document/groupOverflow";
 import { useWorkspaceDocument } from "../document/stores";
 import type { SectionSize } from "../document/types";
@@ -18,7 +21,9 @@ function resolveBoundedDimension(
   }
   const rounded = Math.round(measured);
   if (!Number.isFinite(rounded) || rounded <= 0) {
-    throw new Error(`Cannot enable bounded overflow for unmeasured group ${sectionId}.`);
+    throw new Error(
+      `Cannot enable bounded overflow for unmeasured group ${sectionId}.`,
+    );
   }
   return rounded;
 }
@@ -50,18 +55,28 @@ function assertGroupCanChangeOverflow(
   section: ReturnType<typeof getSectionOrThrow>,
 ): void {
   if (!isGroupSection(section)) {
-    throw new Error(`Section ${sectionId} is not a group and has no overflow mode.`);
+    throw new Error(
+      `Section ${sectionId} is not a group and has no overflow mode.`,
+    );
   }
   if (section.positionAndSizeLocked) {
-    throw new Error(`Group ${sectionId} is locked and cannot change overflow mode.`);
+    throw new Error(
+      `Group ${sectionId} is locked and cannot change overflow mode.`,
+    );
   }
 }
 
-function measureAutoGroupSize(sectionId: string, size: SectionSize): MeasuredGroupSize | null {
+function measureAutoGroupSize(
+  sectionId: string,
+  size: SectionSize,
+): MeasuredGroupSize | null {
   if (size.width !== "auto" && size.height !== "auto") {
     return null;
   }
-  return useSectionRefs.getState().withNested[sectionId]?.getBoundingClientRect() ?? null;
+  return (
+    useSectionRefs.getState().withNested[sectionId]?.getBoundingClientRect() ??
+    null
+  );
 }
 
 function getNextGroupSize(
@@ -72,18 +87,29 @@ function getNextGroupSize(
   if (!overflowMode) {
     return size;
   }
-  return getBoundedGroupSize(sectionId, size, measureAutoGroupSize(sectionId, size)) ?? size;
+  return (
+    getBoundedGroupSize(
+      sectionId,
+      size,
+      measureAutoGroupSize(sectionId, size),
+    ) ?? size
+  );
 }
 
 // One public action owns capability/section validation, measured auto-size promotion, the atomic
 // mode-and-size write, and the single host notification. A3 routes the package action surfaces
 // through this same operation.
-export function setGroupOverflowMode(sectionId: string, overflowMode: boolean): void {
+export function setGroupOverflowMode(
+  sectionId: string,
+  overflowMode: boolean,
+): void {
   if (typeof overflowMode !== "boolean") {
     throw new Error("Group overflow mode must be a boolean.");
   }
   if (!useWorkspaceCapabilities.getState().canEditLayout) {
-    throw new Error("Changing group overflow requires permission to edit workspace layout.");
+    throw new Error(
+      "Changing group overflow requires permission to edit workspace layout.",
+    );
   }
   const documentState = useWorkspaceDocument.getState();
   const section = getSectionOrThrow(documentState, sectionId);

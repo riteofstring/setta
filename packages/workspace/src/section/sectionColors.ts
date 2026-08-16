@@ -4,7 +4,11 @@
 // slice sections use the default bg and the active/inactive outline pair.
 export const DEFAULT_SECTION_BG_COLOR = "bg-setta-50 dark:bg-setta-860";
 
-export function getOutlineColor({ isActiveSection }: { isActiveSection: boolean }) {
+export function getOutlineColor({
+  isActiveSection,
+}: {
+  isActiveSection: boolean;
+}) {
   if (isActiveSection) {
     return "outline-blue-600 dark:outline-blue-700";
   }

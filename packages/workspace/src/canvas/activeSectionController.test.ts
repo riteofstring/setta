@@ -1,12 +1,19 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { getActiveSectionIds } from "../document/activeSections";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { Node, WorkspaceSection } from "../document/types";
 import { applyActiveSectionChange } from "./activeSectionController";
 import { initialCanvasState, useReactFlow } from "./store";
 
-function makeSection(id: string, children: Array<string> = []): WorkspaceSection {
+function makeSection(
+  id: string,
+  children: Array<string> = [],
+): WorkspaceSection {
   return {
     id,
     kind: "leaf",
@@ -68,7 +75,9 @@ describe("applyActiveSectionChange", () => {
     expect(result.activeIdsChanged).toBe(true);
     expect(getActiveSectionIds()).toEqual(["child-a"]);
     const nodes = useNodeInternals.getState().x;
-    expect(nodes.get("group-a")?.zIndex).toBeGreaterThan(nodes.get("leaf-b")?.zIndex ?? 0);
+    expect(nodes.get("group-a")?.zIndex).toBeGreaterThan(
+      nodes.get("leaf-b")?.zIndex ?? 0,
+    );
   });
 
   it("activates and raises the section when an editing control takes input focus", () => {
@@ -82,17 +91,25 @@ describe("applyActiveSectionChange", () => {
     expect(result.activeIdsChanged).toBe(true);
     expect(getActiveSectionIds()).toEqual(["child-a"]);
     const nodes = useNodeInternals.getState().x;
-    expect(nodes.get("group-a")?.zIndex).toBeGreaterThan(nodes.get("leaf-b")?.zIndex ?? 0);
+    expect(nodes.get("group-a")?.zIndex).toBeGreaterThan(
+      nodes.get("leaf-b")?.zIndex ?? 0,
+    );
   });
 
   it("toggles membership while the multi-selection key is held", () => {
     useReactFlow.setState({ multiSelectionActive: true });
     useActiveSections.setState({ activeIds: ["leaf-b"] });
 
-    applyActiveSectionChange({ interaction: "section-click", sectionId: "group-a" });
+    applyActiveSectionChange({
+      interaction: "section-click",
+      sectionId: "group-a",
+    });
     expect(getActiveSectionIds()).toEqual(["leaf-b", "group-a"]);
 
-    applyActiveSectionChange({ interaction: "section-click", sectionId: "leaf-b" });
+    applyActiveSectionChange({
+      interaction: "section-click",
+      sectionId: "leaf-b",
+    });
     expect(getActiveSectionIds()).toEqual(["group-a"]);
   });
 
@@ -157,11 +174,17 @@ describe("applyActiveSectionChange", () => {
     }));
 
     // Clicking a section without selected items keeps the current active ids.
-    applyActiveSectionChange({ interaction: "section-click", sectionId: "child-a" });
+    applyActiveSectionChange({
+      interaction: "section-click",
+      sectionId: "child-a",
+    });
     expect(getActiveSectionIds()).toEqual(["group-a"]);
 
     // Clicking a section whose items are selected activates it.
-    const result = applyActiveSectionChange({ interaction: "section-click", sectionId: "leaf-b" });
+    const result = applyActiveSectionChange({
+      interaction: "section-click",
+      sectionId: "leaf-b",
+    });
     expect(result.reason).toBe("section-click:item-select-set");
     expect(getActiveSectionIds()).toEqual(["leaf-b"]);
   });

@@ -9,7 +9,9 @@ import { useWorkspacePointerLocation } from "./pointerLocation";
 import { initialCanvasState, useReactFlow } from "./store";
 import { zoomToPointerLocation } from "./viewportHelpers";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function PointerLocationHost() {
   useWorkspacePointerLocation();
@@ -28,7 +30,9 @@ function setupZoomRuntime() {
       },
     }),
   } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
-  const d3Zoom = { transform } as unknown as NonNullable<typeof initialCanvasState.d3Zoom>;
+  const d3Zoom = { transform } as unknown as NonNullable<
+    typeof initialCanvasState.d3Zoom
+  >;
 
   useReactFlow.setState({
     ...initialCanvasState,
@@ -44,7 +48,9 @@ function setupZoomRuntime() {
   return { durations, transform, transitionObject };
 }
 
-function getAppliedTransform(transform: ReturnType<typeof vi.fn>): ZoomTransform {
+function getAppliedTransform(
+  transform: ReturnType<typeof vi.fn>,
+): ZoomTransform {
   const call = transform.mock.calls[0];
   if (!call) {
     throw new Error("d3Zoom.transform was not called.");

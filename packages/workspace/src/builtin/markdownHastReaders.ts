@@ -10,13 +10,17 @@ type MarkdownHastNode = {
   children?: unknown;
 };
 
-export type MarkdownFencedCode = {
+type MarkdownFencedCode = {
   code: string;
   className: string | undefined;
 };
 
 function asNode(candidate: unknown): MarkdownHastNode | null {
-  if (candidate === null || typeof candidate !== "object" || Array.isArray(candidate)) {
+  if (
+    candidate === null ||
+    typeof candidate !== "object" ||
+    Array.isArray(candidate)
+  ) {
     return null;
   }
   return candidate as MarkdownHastNode;
@@ -60,7 +64,9 @@ export function readFencedCode(node: unknown): MarkdownFencedCode {
   const children = Array.isArray(preNode?.children) ? preNode.children : [];
   const codeNode = children.length === 1 ? asNode(children[0]) : null;
   if (!codeNode || codeNode.tagName !== "code") {
-    throw new Error("A Markdown code block did not carry the expected single code element.");
+    throw new Error(
+      "A Markdown code block did not carry the expected single code element.",
+    );
   }
   return {
     // Markdown always terminates a fenced block with a newline; the editor surface renders the

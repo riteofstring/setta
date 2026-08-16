@@ -19,11 +19,17 @@ export function getLocalTodayIsoDate(now: Date = new Date()): string {
 function isValidDateParts(year: number, month: number, day: number): boolean {
   const date = new Date(Date.UTC(year, month - 1, day));
   return (
-    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
   );
 }
 
-function normalizeDateParts(year: number, month: number, day: number): string | null {
+function normalizeDateParts(
+  year: number,
+  month: number,
+  day: number,
+): string | null {
   if (!isValidDateParts(year, month, day)) {
     return null;
   }
@@ -47,7 +53,9 @@ export function normalizeTimeTo24Hour(raw: string): string {
   }
   const meridiem = match12[3];
   if (!meridiem) {
-    throw new Error("The 12-hour time parser matched without a meridiem capture.");
+    throw new Error(
+      "The 12-hour time parser matched without a meridiem capture.",
+    );
   }
   const isPm = meridiem.toLowerCase() === "pm";
   const hour = (hourRaw % 12) + (isPm ? 12 : 0);
@@ -112,7 +120,10 @@ export function splitIsoDateAndTimeParts(raw: string): {
   return dateIso && time24 ? { dateIso, time24 } : null;
 }
 
-export function combineIsoDateAndTimeParts(dateIso: string, timeRaw: string): string {
+export function combineIsoDateAndTimeParts(
+  dateIso: string,
+  timeRaw: string,
+): string {
   const normalizedDate = normalizeDateToIso(dateIso, "iso");
   if (normalizedDate === "") {
     return "";
@@ -121,7 +132,10 @@ export function combineIsoDateAndTimeParts(dateIso: string, timeRaw: string): st
   return normalizedTime === "" ? "" : `${normalizedDate}T${normalizedTime}`;
 }
 
-export function formatTimeForDisplay(raw: string, displayFormat: TimeDisplayFormat): string {
+export function formatTimeForDisplay(
+  raw: string,
+  displayFormat: TimeDisplayFormat,
+): string {
   const normalized = normalizeTimeTo24Hour(raw);
   if (normalized === "") {
     return raw.trim();
@@ -141,7 +155,10 @@ function normalizeUsDate(raw: string): string {
   if (!match) {
     return "";
   }
-  return normalizeDateParts(Number(match[3]), Number(match[1]), Number(match[2])) ?? "";
+  return (
+    normalizeDateParts(Number(match[3]), Number(match[1]), Number(match[2])) ??
+    ""
+  );
 }
 
 function normalizeEuDate(raw: string): string {
@@ -149,10 +166,16 @@ function normalizeEuDate(raw: string): string {
   if (!match) {
     return "";
   }
-  return normalizeDateParts(Number(match[3]), Number(match[2]), Number(match[1])) ?? "";
+  return (
+    normalizeDateParts(Number(match[3]), Number(match[2]), Number(match[1])) ??
+    ""
+  );
 }
 
-function normalizeDateUsingDisplayHint(value: string, displayFormat: DateDisplayFormat): string {
+function normalizeDateUsingDisplayHint(
+  value: string,
+  displayFormat: DateDisplayFormat,
+): string {
   if (displayFormat === "us") {
     return normalizeUsDate(value);
   }
@@ -162,7 +185,10 @@ function normalizeDateUsingDisplayHint(value: string, displayFormat: DateDisplay
   return "";
 }
 
-function normalizeNonIsoDate(value: string, displayFormat: DateDisplayFormat): string {
+function normalizeNonIsoDate(
+  value: string,
+  displayFormat: DateDisplayFormat,
+): string {
   const hinted = normalizeDateUsingDisplayHint(value, displayFormat);
   if (hinted !== "") {
     return hinted;
@@ -182,25 +208,44 @@ function normalizeNonIsoDate(value: string, displayFormat: DateDisplayFormat): s
   if (Number.isNaN(parsed.getTime())) {
     return "";
   }
-  return normalizeDateParts(parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate()) ?? "";
+  return (
+    normalizeDateParts(
+      parsed.getFullYear(),
+      parsed.getMonth() + 1,
+      parsed.getDate(),
+    ) ?? ""
+  );
 }
 
-export function normalizeDateToIso(raw: string, displayFormat: DateDisplayFormat): string {
+export function normalizeDateToIso(
+  raw: string,
+  displayFormat: DateDisplayFormat,
+): string {
   const value = raw.trim();
   const isoMatch = ISO_DATE_REGEX.exec(value);
   if (isoMatch) {
-    return normalizeDateParts(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3])) ?? "";
+    return (
+      normalizeDateParts(
+        Number(isoMatch[1]),
+        Number(isoMatch[2]),
+        Number(isoMatch[3]),
+      ) ?? ""
+    );
   }
 
   return normalizeNonIsoDate(value, displayFormat);
 }
 
-export function formatDateForDisplay(raw: string, displayFormat: DateDisplayFormat): string {
+export function formatDateForDisplay(
+  raw: string,
+  displayFormat: DateDisplayFormat,
+): string {
   const normalized = normalizeDateToIso(raw, displayFormat);
   if (normalized === "") {
     return raw.trim();
   }
-  const [, yearText, monthText, dayText] = normalized.match(ISO_DATE_REGEX) ?? [];
+  const [, yearText, monthText, dayText] =
+    normalized.match(ISO_DATE_REGEX) ?? [];
   if (!yearText || !monthText || !dayText) {
     return raw.trim();
   }

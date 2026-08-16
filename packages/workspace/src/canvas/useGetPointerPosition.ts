@@ -6,8 +6,12 @@ function useGetPointerPosition() {
   // returns the pointer position projected to the canvas coordinate system
   const getPointerPosition = useCallback(({ sourceEvent }: UseDragEvent) => {
     const { transform } = useReactFlow.getState();
-    const x = sourceEvent.touches ? sourceEvent.touches[0].clientX : sourceEvent.clientX;
-    const y = sourceEvent.touches ? sourceEvent.touches[0].clientY : sourceEvent.clientY;
+    const x = sourceEvent.touches
+      ? sourceEvent.touches[0].clientX
+      : sourceEvent.clientX;
+    const y = sourceEvent.touches
+      ? sourceEvent.touches[0].clientY
+      : sourceEvent.clientY;
 
     const pointerPos = {
       x: (x - transform[0]) / transform[2],

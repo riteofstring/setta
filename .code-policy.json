@@ -1,25 +1,38 @@
 {
-  "$schema": ".code-policy/schema/code-policy.schema.json",
-  "version": 2,
+  "version": 3,
   "project": {
     "kind": "library",
     "capabilities": ["frontend", "ui"]
   },
   "scope": {
-    "generated": ["docs/evidence/**/*.json", "docs/evidence/**/*.json.gz"]
+    "generated": ["docs/evidence/**/*.json", "docs/evidence/**/*.json.gz"],
+    "entryPoints": [
+      "apps/playground/vitest.setup.ts",
+      "packages/workspace/tailwind-preset.mjs",
+      "packages/workspace/tailwind.config.d.ts",
+      "packages/workspace/vitest.setup.ts",
+      "scripts/check-package-boundary.mjs",
+      "scripts/check-workspace-policy.mjs",
+      "scripts/compile-katex-styles.mjs",
+      "scripts/profile-workspace-performance.mjs",
+      "scripts/run-component-tests.mjs",
+      "scripts/verify-packed-consumer.mjs"
+    ],
+    "development": [
+      "apps/playground/**",
+      "fixtures/**",
+      "packages/workspace/tailwind.config.js",
+      "packages/workspace/vite.config.ts",
+      "packages/workspace/vitest.setup.ts",
+      "scripts/**"
+    ]
   },
   "quality": {},
   "portability": {},
   "modules": [
     {
       "name": "workspace",
-      "paths": [
-        "packages/workspace/**",
-        "scripts/**",
-        "fixtures/**",
-        "check_policy.sh",
-        "eslint.config.js"
-      ]
+      "paths": ["packages/workspace/**", "scripts/**", "fixtures/**"]
     },
     {
       "name": "playground",
@@ -29,8 +42,8 @@
   ],
   "checks": [
     {
-      "name": "package-boundaries",
-      "provides": ["architecture"],
+      "name": "setta-package-contract",
+      "provides": ["package-contract"],
       "argv": ["node", "scripts/check-package-boundary.mjs"],
       "modules": ["workspace", "playground"],
       "runOn": ["check", "gate"],
@@ -53,63 +66,51 @@
       "timeoutSeconds": 900
     },
     {
-      "name": "workspace-dependency-policy",
-      "provides": ["dependency-policy"],
+      "name": "workspace-package-policy",
+      "provides": ["workspace-policy"],
       "argv": ["node", "scripts/check-workspace-policy.mjs"],
       "modules": ["workspace", "playground"],
       "runOn": ["supply-chain"],
       "timeoutSeconds": 300
-    },
-    {
-      "name": "workspace-lock-sync",
-      "provides": ["lock-sync"],
-      "argv": ["node", "scripts/check-lockfile-sync.mjs"],
-      "modules": ["workspace", "playground"],
-      "runOn": ["supply-chain"],
-      "timeoutSeconds": 900
-    },
-    {
-      "name": "transitive-release-age",
-      "provides": ["release-age"],
-      "argv": ["node", "scripts/check-release-age.mjs"],
-      "modules": ["workspace", "playground"],
-      "runOn": ["supply-chain-online"],
-      "timeoutSeconds": 1800
-    },
-    {
-      "name": "dependency-license-policy",
-      "provides": ["security"],
-      "argv": ["node", "scripts/check-licenses.mjs"],
-      "modules": ["workspace", "playground"],
-      "runOn": ["security"],
-      "timeoutSeconds": 900
     }
   ],
   "tests": {
     "requiredKinds": ["component", "browser", "contract"],
     "suites": [
       {
-        "name": "workspace-unit",
+        "name": "workspace-focused",
         "kind": "unit",
         "scope": "module",
+        "cost": "quick",
         "modules": ["workspace"],
-        "argv": ["pnpm", "--filter", "@setta/workspace", "test"],
-        "timeoutSeconds": 900
+        "argv": [
+          "pnpm",
+          "--filter",
+          "@setta/workspace",
+          "exec",
+          "vitest",
+          "run",
+          "src/publicApi.test.ts"
+        ],
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 300
       },
       {
-        "name": "playground-unit",
-        "kind": "unit",
+        "name": "playground-focused",
+        "kind": "component",
         "scope": "module",
+        "cost": "quick",
         "modules": ["playground"],
-        "argv": ["pnpm", "--filter", "@setta/playground", "test"],
-        "timeoutSeconds": 900
-      },
-      {
-        "name": "delivery-contract",
-        "kind": "contract",
-        "scope": "module",
-        "modules": ["workspace"],
-        "argv": ["node", "scripts/check-package-boundary.mjs"],
+        "argv": [
+          "pnpm",
+          "--filter",
+          "@setta/playground",
+          "exec",
+          "vitest",
+          "run",
+          "src/hostToolbarControls.test.tsx"
+        ],
+        "runOn": ["focused", "recommended", "full"],
         "timeoutSeconds": 300
       },
       {
@@ -143,17 +144,72 @@
     ]
   },
   "supplyChain": {
-    "minimumReleaseAgeDays": 7,
-    "auditLevel": "moderate",
-    "allowedDependencyProtocols": ["workspace:", "file:"]
+    "minimumReleaseAgeDays": 30,
+    "auditLevel": "low",
+    "allowedDependencyProtocols": ["workspace:", "file:"],
+    "allowedLicenses": [
+      "0BSD",
+      "Apache-2.0",
+      "BSD-2-Clause",
+      "BSD-3-Clause",
+      "BlueOak-1.0.0",
+      "CC0-1.0",
+      "ISC",
+      "MIT",
+      "MIT-0",
+      "MPL-2.0",
+      "Python-2.0"
+    ],
+    "releaseAgeAssessments": [
+      {
+        "id": "nanoid-zero-size-security-fix",
+        "ecosystem": "pnpm",
+        "package": "nanoid",
+        "version": "3.3.18",
+        "scope": "pnpm-lock.yaml",
+        "category": "security-fix",
+        "evidence": "https://osv.dev/vulnerability/GHSA-2v37-7h3g-55p8",
+        "reason": "This exact release fixes the high-severity infinite-loop vulnerability in the resolved nanoid 3.x line.",
+        "owner": "workspace-extraction",
+        "reviewed": "2026-08-16",
+        "expires": "2026-09-06"
+      }
+    ]
   },
   "exceptions": [
+    {
+      "id": "playground-section-kinds-parity-length",
+      "check": "quality.fileLength",
+      "path": "apps/playground/src/sectionKinds.tsx",
+      "subject": "1103",
+      "reason": "The sealed formatter exposed this backend-free playground registry above the shared limit; component tests cover it while responsibility-based extraction is completed without changing playground behavior.",
+      "owner": "workspace-extraction",
+      "expires": "2026-08-20"
+    },
     {
       "id": "zoom-pane-parity-owner-length",
       "check": "quality.fileLength",
       "path": "packages/workspace/src/canvas/ZoomPane.tsx",
-      "subject": "1077",
+      "subject": "1155",
       "reason": "This extracted interaction owner is protected by canvas unit, component, and browser checks; split it without changing frozen-reference behavior before expiry.",
+      "owner": "workspace-extraction",
+      "expires": "2026-08-20"
+    },
+    {
+      "id": "key-activations-parity-test-length",
+      "check": "quality.fileLength",
+      "path": "packages/workspace/src/canvas/keyActivations.test.tsx",
+      "subject": "1715",
+      "reason": "The sealed formatter exposed this regression matrix above the test-file limit; the executable assertions remain intact while the fixture and scenario groups are split without reducing coverage.",
+      "owner": "workspace-extraction",
+      "expires": "2026-08-20"
+    },
+    {
+      "id": "date-time-control-parity-length",
+      "check": "quality.fileLength",
+      "path": "packages/workspace/src/controls/date-time/DateTimeValueControl.tsx",
+      "subject": "1113",
+      "reason": "The sealed formatter exposed this accepted date-time interaction owner above the shared limit; its component suite protects behavior while calendar responsibilities are extracted before expiry.",
       "owner": "workspace-extraction",
       "expires": "2026-08-20"
     },
@@ -161,8 +217,26 @@
       "id": "drop-type-parity-owner-length",
       "check": "quality.fileLength",
       "path": "packages/workspace/src/dnd/useDropType.ts",
-      "subject": "1097",
+      "subject": "1190",
       "reason": "This extracted drag-and-drop owner is protected by focused and browser interaction checks; split it without changing frozen-reference behavior before expiry.",
+      "owner": "workspace-extraction",
+      "expires": "2026-08-20"
+    },
+    {
+      "id": "item-column-resize-pointer-parity",
+      "check": "quality.lint",
+      "path": "packages/workspace/src/items/ItemColumnResizeHandle.tsx",
+      "subject": "jsx-a11y/no-static-element-interactions",
+      "reason": "The accepted non-tab-stop divider preserves frozen pointer-drag and double-click behavior under focused component tests; keyboard resize semantics require a visible product interaction decision before changing this surface.",
+      "owner": "workspace-extraction",
+      "expires": "2026-08-20"
+    },
+    {
+      "id": "item-row-dynamic-group-semantics",
+      "check": "quality.lint",
+      "path": "packages/workspace/src/items/ItemRow.tsx",
+      "subject": "jsx-a11y/no-static-element-interactions",
+      "reason": "The row becomes a named keyboard-operable group only in item-select mode and its dynamic role, tab stop, and key behavior are component-tested; the static lint rule cannot resolve that state-dependent contract.",
       "owner": "workspace-extraction",
       "expires": "2026-08-20"
     },
@@ -170,7 +244,7 @@
       "id": "workspace-parity-stylesheet-length",
       "check": "quality.fileLength",
       "path": "packages/workspace/src/styles/workspace.css",
-      "subject": "1980",
+      "subject": "2040",
       "reason": "The scoped parity stylesheet is protected by accepted visual evidence and browser checks; split it by surface without redesigning styles before expiry.",
       "owner": "workspace-extraction",
       "expires": "2026-08-20"

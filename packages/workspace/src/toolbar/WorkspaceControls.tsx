@@ -42,7 +42,10 @@ import { WorkspaceToolbarGroup } from "./WorkspaceToolbarGroup";
 // it the only divider the package's own groups had — the reference renders no divider between the
 // viewport and minimap groups.
 
-function runZoomOnPointerDown(event: ReactPointerEvent<HTMLButtonElement>, zoom: () => void): void {
+function runZoomOnPointerDown(
+  event: ReactPointerEvent<HTMLButtonElement>,
+  zoom: () => void,
+): void {
   if (event.button !== 0 || event.isPrimary === false) {
     return;
   }
@@ -110,7 +113,9 @@ function ViewportControls(props: {
         type="button"
         {...COMPACT_TOUCH_TARGET_PROPS}
         {...getWorkspaceTooltipHandlers({
-          content: props.snapToGrid ? "Disable snap to grid" : "Enable snap to grid",
+          content: props.snapToGrid
+            ? "Disable snap to grid"
+            : "Enable snap to grid",
         })}
       >
         <TbGridDots {...DECORATIVE_ICON_PROPS} size={15} />
@@ -129,11 +134,18 @@ function ViewportControls(props: {
   );
 }
 
-function MiniMapControls(props: { minimapSide: MiniMapSide; showMinimap: boolean }) {
+function MiniMapControls(props: {
+  minimapSide: MiniMapSide;
+  showMinimap: boolean;
+}) {
   const moveMinimapLabel =
-    props.minimapSide === "left" ? "move minimap to right" : "move minimap to left";
+    props.minimapSide === "left"
+      ? "move minimap to right"
+      : "move minimap to left";
   const moveMinimapContent =
-    props.minimapSide === "left" ? "Move minimap to right" : "Move minimap to left";
+    props.minimapSide === "left"
+      ? "Move minimap to right"
+      : "Move minimap to left";
 
   return (
     <>

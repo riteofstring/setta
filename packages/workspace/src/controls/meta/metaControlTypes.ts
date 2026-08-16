@@ -34,13 +34,18 @@ const META_CONTROL_KINDS: ReadonlySet<MetaControlKind> = new Set([
   "time",
 ]);
 
-export function assertMetaControlKind(kind: unknown): asserts kind is MetaControlKind {
-  if (typeof kind !== "string" || !META_CONTROL_KINDS.has(kind as MetaControlKind)) {
+export function assertMetaControlKind(
+  kind: unknown,
+): asserts kind is MetaControlKind {
+  if (
+    typeof kind !== "string" ||
+    !META_CONTROL_KINDS.has(kind as MetaControlKind)
+  ) {
     throw new Error(`Unknown meta control kind: ${String(kind)}.`);
   }
 }
 
-export type MetaControlMinimumSize = {
+type MetaControlMinimumSize = {
   width: number;
   height: number;
 };
@@ -93,7 +98,9 @@ export function getMetaControlDefaultSize(kind: MetaControlKind): SectionSize {
 // Frozen main's generated policy applies a 200 x 32 base minimum to ordinary meta controls.
 // TextArea's 96 px content minimum plus its wrapper border produces the captured 98 px inner
 // surface; Dropzone's generated minimum is 240 x 120. The package shell adds one pixel per side.
-export function getMetaControlMinimumSize(kind: MetaControlKind): MetaControlMinimumSize {
+export function getMetaControlMinimumSize(
+  kind: MetaControlKind,
+): MetaControlMinimumSize {
   assertMetaControlKind(kind);
   if (kind === "textarea") {
     return TEXTAREA_META_CONTROL_SIZE;
@@ -106,7 +113,9 @@ export function getMetaControlMinimumSize(kind: MetaControlKind): MetaControlMin
 
 // The frozen sizing policy keeps these three compact controls at their intrinsic height while
 // still allowing horizontal resizing. Every other meta control is freely resizable in height.
-export function getMetaControlHeightSizeMode(kind: MetaControlKind): MetaControlHeightSizeMode {
+export function getMetaControlHeightSizeMode(
+  kind: MetaControlKind,
+): MetaControlHeightSizeMode {
   assertMetaControlKind(kind);
   return AUTO_HEIGHT_META_CONTROL_KINDS.has(kind) ? "auto-only" : "any";
 }

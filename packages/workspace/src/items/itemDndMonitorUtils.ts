@@ -90,7 +90,10 @@ export function resolveItemPlaceholderMovePlan(
   };
 }
 
-function resolveParentInsertionIndex(context: ItemPlaceholderMovePlanContext, overIndex: number) {
+function resolveParentInsertionIndex(
+  context: ItemPlaceholderMovePlanContext,
+  overIndex: number,
+) {
   if (overIndex >= 0) {
     return context.pastHalfway ? overIndex + 1 : overIndex;
   }
@@ -107,7 +110,9 @@ function shouldInsertAtParentBoundary({
   tempId,
 }: ItemPlaceholderMovePlanContext) {
   return (
-    overId === newParentId && newParentChildren.length > 0 && !newParentChildren.includes(tempId)
+    overId === newParentId &&
+    newParentChildren.length > 0 &&
+    !newParentChildren.includes(tempId)
   );
 }
 
@@ -125,7 +130,8 @@ export function filterCollisionsForListKey(
     return collisions;
   }
   return collisions.filter((collision) => {
-    const data = collision.data?.droppable?.data as CollisionDroppableData | undefined;
+    const data = collision.data?.droppable?.data as
+      CollisionDroppableData | undefined;
     return data?.current?.listKey === listKey;
   });
 }

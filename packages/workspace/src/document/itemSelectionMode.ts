@@ -24,7 +24,9 @@ export const ItemSelectionModeAffectsControlsContext = createContext(true);
 
 export function useItemSelectionModeForControl(): boolean {
   const affectsControls = useContext(ItemSelectionModeAffectsControlsContext);
-  return useItemSelectionMode((state) => affectsControls && state.isSelectingItems);
+  return useItemSelectionMode(
+    (state) => affectsControls && state.isSelectingItems,
+  );
 }
 
 export function activateItemSelect() {

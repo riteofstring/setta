@@ -12,18 +12,26 @@ type DropzoneFilePartition = {
 
 function assertPositiveByteLimit(field: string, value: number): void {
   if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`DropzoneValueControl received invalid ${field}: ${String(value)}.`);
+    throw new Error(
+      `DropzoneValueControl received invalid ${field}: ${String(value)}.`,
+    );
   }
 }
 
-function assertOptionalPositiveByteLimit(field: string, value: number | null): void {
+function assertOptionalPositiveByteLimit(
+  field: string,
+  value: number | null,
+): void {
   if (value !== null) {
     assertPositiveByteLimit(field, value);
   }
 }
 
 function assertAttachmentLimit(maxAttachments: number | null): void {
-  if (maxAttachments !== null && (!Number.isSafeInteger(maxAttachments) || maxAttachments <= 0)) {
+  if (
+    maxAttachments !== null &&
+    (!Number.isSafeInteger(maxAttachments) || maxAttachments <= 0)
+  ) {
     throw new Error(
       `DropzoneValueControl received invalid maxAttachments: ${String(maxAttachments)}.`,
     );
@@ -47,12 +55,19 @@ export function assertDropzonePolicy(policy: DropzonePolicy): void {
   assertMimePrefixes(policy.allowedMimePrefixes);
 }
 
-function assertAttachment(attachment: DropzoneAttachment, seenIds: Set<string>): void {
+function assertAttachment(
+  attachment: DropzoneAttachment,
+  seenIds: Set<string>,
+): void {
   if (attachment.id.length === 0) {
-    throw new Error("DropzoneValueControl received an attachment with an empty id.");
+    throw new Error(
+      "DropzoneValueControl received an attachment with an empty id.",
+    );
   }
   if (seenIds.has(attachment.id)) {
-    throw new Error(`DropzoneValueControl received duplicate attachment id: ${attachment.id}.`);
+    throw new Error(
+      `DropzoneValueControl received duplicate attachment id: ${attachment.id}.`,
+    );
   }
   if (attachment.kind !== "file" && attachment.kind !== "text") {
     throw new Error(
@@ -60,9 +75,14 @@ function assertAttachment(attachment: DropzoneAttachment, seenIds: Set<string>):
     );
   }
   if (attachment.name.length === 0) {
-    throw new Error(`DropzoneValueControl attachment ${attachment.id} has an empty name.`);
+    throw new Error(
+      `DropzoneValueControl attachment ${attachment.id} has an empty name.`,
+    );
   }
-  if (attachment.size !== null && (!Number.isSafeInteger(attachment.size) || attachment.size < 0)) {
+  if (
+    attachment.size !== null &&
+    (!Number.isSafeInteger(attachment.size) || attachment.size < 0)
+  ) {
     throw new Error(
       `DropzoneValueControl attachment ${attachment.id} has invalid size: ${String(attachment.size)}.`,
     );
@@ -78,7 +98,10 @@ export function assertDropzoneAttachments(
   for (const attachment of attachments) {
     assertAttachment(attachment, seenIds);
   }
-  if (policy.maxAttachments !== null && attachments.length > policy.maxAttachments) {
+  if (
+    policy.maxAttachments !== null &&
+    attachments.length > policy.maxAttachments
+  ) {
     throw new Error(
       `DropzoneValueControl received ${attachments.length} attachments above its ${policy.maxAttachments} attachment limit.`,
     );
@@ -108,9 +131,15 @@ function partitionByFileSize(files: ReadonlyArray<File>, maxFileBytes: number) {
   return { accepted, rejected } satisfies DropzoneFilePartition;
 }
 
-function partitionByAttachmentCount(files: ReadonlyArray<File>, remainingSlots: number | null) {
+function partitionByAttachmentCount(
+  files: ReadonlyArray<File>,
+  remainingSlots: number | null,
+) {
   if (remainingSlots === null || files.length <= remainingSlots) {
-    return { accepted: [...files], rejected: [] } satisfies DropzoneFilePartition;
+    return {
+      accepted: [...files],
+      rejected: [],
+    } satisfies DropzoneFilePartition;
   }
   return {
     accepted: files.slice(0, remainingSlots),
@@ -122,7 +151,10 @@ function partitionByAttachmentCount(files: ReadonlyArray<File>, remainingSlots: 
   } satisfies DropzoneFilePartition;
 }
 
-function isMimeAllowed(file: File, allowedMimePrefixes: ReadonlyArray<string>): boolean {
+function isMimeAllowed(
+  file: File,
+  allowedMimePrefixes: ReadonlyArray<string>,
+): boolean {
   if (allowedMimePrefixes.length === 0) {
     return true;
   }
@@ -130,7 +162,10 @@ function isMimeAllowed(file: File, allowedMimePrefixes: ReadonlyArray<string>): 
   return allowedMimePrefixes.some((prefix) => mimeType.startsWith(prefix));
 }
 
-function partitionByMime(files: ReadonlyArray<File>, allowedMimePrefixes: ReadonlyArray<string>) {
+function partitionByMime(
+  files: ReadonlyArray<File>,
+  allowedMimePrefixes: ReadonlyArray<string>,
+) {
   const accepted: File[] = [];
   const rejected: DropzoneFileRejection[] = [];
   for (const file of files) {
@@ -143,9 +178,15 @@ function partitionByMime(files: ReadonlyArray<File>, allowedMimePrefixes: Readon
   return { accepted, rejected } satisfies DropzoneFilePartition;
 }
 
-function partitionByTotalSize(files: ReadonlyArray<File>, maxTotalBytes: number | null) {
+function partitionByTotalSize(
+  files: ReadonlyArray<File>,
+  maxTotalBytes: number | null,
+) {
   if (maxTotalBytes === null) {
-    return { accepted: [...files], rejected: [] } satisfies DropzoneFilePartition;
+    return {
+      accepted: [...files],
+      rejected: [],
+    } satisfies DropzoneFilePartition;
   }
   const accepted: File[] = [];
   const rejected: DropzoneFileRejection[] = [];
@@ -172,7 +213,12 @@ export function partitionDropzoneFiles(
   const totaled = partitionByTotalSize(typed.accepted, policy.maxTotalBytes);
   return {
     accepted: totaled.accepted,
-    rejected: [...sized.rejected, ...counted.rejected, ...typed.rejected, ...totaled.rejected],
+    rejected: [
+      ...sized.rejected,
+      ...counted.rejected,
+      ...typed.rejected,
+      ...totaled.rejected,
+    ],
   };
 }
 
@@ -188,7 +234,10 @@ export function getDroppedTextRejection(
   if (remainingSlots === 0) {
     return { kind: "text", text, reason: "attachment-count" };
   }
-  if (policy.maxTotalBytes !== null && getUtf8ByteLength(text) > policy.maxTotalBytes) {
+  if (
+    policy.maxTotalBytes !== null &&
+    getUtf8ByteLength(text) > policy.maxTotalBytes
+  ) {
     return { kind: "text", text, reason: "total-size" };
   }
   return null;
@@ -200,7 +249,10 @@ export function formatDropzoneBytes(bytes: number): string {
     return "0 B";
   }
   const units = ["B", "KB", "MB", "GB", "TB"];
-  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const index = Math.min(
+    units.length - 1,
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+  );
   const value = bytes / 1024 ** index;
   const rounded = value >= 10 ? Math.round(value) : Math.round(value * 10) / 10;
   return `${rounded} ${units[index]}`;

@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { setActiveSectionIds } from "../document/activeSections";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { Node, WorkspaceSection } from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
 import {
@@ -70,7 +74,10 @@ function setCanvasDomNode() {
   });
 }
 
-function createWorkspaceSection(id: string, children: Array<string> = []): WorkspaceSection {
+function createWorkspaceSection(
+  id: string,
+  children: Array<string> = [],
+): WorkspaceSection {
   return {
     id,
     kind: "leaf",
@@ -89,11 +96,23 @@ function createWorkspaceSection(id: string, children: Array<string> = []): Works
 describe("getNodesInside", () => {
   it("uses node internals geometry to resolve overlapping nodes", () => {
     setNodes([
-      createNode({ id: "section-a", position: { x: 10, y: 20 }, width: 100, height: 80 }),
-      createNode({ id: "section-b", position: { x: 180, y: 40 }, width: 120, height: 90 }),
+      createNode({
+        id: "section-a",
+        position: { x: 10, y: 20 },
+        width: 100,
+        height: 80,
+      }),
+      createNode({
+        id: "section-b",
+        position: { x: 180, y: 40 },
+        width: 120,
+        height: 90,
+      }),
     ]);
 
-    expect(getNodesInside({ x: 0, y: 0, width: 150, height: 140 })).toEqual(["section-a"]);
+    expect(getNodesInside({ x: 0, y: 0, width: 150, height: 140 })).toEqual([
+      "section-a",
+    ]);
     expect(getNodesInside({ x: 0, y: 0, width: 400, height: 200 })).toEqual([
       "section-a",
       "section-b",
@@ -101,17 +120,31 @@ describe("getNodesInside", () => {
   });
 
   it("respects partial-overlap mode", () => {
-    setNodes([createNode({ id: "section-a", position: { x: 10, y: 20 }, width: 100, height: 80 })]);
-
-    expect(getNodesInside({ x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], false)).toEqual([]);
-    expect(getNodesInside({ x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], true)).toEqual([
-      "section-a",
+    setNodes([
+      createNode({
+        id: "section-a",
+        position: { x: 10, y: 20 },
+        width: 100,
+        height: 80,
+      }),
     ]);
+
+    expect(
+      getNodesInside({ x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], false),
+    ).toEqual([]);
+    expect(
+      getNodesInside({ x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], true),
+    ).toEqual(["section-a"]);
   });
 
   it("does not select unmeasured nodes without a registered DOM ref", () => {
     setNodes([
-      createNode({ id: "section-a", position: { x: 10, y: 20 }, width: null, height: null }),
+      createNode({
+        id: "section-a",
+        position: { x: 10, y: 20 },
+        width: null,
+        height: null,
+      }),
     ]);
 
     expect(getNodesInside({ x: 0, y: 0, width: 500, height: 500 })).toEqual([]);
@@ -119,8 +152,18 @@ describe("getNodesInside", () => {
 
   it("treats zero-sized node internals without a DOM ref as unmeasured", () => {
     setNodes([
-      createNode({ id: "section-width-zero", position: { x: 5, y: 5 }, width: 0, height: 40 }),
-      createNode({ id: "section-height-zero", position: { x: 5, y: 50 }, width: 40, height: 0 }),
+      createNode({
+        id: "section-width-zero",
+        position: { x: 5, y: 5 },
+        width: 0,
+        height: 40,
+      }),
+      createNode({
+        id: "section-height-zero",
+        position: { x: 5, y: 50 },
+        width: 40,
+        height: 0,
+      }),
     ]);
 
     expect(getNodesInside({ x: 0, y: 0, width: 200, height: 200 })).toEqual([]);
@@ -129,45 +172,91 @@ describe("getNodesInside", () => {
   it("falls back to section DOM bounds for unmeasured node internals", () => {
     setCanvasDomNode();
     setNodes([
-      createNode({ id: "section-a", position: { x: 10, y: 20 }, width: null, height: null }),
+      createNode({
+        id: "section-a",
+        position: { x: 10, y: 20 },
+        width: null,
+        height: null,
+      }),
     ]);
     useSectionRefs.setState({
-      selfOnly: { "section-a": createSectionRefElement({ x: 40, y: 60, width: 120, height: 80 }) },
+      selfOnly: {
+        "section-a": createSectionRefElement({
+          x: 40,
+          y: 60,
+          width: 120,
+          height: 80,
+        }),
+      },
     });
 
-    expect(getNodesInside({ x: 30, y: 50, width: 140, height: 100 })).toEqual(["section-a"]);
-    expect(getNodesInside({ x: 500, y: 500, width: 10, height: 10 })).toEqual([]);
+    expect(getNodesInside({ x: 30, y: 50, width: 140, height: 100 })).toEqual([
+      "section-a",
+    ]);
+    expect(getNodesInside({ x: 500, y: 500, width: 10, height: 10 })).toEqual(
+      [],
+    );
   });
 
   it("falls back to section DOM bounds when node internals have zero-sized geometry", () => {
     setCanvasDomNode();
-    setNodes([createNode({ id: "section-a", position: { x: 10, y: 20 }, width: 0, height: 40 })]);
+    setNodes([
+      createNode({
+        id: "section-a",
+        position: { x: 10, y: 20 },
+        width: 0,
+        height: 40,
+      }),
+    ]);
     useSectionRefs.setState({
-      selfOnly: { "section-a": createSectionRefElement({ x: 40, y: 60, width: 120, height: 80 }) },
+      selfOnly: {
+        "section-a": createSectionRefElement({
+          x: 40,
+          y: 60,
+          width: 120,
+          height: 80,
+        }),
+      },
     });
 
-    expect(getNodesInside({ x: 30, y: 50, width: 140, height: 100 })).toEqual(["section-a"]);
+    expect(getNodesInside({ x: 30, y: 50, width: 140, height: 100 })).toEqual([
+      "section-a",
+    ]);
   });
 
   it("falls back to nested section DOM geometry when a selectable section has no node internals entry", () => {
     setCanvasDomNode();
     useWorkspaceDocument.setState({
       sections: {
-        "group-section": createWorkspaceSection("group-section", ["group-child-a"]),
+        "group-section": createWorkspaceSection("group-section", [
+          "group-child-a",
+        ]),
         "group-child-a": createWorkspaceSection("group-child-a"),
       },
       parentSectionMap: { "group-child-a": "group-section" },
     });
     setNodes([
-      createNode({ id: "group-section", position: { x: 300, y: 120 }, width: 260, height: 220 }),
+      createNode({
+        id: "group-section",
+        position: { x: 300, y: 120 },
+        width: 260,
+        height: 220,
+      }),
     ]);
     useSectionRefs.setState({
       selfOnly: {
-        "group-child-a": createSectionRefElement({ x: 360, y: 180, width: 120, height: 64 }),
+        "group-child-a": createSectionRefElement({
+          x: 360,
+          y: 180,
+          width: 120,
+          height: 64,
+        }),
       },
     });
 
-    expect(getNodesInside({ x: 350, y: 170, width: 140, height: 84 })).toEqual(["group-child-a"]);
+    expect(getNodesInside({ x: 350, y: 170, width: 140, height: 84 })).toEqual([
+      "group-child-a",
+    ]);
   });
 });
 
@@ -175,8 +264,18 @@ describe("getActiveSectionsBounds", () => {
   it("uses node internals geometry for active section bounds", () => {
     setActiveSectionIds(["section-a", "section-b"]);
     setNodes([
-      createNode({ id: "section-a", position: { x: 10, y: 20 }, width: 100, height: 80 }),
-      createNode({ id: "section-b", position: { x: 180, y: 40 }, width: 120, height: 90 }),
+      createNode({
+        id: "section-a",
+        position: { x: 10, y: 20 },
+        width: 100,
+        height: 80,
+      }),
+      createNode({
+        id: "section-b",
+        position: { x: 180, y: 40 },
+        width: 120,
+        height: 90,
+      }),
     ]);
 
     expect(getActiveSectionsBounds()).toEqual({
@@ -201,21 +300,50 @@ describe("getActiveSectionsBounds", () => {
       parentSectionMap: { nested: "group" },
     });
     setActiveSectionIds(["group", "nested"]);
-    setNodes([createNode({ id: "group", position: { x: 100, y: 80 }, width: 260, height: 220 })]);
+    setNodes([
+      createNode({
+        id: "group",
+        position: { x: 100, y: 80 },
+        width: 260,
+        height: 220,
+      }),
+    ]);
     useSectionRefs.setState({
       selfOnly: {
-        nested: createSectionRefElement({ x: 140, y: 340, width: 180, height: 100 }),
+        nested: createSectionRefElement({
+          x: 140,
+          y: 340,
+          width: 180,
+          height: 100,
+        }),
       },
     });
 
-    expect(getActiveSectionsBounds()).toEqual({ x: 100, y: 80, width: 260, height: 220 });
+    expect(getActiveSectionsBounds()).toEqual({
+      x: 100,
+      y: 80,
+      width: 260,
+      height: 220,
+    });
   });
 
   it("returns a zero rect when no active section has measured geometry", () => {
     setActiveSectionIds(["section-a"]);
-    setNodes([createNode({ id: "section-a", position: { x: 10, y: 20 }, width: 0, height: 0 })]);
+    setNodes([
+      createNode({
+        id: "section-a",
+        position: { x: 10, y: 20 },
+        width: 0,
+        height: 0,
+      }),
+    ]);
 
-    expect(getActiveSectionsBounds()).toEqual({ x: 0, y: 0, width: 0, height: 0 });
+    expect(getActiveSectionsBounds()).toEqual({
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+    });
   });
 
   it("falls back to the section DOM ref for sections without measured node internals", () => {
@@ -224,11 +352,21 @@ describe("getActiveSectionsBounds", () => {
     setActiveSectionIds(["nested-section"]);
     useSectionRefs.setState({
       selfOnly: {
-        "nested-section": createSectionRefElement({ x: 30, y: 40, width: 120, height: 60 }),
+        "nested-section": createSectionRefElement({
+          x: 30,
+          y: 40,
+          width: 120,
+          height: 60,
+        }),
       },
     });
 
-    expect(getActiveSectionsBounds()).toEqual({ x: 30, y: 40, width: 120, height: 60 });
+    expect(getActiveSectionsBounds()).toEqual({
+      x: 30,
+      y: 40,
+      width: 120,
+      height: 60,
+    });
   });
 
   it("skips snap-to-grid rounding when measuring with ignoreGrid", () => {
@@ -236,13 +374,28 @@ describe("getActiveSectionsBounds", () => {
     setActiveSectionIds(["nested-section"]);
     useSectionRefs.setState({
       selfOnly: {
-        "nested-section": createSectionRefElement({ x: 32, y: 41, width: 120, height: 60 }),
+        "nested-section": createSectionRefElement({
+          x: 32,
+          y: 41,
+          width: 120,
+          height: 60,
+        }),
       },
     });
 
     // The default 15px snap grid rounds the measured origin; ignoreGrid preserves it.
-    expect(getActiveSectionsBounds(false)).toEqual({ x: 30, y: 45, width: 120, height: 60 });
-    expect(getActiveSectionsBounds(true)).toEqual({ x: 32, y: 41, width: 120, height: 60 });
+    expect(getActiveSectionsBounds(false)).toEqual({
+      x: 30,
+      y: 45,
+      width: 120,
+      height: 60,
+    });
+    expect(getActiveSectionsBounds(true)).toEqual({
+      x: 32,
+      y: 41,
+      width: 120,
+      height: 60,
+    });
   });
 });
 
@@ -256,20 +409,44 @@ describe("getSectionRect", () => {
     useWorkspaceOptions.setState({ snapToGrid: false });
     useReactFlow.setState({ transform: [10, 20, 2] });
     useSectionRefs.setState({
-      selfOnly: { "section-a": createSectionRefElement({ x: 110, y: 220, width: 50, height: 40 }) },
-      withNested: { "section-a": createSectionRefElement({ x: 0, y: 0, width: 999, height: 999 }) },
+      selfOnly: {
+        "section-a": createSectionRefElement({
+          x: 110,
+          y: 220,
+          width: 50,
+          height: 40,
+        }),
+      },
+      withNested: {
+        "section-a": createSectionRefElement({
+          x: 0,
+          y: 0,
+          width: 999,
+          height: 999,
+        }),
+      },
     });
 
-    expect(getSectionRect("section-a", true)).toEqual({ x: 50, y: 100, width: 50, height: 40 });
+    expect(getSectionRect("section-a", true)).toEqual({
+      x: 50,
+      y: 100,
+      width: 50,
+      height: 40,
+    });
   });
 });
 
 describe("getViewportForBounds", () => {
   it("centers the bounds at the zoom that fits them with padding", () => {
-    const viewport = getViewportForBounds({ x: 0, y: 0, width: 400, height: 300 }, 800, 600, {
-      minZoom: 0.1,
-      maxZoom: 10,
-    });
+    const viewport = getViewportForBounds(
+      { x: 0, y: 0, width: 400, height: 300 },
+      800,
+      600,
+      {
+        minZoom: 0.1,
+        maxZoom: 10,
+      },
+    );
 
     // 800 / (400 * 1.1) is the limiting zoom on both axes.
     expect(viewport.zoom).toBeCloseTo(800 / 440);
@@ -285,10 +462,15 @@ describe("getViewportForBounds", () => {
       }).zoom,
     ).toBe(2);
     expect(
-      getViewportForBounds({ x: 0, y: 0, width: 100000, height: 100000 }, 800, 600, {
-        minZoom: 0.5,
-        maxZoom: 2,
-      }).zoom,
+      getViewportForBounds(
+        { x: 0, y: 0, width: 100000, height: 100000 },
+        800,
+        600,
+        {
+          minZoom: 0.5,
+          maxZoom: 2,
+        },
+      ).zoom,
     ).toBe(0.5);
   });
 

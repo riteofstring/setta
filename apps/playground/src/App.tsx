@@ -41,7 +41,12 @@ type PlaygroundIconProps = {
 
 function AppearanceIcon({ className }: PlaygroundIconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 20 20">
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 20 20"
+    >
       <path d="M10 2.75v1.5M10 15.75v1.5M2.75 10h1.5M15.75 10h1.5M4.87 4.87l1.06 1.06M14.07 14.07l1.06 1.06M15.13 4.87l-1.06 1.06M5.93 14.07l-1.06 1.06" />
       <circle cx="10" cy="10" r="3.25" />
     </svg>
@@ -50,7 +55,12 @@ function AppearanceIcon({ className }: PlaygroundIconProps) {
 
 function ReloadIcon({ className }: PlaygroundIconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 20 20">
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 20 20"
+    >
       <path d="M15.75 7.25A6.25 6.25 0 1 0 16 11" />
       <path d="M15.75 3.75v3.5h-3.5" />
     </svg>
@@ -59,7 +69,12 @@ function ReloadIcon({ className }: PlaygroundIconProps) {
 
 function TuneIcon({ className }: PlaygroundIconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 20 20">
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 20 20"
+    >
       <path d="M3 5.25h8M14 5.25h3M3 10h3M9 10h8M3 14.75h8M14 14.75h3" />
       <circle cx="12.5" cy="5.25" r="1.5" />
       <circle cx="7.5" cy="10" r="1.5" />
@@ -70,7 +85,12 @@ function TuneIcon({ className }: PlaygroundIconProps) {
 
 function GuideIcon({ className }: PlaygroundIconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 20 20">
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 20 20"
+    >
       <circle cx="10" cy="10" r="7" />
       <path d="M10 9v4M10 6.5v.25" />
     </svg>
@@ -79,7 +99,12 @@ function GuideIcon({ className }: PlaygroundIconProps) {
 
 function ChevronIcon({ className }: PlaygroundIconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 20 20">
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 20 20"
+    >
       <path d="m6.5 8 3.5 3.5L13.5 8" />
     </svg>
   );
@@ -129,7 +154,10 @@ function SectionTagColorToggle() {
         if (!section) {
           throw new Error("The playground idle leaf is unavailable.");
         }
-        setSectionTagColor(section.id, section.tagColor === null ? "#0f766e" : null);
+        setSectionTagColor(
+          section.id,
+          section.tagColor === null ? "#0f766e" : null,
+        );
       }}
     >
       <span>Idle leaf color tag</span>
@@ -172,15 +200,27 @@ function HostParameterDiagnosticActions({
 }) {
   return (
     <div aria-label="Parameter diagnostics" role="group">
-      <button className="playground-menu-action" onClick={onShowInitial} type="button">
+      <button
+        className="playground-menu-action"
+        onClick={onShowInitial}
+        type="button"
+      >
         <span>Show sample diagnostics</span>
         <span className="playground-menu-action-meta">3 severities</span>
       </button>
-      <button className="playground-menu-action" onClick={onShowUpdated} type="button">
+      <button
+        className="playground-menu-action"
+        onClick={onShowUpdated}
+        type="button"
+      >
         <span>Update diagnostics</span>
         <span className="playground-menu-action-meta">Live state</span>
       </button>
-      <button className="playground-menu-action" onClick={onClear} type="button">
+      <button
+        className="playground-menu-action"
+        onClick={onClear}
+        type="button"
+      >
         <span>Clear diagnostics</span>
         <span className="playground-menu-action-meta">Reset</span>
       </button>
@@ -203,7 +243,9 @@ function DocumentChangeReadout() {
       role="status"
     >
       <span aria-hidden="true" className="playground-change-status-dot" />
-      <span className="playground-change-status-count">{documentChangeCount}</span>
+      <span className="playground-change-status-count">
+        {documentChangeCount}
+      </span>
       <span aria-hidden="true" className="playground-change-status-label">
         changes
       </span>
@@ -220,7 +262,9 @@ function AppearanceToggle({ darkMode }: { darkMode: boolean }) {
       type="button"
     >
       <AppearanceIcon className="playground-toolbar-icon" />
-      <span className="playground-toolbar-label">{darkMode ? "Light mode" : "Dark mode"}</span>
+      <span className="playground-toolbar-label">
+        {darkMode ? "Light mode" : "Dark mode"}
+      </span>
     </button>
   );
 }
@@ -307,7 +351,10 @@ function PlaygroundActionMenu({
 function PlaygroundGuideMenu() {
   return (
     <details className="playground-menu" name="playground-toolbar-menu">
-      <summary className="playground-toolbar-button" title="Open playground guide">
+      <summary
+        className="playground-toolbar-button"
+        title="Open playground guide"
+      >
         <GuideIcon className="playground-toolbar-icon" />
         <span className="playground-toolbar-label">Guide</span>
         <ChevronIcon className="playground-toolbar-chevron" />
@@ -324,11 +371,16 @@ function PlaygroundGuideMenu() {
           </div>
           <div>
             <dt>Sections</dt>
-            <dd>Drag a surface to move it. Hold Alt while dragging to nest it.</dd>
+            <dd>
+              Drag a surface to move it. Hold Alt while dragging to nest it.
+            </dd>
           </div>
           <div>
             <dt>Parameters</dt>
-            <dd>Hold Cmd/Ctrl+Shift and click rows. Use Alt+Arrow to move or Tab to indent.</dd>
+            <dd>
+              Hold Cmd/Ctrl+Shift and click rows. Use Alt+Arrow to move or Tab
+              to indent.
+            </dd>
           </div>
           <div>
             <dt>Menus</dt>
@@ -336,7 +388,10 @@ function PlaygroundGuideMenu() {
           </div>
           <div>
             <dt>Toolbar</dt>
-            <dd>Host controls sit above and below the zoom group. The top one adds a note.</dd>
+            <dd>
+              Host controls sit above and below the zoom group. The top one adds
+              a note.
+            </dd>
           </div>
           <div>
             <dt>Control help</dt>
@@ -356,7 +411,10 @@ function PlaygroundGuideMenu() {
   );
 }
 
-function HostNotesIcon({ className, ...iconProps }: WorkspaceShellTabIconProps) {
+function HostNotesIcon({
+  className,
+  ...iconProps
+}: WorkspaceShellTabIconProps) {
   return (
     <svg
       {...iconProps}
@@ -372,7 +430,10 @@ function HostNotesIcon({ className, ...iconProps }: WorkspaceShellTabIconProps) 
   );
 }
 
-function HostStatusIcon({ className, ...iconProps }: WorkspaceShellTabIconProps) {
+function HostStatusIcon({
+  className,
+  ...iconProps
+}: WorkspaceShellTabIconProps) {
   return (
     <svg
       {...iconProps}
@@ -395,8 +456,13 @@ const leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
     icon: HostNotesIcon,
     renderContent: () => (
       <div className="playground-host-pane">
-        <p>This pane is registered and rendered by the backend-free playground host.</p>
-        <p>The package owns its rail, sizing, focus, and interaction behavior.</p>
+        <p>
+          This pane is registered and rendered by the backend-free playground
+          host.
+        </p>
+        <p>
+          The package owns its rail, sizing, focus, and interaction behavior.
+        </p>
       </div>
     ),
   },
@@ -407,7 +473,11 @@ const leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
     renderContent: ({ closePane }) => (
       <div className="playground-host-pane">
         <p>Use Arrow keys, Home, and End to move between registered tabs.</p>
-        <button className="playground-pane-action" onClick={closePane} type="button">
+        <button
+          className="playground-pane-action"
+          onClick={closePane}
+          type="button"
+        >
           Close pane
         </button>
       </div>
@@ -423,7 +493,10 @@ const trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
     renderContent: () => (
       <div className="playground-host-pane">
         <p>The host controls and may serialize the complete pane view state.</p>
-        <p>This content receives only the shell&apos;s documented public render props.</p>
+        <p>
+          This content receives only the shell&apos;s documented public render
+          props.
+        </p>
       </div>
     ),
   },
@@ -449,11 +522,14 @@ export function App() {
   // The host commands this playground contributes to the toolbar read host state, so the workspace
   // repaints with the tree it is mounted in whenever that state changes.
   usePlaygroundHostCommandState();
-  const [shellViewState, setShellViewState] = useState(() => createWorkspaceShellViewState());
-  const [leadingPaneShiftsCanvas, setLeadingPaneShiftsCanvas] = useState(true);
-  const [itemDiagnostics, setItemDiagnostics] = useState<WorkspaceItemDiagnosticRegistry>(
-    PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS,
+  const [shellViewState, setShellViewState] = useState(() =>
+    createWorkspaceShellViewState(),
   );
+  const [leadingPaneShiftsCanvas, setLeadingPaneShiftsCanvas] = useState(true);
+  const [itemDiagnostics, setItemDiagnostics] =
+    useState<WorkspaceItemDiagnosticRegistry>(
+      PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS,
+    );
 
   // Package appearance is scoped to package roots. The playground mirrors the resolved mode only
   // for its own host chrome; real hosts can style their surrounding application independently.
@@ -479,9 +555,15 @@ export function App() {
           <PlaygroundActionMenu
             leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
             onClearDiagnostics={() => setItemDiagnostics({})}
-            onToggleLeadingPaneShift={() => setLeadingPaneShiftsCanvas((enabled) => !enabled)}
-            onShowDiagnostics={() => setItemDiagnostics(PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS)}
-            onUpdateDiagnostics={() => setItemDiagnostics(PLAYGROUND_UPDATED_ITEM_DIAGNOSTICS)}
+            onToggleLeadingPaneShift={() =>
+              setLeadingPaneShiftsCanvas((enabled) => !enabled)
+            }
+            onShowDiagnostics={() =>
+              setItemDiagnostics(PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS)
+            }
+            onUpdateDiagnostics={() =>
+              setItemDiagnostics(PLAYGROUND_UPDATED_ITEM_DIAGNOSTICS)
+            }
           />
           <PlaygroundGuideMenu />
         </nav>

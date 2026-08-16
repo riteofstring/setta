@@ -11,8 +11,11 @@ import { useItemListContext } from "./ItemListContext";
 // separate from the 16 px drag target, so package ownership does not visibly inflate the accepted
 // row chrome. Layout capability gating matches the reference's share-capability check.
 export function ItemColumnResizeHandle() {
-  const canEditLayout = useWorkspaceCapabilities((state) => state.canEditLayout);
-  const { onColumnResizeDoubleClick, onColumnResizeStart } = useItemListContext();
+  const canEditLayout = useWorkspaceCapabilities(
+    (state) => state.canEditLayout,
+  );
+  const { onColumnResizeDoubleClick, onColumnResizeStart } =
+    useItemListContext();
   if (!canEditLayout) {
     return null;
   }

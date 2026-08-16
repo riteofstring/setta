@@ -16,12 +16,18 @@ import {
 import { useSortable } from "../dnd/adapter";
 import { applyZoomToTransform, transformToString } from "../dnd/adapter/zoom";
 import { getItemDndId, isTempItem, useItemDndState } from "../dnd/itemDndState";
-import { getSectionItemTreeOrThrow, getSectionOrThrow } from "../document/documentSelectors";
+import {
+  getSectionItemTreeOrThrow,
+  getSectionOrThrow,
+} from "../document/documentSelectors";
 import { hasWorkspaceItemPresentation } from "../document/itemPresentation";
 import { toggleItemSelected } from "../document/itemSelection";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { getItemOrThrow } from "../document/itemTree";
-import { useWorkspaceAppearance, useWorkspaceDocument } from "../document/stores";
+import {
+  useWorkspaceAppearance,
+  useWorkspaceDocument,
+} from "../document/stores";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
 import {
   getWorkspaceTooltipHandlers,
@@ -133,7 +139,14 @@ function createSortableStyle({
 function TempItemRow({ itemId }: { itemId: string }) {
   const { enabled, sectionId, listKey } = useItemListContext();
   const { height, width } = useTempItemPlaceholderStyle();
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: itemId,
     disabled: !enabled,
     data: {
@@ -218,7 +231,10 @@ type ItemRowStyleProps = {
   hasDiagnostics: boolean;
 };
 
-function buildItemRowStyle(dndStyle: CSSProperties, hasDiagnostics: boolean): CSSProperties {
+function buildItemRowStyle(
+  dndStyle: CSSProperties,
+  hasDiagnostics: boolean,
+): CSSProperties {
   return {
     ...dndStyle,
     paddingInlineEnd: hasDiagnostics ? "1.375rem" : undefined,
@@ -328,10 +344,19 @@ function useItemSelectionHandlers(sectionId: string, itemId: string) {
     [isSelectingItems, sectionId, itemId],
   );
 
-  return { handleItemClick, handleItemMouseDown, handleItemKeyDown, isSelectingItems };
+  return {
+    handleItemClick,
+    handleItemMouseDown,
+    handleItemKeyDown,
+    isSelectingItems,
+  };
 }
 
-function ItemNestedChildren({ renderChildren }: { renderChildren: Array<string> }) {
+function ItemNestedChildren({
+  renderChildren,
+}: {
+  renderChildren: Array<string>;
+}) {
   if (renderChildren.length === 0) {
     return null;
   }
@@ -377,15 +402,21 @@ function getItemQuickInfo(
   item: Parameters<typeof getWorkspaceItemDiagnosticLabel>[0],
   diagnostics: Parameters<typeof getHighestWorkspaceItemDiagnosticSeverity>[0],
 ): ItemQuickInfo | null {
-  const helpText = hasWorkspaceItemPresentation(item) ? item.presentation.helpText?.trim() : null;
-  const diagnosticContent = getWorkspaceItemDiagnosticTooltipContent(diagnostics);
+  const helpText = hasWorkspaceItemPresentation(item)
+    ? item.presentation.helpText?.trim()
+    : null;
+  const diagnosticContent =
+    getWorkspaceItemDiagnosticTooltipContent(diagnostics);
   const content = diagnosticContent || helpText || "";
   if (content === "") {
     return null;
   }
   const title = getWorkspaceItemDiagnosticLabel(item);
-  const tone = getHighestWorkspaceItemDiagnosticSeverity(diagnostics) ?? "default";
-  const pages: [WorkspaceTooltipPage, ...Array<WorkspaceTooltipPage>] = [{ content, title, tone }];
+  const tone =
+    getHighestWorkspaceItemDiagnosticSeverity(diagnostics) ?? "default";
+  const pages: [WorkspaceTooltipPage, ...Array<WorkspaceTooltipPage>] = [
+    { content, title, tone },
+  ];
   if (diagnosticContent && helpText) {
     pages.push({ content: helpText, title });
   }
@@ -398,8 +429,15 @@ function getItemQuickInfo(
 }
 
 function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
-  const { enabled, sectionId, listKey, visibleItemIds, itemDiagnostics, renderItem, isGroupItem } =
-    useItemListContext();
+  const {
+    enabled,
+    sectionId,
+    listKey,
+    visibleItemIds,
+    itemDiagnostics,
+    renderItem,
+    isGroupItem,
+  } = useItemListContext();
   const darkMode = useWorkspaceAppearance((x) => x.darkMode);
   const rowState = useWorkspaceDocument((x) => {
     const itemTree = getSectionItemTreeOrThrow(x, sectionId);
@@ -413,21 +451,37 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
   // The same derived-theme gate as the section chrome: a style color that derives no theme
   // leaves the row on the plain treatments, so the themed classes never reference unset vars.
   const hasSectionStyleTheme = Boolean(
-    rowState.styleColor && deriveSectionStyleTheme(rowState.styleColor, darkMode),
+    rowState.styleColor &&
+    deriveSectionStyleTheme(rowState.styleColor, darkMode),
   );
-  const { handleItemClick, handleItemMouseDown, handleItemKeyDown, isSelectingItems } =
-    useItemSelectionHandlers(sectionId, itemId);
-  const visibleChildren = rowState.item.children.filter((childId) => visibleItemIds.has(childId));
+  const {
+    handleItemClick,
+    handleItemMouseDown,
+    handleItemKeyDown,
+    isSelectingItems,
+  } = useItemSelectionHandlers(sectionId, itemId);
+  const visibleChildren = rowState.item.children.filter((childId) =>
+    visibleItemIds.has(childId),
+  );
   const renderChildren = useItemDndChildrenForParent(itemId, visibleChildren);
   const dndId = getItemDndId(itemId, listKey);
   const hasNested = rowState.item.children.length > 0;
-  const onlyChildId = rowState.item.children.length === 1 ? rowState.item.children[0] : null;
+  const onlyChildId =
+    rowState.item.children.length === 1 ? rowState.item.children[0] : null;
   const diagnostics = itemDiagnostics[itemId] ?? [];
-  const highestDiagnosticSeverity = getHighestWorkspaceItemDiagnosticSeverity(diagnostics);
+  const highestDiagnosticSeverity =
+    getHighestWorkspaceItemDiagnosticSeverity(diagnostics);
   const diagnosticSummary = getItemDiagnosticSummary(diagnostics);
   const quickInfo = getItemQuickInfo(rowState.item, diagnostics);
   const quickInfoDescriptionId = `setta-item-quick-info-${useId().replaceAll(":", "")}`;
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: dndId,
     disabled: !enabled,
     data: {
@@ -489,7 +543,9 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       {renderItemRowContent(renderContext, renderItem)}
       <ItemColumnResizeHandle />
       <WorkspaceItemDiagnostics diagnostics={diagnostics} />
-      {layout !== "leaf" && <ItemNestedChildren renderChildren={renderChildren} />}
+      {layout !== "leaf" && (
+        <ItemNestedChildren renderChildren={renderChildren} />
+      )}
     </ItemRowShell>
   );
 }
@@ -499,10 +555,16 @@ function getItemQuickInfoHandlers(quickInfo: ItemQuickInfo | null) {
     return {};
   }
   const [firstPage, ...additionalPages] = quickInfo.pages;
-  return getWorkspaceTooltipHandlers({ ...firstPage, stageOnFocus: true }, ...additionalPages);
+  return getWorkspaceTooltipHandlers(
+    { ...firstPage, stageOnFocus: true },
+    ...additionalPages,
+  );
 }
 
-function getItemRowShortcuts(quickInfo: ItemQuickInfo | null, isSelectingItems: boolean): string {
+function getItemRowShortcuts(
+  quickInfo: ItemQuickInfo | null,
+  isSelectingItems: boolean,
+): string {
   const shortcuts = ["Shift+F10 ContextMenu"];
   if (quickInfo) {
     shortcuts.unshift("Q");
@@ -689,7 +751,9 @@ function ItemRowShell({
       className={`${rowClassName} focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2`}
       style={rowStyle}
       data-item-row="true"
-      data-setta-workspace-item-diagnostic-severity={diagnosticSeverity ?? undefined}
+      data-setta-workspace-item-diagnostic-severity={
+        diagnosticSeverity ?? undefined
+      }
       data-workspace-item-id={itemId}
       onMouseDownCapture={onMouseDown}
       onClick={onClick}
@@ -706,7 +770,10 @@ function ItemRowShell({
       tabIndex={accessibilityProps.tabIndex}
     >
       {children}
-      <ItemQuickInfoDescription descriptionId={quickInfoDescriptionId} quickInfo={quickInfo} />
+      <ItemQuickInfoDescription
+        descriptionId={quickInfoDescriptionId}
+        quickInfo={quickInfo}
+      />
     </div>
   );
 }

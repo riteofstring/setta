@@ -1,8 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const workspaceStyles = readFileSync(new URL("./workspace.css", import.meta.url), "utf8");
-const itemToolbarStyles = readFileSync(new URL("./itemToolbar.css", import.meta.url), "utf8");
+const workspaceStyles = readFileSync(
+  new URL("./workspace.css", import.meta.url),
+  "utf8",
+);
+const itemToolbarStyles = readFileSync(
+  new URL("./itemToolbar.css", import.meta.url),
+  "utf8",
+);
 const focusVisibilityStyles = readFileSync(
   new URL("./workspaceFocusVisibility.css", import.meta.url),
   "utf8",
@@ -14,15 +20,21 @@ const interactionPolicyStyles = readFileSync(
 
 describe("workspace adaptive stylesheet contract", () => {
   it("opts package motion in and neutralizes retained inline sortable motion", () => {
-    expect(workspaceStyles).toContain("@media (prefers-reduced-motion: no-preference)");
-    expect(workspaceStyles).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(workspaceStyles).toContain(
+      "@media (prefers-reduced-motion: no-preference)",
+    );
+    expect(workspaceStyles).toContain(
+      "@media (prefers-reduced-motion: reduce)",
+    );
     expect(workspaceStyles).toContain("[data-sortable-section-id]");
     expect(workspaceStyles).toContain("transition-duration: 0.01ms !important");
   });
 
   it("enlarges coarse-pointer hit geometry without enlarging compact paint", () => {
     expect(workspaceStyles).toContain("@media (pointer: coarse)");
-    expect(workspaceStyles).toContain('[data-setta-workspace-touch-target="compact"]::after');
+    expect(workspaceStyles).toContain(
+      '[data-setta-workspace-touch-target="compact"]::after',
+    );
     expect(workspaceStyles).toContain("inline-size: 1.5rem");
     expect(workspaceStyles).toContain("inline-size: 2.75rem");
     expect(workspaceStyles).not.toMatch(
@@ -31,7 +43,9 @@ describe("workspace adaptive stylesheet contract", () => {
   });
 
   it("keeps the fixed-size minimap inside a narrow canvas without changing its ratio", () => {
-    expect(workspaceStyles).toContain("width: min(200px, max(0px, calc(100% - 30px)))");
+    expect(workspaceStyles).toContain(
+      "width: min(200px, max(0px, calc(100% - 30px)))",
+    );
     expect(workspaceStyles).toContain("aspect-ratio: 4 / 3");
     expect(workspaceStyles).toContain(".react-flow__minimap > svg");
   });
@@ -56,7 +70,9 @@ describe("workspace adaptive stylesheet contract", () => {
   });
 
   it("prepares section compositor layers before pan starts without a per-section state fanout", () => {
-    expect(workspaceStyles).toContain(".setta-workspace.react-flow:hover [data-section-id]");
+    expect(workspaceStyles).toContain(
+      ".setta-workspace.react-flow:hover [data-section-id]",
+    );
     expect(workspaceStyles).toContain(
       '.setta-workspace.react-flow[data-viewport-interaction-active="true"] [data-section-id]',
     );
@@ -69,14 +85,20 @@ describe("workspace adaptive stylesheet contract", () => {
   });
 
   it("keeps shell motion bounded and maps pane chrome to logical edges", () => {
-    expect(workspaceStyles).toContain('.setta-workspace-shell-pane[data-pane="leading"]');
+    expect(workspaceStyles).toContain(
+      '.setta-workspace-shell-pane[data-pane="leading"]',
+    );
     expect(workspaceStyles).toContain("inset-inline-start: 0");
     expect(workspaceStyles).toContain("inset-inline-end: 0");
     expect(workspaceStyles).toContain(':dir(rtl)[data-visible="false"]');
     expect(workspaceStyles).toContain("transition-property: transform");
     expect(workspaceStyles).not.toContain("transition: all");
-    expect(workspaceStyles).toMatch(/\.setta-workspace-shell-resize-handle\s*\{[^}]*width: 10px/su);
-    expect(workspaceStyles).not.toContain(".setta-workspace-shell-resize-handle::before");
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace-shell-resize-handle\s*\{[^}]*width: 10px/su,
+    );
+    expect(workspaceStyles).not.toContain(
+      ".setta-workspace-shell-resize-handle::before",
+    );
     expect(interactionPolicyStyles).toMatch(
       /\.setta-workspace-shell-pane-region\s*\{[^}]*position: absolute/su,
     );
@@ -86,9 +108,15 @@ describe("workspace adaptive stylesheet contract", () => {
   });
 
   it("keeps Outline paint compact inside logical, visible-focus tree geometry", () => {
-    expect(workspaceStyles).toMatch(/\.setta-workspace-outline-item\s*\{[^}]*min-height: 24px/su);
-    expect(workspaceStyles).toMatch(/\.setta-workspace-outline-row\s*\{[^}]*height: 20px/su);
-    expect(workspaceStyles).toContain("margin-inline-start: var(--setta-workspace-outline-depth)");
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace-outline-item\s*\{[^}]*min-height: 24px/su,
+    );
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace-outline-row\s*\{[^}]*height: 20px/su,
+    );
+    expect(workspaceStyles).toContain(
+      "margin-inline-start: var(--setta-workspace-outline-depth)",
+    );
     expect(workspaceStyles).toContain(
       ".setta-workspace-outline-item:focus-visible .setta-workspace-outline-row",
     );
@@ -150,13 +178,21 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(workspaceStyles).toMatch(
       /\.setta-workspace-menu\s*\{[^}]*width: clamp\(5rem, 20vw, 10rem\)/su,
     );
-    expect(workspaceStyles).toMatch(/\.setta-workspace-menu\s*\{[^}]*max-height: 40vh/su);
-    expect(workspaceStyles).toMatch(/\.setta-workspace-menu-item\s*\{[^}]*min-height: 24px/su);
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace-menu\s*\{[^}]*max-height: 40vh/su,
+    );
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace-menu-item\s*\{[^}]*min-height: 24px/su,
+    );
     expect(workspaceStyles).toMatch(
       /\.setta-workspace-menu-item::before\s*\{[^}]*height: 20\.8px/su,
     );
-    expect(workspaceStyles).toContain(".setta-workspace-menu-item:focus-visible");
+    expect(workspaceStyles).toContain(
+      ".setta-workspace-menu-item:focus-visible",
+    );
     expect(workspaceStyles).toContain("padding-inline: 20px 0");
-    expect(workspaceStyles).not.toMatch(/\.setta-workspace-menu[^}]*transition/su);
+    expect(workspaceStyles).not.toMatch(
+      /\.setta-workspace-menu[^}]*transition/su,
+    );
   });
 });

@@ -45,7 +45,8 @@ export function startCanvasViewportDocumentSync() {
     }),
     (newState, prevState) => {
       const autoFitTransition =
-        newState.fitViewOnInitDone && (newState.fitViewOnInit || prevState.fitViewOnInit);
+        newState.fitViewOnInitDone &&
+        (newState.fitViewOnInit || prevState.fitViewOnInit);
       if (autoFitTransition && newState.fitViewOnInit) {
         useReactFlow.setState({ fitViewOnInit: false });
         return;
@@ -87,7 +88,9 @@ export function armLoadedDocumentFitView(nextViewport: Viewport | null): void {
   });
 }
 
-export function applyLoadedDocumentViewport(nextViewport: Viewport | null): void {
+export function applyLoadedDocumentViewport(
+  nextViewport: Viewport | null,
+): void {
   if (nextViewport === null) {
     return;
   }
@@ -114,6 +117,10 @@ export function applyLoadedDocumentViewport(nextViewport: Viewport | null): void
     [0, 0],
     [width, height],
   ];
-  const constrainedTransform = runtime.d3Zoom.constrain()(nextTransform, extent, translateExtent);
+  const constrainedTransform = runtime.d3Zoom.constrain()(
+    nextTransform,
+    extent,
+    translateExtent,
+  );
   runtime.d3Zoom.transform(runtime.d3Selection, constrainedTransform);
 }

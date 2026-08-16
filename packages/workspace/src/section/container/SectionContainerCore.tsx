@@ -31,7 +31,9 @@ import { SectionContainerContent } from "./SectionContainerContent";
 // interactive roles on sections, so the package renders a visually identical `<div>`.
 export function SectionContainerCore({ sectionId }: { sectionId: string }) {
   const section = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId));
-  const isActiveSection = useActiveSections((x) => x.activeIds.includes(sectionId));
+  const isActiveSection = useActiveSections((x) =>
+    x.activeIds.includes(sectionId),
+  );
   const darkMode = useWorkspaceAppearance((x) => x.darkMode);
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isMetaControl = getMetaControlPresentation(section) !== null;
@@ -54,7 +56,10 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
   // keyboard activation on the shell itself for the repository's accessibility gate. A group
   // role preserves the semantics of the interactive header and body descendants.
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget && isWorkspaceMenuKeyboardEvent(event.nativeEvent)) {
+    if (
+      event.target === event.currentTarget &&
+      isWorkspaceMenuKeyboardEvent(event.nativeEvent)
+    ) {
       event.preventDefault();
       event.stopPropagation();
       openWorkspaceSectionMenu(
@@ -65,7 +70,10 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
       );
       return;
     }
-    if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+    if (
+      event.target === event.currentTarget &&
+      (event.key === "Enter" || event.key === " ")
+    ) {
       event.preventDefault();
       event.stopPropagation();
       applyActiveSectionChange({ interaction: "section-click", sectionId });
@@ -88,7 +96,6 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
 
   // This surface owns pointer and programmatic-focus activation without hiding its real controls.
   return (
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       className={`${sectionShellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
       onClick={getOnSectionClick(sectionId)}
@@ -105,7 +112,10 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
       data-section-active={isActiveSection ? "true" : "false"}
       style={sectionShellStyle}
     >
-      <SectionContainerContent section={section} hasSectionStyleTheme={hasSectionStyleTheme} />
+      <SectionContainerContent
+        section={section}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
     </div>
   );
 }

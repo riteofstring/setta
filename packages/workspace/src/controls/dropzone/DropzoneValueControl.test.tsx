@@ -12,7 +12,9 @@ import type {
   DropzoneValueControlProps,
 } from "./dropzoneTypes";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const SECTION_ID = "panel";
 const CONTROL_ID = "dropzone";
@@ -38,7 +40,8 @@ function makeDataTransfer({
 }): DataTransferStub {
   return {
     files: files as unknown as FileList,
-    getData: (format) => (format === "text/plain" || format === "text" ? text : ""),
+    getData: (format) =>
+      format === "text/plain" || format === "text" ? text : "",
     dropEffect: "none",
   };
 }
@@ -49,7 +52,10 @@ function dispatchDrag(
   dataTransfer: DataTransferStub,
 ): Event {
   const event = new Event(type, { bubbles: true, cancelable: true });
-  Object.defineProperty(event, "dataTransfer", { configurable: true, value: dataTransfer });
+  Object.defineProperty(event, "dataTransfer", {
+    configurable: true,
+    value: dataTransfer,
+  });
   target.dispatchEvent(event);
   return event;
 }
@@ -145,7 +151,9 @@ describe("DropzoneValueControl", () => {
     ]) {
       expect(target.classList.contains(className)).toBe(true);
     }
-    expect(target.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    expect(target.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
+      "true",
+    );
     const input = getFileInput();
     expect(input.id).toBe("panel-dropzone-DropzoneFileInput");
     expect(input.multiple).toBe(true);
@@ -171,7 +179,10 @@ describe("DropzoneValueControl", () => {
     });
     act(() => input.dispatchEvent(new Event("change", { bubbles: true })));
     expect(onAccepted).toHaveBeenCalledOnce();
-    expect(onAccepted).toHaveBeenCalledWith({ kind: "files", files: [accepted] });
+    expect(onAccepted).toHaveBeenCalledWith({
+      kind: "files",
+      files: [accepted],
+    });
     expect(onAccepted.mock.calls[0]?.[0].files[0]).toBe(accepted);
     expect(onRejected).toHaveBeenCalledWith([
       { kind: "file", file: wrongType, reason: "mime-type" },
@@ -214,7 +225,9 @@ describe("DropzoneValueControl", () => {
       dispatchDrag(target, "drop", makeDataTransfer({ text: "éééé" }));
     });
     expect(onAccepted).toHaveBeenCalledWith({ kind: "text", text: "hello" });
-    expect(onRejected).toHaveBeenCalledWith([{ kind: "text", text: "éééé", reason: "total-size" }]);
+    expect(onRejected).toHaveBeenCalledWith([
+      { kind: "text", text: "éééé", reason: "total-size" },
+    ]);
   });
 
   it("renders controlled attachment metadata and delegates removal by host identity", () => {
@@ -230,7 +243,9 @@ describe("DropzoneValueControl", () => {
     expect(list?.textContent).toContain("photo.png");
     expect(list?.textContent).toContain("1 KB");
     expect(list?.textContent).toContain("Dropped text");
-    const remove = host.querySelector<HTMLButtonElement>('button[aria-label="Delete photo.png"]');
+    const remove = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Delete photo.png"]',
+    );
     if (!remove) {
       throw new Error("The attachment removal action is not rendered.");
     }
@@ -243,8 +258,18 @@ describe("DropzoneValueControl", () => {
   });
 
   it("restores focus to the next attachment action and then the local-file action", () => {
-    const first = { id: "file-1", kind: "file" as const, name: "first.png", size: 1 };
-    const second = { id: "file-2", kind: "file" as const, name: "second.png", size: 1 };
+    const first = {
+      id: "file-1",
+      kind: "file" as const,
+      name: "first.png",
+      size: 1,
+    };
+    const second = {
+      id: "file-2",
+      kind: "file" as const,
+      name: "second.png",
+      size: 1,
+    };
     const onAttachmentRemove = vi.fn();
     mount({ attachments: [first, second], onAttachmentRemove });
     const firstDelete = host.querySelector<HTMLButtonElement>(
@@ -270,7 +295,9 @@ describe("DropzoneValueControl", () => {
     const onServerFilePickerRequest = vi.fn();
     mount({ onServerFilePickerRequest });
     act(() => getButton("Server file...").click());
-    expect(onServerFilePickerRequest).toHaveBeenCalledWith({ remainingSlots: 3 });
+    expect(onServerFilePickerRequest).toHaveBeenCalledWith({
+      remainingSlots: 3,
+    });
   });
 
   it("blocks new input when controlled attachments exhaust the count policy", () => {
@@ -289,7 +316,11 @@ describe("DropzoneValueControl", () => {
     act(() => getButton("Server file...").click());
     expect(onServerFilePickerRequest).not.toHaveBeenCalled();
     act(() => {
-      dispatchDrag(getDropTarget(), "drop", makeDataTransfer({ files: [makeFile("four.png", 1)] }));
+      dispatchDrag(
+        getDropTarget(),
+        "drop",
+        makeDataTransfer({ files: [makeFile("four.png", 1)] }),
+      );
     });
     expect(onAccepted).not.toHaveBeenCalled();
   });
@@ -307,13 +338,23 @@ describe("DropzoneValueControl", () => {
     });
     const target = getDropTarget();
     expect(target.getAttribute("aria-busy")).toBe("true");
-    expect(target.getAttribute("aria-describedby")).toBe("panel-dropzone-DropzoneError");
-    expect(host.querySelector('[role="status"]')?.textContent).toBe("Uploading attachments.");
-    expect(host.querySelector('[role="alert"]')?.textContent).toBe("Upload failed.");
+    expect(target.getAttribute("aria-describedby")).toBe(
+      "panel-dropzone-DropzoneError",
+    );
+    expect(host.querySelector('[role="status"]')?.textContent).toBe(
+      "Uploading attachments.",
+    );
+    expect(host.querySelector('[role="alert"]')?.textContent).toBe(
+      "Upload failed.",
+    );
     expect(getButton("Local file...").disabled).toBe(true);
     expect(getButton("Server file...").disabled).toBe(true);
     act(() => {
-      dispatchDrag(target, "drop", makeDataTransfer({ files: [makeFile("photo.png", 4)] }));
+      dispatchDrag(
+        target,
+        "drop",
+        makeDataTransfer({ files: [makeFile("photo.png", 4)] }),
+      );
     });
     expect(onAccepted).not.toHaveBeenCalled();
     expect(onRejected).not.toHaveBeenCalled();

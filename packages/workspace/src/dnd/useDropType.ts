@@ -12,7 +12,10 @@ import {
   isDescendantOfSectionSelection,
   orderSectionIdsByParent,
 } from "../document/sectionSelection";
-import { useWorkspaceDocument, type WorkspaceDocumentState } from "../document/stores";
+import {
+  useWorkspaceDocument,
+  type WorkspaceDocumentState,
+} from "../document/stores";
 import { useSectionRefs } from "../section/sectionRefs";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
@@ -81,7 +84,9 @@ function getCollisionTriggerDistCondition(
   }
 
   if (overId !== null) {
-    const matching = collisions.find((collision) => String(collision.id) === String(overId));
+    const matching = collisions.find(
+      (collision) => String(collision.id) === String(overId),
+    );
     if (matching && matching.triggerDistCondition !== undefined) {
       return Boolean(matching.triggerDistCondition);
     }
@@ -109,16 +114,15 @@ export function onDragStart({ active, activeRect }: DragStartEvent) {
   resetLastPastHalfwayByOverId();
   resetLastResolvedOverState();
   resetSortingOverState();
-  const activeData = active.data?.current as { isTopLevel?: boolean } | undefined;
+  const activeData = active.data?.current as
+    { isTopLevel?: boolean } | undefined;
   if (!activeData) {
     return;
   }
   const activeId = String(active.id);
   const dndState = useDndState.getState();
-  const { selection, normalizedWidth, normalizedHeight } = resolveDragStartLayout(
-    activeId,
-    activeRect ?? null,
-  );
+  const { selection, normalizedWidth, normalizedHeight } =
+    resolveDragStartLayout(activeId, activeRect ?? null);
   setActiveDnd(
     activeId,
     Boolean(activeData.isTopLevel),
@@ -216,7 +220,9 @@ function onDragOver({
     return;
   }
 
-  if (shouldThrottleRecentOver(calledFromOnDragMove, snapshot.overId, dndState)) {
+  if (
+    shouldThrottleRecentOver(calledFromOnDragMove, snapshot.overId, dndState)
+  ) {
     setNullBehavior(snapshot.overId);
     return;
   }
@@ -312,7 +318,10 @@ function leftDistBehavior({
   return true;
 }
 
-function resolveDragStartLayout(activeId: string, activeRect: DragStartEvent["activeRect"] | null) {
+function resolveDragStartLayout(
+  activeId: string,
+  activeRect: DragStartEvent["activeRect"] | null,
+) {
   const selection = resolveSectionDragSelection(activeId, activeRect);
   const safeZoom = resolveSafeZoom();
   const placeholderSize = resolveSectionPlaceholderSize({
@@ -323,8 +332,10 @@ function resolveDragStartLayout(activeId: string, activeRect: DragStartEvent["ac
 
   return {
     selection,
-    normalizedWidth: placeholderSize?.width ?? (activeRect?.width ?? 0) / safeZoom,
-    normalizedHeight: placeholderSize?.height ?? (activeRect?.height ?? 0) / safeZoom,
+    normalizedWidth:
+      placeholderSize?.width ?? (activeRect?.width ?? 0) / safeZoom,
+    normalizedHeight:
+      placeholderSize?.height ?? (activeRect?.height ?? 0) / safeZoom,
   };
 }
 
@@ -353,7 +364,10 @@ function scheduleTempReplacement(
 
 function shouldReplaceDndSectionsWithTemp(activeId: string) {
   const latestState = useDndState.getState();
-  return (latestState.isMovingFree || latestState.isSorting) && latestState.activeId === activeId;
+  return (
+    (latestState.isMovingFree || latestState.isSorting) &&
+    latestState.activeId === activeId
+  );
 }
 
 function resolveDragMoveUpdate({
@@ -386,7 +400,8 @@ function resolveDragMoveTarget(
     overCandidateId: overCandidate ? String(overCandidate.id) : null,
     resolvedOverIdKey: normalizeOverId(resolvedOverId),
     pastHalfway: getOverCollisionPastHalfway(resolvedOverId, collisions),
-    triggerDistCondition: getCollisionTriggerDistCondition(resolvedOverId, collisions) ?? false,
+    triggerDistCondition:
+      getCollisionTriggerDistCondition(resolvedOverId, collisions) ?? false,
   };
 }
 
@@ -394,12 +409,16 @@ function resolveDragMoveChangeState(
   resolvedTarget: ReturnType<typeof resolveDragMoveTarget>,
   dndState: DndStoreState,
 ) {
-  const lastPastHalfway = getCachedPastHalfway(resolvedTarget.resolvedOverIdKey);
-  const triggerDistChanged = resolvedTarget.triggerDistCondition !== dndState.triggerDistCondition;
+  const lastPastHalfway = getCachedPastHalfway(
+    resolvedTarget.resolvedOverIdKey,
+  );
+  const triggerDistChanged =
+    resolvedTarget.triggerDistCondition !== dndState.triggerDistCondition;
 
   return {
     triggerDistChanged,
-    overIdChanged: resolvedTarget.resolvedOverIdKey !== normalizeOverId(dndState.overId),
+    overIdChanged:
+      resolvedTarget.resolvedOverIdKey !== normalizeOverId(dndState.overId),
     shouldUpdateForTrigger: shouldUpdateDragMoveTrigger({
       currentOverId: dndState.overId,
       overCandidateId: resolvedTarget.overCandidateId,
@@ -423,7 +442,11 @@ function shouldUpdateDragMoveTrigger({
   overCandidateId: string | null;
   triggerDistChanged: boolean;
 }) {
-  return triggerDistChanged && overCandidateId !== null && overCandidateId === currentOverId;
+  return (
+    triggerDistChanged &&
+    overCandidateId !== null &&
+    overCandidateId === currentOverId
+  );
 }
 
 function shouldUpdatePastHalfwayChange({
@@ -445,8 +468,14 @@ function shouldUpdatePastHalfwayChange({
   );
 }
 
-function shouldRunDragOverFromMove(update: ReturnType<typeof resolveDragMoveUpdate>) {
-  return update.shouldUpdateForTrigger || update.shouldUpdateForPastHalfway || update.overIdChanged;
+function shouldRunDragOverFromMove(
+  update: ReturnType<typeof resolveDragMoveUpdate>,
+) {
+  return (
+    update.shouldUpdateForTrigger ||
+    update.shouldUpdateForPastHalfway ||
+    update.overIdChanged
+  );
 }
 
 function normalizeOverId(overId: string | number | null) {
@@ -463,7 +492,10 @@ function getCachedPastHalfway(overIdKey: string | null) {
   return lastPastHalfwayByOverId[overIdKey] ?? null;
 }
 
-function cachePastHalfway(overIdKey: string | null, pastHalfway: boolean | null) {
+function cachePastHalfway(
+  overIdKey: string | null,
+  pastHalfway: boolean | null,
+) {
   if (overIdKey === null || pastHalfway === null) {
     return;
   }
@@ -586,10 +618,17 @@ function shouldThrottleRecentOver(
   overId: string | number | null,
   dndState: DndStoreState,
 ) {
-  return !calledFromOnDragMove && overId !== null && getTimeDiff(dndState, overId) < 100;
+  return (
+    !calledFromOnDragMove &&
+    overId !== null &&
+    getTimeDiff(dndState, overId) < 100
+  );
 }
 
-function handleNullOrSelfOver(overId: string | number | null, dndSectionId: string) {
+function handleNullOrSelfOver(
+  overId: string | number | null,
+  dndSectionId: string,
+) {
   if (overId === null) {
     removeDndChild(dndSectionId);
     setNullBehavior(null);
@@ -621,13 +660,20 @@ function resolveParentMoveContext({
     overId,
     overIdKey: normalizeOverId(overId),
     newParentChildren,
-    newParentNumChildren: getSectionChildren(useWorkspaceDocument.getState(), newParentId).length,
+    newParentNumChildren: getSectionChildren(
+      useWorkspaceDocument.getState(),
+      newParentId,
+    ).length,
     pastHalfway: getOverCollisionPastHalfway(overId, collisions) ?? false,
     tempInNewParent: newParentChildren.includes(dndSectionId),
   };
 }
 
-function shouldRejectParentExitHover({ overIdKey, oldParentId, newParentId }: ParentMoveContext) {
+function shouldRejectParentExitHover({
+  overIdKey,
+  oldParentId,
+  newParentId,
+}: ParentMoveContext) {
   return (
     overIdKey !== null &&
     oldParentId !== null &&
@@ -636,7 +682,12 @@ function shouldRejectParentExitHover({ overIdKey, oldParentId, newParentId }: Pa
   );
 }
 
-function allowParentDrop({ activeId, dndSectionId, newParentId, overId }: ParentMoveContext) {
+function allowParentDrop({
+  activeId,
+  dndSectionId,
+  newParentId,
+  overId,
+}: ParentMoveContext) {
   const behaviorDropType = getBehaviorDropType(activeId, newParentId);
   if (behaviorDropType !== BehaviorDropTypeEnum.INVALID) {
     return true;
@@ -656,7 +707,8 @@ function restoreOnlyChildToParent({
 }: ParentMoveContext) {
   if (
     newParentNumChildren !== 1 ||
-    (useWorkspaceDocument.getState().parentSectionMap[activeId] ?? null) !== newParentId
+    (useWorkspaceDocument.getState().parentSectionMap[activeId] ?? null) !==
+      newParentId
   ) {
     return false;
   }
@@ -680,7 +732,9 @@ function shouldSuppressContainerHover({
 
 function moveTempSectionToParent(context: ParentMoveContext) {
   const overIndex =
-    context.overIdKey === null ? -1 : context.newParentChildren.indexOf(context.overIdKey);
+    context.overIdKey === null
+      ? -1
+      : context.newParentChildren.indexOf(context.overIdKey);
   if (context.newParentId !== context.oldParentId) {
     addDndChild(
       context.oldParentId,
@@ -693,7 +747,10 @@ function moveTempSectionToParent(context: ParentMoveContext) {
   maybeReorderWithinParent(context, overIndex);
 }
 
-function resolveParentInsertionIndex(context: ParentMoveContext, overIndex: number) {
+function resolveParentInsertionIndex(
+  context: ParentMoveContext,
+  overIndex: number,
+) {
   if (overIndex >= 0) {
     return context.pastHalfway ? overIndex + 1 : overIndex;
   }
@@ -708,7 +765,11 @@ function shouldInsertAtParentBoundary({
   newParentId,
   newParentChildren,
 }: ParentMoveContext) {
-  return overId !== null && String(overId) === newParentId && newParentChildren.length > 0;
+  return (
+    overId !== null &&
+    String(overId) === newParentId &&
+    newParentChildren.length > 0
+  );
 }
 
 function maybeReorderWithinParent(
@@ -727,7 +788,12 @@ function maybeReorderWithinParent(
     return;
   }
 
-  const nextIndex = computeNewIndex(activeIndex, overIndex, pastHalfway, newParentChildren.length);
+  const nextIndex = computeNewIndex(
+    activeIndex,
+    overIndex,
+    pastHalfway,
+    newParentChildren.length,
+  );
   if (nextIndex !== activeIndex) {
     addDndChild(oldParentId, newParentId, dndSectionId, nextIndex);
   }
@@ -736,7 +802,10 @@ function maybeReorderWithinParent(
 function setNullBehavior(overId: string | number | null) {
   const normalizedOverId = normalizeOverId(overId);
   const dndState = useDndState.getState();
-  if (dndState.behaviorDropType === null && dndState.overId === normalizedOverId) {
+  if (
+    dndState.behaviorDropType === null &&
+    dndState.overId === normalizedOverId
+  ) {
     return;
   }
 
@@ -761,7 +830,9 @@ export function getBehaviorDropType(activeId: string, newParentId: string) {
   if (!isGroupSection(getSectionOrThrow(state, newParentId))) {
     return BehaviorDropTypeEnum.INVALID;
   }
-  if (isDescendantOfSectionSelection(state, newParentId, new Set(selectedIds))) {
+  if (
+    isDescendantOfSectionSelection(state, newParentId, new Set(selectedIds))
+  ) {
     return BehaviorDropTypeEnum.INVALID;
   }
 
@@ -838,7 +909,10 @@ function resolveSectionPlaceholderSize({
   }
 
   const state = useWorkspaceDocument.getState();
-  const { indexById, orientation } = resolvePlaceholderLayout(state, draggingIds);
+  const { indexById, orientation } = resolvePlaceholderLayout(
+    state,
+    draggingIds,
+  );
   const size = accumulateSectionSizes({
     draggingIds,
     rectsById,
@@ -849,7 +923,10 @@ function resolveSectionPlaceholderSize({
   return scalePlaceholderSize(size, zoom);
 }
 
-function resolvePlaceholderLayout(state: WorkspaceDocumentState, draggingIds: Array<string>) {
+function resolvePlaceholderLayout(
+  state: WorkspaceDocumentState,
+  draggingIds: Array<string>,
+) {
   const parentId = resolvePlaceholderParentId(state, draggingIds);
   const children = parentId ? getSectionChildren(state, parentId) : null;
   return {
@@ -858,11 +935,16 @@ function resolvePlaceholderLayout(state: WorkspaceDocumentState, draggingIds: Ar
   };
 }
 
-function resolvePlaceholderParentId(state: WorkspaceDocumentState, draggingIds: Array<string>) {
+function resolvePlaceholderParentId(
+  state: WorkspaceDocumentState,
+  draggingIds: Array<string>,
+) {
   const firstDraggingId = draggingIds[0];
   return (
     getSharedParentId(state, draggingIds) ??
-    (firstDraggingId !== undefined ? (state.parentSectionMap[firstDraggingId] ?? null) : null)
+    (firstDraggingId !== undefined
+      ? (state.parentSectionMap[firstDraggingId] ?? null)
+      : null)
   );
 }
 
@@ -870,7 +952,10 @@ function buildChildIndexMap(children: Array<string>) {
   return new Map(children.map((childId, index) => [childId, index]));
 }
 
-function scalePlaceholderSize(size: PlaceholderSize, zoom: number): PlaceholderSize | null {
+function scalePlaceholderSize(
+  size: PlaceholderSize,
+  zoom: number,
+): PlaceholderSize | null {
   if (size.width <= 0 || size.height <= 0) {
     return null;
   }
@@ -1022,7 +1107,11 @@ function resolveAdjacentGap({
   }
   const currentIndex = indexById.get(currentId);
   const nextIndex = indexById.get(nextId);
-  if (currentIndex === undefined || nextIndex === undefined || nextIndex !== currentIndex + 1) {
+  if (
+    currentIndex === undefined ||
+    nextIndex === undefined ||
+    nextIndex !== currentIndex + 1
+  ) {
     return 0;
   }
 
@@ -1061,7 +1150,11 @@ function resolveSectionDragSelection(
     return buildSectionSelection([activeId], activeId, activeRect);
   }
 
-  const orderedIds = orderSectionIdsByParent(state, sharedParentId ?? null, rootIds);
+  const orderedIds = orderSectionIdsByParent(
+    state,
+    sharedParentId ?? null,
+    rootIds,
+  );
   return buildSectionSelection(orderedIds, activeId, activeRect);
 }
 

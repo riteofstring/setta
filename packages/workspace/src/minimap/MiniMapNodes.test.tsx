@@ -5,7 +5,11 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { useNodeInternals, useWorkspaceAppearance, useWorkspaceDocument } from "../document/stores";
+import {
+  useNodeInternals,
+  useWorkspaceAppearance,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { Node, WorkspaceSection } from "../document/types";
 import {
   areMiniMapNodesRenderableInputsEqual,
@@ -20,9 +24,13 @@ import type { MiniMapNodeProps } from "./types";
 // feature, and the dark-mode case freezes the reactive appearance dependency the reference
 // exercises through its localStorage store.
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
-function createSection(overrides: Partial<WorkspaceSection> & { id: string }): WorkspaceSection {
+function createSection(
+  overrides: Partial<WorkspaceSection> & { id: string },
+): WorkspaceSection {
   return {
     kind: "note",
     name: overrides.id,
@@ -75,7 +83,12 @@ describe("MiniMapNodes", () => {
   it("renders stable node ids for imperative selection syncing", () => {
     const nodes: Array<Node> = [
       createMiniMapNode({ id: "section-a" }),
-      createMiniMapNode({ id: "section-b", position: { x: 180, y: 40 }, width: 120, height: 90 }),
+      createMiniMapNode({
+        id: "section-b",
+        position: { x: 180, y: 40 },
+        width: 120,
+        height: 90,
+      }),
     ];
 
     const markup = renderToStaticMarkup(
@@ -103,7 +116,13 @@ describe("MiniMapNodes", () => {
   it("re-renders fill when only node style changes", async () => {
     useNodeInternals.setState({
       x: new Map([
-        ["section-a", createMiniMapNode({ id: "section-a", style: { background: "#111111" } })],
+        [
+          "section-a",
+          createMiniMapNode({
+            id: "section-a",
+            style: { background: "#111111" },
+          }),
+        ],
       ]),
     });
     const rendered = await renderReactiveMiniMap(
@@ -113,17 +132,27 @@ describe("MiniMapNodes", () => {
     );
 
     try {
-      expect(rendered.getRect("section-a")?.getAttribute("fill")).toBe("#111111");
+      expect(rendered.getRect("section-a")?.getAttribute("fill")).toBe(
+        "#111111",
+      );
 
       await act(async () => {
         useNodeInternals.setState({
           x: new Map([
-            ["section-a", createMiniMapNode({ id: "section-a", style: { background: "#ff0000" } })],
+            [
+              "section-a",
+              createMiniMapNode({
+                id: "section-a",
+                style: { background: "#ff0000" },
+              }),
+            ],
           ]),
         });
       });
 
-      expect(rendered.getRect("section-a")?.getAttribute("fill")).toBe("#ff0000");
+      expect(rendered.getRect("section-a")?.getAttribute("fill")).toBe(
+        "#ff0000",
+      );
     } finally {
       await rendered.dispose();
     }
@@ -131,24 +160,34 @@ describe("MiniMapNodes", () => {
 
   it("re-renders stroke when only the node kind changes", async () => {
     useNodeInternals.setState({
-      x: new Map([["section-a", createMiniMapNode({ id: "section-a", kind: "note" })]]),
+      x: new Map([
+        ["section-a", createMiniMapNode({ id: "section-a", kind: "note" })],
+      ]),
     });
     const rendered = await renderReactiveMiniMap(
       <MiniMapNodesReactive
-        nodeStrokeColor={(node) => (node.kind === "card" ? "#0041d0" : "#e2e8f0")}
+        nodeStrokeColor={(node) =>
+          node.kind === "card" ? "#0041d0" : "#e2e8f0"
+        }
       />,
     );
 
     try {
-      expect(rendered.getRect("section-a")?.getAttribute("stroke")).toBe("#e2e8f0");
+      expect(rendered.getRect("section-a")?.getAttribute("stroke")).toBe(
+        "#e2e8f0",
+      );
 
       await act(async () => {
         useNodeInternals.setState({
-          x: new Map([["section-a", createMiniMapNode({ id: "section-a", kind: "card" })]]),
+          x: new Map([
+            ["section-a", createMiniMapNode({ id: "section-a", kind: "card" })],
+          ]),
         });
       });
 
-      expect(rendered.getRect("section-a")?.getAttribute("stroke")).toBe("#0041d0");
+      expect(rendered.getRect("section-a")?.getAttribute("stroke")).toBe(
+        "#0041d0",
+      );
     } finally {
       await rendered.dispose();
     }
@@ -160,7 +199,9 @@ describe("MiniMapNodes", () => {
     });
     useWorkspaceDocument.setState({
       sections: { "section-a": createSection({ id: "section-a" }) },
-      topLevelSections: { "section-a": { x: 10, y: 20, w: 100, h: 80, zIndex: 0 } },
+      topLevelSections: {
+        "section-a": { x: 10, y: 20, w: 100, h: 80, zIndex: 0 },
+      },
       parentSectionMap: {},
     });
     const rendered = await renderReactiveMiniMap(
@@ -170,17 +211,24 @@ describe("MiniMapNodes", () => {
     );
 
     try {
-      expect(rendered.getRect("section-a")?.getAttribute("fill")).toBe("#000000");
+      expect(rendered.getRect("section-a")?.getAttribute("fill")).toBe(
+        "#000000",
+      );
 
       await act(async () => {
         useWorkspaceDocument.setState({
           sections: {
-            "section-a": createSection({ id: "section-a", styleColor: "#ff0000" }),
+            "section-a": createSection({
+              id: "section-a",
+              styleColor: "#ff0000",
+            }),
           },
         });
       });
 
-      expect(rendered.getRect("section-a")?.getAttribute("fill")).toBe("#ffe0e0");
+      expect(rendered.getRect("section-a")?.getAttribute("fill")).toBe(
+        "#ffe0e0",
+      );
     } finally {
       await rendered.dispose();
     }
@@ -191,8 +239,12 @@ describe("MiniMapNodes", () => {
       x: new Map([["section-a", createMiniMapNode({ id: "section-a" })]]),
     });
     useWorkspaceDocument.setState({
-      sections: { "section-a": createSection({ id: "section-a", styleColor: "#ff0000" }) },
-      topLevelSections: { "section-a": { x: 10, y: 20, w: 100, h: 80, zIndex: 0 } },
+      sections: {
+        "section-a": createSection({ id: "section-a", styleColor: "#ff0000" }),
+      },
+      topLevelSections: {
+        "section-a": { x: 10, y: 20, w: 100, h: 80, zIndex: 0 },
+      },
       parentSectionMap: {},
     });
     const rendered = await renderReactiveMiniMap(
@@ -202,13 +254,17 @@ describe("MiniMapNodes", () => {
     );
 
     try {
-      expect(rendered.getRect("section-a")?.getAttribute("fill")).toBe("#ffe0e0");
+      expect(rendered.getRect("section-a")?.getAttribute("fill")).toBe(
+        "#ffe0e0",
+      );
 
       await act(async () => {
         useWorkspaceAppearance.setState({ darkMode: true });
       });
 
-      expect(rendered.getRect("section-a")?.getAttribute("fill")).toBe("#2e0000");
+      expect(rendered.getRect("section-a")?.getAttribute("fill")).toBe(
+        "#2e0000",
+      );
     } finally {
       await rendered.dispose();
     }
@@ -274,6 +330,8 @@ async function renderReactiveMiniMap(element: JSX.Element): Promise<{
       host.remove();
     },
     getRect: (sectionId: string) =>
-      host.querySelector<SVGRectElement>(`[data-minimap-node-id="${sectionId}"]`),
+      host.querySelector<SVGRectElement>(
+        `[data-minimap-node-id="${sectionId}"]`,
+      ),
   };
 }

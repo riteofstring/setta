@@ -51,15 +51,24 @@ export function placeWorkspaceMenu({
     throw new Error("Workspace menu measured size must be positive.");
   }
   if (viewportWidth <= 0 || viewportHeight <= topBoundary) {
-    throw new Error("Workspace menu viewport must contain a positive placement area.");
+    throw new Error(
+      "Workspace menu viewport must contain a positive placement area.",
+    );
   }
 
   const openingLeft =
-    invocation.x + menuWidth > viewportWidth ? invocation.x - menuWidth : invocation.x;
+    invocation.x + menuWidth > viewportWidth
+      ? invocation.x - menuWidth
+      : invocation.x;
   const openingTop =
-    invocation.y + menuHeight > viewportHeight ? invocation.y - menuHeight : invocation.y;
+    invocation.y + menuHeight > viewportHeight
+      ? invocation.y - menuHeight
+      : invocation.y;
   return {
-    x: Math.min(Math.max(0, openingLeft), Math.max(0, viewportWidth - menuWidth)),
+    x: Math.min(
+      Math.max(0, openingLeft),
+      Math.max(0, viewportWidth - menuWidth),
+    ),
     y: Math.min(
       Math.max(topBoundary, openingTop),
       Math.max(topBoundary, viewportHeight - menuHeight),
@@ -72,7 +81,9 @@ export function getKeyboardWorkspaceMenuPoint(
   direction: "ltr" | "rtl",
 ): WorkspaceMenuClientPoint {
   if (rect.width <= 0 || rect.height <= 0) {
-    throw new Error("Workspace menu keyboard owner must have positive geometry.");
+    throw new Error(
+      "Workspace menu keyboard owner must have positive geometry.",
+    );
   }
   const inlineInset = Math.min(12, rect.width / 2);
   const blockInset = Math.min(24, rect.height / 2);
@@ -88,7 +99,9 @@ export function clientPointToWorkspacePosition(
   viewport: Viewport,
 ): Position {
   if (!Number.isFinite(viewport.zoom) || viewport.zoom <= 0) {
-    throw new Error("Workspace menu cannot convert a point with a non-positive viewport zoom.");
+    throw new Error(
+      "Workspace menu cannot convert a point with a non-positive viewport zoom.",
+    );
   }
   for (const [role, value] of Object.entries({
     "client x": point.x,

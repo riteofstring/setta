@@ -1,6 +1,9 @@
 import _ from "lodash";
 import { useWorkspaceCapabilities } from "../../document/capabilities";
-import { getSectionOrThrow, isGroupSection } from "../../document/documentSelectors";
+import {
+  getSectionOrThrow,
+  isGroupSection,
+} from "../../document/documentSelectors";
 import { togglePositionLock } from "../../document/sectionMutations";
 import { useWorkspaceDocument } from "../../document/stores";
 import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
@@ -22,11 +25,16 @@ type LockPositionButtonProps = {
 function getIconSizeClassName({
   isGroup,
   positionAndSizeLocked,
-}: Pick<LockPositionButtonStyleState, "isGroup" | "positionAndSizeLocked">): string {
+}: Pick<
+  LockPositionButtonStyleState,
+  "isGroup" | "positionAndSizeLocked"
+>): string {
   if (!isGroup) {
     return "[&>i]:!scale-[.4]";
   }
-  return positionAndSizeLocked ? "[&>i]:!-mt-[6px]" : "[&>i]:!scale-50 [&>i]:!-mt-[9px]";
+  return positionAndSizeLocked
+    ? "[&>i]:!-mt-[6px]"
+    : "[&>i]:!scale-50 [&>i]:!-mt-[9px]";
 }
 
 function getToneClassNames({
@@ -41,13 +49,16 @@ function getToneClassNames({
     return positionAndSizeLocked
       ? {
           backgroundClassName: "bg-[color:var(--setta-section-style-bg)]",
-          focusRingClassName: "focus-visible:ring-[var(--setta-section-style-outline)]",
+          focusRingClassName:
+            "focus-visible:ring-[var(--setta-section-style-outline)]",
           hoverClassName: "",
           textClassName: "text-[color:var(--setta-section-style-outline)]",
         }
       : {
-          backgroundClassName: "bg-transparent hover:bg-[color:var(--setta-section-style-bg)]",
-          focusRingClassName: "focus-visible:ring-[var(--setta-section-style-outline)]",
+          backgroundClassName:
+            "bg-transparent hover:bg-[color:var(--setta-section-style-bg)]",
+          focusRingClassName:
+            "focus-visible:ring-[var(--setta-section-style-outline)]",
           hoverClassName: "",
           textClassName:
             "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)]",
@@ -67,13 +78,19 @@ function getToneClassNames({
     backgroundClassName: "bg-transparent",
     focusRingClassName: "",
     hoverClassName: "hover:text-orange-500 dark:hover:text-orange-700",
-    textClassName: isGroup ? "text-setta-400 dark:text-setta-600" : "text-setta-600",
+    textClassName: isGroup
+      ? "text-setta-400 dark:text-setta-600"
+      : "text-setta-600",
   };
 }
 
 function getButtonClassName(styleState: LockPositionButtonStyleState): string {
-  const { backgroundClassName, focusRingClassName, hoverClassName, textClassName } =
-    getToneClassNames(styleState);
+  const {
+    backgroundClassName,
+    focusRingClassName,
+    hoverClassName,
+    textClassName,
+  } = getToneClassNames(styleState);
   const sizeClassName = styleState.isGroup ? "h-5 w-5" : "h-4 w-4";
   return [
     "nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2",
@@ -103,7 +120,9 @@ export function LockPositionButton({
   }, _.isEqual);
   const canEditLayout = useWorkspaceCapabilities((x) => x.canEditLayout);
   const iconClassName = positionAndSizeLocked ? "gg-lock" : "gg-lock-unlock";
-  const label = positionAndSizeLocked ? "Unlock position and size" : "Lock position and size";
+  const label = positionAndSizeLocked
+    ? "Unlock position and size"
+    : "Lock position and size";
   const buttonClassName = getButtonClassName({
     canEditLayout,
     hasSectionStyleTheme,

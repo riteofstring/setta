@@ -21,9 +21,19 @@ type FitViewRuntime = {
 
 const DEFAULT_FIT_VIEW_PADDING = 0.1;
 
-function getFitViewRuntime(state: ReactFlowState, initial: boolean): FitViewRuntime | null {
-  const { width, height, viewportInsets, d3Zoom, d3Selection, fitViewOnInitDone, fitViewOnInit } =
-    state;
+function getFitViewRuntime(
+  state: ReactFlowState,
+  initial: boolean,
+): FitViewRuntime | null {
+  const {
+    width,
+    height,
+    viewportInsets,
+    d3Zoom,
+    d3Selection,
+    fitViewOnInitDone,
+    fitViewOnInit,
+  } = state;
 
   if (!d3Zoom || !d3Selection) {
     return null;
@@ -72,11 +82,16 @@ function applyFitViewTransform(
   viewport: ReturnType<typeof getViewportForBounds>,
   duration?: number,
 ) {
-  const nextTransform = zoomIdentity.translate(viewport.x, viewport.y).scale(viewport.zoom);
+  const nextTransform = zoomIdentity
+    .translate(viewport.x, viewport.y)
+    .scale(viewport.zoom);
   const resolvedDuration = resolveWorkspaceMotionDuration(duration ?? 0);
 
   if (resolvedDuration > 0) {
-    runtime.d3Zoom.transform(getD3Transition(runtime.d3Selection, resolvedDuration), nextTransform);
+    runtime.d3Zoom.transform(
+      getD3Transition(runtime.d3Selection, resolvedDuration),
+      nextTransform,
+    );
     return;
   }
 
@@ -125,7 +140,10 @@ export function onFitViewHandler(): boolean {
   // If it gets set before the transform is done, then the
   // canvas viewport document-sync subscription will get
   // triggered and it will reset to fitViewOnInit
-  setTimeout(() => useReactFlow.setState({ fitViewOnInit: true }), duration + 10);
+  setTimeout(
+    () => useReactFlow.setState({ fitViewOnInit: true }),
+    duration + 10,
+  );
   return fitted;
 }
 

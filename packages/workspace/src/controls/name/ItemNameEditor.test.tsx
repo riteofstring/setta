@@ -14,7 +14,9 @@ import {
 import { useSectionRefs } from "../../section/sectionRefs";
 import { ItemNameEditor, type ItemNameEditorProps } from "./ItemNameEditor";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // Freezes the package name seam against the reference `ParamNameInput`: green highlighted idle
 // layer, single-line live CodeMirror swap, proposed-name reporting, key-column geometry, exact
@@ -25,7 +27,8 @@ const ITEM_ID = "item-rename";
 const DUMMY_ID = `ItemNameInput-${SECTION_ID}-${ITEM_ID}`;
 const LIVE_ID = `CodeMirror-${SECTION_ID}-${ITEM_ID}-keyName`;
 const ERROR_ID = `ItemNameError-${SECTION_ID}-${ITEM_ID}`;
-const DUPLICATE_ERROR = 'Param name "enabled" already exists under this parent.';
+const DUPLICATE_ERROR =
+  'Param name "enabled" already exists under this parent.';
 
 describe("ItemNameEditor", () => {
   let sectionSurface: HTMLElement;
@@ -80,7 +83,12 @@ describe("ItemNameEditor", () => {
   async function activate() {
     await act(async () => {
       getDummy().dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, button: 0, clientX: 5, clientY: 5 }),
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          button: 0,
+          clientX: 5,
+          clientY: 5,
+        }),
       );
     });
   }
@@ -114,27 +122,41 @@ describe("ItemNameEditor", () => {
     ]) {
       expect(dummy.classList.contains(expectedClass)).toBe(true);
     }
-    const stack = host.querySelector<HTMLElement>('[data-item-name-layer-stack="true"]');
+    const stack = host.querySelector<HTMLElement>(
+      '[data-item-name-layer-stack="true"]',
+    );
     expect(stack?.classList.contains("section-key")).toBe(true);
     expect(stack?.classList.contains("single-cell-container")).toBe(true);
     expect(dummy.querySelector(".cm-line span")?.className).toMatch(/ͼ/);
-    const underline = stack?.querySelector<HTMLElement>("span.single-cell-child");
-    expect(underline?.classList.contains("peer-focus-within/nameinput:border-blue-400")).toBe(true);
+    const underline = stack?.querySelector<HTMLElement>(
+      "span.single-cell-child",
+    );
+    expect(
+      underline?.classList.contains(
+        "peer-focus-within/nameinput:border-blue-400",
+      ),
+    ).toBe(true);
     expect(underline?.classList.contains("border-red-400")).toBe(false);
   });
 
   it("uses the reference spanning placement for names with children", async () => {
     await mount({ hasChildren: true });
     const dummy = getDummy();
-    const stack = host.querySelector<HTMLElement>('[data-item-name-layer-stack="true"]');
+    const stack = host.querySelector<HTMLElement>(
+      '[data-item-name-layer-stack="true"]',
+    );
     expect(stack?.classList.contains("section-key-value")).toBe(true);
     expect(stack?.classList.contains("grid-row-start-1")).toBe(true);
     expect(dummy.classList.contains("px-[2px]")).toBe(true);
-    const underline = stack?.querySelector<HTMLElement>("span.single-cell-child");
+    const underline = stack?.querySelector<HTMLElement>(
+      "span.single-cell-child",
+    );
     expect(underline?.classList.contains("mx-[2px]")).toBe(true);
 
     await activate();
-    expect(host.querySelector('[data-item-name-layer-stack="true"]')).toBe(stack);
+    expect(host.querySelector('[data-item-name-layer-stack="true"]')).toBe(
+      stack,
+    );
     expect(document.getElementById(LIVE_ID)?.parentElement).toBe(stack);
   });
 
@@ -149,12 +171,16 @@ describe("ItemNameEditor", () => {
     expect(view.contentDOM.tabIndex).toBe(-1);
     expect(useActiveSections.getState().activeIds).toEqual([SECTION_ID]);
     await act(async () => {
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "renamed" } });
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: "renamed" },
+      });
     });
     expect(onNameChange).toHaveBeenCalledTimes(1);
     expect(onNameChange).toHaveBeenLastCalledWith("renamed");
     await act(async () => {
-      view.dispatch({ changes: { from: view.state.doc.length, insert: "\nsecond-line" } });
+      view.dispatch({
+        changes: { from: view.state.doc.length, insert: "\nsecond-line" },
+      });
     });
     expect(view.state.doc.lines).toBe(1);
     expect(onNameChange).toHaveBeenCalledTimes(1);
@@ -176,7 +202,11 @@ describe("ItemNameEditor", () => {
     const dummy = getDummy();
     expect(dummy.getAttribute("aria-invalid")).toBe("true");
     expect(dummy.getAttribute("aria-describedby")).toBe(ERROR_ID);
-    for (const errorClass of ["text-red-500", "dark:text-red-300", "border-red-400"]) {
+    for (const errorClass of [
+      "text-red-500",
+      "dark:text-red-300",
+      "border-red-400",
+    ]) {
       expect(dummy.classList.contains(errorClass)).toBe(true);
     }
     const underline = host.querySelector<HTMLElement>(
@@ -221,8 +251,12 @@ describe("ItemNameEditor", () => {
     expect(liveView.state.doc.toString()).toBe("enabled");
     expect(liveView.contentDOM.getAttribute("aria-invalid")).toBe("true");
     expect(liveView.contentDOM.getAttribute("aria-describedby")).toBe(ERROR_ID);
-    expect(document.getElementById(ERROR_ID)?.textContent).toBe(DUPLICATE_ERROR);
-    expect(document.getElementById(LIVE_ID)?.classList.contains("text-red-500")).toBe(true);
+    expect(document.getElementById(ERROR_ID)?.textContent).toBe(
+      DUPLICATE_ERROR,
+    );
+    expect(
+      document.getElementById(LIVE_ID)?.classList.contains("text-red-500"),
+    ).toBe(true);
   });
 
   it("returns focus to the section and notifies the host on blur after Escape", async () => {

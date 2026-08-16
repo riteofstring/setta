@@ -1,9 +1,15 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME } from "../../interaction";
-import { getElementTextDirection, type WorkspaceTextDirection } from "../../styles/textDirection";
+import {
+  getElementTextDirection,
+  type WorkspaceTextDirection,
+} from "../../styles/textDirection";
 import { ControlPopover } from "../popover/ControlPopover";
-import { focusSectionAfterEscape, handleSectionControlEscape } from "../sectionFocus";
+import {
+  focusSectionAfterEscape,
+  handleSectionControlEscape,
+} from "../sectionFocus";
 
 // The item-controls milestone's color picker: the reference `ColorPickerInput` at the `ParamUI`
 // color presentation. With host-supplied choices it renders the recorded trigger — the rounded
@@ -48,7 +54,8 @@ const MENU_CONTENT_CLASS_NAME =
   "z-50 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800";
 const MENU_ITEM_CLASS_NAME =
   "flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700";
-const MENU_ITEM_TEXT_CLASS_NAME = "max-w-48 truncate text-xs text-setta-500 dark:text-setta-300";
+const MENU_ITEM_TEXT_CLASS_NAME =
+  "max-w-48 truncate text-xs text-setta-500 dark:text-setta-300";
 // The package-only reset marker recreates main's global input reset without touching controls
 // supplied through the host renderer seam. The native-color marker scopes main's root
 // color-swatch normalization to this package-owned input; the remaining classes are the native
@@ -66,11 +73,17 @@ function getAutoContrastStyle(color: string) {
   };
 }
 
-function resolveSelectedChoice(choices: Array<ColorValueChoice>, color: string): ColorValueChoice {
-  const selected = choices.find((choice) => choice.color === color) ?? choices[0];
+function resolveSelectedChoice(
+  choices: Array<ColorValueChoice>,
+  color: string,
+): ColorValueChoice {
+  const selected =
+    choices.find((choice) => choice.color === color) ?? choices[0];
   if (!selected) {
     // Unreachable from the control: the choices path only renders when choices exist.
-    throw new Error("The color control cannot resolve a choice from an empty choice list.");
+    throw new Error(
+      "The color control cannot resolve a choice from an empty choice list.",
+    );
   }
   return selected;
 }
@@ -236,7 +249,10 @@ function ColorChoicesPicker({
     setActiveIndex(nextIndex);
     optionRefs.current[nextIndex]?.focus({ preventScroll: true });
   };
-  const handleOptionKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+  const handleOptionKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
     let nextIndex: number | null = null;
     if (event.key === "ArrowDown") {
       nextIndex = (index + 1) % choices.length;
@@ -296,15 +312,26 @@ function ColorChoicesPicker({
             style={{ backgroundColor: selectedItem.color }}
           />
           <div className="single-cell-child flex items-center justify-between overflow-hidden">
-            <p className="ms-[2px] truncate ps-2.5 text-xs font-semibold" style={labelStyle}>
+            <p
+              className="ms-[2px] truncate ps-2.5 text-xs font-semibold"
+              style={labelStyle}
+            >
               {selectedItem.description}
             </p>
-            <i aria-hidden="true" className="gg-chevron-down px-2" style={labelStyle} />
+            <i
+              aria-hidden="true"
+              className="gg-chevron-down px-2"
+              style={labelStyle}
+            />
           </div>
         </button>
       }
     >
-      <div role="listbox" aria-label={`${ariaLabel} choices`} className="flex flex-col">
+      <div
+        role="listbox"
+        aria-label={`${ariaLabel} choices`}
+        className="flex flex-col"
+      >
         {choices.map((item, index) => (
           <ColorChoiceOption
             key={index}

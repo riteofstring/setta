@@ -123,8 +123,16 @@ describe("workspace shell layout", () => {
 
   it("selects and opens a different tab but toggles an already selected tab", () => {
     const state = createState();
-    state.outline = { collapsedGroupIds: ["group-a"], focusedSectionId: "leaf-a" };
-    const selected = selectWorkspaceShellTab(state, "trailing", "hostDetails", 1000);
+    state.outline = {
+      collapsedGroupIds: ["group-a"],
+      focusedSectionId: "leaf-a",
+    };
+    const selected = selectWorkspaceShellTab(
+      state,
+      "trailing",
+      "hostDetails",
+      1000,
+    );
     expect(selected.trailing).toMatchObject({
       selectedTabId: "hostDetails",
       visible: true,
@@ -135,17 +143,25 @@ describe("workspace shell layout", () => {
     });
     expect(selected.outline).not.toBe(state.outline);
 
-    const closed = selectWorkspaceShellTab(selected, "trailing", "hostDetails", 1000);
+    const closed = selectWorkspaceShellTab(
+      selected,
+      "trailing",
+      "hostDetails",
+      1000,
+    );
     expect(closed.trailing.visible).toBe(false);
   });
 
   it("rejects malformed tab ids and non-finite layout requests specifically", () => {
     expect(() =>
-      createWorkspaceShellViewState({ leadingTabId: "bad id", trailingTabId: "inspector" }),
+      createWorkspaceShellViewState({
+        leadingTabId: "bad id",
+        trailingTabId: "inspector",
+      }),
     ).toThrow(/leading tab id/);
-    expect(() => resizeWorkspaceShellPane(createState(), "leading", Number.NaN, 1000)).toThrow(
-      /width must be finite/,
-    );
+    expect(() =>
+      resizeWorkspaceShellPane(createState(), "leading", Number.NaN, 1000),
+    ).toThrow(/width must be finite/);
   });
 
   it("defaults to the built-in Outline and Inspector tabs", () => {

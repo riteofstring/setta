@@ -4,9 +4,14 @@ import { useReactFlow } from "../../canvas/store";
 // The reference's `getOnCreateEditor` minus its completion wrapper: focus the fresh editor,
 // carry the activating pointer position into the initial selection, and reveal the layer.
 
-export type TextValueActivationEvent = "tab" | { clientX: number; clientY: number };
+export type TextValueActivationEvent =
+  "tab" | { clientX: number; clientY: number };
 
-function fixPlaceholderCursor(editorId: string, value: string, placeholder: string | undefined) {
+function fixPlaceholderCursor(
+  editorId: string,
+  value: string,
+  placeholder: string | undefined,
+) {
   // The cursor appears the wrong size when there's a placeholder text and when you're zoomed in.
   // This is a hacky solution to that problem.
   if (!value && placeholder) {
@@ -35,7 +40,10 @@ export function getOnCreateEditor({
   return (view: EditorView) => {
     view.contentDOM.focus({ preventScroll: true });
     if (initialEvent !== "tab") {
-      const pos = view.posAtCoords({ x: initialEvent.clientX, y: initialEvent.clientY });
+      const pos = view.posAtCoords({
+        x: initialEvent.clientX,
+        y: initialEvent.clientY,
+      });
       if (pos !== null) {
         view.dispatch({ selection: { anchor: pos, head: pos } });
       }

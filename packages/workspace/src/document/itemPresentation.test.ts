@@ -9,7 +9,11 @@ import {
 } from "./itemPresentationMutations";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { registerSectionKinds } from "./sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "./stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "./stores";
 import type {
   WorkspaceDocumentInput,
   WorkspaceItem,
@@ -82,7 +86,11 @@ const VALID_CONTROLS: ReadonlyArray<WorkspaceItemControlPresentation> = [
   {
     kind: "password",
     value: "",
-    configuration: { disabled: false, placeholder: null, savedValuePending: false },
+    configuration: {
+      disabled: false,
+      placeholder: null,
+      savedValuePending: false,
+    },
   },
   {
     kind: "date",
@@ -128,7 +136,9 @@ const VALID_CONTROLS: ReadonlyArray<WorkspaceItemControlPresentation> = [
   },
 ];
 
-function makeDocument(items: Record<string, WorkspaceItem>): WorkspaceDocumentInput {
+function makeDocument(
+  items: Record<string, WorkspaceItem>,
+): WorkspaceDocumentInput {
   return {
     sections: {
       panel: {
@@ -206,7 +216,9 @@ describe("typed workspace item presentations", () => {
   });
 
   it("loads and round-trips every built-in ordinary presentation", () => {
-    const itemIds = VALID_CONTROLS.map((control, index) => `${control.kind}-${index}`);
+    const itemIds = VALID_CONTROLS.map(
+      (control, index) => `${control.kind}-${index}`,
+    );
     const items = Object.fromEntries(
       VALID_CONTROLS.map((control, index) => {
         const itemId = itemIds[index];
@@ -221,15 +233,21 @@ describe("typed workspace item presentations", () => {
             presentation: {
               label: itemId,
               labelEditable: true,
-              ...(index === 1 ? { helpText: "Used to tune the plain-text input." } : {}),
+              ...(index === 1
+                ? { helpText: "Used to tune the plain-text input." }
+                : {}),
               control,
             },
           },
         ];
       }),
     );
-    loadWorkspaceDocument(makeDocument({ root: { id: "root", children: itemIds }, ...items }));
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.items).toEqual({
+    loadWorkspaceDocument(
+      makeDocument({ root: { id: "root", children: itemIds }, ...items }),
+    );
+    expect(
+      useWorkspaceDocument.getState().sections["panel"]?.itemTree?.items,
+    ).toEqual({
       root: { id: "root", children: itemIds },
       ...items,
     });
@@ -248,7 +266,11 @@ describe("typed workspace item presentations", () => {
             id: "item",
             children: [],
             data: { custom: true },
-            presentation: { label: "Item", labelEditable: true, control: textControl },
+            presentation: {
+              label: "Item",
+              labelEditable: true,
+              control: textControl,
+            },
           },
         }),
       ),
@@ -261,7 +283,11 @@ describe("typed workspace item presentations", () => {
           root: {
             id: "root",
             children: [],
-            presentation: { label: "Root", labelEditable: true, control: { kind: "group" } },
+            presentation: {
+              label: "Root",
+              labelEditable: true,
+              control: { kind: "group" },
+            },
           },
         }),
       ),
@@ -270,19 +296,30 @@ describe("typed workspace item presentations", () => {
     );
     expect(() =>
       loadWorkspaceDocument(
-        makeDocument({ root: { id: "root", children: [], data: { custom: true } } }),
+        makeDocument({
+          root: { id: "root", children: [], data: { custom: true } },
+        }),
       ),
     ).toThrowError(
       "Section panel item root is the structural root and cannot contain row content.",
     );
     expect(() =>
-      loadWorkspaceDocument(makeSingleItemDocument({ kind: "mystery" } as never)),
-    ).toThrowError("Section panel item item presentation.control names the unknown kind mystery.");
+      loadWorkspaceDocument(
+        makeSingleItemDocument({ kind: "mystery" } as never),
+      ),
+    ).toThrowError(
+      "Section panel item item presentation.control names the unknown kind mystery.",
+    );
     expect(() =>
       loadWorkspaceDocument(
-        makeSingleItemDocument(VALID_CONTROLS[1] as WorkspaceItemControlPresentation, 42 as never),
+        makeSingleItemDocument(
+          VALID_CONTROLS[1] as WorkspaceItemControlPresentation,
+          42 as never,
+        ),
       ),
-    ).toThrowError("Section panel item item presentation.helpText must be a string.");
+    ).toThrowError(
+      "Section panel item item presentation.helpText must be a string.",
+    );
     expect(() =>
       loadWorkspaceDocument(
         makeSingleItemDocument(
@@ -291,7 +328,9 @@ describe("typed workspace item presentations", () => {
           "yes" as never,
         ),
       ),
-    ).toThrowError("Section panel item item presentation.labelEditable must be a boolean.");
+    ).toThrowError(
+      "Section panel item item presentation.labelEditable must be a boolean.",
+    );
     expect(() =>
       loadWorkspaceDocument(
         makeSingleItemDocument({
@@ -427,7 +466,10 @@ describe("typed workspace item presentations", () => {
 
     setItemValue("panel", "item", "next()");
     expect(onDocumentChange).toHaveBeenCalledTimes(3);
-    expect(getStoredItemPresentation().control).toMatchObject({ kind: "code", value: "next()" });
+    expect(getStoredItemPresentation().control).toMatchObject({
+      kind: "code",
+      value: "next()",
+    });
 
     setItemControlConfiguration("panel", "item", {
       kind: "code",
@@ -452,7 +494,11 @@ describe("typed workspace item presentations", () => {
       label: "Renamed",
       labelEditable: true,
       helpText: "Runs before each retry.",
-      control: { kind: "switch", value: "false", configuration: { disabled: false } },
+      control: {
+        kind: "switch",
+        value: "false",
+        configuration: { disabled: false },
+      },
     });
 
     setItemHelpText("panel", "item", null);
@@ -460,7 +506,11 @@ describe("typed workspace item presentations", () => {
     expect(getStoredItemPresentation()).toEqual({
       label: "Renamed",
       labelEditable: true,
-      control: { kind: "switch", value: "false", configuration: { disabled: false } },
+      control: {
+        kind: "switch",
+        value: "false",
+        configuration: { disabled: false },
+      },
     });
   });
 
@@ -476,7 +526,9 @@ describe("typed workspace item presentations", () => {
         kind: "switch",
         configuration: { disabled: false },
       }),
-    ).toThrowError("Section panel item item is a group and has no control config.");
+    ).toThrowError(
+      "Section panel item item is a group and has no control config.",
+    );
     expect(onDocumentChange).not.toHaveBeenCalled();
 
     setItemPresentation("panel", "item", {
@@ -491,7 +543,9 @@ describe("typed workspace item presentations", () => {
         configuration: { disabled: false, min: 0, max: 10, step: 1 },
       }),
     ).toThrowError("Section panel item item is switch, not slider.");
-    expect(() => setItemControlConfiguration("panel", "item", null as never)).toThrowError(
+    expect(() =>
+      setItemControlConfiguration("panel", "item", null as never),
+    ).toThrowError(
       "Section panel item item control-configuration mutation must be an object.",
     );
     expect(() => setItemHelpText("panel", "item", 42 as never)).toThrowError(
@@ -505,7 +559,9 @@ describe("typed workspace item presentations", () => {
     if (!codeControl || codeControl.kind !== "code") {
       throw new Error("The typed-item fixture lost its code control.");
     }
-    loadWorkspaceDocument(makeSingleItemDocument(codeControl, undefined, false));
+    loadWorkspaceDocument(
+      makeSingleItemDocument(codeControl, undefined, false),
+    );
     const onDocumentChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onDocumentChange);
 

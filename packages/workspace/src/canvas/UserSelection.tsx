@@ -8,7 +8,10 @@ const selector = (s: ReactFlowState) => ({
 });
 
 function UserSelection() {
-  const { userSelectionActive, userSelectionRect } = useReactFlow(selector, shallow);
+  const { userSelectionActive, userSelectionRect } = useReactFlow(
+    selector,
+    shallow,
+  );
   const isActive = userSelectionActive && userSelectionRect;
 
   if (!isActive) {

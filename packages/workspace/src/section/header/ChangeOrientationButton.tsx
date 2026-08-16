@@ -1,5 +1,11 @@
-import { TbArrowBigDownLinesFilled, TbArrowBigRightLinesFilled } from "react-icons/tb";
-import { getSectionOrThrow, isGroupSection } from "../../document/documentSelectors";
+import {
+  TbArrowBigDownLinesFilled,
+  TbArrowBigRightLinesFilled,
+} from "react-icons/tb";
+import {
+  getSectionOrThrow,
+  isGroupSection,
+} from "../../document/documentSelectors";
 import { toggleGroupOrientation } from "../../document/sectionMutations";
 import { useWorkspaceDocument } from "../../document/stores";
 
@@ -9,7 +15,9 @@ type ChangeOrientationButtonProps = {
   sectionId: string;
 };
 
-export function ChangeOrientationButton({ sectionId }: ChangeOrientationButtonProps) {
+export function ChangeOrientationButton({
+  sectionId,
+}: ChangeOrientationButtonProps) {
   const isHorizontalOrientation = useWorkspaceDocument((x) => {
     const section = getSectionOrThrow(x, sectionId);
     return isGroupSection(section) && section.isHorizontalOrientation;
@@ -20,7 +28,9 @@ export function ChangeOrientationButton({ sectionId }: ChangeOrientationButtonPr
       className="nodrag justify-content-center me-1 flex inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-400 hover:text-setta-500 focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-400"
       onClick={() => toggleGroupOrientation(sectionId)}
       aria-label={
-        isHorizontalOrientation ? "Stack children vertically" : "Flow children horizontally"
+        isHorizontalOrientation
+          ? "Stack children vertically"
+          : "Flow children horizontally"
       }
       type="button"
       data-setta-workspace-touch-target="compact"

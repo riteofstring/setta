@@ -107,7 +107,9 @@ describe("useSortableModel", () => {
     });
     expect(state.effectiveOverIndex).toBe(2);
     expect(state.isDraggingActive).toBe(false);
-    expect(state.transitionValue).toBe("transform 250ms cubic-bezier(0.25, 1, 0.5, 1)");
+    expect(state.transitionValue).toBe(
+      "transform 250ms cubic-bezier(0.25, 1, 0.5, 1)",
+    );
   });
 
   it("forces the disabled transition after drag deactivation when items changed", () => {

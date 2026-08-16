@@ -34,7 +34,12 @@ function mountFakeZoomRuntime() {
     },
   } as unknown as NonNullable<ReactFlowState["d3Zoom"]>;
   const fakeSelection = {} as NonNullable<ReactFlowState["d3Selection"]>;
-  useReactFlow.setState({ d3Zoom: fakeZoom, d3Selection: fakeSelection, width: 800, height: 600 });
+  useReactFlow.setState({
+    d3Zoom: fakeZoom,
+    d3Selection: fakeSelection,
+    width: 800,
+    height: 600,
+  });
   return applied;
 }
 
@@ -73,7 +78,11 @@ describe("startCanvasViewportDocumentSync", () => {
 
     useReactFlow.setState({ transform: [40, -25, 2] });
 
-    expect(useWorkspaceDocument.getState().viewport).toEqual({ x: 40, y: -25, zoom: 2 });
+    expect(useWorkspaceDocument.getState().viewport).toEqual({
+      x: 40,
+      y: -25,
+      zoom: 2,
+    });
     stop();
   });
 
@@ -103,7 +112,11 @@ describe("startCanvasViewportDocumentSync", () => {
     // The completed-fit transition clears the flag, and the follow-up event persists the fitted
     // camera immediately (the reference's dispatchViewportUpdateImmediately branch).
     expect(useReactFlow.getState().fitViewOnInit).toBe(false);
-    expect(useWorkspaceDocument.getState().viewport).toEqual({ x: 16, y: 24, zoom: 0.8 });
+    expect(useWorkspaceDocument.getState().viewport).toEqual({
+      x: 16,
+      y: 24,
+      zoom: 0.8,
+    });
     stop();
   });
 

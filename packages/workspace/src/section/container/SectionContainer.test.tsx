@@ -15,16 +15,25 @@ import { setWorkspaceDocumentChangeCallback } from "../../document/documentChang
 import { loadWorkspaceDocument } from "../../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../../document/sectionKindRegistry";
 import { setSectionName } from "../../document/sectionMutations";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../../document/stores";
 import type { WorkspaceDocument, WorkspaceSection } from "../../document/types";
 import { useWorkspaceTooltip } from "../../tooltip/WorkspaceTooltip";
 import { setGroupOverflowMode } from "../groupOverflowAction";
 import { useSectionRefs } from "../sectionRefs";
 import { SectionContainer } from "./SectionContainer";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
-function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): WorkspaceSection {
+function makeSection(
+  id: string,
+  overrides: Partial<WorkspaceSection> = {},
+): WorkspaceSection {
   return {
     id,
     kind: "leaf",
@@ -41,10 +50,15 @@ function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): Wor
   };
 }
 
-function loadTestDocument(overridesById: Record<string, Partial<WorkspaceSection>> = {}) {
+function loadTestDocument(
+  overridesById: Record<string, Partial<WorkspaceSection>> = {},
+) {
   loadWorkspaceDocument({
     sections: {
-      leaf: makeSection("leaf", { name: "Leaf section", ...overridesById["leaf"] }),
+      leaf: makeSection("leaf", {
+        name: "Leaf section",
+        ...overridesById["leaf"],
+      }),
       group: makeSection("group", {
         kind: "group",
         name: "Group section",
@@ -52,7 +66,10 @@ function loadTestDocument(overridesById: Record<string, Partial<WorkspaceSection
         children: ["nested"],
         ...overridesById["group"],
       }),
-      nested: makeSection("nested", { name: "Nested section", ...overridesById["nested"] }),
+      nested: makeSection("nested", {
+        name: "Nested section",
+        ...overridesById["nested"],
+      }),
     },
     topLevelSections: {
       leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 },
@@ -108,7 +125,8 @@ function loadMetaControlDocument(
   registerSectionKinds({
     leaf: { renderContent: renderSectionBody },
     meta: {
-      renderContent: () => createElement("div", { "data-testid": "meta-body" }, "Meta body"),
+      renderContent: () =>
+        createElement("div", { "data-testid": "meta-body" }, "Meta body"),
       presentation: {
         type: "meta-control",
         resolveControlKind: () => controlKind,
@@ -145,7 +163,9 @@ function updateMetaSizeForTest(sections: Record<string, WorkspaceSection>) {
 // Mirrors production, where NodeRenderer stops rendering a section's container in the same
 // pass that removes it from the document.
 function SectionHost({ sectionId }: { sectionId: string }) {
-  const exists = useWorkspaceDocument((x) => x.sections[sectionId] !== undefined);
+  const exists = useWorkspaceDocument(
+    (x) => x.sections[sectionId] !== undefined,
+  );
   if (!exists) {
     return null;
   }
@@ -153,7 +173,11 @@ function SectionHost({ sectionId }: { sectionId: string }) {
 }
 
 function renderSectionBody(section: WorkspaceSection): ReactNode {
-  return createElement("p", { "data-testid": "section-body" }, `${section.name} body`);
+  return createElement(
+    "p",
+    { "data-testid": "section-body" },
+    `${section.name} body`,
+  );
 }
 
 function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
@@ -179,7 +203,9 @@ function getLeafRootItemIds(): Array<string> {
 function expectSectionGroupSemantics(element: HTMLElement, label: string) {
   expect(element.getAttribute("role")).toBe("group");
   expect(element.getAttribute("aria-label")).toBe(label);
-  expect(element.getAttribute("aria-keyshortcuts")).toBe("Enter Space Shift+F10 ContextMenu");
+  expect(element.getAttribute("aria-keyshortcuts")).toBe(
+    "Enter Space Shift+F10 ContextMenu",
+  );
   expect(element.getAttribute("aria-pressed")).toBeNull();
 }
 
@@ -221,7 +247,11 @@ describe("SectionContainer", () => {
   async function mount(sectionId: string) {
     await act(async () => {
       root.render(
-        createElement(SectionDndContext, null, createElement(SectionHost, { sectionId })),
+        createElement(
+          SectionDndContext,
+          null,
+          createElement(SectionHost, { sectionId }),
+        ),
       );
     });
   }
@@ -236,9 +266,15 @@ describe("SectionContainer", () => {
     expect(shell.className).toContain("rounded-lg");
 
     expect(host.querySelector("i.gg-menu")).not.toBeNull();
-    expect(host.querySelector('[aria-label="Open section actions"]')).toBeNull();
-    expect(host.querySelector('[aria-label="Lock position and size"]')).not.toBeNull();
-    expect(host.querySelector('[aria-label="Minimize section"]')).not.toBeNull();
+    expect(
+      host.querySelector('[aria-label="Open section actions"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector('[aria-label="Lock position and size"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[aria-label="Minimize section"]'),
+    ).not.toBeNull();
     expect(host.querySelector('[aria-label="Delete section"]')).not.toBeNull();
     const compactControlGroup = host.querySelector<HTMLElement>(
       '[data-setta-workspace-compact-control-group="true"]',
@@ -246,22 +282,35 @@ describe("SectionContainer", () => {
     expect(compactControlGroup).not.toBeNull();
     expect(compactControlGroup.querySelectorAll("button")).toHaveLength(3);
     expect(
-      compactControlGroup.querySelectorAll('[data-setta-workspace-touch-target="compact"]'),
+      compactControlGroup.querySelectorAll(
+        '[data-setta-workspace-touch-target="compact"]',
+      ),
     ).toHaveLength(3);
     expect(host.textContent).toContain("Leaf section body");
-    expect(host.querySelector('[data-testid="section-body"]')?.parentElement?.className).toBe(
-      "section-full-no-title",
-    );
+    expect(
+      host.querySelector('[data-testid="section-body"]')?.parentElement
+        ?.className,
+    ).toBe("section-full-no-title");
 
-    const rightHandle = host.querySelector(".section-resize-handle-right") as HTMLElement;
-    const bottomHandle = host.querySelector(".section-resize-handle-bottom") as HTMLElement;
-    expect(host.querySelector(".section-resize-handle-bottom-right")).not.toBeNull();
+    const rightHandle = host.querySelector(
+      ".section-resize-handle-right",
+    ) as HTMLElement;
+    const bottomHandle = host.querySelector(
+      ".section-resize-handle-bottom",
+    ) as HTMLElement;
+    expect(
+      host.querySelector(".section-resize-handle-bottom-right"),
+    ).not.toBeNull();
     expect(rightHandle.style.right).toBe("-8px");
     expect(bottomHandle.style.bottom).toBe("-8px");
 
     // The container registers both DOM refs for measurement fallbacks.
-    expect(useSectionRefs.getState().selfOnly["leaf"]).toBeInstanceOf(HTMLElement);
-    expect(useSectionRefs.getState().withNested["leaf"]).toBeInstanceOf(HTMLElement);
+    expect(useSectionRefs.getState().selfOnly["leaf"]).toBeInstanceOf(
+      HTMLElement,
+    );
+    expect(useSectionRefs.getState().withNested["leaf"]).toBeInstanceOf(
+      HTMLElement,
+    );
   });
 
   it("does not rewrite every section shell when viewport interaction starts", async () => {
@@ -298,8 +347,14 @@ describe("SectionContainer", () => {
     });
 
     useWorkspaceMenuState.getState().reset();
-    const lockButton = getRequiredElement(host, '[aria-label="Lock position and size"]');
-    const nativeEvent = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    const lockButton = getRequiredElement(
+      host,
+      '[aria-label="Lock position and size"]',
+    );
+    const nativeEvent = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
     await act(async () => {
       lockButton.dispatchEvent(nativeEvent);
     });
@@ -333,7 +388,9 @@ describe("SectionContainer", () => {
     if (!shell) {
       throw new Error("The meta-control shell did not render.");
     }
-    expect(shell.getAttribute("data-section-presentation")).toBe("meta-control");
+    expect(shell.getAttribute("data-section-presentation")).toBe(
+      "meta-control",
+    );
     expect(shell.getAttribute("aria-label")).toBe("Meta text meta control");
     for (const expectedClass of [
       "bg-transparent",
@@ -346,7 +403,9 @@ describe("SectionContainer", () => {
     // Meta presentation suppresses a section style color rather than repainting its transparent
     // shell with the ordinary themed variables.
     expect(shell.className).not.toContain("--setta-section-style");
-    expect(String(shell.getAttribute("style"))).not.toContain("--setta-section-style");
+    expect(String(shell.getAttribute("style"))).not.toContain(
+      "--setta-section-style",
+    );
 
     const surface = host.querySelector<HTMLElement>("#meta-CustomResizable");
     if (!surface) {
@@ -367,9 +426,15 @@ describe("SectionContainer", () => {
     expect(host.querySelector("i.gg-menu")).toBeNull();
     expect(host.querySelector('[aria-label="Minimize section"]')).toBeNull();
 
-    const rightHandle = host.querySelector<HTMLElement>(".section-resize-handle-right");
-    const bottomHandle = host.querySelector<HTMLElement>(".section-resize-handle-bottom");
-    const cornerHandle = host.querySelector<HTMLElement>(".section-resize-handle-bottom-right");
+    const rightHandle = host.querySelector<HTMLElement>(
+      ".section-resize-handle-right",
+    );
+    const bottomHandle = host.querySelector<HTMLElement>(
+      ".section-resize-handle-bottom",
+    );
+    const cornerHandle = host.querySelector<HTMLElement>(
+      ".section-resize-handle-bottom-right",
+    );
     if (!rightHandle || !bottomHandle || !cornerHandle) {
       throw new Error("The meta-control resize handles did not render.");
     }
@@ -383,8 +448,12 @@ describe("SectionContainer", () => {
     expect(cornerHandle.style.height).toBe("16px");
     expect(rightHandle.className).toContain("hover:after:bg-blue-500/80");
 
-    expect(host.querySelector('[data-meta-control-drag-handle="true"]')).not.toBeNull();
-    const editButton = host.querySelector<HTMLButtonElement>('[data-meta-control-edit="true"]');
+    expect(
+      host.querySelector('[data-meta-control-drag-handle="true"]'),
+    ).not.toBeNull();
+    const editButton = host.querySelector<HTMLButtonElement>(
+      '[data-meta-control-edit="true"]',
+    );
     if (!editButton) {
       throw new Error("The meta-control edit affordance did not render.");
     }
@@ -399,17 +468,25 @@ describe("SectionContainer", () => {
     expect(editIcon.classList.contains("w-4")).toBe(true);
     await act(async () => editButton.click());
     expect(onEdit).toHaveBeenCalledTimes(1);
-    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: "meta" }));
+    expect(onEdit).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "meta" }),
+    );
 
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     editButton.focus();
     await act(async () => {
       editButton.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          code: "Escape",
+          bubbles: true,
+        }),
       );
     });
-    expect(document.activeElement).toBe(useSectionRefs.getState().selfOnly["meta"]);
+    expect(document.activeElement).toBe(
+      useSectionRefs.getState().selfOnly["meta"],
+    );
     expect(documentEscape).not.toHaveBeenCalled();
     document.removeEventListener("keydown", documentEscape);
   });
@@ -418,10 +495,16 @@ describe("SectionContainer", () => {
     loadMetaControlDocument(() => {}, { positionAndSizeLocked: true });
     await mount("meta");
 
-    expect(host.querySelector('[data-meta-control-drag-handle="true"]')).toBeNull();
+    expect(
+      host.querySelector('[data-meta-control-drag-handle="true"]'),
+    ).toBeNull();
     expect(host.querySelector(".section-resize-handle")).toBeNull();
-    expect(host.querySelector('[data-meta-control-edit="true"]')).not.toBeNull();
-    expect(host.querySelector('[data-section-id="meta"]')?.className).toContain("rounded-sm");
+    expect(
+      host.querySelector('[data-meta-control-edit="true"]'),
+    ).not.toBeNull();
+    expect(host.querySelector('[data-section-id="meta"]')?.className).toContain(
+      "rounded-sm",
+    );
   });
 
   it("removes meta drag and resize affordances when layout editing is unavailable", async () => {
@@ -429,9 +512,13 @@ describe("SectionContainer", () => {
     loadMetaControlDocument(() => {});
     await mount("meta");
 
-    expect(host.querySelector('[data-meta-control-drag-handle="true"]')).toBeNull();
+    expect(
+      host.querySelector('[data-meta-control-drag-handle="true"]'),
+    ).toBeNull();
     expect(host.querySelector(".section-resize-handle")).toBeNull();
-    expect(host.querySelector('[data-meta-control-edit="true"]')).not.toBeNull();
+    expect(
+      host.querySelector('[data-meta-control-edit="true"]'),
+    ).not.toBeNull();
   });
 
   it("keeps only the horizontal resize handle for an auto-height-only meta control", async () => {
@@ -440,12 +527,20 @@ describe("SectionContainer", () => {
 
     expect(host.querySelector(".section-resize-handle-right")).not.toBeNull();
     expect(host.querySelector(".section-resize-handle-bottom")).toBeNull();
-    expect(host.querySelector(".section-resize-handle-bottom-right")).toBeNull();
-    expect(host.querySelector<HTMLElement>("#meta-CustomResizable")?.style.height).toBe("auto");
+    expect(
+      host.querySelector(".section-resize-handle-bottom-right"),
+    ).toBeNull();
+    expect(
+      host.querySelector<HTMLElement>("#meta-CustomResizable")?.style.height,
+    ).toBe("auto");
   });
 
   it("normalizes auto-height-only meta controls independently of layout editability", async () => {
-    loadMetaControlDocument(() => {}, { positionAndSizeLocked: true }, "slider");
+    loadMetaControlDocument(
+      () => {},
+      { positionAndSizeLocked: true },
+      "slider",
+    );
     useWorkspaceDocument.setState((state) => ({
       sections: updateMetaSizeForTest(state.sections),
     }));
@@ -466,7 +561,8 @@ describe("SectionContainer", () => {
     registerSectionKinds({
       leaf: {
         renderContent: renderSectionBody,
-        icon: ({ className }) => createElement("svg", { "data-testid": "kind-icon", className }),
+        icon: ({ className }) =>
+          createElement("svg", { "data-testid": "kind-icon", className }),
       },
     });
     loadTestDocument();
@@ -482,9 +578,9 @@ describe("SectionContainer", () => {
     // A style-colored section swaps in the themed treatment, exactly as the reference.
     loadTestDocument({ leaf: { styleColor: "#3b82f6" } });
     await mount("leaf");
-    expect(host.querySelector('[data-testid="kind-icon"]')?.getAttribute("class")).toContain(
-      "text-[color:var(--setta-section-style-muted-text)]",
-    );
+    expect(
+      host.querySelector('[data-testid="kind-icon"]')?.getAttribute("class"),
+    ).toContain("text-[color:var(--setta-section-style-muted-text)]");
   });
 
   it("appends host presentation to the package-owned content slot", async () => {
@@ -497,16 +593,21 @@ describe("SectionContainer", () => {
     loadTestDocument();
     await mount("leaf");
 
-    expect(host.querySelector('[data-testid="section-body"]')?.parentElement?.className).toBe(
-      "section-full-no-title host-content-layout",
-    );
+    expect(
+      host.querySelector('[data-testid="section-body"]')?.parentElement
+        ?.className,
+    ).toBe("section-full-no-title host-content-layout");
   });
 
   it("mounts package parameter authoring above item-tree host content", async () => {
     registerSectionKinds({
       leaf: {
         renderContent: renderSectionBody,
-        createItem: () => ({ id: "created", children: [], data: { value: "host" } }),
+        createItem: () => ({
+          id: "created",
+          children: [],
+          data: { value: "host" },
+        }),
       },
     });
     loadTestDocument({
@@ -539,7 +640,10 @@ describe("SectionContainer", () => {
     expect(filter.className).toContain(
       "placeholder:text-[color:var(--setta-section-style-muted-text)]",
     );
-    const add = getRequiredElement(host, '[aria-label="Add parameter"]') as HTMLButtonElement;
+    const add = getRequiredElement(
+      host,
+      '[aria-label="Add parameter"]',
+    ) as HTMLButtonElement;
     expect(add.disabled).toBe(false);
     expect(add.className).toContain("--setta-section-style-outline");
 
@@ -571,17 +675,28 @@ describe("SectionContainer", () => {
     expectSectionGroupSemantics(groupRoot, "Group section group section");
     // The frame and selection outline paint on an absolutely positioned sibling layer.
     expect(host.querySelector(".outline-4.absolute")).not.toBeNull();
-    expect(host.querySelector('[aria-label="Flow children horizontally"]')).not.toBeNull();
-    expect(host.querySelector('[aria-label="Lock position and size"]')).not.toBeNull();
+    expect(
+      host.querySelector('[aria-label="Flow children horizontally"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[aria-label="Lock position and size"]'),
+    ).not.toBeNull();
 
-    const nestedSlot = getRequiredElement(host, '[data-sortable-section-id="nested"]');
+    const nestedSlot = getRequiredElement(
+      host,
+      '[data-sortable-section-id="nested"]',
+    );
     expect(nestedSlot.getAttribute("role")).toBeNull();
     expect(nestedSlot.getAttribute("aria-pressed")).toBeNull();
     expect(nestedSlot.getAttribute("aria-grabbed")).toBeNull();
-    expect(nestedSlot.querySelector('[data-section-id="nested"]')).not.toBeNull();
+    expect(
+      nestedSlot.querySelector('[data-section-id="nested"]'),
+    ).not.toBeNull();
     // Groups never render a minimize control.
     const groupHeader = groupRoot.querySelector(".min-h-10");
-    expect(groupHeader?.querySelector('[aria-label="Minimize section"]')).toBeNull();
+    expect(
+      groupHeader?.querySelector('[aria-label="Minimize section"]'),
+    ).toBeNull();
   });
 
   it("bounds a group through one persistent scroll surface with native wheel ownership", async () => {
@@ -601,10 +716,16 @@ describe("SectionContainer", () => {
     expect(groupRoot.className).toContain("min-w-0");
 
     const scrollSurface = getRequiredElement(groupRoot, ".overflow-auto");
-    expect(scrollSurface.classList.contains("setta-workspace-bounded-group-scroll")).toBe(true);
-    expect(scrollSurface.className).toContain("flex min-h-0 min-w-0 flex-1 flex-col overflow-auto");
+    expect(
+      scrollSurface.classList.contains("setta-workspace-bounded-group-scroll"),
+    ).toBe(true);
+    expect(scrollSurface.className).toContain(
+      "flex min-h-0 min-w-0 flex-1 flex-col overflow-auto",
+    );
     expect(scrollSurface.classList.contains("mt-2")).toBe(false);
-    expect(scrollSurface.querySelector('[data-sortable-section-id="nested"]')).not.toBeNull();
+    expect(
+      scrollSurface.querySelector('[data-sortable-section-id="nested"]'),
+    ).not.toBeNull();
     Object.defineProperties(scrollSurface, {
       clientHeight: { value: 200 },
       scrollHeight: { value: 420 },
@@ -645,16 +766,23 @@ describe("SectionContainer", () => {
     expect(groupRoot.style.width).toBe("");
     expect(groupRoot.style.height).toBe("");
     expect(groupRoot.querySelector(".overflow-auto")).toBeNull();
-    expect(groupRoot.querySelector('[data-sortable-section-id="nested"]')).not.toBeNull();
+    expect(
+      groupRoot.querySelector('[data-sortable-section-id="nested"]'),
+    ).not.toBeNull();
   });
 
   it("opens the shared section action menu from the group header icon", async () => {
     await mount("group");
 
-    const trigger = getRequiredElement(host, '[aria-label="Open group actions"]');
+    const trigger = getRequiredElement(
+      host,
+      '[aria-label="Open group actions"]',
+    );
     expect(trigger.tagName).toBe("BUTTON");
     expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
-    expect(trigger.getAttribute("data-setta-workspace-touch-target")).toBe("compact");
+    expect(trigger.getAttribute("data-setta-workspace-touch-target")).toBe(
+      "compact",
+    );
     expect(trigger.classList.contains("nodrag")).toBe(true);
     trigger.getBoundingClientRect = () =>
       ({
@@ -695,10 +823,15 @@ describe("SectionContainer", () => {
     ]);
     await mount("leaf");
 
-    const trigger = getRequiredElement(host, '[aria-label="Open section actions"]');
+    const trigger = getRequiredElement(
+      host,
+      '[aria-label="Open section actions"]',
+    );
     expect(trigger.tagName).toBe("BUTTON");
     expect(trigger.querySelector("i.gg-menu")).not.toBeNull();
-    expect(trigger.getAttribute("data-setta-workspace-touch-target")).toBe("compact");
+    expect(trigger.getAttribute("data-setta-workspace-touch-target")).toBe(
+      "compact",
+    );
     expect(trigger.classList.contains("nodrag")).toBe(true);
     trigger.getBoundingClientRect = () =>
       ({
@@ -715,7 +848,11 @@ describe("SectionContainer", () => {
 
     await act(async () => {
       trigger.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "ArrowUp" }),
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "ArrowUp",
+        }),
       );
     });
 
@@ -748,11 +885,17 @@ describe("SectionContainer", () => {
     // Every level renders full group chrome, recursively composed.
     expect(host.querySelectorAll(".group\\/group-section").length).toBe(3);
 
-    const middleSlot = host.querySelector('[data-sortable-section-id="middle"]') as HTMLElement;
-    const innerSlot = middleSlot.querySelector('[data-sortable-section-id="inner"]') as HTMLElement;
+    const middleSlot = host.querySelector(
+      '[data-sortable-section-id="middle"]',
+    ) as HTMLElement;
+    const innerSlot = middleSlot.querySelector(
+      '[data-sortable-section-id="inner"]',
+    ) as HTMLElement;
     expect(innerSlot).not.toBeNull();
     for (const rowId of ["row-a", "row-b", "row-c"]) {
-      expect(innerSlot.querySelector(`[data-section-id="${rowId}"]`)).not.toBeNull();
+      expect(
+        innerSlot.querySelector(`[data-section-id="${rowId}"]`),
+      ).not.toBeNull();
     }
     expect(host.textContent).toContain("Row A body");
 
@@ -761,8 +904,12 @@ describe("SectionContainer", () => {
     expect(innerSlot.querySelector(".mt-2.flex.flex-row")).not.toBeNull();
 
     // Only the horizontal group offers the stack-vertically direction.
-    expect(innerSlot.querySelector('[aria-label="Stack children vertically"]')).not.toBeNull();
-    expect(middleSlot.querySelector('[aria-label="Flow children horizontally"]')).not.toBeNull();
+    expect(
+      innerSlot.querySelector('[aria-label="Stack children vertically"]'),
+    ).not.toBeNull();
+    expect(
+      middleSlot.querySelector('[aria-label="Flow children horizontally"]'),
+    ).not.toBeNull();
   });
 
   it("flips a nested group's child flow from its orientation control and reports one change", async () => {
@@ -772,7 +919,9 @@ describe("SectionContainer", () => {
     const reported: Array<WorkspaceDocument> = [];
     setWorkspaceDocumentChangeCallback((next) => reported.push(next));
 
-    const innerSlot = host.querySelector('[data-sortable-section-id="inner"]') as HTMLElement;
+    const innerSlot = host.querySelector(
+      '[data-sortable-section-id="inner"]',
+    ) as HTMLElement;
     const toggle = innerSlot.querySelector(
       '[aria-label="Stack children vertically"]',
     ) as HTMLButtonElement;
@@ -780,14 +929,19 @@ describe("SectionContainer", () => {
       toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(useWorkspaceDocument.getState().sections["inner"]?.isHorizontalOrientation).toBe(false);
+    expect(
+      useWorkspaceDocument.getState().sections["inner"]
+        ?.isHorizontalOrientation,
+    ).toBe(false);
     expect(innerSlot.querySelector(".mt-2.flex.flex-col")).not.toBeNull();
     expect(innerSlot.querySelector(".mt-2.flex.flex-row")).toBeNull();
 
     // One canonical commit, one notification, carrying only the flipped group.
     expect(reported.length).toBe(1);
     expect(reported[0]?.sections["inner"]?.isHorizontalOrientation).toBe(false);
-    expect(reported[0]?.sections["middle"]?.isHorizontalOrientation).toBe(false);
+    expect(reported[0]?.sections["middle"]?.isHorizontalOrientation).toBe(
+      false,
+    );
     expect(reported[0]?.sections["outer"]?.isHorizontalOrientation).toBe(false);
   });
 
@@ -798,7 +952,9 @@ describe("SectionContainer", () => {
       (el) => el.textContent === "Leaf section",
     ) as HTMLElement;
     await act(async () => {
-      title.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 2 }));
+      title.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, detail: 2 }),
+      );
     });
 
     const input = host.querySelector("input") as HTMLInputElement;
@@ -816,7 +972,9 @@ describe("SectionContainer", () => {
     });
 
     // The commit normalizes surrounding whitespace, mirroring the reference.
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe("Renamed leaf");
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe(
+      "Renamed leaf",
+    );
   });
 
   it("enters title editing with Enter and restores label focus after keyboard commit", async () => {
@@ -827,10 +985,16 @@ describe("SectionContainer", () => {
     title?.focus();
     await act(async () => {
       title?.dispatchEvent(
-        new KeyboardEvent("keydown", { code: "Enter", key: "Enter", bubbles: true }),
+        new KeyboardEvent("keydown", {
+          code: "Enter",
+          key: "Enter",
+          bubbles: true,
+        }),
       );
     });
-    const input = host.querySelector<HTMLInputElement>('input[aria-label="Section title"]');
+    const input = host.querySelector<HTMLInputElement>(
+      'input[aria-label="Section title"]',
+    );
     expect(document.activeElement).toBe(input);
     const nativeValueSetter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
@@ -840,14 +1004,20 @@ describe("SectionContainer", () => {
       nativeValueSetter?.call(input, "Keyboard title");
       input?.dispatchEvent(new Event("input", { bubbles: true }));
       input?.dispatchEvent(
-        new KeyboardEvent("keydown", { code: "Enter", key: "Enter", bubbles: true }),
+        new KeyboardEvent("keydown", {
+          code: "Enter",
+          key: "Enter",
+          bubbles: true,
+        }),
       );
       await new Promise((resolve) => requestAnimationFrame(resolve));
     });
     const committedTitle = host.querySelector<HTMLElement>(
       '[role="button"][aria-label="Keyboard title, edit section title"]',
     );
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe("Keyboard title");
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe(
+      "Keyboard title",
+    );
     expect(document.activeElement).toBe(committedTitle);
   });
 
@@ -861,7 +1031,9 @@ describe("SectionContainer", () => {
     await act(async () => {
       title.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
     });
-    expect(useWorkspaceTooltip.getState().pages[0]?.content).toBe("Leaf section");
+    expect(useWorkspaceTooltip.getState().pages[0]?.content).toBe(
+      "Leaf section",
+    );
 
     await act(async () => {
       title.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
@@ -876,7 +1048,9 @@ describe("SectionContainer", () => {
       (el) => el.textContent === "Leaf section",
     ) as HTMLElement;
     await act(async () => {
-      title.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 2 }));
+      title.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, detail: 2 }),
+      );
     });
 
     const input = host.querySelector("input") as HTMLInputElement;
@@ -892,11 +1066,15 @@ describe("SectionContainer", () => {
     });
     await act(async () => {
       // Escape blurs the input itself; the escape flag swallows that blur without committing.
-      input.dispatchEvent(new KeyboardEvent("keydown", { code: "Escape", bubbles: true }));
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { code: "Escape", bubbles: true }),
+      );
       await new Promise((resolve) => requestAnimationFrame(resolve));
     });
 
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe("Leaf section");
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe(
+      "Leaf section",
+    );
     expect(document.activeElement?.getAttribute("aria-label")).toBe(
       "Leaf section, edit section title",
     );
@@ -907,7 +1085,9 @@ describe("SectionContainer", () => {
   it("deletes the section from the header control", async () => {
     await mount("leaf");
 
-    const deleteButton = host.querySelector('[aria-label="Delete section"]') as HTMLButtonElement;
+    const deleteButton = host.querySelector(
+      '[aria-label="Delete section"]',
+    ) as HTMLButtonElement;
     await act(async () => {
       deleteButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
@@ -928,13 +1108,17 @@ describe("SectionContainer", () => {
       );
     });
     const leaf = host.querySelector<HTMLElement>('[data-section-id="leaf"]');
-    const deleteButton = leaf?.querySelector<HTMLButtonElement>('[aria-label="Delete section"]');
+    const deleteButton = leaf?.querySelector<HTMLButtonElement>(
+      '[aria-label="Delete section"]',
+    );
     deleteButton?.focus();
     await act(async () => {
       deleteButton?.click();
       await new Promise((resolve) => requestAnimationFrame(resolve));
     });
-    expect(document.activeElement).toBe(useSectionRefs.getState().withNested["group"]);
+    expect(document.activeElement).toBe(
+      useSectionRefs.getState().withNested["group"],
+    );
   });
 
   it("gates structure edits behind canEditStructure", async () => {
@@ -943,7 +1127,9 @@ describe("SectionContainer", () => {
 
     // The title renders the fixed presentation instead of the editable one.
     expect(host.querySelector("h2")?.textContent).toBe("Leaf section");
-    const deleteButton = host.querySelector('[aria-label="Delete section"]') as HTMLButtonElement;
+    const deleteButton = host.querySelector(
+      '[aria-label="Delete section"]',
+    ) as HTMLButtonElement;
     expect(deleteButton.disabled).toBe(true);
   });
 
@@ -968,16 +1154,24 @@ describe("SectionContainer", () => {
 
     const shell = host.querySelector('[data-section-id="leaf"]');
     expect(shell?.getAttribute("data-section-active")).toBe("true");
-    expect(shell?.getAttribute("aria-label")).toBe("Leaf section section, selected");
+    expect(shell?.getAttribute("aria-label")).toBe(
+      "Leaf section section, selected",
+    );
     expect(shell?.getAttribute("aria-pressed")).toBeNull();
     expect(shell?.className).toContain("z-[150]");
-    expect(shell?.querySelector('[data-workspace-contained-selection-outline="true"]')).toBeNull();
+    expect(
+      shell?.querySelector(
+        '[data-workspace-contained-selection-outline="true"]',
+      ),
+    ).toBeNull();
   });
 
   it("keeps group selection on the reference outline without a contained overlay", async () => {
     await mount("group");
 
-    const outline = host.querySelector('[data-workspace-group-selection-outline="true"]');
+    const outline = host.querySelector(
+      '[data-workspace-group-selection-outline="true"]',
+    );
     expect(outline?.getAttribute("data-section-active")).toBe("false");
 
     await act(async () => {
@@ -985,6 +1179,8 @@ describe("SectionContainer", () => {
     });
 
     expect(outline?.getAttribute("data-section-active")).toBe("true");
-    expect(host.querySelector('[data-workspace-contained-selection-outline="true"]')).toBeNull();
+    expect(
+      host.querySelector('[data-workspace-contained-selection-outline="true"]'),
+    ).toBeNull();
   });
 });

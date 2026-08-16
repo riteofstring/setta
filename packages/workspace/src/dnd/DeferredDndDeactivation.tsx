@@ -14,7 +14,10 @@ export function DeferredDndDeactivation() {
     () => manager?.dragOperation.status.initializing ?? false,
     [manager],
   ).value;
-  const isIdle = useComputed(() => manager?.dragOperation.status.idle ?? true, [manager]).value;
+  const isIdle = useComputed(
+    () => manager?.dragOperation.status.idle ?? true,
+    [manager],
+  ).value;
 
   useEffect(() => {
     if (!pendingDeactivation || !manager) {

@@ -1,6 +1,9 @@
 import { applyActiveSectionChange } from "../canvas/activeSectionController";
 import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
-import { getSectionItemTreeOrThrow, getSectionOrThrow } from "./documentSelectors";
+import {
+  getSectionItemTreeOrThrow,
+  getSectionOrThrow,
+} from "./documentSelectors";
 import { getItemOrThrow } from "./itemTree";
 import { useWorkspaceDocument } from "./stores";
 import type { WorkspaceSection } from "./types";
@@ -18,7 +21,9 @@ export function toggleItemSelected(sectionId: string, itemId: string) {
   const itemTree = getSectionItemTreeOrThrow(documentState, sectionId);
   getItemOrThrow(itemTree, itemId);
   if (itemId === itemTree.rootId) {
-    throw new Error(`Cannot select the root item ${itemId} of section ${sectionId}.`);
+    throw new Error(
+      `Cannot select the root item ${itemId} of section ${sectionId}.`,
+    );
   }
   const wasSelected = itemTree.selectedItemIds.includes(itemId);
   const selectedItemIds = wasSelected
@@ -47,7 +52,9 @@ export function setSelectedItems(sectionId: string, itemIds: Array<string>) {
   for (const itemId of itemIds) {
     getItemOrThrow(itemTree, itemId);
     if (itemId === itemTree.rootId) {
-      throw new Error(`Cannot select the root item ${itemId} of section ${sectionId}.`);
+      throw new Error(
+        `Cannot select the root item ${itemId} of section ${sectionId}.`,
+      );
     }
   }
   if (areItemIdListsEqual(itemTree.selectedItemIds, itemIds)) {
@@ -56,22 +63,33 @@ export function setSelectedItems(sectionId: string, itemIds: Array<string>) {
   useWorkspaceDocument.setState({
     sections: {
       ...documentState.sections,
-      [sectionId]: { ...section, itemTree: { ...itemTree, selectedItemIds: itemIds } },
+      [sectionId]: {
+        ...section,
+        itemTree: { ...itemTree, selectedItemIds: itemIds },
+      },
     },
   });
   notifyWorkspaceDocumentChange();
   applyActiveSectionChange({ interaction: "item-select", sectionId });
 }
 
-function areItemIdListsEqual(current: ReadonlyArray<string>, next: ReadonlyArray<string>): boolean {
-  return current.length === next.length && current.every((itemId, index) => itemId === next[index]);
+function areItemIdListsEqual(
+  current: ReadonlyArray<string>,
+  next: ReadonlyArray<string>,
+): boolean {
+  return (
+    current.length === next.length &&
+    current.every((itemId, index) => itemId === next[index])
+  );
 }
 
 // Clears item selection across every section in one canonical commit; answers whether anything
 // was selected so callers (the reference's escape handling) can consume the keypress.
 export function unselectAllItems(): boolean {
   const documentState = useWorkspaceDocument.getState();
-  const sections: Record<string, WorkspaceSection> = { ...documentState.sections };
+  const sections: Record<string, WorkspaceSection> = {
+    ...documentState.sections,
+  };
   let changed = false;
   for (const [sectionId, section] of Object.entries(documentState.sections)) {
     if (!section.itemTree || section.itemTree.selectedItemIds.length === 0) {
@@ -92,8 +110,14 @@ export function unselectAllItems(): boolean {
 }
 
 export function selectOnlyItem(sectionId: string, itemId: string) {
-  const itemTree = getSectionItemTreeOrThrow(useWorkspaceDocument.getState(), sectionId);
-  if (itemTree.selectedItemIds.length === 1 && itemTree.selectedItemIds[0] === itemId) {
+  const itemTree = getSectionItemTreeOrThrow(
+    useWorkspaceDocument.getState(),
+    sectionId,
+  );
+  if (
+    itemTree.selectedItemIds.length === 1 &&
+    itemTree.selectedItemIds[0] === itemId
+  ) {
     return;
   }
   unselectAllItems();

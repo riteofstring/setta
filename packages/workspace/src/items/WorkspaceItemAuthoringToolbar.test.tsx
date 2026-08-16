@@ -8,11 +8,17 @@ import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { WorkspaceSectionItemTree } from "../document/types";
 import { WorkspaceItemAuthoringToolbar } from "./WorkspaceItemAuthoringToolbar";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function loadDocument(): void {
   loadWorkspaceDocument({
@@ -47,7 +53,9 @@ function loadDocument(): void {
 }
 
 function getButton(host: HTMLElement, label: string): HTMLButtonElement {
-  const button = host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+  const button = host.querySelector<HTMLButtonElement>(
+    `button[aria-label="${label}"]`,
+  );
   if (!button) {
     throw new Error(`Expected item-authoring button ${label}.`);
   }
@@ -62,7 +70,9 @@ function getPanelItemTree(): WorkspaceSectionItemTree {
   return itemTree;
 }
 
-function expectCompactAuthoringButtons(buttons: ReadonlyArray<HTMLButtonElement>): void {
+function expectCompactAuthoringButtons(
+  buttons: ReadonlyArray<HTMLButtonElement>,
+): void {
   for (const button of buttons) {
     expect(button.type).toBe("button");
     expect(button.dataset["settaWorkspaceTouchTarget"]).toBe("compact");
@@ -83,7 +93,11 @@ describe("WorkspaceItemAuthoringToolbar", () => {
     registerSectionKinds({
       items: {
         renderContent: () => null,
-        createItem: () => ({ id: "created", children: [], data: { value: "host" } }),
+        createItem: () => ({
+          id: "created",
+          children: [],
+          data: { value: "host" },
+        }),
       },
     });
     loadDocument();
@@ -105,7 +119,9 @@ describe("WorkspaceItemAuthoringToolbar", () => {
   });
 
   async function mount(): Promise<void> {
-    await act(async () => root.render(<WorkspaceItemAuthoringToolbar sectionId="panel" />));
+    await act(async () =>
+      root.render(<WorkspaceItemAuthoringToolbar sectionId="panel" />),
+    );
   }
 
   it("uses native compact controls and routes every operation through one canonical commit", async () => {
@@ -126,10 +142,16 @@ describe("WorkspaceItemAuthoringToolbar", () => {
     expect(add.querySelector(".gg-math-plus")).not.toBeNull();
 
     await act(async () => add.click());
-    expect(getPanelItemTree().items.root?.children).toEqual(["alpha", "beta", "created"]);
+    expect(getPanelItemTree().items.root?.children).toEqual([
+      "alpha",
+      "beta",
+      "created",
+    ]);
     expect(onChange).toHaveBeenCalledOnce();
 
-    await act(async () => getButton(host, "Delete selected parameters").click());
+    await act(async () =>
+      getButton(host, "Delete selected parameters").click(),
+    );
     expect(getPanelItemTree().items.created).toBeUndefined();
     expect(getPanelItemTree().selectedItemIds).toEqual(["beta"]);
     expect(onChange).toHaveBeenCalledTimes(2);
@@ -144,7 +166,9 @@ describe("WorkspaceItemAuthoringToolbar", () => {
     await act(async () => {
       useWorkspaceCapabilities.setState({ canEditStructure: false });
     });
-    expect([...host.querySelectorAll("button")].every((button) => button.disabled)).toBe(true);
+    expect(
+      [...host.querySelectorAll("button")].every((button) => button.disabled),
+    ).toBe(true);
 
     await act(async () => {
       useWorkspaceCapabilities.setState({ canEditStructure: true });
@@ -161,7 +185,9 @@ describe("WorkspaceItemAuthoringToolbar", () => {
         };
       });
     });
-    expect([...host.querySelectorAll("button")].every((button) => button.disabled)).toBe(true);
+    expect(
+      [...host.querySelectorAll("button")].every((button) => button.disabled),
+    ).toBe(true);
 
     await act(async () => {
       useWorkspaceDocument.setState((state) => {
@@ -178,7 +204,9 @@ describe("WorkspaceItemAuthoringToolbar", () => {
       });
       setItemDndState({ activeId: "alpha" });
     });
-    expect([...host.querySelectorAll("button")].every((button) => button.disabled)).toBe(true);
+    expect(
+      [...host.querySelectorAll("button")].every((button) => button.disabled),
+    ).toBe(true);
 
     await act(async () => root.unmount());
     root = createRoot(host);

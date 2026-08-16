@@ -28,7 +28,11 @@ function buildFilterStatusMessage({
   )} hidden by this filter.`;
 }
 
-export function WorkspaceItemFilterControls({ sectionId }: { sectionId: string }) {
+export function WorkspaceItemFilterControls({
+  sectionId,
+}: {
+  sectionId: string;
+}) {
   const filter = useWorkspaceItemFilter();
   if (!filter) {
     return null;
@@ -60,7 +64,10 @@ export function WorkspaceItemFilterControls({ sectionId }: { sectionId: string }
         <label className="sr-only" htmlFor={inputId}>
           Filter parameters
         </label>
-        <i aria-hidden={true} className={`gg-sort-az -me-2 ${sortIconToneClassName}`} />
+        <i
+          aria-hidden={true}
+          className={`gg-sort-az -me-2 ${sortIconToneClassName}`}
+        />
         <input
           aria-describedby={statusId}
           autoComplete="off"

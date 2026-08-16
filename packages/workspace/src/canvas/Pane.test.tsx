@@ -6,13 +6,24 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry";
 import { useWorkspaceMenuState } from "../context-menu/workspaceMenuState";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import Pane from "./Pane";
 import { initialCanvasState, useReactFlow } from "./store";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
-function createRect(left: number, top: number, width: number, height: number): DOMRect {
+function createRect(
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): DOMRect {
   return {
     left,
     top,
@@ -99,9 +110,14 @@ describe("Pane context-menu ownership", () => {
     });
 
     useWorkspaceMenuState.getState().reset();
-    const childEvent = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    const childEvent = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
     await act(async () => {
-      host.querySelector('[data-testid="pane-child"]')?.dispatchEvent(childEvent);
+      host
+        .querySelector('[data-testid="pane-child"]')
+        ?.dispatchEvent(childEvent);
     });
     expect(childEvent.defaultPrevented).toBe(false);
     expect(useWorkspaceMenuState.getState().invocation).toBeNull();

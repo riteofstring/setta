@@ -2,7 +2,10 @@ import _ from "lodash";
 import React, { useEffect, useState, type CSSProperties } from "react";
 import { useSortable } from "../../dnd/adapter";
 import type { Transform } from "../../dnd/adapter/types";
-import { applyZoomToTransform, transformToString } from "../../dnd/adapter/zoom";
+import {
+  applyZoomToTransform,
+  transformToString,
+} from "../../dnd/adapter/zoom";
 import { isTempSection } from "../../dnd/dndIds";
 import { useDndState } from "../../dnd/dndState";
 import { TempDNDSection } from "../../dnd/DummySection";
@@ -15,17 +18,30 @@ import { SectionContainer } from "./SectionContainer";
 // left with the excluded edge features. The reference's layout-variant class names collapse to
 // the group flow the slice renders.
 
-function SortableSectionContainerComponent({ sectionId }: { sectionId: string }) {
+function SortableSectionContainerComponent({
+  sectionId,
+}: {
+  sectionId: string;
+}) {
   return isTempSection(sectionId) ? (
     <TempDNDSortableSectionContainer sectionId={sectionId} />
   ) : (
-    <RegularSortableSectionContainer sectionId={sectionId} forceApplyTransform={false} />
+    <RegularSortableSectionContainer
+      sectionId={sectionId}
+      forceApplyTransform={false}
+    />
   );
 }
 
-export const SortableSectionContainer = React.memo(SortableSectionContainerComponent);
+export const SortableSectionContainer = React.memo(
+  SortableSectionContainerComponent,
+);
 
-function TempDNDSortableSectionContainerComponent({ sectionId }: { sectionId: string }) {
+function TempDNDSortableSectionContainerComponent({
+  sectionId,
+}: {
+  sectionId: string;
+}) {
   const [forceApplyTransform, setForceApplyTransform] = useState(true);
 
   useEffect(() => {
@@ -41,7 +57,9 @@ function TempDNDSortableSectionContainerComponent({ sectionId }: { sectionId: st
   );
 }
 
-const TempDNDSortableSectionContainer = React.memo(TempDNDSortableSectionContainerComponent);
+const TempDNDSortableSectionContainer = React.memo(
+  TempDNDSortableSectionContainerComponent,
+);
 
 function RegularSortableSectionContainerComponent({
   sectionId,
@@ -54,8 +72,16 @@ function RegularSortableSectionContainerComponent({
   const dndProps = useDndProps({ sectionId, isTopLevel: false });
 
   // remove 'role' because we don't want sections to be "role=button"
-  const { attributes, listeners, setNodeRef, transform, transition, overIndex, items, isDragging } =
-    useSortable({ ...dndProps, animateLayoutChanges });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    overIndex,
+    items,
+    isDragging,
+  } = useSortable({ ...dndProps, animateLayoutChanges });
   const restAttributes = { ...attributes, role: undefined };
   return (
     <SortableCore
@@ -70,13 +96,17 @@ function RegularSortableSectionContainerComponent({
         forceApplyTransform ||
         isDragging ||
         (overIndex !== null && overIndex !== -1) ||
-        (items.length === 1 && items[0] === sectionId && isTempSection(sectionId))
+        (items.length === 1 &&
+          items[0] === sectionId &&
+          isTempSection(sectionId))
       }
     />
   );
 }
 
-const RegularSortableSectionContainer = React.memo(RegularSortableSectionContainerComponent);
+const RegularSortableSectionContainer = React.memo(
+  RegularSortableSectionContainerComponent,
+);
 
 function SortableCoreComponent({
   sectionId,
@@ -98,12 +128,18 @@ function SortableCoreComponent({
   isDragging: boolean;
 }) {
   const overIsSelf = useDndState((x) => x.overId === sectionId);
-  const scaledTransform = applyZoomToTransform(applyTransform ? transform : null);
+  const scaledTransform = applyZoomToTransform(
+    applyTransform ? transform : null,
+  );
 
   const style: CSSProperties = {
     transform: transformToString(scaledTransform),
     transition,
-    zIndex: isDragging ? DRAG_PREVIEW_Z_INDEX : overIsSelf ? DROP_TARGET_Z_INDEX : undefined,
+    zIndex: isDragging
+      ? DRAG_PREVIEW_Z_INDEX
+      : overIsSelf
+        ? DROP_TARGET_Z_INDEX
+        : undefined,
   };
   const stackProps = { style, ref: setNodeRef, ...attributes };
 

@@ -4,7 +4,7 @@ type FilterInputState = {
   selectionEnd: number;
 };
 
-export type FilterInputEditResult = {
+type FilterInputEditResult = {
   nextValue: string;
   nextSelection: number;
   didChange: boolean;
@@ -26,11 +26,15 @@ export function getFilterInputState(
 }
 
 export function getFilterEditingKey(key: string): string | null {
-  return key.length === 1 || key === "Backspace" || key === "Delete" ? key : null;
+  return key.length === 1 || key === "Backspace" || key === "Delete"
+    ? key
+    : null;
 }
 
 export function isMenuNavigationKey(key: string): boolean {
-  return key === "ArrowDown" || key === "ArrowUp" || key === "Home" || key === "End";
+  return (
+    key === "ArrowDown" || key === "ArrowUp" || key === "Home" || key === "End"
+  );
 }
 
 export function shouldEditableTargetHandleMenuKey(
@@ -52,7 +56,9 @@ export function getNextFilterInputState(
   }
   return {
     nextValue:
-      state.value.slice(0, state.selectionStart) + key + state.value.slice(state.selectionEnd),
+      state.value.slice(0, state.selectionStart) +
+      key +
+      state.value.slice(state.selectionEnd),
     nextSelection: state.selectionStart + key.length,
     didChange: true,
   };
@@ -65,21 +71,32 @@ export function shouldDispatchFilterInputEvent(
   return resetInput || result.didChange;
 }
 
-function getBackspaceEditResult(state: FilterInputState): FilterInputEditResult {
-  if (state.selectionStart === state.selectionEnd && state.selectionStart === 0) {
+function getBackspaceEditResult(
+  state: FilterInputState,
+): FilterInputEditResult {
+  if (
+    state.selectionStart === state.selectionEnd &&
+    state.selectionStart === 0
+  ) {
     return { nextValue: state.value, nextSelection: 0, didChange: false };
   }
   const deleteFrom =
-    state.selectionStart === state.selectionEnd ? state.selectionStart - 1 : state.selectionStart;
+    state.selectionStart === state.selectionEnd
+      ? state.selectionStart - 1
+      : state.selectionStart;
   return {
-    nextValue: state.value.slice(0, deleteFrom) + state.value.slice(state.selectionEnd),
+    nextValue:
+      state.value.slice(0, deleteFrom) + state.value.slice(state.selectionEnd),
     nextSelection: deleteFrom,
     didChange: true,
   };
 }
 
 function getDeleteEditResult(state: FilterInputState): FilterInputEditResult {
-  if (state.selectionStart === state.selectionEnd && state.selectionStart === state.value.length) {
+  if (
+    state.selectionStart === state.selectionEnd &&
+    state.selectionStart === state.value.length
+  ) {
     return {
       nextValue: state.value,
       nextSelection: state.selectionStart,
@@ -87,9 +104,12 @@ function getDeleteEditResult(state: FilterInputState): FilterInputEditResult {
     };
   }
   const deleteTo =
-    state.selectionStart === state.selectionEnd ? state.selectionEnd + 1 : state.selectionEnd;
+    state.selectionStart === state.selectionEnd
+      ? state.selectionEnd + 1
+      : state.selectionEnd;
   return {
-    nextValue: state.value.slice(0, state.selectionStart) + state.value.slice(deleteTo),
+    nextValue:
+      state.value.slice(0, state.selectionStart) + state.value.slice(deleteTo),
     nextSelection: state.selectionStart,
     didChange: true,
   };

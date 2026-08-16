@@ -2,12 +2,19 @@
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { pathToFileURL } from "node:url";
 import postcss from "postcss";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import tailwindcss from "tailwindcss";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { useItemDndChildren } from "../dnd/itemDndChildren";
 import { ItemDndContext } from "../dnd/ItemDndContext";
@@ -16,12 +23,18 @@ import { useWorkspaceCapabilities } from "../document/capabilities";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { ItemRowRenderContext } from "./ItemListContext";
 import { resetItemListViews } from "./itemListRegistry";
 import { WorkspaceItemList } from "./WorkspaceItemList";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // The Phase 4 gate rejection's rendered-geometry regression: the compiled package stylesheet
 // once omitted the reference's named nested grid rules, so the browser placed a group's
@@ -58,7 +71,9 @@ function inlineRelativeImports(css: string, fromDirectory: string): string {
 function parseAreaColumnNames(gridTemplateAreas: string): Array<string> {
   const firstRow = /"([^"]*)"/.exec(gridTemplateAreas)?.[1];
   if (firstRow === undefined) {
-    throw new Error(`no named grid areas in ${JSON.stringify(gridTemplateAreas)}`);
+    throw new Error(
+      `no named grid areas in ${JSON.stringify(gridTemplateAreas)}`,
+    );
   }
   return firstRow.trim().split(/\s+/);
 }
@@ -67,7 +82,10 @@ function parseAreaColumnNames(gridTemplateAreas: string): Array<string> {
 // (area `name` spans lines `name-start`..`name-end`). Null means the name does not exist in
 // the definite grid, so the browser would place the element into implicit tracks — the
 // rejected beside-the-label collapse.
-function resolveNamedColumnSpan(areaColumns: Array<string>, gridColumn: string) {
+function resolveNamedColumnSpan(
+  areaColumns: Array<string>,
+  gridColumn: string,
+) {
   const parts = gridColumn.split("/").map((part) => part.trim());
   const startName = parts[0];
   const endName = parts[1];
@@ -82,7 +100,10 @@ function resolveNamedColumnSpan(areaColumns: Array<string>, gridColumn: string) 
   return { startLine: startTrack + 1, endLine: endTrack + 2 };
 }
 
-function getItemField(item: ItemRowRenderContext["item"], field: string): unknown {
+function getItemField(
+  item: ItemRowRenderContext["item"],
+  field: string,
+): unknown {
   const data = item.data;
   if (data === null || typeof data !== "object" || Array.isArray(data)) {
     throw new Error(`item ${item.id} is missing its row data`);
@@ -97,11 +118,18 @@ function isGroupItem(item: ItemRowRenderContext["item"]): boolean {
 function renderRowContent(context: ItemRowRenderContext) {
   const label = String(getItemField(context.item, "label"));
   if (isGroupItem(context.item)) {
-    return createElement("p", { "data-testid": `label-${context.item.id}` }, label);
+    return createElement(
+      "p",
+      { "data-testid": `label-${context.item.id}` },
+      label,
+    );
   }
   return createElement(
     "div",
-    { className: "section-key overflow-hidden", "data-testid": `label-${context.item.id}` },
+    {
+      className: "section-key overflow-hidden",
+      "data-testid": `label-${context.item.id}`,
+    },
     label,
   );
 }
@@ -110,10 +138,20 @@ function loadRejectedScene() {
   registerSectionKinds({ leaf: { renderContent: () => null } });
   // The rejected `options` group scene plus the reference's nested-root case: a non-group
   // row (`beta`) that carries a child, whose areas come from the stylesheet alone.
-  const ids: Record<string, { label: string; group?: boolean; children: Array<string> }> = {
-    "item-root": { label: "root", children: ["item-alpha", "item-options", "item-beta"] },
+  const ids: Record<
+    string,
+    { label: string; group?: boolean; children: Array<string> }
+  > = {
+    "item-root": {
+      label: "root",
+      children: ["item-alpha", "item-options", "item-beta"],
+    },
     "item-alpha": { label: "alpha", children: [] },
-    "item-options": { label: "options", group: true, children: ["item-momentum", "item-decay"] },
+    "item-options": {
+      label: "options",
+      group: true,
+      children: ["item-momentum", "item-decay"],
+    },
     "item-momentum": { label: "momentum", children: [] },
     "item-decay": { label: "decay", children: [] },
     "item-beta": { label: "beta", children: ["item-gamma"] },
@@ -143,7 +181,9 @@ function loadRejectedScene() {
                 children: entry.children,
                 ...(id === "item-root"
                   ? {}
-                  : { data: { label: entry.label, group: entry.group === true } }),
+                  : {
+                      data: { label: entry.label, group: entry.group === true },
+                    }),
               },
             ]),
           ),
@@ -167,11 +207,14 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
     // config, with the content globs anchored to the package root so the scan does not
     // depend on the test runner's working directory.
     const packageRoot = getPackageRoot();
-    const configModule = (await import(
-      pathToFileURL(join(packageRoot, "tailwind.config.js")).href
-    )) as { default: Record<string, unknown> };
+    const configModule = (await import("../../tailwind.config.js")) as {
+      default: Record<string, unknown>;
+    };
     const inputPath = join(packageRoot, "src/styles/index.css");
-    const input = inlineRelativeImports(readFileSync(inputPath, "utf8"), dirname(inputPath));
+    const input = inlineRelativeImports(
+      readFileSync(inputPath, "utf8"),
+      dirname(inputPath),
+    );
     const compiled = await postcss([
       tailwindcss({
         ...configModule.default,
@@ -242,7 +285,10 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
   function getGroupLabelRuleGridColumn(): string {
     const groupLabelSelector = String.raw`.\[\&\>p\]\:section-key-value > p`;
     for (const rule of styleElement.sheet?.cssRules ?? []) {
-      if (rule instanceof window.CSSStyleRule && rule.selectorText === groupLabelSelector) {
+      if (
+        rule instanceof window.CSSStyleRule &&
+        rule.selectorText === groupLabelSelector
+      ) {
         return rule.style.getPropertyValue("grid-column");
       }
     }
@@ -255,9 +301,18 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
       throw new Error("expected the package-owned list-area shell");
     }
     const shellStyle = getComputedStyle(shell);
-    expect(shellStyle.getPropertyValue("grid-template-columns")).toBe("0.75rem 1fr 0.75rem 1fr");
-    const areaColumns = parseAreaColumnNames(shellStyle.getPropertyValue("grid-template-areas"));
-    expect(areaColumns).toEqual(["left-gutter", "key", "center-gutter", "value"]);
+    expect(shellStyle.getPropertyValue("grid-template-columns")).toBe(
+      "0.75rem 1fr 0.75rem 1fr",
+    );
+    const areaColumns = parseAreaColumnNames(
+      shellStyle.getPropertyValue("grid-template-areas"),
+    );
+    expect(areaColumns).toEqual([
+      "left-gutter",
+      "key",
+      "center-gutter",
+      "value",
+    ]);
 
     // Top-level leaves inset past the left gutter; a group row runs flush from it.
     const leafSpan = resolveNamedColumnSpan(
@@ -276,23 +331,35 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
     const groupRow = getRow("item-options");
     // The inline row columns carry the reference's five `[c…]` lines (four tracks), and the
     // stylesheet's `section-args-nested` areas must name exactly those four tracks.
-    expect(groupRow.style.gridTemplateColumns.match(/\[c\d\]/g)).toHaveLength(5);
+    expect(groupRow.style.gridTemplateColumns.match(/\[c\d\]/g)).toHaveLength(
+      5,
+    );
     const areaColumns = parseAreaColumnNames(
       getComputedStyle(groupRow).getPropertyValue("grid-template-areas"),
     );
-    expect(areaColumns).toEqual(["left-gutter", "key", "center-gutter", "value"]);
+    expect(areaColumns).toEqual([
+      "left-gutter",
+      "key",
+      "center-gutter",
+      "value",
+    ]);
 
     // jsdom's selector engine cannot match the escaped `[&>p]:` class browsers match, so the
     // label's placement is resolved from the stylesheet rule itself: the row carries the
     // variant class, the label is its direct `p` child, and the rule pins that pair.
-    const label = host.querySelector<HTMLElement>('[data-testid="label-item-options"]');
+    const label = host.querySelector<HTMLElement>(
+      '[data-testid="label-item-options"]',
+    );
     if (!label) {
       throw new Error("expected the group label");
     }
     expect(groupRow.className).toContain("[&>p]:section-key-value");
     expect(label.tagName).toBe("P");
     expect(label.parentElement).toBe(groupRow);
-    const labelSpan = resolveNamedColumnSpan(areaColumns, getGroupLabelRuleGridColumn());
+    const labelSpan = resolveNamedColumnSpan(
+      areaColumns,
+      getGroupLabelRuleGridColumn(),
+    );
     const rail = groupRow.querySelector<HTMLElement>("div.section-args-nested");
     if (!rail) {
       throw new Error("expected the nested-children rail");
@@ -309,14 +376,25 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
   });
 
   it("keeps the nested rail and child rows on the reference's named grids", () => {
-    const rail = getRow("item-options").querySelector<HTMLElement>("div.section-args-nested");
+    const rail = getRow("item-options").querySelector<HTMLElement>(
+      "div.section-args-nested",
+    );
     if (!rail) {
       throw new Error("expected the nested-children rail");
     }
     const railStyle = getComputedStyle(rail);
-    expect(railStyle.getPropertyValue("grid-template-columns")).toBe("0.75rem 1fr 0.75rem 1fr");
-    const railColumns = parseAreaColumnNames(railStyle.getPropertyValue("grid-template-areas"));
-    expect(railColumns).toEqual(["left-gutter", "key", "center-gutter", "value"]);
+    expect(railStyle.getPropertyValue("grid-template-columns")).toBe(
+      "0.75rem 1fr 0.75rem 1fr",
+    );
+    const railColumns = parseAreaColumnNames(
+      railStyle.getPropertyValue("grid-template-areas"),
+    );
+    expect(railColumns).toEqual([
+      "left-gutter",
+      "key",
+      "center-gutter",
+      "value",
+    ]);
 
     for (const childId of ["item-momentum", "item-decay"]) {
       const childRow = getRow(childId);
@@ -344,7 +422,9 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
     );
     expect(areaColumns).toEqual(["key", "center-gutter", "value"]);
 
-    const rail = nestedRootRow.querySelector<HTMLElement>("div.section-args-nested");
+    const rail = nestedRootRow.querySelector<HTMLElement>(
+      "div.section-args-nested",
+    );
     if (!rail) {
       throw new Error("expected the nested-children rail");
     }

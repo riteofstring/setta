@@ -1,15 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { getPhysicalViewportInsets, getVisibleCanvasRect } from "./viewportInsets";
+import {
+  getPhysicalViewportInsets,
+  getVisibleCanvasRect,
+} from "./viewportInsets";
 
 describe("workspace viewport insets", () => {
   it("maps logical shell panes to physical canvas edges", () => {
-    expect(getPhysicalViewportInsets({ direction: "ltr", leading: 335, trailing: 40 })).toEqual({
+    expect(
+      getPhysicalViewportInsets({
+        direction: "ltr",
+        leading: 335,
+        trailing: 40,
+      }),
+    ).toEqual({
       bottom: 0,
       left: 335,
       right: 40,
       top: 0,
     });
-    expect(getPhysicalViewportInsets({ direction: "rtl", leading: 335, trailing: 40 })).toEqual({
+    expect(
+      getPhysicalViewportInsets({
+        direction: "rtl",
+        leading: 335,
+        trailing: 40,
+      }),
+    ).toEqual({
       bottom: 0,
       left: 40,
       right: 335,
@@ -55,9 +70,16 @@ describe("workspace viewport insets", () => {
         { width: Number.NaN, height: 600 },
         { top: 0, right: 0, bottom: 0, left: 0 },
       ),
-    ).toThrowError("Workspace viewport dimensions and insets must be finite and non-negative.");
+    ).toThrowError(
+      "Workspace viewport dimensions and insets must be finite and non-negative.",
+    );
     expect(() =>
-      getVisibleCanvasRect({ width: 800, height: 600 }, { top: 0, right: 0, bottom: 0, left: -1 }),
-    ).toThrowError("Workspace viewport dimensions and insets must be finite and non-negative.");
+      getVisibleCanvasRect(
+        { width: 800, height: 600 },
+        { top: 0, right: 0, bottom: 0, left: -1 },
+      ),
+    ).toThrowError(
+      "Workspace viewport dimensions and insets must be finite and non-negative.",
+    );
   });
 });

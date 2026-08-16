@@ -6,7 +6,7 @@ import type { CSSProperties } from "react";
 // typography variants read; the package keeps that mechanism, because the rendered surface is
 // the same `prose` composition.
 
-export type WorkspaceTextTypographyScale = {
+type WorkspaceTextTypographyScale = {
   bodyPx: number;
   codePx: number;
   h1Px: number;

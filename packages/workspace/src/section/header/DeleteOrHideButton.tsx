@@ -25,15 +25,19 @@ function getDeleteOrHideButtonClassName({
   size: string | undefined;
   disabled: boolean;
 }): string {
-  const { defaultBg, defaultColor } = getDeleteOrHideButtonDefaults(hasSectionStyleTheme);
-  const cursorClass = disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer";
+  const { defaultBg, defaultColor } =
+    getDeleteOrHideButtonDefaults(hasSectionStyleTheme);
+  const cursorClass = disabled
+    ? "cursor-not-allowed opacity-50"
+    : "cursor-pointer";
   return `focus-visible:ring-2 inline-flex items-center nodrag flex justify-center ${defaultBg} ${defaultColor} rounded-full p-0 ${size ?? "h-4 min-w-4"} ${cursorClass}`;
 }
 
 function getDeleteOrHideButtonDefaults(hasSectionStyleTheme: boolean) {
   if (hasSectionStyleTheme) {
     return {
-      defaultBg: "bg-transparent hover:bg-[color:var(--setta-section-style-bg)]",
+      defaultBg:
+        "bg-transparent hover:bg-[color:var(--setta-section-style-bg)]",
       defaultColor:
         "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)] focus-visible:ring-[var(--setta-section-style-outline)]",
     };
@@ -57,7 +61,9 @@ export function DeleteOrHideButton({
       return;
     }
     const shouldRestoreFocus = document.activeElement === event.currentTarget;
-    const focusTarget = shouldRestoreFocus ? captureSectionRemovalFocusTarget(sectionId) : null;
+    const focusTarget = shouldRestoreFocus
+      ? captureSectionRemovalFocusTarget(sectionId)
+      : null;
     deleteSection(sectionId);
     if (shouldRestoreFocus) {
       restoreFocusAfterSectionRemoval(focusTarget);

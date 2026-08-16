@@ -2,7 +2,7 @@ import { getSectionOrThrow, isGroupSection } from "./documentSelectors";
 import type { ActiveSectionsState, WorkspaceDocumentState } from "./stores";
 import type { WorkspaceSection } from "./types";
 
-export type PreparedUngroupSections = {
+type PreparedUngroupSections = {
   activeSections: ActiveSectionsState;
   document: WorkspaceDocumentState;
   focusTargetByGroupId: ReadonlyMap<string, string | null>;
@@ -14,15 +14,21 @@ export type UngroupPromotedSectionMeasurement = {
   width: number;
 };
 
-export type ResolveUngroupPromotedSectionMeasurement = (
+type ResolveUngroupPromotedSectionMeasurement = (
   sectionId: string,
 ) => UngroupPromotedSectionMeasurement | null;
 
-function getParentId(state: WorkspaceDocumentState, sectionId: string): string | null {
+function getParentId(
+  state: WorkspaceDocumentState,
+  sectionId: string,
+): string | null {
   return state.parentSectionMap[sectionId] ?? null;
 }
 
-function isStructurallyUngroupable(state: WorkspaceDocumentState, groupId: string): boolean {
+function isStructurallyUngroupable(
+  state: WorkspaceDocumentState,
+  groupId: string,
+): boolean {
   const group = state.sections[groupId];
   if (!group || !isGroupSection(group) || group.positionAndSizeLocked) {
     return false;
@@ -34,13 +40,17 @@ function isStructurallyUngroupable(state: WorkspaceDocumentState, groupId: strin
     }
   } else {
     const parent = state.sections[parentId];
-    if (!parent || parent.children.filter((childId) => childId === groupId).length !== 1) {
+    if (
+      !parent ||
+      parent.children.filter((childId) => childId === groupId).length !== 1
+    ) {
       return false;
     }
   }
   return group.children.every(
     (childId) =>
-      state.sections[childId] !== undefined && state.parentSectionMap[childId] === groupId,
+      state.sections[childId] !== undefined &&
+      state.parentSectionMap[childId] === groupId,
   );
 }
 
@@ -70,7 +80,9 @@ function normalizeGroupIds(groupIds: ReadonlyArray<string>): Array<string> {
   const seen = new Set<string>();
   for (const rawGroupId of groupIds) {
     if (typeof rawGroupId !== "string" || rawGroupId.trim() === "") {
-      throw new Error("Ungrouping requires every group id to be a nonblank string.");
+      throw new Error(
+        "Ungrouping requires every group id to be a nonblank string.",
+      );
     }
     const groupId = rawGroupId.trim();
     if (!seen.has(groupId)) {
@@ -97,13 +109,17 @@ function validateGroup(state: WorkspaceDocumentState, groupId: string): void {
   } else {
     const parent = getSectionOrThrow(state, parentId);
     if (parent.children.filter((childId) => childId === groupId).length !== 1) {
-      throw new Error(`Group ${groupId} is not listed exactly once by parent ${parentId}.`);
+      throw new Error(
+        `Group ${groupId} is not listed exactly once by parent ${parentId}.`,
+      );
     }
   }
   for (const childId of group.children) {
     getSectionOrThrow(state, childId);
     if (state.parentSectionMap[childId] !== groupId) {
-      throw new Error(`Group ${groupId} does not own child ${childId} in the parent map.`);
+      throw new Error(
+        `Group ${groupId} does not own child ${childId} in the parent map.`,
+      );
     }
   }
 }
@@ -120,13 +136,21 @@ function expandRemovedGroups(
       continue;
     }
     const group = getSectionOrThrow(state, sectionId);
-    expanded.push(...expandRemovedGroups(state, group.children, removedGroupIds));
+    expanded.push(
+      ...expandRemovedGroups(state, group.children, removedGroupIds),
+    );
   }
   return expanded;
 }
 
-function arraysEqual(left: ReadonlyArray<string>, right: ReadonlyArray<string>): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
+function arraysEqual(
+  left: ReadonlyArray<string>,
+  right: ReadonlyArray<string>,
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
 }
 
 function buildSections(
@@ -138,7 +162,11 @@ function buildSections(
     if (removedGroupIds.has(sectionId)) {
       continue;
     }
-    const children = expandRemovedGroups(state, section.children, removedGroupIds);
+    const children = expandRemovedGroups(
+      state,
+      section.children,
+      removedGroupIds,
+    );
     sections[sectionId] = arraysEqual(children, section.children)
       ? section
       : { ...section, children };
@@ -153,7 +181,9 @@ function buildParentSectionMap(
   for (const [parentId, section] of Object.entries(sections)) {
     for (const childId of section.children) {
       if (!sections[childId]) {
-        throw new Error(`Ungrouping left parent ${parentId} with unknown child ${childId}.`);
+        throw new Error(
+          `Ungrouping left parent ${parentId} with unknown child ${childId}.`,
+        );
       }
       const existingParentId = parentSectionMap[childId];
       if (existingParentId !== undefined) {
@@ -198,7 +228,10 @@ function getPromotedTopLevelIds(
 ): Set<string> {
   const promotedIds = new Set<string>();
   for (const groupId of topLevelGroupIds) {
-    for (const sectionId of getReplacementIds(replacementIdsByGroupId, groupId)) {
+    for (const sectionId of getReplacementIds(
+      replacementIdsByGroupId,
+      groupId,
+    )) {
       promotedIds.add(sectionId);
     }
   }
@@ -241,7 +274,10 @@ function resolvePromotedTopLevelDimensions(
       `Promoted section ${sectionId} measurement must have positive finite dimensions.`,
     );
   }
-  return { w: Math.round(measurement.width), h: Math.round(measurement.height) };
+  return {
+    w: Math.round(measurement.width),
+    h: Math.round(measurement.height),
+  };
 }
 
 function appendPromotedTopLevelSections(
@@ -257,11 +293,17 @@ function appendPromotedTopLevelSections(
     if (!groupLayout) {
       throw new Error(`Top-level group ${groupId} is missing its layout.`);
     }
-    for (const sectionId of getReplacementIds(replacementIdsByGroupId, groupId)) {
+    for (const sectionId of getReplacementIds(
+      replacementIdsByGroupId,
+      groupId,
+    )) {
       topLevelSections[sectionId] = {
         x: groupLayout.x,
         y: groupLayout.y,
-        ...resolvePromotedTopLevelDimensions(sectionId, resolvePromotedSectionMeasurement),
+        ...resolvePromotedTopLevelDimensions(
+          sectionId,
+          resolvePromotedSectionMeasurement,
+        ),
         zIndex: nextZIndex,
       };
       nextZIndex += 1;
@@ -277,8 +319,15 @@ function buildTopLevelSections(
   resolvePromotedSectionMeasurement: ResolveUngroupPromotedSectionMeasurement,
 ): WorkspaceDocumentState["topLevelSections"] {
   const topLevelGroupIds = getTopLevelGroupIds(state, groupIds);
-  const promotedIds = getPromotedTopLevelIds(topLevelGroupIds, replacementIdsByGroupId);
-  const topLevelSections = copySurvivingTopLevelSections(state, removedGroupIds, promotedIds);
+  const promotedIds = getPromotedTopLevelIds(
+    topLevelGroupIds,
+    replacementIdsByGroupId,
+  );
+  const topLevelSections = copySurvivingTopLevelSections(
+    state,
+    removedGroupIds,
+    promotedIds,
+  );
   appendPromotedTopLevelSections(
     state,
     topLevelSections,
@@ -289,7 +338,10 @@ function buildTopLevelSections(
   return topLevelSections;
 }
 
-function getOriginalSiblingIds(state: WorkspaceDocumentState, sectionId: string): Array<string> {
+function getOriginalSiblingIds(
+  state: WorkspaceDocumentState,
+  sectionId: string,
+): Array<string> {
   const parentId = getParentId(state, sectionId);
   if (parentId !== null) {
     return getSectionOrThrow(state, parentId).children;
@@ -341,21 +393,34 @@ function findLastExistingSection(
   return null;
 }
 
-function getSiblingFocusTarget(context: UngroupFocusContext, groupId: string): string | null {
+function getSiblingFocusTarget(
+  context: UngroupFocusContext,
+  groupId: string,
+): string | null {
   const siblings = getOriginalSiblingIds(context.state, groupId);
   const groupIndex = siblings.indexOf(groupId);
   if (groupIndex < 0) {
-    throw new Error(`Group ${groupId} is missing from its rendered sibling order.`);
+    throw new Error(
+      `Group ${groupId} is missing from its rendered sibling order.`,
+    );
   }
   const before = siblings
     .slice(0, groupIndex)
     .flatMap((sectionId) =>
-      getSurvivingReplacement(sectionId, context.removedGroupIds, context.replacementIdsByGroupId),
+      getSurvivingReplacement(
+        sectionId,
+        context.removedGroupIds,
+        context.replacementIdsByGroupId,
+      ),
     );
   const after = siblings
     .slice(groupIndex + 1)
     .flatMap((sectionId) =>
-      getSurvivingReplacement(sectionId, context.removedGroupIds, context.replacementIdsByGroupId),
+      getSurvivingReplacement(
+        sectionId,
+        context.removedGroupIds,
+        context.replacementIdsByGroupId,
+      ),
     );
   return (
     findFirstExistingSection(context.nextState, after) ??
@@ -368,12 +433,17 @@ function resolveUngroupFocusTarget(
   groupId: string,
   resolving = new Set<string>(),
 ): string | null {
-  const ownReplacement = getReplacementIds(context.replacementIdsByGroupId, groupId);
+  const ownReplacement = getReplacementIds(
+    context.replacementIdsByGroupId,
+    groupId,
+  );
   if (ownReplacement[0]) {
     return ownReplacement[0];
   }
   if (resolving.has(groupId)) {
-    throw new Error(`Ungroup focus resolution encountered a cycle at ${groupId}.`);
+    throw new Error(
+      `Ungroup focus resolution encountered a cycle at ${groupId}.`,
+    );
   }
   resolving.add(groupId);
   const siblingTarget = getSiblingFocusTarget(context, groupId);
@@ -407,7 +477,11 @@ export function prepareUngroupSections(
   for (const groupId of groupIds) {
     replacementIdsByGroupId.set(
       groupId,
-      expandRemovedGroups(state, getSectionOrThrow(state, groupId).children, removedGroupIds),
+      expandRemovedGroups(
+        state,
+        getSectionOrThrow(state, groupId).children,
+        removedGroupIds,
+      ),
     );
   }
   const sections = buildSections(state, removedGroupIds);
@@ -431,12 +505,17 @@ export function prepareUngroupSections(
   };
   const focusTargetByGroupId = new Map<string, string | null>();
   for (const groupId of groupIds) {
-    focusTargetByGroupId.set(groupId, resolveUngroupFocusTarget(focusContext, groupId));
+    focusTargetByGroupId.set(
+      groupId,
+      resolveUngroupFocusTarget(focusContext, groupId),
+    );
   }
   return {
     document: nextDocument,
     activeSections: {
-      activeIds: activeSections.activeIds.filter((sectionId) => !removedGroupIds.has(sectionId)),
+      activeIds: activeSections.activeIds.filter(
+        (sectionId) => !removedGroupIds.has(sectionId),
+      ),
     },
     focusTargetByGroupId,
     groupIds,

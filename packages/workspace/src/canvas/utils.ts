@@ -1,4 +1,7 @@
-import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
+import type {
+  MouseEvent as ReactMouseEvent,
+  TouchEvent as ReactTouchEvent,
+} from "react";
 import type { Box, Dimensions, Rect } from "./types";
 
 export const isMacOs = () =>
@@ -28,7 +31,11 @@ export const getWheelDelta = (event: WheelEvent, factor = 1): number =>
 
 // returns a number between 0 and 1 that represents the velocity of the movement
 // when the mouse is close to the edge of the canvas
-const calcAutoPanVelocity = (value: number, min: number, max: number): number => {
+const calcAutoPanVelocity = (
+  value: number,
+  min: number,
+  max: number,
+): number => {
   if (value < min) {
     return clamp(Math.abs(value - min), 1, 50) / 50;
   } else if (value > max) {
@@ -76,11 +83,13 @@ export const getBoundsOfRects = (rect1: Rect, rect2: Rect): Rect =>
 export const getOverlappingArea = (rectA: Rect, rectB: Rect): number => {
   const xOverlap = Math.max(
     0,
-    Math.min(rectA.x + rectA.width, rectB.x + rectB.width) - Math.max(rectA.x, rectB.x),
+    Math.min(rectA.x + rectA.width, rectB.x + rectB.width) -
+      Math.max(rectA.x, rectB.x),
   );
   const yOverlap = Math.max(
     0,
-    Math.min(rectA.y + rectA.height, rectB.y + rectB.height) - Math.max(rectA.y, rectB.y),
+    Math.min(rectA.y + rectA.height, rectB.y + rectB.height) -
+      Math.max(rectA.y, rectB.y),
   );
 
   return Math.ceil(xOverlap * yOverlap);

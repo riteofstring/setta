@@ -1,6 +1,9 @@
 import _ from "lodash";
 import { memo, type ReactNode } from "react";
-import { NodesSelectionDragHandleWrapper, NodesSelectionWrapper } from "./NodesSelection";
+import {
+  NodesSelectionDragHandleWrapper,
+  NodesSelectionWrapper,
+} from "./NodesSelection";
 import { useWorkspaceOptions } from "./options";
 import Pane from "./Pane";
 import { useReactFlow } from "./store";

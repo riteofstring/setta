@@ -5,7 +5,11 @@ import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { WorkspaceSectionItemTree } from "../document/types";
 import { registerItemListView, resetItemListViews } from "./itemListRegistry";
 import {
@@ -36,7 +40,9 @@ function makeItemTree(
   }
   return {
     rootId: "item-root",
-    items: Object.fromEntries([...ids].map((id) => [id, { id, children: childrenById[id] ?? [] }])),
+    items: Object.fromEntries(
+      [...ids].map((id) => [id, { id, children: childrenById[id] ?? [] }]),
+    ),
     selectedItemIds,
   };
 }
@@ -65,7 +71,11 @@ function collectItemIds(itemTree: WorkspaceSectionItemTree): Array<string> {
 function loadPanel(
   childrenById: Record<string, Array<string>>,
   selectedItemIds: Array<string>,
-  options: { visibleItemIds?: Array<string>; filterActive?: boolean; register?: boolean } = {},
+  options: {
+    visibleItemIds?: Array<string>;
+    filterActive?: boolean;
+    register?: boolean;
+  } = {},
 ) {
   registerSectionKinds({ leaf: { renderContent: () => null } });
   const itemTree = makeItemTree(childrenById, selectedItemIds);
@@ -79,7 +89,9 @@ function loadPanel(
     registerItemListView("panel", {
       listKey: "main",
       topLevelItemIds: itemTree.items["item-root"]?.children ?? [],
-      visibleItemIds: new Set(options.visibleItemIds ?? collectItemIds(itemTree)),
+      visibleItemIds: new Set(
+        options.visibleItemIds ?? collectItemIds(itemTree),
+      ),
       filterActive: options.filterActive ?? false,
     });
   }
@@ -88,7 +100,8 @@ function loadPanel(
 }
 
 function getPanelItemTree(sectionId = "panel"): WorkspaceSectionItemTree {
-  const itemTree = useWorkspaceDocument.getState().sections[sectionId]?.itemTree;
+  const itemTree =
+    useWorkspaceDocument.getState().sections[sectionId]?.itemTree;
   if (!itemTree) {
     throw new Error(`expected section ${sectionId} to carry an item tree`);
   }
@@ -123,14 +136,25 @@ describe("moveSelectedItems offset moves", () => {
   });
 
   it("moves discontiguous selections downward in reverse group order", () => {
-    loadPanel({ "item-root": ["item-a", "item-b", "item-c", "item-d"] }, ["item-a", "item-c"]);
+    loadPanel({ "item-root": ["item-a", "item-b", "item-c", "item-d"] }, [
+      "item-a",
+      "item-c",
+    ]);
     expect(moveSelectedItemsDown()).toBe(true);
-    expect(childrenOf("item-root")).toEqual(["item-b", "item-a", "item-d", "item-c"]);
+    expect(childrenOf("item-root")).toEqual([
+      "item-b",
+      "item-a",
+      "item-d",
+      "item-c",
+    ]);
     expect(changeCallback).toHaveBeenCalledTimes(1);
   });
 
   it("keeps a contiguous multi-selection together when moving up", () => {
-    loadPanel({ "item-root": ["item-a", "item-b", "item-c"] }, ["item-b", "item-c"]);
+    loadPanel({ "item-root": ["item-a", "item-b", "item-c"] }, [
+      "item-b",
+      "item-c",
+    ]);
     expect(moveSelectedItemsUp()).toBe(true);
     expect(childrenOf("item-root")).toEqual(["item-b", "item-c", "item-a"]);
   });
@@ -143,18 +167,26 @@ describe("moveSelectedItems offset moves", () => {
   });
 
   it("moves past a hidden sibling without disturbing its full-order position", () => {
-    loadPanel({ "item-root": ["item-a", "item-hidden", "item-b"] }, ["item-a"], {
-      visibleItemIds: ["item-a", "item-b"],
-    });
+    loadPanel(
+      { "item-root": ["item-a", "item-hidden", "item-b"] },
+      ["item-a"],
+      {
+        visibleItemIds: ["item-a", "item-b"],
+      },
+    );
     expect(moveSelectedItemsDown()).toBe(true);
-    expect(childrenOf("item-root")).toEqual(["item-hidden", "item-b", "item-a"]);
+    expect(childrenOf("item-root")).toEqual([
+      "item-hidden",
+      "item-b",
+      "item-a",
+    ]);
   });
 
   it("rejects selections that span multiple parents", () => {
-    loadPanel({ "item-root": ["item-a", "item-group"], "item-group": ["item-c"] }, [
-      "item-a",
-      "item-c",
-    ]);
+    loadPanel(
+      { "item-root": ["item-a", "item-group"], "item-group": ["item-c"] },
+      ["item-a", "item-c"],
+    );
     expect(moveSelectedItemsDown()).toBe(false);
     expect(changeCallback).not.toHaveBeenCalled();
   });
@@ -162,7 +194,9 @@ describe("moveSelectedItems offset moves", () => {
 
 describe("selected item move gating", () => {
   it("disables keyboard moves while a registered list filter is active", () => {
-    loadPanel({ "item-root": ["item-a", "item-b"] }, ["item-a"], { filterActive: true });
+    loadPanel({ "item-root": ["item-a", "item-b"] }, ["item-a"], {
+      filterActive: true,
+    });
     expect(moveSelectedItemsDown()).toBe(false);
     expect(indentSelectedItems()).toBe(false);
     expect(unindentSelectedItems()).toBe(false);
@@ -176,7 +210,9 @@ describe("selected item move gating", () => {
   });
 
   it("disables keyboard moves without a registered list view", () => {
-    loadPanel({ "item-root": ["item-a", "item-b"] }, ["item-a"], { register: false });
+    loadPanel({ "item-root": ["item-a", "item-b"] }, ["item-a"], {
+      register: false,
+    });
     expect(moveSelectedItemsDown()).toBe(false);
   });
 
@@ -190,8 +226,12 @@ describe("selected item move gating", () => {
 
   it("prefers the active section over document order when both hold selections", () => {
     registerSectionKinds({ leaf: { renderContent: () => null } });
-    const firstTree = makeItemTree({ "item-root": ["item-a", "item-b"] }, ["item-a"]);
-    const secondTree = makeItemTree({ "item-root": ["item-x", "item-y"] }, ["item-x"]);
+    const firstTree = makeItemTree({ "item-root": ["item-a", "item-b"] }, [
+      "item-a",
+    ]);
+    const secondTree = makeItemTree({ "item-root": ["item-x", "item-y"] }, [
+      "item-x",
+    ]);
     loadWorkspaceDocument({
       sections: {
         first: makeSection("first", firstTree),
@@ -233,7 +273,10 @@ describe("indentSelectedItems", () => {
   });
 
   it("indents non-contiguous groups independently", () => {
-    loadPanel({ "item-root": ["item-x", "item-o", "item-a", "item-b"] }, ["item-o", "item-b"]);
+    loadPanel({ "item-root": ["item-x", "item-o", "item-a", "item-b"] }, [
+      "item-o",
+      "item-b",
+    ]);
     expect(indentSelectedItems()).toBe(true);
     expect(childrenOf("item-root")).toEqual(["item-x", "item-a"]);
     expect(childrenOf("item-x")).toEqual(["item-o"]);
@@ -250,11 +293,16 @@ describe("indentSelectedItems", () => {
 
 describe("unindentSelectedItems", () => {
   it("promotes the selection to just after its parent", () => {
-    loadPanel({ "item-root": ["item-parent", "item-other"], "item-parent": ["item-x"] }, [
-      "item-x",
-    ]);
+    loadPanel(
+      { "item-root": ["item-parent", "item-other"], "item-parent": ["item-x"] },
+      ["item-x"],
+    );
     expect(unindentSelectedItems()).toBe(true);
-    expect(childrenOf("item-root")).toEqual(["item-parent", "item-x", "item-other"]);
+    expect(childrenOf("item-root")).toEqual([
+      "item-parent",
+      "item-x",
+      "item-other",
+    ]);
     expect(childrenOf("item-parent")).toEqual([]);
     expect(changeCallback).toHaveBeenCalledTimes(1);
   });
@@ -269,7 +317,12 @@ describe("unindentSelectedItems", () => {
       ["item-o", "item-b"],
     );
     expect(unindentSelectedItems()).toBe(true);
-    expect(childrenOf("item-root")).toEqual(["item-p", "item-o", "item-a", "item-b"]);
+    expect(childrenOf("item-root")).toEqual([
+      "item-p",
+      "item-o",
+      "item-a",
+      "item-b",
+    ]);
     expect(changeCallback).toHaveBeenCalledTimes(1);
   });
 

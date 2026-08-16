@@ -5,8 +5,15 @@ import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
-import type { WorkspaceSection, WorkspaceSectionInput } from "../document/types";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
+import type {
+  WorkspaceSection,
+  WorkspaceSectionInput,
+} from "../document/types";
 import { createSectionCommandContext } from "./workspaceCommandContexts";
 import { registerWorkspaceCommands } from "./workspaceCommandRegistry";
 import {
@@ -15,7 +22,10 @@ import {
   runWorkspaceCommandById,
 } from "./workspaceCommandResolution";
 
-function createSection(id: string, overrides: Partial<WorkspaceSectionInput> = {}) {
+function createSection(
+  id: string,
+  overrides: Partial<WorkspaceSectionInput> = {},
+) {
   return {
     id,
     kind: "leaf",
@@ -52,7 +62,10 @@ function getSection(sectionId: string): WorkspaceSection {
   return section;
 }
 
-function contextFor(sectionId: string, selectedIds: Array<string> = [sectionId]) {
+function contextFor(
+  sectionId: string,
+  selectedIds: Array<string> = [sectionId],
+) {
   return createSectionCommandContext(
     getSection(sectionId),
     selectedIds.map((id) => getSection(id)),
@@ -86,7 +99,11 @@ describe("workspace command resolution", () => {
     registerSectionKinds({
       leaf: {
         renderContent: () => null,
-        createItem: () => ({ id: `created-${crypto.randomUUID()}`, children: [], data: {} }),
+        createItem: () => ({
+          id: `created-${crypto.randomUUID()}`,
+          children: [],
+          data: {},
+        }),
       },
     });
     loadGroupDocument();
@@ -100,7 +117,9 @@ describe("workspace command resolution", () => {
 
   it("offers each surface the commands that apply to its target", () => {
     expect(
-      resolveWorkspaceCommandEntries("context-menu", contextFor("group")).map((entry) => entry.id),
+      resolveWorkspaceCommandEntries("context-menu", contextFor("group")).map(
+        (entry) => entry.id,
+      ),
     ).toEqual([
       "workspace.group-sections",
       "workspace.toggle-group-overflow",
@@ -109,17 +128,30 @@ describe("workspace command resolution", () => {
       "workspace.lock-sections",
     ]);
     expect(
-      resolveWorkspaceCommandEntries("header", contextFor("group")).map((entry) => entry.id),
-    ).toEqual(["workspace.toggle-group-overflow", "workspace.ungroup-sections"]);
-    expect(resolveWorkspaceCommandEntries("header", contextFor("leaf"))).toEqual([]);
-    expect(hasApplicableWorkspaceCommands("header", contextFor("group"))).toBe(true);
-    expect(hasApplicableWorkspaceCommands("header", contextFor("leaf"))).toBe(false);
+      resolveWorkspaceCommandEntries("header", contextFor("group")).map(
+        (entry) => entry.id,
+      ),
+    ).toEqual([
+      "workspace.toggle-group-overflow",
+      "workspace.ungroup-sections",
+    ]);
+    expect(
+      resolveWorkspaceCommandEntries("header", contextFor("leaf")),
+    ).toEqual([]);
+    expect(hasApplicableWorkspaceCommands("header", contextFor("group"))).toBe(
+      true,
+    );
+    expect(hasApplicableWorkspaceCommands("header", contextFor("leaf"))).toBe(
+      false,
+    );
   });
 
   it("hides the overflow toggle for a multiple selection and flips lock with the selection", () => {
     const multiple = contextFor("group", ["group", "leaf"]);
     expect(
-      resolveWorkspaceCommandEntries("context-menu", multiple).map((entry) => entry.id),
+      resolveWorkspaceCommandEntries("context-menu", multiple).map(
+        (entry) => entry.id,
+      ),
     ).toEqual([
       "workspace.group-sections",
       "workspace.ungroup-sections",
@@ -127,14 +159,17 @@ describe("workspace command resolution", () => {
       "workspace.lock-sections",
     ]);
 
-    expect(runWorkspaceCommandById("workspace.lock-sections", multiple)).toEqual({
+    expect(
+      runWorkspaceCommandById("workspace.lock-sections", multiple),
+    ).toEqual({
       ran: true,
       statusMessage: "2 sections locked.",
     });
     expect(
-      resolveWorkspaceCommandEntries("context-menu", contextFor("group", ["group", "leaf"])).map(
-        (entry) => entry.id,
-      ),
+      resolveWorkspaceCommandEntries(
+        "context-menu",
+        contextFor("group", ["group", "leaf"]),
+      ).map((entry) => entry.id),
     ).toContain("workspace.unlock-sections");
   });
 
@@ -151,7 +186,9 @@ describe("workspace command resolution", () => {
     expect(new Set(reasons)).toEqual(
       new Set(["Structural editing is disabled in this workspace."]),
     );
-    expect(runWorkspaceCommandById("workspace.ungroup-sections", context)).toEqual({
+    expect(
+      runWorkspaceCommandById("workspace.ungroup-sections", context),
+    ).toEqual({
       ran: false,
       statusMessage: null,
     });
@@ -160,7 +197,9 @@ describe("workspace command resolution", () => {
 
   it("runs one canonical operation and reports its announcement", () => {
     const context = contextFor("group");
-    expect(runWorkspaceCommandById("workspace.ungroup-sections", context)).toEqual({
+    expect(
+      runWorkspaceCommandById("workspace.ungroup-sections", context),
+    ).toEqual({
       ran: true,
       statusMessage: "Group ungrouped.",
     });
@@ -171,21 +210,26 @@ describe("workspace command resolution", () => {
   it("chooses the parameter command that matches the item selection", () => {
     const withoutSelection = contextFor("leaf");
     expect(
-      resolveWorkspaceCommandEntries("inspector-parameters", withoutSelection).map(
-        (entry) => entry.id,
-      ),
+      resolveWorkspaceCommandEntries(
+        "inspector-parameters",
+        withoutSelection,
+      ).map((entry) => entry.id),
     ).toEqual(["workspace.insert-item", "workspace.delete-last-item"]);
 
     useWorkspaceDocument.setState((state) => ({
       sections: {
         ...state.sections,
-        leaf: { ...getSection("leaf"), itemTree: createItemTree(["first", "second"]) },
+        leaf: {
+          ...getSection("leaf"),
+          itemTree: createItemTree(["first", "second"]),
+        },
       },
     }));
     expect(
-      resolveWorkspaceCommandEntries("inspector-parameters", contextFor("leaf")).map(
-        (entry) => entry.id,
-      ),
+      resolveWorkspaceCommandEntries(
+        "inspector-parameters",
+        contextFor("leaf"),
+      ).map((entry) => entry.id),
     ).toEqual(["workspace.insert-item", "workspace.delete-selected-items"]);
   });
 
@@ -196,7 +240,10 @@ describe("workspace command resolution", () => {
         leaf: { ...getSection("leaf"), positionAndSizeLocked: true },
       },
     }));
-    const entries = resolveWorkspaceCommandEntries("inspector-parameters", contextFor("leaf"));
+    const entries = resolveWorkspaceCommandEntries(
+      "inspector-parameters",
+      contextFor("leaf"),
+    );
 
     expect(entries.every((entry) => entry.disabled)).toBe(true);
     expect(new Set(entries.map((entry) => entry.disabledReason))).toEqual(
@@ -215,7 +262,10 @@ describe("workspace command resolution", () => {
         run,
       },
     ]);
-    const entries = resolveWorkspaceCommandEntries("inspector", contextFor("group"));
+    const entries = resolveWorkspaceCommandEntries(
+      "inspector",
+      contextFor("group"),
+    );
     const hostEntry = entries.find((entry) => entry.origin === "host");
     expect(hostEntry?.disabled).toBe(false);
 
@@ -228,8 +278,8 @@ describe("workspace command resolution", () => {
   });
 
   it("refuses a command whose context no longer matches its scope", () => {
-    expect(() => runWorkspaceCommandById("workspace.delete-item", contextFor("leaf"))).toThrow(
-      /cannot receive section context for item/,
-    );
+    expect(() =>
+      runWorkspaceCommandById("workspace.delete-item", contextFor("leaf")),
+    ).toThrow(/cannot receive section context for item/);
   });
 });

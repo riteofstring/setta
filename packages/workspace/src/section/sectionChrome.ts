@@ -44,7 +44,10 @@ function getSectionShellChromeClassName(hasSectionStyleTheme: boolean) {
 function getSectionShellOutlineClassName({
   isActiveSection,
   hasSectionStyleTheme,
-}: Pick<SectionContainerShellClassNameOptions, "isActiveSection" | "hasSectionStyleTheme">) {
+}: Pick<
+  SectionContainerShellClassNameOptions,
+  "isActiveSection" | "hasSectionStyleTheme"
+>) {
   const outlineColor = getOutlineColor({ isActiveSection });
 
   if (!hasSectionStyleTheme) {
@@ -100,13 +103,21 @@ export function getSectionContainerShellClassName({
   positionAndSizeLocked,
   useMetaControlStyle = false,
 }: SectionContainerShellClassNameOptions): string {
-  const sectionStyleChromeClassName = getSectionShellChromeClassName(hasSectionStyleTheme);
+  const sectionStyleChromeClassName =
+    getSectionShellChromeClassName(hasSectionStyleTheme);
   const sectionStyleOutlineClassName = getSectionShellOutlineClassName({
     isActiveSection,
     hasSectionStyleTheme,
   });
-  const { containerBgClassName, containerBorderClassName, outlineClassName, outlineSizeClassName } =
-    getSectionShellContainerClasses(useMetaControlStyle, sectionStyleOutlineClassName);
+  const {
+    containerBgClassName,
+    containerBorderClassName,
+    outlineClassName,
+    outlineSizeClassName,
+  } = getSectionShellContainerClasses(
+    useMetaControlStyle,
+    sectionStyleOutlineClassName,
+  );
   const { borderColorClassName, cornerClassName } =
     getSectionShellBorderClasses(positionAndSizeLocked);
 
@@ -134,8 +145,10 @@ export function getSectionSurfaceClassName({
   zIndexClassName = "z-10",
   metaHoverZIndexClassName = "",
 }: SectionSurfaceClassNameOptions): string {
-  const layoutClassNameToUse = layoutClassName ?? DEFAULT_SECTION_SURFACE_LAYOUT_CLASS_NAME;
-  const sectionStyleChromeClassName = getSectionSurfaceChromeClassName(hasSectionStyleTheme);
+  const layoutClassNameToUse =
+    layoutClassName ?? DEFAULT_SECTION_SURFACE_LAYOUT_CLASS_NAME;
+  const sectionStyleChromeClassName =
+    getSectionSurfaceChromeClassName(hasSectionStyleTheme);
   const cornerClassName = positionAndSizeLocked ? "rounded-sm" : "rounded-lg";
 
   return joinClassNames(

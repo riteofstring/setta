@@ -9,11 +9,19 @@ import type { Node, Viewport } from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
 import { resolveWorkspaceMotionDuration } from "../styles/motion";
 import type { ReactFlowState, Rect, Transform, ViewportInsets } from "./types";
-import { boxToRect, clamp, getBoundsOfBoxes, getOverlappingArea, rectToBox } from "./utils";
+import {
+  boxToRect,
+  clamp,
+  getBoundsOfBoxes,
+  getOverlappingArea,
+  rectToBox,
+} from "./utils";
 import { EMPTY_VIEWPORT_INSETS, getVisibleCanvasRect } from "./viewportInsets";
 import { screenToFlowPosition } from "./viewportPosition";
 
-export const getNodesBounds = (nodes: Array<Pick<Node, "position" | "width" | "height">>): Rect => {
+export const getNodesBounds = (
+  nodes: Array<Pick<Node, "position" | "width" | "height">>,
+): Rect => {
   if (nodes.length === 0) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
@@ -39,7 +47,10 @@ export const getNodesBounds = (nodes: Array<Pick<Node, "position" | "width" | "h
 
 export function getActiveSectionsBounds(ignoreGrid = false) {
   const activeSectionIds = getActiveSectionIds();
-  const { rootIds } = getRootSelectedSectionIds(useWorkspaceDocument.getState(), activeSectionIds);
+  const { rootIds } = getRootSelectedSectionIds(
+    useWorkspaceDocument.getState(),
+    activeSectionIds,
+  );
   return (
     getSectionBounds(rootIds, ignoreGrid) ?? {
       x: 0,
@@ -52,7 +63,10 @@ export function getActiveSectionsBounds(ignoreGrid = false) {
 
 // Measures a section through its registered DOM ref: the fallback for nested sections and
 // nodes that have not been measured yet.
-export function getSectionRect(sectionId: string, ignoreGrid = false): Rect | null {
+export function getSectionRect(
+  sectionId: string,
+  ignoreGrid = false,
+): Rect | null {
   const ref =
     useSectionRefs.getState().selfOnly[sectionId] ??
     useSectionRefs.getState().withNested[sectionId];
@@ -95,7 +109,9 @@ export function getNodesInside(
 
   // Nested sections have no node-internals entry; measure them through their registered DOM
   // refs so a marquee can select them, as the reference does with its project sections sweep.
-  for (const sectionId of Object.keys(useWorkspaceDocument.getState().sections)) {
+  for (const sectionId of Object.keys(
+    useWorkspaceDocument.getState().sections,
+  )) {
     if (handledSectionIds.has(sectionId)) {
       continue;
     }
@@ -154,11 +170,17 @@ export const getViewportForBounds = (
 ): Viewport => {
   const visibleCanvas = getVisibleCanvasRect({ width, height }, viewportInsets);
   if (visibleCanvas.width <= 0 || visibleCanvas.height <= 0) {
-    throw new Error("Cannot fit bounds before the canvas has measurable bounds.");
+    throw new Error(
+      "Cannot fit bounds before the canvas has measurable bounds.",
+    );
   }
   const xZoom = visibleCanvas.width / (bounds.width * (1 + padding));
   const yZoom = visibleCanvas.height / (bounds.height * (1 + padding));
-  const zoom = clamp(Math.min(xZoom, yZoom), zoomLimits.minZoom, zoomLimits.maxZoom);
+  const zoom = clamp(
+    Math.min(xZoom, yZoom),
+    zoomLimits.minZoom,
+    zoomLimits.maxZoom,
+  );
   const boundsCenterX = bounds.x + bounds.width / 2;
   const boundsCenterY = bounds.y + bounds.height / 2;
   const x = visibleCanvas.x + visibleCanvas.width / 2 - boundsCenterX * zoom;
@@ -171,10 +193,15 @@ export const getD3Transition = (
   selection: D3Selection<Element, unknown, null, undefined>,
   duration = 0,
 ) => {
-  return selection.transition().duration(resolveWorkspaceMotionDuration(duration));
+  return selection
+    .transition()
+    .duration(resolveWorkspaceMotionDuration(duration));
 };
 
-function getSectionBounds(sectionIds: Array<string>, ignoreGrid = false): Rect | null {
+function getSectionBounds(
+  sectionIds: Array<string>,
+  ignoreGrid = false,
+): Rect | null {
   const nodeInternals = useNodeInternals.getState().x;
   const sections = sectionIds.flatMap((sectionId) => {
     const node = nodeInternals.get(sectionId);
@@ -192,7 +219,13 @@ function getSectionBounds(sectionIds: Array<string>, ignoreGrid = false): Rect |
     if (!rect || !hasPositiveRectBounds(rect.width, rect.height)) {
       return [];
     }
-    return [{ position: { x: rect.x, y: rect.y }, width: rect.width, height: rect.height }];
+    return [
+      {
+        position: { x: rect.x, y: rect.y },
+        width: rect.width,
+        height: rect.height,
+      },
+    ];
   });
 
   if (sections.length === 0) {
@@ -202,7 +235,11 @@ function getSectionBounds(sectionIds: Array<string>, ignoreGrid = false): Rect |
   return getNodesBounds(sections);
 }
 
-function isSectionOverlappingWithRect(sectionId: string, otherRect: Rect, partially: boolean) {
+function isSectionOverlappingWithRect(
+  sectionId: string,
+  otherRect: Rect,
+  partially: boolean,
+) {
   const rect = getSectionRect(sectionId, true);
   if (!rect) {
     return false;
@@ -220,9 +257,18 @@ function isSectionOverlappingWithRect(sectionId: string, otherRect: Rect, partia
   return partiallyVisible || overlappingArea >= area;
 }
 
-function isNodeOverlappingWithRect(node: Node, otherRect: Rect, partially: boolean) {
+function isNodeOverlappingWithRect(
+  node: Node,
+  otherRect: Rect,
+  partially: boolean,
+) {
   const { width, height } = node;
-  if (typeof width !== "number" || typeof height !== "number" || width <= 0 || height <= 0) {
+  if (
+    typeof width !== "number" ||
+    typeof height !== "number" ||
+    width <= 0 ||
+    height <= 0
+  ) {
     return false;
   }
   const nodeRect = {
@@ -245,5 +291,10 @@ function hasPositiveRectBounds(
   width: number | null | undefined,
   height: number | null | undefined,
 ): boolean {
-  return typeof width === "number" && typeof height === "number" && width > 0 && height > 0;
+  return (
+    typeof width === "number" &&
+    typeof height === "number" &&
+    width > 0 &&
+    height > 0
+  );
 }

@@ -41,7 +41,9 @@ class CdpClient {
         { once: true },
       );
     });
-    this.#socket.addEventListener("message", (event) => this.#handleMessage(event));
+    this.#socket.addEventListener("message", (event) =>
+      this.#handleMessage(event),
+    );
     this.#socket.addEventListener("close", () => this.#handleClose());
     return this;
   }
@@ -64,7 +66,9 @@ class CdpClient {
 
   send(method, params = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
     if (this.#socket.readyState !== globalThis.WebSocket.OPEN) {
-      throw new Error(`Cannot send ${method}; the Chrome DevTools connection is not open.`);
+      throw new Error(
+        `Cannot send ${method}; the Chrome DevTools connection is not open.`,
+      );
     }
     const id = this.#nextId;
     this.#nextId += 1;
@@ -94,7 +98,9 @@ class CdpClient {
   }
 
   #handleClose() {
-    const error = new Error("Chrome DevTools WebSocket closed before all commands completed.");
+    const error = new Error(
+      "Chrome DevTools WebSocket closed before all commands completed.",
+    );
     for (const { reject, timeout } of this.#pending.values()) {
       clearTimeout(timeout);
       reject(error);
@@ -132,15 +138,25 @@ class CdpClient {
 }
 
 export async function createCdpPage(port) {
-  const response = await fetch(`http://127.0.0.1:${String(port)}/json/new?about%3Ablank`, {
-    method: "PUT",
-  });
+  const response = await fetch(
+    `http://127.0.0.1:${String(port)}/json/new?about%3Ablank`,
+    {
+      method: "PUT",
+    },
+  );
   if (!response.ok) {
-    throw new Error(`Chrome DevTools target creation failed with HTTP ${String(response.status)}.`);
+    throw new Error(
+      `Chrome DevTools target creation failed with HTTP ${String(response.status)}.`,
+    );
   }
   const target = await response.json();
-  if (typeof target.id !== "string" || typeof target.webSocketDebuggerUrl !== "string") {
-    throw new Error("Chrome DevTools target creation returned a malformed target.");
+  if (
+    typeof target.id !== "string" ||
+    typeof target.webSocketDebuggerUrl !== "string"
+  ) {
+    throw new Error(
+      "Chrome DevTools target creation returned a malformed target.",
+    );
   }
   const client = new CdpClient(target.webSocketDebuggerUrl);
   await client.connect();

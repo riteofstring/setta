@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { ColorValueControl } from "../color/ColorValueControl";
-import { MetaDateValueControl, MetaTimeValueControl } from "../date-time/DateTimeValueControl";
+import {
+  MetaDateValueControl,
+  MetaTimeValueControl,
+} from "../date-time/DateTimeValueControl";
 import { MetaDropdownValueControl } from "../dropdown/DropdownValueControl";
 import { DropzoneValueControl } from "../dropzone/DropzoneValueControl";
 import { MetaPasswordValueControl } from "../password/PasswordValueControl";
@@ -49,11 +52,16 @@ export function MetaValueControl(props: MetaValueControlProps) {
   );
 }
 
-function renderNumericMetaControl(props: MetaValueControlProps): ReactNode | null {
+function renderNumericMetaControl(
+  props: MetaValueControlProps,
+): ReactNode | null {
   const { control } = props;
   if (control.kind === "slider") {
     return (
-      <MetaControlTitleStack {...getTitleProps(props)} contentClassName="items-center">
+      <MetaControlTitleStack
+        {...getTitleProps(props)}
+        contentClassName="items-center"
+      >
         <MetaSliderValueControl
           ariaLabel={control.ariaLabel}
           sectionId={props.sectionId}
@@ -70,7 +78,10 @@ function renderNumericMetaControl(props: MetaValueControlProps): ReactNode | nul
   }
   if (control.kind === "rotary") {
     return (
-      <MetaControlTitleStack {...getTitleProps(props)} contentClassName="items-center">
+      <MetaControlTitleStack
+        {...getTitleProps(props)}
+        contentClassName="items-center"
+      >
         <div
           className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex w-full items-center justify-center`}
         >
@@ -91,7 +102,9 @@ function renderNumericMetaControl(props: MetaValueControlProps): ReactNode | nul
   return null;
 }
 
-function renderChoiceMetaControl(props: MetaValueControlProps): ReactNode | null {
+function renderChoiceMetaControl(
+  props: MetaValueControlProps,
+): ReactNode | null {
   const { control } = props;
   if (control.kind === "switch") {
     const label = control.label.trim();
@@ -121,7 +134,10 @@ function renderChoiceMetaControl(props: MetaValueControlProps): ReactNode | null
   }
   if (control.kind === "color") {
     return (
-      <MetaControlTitleStack {...getTitleProps(props)} contentClassName="items-stretch">
+      <MetaControlTitleStack
+        {...getTitleProps(props)}
+        contentClassName="items-stretch"
+      >
         <ColorValueControl
           ariaLabel={control.ariaLabel}
           sectionId={props.sectionId}
@@ -136,7 +152,10 @@ function renderChoiceMetaControl(props: MetaValueControlProps): ReactNode | null
   }
   if (control.kind === "dropdown") {
     return (
-      <MetaControlTitleStack {...getTitleProps(props)} contentClassName="items-center">
+      <MetaControlTitleStack
+        {...getTitleProps(props)}
+        contentClassName="items-center"
+      >
         <MetaDropdownValueControl
           ariaLabel={control.ariaLabel}
           value={control.value}
@@ -151,11 +170,16 @@ function renderChoiceMetaControl(props: MetaValueControlProps): ReactNode | null
   return null;
 }
 
-function renderDateTimeMetaControl(props: MetaValueControlProps): ReactNode | null {
+function renderDateTimeMetaControl(
+  props: MetaValueControlProps,
+): ReactNode | null {
   const { control } = props;
   if (control.kind === "date") {
     return (
-      <MetaControlTitleStack {...getTitleProps(props)} contentClassName="items-stretch">
+      <MetaControlTitleStack
+        {...getTitleProps(props)}
+        contentClassName="items-stretch"
+      >
         <MetaDateValueControl
           ariaLabel={control.ariaLabel}
           sectionId={props.sectionId}
@@ -174,7 +198,10 @@ function renderDateTimeMetaControl(props: MetaValueControlProps): ReactNode | nu
   }
   if (control.kind === "time") {
     return (
-      <MetaControlTitleStack {...getTitleProps(props)} contentClassName="items-stretch">
+      <MetaControlTitleStack
+        {...getTitleProps(props)}
+        contentClassName="items-stretch"
+      >
         <MetaTimeValueControl
           ariaLabel={control.ariaLabel}
           sectionId={props.sectionId}
@@ -193,11 +220,16 @@ function renderDateTimeMetaControl(props: MetaValueControlProps): ReactNode | nu
   return null;
 }
 
-function renderSecureOrDropMetaControl(props: MetaValueControlProps): ReactNode | null {
+function renderSecureOrDropMetaControl(
+  props: MetaValueControlProps,
+): ReactNode | null {
   const { control } = props;
   if (control.kind === "password") {
     return (
-      <MetaControlTitleStack {...getTitleProps(props)} contentClassName="items-stretch">
+      <MetaControlTitleStack
+        {...getTitleProps(props)}
+        contentClassName="items-stretch"
+      >
         <MetaPasswordValueControl
           ariaLabel={control.ariaLabel}
           sectionId={props.sectionId}
@@ -212,7 +244,10 @@ function renderSecureOrDropMetaControl(props: MetaValueControlProps): ReactNode 
   }
   if (control.kind === "dropzone") {
     return (
-      <MetaControlTitleStack {...getTitleProps(props)} contentClassName="items-stretch">
+      <MetaControlTitleStack
+        {...getTitleProps(props)}
+        contentClassName="items-stretch"
+      >
         <DropzoneValueControl
           ariaLabel={control.ariaLabel}
           sectionId={props.sectionId}
@@ -234,10 +269,15 @@ function renderSecureOrDropMetaControl(props: MetaValueControlProps): ReactNode 
   return null;
 }
 
-function getTitleProps({ sectionName, showSectionTitle }: MetaValueControlProps) {
+function getTitleProps({
+  sectionName,
+  showSectionTitle,
+}: MetaValueControlProps) {
   return { sectionName, showSectionTitle };
 }
 
 function failUnknownMetaControl(control: { kind?: unknown }): never {
-  throw new Error(`Unknown meta control kind: ${String((control as { kind?: unknown }).kind)}.`);
+  throw new Error(
+    `Unknown meta control kind: ${String((control as { kind?: unknown }).kind)}.`,
+  );
 }

@@ -3,11 +3,17 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { activateDndMovingFreeMode, activateDndSortingMode, useDndState } from "../dnd/dndState";
+import {
+  activateDndMovingFreeMode,
+  activateDndSortingMode,
+  useDndState,
+} from "../dnd/dndState";
 import { initialCanvasState, useReactFlow } from "./store";
 import { useShouldDisablePointerEvents } from "./useShouldDisablePointerEvents";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 let latest: boolean | null = null;
 
@@ -65,7 +71,10 @@ describe("useShouldDisablePointerEvents", () => {
     expect(latest).toBe(true);
 
     await act(async () => {
-      useReactFlow.setState({ multiSelectionActive: false, zoomActivationKeyPressed: true });
+      useReactFlow.setState({
+        multiSelectionActive: false,
+        zoomActivationKeyPressed: true,
+      });
     });
     expect(latest).toBe(true);
   });
@@ -78,7 +87,14 @@ describe("useShouldDisablePointerEvents", () => {
 
     await act(async () => {
       useReactFlow.setState({
-        userSelectionRect: { x: 0, y: 0, width: 10, height: 10, startX: 0, startY: 0 },
+        userSelectionRect: {
+          x: 0,
+          y: 0,
+          width: 10,
+          height: 10,
+          startX: 0,
+          startY: 0,
+        },
       });
     });
     expect(latest).toBe(true);

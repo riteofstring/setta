@@ -1,10 +1,19 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const playgroundStyles = readFileSync(new URL("./index.css", import.meta.url), "utf8");
-const playgroundHtml = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const playgroundStyles = readFileSync(
+  new URL("./index.css", import.meta.url),
+  "utf8",
+);
+const playgroundHtml = readFileSync(
+  new URL("../index.html", import.meta.url),
+  "utf8",
+);
 const packedConsumerStyles = readFileSync(
-  new URL("../../../fixtures/packed-consumer/src/consumer.css", import.meta.url),
+  new URL(
+    "../../../fixtures/packed-consumer/src/consumer.css",
+    import.meta.url,
+  ),
   "utf8",
 );
 const packedConsumerHtml = readFileSync(

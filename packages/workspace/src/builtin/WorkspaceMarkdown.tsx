@@ -47,9 +47,16 @@ const MARKDOWN_CLASS_NAME = [
 
 // Only code outside a `pre` reaches here, so this is the reference's inline chip and nothing
 // else has to be decided.
-function MarkdownInlineCode({ children, ...codeProps }: HTMLAttributes<HTMLElement>) {
+function MarkdownInlineCode({
+  children,
+  ...codeProps
+}: HTMLAttributes<HTMLElement>) {
   return (
-    <code {...codeProps} className={INLINE_CODE_CLASS_NAME} data-setta-inline-code="true">
+    <code
+      {...codeProps}
+      className={INLINE_CODE_CLASS_NAME}
+      data-setta-inline-code="true"
+    >
       {children}
     </code>
   );

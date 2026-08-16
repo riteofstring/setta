@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getItemHandlerRegistration, registerItemHandlers } from "./itemHandlerRegistry";
+import {
+  getItemHandlerRegistration,
+  registerItemHandlers,
+} from "./itemHandlerRegistry";
 
 describe("item handler registration", () => {
   afterEach(() => registerItemHandlers([]));
@@ -41,9 +44,9 @@ describe("item handler registration", () => {
       onAccepted: vi.fn(),
       onRejected: vi.fn(),
     };
-    expect(() => registerItemHandlers([registration, registration])).toThrowError(
-      "Duplicate item handler registration for panel/dropzone.",
-    );
+    expect(() =>
+      registerItemHandlers([registration, registration]),
+    ).toThrowError("Duplicate item handler registration for panel/dropzone.");
     expect(() =>
       registerItemHandlers([
         {
@@ -51,7 +54,9 @@ describe("item handler registration", () => {
           onAccepted: null,
         } as never,
       ]),
-    ).toThrowError("Item handler panel/dropzone onAccepted must be a function.");
+    ).toThrowError(
+      "Item handler panel/dropzone onAccepted must be a function.",
+    );
     expect(() => registerItemHandlers(null as never)).toThrowError(
       "Item handler registrations must be an array.",
     );
@@ -63,6 +68,8 @@ describe("item handler registration", () => {
           kind: "upload",
         } as never,
       ]),
-    ).toThrowError("Item handler panel/dropzone names the unknown handler kind upload.");
+    ).toThrowError(
+      "Item handler panel/dropzone names the unknown handler kind upload.",
+    );
   });
 });

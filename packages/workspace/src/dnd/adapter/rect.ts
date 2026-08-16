@@ -17,7 +17,9 @@ type RectDimensions = {
   height: number;
 };
 
-export function rectFromBoundingRect(rect: Rectangle["boundingRectangle"]): ClientRect {
+export function rectFromBoundingRect(
+  rect: Rectangle["boundingRectangle"],
+): ClientRect {
   return {
     top: rect.top,
     left: rect.left,
@@ -39,7 +41,10 @@ function getRectDimensions(rect: RectLike): RectDimensions | null {
   };
 }
 
-function coerceFromLeftTop(rect: RectLike, dimensions: RectDimensions): ClientRect | null {
+function coerceFromLeftTop(
+  rect: RectLike,
+  dimensions: RectDimensions,
+): ClientRect | null {
   if (typeof rect.left !== "number" || typeof rect.top !== "number") {
     return null;
   }
@@ -47,14 +52,23 @@ function coerceFromLeftTop(rect: RectLike, dimensions: RectDimensions): ClientRe
   return {
     top: rect.top,
     left: rect.left,
-    right: typeof rect.right === "number" ? rect.right : rect.left + dimensions.width,
-    bottom: typeof rect.bottom === "number" ? rect.bottom : rect.top + dimensions.height,
+    right:
+      typeof rect.right === "number"
+        ? rect.right
+        : rect.left + dimensions.width,
+    bottom:
+      typeof rect.bottom === "number"
+        ? rect.bottom
+        : rect.top + dimensions.height,
     width: dimensions.width,
     height: dimensions.height,
   };
 }
 
-function coerceFromCoordinates(rect: RectLike, dimensions: RectDimensions): ClientRect | null {
+function coerceFromCoordinates(
+  rect: RectLike,
+  dimensions: RectDimensions,
+): ClientRect | null {
   if (typeof rect.x !== "number" || typeof rect.y !== "number") {
     return null;
   }
@@ -80,5 +94,8 @@ export function coerceClientRect(value: unknown): ClientRect | null {
     return null;
   }
 
-  return coerceFromLeftTop(rect, dimensions) ?? coerceFromCoordinates(rect, dimensions);
+  return (
+    coerceFromLeftTop(rect, dimensions) ??
+    coerceFromCoordinates(rect, dimensions)
+  );
 }

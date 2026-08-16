@@ -3,7 +3,7 @@
 // approved slice, so only the six core section-style variables remain.
 import { deriveSectionStyleTheme } from "./sectionStyleColors";
 
-export type SectionStyleVars = Record<`--setta-section-style-${string}`, string>;
+type SectionStyleVars = Record<`--setta-section-style-${string}`, string>;
 
 export function resolveSectionStyleVars(
   sectionStyleTheme: ReturnType<typeof deriveSectionStyleTheme>,

@@ -46,7 +46,9 @@ const defaultDisabledState: Disabled = { draggable: false, droppable: true };
 
 export function useDisableSortable(sectionId: string): Disabled {
   const { isSorting, isMovingFree } = useDndMode();
-  const disabled = useDndState((x) => x.disabled[sectionId] ?? defaultDisabledState);
+  const disabled = useDndState(
+    (x) => x.disabled[sectionId] ?? defaultDisabledState,
+  );
 
   useEffect(() => {
     setDndDisabled(sectionId, defaultDisabledState);
@@ -117,12 +119,19 @@ function shouldEnableSort({
   isMovingFree: boolean;
   isSorting: boolean;
 }) {
-  const freeMoveSortEnabled = isMovingFree && activeId !== sectionId && !activeIdInAncestorSet;
+  const freeMoveSortEnabled =
+    isMovingFree && activeId !== sectionId && !activeIdInAncestorSet;
   const childSortEnabled = isSorting && activeContainerId === sectionId;
   return freeMoveSortEnabled || childSortEnabled;
 }
 
-export function useDndProps({ sectionId, isTopLevel }: { sectionId: string; isTopLevel: boolean }) {
+export function useDndProps({
+  sectionId,
+  isTopLevel,
+}: {
+  sectionId: string;
+  isTopLevel: boolean;
+}) {
   // We only want to set disabled if positionAndSizeLocked is true.
   // If positionAndSizeLocked is false, we don't want to set disabled to false,
   // so we leave it undefined to avoid forcing a value.
@@ -134,7 +143,9 @@ export function useDndProps({ sectionId, isTopLevel }: { sectionId: string; isTo
     return {
       hasNested: children.length > 0,
       onlyChildId: children.length === 1 ? children[0] : null,
-      disabled: section?.positionAndSizeLocked ? section.positionAndSizeLocked : undefined,
+      disabled: section?.positionAndSizeLocked
+        ? section.positionAndSizeLocked
+        : undefined,
     };
   }, _.isEqual);
 

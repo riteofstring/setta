@@ -39,11 +39,17 @@ describe("updatePositions", () => {
 
     updatePositions({ x: 1, y: 0, isShiftPressed: false });
 
-    expect(useNodeInternals.getState().x.get("leaf")?.position).toEqual({ x: 10, y: 20 });
+    expect(useNodeInternals.getState().x.get("leaf")?.position).toEqual({
+      x: 10,
+      y: 20,
+    });
 
     useWorkspaceCapabilities.setState({ canEditLayout: true });
     updatePositions({ x: 1, y: 0, isShiftPressed: false });
 
-    expect(useNodeInternals.getState().x.get("leaf")?.position).toEqual({ x: 15, y: 20 });
+    expect(useNodeInternals.getState().x.get("leaf")?.position).toEqual({
+      x: 15,
+      y: 20,
+    });
   });
 });

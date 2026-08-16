@@ -8,7 +8,10 @@ const defaultScale = {
 
 type Orientation = "vertical" | "horizontal";
 
-export function itemsEqual(a: UniqueIdentifier[], b: UniqueIdentifier[]): boolean {
+export function itemsEqual(
+  a: UniqueIdentifier[],
+  b: UniqueIdentifier[],
+): boolean {
   if (a === b) {
     return true;
   }
@@ -71,7 +74,12 @@ export function computeNewIndex(
   return Math.min(upperBound, Math.max(lowerBound, candidateIndex));
 }
 
-export const rectSortingStrategy: SortingStrategy = ({ rects, activeIndex, overIndex, index }) => {
+export const rectSortingStrategy: SortingStrategy = ({
+  rects,
+  activeIndex,
+  overIndex,
+  index,
+}) => {
   const newRects = arrayMove(rects, overIndex, activeIndex);
   const oldRect = rects[index];
   const newRect = newRects[index];
@@ -88,9 +96,11 @@ export const rectSortingStrategy: SortingStrategy = ({ rects, activeIndex, overI
   };
 };
 
-export const verticalListSortingStrategy = createListSortingStrategy("vertical");
+export const verticalListSortingStrategy =
+  createListSortingStrategy("vertical");
 
-export const horizontalListSortingStrategy = createListSortingStrategy("horizontal");
+export const horizontalListSortingStrategy =
+  createListSortingStrategy("horizontal");
 
 export function resolveStrategyResult(
   result: ReturnType<SortingStrategy>,
@@ -189,7 +199,10 @@ function getActiveItemTransform(
   const activeEnd = getRectEnd(activeNodeRect, orientation);
   const overStart = getRectStart(overIndexRect, orientation);
   const overEnd = getRectEnd(overIndexRect, orientation);
-  const delta = activeIndex < effectiveOverIndex ? overEnd - activeEnd : overStart - activeStart;
+  const delta =
+    activeIndex < effectiveOverIndex
+      ? overEnd - activeEnd
+      : overStart - activeStart;
 
   return createTransform(orientation, delta);
 }
@@ -209,15 +222,18 @@ function getSiblingItemTransform({
   index: number;
   orientation: Orientation;
 }): Transform {
-  const isDisplacedAfterActive = index > activeIndex && index <= effectiveOverIndex;
-  const isDisplacedBeforeActive = index < activeIndex && index >= effectiveOverIndex;
+  const isDisplacedAfterActive =
+    index > activeIndex && index <= effectiveOverIndex;
+  const isDisplacedBeforeActive =
+    index < activeIndex && index >= effectiveOverIndex;
 
   if (!isDisplacedAfterActive && !isDisplacedBeforeActive) {
     return createTransform(orientation, 0);
   }
 
   const delta =
-    getRectSize(activeNodeRect, orientation) + getItemGap(rects, index, activeIndex, orientation);
+    getRectSize(activeNodeRect, orientation) +
+    getItemGap(rects, index, activeIndex, orientation);
 
   return createTransform(orientation, isDisplacedAfterActive ? -delta : delta);
 }
@@ -264,10 +280,16 @@ function getGapToAdjacentRect(
   }
 
   if (position === "previous") {
-    return getRectStart(currentRect, orientation) - getRectEnd(adjacentRect, orientation);
+    return (
+      getRectStart(currentRect, orientation) -
+      getRectEnd(adjacentRect, orientation)
+    );
   }
 
-  return getRectStart(adjacentRect, orientation) - getRectEnd(currentRect, orientation);
+  return (
+    getRectStart(adjacentRect, orientation) -
+    getRectEnd(currentRect, orientation)
+  );
 }
 
 function getRectStart(rect: ClientRect, orientation: Orientation): number {

@@ -25,7 +25,9 @@ export function SectionContainerContent({
 }: SectionContainerContentProps) {
   const definition = getRegisteredSectionKindOrThrow(section.kind);
   const metaControlPresentation =
-    definition.presentation?.type === "meta-control" ? definition.presentation : null;
+    definition.presentation?.type === "meta-control"
+      ? definition.presentation
+      : null;
   const isMetaControl = metaControlPresentation !== null;
 
   return (
@@ -37,11 +39,18 @@ export function SectionContainerContent({
       isMetaControl={isMetaControl}
     >
       {metaControlPresentation ? (
-        <MetaControlChrome section={section} onEdit={metaControlPresentation.onEdit} />
+        <MetaControlChrome
+          section={section}
+          onEdit={metaControlPresentation.onEdit}
+        />
       ) : (
-        <SectionHeader sectionId={section.id} hasSectionStyleTheme={hasSectionStyleTheme} />
+        <SectionHeader
+          sectionId={section.id}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
       )}
-      {!section.isMinimized && renderRegisteredContent(definition, section, hasSectionStyleTheme)}
+      {!section.isMinimized &&
+        renderRegisteredContent(definition, section, hasSectionStyleTheme)}
     </CustomResizable>
   );
 }

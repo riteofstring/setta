@@ -1,5 +1,8 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
-import type { WorkspaceColorChoice, WorkspaceDropdownChoiceGroup } from "../document/types";
+import type {
+  WorkspaceColorChoice,
+  WorkspaceDropdownChoiceGroup,
+} from "../document/types";
 import {
   ConfigurationActionButton,
   ConfigurationRow,
@@ -13,7 +16,10 @@ import {
 type DropdownControl = Extract<WorkspaceItemValueControl, { kind: "dropdown" }>;
 type ColorControl = Extract<WorkspaceItemValueControl, { kind: "color" }>;
 
-function handleButtonEscape(event: KeyboardEvent<HTMLElement>, onEscape: () => void): void {
+function handleButtonEscape(
+  event: KeyboardEvent<HTMLElement>,
+  onEscape: () => void,
+): void {
   if (event.key !== "Escape") {
     return;
   }
@@ -47,7 +53,10 @@ function RemoveConfigurationButton({
   );
 }
 
-function createUniqueLabel(prefix: string, existing: ReadonlySet<string>): string {
+function createUniqueLabel(
+  prefix: string,
+  existing: ReadonlySet<string>,
+): string {
   let index = existing.size + 1;
   while (existing.has(`${prefix} ${index}`)) {
     index += 1;
@@ -64,7 +73,10 @@ function FlatDropdownChoices({
 }: ConfigurationEditorProps<DropdownControl> & { choices: Array<string> }) {
   const commitChoices = (nextChoices: Array<string>) =>
     onCommit(
-      createConfigurationUpdate(control, { ...control.configuration, choices: nextChoices }),
+      createConfigurationUpdate(control, {
+        ...control.configuration,
+        choices: nextChoices,
+      }),
     );
   return (
     <>
@@ -100,7 +112,10 @@ function FlatDropdownChoices({
       ) : null}
       <div className="setta-workspace-inspector-config-list">
         {choices.map((choice, index) => (
-          <div className="setta-workspace-inspector-config-list-item" key={index}>
+          <div
+            className="setta-workspace-inspector-config-list-item"
+            key={index}
+          >
             <DraftTextConfigurationRow
               disabled={disabled}
               label={`Choice ${index + 1}`}
@@ -130,7 +145,9 @@ function FlatDropdownChoices({
               disabled={disabled}
               label={`Remove choice ${choice}`}
               onClick={() =>
-                commitChoices(choices.filter((_, currentIndex) => currentIndex !== index))
+                commitChoices(
+                  choices.filter((_, currentIndex) => currentIndex !== index),
+                )
               }
               onEscape={onEscape}
             />
@@ -141,7 +158,9 @@ function FlatDropdownChoices({
   );
 }
 
-function getGroupedChoiceValues(groups: Array<WorkspaceDropdownChoiceGroup>): Set<string> {
+function getGroupedChoiceValues(
+  groups: Array<WorkspaceDropdownChoiceGroup>,
+): Set<string> {
   return new Set(groups.flatMap((group) => group.choices));
 }
 
@@ -156,7 +175,10 @@ function GroupedDropdownChoices({
 }) {
   const commitGroups = (nextChoices: Array<WorkspaceDropdownChoiceGroup>) =>
     onCommit(
-      createConfigurationUpdate(control, { ...control.configuration, choices: nextChoices }),
+      createConfigurationUpdate(control, {
+        ...control.configuration,
+        choices: nextChoices,
+      }),
     );
   return (
     <div className="setta-workspace-inspector-config-list">
@@ -176,7 +198,10 @@ function GroupedDropdownChoices({
         <span aria-hidden="true">+</span>
       </ConfigurationActionButton>
       {choices.map((group, groupIndex) => (
-        <div className="setta-workspace-inspector-config-group" key={groupIndex}>
+        <div
+          className="setta-workspace-inspector-config-group"
+          key={groupIndex}
+        >
           <div className="setta-workspace-inspector-config-list-item">
             <DraftTextConfigurationRow
               disabled={disabled}
@@ -193,7 +218,9 @@ function GroupedDropdownChoices({
               }
               onEscape={onEscape}
               validate={(nextGroup) =>
-                nextGroup.trim() === "" ? "A choice group must not be blank." : null
+                nextGroup.trim() === ""
+                  ? "A choice group must not be blank."
+                  : null
               }
               value={group.group}
             />
@@ -201,13 +228,20 @@ function GroupedDropdownChoices({
               disabled={disabled}
               label={`Remove choice group ${group.group}`}
               onClick={() =>
-                commitGroups(choices.filter((_, currentIndex) => currentIndex !== groupIndex))
+                commitGroups(
+                  choices.filter(
+                    (_, currentIndex) => currentIndex !== groupIndex,
+                  ),
+                )
               }
               onEscape={onEscape}
             />
           </div>
           {group.choices.map((choice, choiceIndex) => (
-            <div className="setta-workspace-inspector-config-list-item" key={choiceIndex}>
+            <div
+              className="setta-workspace-inspector-config-list-item"
+              key={choiceIndex}
+            >
               <DraftTextConfigurationRow
                 disabled={disabled}
                 label={`${group.group} choice ${choiceIndex + 1}`}
@@ -220,7 +254,9 @@ function GroupedDropdownChoices({
                             ...currentGroup,
                             choices: currentGroup.choices.map(
                               (currentChoice, currentChoiceIndex) =>
-                                currentChoiceIndex === choiceIndex ? nextChoice : currentChoice,
+                                currentChoiceIndex === choiceIndex
+                                  ? nextChoice
+                                  : currentChoice,
                             ),
                           }
                         : currentGroup,
@@ -234,7 +270,9 @@ function GroupedDropdownChoices({
                   }
                   const values = getGroupedChoiceValues(choices);
                   values.delete(choice);
-                  return values.has(nextChoice) ? `Choice ${nextChoice} is already present.` : null;
+                  return values.has(nextChoice)
+                    ? `Choice ${nextChoice} is already present.`
+                    : null;
                 }}
                 value={choice}
               />
@@ -248,7 +286,8 @@ function GroupedDropdownChoices({
                         ? {
                             ...currentGroup,
                             choices: currentGroup.choices.filter(
-                              (_, currentChoiceIndex) => currentChoiceIndex !== choiceIndex,
+                              (_, currentChoiceIndex) =>
+                                currentChoiceIndex !== choiceIndex,
                             ),
                           }
                         : currentGroup,
@@ -263,11 +302,17 @@ function GroupedDropdownChoices({
             disabled={disabled}
             label={`Add choice to ${group.group}`}
             onClick={() => {
-              const nextChoice = createUniqueLabel("Choice", getGroupedChoiceValues(choices));
+              const nextChoice = createUniqueLabel(
+                "Choice",
+                getGroupedChoiceValues(choices),
+              );
               commitGroups(
                 choices.map((currentGroup, currentIndex) =>
                   currentIndex === groupIndex
-                    ? { ...currentGroup, choices: [...currentGroup.choices, nextChoice] }
+                    ? {
+                        ...currentGroup,
+                        choices: [...currentGroup.choices, nextChoice],
+                      }
                     : currentGroup,
                 ),
               );
@@ -283,7 +328,9 @@ function GroupedDropdownChoices({
   );
 }
 
-export function DropdownConfigurationEditor(props: ConfigurationEditorProps<DropdownControl>) {
+export function DropdownConfigurationEditor(
+  props: ConfigurationEditorProps<DropdownControl>,
+) {
   const { control, disabled, onCommit, onEscape } = props;
   const { choices, placeholder } = control.configuration;
   const grouped = choices.length > 0 && typeof choices[0] !== "string";
@@ -328,7 +375,9 @@ function createNextColor(choices: Array<WorkspaceColorChoice>): string {
       return color;
     }
   }
-  throw new Error("Inspector color configuration exhausted every six-digit color.");
+  throw new Error(
+    "Inspector color configuration exhausted every six-digit color.",
+  );
 }
 
 function ColorInputRow({
@@ -351,7 +400,11 @@ function ColorInputRow({
   const [error, setError] = useState<string | null>(null);
   useEffect(() => setError(null), [choice.color]);
   return (
-    <ConfigurationRow error={error} label={`Color ${index + 1}`} name={`color-${index}`}>
+    <ConfigurationRow
+      error={error}
+      label={`Color ${index + 1}`}
+      name={`color-${index}`}
+    >
       {(props) => (
         <input
           {...props}
@@ -388,7 +441,10 @@ export function ColorConfigurationEditor({
   const choices = control.configuration.choices;
   const commitChoices = (nextChoices: Array<WorkspaceColorChoice> | null) =>
     onCommit(
-      createConfigurationUpdate(control, { ...control.configuration, choices: nextChoices }),
+      createConfigurationUpdate(control, {
+        ...control.configuration,
+        choices: nextChoices,
+      }),
     );
   return (
     <>
@@ -410,10 +466,15 @@ export function ColorConfigurationEditor({
         <span>Add Colors</span>
         <span aria-hidden="true">+</span>
       </ConfigurationActionButton>
-      {choices === null ? <ReadOnlyConfigurationRow label="Picker" value="Native colors" /> : null}
+      {choices === null ? (
+        <ReadOnlyConfigurationRow label="Picker" value="Native colors" />
+      ) : null}
       <div className="setta-workspace-inspector-config-list">
         {choices?.map((choice, index) => (
-          <div className="setta-workspace-inspector-config-group" key={`${choice.color}-${index}`}>
+          <div
+            className="setta-workspace-inspector-config-group"
+            key={`${choice.color}-${index}`}
+          >
             <div className="setta-workspace-inspector-config-list-item">
               <ColorInputRow
                 choices={choices}
@@ -422,7 +483,9 @@ export function ColorConfigurationEditor({
                 onChange={(color) =>
                   commitChoices(
                     choices.map((currentChoice, currentIndex) =>
-                      currentIndex === index ? { ...currentChoice, color } : currentChoice,
+                      currentIndex === index
+                        ? { ...currentChoice, color }
+                        : currentChoice,
                     ),
                   )
                 }
@@ -432,7 +495,9 @@ export function ColorConfigurationEditor({
                 disabled={disabled}
                 label={`Remove color ${choice.description}`}
                 onClick={() => {
-                  const nextChoices = choices.filter((_, currentIndex) => currentIndex !== index);
+                  const nextChoices = choices.filter(
+                    (_, currentIndex) => currentIndex !== index,
+                  );
                   commitChoices(nextChoices.length === 0 ? null : nextChoices);
                 }}
                 onEscape={onEscape}
@@ -445,14 +510,18 @@ export function ColorConfigurationEditor({
               onCommit={(description) =>
                 commitChoices(
                   choices.map((currentChoice, currentIndex) =>
-                    currentIndex === index ? { ...currentChoice, description } : currentChoice,
+                    currentIndex === index
+                      ? { ...currentChoice, description }
+                      : currentChoice,
                   ),
                 )
               }
               onEscape={onEscape}
               placeholder="Add description..."
               validate={(description) =>
-                description.trim() === "" ? "A color description must not be blank." : null
+                description.trim() === ""
+                  ? "A color description must not be blank."
+                  : null
               }
               value={choice.description}
             />

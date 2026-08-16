@@ -6,7 +6,7 @@ export type CalendarMonthCell = {
   inCurrentMonth: boolean;
 };
 
-export type CalendarMonthAnchor = {
+type CalendarMonthAnchor = {
   year: number;
   monthIndex: number;
 };
@@ -18,18 +18,30 @@ function pad2(value: number): string {
   return value.toString().padStart(2, "0");
 }
 
-export function formatIsoDate(year: number, monthIndex: number, day: number): string {
+export function formatIsoDate(
+  year: number,
+  monthIndex: number,
+  day: number,
+): string {
   return `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
 }
 
-function isValidDateParts(year: number, monthIndex: number, day: number): boolean {
+function isValidDateParts(
+  year: number,
+  monthIndex: number,
+  day: number,
+): boolean {
   const date = new Date(Date.UTC(year, monthIndex, day));
   return (
-    date.getUTCFullYear() === year && date.getUTCMonth() === monthIndex && date.getUTCDate() === day
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === monthIndex &&
+    date.getUTCDate() === day
   );
 }
 
-export function parseIsoDate(value: string): (CalendarMonthAnchor & { day: number }) | null {
+export function parseIsoDate(
+  value: string,
+): (CalendarMonthAnchor & { day: number }) | null {
   const match = ISO_DATE_REGEX.exec(value.trim());
   if (!match) {
     return null;
@@ -64,7 +76,10 @@ export function shiftCalendarMonth(
   return { year: shiftedYear, monthIndex: shiftedMonthIndex };
 }
 
-function getWeekOffset(firstWeekday: number, weekStartsOn: DateCalendarWeekStart): number {
+function getWeekOffset(
+  firstWeekday: number,
+  weekStartsOn: DateCalendarWeekStart,
+): number {
   return weekStartsOn === "monday" ? (firstWeekday + 6) % 7 : firstWeekday;
 }
 

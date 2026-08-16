@@ -18,7 +18,9 @@ const NATIVE_CONTEXT_MENU_SELECTOR = [
   `.${NO_DRAG_CLASS_NAME}`,
 ].join(",");
 
-export function isWorkspaceMenuKeyboardEvent(event: Pick<KeyboardEvent, "key" | "shiftKey">) {
+export function isWorkspaceMenuKeyboardEvent(
+  event: Pick<KeyboardEvent, "key" | "shiftKey">,
+) {
   return event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);
 }
 

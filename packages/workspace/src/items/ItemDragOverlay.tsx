@@ -22,10 +22,8 @@ export function ItemDragOverlay() {
   const workspaceScopeClassName = useWorkspaceScopeClassName();
 
   useItemDragOverlayMonitor(setSuppressOverlay);
-  const { overlayMetrics, overlayRect, canRenderOverlay } = useItemDragOverlayState(
-    manager,
-    suppressOverlay,
-  );
+  const { overlayMetrics, overlayRect, canRenderOverlay } =
+    useItemDragOverlayState(manager, suppressOverlay);
 
   if (!canRenderOverlay || !overlayMetrics) {
     return null;
@@ -50,35 +48,54 @@ export function ItemDragOverlay() {
   );
 }
 
-function useItemDragOverlayMonitor(setSuppressOverlay: (nextValue: boolean) => void) {
+function useItemDragOverlayMonitor(
+  setSuppressOverlay: (nextValue: boolean) => void,
+) {
   useDndMonitor({
     onDragStart: (event) => {
-      updateItemOverlaySuppression({ event, nextValue: false, setSuppressOverlay });
+      updateItemOverlaySuppression({
+        event,
+        nextValue: false,
+        setSuppressOverlay,
+      });
     },
     onDragEnd: (event) => {
-      updateItemOverlaySuppression({ event, nextValue: true, setSuppressOverlay });
+      updateItemOverlaySuppression({
+        event,
+        nextValue: true,
+        setSuppressOverlay,
+      });
     },
     onDragCancel: (event) => {
-      updateItemOverlaySuppression({ event, nextValue: true, setSuppressOverlay });
+      updateItemOverlaySuppression({
+        event,
+        nextValue: true,
+        setSuppressOverlay,
+      });
     },
   });
 }
 
-function useItemDragOverlayState(manager: DragDropManager | null, suppressOverlay: boolean) {
+function useItemDragOverlayState(
+  manager: DragDropManager | null,
+  suppressOverlay: boolean,
+) {
   const activeDragType = useComputed(() => {
-    const sourceData = manager?.dragOperation.source?.data as ItemDragEventData | undefined;
+    const sourceData = manager?.dragOperation.source?.data as
+      ItemDragEventData | undefined;
     return sourceData?.current?.type ?? null;
   }, [manager]).value;
   const isItemDragActive = activeDragType === "item";
-  const { activeId, placeholderWidth, placeholderHeight, activeRect } = useItemDndState(
-    (state) => ({
-      activeId: state.activeId,
-      placeholderWidth: state.placeholderWidth,
-      placeholderHeight: state.placeholderHeight,
-      activeRect: state.activeRect,
-    }),
-    _.isEqual,
-  );
+  const { activeId, placeholderWidth, placeholderHeight, activeRect } =
+    useItemDndState(
+      (state) => ({
+        activeId: state.activeId,
+        placeholderWidth: state.placeholderWidth,
+        placeholderHeight: state.placeholderHeight,
+        activeRect: state.activeRect,
+      }),
+      _.isEqual,
+    );
   const dragTransform = useComputed(() => {
     if (!manager) {
       return null;

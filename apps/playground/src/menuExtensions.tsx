@@ -117,7 +117,9 @@ function PlaygroundCreationIcon({ className }: WorkspaceCommandIconProps) {
 // package places the section in empty space after this factory returns.
 function describeCreationRequest(context: WorkspaceCreationContext): string {
   const position = context.workspacePosition;
-  return position ? `at ${Math.round(position.x)}, ${Math.round(position.y)}` : "from the keyboard";
+  return position
+    ? `at ${Math.round(position.x)}, ${Math.round(position.y)}`
+    : "from the keyboard";
 }
 
 function createPlaygroundLeaf(
@@ -145,7 +147,9 @@ function createPlaygroundLeaf(
 
 // Whether the built-in code section appears in a creation surface is the host's call: this one
 // lists it beside its own two kinds, on its own chord, built from the package's creation defaults.
-function createPlaygroundCodeSection(context: WorkspaceCreationContext): WorkspaceSectionInput {
+function createPlaygroundCodeSection(
+  context: WorkspaceCreationContext,
+): WorkspaceSectionInput {
   return {
     id: `playground-code-${crypto.randomUUID()}`,
     kind: WORKSPACE_CODE_SECTION_KIND,
@@ -165,7 +169,9 @@ function createPlaygroundCodeSection(context: WorkspaceCreationContext): Workspa
 
 // The built-in Text section joins the same catalog, created in the format this host wants and in
 // the reference's Edit-first display mode.
-function createPlaygroundTextSection(context: WorkspaceCreationContext): WorkspaceSectionInput {
+function createPlaygroundTextSection(
+  context: WorkspaceCreationContext,
+): WorkspaceSectionInput {
   return {
     id: `playground-text-${crypto.randomUUID()}`,
     kind: WORKSPACE_TEXT_SECTION_KIND,
@@ -277,14 +283,18 @@ export function registerPlaygroundMenuExtensions(): void {
       getDisabledReason: (context) =>
         context.selectedSections.length === 0 ||
         context.selectedSections.some(
-          (section) => section.kind !== GROUP_SECTION_KIND || section.positionAndSizeLocked,
+          (section) =>
+            section.kind !== GROUP_SECTION_KIND ||
+            section.positionAndSizeLocked,
         )
           ? "The host action needs a selection of unlocked groups."
           : null,
       getStatusMessage: () => "Selection ungrouped through the host action.",
       run: (context) => {
         ungroupSections(context.selectedSections.map((section) => section.id));
-        publishMenuExtensionStatus("Selection ungrouped through the host action.");
+        publishMenuExtensionStatus(
+          "Selection ungrouped through the host action.",
+        );
       },
     },
     {
@@ -293,7 +303,9 @@ export function registerPlaygroundMenuExtensions(): void {
       surfaces: ["context-menu"],
       label: "Report item",
       run: (context) =>
-        publishMenuExtensionStatus(`Item action for ${context.section.name}/${context.item.id}.`),
+        publishMenuExtensionStatus(
+          `Item action for ${context.section.name}/${context.item.id}.`,
+        ),
     },
     {
       id: "playground-outline-selection",
@@ -368,7 +380,9 @@ export function HostShortcutConflictAction() {
       className="playground-menu-action"
       onClick={() => {
         const conflicts = getWorkspaceKeyBindingConflicts([
-          ...PLAYGROUND_KEY_BINDINGS.filter((binding) => binding.id !== CONFLICTING_KEY_BINDING.id),
+          ...PLAYGROUND_KEY_BINDINGS.filter(
+            (binding) => binding.id !== CONFLICTING_KEY_BINDING.id,
+          ),
           CONFLICTING_KEY_BINDING,
         ]);
         publishMenuExtensionStatus(

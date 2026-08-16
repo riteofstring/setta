@@ -50,7 +50,8 @@
     margin: 0;
   }
 
-  :where(.setta-workspace) :where(img, svg, video, canvas, audio, iframe, embed, object) {
+  :where(.setta-workspace)
+    :where(img, svg, video, canvas, audio, iframe, embed, object) {
     display: block;
     vertical-align: middle;
   }

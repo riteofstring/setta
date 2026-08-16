@@ -3,12 +3,19 @@ import { useDraggable as useDndKitDraggable } from "@dnd-kit/react";
 import { useMemo } from "react";
 import type { DndData } from "./types";
 
-type UseDraggableArguments = Omit<UseDraggableInput<DndData>, "data" | "element" | "handle"> & {
+type UseDraggableArguments = Omit<
+  UseDraggableInput<DndData>,
+  "data" | "element" | "handle"
+> & {
   data?: Record<string, unknown>;
   attributes?: Record<string, unknown>;
 };
 
-export function useDraggable({ data, attributes, ...input }: UseDraggableArguments) {
+export function useDraggable({
+  data,
+  attributes,
+  ...input
+}: UseDraggableArguments) {
   const wrappedData = useMemo<DndData | undefined>(() => {
     if (!data) {
       return undefined;

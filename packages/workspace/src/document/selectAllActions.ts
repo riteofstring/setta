@@ -38,7 +38,8 @@ function listVisibleItemIdsInTreeOrder(
 // finished the branch (it logs the resolved ids). The package implements it over the rows that
 // section is actually showing, and declines when it has none so the chord stays with the browser.
 function selectAllVisibleItems(sectionId: string): boolean {
-  const itemTree = useWorkspaceDocument.getState().sections[sectionId]?.itemTree;
+  const itemTree =
+    useWorkspaceDocument.getState().sections[sectionId]?.itemTree;
   if (!itemTree) {
     return false;
   }
@@ -46,7 +47,10 @@ function selectAllVisibleItems(sectionId: string): boolean {
   if (!visibility) {
     return false;
   }
-  const itemIds = listVisibleItemIdsInTreeOrder(itemTree, visibility.visibleItemIds);
+  const itemIds = listVisibleItemIdsInTreeOrder(
+    itemTree,
+    visibility.visibleItemIds,
+  );
   if (itemIds.length === 0) {
     return false;
   }

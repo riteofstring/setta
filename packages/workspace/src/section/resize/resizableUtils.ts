@@ -74,7 +74,9 @@ function parseCurrPx(x: string): SectionSize["width"] {
   return x === "auto" ? x : parseInt(x);
 }
 
-function getDoubleClickSize(direction: ResizeHandleDirection): Partial<SectionSize> {
+function getDoubleClickSize(
+  direction: ResizeHandleDirection,
+): Partial<SectionSize> {
   if (direction === "bottomRight") {
     return { width: "auto", height: "auto" };
   }
@@ -115,7 +117,8 @@ export function getChangedSize({
 }): Partial<SectionSize> {
   const [e, direction, ref, d] = props;
   const isDoubleClick =
-    isDoubleClickOverride ?? (d.width === 0 && d.height === 0 && e.detail === 2);
+    isDoubleClickOverride ??
+    (d.width === 0 && d.height === 0 && e.detail === 2);
   if (isDoubleClick) {
     return getDoubleClickSize(direction);
   }
@@ -142,7 +145,10 @@ export function shouldEmitResizeEndEvent({
   return true;
 }
 
-function clampNumericDimension(value: SectionSize["height"] | undefined, minValue: number) {
+function clampNumericDimension(
+  value: SectionSize["height"] | undefined,
+  minValue: number,
+) {
   return typeof value === "number" ? Math.max(value, minValue) : value;
 }
 
@@ -170,7 +176,10 @@ export function clampChangedSize({
 const AUTO_CLAMP_TOLERANCE = 2;
 
 function shouldClampToMin(currentSize: SectionSize["width"], minSize: number) {
-  return typeof currentSize === "number" && minSize - currentSize > AUTO_CLAMP_TOLERANCE;
+  return (
+    typeof currentSize === "number" &&
+    minSize - currentSize > AUTO_CLAMP_TOLERANCE
+  );
 }
 
 // Raises an out-of-policy stored size back to the minimums (the reference's auto-clamp effect).

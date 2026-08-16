@@ -219,7 +219,9 @@ input.setta-workspace-native-color::-moz-focus-inner {
 
   /* The toolbar clips its accepted 23 px buttons in the default presentation. Let their
    * transparent 24 px coarse targets escape that clipping without changing button paint. */
-  .setta-workspace .react-flow__controls [data-setta-workspace-touch-target="compact"] {
+  .setta-workspace
+    .react-flow__controls
+    [data-setta-workspace-touch-target="compact"] {
     overflow: visible;
   }
 
@@ -323,7 +325,8 @@ input.setta-workspace-native-color::-moz-focus-inner {
  * cannot provide that lead, so their canvas keeps the same exact-live-content promotion ready
  * continuously. The marker is canvas-owned so gesture start never re-renders every section. */
 .setta-workspace.react-flow:hover [data-section-id],
-.setta-workspace.react-flow[data-viewport-interaction-active="true"] [data-section-id] {
+.setta-workspace.react-flow[data-viewport-interaction-active="true"]
+  [data-section-id] {
   will-change: transform;
   transform: translateZ(0);
   backface-visibility: hidden;
@@ -762,7 +765,9 @@ input.setta-workspace-native-color::-moz-focus-inner {
 }
 
 .setta-workspace-shell-pane[data-pane="leading"][data-visible="false"] {
-  transform: translateX(calc(-1 * var(--setta-workspace-shell-pane-closed-offset)));
+  transform: translateX(
+    calc(-1 * var(--setta-workspace-shell-pane-closed-offset))
+  );
 }
 
 .setta-workspace-shell-pane[data-pane="trailing"][data-visible="false"] {
@@ -773,12 +778,18 @@ input.setta-workspace-native-color::-moz-focus-inner {
   transform: translateX(0);
 }
 
-.setta-workspace-shell-pane[data-pane="leading"]:dir(rtl)[data-visible="false"] {
+.setta-workspace-shell-pane[data-pane="leading"]:dir(
+    rtl
+  )[data-visible="false"] {
   transform: translateX(var(--setta-workspace-shell-pane-closed-offset));
 }
 
-.setta-workspace-shell-pane[data-pane="trailing"]:dir(rtl)[data-visible="false"] {
-  transform: translateX(calc(-1 * var(--setta-workspace-shell-pane-closed-offset)));
+.setta-workspace-shell-pane[data-pane="trailing"]:dir(
+    rtl
+  )[data-visible="false"] {
+  transform: translateX(
+    calc(-1 * var(--setta-workspace-shell-pane-closed-offset))
+  );
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -909,11 +920,13 @@ input.setta-workspace-native-color::-moz-focus-inner {
   white-space: nowrap;
 }
 
-.setta-workspace-shell-pane[data-pane="leading"] .setta-workspace-shell-pane-title {
+.setta-workspace-shell-pane[data-pane="leading"]
+  .setta-workspace-shell-pane-title {
   padding-inline-end: 32px;
 }
 
-.setta-workspace-shell-pane[data-pane="trailing"] .setta-workspace-shell-pane-title {
+.setta-workspace-shell-pane[data-pane="trailing"]
+  .setta-workspace-shell-pane-title {
   padding-inline-start: 32px;
 }
 
@@ -941,8 +954,8 @@ input.setta-workspace-native-color::-moz-focus-inner {
 .setta-workspace-inspector {
   color: rgb(43 54 74);
   font-family:
-    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
-    "Noto Color Emoji";
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
   font-size: 12px;
   line-height: 16px;
 }
@@ -1010,7 +1023,8 @@ input.setta-workspace-native-color::-moz-focus-inner {
   border-block-end: 1px solid rgb(182 192 211 / 55%);
 }
 
-.setta-workspace.setta-workspace-dark .setta-workspace-inspector-section-heading {
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-section-heading {
   border-block-end-color: rgb(43 54 74 / 70%);
 }
 
@@ -1030,7 +1044,9 @@ input.setta-workspace-native-color::-moz-focus-inner {
   white-space: nowrap;
 }
 
-.setta-workspace.setta-workspace-dark .setta-workspace-inspector-section-heading h3,
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-section-heading
+  h3,
 .setta-workspace.setta-workspace-dark .setta-workspace-inspector-unsupported h3,
 .setta-workspace.setta-workspace-dark .setta-workspace-inspector-unsupported h4,
 .setta-workspace.setta-workspace-dark .setta-workspace-inspector-config h4,
@@ -1214,7 +1230,8 @@ input[type="color"].setta-workspace-inspector-config-input {
   white-space: nowrap;
 }
 
-.setta-workspace.setta-workspace-dark .setta-workspace-inspector-config-readonly {
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-config-readonly {
   color: rgb(150 164 192);
 }
 
@@ -1247,7 +1264,8 @@ input[type="color"].setta-workspace-inspector-config-input {
   color: rgb(100 116 139);
 }
 
-.setta-workspace.setta-workspace-dark .setta-workspace-inspector-config-action:hover {
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-config-action:hover {
   background-color: rgb(26 33 45);
 }
 
@@ -1292,7 +1310,8 @@ input[type="color"].setta-workspace-inspector-config-input {
   color: rgb(55 65 81);
 }
 
-.setta-workspace.setta-workspace-dark .setta-workspace-inspector-config-remove:hover {
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-config-remove:hover {
   background-color: rgb(43 54 74 / 55%);
   color: rgb(182 192 211);
 }
@@ -1362,7 +1381,8 @@ input[type="range"].setta-workspace-inspector-config-input {
   white-space: nowrap;
 }
 
-.setta-workspace.setta-workspace-dark .setta-workspace-inspector-readonly-value {
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-readonly-value {
   color: rgb(182 192 211);
 }
 
@@ -1422,13 +1442,16 @@ input[type="range"].setta-workspace-inspector-config-input {
 
 .setta-workspace.setta-workspace-dark .setta-workspace-inspector-toggle,
 .setta-workspace.setta-workspace-dark .setta-workspace-inspector-actions button,
-.setta-workspace.setta-workspace-dark .setta-workspace-inspector-primary-action {
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-primary-action {
   border-color: rgb(43 54 74 / 70%);
   color: rgb(150 164 192);
 }
 
-.setta-workspace.setta-workspace-dark .setta-workspace-inspector-toggle[aria-pressed="true"],
-.setta-workspace.setta-workspace-dark .setta-workspace-inspector-primary-action {
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-toggle[aria-pressed="true"],
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-primary-action {
   border-color: rgb(59 130 246);
   background-color: rgb(30 58 138 / 65%);
   color: rgb(239 246 255);
@@ -1513,8 +1536,8 @@ input[type="range"].setta-workspace-inspector-config-input {
   padding-block: 2px;
   color: rgb(43 54 74);
   font-family:
-    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
-    "Noto Color Emoji";
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
   font-size: 12px;
   font-weight: 400;
   line-height: 16px;
@@ -1556,7 +1579,8 @@ input[type="range"].setta-workspace-inspector-config-input {
   background-color: transparent;
 }
 
-.setta-workspace-outline-item:not([aria-selected="true"]):hover .setta-workspace-outline-row {
+.setta-workspace-outline-item:not([aria-selected="true"]):hover
+  .setta-workspace-outline-row {
   background-color: rgb(255 255 255);
   box-shadow:
     0 1px 2px 0 rgb(0 0 0 / 5%),
@@ -1569,7 +1593,8 @@ input[type="range"].setta-workspace-inspector-config-input {
   background-color: rgb(43 54 74);
 }
 
-.setta-workspace-outline-item[aria-selected="true"] .setta-workspace-outline-row {
+.setta-workspace-outline-item[aria-selected="true"]
+  .setta-workspace-outline-row {
   background-color: rgb(219 234 254);
   color: rgb(30 64 175);
 }
@@ -1674,7 +1699,8 @@ input[type="range"].setta-workspace-inspector-config-input {
 }
 
 @media (forced-colors: active) {
-  .setta-workspace-outline-item[aria-selected="true"] .setta-workspace-outline-row,
+  .setta-workspace-outline-item[aria-selected="true"]
+    .setta-workspace-outline-row,
   .setta-workspace-outline-item:focus-visible .setta-workspace-outline-row {
     border: 2px solid Highlight;
     background-color: Highlight;
@@ -1704,11 +1730,13 @@ input[type="range"].setta-workspace-inspector-config-input {
   content: "";
 }
 
-.setta-workspace-shell-pane[data-pane="leading"] .setta-workspace-shell-full-width-button {
+.setta-workspace-shell-pane[data-pane="leading"]
+  .setta-workspace-shell-full-width-button {
   inset-inline-end: 8px;
 }
 
-.setta-workspace-shell-pane[data-pane="trailing"] .setta-workspace-shell-full-width-button {
+.setta-workspace-shell-pane[data-pane="trailing"]
+  .setta-workspace-shell-full-width-button {
   inset-inline-start: 8px;
 }
 
@@ -1722,7 +1750,8 @@ input[type="range"].setta-workspace-inspector-config-input {
   color: rgb(148 163 184);
 }
 
-.setta-workspace.setta-workspace-dark .setta-workspace-shell-full-width-button:hover {
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-shell-full-width-button:hover {
   border-color: rgb(59 130 246);
   color: rgb(96 165 250);
 }
@@ -1736,11 +1765,13 @@ input[type="range"].setta-workspace-inspector-config-input {
   touch-action: none;
 }
 
-.setta-workspace-shell-pane[data-pane="leading"] .setta-workspace-shell-resize-handle {
+.setta-workspace-shell-pane[data-pane="leading"]
+  .setta-workspace-shell-resize-handle {
   inset-inline-end: -5px;
 }
 
-.setta-workspace-shell-pane[data-pane="trailing"] .setta-workspace-shell-resize-handle {
+.setta-workspace-shell-pane[data-pane="trailing"]
+  .setta-workspace-shell-resize-handle {
   inset-inline-start: -5px;
 }
 
@@ -1785,8 +1816,8 @@ input[type="range"].setta-workspace-inspector-config-input {
   color: hsl(219 26% 23%);
   cursor: pointer;
   font-family:
-    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
-    "Noto Color Emoji";
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
 }
 
 .setta-workspace-menu.setta-workspace-dark {

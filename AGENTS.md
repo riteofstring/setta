@@ -2,18 +2,24 @@
 
 ## Shared engineering policy
 
-- The pinned `.code-policy` checkout owns shared enforcement. Do not edit files
-  inside the submodule from this repository; update the pinned policy commit
-  intentionally.
+- One locally installed Code Policy release owns shared enforcement. Run it as
+  `code-policy`; `.code-policy.lock.json` names the exact release this
+  repository requires, and changing which release governs the repository is a
+  deliberate, reviewed change.
 - `.code-policy.json` owns this project's modules, dependency direction,
   capabilities, project-specific commands, test suites, artifact targets, and
   temporary exceptions. Shared conditional modules detect supported language,
   framework, and dependency evidence automatically. Target configuration cannot
-  weaken the pinned shared baseline.
+  weaken the locked shared baseline.
 - Never add backward compatibility, legacy support, migrations, or transitional
   code unless the user explicitly asks for it.
 - Pin direct dependencies and the package manager exactly. Use frozen lockfiles
   for normal setup; refresh them only during intentional dependency updates.
+- Before installing a dependency change, generate its candidate lockfile
+  without lifecycle scripts and run
+  `code-policy dependency-review --base <merge-target>`. Review direct and
+  transitive changes, release age, native audit, and OSV findings. Never keep a
+  known-vulnerable release merely because it is older.
 - Keep one authoritative owner for each concept and generate cross-language or
   downstream contract surfaces from it. Parse external data once at a boundary
   and expose validated internal types.
@@ -34,28 +40,50 @@
   hardening. When declared, they must run a real pinned engine and remain
   supplemental. Checked-in Gherkin must be executable. Do not use no-op,
   pass-with-no-tests, coverage-only, or tautological tests as proof.
+- When an agent review is requested or required, bind it to an explicit trusted
+  base and exact candidate. Outside a clean-commit workflow, cover committed,
+  staged, unstaged, and untracked changes so the review cannot miss worktree
+  state.
+- Report agent review evidence in separate `Repository contract` and
+  `Requested outcome` sections. Tie each concern to both its source instruction
+  or written objective and the affected file or hunk. Conflicts with checked-in project
+  instructions are actionable; general maintainability observations without
+  repository authority are recommendations. Local guidance prevails over
+  generic advice. Omit issues already reported by automated checks, and do not
+  turn the two sections into one approval score. If no written objective exists,
+  state that instead of inventing one. Agent review remains non-deterministic
+  evidence and cannot replace policy checks or human approval.
+- Start autonomous edit/test work through one caller-scoped
+  `code-policy task-session`. The caller selects named modules before the
+  worker starts; reuse the one disposable worktree for dependency setup and
+  every test in the task. Never widen the boundary from candidate config or
+  start a nested session when `CODE_POLICY_TASK_SESSION=1` is present.
 - Run exact suite or module tests as useful during implementation. Near task
-  completion, run `./check_policy.sh test --changed`; routine focused tests do
-  not need a separate permission prompt.
-- Before merging, run `./check_policy.sh test-levels --base <merge-target>`.
-  This read-only command renders a terminal-safe table and is always safe.
-  Unless broader verification is already authorized, present exactly the
-  listed recommended and full ordinary choices, including suite names and
-  costs, identify the planner's suggestion, and wait before running either
-  choice, `verify`, or `gate`.
+  completion, run `code-policy test --changed`; routine focused tests do not
+  need a separate permission prompt.
+- Before merging, run `code-policy test-levels --base <merge-target>`. This
+  read-only command renders a terminal-safe table and is always safe. Unless
+  broader verification is already authorized, present exactly the listed
+  recommended and full ordinary choices, including suite names and costs,
+  identify the planner's suggestion, and wait before running either choice,
+  `verify`, or `gate`.
 - A checked-in CI or lifecycle workflow may explicitly authorize
-  `./check_policy.sh merge-gate --base <trusted-base>`. This command chooses
-  only between the configured recommended merge profile and the complete full
-  gate; it accepts no file, module, suite, or quick-mode override. When it is
-  run, reproduce the emitted `MERGE POLICY LEVEL`, `MERGE POLICY BASE`, and
-  every `MERGE POLICY REASON` line verbatim in the user-facing result. Never
-  hide, soften, or infer a different level from those lines.
+  `code-policy merge-gate --base <trusted-base>`. This command chooses only
+  between the configured recommended merge profile and the complete full gate;
+  it accepts no file, module, suite, or quick-mode override. When it is run,
+  reproduce the emitted `MERGE POLICY LEVEL`, `MERGE POLICY BASE`, and every
+  `MERGE POLICY REASON` line verbatim in the user-facing result. Never hide,
+  soften, or infer a different level from those lines.
 - After the authorized ordinary set passes, request separate authorization for
   impact-relevant supplemental mutation or risk suites. `test --all`, `verify`,
   and `gate` deliberately exclude `test --supplemental`.
-- Vulnerability assessments, dependency-override governance, and general policy
-  exceptions are distinct. Each must be exact, visible, owned, justified, and
-  expiring. Do not add broad or silent ignores.
+- Release-age assessments, vulnerability assessments, dependency-override
+  governance, and general policy exceptions are distinct. Each must be exact,
+  visible, owned, justified, and expiring. Vulnerability assessments require
+  separate owner and approver identities plus linked analysis, approval, and
+  remediation records; low severity by itself is not a justification. Protect
+  `.code-policy.json` with required owner review. Do not add broad or silent
+  ignores.
 
 <!-- code-policy:managed:end -->
 

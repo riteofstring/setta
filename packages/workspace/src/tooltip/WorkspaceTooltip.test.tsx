@@ -16,7 +16,9 @@ import {
   WorkspaceTooltip,
 } from "./WorkspaceTooltip";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function getTooltipPortal(): HTMLDivElement | null {
   return document.body.querySelector<HTMLDivElement>(
@@ -80,7 +82,14 @@ describe("WorkspaceTooltip", () => {
     });
     const target = document.createElement("button");
     target.getBoundingClientRect = () =>
-      ({ left: 20, right: 140, top: 50, bottom: 80, width: 120, height: 30 }) as DOMRect;
+      ({
+        left: 20,
+        right: 140,
+        top: 50,
+        bottom: 80,
+        width: 120,
+        height: 30,
+      }) as DOMRect;
 
     await act(async () => handlers.onFocus({ currentTarget: target }));
     expect(useWorkspaceTooltip.getState()).toMatchObject({
@@ -95,7 +104,9 @@ describe("WorkspaceTooltip", () => {
       ],
     });
 
-    await act(async () => handlers.onBlur({ currentTarget: target, relatedTarget: null }));
+    await act(async () =>
+      handlers.onBlur({ currentTarget: target, relatedTarget: null }),
+    );
     expect(useWorkspaceTooltip.getState()).toMatchObject({
       anchor: null,
       pageIndex: 0,
@@ -107,7 +118,9 @@ describe("WorkspaceTooltip", () => {
     expect(getTooltipPortal()).toBeNull();
 
     await act(async () => {
-      getWorkspaceTooltipHandlers({ content: "Fit view" }).onMouseEnter({ currentTarget: host });
+      getWorkspaceTooltipHandlers({ content: "Fit view" }).onMouseEnter({
+        currentTarget: host,
+      });
     });
     expect(getTooltipPortal()).toBeNull();
 
@@ -137,7 +150,8 @@ describe("WorkspaceTooltip", () => {
     const tooltip = getTooltipPortal();
     expect(tooltip?.dataset.settaWorkspaceTooltipTone).toBeUndefined();
     expect(
-      tooltip?.querySelector('[data-setta-workspace-tooltip-tone="error"]')?.className,
+      tooltip?.querySelector('[data-setta-workspace-tooltip-tone="error"]')
+        ?.className,
     ).toContain("bg-red-50/95");
     expect(tooltip?.textContent).toContain("alpha");
     expect(tooltip?.textContent).toContain("Choose a value below 10.");
@@ -172,11 +186,16 @@ describe("WorkspaceTooltip", () => {
     const previousFocus = document.createElement("button");
     document.body.appendChild(previousFocus);
     previousFocus.focus();
-    const handlers = getWorkspaceTooltipHandlers({ content: "Pinned help", title: "alpha" });
+    const handlers = getWorkspaceTooltipHandlers({
+      content: "Pinned help",
+      title: "alpha",
+    });
     await act(async () => {
       handlers.onMouseEnter({ currentTarget: host });
       enableWorkspaceTooltip();
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 100, clientY: 80 }));
+      window.dispatchEvent(
+        new MouseEvent("mousemove", { clientX: 100, clientY: 80 }),
+      );
     });
     const initialPosition = getTooltipPortal()?.style.transform;
 
@@ -194,7 +213,9 @@ describe("WorkspaceTooltip", () => {
     await act(async () => {
       handlers.onMouseLeave();
       disableWorkspaceTooltip();
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 350, clientY: 220 }));
+      window.dispatchEvent(
+        new MouseEvent("mousemove", { clientX: 350, clientY: 220 }),
+      );
     });
     expect(getTooltipPortal()?.style.transform).toBe(initialPosition);
     expect(getTooltipPortal()?.textContent).toContain("Pinned help");
@@ -209,7 +230,10 @@ describe("WorkspaceTooltip", () => {
 
   it("copies the current page and exposes a focused frozen copy control", async () => {
     await act(async () => {
-      getWorkspaceTooltipHandlers({ content: "Copy this", title: "alpha" }).onMouseEnter({
+      getWorkspaceTooltipHandlers({
+        content: "Copy this",
+        title: "alpha",
+      }).onMouseEnter({
         currentTarget: host,
       });
       enableWorkspaceTooltip();
@@ -221,7 +245,9 @@ describe("WorkspaceTooltip", () => {
       await Promise.resolve();
     });
     expect(writeText).toHaveBeenCalledWith("Copy this");
-    expect(getTooltipPortal()?.querySelector('button[aria-label="Copied"]')).not.toBeNull();
+    expect(
+      getTooltipPortal()?.querySelector('button[aria-label="Copied"]'),
+    ).not.toBeNull();
     expect(getTooltipPortal()?.textContent).toContain("Copied to clipboard");
   });
 
@@ -234,7 +260,9 @@ describe("WorkspaceTooltip", () => {
     });
 
     await act(async () => {
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 200, clientY: 120 }));
+      window.dispatchEvent(
+        new MouseEvent("mousemove", { clientX: 200, clientY: 120 }),
+      );
     });
 
     const box = getTooltipPortal();
@@ -257,7 +285,9 @@ describe("WorkspaceTooltip", () => {
     await act(async () => {
       firstHandlers.onMouseEnter({ currentTarget: host });
       enableWorkspaceTooltip();
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 100, clientY: 80 }));
+      window.dispatchEvent(
+        new MouseEvent("mousemove", { clientX: 100, clientY: 80 }),
+      );
     });
     expect(getTooltipPortal()?.style.transform).toBe("translate(110px, 90px)");
 
@@ -265,11 +295,15 @@ describe("WorkspaceTooltip", () => {
     expect(getTooltipPortal()).toBeNull();
 
     await act(async () => {
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 200, clientY: 120 }));
+      window.dispatchEvent(
+        new MouseEvent("mousemove", { clientX: 200, clientY: 120 }),
+      );
       secondHandlers.onMouseEnter({ currentTarget: host });
     });
     await act(async () => {
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 300, clientY: 200 }));
+      window.dispatchEvent(
+        new MouseEvent("mousemove", { clientX: 300, clientY: 200 }),
+      );
     });
     const positionBeforePaging = getTooltipPortal()?.style.transform;
     expect(positionBeforePaging).toBe("translate(310px, 210px)");
@@ -290,7 +324,9 @@ describe("WorkspaceTooltip", () => {
       enableWorkspaceTooltip();
     });
     await act(async () => {
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 700, clientY: 500 }));
+      window.dispatchEvent(
+        new MouseEvent("mousemove", { clientX: 700, clientY: 500 }),
+      );
     });
     await act(async () => {
       freezeWorkspaceTooltip();
@@ -301,7 +337,14 @@ describe("WorkspaceTooltip", () => {
       throw new Error("Expected the frozen tooltip portal.");
     }
     box.getBoundingClientRect = () =>
-      ({ left: 710, right: 1010, top: 510, bottom: 610, width: 300, height: 100 }) as DOMRect;
+      ({
+        left: 710,
+        right: 1010,
+        top: 510,
+        bottom: 610,
+        width: 300,
+        height: 100,
+      }) as DOMRect;
 
     await act(async () => incrementWorkspaceTooltipPage());
     expect(box.style.transform).toBe("translate(692px, 510px)");

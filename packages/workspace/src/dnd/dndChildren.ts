@@ -1,7 +1,13 @@
 import { createWithEqualityFn } from "zustand/traditional";
 import { insertIntoArray } from "../document/arrayUtils";
-import { getSectionOrThrow, getTopLevelSectionIdsForDisplay } from "../document/documentSelectors";
-import { useWorkspaceDocument, type WorkspaceDocumentState } from "../document/stores";
+import {
+  getSectionOrThrow,
+  getTopLevelSectionIdsForDisplay,
+} from "../document/documentSelectors";
+import {
+  useWorkspaceDocument,
+  type WorkspaceDocumentState,
+} from "../document/stores";
 import { withResetFn } from "../state/storeUtils";
 import { getDndSectionId, isTempSection } from "./dndIds";
 
@@ -51,7 +57,9 @@ export function removeDndChild(childId: string) {
     return {
       x: {
         ...state.x,
-        [oldParentId]: (state.x[oldParentId] ?? []).filter((id) => id !== childId),
+        [oldParentId]: (state.x[oldParentId] ?? []).filter(
+          (id) => id !== childId,
+        ),
       },
       y,
     };
@@ -96,7 +104,10 @@ function resolveTempInsertion(
   };
 }
 
-export function replaceDndSectionsWithTemp(activeId: string, sectionIds: Array<string>) {
+export function replaceDndSectionsWithTemp(
+  activeId: string,
+  sectionIds: Array<string>,
+) {
   useDndChildren.setState((state) => {
     const firstSectionId = sectionIds[0];
     if (firstSectionId === undefined) {
@@ -118,13 +129,18 @@ export function replaceDndSectionsWithTemp(activeId: string, sectionIds: Array<s
       delete y[sectionId];
     }
     return {
-      x: { ...cleared.x, [parentId]: insertIntoArray(nextChildren, insertIndex, tempId) },
+      x: {
+        ...cleared.x,
+        [parentId]: insertIntoArray(nextChildren, insertIndex, tempId),
+      },
       y,
     };
   });
 }
 
-export function updateDndChildren(sectionIdsToChildren: Record<string, Array<string>>) {
+export function updateDndChildren(
+  sectionIdsToChildren: Record<string, Array<string>>,
+) {
   const y: Record<string, string> = {};
   for (const [id, children] of Object.entries(sectionIdsToChildren)) {
     for (const childId of children) {
@@ -156,5 +172,7 @@ export function getDisplayedSectionIdToChildren(
 // The reference's `manualDndChildrenReset`: resync the projection from the canonical document
 // after a drag settles.
 export function manualDndChildrenReset() {
-  updateDndChildren(getDisplayedSectionIdToChildren(useWorkspaceDocument.getState()));
+  updateDndChildren(
+    getDisplayedSectionIdToChildren(useWorkspaceDocument.getState()),
+  );
 }

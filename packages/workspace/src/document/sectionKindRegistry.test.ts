@@ -24,9 +24,13 @@ describe("sectionKindRegistry", () => {
 
   it("retains a typed host Inspector contribution", () => {
     const renderInspector = () => "Inspector content";
-    registerSectionKinds({ leaf: { renderContent: () => null, renderInspector } });
+    registerSectionKinds({
+      leaf: { renderContent: () => null, renderInspector },
+    });
 
-    expect(getRegisteredSectionKindOrThrow("leaf").renderInspector).toBe(renderInspector);
+    expect(getRegisteredSectionKindOrThrow("leaf").renderInspector).toBe(
+      renderInspector,
+    );
   });
 
   it("rejects a malformed Inspector contribution", () => {
@@ -76,13 +80,15 @@ describe("sectionKindRegistry", () => {
     registerSectionKinds({ leaf: makeDefinition() });
     registerSectionKinds({ note: makeDefinition() });
     expect(getRegisteredSectionKindOrThrow("note")).toBeDefined();
-    expect(() => getRegisteredSectionKindOrThrow("leaf")).toThrowError(/not registered/);
+    expect(() => getRegisteredSectionKindOrThrow("leaf")).toThrowError(
+      /not registered/,
+    );
   });
 
   it("refuses to register the package-owned group kind", () => {
-    expect(() => registerSectionKinds({ [GROUP_SECTION_KIND]: makeDefinition() })).toThrowError(
-      /package-owned/,
-    );
+    expect(() =>
+      registerSectionKinds({ [GROUP_SECTION_KIND]: makeDefinition() }),
+    ).toThrowError(/package-owned/);
   });
 
   it("returns the registered direct-on-canvas presentation for a meta section", () => {
@@ -196,7 +202,9 @@ describe("sectionKindRegistry", () => {
           presentation: { type: "floating" },
         } as unknown as SectionKindDefinition,
       }),
-    ).toThrowError(/Section kind mystery has unknown presentation type floating/);
+    ).toThrowError(
+      /Section kind mystery has unknown presentation type floating/,
+    );
   });
 
   it("rejects missing meta-control callbacks during registration", () => {

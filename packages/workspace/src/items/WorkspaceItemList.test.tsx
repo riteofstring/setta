@@ -20,11 +20,21 @@ import {
 } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
-import { activateItemSelect, useItemSelectionMode } from "../document/itemSelectionMode";
+import {
+  activateItemSelect,
+  useItemSelectionMode,
+} from "../document/itemSelectionMode";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
-import type { WorkspaceItem, WorkspaceSectionItemTree } from "../document/types";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
+import type {
+  WorkspaceItem,
+  WorkspaceSectionItemTree,
+} from "../document/types";
 import {
   disableWorkspaceTooltip,
   enableWorkspaceTooltip,
@@ -34,7 +44,9 @@ import type { ItemRowRenderContext } from "./ItemListContext";
 import { resetItemListViews, resolveItemListView } from "./itemListRegistry";
 import { WorkspaceItemList } from "./WorkspaceItemList";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const observedResizeTargets = new Map<Element, ResizeObserverCallback>();
 
@@ -56,7 +68,8 @@ class CapturingResizeObserver {
   disconnect() {}
 }
 
-globalThis.ResizeObserver = CapturingResizeObserver as unknown as typeof ResizeObserver;
+globalThis.ResizeObserver =
+  CapturingResizeObserver as unknown as typeof ResizeObserver;
 
 // Freezes the registered item surface: rows render the canonical tree through the host
 // renderer with the reference's leaf/parent layouts and nested-children rail, selection
@@ -161,12 +174,19 @@ function loadTypedSwitchDocument(helpText?: string, labelEditable = true) {
 function isGroupItem(item: WorkspaceItem): boolean {
   const data = item.data;
   return (
-    data !== null && typeof data === "object" && !Array.isArray(data) && data["group"] === true
+    data !== null &&
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    data["group"] === true
   );
 }
 
 function renderRowContent(context: ItemRowRenderContext) {
-  return createElement("span", { "data-testid": `row-${context.item.id}` }, context.item.id);
+  return createElement(
+    "span",
+    { "data-testid": `row-${context.item.id}` },
+    context.item.id,
+  );
 }
 
 function getRowByContent(host: HTMLElement, itemId: string): HTMLElement {
@@ -235,7 +255,9 @@ describe("WorkspaceItemList", () => {
     observedResizeTargets.clear();
   });
 
-  async function mount(props: Partial<Parameters<typeof WorkspaceItemList>[0]> = {}) {
+  async function mount(
+    props: Partial<Parameters<typeof WorkspaceItemList>[0]> = {},
+  ) {
     await act(async () => {
       root.render(
         createElement(
@@ -268,7 +290,10 @@ describe("WorkspaceItemList", () => {
   }
 
   function resizeListOuter(listOuter: HTMLElement, width: number) {
-    Object.defineProperty(listOuter, "clientWidth", { configurable: true, value: width });
+    Object.defineProperty(listOuter, "clientWidth", {
+      configurable: true,
+      value: width,
+    });
     const callback = observedResizeTargets.get(listOuter);
     if (!callback) {
       throw new Error("expected the item-list outer to be resize-observed");
@@ -290,10 +315,14 @@ describe("WorkspaceItemList", () => {
 
     const leafRow = getRowByContent(host, "item-a");
     expect(leafRow.className).toContain("section-key-value group/arg-group");
-    expect(leafRow.style.gridTemplateAreas).toContain("key center-gutter value");
+    expect(leafRow.style.gridTemplateAreas).toContain(
+      "key center-gutter value",
+    );
 
     const groupRow = getRowByContent(host, "item-group");
-    expect(groupRow.className).toContain("section-args-nested section-lg-value");
+    expect(groupRow.className).toContain(
+      "section-args-nested section-lg-value",
+    );
 
     const rail = groupRow.querySelector<HTMLElement>("div.section-args-nested");
     expect(rail).not.toBeNull();
@@ -306,15 +335,18 @@ describe("WorkspaceItemList", () => {
     loadTypedSwitchDocument();
     await mount({ topLevelItemIds: ["item-switch"], renderItem: undefined });
 
-    expect(document.getElementById("ItemNameInput-panel-item-switch")?.textContent).toBe("enabled");
+    expect(
+      document.getElementById("ItemNameInput-panel-item-switch")?.textContent,
+    ).toBe("enabled");
     const toggle = host.querySelector<HTMLButtonElement>('[role="switch"]');
     if (!toggle) {
       throw new Error("expected the built-in switch row");
     }
     act(() => toggle.click());
     expect(
-      useWorkspaceDocument.getState().sections.panel?.itemTree?.items["item-switch"]?.presentation
-        ?.control,
+      useWorkspaceDocument.getState().sections.panel?.itemTree?.items[
+        "item-switch"
+      ]?.presentation?.control,
     ).toMatchObject({ kind: "switch", value: "false" });
   });
 
@@ -328,7 +360,9 @@ describe("WorkspaceItemList", () => {
       "the typed help row",
     );
     expect(row.getAttribute("aria-keyshortcuts")).toContain("Q");
-    expect(row.querySelector('[data-setta-workspace-item-help-trigger="true"]')).toBeNull();
+    expect(
+      row.querySelector('[data-setta-workspace-item-help-trigger="true"]'),
+    ).toBeNull();
     await act(async () => {
       row.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
     });
@@ -350,10 +384,16 @@ describe("WorkspaceItemList", () => {
     await act(async () => {
       disableWorkspaceTooltip();
       row.dispatchEvent(
-        new MouseEvent("mouseout", { bubbles: true, relatedTarget: document.body }),
+        new MouseEvent("mouseout", {
+          bubbles: true,
+          relatedTarget: document.body,
+        }),
       );
     });
-    expect(useWorkspaceTooltip.getState()).toMatchObject({ isEnabled: false, pages: [] });
+    expect(useWorkspaceTooltip.getState()).toMatchObject({
+      isEnabled: false,
+      pages: [],
+    });
   });
 
   it("styles and describes every diagnostic severity without relying on color alone", async () => {
@@ -366,7 +406,9 @@ describe("WorkspaceItemList", () => {
           { severity: "warning", message: "Review this value before running." },
           { severity: "error", message: "Choose a value below 10." },
         ],
-        "item-group": [{ severity: "warning", message: "Review the nested values." }],
+        "item-group": [
+          { severity: "warning", message: "Review the nested values." },
+        ],
         "item-c": [{ severity: "info", message: "This value is inherited." }],
       },
     });
@@ -375,7 +417,9 @@ describe("WorkspaceItemList", () => {
     const warningRow = getRowByContent(host, "item-group");
     const infoRow = getRowByContent(host, "item-c");
     expect(errorRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("error");
-    expect(warningRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("warning");
+    expect(warningRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe(
+      "warning",
+    );
     expect(infoRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("info");
     expect(errorRow.className).toContain("bg-red-200");
     expect(warningRow.className).toContain("bg-amber-100/60");
@@ -390,10 +434,13 @@ describe("WorkspaceItemList", () => {
     );
     expect(errorMarker.className).toContain("h-[18px] w-[18px]");
     expect(errorMarker.getAttribute("aria-hidden")).toBe("true");
-    expect(errorMarker.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    expect(errorMarker.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
+      "true",
+    );
     expect(
-      errorRow.querySelector('[data-setta-workspace-item-quick-info-description="true"]')
-        ?.textContent,
+      errorRow.querySelector(
+        '[data-setta-workspace-item-quick-info-description="true"]',
+      )?.textContent,
     ).toContain("Error: Choose a value below 10.");
 
     await act(async () => {
@@ -403,7 +450,9 @@ describe("WorkspaceItemList", () => {
       title: "item-a",
       tone: "error",
     });
-    expect(useWorkspaceTooltip.getState().pages[0]?.content).toContain("Choose a value below 10.");
+    expect(useWorkspaceTooltip.getState().pages[0]?.content).toContain(
+      "Choose a value below 10.",
+    );
     expect(useWorkspaceTooltip.getState().pages[0]?.content).toContain(
       "Review this value before running.",
     );
@@ -421,7 +470,9 @@ describe("WorkspaceItemList", () => {
     await mount({
       ...typedProps,
       itemDiagnostics: {
-        "item-switch": [{ severity: "info", message: "The host is checking this value." }],
+        "item-switch": [
+          { severity: "info", message: "The host is checking this value." },
+        ],
       },
     });
 
@@ -440,9 +491,13 @@ describe("WorkspaceItemList", () => {
       '[data-setta-workspace-item-diagnostic-marker="true"]',
       "the information diagnostic marker",
     );
-    expect(infoMarker.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("info");
+    expect(infoMarker.dataset.settaWorkspaceItemDiagnosticSeverity).toBe(
+      "info",
+    );
     expect(
-      host.querySelector('[data-setta-workspace-item-diagnostic-announcer="true"]')?.textContent,
+      host.querySelector(
+        '[data-setta-workspace-item-diagnostic-announcer="true"]',
+      )?.textContent,
     ).toContain("Information for enabled: The host is checking this value.");
 
     await act(async () => nameEditor.focus());
@@ -451,7 +506,9 @@ describe("WorkspaceItemList", () => {
     await mount({
       ...typedProps,
       itemDiagnostics: {
-        "item-switch": [{ severity: "error", message: "Turn this setting off to continue." }],
+        "item-switch": [
+          { severity: "error", message: "Turn this setting off to continue." },
+        ],
       },
     });
     expect(document.activeElement).toBe(activeEditor);
@@ -461,9 +518,13 @@ describe("WorkspaceItemList", () => {
       '[data-setta-workspace-item-diagnostic-marker="true"]',
       "the updated error diagnostic marker",
     );
-    expect(errorMarker.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("error");
+    expect(errorMarker.dataset.settaWorkspaceItemDiagnosticSeverity).toBe(
+      "error",
+    );
     expect(
-      host.querySelector('[data-setta-workspace-item-diagnostic-announcer="true"]')?.textContent,
+      host.querySelector(
+        '[data-setta-workspace-item-diagnostic-announcer="true"]',
+      )?.textContent,
     ).toContain("Error for enabled: Turn this setting off to continue.");
 
     await mount({
@@ -476,17 +537,25 @@ describe("WorkspaceItemList", () => {
       },
     });
     expect(
-      row.querySelector('[data-setta-workspace-item-quick-info-description="true"]')?.textContent,
+      row.querySelector(
+        '[data-setta-workspace-item-quick-info-description="true"]',
+      )?.textContent,
     ).toContain("Error: Turn this setting off to continue.");
     expect(
-      host.querySelector('[data-setta-workspace-item-diagnostic-announcer="true"]')?.textContent,
+      host.querySelector(
+        '[data-setta-workspace-item-diagnostic-announcer="true"]',
+      )?.textContent,
     ).toContain("Parameter diagnostics updated.");
 
     await mount({ ...typedProps, itemDiagnostics: {} });
     expect(document.activeElement).toBe(activeEditor);
-    expect(row.querySelector('[data-setta-workspace-item-diagnostic-marker="true"]')).toBeNull();
     expect(
-      host.querySelector('[data-setta-workspace-item-diagnostic-announcer="true"]')?.textContent,
+      row.querySelector('[data-setta-workspace-item-diagnostic-marker="true"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector(
+        '[data-setta-workspace-item-diagnostic-announcer="true"]',
+      )?.textContent,
     ).toBe("Parameter diagnostics cleared.");
     expect(onDocumentChange).not.toHaveBeenCalled();
   });
@@ -500,15 +569,21 @@ describe("WorkspaceItemList", () => {
   it("renders the compact shared column divider on every real row and gates layout edits", async () => {
     await mount();
 
-    const handles = host.querySelectorAll<HTMLElement>('[data-item-column-resize-handle="true"]');
+    const handles = host.querySelectorAll<HTMLElement>(
+      '[data-item-column-resize-handle="true"]',
+    );
     expect(handles).toHaveLength(4);
     const firstHandle = handles[0];
     if (!firstHandle) {
       throw new Error("expected the first item-column handle");
     }
-    expect(firstHandle.className).toContain("-ml-2 flex w-4 touch-none cursor-col-resize");
+    expect(firstHandle.className).toContain(
+      "-ml-2 flex w-4 touch-none cursor-col-resize",
+    );
     expect(firstHandle.className).toContain("setta-prevent-section-active-css");
-    expect(firstHandle.className).toContain("setta-prevent-arrow-keys-moving-section");
+    expect(firstHandle.className).toContain(
+      "setta-prevent-arrow-keys-moving-section",
+    );
     expect(firstHandle.className).toContain("nopan nodrag");
     expect(firstHandle.tagName).toBe("DIV");
     expect(firstHandle.hasAttribute("tabindex")).toBe(false);
@@ -516,12 +591,16 @@ describe("WorkspaceItemList", () => {
     expect(firstHandle.parentElement?.className).toContain(
       "section-center relative mx-auto h-[90%] w-0.5",
     );
-    expect(firstHandle.firstElementChild?.className).toContain("w-1.5 rounded bg-transparent");
+    expect(firstHandle.firstElementChild?.className).toContain(
+      "w-1.5 rounded bg-transparent",
+    );
 
     await act(async () => {
       useWorkspaceCapabilities.setState({ canEditLayout: false });
     });
-    expect(host.querySelector('[data-item-column-resize-handle="true"]')).toBeNull();
+    expect(
+      host.querySelector('[data-item-column-resize-handle="true"]'),
+    ).toBeNull();
   });
 
   it("renders static built-in labels without adding a name-editor tab stop", async () => {
@@ -534,7 +613,9 @@ describe("WorkspaceItemList", () => {
     expect(staticLabel?.textContent).toBe("enabled");
     expect(staticLabel?.hasAttribute("tabindex")).toBe(false);
     expect(staticLabel?.hasAttribute("role")).toBe(false);
-    expect(document.getElementById("ItemNameInput-panel-item-switch")).toBeNull();
+    expect(
+      document.getElementById("ItemNameInput-panel-item-switch"),
+    ).toBeNull();
     expect(host.querySelector('[aria-label="enabled value"]')).not.toBeNull();
   });
 
@@ -544,15 +625,21 @@ describe("WorkspaceItemList", () => {
     await mount();
 
     const listOuter = getListOuter();
-    const columnContainer = host.querySelector<HTMLElement>('[data-section-id="panel"]');
+    const columnContainer = host.querySelector<HTMLElement>(
+      '[data-section-id="panel"]',
+    );
     if (!columnContainer) {
       throw new Error("expected the package-owned section column container");
     }
     act(() => resizeListOuter(listOuter, 550));
-    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("257px");
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe(
+      "257px",
+    );
 
     useReactFlow.setState({ transform: [0, 0, 2] });
-    const handle = host.querySelector<HTMLElement>('[data-item-column-resize-handle="true"]');
+    const handle = host.querySelector<HTMLElement>(
+      '[data-item-column-resize-handle="true"]',
+    );
     if (!handle) {
       throw new Error("expected an item-column resize handle");
     }
@@ -576,16 +663,22 @@ describe("WorkspaceItemList", () => {
       );
       await new Promise((resolve) => requestAnimationFrame(resolve));
     });
-    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("277px");
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe(
+      "277px",
+    );
 
     await act(async () => {
       window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 7 }));
     });
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(277);
+    expect(
+      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+        ?.itemColumnWidth,
+    ).toBe(277);
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
-    expect(onDocumentChange.mock.calls[0]?.[0]?.sections["panel"]?.itemTree?.itemColumnWidth).toBe(
-      277,
-    );
+    expect(
+      onDocumentChange.mock.calls[0]?.[0]?.sections["panel"]?.itemTree
+        ?.itemColumnWidth,
+    ).toBe(277);
   });
 
   it("commits the final pointer sample when release beats the animation frame", async () => {
@@ -594,8 +687,12 @@ describe("WorkspaceItemList", () => {
     await mount();
 
     const listOuter = getListOuter();
-    const columnContainer = host.querySelector<HTMLElement>('[data-section-id="panel"]');
-    const handle = host.querySelector<HTMLElement>('[data-item-column-resize-handle="true"]');
+    const columnContainer = host.querySelector<HTMLElement>(
+      '[data-section-id="panel"]',
+    );
+    const handle = host.querySelector<HTMLElement>(
+      '[data-item-column-resize-handle="true"]',
+    );
     if (!columnContainer || !handle) {
       throw new Error("expected the item-column surface");
     }
@@ -623,8 +720,13 @@ describe("WorkspaceItemList", () => {
       window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 11 }));
     });
 
-    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("277px");
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(277);
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe(
+      "277px",
+    );
+    expect(
+      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+        ?.itemColumnWidth,
+    ).toBe(277);
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
   });
 
@@ -634,8 +736,12 @@ describe("WorkspaceItemList", () => {
     await mount();
 
     const listOuter = getListOuter();
-    const columnContainer = host.querySelector<HTMLElement>('[data-section-id="panel"]');
-    const handle = host.querySelector<HTMLElement>('[data-item-column-resize-handle="true"]');
+    const columnContainer = host.querySelector<HTMLElement>(
+      '[data-section-id="panel"]',
+    );
+    const handle = host.querySelector<HTMLElement>(
+      '[data-item-column-resize-handle="true"]',
+    );
     if (!columnContainer || !handle) {
       throw new Error("expected the item-column surface");
     }
@@ -661,16 +767,23 @@ describe("WorkspaceItemList", () => {
       );
       await new Promise((resolve) => requestAnimationFrame(resolve));
     });
-    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("297px");
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe(
+      "297px",
+    );
 
     await act(async () => {
-      window.dispatchEvent(createPointerEvent("pointercancel", { pointerId: 12 }));
+      window.dispatchEvent(
+        createPointerEvent("pointercancel", { pointerId: 12 }),
+      );
     });
 
-    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("257px");
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(
-      undefined,
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe(
+      "257px",
     );
+    expect(
+      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+        ?.itemColumnWidth,
+    ).toBe(undefined);
     expect(onDocumentChange).not.toHaveBeenCalled();
   });
 
@@ -680,8 +793,12 @@ describe("WorkspaceItemList", () => {
     await mount();
 
     const listOuter = getListOuter();
-    const columnContainer = host.querySelector<HTMLElement>('[data-section-id="panel"]');
-    const handle = host.querySelector<HTMLElement>('[data-item-column-resize-handle="true"]');
+    const columnContainer = host.querySelector<HTMLElement>(
+      '[data-section-id="panel"]',
+    );
+    const handle = host.querySelector<HTMLElement>(
+      '[data-item-column-resize-handle="true"]',
+    );
     if (!columnContainer || !handle) {
       throw new Error("expected the item-column surface");
     }
@@ -695,27 +812,48 @@ describe("WorkspaceItemList", () => {
           pointerId: 31,
         }),
       );
-      window.dispatchEvent(createPointerEvent("pointermove", { clientX: 110, pointerId: 31 }));
+      window.dispatchEvent(
+        createPointerEvent("pointermove", { clientX: 110, pointerId: 31 }),
+      );
       await new Promise((resolve) => requestAnimationFrame(resolve));
       window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 31 }));
     });
-    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("267px");
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(267);
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe(
+      "267px",
+    );
+    expect(
+      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+        ?.itemColumnWidth,
+    ).toBe(267);
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
 
     act(() => resizeListOuter(listOuter, 660));
-    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("324px");
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(267);
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe(
+      "324px",
+    );
+    expect(
+      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+        ?.itemColumnWidth,
+    ).toBe(267);
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
     onDocumentChange.mockClear();
 
     await act(async () => {
       handle.dispatchEvent(
-        new MouseEvent("dblclick", { bubbles: true, cancelable: true, detail: 2 }),
+        new MouseEvent("dblclick", {
+          bubbles: true,
+          cancelable: true,
+          detail: 2,
+        }),
       );
     });
-    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("312px");
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(312);
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe(
+      "312px",
+    );
+    expect(
+      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+        ?.itemColumnWidth,
+    ).toBe(312);
     expect(onDocumentChange).toHaveBeenCalledOnce();
   });
 
@@ -723,8 +861,12 @@ describe("WorkspaceItemList", () => {
     await mount();
 
     const listOuter = getListOuter();
-    const columnContainer = host.querySelector<HTMLElement>('[data-section-id="panel"]');
-    const handle = host.querySelector<HTMLElement>('[data-item-column-resize-handle="true"]');
+    const columnContainer = host.querySelector<HTMLElement>(
+      '[data-section-id="panel"]',
+    );
+    const handle = host.querySelector<HTMLElement>(
+      '[data-item-column-resize-handle="true"]',
+    );
     if (!columnContainer || !handle) {
       throw new Error("expected the rtl item-column surface");
     }
@@ -750,23 +892,36 @@ describe("WorkspaceItemList", () => {
       );
       await new Promise((resolve) => requestAnimationFrame(resolve));
     });
-    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("277px");
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe(
+      "277px",
+    );
 
     await act(async () => {
       window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 9 }));
     });
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(277);
+    expect(
+      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+        ?.itemColumnWidth,
+    ).toBe(277);
   });
 
   it("keeps every repeated column divider out of the sequential focus order", async () => {
     await mount();
 
     const handles = Array.from(
-      host.querySelectorAll<HTMLElement>('[data-item-column-resize-handle="true"]'),
+      host.querySelectorAll<HTMLElement>(
+        '[data-item-column-resize-handle="true"]',
+      ),
     );
     expect(handles).not.toHaveLength(0);
-    expect(handles.every((handle) => !handle.hasAttribute("tabindex"))).toBe(true);
-    expect(host.querySelector('[data-item-column-resize-handle="true"][tabindex="0"]')).toBeNull();
+    expect(handles.every((handle) => !handle.hasAttribute("tabindex"))).toBe(
+      true,
+    );
+    expect(
+      host.querySelector(
+        '[data-item-column-resize-handle="true"][tabindex="0"]',
+      ),
+    ).toBeNull();
   });
 
   it("prunes invisible subtrees through the visible-set seam", async () => {
@@ -798,8 +953,16 @@ describe("WorkspaceItemList", () => {
             rootId: "item-root",
             items: {
               "item-root": { id: "item-root", children: ["item-nest"] },
-              "item-nest": { id: "item-nest", children: ["item-n1"], data: { group: false } },
-              "item-n1": { id: "item-n1", children: [], data: { group: false } },
+              "item-nest": {
+                id: "item-nest",
+                children: ["item-n1"],
+                data: { group: false },
+              },
+              "item-n1": {
+                id: "item-n1",
+                children: [],
+                data: { group: false },
+              },
             },
             selectedItemIds: [],
           },
@@ -816,7 +979,9 @@ describe("WorkspaceItemList", () => {
     expect(nestedRootRow.style.gridTemplateColumns).toContain("[c3]");
 
     // Scoped to the row: the package list-area shell is also a `section-args-nested` grid.
-    const rail = nestedRootRow.querySelector<HTMLElement>("div.section-args-nested");
+    const rail = nestedRootRow.querySelector<HTMLElement>(
+      "div.section-args-nested",
+    );
     expect(rail?.contains(getRowByContent(host, "item-n1"))).toBe(true);
   });
 
@@ -908,7 +1073,9 @@ describe("WorkspaceItemList", () => {
 
   it("registers its list view while mounted", async () => {
     await mount();
-    expect(resolveItemListView("panel", "item-c", LIST_KEY)?.listKey).toBe(LIST_KEY);
+    expect(resolveItemListView("panel", "item-c", LIST_KEY)?.listKey).toBe(
+      LIST_KEY,
+    );
 
     await act(async () => {
       root.render(createElement(ItemDndContext, null));
@@ -918,11 +1085,15 @@ describe("WorkspaceItemList", () => {
 
   it("updates its registered view in place on re-render", async () => {
     await mount();
-    expect(resolveItemListView("panel", "item-c", LIST_KEY)?.listKey).toBe(LIST_KEY);
+    expect(resolveItemListView("panel", "item-c", LIST_KEY)?.listKey).toBe(
+      LIST_KEY,
+    );
 
     await mount({ visibleItemIds: ["item-a", "item-b"] });
     expect(resolveItemListView("panel", "item-c", LIST_KEY)).toBeNull();
-    expect(resolveItemListView("panel", "item-a", LIST_KEY)?.listKey).toBe(LIST_KEY);
+    expect(resolveItemListView("panel", "item-a", LIST_KEY)?.listKey).toBe(
+      LIST_KEY,
+    );
   });
 
   it("toggles canonical selection from row clicks only in item-select mode", async () => {
@@ -932,9 +1103,10 @@ describe("WorkspaceItemList", () => {
     await act(async () => {
       row.click();
     });
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.selectedItemIds).toEqual(
-      [],
-    );
+    expect(
+      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+        ?.selectedItemIds,
+    ).toEqual([]);
 
     await act(async () => {
       activateItemSelect();
@@ -942,17 +1114,19 @@ describe("WorkspaceItemList", () => {
     await act(async () => {
       getRowByContent(host, "item-a").click();
     });
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.selectedItemIds).toEqual([
-      "item-a",
-    ]);
+    expect(
+      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+        ?.selectedItemIds,
+    ).toEqual(["item-a"]);
     expect(getRowByContent(host, "item-a").className).toContain("!bg-blue-700");
 
     await act(async () => {
       getRowByContent(host, "item-a").click();
     });
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.selectedItemIds).toEqual(
-      [],
-    );
+    expect(
+      useWorkspaceDocument.getState().sections["panel"]?.itemTree
+        ?.selectedItemIds,
+    ).toEqual([]);
   });
 
   it("exposes row groups to Tab with named state and keyboard toggles only in item-select mode", async () => {
@@ -969,14 +1143,22 @@ describe("WorkspaceItemList", () => {
     row = getRowByContent(host, "item-a");
     expect(row.tabIndex).toBe(0);
     expect(row.getAttribute("role")).toBe("group");
-    expect(row.getAttribute("aria-label")).toBe("Selectable item item-a, not selected");
-    expect(row.getAttribute("aria-keyshortcuts")).toBe("Enter Space Shift+F10 ContextMenu");
+    expect(row.getAttribute("aria-label")).toBe(
+      "Selectable item item-a, not selected",
+    );
+    expect(row.getAttribute("aria-keyshortcuts")).toBe(
+      "Enter Space Shift+F10 ContextMenu",
+    );
     expect(row.getAttribute("aria-pressed")).toBeNull();
     expect(row.className).toContain("focus-visible:-outline-offset-2");
     row.focus();
     await act(async () => {
       row.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }),
       );
     });
     expect(getRowByContent(host, "item-a").getAttribute("aria-label")).toBe(
@@ -984,7 +1166,11 @@ describe("WorkspaceItemList", () => {
     );
     await act(async () => {
       getRowByContent(host, "item-a").dispatchEvent(
-        new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true }),
+        new KeyboardEvent("keydown", {
+          key: " ",
+          bubbles: true,
+          cancelable: true,
+        }),
       );
     });
     expect(getRowByContent(host, "item-a").getAttribute("aria-label")).toBe(
@@ -1019,7 +1205,11 @@ describe("WorkspaceItemList", () => {
     expect(pointerEvent.defaultPrevented).toBe(true);
     expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
       kind: "item",
-      context: { scope: "item", section: { id: "panel" }, item: { id: "item-a" } },
+      context: {
+        scope: "item",
+        section: { id: "panel" },
+        item: { id: "item-a" },
+      },
     });
 
     useWorkspaceMenuState.getState().reset();
@@ -1101,8 +1291,14 @@ describe("WorkspaceItemList", () => {
 
     expect(host.querySelector('[data-testid="row-item-a"]')).toBeNull();
     const rows = host.querySelectorAll("[data-item-row]");
-    const tempRow = [...rows].find((row) => row.className.includes("bg-blue-500/40"));
+    const tempRow = [...rows].find((row) =>
+      row.className.includes("bg-blue-500/40"),
+    );
     expect(tempRow).not.toBeUndefined();
-    expect(useItemDndChildren.getState().x["item-root"]).toEqual([tempId, "item-group", "item-b"]);
+    expect(useItemDndChildren.getState().x["item-root"]).toEqual([
+      tempId,
+      "item-group",
+      "item-b",
+    ]);
   });
 });

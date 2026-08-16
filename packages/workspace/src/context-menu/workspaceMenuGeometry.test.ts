@@ -37,8 +37,14 @@ describe("workspace menu geometry", () => {
 
   it("anchors keyboard invocation on the logical leading side", () => {
     const rect = { left: 20, right: 220, top: 40, width: 200, height: 100 };
-    expect(getKeyboardWorkspaceMenuPoint(rect, "ltr")).toEqual({ x: 32, y: 64 });
-    expect(getKeyboardWorkspaceMenuPoint(rect, "rtl")).toEqual({ x: 208, y: 64 });
+    expect(getKeyboardWorkspaceMenuPoint(rect, "ltr")).toEqual({
+      x: 32,
+      y: 64,
+    });
+    expect(getKeyboardWorkspaceMenuPoint(rect, "rtl")).toEqual({
+      x: 208,
+      y: 64,
+    });
   });
 
   it("converts client coordinates through the actual canvas rectangle and viewport", () => {
@@ -62,7 +68,11 @@ describe("workspace menu geometry", () => {
       }),
     ).toThrow(/measured size must be positive/);
     expect(() =>
-      clientPointToWorkspacePosition({ x: 0, y: 0 }, { left: 0, top: 0 }, { x: 0, y: 0, zoom: 0 }),
+      clientPointToWorkspacePosition(
+        { x: 0, y: 0 },
+        { left: 0, top: 0 },
+        { x: 0, y: 0, zoom: 0 },
+      ),
     ).toThrow(/non-positive viewport zoom/);
   });
 });

@@ -11,7 +11,9 @@ function getTagColorDescription(
   palette: WorkspaceSectionTagColorPalette,
   tagColor: string,
 ): string {
-  return palette.find((choice) => choice.color === tagColor)?.description ?? "Custom";
+  return (
+    palette.find((choice) => choice.color === tagColor)?.description ?? "Custom"
+  );
 }
 
 function TagColorPreview({ tagColor }: { tagColor: string | null }) {
@@ -45,16 +47,21 @@ export function SectionTagColorEditor({
   palette: WorkspaceSectionTagColorPalette;
   section: WorkspaceSection;
 }) {
-  const canEditLayout = useWorkspaceCapabilities((state) => state.canEditLayout);
+  const canEditLayout = useWorkspaceCapabilities(
+    (state) => state.canEditLayout,
+  );
   const disabled = !canEditLayout || section.positionAndSizeLocked;
   const inputId = `setta-inspector-section-tag-${useId().replaceAll(":", "")}`;
   const descriptionId = `${inputId}-description`;
   const customColor =
-    section.tagColor !== null && !palette.some((choice) => choice.color === section.tagColor)
+    section.tagColor !== null &&
+    !palette.some((choice) => choice.color === section.tagColor)
       ? section.tagColor
       : null;
   const currentDescription =
-    section.tagColor === null ? "None" : getTagColorDescription(palette, section.tagColor);
+    section.tagColor === null
+      ? "None"
+      : getTagColorDescription(palette, section.tagColor);
 
   function updateTagColor(tagColor: string | null): void {
     setSectionTagColor(section.id, tagColor);
@@ -104,7 +111,9 @@ export function SectionTagColorEditor({
           className="setta-workspace-inspector-input min-w-0 flex-1"
           disabled={disabled}
           id={inputId}
-          onChange={(event) => updateTagColor(event.currentTarget.value || null)}
+          onChange={(event) =>
+            updateTagColor(event.currentTarget.value || null)
+          }
           onKeyDown={handleKeyDown}
           value={section.tagColor ?? ""}
         >

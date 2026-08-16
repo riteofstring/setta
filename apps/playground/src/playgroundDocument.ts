@@ -250,7 +250,11 @@ const itemPanelTree: WorkspaceSectionItemTree = {
     "item-password": makeBuiltInItem("item-password", "password", true, {
       kind: "password",
       value: "",
-      configuration: { disabled: false, placeholder: null, savedValuePending: false },
+      configuration: {
+        disabled: false,
+        placeholder: null,
+        savedValuePending: false,
+      },
     }),
     "item-textarea": makeBuiltInItem("item-textarea", "textarea", true, {
       kind: "textarea",
@@ -380,14 +384,21 @@ export const playgroundDocument: WorkspaceDocumentInput = {
     "styled-leaf": makeLeafSection("styled-leaf", "Style-colored leaf", {
       styleColor: "#3b82f6",
     }),
-    "root-group": makeGroupSection("root-group", "Root group", ["nested-leaf", "middle-group"], {
-      overflowMode: true,
-      size: { width: 520, height: 360 },
-    }),
+    "root-group": makeGroupSection(
+      "root-group",
+      "Root group",
+      ["nested-leaf", "middle-group"],
+      {
+        overflowMode: true,
+        size: { width: 520, height: 360 },
+      },
+    ),
     "nested-leaf": makeLeafSection("nested-leaf", "Nested leaf", {
       tagColor: "#f97316",
     }),
-    "middle-group": makeGroupSection("middle-group", "Nested group", ["inner-group"]),
+    "middle-group": makeGroupSection("middle-group", "Nested group", [
+      "inner-group",
+    ]),
     "inner-group": makeGroupSection(
       "inner-group",
       "Horizontal group",

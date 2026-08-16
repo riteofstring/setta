@@ -43,7 +43,9 @@ vi.mock("../canvas/utils", async (importOriginal) => {
 });
 
 function getBinding(id: string) {
-  const binding = getWorkspaceKeyBindings().find((candidate) => candidate.id === id);
+  const binding = getWorkspaceKeyBindings().find(
+    (candidate) => candidate.id === id,
+  );
   if (!binding) {
     throw new Error(`Missing workspace key binding ${id}.`);
   }
@@ -64,14 +66,21 @@ describe("workspace key bindings", () => {
       label: "Group",
       origin: "default",
     });
-    expect(getBinding("workspace.ungroup-sections").chord).toBe("Shift + Mod + G");
+    expect(getBinding("workspace.ungroup-sections").chord).toBe(
+      "Shift + Mod + G",
+    );
     expect(getBinding("workspace.delete-sections").chord).toBe("Backspace");
     expect(getBinding("workspace.move-items-up").chord).toBe("Alt + ArrowUp");
     expect(getBinding("workspace.indent-items").chord).toBe("Tab");
     expect(getBinding("workspace.unindent-items").chord).toBe("Shift + Tab");
     expect(getBinding("workspace.select-all").chord).toBe("Mod + A");
-    expect(getBinding("workspace.select-top-level-sections").chord).toBe("Mod + Shift + A");
-    expect(getBinding("workspace.fit-view")).toMatchObject({ chord: "F", label: "Fit view" });
+    expect(getBinding("workspace.select-top-level-sections").chord).toBe(
+      "Mod + Shift + A",
+    );
+    expect(getBinding("workspace.fit-view")).toMatchObject({
+      chord: "F",
+      label: "Fit view",
+    });
     expect(getBinding("workspace.zoom-in").chord).toBe("Equal");
     expect(getBinding("workspace.zoom-out").chord).toBe("Minus");
     expect(getBinding("workspace.reset-zoom").chord).toBe("Mod + Comma");
@@ -80,8 +89,12 @@ describe("workspace key bindings", () => {
       chord: "Alt + J",
       label: "Focus next section",
     });
-    expect(getBinding("workspace.focus-previous-section").chord).toBe("Alt + K");
-    expect(getBinding("workspace.focus-leading-pane").chord).toBe("Ctrl + Shift + 2");
+    expect(getBinding("workspace.focus-previous-section").chord).toBe(
+      "Alt + K",
+    );
+    expect(getBinding("workspace.focus-leading-pane").chord).toBe(
+      "Ctrl + Shift + 2",
+    );
     expect(getBinding("workspace.focus-canvas").chord).toBe("Ctrl + Shift + 3");
     expect(getBinding("workspace.focus-trailing-pane")).toMatchObject({
       chord: "Ctrl + Shift + 4",
@@ -101,7 +114,9 @@ describe("workspace key bindings", () => {
 
   it("writes the chord label for the platform it is read on", () => {
     mockIsMacOs = true;
-    expect(getBinding("workspace.ungroup-sections").chordLabel).toBe("⌘ + Shift + G");
+    expect(getBinding("workspace.ungroup-sections").chordLabel).toBe(
+      "⌘ + Shift + G",
+    );
   });
 
   it("ships no conflicting default chords", () => {
@@ -109,7 +124,9 @@ describe("workspace key bindings", () => {
   });
 
   it("replaces the complete host set and leaves unnamed bindings on their defaults", () => {
-    registerWorkspaceKeyBindings([{ id: "workspace.lock-sections", chord: "Mod + Alt + L" }]);
+    registerWorkspaceKeyBindings([
+      { id: "workspace.lock-sections", chord: "Mod + Alt + L" },
+    ]);
     expect(getBinding("workspace.lock-sections")).toMatchObject({
       chord: "Mod + Alt + L",
       origin: "host",
@@ -121,8 +138,13 @@ describe("workspace key bindings", () => {
   });
 
   it("unbinds an operation the host wants the chord back from", () => {
-    registerWorkspaceKeyBindings([{ id: "workspace.delete-sections", chord: null }]);
-    expect(getBinding("workspace.delete-sections")).toMatchObject({ chord: null, origin: "host" });
+    registerWorkspaceKeyBindings([
+      { id: "workspace.delete-sections", chord: null },
+    ]);
+    expect(getBinding("workspace.delete-sections")).toMatchObject({
+      chord: null,
+      origin: "host",
+    });
     expect(
       getResolvedWorkspaceKeyBindings(false).some(
         (binding) => binding.definition.id === "workspace.delete-sections",
@@ -132,7 +154,9 @@ describe("workspace key bindings", () => {
 
   it("fails registration for an unknown operation, a repeated binding, or an unusable chord", () => {
     expect(() =>
-      registerWorkspaceKeyBindings([{ id: "workspace.run-code", chord: "Mod + Enter" }]),
+      registerWorkspaceKeyBindings([
+        { id: "workspace.run-code", chord: "Mod + Enter" },
+      ]),
     ).toThrow(/is not a workspace operation/u);
     expect(() =>
       registerWorkspaceKeyBindings([
@@ -141,7 +165,9 @@ describe("workspace key bindings", () => {
       ]),
     ).toThrow(/bound twice/u);
     expect(() =>
-      registerWorkspaceKeyBindings([{ id: "workspace.lock-sections", chord: "Mod + Grab" }]),
+      registerWorkspaceKeyBindings([
+        { id: "workspace.lock-sections", chord: "Mod + Grab" },
+      ]),
     ).toThrow(/unknown key grab/u);
   });
 
@@ -212,7 +238,9 @@ describe("workspace key bindings", () => {
   it("resolves the chord rules for the platform it dispatches on", () => {
     const macOS = getResolvedWorkspaceKeyBindings(true);
     const other = getResolvedWorkspaceKeyBindings(false);
-    const macMoveUp = macOS.find((binding) => binding.definition.id === "workspace.move-items-up");
+    const macMoveUp = macOS.find(
+      (binding) => binding.definition.id === "workspace.move-items-up",
+    );
     const deleteSections = other.find(
       (binding) => binding.definition.id === "workspace.delete-sections",
     );
@@ -243,14 +271,19 @@ describe("workspace key bindings", () => {
 
   it("offers a creation command without a chord as an unbound operation", () => {
     registerCreationCommand(null);
-    expect(getBinding("host-note")).toMatchObject({ chord: null, chordLabel: null });
+    expect(getBinding("host-note")).toMatchObject({
+      chord: null,
+      chordLabel: null,
+    });
   });
 
   it("refuses a creation chord a package operation already answers to", () => {
     expect(() => registerCreationCommand("Mod + G")).toThrow(
       /Ctrl \+ G is claimed by workspace.group-sections, host-note/u,
     );
-    expect(getWorkspaceKeyBindings().some((binding) => binding.id === "host-note")).toBe(false);
+    expect(
+      getWorkspaceKeyBindings().some((binding) => binding.id === "host-note"),
+    ).toBe(false);
   });
 
   it("rebinds and unbinds a creation command through the same host registration", () => {
@@ -260,9 +293,9 @@ describe("workspace key bindings", () => {
       chord: "Mod + Alt + N",
       origin: "host",
     });
-    expect(getWorkspaceKeyBindingConflicts([{ id: "host-note", chord: "F" }])).toMatchObject([
-      { bindingIds: ["workspace.fit-view", "host-note"] },
-    ]);
+    expect(
+      getWorkspaceKeyBindingConflicts([{ id: "host-note", chord: "F" }]),
+    ).toMatchObject([{ bindingIds: ["workspace.fit-view", "host-note"] }]);
     registerWorkspaceKeyBindings([{ id: "host-note", chord: null }]);
     expect(getBinding("host-note").chord).toBeNull();
   });
@@ -282,14 +315,30 @@ describe("workspace key bindings", () => {
     for (const macOS of [true, false]) {
       const resolved = getResolvedWorkspaceKeyBindings(macOS);
       expect(
-        resolved.find((binding) => binding.definition.id === "workspace.select-all"),
-      ).toMatchObject({ suppressesBrowserDefault: true, yieldsToEditableTarget: true });
+        resolved.find(
+          (binding) => binding.definition.id === "workspace.select-all",
+        ),
+      ).toMatchObject({
+        suppressesBrowserDefault: true,
+        yieldsToEditableTarget: true,
+      });
       expect(
-        resolved.find((binding) => binding.definition.id === "workspace.select-top-level-sections"),
-      ).toMatchObject({ suppressesBrowserDefault: true, yieldsToEditableTarget: false });
+        resolved.find(
+          (binding) =>
+            binding.definition.id === "workspace.select-top-level-sections",
+        ),
+      ).toMatchObject({
+        suppressesBrowserDefault: true,
+        yieldsToEditableTarget: false,
+      });
       expect(
-        resolved.find((binding) => binding.definition.id === "workspace.fit-view"),
-      ).toMatchObject({ suppressesBrowserDefault: false, yieldsToEditableTarget: true });
+        resolved.find(
+          (binding) => binding.definition.id === "workspace.fit-view",
+        ),
+      ).toMatchObject({
+        suppressesBrowserDefault: false,
+        yieldsToEditableTarget: true,
+      });
     }
   });
 });

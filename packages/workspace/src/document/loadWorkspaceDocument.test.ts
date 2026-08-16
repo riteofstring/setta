@@ -28,7 +28,10 @@ import type {
   WorkspaceSectionItemTree,
 } from "./types";
 
-function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): WorkspaceSection {
+function makeSection(
+  id: string,
+  overrides: Partial<WorkspaceSection> = {},
+): WorkspaceSection {
   return {
     id,
     kind: "leaf",
@@ -45,7 +48,9 @@ function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): Wor
   };
 }
 
-function makeDocument(overrides: Partial<WorkspaceDocumentInput> = {}): WorkspaceDocumentInput {
+function makeDocument(
+  overrides: Partial<WorkspaceDocumentInput> = {},
+): WorkspaceDocumentInput {
   return {
     sections: {
       root: makeSection("root", { kind: "group", children: ["nested"] }),
@@ -86,7 +91,12 @@ function mountFakeZoomRuntime() {
     },
   } as unknown as NonNullable<ReactFlowState["d3Zoom"]>;
   const fakeSelection = {} as NonNullable<ReactFlowState["d3Selection"]>;
-  useReactFlow.setState({ d3Zoom: fakeZoom, d3Selection: fakeSelection, width: 800, height: 600 });
+  useReactFlow.setState({
+    d3Zoom: fakeZoom,
+    d3Selection: fakeSelection,
+    width: 800,
+    height: 600,
+  });
   return applied;
 }
 
@@ -154,7 +164,8 @@ describe("loadWorkspaceDocument", () => {
     // must already see the next document and selection, never the stale raw state.
     const unsubscribe = useNodeInternals.subscribe(() => {
       observed.push({
-        sectionCount: Object.keys(useWorkspaceDocument.getState().sections).length,
+        sectionCount: Object.keys(useWorkspaceDocument.getState().sections)
+          .length,
         activeIds: useActiveSections.getState().activeIds,
       });
     });
@@ -171,7 +182,11 @@ describe("loadWorkspaceDocument", () => {
     expect(useWorkspaceDocument.getState().viewport).toBeNull();
 
     loadWorkspaceDocument(makeDocument({ viewport: { x: 8, y: 16, zoom: 2 } }));
-    expect(useWorkspaceDocument.getState().viewport).toEqual({ x: 8, y: 16, zoom: 2 });
+    expect(useWorkspaceDocument.getState().viewport).toEqual({
+      x: 8,
+      y: 16,
+      zoom: 2,
+    });
   });
 
   it("keeps measured node sizes over stored layout sizes on reload", () => {
@@ -240,7 +255,9 @@ describe("loadWorkspaceDocument", () => {
         topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
       }),
     );
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBe("#a1b2c3");
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBe(
+      "#a1b2c3",
+    );
 
     expect(() =>
       loadWorkspaceDocument(
@@ -250,7 +267,9 @@ describe("loadWorkspaceDocument", () => {
         }),
       ),
     ).toThrow(/Section leaf tag color must be a six-digit hex color/);
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBe("#a1b2c3");
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBe(
+      "#a1b2c3",
+    );
   });
 
   it("validates explicit overflow modes while preserving intrinsic group dimensions", () => {
@@ -278,7 +297,9 @@ describe("loadWorkspaceDocument", () => {
 
     loadWorkspaceDocument(
       makeDocument({
-        sections: { group: makeSection("group", { kind: "group", overflowMode: true }) },
+        sections: {
+          group: makeSection("group", { kind: "group", overflowMode: true }),
+        },
         topLevelSections: { group: { x: 0, y: 0, w: 320, h: 180, zIndex: 0 } },
       }),
     );
@@ -293,7 +314,9 @@ describe("loadWorkspaceDocument", () => {
             size: { width: "auto", height: "auto" },
           }),
         },
-        topLevelSections: { group: { x: 0, y: 0, w: null, h: null, zIndex: 0 } },
+        topLevelSections: {
+          group: { x: 0, y: 0, w: null, h: null, zIndex: 0 },
+        },
       }),
     );
     expect(getWorkspaceDocument().sections["group"]?.size).toEqual({
@@ -314,7 +337,9 @@ describe("loadWorkspaceDocument", () => {
           topLevelSections: { group: { x: 0, y: 0, w: -1, h: 180, zIndex: 0 } },
         }),
       ),
-    ).toThrow(/Group group overflow dimensions must be auto or positive finite numbers/);
+    ).toThrow(
+      /Group group overflow dimensions must be auto or positive finite numbers/,
+    );
   });
 
   it("rejects a child id that has no section record", () => {
@@ -324,7 +349,9 @@ describe("loadWorkspaceDocument", () => {
       },
       topLevelSections: { root: { x: 0, y: 0, w: 400, h: 300, zIndex: 0 } },
     });
-    expect(() => loadWorkspaceDocument(document)).toThrowError(/unknown child ghost/);
+    expect(() => loadWorkspaceDocument(document)).toThrowError(
+      /unknown child ghost/,
+    );
   });
 
   it("rejects a section claimed by two parents", () => {
@@ -336,7 +363,9 @@ describe("loadWorkspaceDocument", () => {
       },
       topLevelSections: {},
     });
-    expect(() => loadWorkspaceDocument(document)).toThrowError(/claimed by parents/);
+    expect(() => loadWorkspaceDocument(document)).toThrowError(
+      /claimed by parents/,
+    );
   });
 
   it("rejects cyclic parent chains", () => {
@@ -347,7 +376,9 @@ describe("loadWorkspaceDocument", () => {
       },
       topLevelSections: {},
     });
-    expect(() => loadWorkspaceDocument(document)).toThrowError(/cyclic parent chain/);
+    expect(() => loadWorkspaceDocument(document)).toThrowError(
+      /cyclic parent chain/,
+    );
   });
 
   it("rejects a mismatched section record key", () => {
@@ -355,7 +386,9 @@ describe("loadWorkspaceDocument", () => {
       sections: { mismatched: makeSection("other") },
       topLevelSections: {},
     });
-    expect(() => loadWorkspaceDocument(document)).toThrowError(/does not match section id/);
+    expect(() => loadWorkspaceDocument(document)).toThrowError(
+      /does not match section id/,
+    );
   });
 
   it("rejects a section whose kind is not registered", () => {
@@ -371,19 +404,28 @@ describe("loadWorkspaceDocument", () => {
 
   it("resolves omitted sizes from the registered kind default, then auto/auto", () => {
     registerSectionKinds({
-      leaf: { renderContent: () => null, defaultSize: { width: 320, height: 180 } },
+      leaf: {
+        renderContent: () => null,
+        defaultSize: { width: 320, height: 180 },
+      },
       bare: { renderContent: () => null },
     });
     const { size: _leafSize, ...leafWithoutSize } = makeSection("leaf");
-    const { size: _bareSize, ...bareWithoutSize } = makeSection("bare", { kind: "bare" });
-    const { size: _groupSize, ...groupWithoutSize } = makeSection("group", { kind: "group" });
+    const { size: _bareSize, ...bareWithoutSize } = makeSection("bare", {
+      kind: "bare",
+    });
+    const { size: _groupSize, ...groupWithoutSize } = makeSection("group", {
+      kind: "group",
+    });
     const sections: Record<string, WorkspaceSectionInput> = {
       leaf: leafWithoutSize,
       bare: bareWithoutSize,
       group: groupWithoutSize,
       sized: makeSection("sized", { size: { width: 64, height: 48 } }),
     };
-    loadWorkspaceDocument(makeDocument({ sections, topLevelSections: {}, activeIds: [] }));
+    loadWorkspaceDocument(
+      makeDocument({ sections, topLevelSections: {}, activeIds: [] }),
+    );
 
     const loaded = useWorkspaceDocument.getState().sections;
     expect(loaded["leaf"]?.size).toEqual({ width: 320, height: 180 });
@@ -448,7 +490,9 @@ describe("loadWorkspaceDocument", () => {
         },
       },
     });
-    const { size: _sliderSize, ...slider } = makeSection("slider", { kind: "slider" });
+    const { size: _sliderSize, ...slider } = makeSection("slider", {
+      kind: "slider",
+    });
     const { size: _textareaSize, ...textarea } = makeSection("textarea", {
       kind: "textarea",
     });
@@ -513,9 +557,9 @@ describe("loadWorkspaceDocument", () => {
         }),
       );
 
-    expect(() => load({ rootId: "missing", items: {}, selectedItemIds: [] })).toThrowError(
-      /missing its root item missing/,
-    );
+    expect(() =>
+      load({ rootId: "missing", items: {}, selectedItemIds: [] }),
+    ).toThrowError(/missing its root item missing/);
     expect(() =>
       load({
         rootId: "item-root",
@@ -600,7 +644,11 @@ describe("loadWorkspaceDocument", () => {
         rootId: "item-root",
         items: {
           "item-root": { id: "item-root", children: ["a"] },
-          a: { id: "a", children: [], data: undefined } as unknown as WorkspaceItem,
+          a: {
+            id: "a",
+            children: [],
+            data: undefined,
+          } as unknown as WorkspaceItem,
         },
         selectedItemIds: [],
       }),
@@ -651,9 +699,9 @@ describe("loadWorkspaceDocument", () => {
         }),
       ),
     ).toThrowError(/Top-level layout references unknown section ghost/);
-    expect(() => loadWorkspaceDocument(makeDocument({ activeIds: ["ghost"] }))).toThrowError(
-      /Active ids references unknown section ghost/,
-    );
+    expect(() =>
+      loadWorkspaceDocument(makeDocument({ activeIds: ["ghost"] })),
+    ).toThrowError(/Active ids references unknown section ghost/);
   });
 
   it("re-applies a loaded camera through d3-zoom on a mounted canvas", () => {
@@ -661,7 +709,9 @@ describe("loadWorkspaceDocument", () => {
     const applied = mountFakeZoomRuntime();
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
 
-    loadWorkspaceDocument(makeDocument({ viewport: { x: 60, y: -40, zoom: 1.25 } }));
+    loadWorkspaceDocument(
+      makeDocument({ viewport: { x: 60, y: -40, zoom: 1.25 } }),
+    );
 
     expect(applied).toHaveLength(1);
     expect(applied[0]).toMatchObject({ x: 60, y: -40, k: 1.25 });

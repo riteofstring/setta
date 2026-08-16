@@ -13,13 +13,21 @@ import {
   useWorkspaceAppearance,
   useWorkspaceDocument,
 } from "../document/stores";
-import type { WorkspaceDocumentInput, WorkspaceSectionInput } from "../document/types";
+import type {
+  WorkspaceDocumentInput,
+  WorkspaceSectionInput,
+} from "../document/types";
 import { HeaderIcon } from "../section/header/HeaderIcon";
 import { setWorkspaceCodeSectionData } from "./codeSectionActions";
-import { createWorkspaceCodeSectionData, WORKSPACE_CODE_SECTION_KIND } from "./codeSectionData";
+import {
+  createWorkspaceCodeSectionData,
+  WORKSPACE_CODE_SECTION_KIND,
+} from "./codeSectionData";
 import { createWorkspaceCodeSection } from "./codeSectionKind";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // The registration half of the built-in Code Editor section: a host composes the helper's
 // definition with its own kinds, narrows what the registration accepts, and can leave it out
@@ -27,7 +35,9 @@ import { createWorkspaceCodeSection } from "./codeSectionKind";
 
 const SECTION_ID = "code";
 
-function makeDocument(section: Partial<WorkspaceSectionInput> = {}): WorkspaceDocumentInput {
+function makeDocument(
+  section: Partial<WorkspaceSectionInput> = {},
+): WorkspaceDocumentInput {
   return {
     sections: {
       [SECTION_ID]: {
@@ -45,7 +55,9 @@ function makeDocument(section: Partial<WorkspaceSectionInput> = {}): WorkspaceDo
         ...section,
       },
     },
-    topLevelSections: { [SECTION_ID]: { x: 0, y: 0, w: 500, h: null, zIndex: 0 } },
+    topLevelSections: {
+      [SECTION_ID]: { x: 0, y: 0, w: 500, h: null, zIndex: 0 },
+    },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
   };
@@ -80,7 +92,9 @@ describe("built-in code section registration", () => {
   });
 
   it("loads an omitted size at the reference's code section default", () => {
-    registerSectionKinds({ [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection() });
+    registerSectionKinds({
+      [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection(),
+    });
     loadWorkspaceDocument(makeDocument({ size: undefined }));
     expect(getWorkspaceDocument().sections[SECTION_ID]?.size).toEqual({
       width: 500,
@@ -102,30 +116,41 @@ describe("built-in code section registration", () => {
   });
 
   it("fails the load on malformed code section data", () => {
-    registerSectionKinds({ [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection() });
-    expect(() => loadWorkspaceDocument(makeDocument({ data: { code: "x = 1" } }))).toThrow(
-      /Code section code is missing its string language field/u,
-    );
+    registerSectionKinds({
+      [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection(),
+    });
+    expect(() =>
+      loadWorkspaceDocument(makeDocument({ data: { code: "x = 1" } })),
+    ).toThrow(/Code section code is missing its string language field/u);
   });
 
   it("fails the load on a language the registration does not allow", () => {
     registerSectionKinds({
-      [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({ languages: ["python", "json"] }),
+      [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
+        languages: ["python", "json"],
+      }),
     });
     expect(() =>
       loadWorkspaceDocument(
-        makeDocument({ data: createWorkspaceCodeSectionData({ language: "bash" }) }),
+        makeDocument({
+          data: createWorkspaceCodeSectionData({ language: "bash" }),
+        }),
       ),
     ).toThrow(/does not allow/u);
   });
 
   it("refuses a typed write outside the registration's languages", () => {
     registerSectionKinds({
-      [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({ languages: ["python", "json"] }),
+      [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
+        languages: ["python", "json"],
+      }),
     });
     loadWorkspaceDocument(makeDocument());
     expect(() =>
-      setWorkspaceCodeSectionData(SECTION_ID, createWorkspaceCodeSectionData({ language: "yaml" })),
+      setWorkspaceCodeSectionData(
+        SECTION_ID,
+        createWorkspaceCodeSectionData({ language: "yaml" }),
+      ),
     ).toThrow(/does not allow/u);
   });
 
@@ -169,12 +194,17 @@ describe("built-in code section header icon", () => {
   }
 
   it("paints the section's own language, like the reference's code header icon", async () => {
-    registerSectionKinds({ [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection() });
+    registerSectionKinds({
+      [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection(),
+    });
     loadWorkspaceDocument(makeDocument());
     const pythonPath = await renderIcon();
     expect(pythonPath).not.toBeNull();
     await act(async () => {
-      setWorkspaceCodeSectionData(SECTION_ID, createWorkspaceCodeSectionData({ language: "bash" }));
+      setWorkspaceCodeSectionData(
+        SECTION_ID,
+        createWorkspaceCodeSectionData({ language: "bash" }),
+      );
     });
     expect(await renderIcon()).not.toBe(pythonPath);
   });
@@ -182,7 +212,8 @@ describe("built-in code section header icon", () => {
   it("takes a host-supplied icon instead", async () => {
     registerSectionKinds({
       [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
-        icon: ({ className }) => createElement("i", { className, "data-host-icon": "true" }),
+        icon: ({ className }) =>
+          createElement("i", { className, "data-host-icon": "true" }),
       }),
     });
     loadWorkspaceDocument(makeDocument());

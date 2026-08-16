@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { setWorkspaceDocumentChangeCallback } from "./documentChangeCallback";
-import { selectOnlyItem, toggleItemSelected, unselectAllItems } from "./itemSelection";
+import {
+  selectOnlyItem,
+  toggleItemSelected,
+  unselectAllItems,
+} from "./itemSelection";
 import {
   activateItemSelect,
   deactivateItemSelect,
@@ -9,7 +13,11 @@ import {
 } from "./itemSelectionMode";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { registerSectionKinds } from "./sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "./stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "./stores";
 import type { WorkspaceSection, WorkspaceSectionItemTree } from "./types";
 
 function makeItemTree(
@@ -28,7 +36,10 @@ function makeItemTree(
   };
 }
 
-function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): WorkspaceSection {
+function makeSection(
+  id: string,
+  overrides: Partial<WorkspaceSection> = {},
+): WorkspaceSection {
   return {
     id,
     kind: "leaf",
@@ -46,7 +57,8 @@ function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): Wor
 }
 
 function getSelectedItemIds(sectionId: string): Array<string> {
-  const itemTree = useWorkspaceDocument.getState().sections[sectionId]?.itemTree;
+  const itemTree =
+    useWorkspaceDocument.getState().sections[sectionId]?.itemTree;
   if (!itemTree) {
     throw new Error(`expected section ${sectionId} to carry an item tree`);
   }
@@ -60,8 +72,12 @@ describe("item selection", () => {
     registerSectionKinds({ leaf: { renderContent: () => null } });
     loadWorkspaceDocument({
       sections: {
-        "section-a": makeSection("section-a", { itemTree: makeItemTree(["a-1", "a-2"]) }),
-        "section-b": makeSection("section-b", { itemTree: makeItemTree(["b-1"]) }),
+        "section-a": makeSection("section-a", {
+          itemTree: makeItemTree(["a-1", "a-2"]),
+        }),
+        "section-b": makeSection("section-b", {
+          itemTree: makeItemTree(["b-1"]),
+        }),
         bare: makeSection("bare"),
       },
       topLevelSections: {
@@ -110,11 +126,15 @@ describe("item selection", () => {
   });
 
   it("fails loudly for unknown items, the root item, and sections without items", () => {
-    expect(() => toggleItemSelected("section-a", "ghost")).toThrowError(/Unknown item ghost/);
+    expect(() => toggleItemSelected("section-a", "ghost")).toThrowError(
+      /Unknown item ghost/,
+    );
     expect(() => toggleItemSelected("section-a", "item-root")).toThrowError(
       /Cannot select the root item item-root/,
     );
-    expect(() => toggleItemSelected("bare", "a-1")).toThrowError(/Section bare has no item tree/);
+    expect(() => toggleItemSelected("bare", "a-1")).toThrowError(
+      /Section bare has no item tree/,
+    );
   });
 
   it("clears selection across sections in one commit and reports whether anything changed", () => {

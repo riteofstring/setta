@@ -1,11 +1,14 @@
-import { parseWorkspaceChord, type ParsedWorkspaceChord } from "./workspaceChords";
+import {
+  parseWorkspaceChord,
+  type ParsedWorkspaceChord,
+} from "./workspaceChords";
 
 // The chords the workspace's held interaction modes and quick info own outright. They are not
 // bindings: they activate and release with the keys rather than running an operation once, and
 // every one of them is an interaction the pointer shares (marquee, multi-select, pan, parameter
 // drag, parameter selection, quick info). Listing them here gives binding registration one place
 // to refuse a chord that would take a gesture's keys away from it.
-export type ReservedWorkspaceGesture = Readonly<{
+type ReservedWorkspaceGesture = Readonly<{
   chord: ParsedWorkspaceChord;
   name: string;
 }>;

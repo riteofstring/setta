@@ -66,7 +66,10 @@ export type {
   WorkspaceCreationContext,
 } from "./context-menu/workspaceMenuTypes";
 export { ColorValueControl } from "./controls/color/ColorValueControl";
-export type { ColorValueChoice, ColorValueControlProps } from "./controls/color/ColorValueControl";
+export type {
+  ColorValueChoice,
+  ColorValueControlProps,
+} from "./controls/color/ColorValueControl";
 export type {
   DateCalendarWeekStart,
   DateControlMode,
@@ -78,7 +81,10 @@ export type {
   TimeDisplayFormat,
   TimeValueControlProps,
 } from "./controls/date-time/dateTimeTypes";
-export { DateValueControl, TimeValueControl } from "./controls/date-time/DateTimeValueControl";
+export {
+  DateValueControl,
+  TimeValueControl,
+} from "./controls/date-time/DateTimeValueControl";
 export { DropdownValueControl } from "./controls/dropdown/DropdownValueControl";
 export type {
   DropdownValueChoiceGroup,
@@ -173,7 +179,10 @@ export type {
   WorkspaceSectionKindIconProps,
 } from "./document/sectionKindRegistry";
 export { useWorkspaceAppearance } from "./document/stores";
-export type { WorkspaceAppearanceState, WorkspaceColorMode } from "./document/stores";
+export type {
+  WorkspaceAppearanceState,
+  WorkspaceColorMode,
+} from "./document/stores";
 export type {
   Position,
   SectionSize,

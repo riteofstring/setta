@@ -25,7 +25,10 @@ type ChordPattern = {
 
 type ChordModifiers = Omit<ParsedWorkspaceChord, "keys">;
 
-function matchesModifiers(chord: ParsedWorkspaceChord, expected: ChordModifiers): boolean {
+function matchesModifiers(
+  chord: ParsedWorkspaceChord,
+  expected: ChordModifiers,
+): boolean {
   return (
     chord.mod === expected.mod &&
     chord.ctrl === expected.ctrl &&
@@ -34,27 +37,71 @@ function matchesModifiers(chord: ParsedWorkspaceChord, expected: ChordModifiers)
   );
 }
 
-const CHORD_MODE_MATCHERS: Record<ChordPatternMode, (chord: ParsedWorkspaceChord) => boolean> = {
-  "no-modifiers": (chord) => !chord.mod && !chord.ctrl && !chord.shift && !chord.alt,
+const CHORD_MODE_MATCHERS: Record<
+  ChordPatternMode,
+  (chord: ParsedWorkspaceChord) => boolean
+> = {
+  "no-modifiers": (chord) =>
+    !chord.mod && !chord.ctrl && !chord.shift && !chord.alt,
   "shift-only": (chord) =>
-    matchesModifiers(chord, { mod: false, ctrl: false, shift: true, alt: false }),
+    matchesModifiers(chord, {
+      mod: false,
+      ctrl: false,
+      shift: true,
+      alt: false,
+    }),
   "mod-only": (chord) =>
-    matchesModifiers(chord, { mod: true, ctrl: false, shift: false, alt: false }),
+    matchesModifiers(chord, {
+      mod: true,
+      ctrl: false,
+      shift: false,
+      alt: false,
+    }),
   "ctrl-only": (chord) =>
-    matchesModifiers(chord, { mod: false, ctrl: true, shift: false, alt: false }),
+    matchesModifiers(chord, {
+      mod: false,
+      ctrl: true,
+      shift: false,
+      alt: false,
+    }),
   "alt-only": (chord) =>
-    matchesModifiers(chord, { mod: false, ctrl: false, shift: false, alt: true }),
+    matchesModifiers(chord, {
+      mod: false,
+      ctrl: false,
+      shift: false,
+      alt: true,
+    }),
   "alt-shift": (chord) =>
-    matchesModifiers(chord, { mod: false, ctrl: false, shift: true, alt: true }),
+    matchesModifiers(chord, {
+      mod: false,
+      ctrl: false,
+      shift: true,
+      alt: true,
+    }),
   "mod-shift": (chord) =>
-    matchesModifiers(chord, { mod: true, ctrl: false, shift: true, alt: false }),
+    matchesModifiers(chord, {
+      mod: true,
+      ctrl: false,
+      shift: true,
+      alt: false,
+    }),
   "mod-ctrl": (chord) =>
-    matchesModifiers(chord, { mod: true, ctrl: true, shift: false, alt: false }),
-  "mod-or-ctrl": (chord) => (chord.mod || chord.ctrl) && !chord.shift && !chord.alt,
-  "mod-or-ctrl-shift": (chord) => (chord.mod || chord.ctrl) && chord.shift && !chord.alt,
+    matchesModifiers(chord, {
+      mod: true,
+      ctrl: true,
+      shift: false,
+      alt: false,
+    }),
+  "mod-or-ctrl": (chord) =>
+    (chord.mod || chord.ctrl) && !chord.shift && !chord.alt,
+  "mod-or-ctrl-shift": (chord) =>
+    (chord.mod || chord.ctrl) && chord.shift && !chord.alt,
 };
 
-function matchesChordPattern(chord: ParsedWorkspaceChord, pattern: ChordPattern): boolean {
+function matchesChordPattern(
+  chord: ParsedWorkspaceChord,
+  pattern: ChordPattern,
+): boolean {
   if (!CHORD_MODE_MATCHERS[pattern.mode](chord)) {
     return false;
   }
@@ -62,7 +109,10 @@ function matchesChordPattern(chord: ParsedWorkspaceChord, pattern: ChordPattern)
     return true;
   }
   const keys = pattern.keys ?? [];
-  return chord.keys.length === keys.length && keys.every((key) => chord.keys.includes(key));
+  return (
+    chord.keys.length === keys.length &&
+    keys.every((key) => chord.keys.includes(key))
+  );
 }
 
 function matchesAnyChordPattern(
@@ -76,7 +126,11 @@ function matchesAnyChordPattern(
 // keypress, and it never blocks native tabbing when it declines.
 function isTabChord(chord: ParsedWorkspaceChord): boolean {
   return (
-    chord.keys.length === 1 && chord.keys[0] === "Tab" && !chord.mod && !chord.ctrl && !chord.alt
+    chord.keys.length === 1 &&
+    chord.keys[0] === "Tab" &&
+    !chord.mod &&
+    !chord.ctrl &&
+    !chord.alt
   );
 }
 
@@ -173,7 +227,9 @@ const OTHER_PLATFORM_EDITING_CHORDS: ReadonlyArray<ChordPattern> = [
 
 // A binding may suppress the browser default only for a chord the browser does not need: never for
 // a bare key, a modifier-only hold, Tab, or copy/paste.
-export function getChordSuppressesBrowserDefault(chord: ParsedWorkspaceChord): boolean {
+export function getChordSuppressesBrowserDefault(
+  chord: ParsedWorkspaceChord,
+): boolean {
   if (!chord.mod && !chord.ctrl && !chord.shift && !chord.alt) {
     return false;
   }

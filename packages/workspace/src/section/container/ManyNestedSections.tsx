@@ -2,7 +2,10 @@ import _ from "lodash";
 import { useDndChildren } from "../../dnd/dndChildren";
 import { DNDSortable } from "../../dnd/DNDSortable";
 import { useHasTempNested } from "../../dnd/useDndUtils";
-import { getSectionOrThrow, isGroupSection } from "../../document/documentSelectors";
+import {
+  getSectionOrThrow,
+  isGroupSection,
+} from "../../document/documentSelectors";
 import { useWorkspaceDocument } from "../../document/stores";
 import { SortableSectionContainer } from "./SortableSectionContainer";
 
@@ -54,7 +57,10 @@ function NestedSectionsWithMargin({
     <div className="flex items-stretch">
       <div className={containerClassName}>
         {childIds.map((childId) => (
-          <SortableSectionContainer sectionId={childId} key={`Nested-Sec-${childId}`} />
+          <SortableSectionContainer
+            sectionId={childId}
+            key={`Nested-Sec-${childId}`}
+          />
         ))}
       </div>
     </div>

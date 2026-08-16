@@ -12,7 +12,8 @@ export function ResponsiveMiniMap() {
   const darkMode = useWorkspaceAppearance((x) => x.darkMode);
   const minimapSide = useWorkspaceOptions((x) => x.minimapSide);
   const viewportInsets = useReactFlow((x) => x.viewportInsets);
-  const minimapInset = minimapSide === "right" ? viewportInsets.right : viewportInsets.left;
+  const minimapInset =
+    minimapSide === "right" ? viewportInsets.right : viewportInsets.left;
   const navigate = ({ x, y }: { x: number; y: number }) => {
     setCenter(x, y, { zoom: useReactFlow.getState().transform[2] });
   };
@@ -39,7 +40,9 @@ export function ResponsiveMiniMap() {
       }}
       className="overflow-hidden rounded-md border border-solid border-[#ffffff00] shadow-md backdrop-blur-sm motion-safe:transition-transform"
       maskColor={darkMode ? "rgb(20, 22, 31, 0.5)" : "rgb(51, 65, 85, 0.3)"}
-      maskStrokeColor={darkMode ? "rgba(226, 232, 240, 0.9)" : "rgba(30, 41, 59, 0.6)"}
+      maskStrokeColor={
+        darkMode ? "rgba(226, 232, 240, 0.9)" : "rgba(30, 41, 59, 0.6)"
+      }
       maskStrokeWidth={2}
       pannable
       aria-label="Workspace minimap"

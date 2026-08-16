@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { getElementTextDirection } from "../../styles/textDirection";
@@ -10,7 +17,10 @@ import {
   shiftCalendarMonth,
   type CalendarMonthCell,
 } from "./calendarGrid";
-import { resolveCalendarKeyboardDate, shiftCalendarDateByMonths } from "./calendarKeyboard";
+import {
+  resolveCalendarKeyboardDate,
+  shiftCalendarDateByMonths,
+} from "./calendarKeyboard";
 import type {
   DateCalendarWeekStart,
   DateControlMode,
@@ -47,7 +57,8 @@ const NATIVE_DATE_TIME_COLOR_SCHEME_CLASS_NAME = "dark:[color-scheme:dark]";
 // Frozen main's global `input { all: unset }` makes these native inputs transparent. Keep the
 // equivalent paint local to the package instead of leaking that host-wide reset to consumers.
 const INPUT_BASE_CLASS_NAME = `${INTERACTION_BOUNDARY_CLASS_NAME} peer/textinput flex min-w-0 flex-1 self-center bg-transparent font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
-const FORMATTED_CLASS_NAME = "text-[10px] font-mono text-setta-500 dark:text-setta-400";
+const FORMATTED_CLASS_NAME =
+  "text-[10px] font-mono text-setta-500 dark:text-setta-400";
 const DIVIDER_BASE_CLASS_NAME =
   "section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30";
 const META_CONTAINER_CLASS_NAME =
@@ -67,9 +78,28 @@ const WEEKDAY_LABELS: Record<DateCalendarWeekStart, ReadonlyArray<string>> = {
   monday: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
   sunday: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
 };
-const WEEKDAY_ACCESSIBLE_LABELS: Record<DateCalendarWeekStart, ReadonlyArray<string>> = {
-  monday: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-  sunday: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+const WEEKDAY_ACCESSIBLE_LABELS: Record<
+  DateCalendarWeekStart,
+  ReadonlyArray<string>
+> = {
+  monday: [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ],
+  sunday: [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ],
 };
 const CALENDAR_DATE_LABEL_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "long",
@@ -135,11 +165,31 @@ function assertDateConfig({
   weekStart: DateCalendarWeekStart;
   timeDisplayFormat: TimeDisplayFormat;
 }): void {
-  assertOption("DateValueControl", "displayFormat", displayFormat, DATE_DISPLAY_FORMATS);
-  assertOption("DateValueControl", "controlMode", controlMode, DATE_CONTROL_MODES);
-  assertOption("DateValueControl", "selectionMode", selectionMode, DATE_SELECTION_MODES);
+  assertOption(
+    "DateValueControl",
+    "displayFormat",
+    displayFormat,
+    DATE_DISPLAY_FORMATS,
+  );
+  assertOption(
+    "DateValueControl",
+    "controlMode",
+    controlMode,
+    DATE_CONTROL_MODES,
+  );
+  assertOption(
+    "DateValueControl",
+    "selectionMode",
+    selectionMode,
+    DATE_SELECTION_MODES,
+  );
   assertOption("DateValueControl", "weekStart", weekStart, WEEK_STARTS);
-  assertOption("DateValueControl", "timeDisplayFormat", timeDisplayFormat, TIME_DISPLAY_FORMATS);
+  assertOption(
+    "DateValueControl",
+    "timeDisplayFormat",
+    timeDisplayFormat,
+    TIME_DISPLAY_FORMATS,
+  );
 }
 
 function resolveDateValueControlConfig(
@@ -167,17 +217,34 @@ function assertTimeConfig({
   scale: number;
   font: TimeDisplayFont;
 }): void {
-  assertOption("TimeValueControl", "controlMode", controlMode, TIME_CONTROL_MODES);
-  assertOption("TimeValueControl", "displayFormat", displayFormat, TIME_DISPLAY_FORMATS);
+  assertOption(
+    "TimeValueControl",
+    "controlMode",
+    controlMode,
+    TIME_CONTROL_MODES,
+  );
+  assertOption(
+    "TimeValueControl",
+    "displayFormat",
+    displayFormat,
+    TIME_DISPLAY_FORMATS,
+  );
   assertOption("TimeValueControl", "font", font, TIME_DISPLAY_FONTS);
-  if (!Number.isFinite(scale) || scale < TIME_DISPLAY_SCALE_MIN || scale > TIME_DISPLAY_SCALE_MAX) {
+  if (
+    !Number.isFinite(scale) ||
+    scale < TIME_DISPLAY_SCALE_MIN ||
+    scale > TIME_DISPLAY_SCALE_MAX
+  ) {
     throw new Error(
       `TimeValueControl received invalid scale: ${String(scale)}; expected 0.5 through 3.`,
     );
   }
 }
 
-function getRowClasses(isDisabled: boolean, isSelectingItems: boolean): DateTimeControlClasses {
+function getRowClasses(
+  isDisabled: boolean,
+  isSelectingItems: boolean,
+): DateTimeControlClasses {
   return {
     wrapper: `${INTERACTION_BOUNDARY_CLASS_NAME} section-value flex min-w-0 items-center gap-2`,
     input: `${!isDisabled ? "cursor-text select-text" : ""} ${INPUT_BASE_CLASS_NAME}`,
@@ -216,14 +283,21 @@ function wrapDateTimePresentation(
   }
   return (
     <div
-      className={transparent ? META_TRANSPARENT_CONTAINER_CLASS_NAME : META_CONTAINER_CLASS_NAME}
+      className={
+        transparent
+          ? META_TRANSPARENT_CONTAINER_CLASS_NAME
+          : META_CONTAINER_CLASS_NAME
+      }
     >
       {content}
     </div>
   );
 }
 
-function handleEscape(event: KeyboardEvent<HTMLElement>, onEscape: () => void): void {
+function handleEscape(
+  event: KeyboardEvent<HTMLElement>,
+  onEscape: () => void,
+): void {
   if (event.key === "Escape" || event.code === "Escape") {
     event.stopPropagation();
     onEscape();
@@ -247,7 +321,11 @@ function DateValueControlCore(
   const config = resolveDateValueControlConfig(props);
   const isDisabled = config.disabled || isSelectingItems;
   assertDateConfig(config);
-  const classes = getDateTimeClasses(props.presentation, isDisabled, isSelectingItems);
+  const classes = getDateTimeClasses(
+    props.presentation,
+    isDisabled,
+    isSelectingItems,
+  );
   const onEscape = () => focusSectionAfterEscape(props.sectionId);
 
   if (config.controlMode === "calendar") {
@@ -324,7 +402,11 @@ function TimeValueControlCore({
   const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   assertTimeConfig({ controlMode, displayFormat, scale, font });
-  const classes = getDateTimeClasses(presentation, isDisabled, isSelectingItems);
+  const classes = getDateTimeClasses(
+    presentation,
+    isDisabled,
+    isSelectingItems,
+  );
 
   if (controlMode === "display") {
     return wrapDateTimePresentation(
@@ -438,8 +520,12 @@ function resolveFormattedDateBlur({
   const fallbackIso = normalizeDateToIso(committedValue, dateDisplayFormat);
   const resolvedIso = nextIso !== "" ? nextIso : fallbackIso;
   return {
-    nextCommittedValue: nextIso !== "" && nextIso !== fallbackIso ? nextIso : undefined,
-    nextLocalDateInputValue: formatDateForDisplay(resolvedIso, dateDisplayFormat),
+    nextCommittedValue:
+      nextIso !== "" && nextIso !== fallbackIso ? nextIso : undefined,
+    nextLocalDateInputValue: formatDateForDisplay(
+      resolvedIso,
+      dateDisplayFormat,
+    ),
   };
 }
 
@@ -468,10 +554,14 @@ function EditableDateTimeInput({
   );
   useEffect(() => {
     if (usesLocalDateInput) {
-      setLocalDateInputValue(formatDateForDisplay(view.normalizedValue, dateDisplayFormat));
+      setLocalDateInputValue(
+        formatDateForDisplay(view.normalizedValue, dateDisplayFormat),
+      );
     }
   }, [dateDisplayFormat, usesLocalDateInput, view.normalizedValue]);
-  const renderedInputValue = usesLocalDateInput ? localDateInputValue : view.normalizedValue;
+  const renderedInputValue = usesLocalDateInput
+    ? localDateInputValue
+    : view.normalizedValue;
 
   return (
     <>
@@ -480,7 +570,9 @@ function EditableDateTimeInput({
           aria-label={ariaLabel}
           type={view.inputType}
           className={`${classes.input} ${
-            view.inputType === "text" ? "" : NATIVE_DATE_TIME_COLOR_SCHEME_CLASS_NAME
+            view.inputType === "text"
+              ? ""
+              : NATIVE_DATE_TIME_COLOR_SCHEME_CLASS_NAME
           }`}
           value={renderedInputValue}
           onChange={(event) => {
@@ -547,7 +639,8 @@ function DisplayTimeValue({
   font: TimeDisplayFont;
   classes: DateTimeControlClasses;
 }) {
-  const formatted = formatTimeForDisplay(value, displayFormat).trim() || "--:--";
+  const formatted =
+    formatTimeForDisplay(value, displayFormat).trim() || "--:--";
   return (
     <>
       <div className={classes.wrapper}>
@@ -592,19 +685,25 @@ function parseCalendarSelectedDates(
   includeTime: boolean,
 ): Array<string> {
   if (selectionMode === "single") {
-    const candidate = includeTime ? (splitIsoDateAndTimeParts(rawValue)?.dateIso ?? "") : rawValue;
+    const candidate = includeTime
+      ? (splitIsoDateAndTimeParts(rawValue)?.dateIso ?? "")
+      : rawValue;
     const normalized = normalizeDateToIso(candidate, "iso");
     return parseIsoDate(normalized) ? [normalized] : [];
   }
   const normalized = parseCalendarSelectionCandidates(rawValue)
     .map((candidate) =>
       normalizeDateToIso(
-        includeTime ? (splitIsoDateAndTimeParts(candidate)?.dateIso ?? candidate) : candidate,
+        includeTime
+          ? (splitIsoDateAndTimeParts(candidate)?.dateIso ?? candidate)
+          : candidate,
         "iso",
       ),
     )
     .filter((candidate) => parseIsoDate(candidate) !== null);
-  return Array.from(new Set(normalized)).sort((left, right) => left.localeCompare(right));
+  return Array.from(new Set(normalized)).sort((left, right) =>
+    left.localeCompare(right),
+  );
 }
 
 function serializeCalendarSelectedDates(
@@ -628,7 +727,11 @@ function formatMonthTitle(year: number, monthIndex: number): string {
   }).format(new Date(Date.UTC(year, monthIndex, 1)));
 }
 
-function resolveCalendarCellClassName(cell: CalendarMonthCell, selected: boolean, today: boolean) {
+function resolveCalendarCellClassName(
+  cell: CalendarMonthCell,
+  selected: boolean,
+  today: boolean,
+) {
   const monthClass = cell.inCurrentMonth
     ? "text-setta-700 dark:text-setta-200"
     : "text-setta-400 dark:text-setta-500";
@@ -720,7 +823,9 @@ function CalendarDateButton({
 }) {
   const parsed = parseIsoDate(cell.isoDate);
   if (!parsed) {
-    throw new Error(`DateValueControl generated an invalid calendar date: ${cell.isoDate}.`);
+    throw new Error(
+      `DateValueControl generated an invalid calendar date: ${cell.isoDate}.`,
+    );
   }
   const accessibleDate = CALENDAR_DATE_LABEL_FORMATTER.format(
     new Date(Date.UTC(parsed.year, parsed.monthIndex, parsed.day)),
@@ -796,7 +901,9 @@ function CalendarDateControl({
   );
   const primarySelectedDate = selectedDates[0] ?? "";
   const todayIso = useMemo(() => getLocalTodayIsoDate(), []);
-  const [anchor, setAnchor] = useState(() => resolveCalendarAnchorDate(primarySelectedDate));
+  const [anchor, setAnchor] = useState(() =>
+    resolveCalendarAnchorDate(primarySelectedDate),
+  );
   const [focusedIsoDate, setFocusedIsoDate] = useState(
     () => primarySelectedDate || getLocalTodayIsoDate(),
   );
@@ -826,7 +933,10 @@ function CalendarDateControl({
     shouldRestoreCalendarFocus.current = false;
     nextButton.focus({ preventScroll: true });
   }, [anchor.monthIndex, anchor.year, focusedIsoDate]);
-  const selectedDateSet = useMemo(() => new Set(selectedDates), [selectedDates]);
+  const selectedDateSet = useMemo(
+    () => new Set(selectedDates),
+    [selectedDates],
+  );
   const monthTitle = formatMonthTitle(anchor.year, anchor.monthIndex);
   const summaryText = resolveCalendarSummaryText({
     selectedDates,
@@ -839,7 +949,9 @@ function CalendarDateControl({
   const navigateCalendarFocus = (nextDate: string) => {
     const parsed = parseIsoDate(nextDate);
     if (!parsed) {
-      throw new Error(`DateValueControl cannot focus invalid calendar date: ${nextDate}.`);
+      throw new Error(
+        `DateValueControl cannot focus invalid calendar date: ${nextDate}.`,
+      );
     }
     shouldRestoreCalendarFocus.current = true;
     setFocusedIsoDate(nextDate);
@@ -849,13 +961,18 @@ function CalendarDateControl({
     const nextAnchor = shiftCalendarMonth(anchor, deltaMonths);
     const parsedFocusedDate = parseIsoDate(focusedIsoDate);
     if (!parsedFocusedDate) {
-      throw new Error(`DateValueControl cannot move invalid calendar date: ${focusedIsoDate}.`);
+      throw new Error(
+        `DateValueControl cannot move invalid calendar date: ${focusedIsoDate}.`,
+      );
     }
     const focusedMonthDelta =
       nextAnchor.year * 12 +
       nextAnchor.monthIndex -
       (parsedFocusedDate.year * 12 + parsedFocusedDate.monthIndex);
-    const focusedDateInNextMonth = shiftCalendarDateByMonths(focusedIsoDate, focusedMonthDelta);
+    const focusedDateInNextMonth = shiftCalendarDateByMonths(
+      focusedIsoDate,
+      focusedMonthDelta,
+    );
     setFocusedIsoDate(focusedDateInNextMonth);
     setAnchor(nextAnchor);
   };
@@ -898,7 +1015,11 @@ function CalendarDateControl({
             Next
           </button>
         </div>
-        <div role="grid" aria-label={`${ariaLabel}, ${monthTitle}`} className="flex flex-col gap-2">
+        <div
+          role="grid"
+          aria-label={`${ariaLabel}, ${monthTitle}`}
+          className="flex flex-col gap-2"
+        >
           <div
             role="row"
             className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400"
@@ -916,43 +1037,45 @@ function CalendarDateControl({
           <div role="rowgroup" className="grid grid-cols-7 gap-1">
             {Array.from({ length: 6 }, (_, rowIndex) => (
               <div key={rowIndex} role="row" className="contents">
-                {monthCells.slice(rowIndex * 7, rowIndex * 7 + 7).map((cell) => {
-                  const isSelected = selectedDateSet.has(cell.isoDate);
-                  return (
-                    <CalendarDateButton
-                      key={cell.isoDate}
-                      cell={cell}
-                      isSelected={isSelected}
-                      isToday={cell.isoDate === todayIso}
-                      isDisabled={isDisabled}
-                      isFocused={cell.isoDate === focusedIsoDate}
-                      buttonRef={(element) => {
-                        dateButtonRefs.current[cell.isoDate] = element;
-                      }}
-                      onFocus={() => setFocusedIsoDate(cell.isoDate)}
-                      onNavigate={navigateCalendarFocus}
-                      weekStart={weekStart}
-                      onEscape={onEscape}
-                      onSelect={() => {
-                        if (!isDisabled) {
-                          if (!cell.inCurrentMonth) {
-                            navigateCalendarFocus(cell.isoDate);
+                {monthCells
+                  .slice(rowIndex * 7, rowIndex * 7 + 7)
+                  .map((cell) => {
+                    const isSelected = selectedDateSet.has(cell.isoDate);
+                    return (
+                      <CalendarDateButton
+                        key={cell.isoDate}
+                        cell={cell}
+                        isSelected={isSelected}
+                        isToday={cell.isoDate === todayIso}
+                        isDisabled={isDisabled}
+                        isFocused={cell.isoDate === focusedIsoDate}
+                        buttonRef={(element) => {
+                          dateButtonRefs.current[cell.isoDate] = element;
+                        }}
+                        onFocus={() => setFocusedIsoDate(cell.isoDate)}
+                        onNavigate={navigateCalendarFocus}
+                        weekStart={weekStart}
+                        onEscape={onEscape}
+                        onSelect={() => {
+                          if (!isDisabled) {
+                            if (!cell.inCurrentMonth) {
+                              navigateCalendarFocus(cell.isoDate);
+                            }
+                            onChange(
+                              resolveCalendarDateSelectionValue({
+                                cellIsoDate: cell.isoDate,
+                                isSelected,
+                                selectedDates,
+                                selectionMode,
+                                includeTime,
+                                selectedTimeValue,
+                              }),
+                            );
                           }
-                          onChange(
-                            resolveCalendarDateSelectionValue({
-                              cellIsoDate: cell.isoDate,
-                              isSelected,
-                              selectedDates,
-                              selectionMode,
-                              includeTime,
-                              selectedTimeValue,
-                            }),
-                          );
-                        }
-                      }}
-                    />
-                  );
-                })}
+                        }}
+                      />
+                    );
+                  })}
               </div>
             ))}
           </div>
@@ -969,7 +1092,10 @@ function CalendarDateControl({
               value={selectedTimeValue}
               onChange={(event) => {
                 const nextDate = selectedDates[0] ?? todayIso;
-                const combined = combineIsoDateAndTimeParts(nextDate, event.target.value);
+                const combined = combineIsoDateAndTimeParts(
+                  nextDate,
+                  event.target.value,
+                );
                 if (combined !== "") {
                   onChange(combined);
                 }

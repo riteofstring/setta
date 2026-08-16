@@ -6,8 +6,14 @@ import { BuiltInItemValueControl } from "./BuiltInItemValueControl";
 import type { ItemRowRenderContext } from "./ItemListContext";
 import { WorkspaceItemLabel } from "./WorkspaceItemLabel";
 
-export function BuiltInItemRowContent({ context }: { context: ItemRowRenderContext }) {
-  const canEditStructure = useWorkspaceCapabilities((state) => state.canEditStructure);
+export function BuiltInItemRowContent({
+  context,
+}: {
+  context: ItemRowRenderContext;
+}) {
+  const canEditStructure = useWorkspaceCapabilities(
+    (state) => state.canEditStructure,
+  );
   if (!hasWorkspaceItemPresentation(context.item)) {
     throw new Error(
       `Custom item ${context.sectionId}/${context.item.id} requires a registered row renderer.`,
@@ -25,7 +31,9 @@ export function BuiltInItemRowContent({ context }: { context: ItemRowRenderConte
           language="python"
           hasChildren={isGroup}
           disabled={!canEditStructure}
-          onNameChange={(nextLabel) => setItemLabel(context.sectionId, context.item.id, nextLabel)}
+          onNameChange={(nextLabel) =>
+            setItemLabel(context.sectionId, context.item.id, nextLabel)
+          }
           reserveEndControlSpace={false}
         />
       ) : (

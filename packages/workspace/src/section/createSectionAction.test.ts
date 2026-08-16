@@ -8,7 +8,11 @@ import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { WorkspaceSectionInput } from "../document/types";
 import { createWorkspaceSectionFromCommand } from "./createSectionAction";
 
@@ -43,7 +47,9 @@ function setupZoomRuntime() {
   const d3Selection = {
     transition: () => ({ duration: () => ({ id: "transition" }) }),
   } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
-  const d3Zoom = { transform } as unknown as NonNullable<typeof initialCanvasState.d3Zoom>;
+  const d3Zoom = { transform } as unknown as NonNullable<
+    typeof initialCanvasState.d3Zoom
+  >;
   useReactFlow.setState({ d3Selection, d3Zoom });
   return transform;
 }
@@ -82,7 +88,10 @@ describe("creating a section without a pointer", () => {
   beforeEach(() => {
     requestedPositions.length = 0;
     registerSectionKinds({
-      sized: { renderContent: () => null, defaultSize: { width: 240, height: 120 } },
+      sized: {
+        renderContent: () => null,
+        defaultSize: { width: 240, height: 120 },
+      },
     });
     useReactFlow.setState({ ...initialCanvasState, width: 800, height: 600 });
   });
@@ -105,7 +114,9 @@ describe("creating a section without a pointer", () => {
     expect(createWorkspaceSectionFromCommand(createCommand())).toBe(true);
 
     expect(requestedPositions).toEqual([null]);
-    expect(useWorkspaceDocument.getState().topLevelSections.created).toMatchObject({
+    expect(
+      useWorkspaceDocument.getState().topLevelSections.created,
+    ).toMatchObject({
       x: 24,
       y: 24,
     });
@@ -119,7 +130,9 @@ describe("creating a section without a pointer", () => {
 
     expect(createWorkspaceSectionFromCommand(createCommand())).toBe(true);
 
-    expect(useWorkspaceDocument.getState().topLevelSections.created).toMatchObject({
+    expect(
+      useWorkspaceDocument.getState().topLevelSections.created,
+    ).toMatchObject({
       x: 2000,
       y: 2144,
     });
@@ -148,9 +161,11 @@ describe("creating a section without a pointer", () => {
   it("declines when the command itself is unavailable", () => {
     loadWorkspace({});
 
-    expect(createWorkspaceSectionFromCommand(createCommand({ isDisabled: () => true }))).toBe(
-      false,
-    );
+    expect(
+      createWorkspaceSectionFromCommand(
+        createCommand({ isDisabled: () => true }),
+      ),
+    ).toBe(false);
 
     expect(requestedPositions).toEqual([]);
     expect(useWorkspaceDocument.getState().sections.created).toBeUndefined();

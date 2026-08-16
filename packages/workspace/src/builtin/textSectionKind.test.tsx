@@ -13,14 +13,22 @@ import {
   useWorkspaceAppearance,
   useWorkspaceDocument,
 } from "../document/stores";
-import type { WorkspaceDocumentInput, WorkspaceSectionInput } from "../document/types";
+import type {
+  WorkspaceDocumentInput,
+  WorkspaceSectionInput,
+} from "../document/types";
 import { HeaderIcon } from "../section/header/HeaderIcon";
 import { SectionHeader } from "../section/header/SectionHeader";
 import { setWorkspaceTextSectionData } from "./textSectionActions";
-import { createWorkspaceTextSectionData, WORKSPACE_TEXT_SECTION_KIND } from "./textSectionData";
+import {
+  createWorkspaceTextSectionData,
+  WORKSPACE_TEXT_SECTION_KIND,
+} from "./textSectionData";
 import { createWorkspaceTextSection } from "./textSectionKind";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // The registration half of the built-in Text section: a host composes the helper's definition
 // with its own kinds, narrows what the registration accepts, decides whether the header carries
@@ -28,7 +36,9 @@ import { createWorkspaceTextSection } from "./textSectionKind";
 
 const SECTION_ID = "notes";
 
-function makeDocument(section: Partial<WorkspaceSectionInput> = {}): WorkspaceDocumentInput {
+function makeDocument(
+  section: Partial<WorkspaceSectionInput> = {},
+): WorkspaceDocumentInput {
   return {
     sections: {
       [SECTION_ID]: {
@@ -46,7 +56,9 @@ function makeDocument(section: Partial<WorkspaceSectionInput> = {}): WorkspaceDo
         ...section,
       },
     },
-    topLevelSections: { [SECTION_ID]: { x: 0, y: 0, w: 500, h: null, zIndex: 0 } },
+    topLevelSections: {
+      [SECTION_ID]: { x: 0, y: 0, w: 500, h: null, zIndex: 0 },
+    },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
   };
@@ -77,15 +89,21 @@ describe("built-in text section registration", () => {
 
   it("rejects a registration naming an unknown format or display mode", () => {
     expect(() =>
-      createWorkspaceTextSection({ formats: ["markdown", "rst" as unknown as "markdown"] }),
+      createWorkspaceTextSection({
+        formats: ["markdown", "rst" as unknown as "markdown"],
+      }),
     ).toThrow(/unknown format rst/u);
     expect(() =>
-      createWorkspaceTextSection({ displayModes: ["preview" as unknown as "edit"] }),
+      createWorkspaceTextSection({
+        displayModes: ["preview" as unknown as "edit"],
+      }),
     ).toThrow(/unknown display mode preview/u);
   });
 
   it("loads an omitted size at the reference's text block default", () => {
-    registerSectionKinds({ [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection() });
+    registerSectionKinds({
+      [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection(),
+    });
     loadWorkspaceDocument(makeDocument({ size: undefined }));
     expect(getWorkspaceDocument().sections[SECTION_ID]?.size).toEqual({
       width: 500,
@@ -107,26 +125,34 @@ describe("built-in text section registration", () => {
   });
 
   it("fails the load on malformed text section data", () => {
-    registerSectionKinds({ [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection() });
-    expect(() => loadWorkspaceDocument(makeDocument({ data: { text: "notes" } }))).toThrow(
-      /Text section notes is missing its string format field/u,
-    );
+    registerSectionKinds({
+      [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection(),
+    });
+    expect(() =>
+      loadWorkspaceDocument(makeDocument({ data: { text: "notes" } })),
+    ).toThrow(/Text section notes is missing its string format field/u);
   });
 
   it("fails the load on a format the registration does not allow", () => {
     registerSectionKinds({
-      [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({ formats: ["markdown"] }),
+      [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
+        formats: ["markdown"],
+      }),
     });
     expect(() =>
       loadWorkspaceDocument(
-        makeDocument({ data: createWorkspaceTextSectionData({ format: "plaintext" }) }),
+        makeDocument({
+          data: createWorkspaceTextSectionData({ format: "plaintext" }),
+        }),
       ),
     ).toThrow(/does not allow/u);
   });
 
   it("refuses a typed write outside the registration's display modes", () => {
     registerSectionKinds({
-      [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({ displayModes: ["edit"] }),
+      [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
+        displayModes: ["edit"],
+      }),
     });
     loadWorkspaceDocument(makeDocument());
     expect(() =>
@@ -166,7 +192,10 @@ describe("built-in text section header", () => {
   async function renderHeader() {
     await act(async () => {
       root.render(
-        createElement(SectionHeader, { sectionId: SECTION_ID, hasSectionStyleTheme: false }),
+        createElement(SectionHeader, {
+          sectionId: SECTION_ID,
+          hasSectionStyleTheme: false,
+        }),
       );
     });
   }
@@ -185,7 +214,9 @@ describe("built-in text section header", () => {
   }
 
   it("paints the section's own format, like the reference's text block header icon", async () => {
-    registerSectionKinds({ [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection() });
+    registerSectionKinds({
+      [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection(),
+    });
     loadWorkspaceDocument(makeDocument());
     const plaintextPath = await renderIcon();
     expect(plaintextPath).not.toBeNull();
@@ -200,7 +231,9 @@ describe("built-in text section header", () => {
 
   it("leaves the display-mode control out when the host asks it to", async () => {
     registerSectionKinds({
-      [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({ showDisplayModeControl: false }),
+      [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
+        showDisplayModeControl: false,
+      }),
     });
     loadWorkspaceDocument(makeDocument());
     await renderHeader();
@@ -209,21 +242,27 @@ describe("built-in text section header", () => {
 
   it("leaves the display-mode control out when one mode is forced", async () => {
     registerSectionKinds({
-      [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({ displayModes: ["render"] }),
+      [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
+        displayModes: ["render"],
+      }),
     });
     loadWorkspaceDocument(
-      makeDocument({ data: createWorkspaceTextSectionData({ displayMode: "render" }) }),
+      makeDocument({
+        data: createWorkspaceTextSectionData({ displayMode: "render" }),
+      }),
     );
     await renderHeader();
     expect(host.querySelector("button[aria-label='Edit text']")).toBeNull();
   });
 
   it("contributes the control ahead of the container controls by default", async () => {
-    registerSectionKinds({ [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection() });
+    registerSectionKinds({
+      [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection(),
+    });
     loadWorkspaceDocument(makeDocument());
     await renderHeader();
-    const labels = [...host.querySelectorAll("button[aria-label]")].map((button) =>
-      button.getAttribute("aria-label"),
+    const labels = [...host.querySelectorAll("button[aria-label]")].map(
+      (button) => button.getAttribute("aria-label"),
     );
     expect(labels[0]).toBe("Render text");
     expect(labels).toContain("Lock position and size");

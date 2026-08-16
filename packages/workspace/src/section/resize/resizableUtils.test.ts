@@ -52,7 +52,11 @@ describe("getResizeHandleClickState", () => {
 describe("isResizeDoubleClick", () => {
   it("requires a zero delta with no attempted resize", () => {
     expect(
-      isResizeDoubleClick({ isPending: true, isZeroDelta: true, resizeAttempted: false }),
+      isResizeDoubleClick({
+        isPending: true,
+        isZeroDelta: true,
+        resizeAttempted: false,
+      }),
     ).toBe(true);
     expect(
       isResizeDoubleClick({
@@ -63,11 +67,19 @@ describe("isResizeDoubleClick", () => {
       }),
     ).toBe(true);
     expect(
-      isResizeDoubleClick({ isPending: true, isZeroDelta: false, resizeAttempted: false }),
+      isResizeDoubleClick({
+        isPending: true,
+        isZeroDelta: false,
+        resizeAttempted: false,
+      }),
     ).toBe(false);
-    expect(isResizeDoubleClick({ isPending: true, isZeroDelta: true, resizeAttempted: true })).toBe(
-      false,
-    );
+    expect(
+      isResizeDoubleClick({
+        isPending: true,
+        isZeroDelta: true,
+        resizeAttempted: true,
+      }),
+    ).toBe(false);
   });
 });
 
@@ -75,14 +87,22 @@ describe("getChangedSize", () => {
   const ref = { style: { width: "224px", height: "96px" } };
 
   it("commits the pixel size re-resizable wrote for a plain resize", () => {
-    expect(getChangedSize({ props: [{}, "bottomRight", ref, { width: 10, height: 5 }] })).toEqual({
+    expect(
+      getChangedSize({
+        props: [{}, "bottomRight", ref, { width: 10, height: 5 }],
+      }),
+    ).toEqual({
       width: 224,
       height: 96,
     });
-    expect(getChangedSize({ props: [{}, "right", ref, { width: 10, height: 0 }] })).toEqual({
+    expect(
+      getChangedSize({ props: [{}, "right", ref, { width: 10, height: 0 }] }),
+    ).toEqual({
       width: 224,
     });
-    expect(getChangedSize({ props: [{}, "bottom", ref, { width: 0, height: 5 }] })).toEqual({
+    expect(
+      getChangedSize({ props: [{}, "bottom", ref, { width: 0, height: 5 }] }),
+    ).toEqual({
       height: 96,
     });
   });
@@ -142,7 +162,11 @@ describe("shouldEmitResizeEndEvent", () => {
 describe("clampChangedSize", () => {
   it("raises numeric dimensions to the minimums and leaves auto untouched", () => {
     expect(
-      clampChangedSize({ changedSize: { width: 50, height: 10 }, minHeight: 32, minWidth: 200 }),
+      clampChangedSize({
+        changedSize: { width: 50, height: 10 },
+        minHeight: 32,
+        minWidth: 200,
+      }),
     ).toEqual({ width: 200, height: 32 });
     expect(
       clampChangedSize({
@@ -151,23 +175,39 @@ describe("clampChangedSize", () => {
         minWidth: 200,
       }),
     ).toEqual({ width: "auto", height: 400 });
-    expect(clampChangedSize({ changedSize: { width: 250 }, minHeight: 32, minWidth: 200 })).toEqual(
-      { width: 250 },
-    );
+    expect(
+      clampChangedSize({
+        changedSize: { width: 250 },
+        minHeight: 32,
+        minWidth: 200,
+      }),
+    ).toEqual({ width: 250 });
   });
 });
 
 describe("getAutoClampSize", () => {
   it("clamps stored sizes more than the tolerance below the minimums", () => {
     expect(
-      getAutoClampSize({ size: { width: 100, height: 20 }, minHeight: 32, minWidth: 200 }),
+      getAutoClampSize({
+        size: { width: 100, height: 20 },
+        minHeight: 32,
+        minWidth: 200,
+      }),
     ).toEqual({ width: 200, height: 32 });
     // Within the 2px tolerance no clamp fires.
     expect(
-      getAutoClampSize({ size: { width: 199, height: 31 }, minHeight: 32, minWidth: 200 }),
+      getAutoClampSize({
+        size: { width: 199, height: 31 },
+        minHeight: 32,
+        minWidth: 200,
+      }),
     ).toBeNull();
     expect(
-      getAutoClampSize({ size: { width: "auto", height: "auto" }, minHeight: 32, minWidth: 200 }),
+      getAutoClampSize({
+        size: { width: "auto", height: "auto" },
+        minHeight: 32,
+        minWidth: 200,
+      }),
     ).toBeNull();
   });
 });

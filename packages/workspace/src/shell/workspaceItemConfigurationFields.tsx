@@ -18,9 +18,13 @@ export type WorkspaceItemValueControl = Exclude<
   WorkspaceItemControlPresentation,
   { kind: "group" }
 >;
-export type ConfigurationCommit = (update: WorkspaceItemControlConfiguration) => void;
+export type ConfigurationCommit = (
+  update: WorkspaceItemControlConfiguration,
+) => void;
 
-export type ConfigurationEditorProps<Control extends WorkspaceItemValueControl> = {
+export type ConfigurationEditorProps<
+  Control extends WorkspaceItemValueControl,
+> = {
   control: Control;
   disabled: boolean;
   onCommit: ConfigurationCommit;
@@ -61,7 +65,10 @@ export function ConfigurationRow({
   const errorId = error ? `${inputId}-error` : undefined;
   return (
     <div className="setta-workspace-inspector-config-row">
-      <label className="setta-workspace-inspector-config-label" htmlFor={inputId}>
+      <label
+        className="setta-workspace-inspector-config-label"
+        htmlFor={inputId}
+      >
         {label}
       </label>
       {children({
@@ -159,7 +166,13 @@ export function BooleanConfigurationRow({
   );
 }
 
-export function ReadOnlyConfigurationRow({ label, value }: { label: string; value: ReactNode }) {
+export function ReadOnlyConfigurationRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
   return (
     <div className="setta-workspace-inspector-config-row">
       <span className="setta-workspace-inspector-config-label">{label}</span>

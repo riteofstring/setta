@@ -8,7 +8,10 @@ import {
   updateNodePositions,
 } from "./nodeInternalsActions";
 
-function createSection(id: string, children: Array<string> = []): WorkspaceSection {
+function createSection(
+  id: string,
+  children: Array<string> = [],
+): WorkspaceSection {
   return {
     id,
     kind: "leaf",
@@ -49,7 +52,10 @@ afterEach(() => {
 describe("node-internals publication", () => {
   it("publishes a moved node without replacing untouched node records", () => {
     const moving = createNode({ id: "moving", position: { x: 10, y: 20 } });
-    const untouched = createNode({ id: "untouched", position: { x: 100, y: 200 } });
+    const untouched = createNode({
+      id: "untouched",
+      position: { x: 100, y: 200 },
+    });
     const nextPosition = { x: 35, y: 45 };
     useNodeInternals.setState({
       x: new Map([
@@ -113,7 +119,10 @@ describe("commitTopLevelLayoutToDocument", () => {
     useNodeInternals.setState({
       x: new Map([
         ["top", createNode({ id: "top", position: { x: 5, y: 6 }, zIndex: 1 })],
-        ["group", createNode({ id: "group", position: { x: 200, y: 20 }, zIndex: 2 })],
+        [
+          "group",
+          createNode({ id: "group", position: { x: 200, y: 20 }, zIndex: 2 }),
+        ],
       ]),
     });
 
@@ -132,7 +141,15 @@ describe("commitTopLevelLayoutToDocument", () => {
     });
     useNodeInternals.setState({
       x: new Map([
-        ["top", createNode({ id: "top", position: { x: 1, y: 2 }, width: null, height: null })],
+        [
+          "top",
+          createNode({
+            id: "top",
+            position: { x: 1, y: 2 },
+            width: null,
+            height: null,
+          }),
+        ],
       ]),
     });
 
@@ -149,7 +166,9 @@ describe("commitTopLevelLayoutToDocument", () => {
       topLevelSections: { top: { x: 1, y: 2, w: 200, h: 100, zIndex: 0 } },
     });
     useNodeInternals.setState({
-      x: new Map([["top", createNode({ id: "top", position: { x: 5, y: 6 } })]]),
+      x: new Map([
+        ["top", createNode({ id: "top", position: { x: 5, y: 6 } })],
+      ]),
     });
     let notified = 0;
     setWorkspaceDocumentChangeCallback(() => {
@@ -169,7 +188,15 @@ describe("commitTopLevelLayoutToDocument", () => {
     });
     useNodeInternals.setState({
       x: new Map([
-        ["top", createNode({ id: "top", position: { x: 5, y: 6 }, zIndex: 1, tempZIndex: 1 })],
+        [
+          "top",
+          createNode({
+            id: "top",
+            position: { x: 5, y: 6 },
+            zIndex: 1,
+            tempZIndex: 1,
+          }),
+        ],
       ]),
     });
     const before = useWorkspaceDocument.getState().topLevelSections;

@@ -2,7 +2,10 @@ import type { ComponentType, ReactNode } from "react";
 import type { MetaControlKind } from "../controls/meta/metaControlTypes";
 import { GROUP_SECTION_KIND } from "./documentSelectors";
 import type { SectionSize, WorkspaceItem, WorkspaceSection } from "./types";
-import { cloneFrozenWorkspaceSnapshot, type WorkspaceSnapshot } from "./workspaceSnapshot";
+import {
+  cloneFrozenWorkspaceSnapshot,
+  type WorkspaceSnapshot,
+} from "./workspaceSnapshot";
 
 // The registration half of the renderer seam: application-owned section kinds map to their
 // renderer and either ordinary header/default-size metadata or the direct-on-canvas presentation.
@@ -38,14 +41,20 @@ export type WorkspaceItemFactoryContext = Readonly<{
   section: WorkspaceSnapshot<WorkspaceSection>;
 }>;
 
-export type WorkspaceItemFactory = (context: WorkspaceItemFactoryContext) => WorkspaceItem;
+export type WorkspaceItemFactory = (
+  context: WorkspaceItemFactoryContext,
+) => WorkspaceItem;
 
 export type WorkspaceItemSearchContext = Readonly<{
-  section: WorkspaceSnapshot<Pick<WorkspaceSection, "id" | "kind" | "name" | "data">>;
+  section: WorkspaceSnapshot<
+    Pick<WorkspaceSection, "id" | "kind" | "name" | "data">
+  >;
   item: WorkspaceSnapshot<WorkspaceItem>;
 }>;
 
-export type WorkspaceItemSearchableText = (context: WorkspaceItemSearchContext) => string;
+export type WorkspaceItemSearchableText = (
+  context: WorkspaceItemSearchContext,
+) => string;
 
 export type WorkspaceSectionKindIconProps = Readonly<{
   className?: string;
@@ -59,7 +68,9 @@ type WorkspaceInspectorContributionInput =
 export function createWorkspaceInspectorContributionContext(
   context: WorkspaceInspectorContributionInput,
 ): WorkspaceInspectorContributionContext {
-  return cloneFrozenWorkspaceSnapshot(context) as WorkspaceInspectorContributionContext;
+  return cloneFrozenWorkspaceSnapshot(
+    context,
+  ) as WorkspaceInspectorContributionContext;
 }
 
 type SectionKindBaseDefinition = {
@@ -75,7 +86,9 @@ type SectionKindBaseDefinition = {
   icon?: ComponentType<WorkspaceSectionKindIconProps>;
   // Custom section data and custom item data stay opaque to the package. A kind may project
   // either selection into host-owned Inspector UI through this typed, deeply frozen snapshot.
-  renderInspector?: (context: WorkspaceInspectorContributionContext) => ReactNode;
+  renderInspector?: (
+    context: WorkspaceInspectorContributionContext,
+  ) => ReactNode;
   // Runs once per section of this kind at load, before the document is published. A kind whose
   // `data` has a real shape parses it here so a malformed document fails at the boundary instead
   // of on first paint. The built-in content sections register their own; a kind without one keeps
@@ -125,27 +138,38 @@ function assertMetaControlPresentation(
   if (presentation === null || typeof presentation !== "object") {
     throw new Error(`Section kind ${kind} has a malformed presentation.`);
   }
-  const candidate = presentation as Partial<MetaControlSectionPresentation> & { type?: unknown };
+  const candidate = presentation as Partial<MetaControlSectionPresentation> & {
+    type?: unknown;
+  };
   if (candidate.type !== "meta-control") {
     throw new Error(
       `Section kind ${kind} has unknown presentation type ${String(candidate.type)}.`,
     );
   }
   if (typeof candidate.resolveControlKind !== "function") {
-    throw new Error(`Meta-control section kind ${kind} must provide resolveControlKind.`);
+    throw new Error(
+      `Meta-control section kind ${kind} must provide resolveControlKind.`,
+    );
   }
   if (typeof candidate.onEdit !== "function") {
     throw new Error(`Meta-control section kind ${kind} must provide onEdit.`);
   }
 }
 
-function assertOptionalSectionKindFunction(kind: string, role: string, value: unknown): void {
+function assertOptionalSectionKindFunction(
+  kind: string,
+  role: string,
+  value: unknown,
+): void {
   if (value !== undefined && typeof value !== "function") {
     throw new Error(`Section kind ${kind} ${role} must be a function.`);
   }
 }
 
-function assertMetaControlDefinition(kind: string, definition: SectionKindDefinition): void {
+function assertMetaControlDefinition(
+  kind: string,
+  definition: SectionKindDefinition,
+): void {
   assertMetaControlPresentation(kind, definition.presentation);
   if (definition.defaultSize !== undefined) {
     throw new Error(
@@ -179,14 +203,29 @@ function assertMetaControlDefinition(kind: string, definition: SectionKindDefini
   }
 }
 
-function assertSectionKindDefinition(kind: string, definition: SectionKindDefinition): void {
+function assertSectionKindDefinition(
+  kind: string,
+  definition: SectionKindDefinition,
+): void {
   if (typeof definition.renderContent !== "function") {
     throw new Error(`Section kind ${kind} must provide renderContent.`);
   }
-  assertOptionalSectionKindFunction(kind, "renderInspector", definition.renderInspector);
-  assertOptionalSectionKindFunction(kind, "assertValidData", definition.assertValidData);
+  assertOptionalSectionKindFunction(
+    kind,
+    "renderInspector",
+    definition.renderInspector,
+  );
+  assertOptionalSectionKindFunction(
+    kind,
+    "assertValidData",
+    definition.assertValidData,
+  );
   assertOptionalSectionKindFunction(kind, "createItem", definition.createItem);
-  assertOptionalSectionKindFunction(kind, "renderHeaderControls", definition.renderHeaderControls);
+  assertOptionalSectionKindFunction(
+    kind,
+    "renderHeaderControls",
+    definition.renderHeaderControls,
+  );
   assertOptionalSectionKindFunction(
     kind,
     "getItemSearchableText",
@@ -199,7 +238,9 @@ function assertSectionKindDefinition(kind: string, definition: SectionKindDefini
 
 // Replaces the registered kind set. Hosts register every kind once, before loading or
 // rendering documents that use them.
-export function registerSectionKinds(kinds: Record<string, SectionKindDefinition>): void {
+export function registerSectionKinds(
+  kinds: Record<string, SectionKindDefinition>,
+): void {
   if (GROUP_SECTION_KIND in kinds) {
     throw new Error(
       `Section kind ${GROUP_SECTION_KIND} is package-owned and cannot be registered.`,
@@ -211,7 +252,9 @@ export function registerSectionKinds(kinds: Record<string, SectionKindDefinition
   registeredSectionKinds = kinds;
 }
 
-export function getRegisteredSectionKindOrThrow(kind: string): SectionKindDefinition {
+export function getRegisteredSectionKindOrThrow(
+  kind: string,
+): SectionKindDefinition {
   const definition = registeredSectionKinds[kind];
   if (!definition) {
     throw new Error(
@@ -230,18 +273,28 @@ export function getSectionKindHeaderControls(
     return null;
   }
   const definition = getRegisteredSectionKindOrThrow(kind);
-  return definition.presentation === undefined ? (definition.renderHeaderControls ?? null) : null;
+  return definition.presentation === undefined
+    ? (definition.renderHeaderControls ?? null)
+    : null;
 }
 
-export function getWorkspaceItemFactory(section: WorkspaceSection): WorkspaceItemFactory | null {
+export function getWorkspaceItemFactory(
+  section: WorkspaceSection,
+): WorkspaceItemFactory | null {
   const definition = getRegisteredSectionKindOrThrow(section.kind);
-  return definition.presentation === undefined ? (definition.createItem ?? null) : null;
+  return definition.presentation === undefined
+    ? (definition.createItem ?? null)
+    : null;
 }
 
-export function createWorkspaceItemFromFactory(section: WorkspaceSection): WorkspaceItem {
+export function createWorkspaceItemFromFactory(
+  section: WorkspaceSection,
+): WorkspaceItem {
   const factory = getWorkspaceItemFactory(section);
   if (!factory) {
-    throw new Error(`Section kind ${section.kind} does not provide an item factory.`);
+    throw new Error(
+      `Section kind ${section.kind} does not provide an item factory.`,
+    );
   }
   return factory(cloneFrozenWorkspaceSnapshot({ section }));
 }
@@ -255,7 +308,9 @@ export function getWorkspaceItemSearchableText(
   }
   const definition = getRegisteredSectionKindOrThrow(section.kind);
   const getSearchableText =
-    definition.presentation === undefined ? definition.getItemSearchableText : undefined;
+    definition.presentation === undefined
+      ? definition.getItemSearchableText
+      : undefined;
   if (!getSearchableText) {
     return "";
   }
@@ -266,7 +321,10 @@ export function getWorkspaceItemSearchableText(
     data: section.data,
   };
   const searchableText = getSearchableText(
-    cloneFrozenWorkspaceSnapshot({ section: searchSection, item }) as WorkspaceItemSearchContext,
+    cloneFrozenWorkspaceSnapshot({
+      section: searchSection,
+      item,
+    }) as WorkspaceItemSearchContext,
   );
   if (typeof searchableText !== "string") {
     throw new Error(
@@ -279,7 +337,9 @@ export function getWorkspaceItemSearchableText(
 export function getMetaControlPresentation(
   section: Pick<WorkspaceSection, "kind">,
 ): MetaControlSectionPresentation | null {
-  const presentation = getRegisteredSectionKindOrThrow(section.kind).presentation;
+  const presentation = getRegisteredSectionKindOrThrow(
+    section.kind,
+  ).presentation;
   if (presentation === undefined) {
     return null;
   }

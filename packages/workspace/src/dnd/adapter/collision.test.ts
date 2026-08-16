@@ -26,7 +26,11 @@ function createRect({
   };
 }
 
-function createDroppable(id: string, rect: ClientRect, data?: Record<string, unknown>) {
+function createDroppable(
+  id: string,
+  rect: ClientRect,
+  data?: Record<string, unknown>,
+) {
   return {
     id,
     shape: {
@@ -143,7 +147,10 @@ describe("collision tracker", () => {
       pointerCoordinates: { x: 5, y: 5 },
     });
 
-    tracker.update([createCollision("parent", rect), createCollision("child", rect)]);
+    tracker.update([
+      createCollision("parent", rect),
+      createCollision("child", rect),
+    ]);
 
     const boostedCollision = tracker.collisionDetector({
       droppable: createDroppable("child", rect),
@@ -163,9 +170,22 @@ describe("collision tracker", () => {
   });
 
   it("uses the pointer with a symmetric dead band for cross-parent insertion", () => {
-    const tracker = createCollisionTracker({ mode: "section", getParentByChild: () => ({}) });
-    const droppableRect = createRect({ top: 100, left: 200, width: 200, height: 200 });
-    const activeRect = createRect({ top: 150, left: 0, width: 210, height: 200 });
+    const tracker = createCollisionTracker({
+      mode: "section",
+      getParentByChild: () => ({}),
+    });
+    const droppableRect = createRect({
+      top: 100,
+      left: 200,
+      width: 200,
+      height: 200,
+    });
+    const activeRect = createRect({
+      top: 150,
+      left: 0,
+      width: 210,
+      height: 200,
+    });
     const droppable = createDroppable("child", droppableRect, {
       sortable: { containerId: "target-group" },
     });
@@ -202,9 +222,22 @@ describe("collision tracker", () => {
   });
 
   it("uses the pointer on the horizontal axis for cross-parent insertion", () => {
-    const tracker = createCollisionTracker({ mode: "section", getParentByChild: () => ({}) });
-    const droppableRect = createRect({ top: 200, left: 100, width: 200, height: 200 });
-    const activeRect = createRect({ top: 0, left: 150, width: 200, height: 210 });
+    const tracker = createCollisionTracker({
+      mode: "section",
+      getParentByChild: () => ({}),
+    });
+    const droppableRect = createRect({
+      top: 200,
+      left: 100,
+      width: 200,
+      height: 200,
+    });
+    const activeRect = createRect({
+      top: 0,
+      left: 150,
+      width: 200,
+      height: 210,
+    });
     const droppable = createDroppable("child", droppableRect, {
       sortable: { containerId: "target-group" },
       sortableOrientation: "horizontal",
@@ -230,10 +263,28 @@ describe("collision tracker", () => {
   });
 
   it("keeps each target's hysteresis snapshot when the resolved collision alternates", () => {
-    const tracker = createCollisionTracker({ mode: "section", getParentByChild: () => ({}) });
-    const originalChildRect = createRect({ top: 100, left: 200, width: 200, height: 200 });
-    const shiftedChildRect = createRect({ top: 300, left: 200, width: 200, height: 200 });
-    const activeRect = createRect({ top: 150, left: 0, width: 210, height: 250 });
+    const tracker = createCollisionTracker({
+      mode: "section",
+      getParentByChild: () => ({}),
+    });
+    const originalChildRect = createRect({
+      top: 100,
+      left: 200,
+      width: 200,
+      height: 200,
+    });
+    const shiftedChildRect = createRect({
+      top: 300,
+      left: 200,
+      width: 200,
+      height: 200,
+    });
+    const activeRect = createRect({
+      top: 150,
+      left: 0,
+      width: 210,
+      height: 250,
+    });
     const childData = { sortable: { containerId: "target-group" } };
 
     const initialChildCollision = tracker.collisionDetector({
@@ -270,9 +321,22 @@ describe("collision tracker", () => {
   });
 
   it("keeps direction-aware edges for sorting within the same parent", () => {
-    const tracker = createCollisionTracker({ mode: "section", getParentByChild: () => ({}) });
-    const droppableRect = createRect({ top: 100, left: 200, width: 200, height: 200 });
-    const activeRect = createRect({ top: 150, left: 0, width: 210, height: 200 });
+    const tracker = createCollisionTracker({
+      mode: "section",
+      getParentByChild: () => ({}),
+    });
+    const droppableRect = createRect({
+      top: 100,
+      left: 200,
+      width: 200,
+      height: 200,
+    });
+    const activeRect = createRect({
+      top: 150,
+      left: 0,
+      width: 210,
+      height: 200,
+    });
     const sortableData = { sortable: { containerId: "shared-group" } };
     const droppable = createDroppable("child", droppableRect, sortableData);
 

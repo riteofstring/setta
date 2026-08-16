@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 
 // Read the stylesheet source directly: vitest replaces `.css` imports (even `?raw`) with
 // empty modules, and this contract is about the authored host file, not a build output.
-const hostStylesheet = readFileSync(new URL("./index.css", import.meta.url), "utf8");
+const hostStylesheet = readFileSync(
+  new URL("./index.css", import.meta.url),
+  "utf8",
+);
 
 // The host-owned scrollbar regression from the Phase 4 host-context correction: the package
 // ships no scrollbar policy, so the frozen reference's host treatment — thin translucent

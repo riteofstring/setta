@@ -4,7 +4,10 @@ import { createNodesMapFromDocumentChildren } from "./nodeProjection";
 import { useWorkspaceAppearance, type WorkspaceDocumentState } from "./stores";
 import type { Node, WorkspaceSection } from "./types";
 
-function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): WorkspaceSection {
+function makeSection(
+  id: string,
+  overrides: Partial<WorkspaceSection> = {},
+): WorkspaceSection {
   return {
     id,
     kind: "leaf",
@@ -47,7 +50,10 @@ describe("createNodesMapFromDocumentChildren", () => {
   });
 
   it("projects a top-level section into a node", () => {
-    const nodes = createNodesMapFromDocumentChildren(makeDocumentState(), new Map());
+    const nodes = createNodesMapFromDocumentChildren(
+      makeDocumentState(),
+      new Map(),
+    );
     expect(nodes.get("leaf")).toEqual({
       id: "leaf",
       position: { x: 10, y: 20 },
@@ -118,9 +124,9 @@ describe("createNodesMapFromDocumentChildren", () => {
     const state = makeDocumentState({
       sections: { leaf: makeSection("leaf", { styleColor: "not-a-color" }) },
     });
-    expect(() => createNodesMapFromDocumentChildren(state, new Map())).toThrowError(
-      /unparseable style color not-a-color/,
-    );
+    expect(() =>
+      createNodesMapFromDocumentChildren(state, new Map()),
+    ).toThrowError(/unparseable style color not-a-color/);
   });
 
   it("emits no style for empty style colors", () => {
@@ -133,8 +139,8 @@ describe("createNodesMapFromDocumentChildren", () => {
 
   it("fails loudly when a projected section record is missing", () => {
     const state = makeDocumentState({ sections: {} });
-    expect(() => createNodesMapFromDocumentChildren(state, new Map())).toThrowError(
-      /Unknown section leaf/,
-    );
+    expect(() =>
+      createNodesMapFromDocumentChildren(state, new Map()),
+    ).toThrowError(/Unknown section leaf/);
   });
 });

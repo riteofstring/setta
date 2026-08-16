@@ -1,6 +1,9 @@
 import { EditorState, Prec, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { getTextValueLanguageExtensions, type TextValueLanguage } from "./textValueLanguages";
+import {
+  getTextValueLanguageExtensions,
+  type TextValueLanguage,
+} from "./textValueLanguages";
 
 // The reference's `getExtensions` trimmed to the paths its text value editor reaches: line
 // wrapping, the declared language pack, the single-line transaction filter, and the Escape
@@ -20,7 +23,7 @@ export const TEXT_VALUE_BASIC_SETUP = {
   autocompletion: false,
 } as const;
 
-export type TextValueExtensionsOptions = {
+type TextValueExtensionsOptions = {
   language: TextValueLanguage | null | undefined;
   singleLine: boolean;
   wrapLines: boolean | undefined;
@@ -40,7 +43,9 @@ export function getTextValueExtensions({
   }
   extensions.push(...getTextValueLanguageExtensions(language));
   if (singleLine) {
-    extensions.push(EditorState.transactionFilter.of((tr) => (tr.newDoc.lines > 1 ? [] : tr)));
+    extensions.push(
+      EditorState.transactionFilter.of((tr) => (tr.newDoc.lines > 1 ? [] : tr)),
+    );
   }
   extensions.push(
     Prec.highest(

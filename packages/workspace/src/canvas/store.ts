@@ -43,13 +43,16 @@ export const useReactFlow = createWithEqualityFn<ReactFlowState>()(
     ...initialCanvasState,
     setNodesSelection: (selectedNodesCount, ignoreGrid = false) => {
       set({
-        nodesSelectionDims: selectedNodesCount > 1 ? getActiveSectionsBounds(ignoreGrid) : null,
+        nodesSelectionDims:
+          selectedNodesCount > 1 ? getActiveSectionsBounds(ignoreGrid) : null,
       });
     },
     shiftNodesSelection: (delta) => {
       set((state) => {
         if (state.nodesSelectionDims === null) {
-          throw new Error("Cannot shift a nodes selection that has no dimensions.");
+          throw new Error(
+            "Cannot shift a nodes selection that has no dimensions.",
+          );
         }
         return {
           nodesSelectionDims: {
@@ -61,7 +64,8 @@ export const useReactFlow = createWithEqualityFn<ReactFlowState>()(
       });
     },
     panBy: (delta: Position): boolean => {
-      const { transform, width, height, d3Zoom, d3Selection, translateExtent } = get();
+      const { transform, width, height, d3Zoom, d3Selection, translateExtent } =
+        get();
 
       if (!d3Zoom || !d3Selection || (!delta.x && !delta.y)) {
         return false;
@@ -76,7 +80,11 @@ export const useReactFlow = createWithEqualityFn<ReactFlowState>()(
         [width, height],
       ];
 
-      const constrainedTransform = d3Zoom.constrain()(nextTransform, extent, translateExtent);
+      const constrainedTransform = d3Zoom.constrain()(
+        nextTransform,
+        extent,
+        translateExtent,
+      );
       d3Zoom.transform(d3Selection, constrainedTransform);
 
       const transformChanged =

@@ -7,7 +7,10 @@ import {
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "../../interaction";
-import { assertNumericControlConfig, clampNumericValue } from "../numeric/numericControlConfig";
+import {
+  assertNumericControlConfig,
+  clampNumericValue,
+} from "../numeric/numericControlConfig";
 import { handleSectionControlEscape } from "../sectionFocus";
 
 // The remaining-controls milestone's slider: the reference `SliderInput` at the ordinary
@@ -79,7 +82,9 @@ function parseSliderValue(value: string, min: number, max: number): number {
 }
 
 function getDecimalPlaces(value: number): number {
-  const [coefficient = "", exponentText] = String(Math.abs(value)).toLowerCase().split("e");
+  const [coefficient = "", exponentText] = String(Math.abs(value))
+    .toLowerCase()
+    .split("e");
   const fractionLength = coefficient.split(".")[1]?.length ?? 0;
   const exponent = exponentText === undefined ? 0 : Number(exponentText);
   return Math.max(0, fractionLength - exponent);
@@ -88,10 +93,19 @@ function getDecimalPlaces(value: number): number {
 // Reserve the widest fixed-point value implied by the configuration rather than sizing from the
 // live value. The field therefore neither clips a configured endpoint nor changes width while the
 // thumb moves. Its horizontal padding and borders remain outside this character-width budget.
-function getNumericFieldCharacterCount(min: number, max: number, step: number): number {
-  const precision = Math.max(getDecimalPlaces(min), getDecimalPlaces(max), getDecimalPlaces(step));
+function getNumericFieldCharacterCount(
+  min: number,
+  max: number,
+  step: number,
+): number {
+  const precision = Math.max(
+    getDecimalPlaces(min),
+    getDecimalPlaces(max),
+    getDecimalPlaces(step),
+  );
   const largestMagnitude = Math.max(Math.abs(min), Math.abs(max));
-  const integerDigits = largestMagnitude < 1 ? 1 : Math.floor(Math.log10(largestMagnitude)) + 1;
+  const integerDigits =
+    largestMagnitude < 1 ? 1 : Math.floor(Math.log10(largestMagnitude)) + 1;
   const signCharacters = min < 0 ? 1 : 0;
   const fractionalCharacters = precision === 0 ? 0 : precision + 1;
   return Math.max(
@@ -127,10 +141,15 @@ function SliderValueControlCore({
   const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   const numericValue = parseSliderValue(value, min, max);
-  const numericFieldCharacterCount = getNumericFieldCharacterCount(min, max, step);
+  const numericFieldCharacterCount = getNumericFieldCharacterCount(
+    min,
+    max,
+    step,
+  );
   const classes = getSliderPresentation(presentation);
   const reportChange = (nextValue: number) => onValueChange(String(nextValue));
-  const reportCommit = (nextValue: number) => onValueCommit?.(String(nextValue));
+  const reportCommit = (nextValue: number) =>
+    onValueCommit?.(String(nextValue));
 
   return (
     <div className={classes.wrapperClassName}>

@@ -42,11 +42,12 @@ export type WorkspaceMenuInvocation =
       context: WorkspaceItemCommandContext;
     });
 
-type WorkspaceMenuInvocationInput = WorkspaceMenuInvocation extends infer Invocation
-  ? Invocation extends WorkspaceMenuInvocation
-    ? Omit<Invocation, "sequence">
-    : never
-  : never;
+type WorkspaceMenuInvocationInput =
+  WorkspaceMenuInvocation extends infer Invocation
+    ? Invocation extends WorkspaceMenuInvocation
+      ? Omit<Invocation, "sequence">
+      : never
+    : never;
 
 type WorkspaceMenuState = {
   invocation: WorkspaceMenuInvocation | null;
@@ -58,9 +59,14 @@ export const useWorkspaceMenuState = createWithEqualityFn(
 
 let nextWorkspaceMenuSequence = 1;
 
-export function publishWorkspaceMenuInvocation(invocation: WorkspaceMenuInvocationInput): void {
+export function publishWorkspaceMenuInvocation(
+  invocation: WorkspaceMenuInvocationInput,
+): void {
   useWorkspaceMenuState.setState({
-    invocation: { ...invocation, sequence: nextWorkspaceMenuSequence } as WorkspaceMenuInvocation,
+    invocation: {
+      ...invocation,
+      sequence: nextWorkspaceMenuSequence,
+    } as WorkspaceMenuInvocation,
   });
   nextWorkspaceMenuSequence += 1;
 }

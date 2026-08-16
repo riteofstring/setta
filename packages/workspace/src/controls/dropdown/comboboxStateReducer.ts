@@ -6,7 +6,13 @@ import {
 } from "downshift";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useLayoutEffect, useRef, useState, type DependencyList, type EffectCallback } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type DependencyList,
+  type EffectCallback,
+} from "react";
 
 // The reference's `ComboboxStateReducer` trimmed to the `ParamUI` dropdown path (no
 // null-selection Enter commit, no clear-input-after-selection): every downshift action is
@@ -20,8 +26,13 @@ export type ComboboxItemGroup = { group: string; items: Array<ComboboxItem> };
 
 export type OnSelectedItemChange = (id: string | null) => void;
 
-export const flattenedItems = (groups: Array<ComboboxItemGroup>): Array<ComboboxItem> =>
-  groups.reduce<Array<ComboboxItem>>((prev, curr) => [...prev, ...curr.items], []);
+export const flattenedItems = (
+  groups: Array<ComboboxItemGroup>,
+): Array<ComboboxItem> =>
+  groups.reduce<Array<ComboboxItem>>(
+    (prev, curr) => [...prev, ...curr.items],
+    [],
+  );
 
 function resetToPreviousVal(state: UseComboboxState<ComboboxItem>) {
   return {
@@ -75,14 +86,19 @@ function getExactMatch(
   latestItems: Array<ComboboxItemGroup>,
   value: string | null,
 ): ComboboxItem | null {
-  return _.find(flattenedItems(latestItems), (item) => item.id === value) ?? null;
+  return (
+    _.find(flattenedItems(latestItems), (item) => item.id === value) ?? null
+  );
 }
 
 function getFirstMatch(latestItems: Array<ComboboxItemGroup>) {
   return flattenedItems(latestItems)[0];
 }
 
-function handleEnter(state: UseComboboxState<ComboboxItem>, items: Array<ComboboxItemGroup>) {
+function handleEnter(
+  state: UseComboboxState<ComboboxItem>,
+  items: Array<ComboboxItemGroup>,
+) {
   if (state.highlightedIndex !== -1) {
     return {};
   }
@@ -137,7 +153,10 @@ function getReducerModifications(
  * `react-hooks/exhaustive-deps` at error, and React invokes the latest render's
  * effect closure either way, so the behavior is identical.
  */
-function useDeepCompareLayoutEffect(effect: EffectCallback, dependencies: DependencyList) {
+function useDeepCompareLayoutEffect(
+  effect: EffectCallback,
+  dependencies: DependencyList,
+) {
   const effectRef = useRef(effect);
   effectRef.current = effect;
   const dependenciesRef = useRef<DependencyList>([]);

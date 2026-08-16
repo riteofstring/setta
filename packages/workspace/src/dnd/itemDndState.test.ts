@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { getItemDndId, getItemIdFromDndId, getTempItemDndId, isTempItem } from "./itemDndState";
+import {
+  getItemDndId,
+  getItemIdFromDndId,
+  getTempItemDndId,
+  isTempItem,
+} from "./itemDndState";
 
 describe("itemDndState id helpers", () => {
   it("creates list-key scoped item dnd ids", () => {
     // Freezes the reference's canonical dnd id encoding for item + list key.
-    expect(getItemDndId("item-1", "pinned")).toBe("item-1::settaParamList::pinned");
+    expect(getItemDndId("item-1", "pinned")).toBe(
+      "item-1::settaParamList::pinned",
+    );
   });
 
   it("extracts item ids from scoped and temp ids", () => {

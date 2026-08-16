@@ -30,17 +30,17 @@ export function useDropdownCombobox({
 
   const itemToString = (x: ComboboxItem | null) => (x ? x.name : "");
 
-  const { filteredItems, stateReducer, selection } = useComboboxStateReducerWithFilteredItems(
-    allItems,
-    value,
-    onSelectedItemChange,
-  );
+  const { filteredItems, stateReducer, selection } =
+    useComboboxStateReducerWithFilteredItems(
+      allItems,
+      value,
+      onSelectedItemChange,
+    );
 
-  const localOnSelectedItemChange: UseComboboxProps<ComboboxItem>["onSelectedItemChange"] = ({
-    selectedItem,
-  }) => {
-    onSelectedItemChange(selectedItem ? selectedItem.id : null);
-  };
+  const localOnSelectedItemChange: UseComboboxProps<ComboboxItem>["onSelectedItemChange"] =
+    ({ selectedItem }) => {
+      onSelectedItemChange(selectedItem ? selectedItem.id : null);
+    };
 
   const singleListItems = flattenedItems(filteredItems);
 

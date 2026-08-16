@@ -6,7 +6,9 @@ import type { WorkspaceSection, WorkspaceSectionItemTree } from "./types";
 // host-registered and rendered through the content seam.
 export const GROUP_SECTION_KIND = "group";
 
-export function isGroupSection(section: Pick<WorkspaceSection, "kind">): boolean {
+export function isGroupSection(
+  section: Pick<WorkspaceSection, "kind">,
+): boolean {
   return section.kind === GROUP_SECTION_KIND;
 }
 
@@ -37,13 +39,18 @@ export function getSectionHasSelectedItems(
   state: WorkspaceDocumentState,
   sectionId: string,
 ): boolean {
-  return (getSectionOrThrow(state, sectionId).itemTree?.selectedItemIds.length ?? 0) > 0;
+  return (
+    (getSectionOrThrow(state, sectionId).itemTree?.selectedItemIds.length ??
+      0) > 0
+  );
 }
 
 // Only true top-level sections render as canvas nodes. A loaded document may carry a stale
 // layout entry for a section that currently has a parent; the entry is ignored here and, as in
 // the reference, purged at the first layout write (`commitTopLevelLayoutToDocument`).
-export function getTopLevelSectionIdsForDisplay(state: WorkspaceDocumentState): Array<string> {
+export function getTopLevelSectionIdsForDisplay(
+  state: WorkspaceDocumentState,
+): Array<string> {
   return Object.keys(state.topLevelSections).filter((sectionId) => {
     const parentId = state.parentSectionMap[sectionId] ?? null;
     return parentId === null;

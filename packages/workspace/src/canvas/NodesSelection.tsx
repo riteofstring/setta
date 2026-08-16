@@ -7,7 +7,10 @@ import {
   isWorkspaceMenuKeyboardEvent,
 } from "../context-menu/workspaceMenuOwnership";
 import { useDndMode } from "../dnd/dndState";
-import { setSelectionDragHandle, setSelectionDragPrimaryId } from "../dnd/selectionDragHandle";
+import {
+  setSelectionDragHandle,
+  setSelectionDragPrimaryId,
+} from "../dnd/selectionDragHandle";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { getSectionOrThrow } from "../document/documentSelectors";
 import { useActiveSections, useWorkspaceDocument } from "../document/stores";
@@ -20,13 +23,17 @@ import { arrowKeyDiffs } from "./wrapNode";
 
 function NodesSelectionComponent({ x, y, width, height }: Rect) {
   const transformString = useReactFlow(
-    (s) => `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
+    (s) =>
+      `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
   );
   const { isSorting, isMovingFree } = useDndMode();
-  const canEditLayout = useWorkspaceCapabilities((state) => state.canEditLayout);
+  const canEditLayout = useWorkspaceCapabilities(
+    (state) => state.canEditLayout,
+  );
   const activeIds = useActiveSections((state) => state.activeIds, _.isEqual);
   const activeNames = useWorkspaceDocument(
-    (state) => activeIds.map((sectionId) => getSectionOrThrow(state, sectionId).name),
+    (state) =>
+      activeIds.map((sectionId) => getSectionOrThrow(state, sectionId).name),
     _.isEqual,
   );
   const nodeRef = useRef<HTMLDivElement>(null);
@@ -57,7 +64,10 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
   });
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.target === event.currentTarget && isWorkspaceMenuKeyboardEvent(event.nativeEvent)) {
+    if (
+      event.target === event.currentTarget &&
+      isWorkspaceMenuKeyboardEvent(event.nativeEvent)
+    ) {
       event.preventDefault();
       event.stopPropagation();
       openWorkspaceSelectionMenu(
@@ -66,7 +76,10 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
       );
       return;
     }
-    if (canEditLayout && Object.prototype.hasOwnProperty.call(arrowKeyDiffs, event.key)) {
+    if (
+      canEditLayout &&
+      Object.prototype.hasOwnProperty.call(arrowKeyDiffs, event.key)
+    ) {
       event.preventDefault();
       event.stopPropagation();
       const diff = arrowKeyDiffs[event.key];
@@ -92,8 +105,7 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
         transform: transformString,
       }}
     >
-      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- The
-          selection group is a programmatic focus target whose arrow keys move the selected
+      {/* The selection group is a programmatic focus target whose arrow keys move the selected
           sections; a button role would misrepresent the operation. */}
       <div
         tabIndex={-1} //needed for onKeyDown to work
@@ -106,7 +118,10 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
         onContextMenu={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          openWorkspaceSelectionMenu({ x: event.clientX, y: event.clientY }, event.currentTarget);
+          openWorkspaceSelectionMenu(
+            { x: event.clientX, y: event.clientY },
+            event.currentTarget,
+          );
         }}
         onKeyDown={onKeyDown}
         style={{
@@ -123,7 +138,8 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
 
 function NodesSelectionDragHandleComponent({ x, y, width, height }: Rect) {
   const transformString = useReactFlow(
-    (s) => `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
+    (s) =>
+      `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
   );
   const nodeRef = useRef<HTMLDivElement>(null);
 
@@ -163,20 +179,30 @@ const NodesSelection = React.memo(NodesSelectionComponent);
 const NodesSelectionDragHandle = React.memo(NodesSelectionDragHandleComponent);
 
 function NodesSelectionWrapperComponent() {
-  const nodesSelectionDims = useReactFlow((s) => s.nodesSelectionDims, _.isEqual);
+  const nodesSelectionDims = useReactFlow(
+    (s) => s.nodesSelectionDims,
+    _.isEqual,
+  );
   return nodesSelectionDims && <NodesSelection {...nodesSelectionDims} />;
 }
 
 export const NodesSelectionWrapper = React.memo(NodesSelectionWrapperComponent);
 
 function NodesSelectionDragHandleWrapperComponent() {
-  const nodesSelectionDims = useReactFlow((s) => s.nodesSelectionDims, _.isEqual);
+  const nodesSelectionDims = useReactFlow(
+    (s) => s.nodesSelectionDims,
+    _.isEqual,
+  );
   const { isMovingFree } = useDndMode();
-  const canEditLayout = useWorkspaceCapabilities((state) => state.canEditLayout);
+  const canEditLayout = useWorkspaceCapabilities(
+    (state) => state.canEditLayout,
+  );
   if (!nodesSelectionDims || !isMovingFree || !canEditLayout) {
     return null;
   }
   return <NodesSelectionDragHandle {...nodesSelectionDims} />;
 }
 
-export const NodesSelectionDragHandleWrapper = React.memo(NodesSelectionDragHandleWrapperComponent);
+export const NodesSelectionDragHandleWrapper = React.memo(
+  NodesSelectionDragHandleWrapperComponent,
+);

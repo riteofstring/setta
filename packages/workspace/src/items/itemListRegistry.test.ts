@@ -37,16 +37,24 @@ describe("resolveItemListView", () => {
     registerItemListView("section", makeView("pinned", ["item-a"]));
     registerItemListView("section", makeView("unpinned", ["item-a", "item-b"]));
 
-    expect(resolveItemListView("section", "item-a", "unpinned")?.listKey).toBe("unpinned");
-    expect(resolveItemListView("section", "item-a", "pinned")?.listKey).toBe("pinned");
+    expect(resolveItemListView("section", "item-a", "unpinned")?.listKey).toBe(
+      "unpinned",
+    );
+    expect(resolveItemListView("section", "item-a", "pinned")?.listKey).toBe(
+      "pinned",
+    );
   });
 
   it("falls back through the section's other lists in mount order", () => {
     registerItemListView("section", makeView("pinned", ["item-a"]));
     registerItemListView("section", makeView("unpinned", ["item-b"]));
 
-    expect(resolveItemListView("section", "item-b", "pinned")?.listKey).toBe("unpinned");
-    expect(resolveItemListView("section", "item-a", null)?.listKey).toBe("pinned");
+    expect(resolveItemListView("section", "item-b", "pinned")?.listKey).toBe(
+      "unpinned",
+    );
+    expect(resolveItemListView("section", "item-a", null)?.listKey).toBe(
+      "pinned",
+    );
     expect(resolveItemListView("section", "item-c", "pinned")).toBeNull();
     expect(resolveItemListView("other-section", "item-a", "pinned")).toBeNull();
   });
@@ -65,31 +73,43 @@ describe("resolveItemListView", () => {
     updateItemListView("section", makeView("pinned", ["item-a", "item-b"]));
 
     // The fallback still resolves the first-mounted list, not the most recently updated one.
-    expect(resolveItemListView("section", "item-a", null)?.listKey).toBe("pinned");
-    expect(resolveItemListView("section", "item-b", null)?.listKey).toBe("pinned");
+    expect(resolveItemListView("section", "item-a", null)?.listKey).toBe(
+      "pinned",
+    );
+    expect(resolveItemListView("section", "item-b", null)?.listKey).toBe(
+      "pinned",
+    );
   });
 
   it("fails loudly on a list key carrying a reserved dnd token", () => {
     expect(() =>
-      registerItemListView("section", makeView("bad::settaParamList::key", ["item-a"])),
+      registerItemListView(
+        "section",
+        makeView("bad::settaParamList::key", ["item-a"]),
+      ),
     ).toThrow(/contains the reserved dnd token "::settaParamList::"/);
     expect(() =>
-      registerItemListView("section", makeView("bad::TempParamDND", ["item-a"])),
+      registerItemListView(
+        "section",
+        makeView("bad::TempParamDND", ["item-a"]),
+      ),
     ).toThrow(/contains the reserved dnd token "::TempParamDND"/);
   });
 
   it("fails loudly on a duplicate list key registration", () => {
     registerItemListView("section", makeView("main", ["item-a"]));
 
-    expect(() => registerItemListView("section", makeView("main", ["item-b"]))).toThrow(
+    expect(() =>
+      registerItemListView("section", makeView("main", ["item-b"])),
+    ).toThrow(
       'item list key "main" is already registered for section "section"',
     );
   });
 
   it("fails loudly when updating an unregistered view", () => {
-    expect(() => updateItemListView("section", makeView("main", ["item-a"]))).toThrow(
-      'item list key "main" is not registered for section "section"',
-    );
+    expect(() =>
+      updateItemListView("section", makeView("main", ["item-a"])),
+    ).toThrow('item list key "main" is not registered for section "section"');
     expect(isItemListViewRegistered("section", "main")).toBe(false);
   });
 });

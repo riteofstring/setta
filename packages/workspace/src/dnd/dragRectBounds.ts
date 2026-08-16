@@ -9,7 +9,9 @@ export type DragRectLike = {
   height: number;
 };
 
-function resolveRectBounds(rects: Iterable<DragRectLike>): BoundingRectangle | null {
+function resolveRectBounds(
+  rects: Iterable<DragRectLike>,
+): BoundingRectangle | null {
   let left = Infinity;
   let top = Infinity;
   let right = -Infinity;

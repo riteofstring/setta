@@ -1,4 +1,8 @@
-import { CollisionPriority, CollisionType, type CollisionDetector } from "@dnd-kit/abstract";
+import {
+  CollisionPriority,
+  CollisionType,
+  type CollisionDetector,
+} from "@dnd-kit/abstract";
 import type { Draggable } from "@dnd-kit/dom";
 import { Rectangle, type Coordinates, type Shape } from "@dnd-kit/geometry";
 import { useReactFlow } from "../../canvas/store";
@@ -58,7 +62,9 @@ type DndEntityData = {
 };
 
 type CollisionDetectorArgs = Parameters<CollisionDetector>[0];
-type CollisionSource = NonNullable<CollisionDetectorArgs["dragOperation"]["source"]>;
+type CollisionSource = NonNullable<
+  CollisionDetectorArgs["dragOperation"]["source"]
+>;
 type CollisionDroppable = CollisionDetectorArgs["droppable"];
 
 type SharedDetectorContext = {
@@ -145,7 +151,9 @@ export function createCollisionTracker({
     };
   }
 
-  function getSortingCollisionContext(args: CollisionDetectorArgs): SortingCollisionContext | null {
+  function getSortingCollisionContext(
+    args: CollisionDetectorArgs,
+  ): SortingCollisionContext | null {
     const sharedContext = getSharedDetectorContext(args);
     if (!sharedContext || sharedContext.active.id === args.droppable.id) {
       return null;
@@ -171,7 +179,8 @@ export function createCollisionTracker({
     context: StandardCollisionContext,
     intersectionRatio: number,
   ): SettaCollision {
-    const { active, activeRect, droppable, droppableData, droppableRect } = context;
+    const { active, activeRect, droppable, droppableData, droppableRect } =
+      context;
     const containerId = droppableData?.sortable?.containerId;
     const containerIsHorizontal = getContainerIsHorizontal({
       mode,
@@ -179,7 +188,11 @@ export function createCollisionTracker({
       activeData: context.activeData,
       droppableData,
     });
-    const triggerDist = getTriggerDistance(activeRect, droppableRect, containerIsHorizontal);
+    const triggerDist = getTriggerDistance(
+      activeRect,
+      droppableRect,
+      containerIsHorizontal,
+    );
     const baseRatio = getBoostedIntersectionRatio({
       previousCollisionId: state.prevCollisionId,
       collisionId: droppable.id,
@@ -222,7 +235,9 @@ export function createCollisionTracker({
     };
   }
 
-  function buildSortingCollision(context: SortingCollisionContext): SettaCollision | null {
+  function buildSortingCollision(
+    context: SortingCollisionContext,
+  ): SettaCollision | null {
     const { activeRect, droppable, droppableRect } = context;
     const containerIsHorizontal = getContainerIsHorizontal({
       mode,
@@ -260,7 +275,10 @@ export function createCollisionTracker({
     };
   }
 
-  const collisionDetector: CollisionDetector = ({ droppable, dragOperation }) => {
+  const collisionDetector: CollisionDetector = ({
+    droppable,
+    dragOperation,
+  }) => {
     const collisionContext = getStandardCollisionContext({
       droppable,
       dragOperation,
@@ -281,7 +299,10 @@ export function createCollisionTracker({
     return buildStandardCollision(collisionContext, intersectionRatio);
   };
 
-  const sortingCollisionDetector: CollisionDetector = ({ droppable, dragOperation }) => {
+  const sortingCollisionDetector: CollisionDetector = ({
+    droppable,
+    dragOperation,
+  }) => {
     const collisionContext = getSortingCollisionContext({
       droppable,
       dragOperation,
@@ -294,7 +315,10 @@ export function createCollisionTracker({
   };
 
   function update(collisions: SettaCollision[] | null): void {
-    setResolvedCollisionState(state, resolveCollisionCandidate(collisions, getParentByChild()));
+    setResolvedCollisionState(
+      state,
+      resolveCollisionCandidate(collisions, getParentByChild()),
+    );
   }
 
   function reset(): void {
@@ -316,7 +340,9 @@ function getPastHalfwayReference(
 ): PastHalfwayReference {
   const activeContainerId = activeData?.sortable?.containerId;
   const droppableContainerId = droppableData?.sortable?.containerId;
-  return activeContainerId === droppableContainerId ? "directional-edge" : "pointer";
+  return activeContainerId === droppableContainerId
+    ? "directional-edge"
+    : "pointer";
 }
 
 export const defaultCollisionTracker = createCollisionTracker({
@@ -367,7 +393,11 @@ function shouldIgnoreDroppable({
   if (mode === "item" && isTempItem(droppableId)) {
     return true;
   }
-  return mode === "section" && draggingIds.length > 0 && draggingIds.includes(droppableId);
+  return (
+    mode === "section" &&
+    draggingIds.length > 0 &&
+    draggingIds.includes(droppableId)
+  );
 }
 
 function getResolvedIntersectionRatio({
@@ -408,7 +438,8 @@ function getContainerIsHorizontal({
     return false;
   }
 
-  const sortableOrientation = activeData?.sortableOrientation ?? droppableData?.sortableOrientation;
+  const sortableOrientation =
+    activeData?.sortableOrientation ?? droppableData?.sortableOrientation;
   if (sortableOrientation === "horizontal") {
     return true;
   }
@@ -472,7 +503,10 @@ function getCollisionScore({
   // otherwise favor smaller abs distance with intersection as tie-breaker.
   const clampedAbsDist = Math.min(absTriggerDist, MAX_ABS_TRIGGER_DIST);
   const distScore = -Math.round(clampedAbsDist * 1000);
-  const ratioScore = Math.min(Math.round(intersectionRatio), MAX_INTERSECTION_RATIO);
+  const ratioScore = Math.min(
+    Math.round(intersectionRatio),
+    MAX_INTERSECTION_RATIO,
+  );
   const signScore = triggerDist < 0 ? 1 : 0;
 
   return signScore * SIGN_WEIGHT + distScore * DIST_WEIGHT + ratioScore;
@@ -497,7 +531,9 @@ function getBoostedIntersectionRatio({
   collisionId: Draggable["id"];
   intersectionRatio: number;
 }): number {
-  return previousCollisionId === collisionId ? intersectionRatio * 1.1 : intersectionRatio;
+  return previousCollisionId === collisionId
+    ? intersectionRatio * 1.1
+    : intersectionRatio;
 }
 
 function getTriggerDistCondition({
@@ -550,7 +586,9 @@ function resolveCollisionCandidate(
   if (!collisions || collisions.length === 0) {
     return null;
   }
-  return resolveOverCollision(collisions, parentByChild) ?? collisions[0] ?? null;
+  return (
+    resolveOverCollision(collisions, parentByChild) ?? collisions[0] ?? null
+  );
 }
 
 function setResolvedCollisionState(
@@ -563,7 +601,9 @@ function setResolvedCollisionState(
   }
 
   state.prevCollisionId = resolvedCollision.id;
-  const previousSnapshot = state.hysteresisByCollisionId.get(resolvedCollision.id);
+  const previousSnapshot = state.hysteresisByCollisionId.get(
+    resolvedCollision.id,
+  );
   state.hysteresisByCollisionId.set(
     resolvedCollision.id,
     getNextHysteresisSnapshot(resolvedCollision, previousSnapshot),
@@ -575,7 +615,8 @@ function getNextHysteresisSnapshot(
   previousSnapshot: CollisionHysteresisSnapshot | undefined,
 ): CollisionHysteresisSnapshot {
   return {
-    pastHalfway: resolvedCollision.pastHalfway ?? previousSnapshot?.pastHalfway ?? null,
+    pastHalfway:
+      resolvedCollision.pastHalfway ?? previousSnapshot?.pastHalfway ?? null,
     rect: previousSnapshot?.rect ?? getCollisionRect(resolvedCollision),
   };
 }
@@ -617,7 +658,10 @@ function getPastHalfway({
     axisDirection,
   });
   const buffer = getPastHalfwayBuffer(state, currentId);
-  const midpoint = getAxisMidpoint(effectiveDroppableRect, containerIsHorizontal);
+  const midpoint = getAxisMidpoint(
+    effectiveDroppableRect,
+    containerIsHorizontal,
+  );
   const pastHalfway = referenceAxisValue + buffer > midpoint;
   return pastHalfway;
 }
@@ -638,7 +682,9 @@ function getPointerAxisDirection(
   state: CollisionTrackerState,
   containerIsHorizontal: boolean,
 ): number | null {
-  return containerIsHorizontal ? state.prevPointerDirectionX : state.prevPointerDirectionY;
+  return containerIsHorizontal
+    ? state.prevPointerDirectionX
+    : state.prevPointerDirectionY;
 }
 
 function getReferenceAxisValue({
@@ -656,7 +702,9 @@ function getReferenceAxisValue({
 }): number {
   if (reference === "pointer") {
     if (pointerCoordinates) {
-      return containerIsHorizontal ? pointerCoordinates.x : pointerCoordinates.y;
+      return containerIsHorizontal
+        ? pointerCoordinates.x
+        : pointerCoordinates.y;
     }
     return containerIsHorizontal
       ? (activeRect.left + activeRect.right) / 2
@@ -695,8 +743,12 @@ function getPointerEdgeValue({
   return axisDirection > 0 ? activeRect.bottom : activeRect.top;
 }
 
-function getPastHalfwayBuffer(state: CollisionTrackerState, currentId: Draggable["id"]): number {
-  const previousPastHalfway = state.hysteresisByCollisionId.get(currentId)?.pastHalfway;
+function getPastHalfwayBuffer(
+  state: CollisionTrackerState,
+  currentId: Draggable["id"],
+): number {
+  const previousPastHalfway =
+    state.hysteresisByCollisionId.get(currentId)?.pastHalfway;
   if (previousPastHalfway === true) {
     return 10;
   }
@@ -706,8 +758,13 @@ function getPastHalfwayBuffer(state: CollisionTrackerState, currentId: Draggable
   return 0;
 }
 
-function getAxisMidpoint(rect: ClientRect, containerIsHorizontal: boolean): number {
-  return containerIsHorizontal ? (rect.left + rect.right) / 2 : (rect.top + rect.bottom) / 2;
+function getAxisMidpoint(
+  rect: ClientRect,
+  containerIsHorizontal: boolean,
+): number {
+  return containerIsHorizontal
+    ? (rect.left + rect.right) / 2
+    : (rect.top + rect.bottom) / 2;
 }
 
 function updatePointerDirections(

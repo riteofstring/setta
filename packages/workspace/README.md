@@ -153,7 +153,9 @@ registerWorkspaceCreationCommands([
       id: crypto.randomUUID(),
       kind: "note",
       name: "Note",
-      data: { text: `Created at ${workspacePosition.x}, ${workspacePosition.y}` },
+      data: {
+        text: `Created at ${workspacePosition.x}, ${workspacePosition.y}`,
+      },
       isMinimized: false,
       positionAndSizeLocked: false,
       isHorizontalOrientation: false,
@@ -259,7 +261,9 @@ setWorkspaceColorMode("system");
 
 function HostChrome() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
-  return <div data-appearance={darkMode ? "dark" : "light"}>{/* host UI */}</div>;
+  return (
+    <div data-appearance={darkMode ? "dark" : "light"}>{/* host UI */}</div>
+  );
 }
 ```
 

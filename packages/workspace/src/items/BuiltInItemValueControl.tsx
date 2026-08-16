@@ -1,5 +1,8 @@
 import { ColorValueControl } from "../controls/color/ColorValueControl";
-import { DateValueControl, TimeValueControl } from "../controls/date-time/DateTimeValueControl";
+import {
+  DateValueControl,
+  TimeValueControl,
+} from "../controls/date-time/DateTimeValueControl";
 import { DropdownValueControl } from "../controls/dropdown/DropdownValueControl";
 import { DropzoneValueControl } from "../controls/dropzone/DropzoneValueControl";
 import { PasswordValueControl } from "../controls/password/PasswordValueControl";
@@ -11,7 +14,10 @@ import { setItemValue } from "../document/itemPresentationMutations";
 import type { WorkspaceItemControlPresentation } from "../document/types";
 import { getItemHandlerRegistration } from "./itemHandlerRegistry";
 
-type ValueControl = Exclude<WorkspaceItemControlPresentation, { kind: "group" }>;
+type ValueControl = Exclude<
+  WorkspaceItemControlPresentation,
+  { kind: "group" }
+>;
 
 type BuiltInItemValueControlProps = {
   sectionId: string;
@@ -185,7 +191,10 @@ function renderPasswordControl(props: ControlRendererProps) {
   if (props.control.kind !== "password") {
     return null;
   }
-  const registration = getItemHandlerRegistration(props.sectionId, props.itemId);
+  const registration = getItemHandlerRegistration(
+    props.sectionId,
+    props.itemId,
+  );
   if (registration !== null && registration.kind !== "password") {
     throw new Error(
       `Item handler ${props.sectionId}/${props.itemId} is ${registration.kind}, not password.`,
@@ -215,7 +224,10 @@ function renderDropzoneControl(props: ControlRendererProps) {
   if (props.control.kind !== "dropzone") {
     return null;
   }
-  const registration = getItemHandlerRegistration(props.sectionId, props.itemId);
+  const registration = getItemHandlerRegistration(
+    props.sectionId,
+    props.itemId,
+  );
   if (!registration || registration.kind !== "dropzone") {
     throw new Error(
       `Built-in dropzone item ${props.sectionId}/${props.itemId} requires registered dropzone handlers.`,
@@ -245,7 +257,8 @@ export function BuiltInItemValueControl(props: BuiltInItemValueControlProps) {
   const rendererProps = {
     ...props,
     ariaLabel: `${props.label} value`,
-    onValueChange: (nextValue: string) => setItemValue(props.sectionId, props.itemId, nextValue),
+    onValueChange: (nextValue: string) =>
+      setItemValue(props.sectionId, props.itemId, nextValue),
   };
   const control =
     renderTextControl(rendererProps) ??

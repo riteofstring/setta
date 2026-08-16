@@ -1,5 +1,11 @@
 import type { EditorView, ViewUpdate } from "@codemirror/view";
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { computeReadyToBeVisible } from "../canvas/fitView";
 import { useReactFlow } from "../canvas/store";
 import { getSectionOrThrow } from "../document/documentSelectors";
@@ -20,7 +26,7 @@ import { useSectionMinMaxDims } from "../section/resize/sizingPolicy";
 // The reference's header allowance: the editor's ceiling is the section box minus its header.
 const SECTION_HEADER_ALLOWANCE_PX = 30;
 
-export type SectionEditorHeight = {
+type SectionEditorHeight = {
   editorHeight: string | undefined;
   wrapperRef: RefObject<HTMLElement | null>;
   handleCreateEditor: (view: EditorView) => void;
@@ -30,8 +36,34 @@ export type SectionEditorHeight = {
   wheelClassName: string;
 };
 
+function getEditorHeightLayout(
+  height: number | "auto",
+  sectionMaxHeight: number,
+  resizeEvent: "start" | "end" | undefined,
+): Pick<
+  SectionEditorHeight,
+  "editorHeight" | "maxHeight" | "overflowClassName"
+> {
+  const isAutoHeight = height === "auto";
+  const isWrapperScroller = resizeEvent === "start" || isAutoHeight;
+  const availableHeight = isAutoHeight
+    ? Math.max(0, sectionMaxHeight - SECTION_HEADER_ALLOWANCE_PX)
+    : height - SECTION_HEADER_ALLOWANCE_PX;
+  const maxHeight =
+    resizeEvent === "start" ? undefined : `${String(availableHeight)}px`;
+  return {
+    // A fixed-height section gives CodeMirror the whole remaining body. Without this, its native
+    // horizontal scrollbar hugs the final line and leaves a misleading empty area below it.
+    editorHeight: isWrapperScroller ? undefined : "100%",
+    maxHeight,
+    overflowClassName: isWrapperScroller ? "overflow-y-auto" : "",
+  };
+}
+
 export function useSectionEditorHeight(sectionId: string): SectionEditorHeight {
-  const height = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId).size.height);
+  const height = useWorkspaceDocument(
+    (x) => getSectionOrThrow(x, sectionId).size.height,
+  );
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
   const { maxHeight: sectionMaxHeight } = useSectionMinMaxDims(sectionId);
   const wrapperRef = useRef<HTMLElement | null>(null);
@@ -101,17 +133,11 @@ export function useSectionEditorHeight(sectionId: string): SectionEditorHeight {
     }
   }, [readyToBeVisible, requestWheelOwnershipMeasure]);
 
-  const isAutoHeight = height === "auto";
-  const maxHeight =
-    resizeEvent === "start"
-      ? undefined
-      : isAutoHeight
-        ? `${String(Math.max(0, sectionMaxHeight - SECTION_HEADER_ALLOWANCE_PX))}px`
-        : `${String(height - SECTION_HEADER_ALLOWANCE_PX)}px`;
-  const overflowClassName = resizeEvent === "start" || isAutoHeight ? "overflow-y-auto" : "";
-  // A fixed-height section gives CodeMirror the whole remaining body. Without this, its native
-  // horizontal scrollbar hugs the final line and leaves a misleading empty area below it.
-  const editorHeight = resizeEvent === "start" || isAutoHeight ? undefined : "100%";
+  const { editorHeight, maxHeight, overflowClassName } = getEditorHeightLayout(
+    height,
+    sectionMaxHeight,
+    resizeEvent,
+  );
 
   // The reference samples both offsets during render and hands them to an effect keyed on the
   // resize tick alone. Sampling into a ref keeps that timing while leaving the effect's inputs

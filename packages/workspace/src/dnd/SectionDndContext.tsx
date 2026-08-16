@@ -4,7 +4,11 @@ import { useWorkspaceDocument } from "../document/stores";
 import { DragDropProvider } from "./adapter";
 import { createCollisionTracker } from "./adapter/collision";
 import { DeferredDndDeactivation } from "./DeferredDndDeactivation";
-import { getDisplayedSectionIdToChildren, updateDndChildren, useDndChildren } from "./dndChildren";
+import {
+  getDisplayedSectionIdToChildren,
+  updateDndChildren,
+  useDndChildren,
+} from "./dndChildren";
 import { useDndMode } from "./dndState";
 import { DragOperationShapeSync } from "./DragOperationShapeSync";
 import { DummyDragOverlay } from "./DummySection";
@@ -18,7 +22,9 @@ import { useOnDragEnd as useOnDragEndMoveSection } from "./useMoveSection";
 // the mounted dnd context.
 function useDndChildrenDocumentSync() {
   useEffect(() => {
-    let lastChildren = getDisplayedSectionIdToChildren(useWorkspaceDocument.getState());
+    let lastChildren = getDisplayedSectionIdToChildren(
+      useWorkspaceDocument.getState(),
+    );
     updateDndChildren(lastChildren);
     return useWorkspaceDocument.subscribe((state) => {
       const nextChildren = getDisplayedSectionIdToChildren(state);

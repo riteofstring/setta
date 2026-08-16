@@ -13,7 +13,9 @@ const DAY_NAVIGATION_DELTAS: Readonly<Record<string, number>> = {
 function requireIsoDate(isoDate: string) {
   const parsed = parseIsoDate(isoDate);
   if (!parsed) {
-    throw new Error(`Calendar keyboard navigation received an invalid ISO date: ${isoDate}.`);
+    throw new Error(
+      `Calendar keyboard navigation received an invalid ISO date: ${isoDate}.`,
+    );
   }
   return parsed;
 }
@@ -21,23 +23,38 @@ function requireIsoDate(isoDate: string) {
 function shiftCalendarDateByDays(isoDate: string, deltaDays: number): string {
   const parsed = requireIsoDate(isoDate);
   const shifted = new Date(
-    Date.UTC(parsed.year, parsed.monthIndex, parsed.day) + deltaDays * MS_PER_DAY,
+    Date.UTC(parsed.year, parsed.monthIndex, parsed.day) +
+      deltaDays * MS_PER_DAY,
   );
-  return formatIsoDate(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+  return formatIsoDate(
+    shifted.getUTCFullYear(),
+    shifted.getUTCMonth(),
+    shifted.getUTCDate(),
+  );
 }
 
-export function shiftCalendarDateByMonths(isoDate: string, deltaMonths: number): string {
+export function shiftCalendarDateByMonths(
+  isoDate: string,
+  deltaMonths: number,
+): string {
   const parsed = requireIsoDate(isoDate);
-  const shiftedMonth = new Date(Date.UTC(parsed.year, parsed.monthIndex + deltaMonths, 1));
+  const shiftedMonth = new Date(
+    Date.UTC(parsed.year, parsed.monthIndex + deltaMonths, 1),
+  );
   const year = shiftedMonth.getUTCFullYear();
   const monthIndex = shiftedMonth.getUTCMonth();
   const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
   return formatIsoDate(year, monthIndex, Math.min(parsed.day, lastDay));
 }
 
-function getWeekdayOffset(isoDate: string, weekStartsOn: DateCalendarWeekStart): number {
+function getWeekdayOffset(
+  isoDate: string,
+  weekStartsOn: DateCalendarWeekStart,
+): number {
   const parsed = requireIsoDate(isoDate);
-  const weekday = new Date(Date.UTC(parsed.year, parsed.monthIndex, parsed.day)).getUTCDay();
+  const weekday = new Date(
+    Date.UTC(parsed.year, parsed.monthIndex, parsed.day),
+  ).getUTCDay();
   return weekStartsOn === "monday" ? (weekday + 6) % 7 : weekday;
 }
 
@@ -56,10 +73,16 @@ function resolveDayNavigation(
     return shiftCalendarDateByDays(isoDate, deltaDays);
   }
   if (key === "Home") {
-    return shiftCalendarDateByDays(isoDate, -getWeekdayOffset(isoDate, weekStartsOn));
+    return shiftCalendarDateByDays(
+      isoDate,
+      -getWeekdayOffset(isoDate, weekStartsOn),
+    );
   }
   if (key === "End") {
-    return shiftCalendarDateByDays(isoDate, 6 - getWeekdayOffset(isoDate, weekStartsOn));
+    return shiftCalendarDateByDays(
+      isoDate,
+      6 - getWeekdayOffset(isoDate, weekStartsOn),
+    );
   }
   return null;
 }
@@ -77,7 +100,12 @@ export function resolveCalendarKeyboardDate({
   weekStartsOn: DateCalendarWeekStart;
   direction: WorkspaceTextDirection;
 }): string | null {
-  const dayNavigation = resolveDayNavigation(isoDate, key, weekStartsOn, direction);
+  const dayNavigation = resolveDayNavigation(
+    isoDate,
+    key,
+    weekStartsOn,
+    direction,
+  );
   if (dayNavigation !== null) {
     return dayNavigation;
   }

@@ -24,7 +24,7 @@ export const SECTION_SIZING_POLICY = {
   autoMaxHeight: 350,
 } as const;
 
-export type SectionMinMaxDims = {
+type SectionMinMaxDims = {
   minHeight: number;
   maxHeight: number;
   minWidth: number;
@@ -45,10 +45,19 @@ export function getSectionMinMaxDims({
   minimumSize?: { width: number; height: number };
   heightSizeMode?: MetaControlHeightSizeMode;
 }): SectionMinMaxDims {
-  const minWidth = Math.max(SECTION_SIZING_POLICY.minWidth, minimumSize?.width ?? 0);
-  const minimumContentHeight = Math.max(SECTION_SIZING_POLICY.minHeight, minimumSize?.height ?? 0);
+  const minWidth = Math.max(
+    SECTION_SIZING_POLICY.minWidth,
+    minimumSize?.width ?? 0,
+  );
+  const minimumContentHeight = Math.max(
+    SECTION_SIZING_POLICY.minHeight,
+    minimumSize?.height ?? 0,
+  );
   if (isMinimized) {
-    const minimizedHeight = Math.max(SECTION_SIZING_POLICY.minimizedHeight, minimumContentHeight);
+    const minimizedHeight = Math.max(
+      SECTION_SIZING_POLICY.minimizedHeight,
+      minimumContentHeight,
+    );
     return {
       minHeight: minimizedHeight,
       maxHeight: minimizedHeight,
@@ -78,8 +87,12 @@ export function useSectionMinMaxDims(sectionId: string): SectionMinMaxDims {
     const section = getSectionOrThrow(x, sectionId);
     const metaControlPresentation = getMetaControlPresentation(section);
     const controlKind = metaControlPresentation?.resolveControlKind(section);
-    const minimumSize = controlKind ? getMetaControlMinimumSize(controlKind) : undefined;
-    const heightSizeMode = controlKind ? getMetaControlHeightSizeMode(controlKind) : "any";
+    const minimumSize = controlKind
+      ? getMetaControlMinimumSize(controlKind)
+      : undefined;
+    const heightSizeMode = controlKind
+      ? getMetaControlHeightSizeMode(controlKind)
+      : "any";
     return getSectionMinMaxDims({
       isMinimized: section.isMinimized,
       isAutoHeight: section.size.height === "auto",

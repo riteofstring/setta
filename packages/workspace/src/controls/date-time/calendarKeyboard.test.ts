@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveCalendarKeyboardDate, shiftCalendarDateByMonths } from "./calendarKeyboard";
+import {
+  resolveCalendarKeyboardDate,
+  shiftCalendarDateByMonths,
+} from "./calendarKeyboard";
 
 describe("calendar keyboard navigation", () => {
   it.each([

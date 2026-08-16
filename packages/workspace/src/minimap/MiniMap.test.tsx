@@ -16,7 +16,9 @@ import type { MiniMapNodeProps } from "./types";
 // Ported from the reference fork's `minimap/MiniMap.test.ts`; the selection-sync source is the
 // package active-sections store instead of the reference's `useActiveSectionUI`.
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("getXYWidthHeight", () => {
   it("centers bounds and applies offset when bounds are smaller", () => {
@@ -38,15 +40,25 @@ describe("getXYWidthHeight", () => {
   it("maps arrow keys from the viewport center and activation from the workspace center", () => {
     const viewBB = { x: 10, y: 20, width: 100, height: 80 };
     const boundingRect = { x: -50, y: -20, width: 300, height: 200 };
-    expect(resolveMiniMapKeyboardPosition({ key: "ArrowRight", viewBB, boundingRect })).toEqual({
+    expect(
+      resolveMiniMapKeyboardPosition({
+        key: "ArrowRight",
+        viewBB,
+        boundingRect,
+      }),
+    ).toEqual({
       x: 70,
       y: 60,
     });
-    expect(resolveMiniMapKeyboardPosition({ key: "Enter", viewBB, boundingRect })).toEqual({
+    expect(
+      resolveMiniMapKeyboardPosition({ key: "Enter", viewBB, boundingRect }),
+    ).toEqual({
       x: 100,
       y: 80,
     });
-    expect(resolveMiniMapKeyboardPosition({ key: "Escape", viewBB, boundingRect })).toBeNull();
+    expect(
+      resolveMiniMapKeyboardPosition({ key: "Escape", viewBB, boundingRect }),
+    ).toBeNull();
   });
 
   it("expands view when bounds are wider than the minimap element", () => {
@@ -78,7 +90,9 @@ describe("syncSelectedMiniMapNodes", () => {
 
     syncSelectedMiniMapNodes(lateMount.svg, ["section-a"]);
 
-    expect(lateMount.nodes["section-a"]?.classList.contains("selected")).toBe(true);
+    expect(lateMount.nodes["section-a"]?.classList.contains("selected")).toBe(
+      true,
+    );
   });
 
   it("restores selected styling after a rerender resets node classes", () => {
@@ -149,7 +163,9 @@ describe("syncSelectedMiniMapNodes", () => {
       });
 
       expect(
-        host.querySelector('[data-minimap-node-id="section-a"]')?.classList.contains("selected"),
+        host
+          .querySelector('[data-minimap-node-id="section-a"]')
+          ?.classList.contains("selected"),
       ).toBe(true);
     } finally {
       await act(async () => {
@@ -201,7 +217,10 @@ function createMiniMapSvg(
 ) {
   const nodes: Record<string, StubSvgRect> = {};
   for (const sectionId of sectionIds) {
-    nodes[sectionId] = createStubSvgRect(initialClassesById[sectionId] ?? [], sectionId);
+    nodes[sectionId] = createStubSvgRect(
+      initialClassesById[sectionId] ?? [],
+      sectionId,
+    );
   }
 
   return {
@@ -212,7 +231,10 @@ function createMiniMapSvg(
   };
 }
 
-function createStubSvgRect(initialClasses: Array<string>, sectionId: string): StubSvgRect {
+function createStubSvgRect(
+  initialClasses: Array<string>,
+  sectionId: string,
+): StubSvgRect {
   const classes = new Set(initialClasses);
   return {
     dataset: {

@@ -10,11 +10,24 @@ import {
 } from "@setta/workspace";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
-import { ItemListSectionBody, registerPlaygroundSectionKinds } from "./sectionKinds";
+import {
+  ItemListSectionBody,
+  registerPlaygroundSectionKinds,
+} from "./sectionKinds";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // The workspace-shell typed-item regression: the unrelated playground supplies serialized
 // presentations and no row decoder. Package-owned labels and controls render directly, scalar
@@ -61,7 +74,8 @@ class CapturingResizeObserver {
   disconnect() {}
 }
 
-globalThis.ResizeObserver = CapturingResizeObserver as unknown as typeof ResizeObserver;
+globalThis.ResizeObserver =
+  CapturingResizeObserver as unknown as typeof ResizeObserver;
 
 function getItemPanelSection(): WorkspaceSection {
   const input = playgroundDocument.sections["item-panel"];
@@ -78,14 +92,15 @@ function getDocumentItemValue(itemId: string): string | undefined {
 }
 
 function getDocumentItemLabel(itemId: string): string | undefined {
-  return getWorkspaceDocument().sections["item-panel"]?.itemTree?.items[itemId]?.presentation
-    ?.label;
+  return getWorkspaceDocument().sections["item-panel"]?.itemTree?.items[itemId]
+    ?.presentation?.label;
 }
 
 function getDocumentDropzoneAttachmentNames(): Array<string> {
   const control =
-    getWorkspaceDocument().sections["item-panel"]?.itemTree?.items["item-dropzone"]?.presentation
-      ?.control;
+    getWorkspaceDocument().sections["item-panel"]?.itemTree?.items[
+      "item-dropzone"
+    ]?.presentation?.control;
   if (!control || control.kind !== "dropzone") {
     throw new Error("The dropzone item lost its typed presentation.");
   }
@@ -93,8 +108,11 @@ function getDocumentDropzoneAttachmentNames(): Array<string> {
 }
 
 function findRowByLabel(container: HTMLElement, label: string): HTMLElement {
-  const items = getWorkspaceDocument().sections["item-panel"]?.itemTree?.items ?? {};
-  const itemId = Object.values(items).find((item) => item.presentation?.label === label)?.id;
+  const items =
+    getWorkspaceDocument().sections["item-panel"]?.itemTree?.items ?? {};
+  const itemId = Object.values(items).find(
+    (item) => item.presentation?.label === label,
+  )?.id;
   const row = itemId
     ? document
         .getElementById(`ItemNameInput-item-panel-${itemId}`)
@@ -120,7 +138,9 @@ describe("the playground item renderer presentation contract", () => {
     document.body.appendChild(container);
     root = createRoot(container);
     act(() => {
-      root.render(createElement(ItemListSectionBody, { section: getItemPanelSection() }));
+      root.render(
+        createElement(ItemListSectionBody, { section: getItemPanelSection() }),
+      );
     });
   });
 
@@ -135,12 +155,17 @@ describe("the playground item renderer presentation contract", () => {
 
   it("renders typed rows without a host renderer", () => {
     const leafRow = findRowByLabel(container, "alpha");
-    const label = document.getElementById("ItemNameInput-item-panel-item-alpha");
-    const valueLayers = leafRow.querySelectorAll<HTMLElement>('[role="textbox"]');
+    const label = document.getElementById(
+      "ItemNameInput-item-panel-item-alpha",
+    );
+    const valueLayers =
+      leafRow.querySelectorAll<HTMLElement>('[role="textbox"]');
     const valueEditor = valueLayers[1];
     const divider = leafRow.querySelector<HTMLElement>("span.section-value");
     if (!label || !valueEditor || !divider) {
-      throw new Error("The leaf row is missing its label, value, or divider element.");
+      throw new Error(
+        "The leaf row is missing its label, value, or divider element.",
+      );
     }
     expect(label.parentElement?.classList.contains("section-key")).toBe(true);
     expect(label.classList.contains("font-mono")).toBe(true);
@@ -157,9 +182,13 @@ describe("the playground item renderer presentation contract", () => {
     const row = findRowByLabel(container, "alpha");
     expect(row.getAttribute("aria-keyshortcuts")).toContain("Q");
     expect(
-      row.querySelector('[data-setta-workspace-item-quick-info-description="true"]')?.textContent,
+      row.querySelector(
+        '[data-setta-workspace-item-quick-info-description="true"]',
+      )?.textContent,
     ).toContain("Sets the initial learning rate");
-    expect(row.querySelector('[data-setta-workspace-item-help-trigger="true"]')).toBeNull();
+    expect(
+      row.querySelector('[data-setta-workspace-item-help-trigger="true"]'),
+    ).toBeNull();
   });
 
   it("demonstrates host-owned ephemeral diagnostics through the public list registry", () => {
@@ -167,28 +196,41 @@ describe("the playground item renderer presentation contract", () => {
     const warningRow = findRowByLabel(container, "beta");
     const infoRow = findRowByLabel(container, "momentum");
     expect(errorRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("error");
-    expect(warningRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("warning");
+    expect(warningRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe(
+      "warning",
+    );
     expect(infoRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("info");
 
     const errorMarker = errorRow.querySelector<HTMLElement>(
       '[data-setta-workspace-item-diagnostic-marker="true"]',
     );
     if (!errorMarker) {
-      throw new Error("The typed playground row is missing its diagnostic marker.");
+      throw new Error(
+        "The typed playground row is missing its diagnostic marker.",
+      );
     }
-    expect(errorMarker.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("error");
+    expect(errorMarker.dataset.settaWorkspaceItemDiagnosticSeverity).toBe(
+      "error",
+    );
     expect(
-      errorRow.querySelector('[data-setta-workspace-item-quick-info-description="true"]')
-        ?.textContent,
+      errorRow.querySelector(
+        '[data-setta-workspace-item-quick-info-description="true"]',
+      )?.textContent,
     ).toContain("Error: Use 0.0005 or less for the stability profile.");
-    expect(JSON.stringify(getWorkspaceDocument())).not.toContain("stability profile");
+    expect(JSON.stringify(getWorkspaceDocument())).not.toContain(
+      "stability profile",
+    );
   });
 
   it("renders switch rows with the built-in switch and commits toggles to the document", () => {
     const switchRow = findRowByLabel(container, "enabled");
     const wrapper = switchRow.querySelector<HTMLElement>("div.section-value");
-    expect(wrapper?.className).toBe("section-value flex justify-self-start self-center");
-    const switchButton = switchRow.querySelector<HTMLButtonElement>('button[role="switch"]');
+    expect(wrapper?.className).toBe(
+      "section-value flex justify-self-start self-center",
+    );
+    const switchButton = switchRow.querySelector<HTMLButtonElement>(
+      'button[role="switch"]',
+    );
     if (!switchButton) {
       throw new Error("The enabled row does not mount the switch control.");
     }
@@ -198,9 +240,10 @@ describe("the playground item renderer presentation contract", () => {
     });
     // The package value funnel committed one canonical string update and re-rendered the control.
     expect(getDocumentItemValue("item-enabled")).toBe("false");
-    expect(switchRow.querySelector<HTMLButtonElement>('button[role="switch"]')?.dataset.state).toBe(
-      "unchecked",
-    );
+    expect(
+      switchRow.querySelector<HTMLButtonElement>('button[role="switch"]')
+        ?.dataset.state,
+    ).toBe("unchecked");
   });
 
   it("renders the slider row from typed limits and commits keyboard stepping", () => {
@@ -224,12 +267,16 @@ describe("the playground item renderer presentation contract", () => {
       );
     });
     expect(getDocumentItemValue("item-slider")).toBe("1");
-    expect(sliderRow.querySelector('[role="slider"]')?.getAttribute("aria-valuenow")).toBe("1");
+    expect(
+      sliderRow.querySelector('[role="slider"]')?.getAttribute("aria-valuenow"),
+    ).toBe("1");
   });
 
   it("renders the rotary row from typed limits and commits step-aware keyboard updates", () => {
     const rotaryRow = findRowByLabel(container, "rotary");
-    const knob = rotaryRow.querySelector<HTMLButtonElement>('button[role="slider"]');
+    const knob = rotaryRow.querySelector<HTMLButtonElement>(
+      'button[role="slider"]',
+    );
     if (!knob) {
       throw new Error("The rotary row does not mount the rotary control.");
     }
@@ -248,20 +295,27 @@ describe("the playground item renderer presentation contract", () => {
       );
     });
     expect(getDocumentItemValue("item-rotary")).toBe("0.1");
-    expect(rotaryRow.querySelector('button[role="slider"]')?.getAttribute("aria-valuenow")).toBe(
-      "0.1",
-    );
+    expect(
+      rotaryRow
+        .querySelector('button[role="slider"]')
+        ?.getAttribute("aria-valuenow"),
+    ).toBe("0.1");
   });
 
   it("renders the date row from typed formatting config and commits ISO string updates", () => {
     const dateRow = findRowByLabel(container, "date");
     const input = dateRow.querySelector<HTMLInputElement>('input[type="text"]');
     if (!input) {
-      throw new Error("The date row does not mount its configured input control.");
+      throw new Error(
+        "The date row does not mount its configured input control.",
+      );
     }
     expect(input.getAttribute("aria-label")).toBe("date value");
     expect(input.value).toBe("2026-08-12");
-    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
     if (!valueSetter) {
       throw new Error("The native input value setter is unavailable.");
     }
@@ -276,11 +330,16 @@ describe("the playground item renderer presentation contract", () => {
     const timeRow = findRowByLabel(container, "time");
     const input = timeRow.querySelector<HTMLInputElement>('input[type="time"]');
     if (!input) {
-      throw new Error("The time row does not mount its configured input control.");
+      throw new Error(
+        "The time row does not mount its configured input control.",
+      );
     }
     expect(input.getAttribute("aria-label")).toBe("time value");
     expect(input.value).toBe("13:45");
-    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
     if (!valueSetter) {
       throw new Error("The native input value setter is unavailable.");
     }
@@ -293,17 +352,23 @@ describe("the playground item renderer presentation contract", () => {
 
   it("renders the password row and keeps visibility separate from the controlled value", () => {
     const passwordRow = findRowByLabel(container, "password");
-    const input = passwordRow.querySelector<HTMLInputElement>('input[type="password"]');
+    const input = passwordRow.querySelector<HTMLInputElement>(
+      'input[type="password"]',
+    );
     const toggle = passwordRow.querySelector<HTMLButtonElement>(
       'button[aria-label="Show password"]',
     );
     if (!input || !toggle) {
-      throw new Error("The password row does not mount its input and visibility toggle.");
+      throw new Error(
+        "The password row does not mount its input and visibility toggle.",
+      );
     }
     expect(input.id).toBe("item-panel-item-password-PasswordValueInput");
     expect(input.getAttribute("aria-label")).toBe("password value");
     act(() => toggle.click());
-    expect(passwordRow.querySelector<HTMLInputElement>('input[type="text"]')).not.toBeNull();
+    expect(
+      passwordRow.querySelector<HTMLInputElement>('input[type="text"]'),
+    ).not.toBeNull();
     expect(getDocumentItemValue("item-password")).toBe("");
   });
 
@@ -324,16 +389,24 @@ describe("the playground item renderer presentation contract", () => {
   it("renders the dropzone and keeps accepted files, server picks, and removal host-owned", () => {
     const dropzoneRow = findRowByLabel(container, "dropzone");
     const target = dropzoneRow.querySelector<HTMLElement>('[role="group"]');
-    const fileInput = dropzoneRow.querySelector<HTMLInputElement>('input[type="file"]');
+    const fileInput =
+      dropzoneRow.querySelector<HTMLInputElement>('input[type="file"]');
     if (!target || !fileInput) {
-      throw new Error("The dropzone row does not mount its drop target and file input.");
+      throw new Error(
+        "The dropzone row does not mount its drop target and file input.",
+      );
     }
-    expect(target.getAttribute("aria-label")).toBe("dropzone dropzone: Drop a file here");
+    expect(target.getAttribute("aria-label")).toBe(
+      "dropzone dropzone: Drop a file here",
+    );
     expect(target.classList.contains("border-dashed")).toBe(true);
     expect(dropzoneRow.textContent).toContain("Local file...");
     expect(dropzoneRow.textContent).toContain("Server file...");
     const file = new File(["png!"], "photo.png", { type: "image/png" });
-    Object.defineProperty(fileInput, "files", { configurable: true, value: [file] });
+    Object.defineProperty(fileInput, "files", {
+      configurable: true,
+      value: [file],
+    });
     act(() => fileInput.dispatchEvent(new Event("change", { bubbles: true })));
     expect(getDocumentDropzoneAttachmentNames()).toEqual(["photo.png"]);
     expect(dropzoneRow.textContent).toContain("1 attachment");
@@ -344,16 +417,20 @@ describe("the playground item renderer presentation contract", () => {
     act(() => removeLocal?.click());
     expect(getDocumentDropzoneAttachmentNames()).toEqual([]);
 
-    const serverButton = Array.from(dropzoneRow.querySelectorAll("button")).find(
-      (button) => button.textContent === "Server file...",
-    );
+    const serverButton = Array.from(
+      dropzoneRow.querySelectorAll("button"),
+    ).find((button) => button.textContent === "Server file...");
     act(() => serverButton?.click());
-    expect(getDocumentDropzoneAttachmentNames()).toEqual(["server-example.csv"]);
+    expect(getDocumentDropzoneAttachmentNames()).toEqual([
+      "server-example.csv",
+    ]);
   });
 
   it("renders the dropdown row as the reference pill and commits a selection to the document", () => {
     const dropdownRow = findRowByLabel(container, "choice");
-    const input = dropdownRow.querySelector<HTMLInputElement>('input[role="combobox"]');
+    const input = dropdownRow.querySelector<HTMLInputElement>(
+      'input[role="combobox"]',
+    );
     if (!input) {
       throw new Error("The choice row does not mount the dropdown control.");
     }
@@ -361,37 +438,58 @@ describe("the playground item renderer presentation contract", () => {
     // reference "Search" placeholder, wrapped in the no-drag search shell.
     expect(input.value).toBe("");
     expect(input.placeholder).toBe("Search");
-    for (const pillClass of ["rounded-full", "font-mono", "text-xs", "ps-3", "pe-6", "h-4"]) {
+    for (const pillClass of [
+      "rounded-full",
+      "font-mono",
+      "text-xs",
+      "ps-3",
+      "pe-6",
+      "h-4",
+    ]) {
       expect(input.classList.contains(pillClass)).toBe(true);
     }
     expect(input.closest("search")?.classList.contains("nodrag")).toBe(true);
-    const toggle = dropdownRow.querySelector<HTMLButtonElement>("search button");
+    const toggle =
+      dropdownRow.querySelector<HTMLButtonElement>("search button");
     if (!toggle) {
       throw new Error("The choice row does not mount the dropdown toggle.");
     }
     act(() => {
       toggle.click();
     });
-    const options = Array.from(document.body.querySelectorAll('[role="listbox"] dd'));
-    expect(options.map((option) => option.textContent)).toEqual(["Alpha", "Beta", "Gamma"]);
+    const options = Array.from(
+      document.body.querySelectorAll('[role="listbox"] dd'),
+    );
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Alpha",
+      "Beta",
+      "Gamma",
+    ]);
     const gamma = options.find((option) => option.textContent === "Gamma");
     act(() => {
       gamma?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     // The package value funnel committed the picked choice and the re-rendered pill reflects it.
     expect(getDocumentItemValue("item-choice")).toBe("Gamma");
-    expect(dropdownRow.querySelector<HTMLInputElement>('input[role="combobox"]')?.value).toBe(
-      "Gamma",
-    );
+    expect(
+      dropdownRow.querySelector<HTMLInputElement>('input[role="combobox"]')
+        ?.value,
+    ).toBe("Gamma");
   });
 
   it("renders the configured color row with the reference trigger presentation", () => {
     const colorRow = findRowByLabel(container, "accent");
-    const trigger = colorRow.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]');
+    const trigger = colorRow.querySelector<HTMLButtonElement>(
+      'button[aria-haspopup="listbox"]',
+    );
     if (!trigger) {
-      throw new Error("The accent row does not mount the configured color trigger.");
+      throw new Error(
+        "The accent row does not mount the configured color trigger.",
+      );
     }
-    const swatch = trigger.querySelector<HTMLElement>("div.single-cell-child.rounded-lg");
+    const swatch = trigger.querySelector<HTMLElement>(
+      "div.single-cell-child.rounded-lg",
+    );
     expect(swatch?.style.backgroundColor).toBe("rgb(34, 197, 94)");
     expect(trigger.querySelector("p")?.textContent).toBe("Green");
     expect(trigger.querySelector("i.gg-chevron-down")).not.toBeNull();
@@ -400,7 +498,9 @@ describe("the playground item renderer presentation contract", () => {
   it("renders the choiceless color row as the native input behind the eyedropper", () => {
     const colorRow = findRowByLabel(container, "tint");
     expect(colorRow.querySelector("i.gg-color-picker")).not.toBeNull();
-    const input = colorRow.querySelector<HTMLInputElement>('input[type="color"]');
+    const input = colorRow.querySelector<HTMLInputElement>(
+      'input[type="color"]',
+    );
     if (!input) {
       throw new Error("The tint row does not mount the native color input.");
     }
@@ -409,32 +509,46 @@ describe("the playground item renderer presentation contract", () => {
   });
 
   it("renders package-owned editable labels and commits through the label funnel", () => {
-    const dummy = document.getElementById("ItemNameInput-item-panel-item-rename");
+    const dummy = document.getElementById(
+      "ItemNameInput-item-panel-item-rename",
+    );
     if (!dummy) {
-      throw new Error("The rename row does not mount the editable name control.");
+      throw new Error(
+        "The rename row does not mount the editable name control.",
+      );
     }
     expect(dummy.textContent).toBe("rename_me");
     expect(dummy.parentElement?.classList.contains("section-key")).toBe(true);
-    for (const nameClass of ["peer/nameinput", "font-mono", "text-xs", "py-[.125rem]"]) {
+    for (const nameClass of [
+      "peer/nameinput",
+      "font-mono",
+      "text-xs",
+      "py-[.125rem]",
+    ]) {
       expect(dummy.classList.contains(nameClass)).toBe(true);
     }
     expect(dummy.querySelector(".cm-line span")?.className).toMatch(/ͼ/);
 
     act(() => setItemLabel("item-panel", "item-rename", "renamed"));
     expect(getDocumentItemLabel("item-rename")).toBe("renamed");
-    expect(document.getElementById("ItemNameInput-item-panel-item-rename")?.textContent).toBe(
-      "renamed",
-    );
+    expect(
+      document.getElementById("ItemNameInput-item-panel-item-rename")
+        ?.textContent,
+    ).toBe("renamed");
   });
 
   it("renders explicit groups with an editable spanning label", () => {
     const groupRow = findRowByLabel(container, "options");
-    const groupLabel = document.getElementById("ItemNameInput-item-panel-item-options");
+    const groupLabel = document.getElementById(
+      "ItemNameInput-item-panel-item-options",
+    );
     if (!groupLabel) {
       throw new Error("The group row does not render its built-in label.");
     }
     expect(groupLabel.parentElement?.parentElement).toBe(groupRow);
-    expect(groupLabel.parentElement?.classList.contains("section-key-value")).toBe(true);
+    expect(
+      groupLabel.parentElement?.classList.contains("section-key-value"),
+    ).toBe(true);
     expect(groupLabel.getAttribute("aria-label")).toBe("Item name");
   });
 
@@ -443,30 +557,44 @@ describe("the playground item renderer presentation contract", () => {
       ["item-delta", "delta"],
       ["item-iota", "iota"],
     ] as const) {
-      const row = container.querySelector<HTMLElement>(`[data-workspace-item-id="${itemId}"]`);
+      const row = container.querySelector<HTMLElement>(
+        `[data-workspace-item-id="${itemId}"]`,
+      );
       const staticLabel = row?.querySelector<HTMLElement>(
         '[data-workspace-static-item-label="true"]',
       );
       expect(staticLabel?.textContent).toBe(label);
       expect(staticLabel?.hasAttribute("tabindex")).toBe(false);
-      expect(document.getElementById(`ItemNameInput-item-panel-${itemId}`)).toBeNull();
-      expect(row?.querySelector(`[aria-label="${label} value"]`)).not.toBeNull();
+      expect(
+        document.getElementById(`ItemNameInput-item-panel-${itemId}`),
+      ).toBeNull();
+      expect(
+        row?.querySelector(`[aria-label="${label} value"]`),
+      ).not.toBeNull();
     }
   });
 
   it("lets the package derive the default split from half the list area width", () => {
-    const scrollArea = container.querySelector<HTMLElement>(".overflow-y-scroll");
+    const scrollArea =
+      container.querySelector<HTMLElement>(".overflow-y-scroll");
     const listOuter = scrollArea?.parentElement;
     if (!listOuter) {
-      throw new Error("The item panel did not mount its package-owned list outer.");
+      throw new Error(
+        "The item panel did not mount its package-owned list outer.",
+      );
     }
     const applySplit = observedResizeTargets.get(listOuter);
     if (!applySplit) {
-      throw new Error("The package-owned list outer is not observed for resizes.");
+      throw new Error(
+        "The package-owned list outer is not observed for resizes.",
+      );
     }
     // The 550 x 350 inner fixture gives the list area live main's measured 550 px width;
     // the reference default is half that minus the 18 px center offset: 257 px.
-    Object.defineProperty(listOuter, "clientWidth", { configurable: true, value: 550 });
+    Object.defineProperty(listOuter, "clientWidth", {
+      configurable: true,
+      value: 550,
+    });
     act(() => {
       applySplit(
         [
@@ -479,10 +607,12 @@ describe("the playground item renderer presentation contract", () => {
         new CapturingResizeObserver(applySplit) as unknown as ResizeObserver,
       );
     });
-    expect(listOuter.style.getPropertyValue("--param-column-width")).toBe("257px");
-    expect(container.querySelectorAll('[data-item-column-resize-handle="true"]')).toHaveLength(
-      container.querySelectorAll('[data-item-row="true"]').length,
+    expect(listOuter.style.getPropertyValue("--param-column-width")).toBe(
+      "257px",
     );
+    expect(
+      container.querySelectorAll('[data-item-column-resize-handle="true"]'),
+    ).toHaveLength(container.querySelectorAll('[data-item-row="true"]').length);
   });
 
   it("keeps the recorded fixture geometry and an inspectable row rhythm", () => {
@@ -501,7 +631,9 @@ describe("the playground item renderer presentation contract", () => {
     }
     const topLevelIds = itemTree.items[itemTree.rootId]?.children ?? [];
     expect(topLevelIds.length).toBeGreaterThanOrEqual(10);
-    expect(itemTree.items["item-options"]?.children.length).toBeGreaterThanOrEqual(2);
+    expect(
+      itemTree.items["item-options"]?.children.length,
+    ).toBeGreaterThanOrEqual(2);
   });
 
   it("supplies stable Python defaults through the public host item factory", () => {
@@ -515,7 +647,9 @@ describe("the playground item renderer presentation contract", () => {
     });
     const inserted = insertedItems[0];
     if (!inserted) {
-      throw new Error("The playground item factory did not return its inserted item.");
+      throw new Error(
+        "The playground item factory did not return its inserted item.",
+      );
     }
 
     expect(inserted).toEqual({
@@ -538,9 +672,9 @@ describe("the playground item renderer presentation contract", () => {
         },
       },
     });
-    expect(getWorkspaceDocument().sections["item-panel"]?.itemTree?.selectedItemIds).toEqual([
-      inserted.id,
-    ]);
+    expect(
+      getWorkspaceDocument().sections["item-panel"]?.itemTree?.selectedItemIds,
+    ).toEqual([inserted.id]);
 
     let deletedItemIds: Array<string> = [];
     act(() => {

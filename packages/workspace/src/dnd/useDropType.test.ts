@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GROUP_SECTION_KIND } from "../document/documentSelectors";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { WorkspaceSection } from "../document/types";
 import { updateDndChildren, useDndChildren } from "./dndChildren";
 import { useDndState } from "./dndState";
@@ -39,12 +43,17 @@ function makeSection(spec: SectionSpec): WorkspaceSection {
 
 function seedDocument(specs: Array<SectionSpec>) {
   registerSectionKinds({ leaf: { renderContent: () => null } });
-  const sections = Object.fromEntries(specs.map((spec) => [spec.id, makeSection(spec)]));
+  const sections = Object.fromEntries(
+    specs.map((spec) => [spec.id, makeSection(spec)]),
+  );
   const childIds = new Set(specs.flatMap((spec) => spec.children ?? []));
   const topLevelSections = Object.fromEntries(
     specs
       .filter((spec) => !childIds.has(spec.id))
-      .map((spec, index) => [spec.id, { x: index * 20, y: 0, w: null, h: null, zIndex: index }]),
+      .map((spec, index) => [
+        spec.id,
+        { x: index * 20, y: 0, w: null, h: null, zIndex: index },
+      ]),
   );
   loadWorkspaceDocument({
     sections,
@@ -104,7 +113,10 @@ describe("getBehaviorDropType", () => {
   });
 
   it("allows drops into group sections", () => {
-    seedDocument([{ id: "group", kind: GROUP_SECTION_KIND }, { id: "dragged" }]);
+    seedDocument([
+      { id: "group", kind: GROUP_SECTION_KIND },
+      { id: "dragged" },
+    ]);
 
     const behavior = getBehaviorDropType("dragged", "group");
 
@@ -116,7 +128,9 @@ describe("getBehaviorDropType", () => {
     // Validates parent-kind guard for non-container section kinds.
     seedDocument([{ id: "leaf-parent" }, { id: "dragged" }]);
 
-    expect(getBehaviorDropType("dragged", "leaf-parent")).toBe(BehaviorDropTypeEnum.INVALID);
+    expect(getBehaviorDropType("dragged", "leaf-parent")).toBe(
+      BehaviorDropTypeEnum.INVALID,
+    );
   });
 
   it("rejects dropping into descendants of selected sections", () => {
@@ -126,7 +140,9 @@ describe("getBehaviorDropType", () => {
       { id: "child", kind: GROUP_SECTION_KIND },
     ]);
 
-    expect(getBehaviorDropType("parent", "child")).toBe(BehaviorDropTypeEnum.INVALID);
+    expect(getBehaviorDropType("parent", "child")).toBe(
+      BehaviorDropTypeEnum.INVALID,
+    );
   });
 
   it("rejects dropping a multi-selection into one of its descendants", () => {
@@ -138,7 +154,9 @@ describe("getBehaviorDropType", () => {
     ]);
     useDndState.setState({ draggingIds: ["other", "parent"] });
 
-    expect(getBehaviorDropType("other", "child")).toBe(BehaviorDropTypeEnum.INVALID);
+    expect(getBehaviorDropType("other", "child")).toBe(
+      BehaviorDropTypeEnum.INVALID,
+    );
   });
 });
 

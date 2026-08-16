@@ -27,7 +27,8 @@ export function getDragItems(
   nodeId?: string,
 ): Array<NodeDragItem> {
   const activeSections = getActiveSectionIds();
-  const draggedNodeIsActive = nodeId !== undefined && activeSections.includes(nodeId);
+  const draggedNodeIsActive =
+    nodeId !== undefined && activeSections.includes(nodeId);
   return Array.from(nodeInternals.values())
     .filter(
       (n) =>

@@ -7,10 +7,17 @@ import {
 import { insertWorkspaceSection } from "./insertWorkspaceSection";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { registerSectionKinds } from "./sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "./stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "./stores";
 import type { WorkspaceSectionInput } from "./types";
 
-function createSection(id: string, overrides: Partial<WorkspaceSectionInput> = {}) {
+function createSection(
+  id: string,
+  overrides: Partial<WorkspaceSectionInput> = {},
+) {
   return {
     id,
     kind: "leaf",
@@ -38,7 +45,10 @@ describe("insertWorkspaceSection", () => {
   beforeEach(() => {
     resetStores();
     registerSectionKinds({
-      leaf: { renderContent: () => null, defaultSize: { width: 240, height: 120 } },
+      leaf: {
+        renderContent: () => null,
+        defaultSize: { width: 240, height: 120 },
+      },
     });
     loadWorkspaceDocument({
       sections: { existing: createSection("existing") },
@@ -63,7 +73,10 @@ describe("insertWorkspaceSection", () => {
     insertWorkspaceSection(createSection("created"), { x: 125.5, y: -40 });
 
     const state = useWorkspaceDocument.getState();
-    expect(state.sections["created"]?.size).toEqual({ width: 240, height: 120 });
+    expect(state.sections["created"]?.size).toEqual({
+      width: 240,
+      height: 120,
+    });
     expect(state.topLevelSections["created"]).toEqual({
       x: 125.5,
       y: -40,
@@ -82,10 +95,15 @@ describe("insertWorkspaceSection", () => {
   });
 
   it("publishes the document, node, and selection as one observable state", () => {
-    const observed: Array<{ sectionExists: boolean; activeIds: Array<string> }> = [];
+    const observed: Array<{
+      sectionExists: boolean;
+      activeIds: Array<string>;
+    }> = [];
     const unsubscribe = useNodeInternals.subscribe(() => {
       observed.push({
-        sectionExists: Boolean(useWorkspaceDocument.getState().sections["created"]),
+        sectionExists: Boolean(
+          useWorkspaceDocument.getState().sections["created"],
+        ),
         activeIds: useActiveSections.getState().activeIds,
       });
     });
@@ -98,15 +116,23 @@ describe("insertWorkspaceSection", () => {
   });
 
   it("rejects duplicates, non-finite placement, and preclaimed children before mutation", () => {
-    expect(() => insertWorkspaceSection(createSection("existing"), { x: 0, y: 0 })).toThrow(
-      /duplicate workspace section existing/,
-    );
     expect(() =>
-      insertWorkspaceSection(createSection("invalid-position"), { x: Number.NaN, y: 0 }),
+      insertWorkspaceSection(createSection("existing"), { x: 0, y: 0 }),
+    ).toThrow(/duplicate workspace section existing/);
+    expect(() =>
+      insertWorkspaceSection(createSection("invalid-position"), {
+        x: Number.NaN,
+        y: 0,
+      }),
     ).toThrow(/finite position/);
     expect(() =>
-      insertWorkspaceSection(createSection("parent", { children: ["existing"] }), { x: 0, y: 0 }),
+      insertWorkspaceSection(
+        createSection("parent", { children: ["existing"] }),
+        { x: 0, y: 0 },
+      ),
     ).toThrow(/without existing child claims/);
-    expect(Object.keys(useWorkspaceDocument.getState().sections)).toEqual(["existing"]);
+    expect(Object.keys(useWorkspaceDocument.getState().sections)).toEqual([
+      "existing",
+    ]);
   });
 });

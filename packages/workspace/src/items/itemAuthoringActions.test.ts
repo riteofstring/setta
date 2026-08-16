@@ -10,7 +10,11 @@ import {
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import type { WorkspaceItemFactoryContext } from "../document/sectionKindRegistry";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { WorkspaceSectionItemTree } from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
 import {
@@ -62,23 +66,35 @@ function getPanelItemTree(): WorkspaceSectionItemTree {
 function getRequiredFactoryContext(
   context: WorkspaceItemFactoryContext | null,
 ): WorkspaceItemFactoryContext & {
-  section: WorkspaceItemFactoryContext["section"] & { itemTree: WorkspaceSectionItemTree };
+  section: WorkspaceItemFactoryContext["section"] & {
+    itemTree: WorkspaceSectionItemTree;
+  };
 } {
   if (!context || !context.section.itemTree) {
     throw new Error("Expected the host item factory context.");
   }
   return context as WorkspaceItemFactoryContext & {
-    section: WorkspaceItemFactoryContext["section"] & { itemTree: WorkspaceSectionItemTree };
+    section: WorkspaceItemFactoryContext["section"] & {
+      itemTree: WorkspaceSectionItemTree;
+    };
   };
 }
 
 describe("item authoring actions", () => {
   let factoryContext: WorkspaceItemFactoryContext | null;
-  let factoryItem: { id: string; children: Array<string>; data: { value: string } };
+  let factoryItem: {
+    id: string;
+    children: Array<string>;
+    data: { value: string };
+  };
 
   beforeEach(() => {
     factoryContext = null;
-    factoryItem = { id: "created", children: [], data: { value: "host default" } };
+    factoryItem = {
+      id: "created",
+      children: [],
+      data: { value: "host default" },
+    };
     registerSectionKinds({
       items: {
         renderContent: () => null,
@@ -110,7 +126,9 @@ describe("item authoring actions", () => {
 
   it("calls the frozen host factory and atomically reports one selected insertion", () => {
     const notifications: Array<ReturnType<typeof getWorkspaceDocument>> = [];
-    setWorkspaceDocumentChangeCallback((document) => notifications.push(document));
+    setWorkspaceDocumentChangeCallback((document) =>
+      notifications.push(document),
+    );
 
     const inserted = insertWorkspaceItem("panel");
 
@@ -132,11 +150,17 @@ describe("item authoring actions", () => {
       throw new Error("Expected one document notification.");
     }
     expect(notification.activeIds).toEqual(["panel"]);
-    expect(notification.sections.panel?.itemTree?.selectedItemIds).toEqual(["created"]);
+    expect(notification.sections.panel?.itemTree?.selectedItemIds).toEqual([
+      "created",
+    ]);
 
     factoryItem.data.value = "mutated";
     const insertedData = inserted.data;
-    if (insertedData && typeof insertedData === "object" && !Array.isArray(insertedData)) {
+    if (
+      insertedData &&
+      typeof insertedData === "object" &&
+      !Array.isArray(insertedData)
+    ) {
       insertedData["value"] = "also mutated";
     }
     expect(getPanelItemTree().items.created?.data).toEqual({

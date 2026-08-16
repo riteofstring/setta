@@ -1,16 +1,27 @@
 import { assertNoReservedItemDndTokens } from "../dnd/itemDndState";
 import { assertWorkspaceItemPresentationBoundary } from "./itemPresentation";
-import type { WorkspaceItem, WorkspaceSectionData, WorkspaceSectionItemTree } from "./types";
+import type {
+  WorkspaceItem,
+  WorkspaceSectionData,
+  WorkspaceSectionItemTree,
+} from "./types";
 
 type UnknownRecord = Record<string, unknown>;
 
-function assertRecord(value: unknown, owner: string): asserts value is UnknownRecord {
+function assertRecord(
+  value: unknown,
+  owner: string,
+): asserts value is UnknownRecord {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${owner} must be an object.`);
   }
 }
 
-function assertKnownFields(record: UnknownRecord, owner: string, fields: ReadonlyArray<string>) {
+function assertKnownFields(
+  record: UnknownRecord,
+  owner: string,
+  fields: ReadonlyArray<string>,
+) {
   const knownFields = new Set(fields);
   for (const field of Object.keys(record)) {
     if (!knownFields.has(field)) {
@@ -25,7 +36,10 @@ function assertString(value: unknown, owner: string): asserts value is string {
   }
 }
 
-function assertStringArray(value: unknown, owner: string): asserts value is Array<string> {
+function assertStringArray(
+  value: unknown,
+  owner: string,
+): asserts value is Array<string> {
   if (!Array.isArray(value)) {
     throw new Error(`${owner} must be an array.`);
   }
@@ -44,7 +58,11 @@ function assertSerializableItemArray(
   }
 }
 
-function assertSerializableItemRecord(value: object, owner: string, ancestors: Set<object>): void {
+function assertSerializableItemRecord(
+  value: object,
+  owner: string,
+  ancestors: Set<object>,
+): void {
   const prototype = Object.getPrototypeOf(value) as object | null;
   if (prototype !== Object.prototype && prototype !== null) {
     throw new Error(`${owner} must contain only plain JSON objects.`);
@@ -117,12 +135,20 @@ function assertWorkspaceItemRecord(
     }
     assertSerializableItemData(value["data"], `${owner}.data`);
   }
-  if (Object.hasOwn(value, "presentation") && value["presentation"] === undefined) {
-    throw new Error(`${owner}.presentation must be omitted instead of undefined.`);
+  if (
+    Object.hasOwn(value, "presentation") &&
+    value["presentation"] === undefined
+  ) {
+    throw new Error(
+      `${owner}.presentation must be omitted instead of undefined.`,
+    );
   }
 }
 
-function assertValidItemChildClaims(sectionId: string, itemTree: WorkspaceSectionItemTree) {
+function assertValidItemChildClaims(
+  sectionId: string,
+  itemTree: WorkspaceSectionItemTree,
+) {
   const parentByChild: Record<string, string> = {};
   for (const [itemId, candidate] of Object.entries(itemTree.items)) {
     assertWorkspaceItemRecord(sectionId, itemId, candidate);
@@ -135,10 +161,14 @@ function assertValidItemChildClaims(sectionId: string, itemTree: WorkspaceSectio
     assertNoReservedItemDndTokens(itemId, `Section ${sectionId} item id`);
     for (const childId of item.children) {
       if (!Object.hasOwn(itemTree.items, childId)) {
-        throw new Error(`Section ${sectionId} item ${itemId} lists unknown child ${childId}.`);
+        throw new Error(
+          `Section ${sectionId} item ${itemId} lists unknown child ${childId}.`,
+        );
       }
       if (childId === itemTree.rootId) {
-        throw new Error(`Section ${sectionId} item ${itemId} claims the root item as a child.`);
+        throw new Error(
+          `Section ${sectionId} item ${itemId} claims the root item as a child.`,
+        );
       }
       const existingParentId = parentByChild[childId];
       if (existingParentId !== undefined) {
@@ -151,7 +181,10 @@ function assertValidItemChildClaims(sectionId: string, itemTree: WorkspaceSectio
   }
 }
 
-function assertItemsReachableFromRoot(sectionId: string, itemTree: WorkspaceSectionItemTree) {
+function assertItemsReachableFromRoot(
+  sectionId: string,
+  itemTree: WorkspaceSectionItemTree,
+) {
   const reachable = new Set<string>([itemTree.rootId]);
   const queue = [itemTree.rootId];
   let currentId = queue.pop();
@@ -173,14 +206,21 @@ function assertItemsReachableFromRoot(sectionId: string, itemTree: WorkspaceSect
   }
 }
 
-function assertValidItemSelection(sectionId: string, itemTree: WorkspaceSectionItemTree) {
+function assertValidItemSelection(
+  sectionId: string,
+  itemTree: WorkspaceSectionItemTree,
+) {
   const selectedSet = new Set<string>();
   for (const selectedId of itemTree.selectedItemIds) {
     if (!Object.hasOwn(itemTree.items, selectedId)) {
-      throw new Error(`Section ${sectionId} selects unknown item ${selectedId}.`);
+      throw new Error(
+        `Section ${sectionId} selects unknown item ${selectedId}.`,
+      );
     }
     if (selectedId === itemTree.rootId) {
-      throw new Error(`Section ${sectionId} selects its root item ${itemTree.rootId}.`);
+      throw new Error(
+        `Section ${sectionId} selects its root item ${itemTree.rootId}.`,
+      );
     }
     if (selectedSet.has(selectedId)) {
       throw new Error(`Section ${sectionId} selects item ${selectedId} twice.`);
@@ -204,13 +244,23 @@ export function assertValidWorkspaceSectionItemTree(
     "selectedItemIds",
   ]);
   assertString(itemTree.rootId, `Section ${sectionId} item tree rootId`);
-  if (itemTree.rootId.trim() === "" || itemTree.rootId !== itemTree.rootId.trim()) {
-    throw new Error(`Section ${sectionId} item tree rootId must be nonblank and trimmed.`);
+  if (
+    itemTree.rootId.trim() === "" ||
+    itemTree.rootId !== itemTree.rootId.trim()
+  ) {
+    throw new Error(
+      `Section ${sectionId} item tree rootId must be nonblank and trimmed.`,
+    );
   }
   assertRecord(itemTree.items, `Section ${sectionId} item tree items`);
-  assertStringArray(itemTree.selectedItemIds, `Section ${sectionId} selected item ids`);
+  assertStringArray(
+    itemTree.selectedItemIds,
+    `Section ${sectionId} selected item ids`,
+  );
   if (!Object.hasOwn(itemTree.items, itemTree.rootId)) {
-    throw new Error(`Section ${sectionId} item tree is missing its root item ${itemTree.rootId}.`);
+    throw new Error(
+      `Section ${sectionId} item tree is missing its root item ${itemTree.rootId}.`,
+    );
   }
   if (Object.hasOwn(itemTree, "itemColumnWidth")) {
     if (itemTree.itemColumnWidth === undefined) {

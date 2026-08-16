@@ -1,4 +1,9 @@
-import type { ComponentType, CSSProperties, HTMLAttributes, MouseEvent } from "react";
+import type {
+  ComponentType,
+  CSSProperties,
+  HTMLAttributes,
+  MouseEvent,
+} from "react";
 import type { PanelPosition } from "../canvas/types";
 import type { Node, Position } from "../document/types";
 

@@ -23,7 +23,11 @@ function getSeverityLabel(severity: WorkspaceItemDiagnosticSeverity): string {
   return severity === "error" ? "Error" : "Warning";
 }
 
-function DiagnosticIcon({ severity }: { severity: WorkspaceItemDiagnosticSeverity }) {
+function DiagnosticIcon({
+  severity,
+}: {
+  severity: WorkspaceItemDiagnosticSeverity;
+}) {
   const props = {
     "aria-hidden": true,
     className: "h-3.5 w-3.5 shrink-0",
@@ -38,7 +42,9 @@ function DiagnosticIcon({ severity }: { severity: WorkspaceItemDiagnosticSeverit
   return <FiInfo {...props} />;
 }
 
-function getSeverityClassName(severity: WorkspaceItemDiagnosticSeverity): string {
+function getSeverityClassName(
+  severity: WorkspaceItemDiagnosticSeverity,
+): string {
   if (severity === "error") {
     return "bg-red-500/80 text-white dark:bg-red-700/80";
   }
@@ -49,7 +55,12 @@ function getSeverityClassName(severity: WorkspaceItemDiagnosticSeverity): string
 }
 
 function getAnnouncementEntryKey(entry: DiagnosticAnnouncementEntry): string {
-  return JSON.stringify([entry.itemId, entry.severity, entry.message, entry.diagnosticOccurrence]);
+  return JSON.stringify([
+    entry.itemId,
+    entry.severity,
+    entry.message,
+    entry.diagnosticOccurrence,
+  ]);
 }
 
 function describeAnnouncementEntry(entry: DiagnosticAnnouncementEntry): string {
@@ -65,17 +76,28 @@ function buildDiagnosticAnnouncement(
   }
   const previousKeys = new Set(previous.map(getAnnouncementEntryKey));
   const nextKeys = new Set(next.map(getAnnouncementEntryKey));
-  const addedOrChanged = next.filter((entry) => !previousKeys.has(getAnnouncementEntryKey(entry)));
-  const removed = previous.filter((entry) => !nextKeys.has(getAnnouncementEntryKey(entry)));
+  const addedOrChanged = next.filter(
+    (entry) => !previousKeys.has(getAnnouncementEntryKey(entry)),
+  );
+  const removed = previous.filter(
+    (entry) => !nextKeys.has(getAnnouncementEntryKey(entry)),
+  );
   if (addedOrChanged.length > 0) {
     const prefix =
-      previous.length === 0 ? "Parameter diagnostics available." : "Parameter diagnostics updated.";
-    const described = addedOrChanged.slice(0, 2).map(describeAnnouncementEntry).join(" ");
+      previous.length === 0
+        ? "Parameter diagnostics available."
+        : "Parameter diagnostics updated.";
+    const described = addedOrChanged
+      .slice(0, 2)
+      .map(describeAnnouncementEntry)
+      .join(" ");
     const remaining = addedOrChanged.length - 2;
     return `${prefix} ${described}${remaining > 0 ? ` ${remaining} more ${remaining === 1 ? "message" : "messages"}.` : ""}`;
   }
   if (removed.length > 0) {
-    const labels = [...new Set(removed.map((entry) => entry.itemLabel))].slice(0, 2).join(" and ");
+    const labels = [...new Set(removed.map((entry) => entry.itemLabel))]
+      .slice(0, 2)
+      .join(" and ");
     return `Diagnostics cleared for ${labels}. ${getWorkspaceItemDiagnosticCountSummary(next)} ${next.length === 1 ? "remains" : "remain"}.`;
   }
   return "";
@@ -95,7 +117,10 @@ function collectAnnouncementEntries(
     const itemLabel = getWorkspaceItemDiagnosticLabel(item);
     const occurrences = new Map<string, number>();
     for (const diagnostic of diagnostics[itemId] ?? []) {
-      const occurrenceKey = JSON.stringify([diagnostic.severity, diagnostic.message]);
+      const occurrenceKey = JSON.stringify([
+        diagnostic.severity,
+        diagnostic.message,
+      ]);
       const diagnosticOccurrence = occurrences.get(occurrenceKey) ?? 0;
       occurrences.set(occurrenceKey, diagnosticOccurrence + 1);
       entries.push({ ...diagnostic, diagnosticOccurrence, itemId, itemLabel });
@@ -118,7 +143,9 @@ export function WorkspaceItemDiagnosticAnnouncer({
     [diagnostics, itemIds, itemTree],
   );
   const signature = JSON.stringify(entries);
-  const previousEntriesRef = useRef<ReadonlyArray<DiagnosticAnnouncementEntry>>([]);
+  const previousEntriesRef = useRef<ReadonlyArray<DiagnosticAnnouncementEntry>>(
+    [],
+  );
   const previousSignatureRef = useRef("[]");
   const [announcement, setAnnouncement] = useState("");
 
@@ -126,7 +153,10 @@ export function WorkspaceItemDiagnosticAnnouncer({
     if (signature === previousSignatureRef.current) {
       return;
     }
-    const nextAnnouncement = buildDiagnosticAnnouncement(previousEntriesRef.current, entries);
+    const nextAnnouncement = buildDiagnosticAnnouncement(
+      previousEntriesRef.current,
+      entries,
+    );
     previousEntriesRef.current = entries;
     previousSignatureRef.current = signature;
     if (nextAnnouncement !== "") {
@@ -135,7 +165,11 @@ export function WorkspaceItemDiagnosticAnnouncer({
   }, [entries, signature]);
 
   return (
-    <span className="sr-only" data-setta-workspace-item-diagnostic-announcer="true" role="status">
+    <span
+      className="sr-only"
+      data-setta-workspace-item-diagnostic-announcer="true"
+      role="status"
+    >
       {announcement}
     </span>
   );
@@ -151,7 +185,10 @@ export function getWorkspaceItemDiagnosticTooltipContent(
   };
   return [...diagnostics]
     .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity])
-    .map((diagnostic) => `${getSeverityLabel(diagnostic.severity)}: ${diagnostic.message}`)
+    .map(
+      (diagnostic) =>
+        `${getSeverityLabel(diagnostic.severity)}: ${diagnostic.message}`,
+    )
     .join("\n\n");
 }
 
@@ -160,7 +197,8 @@ export function WorkspaceItemDiagnostics({
 }: {
   diagnostics: ReadonlyArray<WorkspaceItemDiagnostic>;
 }) {
-  const highestSeverity = getHighestWorkspaceItemDiagnosticSeverity(diagnostics);
+  const highestSeverity =
+    getHighestWorkspaceItemDiagnosticSeverity(diagnostics);
   if (diagnostics.length === 0 || highestSeverity === null) {
     return null;
   }

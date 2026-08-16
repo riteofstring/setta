@@ -43,25 +43,29 @@ describe("section tag colors", () => {
   });
 
   it("rejects incomplete, ambiguous, or unpaintable host categories", () => {
-    expect(() => resolveSectionTagColorPalette([{ color: "blue", description: "Blue" }])).toThrow(
-      /six-digit hex color/,
-    );
-    expect(() => resolveSectionTagColorPalette([{ color: "#123456", description: " " }])).toThrow(
-      /non-empty description/,
-    );
+    expect(() =>
+      resolveSectionTagColorPalette([{ color: "blue", description: "Blue" }]),
+    ).toThrow(/six-digit hex color/);
+    expect(() =>
+      resolveSectionTagColorPalette([{ color: "#123456", description: " " }]),
+    ).toThrow(/non-empty description/);
     expect(() =>
       resolveSectionTagColorPalette([
         { color: "#ABCDEF", description: "First" },
         { color: "abcdef", description: "Second" },
       ]),
     ).toThrow(/repeats color #abcdef/);
-    expect(() => resolveSectionTagColorPalette([null] as never)).toThrow(/must be an object/);
+    expect(() => resolveSectionTagColorPalette([null] as never)).toThrow(
+      /must be an object/,
+    );
   });
 
   it("normalizes document and action values without treating blank as none", () => {
     expect(normalizeSectionTagColor(null)).toBeNull();
     expect(normalizeSectionTagColor(" A1B2C3 ")).toBe("#a1b2c3");
     expect(() => normalizeSectionTagColor("")).toThrow(/six-digit hex color/);
-    expect(() => normalizeSectionTagColor(false)).toThrow(/six-digit hex color/);
+    expect(() => normalizeSectionTagColor(false)).toThrow(
+      /six-digit hex color/,
+    );
   });
 });

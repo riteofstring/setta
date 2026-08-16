@@ -17,10 +17,17 @@ import {
   toggleMinimized,
   togglePositionLock,
 } from "./sectionMutations";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "./stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "./stores";
 import type { WorkspaceDocument, WorkspaceSection } from "./types";
 
-function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): WorkspaceSection {
+function makeSection(
+  id: string,
+  overrides: Partial<WorkspaceSection> = {},
+): WorkspaceSection {
   return {
     id,
     kind: "leaf",
@@ -77,7 +84,9 @@ describe("getWorkspaceDocument", () => {
     expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe("leaf");
 
     loadWorkspaceDocument(snapshot);
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe("Renamed leaf");
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe(
+      "Renamed leaf",
+    );
     expect(useActiveSections.getState().activeIds).toEqual(["nested"]);
   });
 });
@@ -115,16 +124,27 @@ describe("document-change notification", () => {
       positionsById: null,
     });
     expect(reported).toHaveLength(1);
-    expect(reported[0]?.sections["group"]?.children).toEqual(["leaf", "nested"]);
+    expect(reported[0]?.sections["group"]?.children).toEqual([
+      "leaf",
+      "nested",
+    ]);
 
-    moveSections({ sectionIds: [], newParentId: null, newIndex: null, positionsById: null });
+    moveSections({
+      sectionIds: [],
+      newParentId: null,
+      newIndex: null,
+      positionsById: null,
+    });
     expect(reported).toHaveLength(1);
   });
 
   it("notifies once per resize commit", () => {
     persistSectionSizeChange("leaf", { width: 240 });
     expect(reported).toHaveLength(1);
-    expect(reported[0]?.sections["leaf"]?.size).toEqual({ width: 240, height: 50 });
+    expect(reported[0]?.sections["leaf"]?.size).toEqual({
+      width: 240,
+      height: 50,
+    });
   });
 
   it("notifies selection commits and skips unchanged selections", () => {
@@ -169,7 +189,9 @@ describe("document-change notification", () => {
   it("snapshots consistently when notified during an atomic publication", () => {
     // A subscriber-driven read during the delete publication must observe the staged state;
     // the notification itself fires after the publication with the same committed document.
-    const observedDuringPublication: { current: WorkspaceDocument | null } = { current: null };
+    const observedDuringPublication: { current: WorkspaceDocument | null } = {
+      current: null,
+    };
     const unsubscribe = useNodeInternals.subscribe(() => {
       observedDuringPublication.current = getWorkspaceDocument();
     });

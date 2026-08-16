@@ -5,7 +5,10 @@ import { ItemDndMonitor } from "../items/ItemDndMonitor";
 import { filterCollisionsForListKey } from "../items/itemDndMonitorUtils";
 import { ItemDragOverlay } from "../items/ItemDragOverlay";
 import { DragDropProvider } from "./adapter";
-import { createCollisionTracker, type CollisionTracker } from "./adapter/collision";
+import {
+  createCollisionTracker,
+  type CollisionTracker,
+} from "./adapter/collision";
 import type { SettaCollision } from "./adapter/types";
 import { DragOperationShapeSync } from "./DragOperationShapeSync";
 import { useItemDndChildren } from "./itemDndChildren";
@@ -18,13 +21,22 @@ import { useItemDndSensors } from "./useDNDSensors";
 // resolving. Hosts mount one around a section's item lists.
 
 export function ItemDndContext({ children }: { children: ReactNode }) {
-  const canEditStructure = useWorkspaceCapabilities((state) => state.canEditStructure);
-  const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
+  const canEditStructure = useWorkspaceCapabilities(
+    (state) => state.canEditStructure,
+  );
+  const isSelectingItems = useItemSelectionMode(
+    (state) => state.isSelectingItems,
+  );
   const itemDndEnabled = canEditStructure && isSelectingItems;
-  const itemDndActive = useItemDndState((state) => Boolean(state.activeId) || state.pendingReset);
+  const itemDndActive = useItemDndState(
+    (state) => Boolean(state.activeId) || state.pendingReset,
+  );
   const shouldRenderHelpers = itemDndEnabled || itemDndActive;
   const sensors = useItemDndSensors();
-  const collisionTracker = useMemo<CollisionTracker>(() => createItemCollisionTracker(), []);
+  const collisionTracker = useMemo<CollisionTracker>(
+    () => createItemCollisionTracker(),
+    [],
+  );
   const dndContext = useMemo(
     () => ({
       isMovingFree: false,
@@ -34,7 +46,11 @@ export function ItemDndContext({ children }: { children: ReactNode }) {
   );
 
   return (
-    <DragDropProvider sensors={sensors} dndContext={dndContext} collisionTracker={collisionTracker}>
+    <DragDropProvider
+      sensors={sensors}
+      dndContext={dndContext}
+      collisionTracker={collisionTracker}
+    >
       {shouldRenderHelpers && (
         <>
           <DragOperationShapeSync />

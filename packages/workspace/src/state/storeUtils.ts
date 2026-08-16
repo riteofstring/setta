@@ -1,11 +1,13 @@
 import { type StateCreator, type StoreApi } from "zustand";
 
 type ResetCallback = (api: StoreApi<unknown>) => Record<string, unknown>;
-export type ResetFn = (callback?: ResetCallback) => void;
+type ResetFn = (callback?: ResetCallback) => void;
 
 // The reset function must be re-included on every reset because the initial state captured
 // from the config does not contain it.
-export function withResetFn<T>(config: StateCreator<T>): StateCreator<T & { reset: ResetFn }> {
+export function withResetFn<T>(
+  config: StateCreator<T>,
+): StateCreator<T & { reset: ResetFn }> {
   return (set, get, api) => {
     const initialState = config(
       set as Parameters<StateCreator<T>>[0],
@@ -14,7 +16,9 @@ export function withResetFn<T>(config: StateCreator<T>): StateCreator<T & { rese
     );
 
     const resetFn: ResetFn = (callback) => {
-      const additionalResetState = callback ? callback(api as StoreApi<unknown>) : {};
+      const additionalResetState = callback
+        ? callback(api as StoreApi<unknown>)
+        : {};
       const initialStateWithReset = {
         ...initialState,
         ...additionalResetState,

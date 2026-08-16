@@ -65,7 +65,10 @@ type ResizeSession = {
   startWidth: number;
 };
 
-type ShellTabCollections = Pick<WorkspaceShellProps, "leadingTabs" | "trailingTabs">;
+type ShellTabCollections = Pick<
+  WorkspaceShellProps,
+  "leadingTabs" | "trailingTabs"
+>;
 
 type ShellTabRefs = Map<string, HTMLButtonElement>;
 
@@ -77,7 +80,10 @@ type ShellFocusRegistry = {
   panelRefs: ShellPanelRefs;
 };
 
-function viewStatesEqual(a: WorkspaceShellViewState, b: WorkspaceShellViewState): boolean {
+function viewStatesEqual(
+  a: WorkspaceShellViewState,
+  b: WorkspaceShellViewState,
+): boolean {
   const panesEqual = (["leading", "trailing"] as const).every((pane) => {
     const left = a[pane];
     const right = b[pane];
@@ -104,19 +110,29 @@ function assertTabDefinition(
   ids: Set<string>,
 ): void {
   if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(tab.id)) {
-    throw new Error(`Workspace shell ${pane} tab has invalid id ${JSON.stringify(tab.id)}.`);
+    throw new Error(
+      `Workspace shell ${pane} tab has invalid id ${JSON.stringify(tab.id)}.`,
+    );
   }
   if (ids.has(tab.id)) {
-    throw new Error(`Workspace shell ${pane} pane registered duplicate tab id ${tab.id}.`);
+    throw new Error(
+      `Workspace shell ${pane} pane registered duplicate tab id ${tab.id}.`,
+    );
   }
   if (tab.label.trim() === "") {
-    throw new Error(`Workspace shell ${pane} tab ${tab.id} requires a non-empty label.`);
+    throw new Error(
+      `Workspace shell ${pane} tab ${tab.id} requires a non-empty label.`,
+    );
   }
   if (typeof tab.icon !== "function") {
-    throw new Error(`Workspace shell ${pane} tab ${tab.id} requires an icon component.`);
+    throw new Error(
+      `Workspace shell ${pane} tab ${tab.id} requires an icon component.`,
+    );
   }
   if (typeof tab.renderContent !== "function") {
-    throw new Error(`Workspace shell ${pane} tab ${tab.id} requires renderContent.`);
+    throw new Error(
+      `Workspace shell ${pane} tab ${tab.id} requires renderContent.`,
+    );
   }
   ids.add(tab.id);
 }
@@ -127,7 +143,9 @@ function assertPositivePaneWidth(
   value: number,
 ): void {
   if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`Workspace shell ${pane} pane ${field} must be positive and finite.`);
+    throw new Error(
+      `Workspace shell ${pane} pane ${field} must be positive and finite.`,
+    );
   }
 }
 
@@ -137,7 +155,9 @@ function assertTabs(
   paneState: WorkspaceShellViewState[WorkspaceShellPaneSide],
 ): void {
   if (tabs.length === 0) {
-    throw new Error(`Workspace shell ${pane} pane requires at least one registered tab.`);
+    throw new Error(
+      `Workspace shell ${pane} pane requires at least one registered tab.`,
+    );
   }
   const ids = new Set<string>();
   for (const tab of tabs) {
@@ -149,21 +169,31 @@ function assertTabs(
     );
   }
   assertPositivePaneWidth(pane, "width", paneState.width);
-  assertPositivePaneWidth(pane, "rememberedNonFullWidth", paneState.rememberedNonFullWidth);
+  assertPositivePaneWidth(
+    pane,
+    "rememberedNonFullWidth",
+    paneState.rememberedNonFullWidth,
+  );
 }
 
 function assertOutlineViewState(viewState: WorkspaceShellViewState): void {
   const { collapsedGroupIds, focusedSectionId } = viewState.outline;
   if (!Array.isArray(collapsedGroupIds)) {
-    throw new Error("Workspace shell Outline collapsedGroupIds must be an array.");
+    throw new Error(
+      "Workspace shell Outline collapsedGroupIds must be an array.",
+    );
   }
   const uniqueIds = new Set<string>();
   for (const sectionId of collapsedGroupIds) {
     if (typeof sectionId !== "string" || sectionId === "") {
-      throw new Error("Workspace shell Outline collapsed group ids must be non-empty strings.");
+      throw new Error(
+        "Workspace shell Outline collapsed group ids must be non-empty strings.",
+      );
     }
     if (uniqueIds.has(sectionId)) {
-      throw new Error(`Workspace shell Outline collapses group ${sectionId} twice.`);
+      throw new Error(
+        `Workspace shell Outline collapses group ${sectionId} twice.`,
+      );
     }
     uniqueIds.add(sectionId);
   }
@@ -171,7 +201,9 @@ function assertOutlineViewState(viewState: WorkspaceShellViewState): void {
     focusedSectionId !== null &&
     (typeof focusedSectionId !== "string" || focusedSectionId === "")
   ) {
-    throw new Error("Workspace shell Outline focusedSectionId must be null or a non-empty string.");
+    throw new Error(
+      "Workspace shell Outline focusedSectionId must be null or a non-empty string.",
+    );
   }
 }
 
@@ -198,7 +230,8 @@ function focusRegisteredTab(
   tabRefs: ShellTabRefs,
 ): void {
   const tab = getTab(pane, tabId, tabs);
-  const initialTarget = target === "initial" ? tab?.initialFocusRef?.current : null;
+  const initialTarget =
+    target === "initial" ? tab?.initialFocusRef?.current : null;
   (initialTarget ?? tabRefs.get(`${pane}:${tabId}`))?.focus();
 }
 
@@ -212,10 +245,19 @@ function applyRequestedFocus(
     return "absent";
   }
   const current = viewState[request.pane];
-  if (current.visible !== request.visible || current.selectedTabId !== request.tabId) {
+  if (
+    current.visible !== request.visible ||
+    current.selectedTabId !== request.tabId
+  ) {
     return "pending";
   }
-  focusRegisteredTab(request.pane, request.tabId, request.target, tabs, tabRefs);
+  focusRegisteredTab(
+    request.pane,
+    request.tabId,
+    request.target,
+    tabs,
+    tabRefs,
+  );
   return "fulfilled";
 }
 
@@ -231,14 +273,26 @@ function focusAfterExternalPaneTransition(
     }
     const panel = registry.panelRefs.get(pane);
     if (panel?.contains(document.activeElement)) {
-      focusRegisteredTab(pane, current.selectedTabId, "tab", registry.tabs, registry.tabRefs);
+      focusRegisteredTab(
+        pane,
+        current.selectedTabId,
+        "tab",
+        registry.tabs,
+        registry.tabRefs,
+      );
     }
     return;
   }
   if (!current.visible || document.activeElement !== document.body) {
     return;
   }
-  focusRegisteredTab(pane, current.selectedTabId, "initial", registry.tabs, registry.tabRefs);
+  focusRegisteredTab(
+    pane,
+    current.selectedTabId,
+    "initial",
+    registry.tabs,
+    registry.tabRefs,
+  );
 }
 
 function getArrowResizeWidth(
@@ -249,7 +303,8 @@ function getArrowResizeWidth(
   if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
     return null;
   }
-  const direction = getComputedStyle(event.currentTarget).direction === "rtl" ? "rtl" : "ltr";
+  const direction =
+    getComputedStyle(event.currentTarget).direction === "rtl" ? "rtl" : "ltr";
   const pointerDelta = event.key === "ArrowRight" ? 1 : -1;
   const growthSign = (pane === "leading") !== (direction === "rtl") ? 1 : -1;
   return currentWidth + pointerDelta * growthSign * (event.shiftKey ? 1 : 10);
@@ -271,9 +326,14 @@ function getRegionStyle(width: number): CSSProperties {
   return { width: `${width}px` };
 }
 
-function getPointerResizeState(session: ResizeSession, clientX: number): WorkspaceShellViewState {
-  const growthSign = (session.pane === "leading") !== (session.direction === "rtl") ? 1 : -1;
-  const requestedWidth = session.startWidth + (clientX - session.startClientX) * growthSign;
+function getPointerResizeState(
+  session: ResizeSession,
+  clientX: number,
+): WorkspaceShellViewState {
+  const growthSign =
+    (session.pane === "leading") !== (session.direction === "rtl") ? 1 : -1;
+  const requestedWidth =
+    session.startWidth + (clientX - session.startClientX) * growthSign;
   return resizeWorkspaceShellPane(
     session.startState,
     session.pane,
@@ -299,7 +359,8 @@ export function WorkspaceShell({
   const instanceId = `workspace-shell-${useId().replaceAll(":", "")}`;
   useWorkspaceFocusVisibility(rootRef);
   const [shellWidth, setShellWidth] = useState(0);
-  const [liveViewState, setLiveViewState] = useState<WorkspaceShellViewState | null>(null);
+  const [liveViewState, setLiveViewState] =
+    useState<WorkspaceShellViewState | null>(null);
   const resolvedSectionTagColorPalette = useMemo(
     () => resolveSectionTagColorPalette(sectionTagColorPalette),
     [sectionTagColorPalette],
@@ -310,7 +371,9 @@ export function WorkspaceShell({
   const resizeSessionRef = useRef<ResizeSession | null>(null);
   const focusRequestRef = useRef<FocusRequest | null>(null);
   const previousViewStateRef = useRef(viewState);
-  const previousLeadingTrueWidthRef = useRef(getWorkspaceShellPaneTrueWidth(viewState.leading));
+  const previousLeadingTrueWidthRef = useRef(
+    getWorkspaceShellPaneTrueWidth(viewState.leading),
+  );
   const ownedViewportInsetsRef = useRef(EMPTY_VIEWPORT_INSETS);
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
   const panelRefs = useRef(new Map<WorkspaceShellPaneSide, HTMLDivElement>());
@@ -374,13 +437,19 @@ export function WorkspaceShell({
   assertTabs("leading", combinedLeadingTabs, viewState.leading);
   assertTabs("trailing", combinedTrailingTabs, viewState.trailing);
 
-  const leadingViewportInset = getWorkspaceShellPaneTrueWidth(displayState.leading);
-  const trailingViewportInset = getWorkspaceShellPaneTrueWidth(displayState.trailing);
+  const leadingViewportInset = getWorkspaceShellPaneTrueWidth(
+    displayState.leading,
+  );
+  const trailingViewportInset = getWorkspaceShellPaneTrueWidth(
+    displayState.trailing,
+  );
 
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) {
-      throw new Error("Workspace shell root did not mount before viewport inset synchronization.");
+      throw new Error(
+        "Workspace shell root did not mount before viewport inset synchronization.",
+      );
     }
     const nextInsets = getPhysicalViewportInsets({
       direction: getElementTextDirection(root),
@@ -388,7 +457,12 @@ export function WorkspaceShell({
       trailing: trailingViewportInset,
     });
     ownedViewportInsetsRef.current = nextInsets;
-    if (!areViewportInsetsEqual(useReactFlow.getState().viewportInsets, nextInsets)) {
+    if (
+      !areViewportInsetsEqual(
+        useReactFlow.getState().viewportInsets,
+        nextInsets,
+      )
+    ) {
       useReactFlow.setState({ viewportInsets: nextInsets });
     }
   }, [leadingViewportInset, trailingViewportInset]);
@@ -409,7 +483,9 @@ export function WorkspaceShell({
 
   function requireMeasuredWidth(): number {
     if (shellWidth <= 0) {
-      throw new Error("Cannot change workspace shell panes before the shell has a measured width.");
+      throw new Error(
+        "Cannot change workspace shell panes before the shell has a measured width.",
+      );
     }
     return shellWidth;
   }
@@ -444,8 +520,16 @@ export function WorkspaceShell({
   useLayoutEffect(() => {
     const previousState = previousViewStateRef.current;
     const focusRequest = focusRequestRef.current;
-    const tabs = { leadingTabs: combinedLeadingTabs, trailingTabs: combinedTrailingTabs };
-    const focusRequestStatus = applyRequestedFocus(focusRequest, viewState, tabs, tabRefs.current);
+    const tabs = {
+      leadingTabs: combinedLeadingTabs,
+      trailingTabs: combinedTrailingTabs,
+    };
+    const focusRequestStatus = applyRequestedFocus(
+      focusRequest,
+      viewState,
+      tabs,
+      tabRefs.current,
+    );
     if (focusRequestStatus === "fulfilled") {
       focusRequestRef.current = null;
     } else if (focusRequestStatus === "absent") {
@@ -455,15 +539,23 @@ export function WorkspaceShell({
         panelRefs: panelRefs.current,
       };
       for (const pane of ["leading", "trailing"] as const) {
-        focusAfterExternalPaneTransition(pane, previousState[pane], viewState[pane], registry);
+        focusAfterExternalPaneTransition(
+          pane,
+          previousState[pane],
+          viewState[pane],
+          registry,
+        );
       }
     }
     previousViewStateRef.current = viewState;
   }, [combinedLeadingTabs, combinedTrailingTabs, viewState]);
 
   useLayoutEffect(() => {
-    const nextLeadingTrueWidth = getWorkspaceShellPaneTrueWidth(viewState.leading);
-    const widthDiff = nextLeadingTrueWidth - previousLeadingTrueWidthRef.current;
+    const nextLeadingTrueWidth = getWorkspaceShellPaneTrueWidth(
+      viewState.leading,
+    );
+    const widthDiff =
+      nextLeadingTrueWidth - previousLeadingTrueWidthRef.current;
     if (leadingPaneShiftsCanvas && widthDiff !== 0) {
       shiftWorkspaceMapForLeadingPane(widthDiff);
     }
@@ -484,7 +576,12 @@ export function WorkspaceShell({
   }
 
   function activateTab(pane: WorkspaceShellPaneSide, tabId: string): void {
-    const next = selectWorkspaceShellTab(viewStateRef.current, pane, tabId, requireMeasuredWidth());
+    const next = selectWorkspaceShellTab(
+      viewStateRef.current,
+      pane,
+      tabId,
+      requireMeasuredWidth(),
+    );
     const tab = getTab(pane, tabId, {
       leadingTabs: combinedLeadingTabs,
       trailingTabs: combinedTrailingTabs,
@@ -501,7 +598,11 @@ export function WorkspaceShell({
     if (!viewStateRef.current[pane].visible) {
       return;
     }
-    const next = toggleWorkspaceShellPane(viewStateRef.current, pane, requireMeasuredWidth());
+    const next = toggleWorkspaceShellPane(
+      viewStateRef.current,
+      pane,
+      requireMeasuredWidth(),
+    );
     requestViewState(next, {
       pane,
       tabId: next[pane].selectedTabId,
@@ -536,7 +637,9 @@ export function WorkspaceShell({
     event.preventDefault();
     const nextTab = tabs[nextIndex];
     if (!nextTab) {
-      throw new Error(`Workspace shell ${pane} tab navigation resolved no tab at ${nextIndex}.`);
+      throw new Error(
+        `Workspace shell ${pane} tab navigation resolved no tab at ${nextIndex}.`,
+      );
     }
     tabRefs.current.get(`${pane}:${nextTab.id}`)?.focus();
     if (nextTab.id !== viewStateRef.current[pane].selectedTabId) {
@@ -562,8 +665,12 @@ export function WorkspaceShell({
     const width = requireMeasuredWidth();
     if (event.key === "End") {
       event.preventDefault();
-      if (!isWorkspaceShellPaneFullWidth(viewStateRef.current[pane].width, width)) {
-        requestViewState(toggleWorkspaceShellPaneFullWidth(viewStateRef.current, pane, width));
+      if (
+        !isWorkspaceShellPaneFullWidth(viewStateRef.current[pane].width, width)
+      ) {
+        requestViewState(
+          toggleWorkspaceShellPaneFullWidth(viewStateRef.current, pane, width),
+        );
       }
       return;
     }
@@ -577,7 +684,14 @@ export function WorkspaceShell({
       return;
     }
     event.preventDefault();
-    requestViewState(resizeWorkspaceShellPane(viewStateRef.current, pane, requestedWidth, width));
+    requestViewState(
+      resizeWorkspaceShellPane(
+        viewStateRef.current,
+        pane,
+        requestedWidth,
+        width,
+      ),
+    );
   }
 
   function handleResizePointerDown(
@@ -592,7 +706,10 @@ export function WorkspaceShell({
     const width = requireMeasuredWidth();
     event.currentTarget.setPointerCapture(event.pointerId);
     resizeSessionRef.current = {
-      direction: getComputedStyle(event.currentTarget).direction === "rtl" ? "rtl" : "ltr",
+      direction:
+        getComputedStyle(event.currentTarget).direction === "rtl"
+          ? "rtl"
+          : "ltr",
       pane,
       pointerId: event.pointerId,
       shellWidth: width,
@@ -610,7 +727,10 @@ export function WorkspaceShell({
     setLiveViewState(getPointerResizeState(session, event.clientX));
   }
 
-  function finishResize(event: PointerEvent<HTMLDivElement>, commit: boolean): void {
+  function finishResize(
+    event: PointerEvent<HTMLDivElement>,
+    commit: boolean,
+  ): void {
     const session = resizeSessionRef.current;
     if (!session || session.pointerId !== event.pointerId) {
       return;
@@ -628,7 +748,10 @@ export function WorkspaceShell({
   const sharedPaneProps = {
     shellWidth,
     instanceId,
-    registerPanel: (pane: WorkspaceShellPaneSide, element: HTMLDivElement | null) => {
+    registerPanel: (
+      pane: WorkspaceShellPaneSide,
+      element: HTMLDivElement | null,
+    ) => {
       if (element) panelRefs.current.set(pane, element);
       else panelRefs.current.delete(pane);
     },
@@ -637,15 +760,21 @@ export function WorkspaceShell({
     onClosePane: closePane,
     onToggleFullWidth: (pane: WorkspaceShellPaneSide) => {
       requestViewState(
-        toggleWorkspaceShellPaneFullWidth(viewStateRef.current, pane, requireMeasuredWidth()),
+        toggleWorkspaceShellPaneFullWidth(
+          viewStateRef.current,
+          pane,
+          requireMeasuredWidth(),
+        ),
       );
     },
     onTabKeyDown: handleTabKeyDown,
     onResizeKeyDown: handleResizeKeyDown,
     onResizePointerDown: handleResizePointerDown,
     onResizePointerMove: handleResizePointerMove,
-    onResizePointerUp: (event: PointerEvent<HTMLDivElement>) => finishResize(event, true),
-    onResizePointerCancel: (event: PointerEvent<HTMLDivElement>) => finishResize(event, false),
+    onResizePointerUp: (event: PointerEvent<HTMLDivElement>) =>
+      finishResize(event, true),
+    onResizePointerCancel: (event: PointerEvent<HTMLDivElement>) =>
+      finishResize(event, false),
   };
 
   return (
@@ -659,7 +788,9 @@ export function WorkspaceShell({
         {...sharedPaneProps}
         pane="leading"
         paneState={displayState.leading}
-        regionStyle={getRegionStyle(getWorkspaceShellPaneTrueWidth(displayState.leading))}
+        regionStyle={getRegionStyle(
+          getWorkspaceShellPaneTrueWidth(displayState.leading),
+        )}
         tabs={combinedLeadingTabs}
       />
       <div className="setta-workspace-shell-center">
@@ -669,7 +800,9 @@ export function WorkspaceShell({
         {...sharedPaneProps}
         pane="trailing"
         paneState={displayState.trailing}
-        regionStyle={getRegionStyle(getWorkspaceShellPaneTrueWidth(displayState.trailing))}
+        regionStyle={getRegionStyle(
+          getWorkspaceShellPaneTrueWidth(displayState.trailing),
+        )}
         tabs={combinedTrailingTabs}
       />
       <div className="setta-workspace-shell-controls">

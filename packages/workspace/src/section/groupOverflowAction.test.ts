@@ -5,9 +5,19 @@ import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
-import type { WorkspaceDocument, WorkspaceSectionInput } from "../document/types";
-import { getBoundedGroupSize, setGroupOverflowMode } from "./groupOverflowAction";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
+import type {
+  WorkspaceDocument,
+  WorkspaceSectionInput,
+} from "../document/types";
+import {
+  getBoundedGroupSize,
+  setGroupOverflowMode,
+} from "./groupOverflowAction";
 import { useSectionRefs } from "./sectionRefs";
 
 function makeSection(
@@ -31,7 +41,9 @@ function makeSection(
   };
 }
 
-function loadTestDocument(groupOverrides: Partial<WorkspaceSectionInput> = {}): void {
+function loadTestDocument(
+  groupOverrides: Partial<WorkspaceSectionInput> = {},
+): void {
   loadWorkspaceDocument({
     sections: {
       group: makeSection("group", "group", {
@@ -54,7 +66,14 @@ function loadTestDocument(groupOverrides: Partial<WorkspaceSectionInput> = {}): 
 function registerMeasuredGroup(width: number, height: number): HTMLElement {
   const element = document.createElement("div");
   element.getBoundingClientRect = () =>
-    ({ width, height, left: 0, top: 0, right: width, bottom: height }) as DOMRect;
+    ({
+      width,
+      height,
+      left: 0,
+      top: 0,
+      right: width,
+      bottom: height,
+    }) as DOMRect;
   useSectionRefs.setState({ withNested: { group: element } });
   return element;
 }
@@ -62,7 +81,11 @@ function registerMeasuredGroup(width: number, height: number): HTMLElement {
 describe("getBoundedGroupSize", () => {
   it("promotes only auto dimensions from the rounded outer group rectangle", () => {
     expect(
-      getBoundedGroupSize("group", { width: "auto", height: 180 }, { width: 321.6, height: 900 }),
+      getBoundedGroupSize(
+        "group",
+        { width: "auto", height: 180 },
+        { width: 321.6, height: 900 },
+      ),
     ).toEqual({ width: 322, height: 180 });
     expect(
       getBoundedGroupSize(
@@ -71,15 +94,21 @@ describe("getBoundedGroupSize", () => {
         { width: 321.4, height: 179.6 },
       ),
     ).toEqual({ width: 321, height: 180 });
-    expect(getBoundedGroupSize("group", { width: 320, height: 180 }, null)).toBeNull();
+    expect(
+      getBoundedGroupSize("group", { width: 320, height: 180 }, null),
+    ).toBeNull();
   });
 
   it("rejects an unavailable or empty measurement for an auto dimension", () => {
-    expect(() => getBoundedGroupSize("group", { width: "auto", height: 180 }, null)).toThrow(
-      /before its auto-sized surface is mounted/,
-    );
     expect(() =>
-      getBoundedGroupSize("group", { width: 320, height: "auto" }, { width: 320, height: 0 }),
+      getBoundedGroupSize("group", { width: "auto", height: 180 }, null),
+    ).toThrow(/before its auto-sized surface is mounted/);
+    expect(() =>
+      getBoundedGroupSize(
+        "group",
+        { width: 320, height: "auto" },
+        { width: 320, height: 0 },
+      ),
     ).toThrow(/unmeasured group group/);
     expect(() =>
       getBoundedGroupSize(
@@ -134,7 +163,9 @@ describe("setGroupOverflowMode", () => {
       unsubscribe();
     }
 
-    expect(observed).toEqual([{ overflowMode: true, size: { width: 368, height: 242 } }]);
+    expect(observed).toEqual([
+      { overflowMode: true, size: { width: 368, height: 242 } },
+    ]);
     expect(reported).toHaveLength(1);
     expect(reported[0]?.sections["group"]).toMatchObject({
       overflowMode: true,
@@ -186,10 +217,16 @@ describe("setGroupOverflowMode", () => {
     setWorkspaceDocumentChangeCallback(onDocumentChange);
     const originalSections = useWorkspaceDocument.getState().sections;
 
-    expect(() => setGroupOverflowMode("group", "bounded" as never)).toThrow(/must be a boolean/);
+    expect(() => setGroupOverflowMode("group", "bounded" as never)).toThrow(
+      /must be a boolean/,
+    );
     expect(() => setGroupOverflowMode("leaf", true)).toThrow(/is not a group/);
-    expect(() => setGroupOverflowMode("missing", true)).toThrow(/Unknown section missing/);
-    expect(() => setGroupOverflowMode("group", true)).toThrow(/before its auto-sized surface/);
+    expect(() => setGroupOverflowMode("missing", true)).toThrow(
+      /Unknown section missing/,
+    );
+    expect(() => setGroupOverflowMode("group", true)).toThrow(
+      /before its auto-sized surface/,
+    );
 
     loadTestDocument({ positionAndSizeLocked: true });
     expect(() => setGroupOverflowMode("group", true)).toThrow(/is locked/);
@@ -202,6 +239,8 @@ describe("setGroupOverflowMode", () => {
 
     expect(onDocumentChange).not.toHaveBeenCalled();
     expect(originalSections["group"]?.overflowMode).toBe(false);
-    expect(useWorkspaceDocument.getState().sections["group"]?.overflowMode).toBe(false);
+    expect(
+      useWorkspaceDocument.getState().sections["group"]?.overflowMode,
+    ).toBe(false);
   });
 });

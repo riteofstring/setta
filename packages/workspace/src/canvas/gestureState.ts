@@ -3,7 +3,7 @@ import { withResetFn } from "../state/storeUtils";
 
 // The reference tracks this on its app-wide `useMisc` store; it suppresses section click
 // activation while a section drag (and, in later batches, a resize) is in progress.
-export type CanvasGestureState = {
+type CanvasGestureState = {
   mouseDownDraggingSection: boolean;
 };
 

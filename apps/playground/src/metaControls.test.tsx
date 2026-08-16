@@ -17,7 +17,9 @@ import {
   registerPlaygroundSectionKinds,
 } from "./sectionKinds";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function getMetaSection(sectionId: string): WorkspaceSection {
   const section = getWorkspaceDocument().sections[sectionId];
@@ -29,31 +31,53 @@ function getMetaSection(sectionId: string): WorkspaceSection {
 
 function getMetaDataNumber(sectionId: string, field: string): number {
   const data = getMetaSection(sectionId).data;
-  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
+  if (
+    data === null ||
+    data === undefined ||
+    typeof data !== "object" ||
+    Array.isArray(data)
+  ) {
     throw new Error(`Meta section ${sectionId} lost its opaque data.`);
   }
   const value = data[field];
   if (typeof value !== "number") {
-    throw new Error(`Meta section ${sectionId} lost its numeric ${field} field.`);
+    throw new Error(
+      `Meta section ${sectionId} lost its numeric ${field} field.`,
+    );
   }
   return value;
 }
 
 function getMetaDataString(sectionId: string, field: string): string {
   const data = getMetaSection(sectionId).data;
-  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
+  if (
+    data === null ||
+    data === undefined ||
+    typeof data !== "object" ||
+    Array.isArray(data)
+  ) {
     throw new Error(`Meta section ${sectionId} lost its opaque data.`);
   }
   const value = data[field];
   if (typeof value !== "string") {
-    throw new Error(`Meta section ${sectionId} lost its string ${field} field.`);
+    throw new Error(
+      `Meta section ${sectionId} lost its string ${field} field.`,
+    );
   }
   return value;
 }
 
-function getMetaDataArray(sectionId: string, field: string): Array<WorkspaceSectionData> {
+function getMetaDataArray(
+  sectionId: string,
+  field: string,
+): Array<WorkspaceSectionData> {
   const data = getMetaSection(sectionId).data;
-  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
+  if (
+    data === null ||
+    data === undefined ||
+    typeof data !== "object" ||
+    Array.isArray(data)
+  ) {
     throw new Error(`Meta section ${sectionId} lost its opaque data.`);
   }
   const value = data[field];
@@ -95,7 +119,11 @@ describe("the playground representative meta controls", () => {
 
   async function mount(sectionId: string) {
     await act(async () => {
-      root.render(createElement(MetaControlSectionBody, { section: getMetaSection(sectionId) }));
+      root.render(
+        createElement(MetaControlSectionBody, {
+          section: getMetaSection(sectionId),
+        }),
+      );
     });
   }
 
@@ -108,19 +136,49 @@ describe("the playground representative meta controls", () => {
       "meta-text",
       "meta-time",
     ]) {
-      expect(getMetaSection(sectionId).size).toEqual({ width: 200, height: 44 });
-      expect(playgroundDocument.topLevelSections[sectionId]).toMatchObject({ w: 200, h: 44 });
+      expect(getMetaSection(sectionId).size).toEqual({
+        width: 200,
+        height: 44,
+      });
+      expect(playgroundDocument.topLevelSections[sectionId]).toMatchObject({
+        w: 200,
+        h: 44,
+      });
     }
     for (const sectionId of ["meta-dropdown", "meta-password", "meta-slider"]) {
-      expect(getMetaSection(sectionId).size).toEqual({ width: 200, height: "auto" });
-      expect(playgroundDocument.topLevelSections[sectionId]).toMatchObject({ w: 200, h: 44 });
+      expect(getMetaSection(sectionId).size).toEqual({
+        width: 200,
+        height: "auto",
+      });
+      expect(playgroundDocument.topLevelSections[sectionId]).toMatchObject({
+        w: 200,
+        h: 44,
+      });
     }
-    expect(getMetaSection("meta-date").size).toEqual({ width: 200, height: "auto" });
-    expect(playgroundDocument.topLevelSections["meta-date"]).toMatchObject({ w: 200, h: null });
-    expect(getMetaSection("meta-textarea").size).toEqual({ width: 200, height: 98 });
-    expect(playgroundDocument.topLevelSections["meta-textarea"]).toMatchObject({ w: 200, h: 98 });
-    expect(getMetaSection("meta-dropzone").size).toEqual({ width: 240, height: 120 });
-    expect(playgroundDocument.topLevelSections["meta-dropzone"]).toMatchObject({ w: 240, h: 120 });
+    expect(getMetaSection("meta-date").size).toEqual({
+      width: 200,
+      height: "auto",
+    });
+    expect(playgroundDocument.topLevelSections["meta-date"]).toMatchObject({
+      w: 200,
+      h: null,
+    });
+    expect(getMetaSection("meta-textarea").size).toEqual({
+      width: 200,
+      height: 98,
+    });
+    expect(playgroundDocument.topLevelSections["meta-textarea"]).toMatchObject({
+      w: 200,
+      h: 98,
+    });
+    expect(getMetaSection("meta-dropzone").size).toEqual({
+      width: 240,
+      height: 120,
+    });
+    expect(playgroundDocument.topLevelSections["meta-dropzone"]).toMatchObject({
+      w: 240,
+      h: 120,
+    });
   });
 
   it("commits Button actions and edit requests into opaque section data", async () => {
@@ -137,22 +195,32 @@ describe("the playground representative meta controls", () => {
   it("renders the complete host fixture through the package dispatcher", async () => {
     await mount("meta-dropdown");
     expect(
-      getRequiredElement(host, "[role='combobox']", "Dropdown combobox").getAttribute("aria-label"),
+      getRequiredElement(
+        host,
+        "[role='combobox']",
+        "Dropdown combobox",
+      ).getAttribute("aria-label"),
     ).toBe("Dropdown value");
 
     await mount("meta-slider");
     expect(
-      getRequiredElement(host, "[role='slider']", "Slider thumb").getAttribute("aria-label"),
+      getRequiredElement(host, "[role='slider']", "Slider thumb").getAttribute(
+        "aria-label",
+      ),
     ).toBe("Slider value");
 
     await mount("meta-rotary");
     expect(
-      getRequiredElement(host, "[role='slider']", "Rotary knob").getAttribute("aria-label"),
+      getRequiredElement(host, "[role='slider']", "Rotary knob").getAttribute(
+        "aria-label",
+      ),
     ).toBe("Rotary value");
 
     await mount("meta-switch");
     expect(
-      getRequiredElement(host, "[role='switch']", "Switch action").getAttribute("aria-label"),
+      getRequiredElement(host, "[role='switch']", "Switch action").getAttribute(
+        "aria-label",
+      ),
     ).toBe("Switch value");
 
     await mount("meta-text");
@@ -165,7 +233,9 @@ describe("the playground representative meta controls", () => {
     expect(dummy.className).toContain("single-cell-child");
 
     await mount("meta-date");
-    expect(host.querySelector("[role='group'][aria-label='Date value']")).not.toBeNull();
+    expect(
+      host.querySelector("[role='group'][aria-label='Date value']"),
+    ).not.toBeNull();
 
     await mount("meta-time");
     const timeInput = getRequiredElement<HTMLInputElement>(
@@ -187,22 +257,32 @@ describe("the playground representative meta controls", () => {
 
     await mount("meta-password");
     expect(
-      getRequiredElement(host, "input[type='password']", "Password input").getAttribute(
-        "aria-label",
-      ),
+      getRequiredElement(
+        host,
+        "input[type='password']",
+        "Password input",
+      ).getAttribute("aria-label"),
     ).toBe("Password value");
 
     await mount("meta-color");
     expect(
-      getRequiredElement(host, "input[type='color']", "Color input").getAttribute("aria-label"),
+      getRequiredElement(
+        host,
+        "input[type='color']",
+        "Color input",
+      ).getAttribute("aria-label"),
     ).toBe("Color value");
 
     await mount("meta-button");
-    expect(getRequiredElement(host, "button", "Button action").textContent).toBe("Trigger");
+    expect(
+      getRequiredElement(host, "button", "Button action").textContent,
+    ).toBe("Trigger");
 
     await mount("meta-dropzone");
     expect(
-      host.querySelector("[role='group'][aria-label='Dropzone dropzone: Drop a file here']"),
+      host.querySelector(
+        "[role='group'][aria-label='Dropzone dropzone: Drop a file here']",
+      ),
     ).not.toBeNull();
   });
 
@@ -211,9 +291,12 @@ describe("the playground representative meta controls", () => {
     expect(getMetaDataString("meta-text", "value")).toBe("threshold");
 
     await mount("meta-switch");
-    const switchButton = host.querySelector<HTMLButtonElement>("[role='switch']");
+    const switchButton =
+      host.querySelector<HTMLButtonElement>("[role='switch']");
     if (!switchButton) {
-      throw new Error("The playground Switch meta control did not render its action.");
+      throw new Error(
+        "The playground Switch meta control did not render its action.",
+      );
     }
     await act(async () => switchButton.click());
     expect(getMetaDataString("meta-switch", "value")).toBe("true");
@@ -223,11 +306,17 @@ describe("the playground representative meta controls", () => {
       (button) => button.textContent === "Server file...",
     );
     if (!serverButton) {
-      throw new Error("The playground Dropzone meta control did not render its server action.");
+      throw new Error(
+        "The playground Dropzone meta control did not render its server action.",
+      );
     }
     await act(async () => serverButton.click());
     expect(getMetaDataArray("meta-dropzone", "attachments")).toEqual([
-      expect.objectContaining({ kind: "file", name: "server-example.csv", size: 2048 }),
+      expect.objectContaining({
+        kind: "file",
+        name: "server-example.csv",
+        size: 2048,
+      }),
     ]);
   });
 
@@ -240,6 +329,8 @@ describe("the playground representative meta controls", () => {
           data: { control: "mystery", showSectionTitle: false },
         },
       }),
-    ).toThrowError("Meta control section meta-mystery names the unknown control mystery.");
+    ).toThrowError(
+      "Meta control section meta-mystery names the unknown control mystery.",
+    );
   });
 });

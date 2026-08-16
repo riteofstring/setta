@@ -13,7 +13,11 @@ import {
   type WorkspaceSectionKindIconProps,
 } from "../document/sectionKindRegistry";
 import { deleteSection, setSectionName } from "../document/sectionMutations";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { Node, WorkspaceSection } from "../document/types";
 import { WorkspaceOutline } from "./WorkspaceOutline";
 import type { WorkspaceShellOutlineViewState } from "./workspaceShellTypes";
@@ -24,10 +28,18 @@ const { focusWorkspaceSection } = vi.hoisted(() => ({
 
 vi.mock("../canvas/viewportHelpers", () => ({ focusWorkspaceSection }));
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function LeafIcon({ sectionId }: WorkspaceSectionKindIconProps) {
-  return <svg data-icon-section-id={sectionId} data-testid="leaf-icon" viewBox="0 0 12 12" />;
+  return (
+    <svg
+      data-icon-section-id={sectionId}
+      data-testid="leaf-icon"
+      viewBox="0 0 12 12"
+    />
+  );
 }
 
 function createSection(
@@ -92,7 +104,11 @@ function loadOutlineDocument(): void {
   });
 }
 
-function Harness({ onChange }: { onChange: (state: WorkspaceShellOutlineViewState) => void }) {
+function Harness({
+  onChange,
+}: {
+  onChange: (state: WorkspaceShellOutlineViewState) => void;
+}) {
   const initialFocusRef = useRef<HTMLElement>(null);
   const [viewState, setViewState] = useState<WorkspaceShellOutlineViewState>({
     collapsedGroupIds: [],
@@ -161,7 +177,9 @@ describe("WorkspaceOutline", () => {
   }
 
   function getFilterInput(): HTMLInputElement {
-    const input = host.querySelector<HTMLInputElement>(".setta-workspace-outline-filter-input");
+    const input = host.querySelector<HTMLInputElement>(
+      ".setta-workspace-outline-filter-input",
+    );
     if (!input) {
       throw new Error("Expected the Outline filter input.");
     }
@@ -171,7 +189,10 @@ describe("WorkspaceOutline", () => {
   async function filterOutline(value: string): Promise<void> {
     await act(async () => {
       const input = getFilterInput();
-      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
       if (!valueSetter) {
         throw new Error("Expected the native input value setter.");
       }
@@ -180,7 +201,11 @@ describe("WorkspaceOutline", () => {
     });
   }
 
-  async function key(sectionId: string, keyValue: string, init?: KeyboardEventInit) {
+  async function key(
+    sectionId: string,
+    keyValue: string,
+    init?: KeyboardEventInit,
+  ) {
     await act(async () => {
       getRow(sectionId).dispatchEvent(
         new KeyboardEvent("keydown", { bubbles: true, key: keyValue, ...init }),
@@ -189,7 +214,9 @@ describe("WorkspaceOutline", () => {
   }
 
   it("renders a recursive multi-select tree with one tab stop and no nested interactive rows", () => {
-    const tree = host.querySelector('[role="tree"][aria-label="Workspace outline"]');
+    const tree = host.querySelector(
+      '[role="tree"][aria-label="Workspace outline"]',
+    );
     expect(tree?.getAttribute("aria-multiselectable")).toBe("true");
     expect(
       Array.from(host.querySelectorAll('[role="treeitem"]')).map((row) =>
@@ -201,10 +228,14 @@ describe("WorkspaceOutline", () => {
     expect(getRow("bravo").getAttribute("aria-level")).toBe("2");
     expect(getRow("bravo").getAttribute("aria-posinset")).toBe("1");
     expect(getRow("bravo").getAttribute("aria-setsize")).toBe("2");
-    expect(host.querySelectorAll('[role="treeitem"][tabindex="0"]')).toHaveLength(1);
+    expect(
+      host.querySelectorAll('[role="treeitem"][tabindex="0"]'),
+    ).toHaveLength(1);
     expect(getRow("alpha").tabIndex).toBe(0);
     for (const row of host.querySelectorAll('[role="treeitem"]')) {
-      expect(row.querySelector("button, a, input, select, textarea, [tabindex]")).toBeNull();
+      expect(
+        row.querySelector("button, a, input, select, textarea, [tabindex]"),
+      ).toBeNull();
     }
     expect(getRow("bravo").textContent).toContain(
       "locked, minimized, style accent #3b82f6, color tag #ef4444",
@@ -218,39 +249,56 @@ describe("WorkspaceOutline", () => {
 
   it("filters fuzzy section names, reveals matching paths, and restores collapsed state", async () => {
     const filter = getFilterInput();
-    const tree = host.querySelector<HTMLElement>('[role="tree"][aria-label="Workspace outline"]');
+    const tree = host.querySelector<HTMLElement>(
+      '[role="tree"][aria-label="Workspace outline"]',
+    );
     expect(filter.getAttribute("aria-controls")).toBe(tree?.id);
     expect(filter.placeholder).toBe("Filter");
-    expect(filter.compareDocumentPosition(getRow("alpha")) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    expect(
+      filter.compareDocumentPosition(getRow("alpha")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 
     const disclosure = getRow("alpha").querySelector<HTMLElement>(
       "[data-workspace-outline-disclosure]",
     );
     await act(async () => {
-      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+      disclosure?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, button: 0 }),
+      );
     });
-    expect(host.querySelector('[data-workspace-outline-item="bravo"]')).toBeNull();
+    expect(
+      host.querySelector('[data-workspace-outline-item="bravo"]'),
+    ).toBeNull();
 
     await filterOutline("brv");
     expect(getRow("alpha").getAttribute("aria-expanded")).toBe("true");
     expect(getRow("bravo").textContent).toContain("Bravo");
-    expect(host.querySelector('[data-workspace-outline-item="charlie"]')).toBeNull();
-    expect(host.querySelector('[data-workspace-outline-item="echo"]')).toBeNull();
-    expect(getRow("alpha").querySelector("[data-workspace-outline-disclosure]")).toBeNull();
+    expect(
+      host.querySelector('[data-workspace-outline-item="charlie"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector('[data-workspace-outline-item="echo"]'),
+    ).toBeNull();
+    expect(
+      getRow("alpha").querySelector("[data-workspace-outline-disclosure]"),
+    ).toBeNull();
 
     await filterOutline("no such section");
     expect(tree?.textContent).toContain("No matching sections");
 
     await filterOutline("");
-    expect(host.querySelector('[data-workspace-outline-item="bravo"]')).toBeNull();
+    expect(
+      host.querySelector('[data-workspace-outline-item="bravo"]'),
+    ).toBeNull();
     expect(getRow("alpha").getAttribute("aria-expanded")).toBe("false");
   });
 
   it("focuses and routes plain or modified pointer selection through the shared policy", async () => {
     await act(async () => {
-      getRow("bravo").dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+      getRow("bravo").dispatchEvent(
+        new MouseEvent("click", { bubbles: true, button: 0 }),
+      );
     });
     expect(getActiveSectionIds()).toEqual(["bravo"]);
     expect(getRow("bravo").getAttribute("aria-selected")).toBe("true");
@@ -302,12 +350,16 @@ describe("WorkspaceOutline", () => {
       "[data-workspace-outline-disclosure]",
     );
     await act(async () => {
-      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+      disclosure?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, button: 0 }),
+      );
     });
 
     expect(getActiveSectionIds()).toEqual([]);
     expect(getRow("alpha").getAttribute("aria-expanded")).toBe("false");
-    expect(host.querySelector('[data-workspace-outline-item="bravo"]')).toBeNull();
+    expect(
+      host.querySelector('[data-workspace-outline-item="bravo"]'),
+    ).toBeNull();
     expect(document.activeElement).toBe(getRow("alpha"));
   });
 
@@ -350,7 +402,9 @@ describe("WorkspaceOutline", () => {
     await act(async () => {
       deleteSection("bravo");
     });
-    expect(host.querySelector('[data-workspace-outline-item="bravo"]')).toBeNull();
+    expect(
+      host.querySelector('[data-workspace-outline-item="bravo"]'),
+    ).toBeNull();
     expect(document.activeElement).toBe(getRow("charlie"));
     expect(getRow("charlie").tabIndex).toBe(0);
   });

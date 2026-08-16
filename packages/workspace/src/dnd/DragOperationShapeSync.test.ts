@@ -1,7 +1,10 @@
 import type { BoundingRectangle } from "@dnd-kit/geometry";
 import { describe, expect, it, vi } from "vitest";
 
-import { resolveDragBaseRect, resolveSelectionBoundingRect } from "./DragOperationShapeSync";
+import {
+  resolveDragBaseRect,
+  resolveSelectionBoundingRect,
+} from "./DragOperationShapeSync";
 
 function rect({
   left,

@@ -6,16 +6,21 @@ import { deriveSectionStyleTheme } from "./sectionStyleColors";
 import { resolveSectionStyleVars } from "./sectionStyleVars";
 
 function parseHexRgb(value: string) {
-  return [1, 3, 5].map((start) => Number.parseInt(value.slice(start, start + 2), 16));
+  return [1, 3, 5].map((start) =>
+    Number.parseInt(value.slice(start, start + 2), 16),
+  );
 }
 
 function linearizeSrgbByte(value: number) {
   const channel = value / 255;
-  return channel <= 0.04045 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+  return channel <= 0.04045
+    ? channel / 12.92
+    : Math.pow((channel + 0.055) / 1.055, 2.4);
 }
 
 function relativeLuminance(value: string) {
-  const [red = 0, green = 0, blue = 0] = parseHexRgb(value).map(linearizeSrgbByte);
+  const [red = 0, green = 0, blue = 0] =
+    parseHexRgb(value).map(linearizeSrgbByte);
   return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
 }
 
@@ -28,9 +33,13 @@ function getContrastRatio(left: string, right: string) {
 }
 
 function getFourBitRgbCube() {
-  const channels = Array.from({ length: 16 }, (_, index) => index.toString(16).repeat(2));
+  const channels = Array.from({ length: 16 }, (_, index) =>
+    index.toString(16).repeat(2),
+  );
   return channels.flatMap((red) =>
-    channels.flatMap((green) => channels.map((blue) => `#${red}${green}${blue}`)),
+    channels.flatMap((green) =>
+      channels.map((blue) => `#${red}${green}${blue}`),
+    ),
   );
 }
 
@@ -87,7 +96,9 @@ describe("deriveSectionStyleTheme", () => {
         const theme = deriveSectionStyleTheme(styleColor, darkMode);
         expect(theme).not.toBeNull();
         if (theme) {
-          expect(getContrastRatio(theme.text, theme.bg)).toBeGreaterThanOrEqual(4.5);
+          expect(getContrastRatio(theme.text, theme.bg)).toBeGreaterThanOrEqual(
+            4.5,
+          );
         }
       }
     }
@@ -96,7 +107,9 @@ describe("deriveSectionStyleTheme", () => {
 
 describe("resolveSectionStyleVars", () => {
   it("maps the derived theme onto the six section-style CSS variables", () => {
-    expect(resolveSectionStyleVars(deriveSectionStyleTheme("#3b82f6", true))).toEqual({
+    expect(
+      resolveSectionStyleVars(deriveSectionStyleTheme("#3b82f6", true)),
+    ).toEqual({
       "--setta-section-style-bg": "#0b172c",
       "--setta-section-style-panel-bg": "#0f2240",
       "--setta-section-style-border": "#183462",

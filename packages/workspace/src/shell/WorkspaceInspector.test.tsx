@@ -25,7 +25,9 @@ import {
 } from "../section/sectionTagColors";
 import { WorkspaceInspector } from "./WorkspaceInspector";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function makeSection(
   id: string,
@@ -119,7 +121,10 @@ function createDocument(
   };
 }
 
-function setInputValue(input: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+function setInputValue(
+  input: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+): void {
   const prototype =
     input instanceof HTMLTextAreaElement
       ? HTMLTextAreaElement.prototype
@@ -132,7 +137,10 @@ function setInputValue(input: HTMLInputElement | HTMLTextAreaElement, value: str
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-function getLabeledControl<T extends HTMLElement>(host: HTMLElement, labelText: string): T {
+function getLabeledControl<T extends HTMLElement>(
+  host: HTMLElement,
+  labelText: string,
+): T {
   const label = [...host.querySelectorAll("label")].find(
     (candidate) => candidate.textContent?.trim() === labelText,
   );
@@ -174,9 +182,12 @@ function createHelpItemDocument(helpText: string): WorkspaceDocumentInput {
 
 function getStoredItemPresentation() {
   const presentation =
-    useWorkspaceDocument.getState().sections.items?.itemTree?.items.value?.presentation;
+    useWorkspaceDocument.getState().sections.items?.itemTree?.items.value
+      ?.presentation;
   if (!presentation) {
-    throw new Error("Expected the Inspector fixture's typed item presentation.");
+    throw new Error(
+      "Expected the Inspector fixture's typed item presentation.",
+    );
   }
   return presentation;
 }
@@ -191,7 +202,9 @@ function getInspectorStatus(host: HTMLElement): string {
 
 function getAccessibleDescription(control: HTMLElement): string {
   const descriptionId = control.getAttribute("aria-describedby");
-  const description = descriptionId ? document.getElementById(descriptionId) : null;
+  const description = descriptionId
+    ? document.getElementById(descriptionId)
+    : null;
   if (!description) {
     throw new Error("Expected the Inspector control's accessible description.");
   }
@@ -232,7 +245,9 @@ describe("WorkspaceInspector", () => {
       },
       custom: {
         renderContent: () => null,
-        renderInspector: (context) => <button type="button">Host {context.type} inspector</button>,
+        renderInspector: (context) => (
+          <button type="button">Host {context.type} inspector</button>
+        ),
       },
     });
   });
@@ -294,7 +309,9 @@ describe("WorkspaceInspector", () => {
     expect(onChange).not.toHaveBeenCalled();
 
     await act(async () => {
-      accent.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+      accent.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+      );
     });
 
     expect(document.activeElement).toBe(
@@ -312,11 +329,9 @@ describe("WorkspaceInspector", () => {
     ]);
     const colorTag = getLabeledControl<HTMLSelectElement>(host, "Color tag");
 
-    expect(Array.from(colorTag.options).map((option) => option.textContent)).toEqual([
-      "None",
-      "Host slate",
-      "Host teal",
-    ]);
+    expect(
+      Array.from(colorTag.options).map((option) => option.textContent),
+    ).toEqual(["None", "Host slate", "Host teal"]);
     expect(host.textContent).toContain("None · no tag color");
     expect(colorTag.getAttribute("aria-describedby")).not.toBeNull();
 
@@ -325,12 +340,14 @@ describe("WorkspaceInspector", () => {
       colorTag.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    expect(useWorkspaceDocument.getState().sections["alpha"]?.tagColor).toBe("#0f766e");
+    expect(useWorkspaceDocument.getState().sections["alpha"]?.tagColor).toBe(
+      "#0f766e",
+    );
     expect(host.textContent).toContain("Host teal · #0f766e");
     expect(onChange).toHaveBeenCalledOnce();
-    expect(host.querySelector(".setta-workspace-inspector-status")?.textContent).toContain(
-      "Section color tag set to Host teal (#0f766e)",
-    );
+    expect(
+      host.querySelector(".setta-workspace-inspector-status")?.textContent,
+    ).toContain("Section color tag set to Host teal (#0f766e)");
 
     const reset = getButton(host, "Reset");
     expect(reset.getAttribute("aria-label")).toBe("Reset color tag to none");
@@ -338,7 +355,9 @@ describe("WorkspaceInspector", () => {
       reset.click();
     });
 
-    expect(useWorkspaceDocument.getState().sections["alpha"]?.tagColor).toBeNull();
+    expect(
+      useWorkspaceDocument.getState().sections["alpha"]?.tagColor,
+    ).toBeNull();
     expect(colorTag.value).toBe("");
     expect(reset.disabled).toBe(true);
     expect(onChange).toHaveBeenCalledTimes(2);
@@ -354,11 +373,9 @@ describe("WorkspaceInspector", () => {
 
     const colorTag = getLabeledControl<HTMLSelectElement>(host, "Color tag");
     expect(colorTag.value).toBe("#abcdef");
-    expect(Array.from(colorTag.options).map((option) => option.textContent)).toEqual([
-      "None",
-      "Custom (#abcdef)",
-      "Host slate",
-    ]);
+    expect(
+      Array.from(colorTag.options).map((option) => option.textContent),
+    ).toEqual(["None", "Custom (#abcdef)", "Host slate"]);
     expect(host.textContent).toContain("Custom · #abcdef");
   });
 
@@ -372,10 +389,9 @@ describe("WorkspaceInspector", () => {
 
     const colorTag = getLabeledControl<HTMLSelectElement>(host, "Color tag");
     expect(colorTag.value).toBe("#abcdef");
-    expect(Array.from(colorTag.options).map((option) => option.textContent)).toEqual([
-      "None",
-      "Custom (#abcdef)",
-    ]);
+    expect(
+      Array.from(colorTag.options).map((option) => option.textContent),
+    ).toEqual(["None", "Custom (#abcdef)"]);
     expect(host.textContent).toContain("Custom · #abcdef");
   });
 
@@ -396,12 +412,20 @@ describe("WorkspaceInspector", () => {
     const maximum = getLabeledControl<HTMLInputElement>(host, "max");
     const step = getLabeledControl<HTMLInputElement>(host, "step");
     expect(step.step).toBe("any");
-    expect(host.querySelector('[data-inspector-focus-key="item-value"]')).toBeNull();
-    expect(host.querySelector('[aria-label="Amount value numeric value"]')).toBeNull();
-    expect(host.querySelector('[aria-label="Item name"]')?.hasAttribute("aria-disabled")).toBe(
+    expect(
+      host.querySelector('[data-inspector-focus-key="item-value"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector('[aria-label="Amount value numeric value"]'),
+    ).toBeNull();
+    expect(
+      host
+        .querySelector('[aria-label="Item name"]')
+        ?.hasAttribute("aria-disabled"),
+    ).toBe(false);
+    expect(getLabeledControl<HTMLSelectElement>(host, "UI type").disabled).toBe(
       false,
     );
-    expect(getLabeledControl<HTMLSelectElement>(host, "UI type").disabled).toBe(false);
 
     await act(async () => {
       minimum.focus();
@@ -414,7 +438,9 @@ describe("WorkspaceInspector", () => {
     expect(onChange).not.toHaveBeenCalled();
 
     await act(async () => {
-      minimum.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+      minimum.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+      );
     });
 
     expect(document.activeElement).toBe(
@@ -439,29 +465,37 @@ describe("WorkspaceInspector", () => {
     });
 
     const control =
-      useWorkspaceDocument.getState().sections["items"]?.itemTree?.items["value"]?.presentation
-        ?.control;
+      useWorkspaceDocument.getState().sections["items"]?.itemTree?.items[
+        "value"
+      ]?.presentation?.control;
     expect(control).toMatchObject({
       kind: "slider",
       configuration: { min: 10, max: 20, step: 0.5 },
     });
     expect(onChange).toHaveBeenCalledTimes(3);
-    expect(host.querySelector(".setta-workspace-inspector-status")?.textContent).toContain(
-      "slider configuration updated",
-    );
+    expect(
+      host.querySelector(".setta-workspace-inspector-status")?.textContent,
+    ).toContain("slider configuration updated");
   });
 
   it("commits serializable item help from the labeled Inspector field", async () => {
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);
-    await renderInspector(createHelpItemDocument("Controls whether retries are enabled."));
+    await renderInspector(
+      createHelpItemDocument("Controls whether retries are enabled."),
+    );
     const help = getLabeledControl<HTMLTextAreaElement>(host, "Help text");
     expect(help.value).toBe("Controls whether retries are enabled.");
-    expect(getAccessibleDescription(help)).toContain("Shown from the parameter row");
+    expect(getAccessibleDescription(help)).toContain(
+      "Shown from the parameter row",
+    );
 
     await act(async () => {
       help.focus();
-      setInputValue(help, "Runs before each retry.\nUse a small value for tests.");
+      setInputValue(
+        help,
+        "Runs before each retry.\nUse a small value for tests.",
+      );
       help.blur();
     });
 
@@ -481,13 +515,17 @@ describe("WorkspaceInspector", () => {
     await act(async () => {
       help.focus();
       setInputValue(help, "Discard this draft");
-      help.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+      help.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+      );
     });
 
     expect(document.activeElement).toBe(
       host.querySelector('[aria-label="Workspace Inspector selection"]'),
     );
-    expect(getStoredItemPresentation().helpText).toBe("Keep this committed help.");
+    expect(getStoredItemPresentation().helpText).toBe(
+      "Keep this committed help.",
+    );
     expect(onChange).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -511,10 +549,16 @@ describe("WorkspaceInspector", () => {
   it("keeps locked section sizing read-only until the section is unlocked", async () => {
     await renderInspector(createDocument(["bravo"]));
 
-    expect(getLabeledControl<HTMLInputElement>(host, "Width").disabled).toBe(true);
-    expect(getLabeledControl<HTMLInputElement>(host, "Height").disabled).toBe(true);
+    expect(getLabeledControl<HTMLInputElement>(host, "Width").disabled).toBe(
+      true,
+    );
+    expect(getLabeledControl<HTMLInputElement>(host, "Height").disabled).toBe(
+      true,
+    );
     expect(getButton(host, "Apply size").disabled).toBe(true);
-    expect(getLabeledControl<HTMLSelectElement>(host, "Color tag").disabled).toBe(true);
+    expect(
+      getLabeledControl<HTMLSelectElement>(host, "Color tag").disabled,
+    ).toBe(true);
     expect(getButton(host, "Reset").disabled).toBe(true);
   });
 
@@ -560,21 +604,25 @@ describe("WorkspaceInspector", () => {
       width: "auto",
       height: "auto",
     });
-    expect(useWorkspaceDocument.getState().sections["group"]?.overflowMode).toBe(true);
+    expect(
+      useWorkspaceDocument.getState().sections["group"]?.overflowMode,
+    ).toBe(true);
     expect(overflow.getAttribute("aria-pressed")).toBe("true");
-    expect(host.querySelector(".setta-workspace-inspector-status")?.textContent).toContain(
-      "Section size updated to auto by auto",
-    );
+    expect(
+      host.querySelector(".setta-workspace-inspector-status")?.textContent,
+    ).toContain("Section size updated to auto by auto");
     expect(onChange).toHaveBeenCalledTimes(2);
 
     await act(async () => {
       overflow.click();
     });
-    expect(useWorkspaceDocument.getState().sections["group"]?.overflowMode).toBe(false);
+    expect(
+      useWorkspaceDocument.getState().sections["group"]?.overflowMode,
+    ).toBe(false);
     expect(overflow.getAttribute("aria-pressed")).toBe("false");
-    expect(host.querySelector(".setta-workspace-inspector-status")?.textContent).toContain(
-      "Bounded overflow disabled",
-    );
+    expect(
+      host.querySelector(".setta-workspace-inspector-status")?.textContent,
+    ).toContain("Bounded overflow disabled");
     expect(onChange).toHaveBeenCalledTimes(3);
   });
 
@@ -598,8 +646,9 @@ describe("WorkspaceInspector", () => {
     });
 
     expect(
-      useWorkspaceDocument.getState().sections["items"]?.itemTree?.items["value"]?.presentation
-        ?.control,
+      useWorkspaceDocument.getState().sections["items"]?.itemTree?.items[
+        "value"
+      ]?.presentation?.control,
     ).toEqual({
       kind: "rotary",
       value: "0",
@@ -624,10 +673,14 @@ describe("WorkspaceInspector", () => {
       }),
     );
 
-    const labelRow = host.querySelector<HTMLElement>('[data-inspector-focus-key="item-label"]');
+    const labelRow = host.querySelector<HTMLElement>(
+      '[data-inspector-focus-key="item-label"]',
+    );
     expect(labelRow?.textContent).toContain("Label");
     expect(labelRow?.textContent).toContain("Amount");
-    expect(labelRow?.classList.contains("setta-workspace-inspector-readonly-row")).toBe(true);
+    expect(
+      labelRow?.classList.contains("setta-workspace-inspector-readonly-row"),
+    ).toBe(true);
     expect(labelRow?.querySelector('[role="textbox"]')).toBeNull();
   });
 
@@ -668,7 +721,9 @@ describe("WorkspaceInspector", () => {
 
     expect(getButton(host, "Add parameter").disabled).toBe(true);
     expect(getButton(host, "Delete parameter").disabled).toBe(true);
-    expect(host.textContent).toContain("Unlock this section to add or delete parameters.");
+    expect(host.textContent).toContain(
+      "Unlock this section to add or delete parameters.",
+    );
   });
 
   it("deletes one selected parameter and preserves Inspector focus on the surviving branch", async () => {
@@ -718,13 +773,18 @@ describe("WorkspaceInspector", () => {
     const itemTree = useWorkspaceDocument.getState().sections.items?.itemTree;
     expect(itemTree?.items.root?.children).toEqual([]);
     expect(itemTree?.selectedItemIds).toEqual([]);
-    expect(host.querySelector('[data-inspector-branch="section"]')).not.toBeNull();
+    expect(
+      host.querySelector('[data-inspector-branch="section"]'),
+    ).not.toBeNull();
     expect(document.activeElement).toBe(getButton(host, "Add parameter"));
     expect(onChange).toHaveBeenCalledOnce();
   });
 
   it("disables every multi-section action outside its owning capability", async () => {
-    useWorkspaceCapabilities.setState({ canEditLayout: false, canEditStructure: false });
+    useWorkspaceCapabilities.setState({
+      canEditLayout: false,
+      canEditStructure: false,
+    });
     await renderInspector(createDocument(["alpha", "bravo"]));
 
     expect(getButton(host, "Lock all").disabled).toBe(true);
@@ -742,17 +802,25 @@ describe("WorkspaceInspector", () => {
 
     expect(host.textContent).toContain("Mixed");
     await act(async () => {
-      getButton(host, "Lock all").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton(host, "Lock all").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
-    expect(useWorkspaceDocument.getState().sections["alpha"]?.positionAndSizeLocked).toBe(true);
+    expect(
+      useWorkspaceDocument.getState().sections["alpha"]?.positionAndSizeLocked,
+    ).toBe(true);
     expect(onChange).toHaveBeenCalledOnce();
 
     onChange.mockClear();
     await act(async () => {
-      getButton(host, "Group").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton(host, "Group").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
     const group =
-      useWorkspaceDocument.getState().sections["group-00000000-0000-4000-8000-000000000000"];
+      useWorkspaceDocument.getState().sections[
+        "group-00000000-0000-4000-8000-000000000000"
+      ];
     expect(group?.children).toEqual(["alpha", "bravo"]);
     expect(onChange).toHaveBeenCalledOnce();
   });
@@ -779,7 +847,9 @@ describe("WorkspaceInspector", () => {
     });
 
     expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
-    expect(useWorkspaceDocument.getState().parentSectionMap["child-a"]).toBeUndefined();
+    expect(
+      useWorkspaceDocument.getState().parentSectionMap["child-a"],
+    ).toBeUndefined();
     expect(host.textContent).toContain("Select A Section to Edit");
     expect(document.activeElement).toBe(
       host.querySelector('[aria-label="Workspace Inspector selection"]'),
@@ -798,7 +868,9 @@ describe("WorkspaceInspector", () => {
     expect(getButton(host, "Ungroup").disabled).toBe(false);
     expect(getButton(host, "Delete").disabled).toBe(false);
     expect(getButton(host, "Group").disabled).toBe(true);
-    expect(host.textContent).toContain("Grouping needs at least two selected sections.");
+    expect(host.textContent).toContain(
+      "Grouping needs at least two selected sections.",
+    );
 
     await act(async () => {
       getButton(host, "Delete").click();
@@ -841,7 +913,9 @@ describe("WorkspaceInspector", () => {
     );
 
     expect(getButton(host, "Ungroup").disabled).toBe(true);
-    expect(host.textContent).toContain("every selected section must be an unlocked group");
+    expect(host.textContent).toContain(
+      "every selected section must be an unlocked group",
+    );
   });
 
   it("renders a typed host contribution for custom section and item content", async () => {
@@ -882,19 +956,29 @@ describe("WorkspaceInspector", () => {
     });
 
     expect(host.textContent).toContain("Host item inspector");
-    const sectionContext = contexts.find((context) => context.type === "section");
+    const sectionContext = contexts.find(
+      (context) => context.type === "section",
+    );
     const itemContext = contexts.find((context) => context.type === "item");
-    expect(sectionContext && Object.isFrozen(sectionContext.section)).toBe(true);
-    expect(sectionContext && Object.isFrozen(sectionContext.section.children)).toBe(true);
+    expect(sectionContext && Object.isFrozen(sectionContext.section)).toBe(
+      true,
+    );
+    expect(
+      sectionContext && Object.isFrozen(sectionContext.section.children),
+    ).toBe(true);
     expect(itemContext && Object.isFrozen(itemContext.item)).toBe(true);
-    expect(itemContext?.item.data && Object.isFrozen(itemContext.item.data)).toBe(true);
+    expect(
+      itemContext?.item.data && Object.isFrozen(itemContext.item.data),
+    ).toBe(true);
     expect(() => {
       if (itemContext?.item.data && !Array.isArray(itemContext.item.data)) {
         (itemContext.item.data as Record<string, unknown>)["value"] = "mutated";
       }
     }).toThrow(TypeError);
     expect(
-      useWorkspaceDocument.getState().sections["custom-items"]?.itemTree?.items["opaque"]?.data,
+      useWorkspaceDocument.getState().sections["custom-items"]?.itemTree?.items[
+        "opaque"
+      ]?.data,
     ).toEqual({ value: "host" });
   });
 });

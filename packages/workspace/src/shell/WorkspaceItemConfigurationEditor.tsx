@@ -34,8 +34,14 @@ type WorkspaceItemConfigurationEditorProps = {
   onStatusChange: (message: string) => void;
 };
 
-type TextControl = Extract<WorkspaceItemValueControl, { kind: "code" | "text" | "textarea" }>;
-type NumericControl = Extract<WorkspaceItemValueControl, { kind: "rotary" | "slider" }>;
+type TextControl = Extract<
+  WorkspaceItemValueControl,
+  { kind: "code" | "text" | "textarea" }
+>;
+type NumericControl = Extract<
+  WorkspaceItemValueControl,
+  { kind: "rotary" | "slider" }
+>;
 type PasswordControl = Extract<WorkspaceItemValueControl, { kind: "password" }>;
 type DropzoneControl = Extract<WorkspaceItemValueControl, { kind: "dropzone" }>;
 
@@ -66,7 +72,10 @@ function TextConfigurationEditor({
         label="Placeholder"
         name="text-placeholder"
         onCommit={(placeholder) =>
-          commit({ ...configuration, placeholder: placeholder === "" ? null : placeholder })
+          commit({
+            ...configuration,
+            placeholder: placeholder === "" ? null : placeholder,
+          })
         }
         onEscape={onEscape}
         value={configuration.placeholder ?? ""}
@@ -98,7 +107,10 @@ function TextConfigurationEditor({
             onCommit(
               createConfigurationUpdate(control, {
                 ...control.configuration,
-                language: language === "" ? null : (language as WorkspaceItemTextLanguage),
+                language:
+                  language === ""
+                    ? null
+                    : (language as WorkspaceItemTextLanguage),
               }),
             )
           }
@@ -152,8 +164,13 @@ function NumericConfigurationEditor({
 }: ConfigurationEditorProps<NumericControl>) {
   const configuration = control.configuration;
   const commitField = (field: "max" | "min" | "step", value: number) =>
-    onCommit(createConfigurationUpdate(control, { ...configuration, [field]: value }));
-  const validateField = (field: "max" | "min" | "step", value: number): string | null => {
+    onCommit(
+      createConfigurationUpdate(control, { ...configuration, [field]: value }),
+    );
+  const validateField = (
+    field: "max" | "min" | "step",
+    value: number,
+  ): string | null => {
     const next = { ...configuration, [field]: value };
     if (next.min >= next.max) {
       return "min must be less than max.";
@@ -233,7 +250,10 @@ function validateOptionalPositiveInteger(value: string): string | null {
     : "Enter a positive integer or leave this field blank.";
 }
 
-function validateMaximumAttachments(value: string, attachmentCount: number): string | null {
+function validateMaximumAttachments(
+  value: string,
+  attachmentCount: number,
+): string | null {
   const positiveIntegerError = validateOptionalPositiveInteger(value);
   if (positiveIntegerError) {
     return positiveIntegerError;
@@ -259,7 +279,12 @@ function DropzoneConfigurationEditor({
         label="Placeholder"
         name="dropzone-placeholder"
         onCommit={(placeholder) =>
-          onCommit(createConfigurationUpdate(control, { ...configuration, placeholder }))
+          onCommit(
+            createConfigurationUpdate(control, {
+              ...configuration,
+              placeholder,
+            }),
+          )
         }
         onEscape={onEscape}
         placeholder="Drop a file here"
@@ -273,14 +298,21 @@ function DropzoneConfigurationEditor({
           onCommit(
             createConfigurationUpdate(control, {
               ...configuration,
-              policy: { ...policy, maxAttachments: parseOptionalPositiveInteger(value) },
+              policy: {
+                ...policy,
+                maxAttachments: parseOptionalPositiveInteger(value),
+              },
             }),
           )
         }
         onEscape={onEscape}
         placeholder="No limit"
-        validate={(value) => validateMaximumAttachments(value, configuration.attachments.length)}
-        value={policy.maxAttachments === null ? "" : String(policy.maxAttachments)}
+        validate={(value) =>
+          validateMaximumAttachments(value, configuration.attachments.length)
+        }
+        value={
+          policy.maxAttachments === null ? "" : String(policy.maxAttachments)
+        }
       />
       <DraftNumberConfigurationRow
         disabled={disabled}
@@ -298,7 +330,9 @@ function DropzoneConfigurationEditor({
         onEscape={onEscape}
         step={1}
         validate={(value) =>
-          Number.isSafeInteger(value) && value > 0 ? null : "Enter a positive integer."
+          Number.isSafeInteger(value) && value > 0
+            ? null
+            : "Enter a positive integer."
         }
         value={policy.maxFileBytes}
       />
@@ -310,14 +344,19 @@ function DropzoneConfigurationEditor({
           onCommit(
             createConfigurationUpdate(control, {
               ...configuration,
-              policy: { ...policy, maxTotalBytes: parseOptionalPositiveInteger(value) },
+              policy: {
+                ...policy,
+                maxTotalBytes: parseOptionalPositiveInteger(value),
+              },
             }),
           )
         }
         onEscape={onEscape}
         placeholder="No limit"
         validate={validateOptionalPositiveInteger}
-        value={policy.maxTotalBytes === null ? "" : String(policy.maxTotalBytes)}
+        value={
+          policy.maxTotalBytes === null ? "" : String(policy.maxTotalBytes)
+        }
       />
       <DraftTextConfigurationRow
         disabled={disabled}
@@ -342,7 +381,10 @@ function DropzoneConfigurationEditor({
         spellCheck={false}
         value={policy.allowedMimePrefixes.join(", ")}
       />
-      <ReadOnlyConfigurationRow label="Attachments" value={configuration.attachments.length} />
+      <ReadOnlyConfigurationRow
+        label="Attachments"
+        value={configuration.attachments.length}
+      />
     </>
   );
 }
@@ -390,7 +432,9 @@ function renderNumericAndSpecialConfigurationFields(
     case "switch":
       return null;
     default:
-      throw new Error(`Inspector has no configuration fields for ${control.kind}.`);
+      throw new Error(
+        `Inspector has no configuration fields for ${control.kind}.`,
+      );
   }
 }
 
@@ -401,8 +445,18 @@ function renderConfigurationFields(
   onEscape: () => void,
 ): ReactNode {
   return (
-    renderTextAndChoiceConfigurationFields(control, disabled, onCommit, onEscape) ??
-    renderNumericAndSpecialConfigurationFields(control, disabled, onCommit, onEscape)
+    renderTextAndChoiceConfigurationFields(
+      control,
+      disabled,
+      onCommit,
+      onEscape,
+    ) ??
+    renderNumericAndSpecialConfigurationFields(
+      control,
+      disabled,
+      onCommit,
+      onEscape,
+    )
   );
 }
 
@@ -410,7 +464,10 @@ function createDisabledUpdate(
   control: WorkspaceItemValueControl,
   disabled: boolean,
 ): WorkspaceItemControlConfiguration {
-  return createConfigurationUpdate(control, { ...control.configuration, disabled });
+  return createConfigurationUpdate(control, {
+    ...control.configuration,
+    disabled,
+  });
 }
 
 export function WorkspaceItemConfigurationEditor({
@@ -442,7 +499,9 @@ export function WorkspaceItemConfigurationEditor({
         checked={control.configuration.disabled}
         disabled={disabled}
         label="Disable control"
-        onChange={(nextDisabled) => commitUpdate(createDisabledUpdate(control, nextDisabled))}
+        onChange={(nextDisabled) =>
+          commitUpdate(createDisabledUpdate(control, nextDisabled))
+        }
         onEscape={onEscape}
       />
     </div>

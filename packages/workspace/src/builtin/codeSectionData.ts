@@ -11,20 +11,22 @@ import type { WorkspaceSectionData } from "../document/types";
 // naming it is a built-in code section, whatever else the host registers beside it.
 export const WORKSPACE_CODE_SECTION_KIND = "setta.code";
 
-export type WorkspaceCodeSectionLanguage = WorkspaceEditorLanguage | "plaintext";
+export type WorkspaceCodeSectionLanguage =
+  WorkspaceEditorLanguage | "plaintext";
 
 // The reference's `CodeLanguageEnum`, in its declared order.
-export const WORKSPACE_CODE_SECTION_LANGUAGES: ReadonlyArray<WorkspaceCodeSectionLanguage> = [
-  "python",
-  "bash",
-  "javascript",
-  "typescript",
-  "json",
-  "yaml",
-  "toml",
-  "markdown",
-  "plaintext",
-];
+export const WORKSPACE_CODE_SECTION_LANGUAGES: ReadonlyArray<WorkspaceCodeSectionLanguage> =
+  [
+    "python",
+    "bash",
+    "javascript",
+    "typescript",
+    "json",
+    "yaml",
+    "toml",
+    "markdown",
+    "plaintext",
+  ];
 
 // Package-only design decision: the reference has no authored indentation width (it hard-codes
 // `tabSize: 4` at every code editor), so the package bounds its own option instead of accepting an
@@ -42,14 +44,9 @@ export type WorkspaceCodeSectionData = {
   readOnly: boolean;
 };
 
-const WORKSPACE_CODE_SECTION_FIELDS: ReadonlyArray<keyof WorkspaceCodeSectionData> = [
-  "code",
-  "language",
-  "wrapLines",
-  "lineNumbers",
-  "indentWidth",
-  "readOnly",
-];
+const WORKSPACE_CODE_SECTION_FIELDS: ReadonlyArray<
+  keyof WorkspaceCodeSectionData
+> = ["code", "language", "wrapLines", "lineNumbers", "indentWidth", "readOnly"];
 
 // The reference's code area opens empty, at Python, wrapped off, with its gutters and its
 // four-space indentation.
@@ -71,12 +68,23 @@ function getDataRecord(
   sectionId: string,
   data: WorkspaceSectionData | undefined,
 ): { [key: string]: WorkspaceSectionData } {
-  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
-    throw new Error(`Code section ${sectionId} is missing its code section data.`);
+  if (
+    data === null ||
+    data === undefined ||
+    typeof data !== "object" ||
+    Array.isArray(data)
+  ) {
+    throw new Error(
+      `Code section ${sectionId} is missing its code section data.`,
+    );
   }
   for (const key of Object.keys(data)) {
-    if (!(WORKSPACE_CODE_SECTION_FIELDS as ReadonlyArray<string>).includes(key)) {
-      throw new Error(`Code section ${sectionId} carries the unknown field ${key}.`);
+    if (
+      !(WORKSPACE_CODE_SECTION_FIELDS as ReadonlyArray<string>).includes(key)
+    ) {
+      throw new Error(
+        `Code section ${sectionId} carries the unknown field ${key}.`,
+      );
     }
   }
   return data;
@@ -89,7 +97,9 @@ function getString(
 ): string {
   const value = record[field];
   if (typeof value !== "string") {
-    throw new Error(`Code section ${sectionId} is missing its string ${field} field.`);
+    throw new Error(
+      `Code section ${sectionId} is missing its string ${field} field.`,
+    );
   }
   return value;
 }
@@ -101,7 +111,9 @@ function getBoolean(
 ): boolean {
   const value = record[field];
   if (typeof value !== "boolean") {
-    throw new Error(`Code section ${sectionId} is missing its boolean ${field} field.`);
+    throw new Error(
+      `Code section ${sectionId} is missing its boolean ${field} field.`,
+    );
   }
   return value;
 }

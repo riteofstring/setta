@@ -30,10 +30,12 @@ const greenDarkTheme = createGreenTheme(true, "#7ee787");
 const greenLightTheme = createGreenTheme(false, "hsla(157, 100%, 28%, 1)");
 
 export type TextValueTheme = Extension;
-export type TextValueThemeColor = "github" | "green";
+type TextValueThemeColor = "github" | "green";
 
 function createGreenTheme(darkMode: boolean, color: string): TextValueTheme {
-  const githubSettings = darkMode ? defaultSettingsGithubDark : defaultSettingsGithubLight;
+  const githubSettings = darkMode
+    ? defaultSettingsGithubDark
+    : defaultSettingsGithubLight;
   return createTheme({
     theme: darkMode ? "dark" : "light",
     settings: { ...githubSettings, ...commonSettings },
@@ -56,7 +58,9 @@ function createGreenTheme(darkMode: boolean, color: string): TextValueTheme {
   });
 }
 
-export function useTextValueTheme(color: TextValueThemeColor = "github"): TextValueTheme {
+export function useTextValueTheme(
+  color: TextValueThemeColor = "github",
+): TextValueTheme {
   const darkMode = useWorkspaceAppearance((x) => x.darkMode);
   if (color === "green") {
     return darkMode ? greenDarkTheme : greenLightTheme;
@@ -66,13 +70,23 @@ export function useTextValueTheme(color: TextValueThemeColor = "github"): TextVa
 
 type FacetProviderLike = { value: unknown };
 
-function isFacetProviderLike(candidate: unknown): candidate is FacetProviderLike {
-  return typeof candidate === "object" && candidate !== null && "value" in candidate;
+function isFacetProviderLike(
+  candidate: unknown,
+): candidate is FacetProviderLike {
+  return (
+    typeof candidate === "object" && candidate !== null && "value" in candidate
+  );
 }
 
-function getThemeSlot(theme: TextValueTheme, group: number, index: number): unknown {
+function getThemeSlot(
+  theme: TextValueTheme,
+  group: number,
+  index: number,
+): unknown {
   if (!Array.isArray(theme)) {
-    throw new Error("The text value theme is not the expected extension group array.");
+    throw new Error(
+      "The text value theme is not the expected extension group array.",
+    );
   }
   const groupExtensions: unknown = theme[group];
   if (!Array.isArray(groupExtensions)) {

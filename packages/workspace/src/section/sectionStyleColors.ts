@@ -106,7 +106,9 @@ export function deriveSectionStyleTheme(
     return null;
   }
 
-  const mixTarget = darkMode ? { r: 0, g: 0, b: 0 } : { r: 255, g: 255, b: 255 };
+  const mixTarget = darkMode
+    ? { r: 0, g: 0, b: 0 }
+    : { r: 255, g: 255, b: 255 };
 
   const bgRgb = mixSrgb(base, mixTarget, darkMode ? 0.18 : 0.12);
   // Slightly stronger tint used for nested strips/panels that need separation from section bg.

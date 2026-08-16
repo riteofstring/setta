@@ -5,7 +5,10 @@ import type { WorkspaceEditorLanguage } from "../controls/text/textValueLanguage
 // reference resolves `jsx`/`tsx` to a JSX parser variant, which the package's language registry
 // deliberately does not carry (its editors receive one declared language), so those fences
 // highlight through the plain JavaScript and TypeScript packs.
-const MARKDOWN_CODE_LANGUAGE_BY_ALIAS: Record<string, WorkspaceEditorLanguage | null> = {
+const MARKDOWN_CODE_LANGUAGE_BY_ALIAS: Record<
+  string,
+  WorkspaceEditorLanguage | null
+> = {
   bash: "bash",
   cjs: "javascript",
   js: "javascript",

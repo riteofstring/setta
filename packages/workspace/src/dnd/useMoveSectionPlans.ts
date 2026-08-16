@@ -68,7 +68,9 @@ export function planSortingMove({
     return null;
   }
 
-  const filteredChildren = children.filter((childId) => !draggingSet.has(childId));
+  const filteredChildren = children.filter(
+    (childId) => !draggingSet.has(childId),
+  );
   const overIndex = filteredChildren.indexOf(overId);
   if (overIndex < 0) {
     return null;
@@ -80,7 +82,9 @@ export function planSortingMove({
     overId,
     overIndex,
   });
-  if (!doesChildOrderChange(children, filteredChildren, draggingIds, newIndex)) {
+  if (
+    !doesChildOrderChange(children, filteredChildren, draggingIds, newIndex)
+  ) {
     return null;
   }
 
@@ -209,7 +213,9 @@ function resolveSortInsertIndex({
   overIndex: number;
 }): number {
   const pastHalfway =
-    getPastHalfwayFromCollisions(overId, collisions) ?? fallbackPastHalfway ?? null;
+    getPastHalfwayFromCollisions(overId, collisions) ??
+    fallbackPastHalfway ??
+    null;
   if (pastHalfway === null) {
     return overIndex;
   }
@@ -307,7 +313,9 @@ function resolveParentChildDropIndex({
     return 0;
   }
 
-  const pastHalfway = Boolean(overId && getPastHalfwayFromCollisions(overId, collisions));
+  const pastHalfway = Boolean(
+    overId && getPastHalfwayFromCollisions(overId, collisions),
+  );
   return pastHalfway ? overIndex + 1 : overIndex;
 }
 
@@ -367,7 +375,9 @@ function keepsCurrentChildOrder({
     return false;
   }
 
-  const filteredChildren = sharedParentChildren.filter((childId) => !draggingSet.has(childId));
+  const filteredChildren = sharedParentChildren.filter(
+    (childId) => !draggingSet.has(childId),
+  );
   return !doesChildOrderChange(
     sharedParentChildren,
     filteredChildren,
@@ -403,7 +413,11 @@ function doesChildOrderChange(
   draggingIds: Array<string>,
   newIndex: number,
 ): boolean {
-  const nextChildren = insertIntoArray(filteredChildren, newIndex, ...draggingIds);
+  const nextChildren = insertIntoArray(
+    filteredChildren,
+    newIndex,
+    ...draggingIds,
+  );
   return !arraysEqual(nextChildren, existingChildren);
 }
 
@@ -479,7 +493,9 @@ function getPastHalfwayFromCollisions(
     return null;
   }
 
-  const matching = collisions.find((collision) => String(collision.id) === String(overId));
+  const matching = collisions.find(
+    (collision) => String(collision.id) === String(overId),
+  );
   if (!matching || matching.pastHalfway === undefined) {
     return null;
   }

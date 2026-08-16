@@ -46,14 +46,22 @@ type WorkspaceOutlineProps = {
   initialFocusRef: RefObject<HTMLElement | null>;
 };
 
-function arraysEqual(left: ReadonlyArray<string>, right: ReadonlyArray<string>): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
+function arraysEqual(
+  left: ReadonlyArray<string>,
+  right: ReadonlyArray<string>,
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
 }
 
 function getTypeaheadQuery(previousQuery: string, key: string): string {
   const nextQuery = `${previousQuery}${key}`;
   const normalized = nextQuery.toLocaleLowerCase();
-  return normalized.split("").every((character) => character === normalized[0]) ? key : nextQuery;
+  return normalized.split("").every((character) => character === normalized[0])
+    ? key
+    : nextQuery;
 }
 
 type OutlineProjectionUpdate = {
@@ -76,13 +84,22 @@ function getProjectionUpdate(
     visibleEntries,
     viewState.focusedSectionId,
   );
-  const collapsedStateChanged = !arraysEqual(validCollapsedGroupIds, viewState.collapsedGroupIds);
+  const collapsedStateChanged = !arraysEqual(
+    validCollapsedGroupIds,
+    viewState.collapsedGroupIds,
+  );
   const focusedStateChanged =
-    viewState.focusedSectionId !== null && nextFocusId !== viewState.focusedSectionId;
-  const publishedFocusId = focusedStateChanged ? nextFocusId : viewState.focusedSectionId;
+    viewState.focusedSectionId !== null &&
+    nextFocusId !== viewState.focusedSectionId;
+  const publishedFocusId = focusedStateChanged
+    ? nextFocusId
+    : viewState.focusedSectionId;
   const nextViewState =
     collapsedStateChanged || focusedStateChanged
-      ? { collapsedGroupIds: [...validCollapsedGroupIds], focusedSectionId: publishedFocusId }
+      ? {
+          collapsedGroupIds: [...validCollapsedGroupIds],
+          focusedSectionId: publishedFocusId,
+        }
       : null;
   return { focusedStateChanged, nextFocusId, nextViewState, publishedFocusId };
 }
@@ -94,7 +111,8 @@ function shouldRestoreDomFocus(
   visibleEntryCount: number,
 ): boolean {
   return (
-    treeOwnsFocus && (focusedStateChanged || (previousEntryCount === 0 && visibleEntryCount > 0))
+    treeOwnsFocus &&
+    (focusedStateChanged || (previousEntryCount === 0 && visibleEntryCount > 0))
   );
 }
 
@@ -105,15 +123,22 @@ function requireFocusTarget(
 ): HTMLElement {
   const target = nextFocusId === null ? tree : rows.get(nextFocusId);
   if (!target) {
-    throw new Error("Cannot restore workspace Outline focus before its target mounted.");
+    throw new Error(
+      "Cannot restore workspace Outline focus before its target mounted.",
+    );
   }
   return target;
 }
 
-function getEntryIdAt(entries: ReadonlyArray<WorkspaceOutlineEntry>, index: number): string {
+function getEntryIdAt(
+  entries: ReadonlyArray<WorkspaceOutlineEntry>,
+  index: number,
+): string {
   const entry = entries[index];
   if (!entry) {
-    throw new Error(`Workspace Outline navigation resolved no row at index ${index}.`);
+    throw new Error(
+      `Workspace Outline navigation resolved no row at index ${index}.`,
+    );
   }
   return entry.section.id;
 }
@@ -123,13 +148,20 @@ function getLinearNavigationTarget(
   sectionId: string,
   entries: ReadonlyArray<WorkspaceOutlineEntry>,
 ): string | null {
-  const currentIndex = entries.findIndex((entry) => entry.section.id === sectionId);
+  const currentIndex = entries.findIndex(
+    (entry) => entry.section.id === sectionId,
+  );
   if (currentIndex < 0) {
-    throw new Error(`Workspace Outline navigation cannot find current row ${sectionId}.`);
+    throw new Error(
+      `Workspace Outline navigation cannot find current row ${sectionId}.`,
+    );
   }
   switch (key) {
     case "ArrowDown":
-      return getEntryIdAt(entries, Math.min(currentIndex + 1, entries.length - 1));
+      return getEntryIdAt(
+        entries,
+        Math.min(currentIndex + 1, entries.length - 1),
+      );
     case "ArrowUp":
       return getEntryIdAt(entries, Math.max(currentIndex - 1, 0));
     case "Home":
@@ -152,8 +184,14 @@ export function WorkspaceOutline({
   const filterInputId = useId();
   const treeId = useId();
   const filterInputRef = useRef<HTMLInputElement>(null);
-  const activeSectionIdSet = useMemo(() => new Set(activeSectionIds), [activeSectionIds]);
-  const tree = useMemo(() => createWorkspaceOutlineTree(documentState), [documentState]);
+  const activeSectionIdSet = useMemo(
+    () => new Set(activeSectionIds),
+    [activeSectionIds],
+  );
+  const tree = useMemo(
+    () => createWorkspaceOutlineTree(documentState),
+    [documentState],
+  );
   const filterActive = filterQuery.trim() !== "";
   const projectedTree = useMemo(
     () => filterWorkspaceOutlineTree(tree, filterQuery),
@@ -164,19 +202,30 @@ export function WorkspaceOutline({
     [filterActive, viewState.collapsedGroupIds],
   );
   const visibleEntries = useMemo(
-    () => getWorkspaceOutlineVisibleEntries(projectedTree, projectedCollapsedGroupIds),
+    () =>
+      getWorkspaceOutlineVisibleEntries(
+        projectedTree,
+        projectedCollapsedGroupIds,
+      ),
     [projectedCollapsedGroupIds, projectedTree],
   );
   const validCollapsedGroupIds = useMemo(
-    () => getValidWorkspaceOutlineCollapsedGroupIds(documentState, viewState.collapsedGroupIds),
+    () =>
+      getValidWorkspaceOutlineCollapsedGroupIds(
+        documentState,
+        viewState.collapsedGroupIds,
+      ),
     [documentState, viewState.collapsedGroupIds],
   );
-  const previousEntriesRef = useRef<ReadonlyArray<WorkspaceOutlineEntry>>(visibleEntries);
+  const previousEntriesRef =
+    useRef<ReadonlyArray<WorkspaceOutlineEntry>>(visibleEntries);
   const treeRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
   const treeOwnsFocusRef = useRef(false);
   const programmaticFocusIdRef = useRef<string | null>(null);
-  const lastPublishedFocusIdRef = useRef<string | null>(viewState.focusedSectionId);
+  const lastPublishedFocusIdRef = useRef<string | null>(
+    viewState.focusedSectionId,
+  );
   const typeaheadQueryRef = useRef("");
   const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resolvedFocusId = resolveWorkspaceOutlineFocus(
@@ -202,7 +251,9 @@ export function WorkspaceOutline({
   function focusRow(sectionId: string): void {
     const row = rowRefs.current.get(sectionId);
     if (!row) {
-      throw new Error(`Cannot focus missing workspace Outline row ${sectionId}.`);
+      throw new Error(
+        `Cannot focus missing workspace Outline row ${sectionId}.`,
+      );
     }
     if (lastPublishedFocusIdRef.current !== sectionId) {
       publishViewState({ ...viewState, focusedSectionId: sectionId });
@@ -232,14 +283,20 @@ export function WorkspaceOutline({
         visibleEntries.length,
       )
     ) {
-      const target = requireFocusTarget(update.nextFocusId, treeRef.current, rowRefs.current);
+      const target = requireFocusTarget(
+        update.nextFocusId,
+        treeRef.current,
+        rowRefs.current,
+      );
       programmaticFocusIdRef.current = update.nextFocusId;
       target.focus();
       programmaticFocusIdRef.current = null;
     }
 
     if (!filterInputRef.current) {
-      throw new Error("Cannot register workspace Outline focus before its filter mounted.");
+      throw new Error(
+        "Cannot register workspace Outline focus before its filter mounted.",
+      );
     }
     initialFocusRef.current = filterInputRef.current;
     previousEntriesRef.current = visibleEntries;
@@ -264,7 +321,10 @@ export function WorkspaceOutline({
 
   function handleTreeBlur(event: FocusEvent<HTMLDivElement>): void {
     const nextTarget = event.relatedTarget;
-    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+    if (
+      nextTarget instanceof Node &&
+      event.currentTarget.contains(nextTarget)
+    ) {
       return;
     }
     if (nextTarget !== null) {
@@ -285,14 +345,18 @@ export function WorkspaceOutline({
   function toggleGroup(sectionId: string): void {
     const section = documentState.sections[sectionId];
     if (!section || !isGroupSection(section)) {
-      throw new Error(`Cannot toggle non-group workspace Outline row ${sectionId}.`);
+      throw new Error(
+        `Cannot toggle non-group workspace Outline row ${sectionId}.`,
+      );
     }
     const nextCollapsedGroupIds = collapsedGroupIds.has(sectionId)
       ? viewState.collapsedGroupIds.filter((id) => id !== sectionId)
       : [...viewState.collapsedGroupIds, sectionId];
     const row = rowRefs.current.get(sectionId);
     if (!row) {
-      throw new Error(`Cannot focus missing workspace Outline group row ${sectionId}.`);
+      throw new Error(
+        `Cannot focus missing workspace Outline group row ${sectionId}.`,
+      );
     }
     publishViewState({
       collapsedGroupIds: nextCollapsedGroupIds,
@@ -303,7 +367,10 @@ export function WorkspaceOutline({
     programmaticFocusIdRef.current = null;
   }
 
-  function activateSection(sectionId: string, multiSelectionActive: boolean): void {
+  function activateSection(
+    sectionId: string,
+    multiSelectionActive: boolean,
+  ): void {
     focusWorkspaceSection(sectionId);
     applyActiveSectionChange({
       interaction: "section-click",
@@ -312,7 +379,10 @@ export function WorkspaceOutline({
     });
   }
 
-  function handleRowClick(event: MouseEvent<HTMLDivElement>, sectionId: string): void {
+  function handleRowClick(
+    event: MouseEvent<HTMLDivElement>,
+    sectionId: string,
+  ): void {
     if (event.button !== 0) {
       return;
     }
@@ -320,7 +390,10 @@ export function WorkspaceOutline({
       publishViewState({ ...viewState, focusedSectionId: sectionId });
     }
     const target = event.target;
-    if (target instanceof Element && target.closest("[data-workspace-outline-disclosure]")) {
+    if (
+      target instanceof Element &&
+      target.closest("[data-workspace-outline-disclosure]")
+    ) {
       toggleGroup(sectionId);
       return;
     }
@@ -338,16 +411,25 @@ export function WorkspaceOutline({
     openWorkspaceSectionMenu(sectionId, "outline", clientPoint, owner);
   }
 
-  function handleRowContextMenu(event: MouseEvent<HTMLDivElement>, sectionId: string): void {
+  function handleRowContextMenu(
+    event: MouseEvent<HTMLDivElement>,
+    sectionId: string,
+  ): void {
     if (shouldRetainNativeContextMenu(event.target, event.currentTarget)) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
-    openRowMenu(event.currentTarget, sectionId, { x: event.clientX, y: event.clientY });
+    openRowMenu(event.currentTarget, sectionId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
   }
 
-  function handleTypeahead(event: KeyboardEvent<HTMLDivElement>, sectionId: string): boolean {
+  function handleTypeahead(
+    event: KeyboardEvent<HTMLDivElement>,
+    sectionId: string,
+  ): boolean {
     if (
       event.key.length !== 1 ||
       event.key === " " ||
@@ -357,7 +439,10 @@ export function WorkspaceOutline({
     ) {
       return false;
     }
-    typeaheadQueryRef.current = getTypeaheadQuery(typeaheadQueryRef.current, event.key);
+    typeaheadQueryRef.current = getTypeaheadQuery(
+      typeaheadQueryRef.current,
+      event.key,
+    );
     if (typeaheadTimerRef.current !== null) {
       clearTimeout(typeaheadTimerRef.current);
     }
@@ -380,7 +465,11 @@ export function WorkspaceOutline({
     event: KeyboardEvent<HTMLDivElement>,
     entry: WorkspaceOutlineEntry,
   ): boolean {
-    const targetId = getLinearNavigationTarget(event.key, entry.section.id, visibleEntries);
+    const targetId = getLinearNavigationTarget(
+      event.key,
+      entry.section.id,
+      visibleEntries,
+    );
     if (targetId === null) {
       return false;
     }
@@ -485,7 +574,10 @@ export function WorkspaceOutline({
     }
   }
 
-  function registerRow(sectionId: string, element: HTMLDivElement | null): void {
+  function registerRow(
+    sectionId: string,
+    element: HTMLDivElement | null,
+  ): void {
     if (element) {
       rowRefs.current.set(sectionId, element);
     } else {
@@ -499,7 +591,10 @@ export function WorkspaceOutline({
         <label className="sr-only" htmlFor={filterInputId}>
           Filter sections
         </label>
-        <i aria-hidden="true" className="gg-sort-az setta-workspace-outline-filter-icon" />
+        <i
+          aria-hidden="true"
+          className="gg-sort-az setta-workspace-outline-filter-icon"
+        />
         <input
           aria-controls={treeId}
           autoComplete="off"

@@ -25,7 +25,11 @@ import {
   toggleGroupOrientation,
   toggleMinimized,
 } from "../document/sectionMutations";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { SectionSizeValue, WorkspaceSection } from "../document/types";
 import { setGroupOverflowMode } from "../section/groupOverflowAction";
 import { useSectionRefs } from "../section/sectionRefs";
@@ -113,7 +117,10 @@ function CommitTextField({
   }
 
   return (
-    <div className="setta-workspace-inspector-field" data-inspector-focus-key={focusKey}>
+    <div
+      className="setta-workspace-inspector-field"
+      data-inspector-focus-key={focusKey}
+    >
       <label className="setta-workspace-inspector-label" htmlFor={inputId}>
         {label}
       </label>
@@ -155,12 +162,19 @@ function parseSectionSizeValue(
   }
   const value = Number(normalized);
   if (!Number.isFinite(value) || value <= 0) {
-    return { ok: false, field, message: `${field} must be auto or a positive number.` };
+    return {
+      ok: false,
+      field,
+      message: `${field} must be auto or a positive number.`,
+    };
   }
   return { ok: true, value };
 }
 
-function formatResolvedSizeValue(authored: SectionSizeValue, resolved: number | null): string {
+function formatResolvedSizeValue(
+  authored: SectionSizeValue,
+  resolved: number | null,
+): string {
   const authoredText = authored === "auto" ? "Auto" : `${authored}px`;
   return resolved === null || authored !== "auto"
     ? authoredText
@@ -172,7 +186,10 @@ type ParsedSectionSize =
   | { ok: true; width: SectionSizeValue; height: SectionSizeValue }
   | { ok: false; error: SectionSizeError };
 
-function parseSectionSizeDraft(width: string, height: string): ParsedSectionSize {
+function parseSectionSizeDraft(
+  width: string,
+  height: string,
+): ParsedSectionSize {
   const nextWidth = parseSectionSizeValue(width, "width");
   if (!nextWidth.ok) {
     return { ok: false, error: nextWidth };
@@ -184,7 +201,10 @@ function parseSectionSizeDraft(width: string, height: string): ParsedSectionSize
   return { ok: true, width: nextWidth.value, height: nextHeight.value };
 }
 
-function focusSectionSizeField(form: HTMLFormElement, field: "height" | "width"): void {
+function focusSectionSizeField(
+  form: HTMLFormElement,
+  field: "height" | "width",
+): void {
   const target = form.elements.namedItem(field);
   if (!(target instanceof HTMLElement)) {
     throw new Error(`Workspace Inspector ${field} field is not mounted.`);
@@ -250,17 +270,28 @@ function SectionSizeEditor({
   onStatusChange: (message: string) => void;
   section: WorkspaceSection;
 }) {
-  const canEditLayout = useWorkspaceCapabilities((state) => state.canEditLayout);
+  const canEditLayout = useWorkspaceCapabilities(
+    (state) => state.canEditLayout,
+  );
   const canEditSize = canEditLayout && !section.positionAndSizeLocked;
   const node = useNodeInternals((state) => state.x.get(section.id));
   const sectionElement = useSectionRefs(
-    (state) => state.selfOnly[section.id] ?? state.withNested[section.id] ?? null,
+    (state) =>
+      state.selfOnly[section.id] ?? state.withNested[section.id] ?? null,
   );
   const [width, setWidth] = useState(String(section.size.width));
   const [height, setHeight] = useState(String(section.size.height));
   const [error, setError] = useState<SectionSizeError | null>(null);
-  const resolvedWidth = getResolvedSectionSize(node?.width, sectionElement, "width");
-  const resolvedHeight = getResolvedSectionSize(node?.height, sectionElement, "height");
+  const resolvedWidth = getResolvedSectionSize(
+    node?.width,
+    sectionElement,
+    "width",
+  );
+  const resolvedHeight = getResolvedSectionSize(
+    node?.height,
+    sectionElement,
+    "height",
+  );
 
   useEffect(() => {
     setWidth(String(section.size.width));
@@ -330,8 +361,12 @@ function SectionSizeEditor({
         </p>
       ) : null}
       <div className="setta-workspace-inspector-resolved-size">
-        <span>{formatResolvedSizeValue(section.size.width, resolvedWidth)}</span>
-        <span>{formatResolvedSizeValue(section.size.height, resolvedHeight)}</span>
+        <span>
+          {formatResolvedSizeValue(section.size.width, resolvedWidth)}
+        </span>
+        <span>
+          {formatResolvedSizeValue(section.size.height, resolvedHeight)}
+        </span>
       </div>
       <button
         className="setta-workspace-inspector-primary-action"
@@ -348,14 +383,21 @@ function SectionContribution({ section }: { section: WorkspaceSection }) {
   if (isGroupSection(section)) {
     return null;
   }
-  const contribution = getRegisteredSectionKindOrThrow(section.kind).renderInspector;
+  const contribution = getRegisteredSectionKindOrThrow(
+    section.kind,
+  ).renderInspector;
   if (contribution) {
     return (
       <div
         className="setta-workspace-inspector-contribution"
         data-inspector-focus-key="custom-section"
       >
-        {contribution(createWorkspaceInspectorContributionContext({ type: "section", section }))}
+        {contribution(
+          createWorkspaceInspectorContributionContext({
+            type: "section",
+            section,
+          }),
+        )}
       </div>
     );
   }
@@ -380,7 +422,10 @@ function SectionInspector({
 }) {
   const capabilities = useWorkspaceCapabilities((state) => state);
   return (
-    <div className="setta-workspace-inspector-editor" data-inspector-branch="section">
+    <div
+      className="setta-workspace-inspector-editor"
+      data-inspector-branch="section"
+    >
       <div className="setta-workspace-inspector-section-heading">
         <h3>{section.name || section.id}</h3>
         <span>Section</span>
@@ -398,7 +443,9 @@ function SectionInspector({
         onCommit={(value) => setSectionName(section.id, value.trim())}
         onEscape={focusRoot}
         onStatusChange={onStatusChange}
-        statusMessage={(value) => `Section name changed to ${value.trim() || "blank"}.`}
+        statusMessage={(value) =>
+          `Section name changed to ${value.trim() || "blank"}.`
+        }
         value={section.name}
       />
       <CommitTextField
@@ -449,7 +496,9 @@ function SectionInspector({
           className="setta-workspace-inspector-toggle"
           onClick={() => {
             toggleMinimized(section.id);
-            onStatusChange(section.isMinimized ? "Section expanded." : "Section minimized.");
+            onStatusChange(
+              section.isMinimized ? "Section expanded." : "Section minimized.",
+            );
           }}
           type="button"
         >
@@ -476,12 +525,16 @@ function SectionInspector({
             <button
               aria-pressed={section.overflowMode}
               className="setta-workspace-inspector-toggle"
-              disabled={!capabilities.canEditLayout || section.positionAndSizeLocked}
+              disabled={
+                !capabilities.canEditLayout || section.positionAndSizeLocked
+              }
               onClick={() => {
                 const nextOverflowMode = !section.overflowMode;
                 setGroupOverflowMode(section.id, nextOverflowMode);
                 onStatusChange(
-                  nextOverflowMode ? "Bounded overflow enabled." : "Bounded overflow disabled.",
+                  nextOverflowMode
+                    ? "Bounded overflow enabled."
+                    : "Bounded overflow disabled.",
                 );
               }}
               type="button"
@@ -503,7 +556,11 @@ function SectionInspector({
         onStatusChange={onStatusChange}
         surface="inspector-parameters"
       />
-      <SectionSizeEditor onEscape={focusRoot} onStatusChange={onStatusChange} section={section} />
+      <SectionSizeEditor
+        onEscape={focusRoot}
+        onStatusChange={onStatusChange}
+        section={section}
+      />
       <SectionContribution section={section} />
     </div>
   );
@@ -516,14 +573,21 @@ function MultipleSectionsInspector({
   onStatusChange: (message: string) => void;
   sections: Array<WorkspaceSection>;
 }) {
-  const canEditLayout = useWorkspaceCapabilities((state) => state.canEditLayout);
+  const canEditLayout = useWorkspaceCapabilities(
+    (state) => state.canEditLayout,
+  );
   const lockState = getWorkspaceInspectorLockState(sections);
   const primarySection = sections[0];
   if (!primarySection) {
-    throw new Error("A multiple-section Inspector selection requires at least one section.");
+    throw new Error(
+      "A multiple-section Inspector selection requires at least one section.",
+    );
   }
   return (
-    <div className="setta-workspace-inspector-editor" data-inspector-branch="multiple-sections">
+    <div
+      className="setta-workspace-inspector-editor"
+      data-inspector-branch="multiple-sections"
+    >
       <div className="setta-workspace-inspector-section-heading">
         <h3>{sections.length} sections</h3>
         <span>Multiple selection</span>
@@ -531,7 +595,11 @@ function MultipleSectionsInspector({
       <div className="setta-workspace-inspector-readonly-row">
         <span>Position and size</span>
         <span className="setta-workspace-inspector-readonly-value">
-          {lockState === "mixed" ? "Mixed" : lockState === "locked" ? "Locked" : "Unlocked"}
+          {lockState === "mixed"
+            ? "Mixed"
+            : lockState === "locked"
+              ? "Locked"
+              : "Unlocked"}
         </span>
       </div>
       <WorkspaceInspectorCommandActions
@@ -565,7 +633,10 @@ function MultipleSectionsInspector({
 
 function EmptyInspector() {
   return (
-    <div className="setta-workspace-inspector-empty" data-inspector-branch="empty">
+    <div
+      className="setta-workspace-inspector-empty"
+      data-inspector-branch="empty"
+    >
       <FiEdit3 aria-hidden={true} focusable="false" />
       <h3>Select A Section to Edit</h3>
     </div>
@@ -580,13 +651,18 @@ function MultipleItemsInspector({
   selection: Extract<WorkspaceInspectorSelection, { type: "multiple-items" }>;
 }) {
   return (
-    <div className="setta-workspace-inspector-editor" data-inspector-branch="multiple-items">
+    <div
+      className="setta-workspace-inspector-editor"
+      data-inspector-branch="multiple-items"
+    >
       <div className="setta-workspace-inspector-unsupported" role="note">
         <h3>{selection.itemCount} items selected</h3>
         <p>Select one item to edit its label, UI type, and configuration.</p>
       </div>
       <WorkspaceInspectorCommandActions
-        contexts={[createSectionCommandContext(selection.section, [selection.section])]}
+        contexts={[
+          createSectionCommandContext(selection.section, [selection.section]),
+        ]}
         focusKey="item-authoring-actions"
         onStatusChange={onStatusChange}
         surface="inspector-parameters"
@@ -628,10 +704,18 @@ function InspectorBranch({
         />
       );
     case "multiple-items":
-      return <MultipleItemsInspector onStatusChange={onStatusChange} selection={selection} />;
+      return (
+        <MultipleItemsInspector
+          onStatusChange={onStatusChange}
+          selection={selection}
+        />
+      );
     case "multiple-sections":
       return (
-        <MultipleSectionsInspector onStatusChange={onStatusChange} sections={selection.sections} />
+        <MultipleSectionsInspector
+          onStatusChange={onStatusChange}
+          sections={selection.sections}
+        />
       );
   }
 }
@@ -652,7 +736,9 @@ export function WorkspaceInspector({
   const ownsFocusRef = useRef(false);
   const lastFocusKeyRef = useRef<string | null>(null);
   const previousSelectionKeyRef = useRef(selectionKey);
-  const [status, setStatus] = useState(() => getWorkspaceInspectorSelectionStatus(selection));
+  const [status, setStatus] = useState(() =>
+    getWorkspaceInspectorSelectionStatus(selection),
+  );
 
   function getLastMeaningfulFocus(): HTMLElement {
     const root = rootRef.current;
@@ -662,9 +748,9 @@ export function WorkspaceInspector({
     }
     const focusKey = lastFocusKeyRef.current;
     const focusOwner = focusKey
-      ? [...root.querySelectorAll<HTMLElement>("[data-inspector-focus-key]")].find(
-          (element) => element.dataset["inspectorFocusKey"] === focusKey,
-        )
+      ? [
+          ...root.querySelectorAll<HTMLElement>("[data-inspector-focus-key]"),
+        ].find((element) => element.dataset["inspectorFocusKey"] === focusKey)
       : null;
     return (
       focusOwner?.querySelector<HTMLElement>(
@@ -701,12 +787,16 @@ export function WorkspaceInspector({
       event.target instanceof Element
         ? event.target.closest<HTMLElement>("[data-inspector-focus-key]")
         : null;
-    lastFocusKeyRef.current = element?.dataset["inspectorFocusKey"] ?? lastFocusKeyRef.current;
+    lastFocusKeyRef.current =
+      element?.dataset["inspectorFocusKey"] ?? lastFocusKeyRef.current;
   }
 
   function handleBlur(event: FocusEvent<HTMLDivElement>): void {
     const nextTarget = event.relatedTarget;
-    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+    if (
+      nextTarget instanceof Node &&
+      event.currentTarget.contains(nextTarget)
+    ) {
       return;
     }
     if (nextTarget !== null) {

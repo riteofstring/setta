@@ -8,15 +8,21 @@ function parseDirection(value: string): WorkspaceTextDirection | null {
   return null;
 }
 
-export function getElementTextDirection(element: Element): WorkspaceTextDirection {
+export function getElementTextDirection(
+  element: Element,
+): WorkspaceTextDirection {
   const explicitAncestor = element.closest<HTMLElement>("[dir]");
-  const explicitDirection = explicitAncestor ? parseDirection(explicitAncestor.dir) : null;
+  const explicitDirection = explicitAncestor
+    ? parseDirection(explicitAncestor.dir)
+    : null;
   if (explicitDirection) {
     return explicitDirection;
   }
 
   const view = element.ownerDocument.defaultView;
-  const computedDirection = view ? parseDirection(view.getComputedStyle(element).direction) : null;
+  const computedDirection = view
+    ? parseDirection(view.getComputedStyle(element).direction)
+    : null;
   if (computedDirection) {
     return computedDirection;
   }

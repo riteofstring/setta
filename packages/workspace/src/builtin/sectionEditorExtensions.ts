@@ -21,7 +21,7 @@ const GUTTER_LAYOUT_FIX = EditorView.baseTheme({
   "&dark .cm-gutters": { borderRight: "0" },
 });
 
-export type SectionEditorExtensionsOptions = {
+type SectionEditorExtensionsOptions = {
   // Plain text is the absence of a language pack rather than a mode of its own, exactly as the
   // reference's `getExtensions` resolves a null language to no support.
   language: WorkspaceEditorLanguage | null;
@@ -46,7 +46,10 @@ export function getSectionEditorExtensions({
   // One owner for the authored width: the reference reaches `indentUnit` through its
   // `basicSetup.tabSize` option, which leaves a literal tab rendering at CodeMirror's own
   // default. Setting both here keeps inserted and existing indentation the same width.
-  extensions.push(indentUnit.of(" ".repeat(indentWidth)), EditorState.tabSize.of(indentWidth));
+  extensions.push(
+    indentUnit.of(" ".repeat(indentWidth)),
+    EditorState.tabSize.of(indentWidth),
+  );
   if (isReadOnly) {
     extensions.push(EditorState.readOnly.of(true));
   }
@@ -75,7 +78,11 @@ export function getSectionEditorExtensions({
 // non-Python code areas inherit exactly that implicit source. This milestone keeps implicit
 // completion off; the package ships no completion source, so there is no enabled state to
 // configure and no completion key for the editor to own.
-export function getSectionEditorBasicSetup({ lineNumbers }: { lineNumbers: boolean }) {
+export function getSectionEditorBasicSetup({
+  lineNumbers,
+}: {
+  lineNumbers: boolean;
+}) {
   return {
     autocompletion: false,
     // Package-only design decision: the reference always shows both gutters, so the authored

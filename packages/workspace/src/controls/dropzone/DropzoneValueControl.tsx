@@ -45,10 +45,12 @@ const CONTROL_BUTTON_CLASS_NAME =
   "relative rounded-full border border-setta-200 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-setta-400 after:absolute after:inset-x-0 after:-inset-y-1 hover:border-setta-400 hover:text-setta-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-800 dark:text-setta-500 dark:hover:border-setta-600 dark:hover:text-setta-300";
 const UPLOADING_TEXT_CLASS_NAME =
   "text-[10px] font-semibold uppercase tracking-widest text-setta-300";
-const ERROR_TEXT_CLASS_NAME = "text-[10px] font-semibold text-red-600 dark:text-red-400";
+const ERROR_TEXT_CLASS_NAME =
+  "text-[10px] font-semibold text-red-600 dark:text-red-400";
 const ATTACHMENTS_CONTAINER_CLASS_NAME =
   "flex flex-col gap-2 rounded-lg border border-setta-200/70 bg-white/60 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-400";
-const ATTACHMENT_SIZE_TEXT_CLASS_NAME = "text-[10px] uppercase tracking-wide text-setta-400";
+const ATTACHMENT_SIZE_TEXT_CLASS_NAME =
+  "text-[10px] uppercase tracking-wide text-setta-400";
 const DELETE_BUTTON_CLASS_NAME =
   "relative rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-setta-400 after:absolute after:inset-x-0 after:-inset-y-1 hover:bg-setta-100 hover:text-setta-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-setta-850 dark:hover:text-setta-200";
 
@@ -89,8 +91,15 @@ type DropzoneViewState = {
   hasError: boolean;
 };
 
-function deliverFiles(files: ReadonlyArray<File>, context: DropzoneInteractionContext): void {
-  const result = partitionDropzoneFiles(files, context.policy, context.remainingSlots);
+function deliverFiles(
+  files: ReadonlyArray<File>,
+  context: DropzoneInteractionContext,
+): void {
+  const result = partitionDropzoneFiles(
+    files,
+    context.policy,
+    context.remainingSlots,
+  );
   if (result.rejected.length > 0) {
     context.onRejected(result.rejected);
   }
@@ -100,7 +109,11 @@ function deliverFiles(files: ReadonlyArray<File>, context: DropzoneInteractionCo
 }
 
 function deliverText(text: string, context: DropzoneInteractionContext): void {
-  const rejection = getDroppedTextRejection(text, context.policy, context.remainingSlots);
+  const rejection = getDroppedTextRejection(
+    text,
+    context.policy,
+    context.remainingSlots,
+  );
   if (rejection) {
     context.onRejected([rejection]);
     return;
@@ -109,10 +122,15 @@ function deliverText(text: string, context: DropzoneInteractionContext): void {
 }
 
 function getDroppedText(event: DragEvent<HTMLDivElement>): string {
-  return event.dataTransfer.getData("text/plain") || event.dataTransfer.getData("text");
+  return (
+    event.dataTransfer.getData("text/plain") ||
+    event.dataTransfer.getData("text")
+  );
 }
 
-function useDropzoneInteractions(context: DropzoneInteractionContext): DropzoneInteractions {
+function useDropzoneInteractions(
+  context: DropzoneInteractionContext,
+): DropzoneInteractions {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
   const [isDragActive, setIsDragActive] = useState(false);
@@ -133,7 +151,9 @@ function useDropzoneInteractions(context: DropzoneInteractionContext): DropzoneI
     fileInputRef,
     isDragActive,
     handleFileInputChange(event) {
-      const files = event.currentTarget.files ? Array.from(event.currentTarget.files) : [];
+      const files = event.currentTarget.files
+        ? Array.from(event.currentTarget.files)
+        : [];
       event.currentTarget.value = "";
       if (!context.blocked && files.length > 0) {
         deliverFiles(files, context);
@@ -195,7 +215,9 @@ function resolveDropzoneLabel(
   return `${attachments.length} attachment${attachments.length === 1 ? "" : "s"}`;
 }
 
-function resolveDropzoneProps(props: DropzoneValueControlProps): ResolvedDropzoneValueControlProps {
+function resolveDropzoneProps(
+  props: DropzoneValueControlProps,
+): ResolvedDropzoneValueControlProps {
   return {
     ...props,
     placeholder: props.placeholder ?? "Drop a file here",
@@ -209,7 +231,10 @@ function resolveDropzoneViewState(
   isSelectingItems: boolean,
 ): DropzoneViewState {
   const isDisabled = props.disabled || isSelectingItems;
-  const remainingSlots = getDropzoneRemainingSlots(props.attachments, props.policy);
+  const remainingSlots = getDropzoneRemainingSlots(
+    props.attachments,
+    props.policy,
+  );
   const actionsBlocked = isDisabled || props.pending || remainingSlots === 0;
   return {
     isDisabled,
@@ -290,7 +315,10 @@ function DropzoneValueControlView(
   );
 }
 
-function getDropTargetClassName(viewState: DropzoneViewState, isDragActive: boolean): string {
+function getDropTargetClassName(
+  viewState: DropzoneViewState,
+  isDragActive: boolean,
+): string {
   const activeClassName = isDragActive ? DROP_TARGET_ACTIVE_CLASS_NAME : "";
   const disabledClassName = viewState.isDisabled ? "opacity-60" : "";
   return `${INTERACTION_BOUNDARY_CLASS_NAME} ${DROP_TARGET_BASE_CLASS_NAME} ${activeClassName} ${disabledClassName}`;
@@ -321,7 +349,11 @@ function DropTarget({
       onDragEnter={interactions.handleDragEnter}
       onDragLeave={interactions.handleDragLeave}
     >
-      <FiUploadCloud aria-hidden="true" focusable="false" className="text-base" />
+      <FiUploadCloud
+        aria-hidden="true"
+        focusable="false"
+        className="text-base"
+      />
       <span className="break-all">{viewState.label}</span>
     </div>
   );
@@ -360,7 +392,11 @@ function DropzoneActionRow({
         <button
           type="button"
           className={CONTROL_BUTTON_CLASS_NAME}
-          onClick={() => onServerFilePickerRequest({ remainingSlots: viewState.remainingSlots })}
+          onClick={() =>
+            onServerFilePickerRequest({
+              remainingSlots: viewState.remainingSlots,
+            })
+          }
           onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
           disabled={viewState.actionsBlocked}
           aria-describedby={errorDescriptionId}
@@ -415,26 +451,36 @@ function DropzoneAttachmentList({
   fallbackFocusRef: RefObject<HTMLButtonElement | null>;
   onAttachmentRemove: DropzoneValueControlProps["onAttachmentRemove"];
 }) {
-  const removalRequest = useRef<{ attachmentId: string; index: number } | null>(null);
+  const removalRequest = useRef<{ attachmentId: string; index: number } | null>(
+    null,
+  );
   const removeButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   useEffect(() => {
     const request = removalRequest.current;
-    if (!request || attachments.some((attachment) => attachment.id === request.attachmentId)) {
+    if (
+      !request ||
+      attachments.some((attachment) => attachment.id === request.attachmentId)
+    ) {
       return;
     }
     removalRequest.current = null;
-    const nextAttachment = attachments[request.index] ?? attachments[request.index - 1];
+    const nextAttachment =
+      attachments[request.index] ?? attachments[request.index - 1];
     if (nextAttachment) {
       const nextButton = removeButtonRefs.current[nextAttachment.id];
       if (!nextButton) {
-        throw new Error(`Dropzone cannot restore focus to attachment action ${nextAttachment.id}.`);
+        throw new Error(
+          `Dropzone cannot restore focus to attachment action ${nextAttachment.id}.`,
+        );
       }
       nextButton.focus({ preventScroll: true });
       return;
     }
     const fallbackButton = fallbackFocusRef.current;
     if (!fallbackButton) {
-      throw new Error("Dropzone cannot restore focus without its local-file action.");
+      throw new Error(
+        "Dropzone cannot restore focus without its local-file action.",
+      );
     }
     fallbackButton.focus({ preventScroll: true });
   }, [attachments, fallbackFocusRef]);
@@ -470,7 +516,9 @@ function DropzoneAttachmentList({
                 removalRequest.current = { attachmentId: attachment.id, index };
                 onAttachmentRemove(attachment.id);
               }}
-              onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
+              onKeyDown={(event) =>
+                handleSectionControlEscape(event, sectionId)
+              }
               disabled={disabled}
             >
               Delete

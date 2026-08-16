@@ -20,13 +20,19 @@ export function DNDSortable({
   children: ReactNode;
 }) {
   const disabled = useDisableSortable(sectionId);
-  const idForDeterminingStrategy = useDndState((x) => (x.isSorting ? x.activeId : x.overId));
+  const idForDeterminingStrategy = useDndState((x) =>
+    x.isSorting ? x.activeId : x.overId,
+  );
 
   return (
     <SortableContext
       id={sectionId}
       items={items}
-      strategy={getSortingStrategy(disabled, idForDeterminingStrategy, sectionId)}
+      strategy={getSortingStrategy(
+        disabled,
+        idForDeterminingStrategy,
+        sectionId,
+      )}
       disabled={disabled}
     >
       {children}
@@ -50,7 +56,9 @@ function getSortingStrategy(
     return DisabledSortingStrategy;
   }
 
-  const parentId = idForDeterminingStrategy ? getDndParentId(idForDeterminingStrategy) : null;
+  const parentId = idForDeterminingStrategy
+    ? getDndParentId(idForDeterminingStrategy)
+    : null;
   const resolvedParentId = parentId ?? containerId;
   return getSectionIsHorizontalOrientation(resolvedParentId)
     ? horizontalListSortingStrategy

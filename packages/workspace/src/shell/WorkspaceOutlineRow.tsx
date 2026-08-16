@@ -1,10 +1,16 @@
 import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
 import { FaLayerGroup } from "react-icons/fa6";
 import { RiArrowRightSLine, RiLock2Line, RiSubtractLine } from "react-icons/ri";
-import { GROUP_SECTION_KIND, isGroupSection } from "../document/documentSelectors";
+import {
+  GROUP_SECTION_KIND,
+  isGroupSection,
+} from "../document/documentSelectors";
 import { getRegisteredSectionKindOrThrow } from "../document/sectionKindRegistry";
 import type { WorkspaceSection } from "../document/types";
-import type { WorkspaceOutlineEntry, WorkspaceOutlineNode } from "./workspaceOutlineModel";
+import type {
+  WorkspaceOutlineEntry,
+  WorkspaceOutlineNode,
+} from "./workspaceOutlineModel";
 
 type OutlineRowStyle = CSSProperties & {
   "--setta-workspace-outline-depth": string;
@@ -20,7 +26,10 @@ type WorkspaceOutlineBranchProps = {
   onClick: (event: MouseEvent<HTMLDivElement>, sectionId: string) => void;
   onContextMenu: (event: MouseEvent<HTMLDivElement>, sectionId: string) => void;
   onFocus: (sectionId: string) => void;
-  onKeyDown: (event: KeyboardEvent<HTMLDivElement>, entry: WorkspaceOutlineEntry) => void;
+  onKeyDown: (
+    event: KeyboardEvent<HTMLDivElement>,
+    entry: WorkspaceOutlineEntry,
+  ) => void;
   registerRow: (sectionId: string, element: HTMLDivElement | null) => void;
 };
 
@@ -39,7 +48,11 @@ function WorkspaceOutlineKindIcon({ section }: { section: WorkspaceSection }) {
     return <FaLayerGroup />;
   }
   const RegisteredIcon = getRegisteredSectionKindOrThrow(section.kind).icon;
-  return RegisteredIcon ? <RegisteredIcon sectionId={section.id} /> : <i className="gg-menu" />;
+  return RegisteredIcon ? (
+    <RegisteredIcon sectionId={section.id} />
+  ) : (
+    <i className="gg-menu" />
+  );
 }
 
 function WorkspaceOutlineDisclosure({
@@ -57,7 +70,9 @@ function WorkspaceOutlineDisclosure({
       aria-hidden="true"
       className="setta-workspace-outline-disclosure"
       data-expanded={group && !isCollapsed ? "true" : "false"}
-      data-workspace-outline-disclosure={group && !filterActive ? "true" : undefined}
+      data-workspace-outline-disclosure={
+        group && !filterActive ? "true" : undefined
+      }
     >
       {group ? <RiArrowRightSLine focusable="false" /> : null}
     </span>
@@ -76,7 +91,11 @@ function WorkspaceOutlineTagColor({ tagColor }: { tagColor: string | null }) {
   );
 }
 
-function WorkspaceOutlineStateIcons({ section }: { section: WorkspaceSection }) {
+function WorkspaceOutlineStateIcons({
+  section,
+}: {
+  section: WorkspaceSection;
+}) {
   return (
     <>
       {section.positionAndSizeLocked ? (
@@ -94,16 +113,22 @@ function WorkspaceOutlineStateIcons({ section }: { section: WorkspaceSection }) 
   );
 }
 
-function getAriaExpanded(section: WorkspaceSection, isCollapsed: boolean): boolean | undefined {
+function getAriaExpanded(
+  section: WorkspaceSection,
+  isCollapsed: boolean,
+): boolean | undefined {
   return isGroupSection(section) ? !isCollapsed : undefined;
 }
 
-function WorkspaceOutlineRow(props: WorkspaceOutlineBranchProps & { isCollapsed: boolean }) {
+function WorkspaceOutlineRow(
+  props: WorkspaceOutlineBranchProps & { isCollapsed: boolean },
+) {
   const { node } = props;
   const { section } = node;
   const rowStyle: OutlineRowStyle = {
     "--setta-workspace-outline-depth": `${node.depth * 12}px`,
-    "--setta-workspace-outline-style-color": section.styleColor ?? "transparent",
+    "--setta-workspace-outline-style-color":
+      section.styleColor ?? "transparent",
   };
 
   return (
@@ -142,14 +167,20 @@ function WorkspaceOutlineRow(props: WorkspaceOutlineBranchProps & { isCollapsed:
   );
 }
 
-function WorkspaceOutlineChildren(props: WorkspaceOutlineBranchProps & { isCollapsed: boolean }) {
+function WorkspaceOutlineChildren(
+  props: WorkspaceOutlineBranchProps & { isCollapsed: boolean },
+) {
   if (props.isCollapsed || props.node.children.length === 0) {
     return null;
   }
   return (
     <div role="group">
       {props.node.children.map((child) => (
-        <WorkspaceOutlineBranch {...props} key={child.section.id} node={child} />
+        <WorkspaceOutlineBranch
+          {...props}
+          key={child.section.id}
+          node={child}
+        />
       ))}
     </div>
   );

@@ -12,11 +12,8 @@ import { getOrderedTopLevelSectionIds } from "./topLevelSectionOrder";
 // the control the person left, and the canvas offers its sections in layout reading order.
 export type WorkspaceFocusScopeId = "leading-pane" | "canvas" | "trailing-pane";
 
-const WORKSPACE_FOCUS_SCOPE_IDS: ReadonlyArray<WorkspaceFocusScopeId> = Object.freeze([
-  "leading-pane",
-  "canvas",
-  "trailing-pane",
-]);
+const WORKSPACE_FOCUS_SCOPE_IDS: ReadonlyArray<WorkspaceFocusScopeId> =
+  Object.freeze(["leading-pane", "canvas", "trailing-pane"]);
 
 const WORKSPACE_FOCUS_SCOPE_ATTRIBUTE = "data-workspace-focus-scope";
 
@@ -28,7 +25,9 @@ const FOCUSABLE_SELECTOR =
 const scopeRoots = new Map<WorkspaceFocusScopeId, HTMLElement>();
 const lastFocusedByScope = new Map<WorkspaceFocusScopeId, HTMLElement>();
 
-function isWorkspaceFocusScopeId(value: string): value is WorkspaceFocusScopeId {
+function isWorkspaceFocusScopeId(
+  value: string,
+): value is WorkspaceFocusScopeId {
   return WORKSPACE_FOCUS_SCOPE_IDS.includes(value as WorkspaceFocusScopeId);
 }
 
@@ -49,9 +48,13 @@ function isWorkspaceFocusable(element: HTMLElement): boolean {
 // A live CodeMirror's content element is contenteditable, so focus genuinely lands there and the
 // scope remembers it; the reference likewise keeps it out of the offered list, where the idle
 // control that owns the same value is the tab stop.
-export function getWorkspaceFocusableElements(root: HTMLElement): Array<HTMLElement> {
+export function getWorkspaceFocusableElements(
+  root: HTMLElement,
+): Array<HTMLElement> {
   return [...root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)].filter(
-    (element) => isWorkspaceFocusable(element) && !element.classList.contains("cm-content"),
+    (element) =>
+      isWorkspaceFocusable(element) &&
+      !element.classList.contains("cm-content"),
   );
 }
 
@@ -60,14 +63,20 @@ export function getWorkspaceFocusableElements(root: HTMLElement): Array<HTMLElem
 // A canvas with no mounted sections falls back to whatever the wrapper itself contains.
 function getCanvasFocusableElements(root: HTMLElement): Array<HTMLElement> {
   const sectionRoots = useSectionRefs.getState().withNested;
-  const sectionFocusables = getOrderedTopLevelSectionIds().flatMap((sectionId) => {
-    const sectionRoot = sectionRoots[sectionId];
-    return sectionRoot ? getWorkspaceFocusableElements(sectionRoot) : [];
-  });
-  return sectionFocusables.length > 0 ? sectionFocusables : getWorkspaceFocusableElements(root);
+  const sectionFocusables = getOrderedTopLevelSectionIds().flatMap(
+    (sectionId) => {
+      const sectionRoot = sectionRoots[sectionId];
+      return sectionRoot ? getWorkspaceFocusableElements(sectionRoot) : [];
+    },
+  );
+  return sectionFocusables.length > 0
+    ? sectionFocusables
+    : getWorkspaceFocusableElements(root);
 }
 
-function getWorkspaceFocusScopeElements(scopeId: WorkspaceFocusScopeId): Array<HTMLElement> {
+function getWorkspaceFocusScopeElements(
+  scopeId: WorkspaceFocusScopeId,
+): Array<HTMLElement> {
   const root = scopeRoots.get(scopeId);
   if (!root) {
     return [];
@@ -87,16 +96,23 @@ function getStoredFocusableElement(
   }
   // The remembered element is dropped once it leaves the scope, unmounts, or stops being
   // focusable, exactly as the reference forgets a stale target instead of focusing nothing.
-  if (!stored.isConnected || !root.contains(stored) || !isWorkspaceFocusable(stored)) {
+  if (
+    !stored.isConnected ||
+    !root.contains(stored) ||
+    !isWorkspaceFocusable(stored)
+  ) {
     lastFocusedByScope.delete(scopeId);
     return null;
   }
   return stored;
 }
 
-export function getWorkspaceFocusScopeId(element: HTMLElement): WorkspaceFocusScopeId | null {
+export function getWorkspaceFocusScopeId(
+  element: HTMLElement,
+): WorkspaceFocusScopeId | null {
   const scopeRoot = element.closest(`[${WORKSPACE_FOCUS_SCOPE_ATTRIBUTE}]`);
-  const scopeId = scopeRoot?.getAttribute(WORKSPACE_FOCUS_SCOPE_ATTRIBUTE) ?? null;
+  const scopeId =
+    scopeRoot?.getAttribute(WORKSPACE_FOCUS_SCOPE_ATTRIBUTE) ?? null;
   return scopeId !== null && isWorkspaceFocusScopeId(scopeId) ? scopeId : null;
 }
 
@@ -120,7 +136,9 @@ export function focusWorkspaceScope(scopeId: WorkspaceFocusScopeId): boolean {
     return false;
   }
   const element =
-    getStoredFocusableElement(scopeId, root) ?? getWorkspaceFocusScopeElements(scopeId)[0] ?? null;
+    getStoredFocusableElement(scopeId, root) ??
+    getWorkspaceFocusScopeElements(scopeId)[0] ??
+    null;
   if (!element) {
     return false;
   }
@@ -145,7 +163,9 @@ export function useWorkspaceFocusScope(
       throw new Error(`Workspace focus scope ${scopeId} root did not mount.`);
     }
     if (scopeRoots.has(scopeId)) {
-      throw new Error(`Workspace focus scope ${scopeId} is already registered.`);
+      throw new Error(
+        `Workspace focus scope ${scopeId} is already registered.`,
+      );
     }
     root.setAttribute(WORKSPACE_FOCUS_SCOPE_ATTRIBUTE, scopeId);
     scopeRoots.set(scopeId, root);

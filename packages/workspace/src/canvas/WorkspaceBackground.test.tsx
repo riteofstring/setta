@@ -8,7 +8,9 @@ import { useWorkspaceOptions } from "./options";
 import { initialCanvasState, useReactFlow } from "./store";
 import { WorkspaceBackground } from "./WorkspaceBackground";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("WorkspaceBackground", () => {
   let host: HTMLDivElement;
@@ -86,7 +88,9 @@ describe("WorkspaceBackground", () => {
 
     line = requireElement("path");
     expect(line.getAttribute("d")).toBe("M2 0 V4 M0 2 H4");
-    expect(requireElement("pattern").getAttribute("patternTransform")).toBe("translate(-2,-2)");
+    expect(requireElement("pattern").getAttribute("patternTransform")).toBe(
+      "translate(-2,-2)",
+    );
   });
 
   it("hides the grid when grid snapping or grid visibility is disabled", async () => {

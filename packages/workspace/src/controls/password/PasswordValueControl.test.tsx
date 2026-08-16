@@ -5,9 +5,14 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { useSectionRefs } from "../../section/sectionRefs";
-import { PasswordValueControl, type PasswordValueControlProps } from "./PasswordValueControl";
+import {
+  PasswordValueControl,
+  type PasswordValueControlProps,
+} from "./PasswordValueControl";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const SECTION_ID = "panel";
 const ITEM_ID = "password";
@@ -54,7 +59,9 @@ describe("PasswordValueControl", () => {
   }
 
   function getVisibilityToggle(): HTMLButtonElement {
-    const toggle = host.querySelector<HTMLButtonElement>('button[aria-label$="password"]');
+    const toggle = host.querySelector<HTMLButtonElement>(
+      'button[aria-label$="password"]',
+    );
     if (!toggle) {
       throw new Error("The password visibility toggle is not rendered.");
     }
@@ -89,7 +96,9 @@ describe("PasswordValueControl", () => {
     // The frozen control removes this native button from tab order. The package keeps the
     // non-visual native tab stop so keyboard users can reach the same show/hide action.
     expect(toggle.tabIndex).toBe(0);
-    expect(toggle.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    expect(toggle.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
+      "true",
+    );
     expect(host.querySelector("span.section-value")?.className).toContain(
       "peer-focus-within/textinput:border-blue-400",
     );
@@ -101,7 +110,9 @@ describe("PasswordValueControl", () => {
     act(() => getVisibilityToggle().click());
     expect(getInput().type).toBe("text");
     expect(getInput().value).toBe("secret");
-    expect(getVisibilityToggle().getAttribute("aria-label")).toBe("Hide password");
+    expect(getVisibilityToggle().getAttribute("aria-label")).toBe(
+      "Hide password",
+    );
     expect(onValueChange).not.toHaveBeenCalled();
     act(() => getVisibilityToggle().click());
     expect(getInput().type).toBe("password");
@@ -111,7 +122,10 @@ describe("PasswordValueControl", () => {
     const onValueChange = vi.fn();
     mount({ onValueChange });
     const input = getInput();
-    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
     if (!valueSetter) {
       throw new Error("The native input value setter is unavailable.");
     }
@@ -138,7 +152,11 @@ describe("PasswordValueControl", () => {
       control?.focus();
       act(() => {
         control?.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+          new KeyboardEvent("keydown", {
+            key: "Escape",
+            code: "Escape",
+            bubbles: true,
+          }),
         );
       });
       expect(document.activeElement).toBe(sectionRoot);
@@ -156,7 +174,9 @@ describe("PasswordValueControl", () => {
       savedValueAction: { pending: false, onReveal },
     });
     expect(getInput().placeholder).toBe("Saved");
-    const reveal = host.querySelector<HTMLButtonElement>('button[title="Reveal saved password"]');
+    const reveal = host.querySelector<HTMLButtonElement>(
+      'button[title="Reveal saved password"]',
+    );
     if (!reveal) {
       throw new Error("The saved-value reveal action is not rendered.");
     }
@@ -184,11 +204,15 @@ describe("PasswordValueControl", () => {
     expect(getInput().disabled).toBe(true);
     expect(getInput().classList.contains("cursor-text")).toBe(false);
     expect(getVisibilityToggle().disabled).toBe(true);
-    expect(getVisibilityToggle().classList.contains("cursor-not-allowed")).toBe(true);
+    expect(getVisibilityToggle().classList.contains("cursor-not-allowed")).toBe(
+      true,
+    );
     act(() => getVisibilityToggle().click());
     expect(getInput().type).toBe("password");
     expect(
-      host.querySelector<HTMLButtonElement>('button[title="Reveal saved password"]')?.disabled,
+      host.querySelector<HTMLButtonElement>(
+        'button[title="Reveal saved password"]',
+      )?.disabled,
     ).toBe(true);
 
     useItemSelectionMode.setState({ isSelectingItems: true });

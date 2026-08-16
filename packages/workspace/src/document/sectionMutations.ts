@@ -1,5 +1,9 @@
 import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
-import { getSectionOrThrow, GROUP_SECTION_KIND, isGroupSection } from "./documentSelectors";
+import {
+  getSectionOrThrow,
+  GROUP_SECTION_KIND,
+  isGroupSection,
+} from "./documentSelectors";
 import {
   createNodesMapFromDocumentChildren,
   reprojectNodeStylesForAppearance,
@@ -18,7 +22,10 @@ import type { WorkspaceSection } from "./types";
 // `deleteSections`). The package applies the same canonical writes directly and notifies the
 // host once per funnel through the document-change callback.
 
-function setSectionValues(sectionId: string, values: Partial<WorkspaceSection>) {
+function setSectionValues(
+  sectionId: string,
+  values: Partial<WorkspaceSection>,
+) {
   useWorkspaceDocument.setState((state) => {
     const section = getSectionOrThrow(state, sectionId);
     return {
@@ -44,12 +51,21 @@ export function setSectionName(sectionId: string, name: string) {
   setSectionValues(sectionId, { name });
 }
 
-export function setSectionStyleColor(sectionId: string, styleColor: string | null): void {
-  const normalized = styleColor === null || styleColor.trim() === "" ? null : styleColor.trim();
+export function setSectionStyleColor(
+  sectionId: string,
+  styleColor: string | null,
+): void {
+  const normalized =
+    styleColor === null || styleColor.trim() === "" ? null : styleColor.trim();
   if (normalized !== null && !/^#?[0-9a-f]{6}$/iu.test(normalized)) {
-    throw new Error(`Section ${sectionId} style color must be a six-digit hex color.`);
+    throw new Error(
+      `Section ${sectionId} style color must be a six-digit hex color.`,
+    );
   }
-  const canonical = normalized === null ? null : `#${normalized.replace(/^#/u, "").toLowerCase()}`;
+  const canonical =
+    normalized === null
+      ? null
+      : `#${normalized.replace(/^#/u, "").toLowerCase()}`;
   const documentState = useWorkspaceDocument.getState();
   const section = getSectionOrThrow(documentState, sectionId);
   const nextDocumentState = {
@@ -115,7 +131,10 @@ export function toggleGroupOrientation(sectionId: string) {
   });
 }
 
-function collectSectionSubtreeIds(state: WorkspaceDocumentState, sectionId: string): Array<string> {
+function collectSectionSubtreeIds(
+  state: WorkspaceDocumentState,
+  sectionId: string,
+): Array<string> {
   const ids = [sectionId];
   let idx = 0;
   while (idx < ids.length) {
@@ -140,7 +159,10 @@ export function deleteSections(sectionIds: ReadonlyArray<string>): void {
   const documentState = useWorkspaceDocument.getState();
   const deletedIds = new Set<string>();
   for (const sectionId of getUniqueSectionIds(sectionIds)) {
-    for (const deletedId of collectSectionSubtreeIds(documentState, sectionId)) {
+    for (const deletedId of collectSectionSubtreeIds(
+      documentState,
+      sectionId,
+    )) {
       deletedIds.add(deletedId);
     }
   }
@@ -151,15 +173,24 @@ export function deleteSections(sectionIds: ReadonlyArray<string>): void {
       continue;
     }
     sections[id] = section.children.some((childId) => deletedIds.has(childId))
-      ? { ...section, children: section.children.filter((childId) => !deletedIds.has(childId)) }
+      ? {
+          ...section,
+          children: section.children.filter(
+            (childId) => !deletedIds.has(childId),
+          ),
+        }
       : section;
   }
 
   const topLevelSections = Object.fromEntries(
-    Object.entries(documentState.topLevelSections).filter(([id]) => !deletedIds.has(id)),
+    Object.entries(documentState.topLevelSections).filter(
+      ([id]) => !deletedIds.has(id),
+    ),
   );
   const parentSectionMap = Object.fromEntries(
-    Object.entries(documentState.parentSectionMap).filter(([id]) => !deletedIds.has(id)),
+    Object.entries(documentState.parentSectionMap).filter(
+      ([id]) => !deletedIds.has(id),
+    ),
   );
 
   const nextDocumentState: WorkspaceDocumentState = {
@@ -173,7 +204,9 @@ export function deleteSections(sectionIds: ReadonlyArray<string>): void {
     useNodeInternals.getState().x,
   );
   const nextActiveSections = {
-    activeIds: useActiveSections.getState().activeIds.filter((id) => !deletedIds.has(id)),
+    activeIds: useActiveSections
+      .getState()
+      .activeIds.filter((id) => !deletedIds.has(id)),
   };
   runWithAtomicallyPublishedWorkspaceStores(
     {
@@ -201,7 +234,9 @@ function getGroupingParentId(
   const parentId = state.parentSectionMap[firstId] ?? null;
   for (const sectionId of sectionIds.slice(1)) {
     if ((state.parentSectionMap[sectionId] ?? null) !== parentId) {
-      throw new Error("Grouping requires selected sections to share the same parent.");
+      throw new Error(
+        "Grouping requires selected sections to share the same parent.",
+      );
     }
   }
   return parentId;
@@ -226,7 +261,10 @@ function getOrderedGroupingIds(
   return ordered;
 }
 
-function createGroupSection(groupId: string, children: Array<string>): WorkspaceSection {
+function createGroupSection(
+  groupId: string,
+  children: Array<string>,
+): WorkspaceSection {
   return {
     id: groupId,
     kind: GROUP_SECTION_KIND,
@@ -253,7 +291,10 @@ function createGroupedDocumentState(
   const parentId = getGroupingParentId(state, sectionIds);
   const orderedIds = getOrderedGroupingIds(state, sectionIds, parentId);
   const selected = new Set(orderedIds);
-  const sections = { ...state.sections, [groupId]: createGroupSection(groupId, orderedIds) };
+  const sections = {
+    ...state.sections,
+    [groupId]: createGroupSection(groupId, orderedIds),
+  };
   const parentSectionMap = { ...state.parentSectionMap };
   for (const sectionId of orderedIds) {
     parentSectionMap[sectionId] = groupId;
@@ -261,16 +302,22 @@ function createGroupedDocumentState(
 
   if (parentId !== null) {
     const parent = getSectionOrThrow(state, parentId);
-    const insertionIndex = parent.children.findIndex((sectionId) => selected.has(sectionId));
+    const insertionIndex = parent.children.findIndex((sectionId) =>
+      selected.has(sectionId),
+    );
     if (insertionIndex < 0) {
       throw new Error(`Grouping selection is missing from parent ${parentId}.`);
     }
     sections[parentId] = {
       ...parent,
       children: [
-        ...parent.children.slice(0, insertionIndex).filter((id) => !selected.has(id)),
+        ...parent.children
+          .slice(0, insertionIndex)
+          .filter((id) => !selected.has(id)),
         groupId,
-        ...parent.children.slice(insertionIndex).filter((id) => !selected.has(id)),
+        ...parent.children
+          .slice(insertionIndex)
+          .filter((id) => !selected.has(id)),
       ],
     };
     parentSectionMap[groupId] = parentId;
@@ -280,7 +327,9 @@ function createGroupedDocumentState(
   const layouts = orderedIds.map((sectionId) => {
     const layout = state.topLevelSections[sectionId];
     if (!layout) {
-      throw new Error(`Top-level grouping requires a layout for section ${sectionId}.`);
+      throw new Error(
+        `Top-level grouping requires a layout for section ${sectionId}.`,
+      );
     }
     return layout;
   });
@@ -308,13 +357,18 @@ function createGroupedDocumentState(
     topLevelSections[sectionId] = layout;
   }
   if (!insertedGroup) {
-    throw new Error("Top-level grouping selection is missing from the document order.");
+    throw new Error(
+      "Top-level grouping selection is missing from the document order.",
+    );
   }
   delete parentSectionMap[groupId];
   return { ...state, sections, topLevelSections, parentSectionMap };
 }
 
-export function groupSections(sectionIds: ReadonlyArray<string>, groupId: string): void {
+export function groupSections(
+  sectionIds: ReadonlyArray<string>,
+  groupId: string,
+): void {
   const uniqueIds = getUniqueSectionIds(sectionIds);
   if (uniqueIds.length < 2) {
     throw new Error("Grouping requires at least two distinct sections.");
@@ -323,7 +377,11 @@ export function groupSections(sectionIds: ReadonlyArray<string>, groupId: string
     throw new Error("A new group requires a nonblank section id.");
   }
   const documentState = useWorkspaceDocument.getState();
-  const nextDocumentState = createGroupedDocumentState(documentState, uniqueIds, groupId.trim());
+  const nextDocumentState = createGroupedDocumentState(
+    documentState,
+    uniqueIds,
+    groupId.trim(),
+  );
   const nextNodesMap = createNodesMapFromDocumentChildren(
     nextDocumentState,
     useNodeInternals.getState().x,

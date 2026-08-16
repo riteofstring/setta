@@ -52,7 +52,9 @@ function resolveOverlayRect(
   return resolveRectBoundsFromMap(draggingRectsById) ?? fallbackRect;
 }
 
-function resolveDragOverlayState(manager: ReturnType<typeof useDragDropManager>): {
+function resolveDragOverlayState(
+  manager: ReturnType<typeof useDragDropManager>,
+): {
   dragTransform: DragTransform;
   isDragging: boolean;
   isDropped: boolean;
@@ -123,7 +125,10 @@ export function DummyDragOverlay({ ref }: { ref?: Ref<HTMLDivElement> }) {
     }),
     _.isEqual,
   );
-  const overlayState = useComputed(() => resolveDragOverlayState(manager), [manager]).value;
+  const overlayState = useComputed(
+    () => resolveDragOverlayState(manager),
+    [manager],
+  ).value;
   const overlay = resolveOverlayRenderState({
     dragTransform: overlayState.dragTransform,
     draggingCount: draggingIds.length,

@@ -1,11 +1,24 @@
 import { useEffect } from "react";
-import { activateDndMovingFreeMode, activateDndSortingMode, deactivateDnd } from "../dnd/dndState";
-import { getActiveSectionIds, setActiveSectionIds } from "../document/activeSections";
+import {
+  activateDndMovingFreeMode,
+  activateDndSortingMode,
+  deactivateDnd,
+} from "../dnd/dndState";
+import {
+  getActiveSectionIds,
+  setActiveSectionIds,
+} from "../document/activeSections";
 import { unselectAllItems } from "../document/itemSelection";
-import { activateItemSelect, deactivateItemSelect } from "../document/itemSelectionMode";
+import {
+  activateItemSelect,
+  deactivateItemSelect,
+} from "../document/itemSelectionMode";
 import { getIsEditableTarget } from "../keybindings/editableTarget";
 import { RESERVED_WORKSPACE_GESTURES } from "../keybindings/reservedWorkspaceGestures";
-import { matchesWorkspaceChord, type ParsedWorkspaceChord } from "../keybindings/workspaceChords";
+import {
+  matchesWorkspaceChord,
+  type ParsedWorkspaceChord,
+} from "../keybindings/workspaceChords";
 import { runWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingDispatch";
 import {
   closeFrozenWorkspaceTooltip,
@@ -71,7 +84,9 @@ function runTooltipAuxiliaryShortcut(event: KeyboardEvent): boolean {
 
 function getIsTooltipAuxiliaryKey(event: KeyboardEvent): boolean {
   const key = getTooltipShortcutKey(event);
-  return key === "f" || key === "ArrowRight" || key === "ArrowLeft" || key === "c";
+  return (
+    key === "f" || key === "ArrowRight" || key === "ArrowLeft" || key === "c"
+  );
 }
 
 function runFocusedFrozenTooltipShortcut(event: KeyboardEvent): boolean {
@@ -99,7 +114,11 @@ function getIsTransientTooltipAuxiliaryChord(
   event: KeyboardEvent,
   tooltipPressed: boolean,
 ): boolean {
-  return tooltipPressed && hasNoTooltipModifiers(event) && getIsTooltipAuxiliaryKey(event);
+  return (
+    tooltipPressed &&
+    hasNoTooltipModifiers(event) &&
+    getIsTooltipAuxiliaryKey(event)
+  );
 }
 
 function runTooltipShortcutWithoutRepeat(
@@ -176,26 +195,39 @@ function createHoldChordTracker(macOS: boolean) {
       ignoreInInput: true,
       pressed: false,
       activate: () =>
-        useReactFlow.setState({ multiSelectionActive: true, zoomActivationKeyPressed: true }),
+        useReactFlow.setState({
+          multiSelectionActive: true,
+          zoomActivationKeyPressed: true,
+        }),
       deactivate: () =>
-        useReactFlow.setState({ multiSelectionActive: false, zoomActivationKeyPressed: false }),
+        useReactFlow.setState({
+          multiSelectionActive: false,
+          zoomActivationKeyPressed: false,
+        }),
     },
     {
       chord: RESERVED_WORKSPACE_GESTURES.panActivation.chord,
       ignoreInInput: true,
       pressed: false,
       activate: () => useReactFlow.setState({ panActivationKeyPressed: true }),
-      deactivate: () => useReactFlow.setState({ panActivationKeyPressed: false }),
+      deactivate: () =>
+        useReactFlow.setState({ panActivationKeyPressed: false }),
     },
   ];
 
   // The reference engine's pressed-key equality (`isShortcutPressed` compares the whole
   // non-modifier pressed set against the shortcut's keys).
   function heldKeysEqual(codes: ReadonlyArray<string>): boolean {
-    return heldKeys.size === codes.length && codes.every((code) => heldKeys.has(code));
+    return (
+      heldKeys.size === codes.length &&
+      codes.every((code) => heldKeys.has(code))
+    );
   }
 
-  function matchesChord(event: KeyboardEvent, chord: ParsedWorkspaceChord): boolean {
+  function matchesChord(
+    event: KeyboardEvent,
+    chord: ParsedWorkspaceChord,
+  ): boolean {
     return matchesWorkspaceChord(event, chord, macOS, heldKeysEqual);
   }
 
@@ -218,7 +250,11 @@ function createHoldChordTracker(macOS: boolean) {
           releaseMode(mode);
           continue;
         }
-        if (mode.pressed || event.repeat || (mode.ignoreInInput && editableTarget)) {
+        if (
+          mode.pressed ||
+          event.repeat ||
+          (mode.ignoreInInput && editableTarget)
+        ) {
           continue;
         }
         mode.pressed = true;
@@ -282,11 +318,17 @@ function getEventSectionNode(event: KeyboardEvent): Element | null {
 }
 
 function getDocumentActiveElement(): HTMLElement | null {
-  return document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  return document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : null;
 }
 
 function isRootDocumentElement(element: HTMLElement | null): boolean {
-  return !element || element === document.body || element === document.documentElement;
+  return (
+    !element ||
+    element === document.body ||
+    element === document.documentElement
+  );
 }
 
 function blurDocumentActiveElement() {
@@ -336,7 +378,11 @@ function runEscapeAction(event: KeyboardEvent) {
   clearActiveSectionSelectionIfNeeded(sectionNode);
 }
 
-function handleEscapeShortcut(event: KeyboardEvent, tracker: HoldChordTracker, macOS: boolean) {
+function handleEscapeShortcut(
+  event: KeyboardEvent,
+  tracker: HoldChordTracker,
+  macOS: boolean,
+) {
   if (event.key !== "Escape" || event.repeat) {
     return;
   }

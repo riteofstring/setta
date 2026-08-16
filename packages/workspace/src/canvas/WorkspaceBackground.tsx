@@ -15,7 +15,9 @@ export const WorkspaceBackground = memo(function WorkspaceBackground() {
   const variant = useWorkspaceOptions((state) => state.gridPattern);
   const patternSize = useWorkspaceOptions((state) => state.gridPatternSize);
   const gridColor = useWorkspaceOptions((state) => state.gridColor);
-  const gridColorDarkMode = useWorkspaceOptions((state) => state.gridColorDarkMode);
+  const gridColorDarkMode = useWorkspaceOptions(
+    (state) => state.gridColorDarkMode,
+  );
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
   const transform = useReactFlow((state) => state.transform);
 
@@ -24,11 +26,16 @@ export const WorkspaceBackground = memo(function WorkspaceBackground() {
   }
 
   const patternColor = darkMode ? gridColorDarkMode : gridColor;
-  const scaledGap: [number, number] = [gapXY[0] * transform[2] || 1, gapXY[1] * transform[2] || 1];
+  const scaledGap: [number, number] = [
+    gapXY[0] * transform[2] || 1,
+    gapXY[1] * transform[2] || 1,
+  ];
   const scaledSize = patternSize * transform[2];
   const isDots = variant === "dots";
   const isCross = variant === "cross";
-  const patternDimensions: [number, number] = isCross ? [scaledSize, scaledSize] : scaledGap;
+  const patternDimensions: [number, number] = isCross
+    ? [scaledSize, scaledSize]
+    : scaledGap;
   const patternOffset: [number, number] = isDots
     ? [scaledSize / PATTERN_OFFSET_DIVISOR, scaledSize / PATTERN_OFFSET_DIVISOR]
     : [
@@ -72,7 +79,13 @@ export const WorkspaceBackground = memo(function WorkspaceBackground() {
           />
         )}
       </pattern>
-      <rect x="0" y="0" width="100%" height="100%" fill={`url(#${PATTERN_ID})`} />
+      <rect
+        x="0"
+        y="0"
+        width="100%"
+        height="100%"
+        fill={`url(#${PATTERN_ID})`}
+      />
     </svg>
   );
 });

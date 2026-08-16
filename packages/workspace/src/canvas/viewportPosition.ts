@@ -28,7 +28,10 @@ const pointToRendererPoint = (
   return position;
 };
 
-export function screenToFlowPosition(position: Position, ignoreGrid = false): Position {
+export function screenToFlowPosition(
+  position: Position,
+  ignoreGrid = false,
+): Position {
   const { transform, domNode } = useReactFlow.getState();
   const { snapGrid, snapToGrid } = useWorkspaceOptions.getState();
 
@@ -42,5 +45,11 @@ export function screenToFlowPosition(position: Position, ignoreGrid = false): Po
     y: position.y - domY,
   };
 
-  return pointToRendererPoint(relativePosition, transform, snapToGrid, snapGrid, ignoreGrid);
+  return pointToRendererPoint(
+    relativePosition,
+    transform,
+    snapToGrid,
+    snapGrid,
+    ignoreGrid,
+  );
 }

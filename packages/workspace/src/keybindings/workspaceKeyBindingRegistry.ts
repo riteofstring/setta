@@ -52,14 +52,19 @@ function listWorkspaceKeyBindingDefinitions(
 // host-owned set. A binding a host does not name keeps its default chord.
 let hostChords: ReadonlyMap<string, string | null> = new Map();
 
-const resolvedByPlatform = new Map<boolean, ReadonlyArray<ResolvedWorkspaceKeyBinding>>();
+const resolvedByPlatform = new Map<
+  boolean,
+  ReadonlyArray<ResolvedWorkspaceKeyBinding>
+>();
 
 function assertKnownBindingId(
   id: string,
   definitions: ReadonlyArray<WorkspaceKeyBindingDefinition>,
 ): void {
   if (!definitions.some((definition) => definition.id === id)) {
-    throw new Error(`Workspace key binding ${JSON.stringify(id)} is not a workspace operation.`);
+    throw new Error(
+      `Workspace key binding ${JSON.stringify(id)} is not a workspace operation.`,
+    );
   }
 }
 
@@ -91,7 +96,9 @@ function buildChordAssignments(
 ): Array<ChordAssignment> {
   return definitions.flatMap((definition) => {
     const overridden = chordsById.has(definition.id);
-    const chord = overridden ? chordsById.get(definition.id) : definition.defaultChord;
+    const chord = overridden
+      ? chordsById.get(definition.id)
+      : definition.defaultChord;
     if (chord === null || chord === undefined) {
       return [];
     }
@@ -112,12 +119,16 @@ function toConflict(
 ): WorkspaceKeyBindingConflict {
   const first = assignments[0];
   if (!first) {
-    throw new Error("Workspace key binding conflict needs at least one binding.");
+    throw new Error(
+      "Workspace key binding conflict needs at least one binding.",
+    );
   }
   return Object.freeze({
     chord: first.chord,
     chordLabel: formatWorkspaceChord(first.parsed, isMacOs()),
-    bindingIds: Object.freeze(assignments.map((assignment) => assignment.definition.id)),
+    bindingIds: Object.freeze(
+      assignments.map((assignment) => assignment.definition.id),
+    ),
     reservedGesture,
   });
 }
@@ -163,7 +174,9 @@ function describeConflict(conflict: WorkspaceKeyBindingConflict): string {
   return `Workspace key binding chord ${conflict.chordLabel} is claimed by ${bindings}.`;
 }
 
-function assertNoChordConflicts(assignments: ReadonlyArray<ChordAssignment>): void {
+function assertNoChordConflicts(
+  assignments: ReadonlyArray<ChordAssignment>,
+): void {
   const conflicts = findChordConflicts(assignments);
   if (conflicts.length > 0) {
     throw new Error(conflicts.map(describeConflict).join(" "));
@@ -181,7 +194,9 @@ export function getWorkspaceKeyBindingConflicts(
   );
 }
 
-export function registerWorkspaceKeyBindings(bindings: ReadonlyArray<WorkspaceKeyBinding>): void {
+export function registerWorkspaceKeyBindings(
+  bindings: ReadonlyArray<WorkspaceKeyBinding>,
+): void {
   const definitions = listWorkspaceKeyBindingDefinitions();
   const chords = buildHostChords(bindings, definitions);
   assertNoChordConflicts(buildChordAssignments(chords, definitions));
@@ -221,8 +236,12 @@ export function getWorkspaceKeyBindings(): ReadonlyArray<WorkspaceKeyBindingDesc
         id: definition.id,
         label: definition.getLabel(),
         chord: assignment?.chord ?? null,
-        chordLabel: assignment ? formatWorkspaceChord(assignment.parsed, macOS) : null,
-        origin: assignment?.origin ?? (hostChords.has(definition.id) ? "host" : "default"),
+        chordLabel: assignment
+          ? formatWorkspaceChord(assignment.parsed, macOS)
+          : null,
+        origin:
+          assignment?.origin ??
+          (hostChords.has(definition.id) ? "host" : "default"),
       });
     }),
   );
@@ -238,13 +257,19 @@ export function getResolvedWorkspaceKeyBindings(
     return cached;
   }
   const resolved = Object.freeze(
-    buildChordAssignments(hostChords, listWorkspaceKeyBindingDefinitions()).map((assignment) =>
-      Object.freeze({
-        chord: assignment.parsed,
-        definition: assignment.definition,
-        suppressesBrowserDefault: getChordSuppressesBrowserDefault(assignment.parsed),
-        yieldsToEditableTarget: getChordYieldsToEditableTarget(assignment.parsed, macOS),
-      }),
+    buildChordAssignments(hostChords, listWorkspaceKeyBindingDefinitions()).map(
+      (assignment) =>
+        Object.freeze({
+          chord: assignment.parsed,
+          definition: assignment.definition,
+          suppressesBrowserDefault: getChordSuppressesBrowserDefault(
+            assignment.parsed,
+          ),
+          yieldsToEditableTarget: getChordYieldsToEditableTarget(
+            assignment.parsed,
+            macOS,
+          ),
+        }),
     ),
   );
   resolvedByPlatform.set(macOS, resolved);

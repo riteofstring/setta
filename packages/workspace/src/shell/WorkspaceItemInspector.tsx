@@ -56,21 +56,32 @@ function UnsupportedCustomItem({
   item: WorkspaceItem;
   section: WorkspaceSection;
 }) {
-  const contribution = getRegisteredSectionKindOrThrow(section.kind).renderInspector;
+  const contribution = getRegisteredSectionKindOrThrow(
+    section.kind,
+  ).renderInspector;
   if (contribution) {
     return (
       <div
         className="setta-workspace-inspector-contribution"
         data-inspector-focus-key="custom-item"
       >
-        {contribution(createWorkspaceInspectorContributionContext({ type: "item", section, item }))}
+        {contribution(
+          createWorkspaceInspectorContributionContext({
+            type: "item",
+            section,
+            item,
+          }),
+        )}
       </div>
     );
   }
   return (
     <div className="setta-workspace-inspector-unsupported" role="note">
       <h3>Custom item</h3>
-      <p>This item uses host-owned content. Its section kind has no Inspector contribution.</p>
+      <p>
+        This item uses host-owned content. Its section kind has no Inspector
+        contribution.
+      </p>
     </div>
   );
 }
@@ -106,8 +117,14 @@ function ItemTypeField({
   sectionId: string;
 }) {
   return (
-    <div className="setta-workspace-inspector-field" data-inspector-focus-key="item-type">
-      <label className="setta-workspace-inspector-label" htmlFor="setta-inspector-item-type">
+    <div
+      className="setta-workspace-inspector-field"
+      data-inspector-focus-key="item-type"
+    >
+      <label
+        className="setta-workspace-inspector-label"
+        htmlFor="setta-inspector-item-type"
+      >
         UI type
       </label>
       <select
@@ -211,7 +228,10 @@ function ItemHelpTextField({
   }
 
   return (
-    <div className="setta-workspace-inspector-field" data-inspector-focus-key="item-help-text">
+    <div
+      className="setta-workspace-inspector-field"
+      data-inspector-focus-key="item-help-text"
+    >
       <label className="setta-workspace-inspector-label" htmlFor={inputId}>
         Help text
       </label>
@@ -246,9 +266,13 @@ function TypedItemInspector({
   onStatusChange,
   section,
 }: WorkspaceItemInspectorProps & {
-  item: WorkspaceItem & { presentation: NonNullable<WorkspaceItem["presentation"]> };
+  item: WorkspaceItem & {
+    presentation: NonNullable<WorkspaceItem["presentation"]>;
+  };
 }) {
-  const canEditStructure = useWorkspaceCapabilities((state) => state.canEditStructure);
+  const canEditStructure = useWorkspaceCapabilities(
+    (state) => state.canEditStructure,
+  );
   const { control, helpText, label, labelEditable } = item.presentation;
 
   function changeControlKind(kind: WorkspaceInspectorItemControlKind): void {
@@ -256,7 +280,9 @@ function TypedItemInspector({
       return;
     }
     if (!isControlKindAvailable(section.id, item.id, kind)) {
-      throw new Error(`Item ${section.id}/${item.id} cannot use unavailable ${kind} handlers.`);
+      throw new Error(
+        `Item ${section.id}/${item.id} cannot use unavailable ${kind} handlers.`,
+      );
     }
     const previousValue = control.kind === "group" ? "" : control.value;
     setItemPresentation(
@@ -268,13 +294,19 @@ function TypedItemInspector({
   }
 
   return (
-    <div className="setta-workspace-inspector-editor" data-inspector-branch="item">
+    <div
+      className="setta-workspace-inspector-editor"
+      data-inspector-branch="item"
+    >
       <div className="setta-workspace-inspector-section-heading">
         <h3>{label || item.id}</h3>
         <span>Item</span>
       </div>
       {labelEditable ? (
-        <div className="setta-workspace-inspector-field" data-inspector-focus-key="item-label">
+        <div
+          className="setta-workspace-inspector-field"
+          data-inspector-focus-key="item-label"
+        >
           <span className="setta-workspace-inspector-label">Label</span>
           <div className="setta-workspace-inspector-item-name">
             <ItemNameEditor
@@ -284,7 +316,9 @@ function TypedItemInspector({
               name={label}
               onNameChange={(nextLabel) => {
                 setItemLabel(section.id, item.id, nextLabel);
-                onStatusChange(`Item label changed to ${nextLabel || "blank"}.`);
+                onStatusChange(
+                  `Item label changed to ${nextLabel || "blank"}.`,
+                );
               }}
               onEscape={onEscape}
               sectionId={section.id}
@@ -297,7 +331,9 @@ function TypedItemInspector({
           data-inspector-focus-key="item-label"
         >
           <span>Label</span>
-          <span className="setta-workspace-inspector-readonly-value">{label}</span>
+          <span className="setta-workspace-inspector-readonly-value">
+            {label}
+          </span>
         </div>
       )}
       <ItemHelpTextField
@@ -312,7 +348,9 @@ function TypedItemInspector({
       {control.kind === "group" ? (
         <div className="setta-workspace-inspector-readonly-row">
           <span>UI type</span>
-          <span className="setta-workspace-inspector-readonly-value">Group</span>
+          <span className="setta-workspace-inspector-readonly-value">
+            Group
+          </span>
         </div>
       ) : (
         <>

@@ -8,8 +8,14 @@ import {
   groupSections,
   setSectionsPositionLocked,
 } from "../document/sectionMutations";
-import { useWorkspaceDocument, type WorkspaceDocumentState } from "../document/stores";
-import type { WorkspaceSection, WorkspaceSectionItemTree } from "../document/types";
+import {
+  useWorkspaceDocument,
+  type WorkspaceDocumentState,
+} from "../document/stores";
+import type {
+  WorkspaceSection,
+  WorkspaceSectionItemTree,
+} from "../document/types";
 import { canUngroupWorkspaceSections } from "../document/ungroupSections";
 import {
   deleteLastWorkspaceItem,
@@ -26,12 +32,15 @@ import type {
   WorkspaceSectionCommandContext,
 } from "./workspaceCommandTypes";
 
-const MISSING_SECTION_REASON = "This section is no longer part of the workspace.";
+const MISSING_SECTION_REASON =
+  "This section is no longer part of the workspace.";
 const MISSING_ITEM_REASON = "This parameter is no longer part of the section.";
 const STRUCTURE_REASON = "Structural editing is disabled in this workspace.";
 const LAYOUT_REASON = "Layout editing is disabled in this workspace.";
-const ITEM_DRAG_REASON = "Finish the parameter drag before adding or deleting parameters.";
-const SECTION_LOCKED_REASON = "Unlock this section to add or delete parameters.";
+const ITEM_DRAG_REASON =
+  "Finish the parameter drag before adding or deleting parameters.";
+const SECTION_LOCKED_REASON =
+  "Unlock this section to add or delete parameters.";
 
 // A command context names its target; the current document, capabilities, and drag state decide
 // whether the command applies and whether it can run. Resolving both from live state keeps an
@@ -43,7 +52,9 @@ type LiveSectionTargets = {
   state: WorkspaceDocumentState;
 };
 
-function getLiveSectionTargets(context: WorkspaceSectionCommandContext): LiveSectionTargets {
+function getLiveSectionTargets(
+  context: WorkspaceSectionCommandContext,
+): LiveSectionTargets {
   const state = useWorkspaceDocument.getState();
   const sections = context.selectedSections.flatMap((selected) => {
     const section = state.sections[selected.id];
@@ -57,19 +68,27 @@ function getLiveSectionTargets(context: WorkspaceSectionCommandContext): LiveSec
   };
 }
 
-function getLiveItemSection(context: WorkspaceItemCommandContext): WorkspaceSection | null {
+function getLiveItemSection(
+  context: WorkspaceItemCommandContext,
+): WorkspaceSection | null {
   return useWorkspaceDocument.getState().sections[context.section.id] ?? null;
 }
 
 function getStructureReason(): string | null {
-  return useWorkspaceCapabilities.getState().canEditStructure ? null : STRUCTURE_REASON;
+  return useWorkspaceCapabilities.getState().canEditStructure
+    ? null
+    : STRUCTURE_REASON;
 }
 
 function getLayoutReason(): string | null {
-  return useWorkspaceCapabilities.getState().canEditLayout ? null : LAYOUT_REASON;
+  return useWorkspaceCapabilities.getState().canEditLayout
+    ? null
+    : LAYOUT_REASON;
 }
 
-function getSelectedSectionIds(context: WorkspaceSectionCommandContext): Array<string> {
+function getSelectedSectionIds(
+  context: WorkspaceSectionCommandContext,
+): Array<string> {
   return context.selectedSections.map((section) => section.id);
 }
 
@@ -87,7 +106,9 @@ function formatSectionCount(count: number, noun: string): string {
 
 // Item authoring shares one precondition set: the host allows structural edits, no parameter drag
 // is in flight, and the owning section is unlocked.
-function getItemAuthoringReason(section: WorkspaceSection | null): string | null {
+function getItemAuthoringReason(
+  section: WorkspaceSection | null,
+): string | null {
   const structureReason = getStructureReason();
   if (structureReason) {
     return structureReason;
@@ -101,7 +122,9 @@ function getItemAuthoringReason(section: WorkspaceSection | null): string | null
   return section.positionAndSizeLocked ? SECTION_LOCKED_REASON : null;
 }
 
-function getLiveItemTree(section: WorkspaceSection | null): WorkspaceSectionItemTree | null {
+function getLiveItemTree(
+  section: WorkspaceSection | null,
+): WorkspaceSectionItemTree | null {
   return section?.itemTree ?? null;
 }
 
@@ -114,7 +137,10 @@ function hasSectionItemTree(context: WorkspaceSectionCommandContext): boolean {
 }
 
 function getSelectedItemCount(context: WorkspaceSectionCommandContext): number {
-  return getLiveItemTree(getLiveSectionTargets(context).section)?.selectedItemIds.length ?? 0;
+  return (
+    getLiveItemTree(getLiveSectionTargets(context).section)?.selectedItemIds
+      .length ?? 0
+  );
 }
 
 const groupSectionsCommand: WorkspacePackageCommandDefinition = {
@@ -142,7 +168,10 @@ const groupSectionsCommand: WorkspacePackageCommandDefinition = {
     `${formatSectionCount(context.selectedSections.length, "section")} grouped.`,
   run: (context) => {
     useReactFlow.setState({ nodesSelectionDims: null });
-    groupSections(getSelectedSectionIds(context), `group-${crypto.randomUUID()}`);
+    groupSections(
+      getSelectedSectionIds(context),
+      `group-${crypto.randomUUID()}`,
+    );
   },
 };
 
@@ -155,9 +184,14 @@ const toggleGroupOverflowCommand: WorkspacePackageCommandDefinition = {
   // carries its own section, so the same rule covers both surfaces.
   isApplicable: (context) => {
     const { section } = getLiveSectionTargets(context);
-    return context.selectedSections.length === 1 && section !== null && isGroupSection(section);
+    return (
+      context.selectedSections.length === 1 &&
+      section !== null &&
+      isGroupSection(section)
+    );
   },
-  isChecked: (context) => getLiveSectionTargets(context).section?.overflowMode ?? false,
+  isChecked: (context) =>
+    getLiveSectionTargets(context).section?.overflowMode ?? false,
   getDisabledReason: (context) => {
     const layoutReason = getLayoutReason();
     if (layoutReason) {
@@ -174,7 +208,9 @@ const toggleGroupOverflowCommand: WorkspacePackageCommandDefinition = {
   run: (context) => {
     const { section } = getLiveSectionTargets(context);
     if (!section) {
-      throw new Error(`Cannot change overflow mode for missing section ${context.section.id}.`);
+      throw new Error(
+        `Cannot change overflow mode for missing section ${context.section.id}.`,
+      );
     }
     setGroupOverflowMode(section.id, !section.overflowMode);
   },
@@ -185,14 +221,16 @@ const ungroupSectionsCommand: WorkspacePackageCommandDefinition = {
   scope: "section",
   surfaces: ["context-menu", "header", "inspector", "outline"],
   label: "Ungroup",
-  isApplicable: (context) => getLiveSectionTargets(context).sections.some(isGroupSection),
+  isApplicable: (context) =>
+    getLiveSectionTargets(context).sections.some(isGroupSection),
   getDisabledReason: (context) => {
     const structureReason = getStructureReason();
     if (structureReason) {
       return structureReason;
     }
     const targets = getLiveSectionTargets(context);
-    return targets.complete && canUngroupWorkspaceSections(targets.state, targets.sections)
+    return targets.complete &&
+      canUngroupWorkspaceSections(targets.state, targets.sections)
       ? null
       : "Ungrouping is unavailable because every selected section must be an unlocked group.";
   },
@@ -214,7 +252,9 @@ const deleteSectionsCommand: WorkspacePackageCommandDefinition = {
     if (structureReason) {
       return structureReason;
     }
-    return getLiveSectionTargets(context).complete ? null : MISSING_SECTION_REASON;
+    return getLiveSectionTargets(context).complete
+      ? null
+      : MISSING_SECTION_REASON;
   },
   getStatusMessage: (context) =>
     `${formatSectionCount(context.selectedSections.length, "section")} deleted.`,
@@ -231,11 +271,13 @@ const lockSectionsCommand: WorkspacePackageCommandDefinition = {
   scope: "section",
   surfaces: ["context-menu", "outline"],
   label: "Lock Position & Size",
-  isApplicable: (context) => !areAllSectionsLocked(getLiveSectionTargets(context)),
+  isApplicable: (context) =>
+    !areAllSectionsLocked(getLiveSectionTargets(context)),
   getDisabledReason: () => getLayoutReason(),
   getStatusMessage: (context) =>
     `${formatSectionCount(context.selectedSections.length, "section")} locked.`,
-  run: (context) => setSectionsPositionLocked(getSelectedSectionIds(context), true),
+  run: (context) =>
+    setSectionsPositionLocked(getSelectedSectionIds(context), true),
 };
 
 const unlockSectionsCommand: WorkspacePackageCommandDefinition = {
@@ -243,11 +285,13 @@ const unlockSectionsCommand: WorkspacePackageCommandDefinition = {
   scope: "section",
   surfaces: ["context-menu", "outline"],
   label: "Unlock Position & Size",
-  isApplicable: (context) => areAllSectionsLocked(getLiveSectionTargets(context)),
+  isApplicable: (context) =>
+    areAllSectionsLocked(getLiveSectionTargets(context)),
   getDisabledReason: () => getLayoutReason(),
   getStatusMessage: (context) =>
     `${formatSectionCount(context.selectedSections.length, "section")} unlocked.`,
-  run: (context) => setSectionsPositionLocked(getSelectedSectionIds(context), false),
+  run: (context) =>
+    setSectionsPositionLocked(getSelectedSectionIds(context), false),
 };
 
 const insertItemCommand: WorkspacePackageCommandDefinition = {
@@ -278,7 +322,8 @@ const deleteLastItemCommand: WorkspacePackageCommandDefinition = {
   tone: "danger",
   surfaces: ["inspector-parameters"],
   label: "Remove last parameter",
-  isApplicable: (context) => hasSectionItemTree(context) && getSelectedItemCount(context) === 0,
+  isApplicable: (context) =>
+    hasSectionItemTree(context) && getSelectedItemCount(context) === 0,
   getDisabledReason: (context) => {
     const { section } = getLiveSectionTargets(context);
     const authoringReason = getItemAuthoringReason(section);
@@ -302,9 +347,12 @@ const deleteSelectedItemsCommand: WorkspacePackageCommandDefinition = {
   tone: "danger",
   surfaces: ["inspector-parameters"],
   label: "Delete selected parameters",
-  isApplicable: (context) => hasSectionItemTree(context) && getSelectedItemCount(context) > 1,
-  getDisabledReason: (context) => getItemAuthoringReason(getLiveSectionTargets(context).section),
-  getStatusMessage: (context) => `${getSelectedItemCount(context)} parameters deleted.`,
+  isApplicable: (context) =>
+    hasSectionItemTree(context) && getSelectedItemCount(context) > 1,
+  getDisabledReason: (context) =>
+    getItemAuthoringReason(getLiveSectionTargets(context).section),
+  getStatusMessage: (context) =>
+    `${getSelectedItemCount(context)} parameters deleted.`,
   run: (context) => {
     deleteSelectedWorkspaceItems(context.section.id);
   },

@@ -4,7 +4,11 @@ import { getSectionItemTreeOrThrow } from "./documentSelectors";
 import { setItemData } from "./itemData";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { registerSectionKinds } from "./sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "./stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "./stores";
 
 // The custom-row persistence funnel: one canonical opaque-data replacement and one notification.
 
@@ -28,7 +32,11 @@ function loadTestDocument() {
           rootId: "item-root",
           items: {
             "item-root": { id: "item-root", children: ["item-a"] },
-            "item-a": { id: "item-a", children: [], data: { label: "alpha", value: "0.001" } },
+            "item-a": {
+              id: "item-a",
+              children: [],
+              data: { label: "alpha", value: "0.001" },
+            },
           },
           selectedItemIds: [],
         },
@@ -57,8 +65,14 @@ describe("setItemData", () => {
     const onDocumentChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onDocumentChange);
     setItemData("panel", "item-a", { label: "alpha", value: "0.5" });
-    const itemTree = getSectionItemTreeOrThrow(useWorkspaceDocument.getState(), "panel");
-    expect(itemTree.items["item-a"]?.data).toEqual({ label: "alpha", value: "0.5" });
+    const itemTree = getSectionItemTreeOrThrow(
+      useWorkspaceDocument.getState(),
+      "panel",
+    );
+    expect(itemTree.items["item-a"]?.data).toEqual({
+      label: "alpha",
+      value: "0.5",
+    });
     expect(itemTree.items["item-a"]?.children).toEqual([]);
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
   });
@@ -93,7 +107,11 @@ describe("setItemData", () => {
                 presentation: {
                   label: "alpha",
                   labelEditable: true,
-                  control: { kind: "switch", value: "true", configuration: { disabled: false } },
+                  control: {
+                    kind: "switch",
+                    value: "true",
+                    configuration: { disabled: false },
+                  },
                 },
               },
             },

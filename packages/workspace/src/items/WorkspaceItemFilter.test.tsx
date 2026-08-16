@@ -9,14 +9,24 @@ import { ItemDndContext } from "../dnd/ItemDndContext";
 import { getItemDndId, useItemDndState } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
-import { activateItemSelect, useItemSelectionMode } from "../document/itemSelectionMode";
+import {
+  activateItemSelect,
+  useItemSelectionMode,
+} from "../document/itemSelectionMode";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import {
   registerSectionKinds,
   type WorkspaceItemSearchContext,
 } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
-import type { WorkspaceItem, WorkspaceSectionItemTree } from "../document/types";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
+import type {
+  WorkspaceItem,
+  WorkspaceSectionItemTree,
+} from "../document/types";
 import { handleItemDragStart, resetItemDragState } from "./itemDragHandlers";
 import type { ItemRowRenderContext } from "./ItemListContext";
 import { resetItemListViews, resolveItemListView } from "./itemListRegistry";
@@ -25,7 +35,9 @@ import { WorkspaceItemAuthoringToolbar } from "./WorkspaceItemAuthoringToolbar";
 import { WorkspaceItemFilterProvider } from "./WorkspaceItemFilterContext";
 import { WorkspaceItemList } from "./WorkspaceItemList";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 class TestResizeObserver {
   observe() {}
@@ -33,11 +45,16 @@ class TestResizeObserver {
   disconnect() {}
 }
 
-globalThis.ResizeObserver = TestResizeObserver as unknown as typeof ResizeObserver;
+globalThis.ResizeObserver =
+  TestResizeObserver as unknown as typeof ResizeObserver;
 
 const LIST_KEY = "main";
 
-function makeGroupItem(id: string, label: string, children: Array<string> = []): WorkspaceItem {
+function makeGroupItem(
+  id: string,
+  label: string,
+  children: Array<string> = [],
+): WorkspaceItem {
   return {
     id,
     children,
@@ -45,7 +62,9 @@ function makeGroupItem(id: string, label: string, children: Array<string> = []):
   };
 }
 
-function makeItemTree(selectedItemIds: Array<string> = []): WorkspaceSectionItemTree {
+function makeItemTree(
+  selectedItemIds: Array<string> = [],
+): WorkspaceSectionItemTree {
   return {
     rootId: "root",
     items: {
@@ -55,7 +74,10 @@ function makeItemTree(selectedItemIds: Array<string> = []): WorkspaceSectionItem
       momentum: {
         id: "momentum",
         children: [],
-        data: { label: "Momentum editor", searchableText: "optimizer momentum" },
+        data: {
+          label: "Momentum editor",
+          searchableText: "optimizer momentum",
+        },
       },
       beta: {
         id: "beta",
@@ -86,7 +108,8 @@ function registerTestKind() {
   registerSectionKinds({
     parameters: {
       renderContent: () => null,
-      getItemSearchableText: ({ item }) => getCustomItemText(item, "searchableText"),
+      getItemSearchableText: ({ item }) =>
+        getCustomItemText(item, "searchableText"),
     },
   });
 }
@@ -139,12 +162,22 @@ function makeStartEvent(itemId: string): DragStartEvent {
         },
       },
     },
-    activeRect: { top: 0, left: 0, right: 200, bottom: 24, width: 200, height: 24 },
+    activeRect: {
+      top: 0,
+      left: 0,
+      right: 200,
+      bottom: 24,
+      width: 200,
+      height: 24,
+    },
   } as unknown as DragStartEvent;
 }
 
 function setInputValue(input: HTMLInputElement, value: string): void {
-  const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+  const valueSetter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  )?.set;
   if (!valueSetter) {
     throw new Error("The native input value setter is unavailable.");
   }
@@ -203,7 +236,9 @@ describe("WorkspaceItemFilter", () => {
         </WorkspaceItemFilterProvider>,
       );
     });
-    const input = host.querySelector<HTMLInputElement>("#panel-parameter-filter");
+    const input = host.querySelector<HTMLInputElement>(
+      "#panel-parameter-filter",
+    );
     if (!input) {
       throw new Error("The parameter filter input did not render.");
     }
@@ -214,23 +249,35 @@ describe("WorkspaceItemFilter", () => {
     loadTestDocument(["alpha"]);
     activateItemSelect();
     const input = await mount();
-    const documentBeforeFilter = structuredClone(useWorkspaceDocument.getState().sections);
+    const documentBeforeFilter = structuredClone(
+      useWorkspaceDocument.getState().sections,
+    );
 
     await act(async () => setInputValue(input, "momentum"));
 
     expect(host.querySelector('[data-workspace-item-id="alpha"]')).toBeNull();
-    expect(host.querySelector('[data-workspace-item-id="options"]')).not.toBeNull();
-    expect(host.querySelector('[data-workspace-item-id="momentum"]')).not.toBeNull();
-    expect(host.textContent).toContain("1 selected parameter is hidden by this filter.");
+    expect(
+      host.querySelector('[data-workspace-item-id="options"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[data-workspace-item-id="momentum"]'),
+    ).not.toBeNull();
+    expect(host.textContent).toContain(
+      "1 selected parameter is hidden by this filter.",
+    );
     expect(host.querySelector('[role="status"]')?.textContent).toContain(
       "1 matching parameter. 1 selected parameter is hidden by this filter.",
     );
-    expect(resolveItemListView("panel", "momentum", LIST_KEY)?.filterActive).toBe(true);
+    expect(
+      resolveItemListView("panel", "momentum", LIST_KEY)?.filterActive,
+    ).toBe(true);
 
     expect(moveSelectedItemsDown()).toBe(false);
     handleItemDragStart(makeStartEvent("momentum"), null);
     expect(useItemDndState.getState().activeId).toBeNull();
-    expect(useWorkspaceDocument.getState().sections).toEqual(documentBeforeFilter);
+    expect(useWorkspaceDocument.getState().sections).toEqual(
+      documentBeforeFilter,
+    );
     expect(onDocumentChange).not.toHaveBeenCalled();
   });
 
@@ -261,7 +308,9 @@ describe("WorkspaceItemFilter", () => {
     Object.defineProperty(scrollArea, "scrollTop", {
       configurable: true,
       get: () =>
-        scrollArea.querySelectorAll("[data-item-row]").length < fullRowCount ? 0 : browserScrollTop,
+        scrollArea.querySelectorAll("[data-item-row]").length < fullRowCount
+          ? 0
+          : browserScrollTop,
       set: (nextScrollTop: number) => {
         browserScrollTop = nextScrollTop;
         scrollAssignments.push(nextScrollTop);
@@ -270,21 +319,29 @@ describe("WorkspaceItemFilter", () => {
     scrollArea.dispatchEvent(new Event("scroll", { bubbles: true }));
 
     await act(async () => setInputValue(input, "beta"));
-    const survivingEditor = host.querySelector<HTMLInputElement>('[aria-label="Worker editor"]');
+    const survivingEditor = host.querySelector<HTMLInputElement>(
+      '[aria-label="Worker editor"]',
+    );
     expect(survivingEditor).not.toBeNull();
 
     await act(async () => setInputValue(input, "bet"));
-    expect(host.querySelector('[aria-label="Worker editor"]')).toBe(survivingEditor);
+    expect(host.querySelector('[aria-label="Worker editor"]')).toBe(
+      survivingEditor,
+    );
     expect(host.querySelector(".overflow-y-scroll")).toBe(scrollArea);
     expect(scrollArea.scrollTop).toBe(0);
 
     await act(async () => setInputValue(input, "no match"));
-    expect(host.textContent).toContain("No parameters in this list match “no match”.");
-    const clearButton = [...host.querySelectorAll<HTMLButtonElement>("button")].find(
-      (button) => button.textContent?.trim() === "Clear filter",
+    expect(host.textContent).toContain(
+      "No parameters in this list match “no match”.",
     );
+    const clearButton = [
+      ...host.querySelectorAll<HTMLButtonElement>("button"),
+    ].find((button) => button.textContent?.trim() === "Clear filter");
     if (!clearButton) {
-      throw new Error("The empty filter state did not expose its clear action.");
+      throw new Error(
+        "The empty filter state did not expose its clear action.",
+      );
     }
     expect(clearButton.dataset.tabNative).toBe("true");
     await act(async () => clearButton.click());

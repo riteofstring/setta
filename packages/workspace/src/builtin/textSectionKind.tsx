@@ -26,7 +26,10 @@ import { WorkspaceTextSectionBody } from "./WorkspaceTextSectionBody";
 // registers itself.
 
 // The reference's `createTextBlockSectionImpl` default size.
-const WORKSPACE_TEXT_SECTION_DEFAULT_SIZE: SectionSize = { width: 500, height: 150 };
+const WORKSPACE_TEXT_SECTION_DEFAULT_SIZE: SectionSize = {
+  width: 500,
+  height: 150,
+};
 
 // The reference's `TextBlockIcon`.
 const TEXT_SECTION_FORMAT_ICONS: Record<
@@ -51,10 +54,15 @@ export type WorkspaceTextSectionRegistration = {
   // Leaves the header control out while both modes stay authorable, for a host that drives the
   // mode from its own UI. Defaults to showing it.
   showDisplayModeControl?: boolean;
-  renderInspector?: (context: WorkspaceInspectorContributionContext) => ReactNode;
+  renderInspector?: (
+    context: WorkspaceInspectorContributionContext,
+  ) => ReactNode;
 };
 
-function TextSectionFormatIcon({ className, sectionId }: WorkspaceSectionKindIconProps) {
+function TextSectionFormatIcon({
+  className,
+  sectionId,
+}: WorkspaceSectionKindIconProps) {
   const format = useWorkspaceDocument((state) => {
     const section = getSectionOrThrow(state, sectionId);
     return parseWorkspaceTextSectionData(sectionId, section.data).format;
@@ -72,11 +80,15 @@ function resolveChoices<Choice extends string>(
     return supported;
   }
   if (choices.length === 0) {
-    throw new Error(`A text section registration must allow at least one ${role}.`);
+    throw new Error(
+      `A text section registration must allow at least one ${role}.`,
+    );
   }
   for (const choice of choices) {
     if (!supported.includes(choice)) {
-      throw new Error(`A text section registration names the unknown ${role} ${choice}.`);
+      throw new Error(
+        `A text section registration names the unknown ${role} ${choice}.`,
+      );
     }
   }
   return Object.freeze([...choices]);
@@ -86,7 +98,11 @@ export function createWorkspaceTextSection(
   registration: WorkspaceTextSectionRegistration = {},
 ): SectionKindDefinition {
   const choices: WorkspaceTextSectionChoices = {
-    formats: resolveChoices(registration.formats, WORKSPACE_TEXT_SECTION_FORMATS, "format"),
+    formats: resolveChoices(
+      registration.formats,
+      WORKSPACE_TEXT_SECTION_FORMATS,
+      "format",
+    ),
     displayModes: resolveChoices(
       registration.displayModes,
       WORKSPACE_TEXT_SECTION_DISPLAY_MODES,
@@ -94,7 +110,8 @@ export function createWorkspaceTextSection(
     ),
   };
   const showDisplayModeControl =
-    (registration.showDisplayModeControl ?? true) && choices.displayModes.length > 1;
+    (registration.showDisplayModeControl ?? true) &&
+    choices.displayModes.length > 1;
 
   return {
     renderContent: (section: WorkspaceSection) => (
@@ -107,11 +124,15 @@ export function createWorkspaceTextSection(
     // Both surfaces own their own scroller, so the package body slot only has to give them the
     // section's remaining height.
     contentClassName: "flex min-h-0 flex-col",
-    defaultSize: registration.defaultSize ?? WORKSPACE_TEXT_SECTION_DEFAULT_SIZE,
+    defaultSize:
+      registration.defaultSize ?? WORKSPACE_TEXT_SECTION_DEFAULT_SIZE,
     ...(showDisplayModeControl
       ? {
           renderHeaderControls: (section: WorkspaceSection) => (
-            <ToggleTextSectionDisplayModeButton choices={choices} section={section} />
+            <ToggleTextSectionDisplayModeButton
+              choices={choices}
+              section={section}
+            />
           ),
         }
       : {}),

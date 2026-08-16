@@ -12,7 +12,12 @@ import {
 } from "./sorting";
 import type { ClientRect, Transform } from "./types";
 
-function rect(left: number, top: number, width: number, height: number): ClientRect {
+function rect(
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): ClientRect {
   return {
     left,
     top,
@@ -117,7 +122,11 @@ describe("sorting adapter utilities", () => {
 
   it("calculates vertical transforms and effective over index", () => {
     // Validates vertical list movement math and over-index adjustment.
-    const rects = [rect(0, 0, 100, 10), rect(0, 20, 100, 10), rect(0, 40, 100, 10)];
+    const rects = [
+      rect(0, 0, 100, 10),
+      rect(0, 20, 100, 10),
+      rect(0, 40, 100, 10),
+    ];
 
     const [activeTransform, overIndex] = verticalListSortingStrategy({
       rects,
@@ -157,7 +166,11 @@ describe("sorting adapter utilities", () => {
 
   it("calculates horizontal transforms and effective over index", () => {
     // Validates horizontal list movement math and over-index adjustment.
-    const rects = [rect(0, 0, 10, 100), rect(20, 0, 10, 100), rect(40, 0, 10, 100)];
+    const rects = [
+      rect(0, 0, 10, 100),
+      rect(20, 0, 10, 100),
+      rect(40, 0, 10, 100),
+    ];
 
     const [activeTransform, overIndex] = horizontalListSortingStrategy({
       rects,
@@ -207,7 +220,9 @@ describe("sorting adapter utilities", () => {
       overIndex: 3,
     });
 
-    expect(resolveStrategyResult({ x: 1, y: 2, scaleX: 1, scaleY: 1 }, 4)).toEqual({
+    expect(
+      resolveStrategyResult({ x: 1, y: 2, scaleX: 1, scaleY: 1 }, 4),
+    ).toEqual({
       transform: { x: 1, y: 2, scaleX: 1, scaleY: 1 },
       overIndex: 4,
     });

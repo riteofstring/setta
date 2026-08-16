@@ -8,7 +8,9 @@ import type { WorkspaceDocument } from "./types";
 // Debouncing is transport policy and stays host-side: the reference mirrors canonical state
 // immediately and debounces only its network sends.
 
-export type WorkspaceDocumentChangeCallback = (document: WorkspaceDocument) => void;
+export type WorkspaceDocumentChangeCallback = (
+  document: WorkspaceDocument,
+) => void;
 
 let documentChangeCallback: WorkspaceDocumentChangeCallback | null = null;
 let suppressionDepth = 0;
@@ -35,7 +37,9 @@ export function getWorkspaceDocument(): WorkspaceDocument {
 
 // Host-initiated writes (`loadWorkspaceDocument`) suppress notification: the callback reports
 // package-initiated canonical changes, not echoes of the host's own document.
-export function runWithWorkspaceDocumentChangeNotificationsSuppressed(fn: () => void): void {
+export function runWithWorkspaceDocumentChangeNotificationsSuppressed(
+  fn: () => void,
+): void {
   suppressionDepth += 1;
   try {
     fn();

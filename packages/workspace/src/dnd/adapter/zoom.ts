@@ -5,7 +5,9 @@ function getZoomScale(): number {
   return useReactFlow.getState().transform[2];
 }
 
-export function applyZoomToTransform(transform: Transform | null): Transform | null {
+export function applyZoomToTransform(
+  transform: Transform | null,
+): Transform | null {
   if (!transform) {
     return null;
   }

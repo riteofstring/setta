@@ -2,13 +2,13 @@ import { buildItemParentMap, getItemOrThrow } from "./itemTree";
 import { assertValidWorkspaceSectionItemTree } from "./itemTreeValidation";
 import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types";
 
-export type PreparedWorkspaceItemInsertion = {
+type PreparedWorkspaceItemInsertion = {
   itemTree: WorkspaceSectionItemTree;
   insertedItemId: string;
   focusTargetId: string;
 };
 
-export type PreparedWorkspaceItemDeletion = {
+type PreparedWorkspaceItemDeletion = {
   itemTree: WorkspaceSectionItemTree;
   deletedItemIds: Array<string>;
   focusTargetId: string | null;
@@ -36,13 +36,19 @@ export function prepareWorkspaceItemInsertion(
   item: WorkspaceItem,
 ): PreparedWorkspaceItemInsertion {
   if (item === null || typeof item !== "object") {
-    throw new Error(`Section ${sectionId} item factory must return an item object.`);
+    throw new Error(
+      `Section ${sectionId} item factory must return an item object.`,
+    );
   }
   if (typeof item.id !== "string" || item.id.trim() === "") {
-    throw new Error(`Section ${sectionId} item factory must return a nonblank item id.`);
+    throw new Error(
+      `Section ${sectionId} item factory must return a nonblank item id.`,
+    );
   }
   if (Object.hasOwn(itemTree.items, item.id)) {
-    throw new Error(`Section ${sectionId} item factory returned duplicate item id ${item.id}.`);
+    throw new Error(
+      `Section ${sectionId} item factory returned duplicate item id ${item.id}.`,
+    );
   }
   if (!Array.isArray(item.children) || item.children.length !== 0) {
     throw new Error(
@@ -126,7 +132,9 @@ function resolveDeletionFocusTarget(
   }
   const firstDeletedIndex = order.findIndex((itemId) => deleted.has(itemId));
   const survivors = order.filter((itemId) => !deleted.has(itemId));
-  return survivors[firstDeletedIndex] ?? survivors[firstDeletedIndex - 1] ?? null;
+  return (
+    survivors[firstDeletedIndex] ?? survivors[firstDeletedIndex - 1] ?? null
+  );
 }
 
 function assertValidDeletionRequest(
@@ -137,14 +145,20 @@ function assertValidDeletionRequest(
   const requested = new Set<string>();
   for (const itemId of itemIds) {
     if (requested.has(itemId)) {
-      throw new Error(`Section ${sectionId} item deletion lists ${itemId} twice.`);
+      throw new Error(
+        `Section ${sectionId} item deletion lists ${itemId} twice.`,
+      );
     }
     requested.add(itemId);
     if (itemId === itemTree.rootId) {
-      throw new Error(`Section ${sectionId} cannot delete its root item ${itemId}.`);
+      throw new Error(
+        `Section ${sectionId} cannot delete its root item ${itemId}.`,
+      );
     }
     if (!Object.hasOwn(itemTree.items, itemId)) {
-      throw new Error(`Section ${sectionId} cannot delete unknown item ${itemId}.`);
+      throw new Error(
+        `Section ${sectionId} cannot delete unknown item ${itemId}.`,
+      );
     }
   }
 }
@@ -159,7 +173,8 @@ function removeDeletedItems(
       continue;
     }
     const children = item.children.filter((childId) => !deleted.has(childId));
-    nextItems[itemId] = children.length === item.children.length ? item : { ...item, children };
+    nextItems[itemId] =
+      children.length === item.children.length ? item : { ...item, children };
   }
   return nextItems;
 }
@@ -190,14 +205,26 @@ export function prepareWorkspaceItemDeletion(
   assertValidDeletionRequest(sectionId, itemTree, itemIds);
 
   const order = getItemTreeOrder(itemTree);
-  const deleted = collectDeletedItemIds(itemTree, getDeletionRoots(itemTree, itemIds));
+  const deleted = collectDeletedItemIds(
+    itemTree,
+    getDeletionRoots(itemTree, itemIds),
+  );
   const deletedItemIds = order.filter((itemId) => deleted.has(itemId));
-  const survivingSelectedIds = itemTree.selectedItemIds.filter((itemId) => !deleted.has(itemId));
-  const focusTargetId = resolveDeletionFocusTarget(order, deleted, survivingSelectedIds);
+  const survivingSelectedIds = itemTree.selectedItemIds.filter(
+    (itemId) => !deleted.has(itemId),
+  );
+  const focusTargetId = resolveDeletionFocusTarget(
+    order,
+    deleted,
+    survivingSelectedIds,
+  );
   const nextItemTree: WorkspaceSectionItemTree = {
     ...itemTree,
     items: removeDeletedItems(itemTree, deleted),
-    selectedItemIds: resolveDeletionSelection(survivingSelectedIds, focusTargetId),
+    selectedItemIds: resolveDeletionSelection(
+      survivingSelectedIds,
+      focusTargetId,
+    ),
   };
   assertValidWorkspaceSectionItemTree(sectionId, nextItemTree);
   return { itemTree: nextItemTree, deletedItemIds, focusTargetId };

@@ -2,7 +2,15 @@
 
 import { act, createRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+} from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { WorkspaceShell } from "./WorkspaceShell";
 import { createWorkspaceShellViewState } from "./workspaceShellLayout";
@@ -29,7 +37,9 @@ vi.mock("../tooltip/WorkspaceTooltip", () => ({
   WorkspaceTooltip: () => <div data-testid="workspace-tooltip" />,
 }));
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const observedResizeTargets = new Map<Element, ResizeObserverCallback>();
 
@@ -59,7 +69,8 @@ class CapturingResizeObserver {
   }
 }
 
-globalThis.ResizeObserver = CapturingResizeObserver as unknown as typeof ResizeObserver;
+globalThis.ResizeObserver =
+  CapturingResizeObserver as unknown as typeof ResizeObserver;
 
 function TestIcon({ className, ...iconProps }: WorkspaceShellTabIconProps) {
   return (
@@ -183,7 +194,9 @@ describe("WorkspaceShell", () => {
   }
 
   function getButton(label: string): HTMLButtonElement {
-    const button = host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+    const button = host.querySelector<HTMLButtonElement>(
+      `button[aria-label="${label}"]`,
+    );
     if (!button) {
       throw new Error(`Expected button ${label}.`);
     }
@@ -191,7 +204,9 @@ describe("WorkspaceShell", () => {
   }
 
   function getResizeHandle(pane: "leading" | "trailing"): HTMLDivElement {
-    const handle = host.querySelector<HTMLDivElement>(`[data-workspace-shell-resize="${pane}"]`);
+    const handle = host.querySelector<HTMLDivElement>(
+      `[data-workspace-shell-resize="${pane}"]`,
+    );
     if (!handle) {
       throw new Error(`Expected ${pane} resize handle.`);
     }
@@ -221,7 +236,9 @@ describe("WorkspaceShell", () => {
     expect(getShell().getAttribute("aria-label")).toBe("Test workspace");
     expect(host.querySelectorAll("aside")).toHaveLength(2);
     expect(
-      Array.from(host.querySelectorAll("aside")).map((aside) => aside.getAttribute("aria-label")),
+      Array.from(host.querySelectorAll("aside")).map((aside) =>
+        aside.getAttribute("aria-label"),
+      ),
     ).toEqual(["Leading workspace pane", "Trailing workspace pane"]);
     expect(
       Array.from(host.querySelectorAll('[role="tablist"]')).map((tablist) =>
@@ -233,17 +250,27 @@ describe("WorkspaceShell", () => {
     expect(getButton("Outline").tabIndex).toBe(-1);
     expect(getButton("Guide").tabIndex).toBe(-1);
     expect(getButton("Inspector").tabIndex).toBe(-1);
-    expect(host.querySelector('[role="tabpanel"] h2')?.textContent).toBe("Notes");
+    expect(host.querySelector('[role="tabpanel"] h2')?.textContent).toBe(
+      "Notes",
+    );
     expect(host.textContent).toContain("Notes content");
     expect(host.textContent).toContain("Details content");
     expect(
       host
-        .querySelector('[data-workspace-shell-pane-region="trailing"] .setta-workspace-shell-pane')
+        .querySelector(
+          '[data-workspace-shell-pane-region="trailing"] .setta-workspace-shell-pane',
+        )
         ?.getAttribute("aria-hidden"),
     ).toBe("true");
-    expect(host.querySelector('[data-testid="workspace-canvas"]')).not.toBeNull();
-    expect(host.querySelector('[data-testid="workspace-controls"]')).not.toBeNull();
-    expect(host.querySelector('[data-testid="workspace-tooltip"]')).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="workspace-canvas"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="workspace-controls"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="workspace-tooltip"]'),
+    ).not.toBeNull();
     expect(useReactFlow.getState().viewportInsets).toEqual({
       top: 0,
       right: 40,
@@ -254,18 +281,25 @@ describe("WorkspaceShell", () => {
     const leadingRegion = host.querySelector<HTMLElement>(
       '[data-workspace-shell-pane-region="leading"]',
     );
-    const rail = leadingRegion?.querySelector('[data-workspace-shell-rail="leading"]');
-    const panel = leadingRegion?.querySelector('[data-workspace-shell-panel="leading"]');
-    const resizeHandle = leadingRegion?.querySelector('[data-workspace-shell-resize="leading"]');
+    const rail = leadingRegion?.querySelector(
+      '[data-workspace-shell-rail="leading"]',
+    );
+    const panel = leadingRegion?.querySelector(
+      '[data-workspace-shell-panel="leading"]',
+    );
+    const resizeHandle = leadingRegion?.querySelector(
+      '[data-workspace-shell-resize="leading"]',
+    );
     if (!rail || !panel || !resizeHandle) {
       throw new Error("Expected the leading rail, panel, and resize handle.");
     }
-    expect(rail.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-    expect(panel.compareDocumentPosition(resizeHandle) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    expect(
+      rail.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(
+      panel.compareDocumentPosition(resizeHandle) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   // The insets are physical: an RTL host's leading pane covers the canvas from the right.
@@ -332,11 +366,17 @@ describe("WorkspaceShell", () => {
 
   it("prepends the built-in Outline and focuses its filter when opened", async () => {
     await act(async () => {
-      getButton("Outline").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton("Outline").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
 
-    const tree = host.querySelector<HTMLElement>('[role="tree"][aria-label="Workspace outline"]');
-    const filter = host.querySelector<HTMLInputElement>(".setta-workspace-outline-filter-input");
+    const tree = host.querySelector<HTMLElement>(
+      '[role="tree"][aria-label="Workspace outline"]',
+    );
+    const filter = host.querySelector<HTMLInputElement>(
+      ".setta-workspace-outline-filter-input",
+    );
     expect(tree?.textContent).toContain("No sections");
     expect(tree?.tabIndex).toBe(0);
     expect(document.activeElement).toBe(filter);
@@ -345,7 +385,9 @@ describe("WorkspaceShell", () => {
 
   it("prepends the built-in Inspector and focuses its reference empty state", async () => {
     await act(async () => {
-      getButton("Inspector").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton("Inspector").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
 
     const inspector = host.querySelector<HTMLElement>(
@@ -358,10 +400,14 @@ describe("WorkspaceShell", () => {
 
   it("opens a registered tab into its requested focus target and restores its rail tab on close", async () => {
     await act(async () => {
-      getButton("Guide").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton("Guide").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
 
-    const closeButton = host.querySelector<HTMLButtonElement>("button:not([aria-label])");
+    const closeButton = host.querySelector<HTMLButtonElement>(
+      "button:not([aria-label])",
+    );
     expect(closeButton?.textContent).toBe("Close guide");
     expect(document.activeElement).toBe(closeButton);
     expect(getButton("Guide").getAttribute("aria-expanded")).toBe("true");
@@ -374,7 +420,9 @@ describe("WorkspaceShell", () => {
     expect(getButton("Guide").getAttribute("aria-expanded")).toBe("false");
     expect(
       host
-        .querySelector('[data-workspace-shell-pane-region="leading"] .setta-workspace-shell-pane')
+        .querySelector(
+          '[data-workspace-shell-pane-region="leading"] .setta-workspace-shell-pane',
+        )
         ?.getAttribute("aria-hidden"),
     ).toBe("true");
     expect(host.textContent).toContain("Close guide");
@@ -384,7 +432,9 @@ describe("WorkspaceShell", () => {
     const detailsTab = getButton("Details");
     detailsTab.focus();
     await act(async () => {
-      detailsTab.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }));
+      detailsTab.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }),
+      );
     });
 
     expect(document.activeElement).toBe(getButton("Activity"));
@@ -405,28 +455,42 @@ describe("WorkspaceShell", () => {
     const handle = getResizeHandle("leading");
     expect(handle.getAttribute("aria-valuenow")).toBe("335");
     await act(async () => {
-      handle.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }));
+      handle.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }),
+      );
     });
-    expect(getResizeHandle("leading").getAttribute("aria-valuenow")).toBe("345");
+    expect(getResizeHandle("leading").getAttribute("aria-valuenow")).toBe(
+      "345",
+    );
 
     const rtlHandle = getResizeHandle("leading");
     rtlHandle.style.direction = "rtl";
     await act(async () => {
       rtlHandle.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight", shiftKey: true }),
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          key: "ArrowRight",
+          shiftKey: true,
+        }),
       );
     });
-    expect(getResizeHandle("leading").getAttribute("aria-valuenow")).toBe("344");
+    expect(getResizeHandle("leading").getAttribute("aria-valuenow")).toBe(
+      "344",
+    );
 
     await act(async () => {
-      getButton("Details").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton("Details").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
     await act(async () => {
       getResizeHandle("leading").dispatchEvent(
         new KeyboardEvent("keydown", { bubbles: true, key: "End" }),
       );
     });
-    expect(getResizeHandle("leading").getAttribute("aria-valuenow")).toBe("760");
+    expect(getResizeHandle("leading").getAttribute("aria-valuenow")).toBe(
+      "760",
+    );
     expect(getButton("Details").getAttribute("aria-expanded")).toBe("false");
   });
 
@@ -444,7 +508,9 @@ describe("WorkspaceShell", () => {
     await act(async () => {
       handle.dispatchEvent(createPointerEvent("pointermove", { clientX: 150 }));
     });
-    expect(getResizeHandle("leading").getAttribute("aria-valuenow")).toBe("385");
+    expect(getResizeHandle("leading").getAttribute("aria-valuenow")).toBe(
+      "385",
+    );
     expect(onChange).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -456,7 +522,9 @@ describe("WorkspaceShell", () => {
 
   it("expands to the measured full width, closes the opposite pane, and restores width", async () => {
     await act(async () => {
-      getButton("Details").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton("Details").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
     const fullWidthButton = getButton("Expand Notes pane to full width");
     fullWidthButton.focus();
@@ -464,7 +532,9 @@ describe("WorkspaceShell", () => {
       fullWidthButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(getResizeHandle("leading").getAttribute("aria-valuenow")).toBe("760");
+    expect(getResizeHandle("leading").getAttribute("aria-valuenow")).toBe(
+      "760",
+    );
     expect(getButton("Details").getAttribute("aria-expanded")).toBe("false");
     expect(document.activeElement).toBe(getButton("Restore Notes pane width"));
 
@@ -473,18 +543,24 @@ describe("WorkspaceShell", () => {
         new MouseEvent("click", { bubbles: true }),
       );
     });
-    expect(getResizeHandle("leading").getAttribute("aria-valuenow")).toBe("300");
+    expect(getResizeHandle("leading").getAttribute("aria-valuenow")).toBe(
+      "300",
+    );
   });
 
   it("shifts the map by the leading pane true-width delta by default", async () => {
     await act(async () => {
-      getButton("Notes").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton("Notes").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
     expect(shiftWorkspaceMapForLeadingPane).toHaveBeenCalledOnce();
     expect(shiftWorkspaceMapForLeadingPane).toHaveBeenLastCalledWith(-295);
 
     await act(async () => {
-      getButton("Notes").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton("Notes").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
     expect(shiftWorkspaceMapForLeadingPane).toHaveBeenCalledTimes(2);
     expect(shiftWorkspaceMapForLeadingPane).toHaveBeenLastCalledWith(295);
@@ -492,15 +568,21 @@ describe("WorkspaceShell", () => {
 
   it("lets hosts disable leading-pane map shifts and never shifts for the trailing pane", async () => {
     await act(async () => {
-      root.render(<Harness leadingPaneShiftsCanvas={false} onChange={onChange} />);
+      root.render(
+        <Harness leadingPaneShiftsCanvas={false} onChange={onChange} />,
+      );
     });
     shiftWorkspaceMapForLeadingPane.mockClear();
 
     await act(async () => {
-      getButton("Notes").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton("Notes").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
     await act(async () => {
-      getButton("Details").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton("Details").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
 
     expect(shiftWorkspaceMapForLeadingPane).not.toHaveBeenCalled();

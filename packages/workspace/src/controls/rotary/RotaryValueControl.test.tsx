@@ -5,9 +5,14 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { useSectionRefs } from "../../section/sectionRefs";
-import { RotaryValueControl, type RotaryValueControlProps } from "./RotaryValueControl";
+import {
+  RotaryValueControl,
+  type RotaryValueControlProps,
+} from "./RotaryValueControl";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // Ports the frozen rotary characterization and adds the package boundary cases: exact visual
 // recipe, string commits, pointer capture, wheel ownership, host naming, focus restoration,
@@ -79,7 +84,11 @@ describe("RotaryValueControl", () => {
   function dispatchPointer(
     target: HTMLElement,
     type: "pointerdown" | "pointermove" | "pointerup",
-    { pointerId, clientX, clientY }: { pointerId: number; clientX: number; clientY: number },
+    {
+      pointerId,
+      clientX,
+      clientY,
+    }: { pointerId: number; clientX: number; clientY: number },
   ): MouseEvent {
     const event = new MouseEvent(type, {
       bubbles: true,
@@ -119,11 +128,15 @@ describe("RotaryValueControl", () => {
       expect(knob.classList.contains(expectedClass)).toBe(true);
     }
     expect(knob.children).toHaveLength(5);
-    expect(getKnobLayer(knob, 0).classList.contains("bg-gradient-to-br")).toBe(true);
+    expect(getKnobLayer(knob, 0).classList.contains("bg-gradient-to-br")).toBe(
+      true,
+    );
     expect(getKnobLayer(knob, 1).classList.contains("inset-[5px]")).toBe(true);
     expect(getKnobLayer(knob, 2).classList.contains("inset-[10px]")).toBe(true);
     expect(getKnobLayer(knob, 3).style.transform).toBe("rotate(0deg)");
-    expect(getKnobLayer(knob, 4).classList.contains("border-dashed")).toBe(true);
+    expect(getKnobLayer(knob, 4).classList.contains("border-dashed")).toBe(
+      true,
+    );
     expect(wrapper.querySelector("span")?.textContent).toBe("0.5");
   });
 
@@ -187,7 +200,10 @@ describe("RotaryValueControl", () => {
     const releasePointerCapture = vi.fn();
     Object.defineProperties(knob, {
       setPointerCapture: { configurable: true, value: setPointerCapture },
-      releasePointerCapture: { configurable: true, value: releasePointerCapture },
+      releasePointerCapture: {
+        configurable: true,
+        value: releasePointerCapture,
+      },
     });
 
     let pointerDown: MouseEvent | undefined;
@@ -197,8 +213,16 @@ describe("RotaryValueControl", () => {
         clientX: 40,
         clientY: 20,
       });
-      dispatchPointer(knob, "pointermove", { pointerId: 7, clientX: 20, clientY: 0 });
-      dispatchPointer(knob, "pointerup", { pointerId: 7, clientX: 20, clientY: 0 });
+      dispatchPointer(knob, "pointermove", {
+        pointerId: 7,
+        clientX: 20,
+        clientY: 0,
+      });
+      dispatchPointer(knob, "pointerup", {
+        pointerId: 7,
+        clientX: 20,
+        clientY: 0,
+      });
     });
     expect(pointerDown?.defaultPrevented).toBe(true);
     expect(setPointerCapture).toHaveBeenCalledWith(7);
@@ -225,7 +249,11 @@ describe("RotaryValueControl", () => {
     await mount();
     await act(async () => {
       getKnob().dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          code: "Escape",
+          bubbles: true,
+        }),
       );
     });
     expect(document.activeElement).toBe(sectionRoot);
@@ -244,7 +272,11 @@ describe("RotaryValueControl", () => {
     expect(getKnob().classList.contains("setta-manual-wheel")).toBe(false);
     await act(async () => {
       getKnob().dispatchEvent(
-        new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -1 }),
+        new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaY: -1,
+        }),
       );
     });
     expect(onValueChange).not.toHaveBeenCalled();

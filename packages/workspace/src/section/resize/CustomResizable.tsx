@@ -68,8 +68,10 @@ const META_CONTROL_HANDLE_BASE_CLASS_NAME =
 const ACTIVE_META_CONTROL_HANDLE_CLASS_NAME =
   "opacity-100 after:bg-blue-500/80 dark:after:bg-blue-400/80";
 const META_CONTROL_HANDLE_CURSOR_CLASSES = {
-  right: "cursor-col-resize after:inset-y-1 after:left-1/2 after:w-[3px] after:-translate-x-1/2",
-  bottom: "cursor-row-resize after:inset-x-1 after:top-1/2 after:h-[3px] after:-translate-y-1/2",
+  right:
+    "cursor-col-resize after:inset-y-1 after:left-1/2 after:w-[3px] after:-translate-x-1/2",
+  bottom:
+    "cursor-row-resize after:inset-x-1 after:top-1/2 after:h-[3px] after:-translate-y-1/2",
   bottomRight: "cursor-nwse-resize after:inset-1",
 };
 const RESIZE_HANDLE_CLASS_NAMES = [
@@ -104,7 +106,10 @@ export function CustomResizable({
 }: CustomResizableProps) {
   const { minHeight, maxHeight, minWidth, maxWidth, heightSizeMode } =
     useSectionMinMaxDims(sectionId);
-  const size = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId).size, _.isEqual);
+  const size = useWorkspaceDocument(
+    (x) => getSectionOrThrow(x, sectionId).size,
+    _.isEqual,
+  );
   const canEditLayout = useWorkspaceCapabilities((x) => x.canEditLayout);
   const disablePointerEvents = useShouldDisablePointerEvents();
   const snapGrid = useWorkspaceOptions((x) => x.snapGrid);
@@ -118,10 +123,19 @@ export function CustomResizable({
     lastDirection: ResizeHandleDirection | null;
   }>({ lastTimestampMs: null, lastDirection: null });
   const doubleClickPendingRef = useRef(false);
-  const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(null);
+  const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(
+    null,
+  );
 
-  function maybePromoteAutoSize(direction: ResizeHandleDirection, ref: ResizeCallbackRef) {
-    if (autoSizePromotedRef.current || !canEditLayout || positionAndSizeLocked) {
+  function maybePromoteAutoSize(
+    direction: ResizeHandleDirection,
+    ref: ResizeCallbackRef,
+  ) {
+    if (
+      autoSizePromotedRef.current ||
+      !canEditLayout ||
+      positionAndSizeLocked
+    ) {
       return;
     }
     const nextSize = getResizeStartAutoSizeUpdate({
@@ -150,7 +164,11 @@ export function CustomResizable({
     useCanvasGestures.setState({ mouseDownDraggingSection: true });
   }
 
-  function onResize(_event: unknown, direction: ResizeHandleDirection, ref: ResizeCallbackRef) {
+  function onResize(
+    _event: unknown,
+    direction: ResizeHandleDirection,
+    ref: ResizeCallbackRef,
+  ) {
     resizeAttemptedRef.current = true;
     doubleClickPendingRef.current = false;
     maybePromoteAutoSize(direction, ref);
@@ -232,9 +250,18 @@ export function CustomResizable({
     }
     persistSectionSizeChange(sectionId, nextSize);
     // `size` is selected with deep equality, so its identity only changes with its contents.
-  }, [minHeight, minWidth, sectionId, size, canEditLayout, positionAndSizeLocked, heightSizeMode]);
+  }, [
+    minHeight,
+    minWidth,
+    sectionId,
+    size,
+    canEditLayout,
+    positionAndSizeLocked,
+    heightSizeMode,
+  ]);
 
-  const heightResizable = minHeight !== maxHeight && heightSizeMode !== "auto-only";
+  const heightResizable =
+    minHeight !== maxHeight && heightSizeMode !== "auto-only";
   const enable = getResizableEnable({
     canEditLayout,
     disablePointerEvents,
@@ -250,9 +277,14 @@ export function CustomResizable({
       ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
       : undefined,
     layoutClassName: isMetaControl ? "grid-cols-1 grid-rows-1" : undefined,
-    metaHoverZIndexClassName: isMetaControl ? "group-hover/card-section:z-[170]" : undefined,
+    metaHoverZIndexClassName: isMetaControl
+      ? "group-hover/card-section:z-[170]"
+      : undefined,
   });
-  const handleConfig = getResizableHandleConfig({ isMetaControl, activeResizeHandle });
+  const handleConfig = getResizableHandleConfig({
+    isMetaControl,
+    activeResizeHandle,
+  });
 
   function handleResizeMouseDownCapture(event: MouseEvent<HTMLDivElement>) {
     const direction = getResizeHandleDirection(event.target);
@@ -291,13 +323,16 @@ function getMetaControlHandleClass(
   direction: keyof typeof META_CONTROL_HANDLE_CURSOR_CLASSES,
   activeResizeHandle: string | null,
 ) {
-  const directionMarker = direction === "bottomRight" ? "bottom-right" : direction;
+  const directionMarker =
+    direction === "bottomRight" ? "bottom-right" : direction;
   return [
     HANDLE_BASE_CLASS_NAME,
     "section-resize-handle",
     `section-resize-handle-${directionMarker}`,
     META_CONTROL_HANDLE_BASE_CLASS_NAME,
-    activeResizeHandle === direction ? ACTIVE_META_CONTROL_HANDLE_CLASS_NAME : "",
+    activeResizeHandle === direction
+      ? ACTIVE_META_CONTROL_HANDLE_CLASS_NAME
+      : "",
     META_CONTROL_HANDLE_CURSOR_CLASSES[direction],
   ]
     .filter(Boolean)
@@ -317,7 +352,10 @@ function getResizableHandleConfig({
       handleClasses: {
         right: getMetaControlHandleClass("right", activeResizeHandle),
         bottom: getMetaControlHandleClass("bottom", activeResizeHandle),
-        bottomRight: getMetaControlHandleClass("bottomRight", activeResizeHandle),
+        bottomRight: getMetaControlHandleClass(
+          "bottomRight",
+          activeResizeHandle,
+        ),
       },
       handleWrapperClassName: DEFAULT_HANDLE_WRAPPER_CLASS_NAME,
     };
@@ -338,7 +376,10 @@ function resolveResizeStopSize({
   ref: ResizeCallbackRef;
   isDoubleClick: boolean;
 }): Partial<SectionSize> {
-  const changedSize = getChangedSize({ props, isDoubleClickOverride: isDoubleClick });
+  const changedSize = getChangedSize({
+    props,
+    isDoubleClickOverride: isDoubleClick,
+  });
   if (isDoubleClick || typeof ref.getBoundingClientRect !== "function") {
     return changedSize;
   }
@@ -351,7 +392,9 @@ function resolveResizeStopSize({
   return changedSize;
 }
 
-function shouldReplaceMeasuredSize(size: Partial<SectionSize>[keyof SectionSize]) {
+function shouldReplaceMeasuredSize(
+  size: Partial<SectionSize>[keyof SectionSize],
+) {
   return size === "auto" || (typeof size === "number" && Number.isNaN(size));
 }
 
@@ -381,7 +424,9 @@ function getResizableEnable({
   };
 }
 
-function getResizeHandleDirection(target: EventTarget | null): ResizeHandleDirection | null {
+function getResizeHandleDirection(
+  target: EventTarget | null,
+): ResizeHandleDirection | null {
   if (!(target instanceof HTMLElement)) {
     return null;
   }

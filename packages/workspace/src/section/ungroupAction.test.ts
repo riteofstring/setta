@@ -7,7 +7,11 @@ import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { WorkspaceSectionInput } from "../document/types";
 import { useSectionRefs } from "./sectionRefs";
 import { ungroupSections } from "./ungroupAction";
@@ -77,7 +81,8 @@ describe("ungroupSections", () => {
     let observedDocumentHasGroup = true;
     let observedActiveIds: Array<string> = [];
     const unsubscribe = useNodeInternals.subscribe(() => {
-      observedDocumentHasGroup = useWorkspaceDocument.getState().sections["group"] !== undefined;
+      observedDocumentHasGroup =
+        useWorkspaceDocument.getState().sections["group"] !== undefined;
       observedActiveIds = useActiveSections.getState().activeIds;
     });
     setWorkspaceDocumentChangeCallback(onChange);
@@ -117,7 +122,8 @@ describe("ungroupSections", () => {
       withNested: { "child-a": childA, "child-b": childB },
     });
 
-    const reported: Array<ReturnType<typeof useWorkspaceDocument.getState>> = [];
+    const reported: Array<ReturnType<typeof useWorkspaceDocument.getState>> =
+      [];
     setWorkspaceDocumentChangeCallback(() => {
       reported.push(useWorkspaceDocument.getState());
     });
@@ -129,8 +135,14 @@ describe("ungroupSections", () => {
     ]);
 
     expect(reported).toHaveLength(1);
-    expect(reported[0]?.topLevelSections["child-a"]).toMatchObject({ w: 121, h: 81 });
-    expect(reported[0]?.topLevelSections["child-b"]).toMatchObject({ w: 141, h: 91 });
+    expect(reported[0]?.topLevelSections["child-a"]).toMatchObject({
+      w: 121,
+      h: 81,
+    });
+    expect(reported[0]?.topLevelSections["child-b"]).toMatchObject({
+      w: 141,
+      h: 91,
+    });
   });
 
   it("rejects unavailable structure capability without changing any store", () => {

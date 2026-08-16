@@ -23,7 +23,11 @@ function normalize(candidate: unknown) {
   return normalizeWorkspaceItemDiagnosticRegistry(
     candidate as WorkspaceItemDiagnosticRegistry,
     "panel",
-    new Set(Object.keys(makeItemTree().items).filter((itemId) => itemId !== "item-root")),
+    new Set(
+      Object.keys(makeItemTree().items).filter(
+        (itemId) => itemId !== "item-root",
+      ),
+    ),
   );
 }
 
@@ -45,21 +49,29 @@ describe("workspace item diagnostics", () => {
     expect(Object.isFrozen(normalized)).toBe(true);
     expect(Object.isFrozen(normalized["item-a"])).toBe(true);
     expect(Object.isFrozen(normalized["item-a"]?.[0])).toBe(true);
-    expect(getHighestWorkspaceItemDiagnosticSeverity(normalized["item-a"] ?? [])).toBe("error");
-    expect(getWorkspaceItemDiagnosticCountSummary(normalized["item-a"] ?? [])).toBe(
-      "1 error, 1 warning, and 1 information message",
+    expect(
+      getHighestWorkspaceItemDiagnosticSeverity(normalized["item-a"] ?? []),
+    ).toBe("error");
+    expect(
+      getWorkspaceItemDiagnosticCountSummary(normalized["item-a"] ?? []),
+    ).toBe("1 error, 1 warning, and 1 information message");
+    expect(getWorkspaceItemDiagnosticRowClassName("error")).toBe(
+      "bg-red-200 dark:bg-red-800/30",
     );
-    expect(getWorkspaceItemDiagnosticRowClassName("error")).toBe("bg-red-200 dark:bg-red-800/30");
     expect(getWorkspaceItemDiagnosticRowClassName("warning")).toBe(
       "bg-amber-100/60 dark:bg-amber-950/25",
     );
-    expect(getWorkspaceItemDiagnosticRowClassName("info")).toBe("bg-sky-100/50 dark:bg-sky-950/20");
+    expect(getWorkspaceItemDiagnosticRowClassName("info")).toBe(
+      "bg-sky-100/50 dark:bg-sky-950/20",
+    );
   });
 
   it("accepts a still-supplied diagnostic for a previously known deleted item", () => {
     const normalized = normalizeWorkspaceItemDiagnosticRegistry(
       {
-        "item-deleted": [{ severity: "warning", message: "The host is clearing this." }],
+        "item-deleted": [
+          { severity: "warning", message: "The host is clearing this." },
+        ],
       },
       "panel",
       new Set(["item-deleted"]),
@@ -76,8 +88,14 @@ describe("workspace item diagnostics", () => {
     [{ "item-root": [] }, "names unknown item item-root"],
     [{ missing: [] }, "names unknown item missing"],
     [{ "item-a": {} }, "Diagnostics for panel/item-a must be an array."],
-    [{ "item-a": [{ severity: "fatal", message: "No." }] }, "unknown severity fatal"],
-    [{ "item-a": [{ severity: "error", message: "  " }] }, "requires a non-empty message"],
+    [
+      { "item-a": [{ severity: "fatal", message: "No." }] },
+      "unknown severity fatal",
+    ],
+    [
+      { "item-a": [{ severity: "error", message: "  " }] },
+      "requires a non-empty message",
+    ],
     [
       { "item-a": [{ severity: "error", message: "No.", code: "E1" }] },
       "contains the unknown field code",

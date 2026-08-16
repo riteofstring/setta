@@ -72,11 +72,15 @@ function NoteIcon({ className }: { className?: string }) {
 function getPackedTimeValue(section: WorkspaceSection): string {
   const data = section.data;
   if (data === null || typeof data !== "object" || Array.isArray(data)) {
-    throw new Error(`Packed time section ${section.id} is missing its control data.`);
+    throw new Error(
+      `Packed time section ${section.id} is missing its control data.`,
+    );
   }
   const value = data["value"];
   if (typeof value !== "string") {
-    throw new Error(`Packed time section ${section.id} is missing its string value.`);
+    throw new Error(
+      `Packed time section ${section.id} is missing its string value.`,
+    );
   }
   return value;
 }
@@ -88,13 +92,21 @@ function PackedTimeBody({ section }: { section: WorkspaceSection }) {
     value: getPackedTimeValue(section),
     onValueChange: () => {},
   } satisfies MetaControlDefinition;
-  return <MetaControl sectionId={section.id} sectionName={section.name} control={control} />;
+  return (
+    <MetaControl
+      sectionId={section.id}
+      sectionName={section.name}
+      control={control}
+    />
+  );
 }
 
 function PackedItemsBody({ section }: { section: WorkspaceSection }) {
   const itemTree = section.itemTree;
   if (!itemTree) {
-    throw new Error(`Packed item section ${section.id} is missing its item tree.`);
+    throw new Error(
+      `Packed item section ${section.id} is missing its item tree.`,
+    );
   }
   return (
     <ItemDndContext>
@@ -107,7 +119,11 @@ function PackedItemsBody({ section }: { section: WorkspaceSection }) {
   );
 }
 
-function makeNoteSection(id: string, name: string, text: string): WorkspaceSectionInput {
+function makeNoteSection(
+  id: string,
+  name: string,
+  text: string,
+): WorkspaceSectionInput {
   return {
     id,
     kind: "note",
@@ -125,7 +141,9 @@ function makeNoteSection(id: string, name: string, text: string): WorkspaceSecti
   };
 }
 
-function createConsumerNote(context: WorkspaceCreationContext): WorkspaceSectionInput {
+function createConsumerNote(
+  context: WorkspaceCreationContext,
+): WorkspaceSectionInput {
   const position = context.workspacePosition;
   return makeNoteSection(
     `consumer-note-${crypto.randomUUID()}`,
@@ -156,7 +174,11 @@ const consumerDocument: WorkspaceDocumentInput = {
       children: ["nested-note"],
       size: { width: 280, height: 180 },
     },
-    "nested-note": makeNoteSection("nested-note", "Nested note", "A nested note inside the group."),
+    "nested-note": makeNoteSection(
+      "nested-note",
+      "Nested note",
+      "A nested note inside the group.",
+    ),
     "packed-time": {
       id: "packed-time",
       kind: "packed-time",
@@ -287,7 +309,10 @@ function ConsumerMenuReadout() {
   return <p aria-live="polite">{status}</p>;
 }
 
-function ConsumerNotesIcon({ className, ...iconProps }: WorkspaceShellTabIconProps) {
+function ConsumerNotesIcon({
+  className,
+  ...iconProps
+}: WorkspaceShellTabIconProps) {
   return (
     <svg
       {...iconProps}
@@ -303,7 +328,10 @@ function ConsumerNotesIcon({ className, ...iconProps }: WorkspaceShellTabIconPro
   );
 }
 
-function ConsumerDetailsIcon({ className, ...iconProps }: WorkspaceShellTabIconProps) {
+function ConsumerDetailsIcon({
+  className,
+  ...iconProps
+}: WorkspaceShellTabIconProps) {
   return (
     <svg
       {...iconProps}
@@ -326,7 +354,10 @@ const consumerLeadingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
     icon: ConsumerNotesIcon,
     renderContent: () => (
       <div className="consumer-host-pane">
-        <p>This is host-rendered content registered through the packed public API.</p>
+        <p>
+          This is host-rendered content registered through the packed public
+          API.
+        </p>
         <p>The package owns the surrounding pane, rail, and resize behavior.</p>
       </div>
     ),
@@ -340,7 +371,10 @@ const consumerTrailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
     icon: ConsumerDetailsIcon,
     renderContent: ({ closePane }) => (
       <div className="consumer-host-pane">
-        <p>The shell state remains controlled and serializable by this unrelated host.</p>
+        <p>
+          The shell state remains controlled and serializable by this unrelated
+          host.
+        </p>
         <button onClick={closePane} type="button">
           Close pane
         </button>
@@ -351,7 +385,9 @@ const consumerTrailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
 
 function ConsumerApp() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
-  const [shellViewState, setShellViewState] = useState(() => createWorkspaceShellViewState());
+  const [shellViewState, setShellViewState] = useState(() =>
+    createWorkspaceShellViewState(),
+  );
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -397,12 +433,16 @@ function ConsumerApp() {
 // Kind registration precedes the load because loading validates section kinds against the
 // registry, and the appearance store must reflect the boot appearance before node
 // projection derives backgrounds from it.
-setWorkspaceColorMode(document.documentElement.classList.contains("dark") ? "dark" : "light");
+setWorkspaceColorMode(
+  document.documentElement.classList.contains("dark") ? "dark" : "light",
+);
 registerSectionKinds({
   note: {
     renderContent: (section) => <NoteBody section={section} />,
     renderInspector: (context) => (
-      <p className="consumer-host-pane">Packed host Inspector contribution for {context.type}.</p>
+      <p className="consumer-host-pane">
+        Packed host Inspector contribution for {context.type}.
+      </p>
     ),
     icon: NoteIcon,
     defaultSize: { width: 240, height: 140 },
@@ -410,7 +450,9 @@ registerSectionKinds({
   "packed-time": {
     renderContent: (section) => <PackedTimeBody section={section} />,
     renderInspector: (context) => (
-      <p className="consumer-host-pane">Packed host Inspector contribution for {context.type}.</p>
+      <p className="consumer-host-pane">
+        Packed host Inspector contribution for {context.type}.
+      </p>
     ),
     presentation: {
       type: "meta-control",
@@ -421,7 +463,9 @@ registerSectionKinds({
   "packed-items": {
     renderContent: (section) => <PackedItemsBody section={section} />,
     renderInspector: (context) => (
-      <p className="consumer-host-pane">Packed host Inspector contribution for {context.type}.</p>
+      <p className="consumer-host-pane">
+        Packed host Inspector contribution for {context.type}.
+      </p>
     ),
     contentClassName: "consumer-packed-items",
     defaultSize: { width: 320, height: 160 },
@@ -467,7 +511,8 @@ registerWorkspaceCommands([
     scope: "item",
     surfaces: ["context-menu"],
     label: "Report packed item",
-    run: (context) => publishConsumerMenuStatus(`Packed item action for ${context.item.id}.`),
+    run: (context) =>
+      publishConsumerMenuStatus(`Packed item action for ${context.item.id}.`),
   },
   {
     id: "consumer-outline-selection",
@@ -475,11 +520,15 @@ registerWorkspaceCommands([
     surfaces: ["outline"],
     label: "Report packed Outline row",
     run: (context) =>
-      publishConsumerMenuStatus(`Packed Outline action for ${context.section.name}.`),
+      publishConsumerMenuStatus(
+        `Packed Outline action for ${context.section.name}.`,
+      ),
   },
 ]);
 // The package ships locking bindable and unbound, so a consumer chooses its own chord for it.
-registerWorkspaceKeyBindings([{ id: "workspace.lock-sections", chord: "Mod + Alt + L" }]);
+registerWorkspaceKeyBindings([
+  { id: "workspace.lock-sections", chord: "Mod + Alt + L" },
+]);
 // One contributed toolbar control over the creation command the pane menu already offers.
 registerWorkspaceToolbarContributions([
   {

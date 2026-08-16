@@ -1,7 +1,12 @@
 import { createWithEqualityFn } from "zustand/traditional";
 import { insertIntoArray } from "../document/arrayUtils";
 import { withResetFn } from "../state/storeUtils";
-import { getItemDndId, getTempItemDndId, isTempItem, type ItemListKey } from "./itemDndState";
+import {
+  getItemDndId,
+  getTempItemDndId,
+  isTempItem,
+  type ItemListKey,
+} from "./itemDndState";
 
 // The reference's param dnd children store (`paramDndChildren.ts`): the live parent→children
 // projection an item drag mutates (temp placeholder replacement, live re-parenting) before one
@@ -49,7 +54,9 @@ function getTempItemReplacementContext(
   };
 }
 
-function withoutTempItemChildren(x: Record<string, Array<string>>): Record<string, Array<string>> {
+function withoutTempItemChildren(
+  x: Record<string, Array<string>>,
+): Record<string, Array<string>> {
   const next = { ...x };
   for (const [parentId, children] of Object.entries(next)) {
     const nextChildren = children.filter((childId) => !isTempItem(childId));
@@ -60,7 +67,9 @@ function withoutTempItemChildren(x: Record<string, Array<string>>): Record<strin
   return next;
 }
 
-function withoutTempItemParents(y: Record<string, string>): Record<string, string> {
+function withoutTempItemParents(
+  y: Record<string, string>,
+): Record<string, string> {
   const next = { ...y };
   for (const childId of Object.keys(next)) {
     if (isTempItem(childId)) {
@@ -104,7 +113,12 @@ export function replaceItemsWithTemp(
   itemIds: Array<string>,
 ) {
   useItemDndChildren.setState((state) => {
-    const context = getTempItemReplacementContext(state, activeId, listKey, itemIds);
+    const context = getTempItemReplacementContext(
+      state,
+      activeId,
+      listKey,
+      itemIds,
+    );
     if (!context) {
       return state;
     }
@@ -116,7 +130,11 @@ export function replaceItemsWithTemp(
     const insertIndex = findFirstItemIndex(currChildren, context.itemSet);
     const nextChildren = currChildren.filter((id) => !context.itemSet.has(id));
 
-    x[context.parentId] = insertIntoArray(nextChildren, insertIndex, context.tempId);
+    x[context.parentId] = insertIntoArray(
+      nextChildren,
+      insertIndex,
+      context.tempId,
+    );
     y[context.tempId] = context.parentId;
     for (const itemId of itemIds) {
       delete y[itemId];
@@ -125,7 +143,9 @@ export function replaceItemsWithTemp(
   });
 }
 
-export function updateItemChildren(itemIdsToChildren: Record<string, Array<string>>) {
+export function updateItemChildren(
+  itemIdsToChildren: Record<string, Array<string>>,
+) {
   const y: Record<string, string> = {};
   for (const [id, children] of Object.entries(itemIdsToChildren)) {
     for (const childId of children) {
@@ -152,7 +172,9 @@ export function getItemDndParentByChild(
   }
   const output: Record<string, string | null> = {};
   for (const [childId, parentId] of Object.entries(base)) {
-    const childDndId = isTempItem(childId) ? childId : getItemDndId(childId, listKey);
+    const childDndId = isTempItem(childId)
+      ? childId
+      : getItemDndId(childId, listKey);
     const parentDndId = parentId
       ? isTempItem(parentId)
         ? parentId

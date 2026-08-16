@@ -1,4 +1,6 @@
-export type WorkspaceSnapshot<Value> = Value extends (...args: Array<never>) => unknown
+export type WorkspaceSnapshot<Value> = Value extends (
+  ...args: Array<never>
+) => unknown
   ? Value
   : Value extends ReadonlyArray<infer Entry>
     ? ReadonlyArray<WorkspaceSnapshot<Entry>>
@@ -18,6 +20,10 @@ function freezeWorkspaceSnapshot<T>(value: T): T {
 
 // Public callbacks receive detached, deeply frozen state. They can inspect the invocation
 // context without retaining or mutating the package's canonical document objects.
-export function cloneFrozenWorkspaceSnapshot<T>(value: T): WorkspaceSnapshot<T> {
-  return freezeWorkspaceSnapshot(structuredClone(value)) as WorkspaceSnapshot<T>;
+export function cloneFrozenWorkspaceSnapshot<T>(
+  value: T,
+): WorkspaceSnapshot<T> {
+  return freezeWorkspaceSnapshot(
+    structuredClone(value),
+  ) as WorkspaceSnapshot<T>;
 }

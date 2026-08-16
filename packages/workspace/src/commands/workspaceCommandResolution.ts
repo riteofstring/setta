@@ -25,7 +25,7 @@ export type WorkspaceCommandEntry = {
   tone: "danger" | null;
 };
 
-export type WorkspaceCommandResult = {
+type WorkspaceCommandResult = {
   ran: boolean;
   statusMessage: string | null;
 };
@@ -44,7 +44,9 @@ type WorkspaceCommandEvaluators = {
 
 // Every evaluator is declared against the definition's own scope, and the caller below proves the
 // context carries that scope, so the scoped union collapses to one call shape here.
-function getCommandEvaluators(command: RegisteredWorkspaceCommand): WorkspaceCommandEvaluators {
+function getCommandEvaluators(
+  command: RegisteredWorkspaceCommand,
+): WorkspaceCommandEvaluators {
   return command.definition as unknown as WorkspaceCommandEvaluators;
 }
 
@@ -136,7 +138,8 @@ export function hasApplicableWorkspaceCommands(
   context: WorkspaceCommandContext,
 ): boolean {
   return getWorkspaceCommands(context.scope, surface).some(
-    (command) => command.origin === "host" || isCommandApplicable(command, context),
+    (command) =>
+      command.origin === "host" || isCommandApplicable(command, context),
   );
 }
 
@@ -156,5 +159,7 @@ export function useWorkspaceCommandEntries(
   contexts: ReadonlyArray<WorkspaceCommandContext>,
 ): ReadonlyArray<WorkspaceCommandEntry> {
   useWorkspaceCommandState();
-  return contexts.flatMap((context) => resolveWorkspaceCommandEntries(surface, context));
+  return contexts.flatMap((context) =>
+    resolveWorkspaceCommandEntries(surface, context),
+  );
 }

@@ -1,4 +1,9 @@
-import { useRef, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
+import {
+  useRef,
+  type KeyboardEvent,
+  type PointerEvent,
+  type WheelEvent,
+} from "react";
 import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import {
   MANUAL_WHEEL_CLASS_NAME,
@@ -96,7 +101,9 @@ export function RotaryValueControl({
     }
     event.preventDefault();
     const direction = event.deltaY < 0 ? 1 : -1;
-    reportChange(snapToStep(clampedValue + direction * step, { min, max, step }));
+    reportChange(
+      snapToStep(clampedValue + direction * step, { min, max, step }),
+    );
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
@@ -106,7 +113,13 @@ export function RotaryValueControl({
     if (isDisabled) {
       return;
     }
-    const nextValue = resolveKeyboardValue(event.key, clampedValue, min, max, step);
+    const nextValue = resolveKeyboardValue(
+      event.key,
+      clampedValue,
+      min,
+      max,
+      step,
+    );
     if (nextValue === null) {
       return;
     }
@@ -139,13 +152,18 @@ export function RotaryValueControl({
         <div className="absolute inset-0 rounded-full border border-setta-300/70 bg-gradient-to-br from-setta-50 via-setta-200 to-setta-300 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.5)] dark:border-setta-700/70 dark:from-setta-900 dark:via-setta-800 dark:to-setta-950" />
         <div className="absolute inset-[5px] rounded-full border border-setta-200/70 bg-setta-100 dark:border-setta-700/70 dark:bg-setta-850" />
         <div className="absolute inset-[10px] rounded-full bg-setta-50 dark:bg-setta-900" />
-        <div className="absolute inset-0" style={{ transform: `rotate(${indicatorAngle}deg)` }}>
+        <div
+          className="absolute inset-0"
+          style={{ transform: `rotate(${indicatorAngle}deg)` }}
+        >
           <div className="absolute left-1/2 top-[5px] h-3 w-[2px] -translate-x-1/2 rounded-full bg-blue-500" />
         </div>
         <div className="absolute inset-0 rounded-full border border-dashed border-setta-300/40 dark:border-setta-700/40" />
       </button>
       <div className="flex min-w-[48px] flex-col items-start">
-        <span className="font-mono text-xs text-setta-700 dark:text-setta-200">{displayValue}</span>
+        <span className="font-mono text-xs text-setta-700 dark:text-setta-200">
+          {displayValue}
+        </span>
       </div>
     </div>
   );
@@ -164,18 +182,32 @@ function getAngleFromValue(value: number, min: number, max: number): number {
   return ROTARY_START_DEG + normalized * ROTARY_RANGE_DEG;
 }
 
-function getValueFromAngle(angle: number, config: NumericControlConfig): number {
-  const clampedAngle = clampNumericValue(angle, ROTARY_START_DEG, ROTARY_END_DEG);
+function getValueFromAngle(
+  angle: number,
+  config: NumericControlConfig,
+): number {
+  const clampedAngle = clampNumericValue(
+    angle,
+    ROTARY_START_DEG,
+    ROTARY_END_DEG,
+  );
   const normalized = (clampedAngle - ROTARY_START_DEG) / ROTARY_RANGE_DEG;
   const rawValue = config.min + normalized * (config.max - config.min);
   return snapToStep(rawValue, config);
 }
 
-function snapToStep(value: number, { min, max, step }: NumericControlConfig): number {
+function snapToStep(
+  value: number,
+  { min, max, step }: NumericControlConfig,
+): number {
   const clampedValue = clampNumericValue(value, min, max);
   const steps = Math.round((clampedValue - min) / step);
   const snappedValue = min + steps * step;
-  return clampNumericValue(roundTo(snappedValue, getStepPrecision(step)), min, max);
+  return clampNumericValue(
+    roundTo(snappedValue, getStepPrecision(step)),
+    min,
+    max,
+  );
 }
 
 function getStepPrecision(step: number): number {
@@ -212,7 +244,8 @@ function resolveKeyboardValue(
   if (key === "End") {
     return max;
   }
-  const direction = KEYBOARD_STEP_DIRECTIONS[key as keyof typeof KEYBOARD_STEP_DIRECTIONS];
+  const direction =
+    KEYBOARD_STEP_DIRECTIONS[key as keyof typeof KEYBOARD_STEP_DIRECTIONS];
   return direction === undefined ? null : clampedValue + direction * step;
 }
 
@@ -223,5 +256,8 @@ function getPointerAngle(
   const rect = target.getBoundingClientRect();
   const centerX = rect.left + rect.width / 2;
   const centerY = rect.top + rect.height / 2;
-  return (Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180) / Math.PI;
+  return (
+    (Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180) /
+    Math.PI
+  );
 }

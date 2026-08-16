@@ -1,6 +1,11 @@
 import { createWithEqualityFn } from "zustand/traditional";
 import { withResetFn } from "../state/storeUtils";
-import type { Node, TopLevelSectionLayout, Viewport, WorkspaceSection } from "./types";
+import type {
+  Node,
+  TopLevelSectionLayout,
+  Viewport,
+  WorkspaceSection,
+} from "./types";
 
 export type WorkspaceDocumentState = {
   sections: Record<string, WorkspaceSection>;
@@ -58,12 +63,15 @@ type AtomicallyPublishedWorkspaceStoreState = {
   activeSections: ReturnType<typeof useActiveSections.getState>;
 };
 
-let stagedWorkspaceStorePublication: AtomicallyPublishedWorkspaceStoreState | null = null;
+let stagedWorkspaceStorePublication: AtomicallyPublishedWorkspaceStoreState | null =
+  null;
 
 function patchPublishedWorkspaceStoreGetState<TState>(
   store: { getState: () => TState },
   readRawState: () => TState,
-  getPublishedState: (publication: AtomicallyPublishedWorkspaceStoreState) => TState,
+  getPublishedState: (
+    publication: AtomicallyPublishedWorkspaceStoreState,
+  ) => TState,
 ) {
   store.getState = () => {
     const publication = stagedWorkspaceStorePublication;
@@ -74,9 +82,12 @@ function patchPublishedWorkspaceStoreGetState<TState>(
   };
 }
 
-const readRawWorkspaceDocumentState = useWorkspaceDocument.getState.bind(useWorkspaceDocument);
-const readRawNodeInternalsState = useNodeInternals.getState.bind(useNodeInternals);
-const readRawActiveSectionsState = useActiveSections.getState.bind(useActiveSections);
+const readRawWorkspaceDocumentState =
+  useWorkspaceDocument.getState.bind(useWorkspaceDocument);
+const readRawNodeInternalsState =
+  useNodeInternals.getState.bind(useNodeInternals);
+const readRawActiveSectionsState =
+  useActiveSections.getState.bind(useActiveSections);
 
 patchPublishedWorkspaceStoreGetState(
   useWorkspaceDocument,

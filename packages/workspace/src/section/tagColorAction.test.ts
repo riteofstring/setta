@@ -3,7 +3,11 @@ import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { WorkspaceSectionInput } from "../document/types";
 import { setSectionTagColor } from "./tagColorAction";
 
@@ -27,7 +31,9 @@ function makeSection(
   };
 }
 
-function loadTagColorDocument(overrides: Partial<WorkspaceSectionInput> = {}): void {
+function loadTagColorDocument(
+  overrides: Partial<WorkspaceSectionInput> = {},
+): void {
   loadWorkspaceDocument({
     sections: { leaf: makeSection("leaf", overrides) },
     topLevelSections: { leaf: { x: 0, y: 0, w: 240, h: 120, zIndex: 0 } },
@@ -58,13 +64,19 @@ describe("setSectionTagColor", () => {
 
     setSectionTagColor("leaf", " A1B2C3 ");
 
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBe("#a1b2c3");
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBe(
+      "#a1b2c3",
+    );
     expect(onChange).toHaveBeenCalledOnce();
-    expect(onChange.mock.calls[0]?.[0].sections["leaf"]?.tagColor).toBe("#a1b2c3");
+    expect(onChange.mock.calls[0]?.[0].sections["leaf"]?.tagColor).toBe(
+      "#a1b2c3",
+    );
 
     setSectionTagColor("leaf", null);
 
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBeNull();
+    expect(
+      useWorkspaceDocument.getState().sections["leaf"]?.tagColor,
+    ).toBeNull();
     expect(onChange).toHaveBeenCalledTimes(2);
   });
 
@@ -83,8 +95,12 @@ describe("setSectionTagColor", () => {
     setWorkspaceDocumentChangeCallback(onChange);
     const originalSections = useWorkspaceDocument.getState().sections;
 
-    expect(() => setSectionTagColor("leaf", "blue")).toThrow(/six-digit hex color/);
-    expect(() => setSectionTagColor("missing", "#123456")).toThrow(/Unknown section missing/);
+    expect(() => setSectionTagColor("leaf", "blue")).toThrow(
+      /six-digit hex color/,
+    );
+    expect(() => setSectionTagColor("missing", "#123456")).toThrow(
+      /Unknown section missing/,
+    );
 
     loadTagColorDocument({ positionAndSizeLocked: true });
     expect(() => setSectionTagColor("leaf", "#123456")).toThrow(/locked/);
@@ -97,6 +113,8 @@ describe("setSectionTagColor", () => {
 
     expect(onChange).not.toHaveBeenCalled();
     expect(originalSections["leaf"]?.tagColor).toBeNull();
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBeNull();
+    expect(
+      useWorkspaceDocument.getState().sections["leaf"]?.tagColor,
+    ).toBeNull();
   });
 });

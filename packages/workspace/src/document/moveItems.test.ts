@@ -3,13 +3,19 @@ import { setWorkspaceDocumentChangeCallback } from "./documentChangeCallback";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { moveItems, orderItemIdsByParent } from "./moveItems";
 import { registerSectionKinds } from "./sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "./stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "./stores";
 import type { WorkspaceSection, WorkspaceSectionItemTree } from "./types";
 
 // Freezes the canonical item move funnel: the reference's `applyParamMove` optimistic result
 // minus its backend send, with the host notified once per applied move.
 
-function makeItemTree(childrenById: Record<string, Array<string>>): WorkspaceSectionItemTree {
+function makeItemTree(
+  childrenById: Record<string, Array<string>>,
+): WorkspaceSectionItemTree {
   const ids = new Set<string>(["item-root", ...Object.keys(childrenById)]);
   for (const children of Object.values(childrenById)) {
     for (const childId of children) {
@@ -18,12 +24,17 @@ function makeItemTree(childrenById: Record<string, Array<string>>): WorkspaceSec
   }
   return {
     rootId: "item-root",
-    items: Object.fromEntries([...ids].map((id) => [id, { id, children: childrenById[id] ?? [] }])),
+    items: Object.fromEntries(
+      [...ids].map((id) => [id, { id, children: childrenById[id] ?? [] }]),
+    ),
     selectedItemIds: [],
   };
 }
 
-function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): WorkspaceSection {
+function makeSection(
+  id: string,
+  overrides: Partial<WorkspaceSection> = {},
+): WorkspaceSection {
   return {
     id,
     kind: "leaf",
@@ -81,13 +92,23 @@ describe("moveItems", () => {
   });
 
   it("reorders items within the same parent and notifies the host once", () => {
-    moveItems({ sectionId: "leaf", itemIds: ["b"], newParentId: "item-root", newIndex: 0 });
+    moveItems({
+      sectionId: "leaf",
+      itemIds: ["b"],
+      newParentId: "item-root",
+      newIndex: 0,
+    });
 
-    expect(getLoadedItemTree().items["item-root"]?.children).toEqual(["b", "a", "group"]);
+    expect(getLoadedItemTree().items["item-root"]?.children).toEqual([
+      "b",
+      "a",
+      "group",
+    ]);
     expect(documentChangeSpy).toHaveBeenCalledTimes(1);
     expect(
-      documentChangeSpy.mock.calls[0]?.[0]?.sections["leaf"]?.itemTree?.items["item-root"]
-        ?.children,
+      documentChangeSpy.mock.calls[0]?.[0]?.sections["leaf"]?.itemTree?.items[
+        "item-root"
+      ]?.children,
     ).toEqual(["b", "a", "group"]);
   });
 
@@ -99,11 +120,20 @@ describe("moveItems", () => {
       newIndex: 1,
     });
 
-    expect(getLoadedItemTree().items["item-root"]?.children).toEqual(["group", "a", "b"]);
+    expect(getLoadedItemTree().items["item-root"]?.children).toEqual([
+      "group",
+      "a",
+      "b",
+    ]);
   });
 
   it("moves items across parents into a nested group", () => {
-    moveItems({ sectionId: "leaf", itemIds: ["a"], newParentId: "group", newIndex: 1 });
+    moveItems({
+      sectionId: "leaf",
+      itemIds: ["a"],
+      newParentId: "group",
+      newIndex: 1,
+    });
 
     const itemTree = getLoadedItemTree();
     expect(itemTree.items["item-root"]?.children).toEqual(["b", "group"]);
@@ -111,7 +141,12 @@ describe("moveItems", () => {
   });
 
   it("moves items into a childless item, the structural form of the reference's promotion", () => {
-    moveItems({ sectionId: "leaf", itemIds: ["nested"], newParentId: "b", newIndex: 0 });
+    moveItems({
+      sectionId: "leaf",
+      itemIds: ["nested"],
+      newParentId: "b",
+      newIndex: 0,
+    });
 
     const itemTree = getLoadedItemTree();
     expect(itemTree.items["group"]?.children).toEqual([]);
@@ -119,11 +154,30 @@ describe("moveItems", () => {
   });
 
   it("leaves the tree untouched and silent for out-of-range indices", () => {
-    moveItems({ sectionId: "leaf", itemIds: ["a"], newParentId: "item-root", newIndex: 3 });
-    moveItems({ sectionId: "leaf", itemIds: ["a"], newParentId: "group", newIndex: -1 });
-    moveItems({ sectionId: "leaf", itemIds: [], newParentId: "item-root", newIndex: 0 });
+    moveItems({
+      sectionId: "leaf",
+      itemIds: ["a"],
+      newParentId: "item-root",
+      newIndex: 3,
+    });
+    moveItems({
+      sectionId: "leaf",
+      itemIds: ["a"],
+      newParentId: "group",
+      newIndex: -1,
+    });
+    moveItems({
+      sectionId: "leaf",
+      itemIds: [],
+      newParentId: "item-root",
+      newIndex: 0,
+    });
 
-    expect(getLoadedItemTree().items["item-root"]?.children).toEqual(["a", "b", "group"]);
+    expect(getLoadedItemTree().items["item-root"]?.children).toEqual([
+      "a",
+      "b",
+      "group",
+    ]);
     expect(documentChangeSpy).not.toHaveBeenCalled();
   });
 
@@ -131,16 +185,35 @@ describe("moveItems", () => {
     // The root has no parent and an unknown id has no parent-map entry: both abort before
     // anything mutates, the third documented silent-abort leg beside empty ids and
     // out-of-range indices.
-    moveItems({ sectionId: "leaf", itemIds: ["item-root"], newParentId: "group", newIndex: 0 });
-    moveItems({ sectionId: "leaf", itemIds: ["missing"], newParentId: "item-root", newIndex: 0 });
+    moveItems({
+      sectionId: "leaf",
+      itemIds: ["item-root"],
+      newParentId: "group",
+      newIndex: 0,
+    });
+    moveItems({
+      sectionId: "leaf",
+      itemIds: ["missing"],
+      newParentId: "item-root",
+      newIndex: 0,
+    });
 
-    expect(getLoadedItemTree().items["item-root"]?.children).toEqual(["a", "b", "group"]);
+    expect(getLoadedItemTree().items["item-root"]?.children).toEqual([
+      "a",
+      "b",
+      "group",
+    ]);
     expect(documentChangeSpy).not.toHaveBeenCalled();
   });
 
   it("throws instead of nesting items into their own subtree", () => {
     expect(() =>
-      moveItems({ sectionId: "leaf", itemIds: ["group"], newParentId: "nested", newIndex: 0 }),
+      moveItems({
+        sectionId: "leaf",
+        itemIds: ["group"],
+        newParentId: "nested",
+        newIndex: 0,
+      }),
     ).toThrowError(/into their own subtree at nested/);
     expect(getLoadedItemTree().items["group"]?.children).toEqual(["nested"]);
   });
@@ -154,7 +227,12 @@ describe("moveItems", () => {
       activeIds: [],
     });
     expect(() =>
-      moveItems({ sectionId: "bare", itemIds: ["a"], newParentId: "b", newIndex: 0 }),
+      moveItems({
+        sectionId: "bare",
+        itemIds: ["a"],
+        newParentId: "b",
+        newIndex: 0,
+      }),
     ).toThrowError(/Section bare has no item tree/);
   });
 });
@@ -162,6 +240,9 @@ describe("moveItems", () => {
 describe("orderItemIdsByParent", () => {
   it("orders ids by the parent's canonical child order", () => {
     const itemTree = makeItemTree({ "item-root": ["a", "b", "c"] });
-    expect(orderItemIdsByParent(itemTree, "item-root", ["c", "a"])).toEqual(["a", "c"]);
+    expect(orderItemIdsByParent(itemTree, "item-root", ["c", "a"])).toEqual([
+      "a",
+      "c",
+    ]);
   });
 });

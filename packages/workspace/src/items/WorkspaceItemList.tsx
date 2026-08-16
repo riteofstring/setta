@@ -1,11 +1,21 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import type { ItemListKey } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { getSectionItemTreeOrThrow } from "../document/documentSelectors";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { buildItemTreeView, getItemOrThrow } from "../document/itemTree";
 import { useWorkspaceDocument } from "../document/stores";
-import type { WorkspaceItem, WorkspaceSectionItemTree } from "../document/types";
+import type {
+  WorkspaceItem,
+  WorkspaceSectionItemTree,
+} from "../document/types";
 import { NATIVE_VERTICAL_WHEEL_CLASS_NAME } from "../interaction";
 import { useIsScrollable } from "../useIsScrollable";
 import {
@@ -91,16 +101,26 @@ function useResolvedItemVisibility({
   const itemFilter = useWorkspaceItemFilter();
   const listVisibleSet = useMemo(
     () =>
-      visibleItemIds ? new Set(visibleItemIds) : collectReachableItemIds(itemTree, topLevelItemIds),
+      visibleItemIds
+        ? new Set(visibleItemIds)
+        : collectReachableItemIds(itemTree, topLevelItemIds),
     [itemTree, topLevelItemIds, visibleItemIds],
   );
   const visibleSet = useMemo(() => {
     if (!itemFilter?.filterActive) {
       return listVisibleSet;
     }
-    return new Set([...listVisibleSet].filter((itemId) => itemFilter.visibleItemIds.has(itemId)));
+    return new Set(
+      [...listVisibleSet].filter((itemId) =>
+        itemFilter.visibleItemIds.has(itemId),
+      ),
+    );
   }, [itemFilter?.filterActive, itemFilter?.visibleItemIds, listVisibleSet]);
-  return { filterActive: itemFilter?.filterActive ?? false, listVisibleSet, visibleSet };
+  return {
+    filterActive: itemFilter?.filterActive ?? false,
+    listVisibleSet,
+    visibleSet,
+  };
 }
 
 function useNormalizedItemDiagnostics(
@@ -109,19 +129,33 @@ function useNormalizedItemDiagnostics(
   itemTree: WorkspaceSectionItemTree,
 ): WorkspaceItemDiagnosticRegistry {
   const currentItemIds = useMemo(
-    () => new Set(Object.keys(itemTree.items).filter((itemId) => itemId !== itemTree.rootId)),
+    () =>
+      new Set(
+        Object.keys(itemTree.items).filter(
+          (itemId) => itemId !== itemTree.rootId,
+        ),
+      ),
     [itemTree],
   );
-  const knownItemIdsRef = useRef<{ itemIds: ReadonlySet<string>; sectionId: string } | null>(null);
+  const knownItemIdsRef = useRef<{
+    itemIds: ReadonlySet<string>;
+    sectionId: string;
+  } | null>(null);
   const compatibleItemIds = useMemo(() => {
     const previouslyKnownItemIds =
-      itemDiagnostics !== undefined && knownItemIdsRef.current?.sectionId === sectionId
+      itemDiagnostics !== undefined &&
+      knownItemIdsRef.current?.sectionId === sectionId
         ? knownItemIdsRef.current.itemIds
         : new Set<string>();
     return new Set([...previouslyKnownItemIds, ...currentItemIds]);
   }, [currentItemIds, itemDiagnostics, sectionId]);
   const normalized = useMemo(
-    () => normalizeWorkspaceItemDiagnosticRegistry(itemDiagnostics, sectionId, compatibleItemIds),
+    () =>
+      normalizeWorkspaceItemDiagnosticRegistry(
+        itemDiagnostics,
+        sectionId,
+        compatibleItemIds,
+      ),
     [compatibleItemIds, itemDiagnostics, sectionId],
   );
 
@@ -146,14 +180,17 @@ export function WorkspaceItemList({
   isGroupItem = defaultIsGroupItem,
   itemDiagnostics,
 }: WorkspaceItemListProps) {
-  const itemTree = useWorkspaceDocument((x) => getSectionItemTreeOrThrow(x, sectionId));
+  const itemTree = useWorkspaceDocument((x) =>
+    getSectionItemTreeOrThrow(x, sectionId),
+  );
   const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
   const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
-  const { filterActive, listVisibleSet, visibleSet } = useResolvedItemVisibility({
-    itemTree,
-    topLevelItemIds,
-    visibleItemIds,
-  });
+  const { filterActive, listVisibleSet, visibleSet } =
+    useResolvedItemVisibility({
+      itemTree,
+      topLevelItemIds,
+      visibleItemIds,
+    });
   const enabled = isSelectingItems && canEditStructure && !filterActive;
   const normalizedItemDiagnostics = useNormalizedItemDiagnostics(
     itemDiagnostics,
@@ -168,7 +205,12 @@ export function WorkspaceItemList({
   );
 
   const view = useMemo(
-    () => ({ listKey, topLevelItemIds, visibleItemIds: visibleSet, filterActive }),
+    () => ({
+      listKey,
+      topLevelItemIds,
+      visibleItemIds: visibleSet,
+      filterActive,
+    }),
     [filterActive, listKey, topLevelItemIds, visibleSet],
   );
   const viewRef = useRef(view);
@@ -208,7 +250,9 @@ export function WorkspaceItemList({
       <ItemListShell filterActive={filterActive} outerRef={listOuterRef}>
         <ItemListBody
           rootId={treeView.rootId}
-          topLevelRowIds={treeView.visibleChildrenByParent[treeView.rootId] ?? []}
+          topLevelRowIds={
+            treeView.visibleChildrenByParent[treeView.rootId] ?? []
+          }
         />
       </ItemListShell>
     </ItemListProvider>
@@ -251,7 +295,10 @@ function ItemListShell({
   }, [filterActive, ref]);
 
   return (
-    <div ref={outerRef} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <div
+      ref={outerRef}
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+    >
       <div
         className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pe-1.5 ${
           isScrollable ? NATIVE_VERTICAL_WHEEL_CLASS_NAME : ""

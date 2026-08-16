@@ -17,7 +17,9 @@ import ZoomPane, {
 // Ported from the reference fork's `container/ZoomPane.test.ts`. The drag-sorting filter case
 // returns with the dnd-kit batch that owns the drag-session store.
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 type RenderedZoomPane = {
   host: HTMLDivElement;
@@ -133,7 +135,10 @@ describe("resolvePanOnScrollDelta", () => {
 describe("shouldAllowZoomFilterEvent", () => {
   it("allows middle-click node panning when that button is enabled", () => {
     const node = appendTargetWithClass("react-flow__node");
-    const event = withEventTarget(new MouseEvent("mousedown", { button: 1 }), node);
+    const event = withEventTarget(
+      new MouseEvent("mousedown", { button: 1 }),
+      node,
+    );
 
     expect(
       shouldAllowZoomFilterEvent({
@@ -150,7 +155,10 @@ describe("shouldAllowZoomFilterEvent", () => {
 
   it("blocks nowheel targets from wheel zoom without an override", () => {
     const target = appendTargetWithClass("nowheel");
-    const event = withEventTarget(new WheelEvent("wheel", { deltaY: -120 }), target);
+    const event = withEventTarget(
+      new WheelEvent("wheel", { deltaY: -120 }),
+      target,
+    );
 
     expect(
       shouldAllowZoomFilterEvent({
@@ -167,7 +175,10 @@ describe("shouldAllowZoomFilterEvent", () => {
 
   it("blocks manually consumed wheel targets from wheel zoom", () => {
     const target = appendTargetWithClass("setta-manual-wheel");
-    const event = withEventTarget(new WheelEvent("wheel", { deltaY: -120 }), target);
+    const event = withEventTarget(
+      new WheelEvent("wheel", { deltaY: -120 }),
+      target,
+    );
 
     expect(
       shouldAllowZoomFilterEvent({
@@ -201,13 +212,20 @@ describe("shouldAllowZoomFilterEvent", () => {
       zoomOnScroll: false,
     } as const;
 
-    expect(shouldAllowZoomFilterEvent({ event: verticalEvent, ...options })).toBe(false);
-    expect(shouldAllowZoomFilterEvent({ event: horizontalEvent, ...options })).toBe(true);
+    expect(
+      shouldAllowZoomFilterEvent({ event: verticalEvent, ...options }),
+    ).toBe(false);
+    expect(
+      shouldAllowZoomFilterEvent({ event: horizontalEvent, ...options }),
+    ).toBe(true);
   });
 
   it("reserves non-mac Shift plus vertical wheel input for horizontal canvas panning", () => {
     const target = appendTargetWithClass("setta-native-wheel-y");
-    const event = withEventTarget(new WheelEvent("wheel", { deltaY: 40, shiftKey: true }), target);
+    const event = withEventTarget(
+      new WheelEvent("wheel", { deltaY: 40, shiftKey: true }),
+      target,
+    );
 
     expect(isNativeVerticalWheelEvent(event, false)).toBe(false);
     expect(isNativeVerticalWheelEvent(event, true)).toBe(true);
@@ -241,8 +259,8 @@ describe("getViewportInteractionActiveValue", () => {
       height: 600,
     });
     vi.useFakeTimers();
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() =>
-      DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }),
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }),
     );
   });
 
@@ -317,7 +335,11 @@ describe("getViewportInteractionActiveValue", () => {
       });
       expect(useReactFlow.getState().transform).toEqual([-10, 0, 1]);
       expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
-      expect(renderer.parentElement?.getAttribute("data-viewport-interaction-active")).toBe("true");
+      expect(
+        renderer.parentElement?.getAttribute(
+          "data-viewport-interaction-active",
+        ),
+      ).toBe("true");
 
       target.classList.add("setta-manual-wheel");
       let manualEvent: WheelEvent | undefined;
@@ -338,7 +360,11 @@ describe("getViewportInteractionActiveValue", () => {
         vi.advanceTimersByTime(150);
       });
       expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
-      expect(renderer.parentElement?.hasAttribute("data-viewport-interaction-active")).toBe(false);
+      expect(
+        renderer.parentElement?.hasAttribute(
+          "data-viewport-interaction-active",
+        ),
+      ).toBe(false);
       target.classList.add("nowheel");
       let blockedEvent: WheelEvent | undefined;
       await act(async () => {
@@ -427,8 +453,13 @@ describe("getViewportInteractionActiveValue", () => {
 
       const startHandler = d3Zoom.on("start");
       const endHandler = d3Zoom.on("end");
-      if (typeof startHandler !== "function" || typeof endHandler !== "function") {
-        throw new Error("Expected ZoomPane to register drag lifecycle handlers.");
+      if (
+        typeof startHandler !== "function" ||
+        typeof endHandler !== "function"
+      ) {
+        throw new Error(
+          "Expected ZoomPane to register drag lifecycle handlers.",
+        );
       }
 
       await act(async () => {

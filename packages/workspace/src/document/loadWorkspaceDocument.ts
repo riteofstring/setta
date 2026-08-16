@@ -23,7 +23,11 @@ import {
   useWorkspaceDocument,
   type WorkspaceDocumentState,
 } from "./stores";
-import type { WorkspaceDocumentInput, WorkspaceSection, WorkspaceSectionInput } from "./types";
+import type {
+  WorkspaceDocumentInput,
+  WorkspaceSection,
+  WorkspaceSectionInput,
+} from "./types";
 
 const SECTION_STYLE_COLOR_PATTERN = /^#?[0-9a-f]{6}$/iu;
 
@@ -39,7 +43,10 @@ function resolveLoadedSections(
     }
     resolved[sectionId] = {
       ...section,
-      tagColor: normalizeSectionTagColor(section.tagColor, `Section ${sectionId} tag color`),
+      tagColor: normalizeSectionTagColor(
+        section.tagColor,
+        `Section ${sectionId} tag color`,
+      ),
       size: resolveWorkspaceSectionSize(section),
     };
   }
@@ -48,7 +55,9 @@ function resolveLoadedSections(
 
 // The registered-kind data boundary: a kind that owns a real `data` shape parses it here, once,
 // before the resolved sections reach the stores.
-function assertValidRegisteredSectionData(sections: Record<string, WorkspaceSection>) {
+function assertValidRegisteredSectionData(
+  sections: Record<string, WorkspaceSection>,
+) {
   for (const section of Object.values(sections)) {
     if (isGroupSection(section)) {
       continue;
@@ -57,7 +66,9 @@ function assertValidRegisteredSectionData(sections: Record<string, WorkspaceSect
   }
 }
 
-function assertValidSectionStyleColors(sections: Record<string, WorkspaceSection>) {
+function assertValidSectionStyleColors(
+  sections: Record<string, WorkspaceSection>,
+) {
   for (const [sectionId, section] of Object.entries(sections)) {
     const styleColor = section.styleColor;
     if (
@@ -66,22 +77,30 @@ function assertValidSectionStyleColors(sections: Record<string, WorkspaceSection
       (!SECTION_STYLE_COLOR_PATTERN.test(styleColor.trim()) ||
         deriveSectionStyleTheme(styleColor, false) === null)
     ) {
-      throw new Error(`Section ${sectionId} has an unparseable style color ${styleColor}.`);
+      throw new Error(
+        `Section ${sectionId} has an unparseable style color ${styleColor}.`,
+      );
     }
   }
 }
 
-function assertValidSectionOverflowModes(sections: Record<string, WorkspaceSection>) {
+function assertValidSectionOverflowModes(
+  sections: Record<string, WorkspaceSection>,
+) {
   for (const [sectionId, section] of Object.entries(sections)) {
     assertValidSectionOverflowMode(sectionId, section);
   }
 }
 
-function buildParentSectionMap(sections: Record<string, WorkspaceSection>): Record<string, string> {
+function buildParentSectionMap(
+  sections: Record<string, WorkspaceSection>,
+): Record<string, string> {
   const parentSectionMap: Record<string, string> = {};
   for (const [sectionId, section] of Object.entries(sections)) {
     if (section.id !== sectionId) {
-      throw new Error(`Section record key ${sectionId} does not match section id ${section.id}.`);
+      throw new Error(
+        `Section record key ${sectionId} does not match section id ${section.id}.`,
+      );
     }
     for (const childId of section.children) {
       if (!(childId in sections)) {
@@ -113,7 +132,9 @@ function assertAcyclicParentChains(parentSectionMap: Record<string, string>) {
   }
 }
 
-function assertValidSectionItemTrees(sections: Record<string, WorkspaceSection>) {
+function assertValidSectionItemTrees(
+  sections: Record<string, WorkspaceSection>,
+) {
   for (const [sectionId, section] of Object.entries(sections)) {
     if (!section.itemTree) {
       continue;
@@ -121,7 +142,9 @@ function assertValidSectionItemTrees(sections: Record<string, WorkspaceSection>)
     // The reference cannot represent params on a Group (its section-click policy guards on
     // `isBaseSectionWithParamsImpl`), so a group section never carries an item tree.
     if (isGroupSection(section)) {
-      throw new Error(`Section ${sectionId} is a group section and cannot carry an item tree.`);
+      throw new Error(
+        `Section ${sectionId} is a group section and cannot carry an item tree.`,
+      );
     }
     assertValidWorkspaceSectionItemTree(sectionId, section.itemTree);
   }
@@ -141,7 +164,10 @@ function assertKnownSectionIds(
 
 export function resolveAndValidateWorkspaceSections(
   sectionInputs: Record<string, WorkspaceSectionInput>,
-): { sections: Record<string, WorkspaceSection>; parentSectionMap: Record<string, string> } {
+): {
+  sections: Record<string, WorkspaceSection>;
+  parentSectionMap: Record<string, string>;
+} {
   const sections = resolveLoadedSections(sectionInputs);
   assertValidRegisteredSectionData(sections);
   assertValidSectionStyleColors(sections);
@@ -162,8 +188,14 @@ export function resolveAndValidateWorkspaceSections(
 // and resets the drag-session bookkeeping, replacing the Phase 1 load-before-mount-only seam.
 // The funnel modules themselves stay canvas-free.
 export function loadWorkspaceDocument(document: WorkspaceDocumentInput): void {
-  const { sections, parentSectionMap } = resolveAndValidateWorkspaceSections(document.sections);
-  assertKnownSectionIds(document, Object.keys(document.topLevelSections), "Top-level layout");
+  const { sections, parentSectionMap } = resolveAndValidateWorkspaceSections(
+    document.sections,
+  );
+  assertKnownSectionIds(
+    document,
+    Object.keys(document.topLevelSections),
+    "Top-level layout",
+  );
   assertKnownSectionIds(document, document.activeIds, "Active ids");
 
   const nextDocumentState: WorkspaceDocumentState = {

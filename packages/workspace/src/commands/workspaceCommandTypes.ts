@@ -1,5 +1,9 @@
 import type { ComponentType } from "react";
-import type { Position, WorkspaceItem, WorkspaceSection } from "../document/types";
+import type {
+  Position,
+  WorkspaceItem,
+  WorkspaceSection,
+} from "../document/types";
 import type { WorkspaceSnapshot } from "../document/workspaceSnapshot";
 
 export type WorkspaceCommandIconProps = {
@@ -12,7 +16,12 @@ export type WorkspaceCommandIconProps = {
 // section action row and the parameter action row. The toolbar surface is the viewport toolbar,
 // where a host places a command through a toolbar contribution.
 export type WorkspaceCommandSurface =
-  "context-menu" | "header" | "inspector" | "inspector-parameters" | "outline" | "toolbar";
+  | "context-menu"
+  | "header"
+  | "inspector"
+  | "inspector-parameters"
+  | "outline"
+  | "toolbar";
 
 export type WorkspacePaneCommandContext = Readonly<{
   scope: "pane";
@@ -35,7 +44,9 @@ export type WorkspaceItemCommandContext = Readonly<{
 }>;
 
 export type WorkspaceCommandContext =
-  WorkspacePaneCommandContext | WorkspaceSectionCommandContext | WorkspaceItemCommandContext;
+  | WorkspacePaneCommandContext
+  | WorkspaceSectionCommandContext
+  | WorkspaceItemCommandContext;
 
 export type WorkspaceCommandScope = WorkspaceCommandContext["scope"];
 

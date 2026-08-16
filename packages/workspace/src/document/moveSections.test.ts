@@ -3,13 +3,20 @@ import { GROUP_SECTION_KIND } from "./documentSelectors";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { moveSections } from "./moveSections";
 import { registerSectionKinds } from "./sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "./stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "./stores";
 import type { WorkspaceSection } from "./types";
 
 // Freezes the package's single dnd commit funnel: the reference's
 // `moveSectionsWithBackend` canonical-state result minus its backend send.
 
-function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): WorkspaceSection {
+function makeSection(
+  id: string,
+  overrides: Partial<WorkspaceSection> = {},
+): WorkspaceSection {
   return {
     id,
     kind: "leaf",
@@ -85,7 +92,11 @@ describe("moveSections", () => {
     });
 
     const state = useWorkspaceDocument.getState();
-    expect(state.sections["group"]?.children).toEqual(["nested-a", "leaf", "nested-b"]);
+    expect(state.sections["group"]?.children).toEqual([
+      "nested-a",
+      "leaf",
+      "nested-b",
+    ]);
     expect(state.parentSectionMap["leaf"]).toBe("group");
     expect(state.topLevelSections["leaf"]).toBeUndefined();
     expect(useNodeInternals.getState().x.has("leaf")).toBe(false);

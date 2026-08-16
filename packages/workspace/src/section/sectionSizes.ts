@@ -1,7 +1,13 @@
 import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
-import { getSectionOrThrow, isGroupSection } from "../document/documentSelectors";
+import {
+  getSectionOrThrow,
+  isGroupSection,
+} from "../document/documentSelectors";
 import { assertValidSectionOverflowMode } from "../document/groupOverflow";
-import { useWorkspaceDocument, type WorkspaceDocumentState } from "../document/stores";
+import {
+  useWorkspaceDocument,
+  type WorkspaceDocumentState,
+} from "../document/stores";
 import type { SectionSize, WorkspaceSection } from "../document/types";
 
 // The reference's resize commit funnel (`state/actions/sections/sectionSizes.ts` +
@@ -11,7 +17,14 @@ import type { SectionSize, WorkspaceSection } from "../document/types";
 // every descendant of the highest such ancestor.
 
 export type ResizeHandleDirection =
-  "bottom" | "bottomLeft" | "bottomRight" | "left" | "right" | "top" | "topLeft" | "topRight";
+  | "bottom"
+  | "bottomLeft"
+  | "bottomRight"
+  | "left"
+  | "right"
+  | "top"
+  | "topLeft"
+  | "topRight";
 
 const RESIZE_WIDTH_DIRECTIONS = new Set<ResizeHandleDirection>([
   "right",
@@ -24,7 +37,9 @@ const RESIZE_HEIGHT_DIRECTIONS = new Set<ResizeHandleDirection>([
   "bottomLeft",
 ]);
 
-export function isHeightResizeDirection(direction: ResizeHandleDirection): boolean {
+export function isHeightResizeDirection(
+  direction: ResizeHandleDirection,
+): boolean {
   return RESIZE_HEIGHT_DIRECTIONS.has(direction);
 }
 
@@ -67,7 +82,10 @@ function setSectionSize(
   return { ...sections, [sectionId]: { ...section, size: newSize } };
 }
 
-function getSectionDescendants(state: WorkspaceDocumentState, sectionId: string): Array<string> {
+function getSectionDescendants(
+  state: WorkspaceDocumentState,
+  sectionId: string,
+): Array<string> {
   const ids = [sectionId];
   let idx = 0;
   while (idx < ids.length) {
@@ -82,11 +100,18 @@ function getSectionDescendants(state: WorkspaceDocumentState, sectionId: string)
 
 // The reference climbs with a predicate parent getter: the walk continues only while the
 // current section is a nested vertical (non-horizontal) group.
-function getHighestVerticalGroupAncestor(state: WorkspaceDocumentState, sectionId: string): string {
+function getHighestVerticalGroupAncestor(
+  state: WorkspaceDocumentState,
+  sectionId: string,
+): string {
   const parentIdGetter = (id: string) => {
     const section = getSectionOrThrow(state, id);
     const parentId = state.parentSectionMap[id] ?? null;
-    if (parentId && isGroupSection(section) && !section.isHorizontalOrientation) {
+    if (
+      parentId &&
+      isGroupSection(section) &&
+      !section.isHorizontalOrientation
+    ) {
       return parentId;
     }
     return null;
@@ -106,7 +131,12 @@ export function setSelfParentSiblingChildrenWidths(
   changedSize: Partial<SectionSize>,
 ): SectionSizeUpdateResult {
   const updatedSectionSizes: Record<string, SectionSize> = {};
-  let sections = setSectionSize(state.sections, sectionId, changedSize, updatedSectionSizes);
+  let sections = setSectionSize(
+    state.sections,
+    sectionId,
+    changedSize,
+    updatedSectionSizes,
+  );
   if (changedSize.width !== undefined) {
     const highestAncestor = getHighestVerticalGroupAncestor(state, sectionId);
     for (const descendantId of getSectionDescendants(state, highestAncestor)) {
@@ -126,7 +156,10 @@ export function setSelfParentSiblingChildrenWidths(
 
 // The single resize persistence funnel. The reference pairs the canonical write with a
 // `setSectionSizes` backend route; the document-change callback notifies the host instead.
-export function persistSectionSizeChange(sectionId: string, nextSize: Partial<SectionSize>) {
+export function persistSectionSizeChange(
+  sectionId: string,
+  nextSize: Partial<SectionSize>,
+) {
   const state = useWorkspaceDocument.getState();
   const { sections, updatedSectionSizes } = setSelfParentSiblingChildrenWidths(
     state,

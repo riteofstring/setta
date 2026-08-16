@@ -1,7 +1,10 @@
 import { useItemDndState } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
-import { getSectionItemTreeOrThrow, getSectionOrThrow } from "../document/documentSelectors";
+import {
+  getSectionItemTreeOrThrow,
+  getSectionOrThrow,
+} from "../document/documentSelectors";
 import {
   prepareWorkspaceItemDeletion,
   prepareWorkspaceItemInsertion,
@@ -14,13 +17,22 @@ import {
   useNodeInternals,
   useWorkspaceDocument,
 } from "../document/stores";
-import type { WorkspaceItem, WorkspaceSection, WorkspaceSectionItemTree } from "../document/types";
+import type {
+  WorkspaceItem,
+  WorkspaceSection,
+  WorkspaceSectionItemTree,
+} from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
 
 type ItemAuthoringFocusPlan = { sectionId: string };
 
-function captureItemAuthoringFocusPlan(sectionId: string): ItemAuthoringFocusPlan | null {
-  if (typeof document === "undefined" || !(document.activeElement instanceof HTMLElement)) {
+function captureItemAuthoringFocusPlan(
+  sectionId: string,
+): ItemAuthoringFocusPlan | null {
+  if (
+    typeof document === "undefined" ||
+    !(document.activeElement instanceof HTMLElement)
+  ) {
     return null;
   }
   const refs = useSectionRefs.getState();
@@ -28,7 +40,10 @@ function captureItemAuthoringFocusPlan(sectionId: string): ItemAuthoringFocusPla
   return section?.contains(document.activeElement) ? { sectionId } : null;
 }
 
-function getItemRowFocusTarget(section: HTMLElement, itemId: string): HTMLElement | null {
+function getItemRowFocusTarget(
+  section: HTMLElement,
+  itemId: string,
+): HTMLElement | null {
   return (
     [...section.querySelectorAll<HTMLElement>("[data-workspace-item-id]")].find(
       (element) => element.dataset["workspaceItemId"] === itemId,
@@ -45,9 +60,12 @@ function restoreItemAuthoringFocus(
   }
   requestAnimationFrame(() => {
     const refs = useSectionRefs.getState();
-    const section = refs.selfOnly[plan.sectionId] ?? refs.withNested[plan.sectionId];
+    const section =
+      refs.selfOnly[plan.sectionId] ?? refs.withNested[plan.sectionId];
     if (!section) {
-      throw new Error(`Cannot restore focus in section ${plan.sectionId} after item authoring.`);
+      throw new Error(
+        `Cannot restore focus in section ${plan.sectionId} after item authoring.`,
+      );
     }
     const itemTarget = itemId ? getItemRowFocusTarget(section, itemId) : null;
     itemTarget?.focus({ preventScroll: true });
@@ -60,13 +78,19 @@ function restoreItemAuthoringFocus(
 
 function assertItemAuthoringAvailable(section: WorkspaceSection): void {
   if (!useWorkspaceCapabilities.getState().canEditStructure) {
-    throw new Error("Item authoring requires permission to edit workspace structure.");
+    throw new Error(
+      "Item authoring requires permission to edit workspace structure.",
+    );
   }
   if (section.positionAndSizeLocked) {
-    throw new Error(`Section ${section.id} is locked and cannot author parameters.`);
+    throw new Error(
+      `Section ${section.id} is locked and cannot author parameters.`,
+    );
   }
   if (useItemDndState.getState().activeId !== null) {
-    throw new Error("Item authoring is unavailable while an item drag is active.");
+    throw new Error(
+      "Item authoring is unavailable while an item drag is active.",
+    );
   }
 }
 
@@ -108,8 +132,15 @@ export function insertWorkspaceItem(sectionId: string): WorkspaceItem {
   const item = createWorkspaceItemFromFactory(section);
   const prepared = prepareWorkspaceItemInsertion(sectionId, itemTree, item);
   const focusPlan = captureItemAuthoringFocusPlan(sectionId);
-  commitItemTree(sectionId, prepared.itemTree, prepared.focusTargetId, focusPlan);
-  return structuredClone(getItemOrThrow(prepared.itemTree, prepared.insertedItemId));
+  commitItemTree(
+    sectionId,
+    prepared.itemTree,
+    prepared.focusTargetId,
+    focusPlan,
+  );
+  return structuredClone(
+    getItemOrThrow(prepared.itemTree, prepared.insertedItemId),
+  );
 }
 
 // All deletion surfaces validate the complete request before one atomic publication and one
@@ -127,12 +158,20 @@ export function deleteWorkspaceItems(
   assertItemAuthoringAvailable(section);
   const prepared = prepareWorkspaceItemDeletion(sectionId, itemTree, itemIds);
   const focusPlan = captureItemAuthoringFocusPlan(sectionId);
-  commitItemTree(sectionId, prepared.itemTree, prepared.focusTargetId, focusPlan);
+  commitItemTree(
+    sectionId,
+    prepared.itemTree,
+    prepared.focusTargetId,
+    focusPlan,
+  );
   return prepared.deletedItemIds;
 }
 
 export function deleteLastWorkspaceItem(sectionId: string): Array<string> {
-  const itemTree = getSectionItemTreeOrThrow(useWorkspaceDocument.getState(), sectionId);
+  const itemTree = getSectionItemTreeOrThrow(
+    useWorkspaceDocument.getState(),
+    sectionId,
+  );
   const lastItemId = itemTree.items[itemTree.rootId]?.children.at(-1);
   if (!lastItemId) {
     throw new Error(`Section ${sectionId} has no top-level item to remove.`);
@@ -141,6 +180,9 @@ export function deleteLastWorkspaceItem(sectionId: string): Array<string> {
 }
 
 export function deleteSelectedWorkspaceItems(sectionId: string): Array<string> {
-  const itemTree = getSectionItemTreeOrThrow(useWorkspaceDocument.getState(), sectionId);
+  const itemTree = getSectionItemTreeOrThrow(
+    useWorkspaceDocument.getState(),
+    sectionId,
+  );
   return deleteWorkspaceItems(sectionId, itemTree.selectedItemIds);
 }

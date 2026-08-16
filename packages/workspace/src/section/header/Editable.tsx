@@ -1,4 +1,10 @@
-import type { ChangeEvent, FocusEvent, KeyboardEvent, MouseEvent, RefObject } from "react";
+import type {
+  ChangeEvent,
+  FocusEvent,
+  KeyboardEvent,
+  MouseEvent,
+  RefObject,
+} from "react";
 import { useEffect, useRef, useState } from "react";
 
 // The reference's `components/Utils/Editable.tsx`: a text label that flips to a text input on
@@ -48,8 +54,13 @@ export function Editable({
     }
   }
 
-  function onClick(e: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>) {
-    if (("key" in e && (e.key === " " || e.key === "Enter")) || ("detail" in e && e.detail === 2)) {
+  function onClick(
+    e: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>,
+  ) {
+    if (
+      ("key" in e && (e.key === " " || e.key === "Enter")) ||
+      ("detail" in e && e.detail === 2)
+    ) {
       setIsEditing(true);
     }
   }
@@ -133,7 +144,9 @@ function InNonEditMode({
   ariaLabel,
 }: {
   value: string;
-  onClick: (e: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>) => void;
+  onClick: (
+    e: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>,
+  ) => void;
   titleProps?: string;
   paragraphRef: RefObject<HTMLDivElement | null>;
   onMouseEnter?: (event: { currentTarget: HTMLElement }) => void;

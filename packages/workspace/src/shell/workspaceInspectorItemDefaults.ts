@@ -18,10 +18,16 @@ export const WORKSPACE_INSPECTOR_ITEM_CONTROL_KINDS = [
 export type WorkspaceInspectorItemControlKind =
   (typeof WORKSPACE_INSPECTOR_ITEM_CONTROL_KINDS)[number];
 
-type ValueControl = Exclude<WorkspaceItemControlPresentation, { kind: "group" }>;
+type ValueControl = Exclude<
+  WorkspaceItemControlPresentation,
+  { kind: "group" }
+>;
 type ControlFactory = (previousValue: string) => ValueControl;
 
-const CONTROL_FACTORIES: Record<WorkspaceInspectorItemControlKind, ControlFactory> = {
+const CONTROL_FACTORIES: Record<
+  WorkspaceInspectorItemControlKind,
+  ControlFactory
+> = {
   text: (value) => ({
     kind: "text",
     value,
@@ -83,7 +89,11 @@ const CONTROL_FACTORIES: Record<WorkspaceInspectorItemControlKind, ControlFactor
   password: (value) => ({
     kind: "password",
     value,
-    configuration: { disabled: false, placeholder: null, savedValuePending: false },
+    configuration: {
+      disabled: false,
+      placeholder: null,
+      savedValuePending: false,
+    },
   }),
   date: () => ({
     kind: "date",

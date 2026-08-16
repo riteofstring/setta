@@ -106,7 +106,9 @@ export function MetaPasswordValueControl({
   onValueChange,
   placeholder,
   disabled = false,
-}: Omit<PasswordValueControlProps, "itemId" | "savedValueAction"> & { controlId: string }) {
+}: Omit<PasswordValueControlProps, "itemId" | "savedValueAction"> & {
+  controlId: string;
+}) {
   const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   return (
@@ -171,7 +173,11 @@ function PasswordInput({
         onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
         data-setta-workspace-touch-target="compact"
       >
-        {showPassword ? <BiShow aria-hidden="true" /> : <BiHide aria-hidden="true" />}
+        {showPassword ? (
+          <BiShow aria-hidden="true" />
+        ) : (
+          <BiHide aria-hidden="true" />
+        )}
       </button>
     </div>
   );

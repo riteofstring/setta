@@ -130,7 +130,9 @@ describe("filterCollisionsForListKey", () => {
       makeCollision("b", "main"),
       makeCollision("c", null),
     ];
-    expect(filterCollisionsForListKey(collisions, "main")).toEqual([collisions[1]]);
+    expect(filterCollisionsForListKey(collisions, "main")).toEqual([
+      collisions[1],
+    ]);
   });
 
   it("passes collisions through without an active list key", () => {

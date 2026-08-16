@@ -54,7 +54,8 @@ export function useItemColumnWidth(
   outerRef: RefObject<HTMLDivElement | null>,
 ): ItemColumnResizeHandlers {
   const persistedColumnWidth = useWorkspaceDocument(
-    (state) => getSectionItemTreeOrThrow(state, sectionId).itemColumnWidth ?? null,
+    (state) =>
+      getSectionItemTreeOrThrow(state, sectionId).itemColumnWidth ?? null,
   );
   const maxNestedDepth = useWorkspaceDocument((state) =>
     getDeepestItemDepth(getSectionItemTreeOrThrow(state, sectionId)),
@@ -85,7 +86,11 @@ export function useItemColumnWidth(
 
   const getBoundedWidth = useCallback(
     (rawWidth: number, containerWidth: number) =>
-      calculateBoundedItemColumnWidth(rawWidth, containerWidth, maxNestedDepthRef.current),
+      calculateBoundedItemColumnWidth(
+        rawWidth,
+        containerWidth,
+        maxNestedDepthRef.current,
+      ),
     [maxNestedDepthRef],
   );
 
@@ -97,7 +102,8 @@ export function useItemColumnWidth(
       const boundedWidth = getBoundedWidth(rawWidth, containerWidth);
       widthRef.current.currentWidth = boundedWidth;
       widthRef.current.containerWidth = containerWidth;
-      widthRef.current.currentPercentage = (boundedWidth / containerWidth) * 100;
+      widthRef.current.currentPercentage =
+        (boundedWidth / containerWidth) * 100;
       applyWidth(boundedWidth);
     },
     [applyWidth, getBoundedWidth],
@@ -112,7 +118,8 @@ export function useItemColumnWidth(
     if (!containerWidth) {
       return;
     }
-    const nextWidth = (containerWidth * widthRef.current.currentPercentage) / 100;
+    const nextWidth =
+      (containerWidth * widthRef.current.currentPercentage) / 100;
     setNewWidth(containerWidth, nextWidth);
   }, [outerRef, setNewWidth]);
 
@@ -153,7 +160,8 @@ export function useItemColumnWidth(
       if (!entry) {
         return;
       }
-      const nextWidth = entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
+      const nextWidth =
+        entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
       if (nextWidth !== previousWidth) {
         previousWidth = nextWidth;
         updateWidthOnContainerResize();
@@ -168,11 +176,20 @@ export function useItemColumnWidth(
   useEffect(() => {
     return () => {
       if (dragListenersRef.current.move) {
-        window.removeEventListener("pointermove", dragListenersRef.current.move);
+        window.removeEventListener(
+          "pointermove",
+          dragListenersRef.current.move,
+        );
       }
       if (dragListenersRef.current.finish) {
-        window.removeEventListener("pointerup", dragListenersRef.current.finish);
-        window.removeEventListener("pointercancel", dragListenersRef.current.finish);
+        window.removeEventListener(
+          "pointerup",
+          dragListenersRef.current.finish,
+        );
+        window.removeEventListener(
+          "pointercancel",
+          dragListenersRef.current.finish,
+        );
       }
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -269,13 +286,17 @@ export function useItemColumnWidth(
           return;
         }
         if (widthRef.current.containerWidth) {
-          widthRef.current.currentPercentage = (finalWidth / widthRef.current.containerWidth) * 100;
+          widthRef.current.currentPercentage =
+            (finalWidth / widthRef.current.containerWidth) * 100;
         }
         widthRef.current.isDragging = false;
         setItemColumnWidth(sectionId, getItemColumnCssWidth(finalWidth));
       };
 
-      dragListenersRef.current = { move: handlePointerMove, finish: handlePointerFinish };
+      dragListenersRef.current = {
+        move: handlePointerMove,
+        finish: handlePointerFinish,
+      };
       window.addEventListener("pointermove", handlePointerMove);
       window.addEventListener("pointerup", handlePointerFinish);
       window.addEventListener("pointercancel", handlePointerFinish);
@@ -283,7 +304,9 @@ export function useItemColumnWidth(
     [applyWidth, getBoundedWidth, outerRef, sectionId, setNewWidth],
   );
 
-  const onColumnResizeDoubleClick = useCallback<MouseEventHandler<HTMLDivElement>>(
+  const onColumnResizeDoubleClick = useCallback<
+    MouseEventHandler<HTMLDivElement>
+  >(
     (event) => {
       event.preventDefault();
       event.stopPropagation();

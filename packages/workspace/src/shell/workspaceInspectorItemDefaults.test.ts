@@ -9,18 +9,30 @@ import {
 describe("workspace Inspector item defaults", () => {
   it("creates a complete valid control for every ordinary UI type", () => {
     for (const kind of WORKSPACE_INSPECTOR_ITEM_CONTROL_KINDS) {
-      const control = createWorkspaceInspectorItemControl(kind, "previous value");
+      const control = createWorkspaceInspectorItemControl(
+        kind,
+        "previous value",
+      );
       expect(() =>
-        assertWorkspaceItemControlPresentation(control, `Inspector ${kind} default`),
+        assertWorkspaceItemControlPresentation(
+          control,
+          `Inspector ${kind} default`,
+        ),
       ).not.toThrow();
       expect(control.kind).toBe(kind);
     }
   });
 
   it("uses explicit safe values for controls with constrained value syntax", () => {
-    expect(createWorkspaceInspectorItemControl("color", "not-a-color").value).toBe("#000000");
-    expect(createWorkspaceInspectorItemControl("switch", "not-a-switch").value).toBe("false");
-    expect(createWorkspaceInspectorItemControl("slider", "not-a-number").value).toBe("0");
+    expect(
+      createWorkspaceInspectorItemControl("color", "not-a-color").value,
+    ).toBe("#000000");
+    expect(
+      createWorkspaceInspectorItemControl("switch", "not-a-switch").value,
+    ).toBe("false");
+    expect(
+      createWorkspaceInspectorItemControl("slider", "not-a-number").value,
+    ).toBe("0");
   });
 
   it("accepts only the advertised ordinary UI types", () => {

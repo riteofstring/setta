@@ -27,7 +27,9 @@ export type WorkspaceToolbarEntry = Readonly<{
 }>;
 
 function getCreationCommandOrThrow(id: string): WorkspaceCreationCommand {
-  const command = getWorkspaceCreationCommands().find((candidate) => candidate.id === id);
+  const command = getWorkspaceCreationCommands().find(
+    (candidate) => candidate.id === id,
+  );
   if (!command) {
     throw new Error(`Workspace creation command ${id} is not registered.`);
   }
@@ -37,7 +39,9 @@ function getCreationCommandOrThrow(id: string): WorkspaceCreationCommand {
 // A toolbar control acts from a fixed place on the shell, so it asks for a pane context with no
 // position: the creation operation resolves the empty space its section lands in, exactly as it
 // does for the chord that creates without a pointer.
-function resolveCreationEntry(contribution: WorkspaceToolbarContribution): WorkspaceToolbarEntry {
+function resolveCreationEntry(
+  contribution: WorkspaceToolbarContribution,
+): WorkspaceToolbarEntry {
   const command = getCreationCommandOrThrow(contribution.commandId);
   const context = Object.freeze({ workspacePosition: null });
   const disabled =
@@ -57,7 +61,9 @@ function resolveCreationEntry(contribution: WorkspaceToolbarContribution): Works
   });
 }
 
-function resolveCommandEntry(contribution: WorkspaceToolbarContribution): WorkspaceToolbarEntry {
+function resolveCommandEntry(
+  contribution: WorkspaceToolbarContribution,
+): WorkspaceToolbarEntry {
   const entry = resolveWorkspaceCommandEntry(
     contribution.commandId,
     createPaneCommandContext(null),

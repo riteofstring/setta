@@ -8,7 +8,9 @@ import { useWorkspaceAppearance } from "../../document/stores";
 import { useSectionRefs } from "../../section/sectionRefs";
 import { MetaControl, type MetaControlProps } from "./MetaControl";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const REFERENCE_BUTTON_CLASS_NAME =
   "nodrag nopan flex h-full min-h-8 w-full items-center justify-center rounded-lg border border-setta-600 bg-setta-600 px-3 text-xs font-semibold text-white shadow-sm motion-safe:transition-all hover:border-setta-700 hover:bg-setta-700 motion-safe:active:translate-y-[2px] motion-safe:active:scale-[0.96] active:bg-setta-700 active:shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 dark:border-setta-500 dark:bg-setta-700 dark:text-setta-50 dark:hover:border-setta-400 dark:hover:bg-setta-600 dark:active:bg-setta-600 cursor-pointer select-none disabled:cursor-not-allowed disabled:opacity-60";
@@ -49,7 +51,11 @@ describe("MetaControl", () => {
     button?.focus();
     await act(async () => {
       button?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          code: "Escape",
+          bubbles: true,
+        }),
       );
     });
     expect(document.activeElement).toBe(sectionRoot);
@@ -76,7 +82,9 @@ describe("MetaControl", () => {
     );
     const title = host.querySelector("span");
     expect(title?.textContent).toBe("Run model");
-    expect(title?.className).toContain("text-[10px] uppercase tracking-[0.2em]");
+    expect(title?.className).toContain(
+      "text-[10px] uppercase tracking-[0.2em]",
+    );
     const button = host.querySelector("button");
     if (!button) {
       throw new Error("The Button meta control did not render its action.");
@@ -100,7 +108,9 @@ describe("MetaControl", () => {
     button?.click();
     expect(onAction).not.toHaveBeenCalled();
 
-    await act(async () => useItemSelectionMode.setState({ isSelectingItems: true }));
+    await act(async () =>
+      useItemSelectionMode.setState({ isSelectingItems: true }),
+    );
     await mount({
       sectionId: "meta-button",
       sectionName: "Button",
@@ -130,7 +140,9 @@ describe("MetaControl", () => {
     expect(dummy?.className).toContain(
       "single-cell-child section-value block h-full w-full min-w-0 break-words px-3 py-2 leading-[1.4]",
     );
-    expect(dummy?.parentElement?.className).toBe(REFERENCE_TEXT_WRAPPER_CLASS_NAME);
+    expect(dummy?.parentElement?.className).toBe(
+      REFERENCE_TEXT_WRAPPER_CLASS_NAME,
+    );
     expect(host.querySelector("span.section-value")).toBeNull();
   });
 
@@ -150,8 +162,12 @@ describe("MetaControl", () => {
     });
     const slider = host.querySelector<HTMLElement>("[role='slider']");
     expect(slider?.getAttribute("aria-label")).toBe("Slider value");
-    expect(slider?.closest(".SliderRoot")?.className).toContain("w-full flex-1");
-    expect(host.querySelector<HTMLInputElement>("input")?.className).toBe("hidden");
+    expect(slider?.closest(".SliderRoot")?.className).toContain(
+      "w-full flex-1",
+    );
+    expect(host.querySelector<HTMLInputElement>("input")?.className).toBe(
+      "hidden",
+    );
 
     await mount({
       sectionId: "meta-rotary",
@@ -168,7 +184,9 @@ describe("MetaControl", () => {
     });
     const rotary = host.querySelector<HTMLElement>("[role='slider']");
     expect(rotary?.getAttribute("aria-label")).toBe("Rotary value");
-    expect(rotary?.parentElement?.parentElement?.className).toContain("justify-center");
+    expect(rotary?.parentElement?.parentElement?.className).toContain(
+      "justify-center",
+    );
   });
 
   it("dispatches Switch, Dropdown, and Color with the frozen meta wrappers", async () => {
@@ -186,7 +204,9 @@ describe("MetaControl", () => {
     expect(host.textContent).toContain("thick_otter");
     const switchControl = host.querySelector("[role='switch']");
     expect(switchControl?.getAttribute("aria-label")).toBe("Switch value");
-    expect(switchControl?.parentElement?.className).toContain("nodrag section-value");
+    expect(switchControl?.parentElement?.className).toContain(
+      "nodrag section-value",
+    );
 
     await mount({
       sectionId: "meta-dropdown",
@@ -199,7 +219,9 @@ describe("MetaControl", () => {
         onValueChange: () => {},
       },
     });
-    expect(host.querySelector<HTMLInputElement>("[role='combobox']")?.placeholder).toBe("Choose");
+    expect(
+      host.querySelector<HTMLInputElement>("[role='combobox']")?.placeholder,
+    ).toBe("Choose");
     expect(host.querySelector("search")?.className).toContain("!mx-0");
 
     await mount({
@@ -213,7 +235,9 @@ describe("MetaControl", () => {
         onValueChange: () => {},
       },
     });
-    const colorInput = host.querySelector<HTMLInputElement>("input[type='color']");
+    const colorInput = host.querySelector<HTMLInputElement>(
+      "input[type='color']",
+    );
     expect(colorInput?.id).toBe("meta-color-value-ColorValueInput");
     expect(colorInput?.getAttribute("aria-label")).toBe("Color value");
   });
@@ -229,10 +253,14 @@ describe("MetaControl", () => {
         onValueChange: () => {},
       },
     });
-    const dateInput = host.querySelector<HTMLInputElement>("input[aria-label='Date value']");
+    const dateInput = host.querySelector<HTMLInputElement>(
+      "input[aria-label='Date value']",
+    );
     expect(dateInput?.value).toBe("2026-08-12");
     expect(dateInput?.classList.contains("bg-transparent")).toBe(true);
-    expect(dateInput?.closest(".single-cell-container")?.className).toContain("px-3 py-2");
+    expect(dateInput?.closest(".single-cell-container")?.className).toContain(
+      "px-3 py-2",
+    );
 
     await mount({
       sectionId: "meta-time",
@@ -244,7 +272,9 @@ describe("MetaControl", () => {
         onValueChange: () => {},
       },
     });
-    expect(host.querySelector("[aria-label='Time value: 13:45']")?.textContent).toBe("13:45");
+    expect(
+      host.querySelector("[aria-label='Time value: 13:45']")?.textContent,
+    ).toBe("13:45");
     expect(host.querySelector("input[type='time']")).toBeNull();
   });
 
@@ -260,7 +290,9 @@ describe("MetaControl", () => {
         onValueChange: () => {},
       },
     });
-    const textAreaDummy = document.getElementById("meta-textarea-value-MetaControl");
+    const textAreaDummy = document.getElementById(
+      "meta-textarea-value-MetaControl",
+    );
     expect(textAreaDummy?.className).toContain("min-h-24");
     expect(textAreaDummy?.textContent).toContain("second line");
 
@@ -275,9 +307,13 @@ describe("MetaControl", () => {
         onValueChange: () => {},
       },
     });
-    const password = host.querySelector<HTMLInputElement>("input[type='password']");
+    const password = host.querySelector<HTMLInputElement>(
+      "input[type='password']",
+    );
     expect(password?.id).toBe("meta-password-value-PasswordValueInput");
-    expect(password?.closest(".single-cell-container")?.className).toContain("h-full");
+    expect(password?.closest(".single-cell-container")?.className).toContain(
+      "h-full",
+    );
 
     await mount({
       sectionId: "meta-dropzone",
@@ -298,7 +334,9 @@ describe("MetaControl", () => {
       },
     });
     expect(
-      host.querySelector("[role='group'][aria-label='Dropzone value: Drop a file here']"),
+      host.querySelector(
+        "[role='group'][aria-label='Dropzone value: Drop a file here']",
+      ),
     ).not.toBeNull();
     expect(host.textContent).toContain("Drop a file here");
   });

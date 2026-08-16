@@ -14,7 +14,11 @@ import { getInitialCanvasViewport } from "./documentViewportSync";
 import { fitView } from "./fitView";
 import { useWorkspaceOptions } from "./options";
 import { infiniteExtent, useReactFlow } from "./store";
-import type { CoordinateExtent, PanOnScrollMode, ReactFlowState } from "./types";
+import type {
+  CoordinateExtent,
+  PanOnScrollMode,
+  ReactFlowState,
+} from "./types";
 import { clamp, getWheelDelta, isMacOs } from "./utils";
 
 type InternalWheelEvent = WheelEvent & { internal?: boolean };
@@ -116,14 +120,16 @@ const isWrappedWithClass = (event: Event, className?: string): boolean => {
   return target.closest(`.${className}`) !== null;
 };
 
-const getEventButton = (event: ZoomFilterEvent): number => ("button" in event ? event.button : 0);
+const getEventButton = (event: ZoomFilterEvent): number =>
+  "button" in event ? event.button : 0;
 
 const isPointerStartEvent = (eventType: string): boolean =>
   eventType === "mousedown" || eventType === "touchstart";
 
 const isWheelEventType = (eventType: string): boolean => eventType === "wheel";
 
-const VIEWPORT_INTERACTION_ACTIVE_ATTRIBUTE = "data-viewport-interaction-active";
+const VIEWPORT_INTERACTION_ACTIVE_ATTRIBUTE =
+  "data-viewport-interaction-active";
 
 function markViewportInteractionActive(active: boolean): void {
   const canvas = useReactFlow.getState().domNode;
@@ -205,14 +211,18 @@ function startWheelZoomBurst(interactionRefs: ViewportInteractionCleanupRefs) {
   syncViewportInteractionActive(interactionRefs);
 }
 
-function scheduleWheelZoomBurstEnd(interactionRefs: ViewportInteractionCleanupRefs) {
+function scheduleWheelZoomBurstEnd(
+  interactionRefs: ViewportInteractionCleanupRefs,
+) {
   interactionRefs.wheelZoomTimeout.current = setTimeout(() => {
     interactionRefs.isWheelZooming.current = false;
     syncViewportInteractionActive(interactionRefs);
   }, 180);
 }
 
-function ensurePanScrollInteraction(interactionRefs: ViewportInteractionCleanupRefs) {
+function ensurePanScrollInteraction(
+  interactionRefs: ViewportInteractionCleanupRefs,
+) {
   if (interactionRefs.isPanScrolling.current) {
     return;
   }
@@ -220,7 +230,9 @@ function ensurePanScrollInteraction(interactionRefs: ViewportInteractionCleanupR
   syncViewportInteractionActive(interactionRefs);
 }
 
-function schedulePanScrollInteractionEnd(interactionRefs: ViewportInteractionCleanupRefs) {
+function schedulePanScrollInteractionEnd(
+  interactionRefs: ViewportInteractionCleanupRefs,
+) {
   clearTimeout(interactionRefs.panScrollTimeout.current);
   interactionRefs.panScrollTimeout.current = setTimeout(() => {
     interactionRefs.isPanScrolling.current = false;
@@ -228,11 +240,18 @@ function schedulePanScrollInteractionEnd(interactionRefs: ViewportInteractionCle
   }, 150);
 }
 
-function isPinchZoomWheelEvent({ event, zoomOnPinch, isMacOS }: PinchZoomCheck): boolean {
+function isPinchZoomWheelEvent({
+  event,
+  zoomOnPinch,
+  isMacOS,
+}: PinchZoomCheck): boolean {
   return event.ctrlKey && zoomOnPinch && isMacOS;
 }
 
-export function isNativeVerticalWheelEvent(event: WheelEvent, isMacOS: boolean): boolean {
+export function isNativeVerticalWheelEvent(
+  event: WheelEvent,
+  isMacOS: boolean,
+): boolean {
   return (
     isWrappedWithClass(event, NATIVE_VERTICAL_WHEEL_CLASS_NAME) &&
     (isMacOS || !event.shiftKey) &&
@@ -250,8 +269,10 @@ export function resolvePanOnScrollDelta({
   panOnScrollMode: PanOnScrollMode;
 }): PanOnScrollDelta {
   const deltaNormalize = event.deltaMode === 1 ? 20 : 1;
-  let deltaX = panOnScrollMode === "vertical" ? 0 : event.deltaX * deltaNormalize;
-  let deltaY = panOnScrollMode === "horizontal" ? 0 : event.deltaY * deltaNormalize;
+  let deltaX =
+    panOnScrollMode === "vertical" ? 0 : event.deltaX * deltaNormalize;
+  let deltaY =
+    panOnScrollMode === "horizontal" ? 0 : event.deltaY * deltaNormalize;
 
   if (!isMacOS && event.shiftKey && panOnScrollMode !== "vertical") {
     deltaX = event.deltaY * deltaNormalize;
@@ -274,7 +295,10 @@ function resolveWheelTargetDisposition({
   zoomActivationKeyPressed: boolean;
   zoomOnPinch: boolean;
 }): WheelTargetDisposition {
-  if (zoomActivationKeyPressed || isPinchZoomWheelEvent({ event, zoomOnPinch, isMacOS })) {
+  if (
+    zoomActivationKeyPressed ||
+    isPinchZoomWheelEvent({ event, zoomOnPinch, isMacOS })
+  ) {
     return "canvas";
   }
   if (isWrappedWithClass(event, MANUAL_WHEEL_CLASS_NAME)) {
@@ -385,7 +409,11 @@ function createDefaultWheelHandler({
   zoomActivationKeyPressed,
   zoomOnPinch,
 }: DefaultWheelHandlerParams) {
-  return function defaultWheelHandler(this: Element, event: WheelEvent, data: unknown) {
+  return function defaultWheelHandler(
+    this: Element,
+    event: WheelEvent,
+    data: unknown,
+  ) {
     const targetDisposition = resolveWheelTargetDisposition({
       event,
       isMacOS: isMacOs(),
@@ -440,7 +468,13 @@ function hasEnabledViewportInteraction({
   zoomOnPinch: boolean;
   zoomOnScroll: boolean;
 }): boolean {
-  return Boolean(panOnDrag) || zoomOnScroll || panOnScroll || zoomOnDoubleClick || zoomOnPinch;
+  return (
+    Boolean(panOnDrag) ||
+    zoomOnScroll ||
+    panOnScroll ||
+    zoomOnDoubleClick ||
+    zoomOnPinch
+  );
 }
 
 function blocksNoWheelTarget({
@@ -458,7 +492,10 @@ function blocksNoWheelTarget({
   if (
     !isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
     !isWrappedWithClass(event, MANUAL_WHEEL_CLASS_NAME) &&
-    !(event instanceof WheelEvent && isNativeVerticalWheelEvent(event, isMacOs()))
+    !(
+      event instanceof WheelEvent &&
+      isNativeVerticalWheelEvent(event, isMacOs())
+    )
   ) {
     return false;
   }
@@ -693,7 +730,13 @@ function useViewportInteractionCleanup({
         wheelZoomTimeout,
       });
     };
-  }, [isPanScrolling, isWheelZooming, isZoomingOrPanning, panScrollTimeout, wheelZoomTimeout]);
+  }, [
+    isPanScrolling,
+    isWheelZooming,
+    isZoomingOrPanning,
+    panScrollTimeout,
+    wheelZoomTimeout,
+  ]);
 }
 
 function useZoomWheelBehavior({
@@ -719,8 +762,13 @@ function useZoomWheelBehavior({
   zoomActivationKeyPressed: boolean;
   zoomOnPinch: boolean;
 }) {
-  const { isPanScrolling, isWheelZooming, isZoomingOrPanning, panScrollTimeout, wheelZoomTimeout } =
-    interactionRefs;
+  const {
+    isPanScrolling,
+    isWheelZooming,
+    isZoomingOrPanning,
+    panScrollTimeout,
+    wheelZoomTimeout,
+  } = interactionRefs;
 
   useEffect(() => {
     if (!d3Selection || !d3Zoom) {
@@ -937,7 +985,13 @@ function useFitViewInitialization({
         fitViewOnInitDone: true,
       });
     }
-  }, [d3Selection, d3Zoom, fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions]);
+  }, [
+    d3Selection,
+    d3Zoom,
+    fitViewOnInit,
+    fitViewOnInitDone,
+    fitViewOnInitOptions,
+  ]);
 }
 
 const ZoomPane = ({
@@ -1081,14 +1135,20 @@ function zoomPaneInit(zoomPane: RefObject<HTMLDivElement | null>) {
     d3ZoomInstance.transform(selection, constrainedTransform);
     d3ZoomInstance.wheelDelta(wheelDelta);
 
-    const d3ZoomHandler = selection.on("wheel.zoom") as ReactFlowState["d3ZoomHandler"];
+    const d3ZoomHandler = selection.on(
+      "wheel.zoom",
+    ) as ReactFlowState["d3ZoomHandler"];
 
     useReactFlow.setState({
       d3Zoom: d3ZoomInstance,
       d3Selection: selection,
       d3ZoomHandler,
       // we need to pass transform because zoom handler is not registered when we set the initial transform
-      transform: [constrainedTransform.x, constrainedTransform.y, constrainedTransform.k],
+      transform: [
+        constrainedTransform.x,
+        constrainedTransform.y,
+        constrainedTransform.k,
+      ],
       domNode: zoomPane.current.closest(".react-flow") as HTMLDivElement,
     });
   }

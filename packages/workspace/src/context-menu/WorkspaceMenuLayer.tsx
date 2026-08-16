@@ -7,7 +7,10 @@ import {
 import type { WorkspaceCommandSurface } from "../commands/workspaceCommandTypes";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { getWorkspaceCreationCommands } from "./creationCommandStore";
-import { WorkspaceActionMenu, type WorkspaceMenuEntry } from "./WorkspaceMenuCore";
+import {
+  WorkspaceActionMenu,
+  type WorkspaceMenuEntry,
+} from "./WorkspaceMenuCore";
 import {
   closeWorkspaceMenu,
   useWorkspaceMenuState,
@@ -23,7 +26,9 @@ function toMenuEntry(entry: WorkspaceCommandEntry): WorkspaceMenuEntry {
     label: entry.label,
     ...(entry.icon ? { icon: entry.icon } : {}),
     ...(entry.checked === null ? {} : { checked: entry.checked }),
-    ...(entry.disabledReason === null ? {} : { description: entry.disabledReason }),
+    ...(entry.disabledReason === null
+      ? {}
+      : { description: entry.disabledReason }),
     disabled: entry.disabled,
     onSelect: () => {
       closeWorkspaceMenu();
@@ -37,7 +42,9 @@ function getMenuGroups(
 ): Array<{ entries: ReadonlyArray<WorkspaceMenuEntry> }> {
   const groups: Array<{ entries: ReadonlyArray<WorkspaceMenuEntry> }> = [];
   for (const origin of ["package", "host"] as const) {
-    const originEntries = entries.filter((entry) => entry.origin === origin).map(toMenuEntry);
+    const originEntries = entries
+      .filter((entry) => entry.origin === origin)
+      .map(toMenuEntry);
     if (originEntries.length > 0) {
       groups.push({ entries: originEntries });
     }
@@ -45,14 +52,27 @@ function getMenuGroups(
   return groups;
 }
 
-type SectionMenuInvocation = Extract<WorkspaceMenuInvocation, { kind: "section" }>;
+type SectionMenuInvocation = Extract<
+  WorkspaceMenuInvocation,
+  { kind: "section" }
+>;
 
-function getSectionMenuAriaLabel(surface: SectionMenuInvocation["surface"]): string {
-  return surface === "outline" ? "Workspace Outline section actions" : "Workspace section actions";
+function getSectionMenuAriaLabel(
+  surface: SectionMenuInvocation["surface"],
+): string {
+  return surface === "outline"
+    ? "Workspace Outline section actions"
+    : "Workspace section actions";
 }
 
-function SectionActionMenu({ invocation }: { invocation: SectionMenuInvocation }) {
-  const entries = useWorkspaceCommandEntries(invocation.surface, [invocation.context]);
+function SectionActionMenu({
+  invocation,
+}: {
+  invocation: SectionMenuInvocation;
+}) {
+  const entries = useWorkspaceCommandEntries(invocation.surface, [
+    invocation.context,
+  ]);
   return (
     <WorkspaceActionMenu
       ariaLabel={getSectionMenuAriaLabel(invocation.surface)}
@@ -71,7 +91,9 @@ type ItemMenuInvocation = Extract<WorkspaceMenuInvocation, { kind: "item" }>;
 const ITEM_MENU_SURFACE: WorkspaceCommandSurface = "context-menu";
 
 function ItemActionMenu({ invocation }: { invocation: ItemMenuInvocation }) {
-  const entries = useWorkspaceCommandEntries(ITEM_MENU_SURFACE, [invocation.context]);
+  const entries = useWorkspaceCommandEntries(ITEM_MENU_SURFACE, [
+    invocation.context,
+  ]);
   return (
     <WorkspaceActionMenu
       ariaLabel="Workspace item actions"
@@ -93,7 +115,9 @@ function PaneActionMenu({
   canEditStructure: boolean;
   invocation: PaneMenuInvocation;
 }) {
-  const entries = useWorkspaceCommandEntries("context-menu", [invocation.context]);
+  const entries = useWorkspaceCommandEntries("context-menu", [
+    invocation.context,
+  ]);
   return (
     <WorkspacePaneMenu
       actions={entries.map(toMenuEntry)}
@@ -106,7 +130,9 @@ function PaneActionMenu({
 
 export function WorkspaceMenuLayer() {
   const invocation = useWorkspaceMenuState((state) => state.invocation);
-  const canEditStructure = useWorkspaceCapabilities((state) => state.canEditStructure);
+  const canEditStructure = useWorkspaceCapabilities(
+    (state) => state.canEditStructure,
+  );
   const viewportGestureActive = useReactFlow(
     (state) => state.viewportInteractionActive || state.paneDragging,
   );

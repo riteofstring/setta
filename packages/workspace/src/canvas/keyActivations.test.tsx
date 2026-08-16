@@ -8,10 +8,17 @@ import { useDndState } from "../dnd/dndState";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import { focusAdjacentTopLevelSection } from "../focus/sectionNavigation";
 import { focusWorkspaceScope } from "../focus/workspaceFocusScopes";
-import { registerItemListView, resetItemListViews } from "../items/itemListRegistry";
+import {
+  registerItemListView,
+  resetItemListViews,
+} from "../items/itemListRegistry";
 import {
   indentSelectedItems,
   moveSelectedItemsDown,
@@ -80,14 +87,19 @@ vi.mock("./utils", async (importOriginal) => {
   return { ...original, isMacOs: () => mockIsMacOs };
 });
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function KeyActivationsHost() {
   useCanvasKeyActivations();
   return <WorkspaceTooltip />;
 }
 
-function loadItemDocument(selectedItemIds: Array<string>, activeIds: Array<string> = ["panel"]) {
+function loadItemDocument(
+  selectedItemIds: Array<string>,
+  activeIds: Array<string> = ["panel"],
+) {
   registerSectionKinds({ leaf: { renderContent: () => null } });
   loadWorkspaceDocument({
     sections: {
@@ -218,7 +230,11 @@ describe("useCanvasKeyActivations", () => {
   ) {
     const { target, ...eventInit } = init;
     await act(async () => {
-      const event = new KeyboardEvent(type, { key, bubbles: true, ...eventInit });
+      const event = new KeyboardEvent(type, {
+        key,
+        bubbles: true,
+        ...eventInit,
+      });
       (target ?? document).dispatchEvent(event);
     });
   }
@@ -352,7 +368,11 @@ describe("useCanvasKeyActivations", () => {
   it("ignores the tooltip key with a modifier held", async () => {
     await act(async () => {
       document.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "q", ctrlKey: true, bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "q",
+          ctrlKey: true,
+          bubbles: true,
+        }),
       );
     });
     expect(useWorkspaceTooltip.getState().isEnabled).toBe(false);
@@ -368,7 +388,10 @@ describe("useCanvasKeyActivations", () => {
 
     await dispatchKey("keydown", "q", { code: "KeyQ" });
     await dispatchKey("keydown", "ArrowRight", { code: "ArrowRight" });
-    expect(useWorkspaceTooltip.getState()).toMatchObject({ isEnabled: true, pageIndex: 1 });
+    expect(useWorkspaceTooltip.getState()).toMatchObject({
+      isEnabled: true,
+      pageIndex: 1,
+    });
 
     await dispatchKey("keyup", "ArrowRight", { code: "ArrowRight" });
     await dispatchKey("keydown", "c", { code: "KeyC" });
@@ -388,11 +411,17 @@ describe("useCanvasKeyActivations", () => {
 
     await dispatchKey("keydown", "q", { code: "KeyQ" });
     await dispatchKey("keydown", "f", { code: "KeyF" });
-    expect(useWorkspaceTooltip.getState()).toMatchObject({ isEnabled: true, isFrozen: true });
+    expect(useWorkspaceTooltip.getState()).toMatchObject({
+      isEnabled: true,
+      isFrozen: true,
+    });
 
     await dispatchKey("keyup", "f", { code: "KeyF" });
     await dispatchKey("keyup", "q", { code: "KeyQ" });
-    expect(useWorkspaceTooltip.getState()).toMatchObject({ isEnabled: true, isFrozen: true });
+    expect(useWorkspaceTooltip.getState()).toMatchObject({
+      isEnabled: true,
+      isFrozen: true,
+    });
   });
 
   it("gives a focused frozen tooltip page/copy keys and closes it with Escape", async () => {
@@ -413,11 +442,16 @@ describe("useCanvasKeyActivations", () => {
     expect(useWorkspaceTooltip.getState().pageIndex).toBe(1);
     await dispatchKey("keyup", "ArrowRight", { code: "ArrowRight" });
     await dispatchKey("keydown", "c", { code: "KeyC" });
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith("Second frozen page");
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      "Second frozen page",
+    );
 
     await dispatchKey("keyup", "c", { code: "KeyC" });
     await dispatchKey("keydown", "Escape", { code: "Escape" });
-    expect(useWorkspaceTooltip.getState()).toMatchObject({ isEnabled: false, isFrozen: false });
+    expect(useWorkspaceTooltip.getState()).toMatchObject({
+      isEnabled: false,
+      isFrozen: false,
+    });
   });
 
   it("leaves bare page and copy keys alone when focus is outside a frozen tooltip", async () => {
@@ -459,7 +493,9 @@ describe("useCanvasKeyActivations", () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
-    expect(useWorkspaceDocument.getState().topLevelSections["child"]).toMatchObject({
+    expect(
+      useWorkspaceDocument.getState().topLevelSections["child"],
+    ).toMatchObject({
       x: 0,
       y: 0,
     });
@@ -486,13 +522,22 @@ describe("useCanvasKeyActivations", () => {
 
   // A complete keypress: the tracker compares the whole pressed-key set, so a chord left held
   // would exclude the next one.
-  async function dispatchChord(init: KeyboardEventInit & { target?: EventTarget }) {
+  async function dispatchChord(
+    init: KeyboardEventInit & { target?: EventTarget },
+  ) {
     const { target, ...eventInit } = init;
-    const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...eventInit });
+    const event = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      ...eventInit,
+    });
     await act(async () => {
       (target ?? document).dispatchEvent(event);
     });
-    await dispatchKey("keyup", eventInit.key ?? "", { code: eventInit.code, target });
+    await dispatchKey("keyup", eventInit.key ?? "", {
+      code: eventInit.code,
+      target,
+    });
     return event;
   }
 
@@ -504,7 +549,11 @@ describe("useCanvasKeyActivations", () => {
     it("groups the active selection on Mod+G", async () => {
       loadUngroupDocument(["group", "leaf"]);
 
-      const event = await dispatchChord({ key: "g", code: "KeyG", ctrlKey: true });
+      const event = await dispatchChord({
+        key: "g",
+        code: "KeyG",
+        ctrlKey: true,
+      });
 
       expect(event.defaultPrevented).toBe(true);
       const sections = useWorkspaceDocument.getState().sections;
@@ -517,20 +566,25 @@ describe("useCanvasKeyActivations", () => {
     it("leaves Mod+G to the browser when the selection cannot be grouped", async () => {
       loadUngroupDocument(["leaf"]);
 
-      const event = await dispatchChord({ key: "g", code: "KeyG", ctrlKey: true });
+      const event = await dispatchChord({
+        key: "g",
+        code: "KeyG",
+        ctrlKey: true,
+      });
 
       expect(event.defaultPrevented).toBe(false);
-      expect(Object.keys(useWorkspaceDocument.getState().sections).sort()).toEqual([
-        "child",
-        "group",
-        "leaf",
-      ]);
+      expect(
+        Object.keys(useWorkspaceDocument.getState().sections).sort(),
+      ).toEqual(["child", "group", "leaf"]);
     });
 
     it("deletes the active selection on Backspace", async () => {
       loadUngroupDocument(["leaf"]);
 
-      const event = await dispatchChord({ key: "Backspace", code: "Backspace" });
+      const event = await dispatchChord({
+        key: "Backspace",
+        code: "Backspace",
+      });
 
       expect(event.defaultPrevented).toBe(true);
       expect(useWorkspaceDocument.getState().sections["leaf"]).toBeUndefined();
@@ -541,7 +595,11 @@ describe("useCanvasKeyActivations", () => {
       const input = document.createElement("input");
       document.body.appendChild(input);
 
-      const event = await dispatchChord({ key: "Backspace", code: "Backspace", target: input });
+      const event = await dispatchChord({
+        key: "Backspace",
+        code: "Backspace",
+        target: input,
+      });
 
       expect(event.defaultPrevented).toBe(false);
       expect(useWorkspaceDocument.getState().sections["leaf"]).toBeDefined();
@@ -557,13 +615,17 @@ describe("useCanvasKeyActivations", () => {
         filterActive: false,
       });
 
-      const event = await dispatchChord({ key: "a", code: "KeyA", ctrlKey: true });
+      const event = await dispatchChord({
+        key: "a",
+        code: "KeyA",
+        ctrlKey: true,
+      });
 
       expect(event.defaultPrevented).toBe(true);
-      expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.selectedItemIds).toEqual([
-        "item-a",
-        "item-b",
-      ]);
+      expect(
+        useWorkspaceDocument.getState().sections["panel"]?.itemTree
+          ?.selectedItemIds,
+      ).toEqual(["item-a", "item-b"]);
     });
 
     it("leaves Mod+A to the caret while typing", async () => {
@@ -577,22 +639,36 @@ describe("useCanvasKeyActivations", () => {
       const input = document.createElement("input");
       document.body.appendChild(input);
 
-      const event = await dispatchChord({ key: "a", code: "KeyA", ctrlKey: true, target: input });
+      const event = await dispatchChord({
+        key: "a",
+        code: "KeyA",
+        ctrlKey: true,
+        target: input,
+      });
 
       expect(event.defaultPrevented).toBe(false);
-      expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.selectedItemIds).toEqual(
-        [],
-      );
+      expect(
+        useWorkspaceDocument.getState().sections["panel"]?.itemTree
+          ?.selectedItemIds,
+      ).toEqual([]);
       input.remove();
     });
 
     it("selects every section on Mod+A without a single active section", async () => {
       loadUngroupDocument([]);
 
-      const event = await dispatchChord({ key: "a", code: "KeyA", ctrlKey: true });
+      const event = await dispatchChord({
+        key: "a",
+        code: "KeyA",
+        ctrlKey: true,
+      });
 
       expect(event.defaultPrevented).toBe(true);
-      expect(useActiveSections.getState().activeIds).toEqual(["group", "child", "leaf"]);
+      expect(useActiveSections.getState().activeIds).toEqual([
+        "group",
+        "child",
+        "leaf",
+      ]);
     });
 
     it("selects the top-level sections outside groups on Mod+Shift+A", async () => {
@@ -610,7 +686,9 @@ describe("useCanvasKeyActivations", () => {
     });
 
     it("answers to the chord a host rebinds an operation to", async () => {
-      registerWorkspaceKeyBindings([{ id: "workspace.ungroup-sections", chord: "Mod + U" }]);
+      registerWorkspaceKeyBindings([
+        { id: "workspace.ungroup-sections", chord: "Mod + U" },
+      ]);
       loadUngroupDocument();
 
       const defaultChord = await dispatchChord({
@@ -622,7 +700,11 @@ describe("useCanvasKeyActivations", () => {
       expect(defaultChord.defaultPrevented).toBe(false);
       expect(useWorkspaceDocument.getState().sections["group"]).toBeDefined();
 
-      const hostChord = await dispatchChord({ key: "u", code: "KeyU", ctrlKey: true });
+      const hostChord = await dispatchChord({
+        key: "u",
+        code: "KeyU",
+        ctrlKey: true,
+      });
       expect(hostChord.defaultPrevented).toBe(true);
       expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
     });
@@ -686,7 +768,11 @@ describe("useCanvasKeyActivations", () => {
     });
 
     it("resets the zoom on Mod+Comma", async () => {
-      const event = await dispatchChord({ key: ",", code: "Comma", ctrlKey: true });
+      const event = await dispatchChord({
+        key: ",",
+        code: "Comma",
+        ctrlKey: true,
+      });
 
       expect(event.defaultPrevented).toBe(true);
       expect(resetZoom).toHaveBeenCalledTimes(1);
@@ -736,7 +822,9 @@ describe("useCanvasKeyActivations", () => {
       const event = await dispatchChord({ key: "n", code: "KeyN" });
 
       expect(event.defaultPrevented).toBe(true);
-      expect(useWorkspaceDocument.getState().topLevelSections["created"]).toMatchObject({
+      expect(
+        useWorkspaceDocument.getState().topLevelSections["created"],
+      ).toMatchObject({
         x: 24,
         y: 24,
       });
@@ -750,18 +838,28 @@ describe("useCanvasKeyActivations", () => {
 
       await dispatchChord({ key: "n", code: "KeyN", target: input });
 
-      expect(useWorkspaceDocument.getState().sections["created"]).toBeUndefined();
+      expect(
+        useWorkspaceDocument.getState().sections["created"],
+      ).toBeUndefined();
       input.remove();
     });
   });
 
   describe("focus chords", () => {
     it("walks the canvas sections on Alt+J and Alt+K", async () => {
-      const forwards = await dispatchChord({ key: "j", code: "KeyJ", altKey: true });
+      const forwards = await dispatchChord({
+        key: "j",
+        code: "KeyJ",
+        altKey: true,
+      });
       expect(forwards.defaultPrevented).toBe(true);
       expect(focusAdjacentTopLevelSection).toHaveBeenCalledWith(1);
 
-      const backwards = await dispatchChord({ key: "k", code: "KeyK", altKey: true });
+      const backwards = await dispatchChord({
+        key: "k",
+        code: "KeyK",
+        altKey: true,
+      });
       expect(backwards.defaultPrevented).toBe(true);
       expect(focusAdjacentTopLevelSection).toHaveBeenCalledWith(-1);
     });
@@ -769,7 +867,11 @@ describe("useCanvasKeyActivations", () => {
     it("hands Alt+J back to the browser when there is nowhere left to move", async () => {
       vi.mocked(focusAdjacentTopLevelSection).mockReturnValueOnce(false);
 
-      const event = await dispatchChord({ key: "j", code: "KeyJ", altKey: true });
+      const event = await dispatchChord({
+        key: "j",
+        code: "KeyJ",
+        altKey: true,
+      });
 
       expect(event.defaultPrevented).toBe(false);
     });
@@ -784,10 +886,20 @@ describe("useCanvasKeyActivations", () => {
       expect(leading.defaultPrevented).toBe(true);
       expect(focusWorkspaceScope).toHaveBeenCalledWith("leading-pane");
 
-      await dispatchChord({ key: "#", code: "Digit3", ctrlKey: true, shiftKey: true });
+      await dispatchChord({
+        key: "#",
+        code: "Digit3",
+        ctrlKey: true,
+        shiftKey: true,
+      });
       expect(focusWorkspaceScope).toHaveBeenCalledWith("canvas");
 
-      await dispatchChord({ key: "$", code: "Digit4", ctrlKey: true, shiftKey: true });
+      await dispatchChord({
+        key: "$",
+        code: "Digit4",
+        ctrlKey: true,
+        shiftKey: true,
+      });
       expect(focusWorkspaceScope).toHaveBeenCalledWith("trailing-pane");
     });
 
@@ -826,7 +938,9 @@ describe("useCanvasKeyActivations", () => {
 
   it("activates the free-move mode while Alt is held alone", async () => {
     await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Alt", altKey: true }),
+      );
     });
     expect(useDndState.getState().isMovingFree).toBe(true);
 
@@ -838,13 +952,19 @@ describe("useCanvasKeyActivations", () => {
 
   it("switches from free-move to sorting when the mod key joins Alt", async () => {
     await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Alt", altKey: true }),
+      );
     });
     expect(useDndState.getState().isMovingFree).toBe(true);
 
     await act(async () => {
       document.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Control", altKey: true, ctrlKey: true }),
+        new KeyboardEvent("keydown", {
+          key: "Control",
+          altKey: true,
+          ctrlKey: true,
+        }),
       );
     });
     const state = useDndState.getState();
@@ -855,16 +975,24 @@ describe("useCanvasKeyActivations", () => {
     // Releasing the mod key deactivates sorting without re-entering free move: the reference
     // engine only activates on keydown events.
     await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keyup", { key: "Control", altKey: true }));
+      document.dispatchEvent(
+        new KeyboardEvent("keyup", { key: "Control", altKey: true }),
+      );
     });
     expect(useDndState.getState().pendingDeactivation).toBe(true);
   });
 
   it("does not activate a dnd mode while a non-modifier key is held", async () => {
     await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "a", code: "KeyA" }));
       document.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Alt", code: "AltLeft", altKey: true }),
+        new KeyboardEvent("keydown", { key: "a", code: "KeyA" }),
+      );
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Alt",
+          code: "AltLeft",
+          altKey: true,
+        }),
       );
     });
     expect(useDndState.getState().isMovingFree).toBe(false);
@@ -872,15 +1000,23 @@ describe("useCanvasKeyActivations", () => {
 
   it("does not re-activate a dnd mode from auto-repeat keydowns", async () => {
     await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
       document.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Control", altKey: true, ctrlKey: true }),
+        new KeyboardEvent("keydown", { key: "Alt", altKey: true }),
+      );
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Control",
+          altKey: true,
+          ctrlKey: true,
+        }),
       );
     });
     expect(useDndState.getState().isSorting).toBe(true);
 
     await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keyup", { key: "Control", altKey: true }));
+      document.dispatchEvent(
+        new KeyboardEvent("keyup", { key: "Control", altKey: true }),
+      );
     });
     expect(useDndState.getState().pendingDeactivation).toBe(true);
 
@@ -888,7 +1024,11 @@ describe("useCanvasKeyActivations", () => {
     // activates from a repeat, so free move must not re-enter while Alt stays held.
     await act(async () => {
       document.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Alt", altKey: true, repeat: true }),
+        new KeyboardEvent("keydown", {
+          key: "Alt",
+          altKey: true,
+          repeat: true,
+        }),
       );
     });
     expect(useDndState.getState().isMovingFree).toBe(false);
@@ -897,9 +1037,15 @@ describe("useCanvasKeyActivations", () => {
 
   it("releases sorting on mouse movement without the mod key held", async () => {
     await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
       document.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Control", altKey: true, ctrlKey: true }),
+        new KeyboardEvent("keydown", { key: "Alt", altKey: true }),
+      );
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Control",
+          altKey: true,
+          ctrlKey: true,
+        }),
       );
     });
     expect(useDndState.getState().isSorting).toBe(true);
@@ -923,11 +1069,15 @@ describe("useCanvasKeyActivations", () => {
     vi.useFakeTimers();
     try {
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "a", code: "KeyA" }));
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "a", code: "KeyA" }),
+        );
       });
       vi.setSystemTime(Date.now() + 150);
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Alt", altKey: true }),
+        );
       });
       expect(useDndState.getState().isMovingFree).toBe(false);
     } finally {
@@ -936,9 +1086,13 @@ describe("useCanvasKeyActivations", () => {
 
     // Releasing the key and freshly pressing Alt arms the chord again.
     await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keyup", { key: "a", code: "KeyA", altKey: true }));
+      document.dispatchEvent(
+        new KeyboardEvent("keyup", { key: "a", code: "KeyA", altKey: true }),
+      );
       document.dispatchEvent(new KeyboardEvent("keyup", { key: "Alt" }));
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Alt", altKey: true }),
+      );
     });
     expect(useDndState.getState().isMovingFree).toBe(true);
   });
@@ -949,7 +1103,11 @@ describe("useCanvasKeyActivations", () => {
 
     await act(async () => {
       document.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Shift", shiftKey: true, bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "Shift",
+          shiftKey: true,
+          bubbles: true,
+        }),
       );
     });
     expect(useWorkspaceTooltip.getState().isEnabled).toBe(false);
@@ -957,7 +1115,9 @@ describe("useCanvasKeyActivations", () => {
     // Auto-repeats of the still-held tooltip key must not re-enable it; only a fresh press
     // does, matching the reference's pressed-key-set comparison.
     await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "q", repeat: true }));
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "q", repeat: true }),
+      );
     });
     expect(useWorkspaceTooltip.getState().isEnabled).toBe(false);
 
@@ -968,7 +1128,9 @@ describe("useCanvasKeyActivations", () => {
 
   it("queues dnd deactivation on window blur", async () => {
     await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Alt", altKey: true }),
+      );
     });
     expect(useDndState.getState().isMovingFree).toBe(true);
 
@@ -1014,9 +1176,15 @@ describe("useCanvasKeyActivations", () => {
   describe("item-select chord", () => {
     async function pressChord() {
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift", shiftKey: true }));
         document.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "Control", ctrlKey: true, shiftKey: true }),
+          new KeyboardEvent("keydown", { key: "Shift", shiftKey: true }),
+        );
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Control",
+            ctrlKey: true,
+            shiftKey: true,
+          }),
         );
       });
     }
@@ -1026,20 +1194,28 @@ describe("useCanvasKeyActivations", () => {
       expect(useItemSelectionMode.getState().isSelectingItems).toBe(true);
 
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keyup", { key: "Shift", ctrlKey: true }));
+        document.dispatchEvent(
+          new KeyboardEvent("keyup", { key: "Shift", ctrlKey: true }),
+        );
       });
       expect(useItemSelectionMode.getState().isSelectingItems).toBe(false);
     });
 
     it("clears and suppresses the exact-chord selection and multi-select states", async () => {
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift", shiftKey: true }));
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Shift", shiftKey: true }),
+        );
       });
       expect(useReactFlow.getState().selectionKeyPressed).toBe(true);
 
       await act(async () => {
         document.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "Control", ctrlKey: true, shiftKey: true }),
+          new KeyboardEvent("keydown", {
+            key: "Control",
+            ctrlKey: true,
+            shiftKey: true,
+          }),
         );
       });
       const state = useReactFlow.getState();
@@ -1065,7 +1241,9 @@ describe("useCanvasKeyActivations", () => {
 
     it("does not activate while a non-modifier key is held", async () => {
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "a", code: "KeyA" }));
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "a", code: "KeyA" }),
+        );
       });
       await pressChord();
       expect(useItemSelectionMode.getState().isSelectingItems).toBe(false);
@@ -1073,7 +1251,9 @@ describe("useCanvasKeyActivations", () => {
 
     it("does not activate from an auto-repeat keydown", async () => {
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift", shiftKey: true }));
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Shift", shiftKey: true }),
+        );
         document.dispatchEvent(
           new KeyboardEvent("keydown", {
             key: "Control",
@@ -1090,7 +1270,12 @@ describe("useCanvasKeyActivations", () => {
       await pressChord();
       await act(async () => {
         document.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "a", code: "KeyA", ctrlKey: true, shiftKey: true }),
+          new KeyboardEvent("keydown", {
+            key: "a",
+            code: "KeyA",
+            ctrlKey: true,
+            shiftKey: true,
+          }),
         );
       });
       expect(useItemSelectionMode.getState().isSelectingItems).toBe(false);
@@ -1098,7 +1283,9 @@ describe("useCanvasKeyActivations", () => {
 
     it("releases a held dnd mode when the chord's Shift joins, without entering item select", async () => {
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Alt", altKey: true }),
+        );
       });
       expect(useDndState.getState().isMovingFree).toBe(true);
 
@@ -1107,7 +1294,11 @@ describe("useCanvasKeyActivations", () => {
       // its exact chord excludes Alt.
       await act(async () => {
         document.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "Shift", altKey: true, shiftKey: true }),
+          new KeyboardEvent("keydown", {
+            key: "Shift",
+            altKey: true,
+            shiftKey: true,
+          }),
         );
       });
       expect(useDndState.getState().pendingDeactivation).toBe(true);
@@ -1139,7 +1330,11 @@ describe("useCanvasKeyActivations", () => {
     it("does not arm the pan activation while a modifier is held", async () => {
       await act(async () => {
         document.dispatchEvent(
-          new KeyboardEvent("keydown", { key: " ", code: "Space", ctrlKey: true }),
+          new KeyboardEvent("keydown", {
+            key: " ",
+            code: "Space",
+            ctrlKey: true,
+          }),
         );
       });
       expect(useReactFlow.getState().panActivationKeyPressed).toBe(false);
@@ -1164,15 +1359,23 @@ describe("useCanvasKeyActivations", () => {
 
     it("activates the item chord with Meta and not with Control", async () => {
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift", shiftKey: true }));
         document.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "Meta", metaKey: true, shiftKey: true }),
+          new KeyboardEvent("keydown", { key: "Shift", shiftKey: true }),
+        );
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Meta",
+            metaKey: true,
+            shiftKey: true,
+          }),
         );
       });
       expect(useItemSelectionMode.getState().isSelectingItems).toBe(true);
 
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keyup", { key: "Meta", shiftKey: true }));
+        document.dispatchEvent(
+          new KeyboardEvent("keyup", { key: "Meta", shiftKey: true }),
+        );
         document.dispatchEvent(new KeyboardEvent("keyup", { key: "Shift" }));
       });
       expect(useItemSelectionMode.getState().isSelectingItems).toBe(false);
@@ -1191,8 +1394,12 @@ describe("useCanvasKeyActivations", () => {
 
     it("clears swallowed held keys when Meta releases so chords can arm again", async () => {
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "a", code: "KeyA" }));
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Meta", metaKey: true }));
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "a", code: "KeyA" }),
+        );
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Meta", metaKey: true }),
+        );
       });
       expect(useReactFlow.getState().multiSelectionActive).toBe(false);
 
@@ -1200,7 +1407,9 @@ describe("useCanvasKeyActivations", () => {
       // set, so a fresh Meta press arms the chord.
       await act(async () => {
         document.dispatchEvent(new KeyboardEvent("keyup", { key: "Meta" }));
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Meta", metaKey: true }));
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Meta", metaKey: true }),
+        );
       });
       expect(useReactFlow.getState().multiSelectionActive).toBe(true);
       expect(useReactFlow.getState().zoomActivationKeyPressed).toBe(true);
@@ -1227,7 +1436,9 @@ describe("useCanvasKeyActivations", () => {
 
     it("releases the mod-gated activations on mouse movement without Meta held", async () => {
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Meta", metaKey: true }));
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Meta", metaKey: true }),
+        );
       });
       expect(useReactFlow.getState().multiSelectionActive).toBe(true);
 
@@ -1266,9 +1477,15 @@ describe("useCanvasKeyActivations", () => {
       expect(vi.mocked(moveSelectedItemsDown)).toHaveBeenCalledTimes(2);
 
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowDown", code: "ArrowDown" }));
         document.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "ArrowUp", code: "ArrowUp", altKey: true }),
+          new KeyboardEvent("keyup", { key: "ArrowDown", code: "ArrowDown" }),
+        );
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "ArrowUp",
+            code: "ArrowUp",
+            altKey: true,
+          }),
         );
       });
       expect(vi.mocked(moveSelectedItemsUp)).toHaveBeenCalledTimes(1);
@@ -1314,9 +1531,15 @@ describe("useCanvasKeyActivations", () => {
       expect(vi.mocked(moveSelectedItemsDown)).not.toHaveBeenCalled();
 
       await act(async () => {
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "a", code: "KeyA" }));
         document.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "ArrowDown", code: "ArrowDown", altKey: true }),
+          new KeyboardEvent("keydown", { key: "a", code: "KeyA" }),
+        );
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "ArrowDown",
+            code: "ArrowDown",
+            altKey: true,
+          }),
         );
       });
       expect(vi.mocked(moveSelectedItemsDown)).not.toHaveBeenCalled();
@@ -1331,14 +1554,20 @@ describe("useCanvasKeyActivations", () => {
       });
       await act(async () => {
         document.dispatchEvent(tabPress);
-        document.dispatchEvent(new KeyboardEvent("keyup", { key: "Tab", code: "Tab" }));
+        document.dispatchEvent(
+          new KeyboardEvent("keyup", { key: "Tab", code: "Tab" }),
+        );
       });
       expect(vi.mocked(indentSelectedItems)).toHaveBeenCalledTimes(1);
       expect(tabPress.defaultPrevented).toBe(true);
 
       await act(async () => {
         document.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "Tab", code: "Tab", shiftKey: true }),
+          new KeyboardEvent("keydown", {
+            key: "Tab",
+            code: "Tab",
+            shiftKey: true,
+          }),
         );
       });
       expect(vi.mocked(unindentSelectedItems)).toHaveBeenCalledTimes(1);
@@ -1368,7 +1597,11 @@ describe("useCanvasKeyActivations", () => {
 
       await act(async () => {
         input.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "Tab", code: "Tab", bubbles: true }),
+          new KeyboardEvent("keydown", {
+            key: "Tab",
+            code: "Tab",
+            bubbles: true,
+          }),
         );
       });
       expect(vi.mocked(indentSelectedItems)).not.toHaveBeenCalled();
@@ -1400,16 +1633,27 @@ describe("useCanvasKeyActivations", () => {
 
   describe("escape handling", () => {
     function getPanelSelection(): Array<string> {
-      return useWorkspaceDocument.getState().sections["panel"]?.itemTree?.selectedItemIds ?? [];
+      return (
+        useWorkspaceDocument.getState().sections["panel"]?.itemTree
+          ?.selectedItemIds ?? []
+      );
     }
 
     async function pressEscape(target: EventTarget = document) {
       await act(async () => {
         target.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+          new KeyboardEvent("keydown", {
+            key: "Escape",
+            code: "Escape",
+            bubbles: true,
+          }),
         );
         target.dispatchEvent(
-          new KeyboardEvent("keyup", { key: "Escape", code: "Escape", bubbles: true }),
+          new KeyboardEvent("keyup", {
+            key: "Escape",
+            code: "Escape",
+            bubbles: true,
+          }),
         );
       });
     }

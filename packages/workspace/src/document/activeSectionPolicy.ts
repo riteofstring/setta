@@ -67,36 +67,56 @@ function createPolicyResult(
   };
 }
 
-function addActiveId(activeIds: Array<string>, sectionId: string): Array<string> {
+function addActiveId(
+  activeIds: Array<string>,
+  sectionId: string,
+): Array<string> {
   if (activeIds.includes(sectionId)) {
     return activeIds;
   }
   return [...activeIds, sectionId];
 }
 
-function removeActiveId(activeIds: Array<string>, sectionId: string): Array<string> {
+function removeActiveId(
+  activeIds: Array<string>,
+  sectionId: string,
+): Array<string> {
   if (!activeIds.includes(sectionId)) {
     return activeIds;
   }
   return activeIds.filter((id) => id !== sectionId);
 }
 
-function resolveItemToggleChange(context: ItemToggleContext): ActiveSectionPolicyResult {
+function resolveItemToggleChange(
+  context: ItemToggleContext,
+): ActiveSectionPolicyResult {
   if (!context.isSelectingItems) {
     return createPolicyResult(context.activeIds, false, "item-toggle:ignored");
   }
   return createPolicyResult(
     [context.sectionId],
     false,
-    context.interaction === "item-select" ? "item-select:set-active" : "item-unselect:set-active",
+    context.interaction === "item-select"
+      ? "item-select:set-active"
+      : "item-unselect:set-active",
   );
 }
 
-function resolveItemSelectingSectionClick(context: SectionClickContext): ActiveSectionPolicyResult {
+function resolveItemSelectingSectionClick(
+  context: SectionClickContext,
+): ActiveSectionPolicyResult {
   if (!context.hasSelectedItems) {
-    return createPolicyResult(context.activeIds, true, "section-click:item-select-noop");
+    return createPolicyResult(
+      context.activeIds,
+      true,
+      "section-click:item-select-noop",
+    );
   }
-  return createPolicyResult([context.sectionId], true, "section-click:item-select-set");
+  return createPolicyResult(
+    [context.sectionId],
+    true,
+    "section-click:item-select-set",
+  );
 }
 
 function resolveMultiSelectionSectionClick(
@@ -112,7 +132,9 @@ function resolveMultiSelectionSectionClick(
   );
 }
 
-function resolveSectionClickChange(context: SectionClickContext): ActiveSectionPolicyResult {
+function resolveSectionClickChange(
+  context: SectionClickContext,
+): ActiveSectionPolicyResult {
   if (context.isSelectingItems) {
     return resolveItemSelectingSectionClick(context);
   }
@@ -130,10 +152,18 @@ export function resolveActiveSectionChange(
       return createPolicyResult([], false, "pane-click:clear");
     }
     case "selection-rect": {
-      return createPolicyResult(context.selectedIds, false, "selection-rect:update");
+      return createPolicyResult(
+        context.selectedIds,
+        false,
+        "selection-rect:update",
+      );
     }
     case "input-focus": {
-      return createPolicyResult([context.sectionId], true, "input-focus:set-active");
+      return createPolicyResult(
+        [context.sectionId],
+        true,
+        "input-focus:set-active",
+      );
     }
     case "go-to": {
       return createPolicyResult([context.sectionId], true, "go-to:set-active");

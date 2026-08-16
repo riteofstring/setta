@@ -9,7 +9,11 @@ import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import type { WorkspaceSectionInput } from "../document/types";
 import { WorkspaceMenuLayer } from "./WorkspaceMenuLayer";
 import {
@@ -21,7 +25,9 @@ import {
 import { registerWorkspaceCreationCommands } from "./workspaceMenuRegistry";
 import { useWorkspaceMenuState } from "./workspaceMenuState";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function createSection(id: string): WorkspaceSectionInput {
   return {
@@ -39,7 +45,12 @@ function createSection(id: string): WorkspaceSectionInput {
   };
 }
 
-function createRect(left: number, top: number, width: number, height: number): DOMRect {
+function createRect(
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): DOMRect {
   return {
     left,
     top,
@@ -55,7 +66,9 @@ function createRect(left: number, top: number, width: number, height: number): D
 
 function getMenuItems(): Array<HTMLElement> {
   return Array.from(
-    document.body.querySelectorAll<HTMLElement>('[role="menuitem"], [role="menuitemcheckbox"]'),
+    document.body.querySelectorAll<HTMLElement>(
+      '[role="menuitem"], [role="menuitemcheckbox"]',
+    ),
   );
 }
 
@@ -78,20 +91,23 @@ describe("WorkspaceMenuLayer", () => {
 
   beforeEach(() => {
     resetState();
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
-      this: HTMLElement,
-    ) {
-      return this.classList.contains("setta-workspace-menu")
-        ? createRect(0, 0, 160, 180)
-        : createRect(0, 0, 100, 40);
-    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        return this.classList.contains("setta-workspace-menu")
+          ? createRect(0, 0, 160, 180)
+          : createRect(0, 0, 100, 40);
+      },
+    );
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
       callback(0);
       return 1;
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
     registerSectionKinds({
-      leaf: { renderContent: () => null, defaultSize: { width: 200, height: 100 } },
+      leaf: {
+        renderContent: () => null,
+        defaultSize: { width: 200, height: 100 },
+      },
     });
     loadWorkspaceDocument({
       sections: { existing: createSection("existing") },
@@ -147,7 +163,10 @@ describe("WorkspaceMenuLayer", () => {
   }
 
   function setNativeInputValue(input: HTMLInputElement, value: string): void {
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
     if (!setter) {
       throw new Error("Missing native input value setter.");
     }
@@ -172,7 +191,11 @@ describe("WorkspaceMenuLayer", () => {
 
     await act(async () => {
       filter?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          cancelable: true,
+        }),
       );
     });
     expect(useWorkspaceMenuState.getState().invocation).toBeNull();
@@ -203,8 +226,12 @@ describe("WorkspaceMenuLayer", () => {
     await act(async () => {
       item?.click();
     });
-    expect(useWorkspaceDocument.getState().sections["created"]?.data).toEqual({ body: "50,50" });
-    expect(useWorkspaceDocument.getState().topLevelSections["created"]).toMatchObject({
+    expect(useWorkspaceDocument.getState().sections["created"]?.data).toEqual({
+      body: "50,50",
+    });
+    expect(
+      useWorkspaceDocument.getState().topLevelSections["created"],
+    ).toMatchObject({
       x: 50,
       y: 50,
       zIndex: 1,
@@ -244,20 +271,28 @@ describe("WorkspaceMenuLayer", () => {
     ]);
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);
-    expect(openWorkspaceItemMenu("existing", "first", { x: 150, y: 100 }, owner)).toBe(true);
+    expect(
+      openWorkspaceItemMenu("existing", "first", { x: 150, y: 100 }, owner),
+    ).toBe(true);
     await act(async () => {
       root.render(<WorkspaceMenuLayer />);
     });
 
     const entries = getMenuItems();
-    expect(entries.map((entry) => entry.textContent)).toEqual(["Delete parameter", "Report item"]);
-    expect(document.body.querySelectorAll('[role="separator"]')).toHaveLength(1);
+    expect(entries.map((entry) => entry.textContent)).toEqual([
+      "Delete parameter",
+      "Report item",
+    ]);
+    expect(document.body.querySelectorAll('[role="separator"]')).toHaveLength(
+      1,
+    );
 
     await act(async () => {
       entries[0]?.click();
     });
 
-    const itemTree = useWorkspaceDocument.getState().sections["existing"]?.itemTree;
+    const itemTree =
+      useWorkspaceDocument.getState().sections["existing"]?.itemTree;
     expect(itemTree?.items["first"]).toBeUndefined();
     expect(itemTree?.selectedItemIds).toEqual(["second"]);
     expect(onChange).toHaveBeenCalledOnce();
@@ -302,8 +337,12 @@ describe("WorkspaceMenuLayer", () => {
     });
 
     const entries = getMenuItems();
-    const deleteParameter = entries.find((entry) => entry.textContent === "Delete parameter");
-    const reportItem = entries.find((entry) => entry.textContent === "Report item");
+    const deleteParameter = entries.find(
+      (entry) => entry.textContent === "Delete parameter",
+    );
+    const reportItem = entries.find(
+      (entry) => entry.textContent === "Report item",
+    );
     expect(deleteParameter?.getAttribute("aria-disabled")).toBe("true");
     expect(deleteParameter?.hasAttribute("data-disabled")).toBe(true);
     expect(reportItem?.getAttribute("aria-disabled")).toBeNull();
@@ -311,14 +350,24 @@ describe("WorkspaceMenuLayer", () => {
     await act(async () => {
       deleteParameter?.click();
     });
-    expect(useWorkspaceDocument.getState().sections.existing?.itemTree?.items.first).toBeDefined();
+    expect(
+      useWorkspaceDocument.getState().sections.existing?.itemTree?.items.first,
+    ).toBeDefined();
     expect(onChange).not.toHaveBeenCalled();
     expect(hostAction).not.toHaveBeenCalled();
   });
 
   it("exposes capability-disabled structural actions through menuitem semantics", async () => {
-    useWorkspaceCapabilities.setState({ canEditStructure: false, canEditLayout: false });
-    openWorkspaceSectionMenu("existing", "context-menu", { x: 150, y: 100 }, owner);
+    useWorkspaceCapabilities.setState({
+      canEditStructure: false,
+      canEditLayout: false,
+    });
+    openWorkspaceSectionMenu(
+      "existing",
+      "context-menu",
+      { x: 150, y: 100 },
+      owner,
+    );
     await act(async () => {
       root.render(<WorkspaceMenuLayer />);
     });
@@ -329,8 +378,12 @@ describe("WorkspaceMenuLayer", () => {
       "Delete",
       "Lock Position & Size",
     ]);
-    expect(entries.every((entry) => entry.hasAttribute("data-disabled"))).toBe(true);
-    expect(entries.every((entry) => entry.getAttribute("aria-disabled") === "true")).toBe(true);
+    expect(entries.every((entry) => entry.hasAttribute("data-disabled"))).toBe(
+      true,
+    );
+    expect(
+      entries.every((entry) => entry.getAttribute("aria-disabled") === "true"),
+    ).toBe(true);
     expect(document.activeElement).toBe(entries[0]);
 
     await act(async () => {
@@ -342,15 +395,25 @@ describe("WorkspaceMenuLayer", () => {
   it("dismisses a section menu without deleting valid multi-selection geometry", async () => {
     const selectionBounds = { x: 10, y: 20, width: 300, height: 120 };
     useReactFlow.setState({ nodesSelectionDims: selectionBounds });
-    openWorkspaceSectionMenu("existing", "context-menu", { x: 150, y: 100 }, owner);
+    openWorkspaceSectionMenu(
+      "existing",
+      "context-menu",
+      { x: 150, y: 100 },
+      owner,
+    );
     await act(async () => {
       root.render(<WorkspaceMenuLayer />);
     });
 
-    const focusedItem = document.body.querySelector<HTMLElement>('[role="menuitem"]');
+    const focusedItem =
+      document.body.querySelector<HTMLElement>('[role="menuitem"]');
     await act(async () => {
       focusedItem?.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Escape" }),
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Escape",
+        }),
       );
     });
 
@@ -374,7 +437,12 @@ describe("WorkspaceMenuLayer", () => {
     });
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);
-    openWorkspaceSectionMenu("existing", "context-menu", { x: 150, y: 100 }, owner);
+    openWorkspaceSectionMenu(
+      "existing",
+      "context-menu",
+      { x: 150, y: 100 },
+      owner,
+    );
     await act(async () => {
       root.render(<WorkspaceMenuLayer />);
     });
@@ -389,13 +457,20 @@ describe("WorkspaceMenuLayer", () => {
       "Lock Position & Size",
     ]);
     expect(lockItem?.textContent).toBe("Group");
-    const mixedLockItem = entries.find((entry) => entry.textContent === "Lock Position & Size");
+    const mixedLockItem = entries.find(
+      (entry) => entry.textContent === "Lock Position & Size",
+    );
     await act(async () => {
       mixedLockItem?.click();
     });
 
-    expect(useWorkspaceDocument.getState().sections["existing"]?.positionAndSizeLocked).toBe(true);
-    expect(useWorkspaceDocument.getState().sections["locked"]?.positionAndSizeLocked).toBe(true);
+    expect(
+      useWorkspaceDocument.getState().sections["existing"]
+        ?.positionAndSizeLocked,
+    ).toBe(true);
+    expect(
+      useWorkspaceDocument.getState().sections["locked"]?.positionAndSizeLocked,
+    ).toBe(true);
     expect(onChange).toHaveBeenCalledOnce();
   });
 
@@ -430,7 +505,8 @@ describe("WorkspaceMenuLayer", () => {
         scope: "section",
         surfaces: ["header"],
         label: "Unavailable host action",
-        getDisabledReason: () => "The host action is unavailable for this section.",
+        getDisabledReason: () =>
+          "The host action is unavailable for this section.",
         run: vi.fn(),
       },
     ]);
@@ -473,12 +549,16 @@ describe("WorkspaceMenuLayer", () => {
     await act(async () => {
       openWorkspaceSectionHeaderMenu("group", { x: 150, y: 100 }, owner);
     });
-    const reopenedOverflow = document.body.querySelector<HTMLElement>('[role="menuitemcheckbox"]');
+    const reopenedOverflow = document.body.querySelector<HTMLElement>(
+      '[role="menuitemcheckbox"]',
+    );
     await act(async () => {
       reopenedOverflow?.click();
     });
 
-    expect(useWorkspaceDocument.getState().sections["group"]?.overflowMode).toBe(true);
+    expect(
+      useWorkspaceDocument.getState().sections["group"]?.overflowMode,
+    ).toBe(true);
     expect(onChange).toHaveBeenCalledOnce();
     expect(useWorkspaceMenuState.getState().invocation).toBeNull();
     expect(document.activeElement).toBe(owner);
@@ -486,9 +566,13 @@ describe("WorkspaceMenuLayer", () => {
     await act(async () => {
       openWorkspaceSectionHeaderMenu("group", { x: 150, y: 100 }, owner);
     });
-    const checkedOverflow = document.body.querySelector<HTMLElement>('[role="menuitemcheckbox"]');
+    const checkedOverflow = document.body.querySelector<HTMLElement>(
+      '[role="menuitemcheckbox"]',
+    );
     expect(checkedOverflow?.getAttribute("aria-checked")).toBe("true");
-    expect(checkedOverflow?.querySelector('[data-state="checked"] svg')).not.toBeNull();
+    expect(
+      checkedOverflow?.querySelector('[data-state="checked"] svg'),
+    ).not.toBeNull();
 
     await act(async () => {
       useWorkspaceDocument.setState((state) => {
@@ -514,7 +598,11 @@ describe("WorkspaceMenuLayer", () => {
   it("targets the owning group when header ungroup opens from a mixed selection", async () => {
     loadWorkspaceDocument({
       sections: {
-        group: { ...createSection("group"), kind: "group", children: ["child"] },
+        group: {
+          ...createSection("group"),
+          kind: "group",
+          children: ["child"],
+        },
         child: createSection("child"),
         leaf: createSection("leaf"),
       },
@@ -532,7 +620,9 @@ describe("WorkspaceMenuLayer", () => {
       root.render(<WorkspaceMenuLayer />);
     });
 
-    const ungroup = getMenuItems().find((entry) => entry.textContent === "Ungroup");
+    const ungroup = getMenuItems().find(
+      (entry) => entry.textContent === "Ungroup",
+    );
     expect(ungroup?.hasAttribute("data-disabled")).toBe(false);
 
     await act(async () => {
@@ -541,7 +631,9 @@ describe("WorkspaceMenuLayer", () => {
 
     expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
     expect(useWorkspaceDocument.getState().sections["leaf"]).toBeDefined();
-    expect(useWorkspaceDocument.getState().topLevelSections["child"]).toMatchObject({
+    expect(
+      useWorkspaceDocument.getState().topLevelSections["child"],
+    ).toMatchObject({
       x: 20,
       y: 30,
     });
@@ -552,7 +644,11 @@ describe("WorkspaceMenuLayer", () => {
   it("ungroups a valid group selection through the canonical section action", async () => {
     loadWorkspaceDocument({
       sections: {
-        group: { ...createSection("group"), kind: "group", children: ["child"] },
+        group: {
+          ...createSection("group"),
+          kind: "group",
+          children: ["child"],
+        },
         child: createSection("child"),
         sibling: createSection("sibling"),
       },
@@ -565,7 +661,12 @@ describe("WorkspaceMenuLayer", () => {
     });
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);
-    openWorkspaceSectionMenu("group", "context-menu", { x: 150, y: 100 }, owner);
+    openWorkspaceSectionMenu(
+      "group",
+      "context-menu",
+      { x: 150, y: 100 },
+      owner,
+    );
     await act(async () => {
       root.render(<WorkspaceMenuLayer />);
     });
@@ -586,7 +687,9 @@ describe("WorkspaceMenuLayer", () => {
     });
 
     expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
-    expect(useWorkspaceDocument.getState().topLevelSections["child"]).toMatchObject({
+    expect(
+      useWorkspaceDocument.getState().topLevelSections["child"],
+    ).toMatchObject({
       x: 20,
       y: 30,
     });
@@ -596,7 +699,11 @@ describe("WorkspaceMenuLayer", () => {
   it("exposes but disables ungroup for a mixed group and leaf selection", async () => {
     loadWorkspaceDocument({
       sections: {
-        group: { ...createSection("group"), kind: "group", children: ["child"] },
+        group: {
+          ...createSection("group"),
+          kind: "group",
+          children: ["child"],
+        },
         child: createSection("child"),
         leaf: createSection("leaf"),
       },
@@ -607,7 +714,12 @@ describe("WorkspaceMenuLayer", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["group", "leaf"],
     });
-    openWorkspaceSectionMenu("group", "context-menu", { x: 150, y: 100 }, owner);
+    openWorkspaceSectionMenu(
+      "group",
+      "context-menu",
+      { x: 150, y: 100 },
+      owner,
+    );
     await act(async () => {
       root.render(<WorkspaceMenuLayer />);
     });

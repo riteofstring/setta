@@ -18,7 +18,9 @@ const CREATION_PAN_DURATION_MS = 200;
 // (`ensureSectionOnTop`). Package insertion publishes the document, the node, and the active
 // section in one atomic change, so the created section is already the single active, top-most
 // section when this returns and there is nothing to wait for.
-export function createWorkspaceSectionFromCommand(command: WorkspaceCreationCommand): boolean {
+export function createWorkspaceSectionFromCommand(
+  command: WorkspaceCreationCommand,
+): boolean {
   if (!useWorkspaceCapabilities.getState().canEditStructure) {
     return false;
   }

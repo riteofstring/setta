@@ -66,7 +66,8 @@ export function WorkspaceCanvas() {
     setInitialized(true);
   }, []);
 
-  const readyToRender = wrapperDimensions.height > 0 && wrapperDimensions.width > 0;
+  const readyToRender =
+    wrapperDimensions.height > 0 && wrapperDimensions.width > 0;
   const showMinimap = useWorkspaceOptions((x) => x.showMinimap);
 
   return (

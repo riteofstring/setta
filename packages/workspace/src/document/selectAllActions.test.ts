@@ -1,15 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { registerItemListView, resetItemListViews } from "../items/itemListRegistry";
+import {
+  registerItemListView,
+  resetItemListViews,
+} from "../items/itemListRegistry";
 import { getActiveSectionIds } from "./activeSections";
 import { setWorkspaceDocumentChangeCallback } from "./documentChangeCallback";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { registerSectionKinds } from "./sectionKindRegistry";
-import { selectAllInWorkspace, selectAllTopLevelNonGroupSections } from "./selectAllActions";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "./stores";
+import {
+  selectAllInWorkspace,
+  selectAllTopLevelNonGroupSections,
+} from "./selectAllActions";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "./stores";
 import type { WorkspaceSection } from "./types";
 
-function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): WorkspaceSection {
+function makeSection(
+  id: string,
+  overrides: Partial<WorkspaceSection> = {},
+): WorkspaceSection {
   return {
     id,
     kind: "leaf",
@@ -27,7 +40,8 @@ function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): Wor
 }
 
 function getSelectedItemIds(sectionId: string): Array<string> {
-  const itemTree = useWorkspaceDocument.getState().sections[sectionId]?.itemTree;
+  const itemTree =
+    useWorkspaceDocument.getState().sections[sectionId]?.itemTree;
   if (!itemTree) {
     throw new Error(`expected section ${sectionId} to carry an item tree`);
   }
@@ -95,7 +109,11 @@ describe("select-all actions", () => {
     });
 
     expect(selectAllInWorkspace()).toBe(true);
-    expect(getSelectedItemIds("panel")).toEqual(["item-a", "nested", "nested-child"]);
+    expect(getSelectedItemIds("panel")).toEqual([
+      "item-a",
+      "nested",
+      "nested-child",
+    ]);
     expect(getActiveSectionIds()).toEqual(["panel"]);
     expect(documentChangeSpy).toHaveBeenCalledTimes(1);
   });
@@ -125,7 +143,11 @@ describe("select-all actions", () => {
     documentChangeSpy.mockClear();
 
     expect(selectAllInWorkspace()).toBe(true);
-    expect(getSelectedItemIds("panel")).toEqual(["item-a", "nested", "nested-child"]);
+    expect(getSelectedItemIds("panel")).toEqual([
+      "item-a",
+      "nested",
+      "nested-child",
+    ]);
     expect(documentChangeSpy).not.toHaveBeenCalled();
   });
 
@@ -148,7 +170,12 @@ describe("select-all actions", () => {
     loadSelectionDocument([]);
 
     expect(selectAllInWorkspace()).toBe(true);
-    expect(getActiveSectionIds()).toEqual(["panel", "bare", "group", "grouped"]);
+    expect(getActiveSectionIds()).toEqual([
+      "panel",
+      "bare",
+      "group",
+      "grouped",
+    ]);
     expect(documentChangeSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -156,7 +183,12 @@ describe("select-all actions", () => {
     loadSelectionDocument(["panel", "bare"]);
 
     expect(selectAllInWorkspace()).toBe(true);
-    expect(getActiveSectionIds()).toEqual(["panel", "bare", "group", "grouped"]);
+    expect(getActiveSectionIds()).toEqual([
+      "panel",
+      "bare",
+      "group",
+      "grouped",
+    ]);
   });
 
   it("selects the top-level sections that are not groups", () => {

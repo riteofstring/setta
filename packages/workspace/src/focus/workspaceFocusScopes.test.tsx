@@ -5,7 +5,11 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  useActiveSections,
+  useNodeInternals,
+  useWorkspaceDocument,
+} from "../document/stores";
 import { useSectionRefs } from "../section/sectionRefs";
 import {
   focusWorkspaceScope,
@@ -14,9 +18,15 @@ import {
   type WorkspaceFocusScopeId,
 } from "./workspaceFocusScopes";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
-function ScopeHost({ scopeIds }: { scopeIds: ReadonlyArray<WorkspaceFocusScopeId> }) {
+function ScopeHost({
+  scopeIds,
+}: {
+  scopeIds: ReadonlyArray<WorkspaceFocusScopeId>;
+}) {
   return (
     <>
       {scopeIds.map((scopeId) => (
@@ -131,7 +141,10 @@ describe("workspace focus scopes", () => {
 
   it("returns to the control focus last reached inside the scope", async () => {
     await mountScopes(["leading-pane", "trailing-pane"]);
-    const leadingRoot = requireElement(host, '[data-scope-root="leading-pane"]');
+    const leadingRoot = requireElement(
+      host,
+      '[data-scope-root="leading-pane"]',
+    );
     appendButton(leadingRoot, "First");
     const second = appendButton(leadingRoot, "Second");
     const trailing = appendButton(
@@ -205,7 +218,10 @@ describe("workspace focus scopes", () => {
 
   it("stops answering for a scope whose chrome unmounted", async () => {
     await mountScopes(["leading-pane"]);
-    appendButton(requireElement(host, '[data-scope-root="leading-pane"]'), "First");
+    appendButton(
+      requireElement(host, '[data-scope-root="leading-pane"]'),
+      "First",
+    );
 
     await act(async () => {
       root.render(<ScopeHost scopeIds={[]} />);

@@ -2,7 +2,10 @@ import { HiOutlineDocumentText, HiOutlinePencil } from "react-icons/hi";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import type { WorkspaceSection } from "../document/types";
 import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip";
-import { getWorkspaceTextSectionData, setWorkspaceTextSectionData } from "./textSectionActions";
+import {
+  getWorkspaceTextSectionData,
+  setWorkspaceTextSectionData,
+} from "./textSectionActions";
 import {
   parseWorkspaceTextSectionData,
   type WorkspaceTextSectionChoices,
@@ -34,9 +37,15 @@ export function ToggleTextSectionDisplayModeButton({
   section: WorkspaceSection;
 }) {
   const canEditLayout = useWorkspaceCapabilities((x) => x.canEditLayout);
-  const { displayMode, format } = parseWorkspaceTextSectionData(section.id, section.data, choices);
+  const { displayMode, format } = parseWorkspaceTextSectionData(
+    section.id,
+    section.data,
+    choices,
+  );
   const isRenderMode = displayMode === "render";
-  const nextDisplayMode: WorkspaceTextSectionDisplayMode = isRenderMode ? "edit" : "render";
+  const nextDisplayMode: WorkspaceTextSectionDisplayMode = isRenderMode
+    ? "edit"
+    : "render";
   const isDisabled = !canEditLayout || section.positionAndSizeLocked;
   const label = `${DISPLAY_MODE_LABELS[nextDisplayMode]} ${FORMAT_LABELS[format]}`;
 
@@ -50,11 +59,15 @@ export function ToggleTextSectionDisplayModeButton({
     });
   }
 
-  const backgroundClassName = isRenderMode ? "bg-transparent" : "hover:bg-blue-500";
+  const backgroundClassName = isRenderMode
+    ? "bg-transparent"
+    : "hover:bg-blue-500";
   const colorClassName = isRenderMode
     ? "text-setta-600 hover:!text-blue-500"
     : "text-blue-500 hover:!text-cyan-200";
-  const cursorClassName = isDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer";
+  const cursorClassName = isDisabled
+    ? "cursor-not-allowed opacity-50"
+    : "cursor-pointer";
 
   return (
     <button

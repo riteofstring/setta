@@ -24,18 +24,18 @@ function makeFile(name: string, size: number, type: string): File {
 
 describe("dropzone policy", () => {
   it("fails specifically on invalid host configuration", () => {
-    expect(() => assertDropzonePolicy({ ...POLICY, maxAttachments: 0 })).toThrow(
-      "invalid maxAttachments: 0",
-    );
-    expect(() => assertDropzonePolicy({ ...POLICY, maxFileBytes: Number.NaN })).toThrow(
-      "invalid maxFileBytes: NaN",
-    );
-    expect(() => assertDropzonePolicy({ ...POLICY, maxTotalBytes: -1 })).toThrow(
-      "invalid maxTotalBytes: -1",
-    );
-    expect(() => assertDropzonePolicy({ ...POLICY, allowedMimePrefixes: [" image/"] })).toThrow(
-      'invalid allowedMimePrefix: " image/"',
-    );
+    expect(() =>
+      assertDropzonePolicy({ ...POLICY, maxAttachments: 0 }),
+    ).toThrow("invalid maxAttachments: 0");
+    expect(() =>
+      assertDropzonePolicy({ ...POLICY, maxFileBytes: Number.NaN }),
+    ).toThrow("invalid maxFileBytes: NaN");
+    expect(() =>
+      assertDropzonePolicy({ ...POLICY, maxTotalBytes: -1 }),
+    ).toThrow("invalid maxTotalBytes: -1");
+    expect(() =>
+      assertDropzonePolicy({ ...POLICY, allowedMimePrefixes: [" image/"] }),
+    ).toThrow('invalid allowedMimePrefix: " image/"');
   });
 
   it("validates host-owned attachment identity, metadata, and count", () => {
@@ -47,10 +47,15 @@ describe("dropzone policy", () => {
     };
     expect(() => assertDropzoneAttachments([attachment], POLICY)).not.toThrow();
     expect(getDropzoneRemainingSlots([attachment], POLICY)).toBe(2);
-    expect(getDropzoneRemainingSlots([attachment], { ...POLICY, maxAttachments: null })).toBeNull();
-    expect(() => assertDropzoneAttachments([attachment, attachment], POLICY)).toThrow(
-      "duplicate attachment id: attachment-1",
-    );
+    expect(
+      getDropzoneRemainingSlots([attachment], {
+        ...POLICY,
+        maxAttachments: null,
+      }),
+    ).toBeNull();
+    expect(() =>
+      assertDropzoneAttachments([attachment, attachment], POLICY),
+    ).toThrow("duplicate attachment id: attachment-1");
     expect(() =>
       assertDropzoneAttachments(
         [attachment, { ...attachment, id: "2" }, { ...attachment, id: "3" }],
@@ -70,7 +75,9 @@ describe("dropzone policy", () => {
       3,
     );
     expect(result.accepted).toEqual([firstImage]);
-    expect(result.rejected.map(({ file, reason }) => [file.name, reason])).toEqual([
+    expect(
+      result.rejected.map(({ file, reason }) => [file.name, reason]),
+    ).toEqual([
       ["oversized.png", "file-size"],
       ["notes.txt", "mime-type"],
       ["second.png", "total-size"],

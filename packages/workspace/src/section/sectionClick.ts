@@ -8,7 +8,9 @@ export function getOnSectionClick(sectionId: string) {
   return (event: ReactMouseEvent) => {
     const target = event.target instanceof Element ? event.target : null;
     if (
-      target?.closest(`button, [role="menuitem"], .${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`) ||
+      target?.closest(
+        `button, [role="menuitem"], .${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`,
+      ) ||
       useCanvasGestures.getState().mouseDownDraggingSection
     ) {
       // if a child button, menu item, or resizable is clicked,

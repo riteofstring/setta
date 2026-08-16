@@ -4,9 +4,14 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
-import { DropdownValueControl, type DropdownValueControlProps } from "./DropdownValueControl";
+import {
+  DropdownValueControl,
+  type DropdownValueControlProps,
+} from "./DropdownValueControl";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // Freezes the dropdown against the reference `IdNameCombobox` at the `ParamUI` dropdown
 // presentation, and characterizes the ported combobox state algorithm: the recorded pill and
@@ -50,7 +55,9 @@ describe("DropdownValueControl", () => {
   }
 
   function getInput(): HTMLInputElement {
-    const input = host.querySelector<HTMLInputElement>('input[role="combobox"]');
+    const input = host.querySelector<HTMLInputElement>(
+      'input[role="combobox"]',
+    );
     if (!input) {
       throw new Error("The dropdown input is not rendered.");
     }
@@ -75,7 +82,9 @@ describe("DropdownValueControl", () => {
   }
 
   function getVisibleOptions(): Array<string> {
-    return Array.from(getList().querySelectorAll("dd")).map((option) => option.textContent ?? "");
+    return Array.from(getList().querySelectorAll("dd")).map(
+      (option) => option.textContent ?? "",
+    );
   }
 
   async function openViaToggle() {
@@ -86,7 +95,10 @@ describe("DropdownValueControl", () => {
 
   async function typeInInput(text: string) {
     const input = getInput();
-    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
     if (!valueSetter) {
       throw new Error("The input value setter is unavailable.");
     }
@@ -99,7 +111,12 @@ describe("DropdownValueControl", () => {
   async function pressKey(key: string) {
     await act(async () => {
       getInput().dispatchEvent(
-        new KeyboardEvent("keydown", { key, code: key, bubbles: true, cancelable: true }),
+        new KeyboardEvent("keydown", {
+          key,
+          code: key,
+          bubbles: true,
+          cancelable: true,
+        }),
       );
     });
   }
@@ -144,12 +161,20 @@ describe("DropdownValueControl", () => {
     expect(input.getAttribute("aria-label")).toBe("Choice value");
     expect(input.hasAttribute("aria-labelledby")).toBe(false);
     const toggle = getToggleButton();
-    for (const expectedClass of ["nodrag", "rounded-full", "h-4", "w-4", "end-1"]) {
+    for (const expectedClass of [
+      "nodrag",
+      "rounded-full",
+      "h-4",
+      "w-4",
+      "end-1",
+    ]) {
       expect(toggle.classList.contains(expectedClass)).toBe(true);
     }
     expect(toggle.type).toBe("button");
     expect(toggle.getAttribute("aria-label")).toBe("Open Choice value choices");
-    expect(toggle.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    expect(toggle.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
+      "true",
+    );
     expect(toggle.parentElement?.className).toBe(
       "absolute inset-y-0 end-0 grid select-none place-items-center",
     );
@@ -166,7 +191,9 @@ describe("DropdownValueControl", () => {
     expect(list.classList.contains("setta-workspace")).toBe(true);
     expect(list.getAttribute("aria-label")).toBe("Choice value choices");
     expect(list.hasAttribute("aria-labelledby")).toBe(false);
-    expect(getToggleButton().getAttribute("aria-label")).toBe("Close Choice value choices");
+    expect(getToggleButton().getAttribute("aria-label")).toBe(
+      "Close Choice value choices",
+    );
     // The reference's body-portaled list presentation with its interaction boundaries.
     for (const expectedClass of [
       "nowheel",

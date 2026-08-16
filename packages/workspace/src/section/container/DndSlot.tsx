@@ -1,9 +1,16 @@
 import { useLayoutEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { RiDragDropFill } from "react-icons/ri";
-import { BehaviorDropTypeEnum, behaviorToPretty, type BehaviorDropType } from "../../dnd/dropTypes";
+import {
+  BehaviorDropTypeEnum,
+  behaviorToPretty,
+  type BehaviorDropType,
+} from "../../dnd/dropTypes";
 import { DROP_FEEDBACK_Z_INDEX } from "../../dnd/layers";
-import { getElementTextDirection, type WorkspaceTextDirection } from "../../styles/textDirection";
+import {
+  getElementTextDirection,
+  type WorkspaceTextDirection,
+} from "../../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
 import { useSectionRefs } from "../sectionRefs";
 
@@ -77,7 +84,11 @@ function DndSlotMiddle({
         zIndex: DROP_FEEDBACK_Z_INDEX,
       }}
     >
-      <DndSlotInner text={text} behaviorDropType={behaviorDropType} isGroup={isGroup} />
+      <DndSlotInner
+        text={text}
+        behaviorDropType={behaviorDropType}
+        isGroup={isGroup}
+      />
     </div>,
     document.body,
   );
