@@ -414,8 +414,9 @@ consumer remain green. No Python Canvas or LSP vocabulary enters the package.
 
 **Completed 2026-08-17:** `TextValueEditor.onCommit` is available from the public root and uses the
 current single-line editor value for an unmodified Enter. Focused tests cover modifier, IME, and
-disabled cases; the public API check, TypeScript check, workspace build, playground consumer test
-and build, and authorized Code Policy focused and recommended profiles passed.
+disabled cases, including the passive CodeMirror-extension handoff after an active editor becomes
+disabled; the public API check, TypeScript check, workspace build, playground consumer test and
+build, and authorized Code Policy focused and recommended profiles passed.
 
 ### Phase B — reviewed app and policy bootstrap
 

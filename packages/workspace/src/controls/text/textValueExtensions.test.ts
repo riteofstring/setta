@@ -1,5 +1,7 @@
+/* @vitest-environment jsdom */
 import { EditorState } from "@codemirror/state";
-import { describe, expect, it } from "vitest";
+import { EditorView } from "@codemirror/view";
+import { describe, expect, it, vi } from "vitest";
 import {
   getTextValueExtensions,
   TEXT_VALUE_BASIC_SETUP,
@@ -80,5 +82,39 @@ describe("getTextValueExtensions", () => {
     const state = createState();
     const applied = state.update({ changes: { from: 5, insert: "\nbeta" } });
     expect(applied.state.doc.toString()).toBe("alpha\nbeta");
+  });
+
+  it("reads current disabled state from an already-installed Enter listener", () => {
+    const onCommit = vi.fn();
+    const disabled = { current: false };
+    const parent = document.createElement("div");
+    document.body.appendChild(parent);
+    const view = new EditorView({
+      state: createState({
+        singleLine: true,
+        onCommit,
+        isDisabled: () => disabled.current,
+      }),
+      parent,
+    });
+
+    try {
+      // This models the interval after React commits disabled=true and before @uiw replaces
+      // CodeMirror's extensions in its passive effect.
+      disabled.current = true;
+      view.contentDOM.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          code: "Enter",
+          key: "Enter",
+        }),
+      );
+
+      expect(onCommit).not.toHaveBeenCalled();
+    } finally {
+      view.destroy();
+      parent.remove();
+    }
   });
 });

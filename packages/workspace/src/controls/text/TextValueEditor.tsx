@@ -1,6 +1,13 @@
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
-import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController";
 import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
@@ -324,6 +331,12 @@ function LiveTextValueEditor({
 }) {
   const host = useWorkspaceHost();
   const editorId = `${getWorkspaceHostDomId(host)}-CodeMirror-${sectionId}-${controlId}`;
+  // @uiw/react-codemirror replaces extensions in a passive effect. Keep the current disabled
+  // state available to an already-installed Enter listener during that handoff.
+  const disabledRef = useRef(disabled);
+  useLayoutEffect(() => {
+    disabledRef.current = disabled;
+  }, [disabled]);
   const extensions = [
     ...getTextValueExtensions({
       language,
@@ -331,7 +344,7 @@ function LiveTextValueEditor({
       wrapLines,
       onEscape,
       onCommit,
-      disabled,
+      isDisabled: () => disabledRef.current,
     }),
     EditorView.contentAttributes.of({ "aria-label": ariaLabel }),
   ];

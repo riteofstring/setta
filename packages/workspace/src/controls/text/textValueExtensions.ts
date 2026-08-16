@@ -30,7 +30,7 @@ type TextValueExtensionsOptions = {
   wrapLines: boolean | undefined;
   onEscape: () => void;
   onCommit?: (value: string) => void;
-  disabled?: boolean;
+  isDisabled?: () => boolean;
 };
 
 function isComposing(event: KeyboardEvent, view: EditorView) {
@@ -51,10 +51,13 @@ function getEnterCommit(
   {
     singleLine,
     onCommit,
-    disabled,
-  }: Pick<TextValueExtensionsOptions, "singleLine" | "onCommit" | "disabled">,
+    isDisabled,
+  }: Pick<
+    TextValueExtensionsOptions,
+    "singleLine" | "onCommit" | "isDisabled"
+  >,
 ) {
-  if (!singleLine || !onCommit || disabled) {
+  if (!singleLine || !onCommit || isDisabled?.()) {
     return undefined;
   }
   if (isComposing(event, view) || hasModifier(event) || !isEnter(event)) {
@@ -69,7 +72,7 @@ export function getTextValueExtensions({
   wrapLines,
   onEscape,
   onCommit,
-  disabled = false,
+  isDisabled,
 }: TextValueExtensionsOptions): Array<Extension> {
   const extensions: Array<Extension> = [];
   const shouldWrap = wrapLines ?? !singleLine;
@@ -94,7 +97,7 @@ export function getTextValueExtensions({
           const commit = getEnterCommit(event, view, {
             singleLine,
             onCommit,
-            disabled,
+            isDisabled,
           });
           if (!commit) {
             return false;
