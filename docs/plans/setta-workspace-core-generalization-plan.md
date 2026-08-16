@@ -6,18 +6,24 @@ This plan generalizes `@setta/workspace` into the backend-free structural core r
 Setta applications, beginning with Python Canvas. It changes the package foundation without adding
 Python Canvas, a backend, or application semantics.
 
-This is the plan to pass to `code-policy plan-loop` with the existing `workspace` and `playground`
-modules and focused verification. The implementation loop may edit only those trusted-base modules
-and this plan. It must implement the earliest incomplete phase, commit coherent batches, and request
-phase review without turning the work into a repository-wide audit.
+This plan was passed to `code-policy plan-loop` with the existing `workspace` and `playground`
+modules and focused verification. The supervised run intentionally stopped after the independently
+reviewed Phase 1 cutover. Do not resume the loop from this document: Phase 2 requires a new bounded
+plan and explicit authorization, while Phases 3–7 require concrete consumer evidence before they
+become implementation plans.
+
+Completed implementation scope:
 
 - [x] Phase 1 — instance-scoped workspace host
-- [ ] Phase 2 — headless snapshot and transaction core
-- [ ] Phase 3 — generic ports, edges, and connection interaction
-- [ ] Phase 4 — versioned serialization artifacts
-- [ ] Phase 5 — semantic editor surface
-- [ ] Phase 6 — generalized diagnostics and status
-- [ ] Phase 7 — conformance surface and package closeout
+
+Deferred design candidates, not an executable checklist:
+
+- Phase 2 — headless snapshot and transaction core
+- Phase 3 — generic ports, edges, and connection interaction
+- Phase 4 — versioned serialization artifacts
+- Phase 5 — semantic editor surface
+- Phase 6 — generalized diagnostics and status
+- Phase 7 — conformance surface and package closeout
 
 A phase is complete only when its implementation, focused tests, playground proof where required,
 and independent phase review are complete. Update the checkbox and status sentence only after that
@@ -25,7 +31,8 @@ evidence exists. Do not mark later phases complete based on scaffolding.
 
 ## Outcome
 
-After this plan:
+Phase 1 delivers the first outcome below. The remaining bullets describe possible future outcomes
+that must be revalidated in their own consumer-driven plans:
 
 - a page or test can mount two completely isolated workspaces;
 - browser UI and headless callers use the same deterministic structural operation engine;
@@ -198,7 +205,7 @@ not request ports, transactions, schemas, editor services, or generalized diagno
 
 ## Phase 2 — headless snapshot and transaction core
 
-**Status: blocked on Phase 1.**
+**Status: deferred to a separate, explicitly authorized plan.**
 
 Create the React-free structural owner and route every canonical write through it.
 
@@ -271,7 +278,7 @@ transactions, persistence, network retry semantics, or future migration formats.
 
 ## Phase 3 — generic ports, edges, and connection interaction
 
-**Status: blocked on Phase 2.**
+**Status: deferred pending concrete consumer requirements.**
 
 Extend the canonical model with backend-neutral graph topology and a minimal usable connection UI.
 
@@ -322,7 +329,7 @@ or domain-specific type inference.
 
 ## Phase 4 — versioned serialization artifacts
 
-**Status: blocked on Phase 3.**
+**Status: deferred pending concrete consumer requirements.**
 
 Publish deterministic cross-language contract artifacts without adding a second owner.
 
@@ -356,7 +363,7 @@ Go module, choose a schema migration strategy, or request backward-compatible sc
 
 ## Phase 5 — semantic editor surface
 
-**Status: blocked on Phase 4.**
+**Status: deferred pending concrete consumer requirements.**
 
 Promote the existing private section editor into a backend-neutral public semantic editor surface.
 
@@ -400,7 +407,7 @@ backend completion transport.
 
 ## Phase 6 — generalized diagnostics and status
 
-**Status: blocked on Phase 5.**
+**Status: deferred pending concrete consumer requirements.**
 
 Replace the item-list-only diagnostic seam with one host-scoped ephemeral presentation model.
 
@@ -434,7 +441,7 @@ Python compiler, LSP, reconciliation, or run-state semantics.
 
 ## Phase 7 — conformance surface and package closeout
 
-**Status: blocked on Phase 6.**
+**Status: deferred pending concrete consumer requirements.**
 
 Ratify the generalized package as a usable independent consumer boundary.
 
