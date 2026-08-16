@@ -22,12 +22,15 @@ import {
 } from "./browser-page.mjs";
 import {
   assertCallableFieldParity,
+  assertCompletionPopupEscapesTheSection,
   assertDonorCallableFieldSurface,
   assertDonorGeneratedRegion,
   assertDonorSectionComposition,
   assertGeneratedBlockHugsCode,
   assertGeneratedRegionBoundsItsBody,
   assertNonEditingGeneratedText,
+  assertSettledSectionIsNotPromoted,
+  callableCompletionPopupScript,
   callableFieldStateScript,
   callableSectionSelector,
   callableSectionStateScript,
@@ -39,12 +42,14 @@ import {
   idleCallableSelector,
   itemToolbarSelector,
   liveCallableSelector,
+  readSettledSectionState,
   replaceCallableDraft,
   waitForCallableCompletion,
   waitForCallableDraft,
   waitForClosedCallableCompletion,
   waitForEnabledCallableField,
   waitForIdleCallableValue,
+  zoomCanvasOnCallableCard,
 } from "./callable-presentation.mjs";
 
 // The Callable section is observed through public surfaces only: its accessible section group,
@@ -392,6 +397,43 @@ async function assertGeneratedDocumentPresentation(client, generatedLabel) {
   return idle.text.source;
 }
 
+// The developer exercised the app at an enlarged canvas zoom and found settled content blurred by
+// a compositor layer the package left on every hovered section, and a horizontal line across the
+// focused callable pill. Both are judged here, in a fresh scene before this walkthrough mutates
+// anything, because both are about what the shipped canvas paints rather than about a value the
+// project holds.
+async function assertSettledZoomPresentation(client, callableLabel) {
+  const zoomed = await zoomCanvasOnCallableCard(client);
+  assertSettledSectionIsNotPromoted("The zoomed", zoomed);
+
+  // The line was the top border of a completion popup the section's own box cropped, so the popup
+  // is opened at that same enlarged zoom and measured against the field it belongs to.
+  await replaceCallableDraft(client, callableLabel, otherCallable.draft);
+  await waitForCallableCompletion(client, otherCallable.completion);
+  const popup = await evaluate(client, callableCompletionPopupScript);
+  if (popup === null) {
+    throw new Error(
+      "The zoomed callable field opened no completion popup to place.",
+    );
+  }
+  assertCompletionPopupEscapesTheSection("The zoomed", popup);
+
+  // The popup takes the first Escape, the draft goes back to the canonical value on the second,
+  // and the settled card is still unpromoted with the field focused.
+  await pressEscape(client);
+  await waitForClosedCallableCompletion(client);
+  await pressEscape(client);
+  await waitForIdleCallableValue(
+    client,
+    callableLabel,
+    shippedExample.callable,
+  );
+  assertSettledSectionIsNotPromoted(
+    "The zoomed and edited",
+    await readSettledSectionState(client, "The zoomed and edited"),
+  );
+}
+
 // Rendered order alone would not prove the section reads correctly by keyboard. Start from the last
 // ordinary focus target before the callable field, enter the field with a real Tab key, and prove
 // its keyboard activation mounts the live editor before the next Tab reaches the Args filter.
@@ -622,11 +664,11 @@ async function assertCommittedCallable(
   await waitForIdleCallableValue(client, callableLabel, expression);
 }
 
-async function runWalkthrough(client, backendOrigin) {
-  const callableLabel = "Callable expression";
-  const parameterLabel = "x expression";
-  const generatedLabel = "Generated Python generated code, read-only";
-
+async function waitForAccessibleControls(
+  client,
+  callableLabel,
+  generatedLabel,
+) {
   await waitFor(
     client,
     "Python Canvas accessible controls",
@@ -637,8 +679,23 @@ async function runWalkthrough(client, backendOrigin) {
       return callable instanceof HTMLElement && generated instanceof HTMLElement && canvas instanceof HTMLElement;
     })()`,
   );
+}
+
+async function runWalkthrough(client, backendOrigin, previewOrigin) {
+  const callableLabel = "Callable expression";
+  const parameterLabel = "x expression";
+  const generatedLabel = "Generated Python generated code, read-only";
+
+  await waitForAccessibleControls(client, callableLabel, generatedLabel);
 
   await assertRawFirstRender(client, backendOrigin, callableLabel);
+  // The zoom states are judged in this untouched scene, before anything below edits a draft or
+  // commits a callable, and the page is then reloaded so the rest measures the shipped 1x
+  // composition rather than whatever the gesture left behind.
+  await assertSettledZoomPresentation(client, callableLabel);
+  await navigate(client, previewOrigin);
+  await waitForAccessibleControls(client, callableLabel, generatedLabel);
+
   await assertCallableFirstComposition(client, callableLabel);
   await assertCallableFieldActivationParity(client, callableLabel);
   await assertCallableEditorLeadsKeyboardOrder(client, callableLabel);
@@ -778,7 +835,7 @@ async function main() {
     async ({ backendOrigin, client, previewOrigin }) => {
       await setEmulatedAppearance(client, walkthroughAppearance);
       await navigate(client, previewOrigin);
-      await runWalkthrough(client, backendOrigin);
+      await runWalkthrough(client, backendOrigin, previewOrigin);
     },
   );
   console.log("Python Canvas browser vertical slice passed.");

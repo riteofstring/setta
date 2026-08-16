@@ -1,6 +1,12 @@
+import { setTimeout as delay } from "node:timers/promises";
+
 import {
   clickElementCenter,
+  elementCenter,
+  evaluate,
   insertText,
+  movePointerTo,
+  pinchZoomCanvas,
   selectAll,
   textBoxSelector,
   waitFor,
@@ -139,6 +145,35 @@ export const donorGeneratedDocument = {
 // corner of the editor wrapper instead. Chromium resolves a pseudo-element's inline start to used
 // pixels, so the centring is compared against the block's measured box rather than to "50%".
 const badgeCentreToleranceCssPx = 3;
+
+// The developer rejected a candidate whose settled zoomed section was blurred by a compositor
+// layer the package kept on every hovered section. A settled section owns no layer of its own, so
+// the browser rasterizes it at the zoom it is displayed at instead of scaling a picture the
+// gesture left behind. These are the section's own computed values, read from the accessible group
+// the card already exposes.
+export const settledSectionCompositing = {
+  backfaceVisibility: "visible",
+  isolation: "auto",
+  transform: "none",
+  willChange: "auto",
+};
+
+// One real pinch step on this canvas doubles the scene, which is an enlargement a blurred layer
+// would be plainly visible at. The gesture is proved by the card's own measured growth rather than
+// by the input having been dispatched.
+const zoomWheelDelta = -50;
+const minimumZoomedCardGrowth = 1.5;
+// The scene settles as soon as d3 applies the wheel, but the package's own gesture marker outlives
+// it by 180 ms. This is comfortably longer, so what the harness measures and captures is the
+// settled state rather than the tail of a gesture.
+const zoomSettleMs = 900;
+
+// A completion popup that is still inside the section's clipped box survives as the one horizontal
+// line the section does not crop — the inner rule the developer saw across the focused pill. The
+// popup below is proved to be out of that box in three public ways: it is not in the section's
+// subtree, its box reaches past the field's own bottom edge, and the page hit-tests it where a
+// clipped popup would have nothing to hit.
+const popupBelowFieldCssPx = 8;
 
 export function idleCallableSelector(callableLabel) {
   return `${textBoxSelector(callableLabel)}:not([contenteditable="true"])`;
@@ -297,6 +332,72 @@ export const generatedDocumentStateScript = `(() => {
   };
 })()`;
 
+// The settled card at whatever zoom the scene is displayed at: its own box and the compositing
+// the package leaves on it. The card is the accessible group this app already reads, so nothing
+// here depends on a package-private section hook.
+const settledSectionStateScript = `(() => {
+  const section = document.querySelector(${JSON.stringify(callableSectionSelector)});
+  if (!(section instanceof HTMLElement)) {
+    return null;
+  }
+  const rect = section.getBoundingClientRect();
+  const style = window.getComputedStyle(section);
+  return {
+    box: { height: rect.height, width: rect.width, x: rect.x, y: rect.y },
+    compositing: {
+      backfaceVisibility: style.backfaceVisibility,
+      isolation: style.isolation,
+      transform: style.transform,
+      willChange: style.willChange,
+    },
+    zoom: (() => {
+      const scale = new DOMMatrixReadOnly(
+        window.getComputedStyle(document.querySelector(".react-flow__viewport") ?? section).transform,
+      );
+      return scale.a;
+    })(),
+  };
+})()`;
+
+// The open completion popup, the field it belongs to, and the section that used to crop it. The
+// popup is found by its own accessible role, and the page's own hit testing says what a person can
+// actually see of it: a popup clipped back inside the pill has nothing under these two points.
+export const callableCompletionPopupScript = `(() => {
+  const section = document.querySelector(${JSON.stringify(callableSectionSelector)});
+  const field = document.querySelector(${JSON.stringify(sectionFieldSelector)});
+  const popup = document.querySelector('[role="listbox"]');
+  if (
+    !(section instanceof HTMLElement) ||
+    !(field instanceof HTMLElement) ||
+    !(popup instanceof HTMLElement)
+  ) {
+    return null;
+  }
+  const fieldRect = field.getBoundingClientRect();
+  const popupRect = popup.getBoundingClientRect();
+  const hits = (x, y) => {
+    const target = document.elementFromPoint(x, y);
+    return target instanceof Node && popup.contains(target);
+  };
+  const centreX = popupRect.left + popupRect.width / 2;
+  return {
+    field: { bottom: fieldRect.bottom, height: fieldRect.height, top: fieldRect.top },
+    popup: {
+      bottom: popupRect.bottom,
+      height: popupRect.height,
+      top: popupRect.top,
+      width: popupRect.width,
+    },
+    // The clipping boxes the rejected placement rendered inside.
+    fieldContainsPopup: field.contains(popup),
+    sectionContainsPopup: section.contains(popup),
+    // Two points below the field's own bottom edge: the popup's middle and its last visible row.
+    isVisibleAtMiddle: hits(centreX, (Math.max(popupRect.top, fieldRect.bottom) + popupRect.bottom) / 2),
+    isVisibleAtBottom: hits(centreX, popupRect.bottom - 2),
+    optionCount: popup.querySelectorAll('[role="option"]').length,
+  };
+})()`;
+
 // The complete Square Root card: the developer rejected a candidate whose field crops looked
 // right while the card around them did not, so the composition is measured as one stack — the
 // section's own box, its header, the field, the Args toolbar, and the first parameter row.
@@ -387,6 +488,94 @@ export function assertDonorSectionComposition(state, appearance) {
   ) {
     throw new Error(
       `The ${appearance} Square Root card pads its package-owned content with ${JSON.stringify(state.contentPadding)}.`,
+    );
+  }
+}
+
+// Enlarge the scene with the canvas's own pinch zoom, leave the pointer on the card the way a
+// person's hand does, and wait for the gesture to settle. The card's measured growth is what
+// proves the gesture arrived; nothing here asks the browser whether an input was delivered.
+export async function zoomCanvasOnCallableCard(client) {
+  const before = await readSettledSectionState(client, "The unzoomed");
+  const point = await elementCenter(
+    client,
+    callableSectionSelector,
+    "The Square Root card",
+  );
+  await movePointerTo(client, point);
+  await pinchZoomCanvas(client, point, zoomWheelDelta);
+  await waitFor(
+    client,
+    "the pinch-zoomed canvas settling on an enlarged Square Root card",
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(callableSectionSelector)});
+      return section instanceof HTMLElement &&
+        section.getBoundingClientRect().width >=
+          ${String(before.box.width)} * ${String(minimumZoomedCardGrowth)};
+    })()`,
+  );
+  await delay(zoomSettleMs);
+  // The card grew under the cursor, so the pointer is put back on its middle: the hovered idle
+  // canvas is the state whose compositing this correction is about.
+  const settledPoint = await elementCenter(
+    client,
+    callableSectionSelector,
+    "The zoomed Square Root card",
+  );
+  await movePointerTo(client, settledPoint);
+  const settled = await readSettledSectionState(client, "The zoomed");
+  const growth = settled.box.width / before.box.width;
+  if (!(growth >= minimumZoomedCardGrowth)) {
+    throw new Error(
+      `The canvas pinch zoom left the Square Root card at ${growth.toFixed(2)}x its unzoomed width instead of at least ${String(minimumZoomedCardGrowth)}x.`,
+    );
+  }
+  return settled;
+}
+
+export async function readSettledSectionState(client, stage) {
+  const state = await evaluate(client, settledSectionStateScript);
+  if (state === null) {
+    throw new Error(`${stage} Square Root card did not render.`);
+  }
+  return state;
+}
+
+// A settled section carries no compositor layer of its own, hovered or not, so its text, icons,
+// and borders are rasterized at the zoom they are shown at.
+export function assertSettledSectionIsNotPromoted(stage, state) {
+  for (const [property, expected] of Object.entries(
+    settledSectionCompositing,
+  )) {
+    if (state.compositing[property] !== expected) {
+      throw new Error(
+        `${stage} settled Square Root card kept ${property} ${JSON.stringify(state.compositing[property])} instead of ${JSON.stringify(expected)}, so its content is scaled from a stale layer.`,
+      );
+    }
+  }
+}
+
+// The reference parents its completion popup beside the canvas scene. The rejected placement left
+// it inside the section, which cropped it down to the horizontal line the developer saw across
+// the focused pill.
+export function assertCompletionPopupEscapesTheSection(stage, state) {
+  if (state.optionCount < 1) {
+    throw new Error(`${stage} completion popup offered nothing to place.`);
+  }
+  if (state.sectionContainsPopup || state.fieldContainsPopup) {
+    throw new Error(
+      `${stage} completion popup is still inside the ${state.fieldContainsPopup ? "callable field" : "Square Root section"}, which clips it.`,
+    );
+  }
+  const below = state.popup.bottom - state.field.bottom;
+  if (!Number.isFinite(below) || below < popupBelowFieldCssPx) {
+    throw new Error(
+      `${stage} completion popup reached ${String(Math.round(below))} CSS px past the field's own bottom edge, so it is the sliver a clipped popup leaves inside the pill.`,
+    );
+  }
+  if (!state.isVisibleAtMiddle || !state.isVisibleAtBottom) {
+    throw new Error(
+      `${stage} completion popup is not what the page hit-tests below the callable field, so its box is painted somewhere the field or its section crops.`,
     );
   }
 }

@@ -168,10 +168,7 @@ export async function dragSelectElement(client, selector, description) {
   });
 }
 
-// A real pointer press on the element's centre. Synthetic focus does not reproduce what a person
-// does to a field or a generated region, and the states this walkthrough judges are exactly the
-// ones a click produces.
-export async function clickElementCenter(client, selector, description) {
+export async function elementCenter(client, selector, description) {
   const point = await evaluate(
     client,
     `(() => {
@@ -187,8 +184,39 @@ export async function clickElementCenter(client, selector, description) {
     })()`,
   );
   if (point === null) {
-    throw new Error(`${description} was not visible to a real pointer click.`);
+    throw new Error(`${description} has no visible box on the page.`);
   }
+  return point;
+}
+
+// A real pointer move. An idle canvas with a section under the cursor is the exact state the
+// rejected per-section compositor promotion blurred, so the harness puts the pointer there rather
+// than judging a canvas no pointer has touched.
+export async function movePointerTo(client, point) {
+  await client.send("Input.dispatchMouseEvent", {
+    ...point,
+    buttons: 0,
+    type: "mouseMoved",
+  });
+}
+
+// The canvas's own wheel zoom, dispatched with the modifier a trackpad pinch sends. This is the
+// product's zoom rather than a store write, so what it proves is what a person's gesture does.
+export async function pinchZoomCanvas(client, point, deltaY) {
+  await client.send("Input.dispatchMouseEvent", {
+    ...point,
+    deltaX: 0,
+    deltaY,
+    modifiers: 2, // Ctrl, which is how a pinch arrives as a wheel event
+    type: "mouseWheel",
+  });
+}
+
+// A real pointer press on the element's centre. Synthetic focus does not reproduce what a person
+// does to a field or a generated region, and the states this walkthrough judges are exactly the
+// ones a click produces.
+export async function clickElementCenter(client, selector, description) {
+  const point = await elementCenter(client, selector, description);
   const params = {
     button: "left",
     clickCount: 1,

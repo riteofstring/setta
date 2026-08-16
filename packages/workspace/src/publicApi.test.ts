@@ -162,6 +162,28 @@ describe("public package API", () => {
     itemRow.endAdornment = null;
   });
 
+  // The canvas renders the tooltip parent its editors use, so a consumer never passes, names, or
+  // opts into one, and no CodeMirror element, extension, or tooltip option crosses the root.
+  it("resolves the canvas tooltip parent without a public seam for it", () => {
+    const field: ComponentProps<typeof workspace.TextValueEditor> = {
+      ariaLabel: "Expression",
+      controlId: "expression",
+      onValueChange: () => {},
+      presentation: "section-field",
+      sectionId: "section-1",
+      value: "draft",
+    };
+    // @ts-expect-error the package resolves its canvas tooltip parent from the host.
+    field.tooltipParent = null;
+    // `WorkspaceTooltip` is the package's own hover chrome and stays exported; nothing names the
+    // editor's tooltip placement or the CodeMirror objects behind it.
+    expect(
+      RUNTIME_EXPORTS.filter((name) =>
+        /codemirror|editorview|tooltipparent|extension/i.test(name),
+      ),
+    ).toStrictEqual([]);
+  });
+
   it("keeps the item-area presentation generic and content-agnostic", () => {
     const itemArea = {
       renderLeadingContent: () => null,

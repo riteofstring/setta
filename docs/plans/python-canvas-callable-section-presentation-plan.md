@@ -1565,6 +1565,73 @@ tooltip-parent fix, their focused package tests and production browser proof, an
 recapture the preceding batches already owe. Nothing else: no edge case audit, no further donor
 items, no unrelated cleanup.
 
+**Transient compositor and canvas tooltip-parent record.** This correction's fifth and sixth items
+are implemented, which closes its repository work.
+
+The package's persistent per-section promotion is deleted rather than narrowed. `workspace.css` no
+longer promotes a leaf shell because the canvas is hovered, and its `@media (hover: none)` block —
+which promoted every section of a hoverless canvas continuously — is gone with it. What remains is
+the marker `ZoomPane` already owns: a leaf takes `will-change: transform`, `translateZ(0)`, hidden
+backface, and its own stacking context only while
+`data-viewport-interaction-active="true"`, and that attribute is set on the gesture and cleared when
+pan and wheel-zoom both fall idle. A settled section therefore owns no layer, so the browser
+rasterizes its text, icons, and borders at the zoom it displays them at instead of scaling the
+picture the gesture left behind. No component, store field, or render path changed: the promotion
+was always a stylesheet rule keyed on a canvas-owned attribute, and only the two rules that outlived
+a gesture were removed.
+
+The focused field's inner horizontal line is the completion tooltip, and it is fixed structurally.
+`@setta/workspace` now owns the reference's canvas tooltip parent. `canvas/codeMirrorTooltipParent.ts`
+holds a host-scoped store behind the same `WeakMap` the canvas store already uses, `Viewport`
+renders one zero-area anchor as a sibling of the scene content and publishes it in layout, and
+`getTextValueExtensions` turns the resolved element into `tooltips({ parent })`. The anchor lives
+inside the transformed viewport, so a popup pans and scales with the scene it annotates, and outside
+every section, so no section's clipping and overflow box can crop it down to the top border that
+crossed the pill. Binding it to the host rather than to a document id is what keeps two canvases on
+one page from resolving, sharing, or stealing one parent. Both editor placements resolve it the same
+way — the reference names it from its own name input too, and a name editor sits in the same clipped
+box a field does — and nothing consumer-facing grows: no prop, option, flag, per-control opt-in, or
+CodeMirror object crosses the package root, and an editor rendered with no canvas simply installs no
+tooltip extension, which is also a tree with no section to clip a popup.
+
+The production proof runs the zoom states first, in the scene the service boots, and then reloads so
+everything after it still measures the shipped 1x composition. It pinch-zooms the canvas with the
+product's own ctrl-wheel gesture, proves the gesture arrived by the card's own measured enlargement
+rather than by asking whether an input was delivered, leaves the pointer resting on the card the way
+a hand does, and waits past the marker's own idle window before reading anything.
+
+Proofs: three `codeMirrorTooltipParent` cases pin one parent per canvas, its placement inside the
+transformed viewport and outside the section subtree, a real field's completion popup parented to it
+rather than to the section or the editor, and two canvases owning two parents; a
+`getTextValueExtensions` case pins the two shapes a control can get, since it never opts in; the
+public-root proof carries a `@ts-expect-error` for a consumer-passed parent beside a runtime check
+that no export names CodeMirror, an editor view, a tooltip parent, or an extension; and the adaptive
+stylesheet contract now fails on a returning `:hover` or `hover: none` promotion and on any second
+`will-change: transform` owner. In the walkthrough the settled zoomed card must report the
+unpromoted computed values, and the popup opened at that zoom must be outside both the section and
+the field, reach past the field's own bottom edge, and be what the page hit-tests at two points
+below it — the sliver a cropped popup leaves cannot satisfy the last two.
+
+Verification for this batch: `code-policy check` over the worktree reports only the
+`quality.deadCode` finding on `apps/python-canvas/vitest.setup.ts` this plan already reports, over a
+file this batch does not touch. `code-policy test --changed --base b1aa97c08` passes over its three
+focused suites, and the authorized `code-policy test --recommended --base b1aa97c08` passes all six:
+workspace focused and component (1188 tests across 143 files), playground focused and component
+(43), Python Canvas frontend (42), and the production browser walkthrough against the production
+builds, the real Go service, pinned Basedpyright, and headless Chrome at 1440x900 device scale 1.
+The workspace, playground, and Python Canvas TypeScript projects are clean. Two negative controls
+bind this fix: restoring the hover promotion fails the walkthrough with _The zoomed settled Square
+Root card kept backfaceVisibility "hidden" instead of "visible", so its content is scaled from a
+stale layer_, and leaving the editor's tooltips unparented fails it with _The zoomed completion
+popup is still inside the callable field, which clips it_ as well as failing the parenting case.
+
+What remains in this phase: the recapture this correction owes, rendered from this batch's immutable
+source candidate and committed separately as decision 15 requires; the fresh read-only review; the
+supervisor's inspection of the raw-startup and settled-zoom images at full resolution; developer
+visual acceptance with its accepted-candidate record; and this phase's closing
+`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
+accepted candidate.
+
 ## Stop conditions
 
 Stop and request a scope decision if:

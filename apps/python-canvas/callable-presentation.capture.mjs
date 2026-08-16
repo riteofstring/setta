@@ -11,21 +11,26 @@ import {
 import {
   clickElementCenter,
   evaluate,
+  insertText,
   labeledSelector,
   navigate,
   pressEscape,
+  selectAll,
   setEmulatedAppearance,
   textBoxSelector,
   waitFor,
 } from "./browser-page.mjs";
 import {
   assertCallableFieldParity,
+  assertCompletionPopupEscapesTheSection,
   assertDonorCallableFieldSurface,
   assertDonorGeneratedRegion,
   assertDonorSectionComposition,
   assertGeneratedBlockHugsCode,
   assertGeneratedRegionBoundsItsBody,
   assertNonEditingGeneratedText,
+  assertSettledSectionIsNotPromoted,
+  callableCompletionPopupScript,
   callableFieldStateScript,
   callableSectionSelector,
   callableSectionStateScript,
@@ -38,15 +43,23 @@ import {
   generatedDocumentStateScript,
   idleCallableSelector,
   liveCallableSelector,
+  readSettledSectionState,
+  settledSectionCompositing,
+  waitForCallableCompletion,
+  waitForCallableDraft,
+  waitForClosedCallableCompletion,
   waitForEnabledCallableField,
+  waitForIdleCallableValue,
+  zoomCanvasOnCallableCard,
 } from "./callable-presentation.mjs";
 
 // The visual-acceptance capture: it drives the same production surface as the vertical-slice
-// walkthrough and records the four states this presentation correction is judged on — Callable
-// idle and focused, Generated Python idle and clicked — in both appearances, as complete section
-// crops plus machine-readable geometry and typography. It asserts the donor values while it
-// records, so it can never file a capture of a surface that has drifted, but a passing run is
-// evidence for review rather than acceptance.
+// walkthrough and records the states this presentation correction is judged on — Callable idle and
+// focused, Generated Python idle and clicked, and the settled enlarged zoom the developer exercised
+// it at, idle, focused, and with a completion popup open — in both appearances, as complete section
+// crops plus machine-readable geometry, typography, and settled compositing. It asserts the donor
+// values while it records, so it can never file a capture of a surface that has drifted, but a
+// passing run is evidence for review rather than acceptance.
 //
 // It records the raw first render. An earlier version committed the sample callable and typed a
 // parameter value before recording, so the images certified a state the shipped application never
@@ -72,6 +85,10 @@ const cropMarginCssPx = 8;
 // The shipped example the Go service commits before it serves anything. The capture waits for it
 // rather than performing it.
 const committedCallable = "math.sqrt";
+// The draft the zoomed completion state is recorded on, and the offer the provider answers with.
+// Escape abandons it, so the recording still mutates nothing.
+const completionDraft = "math.sq";
+const completionLabel = "sqrt";
 
 // The canonical first render: the committed callable, its provider-derived parameter row, and the
 // generated call. Nothing here mutates the project.
@@ -202,6 +219,101 @@ async function captureCallableStates(client, appearance) {
   ];
 }
 
+// The states the developer rejected the previous candidate on: a settled enlarged zoom, where the
+// package's own compositor layer blurred everything the card paints, and the focused field with a
+// completion popup open, where the section's clipping box cropped that popup to a horizontal line
+// across the pill. The card is recorded idle, focused, and with the popup showing, and the
+// section's settled compositing is recorded beside each image.
+async function captureZoomedStates(client, appearance) {
+  const idleSection = await zoomCanvasOnCallableCard(client);
+  assertSettledSectionIsNotPromoted(
+    `The idle ${appearance} zoomed`,
+    idleSection,
+  );
+  const idleField = await readSurfaceState(
+    client,
+    callableFieldStateScript(idleCallableSelector(callableLabel)),
+    `The idle ${appearance} zoomed callable field`,
+  );
+  // Computed paint and type do not scale with the canvas transform, so the donor surface has to
+  // hold at an enlarged zoom exactly as it does at 1x.
+  assertDonorCallableFieldSurface(idleField, appearance);
+  const idleCrop = await captureCrop(
+    client,
+    callableSectionSelector,
+    `The idle ${appearance} zoomed Square Root card`,
+  );
+
+  await enterCallableField(client, callableLabel);
+  const focusedField = await readSurfaceState(
+    client,
+    callableFieldStateScript(liveCallableSelector(callableLabel)),
+    `The focused ${appearance} zoomed callable field`,
+  );
+  assertCallableFieldParity(
+    idleField,
+    focusedField,
+    fieldTypeProperties,
+    appearance,
+  );
+  const focusedSection = await readSettledSectionState(
+    client,
+    `The focused ${appearance} zoomed`,
+  );
+  assertSettledSectionIsNotPromoted(
+    `The focused ${appearance} zoomed`,
+    focusedSection,
+  );
+  const focusedCrop = await captureCrop(
+    client,
+    callableSectionSelector,
+    `The focused ${appearance} zoomed Square Root card`,
+  );
+
+  // The field is already the live editor this pass focused, so the draft is replaced in it rather
+  // than entered again from an idle layer this state no longer has.
+  await selectAll(client);
+  await insertText(client, completionDraft);
+  await waitForCallableDraft(client, callableLabel, completionDraft);
+  await waitForCallableCompletion(client, completionLabel);
+  const popup = await readSurfaceState(
+    client,
+    callableCompletionPopupScript,
+    `The ${appearance} zoomed completion popup`,
+  );
+  assertCompletionPopupEscapesTheSection(`The ${appearance} zoomed`, popup);
+  const completionCrop = await captureCrop(
+    client,
+    callableSectionSelector,
+    `The ${appearance} zoomed Square Root card with its completion popup`,
+  );
+
+  // The popup takes the first Escape and the abandoned draft returns to the committed value on the
+  // second, so this recording leaves the project exactly as it found it.
+  await pressEscape(client);
+  await waitForClosedCallableCompletion(client);
+  await pressEscape(client);
+  await waitForIdleCallableValue(client, callableLabel, committedCallable);
+
+  return [
+    {
+      crop: idleCrop,
+      observed: { field: idleField, section: idleSection },
+      state: "zoomed-idle",
+    },
+    {
+      crop: focusedCrop,
+      observed: { field: focusedField, section: focusedSection },
+      state: "zoomed-focused",
+    },
+    {
+      crop: completionCrop,
+      observed: { popup, section: focusedSection },
+      state: "zoomed-completion",
+    },
+  ];
+}
+
 async function captureGeneratedStates(client, appearance) {
   const idle = await readSurfaceState(
     client,
@@ -244,6 +356,22 @@ async function captureGeneratedStates(client, appearance) {
   ];
 }
 
+function donorValuesFor(surface, appearance) {
+  if (surface === "generated-document") {
+    return donorGeneratedDocument[appearance];
+  }
+  if (surface === "zoomed-callable-section") {
+    return {
+      compositing: settledSectionCompositing,
+      field: donorCallableField[appearance],
+    };
+  }
+  return {
+    composition: donorSectionComposition,
+    field: donorCallableField[appearance],
+  };
+}
+
 function writeCapture(records, surface, appearance, entry) {
   const ordinal = String(records.length + 1).padStart(2, "0");
   const id = `${ordinal}-${surface}-${entry.state}-${appearance}`;
@@ -252,13 +380,7 @@ function writeCapture(records, surface, appearance, entry) {
   records.push({
     appearance,
     crop: { ...entry.crop.clip, marginCssPx: cropMarginCssPx },
-    donor:
-      surface === "callable-section"
-        ? {
-            composition: donorSectionComposition,
-            field: donorCallableField[appearance],
-          }
-        : donorGeneratedDocument[appearance],
+    donor: donorValuesFor(surface, appearance),
     id,
     observed: entry.observed,
     screenshot: `screenshots/${file}`,
@@ -279,11 +401,16 @@ async function capture(client, previewOrigin) {
 
     const callable = await captureCallableStates(client, appearance);
     const generated = await captureGeneratedStates(client, appearance);
+    // Last, because the gesture enlarges the scene every state above is measured in.
+    const zoomed = await captureZoomedStates(client, appearance);
     for (const entry of callable) {
       writeCapture(records, "callable-section", appearance, entry);
     }
     for (const entry of generated) {
       writeCapture(records, "generated-document", appearance, entry);
+    }
+    for (const entry of zoomed) {
+      writeCapture(records, "zoomed-callable-section", appearance, entry);
     }
   }
   return records;

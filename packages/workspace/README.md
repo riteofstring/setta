@@ -489,7 +489,11 @@ attribute is the one documented hook for observing or capturing the surface, and
 inner structure, or CodeMirror internal is public.
 
 Both placements share the reference's editing keys. A supplied `completionProvider` offers its
-options in a popup that takes Tab to accept one and the first Escape to close itself. An
+options in a popup the canvas parents beside its scene rather than inside the section that would
+clip it, so a popup taller than a compact field is fully visible and still pans and zooms with the
+scene. The canvas renders that parent per host: a consumer never passes, names, or opts into one,
+and no CodeMirror element, extension, or tooltip option crosses the package root. The popup takes
+Tab to accept one option and the first Escape to close itself. An
 unmodified Enter belongs to a declared `onCommit`, popup or no popup, so a single-line field
 commits the draft it is showing rather than needing a second press; a control that declares no
 `onCommit` leaves that Enter to the popup. The Escape that reaches the editor reports to the

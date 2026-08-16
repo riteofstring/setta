@@ -8,7 +8,7 @@ import {
   type CompletionContext,
   type CompletionResult,
 } from "@codemirror/autocomplete";
-import { EditorView, keymap } from "@codemirror/view";
+import { EditorView, keymap, tooltips } from "@codemirror/view";
 import {
   getTextValueLanguageExtensions,
   type TextValueLanguage,
@@ -20,11 +20,11 @@ import type {
 
 // The reference's `getExtensions` trimmed to the paths its text value editor reaches: line
 // wrapping, the declared language pack, the single-line transaction filter, the optional
-// consumer-owned Enter commit seam, the Escape binding, and the reference's Tab-accepts-completion
-// binding. Tooltip parents, app undo/redo shortcut overrides, and the reference's tab-scope focus
-// manager are application services and stay application-side, so Tab outside an open popup remains
-// the browser's own focus move; without a completion source Escape always reports (the reference
-// consults `completionStatus` first).
+// consumer-owned Enter commit seam, the Escape binding, the reference's Tab-accepts-completion
+// binding, and the reference's canvas tooltip parent. App undo/redo shortcut overrides and the
+// reference's tab-scope focus manager are application services and stay application-side, so Tab
+// outside an open popup remains the browser's own focus move; without a completion source Escape
+// always reports (the reference consults `completionStatus` first).
 
 // `@uiw/react-codemirror` otherwise enables its bundled autocompletion extension by default.
 // Keep that implicit source off. A supplied consumer-neutral provider installs the narrow
@@ -46,6 +46,10 @@ type TextValueExtensionsOptions = {
   isDisabled?: () => boolean;
   completionProvider?: TextValueCompletionProvider;
   completionRequests?: TextValueCompletionRequests;
+  // The canvas's own tooltip parent, resolved from the host rather than passed by a consumer. It
+  // is null only for an editor rendered with no canvas, which is also a tree with no section
+  // clipping the popup this would move out of.
+  tooltipParent: HTMLElement | null;
 };
 
 type TextValueCompletionRequests = {
@@ -101,11 +105,15 @@ export function getTextValueExtensions({
   isDisabled,
   completionProvider,
   completionRequests,
+  tooltipParent,
 }: TextValueExtensionsOptions): Array<Extension> {
   const extensions: Array<Extension> = [];
   const shouldWrap = wrapLines ?? !singleLine;
   if (shouldWrap) {
     extensions.push(EditorView.lineWrapping);
+  }
+  if (tooltipParent) {
+    extensions.push(tooltips({ parent: tooltipParent }));
   }
   extensions.push(...getTextValueLanguageExtensions(language));
   if (singleLine) {

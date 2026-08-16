@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController";
+import { useCodeMirrorTooltipParent } from "../../canvas/codeMirrorTooltipParent";
 import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { focusSectionAfterEscape } from "../sectionFocus";
@@ -423,6 +424,9 @@ function LiveTextValueEditor({
   onBlur: () => void;
 }) {
   const host = useWorkspaceHost();
+  // The canvas renders one tooltip parent per host, so a completion popup opens beside the scene
+  // instead of inside the section box that would clip it. No caller names, passes, or opts into it.
+  const tooltipParent = useCodeMirrorTooltipParent();
   const editorId = `${getWorkspaceHostDomId(host)}-CodeMirror-${sectionId}-${controlId}`;
   // @uiw/react-codemirror replaces extensions in a passive effect. Keep the current disabled
   // state and controlled value available to already-installed input extensions during that
@@ -472,6 +476,7 @@ function LiveTextValueEditor({
       isDisabled: () => disabledRef.current,
       completionProvider,
       completionRequests,
+      tooltipParent,
     }),
     EditorState.changeFilter.of((transaction) => {
       if (!disabledRef.current || !transaction.docChanged) {

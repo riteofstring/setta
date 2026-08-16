@@ -77,18 +77,20 @@ describe("workspace adaptive stylesheet contract", () => {
     );
   });
 
-  it("prepares section compositor layers before pan starts without a per-section state fanout", () => {
-    expect(workspaceStyles).toContain(
-      ".setta-workspace.react-flow:hover [data-section-id]",
-    );
+  it("promotes section compositor layers only while a viewport gesture runs", () => {
     expect(workspaceStyles).toMatch(
-      /\.setta-workspace\.react-flow\[data-viewport-interaction-active="true"\]\s+\[data-section-id\]/u,
+      /\.setta-workspace\.react-flow\[data-viewport-interaction-active="true"\]\s+\[data-section-id\][^{]*\{[^}]*will-change: transform[^}]*transform: translateZ\(0\)[^}]*backface-visibility: hidden[^}]*isolation: isolate/su,
     );
-    expect(workspaceStyles).toMatch(
-      /\.setta-workspace\.react-flow:hover \[data-section-id\][^{]*\{[^}]*will-change: transform[^}]*transform: translateZ\(0\)[^}]*backface-visibility: hidden[^}]*isolation: isolate/su,
+    // A settled section keeps no layer of its own, so an enlarged zoom rasterizes its content
+    // again instead of scaling the picture the gesture left behind.
+    expect(workspaceStyles).not.toContain(
+      ".react-flow:hover [data-section-id]",
     );
-    expect(workspaceStyles).toMatch(
-      /@media \(hover: none\)[^{]*\{[^}]*\.setta-workspace\.react-flow \[data-section-id\]/su,
+    expect(workspaceStyles).not.toMatch(
+      /@media \(hover: none\)[^{]*\{[^}]*\[data-section-id\]/su,
+    );
+    expect(workspaceStyles.match(/will-change: transform/gu)?.length ?? 0).toBe(
+      1,
     );
   });
 

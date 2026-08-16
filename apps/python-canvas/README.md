@@ -48,7 +48,12 @@ pnpm --filter @setta/python-canvas run browser:test
 ```
 
 The walkthrough asserts the raw first render against the canonical response
-before it changes anything. It then drives the callable keys through a second
+before it changes anything. Still in that untouched scene, it pinch-zooms the
+canvas onto the Square Root card with the pointer resting on it, waits for the
+gesture to settle, and requires the card to keep no compositor layer of its own
+and its completion popup to open outside the section box that used to crop it;
+it then reloads, so everything after it measures the shipped 1x composition. It
+then drives the callable keys through a second
 real callable, `math.floor`, because a key sequence that begins and ends on the
 committed `math.sqrt` cannot show whether anything was committed: `Escape`
 abandons a draft without touching the project, `Tab` accepts `floor` without
