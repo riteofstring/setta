@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -141,6 +142,18 @@ func sanitizePythonPath(value string) string {
 func IsPythonKeyword(value string) bool {
 	_, isKeyword := pythonKeywords[value]
 	return isKeyword
+}
+
+// PythonKeywords returns the same reserved words in sorted order. The client
+// applies this rule to a name being written, so the contract generator renders
+// this list rather than the frontend keeping a second copy of it.
+func PythonKeywords() []string {
+	keywords := make([]string, 0, len(pythonKeywords))
+	for keyword := range pythonKeywords {
+		keywords = append(keywords, keyword)
+	}
+	sort.Strings(keywords)
+	return keywords
 }
 
 var pythonKeywords = map[string]struct{}{

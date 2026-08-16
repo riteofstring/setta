@@ -13,6 +13,7 @@ import {
   insertText,
   labeledSelector,
   releaseItemSelectionChord,
+  selectAll,
   textBoxSelector,
   waitFor,
 } from "./browser-page.mjs";
@@ -57,6 +58,7 @@ export async function assertAuthoredParameterAuthoring(
   backendOrigin,
   generatedLabel,
 ) {
+  const beforeAdding = await fetchCanonicalSnapshot(backendOrigin);
   await clickElementCenter(
     client,
     labeledSelector("Add parameter"),
@@ -70,10 +72,12 @@ export async function assertAuthoredParameterAuthoring(
       parameters[1].name === "" &&
       parameters[1].nameEditable === true,
   );
+  // The store keeps the record a person is filling in and leaves it out of the rendered call, so
+  // the module the added record produced is byte-identical to the one before it.
   const blank = await fetchCanonicalSnapshot(backendOrigin);
-  if (blank.generatedCode.code.includes("Square_Root__ ")) {
+  if (blank.generatedCode.code !== beforeAdding.generatedCode.code) {
     throw new Error(
-      "A nameless authored parameter reached the generated module.",
+      `A nameless authored parameter reached the generated module: ${JSON.stringify(blank.generatedCode.code)}.`,
     );
   }
 
@@ -101,6 +105,8 @@ export async function assertAuthoredParameterAuthoring(
     })()`,
   );
 
+  await assertDuplicateNameIsRefusedInTheRow(client, backendOrigin);
+
   await clickElementCenter(
     client,
     labeledSelector("Remove last parameter"),
@@ -121,6 +127,74 @@ export async function assertAuthoredParameterAuthoring(
   );
 
   await assertBulkParameterDeletion(client, backendOrigin);
+}
+
+// Main refuses a name another record under the same parent already claims: it reports the problem
+// beside the row and never sends it. Renaming the authored row to the signature's own `x` is the
+// quiet half of that defect — one generated path for two records — so this proves the row says so
+// and that the project and its module are left exactly as they were.
+async function assertDuplicateNameIsRefusedInTheRow(client, backendOrigin) {
+  const beforeRename = await fetchCanonicalSnapshot(backendOrigin);
+
+  await waitForEditableRowControl(client, "Item name");
+  await activateTextBox(client, "Item name");
+  await selectAll(client);
+  await insertText(client, "x");
+  await waitFor(
+    client,
+    "the authored row reporting the name the signature already claims",
+    `(() => {
+      const editors = Array.from(
+        document.querySelectorAll(${JSON.stringify(textBoxSelector("Item name"))}),
+      );
+      return editors.some((editor) => {
+        if (editor.getAttribute("aria-invalid") !== "true") {
+          return false;
+        }
+        const describedBy = editor.getAttribute("aria-describedby");
+        const description = describedBy === null
+          ? null
+          : document.getElementById(describedBy);
+        return description?.textContent ===
+          'Param name "x" already exists under this parent.';
+      });
+    })()`,
+  );
+
+  // Well past the controller's coalescing window and the round trips every other step here
+  // completes inside, so a proposal this list made would have landed by now.
+  await delay(2000);
+  const afterRename = await fetchCanonicalSnapshot(backendOrigin);
+  if (
+    afterRename.project.revision !== beforeRename.project.revision ||
+    afterRename.generatedCode.code !== beforeRename.generatedCode.code
+  ) {
+    throw new Error(
+      `A duplicate parameter name reached the canonical project at revision ${afterRename.project.revision}: ${JSON.stringify(afterRename.generatedCode.code)}.`,
+    );
+  }
+  // The row kept what was typed rather than having the canonical list restored over it.
+  await waitFor(
+    client,
+    "the authored row still holding the refused name",
+    `(() => {
+      const editors = Array.from(
+        document.querySelectorAll(${JSON.stringify(textBoxSelector("Item name"))}),
+      );
+      return editors.some((editor) => editor.textContent?.trim() === "x");
+    })()`,
+  );
+
+  // Writing a usable name again releases the same list, so the refusal above is the name's and
+  // not a dead end this row cannot leave.
+  await activateTextBox(client, "Item name");
+  await selectAll(client);
+  await insertText(client, "scale");
+  await waitForCanonicalParameters(
+    backendOrigin,
+    "the renamed authored parameter",
+    (parameters) => parameters.length === 2 && parameters[1].name === "scale",
+  );
 }
 
 // Delete Selected is one validated transaction rather than a loop of partial deletes, so two

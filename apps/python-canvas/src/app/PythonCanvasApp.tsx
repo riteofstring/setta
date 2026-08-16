@@ -29,6 +29,7 @@ import {
   readCallableSectionData,
 } from "../sections/CallableSection";
 import { createCallableCompletionProvider } from "../sections/callableCompletion";
+import { hasBlockingParameterName } from "../sections/parameterNames";
 import {
   CALLABLE_SECTION_KIND,
   CALLABLE_SECTION_SIZE,
@@ -37,8 +38,8 @@ import {
   applyProjectSnapshotToWorkspace,
   createCallableParameterItem,
   projectWorkspaceDocument,
-  readCallableParameterItemIds,
   readCallableParameterItems,
+  readCallableParameterRows,
   setParameterItemExpression,
   setParameterItemName,
   setParameterItemsDisabled,
@@ -88,7 +89,7 @@ export function registerPythonCanvasSectionKinds(host: WorkspaceHost): void {
       renderContent: (section) => (
         <CallableSection
           data={readCallableSectionData(section.data)}
-          parameterItemIds={readCallableParameterItemIds(section)}
+          parameters={readCallableParameterRows(section)}
         />
       ),
     },
@@ -233,14 +234,16 @@ export function PythonCanvasApp() {
     // A structural action runs in the package the moment it is clicked, so the document can already
     // hold a newer list than the one this response answers. That list is what the person last asked
     // for, so the canonical one is not rebuilt over it: the project's own data lands on the rows
-    // that survive and the newer list is proposed in turn.
+    // that survive and the newer list is proposed in turn. The comparison reads the document's own
+    // list rather than what it would propose, because every row this response answers for is still
+    // disabled at this point and would propose nothing at all.
     const acceptParameterListResponse = (
       sent: Array<ParameterProposalV1>,
       nextSnapshot: ProjectSnapshotV1,
     ) => {
       const moved = !sameProposedList(
         sent,
-        proposedParameterList(host.getSnapshot()),
+        documentParameterList(host.getSnapshot()),
       );
       if (moved) {
         applyProjectionKeepingParameterList(nextSnapshot);
@@ -461,8 +464,23 @@ export function PythonCanvasApp() {
   );
 }
 
-// The complete ordered candidate the workspace document currently holds. A disabled row is one
-// whose mutation is already in flight, so its document state is not a new proposal.
+// The complete ordered candidate the workspace document currently holds, whatever its rows' own
+// in-flight state. This is the list a response is compared against to see whether the person moved
+// on while it was away.
+function documentParameterList(
+  document: WorkspaceDocument,
+): Array<ParameterProposalV1> {
+  return readCallableParameterItems(document).map((item) => ({
+    authoredExpression: item.data.authoredExpression,
+    id: item.id,
+    name: item.data.name,
+  }));
+}
+
+// The candidate this document is proposing to the store. A disabled row is one whose mutation is
+// already in flight, so its document state is not a new proposal; and a name the store would
+// refuse is one main never sends, so the row keeps what is being typed and reports the problem
+// beside itself instead of having the whole list restored underneath it.
 function proposedParameterList(
   document: WorkspaceDocument,
 ): Array<ParameterProposalV1> | null {
@@ -470,21 +488,18 @@ function proposedParameterList(
   if (items.some((item) => item.data.disabled)) {
     return null;
   }
-  return items.map((item) => ({
-    authoredExpression: item.data.authoredExpression,
-    id: item.id,
-    name: item.data.name,
-  }));
+  if (hasBlockingParameterName(items)) {
+    return null;
+  }
+  return documentParameterList(document);
 }
 
-// Whether the document still holds the exact list a proposal was made from. A disabled row reads as
-// no proposal at all, which is not the same list.
+// Whether the document still holds the exact list a proposal was made from.
 function sameProposedList(
   sent: Array<ParameterProposalV1>,
-  current: Array<ParameterProposalV1> | null,
+  current: Array<ParameterProposalV1>,
 ): boolean {
   return (
-    current !== null &&
     current.length === sent.length &&
     current.every((proposed, index) => {
       const original = sent[index];

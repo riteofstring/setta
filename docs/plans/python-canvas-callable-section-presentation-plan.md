@@ -2037,7 +2037,7 @@ fails rather than passing vacuously if there are none.
 Two file extractions are forced by `quality.fileLength` and are behaviour-preserving. The
 walkthrough reached 1089 lines against the shared 1000-line limit, so the argument-authoring proofs
 moved to `browser-parameters.mjs` beside the existing `browser-page.mjs` and `browser-processes.mjs`,
-leaving the walkthrough at 897. `.code-policy.json` is untouched. `parseApiErrorCode` was pushed
+leaving the walkthrough at 893. `.code-policy.json` is untouched. `parseApiErrorCode` was pushed
 past `quality.complexity` by the two new codes and now decides membership from one declared list
 instead of one branch per code, and `SetCallableParameters` was pushed past `quality.goComplexity`
 and now judges the whole request through `resolveProposedParametersLocked`, the same shape
@@ -2064,6 +2064,100 @@ What remains in this phase: the generated document's protected-range semantics w
 Python-target mutation; then the recapture from an immutable source candidate, the read-only review,
 the supervisor's inspection, developer visual acceptance with its accepted-candidate record, and the
 closing `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps.
+
+**Parameter-name rule record.** The independent review of the preceding batch found that neither
+boundary carried main's parameter-name uniqueness rule, and that the app answered an unusable name
+by proposing it and then restoring the whole list over what someone was still typing. Both are
+corrected where they belong, and main's own rule is what each boundary applies.
+
+The store no longer accepts a candidate that names one argument twice. `buildProposedParameters`
+judges the complete list once every record is resolved, and two records claiming one non-empty name
+are `ErrParameterNameInvalid` — the same typed refusal an unusable name already receives. That
+covers the quiet half of the defect as well as the loud one: two rows named `scale` rendered
+`math.sqrt(..., scale=..., scale=...)`, which Python refuses to parse, so the whole generated
+document and every mapped diagnostic went with it; an authored row named `x` instead rendered one
+generated path for two records, so one assignment silently overwrote the other and the call passed
+multiple values for `x`. Two adjacent gaps in the same validator close with it. The proposed list is
+now bounded like every other input this store accepts rather than by the transport that happens to
+carry it, and a retained record's `Default` pointer is copied out of live canonical state, so a
+candidate never shares it with the state it may replace.
+
+The client applies that rule before it proposes anything, which is what main's `ParamNameInput`
+does. `sections/parameterNames.ts` owns it once: an authored record may stay blank, a present name
+must be a non-keyword Python identifier, and no two records under this callable may claim one name
+— the reference's `validateParamNameInput` and `getParamNameDuplicateError` with its own message
+strings. The row shows its own message through the package's existing `ItemNameEditor`
+`errorMessage`, which is where the reference's bubble reports it, and `proposedParameterList`
+proposes nothing at all while any row's name is blocking, so the typed text stays in the document
+instead of being answered by a 422 and a rebuild. One consequence follows from this plan's own
+one-atomic-mutation contract and is deliberate: the mutation is the whole ordered candidate, so an
+unusable name holds the whole list back, including another row's value edit, until it is usable.
+The rows say which name that is; the reference's per-parameter route has nothing equivalent to say.
+
+The keyword list is generated rather than copied. `codegen.PythonKeywords` is the one owner of that
+lexical rule and the contract generator renders it into `generatedContract.ts` as
+`PYTHON_KEYWORDS_V1`, so the client cannot drift from the store about which names exist; the
+identifier rule itself is one expression on each side over the same Unicode letter and decimal-digit
+categories. It joins the existing client contract, so no new generated artifact and no
+`.code-policy.json` change belongs to this batch.
+
+Every one of the review's recommendations is applied; the two the paragraph above already names are
+the store's list bound and its retained-record pointer copy. Three more belong to the frontend and
+the walkthrough. `acceptParameterListResponse` compared the response against what the document would
+_propose_, and
+every row this response answers for is still disabled at that point, so its `moved` test could never
+be false: the keeping projection was the only reachable path and every successful mutation armed one
+more debounce cycle that resolved to nothing. It now compares against the document's own list, and
+the discriminator means what it says. The walkthrough's nameless-record guard asserted on a string
+the renderer cannot produce; it now asserts that the module the added blank record produced is
+byte-identical to the one before it. And the reprojection queue no longer falls through to
+fabricating a fresh `parameter:authored:<uuid>` row that the subscription would then propose as a
+new parameter: an entry exists for exactly as long as one reprojection is inserting, and a factory
+call the reprojection did not queue fails loudly. That guard is unreachable from outside the module,
+so it is deliberately left without a case of its own rather than reached by breaking the
+projection's encapsulation. The last recommendation is a record correction: the earlier extraction
+left `vertical-slice.browser.mjs` at 893 lines, not the 897 the record claimed, and that record now
+says so.
+
+Proofs: eight `parameterNames` cases pin the blank record, the accepted names, a name that is not an
+identifier, every word the generated keyword list carries, a repeated authored name, an authored
+name the resolved signature already claims, the store's own trimming, and the reference's ordering
+of the name's problem before the list's. Two `CallableSection` cases prove an unusable name is
+reported on its own row through the package's name editor while the row keeps what was typed and the
+section raises no alert, and that a duplicate is reported on the row that can change it rather than
+on the signature-derived one. A `PythonCanvasApp` case drives the controller's own coalescing window
+over three complete lists: a keyword name proposes nothing, a signature collision proposes nothing,
+and the same list with a usable name is proposed whole. Three store cases join the existing
+invalid-list table. In the production walkthrough the authored row is renamed to the signature's own
+`x`: the row reports `Param name "x" already exists under this parent.` through its accessible
+`aria-invalid`/`aria-describedby` wiring, the canonical revision and generated module are unchanged
+well past the window every other step here completes inside, the row still holds the refused name,
+and writing a usable name again releases the same list.
+
+Verification for this batch: `code-policy check` over the fourteen changed files reports only the
+`quality.deadCode` finding on `apps/python-canvas/vitest.setup.ts` this plan already reports, over a
+file this batch does not touch; a `quality.deadCode` finding on this batch's own new module and
+three `quality.format` findings on files it edits were fixed rather than reported.
+`code-policy test --changed --base 28492989d` passes, `test-levels` reports a five-suite recommended
+and an eleven-suite full ordinary choice, and the authorized
+`code-policy test --recommended --base 28492989d` passes all five: the Python Canvas backend focused
+suite, the frontend focused suite (61 tests across 8 files), contract drift, the cross-language
+boundary (10), and the production browser walkthrough against the production builds, the real Go
+service, pinned Basedpyright, and headless Chrome at 1440x900 device scale 1. The Python Canvas
+TypeScript project is clean. Four negative controls bind this batch: removing the store's uniqueness
+rule publishes the duplicate candidate rather than refusing it and fails both new store cases;
+removing the store's list bound fails the third; removing the client's guard fails the controller
+case with _expected "vi.fn()" to not be called at all, but actually been called 1 times_; and
+removing that same guard
+fails the production walkthrough with _the authored row still holding the refused name did not occur
+within 30 seconds_ — the store refuses the proposal, and the restore answering it takes the typed
+name out of the row, which is the exact defect the review reported.
+
+What remains in this phase is unchanged: the generated document's protected-range semantics with the
+canonical Python-target mutation; then the recapture from an immutable source candidate, the
+read-only review, the supervisor's inspection, developer visual acceptance with its
+accepted-candidate record, and the closing `test --changed --base <trusted-base>` and
+`test-levels --base <trusted-base>` steps.
 
 ## Stop conditions
 

@@ -24,6 +24,47 @@ export const PROVIDER_LIFECYCLE_STATE_READY_V1 = "ready" as const;
 export const PROVIDER_LIFECYCLE_STATE_PENDING_V1 = "pending" as const;
 export const PROVIDER_LIFECYCLE_STATE_FAILED_V1 = "failed" as const;
 
+// The store refuses a parameter name that Python reserves, and the client applies
+// that same rule to a name being written rather than sending one the store will
+// reject. The list is rendered from its one Go owner so the two cannot drift.
+export const PYTHON_KEYWORDS_V1 = [
+  "False",
+  "None",
+  "True",
+  "and",
+  "as",
+  "assert",
+  "async",
+  "await",
+  "break",
+  "class",
+  "continue",
+  "def",
+  "del",
+  "elif",
+  "else",
+  "except",
+  "finally",
+  "for",
+  "from",
+  "global",
+  "if",
+  "import",
+  "in",
+  "is",
+  "lambda",
+  "nonlocal",
+  "not",
+  "or",
+  "pass",
+  "raise",
+  "return",
+  "try",
+  "while",
+  "with",
+  "yield",
+] as const;
+
 export type ProjectSnapshotVersionV1 = typeof PROJECT_SNAPSHOT_VERSION_V1;
 export type ParameterPassingStyleV1 =
   | typeof PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1

@@ -8,10 +8,12 @@ import { parseProjectSnapshotV1 } from "../backend/runtimeContract";
 
 const mocks = vi.hoisted(() => ({
   fetchProjectSnapshot: vi.fn(),
+  setCallableParameters: vi.fn(),
   createWorkspaceCodeSection: vi.fn(),
   createWorkspaceCodeSectionData: vi.fn(),
   createWorkspaceHost: vi.fn(),
   registerSectionKinds: vi.fn(),
+  setItemData: vi.fn(),
   setWorkspaceColorMode: vi.fn(),
   editorProps: [] as Array<Record<string, unknown>>,
   // The package mounts the section content itself. A case that needs the app's own mutation
@@ -20,7 +22,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../backend/client", () => ({
+  ProjectClientError: class extends Error {},
   fetchProjectSnapshot: mocks.fetchProjectSnapshot,
+  setCallableParameters: mocks.setCallableParameters,
 }));
 
 vi.mock("@setta/workspace", () => ({
@@ -43,6 +47,7 @@ vi.mock("@setta/workspace", () => ({
   createWorkspaceCodeSectionData: mocks.createWorkspaceCodeSectionData,
   createWorkspaceHost: mocks.createWorkspaceHost,
   registerSectionKinds: mocks.registerSectionKinds,
+  setItemData: mocks.setItemData,
   setWorkspaceColorMode: mocks.setWorkspaceColorMode,
 }));
 
@@ -220,6 +225,53 @@ describe("PythonCanvasApp", () => {
     expect(callableField().value).toBe("math.sqrt");
   });
 
+  // Main never sends a name its own rule refuses; it keeps the text in the row and reports the
+  // problem beside it. Here the workspace document is that text, so a blocking name holds the
+  // whole ordered proposal back instead of being answered by the store restoring the list.
+  it("never proposes a parameter name the store would refuse", async () => {
+    vi.useFakeTimers();
+    try {
+      const host = createHostStub();
+      mocks.createWorkspaceHost.mockReturnValue(host);
+      mocks.fetchProjectSnapshot.mockResolvedValue(committedSnapshot());
+      mocks.setCallableParameters.mockReturnValue(new Promise(() => {}));
+
+      renderApp();
+      await settle();
+      const notifyDocumentChanged = host.subscribe.mock.calls[0]?.[0] as (
+        document: unknown,
+      ) => void;
+
+      await proposeParameterRows(host, notifyDocumentChanged, [
+        { name: "class", nameEditable: true },
+      ]);
+      expect(mocks.setCallableParameters).not.toHaveBeenCalled();
+      await proposeParameterRows(host, notifyDocumentChanged, [
+        { name: "x", nameEditable: false },
+        { name: "x", nameEditable: true },
+      ]);
+      expect(mocks.setCallableParameters).not.toHaveBeenCalled();
+
+      // The same list with a usable name is proposed whole, so the refusal above is about the
+      // name rather than about this path never sending anything.
+      await proposeParameterRows(host, notifyDocumentChanged, [
+        { name: "x", nameEditable: false },
+        { name: "scale", nameEditable: true },
+      ]);
+      expect(mocks.setCallableParameters).toHaveBeenCalledTimes(1);
+      expect(mocks.setCallableParameters.mock.calls[0]?.[0]).toMatchObject({
+        callableId: "callable:square-root",
+        expectedRevision: 1,
+        parameters: [
+          { authoredExpression: "", id: "parameter:0", name: "x" },
+          { authoredExpression: "", id: "parameter:1", name: "scale" },
+        ],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("replaces a failed load with an alert and disposes the unused host", async () => {
     const host = createHostStub();
     mocks.createWorkspaceHost.mockReturnValue(host);
@@ -273,6 +325,57 @@ function committedSnapshot(): ReturnType<typeof parseProjectSnapshotV1> {
       },
     ],
   });
+}
+
+// Puts one complete ordered parameter list in the controlled document, tells the app's own
+// subscription that the document changed, and lets its coalescing debounce run out.
+async function proposeParameterRows(
+  host: HostStub,
+  notifyDocumentChanged: (document: unknown) => void,
+  rows: Array<{ name: string; nameEditable: boolean }>,
+): Promise<void> {
+  const document = documentWithParameterRows(rows);
+  host.getSnapshot.mockReturnValue(document);
+  act(() => {
+    notifyDocumentChanged(document);
+  });
+  await act(async () => {
+    // Longer than the controller's own coalescing window, whatever it is set to.
+    await vi.advanceTimersByTimeAsync(2000);
+  });
+}
+
+function documentWithParameterRows(
+  rows: Array<{ name: string; nameEditable: boolean }>,
+) {
+  const items: Record<string, unknown> = {
+    "python-canvas:callable:parameter-root": {
+      id: "python-canvas:callable:parameter-root",
+      children: rows.map((_row, index) => `parameter:${String(index)}`),
+    },
+  };
+  rows.forEach((row, index) => {
+    const id = `parameter:${String(index)}`;
+    items[id] = {
+      id,
+      children: [],
+      data: {
+        authoredExpression: "",
+        default: null,
+        disabled: false,
+        name: row.name,
+        nameEditable: row.nameEditable,
+      },
+    };
+  });
+  return {
+    sections: {
+      "python-canvas:callable": {
+        id: "python-canvas:callable",
+        itemTree: { rootId: "python-canvas:callable:parameter-root", items },
+      },
+    },
+  };
 }
 
 // The most recent props the callable field handed the package's editor.

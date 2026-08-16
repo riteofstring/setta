@@ -187,40 +187,56 @@ export function setParameterItemName(
   );
 }
 
-// The one blank app-authored record the package's Add parameter action inserts, or the exact
-// canonical record a reprojection is putting back. Its ID is the parameter ID the store will
-// adopt, proposed once here.
+// The record the package's Add parameter action inserts: one blank app-authored parameter whose ID
+// is the parameter ID the store will adopt, proposed once here. While a reprojection is running,
+// the factory is instead handing back the exact canonical records that reprojection queued, and
+// being asked for one it did not queue is a projection defect rather than a new parameter.
 export function createCallableParameterItem(
   host: WorkspaceHost,
 ): WorkspaceItem {
-  const queued = projectedItemQueues.get(host)?.shift();
-  if (queued !== undefined) {
-    return queued;
+  const reprojection = reprojectedItems.get(host);
+  if (reprojection === undefined) {
+    return {
+      id: `parameter:authored:${crypto.randomUUID()}`,
+      children: [],
+      data: {
+        authoredExpression: "",
+        default: null,
+        disabled: false,
+        name: "",
+        nameEditable: true,
+      } satisfies ParameterItemData,
+    };
   }
-  return {
-    id: `parameter:authored:${crypto.randomUUID()}`,
-    children: [],
-    data: {
-      authoredExpression: "",
-      default: null,
-      disabled: false,
-      name: "",
-      nameEditable: true,
-    } satisfies ParameterItemData,
-  };
+  const queued = reprojection.shift();
+  if (queued === undefined) {
+    throw new Error(
+      "Python Canvas reprojection was asked for a parameter item it never queued.",
+    );
+  }
+  return queued;
 }
 
-export function readCallableParameterItemIds(
+// The callable's rows in document order, which is what its section renders.
+export function readCallableParameterRows(
   section: WorkspaceSection,
-): Array<string> {
+): Array<{ data: ParameterItemData; id: string }> {
   const itemTree = section.itemTree;
   if (itemTree === undefined) {
     throw new Error("The Python Canvas callable section has no item tree.");
   }
-  return [...(itemTree.items[itemTree.rootId]?.children ?? [])];
+  return [...(itemTree.items[itemTree.rootId]?.children ?? [])].map(
+    (itemId) => {
+      const item = itemTree.items[itemId];
+      if (item === undefined) {
+        throw new Error(`Python Canvas parameter item ${itemId} is missing.`);
+      }
+      return { data: readParameterItemData(item.data), id: itemId };
+    },
+  );
 }
 
-// The callable's rows in document order, which is what a proposal to the store is made of.
+// The same rows read from a whole document, which is what a proposal to the store is made of.
 export function readCallableParameterItems(
   document: WorkspaceDocument,
 ): Array<{ data: ParameterItemData; id: string }> {
@@ -230,22 +246,13 @@ export function readCallableParameterItems(
       "Python Canvas projection is missing its callable section.",
     );
   }
-  const itemTree = section.itemTree;
-  if (itemTree === undefined) {
-    throw new Error("The Python Canvas callable section has no item tree.");
-  }
-  return readCallableParameterItemIds(section).map((itemId) => {
-    const item = itemTree.items[itemId];
-    if (item === undefined) {
-      throw new Error(`Python Canvas parameter item ${itemId} is missing.`);
-    }
-    return { data: readParameterItemData(item.data), id: itemId };
-  });
+  return readCallableParameterRows(section);
 }
 
 // A reprojection hands the factory the exact records it wants back, because the workspace item ID
-// is the canonical parameter ID and only the registered factory may propose one.
-const projectedItemQueues = new WeakMap<WorkspaceHost, Array<WorkspaceItem>>();
+// is the canonical parameter ID and only the registered factory may propose one. An entry exists
+// for exactly as long as one reprojection is inserting.
+const reprojectedItems = new WeakMap<WorkspaceHost, Array<WorkspaceItem>>();
 
 function reconcileParameterItems(
   host: WorkspaceHost,
@@ -292,7 +299,7 @@ function insertProjectedItems(
   host: WorkspaceHost,
   parameters: Array<ParameterV1>,
 ): void {
-  projectedItemQueues.set(
+  reprojectedItems.set(
     host,
     parameters.map((parameter) => ({
       id: parameter.id,
@@ -305,7 +312,7 @@ function insertProjectedItems(
       insertWorkspaceItem(host, CALLABLE_SECTION_ID);
     }
   } finally {
-    projectedItemQueues.delete(host);
+    reprojectedItems.delete(host);
   }
 }
 

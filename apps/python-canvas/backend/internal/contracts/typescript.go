@@ -1,6 +1,11 @@
 package contracts
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/setta/python-canvas/backend/internal/codegen"
+)
 
 // TypeScriptV1 renders the client contract directly from the V1 transport
 // constants and shapes owned by this package.
@@ -30,6 +35,12 @@ export const PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1 = %q as const;
 export const PROVIDER_LIFECYCLE_STATE_READY_V1 = %q as const;
 export const PROVIDER_LIFECYCLE_STATE_PENDING_V1 = %q as const;
 export const PROVIDER_LIFECYCLE_STATE_FAILED_V1 = %q as const;
+
+// The store refuses a parameter name that Python reserves, and the client applies
+// that same rule to a name being written rather than sending one the store will
+// reject. The list is rendered from its one Go owner so the two cannot drift.
+export const PYTHON_KEYWORDS_V1 = [
+%s] as const;
 
 export type ProjectSnapshotVersionV1 = typeof PROJECT_SNAPSHOT_VERSION_V1;
 export type ParameterPassingStyleV1 =
@@ -190,6 +201,7 @@ export interface ErrorResponseV1 {
 		ProviderLifecycleStateReadyV1,
 		ProviderLifecycleStatePendingV1,
 		ProviderLifecycleStateFailedV1,
+		pythonKeywordEntries(),
 		APIErrorCodeInvalidRequestV1,
 		APIErrorCodeMethodNotAllowedV1,
 		APIErrorCodeNotFoundV1,
@@ -201,4 +213,12 @@ export interface ErrorResponseV1 {
 		APIErrorCodeProviderUnavailableV1,
 		APIErrorCodeInternalV1,
 	))
+}
+
+func pythonKeywordEntries() string {
+	var entries strings.Builder
+	for _, keyword := range codegen.PythonKeywords() {
+		fmt.Fprintf(&entries, "  %q,\n", keyword)
+	}
+	return entries.String()
 }

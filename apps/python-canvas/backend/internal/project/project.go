@@ -35,6 +35,10 @@ const (
 	maxAuthoredExpressionBytes = 16 * 1024
 	maxParameterNameBytes      = 256
 	maxParameterIDBytes        = 256
+
+	// The list renders as one call's arguments, so it is bounded like every other
+	// input this store accepts rather than by the transport that happens to carry it.
+	maxProposedParameters = 256
 )
 
 var (
@@ -345,6 +349,14 @@ func (store *Store) resolveProposedParametersLocked(
 }
 
 func buildProposedParameters(state canonicalState, proposals []ParameterProposal) ([]parameterState, error) {
+	if len(proposals) > maxProposedParameters {
+		return nil, fmt.Errorf(
+			"%w: %d parameters exceed the %d this callable accepts",
+			ErrParameterListInvalid,
+			len(proposals),
+			maxProposedParameters,
+		)
+	}
 	retained := make(map[string]parameterState, len(state.parameters))
 	for _, parameter := range state.parameters {
 		retained[parameter.ID] = parameter
@@ -358,7 +370,12 @@ func buildProposedParameters(state canonicalState, proposals []ParameterProposal
 		}
 		proposed = append(proposed, proposal.ID)
 		parameter, isRetained := retained[proposal.ID]
-		if !isRetained {
+		if isRetained {
+			// The retained record is copied out of live canonical state, so its one
+			// pointer field is copied with it: a candidate never shares `Default` with
+			// the state it may replace.
+			parameter.Default = copyStringPointer(parameter.Default)
+		} else {
 			parameter = newAuthoredParameter(proposal.ID)
 		}
 		if err := applyParameterProposal(&parameter, proposal, index); err != nil {
@@ -366,7 +383,33 @@ func buildProposedParameters(state canonicalState, proposals []ParameterProposal
 		}
 		parameters = append(parameters, parameter)
 	}
+	if err := validateParameterNamesAreUnique(parameters); err != nil {
+		return nil, err
+	}
 	return parameters, nil
+}
+
+// One call cannot take the same argument twice, so a repeated name renders a module
+// Python refuses to parse and an assignment that silently overwrites its neighbour.
+// The reference refuses the rename in the row it was typed in; this store refuses the
+// whole candidate, which is the same rule at the boundary that owns the module.
+func validateParameterNamesAreUnique(parameters []parameterState) error {
+	claimed := make(map[string]struct{}, len(parameters))
+	for index, parameter := range parameters {
+		if parameter.Name == "" {
+			continue
+		}
+		if _, isClaimed := claimed[parameter.Name]; isClaimed {
+			return fmt.Errorf(
+				"%w: parameter %d repeats name %q",
+				ErrParameterNameInvalid,
+				index,
+				parameter.Name,
+			)
+		}
+		claimed[parameter.Name] = struct{}{}
+	}
+	return nil
 }
 
 // A new authored record takes the backend's own defaults: main's ordinary kwarg

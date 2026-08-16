@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -374,6 +375,34 @@ func TestStoreRejectsInvalidParameterListsWithoutPublishing(t *testing.T) {
 			proposals: []ParameterProposal{{ID: "parameter:authored:1", Name: "scale", AuthoredExpression: "2; state.other = 4"}},
 			wantErr:   ErrParameterExpressionInvalid,
 		},
+		{
+			// One call cannot take the same keyword argument twice, so this candidate
+			// would render a module Python refuses to parse.
+			name:     "two records claiming one name",
+			revision: revision,
+			proposals: []ParameterProposal{
+				{ID: "parameter:authored:1", Name: "scale", AuthoredExpression: "2"},
+				{ID: "parameter:authored:2", Name: "scale", AuthoredExpression: "3"},
+			},
+			wantErr: ErrParameterNameInvalid,
+		},
+		{
+			// The quieter half of the same defect: both records render one generated
+			// path, so one assignment would silently overwrite the other.
+			name:     "authored record claiming the resolved signature's name",
+			revision: revision,
+			proposals: []ParameterProposal{
+				{ID: provided.ID, Name: provided.Name, AuthoredExpression: "3"},
+				{ID: "parameter:authored:1", Name: provided.Name, AuthoredExpression: "4"},
+			},
+			wantErr: ErrParameterNameInvalid,
+		},
+		{
+			name:      "more records than one call takes",
+			revision:  revision,
+			proposals: proposalsBeyondTheAcceptedBound(),
+			wantErr:   ErrParameterListInvalid,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			_, err := store.SetCallableParameters(
@@ -527,6 +556,19 @@ func requireAuthoredParameterDefaults(t *testing.T, parameter contracts.Paramete
 		parameter.TypeAnnotation != "" || parameter.Default != nil {
 		t.Fatalf("authored parameter = %#v, want the backend's own authored defaults", parameter)
 	}
+}
+
+// One valid record past the bound the store accepts, so the list itself is what the
+// store refuses rather than anything about the records in it.
+func proposalsBeyondTheAcceptedBound() []ParameterProposal {
+	proposals := make([]ParameterProposal, 0, maxProposedParameters+1)
+	for index := 0; index <= maxProposedParameters; index++ {
+		proposals = append(proposals, ParameterProposal{
+			ID:   fmt.Sprintf("parameter:authored:%d", index),
+			Name: fmt.Sprintf("scale_%d", index),
+		})
+	}
+	return proposals
 }
 
 // The store's own two-step demo state: the shipped callable committed through the

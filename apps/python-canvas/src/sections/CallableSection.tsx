@@ -21,6 +21,7 @@ import {
 } from "@setta/workspace";
 
 import { usePythonCanvasMutationContext } from "../app/PythonCanvasMutationContext";
+import { parameterNameErrors } from "./parameterNames";
 
 export const CALLABLE_SECTION_ID = "python-canvas:callable" as const;
 export const PARAMETER_ITEM_ROOT_ID = "python-canvas:callable:parameter-root";
@@ -194,16 +195,19 @@ export function CallableExpressionField() {
 }
 
 // The list's membership is the workspace item tree's own order, because Add, Remove Last, Delete
-// Selected, and drag reorder all change that tree before the canonical response confirms it.
+// Selected, and drag reorder all change that tree before the canonical response confirms it. A
+// name rule is a claim about the whole list, so the section resolves it once here and each row
+// shows the message that is its own.
 export function CallableSection({
   data,
-  parameterItemIds,
+  parameters,
 }: {
   data: CallableSectionData;
-  parameterItemIds: Array<string>;
+  parameters: Array<{ data: ParameterItemData; id: string }>;
 }) {
   const itemDiagnostics = parameterDiagnosticRegistry(data);
   const providerFailure = providerFailureMessage(data.providerStatus);
+  const nameErrors = parameterNameErrors(parameters);
 
   return (
     <div className="python-canvas-callable-section">
@@ -215,9 +219,14 @@ export function CallableSection({
       <WorkspaceItemList
         itemDiagnostics={itemDiagnostics}
         listKey={PARAMETER_LIST_KEY}
-        renderItem={(context) => <ParameterItemRow context={context} />}
+        renderItem={(context) => (
+          <ParameterItemRow
+            context={context}
+            nameError={nameErrors[context.item.id] ?? ""}
+          />
+        )}
         sectionId={CALLABLE_SECTION_ID}
-        topLevelItemIds={parameterItemIds}
+        topLevelItemIds={parameters.map((parameter) => parameter.id)}
       />
     </div>
   );
@@ -234,7 +243,17 @@ export function parameterItemSearchableText(item: { data?: unknown }): string {
 // the package's own name editor. A placeholder here means exactly what it means in main — the
 // value this parameter takes when the row is left empty — so a parameter without a default shows
 // none.
-function ParameterItemRow({ context }: { context: ItemRowRenderContext }) {
+//
+// A name the store would refuse is reported on the row through the package's own error
+// presentation, exactly where main's bubble reports it, and the typed name stays in the document
+// while it is wrong.
+function ParameterItemRow({
+  context,
+  nameError,
+}: {
+  context: ItemRowRenderContext;
+  nameError: string;
+}) {
   const mutation = usePythonCanvasMutationContext();
   const data = readParameterItemData(context.item.data);
   const disabled = data.disabled || mutation.pendingDescription !== null;
@@ -244,6 +263,7 @@ function ParameterItemRow({ context }: { context: ItemRowRenderContext }) {
       {data.nameEditable ? (
         <ItemNameEditor
           disabled={disabled}
+          errorMessage={nameError}
           itemId={context.item.id}
           language="python"
           name={data.name}

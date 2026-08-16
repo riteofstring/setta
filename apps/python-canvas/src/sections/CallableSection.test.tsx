@@ -9,8 +9,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   editorProps: [] as Array<Record<string, unknown>>,
   nameEditorProps: [] as Array<Record<string, unknown>>,
-  // The row the mocked item list renders. Every `render` call sets it.
-  parameterItem: { data: undefined as unknown, id: "" },
+  // The rows the mocked item list renders, in order. Every `render` call sets them.
+  parameterItems: [] as Array<{ data: unknown; id: string }>,
 }));
 
 vi.mock("@setta/workspace", () => ({
@@ -41,11 +41,15 @@ vi.mock("@setta/workspace", () => ({
     renderItem,
   }: {
     renderItem: (context: unknown) => ReactNode;
-  }) =>
-    renderItem({
-      item: mocks.parameterItem,
-      sectionId: "python-canvas:callable",
-    }),
+  }) => (
+    <>
+      {mocks.parameterItems.map((item) => (
+        <div data-parameter-row={item.id} key={item.id}>
+          {renderItem({ item, sectionId: "python-canvas:callable" })}
+        </div>
+      ))}
+    </>
+  ),
 }));
 
 import { PythonCanvasMutationContext } from "../app/PythonCanvasMutationContext";
@@ -55,6 +59,7 @@ import {
   parameterItemSearchableText,
   readParameterItemData,
   type CallableSectionData,
+  type ParameterItemData,
 } from "./CallableSection";
 
 // Vite rewrites `new URL(..., import.meta.url)` into an asset URL, so resolve this suite's own
@@ -200,11 +205,9 @@ describe("CallableSection", () => {
 
   it("renames an app-authored parameter through the package's own name editor", () => {
     const onParameterNameChange = vi.fn();
-    render(
-      { onParameterNameChange },
-      callableData(),
+    render({ onParameterNameChange }, callableData(), [
       authoredParameterItem(""),
-    );
+    ]);
 
     // A provider-derived row keeps main's static label; an authored one gets the editor.
     expect(
@@ -226,7 +229,7 @@ describe("CallableSection", () => {
   });
 
   it("keeps a provider-derived name out of the app's reach", () => {
-    render({}, callableData(), parameterItem());
+    render({}, callableData(), [parameterItem()]);
 
     expect(mocks.nameEditorProps).toEqual([]);
     expect(
@@ -262,9 +265,42 @@ describe("CallableSection", () => {
   });
 
   it("offers a real default as the value editor's placeholder", () => {
-    render({}, callableData(), parameterItemWithDefault());
+    render({}, callableData(), [parameterItemWithDefault()]);
 
     expect(renderedEditor("tolerance expression").placeholder).toBe("1.0");
+  });
+
+  // Main answers an unusable name beside the row it was typed in and keeps the text there. The
+  // rejected candidate sent it, and the store's refusal restored the whole list over what someone
+  // was still writing.
+  it("reports an unusable authored name on its own row without taking it back", () => {
+    render({}, callableData(), [authoredParameterItem("2x")]);
+
+    const nameEditor = renderedNameEditor("parameter:authored:1");
+    expect(nameEditor.errorMessage).toBe(
+      "Param name must be a valid Python identifier.",
+    );
+    // The row still shows what is being typed: nothing restored it to the canonical name.
+    expect(nameEditor.name).toBe("2x");
+    // This is the row's own problem, not a failure of the section's mutation.
+    expect(container?.querySelector("[role='alert']")).toBeNull();
+  });
+
+  it("reports a name another record already claims on the row that can change it", () => {
+    render({}, callableData(), [
+      parameterItem(),
+      authoredParameterItem("x", "parameter:authored:collides"),
+      authoredParameterItem("scale", "parameter:authored:scale"),
+    ]);
+
+    // The signature-derived `x` row has no editor to report on, so the authored row that
+    // duplicates it carries the message.
+    expect(renderedNameEditor("parameter:authored:collides").errorMessage).toBe(
+      'Param name "x" already exists under this parent.',
+    );
+    expect(renderedNameEditor("parameter:authored:scale").errorMessage).toBe(
+      "",
+    );
   });
 });
 
@@ -276,9 +312,9 @@ function render(
     React.ComponentProps<typeof PythonCanvasMutationContext.Provider>["value"]
   > = {},
   data: CallableSectionData = callableData(),
-  item: { data: unknown; id: string } = parameterItem(),
+  items: Array<ParameterItemRowFixture> = [parameterItem()],
 ) {
-  mocks.parameterItem = item;
+  mocks.parameterItems = items;
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -300,10 +336,20 @@ function render(
         }}
       >
         <CallableExpressionField />
-        <CallableSection data={data} parameterItemIds={[item.id]} />
+        <CallableSection data={data} parameters={items} />
       </PythonCanvasMutationContext.Provider>,
     );
   });
+}
+
+function renderedNameEditor(itemId: string): Record<string, unknown> {
+  const props = mocks.nameEditorProps.find(
+    (candidate) => candidate.itemId === itemId,
+  );
+  if (props === undefined) {
+    throw new Error(`No name editor renders for the row ${itemId}.`);
+  }
+  return props;
 }
 
 function renderedEditor(ariaLabel: string): Record<string, unknown> {
@@ -318,7 +364,9 @@ function renderedEditor(ariaLabel: string): Record<string, unknown> {
 
 // The real `math.sqrt` parameter: a positional `x` with no default, whose name belongs to the
 // resolved signature.
-function parameterItem(): { data: unknown; id: string } {
+type ParameterItemRowFixture = { data: ParameterItemData; id: string };
+
+function parameterItem(): ParameterItemRowFixture {
   return {
     data: {
       authoredExpression: "",
@@ -331,7 +379,7 @@ function parameterItem(): { data: unknown; id: string } {
   };
 }
 
-function parameterItemWithDefault(): { data: unknown; id: string } {
+function parameterItemWithDefault(): ParameterItemRowFixture {
   return {
     data: {
       authoredExpression: "",
@@ -345,7 +393,10 @@ function parameterItemWithDefault(): { data: unknown; id: string } {
 }
 
 // One app-authored record, which the store lets stay blank while someone writes it.
-function authoredParameterItem(name: string): { data: unknown; id: string } {
+function authoredParameterItem(
+  name: string,
+  id = "parameter:authored:1",
+): ParameterItemRowFixture {
   return {
     data: {
       authoredExpression: "",
@@ -354,7 +405,7 @@ function authoredParameterItem(name: string): { data: unknown; id: string } {
       name,
       nameEditable: true,
     },
-    id: "parameter:authored:1",
+    id,
   };
 }
 
