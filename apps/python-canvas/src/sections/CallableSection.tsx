@@ -29,7 +29,7 @@ import { usePythonCanvasMutationContext } from "../app/PythonCanvasMutationConte
 
 export const PARAMETER_ITEM_ROOT_ID = "python-canvas:callable:parameter-root";
 export const PARAMETER_ITEM_ID = "python-canvas:callable:parameter";
-export const PARAMETER_LIST_KEY = "python-canvas-callable-parameters";
+const PARAMETER_LIST_KEY = "python-canvas-callable-parameters";
 
 export type CallableSectionData = {
   callable: {
@@ -134,15 +134,14 @@ export function readParameterItemData(value: unknown): ParameterItemData {
     name: readNonBlankString(value.name, "parameter.name"),
     parameterId: readStableId(value.parameterId, "parameter.parameterId"),
     passingStyle: readPassingStyle(value.passingStyle),
-    typeAnnotation: readString(value.typeAnnotation, "parameter.typeAnnotation"),
+    typeAnnotation: readString(
+      value.typeAnnotation,
+      "parameter.typeAnnotation",
+    ),
   };
 }
 
-export function CallableSection({
-  data,
-}: {
-  data: CallableSectionData;
-}) {
+export function CallableSection({ data }: { data: CallableSectionData }) {
   const mutation = usePythonCanvasMutationContext();
   const itemDiagnostics = parameterDiagnosticRegistry(data);
   const pending = mutation.pendingDescription !== null;
@@ -153,6 +152,7 @@ export function CallableSection({
         <p className="python-canvas-field-label">Callable expression</p>
         <TextValueEditor
           ariaLabel="Callable expression"
+          completionProvider={mutation.callableCompletionProvider}
           disabled={pending}
           itemId="python-canvas:callable:expression"
           language="python"
@@ -166,11 +166,17 @@ export function CallableSection({
         />
       </div>
       <p className="python-canvas-provider-status" role="status">
-        {mutation.pendingDescription ?? providerStatusMessage(data.providerStatus)}
+        {mutation.pendingDescription ??
+          providerStatusMessage(data.providerStatus)}
       </p>
       {mutation.mutationError === null ? null : (
         <p className="python-canvas-mutation-error" role="alert">
           {mutation.mutationError}
+        </p>
+      )}
+      {mutation.completionError === null ? null : (
+        <p className="python-canvas-completion-error" role="alert">
+          {mutation.completionError}
         </p>
       )}
       <WorkspaceItemList
@@ -243,7 +249,9 @@ function providerStatusMessage(
   return "Basedpyright will check the callable after you commit it.";
 }
 
-function parameterMetadata(data: Exclude<ParameterItemData, { kind: "empty" }>): string {
+function parameterMetadata(
+  data: Exclude<ParameterItemData, { kind: "empty" }>,
+): string {
   const parts = [passingStyleLabel(data.passingStyle)];
   if (data.typeAnnotation !== "") {
     parts.push(data.typeAnnotation);
@@ -311,15 +319,22 @@ function readWorkspaceDiagnostic(
   index: number,
 ): WorkspaceItemDiagnostic {
   if (!isRecord(value)) {
-    throw new Error(`Callable parameter diagnostic ${String(index)} must be an object.`);
+    throw new Error(
+      `Callable parameter diagnostic ${String(index)} must be an object.`,
+    );
   }
   requireExactFields(value, ["message", "severity"]);
   const severity = value.severity;
   if (severity !== "error" && severity !== "warning" && severity !== "info") {
-    throw new Error(`Callable parameter diagnostic ${String(index)} has an unsupported severity.`);
+    throw new Error(
+      `Callable parameter diagnostic ${String(index)} has an unsupported severity.`,
+    );
   }
   return {
-    message: readNonBlankString(value.message, `parameterDiagnostics[${String(index)}].message`),
+    message: readNonBlankString(
+      value.message,
+      `parameterDiagnostics[${String(index)}].message`,
+    ),
     severity,
   };
 }
@@ -333,7 +348,9 @@ function readPassingStyle(value: unknown): ParameterPassingStyleV1 {
     case PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1:
       return value;
     default:
-      throw new Error("Callable parameter item has an unsupported passing style.");
+      throw new Error(
+        "Callable parameter item has an unsupported passing style.",
+      );
   }
 }
 
@@ -342,7 +359,10 @@ function requireExactFields(
   fields: ReadonlyArray<string>,
 ): void {
   const keys = Object.keys(value);
-  if (keys.length !== fields.length || fields.some((field) => !keys.includes(field))) {
+  if (
+    keys.length !== fields.length ||
+    fields.some((field) => !keys.includes(field))
+  ) {
     throw new Error("Callable section data contains unexpected fields.");
   }
 }

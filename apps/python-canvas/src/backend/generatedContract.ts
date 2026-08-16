@@ -3,6 +3,7 @@
 export const PROJECT_SNAPSHOT_VERSION_V1 = "v1" as const;
 export const PROJECT_PATH_V1 = "/api/v1/project" as const;
 export const PROJECT_CALLABLE_PATH_V1 = "/api/v1/project/callable" as const;
+export const PROJECT_CALLABLE_COMPLETIONS_PATH_V1 = "/api/v1/project/callable/completions" as const;
 export const PROJECT_PARAMETER_PATH_V1 = "/api/v1/project/parameters/" as const;
 
 export const PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1 = "positional_only" as const;
@@ -119,6 +120,22 @@ export interface CommitCallableRequestV1 {
   projectId: string;
   sectionId: string;
   authoredExpression: string;
+}
+
+export interface CallableCompletionRequestV1 {
+  projectId: string;
+  sectionId: string;
+  authoredExpression: string;
+  cursorOffsetUtf16: number;
+}
+
+export interface CallableCompletionItemV1 {
+  label: string;
+  insertText: string;
+}
+
+export interface CallableCompletionResponseV1 {
+  items: CallableCompletionItemV1[];
 }
 
 export interface SetParameterExpressionRequestV1 {

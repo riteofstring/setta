@@ -7,10 +7,11 @@ import (
 )
 
 const (
-	ProjectSnapshotVersionV1 = "v1"
-	ProjectPathV1            = "/api/v1/project"
-	ProjectCallablePathV1    = "/api/v1/project/callable"
-	ProjectParameterPathV1   = "/api/v1/project/parameters/"
+	ProjectSnapshotVersionV1         = "v1"
+	ProjectPathV1                    = "/api/v1/project"
+	ProjectCallablePathV1            = "/api/v1/project/callable"
+	ProjectCallableCompletionsPathV1 = "/api/v1/project/callable/completions"
+	ProjectParameterPathV1           = "/api/v1/project/parameters/"
 )
 
 // ProjectSnapshotV1 is the complete, normalized project document returned by
@@ -129,6 +130,52 @@ func (request CommitCallableRequestV1) Validate() error {
 		return err
 	}
 	return requireRequestID("sectionId", request.SectionID)
+}
+
+// CallableCompletionRequestV1 describes one read-only query for the current
+// uncommitted callable draft. CursorOffsetUTF16 uses JavaScript string offsets.
+type CallableCompletionRequestV1 struct {
+	ProjectID          string `json:"projectId"`
+	SectionID          string `json:"sectionId"`
+	AuthoredExpression string `json:"authoredExpression"`
+	CursorOffsetUTF16  int    `json:"cursorOffsetUtf16"`
+}
+
+func (request CallableCompletionRequestV1) Validate() error {
+	if err := requireRequestID("projectId", request.ProjectID); err != nil {
+		return err
+	}
+	if err := requireRequestID("sectionId", request.SectionID); err != nil {
+		return err
+	}
+	if request.CursorOffsetUTF16 < 0 {
+		return ValidationError{Field: "cursorOffsetUtf16", Problem: "must not be negative"}
+	}
+	return nil
+}
+
+type CallableCompletionItemV1 struct {
+	Label      string `json:"label"`
+	InsertText string `json:"insertText"`
+}
+
+type CallableCompletionResponseV1 struct {
+	Items []CallableCompletionItemV1 `json:"items"`
+}
+
+func (response CallableCompletionResponseV1) Validate() error {
+	if response.Items == nil {
+		return ValidationError{Field: "items", Problem: "must be an array"}
+	}
+	for index, item := range response.Items {
+		if strings.TrimSpace(item.Label) == "" {
+			return ValidationError{Field: fmt.Sprintf("items[%d].label", index), Problem: "must not be empty"}
+		}
+		if strings.TrimSpace(item.InsertText) == "" {
+			return ValidationError{Field: fmt.Sprintf("items[%d].insertText", index), Problem: "must not be empty"}
+		}
+	}
+	return nil
 }
 
 // SetParameterExpressionRequestV1 carries one authored Python expression.

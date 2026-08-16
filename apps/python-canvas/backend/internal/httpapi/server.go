@@ -31,6 +31,13 @@ type ProjectService interface {
 		string,
 		string,
 	) (contracts.ProjectSnapshotV1, error)
+	CompleteCallable(
+		context.Context,
+		string,
+		string,
+		string,
+		int,
+	) ([]project.CallableCompletionItem, error)
 	SetParameterExpression(
 		context.Context,
 		string,
@@ -43,6 +50,25 @@ type commitCallablePayload struct {
 	ProjectID          string  `json:"projectId"`
 	SectionID          string  `json:"sectionId"`
 	AuthoredExpression *string `json:"authoredExpression"`
+}
+
+type callableCompletionPayload struct {
+	ProjectID          string  `json:"projectId"`
+	SectionID          string  `json:"sectionId"`
+	AuthoredExpression *string `json:"authoredExpression"`
+	CursorOffsetUTF16  *int    `json:"cursorOffsetUtf16"`
+}
+
+func (payload callableCompletionPayload) toContract() (contracts.CallableCompletionRequestV1, bool) {
+	if payload.AuthoredExpression == nil || payload.CursorOffsetUTF16 == nil {
+		return contracts.CallableCompletionRequestV1{}, false
+	}
+	return contracts.CallableCompletionRequestV1{
+		ProjectID:          payload.ProjectID,
+		SectionID:          payload.SectionID,
+		AuthoredExpression: *payload.AuthoredExpression,
+		CursorOffsetUTF16:  *payload.CursorOffsetUTF16,
+	}, true
 }
 
 func (payload commitCallablePayload) toContract() (contracts.CommitCallableRequestV1, bool) {
@@ -88,6 +114,8 @@ func NewHandler(service ProjectService) (http.Handler, error) {
 			handleProject(response, request, service)
 		case isExactPath(request, contracts.ProjectCallablePathV1):
 			handleCallable(response, request, service)
+		case isExactPath(request, contracts.ProjectCallableCompletionsPathV1):
+			handleCallableCompletions(response, request, service)
 		default:
 			parameterID, matchesParameterPath := parameterIDFromRequestPath(request)
 			if !matchesParameterPath {
@@ -97,6 +125,49 @@ func NewHandler(service ProjectService) (http.Handler, error) {
 			handleParameter(response, request, service, parameterID)
 		}
 	}), nil
+}
+
+func handleCallableCompletions(response http.ResponseWriter, request *http.Request, service ProjectService) {
+	if !requireMethod(response, request, http.MethodPost) {
+		return
+	}
+	if !rejectQuery(response, request) {
+		return
+	}
+	var payload callableCompletionPayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.toContract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "callable completion request is invalid")
+		return
+	}
+	items, err := service.CompleteCallable(
+		request.Context(),
+		body.ProjectID,
+		body.SectionID,
+		body.AuthoredExpression,
+		body.CursorOffsetUTF16,
+	)
+	if err != nil {
+		writeCallableCompletionError(response, err)
+		return
+	}
+	result := contracts.CallableCompletionResponseV1{
+		Items: make([]contracts.CallableCompletionItemV1, 0, len(items)),
+	}
+	for _, item := range items {
+		result.Items = append(result.Items, contracts.CallableCompletionItemV1{
+			Label:      item.Label,
+			InsertText: item.InsertText,
+		})
+	}
+	if err := result.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, "callable completion response is invalid")
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
 }
 
 func handleProject(response http.ResponseWriter, request *http.Request, service ProjectService) {
@@ -222,6 +293,24 @@ func writeMutationError(response http.ResponseWriter, err error) {
 		writeError(response, http.StatusServiceUnavailable, contracts.APIErrorCodeProviderUnavailableV1, "Basedpyright is unavailable")
 	default:
 		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, "unable to update the project")
+	}
+}
+
+func writeCallableCompletionError(response http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, project.ErrProjectNotFound),
+		errors.Is(err, project.ErrCallableSectionNotFound):
+		writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "the requested project resource does not exist")
+	case errors.Is(err, project.ErrCallableCompletionInvalid):
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "callable completion request is invalid")
+	case errors.Is(err, project.ErrLSPProviderRequired),
+		errors.Is(err, project.ErrProviderUnavailable),
+		errors.Is(err, project.ErrStoreClosed),
+		errors.Is(err, context.Canceled),
+		errors.Is(err, context.DeadlineExceeded):
+		writeError(response, http.StatusServiceUnavailable, contracts.APIErrorCodeProviderUnavailableV1, "Basedpyright is unavailable")
+	default:
+		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, "unable to complete the callable")
 	}
 }
 

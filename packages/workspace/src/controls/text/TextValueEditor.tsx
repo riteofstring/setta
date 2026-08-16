@@ -22,6 +22,7 @@ import {
   getTextValueExtensions,
   TEXT_VALUE_BASIC_SETUP,
 } from "./textValueExtensions";
+import type { TextValueCompletionProvider } from "./textValueCompletion";
 import type { TextValueLanguage } from "./textValueLanguages";
 import {
   mountTextValueThemeStyles,
@@ -53,6 +54,7 @@ export type TextValueEditorProps = {
   singleLine?: boolean;
   wrapLines?: boolean;
   disabled?: boolean;
+  completionProvider?: TextValueCompletionProvider;
 };
 
 type TextValueEditorCoreProps = Omit<TextValueEditorProps, "itemId"> & {
@@ -158,6 +160,7 @@ export function MetaTextValueEditor({
   singleLine = false,
   wrapLines,
   disabled = false,
+  completionProvider,
   metaMinimumHeight = false,
 }: Omit<TextValueEditorCoreProps, "presentation">) {
   return (
@@ -173,6 +176,7 @@ export function MetaTextValueEditor({
       singleLine={singleLine}
       wrapLines={wrapLines}
       disabled={disabled}
+      completionProvider={completionProvider}
       metaMinimumHeight={metaMinimumHeight}
       presentation="meta-control"
     />
@@ -191,6 +195,7 @@ function TextValueEditorCore({
   singleLine = false,
   wrapLines,
   disabled = false,
+  completionProvider,
   presentation,
   metaMinimumHeight = false,
 }: TextValueEditorCoreProps) {
@@ -281,6 +286,7 @@ function TextValueEditorCore({
           onValueChange={onValueChange}
           onCommit={onCommit}
           disabled={isDisabled}
+          completionProvider={completionProvider}
           onEscape={() => focusSectionAfterEscape(host, sectionId)}
           onBlur={localOnBlur}
         />
@@ -308,6 +314,7 @@ function LiveTextValueEditor({
   onValueChange,
   onCommit,
   disabled,
+  completionProvider,
   onEscape,
   onBlur,
 }: {
@@ -327,6 +334,7 @@ function LiveTextValueEditor({
   onValueChange: (nextValue: string) => void;
   onCommit: ((value: string) => void) | undefined;
   disabled: boolean;
+  completionProvider: TextValueCompletionProvider | undefined;
   onEscape: () => void;
   onBlur: () => void;
 }) {
@@ -337,10 +345,39 @@ function LiveTextValueEditor({
   // handoff.
   const disabledRef = useRef(disabled);
   const valueRef = useRef(value);
+  const completionRequestRef = useRef<AbortController | null>(null);
+  const completionRequests = useRef({
+    abort() {
+      completionRequestRef.current?.abort();
+      completionRequestRef.current = null;
+    },
+    clear(controller: AbortController) {
+      if (completionRequestRef.current === controller) {
+        completionRequestRef.current = null;
+      }
+    },
+    start() {
+      completionRequestRef.current?.abort();
+      const controller = new AbortController();
+      completionRequestRef.current = controller;
+      return controller;
+    },
+  }).current;
   useLayoutEffect(() => {
     disabledRef.current = disabled;
     valueRef.current = value;
   }, [disabled, value]);
+  useEffect(() => {
+    if (disabled) {
+      completionRequests.abort();
+    }
+  }, [completionRequests, disabled]);
+  useEffect(
+    () => () => {
+      completionRequests.abort();
+    },
+    [completionProvider, completionRequests],
+  );
   const extensions = [
     ...getTextValueExtensions({
       language,
@@ -349,6 +386,8 @@ function LiveTextValueEditor({
       onEscape,
       onCommit,
       isDisabled: () => disabledRef.current,
+      completionProvider,
+      completionRequests,
     }),
     EditorState.changeFilter.of((transaction) => {
       if (!disabledRef.current || !transaction.docChanged) {

@@ -2,6 +2,7 @@ import projectSnapshotFixture from "../../backend/internal/contracts/testdata/pr
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
   PROJECT_CALLABLE_PATH_V1,
   PROJECT_PARAMETER_PATH_V1,
   PROJECT_PATH_V1,
@@ -9,6 +10,7 @@ import {
 import {
   ProjectClientError,
   commitCallable,
+  completeCallable,
   fetchProjectSnapshot,
   setParameterExpression,
 } from "./client";
@@ -42,21 +44,18 @@ describe("Python Canvas project client", () => {
       fetchImplementation as typeof fetch,
     );
 
-    expect(fetchImplementation).toHaveBeenCalledWith(
-      PROJECT_CALLABLE_PATH_V1,
-      {
-        body: JSON.stringify({
-          authoredExpression: "math.sqrt",
-          projectId: "project:python-canvas",
-          sectionId: "callable:square-root",
-        }),
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        method: "POST",
+    expect(fetchImplementation).toHaveBeenCalledWith(PROJECT_CALLABLE_PATH_V1, {
+      body: JSON.stringify({
+        authoredExpression: "math.sqrt",
+        projectId: "project:python-canvas",
+        sectionId: "callable:square-root",
+      }),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
       },
-    );
+      method: "POST",
+    });
   });
 
   it("sets the exact stable parameter ID through the generated V1 route", async () => {
@@ -86,6 +85,69 @@ describe("Python Canvas project client", () => {
         method: "POST",
       },
     );
+  });
+
+  it("requests callable completions with the supplied cancellation signal and strictly parsed response", async () => {
+    const response = createJsonResponse({
+      items: [{ label: "sqrt", insertText: "sqrt" }],
+    });
+    const fetchImplementation = vi.fn().mockResolvedValue(response);
+    const controller = new AbortController();
+
+    await expect(
+      completeCallable(
+        {
+          authoredExpression: "math.sq",
+          cursorOffsetUtf16: 7,
+          projectId: "project:python-canvas",
+          sectionId: "callable:square-root",
+        },
+        controller.signal,
+        fetchImplementation as typeof fetch,
+      ),
+    ).resolves.toEqual({
+      items: [{ label: "sqrt", insertText: "sqrt" }],
+    });
+
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
+      {
+        body: JSON.stringify({
+          authoredExpression: "math.sq",
+          cursorOffsetUtf16: 7,
+          projectId: "project:python-canvas",
+          sectionId: "callable:square-root",
+        }),
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it("rejects malformed callable completion successes before they reach the editor", async () => {
+    const fetchImplementation = vi
+      .fn()
+      .mockResolvedValue(createJsonResponse({ items: [{ label: "sqrt" }] }));
+
+    await expect(
+      completeCallable(
+        {
+          authoredExpression: "math.sq",
+          cursorOffsetUtf16: 7,
+          projectId: "project:python-canvas",
+          sectionId: "callable:square-root",
+        },
+        new AbortController().signal,
+        fetchImplementation as typeof fetch,
+      ),
+    ).rejects.toMatchObject({
+      kind: "invalid_response",
+      status: 200,
+    } satisfies Partial<ProjectClientError>);
   });
 
   it("reports a typed V1 mutation failure", async () => {

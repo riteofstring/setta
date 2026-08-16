@@ -1,11 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -87,7 +82,9 @@ async function reserveLoopbackPort() {
     server.listen({ host: "127.0.0.1", port: 0 }, () => {
       const address = server.address();
       if (typeof address !== "object" || address === null) {
-        server.close(() => reject(new Error("Unable to reserve a loopback port.")));
+        server.close(() =>
+          reject(new Error("Unable to reserve a loopback port.")),
+        );
         return;
       }
       server.close((error) => {
@@ -122,6 +119,16 @@ async function waitForHttp(processHandle, origin, description) {
     await delay(100);
   }
   throw new Error(`${description} did not become ready within 30 seconds.`);
+}
+
+async function fetchCanonicalSnapshot(backendOrigin) {
+  const response = await fetch(`${backendOrigin}/api/v1/project`);
+  if (!response.ok) {
+    throw new Error(
+      `Canonical project snapshot request failed with ${String(response.status)}.`,
+    );
+  }
+  return response.json();
 }
 
 function chromeBinaryPath() {
@@ -180,11 +187,15 @@ async function waitForHeadlessChrome(browser) {
       if (Number.isInteger(port) && port > 0 && port <= 65_535) {
         return port;
       }
-      throw new Error(`Headless Chrome wrote an invalid DevTools port: ${rawPort}.`);
+      throw new Error(
+        `Headless Chrome wrote an invalid DevTools port: ${rawPort}.`,
+      );
     }
     await delay(50);
   }
-  throw new Error("Headless Chrome did not expose a DevTools port within 15 seconds.");
+  throw new Error(
+    "Headless Chrome did not expose a DevTools port within 15 seconds.",
+  );
 }
 
 async function stopHeadlessChrome(browser) {
@@ -243,7 +254,9 @@ async function activateTextBox(client, label) {
     })()`,
   );
   if (!found) {
-    throw new Error(`Accessible text box ${JSON.stringify(label)} was not found.`);
+    throw new Error(
+      `Accessible text box ${JSON.stringify(label)} was not found.`,
+    );
   }
   await waitFor(
     client,
@@ -317,7 +330,7 @@ async function navigate(client, origin) {
   await loaded;
 }
 
-async function runWalkthrough(client) {
+async function runWalkthrough(client, backendOrigin) {
   const callableLabel = "Callable expression";
   const parameterLabel = "x expression";
   const generatedLabel = "Generated Python code editor";
@@ -363,7 +376,9 @@ async function runWalkthrough(client) {
     })()`,
   );
   if (!generatedEditorFocused) {
-    throw new Error("Generated Python editor could not receive keyboard focus.");
+    throw new Error(
+      "Generated Python editor could not receive keyboard focus.",
+    );
   }
   await insertText(client, "attempted_mutation");
   await delay(100);
@@ -379,8 +394,35 @@ async function runWalkthrough(client) {
     throw new Error("Generated Python editor accepted an authored mutation.");
   }
 
+  const beforeCompletion = await fetchCanonicalSnapshot(backendOrigin);
   await activateTextBox(client, callableLabel);
-  await insertText(client, "math.sqrt");
+  await insertText(client, "math.sq");
+  await waitFor(
+    client,
+    "accessible sqrt completion",
+    `Array.from(document.querySelectorAll('[role="option"]')).some((option) => option.textContent?.trim() === "sqrt")`,
+  );
+  await pressEnter(client);
+
+  await waitFor(
+    client,
+    "first completion Enter changing only the callable draft",
+    `(() => {
+      const callable = document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
+      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
+      const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
+      const generatedEditor = generated?.querySelector('[role="textbox"]');
+      return callable?.textContent === "math.sqrt" &&
+        parameter === null &&
+        generatedEditor?.textContent === ${JSON.stringify(generatedEditor.source)};
+    })()`,
+  );
+  const afterCompletion = await fetchCanonicalSnapshot(backendOrigin);
+  assertCompletionDidNotMutateCanonicalProject(
+    beforeCompletion,
+    afterCompletion,
+  );
+
   await pressEnter(client);
 
   await waitFor(
@@ -435,6 +477,40 @@ async function runWalkthrough(client) {
   );
 }
 
+function assertCompletionDidNotMutateCanonicalProject(before, after) {
+  assertCanonicalValue(
+    before.project?.revision,
+    after.project?.revision,
+    "Selecting a completion changed the canonical project revision.",
+  );
+  assertCanonicalValue(
+    before.callables,
+    after.callables,
+    "Selecting a completion committed or otherwise changed canonical callable records.",
+  );
+  assertCanonicalValue(
+    before.parameters,
+    after.parameters,
+    "Selecting a completion created or changed a canonical parameter.",
+  );
+  assertCanonicalValue(
+    before.generatedCode,
+    after.generatedCode,
+    "Selecting a completion changed the canonical generated code.",
+  );
+  assertCanonicalValue(
+    before.diagnostics,
+    after.diagnostics,
+    "Selecting a completion changed canonical diagnostics.",
+  );
+}
+
+function assertCanonicalValue(before, after, message) {
+  if (JSON.stringify(after) !== JSON.stringify(before)) {
+    throw new Error(message);
+  }
+}
+
 async function main() {
   run("pnpm", ["--filter", "@setta/workspace", "run", "build"]);
   run("pnpm", ["run", "build"], { cwd: appRoot });
@@ -460,7 +536,11 @@ async function main() {
       cwd: appRoot,
       label: "Python Canvas backend",
     });
-    await waitForHttp(backend, `${backendOrigin}/api/v1/project`, "Python Canvas backend");
+    await waitForHttp(
+      backend,
+      `${backendOrigin}/api/v1/project`,
+      "Python Canvas backend",
+    );
 
     preview = startProcess(
       process.execPath,
@@ -479,7 +559,11 @@ async function main() {
         label: "Python Canvas production preview",
       },
     );
-    await waitForHttp(preview, previewOrigin, "Python Canvas production preview");
+    await waitForHttp(
+      preview,
+      previewOrigin,
+      "Python Canvas production preview",
+    );
 
     browser = startHeadlessChrome();
     const cdpPort = await waitForHeadlessChrome(browser);
@@ -496,7 +580,7 @@ async function main() {
       }),
     ]);
     await navigate(client, previewOrigin);
-    await runWalkthrough(client);
+    await runWalkthrough(client, backendOrigin);
     console.log("Python Canvas browser vertical slice passed.");
   } finally {
     client?.close();

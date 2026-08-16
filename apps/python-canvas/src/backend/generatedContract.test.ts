@@ -10,6 +10,7 @@ import {
   PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1,
   PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1,
   PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1,
+  PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
   PROJECT_PATH_V1,
   PROJECT_SNAPSHOT_VERSION_V1,
   PROVIDER_AVAILABILITY_UNAVAILABLE_V1,
@@ -24,6 +25,9 @@ describe("generated V1 contract", () => {
     const snapshot = parseProjectSnapshotV1(projectSnapshotFixture);
 
     expect(PROJECT_PATH_V1).toBe("/api/v1/project");
+    expect(PROJECT_CALLABLE_COMPLETIONS_PATH_V1).toBe(
+      "/api/v1/project/callable/completions",
+    );
     expect(snapshot.version).toBe(PROJECT_SNAPSHOT_VERSION_V1);
     expect([
       PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1,

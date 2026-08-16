@@ -6,6 +6,8 @@ import {
   createWorkspaceCodeSection,
   createWorkspaceHost,
   registerSectionKinds,
+  type TextValueCompletionProvider,
+  type WorkspaceDocument,
   type WorkspaceHost,
 } from "@setta/workspace";
 
@@ -22,6 +24,7 @@ import {
   readCallableSectionData,
   readParameterItemData,
 } from "../sections/CallableSection";
+import { createCallableCompletionProvider } from "../sections/callableCompletion";
 import {
   CALLABLE_SECTION_ID,
   CALLABLE_SECTION_KIND,
@@ -77,6 +80,9 @@ export function registerPythonCanvasSectionKinds(host: WorkspaceHost): void {
 export function PythonCanvasApp() {
   const [state, setState] = useState<AppState>({ kind: "loading" });
   const [callableDraft, setCallableDraft] = useState("");
+  const [callableCompletionProvider, setCallableCompletionProvider] =
+    useState<TextValueCompletionProvider>();
+  const [completionError, setCompletionError] = useState<string | null>(null);
   const [mutation, setMutation] = useState<MutationState>({ kind: "idle" });
   const controllerRef = useRef<AppController | null>(null);
   const isProjectingRef = useRef(false);
@@ -191,7 +197,10 @@ export function PythonCanvasApp() {
           const parameter = snapshot.parameters.find(
             (candidate) => candidate.id === parameterID,
           );
-          if (parameter === undefined || parameter.authoredExpression === value) {
+          if (
+            parameter === undefined ||
+            parameter.authoredExpression === value
+          ) {
             return;
           }
           updateMutation({
@@ -229,6 +238,7 @@ export function PythonCanvasApp() {
           return;
         }
         setCallableDraft(value);
+        setCompletionError(null);
         clearError();
         commitCallableMutation(value);
       },
@@ -237,6 +247,7 @@ export function PythonCanvasApp() {
           return;
         }
         setCallableDraft(value);
+        setCompletionError(null);
         clearError();
       },
       setParameterExpression: (parameterID, value) => {
@@ -252,30 +263,11 @@ export function PythonCanvasApp() {
       if (isProjectingRef.current || snapshot === null || !active) {
         return;
       }
-      const item =
-        document.sections[CALLABLE_SECTION_ID]?.itemTree?.items[
-          PARAMETER_ITEM_ID
-        ];
-      if (item === undefined) {
+      const nextMutation = pendingParameterMutation(document, snapshot);
+      if (nextMutation === null) {
         return;
       }
-      const parameterItem = readParameterItemData(item.data);
-      if (parameterItem.kind === "empty" || parameterItem.disabled) {
-        return;
-      }
-      const parameter = snapshot.parameters.find(
-        (candidate) => candidate.id === parameterItem.parameterId,
-      );
-      if (
-        parameter === undefined ||
-        parameter.authoredExpression === parameterItem.authoredExpression
-      ) {
-        return;
-      }
-      scheduleParameterMutation(
-        parameterItem.parameterId,
-        parameterItem.authoredExpression,
-      );
+      scheduleParameterMutation(nextMutation.parameterID, nextMutation.value);
     });
 
     const load = async () => {
@@ -285,6 +277,22 @@ export function PythonCanvasApp() {
           return;
         }
         snapshot = initialSnapshot;
+        setCallableCompletionProvider(() =>
+          createCallableCompletionProvider({
+            onFailure: (message) => {
+              if (active) {
+                setCompletionError(message);
+              }
+            },
+            onSuccess: () => {
+              if (active) {
+                setCompletionError(null);
+              }
+            },
+            projectId: initialSnapshot.project.id,
+            sectionId: initialSnapshot.callables[0].id,
+          }),
+        );
         isProjectingRef.current = true;
         try {
           host.loadDocument(projectWorkspaceDocument(initialSnapshot));
@@ -315,7 +323,9 @@ export function PythonCanvasApp() {
 
   const mutationContext = useMemo<PythonCanvasMutationContextValue>(
     () => ({
+      callableCompletionProvider,
       callableDraft,
+      completionError,
       mutationError: mutation.kind === "error" ? mutation.message : null,
       onCallableCommit: (value) => controllerRef.current?.commitCallable(value),
       onCallableDraftChange: (value) =>
@@ -325,7 +335,7 @@ export function PythonCanvasApp() {
       pendingDescription:
         mutation.kind === "pending" ? mutation.description : null,
     }),
-    [callableDraft, mutation],
+    [callableCompletionProvider, callableDraft, completionError, mutation],
   );
 
   const statusMessage =
@@ -362,6 +372,34 @@ export function PythonCanvasApp() {
       ) : null}
     </main>
   );
+}
+
+function pendingParameterMutation(
+  document: WorkspaceDocument,
+  snapshot: ProjectSnapshotV1,
+): { parameterID: string; value: string } | null {
+  const item =
+    document.sections[CALLABLE_SECTION_ID]?.itemTree?.items[PARAMETER_ITEM_ID];
+  if (item === undefined) {
+    return null;
+  }
+  const parameterItem = readParameterItemData(item.data);
+  if (parameterItem.kind === "empty" || parameterItem.disabled) {
+    return null;
+  }
+  const parameter = snapshot.parameters.find(
+    (candidate) => candidate.id === parameterItem.parameterId,
+  );
+  if (
+    parameter === undefined ||
+    parameter.authoredExpression === parameterItem.authoredExpression
+  ) {
+    return null;
+  }
+  return {
+    parameterID: parameterItem.parameterId,
+    value: parameterItem.authoredExpression,
+  };
 }
 
 function mutationErrorMessage(target: string, error: unknown): string {

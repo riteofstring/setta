@@ -408,6 +408,31 @@ visible-error assertions; keyboard popup precedence and cancellation assertions;
 browser output; and the README wording update. Include the fact that no completion selection
 mutated canonical project state.
 
+**Recorded implementation evidence (2026-08-18; browser proof blocked):** Added the exact direct
+workspace dependency `@codemirror/autocomplete@6.20.3`. The candidate lockfile generated with
+`pnpm install --lockfile-only --ignore-scripts` changed only the workspace importer (the package
+specifier and resolved version); it introduced no new transitive resolution. With trusted base
+`13721b4dd881caf649aa21cadf2c12785dcae6f3`, `code-policy dependency-review --base
+13721b4dd881caf649aa21cadf2c12785dcae6f3` completed successfully with no reported direct,
+transitive, native-audit, OSV, or release-age finding. `pnpm install --frozen-lockfile
+--ignore-scripts` then completed successfully.
+
+The generic public completion seam, exact V1 route/projection, callable-only UTF-16 provider,
+strict parser, app-local error, README wording, and focused tests are implemented together.
+`go test ./...` in `apps/python-canvas/backend`, `code-policy test --module workspace --module
+python-canvas-backend --module python-canvas-frontend`, `pnpm --filter @setta/python-canvas test`,
+`pnpm --filter @setta/python-canvas run build`, and `pnpm --filter @setta/python-canvas run
+contract:check` passed. The focused tests cover popup Enter/Escape precedence, IME guard,
+cancellation and stale results, no Tab binding, strict HTTP/parser behavior, blank draft
+suppression, UTF-16 replacement, abort/error/empty handling, and callable-only attachment.
+
+The required production browser command, `pnpm --filter @setta/python-canvas run browser:test`,
+was attempted but could not start its local service: `listen EPERM: operation not permitted
+127.0.0.1` while reserving the loopback port. It therefore could not produce the required real
+Basedpyright/browser proof that first Enter changes only the draft and canonical state remains
+unchanged. This Phase B marker remains unchecked until that required evidence can run in an
+environment permitted to listen on loopback.
+
 **Avoid rabbit holes:** do not add completion resolve, docs, snippets, Tab, hover, caching,
 ranking, parameter completion, alternate editor services, or broad frontend redesign while making
 the one `math.sq` flow work.

@@ -97,8 +97,15 @@ describe("public package API", () => {
 
   it("exposes the text editor commit callback through the public root", () => {
     const onCommit = (value: string) => value;
+    const completionProvider: workspace.TextValueCompletionProvider = async (
+      request,
+    ) => ({
+      from: request.cursorOffset,
+      options: [{ label: "choice" }],
+    });
     const props = {
       ariaLabel: "Name",
+      completionProvider,
       itemId: "item-1",
       onCommit,
       onValueChange: () => {},
@@ -108,5 +115,13 @@ describe("public package API", () => {
     } satisfies ComponentProps<typeof workspace.TextValueEditor>;
 
     expect(props.onCommit("draft")).toBe("draft");
+    return expect(
+      props.completionProvider({
+        cursorOffset: 5,
+        explicit: false,
+        signal: new AbortController().signal,
+        value: "draft",
+      }),
+    ).resolves.toEqual({ from: 5, options: [{ label: "choice" }] });
   });
 });

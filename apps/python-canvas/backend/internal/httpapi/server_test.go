@@ -14,6 +14,8 @@ import (
 	"github.com/setta/python-canvas/backend/internal/project"
 )
 
+type requestContextKey struct{}
+
 func TestProjectEndpointAcceptsOnlyExactBodylessGET(t *testing.T) {
 	service := newStubService()
 	handler := newHandlerForTest(t, service)
@@ -67,7 +69,7 @@ func TestProjectEndpointAcceptsOnlyExactBodylessGET(t *testing.T) {
 
 func TestCallableEndpointStrictlyDecodesAndPropagatesRequestContext(t *testing.T) {
 	service := newStubService()
-	contextKey := struct{}{}
+	contextKey := requestContextKey{}
 	var receivedContext context.Context
 	var received contracts.CommitCallableRequestV1
 	service.commitCallable = func(ctx context.Context, projectID, sectionID, expression string) (contracts.ProjectSnapshotV1, error) {
@@ -96,6 +98,102 @@ func TestCallableEndpointStrictlyDecodesAndPropagatesRequestContext(t *testing.T
 	}
 	if received.AuthoredExpression != "math.sqrt" || received.ProjectID == "" || received.SectionID == "" {
 		t.Fatalf("callable mutation request = %#v", received)
+	}
+}
+
+func TestCallableCompletionsEndpointStrictlyDecodesMapsFailuresAndLeavesAReadOnlyResponse(t *testing.T) {
+	service := newStubService()
+	contextKey := requestContextKey{}
+	var receivedContext context.Context
+	var received contracts.CallableCompletionRequestV1
+	service.completeCallable = func(ctx context.Context, projectID, sectionID, expression string, cursorOffsetUTF16 int) ([]project.CallableCompletionItem, error) {
+		receivedContext = ctx
+		received = contracts.CallableCompletionRequestV1{
+			ProjectID:          projectID,
+			SectionID:          sectionID,
+			AuthoredExpression: expression,
+			CursorOffsetUTF16:  cursorOffsetUTF16,
+		}
+		return []project.CallableCompletionItem{{Label: "sqrt", InsertText: "sqrt"}}, nil
+	}
+	handler := newHandlerForTest(t, service)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		contracts.ProjectCallableCompletionsPathV1,
+		strings.NewReader(`{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sq","cursorOffsetUtf16":7}`),
+	).WithContext(context.WithValue(context.Background(), contextKey, "request context"))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	assertResponse(t, response, http.StatusOK, "", "")
+	if receivedContext.Value(contextKey) != "request context" {
+		t.Fatal("callable completion did not receive the request context")
+	}
+	if received != (contracts.CallableCompletionRequestV1{
+		ProjectID:          "project:python-canvas",
+		SectionID:          "callable:square-root",
+		AuthoredExpression: "math.sq",
+		CursorOffsetUTF16:  7,
+	}) {
+		t.Fatalf("callable completion request = %#v", received)
+	}
+	var completion contracts.CallableCompletionResponseV1
+	if err := json.Unmarshal(response.Body.Bytes(), &completion); err != nil {
+		t.Fatalf("decode callable completion response: %v", err)
+	}
+	if err := completion.Validate(); err != nil {
+		t.Fatalf("callable completion response validation: %v", err)
+	}
+	if len(completion.Items) != 1 || completion.Items[0].Label != "sqrt" {
+		t.Fatalf("callable completion response = %#v", completion)
+	}
+}
+
+func TestCallableCompletionsEndpointRejectsInvalidRequestsAndMapsProviderFailures(t *testing.T) {
+	service := newStubService()
+	service.completeCallable = func(_ context.Context, projectID, _ string, expression string, _ int) ([]project.CallableCompletionItem, error) {
+		if projectID == "project:missing" {
+			return nil, project.ErrProjectNotFound
+		}
+		if expression == "invalid" {
+			return nil, project.ErrCallableCompletionInvalid
+		}
+		return nil, project.ErrProviderUnavailable
+	}
+	handler := newHandlerForTest(t, service)
+
+	tests := []struct {
+		name        string
+		method      string
+		target      string
+		contentType string
+		body        string
+		wantStatus  int
+		wantCode    contracts.APIErrorCodeV1
+		wantAllow   string
+	}{
+		{name: "method", method: http.MethodGet, target: contracts.ProjectCallableCompletionsPathV1, wantStatus: http.StatusMethodNotAllowed, wantCode: contracts.APIErrorCodeMethodNotAllowedV1, wantAllow: http.MethodPost},
+		{name: "query", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1 + "?unexpected=true", wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
+		{name: "missing cursor", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sq"}`, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
+		{name: "unknown field", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sq","cursorOffsetUtf16":7,"unexpected":true}`, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
+		{name: "trailing value", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sq","cursorOffsetUtf16":7} {}`, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
+		{name: "unknown project", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1, contentType: "application/json", body: `{"projectId":"project:missing","sectionId":"callable:square-root","authoredExpression":"math.sq","cursorOffsetUtf16":7}`, wantStatus: http.StatusNotFound, wantCode: contracts.APIErrorCodeNotFoundV1},
+		{name: "project validation", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"invalid","cursorOffsetUtf16":7}`, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
+		{name: "provider unavailable", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sq","cursorOffsetUtf16":7}`, wantStatus: http.StatusServiceUnavailable, wantCode: contracts.APIErrorCodeProviderUnavailableV1},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(test.method, test.target, strings.NewReader(test.body))
+			if test.contentType != "" {
+				request.Header.Set("Content-Type", test.contentType)
+			}
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			assertResponse(t, response, test.wantStatus, test.wantCode, test.wantAllow)
+		})
 	}
 }
 
@@ -299,6 +397,7 @@ func assertResponse(
 type stubService struct {
 	snapshot               contracts.ProjectSnapshotV1
 	commitCallable         func(context.Context, string, string, string) (contracts.ProjectSnapshotV1, error)
+	completeCallable       func(context.Context, string, string, string, int) ([]project.CallableCompletionItem, error)
 	setParameterExpression func(context.Context, string, string, string) (contracts.ProjectSnapshotV1, error)
 }
 
@@ -320,6 +419,19 @@ func (service *stubService) CommitCallable(
 		return service.snapshot, nil
 	}
 	return service.commitCallable(ctx, projectID, sectionID, expression)
+}
+
+func (service *stubService) CompleteCallable(
+	ctx context.Context,
+	projectID string,
+	sectionID string,
+	expression string,
+	cursorOffsetUTF16 int,
+) ([]project.CallableCompletionItem, error) {
+	if service.completeCallable == nil {
+		return []project.CallableCompletionItem{}, nil
+	}
+	return service.completeCallable(ctx, projectID, sectionID, expression, cursorOffsetUTF16)
 }
 
 func (service *stubService) SetParameterExpression(

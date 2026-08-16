@@ -5,6 +5,9 @@ through `@setta/workspace`. Go owns the in-memory project, generated Python,
 source ranges, and Basedpyright lifecycle; the React app projects canonical Go
 responses through the workspace public API. There is one **Callable** section
 named **Square Root** and one read-only **Generated Python** section.
+The callable editor supports narrow callable-name completion: type `math.sq`,
+select `sqrt`, then press Enter again to commit `math.sqrt` through the
+existing callable flow.
 
 ## Run locally
 
@@ -42,10 +45,12 @@ Go service, and pinned language server, run:
 pnpm --filter @setta/python-canvas run browser:test
 ```
 
-The walkthrough commits `math.sqrt`, enters `missing_value` for `x`, then
-replaces it with `3`. Each accepted mutation automatically updates the
-read-only generated Python; the undefined-name diagnostic is mapped to `x` by
-the generated source range and clears after the final expression.
+The walkthrough selects `sqrt` for `math.sq` with the keyboard, verifies that
+the selection changes only the local callable draft, then commits `math.sqrt`.
+It enters `missing_value` for `x`, then replaces it with `3`. Each accepted
+mutation automatically updates the read-only generated Python; the
+undefined-name diagnostic is mapped to `x` by the generated source range and
+clears after the final expression.
 
 ## Deliberately deferred
 
@@ -66,8 +71,8 @@ is a no-support list, not a compatibility promise or future roadmap.
 - Variants, section policies, code-object value policies, metadata generation,
   rename refactoring, or generated-output export.
 - Editable prefix or suffix regions, mixed editable/read-only editor regions,
-  completion menus, hover or documentation popovers, prefix/suffix completion,
-  or general semantic-editor services.
+  hover or documentation popovers, prefix/suffix completion, parameter
+  completion, or general semantic-editor services.
 - Arbitrary callable expressions, additional parameter-control kinds, a
   callable/plugin catalog, alternate language servers, or fallback servers.
 - A public package, final naming, licensing, desktop packaging, deployment, or

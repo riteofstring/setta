@@ -98,12 +98,14 @@ body {
 }
 
 .python-canvas-provider-status,
-.python-canvas-mutation-error {
+.python-canvas-mutation-error,
+.python-canvas-completion-error {
   margin: 0;
   overflow-wrap: anywhere;
 }
 
-.python-canvas-mutation-error {
+.python-canvas-mutation-error,
+.python-canvas-completion-error {
   padding: 0.5rem 0.625rem;
   border: 1px solid #b42318;
   border-radius: 0.375rem;

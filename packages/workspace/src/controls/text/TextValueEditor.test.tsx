@@ -18,6 +18,11 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { EditorView } from "@codemirror/view";
+import {
+  completionStatus,
+  currentCompletions,
+  startCompletion,
+} from "@codemirror/autocomplete";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -296,6 +301,171 @@ describe("TextValueEditor", () => {
     expect(view.state.doc.toString()).toBe("0.001");
   });
 
+  it("gives an active completion popup Enter and Escape precedence before normal editor actions", async () => {
+    const onCommit = vi.fn();
+    const provider = vi.fn().mockResolvedValue({
+      from: 5,
+      options: [{ insertText: "sqrt", label: "sqrt" }],
+      to: 7,
+    });
+    await mount({
+      completionProvider: provider,
+      onCommit,
+      singleLine: true,
+      value: "math.sq",
+    });
+    await activate();
+    const view = getLiveView();
+
+    await act(async () => {
+      expect(startCompletion(view)).toBe(true);
+    });
+    await waitForCompletion(view, "active");
+    expect(document.querySelector('[role="option"]')?.textContent).toContain(
+      "sqrt",
+    );
+
+    const escape = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Escape",
+      key: "Escape",
+    });
+    await act(async () => {
+      view.contentDOM.dispatchEvent(escape);
+    });
+    expect(escape.defaultPrevented).toBe(true);
+    expect(completionStatus(view.state)).not.toBe("active");
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(view.contentDOM);
+
+    await act(async () => {
+      expect(startCompletion(view)).toBe(true);
+    });
+    await waitForCompletion(view, "active");
+    const composingEnter = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Enter",
+      isComposing: true,
+      key: "Enter",
+    });
+    await act(async () => {
+      view.contentDOM.dispatchEvent(composingEnter);
+    });
+    expect(view.state.doc.toString()).toBe("math.sq");
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(completionStatus(view.state)).toBe("active");
+    await pauseForCompletionInteraction();
+    const firstEnter = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Enter",
+      key: "Enter",
+    });
+    await act(async () => {
+      view.contentDOM.dispatchEvent(firstEnter);
+    });
+    expect(firstEnter.defaultPrevented).toBe(true);
+    expect(view.state.doc.toString()).toBe("math.sqrt");
+    expect(onCommit).not.toHaveBeenCalled();
+
+    const secondEnter = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Enter",
+      key: "Enter",
+    });
+    await act(async () => {
+      view.contentDOM.dispatchEvent(secondEnter);
+    });
+    expect(secondEnter.defaultPrevented).toBe(true);
+    expect(onCommit).toHaveBeenCalledWith("math.sqrt");
+  });
+
+  it("aborts stale completion requests on document change and never adds a Tab binding", async () => {
+    const first = createDeferred<{
+      from: number;
+      options: Array<{ label: string }>;
+      to: number;
+    } | null>();
+    const provider = vi
+      .fn()
+      .mockReturnValueOnce(first.promise)
+      .mockResolvedValue(null);
+    await mount({
+      completionProvider: provider,
+      singleLine: true,
+      value: "math.sq",
+    });
+    await activate();
+    const view = getLiveView();
+    await act(async () => {
+      expect(startCompletion(view)).toBe(true);
+    });
+    await waitFor(() => provider.mock.calls.length === 1);
+    const request = provider.mock.calls[0]?.[0] as { signal: AbortSignal };
+
+    await act(async () => {
+      view.dispatch({ changes: { from: 7, insert: "u" } });
+    });
+    expect(request.signal.aborted).toBe(true);
+    first.resolve({ from: 5, options: [{ label: "sqrt" }], to: 7 });
+    await waitFor(() => completionStatus(view.state) !== "pending");
+    expect(
+      currentCompletions(view.state).map((option) => option.label),
+    ).not.toContain("sqrt");
+
+    const tab = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Tab",
+      key: "Tab",
+    });
+    await act(async () => {
+      view.contentDOM.dispatchEvent(tab);
+    });
+    expect(tab.defaultPrevented).toBe(false);
+    expect(view.state.doc.toString()).toBe("math.squ");
+  });
+
+  it("aborts an in-flight completion when the editor becomes disabled and ignores its result", async () => {
+    const pending = createDeferred<{
+      from: number;
+      options: Array<{ label: string; insertText: string }>;
+      to: number;
+    } | null>();
+    const provider = vi.fn().mockReturnValue(pending.promise);
+    await mount({
+      completionProvider: provider,
+      singleLine: true,
+      value: "math.sq",
+    });
+    await activate();
+    const view = getLiveView();
+    await act(async () => {
+      expect(startCompletion(view)).toBe(true);
+    });
+    await waitFor(() => provider.mock.calls.length === 1);
+    const request = provider.mock.calls[0]?.[0] as { signal: AbortSignal };
+
+    await mount({
+      completionProvider: provider,
+      disabled: true,
+      singleLine: true,
+      value: "math.sq",
+    });
+    expect(request.signal.aborted).toBe(true);
+    pending.resolve({
+      from: 5,
+      options: [{ insertText: "sqrt", label: "sqrt" }],
+      to: 7,
+    });
+    await waitFor(() => completionStatus(view.state) !== "pending");
+    expect(view.state.doc.toString()).toBe("math.sq");
+    expect(currentCompletions(view.state)).toEqual([]);
+  });
+
   it("does not commit after the active editor becomes disabled", async () => {
     const onCommit = vi.fn();
     await mount({ onCommit, singleLine: true });
@@ -410,3 +580,36 @@ describe("TextValueEditor", () => {
     expect(host.querySelector(".cm-editor")).toBeNull();
   });
 });
+
+async function pauseForCompletionInteraction(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 80));
+}
+
+async function waitFor(
+  condition: () => boolean,
+  timeoutMs = 1_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (condition()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error("Timed out waiting for editor state.");
+}
+
+async function waitForCompletion(
+  view: EditorView,
+  status: "active" | "pending",
+): Promise<void> {
+  await waitFor(() => completionStatus(view.state) === status);
+}
+
+function createDeferred<T>() {
+  let resolve: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve: resolve! };
+}

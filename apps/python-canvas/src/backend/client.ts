@@ -1,22 +1,23 @@
 import {
+  PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
   PROJECT_CALLABLE_PATH_V1,
   PROJECT_PARAMETER_PATH_V1,
   PROJECT_PATH_V1,
   type APIErrorCodeV1,
+  type CallableCompletionRequestV1,
+  type CallableCompletionResponseV1,
   type CommitCallableRequestV1,
   type ProjectSnapshotV1,
   type SetParameterExpressionRequestV1,
 } from "./generatedContract";
 import {
   ProjectSnapshotValidationError,
+  parseCallableCompletionResponseV1,
   parseErrorResponseV1,
   parseProjectSnapshotV1,
 } from "./runtimeContract";
 
-export type ProjectClientErrorKind =
-  | "network"
-  | "http"
-  | "invalid_response";
+type ProjectClientErrorKind = "network" | "http" | "invalid_response";
 
 export class ProjectClientError extends Error {
   public readonly name = "ProjectClientError";
@@ -32,10 +33,9 @@ export class ProjectClientError extends Error {
   }
 }
 
-export type SetParameterExpressionInput =
-  SetParameterExpressionRequestV1 & {
-    parameterId: string;
-  };
+type SetParameterExpressionInput = SetParameterExpressionRequestV1 & {
+  parameterId: string;
+};
 
 export async function fetchProjectSnapshot(
   fetchImplementation: typeof fetch = fetch,
@@ -58,6 +58,18 @@ export async function commitCallable(
   );
 }
 
+export async function completeCallable(
+  request: CallableCompletionRequestV1,
+  signal: AbortSignal,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<CallableCompletionResponseV1> {
+  return requestCallableCompletions(
+    PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
+    jsonPost(request, signal),
+    fetchImplementation,
+  );
+}
+
 export async function setParameterExpression(
   request: SetParameterExpressionInput,
   fetchImplementation: typeof fetch = fetch,
@@ -70,8 +82,8 @@ export async function setParameterExpression(
   );
 }
 
-function jsonPost(body: object): RequestInit {
-  return {
+function jsonPost(body: object, signal?: AbortSignal): RequestInit {
+  const request: RequestInit = {
     body: JSON.stringify(body),
     headers: {
       Accept: "application/json",
@@ -79,6 +91,10 @@ function jsonPost(body: object): RequestInit {
     },
     method: "POST",
   };
+  if (signal !== undefined) {
+    request.signal = signal;
+  }
+  return request;
 }
 
 function parameterExpressionPath(parameterId: string): string {
@@ -131,6 +147,54 @@ async function requestProjectSnapshot(
       throw new ProjectClientError(
         "invalid_response",
         "Project endpoint returned an invalid V1 snapshot.",
+        response.status,
+        cause,
+      );
+    }
+    throw cause;
+  }
+}
+
+async function requestCallableCompletions(
+  path: string,
+  init: RequestInit,
+  fetchImplementation: typeof fetch,
+): Promise<CallableCompletionResponseV1> {
+  let response: Response;
+  try {
+    response = await fetchImplementation(path, init);
+  } catch (cause) {
+    throw new ProjectClientError(
+      "network",
+      "Unable to reach the project endpoint.",
+      undefined,
+      cause,
+    );
+  }
+
+  if (!response.ok) {
+    throw await responseError(response);
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch (cause) {
+    throw new ProjectClientError(
+      "invalid_response",
+      "Project endpoint did not return valid JSON.",
+      response.status,
+      cause,
+    );
+  }
+
+  try {
+    return parseCallableCompletionResponseV1(payload);
+  } catch (cause) {
+    if (cause instanceof ProjectSnapshotValidationError) {
+      throw new ProjectClientError(
+        "invalid_response",
+        "Project endpoint returned an invalid callable completion response.",
         response.status,
         cause,
       );

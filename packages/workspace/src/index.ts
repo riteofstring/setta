@@ -143,6 +143,12 @@ export { SwitchValueControl } from "./controls/switch/SwitchValueControl";
 export type { SwitchValueControlProps } from "./controls/switch/SwitchValueControl";
 export { TextValueEditor } from "./controls/text/TextValueEditor";
 export type { TextValueEditorProps } from "./controls/text/TextValueEditor";
+export type {
+  TextValueCompletionOption,
+  TextValueCompletionProvider,
+  TextValueCompletionRequest,
+  TextValueCompletionResult,
+} from "./controls/text/textValueCompletion";
 export type { TextValueLanguage } from "./controls/text/textValueLanguages";
 export { ItemDndContext } from "./dnd/ItemDndContext";
 export { setWorkspaceColorMode } from "./document/appearance";

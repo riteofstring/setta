@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ProjectSnapshotValidationError,
+  parseCallableCompletionResponseV1,
   parseErrorResponseV1,
   parseProjectSnapshotV1,
 } from "./runtimeContract";
@@ -183,5 +184,34 @@ describe("parseErrorResponseV1", () => {
         error: { code: "unknown", message: "Unavailable" },
       }),
     ).toThrow(ProjectSnapshotValidationError);
+  });
+});
+
+describe("parseCallableCompletionResponseV1", () => {
+  it("accepts only the exact declared completion response shape", () => {
+    expect(
+      parseCallableCompletionResponseV1({
+        items: [{ label: "sqrt", insertText: "sqrt" }],
+      }),
+    ).toEqual({
+      items: [{ label: "sqrt", insertText: "sqrt" }],
+    });
+    expect(parseCallableCompletionResponseV1({ items: [] })).toEqual({
+      items: [],
+    });
+  });
+
+  it("rejects unknown, missing, and blank completion fields", () => {
+    for (const response of [
+      { items: [{ label: "sqrt" }] },
+      { items: [{ label: "sqrt", insertText: "sqrt", unexpected: true }] },
+      { items: [{ label: " ", insertText: "sqrt" }] },
+      { items: {} },
+      { items: [], unexpected: true },
+    ]) {
+      expect(() => parseCallableCompletionResponseV1(response)).toThrow(
+        ProjectSnapshotValidationError,
+      );
+    }
   });
 });
