@@ -11,7 +11,7 @@ modules and focused verification. The implementation loop may edit only those tr
 and this plan. It must implement the earliest incomplete phase, commit coherent batches, and request
 phase review without turning the work into a repository-wide audit.
 
-- [ ] Phase 1 — instance-scoped workspace host
+- [x] Phase 1 — instance-scoped workspace host
 - [ ] Phase 2 — headless snapshot and transaction core
 - [ ] Phase 3 — generic ports, edges, and connection interaction
 - [ ] Phase 4 — versioned serialization artifacts
@@ -134,7 +134,7 @@ it does not implement that application's transport or acknowledgement policy.
 
 ## Phase 1 — instance-scoped workspace host
 
-**Status: implementation complete; awaiting independent Phase 1 review.**
+**Status: complete; independent Phase 1 review recorded in `docs/evidence/phase1/instance-host-audit.md`.**
 
 Replace process-wide runtime ownership with one explicit host per mounted workspace.
 
