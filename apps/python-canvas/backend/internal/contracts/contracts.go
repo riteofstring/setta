@@ -164,6 +164,9 @@ func (snapshot ProjectSnapshotV1) Validate() error {
 	if snapshot.Callables == nil {
 		return ValidationError{Field: "callables", Problem: "must be an array"}
 	}
+	if len(snapshot.Callables) != 1 {
+		return ValidationError{Field: "callables", Problem: "must contain exactly one callable"}
+	}
 	if snapshot.Parameters == nil {
 		return ValidationError{Field: "parameters", Problem: "must be an array"}
 	}

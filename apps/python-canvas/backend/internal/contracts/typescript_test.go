@@ -14,7 +14,13 @@ func TestTypeScriptV1IsDeterministicAndContainsCurrentContract(t *testing.T) {
 
 	for _, expected := range []string{
 		"PROJECT_SNAPSHOT_VERSION_V1 = \"v1\"",
+		"PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1 = \"positional_only\"",
+		"DIAGNOSTIC_SEVERITY_ERROR_V1 = \"error\"",
+		"PROVIDER_BASEDPYRIGHT_V1 = \"basedpyright\"",
+		"PROVIDER_AVAILABILITY_UNAVAILABLE_V1 = \"unavailable\"",
+		"PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1 = \"not_started\"",
 		"project: ProjectV1;",
+		"callables: [CallableV1];",
 		"authoredExpression: string;",
 		"parameterIds: string[];",
 		"sourceRanges: GeneratedSourceRangeV1[];",

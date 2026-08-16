@@ -72,6 +72,49 @@ func TestProjectSnapshotV1ValidateRejectsUnsupportedVersion(t *testing.T) {
 	}
 }
 
+func TestProjectSnapshotV1ValidateRequiresExactlyOneCallable(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		callables []CallableV1
+	}{
+		{
+			name:      "none",
+			callables: []CallableV1{},
+		},
+		{
+			name: "multiple",
+			callables: []CallableV1{
+				{
+					ID:                 "callable:square-root",
+					Name:               "Square Root",
+					AuthoredExpression: "",
+					ParameterIDs:       []string{},
+				},
+				{
+					ID:                 "callable:other",
+					Name:               "Other",
+					AuthoredExpression: "",
+					ParameterIDs:       []string{},
+				},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := validSnapshotForTest()
+			snapshot.Callables = test.callables
+
+			err := snapshot.Validate()
+			var validationError ValidationError
+			if !errors.As(err, &validationError) {
+				t.Fatalf("Validate() error = %T %v, want ValidationError", err, err)
+			}
+			if validationError.Field != "callables" || validationError.Problem != "must contain exactly one callable" {
+				t.Fatalf("ValidationError = %#v", validationError)
+			}
+		})
+	}
+}
+
 func TestProjectSnapshotV1ValidateRequiresStableDiagnosticTarget(t *testing.T) {
 	snapshot := validSnapshotForTest()
 	snapshot.Diagnostics = []DiagnosticV1{{

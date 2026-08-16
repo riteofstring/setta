@@ -91,4 +91,25 @@ describe("parseProjectSnapshotV1", () => {
       }),
     ).toThrow(ProjectSnapshotValidationError);
   });
+
+  it("requires exactly one callable at the unknown JSON boundary", () => {
+    const [callable] = projectSnapshotFixture.callables;
+    if (callable === undefined) {
+      throw new Error("The Go fixture must contain a callable.");
+    }
+
+    expect(() =>
+      parseProjectSnapshotV1({ ...projectSnapshotFixture, callables: [] }),
+    ).toThrow(ProjectSnapshotValidationError);
+
+    expect(() =>
+      parseProjectSnapshotV1({
+        ...projectSnapshotFixture,
+        callables: [
+          callable,
+          { ...callable, id: "callable:other", name: "Other" },
+        ],
+      }),
+    ).toThrow(ProjectSnapshotValidationError);
+  });
 });

@@ -4,7 +4,11 @@ import {
   type WorkspaceDocumentInput,
 } from "@setta/workspace";
 
-import type { ProjectSnapshotV1 } from "../backend/generatedContract";
+import type {
+  CallableV1,
+  ProjectSnapshotV1,
+  ProviderStatusV1,
+} from "../backend/generatedContract";
 import type { CallableSectionData } from "../sections/CallableSection";
 
 export const CALLABLE_SECTION_KIND = "python-canvas.callable" as const;
@@ -21,12 +25,14 @@ export const GENERATED_PYTHON_SECTION_SIZE = {
 export function projectWorkspaceDocument(
   snapshot: ProjectSnapshotV1,
 ): WorkspaceDocumentInput {
+  const [callable] = snapshot.callables;
+
   return {
     sections: {
       [CALLABLE_SECTION_ID]: {
         id: CALLABLE_SECTION_ID,
         kind: CALLABLE_SECTION_KIND,
-        name: "Callables",
+        name: callable.name,
         size: CALLABLE_SECTION_SIZE,
         overflowMode: false,
         isMinimized: false,
@@ -35,7 +41,7 @@ export function projectWorkspaceDocument(
         styleColor: null,
         tagColor: null,
         children: [],
-        data: projectCallableSectionData(snapshot),
+        data: projectCallableSectionData(callable, snapshot.providerStatus),
       },
       [GENERATED_PYTHON_SECTION_ID]: {
         id: GENERATED_PYTHON_SECTION_ID,
@@ -81,18 +87,19 @@ export function projectWorkspaceDocument(
 }
 
 function projectCallableSectionData(
-  snapshot: ProjectSnapshotV1,
+  callable: CallableV1,
+  providerStatus: ProviderStatusV1,
 ): CallableSectionData {
   return {
-    callables: snapshot.callables.map(({ authoredExpression, id, name }) => ({
-      id,
-      name,
-      authoredExpression,
-    })),
+    callable: {
+      authoredExpression: callable.authoredExpression,
+      id: callable.id,
+      name: callable.name,
+    },
     providerStatus: {
-      provider: snapshot.providerStatus.provider,
-      status: snapshot.providerStatus.status,
-      state: snapshot.providerStatus.state,
+      provider: providerStatus.provider,
+      status: providerStatus.status,
+      state: providerStatus.state,
     },
   };
 }

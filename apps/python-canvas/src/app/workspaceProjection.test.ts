@@ -30,8 +30,15 @@ describe("projectWorkspaceDocument", () => {
     expect(callable).toMatchObject({
       id: CALLABLE_SECTION_ID,
       kind: CALLABLE_SECTION_KIND,
-      name: "Callables",
+      name: snapshot.callables[0].name,
       positionAndSizeLocked: true,
+      data: {
+        callable: {
+          id: snapshot.callables[0].id,
+          name: snapshot.callables[0].name,
+          authoredExpression: snapshot.callables[0].authoredExpression,
+        },
+      },
     });
     expect(generatedPython).toMatchObject({
       id: GENERATED_PYTHON_SECTION_ID,

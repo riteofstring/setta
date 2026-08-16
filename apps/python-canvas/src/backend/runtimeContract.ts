@@ -1,5 +1,16 @@
 import {
+  DIAGNOSTIC_SEVERITY_ERROR_V1,
+  DIAGNOSTIC_SEVERITY_INFORMATION_V1,
+  DIAGNOSTIC_SEVERITY_WARNING_V1,
+  PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V1,
+  PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1,
+  PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1,
+  PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1,
+  PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1,
   PROJECT_SNAPSHOT_VERSION_V1,
+  PROVIDER_AVAILABILITY_UNAVAILABLE_V1,
+  PROVIDER_BASEDPYRIGHT_V1,
+  PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1,
   type CallableV1,
   type DiagnosticSeverityV1,
   type DiagnosticV1,
@@ -72,8 +83,8 @@ function parsePythonTarget(value: unknown): PythonTargetV1 {
   };
 }
 
-function parseCallables(value: unknown): CallableV1[] {
-  return readArray(value, "callables", (entry, index) => {
+function parseCallables(value: unknown): [CallableV1] {
+  const callables = readArray(value, "callables", (entry, index) => {
     const field = `callables[${index}]`;
     const record = readClosedRecord(entry, field, [
       "id",
@@ -96,6 +107,11 @@ function parseCallables(value: unknown): CallableV1[] {
       ),
     };
   });
+  const callable = callables[0];
+  if (callables.length !== 1 || callable === undefined) {
+    fail("callables", "must contain exactly one callable");
+  }
+  return [callable];
 }
 
 function parseParameters(value: unknown): ParameterV1[] {
@@ -178,17 +194,21 @@ function parseProviderStatus(value: unknown): ProviderStatusV1 {
   const status = readString(record.status, "providerStatus.status");
   const state = readString(record.state, "providerStatus.state");
 
-  if (provider !== "basedpyright") {
+  if (provider !== PROVIDER_BASEDPYRIGHT_V1) {
     fail("providerStatus.provider", "is not supported by V1");
   }
-  if (status !== "unavailable") {
+  if (status !== PROVIDER_AVAILABILITY_UNAVAILABLE_V1) {
     fail("providerStatus.status", "is not supported by V1");
   }
-  if (state !== "not_started") {
+  if (state !== PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1) {
     fail("providerStatus.state", "is not supported by V1");
   }
 
-  return { provider, status, state };
+  return {
+    provider: PROVIDER_BASEDPYRIGHT_V1,
+    status: PROVIDER_AVAILABILITY_UNAVAILABLE_V1,
+    state: PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1,
+  };
 }
 
 function parsePassingStyle(
@@ -197,12 +217,16 @@ function parsePassingStyle(
 ): ParameterPassingStyleV1 {
   const style = readString(value, field);
   switch (style) {
-    case "positional_only":
-    case "positional_or_keyword":
-    case "keyword_only":
-    case "variadic_positional":
-    case "variadic_keyword":
-      return style;
+    case PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1:
+      return PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1;
+    case PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1:
+      return PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1;
+    case PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V1:
+      return PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V1;
+    case PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1:
+      return PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1;
+    case PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1:
+      return PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1;
     default:
       fail(field, "is not supported by V1");
   }
@@ -214,10 +238,12 @@ function parseDiagnosticSeverity(
 ): DiagnosticSeverityV1 {
   const severity = readString(value, field);
   switch (severity) {
-    case "error":
-    case "warning":
-    case "information":
-      return severity;
+    case DIAGNOSTIC_SEVERITY_ERROR_V1:
+      return DIAGNOSTIC_SEVERITY_ERROR_V1;
+    case DIAGNOSTIC_SEVERITY_WARNING_V1:
+      return DIAGNOSTIC_SEVERITY_WARNING_V1;
+    case DIAGNOSTIC_SEVERITY_INFORMATION_V1:
+      return DIAGNOSTIC_SEVERITY_INFORMATION_V1;
     default:
       fail(field, "is not supported by V1");
   }

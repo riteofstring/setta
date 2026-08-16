@@ -10,19 +10,41 @@ func TypeScriptV1() []byte {
 export const PROJECT_SNAPSHOT_VERSION_V1 = %q as const;
 export const PROJECT_PATH_V1 = %q as const;
 
+export const PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1 = %q as const;
+export const PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1 = %q as const;
+export const PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V1 = %q as const;
+export const PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1 = %q as const;
+export const PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1 = %q as const;
+
+export const DIAGNOSTIC_SEVERITY_ERROR_V1 = %q as const;
+export const DIAGNOSTIC_SEVERITY_WARNING_V1 = %q as const;
+export const DIAGNOSTIC_SEVERITY_INFORMATION_V1 = %q as const;
+
+export const PROVIDER_BASEDPYRIGHT_V1 = %q as const;
+export const PROVIDER_AVAILABILITY_UNAVAILABLE_V1 = %q as const;
+export const PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1 = %q as const;
+
 export type ProjectSnapshotVersionV1 = typeof PROJECT_SNAPSHOT_VERSION_V1;
-export type ParameterPassingStyleV1 = %q | %q | %q | %q | %q;
-export type DiagnosticSeverityV1 = %q | %q | %q;
-export type ProviderV1 = %q;
-export type ProviderAvailabilityV1 = %q;
-export type ProviderLifecycleStateV1 = %q;
+export type ParameterPassingStyleV1 =
+  | typeof PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1
+  | typeof PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1
+  | typeof PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V1
+  | typeof PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1
+  | typeof PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1;
+export type DiagnosticSeverityV1 =
+  | typeof DIAGNOSTIC_SEVERITY_ERROR_V1
+  | typeof DIAGNOSTIC_SEVERITY_WARNING_V1
+  | typeof DIAGNOSTIC_SEVERITY_INFORMATION_V1;
+export type ProviderV1 = typeof PROVIDER_BASEDPYRIGHT_V1;
+export type ProviderAvailabilityV1 = typeof PROVIDER_AVAILABILITY_UNAVAILABLE_V1;
+export type ProviderLifecycleStateV1 = typeof PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1;
 export type APIErrorCodeV1 = %q | %q | %q;
 
 export interface ProjectSnapshotV1 {
   version: ProjectSnapshotVersionV1;
   project: ProjectV1;
   pythonTarget: PythonTargetV1;
-  callables: CallableV1[];
+  callables: [CallableV1];
   parameters: ParameterV1[];
   generatedCode: GeneratedCodeV1;
   diagnostics: DiagnosticV1[];
