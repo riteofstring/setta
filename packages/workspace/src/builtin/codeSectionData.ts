@@ -72,11 +72,16 @@ export type WorkspaceCodeSectionData =
       mode: "generated-document";
     });
 
+// The ordinary modes fall back to the creation defaults below, but a generated document has no
+// default: its region is an offset range into its own `code`, so an omitted document could only
+// ever produce an empty one the parser then rejects. Requiring the text with the region keeps that
+// state unrepresentable here rather than only at the data boundary.
 export type WorkspaceCodeSectionDataOverrides =
   | (Partial<WorkspaceCodeSectionCommonData> & {
       mode?: "editable" | "read-only";
     })
   | (Partial<WorkspaceCodeSectionCommonData> & {
+      code: string;
       generatedRegion: WorkspaceGeneratedRegion;
       mode: "generated-document";
     });

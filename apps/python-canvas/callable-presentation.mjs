@@ -13,8 +13,10 @@ import {
 // production walkthrough proves them in the appearance it runs in and the capture harness records
 // both, so a donor value has one owner.
 //
-// Every selector here is an accessible name, a documented package hook, an HTML landmark, or this
-// app's own content.
+// Every selector here is an accessible name or role, a documented package hook, an HTML landmark,
+// or this app's own content. The one sanctioned exception is the pair of negative `.cm-cursor` and
+// `.cm-activeLine` reads below: they assert those layers are absent, so they need no editor
+// internal to exist, and their absence is the only DOM evidence that no caret is drawn.
 
 const sectionFieldSelector = "[data-workspace-section-field]";
 export const callableSectionSelector =
@@ -25,12 +27,17 @@ const sectionHeaderSelector = `${callableSectionSelector} header`;
 const firstParameterSelector = ".python-canvas-parameter-label";
 export const generatedDocumentSelector =
   '[data-workspace-section-editor="generated-document"]';
-// The block's own ends, through the package's documented per-line hook. A region that begins and
-// ends on one line is both ends at once.
+// The block's own lines and its two ends, through the package's documented per-line hook. A region
+// that begins and ends on one line is both ends at once.
+const generatedBlockLineSelector = "[data-workspace-generated-line]";
 const generatedBlockStartSelector =
   '[data-workspace-generated-line="start"], [data-workspace-generated-line="only"]';
 const generatedBlockEndSelector =
   '[data-workspace-generated-line="end"], [data-workspace-generated-line="only"]';
+
+// The canonical document's authored prefix and suffix. The Go response owns them, the reader shows
+// them, and the declared region must not claim either as generated output.
+const authoredGeneratedLines = ["import math", "state = SettaState()"];
 
 // The section is fixed at 390 CSS px and its generated document is seven short lines, so a block
 // that hugs the code leaves most of the section unpainted. The rejected candidate painted all of
@@ -208,12 +215,16 @@ export function callableFieldStateScript(textSelector) {
   })()`;
 }
 
-// The generated surface, the block painted on the lines its region covers, its badge, the
-// authored lines outside it, and the text layer inside it, read through the package's documented
-// section-editor and generated-line hooks. Nothing here selects a package class.
+// The generated surface, the block painted on the lines its region covers, its badge, the reader's
+// own content box, and the text layer inside it, read through the package's documented
+// section-editor and generated-line hooks plus the reader's ARIA role. Nothing here selects a
+// package class or requires the editor's internal per-line structure to exist: the block is
+// enumerated through its public marks, and the authored text outside it is the distance between
+// the block's two ends and the reader's content box.
 export const generatedDocumentStateScript = `(() => {
   const surface = document.querySelector(${JSON.stringify(generatedDocumentSelector)});
   const text = surface?.querySelector('[role="textbox"]');
+  const blockLines = [...(surface?.querySelectorAll(${JSON.stringify(generatedBlockLineSelector)}) ?? [])];
   const blockStart = surface?.querySelector(${JSON.stringify(generatedBlockStartSelector)});
   const blockEnd = [...(surface?.querySelectorAll(${JSON.stringify(generatedBlockEndSelector)}) ?? [])].pop();
   if (
@@ -224,51 +235,32 @@ export const generatedDocumentStateScript = `(() => {
   ) {
     return null;
   }
-  const documentLines = [...surface.querySelectorAll(".cm-line")];
-  const firstLine = documentLines[0];
-  const lastLine = documentLines[documentLines.length - 1];
-  if (!(firstLine instanceof HTMLElement) || !(lastLine instanceof HTMLElement)) {
-    return null;
-  }
   const rect = surface.getBoundingClientRect();
+  const contentRect = text.getBoundingClientRect();
   const startRect = blockStart.getBoundingClientRect();
   const endRect = blockEnd.getBoundingClientRect();
   const surfaceStyle = window.getComputedStyle(surface);
   const regionStyle = window.getComputedStyle(blockStart, "::before");
   const badgeStyle = window.getComputedStyle(blockStart, "::after");
   const textStyle = window.getComputedStyle(text);
-  const readLine = (line) => {
-    const lineRect = line.getBoundingClientRect();
-    return {
-      mark: line.getAttribute("data-workspace-generated-line"),
-      // The authored lines outside the region carry no region of their own, which is the whole
-      // difference between this and the rejected whole-document paint.
-      regionBackgroundImage: window.getComputedStyle(line, "::before").backgroundImage,
-      rect: {
-        height: lineRect.height,
-        width: lineRect.width,
-        x: lineRect.x,
-        y: lineRect.y,
-      },
-      text: line.textContent,
-    };
-  };
   return {
     box: { height: rect.height, width: rect.width, x: rect.x, y: rect.y },
     // The generated block itself: it starts on the first line its region covers and ends on the
-    // last, which for this document are the two blank separators around the generated body.
+    // last, which for this document are the two blank separators around the generated body. Its
+    // own text is what the region claims, so the authored statements must not appear in it.
     block: {
       bottom: endRect.bottom,
-      lineCount: surface.querySelectorAll("[data-workspace-generated-line]").length,
-      marks: documentLines.map((line) => line.getAttribute("data-workspace-generated-line")),
+      lineBoxCssPx: startRect.height,
+      lineCount: blockLines.length,
+      marks: blockLines.map((line) => line.getAttribute("data-workspace-generated-line")),
+      text: blockLines.map((line) => line.textContent).join("\\n"),
       top: startRect.top,
       width: startRect.width,
     },
-    // The prefix and suffix the Go response owns: the reader shows them, the region does not
-    // claim them.
-    documentLineCount: documentLines.length,
-    prefixLine: readLine(firstLine),
-    suffixLine: readLine(lastLine),
+    // The reader's whole content box. The prefix and suffix the Go response owns are the text
+    // between it and the block's two ends, so the region visibly begins below the reader's first
+    // line and ends above its last.
+    content: { bottom: contentRect.bottom, top: contentRect.top },
     // The editor wrapper the rejected candidate painted instead of the lines.
     wrapper: { backgroundImage: surfaceStyle.backgroundImage },
     region: {
@@ -521,11 +513,6 @@ export function assertGeneratedBlockHugsCode(stage, state) {
       `${stage} generated Python painted its editor wrapper ${JSON.stringify(state.wrapper.backgroundImage)} instead of its document lines.`,
     );
   }
-  if (state.block.lineCount !== state.documentLineCount - 2) {
-    throw new Error(
-      `${stage} generated Python marked ${String(state.block.lineCount)} of its ${String(state.documentLineCount)} document lines, so its block is not the region between the target's prefix and suffix.`,
-    );
-  }
   const unpainted = state.box.y + state.box.height - state.block.bottom;
   if (unpainted < unpaintedSectionHeightCssPx) {
     throw new Error(
@@ -537,40 +524,61 @@ export function assertGeneratedBlockHugsCode(stage, state) {
 // The developer rejected a candidate that painted `import math` and `state = SettaState()` as
 // generated output. Only the body between the target's prefix and suffix is generated, so the
 // block runs from the blank separator above it to the blank separator below it and the two
-// authored lines keep the ordinary Code-section surface.
+// authored lines keep the ordinary Code-section surface. Three public reads prove that: the
+// block's own marks form one well-formed run, its two ends leave a whole line box of the reader
+// outside them, and the authored statements the reader shows are absent from the block's text.
 export function assertGeneratedRegionBoundsItsBody(stage, state) {
-  const { marks } = state.block;
-  const expected = marks.map((_mark, index) => {
-    if (index === 0 || index === marks.length - 1) {
-      return null;
-    }
-    if (index === 1) {
-      return "start";
-    }
-    return index === marks.length - 2 ? "end" : "middle";
-  });
-  if (JSON.stringify(marks) !== JSON.stringify(expected)) {
+  assertWellFormedGeneratedBlock(stage, state.block.marks);
+  assertReaderTextOutsideBlock(stage, state);
+  assertAuthoredStatementsUnclaimed(stage, state);
+}
+
+// The two blank separators bound at least one generated line, so the block's own marks are one
+// start, at least one middle, and one end. A shorter run means the region no longer spans the
+// body it is declared around.
+function assertWellFormedGeneratedBlock(stage, marks) {
+  const wellFormed =
+    marks.length >= 3 &&
+    marks[0] === "start" &&
+    marks[marks.length - 1] === "end" &&
+    marks.slice(1, -1).every((mark) => mark === "middle");
+  if (!wellFormed) {
     throw new Error(
-      `${stage} generated Python marked its document lines ${JSON.stringify(marks)} instead of ${JSON.stringify(expected)}.`,
+      `${stage} generated Python marked its block ${JSON.stringify(marks)} instead of one start, at least one middle, and one end.`,
     );
   }
-  for (const [edge, line] of [
-    ["prefix", state.prefixLine],
-    ["suffix", state.suffixLine],
+}
+
+// A whole line box of the reader stays outside each of the block's two ends, which is where the
+// target's authored prefix and suffix are. The rejected candidate left neither.
+function assertReaderTextOutsideBlock(stage, state) {
+  for (const [edge, part, gap] of [
+    ["above", "prefix", state.block.top - state.content.top],
+    ["below", "suffix", state.content.bottom - state.block.bottom],
   ]) {
-    if (line.regionBackgroundImage !== "none") {
+    if (!Number.isFinite(gap) || gap < state.block.lineBoxCssPx) {
       throw new Error(
-        `${stage} generated Python painted its authored ${edge} line ${JSON.stringify(line.text)} with ${JSON.stringify(line.regionBackgroundImage)}.`,
+        `${stage} generated block left ${String(Math.round(gap))} CSS px of the reader ${edge} it, less than the ${String(Math.round(state.block.lineBoxCssPx))} CSS px line box the target's authored ${part} occupies.`,
       );
     }
   }
-  if (
-    !state.prefixLine.text?.includes("import math") ||
-    !state.suffixLine.text?.includes("state = SettaState()")
-  ) {
-    throw new Error(
-      `${stage} generated Python is not the canonical document: it reads ${JSON.stringify(state.prefixLine.text)} and ${JSON.stringify(state.suffixLine.text)} outside its region.`,
-    );
+}
+
+// The same boundary stated over the text rather than the geometry: the reader shows both authored
+// statements and the block's own text claims neither, which also proves this is still the
+// canonical document the region was declared for.
+function assertAuthoredStatementsUnclaimed(stage, state) {
+  for (const authored of authoredGeneratedLines) {
+    if (state.block.text.includes(authored)) {
+      throw new Error(
+        `${stage} generated Python claimed the authored line ${JSON.stringify(authored)} as generated output.`,
+      );
+    }
+    if (state.text.source?.includes(authored) !== true) {
+      throw new Error(
+        `${stage} generated Python is not the canonical document: its reader never shows ${JSON.stringify(authored)}.`,
+      );
+    }
   }
 }
 

@@ -180,9 +180,11 @@ describe("the playground's built-in code section", () => {
       indentWidth: 2,
       mode: "generated-document",
       // Selecting the mode seeds the separator-bounded range this paint is built for, so the
-      // authored `import setta` line stays on the ordinary read-only surface.
+      // authored `import setta` line stays on the ordinary read-only surface. Both edges are the
+      // seeded document's own boundaries — the end of its first line and the end of the document
+      // — rather than the expression the Inspector computes them with.
       generatedRegion: {
-        from: authored.code.indexOf("\n"),
+        from: "import setta".length,
         to: authored.code.length,
       },
     });

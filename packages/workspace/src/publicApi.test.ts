@@ -214,5 +214,13 @@ describe("public package API", () => {
       generatedRegion,
     } satisfies workspace.WorkspaceCodeSectionDataOverrides;
     expect(ordinary.mode).toBe("read-only");
+    // The reciprocal: a region is offsets into a document, so the mode that carries one cannot
+    // fall back to the empty default text every other override may.
+    // @ts-expect-error a generated document cannot omit the code its region indexes.
+    const withoutCode: workspace.WorkspaceCodeSectionDataOverrides = {
+      generatedRegion,
+      mode: "generated-document",
+    };
+    expect(withoutCode.mode).toBe("generated-document");
   });
 });

@@ -67,12 +67,10 @@ function getGeneratedBlockLines(doc: Text, region: WorkspaceGeneratedRegion) {
   // document update and a reconfiguration, and one arrives first.
   const from = Math.min(region.from, doc.length);
   const to = Math.min(region.to, doc.length);
+  const firstNumber = doc.lineAt(from).number;
+  const lastNumber = doc.lineAt(to).number;
   const lines = [];
-  for (
-    let number = doc.lineAt(from).number;
-    number <= doc.lineAt(to).number;
-    number += 1
-  ) {
+  for (let number = firstNumber; number <= lastNumber; number += 1) {
     const line = doc.line(number);
     // A line joins the block when the region covers part of it or spans across it. The line the
     // region starts at the end of, and the line it ends at the start of, are the surrounding

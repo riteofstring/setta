@@ -981,6 +981,72 @@ rejected bundle at `docs/evidence/python-canvas-callable-presentation`; supervis
 those images; developer visual acceptance with its accepted-candidate record; and this phase's
 closing `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps.
 
+**Consumer-boundary and contract-strictness correction record.** The independent audit of the
+preceding correction found one repository-contract defect, and it is fixed.
+`apps/python-canvas/callable-presentation.mjs` had begun observing the package's generated surface
+by enumerating CodeMirror's private `.cm-line` elements and reading each one's `::before` paint.
+That is a positive structural dependency on exactly the internal `packages/workspace/README.md`
+declares non-public, unlike the pre-existing `.cm-cursor`/`.cm-activeLine` reads, which assert those
+layers are _absent_ and so need no internal structure to exist. It is also the rule this plan's
+Phase A third audit-correction record already enforced once, when it removed the playground's
+dependence on the package-private `.setta-workspace-item-toolbar-label`.
+
+The rejected defect is provable without it, so it now is. The state script enumerates the block
+through the documented `data-workspace-generated-line` marks alone, and records the reader's own
+`[role="textbox"]` content box beside the block's two ends.
+`assertGeneratedRegionBoundsItsBody` states the same boundary three public ways: the block's marks
+are one well-formed run of `start`, at least one `middle`, and `end`; a whole line box of the reader
+stays outside each of the block's ends, which is where the target's authored prefix and suffix are;
+and the block's own text claims neither authored statement while the reader shows both, which also
+keeps the canonical-document check the removed per-line text read used to carry.
+`assertGeneratedBlockHugsCode` drops the `documentLineCount - 2` comparison it had inherited, so
+hugging is now only the property its name states and the prefix/suffix relationship belongs wholly
+to the region-bounds assertion. The file's boundary claim is restated to match and names its one
+sanctioned exception rather than overstating itself. No package API is broadened to close this:
+every value read is a documented hook, an accessible name or role, an HTML landmark, or this app's
+own content.
+
+Three of the audit's five recommendations are applied and one is answered by that same rewrite.
+`WorkspaceCodeSectionDataOverrides` now requires `code` on its generated variant, so a generated
+document whose region indexes text the caller never supplied fails at compile time instead of
+producing an empty document the parser always rejects; the public-root proof carries the reciprocal
+`@ts-expect-error` beside its existing region-on-an-ordinary-mode one. `getGeneratedBlockLines`
+hoists `doc.lineAt(to).number` out of its loop condition beside the existing `doc.lineAt(from)`
+call, so the clamped bounds read as one pair. The playground's expected region asserts both edges
+against the seeded document's own boundaries instead of reusing the Inspector's own `indexOf`
+expression for `from`. The recommendation to derive the expected marked-line count from the
+target's prefix and suffix has nothing left to correct, because that helper no longer counts
+document lines at all.
+
+The remaining recommendation — expressing or validating the reference's separator-bounded
+convention in the region's own vocabulary, because a range declared on real line boundaries gets the
+80% lip mostly unpainted — is deliberately not a code change here. Fixed decision 10 makes this a
+_generic_ generated-document presentation, and constraining the public `WorkspaceGeneratedRegion` to
+one host's boundary convention would narrow it for every other consumer; the README already states
+the convention where it describes the type. It is an observation for a separate decision rather than
+a Phase B acceptance requirement.
+
+Verification for this correction: the locked release's `code-policy` CLI ran `check` over the five
+changed files. Its only finding is the `quality.deadCode` on `apps/python-canvas/vitest.setup.ts`
+this plan already reports, confirmed here to reproduce on the unmodified trusted base over a file
+this correction does not touch. `code-policy test --changed` passes, `code-policy test-levels`
+reports the six-suite recommended and eleven-suite full ordinary choices, and the authorized
+`code-policy test --recommended` passes all six: workspace focused and component (1179 tests across
+142 files), playground focused and component (43), Python Canvas frontend (38), and the production
+browser walkthrough against the production builds, the real Go service, pinned Basedpyright, and
+headless Chrome at 1440x900 device scale 1. The workspace, playground, and Python Canvas TypeScript
+projects are clean. Two negative controls bind the rewritten walkthrough assertion to the defect it
+replaces: declaring the whole document generated fails it with the block leaving 4 CSS px of the
+reader above it instead of the 18 CSS px line box the authored prefix occupies, and declaring a
+single-line region fails it on a block marked `["only"]`.
+
+What remains in this phase is unchanged except for which commit the capture must name: the capture
+renders from **this** corrected candidate rather than the preceding one, replacing the rejected
+bundle at `docs/evidence/python-canvas-callable-presentation`; then supervisor inspection of those
+images, developer visual acceptance with its accepted-candidate record, and this phase's closing
+`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
+accepted candidate.
+
 ## Stop conditions
 
 Stop and request a scope decision if:
