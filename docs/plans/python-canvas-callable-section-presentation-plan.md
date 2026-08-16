@@ -1662,10 +1662,47 @@ only the horizontal line the developer saw across the pill. The zoomed crops are
 1440x900 viewport, because a doubled card no longer fits inside it. This is unaccepted working
 evidence, not a regression lock.
 
-What remains in this phase: the fresh read-only review; the supervisor's inspection of these
-fourteen images at full resolution; developer visual acceptance with its accepted-candidate record;
-and this phase's closing `test --changed --base <trusted-base>` and
-`test-levels --base <trusted-base>` steps against the accepted candidate.
+**Supervisor full-resolution rejection of the zoom capture.** Evidence commit
+`3424cec4e77791700499c198b5150f3a872e1e68` is rejected before developer handoff. Its ordinary
+1x Callable and Generated Python images, and its enlarged completion-popup placement, show the
+intended corrected surfaces. Its enlarged card images do not show the complete card: the harness
+pinch-zooms around the section's centre, which moves the header above the canvas and beneath the
+application status strip, and `captureCrop` silently truncates that missing area at the viewport
+edge. The record's claim that a doubled card cannot fit is false. In the same production scene the
+2x card is about 724 by 564 CSS px while the canvas is about 1400 by 630 CSS px; anchoring the real
+gesture on the callable field keeps the complete header-to-parameter composition inside the canvas.
+This is a capture/walkthrough defect, not permission to reopen the accepted product architecture or
+invent another visual treatment.
+
+Replace the rejected evidence in one bounded correction:
+
+- `zoomCanvasOnCallableCard` must use the centre of the documented section-field surface as the
+  ctrl-wheel gesture point. It may move the pointer over the settled card afterward for the existing
+  hovered compositing assertion, but it must not change how the product itself zooms.
+- After the gesture settles, the production walkthrough and capture harness must assert that the
+  complete Square Root section rectangle is inside the workspace canvas rectangle. A small
+  tolerance may cover the section's selection stroke; clipping the header or parameter area is a
+  failure. Continue proving the measured 2x growth and settled unpromoted compositor values.
+- Immediately before each appearance's enlarged-state sequence, reload the production page and
+  wait for the shipped canonical `math.sqrt` scene. Capture the whole section plus the existing
+  margin; do not clamp an out-of-bounds element into a plausible partial image.
+- Render all fourteen images from the resulting immutable implementation commit, commit the
+  evidence separately, and replace the README's clamping claim with the full-card invariant. The
+  light and dark enlarged idle, focused, and completion images must contain the section header,
+  full syntax-highlighted `math.sqrt`, Args row, and complete `x` row; the completion image must
+  also contain the unclipped popup.
+
+No other donor audit, product behavior, package API, CSS treatment, backend path, dependency, debug
+script, compatibility path, migration, or transitional code belongs in this correction. Run the
+production walkthrough and the frozen recommended profile, then start a fresh read-only Opus review
+against the exact corrected candidate. The supervisor must inspect the replacement images at full
+resolution before presenting them for developer acceptance.
+
+What remains in this phase: this bounded zoom-evidence correction and recapture; the fresh read-only
+review; the supervisor's inspection of the replacement fourteen images at full resolution;
+developer visual acceptance with its accepted-candidate record; and this phase's closing
+`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
+accepted candidate.
 
 ## Stop conditions
 
