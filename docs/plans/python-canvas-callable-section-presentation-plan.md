@@ -653,7 +653,7 @@ presentation correction:
 - Generated Python exposes `generated-document`, leaves prefix line 1 and suffix line 7 unpainted,
   paints generated body lines 3–5 with the donor rail/region/badge, remains non-editable and
   selectable, and has no inner caret/outline before or after a real pointer click;
-- the accessible callable name, `math.sq` completion selection, second-Enter commit, `x` parameter,
+- the accessible callable name, `math.sq` completion selection, one-Enter commit, `x` parameter,
   generated Python, diagnostic, and diagnostic-clear behavior remain intact; and
 - one Ctrl-C still cleans up the app processes through the existing wrapper.
 
@@ -1351,7 +1351,8 @@ touches, and the owner it maps to here:
 | `Search`: `onEscape` resets the draft to the canonical name unless a popup is open      | package Escape seam + Python Canvas revert        | this batch              |
 | `Search`: the pill's radius, padding, margin, type, and focus border                    | package `styles/sectionField.css`                 | done earlier in Phase B |
 | `Search`: spinner and callable-error right indicator                                    | Python Canvas end adornment and failure blocks    | done in Phase A         |
-| `Search`: LSP waiting state, tooltips, style themes, edge-handle measurement            | not ported — donor global state this plan refuses | out of scope            |
+| `Search`: LSP waiting state, style themes, edge-handle measurement                      | not ported — donor global state this plan refuses | out of scope            |
+| `Search`: `tooltipParentDivId` → `Viewport` host → `tooltips({ parent })`               | host tooltip parent + package editor wiring       | this correction         |
 | `ParamTextLabel`: the row shows the display name and nothing else                       | Python Canvas `ParameterItemRow` label            | this batch              |
 | `ParamUI` text branch: value editor whose placeholder is the parameter's `defaultVal`   | Python Canvas row placeholder                     | this batch              |
 | `ParamUI` text branch: the row control's own surface classes                            | package `item-row` presentation                   | done in Phase A         |
@@ -1505,6 +1506,64 @@ giving the open popup the commit Enter again fails the walkthrough with _the mat
 generated Python did not occur within 30 seconds_ and fails both new key cases, and removing the
 field's `onEscape` wiring fails the walkthrough with _the idle callable field showing "math.sqrt"
 did not occur within 30 seconds_ and fails the two revert cases.
+
+**Focused-field tooltip clipping correction.** This supersedes the sixth correction item's premise
+that the inner horizontal line is a stray focus outline or a leftover border, and it supersedes the
+donor-mapping row that placed `Search`'s tooltips out of scope.
+
+A headless reproduction settled the diagnosis. The line is absent from a focused idle field. It
+appears only while a completion popup is open and vanishes the moment completion closes, with no
+change to the focus ring, the caret, or the pill's own border between the two states. It is the top
+border of the CodeMirror completion tooltip, rendered inside the section's own clipped subtree, so
+the callable pill crops the tooltip down to that single visible horizontal edge. The fix is
+therefore structural rather than cosmetic: the tooltip must render outside the clipping ancestor,
+which is what main already does and what the donor mapping wrongly refused.
+
+Main's shape, read at the donor commit: the canvas `Viewport` renders a tooltip host element beside
+the transformed scene content; the callable field names that host when it builds its editor;
+`getExtensions` turns the resolved element into `tooltips({ parent })`. The tooltip therefore lives
+under the canvas transform, so it scales and pans with the scene, but outside every section's
+clipped box. Main's own end-to-end proof asserts exactly that: the tooltip is found under the
+tooltip host, its rectangle overflows the section's resizable container, and that container does
+not contain it.
+
+Port that shape under this plan's boundary:
+
+- `@setta/workspace` owns the tooltip parent. The canvas host renders it, scoped to the host
+  instance rather than to a module-global document id, so two hosts on one page cannot share or
+  steal one parent. It sits in the same transformed coordinate space as section content and outside
+  every section's clipping and overflow ancestor.
+- The package's own editor assembly resolves that parent and configures CodeMirror's tooltips to
+  use it, as main does. Consumers neither pass it, name it, nor see it.
+- The public surface stays consumer-neutral: no Python, callable, Basedpyright, LSP, application
+  error, or generated-contract vocabulary, and no private CodeMirror API — no `EditorView`,
+  extension array, tooltip option, or raw element handle — in any exported signature.
+- No compatibility or transitional path: no flag, no per-control opt-in, no fallback to the
+  in-section parent, and no second rendering path kept alive for the old placement.
+
+Proofs. Focused package tests must pin that the host renders exactly one tooltip parent, that it is
+outside the clipped section subtree, that an editor's completion tooltip is parented to it, and that
+the exported surface still carries no editor or tooltip vocabulary. The production browser proof
+must open completion in the callable field at enlarged settled zoom and assert two things the
+rejected placement cannot satisfy: the tooltip is visibly outside the clipped field and section —
+its rectangle overflows the section container and that container does not contain the tooltip
+element — and no horizontal tooltip border remains inside the pill, measured against the field's own
+box rather than judged by eye.
+
+Bound the zoom harness. Run the zoom steps early, in a fresh production scene, rather than after the
+walkthrough's mutations. Use one real canvas zoom mechanism — the product's own — and prove it took
+effect by measuring the section card's enlargement instead of trusting the gesture. Do not build a
+matrix of CDP acknowledgement probes to decide whether an input was delivered, and do not check in
+debug or exploration scripts; the harness that ships is the one that asserts.
+
+The blur fix requirement is unchanged. The package's persistent per-section compositor promotion is
+removed, and any interaction marker that remains is transient — cleared after the gesture, with
+settled screenshots crisp.
+
+The next implementation batch is restricted to transient-only compositor promotion, this
+tooltip-parent fix, their focused package tests and production browser proof, and the evidence
+recapture the preceding batches already owe. Nothing else: no edge case audit, no further donor
+items, no unrelated cleanup.
 
 ## Stop conditions
 
