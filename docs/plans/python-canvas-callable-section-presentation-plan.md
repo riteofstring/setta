@@ -2431,8 +2431,13 @@ though authored Python before and after the protected body is now part of the sh
 phrase is removed. The review's other observations are non-blocking recommendations outside this
 plan and are not expanded into new work.
 
-What remains in Phase B: a fresh immutable read-only review of the final source candidate, developer
-visual acceptance with its accepted-candidate record, and the closing
+**Final read-only re-review.** A fresh Opus 5 xhigh reviewer inspected only the correction and its
+record, made no repository-contract or requested-outcome finding, and approved it. Its sole
+non-blocking observation was that the later documentation commits do not change what the capture
+bundle shows; the bundle remains deliberately bound to immutable source candidate
+`97828f51fa7836146df821e18291f19db1a4e1f3`.
+
+What remains in Phase B: developer visual acceptance with its accepted-candidate record, and the closing
 `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
 accepted candidate.
 
