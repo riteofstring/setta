@@ -213,6 +213,39 @@ describe("canvas CodeMirror tooltip parent", () => {
     return view;
   }
 
+  it("lays out the mounted canvas without waiting for ResizeObserver", async () => {
+    const originalGetBoundingClientRect =
+      HTMLElement.prototype.getBoundingClientRect;
+    const getBoundingClientRect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.classList.contains("react-flow")) {
+          return DOMRect.fromRect({ width: 1_200, height: 800 });
+        }
+        return originalGetBoundingClientRect.call(this);
+      });
+
+    try {
+      registerCallableKind(testWorkspace);
+      loadCallableDocument(testWorkspace);
+      await act(async () => {
+        root.render(
+          <WorkspaceTestProvider workspace={testWorkspace}>
+            <WorkspaceCanvas />
+          </WorkspaceTestProvider>,
+        );
+      });
+
+      const renderer = getRequiredElement(container, ".react-flow__renderer");
+      expect(renderer.style.width).toBe("1200px");
+      expect(renderer.style.height).toBe("800px");
+      expect(testWorkspace.reactFlow.getState().width).toBe(1_200);
+      expect(testWorkspace.reactFlow.getState().height).toBe(800);
+    } finally {
+      getBoundingClientRect.mockRestore();
+    }
+  });
+
   it("renders one tooltip parent in the transformed scene and outside every section", async () => {
     await mountCanvas();
 

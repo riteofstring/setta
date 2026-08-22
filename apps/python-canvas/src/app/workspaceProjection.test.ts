@@ -5,6 +5,8 @@ import {
   WORKSPACE_CODE_SECTION_KIND,
   createWorkspaceHost,
   deleteWorkspaceItems,
+  getWorkspaceCodeSectionData,
+  setWorkspaceCodeSectionData,
   type WorkspaceHost,
 } from "@setta/workspace";
 import { describe, expect, it, vi } from "vitest";
@@ -14,13 +16,21 @@ import { CALLABLE_SECTION_ID } from "../sections/CallableSection";
 import {
   CALLABLE_SECTION_KIND,
   GENERATED_PYTHON_SECTION_ID,
-  applyProjectSnapshotKeepingParameterList,
   applyProjectSnapshotToWorkspace,
+  generatedPythonRegionText,
   projectWorkspaceDocument,
   readCallableParameterItems,
+  readGeneratedPythonTarget,
 } from "./workspaceProjection";
 import { readCallableSectionData } from "../sections/CallableSection";
 import { parseProjectSnapshotV1 } from "../backend/runtimeContract";
+
+// Every response this suite applies answers for the document it was proposed from unless the
+// case says otherwise.
+const KEEP_NOTHING = {
+  keepAuthoredPython: false,
+  keepParameterList: false,
+} as const;
 
 describe("Python Canvas workspace projection", () => {
   it("creates the deterministic initial two-section document", () => {
@@ -60,7 +70,9 @@ describe("Python Canvas workspace projection", () => {
       id: GENERATED_PYTHON_SECTION_ID,
       kind: WORKSPACE_CODE_SECTION_KIND,
       name: "Generated Python",
-      positionAndSizeLocked: true,
+      // The prefix and suffix are authored here, and the package refuses every edit on a
+      // locked section, so this card is an ordinary movable one too.
+      positionAndSizeLocked: false,
       data: {
         code: snapshot.generatedCode.code,
         language: "python",
@@ -136,7 +148,7 @@ describe("Python Canvas workspace projection", () => {
     const host = createHostForTest(initial);
     const loadDocument = vi.spyOn(host, "loadDocument");
 
-    applyProjectSnapshotToWorkspace(host, next);
+    applyProjectSnapshotToWorkspace(host, next, KEEP_NOTHING);
 
     expect(loadDocument).not.toHaveBeenCalled();
     const callable = host.getSnapshot().sections[CALLABLE_SECTION_ID];
@@ -193,7 +205,7 @@ describe("Python Canvas workspace projection", () => {
     const host = createHostForTest(initial);
     const loadDocument = vi.spyOn(host, "loadDocument");
 
-    applyProjectSnapshotToWorkspace(host, next);
+    applyProjectSnapshotToWorkspace(host, next, KEEP_NOTHING);
 
     expect(loadDocument).not.toHaveBeenCalled();
     expect(
@@ -228,7 +240,10 @@ describe("Python Canvas workspace projection", () => {
       "parameter:authored:scale",
     ]);
 
-    applyProjectSnapshotKeepingParameterList(host, answered);
+    applyProjectSnapshotToWorkspace(host, answered, {
+      keepAuthoredPython: false,
+      keepParameterList: true,
+    });
 
     expect(
       readCallableParameterItems(host.getSnapshot()).map((item) => [
@@ -237,6 +252,85 @@ describe("Python Canvas workspace projection", () => {
       ]),
       // The deleted row stays deleted, and the surviving row still takes the project's own value.
     ).toEqual([["parameter:square-root:provider", "3"]]);
+
+    host.dispose();
+  });
+
+  // The generated document is authored around its protected range, so the app reads the two outer
+  // regions at the offsets the package mapped rather than by searching the text for the body.
+  it("splits the authored Python at the package's own mapped range", () => {
+    const snapshot = snapshotWithParameters([providerParameter("3")]);
+    const host = createHostForTest(snapshot);
+
+    expect(readGeneratedPythonTarget(host)).toEqual({
+      generated: generatedPythonRegionText(snapshot),
+      prefix: snapshot.pythonTarget.prefix,
+      suffix: snapshot.pythonTarget.suffix,
+    });
+
+    // One accepted edit in the prefix, written the way the package writes it: the next text and
+    // the range it mapped, together.
+    const inserted = "\nimport os";
+    const code =
+      snapshot.pythonTarget.prefix +
+      inserted +
+      generatedPythonRegionText(snapshot) +
+      snapshot.pythonTarget.suffix;
+    setWorkspaceCodeSectionData(host, GENERATED_PYTHON_SECTION_ID, {
+      ...getWorkspaceCodeSectionData(host, GENERATED_PYTHON_SECTION_ID),
+      code,
+      generatedRegion: {
+        from: snapshot.pythonTarget.prefix.length + inserted.length,
+        to: code.length - snapshot.pythonTarget.suffix.length,
+      },
+      mode: "generated-document",
+    });
+
+    expect(readGeneratedPythonTarget(host)).toEqual({
+      generated: generatedPythonRegionText(snapshot),
+      prefix: `${snapshot.pythonTarget.prefix}${inserted}`,
+      suffix: snapshot.pythonTarget.suffix,
+    });
+
+    host.dispose();
+  });
+
+  // A keystroke in the generated document lands the moment it is typed, so a response can arrive
+  // for authored Python the person has already moved past. Writing the canonical document over it
+  // would take back what they just wrote — and leaving the whole document alone would keep a
+  // generated body the store has already replaced.
+  it("keeps the authored Python a document moved on to and still lands the response's body", () => {
+    const held = snapshotWithParameters([providerParameter("3")]);
+    const host = createHostForTest(held);
+    const typed = `${held.pythonTarget.prefix}\nimport os${generatedPythonRegionText(held)}${held.pythonTarget.suffix}`;
+    setWorkspaceCodeSectionData(host, GENERATED_PYTHON_SECTION_ID, {
+      ...getWorkspaceCodeSectionData(host, GENERATED_PYTHON_SECTION_ID),
+      code: typed,
+      generatedRegion: {
+        from: held.pythonTarget.prefix.length + "\nimport os".length,
+        to: typed.length - held.pythonTarget.suffix.length,
+      },
+      mode: "generated-document",
+    });
+    // The parameter mutation that was in flight while that line was typed.
+    const answered = snapshotWithParameters([providerParameter("9")]);
+
+    applyProjectSnapshotToWorkspace(host, answered, {
+      keepAuthoredPython: true,
+      keepParameterList: false,
+    });
+
+    expect(readGeneratedPythonTarget(host)).toEqual({
+      generated: generatedPythonRegionText(answered),
+      prefix: `${held.pythonTarget.prefix}\nimport os`,
+      suffix: held.pythonTarget.suffix,
+    });
+    // The rest of the response still lands.
+    expect(
+      readCallableParameterItems(host.getSnapshot()).map(
+        (item) => item.data.authoredExpression,
+      ),
+    ).toEqual(["9"]);
 
     host.dispose();
   });

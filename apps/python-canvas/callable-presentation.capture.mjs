@@ -28,7 +28,7 @@ import {
   assertDonorSectionComposition,
   assertGeneratedBlockHugsCode,
   assertGeneratedRegionBoundsItsBody,
-  assertNonEditingGeneratedText,
+  assertAuthorableGeneratedDocument,
   assertSettledCardIsInsideCanvas,
   assertSettledSectionIsNotPromoted,
   callableCompletionPopupSelector,
@@ -84,7 +84,8 @@ const evidenceRoot = path.resolve(
 const appearances = ["light", "dark"];
 const callableLabel = "Callable expression";
 const parameterLabel = "x expression";
-const generatedLabel = "Generated Python generated code, read-only";
+const generatedLabel =
+  "Generated Python code editor, generated output read-only";
 // Each crop keeps this much of the surrounding surface so the pill's own border, the generated
 // region's rounded ends, and their immediate context are all visible in the image.
 const cropMarginCssPx = 8;
@@ -371,7 +372,7 @@ async function captureGeneratedStates(client, appearance) {
   assertDonorGeneratedRegion(idle, appearance);
   assertGeneratedBlockHugsCode(`The idle ${appearance}`, idle);
   assertGeneratedRegionBoundsItsBody(`The idle ${appearance}`, idle);
-  assertNonEditingGeneratedText(`The idle ${appearance}`, idle);
+  assertAuthorableGeneratedDocument(`The idle ${appearance}`, idle);
   const idleCrop = await captureCrop(
     client,
     [generatedDocumentSelector],
@@ -391,7 +392,7 @@ async function captureGeneratedStates(client, appearance) {
   assertDonorGeneratedRegion(clicked, appearance);
   assertGeneratedBlockHugsCode(`The clicked ${appearance}`, clicked);
   assertGeneratedRegionBoundsItsBody(`The clicked ${appearance}`, clicked);
-  assertNonEditingGeneratedText(`The clicked ${appearance}`, clicked);
+  assertAuthorableGeneratedDocument(`The clicked ${appearance}`, clicked);
   const clickedCrop = await captureCrop(
     client,
     [generatedDocumentSelector],

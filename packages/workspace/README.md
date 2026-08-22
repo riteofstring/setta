@@ -612,23 +612,34 @@ language-aware highlighting and a copy button, and KaTeX math, with raw HTML nev
 whitespace-preserving block for plain text. The Code Editor section carries `code`, `language`,
 `wrapLines`, `lineNumbers`, `indentWidth`, and a required `mode` over the package's language set:
 Python, Bash, JavaScript, TypeScript, JSON, YAML, TOML, Markdown, and plain text. `mode` is one of
-`editable`, `read-only`, or `generated-document`. Both non-editable modes keep the text selectable,
-copyable, and scrollable, and stop being editing surfaces rather than leaving a caret in one that
-refuses every keystroke: the wrapper stays the section's focus target, says it is read-only in its
-accessible name, and Enter no longer reaches into an editor. A `generated-document` section also
-carries `generatedRegion`, one `{ from, to }` range of UTF-16 CodeMirror offsets into its own
+`editable`, `read-only`, or `generated-document`. A `read-only` section keeps the text selectable,
+copyable, and scrollable, and stops being an editing surface rather than leaving a caret in one
+that refuses every keystroke: the wrapper stays the section's focus target, says it is read-only in
+its accessible name, and Enter no longer reaches into an editor. A `generated-document` section
+also carries `generatedRegion`, one `{ from, to }` range of UTF-16 CodeMirror offsets into its own
 `code`; the package never infers it from the text, and a missing, empty, reversed, fractional, or
 out-of-document range — like a region declared on an ordinary mode, or a generated document that
 declares none — is rejected at the same data boundary. Only the lines that range covers are
 painted as machine-written output, with the reference's blue region, its leading rail, and its
-compact uppercase generated/read-only badge centred on the block's upper boundary; the surface
-never shows a caret, an inner focus outline, active-line paint, or any repaint under a pointer
-press. Declare the range the way the reference's own protected range runs — from the end of the
-text before it to the start of the text after it — because those two boundary lines carry a lip of
-the block rather than a full band. Text outside the range keeps ordinary read-only paint, and so
-does a section taller than its document. Locking a section makes an `editable` section read-only;
-it never turns one into a generated document. Both sections share that editor, so a read-only or
-locked Text section is non-editable the same way. The rendered surface carries
+compact uppercase generated/read-only badge centred on the block's upper boundary. Declare the
+range the way the reference's own protected range runs — from the end of the text before it to the
+start of the text after it — because those two boundary lines carry a lip of the block rather than
+a full band. Text outside the range keeps the ordinary editor's paint, and so does a section taller
+than its document.
+
+The text outside that range is authored: a generated document is an ordinary editing surface, and
+the range is what it refuses. A user transaction is accepted only when every one of its changes
+lies wholly before or wholly after the range, so typing, paste, cut, deletion, replacement, undo,
+and redo across it are refused whole rather than partly applied, and the block says so with a
+`not-allowed` cursor while staying selectable and copyable. An accepted edit maps the range through
+its own changes — text inserted at either boundary belongs to the outer text — and the section is
+told the next `code` and the mapped `generatedRegion` together, so its data never describes a
+region that has moved out from under it. Cursor motion steps over the block, and a pointer press
+inside it leaves the caret at the nearer end, because there is nowhere inside it for the next
+character to go. Locking a section makes an `editable` section read-only and a generated document
+non-editable throughout, keeping the block's paint; it never turns an ordinary section into a
+generated document. Both sections share that editor, so a read-only or locked Text section is
+non-editable the same way. The rendered surface carries
 `data-workspace-section-editor` with the presentation it resolved to, and each line of a generated
 block carries `data-workspace-generated-line` with its position in that block (`start`, `middle`,
 `end`, or `only` when the region begins and ends on one line): those two attributes are the

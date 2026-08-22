@@ -9,11 +9,17 @@ import { parseProjectSnapshotV1 } from "../backend/runtimeContract";
 const mocks = vi.hoisted(() => ({
   fetchProjectSnapshot: vi.fn(),
   setCallableParameters: vi.fn(),
+  setPythonTarget: vi.fn(),
+  getWorkspaceCodeSectionData: vi.fn(),
+  setWorkspaceCodeSectionData: vi.fn(),
   createWorkspaceCodeSection: vi.fn(),
   createWorkspaceCodeSectionData: vi.fn(),
   createWorkspaceHost: vi.fn(),
+  deleteWorkspaceItems: vi.fn(),
+  insertWorkspaceItem: vi.fn(),
   registerSectionKinds: vi.fn(),
   setItemData: vi.fn(),
+  setSectionData: vi.fn(),
   setWorkspaceColorMode: vi.fn(),
   editorProps: [] as Array<Record<string, unknown>>,
   // The package mounts the section content itself. A case that needs the app's own mutation
@@ -25,6 +31,7 @@ vi.mock("../backend/client", () => ({
   ProjectClientError: class extends Error {},
   fetchProjectSnapshot: mocks.fetchProjectSnapshot,
   setCallableParameters: mocks.setCallableParameters,
+  setPythonTarget: mocks.setPythonTarget,
 }));
 
 vi.mock("@setta/workspace", () => ({
@@ -46,8 +53,13 @@ vi.mock("@setta/workspace", () => ({
   createWorkspaceCodeSection: mocks.createWorkspaceCodeSection,
   createWorkspaceCodeSectionData: mocks.createWorkspaceCodeSectionData,
   createWorkspaceHost: mocks.createWorkspaceHost,
+  deleteWorkspaceItems: mocks.deleteWorkspaceItems,
+  getWorkspaceCodeSectionData: mocks.getWorkspaceCodeSectionData,
+  insertWorkspaceItem: mocks.insertWorkspaceItem,
   registerSectionKinds: mocks.registerSectionKinds,
   setItemData: mocks.setItemData,
+  setSectionData: mocks.setSectionData,
+  setWorkspaceCodeSectionData: mocks.setWorkspaceCodeSectionData,
   setWorkspaceColorMode: mocks.setWorkspaceColorMode,
 }));
 
@@ -85,7 +97,31 @@ beforeEach(() => {
       ...overrides,
     }),
   );
+  // The generated document holds the canonical Python until a case says somebody typed in it.
+  mocks.getWorkspaceCodeSectionData.mockImplementation(() =>
+    generatedDocumentData(committedSnapshot().pythonTarget.prefix),
+  );
 });
+
+// The code section data the package would hold for the canonical snapshot, with one authored
+// prefix in place of the canonical one.
+function generatedDocumentData(prefix: string) {
+  const snapshot = committedSnapshot();
+  const region = `\n\n${snapshot.generatedCode.body}\n\n`;
+  const code = `${prefix}${region}${snapshot.pythonTarget.suffix}`;
+  return {
+    code,
+    generatedRegion: {
+      from: prefix.length,
+      to: code.length - snapshot.pythonTarget.suffix.length,
+    },
+    indentWidth: 4,
+    language: "python",
+    lineNumbers: true,
+    mode: "generated-document",
+    wrapLines: true,
+  };
+}
 
 afterEach(() => {
   if (root !== undefined) {
@@ -272,6 +308,122 @@ describe("PythonCanvasApp", () => {
     }
   });
 
+  // The generated document is authored around its protected range, so a prefix or suffix edit
+  // reaches the store as one complete revision-bound target rather than as a diff, and only after
+  // the same coalescing window every other authored change goes through.
+  it("proposes the complete authored Python target after one coalescing window", async () => {
+    vi.useFakeTimers();
+    try {
+      const host = createHostStub();
+      mocks.createWorkspaceHost.mockReturnValue(host);
+      mocks.fetchProjectSnapshot.mockResolvedValue(committedSnapshot());
+      mocks.setPythonTarget.mockReturnValue(new Promise(() => {}));
+
+      renderApp();
+      await settle();
+      const notifyDocumentChanged = host.subscribe.mock.calls[0]?.[0] as (
+        document: unknown,
+      ) => void;
+      const document = documentWithParameterRows([]);
+      host.getSnapshot.mockReturnValue(document);
+
+      // The canonical document proposes nothing at all.
+      act(() => {
+        notifyDocumentChanged(document);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      expect(mocks.setPythonTarget).not.toHaveBeenCalled();
+
+      // One accepted edit in the prefix, which is what the package writes back.
+      mocks.getWorkspaceCodeSectionData.mockImplementation(() =>
+        generatedDocumentData("import math\nimport os"),
+      );
+      act(() => {
+        notifyDocumentChanged(document);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+
+      expect(mocks.setPythonTarget).toHaveBeenCalledTimes(1);
+      expect(mocks.setPythonTarget.mock.calls[0]?.[0]).toEqual({
+        expectedRevision: 1,
+        prefix: "import math\nimport os",
+        projectId: "project:python-canvas",
+        suffix: "state = SettaState()",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // A Python target response answers for the authored Python and says nothing about the parameter
+  // list, so a row somebody added while it was away is theirs rather than a stale copy of
+  // canonical. Rebuilding the canonical list over it would take the row back without ever
+  // proposing it.
+  it("leaves a parameter list the document moved on to while a target response was away", async () => {
+    vi.useFakeTimers();
+    try {
+      const host = createHostStub();
+      mocks.createWorkspaceHost.mockReturnValue(host);
+      mocks.fetchProjectSnapshot.mockResolvedValue(committedSnapshot());
+      const answered =
+        createDeferred<ReturnType<typeof parseProjectSnapshotV1>>();
+      mocks.setPythonTarget.mockReturnValue(answered.promise);
+      mocks.setCallableParameters.mockReturnValue(new Promise(() => {}));
+
+      renderApp();
+      await settle();
+      const notifyDocumentChanged = host.subscribe.mock.calls[0]?.[0] as (
+        document: unknown,
+      ) => void;
+
+      // One accepted edit in the prefix, proposed after the coalescing window.
+      const authoredPrefix = "import math\nimport os";
+      mocks.getWorkspaceCodeSectionData.mockImplementation(() =>
+        generatedDocumentData(authoredPrefix),
+      );
+      host.getSnapshot.mockReturnValue(documentWithParameterRows([]));
+      act(() => {
+        notifyDocumentChanged(documentWithParameterRows([]));
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      expect(mocks.setPythonTarget).toHaveBeenCalledTimes(1);
+
+      // The person adds a parameter while that request is away. The package's own action has
+      // already written it into the controlled document.
+      const moved = documentWithParameterRows([
+        { name: "scale", nameEditable: true },
+      ]);
+      host.getSnapshot.mockReturnValue(moved);
+      act(() => {
+        notifyDocumentChanged(moved);
+      });
+      answered.resolve(snapshotWithPythonPrefix(authoredPrefix));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+
+      // The canonical list is empty, so rebuilding it over this document would delete that row.
+      expect(mocks.deleteWorkspaceItems).not.toHaveBeenCalled();
+      expect(mocks.insertWorkspaceItem).not.toHaveBeenCalled();
+      // And what they added is proposed in turn, against the revision the response published.
+      expect(mocks.setCallableParameters).toHaveBeenCalledTimes(1);
+      expect(mocks.setCallableParameters.mock.calls[0]?.[0]).toMatchObject({
+        expectedRevision: 2,
+        parameters: [
+          { authoredExpression: "", id: "parameter:0", name: "scale" },
+        ],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("replaces a failed load with an alert and disposes the unused host", async () => {
     const host = createHostStub();
     mocks.createWorkspaceHost.mockReturnValue(host);
@@ -315,6 +467,24 @@ describe("PythonCanvasApp", () => {
 
 // The shipped service commits its example before it answers, so the canonical first response the
 // app renders already carries the expression.
+// The canonical project one accepted target mutation later: the store keeps the authored prefix
+// and renders the whole module around its own body again.
+function snapshotWithPythonPrefix(
+  prefix: string,
+): ReturnType<typeof parseProjectSnapshotV1> {
+  const { body } = projectSnapshotFixture.generatedCode;
+  const { suffix } = projectSnapshotFixture.pythonTarget;
+  return parseProjectSnapshotV1({
+    ...projectSnapshotFixture,
+    generatedCode: {
+      ...projectSnapshotFixture.generatedCode,
+      code: `${prefix}\n\n${body}\n\n${suffix}`,
+    },
+    project: { ...projectSnapshotFixture.project, revision: 2 },
+    pythonTarget: { ...projectSnapshotFixture.pythonTarget, prefix },
+  });
+}
+
 function committedSnapshot(): ReturnType<typeof parseProjectSnapshotV1> {
   return parseProjectSnapshotV1({
     ...projectSnapshotFixture,

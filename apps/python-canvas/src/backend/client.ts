@@ -3,12 +3,14 @@ import {
   PROJECT_CALLABLE_PATH_V1,
   PROJECT_PARAMETERS_PATH_V1,
   PROJECT_PATH_V1,
+  PROJECT_TARGET_PATH_V1,
   type APIErrorCodeV1,
   type CallableCompletionRequestV1,
   type CallableCompletionResponseV1,
   type CommitCallableRequestV1,
   type ProjectSnapshotV1,
   type SetCallableParametersRequestV1,
+  type SetPythonTargetRequestV1,
 } from "./generatedContract";
 import {
   ProjectSnapshotValidationError,
@@ -74,6 +76,19 @@ export async function setCallableParameters(
 ): Promise<ProjectSnapshotV1> {
   return requestProjectSnapshot(
     PROJECT_PARAMETERS_PATH_V1,
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+// One request carries the complete authored Python around the generated body, so a
+// prefix edit and a suffix edit reach the store as the same candidate.
+export async function setPythonTarget(
+  request: SetPythonTargetRequestV1,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV1> {
+  return requestProjectSnapshot(
+    PROJECT_TARGET_PATH_V1,
     jsonPost(request),
     fetchImplementation,
   );

@@ -19,8 +19,11 @@ const (
 	initialProjectRevision = 1
 	squareRootCallableID   = "callable:square-root"
 	squareRootCallableName = "Square Root"
-	pythonPrefix           = "import math"
-	pythonSuffix           = "state = SettaState()"
+
+	// The shipped project's outer Python. It is where canonical target state starts,
+	// not what that state is: both regions are authored from here on.
+	initialPythonPrefix = "import math"
+	initialPythonSuffix = "state = SettaState()"
 
 	// This slice's callable has exactly one provider-derived parameter, so that record
 	// is one stable slot rather than a fresh ordinal per commit. Recommitting a callable
@@ -36,6 +39,11 @@ const (
 	maxParameterNameBytes      = 256
 	maxParameterIDBytes        = 256
 
+	// Each outer region is a block of authored Python rather than one expression, so
+	// it is bounded on its own terms. Empty is legal: the reference lets either
+	// region be deleted outright.
+	maxPythonTargetBytes = 64 * 1024
+
 	// The list renders as one call's arguments, so it is bounded like every other
 	// input this store accepts rather than by the transport that happens to carry it.
 	maxProposedParameters = 256
@@ -48,6 +56,7 @@ var (
 	ErrParameterExpressionInvalid  = errors.New("project: parameter expression is invalid")
 	ErrParameterNameInvalid        = errors.New("project: parameter name is invalid")
 	ErrParameterListInvalid        = errors.New("project: proposed parameter list is invalid")
+	ErrPythonTargetInvalid         = errors.New("project: Python target is invalid")
 	ErrProjectRevisionStale        = errors.New("project: project revision is stale")
 	ErrLSPProviderRequired         = errors.New("project: LSP provider is required")
 	ErrProviderUnavailable         = errors.New("project: LSP provider is unavailable")
@@ -109,12 +118,20 @@ type Store struct {
 type canonicalState struct {
 	revision int
 	callable callableState
+	// The authored Python around the generated body. It is canonical state like every
+	// other part of the module, so the renderer has one source for the whole file.
+	target pythonTargetState
 	// The callable's complete ordered parameter list. Order is meaning here: it is
 	// the order the module renders and the order the section shows.
 	parameters     []parameterState
 	rendered       codegen.Result
 	diagnostics    []contracts.DiagnosticV1
 	providerStatus contracts.ProviderStatusV1
+}
+
+type pythonTargetState struct {
+	Prefix string
+	Suffix string
 }
 
 type callableState struct {
@@ -318,6 +335,93 @@ func (store *Store) SetCallableParameters(
 	return snapshot, nil
 }
 
+// SetPythonTarget replaces the authored Python around the generated body in one
+// transaction, bound to the revision the client last saw. The generated body itself
+// is never accepted from a client: the store renders it from canonical state, then
+// materializes, synchronizes, validates, and publishes exactly as every other
+// mutation does.
+func (store *Store) SetPythonTarget(
+	ctx context.Context,
+	projectID string,
+	expectedRevision int,
+	prefix string,
+	suffix string,
+) (contracts.ProjectSnapshotV1, error) {
+	if store == nil {
+		return contracts.ProjectSnapshotV1{}, ErrStoreClosed
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	target, err := store.resolveProposedTargetLocked(ctx, projectID, expectedRevision, prefix, suffix)
+	if err != nil {
+		return contracts.ProjectSnapshotV1{}, err
+	}
+	if target == store.state.target {
+		return store.state.snapshot(), nil
+	}
+
+	candidate := cloneState(store.state)
+	candidate.revision++
+	candidate.target = target
+	if err := renderState(&candidate); err != nil {
+		return contracts.ProjectSnapshotV1{}, err
+	}
+	if _, err := candidate.validatedSnapshot(); err != nil {
+		return contracts.ProjectSnapshotV1{}, err
+	}
+	if err := store.writer.Write(candidate.rendered.Code); err != nil {
+		return contracts.ProjectSnapshotV1{}, fmt.Errorf("materialize generated Python: %w", err)
+	}
+	applyProviderSynchronization(ctx, store.provider, store.writer.Path(), &candidate)
+	snapshot, err := candidate.validatedSnapshot()
+	if err != nil {
+		return contracts.ProjectSnapshotV1{}, err
+	}
+	store.state = candidate
+	return snapshot, nil
+}
+
+func (store *Store) resolveProposedTargetLocked(
+	ctx context.Context,
+	projectID string,
+	expectedRevision int,
+	prefix string,
+	suffix string,
+) (pythonTargetState, error) {
+	if err := ctx.Err(); err != nil {
+		return pythonTargetState{}, err
+	}
+	if store.closed {
+		return pythonTargetState{}, ErrStoreClosed
+	}
+	if projectID != initialProjectID {
+		return pythonTargetState{}, fmt.Errorf("%w: %q", ErrProjectNotFound, projectID)
+	}
+	if err := store.requireCurrentRevisionLocked(expectedRevision); err != nil {
+		return pythonTargetState{}, err
+	}
+	if err := validatePythonTargetRegion("prefix", prefix); err != nil {
+		return pythonTargetState{}, err
+	}
+	if err := validatePythonTargetRegion("suffix", suffix); err != nil {
+		return pythonTargetState{}, err
+	}
+	return pythonTargetState{Prefix: prefix, Suffix: suffix}, nil
+}
+
+// Either region may be empty, because the reference permits deleting one outright. What
+// it may not be is unbounded or carry a byte no Python source can hold.
+func validatePythonTargetRegion(region string, text string) error {
+	if len(text) > maxPythonTargetBytes || strings.ContainsRune(text, '\x00') {
+		return fmt.Errorf("%w: %s", ErrPythonTargetInvalid, region)
+	}
+	return nil
+}
+
 // The whole request is judged before any of it is applied: the store's own liveness,
 // the project and callable it names, the revision it was bound to, and every proposed
 // record.
@@ -337,15 +441,24 @@ func (store *Store) resolveProposedParametersLocked(
 	if err := validateProjectAndSection(projectID, callableID); err != nil {
 		return nil, err
 	}
-	if expectedRevision != store.state.revision {
-		return nil, fmt.Errorf(
-			"%w: canonical revision is %d, request expected %d",
-			ErrProjectRevisionStale,
-			store.state.revision,
-			expectedRevision,
-		)
+	if err := store.requireCurrentRevisionLocked(expectedRevision); err != nil {
+		return nil, err
 	}
 	return buildProposedParameters(store.state, proposals)
+}
+
+// A revision-bound mutation answers for the state its client last saw, so a proposal
+// made against an older one is a typed conflict rather than a silent overwrite.
+func (store *Store) requireCurrentRevisionLocked(expectedRevision int) error {
+	if expectedRevision == store.state.revision {
+		return nil
+	}
+	return fmt.Errorf(
+		"%w: canonical revision is %d, request expected %d",
+		ErrProjectRevisionStale,
+		store.state.revision,
+		expectedRevision,
+	)
 }
 
 func buildProposedParameters(state canonicalState, proposals []ParameterProposal) ([]parameterState, error) {
@@ -517,6 +630,10 @@ func newInitialState() (canonicalState, error) {
 			ID:         squareRootCallableID,
 			Name:       squareRootCallableName,
 			Expression: "",
+		},
+		target: pythonTargetState{
+			Prefix: initialPythonPrefix,
+			Suffix: initialPythonSuffix,
 		},
 		parameters:     []parameterState{},
 		diagnostics:    []contracts.DiagnosticV1{},
@@ -694,8 +811,8 @@ func renderState(state *canonicalState) error {
 		})
 	}
 	rendered, err := codegen.Render(codegen.Input{
-		Prefix: pythonPrefix,
-		Suffix: pythonSuffix,
+		Prefix: state.target.Prefix,
+		Suffix: state.target.Suffix,
 		Callable: codegen.Callable{
 			ID:           state.callable.ID,
 			Name:         state.callable.Name,
@@ -750,8 +867,8 @@ func (state canonicalState) snapshot() contracts.ProjectSnapshotV1 {
 			Revision: state.revision,
 		},
 		PythonTarget: contracts.PythonTargetV1{
-			Prefix: pythonPrefix,
-			Suffix: pythonSuffix,
+			Prefix: state.target.Prefix,
+			Suffix: state.target.Suffix,
 		},
 		Callables: []contracts.CallableV1{{
 			ID:                 state.callable.ID,

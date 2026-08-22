@@ -2,6 +2,7 @@ import {
   WORKSPACE_CODE_SECTION_KIND,
   createWorkspaceCodeSectionData,
   deleteWorkspaceItems,
+  getWorkspaceCodeSectionData,
   insertWorkspaceItem,
   setItemData,
   setSectionData,
@@ -70,7 +71,9 @@ export function projectWorkspaceDocument(
         size: GENERATED_PYTHON_SECTION_SIZE,
         overflowMode: false,
         isMinimized: false,
-        positionAndSizeLocked: true,
+        // The prefix and suffix are authored here, and the package refuses every edit
+        // on a locked section, so this card is an ordinary movable one too.
+        positionAndSizeLocked: false,
         isHorizontalOrientation: false,
         styleColor: null,
         tagColor: null,
@@ -99,6 +102,17 @@ export function projectWorkspaceDocument(
   };
 }
 
+// What a canonical response may not write back, because the person has already moved past it. A
+// structural edit lands the moment the package's own action runs, and a keystroke in the generated
+// document lands the same way, so a response can arrive for a list or a target the document no
+// longer holds. What they last asked for stays, and the controller proposes it in turn. The
+// generated body is never theirs to keep: `keepAuthoredPython` holds the prefix and suffix they
+// typed, and the response's own body still lands between them.
+export type ProjectSnapshotProjectionOptions = Readonly<{
+  keepAuthoredPython: boolean;
+  keepParameterList: boolean;
+}>;
+
 // Applies one canonical Go response through the workspace public mutation seams. The item tree is
 // the canonical parameter list: same IDs, same order. Ordinary edits leave the structure alone, so
 // only item data is written; a response that reshapes the list — a fresh signature, or a restore
@@ -106,33 +120,48 @@ export function projectWorkspaceDocument(
 export function applyProjectSnapshotToWorkspace(
   host: WorkspaceHost,
   snapshot: ProjectSnapshotV1,
+  options: ProjectSnapshotProjectionOptions,
 ): void {
   setSectionData(
     host,
     CALLABLE_SECTION_ID,
     projectCallableSectionData(snapshot),
   );
-  reconcileParameterItems(host, snapshot);
+  if (options.keepParameterList) {
+    updateRetainedParameterItems(host, snapshot);
+  } else {
+    reconcileParameterItems(host, snapshot);
+  }
   setWorkspaceCodeSectionData(
     host,
     GENERATED_PYTHON_SECTION_ID,
-    projectGeneratedCodeData(snapshot),
+    options.keepAuthoredPython
+      ? retainedGeneratedCodeData(host, snapshot)
+      : projectGeneratedCodeData(snapshot),
   );
 }
 
-// The response to a proposal the person has already moved past. A structural edit lands the moment
-// the package's own action runs, which can be while a proposal is in flight, and the document is
-// what they last asked for — so this writes everything the project owns except the parameter list
-// itself, and the controller proposes the newer list rather than rebuilding the older one over it.
-export function applyProjectSnapshotKeepingParameterList(
+// The response's own generated body between the prefix and suffix the person is still authoring.
+// The body is the project's either way: keeping the whole document instead would leave a module
+// the store has already replaced sitting in the one place it is supposed to be read from.
+function retainedGeneratedCodeData(
+  host: WorkspaceHost,
+  snapshot: ProjectSnapshotV1,
+) {
+  const { prefix, suffix } = readGeneratedPythonTarget(host);
+  return generatedCodeSectionData(
+    prefix,
+    generatedPythonRegionText(snapshot),
+    suffix,
+  );
+}
+
+// The project's own data lands on the rows that survived whatever the person did while the
+// response was away; the list itself is left exactly as they left it.
+function updateRetainedParameterItems(
   host: WorkspaceHost,
   snapshot: ProjectSnapshotV1,
 ): void {
-  setSectionData(
-    host,
-    CALLABLE_SECTION_ID,
-    projectCallableSectionData(snapshot),
-  );
   const documentIds = new Set(readParameterItemIds(host));
   for (const parameter of getCallableParameters(snapshot)) {
     if (documentIds.has(parameter.id)) {
@@ -144,11 +173,31 @@ export function applyProjectSnapshotKeepingParameterList(
       );
     }
   }
-  setWorkspaceCodeSectionData(
-    host,
-    GENERATED_PYTHON_SECTION_ID,
-    projectGeneratedCodeData(snapshot),
-  );
+}
+
+// The authored Python the generated document currently holds, split at the package's own mapped
+// protected range rather than by searching the text for the generated body.
+export function readGeneratedPythonTarget(host: WorkspaceHost): {
+  generated: string;
+  prefix: string;
+  suffix: string;
+} {
+  const data = getWorkspaceCodeSectionData(host, GENERATED_PYTHON_SECTION_ID);
+  if (data.mode !== "generated-document") {
+    throw new Error("Generated Python is not a generated document.");
+  }
+  const { from, to } = data.generatedRegion;
+  return {
+    generated: data.code.slice(from, to),
+    prefix: data.code.slice(0, from),
+    suffix: data.code.slice(to),
+  };
+}
+
+// The bytes the package protected have to be the canonical ones this proposal was split around,
+// or the offsets it was split at mean something else entirely.
+export function generatedPythonRegionText(snapshot: ProjectSnapshotV1): string {
+  return `\n\n${snapshot.generatedCode.body}\n\n`;
 }
 
 export function setParameterItemsDisabled(
@@ -420,12 +469,23 @@ function projectParameterItemData(parameter: ParameterV1): ParameterItemData {
 // model.
 function projectGeneratedCodeData(snapshot: ProjectSnapshotV1) {
   const { prefix, suffix } = snapshot.pythonTarget;
-  const { body, code } = snapshot.generatedCode;
-  if (`${prefix}\n\n${body}\n\n${suffix}` !== code) {
+  const generated = generatedPythonRegionText(snapshot);
+  if (`${prefix}${generated}${suffix}` !== snapshot.generatedCode.code) {
     throw new Error(
       "Generated Python does not compose its canonical prefix, body, and suffix.",
     );
   }
+  return generatedCodeSectionData(prefix, generated, suffix);
+}
+
+// One place declares the range, so the authored regions and the range that separates them can
+// never disagree about where the generated body starts and ends.
+function generatedCodeSectionData(
+  prefix: string,
+  generated: string,
+  suffix: string,
+) {
+  const code = `${prefix}${generated}${suffix}`;
   return createWorkspaceCodeSectionData({
     code,
     generatedRegion: { from: prefix.length, to: code.length - suffix.length },
@@ -433,8 +493,8 @@ function projectGeneratedCodeData(snapshot: ProjectSnapshotV1) {
     wrapLines: true,
     lineNumbers: true,
     indentWidth: 4,
-    // The section is a reader over Go-owned Python, so it selects the package's generic
-    // generated-document presentation instead of an ordinary editor nobody can author.
+    // The section is authored Python around a Go-owned body, so it selects the package's generic
+    // generated-document presentation: an ordinary editor whose declared range refuses edits.
     mode: "generated-document",
   });
 }

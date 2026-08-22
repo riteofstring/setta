@@ -1,5 +1,4 @@
-import { setTimeout as delay } from "node:timers/promises";
-
+import { assertAuthoredPythonAroundTheGeneratedBody } from "./browser-generated-python.mjs";
 import {
   assertAuthoredParameterAuthoring,
   assertStructuralParameterControls,
@@ -32,9 +31,9 @@ import {
   assertDonorCallableFieldSurface,
   assertDonorGeneratedRegion,
   assertDonorSectionComposition,
+  assertAuthorableGeneratedDocument,
   assertGeneratedBlockHugsCode,
   assertGeneratedRegionBoundsItsBody,
-  assertNonEditingGeneratedText,
   assertSettledCardIsInsideCanvas,
   assertSettledSectionIsNotPromoted,
   callableFieldStateScript,
@@ -340,12 +339,12 @@ async function assertCallableFieldActivationParity(client, callableLabel) {
   );
 }
 
-// The developer rejected one candidate because Generated Python was painted as an ordinary editor
-// whose still-editable content exposed a black caret line on click, the supervisor rejected the
-// next because its region filled the section's unused height with a corner badge, and the
-// developer rejected the third because the region claimed the target's authored prefix and suffix.
-// Measure the generated block idle, click it with a real pointer, and require the same
-// region-bounded, non-editing surface.
+// The developer rejected one candidate because Generated Python exposed a black caret line inside
+// output nobody could author, the supervisor rejected the next because its region filled the
+// section's unused height with a corner badge, and the developer rejected the third because the
+// region claimed the target's authored prefix and suffix. Measure the generated block idle, click
+// it with a real pointer, and require the same region-bounded block over an editor whose caret
+// stays outside it.
 async function assertGeneratedDocumentPresentation(client, generatedLabel) {
   const idle = await evaluate(client, generatedDocumentStateScript);
   if (idle === null) {
@@ -356,7 +355,7 @@ async function assertGeneratedDocumentPresentation(client, generatedLabel) {
   assertDonorGeneratedRegion(idle, walkthroughAppearance);
   assertGeneratedBlockHugsCode("The idle", idle);
   assertGeneratedRegionBoundsItsBody("The idle", idle);
-  assertNonEditingGeneratedText("The idle", idle);
+  assertAuthorableGeneratedDocument("The idle", idle);
 
   await clickElementCenter(
     client,
@@ -369,7 +368,7 @@ async function assertGeneratedDocumentPresentation(client, generatedLabel) {
   }
   assertGeneratedBlockHugsCode("The clicked", clicked);
   assertGeneratedRegionBoundsItsBody("The clicked", clicked);
-  assertNonEditingGeneratedText("The clicked", clicked);
+  assertAuthorableGeneratedDocument("The clicked", clicked);
   for (const [property, idleValue] of Object.entries(idle.region)) {
     if (clicked.region[property] !== idleValue) {
       throw new Error(
@@ -730,7 +729,8 @@ async function waitForAccessibleControls(
 async function runWalkthrough(client, backendOrigin, previewOrigin) {
   const callableLabel = "Callable expression";
   const parameterLabel = "x expression";
-  const generatedLabel = "Generated Python generated code, read-only";
+  const generatedLabel =
+    "Generated Python code editor, generated output read-only";
 
   await waitForAccessibleControls(client, callableLabel, generatedLabel);
 
@@ -750,21 +750,6 @@ async function runWalkthrough(client, backendOrigin, previewOrigin) {
     client,
     generatedLabel,
   );
-  // Nothing typed after that pointer press can reach a surface that is not an editor.
-  await insertText(client, "attempted_mutation");
-  await delay(100);
-  const generatedSourceDidNotChange = await evaluate(
-    client,
-    `(() => {
-      const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
-      const editor = generated?.querySelector('[role="textbox"]');
-      return editor?.textContent === ${JSON.stringify(generatedSource)};
-    })()`,
-  );
-  if (!generatedSourceDidNotChange) {
-    throw new Error("Generated Python output accepted an authored mutation.");
-  }
-
   await assertCallableKeysMatchMain(
     client,
     backendOrigin,
@@ -841,6 +826,14 @@ async function runWalkthrough(client, backendOrigin, previewOrigin) {
   await assertArgsFilterRemainsOperable(client, parameterLabel);
   // Real argument authoring, which the rejected filter-only candidate did not offer at all.
   await assertAuthoredParameterAuthoring(client, backendOrigin, generatedLabel);
+  // Real Python authoring around the generated body, which the rejected whole-document read-only
+  // candidate did not offer at all. It runs last because it reloads the page.
+  await assertAuthoredPythonAroundTheGeneratedBody(
+    client,
+    backendOrigin,
+    previewOrigin,
+    generatedLabel,
+  );
   // The field has to keep the donor surface after a real edit round trip, not only on first paint.
   await assertCallableFieldActivationParity(client, callableLabel);
 }

@@ -72,13 +72,10 @@ func buildDependencyGraph(input Input) (dependencyGraph, error) {
 	}, nil
 }
 
+// The text around the generated body is authored, so either region may be empty:
+// somebody may delete their imports or their trailing statements outright, and the
+// module those two rules used to protect is not this renderer's to insist on.
 func validateDependencyGraphInput(input Input) error {
-	if strings.TrimSpace(input.Prefix) == "" {
-		return invalidInput("prefix must not be empty")
-	}
-	if strings.TrimSpace(input.Suffix) == "" {
-		return invalidInput("suffix must not be empty")
-	}
 	if strings.TrimSpace(input.Callable.ID) == "" {
 		return invalidInput("callable ID must not be empty")
 	}

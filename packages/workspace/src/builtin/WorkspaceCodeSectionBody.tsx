@@ -10,12 +10,14 @@ import {
 import {
   getWorkspaceCodeSectionEditorLanguage,
   parseWorkspaceCodeSectionData,
+  type WorkspaceCodeSectionData,
   type WorkspaceCodeSectionLanguage,
   type WorkspaceGeneratedRegion,
 } from "./codeSectionData";
 import {
   EDITABLE_SECTION_EDITOR_PRESENTATION,
   READ_ONLY_SECTION_EDITOR_PRESENTATION,
+  type WorkspaceSectionEditorChange,
   type WorkspaceSectionEditorPresentation,
 } from "./sectionEditorExtensions";
 import { WorkspaceSectionEditor } from "./WorkspaceSectionEditor";
@@ -25,33 +27,71 @@ import { WorkspaceSectionEditor } from "./WorkspaceSectionEditor";
 
 // Only a generated document carries a region, so the parsed pair is the mode. Locking a section
 // locks its content too, so a locked code section reads and scrolls but cannot be edited; it never
-// turns an ordinary editor into a generated document, and it has nothing to add to a section that
-// is already non-editable.
+// turns an ordinary editor into a generated document, and a locked generated document keeps the
+// block's paint while accepting nothing at all.
 function resolveEditorPresentation(
   generatedRegion: WorkspaceGeneratedRegion | null,
-  isReadOnly: boolean,
+  isReadOnlyMode: boolean,
+  isLocked: boolean,
 ): WorkspaceSectionEditorPresentation {
   if (generatedRegion !== null) {
-    return { mode: "generated-document", region: generatedRegion };
+    return {
+      mode: "generated-document",
+      outerEditable: !isLocked,
+      region: generatedRegion,
+    };
   }
-  return isReadOnly
+  return isReadOnlyMode || isLocked
     ? READ_ONLY_SECTION_EDITOR_PRESENTATION
     : EDITABLE_SECTION_EDITOR_PRESENTATION;
 }
 
-// The reader's own name for the surface. Both non-editable presentations say so, because the
-// paint alone cannot tell a screen reader that this section refuses authoring.
+// The reader's own name for the surface, because the paint alone cannot tell a screen reader what
+// this section accepts: a generated document is an editor whose generated output refuses edits,
+// and the two non-editable presentations say they refuse everything.
 function resolveEditorAriaLabel(
   sectionName: string,
   presentation: WorkspaceSectionEditorPresentation,
 ): string {
   if (presentation.mode === "generated-document") {
-    return `${sectionName} generated code, read-only`;
+    return presentation.outerEditable
+      ? `${sectionName} code editor, generated output read-only`
+      : `${sectionName} generated code, read-only`;
   }
   if (presentation.mode === "read-only") {
     return `${sectionName} code, read-only`;
   }
   return `${sectionName} code editor`;
+}
+
+// The next document data for one accepted edit, or null when the section has nothing to write.
+// A generated document persists the mapped range with the text, so its own data never describes a
+// region that has moved out from under it.
+function nextCodeSectionData(
+  liveData: WorkspaceCodeSectionData,
+  change: WorkspaceSectionEditorChange,
+): WorkspaceCodeSectionData | null {
+  if (liveData.mode === "editable") {
+    return liveData.code === change.text
+      ? null
+      : { ...liveData, code: change.text };
+  }
+  if (
+    liveData.mode !== "generated-document" ||
+    change.generatedRegion === null
+  ) {
+    return null;
+  }
+  const region = change.generatedRegion;
+  const held = liveData.generatedRegion;
+  if (
+    liveData.code === change.text &&
+    held.from === region.from &&
+    held.to === region.to
+  ) {
+    return null;
+  }
+  return { ...liveData, code: change.text, generatedRegion: region };
 }
 
 type WorkspaceCodeSectionBodyProps = {
@@ -72,7 +112,8 @@ export function WorkspaceCodeSectionBody({
   );
   // The data is parsed fresh on every render, so the presentation is rebuilt only when the values
   // it carries move. That is what keeps the editor from reconfiguring itself between keystrokes.
-  const isReadOnly = data.mode === "read-only" || section.positionAndSizeLocked;
+  const isReadOnlyMode = data.mode === "read-only";
+  const isLocked = section.positionAndSizeLocked;
   const regionFrom =
     data.mode === "generated-document" ? data.generatedRegion.from : null;
   const regionTo =
@@ -83,29 +124,26 @@ export function WorkspaceCodeSectionBody({
         regionFrom === null || regionTo === null
           ? null
           : { from: regionFrom, to: regionTo },
-        isReadOnly,
+        isReadOnlyMode,
+        isLocked,
       ),
-    [isReadOnly, regionFrom, regionTo],
+    [isLocked, isReadOnlyMode, regionFrom, regionTo],
   );
 
   const onChange = useCallback(
-    (nextCode: string) => {
+    (change: WorkspaceSectionEditorChange) => {
       const liveSection = getSectionOrThrow(
         getWorkspaceDocumentStore(host).getState(),
         sectionId,
       );
-      const liveData = getWorkspaceCodeSectionData(host, sectionId);
-      if (
-        liveData.mode !== "editable" ||
-        liveSection.positionAndSizeLocked ||
-        liveData.code === nextCode
-      ) {
+      if (liveSection.positionAndSizeLocked) {
         return;
       }
-      setWorkspaceCodeSectionData(host, sectionId, {
-        ...liveData,
-        code: nextCode,
-      });
+      const liveData = getWorkspaceCodeSectionData(host, sectionId);
+      const nextData = nextCodeSectionData(liveData, change);
+      if (nextData !== null) {
+        setWorkspaceCodeSectionData(host, sectionId, nextData);
+      }
     },
     [host, sectionId],
   );

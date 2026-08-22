@@ -1,4 +1,4 @@
-import CodeMirror from "@uiw/react-codemirror";
+import CodeMirror, { type ViewUpdate } from "@uiw/react-codemirror";
 import { useCallback, useMemo, type KeyboardEvent } from "react";
 import type { WorkspaceEditorLanguage } from "../controls/text/textValueLanguages";
 import { useTextValueTheme } from "../controls/text/textValueTheme";
@@ -10,6 +10,8 @@ import {
 import {
   getSectionEditorBasicSetup,
   getSectionEditorExtensions,
+  isSectionEditorEditable,
+  type WorkspaceSectionEditorChange,
   type WorkspaceSectionEditorPresentation,
 } from "./sectionEditorExtensions";
 import { useSectionEditorHeight } from "./useSectionEditorHeight";
@@ -30,13 +32,13 @@ import { useSectionEditorHeight } from "./useSectionEditorHeight";
 
 const WRAPPER_BASE_CLASS_NAME = `${NO_PAN_CLASS_NAME} ${NO_DRAG_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} min-h-0 flex-1 cursor-auto [&_*]:!outline-0`;
 
-// The reference's rounded wrapper and its focused read-mode highlight, kept by both ordinary
-// presentations.
-const ORDINARY_PRESENTATION_CLASS_NAME = `rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent`;
+// The reference's rounded wrapper and its focused read-mode highlight, kept by every
+// presentation: the reference paints its generated Python area with exactly this wrapper, and the
+// fill answers the wrapper's own focus rather than a pointer landing in the editor.
+const WRAPPER_PRESENTATION_CLASS_NAME = `rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent`;
 
-// A generated document must not repaint when a pointer lands in it, so it drops that focus fill
-// and hands its whole surface — region, rail, badge, and keyboard-only focus cue — to the
-// package's scoped stylesheet.
+// The generated block's own vocabulary — region, rail, badge, refused cursor, and selection paint
+// — belongs to the package's scoped stylesheet.
 const GENERATED_DOCUMENT_CLASS_NAME = "setta-workspace-generated-document";
 
 type WorkspaceSectionEditorProps = {
@@ -50,7 +52,7 @@ type WorkspaceSectionEditorProps = {
   presentation: WorkspaceSectionEditorPresentation;
   // Reads the live section rather than this render's data, so its identity never changes and
   // CodeMirror is never reconfigured mid-keystroke.
-  onChange: (nextValue: string) => void;
+  onChange: (change: WorkspaceSectionEditorChange) => void;
 };
 
 export function WorkspaceSectionEditor({
@@ -64,7 +66,7 @@ export function WorkspaceSectionEditor({
   presentation,
   onChange,
 }: WorkspaceSectionEditorProps) {
-  const isEditable = presentation.mode === "editable";
+  const isEditable = isSectionEditorEditable(presentation);
   const isGeneratedDocument = presentation.mode === "generated-document";
   const theme = useTextValueTheme();
   const {
@@ -85,7 +87,7 @@ export function WorkspaceSectionEditor({
     });
   }, [wrapperRef]);
 
-  const extensions = useMemo(
+  const { extensions, readGeneratedRegion } = useMemo(
     () =>
       getSectionEditorExtensions({
         language,
@@ -99,6 +101,17 @@ export function WorkspaceSectionEditor({
   const basicSetup = useMemo(
     () => getSectionEditorBasicSetup({ lineNumbers, presentation }),
     [lineNumbers, presentation],
+  );
+  // One accepted edit reports the text and the range it moved together, so the section writes a
+  // document whose region already matches the text beside it.
+  const handleChange = useCallback(
+    (nextValue: string, update: ViewUpdate) => {
+      onChange({
+        generatedRegion: readGeneratedRegion(update.state),
+        text: nextValue,
+      });
+    },
+    [onChange, readGeneratedRegion],
   );
 
   function onWrapperKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -127,7 +140,7 @@ export function WorkspaceSectionEditor({
     <article
       aria-keyshortcuts={isEditable ? "Enter Escape" : undefined}
       aria-label={ariaLabel}
-      className={`${WRAPPER_BASE_CLASS_NAME} ${isGeneratedDocument ? GENERATED_DOCUMENT_CLASS_NAME : ORDINARY_PRESENTATION_CLASS_NAME} ${overflowClassName} ${wheelClassName}`}
+      className={`${WRAPPER_BASE_CLASS_NAME} ${WRAPPER_PRESENTATION_CLASS_NAME}${isGeneratedDocument ? ` ${GENERATED_DOCUMENT_CLASS_NAME}` : ""} ${overflowClassName} ${wheelClassName}`}
       data-workspace-section-editor={presentation.mode}
       onKeyDown={onWrapperKeyDown}
       ref={wrapperRef}
@@ -140,7 +153,7 @@ export function WorkspaceSectionEditor({
         height={editorHeight}
         indentWithTab
         maxHeight={maxHeight}
-        onChange={onChange}
+        onChange={handleChange}
         onCreateEditor={handleCreateEditor}
         onUpdate={handleEditorUpdate}
         theme={theme}

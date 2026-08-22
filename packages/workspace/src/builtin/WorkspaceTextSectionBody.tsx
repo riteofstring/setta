@@ -26,6 +26,7 @@ import {
 import {
   EDITABLE_SECTION_EDITOR_PRESENTATION,
   READ_ONLY_SECTION_EDITOR_PRESENTATION,
+  type WorkspaceSectionEditorChange,
 } from "./sectionEditorExtensions";
 import { WorkspaceMarkdown } from "./WorkspaceMarkdown";
 import { WorkspaceSectionEditor } from "./WorkspaceSectionEditor";
@@ -117,7 +118,8 @@ function TextSectionEditor({
     : EDITABLE_SECTION_EDITOR_PRESENTATION;
 
   const onChange = useCallback(
-    (nextText: string) => {
+    // A text section has no generated region, so only the edited text belongs to it.
+    ({ text: nextText }: WorkspaceSectionEditorChange) => {
       const liveSection = getSectionOrThrow(
         getWorkspaceDocumentStore(host).getState(),
         sectionId,

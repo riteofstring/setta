@@ -214,15 +214,16 @@ describe("generated-document surface contract", () => {
     expect(selection.declarations.get("color")).toBe("rgb(255 255 255)");
   });
 
-  it("gives the surface a keyboard-only focus cue and no pointer repaint", () => {
-    expect(
-      ruleFor(`${SURFACE}:focus-visible`).declarations.get("outline"),
-    ).toBe("2px solid var(--setta-workspace-generated-badge)");
-    // Any plain `:focus` rule would repaint the region under a pointer press, which is exactly
-    // the state the developer rejected.
-    expect(
-      rules.filter((rule) => /:focus(?!-visible)/u.test(rule.selector)),
-    ).toStrictEqual([]);
+  it("says with the pointer that the block refuses what is typed into it", () => {
+    // Main's own cue on its generated lines. The block still reads and copies like the rest of
+    // the document; what it refuses is authoring.
+    expect(ruleFor(LINE).declarations.get("cursor")).toBe("not-allowed");
+    // The surface owns no focus treatment of its own: the surrounding Python is authored here,
+    // so its wrapper takes the ordinary section editor's focus paint and this stylesheet must
+    // not fight it with a second one.
+    expect(rules.filter((rule) => /:focus/u.test(rule.selector))).toStrictEqual(
+      [],
+    );
   });
 
   it("restores the region, rail, and badge once forced colours drop them", () => {
@@ -231,9 +232,6 @@ describe("generated-document surface contract", () => {
     );
     expect(generatedDocumentStyles).toMatch(
       /@media \(forced-colors: active\)[\s\S]*::after\s*\{[^}]*border: 1px solid CanvasText/u,
-    );
-    expect(generatedDocumentStyles).toMatch(
-      /@media \(forced-colors: active\)[\s\S]*:focus-visible\s*\{[^}]*outline-color: Highlight/u,
     );
   });
 });

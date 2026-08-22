@@ -5,6 +5,7 @@ export const PROJECT_PATH_V1 = "/api/v1/project" as const;
 export const PROJECT_CALLABLE_PATH_V1 = "/api/v1/project/callable" as const;
 export const PROJECT_CALLABLE_COMPLETIONS_PATH_V1 = "/api/v1/project/callable/completions" as const;
 export const PROJECT_PARAMETERS_PATH_V1 = "/api/v1/project/parameters" as const;
+export const PROJECT_TARGET_PATH_V1 = "/api/v1/project/target" as const;
 
 export const PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1 = "positional_only" as const;
 export const PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1 = "positional_or_keyword" as const;
@@ -92,6 +93,7 @@ export type APIErrorCodeV1 =
   | "invalid_callable"
   | "invalid_parameter_expression"
   | "invalid_parameter_name"
+  | "invalid_python_target"
   | "revision_conflict"
   | "unsupported_signature"
   | "provider_unavailable"
@@ -193,6 +195,13 @@ export interface SetCallableParametersRequestV1 {
   callableId: string;
   expectedRevision: number;
   parameters: ParameterProposalV1[];
+}
+
+export interface SetPythonTargetRequestV1 {
+  projectId: string;
+  expectedRevision: number;
+  prefix: string;
+  suffix: string;
 }
 
 export interface APIErrorV1 {

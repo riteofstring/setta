@@ -12,6 +12,7 @@ const (
 	ProjectCallablePathV1            = "/api/v1/project/callable"
 	ProjectCallableCompletionsPathV1 = "/api/v1/project/callable/completions"
 	ProjectParametersPathV1          = "/api/v1/project/parameters"
+	ProjectTargetPathV1              = "/api/v1/project/target"
 )
 
 // ProjectSnapshotV1 is the complete, normalized project document returned by
@@ -221,6 +222,26 @@ func (request SetCallableParametersRequestV1) Validate() error {
 	return nil
 }
 
+// SetPythonTargetRequestV1 carries the complete authored Python around the generated
+// body, bound to the revision the client last saw. The generated body is never part of
+// it: the store renders that from its own canonical state.
+type SetPythonTargetRequestV1 struct {
+	ProjectID        string `json:"projectId"`
+	ExpectedRevision int    `json:"expectedRevision"`
+	Prefix           string `json:"prefix"`
+	Suffix           string `json:"suffix"`
+}
+
+func (request SetPythonTargetRequestV1) Validate() error {
+	if err := requireRequestID("projectId", request.ProjectID); err != nil {
+		return err
+	}
+	if request.ExpectedRevision < 1 {
+		return ValidationError{Field: "expectedRevision", Problem: "must be at least 1"}
+	}
+	return nil
+}
+
 type APIErrorCodeV1 string
 
 const (
@@ -230,6 +251,7 @@ const (
 	APIErrorCodeInvalidCallableV1            APIErrorCodeV1 = "invalid_callable"
 	APIErrorCodeInvalidParameterExpressionV1 APIErrorCodeV1 = "invalid_parameter_expression"
 	APIErrorCodeInvalidParameterNameV1       APIErrorCodeV1 = "invalid_parameter_name"
+	APIErrorCodeInvalidPythonTargetV1        APIErrorCodeV1 = "invalid_python_target"
 	APIErrorCodeRevisionConflictV1           APIErrorCodeV1 = "revision_conflict"
 	APIErrorCodeUnsupportedSignatureV1       APIErrorCodeV1 = "unsupported_signature"
 	APIErrorCodeProviderUnavailableV1        APIErrorCodeV1 = "provider_unavailable"
@@ -308,12 +330,14 @@ func (snapshot ProjectSnapshotV1) validateDocumentShape() error {
 	return nil
 }
 
+// Either region may be empty, because a person may delete their imports or their
+// trailing statements outright. Neither may carry a byte Python source cannot hold.
 func validatePythonTarget(target PythonTargetV1) error {
-	if target.Prefix == "" {
-		return ValidationError{Field: "pythonTarget.prefix", Problem: "must not be empty"}
+	if strings.ContainsRune(target.Prefix, '\x00') {
+		return ValidationError{Field: "pythonTarget.prefix", Problem: "must not contain NUL"}
 	}
-	if target.Suffix == "" {
-		return ValidationError{Field: "pythonTarget.suffix", Problem: "must not be empty"}
+	if strings.ContainsRune(target.Suffix, '\x00') {
+		return ValidationError{Field: "pythonTarget.suffix", Problem: "must not contain NUL"}
 	}
 	return nil
 }

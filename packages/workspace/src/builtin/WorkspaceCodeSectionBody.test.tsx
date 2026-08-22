@@ -18,6 +18,7 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { indentUnit } from "@codemirror/language";
+import { EditorSelection } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -110,6 +111,10 @@ function getGeneratedLineMarks(view: EditorView): Array<string | null> {
 const GENERATED_PREFIX = "import math";
 const GENERATED_SUFFIX = "state = value";
 const GENERATED_CODE = `${GENERATED_PREFIX}\n\nvalue = math.sqrt(3)\n\n${GENERATED_SUFFIX}`;
+const GENERATED_REGION = {
+  from: GENERATED_PREFIX.length,
+  to: GENERATED_CODE.length - GENERATED_SUFFIX.length,
+};
 
 function makeGeneratedSection(
   code = GENERATED_CODE,
@@ -125,6 +130,20 @@ function makeGeneratedSection(
       mode: "generated-document",
     },
     overrides,
+  );
+}
+
+// The editor's own history keymap, driven the way a person reaches it. Undo and redo are the two
+// user transactions that can move the protected range without anybody typing a character.
+function pressHistory(view: EditorView, command: "undo" | "redo") {
+  const isUndo = command === "undo";
+  view.contentDOM.dispatchEvent(
+    new KeyboardEvent("keydown", {
+      bubbles: true,
+      ctrlKey: true,
+      key: isUndo ? "z" : "y",
+      keyCode: isUndo ? 90 : 89,
+    }),
   );
 }
 
@@ -398,11 +417,13 @@ describe("built-in code section body", () => {
     expect(getGeneratedLineMarks(view)).toStrictEqual([null, null, null]);
   });
 
-  it("presents a generated document as a reader rather than an editor", async () => {
+  it("keeps the text around a generated block authorable", async () => {
     await mount(makeGeneratedSection());
     const view = getView();
-    expect(view.state.readOnly).toBe(true);
-    expect(view.contentDOM.getAttribute("contenteditable")).toBe("false");
+    // The reference's generated Python area is an ordinary editing surface whose generated range
+    // refuses edits, so only the range is read-only.
+    expect(view.state.readOnly).toBe(false);
+    expect(view.contentDOM.getAttribute("contenteditable")).toBe("true");
     const wrapper = getWrapper();
     expect(wrapper.getAttribute("data-workspace-section-editor")).toBe(
       "generated-document",
@@ -411,24 +432,174 @@ describe("built-in code section body", () => {
       wrapper.classList.contains("setta-workspace-generated-document"),
     ).toBe(true);
     expect(wrapper.getAttribute("aria-label")).toBe(
-      "train.py generated code, read-only",
+      "train.py code editor, generated output read-only",
     );
-    // The rejected candidate painted a caret and an active line over the generated text, and it
-    // kept the reference's focus fill under a pointer press.
-    expect(view.dom.querySelector(".cm-activeLine")).toBeNull();
-    expect(wrapper.className).not.toContain("focus:bg-blue-200/70");
     // Its text is still there to select and copy.
     expect(view.dom.textContent).toContain(GENERATED_PREFIX);
-    // Enter has no editing surface to reach, so it stays on the section's own focus target and
-    // the wrapper stops advertising a shortcut that does nothing.
-    expect(wrapper.getAttribute("aria-keyshortcuts")).toBeNull();
+    // The keyboard reaches the authored Python the same way it reaches any other code section.
+    expect(wrapper.getAttribute("aria-keyshortcuts")).toBe("Enter Escape");
     await act(async () => {
       wrapper.focus();
       wrapper.dispatchEvent(
         new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }),
       );
     });
-    expect(document.activeElement).toBe(wrapper);
+    expect(document.activeElement).toBe(view.contentDOM);
+  });
+
+  it("accepts an outer edit and moves the protected range with it", async () => {
+    const onDocumentChange = vi.fn();
+    await mount(makeGeneratedSection());
+    const view = getView();
+    testWorkspace.host.subscribe(onDocumentChange);
+
+    // An insertion at the range's own start belongs to the prefix, so the block starts after it.
+    await act(async () => {
+      view.dispatch({
+        changes: { from: GENERATED_REGION.from, insert: "\nimport os" },
+        userEvent: "input.type",
+      });
+    });
+    const shifted = "\nimport os".length;
+    expect(getSectionData()).toMatchObject({
+      code: `${GENERATED_PREFIX}\nimport os\n\nvalue = math.sqrt(3)\n\n${GENERATED_SUFFIX}`,
+      generatedRegion: {
+        from: GENERATED_REGION.from + shifted,
+        to: GENERATED_REGION.to + shifted,
+      },
+    });
+    expect(onDocumentChange).toHaveBeenCalledTimes(1);
+    // The commit never replaces the editor's own document, so the caret survives the round trip.
+    expect(getView()).toBe(view);
+
+    // An insertion at the range's end belongs to the suffix, so the block ends before it.
+    await act(async () => {
+      view.dispatch({
+        changes: {
+          from: GENERATED_REGION.to + shifted,
+          insert: "print(state)\n",
+        },
+        userEvent: "input.type",
+      });
+    });
+    expect(getSectionData()).toMatchObject({
+      generatedRegion: {
+        from: GENERATED_REGION.from + shifted,
+        to: GENERATED_REGION.to + shifted,
+      },
+    });
+    // The block still covers exactly the generated body and its two separator boundaries.
+    expect(getGeneratedLineMarks(getView())).toStrictEqual([
+      null,
+      null,
+      "start",
+      "middle",
+      "end",
+      null,
+      null,
+    ]);
+  });
+
+  it("refuses every user transaction that touches the protected range", async () => {
+    // Insertion, deletion, replacement, paste, and cut, at positions inside the range and across
+    // each of its boundaries. Each one is refused as a whole rather than partly applied.
+    const refusals = [
+      { changes: { from: 20, insert: "0" }, userEvent: "input.type" },
+      { changes: { from: 30, to: 40 }, userEvent: "delete.forward" },
+      { changes: { from: 5, to: 15, insert: "#" }, userEvent: "input.type" },
+      {
+        changes: {
+          from: GENERATED_REGION.from,
+          to: GENERATED_REGION.to,
+          insert: "pasted",
+        },
+        userEvent: "input.paste",
+      },
+      { changes: { from: 13, to: 33 }, userEvent: "delete.cut" },
+      { changes: { from: 34, to: 36, insert: "x" }, userEvent: "input.type" },
+    ];
+    for (const refusal of refusals) {
+      await remount(makeGeneratedSection());
+      const onDocumentChange = vi.fn();
+      const view = getView();
+      testWorkspace.host.subscribe(onDocumentChange);
+      await act(async () => {
+        view.dispatch(refusal);
+      });
+      expect(view.state.doc.toString()).toBe(GENERATED_CODE);
+      expect(getSectionData()).toMatchObject({
+        code: GENERATED_CODE,
+        generatedRegion: GENERATED_REGION,
+      });
+      expect(onDocumentChange).not.toHaveBeenCalled();
+    }
+  });
+
+  it("keeps the caret out of a block the keyboard steps over", async () => {
+    await mount(makeGeneratedSection());
+    const view = getView();
+    // A pointer press inside the generated output leaves the caret at the nearer end of the
+    // block, because there is nowhere inside it for the next character to go.
+    await act(async () => {
+      view.dispatch({ selection: { anchor: GENERATED_REGION.from + 4 } });
+    });
+    expect(view.state.selection.main.anchor).toBe(GENERATED_REGION.from);
+    await act(async () => {
+      view.dispatch({ selection: { anchor: GENERATED_REGION.to - 2 } });
+    });
+    expect(view.state.selection.main.anchor).toBe(GENERATED_REGION.to);
+    // A selection that spans the block is left alone: the output stays selectable and copyable.
+    await act(async () => {
+      view.dispatch({
+        selection: { anchor: 0, head: view.state.doc.length },
+      });
+    });
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+    // Cursor motion treats the block as one step, so the keyboard is never trapped between the
+    // authored text on either side of it.
+    expect(
+      view.moveByChar(EditorSelection.cursor(GENERATED_REGION.from), true).head,
+    ).toBe(GENERATED_REGION.to);
+    expect(
+      view.moveByChar(EditorSelection.cursor(GENERATED_REGION.to), false).head,
+    ).toBe(GENERATED_REGION.from);
+  });
+
+  it("keeps the range aligned across undo and redo of an accepted edit", async () => {
+    await mount(makeGeneratedSection());
+    const view = getView();
+    await act(async () => {
+      view.dispatch({
+        changes: { from: 0, insert: "# header\n" },
+        userEvent: "input.type",
+      });
+    });
+    const shifted = "# header\n".length;
+    expect(getSectionData()).toMatchObject({
+      generatedRegion: {
+        from: GENERATED_REGION.from + shifted,
+        to: GENERATED_REGION.to + shifted,
+      },
+    });
+
+    await act(async () => {
+      pressHistory(view, "undo");
+    });
+    expect(view.state.doc.toString()).toBe(GENERATED_CODE);
+    expect(getSectionData()).toMatchObject({
+      code: GENERATED_CODE,
+      generatedRegion: GENERATED_REGION,
+    });
+
+    await act(async () => {
+      pressHistory(view, "redo");
+    });
+    expect(getSectionData()).toMatchObject({
+      generatedRegion: {
+        from: GENERATED_REGION.from + shifted,
+        to: GENERATED_REGION.to + shifted,
+      },
+    });
   });
 
   it("paints only the lines the declared region covers", async () => {
@@ -485,12 +656,27 @@ describe("built-in code section body", () => {
       "read-only",
     );
 
+    // Locking a section locks its content, so a locked generated document keeps the block's paint
+    // while accepting nothing at all — not even the authored Python around it.
     await remount(
       makeGeneratedSection(GENERATED_CODE, { positionAndSizeLocked: true }),
     );
-    expect(getWrapper().getAttribute("data-workspace-section-editor")).toBe(
+    const wrapper = getWrapper();
+    expect(wrapper.getAttribute("data-workspace-section-editor")).toBe(
       "generated-document",
     );
+    expect(wrapper.getAttribute("aria-label")).toBe(
+      "train.py generated code, read-only",
+    );
+    expect(getView().state.readOnly).toBe(true);
+    expect(getView().contentDOM.getAttribute("contenteditable")).toBe("false");
+    expect(getGeneratedLineMarks(getView())).toStrictEqual([
+      null,
+      "start",
+      "middle",
+      "end",
+      null,
+    ]);
   });
 
   it("refuses a commit while the section is read-only", async () => {

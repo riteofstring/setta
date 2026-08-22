@@ -373,6 +373,7 @@ const API_ERROR_CODES_V1: ReadonlyArray<APIErrorCodeV1> = [
   "invalid_callable",
   "invalid_parameter_expression",
   "invalid_parameter_name",
+  "invalid_python_target",
   "revision_conflict",
   "unsupported_signature",
   "provider_unavailable",

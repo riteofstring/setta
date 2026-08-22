@@ -253,15 +253,103 @@ export async function pressModifierK(client) {
   });
 }
 
-async function pressPlatformModifierKey(client, { code, key, keyCode }) {
+// The ordinary editing and caret keys an editor owns. Each one is a real key event, so the
+// editor's own keymap decides what it means and its protected range decides whether it lands.
+export async function pressBackspace(client) {
+  await pressEditingKey(client, {
+    code: "Backspace",
+    key: "Backspace",
+    keyCode: 8,
+  });
+}
+
+export async function pressDelete(client) {
+  await pressEditingKey(client, { code: "Delete", key: "Delete", keyCode: 46 });
+}
+
+export async function pressHome(client) {
+  await pressEditingKey(client, { code: "Home", key: "Home", keyCode: 36 });
+}
+
+export async function pressEnd(client) {
+  await pressEditingKey(client, { code: "End", key: "End", keyCode: 35 });
+}
+
+export async function pressLeftArrow(client) {
+  await pressEditingKey(client, {
+    code: "ArrowLeft",
+    key: "ArrowLeft",
+    keyCode: 37,
+  });
+}
+
+export async function pressRightArrow(client) {
+  await pressEditingKey(client, {
+    code: "ArrowRight",
+    key: "ArrowRight",
+    keyCode: 39,
+  });
+}
+
+// The editor's own history, on the chord this platform binds it to.
+export async function pressUndo(client) {
+  await pressPlatformModifierKey(client, {
+    code: "KeyZ",
+    key: "z",
+    keyCode: 90,
+  });
+}
+
+export async function pressRedo(client) {
   const isMac = process.platform === "darwin";
-  const modifiers = isMac ? 4 : 2;
+  if (isMac) {
+    await pressPlatformModifierKey(client, {
+      code: "KeyZ",
+      key: "Z",
+      keyCode: 90,
+      shiftKey: true,
+    });
+    return;
+  }
+  await pressPlatformModifierKey(client, {
+    code: "KeyY",
+    key: "y",
+    keyCode: 89,
+  });
+}
+
+async function pressEditingKey(client, { code, key, keyCode }) {
+  for (const type of ["rawKeyDown", "keyUp"]) {
+    await client.send("Input.dispatchKeyEvent", {
+      code,
+      key,
+      nativeVirtualKeyCode: keyCode,
+      type,
+      windowsVirtualKeyCode: keyCode,
+    });
+  }
+}
+
+async function pressPlatformModifierKey(
+  client,
+  { code, key, keyCode, shiftKey = false },
+) {
+  const isMac = process.platform === "darwin";
+  const modifiers = (isMac ? 4 : 2) | (shiftKey ? 8 : 0);
   const modifierKey = isMac ? "Meta" : "Control";
   await client.send("Input.dispatchKeyEvent", {
     code: modifierKey,
     key: modifierKey,
     type: "keyDown",
   });
+  if (shiftKey) {
+    await client.send("Input.dispatchKeyEvent", {
+      code: "ShiftLeft",
+      key: "Shift",
+      modifiers,
+      type: "keyDown",
+    });
+  }
   for (const type of ["keyDown", "keyUp"]) {
     await client.send("Input.dispatchKeyEvent", {
       code,
@@ -269,6 +357,13 @@ async function pressPlatformModifierKey(client, { code, key, keyCode }) {
       modifiers,
       type,
       windowsVirtualKeyCode: keyCode,
+    });
+  }
+  if (shiftKey) {
+    await client.send("Input.dispatchKeyEvent", {
+      code: "ShiftLeft",
+      key: "Shift",
+      type: "keyUp",
     });
   }
   await client.send("Input.dispatchKeyEvent", {

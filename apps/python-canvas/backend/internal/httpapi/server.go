@@ -44,6 +44,13 @@ type ProjectService interface {
 		int,
 		[]project.ParameterProposal,
 	) (contracts.ProjectSnapshotV1, error)
+	SetPythonTarget(
+		context.Context,
+		string,
+		int,
+		string,
+		string,
+	) (contracts.ProjectSnapshotV1, error)
 }
 
 type commitCallablePayload struct {
@@ -118,9 +125,28 @@ func (payload setCallableParametersPayload) toContract() (contracts.SetCallableP
 	}, true
 }
 
-// NewHandler creates the three V1 routes after validating the current
-// canonical snapshot. Every successful mutation returns the same snapshot
-// shape, so the frontend has one source of truth after each request.
+type setPythonTargetPayload struct {
+	ProjectID        string  `json:"projectId"`
+	ExpectedRevision *int    `json:"expectedRevision"`
+	Prefix           *string `json:"prefix"`
+	Suffix           *string `json:"suffix"`
+}
+
+func (payload setPythonTargetPayload) toContract() (contracts.SetPythonTargetRequestV1, bool) {
+	if payload.ExpectedRevision == nil || payload.Prefix == nil || payload.Suffix == nil {
+		return contracts.SetPythonTargetRequestV1{}, false
+	}
+	return contracts.SetPythonTargetRequestV1{
+		ProjectID:        payload.ProjectID,
+		ExpectedRevision: *payload.ExpectedRevision,
+		Prefix:           *payload.Prefix,
+		Suffix:           *payload.Suffix,
+	}, true
+}
+
+// NewHandler creates the V1 routes after validating the current canonical
+// snapshot. Every successful mutation returns the same snapshot shape, so the
+// frontend has one source of truth after each request.
 func NewHandler(service ProjectService) (http.Handler, error) {
 	if service == nil {
 		return nil, ErrProjectServiceRequired
@@ -139,6 +165,8 @@ func NewHandler(service ProjectService) (http.Handler, error) {
 			handleCallableCompletions(response, request, service)
 		case isExactPath(request, contracts.ProjectParametersPathV1):
 			handleParameters(response, request, service)
+		case isExactPath(request, contracts.ProjectTargetPathV1):
+			handleTarget(response, request, service)
 		default:
 			writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "route not found")
 		}
@@ -271,6 +299,42 @@ func handleParameters(
 	writeJSON(response, http.StatusOK, snapshot)
 }
 
+// One route owns the authored Python on both sides of the generated body, so a
+// prefix edit and a suffix edit are the same complete candidate.
+func handleTarget(
+	response http.ResponseWriter,
+	request *http.Request,
+	service ProjectService,
+) {
+	if !requireMethod(response, request, http.MethodPost) {
+		return
+	}
+	if !rejectQuery(response, request) {
+		return
+	}
+	var payload setPythonTargetPayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.toContract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "Python target request is invalid")
+		return
+	}
+	snapshot, err := service.SetPythonTarget(
+		request.Context(),
+		body.ProjectID,
+		body.ExpectedRevision,
+		body.Prefix,
+		body.Suffix,
+	)
+	if err != nil {
+		writeMutationError(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, snapshot)
+}
+
 func requireMethod(response http.ResponseWriter, request *http.Request, method string) bool {
 	if request.Method == method {
 		return true
@@ -312,6 +376,8 @@ func writeMutationError(response http.ResponseWriter, err error) {
 		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidParameterExpressionV1, "parameter expression is invalid")
 	case errors.Is(err, project.ErrParameterNameInvalid):
 		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidParameterNameV1, "parameter name is invalid")
+	case errors.Is(err, project.ErrPythonTargetInvalid):
+		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidPythonTargetV1, "Python target is invalid")
 	case errors.Is(err, project.ErrParameterListInvalid):
 		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "parameter list request is invalid")
 	case errors.Is(err, project.ErrProjectRevisionStale):

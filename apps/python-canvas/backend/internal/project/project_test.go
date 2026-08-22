@@ -420,6 +420,128 @@ func TestStoreRejectsInvalidParameterListsWithoutPublishing(t *testing.T) {
 	}
 }
 
+func TestStoreAppliesTheCompleteAuthoredPythonTarget(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	store := newCommittedStoreForTest(t, writer)
+	committed := store.Snapshot()
+
+	authored, err := store.SetPythonTarget(
+		context.Background(),
+		initialProjectID,
+		committed.Project.Revision,
+		"import math\nimport os",
+		"state = SettaState()\nprint(state)",
+	)
+	if err != nil {
+		t.Fatalf("SetPythonTarget() error = %v", err)
+	}
+	if authored.Project.Revision != committed.Project.Revision+1 {
+		t.Fatalf("target revision = %d, want %d", authored.Project.Revision, committed.Project.Revision+1)
+	}
+	if authored.PythonTarget.Prefix != "import math\nimport os" ||
+		authored.PythonTarget.Suffix != "state = SettaState()\nprint(state)" {
+		t.Fatalf("canonical target = %#v", authored.PythonTarget)
+	}
+	// The generated body is the store's own; only the text around it moved.
+	if authored.GeneratedCode.Body != committed.GeneratedCode.Body {
+		t.Fatalf("generated body = %q, want the canonical body unchanged", authored.GeneratedCode.Body)
+	}
+	wantCode := "import math\nimport os\n\n" + committed.GeneratedCode.Body + "\n\nstate = SettaState()\nprint(state)"
+	requireMaterializedGeneratedCode(t, authored, writer, wantCode, "authored target")
+
+	// Either region may be deleted outright, exactly as the reference permits.
+	emptied, err := store.SetPythonTarget(
+		context.Background(),
+		initialProjectID,
+		authored.Project.Revision,
+		"",
+		"",
+	)
+	if err != nil {
+		t.Fatalf("SetPythonTarget(emptied) error = %v", err)
+	}
+	requireMaterializedGeneratedCode(t, emptied, writer, "\n\n"+committed.GeneratedCode.Body+"\n\n", "emptied target")
+
+	// Proposing exactly what the store already holds publishes nothing.
+	repeated, err := store.SetPythonTarget(
+		context.Background(),
+		initialProjectID,
+		emptied.Project.Revision,
+		"",
+		"",
+	)
+	if err != nil {
+		t.Fatalf("SetPythonTarget(repeated) error = %v", err)
+	}
+	if !reflect.DeepEqual(repeated, emptied) {
+		t.Fatalf("repeating the canonical target published revision %d", repeated.Project.Revision)
+	}
+}
+
+func TestStoreRejectsInvalidPythonTargetsWithoutPublishing(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	store := newCommittedStoreForTest(t, writer)
+	committed := store.Snapshot()
+	committedCode := writer.code
+	revision := committed.Project.Revision
+
+	for _, testCase := range []struct {
+		name      string
+		projectID string
+		revision  int
+		prefix    string
+		suffix    string
+		wantErr   error
+	}{
+		{
+			name:      "unknown project",
+			projectID: "project:other",
+			revision:  revision,
+			prefix:    "import os",
+			suffix:    committed.PythonTarget.Suffix,
+			wantErr:   ErrProjectNotFound,
+		},
+		{
+			name:      "stale revision",
+			projectID: initialProjectID,
+			revision:  revision - 1,
+			prefix:    "import os",
+			suffix:    committed.PythonTarget.Suffix,
+			wantErr:   ErrProjectRevisionStale,
+		},
+		{
+			name:      "prefix carrying NUL",
+			projectID: initialProjectID,
+			revision:  revision,
+			prefix:    "import os\x00",
+			suffix:    committed.PythonTarget.Suffix,
+			wantErr:   ErrPythonTargetInvalid,
+		},
+		{
+			name:      "suffix beyond the accepted bound",
+			projectID: initialProjectID,
+			revision:  revision,
+			prefix:    committed.PythonTarget.Prefix,
+			suffix:    strings.Repeat("x", maxPythonTargetBytes+1),
+			wantErr:   ErrPythonTargetInvalid,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := store.SetPythonTarget(
+				context.Background(),
+				testCase.projectID,
+				testCase.revision,
+				testCase.prefix,
+				testCase.suffix,
+			)
+			if !errors.Is(err, testCase.wantErr) {
+				t.Fatalf("SetPythonTarget() error = %v, want %v", err, testCase.wantErr)
+			}
+			requireUnchangedStore(t, store, writer, committed, committedCode)
+		})
+	}
+}
+
 func TestStoreReplacesAuthoredParametersWhenANewCallableIsCommitted(t *testing.T) {
 	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
 	store := newCommittedStoreForTest(t, writer)

@@ -5,6 +5,7 @@ import {
   PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
   PROJECT_CALLABLE_PATH_V1,
   PROJECT_PARAMETERS_PATH_V1,
+  PROJECT_TARGET_PATH_V1,
   PROJECT_PATH_V1,
 } from "./generatedContract";
 import {
@@ -13,6 +14,7 @@ import {
   completeCallable,
   fetchProjectSnapshot,
   setCallableParameters,
+  setPythonTarget,
 } from "./client";
 
 describe("Python Canvas project client", () => {
@@ -92,6 +94,29 @@ describe("Python Canvas project client", () => {
         method: "POST",
       },
     );
+  });
+
+  it("sends the complete revision-bound Python target through the generated V1 route", async () => {
+    const response = createJsonResponse(projectSnapshotFixture);
+    const fetchImplementation = vi.fn().mockResolvedValue(response);
+    // An emptied region is a real proposal, so it crosses this boundary as the empty string.
+    const request = {
+      expectedRevision: 2,
+      prefix: "import math\nimport os",
+      projectId: "project:python-canvas",
+      suffix: "",
+    };
+
+    await setPythonTarget(request, fetchImplementation as typeof fetch);
+
+    expect(fetchImplementation).toHaveBeenCalledWith(PROJECT_TARGET_PATH_V1, {
+      body: JSON.stringify(request),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
   });
 
   it("requests callable completions with the supplied cancellation signal and strictly parsed response", async () => {

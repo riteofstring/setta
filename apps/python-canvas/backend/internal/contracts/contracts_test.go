@@ -115,6 +115,88 @@ func TestProjectSnapshotV1ValidateRequiresExactlyOneCallable(t *testing.T) {
 	}
 }
 
+func TestProjectSnapshotV1AcceptsAnEmptyAuthoredRegionButNotOneCarryingNUL(t *testing.T) {
+	// The authored Python around the generated body may be deleted outright, which is
+	// what the reference permits; what it may not carry is a byte Python source cannot.
+	emptied := validSnapshotForTest()
+	emptied.PythonTarget = PythonTargetV1{}
+	emptied.GeneratedCode.Code = "\n\n"
+	if err := emptied.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v, want an emptied target to be accepted", err)
+	}
+
+	for _, test := range []struct {
+		name   string
+		field  string
+		mutate func(*ProjectSnapshotV1)
+	}{
+		{
+			name:   "prefix",
+			field:  "pythonTarget.prefix",
+			mutate: func(snapshot *ProjectSnapshotV1) { snapshot.PythonTarget.Prefix = "import os\x00" },
+		},
+		{
+			name:   "suffix",
+			field:  "pythonTarget.suffix",
+			mutate: func(snapshot *ProjectSnapshotV1) { snapshot.PythonTarget.Suffix = "print()\x00" },
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := validSnapshotForTest()
+			test.mutate(&snapshot)
+
+			err := snapshot.Validate()
+			var validationError ValidationError
+			if !errors.As(err, &validationError) {
+				t.Fatalf("Validate() error = %T %v, want ValidationError", err, err)
+			}
+			if validationError.Field != test.field || validationError.Problem != "must not contain NUL" {
+				t.Fatalf("ValidationError = %#v", validationError)
+			}
+		})
+	}
+}
+
+func TestSetPythonTargetRequestV1ValidatesItsBoundRevision(t *testing.T) {
+	valid := SetPythonTargetRequestV1{
+		ProjectID:        "project:test",
+		ExpectedRevision: 2,
+		Prefix:           "",
+		Suffix:           "",
+	}
+	// Both regions emptied is a complete, valid candidate.
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	for _, test := range []struct {
+		name    string
+		request SetPythonTargetRequestV1
+		field   string
+	}{
+		{
+			name:    "blank project",
+			request: SetPythonTargetRequestV1{ProjectID: " ", ExpectedRevision: 2},
+			field:   "projectId",
+		},
+		{
+			name:    "unbound revision",
+			request: SetPythonTargetRequestV1{ProjectID: "project:test"},
+			field:   "expectedRevision",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var validationError ValidationError
+			if !errors.As(test.request.Validate(), &validationError) {
+				t.Fatalf("Validate() accepted %#v", test.request)
+			}
+			if validationError.Field != test.field {
+				t.Fatalf("ValidationError = %#v", validationError)
+			}
+		})
+	}
+}
+
 func TestProjectSnapshotV1ValidateRequiresStableDiagnosticTarget(t *testing.T) {
 	snapshot := validSnapshotForTest()
 	snapshot.Diagnostics = []DiagnosticV1{{

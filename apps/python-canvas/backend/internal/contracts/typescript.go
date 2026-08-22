@@ -17,6 +17,7 @@ export const PROJECT_PATH_V1 = %q as const;
 export const PROJECT_CALLABLE_PATH_V1 = %q as const;
 export const PROJECT_CALLABLE_COMPLETIONS_PATH_V1 = %q as const;
 export const PROJECT_PARAMETERS_PATH_V1 = %q as const;
+export const PROJECT_TARGET_PATH_V1 = %q as const;
 
 export const PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1 = %q as const;
 export const PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1 = %q as const;
@@ -63,6 +64,7 @@ export type ProviderLifecycleStateV1 =
   | typeof PROVIDER_LIFECYCLE_STATE_PENDING_V1
   | typeof PROVIDER_LIFECYCLE_STATE_FAILED_V1;
 export type APIErrorCodeV1 =
+  | %q
   | %q
   | %q
   | %q
@@ -172,6 +174,13 @@ export interface SetCallableParametersRequestV1 {
   parameters: ParameterProposalV1[];
 }
 
+export interface SetPythonTargetRequestV1 {
+  projectId: string;
+  expectedRevision: number;
+  prefix: string;
+  suffix: string;
+}
+
 export interface APIErrorV1 {
   code: APIErrorCodeV1;
   message: string;
@@ -186,6 +195,7 @@ export interface ErrorResponseV1 {
 		ProjectCallablePathV1,
 		ProjectCallableCompletionsPathV1,
 		ProjectParametersPathV1,
+		ProjectTargetPathV1,
 		ParameterPassingStylePositionalOnlyV1,
 		ParameterPassingStylePositionalOrKeywordV1,
 		ParameterPassingStyleKeywordOnlyV1,
@@ -208,6 +218,7 @@ export interface ErrorResponseV1 {
 		APIErrorCodeInvalidCallableV1,
 		APIErrorCodeInvalidParameterExpressionV1,
 		APIErrorCodeInvalidParameterNameV1,
+		APIErrorCodeInvalidPythonTargetV1,
 		APIErrorCodeRevisionConflictV1,
 		APIErrorCodeUnsupportedSignatureV1,
 		APIErrorCodeProviderUnavailableV1,

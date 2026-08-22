@@ -335,10 +335,16 @@ export const generatedDocumentStateScript = `(() => {
       readOnly: text.getAttribute("aria-readonly"),
       source: text.textContent,
     },
-    // CodeMirror's own caret and active-line layers. A non-editing surface must mount neither,
-    // and their absence is the only DOM evidence that no caret is drawn.
-    hasCaretLayer: surface.querySelector(".cm-cursor") !== null,
-    hasActiveLine: surface.querySelector(".cm-activeLine") !== null,
+    // Where the caret is, in the only vocabulary this package publishes for the block: the line
+    // it sits on either carries the generated mark or it does not. Nothing typed can land inside
+    // the block, so no caret may rest there.
+    caretInsideBlock: (() => {
+      const node = window.getSelection()?.anchorNode ?? null;
+      const element = node instanceof Element ? node : (node?.parentElement ?? null);
+      return element instanceof Element && text.contains(element)
+        ? element.closest(${JSON.stringify(generatedBlockLineSelector)}) !== null
+        : false;
+    })(),
   };
 })()`;
 
@@ -836,21 +842,24 @@ function assertAuthoredStatementsUnclaimed(stage, state) {
   }
 }
 
-export function assertNonEditingGeneratedText(stage, state) {
-  if (state.text.contentEditable !== "false") {
+// The reference authors the Python around its generated body, so this surface is an editor: what
+// it refuses is the declared range. The developer rejected a candidate that drew a black caret
+// line inside output nobody could author, so the caret has to stay outside the block and no inner
+// outline may appear either side of a real pointer press.
+export function assertAuthorableGeneratedDocument(stage, state) {
+  if (state.text.contentEditable !== "true") {
     throw new Error(
-      `${stage} generated Python text is still an editing surface.`,
+      `${stage} generated Python is not an editing surface, so its authored prefix and suffix cannot be written.`,
     );
   }
-  if (state.text.readOnly !== "true") {
-    throw new Error(`${stage} generated Python text is not named read-only.`);
-  }
-  if (state.text.isActiveElement) {
-    throw new Error(`${stage} generated Python text took the keyboard focus.`);
-  }
-  if (state.hasCaretLayer || state.hasActiveLine) {
+  if (state.text.readOnly === "true") {
     throw new Error(
-      `${stage} generated Python painted a caret or an active line.`,
+      `${stage} generated Python names its whole document read-only.`,
+    );
+  }
+  if (state.caretInsideBlock) {
+    throw new Error(
+      `${stage} generated Python placed the caret inside the block, where nothing typed can land.`,
     );
   }
   if (state.text.outlineStyle !== "none" && state.text.outlineWidth !== "0px") {

@@ -44,7 +44,7 @@ function updatePlaygroundCodeSection(
 // Only the generated mode carries a region, so switching modes adds or drops it rather than
 // leaving a field the new mode may not have. A host that has no region in mind gets the same
 // separator-bounded range the package's paint is built for: from the end of the first line to the
-// start of the last, which leaves the surrounding text on the ordinary read-only surface.
+// start of the last, which leaves the surrounding text authorable on the ordinary editing surface.
 function withPlaygroundCodeMode(
   current: WorkspaceCodeSectionData,
   mode: WorkspaceCodeSectionMode,
