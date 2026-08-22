@@ -18,9 +18,8 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { indentUnit } from "@codemirror/language";
-import { diagnosticCount, forceLinting } from "@codemirror/lint";
 import { EditorSelection } from "@codemirror/state";
-import { activateHover, EditorView } from "@codemirror/view";
+import { EditorView } from "@codemirror/view";
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -348,48 +347,6 @@ describe("built-in code section body", () => {
     expect(view.contentDOM.classList.contains("cm-lineWrapping")).toBe(true);
     expect(view.state.tabSize).toBe(2);
     expect(view.state.facet(indentUnit)).toBe("  ");
-  });
-
-  it("uses CodeMirror's lint underline and hover tooltip for document diagnostics", async () => {
-    const message = 'Name "missing_value" is not defined.';
-    await mount(
-      makeCodeSection({
-        diagnostics: [
-          {
-            from: 0,
-            message,
-            severity: "error",
-            to: 5,
-          },
-        ],
-      }),
-    );
-    const view = getView();
-    await act(async () => {
-      forceLinting(view);
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    expect(diagnosticCount(view.state)).toBe(1);
-    const range = view.dom.querySelector<HTMLElement>(".cm-lintRange");
-    expect(range).not.toBeNull();
-
-    await act(async () => {
-      activateHover(view, 1, 1);
-    });
-    expect(view.dom.querySelector(".cm-tooltip-lint")?.textContent).toContain(
-      message,
-    );
-
-    // A local write changes the only text the diagnostic describes, so its
-    // section data clears it rather than reusing a stale source range.
-    await act(async () => {
-      view.dispatch({
-        changes: { from: 0, insert: "# " },
-        userEvent: "input.type",
-      });
-    });
-    expect(getSectionData().diagnostics).toEqual([]);
-    expect(diagnosticCount(getView().state)).toBe(0);
   });
 
   it("drops the gutters when the section turns line numbers off", async () => {

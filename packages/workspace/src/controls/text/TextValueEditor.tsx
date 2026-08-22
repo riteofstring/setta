@@ -1,7 +1,6 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
-import { FiAlertCircle } from "react-icons/fi";
 import {
   useEffect,
   useLayoutEffect,
@@ -32,7 +31,6 @@ import {
   type TextValueTheme,
 } from "./textValueTheme";
 import { useWorkspaceHost } from "../../workspaceHostContext";
-import type { WorkspaceHost } from "../../workspaceHost";
 import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
 
 // The item-controls milestone's text value editor: the reference's two-layer
@@ -41,9 +39,8 @@ import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
 // keyboard focus swaps in the live CodeMirror editor, every document change reports once
 // through the host subscription, and Escape reports to the caller holding the draft before
 // returning focus to the owning section. Backend editor
-// services (completion and the waiting spinner) stay application-side. A section field can carry
-// a caller-owned diagnostic message through the package-owned error presentation, but the package
-// never infers diagnostic content or state. The control disables from the host flag and, package-wide,
+// services (completion, diagnostics, the waiting spinner) and the reference's error-message
+// plumbing stay application-side. The control disables from the host flag and, package-wide,
 // while item-select mode is active — the reference's interaction-first disabled contract with
 // no blanket opacity treatment.
 //
@@ -81,21 +78,16 @@ type TextValueEditorBaseProps = {
 export type TextValueEditorProps =
   | (TextValueEditorBaseProps & {
       presentation: "item-row";
-      diagnosticMessage?: never;
       endAdornment?: never;
     })
   | (TextValueEditorBaseProps & {
       presentation: "section-field";
-      // The package owns the error treatment, indicator, and accessible wiring; the consumer owns
-      // the already-classified complete message. An absent or empty message is the ordinary state.
-      diagnosticMessage?: string;
       // The package owns the adornment's layout space inside the field surface; the caller owns
       // its content, semantics, and ARIA. It is never editor value and takes no keyboard behavior.
       endAdornment?: ReactNode;
     });
 
 type TextValueEditorCoreProps = TextValueEditorBaseProps & {
-  diagnosticMessage?: string;
   presentation: TextValueEditorPresentation | "meta-control";
   endAdornment?: ReactNode;
   metaMinimumHeight?: boolean;
@@ -103,14 +95,8 @@ type TextValueEditorCoreProps = TextValueEditorBaseProps & {
 
 type MetaTextValueEditorProps = Omit<
   TextValueEditorCoreProps,
-  "completionProvider" | "diagnosticMessage" | "endAdornment" | "presentation"
+  "completionProvider" | "endAdornment" | "presentation"
 >;
-
-type TextValueDiagnosticState = {
-  ariaDescribedBy: string | undefined;
-  descriptionId: string;
-  hasDiagnostic: boolean;
-};
 
 // The reference `ParamUI` class strings for the text control, minus its backend error branch.
 function getItemRowDummyClassName(isDisabled: boolean) {
@@ -181,23 +167,6 @@ function getTextValuePresentationConfig(
   };
 }
 
-function getTextValueDiagnosticState(
-  host: WorkspaceHost,
-  presentation: TextValueEditorCoreProps["presentation"],
-  diagnosticMessage: string,
-  sectionId: string,
-  controlId: string,
-): TextValueDiagnosticState {
-  const hasDiagnostic =
-    presentation === "section-field" && diagnosticMessage.trim() !== "";
-  const descriptionId = `${getWorkspaceHostDomId(host)}-${sectionId}-${controlId}-SectionFieldDiagnostic`;
-  return {
-    ariaDescribedBy: hasDiagnostic ? descriptionId : undefined,
-    descriptionId,
-    hasDiagnostic,
-  };
-}
-
 function renderTextValueDivider(
   config: TextValuePresentationConfig,
   isSelectingItems: boolean,
@@ -212,18 +181,12 @@ function wrapTextValueEditorLayers({
   config,
   editorLayers,
   endAdornment,
-  diagnosticMessage,
-  diagnosticDescriptionId,
-  hasDiagnostic,
   isDisabled,
   presentation,
 }: {
   config: TextValuePresentationConfig;
   editorLayers: ReactNode;
   endAdornment: ReactNode;
-  diagnosticMessage: string;
-  diagnosticDescriptionId: string;
-  hasDiagnostic: boolean;
   isDisabled: boolean;
   presentation: TextValueEditorCoreProps["presentation"];
 }): ReactNode {
@@ -240,33 +203,14 @@ function wrapTextValueEditorLayers({
     <div
       className={config.wrapperClassName}
       data-disabled={isDisabled}
-      data-diagnostic={hasDiagnostic}
       data-workspace-section-field="true"
     >
       <div className="setta-workspace-section-field-input">{editorLayers}</div>
-      {hasDiagnostic ? (
-        <span
-          aria-hidden="true"
-          className="setta-workspace-section-field-diagnostic-indicator"
-          title={diagnosticMessage}
-        >
-          <FiAlertCircle focusable="false" />
-        </span>
-      ) : null}
       {endAdornment === undefined || endAdornment === null ? null : (
         <div className="setta-workspace-section-field-adornment">
           {endAdornment}
         </div>
       )}
-      <span
-        aria-atomic="true"
-        aria-live="polite"
-        className="sr-only"
-        id={diagnosticDescriptionId}
-        role="status"
-      >
-        {hasDiagnostic ? `Error: ${diagnosticMessage}` : ""}
-      </span>
     </div>
   );
 }
@@ -326,7 +270,6 @@ function TextValueEditorCore({
   disabled = false,
   completionProvider,
   endAdornment,
-  diagnosticMessage = "",
   presentation,
   metaMinimumHeight = false,
 }: TextValueEditorCoreProps) {
@@ -336,13 +279,6 @@ function TextValueEditorCore({
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
-  const diagnosticState = getTextValueDiagnosticState(
-    host,
-    presentation,
-    diagnosticMessage,
-    sectionId,
-    controlId,
-  );
   const theme = useTextValueTheme();
   const presentationConfig = getTextValuePresentationConfig(
     presentation,
@@ -403,16 +339,12 @@ function TextValueEditorCore({
           placeholder={placeholder}
           language={language}
           ariaLabel={ariaLabel}
-          ariaDescribedBy={diagnosticState.ariaDescribedBy}
-          ariaInvalid={diagnosticState.hasDiagnostic}
           ariaDisabled={isDisabled}
         />
       )}
       {activationEvent && (
         <LiveTextValueEditor
           ariaLabel={ariaLabel}
-          ariaDescribedBy={diagnosticState.ariaDescribedBy}
-          ariaInvalid={diagnosticState.hasDiagnostic}
           sectionId={sectionId}
           controlId={controlId}
           value={value}
@@ -443,20 +375,15 @@ function TextValueEditorCore({
   );
   return wrapTextValueEditorLayers({
     config: presentationConfig,
-    diagnosticDescriptionId: diagnosticState.descriptionId,
-    diagnosticMessage,
     editorLayers,
     endAdornment,
     isDisabled,
-    hasDiagnostic: diagnosticState.hasDiagnostic,
     presentation,
   });
 }
 
 function LiveTextValueEditor({
   ariaLabel,
-  ariaDescribedBy,
-  ariaInvalid,
   sectionId,
   controlId,
   value,
@@ -477,8 +404,6 @@ function LiveTextValueEditor({
   onBlur,
 }: {
   ariaLabel: string;
-  ariaDescribedBy: string | undefined;
-  ariaInvalid: boolean;
   sectionId: string;
   controlId: string;
   value: string;
@@ -559,7 +484,7 @@ function LiveTextValueEditor({
       }
       return transaction.newDoc.toString() === valueRef.current;
     }),
-    getCodeMirrorContentAttributes(ariaLabel, ariaDescribedBy, ariaInvalid),
+    EditorView.contentAttributes.of({ "aria-label": ariaLabel }),
   ];
   const onCreateEditor = getOnCreateEditor({
     host,
@@ -589,19 +514,4 @@ function LiveTextValueEditor({
       indentWithTab={false} // the reference binds Tab in its app extensions; the package binds none
     />
   );
-}
-
-function getCodeMirrorContentAttributes(
-  ariaLabel: string,
-  ariaDescribedBy: string | undefined,
-  ariaInvalid: boolean,
-) {
-  const attributes: Record<string, string> = { "aria-label": ariaLabel };
-  if (ariaInvalid) {
-    attributes["aria-invalid"] = "true";
-  }
-  if (ariaDescribedBy !== undefined) {
-    attributes["aria-describedby"] = ariaDescribedBy;
-  }
-  return EditorView.contentAttributes.of(attributes);
 }
