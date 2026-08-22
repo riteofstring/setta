@@ -250,17 +250,20 @@ removed from the deferred line. Do not convert the remaining deferred list into 
 Implementation record (2026-08-20): the single-cutover implementation is present, and no
 intentional difference from the named `main` completion behavior was identified. Focused workspace,
 playground, Python Canvas backend (including pinned Basedpyright), Python Canvas frontend,
-contract, and build checks passed. The required production-browser walkthrough cannot start in this
-sandbox because its loopback listener is denied (`listen EPERM` on `127.0.0.1`), so the required
-original-resolution prefix and suffix popup captures are unavailable. The closeout
-`code-policy test --changed --base 9c3ee63dd8220a5e44e58d6b2d8305f8b7c80b5d` ran all four selected
-suites successfully but reported eight pre-existing expired `.code-policy.json` exceptions:
-`date-time-control-parity-length`, `drop-type-parity-owner-length`,
-`item-column-resize-pointer-parity`, `item-row-dynamic-group-semantics`,
-`key-activations-parity-test-length`, `playground-section-kinds-parity-length`,
-`workspace-parity-stylesheet-length`, and `zoom-pane-parity-owner-length`. The phase marker remains
-unchecked because these two conditions prevent complete in-repository proof; this record is not
-supervisor acceptance evidence.
+contract, and build checks passed. The repository verification blockers recorded by the original
+implementation turn were resolved separately in `8b5de94fb`: the exact expired policy exceptions
+were renewed for seven days and the playground suite now builds its workspace dependency.
+
+Supervisor handoff (2026-08-20): do not repeat the completed backend, contract, donor, or
+pathological completion audit. All focused suites and every non-browser recommended suite have
+passed. The remaining implementation task is the production-browser walkthrough. With loopback
+available, its first current failure is that `browser-target-completion.mjs` tries to activate the
+generated editor as though the section wrapper's accessible label belonged directly to the nested
+CodeMirror textbox. Repair the browser page abstraction so a labeled code section can focus its
+nested textbox, use that abstraction for both authored target regions, and retain the existing
+accessible production markup. Then run the browser walkthrough, inspect the original-resolution
+popup evidence, update this record with the result, and check the phase marker. Do not change
+backend semantics or add duplicate production ARIA solely to satisfy the browser driver.
 
 The checkbox records repository work, not supervisor-owned acceptance receipts. Agent 1 checks it
 once the implementation and in-repository proof are complete and the worktree is clean. Code Policy
