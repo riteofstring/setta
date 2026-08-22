@@ -13,7 +13,7 @@ import {
   parameterDictionarySectionSelector,
   parameterDictionaryWorkspaceSectionId,
 } from "./param-dict-list.browser-support.mjs";
-import { dragElementToElement } from "./browser-page.mjs";
+import { dragElementToElement, visibleElementPoint } from "./browser-page.mjs";
 import {
   dictionaryEntryChildAdoptionDragTarget,
   holdMovingFreeSectionDragMode,
@@ -61,6 +61,68 @@ test("List walkthrough reorders a Param Dict with the proven free move gesture",
     /const dictionaryReorderFocus = await dragFreeSectionToSection\(\s*client,\s*dictionarySelector,\s*callableSectionSelector\(outerChildIds\[0\]\),\s*"reordering the Param Dict to the front of the list",\s*0\.25,/,
   );
   assert.doesNotMatch(walkthrough, /dragSortedSectionToSection/);
+});
+
+test("Canvas extraction requires an exposed React Flow pane point", async () => {
+  const walkthrough = await readFile(
+    new URL("./param-dict-list.browser.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    walkthrough,
+    /targetPointOptions: \{ exactElementHit: true \},\s*targetRetryYOffset: 0,/,
+  );
+
+  const window = new JSDOM(
+    `
+      <div class="react-flow__pane" aria-label="Workspace canvas background">
+        <div class="react-flow__node">Large list</div>
+      </div>
+    `,
+    { runScripts: "outside-only" },
+  ).window;
+  const document = window.document;
+  const canvas = document.querySelector(".react-flow__pane");
+  const list = document.querySelector(".react-flow__node");
+  if (
+    !(canvas instanceof window.HTMLElement) ||
+    !(list instanceof window.HTMLElement)
+  ) {
+    throw new Error("Expected the canvas extraction fixture.");
+  }
+  canvas.getBoundingClientRect = () => new window.DOMRect(0, 0, 400, 300);
+  document.elementFromPoint = (x) => (x >= 350 ? canvas : list);
+  const client = {
+    async send(method, parameters) {
+      assert.equal(method, "Runtime.evaluate");
+      return { result: { value: window.eval(parameters.expression) } };
+    },
+  };
+
+  const point = await visibleElementPoint(
+    client,
+    '.react-flow__pane[aria-label="Workspace canvas background"]',
+    "the exposed canvas",
+    0.25,
+    null,
+    { exactElementHit: true },
+  );
+  assert.deepEqual({ ...point }, { x: 399, y: 75 });
+  assert.equal(document.elementFromPoint(point.x, point.y), canvas);
+
+  document.elementFromPoint = () => list;
+  await assert.rejects(
+    () =>
+      visibleElementPoint(
+        client,
+        '.react-flow__pane[aria-label="Workspace canvas background"]',
+        "the covered canvas",
+        0.25,
+        null,
+        { exactElementHit: true },
+      ),
+    /the covered canvas has no pointer-reachable point/,
+  );
 });
 
 test("Section drag starts from a non-control title-header point and holds Alt through CDP", async () => {
@@ -244,14 +306,19 @@ test("Section drag replays the donor pointer gesture with standard Alt payloads"
   });
 });
 
-test("Section move retries a completed gesture until its canonical result succeeds", async () => {
+test("Section move observes a delayed canonical result before retrying", async () => {
   const attempts = [];
-  const canonicalResults = [false, true, true];
+  let canonicalChecks = 0;
   let capturedFocus = null;
 
   const result = await retrySectionMoveUntilObserved({
     description: "the canonical section move",
-    hasMoved: async () => canonicalResults.shift(),
+    hasMoved: async () => {
+      canonicalChecks += 1;
+      return canonicalChecks === 2;
+    },
+    observationPollIntervalMs: 1,
+    observationTimeoutMs: 50,
     performGesture: async (attempt) => {
       attempts.push(attempt);
       capturedFocus ??= "focus from the first gesture";
@@ -259,9 +326,32 @@ test("Section move retries a completed gesture until its canonical result succee
     },
   });
 
-  assert.deepEqual(attempts, [0, 1]);
+  assert.deepEqual(attempts, [0]);
   assert.equal(result, "focus from the first gesture");
-  assert.deepEqual(canonicalResults, [true]);
+  assert.equal(canonicalChecks, 2);
+});
+
+test("Section move retries only after its canonical observation window expires", async () => {
+  const attempts = [];
+  let canonicalChecks = 0;
+
+  const result = await retrySectionMoveUntilObserved({
+    description: "the canonical section move",
+    hasMoved: async () => {
+      canonicalChecks += 1;
+      return attempts.length === 2;
+    },
+    observationPollIntervalMs: 1,
+    observationTimeoutMs: 20,
+    performGesture: async (attempt) => {
+      attempts.push(attempt);
+      return `focus from gesture ${String(attempt)}`;
+    },
+  });
+
+  assert.deepEqual(attempts, [0, 1]);
+  assert.equal(result, "focus from gesture 1");
+  assert.ok(canonicalChecks > 2);
 });
 
 test("List walkthrough waits for the exact mounted Param Dict drag source", () => {

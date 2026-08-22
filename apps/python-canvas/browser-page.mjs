@@ -88,7 +88,9 @@ export async function visibleElementPoint(
   description,
   preferredYFraction = 0.5,
   preferredXFraction = null,
+  options = {},
 ) {
+  const exactElementHit = options.exactElementHit === true;
   const result = await evaluate(
     client,
     `(() => {
@@ -132,19 +134,11 @@ export async function visibleElementPoint(
           });
         }
       }
+      const exactElementHit = ${JSON.stringify(exactElementHit)};
       const hits = [];
       for (const point of points) {
-        if (document.elementFromPoint(point.x, point.y) === element) {
-          return { point, reason: null };
-        }
-      }
-      for (const point of points) {
         const hit = document.elementFromPoint(point.x, point.y);
-        if (
-          hit !== null &&
-          element.contains(hit) &&
-          hit.closest(".nodrag, button, input, textarea, [contenteditable='true']") === null
-        ) {
+        if (hit === element) {
           return { point, reason: null };
         }
         if (hit instanceof HTMLElement && hits.length < 5) {
@@ -154,6 +148,18 @@ export async function visibleElementPoint(
             tagName: hit.tagName,
             text: hit.textContent?.trim().slice(0, 80),
           });
+        }
+      }
+      if (!exactElementHit) {
+        for (const point of points) {
+          const hit = document.elementFromPoint(point.x, point.y);
+          if (
+            hit !== null &&
+            element.contains(hit) &&
+            hit.closest(".nodrag, button, input, textarea, [contenteditable='true']") === null
+          ) {
+            return { point, reason: null };
+          }
         }
       }
       return { hits, point: null, reason: "covered", rect: rect.toJSON() };

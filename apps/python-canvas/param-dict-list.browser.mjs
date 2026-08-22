@@ -62,6 +62,8 @@ const dictionaryEntryWorkspaceItemPrefix =
   "python-canvas:dictionary-entry-item:";
 
 const sectionMoveAttemptLimit = 3;
+const sectionMoveObservationTimeoutMs = 500;
+const sectionMoveObservationPollIntervalMs = 50;
 export const sectionDragPointerHoldMs = 200;
 export const sectionDragPointerMoveSteps = 14;
 
@@ -392,10 +394,7 @@ export async function exerciseParamDictAndListSlice(
   const beforeTopLevelMove = dictionaryFirst;
   const callableAtTopLevelPredicate = (snapshot) =>
     snapshot.topLevelSectionIds.includes(outerChildIds[0]) &&
-    sameListChildren(snapshot, outerList.id, [
-      dictionary.id,
-      outerChildIds[1],
-    ]);
+    sameListChildren(snapshot, outerList.id, [dictionary.id, outerChildIds[1]]);
   const callableTopLevelFocus = await dragFreeSectionToCanvas(
     client,
     callableSectionSelector(outerChildIds[0]),
@@ -891,6 +890,8 @@ async function dragFreeSectionToCanvas(
     targetSelector:
       '.react-flow__pane[aria-label="Workspace canvas background"]',
     targetYFraction: 0.25,
+    targetPointOptions: { exactElementHit: true },
+    targetRetryYOffset: 0,
     verifyFocusContext,
   });
 }
@@ -923,14 +924,18 @@ async function dragSection(client, configuration) {
         configuration.targetSelector,
         `${configuration.description} target`,
         configuration.targetYFraction,
+        null,
+        configuration.targetPointOptions,
       );
       await tryMovingFreeSectionDrag(client, {
         description: configuration.description,
         source,
         sourceSelector,
-        target: { ...target, y: target.y + attempt * 2 },
-        captureFocus:
-          configuration.verifyFocusContext && focusCapture === null,
+        target: {
+          ...target,
+          y: target.y + attempt * (configuration.targetRetryYOffset ?? 2),
+        },
+        captureFocus: configuration.verifyFocusContext && focusCapture === null,
         onCaptureFocus: (capture) => {
           focusCapture = capture;
         },
@@ -943,15 +948,19 @@ async function dragSection(client, configuration) {
 export async function retrySectionMoveUntilObserved({
   description,
   hasMoved,
+  observationPollIntervalMs = sectionMoveObservationPollIntervalMs,
+  observationTimeoutMs = sectionMoveObservationTimeoutMs,
   performGesture,
 }) {
-  for (
-    let attempt = 0;
-    attempt < sectionMoveAttemptLimit;
-    attempt += 1
-  ) {
+  for (let attempt = 0; attempt < sectionMoveAttemptLimit; attempt += 1) {
     const result = await performGesture(attempt);
-    if (await hasMoved()) {
+    if (
+      await canonicalMoveObservedWithinWindow(
+        hasMoved,
+        observationTimeoutMs,
+        observationPollIntervalMs,
+      )
+    ) {
       return result;
     }
   }
@@ -959,6 +968,24 @@ export async function retrySectionMoveUntilObserved({
   throw new Error(
     `${description} did not produce its expected canonical move after ${sectionMoveAttemptLimit} completed moving-free drag attempts.`,
   );
+}
+
+async function canonicalMoveObservedWithinWindow(
+  hasMoved,
+  timeoutMs,
+  pollIntervalMs,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (true) {
+    if (await hasMoved()) {
+      return true;
+    }
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) {
+      return false;
+    }
+    await delay(Math.min(pollIntervalMs, remainingMs));
+  }
 }
 
 export async function tryMovingFreeSectionDrag(client, configuration) {
