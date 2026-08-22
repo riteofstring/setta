@@ -247,7 +247,9 @@ export function CallableSection({
   const mutation = usePythonCanvasMutationContext();
   const itemDiagnostics = parameterDiagnosticRegistry(data);
   const nameErrors = parameterNameErrors(parameters);
-  const parameterAuthoringPending = mutation.callablePending(data.callable.id);
+  const parameterAuthoringPending = mutation.parameterAuthoringPending(
+    data.callable.id,
+  );
 
   return (
     <div

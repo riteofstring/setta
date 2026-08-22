@@ -89,6 +89,7 @@ export async function exerciseResolvedMathCallableLifecycle(
     subject,
     parameter,
     "missing_value",
+    true,
   );
   const undefinedValue = await waitForSnapshot(
     backendOrigin,
@@ -355,9 +356,13 @@ async function setParameterExpression(
   subject,
   parameter,
   expression,
+  inspectPendingPresentation = false,
 ) {
   const { harness, name } = subject;
   const label = parameter.name === "" ? "Unnamed parameter" : parameter.name;
+  if (inspectPendingPresentation) {
+    await gateNextParameterMutationResponse(client);
+  }
   await activateContentEditableTextBox(
     client,
     harness.parameterRowSelector(parameter.id) +
@@ -368,6 +373,16 @@ async function setParameterExpression(
   await selectAll(client);
   await insertText(client, expression);
   await pressEscape(client);
+  if (inspectPendingPresentation) {
+    await assertParameterMutationHasNoListPendingPresentation(
+      client,
+      name,
+      parameter.id,
+      label,
+      harness,
+    );
+    await releaseParameterMutationResponse(client);
+  }
   await waitForSnapshot(
     backendOrigin,
     "the " + label + " expression " + expression,
@@ -381,6 +396,88 @@ async function setParameterExpression(
         ),
   );
   await waitForCallableUiIdle(client, name, harness);
+}
+
+async function gateNextParameterMutationResponse(client) {
+  const installed = await evaluate(
+    client,
+    "(() => {" +
+      "if (window.__pythonCanvasParameterMutationGate !== undefined) return false;" +
+      "const originalFetch = window.fetch;" +
+      "let release;" +
+      "const wait = new Promise((resolve) => { release = resolve; });" +
+      "const gate = { intercepted: false, release: () => release(true) };" +
+      "window.__pythonCanvasParameterMutationGate = gate;" +
+      "window.fetch = async (...args) => {" +
+      "const input = args[0];" +
+      "const requestUrl = typeof input === 'string' || input instanceof URL ? String(input) : input.url;" +
+      "const method = (args[1]?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();" +
+      "const response = await originalFetch.apply(window, args);" +
+      "if (!gate.intercepted && method === 'POST' && new URL(requestUrl, location.href).pathname.endsWith('/parameters')) {" +
+      "gate.intercepted = true; await wait; window.fetch = originalFetch;" +
+      "}" +
+      "return response;" +
+      "};" +
+      "return true;" +
+      "})()",
+  );
+  assert.equal(
+    installed,
+    true,
+    "The parameter mutation response gate was not installed.",
+  );
+}
+
+async function assertParameterMutationHasNoListPendingPresentation(
+  client,
+  name,
+  parameterId,
+  label,
+  harness,
+) {
+  const sectionSelector = harness.callableSectionSelector(name);
+  const rowSelector = harness.parameterRowSelector(parameterId);
+  await waitFor(
+    client,
+    "the in-flight parameter value save without a parameter-list spinner",
+    "(() => {" +
+      "const section = document.querySelector(" +
+      JSON.stringify(sectionSelector) +
+      ");" +
+      "const pendingBoundary = section?.querySelector('.python-canvas-callable-section');" +
+      "const parameterArea = section?.querySelector('.python-canvas-callable-parameter-authoring');" +
+      "const row = document.querySelector(" +
+      JSON.stringify(rowSelector) +
+      ");" +
+      "const editor = row?.querySelector(" +
+      JSON.stringify(contentEditableTextBoxSelector(label + " expression")) +
+      ");" +
+      "const overlay = section?.querySelector('[data-python-canvas-parameter-pending=true]');" +
+      "const spinner = section?.querySelector('.python-canvas-parameter-spinner');" +
+      "const lock = section?.querySelector('button[aria-label=\"Lock position and size\"]');" +
+      "const unlock = section?.querySelector('button[aria-label=\"Unlock position and size\"]');" +
+      "return window.__pythonCanvasParameterMutationGate?.intercepted === true &&" +
+      "pendingBoundary instanceof HTMLElement && pendingBoundary.getAttribute('aria-busy') !== 'true' &&" +
+      "parameterArea instanceof HTMLElement && !parameterArea.hasAttribute('inert') &&" +
+      "row instanceof HTMLElement && editor instanceof HTMLElement &&" +
+      "editor.getAttribute('aria-disabled') !== 'true' && overlay === null && spinner === null &&" +
+      "lock instanceof HTMLElement && unlock === null;" +
+      "})()",
+  );
+}
+
+async function releaseParameterMutationResponse(client) {
+  const released = await evaluate(
+    client,
+    "(() => {" +
+      "const gate = window.__pythonCanvasParameterMutationGate;" +
+      "if (gate?.intercepted !== true) return false;" +
+      "gate.release();" +
+      "delete window.__pythonCanvasParameterMutationGate;" +
+      "return true;" +
+      "})()",
+  );
+  assert.equal(released, true, "The parameter mutation response was not gated.");
 }
 
 async function addAppParameter(client, backendOrigin, name, harness) {

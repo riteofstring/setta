@@ -59,7 +59,11 @@ type AppState =
 
 type MutationState =
   | { kind: "idle" }
-  | { description: string; kind: "pending" }
+  | {
+      description: string;
+      kind: "pending";
+      parameterAuthoringPending?: boolean;
+    }
   | { kind: "error"; message: string };
 
 type CallableMutationStates = Record<string, MutationState>;
@@ -605,6 +609,7 @@ export function PythonCanvasApp() {
       updateCallableMutation(callableId, {
         description: "Checking the callable with Basedpyright.",
         kind: "pending",
+        parameterAuthoringPending: true,
       });
       enqueue(async () => {
         if (!active || snapshot === null) {
@@ -910,8 +915,6 @@ export function PythonCanvasApp() {
         const mutation = callableMutations[callableId];
         return mutation?.kind === "error" ? mutation.message : null;
       },
-      callablePending: (callableId) =>
-        callableMutations[callableId]?.kind === "pending",
       callableDraft: (callableId) => callableDrafts[callableId] ?? "",
       onCallableCommit: (callableId, value) =>
         controllerRef.current?.commitCallable(callableId, value),
@@ -932,6 +935,13 @@ export function PythonCanvasApp() {
         ),
       onParameterNameChange: (callableId, parameterId, name) =>
         controllerRef.current?.setParameterName(callableId, parameterId, name),
+      parameterAuthoringPending: (callableId) => {
+        const mutation = callableMutations[callableId];
+        return (
+          mutation?.kind === "pending" &&
+          mutation.parameterAuthoringPending === true
+        );
+      },
     }),
     [callableDrafts, callableMutations, completionErrors, completionProviders],
   );

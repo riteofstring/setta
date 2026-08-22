@@ -268,7 +268,7 @@ describe("CallableSection", () => {
     expect(view.querySelector("input[aria-label='Parameter name']")).toBeNull();
   });
 
-  it("makes parameter authoring unavailable while a callable mutation is pending", () => {
+  it("makes parameter authoring unavailable only during a callable expression operation", () => {
     const parameter = {
       authoredExpression: "later",
       default: null,
@@ -393,7 +393,7 @@ function sectionData({
 
 function mutationContext(
   callableMutationError: (callableId: string) => string | null = () => null,
-  callablePending: (callableId: string) => boolean = () => false,
+  parameterAuthoringPending: (callableId: string) => boolean = () => false,
   callableCompletionError: (callableId: string) => string | null = () => null,
   callableCompletionProvider: () =>
     TextValueCompletionProvider | undefined = () => undefined,
@@ -402,7 +402,6 @@ function mutationContext(
     callableCompletionError,
     callableCompletionProvider,
     callableMutationError,
-    callablePending,
     callableDraft: () => "value",
     onCallableAlternateCommit: vi.fn(),
     onCallableCommit: vi.fn(),
@@ -410,5 +409,6 @@ function mutationContext(
     onCallableRevert: vi.fn(),
     onParameterExpressionChange: vi.fn(),
     onParameterNameChange: vi.fn(),
+    parameterAuthoringPending,
   };
 }

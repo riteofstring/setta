@@ -358,6 +358,16 @@ proves persistence, a callable Basedpyright error, no section lock, no refresh r
 error panel. The same headless run also completes the existing explicit-refresh, parameter,
 diagnostic, restart, and responsive-layout walkthrough.
 
+Follow-up correction record — parameter pending ownership: the preceding record's pending wording
+was too broad, and the implementation exposed the same broadness as a generic `callablePending`
+signal. Main's centered parameter-area overlay belongs to its callable `parametersRequest` channel;
+an ordinary parameter value mutation does not enter that channel. Python Canvas now publishes a
+separate parameter-authoring-pending signal only for callable expression commit and explicit
+signature refresh. Debounced parameter value and name persistence continues to use the off-layout
+status announcement without disabling the row, making the parameter area inert, or rendering the
+centered spinner. The headless browser walkthrough gates an `x` value response and proves that
+distinction while the request is in flight.
+
 Intentional donor differences, recorded after reading every named main donor: main's historical
 generated-Python mapper used `reportCallIssue` message wording to choose parameters, whereas this
 slice uses the exact provider code plus canonical signature metadata, so wording cannot create a

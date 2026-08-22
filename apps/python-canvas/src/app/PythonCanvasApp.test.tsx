@@ -50,11 +50,16 @@ type MockCreationCommand = {
 };
 
 function MockWorkspaceCanvas() {
-  if (!mocks.renderWorkspaceCanvas) {
-    return <div data-testid="workspace-canvas" />;
-  }
+  const mutation = usePythonCanvasMutationContext();
   return (
-    <div data-testid="workspace-canvas">{mockWorkspaceLeadingContent()}</div>
+    <div
+      data-parameter-authoring-pending={String(
+        mutation.parameterAuthoringPending("callable:one"),
+      )}
+      data-testid="workspace-canvas"
+    >
+      {mocks.renderWorkspaceCanvas ? mockWorkspaceLeadingContent() : null}
+    </div>
   );
 }
 
@@ -186,6 +191,7 @@ vi.mock("@setta/workspace", () => ({
 }));
 
 import { PythonCanvasApp } from "./PythonCanvasApp";
+import { usePythonCanvasMutationContext } from "./PythonCanvasMutationContext";
 import { PythonCanvasView } from "./PythonCanvasView";
 import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import {
@@ -675,6 +681,11 @@ describe("PythonCanvasApp", () => {
     await advanceMutationDebounce();
 
     expect(mocks.setCallableParameters).toHaveBeenCalledTimes(1);
+    expect(
+      view
+        .querySelector("[data-testid='workspace-canvas']")
+        ?.getAttribute("data-parameter-authoring-pending"),
+    ).toBe("false");
     expect(mocks.setCallableParameters).toHaveBeenLastCalledWith(
       "callable:one",
       {
@@ -757,7 +768,7 @@ describe("PythonCanvasApp", () => {
     mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
     mocks.commitCallable.mockReturnValueOnce(commitRequest.promise);
 
-    renderApp();
+    const view = renderApp();
     await flushEffects();
     const expression = mocks.textValueEditorProps.find(
       (props) => props.presentation === "section-field",
@@ -784,6 +795,11 @@ describe("PythonCanvasApp", () => {
     });
     expect(mocks.textValueEditorProps.at(-1)?.disabled).toBeUndefined();
     expect(mocks.refreshCallableParameters).not.toHaveBeenCalled();
+    expect(
+      view
+        .querySelector("[data-testid='workspace-canvas']")
+        ?.getAttribute("data-parameter-authoring-pending"),
+    ).toBe("true");
 
     await act(async () => {
       commitRequest.resolve(committedSnapshot);
@@ -803,6 +819,11 @@ describe("PythonCanvasApp", () => {
     );
     expect(mocks.refreshCallableParameters).not.toHaveBeenCalled();
     expect(mocks.setCallableParameters).not.toHaveBeenCalled();
+    expect(
+      view
+        .querySelector("[data-testid='workspace-canvas']")
+        ?.getAttribute("data-parameter-authoring-pending"),
+    ).toBe("false");
   });
 
   it("refreshes parameters only through the alternate callable commit", async () => {
@@ -1116,7 +1137,6 @@ function renderView(
           callableCompletionError: () => null,
           callableCompletionProvider: () => undefined,
           callableMutationError: () => null,
-          callablePending: () => false,
           callableDraft: () => "",
           onCallableAlternateCommit: vi.fn(),
           onCallableCommit: vi.fn(),
@@ -1124,6 +1144,7 @@ function renderView(
           onCallableRevert: vi.fn(),
           onParameterExpressionChange: vi.fn(),
           onParameterNameChange: vi.fn(),
+          parameterAuthoringPending: () => false,
         }}
         pythonTargetCompletionError={pythonTargetCompletionError}
         state={{ host: createHost(), kind: "ready" }}
