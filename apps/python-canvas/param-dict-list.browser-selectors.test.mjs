@@ -1,18 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { JSDOM } from "jsdom";
 
 import {
   callableSectionSelector,
+  callableWorkspaceSectionId,
   listSectionSelector,
   parameterDictionarySectionSelector,
 } from "./param-dict-list.browser-support.mjs";
 import { dragElementToElement } from "./browser-page.mjs";
-import { dictionaryEntryChildAdoptionDragTarget } from "./param-dict-list.browser.mjs";
+import {
+  dictionaryEntryChildAdoptionDragTarget,
+  listNestedSectionSurfaceSelector,
+  listNestedSortableSectionSelector,
+} from "./param-dict-list.browser.mjs";
 
 test("Param Dict and List walkthrough selectors use workspace section identities", () => {
   assert.equal(
     callableSectionSelector("callable:child"),
     '[data-section-id="python-canvas:callable:callable:child"]',
+  );
+  assert.equal(
+    callableWorkspaceSectionId("callable:child"),
+    "python-canvas:callable:callable:child",
   );
   assert.equal(
     parameterDictionarySectionSelector("dictionary:options"),
@@ -21,6 +31,45 @@ test("Param Dict and List walkthrough selectors use workspace section identities
   assert.equal(
     listSectionSelector("list:objects"),
     '[data-section-id="python-canvas:list:list:objects"]',
+  );
+});
+
+test("List walkthrough finds direct vertical children beside its shell", () => {
+  const document = new JSDOM(`
+    <div>
+      <div data-section-id="python-canvas:list:list:objects"></div>
+      <div class="flex flex-col">
+        <div class="flex items-stretch">
+          <div class="mt-2 flex flex-col items-start gap-2">
+            <div data-sortable-section-id="python-canvas:callable:callable:one"></div>
+            <div data-sortable-section-id="python-canvas:callable:callable:two"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).window.document;
+  const shell = document.querySelector(listSectionSelector("list:objects"));
+  if (!(shell instanceof document.defaultView.HTMLElement)) {
+    throw new Error("Expected the List of Objects shell.");
+  }
+  const wrapper = shell.parentElement;
+  if (!(wrapper instanceof document.defaultView.HTMLElement)) {
+    throw new Error("Expected the List of Objects wrapper.");
+  }
+
+  assert.deepEqual(
+    Array.from(wrapper.querySelectorAll(listNestedSortableSectionSelector)).map(
+      (sortable) => sortable.getAttribute("data-sortable-section-id"),
+    ),
+    [
+      "python-canvas:callable:callable:one",
+      "python-canvas:callable:callable:two",
+    ],
+  );
+  assert.equal(shell.querySelectorAll("[data-sortable-section-id]").length, 0);
+  assert.ok(
+    wrapper.querySelector(listNestedSectionSurfaceSelector) instanceof
+      document.defaultView.HTMLElement,
   );
 });
 

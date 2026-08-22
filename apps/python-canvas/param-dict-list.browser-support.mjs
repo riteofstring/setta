@@ -384,8 +384,12 @@ export function snapshotCollection(snapshot, name) {
   return value;
 }
 
+export function callableWorkspaceSectionId(callableId) {
+  return `python-canvas:callable:${callableId}`;
+}
+
 export function callableSectionSelector(callableId) {
-  return sectionSelector(`python-canvas:callable:${callableId}`);
+  return sectionSelector(callableWorkspaceSectionId(callableId));
 }
 
 export function parameterDictionarySectionSelector(dictionaryId) {

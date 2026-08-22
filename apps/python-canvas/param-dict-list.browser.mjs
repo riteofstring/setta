@@ -16,6 +16,7 @@ import {
   assertRevisionIncremented,
   assertSectionFieldSize,
   assertSectionSize,
+  callableWorkspaceSectionId,
   createPaneSection,
   dictionaryRowHeight,
   findDictionaryEntry,
@@ -61,6 +62,11 @@ export const dictionaryEntryChildAdoptionDragTarget = Object.freeze({
   targetXFraction: 0.5,
   targetYFraction: 0.5,
 });
+
+export const listNestedSectionSurfaceSelector =
+  ":scope > .flex.flex-col > .flex.items-stretch > .mt-2.flex.flex-col";
+
+export const listNestedSortableSectionSelector = `${listNestedSectionSurfaceSelector} > [data-sortable-section-id]`;
 
 export async function exerciseParamDictAndListSlice(
   client,
@@ -633,14 +639,16 @@ async function assertVerticalListPresentation(
   childIds,
   expectedCallableFieldSize,
 ) {
+  const expectedWorkspaceChildIds = childIds.map(callableWorkspaceSectionId);
   const presentation = await evaluate(
     client,
     `(() => {
       const section = document.querySelector(${JSON.stringify(listSectionSelector(listId))});
-      if (!(section instanceof HTMLElement)) {
+      const sectionWrapper = section?.parentElement;
+      if (!(section instanceof HTMLElement) || !(sectionWrapper instanceof HTMLElement)) {
         return null;
       }
-      const sortables = Array.from(section.querySelectorAll("[data-sortable-section-id]"));
+      const sortables = Array.from(sectionWrapper.querySelectorAll(${JSON.stringify(listNestedSortableSectionSelector)}));
       const fields = sortables.map((sortable) => sortable.querySelector('[data-workspace-section-field="true"]'));
       return {
         childIds: sortables.map((sortable) => sortable.getAttribute("data-sortable-section-id")),
@@ -651,14 +659,14 @@ async function assertVerticalListPresentation(
           const rect = field.getBoundingClientRect();
           return { height: rect.height, width: rect.width };
         }),
-        vertical: section.querySelector(".mt-2.flex.flex-col") instanceof HTMLElement,
+        vertical: sectionWrapper.querySelector(${JSON.stringify(listNestedSectionSurfaceSelector)}) instanceof HTMLElement,
       };
     })()`,
   );
   assert.ok(presentation, "The List of Objects section is not mounted.");
   assert.deepEqual(
     presentation.childIds,
-    childIds,
+    expectedWorkspaceChildIds,
     "The list does not present its canonical child order.",
   );
   assert.equal(
