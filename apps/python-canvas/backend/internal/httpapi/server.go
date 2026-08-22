@@ -1,4 +1,4 @@
-// Package httpapi exposes the loopback-only V1 HTTP boundary.
+// Package httpapi exposes the loopback-only V2 HTTP boundary.
 package httpapi
 
 import (
@@ -8,174 +8,166 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/setta/python-canvas/backend/internal/contracts"
-	"github.com/setta/python-canvas/backend/internal/project"
+	"github.com/setta/python-canvas/backend/internal/project/aggregate"
+	"github.com/setta/python-canvas/backend/internal/project/coordinator"
 )
 
 const shutdownTimeout = 5 * time.Second
 
 var ErrProjectServiceRequired = errors.New("httpapi: project service is required")
 
-// ProjectService is the complete application boundary required by the V1
-// routes. It exposes canonical snapshots rather than a mutable transport
-// model, keeping HTTP details outside the project package.
-type ProjectService interface {
-	Snapshot() contracts.ProjectSnapshotV1
-	CommitCallable(
-		context.Context,
-		string,
-		string,
-		string,
-	) (contracts.ProjectSnapshotV1, error)
-	CompleteCallable(
-		context.Context,
-		string,
-		string,
-		string,
-		int,
-	) ([]project.CompletionItem, error)
-	CompletePythonTarget(
-		context.Context,
-		string,
-		project.PythonTargetCompletionRegion,
-		string,
-		string,
-		int,
-	) ([]project.CompletionItem, error)
-	SetCallableParameters(
-		context.Context,
-		string,
-		string,
-		int,
-		[]project.ParameterProposal,
-	) (contracts.ProjectSnapshotV1, error)
-	SetPythonTarget(
-		context.Context,
-		string,
-		int,
-		string,
-		string,
-	) (contracts.ProjectSnapshotV1, error)
+type renameProjectPayload struct {
+	ProjectID        *string `json:"projectId"`
+	ExpectedRevision *int    `json:"expectedRevision"`
+	Name             *string `json:"name"`
+}
+
+type createCallablePayload struct {
+	ProjectID        *string `json:"projectId"`
+	ExpectedRevision *int    `json:"expectedRevision"`
+	Name             *string `json:"name"`
+}
+
+type renameCallablePayload struct {
+	ProjectID        *string `json:"projectId"`
+	ExpectedRevision *int    `json:"expectedRevision"`
+	Name             *string `json:"name"`
+}
+
+type deleteCallablePayload struct {
+	ProjectID        *string `json:"projectId"`
+	ExpectedRevision *int    `json:"expectedRevision"`
 }
 
 type commitCallablePayload struct {
-	ProjectID          string  `json:"projectId"`
-	SectionID          string  `json:"sectionId"`
+	ProjectID          *string `json:"projectId"`
+	ExpectedRevision   *int    `json:"expectedRevision"`
 	AuthoredExpression *string `json:"authoredExpression"`
-}
-
-type callableCompletionPayload struct {
-	ProjectID          string  `json:"projectId"`
-	SectionID          string  `json:"sectionId"`
-	AuthoredExpression *string `json:"authoredExpression"`
-	CursorOffsetUTF16  *int    `json:"cursorOffsetUtf16"`
-}
-
-type pythonTargetCompletionPayload struct {
-	ProjectID         string  `json:"projectId"`
-	Region            *string `json:"region"`
-	Prefix            *string `json:"prefix"`
-	Suffix            *string `json:"suffix"`
-	CursorOffsetUTF16 *int    `json:"cursorOffsetUtf16"`
-}
-
-func (payload callableCompletionPayload) toContract() (contracts.CallableCompletionRequestV1, bool) {
-	if payload.AuthoredExpression == nil || payload.CursorOffsetUTF16 == nil {
-		return contracts.CallableCompletionRequestV1{}, false
-	}
-	return contracts.CallableCompletionRequestV1{
-		ProjectID:          payload.ProjectID,
-		SectionID:          payload.SectionID,
-		AuthoredExpression: *payload.AuthoredExpression,
-		CursorOffsetUTF16:  *payload.CursorOffsetUTF16,
-	}, true
-}
-
-func (payload pythonTargetCompletionPayload) toContract() (contracts.PythonTargetCompletionRequestV1, bool) {
-	if payload.Region == nil || payload.Prefix == nil || payload.Suffix == nil || payload.CursorOffsetUTF16 == nil {
-		return contracts.PythonTargetCompletionRequestV1{}, false
-	}
-	return contracts.PythonTargetCompletionRequestV1{
-		ProjectID:         payload.ProjectID,
-		Region:            contracts.PythonTargetCompletionRegionV1(*payload.Region),
-		Prefix:            *payload.Prefix,
-		Suffix:            *payload.Suffix,
-		CursorOffsetUTF16: *payload.CursorOffsetUTF16,
-	}, true
-}
-
-func (payload commitCallablePayload) toContract() (contracts.CommitCallableRequestV1, bool) {
-	if payload.AuthoredExpression == nil {
-		return contracts.CommitCallableRequestV1{}, false
-	}
-	return contracts.CommitCallableRequestV1{
-		ProjectID:          payload.ProjectID,
-		SectionID:          payload.SectionID,
-		AuthoredExpression: *payload.AuthoredExpression,
-	}, true
 }
 
 type parameterProposalPayload struct {
-	ID                 string  `json:"id"`
+	ID                 *string `json:"id"`
 	Name               *string `json:"name"`
 	AuthoredExpression *string `json:"authoredExpression"`
 }
 
-type setCallableParametersPayload struct {
-	ProjectID        string                      `json:"projectId"`
-	CallableID       string                      `json:"callableId"`
+type setParametersPayload struct {
+	ProjectID        *string                     `json:"projectId"`
 	ExpectedRevision *int                        `json:"expectedRevision"`
 	Parameters       *[]parameterProposalPayload `json:"parameters"`
 }
 
-func (payload setCallableParametersPayload) toContract() (contracts.SetCallableParametersRequestV1, bool) {
-	if payload.ExpectedRevision == nil || payload.Parameters == nil {
-		return contracts.SetCallableParametersRequestV1{}, false
-	}
-	parameters := make([]contracts.ParameterProposalV1, 0, len(*payload.Parameters))
-	for _, parameter := range *payload.Parameters {
-		if parameter.Name == nil || parameter.AuthoredExpression == nil {
-			return contracts.SetCallableParametersRequestV1{}, false
-		}
-		parameters = append(parameters, contracts.ParameterProposalV1{
-			ID:                 parameter.ID,
-			Name:               *parameter.Name,
-			AuthoredExpression: *parameter.AuthoredExpression,
-		})
-	}
-	return contracts.SetCallableParametersRequestV1{
-		ProjectID:        payload.ProjectID,
-		CallableID:       payload.CallableID,
-		ExpectedRevision: *payload.ExpectedRevision,
-		Parameters:       parameters,
-	}, true
-}
-
-type setPythonTargetPayload struct {
-	ProjectID        string  `json:"projectId"`
+type setTargetPayload struct {
+	ProjectID        *string `json:"projectId"`
 	ExpectedRevision *int    `json:"expectedRevision"`
 	Prefix           *string `json:"prefix"`
 	Suffix           *string `json:"suffix"`
 }
 
-func (payload setPythonTargetPayload) toContract() (contracts.SetPythonTargetRequestV1, bool) {
-	if payload.ExpectedRevision == nil || payload.Prefix == nil || payload.Suffix == nil {
-		return contracts.SetPythonTargetRequestV1{}, false
+type callableCompletionPayload struct {
+	ProjectID          *string `json:"projectId"`
+	AuthoredExpression *string `json:"authoredExpression"`
+	CursorOffsetUTF16  *int    `json:"cursorOffsetUtf16"`
+}
+
+type utf16RangePayload struct {
+	Start *int `json:"start"`
+	End   *int `json:"end"`
+}
+
+type targetCompletionPayload struct {
+	ProjectID          *string            `json:"projectId"`
+	Code               *string            `json:"code"`
+	ProtectedBodyRange *utf16RangePayload `json:"protectedBodyRange"`
+	CursorOffsetUTF16  *int               `json:"cursorOffsetUtf16"`
+}
+
+func (payload renameProjectPayload) contract() (contracts.RenameProjectRequestV2, bool) {
+	if payload.ProjectID == nil || payload.ExpectedRevision == nil || payload.Name == nil {
+		return contracts.RenameProjectRequestV2{}, false
 	}
-	return contracts.SetPythonTargetRequestV1{
-		ProjectID:        payload.ProjectID,
-		ExpectedRevision: *payload.ExpectedRevision,
-		Prefix:           *payload.Prefix,
-		Suffix:           *payload.Suffix,
+	return contracts.RenameProjectRequestV2{ProjectID: *payload.ProjectID, ExpectedRevision: *payload.ExpectedRevision, Name: *payload.Name}, true
+}
+
+func (payload createCallablePayload) contract() (contracts.CreateCallableRequestV2, bool) {
+	if payload.ProjectID == nil || payload.ExpectedRevision == nil || payload.Name == nil {
+		return contracts.CreateCallableRequestV2{}, false
+	}
+	return contracts.CreateCallableRequestV2{ProjectID: *payload.ProjectID, ExpectedRevision: *payload.ExpectedRevision, Name: *payload.Name}, true
+}
+
+func (payload renameCallablePayload) contract() (contracts.RenameCallableRequestV2, bool) {
+	if payload.ProjectID == nil || payload.ExpectedRevision == nil || payload.Name == nil {
+		return contracts.RenameCallableRequestV2{}, false
+	}
+	return contracts.RenameCallableRequestV2{ProjectID: *payload.ProjectID, ExpectedRevision: *payload.ExpectedRevision, Name: *payload.Name}, true
+}
+
+func (payload deleteCallablePayload) contract() (contracts.DeleteCallableRequestV2, bool) {
+	if payload.ProjectID == nil || payload.ExpectedRevision == nil {
+		return contracts.DeleteCallableRequestV2{}, false
+	}
+	return contracts.DeleteCallableRequestV2{ProjectID: *payload.ProjectID, ExpectedRevision: *payload.ExpectedRevision}, true
+}
+
+func (payload commitCallablePayload) contract() (contracts.CommitCallableRequestV2, bool) {
+	if payload.ProjectID == nil || payload.ExpectedRevision == nil || payload.AuthoredExpression == nil {
+		return contracts.CommitCallableRequestV2{}, false
+	}
+	return contracts.CommitCallableRequestV2{ProjectID: *payload.ProjectID, ExpectedRevision: *payload.ExpectedRevision, AuthoredExpression: *payload.AuthoredExpression}, true
+}
+
+func (payload setParametersPayload) contract() (contracts.SetCallableParametersRequestV2, bool) {
+	if payload.ProjectID == nil || payload.ExpectedRevision == nil || payload.Parameters == nil {
+		return contracts.SetCallableParametersRequestV2{}, false
+	}
+	parameters := make([]contracts.ParameterProposalV2, 0, len(*payload.Parameters))
+	for _, parameter := range *payload.Parameters {
+		if parameter.ID == nil || parameter.Name == nil || parameter.AuthoredExpression == nil {
+			return contracts.SetCallableParametersRequestV2{}, false
+		}
+		parameters = append(parameters, contracts.ParameterProposalV2{ID: *parameter.ID, Name: *parameter.Name, AuthoredExpression: *parameter.AuthoredExpression})
+	}
+	return contracts.SetCallableParametersRequestV2{ProjectID: *payload.ProjectID, ExpectedRevision: *payload.ExpectedRevision, Parameters: parameters}, true
+}
+
+func (payload setTargetPayload) contract() (contracts.SetPythonTargetRequestV2, bool) {
+	if payload.ProjectID == nil || payload.ExpectedRevision == nil || payload.Prefix == nil || payload.Suffix == nil {
+		return contracts.SetPythonTargetRequestV2{}, false
+	}
+	return contracts.SetPythonTargetRequestV2{ProjectID: *payload.ProjectID, ExpectedRevision: *payload.ExpectedRevision, Prefix: *payload.Prefix, Suffix: *payload.Suffix}, true
+}
+
+func (payload callableCompletionPayload) contract() (contracts.CallableCompletionRequestV2, bool) {
+	if payload.ProjectID == nil || payload.AuthoredExpression == nil || payload.CursorOffsetUTF16 == nil {
+		return contracts.CallableCompletionRequestV2{}, false
+	}
+	return contracts.CallableCompletionRequestV2{ProjectID: *payload.ProjectID, AuthoredExpression: *payload.AuthoredExpression, CursorOffsetUTF16: *payload.CursorOffsetUTF16}, true
+}
+
+func (payload targetCompletionPayload) contract() (contracts.PythonTargetCompletionRequestV2, bool) {
+	if payload.ProjectID == nil || payload.Code == nil || payload.ProtectedBodyRange == nil || payload.ProtectedBodyRange.Start == nil || payload.ProtectedBodyRange.End == nil || payload.CursorOffsetUTF16 == nil {
+		return contracts.PythonTargetCompletionRequestV2{}, false
+	}
+	return contracts.PythonTargetCompletionRequestV2{
+		ProjectID: *payload.ProjectID,
+		Code:      *payload.Code,
+		ProtectedBodyRange: contracts.UTF16RangeV2{
+			Start: *payload.ProtectedBodyRange.Start,
+			End:   *payload.ProtectedBodyRange.End,
+		},
+		CursorOffsetUTF16: *payload.CursorOffsetUTF16,
 	}, true
 }
 
-// NewHandler creates the V1 routes after validating the current canonical
-// snapshot. Every successful mutation returns the same snapshot shape, so the
-// frontend has one source of truth after each request.
+// NewHandler creates only exact V2 routes. No legacy path, payload, or alias
+// is accepted after this public cutover.
 func NewHandler(service ProjectService) (http.Handler, error) {
 	if service == nil {
 		return nil, ErrProjectServiceRequired
@@ -183,222 +175,300 @@ func NewHandler(service ProjectService) (http.Handler, error) {
 	if err := service.Snapshot().Validate(); err != nil {
 		return nil, fmt.Errorf("validate project endpoint snapshot: %w", err)
 	}
-
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		switch {
-		case isExactPath(request, contracts.ProjectPathV1):
-			handleProject(response, request, service)
-		case isExactPath(request, contracts.ProjectCallablePathV1):
-			handleCallable(response, request, service)
-		case isExactPath(request, contracts.ProjectCallableCompletionsPathV1):
-			handleCallableCompletions(response, request, service)
-		case isExactPath(request, contracts.ProjectPythonTargetCompletionsPathV1):
-			handlePythonTargetCompletions(response, request, service)
-		case isExactPath(request, contracts.ProjectParametersPathV1):
-			handleParameters(response, request, service)
-		case isExactPath(request, contracts.ProjectTargetPathV1):
-			handleTarget(response, request, service)
-		default:
-			writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "route not found")
-		}
+		dispatchProjectRequest(response, request, service)
 	}), nil
 }
 
-func handleCallableCompletions(response http.ResponseWriter, request *http.Request, service ProjectService) {
-	if !requireMethod(response, request, http.MethodPost) {
+func dispatchProjectRequest(response http.ResponseWriter, request *http.Request, service ProjectService) {
+	if dispatchProjectCollectionRoute(response, request, service) {
 		return
 	}
-	if !rejectQuery(response, request) {
+	callableID, action, matched := callableRoute(request)
+	if !matched {
+		writeNotFound(response)
 		return
 	}
-	var payload callableCompletionPayload
-	if !decodeJSONBody(response, request, &payload) {
-		return
-	}
-	body, complete := payload.toContract()
-	if !complete || body.Validate() != nil {
-		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "callable completion request is invalid")
-		return
-	}
-	items, err := service.CompleteCallable(
-		request.Context(),
-		body.ProjectID,
-		body.SectionID,
-		body.AuthoredExpression,
-		body.CursorOffsetUTF16,
-	)
-	if err != nil {
-		writeCallableCompletionError(response, err)
-		return
-	}
-	writeCompletionResponse(response, items, "callable")
+	dispatchCallableRoute(response, request, service, callableID, action)
 }
 
-func handlePythonTargetCompletions(response http.ResponseWriter, request *http.Request, service ProjectService) {
-	if !requireMethod(response, request, http.MethodPost) {
-		return
+func dispatchProjectCollectionRoute(response http.ResponseWriter, request *http.Request, service ProjectService) bool {
+	switch {
+	case isExactPath(request, contracts.ProjectPathV2):
+		handleProject(response, request, service)
+	case isExactPath(request, contracts.ProjectRenamePathV2):
+		handleRenameProject(response, request, service)
+	case isExactPath(request, contracts.ProjectCallablesPathV2):
+		handleCreateCallable(response, request, service)
+	case isExactPath(request, contracts.ProjectTargetPathV2):
+		handleTarget(response, request, service)
+	case isExactPath(request, contracts.ProjectTargetPathV2+"/completions"):
+		handleTargetCompletions(response, request, service)
+	default:
+		return false
 	}
-	if !rejectQuery(response, request) {
-		return
-	}
-	var payload pythonTargetCompletionPayload
-	if !decodeJSONBody(response, request, &payload) {
-		return
-	}
-	body, complete := payload.toContract()
-	if !complete || body.Validate() != nil {
-		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "Python target completion request is invalid")
-		return
-	}
-	items, err := service.CompletePythonTarget(
-		request.Context(),
-		body.ProjectID,
-		project.PythonTargetCompletionRegion(body.Region),
-		body.Prefix,
-		body.Suffix,
-		body.CursorOffsetUTF16,
-	)
-	if err != nil {
-		writePythonTargetCompletionError(response, err)
-		return
-	}
-	writeCompletionResponse(response, items, "Python target")
+	return true
 }
 
-func writeCompletionResponse(response http.ResponseWriter, items []project.CompletionItem, subject string) {
-	result := contracts.CompletionResponseV1{
-		Items: make([]contracts.CompletionItemV1, 0, len(items)),
+func dispatchCallableRoute(response http.ResponseWriter, request *http.Request, service ProjectService, callableID string, action string) {
+	switch action {
+	case "rename":
+		handleRenameCallable(response, request, service, callableID)
+	case "delete":
+		handleDeleteCallable(response, request, service, callableID)
+	case "commit":
+		handleCommitCallable(response, request, service, callableID)
+	case "parameters":
+		handleParameters(response, request, service, callableID)
+	case "completions":
+		handleCallableCompletions(response, request, service, callableID)
+	default:
+		writeNotFound(response)
 	}
-	for _, item := range items {
-		result.Items = append(result.Items, contracts.CompletionItemV1{
-			Label:      item.Label,
-			InsertText: item.InsertText,
-		})
-	}
-	if err := result.Validate(); err != nil {
-		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, subject+" completion response is invalid")
-		return
-	}
-	writeJSON(response, http.StatusOK, result)
+}
+
+func writeNotFound(response http.ResponseWriter) {
+	writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV2, "Route not found.")
 }
 
 func handleProject(response http.ResponseWriter, request *http.Request, service ProjectService) {
-	if !requireMethod(response, request, http.MethodGet) {
+	if !requireMethod(response, request, http.MethodGet) || !rejectQuery(response, request) || !rejectRequestBody(response, request) {
 		return
 	}
-	if !rejectQuery(response, request) || !rejectRequestBody(response, request) {
-		return
-	}
-	writeJSON(response, http.StatusOK, service.Snapshot())
+	writeSnapshot(response, service.Snapshot())
 }
 
-func handleCallable(response http.ResponseWriter, request *http.Request, service ProjectService) {
-	if !requireMethod(response, request, http.MethodPost) {
+func handleRenameProject(response http.ResponseWriter, request *http.Request, service ProjectService) {
+	if !requireMutationMethod(response, request) || !rejectQuery(response, request) {
 		return
 	}
-	if !rejectQuery(response, request) {
+	var payload renameProjectPayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.contract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Project rename request is invalid.")
+		return
+	}
+	snapshot, err := service.RenameProject(request.Context(), body)
+	if err != nil {
+		writeServiceError(response, service, err, body.ExpectedRevision)
+		return
+	}
+	writeSnapshot(response, snapshot)
+}
+
+func handleCreateCallable(response http.ResponseWriter, request *http.Request, service ProjectService) {
+	if !requireMutationMethod(response, request) || !rejectQuery(response, request) {
+		return
+	}
+	var payload createCallablePayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.contract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Create callable request is invalid.")
+		return
+	}
+	snapshot, err := service.CreateCallable(request.Context(), body)
+	if err != nil {
+		writeServiceError(response, service, err, body.ExpectedRevision)
+		return
+	}
+	writeSnapshot(response, snapshot)
+}
+
+func handleRenameCallable(response http.ResponseWriter, request *http.Request, service ProjectService, callableID string) {
+	if !requireMutationMethod(response, request) || !rejectQuery(response, request) {
+		return
+	}
+	var payload renameCallablePayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.contract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Callable rename request is invalid.")
+		return
+	}
+	snapshot, err := service.RenameCallable(request.Context(), callableID, body)
+	if err != nil {
+		writeServiceError(response, service, err, body.ExpectedRevision)
+		return
+	}
+	writeSnapshot(response, snapshot)
+}
+
+func handleDeleteCallable(response http.ResponseWriter, request *http.Request, service ProjectService, callableID string) {
+	if !requireMutationMethod(response, request) || !rejectQuery(response, request) {
+		return
+	}
+	var payload deleteCallablePayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.contract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Delete callable request is invalid.")
+		return
+	}
+	snapshot, err := service.DeleteCallable(request.Context(), callableID, body)
+	if err != nil {
+		writeServiceError(response, service, err, body.ExpectedRevision)
+		return
+	}
+	writeSnapshot(response, snapshot)
+}
+
+func handleCommitCallable(response http.ResponseWriter, request *http.Request, service ProjectService, callableID string) {
+	if !requireMutationMethod(response, request) || !rejectQuery(response, request) {
 		return
 	}
 	var payload commitCallablePayload
 	if !decodeJSONBody(response, request, &payload) {
 		return
 	}
-	body, hasAuthoredExpression := payload.toContract()
-	if !hasAuthoredExpression || body.Validate() != nil {
-		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "callable request is invalid")
+	body, complete := payload.contract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Callable commit request is invalid.")
 		return
 	}
-	snapshot, err := service.CommitCallable(
-		request.Context(),
-		body.ProjectID,
-		body.SectionID,
-		body.AuthoredExpression,
-	)
+	snapshot, err := service.CommitCallable(request.Context(), callableID, body)
 	if err != nil {
-		writeMutationError(response, err)
+		writeServiceError(response, service, err, body.ExpectedRevision)
+		return
+	}
+	writeSnapshot(response, snapshot)
+}
+
+func handleParameters(response http.ResponseWriter, request *http.Request, service ProjectService, callableID string) {
+	if !requireMutationMethod(response, request) || !rejectQuery(response, request) {
+		return
+	}
+	var payload setParametersPayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.contract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Parameter list request is invalid.")
+		return
+	}
+	snapshot, err := service.SetCallableParameters(request.Context(), callableID, body)
+	if err != nil {
+		writeServiceError(response, service, err, body.ExpectedRevision)
+		return
+	}
+	writeSnapshot(response, snapshot)
+}
+
+func handleTarget(response http.ResponseWriter, request *http.Request, service ProjectService) {
+	if !requireMutationMethod(response, request) || !rejectQuery(response, request) {
+		return
+	}
+	var payload setTargetPayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.contract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Python target request is invalid.")
+		return
+	}
+	snapshot, err := service.SetPythonTarget(request.Context(), body)
+	if err != nil {
+		writeServiceError(response, service, err, body.ExpectedRevision)
+		return
+	}
+	writeSnapshot(response, snapshot)
+}
+
+func handleCallableCompletions(response http.ResponseWriter, request *http.Request, service ProjectService, callableID string) {
+	if !requireMutationMethod(response, request) || !rejectQuery(response, request) {
+		return
+	}
+	var payload callableCompletionPayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.contract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Callable completion request is invalid.")
+		return
+	}
+	items, err := service.CompleteCallable(request.Context(), callableID, body)
+	if err != nil {
+		writeServiceError(response, service, err, 0)
+		return
+	}
+	writeCompletionResponse(response, items)
+}
+
+func handleTargetCompletions(response http.ResponseWriter, request *http.Request, service ProjectService) {
+	if !requireMutationMethod(response, request) || !rejectQuery(response, request) {
+		return
+	}
+	var payload targetCompletionPayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.contract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Python target completion request is invalid.")
+		return
+	}
+	items, err := service.CompletePythonTarget(request.Context(), body)
+	if err != nil {
+		writeServiceError(response, service, err, 0)
+		return
+	}
+	writeCompletionResponse(response, items)
+}
+
+func writeSnapshot(response http.ResponseWriter, snapshot contracts.ProjectSnapshotV2) {
+	if err := snapshot.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV2, "Unable to publish the project snapshot.")
 		return
 	}
 	writeJSON(response, http.StatusOK, snapshot)
 }
 
-// One route owns the callable's whole parameter list, so a reorder, rename,
-// value edit, insertion, and deletion all arrive as the same complete candidate.
-func handleParameters(
-	response http.ResponseWriter,
-	request *http.Request,
-	service ProjectService,
-) {
-	if !requireMethod(response, request, http.MethodPost) {
+func writeCompletionResponse(response http.ResponseWriter, items []contracts.CompletionItemV2) {
+	result := contracts.CompletionResponseV2{Items: items}
+	if err := result.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV2, "Unable to publish completion results.")
 		return
 	}
-	if !rejectQuery(response, request) {
-		return
-	}
-	var payload setCallableParametersPayload
-	if !decodeJSONBody(response, request, &payload) {
-		return
-	}
-	body, complete := payload.toContract()
-	if !complete || body.Validate() != nil {
-		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "parameter list request is invalid")
-		return
-	}
-	proposals := make([]project.ParameterProposal, 0, len(body.Parameters))
-	for _, parameter := range body.Parameters {
-		proposals = append(proposals, project.ParameterProposal{
-			ID:                 parameter.ID,
-			Name:               parameter.Name,
-			AuthoredExpression: parameter.AuthoredExpression,
-		})
-	}
-	snapshot, err := service.SetCallableParameters(
-		request.Context(),
-		body.ProjectID,
-		body.CallableID,
-		body.ExpectedRevision,
-		proposals,
-	)
-	if err != nil {
-		writeMutationError(response, err)
-		return
-	}
-	writeJSON(response, http.StatusOK, snapshot)
+	writeJSON(response, http.StatusOK, result)
 }
 
-// One route owns the authored Python on both sides of the generated body, so a
-// prefix edit and a suffix edit are the same complete candidate.
-func handleTarget(
-	response http.ResponseWriter,
-	request *http.Request,
-	service ProjectService,
-) {
-	if !requireMethod(response, request, http.MethodPost) {
-		return
+func writeServiceError(response http.ResponseWriter, service ProjectService, err error, expectedRevision int) {
+	switch {
+	case errors.Is(err, aggregate.ErrRevisionConflict):
+		writeRevisionConflict(response, expectedRevision, service.Snapshot().Project.Revision)
+	case errors.Is(err, aggregate.ErrProjectNotFound), errors.Is(err, aggregate.ErrCallableNotFound):
+		writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV2, "The requested project resource does not exist.")
+	case errors.Is(err, aggregate.ErrValidation), errors.Is(err, coordinator.ErrCompletionInvalid):
+		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeValidationFailedV2, "The proposed project change is invalid.")
+	case errors.Is(err, coordinator.ErrProviderUnavailable), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		writeError(response, http.StatusServiceUnavailable, contracts.APIErrorCodeProviderUnavailableV2, "Basedpyright is unavailable. Try again when it is ready.")
+	case errors.Is(err, coordinator.ErrProviderFailed):
+		writeError(response, http.StatusBadGateway, contracts.APIErrorCodeProviderFailedV2, "Basedpyright could not complete this request.")
+	case errors.Is(err, coordinator.ErrRenderFailed):
+		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeRenderFailedV2, "Unable to render the generated Python.")
+	case errors.Is(err, coordinator.ErrMaterializationFailed):
+		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeMaterializationFailedV2, "Unable to materialize the generated Python.")
+	case errors.Is(err, coordinator.ErrPersistenceFailed):
+		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodePersistenceFailedV2, "Unable to persist the project.")
+	default:
+		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV2, "Unable to complete the project request.")
 	}
-	if !rejectQuery(response, request) {
-		return
-	}
-	var payload setPythonTargetPayload
-	if !decodeJSONBody(response, request, &payload) {
-		return
-	}
-	body, complete := payload.toContract()
-	if !complete || body.Validate() != nil {
-		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "Python target request is invalid")
-		return
-	}
-	snapshot, err := service.SetPythonTarget(
-		request.Context(),
-		body.ProjectID,
-		body.ExpectedRevision,
-		body.Prefix,
-		body.Suffix,
-	)
-	if err != nil {
-		writeMutationError(response, err)
-		return
-	}
-	writeJSON(response, http.StatusOK, snapshot)
+}
+
+func requireMutationMethod(response http.ResponseWriter, request *http.Request) bool {
+	return requireMethod(response, request, http.MethodPost)
 }
 
 func requireMethod(response http.ResponseWriter, request *http.Request, method string) bool {
@@ -406,7 +476,7 @@ func requireMethod(response http.ResponseWriter, request *http.Request, method s
 		return true
 	}
 	response.Header().Set("Allow", method)
-	writeError(response, http.StatusMethodNotAllowed, contracts.APIErrorCodeMethodNotAllowedV1, "method is not allowed")
+	writeError(response, http.StatusMethodNotAllowed, contracts.APIErrorCodeMethodNotAllowedV2, "Method is not allowed.")
 	return false
 }
 
@@ -414,92 +484,42 @@ func rejectQuery(response http.ResponseWriter, request *http.Request) bool {
 	if request.URL.RawQuery == "" && !request.URL.ForceQuery {
 		return true
 	}
-	writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "query parameters are not accepted")
+	writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Query parameters are not accepted.")
 	return false
 }
 
 func rejectRequestBody(response http.ResponseWriter, request *http.Request) bool {
 	hasBody, err := requestHasBody(request)
 	if err != nil {
-		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "request body could not be read")
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Request body could not be read.")
 		return false
 	}
 	if !hasBody {
 		return true
 	}
-	writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "GET requests must not include a body")
+	writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "GET requests must not include a body.")
 	return false
 }
 
-func writeMutationError(response http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, project.ErrProjectNotFound),
-		errors.Is(err, project.ErrCallableSectionNotFound):
-		writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "the requested project resource does not exist")
-	case errors.Is(err, project.ErrCallableExpressionInvalid):
-		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidCallableV1, "callable expression is invalid")
-	case errors.Is(err, project.ErrParameterExpressionInvalid):
-		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidParameterExpressionV1, "parameter expression is invalid")
-	case errors.Is(err, project.ErrParameterNameInvalid):
-		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidParameterNameV1, "parameter name is invalid")
-	case errors.Is(err, project.ErrPythonTargetInvalid):
-		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidPythonTargetV1, "Python target is invalid")
-	case errors.Is(err, project.ErrParameterListInvalid):
-		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "parameter list request is invalid")
-	case errors.Is(err, project.ErrProjectRevisionStale):
-		writeError(response, http.StatusConflict, contracts.APIErrorCodeRevisionConflictV1, "the project changed since this revision")
-	case errors.Is(err, project.ErrUnsupportedSignature):
-		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeUnsupportedSignatureV1, "callable signature is not supported")
-	case errors.Is(err, project.ErrLSPProviderRequired),
-		errors.Is(err, project.ErrProviderUnavailable),
-		errors.Is(err, project.ErrStoreClosed),
-		errors.Is(err, context.Canceled),
-		errors.Is(err, context.DeadlineExceeded):
-		writeError(response, http.StatusServiceUnavailable, contracts.APIErrorCodeProviderUnavailableV1, "Basedpyright is unavailable")
-	default:
-		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, "unable to update the project")
+func callableRoute(request *http.Request) (string, string, bool) {
+	prefix := contracts.ProjectCallablesPathV2 + "/"
+	escapedPath := request.URL.EscapedPath()
+	if !strings.HasPrefix(escapedPath, prefix) {
+		return "", "", false
 	}
-}
-
-func writeCallableCompletionError(response http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, project.ErrProjectNotFound),
-		errors.Is(err, project.ErrCallableSectionNotFound):
-		writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "the requested project resource does not exist")
-	case errors.Is(err, project.ErrCallableCompletionInvalid):
-		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "callable completion request is invalid")
-	case errors.Is(err, project.ErrLSPProviderRequired),
-		errors.Is(err, project.ErrProviderUnavailable),
-		errors.Is(err, project.ErrStoreClosed),
-		errors.Is(err, context.Canceled),
-		errors.Is(err, context.DeadlineExceeded):
-		writeError(response, http.StatusServiceUnavailable, contracts.APIErrorCodeProviderUnavailableV1, "Basedpyright is unavailable")
-	default:
-		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, "unable to complete the callable")
+	parts := strings.Split(strings.TrimPrefix(escapedPath, prefix), "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", false
 	}
-}
-
-func writePythonTargetCompletionError(response http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, project.ErrProjectNotFound):
-		writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "the requested project resource does not exist")
-	case errors.Is(err, project.ErrPythonTargetCompletionInvalid):
-		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "Python target completion request is invalid")
-	case errors.Is(err, project.ErrLSPProviderRequired),
-		errors.Is(err, project.ErrProviderUnavailable),
-		errors.Is(err, project.ErrStoreClosed),
-		errors.Is(err, context.Canceled),
-		errors.Is(err, context.DeadlineExceeded):
-		writeError(response, http.StatusServiceUnavailable, contracts.APIErrorCodeProviderUnavailableV1, "Basedpyright is unavailable")
-	default:
-		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, "unable to complete the Python target")
+	callableID, err := url.PathUnescape(parts[0])
+	if err != nil || callableID == "" || strings.ContainsRune(callableID, '/') || callableID != strings.TrimSpace(callableID) {
+		return "", "", false
 	}
+	return callableID, parts[1], true
 }
 
 func isExactPath(request *http.Request, path string) bool {
-	return request.URL.Path == path &&
-		request.URL.RawPath == "" &&
-		request.URL.EscapedPath() == path
+	return request.URL.Path == path && request.URL.RawPath == "" && request.URL.EscapedPath() == path
 }
 
 // ListenLoopback binds only the IPv4 loopback interface.
@@ -517,7 +537,7 @@ func listenLoopback(port uint16, listen listenFunc) (net.Listener, error) {
 	return listener, nil
 }
 
-// ServeLoopback binds the V1 service to loopback and shuts it down when the
+// ServeLoopback binds the V2 service to loopback and shuts it down when the
 // caller's service context ends.
 func ServeLoopback(ctx context.Context, port uint16, service ProjectService) error {
 	listener, err := ListenLoopback(port)
@@ -536,15 +556,9 @@ func serve(ctx context.Context, listener net.Listener, service ProjectService) e
 		_ = listener.Close()
 		return err
 	}
-	server := &http.Server{
-		Handler:           handler,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
+	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 	serveResult := make(chan error, 1)
-	go func() {
-		serveResult <- server.Serve(listener)
-	}()
-
+	go func() { serveResult <- server.Serve(listener) }()
 	select {
 	case err := <-serveResult:
 		if errors.Is(err, http.ErrServerClosed) {
@@ -573,7 +587,6 @@ func requestHasBody(request *http.Request) (bool, error) {
 	if request.ContentLength > 0 {
 		return true, nil
 	}
-
 	content, err := io.ReadAll(io.LimitReader(request.Body, 1))
 	if err != nil {
 		return false, err

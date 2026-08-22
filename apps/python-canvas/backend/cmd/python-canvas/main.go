@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"io"
@@ -12,7 +14,9 @@ import (
 
 	"github.com/setta/python-canvas/backend/internal/httpapi"
 	"github.com/setta/python-canvas/backend/internal/lsp"
-	"github.com/setta/python-canvas/backend/internal/project"
+	"github.com/setta/python-canvas/backend/internal/project/aggregate"
+	"github.com/setta/python-canvas/backend/internal/project/coordinator"
+	"github.com/setta/python-canvas/backend/internal/project/materializer"
 )
 
 const defaultPort = 8080
@@ -26,12 +30,14 @@ func main() {
 	}
 }
 
-type serviceStarter func(context.Context, uint16) error
+type serviceStarter func(context.Context, uint16, string, bool) error
 
 func run(ctx context.Context, arguments []string, start serviceStarter) error {
 	flags := flag.NewFlagSet("python-canvas", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	port := flags.Uint("port", defaultPort, "loopback port")
+	projectPath := flags.String("project", "", "authored project path")
+	create := flags.Bool("create", false, "exclusively create the project if it is absent")
 	if err := flags.Parse(arguments); err != nil {
 		return err
 	}
@@ -41,38 +47,58 @@ func run(ctx context.Context, arguments []string, start serviceStarter) error {
 	if *port > 65535 {
 		return fmt.Errorf("port must be between 0 and 65535")
 	}
-	return start(ctx, uint16(*port))
+	if *projectPath == "" {
+		return fmt.Errorf("python-canvas requires --project PATH")
+	}
+	return start(ctx, uint16(*port), *projectPath, *create)
 }
 
-func serve(ctx context.Context, port uint16) error {
+func serve(ctx context.Context, port uint16, projectPath string, create bool) error {
 	appRoot, err := findAppRoot()
 	if err != nil {
 		return err
 	}
-	generatedFile, err := project.NewTemporaryGeneratedFile()
+	generatedDocument, err := materializer.New(projectPath)
 	if err != nil {
 		return err
 	}
 	provider, err := lsp.NewBasedpyrightProvider(lsp.BasedpyrightOptions{
 		AppRoot:       appRoot,
-		WorkspaceRoot: filepath.Dir(generatedFile.Path()),
+		WorkspaceRoot: filepath.Dir(projectPath),
 	})
 	if err != nil {
-		_ = generatedFile.Close()
+		_ = generatedDocument.Close()
 		return err
 	}
-	store, err := project.NewStoreWithProvider(generatedFile, provider)
+	application, err := coordinator.Open(ctx, coordinator.Options{
+		ProjectPath:  projectPath,
+		Create:       create,
+		IDGenerator:  generatedID,
+		Materializer: generatedDocument,
+		Provider:     provider,
+	})
 	if err != nil {
 		_ = provider.Close()
-		_ = generatedFile.Close()
+		_ = generatedDocument.Close()
 		return err
 	}
-	defer store.Close()
-	if err := store.BootstrapShippedExample(ctx); err != nil {
+	defer application.Close()
+	service, err := httpapi.NewCoordinatorService(application)
+	if err != nil {
 		return err
 	}
-	return httpapi.ServeLoopback(ctx, port, store)
+	return httpapi.ServeLoopback(ctx, port, service)
 }
+
+func generatedID() (string, error) {
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("allocate project ID: %w", err)
+	}
+	return "id:" + hex.EncodeToString(bytes), nil
+}
+
+var _ aggregate.IDGenerator = generatedID
 
 func findAppRoot() (string, error) {
 	directory, err := os.Getwd()

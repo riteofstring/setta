@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   WORKSPACE_CODE_SECTION_KIND,
-  WorkspaceCanvas,
-  WorkspaceProvider,
   createWorkspaceCodeSection,
   createWorkspaceHost,
   registerSectionKinds,
@@ -16,14 +14,18 @@ import {
 import {
   ProjectClientError,
   commitCallable,
+  createCallable,
+  deleteCallable,
   fetchProjectSnapshot,
+  renameCallable,
+  renameProject,
   setCallableParameters,
   setPythonTarget,
 } from "../backend/client";
 import type {
-  ParameterProposalV1,
-  ProjectSnapshotV1,
-  PythonTargetV1,
+  CallableV2,
+  ParameterProposalV2,
+  ProjectSnapshotV2,
 } from "../backend/generatedContract";
 import {
   CallableExpressionField,
@@ -32,15 +34,14 @@ import {
   readCallableSectionData,
 } from "../sections/CallableSection";
 import { createCallableCompletionProvider } from "../sections/callableCompletion";
-import { createPythonTargetCompletionProvider } from "../sections/pythonTargetCompletion";
 import { hasBlockingParameterName } from "../sections/parameterNames";
+import { createPythonTargetCompletionProvider } from "../sections/pythonTargetCompletion";
 import {
   CALLABLE_SECTION_KIND,
   CALLABLE_SECTION_SIZE,
   GENERATED_PYTHON_SECTION_SIZE,
   applyProjectSnapshotToWorkspace,
   createCallableParameterItem,
-  generatedPythonRegionText,
   projectWorkspaceDocument,
   readCallableParameterItems,
   readCallableParameterRows,
@@ -50,13 +51,9 @@ import {
   setParameterItemsDisabled,
   type ProjectSnapshotProjectionOptions,
 } from "./workspaceProjection";
-import {
-  PythonCanvasMutationContext,
-  type PythonCanvasMutationContextValue,
-} from "./PythonCanvasMutationContext";
+import type { PythonCanvasMutationContextValue } from "./PythonCanvasMutationContext";
+import { PythonCanvasView } from "./PythonCanvasView";
 
-// One coalescing window for every authored change the workspace document produces, whether it is
-// a parameter list or the Python around the generated body.
 const mutationDebounceMs = 300;
 
 type AppState =
@@ -69,12 +66,33 @@ type MutationState =
   | { description: string; kind: "pending" }
   | { kind: "error"; message: string };
 
+type CallableDrafts = Record<string, string>;
+type CompletionProviders = Record<string, TextValueCompletionProvider>;
+type CompletionErrors = Record<string, string>;
+
+type MutationAnswer =
+  | { kind: "commit"; callableId: string }
+  | { callableId: string; kind: "parameters"; sent: ParameterProposalV2[] }
+  | { kind: "other" };
+
 type AppController = {
-  commitCallable: (value: string) => void;
-  revertCallableDraft: () => void;
-  setCallableDraft: (value: string) => void;
-  setParameterExpression: (parameterID: string, value: string) => void;
-  setParameterName: (parameterID: string, name: string) => void;
+  commitCallable: (callableId: string, value: string) => void;
+  createCallable: (name: string) => void;
+  deleteCallable: (callableId: string) => void;
+  renameCallable: (callableId: string, name: string) => void;
+  renameProject: (name: string) => void;
+  revertCallableDraft: (callableId: string) => void;
+  setCallableDraft: (callableId: string, value: string) => void;
+  setParameterExpression: (
+    callableId: string,
+    parameterId: string,
+    value: string,
+  ) => void;
+  setParameterName: (
+    callableId: string,
+    parameterId: string,
+    name: string,
+  ) => void;
 };
 
 export function registerPythonCanvasSectionKinds(
@@ -87,28 +105,26 @@ export function registerPythonCanvasSectionKinds(
       assertValidData: (section) => {
         readCallableSectionData(section.data);
       },
-      // The callable editor is this section's primary control, so it is the package's leading
-      // item-area content. The toolbar is the ordinary authoring one: Add, Remove Last, and Delete
-      // Selected all reach the canonical parameter-list mutation behind this section.
       itemArea: {
-        renderLeadingContent: (section) => (
-          <CallableExpressionField
-            diagnosticMessage={
-              readCallableSectionData(section.data).callableDiagnosticMessage
-            }
-          />
-        ),
+        renderLeadingContent: (section) => {
+          const data = readCallableSectionData(section.data);
+          return <CallableExpressionField data={data} sectionId={section.id} />;
+        },
         toolbar: "authoring-and-filter",
       },
       createItem: () => createCallableParameterItem(),
       getItemSearchableText: (context) =>
         parameterItemSearchableText(context.item),
-      renderContent: (section) => (
-        <CallableSection
-          data={readCallableSectionData(section.data)}
-          parameters={readCallableParameterRows(section)}
-        />
-      ),
+      renderContent: (section) => {
+        const data = readCallableSectionData(section.data);
+        return (
+          <CallableSection
+            data={data}
+            parameters={readCallableParameterRows(section)}
+            sectionId={section.id}
+          />
+        );
+      },
     },
     [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
       completionProvider: pythonTargetCompletionProvider,
@@ -120,10 +136,15 @@ export function registerPythonCanvasSectionKinds(
 
 export function PythonCanvasApp() {
   const [state, setState] = useState<AppState>({ kind: "loading" });
-  const [callableDraft, setCallableDraft] = useState("");
-  const [callableCompletionProvider, setCallableCompletionProvider] =
-    useState<TextValueCompletionProvider>();
-  const [completionError, setCompletionError] = useState<string | null>(null);
+  const [project, setProject] = useState<ProjectSnapshotV2 | null>(null);
+  const [projectNameDraft, setProjectNameDraft] = useState("");
+  const [newCallableName, setNewCallableName] = useState("");
+  const [callableDrafts, setCallableDrafts] = useState<CallableDrafts>({});
+  const [completionProviders, setCompletionProviders] =
+    useState<CompletionProviders>({});
+  const [completionErrors, setCompletionErrors] = useState<CompletionErrors>(
+    {},
+  );
   const [pythonTargetCompletionError, setPythonTargetCompletionError] =
     useState<string | null>(null);
   const [mutation, setMutation] = useState<MutationState>({ kind: "idle" });
@@ -132,16 +153,12 @@ export function PythonCanvasApp() {
 
   useEffect(() => {
     const host = createWorkspaceHost();
-    // The package paints a light and a dark surface, and this view has no appearance control of
-    // its own, so it follows the reader's system appearance and its own chrome does the same in
-    // index.css. Appearance is resolved before the document loads because node projection derives
-    // section-style backgrounds from it.
     setWorkspaceColorMode(host, "system");
     let active = true;
     let disposed = false;
-    let snapshot: ProjectSnapshotV1 | null = null;
-    let parameterTimer: ReturnType<typeof setTimeout> | null = null;
+    let snapshot: ProjectSnapshotV2 | null = null;
     let targetTimer: ReturnType<typeof setTimeout> | null = null;
+    const parameterTimers = new Map<string, ReturnType<typeof setTimeout>>();
     let mutationChain = Promise.resolve();
 
     const disposeHost = () => {
@@ -163,11 +180,8 @@ export function PythonCanvasApp() {
       }
     };
     const applyProjection = (
-      nextSnapshot: ProjectSnapshotV1,
-      options: ProjectSnapshotProjectionOptions = {
-        keepAuthoredPython: false,
-        keepParameterList: false,
-      },
+      nextSnapshot: ProjectSnapshotV2,
+      options: ProjectSnapshotProjectionOptions,
     ) => {
       isProjectingRef.current = true;
       try {
@@ -176,189 +190,334 @@ export function PythonCanvasApp() {
         isProjectingRef.current = false;
       }
     };
-    const setParametersDisabled = (disabled: boolean) => {
+    const setParametersDisabled = (callableId: string, disabled: boolean) => {
       isProjectingRef.current = true;
       try {
-        setParameterItemsDisabled(host, disabled);
+        setParameterItemsDisabled(host, callableId, disabled);
       } finally {
         isProjectingRef.current = false;
       }
     };
-    const handleMutationError = (target: string, error: unknown) => {
-      updateMutation({
-        kind: "error",
-        message: mutationErrorMessage(target, error),
-      });
+    const cancelTargetMutation = () => {
+      if (targetTimer !== null) {
+        clearTimeout(targetTimer);
+        targetTimer = null;
+      }
+    };
+    const cancelParameterMutation = (callableId: string) => {
+      const timer = parameterTimers.get(callableId);
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        parameterTimers.delete(callableId);
+      }
+    };
+    const cancelAllParameterMutations = () => {
+      for (const timer of parameterTimers.values()) {
+        clearTimeout(timer);
+      }
+      parameterTimers.clear();
     };
     const enqueue = (operation: () => Promise<void>) => {
       const run = async () => {
         try {
           await operation();
         } catch (error) {
-          handleMutationError("project", error);
+          updateMutation({
+            kind: "error",
+            message: mutationErrorMessage("the project", error),
+          });
         }
       };
       mutationChain = mutationChain.then(run, run);
     };
-    const cancelScheduledParameterMutation = () => {
-      if (parameterTimer !== null) {
-        clearTimeout(parameterTimer);
-        parameterTimer = null;
-      }
-    };
-    const cancelScheduledTargetMutation = () => {
-      if (targetTimer !== null) {
-        clearTimeout(targetTimer);
-        targetTimer = null;
-      }
-    };
-    // A rejected proposal leaves the workspace document holding an edit the project never took, so
-    // the canonical snapshot is put back whole before the failure is reported.
-    const restoreCanonicalProject = () => {
-      if (snapshot !== null) {
-        applyProjection(snapshot);
-      }
-    };
-    const commitCallableMutation = (value: string) => {
-      cancelScheduledParameterMutation();
-      cancelScheduledTargetMutation();
-      enqueue(async () => {
-        if (!active || snapshot === null) {
-          return;
-        }
-        updateMutation({
-          description: "Checking the callable with Basedpyright.",
-          kind: "pending",
-        });
-        setParametersDisabled(true);
-        try {
-          const nextSnapshot = await commitCallable({
-            authoredExpression: value,
-            projectId: snapshot.project.id,
-            sectionId: snapshot.callables[0].id,
-          });
-          if (!active) {
-            return;
+    const newCallableCompletionProvider = (callableId: string) =>
+      createCallableCompletionProvider({
+        callableId,
+        onFailure: (message) => {
+          if (active) {
+            setCompletionErrors((current) => ({
+              ...current,
+              [callableId]: message,
+            }));
           }
-          snapshot = nextSnapshot;
-          acceptCanonicalSnapshot(nextSnapshot, { kind: "redefined" });
-        } catch (error) {
-          if (!active) {
-            return;
+        },
+        onSuccess: () => {
+          if (active) {
+            setCompletionErrors((current) => {
+              const { [callableId]: _cleared, ...remaining } = current;
+              return remaining;
+            });
           }
-          setParametersDisabled(false);
-          handleMutationError("callable", error);
+        },
+        projectId: snapshot?.project.id ?? "",
+      });
+    const synchronizeReactProjection = (
+      nextSnapshot: ProjectSnapshotV2,
+      resetCallableId: string | null,
+    ) => {
+      setProject(nextSnapshot);
+      setProjectNameDraft(nextSnapshot.project.name);
+      setCallableDrafts((current) => {
+        const next: CallableDrafts = {};
+        for (const callable of nextSnapshot.callables) {
+          const currentDraft = current[callable.id];
+          next[callable.id] =
+            resetCallableId === callable.id || currentDraft === undefined
+              ? callable.authoredExpression
+              : currentDraft;
         }
+        return next;
+      });
+      setCompletionProviders((current) => {
+        const next: CompletionProviders = {};
+        for (const callable of nextSnapshot.callables) {
+          next[callable.id] =
+            current[callable.id] ?? newCallableCompletionProvider(callable.id);
+        }
+        return next;
+      });
+      setCompletionErrors((current) => {
+        const next: CompletionErrors = {};
+        for (const callable of nextSnapshot.callables) {
+          const currentError = current[callable.id];
+          if (currentError !== undefined) {
+            next[callable.id] = currentError;
+          }
+        }
+        return next;
       });
     };
-    // A canonical response can arrive for a document that has already moved on: a structural action
-    // runs in the package the moment it is clicked, and a keystroke in the generated document lands
-    // the same way. Whatever the person changed since stays where they left it and is proposed in
-    // turn; everything else the project owns lands, including the generated body they never author.
-    //
-    // The authored Python is compared against canonical outright, because the store changes the
-    // target only when this client asks: a difference is always somebody's own unsent edit. The
-    // parameter list has one case that is not — a response that redefines it, as a newly resolved
-    // signature does — so what the response answers for decides the comparison.
-    const acceptCanonicalSnapshot = (
-      nextSnapshot: ProjectSnapshotV1,
-      answered: AnsweredParameterList,
-    ) => {
-      const keepParameterList = documentHasNewerParameterList(
-        host.getSnapshot(),
-        nextSnapshot,
-        answered,
-      );
-      const keepAuthoredPython = !sameCanonicalPythonTarget(
-        readGeneratedPythonTarget(host),
-        nextSnapshot.pythonTarget,
-      );
-      applyProjection(nextSnapshot, { keepAuthoredPython, keepParameterList });
-      setCallableDraft(nextSnapshot.callables[0].authoredExpression);
-      updateMutation({ kind: "idle" });
-      if (keepParameterList) {
-        scheduleParameterListMutation();
+    const restoreCanonicalProject = () => {
+      if (snapshot === null) {
+        return;
       }
-      if (keepAuthoredPython) {
-        schedulePythonTargetMutation();
-      }
+      applyProjection(snapshot, {
+        keepAuthoredPython: false,
+        keepParameterLists: new Set<string>(),
+      });
+      synchronizeReactProjection(snapshot, null);
     };
-    // One debounce coalesces every prefix and suffix keystroke the generated document accepts into
-    // one complete revision-bound Python target.
+    const recoverRevisionConflict = async () => {
+      const latest = await fetchProjectSnapshot();
+      if (!active) {
+        return;
+      }
+      snapshot = latest;
+      acceptCanonicalSnapshot(latest, { kind: "other" });
+      updateMutation({
+        kind: "error",
+        message:
+          "The project changed before this update could be saved. The latest project has been loaded.",
+      });
+    };
+    const handleMutationFailure = async (target: string, error: unknown) => {
+      if (
+        error instanceof ProjectClientError &&
+        error.code === "revision_conflict"
+      ) {
+        try {
+          await recoverRevisionConflict();
+          return;
+        } catch (refreshError) {
+          updateMutation({
+            kind: "error",
+            message: mutationErrorMessage(target, refreshError),
+          });
+          return;
+        }
+      }
+      restoreCanonicalProject();
+      updateMutation({
+        kind: "error",
+        message: mutationErrorMessage(target, error),
+      });
+    };
+    const collectRetainedParameterLists = (
+      document: WorkspaceDocument,
+      nextSnapshot: ProjectSnapshotV2,
+      answer: MutationAnswer,
+    ) => {
+      const retained = new Set<string>();
+      for (const callable of nextSnapshot.callables) {
+        const proposal = proposedParameterList(document, callable.id);
+        if (proposal === null) {
+          continue;
+        }
+        if (answer.kind === "commit" && answer.callableId === callable.id) {
+          continue;
+        }
+        if (answer.kind === "parameters" && answer.callableId === callable.id) {
+          if (!sameProposedList(answer.sent, proposal)) {
+            retained.add(callable.id);
+          }
+          continue;
+        }
+        if (!sameParameterList(proposal, callable)) {
+          retained.add(callable.id);
+        }
+      }
+      return retained;
+    };
+    const acceptCanonicalSnapshot = (
+      nextSnapshot: ProjectSnapshotV2,
+      answer: MutationAnswer,
+    ) => {
+      const document = host.getSnapshot();
+      let keepAuthoredPython = false;
+      try {
+        const authored = readGeneratedPythonTarget(host);
+        keepAuthoredPython = !sameCanonicalPythonTarget(authored, nextSnapshot);
+      } catch {
+        keepAuthoredPython = false;
+      }
+      applyProjection(nextSnapshot, {
+        keepAuthoredPython,
+        keepParameterLists: collectRetainedParameterLists(
+          document,
+          nextSnapshot,
+          answer,
+        ),
+      });
+      synchronizeReactProjection(
+        nextSnapshot,
+        answer.kind === "commit" ? answer.callableId : null,
+      );
+      updateMutation({ kind: "idle" });
+    };
     const schedulePythonTargetMutation = () => {
-      cancelScheduledTargetMutation();
+      cancelTargetMutation();
       targetTimer = setTimeout(() => {
         targetTimer = null;
         enqueue(async () => {
           if (!active || snapshot === null) {
             return;
           }
-          const authored = readGeneratedPythonTarget(host);
-          if (sameCanonicalPythonTarget(authored, snapshot.pythonTarget)) {
+          let authored: ReturnType<typeof readGeneratedPythonTarget>;
+          try {
+            authored = readGeneratedPythonTarget(host);
+          } catch (error) {
+            restoreCanonicalProject();
+            updateMutation({
+              kind: "error",
+              message: "The generated Python boundary cannot be edited.",
+            });
             return;
           }
-          // The bytes the package protected have to be the canonical separator, body, and
-          // separator this split was made around. Every response writes the canonical body back
-          // between the authored regions, so a mismatch here is the protected range having failed
-          // to protect anything, and the offsets it was split at describe some other document.
-          if (authored.generated !== generatedPythonRegionText(snapshot)) {
-            throw new Error(
-              "Generated Python no longer holds its canonical generated body.",
-            );
+          if (sameCanonicalPythonTarget(authored, snapshot)) {
+            return;
           }
-          const revision = snapshot.project.revision;
+          if (authored.generated !== snapshot.generatedCode.body) {
+            restoreCanonicalProject();
+            updateMutation({
+              kind: "error",
+              message: "The generated Python body cannot be edited.",
+            });
+            return;
+          }
+          const current = snapshot;
           updateMutation({
-            description: "Checking the generated Python with Basedpyright.",
+            description: "Checking the Python target with Basedpyright.",
             kind: "pending",
           });
           try {
             const nextSnapshot = await setPythonTarget({
-              expectedRevision: revision,
+              expectedRevision: current.project.revision,
               prefix: authored.prefix,
-              projectId: snapshot.project.id,
+              projectId: current.project.id,
               suffix: authored.suffix,
             });
             if (!active) {
               return;
             }
             snapshot = nextSnapshot;
-            acceptCanonicalSnapshot(nextSnapshot, { kind: "untouched" });
+            acceptCanonicalSnapshot(nextSnapshot, { kind: "other" });
           } catch (error) {
-            if (!active) {
-              return;
+            if (active) {
+              await handleMutationFailure("the Python target", error);
             }
-            restoreCanonicalProject();
-            handleMutationError("the generated Python", error);
           }
         });
       }, mutationDebounceMs);
     };
-    // One debounce coalesces every proposal the workspace document produces — a value edit, a
-    // rename, an Add, a Remove Last, a Delete Selected, or a drag reorder — into one complete
-    // revision-bound parameter list.
-    const scheduleParameterListMutation = () => {
-      cancelScheduledParameterMutation();
-      parameterTimer = setTimeout(() => {
-        parameterTimer = null;
+    const scheduleParameterListMutation = (callableId: string) => {
+      cancelParameterMutation(callableId);
+      const timer = setTimeout(() => {
+        parameterTimers.delete(callableId);
         enqueue(async () => {
           if (!active || snapshot === null) {
             return;
           }
-          const proposal = proposedParameterList(host.getSnapshot());
-          if (proposal === null || sameParameterList(proposal, snapshot)) {
+          const callable = snapshot.callables.find(
+            (candidate) => candidate.id === callableId,
+          );
+          if (callable === undefined) {
             return;
           }
-          const revision = snapshot.project.revision;
+          const proposal = proposedParameterList(
+            host.getSnapshot(),
+            callableId,
+          );
+          if (proposal === null || sameParameterList(proposal, callable)) {
+            return;
+          }
+          const current = snapshot;
           updateMutation({
             description: "Checking the parameters with Basedpyright.",
             kind: "pending",
           });
-          setParametersDisabled(true);
+          setParametersDisabled(callableId, true);
           try {
-            const nextSnapshot = await setCallableParameters({
-              callableId: snapshot.callables[0].id,
-              expectedRevision: revision,
+            const nextSnapshot = await setCallableParameters(callableId, {
+              expectedRevision: current.project.revision,
               parameters: proposal,
+              projectId: current.project.id,
+            });
+            if (!active) {
+              return;
+            }
+            snapshot = nextSnapshot;
+            acceptCanonicalSnapshot(nextSnapshot, {
+              callableId,
+              kind: "parameters",
+              sent: proposal,
+            });
+          } catch (error) {
+            if (active) {
+              await handleMutationFailure("the parameters", error);
+            }
+          }
+        });
+      }, mutationDebounceMs);
+      parameterTimers.set(callableId, timer);
+    };
+
+    controllerRef.current = {
+      commitCallable: (callableId, value) => {
+        cancelParameterMutation(callableId);
+        enqueue(async () => {
+          if (!active || snapshot === null) {
+            return;
+          }
+          const callable = snapshot.callables.find(
+            (candidate) => candidate.id === callableId,
+          );
+          if (callable === undefined) {
+            return;
+          }
+          setCallableDrafts((current) => ({ ...current, [callableId]: value }));
+          setCompletionErrors((current) => {
+            const { [callableId]: _cleared, ...remaining } = current;
+            return remaining;
+          });
+          updateMutation({
+            description: "Checking the callable with Basedpyright.",
+            kind: "pending",
+          });
+          setParametersDisabled(callableId, true);
+          try {
+            const nextSnapshot = await commitCallable(callableId, {
+              authoredExpression: value,
+              expectedRevision: snapshot.project.revision,
               projectId: snapshot.project.id,
             });
             if (!active) {
@@ -366,81 +525,183 @@ export function PythonCanvasApp() {
             }
             snapshot = nextSnapshot;
             acceptCanonicalSnapshot(nextSnapshot, {
-              kind: "proposed",
-              sent: proposal,
+              callableId,
+              kind: "commit",
             });
           } catch (error) {
+            if (active) {
+              await handleMutationFailure("the callable", error);
+            }
+          }
+        });
+      },
+      createCallable: (name) => {
+        cancelTargetMutation();
+        enqueue(async () => {
+          if (!active || snapshot === null) {
+            return;
+          }
+          updateMutation({
+            description: "Creating the callable.",
+            kind: "pending",
+          });
+          try {
+            const nextSnapshot = await createCallable({
+              expectedRevision: snapshot.project.revision,
+              name,
+              projectId: snapshot.project.id,
+            });
             if (!active) {
               return;
             }
-            restoreCanonicalProject();
-            handleMutationError("the parameters", error);
+            snapshot = nextSnapshot;
+            setNewCallableName("");
+            acceptCanonicalSnapshot(nextSnapshot, { kind: "other" });
+          } catch (error) {
+            if (active) {
+              await handleMutationFailure("the callable", error);
+            }
           }
         });
-      }, mutationDebounceMs);
-    };
-
-    controllerRef.current = {
-      commitCallable: (value) => {
-        if (!active) {
-          return;
-        }
-        setCallableDraft(value);
-        setCompletionError(null);
-        clearError();
-        commitCallableMutation(value);
       },
-      revertCallableDraft: () => {
+      deleteCallable: (callableId) => {
+        cancelParameterMutation(callableId);
+        enqueue(async () => {
+          if (!active || snapshot === null) {
+            return;
+          }
+          updateMutation({
+            description: "Deleting the callable.",
+            kind: "pending",
+          });
+          try {
+            const nextSnapshot = await deleteCallable(callableId, {
+              expectedRevision: snapshot.project.revision,
+              projectId: snapshot.project.id,
+            });
+            if (!active) {
+              return;
+            }
+            snapshot = nextSnapshot;
+            acceptCanonicalSnapshot(nextSnapshot, { kind: "other" });
+          } catch (error) {
+            if (active) {
+              await handleMutationFailure("the callable", error);
+            }
+          }
+        });
+      },
+      renameCallable: (callableId, name) => {
+        enqueue(async () => {
+          if (!active || snapshot === null) {
+            return;
+          }
+          updateMutation({
+            description: "Renaming the callable.",
+            kind: "pending",
+          });
+          try {
+            const nextSnapshot = await renameCallable(callableId, {
+              expectedRevision: snapshot.project.revision,
+              name,
+              projectId: snapshot.project.id,
+            });
+            if (!active) {
+              return;
+            }
+            snapshot = nextSnapshot;
+            acceptCanonicalSnapshot(nextSnapshot, { kind: "other" });
+          } catch (error) {
+            if (active) {
+              await handleMutationFailure("the callable", error);
+            }
+          }
+        });
+      },
+      renameProject: (name) => {
+        enqueue(async () => {
+          if (!active || snapshot === null) {
+            return;
+          }
+          updateMutation({
+            description: "Renaming the project.",
+            kind: "pending",
+          });
+          try {
+            const nextSnapshot = await renameProject({
+              expectedRevision: snapshot.project.revision,
+              name,
+              projectId: snapshot.project.id,
+            });
+            if (!active) {
+              return;
+            }
+            snapshot = nextSnapshot;
+            acceptCanonicalSnapshot(nextSnapshot, { kind: "other" });
+          } catch (error) {
+            if (active) {
+              await handleMutationFailure("the project", error);
+            }
+          }
+        });
+      },
+      revertCallableDraft: (callableId) => {
         if (!active || snapshot === null) {
           return;
         }
-        // The canonical expression is the one the store last accepted, so an abandoned draft has
-        // nothing of its own left to keep.
-        setCallableDraft(snapshot.callables[0].authoredExpression);
-        setCompletionError(null);
+        const callable = snapshot.callables.find(
+          (candidate) => candidate.id === callableId,
+        );
+        if (callable !== undefined) {
+          setCallableDrafts((current) => ({
+            ...current,
+            [callableId]: callable.authoredExpression,
+          }));
+        }
         clearError();
       },
-      setCallableDraft: (value) => {
+      setCallableDraft: (callableId, value) => {
         if (!active) {
           return;
         }
-        setCallableDraft(value);
-        setCompletionError(null);
+        setCallableDrafts((current) => ({ ...current, [callableId]: value }));
+        setCompletionErrors((current) => {
+          const { [callableId]: _cleared, ...remaining } = current;
+          return remaining;
+        });
         clearError();
       },
-      setParameterExpression: (parameterID, value) => {
-        if (!active) {
-          return;
+      setParameterExpression: (callableId, parameterId, value) => {
+        if (active) {
+          clearError();
+          setParameterItemExpression(host, callableId, parameterId, value);
         }
-        clearError();
-        setParameterItemExpression(host, parameterID, value);
       },
-      setParameterName: (parameterID, name) => {
-        if (!active) {
-          return;
+      setParameterName: (callableId, parameterId, name) => {
+        if (active) {
+          clearError();
+          setParameterItemName(host, callableId, parameterId, name);
         }
-        clearError();
-        setParameterItemName(host, parameterID, name);
       },
     };
 
-    // Every authored change reaches the project the same way: the package's own funnels write the
-    // controlled document, and this subscription proposes whatever that document now holds — the
-    // complete parameter list, the complete Python target, or both.
     const unsubscribe = host.subscribe((document) => {
       if (isProjectingRef.current || snapshot === null || !active) {
         return;
       }
-      const proposal = proposedParameterList(document);
-      if (proposal !== null && !sameParameterList(proposal, snapshot)) {
-        scheduleParameterListMutation();
+      for (const callable of snapshot.callables) {
+        const proposal = proposedParameterList(document, callable.id);
+        if (proposal !== null && !sameParameterList(proposal, callable)) {
+          scheduleParameterListMutation(callable.id);
+        }
       }
-      if (
-        !sameCanonicalPythonTarget(
-          readGeneratedPythonTarget(host),
-          snapshot.pythonTarget,
-        )
-      ) {
+      try {
+        if (
+          !sameCanonicalPythonTarget(readGeneratedPythonTarget(host), snapshot)
+        ) {
+          schedulePythonTargetMutation();
+        }
+      } catch {
         schedulePythonTargetMutation();
       }
     });
@@ -464,53 +725,30 @@ export function PythonCanvasApp() {
                 setPythonTargetCompletionError(null);
               }
             },
-            // `fetchProjectSnapshot` returned this only after strict V1 parsing, including the
-            // stable project-id relationship the provider closes over for its lifetime.
             projectId: initialSnapshot.project.id,
           });
-        // Register only after the initial V1 response is known valid. The generated Python Code
-        // section is the sole section that receives this provider; no serialized workspace data
-        // carries it and no other editor gains target completion as a side effect.
         registerPythonCanvasSectionKinds(host, pythonTargetCompletionProvider);
-        setCallableCompletionProvider(() =>
-          createCallableCompletionProvider({
-            onFailure: (message) => {
-              if (active) {
-                setCompletionError(message);
-              }
-            },
-            onSuccess: () => {
-              if (active) {
-                setCompletionError(null);
-              }
-            },
-            projectId: initialSnapshot.project.id,
-            sectionId: initialSnapshot.callables[0].id,
-          }),
-        );
         isProjectingRef.current = true;
         try {
           host.loadDocument(projectWorkspaceDocument(initialSnapshot));
         } finally {
           isProjectingRef.current = false;
         }
-        setCallableDraft(initialSnapshot.callables[0].authoredExpression);
+        synchronizeReactProjection(initialSnapshot, null);
         setState({ kind: "ready", host });
       } catch {
-        if (!active) {
-          return;
+        if (active) {
+          disposeHost();
+          setState({ kind: "error" });
         }
-        disposeHost();
-        setState({ kind: "error" });
       }
     };
 
     void load();
-
     return () => {
       active = false;
-      cancelScheduledParameterMutation();
-      cancelScheduledTargetMutation();
+      cancelTargetMutation();
+      cancelAllParameterMutations();
       controllerRef.current = null;
       unsubscribe();
       disposeHost();
@@ -519,168 +757,126 @@ export function PythonCanvasApp() {
 
   const mutationContext = useMemo<PythonCanvasMutationContextValue>(
     () => ({
-      callableCompletionProvider,
-      callableDraft,
-      completionError,
+      callableCompletionError: (callableId) =>
+        completionErrors[callableId] ?? null,
+      callableCompletionProvider: (callableId) =>
+        completionProviders[callableId],
+      callableDraft: (callableId) => callableDrafts[callableId] ?? "",
       mutationError: mutation.kind === "error" ? mutation.message : null,
-      onCallableCommit: (value) => controllerRef.current?.commitCallable(value),
-      onCallableDraftChange: (value) =>
-        controllerRef.current?.setCallableDraft(value),
-      onCallableRevert: () => controllerRef.current?.revertCallableDraft(),
-      onParameterExpressionChange: (parameterID, value) =>
-        controllerRef.current?.setParameterExpression(parameterID, value),
-      onParameterNameChange: (parameterID, name) =>
-        controllerRef.current?.setParameterName(parameterID, name),
+      onCallableCommit: (callableId, value) =>
+        controllerRef.current?.commitCallable(callableId, value),
+      onCallableDelete: (callableId) =>
+        controllerRef.current?.deleteCallable(callableId),
+      onCallableDraftChange: (callableId, value) =>
+        controllerRef.current?.setCallableDraft(callableId, value),
+      onCallableRename: (callableId, name) =>
+        controllerRef.current?.renameCallable(callableId, name),
+      onCallableRevert: (callableId) =>
+        controllerRef.current?.revertCallableDraft(callableId),
+      onParameterExpressionChange: (callableId, parameterId, value) =>
+        controllerRef.current?.setParameterExpression(
+          callableId,
+          parameterId,
+          value,
+        ),
+      onParameterNameChange: (callableId, parameterId, name) =>
+        controllerRef.current?.setParameterName(callableId, parameterId, name),
       pending: mutation.kind === "pending",
     }),
-    [callableCompletionProvider, callableDraft, completionError, mutation],
+    [callableDrafts, completionErrors, completionProviders, mutation],
   );
-
-  const statusMessage =
-    state.kind === "loading"
-      ? "Loading project."
-      : state.kind === "ready"
-        ? mutation.kind === "pending"
-          ? mutation.description
-          : "Project loaded."
-        : "Project could not be loaded.";
 
   return (
-    <main className="python-canvas-app">
-      <div className="python-canvas-heading">
-        <h1>Python Canvas</h1>
-        <p className="python-canvas-status" role="status" aria-live="polite">
-          {statusMessage}
-        </p>
-      </div>
-      {state.kind === "error" ? (
-        <p className="python-canvas-error" role="alert">
-          Unable to load Python Canvas. Check that the backend is running and
-          reload the page.
-        </p>
-      ) : null}
-      {pythonTargetCompletionError === null ? null : (
-        <p className="python-canvas-completion-error" role="alert">
-          {pythonTargetCompletionError}
-        </p>
-      )}
-      {state.kind === "ready" ? (
-        <div className="python-canvas-workspace">
-          <PythonCanvasMutationContext.Provider value={mutationContext}>
-            <WorkspaceProvider host={state.host}>
-              <WorkspaceCanvas />
-            </WorkspaceProvider>
-          </PythonCanvasMutationContext.Provider>
-        </div>
-      ) : null}
-    </main>
+    <PythonCanvasView
+      mutation={mutation}
+      mutationContext={mutationContext}
+      newCallableName={newCallableName}
+      onCreateCallable={(name) => controllerRef.current?.createCallable(name)}
+      onNewCallableNameChange={setNewCallableName}
+      onProjectNameChange={setProjectNameDraft}
+      onRenameProject={(name) => controllerRef.current?.renameProject(name)}
+      project={project}
+      projectNameDraft={projectNameDraft}
+      pythonTargetCompletionError={pythonTargetCompletionError}
+      state={state}
+    />
   );
 }
 
-// What a canonical response says about the parameter list. A callable commit redefines it, so its
-// response is the list; a parameter mutation answers for exactly the list it sent; and a Python
-// target mutation says nothing about it at all.
-type AnsweredParameterList =
-  | { kind: "redefined" }
-  | { kind: "proposed"; sent: Array<ParameterProposalV1> }
-  | { kind: "untouched" };
-
-// Whether the workspace document holds a list this response cannot answer for. A proposal is
-// compared against the list it was made from, because every row it answers for is still disabled
-// and would propose nothing at all; a response that never touched the list is compared against
-// canonical, because any difference there is somebody's own unsent edit.
-function documentHasNewerParameterList(
-  document: WorkspaceDocument,
-  snapshot: ProjectSnapshotV1,
-  answered: AnsweredParameterList,
-): boolean {
-  if (answered.kind === "redefined") {
-    return false;
-  }
-  const current = documentParameterList(document);
-  return answered.kind === "proposed"
-    ? !sameProposedList(answered.sent, current)
-    : !sameParameterList(current, snapshot);
-}
-
-// The complete ordered candidate the workspace document currently holds, whatever its rows' own
-// in-flight state. This is the list a response is compared against to see whether the person moved
-// on while it was away.
 function documentParameterList(
   document: WorkspaceDocument,
-): Array<ParameterProposalV1> {
-  return readCallableParameterItems(document).map((item) => ({
+  callableId: string,
+): ParameterProposalV2[] {
+  return readCallableParameterItems(document, callableId).map((item) => ({
     authoredExpression: item.data.authoredExpression,
     id: item.id,
     name: item.data.name,
   }));
 }
 
-// The candidate this document is proposing to the store. A disabled row is one whose mutation is
-// already in flight, so its document state is not a new proposal; and a name the store would
-// refuse is one main never sends, so the row keeps what is being typed and reports the problem
-// beside itself instead of having the whole list restored underneath it.
 function proposedParameterList(
   document: WorkspaceDocument,
-): Array<ParameterProposalV1> | null {
-  const items = readCallableParameterItems(document);
-  if (items.some((item) => item.data.disabled)) {
+  callableId: string,
+): ParameterProposalV2[] | null {
+  let items: ReturnType<typeof readCallableParameterItems>;
+  try {
+    items = readCallableParameterItems(document, callableId);
+  } catch {
     return null;
   }
-  if (hasBlockingParameterName(items)) {
+  if (
+    items.some((item) => item.data.disabled) ||
+    hasBlockingParameterName(items)
+  ) {
     return null;
   }
-  return documentParameterList(document);
+  return documentParameterList(document, callableId);
 }
 
-// Whether the document still holds the exact list a proposal was made from.
 function sameProposedList(
-  sent: Array<ParameterProposalV1>,
-  current: Array<ParameterProposalV1>,
+  left: ReadonlyArray<ParameterProposalV2>,
+  right: ReadonlyArray<ParameterProposalV2>,
 ): boolean {
   return (
-    current.length === sent.length &&
-    current.every((proposed, index) => {
-      const original = sent[index];
+    left.length === right.length &&
+    left.every((parameter, index) => {
+      const other = right[index];
       return (
-        original !== undefined &&
-        original.id === proposed.id &&
-        original.name === proposed.name &&
-        original.authoredExpression === proposed.authoredExpression
+        other !== undefined &&
+        other.id === parameter.id &&
+        other.name === parameter.name &&
+        other.authoredExpression === parameter.authoredExpression
       );
     })
   );
 }
 
-// Whether the authored Python the document holds is the target the store last published.
-function sameCanonicalPythonTarget(
-  authored: { prefix: string; suffix: string },
-  canonical: PythonTargetV1,
+function sameParameterList(
+  proposal: ReadonlyArray<ParameterProposalV2>,
+  callable: CallableV2,
 ): boolean {
   return (
-    authored.prefix === canonical.prefix && authored.suffix === canonical.suffix
+    proposal.length === callable.parameters.length &&
+    proposal.every((parameter, index) => {
+      const canonical = callable.parameters[index];
+      return (
+        canonical !== undefined &&
+        canonical.id === parameter.id &&
+        canonical.name === parameter.name &&
+        canonical.authoredExpression === parameter.authoredExpression
+      );
+    })
   );
 }
 
-function sameParameterList(
-  proposal: Array<ParameterProposalV1>,
-  snapshot: ProjectSnapshotV1,
+function sameCanonicalPythonTarget(
+  authored: { prefix: string; suffix: string },
+  snapshot: ProjectSnapshotV2,
 ): boolean {
-  const canonical = snapshot.callables[0].parameterIds;
-  if (proposal.length !== canonical.length) {
-    return false;
-  }
-  return proposal.every((proposed, index) => {
-    const parameter = snapshot.parameters.find(
-      (candidate) => candidate.id === canonical[index],
-    );
-    return (
-      parameter !== undefined &&
-      parameter.id === proposed.id &&
-      parameter.name === proposed.name &&
-      parameter.authoredExpression === proposed.authoredExpression
-    );
-  });
+  return (
+    authored.prefix === snapshot.pythonTarget.prefix &&
+    authored.suffix === snapshot.pythonTarget.suffix
+  );
 }
 
 function mutationErrorMessage(target: string, error: unknown): string {

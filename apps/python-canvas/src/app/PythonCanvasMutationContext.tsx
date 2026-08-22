@@ -2,20 +2,28 @@ import { createContext, useContext } from "react";
 import type { TextValueCompletionProvider } from "@setta/workspace";
 
 export type PythonCanvasMutationContextValue = {
-  callableCompletionProvider: TextValueCompletionProvider | undefined;
-  callableDraft: string;
-  completionError: string | null;
+  callableCompletionProvider: (
+    callableId: string,
+  ) => TextValueCompletionProvider | undefined;
+  callableCompletionError: (callableId: string) => string | null;
+  callableDraft: (callableId: string) => string;
   mutationError: string | null;
   pending: boolean;
-  onCallableDraftChange: (value: string) => void;
-  onCallableCommit: (value: string) => void;
-  // Escape abandoned an uncommitted callable draft, so the field goes back to the canonical
-  // committed expression, as main's callable search does.
-  onCallableRevert: () => void;
-  onParameterExpressionChange: (parameterId: string, value: string) => void;
-  // Renaming an app-authored parameter is the same proposal as editing its value: the app writes
-  // the workspace document and sends the whole list.
-  onParameterNameChange: (parameterId: string, name: string) => void;
+  onCallableCommit: (callableId: string, value: string) => void;
+  onCallableDraftChange: (callableId: string, value: string) => void;
+  onCallableRevert: (callableId: string) => void;
+  onCallableDelete: (callableId: string) => void;
+  onCallableRename: (callableId: string, name: string) => void;
+  onParameterExpressionChange: (
+    callableId: string,
+    parameterId: string,
+    value: string,
+  ) => void;
+  onParameterNameChange: (
+    callableId: string,
+    parameterId: string,
+    name: string,
+  ) => void;
 };
 
 export const PythonCanvasMutationContext =

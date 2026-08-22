@@ -1,4 +1,4 @@
-// Package contracts owns the V1 transport contract for Python Canvas.
+// Package contracts owns the closed V2 transport contract for Python Canvas.
 package contracts
 
 import (
@@ -8,519 +8,657 @@ import (
 )
 
 const (
-	ProjectSnapshotVersionV1             = "v1"
-	ProjectPathV1                        = "/api/v1/project"
-	ProjectCallablePathV1                = "/api/v1/project/callable"
-	ProjectCallableCompletionsPathV1     = "/api/v1/project/callable/completions"
-	ProjectPythonTargetCompletionsPathV1 = "/api/v1/project/python-target/completions"
-	ProjectParametersPathV1              = "/api/v1/project/parameters"
-	ProjectTargetPathV1                  = "/api/v1/project/target"
+	ProjectSnapshotVersionV2 = "v2"
+	ProjectPathV2            = "/api/v2/project"
+	ProjectRenamePathV2      = "/api/v2/project/rename"
+	ProjectCallablesPathV2   = "/api/v2/project/callables"
+	ProjectTargetPathV2      = "/api/v2/project/target"
 )
 
-// ProjectSnapshotV1 is the complete, normalized project document returned by
-// the V1 project endpoint.
-type ProjectSnapshotV1 struct {
+// ProjectSnapshotV2 is the complete canonical response used by every V2
+// mutation and by the sole project/readiness endpoint.
+type ProjectSnapshotV2 struct {
 	Version        string           `json:"version"`
-	Project        ProjectV1        `json:"project"`
-	PythonTarget   PythonTargetV1   `json:"pythonTarget"`
-	Callables      []CallableV1     `json:"callables"`
-	Parameters     []ParameterV1    `json:"parameters"`
-	GeneratedCode  GeneratedCodeV1  `json:"generatedCode"`
-	Diagnostics    []DiagnosticV1   `json:"diagnostics"`
-	ProviderStatus ProviderStatusV1 `json:"providerStatus"`
+	Project        ProjectV2        `json:"project"`
+	PythonTarget   PythonTargetV2   `json:"pythonTarget"`
+	Callables      []CallableV2     `json:"callables"`
+	GeneratedCode  GeneratedCodeV2  `json:"generatedCode"`
+	Diagnostics    []DiagnosticV2   `json:"diagnostics"`
+	ProviderStatus ProviderStatusV2 `json:"providerStatus"`
 }
 
-type ProjectV1 struct {
+type ProjectV2 struct {
 	ID       string `json:"id"`
+	Name     string `json:"name"`
 	Revision int    `json:"revision"`
 }
 
-type PythonTargetV1 struct {
+type PythonTargetV2 struct {
 	Prefix string `json:"prefix"`
 	Suffix string `json:"suffix"`
 }
 
-type CallableV1 struct {
-	ID                 string   `json:"id"`
-	Name               string   `json:"name"`
-	AuthoredExpression string   `json:"authoredExpression"`
-	ParameterIDs       []string `json:"parameterIds"`
+type CallableV2 struct {
+	ID                 string        `json:"id"`
+	Name               string        `json:"name"`
+	AuthoredExpression string        `json:"authoredExpression"`
+	Parameters         []ParameterV2 `json:"parameters"`
 }
 
-type ParameterPassingStyleV1 string
+type ParameterPassingStyleV2 string
 
 const (
-	ParameterPassingStylePositionalOnlyV1      ParameterPassingStyleV1 = "positional_only"
-	ParameterPassingStylePositionalOrKeywordV1 ParameterPassingStyleV1 = "positional_or_keyword"
-	ParameterPassingStyleKeywordOnlyV1         ParameterPassingStyleV1 = "keyword_only"
-	ParameterPassingStyleVariadicPositionalV1  ParameterPassingStyleV1 = "variadic_positional"
-	ParameterPassingStyleVariadicKeywordV1     ParameterPassingStyleV1 = "variadic_keyword"
+	ParameterPassingStylePositionalOnlyV2      ParameterPassingStyleV2 = "positional_only"
+	ParameterPassingStylePositionalOrKeywordV2 ParameterPassingStyleV2 = "positional_or_keyword"
+	ParameterPassingStyleKeywordOnlyV2         ParameterPassingStyleV2 = "keyword_only"
+	ParameterPassingStyleVariadicPositionalV2  ParameterPassingStyleV2 = "variadic_positional"
+	ParameterPassingStyleVariadicKeywordV2     ParameterPassingStyleV2 = "variadic_keyword"
 )
 
-type ParameterV1 struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	// Whether this record's name belongs to the app rather than to the resolved
-	// signature. The client never infers renameability from anything else.
+// ParameterV2 keeps provider-owned metadata explicit. A nil providerOrdinal
+// is the sole marker for an app-authored record; clients never infer it from
+// an ID or position.
+type ParameterV2 struct {
+	ID                 string                  `json:"id"`
+	Name               string                  `json:"name"`
 	NameEditable       bool                    `json:"nameEditable"`
-	PassingStyle       ParameterPassingStyleV1 `json:"passingStyle"`
-	TypeAnnotation     string                  `json:"typeAnnotation"`
+	PassingStyle       ParameterPassingStyleV2 `json:"passingStyle"`
+	TypeAnnotation     *string                 `json:"typeAnnotation"`
 	Default            *string                 `json:"default"`
+	ProviderOrdinal    *int                    `json:"providerOrdinal"`
 	AuthoredExpression string                  `json:"authoredExpression"`
 }
 
-type GeneratedCodeV1 struct {
-	Code         string                   `json:"code"`
-	Body         string                   `json:"body"`
-	SourceRanges []GeneratedSourceRangeV1 `json:"sourceRanges"`
+// ByteRangeV2 is a half-open UTF-8 byte range into GeneratedCodeV2.Code.
+type ByteRangeV2 struct {
+	Start int `json:"start"`
+	End   int `json:"end"`
 }
 
-// GeneratedSourceRangeV1 uses byte offsets into GeneratedCodeV1.Code.
-type GeneratedSourceRangeV1 struct {
-	TargetID string `json:"targetId"`
-	Start    int    `json:"start"`
-	End      int    `json:"end"`
+type GeneratedCodeV2 struct {
+	Code                   string                 `json:"code"`
+	Body                   string                 `json:"body"`
+	GeneratedBodyRange     ByteRangeV2            `json:"generatedBodyRange"`
+	SourceRangesByTargetID map[string]ByteRangeV2 `json:"sourceRangesByTargetId"`
 }
 
-type DiagnosticSeverityV1 string
+type DiagnosticSeverityV2 string
 
 const (
-	DiagnosticSeverityErrorV1       DiagnosticSeverityV1 = "error"
-	DiagnosticSeverityWarningV1     DiagnosticSeverityV1 = "warning"
-	DiagnosticSeverityInformationV1 DiagnosticSeverityV1 = "information"
+	DiagnosticSeverityErrorV2       DiagnosticSeverityV2 = "error"
+	DiagnosticSeverityWarningV2     DiagnosticSeverityV2 = "warning"
+	DiagnosticSeverityInformationV2 DiagnosticSeverityV2 = "information"
 )
 
-type DiagnosticV1 struct {
+type DiagnosticV2 struct {
 	ID       string               `json:"id"`
-	Severity DiagnosticSeverityV1 `json:"severity"`
+	Severity DiagnosticSeverityV2 `json:"severity"`
 	Message  string               `json:"message"`
 	Start    int                  `json:"start"`
 	End      int                  `json:"end"`
 	TargetID *string              `json:"targetId"`
 }
 
-type ProviderV1 string
+type ProviderV2 string
 
-const ProviderBasedpyrightV1 ProviderV1 = "basedpyright"
+const ProviderBasedpyrightV2 ProviderV2 = "basedpyright"
 
-type ProviderAvailabilityV1 string
-
-const (
-	ProviderAvailabilityAvailableV1   ProviderAvailabilityV1 = "available"
-	ProviderAvailabilityUnavailableV1 ProviderAvailabilityV1 = "unavailable"
-)
-
-type ProviderLifecycleStateV1 string
+type ProviderAvailabilityV2 string
 
 const (
-	ProviderLifecycleStateNotStartedV1 ProviderLifecycleStateV1 = "not_started"
-	ProviderLifecycleStateReadyV1      ProviderLifecycleStateV1 = "ready"
-	ProviderLifecycleStatePendingV1    ProviderLifecycleStateV1 = "pending"
-	ProviderLifecycleStateFailedV1     ProviderLifecycleStateV1 = "failed"
+	ProviderAvailabilityAvailableV2   ProviderAvailabilityV2 = "available"
+	ProviderAvailabilityUnavailableV2 ProviderAvailabilityV2 = "unavailable"
 )
 
-type ProviderStatusV1 struct {
-	Provider ProviderV1               `json:"provider"`
-	Status   ProviderAvailabilityV1   `json:"status"`
-	State    ProviderLifecycleStateV1 `json:"state"`
+type ProviderLifecycleStateV2 string
+
+const (
+	ProviderLifecycleStateNotStartedV2 ProviderLifecycleStateV2 = "not_started"
+	ProviderLifecycleStatePendingV2    ProviderLifecycleStateV2 = "pending"
+	ProviderLifecycleStateReadyV2      ProviderLifecycleStateV2 = "ready"
+	ProviderLifecycleStateFailedV2     ProviderLifecycleStateV2 = "failed"
+)
+
+type ProviderStatusV2 struct {
+	Provider ProviderV2               `json:"provider"`
+	Status   ProviderAvailabilityV2   `json:"status"`
+	State    ProviderLifecycleStateV2 `json:"state"`
 }
 
-// CommitCallableRequestV1 carries the authored callable expression through
-// the V1 mutation boundary. The project package owns semantic validation.
-type CommitCallableRequestV1 struct {
+type RenameProjectRequestV2 struct {
+	ProjectID        string `json:"projectId"`
+	ExpectedRevision int    `json:"expectedRevision"`
+	Name             string `json:"name"`
+}
+
+type CreateCallableRequestV2 struct {
+	ProjectID        string `json:"projectId"`
+	ExpectedRevision int    `json:"expectedRevision"`
+	Name             string `json:"name"`
+}
+
+type RenameCallableRequestV2 struct {
+	ProjectID        string `json:"projectId"`
+	ExpectedRevision int    `json:"expectedRevision"`
+	Name             string `json:"name"`
+}
+
+type DeleteCallableRequestV2 struct {
+	ProjectID        string `json:"projectId"`
+	ExpectedRevision int    `json:"expectedRevision"`
+}
+
+type CommitCallableRequestV2 struct {
 	ProjectID          string `json:"projectId"`
-	SectionID          string `json:"sectionId"`
+	ExpectedRevision   int    `json:"expectedRevision"`
 	AuthoredExpression string `json:"authoredExpression"`
 }
 
-func (request CommitCallableRequestV1) Validate() error {
-	if err := requireRequestID("projectId", request.ProjectID); err != nil {
-		return err
-	}
-	return requireRequestID("sectionId", request.SectionID)
-}
-
-// CallableCompletionRequestV1 describes one read-only query for the current
-// uncommitted callable draft. CursorOffsetUTF16 uses JavaScript string offsets.
-type CallableCompletionRequestV1 struct {
-	ProjectID          string `json:"projectId"`
-	SectionID          string `json:"sectionId"`
-	AuthoredExpression string `json:"authoredExpression"`
-	CursorOffsetUTF16  int    `json:"cursorOffsetUtf16"`
-}
-
-func (request CallableCompletionRequestV1) Validate() error {
-	if err := requireRequestID("projectId", request.ProjectID); err != nil {
-		return err
-	}
-	if err := requireRequestID("sectionId", request.SectionID); err != nil {
-		return err
-	}
-	if request.CursorOffsetUTF16 < 0 {
-		return ValidationError{Field: "cursorOffsetUtf16", Problem: "must not be negative"}
-	}
-	return nil
-}
-
-// PythonTargetCompletionRegionV1 selects exactly one authored side of the generated body.
-// The complete prefix and suffix still travel together so the provider can inspect a valid module.
-type PythonTargetCompletionRegionV1 string
-
-const (
-	PythonTargetCompletionRegionPrefixV1 PythonTargetCompletionRegionV1 = "prefix"
-	PythonTargetCompletionRegionSuffixV1 PythonTargetCompletionRegionV1 = "suffix"
-)
-
-type PythonTargetCompletionRequestV1 struct {
-	ProjectID         string                         `json:"projectId"`
-	Region            PythonTargetCompletionRegionV1 `json:"region"`
-	Prefix            string                         `json:"prefix"`
-	Suffix            string                         `json:"suffix"`
-	CursorOffsetUTF16 int                            `json:"cursorOffsetUtf16"`
-}
-
-func (request PythonTargetCompletionRequestV1) Validate() error {
-	if err := requireRequestID("projectId", request.ProjectID); err != nil {
-		return err
-	}
-	if request.Region != PythonTargetCompletionRegionPrefixV1 && request.Region != PythonTargetCompletionRegionSuffixV1 {
-		return ValidationError{Field: "region", Problem: "must be prefix or suffix"}
-	}
-	if request.CursorOffsetUTF16 < 0 {
-		return ValidationError{Field: "cursorOffsetUtf16", Problem: "must not be negative"}
-	}
-	return nil
-}
-
-// CompletionItemV1 is shared by every read-only Python completion route.
-type CompletionItemV1 struct {
-	Label      string `json:"label"`
-	InsertText string `json:"insertText"`
-}
-
-type CompletionResponseV1 struct {
-	Items []CompletionItemV1 `json:"items"`
-}
-
-func (response CompletionResponseV1) Validate() error {
-	if response.Items == nil {
-		return ValidationError{Field: "items", Problem: "must be an array"}
-	}
-	for index, item := range response.Items {
-		if strings.TrimSpace(item.Label) == "" {
-			return ValidationError{Field: fmt.Sprintf("items[%d].label", index), Problem: "must not be empty"}
-		}
-		if strings.TrimSpace(item.InsertText) == "" {
-			return ValidationError{Field: fmt.Sprintf("items[%d].insertText", index), Problem: "must not be empty"}
-		}
-	}
-	return nil
-}
-
-// ParameterProposalV1 is one record in a proposed parameter list. Backend-owned
-// metadata never crosses this boundary: the store keeps it for a retained ID and
-// creates it for a new one.
-type ParameterProposalV1 struct {
+type ParameterProposalV2 struct {
 	ID                 string `json:"id"`
 	Name               string `json:"name"`
 	AuthoredExpression string `json:"authoredExpression"`
 }
 
-// SetCallableParametersRequestV1 carries one callable's complete proposed
-// parameter list, bound to the revision the client last saw. Reordering,
-// renaming, editing, adding, and deleting are all this one request.
-type SetCallableParametersRequestV1 struct {
+type SetCallableParametersRequestV2 struct {
 	ProjectID        string                `json:"projectId"`
-	CallableID       string                `json:"callableId"`
 	ExpectedRevision int                   `json:"expectedRevision"`
-	Parameters       []ParameterProposalV1 `json:"parameters"`
+	Parameters       []ParameterProposalV2 `json:"parameters"`
 }
 
-func (request SetCallableParametersRequestV1) Validate() error {
-	if err := requireRequestID("projectId", request.ProjectID); err != nil {
-		return err
-	}
-	if err := requireRequestID("callableId", request.CallableID); err != nil {
-		return err
-	}
-	if request.ExpectedRevision < 1 {
-		return ValidationError{Field: "expectedRevision", Problem: "must be at least 1"}
-	}
-	if request.Parameters == nil {
-		return ValidationError{Field: "parameters", Problem: "must be an array"}
-	}
-	for index, parameter := range request.Parameters {
-		if err := requireRequestID(fmt.Sprintf("parameters[%d].id", index), parameter.ID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// SetPythonTargetRequestV1 carries the complete authored Python around the generated
-// body, bound to the revision the client last saw. The generated body is never part of
-// it: the store renders that from its own canonical state.
-type SetPythonTargetRequestV1 struct {
+type SetPythonTargetRequestV2 struct {
 	ProjectID        string `json:"projectId"`
 	ExpectedRevision int    `json:"expectedRevision"`
 	Prefix           string `json:"prefix"`
 	Suffix           string `json:"suffix"`
 }
 
-func (request SetPythonTargetRequestV1) Validate() error {
-	if err := requireRequestID("projectId", request.ProjectID); err != nil {
-		return err
-	}
-	if request.ExpectedRevision < 1 {
-		return ValidationError{Field: "expectedRevision", Problem: "must be at least 1"}
-	}
-	return nil
+type CallableCompletionRequestV2 struct {
+	ProjectID          string `json:"projectId"`
+	AuthoredExpression string `json:"authoredExpression"`
+	CursorOffsetUTF16  int    `json:"cursorOffsetUtf16"`
 }
 
-type APIErrorCodeV1 string
+// UTF16RangeV2 carries the UI's already-mapped protected range for a complete
+// target draft. It is intentionally distinct from the UTF-8 byte ranges in a
+// canonical snapshot.
+type UTF16RangeV2 struct {
+	Start int `json:"start"`
+	End   int `json:"end"`
+}
+
+type PythonTargetCompletionRequestV2 struct {
+	ProjectID          string       `json:"projectId"`
+	Code               string       `json:"code"`
+	ProtectedBodyRange UTF16RangeV2 `json:"protectedBodyRange"`
+	CursorOffsetUTF16  int          `json:"cursorOffsetUtf16"`
+}
+
+type CompletionItemV2 struct {
+	Label      string `json:"label"`
+	InsertText string `json:"insertText"`
+}
+
+type CompletionResponseV2 struct {
+	Items []CompletionItemV2 `json:"items"`
+}
+
+type APIErrorCodeV2 string
 
 const (
-	APIErrorCodeInvalidRequestV1             APIErrorCodeV1 = "invalid_request"
-	APIErrorCodeMethodNotAllowedV1           APIErrorCodeV1 = "method_not_allowed"
-	APIErrorCodeNotFoundV1                   APIErrorCodeV1 = "not_found"
-	APIErrorCodeInvalidCallableV1            APIErrorCodeV1 = "invalid_callable"
-	APIErrorCodeInvalidParameterExpressionV1 APIErrorCodeV1 = "invalid_parameter_expression"
-	APIErrorCodeInvalidParameterNameV1       APIErrorCodeV1 = "invalid_parameter_name"
-	APIErrorCodeInvalidPythonTargetV1        APIErrorCodeV1 = "invalid_python_target"
-	APIErrorCodeRevisionConflictV1           APIErrorCodeV1 = "revision_conflict"
-	APIErrorCodeUnsupportedSignatureV1       APIErrorCodeV1 = "unsupported_signature"
-	APIErrorCodeProviderUnavailableV1        APIErrorCodeV1 = "provider_unavailable"
-	APIErrorCodeInternalV1                   APIErrorCodeV1 = "internal"
+	APIErrorCodeRevisionConflictV2      APIErrorCodeV2 = "revision_conflict"
+	APIErrorCodeValidationFailedV2      APIErrorCodeV2 = "validation_failed"
+	APIErrorCodeNotFoundV2              APIErrorCodeV2 = "not_found"
+	APIErrorCodeInvalidRequestV2        APIErrorCodeV2 = "invalid_request"
+	APIErrorCodeProviderUnavailableV2   APIErrorCodeV2 = "provider_unavailable"
+	APIErrorCodeProviderFailedV2        APIErrorCodeV2 = "provider_failed"
+	APIErrorCodeRenderFailedV2          APIErrorCodeV2 = "render_failed"
+	APIErrorCodeMaterializationFailedV2 APIErrorCodeV2 = "materialization_failed"
+	APIErrorCodePersistenceFailedV2     APIErrorCodeV2 = "persistence_failed"
+	APIErrorCodeMethodNotAllowedV2      APIErrorCodeV2 = "method_not_allowed"
+	APIErrorCodeInternalV2              APIErrorCodeV2 = "internal"
 )
 
-type APIErrorV1 struct {
-	Code    APIErrorCodeV1 `json:"code"`
-	Message string         `json:"message"`
+// APIErrorV2 is closed by its code. Revision fields are present only for the
+// revision_conflict variant.
+type APIErrorV2 struct {
+	Code             APIErrorCodeV2 `json:"code"`
+	Message          string         `json:"message"`
+	ExpectedRevision *int           `json:"expectedRevision,omitempty"`
+	CurrentRevision  *int           `json:"currentRevision,omitempty"`
 }
 
-type ErrorResponseV1 struct {
-	Error APIErrorV1 `json:"error"`
+type ErrorResponseV2 struct {
+	Error APIErrorV2 `json:"error"`
 }
 
-// UnsupportedVersionError is returned whenever a document is not the V1
-// document this package owns.
-type UnsupportedVersionError struct {
-	Version string
-}
-
-func (err UnsupportedVersionError) Error() string {
-	return fmt.Sprintf("unsupported project snapshot version %q", err.Version)
-}
-
-// ValidationError identifies an invalid field in a V1 document.
+// ValidationError points to one malformed transport field without exposing a
+// persistence or provider implementation detail.
 type ValidationError struct {
 	Field   string
 	Problem string
 }
 
 func (err ValidationError) Error() string {
-	return fmt.Sprintf("invalid project snapshot V1 %s: %s", err.Field, err.Problem)
+	return fmt.Sprintf("invalid V2 contract %s: %s", err.Field, err.Problem)
 }
 
-// Validate accepts only the current V1 document shape. It intentionally does
-// not interpret, migrate, or alias earlier or later shapes.
-func (snapshot ProjectSnapshotV1) Validate() error {
-	if err := snapshot.validateDocumentShape(); err != nil {
+func (snapshot ProjectSnapshotV2) Validate() error {
+	if err := validateProjectSnapshotBase(snapshot); err != nil {
 		return err
 	}
-	return snapshot.validateDocumentContents()
-}
-
-func (snapshot ProjectSnapshotV1) validateDocumentShape() error {
-	if snapshot.Version != ProjectSnapshotVersionV1 {
-		return UnsupportedVersionError{Version: snapshot.Version}
-	}
-	if err := requireStableID("project.id", snapshot.Project.ID); err != nil {
+	targetIDs, err := validateSnapshotCallables(snapshot.Callables)
+	if err != nil {
 		return err
 	}
-	if snapshot.Project.Revision < 1 {
-		return ValidationError{Field: "project.revision", Problem: "must be at least 1"}
-	}
-	if err := validatePythonTarget(snapshot.PythonTarget); err != nil {
-		return err
-	}
-	if snapshot.Callables == nil {
-		return ValidationError{Field: "callables", Problem: "must be an array"}
-	}
-	if len(snapshot.Callables) != 1 {
-		return ValidationError{Field: "callables", Problem: "must contain exactly one callable"}
-	}
-	if snapshot.Parameters == nil {
-		return ValidationError{Field: "parameters", Problem: "must be an array"}
-	}
-	if snapshot.GeneratedCode.SourceRanges == nil {
-		return ValidationError{Field: "generatedCode.sourceRanges", Problem: "must be an array"}
-	}
-	if snapshot.Diagnostics == nil {
-		return ValidationError{Field: "diagnostics", Problem: "must be an array"}
-	}
-	if err := validateProviderStatus(snapshot.ProviderStatus); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Either region may be empty, because a person may delete their imports or their
-// trailing statements outright. Neither may carry a byte Python source cannot hold.
-func validatePythonTarget(target PythonTargetV1) error {
-	if strings.ContainsRune(target.Prefix, '\x00') {
-		return ValidationError{Field: "pythonTarget.prefix", Problem: "must not contain NUL"}
-	}
-	if strings.ContainsRune(target.Suffix, '\x00') {
-		return ValidationError{Field: "pythonTarget.suffix", Problem: "must not contain NUL"}
-	}
-	return nil
-}
-
-func (snapshot ProjectSnapshotV1) validateDocumentContents() error {
-	targetIDs := map[string]struct{}{snapshot.Project.ID: {}}
-	parameterIDs := make(map[string]struct{}, len(snapshot.Parameters))
-	if err := validateParameters(snapshot.Parameters, targetIDs, parameterIDs); err != nil {
-		return err
-	}
-	if err := validateCallables(snapshot.Callables, targetIDs, parameterIDs); err != nil {
-		return err
-	}
-	if err := validateSourceRanges(snapshot.GeneratedCode.SourceRanges, len(snapshot.GeneratedCode.Code), targetIDs); err != nil {
+	if err := validateGeneratedCode(snapshot.GeneratedCode, snapshot.PythonTarget, targetIDs); err != nil {
 		return err
 	}
 	return validateDiagnostics(snapshot.Diagnostics, snapshot.GeneratedCode.Code, targetIDs)
 }
 
-func validateParameters(parameters []ParameterV1, targetIDs map[string]struct{}, parameterIDs map[string]struct{}) error {
-	for index, parameter := range parameters {
-		field := fmt.Sprintf("parameters[%d]", index)
-		if err := requireStableID(field+".id", parameter.ID); err != nil {
-			return err
-		}
-		if _, exists := targetIDs[parameter.ID]; exists {
-			return ValidationError{Field: field + ".id", Problem: "must be unique"}
-		}
-		// A blank name is a record still being authored, which the renderer omits.
-		// Surrounding whitespace is not a name a client can have meant.
-		if parameter.Name != strings.TrimSpace(parameter.Name) {
-			return ValidationError{Field: field + ".name", Problem: "must not include surrounding whitespace"}
-		}
-		if !isPassingStyleV1(parameter.PassingStyle) {
-			return ValidationError{Field: field + ".passingStyle", Problem: "is not supported by V1"}
-		}
-		targetIDs[parameter.ID] = struct{}{}
-		parameterIDs[parameter.ID] = struct{}{}
+func validateProjectSnapshotBase(snapshot ProjectSnapshotV2) error {
+	if snapshot.Version != ProjectSnapshotVersionV2 {
+		return ValidationError{Field: "version", Problem: "must equal v2"}
+	}
+	if err := requireStableID("project.id", snapshot.Project.ID); err != nil {
+		return err
+	}
+	if err := requireDisplayName("project.name", snapshot.Project.Name); err != nil {
+		return err
+	}
+	if snapshot.Project.Revision < 1 {
+		return ValidationError{Field: "project.revision", Problem: "must be at least 1"}
+	}
+	if err := validateTarget(snapshot.PythonTarget); err != nil {
+		return err
+	}
+	if snapshot.Callables == nil {
+		return ValidationError{Field: "callables", Problem: "must be an array"}
+	}
+	if snapshot.Diagnostics == nil {
+		return ValidationError{Field: "diagnostics", Problem: "must be an array"}
+	}
+	if err := snapshot.ProviderStatus.Validate(); err != nil {
+		return err
 	}
 	return nil
 }
 
-func validateCallables(callables []CallableV1, targetIDs map[string]struct{}, parameterIDs map[string]struct{}) error {
-	for index, callable := range callables {
-		field := fmt.Sprintf("callables[%d]", index)
-		if err := requireStableID(field+".id", callable.ID); err != nil {
+func validateSnapshotCallables(callables []CallableV2) (map[string]struct{}, error) {
+	targetIDs := make(map[string]struct{})
+	for callableIndex, callable := range callables {
+		field := fmt.Sprintf("callables[%d]", callableIndex)
+		if err := validateSnapshotCallable(field, callable, targetIDs); err != nil {
+			return nil, err
+		}
+	}
+	return targetIDs, nil
+}
+
+func validateSnapshotCallable(field string, callable CallableV2, targetIDs map[string]struct{}) error {
+	if err := requireStableID(field+".id", callable.ID); err != nil {
+		return err
+	}
+	if err := claimSnapshotTargetID(field+".id", callable.ID, targetIDs); err != nil {
+		return err
+	}
+	if err := requireDisplayName(field+".name", callable.Name); err != nil {
+		return err
+	}
+	if err := validateText(field+".authoredExpression", callable.AuthoredExpression, true); err != nil {
+		return err
+	}
+	if callable.Parameters == nil {
+		return ValidationError{Field: field + ".parameters", Problem: "must be an array"}
+	}
+	return validateSnapshotParameters(field, callable.Parameters, targetIDs)
+}
+
+func validateSnapshotParameters(field string, parameters []ParameterV2, targetIDs map[string]struct{}) error {
+	parameterNames := make(map[string]struct{}, len(parameters))
+	providerOrdinals := make(map[int]struct{}, len(parameters))
+	for parameterIndex, parameter := range parameters {
+		parameterField := fmt.Sprintf("%s.parameters[%d]", field, parameterIndex)
+		if err := validateParameter(parameterField, parameter); err != nil {
 			return err
 		}
-		if _, exists := targetIDs[callable.ID]; exists {
-			return ValidationError{Field: field + ".id", Problem: "must be unique"}
-		}
-		if strings.TrimSpace(callable.Name) == "" {
-			return ValidationError{Field: field + ".name", Problem: "must not be empty"}
-		}
-		if callable.ParameterIDs == nil {
-			return ValidationError{Field: field + ".parameterIds", Problem: "must be an array"}
-		}
-		if err := validateCallableParameterIDs(field, callable.ParameterIDs, parameterIDs); err != nil {
+		if err := claimSnapshotTargetID(parameterField+".id", parameter.ID, targetIDs); err != nil {
 			return err
 		}
-		targetIDs[callable.ID] = struct{}{}
+		if err := claimParameterName(parameterField, parameter.Name, parameterNames); err != nil {
+			return err
+		}
+		if err := claimProviderOrdinal(parameterField, parameter.ProviderOrdinal, providerOrdinals); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func validateCallableParameterIDs(field string, ids []string, parameterIDs map[string]struct{}) error {
-	seenParameterIDs := make(map[string]struct{}, len(ids))
-	for parameterIndex, parameterID := range ids {
-		parameterField := fmt.Sprintf("%s.parameterIds[%d]", field, parameterIndex)
-		if err := requireStableID(parameterField, parameterID); err != nil {
-			return err
-		}
-		if _, exists := parameterIDs[parameterID]; !exists {
-			return ValidationError{Field: parameterField, Problem: "must reference a parameter"}
-		}
-		if _, exists := seenParameterIDs[parameterID]; exists {
-			return ValidationError{Field: parameterField, Problem: "must not be repeated"}
-		}
-		seenParameterIDs[parameterID] = struct{}{}
+func claimSnapshotTargetID(field string, targetID string, targetIDs map[string]struct{}) error {
+	if _, exists := targetIDs[targetID]; exists {
+		return ValidationError{Field: field, Problem: "must be unique"}
+	}
+	targetIDs[targetID] = struct{}{}
+	return nil
+}
+
+func claimParameterName(field string, name string, names map[string]struct{}) error {
+	if name == "" {
+		return nil
+	}
+	if _, exists := names[name]; exists {
+		return ValidationError{Field: field + ".name", Problem: "must be unique within its callable"}
+	}
+	names[name] = struct{}{}
+	return nil
+}
+
+func claimProviderOrdinal(field string, ordinal *int, ordinals map[int]struct{}) error {
+	if ordinal == nil {
+		return nil
+	}
+	if _, exists := ordinals[*ordinal]; exists {
+		return ValidationError{Field: field + ".providerOrdinal", Problem: "must be unique within its callable"}
+	}
+	ordinals[*ordinal] = struct{}{}
+	return nil
+}
+
+func (status ProviderStatusV2) Validate() error {
+	if status.Provider != ProviderBasedpyrightV2 {
+		return ValidationError{Field: "providerStatus.provider", Problem: "must be basedpyright"}
+	}
+	switch status.Status {
+	case ProviderAvailabilityAvailableV2, ProviderAvailabilityUnavailableV2:
+	default:
+		return ValidationError{Field: "providerStatus.status", Problem: "is unsupported"}
+	}
+	switch status.State {
+	case ProviderLifecycleStateNotStartedV2, ProviderLifecycleStatePendingV2, ProviderLifecycleStateReadyV2, ProviderLifecycleStateFailedV2:
+	default:
+		return ValidationError{Field: "providerStatus.state", Problem: "is unsupported"}
+	}
+	if (status.State == ProviderLifecycleStateNotStartedV2 || status.State == ProviderLifecycleStateFailedV2) && status.Status != ProviderAvailabilityUnavailableV2 {
+		return ValidationError{Field: "providerStatus", Problem: "has an invalid availability/lifecycle combination"}
+	}
+	if (status.State == ProviderLifecycleStatePendingV2 || status.State == ProviderLifecycleStateReadyV2) && status.Status != ProviderAvailabilityAvailableV2 {
+		return ValidationError{Field: "providerStatus", Problem: "has an invalid availability/lifecycle combination"}
 	}
 	return nil
 }
 
-func validateSourceRanges(ranges []GeneratedSourceRangeV1, codeLength int, targetIDs map[string]struct{}) error {
-	for index, sourceRange := range ranges {
-		field := fmt.Sprintf("generatedCode.sourceRanges[%d]", index)
-		if err := validateSourceRange(field, sourceRange, codeLength, targetIDs); err != nil {
+func (request RenameProjectRequestV2) Validate() error {
+	if err := validateMutationRequest(request.ProjectID, request.ExpectedRevision); err != nil {
+		return err
+	}
+	return requireDisplayName("name", request.Name)
+}
+
+func (request CreateCallableRequestV2) Validate() error {
+	if err := validateMutationRequest(request.ProjectID, request.ExpectedRevision); err != nil {
+		return err
+	}
+	return requireDisplayName("name", request.Name)
+}
+
+func (request RenameCallableRequestV2) Validate() error {
+	if err := validateMutationRequest(request.ProjectID, request.ExpectedRevision); err != nil {
+		return err
+	}
+	return requireDisplayName("name", request.Name)
+}
+
+func (request DeleteCallableRequestV2) Validate() error {
+	return validateMutationRequest(request.ProjectID, request.ExpectedRevision)
+}
+
+func (request CommitCallableRequestV2) Validate() error {
+	if err := validateMutationRequest(request.ProjectID, request.ExpectedRevision); err != nil {
+		return err
+	}
+	return requireNonBlankText("authoredExpression", request.AuthoredExpression)
+}
+
+func (request SetCallableParametersRequestV2) Validate() error {
+	if err := validateMutationRequest(request.ProjectID, request.ExpectedRevision); err != nil {
+		return err
+	}
+	if request.Parameters == nil {
+		return ValidationError{Field: "parameters", Problem: "must be an array"}
+	}
+	for index, parameter := range request.Parameters {
+		if err := requireStableID(fmt.Sprintf("parameters[%d].id", index), parameter.ID); err != nil {
+			return err
+		}
+		if err := validateText(fmt.Sprintf("parameters[%d].name", index), parameter.Name, true); err != nil {
+			return err
+		}
+		if err := validateText(fmt.Sprintf("parameters[%d].authoredExpression", index), parameter.AuthoredExpression, true); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateDiagnostics(diagnostics []DiagnosticV1, code string, targetIDs map[string]struct{}) error {
-	diagnosticIDs := make(map[string]struct{}, len(diagnostics))
+func (request SetPythonTargetRequestV2) Validate() error {
+	if err := validateMutationRequest(request.ProjectID, request.ExpectedRevision); err != nil {
+		return err
+	}
+	return validateTarget(PythonTargetV2{Prefix: request.Prefix, Suffix: request.Suffix})
+}
+
+func (request CallableCompletionRequestV2) Validate() error {
+	if err := requireStableID("projectId", request.ProjectID); err != nil {
+		return err
+	}
+	if err := requireNonBlankText("authoredExpression", request.AuthoredExpression); err != nil {
+		return err
+	}
+	if request.CursorOffsetUTF16 < 0 {
+		return ValidationError{Field: "cursorOffsetUtf16", Problem: "must not be negative"}
+	}
+	return nil
+}
+
+func (request PythonTargetCompletionRequestV2) Validate() error {
+	if err := requireStableID("projectId", request.ProjectID); err != nil {
+		return err
+	}
+	if err := requireNonBlankText("code", request.Code); err != nil {
+		return err
+	}
+	if request.ProtectedBodyRange.Start < 0 || request.ProtectedBodyRange.End < request.ProtectedBodyRange.Start {
+		return ValidationError{Field: "protectedBodyRange", Problem: "is invalid"}
+	}
+	if request.CursorOffsetUTF16 < 0 {
+		return ValidationError{Field: "cursorOffsetUtf16", Problem: "must not be negative"}
+	}
+	return nil
+}
+
+func (response CompletionResponseV2) Validate() error {
+	if response.Items == nil {
+		return ValidationError{Field: "items", Problem: "must be an array"}
+	}
+	for index, item := range response.Items {
+		if err := requireNonBlankText(fmt.Sprintf("items[%d].label", index), item.Label); err != nil {
+			return err
+		}
+		if err := requireNonBlankText(fmt.Sprintf("items[%d].insertText", index), item.InsertText); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateMutationRequest(projectID string, expectedRevision int) error {
+	if err := requireStableID("projectId", projectID); err != nil {
+		return err
+	}
+	if expectedRevision < 1 {
+		return ValidationError{Field: "expectedRevision", Problem: "must be at least 1"}
+	}
+	return nil
+}
+
+func validateParameter(field string, parameter ParameterV2) error {
+	if err := validateParameterFields(field, parameter); err != nil {
+		return err
+	}
+	if parameter.NameEditable {
+		return validateAppAuthoredParameter(field, parameter)
+	}
+	return validateProviderDerivedParameter(field, parameter)
+}
+
+func validateParameterFields(field string, parameter ParameterV2) error {
+	if err := requireStableID(field+".id", parameter.ID); err != nil {
+		return err
+	}
+	if err := validateText(field+".name", parameter.Name, true); err != nil {
+		return err
+	}
+	if err := validateText(field+".authoredExpression", parameter.AuthoredExpression, true); err != nil {
+		return err
+	}
+	if !isPassingStyle(parameter.PassingStyle) {
+		return ValidationError{Field: field + ".passingStyle", Problem: "is unsupported"}
+	}
+	return nil
+}
+
+func validateAppAuthoredParameter(field string, parameter ParameterV2) error {
+	if !isCoherentAppAuthoredParameter(parameter) {
+		return ValidationError{Field: field, Problem: "has incoherent app-authored metadata"}
+	}
+	return nil
+}
+
+func isCoherentAppAuthoredParameter(parameter ParameterV2) bool {
+	return parameter.PassingStyle == ParameterPassingStylePositionalOrKeywordV2 && parameter.TypeAnnotation == nil && parameter.Default == nil && parameter.ProviderOrdinal == nil
+}
+
+func validateProviderDerivedParameter(field string, parameter ParameterV2) error {
+	if !isCoherentProviderDerivedParameter(parameter) {
+		return ValidationError{Field: field, Problem: "has incoherent provider-derived metadata"}
+	}
+	return nil
+}
+
+func isCoherentProviderDerivedParameter(parameter ParameterV2) bool {
+	return strings.TrimSpace(parameter.Name) != "" && parameter.TypeAnnotation != nil && parameter.ProviderOrdinal != nil && *parameter.ProviderOrdinal >= 0
+}
+
+func validateGeneratedCode(generated GeneratedCodeV2, target PythonTargetV2, targetIDs map[string]struct{}) error {
+	if err := validateGeneratedCodeStructure(generated); err != nil {
+		return err
+	}
+	if err := validateGeneratedCodeComposition(generated, target); err != nil {
+		return err
+	}
+	return validateGeneratedSourceRanges(generated, targetIDs)
+}
+
+func validateGeneratedCodeStructure(generated GeneratedCodeV2) error {
+	if generated.SourceRangesByTargetID == nil {
+		return ValidationError{Field: "generatedCode.sourceRangesByTargetId", Problem: "must be an object"}
+	}
+	if err := validateText("generatedCode.code", generated.Code, false); err != nil {
+		return err
+	}
+	if err := validateText("generatedCode.body", generated.Body, false); err != nil {
+		return err
+	}
+	if err := validateByteRange("generatedCode.generatedBodyRange", generated.GeneratedBodyRange, generated.Code); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateGeneratedCodeComposition(generated GeneratedCodeV2, target PythonTargetV2) error {
+	if generated.Code[generated.GeneratedBodyRange.Start:generated.GeneratedBodyRange.End] != generated.Body {
+		return ValidationError{Field: "generatedCode.generatedBodyRange", Problem: "must contain generatedCode.body"}
+	}
+	expectedCode := target.Prefix + "\n\n" + generated.Body + "\n\n" + target.Suffix
+	if generated.Code != expectedCode {
+		return ValidationError{Field: "generatedCode.code", Problem: "must compose the target and generated body"}
+	}
+	if generated.GeneratedBodyRange.Start != len(target.Prefix)+2 || generated.GeneratedBodyRange.End != len(target.Prefix)+2+len(generated.Body) {
+		return ValidationError{Field: "generatedCode.generatedBodyRange", Problem: "does not match the canonical generated body"}
+	}
+	return nil
+}
+
+func validateGeneratedSourceRanges(generated GeneratedCodeV2, targetIDs map[string]struct{}) error {
+	for targetID, byteRange := range generated.SourceRangesByTargetID {
+		if _, exists := targetIDs[targetID]; !exists {
+			return ValidationError{Field: "generatedCode.sourceRangesByTargetId", Problem: "references an unknown target"}
+		}
+		if err := validateByteRange("generatedCode.sourceRangesByTargetId."+targetID, byteRange, generated.Code); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateDiagnostics(diagnostics []DiagnosticV2, code string, targetIDs map[string]struct{}) error {
+	seen := make(map[string]struct{}, len(diagnostics))
 	for index, diagnostic := range diagnostics {
 		field := fmt.Sprintf("diagnostics[%d]", index)
 		if err := requireStableID(field+".id", diagnostic.ID); err != nil {
 			return err
 		}
-		if _, exists := diagnosticIDs[diagnostic.ID]; exists {
+		if _, exists := seen[diagnostic.ID]; exists {
 			return ValidationError{Field: field + ".id", Problem: "must be unique"}
 		}
-		if !isDiagnosticSeverityV1(diagnostic.Severity) {
-			return ValidationError{Field: field + ".severity", Problem: "is not supported by V1"}
+		if !isDiagnosticSeverity(diagnostic.Severity) {
+			return ValidationError{Field: field + ".severity", Problem: "is unsupported"}
 		}
-		if strings.TrimSpace(diagnostic.Message) == "" {
-			return ValidationError{Field: field + ".message", Problem: "must not be empty"}
+		if err := requireNonBlankText(field+".message", diagnostic.Message); err != nil {
+			return err
 		}
-		if err := validateDiagnosticRange(field, diagnostic, code); err != nil {
+		if err := validateByteRange(field, ByteRangeV2{Start: diagnostic.Start, End: diagnostic.End}, code); err != nil {
 			return err
 		}
 		if diagnostic.TargetID != nil {
 			if _, exists := targetIDs[*diagnostic.TargetID]; !exists {
-				return ValidationError{Field: field + ".targetId", Problem: "must reference a stable target ID"}
+				return ValidationError{Field: field + ".targetId", Problem: "references an unknown target"}
 			}
 		}
-		diagnosticIDs[diagnostic.ID] = struct{}{}
+		seen[diagnostic.ID] = struct{}{}
 	}
 	return nil
 }
 
-func validateDiagnosticRange(field string, diagnostic DiagnosticV1, code string) error {
-	if diagnostic.Start < 0 {
-		return ValidationError{Field: field + ".start", Problem: "must not be negative"}
+func validateTarget(target PythonTargetV2) error {
+	if err := validateText("pythonTarget.prefix", target.Prefix, true); err != nil {
+		return err
 	}
-	if diagnostic.End < diagnostic.Start {
-		return ValidationError{Field: field + ".end", Problem: "must not precede start"}
+	return validateText("pythonTarget.suffix", target.Suffix, true)
+}
+
+func validateByteRange(field string, byteRange ByteRangeV2, code string) error {
+	if byteRange.Start < 0 || byteRange.End < byteRange.Start || byteRange.End > len(code) {
+		return ValidationError{Field: field, Problem: "is outside generated code"}
 	}
-	if diagnostic.End > len(code) {
-		return ValidationError{Field: field + ".end", Problem: "must not exceed generated code length"}
-	}
-	if !isUTF8ByteBoundary(code, diagnostic.Start) {
-		return ValidationError{Field: field + ".start", Problem: "must be on a UTF-8 byte boundary"}
-	}
-	if !isUTF8ByteBoundary(code, diagnostic.End) {
-		return ValidationError{Field: field + ".end", Problem: "must be on a UTF-8 byte boundary"}
+	if !isUTF8Boundary(code, byteRange.Start) || !isUTF8Boundary(code, byteRange.End) {
+		return ValidationError{Field: field, Problem: "must use UTF-8 byte boundaries"}
 	}
 	return nil
 }
 
-func isUTF8ByteBoundary(value string, offset int) bool {
-	return offset == 0 || offset == len(value) || utf8.RuneStart(value[offset])
+func requireStableID(field string, value string) error {
+	if strings.TrimSpace(value) == "" || value != strings.TrimSpace(value) || !utf8.ValidString(value) || strings.ContainsRune(value, '\x00') {
+		return ValidationError{Field: field, Problem: "must be a nonblank stable ID"}
+	}
+	return nil
 }
 
-func requireStableID(field, value string) error {
-	if strings.TrimSpace(value) == "" {
-		return ValidationError{Field: field, Problem: "must not be empty"}
+func requireDisplayName(field string, value string) error {
+	if err := requireNonBlankText(field, value); err != nil {
+		return err
 	}
 	if value != strings.TrimSpace(value) {
 		return ValidationError{Field: field, Problem: "must not include surrounding whitespace"}
@@ -528,100 +666,64 @@ func requireStableID(field, value string) error {
 	return nil
 }
 
-func requireRequestID(field, value string) error {
+func requireNonBlankText(field string, value string) error {
 	if strings.TrimSpace(value) == "" {
 		return ValidationError{Field: field, Problem: "must not be empty"}
 	}
-	if value != strings.TrimSpace(value) {
-		return ValidationError{Field: field, Problem: "must not include surrounding whitespace"}
+	return validateText(field, value, false)
+}
+
+func validateText(field string, value string, allowEmpty bool) error {
+	if (!allowEmpty && value == "") || !utf8.ValidString(value) || strings.ContainsRune(value, '\x00') {
+		return ValidationError{Field: field, Problem: "is invalid"}
 	}
 	return nil
 }
 
-// Validate ensures a provider status remains inside the V1 transport
-// vocabulary before it becomes part of a canonical snapshot.
-func (status ProviderStatusV1) Validate() error {
-	return validateProviderStatus(status)
+func isUTF8Boundary(value string, offset int) bool {
+	return offset == 0 || offset == len(value) || (offset > 0 && offset < len(value) && utf8.RuneStart(value[offset]))
 }
 
-func validateProviderStatus(status ProviderStatusV1) error {
-	if status.Provider != ProviderBasedpyrightV1 {
-		return ValidationError{Field: "providerStatus.provider", Problem: "is not supported by V1"}
-	}
-	if !isProviderAvailabilityV1(status.Status) {
-		return ValidationError{Field: "providerStatus.status", Problem: "is not supported by V1"}
-	}
-	if !isProviderLifecycleStateV1(status.State) {
-		return ValidationError{Field: "providerStatus.state", Problem: "is not supported by V1"}
-	}
-	switch status.State {
-	case ProviderLifecycleStateNotStartedV1, ProviderLifecycleStateFailedV1:
-		if status.Status != ProviderAvailabilityUnavailableV1 {
-			return ValidationError{Field: "providerStatus", Problem: "has an invalid availability/lifecycle combination"}
-		}
-	case ProviderLifecycleStateReadyV1, ProviderLifecycleStatePendingV1:
-		if status.Status != ProviderAvailabilityAvailableV1 {
-			return ValidationError{Field: "providerStatus", Problem: "has an invalid availability/lifecycle combination"}
-		}
-	}
-	return nil
-}
-
-func isProviderAvailabilityV1(availability ProviderAvailabilityV1) bool {
-	switch availability {
-	case ProviderAvailabilityAvailableV1, ProviderAvailabilityUnavailableV1:
-		return true
-	default:
-		return false
-	}
-}
-
-func isProviderLifecycleStateV1(state ProviderLifecycleStateV1) bool {
-	switch state {
-	case ProviderLifecycleStateNotStartedV1,
-		ProviderLifecycleStateReadyV1,
-		ProviderLifecycleStatePendingV1,
-		ProviderLifecycleStateFailedV1:
-		return true
-	default:
-		return false
-	}
-}
-
-func isPassingStyleV1(style ParameterPassingStyleV1) bool {
+func isPassingStyle(style ParameterPassingStyleV2) bool {
 	switch style {
-	case ParameterPassingStylePositionalOnlyV1,
-		ParameterPassingStylePositionalOrKeywordV1,
-		ParameterPassingStyleKeywordOnlyV1,
-		ParameterPassingStyleVariadicPositionalV1,
-		ParameterPassingStyleVariadicKeywordV1:
+	case ParameterPassingStylePositionalOnlyV2, ParameterPassingStylePositionalOrKeywordV2, ParameterPassingStyleKeywordOnlyV2, ParameterPassingStyleVariadicPositionalV2, ParameterPassingStyleVariadicKeywordV2:
 		return true
 	default:
 		return false
 	}
 }
 
-func isDiagnosticSeverityV1(severity DiagnosticSeverityV1) bool {
+func isDiagnosticSeverity(severity DiagnosticSeverityV2) bool {
 	switch severity {
-	case DiagnosticSeverityErrorV1, DiagnosticSeverityWarningV1, DiagnosticSeverityInformationV1:
+	case DiagnosticSeverityErrorV2, DiagnosticSeverityWarningV2, DiagnosticSeverityInformationV2:
 		return true
 	default:
 		return false
 	}
 }
 
-func validateSourceRange(field string, sourceRange GeneratedSourceRangeV1, codeLength int, targetIDs map[string]struct{}) error {
-	if _, exists := targetIDs[sourceRange.TargetID]; !exists {
-		return ValidationError{Field: field + ".targetId", Problem: "must reference a stable target ID"}
+// FixtureProjectSnapshotV2 is intentionally a blank general project. It is a
+// generated-contract fixture, not startup data or a product fallback.
+func FixtureProjectSnapshotV2() ProjectSnapshotV2 {
+	body := "class SettaState:\n    def __init__(state):\n        pass"
+	prefix := ""
+	suffix := "state = SettaState()"
+	return ProjectSnapshotV2{
+		Version:      ProjectSnapshotVersionV2,
+		Project:      ProjectV2{ID: "project:fixture", Name: "Fixture project", Revision: 1},
+		PythonTarget: PythonTargetV2{Prefix: prefix, Suffix: suffix},
+		Callables:    []CallableV2{},
+		GeneratedCode: GeneratedCodeV2{
+			Code:                   prefix + "\n\n" + body + "\n\n" + suffix,
+			Body:                   body,
+			GeneratedBodyRange:     ByteRangeV2{Start: 2, End: 2 + len(body)},
+			SourceRangesByTargetID: map[string]ByteRangeV2{},
+		},
+		Diagnostics: []DiagnosticV2{},
+		ProviderStatus: ProviderStatusV2{
+			Provider: ProviderBasedpyrightV2,
+			Status:   ProviderAvailabilityUnavailableV2,
+			State:    ProviderLifecycleStateNotStartedV2,
+		},
 	}
-	if sourceRange.Start < 0 {
-		return ValidationError{Field: field + ".start", Problem: "must not be negative"}
-	}
-	if sourceRange.End < sourceRange.Start {
-		return ValidationError{Field: field + ".end", Problem: "must not precede start"}
-	}
-	if sourceRange.End > codeLength {
-		return ValidationError{Field: field + ".end", Problem: "must not exceed generated code length"}
-	}
-	return nil
 }

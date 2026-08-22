@@ -4,24 +4,23 @@ import {
   createWorkspaceCodeSectionData,
   getWorkspaceCodeSectionData,
   setItemData,
+  type WorkspaceCodeSectionDiagnostic,
   type WorkspaceDocument,
-  type WorkspaceDocumentInput,
   type WorkspaceHost,
   type WorkspaceItem,
-  type WorkspaceCodeSectionDiagnostic,
+  type WorkspaceItemDiagnostic,
   type WorkspaceSection,
   type WorkspaceSectionItemTree,
 } from "@setta/workspace";
 
 import {
-  DIAGNOSTIC_SEVERITY_INFORMATION_V1,
-  type DiagnosticV1,
-  type ParameterV1,
-  type ProjectSnapshotV1,
+  DIAGNOSTIC_SEVERITY_INFORMATION_V2,
+  type CallableV2,
+  type DiagnosticV2,
+  type ParameterV2,
+  type ProjectSnapshotV2,
 } from "../backend/generatedContract";
 import {
-  CALLABLE_SECTION_ID,
-  PARAMETER_ITEM_ROOT_ID,
   type CallableSectionData,
   type ParameterItemData,
   readParameterItemData,
@@ -31,173 +30,186 @@ export const CALLABLE_SECTION_KIND = "python-canvas.callable" as const;
 export const GENERATED_PYTHON_SECTION_ID =
   "python-canvas:generated-python" as const;
 
-export const CALLABLE_SECTION_SIZE = { width: 360, height: 280 } as const;
+export const CALLABLE_SECTION_SIZE = { width: 360, height: 300 } as const;
 export const GENERATED_PYTHON_SECTION_SIZE = {
   width: 640,
   height: 420,
 } as const;
 
+const generatedCodeSeparator = "\n\n";
+
+export function callableSectionID(callableId: string): string {
+  return `python-canvas:callable:${callableId}`;
+}
+
+function parameterItemRootID(callableId: string): string {
+  return `${callableSectionID(callableId)}:parameter-root`;
+}
+
+export type ProjectSnapshotProjectionOptions = Readonly<{
+  keepAuthoredPython: boolean;
+  keepParameterLists: ReadonlySet<string>;
+}>;
+
 export function projectWorkspaceDocument(
-  snapshot: ProjectSnapshotV1,
-): WorkspaceDocumentInput {
+  snapshot: ProjectSnapshotV2,
+): WorkspaceDocument {
+  const sections: WorkspaceDocument["sections"] = {
+    [GENERATED_PYTHON_SECTION_ID]: projectGeneratedPythonSection(snapshot),
+  };
+  const topLevelSections: WorkspaceDocument["topLevelSections"] = {
+    [GENERATED_PYTHON_SECTION_ID]: generatedPythonLayout(
+      snapshot.callables.length,
+    ),
+  };
+
+  for (const [index, callable] of snapshot.callables.entries()) {
+    const sectionId = callableSectionID(callable.id);
+    sections[sectionId] = projectCallableSection(snapshot, callable);
+    topLevelSections[sectionId] = callableLayout(index);
+  }
+
   return {
-    sections: {
-      [CALLABLE_SECTION_ID]: {
-        id: CALLABLE_SECTION_ID,
-        kind: CALLABLE_SECTION_KIND,
-        name: getCallable(snapshot).name,
-        size: CALLABLE_SECTION_SIZE,
-        overflowMode: false,
-        isMinimized: false,
-        // Parameter authoring is a structural item mutation, which the package
-        // refuses on a locked section, so this card is an ordinary movable one.
-        positionAndSizeLocked: false,
-        isHorizontalOrientation: false,
-        styleColor: null,
-        tagColor: null,
-        children: [],
-        data: projectCallableSectionData(snapshot),
-        itemTree: {
-          rootId: PARAMETER_ITEM_ROOT_ID,
-          items: projectParameterItems(snapshot),
-          selectedItemIds: [],
-        },
-      },
-      [GENERATED_PYTHON_SECTION_ID]: {
-        id: GENERATED_PYTHON_SECTION_ID,
-        kind: WORKSPACE_CODE_SECTION_KIND,
-        name: "Generated Python",
-        size: GENERATED_PYTHON_SECTION_SIZE,
-        overflowMode: false,
-        isMinimized: false,
-        // The prefix and suffix are authored here, and the package refuses every edit
-        // on a locked section, so this card is an ordinary movable one too.
-        positionAndSizeLocked: false,
-        isHorizontalOrientation: false,
-        styleColor: null,
-        tagColor: null,
-        children: [],
-        data: projectGeneratedCodeData(snapshot),
-      },
-    },
-    topLevelSections: {
-      [CALLABLE_SECTION_ID]: {
-        x: 0,
-        y: 0,
-        w: CALLABLE_SECTION_SIZE.width,
-        h: CALLABLE_SECTION_SIZE.height,
-        zIndex: 0,
-      },
-      [GENERATED_PYTHON_SECTION_ID]: {
-        x: 400,
-        y: 0,
-        w: GENERATED_PYTHON_SECTION_SIZE.width,
-        h: GENERATED_PYTHON_SECTION_SIZE.height,
-        zIndex: 1,
-      },
-    },
+    sections,
+    topLevelSections,
     viewport: null,
     activeIds: [],
   };
 }
 
-// What a canonical response may not write back, because the person has already moved past it. A
-// structural edit lands the moment the package's own action runs, and a keystroke in the generated
-// document lands the same way, so a response can arrive for a list or a target the document no
-// longer holds. What they last asked for stays, and the controller proposes it in turn. The
-// generated body is never theirs to keep: `keepAuthoredPython` holds the prefix and suffix they
-// typed, and the response's own body still lands between them.
-export type ProjectSnapshotProjectionOptions = Readonly<{
-  keepAuthoredPython: boolean;
-  keepParameterList: boolean;
-}>;
-
-// Applies one canonical Go response as one validated workspace-document commit. The package
-// publishes exactly one completed snapshot, so callable, parameter, and Generated Python
-// diagnostics can never be observed as different revisions. Every projection value is prepared
-// before that commit; a malformed response therefore leaves the existing workspace untouched.
+// Applies a complete canonical snapshot in one workspace transaction. Section
+// and item identities come from the current callable IDs, while canvas geometry
+// remains a transient workspace concern and is retained when that exact section
+// survives a response.
 export function applyProjectSnapshotToWorkspace(
   host: WorkspaceHost,
-  snapshot: ProjectSnapshotV1,
+  snapshot: ProjectSnapshotV2,
   options: ProjectSnapshotProjectionOptions,
 ): void {
-  const currentDocument = host.getSnapshot();
-  const callableSection = getProjectionSection(
-    currentDocument,
-    CALLABLE_SECTION_ID,
+  const current = host.getSnapshot();
+  const projected = projectWorkspaceDocument(snapshot);
+  const projectedCallables = projectCallableSections(
+    current,
+    projected,
+    snapshot,
+    options,
   );
-  const generatedPythonSection = getProjectionSection(
-    currentDocument,
-    GENERATED_PYTHON_SECTION_ID,
+  const projectedGenerated = projectGeneratedSection(
+    current,
+    projected,
+    snapshot,
+    options,
+    host,
   );
-  const itemTree = getCallableParameterItemTree(callableSection);
-  const nextItemTree = options.keepParameterList
-    ? projectRetainedParameterItems(itemTree, snapshot)
-    : projectCanonicalParameterItems(itemTree, snapshot);
-  const generatedData = options.keepAuthoredPython
-    ? retainedGeneratedCodeData(host, snapshot)
-    : projectGeneratedCodeData(snapshot);
+  const sections: WorkspaceDocument["sections"] = {
+    ...projectedCallables.sections,
+    [GENERATED_PYTHON_SECTION_ID]: projectedGenerated.section,
+  };
+  const topLevelSections: WorkspaceDocument["topLevelSections"] = {
+    ...projectedCallables.topLevelSections,
+    [GENERATED_PYTHON_SECTION_ID]: projectedGenerated.layout,
+  };
 
   commitWorkspaceDocument(host, {
-    ...currentDocument,
-    sections: {
-      ...currentDocument.sections,
-      [CALLABLE_SECTION_ID]: {
-        ...callableSection,
-        data: projectCallableSectionData(snapshot),
-        itemTree: nextItemTree,
-      },
-      [GENERATED_PYTHON_SECTION_ID]: {
-        ...generatedPythonSection,
-        data: generatedData,
-      },
-    },
+    ...current,
+    sections,
+    topLevelSections,
+    activeIds: current.activeIds.filter((id) => sections[id] !== undefined),
   });
 }
 
-// The response's own generated body between the prefix and suffix the person is still authoring.
-// The body is the project's either way: keeping the whole document instead would leave a module
-// the store has already replaced sitting in the one place it is supposed to be read from.
-function retainedGeneratedCodeData(
-  host: WorkspaceHost,
-  snapshot: ProjectSnapshotV1,
-) {
-  const { prefix, suffix } = readGeneratedPythonTarget(host);
-  return generatedCodeSectionData(
-    prefix,
-    generatedPythonRegionText(snapshot),
-    suffix,
-    [],
-  );
-}
-
-// The project's own data lands on the rows that survived whatever the person did while the
-// response was away; the list itself is left exactly as they left it.
-function projectRetainedParameterItems(
-  itemTree: WorkspaceSectionItemTree,
-  snapshot: ProjectSnapshotV1,
-): WorkspaceSectionItemTree {
-  const documentIds = new Set(getItemTreeRoot(itemTree).children);
-  const items = { ...itemTree.items };
-  for (const parameter of getCallableParameters(snapshot)) {
-    if (documentIds.has(parameter.id)) {
-      const item = items[parameter.id];
-      if (item === undefined) {
-        throw new Error(
-          `Python Canvas retained parameter ${parameter.id} is missing.`,
-        );
-      }
-      items[parameter.id] = {
-        ...item,
-        data: projectParameterItemData(parameter),
-      };
-    }
+function projectCallableSections(
+  current: WorkspaceDocument,
+  projected: WorkspaceDocument,
+  snapshot: ProjectSnapshotV2,
+  options: ProjectSnapshotProjectionOptions,
+): Pick<WorkspaceDocument, "sections" | "topLevelSections"> {
+  const sections: WorkspaceDocument["sections"] = {};
+  const topLevelSections: WorkspaceDocument["topLevelSections"] = {};
+  for (const [index, callable] of snapshot.callables.entries()) {
+    const sectionId = callableSectionID(callable.id);
+    const next = requireProjectedSection(projected, sectionId);
+    sections[sectionId] = projectCallableResponseSection(
+      current.sections[sectionId],
+      next,
+      callable,
+      options,
+    );
+    topLevelSections[sectionId] =
+      current.topLevelSections[sectionId] ??
+      projected.topLevelSections[sectionId] ??
+      callableLayout(index);
   }
-  return { ...itemTree, items };
+  return { sections, topLevelSections };
 }
 
-// The authored Python the generated document currently holds, split at the package's own mapped
-// protected range rather than by searching the text for the generated body.
+function requireProjectedSection(
+  projected: WorkspaceDocument,
+  sectionId: string,
+): WorkspaceSection {
+  const section = projected.sections[sectionId];
+  if (section === undefined) {
+    throw new Error(`Python Canvas projection is missing ${sectionId}.`);
+  }
+  return section;
+}
+
+function projectCallableResponseSection(
+  previous: WorkspaceSection | undefined,
+  next: WorkspaceSection,
+  callable: CallableV2,
+  options: ProjectSnapshotProjectionOptions,
+): WorkspaceSection {
+  if (previous === undefined) {
+    return next;
+  }
+  return {
+    ...next,
+    itemTree: projectCallableItemTree(previous.itemTree, callable, options),
+  };
+}
+
+function projectCallableItemTree(
+  previous: WorkspaceSectionItemTree | undefined,
+  callable: CallableV2,
+  options: ProjectSnapshotProjectionOptions,
+): WorkspaceSectionItemTree {
+  if (previous !== undefined && options.keepParameterLists.has(callable.id)) {
+    return projectRetainedParameterItems(previous);
+  }
+  return projectCanonicalParameterItems(previous, callable);
+}
+
+function projectGeneratedSection(
+  current: WorkspaceDocument,
+  projected: WorkspaceDocument,
+  snapshot: ProjectSnapshotV2,
+  options: ProjectSnapshotProjectionOptions,
+  host: WorkspaceHost,
+): {
+  layout: WorkspaceDocument["topLevelSections"][string];
+  section: WorkspaceSection;
+} {
+  const next = requireProjectedSection(projected, GENERATED_PYTHON_SECTION_ID);
+  const previous = current.sections[GENERATED_PYTHON_SECTION_ID];
+  const section =
+    previous === undefined
+      ? next
+      : {
+          ...next,
+          data: options.keepAuthoredPython
+            ? retainedGeneratedCodeData(host, snapshot)
+            : next.data,
+        };
+  return {
+    layout:
+      current.topLevelSections[GENERATED_PYTHON_SECTION_ID] ??
+      projected.topLevelSections[GENERATED_PYTHON_SECTION_ID] ??
+      generatedPythonLayout(snapshot.callables.length),
+    section,
+  };
+}
+
 export function readGeneratedPythonTarget(host: WorkspaceHost): {
   generated: string;
   prefix: string;
@@ -208,39 +220,44 @@ export function readGeneratedPythonTarget(host: WorkspaceHost): {
     throw new Error("Generated Python is not a generated document.");
   }
   const { from, to } = data.generatedRegion;
+  const beforeBody = data.code.slice(0, from);
+  const afterBody = data.code.slice(to);
+  if (
+    !beforeBody.endsWith(generatedCodeSeparator) ||
+    !afterBody.startsWith(generatedCodeSeparator)
+  ) {
+    throw new Error("Generated Python separators are not canonical.");
+  }
   return {
     generated: data.code.slice(from, to),
-    prefix: data.code.slice(0, from),
-    suffix: data.code.slice(to),
+    prefix: beforeBody.slice(0, -generatedCodeSeparator.length),
+    suffix: afterBody.slice(generatedCodeSeparator.length),
   };
-}
-
-// The bytes the package protected have to be the canonical ones this proposal was split around,
-// or the offsets it was split at mean something else entirely.
-export function generatedPythonRegionText(snapshot: ProjectSnapshotV1): string {
-  return `\n\n${snapshot.generatedCode.body}\n\n`;
 }
 
 export function setParameterItemsDisabled(
   host: WorkspaceHost,
+  callableId: string,
   disabled: boolean,
 ): void {
-  for (const item of readCallableParameterItems(host.getSnapshot())) {
+  const sectionId = callableSectionID(callableId);
+  for (const item of readCallableParameterItems(
+    host.getSnapshot(),
+    callableId,
+  )) {
     if (item.data.disabled !== disabled) {
-      setItemData(host, CALLABLE_SECTION_ID, item.id, {
-        ...item.data,
-        disabled,
-      });
+      setItemData(host, sectionId, item.id, { ...item.data, disabled });
     }
   }
 }
 
 export function setParameterItemExpression(
   host: WorkspaceHost,
-  parameterID: string,
+  callableId: string,
+  parameterId: string,
   authoredExpression: string,
 ): void {
-  updateParameterItem(host, parameterID, (data) =>
+  updateParameterItem(host, callableId, parameterId, (data) =>
     data.authoredExpression === authoredExpression
       ? null
       : { ...data, authoredExpression },
@@ -249,17 +266,15 @@ export function setParameterItemExpression(
 
 export function setParameterItemName(
   host: WorkspaceHost,
-  parameterID: string,
+  callableId: string,
+  parameterId: string,
   name: string,
 ): void {
-  updateParameterItem(host, parameterID, (data) =>
+  updateParameterItem(host, callableId, parameterId, (data) =>
     data.name === name ? null : { ...data, name },
   );
 }
 
-// The record the package's Add parameter action inserts: one blank app-authored parameter whose ID
-// the store adopts. Canonical responses commit their complete validated snapshot separately, so
-// this factory only represents a person starting a new local parameter.
 export function createCallableParameterItem(): WorkspaceItem {
   return {
     id: `parameter:authored:${crypto.randomUUID()}`,
@@ -274,7 +289,6 @@ export function createCallableParameterItem(): WorkspaceItem {
   };
 }
 
-// The callable's rows in document order, which is what its section renders.
 export function readCallableParameterRows(
   section: WorkspaceSection,
 ): Array<{ data: ParameterItemData; id: string }> {
@@ -282,162 +296,144 @@ export function readCallableParameterRows(
   if (itemTree === undefined) {
     throw new Error("The Python Canvas callable section has no item tree.");
   }
-  return [...(itemTree.items[itemTree.rootId]?.children ?? [])].map(
-    (itemId) => {
-      const item = itemTree.items[itemId];
-      if (item === undefined) {
-        throw new Error(`Python Canvas parameter item ${itemId} is missing.`);
-      }
-      return { data: readParameterItemData(item.data), id: itemId };
-    },
-  );
+  const root = itemTree.items[itemTree.rootId];
+  if (root === undefined) {
+    throw new Error("The Python Canvas callable parameter root is missing.");
+  }
+  return root.children.map((itemId) => {
+    const item = itemTree.items[itemId];
+    if (item === undefined) {
+      throw new Error(`Python Canvas parameter item ${itemId} is missing.`);
+    }
+    return { data: readParameterItemData(item.data), id: itemId };
+  });
 }
 
-// The same rows read from a whole document, which is what a proposal to the store is made of.
 export function readCallableParameterItems(
   document: WorkspaceDocument,
+  callableId: string,
 ): Array<{ data: ParameterItemData; id: string }> {
-  const section = document.sections[CALLABLE_SECTION_ID];
+  const section = document.sections[callableSectionID(callableId)];
   if (section === undefined) {
-    throw new Error(
-      "Python Canvas projection is missing its callable section.",
-    );
+    throw new Error(`Python Canvas callable ${callableId} is missing.`);
   }
   return readCallableParameterRows(section);
 }
 
-// A response that answers the current list keeps its existing tree shape and selection while
-// replacing only canonical row data. A response that changes the canonical order or membership
-// deliberately replaces that complete semantic list; ordinary user authoring still reaches the
-// package's own item actions before any response is projected back.
-function projectCanonicalParameterItems(
-  itemTree: WorkspaceSectionItemTree,
-  snapshot: ProjectSnapshotV1,
-): WorkspaceSectionItemTree {
-  const canonical = getCallableParameters(snapshot);
-  const canonicalIds = canonical.map((parameter) => parameter.id);
-  const root = getItemTreeRoot(itemTree);
-  if (sameOrder(root.children, canonicalIds)) {
-    const items = { ...itemTree.items };
-    for (const parameter of canonical) {
-      const item = items[parameter.id];
-      if (item === undefined) {
-        throw new Error(
-          `Python Canvas canonical parameter ${parameter.id} is missing.`,
-        );
-      }
-      items[parameter.id] = {
-        ...item,
-        data: projectParameterItemData(parameter),
-      };
-    }
-    return { ...itemTree, items };
-  }
-
+function projectCallableSection(
+  snapshot: ProjectSnapshotV2,
+  callable: CallableV2,
+): WorkspaceSection {
+  const sectionId = callableSectionID(callable.id);
   return {
-    ...itemTree,
-    items: {
-      [itemTree.rootId]: { ...root, children: canonicalIds },
-      ...Object.fromEntries(
-        canonical.map((parameter) => [
-          parameter.id,
-          {
-            id: parameter.id,
-            children: [],
-            data: projectParameterItemData(parameter),
-          } satisfies WorkspaceItem,
-        ]),
-      ),
-    },
-    selectedItemIds: itemTree.selectedItemIds.filter((itemId) =>
-      canonicalIds.includes(itemId),
-    ),
+    id: sectionId,
+    kind: CALLABLE_SECTION_KIND,
+    name: callable.name,
+    size: CALLABLE_SECTION_SIZE,
+    overflowMode: false,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isHorizontalOrientation: false,
+    styleColor: null,
+    tagColor: null,
+    children: [],
+    data: projectCallableSectionData(snapshot, callable),
+    itemTree: projectCanonicalParameterItems(undefined, callable),
   };
 }
 
-function getProjectionSection(
-  document: WorkspaceDocument,
-  sectionId: string,
+function projectGeneratedPythonSection(
+  snapshot: ProjectSnapshotV2,
 ): WorkspaceSection {
-  const section = document.sections[sectionId];
-  if (section === undefined) {
-    throw new Error(
-      `Python Canvas projection is missing section ${sectionId}.`,
-    );
-  }
-  return section;
+  return {
+    id: GENERATED_PYTHON_SECTION_ID,
+    kind: WORKSPACE_CODE_SECTION_KIND,
+    name: "Generated Python",
+    size: GENERATED_PYTHON_SECTION_SIZE,
+    overflowMode: false,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isHorizontalOrientation: false,
+    styleColor: null,
+    tagColor: null,
+    children: [],
+    data: projectGeneratedCodeData(snapshot),
+  };
 }
 
-function getCallableParameterItemTree(
-  section: WorkspaceSection,
+function projectRetainedParameterItems(
+  itemTree: WorkspaceSectionItemTree,
 ): WorkspaceSectionItemTree {
-  const itemTree = section.itemTree;
-  if (itemTree === undefined) {
-    throw new Error("The Python Canvas callable section has no item tree.");
-  }
+  // A retained list is a local whole-list proposal, not a partial merge. A
+  // response for another mutation must not replace a name, expression, order,
+  // selection, or app-authored row while this callable still has a draft.
   return itemTree;
 }
 
-function getItemTreeRoot(itemTree: WorkspaceSectionItemTree): WorkspaceItem {
-  const root = itemTree.items[itemTree.rootId];
-  if (root === undefined) {
-    throw new Error(
-      `Python Canvas parameter root ${itemTree.rootId} is missing.`,
-    );
+function projectCanonicalParameterItems(
+  previous: WorkspaceSectionItemTree | undefined,
+  callable: CallableV2,
+): WorkspaceSectionItemTree {
+  const rootId = parameterItemRootID(callable.id);
+  const ids = callable.parameters.map((parameter) => parameter.id);
+  const items: Record<string, WorkspaceItem> = {
+    [rootId]: { id: rootId, children: ids },
+  };
+  for (const parameter of callable.parameters) {
+    items[parameter.id] = {
+      id: parameter.id,
+      children: [],
+      data: projectParameterItemData(parameter),
+    };
   }
-  return root;
+  return {
+    rootId,
+    items,
+    selectedItemIds:
+      previous?.selectedItemIds.filter((id) => ids.includes(id)) ?? [],
+  };
 }
 
 function updateParameterItem(
   host: WorkspaceHost,
-  parameterID: string,
+  callableId: string,
+  parameterId: string,
   next: (data: ParameterItemData) => ParameterItemData | null,
 ): void {
-  const current = readCallableParameterItems(host.getSnapshot()).find(
-    (item) => item.id === parameterID,
-  );
+  const current = readCallableParameterItems(
+    host.getSnapshot(),
+    callableId,
+  ).find((item) => item.id === parameterId);
   if (current === undefined) {
     return;
   }
   const data = next(current.data);
-  if (data === null) {
-    return;
+  if (data !== null) {
+    setItemData(host, callableSectionID(callableId), parameterId, data);
   }
-  setItemData(host, CALLABLE_SECTION_ID, parameterID, data);
-}
-
-function sameOrder(left: Array<string>, right: Array<string>): boolean {
-  return (
-    left.length === right.length &&
-    left.every((id, index) => id === right[index])
-  );
 }
 
 function projectCallableSectionData(
-  snapshot: ProjectSnapshotV1,
+  snapshot: ProjectSnapshotV2,
+  callable: CallableV2,
 ): CallableSectionData {
-  const callable = getCallable(snapshot);
   const parameterIds = new Set(
-    getCallableParameters(snapshot).map((parameter) => parameter.id),
+    callable.parameters.map((parameter) => parameter.id),
   );
-  const callableDiagnosticMessages: Array<string> = [];
+  const callableMessages: string[] = [];
   const parameterDiagnostics: CallableSectionData["parameterDiagnostics"] = {};
   for (const diagnostic of snapshot.diagnostics) {
     if (diagnostic.targetId === callable.id) {
-      callableDiagnosticMessages.push(diagnostic.message);
-      continue;
-    }
-    if (
-      diagnostic.targetId === null ||
-      !parameterIds.has(diagnostic.targetId)
+      callableMessages.push(diagnostic.message);
+    } else if (
+      diagnostic.targetId !== null &&
+      parameterIds.has(diagnostic.targetId)
     ) {
-      continue;
+      parameterDiagnostics[diagnostic.targetId] = [
+        ...(parameterDiagnostics[diagnostic.targetId] ?? []),
+        projectParameterDiagnostic(diagnostic),
+      ];
     }
-    const projected = projectParameterDiagnostic(diagnostic);
-    parameterDiagnostics[diagnostic.targetId] = [
-      ...(parameterDiagnostics[diagnostic.targetId] ?? []),
-      projected,
-    ];
   }
   return {
     callable: {
@@ -446,43 +442,13 @@ function projectCallableSectionData(
       name: callable.name,
     },
     callableDiagnosticMessage:
-      callableDiagnosticMessages.length === 0
-        ? null
-        : callableDiagnosticMessages.join("\n"),
+      callableMessages.length === 0 ? null : callableMessages.join("\n"),
     parameterDiagnostics,
-    providerStatus: {
-      provider: snapshot.providerStatus.provider,
-      status: snapshot.providerStatus.status,
-      state: snapshot.providerStatus.state,
-    },
+    providerStatus: snapshot.providerStatus,
   };
 }
 
-function projectParameterItems(
-  snapshot: ProjectSnapshotV1,
-): Record<string, WorkspaceItem> {
-  const parameters = getCallableParameters(snapshot);
-  const items: Record<string, WorkspaceItem> = {
-    [PARAMETER_ITEM_ROOT_ID]: {
-      id: PARAMETER_ITEM_ROOT_ID,
-      children: parameters.map((parameter) => parameter.id),
-    },
-  };
-  for (const parameter of parameters) {
-    items[parameter.id] = {
-      id: parameter.id,
-      children: [],
-      data: projectParameterItemData(parameter),
-    };
-  }
-  return items;
-}
-
-function projectParameterItemData(parameter: ParameterV1): ParameterItemData {
-  // The row is main's ordinary text parameter, so it is projected the name, whether that name is
-  // the app's to write, the authored value, and the real default. The canonical passing style and
-  // type annotation stay where code generation and diagnostics read them rather than becoming
-  // permanent row copy.
+function projectParameterItemData(parameter: ParameterV2): ParameterItemData {
   return {
     authoredExpression: parameter.authoredExpression,
     default: parameter.default,
@@ -492,57 +458,73 @@ function projectParameterItemData(parameter: ParameterV1): ParameterItemData {
   };
 }
 
-// The Go response already separates the target's prefix and suffix from the generated body, so the
-// reader shows the same authority boundary the backend owns: only the body is generated. This
-// asserts the combined bytes rather than trusting the parts, and then declares the range from the
-// end of the prefix to the start of the suffix, which is the donor's own separator-bounded range.
-// It is a frontend projection over an already canonical response, not a second code-generation
-// model.
-function projectGeneratedCodeData(snapshot: ProjectSnapshotV1) {
+function projectGeneratedCodeData(snapshot: ProjectSnapshotV2) {
   const { prefix, suffix } = snapshot.pythonTarget;
-  const generated = generatedPythonRegionText(snapshot);
-  if (`${prefix}${generated}${suffix}` !== snapshot.generatedCode.code) {
+  const { body, code, generatedBodyRange } = snapshot.generatedCode;
+  const expected = `${prefix}${generatedCodeSeparator}${body}${generatedCodeSeparator}${suffix}`;
+  if (code !== expected) {
     throw new Error(
-      "Generated Python does not compose its canonical prefix, body, and suffix.",
+      "Generated Python does not compose its canonical target and body.",
     );
   }
-  return generatedCodeSectionData(
+  return generatedCodeSectionData({
+    body,
+    diagnostics: projectDocumentDiagnostics(snapshot),
+    generatedBodyRange,
     prefix,
-    generated,
     suffix,
-    projectDocumentDiagnostics(snapshot),
-  );
-}
-
-// One place declares the range, so the authored regions and the range that separates them can
-// never disagree about where the generated body starts and ends.
-function generatedCodeSectionData(
-  prefix: string,
-  generated: string,
-  suffix: string,
-  diagnostics: ReadonlyArray<WorkspaceCodeSectionDiagnostic>,
-) {
-  const code = `${prefix}${generated}${suffix}`;
-  return createWorkspaceCodeSectionData({
-    code,
-    diagnostics: [...diagnostics],
-    generatedRegion: { from: prefix.length, to: code.length - suffix.length },
-    language: "python",
-    wrapLines: true,
-    lineNumbers: true,
-    indentWidth: 4,
-    // The section is authored Python around a Go-owned body, so it selects the package's generic
-    // generated-document presentation: an ordinary editor whose declared range refuses edits.
-    mode: "generated-document",
   });
 }
 
-// The canonical contract carries UTF-8 byte offsets because Go and the provider
-// own the generated document. CodeMirror indexes its JavaScript string in UTF-16
-// code units, so targetless diagnostics cross that representation boundary once,
-// as the snapshot is projected into package-owned code-section data.
+function retainedGeneratedCodeData(
+  host: WorkspaceHost,
+  snapshot: ProjectSnapshotV2,
+) {
+  const { prefix, suffix } = readGeneratedPythonTarget(host);
+  return generatedCodeSectionData({
+    body: snapshot.generatedCode.body,
+    diagnostics: [],
+    prefix,
+    suffix,
+  });
+}
+
+function generatedCodeSectionData({
+  body,
+  diagnostics,
+  generatedBodyRange,
+  prefix,
+  suffix,
+}: {
+  body: string;
+  diagnostics: ReadonlyArray<WorkspaceCodeSectionDiagnostic>;
+  generatedBodyRange?: { end: number; start: number };
+  prefix: string;
+  suffix: string;
+}) {
+  const bodyStartBytes =
+    generatedBodyRange?.start ??
+    utf8ByteLength(prefix) + generatedCodeSeparator.length;
+  const bodyEndBytes =
+    generatedBodyRange?.end ?? bodyStartBytes + utf8ByteLength(body);
+  const code = `${prefix}${generatedCodeSeparator}${body}${generatedCodeSeparator}${suffix}`;
+  return createWorkspaceCodeSectionData({
+    code,
+    diagnostics: [...diagnostics],
+    generatedRegion: {
+      from: utf8ByteOffsetToUtf16Offset(code, bodyStartBytes),
+      to: utf8ByteOffsetToUtf16Offset(code, bodyEndBytes),
+    },
+    indentWidth: 4,
+    language: "python",
+    lineNumbers: true,
+    mode: "generated-document",
+    wrapLines: true,
+  });
+}
+
 function projectDocumentDiagnostics(
-  snapshot: ProjectSnapshotV1,
+  snapshot: ProjectSnapshotV2,
 ): Array<WorkspaceCodeSectionDiagnostic> {
   return snapshot.diagnostics.flatMap((diagnostic) => {
     if (diagnostic.targetId !== null) {
@@ -559,10 +541,52 @@ function projectDocumentDiagnostics(
           diagnostic.end,
         ),
         message: diagnostic.message,
-        severity: projectDiagnosticSeverity(diagnostic),
+        severity:
+          diagnostic.severity === DIAGNOSTIC_SEVERITY_INFORMATION_V2
+            ? "info"
+            : diagnostic.severity,
       },
     ];
   });
+}
+
+function projectParameterDiagnostic(
+  diagnostic: DiagnosticV2,
+): WorkspaceItemDiagnostic {
+  return {
+    message: diagnostic.message,
+    severity:
+      diagnostic.severity === DIAGNOSTIC_SEVERITY_INFORMATION_V2
+        ? "info"
+        : diagnostic.severity,
+  };
+}
+
+function callableLayout(index: number) {
+  const column = index % 2;
+  const row = Math.floor(index / 2);
+  return {
+    x: column * (CALLABLE_SECTION_SIZE.width + 32),
+    y: row * (CALLABLE_SECTION_SIZE.height + 32),
+    w: CALLABLE_SECTION_SIZE.width,
+    h: CALLABLE_SECTION_SIZE.height,
+    zIndex: index,
+  };
+}
+
+function generatedPythonLayout(callableCount: number) {
+  const rows = Math.max(1, Math.ceil(callableCount / 2));
+  return {
+    x: 0,
+    y: rows * (CALLABLE_SECTION_SIZE.height + 48),
+    w: GENERATED_PYTHON_SECTION_SIZE.width,
+    h: GENERATED_PYTHON_SECTION_SIZE.height,
+    zIndex: callableCount,
+  };
+}
+
+function utf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).length;
 }
 
 function utf8ByteOffsetToUtf16Offset(code: string, byteOffset: number): number {
@@ -575,7 +599,7 @@ function utf8ByteOffsetToUtf16Offset(code: string, byteOffset: number): number {
   for (const character of code) {
     const nextUtf8Offset = utf8Offset + encoder.encode(character).length;
     if (byteOffset < nextUtf8Offset) {
-      throw new Error("Document diagnostic offset is not a UTF-8 boundary.");
+      throw new Error("Document offset is not a UTF-8 boundary.");
     }
     utf8Offset = nextUtf8Offset;
     utf16Offset += character.length;
@@ -583,52 +607,5 @@ function utf8ByteOffsetToUtf16Offset(code: string, byteOffset: number): number {
       return utf16Offset;
     }
   }
-  throw new Error("Document diagnostic offset exceeds generated Python.");
-}
-
-function getCallable(snapshot: ProjectSnapshotV1) {
-  const callable = snapshot.callables[0];
-  if (callable === undefined) {
-    throw new Error("Project snapshot is missing its callable.");
-  }
-  return callable;
-}
-
-// The callable's ordered parameter list, resolved against the snapshot's own records so a
-// malformed response fails here rather than rendering a row with no meaning behind it.
-function getCallableParameters(
-  snapshot: ProjectSnapshotV1,
-): Array<ParameterV1> {
-  const callable = getCallable(snapshot);
-  if (callable.parameterIds.length !== snapshot.parameters.length) {
-    throw new Error(
-      "Project snapshot has parameters its callable does not carry.",
-    );
-  }
-  return callable.parameterIds.map((parameterId) => {
-    const parameter = snapshot.parameters.find(
-      (candidate) => candidate.id === parameterId,
-    );
-    if (parameter === undefined) {
-      throw new Error(
-        `Project snapshot callable parameter ${parameterId} has no parameter record.`,
-      );
-    }
-    return parameter;
-  });
-}
-
-function projectParameterDiagnostic(diagnostic: DiagnosticV1) {
-  return {
-    message: diagnostic.message,
-    severity: projectDiagnosticSeverity(diagnostic),
-  };
-}
-
-function projectDiagnosticSeverity(
-  diagnostic: DiagnosticV1,
-): "error" | "warning" | "info" {
-  return diagnostic.severity === DIAGNOSTIC_SEVERITY_INFORMATION_V1
-    ? "info"
-    : diagnostic.severity;
+  throw new Error("Document offset exceeds generated Python.");
 }

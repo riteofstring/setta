@@ -1,4 +1,4 @@
-import { PYTHON_KEYWORDS_V1 } from "../backend/generatedContract";
+import { PYTHON_KEYWORDS_V2 } from "../backend/generatedContract";
 
 // Main's parameter-name rules for a kwarg in a project that generates Python:
 // `validateParamNameInput` for the name on its own and `getParamNameDuplicateError` for the name
@@ -11,7 +11,7 @@ import { PYTHON_KEYWORDS_V1 } from "../backend/generatedContract";
 // does. A present name has to be a name Python can take as a keyword argument, and no two records
 // under this callable may claim the same one.
 
-const pythonKeywords: ReadonlySet<string> = new Set(PYTHON_KEYWORDS_V1);
+const pythonKeywords: ReadonlySet<string> = new Set(PYTHON_KEYWORDS_V2);
 
 // The store's own `isPythonIdentifier`: a letter or underscore, then letters, digits, or
 // underscores. Go's `unicode.IsLetter` and `unicode.IsDigit` are the `L` and `Nd` categories.

@@ -1,35 +1,38 @@
 import {
-  DIAGNOSTIC_SEVERITY_ERROR_V1,
-  DIAGNOSTIC_SEVERITY_INFORMATION_V1,
-  DIAGNOSTIC_SEVERITY_WARNING_V1,
-  PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V1,
-  PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1,
-  PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1,
-  PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1,
-  PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1,
-  PROJECT_SNAPSHOT_VERSION_V1,
-  PROVIDER_AVAILABILITY_AVAILABLE_V1,
-  PROVIDER_AVAILABILITY_UNAVAILABLE_V1,
-  PROVIDER_BASEDPYRIGHT_V1,
-  PROVIDER_LIFECYCLE_STATE_FAILED_V1,
-  PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1,
-  PROVIDER_LIFECYCLE_STATE_PENDING_V1,
-  PROVIDER_LIFECYCLE_STATE_READY_V1,
-  type CallableV1,
-  type CompletionItemV1,
-  type CompletionResponseV1,
-  type APIErrorCodeV1,
-  type DiagnosticSeverityV1,
-  type DiagnosticV1,
-  type ErrorResponseV1,
-  type GeneratedCodeV1,
-  type GeneratedSourceRangeV1,
-  type ParameterPassingStyleV1,
-  type ParameterV1,
-  type ProjectSnapshotV1,
-  type ProjectV1,
-  type ProviderStatusV1,
-  type PythonTargetV1,
+  DIAGNOSTIC_SEVERITY_ERROR_V2,
+  DIAGNOSTIC_SEVERITY_INFORMATION_V2,
+  DIAGNOSTIC_SEVERITY_WARNING_V2,
+  PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V2,
+  PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V2,
+  PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
+  PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2,
+  PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2,
+  PROJECT_SNAPSHOT_VERSION_V2,
+  PROVIDER_AVAILABILITY_AVAILABLE_V2,
+  PROVIDER_AVAILABILITY_UNAVAILABLE_V2,
+  PROVIDER_BASEDPYRIGHT_V2,
+  PROVIDER_LIFECYCLE_STATE_FAILED_V2,
+  PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V2,
+  PROVIDER_LIFECYCLE_STATE_PENDING_V2,
+  PROVIDER_LIFECYCLE_STATE_READY_V2,
+  type APIErrorCodeV2,
+  type APIErrorV2,
+  type ByteRangeV2,
+  type CallableV2,
+  type CompletionItemV2,
+  type CompletionResponseV2,
+  type DiagnosticSeverityV2,
+  type DiagnosticV2,
+  type ErrorResponseV2,
+  type GeneratedCodeV2,
+  type ParameterPassingStyleV2,
+  type ParameterV2,
+  type ProjectSnapshotV2,
+  type ProjectV2,
+  type ProviderAvailabilityV2,
+  type ProviderLifecycleStateV2,
+  type ProviderStatusV2,
+  type PythonTargetV2,
 } from "./generatedContract";
 
 export class ProjectSnapshotValidationError extends Error {
@@ -39,62 +42,96 @@ export class ProjectSnapshotValidationError extends Error {
     public readonly field: string,
     problem: string,
   ) {
-    super(`Invalid ProjectSnapshotV1 ${field}: ${problem}.`);
+    super(`Invalid ProjectSnapshotV2 ${field}: ${problem}.`);
   }
 }
 
-export function parseProjectSnapshotV1(value: unknown): ProjectSnapshotV1 {
+const encoder = new TextEncoder();
+
+export function parseProjectSnapshotV2(value: unknown): ProjectSnapshotV2 {
   const record = readClosedRecord(value, "snapshot", [
     "version",
     "project",
     "pythonTarget",
     "callables",
-    "parameters",
     "generatedCode",
     "diagnostics",
     "providerStatus",
   ]);
-
   const version = readString(record.version, "version");
-  if (version !== PROJECT_SNAPSHOT_VERSION_V1) {
-    fail("version", "is not supported by V1");
+  if (version !== PROJECT_SNAPSHOT_VERSION_V2) {
+    fail("version", "is not supported");
   }
 
-  const snapshot: ProjectSnapshotV1 = {
-    version,
-    project: parseProject(record.project),
-    pythonTarget: parsePythonTarget(record.pythonTarget),
-    callables: parseCallables(record.callables),
-    parameters: parseParameters(record.parameters),
-    generatedCode: parseGeneratedCode(record.generatedCode),
-    diagnostics: parseDiagnostics(record.diagnostics),
+  const project = parseProject(record.project);
+  const pythonTarget = parsePythonTarget(record.pythonTarget);
+  const targetIds = new Set<string>();
+  const callables = parseCallables(record.callables, targetIds);
+  const generatedCode = parseGeneratedCode(
+    record.generatedCode,
+    pythonTarget,
+    targetIds,
+  );
+  const diagnostics = parseDiagnostics(
+    record.diagnostics,
+    generatedCode.code,
+    targetIds,
+  );
+
+  return {
+    version: PROJECT_SNAPSHOT_VERSION_V2,
+    project,
+    pythonTarget,
+    callables,
+    generatedCode,
+    diagnostics,
     providerStatus: parseProviderStatus(record.providerStatus),
   };
-
-  validateSnapshotRelationships(snapshot);
-  return snapshot;
 }
 
-export function parseErrorResponseV1(value: unknown): ErrorResponseV1 {
+export function parseErrorResponseV2(value: unknown): ErrorResponseV2 {
   const response = readClosedRecord(value, "error response", ["error"]);
-  const error = readClosedRecord(response.error, "error response.error", [
-    "code",
-    "message",
-  ]);
-  return {
-    error: {
-      code: parseApiErrorCode(error.code),
-      message: readNonBlankString(
-        error.message,
-        "error response.error.message",
-      ),
-    },
-  };
+  const errorRecord = readPlainRecord(response.error, "error response.error");
+  const code = parseApiErrorCode(errorRecord.code);
+  const message = readNonBlankString(
+    errorRecord.message,
+    "error response.error.message",
+  );
+
+  if (code === "revision_conflict") {
+    requireExactEnumerableKeys(
+      errorRecord,
+      ["code", "message", "expectedRevision", "currentRevision"],
+      "error response.error",
+    );
+    return {
+      error: {
+        code,
+        currentRevision: readPositiveInteger(
+          errorRecord.currentRevision,
+          "error response.error.currentRevision",
+        ),
+        expectedRevision: readPositiveInteger(
+          errorRecord.expectedRevision,
+          "error response.error.expectedRevision",
+        ),
+        message,
+      },
+    };
+  }
+
+  requireExactEnumerableKeys(
+    errorRecord,
+    ["code", "message"],
+    "error response.error",
+  );
+  const error: APIErrorV2 = { code, message };
+  return { error };
 }
 
-export function parseCompletionResponseV1(
+export function parseCompletionResponseV2(
   value: unknown,
-): CompletionResponseV1 {
+): CompletionResponseV2 {
   const response = readClosedRecord(value, "completion response", ["items"]);
   return {
     items: readArray(
@@ -105,128 +142,293 @@ export function parseCompletionResponseV1(
   };
 }
 
-function parseCompletionItem(value: unknown, index: number): CompletionItemV1 {
-  const field = `completion response.items[${index}]`;
-  const record = readClosedRecord(value, field, ["label", "insertText"]);
+function parseProject(value: unknown): ProjectV2 {
+  const record = readClosedRecord(value, "project", ["id", "name", "revision"]);
+  const id = readString(record.id, "project.id");
+  requireStableId("project.id", id);
+  const name = readNonBlankString(record.name, "project.name");
+  if (name !== name.trim()) {
+    fail("project.name", "must not include surrounding whitespace");
+  }
   return {
-    label: readNonBlankString(record.label, `${field}.label`),
-    insertText: readNonBlankString(record.insertText, `${field}.insertText`),
+    id,
+    name,
+    revision: readPositiveInteger(record.revision, "project.revision"),
   };
 }
 
-function parseProject(value: unknown): ProjectV1 {
-  const record = readClosedRecord(value, "project", ["id", "revision"]);
-  return {
-    id: readString(record.id, "project.id"),
-    revision: readInteger(record.revision, "project.revision"),
-  };
-}
-
-function parsePythonTarget(value: unknown): PythonTargetV1 {
+function parsePythonTarget(value: unknown): PythonTargetV2 {
   const record = readClosedRecord(value, "pythonTarget", ["prefix", "suffix"]);
   return {
-    prefix: readString(record.prefix, "pythonTarget.prefix"),
-    suffix: readString(record.suffix, "pythonTarget.suffix"),
+    prefix: readText(record.prefix, "pythonTarget.prefix", true),
+    suffix: readText(record.suffix, "pythonTarget.suffix", true),
   };
 }
 
-function parseCallables(value: unknown): [CallableV1] {
-  const callables = readArray(value, "callables", (entry, index) => {
-    const field = `callables[${index}]`;
+function parseCallables(value: unknown, targetIds: Set<string>): CallableV2[] {
+  return readArray(value, "callables", (entry, index) => {
+    const field = `callables[${String(index)}]`;
     const record = readClosedRecord(entry, field, [
       "id",
       "name",
       "authoredExpression",
-      "parameterIds",
+      "parameters",
     ]);
+    const id = readString(record.id, `${field}.id`);
+    claimTargetId(targetIds, id, `${field}.id`);
+    const name = readNonBlankString(record.name, `${field}.name`);
+    if (name !== name.trim()) {
+      fail(`${field}.name`, "must not include surrounding whitespace");
+    }
     return {
-      id: readString(record.id, `${field}.id`),
-      name: readString(record.name, `${field}.name`),
-      authoredExpression: readString(
+      id,
+      name,
+      authoredExpression: readText(
         record.authoredExpression,
         `${field}.authoredExpression`,
+        true,
       ),
-      parameterIds: readArray(
-        record.parameterIds,
-        `${field}.parameterIds`,
-        (parameterId, parameterIndex) =>
-          readString(parameterId, `${field}.parameterIds[${parameterIndex}]`),
-      ),
-    };
-  });
-  const callable = callables[0];
-  if (callables.length !== 1 || callable === undefined) {
-    fail("callables", "must contain exactly one callable");
-  }
-  return [callable];
-}
-
-function parseParameters(value: unknown): ParameterV1[] {
-  return readArray(value, "parameters", (entry, index) => {
-    const field = `parameters[${index}]`;
-    const record = readClosedRecord(entry, field, [
-      "id",
-      "name",
-      "nameEditable",
-      "passingStyle",
-      "typeAnnotation",
-      "default",
-      "authoredExpression",
-    ]);
-    return {
-      id: readString(record.id, `${field}.id`),
-      name: readString(record.name, `${field}.name`),
-      nameEditable: readBoolean(record.nameEditable, `${field}.nameEditable`),
-      passingStyle: parsePassingStyle(
-        record.passingStyle,
-        `${field}.passingStyle`,
-      ),
-      typeAnnotation: readString(
-        record.typeAnnotation,
-        `${field}.typeAnnotation`,
-      ),
-      default: readStringOrNull(record.default, `${field}.default`),
-      authoredExpression: readString(
-        record.authoredExpression,
-        `${field}.authoredExpression`,
-      ),
+      parameters: parseParameters(record.parameters, field, targetIds),
     };
   });
 }
 
-function parseGeneratedCode(value: unknown): GeneratedCodeV1 {
-  const record = readClosedRecord(value, "generatedCode", [
-    "code",
-    "body",
-    "sourceRanges",
+function parseParameters(
+  value: unknown,
+  callableField: string,
+  targetIds: Set<string>,
+): ParameterV2[] {
+  const context: ParameterParseContext = {
+    callableField,
+    names: new Set<string>(),
+    providerOrdinals: new Set<number>(),
+    targetIds,
+  };
+  return readArray(value, `${callableField}.parameters`, (entry, index) =>
+    parseParameter(entry, index, context),
+  );
+}
+
+type ParameterParseContext = {
+  callableField: string;
+  names: Set<string>;
+  providerOrdinals: Set<number>;
+  targetIds: Set<string>;
+};
+
+type ParsedParameterMetadata = Pick<
+  ParameterV2,
+  | "default"
+  | "nameEditable"
+  | "passingStyle"
+  | "providerOrdinal"
+  | "typeAnnotation"
+>;
+
+function parseParameter(
+  entry: unknown,
+  index: number,
+  context: ParameterParseContext,
+): ParameterV2 {
+  const field = `${context.callableField}.parameters[${String(index)}]`;
+  const record = readClosedRecord(entry, field, [
+    "id",
+    "name",
+    "nameEditable",
+    "passingStyle",
+    "typeAnnotation",
+    "default",
+    "providerOrdinal",
+    "authoredExpression",
   ]);
+  const id = readString(record.id, `${field}.id`);
+  claimTargetId(context.targetIds, id, `${field}.id`);
+  const name = readText(record.name, `${field}.name`, true);
+  claimParameterName(context.names, name, field);
+  const metadata = parseParameterMetadata(record, field);
+  validateParameterMetadata(field, name, metadata, context.providerOrdinals);
   return {
-    code: readString(record.code, "generatedCode.code"),
-    body: readString(record.body, "generatedCode.body"),
-    sourceRanges: readArray(
-      record.sourceRanges,
-      "generatedCode.sourceRanges",
-      parseSourceRange,
+    id,
+    name,
+    ...metadata,
+    authoredExpression: readText(
+      record.authoredExpression,
+      `${field}.authoredExpression`,
+      true,
     ),
   };
 }
 
-function parseSourceRange(
-  value: unknown,
-  index: number,
-): GeneratedSourceRangeV1 {
-  const field = `generatedCode.sourceRanges[${index}]`;
-  const record = readClosedRecord(value, field, ["targetId", "start", "end"]);
+function claimParameterName(
+  names: Set<string>,
+  name: string,
+  field: string,
+): void {
+  if (name !== name.trim()) {
+    fail(`${field}.name`, "must not include surrounding whitespace");
+  }
+  if (name === "") {
+    return;
+  }
+  if (names.has(name)) {
+    fail(`${field}.name`, "must be unique within its callable");
+  }
+  names.add(name);
+}
+
+function parseParameterMetadata(
+  record: Record<string, unknown>,
+  field: string,
+): ParsedParameterMetadata {
   return {
-    targetId: readString(record.targetId, `${field}.targetId`),
-    start: readInteger(record.start, `${field}.start`),
-    end: readInteger(record.end, `${field}.end`),
+    default: readTextOrNull(record.default, `${field}.default`),
+    nameEditable: readBoolean(record.nameEditable, `${field}.nameEditable`),
+    passingStyle: parsePassingStyle(
+      record.passingStyle,
+      `${field}.passingStyle`,
+    ),
+    providerOrdinal: readNonNegativeIntegerOrNull(
+      record.providerOrdinal,
+      `${field}.providerOrdinal`,
+    ),
+    typeAnnotation: readTextOrNull(
+      record.typeAnnotation,
+      `${field}.typeAnnotation`,
+    ),
   };
 }
 
-function parseDiagnostics(value: unknown): DiagnosticV1[] {
+function validateParameterMetadata(
+  field: string,
+  name: string,
+  metadata: ParsedParameterMetadata,
+  providerOrdinals: Set<number>,
+): void {
+  if (metadata.nameEditable) {
+    if (!isCoherentAppAuthoredMetadata(metadata)) {
+      fail(field, "has incoherent app-authored metadata");
+    }
+    return;
+  }
+  if (!isCoherentProviderMetadata(name, metadata)) {
+    fail(field, "has incoherent provider-derived metadata");
+  }
+  claimProviderOrdinal(providerOrdinals, metadata.providerOrdinal, field);
+}
+
+function isCoherentAppAuthoredMetadata(
+  metadata: ParsedParameterMetadata,
+): boolean {
+  return [
+    metadata.passingStyle === PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
+    metadata.typeAnnotation === null,
+    metadata.default === null,
+    metadata.providerOrdinal === null,
+  ].every(Boolean);
+}
+
+function isCoherentProviderMetadata(
+  name: string,
+  metadata: ParsedParameterMetadata,
+): boolean {
+  return [
+    name !== "",
+    metadata.typeAnnotation !== null,
+    metadata.providerOrdinal !== null,
+  ].every(Boolean);
+}
+
+function claimProviderOrdinal(
+  providerOrdinals: Set<number>,
+  providerOrdinal: number | null,
+  field: string,
+): void {
+  if (providerOrdinal === null) {
+    return;
+  }
+  if (providerOrdinals.has(providerOrdinal)) {
+    fail(`${field}.providerOrdinal`, "must be unique within its callable");
+  }
+  providerOrdinals.add(providerOrdinal);
+}
+
+function parseGeneratedCode(
+  value: unknown,
+  target: PythonTargetV2,
+  targetIds: ReadonlySet<string>,
+): GeneratedCodeV2 {
+  const record = readClosedRecord(value, "generatedCode", [
+    "code",
+    "body",
+    "generatedBodyRange",
+    "sourceRangesByTargetId",
+  ]);
+  const code = readNonBlankString(record.code, "generatedCode.code");
+  const body = readNonBlankString(record.body, "generatedCode.body");
+  const generatedBodyRange = parseByteRange(
+    record.generatedBodyRange,
+    "generatedCode.generatedBodyRange",
+    code,
+  );
+  const sourceRangesByTargetId = parseSourceRanges(
+    record.sourceRangesByTargetId,
+    code,
+    targetIds,
+  );
+  const expectedCode = `${target.prefix}\n\n${body}\n\n${target.suffix}`;
+  if (code !== expectedCode) {
+    fail(
+      "generatedCode.code",
+      "does not compose the target and generated body",
+    );
+  }
+  const expectedStart = utf8ByteLength(target.prefix) + 2;
+  const expectedEnd = expectedStart + utf8ByteLength(body);
+  if (
+    generatedBodyRange.start !== expectedStart ||
+    generatedBodyRange.end !== expectedEnd ||
+    sliceByByteRange(code, generatedBodyRange) !== body
+  ) {
+    fail(
+      "generatedCode.generatedBodyRange",
+      "does not match the generated body",
+    );
+  }
+  return { code, body, generatedBodyRange, sourceRangesByTargetId };
+}
+
+function parseSourceRanges(
+  value: unknown,
+  code: string,
+  targetIds: ReadonlySet<string>,
+): Record<string, ByteRangeV2> {
+  const record = readPlainRecord(value, "generatedCode.sourceRangesByTargetId");
+  const result: Record<string, ByteRangeV2> = {};
+  for (const [targetId, range] of Object.entries(record)) {
+    requireStableId("generatedCode.sourceRangesByTargetId key", targetId);
+    if (!targetIds.has(targetId)) {
+      fail(
+        "generatedCode.sourceRangesByTargetId",
+        "references an unknown target",
+      );
+    }
+    result[targetId] = parseByteRange(
+      range,
+      `generatedCode.sourceRangesByTargetId.${targetId}`,
+      code,
+    );
+  }
+  return result;
+}
+
+function parseDiagnostics(
+  value: unknown,
+  code: string,
+  targetIds: ReadonlySet<string>,
+): DiagnosticV2[] {
+  const ids = new Set<string>();
   return readArray(value, "diagnostics", (entry, index) => {
-    const field = `diagnostics[${index}]`;
+    const field = `diagnostics[${String(index)}]`;
     const record = readClosedRecord(entry, field, [
       "id",
       "severity",
@@ -235,370 +437,244 @@ function parseDiagnostics(value: unknown): DiagnosticV1[] {
       "end",
       "targetId",
     ]);
+    const id = readString(record.id, `${field}.id`);
+    requireStableId(`${field}.id`, id);
+    if (ids.has(id)) {
+      fail(`${field}.id`, "must be unique");
+    }
+    ids.add(id);
+    const byteRange = parseByteRange(
+      { start: record.start, end: record.end },
+      field,
+      code,
+    );
+    const targetId = readStableIdOrNull(record.targetId, `${field}.targetId`);
+    if (targetId !== null && !targetIds.has(targetId)) {
+      fail(`${field}.targetId`, "references an unknown target");
+    }
     return {
-      id: readString(record.id, `${field}.id`),
+      id,
       severity: parseDiagnosticSeverity(record.severity, `${field}.severity`),
-      message: readString(record.message, `${field}.message`),
-      start: readInteger(record.start, `${field}.start`),
-      end: readInteger(record.end, `${field}.end`),
-      targetId: readStringOrNull(record.targetId, `${field}.targetId`),
+      message: readNonBlankString(record.message, `${field}.message`),
+      start: byteRange.start,
+      end: byteRange.end,
+      targetId,
     };
   });
 }
 
-function parseProviderStatus(value: unknown): ProviderStatusV1 {
+function parseProviderStatus(value: unknown): ProviderStatusV2 {
   const record = readClosedRecord(value, "providerStatus", [
     "provider",
     "status",
     "state",
   ]);
-  const provider = readString(record.provider, "providerStatus.provider");
-  const status = readString(record.status, "providerStatus.status");
-  const state = readString(record.state, "providerStatus.state");
+  if (record.provider !== PROVIDER_BASEDPYRIGHT_V2) {
+    fail("providerStatus.provider", "is not supported");
+  }
+  const status = parseProviderAvailability(record.status);
+  const state = parseProviderLifecycleState(record.state);
+  const unavailable =
+    state === PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V2 ||
+    state === PROVIDER_LIFECYCLE_STATE_FAILED_V2;
+  if (
+    (unavailable && status !== PROVIDER_AVAILABILITY_UNAVAILABLE_V2) ||
+    (!unavailable && status !== PROVIDER_AVAILABILITY_AVAILABLE_V2)
+  ) {
+    fail("providerStatus", "has an invalid availability/lifecycle combination");
+  }
+  return { provider: PROVIDER_BASEDPYRIGHT_V2, status, state };
+}
 
-  validateProvider(provider);
-  const availability = parseProviderAvailability(status);
-  const lifecycleState = parseProviderLifecycleState(state);
-  validateProviderStatusCombination(availability, lifecycleState);
-
+function parseCompletionItem(value: unknown, index: number): CompletionItemV2 {
+  const field = `completion response.items[${String(index)}]`;
+  const record = readClosedRecord(value, field, ["label", "insertText"]);
   return {
-    provider: PROVIDER_BASEDPYRIGHT_V1,
-    status: availability,
-    state: lifecycleState,
+    label: readNonBlankString(record.label, `${field}.label`),
+    insertText: readNonBlankString(record.insertText, `${field}.insertText`),
   };
 }
 
-function validateProvider(provider: string): void {
-  if (provider !== PROVIDER_BASEDPYRIGHT_V1) {
-    fail("providerStatus.provider", "is not supported by V1");
+function parseByteRange(
+  value: unknown,
+  field: string,
+  code: string,
+): ByteRangeV2 {
+  const record = readClosedRecord(value, field, ["start", "end"]);
+  const start = readNonNegativeInteger(record.start, `${field}.start`);
+  const end = readNonNegativeInteger(record.end, `${field}.end`);
+  if (
+    end < start ||
+    end > utf8ByteLength(code) ||
+    !isUtf8Boundary(code, start) ||
+    !isUtf8Boundary(code, end)
+  ) {
+    fail(field, "must be a UTF-8 byte range in generated code");
   }
-}
-
-function parseProviderAvailability(value: string): ProviderStatusV1["status"] {
-  switch (value) {
-    case PROVIDER_AVAILABILITY_AVAILABLE_V1:
-      return PROVIDER_AVAILABILITY_AVAILABLE_V1;
-    case PROVIDER_AVAILABILITY_UNAVAILABLE_V1:
-      return PROVIDER_AVAILABILITY_UNAVAILABLE_V1;
-    default:
-      fail("providerStatus.status", "is not supported by V1");
-  }
-}
-
-function parseProviderLifecycleState(value: string): ProviderStatusV1["state"] {
-  switch (value) {
-    case PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1:
-      return PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1;
-    case PROVIDER_LIFECYCLE_STATE_READY_V1:
-      return PROVIDER_LIFECYCLE_STATE_READY_V1;
-    case PROVIDER_LIFECYCLE_STATE_PENDING_V1:
-      return PROVIDER_LIFECYCLE_STATE_PENDING_V1;
-    case PROVIDER_LIFECYCLE_STATE_FAILED_V1:
-      return PROVIDER_LIFECYCLE_STATE_FAILED_V1;
-    default:
-      fail("providerStatus.state", "is not supported by V1");
-  }
-}
-
-function validateProviderStatusCombination(
-  status: ProviderStatusV1["status"],
-  state: ProviderStatusV1["state"],
-): void {
-  switch (state) {
-    case PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1:
-    case PROVIDER_LIFECYCLE_STATE_FAILED_V1:
-      if (status !== PROVIDER_AVAILABILITY_UNAVAILABLE_V1) {
-        fail(
-          "providerStatus",
-          "has an invalid availability/lifecycle combination",
-        );
-      }
-      return;
-    case PROVIDER_LIFECYCLE_STATE_READY_V1:
-    case PROVIDER_LIFECYCLE_STATE_PENDING_V1:
-      if (status !== PROVIDER_AVAILABILITY_AVAILABLE_V1) {
-        fail(
-          "providerStatus",
-          "has an invalid availability/lifecycle combination",
-        );
-      }
-  }
+  return { start, end };
 }
 
 function parsePassingStyle(
   value: unknown,
   field: string,
-): ParameterPassingStyleV1 {
-  const style = readString(value, field);
-  switch (style) {
-    case PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1:
-      return PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1;
-    case PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1:
-      return PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1;
-    case PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V1:
-      return PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V1;
-    case PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1:
-      return PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1;
-    case PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1:
-      return PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1;
+): ParameterPassingStyleV2 {
+  switch (readString(value, field)) {
+    case PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V2:
+      return PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V2;
+    case PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2:
+      return PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2;
+    case PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V2:
+      return PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V2;
+    case PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2:
+      return PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2;
+    case PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2:
+      return PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2;
     default:
-      fail(field, "is not supported by V1");
+      fail(field, "is not supported");
   }
 }
 
 function parseDiagnosticSeverity(
   value: unknown,
   field: string,
-): DiagnosticSeverityV1 {
-  const severity = readString(value, field);
-  switch (severity) {
-    case DIAGNOSTIC_SEVERITY_ERROR_V1:
-      return DIAGNOSTIC_SEVERITY_ERROR_V1;
-    case DIAGNOSTIC_SEVERITY_WARNING_V1:
-      return DIAGNOSTIC_SEVERITY_WARNING_V1;
-    case DIAGNOSTIC_SEVERITY_INFORMATION_V1:
-      return DIAGNOSTIC_SEVERITY_INFORMATION_V1;
+): DiagnosticSeverityV2 {
+  switch (readString(value, field)) {
+    case DIAGNOSTIC_SEVERITY_ERROR_V2:
+      return DIAGNOSTIC_SEVERITY_ERROR_V2;
+    case DIAGNOSTIC_SEVERITY_WARNING_V2:
+      return DIAGNOSTIC_SEVERITY_WARNING_V2;
+    case DIAGNOSTIC_SEVERITY_INFORMATION_V2:
+      return DIAGNOSTIC_SEVERITY_INFORMATION_V2;
     default:
-      fail(field, "is not supported by V1");
+      fail(field, "is not supported");
   }
 }
 
-// Every code the generated union carries, listed once. This reader decides membership rather than
-// mapping each code to its own behavior, so the codes belong in a list rather than in branches.
-const API_ERROR_CODES_V1: ReadonlyArray<APIErrorCodeV1> = [
-  "invalid_request",
-  "method_not_allowed",
-  "not_found",
-  "invalid_callable",
-  "invalid_parameter_expression",
-  "invalid_parameter_name",
-  "invalid_python_target",
+function parseProviderAvailability(value: unknown): ProviderAvailabilityV2 {
+  switch (readString(value, "providerStatus.status")) {
+    case PROVIDER_AVAILABILITY_AVAILABLE_V2:
+      return PROVIDER_AVAILABILITY_AVAILABLE_V2;
+    case PROVIDER_AVAILABILITY_UNAVAILABLE_V2:
+      return PROVIDER_AVAILABILITY_UNAVAILABLE_V2;
+    default:
+      fail("providerStatus.status", "is not supported");
+  }
+}
+
+function parseProviderLifecycleState(value: unknown): ProviderLifecycleStateV2 {
+  switch (readString(value, "providerStatus.state")) {
+    case PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V2:
+      return PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V2;
+    case PROVIDER_LIFECYCLE_STATE_PENDING_V2:
+      return PROVIDER_LIFECYCLE_STATE_PENDING_V2;
+    case PROVIDER_LIFECYCLE_STATE_READY_V2:
+      return PROVIDER_LIFECYCLE_STATE_READY_V2;
+    case PROVIDER_LIFECYCLE_STATE_FAILED_V2:
+      return PROVIDER_LIFECYCLE_STATE_FAILED_V2;
+    default:
+      fail("providerStatus.state", "is not supported");
+  }
+}
+
+const apiErrorCodes: ReadonlySet<APIErrorCodeV2> = new Set([
   "revision_conflict",
-  "unsupported_signature",
+  "validation_failed",
+  "not_found",
+  "invalid_request",
   "provider_unavailable",
+  "provider_failed",
+  "render_failed",
+  "materialization_failed",
+  "persistence_failed",
+  "method_not_allowed",
   "internal",
-];
+]);
 
-function parseApiErrorCode(value: unknown): APIErrorCodeV1 {
+function parseApiErrorCode(value: unknown): APIErrorCodeV2 {
   const code = readString(value, "error response.error.code");
-  const supported = API_ERROR_CODES_V1.find((candidate) => candidate === code);
-  if (supported === undefined) {
-    fail("error response.error.code", "is not supported by V1");
+  if (!apiErrorCodes.has(code as APIErrorCodeV2)) {
+    fail("error response.error.code", "is not supported");
   }
-  return supported;
+  return code as APIErrorCodeV2;
 }
 
-function validateSnapshotRelationships(snapshot: ProjectSnapshotV1): void {
-  validateSnapshotRoot(snapshot);
-
-  const targetIds = new Set([snapshot.project.id]);
-  const parameterIds = new Set<string>();
-  validateParameters(snapshot.parameters, targetIds, parameterIds);
-  validateCallables(snapshot.callables, targetIds, parameterIds);
-  validateSourceRanges(
-    snapshot.generatedCode.sourceRanges,
-    targetIds,
-    new TextEncoder().encode(snapshot.generatedCode.code).length,
-  );
-  validateDiagnostics(
-    snapshot.diagnostics,
-    targetIds,
-    new TextEncoder().encode(snapshot.generatedCode.code),
-  );
+function claimTargetId(ids: Set<string>, value: string, field: string): void {
+  requireStableId(field, value);
+  if (ids.has(value)) {
+    fail(field, "must be unique");
+  }
+  ids.add(value);
 }
 
-function validateSnapshotRoot(snapshot: ProjectSnapshotV1): void {
-  requireStableId("project.id", snapshot.project.id);
-  if (snapshot.project.revision < 1) {
-    fail("project.revision", "must be at least 1");
-  }
-  if (snapshot.pythonTarget.prefix === "") {
-    fail("pythonTarget.prefix", "must not be empty");
-  }
-  if (snapshot.pythonTarget.suffix === "") {
-    fail("pythonTarget.suffix", "must not be empty");
+function requireStableId(field: string, value: string): void {
+  if (value.trim() === "" || value !== value.trim() || value.includes("\0")) {
+    fail(field, "must be a nonblank stable ID");
   }
 }
 
-function validateParameters(
-  parameters: ParameterV1[],
-  targetIds: Set<string>,
-  parameterIds: Set<string>,
-): void {
-  for (const [index, parameter] of parameters.entries()) {
-    const field = `parameters[${index}]`;
-    requireStableId(`${field}.id`, parameter.id);
-    if (targetIds.has(parameter.id)) {
-      fail(`${field}.id`, "must be unique");
-    }
-    // An app-authored record may still be unnamed, which the backend renders as no
-    // parameter at all. Surrounding whitespace is not a name anyone meant.
-    if (parameter.name !== parameter.name.trim()) {
-      fail(`${field}.name`, "must not include surrounding whitespace");
-    }
-    targetIds.add(parameter.id);
-    parameterIds.add(parameter.id);
+function readStableIdOrNull(value: unknown, field: string): string | null {
+  if (value === null) {
+    return null;
   }
+  const id = readString(value, field);
+  requireStableId(field, id);
+  return id;
 }
 
-function validateCallables(
-  callables: [CallableV1],
-  targetIds: Set<string>,
-  parameterIds: Set<string>,
-): void {
-  for (const [index, callable] of callables.entries()) {
-    const field = `callables[${index}]`;
-    requireStableId(`${field}.id`, callable.id);
-    if (targetIds.has(callable.id)) {
-      fail(`${field}.id`, "must be unique");
-    }
-    requireNonBlank(`${field}.name`, callable.name);
-    validateCallableParameterIds(field, callable.parameterIds, parameterIds);
-    targetIds.add(callable.id);
+function readText(value: unknown, field: string, allowEmpty: boolean): string {
+  const text = readString(value, field);
+  if ((!allowEmpty && text === "") || text.includes("\0")) {
+    fail(field, "is invalid");
   }
+  return text;
 }
 
-function validateCallableParameterIds(
-  callableField: string,
-  ids: string[],
-  parameterIds: Set<string>,
-): void {
-  const callableParameterIds = new Set<string>();
-  for (const [parameterIndex, parameterId] of ids.entries()) {
-    const parameterField = `${callableField}.parameterIds[${parameterIndex}]`;
-    requireStableId(parameterField, parameterId);
-    if (!parameterIds.has(parameterId)) {
-      fail(parameterField, "must reference a parameter");
-    }
-    if (callableParameterIds.has(parameterId)) {
-      fail(parameterField, "must not be repeated");
-    }
-    callableParameterIds.add(parameterId);
-  }
+function readTextOrNull(value: unknown, field: string): string | null {
+  return value === null ? null : readText(value, field, true);
 }
 
-function validateSourceRanges(
-  sourceRanges: GeneratedSourceRangeV1[],
-  targetIds: Set<string>,
-  codeLength: number,
-): void {
-  for (const [index, sourceRange] of sourceRanges.entries()) {
-    const field = `generatedCode.sourceRanges[${index}]`;
-    validateSourceRange(field, sourceRange, targetIds, codeLength);
+function readNonBlankString(value: unknown, field: string): string {
+  const text = readText(value, field, false);
+  if (text.trim() === "") {
+    fail(field, "must not be empty");
   }
+  return text;
 }
 
-function validateSourceRange(
-  field: string,
-  sourceRange: GeneratedSourceRangeV1,
-  targetIds: Set<string>,
-  codeLength: number,
-): void {
-  if (!targetIds.has(sourceRange.targetId)) {
-    fail(`${field}.targetId`, "must reference a stable target ID");
+function readString(value: unknown, field: string): string {
+  if (typeof value !== "string") {
+    fail(field, "must be a string");
   }
-  if (sourceRange.start < 0) {
-    fail(`${field}.start`, "must not be negative");
-  }
-  if (sourceRange.end < sourceRange.start) {
-    fail(`${field}.end`, "must not precede start");
-  }
-  if (sourceRange.end > codeLength) {
-    fail(`${field}.end`, "must not exceed generated code length");
-  }
+  return value;
 }
 
-function validateDiagnostics(
-  diagnostics: DiagnosticV1[],
-  targetIds: Set<string>,
-  code: Uint8Array,
-): void {
-  const diagnosticIds = new Set<string>();
-  for (const [index, diagnostic] of diagnostics.entries()) {
-    const field = `diagnostics[${index}]`;
-    requireStableId(`${field}.id`, diagnostic.id);
-    if (diagnosticIds.has(diagnostic.id)) {
-      fail(`${field}.id`, "must be unique");
-    }
-    requireNonBlank(`${field}.message`, diagnostic.message);
-    validateDiagnosticRange(field, diagnostic, code);
-    if (diagnostic.targetId !== null && !targetIds.has(diagnostic.targetId)) {
-      fail(`${field}.targetId`, "must reference a stable target ID");
-    }
-    diagnosticIds.add(diagnostic.id);
+function readBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") {
+    fail(field, "must be a boolean");
   }
+  return value;
 }
 
-function validateDiagnosticRange(
-  field: string,
-  diagnostic: DiagnosticV1,
-  code: Uint8Array,
-): void {
-  if (diagnostic.start < 0) {
-    fail(`${field}.start`, "must not be negative");
+function readPositiveInteger(value: unknown, field: string): number {
+  const result = readNonNegativeInteger(value, field);
+  if (result < 1) {
+    fail(field, "must be positive");
   }
-  if (diagnostic.end < diagnostic.start) {
-    fail(`${field}.end`, "must not precede start");
-  }
-  if (diagnostic.end > code.length) {
-    fail(`${field}.end`, "must not exceed generated code length");
-  }
-  if (!isUtf8ByteBoundary(code, diagnostic.start)) {
-    fail(`${field}.start`, "must be on a UTF-8 byte boundary");
-  }
-  if (!isUtf8ByteBoundary(code, diagnostic.end)) {
-    fail(`${field}.end`, "must be on a UTF-8 byte boundary");
-  }
+  return result;
 }
 
-function isUtf8ByteBoundary(code: Uint8Array, offset: number): boolean {
-  const byte = code[offset];
-  return (
-    offset === 0 ||
-    offset === code.length ||
-    (byte !== undefined && (byte & 0b1100_0000) !== 0b1000_0000)
-  );
+function readNonNegativeInteger(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    fail(field, "must be a nonnegative safe integer");
+  }
+  return value;
 }
 
-function readClosedRecord(
+function readNonNegativeIntegerOrNull(
   value: unknown,
   field: string,
-  keys: readonly string[],
-): Record<string, unknown> {
-  if (!isPlainRecord(value)) {
-    fail(field, "must be an object");
-  }
-
-  const record = value as Record<string, unknown>;
-  if (!hasExactEnumerableKeys(record, keys)) {
-    fail(field, "must contain exactly the V1 fields");
-  }
-  return record;
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    (Object.getPrototypeOf(value) === Object.prototype ||
-      Object.getPrototypeOf(value) === null)
-  );
-}
-
-function hasExactEnumerableKeys(
-  record: Record<string, unknown>,
-  keys: readonly string[],
-): boolean {
-  const ownNames = Object.getOwnPropertyNames(record);
-  return (
-    Object.getOwnPropertySymbols(record).length === 0 &&
-    ownNames.length === keys.length &&
-    keys.every((key) =>
-      Object.prototype.propertyIsEnumerable.call(record, key),
-    ) &&
-    keys.every((key) => ownNames.includes(key))
-  );
+): number | null {
+  return value === null ? null : readNonNegativeInteger(value, field);
 }
 
 function readArray<T>(
@@ -612,55 +688,100 @@ function readArray<T>(
   return value.map(parseEntry);
 }
 
-function readString(value: unknown, field: string): string {
-  if (typeof value !== "string") {
-    fail(field, "must be a string");
-  }
-  return value;
+function readClosedRecord(
+  value: unknown,
+  field: string,
+  keys: readonly string[],
+): Record<string, unknown> {
+  const record = readPlainRecord(value, field);
+  requireExactEnumerableKeys(record, keys, field);
+  return record;
 }
 
-function readNonBlankString(value: unknown, field: string): string {
-  const text = readString(value, field);
-  if (text.trim() === "") {
-    fail(field, "must not be empty");
+function readPlainRecord(
+  value: unknown,
+  field: string,
+): Record<string, unknown> {
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    (Object.getPrototypeOf(value) !== Object.prototype &&
+      Object.getPrototypeOf(value) !== null)
+  ) {
+    fail(field, "must be an object");
   }
-  return text;
+  return value as Record<string, unknown>;
 }
 
-function readStringOrNull(value: unknown, field: string): string | null {
-  if (value === null) {
-    return null;
-  }
-  return readString(value, field);
-}
-
-function readBoolean(value: unknown, field: string): boolean {
-  if (typeof value !== "boolean") {
-    fail(field, "must be a boolean");
-  }
-  return value;
-}
-
-function readInteger(value: unknown, field: string): number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-    fail(field, "must be a safe integer");
-  }
-  return value;
-}
-
-function requireStableId(field: string, value: string): void {
-  if (value.trim() === "") {
-    fail(field, "must not be empty");
-  }
-  if (value !== value.trim()) {
-    fail(field, "must not include surrounding whitespace");
+function requireExactEnumerableKeys(
+  record: Record<string, unknown>,
+  keys: readonly string[],
+  field: string,
+): void {
+  const names = Object.getOwnPropertyNames(record);
+  if (
+    Object.getOwnPropertySymbols(record).length !== 0 ||
+    names.length !== keys.length ||
+    keys.some(
+      (key) =>
+        !names.includes(key) ||
+        !Object.prototype.propertyIsEnumerable.call(record, key),
+    )
+  ) {
+    fail(field, "must contain exactly the V2 fields");
   }
 }
 
-function requireNonBlank(field: string, value: string): void {
-  if (value.trim() === "") {
-    fail(field, "must not be empty");
+function utf8ByteLength(value: string): number {
+  return encoder.encode(value).length;
+}
+
+function isUtf8Boundary(value: string, byteOffset: number): boolean {
+  if (byteOffset < 0 || byteOffset > utf8ByteLength(value)) {
+    return false;
   }
+  let offset = 0;
+  if (offset === byteOffset) {
+    return true;
+  }
+  for (const character of value) {
+    offset += utf8ByteLength(character);
+    if (offset === byteOffset) {
+      return true;
+    }
+    if (offset > byteOffset) {
+      return false;
+    }
+  }
+  return false;
+}
+
+function sliceByByteRange(value: string, range: ByteRangeV2): string {
+  let utf8Offset = 0;
+  let start = -1;
+  let end = -1;
+  let utf16Offset = 0;
+  for (const character of value) {
+    if (utf8Offset === range.start) {
+      start = utf16Offset;
+    }
+    if (utf8Offset === range.end) {
+      end = utf16Offset;
+    }
+    utf8Offset += utf8ByteLength(character);
+    utf16Offset += character.length;
+  }
+  if (utf8Offset === range.start) {
+    start = utf16Offset;
+  }
+  if (utf8Offset === range.end) {
+    end = utf16Offset;
+  }
+  if (start < 0 || end < start) {
+    fail("generatedCode.generatedBodyRange", "is not a UTF-8 boundary");
+  }
+  return value.slice(start, end);
 }
 
 function fail(field: string, problem: string): never {

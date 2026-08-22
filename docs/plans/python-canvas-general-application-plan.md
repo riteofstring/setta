@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-**Status: Phase A and Phase B are complete; Phase C is next for Code Policy plan-loop.**
+**Status: Phase A, Phase B, and Phase C are complete; Phase D is next for Code Policy plan-loop.**
 
 This is the bounded implementation plan for replacing Python Canvas's fixed,
 in-memory V1 Square Root demonstration with a persisted, general-purpose Python
@@ -35,7 +35,9 @@ a separately owned external merge prerequisite: before its label is changed in
 a separately authorized control-plane change, exact v0.12 runner availability
 and the loaded `.code-policy.lock.json` must be evidenced. Never guess that
 label or claim CI coverage. This implementation loop does not edit CI,
-`.code-policy.json`, `.code-policy.lock.json`, or any other control-plane file.
+`.code-policy.lock.json`, or any control-plane file other than the one
+`.code-policy.json` generated-fixture entry that replaces V1 with the V2
+fixture required by the public cutover.
 
 The current V1 implementation is useful evidence for its narrow seams: Go owns
 the canonical response, generated Python, semantic ranges, and the pinned
@@ -724,6 +726,8 @@ phase.
 
 ### Phase C — one atomic public V2 cutover
 
+- [x] Atomic public V2 cutover implementation complete
+
 This is the only public contract cutover. Land it as one coherent candidate:
 
 1. Replace Go V1 contracts, routes, handlers, generated artifacts, schema
@@ -756,6 +760,30 @@ or expose a frontend that still relies on fixed callable IDs, callables[0], or
 Square Root bootstrap data. The launcher is the only explicitly allowed
 non-module path in this cutover; no broader workspace source change is
 authorized.
+
+**Implementation record (2026-08-21):** The public Go surface is now the
+strict V2 project snapshot and exact V2 routes only, with generated TypeScript,
+fixture ownership, HTTP tests, launcher flags, and command lifecycle updated
+together. The launcher requires an explicit project path, forwards optional
+exclusive create, and waits only for the V2 project endpoint. The React client
+strictly decodes V2 snapshots and errors, projects dynamic callable-ID-keyed
+sections and complete parameter lists through public workspace APIs, keeps
+callable drafts independent, and authors one combined Python target with a
+protected generated-body range and outer-only completion. The README and
+checked-in browser harness use the same explicit project lifecycle; the old
+demo and V1 browser artifacts, routes, fixture, and presentation script are
+removed.
+
+**Focused proof (2026-08-21):** `go test -count=1 ./cmd/generate-contract
+./cmd/python-canvas ./internal/contracts ./internal/httpapi ./internal/lsp
+./internal/project/aggregate ./internal/project/coordinator
+./internal/project/materializer ./internal/project/renderer
+./internal/projectfile` passed from `apps/python-canvas/backend`.
+`pnpm --filter @setta/python-canvas run build` and static checks of the two V2
+browser modules passed. `code-policy test --module python-canvas-backend`,
+`code-policy test --module python-canvas-frontend`, and `code-policy test
+--changed` passed. The browser walkthrough itself was not executed; no browser,
+local service, provider session, or live probe ran in this phase.
 
 ### Phase D — acceptance evidence and removal audit
 

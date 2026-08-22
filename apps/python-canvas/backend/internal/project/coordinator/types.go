@@ -37,6 +37,8 @@ var (
 	// ErrPersistenceFailed wraps authored-project staging or replacement
 	// failure.
 	ErrPersistenceFailed = errors.New("coordinator: persistence failed")
+	// ErrCompletionInvalid marks a malformed read-only completion context.
+	ErrCompletionInvalid = errors.New("coordinator: completion is invalid")
 )
 
 // ProviderAvailability is the explicit availability part of one normalized
@@ -159,6 +161,44 @@ type Provider interface {
 	ResolveCallableSignature(context.Context, SignatureRequest) ([]aggregate.ProviderParameter, error)
 	SynchronizeGeneratedDocument(context.Context, GeneratedDocumentRequest) (GeneratedDocumentResult, error)
 	Close() error
+}
+
+// CompletionItem is the normalized, provider-independent completion result.
+type CompletionItem struct {
+	Label      string
+	InsertText string
+}
+
+// CallableCompletionRequest captures one uncommitted callable draft beside
+// the current canonical document. CursorOffsetUTF16 uses JavaScript offsets.
+type CallableCompletionRequest struct {
+	ProjectID          string
+	CallableID         string
+	CanonicalCode      string
+	AuthoredExpression string
+	CursorOffsetUTF16  int
+}
+
+// UTF16Range describes an editor coordinate range in one complete draft.
+type UTF16Range struct {
+	Start int
+	End   int
+}
+
+// PythonTargetCompletionRequest is a validated complete target draft whose
+// protected renderer body is still exact. CursorOffsetByte is computed at the
+// coordinator boundary before the provider sees the request.
+type PythonTargetCompletionRequest struct {
+	Code             string
+	CursorOffsetByte int
+}
+
+// CompletionProvider is deliberately optional to the durable mutation port.
+// It prevents a provider without read-only completion support from weakening
+// the all-or-nothing mutation transaction.
+type CompletionProvider interface {
+	CompleteCallable(context.Context, CallableCompletionRequest) ([]CompletionItem, error)
+	CompletePythonTarget(context.Context, PythonTargetCompletionRequest) ([]CompletionItem, error)
 }
 
 // RenderFunc preserves renderer ownership while allowing focused failure

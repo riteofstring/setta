@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/setta/python-canvas/backend/internal/contracts"
-	"github.com/setta/python-canvas/backend/internal/project"
 )
 
 func main() {
@@ -27,5 +26,5 @@ func run(arguments []string) error {
 	if flags.NArg() != 0 {
 		return fmt.Errorf("generate-contract does not accept positional arguments")
 	}
-	return contracts.GenerateArtifacts(project.InitialProjectSnapshot(), *check)
+	return contracts.GenerateArtifacts(contracts.FixtureProjectSnapshotV2(), *check)
 }

@@ -11,21 +11,21 @@ type CallableIdentifierSegmentBounds = {
 };
 
 type CallableCompletionProviderOptions = {
+  callableId: string;
   fetchImplementation?: typeof fetch;
   onFailure: (message: string) => void;
   onSuccess: () => void;
   projectId: string;
-  sectionId: string;
 };
 
 const identifierContinue = /^(?:\p{ID_Continue}|_)$/u;
 
 export function createCallableCompletionProvider({
+  callableId,
   fetchImplementation,
   onFailure,
   onSuccess,
   projectId,
-  sectionId,
 }: CallableCompletionProviderOptions): TextValueCompletionProvider {
   return async ({ cursorOffset, signal, value }) => {
     if (value.trim() === "") {
@@ -36,11 +36,11 @@ export function createCallableCompletionProvider({
     try {
       const bounds = callableIdentifierSegmentBounds(value, cursorOffset);
       const { items } = await completeCallable(
+        callableId,
         {
           authoredExpression: value,
           cursorOffsetUtf16: cursorOffset,
           projectId,
-          sectionId,
         },
         signal,
         fetchImplementation,

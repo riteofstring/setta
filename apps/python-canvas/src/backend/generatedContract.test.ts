@@ -1,57 +1,36 @@
-import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v1.json";
+import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
-  DIAGNOSTIC_SEVERITY_ERROR_V1,
-  DIAGNOSTIC_SEVERITY_INFORMATION_V1,
-  DIAGNOSTIC_SEVERITY_WARNING_V1,
-  PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V1,
-  PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1,
-  PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1,
-  PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1,
-  PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1,
-  PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
-  PROJECT_PATH_V1,
-  PROJECT_SNAPSHOT_VERSION_V1,
-  PROVIDER_AVAILABILITY_UNAVAILABLE_V1,
-  PROVIDER_BASEDPYRIGHT_V1,
-  PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1,
-  type ProjectSnapshotV1,
+  PROJECT_CALLABLES_PATH_V2,
+  PROJECT_PATH_V2,
+  PROJECT_RENAME_PATH_V2,
+  PROJECT_SNAPSHOT_VERSION_V2,
+  projectCallableCompletionsPath,
+  projectCallableParametersPath,
+  type ProjectSnapshotV2,
 } from "./generatedContract";
-import { parseProjectSnapshotV1 } from "./runtimeContract";
+import { parseProjectSnapshotV2 } from "./runtimeContract";
 
-describe("generated V1 contract", () => {
-  it("supplies the runtime constants and type used by the frontend boundary", () => {
-    const snapshot = parseProjectSnapshotV1(projectSnapshotFixture);
+describe("generated V2 contract", () => {
+  it("exposes the closed V2 route and dynamic callable helpers", () => {
+    const snapshot = parseProjectSnapshotV2(projectSnapshotFixture);
 
-    expect(PROJECT_PATH_V1).toBe("/api/v1/project");
-    expect(PROJECT_CALLABLE_COMPLETIONS_PATH_V1).toBe(
-      "/api/v1/project/callable/completions",
+    expect(PROJECT_PATH_V2).toBe("/api/v2/project");
+    expect(PROJECT_RENAME_PATH_V2).toBe("/api/v2/project/rename");
+    expect(PROJECT_CALLABLES_PATH_V2).toBe("/api/v2/project/callables");
+    expect(projectCallableParametersPath("callable:one/two")).toBe(
+      "/api/v2/project/callables/callable%3Aone%2Ftwo/parameters",
     );
-    expect(snapshot.version).toBe(PROJECT_SNAPSHOT_VERSION_V1);
-    expect([
-      PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1,
-      PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1,
-      PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V1,
-      PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V1,
-      PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V1,
-    ]).toEqual([
-      "positional_only",
-      "positional_or_keyword",
-      "keyword_only",
-      "variadic_positional",
-      "variadic_keyword",
-    ]);
-    expect([
-      DIAGNOSTIC_SEVERITY_ERROR_V1,
-      DIAGNOSTIC_SEVERITY_WARNING_V1,
-      DIAGNOSTIC_SEVERITY_INFORMATION_V1,
-    ]).toEqual(["error", "warning", "information"]);
-    expect([
-      PROVIDER_BASEDPYRIGHT_V1,
-      PROVIDER_AVAILABILITY_UNAVAILABLE_V1,
-      PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1,
-    ]).toEqual(["basedpyright", "unavailable", "not_started"]);
-    expectTypeOf(snapshot).toEqualTypeOf<ProjectSnapshotV1>();
+    expect(projectCallableCompletionsPath("callable:one")).toBe(
+      "/api/v2/project/callables/callable%3Aone/completions",
+    );
+    expect(snapshot.version).toBe(PROJECT_SNAPSHOT_VERSION_V2);
+    expect(snapshot.project).toEqual({
+      id: "project:fixture",
+      name: "Fixture project",
+      revision: 1,
+    });
+    expectTypeOf(snapshot).toEqualTypeOf<ProjectSnapshotV2>();
   });
 });

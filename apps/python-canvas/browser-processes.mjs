@@ -1,7 +1,12 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import net from "node:net";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -9,69 +14,22 @@ import { fileURLToPath } from "node:url";
 
 import { createCdpPage } from "../../scripts/lib/cdp-client.mjs";
 
-// The process side of everything this app drives in production: the repository commands it runs,
-// the backend and Vite servers it starts and stops, the loopback ports it reserves, and the
-// headless Chrome it drives. None of it knows anything about the page under test.
-
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
-const backendRoot = path.join(appRoot, "backend");
 const repositoryRoot = path.resolve(appRoot, "../..");
+const launcherPath = path.join(
+  repositoryRoot,
+  "scripts",
+  "run-python-canvas.sh",
+);
 const chromeDefaultPath =
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+
 export const productionTimeoutMs = 30_000;
-// The one surface every production check and capture is judged on: a fixed 1440x900 CSS-pixel
-// viewport at device scale 1.
-export const productionViewport = {
+const productionViewport = {
   deviceScaleFactor: 1,
   height: 900,
   width: 1_440,
 };
-
-function run(command, arguments_, options = {}) {
-  const result = spawnSync(command, arguments_, {
-    cwd: options.cwd ?? repositoryRoot,
-    encoding: "utf8",
-    env: { ...process.env, ...options.env },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (result.error) {
-    throw result.error;
-  }
-  if (result.status !== 0) {
-    throw new Error(
-      `${command} ${arguments_.join(" ")} exited with ${String(result.status)}.\n${result.stderr || result.stdout}`,
-    );
-  }
-}
-
-// The exact commit a recording came from. A capture of modified tracked files would name a source
-// nobody can check out again, so this refuses one instead of recording a commit it does not match.
-export function readCommittedSource() {
-  const status = spawnSync(
-    "git",
-    ["status", "--porcelain", "--untracked-files=no"],
-    {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-    },
-  );
-  if (status.status !== 0) {
-    throw new Error(`git status failed: ${status.stderr || status.stdout}`);
-  }
-  if (status.stdout.trim() !== "") {
-    throw new Error(
-      `Recording requires a committed source tree. These tracked files differ from HEAD:\n${status.stdout.trim()}`,
-    );
-  }
-  const revision = spawnSync("git", ["rev-parse", "HEAD"], {
-    cwd: repositoryRoot,
-    encoding: "utf8",
-  });
-  if (revision.status !== 0) {
-    throw new Error(`git rev-parse failed: ${revision.stderr}`);
-  }
-  return revision.stdout.trim();
-}
 
 function startProcess(command, arguments_, options) {
   const child = spawn(command, arguments_, {
@@ -95,47 +53,26 @@ async function stopProcess(processHandle) {
   }
   const gracefulExit = once(processHandle.child, "exit");
   processHandle.child.kill("SIGTERM");
-  const exitedGracefully = await Promise.race([
-    gracefulExit.then(() => true),
-    delay(5_000).then(() => false),
-  ]);
-  if (exitedGracefully) {
+  if (
+    await Promise.race([
+      gracefulExit.then(() => true),
+      delay(5_000).then(() => false),
+    ])
+  ) {
     return;
   }
   const forcedExit = once(processHandle.child, "exit");
   processHandle.child.kill("SIGKILL");
-  const exitedForcibly = await Promise.race([
-    forcedExit.then(() => true),
-    delay(2_000).then(() => false),
-  ]);
-  if (!exitedForcibly) {
+  if (
+    !(await Promise.race([
+      forcedExit.then(() => true),
+      delay(2_000).then(() => false),
+    ]))
+  ) {
     throw new Error(
       `${processHandle.label} process ${String(processHandle.child.pid)} did not terminate.`,
     );
   }
-}
-
-async function reserveLoopbackPort() {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.once("error", reject);
-    server.listen({ host: "127.0.0.1", port: 0 }, () => {
-      const address = server.address();
-      if (typeof address !== "object" || address === null) {
-        server.close(() =>
-          reject(new Error("Unable to reserve a loopback port.")),
-        );
-        return;
-      }
-      server.close((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve(address.port);
-      });
-    });
-  });
 }
 
 async function waitForHttp(processHandle, origin, description) {
@@ -162,7 +99,7 @@ async function waitForHttp(processHandle, origin, description) {
 }
 
 export async function fetchCanonicalSnapshot(backendOrigin) {
-  const response = await fetch(`${backendOrigin}/api/v1/project`);
+  const response = await fetch(`${backendOrigin}/api/v2/project`);
   if (!response.ok) {
     throw new Error(
       `Canonical project snapshot request failed with ${String(response.status)}.`,
@@ -198,9 +135,7 @@ function startHeadlessChrome() {
     [
       "--headless=new",
       "--disable-background-timer-throttling",
-      "--disable-backgrounding-occluded-windows",
       "--disable-extensions",
-      "--disable-renderer-backgrounding",
       "--no-default-browser-check",
       "--no-first-run",
       "--remote-debugging-port=0",
@@ -246,70 +181,66 @@ async function stopHeadlessChrome(browser) {
   }
 }
 
-// The production surface itself: fresh package and application builds, the real Go service and its
-// pinned Basedpyright, the Vite preview that serves the built application, and headless Chrome on
-// the production viewport. Every production check and capture runs against exactly this surface,
-// and it is torn down in reverse order whatever the caller does.
-export async function runAgainstProductionApp(callback) {
-  run("pnpm", ["--filter", "@setta/workspace", "run", "build"]);
-  run("pnpm", ["run", "build"], { cwd: appRoot });
+function startLauncher(projectPath, create) {
+  const arguments_ = ["--project", projectPath];
+  if (create) {
+    arguments_.push("--create");
+  }
+  return startProcess(launcherPath, arguments_, {
+    cwd: repositoryRoot,
+    label: "Python Canvas launcher",
+  });
+}
 
+async function waitForLauncher(launcher) {
+  await waitForHttp(
+    launcher,
+    "http://127.0.0.1:8080/api/v2/project",
+    "Python Canvas backend",
+  );
+  await waitForHttp(
+    launcher,
+    "http://127.0.0.1:5173",
+    "Python Canvas frontend",
+  );
+}
+
+// This is the one checked-in browser lifecycle: an absent, temporary project
+// is created through the public launcher, and a later restart reopens the same
+// path without --create. The walkthrough owns only public HTTP and browser
+// surfaces; it never injects a project into an in-memory backend.
+export async function runAgainstProductionApp(callback) {
   const temporaryDirectory = mkdtempSync(
     path.join(os.tmpdir(), "setta-python-canvas-browser-"),
   );
-  let backend = null;
-  let preview = null;
+  const projectPath = path.join(temporaryDirectory, "project.json");
+  const fixtureModulePath = path.join(temporaryDirectory, "fixture_module.py");
+  writeFileSync(
+    fixtureModulePath,
+    "def sample(value: float, *, scale: int = 1) -> float:\n    return value * scale\n",
+    "utf8",
+  );
+
+  let launcher = null;
   let browser = null;
   let client = null;
+  const backendOrigin = "http://127.0.0.1:8080";
+  const previewOrigin = "http://127.0.0.1:5173";
+  const launch = async (create) => {
+    launcher = startLauncher(projectPath, create);
+    await waitForLauncher(launcher);
+  };
+  const restart = async () => {
+    await stopProcess(launcher);
+    await launch(false);
+  };
+
   try {
-    const backendPort = await reserveLoopbackPort();
-    const previewPort = await reserveLoopbackPort();
-    const backendOrigin = `http://127.0.0.1:${String(backendPort)}`;
-    const previewOrigin = `http://127.0.0.1:${String(previewPort)}`;
-    const backendBinary = path.join(temporaryDirectory, "python-canvas");
-    run("go", ["build", "-o", backendBinary, "./cmd/python-canvas"], {
-      cwd: backendRoot,
-    });
-
-    backend = startProcess(backendBinary, ["-port", String(backendPort)], {
-      cwd: appRoot,
-      label: "Python Canvas backend",
-    });
-    await waitForHttp(
-      backend,
-      `${backendOrigin}/api/v1/project`,
-      "Python Canvas backend",
-    );
-
-    preview = startProcess(
-      process.execPath,
-      [
-        path.join(appRoot, "node_modules/vite/bin/vite.js"),
-        "preview",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        String(previewPort),
-        "--strictPort",
-      ],
-      {
-        cwd: appRoot,
-        env: { PYTHON_CANVAS_BACKEND_ORIGIN: backendOrigin },
-        label: "Python Canvas production preview",
-      },
-    );
-    await waitForHttp(
-      preview,
-      previewOrigin,
-      "Python Canvas production preview",
-    );
-
+    await launch(true);
     browser = startHeadlessChrome();
     const cdpPort = await waitForHeadlessChrome(browser);
     const page = await createCdpPage(cdpPort);
     client = page.client;
-    // Chrome starts with its initial about:blank target as well as the fresh target the CDP helper
-    // creates. Make the latter foreground before a walkthrough relies on animation frames.
     await client.send("Page.bringToFront");
     await Promise.all([
       client.send("Page.enable"),
@@ -319,7 +250,14 @@ export async function runAgainstProductionApp(callback) {
         mobile: false,
       }),
     ]);
-    await callback({ backendOrigin, client, previewOrigin });
+    await callback({
+      backendOrigin,
+      client,
+      fixtureModulePath,
+      previewOrigin,
+      projectPath,
+      restart,
+    });
   } finally {
     client?.close();
     try {
@@ -328,13 +266,9 @@ export async function runAgainstProductionApp(callback) {
       }
     } finally {
       try {
-        await stopProcess(preview);
+        await stopProcess(launcher);
       } finally {
-        try {
-          await stopProcess(backend);
-        } finally {
-          rmSync(temporaryDirectory, { force: true, recursive: true });
-        }
+        rmSync(temporaryDirectory, { force: true, recursive: true });
       }
     }
   }

@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/setta/python-canvas/backend/internal/contracts"
-	"github.com/setta/python-canvas/backend/internal/project"
+	"github.com/setta/python-canvas/backend/internal/project/aggregate"
+	"github.com/setta/python-canvas/backend/internal/project/coordinator"
 )
 
 const defaultDiagnosticTimeout = 8 * time.Second
@@ -175,32 +175,32 @@ func ResolvePinnedBasedpyrightExecutable(appRoot string) (string, error) {
 
 func (provider *BasedpyrightProvider) ResolveCallableSignature(
 	ctx context.Context,
-	request project.SignatureRequest,
-) (project.CallableSignature, error) {
+	request coordinator.SignatureRequest,
+) ([]aggregate.ProviderParameter, error) {
 	if provider == nil {
-		return project.CallableSignature{}, ErrProviderClosed
+		return nil, ErrProviderClosed
 	}
 	provider.mu.Lock()
 	defer provider.mu.Unlock()
 	if provider.closed {
-		return project.CallableSignature{}, ErrProviderClosed
+		return nil, ErrProviderClosed
 	}
 	if strings.TrimSpace(request.Code) == "" {
-		return project.CallableSignature{}, fmt.Errorf("lsp: signature snapshot is empty")
+		return nil, fmt.Errorf("lsp: signature snapshot is empty")
 	}
 	position, err := positionForByteOffset(request.Code, request.CallOffset)
 	if err != nil {
-		return project.CallableSignature{}, fmt.Errorf("lsp: resolve signature position: %w", err)
+		return nil, fmt.Errorf("lsp: resolve signature position: %w", err)
 	}
 
 	snapshotPath, err := provider.createSignatureSnapshot(request.Code)
 	if err != nil {
-		return project.CallableSignature{}, err
+		return nil, err
 	}
 	defer os.Remove(snapshotPath)
 
 	if err := provider.session.SynchronizeDocument(ctx, snapshotPath, "python", 1, request.Code, nil); err != nil {
-		return project.CallableSignature{}, err
+		return nil, err
 	}
 	closedDocument := false
 	defer func() {
@@ -210,10 +210,10 @@ func (provider *BasedpyrightProvider) ResolveCallableSignature(
 	}()
 	result, err := provider.session.SignatureHelp(ctx, snapshotPath, position)
 	if err != nil {
-		return project.CallableSignature{}, err
+		return nil, err
 	}
 	if err := provider.session.CloseDocument(snapshotPath); err != nil {
-		return project.CallableSignature{}, err
+		return nil, err
 	}
 	closedDocument = true
 	return normalizeSignatureHelp(result)
@@ -242,34 +242,34 @@ func (provider *BasedpyrightProvider) createSignatureSnapshot(code string) (stri
 
 func (provider *BasedpyrightProvider) SynchronizeGeneratedDocument(
 	ctx context.Context,
-	request project.GeneratedDocumentRequest,
-) (project.GeneratedDocumentResult, error) {
+	request coordinator.GeneratedDocumentRequest,
+) (coordinator.GeneratedDocumentResult, error) {
 	if provider == nil {
-		return project.GeneratedDocumentResult{}, ErrProviderClosed
+		return coordinator.GeneratedDocumentResult{}, ErrProviderClosed
 	}
 	provider.mu.Lock()
 	defer provider.mu.Unlock()
 	if provider.closed {
-		return project.GeneratedDocumentResult{}, ErrProviderClosed
+		return coordinator.GeneratedDocumentResult{}, ErrProviderClosed
 	}
 	if request.Revision < 1 {
-		return project.GeneratedDocumentResult{}, fmt.Errorf("lsp: generated document revision must be positive")
+		return coordinator.GeneratedDocumentResult{}, fmt.Errorf("lsp: generated document revision must be positive")
 	}
 	path, err := provider.resolveCanonicalPath(request.Path)
 	if err != nil {
-		return project.GeneratedDocumentResult{}, err
+		return coordinator.GeneratedDocumentResult{}, err
 	}
 	diskCode, err := os.ReadFile(path)
 	if err != nil {
-		return project.GeneratedDocumentResult{}, fmt.Errorf("lsp: read generated document: %w", err)
+		return coordinator.GeneratedDocumentResult{}, fmt.Errorf("lsp: read generated document: %w", err)
 	}
 	if string(diskCode) != request.Code {
-		return project.GeneratedDocumentResult{}, fmt.Errorf("lsp: generated document does not match its canonical revision")
+		return coordinator.GeneratedDocumentResult{}, fmt.Errorf("lsp: generated document does not match its canonical revision")
 	}
 
 	waiter := newDiagnosticWaiter()
 	if err := provider.session.SynchronizeDocument(ctx, path, "python", request.Revision, request.Code, waiter.notify); err != nil {
-		return project.GeneratedDocumentResult{}, err
+		return coordinator.GeneratedDocumentResult{}, err
 	}
 	return provider.waitForExactDiagnostics(ctx, request, waiter)
 }
@@ -295,14 +295,14 @@ func (provider *BasedpyrightProvider) resolveCanonicalPath(path string) (string,
 
 func (provider *BasedpyrightProvider) waitForExactDiagnostics(
 	ctx context.Context,
-	request project.GeneratedDocumentRequest,
+	request coordinator.GeneratedDocumentRequest,
 	waiter *diagnosticWaiter,
-) (project.GeneratedDocumentResult, error) {
+) (coordinator.GeneratedDocumentResult, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if waiter == nil {
-		return project.GeneratedDocumentResult{}, errors.New("lsp: diagnostics waiter is required")
+		return coordinator.GeneratedDocumentResult{}, errors.New("lsp: diagnostics waiter is required")
 	}
 	if failure := waiter.takeFailure(); failure != nil {
 		return diagnosticWaitFailure(failure)
@@ -324,7 +324,7 @@ func (provider *BasedpyrightProvider) waitForExactDiagnostics(
 		if !matchesDocumentRevision(publication, request.Revision) {
 			continue
 		}
-		return project.GeneratedDocumentResult{
+		return coordinator.GeneratedDocumentResult{
 			Diagnostics:    normalizeDiagnostics(request.Code, publication.Diagnostics),
 			ProviderStatus: readyProviderStatus(),
 		}, nil
@@ -346,31 +346,31 @@ func effectiveDiagnosticTimeout(ctx context.Context, configured time.Duration) (
 	return configured, false
 }
 
-func diagnosticWaitFailure(failure error) (project.GeneratedDocumentResult, error) {
-	return project.GeneratedDocumentResult{}, fmt.Errorf("lsp: wait for diagnostics: %w", failure)
+func diagnosticWaitFailure(failure error) (coordinator.GeneratedDocumentResult, error) {
+	return coordinator.GeneratedDocumentResult{}, fmt.Errorf("lsp: wait for diagnostics: %w", failure)
 }
 
 func matchesDocumentRevision(publication PublishDiagnosticsParams, revision int) bool {
 	return publication.Version != nil && *publication.Version == revision
 }
 
-func normalizeDiagnostics(code string, diagnostics []Diagnostic) []project.ProviderDiagnostic {
-	normalized := make([]project.ProviderDiagnostic, 0, len(diagnostics))
+func normalizeDiagnostics(code string, diagnostics []Diagnostic) []coordinator.ProviderDiagnostic {
+	normalized := make([]coordinator.ProviderDiagnostic, 0, len(diagnostics))
 	for _, diagnostic := range diagnostics {
 		start, end, err := byteOffsetsForRange(code, diagnostic.Range)
 		if err != nil {
 			continue
 		}
-		severity := project.ProviderDiagnosticSeverityInformation
+		severity := coordinator.ProviderDiagnosticInformation
 		switch diagnostic.Severity {
 		case 1:
-			severity = project.ProviderDiagnosticSeverityError
+			severity = coordinator.ProviderDiagnosticError
 		case 2:
-			severity = project.ProviderDiagnosticSeverityWarning
+			severity = coordinator.ProviderDiagnosticWarning
 		case 3, 4:
-			severity = project.ProviderDiagnosticSeverityInformation
+			severity = coordinator.ProviderDiagnosticInformation
 		}
-		normalized = append(normalized, project.ProviderDiagnostic{
+		normalized = append(normalized, coordinator.ProviderDiagnostic{
 			Start:    start,
 			End:      end,
 			Severity: severity,
@@ -381,21 +381,21 @@ func normalizeDiagnostics(code string, diagnostics []Diagnostic) []project.Provi
 	return normalized
 }
 
-func readyProviderStatus() contracts.ProviderStatusV1 {
-	return contracts.ProviderStatusV1{
-		Provider: contracts.ProviderBasedpyrightV1,
-		Status:   contracts.ProviderAvailabilityAvailableV1,
-		State:    contracts.ProviderLifecycleStateReadyV1,
+func readyProviderStatus() coordinator.ProviderStatus {
+	return coordinator.ProviderStatus{
+		Provider:     "basedpyright",
+		Availability: coordinator.ProviderAvailabilityAvailable,
+		State:        coordinator.ProviderLifecycleReady,
 	}
 }
 
-func pendingDiagnosticsResult() project.GeneratedDocumentResult {
-	return project.GeneratedDocumentResult{
-		Diagnostics: []project.ProviderDiagnostic{},
-		ProviderStatus: contracts.ProviderStatusV1{
-			Provider: contracts.ProviderBasedpyrightV1,
-			Status:   contracts.ProviderAvailabilityAvailableV1,
-			State:    contracts.ProviderLifecycleStatePendingV1,
+func pendingDiagnosticsResult() coordinator.GeneratedDocumentResult {
+	return coordinator.GeneratedDocumentResult{
+		Diagnostics: []coordinator.ProviderDiagnostic{},
+		ProviderStatus: coordinator.ProviderStatus{
+			Provider:     "basedpyright",
+			Availability: coordinator.ProviderAvailabilityAvailable,
+			State:        coordinator.ProviderLifecyclePending,
 		},
 	}
 }

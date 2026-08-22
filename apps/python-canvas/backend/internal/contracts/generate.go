@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 )
 
-// GenerateArtifacts writes, or checks, every V1 artifact from one validated
+// GenerateArtifacts writes, or checks, every V2 artifact from one validated
 // snapshot. The two targets are always generated together.
-func GenerateArtifacts(snapshot ProjectSnapshotV1, check bool) error {
+func GenerateArtifacts(snapshot ProjectSnapshotV2, check bool) error {
 	appRoot, err := findAppRoot()
 	if err != nil {
 		return err
@@ -19,8 +19,8 @@ func GenerateArtifacts(snapshot ProjectSnapshotV1, check bool) error {
 	return generateArtifacts(appRoot, snapshot, check)
 }
 
-func generateArtifacts(appRoot string, snapshot ProjectSnapshotV1, check bool) error {
-	fixture, err := marshalProjectSnapshotV1(snapshot)
+func generateArtifacts(appRoot string, snapshot ProjectSnapshotV2, check bool) error {
+	fixture, err := marshalProjectSnapshotV2(snapshot)
 	if err != nil {
 		return err
 	}
@@ -28,17 +28,17 @@ func generateArtifacts(appRoot string, snapshot ProjectSnapshotV1, check bool) e
 	artifacts := []generatedArtifact{
 		{
 			path:    filepath.Join(appRoot, "src", "backend", "generatedContract.ts"),
-			content: TypeScriptV1(),
+			content: TypeScriptV2(),
 		},
 		{
-			path:    filepath.Join(appRoot, "backend", "internal", "contracts", "testdata", "project-snapshot-v1.json"),
+			path:    filepath.Join(appRoot, "backend", "internal", "contracts", "testdata", "project-snapshot-v2.json"),
 			content: fixture,
 		},
 	}
 	return writeOrCheckArtifacts(artifacts, check)
 }
 
-func marshalProjectSnapshotV1(snapshot ProjectSnapshotV1) ([]byte, error) {
+func marshalProjectSnapshotV2(snapshot ProjectSnapshotV2) ([]byte, error) {
 	if err := snapshot.Validate(); err != nil {
 		return nil, fmt.Errorf("validate project snapshot: %w", err)
 	}

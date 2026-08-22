@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/setta/python-canvas/backend/internal/project"
+	"github.com/setta/python-canvas/backend/internal/project/coordinator"
 )
 
 const completionSnapshotSeparator = "\n\n"
@@ -16,13 +16,13 @@ const completionSnapshotSeparator = "\n\n"
 // written by this read-only query.
 func (provider *BasedpyrightProvider) CompleteCallable(
 	ctx context.Context,
-	request project.CallableCompletionRequest,
-) ([]project.CompletionItem, error) {
+	request coordinator.CallableCompletionRequest,
+) ([]coordinator.CompletionItem, error) {
 	snapshotCode, draftStart, err := completionSnapshot(request.CanonicalCode, request.AuthoredExpression)
 	if err != nil {
 		return nil, err
 	}
-	draftOffset, err := project.ByteOffsetForUTF16Offset(request.AuthoredExpression, request.CursorOffsetUTF16)
+	draftOffset, err := coordinator.UTF16ByteOffset(request.AuthoredExpression, request.CursorOffsetUTF16)
 	if err != nil {
 		return nil, fmt.Errorf("lsp: resolve completion cursor: %w", err)
 	}
@@ -33,8 +33,8 @@ func (provider *BasedpyrightProvider) CompleteCallable(
 // request is already a fully rendered candidate module and a renderer-derived byte boundary.
 func (provider *BasedpyrightProvider) CompletePythonTarget(
 	ctx context.Context,
-	request project.PythonTargetCompletionRequest,
-) ([]project.CompletionItem, error) {
+	request coordinator.PythonTargetCompletionRequest,
+) ([]coordinator.CompletionItem, error) {
 	return provider.completeSnapshot(ctx, request.Code, request.CursorOffsetByte)
 }
 
@@ -42,7 +42,7 @@ func (provider *BasedpyrightProvider) completeSnapshot(
 	ctx context.Context,
 	snapshotCode string,
 	cursorOffsetByte int,
-) ([]project.CompletionItem, error) {
+) ([]coordinator.CompletionItem, error) {
 	if provider == nil {
 		return nil, ErrProviderClosed
 	}
@@ -115,8 +115,8 @@ func (provider *BasedpyrightProvider) createCompletionSnapshot(code string) (str
 	return snapshotPath, nil
 }
 
-func normalizeCompletionItems(result CompletionResult) []project.CompletionItem {
-	items := make([]project.CompletionItem, 0, len(result.Items))
+func normalizeCompletionItems(result CompletionResult) []coordinator.CompletionItem {
+	items := make([]coordinator.CompletionItem, 0, len(result.Items))
 	for _, item := range result.Items {
 		label := strings.TrimSpace(item.Label)
 		if label == "" {
@@ -126,7 +126,7 @@ func normalizeCompletionItems(result CompletionResult) []project.CompletionItem 
 		if insertText == "" {
 			insertText = label
 		}
-		items = append(items, project.CompletionItem{
+		items = append(items, coordinator.CompletionItem{
 			Label:      label,
 			InsertText: insertText,
 		})

@@ -1,300 +1,235 @@
-import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v1.json";
+import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
-  PROJECT_CALLABLE_PATH_V1,
-  PROJECT_PARAMETERS_PATH_V1,
-  PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1,
-  PROJECT_TARGET_PATH_V1,
-  PROJECT_PATH_V1,
+  PROJECT_CALLABLES_PATH_V2,
+  PROJECT_PATH_V2,
+  PROJECT_RENAME_PATH_V2,
+  PROJECT_TARGET_COMPLETIONS_PATH_V2,
+  PROJECT_TARGET_PATH_V2,
+  projectCallableCommitPath,
+  projectCallableDeletePath,
+  projectCallableParametersPath,
+  projectCallableRenamePath,
 } from "./generatedContract";
 import {
   ProjectClientError,
   commitCallable,
   completeCallable,
   completePythonTarget,
+  createCallable,
+  deleteCallable,
   fetchProjectSnapshot,
+  renameCallable,
+  renameProject,
   setCallableParameters,
   setPythonTarget,
 } from "./client";
 
-describe("Python Canvas project client", () => {
-  it("uses one JSON GET request and validates the successful response", async () => {
-    const response = createJsonResponse(projectSnapshotFixture);
-    const fetchImplementation = vi.fn().mockResolvedValue(response);
+describe("Python Canvas V2 project client", () => {
+  it("uses one exact JSON GET request and validates the V2 snapshot", async () => {
+    const fetchImplementation = vi
+      .fn()
+      .mockResolvedValue(createJsonResponse(projectSnapshotFixture));
 
     await expect(
       fetchProjectSnapshot(fetchImplementation as typeof fetch),
     ).resolves.toEqual(projectSnapshotFixture);
 
-    expect(fetchImplementation).toHaveBeenCalledTimes(1);
-    expect(fetchImplementation).toHaveBeenCalledWith(PROJECT_PATH_V1, {
-      method: "GET",
+    expect(fetchImplementation).toHaveBeenCalledWith(PROJECT_PATH_V2, {
       headers: { Accept: "application/json" },
+      method: "GET",
     });
   });
 
-  it("commits the callable through the generated V1 route", async () => {
-    const response = createJsonResponse(projectSnapshotFixture);
-    const fetchImplementation = vi.fn().mockResolvedValue(response);
-
-    await commitCallable(
-      {
-        authoredExpression: "math.sqrt",
-        projectId: "project:python-canvas",
-        sectionId: "callable:square-root",
-      },
-      fetchImplementation as typeof fetch,
-    );
-
-    expect(fetchImplementation).toHaveBeenCalledWith(PROJECT_CALLABLE_PATH_V1, {
-      body: JSON.stringify({
-        authoredExpression: "math.sqrt",
-        projectId: "project:python-canvas",
-        sectionId: "callable:square-root",
-      }),
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-    });
-  });
-
-  it("sends the complete revision-bound parameter list through the generated V1 route", async () => {
-    const response = createJsonResponse(projectSnapshotFixture);
-    const fetchImplementation = vi.fn().mockResolvedValue(response);
-    const request = {
-      callableId: "callable:square-root",
-      expectedRevision: 2,
+  it("uses exact generated V2 paths for every revision-bound mutation", async () => {
+    const callableId = "callable:one";
+    const projectRequest = {
+      expectedRevision: 1,
+      name: "Renamed project",
+      projectId: "project:fixture",
+    };
+    const callableRequest = {
+      expectedRevision: 1,
+      name: "Renamed callable",
+      projectId: "project:fixture",
+    };
+    const deleteRequest = {
+      expectedRevision: 1,
+      projectId: "project:fixture",
+    };
+    const commitRequest = {
+      authoredExpression: "value",
+      expectedRevision: 1,
+      projectId: "project:fixture",
+    };
+    const parameterRequest = {
+      expectedRevision: 1,
       parameters: [
         {
-          authoredExpression: "3",
-          id: "parameter:square-root:provider",
-          name: "x",
-        },
-        {
           authoredExpression: "2",
-          id: "parameter:authored:1",
+          id: "parameter:scale",
           name: "scale",
         },
       ],
-      projectId: "project:python-canvas",
+      projectId: "project:fixture",
     };
-
-    await setCallableParameters(request, fetchImplementation as typeof fetch);
-
-    expect(fetchImplementation).toHaveBeenCalledWith(
-      PROJECT_PARAMETERS_PATH_V1,
-      {
-        body: JSON.stringify(request),
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-      },
-    );
-  });
-
-  it("sends the complete revision-bound Python target through the generated V1 route", async () => {
-    const response = createJsonResponse(projectSnapshotFixture);
-    const fetchImplementation = vi.fn().mockResolvedValue(response);
-    // An emptied region is a real proposal, so it crosses this boundary as the empty string.
-    const request = {
-      expectedRevision: 2,
-      prefix: "import math\nimport os",
-      projectId: "project:python-canvas",
-      suffix: "",
-    };
-
-    await setPythonTarget(request, fetchImplementation as typeof fetch);
-
-    expect(fetchImplementation).toHaveBeenCalledWith(PROJECT_TARGET_PATH_V1, {
-      body: JSON.stringify(request),
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-    });
-  });
-
-  it("requests callable completions with the supplied cancellation signal and strictly parsed response", async () => {
-    const response = createJsonResponse({
-      items: [{ label: "sqrt", insertText: "sqrt" }],
-    });
-    const fetchImplementation = vi.fn().mockResolvedValue(response);
-    const controller = new AbortController();
-
-    await expect(
-      completeCallable(
-        {
-          authoredExpression: "math.sq",
-          cursorOffsetUtf16: 7,
-          projectId: "project:python-canvas",
-          sectionId: "callable:square-root",
-        },
-        controller.signal,
-        fetchImplementation as typeof fetch,
-      ),
-    ).resolves.toEqual({
-      items: [{ label: "sqrt", insertText: "sqrt" }],
-    });
-
-    expect(fetchImplementation).toHaveBeenCalledWith(
-      PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
-      {
-        body: JSON.stringify({
-          authoredExpression: "math.sq",
-          cursorOffsetUtf16: 7,
-          projectId: "project:python-canvas",
-          sectionId: "callable:square-root",
-        }),
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-        signal: controller.signal,
-      },
-    );
-  });
-
-  it("rejects malformed callable completion successes before they reach the editor", async () => {
-    const fetchImplementation = vi
-      .fn()
-      .mockResolvedValue(createJsonResponse({ items: [{ label: "sqrt" }] }));
-
-    await expect(
-      completeCallable(
-        {
-          authoredExpression: "math.sq",
-          cursorOffsetUtf16: 7,
-          projectId: "project:python-canvas",
-          sectionId: "callable:square-root",
-        },
-        new AbortController().signal,
-        fetchImplementation as typeof fetch,
-      ),
-    ).rejects.toMatchObject({
-      kind: "invalid_response",
-      status: 200,
-    } satisfies Partial<ProjectClientError>);
-  });
-
-  it("requests Python target completions through the shared completion response contract", async () => {
-    const response = createJsonResponse({
-      items: [{ label: "math", insertText: "math" }],
-    });
-    const fetchImplementation = vi.fn().mockResolvedValue(response);
-    const controller = new AbortController();
-    const request = {
-      cursorOffsetUtf16: 9,
-      prefix: "import mat",
-      projectId: "project:python-canvas",
-      region: "prefix" as const,
+    const targetRequest = {
+      expectedRevision: 1,
+      prefix: "import os",
+      projectId: "project:fixture",
       suffix: "state = SettaState()",
+    };
+
+    await expectSnapshotPost(PROJECT_RENAME_PATH_V2, projectRequest, (fetch) =>
+      renameProject(projectRequest, fetch),
+    );
+    await expectSnapshotPost(
+      PROJECT_CALLABLES_PATH_V2,
+      projectRequest,
+      (fetch) => createCallable(projectRequest, fetch),
+    );
+    await expectSnapshotPost(
+      projectCallableRenamePath(callableId),
+      callableRequest,
+      (fetch) => renameCallable(callableId, callableRequest, fetch),
+    );
+    await expectSnapshotPost(
+      projectCallableDeletePath(callableId),
+      deleteRequest,
+      (fetch) => deleteCallable(callableId, deleteRequest, fetch),
+    );
+    await expectSnapshotPost(
+      projectCallableCommitPath(callableId),
+      commitRequest,
+      (fetch) => commitCallable(callableId, commitRequest, fetch),
+    );
+    await expectSnapshotPost(
+      projectCallableParametersPath(callableId),
+      parameterRequest,
+      (fetch) => setCallableParameters(callableId, parameterRequest, fetch),
+    );
+    await expectSnapshotPost(PROJECT_TARGET_PATH_V2, targetRequest, (fetch) =>
+      setPythonTarget(targetRequest, fetch),
+    );
+  });
+
+  it("sends complete combined-document completion requests with cancellation", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue(
+      createJsonResponse({
+        items: [{ insertText: "value", label: "value" }],
+      }),
+    );
+    const controller = new AbortController();
+    const targetRequest = {
+      code: "import val\n\nbody\n\nstate = SettaState()",
+      cursorOffsetUtf16: 10,
+      projectId: "project:fixture",
+      protectedBodyRange: { end: 17, start: 12 },
     };
 
     await expect(
       completePythonTarget(
-        request,
+        targetRequest,
         controller.signal,
         fetchImplementation as typeof fetch,
       ),
-    ).resolves.toEqual({ items: [{ label: "math", insertText: "math" }] });
+    ).resolves.toEqual({ items: [{ insertText: "value", label: "value" }] });
+
     expect(fetchImplementation).toHaveBeenCalledWith(
-      PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1,
-      {
-        body: JSON.stringify(request),
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
+      PROJECT_TARGET_COMPLETIONS_PATH_V2,
+      expect.objectContaining({
+        body: JSON.stringify(targetRequest),
         method: "POST",
         signal: controller.signal,
+      }),
+    );
+
+    const callableFetch = vi
+      .fn()
+      .mockResolvedValue(createJsonResponse({ items: [] }));
+    await completeCallable(
+      "callable:one",
+      {
+        authoredExpression: "value",
+        cursorOffsetUtf16: 5,
+        projectId: "project:fixture",
       },
+      controller.signal,
+      callableFetch as typeof fetch,
+    );
+    expect(callableFetch).toHaveBeenCalledWith(
+      "/api/v2/project/callables/callable%3Aone/completions",
+      expect.objectContaining({ method: "POST", signal: controller.signal }),
     );
   });
 
-  it("reports a typed V1 mutation failure", async () => {
-    const response = createJsonResponse(
-      {
-        error: {
-          code: "unsupported_signature",
-          message: "callable signature is not supported",
-        },
-      },
-      false,
-      422,
-    );
-    const fetchImplementation = vi.fn().mockResolvedValue(response);
-
-    await expect(
-      commitCallable(
-        {
-          authoredExpression: "math.sqrt",
-          projectId: "project:python-canvas",
-          sectionId: "callable:square-root",
-        },
-        fetchImplementation as typeof fetch,
-      ),
-    ).rejects.toMatchObject({
-      code: "unsupported_signature",
-      kind: "http",
-      status: 422,
-    } satisfies Partial<ProjectClientError>);
-  });
-
-  // A parameter ID now travels in the request body rather than in the route, so the route needs no
-  // injection guard. What the caller does need is the store's typed conflict.
-  it("surfaces a stale revision as its typed conflict code", async () => {
-    const response = createJsonResponse(
-      {
+  it("surfaces typed closed revision conflicts and malformed successes", async () => {
+    const conflictFetch = vi.fn().mockResolvedValue({
+      json: vi.fn().mockResolvedValue({
         error: {
           code: "revision_conflict",
-          message: "the project changed since this revision",
+          currentRevision: 4,
+          expectedRevision: 3,
+          message: "Project changed.",
         },
-      },
-      false,
-      409,
-    );
-    const fetchImplementation = vi.fn().mockResolvedValue(response);
+      }),
+      ok: false,
+      status: 409,
+    } as unknown as Response);
 
     await expect(
-      setCallableParameters(
+      renameProject(
         {
-          callableId: "callable:square-root",
-          expectedRevision: 2,
-          parameters: [
-            {
-              authoredExpression: "3",
-              id: "parameter:square-root:provider",
-              name: "x",
-            },
-          ],
-          projectId: "project:python-canvas",
+          expectedRevision: 3,
+          name: "Renamed project",
+          projectId: "project:fixture",
         },
-        fetchImplementation as typeof fetch,
+        conflictFetch as typeof fetch,
       ),
     ).rejects.toMatchObject({
       code: "revision_conflict",
       kind: "http",
       status: 409,
     } satisfies Partial<ProjectClientError>);
+
+    const malformedFetch = vi
+      .fn()
+      .mockResolvedValue(createJsonResponse({ version: "v2" }));
+    await expect(
+      fetchProjectSnapshot(malformedFetch as typeof fetch),
+    ).rejects.toMatchObject({ kind: "invalid_response", status: 200 });
   });
 });
 
+async function expectSnapshotPost(
+  path: string,
+  body: object,
+  invoke: (fetchImplementation: typeof fetch) => Promise<unknown>,
+): Promise<void> {
+  const fetchImplementation = vi
+    .fn()
+    .mockResolvedValue(createJsonResponse(projectSnapshotFixture));
+  await invoke(fetchImplementation as typeof fetch);
+  expect(fetchImplementation).toHaveBeenCalledWith(
+    path,
+    expect.objectContaining({
+      body: JSON.stringify(body),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    }),
+  );
+}
+
 function createJsonResponse(
   body: unknown,
-  ok = true,
-  status = 200,
 ): Response & { json: ReturnType<typeof vi.fn> } {
   return {
-    ok,
-    status,
     json: vi.fn().mockResolvedValue(body),
+    ok: true,
+    status: 200,
   } as unknown as Response & { json: ReturnType<typeof vi.fn> };
 }

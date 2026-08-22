@@ -1,24 +1,32 @@
 import {
-  PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
-  PROJECT_CALLABLE_PATH_V1,
-  PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1,
-  PROJECT_PARAMETERS_PATH_V1,
-  PROJECT_PATH_V1,
-  PROJECT_TARGET_PATH_V1,
-  type APIErrorCodeV1,
-  type CallableCompletionRequestV1,
-  type CompletionResponseV1,
-  type CommitCallableRequestV1,
-  type ProjectSnapshotV1,
-  type PythonTargetCompletionRequestV1,
-  type SetCallableParametersRequestV1,
-  type SetPythonTargetRequestV1,
+  PROJECT_CALLABLES_PATH_V2,
+  PROJECT_PATH_V2,
+  PROJECT_RENAME_PATH_V2,
+  PROJECT_TARGET_COMPLETIONS_PATH_V2,
+  PROJECT_TARGET_PATH_V2,
+  projectCallableCommitPath,
+  projectCallableCompletionsPath,
+  projectCallableDeletePath,
+  projectCallableParametersPath,
+  projectCallableRenamePath,
+  type APIErrorCodeV2,
+  type CallableCompletionRequestV2,
+  type CommitCallableRequestV2,
+  type CompletionResponseV2,
+  type CreateCallableRequestV2,
+  type DeleteCallableRequestV2,
+  type ProjectSnapshotV2,
+  type PythonTargetCompletionRequestV2,
+  type RenameCallableRequestV2,
+  type RenameProjectRequestV2,
+  type SetCallableParametersRequestV2,
+  type SetPythonTargetRequestV2,
 } from "./generatedContract";
 import {
   ProjectSnapshotValidationError,
-  parseCompletionResponseV1,
-  parseErrorResponseV1,
-  parseProjectSnapshotV1,
+  parseCompletionResponseV2,
+  parseErrorResponseV2,
+  parseProjectSnapshotV2,
 } from "./runtimeContract";
 
 type ProjectClientErrorKind = "network" | "http" | "invalid_response";
@@ -31,7 +39,7 @@ export class ProjectClientError extends Error {
     message: string,
     public readonly status?: number,
     public readonly cause?: unknown,
-    public readonly code?: APIErrorCodeV1,
+    public readonly code?: APIErrorCodeV2,
   ) {
     super(message);
   }
@@ -39,74 +47,119 @@ export class ProjectClientError extends Error {
 
 export async function fetchProjectSnapshot(
   fetchImplementation: typeof fetch = fetch,
-): Promise<ProjectSnapshotV1> {
+): Promise<ProjectSnapshotV2> {
   return requestProjectSnapshot(
-    PROJECT_PATH_V1,
+    PROJECT_PATH_V2,
     { headers: { Accept: "application/json" }, method: "GET" },
     fetchImplementation,
   );
 }
 
-export async function commitCallable(
-  request: CommitCallableRequestV1,
+export function renameProject(
+  request: RenameProjectRequestV2,
   fetchImplementation: typeof fetch = fetch,
-): Promise<ProjectSnapshotV1> {
+): Promise<ProjectSnapshotV2> {
   return requestProjectSnapshot(
-    PROJECT_CALLABLE_PATH_V1,
+    PROJECT_RENAME_PATH_V2,
     jsonPost(request),
     fetchImplementation,
   );
 }
 
-export async function completeCallable(
-  request: CallableCompletionRequestV1,
+export function createCallable(
+  request: CreateCallableRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    PROJECT_CALLABLES_PATH_V2,
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function renameCallable(
+  callableId: string,
+  request: RenameCallableRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    projectCallableRenamePath(callableId),
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function deleteCallable(
+  callableId: string,
+  request: DeleteCallableRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    projectCallableDeletePath(callableId),
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function commitCallable(
+  callableId: string,
+  request: CommitCallableRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    projectCallableCommitPath(callableId),
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function setCallableParameters(
+  callableId: string,
+  request: SetCallableParametersRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    projectCallableParametersPath(callableId),
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function setPythonTarget(
+  request: SetPythonTargetRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    PROJECT_TARGET_PATH_V2,
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function completeCallable(
+  callableId: string,
+  request: CallableCompletionRequestV2,
   signal: AbortSignal,
   fetchImplementation: typeof fetch = fetch,
-): Promise<CompletionResponseV1> {
+): Promise<CompletionResponseV2> {
   return requestCompletions(
-    PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
+    projectCallableCompletionsPath(callableId),
     jsonPost(request, signal),
     fetchImplementation,
     "callable",
   );
 }
 
-export async function completePythonTarget(
-  request: PythonTargetCompletionRequestV1,
+export function completePythonTarget(
+  request: PythonTargetCompletionRequestV2,
   signal: AbortSignal,
   fetchImplementation: typeof fetch = fetch,
-): Promise<CompletionResponseV1> {
+): Promise<CompletionResponseV2> {
   return requestCompletions(
-    PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1,
+    PROJECT_TARGET_COMPLETIONS_PATH_V2,
     jsonPost(request, signal),
     fetchImplementation,
     "Python target",
-  );
-}
-
-// One request carries the callable's complete proposed parameter list, so an
-// added, renamed, revalued, reordered, or deleted record is the same round trip.
-export async function setCallableParameters(
-  request: SetCallableParametersRequestV1,
-  fetchImplementation: typeof fetch = fetch,
-): Promise<ProjectSnapshotV1> {
-  return requestProjectSnapshot(
-    PROJECT_PARAMETERS_PATH_V1,
-    jsonPost(request),
-    fetchImplementation,
-  );
-}
-
-// One request carries the complete authored Python around the generated body, so a
-// prefix edit and a suffix edit reach the store as the same candidate.
-export async function setPythonTarget(
-  request: SetPythonTargetRequestV1,
-  fetchImplementation: typeof fetch = fetch,
-): Promise<ProjectSnapshotV1> {
-  return requestProjectSnapshot(
-    PROJECT_TARGET_PATH_V1,
-    jsonPost(request),
-    fetchImplementation,
   );
 }
 
@@ -129,42 +182,19 @@ async function requestProjectSnapshot(
   path: string,
   init: RequestInit,
   fetchImplementation: typeof fetch,
-): Promise<ProjectSnapshotV1> {
-  let response: Response;
-  try {
-    response = await fetchImplementation(path, init);
-  } catch (cause) {
-    throw new ProjectClientError(
-      "network",
-      "Unable to reach the project endpoint.",
-      undefined,
-      cause,
-    );
-  }
-
+): Promise<ProjectSnapshotV2> {
+  const response = await request(path, init, fetchImplementation);
   if (!response.ok) {
     throw await responseError(response);
   }
-
-  let payload: unknown;
+  const payload = await responseJson(response);
   try {
-    payload = await response.json();
-  } catch (cause) {
-    throw new ProjectClientError(
-      "invalid_response",
-      "Project endpoint did not return valid JSON.",
-      response.status,
-      cause,
-    );
-  }
-
-  try {
-    return parseProjectSnapshotV1(payload);
+    return parseProjectSnapshotV2(payload);
   } catch (cause) {
     if (cause instanceof ProjectSnapshotValidationError) {
       throw new ProjectClientError(
         "invalid_response",
-        "Project endpoint returned an invalid V1 snapshot.",
+        "Project endpoint returned an invalid V2 snapshot.",
         response.status,
         cause,
       );
@@ -178,37 +208,14 @@ async function requestCompletions(
   init: RequestInit,
   fetchImplementation: typeof fetch,
   subject: string,
-): Promise<CompletionResponseV1> {
-  let response: Response;
-  try {
-    response = await fetchImplementation(path, init);
-  } catch (cause) {
-    throw new ProjectClientError(
-      "network",
-      "Unable to reach the project endpoint.",
-      undefined,
-      cause,
-    );
-  }
-
+): Promise<CompletionResponseV2> {
+  const response = await request(path, init, fetchImplementation);
   if (!response.ok) {
     throw await responseError(response);
   }
-
-  let payload: unknown;
+  const payload = await responseJson(response);
   try {
-    payload = await response.json();
-  } catch (cause) {
-    throw new ProjectClientError(
-      "invalid_response",
-      "Project endpoint did not return valid JSON.",
-      response.status,
-      cause,
-    );
-  }
-
-  try {
-    return parseCompletionResponseV1(payload);
+    return parseCompletionResponseV2(payload);
   } catch (cause) {
     if (cause instanceof ProjectSnapshotValidationError) {
       throw new ProjectClientError(
@@ -219,6 +226,36 @@ async function requestCompletions(
       );
     }
     throw cause;
+  }
+}
+
+async function request(
+  path: string,
+  init: RequestInit,
+  fetchImplementation: typeof fetch,
+): Promise<Response> {
+  try {
+    return await fetchImplementation(path, init);
+  } catch (cause) {
+    throw new ProjectClientError(
+      "network",
+      "Unable to reach the project endpoint.",
+      undefined,
+      cause,
+    );
+  }
+}
+
+async function responseJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch (cause) {
+    throw new ProjectClientError(
+      "invalid_response",
+      "Project endpoint did not return valid JSON.",
+      response.status,
+      cause,
+    );
   }
 }
 
@@ -235,7 +272,7 @@ async function responseError(response: Response): Promise<ProjectClientError> {
     );
   }
   try {
-    const failure = parseErrorResponseV1(payload);
+    const failure = parseErrorResponseV2(payload);
     return new ProjectClientError(
       "http",
       failure.error.message,

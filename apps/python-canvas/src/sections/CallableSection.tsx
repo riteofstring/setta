@@ -1,14 +1,10 @@
+import { useEffect, useId, useState } from "react";
 import {
-  PROVIDER_AVAILABILITY_AVAILABLE_V1,
-  PROVIDER_AVAILABILITY_UNAVAILABLE_V1,
-  PROVIDER_BASEDPYRIGHT_V1,
-  PROVIDER_LIFECYCLE_STATE_FAILED_V1,
-  PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1,
-  PROVIDER_LIFECYCLE_STATE_PENDING_V1,
-  PROVIDER_LIFECYCLE_STATE_READY_V1,
-  type ProviderAvailabilityV1,
-  type ProviderLifecycleStateV1,
-  type ProviderV1,
+  PROVIDER_AVAILABILITY_AVAILABLE_V2,
+  PROVIDER_BASEDPYRIGHT_V2,
+  PROVIDER_LIFECYCLE_STATE_FAILED_V2,
+  type ProviderAvailabilityV2,
+  type ProviderLifecycleStateV2,
 } from "../backend/generatedContract";
 import {
   ItemNameEditor,
@@ -23,13 +19,9 @@ import {
 import { usePythonCanvasMutationContext } from "../app/PythonCanvasMutationContext";
 import { parameterNameErrors } from "./parameterNames";
 
-export const CALLABLE_SECTION_ID = "python-canvas:callable" as const;
-export const PARAMETER_ITEM_ROOT_ID = "python-canvas:callable:parameter-root";
-const CALLABLE_EXPRESSION_CONTROL_ID = "callable-expression";
 const PARAMETER_LIST_KEY = "python-canvas-callable-parameters";
-// A row whose name has not been written yet still needs an accessible name for its
-// value editor. Main leaves its blank kwarg unlabelled; a reader here should not.
-const UNNAMED_PARAMETER_LABEL = "Unnamed parameter";
+
+const unnamedParameterLabel = "Unnamed parameter";
 
 export type CallableSectionData = {
   callable: {
@@ -37,177 +29,129 @@ export type CallableSectionData = {
     id: string;
     name: string;
   };
-  // A callable-targeted diagnostic is compact field feedback. The projection
-  // joins multiple canonical messages before this opaque section boundary.
   callableDiagnosticMessage: string | null;
-  // Keyed by canonical parameter ID, which is also the workspace item ID.
   parameterDiagnostics: Record<string, Array<WorkspaceItemDiagnostic>>;
   providerStatus: {
-    provider: ProviderV1;
-    status: ProviderAvailabilityV1;
-    state: ProviderLifecycleStateV1;
+    provider: typeof PROVIDER_BASEDPYRIGHT_V2;
+    status: ProviderAvailabilityV2;
+    state: ProviderLifecycleStateV2;
   };
 };
 
-// The row shows what main's ordinary text parameter shows: its name, its value editor, and the
-// real default behind an empty one. Passing style and the provider's type spelling stay in the
-// canonical backend contract, where code generation and diagnostics own them. The item's own ID
-// is the canonical parameter ID, so the row carries no second copy of it.
 export type ParameterItemData = {
   authoredExpression: string;
   default: string | null;
   disabled: boolean;
   name: string;
-  // Whether the backend says this record's name is the app's to write.
   nameEditable: boolean;
 };
 
 export function readCallableSectionData(value: unknown): CallableSectionData {
-  if (!isRecord(value)) {
-    throw new Error("Callable section data must be an object.");
-  }
-  requireExactFields(value, [
+  const record = readRecord(value, "Callable section data");
+  requireExactFields(record, [
     "callable",
     "callableDiagnosticMessage",
     "parameterDiagnostics",
     "providerStatus",
   ]);
-  if (!isRecord(value.callable)) {
-    throw new Error("Callable section data callable must be an object.");
-  }
-  requireExactFields(value.callable, ["authoredExpression", "id", "name"]);
-  const callable = {
-    authoredExpression: readString(
-      value.callable.authoredExpression,
-      "callable.authoredExpression",
-    ),
-    id: readStableId(value.callable.id, "callable.id"),
-    name: readNonBlankString(value.callable.name, "callable.name"),
-  };
+  const callableRecord = readRecord(
+    record.callable,
+    "Callable section callable",
+  );
+  requireExactFields(callableRecord, ["authoredExpression", "id", "name"]);
   return {
-    callable,
+    callable: {
+      authoredExpression: readString(
+        callableRecord.authoredExpression,
+        "callable.authoredExpression",
+      ),
+      id: readStableId(callableRecord.id, "callable.id"),
+      name: readNonBlankString(callableRecord.name, "callable.name"),
+    },
     callableDiagnosticMessage: readNonBlankStringOrNull(
-      value.callableDiagnosticMessage,
+      record.callableDiagnosticMessage,
       "callableDiagnosticMessage",
     ),
-    parameterDiagnostics: readParameterDiagnostics(value.parameterDiagnostics),
-    providerStatus: readProviderStatus(value.providerStatus),
+    parameterDiagnostics: readParameterDiagnostics(record.parameterDiagnostics),
+    providerStatus: readProviderStatus(record.providerStatus),
   };
 }
 
 export function readParameterItemData(value: unknown): ParameterItemData {
-  if (!isRecord(value)) {
-    throw new Error("Callable parameter item data must be an object.");
-  }
-  requireExactFields(value, [
+  const record = readRecord(value, "Callable parameter item data");
+  requireExactFields(record, [
     "authoredExpression",
     "default",
     "disabled",
     "name",
     "nameEditable",
   ]);
-  if (typeof value.disabled !== "boolean") {
+  if (typeof record.disabled !== "boolean") {
     throw new Error("Callable parameter item disabled must be a boolean.");
   }
-  if (typeof value.nameEditable !== "boolean") {
+  if (typeof record.nameEditable !== "boolean") {
     throw new Error("Callable parameter item nameEditable must be a boolean.");
   }
   return {
     authoredExpression: readString(
-      value.authoredExpression,
+      record.authoredExpression,
       "parameter.authoredExpression",
     ),
-    default: readStringOrNull(value.default, "parameter.default"),
-    disabled: value.disabled,
-    // An authored record may be blank until someone names it, exactly as the
-    // canonical contract allows.
-    name: readString(value.name, "parameter.name"),
-    nameEditable: value.nameEditable,
+    default: readStringOrNull(record.default, "parameter.default"),
+    disabled: record.disabled,
+    name: readString(record.name, "parameter.name"),
+    nameEditable: record.nameEditable,
   };
 }
 
-function readParameterDiagnostics(
-  value: unknown,
-): CallableSectionData["parameterDiagnostics"] {
-  if (!isRecord(value)) {
-    throw new Error("Callable parameterDiagnostics must be an object.");
-  }
-  const diagnostics: CallableSectionData["parameterDiagnostics"] = {};
-  for (const [parameterId, entries] of Object.entries(value)) {
-    if (!Array.isArray(entries)) {
-      throw new Error(
-        `Callable parameterDiagnostics[${parameterId}] must be an array.`,
-      );
-    }
-    diagnostics[readStableId(parameterId, "parameterDiagnostics key")] =
-      entries.map((diagnostic, index) =>
-        readWorkspaceDiagnostic(diagnostic, index),
-      );
-  }
-  return diagnostics;
-}
-
-// The section's leading control, placed by the package above its Args toolbar. The compact field
-// replaces the previous large label and the idle paragraph about what Basedpyright does after a
-// commit. Project mutation status belongs to the app-level live region rather than this field;
-// only genuine field failures claim visible space here.
-//
-// The field carries no placeholder. Like main's callable search it renders the canonical committed
-// expression, which the shipped demo commits before its first response; a placeholder here painted
-// `math.sqrt` as sample copy over an empty callable that no snapshot contained.
-//
-// Its keys are main's: Tab accepts an offered completion into the draft, one unmodified Enter
-// commits the draft the field is showing even while the popup is open, and Escape — once the popup
-// has taken its own first Escape — abandons the draft for the canonical expression.
 export function CallableExpressionField({
-  diagnosticMessage = null,
+  data,
+  sectionId,
 }: {
-  diagnosticMessage?: string | null;
+  data: CallableSectionData;
+  sectionId: string;
 }) {
   const mutation = usePythonCanvasMutationContext();
+  const callableId = data.callable.id;
+  const completionError = mutation.callableCompletionError(callableId);
 
   return (
     <div className="python-canvas-callable-field">
       <TextValueEditor
-        ariaLabel="Callable expression"
-        completionProvider={mutation.callableCompletionProvider}
-        controlId={CALLABLE_EXPRESSION_CONTROL_ID}
-        diagnosticMessage={diagnosticMessage ?? undefined}
+        ariaLabel={`Callable expression for ${data.callable.name}`}
+        completionProvider={mutation.callableCompletionProvider(callableId)}
+        controlId={`callable-expression:${callableId}`}
+        diagnosticMessage={data.callableDiagnosticMessage ?? undefined}
         disabled={mutation.pending}
         language="python"
-        onCommit={mutation.onCallableCommit}
-        onEscape={mutation.onCallableRevert}
-        onValueChange={mutation.onCallableDraftChange}
+        onCommit={(value) => mutation.onCallableCommit(callableId, value)}
+        onEscape={() => mutation.onCallableRevert(callableId)}
+        onValueChange={(value) =>
+          mutation.onCallableDraftChange(callableId, value)
+        }
         presentation="section-field"
-        sectionId={CALLABLE_SECTION_ID}
+        sectionId={sectionId}
         singleLine
-        value={mutation.callableDraft}
+        value={mutation.callableDraft(callableId)}
         wrapLines={false}
       />
-      {mutation.mutationError === null ? null : (
-        <p className="python-canvas-mutation-error" role="alert">
-          {mutation.mutationError}
-        </p>
-      )}
-      {mutation.completionError === null ? null : (
+      {completionError === null ? null : (
         <p className="python-canvas-completion-error" role="alert">
-          {mutation.completionError}
+          {completionError}
         </p>
       )}
     </div>
   );
 }
 
-// The list's membership is the workspace item tree's own order, because Add, Remove Last, Delete
-// Selected, and drag reorder all change that tree before the canonical response confirms it. A
-// name rule is a claim about the whole list, so the section resolves it once here and each row
-// shows the message that is its own.
 export function CallableSection({
   data,
   parameters,
+  sectionId,
 }: {
   data: CallableSectionData;
   parameters: Array<{ data: ParameterItemData; id: string }>;
+  sectionId: string;
 }) {
   const itemDiagnostics = parameterDiagnosticRegistry(data);
   const providerFailure = providerFailureMessage(data.providerStatus);
@@ -215,6 +159,7 @@ export function CallableSection({
 
   return (
     <div className="python-canvas-callable-section">
+      <CallableNameControl callable={data.callable} />
       {providerFailure === null ? null : (
         <p className="python-canvas-provider-error" role="alert">
           {providerFailure}
@@ -222,46 +167,85 @@ export function CallableSection({
       )}
       <WorkspaceItemList
         itemDiagnostics={itemDiagnostics}
-        listKey={PARAMETER_LIST_KEY}
+        listKey={`${PARAMETER_LIST_KEY}:${data.callable.id}`}
         renderItem={(context) => (
           <ParameterItemRow
+            callableId={data.callable.id}
             context={context}
             nameError={nameErrors[context.item.id] ?? ""}
           />
         )}
-        sectionId={CALLABLE_SECTION_ID}
+        sectionId={sectionId}
         topLevelItemIds={parameters.map((parameter) => parameter.id)}
       />
     </div>
   );
 }
 
-// The filter is package-owned but these rows are application-opaque, so the app projects exactly
-// the text the row shows. Main's own Args filter matches the visible parameter name alone.
 export function parameterItemSearchableText(item: { data?: unknown }): string {
   return readParameterItemData(item.data).name;
 }
 
-// Main's ordinary text parameter: the display name, then the value editor. A provider-derived name
-// belongs to the resolved signature, so that row keeps a static label; an app-authored name uses
-// the package's own name editor. A placeholder here means exactly what it means in main — the
-// value this parameter takes when the row is left empty — so a parameter without a default shows
-// none.
-//
-// A name the store would refuse is reported on the row through the package's own error
-// presentation, exactly where main's bubble reports it, and the typed name stays in the document
-// while it is wrong.
+function CallableNameControl({
+  callable,
+}: {
+  callable: CallableSectionData["callable"];
+}) {
+  const mutation = usePythonCanvasMutationContext();
+  const inputId = useId();
+  const [name, setName] = useState(callable.name);
+
+  useEffect(() => {
+    setName(callable.name);
+  }, [callable.name]);
+
+  return (
+    <form
+      className="python-canvas-callable-controls"
+      onSubmit={(event) => {
+        event.preventDefault();
+        mutation.onCallableRename(callable.id, name);
+      }}
+    >
+      <label htmlFor={inputId}>Callable name</label>
+      <input
+        id={inputId}
+        name="callable-name"
+        onChange={(event) => setName(event.target.value)}
+        required
+        type="text"
+        value={name}
+      />
+      <div className="python-canvas-callable-actions">
+        <button disabled={mutation.pending} type="submit">
+          Rename callable
+        </button>
+        <button
+          aria-label={`Delete callable ${callable.name}`}
+          disabled={mutation.pending}
+          onClick={() => mutation.onCallableDelete(callable.id)}
+          type="button"
+        >
+          Delete callable
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function ParameterItemRow({
+  callableId,
   context,
   nameError,
 }: {
+  callableId: string;
   context: ItemRowRenderContext;
   nameError: string;
 }) {
   const mutation = usePythonCanvasMutationContext();
   const data = readParameterItemData(context.item.data);
   const disabled = data.disabled || mutation.pending;
-  const label = data.name === "" ? UNNAMED_PARAMETER_LABEL : data.name;
+  const label = data.name === "" ? unnamedParameterLabel : data.name;
   return (
     <>
       {data.nameEditable ? (
@@ -272,7 +256,7 @@ function ParameterItemRow({
           language="python"
           name={data.name}
           onNameChange={(name) =>
-            mutation.onParameterNameChange(context.item.id, name)
+            mutation.onParameterNameChange(callableId, context.item.id, name)
           }
           sectionId={context.sectionId}
         />
@@ -289,11 +273,15 @@ function ParameterItemRow({
         controlId={context.item.id}
         disabled={disabled}
         language="python"
-        presentation="item-row"
         onValueChange={(value) =>
-          mutation.onParameterExpressionChange(context.item.id, value)
+          mutation.onParameterExpressionChange(
+            callableId,
+            context.item.id,
+            value,
+          )
         }
         placeholder={data.default ?? undefined}
+        presentation="item-row"
         sectionId={context.sectionId}
         singleLine
         value={data.authoredExpression}
@@ -306,57 +294,58 @@ function ParameterItemRow({
 function parameterDiagnosticRegistry(
   data: CallableSectionData,
 ): WorkspaceItemDiagnosticRegistry | undefined {
-  if (Object.keys(data.parameterDiagnostics).length === 0) {
-    return undefined;
-  }
-  return data.parameterDiagnostics;
+  return Object.keys(data.parameterDiagnostics).length === 0
+    ? undefined
+    : data.parameterDiagnostics;
 }
 
-// Only a genuine provider failure claims a visible block. Not-started, pending, and ready are
-// ordinary states; describing them turned the idle section into a paragraph of infrastructure
-// text, while project mutation status already reads through the app-level live region.
 function providerFailureMessage(
   status: CallableSectionData["providerStatus"],
 ): string | null {
-  if (status.state === PROVIDER_LIFECYCLE_STATE_FAILED_V1) {
+  if (
+    status.status !== PROVIDER_AVAILABILITY_AVAILABLE_V2 ||
+    status.state === PROVIDER_LIFECYCLE_STATE_FAILED_V2
+  ) {
     return "Basedpyright is unavailable. Try the change again when it is ready.";
   }
   return null;
 }
 
+function readParameterDiagnostics(
+  value: unknown,
+): CallableSectionData["parameterDiagnostics"] {
+  const record = readRecord(value, "Callable parameterDiagnostics");
+  const diagnostics: CallableSectionData["parameterDiagnostics"] = {};
+  for (const [parameterId, entries] of Object.entries(record)) {
+    if (!Array.isArray(entries)) {
+      throw new Error(
+        `Callable parameterDiagnostics[${parameterId}] must be an array.`,
+      );
+    }
+    diagnostics[readStableId(parameterId, "parameterDiagnostics key")] =
+      entries.map((entry, index) => readWorkspaceDiagnostic(entry, index));
+  }
+  return diagnostics;
+}
+
 function readProviderStatus(
   value: unknown,
 ): CallableSectionData["providerStatus"] {
-  if (!isRecord(value)) {
-    throw new Error("Callable provider status must be an object.");
-  }
-  requireExactFields(value, ["provider", "status", "state"]);
-  if (value.provider !== PROVIDER_BASEDPYRIGHT_V1) {
+  const record = readRecord(value, "Callable provider status");
+  requireExactFields(record, ["provider", "status", "state"]);
+  if (record.provider !== PROVIDER_BASEDPYRIGHT_V2) {
     throw new Error("Callable provider status has an unsupported provider.");
   }
-  const status = value.status;
-  const state = value.state;
+  const status = record.status;
+  const state = record.state;
   if (
-    (state === PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1 ||
-      state === PROVIDER_LIFECYCLE_STATE_FAILED_V1) &&
-    status === PROVIDER_AVAILABILITY_UNAVAILABLE_V1
+    (state === "not_started" || state === "failed") &&
+    status === "unavailable"
   ) {
-    return {
-      provider: PROVIDER_BASEDPYRIGHT_V1,
-      status: PROVIDER_AVAILABILITY_UNAVAILABLE_V1,
-      state,
-    };
+    return { provider: PROVIDER_BASEDPYRIGHT_V2, status, state };
   }
-  if (
-    (state === PROVIDER_LIFECYCLE_STATE_PENDING_V1 ||
-      state === PROVIDER_LIFECYCLE_STATE_READY_V1) &&
-    status === PROVIDER_AVAILABILITY_AVAILABLE_V1
-  ) {
-    return {
-      provider: PROVIDER_BASEDPYRIGHT_V1,
-      status: PROVIDER_AVAILABILITY_AVAILABLE_V1,
-      state,
-    };
+  if ((state === "pending" || state === "ready") && status === "available") {
+    return { provider: PROVIDER_BASEDPYRIGHT_V2, status, state };
   }
   throw new Error("Callable provider status has an unsupported state.");
 }
@@ -365,25 +354,34 @@ function readWorkspaceDiagnostic(
   value: unknown,
   index: number,
 ): WorkspaceItemDiagnostic {
-  if (!isRecord(value)) {
-    throw new Error(
-      `Callable parameter diagnostic ${String(index)} must be an object.`,
-    );
-  }
-  requireExactFields(value, ["message", "severity"]);
-  const severity = value.severity;
-  if (severity !== "error" && severity !== "warning" && severity !== "info") {
+  const record = readRecord(
+    value,
+    `Callable parameter diagnostic ${String(index)}`,
+  );
+  requireExactFields(record, ["message", "severity"]);
+  if (
+    record.severity !== "error" &&
+    record.severity !== "warning" &&
+    record.severity !== "info"
+  ) {
     throw new Error(
       `Callable parameter diagnostic ${String(index)} has an unsupported severity.`,
     );
   }
   return {
     message: readNonBlankString(
-      value.message,
+      record.message,
       `parameterDiagnostics[${String(index)}].message`,
     ),
-    severity,
+    severity: record.severity,
   };
+}
+
+function readRecord(value: unknown, field: string): Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${field} must be an object.`);
+  }
+  return value as Record<string, unknown>;
 }
 
 function requireExactFields(
@@ -419,10 +417,7 @@ function readNonBlankStringOrNull(
   value: unknown,
   field: string,
 ): string | null {
-  if (value === null) {
-    return null;
-  }
-  return readNonBlankString(value, field);
+  return value === null ? null : readNonBlankString(value, field);
 }
 
 function readString(value: unknown, field: string): string {
@@ -433,12 +428,5 @@ function readString(value: unknown, field: string): string {
 }
 
 function readStringOrNull(value: unknown, field: string): string | null {
-  if (value === null) {
-    return null;
-  }
-  return readString(value, field);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+  return value === null ? null : readString(value, field);
 }

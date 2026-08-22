@@ -46,6 +46,7 @@ body {
 .python-canvas-heading h1,
 .python-canvas-heading p,
 .python-canvas-error,
+.python-canvas-empty-state,
 .python-canvas-callable-section p,
 .python-canvas-callable-field p {
   margin: 0;
@@ -75,6 +76,80 @@ body {
   block-size: min(70dvh, 48rem);
 }
 
+.python-canvas-project-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  max-inline-size: 72rem;
+}
+
+.python-canvas-project-controls form,
+.python-canvas-callable-controls {
+  display: grid;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+
+.python-canvas-project-controls label,
+.python-canvas-callable-controls label {
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.python-canvas-project-controls input,
+.python-canvas-callable-controls input {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 2.75rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid light-dark(#77839a, #748096);
+  border-radius: 0.375rem;
+  background: light-dark(#ffffff, #151a23);
+  color: inherit;
+  font: inherit;
+}
+
+.python-canvas-project-controls button,
+.python-canvas-callable-actions button {
+  min-block-size: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid light-dark(#52627d, #9aa8bd);
+  border-radius: 0.375rem;
+  background: light-dark(#ffffff, #151a23);
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+}
+
+.python-canvas-project-controls input:focus-visible,
+.python-canvas-project-controls button:focus-visible,
+.python-canvas-callable-controls input:focus-visible,
+.python-canvas-callable-actions button:focus-visible {
+  outline: 3px solid light-dark(#175cd3, #84adff);
+  outline-offset: 2px;
+}
+
+.python-canvas-project-controls button:disabled,
+.python-canvas-callable-actions button:disabled,
+.python-canvas-callable-controls input:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.python-canvas-empty-state {
+  display: grid;
+  gap: 0.25rem;
+  max-inline-size: 72rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid light-dark(#b7c0d0, #3b4658);
+  border-radius: 0.5rem;
+}
+
+.python-canvas-empty-state h2,
+.python-canvas-empty-state p {
+  margin: 0;
+}
+
 /* The package owns the section's own insets: main's callable field begins at the header boundary
  * and its Args surface begins at the field's, so an app padding or gap around package-owned
  * content would push the section's primary control away from the chrome it belongs to. This grid
@@ -83,6 +158,12 @@ body {
   display: grid;
   gap: 0.625rem;
   min-inline-size: 0;
+}
+
+.python-canvas-callable-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 /* The package owns the field surface itself. This app styles only its own error content. */
@@ -142,5 +223,9 @@ body {
   .python-canvas-workspace {
     min-block-size: 20rem;
     block-size: 65dvh;
+  }
+
+  .python-canvas-project-controls {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

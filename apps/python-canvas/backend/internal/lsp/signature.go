@@ -8,29 +8,27 @@ import (
 	"unicode"
 	"unicode/utf16"
 
-	"github.com/setta/python-canvas/backend/internal/codegen"
-	"github.com/setta/python-canvas/backend/internal/project"
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 )
 
 var ErrSignatureNotFound = errors.New("lsp: signature help returned no callable signature")
 var ErrMalformedSignature = errors.New("lsp: signature help returned an invalid callable signature")
 
-func normalizeSignatureHelp(result SignatureHelpResult) (project.CallableSignature, error) {
+func normalizeSignatureHelp(result SignatureHelpResult) ([]aggregate.ProviderParameter, error) {
 	parameters, err := normalizeSignatureParameters(result)
 	if err != nil {
-		return project.CallableSignature{}, err
+		return nil, err
 	}
-	converted := make([]project.SignatureParameter, 0, len(parameters))
+	converted := make([]aggregate.ProviderParameter, 0, len(parameters))
 	for _, parameter := range parameters {
-		converted = append(converted, project.SignatureParameter{
+		converted = append(converted, aggregate.ProviderParameter{
 			Name:           parameter.Name,
-			PassingStyle:   codegen.ParameterPassingStyle(parameter.PassingStyle),
+			PassingStyle:   parameter.PassingStyle,
 			TypeAnnotation: parameter.TypeAnnotation,
 			Default:        copyString(parameter.Default),
 		})
 	}
-	return project.CallableSignature{Parameters: converted}, nil
+	return converted, nil
 }
 
 type normalizedSignatureParameter struct {

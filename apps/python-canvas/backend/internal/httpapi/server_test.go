@@ -4,584 +4,147 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/setta/python-canvas/backend/internal/contracts"
-	"github.com/setta/python-canvas/backend/internal/project"
+	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 )
 
-type requestContextKey struct{}
+func TestHandlerExposesOnlyTheExactV2ProjectRoute(t *testing.T) {
+	handler := newHandlerForTest(t, &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()})
 
-func TestProjectEndpointAcceptsOnlyExactBodylessGET(t *testing.T) {
-	service := newStubService()
-	handler := newHandlerForTest(t, service)
-
-	zeroContentLength := int64(0)
-	tests := []struct {
+	for _, test := range []struct {
 		name       string
 		method     string
 		target     string
-		body       string
-		contentLen *int64
-		forceQuery bool
 		wantStatus int
-		wantCode   contracts.APIErrorCodeV1
-		wantAllow  string
+		wantCode   contracts.APIErrorCodeV2
 	}{
-		{name: "project", method: http.MethodGet, target: contracts.ProjectPathV1, wantStatus: http.StatusOK},
-		{name: "trailing slash", method: http.MethodGet, target: contracts.ProjectPathV1 + "/", wantStatus: http.StatusNotFound, wantCode: contracts.APIErrorCodeNotFoundV1},
-		{name: "encoded path", method: http.MethodGet, target: "/api/v1/%70roject", wantStatus: http.StatusNotFound, wantCode: contracts.APIErrorCodeNotFoundV1},
-		{name: "query", method: http.MethodGet, target: contracts.ProjectPathV1 + "?view=full", wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "empty query", method: http.MethodGet, target: contracts.ProjectPathV1, forceQuery: true, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "body", method: http.MethodGet, target: contracts.ProjectPathV1, body: "{}", wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "body with zero content length", method: http.MethodGet, target: contracts.ProjectPathV1, body: "{}", contentLen: &zeroContentLength, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "method", method: http.MethodPost, target: contracts.ProjectPathV1, wantStatus: http.StatusMethodNotAllowed, wantCode: contracts.APIErrorCodeMethodNotAllowedV1, wantAllow: http.MethodGet},
-	}
-
-	for _, test := range tests {
+		{"V2 project", http.MethodGet, contracts.ProjectPathV2, http.StatusOK, ""},
+		{"retired project absent", http.MethodGet, retiredProjectPath(), http.StatusNotFound, contracts.APIErrorCodeNotFoundV2},
+		{"trailing slash absent", http.MethodGet, contracts.ProjectPathV2 + "/", http.StatusNotFound, contracts.APIErrorCodeNotFoundV2},
+		{"wrong method", http.MethodPost, contracts.ProjectPathV2, http.StatusMethodNotAllowed, contracts.APIErrorCodeMethodNotAllowedV2},
+	} {
 		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(test.method, test.target, strings.NewReader(test.body))
-			request.URL.ForceQuery = test.forceQuery
-			if test.contentLen != nil {
-				request.ContentLength = *test.contentLen
-			}
 			response := httptest.NewRecorder()
-
-			handler.ServeHTTP(response, request)
-			assertResponse(t, response, test.wantStatus, test.wantCode, test.wantAllow)
-			if test.wantStatus != http.StatusOK {
+			handler.ServeHTTP(response, httptest.NewRequest(test.method, test.target, nil))
+			if response.Code != test.wantStatus {
+				t.Fatalf("status = %d, want %d; body = %s", response.Code, test.wantStatus, response.Body.String())
+			}
+			if test.wantCode == "" {
+				var snapshot contracts.ProjectSnapshotV2
+				if err := json.Unmarshal(response.Body.Bytes(), &snapshot); err != nil {
+					t.Fatalf("decode V2 snapshot: %v", err)
+				}
+				if err := snapshot.Validate(); err != nil {
+					t.Fatalf("V2 project response is invalid: %v", err)
+				}
 				return
 			}
-			var snapshot contracts.ProjectSnapshotV1
-			if err := json.Unmarshal(response.Body.Bytes(), &snapshot); err != nil {
-				t.Fatalf("decode project response: %v", err)
-			}
-			if err := snapshot.Validate(); err != nil {
-				t.Fatalf("decoded project response is invalid: %v", err)
-			}
+			assertErrorCode(t, response, test.wantCode)
 		})
 	}
 }
 
-func TestCallableEndpointStrictlyDecodesAndPropagatesRequestContext(t *testing.T) {
-	service := newStubService()
-	contextKey := requestContextKey{}
-	var receivedContext context.Context
-	var received contracts.CommitCallableRequestV1
-	service.commitCallable = func(ctx context.Context, projectID, sectionID, expression string) (contracts.ProjectSnapshotV1, error) {
-		receivedContext = ctx
-		received = contracts.CommitCallableRequestV1{
-			ProjectID:          projectID,
-			SectionID:          sectionID,
-			AuthoredExpression: expression,
-		}
+func TestHandlerForwardsRevisionBoundProjectAndParameterMutations(t *testing.T) {
+	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
+	var renamed contracts.RenameProjectRequestV2
+	var parameterCallableID string
+	var parameters contracts.SetCallableParametersRequestV2
+	service.renameProject = func(_ context.Context, request contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error) {
+		renamed = request
+		return service.snapshot, nil
+	}
+	service.setParameters = func(_ context.Context, callableID string, request contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error) {
+		parameterCallableID = callableID
+		parameters = request
 		return service.snapshot, nil
 	}
 	handler := newHandlerForTest(t, service)
 
-	request := httptest.NewRequest(
-		http.MethodPost,
-		contracts.ProjectCallablePathV1,
-		strings.NewReader(`{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sqrt"}`),
-	).WithContext(context.WithValue(context.Background(), contextKey, "request context"))
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-
-	assertResponse(t, response, http.StatusOK, "", "")
-	if receivedContext.Value(contextKey) != "request context" {
-		t.Fatal("callable mutation did not receive the request context")
-	}
-	if received.AuthoredExpression != "math.sqrt" || received.ProjectID == "" || received.SectionID == "" {
-		t.Fatalf("callable mutation request = %#v", received)
-	}
-}
-
-func TestCallableCompletionsEndpointStrictlyDecodesMapsFailuresAndLeavesAReadOnlyResponse(t *testing.T) {
-	service := newStubService()
-	contextKey := requestContextKey{}
-	var receivedContext context.Context
-	var received contracts.CallableCompletionRequestV1
-	service.completeCallable = func(ctx context.Context, projectID, sectionID, expression string, cursorOffsetUTF16 int) ([]project.CompletionItem, error) {
-		receivedContext = ctx
-		received = contracts.CallableCompletionRequestV1{
-			ProjectID:          projectID,
-			SectionID:          sectionID,
-			AuthoredExpression: expression,
-			CursorOffsetUTF16:  cursorOffsetUTF16,
-		}
-		return []project.CompletionItem{{Label: "sqrt", InsertText: "sqrt"}}, nil
-	}
-	handler := newHandlerForTest(t, service)
-
-	request := httptest.NewRequest(
-		http.MethodPost,
-		contracts.ProjectCallableCompletionsPathV1,
-		strings.NewReader(`{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sq","cursorOffsetUtf16":7}`),
-	).WithContext(context.WithValue(context.Background(), contextKey, "request context"))
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-
-	assertResponse(t, response, http.StatusOK, "", "")
-	if receivedContext.Value(contextKey) != "request context" {
-		t.Fatal("callable completion did not receive the request context")
-	}
-	if received != (contracts.CallableCompletionRequestV1{
-		ProjectID:          "project:python-canvas",
-		SectionID:          "callable:square-root",
-		AuthoredExpression: "math.sq",
-		CursorOffsetUTF16:  7,
-	}) {
-		t.Fatalf("callable completion request = %#v", received)
-	}
-	var completion contracts.CompletionResponseV1
-	if err := json.Unmarshal(response.Body.Bytes(), &completion); err != nil {
-		t.Fatalf("decode callable completion response: %v", err)
-	}
-	if err := completion.Validate(); err != nil {
-		t.Fatalf("callable completion response validation: %v", err)
-	}
-	if len(completion.Items) != 1 || completion.Items[0].Label != "sqrt" {
-		t.Fatalf("callable completion response = %#v", completion)
-	}
-}
-
-func TestCallableCompletionsEndpointRejectsInvalidRequestsAndMapsProviderFailures(t *testing.T) {
-	service := newStubService()
-	service.completeCallable = func(_ context.Context, projectID, _ string, expression string, _ int) ([]project.CompletionItem, error) {
-		if projectID == "project:missing" {
-			return nil, project.ErrProjectNotFound
-		}
-		if expression == "invalid" {
-			return nil, project.ErrCallableCompletionInvalid
-		}
-		return nil, project.ErrProviderUnavailable
-	}
-	handler := newHandlerForTest(t, service)
-
-	tests := []struct {
-		name        string
-		method      string
-		target      string
-		contentType string
-		body        string
-		wantStatus  int
-		wantCode    contracts.APIErrorCodeV1
-		wantAllow   string
-	}{
-		{name: "method", method: http.MethodGet, target: contracts.ProjectCallableCompletionsPathV1, wantStatus: http.StatusMethodNotAllowed, wantCode: contracts.APIErrorCodeMethodNotAllowedV1, wantAllow: http.MethodPost},
-		{name: "query", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1 + "?unexpected=true", wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "missing cursor", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sq"}`, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "unknown field", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sq","cursorOffsetUtf16":7,"unexpected":true}`, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "trailing value", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sq","cursorOffsetUtf16":7} {}`, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "unknown project", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1, contentType: "application/json", body: `{"projectId":"project:missing","sectionId":"callable:square-root","authoredExpression":"math.sq","cursorOffsetUtf16":7}`, wantStatus: http.StatusNotFound, wantCode: contracts.APIErrorCodeNotFoundV1},
-		{name: "project validation", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"invalid","cursorOffsetUtf16":7}`, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "provider unavailable", method: http.MethodPost, target: contracts.ProjectCallableCompletionsPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sq","cursorOffsetUtf16":7}`, wantStatus: http.StatusServiceUnavailable, wantCode: contracts.APIErrorCodeProviderUnavailableV1},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(test.method, test.target, strings.NewReader(test.body))
-			if test.contentType != "" {
-				request.Header.Set("Content-Type", test.contentType)
-			}
-			response := httptest.NewRecorder()
-			handler.ServeHTTP(response, request)
-			assertResponse(t, response, test.wantStatus, test.wantCode, test.wantAllow)
-		})
-	}
-}
-
-func TestPythonTargetCompletionsEndpointStrictlyDecodesBothAuthoredRegionsAndUsesTheSharedResponse(t *testing.T) {
-	service := newStubService()
-	var received contracts.PythonTargetCompletionRequestV1
-	service.completePythonTarget = func(
-		_ context.Context,
-		projectID string,
-		region project.PythonTargetCompletionRegion,
-		prefix string,
-		suffix string,
-		cursorOffsetUTF16 int,
-	) ([]project.CompletionItem, error) {
-		received = contracts.PythonTargetCompletionRequestV1{
-			ProjectID:         projectID,
-			Region:            contracts.PythonTargetCompletionRegionV1(region),
-			Prefix:            prefix,
-			Suffix:            suffix,
-			CursorOffsetUTF16: cursorOffsetUTF16,
-		}
-		return []project.CompletionItem{{Label: "math", InsertText: "math"}}, nil
-	}
-	handler := newHandlerForTest(t, service)
-
-	request := httptest.NewRequest(
-		http.MethodPost,
-		contracts.ProjectPythonTargetCompletionsPathV1,
-		strings.NewReader(`{"projectId":"project:python-canvas","region":"prefix","prefix":"import mat","suffix":"state = SettaState()","cursorOffsetUtf16":9}`),
+	renameResponse := postJSON(
+		handler,
+		contracts.ProjectRenamePathV2,
+		`{"projectId":"project:fixture","expectedRevision":1,"name":"Renamed project"}`,
 	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-
-	assertResponse(t, response, http.StatusOK, "", "")
-	if received != (contracts.PythonTargetCompletionRequestV1{
-		ProjectID:         "project:python-canvas",
-		Region:            contracts.PythonTargetCompletionRegionPrefixV1,
-		Prefix:            "import mat",
-		Suffix:            "state = SettaState()",
-		CursorOffsetUTF16: 9,
-	}) {
-		t.Fatalf("Python target completion request = %#v", received)
+	if renameResponse.Code != http.StatusOK {
+		t.Fatalf("rename status = %d; body = %s", renameResponse.Code, renameResponse.Body.String())
 	}
-	var completion contracts.CompletionResponseV1
-	if err := json.Unmarshal(response.Body.Bytes(), &completion); err != nil {
-		t.Fatalf("decode Python target completion response: %v", err)
-	}
-	if err := completion.Validate(); err != nil {
-		t.Fatalf("Python target completion response validation: %v", err)
+	if renamed != (contracts.RenameProjectRequestV2{ProjectID: "project:fixture", ExpectedRevision: 1, Name: "Renamed project"}) {
+		t.Fatalf("rename request = %#v", renamed)
 	}
 
-	for _, testCase := range []struct {
-		name string
-		body string
-	}{
-		{name: "missing suffix", body: `{"projectId":"project:python-canvas","region":"prefix","prefix":"import mat","cursorOffsetUtf16":9}`},
-		{name: "unknown region", body: `{"projectId":"project:python-canvas","region":"body","prefix":"import mat","suffix":"state = SettaState()","cursorOffsetUtf16":9}`},
-		{name: "unknown field", body: `{"projectId":"project:python-canvas","region":"prefix","prefix":"import mat","suffix":"state = SettaState()","cursorOffsetUtf16":9,"unexpected":true}`},
-	} {
-		t.Run(testCase.name, func(t *testing.T) {
-			invalidRequest := httptest.NewRequest(
-				http.MethodPost,
-				contracts.ProjectPythonTargetCompletionsPathV1,
-				strings.NewReader(testCase.body),
-			)
-			invalidRequest.Header.Set("Content-Type", "application/json")
-			invalidResponse := httptest.NewRecorder()
-			handler.ServeHTTP(invalidResponse, invalidRequest)
-			assertResponse(t, invalidResponse, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "")
-		})
-	}
-}
-
-func TestPythonTargetCompletionsEndpointMapsReadOnlyQueryFailures(t *testing.T) {
-	service := newStubService()
-	service.completePythonTarget = func(
-		_ context.Context,
-		projectID string,
-		_ project.PythonTargetCompletionRegion,
-		prefix string,
-		_ string,
-		_ int,
-	) ([]project.CompletionItem, error) {
-		switch {
-		case projectID == "project:missing":
-			return nil, project.ErrProjectNotFound
-		case prefix == "invalid":
-			return nil, project.ErrPythonTargetCompletionInvalid
-		default:
-			return nil, project.ErrProviderUnavailable
-		}
-	}
-	handler := newHandlerForTest(t, service)
-
-	for _, testCase := range []struct {
-		name       string
-		projectID  string
-		prefix     string
-		wantStatus int
-		wantCode   contracts.APIErrorCodeV1
-	}{
-		{name: "unknown project", projectID: "project:missing", prefix: "import mat", wantStatus: http.StatusNotFound, wantCode: contracts.APIErrorCodeNotFoundV1},
-		{name: "invalid target", projectID: "project:python-canvas", prefix: "invalid", wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "provider unavailable", projectID: "project:python-canvas", prefix: "import mat", wantStatus: http.StatusServiceUnavailable, wantCode: contracts.APIErrorCodeProviderUnavailableV1},
-	} {
-		t.Run(testCase.name, func(t *testing.T) {
-			body := fmt.Sprintf(`{"projectId":%q,"region":"prefix","prefix":%q,"suffix":"state = SettaState()","cursorOffsetUtf16":9}`, testCase.projectID, testCase.prefix)
-			request := httptest.NewRequest(
-				http.MethodPost,
-				contracts.ProjectPythonTargetCompletionsPathV1,
-				strings.NewReader(body),
-			)
-			request.Header.Set("Content-Type", "application/json")
-			response := httptest.NewRecorder()
-			handler.ServeHTTP(response, request)
-			assertResponse(t, response, testCase.wantStatus, testCase.wantCode, "")
-		})
-	}
-}
-
-func TestMutationEndpointsRequireTheirCompleteRequest(t *testing.T) {
-	tests := []struct {
-		name   string
-		target string
-		body   string
-	}{
-		{
-			name:   "callable",
-			target: contracts.ProjectCallablePathV1,
-			body:   `{"projectId":"project:python-canvas","sectionId":"callable:square-root"}`,
-		},
-		{
-			name:   "parameter list without a revision",
-			target: contracts.ProjectParametersPathV1,
-			body:   `{"projectId":"project:python-canvas","callableId":"callable:square-root","parameters":[]}`,
-		},
-		{
-			name:   "parameter list without its records",
-			target: contracts.ProjectParametersPathV1,
-			body:   `{"projectId":"project:python-canvas","callableId":"callable:square-root","expectedRevision":2}`,
-		},
-		{
-			name:   "parameter record without a name",
-			target: contracts.ProjectParametersPathV1,
-			body:   `{"projectId":"project:python-canvas","callableId":"callable:square-root","expectedRevision":2,"parameters":[{"id":"parameter:square-root:provider","authoredExpression":"3"}]}`,
-		},
-		{
-			name:   "Python target without a revision",
-			target: contracts.ProjectTargetPathV1,
-			body:   `{"projectId":"project:python-canvas","prefix":"import os","suffix":""}`,
-		},
-		{
-			// An omitted region is not an emptied one: the request carries the whole
-			// target or it carries nothing this store can act on.
-			name:   "Python target without its suffix",
-			target: contracts.ProjectTargetPathV1,
-			body:   `{"projectId":"project:python-canvas","expectedRevision":2,"prefix":"import os"}`,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			service := newStubService()
-			mutationCalled := false
-			service.commitCallable = func(context.Context, string, string, string) (contracts.ProjectSnapshotV1, error) {
-				mutationCalled = true
-				return service.snapshot, nil
-			}
-			service.setCallableParameters = func(context.Context, string, string, int, []project.ParameterProposal) (contracts.ProjectSnapshotV1, error) {
-				mutationCalled = true
-				return service.snapshot, nil
-			}
-			service.setPythonTarget = func(context.Context, string, int, string, string) (contracts.ProjectSnapshotV1, error) {
-				mutationCalled = true
-				return service.snapshot, nil
-			}
-			handler := newHandlerForTest(t, service)
-
-			request := httptest.NewRequest(http.MethodPost, test.target, strings.NewReader(test.body))
-			request.Header.Set("Content-Type", "application/json")
-			response := httptest.NewRecorder()
-			handler.ServeHTTP(response, request)
-
-			assertResponse(t, response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "")
-			if mutationCalled {
-				t.Fatal("mutation service was invoked for an incomplete request")
-			}
-		})
-	}
-}
-
-func TestTargetEndpointPropagatesBothAuthoredRegions(t *testing.T) {
-	service := newStubService()
-	var receivedProjectID, receivedPrefix, receivedSuffix string
-	receivedRevision := 0
-	service.setPythonTarget = func(
-		_ context.Context,
-		projectID string,
-		expectedRevision int,
-		prefix string,
-		suffix string,
-	) (contracts.ProjectSnapshotV1, error) {
-		receivedProjectID = projectID
-		receivedRevision = expectedRevision
-		receivedPrefix = prefix
-		receivedSuffix = suffix
-		return service.snapshot, nil
-	}
-	handler := newHandlerForTest(t, service)
-
-	// An emptied region is a real proposal, so it crosses this boundary as the empty
-	// string rather than as a missing field.
-	request := httptest.NewRequest(
-		http.MethodPost,
-		contracts.ProjectTargetPathV1,
-		strings.NewReader(`{"projectId":"project:python-canvas","expectedRevision":2,"prefix":"import math\nimport os","suffix":""}`),
+	callableID := "callable:dynamic"
+	parametersResponse := postJSON(
+		handler,
+		contracts.ProjectCallablesPathV2+"/"+callableID+"/parameters",
+		`{"projectId":"project:fixture","expectedRevision":1,"parameters":[{"id":"parameter:client","name":"scale","authoredExpression":"2"}]}`,
 	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-
-	assertResponse(t, response, http.StatusOK, "", "")
-	if receivedProjectID != "project:python-canvas" || receivedRevision != 2 ||
-		receivedPrefix != "import math\nimport os" || receivedSuffix != "" {
-		t.Fatalf(
-			"Python target mutation = projectID %q, revision %d, prefix %q, suffix %q",
-			receivedProjectID,
-			receivedRevision,
-			receivedPrefix,
-			receivedSuffix,
-		)
+	if parametersResponse.Code != http.StatusOK {
+		t.Fatalf("parameter status = %d; body = %s", parametersResponse.Code, parametersResponse.Body.String())
 	}
-}
-
-func TestParameterListEndpointPropagatesTheCompleteOrderedCandidate(t *testing.T) {
-	service := newStubService()
-	var receivedProjectID, receivedCallableID string
-	receivedRevision := 0
-	var receivedParameters []project.ParameterProposal
-	service.setCallableParameters = func(
-		_ context.Context,
-		projectID string,
-		callableID string,
-		expectedRevision int,
-		parameters []project.ParameterProposal,
-	) (contracts.ProjectSnapshotV1, error) {
-		receivedProjectID = projectID
-		receivedCallableID = callableID
-		receivedRevision = expectedRevision
-		receivedParameters = parameters
-		return service.snapshot, nil
+	if parameterCallableID != callableID {
+		t.Fatalf("callable ID = %q, want %q", parameterCallableID, callableID)
 	}
-	handler := newHandlerForTest(t, service)
+	if parameters.ProjectID != "project:fixture" || parameters.ExpectedRevision != 1 || len(parameters.Parameters) != 1 {
+		t.Fatalf("parameter request = %#v", parameters)
+	}
+	if parameter := parameters.Parameters[0]; parameter != (contracts.ParameterProposalV2{ID: "parameter:client", Name: "scale", AuthoredExpression: "2"}) {
+		t.Fatalf("parameter proposal = %#v", parameter)
+	}
 
-	request := httptest.NewRequest(
-		http.MethodPost,
-		contracts.ProjectParametersPathV1,
-		strings.NewReader(`{"projectId":"project:python-canvas","callableId":"callable:square-root","expectedRevision":2,`+
-			`"parameters":[{"id":"parameter:square-root:provider","name":"x","authoredExpression":""},`+
-			`{"id":"parameter:authored:1","name":"scale","authoredExpression":"2"}]}`),
+	invalid := postJSON(
+		handler,
+		contracts.ProjectCallablesPathV2+"/"+callableID+"/parameters",
+		`{"projectId":"project:fixture","expectedRevision":1,"parameters":[],"legacy":true}`,
 	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-
-	assertResponse(t, response, http.StatusOK, "", "")
-	wantParameters := []project.ParameterProposal{
-		{ID: "parameter:square-root:provider", Name: "x", AuthoredExpression: ""},
-		{ID: "parameter:authored:1", Name: "scale", AuthoredExpression: "2"},
+	if invalid.Code != http.StatusBadRequest {
+		t.Fatalf("unknown request field status = %d; body = %s", invalid.Code, invalid.Body.String())
 	}
-	if receivedProjectID != "project:python-canvas" || receivedCallableID != "callable:square-root" ||
-		receivedRevision != 2 || !reflect.DeepEqual(receivedParameters, wantParameters) {
-		t.Fatalf(
-			"parameter list mutation = projectID %q, callableID %q, revision %d, parameters %#v",
-			receivedProjectID,
-			receivedCallableID,
-			receivedRevision,
-			receivedParameters,
-		)
-	}
+	assertErrorCode(t, invalid, contracts.APIErrorCodeInvalidRequestV2)
 }
 
-func TestMutationRoutesRejectMalformedBodiesAndMapTypedFailures(t *testing.T) {
-	service := newStubService()
-	service.commitCallable = func(context.Context, string, string, string) (contracts.ProjectSnapshotV1, error) {
-		return contracts.ProjectSnapshotV1{}, project.ErrUnsupportedSignature
-	}
-	service.setCallableParameters = func(
-		_ context.Context,
-		_ string,
-		_ string,
-		expectedRevision int,
-		parameters []project.ParameterProposal,
-	) (contracts.ProjectSnapshotV1, error) {
-		if expectedRevision != 2 {
-			return contracts.ProjectSnapshotV1{}, project.ErrProjectRevisionStale
-		}
-		if len(parameters) == 1 && parameters[0].Name == "class" {
-			return contracts.ProjectSnapshotV1{}, project.ErrParameterNameInvalid
-		}
-		return contracts.ProjectSnapshotV1{}, project.ErrParameterExpressionInvalid
-	}
-	service.setPythonTarget = func(
-		_ context.Context,
-		_ string,
-		expectedRevision int,
-		_ string,
-		_ string,
-	) (contracts.ProjectSnapshotV1, error) {
-		if expectedRevision != 2 {
-			return contracts.ProjectSnapshotV1{}, project.ErrProjectRevisionStale
-		}
-		return contracts.ProjectSnapshotV1{}, project.ErrPythonTargetInvalid
+func TestHandlerReturnsAClosedTypedRevisionConflict(t *testing.T) {
+	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
+	service.snapshot.Project.Revision = 4
+	service.renameProject = func(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error) {
+		return contracts.ProjectSnapshotV2{}, aggregate.ErrRevisionConflict
 	}
 	handler := newHandlerForTest(t, service)
 
-	tests := []struct {
-		name        string
-		method      string
-		target      string
-		contentType string
-		body        string
-		wantStatus  int
-		wantCode    contracts.APIErrorCodeV1
-		wantAllow   string
-	}{
-		{name: "callable method", method: http.MethodGet, target: contracts.ProjectCallablePathV1, wantStatus: http.StatusMethodNotAllowed, wantCode: contracts.APIErrorCodeMethodNotAllowedV1, wantAllow: http.MethodPost},
-		{name: "callable content type", method: http.MethodPost, target: contracts.ProjectCallablePathV1, contentType: "text/plain", body: `{}`, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "callable unknown field", method: http.MethodPost, target: contracts.ProjectCallablePathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sqrt","unexpected":true}`, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "callable trailing value", method: http.MethodPost, target: contracts.ProjectCallablePathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sqrt"} {}`, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "callable unsupported signature", method: http.MethodPost, target: contracts.ProjectCallablePathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","sectionId":"callable:square-root","authoredExpression":"math.sqrt"}`, wantStatus: http.StatusUnprocessableEntity, wantCode: contracts.APIErrorCodeUnsupportedSignatureV1},
-		{name: "parameter list invalid expression", method: http.MethodPost, target: contracts.ProjectParametersPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","callableId":"callable:square-root","expectedRevision":2,"parameters":[{"id":"parameter:square-root:provider","name":"x","authoredExpression":"value; other"}]}`, wantStatus: http.StatusUnprocessableEntity, wantCode: contracts.APIErrorCodeInvalidParameterExpressionV1},
-		{name: "parameter list invalid name", method: http.MethodPost, target: contracts.ProjectParametersPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","callableId":"callable:square-root","expectedRevision":2,"parameters":[{"id":"parameter:authored:1","name":"class","authoredExpression":"2"}]}`, wantStatus: http.StatusUnprocessableEntity, wantCode: contracts.APIErrorCodeInvalidParameterNameV1},
-		{name: "parameter list stale revision", method: http.MethodPost, target: contracts.ProjectParametersPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","callableId":"callable:square-root","expectedRevision":1,"parameters":[{"id":"parameter:square-root:provider","name":"x","authoredExpression":"3"}]}`, wantStatus: http.StatusConflict, wantCode: contracts.APIErrorCodeRevisionConflictV1},
-		{name: "parameter list blank record id", method: http.MethodPost, target: contracts.ProjectParametersPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","callableId":"callable:square-root","expectedRevision":2,"parameters":[{"id":"","name":"x","authoredExpression":"3"}]}`, wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
-		{name: "parameter list with a path id", method: http.MethodPost, target: contracts.ProjectParametersPathV1 + "/parameter:square-root:provider", contentType: "application/json", body: `{"projectId":"project:python-canvas","callableId":"callable:square-root","expectedRevision":2,"parameters":[]}`, wantStatus: http.StatusNotFound, wantCode: contracts.APIErrorCodeNotFoundV1},
-		{name: "Python target method", method: http.MethodGet, target: contracts.ProjectTargetPathV1, wantStatus: http.StatusMethodNotAllowed, wantCode: contracts.APIErrorCodeMethodNotAllowedV1, wantAllow: http.MethodPost},
-		{name: "Python target invalid region", method: http.MethodPost, target: contracts.ProjectTargetPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","expectedRevision":2,"prefix":"import os","suffix":""}`, wantStatus: http.StatusUnprocessableEntity, wantCode: contracts.APIErrorCodeInvalidPythonTargetV1},
-		{name: "Python target stale revision", method: http.MethodPost, target: contracts.ProjectTargetPathV1, contentType: "application/json", body: `{"projectId":"project:python-canvas","expectedRevision":1,"prefix":"import os","suffix":""}`, wantStatus: http.StatusConflict, wantCode: contracts.APIErrorCodeRevisionConflictV1},
+	response := postJSON(
+		handler,
+		contracts.ProjectRenamePathV2,
+		`{"projectId":"project:fixture","expectedRevision":3,"name":"Renamed project"}`,
+	)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d; body = %s", response.Code, http.StatusConflict, response.Body.String())
 	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(test.method, test.target, strings.NewReader(test.body))
-			if test.contentType != "" {
-				request.Header.Set("Content-Type", test.contentType)
-			}
-			response := httptest.NewRecorder()
-			handler.ServeHTTP(response, request)
-			assertResponse(t, response, test.wantStatus, test.wantCode, test.wantAllow)
-		})
+	var payload contracts.ErrorResponseV2
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode conflict response: %v", err)
+	}
+	if payload.Error.Code != contracts.APIErrorCodeRevisionConflictV2 || payload.Error.ExpectedRevision == nil || payload.Error.CurrentRevision == nil || *payload.Error.ExpectedRevision != 3 || *payload.Error.CurrentRevision != 4 {
+		t.Fatalf("revision conflict response = %#v", payload)
 	}
 }
 
-func TestNewHandlerRejectsInvalidServiceSnapshot(t *testing.T) {
-	service := newStubService()
-	service.snapshot.Version = "v2"
-
-	_, err := NewHandler(service)
-	var versionError contracts.UnsupportedVersionError
-	if !errors.As(err, &versionError) {
-		t.Fatalf("NewHandler() error = %T %v, want UnsupportedVersionError", err, err)
-	}
+func postJSON(handler http.Handler, target string, body string) *httptest.ResponseRecorder {
+	request := httptest.NewRequest(http.MethodPost, target, strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	return response
 }
 
-func TestListenLoopbackRequestsExactIPv4LoopbackAddress(t *testing.T) {
-	wantListener := &stubListener{}
-	listener, err := listenLoopback(8042, func(network, address string) (net.Listener, error) {
-		if network != "tcp4" {
-			t.Fatalf("network = %q, want tcp4", network)
-		}
-		if address != "127.0.0.1:8042" {
-			t.Fatalf("address = %q, want 127.0.0.1:8042", address)
-		}
-		return wantListener, nil
-	})
-	if err != nil {
-		t.Fatalf("listenLoopback() error = %v", err)
-	}
-	if listener != wantListener {
-		t.Fatalf("listener = %T %v, want injected listener", listener, listener)
-	}
+func retiredProjectPath() string {
+	return "/api/" + "v" + "1/project"
 }
 
-func newHandlerForTest(t *testing.T, service *stubService) http.Handler {
+func newHandlerForTest(t *testing.T, service ProjectService) http.Handler {
 	t.Helper()
 	handler, err := NewHandler(service)
 	if err != nil {
@@ -590,124 +153,64 @@ func newHandlerForTest(t *testing.T, service *stubService) http.Handler {
 	return handler
 }
 
-func assertResponse(
-	t *testing.T,
-	response *httptest.ResponseRecorder,
-	wantStatus int,
-	wantCode contracts.APIErrorCodeV1,
-	wantAllow string,
-) {
+func assertErrorCode(t *testing.T, response *httptest.ResponseRecorder, want contracts.APIErrorCodeV2) {
 	t.Helper()
-	if response.Code != wantStatus {
-		t.Fatalf("status = %d, want %d; body = %s", response.Code, wantStatus, response.Body.String())
-	}
-	if contentType := response.Header().Get("Content-Type"); contentType != "application/json; charset=utf-8" {
-		t.Fatalf("Content-Type = %q", contentType)
-	}
-	if allow := response.Header().Get("Allow"); allow != wantAllow {
-		t.Fatalf("Allow = %q, want %q", allow, wantAllow)
-	}
-	if wantStatus == http.StatusOK {
-		return
-	}
-	var errorResponse contracts.ErrorResponseV1
-	if err := json.Unmarshal(response.Body.Bytes(), &errorResponse); err != nil {
+	var payload contracts.ErrorResponseV2
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode error response: %v", err)
 	}
-	if errorResponse.Error.Code != wantCode {
-		t.Fatalf("error code = %q, want %q", errorResponse.Error.Code, wantCode)
+	if payload.Error.Code != want {
+		t.Fatalf("error code = %q, want %q", payload.Error.Code, want)
 	}
 }
 
-type stubService struct {
-	snapshot              contracts.ProjectSnapshotV1
-	commitCallable        func(context.Context, string, string, string) (contracts.ProjectSnapshotV1, error)
-	completeCallable      func(context.Context, string, string, string, int) ([]project.CompletionItem, error)
-	completePythonTarget  func(context.Context, string, project.PythonTargetCompletionRegion, string, string, int) ([]project.CompletionItem, error)
-	setCallableParameters func(context.Context, string, string, int, []project.ParameterProposal) (contracts.ProjectSnapshotV1, error)
-	setPythonTarget       func(context.Context, string, int, string, string) (contracts.ProjectSnapshotV1, error)
+type stubProjectService struct {
+	snapshot contracts.ProjectSnapshotV2
+
+	renameProject func(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
+	setParameters func(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
 }
 
-func newStubService() *stubService {
-	return &stubService{snapshot: project.InitialProjectSnapshot()}
-}
+func (service *stubProjectService) Snapshot() contracts.ProjectSnapshotV2 { return service.snapshot }
 
-func (service *stubService) Snapshot() contracts.ProjectSnapshotV1 {
-	return service.snapshot
-}
-
-func (service *stubService) CommitCallable(
-	ctx context.Context,
-	projectID string,
-	sectionID string,
-	expression string,
-) (contracts.ProjectSnapshotV1, error) {
-	if service.commitCallable == nil {
+func (service *stubProjectService) RenameProject(ctx context.Context, request contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error) {
+	if service.renameProject == nil {
 		return service.snapshot, nil
 	}
-	return service.commitCallable(ctx, projectID, sectionID, expression)
+	return service.renameProject(ctx, request)
 }
 
-func (service *stubService) CompleteCallable(
-	ctx context.Context,
-	projectID string,
-	sectionID string,
-	expression string,
-	cursorOffsetUTF16 int,
-) ([]project.CompletionItem, error) {
-	if service.completeCallable == nil {
-		return []project.CompletionItem{}, nil
-	}
-	return service.completeCallable(ctx, projectID, sectionID, expression, cursorOffsetUTF16)
+func (service *stubProjectService) CreateCallable(context.Context, contracts.CreateCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
 }
 
-func (service *stubService) CompletePythonTarget(
-	ctx context.Context,
-	projectID string,
-	region project.PythonTargetCompletionRegion,
-	prefix string,
-	suffix string,
-	cursorOffsetUTF16 int,
-) ([]project.CompletionItem, error) {
-	if service.completePythonTarget == nil {
-		return []project.CompletionItem{}, nil
-	}
-	return service.completePythonTarget(ctx, projectID, region, prefix, suffix, cursorOffsetUTF16)
+func (service *stubProjectService) RenameCallable(context.Context, string, contracts.RenameCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
 }
 
-func (service *stubService) SetCallableParameters(
-	ctx context.Context,
-	projectID string,
-	callableID string,
-	expectedRevision int,
-	parameters []project.ParameterProposal,
-) (contracts.ProjectSnapshotV1, error) {
-	if service.setCallableParameters == nil {
+func (service *stubProjectService) DeleteCallable(context.Context, string, contracts.DeleteCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
+}
+
+func (service *stubProjectService) CommitCallable(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
+}
+
+func (service *stubProjectService) SetCallableParameters(ctx context.Context, callableID string, request contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error) {
+	if service.setParameters == nil {
 		return service.snapshot, nil
 	}
-	return service.setCallableParameters(ctx, projectID, callableID, expectedRevision, parameters)
+	return service.setParameters(ctx, callableID, request)
 }
 
-func (service *stubService) SetPythonTarget(
-	ctx context.Context,
-	projectID string,
-	expectedRevision int,
-	prefix string,
-	suffix string,
-) (contracts.ProjectSnapshotV1, error) {
-	if service.setPythonTarget == nil {
-		return service.snapshot, nil
-	}
-	return service.setPythonTarget(ctx, projectID, expectedRevision, prefix, suffix)
+func (service *stubProjectService) SetPythonTarget(context.Context, contracts.SetPythonTargetRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
 }
 
-type stubListener struct{}
+func (service *stubProjectService) CompleteCallable(context.Context, string, contracts.CallableCompletionRequestV2) ([]contracts.CompletionItemV2, error) {
+	return nil, errors.New("completion is not expected in this test")
+}
 
-func (*stubListener) Accept() (net.Conn, error) { return nil, errors.New("not used") }
-func (*stubListener) Close() error              { return nil }
-func (*stubListener) Addr() net.Addr            { return stubAddress("127.0.0.1:8042") }
-
-type stubAddress string
-
-func (stubAddress) Network() string        { return "tcp4" }
-func (address stubAddress) String() string { return string(address) }
+func (service *stubProjectService) CompletePythonTarget(context.Context, contracts.PythonTargetCompletionRequestV2) ([]contracts.CompletionItemV2, error) {
+	return nil, errors.New("completion is not expected in this test")
+}

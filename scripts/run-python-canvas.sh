@@ -4,6 +4,42 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(cd "${script_dir}/.." && pwd -P)"
 backend_pid=""
+project_path=""
+create_project="false"
+
+usage() {
+  echo "Usage: $0 --project PATH [--create]" >&2
+}
+
+while (($# > 0)); do
+  case "$1" in
+    --project)
+      if (($# < 2)) || [[ -z "$2" ]]; then
+        usage
+        exit 2
+      fi
+      project_path="$2"
+      shift 2
+      ;;
+    --create)
+      create_project="true"
+      shift
+      ;;
+    --help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+if [[ -z "${project_path}" ]]; then
+  usage
+  exit 2
+fi
 
 require_command() {
   local command_name="$1"
@@ -80,7 +116,7 @@ wait_for_backend() {
       echo "Python Canvas backend exited before it became ready." >&2
       return 1
     fi
-    if curl --fail --silent --show-error http://127.0.0.1:8080/api/v1/project \
+    if curl --fail --silent --show-error http://127.0.0.1:8080/api/v2/project \
       >/dev/null 2>&1; then
       return 0
     fi
@@ -113,13 +149,17 @@ pnpm install --frozen-lockfile
 echo "Building @setta/workspace..."
 pnpm --filter @setta/workspace run build
 
-if curl --fail --silent http://127.0.0.1:8080/api/v1/project >/dev/null 2>&1; then
+if curl --fail --silent http://127.0.0.1:8080/api/v2/project >/dev/null 2>&1; then
   echo "Port 8080 already has a Python Canvas backend. Stop it and run this script again." >&2
   exit 1
 fi
 
 echo "Starting the Go backend and pinned Basedpyright..."
-"${go_command}" -C apps/python-canvas/backend run ./cmd/python-canvas &
+backend_args=(--project "${project_path}")
+if [[ "${create_project}" == "true" ]]; then
+  backend_args+=(--create)
+fi
+"${go_command}" -C apps/python-canvas/backend run ./cmd/python-canvas "${backend_args[@]}" &
 backend_pid=$!
 wait_for_backend
 
