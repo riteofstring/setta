@@ -104,6 +104,17 @@ export async function assertAuthoredParameterAuthoring(
       return generated?.textContent?.includes("scale=state.Square_Root__scale") === true;
     })()`,
   );
+  // The generated document reflects the local workspace edit immediately, but the next steps
+  // exercise independent name and structural mutations. Start them only after this complete list
+  // has reached the canonical project, otherwise a delayed value write can overlap their clicks.
+  await waitForCanonicalParameters(
+    backendOrigin,
+    "the authored keyword argument in the canonical project",
+    (parameters) =>
+      parameters.length === 2 &&
+      parameters[1].name === "scale" &&
+      parameters[1].authoredExpression === "2",
+  );
 
   await assertDuplicateNameIsRefusedInTheRow(client, backendOrigin);
 

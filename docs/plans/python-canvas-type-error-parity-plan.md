@@ -230,6 +230,12 @@ entering `3`. This asserts the mapped provider feedback instead of depending on 
 lifecycle prefix. The focused Python Canvas suite (8 files / 68 tests), its TypeScript/Vite build,
 and browser-script syntax check passed for this correction.
 
+Implementation record — browser authoring sequencing correction: the walkthrough now waits for
+the locally rendered `scale=2` parameter list to reach the canonical project before it begins the
+duplicate-name and removal checks. Those later actions are independent mutations; beginning them
+from merely local generated output allowed a delayed value write to overlap the removal assertion.
+The focused Python Canvas suite (8 files / 68 tests) and browser-script syntax check passed.
+
 Environment evidence not yet sufficient for phase closeout: the supervisor completed
 `code-policy dependency-review --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
 against the no-script candidate lockfile with no vulnerabilities. The required local production
