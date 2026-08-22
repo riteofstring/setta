@@ -57,6 +57,11 @@ import {
 const dictionaryEntryWorkspaceItemPrefix =
   "python-canvas:dictionary-entry-item:";
 
+export const dictionaryEntryChildAdoptionDragTarget = Object.freeze({
+  targetXFraction: 0.5,
+  targetYFraction: 0.5,
+});
+
 export async function exerciseParamDictAndListSlice(
   client,
   backendOrigin,
@@ -524,6 +529,7 @@ async function moveDictionaryEntryUnder(
       itemRowSelector(target.workspaceItemId),
       "moving scale under options",
       itemSelectionModifiers(),
+      dictionaryEntryChildAdoptionDragTarget,
     );
   } finally {
     await releaseItemSelectionChord(client);

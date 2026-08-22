@@ -10,9 +10,9 @@ and diagnostics, list increment/decrement controls, and placeholder geometry rec
 implemented and
 covered by focused frontend tests. The existing single production browser walkthrough now contains
 the seven Param Dict/List acceptance flows and maps each canonical section type to its workspace
-section identity, with a static selector regression; its bounded policy structure and format checks
-now pass. Supervised production headless execution, review, and remaining Code Policy closeout
-remain incomplete.**
+section identity, with static selector and nested-item child-adoption gesture regressions; its
+bounded policy structure and format checks now pass. Supervised production headless execution,
+review, and remaining Code Policy closeout remain incomplete.**
 
 Add the next two Python Canvas section types from main: **Param Dict** and **List of Objects**.
 This is one closed vertical slice across the validated Go aggregate, strict project file, generated
@@ -356,4 +356,6 @@ scope into the explicit non-goals or performs a general edge-case audit.
 - [x] Generic `@setta/workspace` registered vertical-container seam: registry, load and move
       validation, vertical nested projection, DnD eligibility, accessible container labeling, and
       focused workspace boundary tests
+- [x] Param Dict walkthrough uses the rightward item child-adoption lane for leaf-to-parent
+      nesting, with a focused static gesture regression
 - [ ] Implementation, production headless proof, review, and closeout complete

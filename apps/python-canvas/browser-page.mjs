@@ -82,6 +82,7 @@ export async function visibleElementPoint(
   selector,
   description,
   preferredYFraction = 0.5,
+  preferredXFraction = null,
 ) {
   const result = await evaluate(
     client,
@@ -100,15 +101,26 @@ export async function visibleElementPoint(
       }
       const middleX = left + (right - left) / 2;
       const preferredY = top + (bottom - top) * ${JSON.stringify(preferredYFraction)};
-      const points = [
-        { x: left + 1, y: preferredY },
-        { x: right - 1, y: preferredY },
-        { x: middleX, y: top + 1 },
-        { x: middleX, y: bottom - 1 },
-      ];
+      const preferredXFraction = ${JSON.stringify(preferredXFraction)};
+      const preferredX =
+        preferredXFraction === null
+          ? middleX
+          : left + (right - left) * preferredXFraction;
+      const points = preferredXFraction === null
+        ? [
+            { x: left + 1, y: preferredY },
+            { x: right - 1, y: preferredY },
+            { x: middleX, y: top + 1 },
+            { x: middleX, y: bottom - 1 },
+          ]
+        : [
+            { x: preferredX, y: preferredY },
+            { x: preferredX, y: top + 1 },
+            { x: preferredX, y: bottom - 1 },
+          ];
       const fractions = [${JSON.stringify(preferredYFraction)}, 0.5, 0.25, 0.75, 0.1, 0.9];
       for (const yFraction of fractions) {
-        for (const xFraction of fractions) {
+        for (const xFraction of preferredXFraction === null ? fractions : [preferredXFraction]) {
           points.push({
             x: left + (right - left) * xFraction,
             y: top + (bottom - top) * yFraction,
@@ -527,6 +539,7 @@ export async function dragElementToElement(
   targetSelector,
   description,
   modifiers = 0,
+  target = {},
 ) {
   await delay(250);
   const source = await visibleElementPoint(
@@ -539,11 +552,12 @@ export async function dragElementToElement(
     targetSelector,
     `${description} target`,
   );
-  const target = await visibleElementPoint(
+  const targetPoint = await visibleElementPoint(
     client,
     targetSelector,
     `${description} target`,
-    targetCenter.y > source.y ? 0.75 : 0.25,
+    target.targetYFraction ?? (targetCenter.y > source.y ? 0.75 : 0.25),
+    target.targetXFraction ?? null,
   );
   await client.send("Input.dispatchMouseEvent", {
     ...source,
@@ -555,8 +569,8 @@ export async function dragElementToElement(
   });
   await nextAnimationFrame(client);
   await client.send("Input.dispatchMouseEvent", {
-    x: (source.x + target.x) / 2,
-    y: (source.y + target.y) / 2,
+    x: (source.x + targetPoint.x) / 2,
+    y: (source.y + targetPoint.y) / 2,
     button: "left",
     buttons: 1,
     modifiers,
@@ -572,7 +586,7 @@ export async function dragElementToElement(
     })()`,
   );
   await client.send("Input.dispatchMouseEvent", {
-    ...target,
+    ...targetPoint,
     button: "left",
     buttons: 1,
     modifiers,
@@ -580,7 +594,7 @@ export async function dragElementToElement(
   });
   await nextAnimationFrame(client);
   await client.send("Input.dispatchMouseEvent", {
-    ...target,
+    ...targetPoint,
     button: "left",
     buttons: 0,
     modifiers,
