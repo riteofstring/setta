@@ -185,13 +185,32 @@ function mapGeneratedRegion(
   };
 }
 
-// A user transaction is the only kind this editor refuses or maps. A host's canonical replacement
-// carries the next text and the next region together, so mapping it through the replacement it
-// brought would only destroy the range it just declared. The reference's own generated area makes
-// the same `Transaction.userEvent` distinction.
+// A user transaction is the only kind this editor refuses, maps, or remembers. A host's canonical
+// replacement carries the next text and the next region together, so mapping it through the
+// replacement it brought would only destroy the range it just declared. The reference's own
+// generated area makes the same `Transaction.userEvent` distinction.
 function isUserTransaction(transaction: Transaction): boolean {
   return transaction.annotation(Transaction.userEvent) !== undefined;
 }
+
+// The section's document is controlled, so a host's canonical text reaches the editor as a
+// whole-document replacement the moment the value it renders with stops matching the doc. Nobody
+// authored that replacement, and history must not offer to take it back: history pops its own
+// transactions with `filter: false`, which is CodeMirror's deliberate exemption from
+// `transactionFilter`, so an undone host replacement would walk straight past the protected range's
+// refusal, put the superseded generated body back, and map the range through a replacement of the
+// entire document — leaving the editor holding text the workspace never wrote and a region that no
+// longer describes it. Declaring the host's synchronization out of history is the whole fix, and it
+// is the one CodeMirror already defines for a change the editor did not originate: history maps the
+// events it has recorded through it and keeps them, so Undo still reaches what somebody typed —
+// the authored text around a protected block included — and only ever reaches an edit somebody
+// made. Every presentation compiles it, because every one of them renders a document its host owns.
+const HOST_SYNCHRONIZATION_OUT_OF_HISTORY = EditorState.transactionExtender.of(
+  (transaction) =>
+    transaction.docChanged && !isUserTransaction(transaction)
+      ? { annotations: Transaction.addToHistory.of(false) }
+      : null,
+);
 
 // The reference's `readOnlyGeneratedRange`: a user transaction is accepted only when every one of
 // its changes lies wholly before or wholly after the protected range, so typing, paste, cut,
@@ -282,7 +301,10 @@ export function getSectionEditorExtensions({
   presentation,
   onEscape,
 }: SectionEditorExtensionsOptions): WorkspaceSectionEditorCompilation {
-  const extensions: Array<Extension> = [GUTTER_LAYOUT_FIX];
+  const extensions: Array<Extension> = [
+    GUTTER_LAYOUT_FIX,
+    HOST_SYNCHRONIZATION_OUT_OF_HISTORY,
+  ];
   if (wrapLines) {
     extensions.push(EditorView.lineWrapping);
   }

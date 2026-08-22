@@ -116,6 +116,16 @@ const GENERATED_REGION = {
   to: GENERATED_CODE.length - GENERATED_SUFFIX.length,
 };
 
+// The body a host writes over the one above when it regenerates: a different length, so the range
+// it declares with it has to move too, and a range left over from the previous document would
+// describe the wrong bytes rather than the same ones.
+const REGENERATED_BODY = "\n\nvalue = math.floor(9.5)\n\n";
+const REGENERATED_CODE = `${GENERATED_PREFIX}${REGENERATED_BODY}${GENERATED_SUFFIX}`;
+const REGENERATED_REGION = {
+  from: GENERATED_PREFIX.length,
+  to: GENERATED_PREFIX.length + REGENERATED_BODY.length,
+};
+
 function makeGeneratedSection(
   code = GENERATED_CODE,
   overrides: Partial<WorkspaceSectionInput> = {},
@@ -278,6 +288,25 @@ describe("built-in code section body", () => {
     const data = getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]
       ?.data;
     return data as WorkspaceCodeSectionData;
+  }
+
+  // How a host's canonical regeneration reaches the editor: it writes the section's own data, so
+  // the controlled value the body renders with stops matching the doc the editor holds and
+  // `@uiw/react-codemirror` replaces the whole document with it.
+  async function regenerate(prefix: string, body: string) {
+    const code = `${prefix}${body}${GENERATED_SUFFIX}`;
+    await act(async () => {
+      setWorkspaceCodeSectionData(testWorkspace.host, SECTION_ID, {
+        ...getSectionData(),
+        code,
+        generatedRegion: {
+          from: prefix.length,
+          to: prefix.length + body.length,
+        },
+        mode: "generated-document",
+      });
+    });
+    return code;
   }
 
   async function reportResize(target: Element) {
@@ -602,6 +631,137 @@ describe("built-in code section body", () => {
     });
   });
 
+  it("refuses to undo a host's regeneration of the protected body", async () => {
+    await mount(makeGeneratedSection());
+    const view = getView();
+    // The host regenerates the body. The section's data is the only thing that changed, so the
+    // editor is reconfigured around the new range and handed the new text rather than remounted.
+    expect(await regenerate(GENERATED_PREFIX, REGENERATED_BODY)).toBe(
+      REGENERATED_CODE,
+    );
+    expect(getView()).toBe(view);
+    expect(view.state.doc.toString()).toBe(REGENERATED_CODE);
+
+    // Nobody authored that replacement, so history has nothing to take back. Undo is the one user
+    // transaction the protected range's filter never sees — history pops its events with
+    // `filter: false` — so a recorded host replacement would put the superseded body straight back
+    // over the protected bytes.
+    await act(async () => {
+      pressHistory(view, "undo");
+    });
+    expect(view.state.doc.toString()).toBe(REGENERATED_CODE);
+    expect(getSectionData()).toMatchObject({
+      code: REGENERATED_CODE,
+      generatedRegion: REGENERATED_REGION,
+    });
+    // The range still describes the body the host declared, so the block still paints...
+    expect(getGeneratedLineMarks(getView())).toStrictEqual([
+      null,
+      "start",
+      "middle",
+      "end",
+      null,
+    ]);
+    // ...and still refuses the edits it exists to refuse.
+    await act(async () => {
+      view.dispatch({
+        changes: { from: REGENERATED_REGION.from + 3, insert: "0" },
+        userEvent: "input.type",
+      });
+    });
+    expect(view.state.doc.toString()).toBe(REGENERATED_CODE);
+  });
+
+  it("keeps an authored edit from taking a host's regeneration back with it", async () => {
+    await mount(makeGeneratedSection());
+    const view = getView();
+    // Text somebody authored in the prefix, and then a regeneration that carries that authored
+    // line through. History joins changes made close together into one event, so a recorded host
+    // replacement is not even a separate step: one Undo of the authored line would revert the
+    // generated body with it.
+    await act(async () => {
+      view.dispatch({
+        changes: { from: 0, insert: "# header\n" },
+        userEvent: "input.type",
+      });
+    });
+    const authoredPrefix = `# header\n${GENERATED_PREFIX}`;
+    const code = await regenerate(authoredPrefix, REGENERATED_BODY);
+
+    await act(async () => {
+      pressHistory(view, "undo");
+    });
+    // Undo cannot reach across the host's own write: it replaced the whole document the authored
+    // edit applied to, and CodeMirror maps the events history holds through it rather than
+    // replaying them over text that no longer exists.
+    expect(view.state.doc.toString()).toBe(code);
+    expect(getSectionData()).toMatchObject({
+      code,
+      generatedRegion: {
+        from: authoredPrefix.length,
+        to: authoredPrefix.length + REGENERATED_BODY.length,
+      },
+    });
+    expect(getGeneratedLineMarks(getView())).toStrictEqual([
+      null,
+      null,
+      "start",
+      "middle",
+      "end",
+      null,
+    ]);
+  });
+
+  it("still undoes text authored after a host's regeneration", async () => {
+    // The control for the two cases above: the same keypress that cannot reach a host's write
+    // still takes back an edit somebody made after it, and redo puts it back. Without it, an
+    // editor whose history had simply been switched off, reset, or refused would pass them both.
+    await mount(makeGeneratedSection());
+    const view = getView();
+    const code = await regenerate(GENERATED_PREFIX, REGENERATED_BODY);
+    await act(async () => {
+      view.dispatch({
+        changes: { from: 0, insert: "# header\n" },
+        userEvent: "input.type",
+      });
+    });
+    const shifted = "# header\n".length;
+    expect(getSectionData()).toMatchObject({
+      code: `# header\n${code}`,
+      generatedRegion: {
+        from: REGENERATED_REGION.from + shifted,
+        to: REGENERATED_REGION.to + shifted,
+      },
+    });
+
+    await act(async () => {
+      pressHistory(view, "undo");
+    });
+    expect(view.state.doc.toString()).toBe(code);
+    expect(getSectionData()).toMatchObject({
+      code,
+      generatedRegion: REGENERATED_REGION,
+    });
+    expect(getGeneratedLineMarks(getView())).toStrictEqual([
+      null,
+      "start",
+      "middle",
+      "end",
+      null,
+    ]);
+
+    await act(async () => {
+      pressHistory(view, "redo");
+    });
+    expect(view.state.doc.toString()).toBe(`# header\n${code}`);
+    expect(getSectionData()).toMatchObject({
+      generatedRegion: {
+        from: REGENERATED_REGION.from + shifted,
+        to: REGENERATED_REGION.to + shifted,
+      },
+    });
+  });
+
   it("paints only the lines the declared region covers", async () => {
     // The rejected candidate treated the whole document as generated, so the authored `import`
     // and `state` lines were painted as machine-written output. The region's own boundary lines
@@ -616,18 +776,10 @@ describe("built-in code section body", () => {
     ]);
 
     // The block follows the host's regeneration: a longer body without leaving its boundaries.
-    await act(async () => {
-      const code = `${GENERATED_PREFIX}\n\nvalue = math.sqrt(3)\nscaled = value * 2\n\n${GENERATED_SUFFIX}`;
-      setWorkspaceCodeSectionData(testWorkspace.host, SECTION_ID, {
-        ...getSectionData(),
-        code,
-        generatedRegion: {
-          from: GENERATED_PREFIX.length,
-          to: code.length - GENERATED_SUFFIX.length,
-        },
-        mode: "generated-document",
-      });
-    });
+    await regenerate(
+      GENERATED_PREFIX,
+      "\n\nvalue = math.sqrt(3)\nscaled = value * 2\n\n",
+    );
     expect(getGeneratedLineMarks(getView())).toStrictEqual([
       null,
       "start",

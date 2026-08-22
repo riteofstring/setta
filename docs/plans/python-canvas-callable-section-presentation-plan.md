@@ -2329,6 +2329,88 @@ which is the honest result for a batch that changes only the evidence bundle's p
 The images, the metrics file, and the source candidate they name are untouched, so this batch owes
 no recapture.
 
+**Settled-field harness and generated-document history record.** Two corrections the final review of
+the source candidate produced, in the order they were made.
+
+The production walkthrough failed intermittently at `enterCallableField` with "the idle callable
+field has no visible box on the page", always on the draft replacement that follows the
+keyboard-order and generated-document steps. Instrumenting the page showed the idle layer was absent
+rather than unsized: leaving a live editor swaps the idle layer back from a zero-delay timer instead
+of during the blur, which is main's own `TextInputCodeMirror` lifecycle at `043d3b2e9`, and that
+teardown landed 2 ms after the blur on passing runs and 42 ms after it on the failing one, so the
+click arrived while the blurred live layer was the only layer mounted. The lifecycle is main's and
+stays; what was wrong was the harness's model of an enterable field, which waited for either layer
+to be enabled and then required the idle one. `waitForEnabledCallableField` therefore became
+`waitForIdleCallableField` and waits for the surface its callers name — every caller already demanded
+that layer in its next statement — which also sharpens the keyboard-order proof, since it now tabs
+into a genuinely idle field. `elementCenter` now reports a selector that matches nothing separately
+from an element the page paints no box for, because reading the first as the second is what made a
+settling field read as a paint defect. Commit `2ce28a317`.
+
+The second correction is a defect in the package's generated document, found by tracing the
+controlled seam rather than by a failing run. `@uiw/react-codemirror` replaces the whole document
+whenever the value it renders with stops matching the doc, which is how every canonical regeneration
+arrives, and that replacement was recorded in CodeMirror's undo history like any authored edit.
+History pops its own transactions with `filter: false` — its deliberate exemption from
+`transactionFilter`, since a recorded event has to be replayable — so `readOnlyGeneratedRange`'s
+refusal never saw it. One Undo therefore put the superseded generated body straight back over the
+protected bytes; the region field, which maps user transactions, mapped the range through a
+replacement of the entire document and came out inverted, at the document's end and 0, which
+silently disabled the block's paint, its cursor skip, and its refusal together; and the write-back
+that followed was rejected by the section's own region parser, so the project kept the canonical
+module while the editor showed a superseded one. History also joins adjacent changes into one event,
+so a prefix edit made just before a regeneration was not even a separate undo step: taking the
+authored line back took the generated body with it.
+
+The fix is one transaction contract in `sectionEditorExtensions.ts`: an `EditorState.transactionExtender`
+annotates every document change carrying no `Transaction.userEvent` with `addToHistory: false`. That
+is the same user/host distinction the protected range already refuses and maps by, so the editor has
+one answer to who made a change rather than two, and it is what CodeMirror already defines for a
+change the editor did not originate — history maps the events it holds through the host's write
+instead of recording it. Authored prefix and suffix edits stay undoable and redoable with the range
+mapping both ways, and Undo can only ever reach an edit somebody made. Nothing identifies the
+generated body by substring, no Python or application vocabulary enters the package, and no history
+is reset.
+
+Three cases in `WorkspaceCodeSectionBody.test.tsx` hold it, all against the section body rather than
+the extension in isolation: a host regeneration followed by Undo leaves the regenerated document,
+the declared region, the block's per-line marks, and the range's refusal intact; an authored prefix
+edit made immediately before a regeneration cannot take the generated body back with it; and the
+control, which proves those two are a statement about whose changes enter history rather than an
+editor whose history stopped working — the same keypress still undoes and redoes an edit authored
+after the regeneration, with the region mapping both ways. All three fail on the pre-fix editor with
+the document reverting to the superseded body, and the control fails as well against a candidate
+that switched history off, reset it, or refused Undo outright.
+
+`apps/python-canvas/README.md` still described the whole Generated Python section as read-only and
+listed editable prefix/suffix and mixed editable/protected regions among the capabilities this slice
+deliberately does not provide, which the shipped one-document contract contradicts on both counts.
+It now states that contract — app-authored Python before and after one declared protected region,
+authored edits reaching Go as one complete revision-bound target, each response writing the
+generated body back between the regions being authored — and its walkthrough paragraph gains the
+authoring step the walkthrough ends with. Prefix/suffix completion, parameter completion, and
+broader semantic-editor services stay deferred, and no unimplemented capability is promised.
+
+Verification for this batch: the focused package suite passes (20 cases, including the three new
+ones), the complete `@setta/workspace` suite passes (1201 cases across 143 files), and
+`code-policy test --changed --base 2ce28a317` passes its three impacted suites without findings.
+`code-policy format --git-changes` passes and the package TypeScript project is clean.
+`code-policy check --git-changes` raises only the Knip entry-point false positive for the live
+`apps/python-canvas/vitest.setup.ts` that this plan already records. The production browser
+walkthrough could not be run in this worktree: it builds the Go service before it starts, and no Go
+toolchain is installed here (`spawnSync go ENOENT`), so the undo and redo it drives over the
+authored suffix is proven only by the deterministic package cases above and owes a run on a machine
+that has one. It exercises the ordering this change does not alter — every canonical response in
+that step writes back the text the editor already holds, so no controlled replacement occurs between
+the authored edit and the Undo — and in any ordering where one did, this contract leaves the
+protected body alone where the pre-fix editor overwrote it.
+
+This batch changes tracked source, so the capture bundle no longer names the commit its working
+tree matches and the fourteen images owe a rerun from the final source candidate, as decision 15
+requires. Nothing here changes what they have to show: the generated block's geometry, paint,
+badge, marks, and editable-document reads are untouched, and the corrected behavior is one that
+only a keypress reaches.
+
 What remains in Phase B: the immutable read-only review of the source candidate, supervisor
 inspection of these fourteen images against main at original resolution, developer visual acceptance
 with its accepted-candidate record, and the closing `test --changed --base <trusted-base>` and

@@ -4,7 +4,7 @@ Python Canvas is a private V1 vertical slice for authoring one Python callable
 through `@setta/workspace`. Go owns the in-memory project, generated Python,
 source ranges, and Basedpyright lifecycle; the React app projects canonical Go
 responses through the workspace public API. There is one **Callable** section
-named **Square Root** and one read-only **Generated Python** section.
+named **Square Root** and one **Generated Python** section.
 
 The service commits the shipped Square Root example through its own store before
 it accepts a request, so the first response — and therefore the first render —
@@ -37,6 +37,18 @@ A parameter derived from the resolved signature keeps that signature's name, so
 only an app-authored row offers the rename editor; an authored row may sit blank
 while someone writes it, and it joins the generated call once it has both a
 valid name and a value.
+
+**Generated Python** is one document, not a generated pane beside an authored
+one: the Python before the generated body and the Python after it are ordinary
+editable text, and between them one declared region holds the module Go
+rendered. That region stays selectable and copyable while refusing every edit
+that touches it — typing, paste, cut, deletion, and replacement — and the caret
+and cursor motion step over it rather than into it. Edits to the Python around
+it reach Go as one complete revision-bound Python target, and every canonical
+response writes the generated body back between the two regions the person is
+authoring, so their unsent text is never overwritten by the response that
+crossed it. Undo and redo take those authored edits back and put them back; a
+regeneration Go sends is nobody's edit, so it never joins that history.
 
 ## Run locally
 
@@ -71,14 +83,18 @@ committed `math.sqrt` cannot show whether anything was committed: `Escape`
 abandons a draft without touching the project, `Tab` accepts `floor` without
 committing it, one `Enter` commits `math.floor`, and one more commits
 `math.sqrt` back over an open popup. It then enters `missing_value` for `x` and
-replaces it with `3`. Each accepted mutation automatically updates the read-only
-generated Python; the undefined-name diagnostic is mapped to `x` by the
-generated source range and clears after the final expression. Finally it presses
-the resolved filter chord to focus the Args filter, then authors arguments
-through the toolbar: Add creates a blank record, naming it `scale` and valuing
-it `2` puts its keyword argument in the generated call, Remove Last takes it
-away, and two rows selected with the canvas's held selection gesture leave
-together in one new revision.
+replaces it with `3`. Each accepted mutation automatically updates the generated
+body; the undefined-name diagnostic is mapped to `x` by the generated source
+range and clears after the final expression. It then presses the resolved filter
+chord to focus the Args filter, and authors arguments through the toolbar: Add
+creates a blank record, naming it `scale` and valuing it `2` puts its keyword
+argument in the generated call, Remove Last takes it away, and two rows selected
+with the canvas's held selection gesture leave together in one new revision.
+Last, because it reloads the page, it authors Python around the generated body:
+every edit that touches the protected range leaves both the document and the
+project alone, an added import and an added statement each survive the canonical
+response and the reload, and undo and redo of those authored edits keep the
+block around exactly the generated body.
 
 ## Deliberately deferred
 
@@ -98,9 +114,9 @@ is a no-support list, not a compatibility promise or future roadmap.
   callable sections.
 - Variants, section policies, code-object value policies, metadata generation,
   rename refactoring, or generated-output export.
-- Editable prefix or suffix regions, mixed editable/read-only editor regions,
-  hover or documentation popovers, prefix/suffix completion, parameter
-  completion, or general semantic-editor services.
+- More than one generated region per document, hover or documentation popovers,
+  prefix/suffix completion, parameter completion, or general semantic-editor
+  services.
 - Arbitrary callable expressions, additional parameter-control kinds, a
   callable/plugin catalog, alternate language servers, or fallback servers.
 - A public package, final naming, licensing, desktop packaging, deployment, or
