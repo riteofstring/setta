@@ -275,12 +275,6 @@ and `code-policy test --changed --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
 preserves the production proof's class-independent visual assertion and verifies the same late
 canonical publication the walkthrough exercises.
 
-Implementation record — targetless diagnostic clearing correction: the production walkthrough now
-binds its post-edit assertion to the exact provider message for the removed prefix name, rather
-than treating an independent document diagnostic as that stale range. The pinned Basedpyright
-integration now drives the same prefix add-and-correct sequence and requires its targetless
-diagnostic to clear from the canonical snapshot.
-
 Environment evidence not yet sufficient for phase closeout: the supervisor completed
 `code-policy dependency-review --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
 against the no-script candidate lockfile with no vulnerabilities. The required local production
