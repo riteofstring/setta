@@ -76,20 +76,8 @@ body {
 }
 
 .python-canvas-callable-section p,
-.python-canvas-callable-field p,
-.python-canvas-callable-mutation-error,
-.python-canvas-completion-error {
+.python-canvas-callable-field p {
   margin: 0;
-}
-
-.python-canvas-callable-mutation-error,
-.python-canvas-completion-error {
-  padding: 0.5rem 0.625rem;
-  overflow-wrap: anywhere;
-  border: 1px solid light-dark(#b42318, #f97066);
-  border-radius: 0.375rem;
-  background: light-dark(#fff1f0, #2a1210);
-  color: light-dark(#7a1b14, #fecdca);
 }
 
 /* Provider-owned signature context stays in the package-owned key slot beside

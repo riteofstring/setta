@@ -214,12 +214,18 @@ export function CallableExpressionField({
         wrapLines={false}
       />
       {mutationError === null ? null : (
-        <p className="python-canvas-callable-mutation-error" role="alert">
+        <p
+          className="python-canvas-announcer python-canvas-callable-mutation-error"
+          role="alert"
+        >
           {mutationError}
         </p>
       )}
       {completionError === null ? null : (
-        <p className="python-canvas-completion-error" role="alert">
+        <p
+          className="python-canvas-announcer python-canvas-completion-error"
+          role="alert"
+        >
           {completionError}
         </p>
       )}

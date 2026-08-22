@@ -180,7 +180,7 @@ describe("CallableSection", () => {
     ).toBe("scale");
   });
 
-  it("shows a callable mutation failure under the compact field", () => {
+  it("keeps callable mutation failures out of the section layout", () => {
     const view = render(
       <CallableExpressionField
         data={sectionData({ state: "ready", status: "available" })}
@@ -189,13 +189,15 @@ describe("CallableSection", () => {
       mutationContext(() => "Unable to save this callable. Try again."),
     );
 
-    expect(view.querySelector("[role='alert']")?.textContent).toBe(
+    const alert = view.querySelector("[role='alert']");
+    expect(alert?.textContent).toBe(
       "Unable to save this callable. Try again.",
     );
+    expect(alert?.classList.contains("python-canvas-announcer")).toBe(true);
     expect(editorProps[0]?.diagnosticMessage).toBeUndefined();
   });
 
-  it("keeps completion failures distinct from field diagnostics", () => {
+  it("keeps completion failures out of the section layout", () => {
     const view = render(
       <CallableExpressionField
         data={sectionData({ state: "ready", status: "available" })}
@@ -208,9 +210,11 @@ describe("CallableSection", () => {
       ),
     );
 
-    expect(view.querySelector("[role='alert']")?.textContent).toBe(
+    const alert = view.querySelector("[role='alert']");
+    expect(alert?.textContent).toBe(
       "Unable to load callable completions. Try again.",
     );
+    expect(alert?.classList.contains("python-canvas-announcer")).toBe(true);
     expect(editorProps[0]?.diagnosticMessage).toBeUndefined();
   });
 
@@ -285,7 +289,7 @@ describe("CallableSection", () => {
     ).toBe(true);
   });
 
-  it("scopes pending state and inline errors to the affected callable field", () => {
+  it("scopes pending state without adding inline error UI", () => {
     const second = {
       ...sectionData({ state: "ready", status: "available" }),
       callable: {
@@ -317,7 +321,9 @@ describe("CallableSection", () => {
     expect(editorProps).toHaveLength(2);
     expect(editorProps[0]?.disabled).toBe(true);
     expect(editorProps[1]?.disabled).toBe(false);
-    expect(view.textContent).toContain("Unable to save this callable.");
+    const alert = view.querySelector("[role='alert']");
+    expect(alert?.textContent).toBe("Unable to save this callable.");
+    expect(alert?.classList.contains("python-canvas-announcer")).toBe(true);
   });
 });
 
