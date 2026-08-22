@@ -30,6 +30,23 @@ var (
 
 type replaceFunc func(source string, destination string) error
 
+// Replacement is one staged authored-project replacement. The coordinator
+// owns its commit/discard ordering while this package remains the only owner
+// of serialization and same-filesystem replacement mechanics.
+type Replacement interface {
+	Commit() error
+	Discard() error
+}
+
+// Store is the narrow strict project-file port used by the application
+// coordinator. Adapter is its production implementation; the interface keeps
+// transaction failure injection local to focused coordinator tests.
+type Store interface {
+	Load(path string) (aggregate.State, error)
+	Create(path string, state aggregate.State) error
+	StageReplacement(path string, state aggregate.State) (Replacement, error)
+}
+
 // Adapter is the narrow project-file boundary. Its only injectable participant
 // is the atomic replace call used by this package's failure-injection tests.
 type Adapter struct {
@@ -159,6 +176,12 @@ func (adapter Adapter) Replace(path string, state aggregate.State) error {
 	}
 	defer func() { _ = staged.Discard() }()
 	return staged.Commit()
+}
+
+// StageReplacement is the coordinator-facing form of Stage. It deliberately
+// exposes only the transaction behavior, not temporary paths or codec details.
+func (adapter Adapter) StageReplacement(path string, state aggregate.State) (Replacement, error) {
+	return adapter.Stage(path, state)
 }
 
 // Commit atomically replaces the target with the previously synced sibling.

@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-**Status: Phase A is complete; Phase B is next for Code Policy plan-loop.**
+**Status: Phase A and Phase B are complete; Phase C is next for Code Policy plan-loop.**
 
 This is the bounded implementation plan for replacing Python Canvas's fixed,
 in-memory V1 Square Root demonstration with a persisted, general-purpose Python
@@ -659,6 +659,9 @@ phase.
 
 ### Phase B — durable coordinator and pinned provider boundary
 
+- [x] Private durable coordinator, materialization transaction, and pinned
+      provider boundary implementation complete
+
 1. Build the application coordinator around the private aggregate, renderer,
    project-file adapter, materializer, and existing pinned Basedpyright session.
 2. Change signature normalization from V1's exact-one positional restriction to
@@ -677,6 +680,47 @@ phase.
    required project-path validation and create/load/refuse-overwrite behavior.
    Keep command wiring on the V1 side untouched until the Phase C cutover; do
    not retain V1 startup bootstrap behavior as a compatibility path.
+
+**Implementation record (2026-08-21):** The new private coordinator owns one
+strict project path, aggregate candidate, renderer result, staged authored
+file, staged disposable generated module, pinned-provider synchronization, and
+published snapshot. Its materializer creates only a random sibling module in
+the project directory, keeps a synced rollback backup across provider and
+persistence work, and removes only that derived file on close. A successful
+candidate stages both file participants, installs and synchronizes the exact
+generated document, maps diagnostics only through renderer-owned dynamic ID
+ranges, replaces the authored project file, then publishes. Validation,
+render, materialization, provider, and persistence failure leave the prior
+published snapshot and authored bytes intact; rollback also restores the prior
+provider document. Startup loads strictly or creates only through exclusive
+create; missing paths and existing `--create` targets fail rather than
+inventing or resetting state. A failed initial provider synchronization is an
+explicit unavailable status, and mutations return a typed provider failure.
+
+The LSP adapter now presents that coordinator with the existing pinned
+Basedpyright session through one private port. Its signature normalization
+accepts zero parameters and distinguishes positional-only,
+positional-or-keyword, keyword-only, variadic-positional, and
+variadic-keyword rows from signature markers. Changed commits receive the
+whole normalized signature, while the aggregate assigns the zero-based
+`providerOrdinal` values and retains its complete-list/idempotence rules.
+Diagnostics and the existing completion normalization remain at the LSP
+boundary. The V1 command, bootstrap, routes, contracts, and frontend are
+unchanged pending the atomic Phase C cutover.
+
+**Focused proof (2026-08-21):** `go test -count=1
+./internal/project/aggregate ./internal/project/renderer ./internal/projectfile
+./internal/project/materializer ./internal/project/coordinator` passed from
+`apps/python-canvas/backend`. The coordinator tests cover strict
+load/create/reload/refuse-overwrite lifecycle, zero-to-many provider
+replacement, dynamic diagnostic mapping, unavailable startup, and injected
+validation/provider/render/materialization/persistence failures across project
+rename, callable rename, complete parameter-list, and target mutations. The
+selected pure LSP signature tests passed with `go test -count=1 ./internal/lsp
+-run '^(TestNormalizeSignatureHelpPreservesPositionalOnlyMetadata|TestParameterLabelUTF16OffsetsRespectSupplementaryCharacters|TestNormalizeSignatureParametersPreservesEachPassingStyleInOrder|TestNormalizeSignatureParametersAcceptsZeroParameterCallable)$'`.
+`code-policy check --git-changes` passed without findings. No Basedpyright
+process, browser, local service, or broader Code Policy suite ran in this
+phase.
 
 ### Phase C — one atomic public V2 cutover
 

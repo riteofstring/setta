@@ -10,34 +10,78 @@ import (
 
 	"github.com/setta/python-canvas/backend/internal/codegen"
 	"github.com/setta/python-canvas/backend/internal/project"
+	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 )
 
 var ErrSignatureNotFound = errors.New("lsp: signature help returned no callable signature")
+var ErrMalformedSignature = errors.New("lsp: signature help returned an invalid callable signature")
 
 func normalizeSignatureHelp(result SignatureHelpResult) (project.CallableSignature, error) {
+	parameters, err := normalizeSignatureParameters(result)
+	if err != nil {
+		return project.CallableSignature{}, err
+	}
+	converted := make([]project.SignatureParameter, 0, len(parameters))
+	for _, parameter := range parameters {
+		converted = append(converted, project.SignatureParameter{
+			Name:           parameter.Name,
+			PassingStyle:   codegen.ParameterPassingStyle(parameter.PassingStyle),
+			TypeAnnotation: parameter.TypeAnnotation,
+			Default:        copyString(parameter.Default),
+		})
+	}
+	return project.CallableSignature{Parameters: converted}, nil
+}
+
+type normalizedSignatureParameter struct {
+	Name           string
+	PassingStyle   aggregate.PassingStyle
+	TypeAnnotation string
+	Default        *string
+}
+
+// normalizeSignatureParameters turns one provider signature into the five
+// canonical Python passing styles. Marker pseudo-parameters are interpreted
+// from the complete signature label rather than guessed from an individual
+// row, so positional-only and keyword-only boundaries remain exact.
+func normalizeSignatureParameters(result SignatureHelpResult) ([]normalizedSignatureParameter, error) {
 	if len(result.Signatures) == 0 {
-		return project.CallableSignature{}, ErrSignatureNotFound
+		return nil, ErrSignatureNotFound
 	}
 	signature := result.Signatures[0]
-	parameters := make([]project.SignatureParameter, 0, len(signature.Parameters))
-	positionalOnly := hasSignatureMarker(signature.Label, "/")
-	keywordOnly := hasSignatureMarker(signature.Label, "*")
+	styles, err := signatureParameterStyles(signature.Label)
+	if err != nil {
+		return nil, err
+	}
+	labels := make([]string, 0, len(signature.Parameters))
 
 	for _, information := range signature.Parameters {
 		label := parameterLabelText(signature.Label, information.Label)
-		if label == "" || label == "/" || label == "*" {
+		if label == "/" || label == "*" {
 			continue
 		}
-		parameter, err := parseSignatureParameter(label, positionalOnly, keywordOnly)
+		if label == "" {
+			return nil, fmt.Errorf("%w: parameter label is empty", ErrMalformedSignature)
+		}
+		labels = append(labels, label)
+	}
+	if len(labels) != len(styles) {
+		return nil, fmt.Errorf(
+			"%w: signature has %d parameter labels but %d parameter styles",
+			ErrMalformedSignature,
+			len(labels),
+			len(styles),
+		)
+	}
+	parameters := make([]normalizedSignatureParameter, 0, len(labels))
+	for index, label := range labels {
+		parameter, err := parseSignatureParameter(label, styles[index])
 		if err != nil {
-			return project.CallableSignature{}, err
+			return nil, err
 		}
 		parameters = append(parameters, parameter)
 	}
-	if len(parameters) == 0 {
-		return project.CallableSignature{}, ErrSignatureNotFound
-	}
-	return project.CallableSignature{Parameters: parameters}, nil
+	return parameters, nil
 }
 
 func parameterLabelText(signatureLabel string, raw json.RawMessage) string {
@@ -84,8 +128,8 @@ func utf16ByteOffset(value string, target int) (int, bool) {
 	return 0, false
 }
 
-func parseSignatureParameter(label string, positionalOnly bool, keywordOnly bool) (project.SignatureParameter, error) {
-	parameter := project.SignatureParameter{}
+func parseSignatureParameter(label string, passingStyle aggregate.PassingStyle) (normalizedSignatureParameter, error) {
+	parameter := normalizedSignatureParameter{PassingStyle: passingStyle}
 	label = strings.TrimSpace(label)
 	if beforeDefault, defaultValue, found := strings.Cut(label, "="); found {
 		label = strings.TrimSpace(beforeDefault)
@@ -97,25 +141,16 @@ func parseSignatureParameter(label string, positionalOnly bool, keywordOnly bool
 		parameter.TypeAnnotation = strings.TrimSpace(typeAnnotation)
 	}
 
-	passingStyle := codegen.ParameterPassingStylePositionalOrKeyword
-	switch {
-	case strings.HasPrefix(label, "**"):
+	if strings.HasPrefix(label, "**") {
 		label = strings.TrimPrefix(label, "**")
-		passingStyle = codegen.ParameterPassingStyle("variadic_keyword")
-	case strings.HasPrefix(label, "*"):
+	} else if strings.HasPrefix(label, "*") {
 		label = strings.TrimPrefix(label, "*")
-		passingStyle = codegen.ParameterPassingStyle("variadic_positional")
-	case positionalOnly:
-		passingStyle = codegen.ParameterPassingStylePositionalOnly
-	case keywordOnly:
-		passingStyle = codegen.ParameterPassingStyle("keyword_only")
 	}
 	name := leadingIdentifier(strings.TrimSpace(label))
 	if name == "" {
-		return project.SignatureParameter{}, fmt.Errorf("lsp: signature parameter label %q has no identifier", label)
+		return normalizedSignatureParameter{}, fmt.Errorf("%w: parameter label %q has no identifier", ErrMalformedSignature, label)
 	}
 	parameter.Name = name
-	parameter.PassingStyle = passingStyle
 	return parameter, nil
 }
 
@@ -129,33 +164,149 @@ func leadingIdentifier(value string) string {
 	return value
 }
 
-func hasSignatureMarker(label string, marker string) bool {
-	open := strings.Index(label, "(")
-	if open == -1 {
-		return false
+func signatureParameterStyles(label string) ([]aggregate.PassingStyle, error) {
+	tokens, err := signatureParameterTokens(label)
+	if err != nil {
+		return nil, err
 	}
-	depth := 0
-	segmentStart := open + 1
-	for index, runeValue := range label[open+1:] {
-		absoluteIndex := open + 1 + index
-		switch runeValue {
-		case '(', '[', '{':
-			depth++
-		case ')', ']', '}':
-			if depth == 0 && runeValue == ')' {
-				return strings.TrimSpace(label[segmentStart:absoluteIndex]) == marker
-			}
-			if depth > 0 {
-				depth--
-			}
-		case ',':
-			if depth == 0 {
-				if strings.TrimSpace(label[segmentStart:absoluteIndex]) == marker {
-					return true
-				}
-				segmentStart = absoluteIndex + 1
-			}
+	styles := make([]aggregate.PassingStyle, 0, len(tokens))
+	keywordOnly := false
+	for _, token := range tokens {
+		styles, keywordOnly, err = appendSignatureStyle(styles, keywordOnly, token)
+		if err != nil {
+			return nil, err
 		}
 	}
-	return false
+	return styles, nil
+}
+
+func appendSignatureStyle(
+	styles []aggregate.PassingStyle,
+	keywordOnly bool,
+	token string,
+) ([]aggregate.PassingStyle, bool, error) {
+	switch strings.TrimSpace(token) {
+	case "":
+		return nil, false, fmt.Errorf("%w: signature has an empty parameter token", ErrMalformedSignature)
+	case "/":
+		return markPositionalOnly(styles)
+	case "*":
+		return styles, true, nil
+	default:
+		style, nextKeywordOnly := signatureStyleForToken(token, keywordOnly)
+		return append(styles, style), nextKeywordOnly, nil
+	}
+}
+
+func markPositionalOnly(styles []aggregate.PassingStyle) ([]aggregate.PassingStyle, bool, error) {
+	if len(styles) == 0 {
+		return nil, false, fmt.Errorf("%w: positional-only marker has no preceding parameter", ErrMalformedSignature)
+	}
+	for index, style := range styles {
+		if style == aggregate.PassingStylePositionalOrKeyword {
+			styles[index] = aggregate.PassingStylePositionalOnly
+		}
+	}
+	return styles, false, nil
+}
+
+func signatureStyleForToken(token string, keywordOnly bool) (aggregate.PassingStyle, bool) {
+	token = strings.TrimSpace(token)
+	switch {
+	case strings.HasPrefix(token, "**"):
+		return aggregate.PassingStyleVariadicKeyword, keywordOnly
+	case strings.HasPrefix(token, "*"):
+		return aggregate.PassingStyleVariadicPositional, true
+	case keywordOnly:
+		return aggregate.PassingStyleKeywordOnly, true
+	default:
+		return aggregate.PassingStylePositionalOrKeyword, false
+	}
+}
+
+func signatureParameterTokens(label string) ([]string, error) {
+	open, close, err := signatureParameterBounds(label)
+	if err != nil {
+		return nil, err
+	}
+	contents := strings.TrimSpace(label[open+1 : close])
+	if contents == "" {
+		return []string{}, nil
+	}
+	return splitSignatureTokens(contents)
+}
+
+func signatureParameterBounds(label string) (int, int, error) {
+	open := strings.Index(label, "(")
+	if open == -1 {
+		return 0, 0, fmt.Errorf("%w: signature label has no parameter list", ErrMalformedSignature)
+	}
+	depth := 0
+	for index, runeValue := range label[open:] {
+		var closed bool
+		depth, closed = advanceSignatureDepth(depth, runeValue)
+		if closed {
+			return open, open + index, nil
+		}
+		if depth < 0 {
+			return 0, 0, fmt.Errorf("%w: signature parameter list is unbalanced", ErrMalformedSignature)
+		}
+	}
+	return 0, 0, fmt.Errorf("%w: signature parameter list is unbalanced", ErrMalformedSignature)
+}
+
+func advanceSignatureDepth(depth int, character rune) (int, bool) {
+	switch character {
+	case '(':
+		return depth + 1, false
+	case ')':
+		depth--
+		return depth, depth == 0
+	default:
+		return depth, false
+	}
+}
+
+func splitSignatureTokens(contents string) ([]string, error) {
+	tokens := make([]string, 0, 4)
+	start := 0
+	nesting := 0
+	for index, runeValue := range contents {
+		var err error
+		nesting, err = advanceTokenNesting(nesting, runeValue)
+		if err != nil {
+			return nil, err
+		}
+		if runeValue == ',' && nesting == 0 {
+			tokens = append(tokens, strings.TrimSpace(contents[start:index]))
+			start = index + 1
+		}
+	}
+	if nesting != 0 {
+		return nil, fmt.Errorf("%w: signature parameter token is unbalanced", ErrMalformedSignature)
+	}
+	tokens = append(tokens, strings.TrimSpace(contents[start:]))
+	return tokens, nil
+}
+
+func advanceTokenNesting(nesting int, character rune) (int, error) {
+	switch character {
+	case '(', '[', '{':
+		return nesting + 1, nil
+	case ')', ']', '}':
+		if nesting == 0 {
+			return 0, fmt.Errorf("%w: signature parameter token is unbalanced", ErrMalformedSignature)
+		}
+		return nesting - 1, nil
+	default:
+		return nesting, nil
+	}
+}
+
+func copyString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	clone := *value
+	return &clone
 }
