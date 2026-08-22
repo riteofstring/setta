@@ -134,15 +134,84 @@ export async function assertSectionFieldSize(client, selector, expected) {
   );
 }
 
-export async function assertFocusedSection(client, selector) {
-  await waitFor(
+export function focusNotStolenAfterSectionMoveExpression(
+  captureKey,
+  movedSectionSelector,
+) {
+  return `(() => {
+    const previouslyFocused = globalThis[${JSON.stringify(captureKey)}];
+    const focused = document.activeElement;
+    const movedSection = document.querySelector(${JSON.stringify(movedSectionSelector)});
+    const retainedSameElement =
+      previouslyFocused instanceof HTMLElement &&
+      previouslyFocused.isConnected &&
+      focused === previouslyFocused;
+    const focusedWithinMovedSection =
+      movedSection instanceof HTMLElement &&
+      focused instanceof Node &&
+      movedSection.contains(focused);
+    const sourceRemounted =
+      !(previouslyFocused instanceof HTMLElement) || !previouslyFocused.isConnected;
+    const documentOrCanvasFallback =
+      sourceRemounted &&
+      (focused === document.body ||
+        focused === document.documentElement ||
+        (focused instanceof HTMLElement &&
+          (focused.matches('[role="region"][aria-label="Workspace canvas"]') ||
+            focused.matches('.react-flow__pane[aria-label="Workspace canvas background"]'))));
+    return retainedSameElement ||
+      focusedWithinMovedSection ||
+      documentOrCanvasFallback;
+  })()`;
+}
+
+export function captureFocusBeforeSectionMoveExpression(
+  captureKey,
+  sourceSelector,
+) {
+  return `(() => {
+      const source = document.querySelector(${JSON.stringify(sourceSelector)});
+      const focused = document.activeElement;
+      if (!(source instanceof HTMLElement) ||
+        !(focused instanceof HTMLElement) ||
+        !source.contains(focused)) {
+        return false;
+      }
+      globalThis[${JSON.stringify(captureKey)}] = focused;
+      return true;
+    })()`;
+}
+
+export async function captureFocusBeforeSectionMove(client, sourceSelector) {
+  const captureKey = `__pythonCanvasSectionFocus${crypto.randomUUID()}`;
+  const captured = await evaluate(
     client,
-    "the moved section retaining focus",
-    `(() => {
-      const section = document.querySelector(${JSON.stringify(selector)});
-      return section instanceof HTMLElement && section.contains(document.activeElement);
-    })()`,
+    captureFocusBeforeSectionMoveExpression(captureKey, sourceSelector),
   );
+  assert.equal(
+    captured,
+    true,
+    "The section drag did not begin with focus in its source section.",
+  );
+  return { captureKey, movedSectionSelector: sourceSelector };
+}
+
+export async function assertFocusNotStolenAfterSectionMove(client, capture) {
+  try {
+    await waitFor(
+      client,
+      "the section move preserving its focus context",
+      focusNotStolenAfterSectionMoveExpression(
+        capture.captureKey,
+        capture.movedSectionSelector,
+      ),
+    );
+  } finally {
+    await evaluate(
+      client,
+      `delete globalThis[${JSON.stringify(capture.captureKey)}]`,
+    );
+  }
 }
 
 export async function dictionaryRowHeight(client, workspaceItemId) {

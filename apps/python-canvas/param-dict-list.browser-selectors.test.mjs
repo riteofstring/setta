@@ -3,8 +3,11 @@ import test from "node:test";
 import { JSDOM } from "jsdom";
 
 import {
+  assertFocusNotStolenAfterSectionMove,
   callableSectionSelector,
   callableWorkspaceSectionId,
+  captureFocusBeforeSectionMove,
+  focusNotStolenAfterSectionMoveExpression,
   listSectionSelector,
   parameterDictionarySectionSelector,
 } from "./param-dict-list.browser-support.mjs";
@@ -75,6 +78,84 @@ test("List walkthrough finds direct vertical children beside its shell", () => {
   );
 });
 
+test("Section move focus check never accepts an unrelated active control", async () => {
+  const sameElement = focusFixture();
+  sameElement.source.focus();
+  const sameElementCapture = await captureFocusBeforeSectionMove(
+    sameElement.client,
+    sameElement.sourceSelector,
+  );
+  await assertFocusNotStolenAfterSectionMove(
+    sameElement.client,
+    sameElementCapture,
+  );
+
+  const bodyFallback = focusFixture();
+  bodyFallback.source.focus();
+  const bodyFallbackCapture = await captureFocusBeforeSectionMove(
+    bodyFallback.client,
+    bodyFallback.sourceSelector,
+  );
+  remountSource(bodyFallback);
+  bodyFallback.document.body.tabIndex = -1;
+  bodyFallback.document.body.focus();
+  await assertFocusNotStolenAfterSectionMove(
+    bodyFallback.client,
+    bodyFallbackCapture,
+  );
+
+  const canvasFallback = focusFixture();
+  canvasFallback.source.focus();
+  const canvasFallbackCapture = await captureFocusBeforeSectionMove(
+    canvasFallback.client,
+    canvasFallback.sourceSelector,
+  );
+  remountSource(canvasFallback);
+  canvasFallback.canvas.tabIndex = -1;
+  canvasFallback.canvas.focus();
+  await assertFocusNotStolenAfterSectionMove(
+    canvasFallback.client,
+    canvasFallbackCapture,
+  );
+
+  const movedSection = focusFixture();
+  movedSection.source.focus();
+  const movedSectionCapture = await captureFocusBeforeSectionMove(
+    movedSection.client,
+    movedSection.sourceSelector,
+  );
+  const remountedSection = remountSource(movedSection);
+  const remountedControl = movedSection.document.createElement("button");
+  remountedControl.type = "button";
+  remountedSection.append(remountedControl);
+  remountedControl.focus();
+  await assertFocusNotStolenAfterSectionMove(
+    movedSection.client,
+    movedSectionCapture,
+  );
+
+  const unrelatedControl = focusFixture();
+  unrelatedControl.source.focus();
+  const unrelatedCapture = await captureFocusBeforeSectionMove(
+    unrelatedControl.client,
+    unrelatedControl.sourceSelector,
+  );
+  remountSource(unrelatedControl);
+  unrelatedControl.otherControl.focus();
+  assert.equal(
+    unrelatedControl.window.eval(
+      focusNotStolenAfterSectionMoveExpression(
+        unrelatedCapture.captureKey,
+        unrelatedCapture.movedSectionSelector,
+      ),
+    ),
+    false,
+  );
+  unrelatedControl.window.eval(
+    `delete globalThis[${JSON.stringify(unrelatedCapture.captureKey)}]`,
+  );
+});
+
 test("List walkthrough waits for projected direct sortable children in canonical order", async () => {
   const window = new JSDOM(
     `
@@ -131,6 +212,61 @@ test("List walkthrough waits for projected direct sortable children in canonical
   await waitForListNestedChildOrder(client, "list:objects", expectedChildIds);
   assert.equal(evaluations.length, 3);
 });
+
+function focusFixture() {
+  const window = new JSDOM(
+    `
+      <main>
+        <div role="region" aria-label="Workspace canvas" tabindex="-1">
+          <div class="react-flow__pane" aria-label="Workspace canvas background" tabindex="-1">
+            <div data-section-id="python-canvas:parameter-dictionary:dictionary:options" tabindex="-1"></div>
+            <button type="button" data-unrelated-control="true">Other section control</button>
+          </div>
+        </div>
+      </main>
+    `,
+    { runScripts: "outside-only" },
+  ).window;
+  const document = window.document;
+  const sourceSelector = parameterDictionarySectionSelector("dictionary:options");
+  const source = document.querySelector(sourceSelector);
+  const canvas = document.querySelector(
+    '.react-flow__pane[aria-label="Workspace canvas background"]',
+  );
+  const otherControl = document.querySelector("[data-unrelated-control='true']");
+  if (
+    !(source instanceof window.HTMLElement) ||
+    !(canvas instanceof window.HTMLElement) ||
+    !(otherControl instanceof window.HTMLButtonElement)
+  ) {
+    throw new Error("Expected the focus-check fixture controls.");
+  }
+  return {
+    canvas,
+    client: {
+      async send(method, parameters) {
+        assert.equal(method, "Runtime.evaluate");
+        return { result: { value: window.eval(parameters.expression) } };
+      },
+    },
+    document,
+    otherControl,
+    source,
+    sourceSelector,
+    window,
+  };
+}
+
+function remountSource(fixture) {
+  const remounted = fixture.document.createElement("div");
+  remounted.setAttribute(
+    "data-section-id",
+    "python-canvas:parameter-dictionary:dictionary:options",
+  );
+  remounted.tabIndex = -1;
+  fixture.source.replaceWith(remounted);
+  return remounted;
+}
 
 test("Param Dict nesting targets the rightward item child-adoption lane", async () => {
   const evaluations = [];

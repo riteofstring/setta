@@ -9,13 +9,14 @@ import {
   assertDictionaryDiagnosticCleared,
   assertDictionaryDiagnosticPresentation,
   assertDictionaryTree,
-  assertFocusedSection,
+  assertFocusNotStolenAfterSectionMove,
   assertGeneratedDictionary,
   assertGeneratedListOrder,
   assertNoGeneratedPythonDuplicate,
   assertRevisionIncremented,
   assertSectionFieldSize,
   assertSectionSize,
+  captureFocusBeforeSectionMove,
   callableWorkspaceSectionId,
   createPaneSection,
   dictionaryRowHeight,
@@ -248,12 +249,13 @@ export async function exerciseParamDictAndListSlice(
   );
 
   const beforeDictionaryMove = await fetchCanonicalSnapshot(backendOrigin);
-  await dragFreeSectionToSection(
+  const dictionaryMoveFocus = await dragFreeSectionToSection(
     client,
     dictionarySelector,
     callableSectionSelector(outerChildIds[1]),
     "moving the Param Dict between the list children",
     0.25,
+    true,
   );
   const dictionaryInList = await waitForSnapshot(
     backendOrigin,
@@ -277,16 +279,17 @@ export async function exerciseParamDictAndListSlice(
     callableSectionSelector(outerChildIds[1]),
     topLevelCallableSize,
   );
-  await assertFocusedSection(client, dictionarySelector);
+  await assertFocusNotStolenAfterSectionMove(client, dictionaryMoveFocus);
   assertGeneratedListOrder(dictionaryInList, 3);
 
   const beforeListReorder = dictionaryInList;
-  await dragSortedSectionToSection(
+  const dictionaryReorderFocus = await dragSortedSectionToSection(
     client,
     dictionarySelector,
     callableSectionSelector(outerChildIds[0]),
     "reordering the Param Dict to the front of the list",
     0.25,
+    true,
   );
   const dictionaryFirst = await waitForSnapshot(
     backendOrigin,
@@ -310,14 +313,15 @@ export async function exerciseParamDictAndListSlice(
     callableSectionSelector(outerChildIds[1]),
     topLevelCallableSize,
   );
-  await assertFocusedSection(client, dictionarySelector);
+  await assertFocusNotStolenAfterSectionMove(client, dictionaryReorderFocus);
   assertGeneratedListOrder(dictionaryFirst, 3);
 
   const beforeTopLevelMove = dictionaryFirst;
-  await dragFreeSectionToCanvas(
+  const callableTopLevelFocus = await dragFreeSectionToCanvas(
     client,
     callableSectionSelector(outerChildIds[0]),
     "moving a callable back to the top level",
+    true,
   );
   const callableAtTopLevel = await waitForSnapshot(
     backendOrigin,
@@ -340,7 +344,7 @@ export async function exerciseParamDictAndListSlice(
     callableSectionSelector(outerChildIds[1]),
     topLevelCallableSize,
   );
-  await assertFocusedSection(client, callableSectionSelector(outerChildIds[0]));
+  await assertFocusNotStolenAfterSectionMove(client, callableTopLevelFocus);
   assertGeneratedListOrder(callableAtTopLevel, 2);
 
   const nestedList = await createPaneSection(client, backendOrigin, {
@@ -783,13 +787,15 @@ async function dragFreeSectionToSection(
   targetSelector,
   description,
   targetYFraction,
+  verifyFocusContext = false,
 ) {
-  await dragSection(client, {
+  return dragSection(client, {
     description,
     mode: "free",
     sourceSelector,
     targetSelector,
     targetYFraction,
+    verifyFocusContext,
   });
 }
 
@@ -799,24 +805,32 @@ async function dragSortedSectionToSection(
   targetSelector,
   description,
   targetYFraction,
+  verifyFocusContext = false,
 ) {
-  await dragSection(client, {
+  return dragSection(client, {
     description,
     mode: "sorting",
     sourceSelector,
     targetSelector,
     targetYFraction,
+    verifyFocusContext,
   });
 }
 
-async function dragFreeSectionToCanvas(client, sourceSelector, description) {
-  await dragSection(client, {
+async function dragFreeSectionToCanvas(
+  client,
+  sourceSelector,
+  description,
+  verifyFocusContext = false,
+) {
+  return dragSection(client, {
     description,
     mode: "free",
     sourceSelector,
     targetSelector:
       '.react-flow__pane[aria-label="Workspace canvas background"]',
     targetYFraction: 0.25,
+    verifyFocusContext,
   });
 }
 
@@ -827,6 +841,7 @@ async function dragSection(client, configuration) {
     sourceSelector,
     `${configuration.description} source`,
   );
+  let focusCapture = null;
   await prepareElementDrag(
     client,
     sourceSelector,
@@ -852,6 +867,9 @@ async function dragSection(client, configuration) {
       `${configuration.description} mode activation`,
       sectionDragModeExpression(sourceSelector),
     );
+    if (configuration.verifyFocusContext) {
+      focusCapture = await captureFocusBeforeSectionMove(client, sourceSelector);
+    }
     await client.send("Input.dispatchMouseEvent", {
       ...source,
       button: "left",
@@ -894,6 +912,7 @@ async function dragSection(client, configuration) {
     await releaseSectionDragMode(client, sourceSelector, configuration.mode);
   }
   await nextAnimationFrame(client);
+  return focusCapture;
 }
 
 async function holdSectionDragMode(client, sourceSelector, mode) {
