@@ -333,6 +333,13 @@ that no popup or completion request occurred. The focused production walkthrough
 ran the workspace, playground, Python Canvas backend, and Python Canvas frontend focused suites.
 No intentional behavior difference from the named `main` completion behavior was identified.
 
+Independent-review repair (2026-08-20): the popup geometry assertion now derives its expected
+width, height, and device scale from `browser-processes.mjs`'s exported `productionViewport`, the
+same authoritative surface used to configure every production browser check and capture. The
+focused production browser walkthrough passed, and `code-policy test --changed --base
+9c3ee63dd8220a5e44e58d6b2d8305f8b7c80b5d` passed its four selected focused suites (workspace,
+playground, Python Canvas backend, and Python Canvas frontend).
+
 Do not revisit backend completion behavior, completion edge cases, parameter/reference work, or
 general editor architecture in this correction.
 

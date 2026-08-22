@@ -1,6 +1,9 @@
 import { setTimeout as delay } from "node:timers/promises";
 
-import { fetchCanonicalSnapshot } from "./browser-processes.mjs";
+import {
+  fetchCanonicalSnapshot,
+  productionViewport,
+} from "./browser-processes.mjs";
 import {
   activateLabeledCodeSection,
   evaluate,
@@ -344,9 +347,9 @@ function targetPopupScript(generatedLabel, label) {
 
 async function inspectTargetPopupAtOriginalResolution(client, popup) {
   if (
-    popup.viewport.width !== 1_440 ||
-    popup.viewport.height !== 900 ||
-    popup.devicePixelRatio !== 1 ||
+    popup.viewport.width !== productionViewport.width ||
+    popup.viewport.height !== productionViewport.height ||
+    popup.devicePixelRatio !== productionViewport.deviceScaleFactor ||
     !popup.parentContainsPopup ||
     popup.sectionContainsPopup ||
     popup.wrapperContainsPopup ||
