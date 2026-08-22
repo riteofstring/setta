@@ -738,11 +738,14 @@ describe("TextValueEditor section-field presentation", () => {
     );
     expect(indicator?.getAttribute("aria-hidden")).toBe("true");
     expect(indicator?.getAttribute("title")).toBe(message);
-    const icon = indicator?.querySelector("svg");
-    expect(icon?.getAttribute("fill")).toBe("currentColor");
-    expect(icon?.getAttribute("stroke-width")).toBe("0");
-    expect(icon?.querySelectorAll("path")).toHaveLength(2);
-    expect(icon?.querySelector("circle")).toBeNull();
+    const icon = field.querySelector<SVGElement>(
+      ".setta-workspace-section-field-diagnostic-indicator > svg",
+    );
+    expect(icon).not.toBeNull();
+    expect(icon!.getAttribute("fill")).toBe("currentColor");
+    expect(icon!.getAttribute("stroke-width")).toBe("0");
+    expect(icon!.querySelectorAll("path")).toHaveLength(2);
+    expect(icon!.querySelector("circle")).toBeNull();
     expect(getFieldDummy().getAttribute("aria-invalid")).toBe("true");
     expect(getFieldDummy().getAttribute("aria-describedby")).toBe(
       description.id,
