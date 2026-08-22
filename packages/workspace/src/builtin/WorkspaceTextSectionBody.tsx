@@ -147,6 +147,7 @@ function TextSectionEditor({
           ? `${section.name} text, read-only`
           : `${section.name} text editor`
       }
+      diagnostics={[]}
       indentWidth={EDITOR_INDENT_WIDTH}
       language={getWorkspaceTextSectionEditorLanguage(data.format)}
       lineNumbers

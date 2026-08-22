@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { getSectionOrThrow } from "../document/documentSelectors";
 import { getWorkspaceDocumentStore } from "../document/stores";
 import type { WorkspaceSection } from "../document/types";
@@ -74,7 +74,7 @@ function nextCodeSectionData(
   if (liveData.mode === "editable") {
     return liveData.code === change.text
       ? null
-      : { ...liveData, code: change.text };
+      : { ...liveData, code: change.text, diagnostics: [] };
   }
   if (
     liveData.mode !== "generated-document" ||
@@ -91,7 +91,12 @@ function nextCodeSectionData(
   ) {
     return null;
   }
-  return { ...liveData, code: change.text, generatedRegion: region };
+  return {
+    ...liveData,
+    code: change.text,
+    diagnostics: [],
+    generatedRegion: region,
+  };
 }
 
 type WorkspaceCodeSectionBodyProps = {
@@ -129,6 +134,20 @@ export function WorkspaceCodeSectionBody({
       ),
     [isLocked, isReadOnlyMode, regionFrom, regionTo],
   );
+  // Parsing correctly produces fresh records. Keep an unchanged diagnostic set referentially
+  // stable so an unrelated document publication never reconfigures CodeMirror mid-keystroke.
+  const diagnosticsSignature = JSON.stringify(data.diagnostics);
+  const diagnosticsRef = useRef({
+    signature: diagnosticsSignature,
+    value: data.diagnostics,
+  });
+  if (diagnosticsRef.current.signature !== diagnosticsSignature) {
+    diagnosticsRef.current = {
+      signature: diagnosticsSignature,
+      value: data.diagnostics,
+    };
+  }
+  const diagnostics = diagnosticsRef.current.value;
 
   const onChange = useCallback(
     (change: WorkspaceSectionEditorChange) => {
@@ -154,6 +173,7 @@ export function WorkspaceCodeSectionBody({
       indentWidth={data.indentWidth}
       language={getWorkspaceCodeSectionEditorLanguage(data.language)}
       lineNumbers={data.lineNumbers}
+      diagnostics={diagnostics}
       onChange={onChange}
       presentation={presentation}
       sectionId={sectionId}

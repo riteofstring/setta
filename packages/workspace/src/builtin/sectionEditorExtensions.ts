@@ -1,4 +1,5 @@
 import { indentUnit } from "@codemirror/language";
+import { linter, type Diagnostic } from "@codemirror/lint";
 import {
   EditorSelection,
   EditorState,
@@ -15,7 +16,10 @@ import {
   getTextValueLanguageExtensions,
   type WorkspaceEditorLanguage,
 } from "../controls/text/textValueLanguages";
-import type { WorkspaceGeneratedRegion } from "./codeSectionData";
+import type {
+  WorkspaceCodeSectionDiagnostic,
+  WorkspaceGeneratedRegion,
+} from "./codeSectionData";
 
 // The reference's `getExtensions` at the shape its section-scale editors reach, minus every
 // application service: no LSP completion source or `completionKeymap`, no tooltip parent, no app
@@ -290,6 +294,7 @@ type SectionEditorExtensionsOptions = {
   language: WorkspaceEditorLanguage | null;
   wrapLines: boolean;
   indentWidth: number;
+  diagnostics: ReadonlyArray<WorkspaceCodeSectionDiagnostic>;
   presentation: WorkspaceSectionEditorPresentation;
   onEscape: () => void;
 };
@@ -298,6 +303,7 @@ export function getSectionEditorExtensions({
   language,
   wrapLines,
   indentWidth,
+  diagnostics,
   presentation,
   onEscape,
 }: SectionEditorExtensionsOptions): WorkspaceSectionEditorCompilation {
@@ -309,6 +315,20 @@ export function getSectionEditorExtensions({
     extensions.push(EditorView.lineWrapping);
   }
   extensions.push(...getTextValueLanguageExtensions(language));
+  if (diagnostics.length > 0) {
+    // These ranges have already been validated against this exact code-section `code` string.
+    // CodeMirror owns their normal underline and hover tooltip; the package does not recreate lint
+    // widgets or let a host map them after an edit.
+    extensions.push(
+      linter(
+        () =>
+          diagnostics.map(
+            (diagnostic) => ({ ...diagnostic }) satisfies Diagnostic,
+          ),
+        { delay: 0 },
+      ),
+    );
+  }
   // One owner for the authored width: the reference reaches `indentUnit` through its
   // `basicSetup.tabSize` option, which leaves a literal tab rendering at CodeMirror's own
   // default. Setting both here keeps inserted and existing indentation the same width.

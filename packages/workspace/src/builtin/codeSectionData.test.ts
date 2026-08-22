@@ -49,6 +49,7 @@ describe("code section data", () => {
   it("creates the reference's code section defaults", () => {
     expect(createWorkspaceCodeSectionData()).toEqual({
       code: "",
+      diagnostics: [],
       language: "python",
       wrapLines: false,
       lineNumbers: true,
@@ -133,9 +134,28 @@ describe("code section data", () => {
 
   it("applies explicit creation overrides", () => {
     expect(
-      createWorkspaceCodeSectionData({ code: "ls -la", language: "bash" }),
+      createWorkspaceCodeSectionData({
+        code: "ls -la",
+        diagnostics: [
+          {
+            from: 0,
+            message: "Unknown command.",
+            severity: "warning",
+            to: 2,
+          },
+        ],
+        language: "bash",
+      }),
     ).toMatchObject({
       code: "ls -la",
+      diagnostics: [
+        {
+          from: 0,
+          message: "Unknown command.",
+          severity: "warning",
+          to: 2,
+        },
+      ],
       language: "bash",
     });
   });
@@ -146,6 +166,54 @@ describe("code section data", () => {
       indentWidth: 2,
     });
     expect(parseWorkspaceCodeSectionData("code", data)).toEqual(data);
+  });
+
+  it("validates document-local diagnostics against the code they describe", () => {
+    const code = "𝜋 = 1";
+    const valid = createWorkspaceCodeSectionData({
+      code,
+      diagnostics: [
+        {
+          from: 0,
+          message: "Undefined name 𝜋.",
+          severity: "error",
+          // The code-section contract uses JavaScript's UTF-16 offsets, so the
+          // one code point occupies two units in this document.
+          to: 2,
+        },
+        {
+          from: code.length,
+          message: "End marker.",
+          severity: "info",
+          to: code.length,
+        },
+      ],
+    });
+    expect(parseWorkspaceCodeSectionData("code", valid)).toEqual(valid);
+
+    for (const diagnostics of [
+      null,
+      [{ from: -1, message: "Bad start.", severity: "error", to: 0 }],
+      [{ from: 2, message: "Reversed.", severity: "error", to: 1 }],
+      [{ from: 0, message: " ", severity: "error", to: 1 }],
+      [{ from: 0, message: "Unsupported.", severity: "fatal", to: 1 }],
+      [
+        {
+          from: 0,
+          message: "Extra.",
+          severity: "error",
+          to: 1,
+          targetId: null,
+        },
+      ],
+    ]) {
+      expect(() =>
+        parseWorkspaceCodeSectionData("code", {
+          ...valid,
+          diagnostics,
+        }),
+      ).toThrow(/diagnostic|diagnostics/u);
+    }
   });
 
   it("accepts every declared language", () => {
@@ -171,6 +239,11 @@ describe("code section data", () => {
     expect(() => parseWorkspaceCodeSectionData("code", withoutCode)).toThrow(
       /string code field/u,
     );
+    const { diagnostics: _diagnostics, ...withoutDiagnostics } =
+      createWorkspaceCodeSectionData();
+    expect(() =>
+      parseWorkspaceCodeSectionData("code", withoutDiagnostics),
+    ).toThrow(/diagnostics array/u);
     expect(() =>
       parseWorkspaceCodeSectionData("code", {
         ...createWorkspaceCodeSectionData(),
