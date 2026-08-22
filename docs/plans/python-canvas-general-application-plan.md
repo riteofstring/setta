@@ -120,13 +120,14 @@ The persisted aggregate is the sole authored model. It contains:
   with stable ID, name, `nameEditable`, passing style, type annotation,
   optional default, and authored expression.
 
-Provider-derived parameters retain their provider-owned passing style, type
-annotation, and default; their signature name is immutable and
-`nameEditable=false`. App-authored parameters use stable client-proposed IDs,
-`nameEditable=true`, positional-or-keyword passing, and editable name and
-expression. They have no fabricated type annotation or default: their
-persisted canonical metadata records the absence of provider-derived type and
-default information rather than inventing either value.
+Provider-derived parameters use their provider-owned name, passing style, type
+annotation, and default, with `nameEditable=false`. A provider-derived row
+retained by a complete parameter-list proposal preserves all of those values.
+App-authored parameters use stable client-proposed IDs, `nameEditable=true`,
+positional-or-keyword passing, and editable name and expression. They have no
+fabricated type annotation or default: their persisted canonical metadata
+records the absence of provider-derived type and default information rather
+than inventing either value.
 
 Generated Python, generated body boundaries, semantic source ranges,
 diagnostics, completion results, Basedpyright document state, and temporary
@@ -150,19 +151,23 @@ behavior, not a compatibility or migration rule.
 
 A set-parameters mutation carries the complete proposed ordered list of
 `{ id, name, authoredExpression }` records for one current callable. It may
-insert, delete, reorder, and rename app-authored records as well as edit any
-record's expression. The aggregate validates the whole proposal once: IDs are
-stable, unique, noncolliding, and scoped to that callable; immutable names stay
-unchanged; and names/expressions meet their lexical and size bounds. It
-preserves all backend-owned metadata for every retained record, refuses changes
-to provider-owned names or metadata, and creates the canonical app-authored
-defaults for each new stable client-proposed ID. An app-authored name may be
-blank in progress; a present name must be a non-keyword Python identifier and
-unique within its callable. It accepts no client-supplied passing style, type
-annotation, default, or `nameEditable` override. Empty authored expressions
-remain valid in-progress values; an app-authored row remains persisted and is
-omitted from the generated call until it has both a valid name and an
-expression.
+insert new app-authored records; delete or reorder any current record,
+including a provider-derived record; rename only app-authored records; and edit
+any record's expression. The aggregate validates the whole proposal once: IDs
+are stable, unique, noncolliding, and scoped to that callable; the name of a
+retained provider-derived record stays unchanged; and names/expressions meet
+their lexical and size bounds. It preserves backend-owned metadata for every
+retained record. In particular, a retained provider-derived record must retain
+its provider-owned name, passing style, type annotation, default, and
+`nameEditable=false`. Omitting a provider-derived record deletes it; that is
+allowed and is not a metadata mutation. The aggregate creates the canonical
+app-authored defaults for each new stable client-proposed ID. An app-authored
+name may be blank in progress; a present name must be a non-keyword Python
+identifier and unique within its callable. It accepts no client-supplied
+passing style, type annotation, default, or `nameEditable` override. Empty
+authored expressions remain valid in-progress values; an app-authored row
+remains persisted and is omitted from the generated call until it has both a
+valid name and an expression.
 
 ### Rendering and generated module
 
@@ -189,8 +194,8 @@ The supported provider passing styles and their exact call syntax are:
 
 For syntactic validity, the renderer emits positional-only arguments first,
 then variadic-positional arguments, then positional-or-keyword and keyword-only
-arguments in their relative signature order, and variadic-keyword arguments
-last. Assignment order remains the original parameter order. Unknown styles,
+arguments in their relative current parameter-list order, and variadic-keyword
+arguments last. Assignment order remains current parameter-list order. Unknown styles,
 marker pseudo-parameters, or an invalid normalized signature fail at the
 provider/aggregate boundary; the renderer never guesses another calling
 convention.
@@ -438,7 +443,7 @@ The coordinator exposes exactly these aggregate commands:
 | Rename callable | Keep its ID and nested parameters, validate the new nonempty name, rerender, persist, and publish |
 | Delete callable | Remove only that callable and its nested parameters, rerender the remaining aggregate, persist, and publish |
 | Commit callable | If its canonical expression is unchanged, preserve the current parameter list without a new semantic publication; otherwise resolve the changed expression in the candidate target context, replace the full list with provider-derived records, discard app-authored records without reconciliation, rerender, persist, and publish |
-| Set parameters | Validate and replace one complete ordered `{ id, name, authoredExpression }` list: retain backend metadata for retained records, preserve provider-owned names and metadata, and create canonical app-authored defaults for new client-proposed IDs; rerender, persist, and publish once |
+| Set parameters | Validate and replace one complete ordered `{ id, name, authoredExpression }` list: allow new app-authored records, deletion or reordering of any current record including provider-derived records, renaming only app-authored records, and expression edits to any record; each retained provider-derived record preserves its provider-owned name, passing style, type/default, and `nameEditable=false`, while its deletion is allowed and is not a metadata mutation; create canonical app-authored defaults for new client-proposed IDs; rerender, persist, and publish once |
 | Set target | Validate and replace prefix and suffix together, rerender, persist, and publish |
 
 For a changed commit, the coordinator creates a temporary complete candidate
@@ -491,14 +496,18 @@ that layout from the snapshot.
   public workspace item tree. Its `authoring-and-filter` surface provides Add,
   Remove Last, Delete Selected, drag reorder, filtering, and item actions per
   callable; each action proposes the resulting complete ordered list rather
-  than a second frontend parameter model. Add assigns a stable client-proposed
-  ID before that list is sent.
+  than a second frontend parameter model. Add creates a new app-authored row
+  and assigns its stable client-proposed ID before that list is sent. Removal
+  and drag-reorder actions apply to any current row, including a
+  provider-derived row; only app-authored rows are renameable.
 - A provider-derived parameter renders its immutable signature name and its
   `nameEditable=false` metadata; passing style, type, and default remain
-  provider-owned read-only context where helpful. An app-authored parameter
-  renders the existing workspace `ItemNameEditor` with `nameEditable=true` and
-  an editable expression. It shows no fabricated type/default metadata. The
-  frontend never infers either row kind from an ID, blank name, or position.
+  provider-owned read-only context where helpful, while its authored expression
+  remains editable. It may nevertheless be deleted or reordered in the complete
+  proposal. An app-authored parameter renders the existing workspace
+  `ItemNameEditor` with `nameEditable=true` and an editable expression. It
+  shows no fabricated type/default metadata. The frontend never infers either
+  row kind from an ID, blank name, or position.
 - Each callable has its own draft, completion request/cancellation state,
   pending state, validation/provider error, and diagnostic presentation. Use a
   map keyed by callable ID, never one shared callable draft or one
@@ -597,9 +606,9 @@ This is the only public contract cutover. Land it as one coherent candidate:
    than tolerated.
 4. Replace the fixed frontend projection with a labelled project-name control,
    dynamic callable-ID-keyed sections, independent drafts, complete parameter
-   lists with app-authored ItemNameEditor/Add/Remove Last/Delete Selected/drag
-   reorder/filtering/item actions, labelled target controls, and the read-only
-   generated surface. Use public workspace APIs only.
+   lists with app-authored ItemNameEditor/Add, all-row Remove Last/Delete
+   Selected/drag reorder, filtering/item actions, labelled target controls,
+   and the read-only generated surface. Use public workspace APIs only.
 5. Replace README startup instructions, browser process setup, browser
    walkthroughs, and test fixtures in the same candidate so the checked-in
    product contains no demo-only or V1 public surface.
@@ -635,14 +644,14 @@ Square Root bootstrap data.
 | Area | Required observable evidence |
 | --- | --- |
 | Project lifecycle | Temporary-state tests cover missing --project, missing file without --create, exclusive create, refuse-overwrite, strict load, invalid format/field rejection, and same-filesystem atomic-write rollback. They prove an expected-revision project rename persists across restart without adding project discovery, clone/save-as, or derived fields to the file. |
-| Aggregate | Focused project tests cover blank zero-callable state, project/callable create/rename/delete behavior by dynamic ID, independent commits of two callables, stale expectedRevision, and no fixed Square Root/math assumptions. They prove a changed commit replaces the complete list from its provider signature and discards app-authored rows without reconciliation, while a same-canonical-expression recommit preserves the existing list and IDs. They cover one atomic parameter-list candidate that inserts, deletes, reorders, renames app-authored rows, edits expressions, preserves retained backend metadata, refuses provider-owned changes, and creates canonical defaults for stable client-proposed IDs. |
+| Aggregate | Focused project tests cover blank zero-callable state, project/callable create/rename/delete behavior by dynamic ID, independent commits of two callables, stale expectedRevision, and no fixed Square Root/math assumptions. They prove a changed commit replaces the complete list from its provider signature and discards app-authored rows without reconciliation, while a same-canonical-expression recommit preserves the existing list and IDs. They cover one atomic parameter-list candidate that inserts, renames, deletes, and reorders app-authored rows; deletes and reorders a provider-derived row; edits any row's expression; preserves each retained provider-derived row's provider-owned name, passing style, type/default, and `nameEditable=false`; and creates canonical defaults for stable client-proposed IDs. |
 | Renderer | Focused renderer tests cover an empty SettaState body, two callables, multiple and zero parameters, provider-derived and app-authored rows, every supported passing style, deletion, byte-stable output, and sourceRangesByTargetId for dynamic callable/parameter IDs. They assert a default suffix can instantiate SettaState, a blank project has no hard-coded math import, and app-authored positional-or-keyword rows use their validated editable names without fabricated type/default metadata. |
 | File/coordinator transaction | Failure-injection tests prove validation, provider, render, materialization, and persistence failures leave the published snapshot and project file unchanged for rename project, callable, complete parameter-list, and target mutations. Success increments revision once, writes only canonical authored state including `nameEditable` and all parameter metadata, regenerates code automatically, and maps candidate diagnostics after publication. |
 | Basedpyright integration | A real executable resolved from the pinned app dependency resolves at least two fixture-module signatures, including a zero-parameter callable and a multi-parameter callable covering all passing styles. It proves callable and target completion, diagnostic-to-dynamic-ID mapping, correct target context, and explicit unavailable behavior without an empty fallback. |
 | V2 transport | Go contract generation and drift tests produce only V2 artifacts. Contract, HTTP, runtime-decoder, and client tests accept valid V2 snapshots/errors, reject V1 and unknown shapes, require expectedRevision on every mutation including project rename, verify the `{ id, name, authoredExpression }` parameter-list request and persisted `nameEditable` metadata, verify typed conflicts/failures, and prove /api/v1 paths are absent. |
-| Frontend projection | Component tests cover the labelled project-name control and conflict recovery, explanatory empty state, Add callable, rename, delete, multiple dynamically rendered sections, zero/arbitrary provider-derived and app-authored parameter rows, independent callable drafts, per-callable Add/Remove Last/Delete Selected/drag reorder/filtering/item actions and ItemNameEditor behavior, completion isolation, prefix/suffix target context, generated-code read-only output, revision conflicts, pending/error handling, and callable/parameter/document diagnostics. |
+| Frontend projection | Component tests cover the labelled project-name control and conflict recovery, explanatory empty state, Add callable, rename, delete, multiple dynamically rendered sections, zero/arbitrary provider-derived and app-authored parameter rows, independent callable drafts, app-authored parameter insert/rename/delete/reorder, provider-derived parameter deletion and reorder, per-callable Add/Remove Last/Delete Selected/drag reorder/filtering/item actions and ItemNameEditor behavior, completion isolation, prefix/suffix target context, generated-code read-only output, revision conflicts, pending/error handling, and callable/parameter/document diagnostics. |
 | Accessibility and reflow | Component or browser assertions verify labels including Project name and app-authored parameter names, native and public-workspace controls, visible focus, keyboard project/callable/parameter add/rename/commit/delete/completion flows, explicit destructive labels, polite announcements, errors associated with controls, and no page-level horizontal scroll at a narrow viewport. |
-| Production browser walkthrough | Start against a temporary absent project with --project and --create plus a temporary fixture module. Rename the project, create and commit multiple callables, author app parameters through Add, Remove Last, Delete Selected, drag reorder, filtering, item actions, and ItemNameEditor, edit expressions for provider-derived and app-authored parameters and both target regions, observe completion and diagnostics, delete one callable, stop and restart the backend without --create, and prove the project file restores the renamed project, remaining callables, canonical parameter metadata, and byte-identical generated code. |
+| Production browser walkthrough | Start against a temporary absent project with --project and --create plus a temporary fixture module. Rename the project, create and commit multiple callables, prove app-authored parameter insert/rename/delete/reorder through Add, Remove Last, Delete Selected, drag reorder, filtering, item actions, and ItemNameEditor, delete and drag-reorder a provider-derived parameter, edit expressions for provider-derived and app-authored parameters and both target regions, observe completion and diagnostics, delete one callable, stop and restart the backend without --create, and prove the project file restores the renamed project, remaining callables, canonical parameter metadata, and byte-identical generated code. |
 
 ## Removal checklist
 
@@ -713,11 +722,14 @@ This plan is complete only when:
 5. The application supports zero to many callables and parameters without
    fixed IDs, positions, Square Root data, or callables[0] anywhere in product
    code.
-6. Provider-derived parameters persist their immutable signature name and
-   provider-owned passing style/type/default with `nameEditable=false`;
-   app-authored parameters persist stable client-proposed IDs,
-   `nameEditable=true`, positional-or-keyword passing, editable name/expression,
-   and no fabricated type/default metadata.
+6. A complete parameter-list proposal may insert new app-authored rows, delete
+   or reorder any current row including provider-derived rows, rename only
+   app-authored rows, and edit any row's authored expression. A retained
+   provider-derived row preserves its provider-owned name, passing style,
+   type/default, and `nameEditable=false`; deleting it is allowed and is not a
+   metadata mutation. App-authored parameters persist stable client-proposed
+   IDs, `nameEditable=true`, positional-or-keyword passing, editable
+   name/expression, and no fabricated type/default metadata.
 7. A changed callable commit replaces its complete parameter list from the
    provider signature and discards app-authored rows without reconciliation; a
    same-canonical-expression recommit is idempotent and preserves that list.
