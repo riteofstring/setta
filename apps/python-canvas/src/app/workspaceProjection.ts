@@ -50,6 +50,7 @@ function parameterItemRootID(callableId: string): string {
 export type ProjectSnapshotProjectionOptions = Readonly<{
   keepAuthoredPython: boolean;
   keepParameterLists: ReadonlySet<string>;
+  reenableRetainedParameterLists: ReadonlySet<string>;
 }>;
 
 export function projectWorkspaceDocument(
@@ -176,7 +177,10 @@ function projectCallableItemTree(
   options: ProjectSnapshotProjectionOptions,
 ): WorkspaceSectionItemTree {
   if (previous !== undefined && options.keepParameterLists.has(callable.id)) {
-    return projectRetainedParameterItems(previous);
+    return projectRetainedParameterItems(
+      previous,
+      options.reenableRetainedParameterLists.has(callable.id),
+    );
   }
   return projectCanonicalParameterItems(previous, callable);
 }
@@ -367,11 +371,31 @@ function projectGeneratedPythonSection(
 
 function projectRetainedParameterItems(
   itemTree: WorkspaceSectionItemTree,
+  reenable: boolean,
 ): WorkspaceSectionItemTree {
   // A retained list is a local whole-list proposal, not a partial merge. A
   // response for another mutation must not replace a name, expression, order,
   // selection, or app-authored row while this callable still has a draft.
-  return itemTree;
+  if (!reenable) {
+    return itemTree;
+  }
+  const root = itemTree.items[itemTree.rootId];
+  if (root === undefined) {
+    return itemTree;
+  }
+  const parameterIDs = new Set(root.children);
+  const items: Record<string, WorkspaceItem> = {};
+  for (const [itemID, item] of Object.entries(itemTree.items)) {
+    if (!parameterIDs.has(itemID)) {
+      items[itemID] = item;
+      continue;
+    }
+    items[itemID] = {
+      ...item,
+      data: { ...readParameterItemData(item.data), disabled: false },
+    };
+  }
+  return { ...itemTree, items };
 }
 
 function projectCanonicalParameterItems(

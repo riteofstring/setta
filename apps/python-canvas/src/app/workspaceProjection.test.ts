@@ -18,6 +18,7 @@ import {
   readCallableParameterItems,
   readGeneratedPythonTarget,
   setParameterItemName,
+  setParameterItemsDisabled,
 } from "./workspaceProjection";
 
 describe("Python Canvas V2 workspace projection", () => {
@@ -127,6 +128,7 @@ describe("Python Canvas V2 workspace projection", () => {
     applyProjectSnapshotToWorkspace(host, snapshot, {
       keepAuthoredPython: false,
       keepParameterLists: new Set(["callable:second"]),
+      reenableRetainedParameterLists: new Set(),
     });
 
     expect(
@@ -142,6 +144,41 @@ describe("Python Canvas V2 workspace projection", () => {
     expect(
       readCallableParameterItems(host.getSnapshot(), "callable:first"),
     ).toEqual([]);
+    host.dispose();
+  });
+
+  it("retains and re-enables a conflicted pending parameter draft for retry", () => {
+    const snapshot = dynamicSnapshot();
+    const host = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(host);
+    host.loadDocument(projectWorkspaceDocument(snapshot));
+
+    setParameterItemName(
+      host,
+      "callable:second",
+      "parameter:scale",
+      "local retry name",
+    );
+    setParameterItemsDisabled(host, "callable:second", true);
+    applyProjectSnapshotToWorkspace(host, snapshot, {
+      keepAuthoredPython: false,
+      keepParameterLists: new Set(["callable:second"]),
+      reenableRetainedParameterLists: new Set(["callable:second"]),
+    });
+
+    expect(
+      readCallableParameterItems(host.getSnapshot(), "callable:second"),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({
+            disabled: false,
+            name: "local retry name",
+          }),
+          id: "parameter:scale",
+        }),
+      ]),
+    );
     host.dispose();
   });
 });

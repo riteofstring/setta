@@ -846,7 +846,7 @@ or live probe.
 
 ### Phase E — focused verification closeout
 
-- [x] Iteration-0015 focused verification remediation complete and ready for
+- [x] Iteration-0017 focused verification remediation complete and ready for
       a fresh independent audit
 
 1. Run the focused module suites and changed-file selection listed below in the
@@ -943,6 +943,32 @@ preserves `Literal['=']` as type-annotation metadata.
 python-canvas-frontend`, and `code-policy test --changed` passed; the frontend
 module suite completed all 38 component tests. No browser, local service,
 provider session, or live probe ran.
+
+**Iteration-0017 remediation record (2026-08-21):** The general mutation and
+callable-commit boundaries now require a ready provider after command
+validation but before returning an unchanged snapshot. Therefore an unchanged
+target update and a canonical callable recommit after failed provider startup
+return the typed unavailable failure rather than a successful V2 snapshot. A
+parameter-list revision conflict now retains only the affected local item tree
+and releases its transient disabled state, leaving that draft visibly editable
+for deliberate retry. The restored V2 Basedpyright integration suite resolves
+the app's pinned executable and exercises a temporary fixture module through
+the current aggregate, coordinator, materializer, and provider boundaries: a
+zero-parameter signature, all five passing styles, callable and target
+completion context, dynamic parameter diagnostic mapping, and unavailable
+completion without an empty fallback.
+
+**Iteration-0017 focused proof (2026-08-21):** `go test -count=1
+./internal/project/coordinator -run
+'^TestCoordinatorReportsUnavailableProviderWithoutEmptyMutationResult$'`
+passed. `pnpm --filter @setta/python-canvas exec vitest run
+src/app/workspaceProjection.test.ts --reporter=dot` passed (4 tests).
+`code-policy test --module python-canvas-backend` passed, including the
+restored real pinned-Basedpyright integration; `code-policy test --module
+python-canvas-frontend` passed (39 tests); and `code-policy test --changed`
+passed for both Python Canvas modules. No browser or local service ran. The
+provider process ran only as part of the authorized backend Code Policy module
+suite; no standalone live probe ran.
 
 ## Exact acceptance matrix
 

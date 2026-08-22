@@ -195,11 +195,11 @@ func (coordinator *Coordinator) CommitCallable(ctx context.Context, command aggr
 	if err != nil {
 		return Snapshot{}, err
 	}
-	if !changed {
-		return coordinator.snapshot.Clone(), nil
-	}
 	if err := coordinator.requireMutableProvider(ctx); err != nil {
 		return Snapshot{}, err
+	}
+	if !changed {
+		return coordinator.snapshot.Clone(), nil
 	}
 	request, err := coordinator.signatureRequest(state, command.CallableID, expression)
 	if err != nil {
@@ -274,11 +274,11 @@ func (coordinator *Coordinator) mutate(ctx context.Context, build candidateBuild
 	if err != nil {
 		return Snapshot{}, err
 	}
-	if !candidate.Changed {
-		return coordinator.snapshot.Clone(), nil
-	}
 	if err := coordinator.requireMutableProvider(ctx); err != nil {
 		return Snapshot{}, err
+	}
+	if !candidate.Changed {
+		return coordinator.snapshot.Clone(), nil
 	}
 	return coordinator.applyCandidate(ctx, candidate)
 }

@@ -600,12 +600,17 @@ func TestCoordinatorReportsUnavailableProviderWithoutEmptyMutationResult(t *test
 	t.Parallel()
 
 	path := filepath.Join(t.TempDir(), "project.json")
+	state := durableState(t)
+	adapter := projectfile.NewAdapter()
+	if err := adapter.Create(path, state); err != nil {
+		t.Fatalf("create durable project: %v", err)
+	}
 	provider := readyProvider()
 	provider.failSynchronizations = 1
 	provider.synchronizeError = errors.New("provider cannot start")
 	materialization := newMaterialization(t, path)
 	coordinator, err := Open(context.Background(), Options{
-		ProjectPath: path, Create: true, IDGenerator: sequenceIDs("project"), Materializer: materialization, Provider: provider,
+		ProjectPath: path, IDGenerator: sequenceIDs("unused-next-id"), Files: adapter, Materializer: materialization, Provider: provider,
 	})
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
@@ -620,6 +625,23 @@ func TestCoordinatorReportsUnavailableProviderWithoutEmptyMutationResult(t *test
 	})
 	if !errors.Is(err, ErrProviderUnavailable) {
 		t.Fatalf("RenameProject() error = %v, want provider-unavailable failure", err)
+	}
+	_, err = coordinator.SetTarget(context.Background(), aggregate.SetTargetCommand{
+		ProjectID: before.State.Project.ID, ExpectedRevision: before.State.Project.Revision,
+		Prefix: before.State.PythonTarget.Prefix, Suffix: before.State.PythonTarget.Suffix,
+	})
+	if !errors.Is(err, ErrProviderUnavailable) {
+		t.Fatalf("SetTarget(unchanged) error = %v, want provider-unavailable failure", err)
+	}
+	_, err = coordinator.CommitCallable(context.Background(), aggregate.CommitCallableCommand{
+		ProjectID: before.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: before.State.Project.Revision,
+		AuthoredExpression: "fixture.dynamic",
+	})
+	if !errors.Is(err, ErrProviderUnavailable) {
+		t.Fatalf("CommitCallable(unchanged) error = %v, want provider-unavailable failure", err)
+	}
+	if len(provider.signatureRequests) != 0 {
+		t.Fatalf("unavailable idempotent commit requested a signature: %#v", provider.signatureRequests)
 	}
 	if after := coordinator.Snapshot(); !reflect.DeepEqual(after, before) {
 		t.Fatalf("provider-unavailable mutation changed snapshot: %#v", after)

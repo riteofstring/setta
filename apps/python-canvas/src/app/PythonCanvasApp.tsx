@@ -79,6 +79,7 @@ type MutationAnswer =
 
 type RevisionConflictDraft =
   | { callableId: string; kind: "callable-rename"; name: string }
+  | { callableId: string; kind: "parameters" }
   | { kind: "project-rename"; name: string }
   | null;
 
@@ -381,6 +382,7 @@ export function PythonCanvasApp() {
       applyProjection(snapshot, {
         keepAuthoredPython: false,
         keepParameterLists,
+        reenableRetainedParameterLists: new Set<string>(),
       });
       synchronizeReactProjection(snapshot, null);
     };
@@ -405,7 +407,9 @@ export function PythonCanvasApp() {
         message:
           revisionConflictDraft === null
             ? "The project changed before this update could be saved. The latest project has been loaded. Review and retry your update."
-            : "The project changed before this update could be saved. The latest project has been loaded, and your name draft is still available to retry.",
+            : revisionConflictDraft.kind === "parameters"
+              ? "The project changed before this update could be saved. The latest project has been loaded, and your parameter draft is still available to retry."
+              : "The project changed before this update could be saved. The latest project has been loaded, and your name draft is still available to retry.",
       });
     };
     const handleMutationFailure = async (
@@ -482,11 +486,16 @@ export function PythonCanvasApp() {
       }
       applyProjection(nextSnapshot, {
         keepAuthoredPython,
-        keepParameterLists: collectRetainedParameterLists(
-          document,
-          nextSnapshot,
-          answer,
-        ),
+        keepParameterLists: new Set([
+          ...collectRetainedParameterLists(document, nextSnapshot, answer),
+          ...(revisionConflictDraft?.kind === "parameters"
+            ? [revisionConflictDraft.callableId]
+            : []),
+        ]),
+        reenableRetainedParameterLists:
+          revisionConflictDraft?.kind === "parameters"
+            ? new Set([revisionConflictDraft.callableId])
+            : new Set<string>(),
       });
       synchronizeReactProjection(
         nextSnapshot,
@@ -605,6 +614,7 @@ export function PythonCanvasApp() {
                   restoreCanonicalProject(
                     retainedParameterListsExcept(callableId),
                   ),
+                revisionConflictDraft: { callableId, kind: "parameters" },
               });
             }
           }
