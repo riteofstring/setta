@@ -13,7 +13,9 @@ the seven Param Dict/List acceptance flows and maps each canonical section type 
 section identity, list-child wrapper/projection polling, non-stealing focus check, and nested-item
 child-adoption gesture regressions; same-parent list reordering uses the proven free section drag
 rather than the synthetic sorting chord, and each drag now waits for its deferred DnD mode
-deactivation before the next gesture; its
+deactivation before the next gesture. The production driver begins section drags from the title
+header handle, holds Alt through genuine CDP key events, and retries a failed activation within a
+small bounded window; its
 bounded policy structure and format checks now pass. Supervised production headless execution,
 review, and remaining Code Policy closeout remain incomplete.**
 

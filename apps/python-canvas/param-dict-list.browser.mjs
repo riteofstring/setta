@@ -59,6 +59,10 @@ import {
 const dictionaryEntryWorkspaceItemPrefix =
   "python-canvas:dictionary-entry-item:";
 
+const sectionDragActivationAttemptLimit = 3;
+const sectionDragActivationTimeoutMs = 2_000;
+export const sectionDragStartOffsetPx = 12;
+
 export const dictionaryEntryChildAdoptionDragTarget = Object.freeze({
   targetXFraction: 0.5,
   targetYFraction: 0.5,
@@ -818,65 +822,99 @@ async function dragFreeSectionToCanvas(
 
 async function dragSection(client, configuration) {
   const { sourceSelector } = configuration;
-  await focusElement(
-    client,
-    sourceSelector,
-    `${configuration.description} source`,
-  );
   let focusCapture = null;
-  await prepareElementDrag(
-    client,
-    sourceSelector,
-    configuration.targetSelector,
-    configuration.description,
+  for (
+    let attempt = 0;
+    attempt < sectionDragActivationAttemptLimit;
+    attempt += 1
+  ) {
+    await focusElement(
+      client,
+      sourceSelector,
+      `${configuration.description} source`,
+    );
+    await prepareElementDrag(
+      client,
+      sourceSelector,
+      configuration.targetSelector,
+      configuration.description,
+    );
+    const source = await sectionDragStartPoint(
+      client,
+      sourceSelector,
+      `${configuration.description} source`,
+    );
+    const target = await visibleElementPoint(
+      client,
+      configuration.targetSelector,
+      `${configuration.description} target`,
+      configuration.targetYFraction,
+    );
+    const didActivate = await tryMovingFreeSectionDrag(client, {
+      description: configuration.description,
+      source,
+      sourceSelector,
+      target: { ...target, y: target.y + attempt * 2 },
+      captureFocus: configuration.verifyFocusContext && focusCapture === null,
+      onCaptureFocus: (capture) => {
+        focusCapture = capture;
+      },
+    });
+    if (didActivate) {
+      return focusCapture;
+    }
+  }
+
+  throw new Error(
+    `${configuration.description} did not activate after ${sectionDragActivationAttemptLimit} moving-free drag attempts.`,
   );
-  const source = await visibleElementPoint(
-    client,
-    sourceSelector,
-    `${configuration.description} source`,
-  );
-  const target = await visibleElementPoint(
-    client,
-    configuration.targetSelector,
-    `${configuration.description} target`,
-    configuration.targetYFraction,
-  );
-  await holdSectionDragMode(client, sourceSelector, configuration.mode);
-  const modifiers = sectionDragModifiers(configuration.mode);
+}
+
+async function tryMovingFreeSectionDrag(client, configuration) {
+  const modifiers = sectionDragModifiers();
+  let mousePressed = false;
+  await holdMovingFreeSectionDragMode(client);
   try {
     await waitFor(
       client,
       `${configuration.description} mode activation`,
-      sectionDragModeExpression(sourceSelector),
+      sectionDragModeExpression(configuration.sourceSelector),
     );
-    if (configuration.verifyFocusContext) {
-      focusCapture = await captureFocusBeforeSectionMove(client, sourceSelector);
+    if (configuration.captureFocus) {
+      configuration.onCaptureFocus(
+        await captureFocusBeforeSectionMove(client, configuration.sourceSelector),
+      );
     }
     await client.send("Input.dispatchMouseEvent", {
-      ...source,
+      ...configuration.source,
       button: "left",
       buttons: 1,
       clickCount: 1,
       modifiers,
       type: "mousePressed",
     });
+    mousePressed = true;
     await nextAnimationFrame(client);
     await client.send("Input.dispatchMouseEvent", {
       button: "left",
       buttons: 1,
       modifiers,
       type: "mouseMoved",
-      x: (source.x + target.x) / 2,
-      y: (source.y + target.y) / 2,
+      x: (configuration.source.x + configuration.target.x) / 2,
+      y: (configuration.source.y + configuration.target.y) / 2,
     });
     await nextAnimationFrame(client);
-    await waitFor(
-      client,
-      `${configuration.description} drag activation`,
-      sectionDragActivationExpression(sourceSelector),
-    );
+    if (
+      !(await waitForSectionDragActivation(
+        client,
+        configuration.description,
+        configuration.sourceSelector,
+      ))
+    ) {
+      return false;
+    }
     await client.send("Input.dispatchMouseEvent", {
-      ...target,
+      ...configuration.target,
       button: "left",
       buttons: 1,
       modifiers,
@@ -884,93 +922,94 @@ async function dragSection(client, configuration) {
     });
     await nextAnimationFrame(client);
     await client.send("Input.dispatchMouseEvent", {
-      ...target,
+      ...configuration.target,
       button: "left",
       buttons: 0,
       modifiers,
       type: "mouseReleased",
     });
+    mousePressed = false;
+    return true;
   } finally {
-    await releaseSectionDragMode(client, sourceSelector, configuration.mode);
+    if (mousePressed) {
+      await client.send("Input.dispatchMouseEvent", {
+        ...configuration.source,
+        button: "left",
+        buttons: 0,
+        modifiers,
+        type: "mouseReleased",
+      });
+    }
+    await releaseMovingFreeSectionDragMode(client);
+    await waitForSectionDragModeRelease(client, configuration.sourceSelector);
+    await nextAnimationFrame(client);
   }
-  await waitForSectionDragModeRelease(client, sourceSelector);
-  await nextAnimationFrame(client);
-  return focusCapture;
 }
 
-async function holdSectionDragMode(client, sourceSelector, mode) {
-  const modifier = platformModifier();
-  const modifierProperty = modifier === "Meta" ? "metaKey" : "ctrlKey";
-  const activated = await evaluate(
+export async function sectionDragStartPoint(client, sourceSelector, description) {
+  const result = await evaluate(
     client,
     `(() => {
-      window.dispatchEvent(new Event("blur"));
-      const target = document.querySelector(${JSON.stringify(sourceSelector)});
-      if (!(target instanceof HTMLElement)) {
-        return false;
+      const section = document.querySelector(${JSON.stringify(sourceSelector)});
+      if (!(section instanceof HTMLElement)) {
+        return null;
       }
-      target.dispatchEvent(new KeyboardEvent("keydown", {
-        altKey: true,
-        bubbles: true,
-        cancelable: true,
-        code: "AltLeft",
-        key: "Alt",
-      }));
-      ${
-        mode === "sorting"
-          ? `target.dispatchEvent(new KeyboardEvent("keydown", {
-        altKey: true,
-        bubbles: true,
-        cancelable: true,
-        code: ${JSON.stringify(modifier === "Meta" ? "MetaLeft" : "ControlLeft")},
-        key: ${JSON.stringify(modifier)},
-        ${modifierProperty}: true,
-      }));`
-          : ""
+      const headerHandle = section.querySelector("header.section-title");
+      const handle = headerHandle instanceof HTMLElement ? headerHandle : section;
+      const rect = handle.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        return null;
       }
-      return true;
+      return {
+        x: rect.x + Math.min(${sectionDragStartOffsetPx}, rect.width / 2),
+        y: rect.y + Math.min(${sectionDragStartOffsetPx}, rect.height / 2),
+      };
     })()`,
   );
-  assert.equal(
-    activated,
-    true,
-    "The section drag source is not on the canvas.",
-  );
+  if (result === null || result === undefined) {
+    throw new Error(`${description} has no section title/header drag point.`);
+  }
+  return result;
 }
 
-async function releaseSectionDragMode(client, sourceSelector, mode) {
-  const modifier = platformModifier();
-  const modifierProperty = modifier === "Meta" ? "metaKey" : "ctrlKey";
-  await evaluate(
-    client,
-    `(() => {
-      const target = document.querySelector(${JSON.stringify(sourceSelector)}) ??
-        document.querySelector('[role="region"][aria-label="Workspace canvas"]');
-      if (!(target instanceof HTMLElement)) {
-        return false;
-      }
-      ${
-        mode === "sorting"
-          ? `target.dispatchEvent(new KeyboardEvent("keyup", {
-        altKey: true,
-        bubbles: true,
-        cancelable: true,
-        code: ${JSON.stringify(modifier === "Meta" ? "MetaLeft" : "ControlLeft")},
-        key: ${JSON.stringify(modifier)},
-        ${modifierProperty}: false,
-      }));`
-          : ""
-      }
-      target.dispatchEvent(new KeyboardEvent("keyup", {
-        bubbles: true,
-        cancelable: true,
-        code: "AltLeft",
-        key: "Alt",
-      }));
-      window.dispatchEvent(new Event("blur"));
-      return true;
-    })()`,
-  );
+export async function holdMovingFreeSectionDragMode(client) {
+  await client.send("Input.dispatchKeyEvent", {
+    code: "AltLeft",
+    key: "Alt",
+    modifiers: 1,
+    nativeVirtualKeyCode: 18,
+    type: "keyDown",
+    windowsVirtualKeyCode: 18,
+  });
+}
+
+export async function releaseMovingFreeSectionDragMode(client) {
+  await client.send("Input.dispatchKeyEvent", {
+    code: "AltLeft",
+    key: "Alt",
+    modifiers: 0,
+    nativeVirtualKeyCode: 18,
+    type: "keyUp",
+    windowsVirtualKeyCode: 18,
+  });
+}
+
+async function waitForSectionDragActivation(
+  client,
+  description,
+  sourceSelector,
+) {
+  try {
+    await waitFor(
+      client,
+      `${description} drag activation`,
+      sectionDragActivationExpression(sourceSelector),
+      sectionDragActivationTimeoutMs,
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function sectionDragModeExpression(sourceSelector) {
@@ -1005,16 +1044,8 @@ function sectionDragActivationExpression(sourceSelector) {
   })()`;
 }
 
-function sectionDragModifiers(mode) {
-  return mode === "sorting" ? 1 | platformModifierBit() : 1;
-}
-
-function platformModifier() {
-  return process.platform === "darwin" ? "Meta" : "Control";
-}
-
-function platformModifierBit() {
-  return process.platform === "darwin" ? 4 : 2;
+function sectionDragModifiers() {
+  return 1;
 }
 
 async function dispatchFocusedKey(client, code, key) {

@@ -37,8 +37,13 @@ export async function evaluate(client, expression) {
   return response.result?.value;
 }
 
-export async function waitFor(client, description, expression) {
-  const deadline = Date.now() + productionTimeoutMs;
+export async function waitFor(
+  client,
+  description,
+  expression,
+  timeoutMs = productionTimeoutMs,
+) {
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await evaluate(client, expression)) {
       return;

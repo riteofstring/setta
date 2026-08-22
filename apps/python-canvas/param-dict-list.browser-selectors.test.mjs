@@ -15,9 +15,13 @@ import {
 import { dragElementToElement } from "./browser-page.mjs";
 import {
   dictionaryEntryChildAdoptionDragTarget,
+  holdMovingFreeSectionDragMode,
   listNestedChildOrderExpression,
   listNestedSectionSurfaceSelector,
   listNestedSortableSectionSelector,
+  releaseMovingFreeSectionDragMode,
+  sectionDragStartOffsetPx,
+  sectionDragStartPoint,
   waitForSectionDragModeRelease,
   waitForListNestedChildOrder,
 } from "./param-dict-list.browser.mjs";
@@ -52,6 +56,79 @@ test("List walkthrough reorders a Param Dict with the proven free move gesture",
     /const dictionaryReorderFocus = await dragFreeSectionToSection\(\s*client,\s*dictionarySelector,\s*callableSectionSelector\(outerChildIds\[0\]\),\s*"reordering the Param Dict to the front of the list",\s*0\.25,/,
   );
   assert.doesNotMatch(walkthrough, /dragSortedSectionToSection/);
+});
+
+test("Section drag starts from the title handle and holds Alt through CDP", async () => {
+  const window = new JSDOM(
+    `
+      <div data-section-id="python-canvas:parameter-dictionary:dictionary:options">
+        <header class="section-title"></header>
+        <div data-item-dnd-owner="true"></div>
+      </div>
+    `,
+    { runScripts: "outside-only" },
+  ).window;
+  const document = window.document;
+  const source = document.querySelector(
+    parameterDictionarySectionSelector("dictionary:options"),
+  );
+  const title = source?.querySelector("header.section-title");
+  if (!(source instanceof window.HTMLElement) || !(title instanceof window.HTMLElement)) {
+    throw new Error("Expected a section title handle.");
+  }
+  source.getBoundingClientRect = () => new window.DOMRect(20, 40, 300, 180);
+  title.getBoundingClientRect = () => new window.DOMRect(30, 50, 240, 32);
+  const inputEvents = [];
+  const client = {
+    async send(method, parameters) {
+      if (method === "Runtime.evaluate") {
+        return { result: { value: window.eval(parameters.expression) } };
+      }
+      inputEvents.push({ method, parameters });
+      return {};
+    },
+  };
+
+  assert.deepEqual(
+    {
+      ...(await sectionDragStartPoint(
+        client,
+        parameterDictionarySectionSelector("dictionary:options"),
+        "the Param Dict section",
+      )),
+    },
+    {
+      x: 30 + sectionDragStartOffsetPx,
+      y: 50 + sectionDragStartOffsetPx,
+    },
+  );
+  await holdMovingFreeSectionDragMode(client);
+  await releaseMovingFreeSectionDragMode(client);
+
+  assert.deepEqual(inputEvents, [
+    {
+      method: "Input.dispatchKeyEvent",
+      parameters: {
+        code: "AltLeft",
+        key: "Alt",
+        modifiers: 1,
+        nativeVirtualKeyCode: 18,
+        type: "keyDown",
+        windowsVirtualKeyCode: 18,
+      },
+    },
+    {
+      method: "Input.dispatchKeyEvent",
+      parameters: {
+        code: "AltLeft",
+        key: "Alt",
+        modifiers: 0,
+        nativeVirtualKeyCode: 18,
+        type: "keyUp",
+        windowsVirtualKeyCode: 18,
+      },
+    },
+  ]);
 });
 
 test("List walkthrough finds direct vertical children beside its shell", () => {
