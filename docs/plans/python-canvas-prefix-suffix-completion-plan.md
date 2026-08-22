@@ -270,15 +270,15 @@ once the implementation and in-repository proof are complete and the worktree is
 then owns exact-candidate verification and read-only review; no status-only repair commit should be
 needed after those receipts pass.
 
-Before returning the phase:
+Before returning the phase, treat the recorded donor review, runtime implementation, focused tests,
+and non-browser recommended tests as complete; do not reread or re-audit them in this closeout turn.
 
-1. Read every named donor file and append any intentional behavior difference to this plan.
-2. Implement only the fixed scope in coherent private commits; the final public surface must be one
-   complete cutover.
-3. Run focused backend, workspace, Python Canvas, contract, build, and production-browser checks.
-4. Inspect the prefix and suffix popup states headlessly at original resolution.
-5. Run `code-policy test --changed --base <trusted-plan-loop-base>`.
-6. Check the phase marker, commit the plan record, and leave the worktree clean.
+1. Run the production-browser walkthrough first and repair only the labeled-section editor
+   activation described in the supervisor handoff.
+2. Inspect the prefix and suffix popup states headlessly at original resolution.
+3. Rerun the production-browser walkthrough after the repair.
+4. Run `code-policy test --changed --base <trusted-plan-loop-base>`.
+5. Check the phase marker, commit the browser repair and plan record, and leave the worktree clean.
 
 The read-only reviewer must bind findings to this plan or `AGENTS.md`, inspect the exact
 trusted-base-to-candidate range, and use the named `main` donor as the behavior reference. Avoid
