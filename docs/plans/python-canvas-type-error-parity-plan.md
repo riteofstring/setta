@@ -221,6 +221,15 @@ missing-required-argument message legitimately used `positional`, so checking al
 required provider feedback as forbidden row metadata. The check still verifies the canonical static
 parameter label and rejects those terms from the remaining card content.
 
+Implementation record — mapped-parameter browser correction: `math.sqrt()` already has the
+initial missing-required-argument diagnostic, so replacing it with `missing_value` correctly
+announces a diagnostic update rather than a second availability event. The walkthrough now waits
+for the `x` row's error state, compact marker, accessible description, and live announcement to
+expose `missing_value`, then proves those row semantics clear while the field remains enabled after
+entering `3`. This asserts the mapped provider feedback instead of depending on one announcement
+lifecycle prefix. The focused Python Canvas suite (8 files / 68 tests), its TypeScript/Vite build,
+and browser-script syntax check passed for this correction.
+
 Environment evidence not yet sufficient for phase closeout: the supervisor completed
 `code-policy dependency-review --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
 against the no-script candidate lockfile with no vulnerabilities. The required local production

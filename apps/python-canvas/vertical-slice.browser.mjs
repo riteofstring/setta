@@ -793,11 +793,24 @@ async function runWalkthrough(client, backendOrigin, previewOrigin) {
     client,
     "mapped undefined-name diagnostic",
     `(() => {
+      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
       const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
-      const diagnostic = Array.from(document.querySelectorAll('[role="status"]')).some((element) =>
-        element.textContent?.includes("Parameter diagnostics available."),
+      const row = parameter?.closest('[data-item-row="true"]');
+      const description = row?.querySelector(
+        '[data-setta-workspace-item-quick-info-description="true"]',
       );
-      return generated?.textContent?.includes("state.Square_Root__x = missing_value") === true && diagnostic;
+      const announcement = document.querySelector(
+        '[data-setta-workspace-item-diagnostic-announcer="true"]',
+      );
+      const marker = row?.querySelector(
+        '[data-setta-workspace-item-diagnostic-marker="true"]',
+      );
+      return parameter instanceof HTMLElement &&
+        generated?.textContent?.includes("state.Square_Root__x = missing_value") === true &&
+        row?.dataset.settaWorkspaceItemDiagnosticSeverity === "error" &&
+        marker instanceof HTMLElement &&
+        description?.textContent?.includes("missing_value") === true &&
+        announcement?.textContent?.includes("missing_value") === true;
     })()`,
   );
 
@@ -819,12 +832,21 @@ async function runWalkthrough(client, backendOrigin, previewOrigin) {
     client,
     "cleared parameter diagnostic",
     `(() => {
+      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
       const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
+      const row = parameter?.closest('[data-item-row="true"]');
       const cleared = Array.from(document.querySelectorAll('[role="status"]')).some((element) =>
         element.textContent?.includes("Parameter diagnostics cleared."),
       );
-      return generated?.textContent?.includes("state.Square_Root__x = 3") === true &&
-        generated?.textContent?.includes("missing_value") === false && cleared;
+      return parameter instanceof HTMLElement &&
+        parameter.getAttribute("aria-disabled") !== "true" &&
+        generated?.textContent?.includes("state.Square_Root__x = 3") === true &&
+        generated?.textContent?.includes("missing_value") === false &&
+        cleared &&
+        row instanceof HTMLElement &&
+        row.dataset.settaWorkspaceItemDiagnosticSeverity === undefined &&
+        row?.querySelector('[data-setta-workspace-item-diagnostic-marker="true"]') === null &&
+        row?.querySelector('[data-setta-workspace-item-quick-info-description="true"]') === null;
     })()`,
   );
 
