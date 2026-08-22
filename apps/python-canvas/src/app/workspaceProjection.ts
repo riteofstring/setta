@@ -403,7 +403,10 @@ function projectCallableSectionData(
   );
   const parameterDiagnostics: CallableSectionData["parameterDiagnostics"] = {};
   for (const diagnostic of snapshot.diagnostics) {
-    if (!parameterIds.has(diagnostic.targetId)) {
+    if (
+      diagnostic.targetId === null ||
+      !parameterIds.has(diagnostic.targetId)
+    ) {
       continue;
     }
     const projected = projectParameterDiagnostic(diagnostic);

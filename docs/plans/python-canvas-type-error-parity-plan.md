@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-**Status: Approved for implementation.**
+**Status: Implementation in progress.**
 
 Complete the narrow type-error workflow in Python Canvas. Basedpyright already runs in the Go
 backend, diagnostics already travel in the canonical project snapshot, and parameter-expression
@@ -195,6 +195,19 @@ frozen recommended verification for the final candidate. Do not run full, supple
 ### Phase 1 — end-to-end type-error parity
 
 - [ ] Implementation, production proof, review, and closeout complete
+
+Implementation record — backend/contract batch: the Basedpyright boundary now retains validated
+string diagnostic codes; the canonical record carries UTF-8 byte ranges and a nullable semantic
+target; targetless diagnostics survive as document diagnostics; and exact `reportCallIssue`
+diagnostics on the callable call map to empty required provider-derived parameters. The workspace
+presentation, Canvas projection, production walkthrough, and phase closeout remain incomplete.
+
+Intentional donor differences, recorded after reading every named main donor: main's historical
+generated-Python mapper used `reportCallIssue` message wording to choose parameters, whereas this
+slice uses the exact provider code plus canonical signature metadata, so wording cannot create a
+semantic target. Main also retained formatter diagnostics while merging publications; this slice
+atomically replaces each canonical snapshot because every diagnostic range belongs to one exact
+generated document revision.
 
 Implement the direct contract cutover and the two generic workspace presentation seams as coherent
 private batches. It is acceptable to commit backend/contract, workspace, and consumer work

@@ -460,9 +460,11 @@ function snapshotWithParameters(
         ? []
         : [
             {
+              end: diagnosedStart + "missing_value".length,
               id: `diagnostic:${diagnosed.id}:1`,
               message: 'Name "missing_value" is not defined',
               severity: "error",
+              start: diagnosedStart,
               targetId: diagnosed.id,
             },
           ],
