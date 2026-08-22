@@ -67,6 +67,10 @@ describe("section-field surface contract", () => {
     expect(wrapper.declarations.get("border-radius")).toBe("16px");
     expect(wrapper.declarations.get("padding")).toBe("4px 10px");
     expect(wrapper.declarations.get("margin-inline")).toBe("2px");
+    expect(wrapper.declarations.get("display")).toBe("grid");
+    expect(wrapper.declarations.get("grid-template-columns")).toBe(
+      "minmax(0, 1fr) max-content",
+    );
     // Main's field begins at the section header's boundary and its Args surface begins at the
     // field's, so no rule here may open a block gap around the section's primary control.
     expect(
@@ -154,6 +158,9 @@ describe("section-field surface contract", () => {
     const indicator = ruleFor(".setta-workspace-section-field-apply-indicator");
     expect(indicator.declarations.get("inline-size")).toBe("22px");
     expect(indicator.declarations.get("block-size")).toBe("22px");
+    const trailing = ruleFor(".setta-workspace-section-field-trailing");
+    expect(trailing.declarations.get("min-inline-size")).toBe("22px");
+    expect(trailing.declarations.get("block-size")).toBe("16px");
     expect(sectionFieldStyles).toMatch(
       /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*animation:\s*none/u,
     );

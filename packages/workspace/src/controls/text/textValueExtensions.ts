@@ -1,10 +1,16 @@
-import { EditorState, Prec, type Extension } from "@codemirror/state";
+import {
+  EditorState,
+  Prec,
+  StateField,
+  type Extension,
+} from "@codemirror/state";
 import {
   acceptCompletion,
   autocompletion,
   closeCompletion,
   completionKeymap,
   completionStatus,
+  pickedCompletion,
   type CompletionContext,
   type CompletionResult,
 } from "@codemirror/autocomplete";
@@ -37,6 +43,10 @@ export const TEXT_VALUE_BASIC_SETUP = {
   autocompletion: false,
 } as const;
 
+const TEXT_VALUE_COMPLETION_KEYMAP = completionKeymap.filter(
+  (binding) => binding.key !== "Enter",
+);
+
 type TextValueExtensionsOptions = {
   language: TextValueLanguage | null | undefined;
   singleLine: boolean;
@@ -58,6 +68,16 @@ type TextValueCompletionRequests = {
   clear: (controller: AbortController) => void;
   start: () => AbortController;
 };
+
+const acceptedCompletionDocument = StateField.define<string | null>({
+  create: () => null,
+  update: (value, transaction) => {
+    if (transaction.annotation(pickedCompletion)) {
+      return transaction.newDoc.toString();
+    }
+    return transaction.docChanged ? null : value;
+  },
+});
 
 function isComposing(event: KeyboardEvent, view: EditorView) {
   return event.isComposing || view.composing;
@@ -136,6 +156,7 @@ export function getTextValueExtensions({
   }
   if (completionProvider && completionRequests) {
     extensions.push(
+      acceptedCompletionDocument,
       autocompletion({
         defaultKeymap: false,
         interactionDelay: 0,
@@ -147,7 +168,10 @@ export function getTextValueExtensions({
           ),
         ],
       }),
-      Prec.high(keymap.of(completionKeymap)),
+      // The editor owns Enter's two-step accept/apply contract below. Keeping CodeMirror's
+      // competing Enter binding lets it accept before the DOM handler can distinguish the first
+      // acceptance from a popup reopened over the accepted value.
+      Prec.high(keymap.of(TEXT_VALUE_COMPLETION_KEYMAP)),
     );
   }
   extensions.push(
@@ -242,7 +266,33 @@ function handleCompletionEnter(
     return true;
   }
   if (!hasModifier(event)) {
-    return runCompletionCommand(event, view, acceptCompletion);
+    const acceptedDocument = view.state.field(
+      acceptedCompletionDocument,
+      false,
+    );
+    if (acceptedDocument === view.state.doc.toString()) {
+      const commit = getEnterCommit(event, view, {
+        singleLine,
+        onCommit,
+        onAlternateCommit,
+        isDisabled,
+      });
+      if (commit) {
+        closeCompletion(view);
+        event.preventDefault();
+        event.stopPropagation();
+        commit(view.state.doc.toString());
+        return true;
+      }
+    }
+    const accepted = acceptCompletion(view);
+    closeCompletion(view);
+    if (!accepted) {
+      return false;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    return true;
   }
   const commit = getEnterCommit(event, view, {
     singleLine,

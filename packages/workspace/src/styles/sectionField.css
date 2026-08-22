@@ -19,10 +19,11 @@
   --setta-workspace-section-field-ready-from: #f59e0b;
   --setta-workspace-section-field-ready-to: #3b82f6;
   --setta-workspace-section-field-ready-glow: rgb(59 130 246 / 35%);
-  display: flex;
+  display: grid;
   min-width: 0;
   align-items: center;
   gap: 6px;
+  grid-template-columns: minmax(0, 1fr) max-content;
   box-sizing: border-box;
   margin-inline: 2px;
   padding: 4px 10px;
@@ -105,9 +106,20 @@
 .setta-workspace-section-field-input {
   display: grid;
   min-width: 0;
-  flex: 1 1 auto;
   grid-template-columns: 1fr;
   grid-template-rows: 1fr;
+}
+
+/* Main overlays its 22px status glyph on a field whose text line already owns the pill height.
+ * Keep one stable trailing track with a 16px layout box, allowing the larger glyph to paint inside
+ * the pill without increasing its measured block size when the apply or diagnostic state appears. */
+.setta-workspace-section-field-trailing {
+  display: inline-flex;
+  min-inline-size: 22px;
+  block-size: 16px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 /* One type owner for both layers: main's `font-mono text-xs` metrics over the value editor

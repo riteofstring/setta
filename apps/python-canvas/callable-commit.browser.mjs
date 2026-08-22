@@ -108,6 +108,10 @@ async function exerciseCallableCompletionApply(
       return popup instanceof HTMLElement && selected?.textContent?.includes("sample") === true;
     })()`,
   );
+  const fieldHeightBeforeApplyHint = await callableFieldHeight(
+    client,
+    sectionSelector,
+  );
   const requestsBefore = await callableCommitRequestCount(client);
   const refreshRequestsBefore =
     await callableParameterRefreshRequestCount(client);
@@ -130,6 +134,11 @@ async function exerciseCallableCompletionApply(
         indicator?.querySelector('.gg-corner-right-down') instanceof HTMLElement &&
         document.querySelector('.cm-tooltip-autocomplete') === null;
     })()`,
+  );
+  assert.equal(
+    await callableFieldHeight(client, sectionSelector),
+    fieldHeightBeforeApplyHint,
+    "The callable apply hint changed the field height.",
   );
   assert.equal(
     harness.findRequiredCallable(
@@ -174,6 +183,17 @@ async function exerciseCallableCompletionApply(
     await callableParameterRefreshRequestCount(client),
     refreshRequestsBefore + 1,
     "The second Enter did not retrieve parameters for the new callable.",
+  );
+}
+
+async function callableFieldHeight(client, sectionSelector) {
+  return evaluate(
+    client,
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sectionSelector)});
+      const field = section?.querySelector('[data-workspace-section-field="true"]');
+      return field instanceof HTMLElement ? field.getBoundingClientRect().height : null;
+    })()`,
   );
 }
 

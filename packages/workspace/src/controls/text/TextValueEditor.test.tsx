@@ -315,8 +315,9 @@ describe("TextValueEditor", () => {
     expect(view.state.doc.toString()).toBe("0.001");
   });
 
-  // Main gives Tab, Escape, and the first unmodified Enter to an active completion popup. Only a
-  // later Enter, after the selected option has replaced the draft and closed the popup, commits.
+  // Main gives Tab, Escape, and the first unmodified Enter to an active completion popup. Once an
+  // option has replaced the draft, a popup reopened over that unchanged value must not add a
+  // third acceptance step before commit.
   it("accepts an active completion before a declared Enter commit", async () => {
     const onCommit = vi.fn();
     const provider = sqrtCompletionProvider();
@@ -386,21 +387,9 @@ describe("TextValueEditor", () => {
       view.contentDOM.dispatchEvent(enter);
     });
     expect(enter.defaultPrevented).toBe(true);
-    expect(onCommit).not.toHaveBeenCalled();
-    expect(completionStatus(view.state)).not.toBe("active");
-
-    const applyEnter = new KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      code: "Enter",
-      key: "Enter",
-    });
-    await act(async () => {
-      view.contentDOM.dispatchEvent(applyEnter);
-    });
-    expect(applyEnter.defaultPrevented).toBe(true);
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith("math.sqrt");
+    expect(completionStatus(view.state)).not.toBe("active");
   });
 
   // The reference's ordinary parameter rows declare no Enter action, so their popup keeps
@@ -953,6 +942,10 @@ describe("TextValueEditor section-field presentation", () => {
     expect(view.state.doc.toString()).toBe("math.sqrt");
     expect(onCommit).not.toHaveBeenCalled();
     expect(completionStatus(view.state)).not.toBe("active");
+    // A controlled editor can briefly reopen completion for the completed value after React
+    // projects the accepted draft back into CodeMirror. That popup must not consume a third
+    // Enter when accepting its selected option would leave the document unchanged.
+    await openCompletionAtCaretEnd(view);
     await act(async () => {
       view.contentDOM.dispatchEvent(
         new KeyboardEvent("keydown", {
@@ -965,6 +958,7 @@ describe("TextValueEditor section-field presentation", () => {
     });
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith("math.sqrt");
+    expect(completionStatus(view.state)).not.toBe("active");
   });
 
   // Escape's two steps, in the reference's order: the popup takes the first one for itself, and

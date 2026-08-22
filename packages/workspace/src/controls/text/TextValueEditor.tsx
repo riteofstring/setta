@@ -266,31 +266,33 @@ function wrapTextValueEditorLayers({
       data-workspace-section-field="true"
     >
       <div className="setta-workspace-section-field-input">{editorLayers}</div>
-      {hasDiagnostic ? (
-        <span
-          aria-hidden="true"
-          className="setta-workspace-section-field-diagnostic-indicator"
-          title={diagnosticMessage}
-        >
-          <BiError focusable="false" />
-        </span>
-      ) : null}
-      {uncommitted ? (
-        <span
-          aria-atomic="true"
-          aria-label={`${ariaLabel} changed. Press Enter to apply`}
-          className="setta-workspace-section-field-apply-indicator"
-          role="status"
-          title="Press Enter to apply"
-        >
-          <i aria-hidden="true" className="gg-corner-right-down" />
-        </span>
-      ) : null}
-      {endAdornment === undefined || endAdornment === null ? null : (
-        <div className="setta-workspace-section-field-adornment">
-          {endAdornment}
-        </div>
-      )}
+      <div className="setta-workspace-section-field-trailing">
+        {hasDiagnostic ? (
+          <span
+            aria-hidden="true"
+            className="setta-workspace-section-field-diagnostic-indicator"
+            title={diagnosticMessage}
+          >
+            <BiError focusable="false" />
+          </span>
+        ) : null}
+        {uncommitted ? (
+          <span
+            aria-atomic="true"
+            aria-label={`${ariaLabel} changed. Press Enter to apply`}
+            className="setta-workspace-section-field-apply-indicator"
+            role="status"
+            title="Press Enter to apply"
+          >
+            <i aria-hidden="true" className="gg-corner-right-down" />
+          </span>
+        ) : null}
+        {endAdornment === undefined || endAdornment === null ? null : (
+          <div className="setta-workspace-section-field-adornment">
+            {endAdornment}
+          </div>
+        )}
+      </div>
       <span
         aria-atomic="true"
         aria-live="polite"
