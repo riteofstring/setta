@@ -123,6 +123,8 @@ import {
   CALLABLE_SECTION_KIND,
   PENDING_CALLABLE_SECTION_KIND,
   callableSectionID,
+  parameterWorkspaceItemID,
+  readCallableParameterItems,
 } from "./workspaceProjection";
 import {
   PythonTargetCompletionErrorProvider,
@@ -819,8 +821,9 @@ function changeParameterExpression(
   authoredExpression: string,
 ): WorkspaceDocument {
   const sectionId = callableSectionID(callableId);
+  const itemId = parameterWorkspaceItemID(parameterId);
   const section = document.sections[sectionId];
-  const item = section?.itemTree?.items[parameterId];
+  const item = section?.itemTree?.items[itemId];
   if (section?.itemTree === undefined || item === undefined) {
     throw new Error(`Missing parameter ${parameterId}.`);
   }
@@ -834,7 +837,7 @@ function changeParameterExpression(
           ...section.itemTree,
           items: {
             ...section.itemTree.items,
-            [parameterId]: {
+            [itemId]: {
               ...item,
               data: {
                 ...(item.data as Record<string, unknown>),
@@ -861,6 +864,7 @@ function appendParameter(
     throw new Error(`Missing parameter list for ${callableId}.`);
   }
   const { id, ...data } = parameter;
+  const itemId = parameterWorkspaceItemID(id);
   return {
     ...document,
     sections: {
@@ -873,9 +877,9 @@ function appendParameter(
             ...itemTree.items,
             [root.id]: {
               ...root,
-              children: [...root.children, id],
+              children: [...root.children, itemId],
             },
-            [id]: { children: [], data, id },
+            [itemId]: { children: [], data, id: itemId },
           },
         },
       },
@@ -884,13 +888,9 @@ function appendParameter(
 }
 
 function parameterIds(document: WorkspaceDocument, callableId: string) {
-  const section = document.sections[callableSectionID(callableId)];
-  const itemTree = section?.itemTree;
-  const root = itemTree?.items[itemTree.rootId];
-  if (root === undefined) {
-    throw new Error(`Missing parameter list for ${callableId}.`);
-  }
-  return root.children;
+  return readCallableParameterItems(document, callableId).map(
+    (parameter) => parameter.id,
+  );
 }
 
 function deferred<T>() {

@@ -19,6 +19,7 @@ import {
   applyProjectSnapshotToWorkspace,
   callableSectionID,
   isCallableParameterAuthoringPending,
+  parameterWorkspaceItemID,
   projectWorkspaceDocument,
   readCallableParameterItems,
   readGeneratedPythonTarget,
@@ -51,7 +52,10 @@ describe("Python Canvas V2 workspace projection", () => {
     expect(
       document.sections[secondId]?.itemTree?.items[`${secondId}:parameter-root`]
         ?.children,
-    ).toEqual(["parameter:value", "parameter:scale"]);
+    ).toEqual([
+      parameterWorkspaceItemID("parameter:value"),
+      parameterWorkspaceItemID("parameter:scale"),
+    ]);
     expect(readCallableParameterItems(document, "callable:second")).toEqual([
       {
         data: {
@@ -80,6 +84,39 @@ describe("Python Canvas V2 workspace projection", () => {
     ]);
   });
 
+  it("projects opaque parameter IDs without colliding with structural item IDs", () => {
+    const callableId = "callable:second";
+    const structuralRootId = `${callableSectionID(callableId)}:parameter-root`;
+    const snapshot = dynamicSnapshot();
+    snapshot.callables[1]!.parameters = [
+      {
+        authoredExpression: "2",
+        default: null,
+        id: structuralRootId,
+        name: "scale",
+        nameEditable: true,
+        passingStyle: "positional_or_keyword",
+        providerOrdinal: null,
+        typeAnnotation: null,
+      },
+    ];
+
+    const document = projectWorkspaceDocument(snapshot);
+    const tree = document.sections[callableSectionID(callableId)]?.itemTree;
+    const parameterItemId = parameterWorkspaceItemID(structuralRootId);
+
+    expect(tree?.rootId).toBe(structuralRootId);
+    expect(parameterItemId).not.toBe(structuralRootId);
+    expect(tree?.items[structuralRootId]?.children).toEqual([parameterItemId]);
+    expect(tree?.items[parameterItemId]).toMatchObject({
+      id: parameterItemId,
+      data: { name: "scale" },
+    });
+    expect(readCallableParameterItems(document, callableId)).toEqual([
+      expect.objectContaining({ id: structuralRootId }),
+    ]);
+  });
+
   it("locks only the committing callable's parameter authoring boundary", () => {
     const snapshot = dynamicSnapshot();
     const host = createWorkspaceHost();
@@ -100,7 +137,7 @@ describe("Python Canvas V2 workspace projection", () => {
           ...second,
           itemTree: {
             ...second.itemTree,
-            selectedItemIds: ["parameter:scale"],
+            selectedItemIds: [parameterWorkspaceItemID("parameter:scale")],
           },
         },
       },
@@ -191,7 +228,12 @@ describe("Python Canvas V2 workspace projection", () => {
     registerPythonCanvasSectionKinds(host);
     host.loadDocument(projectWorkspaceDocument(snapshot));
 
-    setParameterItemName(host, "callable:second", "parameter:scale", "factor");
+    setParameterItemName(
+      host,
+      "callable:second",
+      parameterWorkspaceItemID("parameter:scale"),
+      "factor",
+    );
     applyProjectSnapshotToWorkspace(host, snapshot, {
       keepAuthoredPython: false,
       keepParameterLists: new Set(["callable:second"]),
@@ -222,7 +264,7 @@ describe("Python Canvas V2 workspace projection", () => {
     setParameterItemName(
       host,
       "callable:second",
-      "parameter:scale",
+      parameterWorkspaceItemID("parameter:scale"),
       "local retry name",
     );
     applyProjectSnapshotToWorkspace(host, snapshot, {

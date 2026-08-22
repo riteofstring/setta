@@ -100,6 +100,32 @@ function parameterItemRootID(callableId: string): string {
   return `${callableSectionID(callableId)}:parameter-root`;
 }
 
+const parameterWorkspaceItemPrefix = "python-canvas:parameter-item:";
+
+// Canonical parameter IDs are opaque application data. Encode them into a
+// disjoint workspace-owned item namespace so no accepted canonical ID can
+// collide with the structural parameter root.
+export function parameterWorkspaceItemID(parameterId: string): string {
+  return `${parameterWorkspaceItemPrefix}${encodeURIComponent(parameterId)}`;
+}
+
+function canonicalParameterID(itemId: string): string {
+  if (!itemId.startsWith(parameterWorkspaceItemPrefix)) {
+    throw new Error(`Python Canvas parameter item ${itemId} is invalid.`);
+  }
+  const encoded = itemId.slice(parameterWorkspaceItemPrefix.length);
+  let parameterId: string;
+  try {
+    parameterId = decodeURIComponent(encoded);
+  } catch {
+    throw new Error(`Python Canvas parameter item ${itemId} is invalid.`);
+  }
+  if (parameterId === "" || parameterWorkspaceItemID(parameterId) !== itemId) {
+    throw new Error(`Python Canvas parameter item ${itemId} is invalid.`);
+  }
+  return parameterId;
+}
+
 export type ProjectSnapshotProjectionOptions = Readonly<{
   keepAuthoredPython: boolean;
   keepParameterLists: ReadonlySet<string>;
@@ -314,8 +340,9 @@ export function setParameterItemName(
 }
 
 export function createCallableParameterItem(): WorkspaceItem {
+  const parameterId = `parameter:authored:${crypto.randomUUID()}`;
   return {
-    id: `parameter:authored:${crypto.randomUUID()}`,
+    id: parameterWorkspaceItemID(parameterId),
     children: [],
     data: {
       authoredExpression: "",
@@ -357,7 +384,10 @@ export function readCallableParameterItems(
   if (section === undefined) {
     throw new Error(`Python Canvas callable ${callableId} is missing.`);
   }
-  return readCallableParameterRows(section);
+  return readCallableParameterRows(section).map((item) => ({
+    data: item.data,
+    id: canonicalParameterID(item.id),
+  }));
 }
 
 function projectCallableSection(
@@ -415,13 +445,16 @@ function projectCanonicalParameterItems(
   callable: CallableV2,
 ): WorkspaceSectionItemTree {
   const rootId = parameterItemRootID(callable.id);
-  const ids = callable.parameters.map((parameter) => parameter.id);
+  const ids = callable.parameters.map((parameter) =>
+    parameterWorkspaceItemID(parameter.id),
+  );
   const items: Record<string, WorkspaceItem> = {
     [rootId]: { id: rootId, children: ids },
   };
   for (const parameter of callable.parameters) {
-    items[parameter.id] = {
-      id: parameter.id,
+    const itemId = parameterWorkspaceItemID(parameter.id);
+    items[itemId] = {
+      id: itemId,
       children: [],
       data: projectParameterItemData(parameter),
     };
@@ -437,19 +470,22 @@ function projectCanonicalParameterItems(
 function updateParameterItem(
   host: WorkspaceHost,
   callableId: string,
-  parameterId: string,
+  parameterItemId: string,
   next: (data: ParameterItemData) => ParameterItemData | null,
 ): void {
-  const current = readCallableParameterItems(
-    host.getSnapshot(),
-    callableId,
-  ).find((item) => item.id === parameterId);
+  const section = host.getSnapshot().sections[callableSectionID(callableId)];
+  if (section === undefined) {
+    return;
+  }
+  const current = readCallableParameterRows(section).find(
+    (item) => item.id === parameterItemId,
+  );
   if (current === undefined) {
     return;
   }
   const data = next(current.data);
   if (data !== null) {
-    setItemData(host, callableSectionID(callableId), parameterId, data);
+    setItemData(host, callableSectionID(callableId), parameterItemId, data);
   }
 }
 
@@ -469,8 +505,9 @@ function projectCallableSectionData(
       diagnostic.targetId !== null &&
       parameterIds.has(diagnostic.targetId)
     ) {
-      parameterDiagnostics[diagnostic.targetId] = [
-        ...(parameterDiagnostics[diagnostic.targetId] ?? []),
+      const itemId = parameterWorkspaceItemID(diagnostic.targetId);
+      parameterDiagnostics[itemId] = [
+        ...(parameterDiagnostics[itemId] ?? []),
         projectParameterDiagnostic(diagnostic),
       ];
     }

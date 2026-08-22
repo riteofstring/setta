@@ -108,6 +108,28 @@ func TestHandlerForwardsRevisionBoundProjectAndParameterMutations(t *testing.T) 
 	assertErrorCode(t, invalid, contracts.APIErrorCodeInvalidRequestV2)
 }
 
+func TestHandlerRoundTripsEncodedSlashInCallableID(t *testing.T) {
+	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
+	var receivedCallableID string
+	service.setParameters = func(_ context.Context, callableID string, _ contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error) {
+		receivedCallableID = callableID
+		return service.snapshot, nil
+	}
+	handler := newHandlerForTest(t, service)
+
+	response := postJSON(
+		handler,
+		contracts.ProjectCallablesPathV2+"/callable%3Aone%2Ftwo/parameters",
+		`{"projectId":"project:fixture","expectedRevision":1,"parameters":[]}`,
+	)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d; body = %s", response.Code, response.Body.String())
+	}
+	if receivedCallableID != "callable:one/two" {
+		t.Fatalf("callable ID = %q, want %q", receivedCallableID, "callable:one/two")
+	}
+}
+
 func TestHandlerRejectsURLDecodedNULCallableIDsBeforeDispatch(t *testing.T) {
 	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
 	called := false

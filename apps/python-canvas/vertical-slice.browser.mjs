@@ -594,7 +594,7 @@ async function clearParameterSelection(client) {
       if (typeof parameterID === "string") {
         await clickElementCenter(
           client,
-          parameterRowSelector(parameterID),
+          workspaceItemRowSelector(parameterID),
           "the selected parameter row",
           itemSelectionModifiers(),
         );
@@ -773,7 +773,13 @@ function callableToolbarButtonSelector(name, label) {
 }
 
 function parameterRowSelector(parameterID) {
-  return `[data-workspace-item-id=${JSON.stringify(parameterID)}]`;
+  return workspaceItemRowSelector(
+    `python-canvas:parameter-item:${encodeURIComponent(parameterID)}`,
+  );
+}
+
+function workspaceItemRowSelector(itemID) {
+  return `[data-workspace-item-id=${JSON.stringify(itemID)}]`;
 }
 
 function findCallable(snapshot, name) {

@@ -512,7 +512,7 @@ func callableRoute(request *http.Request) (string, string, bool) {
 		return "", "", false
 	}
 	callableID, err := url.PathUnescape(parts[0])
-	if err != nil || callableID == "" || strings.ContainsRune(callableID, '/') || strings.ContainsRune(callableID, '\x00') || callableID != strings.TrimSpace(callableID) {
+	if err != nil || callableID == "" || strings.ContainsRune(callableID, '\x00') || callableID != strings.TrimSpace(callableID) {
 		return "", "", false
 	}
 	return callableID, parts[1], true

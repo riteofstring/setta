@@ -2,8 +2,8 @@
 
 ## Purpose and status
 
-**Status: Phase A through Phase E remediation is complete and awaits a fresh
-independent audit.**
+**Status: Phase A through Phase E and the bounded final ID-boundary correction
+are complete and verified for promotion.**
 
 This is the bounded implementation plan for replacing Python Canvas's fixed,
 in-memory V1 Square Root demonstration with a persisted, general-purpose Python
@@ -910,8 +910,8 @@ session, or live probe.
 
 - [ ] Iteration-0024 focused verification record superseded after its
       independent audit found stale provider-ID retention
-- [x] Iteration-0025 focused verification complete and ready for a fresh
-      independent audit
+- [x] Iteration-0025 focused verification complete
+- [x] Iteration-0026 final ID-boundary correction complete
 
 1. Run the focused module suites and changed-file selection listed below in the
    plan-loop.
@@ -942,8 +942,7 @@ The normal callable kind keeps the public `authoring-and-filter` toolbar; the
 pending kind uses its public `filter-only` toolbar, so Add, Remove Last, and
 Delete Selected are absent. The app-owned parameter-list wrapper is inert, and
 the public row name and expression editors receive their public disabled state;
-this
-also prevents row actions and drag reorder. The commit response deliberately
+this also prevents row actions and drag reorder. The commit response deliberately
 does not retain, rebase, match, or reconcile a stale parameter list: its entire
 fresh provider list replaces the local list and returns the section to its
 normal kind. Parameter-list requests retain and serialize later edits only
@@ -958,6 +957,32 @@ fresh provider IDs that proves no stale post-dispatch list is submitted.
 tests. `code-policy test --changed` selected that same focused frontend suite
 and passed all 50 tests. The exact-file Prettier check and `git diff --check`
 passed. No browser, local service, provider session, or live probe ran.
+
+**Iteration-0026 remediation record (2026-08-22):** The final read-only review
+identified two opaque-ID boundary inconsistencies, and the supervisor stopped
+the automatic cycle before it could broaden into another repository audit.
+Encoded callable route segments now round-trip through the HTTP adapter,
+including `/` inside the canonical ID. Canonical parameter IDs are encoded into
+a disjoint workspace-owned item namespace, decoded only when the complete V2
+proposal crosses back into the application boundary, and remain unchanged in
+snapshots, diagnostics, and persistence. A canonical parameter ID can therefore
+equal the former structural-root spelling without overwriting or disappearing
+from the projected list. The checked-in browser walkthrough maps canonical
+parameter IDs through the same item-namespace rule for DOM interaction. No ID
+grammar restriction, migration, compatibility path, dependency, workspace
+package change, or further exploratory audit was introduced.
+
+**Iteration-0026 focused proof (2026-08-22):** `go test -count=1
+./internal/httpapi` passed the encoded-slash route regression. `pnpm --filter
+@setta/python-canvas exec vitest run src/app/workspaceProjection.test.ts
+src/app/PythonCanvasApp.test.tsx --reporter=dot` passed all 18 focused tests,
+including lossless projection of a canonical parameter ID equal to the
+structural root spelling. `code-policy test --module python-canvas-backend`
+passed every backend package, and `code-policy test --module
+python-canvas-frontend` passed all 51 frontend tests. `code-policy test
+--changed` selected exactly those two focused modules and passed. The exact-file
+policy formatter and `git diff --check` passed. No browser, local service, or
+standalone provider probe ran.
 
 **Iteration-0022 focused proof (2026-08-21):** `code-policy test --changed`
 selected the `python-canvas-frontend` focused suite and passed all 46 frontend
