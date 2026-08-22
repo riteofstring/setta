@@ -10,6 +10,10 @@ import {
   PythonCanvasMutationContext,
   type PythonCanvasMutationContextValue,
 } from "./PythonCanvasMutationContext";
+import {
+  PythonTargetCompletionErrorProvider,
+  pythonTargetCompletionErrorId,
+} from "./PythonTargetCompletionBoundary";
 
 type ViewState =
   | { kind: "loading" }
@@ -137,7 +141,11 @@ function PythonCanvasCompletionError({ error }: { error: string | null }) {
     return null;
   }
   return (
-    <p className="python-canvas-completion-error" role="alert">
+    <p
+      className="python-canvas-completion-error"
+      id={pythonTargetCompletionErrorId}
+      role="alert"
+    >
       {error}
     </p>
   );
@@ -156,9 +164,13 @@ function PythonCanvasReadyProject(props: PythonCanvasViewProps) {
       />
       <div className="python-canvas-workspace">
         <PythonCanvasMutationContext.Provider value={props.mutationContext}>
-          <WorkspaceProvider host={props.state.host}>
-            <WorkspaceCanvas />
-          </WorkspaceProvider>
+          <PythonTargetCompletionErrorProvider
+            error={props.pythonTargetCompletionError}
+          >
+            <WorkspaceProvider host={props.state.host}>
+              <WorkspaceCanvas />
+            </WorkspaceProvider>
+          </PythonTargetCompletionErrorProvider>
         </PythonCanvasMutationContext.Provider>
       </div>
     </>
@@ -277,7 +289,9 @@ function PythonCanvasEmptyState({
     >
       <h2 id="python-canvas-empty-heading">No callables yet</h2>
       <p>
-        Add a callable to begin authoring its Python expression and parameters.
+        Callables are Python functions or methods that Python Canvas can call
+        after their signature is resolved. Add one to author its Python
+        expression and parameters.
       </p>
       <button onClick={onOpenCallableForm} type="button">
         Add callable

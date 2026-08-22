@@ -75,13 +75,19 @@ import {
   registerPythonCanvasSectionKinds,
 } from "./PythonCanvasApp";
 import { PythonCanvasView } from "./PythonCanvasView";
+import {
+  PythonTargetCompletionErrorProvider,
+  pythonTargetCompletionErrorId,
+} from "./PythonTargetCompletionBoundary";
 
 let container: HTMLDivElement | undefined;
 let root: Root | undefined;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.createWorkspaceCodeSection.mockReturnValue({});
+  mocks.createWorkspaceCodeSection.mockReturnValue({
+    renderContent: () => <div data-testid="target-editor" />,
+  });
   mocks.createWorkspaceHost.mockReturnValue(createHost());
   mocks.fetchProjectSnapshot.mockResolvedValue(
     parseProjectSnapshotV2(projectSnapshotFixture),
@@ -116,6 +122,11 @@ describe("PythonCanvasApp", () => {
     expect(
       view.querySelector(".python-canvas-empty-state")?.textContent,
     ).toContain("No callables yet");
+    expect(
+      view.querySelector(".python-canvas-empty-state")?.textContent,
+    ).toContain(
+      "Callables are Python functions or methods that Python Canvas can call after their signature is resolved.",
+    );
     expect(
       view.querySelector("[data-testid='workspace-canvas']"),
     ).not.toBeNull();
@@ -164,6 +175,32 @@ describe("PythonCanvasApp", () => {
     expect(registrations?.["python-canvas.callable"]?.itemArea?.toolbar).toBe(
       "authoring-and-filter",
     );
+  });
+
+  it("associates target completion failures with the app-owned editor boundary", () => {
+    const host = createHost();
+    registerPythonCanvasSectionKinds(host);
+    const registrations = mocks.registerSectionKinds.mock.calls.at(-1)?.[1] as
+      | Record<string, { renderContent?: (section: never) => ReactNode }>
+      | undefined;
+    const renderTarget = registrations?.["setta.code"]?.renderContent;
+    if (renderTarget === undefined) {
+      throw new Error("Expected the generated Python section renderer.");
+    }
+
+    const view = renderNode(
+      <PythonTargetCompletionErrorProvider error="Unable to load Python target completions. Try again.">
+        {renderTarget({ id: "python-canvas:generated-python" } as never)}
+      </PythonTargetCompletionErrorProvider>,
+    );
+    const boundary = view.querySelector("[role='group']");
+
+    expect(boundary?.getAttribute("aria-label")).toBe("Python target editor");
+    expect(boundary?.getAttribute("aria-invalid")).toBe("true");
+    expect(boundary?.getAttribute("aria-describedby")).toBe(
+      pythonTargetCompletionErrorId,
+    );
+    expect(view.querySelector("[data-testid='target-editor']")).not.toBeNull();
   });
 
   it("announces mutation failures and associates them with the native project controls", () => {
@@ -263,6 +300,20 @@ describe("PythonCanvasApp", () => {
 
     expect(view.querySelector("[role='status']")?.textContent).toBe(
       "Project loaded. Basedpyright is unavailable.",
+    );
+  });
+
+  it("gives target completion feedback a stable description ID", () => {
+    const view = renderView(
+      { kind: "idle" },
+      false,
+      "Unable to load Python target completions. Try again.",
+    );
+
+    const error = view.querySelector("#python-canvas-target-completion-error");
+    expect(error?.getAttribute("role")).toBe("alert");
+    expect(error?.textContent).toBe(
+      "Unable to load Python target completions. Try again.",
     );
   });
 
@@ -438,11 +489,15 @@ function createHost(): WorkspaceHost {
 }
 
 function renderApp(): HTMLDivElement {
+  return renderNode(<PythonCanvasApp />);
+}
+
+function renderNode(node: ReactNode): HTMLDivElement {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
   act(() => {
-    root?.render(<PythonCanvasApp />);
+    root?.render(node);
   });
   return container;
 }
@@ -453,6 +508,7 @@ function renderView(
     | { description: string; kind: "pending" }
     | { kind: "error"; message: string },
   callableFormOpen = false,
+  pythonTargetCompletionError: string | null = null,
 ): HTMLDivElement {
   container = document.createElement("div");
   document.body.append(container);
@@ -488,7 +544,7 @@ function renderView(
         project={parseProjectSnapshotV2(projectSnapshotFixture)}
         projectNameDraft="Fixture project"
         projectMutation={announcement}
-        pythonTargetCompletionError={null}
+        pythonTargetCompletionError={pythonTargetCompletionError}
         state={{ host: createHost(), kind: "ready" }}
       />,
     );

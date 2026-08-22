@@ -39,6 +39,7 @@ import { createPythonTargetCompletionProvider } from "../sections/pythonTargetCo
 import {
   CALLABLE_SECTION_KIND,
   CALLABLE_SECTION_SIZE,
+  GENERATED_PYTHON_SECTION_ID,
   GENERATED_PYTHON_SECTION_SIZE,
   applyProjectSnapshotToWorkspace,
   createCallableParameterItem,
@@ -52,6 +53,7 @@ import {
   type ProjectSnapshotProjectionOptions,
 } from "./workspaceProjection";
 import type { PythonCanvasMutationContextValue } from "./PythonCanvasMutationContext";
+import { PythonTargetCompletionBoundary } from "./PythonTargetCompletionBoundary";
 import { PythonCanvasView } from "./PythonCanvasView";
 
 const mutationDebounceMs = 300;
@@ -108,6 +110,11 @@ export function registerPythonCanvasSectionKinds(
   host: WorkspaceHost,
   pythonTargetCompletionProvider?: WorkspaceCodeSectionCompletionProvider,
 ): void {
+  const pythonTargetSection = createWorkspaceCodeSection({
+    completionProvider: pythonTargetCompletionProvider,
+    defaultSize: GENERATED_PYTHON_SECTION_SIZE,
+    languages: ["python"],
+  });
   registerSectionKinds(host, {
     [CALLABLE_SECTION_KIND]: {
       defaultSize: CALLABLE_SECTION_SIZE,
@@ -117,7 +124,7 @@ export function registerPythonCanvasSectionKinds(
       itemArea: {
         renderLeadingContent: (section) => {
           const data = readCallableSectionData(section.data);
-          return <CallableExpressionField data={data} sectionId={section.id} />;
+          return <CallableExpressionField data={data} />;
         },
         toolbar: "authoring-and-filter",
       },
@@ -135,11 +142,17 @@ export function registerPythonCanvasSectionKinds(
         );
       },
     },
-    [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
-      completionProvider: pythonTargetCompletionProvider,
-      defaultSize: GENERATED_PYTHON_SECTION_SIZE,
-      languages: ["python"],
-    }),
+    [WORKSPACE_CODE_SECTION_KIND]: {
+      ...pythonTargetSection,
+      renderContent: (section) =>
+        section.id === GENERATED_PYTHON_SECTION_ID ? (
+          <PythonTargetCompletionBoundary>
+            {pythonTargetSection.renderContent(section)}
+          </PythonTargetCompletionBoundary>
+        ) : (
+          pythonTargetSection.renderContent(section)
+        ),
+    },
   });
 }
 

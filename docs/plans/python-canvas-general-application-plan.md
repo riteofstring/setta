@@ -2,8 +2,8 @@
 
 ## Purpose and status
 
-**Status: Phase A through Phase E implementation closeout is complete and ready
-for final audit.**
+**Status: Phase A through Phase E remediation is complete and ready for a
+fresh independent audit.**
 
 This is the bounded implementation plan for replacing Python Canvas's fixed,
 in-memory V1 Square Root demonstration with a persisted, general-purpose Python
@@ -788,8 +788,8 @@ local service, provider session, or live probe ran in this phase.
 
 ### Phase D — acceptance evidence and removal audit
 
-- [x] Protected-boundary completion, accessible failure-feedback, and
-      production-browser walkthrough artifact evidence complete
+- [x] Iteration-0020 callable-card and target-error relationship remediation
+      complete
 
 1. Complete focused backend, contract, HTTP, runtime-decoder, client, and
    frontend evidence from the matrix below. Implement or update the production
@@ -844,10 +844,37 @@ python-canvas-backend`, `code-policy test --module python-canvas-frontend`, and
 executed; this batch did not start a browser, local service, provider session,
 or live probe.
 
+**Iteration-0020 remediation record (2026-08-21):** The empty state now
+explains that callables are Python functions or methods Python Canvas can call
+after signature resolution, then directs the reader to author an expression and
+parameters. Every callable card now renders a labelled native expression input
+with its own native completion list and an independent `Commit callable`
+button, alongside its existing labelled name input, `Rename callable`, and
+explicit `Delete callable <name>` action. Callable mutation, diagnostic, and
+completion errors have stable IDs; the native expression input uses
+`aria-invalid` and `aria-describedby` for every applicable error. Target
+completion feedback is now linked without a package change: the existing public
+`createWorkspaceCodeSection` result is retained, and only its target-section
+`renderContent` is wrapped in a Python Canvas-owned labelled `role="group"`.
+That composite boundary receives `aria-invalid` and `aria-describedby` when
+the current target completion error exists, while the public workspace editor
+remains its child. No persisted data is repurposed and no rendered DOM is
+queried or mutated.
+
+**Iteration-0020 focused proof (2026-08-21):** `pnpm --filter
+@setta/python-canvas exec vitest run src/app/PythonCanvasApp.test.tsx
+src/sections/CallableSection.test.tsx --reporter=dot` passed (22 tests).
+`code-policy test --module python-canvas-frontend` passed all 46 frontend
+tests, including the native callable expression's keyboard completion,
+independent commit, Escape revert, stale-request cancellation, and error
+association cases. `code-policy test --changed` selected that same focused
+frontend suite and passed. Exact-file Prettier and `git diff --check` passed.
+No browser, local service, provider session, or live probe ran.
+
 ### Phase E — focused verification closeout
 
-- [x] Iteration-0019 final-report remediation complete and ready for final
-      audit
+- [x] Iteration-0020 focused verification complete and ready for a fresh
+      independent audit
 
 1. Run the focused module suites and changed-file selection listed below in the
    plan-loop.
