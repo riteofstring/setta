@@ -17,6 +17,7 @@ vi.mock("@setta/workspace", () => ({
     return (
       <input
         aria-label={String(props.ariaLabel)}
+        disabled={Boolean(props.disabled)}
         value={String(props.value)}
         readOnly
       />
@@ -155,14 +156,20 @@ describe("CallableSection", () => {
         parameters={[]}
         sectionId="python-canvas:callable:one"
       />,
-      mutationContext("Unable to save this callable. Try again."),
+      mutationContext(() => "Unable to save this callable. Try again."),
     );
 
     expect(
       view
         .querySelector<HTMLInputElement>("input[name='callable-name']")
         ?.getAttribute("aria-describedby"),
-    ).toBe("python-canvas-mutation-error");
+    ).toBe("python-canvas-callable-mutation-error-callable%3Aone");
+    expect(
+      Array.from(view.querySelectorAll("p")).find(
+        (element) =>
+          element.id === "python-canvas-callable-mutation-error-callable%3Aone",
+      )?.textContent,
+    ).toBe("Unable to save this callable. Try again.");
   });
 
   it("renders immutable provider metadata, including an unannotated type", () => {
@@ -211,13 +218,61 @@ describe("CallableSection", () => {
         parameters={[]}
         sectionId="python-canvas:callable:one"
       />,
-      mutationContext(null, () => "Local retry name"),
+      mutationContext(
+        () => null,
+        () => "Local retry name",
+      ),
     );
 
     expect(
       view.querySelector<HTMLInputElement>("input[name='callable-name']")
         ?.value,
     ).toBe("Local retry name");
+  });
+
+  it("scopes pending controls and inline errors to the affected callable", () => {
+    const second = {
+      ...sectionData({ state: "ready", status: "available" }),
+      callable: {
+        authoredExpression: "other",
+        id: "callable:two",
+        name: "Two callable",
+      },
+    };
+    const view = render(
+      <>
+        <CallableSection
+          data={sectionData({ state: "ready", status: "available" })}
+          parameters={[]}
+          sectionId="python-canvas:callable:one"
+        />
+        <CallableSection
+          data={second}
+          parameters={[]}
+          sectionId="python-canvas:callable:two"
+        />
+      </>,
+      mutationContext(
+        (callableId) =>
+          callableId === "callable:one"
+            ? "Unable to save this callable."
+            : null,
+        () => null,
+        (callableId) => callableId === "callable:one",
+      ),
+    );
+
+    const names = view.querySelectorAll<HTMLInputElement>(
+      "input[name='callable-name']",
+    );
+    expect(names).toHaveLength(2);
+    expect(names[0]?.disabled).toBe(true);
+    expect(names[1]?.disabled).toBe(false);
+    expect(names[0]?.getAttribute("aria-describedby")).toBe(
+      "python-canvas-callable-mutation-error-callable%3Aone",
+    );
+    expect(names[1]?.getAttribute("aria-describedby")).toBeNull();
+    expect(view.textContent).toContain("Unable to save this callable.");
   });
 });
 
@@ -259,15 +314,17 @@ function sectionData({
 }
 
 function mutationContext(
-  mutationError: string | null = null,
+  callableMutationError: (callableId: string) => string | null = () => null,
   callableNameDraft: (callableId: string) => string | null = () => null,
+  callablePending: (callableId: string) => boolean = () => false,
 ) {
   return {
     callableCompletionError: () => null,
     callableCompletionProvider: () => undefined,
+    callableMutationError,
+    callablePending,
     callableDraft: () => "value",
     callableNameDraft,
-    mutationError,
     onCallableCommit: vi.fn(),
     onCallableDelete: vi.fn(),
     onCallableDraftChange: vi.fn(),
@@ -276,6 +333,5 @@ function mutationContext(
     onCallableRevert: vi.fn(),
     onParameterExpressionChange: vi.fn(),
     onParameterNameChange: vi.fn(),
-    pending: false,
   };
 }

@@ -53,12 +53,12 @@ await runAgainstProductionApp(
     await navigate(client, previewOrigin);
     await waitFor(
       client,
-      "the labelled project controls",
+      "the labelled project control and empty-state action",
       `(() => {
         const projectName = document.querySelector("label[for='python-canvas-project-name']");
-        const callableName = document.querySelector("label[for='python-canvas-new-callable']");
+        const addCallable = document.querySelector(".python-canvas-empty-state button");
         return projectName?.textContent === "Project name" &&
-          callableName?.textContent === "New callable name";
+          addCallable?.textContent === "Add callable";
       })()`,
     );
 
@@ -209,9 +209,30 @@ async function editPythonTargetOuterRegions(client, backendOrigin) {
 }
 
 async function createCallable(client, backendOrigin, name) {
+  const inputSelector = "input[name='new-callable-name']";
+  if (
+    !(await evaluate(
+      client,
+      `document.querySelector(${JSON.stringify(inputSelector)}) instanceof HTMLInputElement`,
+    ))
+  ) {
+    const emptyStateAction = await evaluate(
+      client,
+      'document.querySelector(".python-canvas-empty-state button") instanceof HTMLButtonElement',
+    );
+    const actionSelector = emptyStateAction
+      ? ".python-canvas-empty-state button"
+      : ".python-canvas-project-controls > button";
+    await clickElementCenter(client, actionSelector, "the Add callable action");
+    await waitFor(
+      client,
+      "the focused callable-name input",
+      `document.activeElement === document.querySelector(${JSON.stringify(inputSelector)})`,
+    );
+  }
   await replaceNativeInputAndSubmit(
     client,
-    "input[name='new-callable-name']",
+    inputSelector,
     name,
     `the ${name} create control`,
   );

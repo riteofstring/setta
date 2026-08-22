@@ -548,7 +548,7 @@ func validateProviderDerivedParameter(field string, parameter ParameterV2) error
 }
 
 func isCoherentProviderDerivedParameter(parameter ParameterV2) bool {
-	return strings.TrimSpace(parameter.Name) != "" && parameter.TypeAnnotation != nil && parameter.ProviderOrdinal != nil && *parameter.ProviderOrdinal >= 0
+	return strings.TrimSpace(parameter.Name) != "" && parameter.ProviderOrdinal != nil && *parameter.ProviderOrdinal >= 0
 }
 
 func validateGeneratedCode(generated GeneratedCodeV2, target PythonTargetV2, targetIDs map[string]struct{}) error {

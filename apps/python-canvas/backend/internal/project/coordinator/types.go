@@ -141,7 +141,9 @@ type SignatureRequest struct {
 }
 
 // GeneratedDocumentRequest identifies the exact installed candidate document
-// that needs diagnostics before its authored state can be published.
+// that needs diagnostics before its authored state can be published. Revision
+// is a monotonic LSP transport version, intentionally distinct from the
+// authored project revision so a rollback can resynchronize prior code.
 type GeneratedDocumentRequest struct {
 	Path     string
 	Revision int
@@ -254,12 +256,12 @@ func cloneString(value *string) *string {
 	return &clone
 }
 
-func mapDiagnostics(rendered renderer.Result, diagnostics []ProviderDiagnostic) []Diagnostic {
+func mapDiagnostics(rendered renderer.Result, diagnostics []ProviderDiagnostic) ([]Diagnostic, error) {
 	targets := sortedRangeTargets(rendered.SourceRangesByTargetID)
 	mapped := make([]Diagnostic, 0, len(diagnostics))
-	for _, diagnostic := range diagnostics {
+	for index, diagnostic := range diagnostics {
 		if !validProviderDiagnostic(rendered.Code, diagnostic) {
-			continue
+			return nil, fmt.Errorf("provider diagnostic %d is invalid", index)
 		}
 		mapped = append(mapped, Diagnostic{
 			Start:    diagnostic.Start,
@@ -295,7 +297,11 @@ func mapDiagnostics(rendered renderer.Result, diagnostics []ProviderDiagnostic) 
 		ordinals[key]++
 		mapped[index].ID = fmt.Sprintf("diagnostic:%s:%d:%d:%s:%d", diagnosticTargetKey(mapped[index].TargetID), mapped[index].Start, mapped[index].End, mapped[index].Severity, ordinals[key])
 	}
-	return mapped
+	return mapped, nil
+}
+
+func providerIsReady(status ProviderStatus) bool {
+	return status.Availability == ProviderAvailabilityAvailable && status.State == ProviderLifecycleReady
 }
 
 type rangeTarget struct {

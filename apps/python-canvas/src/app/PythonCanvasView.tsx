@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import {
   WorkspaceCanvas,
   WorkspaceProvider,
@@ -21,15 +22,19 @@ type ViewMutation =
   | { kind: "error"; message: string };
 
 type PythonCanvasViewProps = {
-  mutation: ViewMutation;
+  announcement: ViewMutation;
+  callableFormOpen: boolean;
   mutationContext: PythonCanvasMutationContextValue;
   newCallableName: string;
+  onCloseCallableForm: () => void;
   onCreateCallable: (name: string) => void;
   onNewCallableNameChange: (name: string) => void;
+  onOpenCallableForm: () => void;
   onProjectNameChange: (name: string) => void;
   onRenameProject: (name: string) => void;
   project: ProjectSnapshotV2 | null;
   projectNameDraft: string;
+  projectMutation: ViewMutation;
   pythonTargetCompletionError: string | null;
   state: ViewState;
 };
@@ -38,12 +43,12 @@ export function PythonCanvasView(props: PythonCanvasViewProps) {
   return (
     <main className="python-canvas-app">
       <PythonCanvasStatus
-        mutation={props.mutation}
+        announcement={props.announcement}
         project={props.project}
         state={props.state}
       />
       <PythonCanvasLoadError state={props.state} />
-      <PythonCanvasMutationError mutation={props.mutation} />
+      <PythonCanvasMutationError projectMutation={props.projectMutation} />
       <PythonCanvasCompletionError error={props.pythonTargetCompletionError} />
       <PythonCanvasReadyProject {...props} />
     </main>
@@ -51,20 +56,20 @@ export function PythonCanvasView(props: PythonCanvasViewProps) {
 }
 
 function PythonCanvasStatus({
-  mutation,
+  announcement,
   project,
   state,
-}: Pick<PythonCanvasViewProps, "mutation" | "project" | "state">) {
+}: Pick<PythonCanvasViewProps, "announcement" | "project" | "state">) {
   return (
     <div className="python-canvas-heading">
       <h1>Python Canvas</h1>
       <p
-        aria-busy={mutation.kind === "pending"}
+        aria-busy={announcement.kind === "pending"}
         aria-live="polite"
         className="python-canvas-status"
         role="status"
       >
-        {pythonCanvasStatusMessage(state, mutation, project)}
+        {pythonCanvasStatusMessage(state, announcement, project)}
       </p>
     </div>
   );
@@ -72,7 +77,7 @@ function PythonCanvasStatus({
 
 function pythonCanvasStatusMessage(
   state: ViewState,
-  mutation: ViewMutation,
+  announcement: ViewMutation,
   project: ProjectSnapshotV2 | null,
 ): string {
   if (state.kind === "loading") {
@@ -81,14 +86,17 @@ function pythonCanvasStatusMessage(
   if (state.kind === "error") {
     return "Project could not be loaded.";
   }
-  if (mutation.kind === "pending") {
-    return mutation.description;
+  if (announcement.kind === "pending") {
+    return announcement.description;
   }
-  if (mutation.kind === "error") {
-    return mutation.message;
+  if (announcement.kind === "error") {
+    return announcement.message;
   }
   if (project?.providerStatus.status === "unavailable") {
     return "Project loaded. Basedpyright is unavailable.";
+  }
+  if (project?.providerStatus.state === "pending") {
+    return "Project loaded. Basedpyright is not ready yet.";
   }
   return "Project loaded.";
 }
@@ -108,8 +116,8 @@ function PythonCanvasLoadError({
 }
 
 function PythonCanvasMutationError({
-  mutation,
-}: Pick<PythonCanvasViewProps, "mutation">) {
+  projectMutation: mutation,
+}: Pick<PythonCanvasViewProps, "projectMutation">) {
   return (
     <p
       className={
@@ -142,7 +150,10 @@ function PythonCanvasReadyProject(props: PythonCanvasViewProps) {
   return (
     <>
       <PythonCanvasProjectControls {...props} />
-      <PythonCanvasEmptyState project={props.project} />
+      <PythonCanvasEmptyState
+        onOpenCallableForm={props.onOpenCallableForm}
+        project={props.project}
+      />
       <div className="python-canvas-workspace">
         <PythonCanvasMutationContext.Provider value={props.mutationContext}>
           <WorkspaceProvider host={props.state.host}>
@@ -155,26 +166,40 @@ function PythonCanvasReadyProject(props: PythonCanvasViewProps) {
 }
 
 function PythonCanvasProjectControls({
-  mutation,
+  callableFormOpen,
   newCallableName,
+  onCloseCallableForm,
   onCreateCallable,
   onNewCallableNameChange,
+  onOpenCallableForm,
   onProjectNameChange,
   onRenameProject,
   projectNameDraft,
+  projectMutation,
 }: Pick<
   PythonCanvasViewProps,
-  | "mutation"
+  | "callableFormOpen"
   | "newCallableName"
+  | "onCloseCallableForm"
   | "onCreateCallable"
   | "onNewCallableNameChange"
+  | "onOpenCallableForm"
   | "onProjectNameChange"
   | "onRenameProject"
   | "projectNameDraft"
+  | "projectMutation"
 >) {
-  const pending = mutation.kind === "pending";
+  const callableNameInput = useRef<HTMLInputElement>(null);
+  const pending = projectMutation.kind === "pending";
   const mutationErrorId =
-    mutation.kind === "error" ? "python-canvas-mutation-error" : undefined;
+    projectMutation.kind === "error"
+      ? "python-canvas-mutation-error"
+      : undefined;
+  useEffect(() => {
+    if (callableFormOpen) {
+      callableNameInput.current?.focus();
+    }
+  }, [callableFormOpen]);
   return (
     <section
       className="python-canvas-project-controls"
@@ -200,32 +225,49 @@ function PythonCanvasProjectControls({
           Rename project
         </button>
       </form>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          onCreateCallable(newCallableName);
-        }}
-      >
-        <label htmlFor="python-canvas-new-callable">New callable name</label>
-        <input
-          aria-describedby={mutationErrorId}
-          id="python-canvas-new-callable"
-          name="new-callable-name"
-          onChange={(event) => onNewCallableNameChange(event.target.value)}
-          required
-          type="text"
-          value={newCallableName}
-        />
-        <button disabled={pending} type="submit">
+      {callableFormOpen ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            onCreateCallable(newCallableName);
+          }}
+        >
+          <label htmlFor="python-canvas-new-callable">New callable name</label>
+          <input
+            aria-describedby={mutationErrorId}
+            id="python-canvas-new-callable"
+            name="new-callable-name"
+            onChange={(event) => onNewCallableNameChange(event.target.value)}
+            ref={callableNameInput}
+            required
+            type="text"
+            value={newCallableName}
+          />
+          <button disabled={pending} type="submit">
+            Add callable
+          </button>
+          <button
+            disabled={pending}
+            onClick={onCloseCallableForm}
+            type="button"
+          >
+            Cancel
+          </button>
+        </form>
+      ) : (
+        <button onClick={onOpenCallableForm} type="button">
           Add callable
         </button>
-      </form>
+      )}
     </section>
   );
 }
 
-function PythonCanvasEmptyState({ project }: { project: ProjectSnapshotV2 }) {
-  if (project.callables.length !== 0) {
+function PythonCanvasEmptyState({
+  onOpenCallableForm,
+  project,
+}: Pick<PythonCanvasViewProps, "onOpenCallableForm" | "project">) {
+  if (project === null || project.callables.length !== 0) {
     return null;
   }
   return (
@@ -237,6 +279,9 @@ function PythonCanvasEmptyState({ project }: { project: ProjectSnapshotV2 }) {
       <p>
         Add a callable to begin authoring its Python expression and parameters.
       </p>
+      <button onClick={onOpenCallableForm} type="button">
+        Add callable
+      </button>
     </section>
   );
 }

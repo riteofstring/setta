@@ -96,7 +96,7 @@ afterEach(() => {
 });
 
 describe("PythonCanvasApp", () => {
-  it("presents labelled project controls and an explanatory blank-project state", async () => {
+  it("opens and focuses the labelled callable-name flow from the empty state", async () => {
     const view = renderApp();
     await flushEffects();
 
@@ -107,10 +107,6 @@ describe("PythonCanvasApp", () => {
       view.querySelector("label[for='python-canvas-project-name']")
         ?.textContent,
     ).toBe("Project name");
-    expect(
-      view.querySelector("label[for='python-canvas-new-callable']")
-        ?.textContent,
-    ).toBe("New callable name");
     expect(view.querySelector("button[type='submit']")?.textContent).toBe(
       "Rename project",
     );
@@ -124,6 +120,25 @@ describe("PythonCanvasApp", () => {
       expect.anything(),
       "system",
     );
+
+    const addCallable = view.querySelector<HTMLButtonElement>(
+      ".python-canvas-empty-state button",
+    );
+    if (addCallable === null) {
+      throw new Error("Expected the empty-state Add callable control.");
+    }
+    await act(async () => {
+      addCallable.click();
+      await flushMicrotasks();
+    });
+    const callableInput = view.querySelector<HTMLInputElement>(
+      "input[name='new-callable-name']",
+    );
+    expect(
+      view.querySelector("label[for='python-canvas-new-callable']")
+        ?.textContent,
+    ).toBe("New callable name");
+    expect(document.activeElement).toBe(callableInput);
   });
 
   it("reports an initial load failure without mounting a workspace canvas", async () => {
@@ -149,10 +164,13 @@ describe("PythonCanvasApp", () => {
   });
 
   it("announces mutation failures and associates them with the native project controls", () => {
-    const view = renderView({
-      kind: "error",
-      message: "Unable to save the project. Try again.",
-    });
+    const view = renderView(
+      {
+        kind: "error",
+        message: "Unable to save the project. Try again.",
+      },
+      true,
+    );
 
     expect(
       view.querySelector("#python-canvas-mutation-error")?.textContent,
@@ -271,10 +289,11 @@ function renderApp(): HTMLDivElement {
 }
 
 function renderView(
-  mutation:
+  announcement:
     | { kind: "idle" }
     | { description: string; kind: "pending" }
     | { kind: "error"; message: string },
+  callableFormOpen = false,
 ): HTMLDivElement {
   container = document.createElement("div");
   document.body.append(container);
@@ -282,13 +301,15 @@ function renderView(
   act(() => {
     root?.render(
       <PythonCanvasView
-        mutation={mutation}
+        announcement={announcement}
+        callableFormOpen={callableFormOpen}
         mutationContext={{
           callableCompletionError: () => null,
           callableCompletionProvider: () => undefined,
+          callableMutationError: () => null,
+          callablePending: () => false,
           callableDraft: () => "",
           callableNameDraft: () => null,
-          mutationError: null,
           onCallableCommit: vi.fn(),
           onCallableDelete: vi.fn(),
           onCallableDraftChange: vi.fn(),
@@ -297,15 +318,17 @@ function renderView(
           onCallableRevert: vi.fn(),
           onParameterExpressionChange: vi.fn(),
           onParameterNameChange: vi.fn(),
-          pending: mutation.kind === "pending",
         }}
         newCallableName=""
+        onCloseCallableForm={vi.fn()}
         onCreateCallable={vi.fn()}
         onNewCallableNameChange={vi.fn()}
+        onOpenCallableForm={vi.fn()}
         onProjectNameChange={vi.fn()}
         onRenameProject={vi.fn()}
         project={parseProjectSnapshotV2(projectSnapshotFixture)}
         projectNameDraft="Fixture project"
+        projectMutation={announcement}
         pythonTargetCompletionError={null}
         state={{ host: createHost(), kind: "ready" }}
       />,

@@ -32,15 +32,16 @@ type Options struct {
 type Coordinator struct {
 	mu sync.Mutex
 
-	projectPath  string
-	idGenerator  aggregate.IDGenerator
-	files        projectfile.Store
-	materializer materializer.Handle
-	provider     Provider
-	render       RenderFunc
-	snapshot     Snapshot
-	cleanup      []materializer.Replacement
-	closed       bool
+	projectPath             string
+	idGenerator             aggregate.IDGenerator
+	files                   projectfile.Store
+	materializer            materializer.Handle
+	provider                Provider
+	render                  RenderFunc
+	snapshot                Snapshot
+	providerDocumentVersion int
+	cleanup                 []materializer.Replacement
+	closed                  bool
 }
 
 // Open strictly loads one existing authored project or exclusively creates one
@@ -330,7 +331,7 @@ func (coordinator *Coordinator) requireMutableProvider(ctx context.Context) erro
 	if err := coordinator.requireOpen(ctx); err != nil {
 		return err
 	}
-	if coordinator.provider == nil || coordinator.snapshot.ProviderStatus.Availability != ProviderAvailabilityAvailable {
+	if coordinator.provider == nil || !providerIsReady(coordinator.snapshot.ProviderStatus) {
 		return ErrProviderUnavailable
 	}
 	return nil
@@ -356,7 +357,7 @@ func (coordinator *Coordinator) synchronizeCandidate(
 	}
 	result, err := coordinator.provider.SynchronizeGeneratedDocument(ctx, GeneratedDocumentRequest{
 		Path:     coordinator.materializer.Path(),
-		Revision: state.Project.Revision,
+		Revision: coordinator.nextProviderDocumentVersion(),
 		Code:     rendered.Code,
 	})
 	if err != nil {
@@ -365,10 +366,14 @@ func (coordinator *Coordinator) synchronizeCandidate(
 	if err := result.ProviderStatus.Validate(); err != nil {
 		return nil, ProviderStatus{}, providerFailure("validate provider status", err)
 	}
-	if result.ProviderStatus.Availability != ProviderAvailabilityAvailable {
+	if !providerIsReady(result.ProviderStatus) {
 		return nil, ProviderStatus{}, ErrProviderUnavailable
 	}
-	return mapDiagnostics(rendered, result.Diagnostics), result.ProviderStatus, nil
+	diagnostics, err := mapDiagnostics(rendered, result.Diagnostics)
+	if err != nil {
+		return nil, ProviderStatus{}, providerFailure("map generated diagnostics", err)
+	}
+	return diagnostics, result.ProviderStatus, nil
 }
 
 func (coordinator *Coordinator) restorePublishedProvider(ctx context.Context) error {
@@ -377,7 +382,7 @@ func (coordinator *Coordinator) restorePublishedProvider(ctx context.Context) er
 	}
 	result, err := coordinator.provider.SynchronizeGeneratedDocument(ctx, GeneratedDocumentRequest{
 		Path:     coordinator.materializer.Path(),
-		Revision: coordinator.snapshot.State.Project.Revision,
+		Revision: coordinator.nextProviderDocumentVersion(),
 		Code:     coordinator.snapshot.Rendered.Code,
 	})
 	if err != nil {
@@ -386,7 +391,7 @@ func (coordinator *Coordinator) restorePublishedProvider(ctx context.Context) er
 	if err := result.ProviderStatus.Validate(); err != nil {
 		return providerFailure("validate restored provider status", err)
 	}
-	if result.ProviderStatus.Availability != ProviderAvailabilityAvailable {
+	if !providerIsReady(result.ProviderStatus) {
 		return ErrProviderUnavailable
 	}
 	return nil
@@ -398,16 +403,27 @@ func (coordinator *Coordinator) initializeProvider(ctx context.Context) {
 	}
 	result, err := coordinator.provider.SynchronizeGeneratedDocument(ctx, GeneratedDocumentRequest{
 		Path:     coordinator.materializer.Path(),
-		Revision: coordinator.snapshot.State.Project.Revision,
+		Revision: coordinator.nextProviderDocumentVersion(),
 		Code:     coordinator.snapshot.Rendered.Code,
 	})
-	if err != nil || result.ProviderStatus.Validate() != nil {
+	if err != nil || result.ProviderStatus.Validate() != nil || !providerIsReady(result.ProviderStatus) {
 		coordinator.snapshot.ProviderStatus = unavailableProviderStatus(ProviderLifecycleFailed)
 		coordinator.snapshot.Diagnostics = []Diagnostic{}
 		return
 	}
 	coordinator.snapshot.ProviderStatus = result.ProviderStatus
-	coordinator.snapshot.Diagnostics = mapDiagnostics(coordinator.snapshot.Rendered, result.Diagnostics)
+	diagnostics, err := mapDiagnostics(coordinator.snapshot.Rendered, result.Diagnostics)
+	if err != nil {
+		coordinator.snapshot.ProviderStatus = unavailableProviderStatus(ProviderLifecycleFailed)
+		coordinator.snapshot.Diagnostics = []Diagnostic{}
+		return
+	}
+	coordinator.snapshot.Diagnostics = diagnostics
+}
+
+func (coordinator *Coordinator) nextProviderDocumentVersion() int {
+	coordinator.providerDocumentVersion++
+	return coordinator.providerDocumentVersion
 }
 
 func (coordinator *Coordinator) signatureRequest(

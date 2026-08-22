@@ -4,6 +4,7 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(cd "${script_dir}/.." && pwd -P)"
 backend_pid=""
+vite_pid=""
 project_path=""
 create_project="false"
 
@@ -100,6 +101,10 @@ stop_services() {
   local exit_code=$?
 
   trap - EXIT INT TERM HUP
+  if [[ -n "${vite_pid}" ]] && kill -0 "${vite_pid}" 2>/dev/null; then
+    kill -TERM "${vite_pid}" 2>/dev/null || true
+    wait "${vite_pid}" 2>/dev/null || true
+  fi
   if [[ -n "${backend_pid}" ]] && kill -0 "${backend_pid}" 2>/dev/null; then
     kill -TERM "${backend_pid}" 2>/dev/null || true
     wait "${backend_pid}" 2>/dev/null || true
@@ -171,4 +176,6 @@ echo
 (
   cd "${repo_root}/apps/python-canvas"
   exec ./node_modules/.bin/vite
-)
+) &
+vite_pid=$!
+wait "${vite_pid}"

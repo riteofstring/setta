@@ -846,8 +846,8 @@ or live probe.
 
 ### Phase E — focused verification closeout
 
-- [x] Focused verification remediation complete and ready for a fresh
-      independent audit
+- [x] Iteration-0010 focused verification remediation complete and ready for
+      a fresh independent audit
 
 1. Run the focused module suites and changed-file selection listed below in the
    plan-loop.
@@ -871,6 +871,19 @@ persistent polite status region; associated mutation text remains linked to
 the relevant native control without an assertive live role, and callable cards
 no longer duplicate provider alerts.
 
+**Iteration-0010 remediation record (2026-08-21):** Provider boundaries now
+reject malformed diagnostics and blank completion labels as typed failures.
+Diagnostic timeout or cancellation is an explicit not-ready failure, so
+mutation and completion require an available, ready provider rather than
+admitting a pending empty result. Candidate and rollback synchronization use a
+separate monotonically advancing LSP transport version while project revision
+remains transactional. Unannotated provider parameters preserve a nullable
+`typeAnnotation` through aggregate, transport, and UI validation. The empty
+state's native Add callable control opens and focuses the labelled callable
+name input. Callable pending and inline error state are keyed by callable ID;
+the existing polite global status remains the single announcement channel.
+The launcher tracks Vite and terminates its owned process group during restart.
+
 **Focused proof (2026-08-21):** `pnpm --filter @setta/python-canvas exec
 vitest run src/app/PythonCanvasApp.test.tsx
 src/app/workspaceProjection.test.ts src/sections/CallableSection.test.tsx`
@@ -878,6 +891,17 @@ passed (17 tests). `code-policy test --module python-canvas-frontend` passed
 (36 tests, including the package build and boundary check), and `code-policy
 test --changed` selected that same focused frontend suite and passed. No
 browser, local service, provider session, or live probe ran.
+
+**Iteration-0010 focused proof (2026-08-21):** `go test -count=1
+./internal/lsp ./internal/project/aggregate ./internal/project/coordinator
+./internal/projectfile ./internal/contracts ./internal/httpapi` passed.
+`pnpm --filter @setta/python-canvas exec vitest run
+src/app/PythonCanvasApp.test.tsx src/sections/CallableSection.test.tsx
+src/backend/runtimeContract.test.ts --reporter=dot` passed (21 tests), as did
+the exact TypeScript check and static launcher/browser-artifact syntax checks.
+`code-policy test --module python-canvas-backend`, `code-policy test --module
+python-canvas-frontend`, and `code-policy test --changed` passed. No browser,
+local service, provider session, or live probe ran.
 
 ## Exact acceptance matrix
 

@@ -34,6 +34,7 @@ const productionViewport = {
 function startProcess(command, arguments_, options) {
   const child = spawn(command, arguments_, {
     cwd: options.cwd,
+    detached: options.ownsProcessGroup === true,
     env: { ...process.env, ...options.env },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -44,7 +45,31 @@ function startProcess(command, arguments_, options) {
   child.stdout.on("data", (chunk) => {
     output.stdout = `${output.stdout}${String(chunk)}`.slice(-8_000);
   });
-  return { child, label: options.label, output };
+  return {
+    child,
+    label: options.label,
+    output,
+    ownsProcessGroup: options.ownsProcessGroup === true,
+  };
+}
+
+function signalProcess(processHandle, signal) {
+  if (
+    processHandle.ownsProcessGroup &&
+    process.platform !== "win32" &&
+    processHandle.child.pid !== undefined
+  ) {
+    try {
+      process.kill(-processHandle.child.pid, signal);
+      return;
+    } catch (error) {
+      if (error && typeof error === "object" && error.code === "ESRCH") {
+        return;
+      }
+      throw error;
+    }
+  }
+  processHandle.child.kill(signal);
 }
 
 async function stopProcess(processHandle) {
@@ -52,7 +77,7 @@ async function stopProcess(processHandle) {
     return;
   }
   const gracefulExit = once(processHandle.child, "exit");
-  processHandle.child.kill("SIGTERM");
+  signalProcess(processHandle, "SIGTERM");
   if (
     await Promise.race([
       gracefulExit.then(() => true),
@@ -62,7 +87,7 @@ async function stopProcess(processHandle) {
     return;
   }
   const forcedExit = once(processHandle.child, "exit");
-  processHandle.child.kill("SIGKILL");
+  signalProcess(processHandle, "SIGKILL");
   if (
     !(await Promise.race([
       forcedExit.then(() => true),
@@ -189,6 +214,7 @@ function startLauncher(projectPath, create) {
   return startProcess(launcherPath, arguments_, {
     cwd: repositoryRoot,
     label: "Python Canvas launcher",
+    ownsProcessGroup: true,
   });
 }
 

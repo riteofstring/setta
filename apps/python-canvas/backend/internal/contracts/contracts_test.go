@@ -14,6 +14,15 @@ func TestProjectSnapshotV2ValidateAcceptsDynamicNestedRecords(t *testing.T) {
 	}
 }
 
+func TestProjectSnapshotV2ValidateAcceptsUnannotatedProviderMetadata(t *testing.T) {
+	snapshot := snapshotWithCallableForTest()
+	snapshot.Callables[0].Parameters[0].TypeAnnotation = nil
+
+	if err := snapshot.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
 func TestProjectSnapshotV2ValidateRejectsUnsupportedAndIncoherentNestedMetadata(t *testing.T) {
 	for _, test := range []struct {
 		name   string

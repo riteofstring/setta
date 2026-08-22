@@ -331,11 +331,7 @@ function isCoherentProviderMetadata(
   name: string,
   metadata: ParsedParameterMetadata,
 ): boolean {
-  return [
-    name !== "",
-    metadata.typeAnnotation !== null,
-    metadata.providerOrdinal !== null,
-  ].every(Boolean);
+  return [name !== "", metadata.providerOrdinal !== null].every(Boolean);
 }
 
 function claimProviderOrdinal(

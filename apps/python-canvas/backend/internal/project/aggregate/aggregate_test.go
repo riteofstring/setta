@@ -83,11 +83,11 @@ func TestCommitReplacesProviderRowsAndCanonicalRecommitPreservesThem(t *testing.
 	committed, err := state.CommitCallable(CommitCallableCommand{
 		ProjectID: state.Project.ID, CallableID: "callable-first", ExpectedRevision: state.Project.Revision, AuthoredExpression: "  fixture.first  ",
 	}, []ProviderParameter{
-		{Name: "left", PassingStyle: PassingStylePositionalOnly, TypeAnnotation: "int"},
-		{Name: "rest", PassingStyle: PassingStyleVariadicPositional, TypeAnnotation: "tuple[int, ...]"},
-		{Name: "scale", PassingStyle: PassingStylePositionalOrKeyword, TypeAnnotation: "float", Default: &defaultValue},
-		{Name: "flag", PassingStyle: PassingStyleKeywordOnly, TypeAnnotation: "bool"},
-		{Name: "options", PassingStyle: PassingStyleVariadicKeyword, TypeAnnotation: "dict[str, object]"},
+		{Name: "left", PassingStyle: PassingStylePositionalOnly, TypeAnnotation: stringPointer("int")},
+		{Name: "rest", PassingStyle: PassingStyleVariadicPositional, TypeAnnotation: stringPointer("tuple[int, ...]")},
+		{Name: "scale", PassingStyle: PassingStylePositionalOrKeyword, TypeAnnotation: stringPointer("float"), Default: &defaultValue},
+		{Name: "flag", PassingStyle: PassingStyleKeywordOnly, TypeAnnotation: stringPointer("bool")},
+		{Name: "options", PassingStyle: PassingStyleVariadicKeyword, TypeAnnotation: stringPointer("dict[str, object]")},
 	}, sequenceIDs("parameter-left", "parameter-rest", "parameter-scale", "parameter-flag", "parameter-options"))
 	if err != nil {
 		t.Fatalf("CommitCallable() error = %v", err)
@@ -120,6 +120,33 @@ func TestCommitReplacesProviderRowsAndCanonicalRecommitPreservesThem(t *testing.
 	}
 	if recommitted.Changed || !reflect.DeepEqual(recommitted.State, before) {
 		t.Fatalf("canonical recommit = %#v, want unchanged %#v", recommitted, before)
+	}
+}
+
+func TestCommitPreservesAnUnannotatedProviderParameter(t *testing.T) {
+	t.Parallel()
+
+	state := mustBlank(t, "project-unannotated")
+	created, err := state.CreateCallable(CreateCallableCommand{
+		ProjectID: state.Project.ID, ExpectedRevision: state.Project.Revision, Name: "Unannotated",
+	}, sequenceIDs("callable-unannotated"))
+	if err != nil {
+		t.Fatalf("CreateCallable() error = %v", err)
+	}
+	committed, err := created.State.CommitCallable(CommitCallableCommand{
+		ProjectID: created.State.Project.ID, CallableID: "callable-unannotated", ExpectedRevision: created.State.Project.Revision, AuthoredExpression: "fixture.unannotated",
+	}, []ProviderParameter{{
+		Name: "value", PassingStyle: PassingStylePositionalOrKeyword,
+	}}, sequenceIDs("parameter-unannotated"))
+	if err != nil {
+		t.Fatalf("CommitCallable() error = %v", err)
+	}
+	parameter := committed.State.Callables[0].Parameters[0]
+	if parameter.TypeAnnotation != nil || parameter.ProviderOrdinal == nil || parameter.NameEditable {
+		t.Fatalf("unannotated provider parameter = %#v, want immutable metadata with nil type", parameter)
+	}
+	if err := committed.State.Validate(); err != nil {
+		t.Fatalf("State.Validate() error = %v", err)
 	}
 }
 
@@ -206,9 +233,9 @@ func committedPositionalState(t *testing.T) State {
 	committed, err := state.CommitCallable(CommitCallableCommand{
 		ProjectID: state.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: state.Project.Revision, AuthoredExpression: "fixture.dynamic",
 	}, []ProviderParameter{
-		{Name: "left", PassingStyle: PassingStylePositionalOnly, TypeAnnotation: "int"},
-		{Name: "right", PassingStyle: PassingStylePositionalOnly, TypeAnnotation: "int"},
-		{Name: "scale", PassingStyle: PassingStylePositionalOrKeyword, TypeAnnotation: "int"},
+		{Name: "left", PassingStyle: PassingStylePositionalOnly, TypeAnnotation: stringPointer("int")},
+		{Name: "right", PassingStyle: PassingStylePositionalOnly, TypeAnnotation: stringPointer("int")},
+		{Name: "scale", PassingStyle: PassingStylePositionalOrKeyword, TypeAnnotation: stringPointer("int")},
 	}, sequenceIDs("parameter-left", "parameter-right", "parameter-scale"))
 	if err != nil {
 		t.Fatalf("CommitCallable() error = %v", err)
@@ -344,6 +371,10 @@ func requireProviderMetadata(t *testing.T, parameters []Parameter, originals ...
 			t.Fatalf("provider metadata changed: got %#v, want metadata %#v", retained, original)
 		}
 	}
+}
+
+func stringPointer(value string) *string {
+	return &value
 }
 
 func requireAppParameter(t *testing.T, parameter Parameter, name string, expression string) {

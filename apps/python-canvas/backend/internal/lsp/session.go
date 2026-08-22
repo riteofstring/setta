@@ -303,7 +303,7 @@ func (session *Session) initialize(ctx context.Context) error {
 	return session.notify("initialized", map[string]any{}, false)
 }
 
-// SynchronizeDocument publishes the exact positive project revision as an LSP
+// SynchronizeDocument publishes one exact positive transport version as an LSP
 // document version. It registers the diagnostic callback before emitting the
 // corresponding didOpen or didChange notification.
 func (session *Session) SynchronizeDocument(

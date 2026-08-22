@@ -179,7 +179,7 @@ func completionProviderFor(snapshot Snapshot, provider Provider) (CompletionProv
 	if provider == nil {
 		return nil, ErrProviderUnavailable
 	}
-	if snapshot.ProviderStatus.Availability != ProviderAvailabilityAvailable {
+	if !providerIsReady(snapshot.ProviderStatus) {
 		return nil, ErrProviderUnavailable
 	}
 	completionProvider, ok := provider.(CompletionProvider)

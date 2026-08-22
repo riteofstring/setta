@@ -83,7 +83,7 @@ func (provider *BasedpyrightProvider) completeSnapshot(
 		return nil, err
 	}
 	closedDocument = true
-	return normalizeCompletionItems(result), nil
+	return normalizeCompletionItems(result)
 }
 
 func completionSnapshot(canonicalCode string, authoredExpression string) (string, int, error) {
@@ -115,12 +115,12 @@ func (provider *BasedpyrightProvider) createCompletionSnapshot(code string) (str
 	return snapshotPath, nil
 }
 
-func normalizeCompletionItems(result CompletionResult) []coordinator.CompletionItem {
+func normalizeCompletionItems(result CompletionResult) ([]coordinator.CompletionItem, error) {
 	items := make([]coordinator.CompletionItem, 0, len(result.Items))
-	for _, item := range result.Items {
+	for index, item := range result.Items {
 		label := strings.TrimSpace(item.Label)
 		if label == "" {
-			continue
+			return nil, fmt.Errorf("lsp: completion item %d has an empty label", index)
 		}
 		insertText := strings.TrimSpace(item.InsertText)
 		if insertText == "" {
@@ -131,5 +131,5 @@ func normalizeCompletionItems(result CompletionResult) []coordinator.CompletionI
 			InsertText: insertText,
 		})
 	}
-	return items
+	return items, nil
 }

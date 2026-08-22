@@ -145,7 +145,7 @@ type CommitCallableCommand struct {
 type ProviderParameter struct {
 	Name           string
 	PassingStyle   PassingStyle
-	TypeAnnotation string
+	TypeAnnotation *string
 	Default        *string
 }
 
@@ -712,8 +712,10 @@ func validateProviderParameterInput(index int, parameter ProviderParameter, name
 	if !isSupportedPassingStyle(parameter.PassingStyle) {
 		return validationError("provider parameter %d has unsupported passing style %q", index, parameter.PassingStyle)
 	}
-	if err := validateMetadata("type annotation", parameter.TypeAnnotation); err != nil {
-		return fmt.Errorf("provider parameter %d: %w", index, err)
+	if parameter.TypeAnnotation != nil {
+		if err := validateMetadata("type annotation", *parameter.TypeAnnotation); err != nil {
+			return fmt.Errorf("provider parameter %d: %w", index, err)
+		}
 	}
 	if err := validateProviderDefault(parameter.Default); err != nil {
 		return fmt.Errorf("provider parameter %d: %w", index, err)
@@ -750,13 +752,12 @@ func allocateProviderParameters(
 		claimed[id] = struct{}{}
 		name, _ := canonicalParameterName(providerParameter.Name)
 		ordinal := parameterIndex
-		typeAnnotation := providerParameter.TypeAnnotation
 		parameters = append(parameters, Parameter{
 			ID:              id,
 			Name:            name,
 			NameEditable:    false,
 			PassingStyle:    providerParameter.PassingStyle,
-			TypeAnnotation:  &typeAnnotation,
+			TypeAnnotation:  cloneString(providerParameter.TypeAnnotation),
 			Default:         cloneString(providerParameter.Default),
 			ProviderOrdinal: &ordinal,
 		})
@@ -795,11 +796,10 @@ func validateProviderDerivedParameter(parameter Parameter) error {
 	if parameter.ProviderOrdinal == nil || *parameter.ProviderOrdinal < 0 {
 		return validationError("provider-derived parameter has invalid provider ordinal")
 	}
-	if parameter.TypeAnnotation == nil {
-		return validationError("provider-derived parameter is missing type annotation metadata")
-	}
-	if err := validateMetadata("type annotation", *parameter.TypeAnnotation); err != nil {
-		return err
+	if parameter.TypeAnnotation != nil {
+		if err := validateMetadata("type annotation", *parameter.TypeAnnotation); err != nil {
+			return err
+		}
 	}
 	if err := validateProviderDefault(parameter.Default); err != nil {
 		return err

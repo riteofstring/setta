@@ -98,6 +98,35 @@ describe("parseProjectSnapshotV2", () => {
       ProjectSnapshotValidationError,
     );
   });
+
+  it("accepts an unannotated provider-derived parameter", () => {
+    const snapshot = dynamicSnapshot();
+    const callable = snapshot.callables[0];
+    const parameter = callable?.parameters[0];
+    if (callable === undefined || parameter === undefined) {
+      throw new Error("dynamic fixture is missing its provider parameter");
+    }
+    const unannotatedSnapshot: unknown = {
+      ...snapshot,
+      callables: [
+        {
+          ...callable,
+          parameters: [
+            { ...parameter, typeAnnotation: null },
+            ...callable.parameters.slice(1),
+          ],
+        },
+      ],
+    };
+
+    expect(
+      parseProjectSnapshotV2(unannotatedSnapshot).callables[0]?.parameters[0],
+    ).toMatchObject({
+      nameEditable: false,
+      providerOrdinal: 0,
+      typeAnnotation: null,
+    });
+  });
 });
 
 describe("V2 error and completion decoders", () => {

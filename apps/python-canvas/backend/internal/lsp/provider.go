@@ -20,6 +20,7 @@ var (
 	ErrAppRootRequired       = errors.New("lsp: app root is required")
 	ErrWorkspaceRootRequired = errors.New("lsp: workspace root is required")
 	ErrProviderClosed        = errors.New("lsp: provider is closed")
+	ErrDiagnosticsNotReady   = errors.New("lsp: exact diagnostics are not ready")
 )
 
 type BasedpyrightOptions struct {
@@ -309,7 +310,7 @@ func (provider *BasedpyrightProvider) waitForExactDiagnostics(
 	}
 	timeout, expired := effectiveDiagnosticTimeout(ctx, provider.diagnosticTimeout)
 	if expired {
-		return pendingDiagnosticsResult(), nil
+		return coordinator.GeneratedDocumentResult{}, diagnosticsNotReadyError(ctx.Err())
 	}
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
@@ -319,13 +320,17 @@ func (provider *BasedpyrightProvider) waitForExactDiagnostics(
 			return diagnosticWaitFailure(failure)
 		}
 		if pending {
-			return pendingDiagnosticsResult(), nil
+			return coordinator.GeneratedDocumentResult{}, diagnosticsNotReadyError(ctx.Err())
 		}
 		if !matchesDocumentRevision(publication, request.Revision) {
 			continue
 		}
+		diagnostics, err := normalizeDiagnostics(request.Code, publication.Diagnostics)
+		if err != nil {
+			return coordinator.GeneratedDocumentResult{}, err
+		}
 		return coordinator.GeneratedDocumentResult{
-			Diagnostics:    normalizeDiagnostics(request.Code, publication.Diagnostics),
+			Diagnostics:    diagnostics,
 			ProviderStatus: readyProviderStatus(),
 		}, nil
 	}
@@ -350,16 +355,27 @@ func diagnosticWaitFailure(failure error) (coordinator.GeneratedDocumentResult, 
 	return coordinator.GeneratedDocumentResult{}, fmt.Errorf("lsp: wait for diagnostics: %w", failure)
 }
 
+func diagnosticsNotReadyError(cause error) error {
+	if cause != nil {
+		return fmt.Errorf("%w: %w", ErrDiagnosticsNotReady, cause)
+	}
+	return fmt.Errorf("%w: timed out waiting for an exact publication", ErrDiagnosticsNotReady)
+}
+
 func matchesDocumentRevision(publication PublishDiagnosticsParams, revision int) bool {
 	return publication.Version != nil && *publication.Version == revision
 }
 
-func normalizeDiagnostics(code string, diagnostics []Diagnostic) []coordinator.ProviderDiagnostic {
+func normalizeDiagnostics(code string, diagnostics []Diagnostic) ([]coordinator.ProviderDiagnostic, error) {
 	normalized := make([]coordinator.ProviderDiagnostic, 0, len(diagnostics))
-	for _, diagnostic := range diagnostics {
+	for index, diagnostic := range diagnostics {
 		start, end, err := byteOffsetsForRange(code, diagnostic.Range)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("lsp: diagnostic %d has an invalid range: %w", index, err)
+		}
+		message := strings.TrimSpace(diagnostic.Message)
+		if message == "" {
+			return nil, fmt.Errorf("lsp: diagnostic %d has an empty message", index)
 		}
 		severity := coordinator.ProviderDiagnosticInformation
 		switch diagnostic.Severity {
@@ -367,18 +383,20 @@ func normalizeDiagnostics(code string, diagnostics []Diagnostic) []coordinator.P
 			severity = coordinator.ProviderDiagnosticError
 		case 2:
 			severity = coordinator.ProviderDiagnosticWarning
-		case 3, 4:
+		case 0, 3, 4:
 			severity = coordinator.ProviderDiagnosticInformation
+		default:
+			return nil, fmt.Errorf("lsp: diagnostic %d has unsupported severity %d", index, diagnostic.Severity)
 		}
 		normalized = append(normalized, coordinator.ProviderDiagnostic{
 			Start:    start,
 			End:      end,
 			Severity: severity,
-			Message:  diagnostic.Message,
+			Message:  message,
 			Code:     diagnostic.Code,
 		})
 	}
-	return normalized
+	return normalized, nil
 }
 
 func readyProviderStatus() coordinator.ProviderStatus {
@@ -386,17 +404,6 @@ func readyProviderStatus() coordinator.ProviderStatus {
 		Provider:     "basedpyright",
 		Availability: coordinator.ProviderAvailabilityAvailable,
 		State:        coordinator.ProviderLifecycleReady,
-	}
-}
-
-func pendingDiagnosticsResult() coordinator.GeneratedDocumentResult {
-	return coordinator.GeneratedDocumentResult{
-		Diagnostics: []coordinator.ProviderDiagnostic{},
-		ProviderStatus: coordinator.ProviderStatus{
-			Provider:     "basedpyright",
-			Availability: coordinator.ProviderAvailabilityAvailable,
-			State:        coordinator.ProviderLifecyclePending,
-		},
 	}
 }
 

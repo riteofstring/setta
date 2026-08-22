@@ -151,6 +151,7 @@ export function CallableExpressionField({
   const mutation = usePythonCanvasMutationContext();
   const callableId = data.callable.id;
   const completionError = mutation.callableCompletionError(callableId);
+  const mutationError = mutation.callableMutationError(callableId);
 
   return (
     <div className="python-canvas-callable-field">
@@ -158,8 +159,10 @@ export function CallableExpressionField({
         ariaLabel={`Callable expression for ${data.callable.name}`}
         completionProvider={mutation.callableCompletionProvider(callableId)}
         controlId={`callable-expression:${callableId}`}
-        diagnosticMessage={data.callableDiagnosticMessage ?? undefined}
-        disabled={mutation.pending}
+        diagnosticMessage={
+          mutationError ?? data.callableDiagnosticMessage ?? undefined
+        }
+        disabled={mutation.callablePending(callableId)}
         language="python"
         onCommit={(value) => mutation.onCallableCommit(callableId, value)}
         onEscape={() => mutation.onCallableRevert(callableId)}
@@ -190,12 +193,17 @@ export function CallableSection({
   parameters: Array<{ data: ParameterItemData; id: string }>;
   sectionId: string;
 }) {
+  const mutation = usePythonCanvasMutationContext();
   const itemDiagnostics = parameterDiagnosticRegistry(data);
   const nameErrors = parameterNameErrors(parameters);
 
   return (
-    <div className="python-canvas-callable-section">
+    <div
+      aria-busy={mutation.callablePending(data.callable.id)}
+      className="python-canvas-callable-section"
+    >
       <CallableNameControl callable={data.callable} />
+      <CallableMutationError callableId={data.callable.id} />
       <WorkspaceItemList
         itemDiagnostics={itemDiagnostics}
         listKey={`${PARAMETER_LIST_KEY}:${data.callable.id}`}
@@ -224,10 +232,9 @@ function CallableNameControl({
 }) {
   const mutation = usePythonCanvasMutationContext();
   const inputId = useId();
+  const mutationError = mutation.callableMutationError(callable.id);
   const mutationErrorId =
-    mutation.mutationError === null
-      ? undefined
-      : "python-canvas-mutation-error";
+    mutationError === null ? undefined : callableMutationErrorId(callable.id);
   const name = mutation.callableNameDraft(callable.id) ?? callable.name;
 
   return (
@@ -241,6 +248,8 @@ function CallableNameControl({
       <label htmlFor={inputId}>Callable name</label>
       <input
         aria-describedby={mutationErrorId}
+        aria-invalid={mutationError === null ? undefined : true}
+        disabled={mutation.callablePending(callable.id)}
         id={inputId}
         name="callable-name"
         onChange={(event) =>
@@ -251,12 +260,12 @@ function CallableNameControl({
         value={name}
       />
       <div className="python-canvas-callable-actions">
-        <button disabled={mutation.pending} type="submit">
+        <button disabled={mutation.callablePending(callable.id)} type="submit">
           Rename callable
         </button>
         <button
           aria-label={`Delete callable ${callable.name}`}
-          disabled={mutation.pending}
+          disabled={mutation.callablePending(callable.id)}
           onClick={() => mutation.onCallableDelete(callable.id)}
           type="button"
         >
@@ -278,7 +287,7 @@ function ParameterItemRow({
 }) {
   const mutation = usePythonCanvasMutationContext();
   const data = readParameterItemData(context.item.data);
-  const disabled = data.disabled || mutation.pending;
+  const disabled = data.disabled || mutation.callablePending(callableId);
   const label = data.name === "" ? unnamedParameterLabel : data.name;
   const providerMetadata = providerParameterMetadata(data);
   return (
@@ -330,6 +339,26 @@ function ParameterItemRow({
       />
     </>
   );
+}
+
+function CallableMutationError({ callableId }: { callableId: string }) {
+  const mutation = usePythonCanvasMutationContext();
+  const message = mutation.callableMutationError(callableId);
+  if (message === null) {
+    return null;
+  }
+  return (
+    <p
+      className="python-canvas-callable-mutation-error"
+      id={callableMutationErrorId(callableId)}
+    >
+      {message}
+    </p>
+  );
+}
+
+function callableMutationErrorId(callableId: string): string {
+  return `python-canvas-callable-mutation-error-${encodeURIComponent(callableId)}`;
 }
 
 function parameterDiagnosticRegistry(

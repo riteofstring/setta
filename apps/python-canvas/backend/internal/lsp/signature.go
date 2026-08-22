@@ -34,7 +34,7 @@ func normalizeSignatureHelp(result SignatureHelpResult) ([]aggregate.ProviderPar
 type normalizedSignatureParameter struct {
 	Name           string
 	PassingStyle   aggregate.PassingStyle
-	TypeAnnotation string
+	TypeAnnotation *string
 	Default        *string
 }
 
@@ -136,7 +136,11 @@ func parseSignatureParameter(label string, passingStyle aggregate.PassingStyle) 
 	}
 	if beforeType, typeAnnotation, found := strings.Cut(label, ":"); found {
 		label = strings.TrimSpace(beforeType)
-		parameter.TypeAnnotation = strings.TrimSpace(typeAnnotation)
+		annotation := strings.TrimSpace(typeAnnotation)
+		if annotation == "" {
+			return normalizedSignatureParameter{}, fmt.Errorf("%w: parameter label %q has an empty type annotation", ErrMalformedSignature, label)
+		}
+		parameter.TypeAnnotation = &annotation
 	}
 
 	if strings.HasPrefix(label, "**") {

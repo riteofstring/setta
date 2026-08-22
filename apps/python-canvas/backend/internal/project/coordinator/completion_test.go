@@ -35,3 +35,12 @@ func TestValidatePythonTargetCompletionInputRejectsProtectedBodyAndItsEdges(t *t
 		}
 	}
 }
+
+func TestCompletionProviderForRequiresReadyProviderState(t *testing.T) {
+	_, err := completionProviderFor(Snapshot{ProviderStatus: ProviderStatus{
+		Provider: "basedpyright", Availability: ProviderAvailabilityAvailable, State: ProviderLifecyclePending,
+	}}, readyProvider())
+	if !errors.Is(err, ErrProviderUnavailable) {
+		t.Fatalf("completionProviderFor() error = %v, want provider-unavailable failure", err)
+	}
+}

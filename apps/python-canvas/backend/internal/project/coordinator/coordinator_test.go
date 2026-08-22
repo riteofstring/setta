@@ -369,6 +369,121 @@ func TestCoordinatorRetainsPublishedStateAndBytesAcrossCandidateFailures(t *test
 	}
 }
 
+func TestCoordinatorRestoresPublishedProviderWithNewTransportVersionAfterPersistenceFailure(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "project.json")
+	adapter := projectfile.NewAdapter()
+	if err := adapter.Create(path, durableState(t)); err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	store := &oneTimeCommitFailingStore{
+		delegate:    adapter,
+		commitError: errors.New("injected persistence failure"),
+	}
+	provider := readyProvider()
+	coordinator, err := Open(context.Background(), Options{
+		ProjectPath:  path,
+		IDGenerator:  sequenceIDs("unused-after-open"),
+		Files:        store,
+		Materializer: newMaterialization(t, path),
+		Provider:     provider,
+	})
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	defer coordinator.Close()
+
+	before := coordinator.Snapshot()
+	_, err = coordinator.RenameProject(context.Background(), aggregate.RenameProjectCommand{
+		ProjectID: before.State.Project.ID, ExpectedRevision: before.State.Project.Revision, Name: "Rejected rename",
+	})
+	if !errors.Is(err, ErrPersistenceFailed) {
+		t.Fatalf("RenameProject() error = %v, want persistence failure", err)
+	}
+	if after := coordinator.Snapshot(); !reflect.DeepEqual(after, before) {
+		t.Fatalf("failed candidate changed published snapshot: %#v", after)
+	}
+
+	accepted, err := coordinator.RenameProject(context.Background(), aggregate.RenameProjectCommand{
+		ProjectID: before.State.Project.ID, ExpectedRevision: before.State.Project.Revision, Name: "Accepted rename",
+	})
+	if err != nil {
+		t.Fatalf("RenameProject(after rollback) error = %v", err)
+	}
+	if accepted.State.Project.Revision != before.State.Project.Revision+1 {
+		t.Fatalf("accepted revision = %d, want %d", accepted.State.Project.Revision, before.State.Project.Revision+1)
+	}
+	versions := make([]int, 0, len(provider.synchronizeRequests))
+	for _, request := range provider.synchronizeRequests {
+		versions = append(versions, request.Revision)
+	}
+	if want := []int{1, 2, 3, 4}; !reflect.DeepEqual(versions, want) {
+		t.Fatalf("provider transport versions = %#v, want %#v", versions, want)
+	}
+}
+
+func TestCoordinatorRejectsMalformedProviderDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "project.json")
+	provider := readyProvider()
+	provider.diagnostics = func(request GeneratedDocumentRequest) []ProviderDiagnostic {
+		if request.Revision != 2 {
+			return []ProviderDiagnostic{}
+		}
+		return []ProviderDiagnostic{{
+			Start:    len(request.Code) + 1,
+			End:      len(request.Code) + 1,
+			Severity: ProviderDiagnosticError,
+			Message:  "outside the candidate",
+		}}
+	}
+	coordinator, err := Open(context.Background(), Options{
+		ProjectPath: path, Create: true, IDGenerator: sequenceIDs("project-malformed"), Materializer: newMaterialization(t, path), Provider: provider,
+	})
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	defer coordinator.Close()
+	before := coordinator.Snapshot()
+
+	_, err = coordinator.RenameProject(context.Background(), aggregate.RenameProjectCommand{
+		ProjectID: before.State.Project.ID, ExpectedRevision: before.State.Project.Revision, Name: "Cannot publish malformed diagnostics",
+	})
+	if !errors.Is(err, ErrProviderFailed) {
+		t.Fatalf("RenameProject() error = %v, want provider failure", err)
+	}
+	if after := coordinator.Snapshot(); !reflect.DeepEqual(after, before) {
+		t.Fatalf("malformed diagnostics changed published snapshot: %#v", after)
+	}
+}
+
+func TestCoordinatorDoesNotTreatPendingProviderAsReady(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "project.json")
+	provider := readyProvider()
+	provider.status.State = ProviderLifecyclePending
+	coordinator, err := Open(context.Background(), Options{
+		ProjectPath: path, Create: true, IDGenerator: sequenceIDs("project-pending"), Materializer: newMaterialization(t, path), Provider: provider,
+	})
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	defer coordinator.Close()
+	before := coordinator.Snapshot()
+	if before.ProviderStatus.Availability != ProviderAvailabilityUnavailable || before.ProviderStatus.State != ProviderLifecycleFailed {
+		t.Fatalf("pending provider snapshot = %#v, want explicit unavailable state", before.ProviderStatus)
+	}
+	_, err = coordinator.RenameProject(context.Background(), aggregate.RenameProjectCommand{
+		ProjectID: before.State.Project.ID, ExpectedRevision: before.State.Project.Revision, Name: "Not ready",
+	})
+	if !errors.Is(err, ErrProviderUnavailable) {
+		t.Fatalf("RenameProject() error = %v, want provider-unavailable failure", err)
+	}
+}
+
 func TestCoordinatorReportsUnavailableProviderWithoutEmptyMutationResult(t *testing.T) {
 	t.Parallel()
 
@@ -408,6 +523,7 @@ type fakeProvider struct {
 	signatureError       error
 	signatureRequests    []SignatureRequest
 	synchronizeRequests  []GeneratedDocumentRequest
+	lastDocumentVersion  int
 	closed               bool
 }
 
@@ -427,6 +543,10 @@ func (provider *fakeProvider) ResolveCallableSignature(_ context.Context, reques
 
 func (provider *fakeProvider) SynchronizeGeneratedDocument(_ context.Context, request GeneratedDocumentRequest) (GeneratedDocumentResult, error) {
 	provider.synchronizeRequests = append(provider.synchronizeRequests, request)
+	if request.Revision <= provider.lastDocumentVersion {
+		return GeneratedDocumentResult{}, fmt.Errorf("provider received non-advancing document version %d after %d", request.Revision, provider.lastDocumentVersion)
+	}
+	provider.lastDocumentVersion = request.Revision
 	if provider.failSynchronizations > 0 {
 		provider.failSynchronizations--
 		return GeneratedDocumentResult{}, provider.synchronizeError
@@ -447,6 +567,41 @@ type failingStore struct {
 	delegate    projectfile.Store
 	stageError  error
 	commitError error
+}
+
+type oneTimeCommitFailingStore struct {
+	delegate    projectfile.Store
+	commitError error
+}
+
+func (store *oneTimeCommitFailingStore) Load(path string) (aggregate.State, error) {
+	return store.delegate.Load(path)
+}
+
+func (store *oneTimeCommitFailingStore) Create(path string, state aggregate.State) error {
+	return store.delegate.Create(path, state)
+}
+
+func (store *oneTimeCommitFailingStore) StageReplacement(path string, state aggregate.State) (projectfile.Replacement, error) {
+	replacement, err := store.delegate.StageReplacement(path, state)
+	if err != nil {
+		return nil, err
+	}
+	return &oneTimeCommitFailureReplacement{Replacement: replacement, store: store}, nil
+}
+
+type oneTimeCommitFailureReplacement struct {
+	projectfile.Replacement
+	store *oneTimeCommitFailingStore
+}
+
+func (replacement *oneTimeCommitFailureReplacement) Commit() error {
+	if replacement.store.commitError == nil {
+		return replacement.Replacement.Commit()
+	}
+	err := replacement.store.commitError
+	replacement.store.commitError = nil
+	return err
 }
 
 func (store failingStore) Load(path string) (aggregate.State, error) {
@@ -601,7 +756,7 @@ func durableState(t *testing.T) aggregate.State {
 	state = created.State
 	committed, err := state.CommitCallable(aggregate.CommitCallableCommand{
 		ProjectID: state.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: state.Project.Revision, AuthoredExpression: "fixture.dynamic",
-	}, []aggregate.ProviderParameter{{Name: "value", PassingStyle: aggregate.PassingStylePositionalOrKeyword, TypeAnnotation: "int"}}, nextID)
+	}, []aggregate.ProviderParameter{{Name: "value", PassingStyle: aggregate.PassingStylePositionalOrKeyword, TypeAnnotation: stringPointer("int")}}, nextID)
 	if err != nil {
 		t.Fatalf("CommitCallable() error = %v", err)
 	}
@@ -624,11 +779,11 @@ func durableState(t *testing.T) aggregate.State {
 func allStyleSignature() []aggregate.ProviderParameter {
 	defaultValue := "1.0"
 	return []aggregate.ProviderParameter{
-		{Name: "left", PassingStyle: aggregate.PassingStylePositionalOnly, TypeAnnotation: "int"},
-		{Name: "scale", PassingStyle: aggregate.PassingStylePositionalOrKeyword, TypeAnnotation: "float", Default: &defaultValue},
-		{Name: "rest", PassingStyle: aggregate.PassingStyleVariadicPositional, TypeAnnotation: "tuple[int, ...]"},
-		{Name: "flag", PassingStyle: aggregate.PassingStyleKeywordOnly, TypeAnnotation: "bool"},
-		{Name: "options", PassingStyle: aggregate.PassingStyleVariadicKeyword, TypeAnnotation: "dict[str, object]"},
+		{Name: "left", PassingStyle: aggregate.PassingStylePositionalOnly, TypeAnnotation: stringPointer("int")},
+		{Name: "scale", PassingStyle: aggregate.PassingStylePositionalOrKeyword, TypeAnnotation: stringPointer("float"), Default: &defaultValue},
+		{Name: "rest", PassingStyle: aggregate.PassingStyleVariadicPositional, TypeAnnotation: stringPointer("tuple[int, ...]")},
+		{Name: "flag", PassingStyle: aggregate.PassingStyleKeywordOnly, TypeAnnotation: stringPointer("bool")},
+		{Name: "options", PassingStyle: aggregate.PassingStyleVariadicKeyword, TypeAnnotation: stringPointer("dict[str, object]")},
 	}
 }
 
@@ -641,6 +796,10 @@ func parameterProposals(state aggregate.State, expression func(aggregate.Paramet
 		})
 	}
 	return proposals
+}
+
+func stringPointer(value string) *string {
+	return &value
 }
 
 func sequenceIDs(ids ...string) aggregate.IDGenerator {
