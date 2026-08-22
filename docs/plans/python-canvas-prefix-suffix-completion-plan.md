@@ -244,7 +244,7 @@ removed from the deferred line. Do not convert the remaining deferred list into 
 
 ### Phase 1 — prefix/suffix completion parity
 
-- [ ] Repository implementation, focused proof, and clean coherent commits are ready for
+- [x] Repository implementation, focused proof, and clean coherent commits are ready for
       supervisor verification and immutable review
 
 Implementation record (2026-08-20): the single-cutover implementation is present, and no
@@ -271,15 +271,20 @@ Follow-up (2026-08-20): exact-candidate recommended verification at
 after directly focusing the nested editor. The browser driver now uses the section's wrapper and
 its public Enter handoff.
 
-Supervisor restart (2026-08-20): the full walkthrough exposed a browser-harness fault rather than
+Supervisor repair (2026-08-20): the full walkthrough exposed a browser-harness fault rather than
 a product geometry fault. The CDP helper creates a second tab while Chrome's initial blank tab can
-remain foregrounded, suspending animation frames in the tested page. Foreground the tested target
-with `Page.bringToFront`; remove the temporary popup/geometry diagnostics and the forced absolute
-tooltip positioning. Once frames run normally, make both existing stale-response proofs
-deterministic by pausing each real HTTP response at the CDP boundary until after the newer edit:
-the completion response in `browser-target-completion.mjs` and the older target-diagnostic response
-in `browser-generated-python.mjs`. Keep the real production endpoint and provider in both flows;
-do not add product delays, test-only product hooks, provider fakes, or timing sleeps as proof.
+remain foregrounded, suspending animation frames in the tested page. The helper now foregrounds
+the tested target with `Page.bringToFront`; the temporary popup/geometry diagnostics and forced
+absolute tooltip-parent placement are removed. Both stale-response proofs now pause their real
+HTTP response at the CDP boundary, author the newer editor text, release that response, and cross
+a real foreground animation-frame boundary: the completion response in
+`browser-target-completion.mjs` and the older target-diagnostic response in
+`browser-generated-python.mjs`. They keep the production endpoint and provider, without product
+delays, test-only hooks, provider fakes, or timing sleeps. The production browser walkthrough and
+`code-policy test --changed --base 9c3ee63dd8220a5e44e58d6b2d8305f8b7c80b5d` passed; the latter
+ran the workspace, playground, Python Canvas backend, and Python Canvas frontend focused suites.
+The required original-resolution popup capture remains supervisor-owned evidence, rather than a
+checked-in screenshot framework.
 
 The checkbox records repository work, not supervisor-owned acceptance receipts. Agent 1 checks it
 once the implementation and in-repository proof are complete and the worktree is clean. Code Policy
@@ -289,12 +294,9 @@ needed after those receipts pass.
 Before returning the phase, treat the recorded donor review, runtime implementation, focused tests,
 and non-browser recommended tests as complete; do not reread or re-audit them in this closeout turn.
 
-1. Run the production-browser walkthrough first and repair only the labeled-section editor
-   activation described in the supervisor handoff.
-2. Inspect the prefix and suffix popup states headlessly at original resolution.
-3. Rerun the production-browser walkthrough after the repair.
-4. Run `code-policy test --changed --base <trusted-plan-loop-base>`.
-5. Check the phase marker, commit the browser repair and plan record, and leave the worktree clean.
+The browser repair, its production walkthrough, the changed-scope verification, and the phase
+marker are complete in one coherent commit; the worktree is clean. Original-resolution popup
+inspection proceeds as the supervisor-owned acceptance evidence described above.
 
 The read-only reviewer must bind findings to this plan or `AGENTS.md`, inspect the exact
 trusted-base-to-candidate range, and use the named `main` donor as the behavior reference. Avoid

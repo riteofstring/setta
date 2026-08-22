@@ -292,12 +292,10 @@ input.setta-workspace-native-color::-moz-focus-inner {
   pointer-events: none;
 }
 
-/* The canvas's CodeMirror tooltip parent, at the reference's own values: a zero-area anchor in the
- * transformed scene, above section content and clickable while the viewport around it is not. */
+/* The canvas's CodeMirror tooltip parent is a zero-area sibling in the transformed scene, above
+ * section content and clickable while the viewport around it is not. CodeMirror positions the
+ * tooltip itself; the parent needs no forced absolute placement. */
 .setta-workspace-codemirror-tooltips {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 1px;
   height: 1px;
   z-index: 300;
