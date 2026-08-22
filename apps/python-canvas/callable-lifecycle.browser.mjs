@@ -83,14 +83,10 @@ export async function exerciseResolvedMathCallableLifecycle(
     harness,
   );
 
-  await setParameterExpression(
-    client,
-    backendOrigin,
-    subject,
-    parameter,
-    "missing_value",
-    true,
-  );
+  await setParameterExpression(client, backendOrigin, subject, parameter, {
+    expression: "missing_value",
+    inspectPendingPresentation: true,
+  });
   const undefinedValue = await waitForSnapshot(
     backendOrigin,
     "the undefined x expression diagnostic",
@@ -124,7 +120,9 @@ export async function exerciseResolvedMathCallableLifecycle(
     harness,
   );
 
-  await setParameterExpression(client, backendOrigin, subject, parameter, "3");
+  await setParameterExpression(client, backendOrigin, subject, parameter, {
+    expression: "3",
+  });
   await waitForSnapshot(
     backendOrigin,
     "the valid x expression and cleared diagnostics",
@@ -166,7 +164,7 @@ export async function exerciseResolvedMathCallableLifecycle(
     backendOrigin,
     subject,
     { ...unexpected, name: "unexpected" },
-    "2",
+    { expression: "2" },
   );
   const unexpectedArgument = await waitForSnapshot(
     backendOrigin,
@@ -355,9 +353,9 @@ async function setParameterExpression(
   backendOrigin,
   subject,
   parameter,
-  expression,
-  inspectPendingPresentation = false,
+  options,
 ) {
+  const { expression, inspectPendingPresentation = false } = options;
   const { harness, name } = subject;
   const label = parameter.name === "" ? "Unnamed parameter" : parameter.name;
   if (inspectPendingPresentation) {
@@ -477,7 +475,11 @@ async function releaseParameterMutationResponse(client) {
       "return true;" +
       "})()",
   );
-  assert.equal(released, true, "The parameter mutation response was not gated.");
+  assert.equal(
+    released,
+    true,
+    "The parameter mutation response was not gated.",
+  );
 }
 
 async function addAppParameter(client, backendOrigin, name, harness) {
