@@ -681,9 +681,12 @@ authorized.
 
 ### Phase D — acceptance evidence and removal audit
 
-1. Complete focused backend, contract, HTTP, runtime-decoder, client, frontend,
-   and browser evidence from the matrix below. Use temporary projects and
-   fixture modules, not the historical Square Root demo.
+1. Complete focused backend, contract, HTTP, runtime-decoder, client, and
+   frontend evidence from the matrix below. Implement or update the production
+   browser walkthrough artifact, but do not execute `python-canvas-browser` in
+   this loop; it is a standard suite whose execution follows the
+   post-implementation `code-policy test-levels` choice. Use temporary projects
+   and fixture modules, not the historical Square Root demo.
 2. Make provider-unavailable, revision-conflict, pending, validation, and
    persistence failure presentation explicit and accessible.
 3. Audit production sources, generated contract output, README, browser
@@ -697,11 +700,15 @@ authorized.
 
 ### Phase E — focused verification closeout
 
-1. Run the focused module verification and changed-file selection listed below.
+1. Run the focused module suites and changed-file selection listed below in the
+   plan-loop.
 2. Review the exact V2 candidate against the acceptance matrix and removal
    checklist before declaring the plan complete.
-3. Do not run, request, or imply authorization for recommended, full, verify,
-   gate, merge-gate, test --all, or supplemental suites in this plan.
+3. After promotion, the caller runs `code-policy test-levels --base main` and
+   presents its exact recommended and full ordinary choices before any broader
+   suite, including `python-canvas-browser`, runs. The plan-loop does not run,
+   request, or imply authorization for recommended, full, verify, gate,
+   merge-gate, test --all, or supplemental suites.
 
 ## Exact acceptance matrix
 
@@ -715,7 +722,7 @@ authorized.
 | V2 transport | Go contract generation and drift tests produce only V2 artifacts. Contract, HTTP, runtime-decoder, and client tests accept valid V2 snapshots/errors, reject V1 and unknown shapes, require expectedRevision on every mutation including project rename, verify the `{ id, name, authoredExpression }` parameter-list request and persisted `nameEditable` plus immutable nullable `providerOrdinal` metadata, verify typed conflicts/failures including the positional-only prefix violation, and prove /api/v1 paths are absent. |
 | Frontend projection | Component tests cover the labelled project-name control and conflict recovery, explanatory empty state, Add callable, rename, delete, multiple dynamically rendered sections, zero/arbitrary provider-derived and app-authored parameter rows, independent callable drafts, app-authored parameter insert/rename/delete/reorder, provider-derived parameter deletion and reorder, per-callable Add/Remove Last/Delete Selected/drag reorder/filtering/item actions and ItemNameEditor behavior, completion isolation, and one canonical combined target document. They prove the public generated-document behavior atomically rejects a transaction touching the one protected body range, maps accepted outer edits, validates mapped offsets before splitting only there, sends prefix and suffix together, and permits completion only in outer regions; they also cover revision conflicts, pending/error handling, and callable/parameter/document diagnostics. |
 | Accessibility and reflow | Component or browser assertions verify labels including Project name and app-authored parameter names, native and public-workspace controls, visible focus, keyboard project/callable/parameter add/rename/commit/delete/completion flows, keyboard outer-document editing without access to the protected body, explicit destructive labels, polite announcements, errors associated with controls, and no page-level horizontal scroll at a narrow viewport. |
-| Production browser walkthrough | Start through `scripts/run-python-canvas.sh` against a temporary absent project with explicit --project and --create plus a temporary fixture module, and observe readiness only through `GET /api/v2/project`. Rename the project, create and commit multiple callables, prove app-authored parameter insert/rename/delete/reorder through Add, Remove Last, Delete Selected, drag reorder, filtering, item actions, and ItemNameEditor, delete and drag-reorder a provider-derived parameter, edit expressions for provider-derived and app-authored parameters and the two outer regions of the one target document, prove a protected-body transaction is rejected, observe outer-only completion and diagnostics, delete one callable, stop and restart the backend through the launcher with the same explicit --project and without --create, and prove the project file restores the renamed project, remaining callables, canonical parameter metadata, and byte-identical generated code. |
+| Production browser walkthrough | The required checked-in walkthrough specification is: start through `scripts/run-python-canvas.sh` against a temporary absent project with explicit --project and --create plus a temporary fixture module, and observe readiness only through `GET /api/v2/project`. Rename the project, create and commit multiple callables, prove app-authored parameter insert/rename/delete/reorder through Add, Remove Last, Delete Selected, drag reorder, filtering, item actions, and ItemNameEditor, delete and drag-reorder a provider-derived parameter, edit expressions for provider-derived and app-authored parameters and the two outer regions of the one target document, prove a protected-body transaction is rejected, observe outer-only completion and diagnostics, delete one callable, stop and restart the backend through the launcher with the same explicit --project and without --create, and prove the project file restores the renamed project, remaining callables, canonical parameter metadata, and byte-identical generated code. Its execution evidence is pending the later post-loop authorization for the standard `python-canvas-browser` suite. |
 
 ## Removal checklist
 
@@ -826,8 +833,9 @@ This plan is complete only when:
    empty-to-many-callables authoring flow with independent drafts, per-callable
    public-workspace parameter authoring, and one editable-outer/protected-body
    canonical target document with outer-only completion.
-9. The full acceptance matrix passes under focused verification and the
-   production browser walkthrough proves persistence across a backend restart.
+9. Focused verification passes, and the production browser walkthrough is
+   checked in and ready; its execution evidence is post-loop, after later
+   authorization for the standard suite.
 10. V1 is absent rather than supported, the removal checklist is complete, and
    no forbidden scope or control-plane change was introduced. Exact v0.12
    runner availability and the loaded lock remain separately evidenced merge
