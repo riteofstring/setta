@@ -2259,8 +2259,8 @@ only recorded evidence and this plan: no source, test, dependency, or Code Polic
 is in it.
 
 **Bundle prose coherence record.** The hand-written README the supervisor judges these images
-against is corrected where it still spoke for an older rejection, and the two documents stop
-restating the numbers the metrics file already owns.
+against is corrected where it still spoke for an older rejection, and the README stops restating
+the numbers the metrics file already owns.
 
 `docs/evidence/python-canvas-callable-presentation/README.md` used "the previous candidate" for the
 blurred settled zoom and the section-clipped completion popup. Those are the defects candidate
@@ -2308,18 +2308,20 @@ filter of the sole active section advertising this platform's chord without repl
 rejected filter-only toolbar therefore fails the walkthrough rather than the capture, and the record
 above is narrowed to say so instead of implying the images are themselves that guard.
 
-Recording the toolbar's control set and advertised placeholder beside its geometry would put this
-phase's headline behavior under the capture as well, and it should. That is a change to
-`apps/python-canvas/callable-presentation.mjs`, and this plan already binds a change of the source a
-bundle names to a recapture before developer review — the format closeout correction above took a
-whole rerun for a change that altered no rendered surface — so it travels with the next capture
-rerun rather than separating the committed images from the commit they record. Three stale comments
-are owed to that same rerun: the module header of `callable-presentation.mjs` still describes "the
-pair of negative `.cm-cursor` and `.cm-activeLine` reads below" as its caret evidence though
-`be6632ea5` replaced them with `caretInsideBlock`, and both `callable-presentation.capture.mjs`'s
-enlarged-state comment and `vertical-slice.browser.mjs`'s field-parity comment still say "the
-previous candidate" for rejections two and three candidates back. This batch touches no tracked
-source file, so the bundle still names a commit whose source tree the working tree matches.
+The capture intentionally does not duplicate the production walkthrough's interaction assertions.
+The metrics file owns visual geometry and paint; the walkthrough owns the toolbar mode, its exact
+control set, the advertised shortcut, and the shortcut's focus behavior. Recording those same
+interaction facts in both places would create two acceptance owners without proving a new product
+behavior, so that proposed harness expansion is dropped from this plan and is not a Phase B
+completion requirement.
+
+Three stale source comments identified during review are also dropped from this plan: one describes
+the former caret probe, and two use an ambiguous "previous candidate" phrase. They do not affect
+runtime behavior, the public contract, the recorded metrics, or the screenshots. Changing the
+immutable source candidate solely to rewrite those comments would force a no-value recapture.
+Comment cleanup can be considered with a later substantive source change; it is not scheduled work
+or a completion gate here. This batch touches no tracked source file, so the bundle still names a
+commit whose source tree the working tree matches.
 
 Verification for this batch: `code-policy check --git-changes` over the two changed documents
 completes without findings, and `code-policy test --changed --base e739b8fda` matches no suite,
