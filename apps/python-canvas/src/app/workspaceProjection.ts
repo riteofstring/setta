@@ -361,7 +361,9 @@ function getProjectionSection(
 ): WorkspaceSection {
   const section = document.sections[sectionId];
   if (section === undefined) {
-    throw new Error(`Python Canvas projection is missing section ${sectionId}.`);
+    throw new Error(
+      `Python Canvas projection is missing section ${sectionId}.`,
+    );
   }
   return section;
 }

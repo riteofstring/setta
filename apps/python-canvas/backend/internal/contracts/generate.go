@@ -54,59 +54,79 @@ type generatedArtifact struct {
 	content []byte
 }
 
+type inspectedArtifact struct {
+	artifact generatedArtifact
+	existing []byte
+	exists   bool
+}
+
 func writeOrCheckArtifacts(artifacts []generatedArtifact, check bool) error {
 	if len(artifacts) == 0 {
 		return errors.New("no generated artifacts")
 	}
-
-	existing := make([][]byte, len(artifacts))
-	exists := make([]bool, len(artifacts))
-	var problems []error
-	for index, artifact := range artifacts {
-		if artifact.path == "" {
-			problems = append(problems, errors.New("generated artifact path is empty"))
-			continue
-		}
-		if len(artifact.content) == 0 {
-			problems = append(problems, fmt.Errorf("generated artifact content is empty: %s", artifact.path))
-			continue
-		}
-		content, err := os.ReadFile(artifact.path)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			problems = append(problems, fmt.Errorf("read generated artifact %s: %w", artifact.path, err))
-			continue
-		}
-		existing[index] = content
-		exists[index] = err == nil
-		if check && !exists[index] {
-			problems = append(problems, fmt.Errorf("generated artifact is missing: %s", artifact.path))
-			continue
-		}
-		if check && !bytes.Equal(content, artifact.content) {
-			problems = append(problems, fmt.Errorf("generated artifact has drifted: %s", artifact.path))
-		}
-	}
-	if len(problems) != 0 {
-		return errors.Join(problems...)
+	inspected, err := inspectArtifacts(artifacts, check)
+	if err != nil {
+		return err
 	}
 	if check {
 		return nil
 	}
+	return stageArtifactReplacements(inspected)
+}
 
-	replacements := make([]artifactReplacement, 0, len(artifacts))
-	for index, artifact := range artifacts {
-		if exists[index] && bytes.Equal(existing[index], artifact.content) {
+func inspectArtifacts(artifacts []generatedArtifact, check bool) ([]inspectedArtifact, error) {
+	inspected := make([]inspectedArtifact, 0, len(artifacts))
+	var problems []error
+	for _, artifact := range artifacts {
+		result, err := inspectArtifact(artifact, check)
+		if err != nil {
+			problems = append(problems, err)
 			continue
 		}
-		temporaryPath, err := stageArtifact(artifact.path, artifact.content)
+		inspected = append(inspected, result)
+	}
+	if len(problems) != 0 {
+		return nil, errors.Join(problems...)
+	}
+	return inspected, nil
+}
+
+func inspectArtifact(artifact generatedArtifact, check bool) (inspectedArtifact, error) {
+	if artifact.path == "" {
+		return inspectedArtifact{}, errors.New("generated artifact path is empty")
+	}
+	if len(artifact.content) == 0 {
+		return inspectedArtifact{}, fmt.Errorf("generated artifact content is empty: %s", artifact.path)
+	}
+	existing, err := os.ReadFile(artifact.path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return inspectedArtifact{}, fmt.Errorf("read generated artifact %s: %w", artifact.path, err)
+	}
+	result := inspectedArtifact{artifact: artifact, existing: existing, exists: err == nil}
+	if check && !result.exists {
+		return inspectedArtifact{}, fmt.Errorf("generated artifact is missing: %s", artifact.path)
+	}
+	if check && !bytes.Equal(existing, artifact.content) {
+		return inspectedArtifact{}, fmt.Errorf("generated artifact has drifted: %s", artifact.path)
+	}
+	return result, nil
+}
+
+func stageArtifactReplacements(artifacts []inspectedArtifact) error {
+	replacements := make([]artifactReplacement, 0, len(artifacts))
+	for _, inspected := range artifacts {
+		if inspected.exists && bytes.Equal(inspected.existing, inspected.artifact.content) {
+			continue
+		}
+		temporaryPath, err := stageArtifact(inspected.artifact.path, inspected.artifact.content)
 		if err != nil {
 			cleanupStagedArtifacts(replacements)
 			return err
 		}
 		replacements = append(replacements, artifactReplacement{
-			targetPath:    artifact.path,
+			targetPath:    inspected.artifact.path,
 			temporaryPath: temporaryPath,
-			existed:       exists[index],
+			existed:       inspected.exists,
 		})
 	}
 	return commitArtifactReplacements(replacements)

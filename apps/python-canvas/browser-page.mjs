@@ -52,7 +52,9 @@ export async function pauseResponseAtCdpBoundary(client, description, url) {
       return response.requestId;
     })
     .catch((error) => {
-      throw new Error(`${description} did not pause its HTTP response: ${error.message}`);
+      throw new Error(
+        `${description} did not pause its HTTP response: ${error.message}`,
+      );
     });
   return {
     async wait() {
@@ -89,13 +91,19 @@ export function labeledSelector(label) {
 // inside that line exercises the editor's own caret policy, which moves it to the nearby prefix
 // boundary instead of leaving it inside the protected range. This remains correct when authored
 // prefix text spans several lines, where Home and End only address the first line.
-export async function moveCaretToGeneratedPrefixBoundary(client, generatedLabel) {
+export async function moveCaretToGeneratedPrefixBoundary(
+  client,
+  generatedLabel,
+) {
   await moveCaretToGeneratedBoundary(client, generatedLabel, "prefix");
 }
 
 // The same marked-line boundary gives the first editable suffix position without assuming the
 // suffix itself fits on one line.
-export async function moveCaretToGeneratedSuffixBoundary(client, generatedLabel) {
+export async function moveCaretToGeneratedSuffixBoundary(
+  client,
+  generatedLabel,
+) {
   await moveCaretToGeneratedBoundary(client, generatedLabel, "suffix");
 }
 
@@ -119,7 +127,9 @@ async function moveCaretToGeneratedBoundary(client, generatedLabel, edge) {
     })()`,
   );
   if (point === null) {
-    throw new Error(`The generated Python block did not expose a visible ${edge} boundary.`);
+    throw new Error(
+      `The generated Python block did not expose a visible ${edge} boundary.`,
+    );
   }
   await clickPoint(client, point);
 }

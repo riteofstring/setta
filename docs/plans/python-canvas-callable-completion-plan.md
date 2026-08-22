@@ -112,25 +112,25 @@ ambient completion extension exists.
 
 ## Ownership and contracts
 
-| Owner | Sole responsibility in this slice | Must not own |
-| --- | --- | --- |
-| `@setta/workspace` | Generic `TextValueEditor` completion contract and its internal CodeMirror adapter | CodeMirror types in its public API, LSP, Python, URLs, fetch, request state, or app errors |
-| Python Canvas frontend | Callable-only provider closure, UTF-16 identifier range, fetch cancellation, strict HTTP response parsing, and transient UI failure | LSP parsing, generated Python, canonical semantic state, or completion behavior for parameters |
-| Go `contracts` and HTTP boundary | Exact V1 request/response types, generated TypeScript projection, strict request decoding, and stable error mapping | React or CodeMirror behavior |
-| Go `project` | Read-only completion query validation and immutable canonical-context snapshot | Browser cursor arithmetic beyond the supplied UTF-16 contract, HTTP, or LSP wire types |
-| Go `lsp` | Temporary completion snapshot, full-document LSP position, `textDocument/completion`, cleanup, and narrow item normalization | Project mutation, HTTP, UI filtering, resolve, documentation, or snippets |
+| Owner                            | Sole responsibility in this slice                                                                                                   | Must not own                                                                                   |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `@setta/workspace`               | Generic `TextValueEditor` completion contract and its internal CodeMirror adapter                                                   | CodeMirror types in its public API, LSP, Python, URLs, fetch, request state, or app errors     |
+| Python Canvas frontend           | Callable-only provider closure, UTF-16 identifier range, fetch cancellation, strict HTTP response parsing, and transient UI failure | LSP parsing, generated Python, canonical semantic state, or completion behavior for parameters |
+| Go `contracts` and HTTP boundary | Exact V1 request/response types, generated TypeScript projection, strict request decoding, and stable error mapping                 | React or CodeMirror behavior                                                                   |
+| Go `project`                     | Read-only completion query validation and immutable canonical-context snapshot                                                      | Browser cursor arithmetic beyond the supplied UTF-16 contract, HTTP, or LSP wire types         |
+| Go `lsp`                         | Temporary completion snapshot, full-document LSP position, `textDocument/completion`, cleanup, and narrow item normalization        | Project mutation, HTTP, UI filtering, resolve, documentation, or snippets                      |
 
 ### Expected implementation owners
 
 Keep changes beside their current owners rather than creating a completion framework:
 
-| Area | Current owner files to extend | Focused proof owner |
-| --- | --- | --- |
-| Generic editor seam | `packages/workspace/src/controls/text/TextValueEditor.tsx`, `textValueExtensions.ts`, package-root exports, and `packages/workspace/package.json` | `TextValueEditor.test.tsx` and the public API test |
-| Go V1 route | `apps/python-canvas/backend/internal/contracts`, `internal/httpapi/server.go`, and the generated `apps/python-canvas/src/backend/generatedContract.ts` | existing contracts and HTTP tests plus contract drift |
-| Read query and provider | `apps/python-canvas/backend/internal/project` and `internal/lsp/provider.go`, using the existing session and position helpers | project, LSP position/provider, and real Basedpyright integration tests |
-| Callable consumer | `apps/python-canvas/src/backend/client.ts`, `runtimeContract.ts`, `sections/CallableSection.tsx`, and the app mutation/controller path | frontend runtime/client/component tests |
-| End-to-end and documentation | `apps/python-canvas/vertical-slice.browser.mjs` and `apps/python-canvas/README.md` | real production browser walkthrough |
+| Area                         | Current owner files to extend                                                                                                                          | Focused proof owner                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| Generic editor seam          | `packages/workspace/src/controls/text/TextValueEditor.tsx`, `textValueExtensions.ts`, package-root exports, and `packages/workspace/package.json`      | `TextValueEditor.test.tsx` and the public API test                      |
+| Go V1 route                  | `apps/python-canvas/backend/internal/contracts`, `internal/httpapi/server.go`, and the generated `apps/python-canvas/src/backend/generatedContract.ts` | existing contracts and HTTP tests plus contract drift                   |
+| Read query and provider      | `apps/python-canvas/backend/internal/project` and `internal/lsp/provider.go`, using the existing session and position helpers                          | project, LSP position/provider, and real Basedpyright integration tests |
+| Callable consumer            | `apps/python-canvas/src/backend/client.ts`, `runtimeContract.ts`, `sections/CallableSection.tsx`, and the app mutation/controller path                 | frontend runtime/client/component tests                                 |
+| End-to-end and documentation | `apps/python-canvas/vertical-slice.browser.mjs` and `apps/python-canvas/README.md`                                                                     | real production browser walkthrough                                     |
 
 The exact small helper filenames may be finalized while keeping these ownership boundaries. Do not
 create a cross-package completion service, a second LSP client, or a general frontend editor layer.
@@ -141,12 +141,12 @@ Add one optional `completionProvider` prop to the existing public `TextValueEdit
 type names may be chosen during implementation, but the public semantics are fixed and must be
 available from the package root:
 
-| Generic concept | Required semantic fields |
-| --- | --- |
-| Completion request | `value`, `cursorOffset` as a JavaScript UTF-16 index, `explicit`, and an `AbortSignal` |
-| Completion option | nonempty `label` and optional `insertText` |
-| Completion result | `from`, optional `to`, and readonly `options` |
-| Completion provider | async function from the request to that result or `null` |
+| Generic concept     | Required semantic fields                                                               |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| Completion request  | `value`, `cursorOffset` as a JavaScript UTF-16 index, `explicit`, and an `AbortSignal` |
+| Completion option   | nonempty `label` and optional `insertText`                                             |
+| Completion result   | `from`, optional `to`, and readonly `options`                                          |
+| Completion provider | async function from the request to that result or `null`                               |
 
 `completionProvider` belongs on `TextValueEditor` only. Do not create a second editor component,
 an alias, a deprecated prop, a public hook, a public CodeMirror wrapper, or a public package

@@ -50,6 +50,7 @@ import {
 } from "./codeSectionData";
 import { createWorkspaceCodeSection } from "./codeSectionKind";
 import type {
+  WorkspaceCodeSectionCompletionResult,
   WorkspaceCodeSectionCompletionProvider,
   WorkspaceCodeSectionCompletionRequest,
 } from "./codeSectionCompletion";
@@ -1010,25 +1011,24 @@ describe("built-in code section body", () => {
   });
 
   it("aborts stale section completion work", async () => {
-    let resolve:
-      | ((value: {
-          from: number;
-          options: Array<{ insertText: string; label: string }>;
-          to: number;
-        }) => void)
-      | null = null;
-    let request: WorkspaceCodeSectionCompletionRequest | null = null;
+    const pending: {
+      request: WorkspaceCodeSectionCompletionRequest | null;
+      resolve:
+        ((value: WorkspaceCodeSectionCompletionResult | null) => void) | null;
+    } = { request: null, resolve: null };
     const completionProvider: WorkspaceCodeSectionCompletionProvider = vi.fn(
-      (nextRequest) => {
+      (nextRequest): Promise<WorkspaceCodeSectionCompletionResult | null> => {
         // The input edit immediately starts a replacement typing request. Returning no result
         // from that new request leaves this test focused on the late first response.
-        if (request !== null) {
+        if (pending.request !== null) {
           return Promise.resolve(null);
         }
-        request = nextRequest;
-        return new Promise((nextResolve) => {
-          resolve = nextResolve;
-        });
+        pending.request = nextRequest;
+        return new Promise<WorkspaceCodeSectionCompletionResult | null>(
+          (nextResolve) => {
+            pending.resolve = nextResolve;
+          },
+        );
       },
     );
     await mountWithCompletion(completionProvider);
@@ -1038,14 +1038,16 @@ describe("built-in code section body", () => {
       expect(startCompletion(view)).toBe(true);
     });
     const deadline = Date.now() + 1_000;
-    while (request === null && Date.now() < deadline) {
+    while (pending.request === null && Date.now() < deadline) {
       await act(async () => {
         await new Promise((next) => setTimeout(next, 5));
       });
     }
-    if (request === null || resolve === null) {
+    if (pending.request === null || pending.resolve === null) {
       throw new Error("The section completion provider was not invoked.");
     }
+    const request = pending.request;
+    const resolve = pending.resolve;
     await act(async () => {
       view.dispatch({
         changes: { from: 0, insert: "# " },
@@ -1063,14 +1065,15 @@ describe("built-in code section body", () => {
   });
 
   it("ignores a malformed completion result without changing the optional editor surface", async () => {
-    const completionProvider = vi.fn(async () =>
-      ({
-        from: GENERATED_PREFIX.length - 1,
-        options: [{ insertText: "", label: "" }],
-        to: GENERATED_PREFIX.length,
-      }) as unknown as Awaited<
-        ReturnType<WorkspaceCodeSectionCompletionProvider>
-      >,
+    const completionProvider = vi.fn(
+      async () =>
+        ({
+          from: GENERATED_PREFIX.length - 1,
+          options: [{ insertText: "", label: "" }],
+          to: GENERATED_PREFIX.length,
+        }) as unknown as Awaited<
+          ReturnType<WorkspaceCodeSectionCompletionProvider>
+        >,
     );
     await mountWithCompletion(completionProvider);
     const view = getView();

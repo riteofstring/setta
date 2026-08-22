@@ -60,13 +60,7 @@ func TestPinnedBasedpyrightResolvesAndClearsMappedParameterDiagnostic(t *testing
 	if callableSnapshot.Project.Revision != 2 {
 		t.Fatalf("callable revision = %d, want 2", callableSnapshot.Project.Revision)
 	}
-	if len(callableSnapshot.Parameters) != 1 {
-		t.Fatalf("math.sqrt parameters = %#v", callableSnapshot.Parameters)
-	}
-	parameter := callableSnapshot.Parameters[0]
-	if parameter.Name != "x" || parameter.PassingStyle != contracts.ParameterPassingStylePositionalOnlyV1 {
-		t.Fatalf("math.sqrt parameter = %#v", parameter)
-	}
+	parameter := requireMathSqrtParameter(t, callableSnapshot)
 	requireReadyBasedpyrightStatus(t, callableSnapshot.ProviderStatus)
 	requireMissingParameterDiagnostic(t, callableSnapshot.Diagnostics, parameter.ID, callableSnapshot.Callables[0].ID)
 
@@ -126,6 +120,18 @@ func TestPinnedBasedpyrightResolvesAndClearsMappedParameterDiagnostic(t *testing
 	if _, err := os.Stat(generatedPath); err != nil {
 		t.Fatalf("generated file stat before Close() = %v", err)
 	}
+}
+
+func requireMathSqrtParameter(t *testing.T, snapshot contracts.ProjectSnapshotV1) contracts.ParameterV1 {
+	t.Helper()
+	if len(snapshot.Parameters) != 1 {
+		t.Fatalf("math.sqrt parameters = %#v", snapshot.Parameters)
+	}
+	parameter := snapshot.Parameters[0]
+	if parameter.Name != "x" || parameter.PassingStyle != contracts.ParameterPassingStylePositionalOnlyV1 {
+		t.Fatalf("math.sqrt parameter = %#v", parameter)
+	}
+	return parameter
 }
 
 func TestPinnedBasedpyrightClearsTargetlessPrefixDiagnostic(t *testing.T) {

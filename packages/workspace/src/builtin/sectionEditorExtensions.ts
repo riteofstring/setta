@@ -37,6 +37,7 @@ import type {
   WorkspaceGeneratedRegion,
 } from "./codeSectionData";
 import type {
+  WorkspaceCodeSectionCompletionOption,
   WorkspaceCodeSectionCompletionProvider,
   WorkspaceCodeSectionCompletionResult,
 } from "./codeSectionCompletion";
@@ -507,37 +508,77 @@ function completionResultForSectionEditor(
   generatedRegion: WorkspaceGeneratedRegion | null,
 ): CompletionResult | null {
   const documentLength = context.state.doc.length;
-  if (
-    !isWorkspaceCodeSectionCompletionResult(result) ||
-    !Number.isSafeInteger(result.from) ||
-    !Number.isSafeInteger(result.to) ||
-    result.from < 0 ||
-    result.to < result.from ||
-    result.to > documentLength ||
-    (generatedRegion !== null &&
-      result.from < generatedRegion.to &&
-      result.to > generatedRegion.from)
-  ) {
+  if (!isWorkspaceCodeSectionCompletionResult(result)) {
     return null;
   }
-  const options: Array<{ apply: string; label: string }> = [];
-  for (const option of result.options) {
-    if (
-      typeof option !== "object" ||
-      option === null ||
-      typeof option.label !== "string" ||
-      typeof option.insertText !== "string" ||
-      option.label.trim() === "" ||
-      option.insertText.trim() === ""
-    ) {
-      return null;
-    }
-    options.push({ apply: option.insertText, label: option.label });
+  if (!isValidCompletionRange(result, documentLength)) {
+    return null;
   }
-  if (options.length === 0) {
+  if (completionTouchesGeneratedRegion(result, generatedRegion)) {
+    return null;
+  }
+  const options = normalizeCompletionOptions(result.options);
+  if (options === null) {
     return null;
   }
   return { from: result.from, options, to: result.to };
+}
+
+function isValidCompletionRange(
+  result: WorkspaceCodeSectionCompletionResult,
+  documentLength: number,
+) {
+  return [
+    Number.isSafeInteger(result.from),
+    Number.isSafeInteger(result.to),
+    result.from >= 0,
+    result.to >= result.from,
+    result.to <= documentLength,
+  ].every(Boolean);
+}
+
+function completionTouchesGeneratedRegion(
+  result: WorkspaceCodeSectionCompletionResult,
+  generatedRegion: WorkspaceGeneratedRegion | null,
+) {
+  if (generatedRegion === null) {
+    return false;
+  }
+  return [
+    result.from < generatedRegion.to,
+    result.to > generatedRegion.from,
+  ].every(Boolean);
+}
+
+function normalizeCompletionOptions(
+  options: readonly WorkspaceCodeSectionCompletionOption[],
+): Array<{ apply: string; label: string }> | null {
+  const normalized: Array<{ apply: string; label: string }> = [];
+  for (const option of options) {
+    const next = normalizeCompletionOption(option);
+    if (next === null) {
+      return null;
+    }
+    normalized.push(next);
+  }
+  return normalized.length === 0 ? null : normalized;
+}
+
+function normalizeCompletionOption(
+  option: unknown,
+): { apply: string; label: string } | null {
+  if (typeof option !== "object" || option === null) {
+    return null;
+  }
+  const { insertText, label } =
+    option as Partial<WorkspaceCodeSectionCompletionOption>;
+  if (typeof insertText !== "string" || typeof label !== "string") {
+    return null;
+  }
+  if (insertText.trim() === "" || label.trim() === "") {
+    return null;
+  }
+  return { apply: insertText, label };
 }
 
 function isWorkspaceCodeSectionCompletionResult(

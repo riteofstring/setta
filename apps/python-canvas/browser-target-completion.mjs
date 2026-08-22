@@ -49,7 +49,7 @@ export async function assertPythonTargetCompletionParity(
     previewOrigin,
     generatedLabel,
   );
-  await assertProtectedRegionSuppressesCompletion(
+  await assertProtectedRegionClickDoesNotRequestCompletion(
     client,
     backendOrigin,
     generatedLabel,
@@ -184,7 +184,7 @@ async function assertSuffixEnterCompletion(
   );
 }
 
-async function assertProtectedRegionSuppressesCompletion(
+async function assertProtectedRegionClickDoesNotRequestCompletion(
   client,
   backendOrigin,
   generatedLabel,
@@ -192,9 +192,8 @@ async function assertProtectedRegionSuppressesCompletion(
   const before = await fetchCanonicalSnapshot(backendOrigin);
   const beforeRequests = await completionRequestCount(client);
   await activateLabeledCodeSection(client, generatedLabel);
-  // A full selection collapsed right moves to the suffix. Home reaches that line's generated
-  // separator, then Right enters the protected body as a real caret move; atomic ranges snap the
-  // caret past it, so click the visible body to prove the protected position has no popup instead.
+  // The protected block has no editing seat: a pointer press on its painted body is snapped to an
+  // authored boundary. The click itself must not be mistaken for an authored completion trigger.
   const focused = await evaluate(
     client,
     `(() => {
@@ -226,20 +225,18 @@ async function assertProtectedRegionSuppressesCompletion(
     clickCount: 1,
     type: "mouseReleased",
   });
-  await pressCompletion(client);
-  // Explicit completion work reaches the provider asynchronously. Observe a real window after
-  // the request before declaring the protected region silent, rather than accepting the same
-  // browser turn in which it was requested.
+  // Observe a real window after the pointer interaction rather than accepting the same browser
+  // turn in which it occurred.
   await observeProtectedRegionCompletionWindow(client, beforeRequests);
   await waitForNoTargetPopup(client);
   const afterRequests = await completionRequestCount(client);
   if (afterRequests !== beforeRequests) {
     throw new Error(
-      "A protected generated-region cursor sent a completion endpoint request.",
+      "A protected generated-region click sent a completion endpoint request.",
     );
   }
   assertProjectUnchanged(
-    "A protected generated-region completion attempt",
+    "A protected generated-region pointer interaction",
     before,
     await fetchCanonicalSnapshot(backendOrigin),
   );
@@ -259,7 +256,6 @@ async function assertStaleCompletionCannotReopenOrReport(
   await activateLabeledCodeSection(client, generatedLabel);
   await moveCaretToGeneratedPrefixBoundary(client, generatedLabel);
   await insertText(client, "\nfrom math import floo");
-  // The new text ends at the protected boundary, where completion is deliberately unavailable.
   // Step into the partial identifier for the request, then return to its line end to author the
   // newer text while that real response remains paused.
   await pressLeftArrow(client);
@@ -294,7 +290,8 @@ async function assertStaleCompletionCannotReopenOrReport(
     backendOrigin,
     "the newer authored prefix after a stale completion response",
     (snapshot) =>
-      snapshot.pythonTarget?.prefix?.includes("from math import floor") === true,
+      snapshot.pythonTarget?.prefix?.includes("from math import floor") ===
+      true,
   );
 }
 
@@ -369,26 +366,7 @@ function targetPopupScript(generatedLabel, label) {
 }
 
 async function inspectTargetPopupAtOriginalResolution(client, popup) {
-  if (
-    popup.viewport.width !== productionViewport.width ||
-    popup.viewport.height !== productionViewport.height ||
-    popup.devicePixelRatio !== productionViewport.deviceScaleFactor ||
-    !popup.parentContainsPopup ||
-    popup.sectionContainsPopup ||
-    popup.wrapperContainsPopup ||
-    popup.painted.computedStyle.display === "none" ||
-    popup.painted.computedStyle.visibility !== "visible" ||
-    Number.parseFloat(popup.painted.computedStyle.opacity) <= 0 ||
-    !popup.painted.hitTests.center ||
-    !popup.painted.hitTests.insetTopLeft ||
-    !popup.painted.hitTests.insetTopRight ||
-    !popup.painted.hitTests.insetBottomLeft ||
-    !popup.painted.hitTests.insetBottomRight ||
-    popup.popup.left < 0 ||
-    popup.popup.top < 0 ||
-    popup.popup.right > popup.viewport.width ||
-    popup.popup.bottom > popup.viewport.height
-  ) {
+  if (!targetPopupIsVisibleAtOriginalResolution(popup)) {
     throw new Error(
       `The Generated Python completion popup was not visible at the required original-resolution canvas placement: ${JSON.stringify(popup)}.`,
     );
@@ -404,6 +382,54 @@ async function inspectTargetPopupAtOriginalResolution(client, popup) {
   }
 }
 
+function targetPopupIsVisibleAtOriginalResolution(popup) {
+  return [
+    targetPopupMatchesProductionViewport(popup),
+    targetPopupUsesCanvasTooltipLayer(popup),
+    targetPopupHasVisibleStyle(popup),
+    targetPopupPassesHitTests(popup),
+    targetPopupFitsViewport(popup),
+  ].every(Boolean);
+}
+
+function targetPopupMatchesProductionViewport(popup) {
+  return [
+    popup.viewport.width === productionViewport.width,
+    popup.viewport.height === productionViewport.height,
+    popup.devicePixelRatio === productionViewport.deviceScaleFactor,
+  ].every(Boolean);
+}
+
+function targetPopupUsesCanvasTooltipLayer(popup) {
+  return [
+    popup.parentContainsPopup,
+    !popup.sectionContainsPopup,
+    !popup.wrapperContainsPopup,
+  ].every(Boolean);
+}
+
+function targetPopupHasVisibleStyle(popup) {
+  const style = popup.painted.computedStyle;
+  return [
+    style.display !== "none",
+    style.visibility === "visible",
+    Number.parseFloat(style.opacity) > 0,
+  ].every(Boolean);
+}
+
+function targetPopupPassesHitTests(popup) {
+  return Object.values(popup.painted.hitTests).every(Boolean);
+}
+
+function targetPopupFitsViewport(popup) {
+  return [
+    popup.popup.left >= 0,
+    popup.popup.top >= 0,
+    popup.popup.right <= popup.viewport.width,
+    popup.popup.bottom <= popup.viewport.height,
+  ].every(Boolean);
+}
+
 async function observeProtectedRegionCompletionWindow(client, beforeRequests) {
   const deadline = Date.now() + 700;
   while (Date.now() < deadline) {
@@ -416,7 +442,7 @@ async function observeProtectedRegionCompletionWindow(client, beforeRequests) {
     );
     if (state.hasPopup || state.requestCount !== beforeRequests) {
       throw new Error(
-        "A protected generated-region cursor opened a completion popup or sent a completion endpoint request.",
+        "A protected generated-region click opened a completion popup or sent a completion endpoint request.",
       );
     }
     await delay(100);

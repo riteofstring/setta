@@ -486,10 +486,16 @@ describe("PythonCanvasApp", () => {
     const app = renderApp();
     await settle();
     const registration = mocks.createWorkspaceCodeSection.mock.calls[0]?.[0] as
-      | { completionProvider?: (request: Record<string, unknown>) => Promise<unknown> }
+      | {
+          completionProvider?: (
+            request: Record<string, unknown>,
+          ) => Promise<unknown>;
+        }
       | undefined;
     if (registration?.completionProvider === undefined) {
-      throw new Error("The generated Python registration has no completion provider.");
+      throw new Error(
+        "The generated Python registration has no completion provider.",
+      );
     }
     const data = generatedDocumentData(committedSnapshot().pythonTarget.prefix);
     await act(async () => {

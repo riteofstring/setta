@@ -103,13 +103,11 @@ describe("createPythonTargetCompletionProvider", () => {
       from: unicodePrefix.length,
       to: unicodePrefix.length + generated.length,
     };
-    const fetchImplementation = vi
-      .fn()
-      .mockResolvedValue(
-        createJsonResponse({
-          items: [{ insertText: "Alpha", label: "Alpha" }],
-        }),
-      );
+    const fetchImplementation = vi.fn().mockResolvedValue(
+      createJsonResponse({
+        items: [{ insertText: "Alpha", label: "Alpha" }],
+      }),
+    );
     const provider = createPythonTargetCompletionProvider({
       fetchImplementation: fetchImplementation as typeof fetch,
       onFailure: vi.fn(),

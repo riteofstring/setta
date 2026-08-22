@@ -213,9 +213,7 @@ describe("Python Canvas workspace projection", () => {
         ],
       },
     });
-    expect(
-      document.sections[GENERATED_PYTHON_SECTION_ID]?.data,
-    ).toMatchObject({
+    expect(document.sections[GENERATED_PYTHON_SECTION_ID]?.data).toMatchObject({
       diagnostics: [
         {
           message: "Updated: Generated document has an unresolved name.",

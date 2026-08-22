@@ -85,25 +85,17 @@ function targetCompletionContext(
   generatedRegion: { from: number; to: number },
   cursorOffsetUtf16: number,
 ): TargetCompletionContext | null {
-  if (
-    !Number.isSafeInteger(generatedRegion.from) ||
-    !Number.isSafeInteger(generatedRegion.to) ||
-    generatedRegion.from < 0 ||
-    generatedRegion.to < generatedRegion.from ||
-    generatedRegion.to > text.length ||
-    !Number.isSafeInteger(cursorOffsetUtf16) ||
-    cursorOffsetUtf16 < 0 ||
-    cursorOffsetUtf16 > text.length
-  ) {
+  const validInput = [
+    generatedRegionIsWithinText(generatedRegion, text.length),
+    cursorIsWithinText(cursorOffsetUtf16, text.length),
+  ].every(Boolean);
+  if (!validInput) {
     return null;
   }
   // The provider observes the same boundary contract as the workspace adapter: positions strictly
   // inside the generated interval are protected, while a caret at either edge belongs to the
   // authored region on that side.
-  if (
-    cursorOffsetUtf16 > generatedRegion.from &&
-    cursorOffsetUtf16 < generatedRegion.to
-  ) {
+  if (cursorIsInsideGeneratedRegion(cursorOffsetUtf16, generatedRegion)) {
     return null;
   }
   const prefix = text.slice(0, generatedRegion.from);
@@ -126,6 +118,37 @@ function targetCompletionContext(
     region: "suffix",
     suffix,
   };
+}
+
+function generatedRegionIsWithinText(
+  generatedRegion: { from: number; to: number },
+  textLength: number,
+): boolean {
+  return [
+    Number.isSafeInteger(generatedRegion.from),
+    Number.isSafeInteger(generatedRegion.to),
+    generatedRegion.from >= 0,
+    generatedRegion.to >= generatedRegion.from,
+    generatedRegion.to <= textLength,
+  ].every(Boolean);
+}
+
+function cursorIsWithinText(cursorOffsetUtf16: number, textLength: number) {
+  return [
+    Number.isSafeInteger(cursorOffsetUtf16),
+    cursorOffsetUtf16 >= 0,
+    cursorOffsetUtf16 <= textLength,
+  ].every(Boolean);
+}
+
+function cursorIsInsideGeneratedRegion(
+  cursorOffsetUtf16: number,
+  generatedRegion: { from: number; to: number },
+) {
+  return [
+    cursorOffsetUtf16 > generatedRegion.from,
+    cursorOffsetUtf16 < generatedRegion.to,
+  ].every(Boolean);
 }
 
 function completionResult(
