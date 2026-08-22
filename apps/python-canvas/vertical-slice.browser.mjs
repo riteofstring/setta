@@ -28,6 +28,7 @@ import {
   pressEnter,
   pressEscape,
   pressItemActionMenuKey,
+  prepareElementDrag,
   releaseItemSelectionChord,
   selectAll,
   contentEditableTextBoxSelector,
@@ -252,6 +253,12 @@ async function createCallable(client, backendOrigin, name) {
     backendOrigin,
     `the ${name} callable`,
     (snapshot) => findCallable(snapshot, name) !== null,
+  );
+  const expressionSelector = `${callableSectionSelector(name)} input[name='callable-expression']`;
+  await waitFor(
+    client,
+    `the ${name} callable expression control`,
+    `document.querySelector(${JSON.stringify(expressionSelector)}) instanceof HTMLInputElement`,
   );
 }
 
@@ -502,10 +509,29 @@ async function invokeParameterItemAction(client, backendOrigin, parameterID) {
   await waitFor(
     client,
     "the Workspace item actions menu",
-    `document.querySelector(${JSON.stringify(labeledSelector("Workspace item actions"))}) !== null &&
-      document.activeElement?.textContent?.trim() === "Delete parameter"`,
+    `(() => {
+      const menu = document.querySelector(${JSON.stringify(labeledSelector("Workspace item actions"))});
+      const action = Array.from(menu?.querySelectorAll('[role="menuitem"]') ?? [])
+        .find((item) => item.textContent?.trim() === "Delete parameter");
+      return action instanceof HTMLElement &&
+        !action.hasAttribute("data-disabled") &&
+        document.activeElement === action;
+    })()`,
   );
-  await pressEnter(client);
+  const actionInvoked = await evaluate(
+    client,
+    `(() => {
+      const menu = document.querySelector(${JSON.stringify(labeledSelector("Workspace item actions"))});
+      const action = Array.from(menu?.querySelectorAll('[role="menuitem"]') ?? [])
+        .find((item) => item.textContent?.trim() === "Delete parameter");
+      if (!(action instanceof HTMLElement) || action.hasAttribute("data-disabled")) {
+        return false;
+      }
+      action.click();
+      return true;
+    })()`,
+  );
+  assert.equal(actionInvoked, true, "The focused item action is missing.");
   await waitForSnapshot(
     backendOrigin,
     "the parameter deleted through its item action",
@@ -527,8 +553,16 @@ async function dragParameterToDifferentPosition(
     await fetchCanonicalSnapshot(backendOrigin),
     sampleCallableName,
   ).parameters.map((parameter) => parameter.id);
+  await activateSampleCallableSection(client);
+  await prepareElementDrag(
+    client,
+    parameterRowSelector(sourceID),
+    parameterRowSelector(targetID),
+    description,
+  );
   await holdItemSelectionChord(client);
   try {
+    await waitForParameterSelectionMode(client, sourceID);
     await dragElementToElement(
       client,
       parameterRowSelector(sourceID),
@@ -539,6 +573,7 @@ async function dragParameterToDifferentPosition(
   } finally {
     await releaseItemSelectionChord(client);
   }
+  await waitForParameterSelectionModeReleased(client, sourceID);
   await waitForSnapshot(backendOrigin, description, (snapshot) => {
     const after = findRequiredCallable(
       snapshot,
@@ -546,6 +581,17 @@ async function dragParameterToDifferentPosition(
     ).parameters.map((parameter) => parameter.id);
     return after.indexOf(sourceID) !== before.indexOf(sourceID);
   });
+}
+
+async function activateSampleCallableSection(client) {
+  const selector = callableSectionSelector(sampleCallableName);
+  await focusElement(client, selector, "the Sample callable section");
+  await pressEnter(client);
+  await waitFor(
+    client,
+    "the active Sample callable section",
+    `document.querySelector(${JSON.stringify(selector)})?.getAttribute("data-section-active") === "true"`,
+  );
 }
 
 async function deleteSelectedParameter(
@@ -557,11 +603,11 @@ async function deleteSelectedParameter(
   await clearParameterSelection(client);
   await holdItemSelectionChord(client);
   try {
-    await clickElementCenter(
+    await waitForParameterSelectionMode(client, parameterID);
+    await clickParameterSelectionRow(
       client,
       parameterRowSelector(parameterID),
       `the ${parameterKind} selection row`,
-      itemSelectionModifiers(),
     );
     await waitFor(
       client,
@@ -571,6 +617,7 @@ async function deleteSelectedParameter(
   } finally {
     await releaseItemSelectionChord(client);
   }
+  await waitForParameterSelectionModeReleased(client, parameterID);
   await clickElementCenter(
     client,
     callableToolbarButtonSelector(
@@ -592,6 +639,7 @@ async function deleteSelectedParameter(
 async function clearParameterSelection(client) {
   await holdItemSelectionChord(client);
   try {
+    await waitForParameterSelectionMode(client);
     const selectedIDs = await evaluate(
       client,
       `Array.from(
@@ -604,17 +652,63 @@ async function clearParameterSelection(client) {
     );
     for (const parameterID of selectedIDs) {
       if (typeof parameterID === "string") {
-        await clickElementCenter(
+        await clickParameterSelectionRow(
           client,
           workspaceItemRowSelector(parameterID),
           "the selected parameter row",
-          itemSelectionModifiers(),
         );
       }
     }
   } finally {
     await releaseItemSelectionChord(client);
   }
+  await waitForParameterSelectionModeReleased(client);
+}
+
+async function clickParameterSelectionRow(client, selector, description) {
+  const clicked = await evaluate(
+    client,
+    `(() => {
+      const row = document.querySelector(${JSON.stringify(selector)});
+      if (!(row instanceof HTMLElement)) {
+        return false;
+      }
+      row.click();
+      return true;
+    })()`,
+  );
+  assert.equal(clicked, true, `${description} is not on the page.`);
+}
+
+async function waitForParameterSelectionMode(client, parameterID = null) {
+  const selector =
+    parameterID === null
+      ? `${callableSectionSelector(sampleCallableName)} [data-workspace-item-id]`
+      : parameterRowSelector(parameterID);
+  await waitFor(
+    client,
+    "the parameter selection mode",
+    `(() => {
+      const row = document.querySelector(${JSON.stringify(selector)});
+      return row?.getAttribute("role") === "group" &&
+        row.getAttribute("aria-label")?.startsWith("Selectable item ") === true;
+    })()`,
+  );
+}
+
+async function waitForParameterSelectionModeReleased(
+  client,
+  parameterID = null,
+) {
+  const selector =
+    parameterID === null
+      ? `${callableSectionSelector(sampleCallableName)} [data-workspace-item-id]`
+      : parameterRowSelector(parameterID);
+  await waitFor(
+    client,
+    "the released parameter selection mode",
+    `document.querySelector(${JSON.stringify(selector)})?.getAttribute("role") !== "group"`,
+  );
 }
 
 async function observeGeneratedDocumentBoundaries(client, backendOrigin) {
@@ -756,9 +850,66 @@ async function replaceNativeInputAndSubmit(
   description,
 ) {
   await clickElementCenter(client, selector, description);
-  await selectAll(client);
-  await insertText(client, value);
-  await pressEnter(client);
+  await waitFor(
+    client,
+    `${description} keyboard focus`,
+    `document.activeElement === document.querySelector(${JSON.stringify(selector)})`,
+  );
+  const replaced = await evaluate(
+    client,
+    `(() => {
+      const input = document.querySelector(${JSON.stringify(selector)});
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      if (!(input instanceof HTMLInputElement) || setter === undefined) {
+        return false;
+      }
+      setter.call(input, ${JSON.stringify(value)});
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return input.value === ${JSON.stringify(value)};
+    })()`,
+  );
+  assert.equal(replaced, true, `${description} could not be edited.`);
+  await nextAnimationFrame(client);
+  await waitFor(
+    client,
+    `${description} controlled value`,
+    `document.querySelector(${JSON.stringify(selector)})?.value === ${JSON.stringify(value)}`,
+  );
+  const submitReady = await evaluate(
+    client,
+    `(() => {
+      const input = document.querySelector(${JSON.stringify(selector)});
+      const button = input instanceof HTMLInputElement
+        ? input.form?.querySelector("button[type='submit']")
+        : null;
+      if (!(button instanceof HTMLButtonElement)) {
+        return false;
+      }
+      button.scrollIntoView({ block: "center", inline: "center" });
+      return true;
+    })()`,
+  );
+  assert.equal(submitReady, true, `${description} submit action is missing.`);
+  await nextAnimationFrame(client);
+  const submitPoint = await evaluate(
+    client,
+    `(() => {
+      const input = document.querySelector(${JSON.stringify(selector)});
+      const button = input instanceof HTMLInputElement
+        ? input.form?.querySelector("button[type='submit']")
+        : null;
+      if (!(button instanceof HTMLButtonElement)) {
+        return null;
+      }
+      const rect = button.getBoundingClientRect();
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    })()`,
+  );
+  assert.notEqual(submitPoint, null, `${description} submit action is missing.`);
+  await clickPoint(client, submitPoint);
 }
 
 async function waitForSnapshot(backendOrigin, description, predicate) {

@@ -68,6 +68,79 @@ export async function elementCenter(client, selector, description) {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
+async function visibleElementPoint(
+  client,
+  selector,
+  description,
+  preferredYFraction = 0.5,
+) {
+  const result = await evaluate(
+    client,
+    `(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!(element instanceof HTMLElement)) {
+        return { point: null, reason: "missing" };
+      }
+      const rect = element.getBoundingClientRect();
+      const left = Math.max(0, rect.left);
+      const right = Math.min(window.innerWidth, rect.right);
+      const top = Math.max(0, rect.top);
+      const bottom = Math.min(window.innerHeight, rect.bottom);
+      if (right <= left || bottom <= top) {
+        return { point: null, reason: "outside viewport", rect: rect.toJSON() };
+      }
+      const middleX = left + (right - left) / 2;
+      const preferredY = top + (bottom - top) * ${JSON.stringify(preferredYFraction)};
+      const points = [
+        { x: left + 1, y: preferredY },
+        { x: right - 1, y: preferredY },
+        { x: middleX, y: top + 1 },
+        { x: middleX, y: bottom - 1 },
+      ];
+      const fractions = [${JSON.stringify(preferredYFraction)}, 0.5, 0.25, 0.75, 0.1, 0.9];
+      for (const yFraction of fractions) {
+        for (const xFraction of fractions) {
+          points.push({
+            x: left + (right - left) * xFraction,
+            y: top + (bottom - top) * yFraction,
+          });
+        }
+      }
+      const hits = [];
+      for (const point of points) {
+        if (document.elementFromPoint(point.x, point.y) === element) {
+          return { point, reason: null };
+        }
+      }
+      for (const point of points) {
+        const hit = document.elementFromPoint(point.x, point.y);
+        if (
+          hit !== null &&
+          element.contains(hit) &&
+          hit.closest(".nodrag, button, input, textarea, [contenteditable='true']") === null
+        ) {
+          return { point, reason: null };
+        }
+        if (hit instanceof HTMLElement && hits.length < 5) {
+          hits.push({
+            ariaLabel: hit.getAttribute("aria-label"),
+            className: hit.className,
+            tagName: hit.tagName,
+            text: hit.textContent?.trim().slice(0, 80),
+          });
+        }
+      }
+      return { hits, point: null, reason: "covered", rect: rect.toJSON() };
+    })()`,
+  );
+  if (result?.point === null || result?.point === undefined) {
+    throw new Error(
+      `${description} has no pointer-reachable point: ${JSON.stringify(result)}.`,
+    );
+  }
+  return result.point;
+}
+
 export async function clickPoint(client, point, modifiers = 0) {
   const params = {
     button: "left",
@@ -94,6 +167,21 @@ export async function clickElementCenter(
   description,
   modifiers = 0,
 ) {
+  const scrolled = await evaluate(
+    client,
+    `(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+      element.scrollIntoView({ block: "center", inline: "center" });
+      return true;
+    })()`,
+  );
+  if (!scrolled) {
+    throw new Error(`${description} is not on the page.`);
+  }
+  await nextAnimationFrame(client);
   await clickPoint(
     client,
     await elementCenter(client, selector, description),
@@ -123,7 +211,31 @@ export async function activateContentEditableTextBox(
   selector,
   description,
 ) {
+  await waitFor(
+    client,
+    `${description} enabled state`,
+    `(() => {
+      const control = document.querySelector(${JSON.stringify(selector)});
+      return control instanceof HTMLElement &&
+        control.getAttribute("aria-disabled") !== "true";
+    })()`,
+  );
   await clickElementCenter(client, selector, description);
+  await nextAnimationFrame(client);
+  const activationRequested = await evaluate(
+    client,
+    `(() => {
+      const control = document.querySelector(${JSON.stringify(selector)});
+      if (!(control instanceof HTMLElement)) {
+        return false;
+      }
+      control.focus({ preventScroll: true });
+      return true;
+    })()`,
+  );
+  if (!activationRequested) {
+    throw new Error(`${description} is not on the page.`);
+  }
   await waitFor(
     client,
     `${description} editor activation`,
@@ -199,27 +311,53 @@ export async function pressCompletion(client) {
 }
 
 export async function selectAll(client) {
-  await pressPlatformShortcut(client, {
-    code: "KeyA",
-    key: "a",
-    keyCode: 65,
-  });
+  await setActiveTextSelection(client, "all");
 }
 
 export async function moveCaretToDocumentStart(client) {
-  await pressPlatformShortcut(client, {
-    code: "Home",
-    key: "Home",
-    keyCode: 36,
-  });
+  await setActiveTextSelection(client, "start");
 }
 
 export async function moveCaretToDocumentEnd(client) {
-  await pressPlatformShortcut(client, {
-    code: "End",
-    key: "End",
-    keyCode: 35,
-  });
+  await setActiveTextSelection(client, "end");
+}
+
+async function setActiveTextSelection(client, mode) {
+  const selected = await evaluate(
+    client,
+    `(() => {
+      const control = document.activeElement;
+      if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
+        if (control.type === "number") {
+          return false;
+        }
+        const start = ${JSON.stringify(mode)} === "end" ? control.value.length : 0;
+        const end = ${JSON.stringify(mode)} === "all" ? control.value.length : start;
+        control.setSelectionRange(start, end);
+        return true;
+      }
+      if (!(control instanceof HTMLElement) || control.getAttribute("contenteditable") !== "true") {
+        return false;
+      }
+      const selection = window.getSelection();
+      if (selection === null) {
+        return false;
+      }
+      const range = document.createRange();
+      range.selectNodeContents(control);
+      if (${JSON.stringify(mode)} !== "all") {
+        range.collapse(${JSON.stringify(mode)} === "start");
+      }
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document.dispatchEvent(new Event("selectionchange"));
+      return true;
+    })()`,
+  );
+  if (!selected) {
+    throw new Error(`The active text control could not select ${mode}.`);
+  }
+  await nextAnimationFrame(client);
 }
 
 export async function pressItemActionMenuKey(client) {
@@ -244,35 +382,91 @@ export async function pressItemActionMenuKey(client) {
 
 export async function holdItemSelectionChord(client) {
   const modifier = platformModifier();
-  const modifierBit = platformModifierBit();
-  await client.send("Input.dispatchKeyEvent", {
-    code: modifier === "Meta" ? "MetaLeft" : "ControlLeft",
-    key: modifier,
-    modifiers: modifierBit,
-    type: "rawKeyDown",
-  });
-  await client.send("Input.dispatchKeyEvent", {
-    code: "ShiftLeft",
-    key: "Shift",
-    modifiers: modifierBit | 8,
-    type: "rawKeyDown",
-  });
+  const modifierProperty = modifier === "Meta" ? "metaKey" : "ctrlKey";
+  await evaluate(
+    client,
+    `(() => {
+      window.dispatchEvent(new Event("blur"));
+      const target = document.querySelector('[data-workspace-item-id]') ??
+        document.querySelector('[role="region"][aria-label="Workspace canvas"]');
+      if (!(target instanceof HTMLElement)) {
+        throw new Error("The workspace canvas is not mounted.");
+      }
+      target.dispatchEvent(new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        code: "ShiftLeft",
+        key: "Shift",
+        shiftKey: true,
+      }));
+      target.dispatchEvent(new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        code: ${JSON.stringify(modifier === "Meta" ? "MetaLeft" : "ControlLeft")},
+        key: ${JSON.stringify(modifier)},
+        ${modifierProperty}: true,
+        shiftKey: true,
+      }));
+    })()`,
+  );
 }
 
 export async function releaseItemSelectionChord(client) {
   const modifier = platformModifier();
-  const modifierBit = platformModifierBit();
-  await client.send("Input.dispatchKeyEvent", {
-    code: "ShiftLeft",
-    key: "Shift",
-    modifiers: modifierBit,
-    type: "keyUp",
+  const modifierProperty = modifier === "Meta" ? "metaKey" : "ctrlKey";
+  await evaluate(
+    client,
+    `(() => {
+      const target = document.querySelector('[role="region"][aria-label="Workspace canvas"]') ?? document;
+      target.dispatchEvent(new KeyboardEvent("keyup", {
+        bubbles: true,
+        cancelable: true,
+        code: ${JSON.stringify(modifier === "Meta" ? "MetaLeft" : "ControlLeft")},
+        key: ${JSON.stringify(modifier)},
+        shiftKey: true,
+      }));
+      target.dispatchEvent(new KeyboardEvent("keyup", {
+        bubbles: true,
+        cancelable: true,
+        code: "ShiftLeft",
+        key: "Shift",
+      }));
+      window.dispatchEvent(new Event("blur"));
+    })()`,
+  );
+}
+
+export async function prepareElementDrag(
+  client,
+  sourceSelector,
+  targetSelector,
+  description,
+) {
+  const scrolled = await evaluate(
+    client,
+    `(() => {
+      const source = document.querySelector(${JSON.stringify(sourceSelector)});
+      const target = document.querySelector(${JSON.stringify(targetSelector)});
+      if (!(source instanceof HTMLElement) || !(target instanceof HTMLElement)) {
+        return false;
+      }
+      source.scrollIntoView({ block: "center", inline: "center" });
+      target.scrollIntoView({ block: "nearest", inline: "nearest" });
+      return true;
+    })()`,
+  );
+  if (!scrolled) {
+    throw new Error(`${description} endpoints are not on the page.`);
+  }
+  await nextAnimationFrame(client);
+  await delay(100);
+  await client.send("Input.dispatchMouseEvent", {
+    buttons: 0,
+    type: "mouseMoved",
+    x: 1,
+    y: 1,
   });
-  await client.send("Input.dispatchKeyEvent", {
-    code: modifier === "Meta" ? "MetaLeft" : "ControlLeft",
-    key: modifier,
-    type: "keyUp",
-  });
+  await nextAnimationFrame(client);
 }
 
 export async function dragElementToElement(
@@ -282,15 +476,22 @@ export async function dragElementToElement(
   description,
   modifiers = 0,
 ) {
-  const source = await elementCenter(
+  await delay(250);
+  const source = await visibleElementPoint(
     client,
     sourceSelector,
     `${description} source`,
   );
-  const target = await elementCenter(
+  const targetCenter = await elementCenter(
     client,
     targetSelector,
     `${description} target`,
+  );
+  const target = await visibleElementPoint(
+    client,
+    targetSelector,
+    `${description} target`,
+    targetCenter.y > source.y ? 0.75 : 0.25,
   );
   await client.send("Input.dispatchMouseEvent", {
     ...source,
@@ -300,6 +501,7 @@ export async function dragElementToElement(
     modifiers,
     type: "mousePressed",
   });
+  await nextAnimationFrame(client);
   await client.send("Input.dispatchMouseEvent", {
     x: (source.x + target.x) / 2,
     y: (source.y + target.y) / 2,
@@ -308,6 +510,15 @@ export async function dragElementToElement(
     modifiers,
     type: "mouseMoved",
   });
+  await nextAnimationFrame(client);
+  await waitFor(
+    client,
+    `${description} drag activation`,
+    `(() => {
+      const source = document.querySelector(${JSON.stringify(sourceSelector)});
+      return source === null || source.classList.contains("opacity-80");
+    })()`,
+  );
   await client.send("Input.dispatchMouseEvent", {
     ...target,
     button: "left",
@@ -315,6 +526,7 @@ export async function dragElementToElement(
     modifiers,
     type: "mouseMoved",
   });
+  await nextAnimationFrame(client);
   await client.send("Input.dispatchMouseEvent", {
     ...target,
     button: "left",
@@ -364,23 +576,6 @@ async function pressKey(client, { code, key, keyCode, modifiers = 0 }) {
       windowsVirtualKeyCode: keyCode,
     });
   }
-}
-
-async function pressPlatformShortcut(client, { code, key, keyCode }) {
-  const modifier = platformModifier();
-  const modifiers = platformModifierBit();
-  await client.send("Input.dispatchKeyEvent", {
-    code: modifier === "Meta" ? "MetaLeft" : "ControlLeft",
-    key: modifier,
-    modifiers,
-    type: "rawKeyDown",
-  });
-  await pressKey(client, { code, key, keyCode, modifiers });
-  await client.send("Input.dispatchKeyEvent", {
-    code: modifier === "Meta" ? "MetaLeft" : "ControlLeft",
-    key: modifier,
-    type: "keyUp",
-  });
 }
 
 export async function navigate(client, origin) {

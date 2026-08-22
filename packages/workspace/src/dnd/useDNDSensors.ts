@@ -4,11 +4,11 @@ import {
   PointerSensor,
 } from "@dnd-kit/dom";
 import { useMemo } from "react";
-import { useWorkspaceCapabilities } from "../document/capabilities";
 import {
-  getItemSelectionModeStore,
-  useItemSelectionMode,
-} from "../document/itemSelectionMode";
+  getWorkspaceCapabilitiesStore,
+  useWorkspaceCapabilities,
+} from "../document/capabilities";
+import { getItemSelectionModeStore } from "../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME } from "../interaction";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import type { WorkspaceHost } from "../workspaceHost";
@@ -115,19 +115,20 @@ function preventItemActivation(
   if (getDragType(source) !== "item") {
     return true;
   }
-  return !getItemSelectionModeStore(host).getState().isSelectingItems;
+  return (
+    !getWorkspaceCapabilitiesStore(host).getState().canEditStructure ||
+    !getItemSelectionModeStore(host).getState().isSelectingItems
+  );
 }
 
 export function useItemDndSensors() {
   const host = useWorkspaceHost();
-  const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
-  const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
   return useMemo(() => {
-    if (!canEditStructure || !isSelectingItems) {
-      return [];
-    }
-
     // Only activate for item drags so the nested provider doesn't capture sections.
+    // Keep these sensors registered for the provider's lifetime: dnd-kit binds a
+    // manager's sensors when each draggable registers, so swapping an empty sensor
+    // set after item-select mode activates cannot make existing rows draggable.
+    // The activation guard reads both live gates at pointer or keyboard time.
     const pointerSensor = PointerSensor.configure({
       activationConstraints: (_event: Event, source: DndSource) => {
         if (getDragType(source) !== "item") {
@@ -150,5 +151,5 @@ export function useItemDndSensors() {
     });
 
     return [pointerSensor, keyboardSensor];
-  }, [canEditStructure, host, isSelectingItems]);
+  }, [host]);
 }

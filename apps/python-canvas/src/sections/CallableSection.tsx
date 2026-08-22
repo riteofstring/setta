@@ -11,6 +11,7 @@ import {
   type ProviderLifecycleStateV2,
 } from "../backend/generatedContract";
 import {
+  ItemDndContext,
   ItemNameEditor,
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
@@ -314,20 +315,22 @@ export function CallableSection({
         className="python-canvas-callable-parameter-authoring"
         inert={parameterAuthoringPending || undefined}
       >
-        <WorkspaceItemList
-          itemDiagnostics={itemDiagnostics}
-          listKey={`${PARAMETER_LIST_KEY}:${data.callable.id}`}
-          renderItem={(context) => (
-            <ParameterItemRow
-              callableId={data.callable.id}
-              context={context}
-              disabled={parameterAuthoringPending}
-              nameError={nameErrors[context.item.id] ?? ""}
-            />
-          )}
-          sectionId={sectionId}
-          topLevelItemIds={parameters.map((parameter) => parameter.id)}
-        />
+        <ItemDndContext>
+          <WorkspaceItemList
+            itemDiagnostics={itemDiagnostics}
+            listKey={`${PARAMETER_LIST_KEY}:${data.callable.id}`}
+            renderItem={(context) => (
+              <ParameterItemRow
+                callableId={data.callable.id}
+                context={context}
+                disabled={parameterAuthoringPending}
+                nameError={nameErrors[context.item.id] ?? ""}
+              />
+            )}
+            sectionId={sectionId}
+            topLevelItemIds={parameters.map((parameter) => parameter.id)}
+          />
+        </ItemDndContext>
       </div>
     </div>
   );

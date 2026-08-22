@@ -59,6 +59,7 @@ vi.mock("../backend/client", () => ({
 
 vi.mock("@setta/workspace", () => ({
   WORKSPACE_CODE_SECTION_KIND: "setta.code",
+  ItemDndContext: ({ children }: { children?: ReactNode }) => <>{children}</>,
   ItemNameEditor: () => <input aria-label="Parameter name" readOnly />,
   NO_DRAG_CLASS_NAME: "nodrag",
   NO_PAN_CLASS_NAME: "nopan",

@@ -14,6 +14,7 @@ const parameterRows = vi.hoisted(
 );
 
 vi.mock("@setta/workspace", () => ({
+  ItemDndContext: ({ children }: { children?: ReactNode }) => <>{children}</>,
   ItemNameEditor: ({
     disabled,
     name,
