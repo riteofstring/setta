@@ -28,6 +28,9 @@ import {
 const authoredPrefixLine = "import os";
 const authoredSuffixLine = "print(state.Square_Root)";
 const targetlessPrefixName = "undefined_prefix_name";
+const targetlessPrefixShift = " # newer authored prefix";
+const targetMutationPendingMessage =
+  "Checking the generated Python with Basedpyright.";
 
 // The generated document is main's generated Python area: ordinary editable text around one
 // declared range that refuses every edit touching it. These proofs drive real keys and a real
@@ -66,33 +69,13 @@ export async function assertTargetlessDocumentDiagnostic(
   generatedLabel,
 ) {
   const before = await fetchCanonicalSnapshot(backendOrigin);
-  await focusGeneratedDocument(client, generatedLabel);
-  await moveCaretToPrefixEnd(client);
-  await insertText(client, `\n${targetlessPrefixName}`);
-
-  const diagnosed = await waitForTargetlessDiagnostic(
-    backendOrigin,
-    "the authored prefix diagnostic",
-    (snapshot) =>
-      snapshot.pythonTarget?.prefix.endsWith(`\n${targetlessPrefixName}`),
-    true,
-  );
-  const diagnostic = diagnosed.diagnostics.find(
-    (candidate) => candidate.targetId === null,
-  );
-  if (diagnostic === undefined) {
-    throw new Error("The authored prefix produced no targetless diagnostic.");
-  }
-  const diagnosticText = new TextDecoder().decode(
-    new TextEncoder()
-      .encode(diagnosed.generatedCode.code)
-      .slice(diagnostic.start, diagnostic.end),
-  );
-  if (diagnosticText !== targetlessPrefixName) {
-    throw new Error(
-      `The targetless diagnostic covered ${JSON.stringify(diagnosticText)} instead of ${JSON.stringify(targetlessPrefixName)}.`,
+  const { diagnostic, prefixWithoutDiagnostic } =
+    await assertStaleTargetlessResponseClears(
+      client,
+      backendOrigin,
+      generatedLabel,
+      before,
     );
-  }
 
   const paintedRange = await waitFor(
     client,
@@ -116,7 +99,7 @@ export async function assertTargetlessDocumentDiagnostic(
   const cleared = await waitForTargetlessDiagnostic(
     backendOrigin,
     "the corrected authored prefix",
-    (snapshot) => snapshot.pythonTarget?.prefix === before.pythonTarget.prefix,
+    (snapshot) => snapshot.pythonTarget?.prefix === prefixWithoutDiagnostic,
   );
   // A later, independent document diagnostic would not make this corrected prefix stale. The
   // exact provider message that annotated the removed name must disappear; the next assertion
@@ -136,6 +119,213 @@ export async function assertTargetlessDocumentDiagnostic(
     "the cleared targetless diagnostic message",
     `!(${visibleDiagnosticMessageScript(generatedLabel, diagnostic.message)})`,
   );
+}
+
+// A response for the first invalid line is deliberately held in flight while the person adds text
+// before it. The older canonical response still arrives, but its byte offsets now point into a
+// different location in the newer document and therefore must not paint it. Waiting for the app's
+// own pending message before editing and requiring it to remain pending immediately afterwards
+// proves the newer text existed before that response was applied.
+async function assertStaleTargetlessResponseClears(
+  client,
+  backendOrigin,
+  generatedLabel,
+  before,
+) {
+  const stalePrefix = `${before.pythonTarget.prefix}\n${targetlessPrefixName}`;
+  const prefixWithoutDiagnostic = `${before.pythonTarget.prefix}${targetlessPrefixShift}`;
+  const newerPrefix = `${prefixWithoutDiagnostic}\n${targetlessPrefixName}`;
+
+  await focusGeneratedDocument(client, generatedLabel);
+  await moveCaretToPrefixEnd(client);
+  await insertText(client, `\n${targetlessPrefixName}`);
+  await waitFor(
+    client,
+    "the first authored-prefix diagnostic request to be in flight",
+    targetMutationPendingScript(generatedLabel, targetlessPrefixName),
+  );
+
+  await moveCaretToPrefixEnd(client);
+  await insertText(client, targetlessPrefixShift);
+  const newerTextWasAuthoredWhilePending = await evaluate(
+    client,
+    targetMutationPendingScript(
+      generatedLabel,
+      `${before.pythonTarget.prefix}${targetlessPrefixShift}`,
+    ),
+  );
+  if (!newerTextWasAuthoredWhilePending) {
+    throw new Error(
+      "The newer authored prefix did not remain local while the older diagnostic response was in flight.",
+    );
+  }
+
+  const staleResponse = await waitForTargetlessDiagnostic(
+    backendOrigin,
+    "the older authored-prefix diagnostic response",
+    (snapshot) => snapshot.pythonTarget?.prefix === stalePrefix,
+    true,
+  );
+  const staleDiagnostic = targetlessDiagnosticForText(
+    staleResponse,
+    targetlessPrefixName,
+    "The older authored prefix",
+  );
+
+  await waitFor(
+    client,
+    "the newer prefix after the stale diagnostic response",
+    staleDocumentDiagnosticClearedScript(
+      generatedLabel,
+      `${before.pythonTarget.prefix}${targetlessPrefixShift}`,
+      staleDiagnostic.message,
+    ),
+  );
+
+  const diagnosed = await waitForTargetlessDiagnostic(
+    backendOrigin,
+    "the shifted authored-prefix diagnostic",
+    (snapshot) => snapshot.pythonTarget?.prefix === newerPrefix,
+    true,
+  );
+  return {
+    diagnostic: targetlessDiagnosticForText(
+      diagnosed,
+      targetlessPrefixName,
+      "The shifted authored prefix",
+    ),
+    prefixWithoutDiagnostic,
+  };
+}
+
+function targetlessDiagnosticForText(snapshot, text, description) {
+  const diagnostics = snapshot.diagnostics.filter((candidate) => {
+    if (candidate.targetId !== null) {
+      return false;
+    }
+    const diagnosticText = new TextDecoder().decode(
+      new TextEncoder()
+        .encode(snapshot.generatedCode.code)
+        .slice(candidate.start, candidate.end),
+    );
+    return diagnosticText === text;
+  });
+  if (diagnostics.length !== 1) {
+    throw new Error(
+      `${description} did not produce exactly one targetless diagnostic on ${JSON.stringify(text)}: ${JSON.stringify(snapshot.diagnostics)}.`,
+    );
+  }
+  return diagnostics[0];
+}
+
+// The generated body has its own blue protected-region paint, so a mapped parameter diagnostic
+// must be checked below that line-level layer. CodeMirror wraps an inline lint range in a local
+// painted or underlined element; the protected line itself is intentionally ignored here.
+export function mappedDiagnosticHasNoInlineLintScript(generatedLabel, text) {
+  return `(() => {
+    const editor = document.querySelector(${JSON.stringify(`${labeledSelector(generatedLabel)} [role="textbox"]`)});
+    if (!(editor instanceof HTMLElement)) {
+      return false;
+    }
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+      const start = node.textContent?.indexOf(${JSON.stringify(text)}) ?? -1;
+      if (start < 0) {
+        continue;
+      }
+      const generatedLine = node.parentElement?.closest('[data-workspace-generated-line]');
+      if (!(generatedLine instanceof HTMLElement)) {
+        return false;
+      }
+      for (
+        let element = node.parentElement;
+        element instanceof HTMLElement && element !== generatedLine;
+        element = element.parentElement
+      ) {
+        const style = window.getComputedStyle(element);
+        if (
+          style.backgroundImage !== "none" ||
+          style.textDecorationLine.includes("underline")
+        ) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return false;
+  })()`;
+}
+
+function targetMutationPendingScript(generatedLabel, text) {
+  return `(() => {
+    const editor = document.querySelector(${JSON.stringify(`${labeledSelector(generatedLabel)} [role="textbox"]`)});
+    const requestIsPending = Array.from(document.querySelectorAll('[role="status"]')).some(
+      (status) => status.textContent?.trim() === ${JSON.stringify(targetMutationPendingMessage)},
+    );
+    return editor instanceof HTMLElement &&
+      editor.textContent?.includes(${JSON.stringify(text)}) === true &&
+      requestIsPending;
+  })()`;
+}
+
+function staleDocumentDiagnosticClearedScript(
+  generatedLabel,
+  newerText,
+  message,
+) {
+  return `(() => {
+    const editor = document.querySelector(${JSON.stringify(`${labeledSelector(generatedLabel)} [role="textbox"]`)});
+    const responseWasApplied = Array.from(document.querySelectorAll('[role="status"]')).some(
+      (status) => status.textContent?.trim() === "Project loaded.",
+    );
+    return editor instanceof HTMLElement &&
+      editor.textContent?.includes(${JSON.stringify(newerText)}) === true &&
+      responseWasApplied &&
+      ${authoredPrefixHasNoDiagnosticInkScript(generatedLabel)} &&
+      !(${visibleDiagnosticMessageScript(generatedLabel, message)});
+  })()`;
+}
+
+// The generated region has its own expected blue paint. The authored prefix does not, so checking
+// every rendered prefix text node catches a stale lint range even if its old byte offsets shifted
+// the underline into the newly inserted comment rather than onto the old identifier.
+function authoredPrefixHasNoDiagnosticInkScript(generatedLabel) {
+  return `(() => {
+    const editor = document.querySelector(${JSON.stringify(`${labeledSelector(generatedLabel)} [role="textbox"]`)});
+    if (!(editor instanceof HTMLElement)) {
+      return false;
+    }
+    const firstGeneratedLine = editor.querySelector('[data-workspace-generated-line]');
+    if (!(firstGeneratedLine instanceof HTMLElement)) {
+      return false;
+    }
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    let inspectedPrefixText = false;
+    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+      const parent = node.parentElement;
+      if (
+        !(parent instanceof HTMLElement) ||
+        (parent.compareDocumentPosition(firstGeneratedLine) & Node.DOCUMENT_POSITION_FOLLOWING) === 0
+      ) {
+        continue;
+      }
+      inspectedPrefixText = true;
+      for (
+        let element = parent;
+        element instanceof HTMLElement && element !== editor;
+        element = element.parentElement
+      ) {
+        const style = window.getComputedStyle(element);
+        if (
+          style.backgroundImage !== "none" ||
+          style.textDecorationLine.includes("underline")
+        ) {
+          return false;
+        }
+      }
+    }
+    return inspectedPrefixText;
+  })()`;
 }
 
 // A pointer press inside the generated block is how a person reaches this editor, and it must

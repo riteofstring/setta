@@ -294,6 +294,24 @@ build, and Canvas TypeScript/Vite build passed. The locked `code-policy test --c
 9dbdf9dffd09d74ddbda856ddea03c9ea957441b` then passed its workspace, playground, backend, and
 Python Canvas focused suites.
 
+Implementation record — browser acceptance audit correction: the raw first-render walkthrough now
+waits for the committed Basedpyright provider to be `available` and `ready`, then proves the empty
+required provider-derived `x` has one mapped error with the package row marker and accessible
+provider message while the callable field remains unmarked. The mapped `missing_value` path now
+also rejects a range-local Generated Python lint decoration below the expected protected-region
+paint. For targetless diagnostics, the walkthrough starts an invalid prefix request, waits until it
+is in flight, inserts a comment before that diagnostic's byte range while the request remains
+pending, observes the older canonical response, and proves no authored-prefix lint or stale message
+is painted before the newer canonical response correctly underlines and explains the shifted
+identifier. It then removes that authored identifier and requires the exact provider message to
+clear. The first-render helper is now a focused browser module so the walkthrough stays within the
+repository size and complexity limits. Code Policy formatting, browser-script syntax checks, and
+`code-policy test --changed --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b` passed (workspace,
+playground, backend, and Python Canvas focused suites). The authorized recommended ordinary run was
+also run: its other eight suites passed, but its production browser suite remains unable to bind
+`127.0.0.1` in Agent 1's sandbox (`EPERM`), before the application can start; the direct production
+walkthrough reports the same environment limitation.
+
 Environment evidence not yet sufficient for phase closeout: the supervisor completed
 `code-policy dependency-review --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
 against the no-script candidate lockfile with no vulnerabilities. The required local production

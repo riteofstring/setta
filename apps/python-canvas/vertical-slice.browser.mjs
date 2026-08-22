@@ -1,13 +1,19 @@
 import {
   assertAuthoredPythonAroundTheGeneratedBody,
   assertTargetlessDocumentDiagnostic,
+  mappedDiagnosticHasNoInlineLintScript,
 } from "./browser-generated-python.mjs";
+import {
+  assertRawFirstRender,
+  shippedExample,
+} from "./browser-first-render.mjs";
 import { assertCallableDiagnosticPresentation } from "./browser-diagnostics.mjs";
 import {
   assertAuthoredParameterAuthoring,
   assertStructuralParameterControls,
   firstStructuralControlName,
 } from "./browser-parameters.mjs";
+
 import {
   fetchCanonicalSnapshot,
   runAgainstProductionApp,
@@ -101,22 +107,11 @@ function withFilterControls(body) {
   })()`;
 }
 
-// The analyzer vocabulary main's ordinary parameter row never shows. The rejected candidate printed
-// the passing style and Basedpyright's own type spelling under the parameter name.
-const analyzerRowSpellings = ["positional", "keyword only", "_SupportsFloat"];
-
 // The chord this platform's reader sees for the built-in item-filter binding, and the keys that
 // produce it. The package resolves the label from its own binding registry; this walkthrough runs
 // on Linux and macOS CI alike, so it asks the platform the same question the package does.
 const filterChord = process.platform === "darwin" ? "⌘ + K" : "Ctrl + K";
 
-// What the Go service has already committed by the time it answers its first request: the shipped
-// callable, its one provider-derived parameter, and the call they generate.
-const shippedExample = {
-  callable: "math.sqrt",
-  generatesItsCall: true,
-  parameterNames: ["x"],
-};
 // The accessible completion the shipped expression's own text still offers, which is what makes an
 // open popup available to the commit Enter that has to win over it.
 const shippedCompletionLabel = "sqrt";
@@ -128,133 +123,6 @@ const otherCallable = {
   completion: "floor",
   draft: "math.fl",
 };
-
-// What the raw first render shows, read through accessible names and this app's own label class.
-// A value editor's idle layer renders its placeholder inside the same accessible text box, so the
-// text these reads return is exactly what a person sees — whether it came from the project or from
-// invented sample copy.
-function renderedSectionValuesScript(callableLabel, parameterLabel) {
-  return `(() => {
-    const section = document.querySelector(${JSON.stringify(callableSectionSelector)});
-    const callable = document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
-    const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
-    const label = document.querySelector(${JSON.stringify(firstParameterSelector)});
-    const generated = document
-      .querySelector(${JSON.stringify(generatedDocumentSelector)})
-      ?.querySelector('[role="textbox"]');
-    if (
-      !(section instanceof HTMLElement) ||
-      !(callable instanceof HTMLElement) ||
-      !(parameter instanceof HTMLElement) ||
-      !(label instanceof HTMLElement) ||
-      !(generated instanceof HTMLElement)
-    ) {
-      return null;
-    }
-    // The initial missing-required-argument diagnostic is correct feedback, and Basedpyright is
-    // free to use analyzer vocabulary such as "positional" in its complete message. Keep the
-    // item's live announcement and its screen-reader description out of the independent check for
-    // metadata that the visible parameter row itself must not render.
-    const sectionWithoutDiagnosticAccessibility = section.cloneNode(true);
-    if (!(sectionWithoutDiagnosticAccessibility instanceof HTMLElement)) {
-      return null;
-    }
-    for (const diagnosticAccessibility of sectionWithoutDiagnosticAccessibility.querySelectorAll(
-      '[data-setta-workspace-item-diagnostic-announcer="true"], [data-setta-workspace-item-quick-info-description="true"]',
-    )) {
-      diagnosticAccessibility.remove();
-    }
-    return {
-      callableValue: callable.textContent ?? "",
-      generatedSource: generated.textContent ?? "",
-      parameterLabel: label.textContent ?? "",
-      parameterValue: parameter.textContent ?? "",
-      sectionText: sectionWithoutDiagnosticAccessibility.textContent ?? "",
-    };
-  })()`;
-}
-
-// The developer exercised the application from a raw launch instead of the capture harness's
-// prepared state and found that the harness had certified an experience no first render produces:
-// the backend booted an empty callable and the field painted `math.sqrt` as placeholder copy. This
-// runs before the walkthrough mutates anything, and it compares the rendered surface against the
-// canonical response rather than against a remembered string, so a placeholder standing in for a
-// value fails it.
-async function assertRawFirstRender(client, backendOrigin, callableLabel) {
-  const canonical = await fetchCanonicalSnapshot(backendOrigin);
-  const parameter = assertShippedExampleIsAlreadyCommitted(canonical);
-  const rendered = await waitFor(
-    client,
-    "the shipped example's committed callable and parameter on the first render",
-    renderedSectionValuesScript(callableLabel, `${parameter.name} expression`),
-  );
-  assertRenderedSectionIsCanonical(rendered, canonical, parameter);
-}
-
-// The Go service commits the demo through its own store before it answers a request, so the very
-// first response is already canonical rather than an empty callable a test has to fill in.
-function assertShippedExampleIsAlreadyCommitted(canonical) {
-  const committed = {
-    callable: canonical.callables?.[0]?.authoredExpression ?? null,
-    generatesItsCall:
-      canonical.generatedCode?.code?.includes(
-        "state.Square_Root = math.sqrt()",
-      ) === true,
-    parameterNames: (canonical.parameters ?? []).map(
-      (parameter) => parameter.name,
-    ),
-  };
-  assertCanonicalValue(
-    shippedExample,
-    committed,
-    `The first canonical response committed ${JSON.stringify(committed)} instead of the shipped example's ${JSON.stringify(shippedExample)}.`,
-  );
-  return canonical.parameters[0];
-}
-
-// Everything the section shows is the canonical project's own text. `math.sqrt` has no default, so
-// its parameter's canonical expression is empty and the row must render an empty value rather than
-// an invented `Python expression` placeholder.
-function assertRenderedSectionIsCanonical(rendered, canonical, parameter) {
-  assertRenderedValueIsCanonical(
-    "callable field",
-    rendered.callableValue,
-    canonical.callables[0].authoredExpression,
-  );
-  assertRenderedValueIsCanonical(
-    `${parameter.name} value editor`,
-    rendered.parameterValue,
-    parameter.authoredExpression,
-  );
-  assertRenderedValueIsCanonical(
-    "generated Python reader",
-    rendered.generatedSource,
-    // The reader lays each line out as its own block, so its text carries the canonical lines in
-    // order without the newlines between them.
-    canonical.generatedCode.code.split("\n").join(""),
-  );
-  if (rendered.parameterLabel !== parameter.name) {
-    throw new Error(
-      `The parameter row labelled itself ${JSON.stringify(rendered.parameterLabel)} instead of the canonical name ${JSON.stringify(parameter.name)}.`,
-    );
-  }
-  const spelled = analyzerRowSpellings.filter((spelling) =>
-    rendered.sectionText.includes(spelling),
-  );
-  if (spelled.length > 0) {
-    throw new Error(
-      `The Square Root section exposed raw analyzer metadata: ${spelled.join(", ")}.`,
-    );
-  }
-}
-
-function assertRenderedValueIsCanonical(control, rendered, canonical) {
-  if (rendered !== canonical) {
-    throw new Error(
-      `The ${control} rendered ${JSON.stringify(rendered)} on the first render while the canonical project holds ${JSON.stringify(canonical)}.`,
-    );
-  }
-}
 
 function toolbarButtonNamesScript(toolbarExpression) {
   return `Array.from(${toolbarExpression}.querySelectorAll("button"), (button) =>
@@ -810,7 +678,8 @@ async function runWalkthrough(client, backendOrigin, previewOrigin) {
         row?.dataset.settaWorkspaceItemDiagnosticSeverity === "error" &&
         marker instanceof HTMLElement &&
         description?.textContent?.includes("missing_value") === true &&
-        announcement?.textContent?.includes("missing_value") === true;
+        announcement?.textContent?.includes("missing_value") === true &&
+        ${mappedDiagnosticHasNoInlineLintScript(generatedLabel, "missing_value")};
     })()`,
   );
 
