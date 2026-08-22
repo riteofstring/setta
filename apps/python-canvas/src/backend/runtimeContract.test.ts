@@ -134,41 +134,9 @@ describe("parseProjectSnapshotV1", () => {
             id: "diagnostic:missing-target",
             severity: "error",
             message: "Missing target.",
-            start: 0,
-            end: 0,
             targetId: "callable:missing",
           },
         ],
-      }),
-    ).toThrow(ProjectSnapshotValidationError);
-  });
-
-  it("accepts targetless document diagnostics and enforces UTF-8 byte boundaries", () => {
-    const documentDiagnostic = {
-      id: "diagnostic:document",
-      severity: "error",
-      message: "Undefined name.",
-      start: 0,
-      end: 2,
-      targetId: null,
-    };
-    const snapshot = {
-      ...projectSnapshotFixture,
-      generatedCode: {
-        body: "",
-        code: "π",
-        sourceRanges: [],
-      },
-      diagnostics: [documentDiagnostic],
-    };
-
-    expect(parseProjectSnapshotV1(snapshot).diagnostics).toEqual([
-      documentDiagnostic,
-    ]);
-    expect(() =>
-      parseProjectSnapshotV1({
-        ...snapshot,
-        diagnostics: [{ ...documentDiagnostic, start: 1 }],
       }),
     ).toThrow(ProjectSnapshotValidationError);
   });

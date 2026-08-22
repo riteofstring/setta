@@ -14,7 +14,6 @@ import {
   type WorkspaceSectionEditorChange,
   type WorkspaceSectionEditorPresentation,
 } from "./sectionEditorExtensions";
-import type { WorkspaceCodeSectionDiagnostic } from "./codeSectionData";
 import { useSectionEditorHeight } from "./useSectionEditorHeight";
 
 // The section-scale editor both built-in content sections mount: the reference's `CoreCodeArea`
@@ -50,7 +49,6 @@ type WorkspaceSectionEditorProps = {
   wrapLines: boolean;
   lineNumbers: boolean;
   indentWidth: number;
-  diagnostics: ReadonlyArray<WorkspaceCodeSectionDiagnostic>;
   presentation: WorkspaceSectionEditorPresentation;
   // Reads the live section rather than this render's data, so its identity never changes and
   // CodeMirror is never reconfigured mid-keystroke.
@@ -65,7 +63,6 @@ export function WorkspaceSectionEditor({
   wrapLines,
   lineNumbers,
   indentWidth,
-  diagnostics,
   presentation,
   onChange,
 }: WorkspaceSectionEditorProps) {
@@ -96,11 +93,10 @@ export function WorkspaceSectionEditor({
         language,
         wrapLines,
         indentWidth,
-        diagnostics,
         presentation,
         onEscape,
       }),
-    [diagnostics, indentWidth, language, onEscape, presentation, wrapLines],
+    [indentWidth, language, onEscape, presentation, wrapLines],
   );
   const basicSetup = useMemo(
     () => getSectionEditorBasicSetup({ lineNumbers, presentation }),

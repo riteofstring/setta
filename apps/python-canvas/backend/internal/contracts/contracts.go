@@ -4,7 +4,6 @@ package contracts
 import (
 	"fmt"
 	"strings"
-	"unicode/utf8"
 )
 
 const (
@@ -93,9 +92,7 @@ type DiagnosticV1 struct {
 	ID       string               `json:"id"`
 	Severity DiagnosticSeverityV1 `json:"severity"`
 	Message  string               `json:"message"`
-	Start    int                  `json:"start"`
-	End      int                  `json:"end"`
-	TargetID *string              `json:"targetId"`
+	TargetID string               `json:"targetId"`
 }
 
 type ProviderV1 string
@@ -357,7 +354,7 @@ func (snapshot ProjectSnapshotV1) validateDocumentContents() error {
 	if err := validateSourceRanges(snapshot.GeneratedCode.SourceRanges, len(snapshot.GeneratedCode.Code), targetIDs); err != nil {
 		return err
 	}
-	return validateDiagnostics(snapshot.Diagnostics, snapshot.GeneratedCode.Code, targetIDs)
+	return validateDiagnostics(snapshot.Diagnostics, targetIDs)
 }
 
 func validateParameters(parameters []ParameterV1, targetIDs map[string]struct{}, parameterIDs map[string]struct{}) error {
@@ -434,7 +431,7 @@ func validateSourceRanges(ranges []GeneratedSourceRangeV1, codeLength int, targe
 	return nil
 }
 
-func validateDiagnostics(diagnostics []DiagnosticV1, code string, targetIDs map[string]struct{}) error {
+func validateDiagnostics(diagnostics []DiagnosticV1, targetIDs map[string]struct{}) error {
 	diagnosticIDs := make(map[string]struct{}, len(diagnostics))
 	for index, diagnostic := range diagnostics {
 		field := fmt.Sprintf("diagnostics[%d]", index)
@@ -450,40 +447,12 @@ func validateDiagnostics(diagnostics []DiagnosticV1, code string, targetIDs map[
 		if strings.TrimSpace(diagnostic.Message) == "" {
 			return ValidationError{Field: field + ".message", Problem: "must not be empty"}
 		}
-		if err := validateDiagnosticRange(field, diagnostic, code); err != nil {
-			return err
-		}
-		if diagnostic.TargetID != nil {
-			if _, exists := targetIDs[*diagnostic.TargetID]; !exists {
-				return ValidationError{Field: field + ".targetId", Problem: "must reference a stable target ID"}
-			}
+		if _, exists := targetIDs[diagnostic.TargetID]; !exists {
+			return ValidationError{Field: field + ".targetId", Problem: "must reference a stable target ID"}
 		}
 		diagnosticIDs[diagnostic.ID] = struct{}{}
 	}
 	return nil
-}
-
-func validateDiagnosticRange(field string, diagnostic DiagnosticV1, code string) error {
-	if diagnostic.Start < 0 {
-		return ValidationError{Field: field + ".start", Problem: "must not be negative"}
-	}
-	if diagnostic.End < diagnostic.Start {
-		return ValidationError{Field: field + ".end", Problem: "must not precede start"}
-	}
-	if diagnostic.End > len(code) {
-		return ValidationError{Field: field + ".end", Problem: "must not exceed generated code length"}
-	}
-	if !isUTF8ByteBoundary(code, diagnostic.Start) {
-		return ValidationError{Field: field + ".start", Problem: "must be on a UTF-8 byte boundary"}
-	}
-	if !isUTF8ByteBoundary(code, diagnostic.End) {
-		return ValidationError{Field: field + ".end", Problem: "must be on a UTF-8 byte boundary"}
-	}
-	return nil
-}
-
-func isUTF8ByteBoundary(value string, offset int) bool {
-	return offset == 0 || offset == len(value) || utf8.RuneStart(value[offset])
 }
 
 func requireStableID(field, value string) error {

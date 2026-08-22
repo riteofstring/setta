@@ -375,7 +375,6 @@ func normalizeDiagnostics(code string, diagnostics []Diagnostic) []project.Provi
 			End:      end,
 			Severity: severity,
 			Message:  diagnostic.Message,
-			Code:     diagnostic.Code,
 		})
 	}
 	return normalized
