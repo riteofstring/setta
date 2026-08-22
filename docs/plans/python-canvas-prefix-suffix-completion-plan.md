@@ -244,7 +244,7 @@ removed from the deferred line. Do not convert the remaining deferred list into 
 
 ### Phase 1 — prefix/suffix completion parity
 
-- [x] Repository implementation, focused proof, and clean coherent commits are ready for
+- [ ] Repository implementation, focused proof, and clean coherent commits are ready for
       supervisor verification and immutable review
 
 Implementation record (2026-08-20): the single-cutover implementation is present, and no
@@ -339,6 +339,17 @@ same authoritative surface used to configure every production browser check and 
 focused production browser walkthrough passed, and `code-policy test --changed --base
 9c3ee63dd8220a5e44e58d6b2d8305f8b7c80b5d` passed its four selected focused suites (workspace,
 playground, Python Canvas backend, and Python Canvas frontend).
+
+Final visibility correction (2026-08-20): immutable review found that an in-viewport DOM rectangle
+and a nonempty page capture do not by themselves prove that the popup is painted above the canvas
+rather than clipped or covered. In the existing prefix and suffix popup checks, add one bounded
+browser-native visibility proof: require visible computed style and require the popup or one of its
+descendants to win `elementFromPoint` hit testing at the popup center and inset corners. Keep the
+existing parentage, original-resolution bounds, and nonempty-capture assertions. Derive the sample
+points from the live popup rectangle; do not add screenshot diffing, a visual framework, product
+hooks, timing changes, or broader completion cases. Run the focused production walkthrough and
+changed-scope verification, check the phase marker, commit the repair, and leave the worktree clean
+for fresh frozen acceptance and immutable review.
 
 Do not revisit backend completion behavior, completion edge cases, parameter/reference work, or
 general editor architecture in this correction.
