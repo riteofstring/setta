@@ -1,0 +1,237 @@
+# Python Canvas Type-Error Parity Plan
+
+## Status and purpose
+
+**Status: Approved for implementation.**
+
+Complete the narrow type-error workflow in Python Canvas. Basedpyright already runs in the Go
+backend, diagnostics already travel in the canonical project snapshot, and parameter-expression
+errors already reach workspace item rows. This plan closes the visible gaps without expanding the
+first vertical slice into a general semantic-editor platform.
+
+Current main at `043d3b2e9c69caf99d1246f1408b3ad7194b7864` is the behavior and visual
+reference. The required donor sources are:
+
+- `internal/codegen/python_diagnostics.go` and its tests for semantic diagnostic classification;
+- `frontend/src/state/actions/typeCheck.ts` and `lspDiagnostics.ts` for replacement and clearing;
+- `frontend/src/components/Section/SectionParts/Search.tsx` for callable-field error treatment;
+- `frontend/src/components/Params/ParamSwitch.tsx` and `ParamContainer.tsx` for parameter errors;
+- `frontend/src/components/Utils/CodeMirror/lspDiagnostics.ts` and the generated-Python branch of
+  `CodeArea.tsx` for unmatched document diagnostics.
+
+Use those checked-in contracts, not remembered behavior and not the rejected early Python Canvas
+UI. Main is a donor rather than a module to import.
+
+## Fixed scope
+
+This plan implements exactly these outcomes:
+
+1. A missing required provider-derived argument is shown on that parameter row. The initial
+   committed `math.sqrt` example therefore marks `x` as missing instead of blaming the callable or
+   silently dropping Basedpyright's call issue.
+2. A diagnostic mapped to the callable is shown on the callable field with main's red error
+   treatment and a compact field-local error indicator that exposes the complete message.
+3. A diagnostic that cannot be mapped to the callable or a parameter remains attached to its exact
+   Generated Python document range and is rendered by the built-in workspace Code section. This is
+   how authored prefix and suffix errors remain visible.
+4. A mapped diagnostic appears in its semantic control only. It is not duplicated as an inline
+   generated-document diagnostic.
+5. Every new canonical snapshot replaces the preceding diagnostic set. Accepted local outer-code
+   edits and a stale canonical response clear diagnostics whose ranges no longer describe the
+   displayed document; no code guesses how to shift a provider range across different text.
+
+The following remain out of scope:
+
+- prefix, suffix, parameter, or additional callable completion;
+- references between sections or variables, dependency ordering, rename refactors, or graph UI;
+- diagnostic suppression, ignore menus, muting, persistence, or manual type-check commands;
+- hover, code actions, quick fixes, semantic tokens, or a general LSP service abstraction;
+- more section types, multiple generated regions, ports, edges, MCP, or CLI surfaces; and
+- backward compatibility, legacy shapes, migrations, aliases, dual readers, feature flags, or
+  transitional code.
+
+Do not turn those exclusions into edge-case audits. Implement and prove the concrete workflows in
+this plan, then stop.
+
+## Ownership and design
+
+### Go and transport own diagnostic truth
+
+The Basedpyright session remains the only provider. Extend its parsed diagnostic boundary to retain
+the provider's diagnostic code in addition to the already normalized byte range, severity, and
+message. Parse that external value once; project code receives a validated internal value and does
+not inspect raw JSON.
+
+Replace the current target-only `DiagnosticV1` shape directly. One diagnostic record must carry:
+
+- a stable ID;
+- severity and nonblank message;
+- its exact half-open UTF-8 byte range in `generatedCode.code`; and
+- either one canonical semantic `targetId` or `null` when it is a document diagnostic.
+
+The backend contract and generated TypeScript contract remain the single cross-language authority.
+Update the one checked-in fixture and regenerate the TypeScript surface with the existing generator.
+Do not introduce V1/V2 readers, optional legacy fields, or adapters; this unreleased vertical slice
+cuts over as one closed shape.
+
+Semantic classification is backend work. Preserve the existing narrowest-source-range mapping for
+ordinary expression diagnostics. For an exact Basedpyright `reportCallIssue` on the callable call,
+map the diagnostic to each empty required provider-derived parameter. Required means a
+signature-owned parameter with no default whose passing style is not variadic. App-authored blank
+parameters are optional authoring records and must not acquire an invented missing-value error.
+If no missing required parameter explains the call issue, keep the callable as its semantic target.
+Do not classify by loose message keywords.
+
+A diagnostic outside every generated semantic source range has `targetId: null`; it is not dropped.
+Invalid ranges, unsupported severities, blank messages, and malformed provider codes fail or are
+discarded at the provider boundary according to the existing explicit normalization policy. Stable
+ordering and IDs are deterministic for one exact document revision.
+
+### The frontend projects; it does not re-diagnose
+
+The runtime contract validates every diagnostic range against the UTF-8 byte length of the exact
+generated document, validates byte boundaries, and accepts `targetId` only when it is `null` or a
+known canonical target. Convert a validated UTF-8 byte range to CodeMirror's UTF-16 offsets exactly
+once at the Python Canvas projection boundary.
+
+Partition the snapshot's diagnostics into:
+
+- callable diagnostics for the one callable field;
+- parameter diagnostics for the existing workspace item registry; and
+- targetless document diagnostics for Generated Python.
+
+The app may join messages for the callable field's presentation, but it must not infer targets,
+severity, missing parameters, or new diagnostics. A snapshot replaces the prior partition
+atomically.
+
+When Python Canvas deliberately retains newer authored prefix or suffix text while applying an
+older canonical response, the older document diagnostics no longer describe the displayed code and
+must be cleared. The subsequent response for the retained authoring repopulates them. Cover this one
+concurrency rule; do not expand into an audit of every possible request ordering.
+
+### `@setta/workspace` owns generic presentation only
+
+Add the smallest reusable surfaces needed by this consumer:
+
+1. The existing `TextValueEditor` `section-field` presentation accepts a controlled diagnostic
+   message/state. The package owns its error color, `aria-invalid`/description wiring, and compact
+   indicator layout; the consumer owns the diagnostic content. The existing end-adornment seam may
+   be used for this genuine field-local state. Item-row diagnostic behavior stays in the existing
+   item registry.
+2. The built-in Code section data carries a validated list of document diagnostics using UTF-16
+   `from`/`to` offsets, severity, and message. The package renders them through CodeMirror's normal
+   lint presentation and tooltip. This vocabulary is provider- and language-neutral.
+
+Code-section diagnostics belong to the exact `code` string in the same parsed data value. Any
+accepted local code edit clears them until the host supplies diagnostics for the new text. A host
+write validates the complete data before publishing it.
+
+Use the standard pinned `@codemirror/lint` package rather than recreating lint markers and tooltips.
+Declare the exact direct dependency in `packages/workspace/package.json`. Generate the candidate
+lockfile without lifecycle scripts and run
+`code-policy dependency-review --base <trusted-plan-loop-base>` before installing or keeping the
+change. The existing lock already resolves the package transitively, but the direct importer must
+still be declared. Do not update unrelated dependencies.
+
+Do not put Basedpyright, LSP, Python, callable IDs, HTTP, or project-revision concepts in
+`@setta/workspace`.
+
+## Acceptance behavior
+
+Run the production app from a fresh store and prove these exact flows:
+
+1. The initial `math.sqrt` snapshot is provider `available` and `ready`. Its empty required `x` row
+   has the same main-style error row/marker behavior and exposes the provider message. The callable
+   field is not marked for that missing argument.
+2. Enter `missing_value` for `x`. Generated Python contains the expression, the `x` row exposes the
+   undefined-name message, and Generated Python does not duplicate it as an inline lint marker.
+3. Replace it with `3`. The parameter diagnostic and its accessible announcement clear without
+   replacing focus or disabling the row.
+4. With `x` valid, add an app-authored argument that `math.sqrt` does not accept and give it a value.
+   The resulting call issue appears on the callable field with stable idle/live typography and a
+   compact error indicator whose tooltip or accessible description contains the full message. No
+   application-wide pending dot reappears.
+5. Remove the unsupported argument. The callable field returns to its ordinary syntax-highlighted
+   state and the error message disappears.
+6. Add an undefined name in the editable prefix or suffix. Only that authored range receives the
+   normal CodeMirror diagnostic underline/tooltip. The generated protected region remains
+   selectable and read-only, and its blue paint, rail, badge, caret behavior, and dimensions do not
+   change. Correct the authored code and observe the inline diagnostic clear.
+7. A response for an older authored prefix/suffix never paints its diagnostic at a shifted or
+   unrelated location in the newer displayed document.
+
+Capture the callable-error and targetless document-error states in headless Chrome during
+supervision and compare them at original resolution with main. This is review evidence, not a new
+checked-in visual-regression system. The production browser suite must assert the observable
+behavior and accessible messages rather than private CSS class names.
+
+## Tests and proof
+
+Add focused tests at the boundaries that own behavior:
+
+- Go LSP decoding retains string diagnostic codes and rejects malformed values without leaking raw
+  JSON farther into the app.
+- Go diagnostic mapping covers a missing required provider parameter, an undefined parameter
+  expression, a callable-targeted call issue, a targetless prefix/suffix diagnostic, stable ordering
+  and IDs, and replacement/clearing.
+- The Go/TypeScript contract generator and drift tests prove the one closed diagnostic shape,
+  nullable target, byte range, and malformed/dangling rejection.
+- Frontend runtime/projection tests prove UTF-8-byte to UTF-16 conversion with one non-ASCII case,
+  the three-way partition, no mapped/unmapped duplication, and the one retained-authoring stale
+  response rule.
+- Workspace tests prove section-field error semantics in idle and live layers, parsed Code-section
+  diagnostic validation, CodeMirror rendering/tooltip, clearing on local edits, and unchanged
+  generated-region protection.
+- Python Canvas component tests prove callable and parameter presentation and diagnostic clearing.
+- Extend the existing production browser walkthrough with the acceptance flows above. Reuse its real
+  Go service, pinned Basedpyright, and headless Chrome; do not add a fake browser-only provider.
+
+During implementation, run exact focused tests as useful. The Code Policy supervisor owns the
+frozen recommended verification for the final candidate. Do not run full, supplemental, mutation,
+`verify`, or `gate` inside this plan loop.
+
+## Plan-loop execution
+
+### Phase 1 — end-to-end type-error parity
+
+- [ ] Implementation, production proof, review, and closeout complete
+
+Implement the direct contract cutover and the two generic workspace presentation seams as coherent
+private batches. It is acceptable to commit backend/contract, workspace, and consumer work
+separately while the branch is private, but the phase is not complete until the public contract,
+generated TypeScript, package API, consumer, and tests agree. Never commit an alternative legacy
+reader or a fake success path.
+
+Before returning the phase for review:
+
+1. Read the named main donor files and record any intentional behavior difference in this plan.
+2. Run the dependency review before keeping the direct lint dependency declaration.
+3. Run the focused backend, workspace, and Python Canvas tests plus relevant TypeScript/build
+   checks.
+4. Run the real production browser walkthrough and inspect the diagnostic states at full
+   resolution.
+5. Run `code-policy test --changed --base <trusted-plan-loop-base>`.
+6. Commit every coherent batch and leave the worktree clean.
+
+The read-only reviewer must bind findings to this plan or `AGENTS.md`, inspect the exact trusted-base
+to candidate range, and avoid unrelated parity, generalized LSP, suppression, or edge-case audits.
+Recommendations outside the fixed scope are non-blocking.
+
+## Stop conditions
+
+Return a concise blocker instead of widening scope if:
+
+- Basedpyright does not publish stable diagnostic codes needed to distinguish the required call
+  issue, and matching main would require message heuristics;
+- the locked dependency policy rejects the exact direct `@codemirror/lint` declaration and there is
+  no already-approved exact release;
+- a correct generic workspace seam would require provider- or Python-specific vocabulary;
+- exact document diagnostics cannot stay bound to the canonical generated-code revision without a
+  new project transaction model; or
+- the real main behavior contradicts a fixed decision above in a way that materially changes the
+  user-visible result.
+
+The plan is complete when the phase marker is checked, recommended verification passes against the
+exact final candidate, the final read-only review has no actionable repository-contract or
+requested-outcome finding, and the headless production walkthrough proves the three diagnostic
+destinations and their clearing behavior.
