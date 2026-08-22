@@ -201,18 +201,24 @@ async function assertDuplicateNameIsRefusedInTheRow(client, backendOrigin) {
   await activateTextBox(client, "Item name");
   await selectAll(client);
   await insertText(client, "scale");
-  await waitForCanonicalParameters(
-    backendOrigin,
-    "the renamed authored parameter",
-    (parameters, canonical) =>
-      canonical.project.revision === beforeRename.project.revision + 1 &&
-      parameters.length === 2 &&
-      parameters[1].name === "scale" &&
-      parameters[1].authoredExpression === "2",
+  // The restored list is already the canonical list. The store deliberately treats that proposal
+  // as a no-op, so it must not allocate a revision merely for clearing a local validation error.
+  // Prove the row recovered instead; the following structural action will make the next actual
+  // list mutation and wait for its canonical revision.
+  await waitFor(
+    client,
+    "the restored authored row clearing its duplicate-name error",
+    `(() => {
+      const editors = Array.from(
+        document.querySelectorAll(${JSON.stringify(textBoxSelector("Item name"))}),
+      );
+      return editors.some(
+        (editor) =>
+          editor.textContent?.trim() === "scale" &&
+          editor.getAttribute("aria-invalid") !== "true",
+      );
+    })()`,
   );
-  // The canonical list already held scale=2 before the rejected duplicate-name edit. Wait for the
-  // replacement revision and the response's row projection, otherwise the next structural action
-  // can run while this row is still disabled for the re-entry request.
   await waitForEditableRowControl(client, "scale expression");
 }
 
