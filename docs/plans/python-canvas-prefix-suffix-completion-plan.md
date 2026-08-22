@@ -244,7 +244,7 @@ removed from the deferred line. Do not convert the remaining deferred list into 
 
 ### Phase 1 — prefix/suffix completion parity
 
-- [ ] Repository implementation, focused proof, and clean coherent commits are ready for
+- [x] Repository implementation, focused proof, and clean coherent commits are ready for
       supervisor verification and immutable review
 
 Implementation record (2026-08-20): the single-cutover implementation is present, and no
@@ -322,6 +322,16 @@ phase:
 4. Run the focused production browser walkthrough and changed-scope verification, check the phase
    marker, commit the bounded repair, and leave the worktree clean for fresh frozen acceptance and
    immutable review.
+
+Closeout repair (2026-08-20): restored the reference-backed absolute, top-zero, left-zero
+tooltip-parent anchor. The production browser walkthrough again captures and validates both
+prefix and suffix popups at 1440-by-900 device scale one: each is nonempty, belongs to the canvas
+tooltip parent, is outside the Code section and editor wrapper, and remains fully within the
+viewport. The generated-region probe now observes a 700 ms asynchronous window before it asserts
+that no popup or completion request occurred. The focused production walkthrough and
+`code-policy test --changed --base 9c3ee63dd8220a5e44e58d6b2d8305f8b7c80b5d` passed; the latter
+ran the workspace, playground, Python Canvas backend, and Python Canvas frontend focused suites.
+No intentional behavior difference from the named `main` completion behavior was identified.
 
 Do not revisit backend completion behavior, completion edge cases, parameter/reference work, or
 general editor architecture in this correction.

@@ -21,6 +21,7 @@ import {
   waitFor,
 } from "./browser-page.mjs";
 
+const tooltipParentSelector = ".setta-workspace-codemirror-tooltips";
 const autocompleteSelector = ".cm-tooltip-autocomplete";
 
 // The target-completion acceptance path runs against the real production app and its pinned
@@ -72,7 +73,7 @@ async function assertPopupEscapeOwnership(
   await pressLeftArrow(client);
   await pressLeftArrow(client);
   await pressCompletion(client);
-  await waitForTargetPopup(client, "SettaState");
+  await waitForTargetPopup(client, generatedLabel, "SettaState");
 
   await pressEscape(client);
   await waitForNoTargetPopup(client);
@@ -104,7 +105,8 @@ async function assertPrefixTabCompletion(
   await insertText(client, "\nfrom math import sqr");
   await pressLeftArrow(client);
   await pressCompletion(client);
-  await waitForTargetPopup(client, "sqrt");
+  const popup = await waitForTargetPopup(client, generatedLabel, "sqrt");
+  await inspectTargetPopupAtOriginalResolution(client, popup);
   await pressTab(client);
   await waitFor(
     client,
@@ -147,7 +149,8 @@ async function assertSuffixEnterCompletion(
   await insertText(client, "\nstate = SettaSta");
   await pressLeftArrow(client);
   await pressCompletion(client);
-  await waitForTargetPopup(client, "SettaState");
+  const popup = await waitForTargetPopup(client, generatedLabel, "SettaState");
+  await inspectTargetPopupAtOriginalResolution(client, popup);
   await pressEnter(client);
   await waitFor(
     client,
@@ -221,6 +224,10 @@ async function assertProtectedRegionSuppressesCompletion(
     type: "mouseReleased",
   });
   await pressCompletion(client);
+  // Explicit completion work reaches the provider asynchronously. Observe a real window after
+  // the request before declaring the protected region silent, rather than accepting the same
+  // browser turn in which it was requested.
+  await observeProtectedRegionCompletionWindow(client, beforeRequests);
   await waitForNoTargetPopup(client);
   const afterRequests = await completionRequestCount(client);
   if (afterRequests !== beforeRequests) {
@@ -293,11 +300,11 @@ async function moveCaretToSuffixEnd(client) {
   await pressRightArrow(client);
 }
 
-async function waitForTargetPopup(client, label) {
+async function waitForTargetPopup(client, generatedLabel, label) {
   return waitFor(
     client,
     `${label} completion beside Generated Python`,
-    targetPopupScript(label),
+    targetPopupScript(generatedLabel, label),
   );
 }
 
@@ -309,10 +316,77 @@ async function waitForNoTargetPopup(client) {
   );
 }
 
-function targetPopupScript(label) {
-  return `Array.from(document.querySelectorAll(${JSON.stringify(autocompleteSelector)})).some(
-    (candidate) => candidate instanceof HTMLElement && candidate.textContent?.includes(${JSON.stringify(label)}),
-  )`;
+function targetPopupScript(generatedLabel, label) {
+  return `(() => {
+    const wrapper = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
+    const section = wrapper?.closest('[data-section-id]');
+    const parent = document.querySelector(${JSON.stringify(tooltipParentSelector)});
+    const popup = Array.from(document.querySelectorAll(${JSON.stringify(autocompleteSelector)})).find(
+      (candidate) => candidate instanceof HTMLElement && candidate.textContent?.includes(${JSON.stringify(label)}),
+    );
+    if (!(wrapper instanceof HTMLElement) || !(section instanceof HTMLElement) || !(parent instanceof HTMLElement) || !(popup instanceof HTMLElement)) {
+      return null;
+    }
+    const rect = popup.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0) {
+      return null;
+    }
+    return {
+      devicePixelRatio: window.devicePixelRatio,
+      parentContainsPopup: parent.contains(popup),
+      popup: { bottom: rect.bottom, height: rect.height, left: rect.left, right: rect.right, top: rect.top, width: rect.width },
+      sectionContainsPopup: section.contains(popup),
+      viewport: { height: window.innerHeight, width: window.innerWidth },
+      wrapperContainsPopup: wrapper.contains(popup),
+    };
+  })()`;
+}
+
+async function inspectTargetPopupAtOriginalResolution(client, popup) {
+  if (
+    popup.viewport.width !== 1_440 ||
+    popup.viewport.height !== 900 ||
+    popup.devicePixelRatio !== 1 ||
+    !popup.parentContainsPopup ||
+    popup.sectionContainsPopup ||
+    popup.wrapperContainsPopup ||
+    popup.popup.left < 0 ||
+    popup.popup.top < 0 ||
+    popup.popup.right > popup.viewport.width ||
+    popup.popup.bottom > popup.viewport.height
+  ) {
+    throw new Error(
+      `The Generated Python completion popup was not visible at the required original-resolution canvas placement: ${JSON.stringify(popup)}.`,
+    );
+  }
+  const screenshot = await client.send("Page.captureScreenshot", {
+    captureBeyondViewport: false,
+    format: "png",
+  });
+  if (typeof screenshot.data !== "string" || screenshot.data.length < 1_000) {
+    throw new Error(
+      "The original-resolution Generated Python popup capture was empty.",
+    );
+  }
+}
+
+async function observeProtectedRegionCompletionWindow(client, beforeRequests) {
+  const deadline = Date.now() + 700;
+  while (Date.now() < deadline) {
+    const state = await evaluate(
+      client,
+      `(() => ({
+        hasPopup: document.querySelector(${JSON.stringify(autocompleteSelector)}) !== null,
+        requestCount: performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/v1/project/python-target/completions")).length,
+      }))()`,
+    );
+    if (state.hasPopup || state.requestCount !== beforeRequests) {
+      throw new Error(
+        "A protected generated-region cursor opened a completion popup or sent a completion endpoint request.",
+      );
+    }
+    await delay(100);
+  }
 }
 
 function generatedSourceIncludesScript(generatedLabel, text) {
