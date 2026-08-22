@@ -255,6 +255,16 @@ its mapped diagnostic, and its one-revision deletion. The focused backend suite
 (including its pinned Basedpyright integration), focused Python Canvas suite (8 files / 68 tests),
 workspace component suite (143 files / 1,205 tests), and browser-script syntax checks passed.
 
+Implementation record — callable keyword-diagnostic correction: Basedpyright reports an unexpected
+keyword on the keyword-name range inside the generated call, not on the narrower callable-expression
+range. The renderer now retains its private end-of-call byte bound, and the project maps an exact
+`reportCallIssue` wholly within that generated call to the callable before applying the existing
+missing-required-provider-parameter rule. Ordinary source-range mapping and targetless document
+diagnostics remain unchanged. Focused backend tests now reproduce the `scale` keyword span, and the
+pinned Basedpyright integration asserts a real `scale=2` call issue targets the callable. The focused
+backend suite and `code-policy test --changed --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
+passed (workspace, playground, backend, and Python Canvas focused suites).
+
 Environment evidence not yet sufficient for phase closeout: the supervisor completed
 `code-policy dependency-review --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
 against the no-script candidate lockfile with no vulnerabilities. The required local production

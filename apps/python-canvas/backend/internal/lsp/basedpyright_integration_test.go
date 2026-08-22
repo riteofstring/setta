@@ -105,6 +105,24 @@ func TestPinnedBasedpyrightResolvesAndClearsMappedParameterDiagnostic(t *testing
 	if containsErrorForTarget(clearedSnapshot.Diagnostics, parameter.ID) {
 		t.Fatalf("3 diagnostics = %#v, want the parameter diagnostic cleared", clearedSnapshot.Diagnostics)
 	}
+
+	keywordSnapshot, err := store.SetCallableParameters(
+		ctx,
+		initial.Project.ID,
+		initial.Callables[0].ID,
+		clearedSnapshot.Project.Revision,
+		[]project.ParameterProposal{
+			{ID: parameter.ID, Name: parameter.Name, AuthoredExpression: "3"},
+			{ID: "parameter:authored:scale", Name: "scale", AuthoredExpression: "2"},
+		},
+	)
+	if err != nil {
+		t.Fatalf("SetCallableParameters(scale=2) error = %v", err)
+	}
+	requireReadyBasedpyrightStatus(t, keywordSnapshot.ProviderStatus)
+	if !containsErrorForTarget(keywordSnapshot.Diagnostics, keywordSnapshot.Callables[0].ID) {
+		t.Fatalf("scale=2 diagnostics = %#v, want an error for callable %q", keywordSnapshot.Diagnostics, keywordSnapshot.Callables[0].ID)
+	}
 	if _, err := os.Stat(generatedPath); err != nil {
 		t.Fatalf("generated file stat before Close() = %v", err)
 	}

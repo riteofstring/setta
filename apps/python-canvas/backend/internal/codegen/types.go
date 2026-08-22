@@ -56,4 +56,9 @@ type Result struct {
 	// CallableCallOffset is the byte offset immediately inside the rendered
 	// callable's opening parenthesis, or -1 when no callable is rendered.
 	CallableCallOffset int
+	// CallableCallEnd is the byte offset immediately after the rendered
+	// callable's closing parenthesis, or -1 when no callable is rendered.
+	// It stays renderer-owned so the project can recognize provider call issues
+	// whose source range names an argument rather than the callable expression.
+	CallableCallEnd int
 }

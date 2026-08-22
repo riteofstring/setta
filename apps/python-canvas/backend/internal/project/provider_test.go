@@ -69,7 +69,7 @@ func TestMapProviderDiagnosticsUsesRangesRatherThanProviderMessageWordsAndKeepsD
 	diagnostics := mapProviderDiagnostics(code, []codegen.SourceRange{
 		{TargetID: "callable:square-root", Start: callableStart, End: callableStart + len("math.sqrt")},
 		{TargetID: "parameter:square-root:provider", Start: parameterStart, End: parameterStart + len("missing_value")},
-	}, "", nil, []ProviderDiagnostic{
+	}, "", -1, nil, []ProviderDiagnostic{
 		{
 			Start:    parameterStart,
 			End:      parameterStart + len("missing_value"),
@@ -103,7 +103,7 @@ func TestMapProviderDiagnosticsMapsExactCallIssueToEmptyRequiredProviderParamete
 		TargetID: "callable:square-root",
 		Start:    callableStart,
 		End:      callableStart + len("math.sqrt"),
-	}}, "callable:square-root", []parameterState{
+	}}, "callable:square-root", callableStart+len("math.sqrt()"), []parameterState{
 		{
 			ID:           "parameter:required",
 			PassingStyle: codegen.ParameterPassingStylePositionalOnly,
@@ -140,7 +140,7 @@ func TestMapProviderDiagnosticsKeepsCallIssueOnCallableWithoutMissingRequiredPro
 		TargetID: "callable:square-root",
 		Start:    callableStart,
 		End:      callableStart + len("math.sqrt"),
-	}}, "callable:square-root", []parameterState{{
+	}}, "callable:square-root", callableStart+len("math.sqrt(state.value)"), []parameterState{{
 		ID:           "parameter:required",
 		PassingStyle: codegen.ParameterPassingStylePositionalOnly,
 		Expression:   "3",
@@ -156,6 +156,30 @@ func TestMapProviderDiagnosticsKeepsCallIssueOnCallableWithoutMissingRequiredPro
 	}
 }
 
+func TestMapProviderDiagnosticsMapsKeywordCallIssueWithinCallableToCallable(t *testing.T) {
+	code := "state.call = math.sqrt(state.value, scale=state.scale)"
+	callableStart := strings.Index(code, "math.sqrt")
+	keywordStart := strings.Index(code, "scale=")
+	diagnostics := mapProviderDiagnostics(code, []codegen.SourceRange{{
+		TargetID: "callable:square-root",
+		Start:    callableStart,
+		End:      callableStart + len("math.sqrt"),
+	}}, "callable:square-root", callableStart+len("math.sqrt(state.value, scale=state.scale)"), []parameterState{{
+		ID:           "parameter:required",
+		PassingStyle: codegen.ParameterPassingStylePositionalOnly,
+		Expression:   "3",
+	}}, []ProviderDiagnostic{{
+		Start:    keywordStart,
+		End:      keywordStart + len("scale"),
+		Severity: ProviderDiagnosticSeverityError,
+		Message:  "No parameter named \"scale\"",
+		Code:     "reportCallIssue",
+	}})
+	if len(diagnostics) != 1 || diagnostics[0].TargetID == nil || *diagnostics[0].TargetID != "callable:square-root" {
+		t.Fatalf("keyword call diagnostics = %#v, want callable target", diagnostics)
+	}
+}
+
 func TestMapProviderDiagnosticsKeepsSameRangeDifferentSeverityIDsDistinctAndStable(t *testing.T) {
 	code := "state.value = missing_value"
 	start := strings.Index(code, "missing_value")
@@ -167,12 +191,12 @@ func TestMapProviderDiagnosticsKeepsSameRangeDifferentSeverityIDsDistinctAndStab
 		TargetID: "parameter:square-root:provider",
 		Start:    start,
 		End:      start + len("missing_value"),
-	}}, "", nil, providerDiagnostics)
+	}}, "", -1, nil, providerDiagnostics)
 	second := mapProviderDiagnostics(code, []codegen.SourceRange{{
 		TargetID: "parameter:square-root:provider",
 		Start:    start,
 		End:      start + len("missing_value"),
-	}}, "", nil, []ProviderDiagnostic{providerDiagnostics[1], providerDiagnostics[0]})
+	}}, "", -1, nil, []ProviderDiagnostic{providerDiagnostics[1], providerDiagnostics[0]})
 	if len(first) != 2 || first[0].ID == first[1].ID {
 		t.Fatalf("diagnostics = %#v, want two distinct stable IDs", first)
 	}

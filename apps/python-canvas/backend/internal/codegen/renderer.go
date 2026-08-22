@@ -15,7 +15,7 @@ func Render(input Input) (Result, error) {
 		return Result{}, err
 	}
 
-	body, ranges, callableCallOffset := renderBody(graph)
+	body, ranges, callableCallOffset, callableCallEnd := renderBody(graph)
 	prefixOffset := len(input.Prefix) + len(generatedCodeSeparator)
 	for index := range ranges {
 		ranges[index].Start += prefixOffset
@@ -24,22 +24,26 @@ func Render(input Input) (Result, error) {
 	if callableCallOffset >= 0 {
 		callableCallOffset += prefixOffset
 	}
+	if callableCallEnd >= 0 {
+		callableCallEnd += prefixOffset
+	}
 
 	return Result{
 		Code:               input.Prefix + generatedCodeSeparator + body + generatedCodeSeparator + input.Suffix,
 		Body:               body,
 		SourceRanges:       ranges,
 		CallableCallOffset: callableCallOffset,
+		CallableCallEnd:    callableCallEnd,
 	}, nil
 }
 
-func renderBody(graph dependencyGraph) (string, []SourceRange, int) {
+func renderBody(graph dependencyGraph) (string, []SourceRange, int, int) {
 	var body strings.Builder
 	body.WriteString(stateClassHeader)
 	if graph.callable.expression == "" {
 		body.WriteString(stateBodyIndent)
 		body.WriteString("pass")
-		return body.String(), []SourceRange{}, -1
+		return body.String(), []SourceRange{}, -1, -1
 	}
 
 	ranges := make([]SourceRange, 0, len(graph.parameters)+1)
@@ -71,13 +75,14 @@ func renderBody(graph dependencyGraph) (string, []SourceRange, int) {
 	callableCallOffset := body.Len()
 	body.WriteString(renderCallArguments(graph.parameters))
 	body.WriteByte(')')
+	callableCallEnd := body.Len()
 	ranges = append(ranges, SourceRange{
 		TargetID: graph.callable.targetID,
 		Start:    callableStart,
 		End:      callableStart + len(graph.callable.expression),
 	})
 
-	return body.String(), ranges, callableCallOffset
+	return body.String(), ranges, callableCallOffset, callableCallEnd
 }
 
 // Positional arguments keep their list order and precede every keyword

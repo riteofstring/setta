@@ -52,6 +52,9 @@ func TestRenderProducesDeterministicPositionalOnlyModuleAndExactRanges(t *testin
 	if first.CallableCallOffset != 127 {
 		t.Fatalf("Render().CallableCallOffset = %d, want 127", first.CallableCallOffset)
 	}
+	if first.CallableCallEnd != 148 {
+		t.Fatalf("Render().CallableCallEnd = %d, want 148", first.CallableCallEnd)
+	}
 	if !reflect.DeepEqual(second, first) {
 		t.Fatalf("second Render() = %#v, want byte-identical %#v", second, first)
 	}
@@ -90,6 +93,9 @@ func TestRenderOmitsBlankParameterExpressionUntilItIsAuthored(t *testing.T) {
 	}
 	if result.CallableCallOffset != 94 {
 		t.Fatalf("Render().CallableCallOffset = %d, want 94", result.CallableCallOffset)
+	}
+	if result.CallableCallEnd != 95 {
+		t.Fatalf("Render().CallableCallEnd = %d, want 95", result.CallableCallEnd)
 	}
 }
 

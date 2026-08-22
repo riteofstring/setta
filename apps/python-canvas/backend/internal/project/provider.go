@@ -31,7 +31,7 @@ type GeneratedDocumentRequest struct {
 
 // ProviderDiagnostic is a normalized byte-range diagnostic from the provider.
 // The project maps it to a semantic target exclusively through renderer-owned
-// generated ranges.
+// source ranges and callable-call bounds.
 type ProviderDiagnostic struct {
 	Start    int
 	End      int
@@ -104,6 +104,7 @@ func applyProviderSynchronization(
 		state.rendered.Code,
 		state.rendered.SourceRanges,
 		state.callable.ID,
+		state.rendered.CallableCallEnd,
 		state.parameters,
 		result.Diagnostics,
 	)
@@ -114,12 +115,13 @@ func mapProviderDiagnostics(
 	code string,
 	ranges []codegen.SourceRange,
 	callableID string,
+	callableCallEnd int,
 	parameters []parameterState,
 	diagnostics []ProviderDiagnostic,
 ) []contracts.DiagnosticV1 {
 	mapped := make([]mappedProviderDiagnostic, 0, len(diagnostics))
 	for _, diagnostic := range diagnostics {
-		mapped = append(mapped, mapProviderDiagnostic(code, ranges, callableID, parameters, diagnostic)...)
+		mapped = append(mapped, mapProviderDiagnostic(code, ranges, callableID, callableCallEnd, parameters, diagnostic)...)
 	}
 
 	sort.Slice(mapped, func(left, right int) bool {
@@ -163,6 +165,7 @@ func mapProviderDiagnostic(
 	code string,
 	ranges []codegen.SourceRange,
 	callableID string,
+	callableCallEnd int,
 	parameters []parameterState,
 	diagnostic ProviderDiagnostic,
 ) []mappedProviderDiagnostic {
@@ -178,6 +181,9 @@ func mapProviderDiagnostic(
 		return nil
 	}
 	targetID := providerDiagnosticTarget(diagnostic, ranges)
+	if isCallableCallIssue(diagnostic, ranges, callableID, callableCallEnd) {
+		targetID = stringPointer(callableID)
+	}
 	if missingRequired := missingRequiredProviderParameterIDsForCallIssue(diagnostic, targetID, callableID, parameters); len(missingRequired) > 0 {
 		mapped := make([]mappedProviderDiagnostic, 0, len(missingRequired))
 		for _, parameterID := range missingRequired {
@@ -186,6 +192,25 @@ func mapProviderDiagnostic(
 		return mapped
 	}
 	return []mappedProviderDiagnostic{newMappedProviderDiagnostic(diagnostic, severity, message, targetID)}
+}
+
+func isCallableCallIssue(
+	diagnostic ProviderDiagnostic,
+	ranges []codegen.SourceRange,
+	callableID string,
+	callableCallEnd int,
+) bool {
+	if diagnostic.Code != "reportCallIssue" || callableCallEnd < 0 {
+		return false
+	}
+	callableStart, ok := sourceRangeStart(callableID, ranges)
+	if !ok {
+		return false
+	}
+	if diagnostic.Start == diagnostic.End {
+		return diagnostic.Start >= callableStart && diagnostic.Start <= callableCallEnd
+	}
+	return diagnostic.Start >= callableStart && diagnostic.End <= callableCallEnd
 }
 
 func hasValidProviderDiagnosticRange(code string, diagnostic ProviderDiagnostic) bool {
@@ -291,6 +316,15 @@ func sourceRangeTarget(start int, end int, ranges []codegen.SourceRange) (string
 		return "", false
 	}
 	return ranges[bestIndex].TargetID, true
+}
+
+func sourceRangeStart(targetID string, ranges []codegen.SourceRange) (int, bool) {
+	for _, sourceRange := range ranges {
+		if sourceRange.TargetID == targetID {
+			return sourceRange.Start, true
+		}
+	}
+	return 0, false
 }
 
 func diagnosticOverlapsSourceRange(start int, end int, sourceRange codegen.SourceRange) bool {
