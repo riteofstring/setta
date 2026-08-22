@@ -5,10 +5,10 @@
       "dark"
     ],
     "browser": "Chrome/152.0.7977.42",
-    "capturedAt": "2026-08-20T07:30:59.659Z",
+    "capturedAt": "2026-08-20T09:32:39.377Z",
     "committedCallable": "math.sqrt",
     "cropMarginCssPx": 8,
-    "sourceCommit": "be6632ea5f7554e4e9e8051bf0def6985cfb92c6",
+    "sourceCommit": "97828f51fa7836146df821e18291f19db1a4e1f3",
     "surface": "Production @setta/workspace and Python Canvas builds served by vite preview, the real Go service, and its pinned Basedpyright.",
     "viewport": {
       "deviceScaleFactor": 1,
@@ -133,7 +133,7 @@
         }
       },
       "screenshot": "screenshots/01-callable-section-idle-light-1440x900.png",
-      "screenshotSha256": "394e3b673f1c53360a5342ed95970860cd892f216fb9d74dde79e4ef68323e99",
+      "screenshotSha256": "426d968a384fa2ea2b158dfbdc7546bc16b6e4e9cb613f349156f778b7c28869",
       "state": "idle",
       "surface": "callable-section"
     },
@@ -754,7 +754,7 @@
         }
       },
       "screenshot": "screenshots/08-callable-section-idle-dark-1440x900.png",
-      "screenshotSha256": "3dedcb9336b8c945d1b8bb7e719eea718f6cd7b04f1e146359612a979013728b",
+      "screenshotSha256": "717f0bcd43288494ff64bf99e0d8b3a9df3d5b32a950fc820aca467e1e73eaac",
       "state": "idle",
       "surface": "callable-section"
     },
@@ -1192,7 +1192,7 @@
         }
       },
       "screenshot": "screenshots/13-zoomed-callable-section-zoomed-focused-dark-1440x900.png",
-      "screenshotSha256": "e1514c6e9b092c3c0eb904ac7eabedb72ef5cfe2ceb5d0e9d55522d97b495629",
+      "screenshotSha256": "493c5586e0024e7c705fe99d4e52d374906d85bd783cb80821ffe3b9589f714b",
       "state": "zoomed-focused",
       "surface": "zoomed-callable-section"
     },
@@ -1267,7 +1267,7 @@
         }
       },
       "screenshot": "screenshots/14-zoomed-callable-section-zoomed-completion-dark-1440x900.png",
-      "screenshotSha256": "28dacaf879318ae3f8aaff8e3b2f15f3209505b5e8e4ab3c8d30641d8b04705a",
+      "screenshotSha256": "245af53a4aad00e3184ad297b53432931da3de7b69a4a70fbeec33008728ed17",
       "state": "zoomed-completion",
       "surface": "zoomed-callable-section"
     }

@@ -2407,10 +2407,27 @@ requires. Nothing here changes what they have to show: the generated block's geo
 badge, marks, and editable-document reads are untouched, and the corrected behavior is one that
 only a keypress reaches.
 
-What remains in Phase B: the immutable read-only review of the source candidate, supervisor
-inspection of these fourteen images against main at original resolution, developer visual acceptance
-with its accepted-candidate record, and the closing `test --changed --base <trusted-base>` and
-`test-levels --base <trusted-base>` steps against the accepted candidate.
+**Final source-candidate capture and supervisor inspection.** The complete fourteen-image bundle is
+recaptured from immutable source candidate `97828f51fa7836146df821e18291f19db1a4e1f3` and its metrics
+name that exact commit. Ten images are byte-identical to the preceding bundle. Four PNGs differ only
+in settled browser rasterization: the light and dark 1x idle cards and the dark 2x focused and
+completion cards. Every recorded geometry, typography, paint, composition, zoom, containment, and
+compositing value is unchanged.
+
+The supervisor inspected all fourteen replacements at original resolution and compared the current
+main reference captures again. The Callable card keeps the donor's continuous header, field, Args,
+and parameter composition; idle and focused field geometry and type stay fixed; Python highlighting,
+the three authoring controls, and the resolved `⌘ + K` label are present; the enlarged text, icons,
+and borders are crisp; and the completion popup is whole and outside the section. Generated Python
+keeps authored lines 1 and 7 on the ordinary editor surface, paints only the separator-bounded body
+region with its rail and centered badge, and places the clicked caret on editable line 7 without an
+inner outline or a full-height black line. There are no actionable visual-polish or layout findings.
+This is supervisor approval of the evidence for developer review, not developer acceptance.
+
+What remains in Phase B: a fresh immutable read-only review of the final source candidate, developer
+visual acceptance with its accepted-candidate record, and the closing
+`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
+accepted candidate.
 
 ## Stop conditions
 
