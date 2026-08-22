@@ -16,7 +16,8 @@ rather than the synthetic sorting chord, and each drag now waits for its deferre
 deactivation before the next gesture. The production driver waits for the nested Param Dict's
 exact direct sortable projection before its second move, begins each section drag from a
 pointer-reachable non-control point in the title header, holds Alt through genuine CDP key events,
-and retries a failed activation within a small bounded window. Its production launcher waits for
+and retries a completed gesture only when its matching canonical forest predicate remains false
+within a small bounded window. Its production launcher waits for
 both the Go endpoint and Vite preview origin before CDP navigation. Its isolated headless Chrome launch
 retains the disposable profile and keychain protections, resolves a valid explicit raw executable
 before the highest valid Playwright cached raw headless shell on macOS, reports its source and path,

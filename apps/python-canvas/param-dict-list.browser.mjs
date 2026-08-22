@@ -61,8 +61,7 @@ import {
 const dictionaryEntryWorkspaceItemPrefix =
   "python-canvas:dictionary-entry-item:";
 
-const sectionDragActivationAttemptLimit = 3;
-const sectionDragActivationTimeoutMs = 2_000;
+const sectionMoveAttemptLimit = 3;
 export const sectionDragPointerHoldMs = 200;
 export const sectionDragPointerMoveSteps = 14;
 
@@ -307,23 +306,26 @@ export async function exerciseParamDictAndListSlice(
   );
 
   const beforeDictionaryMove = await fetchCanonicalSnapshot(backendOrigin);
+  const dictionaryInListPredicate = (snapshot) =>
+    sameListChildren(snapshot, outerList.id, [
+      outerChildIds[0],
+      dictionary.id,
+      outerChildIds[1],
+    ]);
   const dictionaryMoveFocus = await dragFreeSectionToSection(
     client,
     dictionarySelector,
     callableSectionSelector(outerChildIds[1]),
     "moving the Param Dict between the list children",
     0.25,
+    async () =>
+      dictionaryInListPredicate(await fetchCanonicalSnapshot(backendOrigin)),
     true,
   );
   const dictionaryInList = await waitForSnapshot(
     backendOrigin,
     "the Param Dict placed between list children",
-    (snapshot) =>
-      sameListChildren(snapshot, outerList.id, [
-        outerChildIds[0],
-        dictionary.id,
-        outerChildIds[1],
-      ]),
+    dictionaryInListPredicate,
   );
   assertRevisionIncremented(beforeDictionaryMove, dictionaryInList);
   await waitForListNestedSectionSource(
@@ -351,23 +353,26 @@ export async function exerciseParamDictAndListSlice(
   assertGeneratedListOrder(dictionaryInList, 3);
 
   const beforeListReorder = dictionaryInList;
+  const dictionaryFirstPredicate = (snapshot) =>
+    sameListChildren(snapshot, outerList.id, [
+      dictionary.id,
+      outerChildIds[0],
+      outerChildIds[1],
+    ]);
   const dictionaryReorderFocus = await dragFreeSectionToSection(
     client,
     dictionarySelector,
     callableSectionSelector(outerChildIds[0]),
     "reordering the Param Dict to the front of the list",
     0.25,
+    async () =>
+      dictionaryFirstPredicate(await fetchCanonicalSnapshot(backendOrigin)),
     true,
   );
   const dictionaryFirst = await waitForSnapshot(
     backendOrigin,
     "the Param Dict reordered to the front of the list",
-    (snapshot) =>
-      sameListChildren(snapshot, outerList.id, [
-        dictionary.id,
-        outerChildIds[0],
-        outerChildIds[1],
-      ]),
+    dictionaryFirstPredicate,
   );
   assertRevisionIncremented(beforeListReorder, dictionaryFirst);
   await assertSectionSize(client, dictionarySelector, dictionarySize);
@@ -385,21 +390,24 @@ export async function exerciseParamDictAndListSlice(
   assertGeneratedListOrder(dictionaryFirst, 3);
 
   const beforeTopLevelMove = dictionaryFirst;
+  const callableAtTopLevelPredicate = (snapshot) =>
+    snapshot.topLevelSectionIds.includes(outerChildIds[0]) &&
+    sameListChildren(snapshot, outerList.id, [
+      dictionary.id,
+      outerChildIds[1],
+    ]);
   const callableTopLevelFocus = await dragFreeSectionToCanvas(
     client,
     callableSectionSelector(outerChildIds[0]),
     "moving a callable back to the top level",
+    async () =>
+      callableAtTopLevelPredicate(await fetchCanonicalSnapshot(backendOrigin)),
     true,
   );
   const callableAtTopLevel = await waitForSnapshot(
     backendOrigin,
     "the callable restored to the top level",
-    (snapshot) =>
-      snapshot.topLevelSectionIds.includes(outerChildIds[0]) &&
-      sameListChildren(snapshot, outerList.id, [
-        dictionary.id,
-        outerChildIds[1],
-      ]),
+    callableAtTopLevelPredicate,
   );
   assertRevisionIncremented(beforeTopLevelMove, callableAtTopLevel);
   await assertSectionFieldSize(
@@ -422,22 +430,25 @@ export async function exerciseParamDictAndListSlice(
     sectionSelector: listSectionSelector,
   });
   const beforeNestedListMove = await fetchCanonicalSnapshot(backendOrigin);
+  const nestedListPlacedPredicate = (snapshot) =>
+    sameListChildren(snapshot, outerList.id, [
+      dictionary.id,
+      nestedList.id,
+      outerChildIds[1],
+    ]);
   await dragFreeSectionToSection(
     client,
     listSectionSelector(nestedList.id),
     callableSectionSelector(outerChildIds[1]),
     "moving a nested list into the outer list",
     0.25,
+    async () =>
+      nestedListPlacedPredicate(await fetchCanonicalSnapshot(backendOrigin)),
   );
   const nestedListPlaced = await waitForSnapshot(
     backendOrigin,
     "the nested list inside the outer list",
-    (snapshot) =>
-      sameListChildren(snapshot, outerList.id, [
-        dictionary.id,
-        nestedList.id,
-        outerChildIds[1],
-      ]),
+    nestedListPlacedPredicate,
   );
   assertRevisionIncremented(beforeNestedListMove, nestedListPlaced);
 
@@ -851,10 +862,12 @@ async function dragFreeSectionToSection(
   targetSelector,
   description,
   targetYFraction,
+  hasMoved,
   verifyFocusContext = false,
 ) {
   return dragSection(client, {
     description,
+    hasMoved,
     mode: "free",
     sourceSelector,
     targetSelector,
@@ -867,10 +880,12 @@ async function dragFreeSectionToCanvas(
   client,
   sourceSelector,
   description,
+  hasMoved,
   verifyFocusContext = false,
 ) {
   return dragSection(client, {
     description,
+    hasMoved,
     mode: "free",
     sourceSelector,
     targetSelector:
@@ -883,50 +898,66 @@ async function dragFreeSectionToCanvas(
 async function dragSection(client, configuration) {
   const { sourceSelector } = configuration;
   let focusCapture = null;
+  return retrySectionMoveUntilObserved({
+    description: configuration.description,
+    hasMoved: configuration.hasMoved,
+    performGesture: async (attempt) => {
+      await focusElement(
+        client,
+        sourceSelector,
+        `${configuration.description} source`,
+      );
+      await prepareElementDrag(
+        client,
+        sourceSelector,
+        configuration.targetSelector,
+        configuration.description,
+      );
+      const source = await sectionDragStartPoint(
+        client,
+        sourceSelector,
+        `${configuration.description} source`,
+      );
+      const target = await visibleElementPoint(
+        client,
+        configuration.targetSelector,
+        `${configuration.description} target`,
+        configuration.targetYFraction,
+      );
+      await tryMovingFreeSectionDrag(client, {
+        description: configuration.description,
+        source,
+        sourceSelector,
+        target: { ...target, y: target.y + attempt * 2 },
+        captureFocus:
+          configuration.verifyFocusContext && focusCapture === null,
+        onCaptureFocus: (capture) => {
+          focusCapture = capture;
+        },
+      });
+      return focusCapture;
+    },
+  });
+}
+
+export async function retrySectionMoveUntilObserved({
+  description,
+  hasMoved,
+  performGesture,
+}) {
   for (
     let attempt = 0;
-    attempt < sectionDragActivationAttemptLimit;
+    attempt < sectionMoveAttemptLimit;
     attempt += 1
   ) {
-    await focusElement(
-      client,
-      sourceSelector,
-      `${configuration.description} source`,
-    );
-    await prepareElementDrag(
-      client,
-      sourceSelector,
-      configuration.targetSelector,
-      configuration.description,
-    );
-    const source = await sectionDragStartPoint(
-      client,
-      sourceSelector,
-      `${configuration.description} source`,
-    );
-    const target = await visibleElementPoint(
-      client,
-      configuration.targetSelector,
-      `${configuration.description} target`,
-      configuration.targetYFraction,
-    );
-    const didActivate = await tryMovingFreeSectionDrag(client, {
-      description: configuration.description,
-      source,
-      sourceSelector,
-      target: { ...target, y: target.y + attempt * 2 },
-      captureFocus: configuration.verifyFocusContext && focusCapture === null,
-      onCaptureFocus: (capture) => {
-        focusCapture = capture;
-      },
-    });
-    if (didActivate) {
-      return focusCapture;
+    const result = await performGesture(attempt);
+    if (await hasMoved()) {
+      return result;
     }
   }
 
   throw new Error(
-    `${configuration.description} did not activate after ${sectionDragActivationAttemptLimit} moving-free drag attempts.`,
+    `${description} did not produce its expected canonical move after ${sectionMoveAttemptLimit} completed moving-free drag attempts.`,
   );
 }
 
@@ -984,15 +1015,6 @@ export async function tryMovingFreeSectionDrag(client, configuration) {
         type: "mouseMoved",
       });
     }
-    if (
-      !(await waitForSectionDragActivation(
-        client,
-        configuration.description,
-        configuration.sourceSelector,
-      ))
-    ) {
-      return false;
-    }
     await client.send("Input.dispatchMouseEvent", {
       ...pointer,
       button: "left",
@@ -1001,7 +1023,6 @@ export async function tryMovingFreeSectionDrag(client, configuration) {
       type: "mouseReleased",
     });
     mousePressed = false;
-    return true;
   } finally {
     if (mousePressed) {
       await client.send("Input.dispatchMouseEvent", {
@@ -1048,24 +1069,6 @@ export async function releaseMovingFreeSectionDragMode(client) {
   });
 }
 
-async function waitForSectionDragActivation(
-  client,
-  description,
-  sourceSelector,
-) {
-  try {
-    await waitFor(
-      client,
-      `${description} drag activation`,
-      sectionDragActivationExpression(sourceSelector),
-      sectionDragActivationTimeoutMs,
-    );
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function sectionDragModeExpression(sourceSelector) {
   return `(() => {
     const section = document.querySelector(${JSON.stringify(sourceSelector)});
@@ -1086,15 +1089,6 @@ function sectionDragModeReleaseExpression(sourceSelector) {
     const section = document.querySelector(${JSON.stringify(sourceSelector)});
     return section instanceof HTMLElement &&
       section.parentElement?.classList.contains("nodrag") !== true;
-  })()`;
-}
-
-function sectionDragActivationExpression(sourceSelector) {
-  return `(() => {
-    const section = document.querySelector(${JSON.stringify(sourceSelector)});
-    const container = section?.parentElement;
-    return container instanceof HTMLElement &&
-      Number.parseFloat(getComputedStyle(container).opacity) < 1;
   })()`;
 }
 

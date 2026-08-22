@@ -22,6 +22,7 @@ import {
   listNestedSectionSurfaceSelector,
   listNestedSortableSectionSelector,
   releaseMovingFreeSectionDragMode,
+  retrySectionMoveUntilObserved,
   sectionDragStartPoint,
   sectionDragPointerHoldMs,
   sectionDragPointerMoveSteps,
@@ -173,7 +174,7 @@ test("Section drag replays the donor pointer gesture with standard Alt payloads"
     },
   };
 
-  const didActivate = await tryMovingFreeSectionDrag(client, {
+  await tryMovingFreeSectionDrag(client, {
     captureFocus: false,
     description: "the donor-shaped section drag",
     onCaptureFocus: () => {
@@ -187,7 +188,6 @@ test("Section drag replays the donor pointer gesture with standard Alt payloads"
     target,
   });
 
-  assert.equal(didActivate, true);
   assert.deepEqual(trace, [
     "keyDown",
     "mouseMoved",
@@ -242,6 +242,26 @@ test("Section drag replays the donor pointer gesture with standard Alt payloads"
     modifiers: 1,
     type: "mouseReleased",
   });
+});
+
+test("Section move retries a completed gesture until its canonical result succeeds", async () => {
+  const attempts = [];
+  const canonicalResults = [false, true, true];
+  let capturedFocus = null;
+
+  const result = await retrySectionMoveUntilObserved({
+    description: "the canonical section move",
+    hasMoved: async () => canonicalResults.shift(),
+    performGesture: async (attempt) => {
+      attempts.push(attempt);
+      capturedFocus ??= "focus from the first gesture";
+      return capturedFocus;
+    },
+  });
+
+  assert.deepEqual(attempts, [0, 1]);
+  assert.equal(result, "focus from the first gesture");
+  assert.deepEqual(canonicalResults, [true]);
 });
 
 test("List walkthrough waits for the exact mounted Param Dict drag source", () => {
