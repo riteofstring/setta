@@ -265,6 +265,16 @@ pinned Basedpyright integration asserts a real `scale=2` call issue targets the 
 backend suite and `code-policy test --changed --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
 passed (workspace, playground, backend, and Python Canvas focused suites).
 
+Implementation record — targetless diagnostic browser timing correction: `@codemirror/lint`
+publishes a reconfigured source on its next task, so the production walkthrough had been treating
+the first rendered copy of the newly diagnosed text as though it already carried lint ink. It now
+waits for the range's visible decoration before moving the pointer for its tooltip assertion. The
+workspace regression publishes a document diagnostic to an already-mounted Code section, then
+proves the normal underline, tooltip, and local-edit clearing behavior; the focused regression
+and `code-policy test --changed --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b` pass. This
+preserves the production proof's class-independent visual assertion and verifies the same late
+canonical publication the walkthrough exercises.
+
 Environment evidence not yet sufficient for phase closeout: the supervisor completed
 `code-policy dependency-review --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
 against the no-script candidate lockfile with no vulnerabilities. The required local production

@@ -352,8 +352,14 @@ describe("built-in code section body", () => {
 
   it("uses CodeMirror's lint underline and hover tooltip for document diagnostics", async () => {
     const message = 'Name "missing_value" is not defined.';
-    await mount(
-      makeCodeSection({
+    await mount(makeCodeSection());
+    const view = getView();
+    // A canonical host response publishes the text and its document-local diagnostics together
+    // after this editor is already mounted. Its reconfiguration must schedule CodeMirror's lint
+    // source for the newly supplied ranges instead of only rendering diagnostics present at mount.
+    await act(async () => {
+      setWorkspaceCodeSectionData(testWorkspace.host, SECTION_ID, {
+        ...getSectionData(),
         diagnostics: [
           {
             from: 0,
@@ -362,9 +368,9 @@ describe("built-in code section body", () => {
             to: 5,
           },
         ],
-      }),
-    );
-    const view = getView();
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     await act(async () => {
       forceLinting(view);
       await new Promise((resolve) => setTimeout(resolve, 0));

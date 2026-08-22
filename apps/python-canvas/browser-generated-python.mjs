@@ -99,11 +99,6 @@ export async function assertTargetlessDocumentDiagnostic(
     "the rendered targetless diagnostic range",
     documentDiagnosticRangeScript(generatedLabel, targetlessPrefixName),
   );
-  if (!paintedRange.hasDiagnosticInk) {
-    throw new Error(
-      "The authored prefix diagnostic did not paint a CodeMirror diagnostic underline.",
-    );
-  }
   await movePointerTo(client, paintedRange.point);
   await waitFor(
     client,
@@ -425,9 +420,10 @@ async function waitForTargetlessDiagnostic(
   );
 }
 
-// The lint package owns its DOM classes, so the production proof treats the underline as a visual
-// property instead: the text's rendered range must have a visible decoration on it. This remains
-// valid if CodeMirror changes the class name or wraps the range differently.
+// The lint package publishes decorations asynchronously, so wait until the target text carries
+// visible diagnostic ink rather than treating the first rendered copy of the text as final. The
+// production proof remains independent of the package's DOM classes: it checks the decoration's
+// visual property, which stays valid if CodeMirror changes its wrapping.
 function documentDiagnosticRangeScript(generatedLabel, text) {
   return `(() => {
     const editor = document.querySelector(${JSON.stringify(`${labeledSelector(generatedLabel)} [role="textbox"]`)});
@@ -460,8 +456,10 @@ function documentDiagnosticRangeScript(generatedLabel, text) {
         }
         element = element.parentElement;
       }
+      if (!hasDiagnosticInk) {
+        return null;
+      }
       return {
-        hasDiagnosticInk,
         point: {
           x: rect.x + Math.max(1, Math.min(8, rect.width / 2)),
           y: rect.y + rect.height / 2,
