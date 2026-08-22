@@ -334,9 +334,32 @@ function targetPopupScript(generatedLabel, label) {
     if (rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0) {
       return null;
     }
+    const style = window.getComputedStyle(popup);
+    const containsHit = (x, y) => {
+      const hit = document.elementFromPoint(x, y);
+      return hit instanceof Node && popup.contains(hit);
+    };
+    const inset = Math.min(8, rect.width / 4, rect.height / 4);
     return {
       devicePixelRatio: window.devicePixelRatio,
       parentContainsPopup: parent.contains(popup),
+      painted: {
+        computedStyle: {
+          display: style.display,
+          opacity: style.opacity,
+          visibility: style.visibility,
+        },
+        hitTests: {
+          center: containsHit(
+            rect.left + rect.width / 2,
+            rect.top + rect.height / 2,
+          ),
+          insetBottomLeft: containsHit(rect.left + inset, rect.bottom - inset),
+          insetBottomRight: containsHit(rect.right - inset, rect.bottom - inset),
+          insetTopLeft: containsHit(rect.left + inset, rect.top + inset),
+          insetTopRight: containsHit(rect.right - inset, rect.top + inset),
+        },
+      },
       popup: { bottom: rect.bottom, height: rect.height, left: rect.left, right: rect.right, top: rect.top, width: rect.width },
       sectionContainsPopup: section.contains(popup),
       viewport: { height: window.innerHeight, width: window.innerWidth },
@@ -353,6 +376,14 @@ async function inspectTargetPopupAtOriginalResolution(client, popup) {
     !popup.parentContainsPopup ||
     popup.sectionContainsPopup ||
     popup.wrapperContainsPopup ||
+    popup.painted.computedStyle.display === "none" ||
+    popup.painted.computedStyle.visibility !== "visible" ||
+    Number.parseFloat(popup.painted.computedStyle.opacity) <= 0 ||
+    !popup.painted.hitTests.center ||
+    !popup.painted.hitTests.insetTopLeft ||
+    !popup.painted.hitTests.insetTopRight ||
+    !popup.painted.hitTests.insetBottomLeft ||
+    !popup.painted.hitTests.insetBottomRight ||
     popup.popup.left < 0 ||
     popup.popup.top < 0 ||
     popup.popup.right > popup.viewport.width ||
