@@ -95,7 +95,7 @@ export function registerPythonCanvasSectionKinds(host: WorkspaceHost): void {
         ),
         toolbar: "authoring-and-filter",
       },
-      createItem: () => createCallableParameterItem(host),
+      createItem: () => createCallableParameterItem(),
       getItemSearchableText: (context) =>
         parameterItemSearchableText(context.item),
       renderContent: (section) => (

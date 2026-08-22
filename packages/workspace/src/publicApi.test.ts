@@ -49,6 +49,7 @@ const RUNTIME_EXPORTS = [
   "WORKSPACE_INSPECTOR_TAB_ID",
   "WORKSPACE_OUTLINE_TAB_ID",
   "activateItemSelect",
+  "commitWorkspaceDocument",
   "createWorkspaceHost",
   "createWorkspaceCodeSection",
   "createWorkspaceCodeSectionData",

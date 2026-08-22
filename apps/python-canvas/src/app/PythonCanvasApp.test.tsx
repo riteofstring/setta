@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   fetchProjectSnapshot: vi.fn(),
   setCallableParameters: vi.fn(),
   setPythonTarget: vi.fn(),
+  commitWorkspaceDocument: vi.fn(),
   getWorkspaceCodeSectionData: vi.fn(),
   setWorkspaceCodeSectionData: vi.fn(),
   createWorkspaceCodeSection: vi.fn(),
@@ -50,6 +51,7 @@ vi.mock("@setta/workspace", () => ({
   WorkspaceProvider: ({ children }: { children?: ReactNode }) => (
     <>{children}</>
   ),
+  commitWorkspaceDocument: mocks.commitWorkspaceDocument,
   createWorkspaceCodeSection: mocks.createWorkspaceCodeSection,
   createWorkspaceCodeSectionData: mocks.createWorkspaceCodeSectionData,
   createWorkspaceHost: mocks.createWorkspaceHost,
@@ -561,7 +563,16 @@ function documentWithParameterRows(
     sections: {
       "python-canvas:callable": {
         id: "python-canvas:callable",
-        itemTree: { rootId: "python-canvas:callable:parameter-root", items },
+        data: {},
+        itemTree: {
+          rootId: "python-canvas:callable:parameter-root",
+          items,
+          selectedItemIds: [],
+        },
+      },
+      "python-canvas:generated-python": {
+        id: "python-canvas:generated-python",
+        data: generatedDocumentData(committedSnapshot().pythonTarget.prefix),
       },
     },
   };

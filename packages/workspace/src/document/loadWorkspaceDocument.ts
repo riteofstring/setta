@@ -27,6 +27,7 @@ import {
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
   runWithAtomicallyPublishedWorkspaceStores,
+  type NodeInternalsState,
   type WorkspaceDocumentState,
 } from "./stores";
 import type { WorkspaceHost } from "../workspaceHost";
@@ -177,6 +178,72 @@ function assertKnownSectionIds(
   }
 }
 
+type PreparedWorkspaceDocumentCommit = {
+  activeSections: { activeIds: Array<string> };
+  document: WorkspaceDocumentState;
+  nodeInternals: NodeInternalsState;
+};
+
+// Resolves every cross-resource invariant before a document replacement touches any workspace
+// store. Both an external load and a host-driven canonical projection use this one preparation
+// boundary, so neither can leave a partly validated document behind.
+function prepareWorkspaceDocumentCommit(
+  host: WorkspaceHost,
+  document: WorkspaceDocumentInput,
+): PreparedWorkspaceDocumentCommit {
+  const { sections, parentSectionMap } = resolveAndValidateWorkspaceSections(
+    host,
+    document.sections,
+  );
+  assertKnownSectionIds(
+    document,
+    Object.keys(document.topLevelSections),
+    "Top-level layout",
+  );
+  assertKnownSectionIds(document, document.activeIds, "Active ids");
+
+  const nextDocumentState: WorkspaceDocumentState = {
+    sections,
+    topLevelSections: document.topLevelSections,
+    viewport: document.viewport,
+    parentSectionMap,
+  };
+  const nextNodesMap = createNodesMapFromDocumentChildren(
+    host,
+    nextDocumentState,
+    getNodeInternalsStore(host).getState().x,
+  );
+  return {
+    activeSections: { activeIds: document.activeIds },
+    document: nextDocumentState,
+    nodeInternals: { x: nextNodesMap },
+  };
+}
+
+function publishPreparedWorkspaceDocument(
+  host: WorkspaceHost,
+  prepared: PreparedWorkspaceDocumentCommit,
+): void {
+  runWithAtomicallyPublishedWorkspaceStores(host, prepared, () => {
+    getNodeInternalsStore(host).setState(prepared.nodeInternals);
+    // The stores used below share the host-scoped atomic staging above.
+    getWorkspaceDocumentStore(host).setState(prepared.document);
+    getActiveSectionsStore(host).setState(prepared.activeSections);
+  });
+}
+
+// Commits a complete host-authored document without the lifecycle resets that an external load
+// needs. The whole replacement validates before any store write and host subscribers receive one
+// complete snapshot, which makes it the boundary for coupled application projections.
+export function commitWorkspaceDocument(
+  host: WorkspaceHost,
+  document: WorkspaceDocumentInput,
+): void {
+  const prepared = prepareWorkspaceDocumentCommit(host, document);
+  publishPreparedWorkspaceDocument(host, prepared);
+  notifyWorkspaceDocumentSubscribers(host);
+}
+
 export function resolveAndValidateWorkspaceSections(
   host: WorkspaceHost,
   sectionInputs: Record<string, WorkspaceSectionInput>,
@@ -207,29 +274,7 @@ export function loadWorkspaceDocument(
   host: WorkspaceHost,
   document: WorkspaceDocumentInput,
 ): void {
-  const { sections, parentSectionMap } = resolveAndValidateWorkspaceSections(
-    host,
-    document.sections,
-  );
-  assertKnownSectionIds(
-    document,
-    Object.keys(document.topLevelSections),
-    "Top-level layout",
-  );
-  assertKnownSectionIds(document, document.activeIds, "Active ids");
-
-  const nextDocumentState: WorkspaceDocumentState = {
-    sections,
-    topLevelSections: document.topLevelSections,
-    viewport: document.viewport,
-    parentSectionMap,
-  };
-  const nextNodesMap = createNodesMapFromDocumentChildren(
-    host,
-    nextDocumentState,
-    getNodeInternalsStore(host).getState().x,
-  );
-  const nextActiveSections = { activeIds: document.activeIds };
+  const prepared = prepareWorkspaceDocumentCommit(host, document);
   // A menu context is an immutable snapshot of the outgoing document. Release it only after the
   // incoming document validates, and do not restore focus into the surface being replaced.
   closeWorkspaceMenu(host, false);
@@ -237,20 +282,7 @@ export function loadWorkspaceDocument(
     // Arming precedes the publication so the sync mirror fired by the flag flip lands in the
     // outgoing document state, leaving the loaded null viewport intact.
     armLoadedDocumentFitView(host, document.viewport);
-    runWithAtomicallyPublishedWorkspaceStores(
-      host,
-      {
-        document: nextDocumentState,
-        nodeInternals: { x: nextNodesMap },
-        activeSections: nextActiveSections,
-      },
-      () => {
-        getNodeInternalsStore(host).setState({ x: nextNodesMap });
-        // The stores used below share the host-scoped atomic staging above.
-        getWorkspaceDocumentStore(host).setState(nextDocumentState);
-        getActiveSectionsStore(host).setState(nextActiveSections);
-      },
-    );
+    publishPreparedWorkspaceDocument(host, prepared);
     resetDndSessionForLoadedDocument(
       host,
       new Set(Object.keys(document.sections)),

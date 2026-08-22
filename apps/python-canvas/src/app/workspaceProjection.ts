@@ -1,18 +1,16 @@
 import {
   WORKSPACE_CODE_SECTION_KIND,
+  commitWorkspaceDocument,
   createWorkspaceCodeSectionData,
-  deleteWorkspaceItems,
   getWorkspaceCodeSectionData,
-  insertWorkspaceItem,
   setItemData,
-  setSectionData,
-  setWorkspaceCodeSectionData,
   type WorkspaceDocument,
   type WorkspaceDocumentInput,
   type WorkspaceHost,
   type WorkspaceItem,
   type WorkspaceCodeSectionDiagnostic,
   type WorkspaceSection,
+  type WorkspaceSectionItemTree,
 } from "@setta/workspace";
 
 import {
@@ -114,32 +112,47 @@ export type ProjectSnapshotProjectionOptions = Readonly<{
   keepParameterList: boolean;
 }>;
 
-// Applies one canonical Go response through the workspace public mutation seams. The item tree is
-// the canonical parameter list: same IDs, same order. Ordinary edits leave the structure alone, so
-// only item data is written; a response that reshapes the list — a fresh signature, or a restore
-// after a rejected proposal — is rebuilt through the package's own insertion and deletion funnels.
+// Applies one canonical Go response as one validated workspace-document commit. The package
+// publishes exactly one completed snapshot, so callable, parameter, and Generated Python
+// diagnostics can never be observed as different revisions. Every projection value is prepared
+// before that commit; a malformed response therefore leaves the existing workspace untouched.
 export function applyProjectSnapshotToWorkspace(
   host: WorkspaceHost,
   snapshot: ProjectSnapshotV1,
   options: ProjectSnapshotProjectionOptions,
 ): void {
-  setSectionData(
-    host,
+  const currentDocument = host.getSnapshot();
+  const callableSection = getProjectionSection(
+    currentDocument,
     CALLABLE_SECTION_ID,
-    projectCallableSectionData(snapshot),
   );
-  if (options.keepParameterList) {
-    updateRetainedParameterItems(host, snapshot);
-  } else {
-    reconcileParameterItems(host, snapshot);
-  }
-  setWorkspaceCodeSectionData(
-    host,
+  const generatedPythonSection = getProjectionSection(
+    currentDocument,
     GENERATED_PYTHON_SECTION_ID,
-    options.keepAuthoredPython
-      ? retainedGeneratedCodeData(host, snapshot)
-      : projectGeneratedCodeData(snapshot),
   );
+  const itemTree = getCallableParameterItemTree(callableSection);
+  const nextItemTree = options.keepParameterList
+    ? projectRetainedParameterItems(itemTree, snapshot)
+    : projectCanonicalParameterItems(itemTree, snapshot);
+  const generatedData = options.keepAuthoredPython
+    ? retainedGeneratedCodeData(host, snapshot)
+    : projectGeneratedCodeData(snapshot);
+
+  commitWorkspaceDocument(host, {
+    ...currentDocument,
+    sections: {
+      ...currentDocument.sections,
+      [CALLABLE_SECTION_ID]: {
+        ...callableSection,
+        data: projectCallableSectionData(snapshot),
+        itemTree: nextItemTree,
+      },
+      [GENERATED_PYTHON_SECTION_ID]: {
+        ...generatedPythonSection,
+        data: generatedData,
+      },
+    },
+  });
 }
 
 // The response's own generated body between the prefix and suffix the person is still authoring.
@@ -160,21 +173,27 @@ function retainedGeneratedCodeData(
 
 // The project's own data lands on the rows that survived whatever the person did while the
 // response was away; the list itself is left exactly as they left it.
-function updateRetainedParameterItems(
-  host: WorkspaceHost,
+function projectRetainedParameterItems(
+  itemTree: WorkspaceSectionItemTree,
   snapshot: ProjectSnapshotV1,
-): void {
-  const documentIds = new Set(readParameterItemIds(host));
+): WorkspaceSectionItemTree {
+  const documentIds = new Set(getItemTreeRoot(itemTree).children);
+  const items = { ...itemTree.items };
   for (const parameter of getCallableParameters(snapshot)) {
     if (documentIds.has(parameter.id)) {
-      setItemData(
-        host,
-        CALLABLE_SECTION_ID,
-        parameter.id,
-        projectParameterItemData(parameter),
-      );
+      const item = items[parameter.id];
+      if (item === undefined) {
+        throw new Error(
+          `Python Canvas retained parameter ${parameter.id} is missing.`,
+        );
+      }
+      items[parameter.id] = {
+        ...item,
+        data: projectParameterItemData(parameter),
+      };
     }
   }
+  return { ...itemTree, items };
 }
 
 // The authored Python the generated document currently holds, split at the package's own mapped
@@ -239,33 +258,20 @@ export function setParameterItemName(
 }
 
 // The record the package's Add parameter action inserts: one blank app-authored parameter whose ID
-// is the parameter ID the store will adopt, proposed once here. While a reprojection is running,
-// the factory is instead handing back the exact canonical records that reprojection queued, and
-// being asked for one it did not queue is a projection defect rather than a new parameter.
-export function createCallableParameterItem(
-  host: WorkspaceHost,
-): WorkspaceItem {
-  const reprojection = reprojectedItems.get(host);
-  if (reprojection === undefined) {
-    return {
-      id: `parameter:authored:${crypto.randomUUID()}`,
-      children: [],
-      data: {
-        authoredExpression: "",
-        default: null,
-        disabled: false,
-        name: "",
-        nameEditable: true,
-      } satisfies ParameterItemData,
-    };
-  }
-  const queued = reprojection.shift();
-  if (queued === undefined) {
-    throw new Error(
-      "Python Canvas reprojection was asked for a parameter item it never queued.",
-    );
-  }
-  return queued;
+// the store adopts. Canonical responses commit their complete validated snapshot separately, so
+// this factory only represents a person starting a new local parameter.
+export function createCallableParameterItem(): WorkspaceItem {
+  return {
+    id: `parameter:authored:${crypto.randomUUID()}`,
+    children: [],
+    data: {
+      authoredExpression: "",
+      default: null,
+      disabled: false,
+      name: "",
+      nameEditable: true,
+    } satisfies ParameterItemData,
+  };
 }
 
 // The callable's rows in document order, which is what its section renders.
@@ -300,75 +306,84 @@ export function readCallableParameterItems(
   return readCallableParameterRows(section);
 }
 
-// A reprojection hands the factory the exact records it wants back, because the workspace item ID
-// is the canonical parameter ID and only the registered factory may propose one. An entry exists
-// for exactly as long as one reprojection is inserting.
-const reprojectedItems = new WeakMap<WorkspaceHost, Array<WorkspaceItem>>();
-
-function reconcileParameterItems(
-  host: WorkspaceHost,
+// A response that answers the current list keeps its existing tree shape and selection while
+// replacing only canonical row data. A response that changes the canonical order or membership
+// deliberately replaces that complete semantic list; ordinary user authoring still reaches the
+// package's own item actions before any response is projected back.
+function projectCanonicalParameterItems(
+  itemTree: WorkspaceSectionItemTree,
   snapshot: ProjectSnapshotV1,
-): void {
+): WorkspaceSectionItemTree {
   const canonical = getCallableParameters(snapshot);
   const canonicalIds = canonical.map((parameter) => parameter.id);
-  let documentIds = readParameterItemIds(host);
-
-  // Records the project dropped go first, in one atomic deletion.
-  const stale = documentIds.filter((itemId) => !canonicalIds.includes(itemId));
-  if (stale.length > 0) {
-    deleteWorkspaceItems(host, CALLABLE_SECTION_ID, stale);
-    documentIds = readParameterItemIds(host);
-  }
-  // Records the project holds that this document does not: a rejected deletion put back.
-  const missing = canonical.filter(
-    (parameter) => !documentIds.includes(parameter.id),
-  );
-  if (missing.length > 0) {
-    insertProjectedItems(host, missing);
-    documentIds = readParameterItemIds(host);
-  }
-  // Only a rejected reorder can leave retained rows in an order the project does not hold, and
-  // appending cannot fix an order, so that one case rebuilds the list from canonical.
-  if (!sameOrder(documentIds, canonicalIds)) {
-    deleteWorkspaceItems(host, CALLABLE_SECTION_ID, documentIds);
-    insertProjectedItems(host, canonical);
+  const root = getItemTreeRoot(itemTree);
+  if (sameOrder(root.children, canonicalIds)) {
+    const items = { ...itemTree.items };
+    for (const parameter of canonical) {
+      const item = items[parameter.id];
+      if (item === undefined) {
+        throw new Error(
+          `Python Canvas canonical parameter ${parameter.id} is missing.`,
+        );
+      }
+      items[parameter.id] = {
+        ...item,
+        data: projectParameterItemData(parameter),
+      };
+    }
+    return { ...itemTree, items };
   }
 
-  for (const parameter of canonical) {
-    setItemData(
-      host,
-      CALLABLE_SECTION_ID,
-      parameter.id,
-      projectParameterItemData(parameter),
+  return {
+    ...itemTree,
+    items: {
+      [itemTree.rootId]: { ...root, children: canonicalIds },
+      ...Object.fromEntries(
+        canonical.map((parameter) => [
+          parameter.id,
+          {
+            id: parameter.id,
+            children: [],
+            data: projectParameterItemData(parameter),
+          } satisfies WorkspaceItem,
+        ]),
+      ),
+    },
+    selectedItemIds: itemTree.selectedItemIds.filter((itemId) =>
+      canonicalIds.includes(itemId),
+    ),
+  };
+}
+
+function getProjectionSection(
+  document: WorkspaceDocument,
+  sectionId: string,
+): WorkspaceSection {
+  const section = document.sections[sectionId];
+  if (section === undefined) {
+    throw new Error(`Python Canvas projection is missing section ${sectionId}.`);
+  }
+  return section;
+}
+
+function getCallableParameterItemTree(
+  section: WorkspaceSection,
+): WorkspaceSectionItemTree {
+  const itemTree = section.itemTree;
+  if (itemTree === undefined) {
+    throw new Error("The Python Canvas callable section has no item tree.");
+  }
+  return itemTree;
+}
+
+function getItemTreeRoot(itemTree: WorkspaceSectionItemTree): WorkspaceItem {
+  const root = itemTree.items[itemTree.rootId];
+  if (root === undefined) {
+    throw new Error(
+      `Python Canvas parameter root ${itemTree.rootId} is missing.`,
     );
   }
-}
-
-// The package owns insertion placement and asks the registered factory for each item, so a
-// reprojection queues the exact canonical records it needs put back.
-function insertProjectedItems(
-  host: WorkspaceHost,
-  parameters: Array<ParameterV1>,
-): void {
-  reprojectedItems.set(
-    host,
-    parameters.map((parameter) => ({
-      id: parameter.id,
-      children: [],
-      data: projectParameterItemData(parameter),
-    })),
-  );
-  try {
-    for (const _parameter of parameters) {
-      insertWorkspaceItem(host, CALLABLE_SECTION_ID);
-    }
-  } finally {
-    reprojectedItems.delete(host);
-  }
-}
-
-function readParameterItemIds(host: WorkspaceHost): Array<string> {
-  return readCallableParameterItems(host.getSnapshot()).map((item) => item.id);
+  return root;
 }
 
 function updateParameterItem(

@@ -281,13 +281,28 @@ than treating an independent document diagnostic as that stale range. The pinned
 integration now drives the same prefix add-and-correct sequence and requires its targetless
 provider message to clear from the canonical snapshot while retaining unrelated document feedback.
 
+Implementation record — atomic snapshot publication correction: Python Canvas now prepares its
+callable data, canonical-or-retained parameter tree, and Generated Python data before one public
+workspace document commit. That generic package boundary validates the complete document before
+writing, atomically publishes its document/node/selection stores, and notifies subscribers once,
+so the three diagnostic partitions cannot expose a mixed revision and an invalid projection leaves
+the prior workspace intact. Regressions prove one three-way diagnostic publication and no write on
+an invalid generated document; the workspace root ratifies the new commit entry and its Text
+section keeps a stable empty diagnostic value. The focused projection test (13 tests), Python
+Canvas suite (8 files / 70 tests), workspace component suite (143 files / 1,206 tests), workspace
+build, and Canvas TypeScript/Vite build passed. The locked `code-policy test --changed --base
+9dbdf9dffd09d74ddbda856ddea03c9ea957441b` then passed its workspace, playground, backend, and
+Python Canvas focused suites.
+
 Environment evidence not yet sufficient for phase closeout: the supervisor completed
 `code-policy dependency-review --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
 against the no-script candidate lockfile with no vulnerabilities. The required local production
 browser walkthrough again could not run inside Agent 1's sandbox because it rejects binding
 `127.0.0.1` with `EPERM`; the selected `test --changed --base
-9dbdf9dffd09d74ddbda856ddea03c9ea957441b` passed before that browser-only limitation. The phase
-marker remains unchecked; frozen acceptance and the required
+9dbdf9dffd09d74ddbda856ddea03c9ea957441b` passed before that browser-only limitation. The latest
+authorized `test --recommended --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b` also passed its
+other eight suites before the same browser bind failure. The phase marker remains unchecked;
+frozen acceptance and the required
 full-resolution browser evidence still need to run in the supervisor environment. Both are already
 authorized for this loop and are supervisor-owned acceptance work, not a developer evidence or
 approval gate.

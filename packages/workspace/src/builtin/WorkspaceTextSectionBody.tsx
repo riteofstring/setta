@@ -53,6 +53,10 @@ const PLAIN_TEXT_CLASS_NAME =
 // `basicSetup.tabSize`. Its gutters are the ones `basicSetup` mounts by default.
 const EDITOR_INDENT_WIDTH = 4;
 
+// Text sections never publish document diagnostics. Keep this empty value stable so an otherwise
+// unrelated render does not make WorkspaceSectionEditor recreate its CodeMirror extensions.
+const NO_EDITOR_DIAGNOSTICS = [] as const;
+
 type WorkspaceTextSectionBodyProps = {
   section: WorkspaceSection;
   choices: WorkspaceTextSectionChoices;
@@ -147,7 +151,7 @@ function TextSectionEditor({
           ? `${section.name} text, read-only`
           : `${section.name} text editor`
       }
-      diagnostics={[]}
+      diagnostics={NO_EDITOR_DIAGNOSTICS}
       indentWidth={EDITOR_INDENT_WIDTH}
       language={getWorkspaceTextSectionEditorLanguage(data.format)}
       lineNumbers

@@ -164,6 +164,7 @@ export { setWorkspaceColorMode } from "./document/appearance";
 export { useWorkspaceCapabilities } from "./document/capabilities";
 export type { WorkspaceCapabilitiesState } from "./document/capabilities";
 export type { WorkspaceDocumentSubscription } from "./document/documentChangeCallback";
+export { commitWorkspaceDocument } from "./document/loadWorkspaceDocument";
 export { GROUP_SECTION_KIND } from "./document/documentSelectors";
 export { setItemData } from "./document/itemData";
 export {

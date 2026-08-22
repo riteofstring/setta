@@ -180,6 +180,79 @@ describe("Python Canvas workspace projection", () => {
     host.dispose();
   });
 
+  it("publishes every diagnostic destination as one canonical replacement", () => {
+    const initial = snapshotWithAllDiagnosticPartitions();
+    const next = {
+      ...initial,
+      diagnostics: initial.diagnostics.map((diagnostic) => ({
+        ...diagnostic,
+        message: `Updated: ${diagnostic.message}`,
+      })),
+    };
+    const host = createHostForTest(initial);
+    const published: Array<ReturnType<typeof host.getSnapshot>> = [];
+    const unsubscribe = host.subscribe((document) => published.push(document));
+
+    applyProjectSnapshotToWorkspace(host, next, KEEP_NOTHING);
+
+    expect(published).toHaveLength(1);
+    const document = published[0];
+    if (document === undefined) {
+      throw new Error("Python Canvas projection did not publish a document.");
+    }
+    expect(
+      readCallableSectionData(document.sections[CALLABLE_SECTION_ID]?.data),
+    ).toMatchObject({
+      callableDiagnosticMessage: "Updated: Callable invocation is invalid.",
+      parameterDiagnostics: {
+        "parameter:square-root:provider": [
+          {
+            message: "Updated: Parameter value is undefined.",
+            severity: "warning",
+          },
+        ],
+      },
+    });
+    expect(
+      document.sections[GENERATED_PYTHON_SECTION_ID]?.data,
+    ).toMatchObject({
+      diagnostics: [
+        {
+          message: "Updated: Generated document has an unresolved name.",
+          severity: "error",
+        },
+      ],
+    });
+
+    unsubscribe();
+    host.dispose();
+  });
+
+  it("leaves the prior workspace untouched when a complete projection cannot validate", () => {
+    const initial = snapshotWithAllDiagnosticPartitions();
+    const invalid = snapshotWithParameters([providerParameter("3")]);
+    const malformed = {
+      ...invalid,
+      generatedCode: {
+        ...invalid.generatedCode,
+        code: `${invalid.generatedCode.code}\n# no longer composed`,
+      },
+    };
+    const host = createHostForTest(initial);
+    const before = host.getSnapshot();
+    const published: Array<ReturnType<typeof host.getSnapshot>> = [];
+    const unsubscribe = host.subscribe((document) => published.push(document));
+
+    expect(() =>
+      applyProjectSnapshotToWorkspace(host, malformed, KEEP_NOTHING),
+    ).toThrow(/does not compose its canonical prefix, body, and suffix/u);
+    expect(host.getSnapshot()).toEqual(before);
+    expect(published).toEqual([]);
+
+    unsubscribe();
+    host.dispose();
+  });
+
   it("refuses generated Python that does not compose its canonical parts", () => {
     const snapshot = parseProjectSnapshotV1(projectSnapshotFixture);
     expect(() =>
@@ -200,7 +273,7 @@ describe("Python Canvas workspace projection", () => {
     ).toThrow(/parameters its callable does not carry/u);
   });
 
-  it("reconciles a canonical response through public mutations without reloading the host", () => {
+  it("commits a canonical response without reloading the host", () => {
     const initial = snapshotWithParameters([providerParameter("")]);
     const next = snapshotWithParameters([providerParameter("missing_value")]);
     const host = createHostForTest(initial);
@@ -249,8 +322,8 @@ describe("Python Canvas workspace projection", () => {
   });
 
   // A commit resolves a new signature, and a rejected proposal has to be put back: both arrive as
-  // a canonical list this document does not hold, and both are rebuilt through the package's own
-  // insertion and deletion funnels rather than by reloading the document.
+  // a canonical list this document does not hold, so its one complete workspace replacement owns
+  // the final list without asking the host to reload its lifecycle state.
   it("rebuilds the item tree when a canonical response reshapes the parameter list", () => {
     const initial = snapshotWithParameters([
       providerParameter(""),
