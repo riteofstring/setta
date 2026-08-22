@@ -788,8 +788,7 @@ local service, provider session, or live probe ran in this phase.
 
 ### Phase D — acceptance evidence and removal audit
 
-- [x] Iteration-0022 callable-expression interaction-boundary remediation
-      complete
+- [x] Iteration-0023 browser walkthrough native-input remediation complete
 
 1. Complete focused backend, contract, HTTP, runtime-decoder, client, and
    frontend evidence from the matrix below. Implement or update the production
@@ -891,9 +890,25 @@ document-Escape isolation regression assertions. `code-policy test --module
 python-canvas-frontend` passed all 46 frontend tests. No browser, local
 service, provider session, or live probe ran.
 
+**Iteration-0023 remediation record (2026-08-22):** The production browser
+walkthrough now commits each callable through the native
+`input[name='callable-expression']` scoped to its dynamic callable section.
+The browser helpers explicitly reserve their contenteditable activation path
+for public-workspace editors, so the walkthrough no longer searches for the
+former `Callable expression for <name>` ARIA label or requires
+`contenteditable` on the native input.
+
+**Iteration-0023 static artifact proof (2026-08-22):** `node --check
+apps/python-canvas/browser-page.mjs`, `node --check
+apps/python-canvas/browser-processes.mjs`, and `node --check
+apps/python-canvas/vertical-slice.browser.mjs` passed. The exact-file Prettier
+check and `git diff --check` also passed. The `python-canvas-browser` suite
+was not executed; this batch did not start a browser, local service, provider
+session, or live probe.
+
 ### Phase E — focused verification closeout
 
-- [x] Iteration-0022 focused verification complete and ready for a fresh
+- [x] Iteration-0023 focused verification complete and ready for a fresh
       independent audit
 
 1. Run the focused module suites and changed-file selection listed below in the
@@ -905,6 +920,11 @@ service, provider session, or live probe ran.
    suite, including `python-canvas-browser`, runs. The plan-loop does not run,
    request, or imply authorization for recommended, full, verify, gate,
    merge-gate, test --all, or supplemental suites.
+
+**Iteration-0023 focused proof (2026-08-22):** `code-policy test --module
+python-canvas-frontend` passed all 46 frontend tests. `code-policy test
+--changed` selected that same focused frontend suite and passed. No browser,
+local service, provider session, or live probe ran.
 
 **Iteration-0022 focused proof (2026-08-21):** `code-policy test --changed`
 selected the `python-canvas-frontend` focused suite and passed all 46 frontend

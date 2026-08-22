@@ -43,7 +43,7 @@ export function labeledSelector(label) {
   return `[aria-label=${JSON.stringify(label)}]`;
 }
 
-export function textBoxSelector(label) {
+export function contentEditableTextBoxSelector(label) {
   return `[role="textbox"][aria-label=${JSON.stringify(label)}]`;
 }
 
@@ -118,7 +118,11 @@ export async function focusElement(client, selector, description) {
   }
 }
 
-export async function activateTextBox(client, selector, description) {
+export async function activateContentEditableTextBox(
+  client,
+  selector,
+  description,
+) {
   await clickElementCenter(client, selector, description);
   await waitFor(
     client,

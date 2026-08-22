@@ -8,7 +8,7 @@ import {
 } from "./browser-processes.mjs";
 import {
   activateCodeEditor,
-  activateTextBox,
+  activateContentEditableTextBox,
   clickElementCenter,
   clickPoint,
   dragBetweenPoints,
@@ -30,7 +30,7 @@ import {
   pressItemActionMenuKey,
   releaseItemSelectionChord,
   selectAll,
-  textBoxSelector,
+  contentEditableTextBoxSelector,
   waitFor,
 } from "./browser-page.mjs";
 
@@ -249,14 +249,12 @@ async function commitCallableExpression(
   name,
   expression,
 ) {
-  await activateTextBox(
+  await replaceNativeInputAndSubmit(
     client,
-    textBoxSelector(`Callable expression for ${name}`),
+    `${callableSectionSelector(name)} input[name='callable-expression']`,
+    expression,
     `the ${name} callable expression`,
   );
-  await selectAll(client);
-  await insertText(client, expression);
-  await pressEnter(client);
   await waitForSnapshot(
     backendOrigin,
     `the ${name} callable expression commit`,
@@ -407,9 +405,9 @@ async function addAppParameter(client, backendOrigin, callable) {
 }
 
 async function setParameterName(client, backendOrigin, parameterID, name) {
-  await activateTextBox(
+  await activateContentEditableTextBox(
     client,
-    `${parameterRowSelector(parameterID)} ${textBoxSelector("Item name")}`,
+    `${parameterRowSelector(parameterID)} ${contentEditableTextBoxSelector("Item name")}`,
     `the ItemNameEditor for ${name}`,
   );
   await selectAll(client);
@@ -440,9 +438,9 @@ async function setParameterExpression(
   );
   assert.ok(parameter, `The ${parameterID} parameter was not present.`);
   const label = parameter.name === "" ? "Unnamed parameter" : parameter.name;
-  await activateTextBox(
+  await activateContentEditableTextBox(
     client,
-    `${parameterRowSelector(parameterID)} ${textBoxSelector(`${label} expression`)}`,
+    `${parameterRowSelector(parameterID)} ${contentEditableTextBoxSelector(`${label} expression`)}`,
     `the ${label} expression editor`,
   );
   await selectAll(client);
