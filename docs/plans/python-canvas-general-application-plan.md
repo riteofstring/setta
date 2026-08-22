@@ -875,45 +875,45 @@ or live probe.
 
 ## Removal checklist
 
-- [ ] Remove V1 Go contracts, V1 generated fixture, V1 contract generator
+- [x] Remove V1 Go contracts, V1 generated fixture, V1 contract generator
       names, V1 HTTP routes, and V1 handler payloads/error vocabulary.
-- [ ] Remove the in-memory InitialProjectSnapshot and
+- [x] Remove the in-memory InitialProjectSnapshot and
       BootstrapShippedExample path, all Square Root constants, and every
       hard-coded math import/default callable.
-- [ ] Remove singleton canonical state, exact-one callable/signature checks,
+- [x] Remove singleton canonical state, exact-one callable/signature checks,
       fixed parameter slots, fixed source ranges, and callables[0] selection
       from project, renderer, provider, and HTTP code.
-- [ ] Remove parameter-expression-only routes, request types, and provider-only
+- [x] Remove parameter-expression-only routes, request types, and provider-only
       membership assumptions. Remove client inference of parameter ownership and
       any UI that withholds Add, Remove Last, Delete Selected, drag reorder,
       filtering, item actions, or ItemNameEditor from dynamic callable lists.
-- [ ] Remove fixed/non-configurable project-name handling. Keep only the one
+- [x] Remove fixed/non-configurable project-name handling. Keep only the one
       expected-revision V2 project-rename route and labelled in-place control;
       do not replace it with project discovery, clone/save-as, or multi-project
       management.
-- [ ] Remove V1 or implicit-project behavior from
+- [x] Remove V1 or implicit-project behavior from
       `scripts/run-python-canvas.sh`, README startup instructions, and browser
       process startup. Keep only explicit `--project PATH`, optional `--create`
       forwarding to the Go command, and the sole V2 readiness/project route
       `GET /api/v2/project`.
-- [ ] Remove V1 generatedContract.ts, V1 runtime parser, V1 client route
+- [x] Remove V1 generatedContract.ts, V1 runtime parser, V1 client route
       constants, V1 decoder aliases, and fixed frontend callable/parameter
       IDs. Regenerate only V2 TypeScript.
-- [ ] Remove the fixed callable workspace projection, shared callable draft,
+- [x] Remove the fixed callable workspace projection, shared callable draft,
       fixed parameter root assumptions, V1 x/y canvas placement constants, and
       any UI list-position selection. Derive transient placement only from the
       current dynamic callable collection.
-- [ ] Remove separate prefix/suffix target textareas, any standalone
+- [x] Remove separate prefix/suffix target textareas, any standalone
       generated-document surface disconnected from editable outer regions,
       guessed body boundaries, and any direct generated-body mutation path.
       Keep only one public-workspace combined document with exactly one
       protected body range, atomic transaction rejection, validated mapped
       outer edits, and outer-only completion.
-- [ ] Replace browser scripts, fixtures, README prose, and tests that mention
+- [x] Replace browser scripts, fixtures, README prose, and tests that mention
       /api/v1, V1, Square Root, math.sqrt bootstrap, a single callable, or a
       one-parameter assumption; remove any CI-coverage claim or guessed stale
       runner label from this implementation loop.
-- [ ] Confirm no production Python Canvas source uses a legacy reader,
+- [x] Confirm no production Python Canvas source uses a legacy reader,
       migration, compatibility endpoint, V1 fallback, or a silent
       provider-unavailable empty result.
 
