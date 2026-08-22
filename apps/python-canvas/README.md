@@ -65,7 +65,12 @@ protected UTF-16 range.
 `pnpm --filter @setta/python-canvas run browser:test` is the checked-in browser
 walkthrough for a separately authorized standard verification run. It creates a
 temporary absent project through the launcher with explicit `--project` and
-`--create`, observes the V2 readiness endpoint, renames the project through the
-labelled browser control, restarts against the same path without `--create`, and
-verifies the persisted V2 snapshot. It starts local services and a browser, so
-do not run it unless that suite is explicitly authorized.
+`--create`, writes a temporary fixture module, and observes readiness only
+through `GET /api/v2/project`. The browser then renames the project, creates
+and commits multiple callables, exercises the public parameter toolbar,
+filter, item actions, ItemNameEditor, app/provider expressions, and target
+document boundaries, then deletes one callable. It restarts against the same
+path without `--create` and compares the renamed project, remaining callables,
+canonical parameter metadata, and generated Python bytes. It starts local
+services and a browser, so do not run it unless that suite is explicitly
+authorized.

@@ -2,8 +2,8 @@
 
 ## Purpose and status
 
-**Status: Phase A, Phase B, and Phase C are complete; Phase D is ready for
-Agent 2 review. Phase E follows that audit.**
+**Status: Phase A, Phase B, and Phase C are complete; Phase D implementation
+evidence is complete and ready for Agent 2 review. Phase E follows that audit.**
 
 This is the bounded implementation plan for replacing Python Canvas's fixed,
 in-memory V1 Square Root demonstration with a persisted, general-purpose Python
@@ -788,8 +788,8 @@ local service, provider session, or live probe ran in this phase.
 
 ### Phase D — acceptance evidence and removal audit
 
-- [x] Protected-boundary completion and accessible failure-feedback evidence
-      complete
+- [x] Protected-boundary completion, accessible failure-feedback, and
+      production-browser walkthrough artifact evidence complete
 
 1. Complete focused backend, contract, HTTP, runtime-decoder, client, and
    frontend evidence from the matrix below. Implement or update the production
@@ -817,12 +817,32 @@ work is exposed through `aria-busy` on the existing polite status region;
 provider-unavailable, revision-conflict, validation, and persistence failures
 remain explicit text rather than a color-only state.
 
+The checked-in production browser walkthrough now uses the launcher to create
+one absent temporary V2 project with a temporary fixture module and observes
+readiness only at `GET /api/v2/project`. Its finite UI path covers a project
+rename; two committed callables; the required app-authored and provider-derived
+parameter operations; both editable outer target regions; protected-body
+rejection; outer-only completion and diagnostics; callable deletion; and a
+same-project restart without `--create` that compares canonical metadata and
+generated Python bytes. The standard browser suite remains deliberately
+unexecuted in this loop.
+
 **Focused proof (2026-08-21):** `go test -count=1
 ./internal/project/coordinator` passed from `apps/python-canvas/backend`, and
 `pnpm --filter @setta/python-canvas exec vitest run
 src/app/PythonCanvasApp.test.tsx src/sections/CallableSection.test.tsx` passed.
 These checks use only fakes and component rendering; no browser, local service,
 or Basedpyright provider session ran.
+
+**Browser artifact static proof (2026-08-21):** `node --check
+apps/python-canvas/browser-page.mjs`, `node --check
+apps/python-canvas/browser-processes.mjs`, and `node --check
+apps/python-canvas/vertical-slice.browser.mjs` passed, as did the exact-file
+Prettier check and `git diff --check`. `code-policy test --module
+python-canvas-backend`, `code-policy test --module python-canvas-frontend`, and
+`code-policy test --changed` passed. The `python-canvas-browser` suite was not
+executed; this batch did not start a browser, local service, provider session,
+or live probe.
 
 ### Phase E — focused verification closeout
 

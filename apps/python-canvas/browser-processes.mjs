@@ -198,11 +198,6 @@ async function waitForLauncher(launcher) {
     "http://127.0.0.1:8080/api/v2/project",
     "Python Canvas backend",
   );
-  await waitForHttp(
-    launcher,
-    "http://127.0.0.1:5173",
-    "Python Canvas frontend",
-  );
 }
 
 // This is the one checked-in browser lifecycle: an absent, temporary project
@@ -217,7 +212,7 @@ export async function runAgainstProductionApp(callback) {
   const fixtureModulePath = path.join(temporaryDirectory, "fixture_module.py");
   writeFileSync(
     fixtureModulePath,
-    "def sample(value: float, *, scale: int = 1) -> float:\n    return value * scale\n",
+    "def sample(first: float, /, second: int = 1, *values: str, keyword: str = 'value', **extras: object) -> float:\n    return first + second\n\n\ndef zero() -> None:\n    return None\n",
     "utf8",
   );
 
