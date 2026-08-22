@@ -2,7 +2,11 @@ import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { TextValueCompletionProvider } from "@setta/workspace";
+import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  type TextValueCompletionProvider,
+} from "@setta/workspace";
 
 const editorProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 const parameterRows = vi.hoisted(
@@ -13,6 +17,8 @@ vi.mock("@setta/workspace", () => ({
   ItemNameEditor: ({ name }: { name: string }) => (
     <input aria-label="Parameter name" value={name} readOnly />
   ),
+  NO_DRAG_CLASS_NAME: "nodrag",
+  NO_PAN_CLASS_NAME: "nopan",
   TextValueEditor: (props: Record<string, unknown>) => {
     editorProps.push(props);
     return (
@@ -125,6 +131,8 @@ describe("CallableSection", () => {
       )?.textContent,
     ).toBe("Callable expression");
     expect(input?.tagName).toBe("INPUT");
+    expect(input?.form?.classList.contains(NO_DRAG_CLASS_NAME)).toBe(true);
+    expect(input?.form?.classList.contains(NO_PAN_CLASS_NAME)).toBe(true);
     expect(
       input?.form?.querySelector("button[type='submit']")?.textContent,
     ).toBe("Commit callable");

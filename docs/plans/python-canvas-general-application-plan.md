@@ -788,7 +788,7 @@ local service, provider session, or live probe ran in this phase.
 
 ### Phase D — acceptance evidence and removal audit
 
-- [x] Iteration-0020 callable-card and target-error relationship remediation
+- [x] Iteration-0021 callable-expression interaction-boundary remediation
       complete
 
 1. Complete focused backend, contract, HTTP, runtime-decoder, client, and
@@ -871,9 +871,15 @@ association cases. `code-policy test --changed` selected that same focused
 frontend suite and passed. Exact-file Prettier and `git diff --check` passed.
 No browser, local service, provider session, or live probe ran.
 
+**Iteration-0021 remediation record (2026-08-21):** The callable expression
+form now carries the public workspace `NO_DRAG_CLASS_NAME` and
+`NO_PAN_CLASS_NAME` boundaries. Pointer interaction originating in its native
+expression input therefore retains native text-selection behavior instead of
+starting a callable-card drag or canvas pan.
+
 ### Phase E — focused verification closeout
 
-- [x] Iteration-0020 focused verification complete and ready for a fresh
+- [x] Iteration-0021 focused verification complete and ready for a fresh
       independent audit
 
 1. Run the focused module suites and changed-file selection listed below in the
@@ -885,6 +891,14 @@ No browser, local service, provider session, or live probe ran.
    suite, including `python-canvas-browser`, runs. The plan-loop does not run,
    request, or imply authorization for recommended, full, verify, gate,
    merge-gate, test --all, or supplemental suites.
+
+**Iteration-0021 focused proof (2026-08-21):** `pnpm --filter
+@setta/python-canvas exec vitest run src/sections/CallableSection.test.tsx
+--reporter=dot` passed (12 tests). `code-policy test --module
+python-canvas-frontend` passed all 46 frontend tests, and `code-policy test
+--changed` selected that same focused frontend suite and passed. Exact-file
+Prettier and `git diff --check` passed. No browser, local service, provider
+session, or live probe ran.
 
 **Remediation record (2026-08-21):** The dynamic parameter projection now
 retains every provider-owned field used by the UI: immutable

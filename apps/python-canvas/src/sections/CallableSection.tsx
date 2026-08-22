@@ -12,6 +12,8 @@ import {
 } from "../backend/generatedContract";
 import {
   ItemNameEditor,
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
   TextValueEditor,
   WorkspaceItemLabel,
   WorkspaceItemList,
@@ -219,7 +221,7 @@ export function CallableExpressionField({
 
   return (
     <form
-      className="python-canvas-callable-expression-controls"
+      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} python-canvas-callable-expression-controls`}
       onSubmit={(event) => {
         event.preventDefault();
         mutation.onCallableCommit(callableId, draft);
