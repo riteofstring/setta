@@ -70,7 +70,7 @@ test("Canvas extraction requires an exposed React Flow pane point", async () => 
   );
   assert.match(
     walkthrough,
-    /targetPointOptions: \{ exactElementHit: true \},\s*targetRetryYOffset: 0,/,
+    /targetXFraction: 0\.9,\s*targetPointOptions: \{ exactElementHit: true \},\s*targetRetryYOffset: 0,/,
   );
 
   const window = new JSDOM(
@@ -91,7 +91,8 @@ test("Canvas extraction requires an exposed React Flow pane point", async () => 
     throw new Error("Expected the canvas extraction fixture.");
   }
   canvas.getBoundingClientRect = () => new window.DOMRect(0, 0, 400, 300);
-  document.elementFromPoint = (x) => (x >= 350 ? canvas : list);
+  document.elementFromPoint = (x) =>
+    x <= 1 || x >= 350 ? canvas : list;
   const client = {
     async send(method, parameters) {
       assert.equal(method, "Runtime.evaluate");
@@ -104,10 +105,10 @@ test("Canvas extraction requires an exposed React Flow pane point", async () => 
     '.react-flow__pane[aria-label="Workspace canvas background"]',
     "the exposed canvas",
     0.25,
-    null,
+    0.9,
     { exactElementHit: true },
   );
-  assert.deepEqual({ ...point }, { x: 399, y: 75 });
+  assert.deepEqual({ ...point }, { x: 360, y: 75 });
   assert.equal(document.elementFromPoint(point.x, point.y), canvas);
 
   document.elementFromPoint = () => list;

@@ -890,6 +890,7 @@ async function dragFreeSectionToCanvas(
     targetSelector:
       '.react-flow__pane[aria-label="Workspace canvas background"]',
     targetYFraction: 0.25,
+    targetXFraction: 0.9,
     targetPointOptions: { exactElementHit: true },
     targetRetryYOffset: 0,
     verifyFocusContext,
@@ -924,7 +925,7 @@ async function dragSection(client, configuration) {
         configuration.targetSelector,
         `${configuration.description} target`,
         configuration.targetYFraction,
-        null,
+        configuration.targetXFraction ?? null,
         configuration.targetPointOptions,
       );
       await tryMovingFreeSectionDrag(client, {
