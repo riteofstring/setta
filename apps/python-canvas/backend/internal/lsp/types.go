@@ -18,6 +18,7 @@ type Diagnostic struct {
 	Range    Range  `json:"range"`
 	Severity int    `json:"severity,omitempty"`
 	Message  string `json:"message"`
+	Code     string `json:"code"`
 }
 
 type PublishDiagnosticsParams struct {
