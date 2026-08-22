@@ -2,11 +2,11 @@
 
 ## Purpose and status
 
-**Status: Phase A's structural cutover and Phase B's production correction are developer-accepted.
-The final live-review correction is source candidate
-`c18baf47bb6333fe3a06712a5469958612e1e726`; closing Code Policy verification is in progress. For
-every behavior included in this callable workflow, current main remains the authoritative
-reference.**
+**Status: Complete. Phase A's structural cutover and Phase B's production correction are
+developer-accepted. The final live-review correction is source candidate
+`c18baf47bb6333fe3a06712a5469958612e1e726`; its closing Code Policy verification and exact-range
+Opus review passed. For every behavior included in this callable workflow, current main remains the
+authoritative reference.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -131,9 +131,11 @@ Starting from `./scripts/run-python-canvas.sh`, the live app must demonstrate th
    toolbar uses main's compact Callable block spacing (`mt-0 pb-0`), rather than the ordinary item
    toolbar's `mt-1 pb-1`. Python Canvas must not add content-area padding or a grid gap around
    package-owned section content.
-3. Any normal pending state appears as a compact application-owned adornment associated with the
-   editor. A genuine completion or mutation failure remains visible and accessible without turning
-   ordinary idle state into a paragraph of infrastructure text.
+3. Application-wide mutation progress appears only in the app-owned live status. A field adornment
+   is reserved for that field's own draft, failure, or LSP wait; this slice has no such field-local
+   pending state and therefore supplies no pending adornment. A genuine completion or mutation
+   failure remains visible and accessible without turning ordinary idle state into a paragraph of
+   infrastructure text.
 4. The Args toolbar follows the callable editor. It uses the existing `authoring-and-filter`
    presentation and exposes working Remove Last, Add, and Delete Selected actions. The active
    section's empty filter displays the resolved platform label for the same configurable
@@ -435,8 +437,8 @@ the new package presentation:
 - use `TextValueEditor` with the explicit `section-field` presentation, stable generic `controlId`,
   Python highlighting, existing completion provider, existing draft callback, and existing Enter
   commit callback;
-- project pending state into a compact end adornment and keep it accessible through an app-owned
-  live region;
+- keep application-wide mutation progress in the app-owned live region, and reserve the optional
+  field end-adornment seam for genuinely field-local state;
 - remove the large normal **Callable expression** label while retaining that exact accessible name;
 - remove the normal idle sentence about what Basedpyright will do after commit;
 - keep genuine completion and mutation failures distinct, visible, and accessible;
@@ -705,7 +707,7 @@ claim was confirmed by inspecting every runtime reference to it.
 
 ### Phase B — production interaction, live visual acceptance, and closeout
 
-- [ ] Production acceptance and closeout complete
+- [x] Production acceptance and closeout complete
 
 Correct the second developer-rejected candidate without reopening Phase A's accepted generic item
 composition:
@@ -2448,8 +2450,21 @@ supersedes the earlier forced-colour treatment of the dot because that field cue
 reported that the corrected callable workflow looked and functioned well, and identified the gray
 pending dot as the sole remaining defect. After the direct pending-owner correction above was live,
 the developer accepted the slice and asked for both applications to stop. Python Canvas and main
-then shut down cleanly; their frontend and backend ports are no longer listening. Closing
-`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` remain.
+then shut down cleanly; their frontend and backend ports are no longer listening.
+
+**Accepted-candidate closeout.** `code-policy test --changed --base
+a68d678515b11bbdca6badc3c9fe7a511cb2b124` passed the four changed suites: workspace focused,
+playground focused, Python Canvas backend focused, and Python Canvas frontend focused. The nine-suite
+recommended profile had passed before the final pending-owner correction, and Code Policy then
+selected and passed both suites affected by that correction: Python Canvas frontend focused and the
+production browser walkthrough. `code-policy test-levels` recommends the full eleven-suite profile
+because the complete plan spans 71 governed paths; that broader optional pre-merge run was not
+authorized and is not part of this plan's closing requirement.
+
+A fresh read-only Opus 5 xhigh review inspected the exact source range
+`d66531562be50703e6606a321ad4a32286a63586..c18baf47bb6333fe3a06712a5469958612e1e726`
+plus the developer-acceptance record. It approved with empty repository-contract and
+requested-outcome finding sets. Its non-blocking observations do not reopen this accepted slice.
 
 ## Stop conditions
 
