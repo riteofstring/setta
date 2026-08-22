@@ -44,9 +44,7 @@ func TestProjectSnapshotV1ValidateAcceptsNormalizedDocument(t *testing.T) {
 			ID:       "diagnostic:value",
 			Severity: DiagnosticSeverityWarningV1,
 			Message:  "example diagnostic",
-			Start:    12,
-			End:      28,
-			TargetID: stringPointerForTest("parameter:value"),
+			TargetID: "parameter:value",
 		}},
 		ProviderStatus: ProviderStatusV1{
 			Provider: ProviderBasedpyrightV1,
@@ -205,9 +203,7 @@ func TestProjectSnapshotV1ValidateRequiresStableDiagnosticTarget(t *testing.T) {
 		ID:       "diagnostic:unknown-target",
 		Severity: DiagnosticSeverityErrorV1,
 		Message:  "unknown target",
-		Start:    0,
-		End:      0,
-		TargetID: stringPointerForTest("callable:missing"),
+		TargetID: "callable:missing",
 	}}
 
 	err := snapshot.Validate()
@@ -217,61 +213,6 @@ func TestProjectSnapshotV1ValidateRequiresStableDiagnosticTarget(t *testing.T) {
 	}
 	if validationError.Field != "diagnostics[0].targetId" {
 		t.Fatalf("ValidationError.Field = %q", validationError.Field)
-	}
-}
-
-func TestProjectSnapshotV1ValidateAllowsTargetlessDiagnosticsAndRejectsInvalidUTF8Ranges(t *testing.T) {
-	snapshot := validSnapshotForTest()
-	snapshot.GeneratedCode = GeneratedCodeV1{
-		Code:         "π",
-		Body:         "",
-		SourceRanges: []GeneratedSourceRangeV1{},
-	}
-	snapshot.Diagnostics = []DiagnosticV1{{
-		ID:       "diagnostic:document",
-		Severity: DiagnosticSeverityErrorV1,
-		Message:  "document diagnostic",
-		Start:    0,
-		End:      2,
-		TargetID: nil,
-	}}
-	if err := snapshot.Validate(); err != nil {
-		t.Fatalf("Validate() targetless diagnostic error = %v", err)
-	}
-
-	for _, test := range []struct {
-		name   string
-		mutate func(*DiagnosticV1)
-		field  string
-	}{
-		{
-			name: "start inside rune",
-			mutate: func(diagnostic *DiagnosticV1) {
-				diagnostic.Start = 1
-			},
-			field: "diagnostics[0].start",
-		},
-		{
-			name: "end exceeds code",
-			mutate: func(diagnostic *DiagnosticV1) {
-				diagnostic.End = 3
-			},
-			field: "diagnostics[0].end",
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			invalid := snapshot
-			invalid.Diagnostics = append([]DiagnosticV1(nil), snapshot.Diagnostics...)
-			test.mutate(&invalid.Diagnostics[0])
-
-			var validationError ValidationError
-			if !errors.As(invalid.Validate(), &validationError) {
-				t.Fatalf("Validate() accepted %#v", invalid.Diagnostics)
-			}
-			if validationError.Field != test.field {
-				t.Fatalf("ValidationError = %#v", validationError)
-			}
-		})
 	}
 }
 
@@ -420,8 +361,4 @@ func validSnapshotForTest() ProjectSnapshotV1 {
 			State:    ProviderLifecycleStateNotStartedV1,
 		},
 	}
-}
-
-func stringPointerForTest(value string) *string {
-	return &value
 }

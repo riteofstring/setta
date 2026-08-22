@@ -4,10 +4,9 @@ import type { WorkspaceSectionData } from "../document/types";
 // The built-in Code Editor section's document contract. Unlike a host kind's opaque `data`, the
 // package owns this shape, so it is parsed once at the load boundary and read back as a validated
 // internal type. The reference's code section carries the same editor state in its generated
-// `CodeSection` impl (`code`, `codeLanguage`); its file binding, freeze flag, provider details,
-// and code generation are application concepts and stay out of the package. Document diagnostics
-// are generic editor presentation, so they travel with the exact text they describe; only their
-// source and semantic meaning stay application-side.
+// `CodeSection` impl (`code`, `codeLanguage`); its file binding, freeze flag, LSP diagnostics, and
+// code generation are application concepts and stay out of the package. Only the presentation its
+// generated region established is package vocabulary, carried by this contract's mode.
 
 // The stable kind ID hosts register this section under. It is package-reserved: a document
 // naming it is a built-in code section, whatever else the host registers beside it.
@@ -35,19 +34,6 @@ export type WorkspaceGeneratedRegion = Readonly<{
   to: number;
 }>;
 
-// A document-local diagnostic is generic CodeMirror vocabulary: a half-open UTF-16 range over the
-// same `code` string, one presentation severity, and the complete message. It deliberately names
-// no language server, provider, request, or host target.
-export type WorkspaceCodeSectionDiagnosticSeverity =
-  "error" | "warning" | "info";
-
-export type WorkspaceCodeSectionDiagnostic = Readonly<{
-  from: number;
-  to: number;
-  severity: WorkspaceCodeSectionDiagnosticSeverity;
-  message: string;
-}>;
-
 // The reference's `CodeLanguageEnum`, in its declared order.
 export const WORKSPACE_CODE_SECTION_LANGUAGES: ReadonlyArray<WorkspaceCodeSectionLanguage> =
   [
@@ -71,7 +57,6 @@ export const WORKSPACE_CODE_SECTION_DEFAULT_INDENT_WIDTH = 4;
 
 type WorkspaceCodeSectionCommonData = {
   code: string;
-  diagnostics: Array<WorkspaceCodeSectionDiagnostic>;
   language: WorkspaceCodeSectionLanguage;
   wrapLines: boolean;
   lineNumbers: boolean;
@@ -103,7 +88,6 @@ export type WorkspaceCodeSectionDataOverrides =
 
 const WORKSPACE_CODE_SECTION_COMMON_FIELDS: ReadonlyArray<string> = [
   "code",
-  "diagnostics",
   "language",
   "wrapLines",
   "lineNumbers",
@@ -112,19 +96,20 @@ const WORKSPACE_CODE_SECTION_COMMON_FIELDS: ReadonlyArray<string> = [
 ];
 const WORKSPACE_GENERATED_REGION_FIELD = "generatedRegion";
 const WORKSPACE_GENERATED_REGION_FIELDS: ReadonlyArray<string> = ["from", "to"];
-const WORKSPACE_CODE_SECTION_DIAGNOSTIC_FIELDS: ReadonlyArray<string> = [
-  "from",
-  "to",
-  "severity",
-  "message",
-];
 
 // The reference's code area opens empty, at Python, wrapped off, with its gutters and its
 // four-space indentation.
 export function createWorkspaceCodeSectionData(
   overrides: WorkspaceCodeSectionDataOverrides = {},
 ): WorkspaceCodeSectionData {
-  const common = createWorkspaceCodeSectionCommonData(overrides);
+  const common: WorkspaceCodeSectionCommonData = {
+    code: overrides.code ?? "",
+    language: overrides.language ?? "python",
+    wrapLines: overrides.wrapLines ?? false,
+    lineNumbers: overrides.lineNumbers ?? true,
+    indentWidth:
+      overrides.indentWidth ?? WORKSPACE_CODE_SECTION_DEFAULT_INDENT_WIDTH,
+  };
   if (overrides.mode === "generated-document") {
     return {
       ...common,
@@ -133,20 +118,6 @@ export function createWorkspaceCodeSectionData(
     };
   }
   return { ...common, mode: overrides.mode ?? "editable" };
-}
-
-function createWorkspaceCodeSectionCommonData(
-  overrides: WorkspaceCodeSectionDataOverrides,
-): WorkspaceCodeSectionCommonData {
-  return {
-    code: overrides.code ?? "",
-    diagnostics: overrides.diagnostics ?? [],
-    language: overrides.language ?? "python",
-    wrapLines: overrides.wrapLines ?? false,
-    lineNumbers: overrides.lineNumbers ?? true,
-    indentWidth:
-      overrides.indentWidth ?? WORKSPACE_CODE_SECTION_DEFAULT_INDENT_WIDTH,
-  };
 }
 
 function getDataRecord(
@@ -299,114 +270,6 @@ function getGeneratedRegion(
   return region;
 }
 
-function getDiagnostics(
-  sectionId: string,
-  record: { [key: string]: WorkspaceSectionData },
-  code: string,
-): Array<WorkspaceCodeSectionDiagnostic> {
-  const value = record["diagnostics"];
-  if (!Array.isArray(value)) {
-    throw new Error(`Code section ${sectionId} needs a diagnostics array.`);
-  }
-  return value.map((diagnostic, index) =>
-    getDiagnostic(sectionId, diagnostic, index, code.length),
-  );
-}
-
-function getDiagnostic(
-  sectionId: string,
-  value: WorkspaceSectionData,
-  index: number,
-  codeLength: number,
-): WorkspaceCodeSectionDiagnostic {
-  const field = `Code section ${sectionId} diagnostics[${String(index)}]`;
-  const diagnostic = getDiagnosticRecord(value, field);
-  const { from, to } = getDiagnosticRange(diagnostic, field, codeLength);
-  return {
-    from,
-    to,
-    severity: getDiagnosticSeverity(diagnostic, field),
-    message: getDiagnosticMessage(diagnostic, field),
-  };
-}
-
-function getDiagnosticRecord(
-  value: WorkspaceSectionData,
-  field: string,
-): { [key: string]: WorkspaceSectionData } {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${field} must be an object.`);
-  }
-  for (const key of Object.keys(value)) {
-    if (!WORKSPACE_CODE_SECTION_DIAGNOSTIC_FIELDS.includes(key)) {
-      throw new Error(`${field} carries the unknown field ${key}.`);
-    }
-  }
-  if (WORKSPACE_CODE_SECTION_DIAGNOSTIC_FIELDS.some((key) => !(key in value))) {
-    throw new Error(`${field} must contain its complete diagnostic fields.`);
-  }
-  return value;
-}
-
-function getDiagnosticRange(
-  diagnostic: { [key: string]: WorkspaceSectionData },
-  field: string,
-  codeLength: number,
-): { from: number; to: number } {
-  const from = getDiagnosticOffset(
-    diagnostic["from"],
-    field,
-    "from",
-    codeLength,
-  );
-  const to = getDiagnosticOffset(diagnostic["to"], field, "to", codeLength);
-  if (to < from) {
-    throw new Error(`${field} to must not precede from.`);
-  }
-  return { from, to };
-}
-
-function getDiagnosticSeverity(
-  diagnostic: { [key: string]: WorkspaceSectionData },
-  field: string,
-): WorkspaceCodeSectionDiagnosticSeverity {
-  const severity = diagnostic["severity"];
-  if (severity !== "error" && severity !== "warning" && severity !== "info") {
-    throw new Error(`${field} has an unsupported severity.`);
-  }
-  return severity;
-}
-
-function getDiagnosticMessage(
-  diagnostic: { [key: string]: WorkspaceSectionData },
-  field: string,
-): string {
-  const message = diagnostic["message"];
-  if (typeof message !== "string" || message.trim() === "") {
-    throw new Error(`${field} needs a nonblank message.`);
-  }
-  return message;
-}
-
-function getDiagnosticOffset(
-  value: WorkspaceSectionData | undefined,
-  field: string,
-  name: "from" | "to",
-  codeLength: number,
-): number {
-  if (
-    typeof value !== "number" ||
-    !Number.isInteger(value) ||
-    value < 0 ||
-    value > codeLength
-  ) {
-    throw new Error(
-      `${field} ${name} must be an integer offset between 0 and ${String(codeLength)}.`,
-    );
-  }
-  return value;
-}
-
 // One non-empty, forward, integral range inside the document: everything the region has to be for
 // the lines it covers to exist.
 function readGeneratedRange(
@@ -437,10 +300,8 @@ export function parseWorkspaceCodeSectionData(
   const record = getDataRecord(sectionId, data);
   const mode = getMode(sectionId, record);
   assertDeclaredFields(sectionId, record, mode);
-  const code = getString(sectionId, record, "code");
   const common: WorkspaceCodeSectionCommonData = {
-    code,
-    diagnostics: getDiagnostics(sectionId, record, code),
+    code: getString(sectionId, record, "code"),
     language: getLanguage(sectionId, record, allowedLanguages),
     wrapLines: getBoolean(sectionId, record, "wrapLines"),
     lineNumbers: getBoolean(sectionId, record, "lineNumbers"),

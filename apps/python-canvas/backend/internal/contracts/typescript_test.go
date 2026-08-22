@@ -29,9 +29,6 @@ func TestTypeScriptV1IsDeterministicAndContainsCurrentContract(t *testing.T) {
 		"parameterIds: string[];",
 		"sourceRanges: GeneratedSourceRangeV1[];",
 		"targetId: string;",
-		"targetId: string | null;",
-		"start: number;",
-		"end: number;",
 		"state: ProviderLifecycleStateV1;",
 		"error: APIErrorV1;",
 	} {

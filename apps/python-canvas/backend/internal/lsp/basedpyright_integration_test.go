@@ -68,7 +68,6 @@ func TestPinnedBasedpyrightResolvesAndClearsMappedParameterDiagnostic(t *testing
 		t.Fatalf("math.sqrt parameter = %#v", parameter)
 	}
 	requireReadyBasedpyrightStatus(t, callableSnapshot.ProviderStatus)
-	requireMissingParameterDiagnostic(t, callableSnapshot.Diagnostics, parameter.ID, callableSnapshot.Callables[0].ID)
 
 	missingSnapshot, err := store.SetCallableParameters(
 		ctx,
@@ -186,24 +185,9 @@ func requireReadyBasedpyrightStatus(t *testing.T, status contracts.ProviderStatu
 	}
 }
 
-func requireMissingParameterDiagnostic(
-	t *testing.T,
-	diagnostics []contracts.DiagnosticV1,
-	parameterID string,
-	callableID string,
-) {
-	t.Helper()
-	if !containsErrorForTarget(diagnostics, parameterID) {
-		t.Fatalf("initial math.sqrt diagnostics = %#v, want a missing-argument error for %q", diagnostics, parameterID)
-	}
-	if containsErrorForTarget(diagnostics, callableID) {
-		t.Fatalf("initial math.sqrt diagnostics = %#v, do not want the callable blamed for its missing parameter", diagnostics)
-	}
-}
-
 func containsErrorForTarget(diagnostics []contracts.DiagnosticV1, targetID string) bool {
 	for _, diagnostic := range diagnostics {
-		if diagnostic.TargetID != nil && *diagnostic.TargetID == targetID && diagnostic.Severity == contracts.DiagnosticSeverityErrorV1 {
+		if diagnostic.TargetID == targetID && diagnostic.Severity == contracts.DiagnosticSeverityErrorV1 {
 			return true
 		}
 	}

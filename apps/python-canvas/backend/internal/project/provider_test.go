@@ -3,7 +3,6 @@ package project
 import (
 	"context"
 	"errors"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -62,20 +61,19 @@ func TestStoreCommitsWithExplicitProviderStatusWhenDiagnosticsArePendingOrUnavai
 	}
 }
 
-func TestMapProviderDiagnosticsUsesRangesRatherThanProviderMessageWordsAndKeepsDocumentDiagnostics(t *testing.T) {
+func TestMapProviderDiagnosticsUsesRangesRatherThanProviderMessageWords(t *testing.T) {
 	code := "state.value = missing_value\nstate.call = math.sqrt(state.value)"
 	parameterStart := strings.Index(code, "missing_value")
 	callableStart := strings.Index(code, "math.sqrt")
 	diagnostics := mapProviderDiagnostics(code, []codegen.SourceRange{
 		{TargetID: "callable:square-root", Start: callableStart, End: callableStart + len("math.sqrt")},
 		{TargetID: "parameter:square-root:provider", Start: parameterStart, End: parameterStart + len("missing_value")},
-	}, "", nil, []ProviderDiagnostic{
+	}, []ProviderDiagnostic{
 		{
 			Start:    parameterStart,
 			End:      parameterStart + len("missing_value"),
 			Severity: ProviderDiagnosticSeverityError,
 			Message:  "Name \"missing_value\" is not defined",
-			Code:     "reportUndefinedVariable",
 		},
 		{
 			Start:    0,
@@ -84,157 +82,33 @@ func TestMapProviderDiagnosticsUsesRangesRatherThanProviderMessageWordsAndKeepsD
 			Message:  "unrelated generated prefix problem",
 		},
 	})
-	if len(diagnostics) != 2 {
+	if len(diagnostics) != 1 {
 		t.Fatalf("mapped diagnostics = %#v", diagnostics)
 	}
-	if diagnostics[0].TargetID != nil {
-		t.Fatalf("document diagnostic target = %#v, want nil", diagnostics[0])
-	}
-	if diagnostics[1].TargetID == nil || *diagnostics[1].TargetID != "parameter:square-root:provider" {
-		t.Fatalf("parameter diagnostic target = %#v", diagnostics[1])
+	if diagnostics[0].TargetID != "parameter:square-root:provider" {
+		t.Fatalf("diagnostic target = %#v", diagnostics[0])
 	}
 }
 
-func TestMapProviderDiagnosticsMapsExactCallIssueToEmptyRequiredProviderParameter(t *testing.T) {
-	code := "state.call = math.sqrt()"
-	callableStart := strings.Index(code, "math.sqrt")
-	defaultExpression := "0"
-	diagnostics := mapProviderDiagnostics(code, []codegen.SourceRange{{
-		TargetID: "callable:square-root",
-		Start:    callableStart,
-		End:      callableStart + len("math.sqrt"),
-	}}, "callable:square-root", []parameterState{
-		{
-			ID:           "parameter:required",
-			PassingStyle: codegen.ParameterPassingStylePositionalOnly,
-		},
-		{
-			ID:           "parameter:defaulted",
-			PassingStyle: codegen.ParameterPassingStylePositionalOnly,
-			Default:      &defaultExpression,
-		},
-		{
-			ID:           "parameter:authored",
-			NameEditable: true,
-		},
-		{
-			ID:           "parameter:variadic",
-			PassingStyle: codegen.ParameterPassingStyle("variadic_positional"),
-		},
-	}, []ProviderDiagnostic{{
-		Start:    callableStart,
-		End:      callableStart + len("math.sqrt"),
-		Severity: ProviderDiagnosticSeverityError,
-		Message:  "Basedpyright's wording is not part of this mapping.",
-		Code:     "reportCallIssue",
-	}})
-	if len(diagnostics) != 1 || diagnostics[0].TargetID == nil || *diagnostics[0].TargetID != "parameter:required" {
-		t.Fatalf("missing required parameter diagnostics = %#v", diagnostics)
-	}
-}
-
-func TestMapProviderDiagnosticsKeepsCallIssueOnCallableWithoutMissingRequiredProviderParameter(t *testing.T) {
-	code := "state.call = math.sqrt(state.value)"
-	callableStart := strings.Index(code, "math.sqrt")
-	diagnostics := mapProviderDiagnostics(code, []codegen.SourceRange{{
-		TargetID: "callable:square-root",
-		Start:    callableStart,
-		End:      callableStart + len("math.sqrt"),
-	}}, "callable:square-root", []parameterState{{
-		ID:           "parameter:required",
-		PassingStyle: codegen.ParameterPassingStylePositionalOnly,
-		Expression:   "3",
-	}}, []ProviderDiagnostic{{
-		Start:    callableStart,
-		End:      callableStart + len("math.sqrt"),
-		Severity: ProviderDiagnosticSeverityError,
-		Message:  "Unexpected argument.",
-		Code:     "reportCallIssue",
-	}})
-	if len(diagnostics) != 1 || diagnostics[0].TargetID == nil || *diagnostics[0].TargetID != "callable:square-root" {
-		t.Fatalf("callable diagnostics = %#v", diagnostics)
-	}
-}
-
-func TestMapProviderDiagnosticsKeepsSameRangeDifferentSeverityIDsDistinctAndStable(t *testing.T) {
+func TestMapProviderDiagnosticsKeepsSameRangeDifferentSeverityIDsDistinct(t *testing.T) {
 	code := "state.value = missing_value"
 	start := strings.Index(code, "missing_value")
-	providerDiagnostics := []ProviderDiagnostic{
-		{Start: start, End: start + len("missing_value"), Severity: ProviderDiagnosticSeverityWarning, Message: "warning"},
+	diagnostics := mapProviderDiagnostics(code, []codegen.SourceRange{{
+		TargetID: "parameter:square-root:provider",
+		Start:    start,
+		End:      start + len("missing_value"),
+	}}, []ProviderDiagnostic{
 		{Start: start, End: start + len("missing_value"), Severity: ProviderDiagnosticSeverityError, Message: "error"},
-	}
-	first := mapProviderDiagnostics(code, []codegen.SourceRange{{
-		TargetID: "parameter:square-root:provider",
-		Start:    start,
-		End:      start + len("missing_value"),
-	}}, "", nil, providerDiagnostics)
-	second := mapProviderDiagnostics(code, []codegen.SourceRange{{
-		TargetID: "parameter:square-root:provider",
-		Start:    start,
-		End:      start + len("missing_value"),
-	}}, "", nil, []ProviderDiagnostic{providerDiagnostics[1], providerDiagnostics[0]})
-	if len(first) != 2 || first[0].ID == first[1].ID {
-		t.Fatalf("diagnostics = %#v, want two distinct stable IDs", first)
-	}
-	if !reflect.DeepEqual(first, second) {
-		t.Fatalf("diagnostic ordering and IDs changed with provider order:\nfirst: %#v\nsecond: %#v", first, second)
-	}
-}
-
-func TestStoreReplacesDiagnosticsForEachCanonicalSnapshot(t *testing.T) {
-	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
-	provider := &recordingProvider{
-		syncResolver: func(_ context.Context, request GeneratedDocumentRequest) (GeneratedDocumentResult, error) {
-			callableStart := strings.Index(request.Code, "math.sqrt")
-			diagnostics := []ProviderDiagnostic{}
-			if strings.Contains(request.Code, "math.sqrt()") {
-				diagnostics = append(diagnostics, ProviderDiagnostic{
-					Start:    callableStart,
-					End:      callableStart + len("math.sqrt"),
-					Severity: ProviderDiagnosticSeverityError,
-					Message:  "Argument missing for parameter \"x\"",
-					Code:     "reportCallIssue",
-				})
-			}
-			return GeneratedDocumentResult{
-				Diagnostics:    diagnostics,
-				ProviderStatus: readyProviderStatusForTest(),
-			}, nil
-		},
-	}
-	store, err := NewStoreWithProvider(writer, provider)
-	if err != nil {
-		t.Fatalf("NewStoreWithProvider() error = %v", err)
-	}
-	defer func() {
-		if err := store.Close(); err != nil {
-			t.Fatalf("Close() error = %v", err)
-		}
-	}()
-
-	initial := store.Snapshot()
-	missing, err := store.CommitCallable(context.Background(), initial.Project.ID, initial.Callables[0].ID, "math.sqrt")
-	if err != nil {
-		t.Fatalf("CommitCallable() error = %v", err)
-	}
-	parameter := missing.Parameters[0]
-	if len(missing.Diagnostics) != 1 || missing.Diagnostics[0].TargetID == nil || *missing.Diagnostics[0].TargetID != parameter.ID {
-		t.Fatalf("missing snapshot diagnostics = %#v", missing.Diagnostics)
-	}
-
-	cleared, err := setParameterExpression(store, missing, "3")
-	if err != nil {
-		t.Fatalf("SetCallableParameters() error = %v", err)
-	}
-	if len(cleared.Diagnostics) != 0 {
-		t.Fatalf("cleared snapshot diagnostics = %#v", cleared.Diagnostics)
+		{Start: start, End: start + len("missing_value"), Severity: ProviderDiagnosticSeverityWarning, Message: "warning"},
+	})
+	if len(diagnostics) != 2 || diagnostics[0].ID == diagnostics[1].ID {
+		t.Fatalf("diagnostics = %#v, want two distinct stable IDs", diagnostics)
 	}
 }
 
 type recordingProvider struct {
 	resolver           signatureResolverFunc
 	completionResolver completionResolverFunc
-	syncResolver       func(context.Context, GeneratedDocumentRequest) (GeneratedDocumentResult, error)
 	pending            bool
 	syncErr            error
 	closed             bool
@@ -266,15 +140,12 @@ func (provider *recordingProvider) CompleteCallable(
 }
 
 func (provider *recordingProvider) SynchronizeGeneratedDocument(
-	ctx context.Context,
-	request GeneratedDocumentRequest,
+	_ context.Context,
+	_ GeneratedDocumentRequest,
 ) (GeneratedDocumentResult, error) {
 	provider.synchronizeCalls++
 	if provider.syncErr != nil {
 		return GeneratedDocumentResult{}, provider.syncErr
-	}
-	if provider.syncResolver != nil {
-		return provider.syncResolver(ctx, request)
 	}
 	if provider.pending {
 		return GeneratedDocumentResult{

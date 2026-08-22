@@ -111,7 +111,6 @@ function generatedDocumentData(prefix: string) {
   const code = `${prefix}${region}${snapshot.pythonTarget.suffix}`;
   return {
     code,
-    diagnostics: [],
     generatedRegion: {
       from: prefix.length,
       to: code.length - snapshot.pythonTarget.suffix.length,
@@ -191,22 +190,7 @@ describe("PythonCanvasApp", () => {
     // What the registered slot renders, not which component expression produced it: the compact
     // callable field keeps its section-field placement and accessible name through any wrapper.
     const leading = renderLeadingContent(
-      callable.itemArea.renderLeadingContent({
-        data: {
-          callable: {
-            authoredExpression: "math.sqrt",
-            id: "callable:square-root",
-            name: "Square Root",
-          },
-          callableDiagnosticMessage: null,
-          parameterDiagnostics: {},
-          providerStatus: {
-            provider: "basedpyright",
-            state: "ready",
-            status: "available",
-          },
-        },
-      }),
+      callable.itemArea.renderLeadingContent({}),
     );
     const editor = leading.querySelector<HTMLElement>("[data-presentation]");
     if (!editor) {

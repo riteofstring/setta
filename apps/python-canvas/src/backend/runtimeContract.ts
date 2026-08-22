@@ -236,17 +236,13 @@ function parseDiagnostics(value: unknown): DiagnosticV1[] {
       "id",
       "severity",
       "message",
-      "start",
-      "end",
       "targetId",
     ]);
     return {
       id: readString(record.id, `${field}.id`),
       severity: parseDiagnosticSeverity(record.severity, `${field}.severity`),
       message: readString(record.message, `${field}.message`),
-      start: readInteger(record.start, `${field}.start`),
-      end: readInteger(record.end, `${field}.end`),
-      targetId: readStringOrNull(record.targetId, `${field}.targetId`),
+      targetId: readString(record.targetId, `${field}.targetId`),
     };
   });
 }
@@ -405,11 +401,7 @@ function validateSnapshotRelationships(snapshot: ProjectSnapshotV1): void {
     targetIds,
     new TextEncoder().encode(snapshot.generatedCode.code).length,
   );
-  validateDiagnostics(
-    snapshot.diagnostics,
-    targetIds,
-    new TextEncoder().encode(snapshot.generatedCode.code),
-  );
+  validateDiagnostics(snapshot.diagnostics, targetIds);
 }
 
 function validateSnapshotRoot(snapshot: ProjectSnapshotV1): void {
@@ -516,7 +508,6 @@ function validateSourceRange(
 function validateDiagnostics(
   diagnostics: DiagnosticV1[],
   targetIds: Set<string>,
-  code: Uint8Array,
 ): void {
   const diagnosticIds = new Set<string>();
   for (const [index, diagnostic] of diagnostics.entries()) {
@@ -526,43 +517,11 @@ function validateDiagnostics(
       fail(`${field}.id`, "must be unique");
     }
     requireNonBlank(`${field}.message`, diagnostic.message);
-    validateDiagnosticRange(field, diagnostic, code);
-    if (diagnostic.targetId !== null && !targetIds.has(diagnostic.targetId)) {
+    if (!targetIds.has(diagnostic.targetId)) {
       fail(`${field}.targetId`, "must reference a stable target ID");
     }
     diagnosticIds.add(diagnostic.id);
   }
-}
-
-function validateDiagnosticRange(
-  field: string,
-  diagnostic: DiagnosticV1,
-  code: Uint8Array,
-): void {
-  if (diagnostic.start < 0) {
-    fail(`${field}.start`, "must not be negative");
-  }
-  if (diagnostic.end < diagnostic.start) {
-    fail(`${field}.end`, "must not precede start");
-  }
-  if (diagnostic.end > code.length) {
-    fail(`${field}.end`, "must not exceed generated code length");
-  }
-  if (!isUtf8ByteBoundary(code, diagnostic.start)) {
-    fail(`${field}.start`, "must be on a UTF-8 byte boundary");
-  }
-  if (!isUtf8ByteBoundary(code, diagnostic.end)) {
-    fail(`${field}.end`, "must be on a UTF-8 byte boundary");
-  }
-}
-
-function isUtf8ByteBoundary(code: Uint8Array, offset: number): boolean {
-  const byte = code[offset];
-  return (
-    offset === 0 ||
-    offset === code.length ||
-    (byte !== undefined && (byte & 0b1100_0000) !== 0b1000_0000)
-  );
 }
 
 function readClosedRecord(

@@ -33,20 +33,6 @@
   background-color: hsl(220 25% 3%);
 }
 
-/* A field-local diagnostic is one real error state, rather than red text beside an ordinary
- * field. Main's callable error takes the same pale red surface in both its idle and live layers;
- * the wrapper owns that surface here, so activation cannot clear it. */
-.setta-workspace-section-field[data-diagnostic="true"] {
-  border-color: rgb(254 202 202);
-  background-color: rgb(254 202 202);
-}
-
-.setta-workspace.setta-workspace-dark
-  .setta-workspace-section-field[data-diagnostic="true"] {
-  border-color: rgb(153 27 27 / 30%);
-  background-color: rgb(153 27 27 / 30%);
-}
-
 /* Main's live layer swaps the idle border colour for its focus blue and changes nothing else. */
 .setta-workspace-section-field:focus-within {
   border-color: rgb(59 130 246);
@@ -55,15 +41,6 @@
 .setta-workspace.setta-workspace-dark
   .setta-workspace-section-field:focus-within {
   border-color: rgb(96 165 250 / 50%);
-}
-
-.setta-workspace-section-field[data-diagnostic="true"]:focus-within {
-  border-color: rgb(254 202 202);
-}
-
-.setta-workspace.setta-workspace-dark
-  .setta-workspace-section-field[data-diagnostic="true"]:focus-within {
-  border-color: rgb(153 27 27 / 30%);
 }
 
 /* The surface signals focus through its border colour alone, and the live editor below suppresses
@@ -144,20 +121,4 @@
   justify-content: center;
   min-inline-size: 14px;
   min-block-size: 14px;
-}
-
-.setta-workspace-section-field-diagnostic-indicator {
-  display: inline-grid;
-  flex: none;
-  inline-size: 18px;
-  block-size: 18px;
-  place-items: center;
-  border-radius: 999px;
-  background-color: rgb(239 68 68 / 80%);
-  color: rgb(255 255 255);
-}
-
-.setta-workspace-section-field-diagnostic-indicator > svg {
-  inline-size: 14px;
-  block-size: 14px;
 }
