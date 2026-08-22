@@ -153,7 +153,9 @@ export interface DiagnosticV1 {
   id: string;
   severity: DiagnosticSeverityV1;
   message: string;
-  targetId: string;
+  start: number;
+  end: number;
+  targetId: string | null;
 }
 
 export interface ProviderStatusV1 {
