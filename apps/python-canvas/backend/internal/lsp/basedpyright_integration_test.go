@@ -128,6 +128,75 @@ func TestPinnedBasedpyrightResolvesAndClearsMappedParameterDiagnostic(t *testing
 	}
 }
 
+func TestPinnedBasedpyrightClearsTargetlessPrefixDiagnostic(t *testing.T) {
+	generatedFile, err := project.NewTemporaryGeneratedFile()
+	if err != nil {
+		t.Fatalf("NewTemporaryGeneratedFile() error = %v", err)
+	}
+	workspaceRoot := filepath.Dir(generatedFile.Path())
+	provider, err := NewBasedpyrightProvider(BasedpyrightOptions{
+		AppRoot:           appRootForIntegrationTest(t),
+		WorkspaceRoot:     workspaceRoot,
+		RequestTimeout:    20 * time.Second,
+		DiagnosticTimeout: 15 * time.Second,
+	})
+	if err != nil {
+		_ = generatedFile.Close()
+		t.Fatalf("NewBasedpyrightProvider() error = %v", err)
+	}
+	store, err := project.NewStoreWithProvider(generatedFile, provider)
+	if err != nil {
+		_ = provider.Close()
+		_ = generatedFile.Close()
+		t.Fatalf("NewStoreWithProvider() error = %v", err)
+	}
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Fatalf("Close() error = %v", err)
+		}
+		if _, err := os.Stat(workspaceRoot); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("temporary workspace stat after Close() = %v, want removed", err)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+	initial := store.Snapshot()
+	const undefinedName = "undefined_prefix_name"
+	diagnosed, err := store.SetPythonTarget(
+		ctx,
+		initial.Project.ID,
+		initial.Project.Revision,
+		initial.PythonTarget.Prefix+"\n"+undefinedName,
+		initial.PythonTarget.Suffix,
+	)
+	if err != nil {
+		t.Fatalf("SetPythonTarget(undefined prefix) error = %v", err)
+	}
+	requireReadyBasedpyrightStatus(t, diagnosed.ProviderStatus)
+	if !containsDocumentDiagnosticForText(diagnosed, undefinedName) {
+		t.Fatalf("undefined prefix diagnostics = %#v, want targetless error for %q", diagnosed.Diagnostics, undefinedName)
+	}
+
+	corrected, err := store.SetPythonTarget(
+		ctx,
+		diagnosed.Project.ID,
+		diagnosed.Project.Revision,
+		initial.PythonTarget.Prefix,
+		initial.PythonTarget.Suffix,
+	)
+	if err != nil {
+		t.Fatalf("SetPythonTarget(corrected prefix) error = %v", err)
+	}
+	if corrected.Project.Revision != diagnosed.Project.Revision+1 {
+		t.Fatalf("corrected prefix revision = %d, want %d", corrected.Project.Revision, diagnosed.Project.Revision+1)
+	}
+	requireReadyBasedpyrightStatus(t, corrected.ProviderStatus)
+	if containsTargetlessDiagnostic(corrected.Diagnostics) {
+		t.Fatalf("corrected prefix diagnostics = %#v, want targetless diagnostics cleared", corrected.Diagnostics)
+	}
+}
+
 func TestPinnedBasedpyrightCompletesCallableNameInCanonicalMathContext(t *testing.T) {
 	generatedFile, err := project.NewTemporaryGeneratedFile()
 	if err != nil {
@@ -222,6 +291,30 @@ func requireMissingParameterDiagnostic(
 func containsErrorForTarget(diagnostics []contracts.DiagnosticV1, targetID string) bool {
 	for _, diagnostic := range diagnostics {
 		if diagnostic.TargetID != nil && *diagnostic.TargetID == targetID && diagnostic.Severity == contracts.DiagnosticSeverityErrorV1 {
+			return true
+		}
+	}
+	return false
+}
+
+func containsDocumentDiagnosticForText(snapshot contracts.ProjectSnapshotV1, text string) bool {
+	for _, diagnostic := range snapshot.Diagnostics {
+		if diagnostic.TargetID != nil {
+			continue
+		}
+		if diagnostic.Start < 0 || diagnostic.End < diagnostic.Start || diagnostic.End > len(snapshot.GeneratedCode.Code) {
+			continue
+		}
+		if snapshot.GeneratedCode.Code[diagnostic.Start:diagnostic.End] == text {
+			return true
+		}
+	}
+	return false
+}
+
+func containsTargetlessDiagnostic(diagnostics []contracts.DiagnosticV1) bool {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.TargetID == nil {
 			return true
 		}
 	}
