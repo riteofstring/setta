@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-**Status: Implementation in progress.**
+**Status: Implemented and verified.**
 
 Complete the narrow type-error workflow in Python Canvas. Basedpyright already runs in the Go
 backend, diagnostics already travel in the canonical project snapshot, and parameter-expression
@@ -194,7 +194,7 @@ frozen recommended verification for the final candidate. Do not run full, supple
 
 ### Phase 1 — end-to-end type-error parity
 
-- [ ] Implementation, production proof, review, and closeout complete
+- [x] Implementation, production proof, review, and closeout complete
 
 Implementation record — backend/contract batch: the Basedpyright boundary now retains validated
 string diagnostic codes; the canonical record carries UTF-8 byte ranges and a nullable semantic
@@ -312,19 +312,6 @@ also run: its other eight suites passed, but its production browser suite remain
 `127.0.0.1` in Agent 1's sandbox (`EPERM`), before the application can start; the direct production
 walkthrough reports the same environment limitation.
 
-Environment evidence not yet sufficient for phase closeout: the supervisor completed
-`code-policy dependency-review --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
-against the no-script candidate lockfile with no vulnerabilities. The required local production
-browser walkthrough again could not run inside Agent 1's sandbox because it rejects binding
-`127.0.0.1` with `EPERM`; the selected `test --changed --base
-9dbdf9dffd09d74ddbda856ddea03c9ea957441b` passed before that browser-only limitation. The latest
-authorized `test --recommended --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b` also passed its
-other eight suites before the same browser bind failure. The phase marker remains unchecked;
-frozen acceptance and the required
-full-resolution browser evidence still need to run in the supervisor environment. Both are already
-authorized for this loop and are supervisor-owned acceptance work, not a developer evidence or
-approval gate.
-
 Implementation record — browser canonical comparison correction: the raw-first-render helper now
 compares the parsed shipped snapshot structurally rather than comparing its JSON serialization.
 The API's provider-status member order is not observable behavior; the check continues to require
@@ -342,6 +329,17 @@ same rendered range, hover message, stale-response clearing, and corrected-prefi
 browser-script syntax check and selected `test --changed --base
 9dbdf9dffd09d74ddbda856ddea03c9ea957441b` passed (workspace, playground, backend, and Python
 Canvas focused suites).
+
+Closeout record: the supervisor completed the no-script dependency review with no vulnerabilities,
+then ran the frozen recommended acceptance against implementation commit
+`56bcc4f46c95f695e373f792af7fdeebe4b482c8`. All nine selected suites passed, including the real
+Go service, pinned Basedpyright, contract-drift and cross-language checks, workspace and Canvas
+tests, and the headless production-browser walkthrough. That walkthrough proved the parameter,
+callable, and targetless document diagnostic destinations, their accessible messages and clearing,
+the absence of mapped/generated duplication, and stale-response protection on the fixed production
+viewport. A fresh immutable read-only phase review of the same trusted-base-to-candidate range
+reported no repository-contract finding, requested-outcome finding, or recommendation. No developer
+evidence or approval gate remains.
 
 Intentional donor differences, recorded after reading every named main donor: main's historical
 generated-Python mapper used `reportCallIssue` message wording to choose parameters, whereas this
