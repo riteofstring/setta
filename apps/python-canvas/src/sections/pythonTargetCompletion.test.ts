@@ -27,7 +27,7 @@ describe("createPythonTargetCompletionProvider", () => {
 
     await expect(
       provider({
-        cursorOffsetUtf16: prefix.length - 1,
+        cursorOffsetUtf16: prefix.length,
         generatedRegion,
         language: "python",
         sectionId: "generated-python",
@@ -44,7 +44,7 @@ describe("createPythonTargetCompletionProvider", () => {
       "/api/v1/project/python-target/completions",
       expect.objectContaining({
         body: JSON.stringify({
-          cursorOffsetUtf16: prefix.length - 1,
+          cursorOffsetUtf16: prefix.length,
           prefix,
           projectId: "project:python-canvas",
           region: "prefix",

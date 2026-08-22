@@ -957,7 +957,7 @@ describe("built-in code section body", () => {
       async (request) => {
         requests.push(request);
         return {
-          from: request.cursorOffsetUtf16 - 3,
+          from: request.cursorOffsetUtf16 - "math".length,
           options: [{ insertText: "mathlib", label: "mathlib" }],
           to: request.cursorOffsetUtf16,
         };
@@ -965,7 +965,9 @@ describe("built-in code section body", () => {
     );
     await mountWithCompletion(completionProvider);
     const view = getView();
-    const prefixCursor = GENERATED_PREFIX.length - 1;
+    // A real prefix edit leaves the caret at the region's start. This boundary must remain an
+    // authored completion position even though the next character belongs to generated output.
+    const prefixCursor = GENERATED_REGION.from;
     await act(async () => {
       view.dispatch({ selection: { anchor: prefixCursor } });
       expect(startCompletion(view)).toBe(true);

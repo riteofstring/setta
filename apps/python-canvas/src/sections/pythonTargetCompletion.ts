@@ -97,17 +97,18 @@ function targetCompletionContext(
   ) {
     return null;
   }
-  // The provider observes the same half-open protected interval as the workspace adapter: its
-  // start is inside the generated range, while its end is the first suffix position.
+  // The provider observes the same boundary contract as the workspace adapter: positions strictly
+  // inside the generated interval are protected, while a caret at either edge belongs to the
+  // authored region on that side.
   if (
-    cursorOffsetUtf16 >= generatedRegion.from &&
+    cursorOffsetUtf16 > generatedRegion.from &&
     cursorOffsetUtf16 < generatedRegion.to
   ) {
     return null;
   }
   const prefix = text.slice(0, generatedRegion.from);
   const suffix = text.slice(generatedRegion.to);
-  if (cursorOffsetUtf16 < generatedRegion.from) {
+  if (cursorOffsetUtf16 <= generatedRegion.from) {
     return {
       localCursorOffsetUtf16: cursorOffsetUtf16,
       localText: prefix,

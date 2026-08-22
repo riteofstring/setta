@@ -462,12 +462,13 @@ function getSectionCompletionSource({
     context: CompletionContext,
   ): Promise<CompletionResult | null> => {
     const generatedRegion = readGeneratedRegion(context.state);
-    // The generated range is a half-open interval. Its start remains an authored edit boundary,
-    // but completion treats the full protected interval as unavailable; its end is the first
-    // suffix position that may ask a provider.
+    // The generated range is a half-open interval, but a caret at either edge belongs to the
+    // authored text on that side. In particular, the prefix caret normally equals `from` after a
+    // person types its final character. Only positions strictly inside the protected interval are
+    // unavailable to completion.
     if (
       generatedRegion !== null &&
-      context.pos >= generatedRegion.from &&
+      context.pos > generatedRegion.from &&
       context.pos < generatedRegion.to
     ) {
       return null;
