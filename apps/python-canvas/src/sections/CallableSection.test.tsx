@@ -2,11 +2,7 @@ import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  type TextValueCompletionProvider,
-} from "@setta/workspace";
+import type { TextValueCompletionProvider } from "@setta/workspace";
 
 const editorProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 const parameterRows = vi.hoisted(
@@ -101,7 +97,7 @@ afterEach(() => {
 });
 
 describe("CallableSection", () => {
-  it("renders dynamic callable controls without duplicating provider status alerts", () => {
+  it("leaves callable naming and deletion to the package-owned section header", () => {
     const view = render(
       <CallableSection
         data={sectionData({ state: "failed", status: "unavailable" })}
@@ -110,55 +106,53 @@ describe("CallableSection", () => {
       />,
     );
 
-    expect(view.querySelector("label")?.textContent).toBe("Callable name");
-    expect(
-      view.querySelector<HTMLInputElement>("input[name='callable-name']")
-        ?.value,
-    ).toBe("One callable");
-    expect(view.querySelector("button[type='submit']")?.textContent).toBe(
-      "Rename callable",
-    );
-    expect(
-      view.querySelector("button[aria-label='Delete callable One callable']"),
-    ).not.toBeNull();
+    expect(view.querySelector("form")).toBeNull();
+    expect(view.querySelector("button")).toBeNull();
+    expect(view.querySelector("label")).toBeNull();
     expect(view.querySelector("[role='alert']")).toBeNull();
   });
 
-  it("renders an ID-keyed native expression input and independent commit action", () => {
+  it("renders the accepted compact callable field and delegates its interactions", () => {
+    const completionProvider = vi.fn();
     const onCallableCommit = vi.fn();
-    const view = render(
+    const onCallableDraftChange = vi.fn();
+    const onCallableRevert = vi.fn();
+    render(
       <CallableExpressionField
         data={sectionData({ state: "ready", status: "available" })}
+        sectionId="python-canvas:callable:one"
       />,
-      { ...mutationContext(), onCallableCommit },
+      {
+        ...mutationContext(
+          () => null,
+          () => false,
+          () => null,
+          () => completionProvider,
+        ),
+        onCallableCommit,
+        onCallableDraftChange,
+        onCallableRevert,
+      },
     );
 
-    const input = requiredElement<HTMLInputElement>(
-      view,
-      "input[name='callable-expression']",
-    );
-    const label = requiredElement<HTMLLabelElement>(
-      view,
-      "label[for='python-canvas-callable-expression-callable%3Aone']",
-    );
-    const form = requiredForm(input);
-    const submit = requiredElement<HTMLButtonElement>(
-      form,
-      "button[type='submit']",
-    );
-    expect(input.id).toBe("python-canvas-callable-expression-callable%3Aone");
-    expect(label.textContent).toBe("Callable expression");
-    expect(input.tagName).toBe("INPUT");
-    expect(form.classList.contains(NO_DRAG_CLASS_NAME)).toBe(true);
-    expect(form.classList.contains(NO_PAN_CLASS_NAME)).toBe(true);
-    expect(form.getAttribute("data-tab-native")).toBe("true");
-    expect(submit.textContent).toBe("Commit callable");
-    act(() => {
-      form.dispatchEvent(
-        new Event("submit", { bubbles: true, cancelable: true }),
-      );
+    const field = editorProps[0];
+    expect(field).toMatchObject({
+      ariaLabel: "Callable expression",
+      completionProvider,
+      controlId: "callable-expression:callable:one",
+      language: "python",
+      presentation: "section-field",
+      sectionId: "python-canvas:callable:one",
+      singleLine: true,
+      value: "value",
+      wrapLines: false,
     });
+    (field?.onValueChange as (value: string) => void)("draft");
+    (field?.onCommit as (value: string) => void)("value");
+    (field?.onEscape as () => void)();
+    expect(onCallableDraftChange).toHaveBeenCalledWith("callable:one", "draft");
     expect(onCallableCommit).toHaveBeenCalledWith("callable:one", "value");
+    expect(onCallableRevert).toHaveBeenCalledWith("callable:one");
   });
 
   it("keeps section and item data closed at the rendering boundary", () => {
@@ -186,212 +180,38 @@ describe("CallableSection", () => {
     ).toBe("scale");
   });
 
-  it("associates a mutation failure with both callable controls", () => {
-    const view = render(
-      <>
-        <CallableExpressionField
-          data={sectionData({ state: "ready", status: "available" })}
-        />
-        <CallableSection
-          data={sectionData({ state: "ready", status: "available" })}
-          parameters={[]}
-          sectionId="python-canvas:callable:one"
-        />
-      </>,
-      mutationContext(() => "Unable to save this callable. Try again."),
-    );
-
-    expect(
-      view
-        .querySelector<HTMLInputElement>("input[name='callable-name']")
-        ?.getAttribute("aria-describedby"),
-    ).toBe("python-canvas-callable-mutation-error-callable%3Aone");
-    expect(
-      view
-        .querySelector<HTMLInputElement>("input[name='callable-expression']")
-        ?.getAttribute("aria-describedby"),
-    ).toBe("python-canvas-callable-mutation-error-callable%3Aone");
-    expect(
-      view
-        .querySelector<HTMLInputElement>("input[name='callable-expression']")
-        ?.getAttribute("aria-invalid"),
-    ).toBe("true");
-    expect(
-      Array.from(view.querySelectorAll("p")).find(
-        (element) =>
-          element.id === "python-canvas-callable-mutation-error-callable%3Aone",
-      )?.textContent,
-    ).toBe("Unable to save this callable. Try again.");
-  });
-
-  it("associates a callable completion failure with the native expression input", () => {
+  it("shows a callable mutation failure under the compact field", () => {
     const view = render(
       <CallableExpressionField
         data={sectionData({ state: "ready", status: "available" })}
+        sectionId="python-canvas:callable:one"
+      />,
+      mutationContext(() => "Unable to save this callable. Try again."),
+    );
+
+    expect(view.querySelector("[role='alert']")?.textContent).toBe(
+      "Unable to save this callable. Try again.",
+    );
+    expect(editorProps[0]?.diagnosticMessage).toBeUndefined();
+  });
+
+  it("keeps completion failures distinct from field diagnostics", () => {
+    const view = render(
+      <CallableExpressionField
+        data={sectionData({ state: "ready", status: "available" })}
+        sectionId="python-canvas:callable:one"
       />,
       mutationContext(
-        () => null,
         () => null,
         () => false,
         () => "Unable to load callable completions. Try again.",
       ),
     );
 
-    const input = view.querySelector<HTMLInputElement>(
-      "input[name='callable-expression']",
+    expect(view.querySelector("[role='alert']")?.textContent).toBe(
+      "Unable to load callable completions. Try again.",
     );
-    expect(input?.getAttribute("aria-invalid")).toBe("true");
-    expect(input?.getAttribute("aria-describedby")).toBe(
-      "python-canvas-callable-completion-error-callable%3Aone",
-    );
-    expect(
-      Array.from(view.querySelectorAll("p")).find(
-        (element) =>
-          element.id ===
-          "python-canvas-callable-completion-error-callable%3Aone",
-      )?.textContent,
-    ).toBe("Unable to load callable completions. Try again.");
-  });
-
-  it("maps callable completions into the native expression list", async () => {
-    const completionProvider = vi.fn().mockResolvedValue({
-      from: 5,
-      options: [{ insertText: "sqrt", label: "sqrt" }],
-      to: 6,
-    });
-    const view = render(
-      <CallableExpressionField
-        data={sectionData({ state: "ready", status: "available" })}
-      />,
-      mutationContext(
-        () => null,
-        () => null,
-        () => false,
-        () => null,
-        () => completionProvider,
-      ),
-    );
-    const input = view.querySelector<HTMLInputElement>(
-      "input[name='callable-expression']",
-    );
-    if (input === null) {
-      throw new Error("Expected the callable expression input.");
-    }
-
-    await act(async () => {
-      setInputValue(input, "math.s");
-      await Promise.resolve();
-    });
-
-    expect(completionProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        cursorOffset: 6,
-        explicit: false,
-        value: "math.s",
-      }),
-    );
-    expect(view.querySelector("datalist option")?.getAttribute("value")).toBe(
-      "math.sqrt",
-    );
-  });
-
-  it("requests native callable completion from the keyboard", async () => {
-    const completionProvider = vi.fn().mockResolvedValue({
-      from: 0,
-      options: [{ insertText: "callable", label: "callable" }],
-      to: 5,
-    });
-    const view = render(
-      <CallableExpressionField
-        data={sectionData({ state: "ready", status: "available" })}
-      />,
-      mutationContext(
-        () => null,
-        () => null,
-        () => false,
-        () => null,
-        () => completionProvider,
-      ),
-    );
-    const input = view.querySelector<HTMLInputElement>(
-      "input[name='callable-expression']",
-    );
-    if (input === null) {
-      throw new Error("Expected the callable expression input.");
-    }
-    input.setSelectionRange(5, 5);
-
-    await act(async () => {
-      input.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          bubbles: true,
-          ctrlKey: true,
-          key: " ",
-        }),
-      );
-      await Promise.resolve();
-    });
-
-    expect(completionProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        cursorOffset: 5,
-        explicit: true,
-        value: "value",
-      }),
-    );
-    expect(view.querySelector("datalist option")?.getAttribute("value")).toBe(
-      "callable",
-    );
-  });
-
-  it("reverts on Escape and aborts stale callable completion requests", () => {
-    const completionProvider = vi.fn().mockResolvedValue(null);
-    const onCallableRevert = vi.fn();
-    const workspaceEscapeHandler = vi.fn();
-    const view = render(
-      <CallableExpressionField
-        data={sectionData({ state: "ready", status: "available" })}
-      />,
-      {
-        ...mutationContext(
-          () => null,
-          () => null,
-          () => false,
-          () => null,
-          () => completionProvider,
-        ),
-        onCallableRevert,
-      },
-    );
-    const input = view.querySelector<HTMLInputElement>(
-      "input[name='callable-expression']",
-    );
-    if (input === null) {
-      throw new Error("Expected the callable expression input.");
-    }
-
-    document.addEventListener("keydown", workspaceEscapeHandler);
-    try {
-      act(() => {
-        setInputValue(input, "first");
-        setInputValue(input, "second");
-        input.focus();
-        input.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
-        );
-      });
-    } finally {
-      document.removeEventListener("keydown", workspaceEscapeHandler);
-    }
-
-    const [firstRequest, secondRequest] = completionProvider.mock.calls.map(
-      ([request]) => request as { signal: AbortSignal },
-    );
-    expect(firstRequest?.signal.aborted).toBe(true);
-    expect(secondRequest?.signal.aborted).toBe(true);
-    expect(onCallableRevert).toHaveBeenCalledWith("callable:one");
-    expect(workspaceEscapeHandler).not.toHaveBeenCalled();
-    expect(document.activeElement).toBe(input);
+    expect(editorProps[0]?.diagnosticMessage).toBeUndefined();
   });
 
   it("renders immutable provider metadata, including an unannotated type", () => {
@@ -445,7 +265,6 @@ describe("CallableSection", () => {
       />,
       mutationContext(
         () => null,
-        () => null,
         () => true,
       ),
     );
@@ -466,33 +285,7 @@ describe("CallableSection", () => {
     ).toBe(true);
   });
 
-  it("keeps a callable rename draft when a conflict refresh changes its canonical name", () => {
-    const view = render(
-      <CallableSection
-        data={{
-          ...sectionData({ state: "ready", status: "available" }),
-          callable: {
-            authoredExpression: "value",
-            id: "callable:one",
-            name: "Remote callable name",
-          },
-        }}
-        parameters={[]}
-        sectionId="python-canvas:callable:one"
-      />,
-      mutationContext(
-        () => null,
-        () => "Local retry name",
-      ),
-    );
-
-    expect(
-      view.querySelector<HTMLInputElement>("input[name='callable-name']")
-        ?.value,
-    ).toBe("Local retry name");
-  });
-
-  it("scopes pending controls and inline errors to the affected callable", () => {
+  it("scopes pending state and inline errors to the affected callable field", () => {
     const second = {
       ...sectionData({ state: "ready", status: "available" }),
       callable: {
@@ -503,14 +296,12 @@ describe("CallableSection", () => {
     };
     const view = render(
       <>
-        <CallableSection
+        <CallableExpressionField
           data={sectionData({ state: "ready", status: "available" })}
-          parameters={[]}
           sectionId="python-canvas:callable:one"
         />
-        <CallableSection
+        <CallableExpressionField
           data={second}
-          parameters={[]}
           sectionId="python-canvas:callable:two"
         />
       </>,
@@ -519,21 +310,13 @@ describe("CallableSection", () => {
           callableId === "callable:one"
             ? "Unable to save this callable."
             : null,
-        () => null,
         (callableId) => callableId === "callable:one",
       ),
     );
 
-    const names = view.querySelectorAll<HTMLInputElement>(
-      "input[name='callable-name']",
-    );
-    expect(names).toHaveLength(2);
-    expect(names[0]?.disabled).toBe(true);
-    expect(names[1]?.disabled).toBe(false);
-    expect(names[0]?.getAttribute("aria-describedby")).toBe(
-      "python-canvas-callable-mutation-error-callable%3Aone",
-    );
-    expect(names[1]?.getAttribute("aria-describedby")).toBeNull();
+    expect(editorProps).toHaveLength(2);
+    expect(editorProps[0]?.disabled).toBe(true);
+    expect(editorProps[1]?.disabled).toBe(false);
     expect(view.textContent).toContain("Unable to save this callable.");
   });
 });
@@ -550,24 +333,6 @@ function render(node: ReactNode, context = mutationContext()): HTMLDivElement {
     );
   });
   return container;
-}
-
-function requiredElement<T extends Element>(
-  root: ParentNode,
-  selector: string,
-): T {
-  const element = root.querySelector<T>(selector);
-  if (element === null) {
-    throw new Error(`Missing test element ${selector}.`);
-  }
-  return element;
-}
-
-function requiredForm(input: HTMLInputElement): HTMLFormElement {
-  if (input.form === null) {
-    throw new Error("The test input is missing its form.");
-  }
-  return input.form;
 }
 
 function sectionData({
@@ -595,7 +360,6 @@ function sectionData({
 
 function mutationContext(
   callableMutationError: (callableId: string) => string | null = () => null,
-  callableNameDraft: (callableId: string) => string | null = () => null,
   callablePending: (callableId: string) => boolean = () => false,
   callableCompletionError: (callableId: string) => string | null = () => null,
   callableCompletionProvider: () =>
@@ -607,27 +371,10 @@ function mutationContext(
     callableMutationError,
     callablePending,
     callableDraft: () => "value",
-    callableNameDraft,
     onCallableCommit: vi.fn(),
-    onCallableDelete: vi.fn(),
     onCallableDraftChange: vi.fn(),
-    onCallableNameDraftChange: vi.fn(),
-    onCallableRename: vi.fn(),
     onCallableRevert: vi.fn(),
     onParameterExpressionChange: vi.fn(),
     onParameterNameChange: vi.fn(),
   };
-}
-
-function setInputValue(input: HTMLInputElement, value: string): void {
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLInputElement.prototype,
-    "value",
-  )?.set;
-  if (setter === undefined) {
-    throw new Error("The native input value setter is unavailable.");
-  }
-  setter.call(input, value);
-  input.setSelectionRange(value.length, value.length);
-  input.dispatchEvent(new Event("input", { bubbles: true }));
 }

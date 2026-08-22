@@ -42,9 +42,10 @@ save-as flow.
 
 Right-click a blank part of the canvas and choose **Python callable** to create
 a callable. It appears at the requested canvas position with the default name
-**New callable**; rename it from the callable section itself. Every callable
-gets a section keyed by its canonical ID. Its expression field keeps a separate
-draft until it is committed or reverted.
+**New callable**; rename it through the editable section title, as on the main
+canvas. Delete it with the section header's close control. Every callable gets
+a section keyed by its canonical ID. Its compact Python expression field keeps
+a separate draft until Enter commits it or Escape reverts it.
 
 Each callable section uses the workspace's public authoring-and-filter item
 toolbar. It supports Add, Remove Last, Delete Selected, drag reorder, filtering,

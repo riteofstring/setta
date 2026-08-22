@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   commitCallable: vi.fn(),
   commitWorkspaceDocument: vi.fn(),
   createCallable: vi.fn(),
+  deleteCallable: vi.fn(),
   createWorkspaceCodeSection: vi.fn(),
   createWorkspaceHost: vi.fn(),
   fetchProjectSnapshot: vi.fn(),
@@ -24,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   setCallableParameters: vi.fn(),
   setPythonTarget: vi.fn(),
   setWorkspaceColorMode: vi.fn(),
+  textValueEditorProps: [] as Array<Record<string, unknown>>,
   workspaceCanvasHost: null as {
     getSnapshot: () => {
       sections: Record<string, unknown>;
@@ -145,7 +147,7 @@ vi.mock("../backend/client", () => ({
   },
   commitCallable: mocks.commitCallable,
   createCallable: mocks.createCallable,
-  deleteCallable: vi.fn(),
+  deleteCallable: mocks.deleteCallable,
   fetchProjectSnapshot: mocks.fetchProjectSnapshot,
   renameCallable: mocks.renameCallable,
   setCallableParameters: mocks.setCallableParameters,
@@ -158,7 +160,10 @@ vi.mock("@setta/workspace", () => ({
   ItemNameEditor: () => <input aria-label="Parameter name" readOnly />,
   NO_DRAG_CLASS_NAME: "nodrag",
   NO_PAN_CLASS_NAME: "nopan",
-  TextValueEditor: () => <input aria-label="Callable expression" readOnly />,
+  TextValueEditor: (props: Record<string, unknown>) => {
+    mocks.textValueEditorProps.push(props);
+    return <input aria-label={String(props.ariaLabel)} readOnly />;
+  },
   WorkspaceCanvas: MockWorkspaceCanvas,
   WorkspaceItemLabel: ({ children }: { children?: ReactNode }) => (
     <span>{children}</span>
@@ -198,6 +203,7 @@ let root: Root | undefined;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.textValueEditorProps.length = 0;
   mocks.renderWorkspaceCanvas = false;
   mocks.workspaceCanvasHost = null;
   mocks.createWorkspaceCodeSection.mockReturnValue({
@@ -299,6 +305,78 @@ describe("PythonCanvasApp", () => {
       workspace.getDocument().topLevelSections[canonicalSectionId],
     ).toEqual(pendingLayout);
     expect(workspace.getDocument().activeIds).toEqual([canonicalSectionId]);
+  });
+
+  it("persists a callable rename made through the workspace section header", async () => {
+    const initialSnapshot = callableSnapshot(1, []);
+    const renamedSnapshot = callableSnapshot(
+      2,
+      [],
+      "fixture.initial",
+      "Renamed callable",
+    );
+    const workspace = installWorkspaceHarness();
+    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
+    mocks.renameCallable.mockResolvedValueOnce(renamedSnapshot);
+
+    renderApp();
+    await flushEffects();
+
+    const sectionId = callableSectionID("callable:one");
+    const section = workspace.getDocument().sections[sectionId];
+    if (section === undefined) {
+      throw new Error("Expected the projected callable section.");
+    }
+    workspace.publish({
+      ...workspace.getDocument(),
+      sections: {
+        ...workspace.getDocument().sections,
+        [sectionId]: { ...section, name: "Renamed callable" },
+      },
+    });
+    await flushEffects();
+
+    expect(mocks.renameCallable).toHaveBeenCalledWith("callable:one", {
+      expectedRevision: 1,
+      name: "Renamed callable",
+      projectId: initialSnapshot.project.id,
+    });
+    expect(workspace.getDocument().sections[sectionId]?.name).toBe(
+      "Renamed callable",
+    );
+  });
+
+  it("persists a callable deletion made through the workspace section header", async () => {
+    const initialSnapshot = callableSnapshot(1, []);
+    const deletedSnapshot = parseProjectSnapshotV2({
+      ...initialSnapshot,
+      callables: [],
+      project: { ...initialSnapshot.project, revision: 2 },
+    });
+    const workspace = installWorkspaceHarness();
+    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
+    mocks.deleteCallable.mockResolvedValueOnce(deletedSnapshot);
+
+    renderApp();
+    await flushEffects();
+
+    const sectionId = callableSectionID("callable:one");
+    const sections = { ...workspace.getDocument().sections };
+    const topLevelSections = { ...workspace.getDocument().topLevelSections };
+    delete sections[sectionId];
+    delete topLevelSections[sectionId];
+    workspace.publish({
+      ...workspace.getDocument(),
+      sections,
+      topLevelSections,
+    });
+    await flushEffects();
+
+    expect(mocks.deleteCallable).toHaveBeenCalledWith("callable:one", {
+      expectedRevision: 1,
+      projectId: initialSnapshot.project.id,
+    });
+    expect(workspace.getDocument().sections[sectionId]).toBeUndefined();
   });
 
   it("reports an initial load failure without mounting a workspace canvas", async () => {
@@ -665,19 +743,17 @@ describe("PythonCanvasApp", () => {
     mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
     mocks.commitCallable.mockReturnValueOnce(commitRequest.promise);
 
-    const view = renderApp();
+    renderApp();
     await flushEffects();
-    const expression = view.querySelector<HTMLInputElement>(
-      "input[name='callable-expression']",
+    const expression = mocks.textValueEditorProps.find(
+      (props) => props.presentation === "section-field",
     );
-    if (expression === null || expression.form === null) {
-      throw new Error("Expected the callable expression form.");
+    if (expression === undefined) {
+      throw new Error("Expected the compact callable expression field.");
     }
     await act(async () => {
-      setInputValue(expression, "fixture.resolved");
-      expression.form?.dispatchEvent(
-        new Event("submit", { bubbles: true, cancelable: true }),
-      );
+      (expression.onValueChange as (value: string) => void)("fixture.resolved");
+      (expression.onCommit as (value: string) => void)("fixture.resolved");
       await flushMicrotasks();
     });
 
@@ -792,6 +868,7 @@ function callableSnapshot(
   revision: number,
   parameters: Array<ParameterV2>,
   authoredExpression = "fixture.initial",
+  name = "One callable",
 ) {
   return parseProjectSnapshotV2({
     ...projectSnapshotFixture,
@@ -799,7 +876,7 @@ function callableSnapshot(
       {
         authoredExpression,
         id: "callable:one",
-        name: "One callable",
+        name,
         parameters,
       },
     ],
@@ -965,12 +1042,8 @@ function renderView(
           callableMutationError: () => null,
           callablePending: () => false,
           callableDraft: () => "",
-          callableNameDraft: () => null,
           onCallableCommit: vi.fn(),
-          onCallableDelete: vi.fn(),
           onCallableDraftChange: vi.fn(),
-          onCallableNameDraftChange: vi.fn(),
-          onCallableRename: vi.fn(),
           onCallableRevert: vi.fn(),
           onParameterExpressionChange: vi.fn(),
           onParameterNameChange: vi.fn(),
@@ -993,16 +1066,4 @@ async function flushMicrotasks(): Promise<void> {
   for (let index = 0; index < 8; index += 1) {
     await Promise.resolve();
   }
-}
-
-function setInputValue(input: HTMLInputElement, value: string): void {
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLInputElement.prototype,
-    "value",
-  )?.set;
-  if (setter === undefined) {
-    throw new Error("The native input value setter is unavailable.");
-  }
-  setter.call(input, value);
-  input.dispatchEvent(new Event("input", { bubbles: true }));
 }

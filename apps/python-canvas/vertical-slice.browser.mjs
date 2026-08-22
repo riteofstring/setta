@@ -30,7 +30,6 @@ import {
   pressItemActionMenuKey,
   prepareElementDrag,
   releaseItemSelectionChord,
-  replaceNativeInputAndSubmit,
   rightClickPoint,
   selectAll,
   contentEditableTextBoxSelector,
@@ -127,8 +126,8 @@ await runAgainstProductionApp(
 
     await clickElementCenter(
       client,
-      labeledSelector(`Delete callable ${zeroCallableName}`),
-      "the dynamic zero-callable delete control",
+      `${callableSectionSelector(zeroCallableName)} ${labeledSelector("Delete section")}`,
+      "the zero-callable section delete control",
     );
     const beforeRestart = await waitForSnapshot(
       backendOrigin,
@@ -277,28 +276,37 @@ async function createCallable(client, backendOrigin, name) {
     "The pane menu did not create one canonical callable.",
   );
   const defaultSectionSelector = callableSectionSelector(defaultCallableName);
-  const nameSelector = `${defaultSectionSelector} input[name='callable-name']`;
+  const titleSelector = `${defaultSectionSelector} [role="button"][aria-label=${JSON.stringify(`${defaultCallableName}, edit section title`)}]`;
   await waitFor(
     client,
-    "the created callable name control",
-    `document.querySelector(${JSON.stringify(nameSelector)}) instanceof HTMLInputElement`,
+    "the created callable section title",
+    `document.querySelector(${JSON.stringify(titleSelector)}) instanceof HTMLElement`,
   );
-  await replaceNativeInputAndSubmit(
+  await focusElement(
     client,
-    nameSelector,
-    name,
-    `the ${defaultCallableName} callable name control`,
+    titleSelector,
+    `the ${defaultCallableName} callable section title`,
   );
+  await pressEnter(client);
+  const titleInputSelector = `${defaultSectionSelector} input[aria-label="Section title"]`;
+  await waitFor(
+    client,
+    "the editable callable section title",
+    `document.activeElement === document.querySelector(${JSON.stringify(titleInputSelector)})`,
+  );
+  await selectAll(client);
+  await insertText(client, name);
+  await pressEnter(client);
   await waitForSnapshot(
     backendOrigin,
     `the ${name} callable`,
     (snapshot) => findCallable(snapshot, name) !== null,
   );
-  const expressionSelector = `${callableSectionSelector(name)} input[name='callable-expression']`;
+  const expressionSelector = `${callableSectionSelector(name)} ${contentEditableTextBoxSelector("Callable expression")}`;
   await waitFor(
     client,
     `the ${name} callable expression control`,
-    `document.querySelector(${JSON.stringify(expressionSelector)}) instanceof HTMLInputElement`,
+    `document.querySelector(${JSON.stringify(expressionSelector)}) instanceof HTMLElement`,
   );
 }
 
@@ -308,12 +316,14 @@ async function commitCallableExpression(
   name,
   expression,
 ) {
-  await replaceNativeInputAndSubmit(
+  await activateContentEditableTextBox(
     client,
-    `${callableSectionSelector(name)} input[name='callable-expression']`,
-    expression,
+    `${callableSectionSelector(name)} ${contentEditableTextBoxSelector("Callable expression")}`,
     `the ${name} callable expression`,
   );
+  await selectAll(client);
+  await insertText(client, expression);
+  await pressEnter(client);
   await waitForSnapshot(
     backendOrigin,
     `the ${name} callable expression commit`,

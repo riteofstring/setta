@@ -1,4 +1,3 @@
-import { useEffect, useId, useRef, useState } from "react";
 import {
   PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V2,
   PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V2,
@@ -13,8 +12,6 @@ import {
 import {
   ItemDndContext,
   ItemNameEditor,
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
   TextValueEditor,
   WorkspaceItemLabel,
   WorkspaceItemList,
@@ -186,153 +183,47 @@ function validateAppAuthoredParameterMetadata({
 
 export function CallableExpressionField({
   data,
+  sectionId,
 }: {
   data: CallableSectionData;
+  sectionId: string;
 }) {
   const mutation = usePythonCanvasMutationContext();
   const callableId = data.callable.id;
   const completionError = mutation.callableCompletionError(callableId);
   const mutationError = mutation.callableMutationError(callableId);
-  const diagnosticMessage = data.callableDiagnosticMessage;
-  const expressionInputId = callableExpressionInputId(callableId);
-  const completionListId = `${expressionInputId}-completions`;
-  const completionRequest = useRef<AbortController | null>(null);
-  const [completionOptions, setCompletionOptions] = useState<
-    Array<{ label: string; value: string }>
-  >([]);
-  const draft = mutation.callableDraft(callableId);
-  const completionErrorId =
-    completionError === null
-      ? undefined
-      : callableCompletionErrorId(callableId);
-  const diagnosticErrorId =
-    diagnosticMessage === null
-      ? undefined
-      : callableDiagnosticErrorId(callableId);
-  const mutationErrorId =
-    mutationError === null ? undefined : callableMutationErrorId(callableId);
-  const describedBy = [mutationErrorId, diagnosticErrorId, completionErrorId]
-    .filter((id): id is string => id !== undefined)
-    .join(" ");
-
-  useEffect(
-    () => () => {
-      completionRequest.current?.abort();
-    },
-    [],
-  );
-
-  const requestCompletions = (input: HTMLInputElement, explicit: boolean) => {
-    completionRequest.current?.abort();
-    setCompletionOptions([]);
-    const provider = mutation.callableCompletionProvider(callableId);
-    const value = input.value;
-    if (provider === undefined || value.trim() === "") {
-      return;
-    }
-    const controller = new AbortController();
-    completionRequest.current = controller;
-    const cursorOffset = input.selectionStart ?? value.length;
-    void provider({ cursorOffset, explicit, signal: controller.signal, value })
-      .then((result) => {
-        if (controller.signal.aborted || result === null) {
-          return;
-        }
-        const to = result.to ?? result.from;
-        if (
-          result.from < 0 ||
-          to < result.from ||
-          to > value.length ||
-          !Number.isSafeInteger(result.from) ||
-          !Number.isSafeInteger(to)
-        ) {
-          return;
-        }
-        setCompletionOptions(
-          result.options.map((option) => ({
-            label: option.label,
-            value: `${value.slice(0, result.from)}${option.insertText ?? option.label}${value.slice(to)}`,
-          })),
-        );
-      })
-      .catch(() => {
-        // The application completion adapter classifies and reports failures.
-      });
-  };
 
   return (
-    <form
-      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} python-canvas-callable-expression-controls`}
-      data-tab-native="true"
-      onSubmit={(event) => {
-        event.preventDefault();
-        mutation.onCallableCommit(callableId, draft);
-      }}
-    >
-      <label htmlFor={expressionInputId}>Callable expression</label>
-      <input
-        aria-describedby={describedBy === "" ? undefined : describedBy}
-        aria-invalid={describedBy === "" ? undefined : true}
+    <div className="python-canvas-callable-field">
+      <TextValueEditor
+        ariaLabel="Callable expression"
+        completionProvider={mutation.callableCompletionProvider(callableId)}
+        controlId={`callable-expression:${callableId}`}
+        diagnosticMessage={data.callableDiagnosticMessage ?? undefined}
         disabled={mutation.callablePending(callableId)}
-        id={expressionInputId}
-        list={completionListId}
-        name="callable-expression"
-        onChange={(event) => {
-          mutation.onCallableDraftChange(callableId, event.target.value);
-          requestCompletions(event.currentTarget, false);
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.stopPropagation();
-            completionRequest.current?.abort();
-            setCompletionOptions([]);
-            mutation.onCallableRevert(callableId);
-            return;
-          }
-          if (
-            event.key === " " &&
-            (event.ctrlKey || event.metaKey) &&
-            !event.altKey
-          ) {
-            event.preventDefault();
-            requestCompletions(event.currentTarget, true);
-          }
-        }}
-        spellCheck={false}
-        type="text"
-        value={draft}
+        language="python"
+        onCommit={(value) => mutation.onCallableCommit(callableId, value)}
+        onEscape={() => mutation.onCallableRevert(callableId)}
+        onValueChange={(value) =>
+          mutation.onCallableDraftChange(callableId, value)
+        }
+        presentation="section-field"
+        sectionId={sectionId}
+        singleLine
+        value={mutation.callableDraft(callableId)}
+        wrapLines={false}
       />
-      <datalist id={completionListId}>
-        {completionOptions.map((option) => (
-          <option
-            key={`${option.label}:${option.value}`}
-            label={option.label}
-            value={option.value}
-          />
-        ))}
-      </datalist>
-      <button disabled={mutation.callablePending(callableId)} type="submit">
-        Commit callable
-      </button>
-      {diagnosticMessage === null ? null : (
-        <p
-          className="python-canvas-callable-diagnostic-error"
-          id={diagnosticErrorId}
-          role="alert"
-        >
-          {diagnosticMessage}
+      {mutationError === null ? null : (
+        <p className="python-canvas-callable-mutation-error" role="alert">
+          {mutationError}
         </p>
       )}
       {completionError === null ? null : (
-        <p
-          className="python-canvas-completion-error"
-          id={completionErrorId}
-          role="alert"
-        >
+        <p className="python-canvas-completion-error" role="alert">
           {completionError}
         </p>
       )}
-    </form>
+    </div>
   );
 }
 
@@ -355,8 +246,6 @@ export function CallableSection({
       aria-busy={parameterAuthoringPending}
       className="python-canvas-callable-section"
     >
-      <CallableNameControl callable={data.callable} />
-      <CallableMutationError callableId={data.callable.id} />
       <div
         className="python-canvas-callable-parameter-authoring"
         inert={parameterAuthoringPending || undefined}
@@ -384,57 +273,6 @@ export function CallableSection({
 
 export function parameterItemSearchableText(item: { data?: unknown }): string {
   return readParameterItemData(item.data).name;
-}
-
-function CallableNameControl({
-  callable,
-}: {
-  callable: CallableSectionData["callable"];
-}) {
-  const mutation = usePythonCanvasMutationContext();
-  const inputId = useId();
-  const mutationError = mutation.callableMutationError(callable.id);
-  const mutationErrorId =
-    mutationError === null ? undefined : callableMutationErrorId(callable.id);
-  const name = mutation.callableNameDraft(callable.id) ?? callable.name;
-
-  return (
-    <form
-      className="python-canvas-callable-controls"
-      onSubmit={(event) => {
-        event.preventDefault();
-        mutation.onCallableRename(callable.id, name);
-      }}
-    >
-      <label htmlFor={inputId}>Callable name</label>
-      <input
-        aria-describedby={mutationErrorId}
-        aria-invalid={mutationError === null ? undefined : true}
-        disabled={mutation.callablePending(callable.id)}
-        id={inputId}
-        name="callable-name"
-        onChange={(event) =>
-          mutation.onCallableNameDraftChange(callable.id, event.target.value)
-        }
-        required
-        type="text"
-        value={name}
-      />
-      <div className="python-canvas-callable-actions">
-        <button disabled={mutation.callablePending(callable.id)} type="submit">
-          Rename callable
-        </button>
-        <button
-          aria-label={`Delete callable ${callable.name}`}
-          disabled={mutation.callablePending(callable.id)}
-          onClick={() => mutation.onCallableDelete(callable.id)}
-          type="button"
-        >
-          Delete callable
-        </button>
-      </div>
-    </form>
-  );
 }
 
 function ParameterItemRow({
@@ -501,38 +339,6 @@ function ParameterItemRow({
       />
     </>
   );
-}
-
-function CallableMutationError({ callableId }: { callableId: string }) {
-  const mutation = usePythonCanvasMutationContext();
-  const message = mutation.callableMutationError(callableId);
-  if (message === null) {
-    return null;
-  }
-  return (
-    <p
-      className="python-canvas-callable-mutation-error"
-      id={callableMutationErrorId(callableId)}
-    >
-      {message}
-    </p>
-  );
-}
-
-function callableMutationErrorId(callableId: string): string {
-  return `python-canvas-callable-mutation-error-${encodeURIComponent(callableId)}`;
-}
-
-function callableExpressionInputId(callableId: string): string {
-  return `python-canvas-callable-expression-${encodeURIComponent(callableId)}`;
-}
-
-function callableDiagnosticErrorId(callableId: string): string {
-  return `python-canvas-callable-diagnostic-error-${encodeURIComponent(callableId)}`;
-}
-
-function callableCompletionErrorId(callableId: string): string {
-  return `python-canvas-callable-completion-error-${encodeURIComponent(callableId)}`;
 }
 
 function parameterDiagnosticRegistry(

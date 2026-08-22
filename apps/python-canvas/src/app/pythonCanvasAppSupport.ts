@@ -8,6 +8,7 @@ import type {
 } from "../backend/generatedContract";
 import { hasBlockingParameterName } from "../sections/parameterNames";
 import {
+  callableSectionID,
   isCallableParameterAuthoringPending,
   readCallableParameterItems,
   readGeneratedPythonTarget,
@@ -18,10 +19,14 @@ export type MutationAnswer =
   | { callableId: string; kind: "parameters"; sent: ParameterProposalV2[] }
   | { kind: "other" };
 
-export type RevisionConflictDraft =
-  | { callableId: string; kind: "callable-rename"; name: string }
-  | { callableId: string; kind: "parameters" }
-  | null;
+export type RevisionConflictDraft = {
+  callableId: string;
+  kind: "parameters";
+} | null;
+
+export type CallableStructureMutation =
+  | { callableId: string; kind: "delete" }
+  | { callableId: string; kind: "rename"; name: string };
 
 export type AppController = {
   commitCallable: (callableId: string, value: string) => void;
@@ -29,7 +34,6 @@ export type AppController = {
   renameCallable: (callableId: string, name: string) => void;
   revertCallableDraft: (callableId: string) => void;
   setCallableDraft: (callableId: string, value: string) => void;
-  setCallableNameDraft: (callableId: string, name: string) => void;
   setParameterExpression: (
     callableId: string,
     parameterId: string,
@@ -41,6 +45,29 @@ export type AppController = {
     name: string,
   ) => void;
 };
+
+// Callable sections use the workspace's main-derived header controls. Translate
+// the two structural edits those controls can make back into the server-owned
+// callable aggregate instead of rendering a second set of app-specific forms.
+export function callableStructureMutations(
+  document: WorkspaceDocument,
+  snapshot: ProjectSnapshotV2,
+): CallableStructureMutation[] {
+  const mutations: CallableStructureMutation[] = [];
+  for (const callable of snapshot.callables) {
+    const section = document.sections[callableSectionID(callable.id)];
+    if (section === undefined) {
+      mutations.push({ callableId: callable.id, kind: "delete" });
+    } else if (section.name !== callable.name) {
+      mutations.push({
+        callableId: callable.id,
+        kind: "rename",
+        name: section.name,
+      });
+    }
+  }
+  return mutations;
+}
 
 export function parameterListDraft(
   document: WorkspaceDocument,

@@ -36,7 +36,7 @@ export function registerPythonCanvasSectionKinds(
   const callableItemArea = {
     renderLeadingContent: (section: WorkspaceDocument["sections"][string]) => {
       const data = readCallableSectionData(section.data);
-      return <CallableExpressionField data={data} />;
+      return <CallableExpressionField data={data} sectionId={section.id} />;
     },
   };
   const callableSectionKind = {

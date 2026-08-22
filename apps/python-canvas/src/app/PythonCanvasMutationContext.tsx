@@ -9,13 +9,9 @@ export type PythonCanvasMutationContextValue = {
   callableMutationError: (callableId: string) => string | null;
   callablePending: (callableId: string) => boolean;
   callableDraft: (callableId: string) => string;
-  callableNameDraft: (callableId: string) => string | null;
   onCallableCommit: (callableId: string, value: string) => void;
   onCallableDraftChange: (callableId: string, value: string) => void;
-  onCallableNameDraftChange: (callableId: string, name: string) => void;
   onCallableRevert: (callableId: string) => void;
-  onCallableDelete: (callableId: string) => void;
-  onCallableRename: (callableId: string, name: string) => void;
   onParameterExpressionChange: (
     callableId: string,
     parameterId: string,
