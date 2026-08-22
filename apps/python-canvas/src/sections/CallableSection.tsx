@@ -301,27 +301,34 @@ export function CallableSection({
   const mutation = usePythonCanvasMutationContext();
   const itemDiagnostics = parameterDiagnosticRegistry(data);
   const nameErrors = parameterNameErrors(parameters);
+  const parameterAuthoringPending = mutation.callablePending(data.callable.id);
 
   return (
     <div
-      aria-busy={mutation.callablePending(data.callable.id)}
+      aria-busy={parameterAuthoringPending}
       className="python-canvas-callable-section"
     >
       <CallableNameControl callable={data.callable} />
       <CallableMutationError callableId={data.callable.id} />
-      <WorkspaceItemList
-        itemDiagnostics={itemDiagnostics}
-        listKey={`${PARAMETER_LIST_KEY}:${data.callable.id}`}
-        renderItem={(context) => (
-          <ParameterItemRow
-            callableId={data.callable.id}
-            context={context}
-            nameError={nameErrors[context.item.id] ?? ""}
-          />
-        )}
-        sectionId={sectionId}
-        topLevelItemIds={parameters.map((parameter) => parameter.id)}
-      />
+      <div
+        className="python-canvas-callable-parameter-authoring"
+        inert={parameterAuthoringPending || undefined}
+      >
+        <WorkspaceItemList
+          itemDiagnostics={itemDiagnostics}
+          listKey={`${PARAMETER_LIST_KEY}:${data.callable.id}`}
+          renderItem={(context) => (
+            <ParameterItemRow
+              callableId={data.callable.id}
+              context={context}
+              disabled={parameterAuthoringPending}
+              nameError={nameErrors[context.item.id] ?? ""}
+            />
+          )}
+          sectionId={sectionId}
+          topLevelItemIds={parameters.map((parameter) => parameter.id)}
+        />
+      </div>
     </div>
   );
 }
@@ -384,10 +391,12 @@ function CallableNameControl({
 function ParameterItemRow({
   callableId,
   context,
+  disabled,
   nameError,
 }: {
   callableId: string;
   context: ItemRowRenderContext;
+  disabled: boolean;
   nameError: string;
 }) {
   const mutation = usePythonCanvasMutationContext();
@@ -399,6 +408,7 @@ function ParameterItemRow({
       {data.nameEditable ? (
         <ItemNameEditor
           errorMessage={nameError}
+          disabled={disabled}
           itemId={context.item.id}
           language="python"
           name={data.name}
@@ -424,6 +434,7 @@ function ParameterItemRow({
       <TextValueEditor
         ariaLabel={`${label} expression`}
         controlId={context.item.id}
+        disabled={disabled}
         language="python"
         onValueChange={(value) =>
           mutation.onParameterExpressionChange(

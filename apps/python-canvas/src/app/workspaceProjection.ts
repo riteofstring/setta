@@ -28,6 +28,8 @@ import {
 } from "../sections/CallableSection";
 
 export const CALLABLE_SECTION_KIND = "python-canvas.callable" as const;
+export const PENDING_CALLABLE_SECTION_KIND =
+  "python-canvas.callable-pending" as const;
 export const GENERATED_PYTHON_SECTION_ID =
   "python-canvas:generated-python" as const;
 
@@ -41,6 +43,57 @@ const generatedCodeSeparator = "\n\n";
 
 export function callableSectionID(callableId: string): string {
   return `python-canvas:callable:${callableId}`;
+}
+
+export function isCallableParameterAuthoringPending(
+  document: WorkspaceDocument,
+  callableId: string,
+): boolean {
+  return (
+    document.sections[callableSectionID(callableId)]?.kind ===
+    PENDING_CALLABLE_SECTION_KIND
+  );
+}
+
+// A callable commit replaces its complete parameter list with provider-owned
+// canonical rows. Until that response arrives, use the public per-section
+// authoring lock as well as a pending kind so package-owned item actions cannot
+// create a competing local list.
+export function setCallableParameterAuthoringPending(
+  host: WorkspaceHost,
+  callableId: string,
+  pending: boolean,
+): void {
+  const sectionId = callableSectionID(callableId);
+  const document = host.getSnapshot();
+  const section = document.sections[sectionId];
+  if (section === undefined) {
+    return;
+  }
+  const kind = pending ? PENDING_CALLABLE_SECTION_KIND : CALLABLE_SECTION_KIND;
+  const itemTree =
+    pending && section.itemTree?.selectedItemIds.length
+      ? { ...section.itemTree, selectedItemIds: [] }
+      : section.itemTree;
+  if (
+    section.kind === kind &&
+    section.positionAndSizeLocked === pending &&
+    itemTree === section.itemTree
+  ) {
+    return;
+  }
+  commitWorkspaceDocument(host, {
+    ...document,
+    sections: {
+      ...document.sections,
+      [sectionId]: {
+        ...section,
+        kind,
+        itemTree,
+        positionAndSizeLocked: pending,
+      },
+    },
+  });
 }
 
 function parameterItemRootID(callableId: string): string {

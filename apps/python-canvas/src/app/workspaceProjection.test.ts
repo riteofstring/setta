@@ -1,7 +1,10 @@
 import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
 import {
   createWorkspaceHost,
+  deleteLastWorkspaceItem,
+  deleteSelectedWorkspaceItems,
   getWorkspaceCodeSectionData,
+  insertWorkspaceItem,
   setWorkspaceCodeSectionData,
 } from "@setta/workspace";
 import { describe, expect, it } from "vitest";
@@ -12,11 +15,14 @@ import { registerPythonCanvasSectionKinds } from "./PythonCanvasApp";
 import {
   CALLABLE_SECTION_KIND,
   GENERATED_PYTHON_SECTION_ID,
+  PENDING_CALLABLE_SECTION_KIND,
   applyProjectSnapshotToWorkspace,
   callableSectionID,
+  isCallableParameterAuthoringPending,
   projectWorkspaceDocument,
   readCallableParameterItems,
   readGeneratedPythonTarget,
+  setCallableParameterAuthoringPending,
   setParameterItemName,
 } from "./workspaceProjection";
 
@@ -72,6 +78,70 @@ describe("Python Canvas V2 workspace projection", () => {
         id: "parameter:scale",
       },
     ]);
+  });
+
+  it("locks only the committing callable's parameter authoring boundary", () => {
+    const snapshot = dynamicSnapshot();
+    const host = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(host);
+    host.loadDocument(projectWorkspaceDocument(snapshot));
+
+    const secondId = callableSectionID("callable:second");
+    const document = host.getSnapshot();
+    const second = document.sections[secondId];
+    if (second?.itemTree === undefined) {
+      throw new Error("Expected the second callable parameter tree.");
+    }
+    host.loadDocument({
+      ...document,
+      sections: {
+        ...document.sections,
+        [secondId]: {
+          ...second,
+          itemTree: {
+            ...second.itemTree,
+            selectedItemIds: ["parameter:scale"],
+          },
+        },
+      },
+    });
+
+    setCallableParameterAuthoringPending(host, "callable:second", true);
+
+    const pending = host.getSnapshot();
+    expect(pending.sections[callableSectionID("callable:first")]).toMatchObject(
+      {
+        kind: CALLABLE_SECTION_KIND,
+        positionAndSizeLocked: false,
+      },
+    );
+    expect(
+      pending.sections[callableSectionID("callable:second")],
+    ).toMatchObject({
+      kind: PENDING_CALLABLE_SECTION_KIND,
+      positionAndSizeLocked: true,
+    });
+    expect(pending.sections[secondId]?.itemTree?.selectedItemIds).toEqual([]);
+    expect(
+      isCallableParameterAuthoringPending(pending, "callable:second"),
+    ).toBe(true);
+    expect(() => insertWorkspaceItem(host, secondId)).toThrow(/locked/);
+    expect(() => deleteLastWorkspaceItem(host, secondId)).toThrow(/locked/);
+    expect(deleteSelectedWorkspaceItems(host, secondId)).toEqual([]);
+
+    setCallableParameterAuthoringPending(host, "callable:second", false);
+
+    const restored = host.getSnapshot();
+    expect(
+      restored.sections[callableSectionID("callable:second")],
+    ).toMatchObject({
+      kind: CALLABLE_SECTION_KIND,
+      positionAndSizeLocked: false,
+    });
+    expect(
+      isCallableParameterAuthoringPending(restored, "callable:second"),
+    ).toBe(false);
+    host.dispose();
   });
 
   it("uses the exact body range for one combined generated document and preserves outer edits", () => {

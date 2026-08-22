@@ -41,12 +41,15 @@ import {
   CALLABLE_SECTION_SIZE,
   GENERATED_PYTHON_SECTION_ID,
   GENERATED_PYTHON_SECTION_SIZE,
+  PENDING_CALLABLE_SECTION_KIND,
   applyProjectSnapshotToWorkspace,
   createCallableParameterItem,
+  isCallableParameterAuthoringPending,
   projectWorkspaceDocument,
   readCallableParameterItems,
   readCallableParameterRows,
   readGeneratedPythonTarget,
+  setCallableParameterAuthoringPending,
   setParameterItemExpression,
   setParameterItemName,
   type ProjectSnapshotProjectionOptions,
@@ -74,11 +77,7 @@ type CompletionProviders = Record<string, TextValueCompletionProvider>;
 type CompletionErrors = Record<string, string>;
 
 type MutationAnswer =
-  | {
-      callableId: string;
-      kind: "commit";
-      parameterDraftAtStart: ParameterProposalV2[] | null;
-    }
+  | { callableId: string; kind: "commit" }
   | { callableId: string; kind: "parameters"; sent: ParameterProposalV2[] }
   | { kind: "other" };
 
@@ -118,31 +117,44 @@ export function registerPythonCanvasSectionKinds(
     defaultSize: GENERATED_PYTHON_SECTION_SIZE,
     languages: ["python"],
   });
+  const callableItemArea = {
+    renderLeadingContent: (section: WorkspaceDocument["sections"][string]) => {
+      const data = readCallableSectionData(section.data);
+      return <CallableExpressionField data={data} />;
+    },
+  };
+  const callableSectionKind = {
+    defaultSize: CALLABLE_SECTION_SIZE,
+    assertValidData: (section: WorkspaceDocument["sections"][string]) => {
+      readCallableSectionData(section.data);
+    },
+    getItemSearchableText: (context: { item: { data?: unknown } }) =>
+      parameterItemSearchableText(context.item),
+    renderContent: (section: WorkspaceDocument["sections"][string]) => {
+      const data = readCallableSectionData(section.data);
+      return (
+        <CallableSection
+          data={data}
+          parameters={readCallableParameterRows(section)}
+          sectionId={section.id}
+        />
+      );
+    },
+  };
   registerSectionKinds(host, {
     [CALLABLE_SECTION_KIND]: {
-      defaultSize: CALLABLE_SECTION_SIZE,
-      assertValidData: (section) => {
-        readCallableSectionData(section.data);
-      },
+      ...callableSectionKind,
       itemArea: {
-        renderLeadingContent: (section) => {
-          const data = readCallableSectionData(section.data);
-          return <CallableExpressionField data={data} />;
-        },
+        ...callableItemArea,
         toolbar: "authoring-and-filter",
       },
       createItem: () => createCallableParameterItem(),
-      getItemSearchableText: (context) =>
-        parameterItemSearchableText(context.item),
-      renderContent: (section) => {
-        const data = readCallableSectionData(section.data);
-        return (
-          <CallableSection
-            data={data}
-            parameters={readCallableParameterRows(section)}
-            sectionId={section.id}
-          />
-        );
+    },
+    [PENDING_CALLABLE_SECTION_KIND]: {
+      ...callableSectionKind,
+      itemArea: {
+        ...callableItemArea,
+        toolbar: "filter-only",
       },
     },
     [WORKSPACE_CODE_SECTION_KIND]: {
@@ -195,6 +207,7 @@ export function PythonCanvasApp() {
     let canonicalCallableNames = new Map<string, string>();
     let targetTimer: ReturnType<typeof setTimeout> | null = null;
     const parameterTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    const pendingCallableCommits = new Set<string>();
     let mutationChain = Promise.resolve();
 
     const disposeHost = () => {
@@ -214,6 +227,9 @@ export function PythonCanvasApp() {
       next: MutationState,
     ) => {
       if (!active) {
+        return;
+      }
+      if (next.kind !== "pending" && pendingCallableCommits.has(callableId)) {
         return;
       }
       setCallableMutations((current) => {
@@ -247,6 +263,33 @@ export function PythonCanvasApp() {
       isProjectingRef.current = true;
       try {
         applyProjectSnapshotToWorkspace(host, nextSnapshot, options);
+        for (const callableId of [...pendingCallableCommits]) {
+          if (
+            nextSnapshot.callables.some(
+              (callable) => callable.id === callableId,
+            )
+          ) {
+            setCallableParameterAuthoringPending(host, callableId, true);
+          } else {
+            pendingCallableCommits.delete(callableId);
+          }
+        }
+      } finally {
+        isProjectingRef.current = false;
+      }
+    };
+    const setParameterAuthoringPending = (
+      callableId: string,
+      pending: boolean,
+    ) => {
+      if (pending) {
+        pendingCallableCommits.add(callableId);
+      } else {
+        pendingCallableCommits.delete(callableId);
+      }
+      isProjectingRef.current = true;
+      try {
+        setCallableParameterAuthoringPending(host, callableId, pending);
       } finally {
         isProjectingRef.current = false;
       }
@@ -393,12 +436,6 @@ export function PythonCanvasApp() {
           continue;
         }
         if (answer.kind === "commit" && answer.callableId === callable.id) {
-          if (
-            answer.parameterDraftAtStart === null ||
-            !sameProposedList(answer.parameterDraftAtStart, draft)
-          ) {
-            retained.add(callable.id);
-          }
           continue;
         }
         if (answer.kind === "parameters" && answer.callableId === callable.id) {
@@ -577,6 +614,11 @@ export function PythonCanvasApp() {
           if (!active || snapshot === null) {
             return;
           }
+          if (
+            isCallableParameterAuthoringPending(host.getSnapshot(), callableId)
+          ) {
+            return;
+          }
           const callable = snapshot.callables.find(
             (candidate) => candidate.id === callableId,
           );
@@ -633,7 +675,24 @@ export function PythonCanvasApp() {
 
     controllerRef.current = {
       commitCallable: (callableId, value) => {
+        if (
+          !active ||
+          snapshot === null ||
+          !snapshot.callables.some((callable) => callable.id === callableId)
+        ) {
+          return;
+        }
         cancelParameterMutation(callableId);
+        setCallableDrafts((current) => ({ ...current, [callableId]: value }));
+        setCompletionErrors((current) => {
+          const { [callableId]: _cleared, ...remaining } = current;
+          return remaining;
+        });
+        setParameterAuthoringPending(callableId, true);
+        updateCallableMutation(callableId, {
+          description: "Checking the callable with Basedpyright.",
+          kind: "pending",
+        });
         enqueue(async () => {
           if (!active || snapshot === null) {
             return;
@@ -642,21 +701,10 @@ export function PythonCanvasApp() {
             (candidate) => candidate.id === callableId,
           );
           if (callable === undefined) {
+            setParameterAuthoringPending(callableId, false);
+            updateCallableMutation(callableId, { kind: "idle" });
             return;
           }
-          setCallableDrafts((current) => ({ ...current, [callableId]: value }));
-          setCompletionErrors((current) => {
-            const { [callableId]: _cleared, ...remaining } = current;
-            return remaining;
-          });
-          const parameterDraftAtStart = parameterListDraft(
-            host.getSnapshot(),
-            callableId,
-          );
-          updateCallableMutation(callableId, {
-            description: "Checking the callable with Basedpyright.",
-            kind: "pending",
-          });
           try {
             const nextSnapshot = await commitCallable(callableId, {
               authoredExpression: value,
@@ -666,15 +714,16 @@ export function PythonCanvasApp() {
             if (!active) {
               return;
             }
+            pendingCallableCommits.delete(callableId);
             snapshot = nextSnapshot;
             acceptCanonicalSnapshot(nextSnapshot, {
               callableId,
               kind: "commit",
-              parameterDraftAtStart,
             });
             updateCallableMutation(callableId, { kind: "idle" });
           } catch (error) {
             if (active) {
+              setParameterAuthoringPending(callableId, false);
               await handleMutationFailure("the callable", error, {
                 reportFailure: (next) =>
                   updateCallableMutation(callableId, next),
@@ -682,7 +731,6 @@ export function PythonCanvasApp() {
                   restoreCanonicalProject({
                     callableId,
                     kind: "commit",
-                    parameterDraftAtStart,
                   }),
               });
             }
@@ -863,13 +911,19 @@ export function PythonCanvasApp() {
         clearCallableError(callableId);
       },
       setParameterExpression: (callableId, parameterId, value) => {
-        if (active) {
+        if (
+          active &&
+          !isCallableParameterAuthoringPending(host.getSnapshot(), callableId)
+        ) {
           clearCallableError(callableId);
           setParameterItemExpression(host, callableId, parameterId, value);
         }
       },
       setParameterName: (callableId, parameterId, name) => {
-        if (active) {
+        if (
+          active &&
+          !isCallableParameterAuthoringPending(host.getSnapshot(), callableId)
+        ) {
           clearCallableError(callableId);
           setParameterItemName(host, callableId, parameterId, name);
         }
@@ -881,6 +935,9 @@ export function PythonCanvasApp() {
         return;
       }
       for (const callable of snapshot.callables) {
+        if (isCallableParameterAuthoringPending(document, callable.id)) {
+          continue;
+        }
         const proposal = proposedParameterList(document, callable.id);
         if (proposal !== null && !sameParameterList(proposal, callable)) {
           scheduleParameterListMutation(callable.id);

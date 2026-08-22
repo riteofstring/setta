@@ -81,8 +81,14 @@ vi.mock("@setta/workspace", () => ({
       mocks.workspaceCanvasHost.getSnapshot().sections[
         "python-canvas:callable:callable:one"
       ];
+    const sectionKind =
+      typeof section === "object" && section !== null && "kind" in section
+        ? (section as { kind: string }).kind
+        : null;
     const renderLeadingContent =
-      registrations?.["python-canvas.callable"]?.itemArea?.renderLeadingContent;
+      sectionKind === null
+        ? undefined
+        : registrations?.[sectionKind]?.itemArea?.renderLeadingContent;
     return (
       <div data-testid="workspace-canvas">
         {section === undefined || renderLeadingContent === undefined
@@ -113,7 +119,11 @@ import {
   registerPythonCanvasSectionKinds,
 } from "./PythonCanvasApp";
 import { PythonCanvasView } from "./PythonCanvasView";
-import { callableSectionID } from "./workspaceProjection";
+import {
+  CALLABLE_SECTION_KIND,
+  PENDING_CALLABLE_SECTION_KIND,
+  callableSectionID,
+} from "./workspaceProjection";
 import {
   PythonTargetCompletionErrorProvider,
   pythonTargetCompletionErrorId,
@@ -207,15 +217,28 @@ describe("PythonCanvasApp", () => {
     expect(view.querySelector("[data-testid='workspace-canvas']")).toBeNull();
   });
 
-  it("registers public workspace parameter authoring and filter controls", () => {
+  it("registers parameter authoring and pending filter-only workspace controls", () => {
     const host = createHost();
     registerPythonCanvasSectionKinds(host);
 
     const registrations = mocks.registerSectionKinds.mock.calls.at(-1)?.[1] as
-      Record<string, { itemArea?: { toolbar?: string } }> | undefined;
-    expect(registrations?.["python-canvas.callable"]?.itemArea?.toolbar).toBe(
+      | Record<
+          string,
+          {
+            createItem?: unknown;
+            itemArea?: { toolbar?: string };
+          }
+        >
+      | undefined;
+    expect(registrations?.[CALLABLE_SECTION_KIND]?.itemArea?.toolbar).toBe(
       "authoring-and-filter",
     );
+    expect(
+      registrations?.[PENDING_CALLABLE_SECTION_KIND]?.itemArea?.toolbar,
+    ).toBe("filter-only");
+    expect(
+      registrations?.[PENDING_CALLABLE_SECTION_KIND]?.createItem,
+    ).toBeUndefined();
   });
 
   it("associates target completion failures with the app-owned editor boundary", () => {
@@ -598,22 +621,14 @@ describe("PythonCanvasApp", () => {
     );
   });
 
-  it("queues a parameter-list action made during a callable commit", async () => {
+  it("drops a stale parameter list when a callable commit returns fresh provider IDs", async () => {
     vi.useFakeTimers();
     const initialSnapshot = callableSnapshot(1, [
-      providerParameter("parameter:value", "value"),
+      providerParameter("parameter:old-provider", "value"),
     ]);
     const committedSnapshot = callableSnapshot(
       2,
-      [providerParameter("parameter:value", "value")],
-      "fixture.resolved",
-    );
-    const parameterSnapshot = callableSnapshot(
-      3,
-      [
-        providerParameter("parameter:value", "value"),
-        authoredParameter("parameter:later", "later", "later"),
-      ],
+      [providerParameter("parameter:fresh-provider", "resolved")],
       "fixture.resolved",
     );
     const commitRequest = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
@@ -624,7 +639,6 @@ describe("PythonCanvasApp", () => {
     };
     mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
     mocks.commitCallable.mockReturnValueOnce(commitRequest.promise);
-    mocks.setCallableParameters.mockResolvedValueOnce(parameterSnapshot);
 
     const view = renderApp();
     await flushEffects();
@@ -647,6 +661,12 @@ describe("PythonCanvasApp", () => {
       expectedRevision: 1,
       projectId: initialSnapshot.project.id,
     });
+    expect(
+      workspace.getDocument().sections[callableSectionID("callable:one")],
+    ).toMatchObject({
+      kind: PENDING_CALLABLE_SECTION_KIND,
+      positionAndSizeLocked: true,
+    });
 
     workspace.publish(
       appendParameter(
@@ -656,29 +676,28 @@ describe("PythonCanvasApp", () => {
       ),
     );
     expect(parameterIds(workspace.getDocument(), "callable:one")).toEqual([
-      "parameter:value",
+      "parameter:old-provider",
       "parameter:later",
     ]);
     await advanceMutationDebounce();
+    expect(mocks.setCallableParameters).not.toHaveBeenCalled();
 
     await act(async () => {
       commitRequest.resolve(committedSnapshot);
       await flushMicrotasks();
     });
     expect(parameterIds(workspace.getDocument(), "callable:one")).toEqual([
-      "parameter:value",
-      "parameter:later",
+      "parameter:fresh-provider",
     ]);
+    expect(
+      workspace.getDocument().sections[callableSectionID("callable:one")],
+    ).toMatchObject({
+      kind: CALLABLE_SECTION_KIND,
+      positionAndSizeLocked: false,
+    });
     await advanceMutationDebounce();
 
-    expect(mocks.setCallableParameters).toHaveBeenCalledWith("callable:one", {
-      expectedRevision: 2,
-      parameters: [
-        { authoredExpression: "value", id: "parameter:value", name: "value" },
-        { authoredExpression: "later", id: "parameter:later", name: "later" },
-      ],
-      projectId: committedSnapshot.project.id,
-    });
+    expect(mocks.setCallableParameters).not.toHaveBeenCalled();
   });
 });
 

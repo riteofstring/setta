@@ -420,7 +420,7 @@ describe("CallableSection", () => {
     expect(view.querySelector("input[aria-label='Parameter name']")).toBeNull();
   });
 
-  it("keeps parameter drafts editable while a callable mutation is pending", () => {
+  it("makes parameter authoring unavailable while a callable mutation is pending", () => {
     const parameter = {
       authoredExpression: "later",
       default: null,
@@ -448,12 +448,17 @@ describe("CallableSection", () => {
     expect(
       view.querySelector<HTMLInputElement>("input[aria-label='Parameter name']")
         ?.disabled,
-    ).toBe(false);
+    ).toBe(true);
     expect(
       view.querySelector<HTMLInputElement>(
         "input[aria-label='later expression']",
       )?.disabled,
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      view
+        .querySelector(".python-canvas-callable-parameter-authoring")
+        ?.hasAttribute("inert"),
+    ).toBe(true);
   });
 
   it("keeps a callable rename draft when a conflict refresh changes its canonical name", () => {

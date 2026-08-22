@@ -2,8 +2,8 @@
 
 ## Purpose and status
 
-**Status: Phase A through Phase E remediation is complete and ready for a
-fresh independent audit.**
+**Status: Phase A through Phase E remediation is complete and awaits a fresh
+independent audit.**
 
 This is the bounded implementation plan for replacing Python Canvas's fixed,
 in-memory V1 Square Root demonstration with a persisted, general-purpose Python
@@ -908,7 +908,9 @@ session, or live probe.
 
 ### Phase E — focused verification closeout
 
-- [x] Iteration-0024 focused verification complete and ready for a fresh
+- [ ] Iteration-0024 focused verification record superseded after its
+      independent audit found stale provider-ID retention
+- [x] Iteration-0025 focused verification complete and ready for a fresh
       independent audit
 
 1. Run the focused module suites and changed-file selection listed below in the
@@ -926,24 +928,36 @@ python-canvas-frontend` passed all 46 frontend tests. `code-policy test
 --changed` selected that same focused frontend suite and passed. No browser,
 local service, provider session, or live probe ran.
 
-**Iteration-0024 remediation record (2026-08-22):** Parameter requests no
-longer encode transient pending state in parameter-row data, so a complete
-local list remains structurally valid for projection retention. A callable
-commit records the complete list at dispatch: its canonical response replaces
-that pre-existing list, while a parameter action made after dispatch is
-retained and then emitted as the next serialized expected-revision request.
-Parameter controls remain available while the callable card exposes its
-existing pending state.
+**Iteration-0024 superseded remediation record (2026-08-22):** The prior
+retain-after-dispatch behavior was rejected by independent audit. A changed
+callable commit can allocate fresh provider parameter IDs, so retaining or
+reconciling a pre-commit local list would incorrectly replace those rows. Its
+focused result remains historical evidence only; it is not current acceptance
+evidence.
 
-**Iteration-0024 focused proof (2026-08-22):** `pnpm --filter
+**Iteration-0025 remediation record (2026-08-22):** Beginning a callable
+commit atomically marks only that callable's section as pending, applies the
+documented per-section item-authoring lock, and clears its parameter selection.
+The normal callable kind keeps the public `authoring-and-filter` toolbar; the
+pending kind uses its public `filter-only` toolbar, so Add, Remove Last, and
+Delete Selected are absent. The app-owned parameter-list wrapper is inert, and
+the public row name and expression editors receive their public disabled state;
+this
+also prevents row actions and drag reorder. The commit response deliberately
+does not retain, rebase, match, or reconcile a stale parameter list: its entire
+fresh provider list replaces the local list and returns the section to its
+normal kind. Parameter-list requests retain and serialize later edits only
+after their stable canonical IDs are available.
+
+**Iteration-0025 focused proof (2026-08-22):** `pnpm --filter
 @setta/python-canvas exec vitest run src/app/PythonCanvasApp.test.tsx
 src/app/workspaceProjection.test.ts src/sections/CallableSection.test.tsx
---reporter=dot` passed all 29 focused tests, including queued parameter actions
-after a parameter request and during a callable commit. `code-policy test
---module python-canvas-frontend` passed all 49 frontend tests. `code-policy
-test --changed` selected that same focused frontend suite and passed all 49
-tests. The exact-file Prettier check and `git diff --check` passed. No browser,
-local service, provider session, or live probe ran.
+--reporter=dot` passed all 30 focused tests, including a callable response with
+fresh provider IDs that proves no stale post-dispatch list is submitted.
+`code-policy test --module python-canvas-frontend` passed all 50 frontend
+tests. `code-policy test --changed` selected that same focused frontend suite
+and passed all 50 tests. The exact-file Prettier check and `git diff --check`
+passed. No browser, local service, provider session, or live probe ran.
 
 **Iteration-0022 focused proof (2026-08-21):** `code-policy test --changed`
 selected the `python-canvas-frontend` focused suite and passed all 46 frontend
