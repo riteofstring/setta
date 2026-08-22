@@ -14,6 +14,7 @@ import test from "node:test";
 import {
   headlessChromeArguments,
   resolveHeadlessChromeBinary,
+  waitForLauncher,
 } from "./browser-processes.mjs";
 
 test("Headless Chrome keeps an isolated renderer profile and audio flag", () => {
@@ -35,6 +36,34 @@ test("Headless Chrome keeps an isolated renderer profile and audio flag", () => 
     arguments_.filter((argument) => argument.startsWith("--user-data-dir=")),
     [`--user-data-dir=${profileDirectory}`],
   );
+});
+
+test("launcher readiness waits for the Vite frontend after the backend", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  let frontendAttempts = 0;
+  globalThis.fetch = async (origin) => {
+    requests.push(origin);
+    if (origin === "http://127.0.0.1:5173" && frontendAttempts++ === 0) {
+      throw new TypeError("connection refused");
+    }
+    return { ok: true };
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  await waitForLauncher({
+    child: { exitCode: null },
+    label: "Python Canvas launcher",
+    output: { stderr: "", stdout: "" },
+  });
+
+  assert.deepEqual(requests, [
+    "http://127.0.0.1:8080/api/v2/project",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5173",
+  ]);
 });
 
 function writeExecutable(filePath) {
