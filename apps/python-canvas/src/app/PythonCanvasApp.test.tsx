@@ -6,9 +6,11 @@ import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
 
 import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
 import { ProjectClientError } from "../backend/client";
+import type { ParameterV2 } from "../backend/generatedContract";
 import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
 
 const mocks = vi.hoisted(() => ({
+  commitCallable: vi.fn(),
   commitWorkspaceDocument: vi.fn(),
   createCallable: vi.fn(),
   createWorkspaceCodeSection: vi.fn(),
@@ -18,9 +20,16 @@ const mocks = vi.hoisted(() => ({
   renameCallable: vi.fn(),
   renameProject: vi.fn(),
   registerSectionKinds: vi.fn(),
+  renderWorkspaceCanvas: false,
   setItemData: vi.fn(),
+  setCallableParameters: vi.fn(),
   setPythonTarget: vi.fn(),
   setWorkspaceColorMode: vi.fn(),
+  workspaceCanvasHost: null as {
+    getSnapshot: () => {
+      sections: Record<string, unknown>;
+    };
+  } | null,
 }));
 
 vi.mock("../backend/client", () => ({
@@ -38,21 +47,50 @@ vi.mock("../backend/client", () => ({
       this.code = code;
     }
   },
-  commitCallable: vi.fn(),
+  commitCallable: mocks.commitCallable,
   createCallable: mocks.createCallable,
   deleteCallable: vi.fn(),
   fetchProjectSnapshot: mocks.fetchProjectSnapshot,
   renameCallable: mocks.renameCallable,
   renameProject: mocks.renameProject,
-  setCallableParameters: vi.fn(),
+  setCallableParameters: mocks.setCallableParameters,
   setPythonTarget: mocks.setPythonTarget,
 }));
 
 vi.mock("@setta/workspace", () => ({
   WORKSPACE_CODE_SECTION_KIND: "setta.code",
   ItemNameEditor: () => <input aria-label="Parameter name" readOnly />,
+  NO_DRAG_CLASS_NAME: "nodrag",
+  NO_PAN_CLASS_NAME: "nopan",
   TextValueEditor: () => <input aria-label="Callable expression" readOnly />,
-  WorkspaceCanvas: () => <div data-testid="workspace-canvas" />,
+  WorkspaceCanvas: () => {
+    if (!mocks.renderWorkspaceCanvas || mocks.workspaceCanvasHost === null) {
+      return <div data-testid="workspace-canvas" />;
+    }
+    const registrations = mocks.registerSectionKinds.mock.calls.at(-1)?.[1] as
+      | Record<
+          string,
+          {
+            itemArea?: {
+              renderLeadingContent?: (section: unknown) => ReactNode;
+            };
+          }
+        >
+      | undefined;
+    const section =
+      mocks.workspaceCanvasHost.getSnapshot().sections[
+        "python-canvas:callable:callable:one"
+      ];
+    const renderLeadingContent =
+      registrations?.["python-canvas.callable"]?.itemArea?.renderLeadingContent;
+    return (
+      <div data-testid="workspace-canvas">
+        {section === undefined || renderLeadingContent === undefined
+          ? null
+          : renderLeadingContent(section)}
+      </div>
+    );
+  },
   WorkspaceItemLabel: ({ children }: { children?: ReactNode }) => (
     <span>{children}</span>
   ),
@@ -75,6 +113,7 @@ import {
   registerPythonCanvasSectionKinds,
 } from "./PythonCanvasApp";
 import { PythonCanvasView } from "./PythonCanvasView";
+import { callableSectionID } from "./workspaceProjection";
 import {
   PythonTargetCompletionErrorProvider,
   pythonTargetCompletionErrorId,
@@ -85,6 +124,8 @@ let root: Root | undefined;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.renderWorkspaceCanvas = false;
+  mocks.workspaceCanvasHost = null;
   mocks.createWorkspaceCodeSection.mockReturnValue({
     renderContent: () => <div data-testid="target-editor" />,
   });
@@ -472,6 +513,173 @@ describe("PythonCanvasApp", () => {
       persistedSnapshot.generatedCode.code,
     );
   });
+
+  it("queues a later parameter-list action after the current request settles", async () => {
+    vi.useFakeTimers();
+    const initialSnapshot = callableSnapshot(1, [
+      providerParameter("parameter:value", "value"),
+    ]);
+    const firstAnswer = callableSnapshot(2, [
+      providerParameter("parameter:value", "first"),
+    ]);
+    const secondAnswer = callableSnapshot(3, [
+      providerParameter("parameter:value", "first"),
+      authoredParameter("parameter:later", "later", "later"),
+    ]);
+    const firstRequest = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
+    const workspace = installWorkspaceHarness();
+    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
+    mocks.setCallableParameters
+      .mockReturnValueOnce(firstRequest.promise)
+      .mockResolvedValueOnce(secondAnswer);
+
+    const view = renderApp();
+    await flushEffects();
+
+    workspace.publish(
+      changeParameterExpression(
+        workspace.getDocument(),
+        "callable:one",
+        "parameter:value",
+        "first",
+      ),
+    );
+    await advanceMutationDebounce();
+
+    expect(mocks.setCallableParameters).toHaveBeenCalledTimes(1);
+    expect(mocks.setCallableParameters).toHaveBeenLastCalledWith(
+      "callable:one",
+      {
+        expectedRevision: 1,
+        parameters: [
+          { authoredExpression: "first", id: "parameter:value", name: "value" },
+        ],
+        projectId: initialSnapshot.project.id,
+      },
+    );
+
+    workspace.publish(
+      appendParameter(
+        workspace.getDocument(),
+        "callable:one",
+        authoredParameter("parameter:later", "later", "later"),
+      ),
+    );
+    expect(parameterIds(workspace.getDocument(), "callable:one")).toEqual([
+      "parameter:value",
+      "parameter:later",
+    ]);
+    await advanceMutationDebounce();
+
+    await act(async () => {
+      firstRequest.resolve(firstAnswer);
+      await flushMicrotasks();
+    });
+    expect(parameterIds(workspace.getDocument(), "callable:one")).toEqual([
+      "parameter:value",
+      "parameter:later",
+    ]);
+    await advanceMutationDebounce();
+
+    expect(view.querySelector("[role='status']")?.textContent).not.toContain(
+      "Unable",
+    );
+    expect(mocks.setCallableParameters).toHaveBeenCalledTimes(2);
+    expect(mocks.setCallableParameters).toHaveBeenLastCalledWith(
+      "callable:one",
+      {
+        expectedRevision: 2,
+        parameters: [
+          { authoredExpression: "first", id: "parameter:value", name: "value" },
+          { authoredExpression: "later", id: "parameter:later", name: "later" },
+        ],
+        projectId: firstAnswer.project.id,
+      },
+    );
+  });
+
+  it("queues a parameter-list action made during a callable commit", async () => {
+    vi.useFakeTimers();
+    const initialSnapshot = callableSnapshot(1, [
+      providerParameter("parameter:value", "value"),
+    ]);
+    const committedSnapshot = callableSnapshot(
+      2,
+      [providerParameter("parameter:value", "value")],
+      "fixture.resolved",
+    );
+    const parameterSnapshot = callableSnapshot(
+      3,
+      [
+        providerParameter("parameter:value", "value"),
+        authoredParameter("parameter:later", "later", "later"),
+      ],
+      "fixture.resolved",
+    );
+    const commitRequest = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
+    const workspace = installWorkspaceHarness();
+    mocks.renderWorkspaceCanvas = true;
+    mocks.workspaceCanvasHost = workspace.host as unknown as {
+      getSnapshot: () => { sections: Record<string, unknown> };
+    };
+    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
+    mocks.commitCallable.mockReturnValueOnce(commitRequest.promise);
+    mocks.setCallableParameters.mockResolvedValueOnce(parameterSnapshot);
+
+    const view = renderApp();
+    await flushEffects();
+    const expression = view.querySelector<HTMLInputElement>(
+      "input[name='callable-expression']",
+    );
+    if (expression === null || expression.form === null) {
+      throw new Error("Expected the callable expression form.");
+    }
+    await act(async () => {
+      setInputValue(expression, "fixture.resolved");
+      expression.form?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+      await flushMicrotasks();
+    });
+
+    expect(mocks.commitCallable).toHaveBeenCalledWith("callable:one", {
+      authoredExpression: "fixture.resolved",
+      expectedRevision: 1,
+      projectId: initialSnapshot.project.id,
+    });
+
+    workspace.publish(
+      appendParameter(
+        workspace.getDocument(),
+        "callable:one",
+        authoredParameter("parameter:later", "later", "later"),
+      ),
+    );
+    expect(parameterIds(workspace.getDocument(), "callable:one")).toEqual([
+      "parameter:value",
+      "parameter:later",
+    ]);
+    await advanceMutationDebounce();
+
+    await act(async () => {
+      commitRequest.resolve(committedSnapshot);
+      await flushMicrotasks();
+    });
+    expect(parameterIds(workspace.getDocument(), "callable:one")).toEqual([
+      "parameter:value",
+      "parameter:later",
+    ]);
+    await advanceMutationDebounce();
+
+    expect(mocks.setCallableParameters).toHaveBeenCalledWith("callable:one", {
+      expectedRevision: 2,
+      parameters: [
+        { authoredExpression: "value", id: "parameter:value", name: "value" },
+        { authoredExpression: "later", id: "parameter:later", name: "later" },
+      ],
+      projectId: committedSnapshot.project.id,
+    });
+  });
 });
 
 function createHost(): WorkspaceHost {
@@ -486,6 +694,199 @@ function createHost(): WorkspaceHost {
     loadDocument: vi.fn(),
     subscribe: vi.fn().mockReturnValue(vi.fn()),
   } as unknown as WorkspaceHost;
+}
+
+function installWorkspaceHarness() {
+  let document: WorkspaceDocument = {
+    activeIds: [],
+    sections: {},
+    topLevelSections: {},
+    viewport: null,
+  };
+  let subscriber: ((next: WorkspaceDocument) => void) | null = null;
+  const host = {
+    dispose: vi.fn(),
+    getSnapshot: vi.fn(() => document),
+    loadDocument: vi.fn((next: WorkspaceDocument) => {
+      document = next;
+    }),
+    subscribe: vi.fn((next: (updated: WorkspaceDocument) => void) => {
+      subscriber = next;
+      return () => {
+        if (subscriber === next) {
+          subscriber = null;
+        }
+      };
+    }),
+  } as unknown as WorkspaceHost;
+  mocks.createWorkspaceHost.mockReturnValue(host);
+  mocks.commitWorkspaceDocument.mockImplementation(
+    (_host: WorkspaceHost, next: WorkspaceDocument) => {
+      document = next;
+    },
+  );
+  mocks.getWorkspaceCodeSectionData.mockImplementation(
+    (_host: WorkspaceHost, sectionId: string) => {
+      const section = document.sections[sectionId];
+      if (section === undefined) {
+        throw new Error(`Missing workspace section ${sectionId}.`);
+      }
+      return section.data;
+    },
+  );
+  return {
+    getDocument: () => document,
+    host,
+    publish: (next: WorkspaceDocument) => {
+      document = next;
+      subscriber?.(next);
+    },
+  };
+}
+
+function callableSnapshot(
+  revision: number,
+  parameters: Array<ParameterV2>,
+  authoredExpression = "fixture.initial",
+) {
+  return parseProjectSnapshotV2({
+    ...projectSnapshotFixture,
+    callables: [
+      {
+        authoredExpression,
+        id: "callable:one",
+        name: "One callable",
+        parameters,
+      },
+    ],
+    project: { ...projectSnapshotFixture.project, revision },
+  });
+}
+
+function providerParameter(id: string, authoredExpression: string) {
+  return {
+    authoredExpression,
+    default: null,
+    id,
+    name: "value",
+    nameEditable: false,
+    passingStyle: "positional_or_keyword" as const,
+    providerOrdinal: 0,
+    typeAnnotation: "float",
+  };
+}
+
+function authoredParameter(
+  id: string,
+  name: string,
+  authoredExpression: string,
+) {
+  return {
+    authoredExpression,
+    default: null,
+    id,
+    name,
+    nameEditable: true,
+    passingStyle: "positional_or_keyword" as const,
+    providerOrdinal: null,
+    typeAnnotation: null,
+  };
+}
+
+function changeParameterExpression(
+  document: WorkspaceDocument,
+  callableId: string,
+  parameterId: string,
+  authoredExpression: string,
+): WorkspaceDocument {
+  const sectionId = callableSectionID(callableId);
+  const section = document.sections[sectionId];
+  const item = section?.itemTree?.items[parameterId];
+  if (section?.itemTree === undefined || item === undefined) {
+    throw new Error(`Missing parameter ${parameterId}.`);
+  }
+  return {
+    ...document,
+    sections: {
+      ...document.sections,
+      [sectionId]: {
+        ...section,
+        itemTree: {
+          ...section.itemTree,
+          items: {
+            ...section.itemTree.items,
+            [parameterId]: {
+              ...item,
+              data: {
+                ...(item.data as Record<string, unknown>),
+                authoredExpression,
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+function appendParameter(
+  document: WorkspaceDocument,
+  callableId: string,
+  parameter: ReturnType<typeof authoredParameter>,
+): WorkspaceDocument {
+  const sectionId = callableSectionID(callableId);
+  const section = document.sections[sectionId];
+  const itemTree = section?.itemTree;
+  const root = itemTree?.items[itemTree.rootId];
+  if (section === undefined || itemTree === undefined || root === undefined) {
+    throw new Error(`Missing parameter list for ${callableId}.`);
+  }
+  const { id, ...data } = parameter;
+  return {
+    ...document,
+    sections: {
+      ...document.sections,
+      [sectionId]: {
+        ...section,
+        itemTree: {
+          ...itemTree,
+          items: {
+            ...itemTree.items,
+            [root.id]: {
+              ...root,
+              children: [...root.children, id],
+            },
+            [id]: { children: [], data, id },
+          },
+        },
+      },
+    },
+  };
+}
+
+function parameterIds(document: WorkspaceDocument, callableId: string) {
+  const section = document.sections[callableSectionID(callableId)];
+  const itemTree = section?.itemTree;
+  const root = itemTree?.items[itemTree.rootId];
+  if (root === undefined) {
+    throw new Error(`Missing parameter list for ${callableId}.`);
+  }
+  return root.children;
+}
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
+}
+
+async function advanceMutationDebounce(): Promise<void> {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(300);
+    await flushMicrotasks();
+  });
 }
 
 function renderApp(): HTMLDivElement {

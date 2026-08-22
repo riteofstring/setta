@@ -50,7 +50,6 @@ function parameterItemRootID(callableId: string): string {
 export type ProjectSnapshotProjectionOptions = Readonly<{
   keepAuthoredPython: boolean;
   keepParameterLists: ReadonlySet<string>;
-  reenableRetainedParameterLists: ReadonlySet<string>;
 }>;
 
 export function projectWorkspaceDocument(
@@ -177,10 +176,7 @@ function projectCallableItemTree(
   options: ProjectSnapshotProjectionOptions,
 ): WorkspaceSectionItemTree {
   if (previous !== undefined && options.keepParameterLists.has(callable.id)) {
-    return projectRetainedParameterItems(
-      previous,
-      options.reenableRetainedParameterLists.has(callable.id),
-    );
+    return projectRetainedParameterItems(previous);
   }
   return projectCanonicalParameterItems(previous, callable);
 }
@@ -240,22 +236,6 @@ export function readGeneratedPythonTarget(host: WorkspaceHost): {
   };
 }
 
-export function setParameterItemsDisabled(
-  host: WorkspaceHost,
-  callableId: string,
-  disabled: boolean,
-): void {
-  const sectionId = callableSectionID(callableId);
-  for (const item of readCallableParameterItems(
-    host.getSnapshot(),
-    callableId,
-  )) {
-    if (item.data.disabled !== disabled) {
-      setItemData(host, sectionId, item.id, { ...item.data, disabled });
-    }
-  }
-}
-
 export function setParameterItemExpression(
   host: WorkspaceHost,
   callableId: string,
@@ -287,7 +267,6 @@ export function createCallableParameterItem(): WorkspaceItem {
     data: {
       authoredExpression: "",
       default: null,
-      disabled: false,
       name: "",
       nameEditable: true,
       passingStyle: PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
@@ -371,31 +350,11 @@ function projectGeneratedPythonSection(
 
 function projectRetainedParameterItems(
   itemTree: WorkspaceSectionItemTree,
-  reenable: boolean,
 ): WorkspaceSectionItemTree {
   // A retained list is a local whole-list proposal, not a partial merge. A
   // response for another mutation must not replace a name, expression, order,
   // selection, or app-authored row while this callable still has a draft.
-  if (!reenable) {
-    return itemTree;
-  }
-  const root = itemTree.items[itemTree.rootId];
-  if (root === undefined) {
-    return itemTree;
-  }
-  const parameterIDs = new Set(root.children);
-  const items: Record<string, WorkspaceItem> = {};
-  for (const [itemID, item] of Object.entries(itemTree.items)) {
-    if (!parameterIDs.has(itemID)) {
-      items[itemID] = item;
-      continue;
-    }
-    items[itemID] = {
-      ...item,
-      data: { ...readParameterItemData(item.data), disabled: false },
-    };
-  }
-  return { ...itemTree, items };
+  return itemTree;
 }
 
 function projectCanonicalParameterItems(
@@ -480,7 +439,6 @@ function projectParameterItemData(parameter: ParameterV2): ParameterItemData {
   return {
     authoredExpression: parameter.authoredExpression,
     default: parameter.default,
-    disabled: false,
     name: parameter.name,
     nameEditable: parameter.nameEditable,
     passingStyle: parameter.passingStyle,

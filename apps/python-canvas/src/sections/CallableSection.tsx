@@ -47,7 +47,6 @@ export type CallableSectionData = {
 export type ParameterItemData = {
   authoredExpression: string;
   default: string | null;
-  disabled: boolean;
   name: string;
   nameEditable: boolean;
   passingStyle: ParameterPassingStyleV2;
@@ -91,16 +90,12 @@ export function readParameterItemData(value: unknown): ParameterItemData {
   requireExactFields(record, [
     "authoredExpression",
     "default",
-    "disabled",
     "name",
     "nameEditable",
     "passingStyle",
     "providerOrdinal",
     "typeAnnotation",
   ]);
-  if (typeof record.disabled !== "boolean") {
-    throw new Error("Callable parameter item disabled must be a boolean.");
-  }
   if (typeof record.nameEditable !== "boolean") {
     throw new Error("Callable parameter item nameEditable must be a boolean.");
   }
@@ -134,7 +129,6 @@ export function readParameterItemData(value: unknown): ParameterItemData {
       "parameter.authoredExpression",
     ),
     default: defaultValue,
-    disabled: record.disabled,
     name,
     nameEditable,
     passingStyle,
@@ -398,14 +392,12 @@ function ParameterItemRow({
 }) {
   const mutation = usePythonCanvasMutationContext();
   const data = readParameterItemData(context.item.data);
-  const disabled = data.disabled || mutation.callablePending(callableId);
   const label = data.name === "" ? unnamedParameterLabel : data.name;
   const providerMetadata = providerParameterMetadata(data);
   return (
     <>
       {data.nameEditable ? (
         <ItemNameEditor
-          disabled={disabled}
           errorMessage={nameError}
           itemId={context.item.id}
           language="python"
@@ -432,7 +424,6 @@ function ParameterItemRow({
       <TextValueEditor
         ariaLabel={`${label} expression`}
         controlId={context.item.id}
-        disabled={disabled}
         language="python"
         onValueChange={(value) =>
           mutation.onParameterExpressionChange(

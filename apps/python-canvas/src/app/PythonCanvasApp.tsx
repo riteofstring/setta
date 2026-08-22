@@ -49,7 +49,6 @@ import {
   readGeneratedPythonTarget,
   setParameterItemExpression,
   setParameterItemName,
-  setParameterItemsDisabled,
   type ProjectSnapshotProjectionOptions,
 } from "./workspaceProjection";
 import type { PythonCanvasMutationContextValue } from "./PythonCanvasMutationContext";
@@ -75,7 +74,11 @@ type CompletionProviders = Record<string, TextValueCompletionProvider>;
 type CompletionErrors = Record<string, string>;
 
 type MutationAnswer =
-  | { kind: "commit"; callableId: string }
+  | {
+      callableId: string;
+      kind: "commit";
+      parameterDraftAtStart: ParameterProposalV2[] | null;
+    }
   | { callableId: string; kind: "parameters"; sent: ParameterProposalV2[] }
   | { kind: "other" };
 
@@ -248,14 +251,6 @@ export function PythonCanvasApp() {
         isProjectingRef.current = false;
       }
     };
-    const setParametersDisabled = (callableId: string, disabled: boolean) => {
-      isProjectingRef.current = true;
-      try {
-        setParameterItemsDisabled(host, callableId, disabled);
-      } finally {
-        isProjectingRef.current = false;
-      }
-    };
     const cancelTargetMutation = () => {
       if (targetTimer !== null) {
         clearTimeout(targetTimer);
@@ -386,25 +381,82 @@ export function PythonCanvasApp() {
         return next;
       });
     };
+    const collectRetainedParameterLists = (
+      document: WorkspaceDocument,
+      nextSnapshot: ProjectSnapshotV2,
+      answer: MutationAnswer,
+    ) => {
+      const retained = new Set<string>();
+      for (const callable of nextSnapshot.callables) {
+        const draft = parameterListDraft(document, callable.id);
+        if (draft === null) {
+          continue;
+        }
+        if (answer.kind === "commit" && answer.callableId === callable.id) {
+          if (
+            answer.parameterDraftAtStart === null ||
+            !sameProposedList(answer.parameterDraftAtStart, draft)
+          ) {
+            retained.add(callable.id);
+          }
+          continue;
+        }
+        if (answer.kind === "parameters" && answer.callableId === callable.id) {
+          if (!sameProposedList(answer.sent, draft)) {
+            retained.add(callable.id);
+          }
+          continue;
+        }
+        if (!sameParameterList(draft, callable)) {
+          retained.add(callable.id);
+        }
+      }
+      return retained;
+    };
+    const acceptCanonicalSnapshot = (
+      nextSnapshot: ProjectSnapshotV2,
+      answer: MutationAnswer,
+      revisionConflictDraft: RevisionConflictDraft = null,
+    ) => {
+      const document = host.getSnapshot();
+      let keepAuthoredPython = false;
+      try {
+        const authored = readGeneratedPythonTarget(host);
+        keepAuthoredPython = !sameCanonicalPythonTarget(authored, nextSnapshot);
+      } catch {
+        keepAuthoredPython = false;
+      }
+      applyProjection(nextSnapshot, {
+        keepAuthoredPython,
+        keepParameterLists: new Set([
+          ...collectRetainedParameterLists(document, nextSnapshot, answer),
+          ...(revisionConflictDraft?.kind === "parameters"
+            ? [revisionConflictDraft.callableId]
+            : []),
+        ]),
+      });
+      synchronizeReactProjection(
+        nextSnapshot,
+        answer.kind === "commit" ? answer.callableId : null,
+        revisionConflictDraft,
+      );
+    };
     const restoreCanonicalProject = (
-      keepParameterLists: ReadonlySet<string> = new Set<string>(),
+      answer: MutationAnswer = { kind: "other" },
     ) => {
       if (snapshot === null) {
         return;
       }
       applyProjection(snapshot, {
         keepAuthoredPython: false,
-        keepParameterLists,
-        reenableRetainedParameterLists: new Set<string>(),
+        keepParameterLists: collectRetainedParameterLists(
+          host.getSnapshot(),
+          snapshot,
+          answer,
+        ),
       });
       synchronizeReactProjection(snapshot, null);
     };
-    const retainedParameterListsExcept = (callableId: string) =>
-      new Set(
-        snapshot?.callables
-          .filter((callable) => callable.id !== callableId)
-          .map((callable) => callable.id) ?? [],
-      );
     const recoverRevisionConflict = async (
       revisionConflictDraft: RevisionConflictDraft,
       reportFailure: (next: MutationState) => void,
@@ -457,64 +509,6 @@ export function PythonCanvasApp() {
         kind: "error",
         message: mutationErrorMessage(target, error),
       });
-    };
-    const collectRetainedParameterLists = (
-      document: WorkspaceDocument,
-      nextSnapshot: ProjectSnapshotV2,
-      answer: MutationAnswer,
-    ) => {
-      const retained = new Set<string>();
-      for (const callable of nextSnapshot.callables) {
-        const proposal = proposedParameterList(document, callable.id);
-        if (proposal === null) {
-          continue;
-        }
-        if (answer.kind === "commit" && answer.callableId === callable.id) {
-          continue;
-        }
-        if (answer.kind === "parameters" && answer.callableId === callable.id) {
-          if (!sameProposedList(answer.sent, proposal)) {
-            retained.add(callable.id);
-          }
-          continue;
-        }
-        if (!sameParameterList(proposal, callable)) {
-          retained.add(callable.id);
-        }
-      }
-      return retained;
-    };
-    const acceptCanonicalSnapshot = (
-      nextSnapshot: ProjectSnapshotV2,
-      answer: MutationAnswer,
-      revisionConflictDraft: RevisionConflictDraft = null,
-    ) => {
-      const document = host.getSnapshot();
-      let keepAuthoredPython = false;
-      try {
-        const authored = readGeneratedPythonTarget(host);
-        keepAuthoredPython = !sameCanonicalPythonTarget(authored, nextSnapshot);
-      } catch {
-        keepAuthoredPython = false;
-      }
-      applyProjection(nextSnapshot, {
-        keepAuthoredPython,
-        keepParameterLists: new Set([
-          ...collectRetainedParameterLists(document, nextSnapshot, answer),
-          ...(revisionConflictDraft?.kind === "parameters"
-            ? [revisionConflictDraft.callableId]
-            : []),
-        ]),
-        reenableRetainedParameterLists:
-          revisionConflictDraft?.kind === "parameters"
-            ? new Set([revisionConflictDraft.callableId])
-            : new Set<string>(),
-      });
-      synchronizeReactProjection(
-        nextSnapshot,
-        answer.kind === "commit" ? answer.callableId : null,
-        revisionConflictDraft,
-      );
     };
     const schedulePythonTargetMutation = () => {
       cancelTargetMutation();
@@ -601,7 +595,6 @@ export function PythonCanvasApp() {
             description: "Checking the parameters with Basedpyright.",
             kind: "pending",
           });
-          setParametersDisabled(callableId, true);
           try {
             const nextSnapshot = await setCallableParameters(callableId, {
               expectedRevision: current.project.revision,
@@ -624,9 +617,11 @@ export function PythonCanvasApp() {
                 reportFailure: (next) =>
                   updateCallableMutation(callableId, next),
                 restore: () =>
-                  restoreCanonicalProject(
-                    retainedParameterListsExcept(callableId),
-                  ),
+                  restoreCanonicalProject({
+                    callableId,
+                    kind: "parameters",
+                    sent: proposal,
+                  }),
                 revisionConflictDraft: { callableId, kind: "parameters" },
               });
             }
@@ -654,11 +649,14 @@ export function PythonCanvasApp() {
             const { [callableId]: _cleared, ...remaining } = current;
             return remaining;
           });
+          const parameterDraftAtStart = parameterListDraft(
+            host.getSnapshot(),
+            callableId,
+          );
           updateCallableMutation(callableId, {
             description: "Checking the callable with Basedpyright.",
             kind: "pending",
           });
-          setParametersDisabled(callableId, true);
           try {
             const nextSnapshot = await commitCallable(callableId, {
               authoredExpression: value,
@@ -672,6 +670,7 @@ export function PythonCanvasApp() {
             acceptCanonicalSnapshot(nextSnapshot, {
               callableId,
               kind: "commit",
+              parameterDraftAtStart,
             });
             updateCallableMutation(callableId, { kind: "idle" });
           } catch (error) {
@@ -680,9 +679,11 @@ export function PythonCanvasApp() {
                 reportFailure: (next) =>
                   updateCallableMutation(callableId, next),
                 restore: () =>
-                  restoreCanonicalProject(
-                    retainedParameterListsExcept(callableId),
-                  ),
+                  restoreCanonicalProject({
+                    callableId,
+                    kind: "commit",
+                    parameterDraftAtStart,
+                  }),
               });
             }
           }
@@ -747,10 +748,7 @@ export function PythonCanvasApp() {
               await handleMutationFailure("the callable", error, {
                 reportFailure: (next) =>
                   updateCallableMutation(callableId, next),
-                restore: () =>
-                  restoreCanonicalProject(
-                    retainedParameterListsExcept(callableId),
-                  ),
+                restore: restoreCanonicalProject,
               });
             }
           }
@@ -782,10 +780,7 @@ export function PythonCanvasApp() {
               await handleMutationFailure("the callable", error, {
                 reportFailure: (next) =>
                   updateCallableMutation(callableId, next),
-                restore: () =>
-                  restoreCanonicalProject(
-                    retainedParameterListsExcept(callableId),
-                  ),
+                restore: restoreCanonicalProject,
                 revisionConflictDraft: {
                   callableId,
                   kind: "callable-rename",
@@ -1048,6 +1043,17 @@ function documentParameterList(
   }));
 }
 
+function parameterListDraft(
+  document: WorkspaceDocument,
+  callableId: string,
+): ParameterProposalV2[] | null {
+  try {
+    return documentParameterList(document, callableId);
+  } catch {
+    return null;
+  }
+}
+
 function proposedParameterList(
   document: WorkspaceDocument,
   callableId: string,
@@ -1058,13 +1064,14 @@ function proposedParameterList(
   } catch {
     return null;
   }
-  if (
-    items.some((item) => item.data.disabled) ||
-    hasBlockingParameterName(items)
-  ) {
+  if (hasBlockingParameterName(items)) {
     return null;
   }
-  return documentParameterList(document, callableId);
+  return items.map((item) => ({
+    authoredExpression: item.data.authoredExpression,
+    id: item.id,
+    name: item.data.name,
+  }));
 }
 
 function sameProposedList(

@@ -18,7 +18,6 @@ import {
   readCallableParameterItems,
   readGeneratedPythonTarget,
   setParameterItemName,
-  setParameterItemsDisabled,
 } from "./workspaceProjection";
 
 describe("Python Canvas V2 workspace projection", () => {
@@ -52,7 +51,6 @@ describe("Python Canvas V2 workspace projection", () => {
         data: {
           authoredExpression: "value",
           default: null,
-          disabled: false,
           name: "value",
           nameEditable: false,
           passingStyle: "positional_or_keyword",
@@ -65,7 +63,6 @@ describe("Python Canvas V2 workspace projection", () => {
         data: {
           authoredExpression: "2",
           default: null,
-          disabled: false,
           name: "scale",
           nameEditable: true,
           passingStyle: "positional_or_keyword",
@@ -128,7 +125,6 @@ describe("Python Canvas V2 workspace projection", () => {
     applyProjectSnapshotToWorkspace(host, snapshot, {
       keepAuthoredPython: false,
       keepParameterLists: new Set(["callable:second"]),
-      reenableRetainedParameterLists: new Set(),
     });
 
     expect(
@@ -147,7 +143,7 @@ describe("Python Canvas V2 workspace projection", () => {
     host.dispose();
   });
 
-  it("retains and re-enables a conflicted pending parameter draft for retry", () => {
+  it("retains a conflicted parameter draft for retry", () => {
     const snapshot = dynamicSnapshot();
     const host = createWorkspaceHost();
     registerPythonCanvasSectionKinds(host);
@@ -159,11 +155,9 @@ describe("Python Canvas V2 workspace projection", () => {
       "parameter:scale",
       "local retry name",
     );
-    setParameterItemsDisabled(host, "callable:second", true);
     applyProjectSnapshotToWorkspace(host, snapshot, {
       keepAuthoredPython: false,
       keepParameterLists: new Set(["callable:second"]),
-      reenableRetainedParameterLists: new Set(["callable:second"]),
     });
 
     expect(
@@ -172,7 +166,6 @@ describe("Python Canvas V2 workspace projection", () => {
       expect.arrayContaining([
         expect.objectContaining({
           data: expect.objectContaining({
-            disabled: false,
             name: "local retry name",
           }),
           id: "parameter:scale",

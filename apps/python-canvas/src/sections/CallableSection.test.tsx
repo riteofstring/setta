@@ -14,8 +14,19 @@ const parameterRows = vi.hoisted(
 );
 
 vi.mock("@setta/workspace", () => ({
-  ItemNameEditor: ({ name }: { name: string }) => (
-    <input aria-label="Parameter name" value={name} readOnly />
+  ItemNameEditor: ({
+    disabled,
+    name,
+  }: {
+    disabled?: boolean;
+    name: string;
+  }) => (
+    <input
+      aria-label="Parameter name"
+      disabled={Boolean(disabled)}
+      value={name}
+      readOnly
+    />
   ),
   NO_DRAG_CLASS_NAME: "nodrag",
   NO_PAN_CLASS_NAME: "nopan",
@@ -160,7 +171,6 @@ describe("CallableSection", () => {
         data: {
           authoredExpression: "2",
           default: null,
-          disabled: false,
           name: "scale",
           nameEditable: true,
           passingStyle: "positional_or_keyword",
@@ -383,7 +393,6 @@ describe("CallableSection", () => {
     const parameter = {
       authoredExpression: "value",
       default: null,
-      disabled: false,
       name: "value",
       nameEditable: false,
       passingStyle: "positional_or_keyword" as const,
@@ -409,6 +418,42 @@ describe("CallableSection", () => {
       "Provider ordinal 0 · Passing style positional or keyword · Type unannotated",
     );
     expect(view.querySelector("input[aria-label='Parameter name']")).toBeNull();
+  });
+
+  it("keeps parameter drafts editable while a callable mutation is pending", () => {
+    const parameter = {
+      authoredExpression: "later",
+      default: null,
+      name: "later",
+      nameEditable: true,
+      passingStyle: "positional_or_keyword" as const,
+      providerOrdinal: null,
+      typeAnnotation: null,
+    };
+    parameterRows.push({ data: parameter, id: "parameter:later" });
+
+    const view = render(
+      <CallableSection
+        data={sectionData({ state: "ready", status: "available" })}
+        parameters={[{ data: parameter, id: "parameter:later" }]}
+        sectionId="python-canvas:callable:one"
+      />,
+      mutationContext(
+        () => null,
+        () => null,
+        () => true,
+      ),
+    );
+
+    expect(
+      view.querySelector<HTMLInputElement>("input[aria-label='Parameter name']")
+        ?.disabled,
+    ).toBe(false);
+    expect(
+      view.querySelector<HTMLInputElement>(
+        "input[aria-label='later expression']",
+      )?.disabled,
+    ).toBe(false);
   });
 
   it("keeps a callable rename draft when a conflict refresh changes its canonical name", () => {

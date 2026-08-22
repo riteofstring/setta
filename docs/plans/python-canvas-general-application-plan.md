@@ -908,7 +908,7 @@ session, or live probe.
 
 ### Phase E — focused verification closeout
 
-- [x] Iteration-0023 focused verification complete and ready for a fresh
+- [x] Iteration-0024 focused verification complete and ready for a fresh
       independent audit
 
 1. Run the focused module suites and changed-file selection listed below in the
@@ -924,6 +924,25 @@ session, or live probe.
 **Iteration-0023 focused proof (2026-08-22):** `code-policy test --module
 python-canvas-frontend` passed all 46 frontend tests. `code-policy test
 --changed` selected that same focused frontend suite and passed. No browser,
+local service, provider session, or live probe ran.
+
+**Iteration-0024 remediation record (2026-08-22):** Parameter requests no
+longer encode transient pending state in parameter-row data, so a complete
+local list remains structurally valid for projection retention. A callable
+commit records the complete list at dispatch: its canonical response replaces
+that pre-existing list, while a parameter action made after dispatch is
+retained and then emitted as the next serialized expected-revision request.
+Parameter controls remain available while the callable card exposes its
+existing pending state.
+
+**Iteration-0024 focused proof (2026-08-22):** `pnpm --filter
+@setta/python-canvas exec vitest run src/app/PythonCanvasApp.test.tsx
+src/app/workspaceProjection.test.ts src/sections/CallableSection.test.tsx
+--reporter=dot` passed all 29 focused tests, including queued parameter actions
+after a parameter request and during a callable commit. `code-policy test
+--module python-canvas-frontend` passed all 49 frontend tests. `code-policy
+test --changed` selected that same focused frontend suite and passed all 49
+tests. The exact-file Prettier check and `git diff --check` passed. No browser,
 local service, provider session, or live probe ran.
 
 **Iteration-0022 focused proof (2026-08-21):** `code-policy test --changed`
