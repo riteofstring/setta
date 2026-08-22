@@ -3,11 +3,11 @@
 package renderer
 
 import (
-	"encoding/hex"
 	"fmt"
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 )
@@ -83,18 +83,19 @@ func renderBody(state aggregate.State) (string, map[string]ByteRange, map[string
 	ranges := make(map[string]ByteRange)
 	callPositions := make(map[string]CallPosition)
 	wroteStatement := false
+	callablePaths := allocateCallablePaths(state.Callables)
 
 	for _, callable := range state.Callables {
 		if callable.AuthoredExpression == "" {
 			continue
 		}
-		callablePath := generatedPath("callable", callable.Name, callable.ID)
+		callablePath := callablePaths[callable.ID]
 		renderedParameters := make([]renderedParameter, 0, len(callable.Parameters))
 		for _, parameter := range callable.Parameters {
 			if !isRenderedParameter(parameter) {
 				continue
 			}
-			path := callablePath + "__" + generatedPath("parameter", parameter.Name, parameter.ID)
+			path := callablePath + "__" + parameter.Name
 			renderedParameters = append(renderedParameters, renderedParameter{parameter: parameter, path: path})
 			writeStatementPrefix(&body, &wroteStatement)
 			body.WriteString("state.")
@@ -183,29 +184,64 @@ func renderCallArguments(parameters []renderedParameter) string {
 	return strings.Join(arguments, ", ")
 }
 
-// generatedPath intentionally includes the stable opaque ID. Two names that
-// sanitize alike therefore cannot collide, and a rename can affect a path only
-// through this renderer.
-func generatedPath(kind string, name string, id string) string {
-	return kind + "_" + sanitizedPathName(name) + "_" + hex.EncodeToString([]byte(id))
+type callablePathCandidate struct {
+	id   string
+	base string
+}
+
+// allocateCallablePaths keeps the ordinary generated surface aligned with
+// main: a callable named "Square Root" renders as state.Square_Root. Stable
+// IDs decide only the deterministic allocation order when display names
+// sanitize to the same Python identifier; they are never dumped into source.
+func allocateCallablePaths(callables []aggregate.Callable) map[string]string {
+	candidates := make([]callablePathCandidate, 0, len(callables))
+	for _, callable := range callables {
+		candidates = append(candidates, callablePathCandidate{
+			id:   callable.ID,
+			base: sanitizedPathName(callable.Name),
+		})
+	}
+	sort.Slice(candidates, func(left int, right int) bool {
+		return candidates[left].id < candidates[right].id
+	})
+
+	paths := make(map[string]string, len(candidates))
+	used := make(map[string]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		path := candidate.base
+		for suffix := 2; ; suffix++ {
+			if _, exists := used[path]; !exists {
+				break
+			}
+			path = fmt.Sprintf("%s_%d", candidate.base, suffix)
+		}
+		used[path] = struct{}{}
+		paths[candidate.id] = path
+	}
+	return paths
 }
 
 func sanitizedPathName(value string) string {
 	var builder strings.Builder
-	lastSeparator := false
 	for _, character := range strings.TrimSpace(value) {
 		if character == '_' || unicode.IsLetter(character) || unicode.IsDigit(character) {
 			builder.WriteRune(character)
-			lastSeparator = false
 			continue
 		}
-		if !lastSeparator {
-			builder.WriteByte('_')
-			lastSeparator = true
-		}
+		builder.WriteByte('_')
 	}
 	if builder.Len() == 0 {
-		return "value"
+		return "_"
 	}
-	return builder.String()
+	path := builder.String()
+	first, _ := utf8.DecodeRuneInString(path)
+	if unicode.IsDigit(first) {
+		path = "_" + path
+	}
+	for _, keyword := range aggregate.PythonKeywords() {
+		if path == keyword {
+			return "_" + path
+		}
+	}
+	return path
 }

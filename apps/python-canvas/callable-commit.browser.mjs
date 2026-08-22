@@ -68,6 +68,7 @@ export async function exerciseUnresolvedCallableCommit(
   client,
   backendOrigin,
   name,
+  expectedGeneratedPath,
   harness,
 ) {
   const created = harness.findRequiredCallable(
@@ -110,6 +111,15 @@ export async function exerciseUnresolvedCallableCommit(
       /not defined|unknown/i.test(candidate.message),
   );
   assert.ok(diagnostic, "Basedpyright did not target the unresolved callable.");
+  assert.ok(
+    unresolved.generatedCode.body
+      .split("\n")
+      .some(
+        (line) =>
+          line.trim() === `state.${expectedGeneratedPath} = math.sqrt()`,
+      ),
+    `Generated Python leaked an internal callable identifier instead of state.${expectedGeneratedPath}:\n${unresolved.generatedCode.body}`,
+  );
 
   await waitFor(
     client,

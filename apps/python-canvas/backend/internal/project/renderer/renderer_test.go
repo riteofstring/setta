@@ -80,6 +80,9 @@ func TestRenderWholeSnapshotUsesDynamicRangesAndAllPassingStyles(t *testing.T) {
 			t.Fatalf("source range %q = %q, want %q", targetID, got, want)
 		}
 	}
+	if got := assignmentPath(t, first.Code, first.SourceRangesByTargetID["callable-first"]); got != "First_callable" {
+		t.Fatalf("readable callable path = %q, want %q", got, "First_callable")
+	}
 	if _, found := first.SourceRangesByTargetID["parameter-empty-app"]; found {
 		t.Fatal("incomplete app-authored row received a generated source range")
 	}
@@ -139,8 +142,31 @@ func TestRenderPathsRemainCollisionSafeWhenNamesSanitizeAlike(t *testing.T) {
 	if firstPath == secondPath {
 		t.Fatalf("collision-safe paths are equal: %q", firstPath)
 	}
-	if !strings.Contains(firstPath, "63616c6c61626c652d61") || !strings.Contains(secondPath, "63616c6c61626c652d62") {
-		t.Fatalf("paths do not carry stable IDs: %q and %q", firstPath, secondPath)
+	if firstPath != "same_value" || secondPath != "same_value_2" {
+		t.Fatalf("readable collision-safe paths = %q and %q", firstPath, secondPath)
+	}
+}
+
+func TestRenderCallablePathsRemainValidPythonIdentifiers(t *testing.T) {
+	t.Parallel()
+
+	state := aggregate.State{
+		Project:      aggregate.Project{ID: "project-identifiers", Name: "Identifiers", Revision: 1},
+		PythonTarget: aggregate.PythonTarget{Suffix: aggregate.DefaultPythonSuffix},
+		Callables: []aggregate.Callable{
+			{ID: "callable-keyword", Name: "class", AuthoredExpression: "fixture.first", Parameters: []aggregate.Parameter{}},
+			{ID: "callable-number", Name: "123 value", AuthoredExpression: "fixture.second", Parameters: []aggregate.Parameter{}},
+		},
+	}
+	result, err := Render(state)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	if got := assignmentPath(t, result.Code, result.SourceRangesByTargetID["callable-keyword"]); got != "_class" {
+		t.Fatalf("keyword callable path = %q, want %q", got, "_class")
+	}
+	if got := assignmentPath(t, result.Code, result.SourceRangesByTargetID["callable-number"]); got != "_123_value" {
+		t.Fatalf("number-leading callable path = %q, want %q", got, "_123_value")
 	}
 }
 

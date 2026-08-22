@@ -71,6 +71,7 @@ await runAgainstProductionApp(
       client,
       backendOrigin,
       sampleCallableName,
+      "Sample_callable",
       callableCommitHarness,
     );
   },
