@@ -79,6 +79,41 @@ export async function activateTextBox(client, label) {
   );
 }
 
+// Code sections put their accessible name on the focusable section wrapper: that is the surface
+// Escape returns to. Their live CodeMirror textbox is deliberately nested beneath it, so activate
+// the editable control without pretending the wrapper's accessible name belongs to that control.
+export async function activateLabeledCodeSection(client, label) {
+  const wrapperSelector = labeledSelector(label);
+  const found = await evaluate(
+    client,
+    `(() => {
+      const wrapper = document.querySelector(${JSON.stringify(wrapperSelector)});
+      const control = wrapper?.querySelector('[role="textbox"]');
+      if (!(wrapper instanceof HTMLElement) || !(control instanceof HTMLElement)) {
+        return false;
+      }
+      control.focus({ preventScroll: true });
+      return document.activeElement === control;
+    })()`,
+  );
+  if (!found) {
+    throw new Error(
+      `Labeled code section ${JSON.stringify(label)} did not contain a focusable text box.`,
+    );
+  }
+  await waitFor(
+    client,
+    `live ${label} editor activation`,
+    `(() => {
+      const wrapper = document.querySelector(${JSON.stringify(wrapperSelector)});
+      const control = wrapper?.querySelector('[role="textbox"]');
+      return control instanceof HTMLElement &&
+        control.getAttribute("contenteditable") === "true" &&
+        document.activeElement === control;
+    })()`,
+  );
+}
+
 export async function insertText(client, value) {
   await client.send("Input.insertText", { text: value });
 }

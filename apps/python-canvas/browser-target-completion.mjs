@@ -2,7 +2,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { fetchCanonicalSnapshot } from "./browser-processes.mjs";
 import {
-  activateTextBox,
+  activateLabeledCodeSection,
   evaluate,
   insertText,
   labeledSelector,
@@ -57,7 +57,7 @@ async function assertPopupEscapeOwnership(
   generatedLabel,
 ) {
   const before = await fetchCanonicalSnapshot(backendOrigin);
-  await activateTextBox(client, generatedLabel);
+  await activateLabeledCodeSection(client, generatedLabel);
   await moveCaretToSuffixEnd(client);
   // The line ends in `()`. Three Left presses put the caret inside the existing class identifier,
   // so this opens a real completion without changing authored text or starting a target mutation.
@@ -89,7 +89,7 @@ async function assertPrefixTabCompletion(
   generatedLabel,
 ) {
   const before = await fetchCanonicalSnapshot(backendOrigin);
-  await activateTextBox(client, generatedLabel);
+  await activateLabeledCodeSection(client, generatedLabel);
   await moveCaretToPrefixEnd(client);
   // This complete import statement has a stable `sqrt` completion in the pinned provider. Moving
   // back one UTF-16 position keeps the cursor outside the protected range while the identifier's
@@ -136,7 +136,7 @@ async function assertSuffixEnterCompletion(
   generatedLabel,
 ) {
   const before = await fetchCanonicalSnapshot(backendOrigin);
-  await activateTextBox(client, generatedLabel);
+  await activateLabeledCodeSection(client, generatedLabel);
   await moveCaretToSuffixEnd(client);
   await insertText(client, "\nstate = SettaSta");
   await pressLeftArrow(client);
@@ -180,7 +180,7 @@ async function assertProtectedRegionSuppressesCompletion(
 ) {
   const before = await fetchCanonicalSnapshot(backendOrigin);
   const beforeRequests = await completionRequestCount(client);
-  await activateTextBox(client, generatedLabel);
+  await activateLabeledCodeSection(client, generatedLabel);
   // A full selection collapsed right moves to the suffix. Home reaches that line's generated
   // separator, then Right enters the protected body as a real caret move; atomic ranges snap the
   // caret past it, so click the visible body to prove the protected position has no popup instead.
@@ -235,7 +235,7 @@ async function assertStaleCompletionCannotReopenOrReport(
   client,
   generatedLabel,
 ) {
-  await activateTextBox(client, generatedLabel);
+  await activateLabeledCodeSection(client, generatedLabel);
   await moveCaretToPrefixEnd(client);
   await insertText(client, "\nfrom math import floo");
   await pressCompletion(client);

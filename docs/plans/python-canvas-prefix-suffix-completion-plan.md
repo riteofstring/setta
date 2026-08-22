@@ -244,7 +244,7 @@ removed from the deferred line. Do not convert the remaining deferred list into 
 
 ### Phase 1 — prefix/suffix completion parity
 
-- [ ] Repository implementation, focused proof, and clean coherent commits are ready for
+- [x] Repository implementation, focused proof, and clean coherent commits are ready for
       supervisor verification and immutable review
 
 Implementation record (2026-08-20): the single-cutover implementation is present, and no
@@ -254,16 +254,16 @@ contract, and build checks passed. The repository verification blockers recorded
 implementation turn were resolved separately in `8b5de94fb`: the exact expired policy exceptions
 were renewed for seven days and the playground suite now builds its workspace dependency.
 
-Supervisor handoff (2026-08-20): do not repeat the completed backend, contract, donor, or
-pathological completion audit. All focused suites and every non-browser recommended suite have
-passed. The remaining implementation task is the production-browser walkthrough. With loopback
-available, its first current failure is that `browser-target-completion.mjs` tries to activate the
-generated editor as though the section wrapper's accessible label belonged directly to the nested
-CodeMirror textbox. Repair the browser page abstraction so a labeled code section can focus its
-nested textbox, use that abstraction for both authored target regions, and retain the existing
-accessible production markup. Then run the browser walkthrough, inspect the original-resolution
-popup evidence, update this record with the result, and check the phase marker. Do not change
-backend semantics or add duplicate production ARIA solely to satisfy the browser driver.
+Browser closeout (2026-08-20): the initial production walkthrough confirmed the recorded driver
+failure: it looked for the generated Code section's wrapper label directly on its nested CodeMirror
+textbox. The page abstraction now resolves the labeled section and focuses its nested editable
+textbox; both prefix and suffix completion flows use that abstraction, with the production
+accessible markup unchanged. The repeated production walkthrough passed, including its two
+1440-by-900, device-scale-one popup captures and checks that each popup is mounted outside the
+section, visible in the viewport, and not clipped. `code-policy test --changed --base
+9c3ee63dd8220a5e44e58d6b2d8305f8b7c80b5d` also passed all four selected focused suites
+(workspace, playground, Python Canvas backend, and Python Canvas frontend). No intentional
+behavior difference from the named `main` completion behavior was identified.
 
 The checkbox records repository work, not supervisor-owned acceptance receipts. Agent 1 checks it
 once the implementation and in-repository proof are complete and the worktree is clean. Code Policy
