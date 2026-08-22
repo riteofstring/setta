@@ -2,19 +2,11 @@
 
 ## Purpose and status
 
-**Status: Phase A's structural cutover is complete, including its audit corrections. Phase B is
-reopened after developer rejection of candidate `838ad70b9116e0e9bb54993836cd4a38401f4773`
-and its evidence commit `668412c1a92e5f82d119587bf8348c51cdd4a700` on 2026-08-19. Candidate
-`e5cb62bd8aa79c6fc77b59c4d685602089619615` corrected the callable field, startup state,
-completion commit, parameter-row copy, generated-region paint, and settled zoom crispness, but the
-developer's live comparison with main found two remaining product gaps: Python Canvas still hides
-main's real argument authoring controls and active filter shortcut, and it makes the complete
-Generated Python document non-editable even though main protects only the generated range. The
-earlier plan exclusions that required those gaps are withdrawn. For every behavior included in this
-callable workflow, current main is the authoritative reference. Prior plan prose, tests, captures,
-or implementation choices that contradict main must be replaced rather than preserved. Supervisor
-visual and interaction inspection, developer acceptance, and this phase's closing verification
-remain open.**
+**Status: Phase A's structural cutover and Phase B's production correction are developer-accepted.
+The final live-review correction is source candidate
+`c18baf47bb6333fe3a06712a5469958612e1e726`; closing Code Policy verification is in progress. For
+every behavior included in this callable workflow, current main remains the authoritative
+reference.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -2452,9 +2444,12 @@ backend's Basedpyright provider remains `available` and `ready`; callable comple
 projection, generated-source diagnostics, and all backend/LSP contracts are unchanged. This
 supersedes the earlier forced-colour treatment of the dot because that field cue no longer exists.
 
-What remains in Phase B: developer visual acceptance with its accepted-candidate record, and the closing
-`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
-accepted candidate.
+**Developer acceptance.** On 2026-08-20 the developer exercised Python Canvas and main side by side,
+reported that the corrected callable workflow looked and functioned well, and identified the gray
+pending dot as the sole remaining defect. After the direct pending-owner correction above was live,
+the developer accepted the slice and asked for both applications to stop. Python Canvas and main
+then shut down cleanly; their frontend and backend ports are no longer listening. Closing
+`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` remain.
 
 ## Stop conditions
 
