@@ -118,8 +118,9 @@ type ProviderDiagnostic struct {
 	Code     string
 }
 
-// Diagnostic is the coordinator's derived diagnostic, mapped only by a
-// renderer-owned range. A nil TargetID remains a document diagnostic.
+// Diagnostic is the coordinator's derived diagnostic, mapped by renderer-owned
+// ranges plus the aggregate's callable/parameter semantics. A nil TargetID
+// remains a document diagnostic.
 type Diagnostic struct {
 	ID       string
 	Start    int
@@ -256,39 +257,29 @@ func cloneString(value *string) *string {
 	return &clone
 }
 
-func mapDiagnostics(rendered renderer.Result, diagnostics []ProviderDiagnostic) ([]Diagnostic, error) {
+func mapDiagnostics(state aggregate.State, rendered renderer.Result, diagnostics []ProviderDiagnostic) ([]Diagnostic, error) {
 	targets := sortedRangeTargets(rendered.SourceRangesByTargetID)
 	mapped := make([]Diagnostic, 0, len(diagnostics))
 	for index, diagnostic := range diagnostics {
 		if !validProviderDiagnostic(rendered.Code, diagnostic) {
 			return nil, fmt.Errorf("provider diagnostic %d is invalid", index)
 		}
-		mapped = append(mapped, Diagnostic{
-			Start:    diagnostic.Start,
-			End:      diagnostic.End,
-			Severity: diagnostic.Severity,
-			Message:  strings.TrimSpace(diagnostic.Message),
-			Code:     diagnostic.Code,
-			TargetID: targetForDiagnostic(diagnostic, targets),
-		})
+		targetID := targetForDiagnostic(diagnostic, targets)
+		callable := callableForCallIssue(state, rendered, diagnostic)
+		if callable != nil {
+			targetID = cloneString(&callable.ID)
+		}
+		missingParameterIDs := missingRequiredProviderParameterIDsForCallIssue(diagnostic, targetID, callable)
+		if len(missingParameterIDs) == 0 {
+			mapped = append(mapped, newDiagnostic(diagnostic, targetID))
+			continue
+		}
+		for _, parameterID := range missingParameterIDs {
+			mapped = append(mapped, newDiagnostic(diagnostic, cloneString(&parameterID)))
+		}
 	}
 	sort.Slice(mapped, func(left int, right int) bool {
-		if mapped[left].Start != mapped[right].Start {
-			return mapped[left].Start < mapped[right].Start
-		}
-		if mapped[left].End != mapped[right].End {
-			return mapped[left].End < mapped[right].End
-		}
-		if diagnosticTargetKey(mapped[left].TargetID) != diagnosticTargetKey(mapped[right].TargetID) {
-			return diagnosticTargetKey(mapped[left].TargetID) < diagnosticTargetKey(mapped[right].TargetID)
-		}
-		if mapped[left].Severity != mapped[right].Severity {
-			return mapped[left].Severity < mapped[right].Severity
-		}
-		if mapped[left].Code != mapped[right].Code {
-			return mapped[left].Code < mapped[right].Code
-		}
-		return mapped[left].Message < mapped[right].Message
+		return diagnosticLess(mapped[left], mapped[right])
 	})
 
 	ordinals := make(map[string]int, len(mapped))
@@ -298,6 +289,91 @@ func mapDiagnostics(rendered renderer.Result, diagnostics []ProviderDiagnostic) 
 		mapped[index].ID = fmt.Sprintf("diagnostic:%s:%d:%d:%s:%d", diagnosticTargetKey(mapped[index].TargetID), mapped[index].Start, mapped[index].End, mapped[index].Severity, ordinals[key])
 	}
 	return mapped, nil
+}
+
+func diagnosticLess(left Diagnostic, right Diagnostic) bool {
+	if left.Start != right.Start {
+		return left.Start < right.Start
+	}
+	if left.End != right.End {
+		return left.End < right.End
+	}
+	if diagnosticTargetKey(left.TargetID) != diagnosticTargetKey(right.TargetID) {
+		return diagnosticTargetKey(left.TargetID) < diagnosticTargetKey(right.TargetID)
+	}
+	if left.Severity != right.Severity {
+		return left.Severity < right.Severity
+	}
+	if left.Code != right.Code {
+		return left.Code < right.Code
+	}
+	return left.Message < right.Message
+}
+
+func newDiagnostic(diagnostic ProviderDiagnostic, targetID *string) Diagnostic {
+	return Diagnostic{
+		Start:    diagnostic.Start,
+		End:      diagnostic.End,
+		Severity: diagnostic.Severity,
+		Message:  strings.TrimSpace(diagnostic.Message),
+		Code:     diagnostic.Code,
+		TargetID: targetID,
+	}
+}
+
+func callableForCallIssue(
+	state aggregate.State,
+	rendered renderer.Result,
+	diagnostic ProviderDiagnostic,
+) *aggregate.Callable {
+	if diagnostic.Code != "reportCallIssue" {
+		return nil
+	}
+	for index := range state.Callables {
+		callable := &state.Callables[index]
+		sourceRange, hasSourceRange := rendered.SourceRangesByTargetID[callable.ID]
+		callPosition, hasCallPosition := rendered.CallableCallPositionsByID[callable.ID]
+		if !hasSourceRange || !hasCallPosition {
+			continue
+		}
+		if diagnosticWithinRange(diagnostic.Start, diagnostic.End, renderer.ByteRange{
+			Start: sourceRange.Start,
+			End:   callPosition.End,
+		}) {
+			return callable
+		}
+	}
+	return nil
+}
+
+func diagnosticWithinRange(start int, end int, byteRange renderer.ByteRange) bool {
+	if start == end {
+		return start >= byteRange.Start && start <= byteRange.End
+	}
+	return start >= byteRange.Start && end <= byteRange.End
+}
+
+func missingRequiredProviderParameterIDsForCallIssue(
+	diagnostic ProviderDiagnostic,
+	targetID *string,
+	callable *aggregate.Callable,
+) []string {
+	if diagnostic.Code != "reportCallIssue" || targetID == nil || callable == nil || *targetID != callable.ID {
+		return nil
+	}
+	missing := make([]string, 0, len(callable.Parameters))
+	for _, parameter := range callable.Parameters {
+		if parameter.NameEditable || parameter.AuthoredExpression != "" || parameter.Default != nil ||
+			isVariadicPassingStyle(parameter.PassingStyle) {
+			continue
+		}
+		missing = append(missing, parameter.ID)
+	}
+	return missing
+}
+
+func isVariadicPassingStyle(style aggregate.PassingStyle) bool {
+	return style == aggregate.PassingStyleVariadicPositional || style == aggregate.PassingStyleVariadicKeyword
 }
 
 func providerIsReady(status ProviderStatus) bool {

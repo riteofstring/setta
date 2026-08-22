@@ -238,7 +238,7 @@ describe("CallableSection", () => {
     expect(editorProps[0]?.diagnosticMessage).toBeUndefined();
   });
 
-  it("renders immutable provider metadata, including an unannotated type", () => {
+  it("renders a provider parameter as main's name-only row", () => {
     const parameter = {
       authoredExpression: "value",
       default: null,
@@ -258,14 +258,13 @@ describe("CallableSection", () => {
       />,
     );
 
-    expect(
-      view.querySelector(".python-canvas-parameter-name")?.textContent,
-    ).toBe("value");
-    expect(
-      view.querySelector(".python-canvas-parameter-metadata")?.textContent,
-    ).toBe(
-      "Provider ordinal 0 · Passing style positional or keyword · Type unannotated",
-    );
+    const label = view.querySelector(".python-canvas-parameter-label");
+    expect(label?.textContent).toBe("value");
+    expect(label?.getAttribute("title")).toBeNull();
+    expect(view.textContent).not.toContain("Provider ordinal");
+    expect(view.textContent).not.toContain("Passing style");
+    expect(view.textContent).not.toContain("unannotated");
+    expect(editorProps[0]?.placeholder).toBeUndefined();
     expect(view.querySelector("input[aria-label='Parameter name']")).toBeNull();
   });
 

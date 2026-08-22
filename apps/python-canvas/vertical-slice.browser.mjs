@@ -11,6 +11,7 @@ import {
   waitForCallableUiIdle,
   waitForSnapshot,
 } from "./callable-commit.browser.mjs";
+import { exerciseResolvedMathCallableLifecycle } from "./callable-lifecycle.browser.mjs";
 import {
   activateCodeEditor,
   activateContentEditableTextBox,
@@ -49,17 +50,15 @@ const defaultCallableName = "New callable";
 const sampleCallableName = "Sample callable";
 const zeroCallableName = "Zero callable";
 const callableCommitHarness = {
+  callableToolbarButtonSelector,
   callableSectionSelector,
   findCallable,
   findRequiredCallable,
+  parameterRowSelector,
 };
 const waitForCallablePresentation = (client, name) =>
   waitForCallableUiIdle(client, name, callableCommitHarness);
 
-// Keep the callable-error acceptance isolated from the longer authoring
-// walkthrough. Each run owns a fresh project, services, and headless browser,
-// so a deliberately unresolved editor state cannot leak focus or completion
-// work into unrelated drag-and-drop coverage.
 await runAgainstProductionApp(
   async ({ backendOrigin, client, previewOrigin }) => {
     const initial = await fetchCanonicalSnapshot(backendOrigin);
@@ -72,6 +71,12 @@ await runAgainstProductionApp(
       backendOrigin,
       sampleCallableName,
       "Sample_callable",
+      callableCommitHarness,
+    );
+    await exerciseResolvedMathCallableLifecycle(
+      client,
+      backendOrigin,
+      sampleCallableName,
       callableCommitHarness,
     );
   },

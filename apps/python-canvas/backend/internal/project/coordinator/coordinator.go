@@ -410,7 +410,7 @@ func (coordinator *Coordinator) synchronizeCandidate(
 	if !providerIsReady(result.ProviderStatus) {
 		return nil, ProviderStatus{}, ErrProviderUnavailable
 	}
-	diagnostics, err := mapDiagnostics(rendered, result.Diagnostics)
+	diagnostics, err := mapDiagnostics(state, rendered, result.Diagnostics)
 	if err != nil {
 		return nil, ProviderStatus{}, providerFailure("map generated diagnostics", err)
 	}
@@ -453,7 +453,7 @@ func (coordinator *Coordinator) initializeProvider(ctx context.Context) {
 		return
 	}
 	coordinator.snapshot.ProviderStatus = result.ProviderStatus
-	diagnostics, err := mapDiagnostics(coordinator.snapshot.Rendered, result.Diagnostics)
+	diagnostics, err := mapDiagnostics(coordinator.snapshot.State, coordinator.snapshot.Rendered, result.Diagnostics)
 	if err != nil {
 		coordinator.snapshot.ProviderStatus = unavailableProviderStatus(ProviderLifecycleFailed)
 		coordinator.snapshot.Diagnostics = []Diagnostic{}

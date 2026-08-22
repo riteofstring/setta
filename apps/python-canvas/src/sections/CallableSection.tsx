@@ -306,7 +306,6 @@ function ParameterItemRow({
   const mutation = usePythonCanvasMutationContext();
   const data = readParameterItemData(context.item.data);
   const label = data.name === "" ? unnamedParameterLabel : data.name;
-  const providerMetadata = providerParameterMetadata(data);
   return (
     <>
       {data.nameEditable ? (
@@ -325,14 +324,8 @@ function ParameterItemRow({
         <WorkspaceItemLabel
           className="python-canvas-parameter-label"
           isGroup={false}
-          title={providerMetadata ?? undefined}
         >
-          <span className="python-canvas-parameter-name">{data.name}</span>
-          {providerMetadata === null ? null : (
-            <span className="python-canvas-parameter-metadata">
-              {providerMetadata}
-            </span>
-          )}
+          {data.name}
         </WorkspaceItemLabel>
       )}
       <TextValueEditor
@@ -364,20 +357,6 @@ function parameterDiagnosticRegistry(
   return Object.keys(data.parameterDiagnostics).length === 0
     ? undefined
     : data.parameterDiagnostics;
-}
-
-function providerParameterMetadata(data: ParameterItemData): string | null {
-  if (data.nameEditable) {
-    return null;
-  }
-  return [
-    `Provider ordinal ${String(data.providerOrdinal)}`,
-    `Passing style ${passingStyleLabel(data.passingStyle)}`,
-    `Type ${data.typeAnnotation ?? "unannotated"}`,
-    data.default === null ? null : `Default ${data.default}`,
-  ]
-    .filter((part): part is string => part !== null)
-    .join(" · ");
 }
 
 function readParameterDiagnostics(
@@ -524,8 +503,4 @@ function readParameterPassingStyle(value: unknown): ParameterPassingStyleV2 {
     default:
       throw new Error("Callable parameter passingStyle is unsupported.");
   }
-}
-
-function passingStyleLabel(style: ParameterPassingStyleV2): string {
-  return style.replaceAll("_", " ");
 }

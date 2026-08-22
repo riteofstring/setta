@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -305,6 +306,86 @@ func TestCoordinatorPersistsUnresolvedCallableAndPublishesItsDiagnostic(t *testi
 	}
 	if len(committed.Diagnostics) != 1 || committed.Diagnostics[0].TargetID == nil || *committed.Diagnostics[0].TargetID != "callable-dynamic" {
 		t.Fatalf("callable diagnostics = %#v", committed.Diagnostics)
+	}
+}
+
+func TestCoordinatorProjectsCallableCallIssuesToMissingProviderParameters(t *testing.T) {
+	t.Parallel()
+
+	coordinator, provider, _ := newSignatureCoordinator(t)
+	defer coordinator.Close()
+	provider.diagnostics = func(request GeneratedDocumentRequest) []ProviderDiagnostic {
+		start := strings.Index(request.Code, "fixture.dynamic")
+		end := start + len("fixture.dynamic")
+		if keywordStart := strings.Index(request.Code, "unexpected="); keywordStart >= 0 {
+			start = keywordStart
+			end = start + len("unexpected")
+		}
+		if start < 0 {
+			return nil
+		}
+		return []ProviderDiagnostic{{
+			Start: start, End: end, Severity: ProviderDiagnosticError,
+			Message: "Basedpyright call issue", Code: "reportCallIssue",
+		}}
+	}
+
+	initial := coordinator.Snapshot()
+	created, err := coordinator.CreateCallable(context.Background(), aggregate.CreateCallableCommand{
+		ProjectID: initial.State.Project.ID, ExpectedRevision: initial.State.Project.Revision, Name: "Dynamic callable",
+	})
+	if err != nil {
+		t.Fatalf("CreateCallable() error = %v", err)
+	}
+	committed, err := coordinator.CommitCallable(context.Background(), aggregate.CommitCallableCommand{
+		ProjectID: created.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: created.State.Project.Revision, AuthoredExpression: "fixture.dynamic",
+	})
+	if err != nil {
+		t.Fatalf("CommitCallable() error = %v", err)
+	}
+	refreshed, err := coordinator.RefreshCallableParameters(context.Background(), aggregate.RefreshCallableParametersCommand{
+		ProjectID: committed.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: committed.State.Project.Revision,
+	})
+	if err != nil {
+		t.Fatalf("RefreshCallableParameters() error = %v", err)
+	}
+	assertDiagnosticTargets(t, refreshed.Diagnostics, "parameter-flag", "parameter-left")
+
+	proposals := parameterProposals(refreshed.State, func(parameter aggregate.Parameter) string {
+		switch parameter.Name {
+		case "left":
+			return "1"
+		case "flag":
+			return "True"
+		default:
+			return ""
+		}
+	})
+	proposals = append(proposals, aggregate.ParameterProposal{
+		ID: "parameter-unexpected", Name: "unexpected", AuthoredExpression: "2",
+	})
+	authored, err := coordinator.SetParameters(context.Background(), aggregate.SetParametersCommand{
+		ProjectID: refreshed.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: refreshed.State.Project.Revision, Parameters: proposals,
+	})
+	if err != nil {
+		t.Fatalf("SetParameters() error = %v", err)
+	}
+	assertDiagnosticTargets(t, authored.Diagnostics, "callable-dynamic")
+}
+
+func assertDiagnosticTargets(t *testing.T, diagnostics []Diagnostic, want ...string) {
+	t.Helper()
+	got := make([]string, 0, len(diagnostics))
+	for _, diagnostic := range diagnostics {
+		if diagnostic.TargetID == nil {
+			t.Fatalf("diagnostic targets = %#v, want %v", diagnostics, want)
+		}
+		got = append(got, *diagnostic.TargetID)
+	}
+	sort.Strings(got)
+	sort.Strings(want)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("diagnostic targets = %v, want %v", got, want)
 	}
 }
 
