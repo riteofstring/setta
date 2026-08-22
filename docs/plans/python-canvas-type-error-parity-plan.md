@@ -215,11 +215,11 @@ tests), playground suite (8 files / 43 tests), contract-drift and cross-language
 workspace build, Canvas TypeScript/Vite build, and browser-script syntax checks.
 
 Implementation record — browser acceptance correction: the raw-first-render assertion now removes
-the package's parameter-diagnostic live announcement before checking that the parameter card does
-not print analyzer metadata. The initial missing-required-argument message legitimately used
-`positional`, so checking all card text treated required provider feedback as forbidden row
-metadata. The check still verifies the canonical static parameter label and rejects those terms
-from the remaining card content.
+the package's parameter-diagnostic live announcement and screen-reader description before checking
+that the visible parameter card does not print analyzer metadata. The initial
+missing-required-argument message legitimately used `positional`, so checking all card text treated
+required provider feedback as forbidden row metadata. The check still verifies the canonical static
+parameter label and rejects those terms from the remaining card content.
 
 Environment evidence not yet sufficient for phase closeout: the supervisor completed
 `code-policy dependency-review --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`

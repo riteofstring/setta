@@ -151,25 +151,25 @@ function renderedSectionValuesScript(callableLabel, parameterLabel) {
     ) {
       return null;
     }
-    // The initial missing-required-argument diagnostic is correct visible feedback, and
-    // Basedpyright is free to use analyzer vocabulary such as "positional" in its complete
-    // message. Keep that accessible announcement out of the independent check for metadata that
-    // the parameter row itself must not render.
-    const sectionWithoutDiagnosticAnnouncements = section.cloneNode(true);
-    if (!(sectionWithoutDiagnosticAnnouncements instanceof HTMLElement)) {
+    // The initial missing-required-argument diagnostic is correct feedback, and Basedpyright is
+    // free to use analyzer vocabulary such as "positional" in its complete message. Keep the
+    // item's live announcement and its screen-reader description out of the independent check for
+    // metadata that the visible parameter row itself must not render.
+    const sectionWithoutDiagnosticAccessibility = section.cloneNode(true);
+    if (!(sectionWithoutDiagnosticAccessibility instanceof HTMLElement)) {
       return null;
     }
-    for (const announcement of sectionWithoutDiagnosticAnnouncements.querySelectorAll(
-      '[data-setta-workspace-item-diagnostic-announcer="true"]',
+    for (const diagnosticAccessibility of sectionWithoutDiagnosticAccessibility.querySelectorAll(
+      '[data-setta-workspace-item-diagnostic-announcer="true"], [data-setta-workspace-item-quick-info-description="true"]',
     )) {
-      announcement.remove();
+      diagnosticAccessibility.remove();
     }
     return {
       callableValue: callable.textContent ?? "",
       generatedSource: generated.textContent ?? "",
       parameterLabel: label.textContent ?? "",
       parameterValue: parameter.textContent ?? "",
-      sectionText: sectionWithoutDiagnosticAnnouncements.textContent ?? "",
+      sectionText: sectionWithoutDiagnosticAccessibility.textContent ?? "",
     };
   })()`;
 }
