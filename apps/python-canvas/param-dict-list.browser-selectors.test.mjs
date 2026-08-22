@@ -229,6 +229,9 @@ test("Section drag replays the donor pointer gesture with standard Alt payloads"
   const client = {
     async send(method, parameters) {
       if (method === "Runtime.evaluate") {
+        if (parameters.expression.includes("requestAnimationFrame")) {
+          trace.push("animationFrame");
+        }
         return { result: { value: true } };
       }
       inputEvents.push({ method, parameters });
@@ -257,8 +260,10 @@ test("Section drag replays the donor pointer gesture with standard Alt payloads"
     "mousePressed",
     `sleep:${String(sectionDragPointerHoldMs)}`,
     ...Array.from({ length: sectionDragPointerMoveSteps }, () => "mouseMoved"),
+    "animationFrame",
     "mouseReleased",
     "keyUp",
+    "animationFrame",
   ]);
   const keyEvents = inputEvents.filter(
     ({ method }) => method === "Input.dispatchKeyEvent",

@@ -1043,6 +1043,7 @@ export async function tryMovingFreeSectionDrag(client, configuration) {
         type: "mouseMoved",
       });
     }
+    await nextAnimationFrame(client);
     await client.send("Input.dispatchMouseEvent", {
       ...pointer,
       button: "left",
