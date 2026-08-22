@@ -199,6 +199,9 @@ func (coordinator *Coordinator) CommitCallable(ctx context.Context, command aggr
 	}
 	candidate, err := state.CommitCallable(command, signature, coordinator.idGenerator)
 	if err != nil {
+		if errors.Is(err, aggregate.ErrProviderSignatureInvalid) {
+			return Snapshot{}, providerFailure("validate provider signature", err)
+		}
 		return Snapshot{}, err
 	}
 	return coordinator.applyCandidate(ctx, candidate)

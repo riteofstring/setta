@@ -11,6 +11,7 @@ import (
 
 	"github.com/setta/python-canvas/backend/internal/contracts"
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
+	"github.com/setta/python-canvas/backend/internal/project/coordinator"
 )
 
 func TestHandlerExposesOnlyTheExactV2ProjectRoute(t *testing.T) {
@@ -107,6 +108,51 @@ func TestHandlerForwardsRevisionBoundProjectAndParameterMutations(t *testing.T) 
 	assertErrorCode(t, invalid, contracts.APIErrorCodeInvalidRequestV2)
 }
 
+func TestHandlerRejectsURLDecodedNULCallableIDsBeforeDispatch(t *testing.T) {
+	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
+	called := false
+	service.setParameters = func(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error) {
+		called = true
+		return service.snapshot, nil
+	}
+	handler := newHandlerForTest(t, service)
+
+	response := postJSON(
+		handler,
+		contracts.ProjectCallablesPathV2+"/callable%00dynamic/parameters",
+		`{"projectId":"project:fixture","expectedRevision":1,"parameters":[]}`,
+	)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d; body = %s", response.Code, http.StatusNotFound, response.Body.String())
+	}
+	assertErrorCode(t, response, contracts.APIErrorCodeNotFoundV2)
+	if called {
+		t.Fatal("SetCallableParameters() was called for a malformed route ID")
+	}
+}
+
+func TestHandlerClassifiesMalformedProviderSignaturesAsProviderFailures(t *testing.T) {
+	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
+	service.commitCallable = func(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
+		return contracts.ProjectSnapshotV2{}, errors.Join(
+			coordinator.ErrProviderFailed,
+			aggregate.ErrProviderSignatureInvalid,
+			aggregate.ErrValidation,
+		)
+	}
+	handler := newHandlerForTest(t, service)
+
+	response := postJSON(
+		handler,
+		contracts.ProjectCallablesPathV2+"/callable:dynamic/commit",
+		`{"projectId":"project:fixture","expectedRevision":1,"authoredExpression":"fixture.dynamic"}`,
+	)
+	if response.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want %d; body = %s", response.Code, http.StatusBadGateway, response.Body.String())
+	}
+	assertErrorCode(t, response, contracts.APIErrorCodeProviderFailedV2)
+}
+
 func TestHandlerReturnsAClosedTypedRevisionConflict(t *testing.T) {
 	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
 	service.snapshot.Project.Revision = 4
@@ -167,8 +213,9 @@ func assertErrorCode(t *testing.T, response *httptest.ResponseRecorder, want con
 type stubProjectService struct {
 	snapshot contracts.ProjectSnapshotV2
 
-	renameProject func(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
-	setParameters func(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
+	renameProject  func(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
+	commitCallable func(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error)
+	setParameters  func(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
 }
 
 func (service *stubProjectService) Snapshot() contracts.ProjectSnapshotV2 { return service.snapshot }
@@ -192,8 +239,11 @@ func (service *stubProjectService) DeleteCallable(context.Context, string, contr
 	return service.snapshot, nil
 }
 
-func (service *stubProjectService) CommitCallable(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
-	return service.snapshot, nil
+func (service *stubProjectService) CommitCallable(ctx context.Context, callableID string, request contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
+	if service.commitCallable == nil {
+		return service.snapshot, nil
+	}
+	return service.commitCallable(ctx, callableID, request)
 }
 
 func (service *stubProjectService) SetCallableParameters(ctx context.Context, callableID string, request contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error) {

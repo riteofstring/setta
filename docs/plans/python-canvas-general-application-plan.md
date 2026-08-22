@@ -846,7 +846,7 @@ or live probe.
 
 ### Phase E — focused verification closeout
 
-- [x] Iteration-0010 focused verification remediation complete and ready for
+- [x] Iteration-0011 focused verification remediation complete and ready for
       a fresh independent audit
 
 1. Run the focused module suites and changed-file selection listed below in the
@@ -902,6 +902,27 @@ the exact TypeScript check and static launcher/browser-artifact syntax checks.
 `code-policy test --module python-canvas-backend`, `code-policy test --module
 python-canvas-frontend`, and `code-policy test --changed` passed. No browser,
 local service, provider session, or live probe ran.
+
+**Iteration-0011 remediation record (2026-08-21):** The one allowed
+control-plane generated-fixture entry now governs
+`project-snapshot-v2.json`, not the deleted V1 fixture. Signature
+normalization now rejects duplicate or out-of-order slash and star markers,
+including a slash after a variadic positional parameter, while preserving the
+one valid normalized order. The aggregate rejects out-of-order or duplicate
+variadic normalized provider styles before allocating IDs; the coordinator
+reports that provider-originated defect as `provider_failed`, and the HTTP
+adapter preserves that typed classification. The callable route parser rejects
+a URL-decoded NUL before invoking the coordinator.
+
+**Iteration-0011 focused proof (2026-08-21):** `go test -count=1
+./internal/lsp ./internal/project/aggregate ./internal/project/coordinator
+./internal/httpapi` passed. `code-policy test --module
+python-canvas-backend` and `code-policy test --module
+python-canvas-frontend` passed; the latter completed all 38 component tests.
+`code-policy test --changed` passed, selecting its focused workspace,
+playground, Python Canvas backend, and Python Canvas frontend suites after the
+allowed control-plane fixture update. No browser, local service, provider
+session, or live probe ran.
 
 ## Exact acceptance matrix
 

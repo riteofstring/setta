@@ -150,6 +150,38 @@ func TestCoordinatorCommitsWholeNormalizedSignatureAndMapsDynamicDiagnostics(t *
 	requireZeroSignatureReplacementAndRecommit(t, coordinator, provider, authored)
 }
 
+func TestCoordinatorClassifiesMalformedProviderSignatureAsProviderFailure(t *testing.T) {
+	t.Parallel()
+
+	coordinator, provider, _ := newSignatureCoordinator(t)
+	defer coordinator.Close()
+
+	initial := coordinator.Snapshot()
+	created, err := coordinator.CreateCallable(context.Background(), aggregate.CreateCallableCommand{
+		ProjectID: initial.State.Project.ID, ExpectedRevision: initial.State.Project.Revision, Name: "Dynamic callable",
+	})
+	if err != nil {
+		t.Fatalf("CreateCallable() error = %v", err)
+	}
+	provider.signature = []aggregate.ProviderParameter{
+		{Name: "rest", PassingStyle: aggregate.PassingStyleVariadicPositional},
+		{Name: "value", PassingStyle: aggregate.PassingStylePositionalOrKeyword},
+	}
+	before := coordinator.Snapshot()
+	_, err = coordinator.CommitCallable(context.Background(), aggregate.CommitCallableCommand{
+		ProjectID: created.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: created.State.Project.Revision, AuthoredExpression: "fixture.dynamic",
+	})
+	if !errors.Is(err, ErrProviderFailed) {
+		t.Fatalf("CommitCallable() error = %v, want provider failure", err)
+	}
+	if !errors.Is(err, aggregate.ErrProviderSignatureInvalid) || !errors.Is(err, aggregate.ErrValidation) {
+		t.Fatalf("CommitCallable() error = %v, want malformed provider signature cause", err)
+	}
+	if !reflect.DeepEqual(coordinator.Snapshot(), before) {
+		t.Fatal("CommitCallable() published a malformed provider signature")
+	}
+}
+
 func newSignatureCoordinator(t *testing.T) (*Coordinator, *fakeProvider, string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "project.json")

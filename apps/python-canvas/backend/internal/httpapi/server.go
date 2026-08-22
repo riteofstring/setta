@@ -450,12 +450,12 @@ func writeServiceError(response http.ResponseWriter, service ProjectService, err
 		writeRevisionConflict(response, expectedRevision, service.Snapshot().Project.Revision)
 	case errors.Is(err, aggregate.ErrProjectNotFound), errors.Is(err, aggregate.ErrCallableNotFound):
 		writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV2, "The requested project resource does not exist.")
-	case errors.Is(err, aggregate.ErrValidation), errors.Is(err, coordinator.ErrCompletionInvalid):
-		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeValidationFailedV2, "The proposed project change is invalid.")
 	case errors.Is(err, coordinator.ErrProviderUnavailable), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		writeError(response, http.StatusServiceUnavailable, contracts.APIErrorCodeProviderUnavailableV2, "Basedpyright is unavailable. Try again when it is ready.")
 	case errors.Is(err, coordinator.ErrProviderFailed):
 		writeError(response, http.StatusBadGateway, contracts.APIErrorCodeProviderFailedV2, "Basedpyright could not complete this request.")
+	case errors.Is(err, aggregate.ErrValidation), errors.Is(err, coordinator.ErrCompletionInvalid):
+		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeValidationFailedV2, "The proposed project change is invalid.")
 	case errors.Is(err, coordinator.ErrRenderFailed):
 		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeRenderFailedV2, "Unable to render the generated Python.")
 	case errors.Is(err, coordinator.ErrMaterializationFailed):
@@ -512,7 +512,7 @@ func callableRoute(request *http.Request) (string, string, bool) {
 		return "", "", false
 	}
 	callableID, err := url.PathUnescape(parts[0])
-	if err != nil || callableID == "" || strings.ContainsRune(callableID, '/') || callableID != strings.TrimSpace(callableID) {
+	if err != nil || callableID == "" || strings.ContainsRune(callableID, '/') || strings.ContainsRune(callableID, '\x00') || callableID != strings.TrimSpace(callableID) {
 		return "", "", false
 	}
 	return callableID, parts[1], true

@@ -84,11 +84,11 @@ func TestCommitReplacesProviderRowsAndCanonicalRecommitPreservesThem(t *testing.
 		ProjectID: state.Project.ID, CallableID: "callable-first", ExpectedRevision: state.Project.Revision, AuthoredExpression: "  fixture.first  ",
 	}, []ProviderParameter{
 		{Name: "left", PassingStyle: PassingStylePositionalOnly, TypeAnnotation: stringPointer("int")},
-		{Name: "rest", PassingStyle: PassingStyleVariadicPositional, TypeAnnotation: stringPointer("tuple[int, ...]")},
 		{Name: "scale", PassingStyle: PassingStylePositionalOrKeyword, TypeAnnotation: stringPointer("float"), Default: &defaultValue},
+		{Name: "rest", PassingStyle: PassingStyleVariadicPositional, TypeAnnotation: stringPointer("tuple[int, ...]")},
 		{Name: "flag", PassingStyle: PassingStyleKeywordOnly, TypeAnnotation: stringPointer("bool")},
 		{Name: "options", PassingStyle: PassingStyleVariadicKeyword, TypeAnnotation: stringPointer("dict[str, object]")},
-	}, sequenceIDs("parameter-left", "parameter-rest", "parameter-scale", "parameter-flag", "parameter-options"))
+	}, sequenceIDs("parameter-left", "parameter-scale", "parameter-rest", "parameter-flag", "parameter-options"))
 	if err != nil {
 		t.Fatalf("CommitCallable() error = %v", err)
 	}
@@ -105,8 +105,8 @@ func TestCommitReplacesProviderRowsAndCanonicalRecommitPreservesThem(t *testing.
 			t.Fatalf("provider parameter %d = %#v, want immutable provider metadata", index, parameter)
 		}
 	}
-	if callable.Parameters[2].Default == nil || *callable.Parameters[2].Default != defaultValue {
-		t.Fatalf("provider default = %#v", callable.Parameters[2].Default)
+	if callable.Parameters[1].Default == nil || *callable.Parameters[1].Default != defaultValue {
+		t.Fatalf("provider default = %#v", callable.Parameters[1].Default)
 	}
 
 	before := state.Clone()
@@ -120,6 +120,74 @@ func TestCommitReplacesProviderRowsAndCanonicalRecommitPreservesThem(t *testing.
 	}
 	if recommitted.Changed || !reflect.DeepEqual(recommitted.State, before) {
 		t.Fatalf("canonical recommit = %#v, want unchanged %#v", recommitted, before)
+	}
+}
+
+func TestCommitRejectsMalformedProviderSignatureStyleSequences(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name      string
+		signature []ProviderParameter
+	}{
+		{
+			name: "positional-or-keyword after variadic-positional",
+			signature: []ProviderParameter{
+				{Name: "rest", PassingStyle: PassingStyleVariadicPositional},
+				{Name: "value", PassingStyle: PassingStylePositionalOrKeyword},
+			},
+		},
+		{
+			name: "duplicate variadic-positional",
+			signature: []ProviderParameter{
+				{Name: "first", PassingStyle: PassingStyleVariadicPositional},
+				{Name: "second", PassingStyle: PassingStyleVariadicPositional},
+			},
+		},
+		{
+			name: "keyword-only after variadic-keyword",
+			signature: []ProviderParameter{
+				{Name: "options", PassingStyle: PassingStyleVariadicKeyword},
+				{Name: "flag", PassingStyle: PassingStyleKeywordOnly},
+			},
+		},
+		{
+			name: "duplicate variadic-keyword",
+			signature: []ProviderParameter{
+				{Name: "first", PassingStyle: PassingStyleVariadicKeyword},
+				{Name: "second", PassingStyle: PassingStyleVariadicKeyword},
+			},
+		},
+		{
+			name: "positional-only after positional-or-keyword",
+			signature: []ProviderParameter{
+				{Name: "value", PassingStyle: PassingStylePositionalOrKeyword},
+				{Name: "left", PassingStyle: PassingStylePositionalOnly},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			state := mustBlank(t, "project-dynamic")
+			created, err := state.CreateCallable(CreateCallableCommand{
+				ProjectID: state.Project.ID, ExpectedRevision: state.Project.Revision, Name: "Dynamic callable",
+			}, sequenceIDs("callable-dynamic"))
+			if err != nil {
+				t.Fatalf("CreateCallable() error = %v", err)
+			}
+			before := created.State.Clone()
+			_, err = created.State.CommitCallable(CommitCallableCommand{
+				ProjectID: created.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: created.State.Project.Revision, AuthoredExpression: "fixture.dynamic",
+			}, test.signature, sequenceIDs("parameter-unexpected"))
+			if !errors.Is(err, ErrValidation) {
+				t.Fatalf("CommitCallable() error = %v, want validation failure", err)
+			}
+			if !errors.Is(err, ErrProviderSignatureInvalid) {
+				t.Fatalf("CommitCallable() error = %v, want provider-signature failure", err)
+			}
+			if !reflect.DeepEqual(created.State, before) {
+				t.Fatalf("CommitCallable() changed state after validation failure")
+			}
+		})
 	}
 }
 

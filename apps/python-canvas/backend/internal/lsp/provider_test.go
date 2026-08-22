@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
@@ -57,5 +58,44 @@ func TestParseSignatureParameterKeepsUnannotatedMetadataNull(t *testing.T) {
 	}
 	if parameter.TypeAnnotation != nil {
 		t.Fatalf("unannotated parameter type = %#v, want nil", parameter.TypeAnnotation)
+	}
+}
+
+func TestSignatureParameterStylesRejectMalformedMarkerSequences(t *testing.T) {
+	t.Parallel()
+
+	for _, label := range []string{
+		"fixture(*rest, /)",
+		"fixture(left, /, right, /)",
+		"fixture(left, *, *, option)",
+		"fixture(left, *, **options)",
+		"fixture(*rest, *, option)",
+		"fixture(**options, value)",
+	} {
+		t.Run(label, func(t *testing.T) {
+			_, err := signatureParameterStyles(label)
+			if !errors.Is(err, ErrMalformedSignature) {
+				t.Fatalf("signatureParameterStyles(%q) error = %v, want malformed signature", label, err)
+			}
+		})
+	}
+}
+
+func TestSignatureParameterStylesPreserveValidMarkerSequence(t *testing.T) {
+	t.Parallel()
+
+	styles, err := signatureParameterStyles("fixture(left, /, scale, *rest, flag, **options)")
+	if err != nil {
+		t.Fatalf("signatureParameterStyles() error = %v", err)
+	}
+	want := []aggregate.PassingStyle{
+		aggregate.PassingStylePositionalOnly,
+		aggregate.PassingStylePositionalOrKeyword,
+		aggregate.PassingStyleVariadicPositional,
+		aggregate.PassingStyleKeywordOnly,
+		aggregate.PassingStyleVariadicKeyword,
+	}
+	if !reflect.DeepEqual(styles, want) {
+		t.Fatalf("styles = %#v, want %#v", styles, want)
 	}
 }

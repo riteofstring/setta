@@ -172,57 +172,111 @@ func signatureParameterStyles(label string) ([]aggregate.PassingStyle, error) {
 		return nil, err
 	}
 	styles := make([]aggregate.PassingStyle, 0, len(tokens))
-	keywordOnly := false
+	state := signatureMarkerState{}
 	for _, token := range tokens {
-		styles, keywordOnly, err = appendSignatureStyle(styles, keywordOnly, token)
+		styles, err = appendSignatureStyle(styles, &state, token)
 		if err != nil {
 			return nil, err
 		}
 	}
+	if err := state.validate(); err != nil {
+		return nil, err
+	}
 	return styles, nil
+}
+
+type signatureMarkerState struct {
+	positionalOnlyMarked  bool
+	keywordOnly           bool
+	variadicPositional    bool
+	variadicKeyword       bool
+	bareKeywordOnlyMarker bool
+	keywordOnlyParameter  bool
 }
 
 func appendSignatureStyle(
 	styles []aggregate.PassingStyle,
-	keywordOnly bool,
+	state *signatureMarkerState,
 	token string,
-) ([]aggregate.PassingStyle, bool, error) {
-	switch strings.TrimSpace(token) {
+) ([]aggregate.PassingStyle, error) {
+	token = strings.TrimSpace(token)
+	if state.variadicKeyword {
+		return nil, fmt.Errorf("%w: variadic-keyword parameter must be final", ErrMalformedSignature)
+	}
+	switch token {
 	case "":
-		return nil, false, fmt.Errorf("%w: signature has an empty parameter token", ErrMalformedSignature)
+		return nil, fmt.Errorf("%w: signature has an empty parameter token", ErrMalformedSignature)
 	case "/":
-		return markPositionalOnly(styles)
+		return markPositionalOnly(styles, state)
 	case "*":
-		return styles, true, nil
+		return markKeywordOnly(styles, state)
 	default:
-		style, nextKeywordOnly := signatureStyleForToken(token, keywordOnly)
-		return append(styles, style), nextKeywordOnly, nil
-	}
-}
-
-func markPositionalOnly(styles []aggregate.PassingStyle) ([]aggregate.PassingStyle, bool, error) {
-	if len(styles) == 0 {
-		return nil, false, fmt.Errorf("%w: positional-only marker has no preceding parameter", ErrMalformedSignature)
-	}
-	for index, style := range styles {
-		if style == aggregate.PassingStylePositionalOrKeyword {
-			styles[index] = aggregate.PassingStylePositionalOnly
+		style := signatureStyleForToken(token, state.keywordOnly)
+		switch style {
+		case aggregate.PassingStyleVariadicPositional:
+			if state.keywordOnly || state.variadicPositional {
+				return nil, fmt.Errorf("%w: variadic-positional parameter is duplicated or out of order", ErrMalformedSignature)
+			}
+			state.variadicPositional = true
+			state.keywordOnly = true
+		case aggregate.PassingStyleVariadicKeyword:
+			if state.bareKeywordOnlyMarker && !state.keywordOnlyParameter {
+				return nil, fmt.Errorf("%w: keyword-only marker has no following named parameter", ErrMalformedSignature)
+			}
+			state.variadicKeyword = true
+		case aggregate.PassingStyleKeywordOnly:
+			state.keywordOnlyParameter = true
 		}
+		return append(styles, style), nil
 	}
-	return styles, false, nil
 }
 
-func signatureStyleForToken(token string, keywordOnly bool) (aggregate.PassingStyle, bool) {
+func markPositionalOnly(styles []aggregate.PassingStyle, state *signatureMarkerState) ([]aggregate.PassingStyle, error) {
+	if state.positionalOnlyMarked || state.keywordOnly || state.variadicPositional || state.variadicKeyword {
+		return nil, fmt.Errorf("%w: positional-only marker is duplicated or out of order", ErrMalformedSignature)
+	}
+	marked := false
+	for index, style := range styles {
+		if style != aggregate.PassingStylePositionalOrKeyword {
+			return nil, fmt.Errorf("%w: positional-only marker is out of order", ErrMalformedSignature)
+		}
+		styles[index] = aggregate.PassingStylePositionalOnly
+		marked = true
+	}
+	if !marked {
+		return nil, fmt.Errorf("%w: positional-only marker has no preceding parameter", ErrMalformedSignature)
+	}
+	state.positionalOnlyMarked = true
+	return styles, nil
+}
+
+func markKeywordOnly(styles []aggregate.PassingStyle, state *signatureMarkerState) ([]aggregate.PassingStyle, error) {
+	if state.keywordOnly || state.variadicPositional || state.variadicKeyword {
+		return nil, fmt.Errorf("%w: keyword-only marker is duplicated or out of order", ErrMalformedSignature)
+	}
+	state.keywordOnly = true
+	state.bareKeywordOnlyMarker = true
+	return styles, nil
+}
+
+func (state signatureMarkerState) validate() error {
+	if state.bareKeywordOnlyMarker && !state.keywordOnlyParameter {
+		return fmt.Errorf("%w: keyword-only marker has no following named parameter", ErrMalformedSignature)
+	}
+	return nil
+}
+
+func signatureStyleForToken(token string, keywordOnly bool) aggregate.PassingStyle {
 	token = strings.TrimSpace(token)
 	switch {
 	case strings.HasPrefix(token, "**"):
-		return aggregate.PassingStyleVariadicKeyword, keywordOnly
+		return aggregate.PassingStyleVariadicKeyword
 	case strings.HasPrefix(token, "*"):
-		return aggregate.PassingStyleVariadicPositional, true
+		return aggregate.PassingStyleVariadicPositional
 	case keywordOnly:
-		return aggregate.PassingStyleKeywordOnly, true
+		return aggregate.PassingStyleKeywordOnly
 	default:
-		return aggregate.PassingStylePositionalOrKeyword, false
+		return aggregate.PassingStylePositionalOrKeyword
 	}
 }
 

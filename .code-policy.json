@@ -6,7 +6,7 @@
   },
   "scope": {
     "generated": [
-      "apps/python-canvas/backend/internal/contracts/testdata/project-snapshot-v1.json",
+      "apps/python-canvas/backend/internal/contracts/testdata/project-snapshot-v2.json",
       "apps/python-canvas/src/backend/generatedContract.ts",
       "docs/evidence/**/*.json",
       "docs/evidence/**/*.json.gz"

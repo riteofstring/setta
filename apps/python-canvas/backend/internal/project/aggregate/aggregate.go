@@ -28,6 +28,9 @@ const (
 var (
 	// ErrValidation marks an invalid authored state or candidate command.
 	ErrValidation = errors.New("aggregate: validation failed")
+	// ErrProviderSignatureInvalid marks malformed data returned by the normalized
+	// provider boundary. It also wraps ErrValidation for the exact defect.
+	ErrProviderSignatureInvalid = errors.New("aggregate: provider signature invalid")
 	// ErrProjectNotFound identifies a command for a different project.
 	ErrProjectNotFound = errors.New("aggregate: project not found")
 	// ErrCallableNotFound identifies a command for a missing callable.
@@ -683,10 +686,10 @@ func newProviderParameters(
 	claimed map[string]struct{},
 ) ([]Parameter, error) {
 	if len(signature) > maxParametersPerCallable {
-		return nil, validationError("provider signature has too many parameters")
+		return nil, errors.Join(ErrProviderSignatureInvalid, validationError("provider signature has too many parameters"))
 	}
 	if err := validateProviderSignature(signature); err != nil {
-		return nil, err
+		return nil, errors.Join(ErrProviderSignatureInvalid, err)
 	}
 	return allocateProviderParameters(signature, nextID, claimed)
 }
@@ -698,7 +701,50 @@ func validateProviderSignature(signature []ProviderParameter) error {
 			return err
 		}
 	}
+	return validateProviderPassingStyleSequence(signature)
+}
+
+func validateProviderPassingStyleSequence(signature []ProviderParameter) error {
+	previousRank := -1
+	variadicPositionalSeen := false
+	variadicKeywordSeen := false
+	for parameterIndex, parameter := range signature {
+		rank := providerPassingStyleRank(parameter.PassingStyle)
+		if rank < previousRank {
+			return validationError("provider parameter %d has an invalid passing-style order", parameterIndex)
+		}
+		switch parameter.PassingStyle {
+		case PassingStyleVariadicPositional:
+			if variadicPositionalSeen {
+				return validationError("provider parameter %d repeats variadic-positional style", parameterIndex)
+			}
+			variadicPositionalSeen = true
+		case PassingStyleVariadicKeyword:
+			if variadicKeywordSeen {
+				return validationError("provider parameter %d repeats variadic-keyword style", parameterIndex)
+			}
+			variadicKeywordSeen = true
+		}
+		previousRank = rank
+	}
 	return nil
+}
+
+func providerPassingStyleRank(style PassingStyle) int {
+	switch style {
+	case PassingStylePositionalOnly:
+		return 0
+	case PassingStylePositionalOrKeyword:
+		return 1
+	case PassingStyleVariadicPositional:
+		return 2
+	case PassingStyleKeywordOnly:
+		return 3
+	case PassingStyleVariadicKeyword:
+		return 4
+	default:
+		return -1
+	}
 }
 
 func validateProviderParameterInput(index int, parameter ProviderParameter, names map[string]struct{}) error {
