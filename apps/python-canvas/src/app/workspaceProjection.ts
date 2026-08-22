@@ -34,6 +34,7 @@ import {
 } from "./generatedPythonProjection";
 import {
   createParameterDictionaryEntryItem,
+  dictionaryEntryParentPromotionRequired,
   dictionaryEntryRootID,
   dictionaryEntryWorkspaceItemID,
   parameterDictionarySectionID,
@@ -48,6 +49,7 @@ import { projectWorkspaceForestProposal } from "./workspaceForestProjection";
 
 export {
   createParameterDictionaryEntryItem,
+  dictionaryEntryParentPromotionRequired,
   dictionaryEntryWorkspaceItemID,
   parameterDictionarySectionID,
   promoteDictionaryEntryParents,

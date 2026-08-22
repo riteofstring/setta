@@ -1,6 +1,7 @@
 import {
   commitWorkspaceDocument,
   setItemData,
+  type WorkspaceDocument,
   type WorkspaceHost,
   type WorkspaceItem,
   type WorkspaceItemDiagnostic,
@@ -62,6 +63,28 @@ export function setDictionaryEntryName(
   updateDictionaryEntryItem(host, dictionaryId, entryItemId, (data) =>
     data.name === name ? null : { ...data, name },
   );
+}
+
+// This check is deliberately pure so a host can defer the accompanying local
+// document mutation until after its change notification has completed.
+export function dictionaryEntryParentPromotionRequired(
+  document: Pick<WorkspaceDocument, "sections">,
+  dictionaryId: string,
+): boolean {
+  const itemTree =
+    document.sections[parameterDictionarySectionID(dictionaryId)]?.itemTree;
+  if (itemTree === undefined) {
+    return false;
+  }
+  return Object.entries(itemTree.items).some(([itemId, item]) => {
+    if (itemId === itemTree.rootId || item.children.length === 0) {
+      return false;
+    }
+    return (
+      readDictionaryEntryItemData(item.data).kind ===
+      DICTIONARY_ENTRY_KIND_LEAF_V2
+    );
+  });
 }
 
 // The generic item tree intentionally owns only structural movement. Once a

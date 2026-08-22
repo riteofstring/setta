@@ -21,7 +21,6 @@ import {
   createPendingCallableSection,
   createPendingListSection,
   createPendingParameterDictionarySection,
-  promoteDictionaryEntryParents,
   projectWorkspaceDocument,
   readGeneratedPythonTarget,
   type ProjectSnapshotProjectionOptions,
@@ -47,6 +46,7 @@ import {
   type MutationState,
   type RevisionConflictDraft,
 } from "./pythonCanvasAppSupport";
+import { createDictionaryEntryParentPromotionScheduler } from "./dictionaryEntryParentPromotion";
 import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import { createPythonCanvasMutations } from "./pythonCanvasMutations";
 import {
@@ -95,6 +95,12 @@ export function PythonCanvasController() {
     let snapshot: ProjectSnapshotV2 | null = null;
     const pendingCallableCommits = new Set<string>();
     let mutationChain = Promise.resolve();
+    const dictionaryEntryParentPromotion =
+      createDictionaryEntryParentPromotionScheduler({
+        host,
+        isActive: () => active,
+        currentSnapshot: () => snapshot,
+      });
 
     const disposeHost = () => {
       if (!disposed) {
@@ -602,12 +608,6 @@ export function PythonCanvasController() {
 
     const currentWorkspaceSnapshot = () =>
       active && !isProjectingRef.current ? snapshot : null;
-    const promotesDictionaryEntryParents = (
-      current: ProjectSnapshotV2,
-    ): boolean =>
-      current.parameterDictionaries.some((dictionary) =>
-        promoteDictionaryEntryParents(host, dictionary.id),
-      );
     const scheduleChangedParameterLists = (
       document: WorkspaceDocument,
       current: ProjectSnapshotV2,
@@ -654,7 +654,11 @@ export function PythonCanvasController() {
     };
     const handleWorkspaceDocumentChange = (document: WorkspaceDocument) => {
       const current = currentWorkspaceSnapshot();
-      if (current === null || promotesDictionaryEntryParents(current)) {
+      if (current === null) {
+        return;
+      }
+      if (dictionaryEntryParentPromotion.required(document, current)) {
+        dictionaryEntryParentPromotion.schedule();
         return;
       }
       const valueEditedDictionaries = mutations.consumeDictionaryValueEdits();

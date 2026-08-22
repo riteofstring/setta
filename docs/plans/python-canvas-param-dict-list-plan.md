@@ -5,8 +5,9 @@
 **Status: In progress. The generic `@setta/workspace` registered vertical-container seam, the
 canonical backend cutover (aggregate forest, strict project document, renderer, coordinator, V2
 HTTP/generated TypeScript contract, and fixture), and the Python Canvas implementation (three
-app-owned kinds, forest projection/DnD persistence, dictionary item proposals and diagnostics,
-list increment/decrement controls, and placeholder geometry reconciliation) are implemented and
+app-owned kinds, forest projection/DnD persistence, subscription-safe dictionary item proposals
+and diagnostics, list increment/decrement controls, and placeholder geometry reconciliation) are
+implemented and
 covered by focused frontend tests. The existing single production browser walkthrough now contains
 the seven Param Dict/List acceptance flows; supervised production headless execution, review, and
 Code Policy closeout remain incomplete.**
