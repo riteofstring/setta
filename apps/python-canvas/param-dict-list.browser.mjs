@@ -68,6 +68,37 @@ export const listNestedSectionSurfaceSelector =
 
 export const listNestedSortableSectionSelector = `${listNestedSectionSurfaceSelector} > [data-sortable-section-id]`;
 
+export function listNestedChildOrderExpression(
+  listId,
+  expectedWorkspaceChildIds,
+) {
+  return `(() => {
+    const section = document.querySelector(${JSON.stringify(listSectionSelector(listId))});
+    const sectionWrapper = section?.parentElement;
+    if (!(section instanceof HTMLElement) || !(sectionWrapper instanceof HTMLElement)) {
+      return false;
+    }
+    const childIds = Array.from(
+      sectionWrapper.querySelectorAll(${JSON.stringify(listNestedSortableSectionSelector)}),
+    ).map((sortable) => sortable.getAttribute("data-sortable-section-id"));
+    const expected = ${JSON.stringify(expectedWorkspaceChildIds)};
+    return childIds.length === expected.length &&
+      childIds.every((childId, index) => childId === expected[index]);
+  })()`;
+}
+
+export async function waitForListNestedChildOrder(
+  client,
+  listId,
+  expectedWorkspaceChildIds,
+) {
+  await waitFor(
+    client,
+    "the List of Objects direct child projection",
+    listNestedChildOrderExpression(listId, expectedWorkspaceChildIds),
+  );
+}
+
 export async function exerciseParamDictAndListSlice(
   client,
   backendOrigin,
@@ -640,6 +671,11 @@ async function assertVerticalListPresentation(
   expectedCallableFieldSize,
 ) {
   const expectedWorkspaceChildIds = childIds.map(callableWorkspaceSectionId);
+  await waitForListNestedChildOrder(
+    client,
+    listId,
+    expectedWorkspaceChildIds,
+  );
   const presentation = await evaluate(
     client,
     `(() => {

@@ -11,8 +11,10 @@ import {
 import { dragElementToElement } from "./browser-page.mjs";
 import {
   dictionaryEntryChildAdoptionDragTarget,
+  listNestedChildOrderExpression,
   listNestedSectionSurfaceSelector,
   listNestedSortableSectionSelector,
+  waitForListNestedChildOrder,
 } from "./param-dict-list.browser.mjs";
 
 test("Param Dict and List walkthrough selectors use workspace section identities", () => {
@@ -71,6 +73,63 @@ test("List walkthrough finds direct vertical children beside its shell", () => {
     wrapper.querySelector(listNestedSectionSurfaceSelector) instanceof
       document.defaultView.HTMLElement,
   );
+});
+
+test("List walkthrough waits for projected direct sortable children in canonical order", async () => {
+  const window = new JSDOM(
+    `
+      <div>
+        <div data-section-id="python-canvas:list:list:objects"></div>
+        <div class="flex flex-col">
+          <div class="flex items-stretch">
+            <div class="mt-2 flex flex-col items-start gap-2"></div>
+          </div>
+        </div>
+      </div>
+    `,
+    { runScripts: "outside-only" },
+  ).window;
+  const document = window.document;
+  const expectedChildIds = [
+    callableWorkspaceSectionId("callable:one"),
+    callableWorkspaceSectionId("callable:two"),
+  ];
+  const shell = document.querySelector(listSectionSelector("list:objects"));
+  const wrapper = shell?.parentElement;
+  const surface = wrapper?.querySelector(listNestedSectionSurfaceSelector);
+  if (!(surface instanceof window.HTMLElement)) {
+    throw new Error("Expected the List of Objects nested section surface.");
+  }
+  const appendSortable = (id) => {
+    const sortable = document.createElement("div");
+    sortable.setAttribute("data-sortable-section-id", id);
+    surface.append(sortable);
+  };
+  const evaluations = [];
+  const client = {
+    async send(method, parameters) {
+      assert.equal(method, "Runtime.evaluate");
+      evaluations.push(parameters.expression);
+      const value = window.eval(parameters.expression);
+      if (evaluations.length === 1) {
+        appendSortable(expectedChildIds[1]);
+        appendSortable(expectedChildIds[0]);
+      } else if (evaluations.length === 2) {
+        surface.replaceChildren();
+        expectedChildIds.forEach(appendSortable);
+      }
+      return { result: { value } };
+    },
+  };
+
+  assert.equal(
+    window.eval(
+      listNestedChildOrderExpression("list:objects", expectedChildIds),
+    ),
+    false,
+  );
+  await waitForListNestedChildOrder(client, "list:objects", expectedChildIds);
+  assert.equal(evaluations.length, 3);
 });
 
 test("Param Dict nesting targets the rightward item child-adoption lane", async () => {
