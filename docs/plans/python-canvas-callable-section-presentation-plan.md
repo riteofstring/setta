@@ -2424,6 +2424,13 @@ region with its rail and centered badge, and places the clicked caret on editabl
 inner outline or a full-height black line. There are no actionable visual-polish or layout findings.
 This is supervisor approval of the evidence for developer review, not developer acceptance.
 
+**Final read-only review correction.** The immutable exact-range review found no source defect and
+confirmed the previous undo-history and evidence findings are resolved. It caught one stale phrase
+in `apps/python-canvas/README.md`: the deferred list still named arbitrary statement insertion even
+though authored Python before and after the protected body is now part of the shipped contract. The
+phrase is removed. The review's other observations are non-blocking recommendations outside this
+plan and are not expanded into new work.
+
 What remains in Phase B: a fresh immutable read-only review of the final source candidate, developer
 visual acceptance with its accepted-candidate record, and the closing
 `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the

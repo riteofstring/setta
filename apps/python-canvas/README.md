@@ -105,8 +105,8 @@ is a no-support list, not a compatibility promise or future roadmap.
 - A Generate Python command, toolbar button, or standalone generation endpoint.
 - Source-root configuration, source discovery, Watch Code, filesystem watching,
   or callable reconciliation after source changes.
-- Python execution, interpreter selection, terminals, PTYs, run history,
-  cancellation, or arbitrary statement insertion.
+- Python execution, interpreter selection, terminals, PTYs, run history, or
+  cancellation.
 - Persistence, save/load, databases, authentication, collaboration,
   WebSockets, server-sent events, polling, CORS, or authentication placeholders.
 - Ports, edges, connection gestures, Dict or other value sections, or multiple
