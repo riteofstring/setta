@@ -117,26 +117,15 @@ describe("CallableSection", () => {
     expect(renderedEditor("x expression").onEscape).toBeUndefined();
   });
 
-  it("shows ordinary pending state as a compact adornment plus an app-owned live region", () => {
-    render({ pendingDescription: "Checking the callable with Basedpyright." });
+  it("keeps project pending state out of the callable field's presentation", () => {
+    render({ pending: true });
 
     const callable = renderedEditor("Callable expression");
     expect(callable.disabled).toBe(true);
-    const adornment = container?.querySelector(".python-canvas-pending-mark");
-    expect(adornment?.getAttribute("aria-hidden")).toBe("true");
-    expect(adornment?.textContent).toBe("");
-    const status = container?.querySelector("[role='status']");
-    expect(status?.textContent).toBe(
-      "Checking the callable with Basedpyright.",
-    );
-    expect(status?.className).toBe("python-canvas-visually-hidden");
+    expect(callable.endAdornment).toBeUndefined();
+    expect(container?.querySelector("[role='status']")).toBeNull();
     expect(container?.querySelector("[role='alert']")).toBeNull();
-  });
-
-  it("keeps the ordinary pending cue visible once forced colours repaint it", () => {
-    expect(appStyles).toMatch(
-      /@media \(forced-colors: active\)[^}]*\.python-canvas-pending-mark[^}]*background: CanvasText/su,
-    );
+    expect(appStyles).not.toContain("python-canvas-pending-mark");
   });
 
   it("gives every app-owned colour both appearances", () => {
@@ -331,7 +320,7 @@ function render(
           onCallableRevert: vi.fn(),
           onParameterExpressionChange: vi.fn(),
           onParameterNameChange: vi.fn(),
-          pendingDescription: null,
+          pending: false,
           ...overrides,
         }}
       >

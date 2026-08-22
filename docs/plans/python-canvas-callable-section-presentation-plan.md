@@ -2437,6 +2437,21 @@ non-blocking observation was that the later documentation commits do not change 
 bundle shows; the bundle remains deliberately bound to immutable source candidate
 `97828f51fa7836146df821e18291f19db1a4e1f3`.
 
+**Developer live-review correction — pending-state ownership.** Live comparison exposed the app's
+gray pending dot inside the callable field whenever _any_ project mutation reached Go, including a
+parameter or authored-Python update. That custom cue was not main's field-specific right indicator:
+main reserves that surface for a local callable draft, callable failure, or that field's own LSP
+wait. Python Canvas had projected one app-global mutation state into every section control and then
+decorated the callable field alone.
+
+The direct correction removes the callable adornment and its animation/forced-colour CSS, replaces
+the section context's descriptive string with the boolean its controls actually need while a
+canonical mutation is in flight, and makes the existing app-level live status display the precise
+pending description. There is one status owner and no duplicate hidden announcement. The running
+backend's Basedpyright provider remains `available` and `ready`; callable completion, signature
+projection, generated-source diagnostics, and all backend/LSP contracts are unchanged. This
+supersedes the earlier forced-colour treatment of the dot because that field cue no longer exists.
+
 What remains in Phase B: developer visual acceptance with its accepted-candidate record, and the closing
 `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
 accepted candidate.

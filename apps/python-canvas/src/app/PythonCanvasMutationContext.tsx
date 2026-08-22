@@ -6,7 +6,7 @@ export type PythonCanvasMutationContextValue = {
   callableDraft: string;
   completionError: string | null;
   mutationError: string | null;
-  pendingDescription: string | null;
+  pending: boolean;
   onCallableDraftChange: (value: string) => void;
   onCallableCommit: (value: string) => void;
   // Escape abandoned an uncommitted callable draft, so the field goes back to the canonical

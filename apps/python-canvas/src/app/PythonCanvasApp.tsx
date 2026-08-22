@@ -499,8 +499,7 @@ export function PythonCanvasApp() {
         controllerRef.current?.setParameterExpression(parameterID, value),
       onParameterNameChange: (parameterID, name) =>
         controllerRef.current?.setParameterName(parameterID, name),
-      pendingDescription:
-        mutation.kind === "pending" ? mutation.description : null,
+      pending: mutation.kind === "pending",
     }),
     [callableCompletionProvider, callableDraft, completionError, mutation],
   );
@@ -510,7 +509,7 @@ export function PythonCanvasApp() {
       ? "Loading project."
       : state.kind === "ready"
         ? mutation.kind === "pending"
-          ? "Updating project."
+          ? mutation.description
           : "Project loaded."
         : "Project could not be loaded.";
 

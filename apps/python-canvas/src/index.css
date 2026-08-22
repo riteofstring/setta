@@ -85,51 +85,11 @@ body {
   min-inline-size: 0;
 }
 
-/* The package owns the field surface itself. This app styles only its own status and error
- * content, and the pending mark it hands to the package's adornment slot. */
+/* The package owns the field surface itself. This app styles only its own error content. */
 .python-canvas-callable-field {
   display: grid;
   gap: 0.375rem;
   min-inline-size: 0;
-}
-
-.python-canvas-pending-mark {
-  display: block;
-  inline-size: 0.5rem;
-  block-size: 0.5rem;
-  border-radius: 50%;
-  background: light-dark(#4c5a73, #8b98ad);
-}
-
-/* The dot is the only ordinary visible pending cue, and forced colours repaint its background, so
- * restore it from the forced palette the way the package restores its own authored surfaces. */
-@media (forced-colors: active) {
-  .python-canvas-pending-mark {
-    background: CanvasText;
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .python-canvas-pending-mark {
-    animation: python-canvas-pending-pulse 1.2s ease-in-out infinite;
-  }
-}
-
-@keyframes python-canvas-pending-pulse {
-  50% {
-    opacity: 0.35;
-  }
-}
-
-.python-canvas-visually-hidden {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 
 .python-canvas-provider-error,

@@ -319,7 +319,7 @@ describe("PythonCanvasApp", () => {
       mocks.fetchProjectSnapshot.mockResolvedValue(committedSnapshot());
       mocks.setPythonTarget.mockReturnValue(new Promise(() => {}));
 
-      renderApp();
+      const app = renderApp();
       await settle();
       const notifyDocumentChanged = host.subscribe.mock.calls[0]?.[0] as (
         document: unknown,
@@ -348,6 +348,9 @@ describe("PythonCanvasApp", () => {
       });
 
       expect(mocks.setPythonTarget).toHaveBeenCalledTimes(1);
+      expect(app.querySelector("[role='status']")?.textContent).toBe(
+        "Checking the generated Python with Basedpyright.",
+      );
       expect(mocks.setPythonTarget.mock.calls[0]?.[0]).toEqual({
         expectedRevision: 1,
         prefix: "import math\nimport os",
@@ -626,7 +629,7 @@ function renderLeadingContent(node: ReactNode): HTMLDivElement {
           onCallableRevert: vi.fn(),
           onParameterExpressionChange: vi.fn(),
           onParameterNameChange: vi.fn(),
-          pendingDescription: null,
+          pending: false,
         }}
       >
         {node}

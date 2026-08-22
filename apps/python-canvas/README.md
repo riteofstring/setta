@@ -24,8 +24,8 @@ rows. That toolbar is the workspace's ordinary `authoring-and-filter` one: Add
 parameter, Remove last parameter, and Delete selected parameters all author real
 arguments, and the filter advertises the workspace binding that focuses it
 (`Mod + K` by default, shown as `⌘ + K` on macOS). Ordinary pending state reads
-as a compact adornment on the editor plus a live region; only genuine
-completion, mutation, and provider failures claim a visible block.
+through the app-level live status without decorating the callable field; only
+genuine completion, mutation, and provider failures claim a visible block.
 
 Every parameter change — a value edit, a rename, an Add, a Remove Last, a
 Delete Selected, or a drag reorder — reaches Go as one complete ordered

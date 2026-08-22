@@ -141,8 +141,8 @@ function readParameterDiagnostics(
 
 // The section's leading control, placed by the package above its Args toolbar. The compact field
 // replaces the previous large label and the idle paragraph about what Basedpyright does after a
-// commit; ordinary pending state is a small adornment plus an app-owned live region, and only
-// genuine failures still claim a visible block.
+// commit. Project mutation status belongs to the app-level live region rather than this field;
+// only genuine field failures claim visible space here.
 //
 // The field carries no placeholder. Like main's callable search it renders the canonical committed
 // expression, which the shipped demo commits before its first response; a placeholder here painted
@@ -153,7 +153,6 @@ function readParameterDiagnostics(
 // has taken its own first Escape — abandons the draft for the canonical expression.
 export function CallableExpressionField() {
   const mutation = usePythonCanvasMutationContext();
-  const pending = mutation.pendingDescription !== null;
 
   return (
     <div className="python-canvas-callable-field">
@@ -161,12 +160,7 @@ export function CallableExpressionField() {
         ariaLabel="Callable expression"
         completionProvider={mutation.callableCompletionProvider}
         controlId={CALLABLE_EXPRESSION_CONTROL_ID}
-        disabled={pending}
-        endAdornment={
-          pending ? (
-            <span aria-hidden={true} className="python-canvas-pending-mark" />
-          ) : null
-        }
+        disabled={mutation.pending}
         language="python"
         onCommit={mutation.onCallableCommit}
         onEscape={mutation.onCallableRevert}
@@ -177,9 +171,6 @@ export function CallableExpressionField() {
         value={mutation.callableDraft}
         wrapLines={false}
       />
-      <p className="python-canvas-visually-hidden" role="status">
-        {mutation.pendingDescription ?? ""}
-      </p>
       {mutation.mutationError === null ? null : (
         <p className="python-canvas-mutation-error" role="alert">
           {mutation.mutationError}
@@ -256,7 +247,7 @@ function ParameterItemRow({
 }) {
   const mutation = usePythonCanvasMutationContext();
   const data = readParameterItemData(context.item.data);
-  const disabled = data.disabled || mutation.pendingDescription !== null;
+  const disabled = data.disabled || mutation.pending;
   const label = data.name === "" ? UNNAMED_PARAMETER_LABEL : data.name;
   return (
     <>
@@ -310,7 +301,7 @@ function parameterDiagnosticRegistry(
 
 // Only a genuine provider failure claims a visible block. Not-started, pending, and ready are
 // ordinary states; describing them turned the idle section into a paragraph of infrastructure
-// text, and pending already reads through the editor's adornment and live region.
+// text, while project mutation status already reads through the app-level live region.
 function providerFailureMessage(
   status: CallableSectionData["providerStatus"],
 ): string | null {
