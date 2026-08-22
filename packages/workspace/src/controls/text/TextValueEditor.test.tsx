@@ -717,53 +717,6 @@ describe("TextValueEditor section-field presentation", () => {
     expect(dummy.classList.contains("section-value")).toBe(false);
   });
 
-  it("presents and clears a section-field diagnostic in both editor layers", async () => {
-    const message = 'Argument has incompatible type "str".';
-    await mountField({ diagnosticMessage: message });
-
-    const field = host.querySelector<HTMLElement>(
-      ".setta-workspace-section-field",
-    );
-    const description = host.querySelector<HTMLElement>("[role='status']");
-    if (!field || !description) {
-      throw new Error(
-        "The diagnostic section field did not render its surface.",
-      );
-    }
-    expect(field.dataset["diagnostic"]).toBe("true");
-    expect(description.textContent).toBe(`Error: ${message}`);
-    expect(description.getAttribute("aria-live")).toBe("polite");
-    const indicator = field.querySelector<HTMLElement>(
-      ".setta-workspace-section-field-diagnostic-indicator",
-    );
-    expect(indicator?.getAttribute("aria-hidden")).toBe("true");
-    expect(indicator?.getAttribute("title")).toBe(message);
-    expect(getFieldDummy().getAttribute("aria-invalid")).toBe("true");
-    expect(getFieldDummy().getAttribute("aria-describedby")).toBe(
-      description.id,
-    );
-
-    await activateField();
-    const live = getFieldView().contentDOM;
-    expect(live.getAttribute("aria-invalid")).toBe("true");
-    expect(live.getAttribute("aria-describedby")).toBe(description.id);
-
-    // A canonical snapshot replaces the diagnostic while the field is still live.
-    // Its controlled text and active layer stay intact; only error state disappears.
-    await mountField();
-    expect(field.dataset["diagnostic"]).toBe("false");
-    expect(description.textContent).toBe("");
-    expect(
-      field.querySelector(
-        ".setta-workspace-section-field-diagnostic-indicator",
-      ),
-    ).toBeNull();
-    expect(getFieldView().contentDOM.getAttribute("aria-invalid")).toBeNull();
-    expect(
-      getFieldView().contentDOM.getAttribute("aria-describedby"),
-    ).toBeNull();
-  });
-
   it("keeps the caller's end adornment out of the value and out of keyboard order", async () => {
     const onValueChange = vi.fn();
     await mountField({

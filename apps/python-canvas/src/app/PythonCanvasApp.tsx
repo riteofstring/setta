@@ -86,13 +86,7 @@ export function registerPythonCanvasSectionKinds(host: WorkspaceHost): void {
       // item-area content. The toolbar is the ordinary authoring one: Add, Remove Last, and Delete
       // Selected all reach the canonical parameter-list mutation behind this section.
       itemArea: {
-        renderLeadingContent: (section) => (
-          <CallableExpressionField
-            diagnosticMessage={
-              readCallableSectionData(section.data).callableDiagnosticMessage
-            }
-          />
-        ),
+        renderLeadingContent: () => <CallableExpressionField />,
         toolbar: "authoring-and-filter",
       },
       createItem: () => createCallableParameterItem(host),

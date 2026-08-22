@@ -11,7 +11,6 @@ import {
   type WorkspaceDocumentInput,
   type WorkspaceHost,
   type WorkspaceItem,
-  type WorkspaceCodeSectionDiagnostic,
   type WorkspaceSection,
 } from "@setta/workspace";
 
@@ -154,7 +153,6 @@ function retainedGeneratedCodeData(
     prefix,
     generatedPythonRegionText(snapshot),
     suffix,
-    [],
   );
 }
 
@@ -403,13 +401,8 @@ function projectCallableSectionData(
   const parameterIds = new Set(
     getCallableParameters(snapshot).map((parameter) => parameter.id),
   );
-  const callableDiagnosticMessages: Array<string> = [];
   const parameterDiagnostics: CallableSectionData["parameterDiagnostics"] = {};
   for (const diagnostic of snapshot.diagnostics) {
-    if (diagnostic.targetId === callable.id) {
-      callableDiagnosticMessages.push(diagnostic.message);
-      continue;
-    }
     if (
       diagnostic.targetId === null ||
       !parameterIds.has(diagnostic.targetId)
@@ -428,10 +421,6 @@ function projectCallableSectionData(
       id: callable.id,
       name: callable.name,
     },
-    callableDiagnosticMessage:
-      callableDiagnosticMessages.length === 0
-        ? null
-        : callableDiagnosticMessages.join("\n"),
     parameterDiagnostics,
     providerStatus: {
       provider: snapshot.providerStatus.provider,
@@ -489,12 +478,7 @@ function projectGeneratedCodeData(snapshot: ProjectSnapshotV1) {
       "Generated Python does not compose its canonical prefix, body, and suffix.",
     );
   }
-  return generatedCodeSectionData(
-    prefix,
-    generated,
-    suffix,
-    projectDocumentDiagnostics(snapshot),
-  );
+  return generatedCodeSectionData(prefix, generated, suffix);
 }
 
 // One place declares the range, so the authored regions and the range that separates them can
@@ -503,12 +487,10 @@ function generatedCodeSectionData(
   prefix: string,
   generated: string,
   suffix: string,
-  diagnostics: ReadonlyArray<WorkspaceCodeSectionDiagnostic>,
 ) {
   const code = `${prefix}${generated}${suffix}`;
   return createWorkspaceCodeSectionData({
     code,
-    diagnostics: [...diagnostics],
     generatedRegion: { from: prefix.length, to: code.length - suffix.length },
     language: "python",
     wrapLines: true,
@@ -518,55 +500,6 @@ function generatedCodeSectionData(
     // generated-document presentation: an ordinary editor whose declared range refuses edits.
     mode: "generated-document",
   });
-}
-
-// The canonical contract carries UTF-8 byte offsets because Go and the provider
-// own the generated document. CodeMirror indexes its JavaScript string in UTF-16
-// code units, so targetless diagnostics cross that representation boundary once,
-// as the snapshot is projected into package-owned code-section data.
-function projectDocumentDiagnostics(
-  snapshot: ProjectSnapshotV1,
-): Array<WorkspaceCodeSectionDiagnostic> {
-  return snapshot.diagnostics.flatMap((diagnostic) => {
-    if (diagnostic.targetId !== null) {
-      return [];
-    }
-    return [
-      {
-        from: utf8ByteOffsetToUtf16Offset(
-          snapshot.generatedCode.code,
-          diagnostic.start,
-        ),
-        to: utf8ByteOffsetToUtf16Offset(
-          snapshot.generatedCode.code,
-          diagnostic.end,
-        ),
-        message: diagnostic.message,
-        severity: projectDiagnosticSeverity(diagnostic),
-      },
-    ];
-  });
-}
-
-function utf8ByteOffsetToUtf16Offset(code: string, byteOffset: number): number {
-  const encoder = new TextEncoder();
-  let utf8Offset = 0;
-  let utf16Offset = 0;
-  if (byteOffset === 0) {
-    return 0;
-  }
-  for (const character of code) {
-    const nextUtf8Offset = utf8Offset + encoder.encode(character).length;
-    if (byteOffset < nextUtf8Offset) {
-      throw new Error("Document diagnostic offset is not a UTF-8 boundary.");
-    }
-    utf8Offset = nextUtf8Offset;
-    utf16Offset += character.length;
-    if (byteOffset === utf8Offset) {
-      return utf16Offset;
-    }
-  }
-  throw new Error("Document diagnostic offset exceeds generated Python.");
 }
 
 function getCallable(snapshot: ProjectSnapshotV1) {
@@ -604,14 +537,9 @@ function getCallableParameters(
 function projectParameterDiagnostic(diagnostic: DiagnosticV1) {
   return {
     message: diagnostic.message,
-    severity: projectDiagnosticSeverity(diagnostic),
+    severity:
+      diagnostic.severity === DIAGNOSTIC_SEVERITY_INFORMATION_V1
+        ? ("info" as const)
+        : diagnostic.severity,
   };
-}
-
-function projectDiagnosticSeverity(
-  diagnostic: DiagnosticV1,
-): "error" | "warning" | "info" {
-  return diagnostic.severity === DIAGNOSTIC_SEVERITY_INFORMATION_V1
-    ? "info"
-    : diagnostic.severity;
 }
