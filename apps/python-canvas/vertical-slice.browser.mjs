@@ -53,7 +53,7 @@ import {
   waitForCallableCompletion,
   waitForCallableDraft,
   waitForClosedCallableCompletion,
-  waitForEnabledCallableField,
+  waitForIdleCallableField,
   waitForIdleCallableValue,
   zoomCanvasOnCallableCard,
 } from "./callable-presentation.mjs";
@@ -306,7 +306,7 @@ async function assertCallableFirstComposition(client, callableLabel) {
 // dimensions and its type. Measure the donor pill idle, click it, and require that the same
 // surface comes back with only its border colour changed.
 async function assertCallableFieldActivationParity(client, callableLabel) {
-  await waitForEnabledCallableField(client, callableLabel);
+  await waitForIdleCallableField(client, callableLabel);
   const idle = await evaluate(
     client,
     callableFieldStateScript(idleCallableSelector(callableLabel)),
@@ -433,7 +433,7 @@ async function assertSettledZoomPresentation(client, callableLabel) {
 // ordinary focus target before the callable field, enter the field with a real Tab key, and prove
 // its keyboard activation mounts the live editor before the next Tab reaches the Args filter.
 async function assertCallableEditorLeadsKeyboardOrder(client, callableLabel) {
-  await waitForEnabledCallableField(client, callableLabel);
+  await waitForIdleCallableField(client, callableLabel);
   const precedingControlFocused = await evaluate(
     client,
     `(() => {

@@ -168,8 +168,11 @@ export async function dragSelectElement(client, selector, description) {
   });
 }
 
+// An element that is not on the page and an element the page paints no box for are different
+// states, and a step that fails on one has to say which it found: the first means the surface the
+// caller named is absent, the second means it is present and unclickable.
 export async function elementCenter(client, selector, description) {
-  const point = await evaluate(
+  const box = await evaluate(
     client,
     `(() => {
       const element = document.querySelector(${JSON.stringify(selector)});
@@ -177,16 +180,16 @@ export async function elementCenter(client, selector, description) {
         return null;
       }
       const rect = element.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) {
-        return null;
-      }
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+      return { height: rect.height, width: rect.width, x: rect.x, y: rect.y };
     })()`,
   );
-  if (point === null) {
+  if (box === null) {
+    throw new Error(`${description} is not on the page.`);
+  }
+  if (box.width === 0 || box.height === 0) {
     throw new Error(`${description} has no visible box on the page.`);
   }
-  return point;
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
 // A real pointer move. An idle canvas with a section under the cursor is the exact state the

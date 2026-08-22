@@ -193,13 +193,20 @@ export function liveCallableSelector(callableLabel) {
   return `${textBoxSelector(callableLabel)}[contenteditable="true"]`;
 }
 
-export async function waitForEnabledCallableField(client, callableLabel) {
+// The settled field: its idle layer, enabled. Two things unsettle it. The provider's initial work
+// leaves the field disabled, and leaving a live editor swaps the idle layer back from a timer
+// rather than during the blur itself — main's own `TextInputCodeMirror` defers that teardown to
+// keep CodeMirror from blocking the next input, and this package keeps main's lifecycle. So a step
+// that follows a keyboard or pointer exit can arrive while the blurred live layer is still the only
+// one mounted. Both are the field settling rather than a field a reader could act on, so every step
+// that enters or measures the idle surface waits for the surface it actually names.
+export async function waitForIdleCallableField(client, callableLabel) {
   await waitFor(
     client,
-    "enabled callable editor after initial provider work",
+    "the enabled idle callable editor after initial provider work and any pending editor teardown",
     `(() => {
-      const control = document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
-      return control instanceof HTMLElement && control.getAttribute("aria-disabled") !== "true";
+      const idle = document.querySelector(${JSON.stringify(idleCallableSelector(callableLabel))});
+      return idle instanceof HTMLElement && idle.getAttribute("aria-disabled") !== "true";
     })()`,
   );
 }
@@ -208,7 +215,7 @@ export async function waitForEnabledCallableField(client, callableLabel) {
 // the live editor reliably: a synthetic focus call on the idle layer does not. Every step that
 // needs the live editor therefore enters it with a real pointer press.
 export async function enterCallableField(client, callableLabel) {
-  await waitForEnabledCallableField(client, callableLabel);
+  await waitForIdleCallableField(client, callableLabel);
   await clickElementCenter(
     client,
     idleCallableSelector(callableLabel),

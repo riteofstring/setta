@@ -50,7 +50,7 @@ import {
   waitForCallableCompletion,
   waitForCallableDraft,
   waitForClosedCallableCompletion,
-  waitForEnabledCallableField,
+  waitForIdleCallableField,
   waitForIdleCallableValue,
   zoomCanvasOnCallableCard,
 } from "./callable-presentation.mjs";
@@ -110,7 +110,7 @@ async function waitForCanonicalSectionState(client) {
       return callable instanceof HTMLElement && generated instanceof HTMLElement && canvas instanceof HTMLElement;
     })()`,
   );
-  await waitForEnabledCallableField(client, callableLabel);
+  await waitForIdleCallableField(client, callableLabel);
   await waitFor(
     client,
     "the shipped example's committed callable, parameter, and generated call",
