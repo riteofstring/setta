@@ -81,11 +81,13 @@ metadata, and generated Python bytes.
 It starts local services and a browser, so do not run it unless that suite is
 explicitly authorized.
 
-The walkthrough launches an explicit headless Chrome executable only with
+The walkthrough launches a raw headless Chrome executable only with
 `--headless=new` and a disposable profile. Its launcher uses a mock keychain
 and the basic password store, does not attach to an existing browser session,
 and keeps keyboard shortcuts inside the page so the suite cannot take desktop
-focus. On macOS, `PYTHON_CANVAS_CHROME_BINARY` is required and must name an
-absolute raw `chrome-headless-shell` executable; GUI
-`.app/Contents/MacOS` application paths are rejected. The `--mute-audio` flag
-only mutes renderer audio and cannot suppress AppKit system-alert sounds.
+focus. On macOS it resolves, in order: a valid absolute
+`PYTHON_CANVAS_CHROME_BINARY`; then the highest valid numeric revision under
+`~/Library/Caches/ms-playwright/chromium_headless_shell-<revision>/chrome-headless-shell-mac-arm64/chrome-headless-shell`; otherwise it emits an actionable
+error. GUI application executable paths are rejected. The suite prints the
+resolved source and path before launch. The `--mute-audio` flag only mutes
+renderer audio and cannot suppress AppKit system-alert sounds.

@@ -4,10 +4,11 @@ import {
   accessSync,
   constants,
   existsSync,
+  lstatSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
 import os from "node:os";
@@ -24,6 +25,18 @@ const launcherPath = path.join(
   "scripts",
   "run-python-canvas.sh",
 );
+const playwrightCacheRoot = path.join(
+  os.homedir(),
+  "Library",
+  "Caches",
+  "ms-playwright",
+);
+const playwrightHeadlessShellRelativePath = path.join(
+  "chrome-headless-shell-mac-arm64",
+  "chrome-headless-shell",
+);
+const playwrightHeadlessShellDirectoryPattern =
+  /^chromium_headless_shell-([0-9]+)$/u;
 export const productionTimeoutMs = 30_000;
 const productionViewport = {
   deviceScaleFactor: 1,
@@ -133,10 +146,10 @@ export async function fetchCanonicalSnapshot(backendOrigin) {
   return response.json();
 }
 
-function isExecutableFile(filePath) {
+function isExecutableRegularFile(filePath) {
   try {
     accessSync(filePath, constants.X_OK);
-    return statSync(filePath).isFile();
+    return lstatSync(filePath).isFile();
   } catch {
     return false;
   }
@@ -148,32 +161,119 @@ function isMacOSGuiApplicationPath(filePath) {
   );
 }
 
+function compareNumericRevisions(left, right) {
+  const normalizedLeft = left.replace(/^0+(?=[0-9])/u, "");
+  const normalizedRight = right.replace(/^0+(?=[0-9])/u, "");
+  if (normalizedLeft.length !== normalizedRight.length) {
+    return normalizedLeft.length > normalizedRight.length ? 1 : -1;
+  }
+  if (normalizedLeft === normalizedRight) {
+    return 0;
+  }
+  return normalizedLeft > normalizedRight ? 1 : -1;
+}
+
+function findPlaywrightHeadlessShell(cacheRoot) {
+  if (!path.isAbsolute(cacheRoot)) {
+    return null;
+  }
+
+  let directoryEntries;
+  try {
+    directoryEntries = readdirSync(cacheRoot, { withFileTypes: true });
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      ["EACCES", "ENOENT", "ENOTDIR"].includes(error.code)
+    ) {
+      return null;
+    }
+    throw error;
+  }
+
+  let highestCandidate = null;
+  for (const directoryEntry of directoryEntries) {
+    const match = playwrightHeadlessShellDirectoryPattern.exec(
+      directoryEntry.name,
+    );
+    if (!directoryEntry.isDirectory() || match === null) {
+      continue;
+    }
+    const shellPath = path.join(
+      cacheRoot,
+      directoryEntry.name,
+      playwrightHeadlessShellRelativePath,
+    );
+    if (!isExecutableRegularFile(shellPath)) {
+      continue;
+    }
+    const revision = match[1];
+    const revisionComparison =
+      highestCandidate === null
+        ? 1
+        : compareNumericRevisions(revision, highestCandidate.revision);
+    if (
+      highestCandidate === null ||
+      revisionComparison > 0 ||
+      (revisionComparison === 0 &&
+        directoryEntry.name > highestCandidate.directoryName)
+    ) {
+      highestCandidate = {
+        directoryName: directoryEntry.name,
+        path: shellPath,
+        revision,
+      };
+    }
+  }
+  return highestCandidate;
+}
+
+function missingHeadlessChromeError(cacheRoot, platform) {
+  if (platform === "darwin") {
+    return new Error(
+      `Python Canvas browser suite requires a valid absolute PYTHON_CANVAS_CHROME_BINARY or a regular executable Playwright raw headless shell at ${path.join(cacheRoot, "chromium_headless_shell-<numeric revision>", playwrightHeadlessShellRelativePath)}.`,
+    );
+  }
+  return new Error(
+    "Python Canvas browser suite requires PYTHON_CANVAS_CHROME_BINARY to name an existing absolute executable path.",
+  );
+}
+
 export function resolveHeadlessChromeBinary({
   environment = process.env,
   platform = process.platform,
+  cacheRoot = playwrightCacheRoot,
 } = {}) {
   const explicitPath = environment.PYTHON_CANVAS_CHROME_BINARY;
-  if (typeof explicitPath !== "string" || explicitPath === "") {
-    if (platform === "darwin") {
+  if (typeof explicitPath === "string" && explicitPath !== "") {
+    if (platform === "darwin" && isMacOSGuiApplicationPath(explicitPath)) {
       throw new Error(
-        "PYTHON_CANVAS_CHROME_BINARY is required on macOS and must name an absolute raw chrome-headless-shell executable.",
+        "PYTHON_CANVAS_CHROME_BINARY must name a raw chrome-headless-shell executable on macOS; GUI application executable paths are not supported.",
       );
     }
-    throw new Error(
-      "A headless Chrome executable is required for the Python Canvas browser suite. Set PYTHON_CANVAS_CHROME_BINARY to an absolute executable path.",
-    );
+    if (
+      !path.isAbsolute(explicitPath) ||
+      !isExecutableRegularFile(explicitPath)
+    ) {
+      throw new Error(
+        "PYTHON_CANVAS_CHROME_BINARY must name an existing absolute executable path.",
+      );
+    }
+    return { path: explicitPath, source: "PYTHON_CANVAS_CHROME_BINARY" };
   }
-  if (platform === "darwin" && isMacOSGuiApplicationPath(explicitPath)) {
-    throw new Error(
-      "PYTHON_CANVAS_CHROME_BINARY must name a raw chrome-headless-shell executable on macOS; GUI .app/Contents/MacOS application paths are not supported.",
-    );
+
+  if (platform === "darwin") {
+    const cachedHeadlessShell = findPlaywrightHeadlessShell(cacheRoot);
+    if (cachedHeadlessShell !== null) {
+      return {
+        path: cachedHeadlessShell.path,
+        source: `Playwright cache revision ${cachedHeadlessShell.revision}`,
+      };
+    }
   }
-  if (!path.isAbsolute(explicitPath) || !isExecutableFile(explicitPath)) {
-    throw new Error(
-      "PYTHON_CANVAS_CHROME_BINARY must name an existing absolute executable path.",
-    );
-  }
-  return explicitPath;
+
+  throw missingHeadlessChromeError(cacheRoot, platform);
 }
 
 export function headlessChromeArguments(profileDirectory) {
@@ -206,8 +306,12 @@ function startHeadlessChrome() {
   const profileDirectory = mkdtempSync(
     path.join(os.tmpdir(), "setta-python-canvas-chrome-"),
   );
+  const chromeBinary = resolveHeadlessChromeBinary();
+  process.stdout.write(
+    `Python Canvas headless Chrome source=${chromeBinary.source} path=${chromeBinary.path}\n`,
+  );
   const browser = startProcess(
-    resolveHeadlessChromeBinary(),
+    chromeBinary.path,
     headlessChromeArguments(profileDirectory),
     { cwd: appRoot, label: "Headless Chrome" },
   );

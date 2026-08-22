@@ -17,9 +17,10 @@ deactivation before the next gesture. The production driver waits for the nested
 exact direct sortable projection before its second move, begins each section drag from a
 pointer-reachable non-control point in the title header, holds Alt through genuine CDP key events,
 and retries a failed activation within a small bounded window. Its isolated headless Chrome launch
-retains the disposable profile and keychain protections, requires an explicit raw
-`chrome-headless-shell` executable on macOS, and uses `--mute-audio` only for renderer audio—not
-for AppKit system-alert sounds. Its bounded policy structure and format checks now pass. Supervised
+retains the disposable profile and keychain protections, resolves a valid explicit raw executable
+before the highest valid Playwright cached raw headless shell on macOS, reports its source and path,
+and uses `--mute-audio` only for renderer audio—not for AppKit system-alert sounds. Its bounded
+policy structure and format checks now pass. Supervised
 production headless execution, review, and remaining Code Policy closeout remain incomplete.**
 
 Add the next two Python Canvas section types from main: **Param Dict** and **List of Objects**.
