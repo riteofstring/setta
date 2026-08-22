@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import { fetchCanonicalSnapshot } from "./browser-processes.mjs";
 import {
+  activateAndSelectAllContentEditableTextBox,
   activateCodeEditor,
   activateContentEditableTextBox,
   clickElementCenter,
@@ -12,7 +13,6 @@ import {
   moveCaretToDocumentStart,
   pressAlternateEnter,
   pressEscape,
-  selectAll,
   waitFor,
 } from "./browser-page.mjs";
 import {
@@ -361,14 +361,13 @@ async function setParameterExpression(
   if (inspectPendingPresentation) {
     await gateNextParameterMutationResponse(client);
   }
-  await activateContentEditableTextBox(
+  await activateAndSelectAllContentEditableTextBox(
     client,
     harness.parameterRowSelector(parameter.id) +
       " " +
       contentEditableTextBoxSelector(label + " expression"),
     "the " + label + " expression editor",
   );
-  await selectAll(client);
   await insertText(client, expression);
   await pressEscape(client);
   if (inspectPendingPresentation) {
@@ -522,14 +521,13 @@ async function setParameterName(
   name,
 ) {
   const { harness, name: callableName } = subject;
-  await activateContentEditableTextBox(
+  await activateAndSelectAllContentEditableTextBox(
     client,
     harness.parameterRowSelector(parameterId) +
       " " +
       contentEditableTextBoxSelector("Item name"),
     "the app-authored parameter name",
   );
-  await selectAll(client);
   await insertText(client, name);
   await pressEscape(client);
   await waitForSnapshot(

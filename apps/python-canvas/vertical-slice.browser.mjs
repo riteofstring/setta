@@ -13,6 +13,7 @@ import {
 } from "./callable-commit.browser.mjs";
 import { exerciseResolvedMathCallableLifecycle } from "./callable-lifecycle.browser.mjs";
 import {
+  activateAndSelectAllContentEditableTextBox,
   activateCodeEditor,
   activateContentEditableTextBox,
   clickElementCenter,
@@ -482,12 +483,11 @@ async function addAppParameter(client, backendOrigin, callable) {
 }
 
 async function setParameterName(client, backendOrigin, parameterID, name) {
-  await activateContentEditableTextBox(
+  await activateAndSelectAllContentEditableTextBox(
     client,
     `${parameterRowSelector(parameterID)} ${contentEditableTextBoxSelector("Item name")}`,
     `the ItemNameEditor for ${name}`,
   );
-  await selectAll(client);
   await insertText(client, name);
   await pressEscape(client);
   await waitForSnapshot(
@@ -516,12 +516,11 @@ async function setParameterExpression(
   );
   assert.ok(parameter, `The ${parameterID} parameter was not present.`);
   const label = parameter.name === "" ? "Unnamed parameter" : parameter.name;
-  await activateContentEditableTextBox(
+  await activateAndSelectAllContentEditableTextBox(
     client,
     `${parameterRowSelector(parameterID)} ${contentEditableTextBoxSelector(`${label} expression`)}`,
     `the ${label} expression editor`,
   );
-  await selectAll(client);
   await insertText(client, expression);
   await pressEscape(client);
   await waitForSnapshot(backendOrigin, `the ${label} expression`, (snapshot) =>

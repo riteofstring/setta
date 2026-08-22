@@ -285,6 +285,26 @@ export async function activateContentEditableTextBox(
   await focusElement(client, selector, description);
 }
 
+export async function activateAndSelectAllContentEditableTextBox(
+  client,
+  selector,
+  description,
+) {
+  let selectionError;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await activateContentEditableTextBox(client, selector, description);
+    try {
+      await selectAll(client);
+      return;
+    } catch (error) {
+      selectionError = error;
+    }
+  }
+  throw new Error(`${description} could not retain focus for text selection.`, {
+    cause: selectionError,
+  });
+}
+
 export async function activateCodeEditor(client, selector, description) {
   await focusElement(client, selector, description);
   await pressEnter(client);

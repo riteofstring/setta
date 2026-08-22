@@ -6,6 +6,7 @@ import {
   productionTimeoutMs,
 } from "./browser-processes.mjs";
 import {
+  activateAndSelectAllContentEditableTextBox,
   activateContentEditableTextBox,
   contentEditableTextBoxSelector,
   evaluate,
@@ -14,7 +15,6 @@ import {
   navigate,
   pressAlternateEnter,
   pressEnter,
-  selectAll,
   waitFor,
 } from "./browser-page.mjs";
 
@@ -46,12 +46,11 @@ export async function commitNewCallableExpression(
   harness,
 ) {
   const before = await fetchCanonicalSnapshot(backendOrigin);
-  await activateContentEditableTextBox(
+  await activateAndSelectAllContentEditableTextBox(
     client,
     `${harness.callableSectionSelector(name)} ${contentEditableTextBoxSelector("Callable expression")}`,
     `the ${name} callable expression`,
   );
-  await selectAll(client);
   await insertText(client, expression);
   await pressEnter(client);
   await waitForSnapshot(
@@ -94,12 +93,11 @@ async function exerciseCallableCompletionApply(
   const sectionSelector = harness.callableSectionSelector(name);
   const editorSelector = contentEditableTextBoxSelector("Callable expression");
   const expressionSelector = `${sectionSelector} ${editorSelector}`;
-  await activateContentEditableTextBox(
+  await activateAndSelectAllContentEditableTextBox(
     client,
     expressionSelector,
     `the ${name} callable expression`,
   );
-  await selectAll(client);
   await insertText(client, "fixture_module.sam");
   await waitFor(
     client,
@@ -196,12 +194,11 @@ async function exerciseUnresolvedCallableCommit(
     await callableParameterRefreshRequestCount(client);
 
   await gateNextCallableCommitResponse(client);
-  await activateContentEditableTextBox(
+  await activateAndSelectAllContentEditableTextBox(
     client,
     expressionSelector,
     "the unresolved callable expression",
   );
-  await selectAll(client);
   await insertText(client, "math.sqrt");
   await pressEnter(client);
 
