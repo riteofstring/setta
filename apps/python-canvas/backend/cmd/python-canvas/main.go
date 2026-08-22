@@ -68,9 +68,6 @@ func serve(ctx context.Context, port uint16) error {
 		return err
 	}
 	defer store.Close()
-	if err := store.BootstrapShippedExample(ctx); err != nil {
-		return err
-	}
 	return httpapi.ServeLoopback(ctx, port, store)
 }
 

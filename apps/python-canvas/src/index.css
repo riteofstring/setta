@@ -1,11 +1,6 @@
-/* This view follows the reader's system appearance, which PythonCanvasApp hands to the workspace
- * package as its colour mode. The package owns every surface it renders; these values are only
- * this app's own page, heading, status, and error chrome, so both appearances sit with the
- * package's canvas instead of framing a dark workspace in a light page. */
 :root {
-  color-scheme: light dark;
-  color: light-dark(#172033, #c9d1d9);
-  background: light-dark(#f7f8fb, #0b0e13);
+  color: #172033;
+  background: #f7f8fb;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -22,7 +17,7 @@ body,
 }
 
 body {
-  background: light-dark(#f7f8fb, #0b0e13);
+  background: #f7f8fb;
 }
 
 .python-canvas-app {
@@ -46,8 +41,7 @@ body {
 .python-canvas-heading h1,
 .python-canvas-heading p,
 .python-canvas-error,
-.python-canvas-callable-section p,
-.python-canvas-callable-field p {
+.python-canvas-callable-section p {
   margin: 0;
 }
 
@@ -57,16 +51,16 @@ body {
 }
 
 .python-canvas-status {
-  color: light-dark(#4c5a73, #8b98ad);
+  color: #4c5a73;
 }
 
 .python-canvas-error {
   max-inline-size: 72rem;
   padding: 0.75rem 1rem;
-  border: 1px solid light-dark(#b42318, #f97066);
+  border: 1px solid #b42318;
   border-radius: 0.5rem;
-  background: light-dark(#fff1f0, #2a1210);
-  color: light-dark(#7a1b14, #fecdca);
+  background: #fff1f0;
+  color: #7a1b14;
 }
 
 .python-canvas-workspace {
@@ -75,60 +69,72 @@ body {
   block-size: min(70dvh, 48rem);
 }
 
-/* The package owns the section's own insets: main's callable field begins at the header boundary
- * and its Args surface begins at the field's, so an app padding or gap around package-owned
- * content would push the section's primary control away from the chrome it belongs to. This grid
- * spaces only the app's own error rows against the package's item list below them. */
+.python-canvas-callable-section-content {
+  padding: 0.875rem;
+}
+
 .python-canvas-callable-section {
   display: grid;
-  gap: 0.625rem;
+  gap: 1rem;
   min-inline-size: 0;
 }
 
-/* The package owns the field surface itself. This app styles only its own error content. */
-.python-canvas-callable-field {
+.python-canvas-callable-editor {
   display: grid;
   gap: 0.375rem;
   min-inline-size: 0;
 }
 
-.python-canvas-provider-error,
+.python-canvas-callable-editor [role="textbox"] {
+  min-block-size: 1.75rem;
+}
+
+.python-canvas-field-label {
+  font-weight: 650;
+}
+
+.python-canvas-provider-status {
+  color: #4c5a73;
+}
+
+.python-canvas-provider-status,
 .python-canvas-mutation-error,
 .python-canvas-completion-error {
   margin: 0;
   overflow-wrap: anywhere;
 }
 
-.python-canvas-provider-error,
 .python-canvas-mutation-error,
 .python-canvas-completion-error {
   padding: 0.5rem 0.625rem;
-  border: 1px solid light-dark(#b42318, #f97066);
+  border: 1px solid #b42318;
   border-radius: 0.375rem;
-  background: light-dark(#fff1f0, #2a1210);
-  color: light-dark(#7a1b14, #fecdca);
+  background: #fff1f0;
+  color: #7a1b14;
 }
 
-/* Main's ordinary parameter label is one truncating semibold name, so this is one line rather than
- * the rejected candidate's name-over-metadata stack. Colour is inherited from the package's own
- * section text, which owns both appearances. */
 .python-canvas-parameter-label {
+  display: grid;
+  gap: 0.125rem;
   min-inline-size: 0;
   margin: 0;
   padding-block: 0.125rem;
-  overflow: hidden;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 650;
   line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-/* This app deliberately declares no focus rule. Every focus target in this view is rendered by
- * @setta/workspace, which owns its own focus treatment, and the descendant rule that used to live
- * here painted a browser outline inside package editors — including the generated Python surface,
- * whose whole point is that pointing at it changes nothing. An app-owned interactive control would
- * bring its own focus rule with it. */
+.python-canvas-parameter-metadata {
+  color: #4c5a73;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.python-canvas-app :focus-visible {
+  outline-style: auto;
+  outline-offset: 2px;
+}
 
 @media (max-width: 42rem) {
   .python-canvas-app {

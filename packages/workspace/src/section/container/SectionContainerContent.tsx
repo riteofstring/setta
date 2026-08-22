@@ -1,17 +1,14 @@
-import type { ReactNode } from "react";
 import {
   getRegisteredSectionKindOrThrow,
-  getWorkspaceItemAreaPresentationOrThrow,
   type SectionKindDefinition,
 } from "../../document/sectionKindRegistry";
 import type { WorkspaceSection } from "../../document/types";
-import { WorkspaceItemToolbar } from "../../items/WorkspaceItemToolbar";
+import { WorkspaceItemAuthoringToolbar } from "../../items/WorkspaceItemAuthoringToolbar";
 import { WorkspaceItemFilterProvider } from "../../items/WorkspaceItemFilterContext";
 import { SectionHeader } from "../header/SectionHeader";
 import { CustomResizable } from "../resize/CustomResizable";
 import { DEFAULT_SECTION_BG_COLOR } from "../sectionColors";
 import { MetaControlChrome } from "./MetaControlChrome";
-import type { WorkspaceHost } from "../../workspaceHost";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The reference's `SectionContainerCoreResizabe`, cut at the renderer seam: application area
@@ -55,18 +52,12 @@ export function SectionContainerContent({
         />
       )}
       {!section.isMinimized &&
-        renderRegisteredContent(
-          host,
-          definition,
-          section,
-          hasSectionStyleTheme,
-        )}
+        renderRegisteredContent(definition, section, hasSectionStyleTheme)}
     </CustomResizable>
   );
 }
 
 function renderRegisteredContent(
-  host: WorkspaceHost,
   definition: SectionKindDefinition,
   section: WorkspaceSection,
   hasSectionStyleTheme: boolean,
@@ -81,39 +72,17 @@ function renderRegisteredContent(
   const content = definition.renderContent(section);
   return (
     <div className={bodySlotClassName}>
-      {section.itemTree
-        ? renderItemArea(host, section, content, hasSectionStyleTheme)
-        : content}
-    </div>
-  );
-}
-
-// The one public item-area order: application leading content, the declared toolbar, then the
-// registered item content — all inside the single package-owned item-filter provider.
-function renderItemArea(
-  host: WorkspaceHost,
-  section: WorkspaceSection,
-  content: ReactNode,
-  hasSectionStyleTheme: boolean,
-) {
-  const itemArea = getWorkspaceItemAreaPresentationOrThrow(host, section);
-  // The toolbar's compact spacing belongs to this composition rather than to the declared mode,
-  // and the declared leading renderer is what selects it. The slot stays content-agnostic: its
-  // return value is rendered and never inspected.
-  return (
-    <WorkspaceItemFilterProvider
-      hasSectionStyleTheme={hasSectionStyleTheme}
-      sectionId={section.id}
-    >
-      {itemArea.renderLeadingContent?.(section)}
-      {itemArea.toolbar === "hidden" ? null : (
-        <WorkspaceItemToolbar
-          followsLeadingContent={itemArea.renderLeadingContent !== undefined}
-          mode={itemArea.toolbar}
+      {section.itemTree ? (
+        <WorkspaceItemFilterProvider
+          hasSectionStyleTheme={hasSectionStyleTheme}
           sectionId={section.id}
-        />
+        >
+          <WorkspaceItemAuthoringToolbar sectionId={section.id} />
+          {content}
+        </WorkspaceItemFilterProvider>
+      ) : (
+        content
       )}
-      {content}
-    </WorkspaceItemFilterProvider>
+    </div>
   );
 }

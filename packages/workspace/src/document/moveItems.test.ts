@@ -69,10 +69,7 @@ function makeSection(
 
 function loadTestDocument(childrenById: Record<string, Array<string>>) {
   registerSectionKinds(testWorkspace.host, {
-    leaf: {
-      renderContent: () => null,
-      itemArea: { toolbar: "authoring-and-filter" },
-    },
+    leaf: { renderContent: () => null },
   });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
@@ -240,10 +237,7 @@ describe("moveItems", () => {
 
   it("throws for sections without an item tree", () => {
     registerSectionKinds(testWorkspace.host, {
-      leaf: {
-        renderContent: () => null,
-        itemArea: { toolbar: "authoring-and-filter" },
-      },
+      leaf: { renderContent: () => null },
     });
     loadWorkspaceDocument(testWorkspace.host, {
       sections: { bare: makeSection("bare") },

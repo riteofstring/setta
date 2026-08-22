@@ -4,9 +4,7 @@ export const PROJECT_SNAPSHOT_VERSION_V1 = "v1" as const;
 export const PROJECT_PATH_V1 = "/api/v1/project" as const;
 export const PROJECT_CALLABLE_PATH_V1 = "/api/v1/project/callable" as const;
 export const PROJECT_CALLABLE_COMPLETIONS_PATH_V1 = "/api/v1/project/callable/completions" as const;
-export const PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1 = "/api/v1/project/python-target/completions" as const;
-export const PROJECT_PARAMETERS_PATH_V1 = "/api/v1/project/parameters" as const;
-export const PROJECT_TARGET_PATH_V1 = "/api/v1/project/target" as const;
+export const PROJECT_PARAMETER_PATH_V1 = "/api/v1/project/parameters/" as const;
 
 export const PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1 = "positional_only" as const;
 export const PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1 = "positional_or_keyword" as const;
@@ -25,50 +23,6 @@ export const PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1 = "not_started" as const;
 export const PROVIDER_LIFECYCLE_STATE_READY_V1 = "ready" as const;
 export const PROVIDER_LIFECYCLE_STATE_PENDING_V1 = "pending" as const;
 export const PROVIDER_LIFECYCLE_STATE_FAILED_V1 = "failed" as const;
-
-export const PYTHON_TARGET_COMPLETION_REGION_PREFIX_V1 = "prefix" as const;
-export const PYTHON_TARGET_COMPLETION_REGION_SUFFIX_V1 = "suffix" as const;
-
-// The store refuses a parameter name that Python reserves, and the client applies
-// that same rule to a name being written rather than sending one the store will
-// reject. The list is rendered from its one Go owner so the two cannot drift.
-export const PYTHON_KEYWORDS_V1 = [
-  "False",
-  "None",
-  "True",
-  "and",
-  "as",
-  "assert",
-  "async",
-  "await",
-  "break",
-  "class",
-  "continue",
-  "def",
-  "del",
-  "elif",
-  "else",
-  "except",
-  "finally",
-  "for",
-  "from",
-  "global",
-  "if",
-  "import",
-  "in",
-  "is",
-  "lambda",
-  "nonlocal",
-  "not",
-  "or",
-  "pass",
-  "raise",
-  "return",
-  "try",
-  "while",
-  "with",
-  "yield",
-] as const;
 
 export type ProjectSnapshotVersionV1 = typeof PROJECT_SNAPSHOT_VERSION_V1;
 export type ParameterPassingStyleV1 =
@@ -90,18 +44,12 @@ export type ProviderLifecycleStateV1 =
   | typeof PROVIDER_LIFECYCLE_STATE_READY_V1
   | typeof PROVIDER_LIFECYCLE_STATE_PENDING_V1
   | typeof PROVIDER_LIFECYCLE_STATE_FAILED_V1;
-export type PythonTargetCompletionRegionV1 =
-  | typeof PYTHON_TARGET_COMPLETION_REGION_PREFIX_V1
-  | typeof PYTHON_TARGET_COMPLETION_REGION_SUFFIX_V1;
 export type APIErrorCodeV1 =
   | "invalid_request"
   | "method_not_allowed"
   | "not_found"
   | "invalid_callable"
   | "invalid_parameter_expression"
-  | "invalid_parameter_name"
-  | "invalid_python_target"
-  | "revision_conflict"
   | "unsupported_signature"
   | "provider_unavailable"
   | "internal";
@@ -137,7 +85,6 @@ export interface CallableV1 {
 export interface ParameterV1 {
   id: string;
   name: string;
-  nameEditable: boolean;
   passingStyle: ParameterPassingStyleV1;
   typeAnnotation: string;
   default: string | null;
@@ -160,9 +107,7 @@ export interface DiagnosticV1 {
   id: string;
   severity: DiagnosticSeverityV1;
   message: string;
-  start: number;
-  end: number;
-  targetId: string | null;
+  targetId: string;
 }
 
 export interface ProviderStatusV1 {
@@ -184,41 +129,18 @@ export interface CallableCompletionRequestV1 {
   cursorOffsetUtf16: number;
 }
 
-export interface PythonTargetCompletionRequestV1 {
-  projectId: string;
-  region: PythonTargetCompletionRegionV1;
-  prefix: string;
-  suffix: string;
-  cursorOffsetUtf16: number;
-}
-
-export interface CompletionItemV1 {
+export interface CallableCompletionItemV1 {
   label: string;
   insertText: string;
 }
 
-export interface CompletionResponseV1 {
-  items: CompletionItemV1[];
+export interface CallableCompletionResponseV1 {
+  items: CallableCompletionItemV1[];
 }
 
-export interface ParameterProposalV1 {
-  id: string;
-  name: string;
+export interface SetParameterExpressionRequestV1 {
+  projectId: string;
   authoredExpression: string;
-}
-
-export interface SetCallableParametersRequestV1 {
-  projectId: string;
-  callableId: string;
-  expectedRevision: number;
-  parameters: ParameterProposalV1[];
-}
-
-export interface SetPythonTargetRequestV1 {
-  projectId: string;
-  expectedRevision: number;
-  prefix: string;
-  suffix: string;
 }
 
 export interface APIErrorV1 {

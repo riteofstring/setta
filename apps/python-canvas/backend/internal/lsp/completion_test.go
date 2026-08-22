@@ -27,7 +27,7 @@ func TestBasedpyrightProviderCompletesThroughTemporarySnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CompleteCallable() error = %v", err)
 	}
-	wantItems := []project.CompletionItem{
+	wantItems := []project.CallableCompletionItem{
 		{Label: "sqrt", InsertText: "sqrt"},
 		{Label: "floor", InsertText: "floor"},
 	}
@@ -40,31 +40,6 @@ func TestBasedpyrightProviderCompletesThroughTemporarySnapshot(t *testing.T) {
 		workspaceRoot,
 		canonicalCode+completionSnapshotSeparator+authoredExpression,
 		Position{Line: 4, Character: 7},
-	)
-}
-
-func TestBasedpyrightProviderCompletesPythonTargetThroughTheSameTemporarySnapshotLifecycle(t *testing.T) {
-	provider, writer, workspaceRoot := newCompletionProviderForTest(t, fakeCompletionSuccess)
-	code := "import mat\n\nclass SettaState:\n    pass\n\nstate = SettaState()"
-	items, err := provider.CompletePythonTarget(
-		context.Background(),
-		project.PythonTargetCompletionRequest{
-			Code:             code,
-			CursorOffsetByte: 9,
-		},
-	)
-	if err != nil {
-		t.Fatalf("CompletePythonTarget() error = %v", err)
-	}
-	if want := []project.CompletionItem{{Label: "sqrt", InsertText: "sqrt"}, {Label: "floor", InsertText: "floor"}}; !reflect.DeepEqual(items, want) {
-		t.Fatalf("target completion items = %#v, want %#v", items, want)
-	}
-	requireCompletionSnapshotLifecycle(
-		t,
-		writer,
-		workspaceRoot,
-		code,
-		Position{Line: 0, Character: 9},
 	)
 }
 

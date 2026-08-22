@@ -7,10 +7,7 @@ import {
   notifyWorkspaceDocumentChange,
   runWithWorkspaceDocumentChangeNotificationsSuppressed,
 } from "./documentChangeCallback";
-import {
-  commitWorkspaceDocument,
-  loadWorkspaceDocument,
-} from "./loadWorkspaceDocument";
+import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { moveSections } from "./moveSections";
 import { registerSectionKinds } from "./sectionKindRegistry";
 import {
@@ -171,26 +168,6 @@ describe("document-change notification", () => {
     host.loadDocument(makeDocument());
     expect(reported).toHaveLength(1);
     expect(reported[0]?.sections["leaf"]?.name).toBe("leaf");
-  });
-
-  it("validates and publishes one complete host-driven document commit", () => {
-    const before = host.getSnapshot();
-
-    expect(() =>
-      commitWorkspaceDocument(host, { ...before, activeIds: ["missing"] }),
-    ).toThrow(/Active ids references unknown section missing/u);
-    expect(host.getSnapshot()).toEqual(before);
-    expect(reported).toEqual([]);
-
-    commitWorkspaceDocument(host, {
-      ...before,
-      sections: {
-        ...before.sections,
-        leaf: { ...before.sections["leaf"]!, name: "Committed leaf" },
-      },
-    });
-    expect(reported).toHaveLength(1);
-    expect(reported[0]?.sections["leaf"]?.name).toBe("Committed leaf");
   });
 
   it("suppresses notifications inside an explicit suppression scope", () => {

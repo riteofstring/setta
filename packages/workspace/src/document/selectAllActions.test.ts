@@ -70,10 +70,7 @@ const documentChangeSpy = vi.fn();
 // observable; "group" holds "grouped", and "bare" has no parameters at all.
 function loadSelectionDocument(activeIds: Array<string>) {
   registerSectionKinds(testWorkspace.host, {
-    leaf: {
-      renderContent: () => null,
-      itemArea: { toolbar: "authoring-and-filter" },
-    },
+    leaf: { renderContent: () => null },
   });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {

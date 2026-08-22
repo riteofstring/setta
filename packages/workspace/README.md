@@ -388,25 +388,16 @@ serializable configuration. Scalar controls and labels need no handler registrat
 remain valid through `data` plus `WorkspaceItemList.renderItem`, and missing custom renderers fail
 specifically.
 
-An item-tree section's parameter filter follows the item-area toolbar mode its kind declares at
-registration: both toolbar-rendering modes present the same compact package-owned filter, while
-`hidden` presents none and leaves that list in its ordinary unfiltered context. The built-in
-`workspace.focus-item-filter` operation, bound to `Mod + K` by default, focuses the sole active
-section's rendered filter; with any other number of active sections, or where the declared item
-area renders no filter, it declines and leaves the chord to the browser. That filter's accessible
-name stays **Filter parameters**, and while its section is the sole active one its empty input
-advertises whichever chord the registry currently resolves for that operation — so rebinding or
-unbinding it through `registerWorkspaceKeyBindings` changes the advertisement as well as the
-dispatch, and an unbound operation leaves the ordinary **Filter** text. Where the filter
-renders, its query is local view state and never mutates or notifies the canonical document. Fuzzy
-matching uses built-in `presentation.label` values and preserves document order while revealing a
-matching item's ancestor path. Custom opaque items participate only when their owning section kind
-registers `getItemSearchableText({ section, item })`; both snapshots are deeply frozen, and the
-callback must return one string. The narrow section snapshot contains its id, kind, name, and
-opaque data; the item snapshot is complete. An active filter disables item drag-and-drop and
-structural keyboard moves, retains canonical selection with an explicit hidden-selection notice,
-preserves the list's scroll position and surviving editor instances, and provides clear actions in
-both the search control and empty result.
+Every item-tree section receives a compact package-owned parameter filter. Its query is local view
+state and never mutates or notifies the canonical document. Fuzzy matching uses built-in
+`presentation.label` values and preserves document order while revealing a matching item's ancestor
+path. Custom opaque items participate only when their owning section kind registers
+`getItemSearchableText({ section, item })`; both snapshots are deeply frozen, and the callback must
+return one string. The narrow section snapshot contains its id, kind, name, and opaque data; the
+item snapshot is complete. An active filter disables item drag-and-drop and structural keyboard moves,
+retains canonical selection with an explicit hidden-selection notice, preserves the list's scroll
+position and surviving editor instances, and provides clear actions in both the search control and
+empty result.
 
 `WorkspaceItemList.itemDiagnostics` accepts one complete section-scoped registry of error, warning,
 and information messages. The package validates the entire replacement before rendering it,
@@ -456,58 +447,7 @@ host-owned configuration. The context is a deeply frozen snapshot that discrimin
 section from a selected custom item plus its owning section; it exposes no package store, live
 canonical object, or private selector.
 
-An ordinary kind whose sections carry an `itemTree` must declare its item-area presentation:
-
-```ts
-itemArea: {
-  renderLeadingContent?: (section) => ReactNode,
-  toolbar: "authoring-and-filter" | "filter-only" | "hidden",
-}
-```
-
-The package renders one coherent item area in this exact order: `renderLeadingContent(section)`
-when present, the toolbar selected by the declared mode, then `renderContent(section)`. One
-package-owned item-filter provider wraps all three regions. A kind that declares
-`renderLeadingContent` composes its toolbar under that slot, so the toolbar takes the reference's
-compact block spacing and the two surfaces meet; a kind that declares none keeps the ordinary
-toolbar's own step, because its toolbar opens the item area directly under the section header. That
-spacing follows the composition the kind declares, not the toolbar mode it selects and not anything
-the slot renders. `authoring-and-filter` keeps the full
-Args toolbar; `filter-only` renders the same Args/filter surface without the Add, Remove, and
-Delete actions; `hidden` renders no toolbar while the item list keeps its ordinary unfiltered
-context, so the parameter filter described above is present in exactly the two rendering modes. A
-rendered toolbar carries `data-workspace-item-toolbar` with its declared mode: that attribute is
-the one documented hook for observing the selected mode, and no other toolbar structure is public.
-The mode is never inferred from a missing item factory, a locked section, an item count, or
-application data — a section that carries items whose kind declares no item area fails at load and
-at render, and a meta-control kind cannot declare one. The leading slot is content-agnostic: the
-package places it and never interprets what it renders.
-
-A `TextValueEditor` states which of its two placements it means: `item-row` for a parameter control,
-or `section-field` for the compact field a section renders in that leading slot. The package owns
-the section field's whole surface — the reference's rounded box, its 12px monospace type, its focus
-border, and the layout gutter for one optional caller-owned end adornment, whose content and ARIA
-stay with the caller. Both editor layers share that one box and type owner, so activating the field
-changes only its border colour. The field owns no block margin, so it begins at the section
-header's own boundary and the item toolbar begins at the field's, exactly as the reference
-composes them; a host that wants space around it gives that space to its own content. The rendered
-field carries `data-workspace-section-field`: that
-attribute is the one documented hook for observing or capturing the surface, and no field class,
-inner structure, or CodeMirror internal is public.
-
-Both placements share the reference's editing keys. A supplied `completionProvider` offers its
-options in a popup the canvas parents beside its scene rather than inside the section that would
-clip it, so a popup taller than a compact field is fully visible and still pans and zooms with the
-scene. The canvas renders that parent per host: a consumer never passes, names, or opts into one,
-and no CodeMirror element, extension, or tooltip option crosses the package root. The popup takes
-Tab to accept one option and the first Escape to close itself. An
-unmodified Enter belongs to a declared `onCommit`, popup or no popup, so a single-line field
-commits the draft it is showing rather than needing a second press; a control that declares no
-`onCommit` leaves that Enter to the popup. The Escape that reaches the editor reports to the
-optional `onEscape` before the package returns focus to the owning section: a caller holding an
-uncommitted draft restores its own canonical value there, because the package never guesses one.
-
-An ordinary kind whose sections carry an `itemTree` may also register `createItem(context)`. The host
+An ordinary kind whose sections carry an `itemTree` may register `createItem(context)`. The host
 returns one complete serializable item with a stable ID, empty `children`, and its domain defaults;
 `context.section` is a detached, deeply frozen snapshot. `insertWorkspaceItem`,
 `deleteWorkspaceItems`, `deleteLastWorkspaceItem`, and `deleteSelectedWorkspaceItems` are the
@@ -515,11 +455,8 @@ canonical public operations used by the package toolbar, item menu, Inspector, a
 actions. The package appends insertions at the item root, validates the complete next tree, updates
 selection and focus, and reports exactly one document change. The operations reject unavailable
 structure capability, locked sections, and active item drags before invoking a factory or writing.
-A kind without a factory remains readable and deletable: the `authoring-and-filter` toolbar disables
-its Add parameter control, while `filter-only` and `hidden` render no toolbar Add control at all.
-The declared mode selects that toolbar and nothing else. It never changes structure capability, the
-registered factory, or these canonical operations, which the item menu, Inspector, and direct host
-actions keep calling under their own rules in every mode.
+A kind without a factory remains readable and deletable, while its Add parameter controls are
+disabled.
 
 That ordinary kind may also register `getItemSearchableText(context)` for custom opaque items.
 Built-in items always use their package-owned label, so the callback is invoked only for custom
@@ -557,7 +494,6 @@ registerSectionKinds({
   },
   parameters: {
     renderContent: (section) => <ParameterRows section={section} />,
-    itemArea: { toolbar: "authoring-and-filter" },
     getItemSearchableText: ({ item }) => readCustomSearchText(item.data),
     createItem: ({ section }) => ({
       id: `${section.id}-${crypto.randomUUID()}`,
@@ -610,41 +546,9 @@ The Text section carries `text`, `format` (`plaintext` or `markdown`), `displayM
 rendered mode is GitHub-flavored Markdown with tables, task lists, inline code, fenced code with
 language-aware highlighting and a copy button, and KaTeX math, with raw HTML never parsed, or a
 whitespace-preserving block for plain text. The Code Editor section carries `code`, `language`,
-`wrapLines`, `lineNumbers`, `indentWidth`, and a required `mode` over the package's language set:
-Python, Bash, JavaScript, TypeScript, JSON, YAML, TOML, Markdown, and plain text. `mode` is one of
-`editable`, `read-only`, or `generated-document`. A `read-only` section keeps the text selectable,
-copyable, and scrollable, and stops being an editing surface rather than leaving a caret in one
-that refuses every keystroke: the wrapper stays the section's focus target, says it is read-only in
-its accessible name, and Enter no longer reaches into an editor. A `generated-document` section
-also carries `generatedRegion`, one `{ from, to }` range of UTF-16 CodeMirror offsets into its own
-`code`; the package never infers it from the text, and a missing, empty, reversed, fractional, or
-out-of-document range — like a region declared on an ordinary mode, or a generated document that
-declares none — is rejected at the same data boundary. Only the lines that range covers are
-painted as machine-written output, with the reference's blue region, its leading rail, and its
-compact uppercase generated/read-only badge centred on the block's upper boundary. Declare the
-range the way the reference's own protected range runs — from the end of the text before it to the
-start of the text after it — because those two boundary lines carry a lip of the block rather than
-a full band. Text outside the range keeps the ordinary editor's paint, and so does a section taller
-than its document.
-
-The text outside that range is authored: a generated document is an ordinary editing surface, and
-the range is what it refuses. A user transaction is accepted only when every one of its changes
-lies wholly before or wholly after the range, so typing, paste, cut, deletion, replacement, undo,
-and redo across it are refused whole rather than partly applied, and the block says so with a
-`not-allowed` cursor while staying selectable and copyable. An accepted edit maps the range through
-its own changes — text inserted at either boundary belongs to the outer text — and the section is
-told the next `code` and the mapped `generatedRegion` together, so its data never describes a
-region that has moved out from under it. Cursor motion steps over the block, and a pointer press
-inside it leaves the caret at the nearer end, because there is nowhere inside it for the next
-character to go. Locking a section makes an `editable` section read-only and a generated document
-non-editable throughout, keeping the block's paint; it never turns an ordinary section into a
-generated document. Both sections share that editor, so a read-only or locked Text section is
-non-editable the same way. The rendered surface carries
-`data-workspace-section-editor` with the presentation it resolved to, and each line of a generated
-block carries `data-workspace-generated-line` with its position in that block (`start`, `middle`,
-`end`, or `only` when the region begins and ends on one line): those two attributes are the
-documented hooks for observing or capturing it, and no editor class, inner structure, or CodeMirror
-internal is public.
+`wrapLines`, `lineNumbers`, `indentWidth`, and `readOnly` over the package's language set: Python,
+Bash, JavaScript, TypeScript, JSON, YAML, TOML, Markdown, and plain text. Locking a section, like
+its `readOnly` field, makes its editor read-only while it stays selectable and scrollable.
 
 Registration options are how a host customizes them:
 

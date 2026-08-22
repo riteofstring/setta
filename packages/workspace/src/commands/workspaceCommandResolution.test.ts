@@ -116,7 +116,6 @@ describe("workspace command resolution", () => {
     registerSectionKinds(testWorkspace.host, {
       leaf: {
         renderContent: () => null,
-        itemArea: { toolbar: "authoring-and-filter" },
         createItem: () => ({
           id: `created-${crypto.randomUUID()}`,
           children: [],

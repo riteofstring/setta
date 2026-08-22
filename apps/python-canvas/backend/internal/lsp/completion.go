@@ -17,32 +17,7 @@ const completionSnapshotSeparator = "\n\n"
 func (provider *BasedpyrightProvider) CompleteCallable(
 	ctx context.Context,
 	request project.CallableCompletionRequest,
-) ([]project.CompletionItem, error) {
-	snapshotCode, draftStart, err := completionSnapshot(request.CanonicalCode, request.AuthoredExpression)
-	if err != nil {
-		return nil, err
-	}
-	draftOffset, err := project.ByteOffsetForUTF16Offset(request.AuthoredExpression, request.CursorOffsetUTF16)
-	if err != nil {
-		return nil, fmt.Errorf("lsp: resolve completion cursor: %w", err)
-	}
-	return provider.completeSnapshot(ctx, snapshotCode, draftStart+draftOffset)
-}
-
-// CompletePythonTarget uses the same temporary-document lifecycle as callable completion. Its
-// request is already a fully rendered candidate module and a renderer-derived byte boundary.
-func (provider *BasedpyrightProvider) CompletePythonTarget(
-	ctx context.Context,
-	request project.PythonTargetCompletionRequest,
-) ([]project.CompletionItem, error) {
-	return provider.completeSnapshot(ctx, request.Code, request.CursorOffsetByte)
-}
-
-func (provider *BasedpyrightProvider) completeSnapshot(
-	ctx context.Context,
-	snapshotCode string,
-	cursorOffsetByte int,
-) ([]project.CompletionItem, error) {
+) ([]project.CallableCompletionItem, error) {
 	if provider == nil {
 		return nil, ErrProviderClosed
 	}
@@ -51,10 +26,16 @@ func (provider *BasedpyrightProvider) completeSnapshot(
 	if provider.closed {
 		return nil, ErrProviderClosed
 	}
-	if strings.TrimSpace(snapshotCode) == "" {
-		return nil, fmt.Errorf("lsp: completion context is empty")
+
+	snapshotCode, draftStart, err := completionSnapshot(request.CanonicalCode, request.AuthoredExpression)
+	if err != nil {
+		return nil, err
 	}
-	position, err := positionForByteOffset(snapshotCode, cursorOffsetByte)
+	draftOffset, err := project.ByteOffsetForUTF16Offset(request.AuthoredExpression, request.CursorOffsetUTF16)
+	if err != nil {
+		return nil, fmt.Errorf("lsp: resolve completion cursor: %w", err)
+	}
+	position, err := positionForByteOffset(snapshotCode, draftStart+draftOffset)
 	if err != nil {
 		return nil, fmt.Errorf("lsp: resolve completion position: %w", err)
 	}
@@ -115,8 +96,8 @@ func (provider *BasedpyrightProvider) createCompletionSnapshot(code string) (str
 	return snapshotPath, nil
 }
 
-func normalizeCompletionItems(result CompletionResult) []project.CompletionItem {
-	items := make([]project.CompletionItem, 0, len(result.Items))
+func normalizeCompletionItems(result CompletionResult) []project.CallableCompletionItem {
+	items := make([]project.CallableCompletionItem, 0, len(result.Items))
 	for _, item := range result.Items {
 		label := strings.TrimSpace(item.Label)
 		if label == "" {
@@ -126,7 +107,7 @@ func normalizeCompletionItems(result CompletionResult) []project.CompletionItem 
 		if insertText == "" {
 			insertText = label
 		}
-		items = append(items, project.CompletionItem{
+		items = append(items, project.CallableCompletionItem{
 			Label:      label,
 			InsertText: insertText,
 		})

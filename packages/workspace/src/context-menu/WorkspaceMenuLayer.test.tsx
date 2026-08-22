@@ -122,7 +122,6 @@ describe("WorkspaceMenuLayer", () => {
     registerSectionKinds(testWorkspace.host, {
       leaf: {
         renderContent: () => null,
-        itemArea: { toolbar: "authoring-and-filter" },
         defaultSize: { width: 200, height: 100 },
       },
     });

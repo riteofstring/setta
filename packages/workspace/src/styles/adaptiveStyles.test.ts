@@ -9,14 +9,6 @@ const itemToolbarStyles = readFileSync(
   new URL("./itemToolbar.css", import.meta.url),
   "utf8",
 );
-const sectionFieldStyles = readFileSync(
-  new URL("./sectionField.css", import.meta.url),
-  "utf8",
-);
-const generatedDocumentStyles = readFileSync(
-  new URL("./generatedDocument.css", import.meta.url),
-  "utf8",
-);
 const focusVisibilityStyles = readFileSync(
   new URL("./workspaceFocusVisibility.css", import.meta.url),
   "utf8",
@@ -77,20 +69,18 @@ describe("workspace adaptive stylesheet contract", () => {
     );
   });
 
-  it("promotes section compositor layers only while a viewport gesture runs", () => {
+  it("prepares section compositor layers before pan starts without a per-section state fanout", () => {
+    expect(workspaceStyles).toContain(
+      ".setta-workspace.react-flow:hover [data-section-id]",
+    );
     expect(workspaceStyles).toMatch(
-      /\.setta-workspace\.react-flow\[data-viewport-interaction-active="true"\]\s+\[data-section-id\][^{]*\{[^}]*will-change: transform[^}]*transform: translateZ\(0\)[^}]*backface-visibility: hidden[^}]*isolation: isolate/su,
+      /\.setta-workspace\.react-flow\[data-viewport-interaction-active="true"\]\s+\[data-section-id\]/u,
     );
-    // A settled section keeps no layer of its own, so an enlarged zoom rasterizes its content
-    // again instead of scaling the picture the gesture left behind.
-    expect(workspaceStyles).not.toContain(
-      ".react-flow:hover [data-section-id]",
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace\.react-flow:hover \[data-section-id\][^{]*\{[^}]*will-change: transform[^}]*transform: translateZ\(0\)[^}]*backface-visibility: hidden[^}]*isolation: isolate/su,
     );
-    expect(workspaceStyles).not.toMatch(
-      /@media \(hover: none\)[^{]*\{[^}]*\[data-section-id\]/su,
-    );
-    expect(workspaceStyles.match(/will-change: transform/gu)?.length ?? 0).toBe(
-      1,
+    expect(workspaceStyles).toMatch(
+      /@media \(hover: none\)[^{]*\{[^}]*\.setta-workspace\.react-flow \[data-section-id\]/su,
     );
   });
 
@@ -183,25 +173,6 @@ describe("workspace adaptive stylesheet contract", () => {
     );
     expect(itemToolbarStyles).toMatch(
       /@media \(forced-colors: active\)[^{]*\{[^}]*\.setta-workspace-item-filter-input:focus-visible[^}]*outline: 1px solid Highlight/su,
-    );
-  });
-
-  it("keeps the section field's focus cue visible once forced colours drop its border", () => {
-    expect(sectionFieldStyles).toMatch(
-      /\.setta-workspace-section-field-editor-live \*\s*\{[^}]*outline: 0/su,
-    );
-    expect(sectionFieldStyles).toMatch(
-      /@media \(forced-colors: active\)[^{]*\{[^}]*\.setta-workspace-section-field:focus-within[^}]*outline: 1px solid Highlight/su,
-    );
-  });
-
-  it("keeps a generated document legible once forced colours drop its region", () => {
-    expect(generatedDocumentStyles).toMatch(
-      /@media \(forced-colors: active\)[^{]*\{[^}]*\.setta-workspace-generated-document[^}]*border-inline-start: 3px solid CanvasText/su,
-    );
-    // The badge's fill carries its only contrast, so it needs an authored edge as well.
-    expect(generatedDocumentStyles).toMatch(
-      /@media \(forced-colors: active\)[\s\S]*::after\s*\{[^}]*border: 1px solid CanvasText/u,
     );
   });
 

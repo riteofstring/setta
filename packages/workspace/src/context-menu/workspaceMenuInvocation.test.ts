@@ -86,12 +86,7 @@ describe("workspace menu invocation", () => {
   beforeEach(() => {
     host = createWorkspaceHost();
     resetState(host);
-    registerSectionKinds(host, {
-      leaf: {
-        renderContent: () => null,
-        itemArea: { toolbar: "authoring-and-filter" },
-      },
-    });
+    registerSectionKinds(host, { leaf: { renderContent: () => null } });
     host.loadDocument({
       sections: {
         alpha: createSection("alpha", true),

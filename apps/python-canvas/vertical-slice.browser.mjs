@@ -1,605 +1,340 @@
-import {
-  assertAuthoredPythonAroundTheGeneratedBody,
-  assertTargetlessDocumentDiagnostic,
-  mappedDiagnosticHasNoInlineLintScript,
-} from "./browser-generated-python.mjs";
-import {
-  assertRawFirstRender,
-  shippedExample,
-} from "./browser-first-render.mjs";
-import { assertCallableDiagnosticPresentation } from "./browser-diagnostics.mjs";
-import { assertPythonTargetCompletionParity } from "./browser-target-completion.mjs";
-import {
-  assertAuthoredParameterAuthoring,
-  assertStructuralParameterControls,
-  firstStructuralControlName,
-} from "./browser-parameters.mjs";
+import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import net from "node:net";
+import os from "node:os";
+import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
 
-import {
-  fetchCanonicalSnapshot,
-  runAgainstProductionApp,
-} from "./browser-processes.mjs";
-import {
-  activateTextBox,
-  clickElementCenter,
-  dragSelectElement,
-  evaluate,
-  insertText,
-  labeledSelector,
-  navigate,
-  pressEnter,
-  pressEscape,
-  pressModifierK,
-  pressTab,
-  selectAll,
-  setEmulatedAppearance,
-  textBoxSelector,
-  waitFor,
-} from "./browser-page.mjs";
-import {
-  assertCallableFieldParity,
-  assertCompletionPopupEscapesTheSection,
-  assertDonorCallableFieldSurface,
-  assertDonorGeneratedRegion,
-  assertDonorSectionComposition,
-  assertAuthorableGeneratedDocument,
-  assertGeneratedBlockHugsCode,
-  assertGeneratedRegionBoundsItsBody,
-  assertSettledCardIsInsideCanvas,
-  assertSettledSectionIsNotPromoted,
-  callableFieldStateScript,
-  callableSectionSelector,
-  callableSectionStateScript,
-  enterCallableField,
-  fieldTypeProperties,
-  firstParameterSelector,
-  generatedDocumentSelector,
-  generatedDocumentStateScript,
-  idleCallableSelector,
-  itemToolbarSelector,
-  liveCallableSelector,
-  readPlacedCallableCompletionPopup,
-  readSettledSectionState,
-  replaceCallableDraft,
-  waitForCallableCompletion,
-  waitForCallableDraft,
-  waitForClosedCallableCompletion,
-  waitForIdleCallableField,
-  waitForIdleCallableValue,
-  zoomCanvasOnCallableCard,
-} from "./callable-presentation.mjs";
+import { createCdpPage } from "../../scripts/lib/cdp-client.mjs";
 
-// The Callable section is observed through public surfaces only: its accessible section group,
-// the package's one documented toolbar hook, and this app's own content root.
-const callableContentSelector = ".python-canvas-callable-section";
-// The application follows the reader's system appearance, so this walkthrough pins the one it
-// asserts donor values for. The capture harness records both.
-const walkthroughAppearance = "light";
+const appRoot = path.dirname(fileURLToPath(import.meta.url));
+const repositoryRoot = path.resolve(appRoot, "../..");
+const backendRoot = path.join(appRoot, "backend");
+const chromeDefaultPath =
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const productionTimeoutMs = 30_000;
 
-// The Args filter's own controls, resolved from its accessible name and required to belong to
-// the rendered toolbar. Nothing here reads package-private toolbar structure.
-const filterControlsScript = `(() => {
-  const toolbar = document.querySelector(${JSON.stringify(itemToolbarSelector)});
-  const label = Array.from(document.querySelectorAll("label")).find(
-    (candidate) => candidate.textContent?.trim() === "Filter parameters",
-  );
-  const input = label instanceof HTMLLabelElement ? label.control : null;
-  if (
-    !(toolbar instanceof HTMLElement) ||
-    !(input instanceof HTMLInputElement) ||
-    !toolbar.contains(input)
-  ) {
-    return null;
+function run(command, arguments_, options = {}) {
+  const result = spawnSync(command, arguments_, {
+    cwd: options.cwd ?? repositoryRoot,
+    encoding: "utf8",
+    env: { ...process.env, ...options.env },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.error) {
+    throw result.error;
   }
-  return {
-    input,
-    status: document.getElementById(input.getAttribute("aria-describedby") ?? ""),
-    toolbar,
-  };
-})()`;
-
-function withFilterControls(body) {
-  return `(() => {
-    const controls = ${filterControlsScript};
-    if (controls === null) {
-      return null;
-    }
-    ${body}
-  })()`;
+  if (result.status !== 0) {
+    throw new Error(
+      `${command} ${arguments_.join(" ")} exited with ${String(result.status)}.\n${result.stderr || result.stdout}`,
+    );
+  }
 }
 
-// The chord this platform's reader sees for the built-in item-filter binding, and the keys that
-// produce it. The package resolves the label from its own binding registry; this walkthrough runs
-// on Linux and macOS CI alike, so it asks the platform the same question the package does.
-const filterChord = process.platform === "darwin" ? "⌘ + K" : "Ctrl + K";
-
-// The accessible completion the shipped expression's own text still offers, which is what makes an
-// open popup available to the commit Enter that has to win over it.
-const shippedCompletionLabel = "sqrt";
-
-// A second real callable the demo does not boot with. Committing it is what makes the canonical
-// project actually move, so the keys before the commit can be proved not to move it.
-const otherCallable = {
-  callable: "math.floor",
-  completion: "floor",
-  draft: "math.fl",
-};
-
-function toolbarButtonNamesScript(toolbarExpression) {
-  return `Array.from(${toolbarExpression}.querySelectorAll("button"), (button) =>
-    button.getAttribute("aria-label") ?? button.textContent?.trim() ?? "",
-  )`;
+function startProcess(command, arguments_, options) {
+  const child = spawn(command, arguments_, {
+    cwd: options.cwd,
+    env: { ...process.env, ...options.env },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const output = { stderr: "", stdout: "" };
+  child.stderr.on("data", (chunk) => {
+    output.stderr = `${output.stderr}${String(chunk)}`.slice(-8_000);
+  });
+  child.stdout.on("data", (chunk) => {
+    output.stdout = `${output.stdout}${String(chunk)}`.slice(-8_000);
+  });
+  return { child, label: options.label, output };
 }
 
-// The corrected composition: the callable editor leads the section, the Args toolbar follows it in
-// the ordinary authoring mode, the parameter list follows the toolbar, and an ordinary idle section
-// says nothing about the provider.
-async function assertCallableFirstComposition(client, callableLabel) {
-  const composition = await evaluate(
-    client,
-    `(() => {
-      const section = document.querySelector(${JSON.stringify(callableSectionSelector)});
-      const editor = section?.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
-      const toolbar = section?.querySelector(${JSON.stringify(itemToolbarSelector)});
-      const list = section?.querySelector(${JSON.stringify(callableContentSelector)});
-      if (
-        !(editor instanceof HTMLElement) ||
-        !(toolbar instanceof HTMLElement) ||
-        !(list instanceof HTMLElement)
-      ) {
-        return null;
+async function stopProcess(processHandle) {
+  if (processHandle === null || processHandle.child.exitCode !== null) {
+    return;
+  }
+  const gracefulExit = once(processHandle.child, "exit");
+  processHandle.child.kill("SIGTERM");
+  const exitedGracefully = await Promise.race([
+    gracefulExit.then(() => true),
+    delay(5_000).then(() => false),
+  ]);
+  if (exitedGracefully) {
+    return;
+  }
+  const forcedExit = once(processHandle.child, "exit");
+  processHandle.child.kill("SIGKILL");
+  const exitedForcibly = await Promise.race([
+    forcedExit.then(() => true),
+    delay(2_000).then(() => false),
+  ]);
+  if (!exitedForcibly) {
+    throw new Error(
+      `${processHandle.label} process ${String(processHandle.child.pid)} did not terminate.`,
+    );
+  }
+}
+
+async function reserveLoopbackPort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once("error", reject);
+    server.listen({ host: "127.0.0.1", port: 0 }, () => {
+      const address = server.address();
+      if (typeof address !== "object" || address === null) {
+        server.close(() =>
+          reject(new Error("Unable to reserve a loopback port.")),
+        );
+        return;
       }
-      const precedes = (first, second) =>
-        (first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-      return {
-        alertCount: section.querySelectorAll('[role="alert"]').length,
-        editorPrecedesToolbar: precedes(editor, toolbar),
-        mentionsProvider: section.textContent?.includes("Basedpyright") === true,
-        toolbarButtonNames: ${toolbarButtonNamesScript("toolbar")},
-        toolbarMode: toolbar.getAttribute("data-workspace-item-toolbar"),
-        toolbarPrecedesList: precedes(toolbar, list),
-        toolbarText: toolbar.textContent?.trim() ?? "",
-      };
-    })()`,
-  );
-  if (composition === null) {
-    throw new Error(
-      "The Square Root section did not render its callable editor, Args toolbar, and parameter list.",
-    );
-  }
-  if (!composition.editorPrecedesToolbar || !composition.toolbarPrecedesList) {
-    throw new Error(
-      "The Square Root section must render the callable editor, then the Args toolbar, then the parameter list.",
-    );
-  }
-  if (composition.toolbarMode !== "authoring-and-filter") {
-    throw new Error(
-      `The Args toolbar rendered in ${JSON.stringify(composition.toolbarMode)} instead of authoring-and-filter.`,
-    );
-  }
-  if (!composition.toolbarText.includes("Args")) {
-    throw new Error("The Args toolbar no longer labels the Args area.");
-  }
-  assertStructuralParameterControls(composition.toolbarButtonNames);
-  if (composition.mentionsProvider || composition.alertCount > 0) {
-    throw new Error(
-      "The idle Square Root section still renders provider-status prose.",
-    );
-  }
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(address.port);
+      });
+    });
+  });
 }
 
-// The developer rejected the previous candidate because clicking the callable field changed its
-// dimensions and its type. Measure the donor pill idle, click it, and require that the same
-// surface comes back with only its border colour changed.
-async function assertCallableFieldActivationParity(client, callableLabel) {
-  await waitForIdleCallableField(client, callableLabel);
-  const idle = await evaluate(
-    client,
-    callableFieldStateScript(idleCallableSelector(callableLabel)),
-  );
-  if (idle === null) {
-    throw new Error("The idle callable field did not render its surface.");
-  }
-  assertDonorCallableFieldSurface(idle, walkthroughAppearance);
-
-  await enterCallableField(client, callableLabel);
-  const live = await evaluate(
-    client,
-    callableFieldStateScript(liveCallableSelector(callableLabel)),
-  );
-  if (live === null) {
-    throw new Error("The live callable field did not render its surface.");
-  }
-  assertCallableFieldParity(
-    idle,
-    live,
-    fieldTypeProperties,
-    walkthroughAppearance,
-  );
-
-  await pressEscape(client);
-  await waitFor(
-    client,
-    "the callable field returning to its idle layer",
-    `document.querySelector(${JSON.stringify(liveCallableSelector(callableLabel))}) === null`,
-  );
-}
-
-// The developer rejected one candidate because Generated Python exposed a black caret line inside
-// output nobody could author, the supervisor rejected the next because its region filled the
-// section's unused height with a corner badge, and the developer rejected the third because the
-// region claimed the target's authored prefix and suffix. Measure the generated block idle, click
-// it with a real pointer, and require the same region-bounded block over an editor whose caret
-// stays outside it.
-async function assertGeneratedDocumentPresentation(client, generatedLabel) {
-  const idle = await evaluate(client, generatedDocumentStateScript);
-  if (idle === null) {
-    throw new Error(
-      `${generatedLabel} did not render the package's generated-document surface.`,
-    );
-  }
-  assertDonorGeneratedRegion(idle, walkthroughAppearance);
-  assertGeneratedBlockHugsCode("The idle", idle);
-  assertGeneratedRegionBoundsItsBody("The idle", idle);
-  assertAuthorableGeneratedDocument("The idle", idle);
-
-  await clickElementCenter(
-    client,
-    generatedDocumentSelector,
-    "The generated Python region",
-  );
-  const clicked = await evaluate(client, generatedDocumentStateScript);
-  if (clicked === null) {
-    throw new Error("The clicked generated Python region lost its surface.");
-  }
-  assertGeneratedBlockHugsCode("The clicked", clicked);
-  assertGeneratedRegionBoundsItsBody("The clicked", clicked);
-  assertAuthorableGeneratedDocument("The clicked", clicked);
-  for (const [property, idleValue] of Object.entries(idle.region)) {
-    if (clicked.region[property] !== idleValue) {
+async function waitForHttp(processHandle, origin, description) {
+  const deadline = Date.now() + productionTimeoutMs;
+  while (Date.now() < deadline) {
+    if (processHandle.child.exitCode !== null) {
       throw new Error(
-        `Clicking generated Python changed ${property} from ${JSON.stringify(idleValue)} to ${JSON.stringify(clicked.region[property])}.`,
+        `${processHandle.label} exited with ${String(processHandle.child.exitCode)} while waiting for ${description}.\n${processHandle.output.stderr || processHandle.output.stdout}`,
       );
     }
+    try {
+      const response = await fetch(origin);
+      if (response.ok) {
+        return;
+      }
+    } catch (error) {
+      if (!(error instanceof TypeError)) {
+        throw error;
+      }
+    }
+    await delay(100);
   }
+  throw new Error(`${description} did not become ready within 30 seconds.`);
+}
 
-  await dragSelectElement(
-    client,
-    `${generatedDocumentSelector} [role="textbox"]`,
-    "The generated Python text",
-  );
-  const selected = await evaluate(
-    client,
-    `window.getSelection()?.toString() ?? ""`,
-  );
-  if (!selected.includes("class SettaState:")) {
+async function fetchCanonicalSnapshot(backendOrigin) {
+  const response = await fetch(`${backendOrigin}/api/v1/project`);
+  if (!response.ok) {
     throw new Error(
-      "Generated Python text could not be selected by a real pointer drag.",
+      `Canonical project snapshot request failed with ${String(response.status)}.`,
     );
   }
-  return idle.text.source;
+  return response.json();
 }
 
-// The developer exercised the app at an enlarged canvas zoom and found settled content blurred by
-// a compositor layer the package left on every hovered section, and a horizontal line across the
-// focused callable pill. Both are judged here, in a fresh scene before this walkthrough mutates
-// anything, because both are about what the shipped canvas paints rather than about a value the
-// project holds.
-async function assertSettledZoomPresentation(client, callableLabel) {
-  const zoomed = await zoomCanvasOnCallableCard(client);
-  assertSettledSectionIsNotPromoted("The zoomed", zoomed);
-  // The enlarged card is also the state the evidence photographs, so it has to be a state a
-  // photograph can hold: the complete header-to-parameter composition inside the canvas rather
-  // than partly under the application's status strip.
-  assertSettledCardIsInsideCanvas("The zoomed", zoomed);
-
-  // The line was the top border of a completion popup the section's own box cropped, so the popup
-  // is opened at that same enlarged zoom and measured against the field it belongs to.
-  await replaceCallableDraft(client, callableLabel, otherCallable.draft);
-  await waitForCallableCompletion(client, otherCallable.completion);
-  const popup = await readPlacedCallableCompletionPopup(client, "The zoomed");
-  assertCompletionPopupEscapesTheSection("The zoomed", popup);
-
-  // The popup takes the first Escape, the draft goes back to the canonical value on the second,
-  // and the settled card is still unpromoted with the field focused.
-  await pressEscape(client);
-  await waitForClosedCallableCompletion(client);
-  await pressEscape(client);
-  await waitForIdleCallableValue(
-    client,
-    callableLabel,
-    shippedExample.callable,
-  );
-  const edited = await readSettledSectionState(client, "The zoomed and edited");
-  assertSettledSectionIsNotPromoted("The zoomed and edited", edited);
-  assertSettledCardIsInsideCanvas("The zoomed and edited", edited);
-}
-
-// Rendered order alone would not prove the section reads correctly by keyboard. Start from the last
-// ordinary focus target before the callable field, enter the field with a real Tab key, and prove
-// its keyboard activation mounts the live editor before the next Tab reaches the Args filter.
-async function assertCallableEditorLeadsKeyboardOrder(client, callableLabel) {
-  await waitForIdleCallableField(client, callableLabel);
-  const precedingControlFocused = await evaluate(
-    client,
-    `(() => {
-      const section = document.querySelector(${JSON.stringify(callableSectionSelector)});
-      const control = document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
-      if (!(section instanceof HTMLElement) || !(control instanceof HTMLElement)) {
-        return false;
-      }
-      const focusable = Array.from(section.querySelectorAll(
-        'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
-      )).filter((candidate) =>
-        candidate instanceof HTMLElement &&
-        candidate !== control &&
-        candidate.getClientRects().length > 0 &&
-        (candidate.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+function chromeBinaryPath() {
+  const explicitPath = process.env.PYTHON_CANVAS_CHROME_BINARY;
+  if (explicitPath !== undefined && explicitPath !== "") {
+    if (!path.isAbsolute(explicitPath) || !existsSync(explicitPath)) {
+      throw new Error(
+        "PYTHON_CANVAS_CHROME_BINARY must name an existing absolute Chrome path.",
       );
-      const preceding = focusable.at(-1);
-      if (!(preceding instanceof HTMLElement)) {
-        return false;
-      }
-      preceding.focus({ preventScroll: true });
-      return document.activeElement === preceding;
-    })()`,
-  );
-  if (!precedingControlFocused) {
+    }
+    return explicitPath;
+  }
+  if (!existsSync(chromeDefaultPath)) {
     throw new Error(
-      "No focusable section control preceded the callable editor.",
+      "Chrome is required for the Python Canvas browser suite. Set PYTHON_CANVAS_CHROME_BINARY to an absolute executable path.",
     );
   }
-  await pressTab(client);
-  await waitFor(
-    client,
-    "live callable editor activation through keyboard traversal",
-    `Array.from(document.querySelectorAll(${JSON.stringify(labeledSelector(callableLabel))})).some((control) =>
-      control instanceof HTMLElement &&
-      control.getAttribute("contenteditable") === "true" &&
-      document.activeElement === control
-    )`,
-  );
-  await pressTab(client);
-  const focused = await waitFor(
-    client,
-    "keyboard focus moving from the callable editor into the Args toolbar",
-    `(() => {
-      const active = document.activeElement;
-      if (
-        !(active instanceof HTMLElement) ||
-        active.closest(${JSON.stringify(itemToolbarSelector)}) === null
-      ) {
-        return null;
-      }
-      return {
-        name:
-          active.labels?.[0]?.textContent?.trim() ??
-          active.getAttribute("aria-label") ??
-          "",
-      };
-    })()`,
-  );
-  // The authoring toolbar opens with its own actions, so the control after the field is the
-  // toolbar's first one rather than its filter. What this proves is that the field leads the
-  // section by keyboard, not which toolbar control comes first inside the package's own surface.
-  if (focused.name !== firstStructuralControlName) {
-    throw new Error(
-      `Tab from the callable editor reached ${JSON.stringify(focused.name)} instead of the Args toolbar's ${firstStructuralControlName}.`,
-    );
-  }
+  return chromeDefaultPath;
 }
 
-// The filter advertises the workspace binding that focuses it, and that exact chord does. The
-// label comes from the package's own binding registry, so the app spells no shortcut of its own.
-// The chord is pressed from inside the card, which is where a person is when they reach for it.
-async function assertArgsFilterAdvertisesAndAnswersItsBinding(
-  client,
-  callableLabel,
-) {
-  // Entering the field is what puts a person inside the card, and it waits for that entry to
-  // settle so the chord's own focus move is the last one this step makes.
-  await enterCallableField(client, callableLabel);
-  const idle = await evaluate(
-    client,
-    withFilterControls(`
-      return {
-        alreadyFocused: document.activeElement === controls.input,
-        name: controls.input.labels?.[0]?.textContent?.trim(),
-        placeholder: controls.input.placeholder,
-      };
-    `),
+function startHeadlessChrome() {
+  const profileDirectory = mkdtempSync(
+    path.join(os.tmpdir(), "setta-python-canvas-chrome-"),
   );
-  if (idle === null) {
-    throw new Error("The Args toolbar rendered no parameter filter.");
-  }
-  if (idle.alreadyFocused) {
-    throw new Error(
-      "The Args filter already held focus, so this cannot prove the binding moved it.",
-    );
-  }
-  if (idle.placeholder !== filterChord) {
-    throw new Error(
-      `The active section's empty filter showed ${JSON.stringify(idle.placeholder)} instead of ${JSON.stringify(filterChord)}.`,
-    );
-  }
-  if (idle.name !== "Filter parameters") {
-    throw new Error(
-      `The advertised shortcut replaced the filter's accessible name with ${JSON.stringify(idle.name)}.`,
-    );
-  }
+  const browser = startProcess(
+    chromeBinaryPath(),
+    [
+      "--headless=new",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-extensions",
+      "--disable-renderer-backgrounding",
+      "--no-default-browser-check",
+      "--no-first-run",
+      "--remote-debugging-port=0",
+      `--user-data-dir=${profileDirectory}`,
+      "about:blank",
+    ],
+    { cwd: appRoot, label: "Headless Chrome" },
+  );
+  return { ...browser, profileDirectory };
+}
 
-  await pressModifierK(client);
-  await waitFor(
-    client,
-    `the ${filterChord} binding focusing the Args filter`,
-    withFilterControls("return document.activeElement === controls.input;"),
+async function waitForHeadlessChrome(browser) {
+  const portFile = path.join(browser.profileDirectory, "DevToolsActivePort");
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    if (browser.child.exitCode !== null) {
+      throw new Error(
+        `Headless Chrome exited with ${String(browser.child.exitCode)}.\n${browser.output.stderr || browser.output.stdout}`,
+      );
+    }
+    if (existsSync(portFile)) {
+      const [rawPort] = readFileSync(portFile, "utf8").split("\n");
+      const port = Number(rawPort);
+      if (Number.isInteger(port) && port > 0 && port <= 65_535) {
+        return port;
+      }
+      throw new Error(
+        `Headless Chrome wrote an invalid DevTools port: ${rawPort}.`,
+      );
+    }
+    await delay(50);
+  }
+  throw new Error(
+    "Headless Chrome did not expose a DevTools port within 15 seconds.",
   );
 }
 
-// The retained filter still has to work, and it filters on the text the app projects for its own
-// opaque rows rather than on package-owned labels.
-async function assertArgsFilterRemainsOperable(client, parameterLabel) {
-  const focused = await evaluate(
-    client,
-    withFilterControls(`
-      controls.input.focus({ preventScroll: true });
-      return document.activeElement === controls.input;
-    `),
-  );
-  if (focused !== true) {
+async function stopHeadlessChrome(browser) {
+  try {
+    await stopProcess(browser);
+  } finally {
+    rmSync(browser.profileDirectory, { force: true, recursive: true });
+  }
+}
+
+async function evaluate(client, expression) {
+  const response = await client.send("Runtime.evaluate", {
+    awaitPromise: true,
+    expression,
+    returnByValue: true,
+  });
+  if (response.exceptionDetails) {
     throw new Error(
-      "The Args toolbar did not expose a focusable parameter filter.",
+      `Browser evaluation failed: ${response.exceptionDetails.exception?.description ?? response.exceptionDetails.text}`,
     );
   }
-  await insertText(client, "zzz");
-  await waitFor(
-    client,
-    "the Args filter hiding a non-matching parameter",
-    withFilterControls(`
-      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
-      return !(parameter instanceof HTMLElement) &&
-        controls.status?.textContent?.trim() === "0 matching parameters.";
-    `),
-  );
-  const names = await evaluate(
-    client,
-    withFilterControls(
-      `return ${toolbarButtonNamesScript("controls.toolbar")};`,
-    ),
-  );
-  if (names === null) {
-    throw new Error("The Args toolbar disappeared while filtering.");
+  return response.result?.value;
+}
+
+async function waitFor(client, description, expression) {
+  const deadline = Date.now() + productionTimeoutMs;
+  while (Date.now() < deadline) {
+    const result = await evaluate(client, expression);
+    if (result) {
+      return result;
+    }
+    await delay(100);
   }
-  assertStructuralParameterControls(names);
-  const cleared = await evaluate(
+  throw new Error(`${description} did not occur within 30 seconds.`);
+}
+
+function textBoxSelector(label) {
+  return `[role="textbox"][aria-label=${JSON.stringify(label)}]`;
+}
+
+function labeledSelector(label) {
+  return `[aria-label=${JSON.stringify(label)}]`;
+}
+
+async function activateTextBox(client, label) {
+  const selector = textBoxSelector(label);
+  const found = await evaluate(
     client,
     `(() => {
-      const button = document.querySelector('[aria-label="Clear parameter filter"]');
-      if (!(button instanceof HTMLElement)) {
+      const control = document.querySelector(${JSON.stringify(selector)});
+      if (!(control instanceof HTMLElement)) {
         return false;
       }
-      button.click();
+      control.focus({ preventScroll: true });
       return true;
     })()`,
   );
-  if (!cleared) {
-    throw new Error("The active Args filter exposed no clear control.");
-  }
-  await waitFor(
-    client,
-    "the cleared Args filter restoring the parameter row",
-    withFilterControls(`
-      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
-      return parameter instanceof HTMLElement && controls.input.value === "";
-    `),
-  );
-}
-
-// Main's callable search: Tab accepts an offer into the draft without committing, one unmodified
-// Enter commits the draft the field is showing even while the popup is open, and the Escape that
-// gets past the popup abandons the draft for the canonical name.
-//
-// Every step drives a second real callable through the field. The demo now boots on `math.sqrt`,
-// so a sequence that starts and ends there proves nothing: the store returns early when a commit
-// repeats the expression it already holds, and a wait for the committed projection is satisfied
-// before the key is even pressed. Only the last step returns the project to the shipped example.
-async function assertCallableKeysMatchMain(
-  client,
-  backendOrigin,
-  callableLabel,
-  generatedLabel,
-  generatedSource,
-) {
-  const shipped = await fetchCanonicalSnapshot(backendOrigin);
-
-  await replaceCallableDraft(client, callableLabel, otherCallable.draft);
-  await waitForCallableCompletion(client, otherCallable.completion);
-  await pressEscape(client);
-  await waitForClosedCallableCompletion(client);
-  // The popup takes the first Escape for itself, as it does in main, so the draft is still here.
-  await waitForCallableDraft(client, callableLabel, otherCallable.draft);
-  await pressEscape(client);
-  await waitForIdleCallableValue(
-    client,
-    callableLabel,
-    shippedExample.callable,
-  );
-  assertCanonicalProjectUnchanged(
-    "Abandoning a callable draft",
-    shipped,
-    await fetchCanonicalSnapshot(backendOrigin),
-  );
-
-  await replaceCallableDraft(client, callableLabel, otherCallable.draft);
-  await waitForCallableCompletion(client, otherCallable.completion);
-  await pressTab(client);
-  await waitForCallableDraft(client, callableLabel, otherCallable.callable);
-  await waitFor(
-    client,
-    "the accepted completion leaving generated Python alone",
-    `(() => {
-      const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
-      return generated?.querySelector('[role="textbox"]')?.textContent === ${JSON.stringify(generatedSource)};
-    })()`,
-  );
-  assertCanonicalProjectUnchanged(
-    "Accepting a completion with Tab",
-    shipped,
-    await fetchCanonicalSnapshot(backendOrigin),
-  );
-
-  // One Enter on the accepted draft, with no popup left to blame for it.
-  await pressEnter(client);
-  await assertCommittedCallable(client, backendOrigin, {
-    callableLabel,
-    expression: otherCallable.callable,
-    generatedLabel,
-  });
-
-  // And one Enter over an open popup, which is the press the rejected candidate spent on the
-  // completion and made a person repeat.
-  await replaceCallableDraft(client, callableLabel, shippedExample.callable);
-  await waitForCallableCompletion(client, shippedCompletionLabel);
-  await pressEnter(client);
-  await assertCommittedCallable(client, backendOrigin, {
-    callableLabel,
-    expression: shippedExample.callable,
-    generatedLabel,
-  });
-}
-
-// A commit is canonical when the store holds the new expression and the reader shows the call it
-// generates. Leaving the field afterwards proves the same value survives the Escape that abandons
-// an uncommitted draft.
-async function assertCommittedCallable(
-  client,
-  backendOrigin,
-  { callableLabel, expression, generatedLabel },
-) {
-  await waitFor(
-    client,
-    `the ${expression} call in generated Python`,
-    `(() => {
-      const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
-      return generated?.textContent?.includes(${JSON.stringify(`state.Square_Root = ${expression}()`)}) === true;
-    })()`,
-  );
-  const canonical = await fetchCanonicalSnapshot(backendOrigin);
-  const committed = canonical.callables?.[0]?.authoredExpression ?? null;
-  if (committed !== expression) {
+  if (!found) {
     throw new Error(
-      `One Enter left the canonical callable at ${JSON.stringify(committed)} instead of committing ${JSON.stringify(expression)}.`,
+      `Accessible text box ${JSON.stringify(label)} was not found.`,
     );
   }
-  await pressEscape(client);
-  await waitForIdleCallableValue(client, callableLabel, expression);
+  await waitFor(
+    client,
+    `live ${label} editor activation`,
+    `(() => {
+      const control = document.querySelector(${JSON.stringify(labeledSelector(label))});
+      return control instanceof HTMLElement && control.getAttribute("contenteditable") === "true";
+    })()`,
+  );
+  await evaluate(
+    client,
+    `(() => {
+      const control = document.querySelector(${JSON.stringify(labeledSelector(label))});
+      if (!(control instanceof HTMLElement)) {
+        return false;
+      }
+      control.focus({ preventScroll: true });
+      return document.activeElement === control;
+    })()`,
+  );
 }
 
-async function waitForAccessibleControls(
-  client,
-  callableLabel,
-  generatedLabel,
-) {
+async function insertText(client, value) {
+  await client.send("Input.insertText", { text: value });
+}
+
+async function pressEnter(client) {
+  const params = {
+    code: "Enter",
+    key: "Enter",
+    nativeVirtualKeyCode: 13,
+    windowsVirtualKeyCode: 13,
+  };
+  await client.send("Input.dispatchKeyEvent", { ...params, type: "keyDown" });
+  await client.send("Input.dispatchKeyEvent", { ...params, type: "keyUp" });
+}
+
+async function selectAll(client) {
+  const isMac = process.platform === "darwin";
+  const modifier = isMac ? 4 : 2;
+  const modifierKey = isMac ? "Meta" : "Control";
+  await client.send("Input.dispatchKeyEvent", {
+    code: modifierKey,
+    key: modifierKey,
+    type: "keyDown",
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    code: "KeyA",
+    key: "a",
+    modifiers: modifier,
+    type: "keyDown",
+    windowsVirtualKeyCode: 65,
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    code: "KeyA",
+    key: "a",
+    modifiers: modifier,
+    type: "keyUp",
+    windowsVirtualKeyCode: 65,
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    code: modifierKey,
+    key: modifierKey,
+    type: "keyUp",
+  });
+}
+
+async function navigate(client, origin) {
+  const loaded = client.waitForEvent("Page.loadEventFired", 15_000);
+  await client.send("Page.navigate", { url: origin });
+  await loaded;
+}
+
+async function runWalkthrough(client, backendOrigin) {
+  const callableLabel = "Callable expression";
+  const parameterLabel = "x expression";
+  const generatedLabel = "Generated Python code editor";
+
   await waitFor(
     client,
     "Python Canvas accessible controls",
@@ -610,45 +345,85 @@ async function waitForAccessibleControls(
       return callable instanceof HTMLElement && generated instanceof HTMLElement && canvas instanceof HTMLElement;
     })()`,
   );
-}
 
-async function runWalkthrough(client, backendOrigin, previewOrigin) {
-  const callableLabel = "Callable expression";
-  const parameterLabel = "x expression";
-  const generatedLabel =
-    "Generated Python code editor, generated output read-only";
-
-  await waitForAccessibleControls(client, callableLabel, generatedLabel);
-
-  await assertRawFirstRender(client, backendOrigin, callableLabel);
-  // The zoom states are judged in this untouched scene, before anything below edits a draft or
-  // commits a callable, and the page is then reloaded so the rest measures the shipped 1x
-  // composition rather than whatever the gesture left behind.
-  await assertSettledZoomPresentation(client, callableLabel);
-  await navigate(client, previewOrigin);
-  await waitForAccessibleControls(client, callableLabel, generatedLabel);
-
-  await assertCallableFirstComposition(client, callableLabel);
-  await assertCallableFieldActivationParity(client, callableLabel);
-  await assertCallableEditorLeadsKeyboardOrder(client, callableLabel);
-
-  const generatedSource = await assertGeneratedDocumentPresentation(
+  const generatedEditor = await evaluate(
     client,
-    generatedLabel,
+    `(() => {
+      const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
+      const editor = generated?.querySelector('[role="textbox"]');
+      if (!(editor instanceof HTMLElement)) {
+        return null;
+      }
+      return {
+        source: editor.textContent,
+        isReadOnly: editor.getAttribute("aria-readonly") === "true",
+      };
+    })()`,
   );
-  await assertCallableKeysMatchMain(
+  if (generatedEditor === null || !generatedEditor.isReadOnly) {
+    throw new Error("Generated Python editor must be read-only.");
+  }
+  const generatedEditorFocused = await evaluate(
     client,
-    backendOrigin,
-    callableLabel,
-    generatedLabel,
-    generatedSource,
+    `(() => {
+      const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
+      const editor = generated?.querySelector('[role="textbox"]');
+      if (!(editor instanceof HTMLElement)) {
+        return false;
+      }
+      editor.focus({ preventScroll: true });
+      return document.activeElement === editor;
+    })()`,
   );
-  await assertPythonTargetCompletionParity(
+  if (!generatedEditorFocused) {
+    throw new Error(
+      "Generated Python editor could not receive keyboard focus.",
+    );
+  }
+  await insertText(client, "attempted_mutation");
+  await delay(100);
+  const generatedSourceDidNotChange = await evaluate(
     client,
-    backendOrigin,
-    previewOrigin,
-    generatedLabel,
+    `(() => {
+      const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
+      const editor = generated?.querySelector('[role="textbox"]');
+      return editor?.textContent === ${JSON.stringify(generatedEditor.source)};
+    })()`,
   );
+  if (!generatedSourceDidNotChange) {
+    throw new Error("Generated Python editor accepted an authored mutation.");
+  }
+
+  const beforeCompletion = await fetchCanonicalSnapshot(backendOrigin);
+  await activateTextBox(client, callableLabel);
+  await insertText(client, "math.sq");
+  await waitFor(
+    client,
+    "accessible sqrt completion",
+    `Array.from(document.querySelectorAll('[role="option"]')).some((option) => option.textContent?.trim() === "sqrt")`,
+  );
+  await pressEnter(client);
+
+  await waitFor(
+    client,
+    "first completion Enter changing only the callable draft",
+    `(() => {
+      const callable = document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
+      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
+      const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
+      const generatedEditor = generated?.querySelector('[role="textbox"]');
+      return callable?.textContent === "math.sqrt" &&
+        parameter === null &&
+        generatedEditor?.textContent === ${JSON.stringify(generatedEditor.source)};
+    })()`,
+  );
+  const afterCompletion = await fetchCanonicalSnapshot(backendOrigin);
+  assertCompletionDidNotMutateCanonicalProject(
+    beforeCompletion,
+    afterCompletion,
+  );
+
+  await pressEnter(client);
 
   await waitFor(
     client,
@@ -656,9 +431,7 @@ async function runWalkthrough(client, backendOrigin, previewOrigin) {
     `(() => {
       const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
       const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
-      return parameter instanceof HTMLElement &&
-        parameter.getAttribute("aria-disabled") !== "true" &&
-        generated?.textContent?.includes("state.Square_Root = math.sqrt()") === true;
+      return parameter instanceof HTMLElement && generated?.textContent?.includes("state.Square_Root = math.sqrt()") === true;
     })()`,
   );
 
@@ -668,25 +441,11 @@ async function runWalkthrough(client, backendOrigin, previewOrigin) {
     client,
     "mapped undefined-name diagnostic",
     `(() => {
-      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
       const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
-      const row = parameter?.closest('[data-item-row="true"]');
-      const description = row?.querySelector(
-        '[data-setta-workspace-item-quick-info-description="true"]',
+      const diagnostic = Array.from(document.querySelectorAll('[role="status"]')).some((element) =>
+        element.textContent?.includes("Parameter diagnostics available."),
       );
-      const announcement = document.querySelector(
-        '[data-setta-workspace-item-diagnostic-announcer="true"]',
-      );
-      const marker = row?.querySelector(
-        '[data-setta-workspace-item-diagnostic-marker="true"]',
-      );
-      return parameter instanceof HTMLElement &&
-        generated?.textContent?.includes("state.Square_Root__x = missing_value") === true &&
-        row?.dataset.settaWorkspaceItemDiagnosticSeverity === "error" &&
-        marker instanceof HTMLElement &&
-        description?.textContent?.includes("missing_value") === true &&
-        announcement?.textContent?.includes("missing_value") === true &&
-        ${mappedDiagnosticHasNoInlineLintScript(generatedLabel, "missing_value")};
+      return generated?.textContent?.includes("state.Square_Root__x = missing_value") === true && diagnostic;
     })()`,
   );
 
@@ -708,88 +467,41 @@ async function runWalkthrough(client, backendOrigin, previewOrigin) {
     client,
     "cleared parameter diagnostic",
     `(() => {
-      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
       const generated = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
-      const row = parameter?.closest('[data-item-row="true"]');
       const cleared = Array.from(document.querySelectorAll('[role="status"]')).some((element) =>
         element.textContent?.includes("Parameter diagnostics cleared."),
       );
-      return parameter instanceof HTMLElement &&
-        parameter.getAttribute("aria-disabled") !== "true" &&
-        generated?.textContent?.includes("state.Square_Root__x = 3") === true &&
-        generated?.textContent?.includes("missing_value") === false &&
-        cleared &&
-        row instanceof HTMLElement &&
-        row.dataset.settaWorkspaceItemDiagnosticSeverity === undefined &&
-        row?.querySelector('[data-setta-workspace-item-diagnostic-marker="true"]') === null &&
-        row?.querySelector('[data-setta-workspace-item-quick-info-description="true"]') === null;
+      return generated?.textContent?.includes("state.Square_Root__x = 3") === true &&
+        generated?.textContent?.includes("missing_value") === false && cleared;
     })()`,
   );
-
-  // The developer rejected a candidate whose callable field measured correctly while the card
-  // around it did not, so the complete committed card is measured as one stack here — the state
-  // main's own reference capture shows.
-  const cardComposition = await evaluate(client, callableSectionStateScript);
-  if (cardComposition === null) {
-    throw new Error(
-      "The Square Root card did not render its complete header, field, toolbar, and parameter stack.",
-    );
-  }
-  assertDonorSectionComposition(cardComposition, walkthroughAppearance);
-
-  await assertArgsFilterAdvertisesAndAnswersItsBinding(client, callableLabel);
-  await assertArgsFilterRemainsOperable(client, parameterLabel);
-  // Real argument authoring, which the rejected filter-only candidate did not offer at all.
-  await assertAuthoredParameterAuthoring(client, backendOrigin, generatedLabel);
-  await assertCallableDiagnosticPresentation(
-    client,
-    backendOrigin,
-    callableLabel,
-    generatedLabel,
-  );
-  await assertTargetlessDocumentDiagnostic(
-    client,
-    backendOrigin,
-    previewOrigin,
-    generatedLabel,
-  );
-  // Real Python authoring around the generated body, which the rejected whole-document read-only
-  // candidate did not offer at all. It runs last because it reloads the page.
-  await assertAuthoredPythonAroundTheGeneratedBody(
-    client,
-    backendOrigin,
-    previewOrigin,
-    generatedLabel,
-  );
-  // The field has to keep the donor surface after a real edit round trip, not only on first paint.
-  await assertCallableFieldActivationParity(client, callableLabel);
 }
 
-function assertCanonicalProjectUnchanged(stage, before, after) {
+function assertCompletionDidNotMutateCanonicalProject(before, after) {
   assertCanonicalValue(
     before.project?.revision,
     after.project?.revision,
-    `${stage} changed the canonical project revision.`,
+    "Selecting a completion changed the canonical project revision.",
   );
   assertCanonicalValue(
     before.callables,
     after.callables,
-    `${stage} committed or otherwise changed canonical callable records.`,
+    "Selecting a completion committed or otherwise changed canonical callable records.",
   );
   assertCanonicalValue(
     before.parameters,
     after.parameters,
-    `${stage} created or changed a canonical parameter.`,
+    "Selecting a completion created or changed a canonical parameter.",
   );
   assertCanonicalValue(
     before.generatedCode,
     after.generatedCode,
-    `${stage} changed the canonical generated code.`,
+    "Selecting a completion changed the canonical generated code.",
   );
   assertCanonicalValue(
     before.diagnostics,
     after.diagnostics,
-    `${stage} changed canonical diagnostics.`,
+    "Selecting a completion changed canonical diagnostics.",
   );
 }
 
@@ -800,14 +512,94 @@ function assertCanonicalValue(before, after, message) {
 }
 
 async function main() {
-  await runAgainstProductionApp(
-    async ({ backendOrigin, client, previewOrigin }) => {
-      await setEmulatedAppearance(client, walkthroughAppearance);
-      await navigate(client, previewOrigin);
-      await runWalkthrough(client, backendOrigin, previewOrigin);
-    },
+  run("pnpm", ["--filter", "@setta/workspace", "run", "build"]);
+  run("pnpm", ["run", "build"], { cwd: appRoot });
+
+  const temporaryDirectory = mkdtempSync(
+    path.join(os.tmpdir(), "setta-python-canvas-browser-"),
   );
-  console.log("Python Canvas browser vertical slice passed.");
+  let backend = null;
+  let preview = null;
+  let browser = null;
+  let client = null;
+  try {
+    const backendPort = await reserveLoopbackPort();
+    const previewPort = await reserveLoopbackPort();
+    const backendOrigin = `http://127.0.0.1:${String(backendPort)}`;
+    const previewOrigin = `http://127.0.0.1:${String(previewPort)}`;
+    const backendBinary = path.join(temporaryDirectory, "python-canvas");
+    run("go", ["build", "-o", backendBinary, "./cmd/python-canvas"], {
+      cwd: backendRoot,
+    });
+
+    backend = startProcess(backendBinary, ["-port", String(backendPort)], {
+      cwd: appRoot,
+      label: "Python Canvas backend",
+    });
+    await waitForHttp(
+      backend,
+      `${backendOrigin}/api/v1/project`,
+      "Python Canvas backend",
+    );
+
+    preview = startProcess(
+      process.execPath,
+      [
+        path.join(appRoot, "node_modules/vite/bin/vite.js"),
+        "preview",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        String(previewPort),
+        "--strictPort",
+      ],
+      {
+        cwd: appRoot,
+        env: { PYTHON_CANVAS_BACKEND_ORIGIN: backendOrigin },
+        label: "Python Canvas production preview",
+      },
+    );
+    await waitForHttp(
+      preview,
+      previewOrigin,
+      "Python Canvas production preview",
+    );
+
+    browser = startHeadlessChrome();
+    const cdpPort = await waitForHeadlessChrome(browser);
+    const page = await createCdpPage(cdpPort);
+    client = page.client;
+    await Promise.all([
+      client.send("Page.enable"),
+      client.send("Runtime.enable"),
+      client.send("Emulation.setDeviceMetricsOverride", {
+        deviceScaleFactor: 1,
+        height: 900,
+        mobile: false,
+        width: 1_440,
+      }),
+    ]);
+    await navigate(client, previewOrigin);
+    await runWalkthrough(client, backendOrigin);
+    console.log("Python Canvas browser vertical slice passed.");
+  } finally {
+    client?.close();
+    try {
+      if (browser !== null) {
+        await stopHeadlessChrome(browser);
+      }
+    } finally {
+      try {
+        await stopProcess(preview);
+      } finally {
+        try {
+          await stopProcess(backend);
+        } finally {
+          rmSync(temporaryDirectory, { force: true, recursive: true });
+        }
+      }
+    }
+  }
 }
 
 await main();

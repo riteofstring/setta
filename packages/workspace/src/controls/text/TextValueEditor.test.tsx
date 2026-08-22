@@ -49,17 +49,6 @@ import { TextValueEditor, type TextValueEditorProps } from "./TextValueEditor";
 
 const SECTION_ID = "panel";
 const ITEM_ID = "item-alpha";
-const FIELD_ID = "expression";
-
-type ItemRowEditorProps = Extract<
-  TextValueEditorProps,
-  { presentation: "item-row" }
->;
-type SectionFieldEditorProps = Extract<
-  TextValueEditorProps,
-  { presentation: "section-field" }
->;
-
 function getDummyId(): string {
   return `${testWorkspace.domId}-${SECTION_ID}-${ITEM_ID}-ItemValueInput`;
 }
@@ -91,15 +80,14 @@ describe("TextValueEditor", () => {
     testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
-  async function mount(props: Partial<ItemRowEditorProps> = {}) {
+  async function mount(props: Partial<TextValueEditorProps> = {}) {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(TextValueEditor, {
             ariaLabel: "Threshold value",
             sectionId: SECTION_ID,
-            controlId: ITEM_ID,
-            presentation: "item-row",
+            itemId: ITEM_ID,
             value: "0.001",
             language: "python",
             onValueChange: () => {},
@@ -192,8 +180,7 @@ describe("TextValueEditor", () => {
             <WorkspaceTestProvider workspace={testWorkspace}>
               <TextValueEditor
                 ariaLabel="First threshold value"
-                controlId={ITEM_ID}
-                presentation="item-row"
+                itemId={ITEM_ID}
                 language="python"
                 onValueChange={() => {}}
                 sectionId={SECTION_ID}
@@ -203,8 +190,7 @@ describe("TextValueEditor", () => {
             <WorkspaceTestProvider workspace={secondWorkspace}>
               <TextValueEditor
                 ariaLabel="Second threshold value"
-                controlId={ITEM_ID}
-                presentation="item-row"
+                itemId={ITEM_ID}
                 language="python"
                 onValueChange={() => {}}
                 sectionId={SECTION_ID}
@@ -315,13 +301,13 @@ describe("TextValueEditor", () => {
     expect(view.state.doc.toString()).toBe("0.001");
   });
 
-  // The reference's completion keys: Tab accepts, Escape closes, and an unmodified Enter belongs
-  // to the declared commit even while the popup is showing. A rejected candidate spent that Enter
-  // on the popup and required a second one to commit, which is the behavior these assertions fail
-  // on if it returns.
-  it("gives an active completion popup Tab and Escape but never the declared commit's Enter", async () => {
+  it("gives an active completion popup immediate Enter and Escape precedence before normal editor actions", async () => {
     const onCommit = vi.fn();
-    const provider = sqrtCompletionProvider();
+    const provider = vi.fn().mockResolvedValue({
+      from: 5,
+      options: [{ insertText: "sqrt", label: "sqrt" }],
+      to: 7,
+    });
     await mount({
       completionProvider: provider,
       onCommit,
@@ -331,7 +317,10 @@ describe("TextValueEditor", () => {
     await activate();
     const view = getLiveView();
 
-    await openCompletionAtCaretEnd(view);
+    await act(async () => {
+      expect(startCompletion(view)).toBe(true);
+    });
+    await waitForCompletion(view, "active");
     expect(document.querySelector('[role="option"]')?.textContent).toContain(
       "sqrt",
     );
@@ -350,21 +339,10 @@ describe("TextValueEditor", () => {
     expect(onCommit).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(view.contentDOM);
 
-    await openCompletionAtCaretEnd(view);
-    const tab = new KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      code: "Tab",
-      key: "Tab",
-    });
     await act(async () => {
-      view.contentDOM.dispatchEvent(tab);
+      expect(startCompletion(view)).toBe(true);
     });
-    expect(tab.defaultPrevented).toBe(true);
-    expect(view.state.doc.toString()).toBe("math.sqrt");
-    expect(onCommit).not.toHaveBeenCalled();
-
-    await openCompletionAtCaretEnd(view);
+    await waitForCompletion(view, "active");
     const composingEnter = new KeyboardEvent("keydown", {
       bubbles: true,
       cancelable: true,
@@ -375,50 +353,36 @@ describe("TextValueEditor", () => {
     await act(async () => {
       view.contentDOM.dispatchEvent(composingEnter);
     });
+    expect(view.state.doc.toString()).toBe("math.sq");
     expect(onCommit).not.toHaveBeenCalled();
     expect(completionStatus(view.state)).toBe("active");
-
-    const enter = new KeyboardEvent("keydown", {
+    const firstEnter = new KeyboardEvent("keydown", {
       bubbles: true,
       cancelable: true,
       code: "Enter",
       key: "Enter",
     });
     await act(async () => {
-      view.contentDOM.dispatchEvent(enter);
+      view.contentDOM.dispatchEvent(firstEnter);
     });
-    expect(enter.defaultPrevented).toBe(true);
-    expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(onCommit).toHaveBeenCalledWith("math.sqrt");
-    expect(completionStatus(view.state)).not.toBe("active");
-  });
-
-  // The reference's ordinary parameter rows declare no Enter action, so their popup keeps
-  // CodeMirror's own Enter-accepts binding. Only a declared commit takes that key away.
-  it("leaves Enter to the completion popup when the caller declares no commit", async () => {
-    await mount({
-      completionProvider: sqrtCompletionProvider(),
-      singleLine: true,
-      value: "math.sq",
-    });
-    await activate();
-    const view = getLiveView();
-
-    await openCompletionAtCaretEnd(view);
-    await act(async () => {
-      view.contentDOM.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          bubbles: true,
-          cancelable: true,
-          code: "Enter",
-          key: "Enter",
-        }),
-      );
-    });
+    expect(firstEnter.defaultPrevented).toBe(true);
     expect(view.state.doc.toString()).toBe("math.sqrt");
+    expect(onCommit).not.toHaveBeenCalled();
+
+    const secondEnter = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Enter",
+      key: "Enter",
+    });
+    await act(async () => {
+      view.contentDOM.dispatchEvent(secondEnter);
+    });
+    expect(secondEnter.defaultPrevented).toBe(true);
+    expect(onCommit).toHaveBeenCalledWith("math.sqrt");
   });
 
-  it("aborts stale completion requests on document change and leaves an unaccompanied Tab to focus navigation", async () => {
+  it("aborts stale completion requests on document change and never adds a Tab binding", async () => {
     const first = createDeferred<{
       from: number;
       options: Array<{ label: string }>;
@@ -616,342 +580,6 @@ describe("TextValueEditor", () => {
   });
 });
 
-// The section-field presentation is the same editor core inside the package's compact field
-// surface. These cases re-run the accepted commit, completion, IME, Escape, and disabled
-// behavior at that placement and pin the adornment's boundary: it is layout the package owns and
-// content the caller owns, never editor value and never a keyboard participant.
-describe("TextValueEditor section-field presentation", () => {
-  let host: HTMLDivElement;
-  let root: Root;
-
-  beforeEach(() => {
-    host = document.createElement("div");
-    document.body.appendChild(host);
-    root = createRoot(host);
-  });
-
-  afterEach(async () => {
-    await act(async () => {
-      root.unmount();
-    });
-    host.remove();
-    testWorkspace.document.getState().reset();
-    testWorkspace.activeSections.getState().reset();
-    testWorkspace.itemSelectionMode.getState().reset();
-    testWorkspace.appearance.getState().reset();
-    testWorkspace.sectionRefs.getState().reset();
-    testWorkspace.reactFlow.setState({ ...initialCanvasState });
-  });
-
-  async function mountField(props: Partial<SectionFieldEditorProps> = {}) {
-    await act(async () => {
-      root.render(
-        <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(TextValueEditor, {
-            ariaLabel: "Expression",
-            sectionId: SECTION_ID,
-            controlId: FIELD_ID,
-            presentation: "section-field",
-            value: "math.sq",
-            language: "python",
-            singleLine: true,
-            onValueChange: () => {},
-            ...props,
-          })}
-        </WorkspaceTestProvider>,
-      );
-    });
-  }
-
-  function getFieldDummy(): HTMLElement {
-    const dummy = host.querySelector<HTMLElement>(
-      `#${testWorkspace.domId}-${SECTION_ID}-${FIELD_ID}-SectionField`,
-    );
-    if (!dummy) {
-      throw new Error("The section-field idle layer is not rendered.");
-    }
-    return dummy;
-  }
-
-  async function activateField() {
-    await act(async () => {
-      getFieldDummy().dispatchEvent(
-        new MouseEvent("mousedown", {
-          bubbles: true,
-          button: 0,
-          clientX: 5,
-          clientY: 5,
-        }),
-      );
-    });
-  }
-
-  function getFieldView(): EditorView {
-    const editorDom = host.querySelector<HTMLElement>(".cm-editor");
-    const view = editorDom ? EditorView.findFromDOM(editorDom) : null;
-    if (!view) {
-      throw new Error("The live section-field editor is not mounted.");
-    }
-    return view;
-  }
-
-  it("renders one full-width package-owned surface with no item-row value column", async () => {
-    await mountField();
-    const field = host.querySelector<HTMLElement>(
-      ".setta-workspace-section-field",
-    );
-    expect(field).not.toBeNull();
-    expect(field?.dataset["disabled"]).toBe("false");
-    // The one public hook for the surface: consumers and captures observe the field here rather
-    // than through the private class its stylesheet paints.
-    expect(host.querySelector("[data-workspace-section-field='true']")).toBe(
-      field,
-    );
-    expect(field?.classList.contains("nodrag")).toBe(true);
-    expect(field?.classList.contains("nopan")).toBe(true);
-    // No underlined value-column divider and no item-row placement classes at this placement.
-    expect(host.querySelector("span.section-value")).toBeNull();
-    const dummy = getFieldDummy();
-    expect(dummy.getAttribute("aria-label")).toBe("Expression");
-    expect(dummy.textContent).toBe("math.sq");
-    expect(dummy.classList.contains("section-value")).toBe(false);
-  });
-
-  it("presents and clears a section-field diagnostic in both editor layers", async () => {
-    const message = 'Argument has incompatible type "str".';
-    await mountField({ diagnosticMessage: message });
-
-    const field = host.querySelector<HTMLElement>(
-      ".setta-workspace-section-field",
-    );
-    const description = host.querySelector<HTMLElement>("[role='status']");
-    if (!field || !description) {
-      throw new Error(
-        "The diagnostic section field did not render its surface.",
-      );
-    }
-    expect(field.dataset["diagnostic"]).toBe("true");
-    expect(description.textContent).toBe(`Error: ${message}`);
-    expect(description.getAttribute("aria-live")).toBe("polite");
-    const indicator = field.querySelector<HTMLElement>(
-      ".setta-workspace-section-field-diagnostic-indicator",
-    );
-    expect(indicator?.getAttribute("aria-hidden")).toBe("true");
-    expect(indicator?.getAttribute("title")).toBe(message);
-    expect(getFieldDummy().getAttribute("aria-invalid")).toBe("true");
-    expect(getFieldDummy().getAttribute("aria-describedby")).toBe(
-      description.id,
-    );
-
-    await activateField();
-    const live = getFieldView().contentDOM;
-    expect(live.getAttribute("aria-invalid")).toBe("true");
-    expect(live.getAttribute("aria-describedby")).toBe(description.id);
-
-    // A canonical snapshot replaces the diagnostic while the field is still live.
-    // Its controlled text and active layer stay intact; only error state disappears.
-    await mountField();
-    expect(field.dataset["diagnostic"]).toBe("false");
-    expect(description.textContent).toBe("");
-    expect(
-      field.querySelector(
-        ".setta-workspace-section-field-diagnostic-indicator",
-      ),
-    ).toBeNull();
-    expect(getFieldView().contentDOM.getAttribute("aria-invalid")).toBeNull();
-    expect(
-      getFieldView().contentDOM.getAttribute("aria-describedby"),
-    ).toBeNull();
-  });
-
-  it("keeps the caller's end adornment out of the value and out of keyboard order", async () => {
-    const onValueChange = vi.fn();
-    await mountField({
-      endAdornment: <span data-testid="pending-mark">pending</span>,
-      onValueChange,
-    });
-    const adornment = host.querySelector<HTMLElement>(
-      ".setta-workspace-section-field-adornment",
-    );
-    expect(adornment?.textContent).toBe("pending");
-    // Layout is package-owned and sits outside the editor layers.
-    expect(adornment?.querySelector("[role='textbox'], .cm-editor")).toBeNull();
-    expect(adornment?.contains(getFieldDummy())).toBe(false);
-    expect(adornment?.querySelectorAll("[tabindex]")).toHaveLength(0);
-
-    await activateField();
-    const view = getFieldView();
-    expect(view.state.doc.toString()).toBe("math.sq");
-    expect(onValueChange).not.toHaveBeenCalled();
-  });
-
-  // Main's field carries its box and its type on each stacked layer, so activating it changes both.
-  // Here the wrapper owns the box and both layers carry the one class that owns the type, which is
-  // what keeps the swap invisible.
-  it("swaps the idle layer for a live editor on the same type owner", async () => {
-    await mountField();
-    const dummy = getFieldDummy();
-    expect(
-      dummy.classList.contains("setta-workspace-section-field-editor"),
-    ).toBe(true);
-    expect(
-      dummy.classList.contains("setta-workspace-section-field-editor-live"),
-    ).toBe(false);
-
-    await activateField();
-    const live = host.querySelector<HTMLElement>(
-      ".setta-workspace-section-field-editor-live",
-    );
-    expect(
-      live?.classList.contains("setta-workspace-section-field-editor"),
-    ).toBe(true);
-    expect(live?.querySelector(".cm-editor")).not.toBeNull();
-    // The box stays on the wrapper both layers sit inside, never on a layer.
-    const field = host.querySelector<HTMLElement>(
-      ".setta-workspace-section-field",
-    );
-    expect(field?.contains(live ?? null)).toBe(true);
-  });
-
-  it("omits the adornment gutter entirely when the caller supplies none", async () => {
-    await mountField();
-    expect(
-      host.querySelector(".setta-workspace-section-field-adornment"),
-    ).toBeNull();
-  });
-
-  it("commits on an unmodified Enter and ignores IME-composing Enter", async () => {
-    const onCommit = vi.fn();
-    await mountField({ onCommit });
-    await activateField();
-    const view = getFieldView();
-
-    const composing = new KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      code: "Enter",
-      isComposing: true,
-      key: "Enter",
-    });
-    await act(async () => {
-      view.contentDOM.dispatchEvent(composing);
-    });
-    expect(onCommit).not.toHaveBeenCalled();
-
-    const enter = new KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      code: "Enter",
-      key: "Enter",
-    });
-    await act(async () => {
-      view.contentDOM.dispatchEvent(enter);
-    });
-    expect(enter.defaultPrevented).toBe(true);
-    expect(onCommit).toHaveBeenCalledWith("math.sq");
-    expect(view.state.doc.lines).toBe(1);
-  });
-
-  // The field is the reference's callable search: Tab accepts an offered name into the draft and
-  // commits nothing, then one unmodified Enter commits the draft the field is showing. Both fail
-  // if the rejected candidate's popup-owns-Enter behavior returns.
-  it("accepts a completion on Tab and commits the shown draft on one Enter", async () => {
-    const onCommit = vi.fn();
-    await mountField({
-      completionProvider: sqrtCompletionProvider(),
-      onCommit,
-    });
-    await activateField();
-    const view = getFieldView();
-
-    await openCompletionAtCaretEnd(view);
-    const tab = new KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      code: "Tab",
-      key: "Tab",
-    });
-    await act(async () => {
-      view.contentDOM.dispatchEvent(tab);
-    });
-    expect(tab.defaultPrevented).toBe(true);
-    expect(view.state.doc.toString()).toBe("math.sqrt");
-    expect(onCommit).not.toHaveBeenCalled();
-
-    // Re-open the popup: the commit Enter has to win over a visible one, not merely over none.
-    await openCompletionAtCaretEnd(view);
-    await act(async () => {
-      view.contentDOM.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          bubbles: true,
-          cancelable: true,
-          code: "Enter",
-          key: "Enter",
-        }),
-      );
-    });
-    expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(onCommit).toHaveBeenCalledWith("math.sqrt");
-  });
-
-  // Escape's two steps, in the reference's order: the popup takes the first one for itself, and
-  // only the one that reaches the editor tells the caller its draft is abandoned.
-  it("reports Escape to the caller only after the completion popup has taken its own", async () => {
-    const onEscape = vi.fn();
-    await mountField({
-      completionProvider: sqrtCompletionProvider(),
-      onEscape,
-    });
-    await activateField();
-    const view = getFieldView();
-
-    await openCompletionAtCaretEnd(view);
-    await act(async () => {
-      view.contentDOM.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
-      );
-    });
-    expect(completionStatus(view.state)).not.toBe("active");
-    expect(onEscape).not.toHaveBeenCalled();
-
-    await act(async () => {
-      view.contentDOM.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
-      );
-    });
-    expect(onEscape).toHaveBeenCalledTimes(1);
-  });
-
-  it("returns focus to the section container on Escape", async () => {
-    const sectionRoot = document.createElement("div");
-    sectionRoot.tabIndex = -1;
-    document.body.appendChild(sectionRoot);
-    testWorkspace.sectionRefs.setState({
-      withNested: { [SECTION_ID]: sectionRoot },
-    });
-    await mountField();
-    await activateField();
-    await act(async () => {
-      getFieldView().contentDOM.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-      );
-    });
-    expect(document.activeElement).toBe(sectionRoot);
-    sectionRoot.remove();
-  });
-
-  it("refuses activation and marks the surface while disabled", async () => {
-    await mountField({ disabled: true });
-    const field = host.querySelector<HTMLElement>(
-      ".setta-workspace-section-field",
-    );
-    expect(field?.dataset["disabled"]).toBe("true");
-    expect(getFieldDummy().getAttribute("aria-disabled")).toBe("true");
-    await activateField();
-    expect(host.querySelector(".cm-editor")).toBeNull();
-  });
-});
-
 async function waitFor(
   condition: () => boolean,
   timeoutMs = 1_000,
@@ -971,26 +599,6 @@ async function waitForCompletion(
   status: "active" | "pending",
 ): Promise<void> {
   await waitFor(() => completionStatus(view.state) === status);
-}
-
-// One `sqrt` offer for whatever the caret has reached, so the popup can be reopened over a draft
-// the previous accept already completed — the state a commit Enter has to win against.
-function sqrtCompletionProvider() {
-  return vi.fn(async (request: { cursorOffset: number }) => ({
-    from: 5,
-    options: [{ insertText: "sqrt", label: "sqrt" }],
-    to: request.cursorOffset,
-  }));
-}
-
-// A person completes at the end of what they typed; activation alone leaves the caret wherever
-// the pointer landed, which is not a position an offer can replace text at.
-async function openCompletionAtCaretEnd(view: EditorView): Promise<void> {
-  await act(async () => {
-    view.dispatch({ selection: { anchor: view.state.doc.length } });
-    expect(startCompletion(view)).toBe(true);
-  });
-  await waitForCompletion(view, "active");
 }
 
 function createDeferred<T>() {

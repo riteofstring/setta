@@ -41,8 +41,7 @@ function renderTextControl(props: ControlRendererProps) {
       <TextValueEditor
         ariaLabel={props.ariaLabel}
         sectionId={props.sectionId}
-        controlId={props.itemId}
-        presentation="item-row"
+        itemId={props.itemId}
         value={props.control.value}
         language={null}
         placeholder={configuration.placeholder ?? undefined}
@@ -58,8 +57,7 @@ function renderTextControl(props: ControlRendererProps) {
       <TextValueEditor
         ariaLabel={props.ariaLabel}
         sectionId={props.sectionId}
-        controlId={props.itemId}
-        presentation="item-row"
+        itemId={props.itemId}
         value={props.control.value}
         language={configuration.language}
         placeholder={configuration.placeholder ?? undefined}
@@ -75,8 +73,7 @@ function renderTextControl(props: ControlRendererProps) {
       <TextValueEditor
         ariaLabel={props.ariaLabel}
         sectionId={props.sectionId}
-        controlId={props.itemId}
-        presentation="item-row"
+        itemId={props.itemId}
         value={props.control.value}
         language={configuration.language}
         placeholder={configuration.placeholder ?? undefined}

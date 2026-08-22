@@ -94,10 +94,7 @@ describe("WorkspaceItemConfigurationEditor", () => {
     onEscape = vi.fn();
     onStatusChange = vi.fn();
     registerSectionKinds(testWorkspace.host, {
-      leaf: {
-        renderContent: () => null,
-        itemArea: { toolbar: "authoring-and-filter" },
-      },
+      leaf: { renderContent: () => null },
     });
     testWorkspace.host.subscribe(onChange);
   });

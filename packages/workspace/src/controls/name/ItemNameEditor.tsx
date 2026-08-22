@@ -2,7 +2,6 @@ import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { useEffect, useState, type MouseEvent } from "react";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController";
-import { useCodeMirrorTooltipParent } from "../../canvas/codeMirrorTooltipParent";
 import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { focusSectionAfterEscape } from "../sectionFocus";
@@ -346,16 +345,12 @@ function LiveItemNameEditor({
   errorId: string | undefined;
 }) {
   const host = useWorkspaceHost();
-  // The same canvas-owned tooltip parent every editor of this host uses. The reference's own name
-  // input names it too, and a name editor sits inside the same clipped section box a field does.
-  const tooltipParent = useCodeMirrorTooltipParent();
   const extensions = [
     ...getTextValueExtensions({
       language,
       singleLine: true,
       wrapLines: true,
       onEscape,
-      tooltipParent,
     }),
     getCodeMirrorContentAttributes(errorId),
   ];

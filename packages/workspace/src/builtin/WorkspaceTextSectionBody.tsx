@@ -23,11 +23,6 @@ import {
   buildWorkspaceTextTypographyScale,
   getWorkspaceTextTypographyStyle,
 } from "./textSectionTypography";
-import {
-  EDITABLE_SECTION_EDITOR_PRESENTATION,
-  READ_ONLY_SECTION_EDITOR_PRESENTATION,
-  type WorkspaceSectionEditorChange,
-} from "./sectionEditorExtensions";
 import { WorkspaceMarkdown } from "./WorkspaceMarkdown";
 import { WorkspaceSectionEditor } from "./WorkspaceSectionEditor";
 
@@ -52,10 +47,6 @@ const PLAIN_TEXT_CLASS_NAME =
 // authored: prose has no column to preserve, and the reference reaches the same width through
 // `basicSetup.tabSize`. Its gutters are the ones `basicSetup` mounts by default.
 const EDITOR_INDENT_WIDTH = 4;
-
-// Text sections never publish document diagnostics. Keep this empty value stable so an otherwise
-// unrelated render does not make WorkspaceSectionEditor recreate its CodeMirror extensions.
-const NO_EDITOR_DIAGNOSTICS = [] as const;
 
 type WorkspaceTextSectionBodyProps = {
   section: WorkspaceSection;
@@ -117,13 +108,9 @@ function TextSectionEditor({
   // Locking a section locks its content too, so a locked text section reads and scrolls but
   // cannot be edited.
   const isReadOnly = data.readOnly || section.positionAndSizeLocked;
-  const presentation = isReadOnly
-    ? READ_ONLY_SECTION_EDITOR_PRESENTATION
-    : EDITABLE_SECTION_EDITOR_PRESENTATION;
 
   const onChange = useCallback(
-    // A text section has no generated region, so only the edited text belongs to it.
-    ({ text: nextText }: WorkspaceSectionEditorChange) => {
+    (nextText: string) => {
       const liveSection = getSectionOrThrow(
         getWorkspaceDocumentStore(host).getState(),
         sectionId,
@@ -146,17 +133,12 @@ function TextSectionEditor({
 
   return (
     <WorkspaceSectionEditor
-      ariaLabel={
-        isReadOnly
-          ? `${section.name} text, read-only`
-          : `${section.name} text editor`
-      }
-      diagnostics={NO_EDITOR_DIAGNOSTICS}
+      ariaLabel={`${section.name} text editor`}
       indentWidth={EDITOR_INDENT_WIDTH}
+      isReadOnly={isReadOnly}
       language={getWorkspaceTextSectionEditorLanguage(data.format)}
       lineNumbers
       onChange={onChange}
-      presentation={presentation}
       sectionId={sectionId}
       value={data.text}
       wrapLines

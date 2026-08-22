@@ -109,12 +109,6 @@ vi.mock("./utils", async (importOriginal) => {
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-// Every section this file loads carries an item tree, so its kind declares the editable item area.
-const LEAF_KIND = {
-  renderContent: () => null,
-  itemArea: { toolbar: "authoring-and-filter" as const },
-};
-
 function KeyActivationsHost() {
   useCanvasKeyActivations();
   return <WorkspaceTooltip />;
@@ -124,7 +118,9 @@ function loadItemDocument(
   selectedItemIds: Array<string>,
   activeIds: Array<string> = ["panel"],
 ) {
-  registerSectionKinds(testWorkspace.host, { leaf: LEAF_KIND });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
@@ -157,7 +153,9 @@ function loadItemDocument(
 }
 
 function loadUngroupDocument(activeIds: Array<string> = ["group"]) {
-  registerSectionKinds(testWorkspace.host, { leaf: LEAF_KIND });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       group: {
@@ -853,7 +851,9 @@ describe("useCanvasKeyActivations", () => {
     });
 
     function registerNoteCommand() {
-      registerSectionKinds(testWorkspace.host, { leaf: LEAF_KIND });
+      registerSectionKinds(testWorkspace.host, {
+        leaf: { renderContent: () => null },
+      });
       loadWorkspaceDocument(testWorkspace.host, {
         sections: {},
         topLevelSections: {},

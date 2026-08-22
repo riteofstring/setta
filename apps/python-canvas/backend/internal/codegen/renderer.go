@@ -15,10 +15,8 @@ func Render(input Input) (Result, error) {
 		return Result{}, err
 	}
 
-	body, ranges, callableCallOffset, callableCallEnd := renderBody(graph)
-	prefixEnd := len(input.Prefix)
-	prefixOffset := prefixEnd + len(generatedCodeSeparator)
-	suffixStart := prefixOffset + len(body) + len(generatedCodeSeparator)
+	body, ranges, callableCallOffset := renderBody(graph)
+	prefixOffset := len(input.Prefix) + len(generatedCodeSeparator)
 	for index := range ranges {
 		ranges[index].Start += prefixOffset
 		ranges[index].End += prefixOffset
@@ -26,29 +24,22 @@ func Render(input Input) (Result, error) {
 	if callableCallOffset >= 0 {
 		callableCallOffset += prefixOffset
 	}
-	if callableCallEnd >= 0 {
-		callableCallEnd += prefixOffset
-	}
 
 	return Result{
 		Code:               input.Prefix + generatedCodeSeparator + body + generatedCodeSeparator + input.Suffix,
 		Body:               body,
 		SourceRanges:       ranges,
-		PrefixStart:        0,
-		PrefixEnd:          prefixEnd,
-		SuffixStart:        suffixStart,
 		CallableCallOffset: callableCallOffset,
-		CallableCallEnd:    callableCallEnd,
 	}, nil
 }
 
-func renderBody(graph dependencyGraph) (string, []SourceRange, int, int) {
+func renderBody(graph dependencyGraph) (string, []SourceRange, int) {
 	var body strings.Builder
 	body.WriteString(stateClassHeader)
 	if graph.callable.expression == "" {
 		body.WriteString(stateBodyIndent)
 		body.WriteString("pass")
-		return body.String(), []SourceRange{}, -1, -1
+		return body.String(), []SourceRange{}, -1
 	}
 
 	ranges := make([]SourceRange, 0, len(graph.parameters)+1)
@@ -80,33 +71,26 @@ func renderBody(graph dependencyGraph) (string, []SourceRange, int, int) {
 	callableCallOffset := body.Len()
 	body.WriteString(renderCallArguments(graph.parameters))
 	body.WriteByte(')')
-	callableCallEnd := body.Len()
 	ranges = append(ranges, SourceRange{
 		TargetID: graph.callable.targetID,
 		Start:    callableStart,
 		End:      callableStart + len(graph.callable.expression),
 	})
 
-	return body.String(), ranges, callableCallOffset, callableCallEnd
+	return body.String(), ranges, callableCallOffset
 }
 
-// Positional arguments keep their list order and precede every keyword
-// argument, because Python has no other legal arrangement. A parameter list that
-// puts a keyword-passed record ahead of a positional-only one is an ordinary
-// authoring state, not a reason to render a syntax error.
 func renderCallArguments(parameters []dependencyNode) string {
-	positional := make([]string, 0, len(parameters))
-	keyword := make([]string, 0, len(parameters))
+	arguments := make([]string, 0, len(parameters))
 	for _, parameter := range parameters {
 		if parameter.expression == "" {
 			continue
 		}
 		value := "state." + parameter.path
 		if parameter.passingStyle == ParameterPassingStylePositionalOrKeyword {
-			keyword = append(keyword, parameter.name+"="+value)
-			continue
+			value = parameter.name + "=" + value
 		}
-		positional = append(positional, value)
+		arguments = append(arguments, value)
 	}
-	return strings.Join(append(positional, keyword...), ", ")
+	return strings.Join(arguments, ", ")
 }

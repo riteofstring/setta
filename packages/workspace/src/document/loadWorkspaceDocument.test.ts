@@ -120,10 +120,7 @@ function mountFakeZoomRuntime() {
 describe("loadWorkspaceDocument", () => {
   beforeEach(() => {
     registerSectionKinds(testWorkspace.host, {
-      leaf: {
-        renderContent: () => null,
-        itemArea: { toolbar: "authoring-and-filter" },
-      },
+      leaf: { renderContent: () => null },
     });
     resetWorkspaceStores();
   });
@@ -601,33 +598,6 @@ describe("loadWorkspaceDocument", () => {
     expect(
       getWorkspaceDocument(testWorkspace.host).sections["leaf"]?.itemTree,
     ).toEqual(itemTree);
-  });
-
-  it("rejects an item-carrying section whose kind declares no item area", () => {
-    registerSectionKinds(testWorkspace.host, {
-      leaf: { renderContent: () => null },
-    });
-
-    expect(() =>
-      loadWorkspaceDocument(
-        testWorkspace.host,
-        makeDocument({
-          sections: {
-            leaf: makeSection("leaf", {
-              itemTree: {
-                rootId: "item-root",
-                items: { "item-root": { id: "item-root", children: [] } },
-                selectedItemIds: [],
-              },
-            }),
-          },
-          topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
-          activeIds: [],
-        }),
-      ),
-    ).toThrowError(
-      /Section leaf carries an item tree, but section kind leaf does not declare an item-area presentation/,
-    );
   });
 
   it("rejects malformed item trees", () => {

@@ -15,7 +15,6 @@ func TestTypeScriptV1IsDeterministicAndContainsCurrentContract(t *testing.T) {
 	for _, expected := range []string{
 		"PROJECT_SNAPSHOT_VERSION_V1 = \"v1\"",
 		"PROJECT_CALLABLE_COMPLETIONS_PATH_V1 = \"/api/v1/project/callable/completions\"",
-		"PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1 = \"/api/v1/project/python-target/completions\"",
 		"PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1 = \"positional_only\"",
 		"DIAGNOSTIC_SEVERITY_ERROR_V1 = \"error\"",
 		"PROVIDER_BASEDPYRIGHT_V1 = \"basedpyright\"",
@@ -26,14 +25,10 @@ func TestTypeScriptV1IsDeterministicAndContainsCurrentContract(t *testing.T) {
 		"authoredExpression: string;",
 		"cursorOffsetUtf16: number;",
 		"insertText: string;",
-		"PYTHON_TARGET_COMPLETION_REGION_PREFIX_V1 = \"prefix\"",
-		"items: CompletionItemV1[];",
+		"items: CallableCompletionItemV1[];",
 		"parameterIds: string[];",
 		"sourceRanges: GeneratedSourceRangeV1[];",
 		"targetId: string;",
-		"targetId: string | null;",
-		"start: number;",
-		"end: number;",
 		"state: ProviderLifecycleStateV1;",
 		"error: APIErrorV1;",
 	} {

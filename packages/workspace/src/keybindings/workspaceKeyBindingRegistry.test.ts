@@ -22,7 +22,6 @@ import type { WorkspaceSectionInput } from "../document/types";
 import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import {
   getResolvedWorkspaceKeyBindings,
-  getWorkspaceKeyBindingChordLabel,
   getWorkspaceKeyBindingConflicts,
   getWorkspaceKeyBindings,
   registerWorkspaceKeyBindings,
@@ -96,11 +95,6 @@ describe("workspace key bindings", () => {
     expect(getBinding("workspace.move-items-up").chord).toBe("Alt + ArrowUp");
     expect(getBinding("workspace.indent-items").chord).toBe("Tab");
     expect(getBinding("workspace.unindent-items").chord).toBe("Shift + Tab");
-    expect(getBinding("workspace.focus-item-filter")).toMatchObject({
-      chord: "Mod + K",
-      chordLabel: "Ctrl + K",
-      label: "Focus parameter filter",
-    });
     expect(getBinding("workspace.select-all").chord).toBe("Mod + A");
     expect(getBinding("workspace.select-top-level-sections").chord).toBe(
       "Mod + Shift + A",
@@ -145,31 +139,6 @@ describe("workspace key bindings", () => {
     expect(getBinding("workspace.ungroup-sections").chordLabel).toBe(
       "⌘ + Shift + G",
     );
-    // The surface that advertises its own binding reads the same label the descriptor carries.
-    // This is the reference's own text: `shortcutPrettified("Mod + K")` writes "⌘ + K" there.
-    expect(getBinding("workspace.focus-item-filter").chordLabel).toBe("⌘ + K");
-    expect(
-      getWorkspaceKeyBindingChordLabel(host, "workspace.focus-item-filter"),
-    ).toBe("⌘ + K");
-  });
-
-  it("resolves one binding's chord label from the registry, or null when unbound", () => {
-    expect(
-      getWorkspaceKeyBindingChordLabel(host, "workspace.focus-item-filter"),
-    ).toBe("Ctrl + K");
-    expect(
-      getWorkspaceKeyBindingChordLabel(host, "workspace.lock-sections"),
-    ).toBeNull();
-    expect(() =>
-      getWorkspaceKeyBindingChordLabel(host, "workspace.not-an-operation"),
-    ).toThrow("is not a workspace operation");
-
-    registerWorkspaceKeyBindings(host, [
-      { id: "workspace.focus-item-filter", chord: null },
-    ]);
-    expect(
-      getWorkspaceKeyBindingChordLabel(host, "workspace.focus-item-filter"),
-    ).toBeNull();
   });
 
   it("ships no conflicting default chords", () => {

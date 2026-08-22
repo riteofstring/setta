@@ -30,8 +30,7 @@ import {
   useWorkspaceDocument,
 } from "../document/stores";
 import type { WorkspaceSectionItemTree } from "../document/types";
-import { WorkspaceItemFilterProvider } from "./WorkspaceItemFilterContext";
-import { WorkspaceItemToolbar } from "./WorkspaceItemToolbar";
+import { WorkspaceItemAuthoringToolbar } from "./WorkspaceItemAuthoringToolbar";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -102,7 +101,7 @@ function expectCompactAuthoringButtons(
   }
 }
 
-describe("WorkspaceItemToolbar", () => {
+describe("WorkspaceItemAuthoringToolbar", () => {
   let host: HTMLDivElement;
   let root: Root;
 
@@ -110,7 +109,6 @@ describe("WorkspaceItemToolbar", () => {
     registerSectionKinds(testWorkspace.host, {
       items: {
         renderContent: () => null,
-        itemArea: { toolbar: "authoring-and-filter" },
         createItem: () => ({
           id: "created",
           children: [],
@@ -135,35 +133,13 @@ describe("WorkspaceItemToolbar", () => {
     testWorkspace.activeSections.getState().reset();
   });
 
-  async function mount(
-    mode: "authoring-and-filter" | "filter-only" = "authoring-and-filter",
-    followsLeadingContent = false,
-  ): Promise<void> {
+  async function mount(): Promise<void> {
     await act(async () =>
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          <WorkspaceItemFilterProvider
-            hasSectionStyleTheme={false}
-            sectionId="panel"
-          >
-            <WorkspaceItemToolbar
-              followsLeadingContent={followsLeadingContent}
-              mode={mode}
-              sectionId="panel"
-            />
-          </WorkspaceItemFilterProvider>
+          {<WorkspaceItemAuthoringToolbar sectionId="panel" />}
         </WorkspaceTestProvider>,
       ),
-    );
-  }
-
-  function getToolbarSpacing(): Array<string> {
-    const toolbar = host.querySelector<HTMLElement>(".section-args");
-    if (!toolbar) {
-      throw new Error("Expected the rendered item toolbar.");
-    }
-    return [...toolbar.classList].filter((className) =>
-      /^(mt|pb)-\d+$/.test(className),
     );
   }
 
@@ -255,51 +231,11 @@ describe("WorkspaceItemToolbar", () => {
     root = createRoot(host);
     testWorkspace.itemDndState.getState().reset();
     registerSectionKinds(testWorkspace.host, {
-      items: {
-        renderContent: () => null,
-        itemArea: { toolbar: "authoring-and-filter" },
-      },
+      items: { renderContent: () => null },
     });
     await mount();
     expect(getButton(host, "Add parameter").disabled).toBe(true);
     expect(getButton(host, "Remove last parameter").disabled).toBe(false);
     expect(getButton(host, "Delete selected parameters").disabled).toBe(false);
-  });
-
-  it("renders the Args label and filter without structural actions in filter-only mode", async () => {
-    await mount("filter-only");
-    const toolbar = host.querySelector<HTMLElement>(".section-args");
-    expect(toolbar?.dataset["workspaceItemToolbar"]).toBe("filter-only");
-    expect(host.textContent).toContain("Args");
-    // No structural mutation control is exposed — not even a disabled one.
-    for (const label of [
-      "Add parameter",
-      "Remove last parameter",
-      "Delete selected parameters",
-    ]) {
-      expect(host.querySelector(`button[aria-label="${label}"]`)).toBeNull();
-    }
-    // The retained filter surface is the same one the full mode renders, down to advertising the
-    // focus binding: this document loads "panel" as its sole active section, and jsdom reports no
-    // Mac user agent, so the shipped "Mod + K" resolves to this platform's label.
-    expect(
-      host.querySelector<HTMLInputElement>(
-        "input.setta-workspace-item-filter-input",
-      )?.placeholder,
-    ).toBe("Ctrl + K");
-    expect(host.querySelector("label")?.textContent).toBe("Filter parameters");
-  });
-
-  it("takes the reference's compact spacing only when it follows leading content", async () => {
-    // The reference gives a toolbar that sits directly on a section's leading control `mt-0 pb-0`,
-    // so the card reads as one continuous field → Args stack.
-    await mount("filter-only", true);
-    expect(getToolbarSpacing().sort()).toEqual(["mt-0", "pb-0"]);
-
-    await act(async () => root.unmount());
-    root = createRoot(host);
-    // Every other item toolbar keeps the reference's ordinary step above and below it.
-    await mount("authoring-and-filter", false);
-    expect(getToolbarSpacing().sort()).toEqual(["mt-1", "pb-1"]);
   });
 });

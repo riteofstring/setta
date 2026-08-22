@@ -86,10 +86,7 @@ const documentChangeSpy = vi.fn();
 describe("item selection", () => {
   beforeEach(() => {
     registerSectionKinds(testWorkspace.host, {
-      leaf: {
-        renderContent: () => null,
-        itemArea: { toolbar: "authoring-and-filter" },
-      },
+      leaf: { renderContent: () => null },
     });
     loadWorkspaceDocument(testWorkspace.host, {
       sections: {

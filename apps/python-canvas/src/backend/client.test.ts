@@ -4,19 +4,15 @@ import { describe, expect, it, vi } from "vitest";
 import {
   PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
   PROJECT_CALLABLE_PATH_V1,
-  PROJECT_PARAMETERS_PATH_V1,
-  PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1,
-  PROJECT_TARGET_PATH_V1,
+  PROJECT_PARAMETER_PATH_V1,
   PROJECT_PATH_V1,
 } from "./generatedContract";
 import {
   ProjectClientError,
   commitCallable,
   completeCallable,
-  completePythonTarget,
   fetchProjectSnapshot,
-  setCallableParameters,
-  setPythonTarget,
+  setParameterExpression,
 } from "./client";
 
 describe("Python Canvas project client", () => {
@@ -62,33 +58,26 @@ describe("Python Canvas project client", () => {
     });
   });
 
-  it("sends the complete revision-bound parameter list through the generated V1 route", async () => {
+  it("sets the exact stable parameter ID through the generated V1 route", async () => {
     const response = createJsonResponse(projectSnapshotFixture);
     const fetchImplementation = vi.fn().mockResolvedValue(response);
-    const request = {
-      callableId: "callable:square-root",
-      expectedRevision: 2,
-      parameters: [
-        {
-          authoredExpression: "3",
-          id: "parameter:square-root:provider",
-          name: "x",
-        },
-        {
-          authoredExpression: "2",
-          id: "parameter:authored:1",
-          name: "scale",
-        },
-      ],
-      projectId: "project:python-canvas",
-    };
 
-    await setCallableParameters(request, fetchImplementation as typeof fetch);
+    await setParameterExpression(
+      {
+        authoredExpression: "3",
+        parameterId: "parameter:square-root:1",
+        projectId: "project:python-canvas",
+      },
+      fetchImplementation as typeof fetch,
+    );
 
     expect(fetchImplementation).toHaveBeenCalledWith(
-      PROJECT_PARAMETERS_PATH_V1,
+      `${PROJECT_PARAMETER_PATH_V1}parameter:square-root:1`,
       {
-        body: JSON.stringify(request),
+        body: JSON.stringify({
+          authoredExpression: "3",
+          projectId: "project:python-canvas",
+        }),
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
@@ -96,29 +85,6 @@ describe("Python Canvas project client", () => {
         method: "POST",
       },
     );
-  });
-
-  it("sends the complete revision-bound Python target through the generated V1 route", async () => {
-    const response = createJsonResponse(projectSnapshotFixture);
-    const fetchImplementation = vi.fn().mockResolvedValue(response);
-    // An emptied region is a real proposal, so it crosses this boundary as the empty string.
-    const request = {
-      expectedRevision: 2,
-      prefix: "import math\nimport os",
-      projectId: "project:python-canvas",
-      suffix: "",
-    };
-
-    await setPythonTarget(request, fetchImplementation as typeof fetch);
-
-    expect(fetchImplementation).toHaveBeenCalledWith(PROJECT_TARGET_PATH_V1, {
-      body: JSON.stringify(request),
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-    });
   });
 
   it("requests callable completions with the supplied cancellation signal and strictly parsed response", async () => {
@@ -184,41 +150,6 @@ describe("Python Canvas project client", () => {
     } satisfies Partial<ProjectClientError>);
   });
 
-  it("requests Python target completions through the shared completion response contract", async () => {
-    const response = createJsonResponse({
-      items: [{ label: "math", insertText: "math" }],
-    });
-    const fetchImplementation = vi.fn().mockResolvedValue(response);
-    const controller = new AbortController();
-    const request = {
-      cursorOffsetUtf16: 9,
-      prefix: "import mat",
-      projectId: "project:python-canvas",
-      region: "prefix" as const,
-      suffix: "state = SettaState()",
-    };
-
-    await expect(
-      completePythonTarget(
-        request,
-        controller.signal,
-        fetchImplementation as typeof fetch,
-      ),
-    ).resolves.toEqual({ items: [{ label: "math", insertText: "math" }] });
-    expect(fetchImplementation).toHaveBeenCalledWith(
-      PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1,
-      {
-        body: JSON.stringify(request),
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-        signal: controller.signal,
-      },
-    );
-  });
-
   it("reports a typed V1 mutation failure", async () => {
     const response = createJsonResponse(
       {
@@ -248,42 +179,21 @@ describe("Python Canvas project client", () => {
     } satisfies Partial<ProjectClientError>);
   });
 
-  // A parameter ID now travels in the request body rather than in the route, so the route needs no
-  // injection guard. What the caller does need is the store's typed conflict.
-  it("surfaces a stale revision as its typed conflict code", async () => {
-    const response = createJsonResponse(
-      {
-        error: {
-          code: "revision_conflict",
-          message: "the project changed since this revision",
-        },
-      },
-      false,
-      409,
-    );
-    const fetchImplementation = vi.fn().mockResolvedValue(response);
+  it("rejects unsafe parameter IDs before issuing a request", async () => {
+    const fetchImplementation = vi.fn();
 
     await expect(
-      setCallableParameters(
+      setParameterExpression(
         {
-          callableId: "callable:square-root",
-          expectedRevision: 2,
-          parameters: [
-            {
-              authoredExpression: "3",
-              id: "parameter:square-root:provider",
-              name: "x",
-            },
-          ],
+          authoredExpression: "3",
+          parameterId: "parameter/other",
           projectId: "project:python-canvas",
         },
         fetchImplementation as typeof fetch,
       ),
-    ).rejects.toMatchObject({
-      code: "revision_conflict",
-      kind: "http",
-      status: 409,
-    } satisfies Partial<ProjectClientError>);
+    ).rejects.toMatchObject({ kind: "invalid_response" });
+
+    expect(fetchImplementation).not.toHaveBeenCalled();
   });
 });
 

@@ -17,7 +17,7 @@ afterEachWorkspaceTestHost(() => {
   testWorkspace.host.dispose();
 });
 
-import { act, createElement, type ReactNode } from "react";
+import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DragStartEvent } from "../dnd/adapter/types";
@@ -43,14 +43,11 @@ import type {
   WorkspaceItem,
   WorkspaceSectionItemTree,
 } from "../document/types";
-import { runWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingDispatch";
-import { registerWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingRegistry";
 import { handleItemDragStart, resetItemDragState } from "./itemDragHandlers";
-import { registerItemFilterFocusTarget } from "./itemFilterFocusRegistry";
 import type { ItemRowRenderContext } from "./ItemListContext";
 import { resetItemListViews, resolveItemListView } from "./itemListRegistry";
 import { moveSelectedItemsDown } from "./selectedItemMoves";
-import { WorkspaceItemToolbar } from "./WorkspaceItemToolbar";
+import { WorkspaceItemAuthoringToolbar } from "./WorkspaceItemAuthoringToolbar";
 import { WorkspaceItemFilterProvider } from "./WorkspaceItemFilterContext";
 import { WorkspaceItemList } from "./WorkspaceItemList";
 
@@ -129,7 +126,6 @@ function registerTestKind() {
       renderContent: () => null,
       getItemSearchableText: ({ item }) =>
         getCustomItemText(item, "searchableText"),
-      itemArea: { toolbar: "authoring-and-filter" },
     },
   });
 }
@@ -235,7 +231,7 @@ describe("WorkspaceItemFilter", () => {
     testWorkspace.itemDndChildren.getState().reset();
   });
 
-  async function mountItemArea(toolbar: ReactNode): Promise<void> {
+  async function mount(): Promise<HTMLInputElement> {
     const itemTree = testWorkspace.document.getState().sections.panel?.itemTree;
     if (!itemTree) {
       throw new Error("The test panel lost its item tree.");
@@ -245,7 +241,7 @@ describe("WorkspaceItemFilter", () => {
         <WorkspaceTestProvider workspace={testWorkspace}>
           {
             <WorkspaceItemFilterProvider sectionId="panel">
-              {toolbar}
+              <WorkspaceItemAuthoringToolbar sectionId="panel" />
               <ItemDndContext>
                 <WorkspaceItemList
                   sectionId="panel"
@@ -261,16 +257,6 @@ describe("WorkspaceItemFilter", () => {
         </WorkspaceTestProvider>,
       );
     });
-  }
-
-  async function mount(): Promise<HTMLInputElement> {
-    await mountItemArea(
-      <WorkspaceItemToolbar
-        followsLeadingContent={false}
-        mode="authoring-and-filter"
-        sectionId="panel"
-      />,
-    );
     const input = host.querySelector<HTMLInputElement>(
       `#${testWorkspace.domId}-panel-parameter-filter`,
     );
@@ -278,32 +264,6 @@ describe("WorkspaceItemFilter", () => {
       throw new Error("The parameter filter input did not render.");
     }
     return input;
-  }
-
-  // The real dispatcher over a real keydown, so the chord rules, the binding's own decision, and
-  // the browser default all answer the way they do in the product. The return value is what the
-  // browser is left with: `false` means the chord was not taken.
-  function pressFocusItemFilterChord(target: Element): boolean {
-    const event = new KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      code: "KeyK",
-      ctrlKey: true,
-    });
-    const dispatch = (candidate: Event) =>
-      runWorkspaceKeyBindings(
-        testWorkspace.host,
-        candidate as KeyboardEvent,
-        false,
-        (codes) => codes.length === 1 && codes[0] === "KeyK",
-      );
-    document.addEventListener("keydown", dispatch);
-    try {
-      target.dispatchEvent(event);
-    } finally {
-      document.removeEventListener("keydown", dispatch);
-    }
-    return event.defaultPrevented;
   }
 
   it("keeps filtering ephemeral, explains hidden selection, and gates structural movement", async () => {
@@ -349,6 +309,7 @@ describe("WorkspaceItemFilter", () => {
     const toolbar = host.querySelector<HTMLElement>(".section-args");
     const search = input.closest("search");
 
+    expect(input.placeholder).toBe("Filter");
     expect(input.type).toBe("text");
     expect(input.className).toContain("ps-3");
     expect(input.className).toContain("setta-workspace-item-filter-input");
@@ -356,83 +317,6 @@ describe("WorkspaceItemFilter", () => {
     expect(search?.className).toContain("flex-1");
     expect(search?.querySelector(".gg-sort-az")).not.toBeNull();
     expect(search?.parentElement).toBe(toolbar);
-  });
-
-  // The reference's empty Args filter reads as its own shortcut while its section is the sole
-  // active one, and as "Filter" otherwise. jsdom reports no Mac user agent, so the registry writes
-  // this platform's "Ctrl + K" for the shipped "Mod + K" default.
-  it("advertises the focus binding on the sole active section's empty filter", async () => {
-    const input = await mount();
-    expect(testWorkspace.activeSections.getState().activeIds).toEqual([
-      "panel",
-    ]);
-    expect(input.placeholder).toBe("Ctrl + K");
-    // The placeholder is not the control's name.
-    expect(
-      host.querySelector<HTMLLabelElement>(`label[for="${input.id}"]`)
-        ?.textContent,
-    ).toBe("Filter parameters");
-
-    await act(async () => setInputValue(input, "momentum"));
-    expect(input.placeholder).toBe("Filter");
-
-    await act(async () => setInputValue(input, ""));
-    expect(input.placeholder).toBe("Ctrl + K");
-
-    await act(async () => {
-      testWorkspace.activeSections.setState({ activeIds: [] });
-    });
-    expect(input.placeholder).toBe("Filter");
-  });
-
-  it("follows a host rebinding of that operation in what it advertises", async () => {
-    registerWorkspaceKeyBindings(testWorkspace.host, [
-      { id: "workspace.focus-item-filter", chord: "Mod + Shift + F" },
-    ]);
-    const input = await mount();
-    expect(input.placeholder).toBe("Ctrl + Shift + F");
-
-    registerWorkspaceKeyBindings(testWorkspace.host, [
-      { id: "workspace.focus-item-filter", chord: null },
-    ]);
-    await act(async () => setInputValue(input, "momentum"));
-    await act(async () => setInputValue(input, ""));
-    expect(input.placeholder).toBe("Filter");
-  });
-
-  it("focuses the sole active section's mounted filter from that binding", async () => {
-    const input = await mount();
-    expect(document.activeElement).not.toBe(input);
-
-    expect(pressFocusItemFilterChord(document.body)).toBe(true);
-    expect(document.activeElement).toBe(input);
-
-    input.blur();
-    await act(async () => {
-      testWorkspace.activeSections.setState({ activeIds: [] });
-    });
-    // Without exactly one active section this is nobody's filter to focus, so the chord is left
-    // to the browser rather than swallowed.
-    expect(pressFocusItemFilterChord(document.body)).toBe(false);
-    expect(document.activeElement).not.toBe(input);
-
-    // A declared item area that renders no toolbar mounts no filter, so the operation declines
-    // there too even while its section is the sole active one.
-    await act(async () => {
-      testWorkspace.activeSections.setState({ activeIds: ["panel"] });
-    });
-    await mountItemArea(null);
-    expect(
-      host.querySelector(`#${testWorkspace.domId}-panel-parameter-filter`),
-    ).toBeNull();
-    expect(pressFocusItemFilterChord(document.body)).toBe(false);
-  });
-
-  it("refuses a second filter owner for one section", async () => {
-    await mount();
-    expect(() =>
-      registerItemFilterFocusTarget(testWorkspace.host, "panel", () => true),
-    ).toThrow('section "panel" already registered an item filter focus target');
   });
 
   it("keeps the list, scroll, and unaffected editor mounted and clears empty results to focus", async () => {

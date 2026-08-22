@@ -4,17 +4,14 @@ package contracts
 import (
 	"fmt"
 	"strings"
-	"unicode/utf8"
 )
 
 const (
-	ProjectSnapshotVersionV1             = "v1"
-	ProjectPathV1                        = "/api/v1/project"
-	ProjectCallablePathV1                = "/api/v1/project/callable"
-	ProjectCallableCompletionsPathV1     = "/api/v1/project/callable/completions"
-	ProjectPythonTargetCompletionsPathV1 = "/api/v1/project/python-target/completions"
-	ProjectParametersPathV1              = "/api/v1/project/parameters"
-	ProjectTargetPathV1                  = "/api/v1/project/target"
+	ProjectSnapshotVersionV1         = "v1"
+	ProjectPathV1                    = "/api/v1/project"
+	ProjectCallablePathV1            = "/api/v1/project/callable"
+	ProjectCallableCompletionsPathV1 = "/api/v1/project/callable/completions"
+	ProjectParameterPathV1           = "/api/v1/project/parameters/"
 )
 
 // ProjectSnapshotV1 is the complete, normalized project document returned by
@@ -58,11 +55,8 @@ const (
 )
 
 type ParameterV1 struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	// Whether this record's name belongs to the app rather than to the resolved
-	// signature. The client never infers renameability from anything else.
-	NameEditable       bool                    `json:"nameEditable"`
+	ID                 string                  `json:"id"`
+	Name               string                  `json:"name"`
 	PassingStyle       ParameterPassingStyleV1 `json:"passingStyle"`
 	TypeAnnotation     string                  `json:"typeAnnotation"`
 	Default            *string                 `json:"default"`
@@ -94,9 +88,7 @@ type DiagnosticV1 struct {
 	ID       string               `json:"id"`
 	Severity DiagnosticSeverityV1 `json:"severity"`
 	Message  string               `json:"message"`
-	Start    int                  `json:"start"`
-	End      int                  `json:"end"`
-	TargetID *string              `json:"targetId"`
+	TargetID string               `json:"targetId"`
 }
 
 type ProviderV1 string
@@ -162,47 +154,16 @@ func (request CallableCompletionRequestV1) Validate() error {
 	return nil
 }
 
-// PythonTargetCompletionRegionV1 selects exactly one authored side of the generated body.
-// The complete prefix and suffix still travel together so the provider can inspect a valid module.
-type PythonTargetCompletionRegionV1 string
-
-const (
-	PythonTargetCompletionRegionPrefixV1 PythonTargetCompletionRegionV1 = "prefix"
-	PythonTargetCompletionRegionSuffixV1 PythonTargetCompletionRegionV1 = "suffix"
-)
-
-type PythonTargetCompletionRequestV1 struct {
-	ProjectID         string                         `json:"projectId"`
-	Region            PythonTargetCompletionRegionV1 `json:"region"`
-	Prefix            string                         `json:"prefix"`
-	Suffix            string                         `json:"suffix"`
-	CursorOffsetUTF16 int                            `json:"cursorOffsetUtf16"`
-}
-
-func (request PythonTargetCompletionRequestV1) Validate() error {
-	if err := requireRequestID("projectId", request.ProjectID); err != nil {
-		return err
-	}
-	if request.Region != PythonTargetCompletionRegionPrefixV1 && request.Region != PythonTargetCompletionRegionSuffixV1 {
-		return ValidationError{Field: "region", Problem: "must be prefix or suffix"}
-	}
-	if request.CursorOffsetUTF16 < 0 {
-		return ValidationError{Field: "cursorOffsetUtf16", Problem: "must not be negative"}
-	}
-	return nil
-}
-
-// CompletionItemV1 is shared by every read-only Python completion route.
-type CompletionItemV1 struct {
+type CallableCompletionItemV1 struct {
 	Label      string `json:"label"`
 	InsertText string `json:"insertText"`
 }
 
-type CompletionResponseV1 struct {
-	Items []CompletionItemV1 `json:"items"`
+type CallableCompletionResponseV1 struct {
+	Items []CallableCompletionItemV1 `json:"items"`
 }
 
-func (response CompletionResponseV1) Validate() error {
+func (response CallableCompletionResponseV1) Validate() error {
 	if response.Items == nil {
 		return ValidationError{Field: "items", Problem: "must be an array"}
 	}
@@ -217,64 +178,16 @@ func (response CompletionResponseV1) Validate() error {
 	return nil
 }
 
-// ParameterProposalV1 is one record in a proposed parameter list. Backend-owned
-// metadata never crosses this boundary: the store keeps it for a retained ID and
-// creates it for a new one.
-type ParameterProposalV1 struct {
-	ID                 string `json:"id"`
-	Name               string `json:"name"`
+// SetParameterExpressionRequestV1 carries one authored Python expression.
+// The parameter ID remains in the exact route path so it cannot disagree with
+// a second body field.
+type SetParameterExpressionRequestV1 struct {
+	ProjectID          string `json:"projectId"`
 	AuthoredExpression string `json:"authoredExpression"`
 }
 
-// SetCallableParametersRequestV1 carries one callable's complete proposed
-// parameter list, bound to the revision the client last saw. Reordering,
-// renaming, editing, adding, and deleting are all this one request.
-type SetCallableParametersRequestV1 struct {
-	ProjectID        string                `json:"projectId"`
-	CallableID       string                `json:"callableId"`
-	ExpectedRevision int                   `json:"expectedRevision"`
-	Parameters       []ParameterProposalV1 `json:"parameters"`
-}
-
-func (request SetCallableParametersRequestV1) Validate() error {
-	if err := requireRequestID("projectId", request.ProjectID); err != nil {
-		return err
-	}
-	if err := requireRequestID("callableId", request.CallableID); err != nil {
-		return err
-	}
-	if request.ExpectedRevision < 1 {
-		return ValidationError{Field: "expectedRevision", Problem: "must be at least 1"}
-	}
-	if request.Parameters == nil {
-		return ValidationError{Field: "parameters", Problem: "must be an array"}
-	}
-	for index, parameter := range request.Parameters {
-		if err := requireRequestID(fmt.Sprintf("parameters[%d].id", index), parameter.ID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// SetPythonTargetRequestV1 carries the complete authored Python around the generated
-// body, bound to the revision the client last saw. The generated body is never part of
-// it: the store renders that from its own canonical state.
-type SetPythonTargetRequestV1 struct {
-	ProjectID        string `json:"projectId"`
-	ExpectedRevision int    `json:"expectedRevision"`
-	Prefix           string `json:"prefix"`
-	Suffix           string `json:"suffix"`
-}
-
-func (request SetPythonTargetRequestV1) Validate() error {
-	if err := requireRequestID("projectId", request.ProjectID); err != nil {
-		return err
-	}
-	if request.ExpectedRevision < 1 {
-		return ValidationError{Field: "expectedRevision", Problem: "must be at least 1"}
-	}
-	return nil
+func (request SetParameterExpressionRequestV1) Validate() error {
+	return requireRequestID("projectId", request.ProjectID)
 }
 
 type APIErrorCodeV1 string
@@ -285,9 +198,6 @@ const (
 	APIErrorCodeNotFoundV1                   APIErrorCodeV1 = "not_found"
 	APIErrorCodeInvalidCallableV1            APIErrorCodeV1 = "invalid_callable"
 	APIErrorCodeInvalidParameterExpressionV1 APIErrorCodeV1 = "invalid_parameter_expression"
-	APIErrorCodeInvalidParameterNameV1       APIErrorCodeV1 = "invalid_parameter_name"
-	APIErrorCodeInvalidPythonTargetV1        APIErrorCodeV1 = "invalid_python_target"
-	APIErrorCodeRevisionConflictV1           APIErrorCodeV1 = "revision_conflict"
 	APIErrorCodeUnsupportedSignatureV1       APIErrorCodeV1 = "unsupported_signature"
 	APIErrorCodeProviderUnavailableV1        APIErrorCodeV1 = "provider_unavailable"
 	APIErrorCodeInternalV1                   APIErrorCodeV1 = "internal"
@@ -365,14 +275,12 @@ func (snapshot ProjectSnapshotV1) validateDocumentShape() error {
 	return nil
 }
 
-// Either region may be empty, because a person may delete their imports or their
-// trailing statements outright. Neither may carry a byte Python source cannot hold.
 func validatePythonTarget(target PythonTargetV1) error {
-	if strings.ContainsRune(target.Prefix, '\x00') {
-		return ValidationError{Field: "pythonTarget.prefix", Problem: "must not contain NUL"}
+	if target.Prefix == "" {
+		return ValidationError{Field: "pythonTarget.prefix", Problem: "must not be empty"}
 	}
-	if strings.ContainsRune(target.Suffix, '\x00') {
-		return ValidationError{Field: "pythonTarget.suffix", Problem: "must not contain NUL"}
+	if target.Suffix == "" {
+		return ValidationError{Field: "pythonTarget.suffix", Problem: "must not be empty"}
 	}
 	return nil
 }
@@ -389,7 +297,7 @@ func (snapshot ProjectSnapshotV1) validateDocumentContents() error {
 	if err := validateSourceRanges(snapshot.GeneratedCode.SourceRanges, len(snapshot.GeneratedCode.Code), targetIDs); err != nil {
 		return err
 	}
-	return validateDiagnostics(snapshot.Diagnostics, snapshot.GeneratedCode.Code, targetIDs)
+	return validateDiagnostics(snapshot.Diagnostics, targetIDs)
 }
 
 func validateParameters(parameters []ParameterV1, targetIDs map[string]struct{}, parameterIDs map[string]struct{}) error {
@@ -401,10 +309,8 @@ func validateParameters(parameters []ParameterV1, targetIDs map[string]struct{},
 		if _, exists := targetIDs[parameter.ID]; exists {
 			return ValidationError{Field: field + ".id", Problem: "must be unique"}
 		}
-		// A blank name is a record still being authored, which the renderer omits.
-		// Surrounding whitespace is not a name a client can have meant.
-		if parameter.Name != strings.TrimSpace(parameter.Name) {
-			return ValidationError{Field: field + ".name", Problem: "must not include surrounding whitespace"}
+		if strings.TrimSpace(parameter.Name) == "" {
+			return ValidationError{Field: field + ".name", Problem: "must not be empty"}
 		}
 		if !isPassingStyleV1(parameter.PassingStyle) {
 			return ValidationError{Field: field + ".passingStyle", Problem: "is not supported by V1"}
@@ -466,7 +372,7 @@ func validateSourceRanges(ranges []GeneratedSourceRangeV1, codeLength int, targe
 	return nil
 }
 
-func validateDiagnostics(diagnostics []DiagnosticV1, code string, targetIDs map[string]struct{}) error {
+func validateDiagnostics(diagnostics []DiagnosticV1, targetIDs map[string]struct{}) error {
 	diagnosticIDs := make(map[string]struct{}, len(diagnostics))
 	for index, diagnostic := range diagnostics {
 		field := fmt.Sprintf("diagnostics[%d]", index)
@@ -482,40 +388,12 @@ func validateDiagnostics(diagnostics []DiagnosticV1, code string, targetIDs map[
 		if strings.TrimSpace(diagnostic.Message) == "" {
 			return ValidationError{Field: field + ".message", Problem: "must not be empty"}
 		}
-		if err := validateDiagnosticRange(field, diagnostic, code); err != nil {
-			return err
-		}
-		if diagnostic.TargetID != nil {
-			if _, exists := targetIDs[*diagnostic.TargetID]; !exists {
-				return ValidationError{Field: field + ".targetId", Problem: "must reference a stable target ID"}
-			}
+		if _, exists := targetIDs[diagnostic.TargetID]; !exists {
+			return ValidationError{Field: field + ".targetId", Problem: "must reference a stable target ID"}
 		}
 		diagnosticIDs[diagnostic.ID] = struct{}{}
 	}
 	return nil
-}
-
-func validateDiagnosticRange(field string, diagnostic DiagnosticV1, code string) error {
-	if diagnostic.Start < 0 {
-		return ValidationError{Field: field + ".start", Problem: "must not be negative"}
-	}
-	if diagnostic.End < diagnostic.Start {
-		return ValidationError{Field: field + ".end", Problem: "must not precede start"}
-	}
-	if diagnostic.End > len(code) {
-		return ValidationError{Field: field + ".end", Problem: "must not exceed generated code length"}
-	}
-	if !isUTF8ByteBoundary(code, diagnostic.Start) {
-		return ValidationError{Field: field + ".start", Problem: "must be on a UTF-8 byte boundary"}
-	}
-	if !isUTF8ByteBoundary(code, diagnostic.End) {
-		return ValidationError{Field: field + ".end", Problem: "must be on a UTF-8 byte boundary"}
-	}
-	return nil
-}
-
-func isUTF8ByteBoundary(value string, offset int) bool {
-	return offset == 0 || offset == len(value) || utf8.RuneStart(value[offset])
 }
 
 func requireStableID(field, value string) error {

@@ -470,7 +470,6 @@ registerSectionKinds(workspaceHost, {
         Packed host Inspector contribution for {context.type}.
       </p>
     ),
-    itemArea: { toolbar: "authoring-and-filter" },
     contentClassName: "consumer-packed-items",
     defaultSize: { width: 320, height: 160 },
   },

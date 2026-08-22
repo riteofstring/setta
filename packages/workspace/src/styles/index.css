@@ -11,8 +11,6 @@
 @import "./scopedBase.css";
 @import "./workspace.css";
 @import "./itemToolbar.css";
-@import "./sectionField.css";
-@import "./generatedDocument.css";
 @import "./workspaceToolbar.css";
 @import "./workspaceFocusVisibility.css";
 @import "./workspaceInteractionPolicy.css";

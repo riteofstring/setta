@@ -20,10 +20,6 @@ import {
 import { getWorkspaceDocumentStore } from "../document/stores";
 import { focusAdjacentTopLevelSection } from "../focus/sectionNavigation";
 import { focusWorkspaceScope } from "../focus/workspaceFocusScopes";
-import {
-  FOCUS_ITEM_FILTER_BINDING_ID,
-  focusSectionItemFilter,
-} from "../items/itemFilterFocusRegistry";
 import { getSectionItemVisibility } from "../items/itemListRegistry";
 import type { WorkspaceHost } from "../workspaceHost";
 import {
@@ -143,16 +139,6 @@ function activeSectionHasItemFilter(host: WorkspaceHost): boolean {
     : false;
 }
 
-// The reference's `focusOnSearch`: with exactly one section active the chord goes to that
-// section's Args filter, and anything else is not this section's filter to focus.
-function focusSoleActiveSectionItemFilter(host: WorkspaceHost): boolean {
-  const activeIds = getActiveSectionIds(host);
-  const soleActiveId = activeIds.length === 1 ? activeIds[0] : undefined;
-  return soleActiveId === undefined
-    ? false
-    : focusSectionItemFilter(host, soleActiveId);
-}
-
 // The reference's Tab handling (`handleTabKeyDown`): hosts opt a subtree out with
 // [data-tab-native], and an active filter keeps native navigation available because structural
 // moves are suspended. Otherwise, while the active section has selected items the keypress
@@ -190,13 +176,11 @@ function createItemIndentBinding(
 // — sections, then the selection over them, then the keyboard's place among them, then
 // parameters, then the view, then the surrounding panes. The reference ships "Mod + G",
 // "Shift + Mod + G", "Backspace", "Mod + A", "Mod + Shift + A", "Alt + J", "Alt + K",
-// "Alt + ArrowUp", "Alt + ArrowDown", "Tab", "Shift + Tab", "Mod + K", "F", "Equal", "Minus",
+// "Alt + ArrowUp", "Alt + ArrowDown", "Tab", "Shift + Tab", "F", "Equal", "Minus",
 // "Mod + Comma", "Z", "Ctrl + Shift + 2", "Ctrl + Shift + 3", and "Ctrl + Shift + 4" for these
 // operations. Locking has no reference shortcut, so it ships bindable and unbound rather than
 // with an invented chord. The reference's remaining focus chord, "Ctrl + Shift + 1", belongs to
-// its application header, which the package does not have. Its "Mod + K" is one shortcut with two
-// jobs: the sole active section's Args filter, or its application header's project search. Only
-// the first is a workspace surface, so the binding here does that job and declines the rest.
+// its application header, which the package does not have.
 export function listBuiltInWorkspaceKeyBindings(
   host: WorkspaceHost,
 ): ReadonlyArray<WorkspaceKeyBindingDefinition> {
@@ -266,13 +250,6 @@ export function listBuiltInWorkspaceKeyBindings(
       "Unindent parameters",
       "Shift + Tab",
       () => unindentSelectedItems(host),
-    ),
-    createOperationBinding(
-      FOCUS_ITEM_FILTER_BINDING_ID,
-      "Focus parameter filter",
-      "Mod + K",
-      false,
-      () => focusSoleActiveSectionItemFilter(host),
     ),
     createOperationBinding("workspace.fit-view", "Fit view", "F", false, () =>
       onFitViewHandler(host),

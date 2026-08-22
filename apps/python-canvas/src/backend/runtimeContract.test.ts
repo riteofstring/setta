@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ProjectSnapshotValidationError,
-  parseCompletionResponseV1,
+  parseCallableCompletionResponseV1,
   parseErrorResponseV1,
   parseProjectSnapshotV1,
 } from "./runtimeContract";
@@ -134,82 +134,11 @@ describe("parseProjectSnapshotV1", () => {
             id: "diagnostic:missing-target",
             severity: "error",
             message: "Missing target.",
-            start: 0,
-            end: 0,
             targetId: "callable:missing",
           },
         ],
       }),
     ).toThrow(ProjectSnapshotValidationError);
-  });
-
-  it("accepts targetless document diagnostics and enforces UTF-8 byte boundaries", () => {
-    const documentDiagnostic = {
-      id: "diagnostic:document",
-      severity: "error",
-      message: "Undefined name.",
-      start: 0,
-      end: 2,
-      targetId: null,
-    };
-    const snapshot = {
-      ...projectSnapshotFixture,
-      generatedCode: {
-        body: "",
-        code: "π",
-        sourceRanges: [],
-      },
-      diagnostics: [documentDiagnostic],
-    };
-
-    expect(parseProjectSnapshotV1(snapshot).diagnostics).toEqual([
-      documentDiagnostic,
-    ]);
-    expect(() =>
-      parseProjectSnapshotV1({
-        ...snapshot,
-        diagnostics: [{ ...documentDiagnostic, start: 1 }],
-      }),
-    ).toThrow(ProjectSnapshotValidationError);
-  });
-
-  // A parameter record says explicitly whether its name is the app's to write, and an authored
-  // record may still be unnamed. Everything else about the record stays closed.
-  it("parses a parameter record's declared name ownership and blank authored name", () => {
-    const [callable] = projectSnapshotFixture.callables;
-    if (callable === undefined) {
-      throw new Error("The Go fixture must contain a callable.");
-    }
-    const parameter = {
-      authoredExpression: "",
-      default: null,
-      id: "parameter:authored:1",
-      name: "",
-      nameEditable: true,
-      passingStyle: "positional_or_keyword",
-      typeAnnotation: "",
-    };
-    const withParameter = {
-      ...projectSnapshotFixture,
-      callables: [{ ...callable, parameterIds: [parameter.id] }],
-      parameters: [parameter],
-    };
-
-    expect(parseProjectSnapshotV1(withParameter).parameters[0]).toEqual(
-      parameter,
-    );
-
-    const { nameEditable: _declared, ...withoutNameOwnership } = parameter;
-    for (const invalid of [
-      { ...parameter, nameEditable: "yes" },
-      { ...parameter, name: " scale " },
-      { ...parameter, extra: true },
-      withoutNameOwnership,
-    ]) {
-      expect(() =>
-        parseProjectSnapshotV1({ ...withParameter, parameters: [invalid] }),
-      ).toThrow(ProjectSnapshotValidationError);
-    }
   });
 
   it("requires exactly one callable at the unknown JSON boundary", () => {
@@ -258,16 +187,16 @@ describe("parseErrorResponseV1", () => {
   });
 });
 
-describe("parseCompletionResponseV1", () => {
+describe("parseCallableCompletionResponseV1", () => {
   it("accepts only the exact declared completion response shape", () => {
     expect(
-      parseCompletionResponseV1({
+      parseCallableCompletionResponseV1({
         items: [{ label: "sqrt", insertText: "sqrt" }],
       }),
     ).toEqual({
       items: [{ label: "sqrt", insertText: "sqrt" }],
     });
-    expect(parseCompletionResponseV1({ items: [] })).toEqual({
+    expect(parseCallableCompletionResponseV1({ items: [] })).toEqual({
       items: [],
     });
   });
@@ -280,7 +209,7 @@ describe("parseCompletionResponseV1", () => {
       { items: {} },
       { items: [], unexpected: true },
     ]) {
-      expect(() => parseCompletionResponseV1(response)).toThrow(
+      expect(() => parseCallableCompletionResponseV1(response)).toThrow(
         ProjectSnapshotValidationError,
       );
     }

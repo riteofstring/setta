@@ -23,7 +23,6 @@ import {
   WORKSPACE_CODE_SECTION_LANGUAGES,
   type WorkspaceCodeSectionLanguage,
 } from "./codeSectionData";
-import type { WorkspaceCodeSectionCompletionProvider } from "./codeSectionCompletion";
 import { WorkspaceCodeSectionBody } from "./WorkspaceCodeSectionBody";
 
 // The public registration seam for the built-in Code Editor section. The helper returns an
@@ -64,9 +63,6 @@ export type WorkspaceCodeSectionRegistration = {
   renderInspector?: (
     context: WorkspaceInspectorContributionContext,
   ) => ReactNode;
-  // A host-owned completion boundary for this registered Code section kind. It deliberately
-  // stays out of section data so a document remains portable and free of live service state.
-  completionProvider?: WorkspaceCodeSectionCompletionProvider;
 };
 
 function CodeSectionLanguageIcon({
@@ -110,7 +106,6 @@ export function createWorkspaceCodeSection(
     renderContent: (section: WorkspaceSection) => (
       <WorkspaceCodeSectionBody
         allowedLanguages={allowedLanguages}
-        completionProvider={registration.completionProvider}
         section={section}
       />
     ),

@@ -143,16 +143,10 @@ function createLoadedHostPair(): {
   const beta = createWorkspaceHost();
   hostsToDispose.push(alpha, beta);
   registerSectionKinds(alpha, {
-    alpha: {
-      renderContent: () => null,
-      itemArea: { toolbar: "authoring-and-filter" },
-    },
+    alpha: { renderContent: () => null },
   });
   registerSectionKinds(beta, {
-    beta: {
-      renderContent: () => null,
-      itemArea: { toolbar: "authoring-and-filter" },
-    },
+    beta: { renderContent: () => null },
   });
   alpha.loadDocument(makeDocument("alpha", "Alpha"));
   beta.loadDocument(makeDocument("beta", "Beta"));

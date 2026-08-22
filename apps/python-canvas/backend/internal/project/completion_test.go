@@ -17,7 +17,7 @@ func TestStoreCompletesCallableWithoutMutatingCanonicalState(t *testing.T) {
 	provider.completionResolver = func(
 		ctx context.Context,
 		request CallableCompletionRequest,
-	) ([]CompletionItem, error) {
+	) ([]CallableCompletionItem, error) {
 		if ctx == nil {
 			t.Fatal("CompleteCallable() context = nil")
 		}
@@ -31,7 +31,7 @@ func TestStoreCompletesCallableWithoutMutatingCanonicalState(t *testing.T) {
 		if !reflect.DeepEqual(request, want) {
 			t.Fatalf("completion request = %#v, want %#v", request, want)
 		}
-		return []CompletionItem{{Label: "sqrt", InsertText: "sqrt"}}, nil
+		return []CallableCompletionItem{{Label: "sqrt", InsertText: "sqrt"}}, nil
 	}
 
 	items, err := store.CompleteCallable(
@@ -44,7 +44,7 @@ func TestStoreCompletesCallableWithoutMutatingCanonicalState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CompleteCallable() error = %v", err)
 	}
-	if want := []CompletionItem{{Label: "sqrt", InsertText: "sqrt"}}; !reflect.DeepEqual(items, want) {
+	if want := []CallableCompletionItem{{Label: "sqrt", InsertText: "sqrt"}}; !reflect.DeepEqual(items, want) {
 		t.Fatalf("completion items = %#v, want %#v", items, want)
 	}
 	if provider.completionCalls != 1 || provider.resolveCalls != 0 || provider.synchronizeCalls != 0 {
@@ -111,7 +111,7 @@ func TestStoreLeavesCanonicalStateUntouchedWhenCallableCompletionFails(t *testin
 	before := store.Snapshot()
 	beforeCode := writer.code
 	providerErr := errors.New("completion unavailable")
-	provider.completionResolver = func(context.Context, CallableCompletionRequest) ([]CompletionItem, error) {
+	provider.completionResolver = func(context.Context, CallableCompletionRequest) ([]CallableCompletionItem, error) {
 		return nil, providerErr
 	}
 
@@ -139,10 +139,10 @@ func TestStoreReleasesProjectLockBeforeWaitingForCallableCompletion(t *testing.T
 			close(release)
 		}
 	}()
-	provider.completionResolver = func(context.Context, CallableCompletionRequest) ([]CompletionItem, error) {
+	provider.completionResolver = func(context.Context, CallableCompletionRequest) ([]CallableCompletionItem, error) {
 		close(started)
 		<-release
-		return []CompletionItem{}, nil
+		return []CallableCompletionItem{}, nil
 	}
 
 	completionDone := make(chan error, 1)
@@ -185,175 +185,6 @@ func TestStoreReleasesProjectLockBeforeWaitingForCallableCompletion(t *testing.T
 	}
 }
 
-func TestStoreCompletesBothPythonTargetRegionsWithoutMutatingCanonicalState(t *testing.T) {
-	for _, testCase := range []struct {
-		name           string
-		region         PythonTargetCompletionRegion
-		prefix         string
-		suffix         string
-		cursorUTF16    int
-		wantCursorByte int
-		wantLabel      string
-	}{
-		{
-			name:           "prefix",
-			region:         PythonTargetCompletionPrefix,
-			prefix:         "import mat",
-			suffix:         "state = SettaState()",
-			cursorUTF16:    len("import mat") - 1,
-			wantCursorByte: len("import mat") - 1,
-			wantLabel:      "math",
-		},
-		{
-			name:        "suffix",
-			region:      PythonTargetCompletionSuffix,
-			prefix:      "import math",
-			suffix:      "state = SettaSta",
-			cursorUTF16: len("state = SettaSta") - 1,
-			wantLabel:   "SettaState",
-		},
-	} {
-		t.Run(testCase.name, func(t *testing.T) {
-			writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
-			store, provider := newStoreForTest(t, writer, nil)
-			before := store.Snapshot()
-			beforeCode := writer.code
-			wantCode := testCase.prefix + "\n\n" + before.GeneratedCode.Body + "\n\n" + testCase.suffix
-			if testCase.region == PythonTargetCompletionSuffix {
-				testCase.wantCursorByte = len(wantCode) - len(testCase.suffix) + testCase.cursorUTF16
-			}
-			provider.targetCompletionResolver = func(
-				ctx context.Context,
-				request PythonTargetCompletionRequest,
-			) ([]CompletionItem, error) {
-				if ctx == nil {
-					t.Fatal("CompletePythonTarget() context = nil")
-				}
-				if request.Code != wantCode || request.CursorOffsetByte != testCase.wantCursorByte {
-					t.Fatalf("target completion request = %#v, want code %q and byte offset %d", request, wantCode, testCase.wantCursorByte)
-				}
-				return []CompletionItem{{Label: testCase.wantLabel, InsertText: testCase.wantLabel}}, nil
-			}
-
-			items, err := store.CompletePythonTarget(
-				context.Background(),
-				initialProjectID,
-				testCase.region,
-				testCase.prefix,
-				testCase.suffix,
-				testCase.cursorUTF16,
-			)
-			if err != nil {
-				t.Fatalf("CompletePythonTarget() error = %v", err)
-			}
-			if want := []CompletionItem{{Label: testCase.wantLabel, InsertText: testCase.wantLabel}}; !reflect.DeepEqual(items, want) {
-				t.Fatalf("target completion items = %#v, want %#v", items, want)
-			}
-			if provider.targetCompletionCalls != 1 || provider.completionCalls != 0 || provider.synchronizeCalls != 0 {
-				t.Fatalf("provider calls = target %d, callable %d, synchronize %d; want 1, 0, 0", provider.targetCompletionCalls, provider.completionCalls, provider.synchronizeCalls)
-			}
-			requireUnchangedStore(t, store, writer, before, beforeCode)
-		})
-	}
-}
-
-func TestStoreRejectsInvalidPythonTargetCompletionInputsAndLeavesStateUntouched(t *testing.T) {
-	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
-	store, provider := newStoreForTest(t, writer, nil)
-	before := store.Snapshot()
-	beforeCode := writer.code
-	for _, testCase := range []struct {
-		name        string
-		projectID   string
-		region      PythonTargetCompletionRegion
-		prefix      string
-		suffix      string
-		cursorUTF16 int
-		want        error
-	}{
-		{name: "unknown project", projectID: "project:missing", region: PythonTargetCompletionPrefix, prefix: "import math", suffix: "state = SettaState()", cursorUTF16: 1, want: ErrProjectNotFound},
-		{name: "unknown region", projectID: initialProjectID, region: "body", prefix: "import math", suffix: "state = SettaState()", cursorUTF16: 1, want: ErrPythonTargetCompletionInvalid},
-		{name: "invalid prefix", projectID: initialProjectID, region: PythonTargetCompletionPrefix, prefix: strings.Repeat("a", maxPythonTargetBytes+1), suffix: "state = SettaState()", cursorUTF16: 1, want: ErrPythonTargetCompletionInvalid},
-		{name: "invalid UTF-8 suffix", projectID: initialProjectID, region: PythonTargetCompletionSuffix, prefix: "import math", suffix: string([]byte{0xff}), cursorUTF16: 0, want: ErrPythonTargetCompletionInvalid},
-		{name: "surrogate midpoint", projectID: initialProjectID, region: PythonTargetCompletionPrefix, prefix: "import 😀", suffix: "state = SettaState()", cursorUTF16: 8, want: ErrPythonTargetCompletionInvalid},
-	} {
-		t.Run(testCase.name, func(t *testing.T) {
-			_, err := store.CompletePythonTarget(context.Background(), testCase.projectID, testCase.region, testCase.prefix, testCase.suffix, testCase.cursorUTF16)
-			if !errors.Is(err, testCase.want) {
-				t.Fatalf("CompletePythonTarget() error = %v, want %v", err, testCase.want)
-			}
-			requireUnchangedStore(t, store, writer, before, beforeCode)
-		})
-	}
-	if provider.targetCompletionCalls != 0 {
-		t.Fatalf("target completion provider calls = %d, want none", provider.targetCompletionCalls)
-	}
-}
-
-func TestStoreCancelsPythonTargetCompletionBeforeItCallsTheProvider(t *testing.T) {
-	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
-	store, provider := newStoreForTest(t, writer, nil)
-	before := store.Snapshot()
-	beforeCode := writer.code
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	_, err := store.CompletePythonTarget(
-		ctx,
-		initialProjectID,
-		PythonTargetCompletionPrefix,
-		"import mat",
-		"state = SettaState()",
-		9,
-	)
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("CompletePythonTarget() error = %v, want context cancellation", err)
-	}
-	if provider.targetCompletionCalls != 0 {
-		t.Fatalf("target completion provider calls = %d, want none", provider.targetCompletionCalls)
-	}
-	requireUnchangedStore(t, store, writer, before, beforeCode)
-}
-
-func TestStoreReleasesProjectLockAndLeavesStateUntouchedWhenPythonTargetCompletionFails(t *testing.T) {
-	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
-	store, provider := newStoreForTest(t, writer, nil)
-	before := store.Snapshot()
-	beforeCode := writer.code
-	started := make(chan struct{})
-	release := make(chan struct{})
-	provider.targetCompletionResolver = func(context.Context, PythonTargetCompletionRequest) ([]CompletionItem, error) {
-		close(started)
-		<-release
-		return nil, errors.New("target completion unavailable")
-	}
-	result := make(chan error, 1)
-	go func() {
-		_, err := store.CompletePythonTarget(context.Background(), initialProjectID, PythonTargetCompletionPrefix, "import mat", "state = SettaState()", 9)
-		result <- err
-	}()
-	select {
-	case <-started:
-	case <-time.After(time.Second):
-		t.Fatal("target completion provider did not begin")
-	}
-	snapshotDone := make(chan struct{})
-	go func() {
-		_ = store.Snapshot()
-		close(snapshotDone)
-	}()
-	select {
-	case <-snapshotDone:
-	case <-time.After(time.Second):
-		t.Fatal("Snapshot() remained blocked by a target completion provider wait")
-	}
-	close(release)
-	if err := <-result; !errors.Is(err, ErrProviderUnavailable) {
-		t.Fatalf("CompletePythonTarget() error = %v, want provider-unavailable failure", err)
-	}
-	requireUnchangedStore(t, store, writer, before, beforeCode)
-}
-
 func TestByteOffsetForUTF16OffsetRejectsSurrogateMidpoints(t *testing.T) {
 	value := "a😀β"
 	for _, testCase := range []struct {
@@ -378,6 +209,4 @@ func TestByteOffsetForUTF16OffsetRejectsSurrogateMidpoints(t *testing.T) {
 	}
 }
 
-type completionResolverFunc func(context.Context, CallableCompletionRequest) ([]CompletionItem, error)
-
-type pythonTargetCompletionResolverFunc func(context.Context, PythonTargetCompletionRequest) ([]CompletionItem, error)
+type completionResolverFunc func(context.Context, CallableCompletionRequest) ([]CallableCompletionItem, error)

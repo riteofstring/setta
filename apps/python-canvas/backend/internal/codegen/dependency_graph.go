@@ -2,7 +2,6 @@ package codegen
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -72,10 +71,13 @@ func buildDependencyGraph(input Input) (dependencyGraph, error) {
 	}, nil
 }
 
-// The text around the generated body is authored, so either region may be empty:
-// somebody may delete their imports or their trailing statements outright, and the
-// module those two rules used to protect is not this renderer's to insist on.
 func validateDependencyGraphInput(input Input) error {
+	if strings.TrimSpace(input.Prefix) == "" {
+		return invalidInput("prefix must not be empty")
+	}
+	if strings.TrimSpace(input.Suffix) == "" {
+		return invalidInput("suffix must not be empty")
+	}
 	if strings.TrimSpace(input.Callable.ID) == "" {
 		return invalidInput("callable ID must not be empty")
 	}
@@ -139,18 +141,6 @@ func sanitizePythonPath(value string) string {
 func IsPythonKeyword(value string) bool {
 	_, isKeyword := pythonKeywords[value]
 	return isKeyword
-}
-
-// PythonKeywords returns the same reserved words in sorted order. The client
-// applies this rule to a name being written, so the contract generator renders
-// this list rather than the frontend keeping a second copy of it.
-func PythonKeywords() []string {
-	keywords := make([]string, 0, len(pythonKeywords))
-	for keyword := range pythonKeywords {
-		keywords = append(keywords, keyword)
-	}
-	sort.Strings(keywords)
-	return keywords
 }
 
 var pythonKeywords = map[string]struct{}{
