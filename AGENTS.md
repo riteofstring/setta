@@ -71,22 +71,21 @@
 - Run exact suite or module tests as useful during implementation. Near task
   completion, run `code-policy test --changed`; routine focused tests do not
   need a separate permission prompt.
-- Before merging, run `code-policy test-levels --base <merge-target>`. This
-  read-only command renders a terminal-safe table and is always safe. Unless
-  broader verification is already authorized, present exactly the listed
-  recommended and full ordinary choices, including suite names and costs,
-  identify the planner's suggestion, and wait before running either choice,
-  `verify`, or `gate`.
-- A checked-in CI or lifecycle workflow may explicitly authorize
-  `code-policy merge-gate --base <trusted-base>`. This command chooses only
-  between the configured recommended merge profile and the complete full gate;
-  it accepts no file, module, suite, or quick-mode override. When it is run,
-  reproduce the emitted `MERGE POLICY LEVEL`, `MERGE POLICY BASE`, and every
-  `MERGE POLICY REASON` line verbatim in the user-facing result. Never hide,
-  soften, or infer a different level from those lines.
-- After the authorized ordinary set passes, request separate authorization for
-  impact-relevant supplemental mutation or risk suites. `test --all`, `verify`,
-  and `gate` deliberately exclude `test --supplemental`.
+- Before merging, resolve the trusted merge target from an explicit target,
+  checked-in guidance, `origin/HEAD`, then `origin/main` or `origin/master`.
+  Run `code-policy merge-gate --base <merge-target>` without asking the user to
+  choose recommended or full. This is the sole autonomous ordinary merge
+  authority: it selects only between the configured recommended merge profile
+  and the complete full gate and accepts no file, module, suite, or quick-mode
+  override.
+- `code-policy test-levels --base <merge-target>` remains a safe read-only
+  diagnostic; do not turn its policy selection into a user choice. When
+  `merge-gate` runs, reproduce its emitted `MERGE POLICY LEVEL`,
+  `MERGE POLICY BASE`, and every `MERGE POLICY REASON` line verbatim in the user-facing
+  result. Never hide, soften, or infer a different level from those lines.
+- After the policy-selected ordinary result passes, request separate
+  authorization for impact-relevant supplemental mutation or risk suites.
+  `test --all`, `verify`, and `gate` deliberately exclude `test --supplemental`.
 - Release-age assessments, vulnerability assessments, dependency-override
   governance, and general policy exceptions are distinct. Each must be exact,
   visible, owned, justified, and expiring. Vulnerability assessments require
