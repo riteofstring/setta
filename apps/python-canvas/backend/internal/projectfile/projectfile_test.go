@@ -243,6 +243,9 @@ func validState() aggregate.State {
 				{ID: "parameter-app", Name: "scale", NameEditable: true, PassingStyle: aggregate.PassingStylePositionalOrKeyword, AuthoredExpression: "2"},
 			},
 		}},
+		ParameterDictionaries: []aggregate.ParameterDictionary{},
+		Lists:                 []aggregate.List{},
+		TopLevelSectionIDs:    []string{"callable-dynamic"},
 	}
 }
 

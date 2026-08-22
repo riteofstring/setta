@@ -132,6 +132,7 @@ func TestRenderPathsRemainCollisionSafeWhenNamesSanitizeAlike(t *testing.T) {
 			{ID: "callable-a", Name: "same value", AuthoredExpression: "fixture.first", Parameters: []aggregate.Parameter{}},
 			{ID: "callable-b", Name: "same-value", AuthoredExpression: "fixture.second", Parameters: []aggregate.Parameter{}},
 		},
+		TopLevelSectionIDs: []string{"callable-a", "callable-b"},
 	}
 	result, err := Render(state)
 	if err != nil {
@@ -157,6 +158,7 @@ func TestRenderCallablePathsRemainValidPythonIdentifiers(t *testing.T) {
 			{ID: "callable-keyword", Name: "class", AuthoredExpression: "fixture.first", Parameters: []aggregate.Parameter{}},
 			{ID: "callable-number", Name: "123 value", AuthoredExpression: "fixture.second", Parameters: []aggregate.Parameter{}},
 		},
+		TopLevelSectionIDs: []string{"callable-keyword", "callable-number"},
 	}
 	result, err := Render(state)
 	if err != nil {
@@ -167,6 +169,75 @@ func TestRenderCallablePathsRemainValidPythonIdentifiers(t *testing.T) {
 	}
 	if got := assignmentPath(t, result.Code, result.SourceRangesByTargetID["callable-number"]); got != "_123_value" {
 		t.Fatalf("number-leading callable path = %q, want %q", got, "_123_value")
+	}
+}
+
+func TestRenderForestUsesPostOrderPathsAndSeparatesCompositionRanges(t *testing.T) {
+	t.Parallel()
+
+	state := aggregate.State{
+		Project:      aggregate.Project{ID: "project-forest", Name: "Forest", Revision: 1},
+		PythonTarget: aggregate.PythonTarget{Suffix: aggregate.DefaultPythonSuffix},
+		Callables: []aggregate.Callable{
+			{ID: "callable-child", Name: "Child", AuthoredExpression: "fixture.child", Parameters: []aggregate.Parameter{}},
+			{ID: "callable-nested", Name: "Nested", AuthoredExpression: "fixture.nested", Parameters: []aggregate.Parameter{}},
+		},
+		ParameterDictionaries: []aggregate.ParameterDictionary{
+			{
+				ID: "dictionary-options", Name: "Options", Entries: []aggregate.DictionaryEntry{
+					{ID: "entry-radius", Name: "radius", Leaf: &aggregate.DictionaryLeaf{AuthoredExpression: "missing_radius"}},
+					{ID: "entry-options", Name: "options", Parent: &aggregate.DictionaryParent{Children: []aggregate.DictionaryEntry{
+						{ID: "entry-scale", Name: "scale", Leaf: &aggregate.DictionaryLeaf{AuthoredExpression: "2"}},
+					}}},
+				},
+			},
+			{
+				ID: "dictionary-child", Name: "Child options", Entries: []aggregate.DictionaryEntry{
+					{ID: "entry-value", Name: "value", Leaf: &aggregate.DictionaryLeaf{AuthoredExpression: "3"}},
+				},
+			},
+		},
+		Lists: []aggregate.List{
+			{ID: "list-outer", Name: "Things", ChildSectionIDs: []string{"callable-child", "dictionary-child", "list-nested"}},
+			{ID: "list-nested", Name: "Nested things", ChildSectionIDs: []string{"callable-nested"}},
+		},
+		TopLevelSectionIDs: []string{"dictionary-options", "list-outer"},
+	}
+
+	result, err := Render(state)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	for _, expected := range []string{
+		"state.Options__radius = missing_radius",
+		"state.Options__options__scale = 2",
+		"state.Options__options = {\"scale\": state.Options__options__scale}",
+		"state.Options = {\"radius\": state.Options__radius, \"options\": state.Options__options}",
+		"state.Things__0 = fixture.child()",
+		"state.Things__1__value = 3",
+		"state.Things__1 = {\"value\": state.Things__1__value}",
+		"state.Things__2__0 = fixture.nested()",
+		"state.Things__2 = [state.Things__2__0]",
+		"state.Things = [state.Things__0, state.Things__1, state.Things__2]",
+	} {
+		if !strings.Contains(result.Body, expected) {
+			t.Fatalf("rendered body did not include %q:\n%s", expected, result.Body)
+		}
+	}
+	if strings.Index(result.Body, "state.Things__2__0") > strings.Index(result.Body, "state.Things__2 =") ||
+		strings.Index(result.Body, "state.Things__2 =") > strings.Index(result.Body, "state.Things =") {
+		t.Fatalf("list did not render children before parents:\n%s", result.Body)
+	}
+	if got := result.Code[result.SourceRangesByTargetID["entry-radius"].Start:result.SourceRangesByTargetID["entry-radius"].End]; got != "missing_radius" {
+		t.Fatalf("dictionary leaf source range = %q", got)
+	}
+	for _, targetID := range []string{"entry-options", "dictionary-options", "dictionary-child", "list-nested", "list-outer"} {
+		if _, exists := result.SourceRangesByTargetID[targetID]; exists {
+			t.Fatalf("generated composition %q received a field source range", targetID)
+		}
+		if _, exists := result.CompositionRangesByTargetID[targetID]; !exists {
+			t.Fatalf("generated composition range for %q is missing", targetID)
+		}
 	}
 }
 
@@ -195,6 +266,7 @@ func multiCallableState() aggregate.State {
 			},
 			{ID: "callable-second", Name: "Second callable", AuthoredExpression: "fixture.second", Parameters: []aggregate.Parameter{}},
 		},
+		TopLevelSectionIDs: []string{"callable-first", "callable-second"},
 	}
 }
 

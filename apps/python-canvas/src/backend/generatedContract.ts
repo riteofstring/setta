@@ -4,6 +4,9 @@ export const PROJECT_SNAPSHOT_VERSION_V2 = "v2" as const;
 export const PROJECT_PATH_V2 = "/api/v2/project" as const;
 export const PROJECT_RENAME_PATH_V2 = "/api/v2/project/rename" as const;
 export const PROJECT_CALLABLES_PATH_V2 = "/api/v2/project/callables" as const;
+export const PROJECT_PARAMETER_DICTIONARIES_PATH_V2 = "/api/v2/project/parameter-dictionaries" as const;
+export const PROJECT_LISTS_PATH_V2 = "/api/v2/project/lists" as const;
+export const PROJECT_FOREST_PATH_V2 = "/api/v2/project/forest" as const;
 export const PROJECT_TARGET_PATH_V2 = "/api/v2/project/target" as const;
 
 export function projectCallableRenamePath(callableId: string): string {
@@ -24,6 +27,27 @@ export function projectCallableParametersPath(callableId: string): string {
 export function projectCallableCompletionsPath(callableId: string): string {
   return "/api/v2/project/callables/" + encodeURIComponent(callableId) + "/completions";
 }
+export function projectParameterDictionaryRenamePath(dictionaryId: string): string {
+  return "/api/v2/project/parameter-dictionaries/" + encodeURIComponent(dictionaryId) + "/rename";
+}
+export function projectParameterDictionaryDeletePath(dictionaryId: string): string {
+  return "/api/v2/project/parameter-dictionaries/" + encodeURIComponent(dictionaryId) + "/delete";
+}
+export function projectParameterDictionaryEntriesPath(dictionaryId: string): string {
+  return "/api/v2/project/parameter-dictionaries/" + encodeURIComponent(dictionaryId) + "/entries";
+}
+export function projectListRenamePath(listId: string): string {
+  return "/api/v2/project/lists/" + encodeURIComponent(listId) + "/rename";
+}
+export function projectListDeletePath(listId: string): string {
+  return "/api/v2/project/lists/" + encodeURIComponent(listId) + "/delete";
+}
+export function projectListIncrementPath(listId: string): string {
+  return "/api/v2/project/lists/" + encodeURIComponent(listId) + "/increment";
+}
+export function projectListDecrementPath(listId: string): string {
+  return "/api/v2/project/lists/" + encodeURIComponent(listId) + "/decrement";
+}
 export const PROJECT_TARGET_COMPLETIONS_PATH_V2 = "/api/v2/project/target/completions" as const;
 
 export const PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V2 = "positional_only" as const;
@@ -31,6 +55,8 @@ export const PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2 = "positional_or_k
 export const PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V2 = "keyword_only" as const;
 export const PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2 = "variadic_positional" as const;
 export const PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2 = "variadic_keyword" as const;
+export const DICTIONARY_ENTRY_KIND_LEAF_V2 = "leaf" as const;
+export const DICTIONARY_ENTRY_KIND_PARENT_V2 = "parent" as const;
 export const DIAGNOSTIC_SEVERITY_ERROR_V2 = "error" as const;
 export const DIAGNOSTIC_SEVERITY_WARNING_V2 = "warning" as const;
 export const DIAGNOSTIC_SEVERITY_INFORMATION_V2 = "information" as const;
@@ -88,6 +114,9 @@ export type ParameterPassingStyleV2 =
   | typeof PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V2
   | typeof PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2
   | typeof PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2;
+export type DictionaryEntryKindV2 =
+  | typeof DICTIONARY_ENTRY_KIND_LEAF_V2
+  | typeof DICTIONARY_ENTRY_KIND_PARENT_V2;
 export type DiagnosticSeverityV2 =
   | typeof DIAGNOSTIC_SEVERITY_ERROR_V2
   | typeof DIAGNOSTIC_SEVERITY_WARNING_V2
@@ -118,6 +147,9 @@ export interface ProjectSnapshotV2 {
   project: ProjectV2;
   pythonTarget: PythonTargetV2;
   callables: CallableV2[];
+  parameterDictionaries: ParameterDictionaryV2[];
+  lists: ListV2[];
+  topLevelSectionIds: string[];
   generatedCode: GeneratedCodeV2;
   diagnostics: DiagnosticV2[];
   providerStatus: ProviderStatusV2;
@@ -125,6 +157,11 @@ export interface ProjectSnapshotV2 {
 export interface ProjectV2 { id: string; name: string; revision: number; }
 export interface PythonTargetV2 { prefix: string; suffix: string; }
 export interface CallableV2 { id: string; name: string; authoredExpression: string; parameters: ParameterV2[]; }
+export interface ParameterDictionaryV2 { id: string; name: string; entries: DictionaryEntryV2[]; }
+export type DictionaryEntryV2 = DictionaryLeafEntryV2 | DictionaryParentEntryV2;
+export interface DictionaryLeafEntryV2 { kind: typeof DICTIONARY_ENTRY_KIND_LEAF_V2; id: string; name: string; authoredExpression: string; }
+export interface DictionaryParentEntryV2 { kind: typeof DICTIONARY_ENTRY_KIND_PARENT_V2; id: string; name: string; children: DictionaryEntryV2[]; }
+export interface ListV2 { id: string; name: string; childSectionIds: string[]; }
 export interface ParameterV2 {
   id: string;
   name: string;
@@ -152,6 +189,17 @@ export interface CommitCallableRequestV2 { projectId: string; expectedRevision: 
 export interface RefreshCallableParametersRequestV2 { projectId: string; expectedRevision: number; }
 export interface ParameterProposalV2 { id: string; name: string; authoredExpression: string; }
 export interface SetCallableParametersRequestV2 { projectId: string; expectedRevision: number; parameters: ParameterProposalV2[]; }
+export interface CreateParameterDictionaryRequestV2 { projectId: string; expectedRevision: number; name: string; }
+export interface RenameParameterDictionaryRequestV2 { projectId: string; expectedRevision: number; name: string; }
+export interface DeleteParameterDictionaryRequestV2 { projectId: string; expectedRevision: number; }
+export interface SetParameterDictionaryEntriesRequestV2 { projectId: string; expectedRevision: number; entries: DictionaryEntryV2[]; }
+export interface CreateListRequestV2 { projectId: string; expectedRevision: number; name: string; }
+export interface RenameListRequestV2 { projectId: string; expectedRevision: number; name: string; }
+export interface DeleteListRequestV2 { projectId: string; expectedRevision: number; }
+export interface IncrementListChildrenRequestV2 { projectId: string; expectedRevision: number; count: number; }
+export interface DecrementListChildrenRequestV2 { projectId: string; expectedRevision: number; count: number; }
+export interface ListChildrenV2 { listId: string; childSectionIds: string[]; }
+export interface ReplaceSectionForestRequestV2 { projectId: string; expectedRevision: number; topLevelSectionIds: string[]; listChildren: ListChildrenV2[]; }
 export interface SetPythonTargetRequestV2 { projectId: string; expectedRevision: number; prefix: string; suffix: string; }
 export interface CallableCompletionRequestV2 { projectId: string; authoredExpression: string; cursorOffsetUtf16: number; }
 export interface UTF16RangeV2 { start: number; end: number; }

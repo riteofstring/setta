@@ -139,6 +139,7 @@ func snapshotWithCallableForTest() ProjectSnapshotV2 {
 			},
 		},
 	}}
+	snapshot.TopLevelSectionIDs = []string{"callable:one"}
 	return snapshot
 }
 

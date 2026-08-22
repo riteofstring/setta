@@ -2,6 +2,8 @@ import {
   DIAGNOSTIC_SEVERITY_ERROR_V2,
   DIAGNOSTIC_SEVERITY_INFORMATION_V2,
   DIAGNOSTIC_SEVERITY_WARNING_V2,
+  DICTIONARY_ENTRY_KIND_LEAF_V2,
+  DICTIONARY_ENTRY_KIND_PARENT_V2,
   PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V2,
   PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V2,
   PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
@@ -23,9 +25,12 @@ import {
   type CompletionResponseV2,
   type DiagnosticSeverityV2,
   type DiagnosticV2,
+  type DictionaryEntryV2,
   type ErrorResponseV2,
   type GeneratedCodeV2,
+  type ListV2,
   type ParameterPassingStyleV2,
+  type ParameterDictionaryV2,
   type ParameterV2,
   type ProjectSnapshotV2,
   type ProjectV2,
@@ -34,6 +39,7 @@ import {
   type ProviderStatusV2,
   type PythonTargetV2,
 } from "./generatedContract";
+import { isUtf8Boundary, sliceByByteRange, utf8ByteLength } from "./utf8";
 
 export class ProjectSnapshotValidationError extends Error {
   public readonly name = "ProjectSnapshotValidationError";
@@ -46,14 +52,15 @@ export class ProjectSnapshotValidationError extends Error {
   }
 }
 
-const encoder = new TextEncoder();
-
 export function parseProjectSnapshotV2(value: unknown): ProjectSnapshotV2 {
   const record = readClosedRecord(value, "snapshot", [
     "version",
     "project",
     "pythonTarget",
     "callables",
+    "parameterDictionaries",
+    "lists",
+    "topLevelSectionIds",
     "generatedCode",
     "diagnostics",
     "providerStatus",
@@ -66,7 +73,22 @@ export function parseProjectSnapshotV2(value: unknown): ProjectSnapshotV2 {
   const project = parseProject(record.project);
   const pythonTarget = parsePythonTarget(record.pythonTarget);
   const targetIds = new Set<string>();
-  const callables = parseCallables(record.callables, targetIds);
+  const sectionIds = new Set<string>();
+  const callables = parseCallables(record.callables, targetIds, sectionIds);
+  const parameterDictionaries = parseParameterDictionaries(
+    record.parameterDictionaries,
+    targetIds,
+    sectionIds,
+  );
+  const lists = parseLists(record.lists, targetIds, sectionIds);
+  if (targetIds.has(project.id)) {
+    fail("project.id", "must be globally unique");
+  }
+  const topLevelSectionIds = parseSectionForest(
+    record.topLevelSectionIds,
+    lists,
+    sectionIds,
+  );
   const generatedCode = parseGeneratedCode(
     record.generatedCode,
     pythonTarget,
@@ -83,6 +105,9 @@ export function parseProjectSnapshotV2(value: unknown): ProjectSnapshotV2 {
     project,
     pythonTarget,
     callables,
+    parameterDictionaries,
+    lists,
+    topLevelSectionIds,
     generatedCode,
     diagnostics,
     providerStatus: parseProviderStatus(record.providerStatus),
@@ -165,7 +190,11 @@ function parsePythonTarget(value: unknown): PythonTargetV2 {
   };
 }
 
-function parseCallables(value: unknown, targetIds: Set<string>): CallableV2[] {
+function parseCallables(
+  value: unknown,
+  targetIds: Set<string>,
+  sectionIds: Set<string>,
+): CallableV2[] {
   return readArray(value, "callables", (entry, index) => {
     const field = `callables[${String(index)}]`;
     const record = readClosedRecord(entry, field, [
@@ -176,6 +205,7 @@ function parseCallables(value: unknown, targetIds: Set<string>): CallableV2[] {
     ]);
     const id = readString(record.id, `${field}.id`);
     claimTargetId(targetIds, id, `${field}.id`);
+    claimSectionId(sectionIds, id, `${field}.id`);
     const name = readNonBlankString(record.name, `${field}.name`);
     if (name !== name.trim()) {
       fail(`${field}.name`, "must not include surrounding whitespace");
@@ -191,6 +221,222 @@ function parseCallables(value: unknown, targetIds: Set<string>): CallableV2[] {
       parameters: parseParameters(record.parameters, field, targetIds),
     };
   });
+}
+
+function parseParameterDictionaries(
+  value: unknown,
+  targetIds: Set<string>,
+  sectionIds: Set<string>,
+): ParameterDictionaryV2[] {
+  return readArray(value, "parameterDictionaries", (entry, index) => {
+    const field = `parameterDictionaries[${String(index)}]`;
+    const record = readClosedRecord(entry, field, ["id", "name", "entries"]);
+    const id = readString(record.id, `${field}.id`);
+    claimTargetId(targetIds, id, `${field}.id`);
+    claimSectionId(sectionIds, id, `${field}.id`);
+    const name = readNonBlankString(record.name, `${field}.name`);
+    if (name !== name.trim()) {
+      fail(`${field}.name`, "must not include surrounding whitespace");
+    }
+    return {
+      id,
+      name,
+      entries: parseDictionaryEntries(
+        record.entries,
+        `${field}.entries`,
+        targetIds,
+      ),
+    };
+  });
+}
+
+function parseDictionaryEntries(
+  value: unknown,
+  field: string,
+  targetIds: Set<string>,
+): DictionaryEntryV2[] {
+  const siblingNames = new Set<string>();
+  return readArray(value, field, (entry, index) => {
+    const entryField = `${field}[${String(index)}]`;
+    const raw = readPlainRecord(entry, entryField);
+    const kind = readString(raw.kind, `${entryField}.kind`);
+    if (kind === DICTIONARY_ENTRY_KIND_LEAF_V2) {
+      const record = readClosedRecord(entry, entryField, [
+        "kind",
+        "id",
+        "name",
+        "authoredExpression",
+      ]);
+      const id = readString(record.id, `${entryField}.id`);
+      claimTargetId(targetIds, id, `${entryField}.id`);
+      const name = readDictionaryEntryName(
+        record.name,
+        entryField,
+        siblingNames,
+      );
+      return {
+        kind: DICTIONARY_ENTRY_KIND_LEAF_V2,
+        id,
+        name,
+        authoredExpression: readText(
+          record.authoredExpression,
+          `${entryField}.authoredExpression`,
+          true,
+        ),
+      };
+    }
+    if (kind === DICTIONARY_ENTRY_KIND_PARENT_V2) {
+      const record = readClosedRecord(entry, entryField, [
+        "kind",
+        "id",
+        "name",
+        "children",
+      ]);
+      const id = readString(record.id, `${entryField}.id`);
+      claimTargetId(targetIds, id, `${entryField}.id`);
+      const name = readDictionaryEntryName(
+        record.name,
+        entryField,
+        siblingNames,
+      );
+      return {
+        kind: DICTIONARY_ENTRY_KIND_PARENT_V2,
+        id,
+        name,
+        children: parseDictionaryEntries(
+          record.children,
+          `${entryField}.children`,
+          targetIds,
+        ),
+      };
+    }
+    fail(`${entryField}.kind`, "is not supported");
+  });
+}
+
+function readDictionaryEntryName(
+  value: unknown,
+  field: string,
+  siblingNames: Set<string>,
+): string {
+  const name = readNonBlankString(value, `${field}.name`);
+  if (name !== name.trim()) {
+    fail(`${field}.name`, "must not include surrounding whitespace");
+  }
+  if (siblingNames.has(name)) {
+    fail(`${field}.name`, "must be unique within its dictionary parent");
+  }
+  siblingNames.add(name);
+  return name;
+}
+
+function parseLists(
+  value: unknown,
+  targetIds: Set<string>,
+  sectionIds: Set<string>,
+): ListV2[] {
+  return readArray(value, "lists", (entry, index) => {
+    const field = `lists[${String(index)}]`;
+    const record = readClosedRecord(entry, field, [
+      "id",
+      "name",
+      "childSectionIds",
+    ]);
+    const id = readString(record.id, `${field}.id`);
+    claimTargetId(targetIds, id, `${field}.id`);
+    claimSectionId(sectionIds, id, `${field}.id`);
+    const name = readNonBlankString(record.name, `${field}.name`);
+    if (name !== name.trim()) {
+      fail(`${field}.name`, "must not include surrounding whitespace");
+    }
+    return {
+      id,
+      name,
+      childSectionIds: readArray(
+        record.childSectionIds,
+        `${field}.childSectionIds`,
+        (child, childIndex) =>
+          readSectionId(
+            child,
+            `${field}.childSectionIds[${String(childIndex)}]`,
+          ),
+      ),
+    };
+  });
+}
+
+function parseSectionForest(
+  value: unknown,
+  lists: readonly ListV2[],
+  sectionIds: ReadonlySet<string>,
+): string[] {
+  const topLevelSectionIds = readArray(
+    value,
+    "topLevelSectionIds",
+    (entry, index) =>
+      readSectionId(entry, `topLevelSectionIds[${String(index)}]`),
+  );
+  const placements = new Set<string>();
+  const claimPlacement = (id: string, field: string): void => {
+    if (!sectionIds.has(id)) {
+      fail(field, "references an unknown section");
+    }
+    if (placements.has(id)) {
+      fail(field, "gives a section multiple parents");
+    }
+    placements.add(id);
+  };
+  topLevelSectionIds.forEach((id, index) => {
+    claimPlacement(id, `topLevelSectionIds[${String(index)}]`);
+  });
+
+  const childrenByList = new Map<string, readonly string[]>();
+  for (const list of lists) {
+    childrenByList.set(list.id, list.childSectionIds);
+    list.childSectionIds.forEach((id, index) => {
+      claimPlacement(id, `lists.${list.id}.childSectionIds[${String(index)}]`);
+    });
+  }
+  if (placements.size !== sectionIds.size) {
+    fail("topLevelSectionIds", "must place every section exactly once");
+  }
+
+  const colors = new Map<string, "visiting" | "visited">();
+  const visitList = (listId: string): void => {
+    const color = colors.get(listId);
+    if (color === "visiting") {
+      fail("lists", "contains a section cycle");
+    }
+    if (color === "visited") {
+      return;
+    }
+    colors.set(listId, "visiting");
+    for (const childId of childrenByList.get(listId) ?? []) {
+      if (childrenByList.has(childId)) {
+        visitList(childId);
+      }
+    }
+    colors.set(listId, "visited");
+  };
+  for (const listId of childrenByList.keys()) {
+    visitList(listId);
+  }
+
+  const reachable = new Set<string>();
+  const visit = (sectionId: string): void => {
+    if (reachable.has(sectionId)) {
+      return;
+    }
+    reachable.add(sectionId);
+    for (const childId of childrenByList.get(sectionId) ?? []) {
+      visit(childId);
+    }
+  };
+  topLevelSectionIds.forEach(visit);
+  if (reachable.size !== sectionIds.size) {
+    fail("topLevelSectionIds", "must reach every section");
+  }
+  return topLevelSectionIds;
 }
 
 function parseParameters(
@@ -602,6 +848,19 @@ function claimTargetId(ids: Set<string>, value: string, field: string): void {
   ids.add(value);
 }
 
+function claimSectionId(ids: Set<string>, value: string, field: string): void {
+  if (ids.has(value)) {
+    fail(field, "must be unique");
+  }
+  ids.add(value);
+}
+
+function readSectionId(value: unknown, field: string): string {
+  const id = readString(value, field);
+  requireStableId(field, id);
+  return id;
+}
+
 function requireStableId(field: string, value: string): void {
   if (value.trim() === "" || value !== value.trim() || value.includes("\0")) {
     fail(field, "must be a nonblank stable ID");
@@ -727,57 +986,6 @@ function requireExactEnumerableKeys(
   ) {
     fail(field, "must contain exactly the V2 fields");
   }
-}
-
-function utf8ByteLength(value: string): number {
-  return encoder.encode(value).length;
-}
-
-function isUtf8Boundary(value: string, byteOffset: number): boolean {
-  if (byteOffset < 0 || byteOffset > utf8ByteLength(value)) {
-    return false;
-  }
-  let offset = 0;
-  if (offset === byteOffset) {
-    return true;
-  }
-  for (const character of value) {
-    offset += utf8ByteLength(character);
-    if (offset === byteOffset) {
-      return true;
-    }
-    if (offset > byteOffset) {
-      return false;
-    }
-  }
-  return false;
-}
-
-function sliceByByteRange(value: string, range: ByteRangeV2): string {
-  let utf8Offset = 0;
-  let start = -1;
-  let end = -1;
-  let utf16Offset = 0;
-  for (const character of value) {
-    if (utf8Offset === range.start) {
-      start = utf16Offset;
-    }
-    if (utf8Offset === range.end) {
-      end = utf16Offset;
-    }
-    utf8Offset += utf8ByteLength(character);
-    utf16Offset += character.length;
-  }
-  if (utf8Offset === range.start) {
-    start = utf16Offset;
-  }
-  if (utf8Offset === range.end) {
-    end = utf16Offset;
-  }
-  if (start < 0 || end < start) {
-    fail("generatedCode.generatedBodyRange", "is not a UTF-8 boundary");
-  }
-  return value.slice(start, end);
 }
 
 function fail(field: string, problem: string): never {

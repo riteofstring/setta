@@ -233,6 +233,10 @@ func cloneRendered(result renderer.Result) renderer.Result {
 	for targetID, byteRange := range result.SourceRangesByTargetID {
 		clone.SourceRangesByTargetID[targetID] = byteRange
 	}
+	clone.CompositionRangesByTargetID = make(map[string]renderer.ByteRange, len(result.CompositionRangesByTargetID))
+	for targetID, byteRange := range result.CompositionRangesByTargetID {
+		clone.CompositionRangesByTargetID[targetID] = byteRange
+	}
 	clone.CallableCallPositionsByID = make(map[string]renderer.CallPosition, len(result.CallableCallPositionsByID))
 	for targetID, position := range result.CallableCallPositionsByID {
 		clone.CallableCallPositionsByID[targetID] = position

@@ -10,6 +10,9 @@
     "suffix": "state = SettaState()"
   },
   "callables": [],
+  "parameterDictionaries": [],
+  "lists": [],
+  "topLevelSectionIds": [],
   "generatedCode": {
     "code": "\n\nclass SettaState:\n    def __init__(state):\n        pass\n\nstate = SettaState()",
     "body": "class SettaState:\n    def __init__(state):\n        pass",

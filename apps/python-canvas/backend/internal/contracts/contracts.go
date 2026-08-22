@@ -8,23 +8,29 @@ import (
 )
 
 const (
-	ProjectSnapshotVersionV2 = "v2"
-	ProjectPathV2            = "/api/v2/project"
-	ProjectRenamePathV2      = "/api/v2/project/rename"
-	ProjectCallablesPathV2   = "/api/v2/project/callables"
-	ProjectTargetPathV2      = "/api/v2/project/target"
+	ProjectSnapshotVersionV2           = "v2"
+	ProjectPathV2                      = "/api/v2/project"
+	ProjectRenamePathV2                = "/api/v2/project/rename"
+	ProjectCallablesPathV2             = "/api/v2/project/callables"
+	ProjectParameterDictionariesPathV2 = "/api/v2/project/parameter-dictionaries"
+	ProjectListsPathV2                 = "/api/v2/project/lists"
+	ProjectForestPathV2                = "/api/v2/project/forest"
+	ProjectTargetPathV2                = "/api/v2/project/target"
 )
 
 // ProjectSnapshotV2 is the complete canonical response used by every V2
 // mutation and by the sole project/readiness endpoint.
 type ProjectSnapshotV2 struct {
-	Version        string           `json:"version"`
-	Project        ProjectV2        `json:"project"`
-	PythonTarget   PythonTargetV2   `json:"pythonTarget"`
-	Callables      []CallableV2     `json:"callables"`
-	GeneratedCode  GeneratedCodeV2  `json:"generatedCode"`
-	Diagnostics    []DiagnosticV2   `json:"diagnostics"`
-	ProviderStatus ProviderStatusV2 `json:"providerStatus"`
+	Version               string                  `json:"version"`
+	Project               ProjectV2               `json:"project"`
+	PythonTarget          PythonTargetV2          `json:"pythonTarget"`
+	Callables             []CallableV2            `json:"callables"`
+	ParameterDictionaries []ParameterDictionaryV2 `json:"parameterDictionaries"`
+	Lists                 []ListV2                `json:"lists"`
+	TopLevelSectionIDs    []string                `json:"topLevelSectionIds"`
+	GeneratedCode         GeneratedCodeV2         `json:"generatedCode"`
+	Diagnostics           []DiagnosticV2          `json:"diagnostics"`
+	ProviderStatus        ProviderStatusV2        `json:"providerStatus"`
 }
 
 type ProjectV2 struct {
@@ -252,7 +258,7 @@ func (snapshot ProjectSnapshotV2) Validate() error {
 	if err := validateProjectSnapshotBase(snapshot); err != nil {
 		return err
 	}
-	targetIDs, err := validateSnapshotCallables(snapshot.Callables)
+	targetIDs, _, err := validateSnapshotSections(snapshot)
 	if err != nil {
 		return err
 	}
@@ -278,16 +284,55 @@ func validateProjectSnapshotBase(snapshot ProjectSnapshotV2) error {
 	if err := validateTarget(snapshot.PythonTarget); err != nil {
 		return err
 	}
-	if snapshot.Callables == nil {
-		return ValidationError{Field: "callables", Problem: "must be an array"}
-	}
-	if snapshot.Diagnostics == nil {
-		return ValidationError{Field: "diagnostics", Problem: "must be an array"}
+	if err := validateSnapshotArrays(snapshot); err != nil {
+		return err
 	}
 	if err := snapshot.ProviderStatus.Validate(); err != nil {
 		return err
 	}
 	return nil
+}
+
+func validateSnapshotArrays(snapshot ProjectSnapshotV2) error {
+	for _, collection := range []struct {
+		field string
+		isNil bool
+	}{
+		{field: "callables", isNil: snapshot.Callables == nil},
+		{field: "parameterDictionaries", isNil: snapshot.ParameterDictionaries == nil},
+		{field: "lists", isNil: snapshot.Lists == nil},
+		{field: "topLevelSectionIds", isNil: snapshot.TopLevelSectionIDs == nil},
+		{field: "diagnostics", isNil: snapshot.Diagnostics == nil},
+	} {
+		if collection.isNil {
+			return ValidationError{Field: collection.field, Problem: "must be an array"}
+		}
+	}
+	return nil
+}
+
+func validateSnapshotSections(snapshot ProjectSnapshotV2) (map[string]struct{}, map[string]struct{}, error) {
+	targetIDs, err := validateSnapshotCallables(snapshot.Callables)
+	if err != nil {
+		return nil, nil, err
+	}
+	if _, exists := targetIDs[snapshot.Project.ID]; exists {
+		return nil, nil, ValidationError{Field: "project.id", Problem: "must be globally unique"}
+	}
+	sectionIDs := make(map[string]struct{}, len(snapshot.Callables)+len(snapshot.ParameterDictionaries)+len(snapshot.Lists))
+	for _, callable := range snapshot.Callables {
+		sectionIDs[callable.ID] = struct{}{}
+	}
+	if err := validateSnapshotParameterDictionaries(snapshot.ParameterDictionaries, targetIDs, sectionIDs, snapshot.Project.ID); err != nil {
+		return nil, nil, err
+	}
+	if err := validateSnapshotLists(snapshot.Lists, targetIDs, sectionIDs, snapshot.Project.ID); err != nil {
+		return nil, nil, err
+	}
+	if err := validateSnapshotSectionForest(snapshot.TopLevelSectionIDs, snapshot.Lists, sectionIDs); err != nil {
+		return nil, nil, err
+	}
+	return targetIDs, sectionIDs, nil
 }
 
 func validateSnapshotCallables(callables []CallableV2) (map[string]struct{}, error) {
@@ -718,10 +763,13 @@ func FixtureProjectSnapshotV2() ProjectSnapshotV2 {
 	prefix := ""
 	suffix := "state = SettaState()"
 	return ProjectSnapshotV2{
-		Version:      ProjectSnapshotVersionV2,
-		Project:      ProjectV2{ID: "project:fixture", Name: "Fixture project", Revision: 1},
-		PythonTarget: PythonTargetV2{Prefix: prefix, Suffix: suffix},
-		Callables:    []CallableV2{},
+		Version:               ProjectSnapshotVersionV2,
+		Project:               ProjectV2{ID: "project:fixture", Name: "Fixture project", Revision: 1},
+		PythonTarget:          PythonTargetV2{Prefix: prefix, Suffix: suffix},
+		Callables:             []CallableV2{},
+		ParameterDictionaries: []ParameterDictionaryV2{},
+		Lists:                 []ListV2{},
+		TopLevelSectionIDs:    []string{},
 		GeneratedCode: GeneratedCodeV2{
 			Code:                   prefix + "\n\n" + body + "\n\n" + suffix,
 			Body:                   body,

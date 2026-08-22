@@ -180,6 +180,79 @@ func (coordinator *Coordinator) DeleteCallable(ctx context.Context, command aggr
 	})
 }
 
+// CreateParameterDictionary appends one empty Parameter Dictionary through the
+// same durable transaction as every other authored section mutation.
+func (coordinator *Coordinator) CreateParameterDictionary(ctx context.Context, command aggregate.CreateParameterDictionaryCommand) (Snapshot, error) {
+	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+		return state.CreateParameterDictionary(command, coordinator.idGenerator)
+	})
+}
+
+// RenameParameterDictionary changes one dictionary display name.
+func (coordinator *Coordinator) RenameParameterDictionary(ctx context.Context, command aggregate.RenameParameterDictionaryCommand) (Snapshot, error) {
+	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+		return state.RenameParameterDictionary(command)
+	})
+}
+
+// DeleteParameterDictionary removes one dictionary section.
+func (coordinator *Coordinator) DeleteParameterDictionary(ctx context.Context, command aggregate.DeleteParameterDictionaryCommand) (Snapshot, error) {
+	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+		return state.DeleteParameterDictionary(command)
+	})
+}
+
+// SetParameterDictionaryEntries replaces one complete recursive entry tree.
+func (coordinator *Coordinator) SetParameterDictionaryEntries(ctx context.Context, command aggregate.SetParameterDictionaryEntriesCommand) (Snapshot, error) {
+	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+		return state.SetParameterDictionaryEntries(command)
+	})
+}
+
+// CreateList appends one empty List of Objects to the forest.
+func (coordinator *Coordinator) CreateList(ctx context.Context, command aggregate.CreateListCommand) (Snapshot, error) {
+	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+		return state.CreateList(command, coordinator.idGenerator)
+	})
+}
+
+// RenameList changes one List of Objects display name.
+func (coordinator *Coordinator) RenameList(ctx context.Context, command aggregate.RenameListCommand) (Snapshot, error) {
+	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+		return state.RenameList(command)
+	})
+}
+
+// DeleteList removes one List of Objects and its whole subtree.
+func (coordinator *Coordinator) DeleteList(ctx context.Context, command aggregate.DeleteListCommand) (Snapshot, error) {
+	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+		return state.DeleteList(command)
+	})
+}
+
+// IncrementListChildren appends the requested number of empty Callable
+// sections atomically.
+func (coordinator *Coordinator) IncrementListChildren(ctx context.Context, command aggregate.IncrementListChildrenCommand) (Snapshot, error) {
+	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+		return state.IncrementListChildren(command, coordinator.idGenerator)
+	})
+}
+
+// DecrementListChildren removes trailing child subtrees atomically.
+func (coordinator *Coordinator) DecrementListChildren(ctx context.Context, command aggregate.DecrementListChildrenCommand) (Snapshot, error) {
+	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+		return state.DecrementListChildren(command)
+	})
+}
+
+// ReplaceSectionForest moves and reorders existing sections without allowing a
+// typed section payload change in the same mutation.
+func (coordinator *Coordinator) ReplaceSectionForest(ctx context.Context, command aggregate.ReplaceSectionForestCommand) (Snapshot, error) {
+	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+		return state.ReplaceSectionForest(command)
+	})
+}
+
 // SetParameters applies one complete parameter-list proposal through the
 // aggregate's metadata-preserving candidate boundary.
 func (coordinator *Coordinator) SetParameters(ctx context.Context, command aggregate.SetParametersCommand) (Snapshot, error) {

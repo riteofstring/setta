@@ -196,12 +196,18 @@ func dispatchProjectRequest(response http.ResponseWriter, request *http.Request,
 	if dispatchProjectCollectionRoute(response, request, service) {
 		return
 	}
-	callableID, action, matched := callableRoute(request)
-	if !matched {
-		writeNotFound(response)
+	if dispatchSectionCollectionRoute(response, request, service) {
 		return
 	}
-	dispatchCallableRoute(response, request, service, callableID, action)
+	callableID, action, matched := callableRoute(request)
+	if matched {
+		dispatchCallableRoute(response, request, service, callableID, action)
+		return
+	}
+	if dispatchSectionItemRoute(response, request, service) {
+		return
+	}
+	writeNotFound(response)
 }
 
 func dispatchProjectCollectionRoute(response http.ResponseWriter, request *http.Request, service ProjectService) bool {
@@ -483,7 +489,8 @@ func writeServiceError(response http.ResponseWriter, service ProjectService, err
 	switch {
 	case errors.Is(err, aggregate.ErrRevisionConflict):
 		writeRevisionConflict(response, expectedRevision, service.Snapshot().Project.Revision)
-	case errors.Is(err, aggregate.ErrProjectNotFound), errors.Is(err, aggregate.ErrCallableNotFound):
+	case errors.Is(err, aggregate.ErrProjectNotFound), errors.Is(err, aggregate.ErrCallableNotFound),
+		errors.Is(err, aggregate.ErrParameterDictionaryNotFound), errors.Is(err, aggregate.ErrListNotFound):
 		writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV2, "The requested project resource does not exist.")
 	case errors.Is(err, coordinator.ErrProviderUnavailable), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		writeError(response, http.StatusServiceUnavailable, contracts.APIErrorCodeProviderUnavailableV2, "Basedpyright is unavailable. Try again when it is ready.")
@@ -537,7 +544,11 @@ func rejectRequestBody(response http.ResponseWriter, request *http.Request) bool
 }
 
 func callableRoute(request *http.Request) (string, string, bool) {
-	prefix := contracts.ProjectCallablesPathV2 + "/"
+	return sectionRoute(request, contracts.ProjectCallablesPathV2)
+}
+
+func sectionRoute(request *http.Request, collectionPath string) (string, string, bool) {
+	prefix := collectionPath + "/"
 	escapedPath := request.URL.EscapedPath()
 	if !strings.HasPrefix(escapedPath, prefix) {
 		return "", "", false

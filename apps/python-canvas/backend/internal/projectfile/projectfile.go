@@ -226,7 +226,10 @@ func Encode(state aggregate.State) ([]byte, error) {
 			Prefix: state.PythonTarget.Prefix,
 			Suffix: state.PythonTarget.Suffix,
 		},
-		Callables: make([]diskCallable, 0, len(state.Callables)),
+		Callables:             make([]diskCallable, 0, len(state.Callables)),
+		ParameterDictionaries: encodeParameterDictionaries(state.ParameterDictionaries),
+		Lists:                 encodeLists(state.Lists),
+		TopLevelSectionIDs:    cloneStringSlice(state.TopLevelSectionIDs),
 	}
 	for _, callable := range state.Callables {
 		diskCallable := diskCallable{
@@ -268,7 +271,7 @@ func Decode(content []byte) (aggregate.State, error) {
 	if err != nil {
 		return aggregate.State{}, err
 	}
-	if err := requireExactFields(fields, "document", "format", "project", "pythonTarget", "callables"); err != nil {
+	if err := requireExactFields(fields, "document", "format", "project", "pythonTarget", "callables", "parameterDictionaries", "lists", "topLevelSectionIds"); err != nil {
 		return aggregate.State{}, err
 	}
 	format, err := decodeString(fields["format"], "document format")
@@ -290,7 +293,18 @@ func Decode(content []byte) (aggregate.State, error) {
 	if err != nil {
 		return aggregate.State{}, err
 	}
-	state := aggregate.State{Project: project, PythonTarget: target, Callables: callables}
+	sections, err := decodeSectionState(fields)
+	if err != nil {
+		return aggregate.State{}, err
+	}
+	state := aggregate.State{
+		Project:               project,
+		PythonTarget:          target,
+		Callables:             callables,
+		ParameterDictionaries: sections.parameterDictionaries,
+		Lists:                 sections.lists,
+		TopLevelSectionIDs:    sections.topLevelSectionIDs,
+	}
 	if err := state.Validate(); err != nil {
 		return aggregate.State{}, invalidFile("incoherent authored aggregate: %v", err)
 	}
@@ -330,10 +344,13 @@ func writeAndSync(file *os.File, content []byte) error {
 }
 
 type diskDocument struct {
-	Format       string           `json:"format"`
-	Project      diskProject      `json:"project"`
-	PythonTarget diskPythonTarget `json:"pythonTarget"`
-	Callables    []diskCallable   `json:"callables"`
+	Format                string                    `json:"format"`
+	Project               diskProject               `json:"project"`
+	PythonTarget          diskPythonTarget          `json:"pythonTarget"`
+	Callables             []diskCallable            `json:"callables"`
+	ParameterDictionaries []diskParameterDictionary `json:"parameterDictionaries"`
+	Lists                 []diskList                `json:"lists"`
+	TopLevelSectionIDs    []string                  `json:"topLevelSectionIds"`
 }
 
 type diskProject struct {

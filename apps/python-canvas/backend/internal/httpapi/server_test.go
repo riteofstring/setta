@@ -127,6 +127,33 @@ func TestHandlerForwardsRevisionBoundProjectAndParameterMutations(t *testing.T) 
 	assertErrorCode(t, invalid, contracts.APIErrorCodeInvalidRequestV2)
 }
 
+func TestHandlerAcceptsEveryClosedSectionForestMutationRoute(t *testing.T) {
+	handler := newHandlerForTest(t, &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()})
+	for _, test := range []struct {
+		name string
+		path string
+		body string
+	}{
+		{"create dictionary", contracts.ProjectParameterDictionariesPathV2, `{"projectId":"project:fixture","expectedRevision":1,"name":"Options"}`},
+		{"rename dictionary", contracts.ProjectParameterDictionariesPathV2 + "/dictionary%3Aone/rename", `{"projectId":"project:fixture","expectedRevision":1,"name":"Options"}`},
+		{"delete dictionary", contracts.ProjectParameterDictionariesPathV2 + "/dictionary%3Aone/delete", `{"projectId":"project:fixture","expectedRevision":1}`},
+		{"set dictionary entries", contracts.ProjectParameterDictionariesPathV2 + "/dictionary%3Aone/entries", `{"projectId":"project:fixture","expectedRevision":1,"entries":[{"kind":"leaf","id":"entry:one","name":"radius","authoredExpression":"4"}]}`},
+		{"create list", contracts.ProjectListsPathV2, `{"projectId":"project:fixture","expectedRevision":1,"name":"Objects"}`},
+		{"rename list", contracts.ProjectListsPathV2 + "/list%3Aone/rename", `{"projectId":"project:fixture","expectedRevision":1,"name":"Objects"}`},
+		{"delete list", contracts.ProjectListsPathV2 + "/list%3Aone/delete", `{"projectId":"project:fixture","expectedRevision":1}`},
+		{"increment list", contracts.ProjectListsPathV2 + "/list%3Aone/increment", `{"projectId":"project:fixture","expectedRevision":1,"count":2}`},
+		{"decrement list", contracts.ProjectListsPathV2 + "/list%3Aone/decrement", `{"projectId":"project:fixture","expectedRevision":1,"count":2}`},
+		{"replace forest", contracts.ProjectForestPathV2, `{"projectId":"project:fixture","expectedRevision":1,"topLevelSectionIds":[],"listChildren":[]}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			response := postJSON(handler, test.path, test.body)
+			if response.Code != http.StatusOK {
+				t.Fatalf("status = %d; body = %s", response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
 func TestHandlerRoundTripsEncodedSlashInCallableID(t *testing.T) {
 	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
 	var receivedCallableID string
@@ -278,6 +305,46 @@ func (service *stubProjectService) RenameCallable(context.Context, string, contr
 }
 
 func (service *stubProjectService) DeleteCallable(context.Context, string, contracts.DeleteCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
+}
+
+func (service *stubProjectService) CreateParameterDictionary(context.Context, contracts.CreateParameterDictionaryRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
+}
+
+func (service *stubProjectService) RenameParameterDictionary(context.Context, string, contracts.RenameParameterDictionaryRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
+}
+
+func (service *stubProjectService) DeleteParameterDictionary(context.Context, string, contracts.DeleteParameterDictionaryRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
+}
+
+func (service *stubProjectService) SetParameterDictionaryEntries(context.Context, string, contracts.SetParameterDictionaryEntriesRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
+}
+
+func (service *stubProjectService) CreateList(context.Context, contracts.CreateListRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
+}
+
+func (service *stubProjectService) RenameList(context.Context, string, contracts.RenameListRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
+}
+
+func (service *stubProjectService) DeleteList(context.Context, string, contracts.DeleteListRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
+}
+
+func (service *stubProjectService) IncrementListChildren(context.Context, string, contracts.IncrementListChildrenRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
+}
+
+func (service *stubProjectService) DecrementListChildren(context.Context, string, contracts.DecrementListChildrenRequestV2) (contracts.ProjectSnapshotV2, error) {
+	return service.snapshot, nil
+}
+
+func (service *stubProjectService) ReplaceSectionForest(context.Context, contracts.ReplaceSectionForestRequestV2) (contracts.ProjectSnapshotV2, error) {
 	return service.snapshot, nil
 }
 

@@ -21,6 +21,10 @@ const (
 	maxAuthoredExpressionBytes = 16 * 1024
 	maxPythonTargetBytes       = 64 * 1024
 	maxParametersPerCallable   = 256
+	maxParameterDictionaries   = 256
+	maxLists                   = 256
+	maxDictionaryEntries       = 1024
+	maxListChildren            = 256
 )
 
 var (
@@ -33,6 +37,11 @@ var (
 	ErrProjectNotFound = errors.New("aggregate: project not found")
 	// ErrCallableNotFound identifies a command for a missing callable.
 	ErrCallableNotFound = errors.New("aggregate: callable not found")
+	// ErrParameterDictionaryNotFound identifies a command for a missing
+	// parameter dictionary.
+	ErrParameterDictionaryNotFound = errors.New("aggregate: parameter dictionary not found")
+	// ErrListNotFound identifies a command for a missing List of Objects.
+	ErrListNotFound = errors.New("aggregate: list not found")
 	// ErrRevisionConflict identifies a command bound to an older revision.
 	ErrRevisionConflict = errors.New("aggregate: revision conflict")
 	// ErrIDGeneratorRequired marks an operation that needs an opaque ID source.
@@ -88,9 +97,12 @@ type Callable struct {
 // State is the complete persisted authored aggregate. Derived Python, source
 // ranges, diagnostics, provider state, and materialization paths are absent.
 type State struct {
-	Project      Project
-	PythonTarget PythonTarget
-	Callables    []Callable
+	Project               Project
+	PythonTarget          PythonTarget
+	Callables             []Callable
+	ParameterDictionaries []ParameterDictionary
+	Lists                 []List
+	TopLevelSectionIDs    []string
 }
 
 // IDGenerator allocates one opaque stable ID. The aggregate validates every
@@ -194,8 +206,11 @@ func NewBlank(nextID IDGenerator) (State, error) {
 			Name:     DefaultProjectName,
 			Revision: 1,
 		},
-		PythonTarget: PythonTarget{Suffix: DefaultPythonSuffix},
-		Callables:    []Callable{},
+		PythonTarget:          PythonTarget{Suffix: DefaultPythonSuffix},
+		Callables:             []Callable{},
+		ParameterDictionaries: []ParameterDictionary{},
+		Lists:                 []List{},
+		TopLevelSectionIDs:    []string{},
 	}
 	if err := state.Validate(); err != nil {
 		return State{}, err
@@ -218,6 +233,9 @@ func (state State) Clone() State {
 		}
 		clone.Callables[callableIndex] = callableClone
 	}
+	clone.ParameterDictionaries = cloneParameterDictionaries(state.ParameterDictionaries)
+	clone.Lists = cloneLists(state.Lists)
+	clone.TopLevelSectionIDs = cloneStrings(state.TopLevelSectionIDs)
 	return clone
 }
 
@@ -233,7 +251,7 @@ func (state State) Validate() error {
 			return err
 		}
 	}
-	return nil
+	return validateParameterDictionariesAndForest(state, claimedIDs)
 }
 
 func validateProjectState(state State) error {
@@ -367,6 +385,7 @@ func (state State) CreateCallable(command CreateCallableCommand, nextID IDGenera
 		Name:       name,
 		Parameters: []Parameter{},
 	})
+	candidate.TopLevelSectionIDs = append(candidate.TopLevelSectionIDs, id)
 	return changedCandidate(candidate)
 }
 
@@ -396,13 +415,10 @@ func (state State) DeleteCallable(command DeleteCallableCommand) (Candidate, err
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return Candidate{}, err
 	}
-	callableIndex, err := state.callableIndex(command.CallableID)
-	if err != nil {
+	if _, err := state.callableIndex(command.CallableID); err != nil {
 		return Candidate{}, err
 	}
-	candidate := state.Clone()
-	candidate.Callables = append(candidate.Callables[:callableIndex], candidate.Callables[callableIndex+1:]...)
-	return changedCandidate(candidate)
+	return state.deleteSectionSubtree(command.CallableID)
 }
 
 // PrepareCallableCommit validates and canonicalizes an expression-only
@@ -682,6 +698,13 @@ func (state State) targetIDs() map[string]struct{} {
 			claimed[parameter.ID] = struct{}{}
 		}
 	}
+	for _, dictionary := range state.ParameterDictionaries {
+		claimed[dictionary.ID] = struct{}{}
+		claimDictionaryEntryIDs(claimed, dictionary.Entries)
+	}
+	for _, list := range state.Lists {
+		claimed[list.ID] = struct{}{}
+	}
 	return claimed
 }
 
@@ -695,6 +718,13 @@ func (state State) targetIDsExceptParameters(callableID string) map[string]struc
 		for _, parameter := range callable.Parameters {
 			claimed[parameter.ID] = struct{}{}
 		}
+	}
+	for _, dictionary := range state.ParameterDictionaries {
+		claimed[dictionary.ID] = struct{}{}
+		claimDictionaryEntryIDs(claimed, dictionary.Entries)
+	}
+	for _, list := range state.Lists {
+		claimed[list.ID] = struct{}{}
 	}
 	return claimed
 }

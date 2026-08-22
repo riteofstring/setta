@@ -18,6 +18,16 @@ type ProjectService interface {
 	CreateCallable(context.Context, contracts.CreateCallableRequestV2) (contracts.ProjectSnapshotV2, error)
 	RenameCallable(context.Context, string, contracts.RenameCallableRequestV2) (contracts.ProjectSnapshotV2, error)
 	DeleteCallable(context.Context, string, contracts.DeleteCallableRequestV2) (contracts.ProjectSnapshotV2, error)
+	CreateParameterDictionary(context.Context, contracts.CreateParameterDictionaryRequestV2) (contracts.ProjectSnapshotV2, error)
+	RenameParameterDictionary(context.Context, string, contracts.RenameParameterDictionaryRequestV2) (contracts.ProjectSnapshotV2, error)
+	DeleteParameterDictionary(context.Context, string, contracts.DeleteParameterDictionaryRequestV2) (contracts.ProjectSnapshotV2, error)
+	SetParameterDictionaryEntries(context.Context, string, contracts.SetParameterDictionaryEntriesRequestV2) (contracts.ProjectSnapshotV2, error)
+	CreateList(context.Context, contracts.CreateListRequestV2) (contracts.ProjectSnapshotV2, error)
+	RenameList(context.Context, string, contracts.RenameListRequestV2) (contracts.ProjectSnapshotV2, error)
+	DeleteList(context.Context, string, contracts.DeleteListRequestV2) (contracts.ProjectSnapshotV2, error)
+	IncrementListChildren(context.Context, string, contracts.IncrementListChildrenRequestV2) (contracts.ProjectSnapshotV2, error)
+	DecrementListChildren(context.Context, string, contracts.DecrementListChildrenRequestV2) (contracts.ProjectSnapshotV2, error)
+	ReplaceSectionForest(context.Context, contracts.ReplaceSectionForestRequestV2) (contracts.ProjectSnapshotV2, error)
 	CommitCallable(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error)
 	RefreshCallableParameters(context.Context, string, contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
 	SetCallableParameters(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
@@ -71,6 +81,56 @@ func (service *CoordinatorService) RenameCallable(ctx context.Context, callableI
 
 func (service *CoordinatorService) DeleteCallable(ctx context.Context, callableID string, request contracts.DeleteCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
 	snapshot, err := service.coordinator.DeleteCallable(ctx, aggregate.DeleteCallableCommand{ProjectID: request.ProjectID, CallableID: callableID, ExpectedRevision: request.ExpectedRevision})
+	return mappedSnapshot(snapshot, err)
+}
+
+func (service *CoordinatorService) CreateParameterDictionary(ctx context.Context, request contracts.CreateParameterDictionaryRequestV2) (contracts.ProjectSnapshotV2, error) {
+	snapshot, err := service.coordinator.CreateParameterDictionary(ctx, aggregate.CreateParameterDictionaryCommand{ProjectID: request.ProjectID, ExpectedRevision: request.ExpectedRevision, Name: request.Name})
+	return mappedSnapshot(snapshot, err)
+}
+
+func (service *CoordinatorService) RenameParameterDictionary(ctx context.Context, dictionaryID string, request contracts.RenameParameterDictionaryRequestV2) (contracts.ProjectSnapshotV2, error) {
+	snapshot, err := service.coordinator.RenameParameterDictionary(ctx, aggregate.RenameParameterDictionaryCommand{ProjectID: request.ProjectID, DictionaryID: dictionaryID, ExpectedRevision: request.ExpectedRevision, Name: request.Name})
+	return mappedSnapshot(snapshot, err)
+}
+
+func (service *CoordinatorService) DeleteParameterDictionary(ctx context.Context, dictionaryID string, request contracts.DeleteParameterDictionaryRequestV2) (contracts.ProjectSnapshotV2, error) {
+	snapshot, err := service.coordinator.DeleteParameterDictionary(ctx, aggregate.DeleteParameterDictionaryCommand{ProjectID: request.ProjectID, DictionaryID: dictionaryID, ExpectedRevision: request.ExpectedRevision})
+	return mappedSnapshot(snapshot, err)
+}
+
+func (service *CoordinatorService) SetParameterDictionaryEntries(ctx context.Context, dictionaryID string, request contracts.SetParameterDictionaryEntriesRequestV2) (contracts.ProjectSnapshotV2, error) {
+	snapshot, err := service.coordinator.SetParameterDictionaryEntries(ctx, aggregate.SetParameterDictionaryEntriesCommand{ProjectID: request.ProjectID, DictionaryID: dictionaryID, ExpectedRevision: request.ExpectedRevision, Entries: dictionaryEntriesFromV2(request.Entries)})
+	return mappedSnapshot(snapshot, err)
+}
+
+func (service *CoordinatorService) CreateList(ctx context.Context, request contracts.CreateListRequestV2) (contracts.ProjectSnapshotV2, error) {
+	snapshot, err := service.coordinator.CreateList(ctx, aggregate.CreateListCommand{ProjectID: request.ProjectID, ExpectedRevision: request.ExpectedRevision, Name: request.Name})
+	return mappedSnapshot(snapshot, err)
+}
+
+func (service *CoordinatorService) RenameList(ctx context.Context, listID string, request contracts.RenameListRequestV2) (contracts.ProjectSnapshotV2, error) {
+	snapshot, err := service.coordinator.RenameList(ctx, aggregate.RenameListCommand{ProjectID: request.ProjectID, ListID: listID, ExpectedRevision: request.ExpectedRevision, Name: request.Name})
+	return mappedSnapshot(snapshot, err)
+}
+
+func (service *CoordinatorService) DeleteList(ctx context.Context, listID string, request contracts.DeleteListRequestV2) (contracts.ProjectSnapshotV2, error) {
+	snapshot, err := service.coordinator.DeleteList(ctx, aggregate.DeleteListCommand{ProjectID: request.ProjectID, ListID: listID, ExpectedRevision: request.ExpectedRevision})
+	return mappedSnapshot(snapshot, err)
+}
+
+func (service *CoordinatorService) IncrementListChildren(ctx context.Context, listID string, request contracts.IncrementListChildrenRequestV2) (contracts.ProjectSnapshotV2, error) {
+	snapshot, err := service.coordinator.IncrementListChildren(ctx, aggregate.IncrementListChildrenCommand{ProjectID: request.ProjectID, ListID: listID, ExpectedRevision: request.ExpectedRevision, Count: request.Count})
+	return mappedSnapshot(snapshot, err)
+}
+
+func (service *CoordinatorService) DecrementListChildren(ctx context.Context, listID string, request contracts.DecrementListChildrenRequestV2) (contracts.ProjectSnapshotV2, error) {
+	snapshot, err := service.coordinator.DecrementListChildren(ctx, aggregate.DecrementListChildrenCommand{ProjectID: request.ProjectID, ListID: listID, ExpectedRevision: request.ExpectedRevision, Count: request.Count})
+	return mappedSnapshot(snapshot, err)
+}
+
+func (service *CoordinatorService) ReplaceSectionForest(ctx context.Context, request contracts.ReplaceSectionForestRequestV2) (contracts.ProjectSnapshotV2, error) {
+	snapshot, err := service.coordinator.ReplaceSectionForest(ctx, aggregate.ReplaceSectionForestCommand{ProjectID: request.ProjectID, ExpectedRevision: request.ExpectedRevision, TopLevelSectionIDs: cloneSectionIDs(request.TopLevelSectionIDs), ListChildren: listChildrenFromV2(request.ListChildren)})
 	return mappedSnapshot(snapshot, err)
 }
 
@@ -149,10 +209,13 @@ func snapshotV2(snapshot coordinator.Snapshot) (contracts.ProjectSnapshotV2, err
 		})
 	}
 	result := contracts.ProjectSnapshotV2{
-		Version:      contracts.ProjectSnapshotVersionV2,
-		Project:      contracts.ProjectV2{ID: snapshot.State.Project.ID, Name: snapshot.State.Project.Name, Revision: snapshot.State.Project.Revision},
-		PythonTarget: contracts.PythonTargetV2{Prefix: snapshot.State.PythonTarget.Prefix, Suffix: snapshot.State.PythonTarget.Suffix},
-		Callables:    callables,
+		Version:               contracts.ProjectSnapshotVersionV2,
+		Project:               contracts.ProjectV2{ID: snapshot.State.Project.ID, Name: snapshot.State.Project.Name, Revision: snapshot.State.Project.Revision},
+		PythonTarget:          contracts.PythonTargetV2{Prefix: snapshot.State.PythonTarget.Prefix, Suffix: snapshot.State.PythonTarget.Suffix},
+		Callables:             callables,
+		ParameterDictionaries: parameterDictionariesV2(snapshot.State.ParameterDictionaries),
+		Lists:                 listsV2(snapshot.State.Lists),
+		TopLevelSectionIDs:    cloneSectionIDs(snapshot.State.TopLevelSectionIDs),
 		GeneratedCode: contracts.GeneratedCodeV2{
 			Code:                   snapshot.Rendered.Code,
 			Body:                   snapshot.Rendered.Body,

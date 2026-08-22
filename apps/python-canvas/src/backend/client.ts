@@ -1,5 +1,8 @@
 import {
   PROJECT_CALLABLES_PATH_V2,
+  PROJECT_FOREST_PATH_V2,
+  PROJECT_LISTS_PATH_V2,
+  PROJECT_PARAMETER_DICTIONARIES_PATH_V2,
   PROJECT_PATH_V2,
   PROJECT_TARGET_COMPLETIONS_PATH_V2,
   PROJECT_TARGET_PATH_V2,
@@ -9,18 +12,35 @@ import {
   projectCallableParametersPath,
   projectCallableRefreshParametersPath,
   projectCallableRenamePath,
+  projectListDecrementPath,
+  projectListDeletePath,
+  projectListIncrementPath,
+  projectListRenamePath,
+  projectParameterDictionaryDeletePath,
+  projectParameterDictionaryEntriesPath,
+  projectParameterDictionaryRenamePath,
   type APIErrorCodeV2,
   type CallableCompletionRequestV2,
   type CommitCallableRequestV2,
   type CompletionResponseV2,
   type CreateCallableRequestV2,
+  type CreateListRequestV2,
+  type CreateParameterDictionaryRequestV2,
+  type DecrementListChildrenRequestV2,
+  type DeleteListRequestV2,
+  type DeleteParameterDictionaryRequestV2,
   type DeleteCallableRequestV2,
   type ProjectSnapshotV2,
   type PythonTargetCompletionRequestV2,
   type RefreshCallableParametersRequestV2,
   type RenameCallableRequestV2,
+  type RenameListRequestV2,
+  type RenameParameterDictionaryRequestV2,
+  type ReplaceSectionForestRequestV2,
   type SetCallableParametersRequestV2,
+  type SetParameterDictionaryEntriesRequestV2,
   type SetPythonTargetRequestV2,
+  type IncrementListChildrenRequestV2,
 } from "./generatedContract";
 import {
   ProjectSnapshotValidationError,
@@ -85,6 +105,123 @@ export function deleteCallable(
 ): Promise<ProjectSnapshotV2> {
   return requestProjectSnapshot(
     projectCallableDeletePath(callableId),
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function createParameterDictionary(
+  request: CreateParameterDictionaryRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    PROJECT_PARAMETER_DICTIONARIES_PATH_V2,
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function renameParameterDictionary(
+  dictionaryId: string,
+  request: RenameParameterDictionaryRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    projectParameterDictionaryRenamePath(dictionaryId),
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function deleteParameterDictionary(
+  dictionaryId: string,
+  request: DeleteParameterDictionaryRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    projectParameterDictionaryDeletePath(dictionaryId),
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function setParameterDictionaryEntries(
+  dictionaryId: string,
+  request: SetParameterDictionaryEntriesRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    projectParameterDictionaryEntriesPath(dictionaryId),
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function createList(
+  request: CreateListRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    PROJECT_LISTS_PATH_V2,
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function renameList(
+  listId: string,
+  request: RenameListRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    projectListRenamePath(listId),
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function deleteList(
+  listId: string,
+  request: DeleteListRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    projectListDeletePath(listId),
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function incrementListChildren(
+  listId: string,
+  request: IncrementListChildrenRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    projectListIncrementPath(listId),
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function decrementListChildren(
+  listId: string,
+  request: DecrementListChildrenRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    projectListDecrementPath(listId),
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function replaceSectionForest(
+  request: ReplaceSectionForestRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    PROJECT_FOREST_PATH_V2,
     jsonPost(request),
     fetchImplementation,
   );

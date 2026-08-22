@@ -87,7 +87,7 @@ export type WorkspaceItemAreaPresentation = Readonly<{
 // An ordinary registered kind may opt into the package's existing sortable child-section
 // surface. The capability deliberately names only the ordinary vertical flow: group-specific
 // orientation, overflow, chrome, and ungrouping remain package-owned group behavior.
-export type WorkspaceNestedSectionsPresentation = "vertical";
+type WorkspaceNestedSectionsPresentation = "vertical";
 
 type WorkspaceInspectorContributionInput =
   | { type: "section"; section: WorkspaceSection }

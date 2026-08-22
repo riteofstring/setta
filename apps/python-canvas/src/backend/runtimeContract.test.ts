@@ -127,6 +127,75 @@ describe("parseProjectSnapshotV2", () => {
       typeAnnotation: null,
     });
   });
+
+  it("strictly parses recursive dictionaries and the complete section forest", () => {
+    const snapshot = {
+      ...projectSnapshotFixture,
+      callables: [
+        {
+          authoredExpression: "",
+          id: "callable:child",
+          name: "Child",
+          parameters: [],
+        },
+      ],
+      parameterDictionaries: [
+        {
+          entries: [
+            {
+              authoredExpression: "4",
+              id: "entry:radius",
+              kind: "leaf",
+              name: "radius",
+            },
+            {
+              children: [],
+              id: "entry:options",
+              kind: "parent",
+              name: "options",
+            },
+          ],
+          id: "dictionary:options",
+          name: "Options",
+        },
+      ],
+      lists: [
+        {
+          childSectionIds: ["callable:child", "dictionary:options"],
+          id: "list:objects",
+          name: "Objects",
+        },
+      ],
+      topLevelSectionIds: ["list:objects"],
+    };
+
+    expect(parseProjectSnapshotV2(snapshot).lists[0]?.childSectionIds).toEqual([
+      "callable:child",
+      "dictionary:options",
+    ]);
+    expect(() =>
+      parseProjectSnapshotV2({
+        ...snapshot,
+        parameterDictionaries: [
+          {
+            ...snapshot.parameterDictionaries[0],
+            entries: [
+              {
+                ...snapshot.parameterDictionaries[0]?.entries[0],
+                children: [],
+              },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(ProjectSnapshotValidationError);
+    expect(() =>
+      parseProjectSnapshotV2({
+        ...snapshot,
+        topLevelSectionIds: ["list:objects", "callable:child"],
+      }),
+    ).toThrow(ProjectSnapshotValidationError);
+  });
 });
 
 describe("V2 error and completion decoders", () => {
@@ -209,6 +278,7 @@ function dynamicSnapshot() {
         ],
       },
     ],
+    topLevelSectionIds: ["callable:one"],
     generatedCode: {
       ...projectSnapshotFixture.generatedCode,
       sourceRangesByTargetId: {

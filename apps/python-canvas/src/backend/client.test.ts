@@ -3,6 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   PROJECT_CALLABLES_PATH_V2,
+  PROJECT_FOREST_PATH_V2,
+  PROJECT_LISTS_PATH_V2,
+  PROJECT_PARAMETER_DICTIONARIES_PATH_V2,
   PROJECT_PATH_V2,
   PROJECT_TARGET_COMPLETIONS_PATH_V2,
   PROJECT_TARGET_PATH_V2,
@@ -11,6 +14,14 @@ import {
   projectCallableParametersPath,
   projectCallableRefreshParametersPath,
   projectCallableRenamePath,
+  projectListDecrementPath,
+  projectListDeletePath,
+  projectListIncrementPath,
+  projectListRenamePath,
+  projectParameterDictionaryDeletePath,
+  projectParameterDictionaryEntriesPath,
+  projectParameterDictionaryRenamePath,
+  type SetParameterDictionaryEntriesRequestV2,
 } from "./generatedContract";
 import {
   ProjectClientError,
@@ -18,12 +29,22 @@ import {
   completeCallable,
   completePythonTarget,
   createCallable,
+  createList,
+  createParameterDictionary,
+  decrementListChildren,
+  deleteList,
   deleteCallable,
+  deleteParameterDictionary,
   fetchProjectSnapshot,
   refreshCallableParameters,
+  renameList,
   renameCallable,
+  renameParameterDictionary,
+  replaceSectionForest,
   setCallableParameters,
+  setParameterDictionaryEntries,
   setPythonTarget,
+  incrementListChildren,
 } from "./client";
 
 describe("Python Canvas V2 project client", () => {
@@ -84,6 +105,39 @@ describe("Python Canvas V2 project client", () => {
       projectId: "project:fixture",
       suffix: "state = SettaState()",
     };
+    const dictionaryRequest = {
+      expectedRevision: 1,
+      name: "Options",
+      projectId: "project:fixture",
+    };
+    const dictionaryEntriesRequest: SetParameterDictionaryEntriesRequestV2 = {
+      entries: [
+        {
+          authoredExpression: "4",
+          id: "entry:radius",
+          kind: "leaf",
+          name: "radius",
+        },
+      ],
+      expectedRevision: 1,
+      projectId: "project:fixture",
+    };
+    const listRequest = {
+      expectedRevision: 1,
+      name: "Objects",
+      projectId: "project:fixture",
+    };
+    const countRequest = {
+      count: 2,
+      expectedRevision: 1,
+      projectId: "project:fixture",
+    };
+    const forestRequest = {
+      expectedRevision: 1,
+      listChildren: [],
+      projectId: "project:fixture",
+      topLevelSectionIds: [],
+    };
 
     await expectSnapshotPost(
       PROJECT_CALLABLES_PATH_V2,
@@ -117,6 +171,59 @@ describe("Python Canvas V2 project client", () => {
     );
     await expectSnapshotPost(PROJECT_TARGET_PATH_V2, targetRequest, (fetch) =>
       setPythonTarget(targetRequest, fetch),
+    );
+    await expectSnapshotPost(
+      PROJECT_PARAMETER_DICTIONARIES_PATH_V2,
+      dictionaryRequest,
+      (fetch) => createParameterDictionary(dictionaryRequest, fetch),
+    );
+    await expectSnapshotPost(
+      projectParameterDictionaryRenamePath("dictionary:one"),
+      dictionaryRequest,
+      (fetch) =>
+        renameParameterDictionary("dictionary:one", dictionaryRequest, fetch),
+    );
+    await expectSnapshotPost(
+      projectParameterDictionaryDeletePath("dictionary:one"),
+      deleteRequest,
+      (fetch) =>
+        deleteParameterDictionary("dictionary:one", deleteRequest, fetch),
+    );
+    await expectSnapshotPost(
+      projectParameterDictionaryEntriesPath("dictionary:one"),
+      dictionaryEntriesRequest,
+      (fetch) =>
+        setParameterDictionaryEntries(
+          "dictionary:one",
+          dictionaryEntriesRequest,
+          fetch,
+        ),
+    );
+    await expectSnapshotPost(PROJECT_LISTS_PATH_V2, listRequest, (fetch) =>
+      createList(listRequest, fetch),
+    );
+    await expectSnapshotPost(
+      projectListRenamePath("list:one"),
+      listRequest,
+      (fetch) => renameList("list:one", listRequest, fetch),
+    );
+    await expectSnapshotPost(
+      projectListDeletePath("list:one"),
+      deleteRequest,
+      (fetch) => deleteList("list:one", deleteRequest, fetch),
+    );
+    await expectSnapshotPost(
+      projectListIncrementPath("list:one"),
+      countRequest,
+      (fetch) => incrementListChildren("list:one", countRequest, fetch),
+    );
+    await expectSnapshotPost(
+      projectListDecrementPath("list:one"),
+      countRequest,
+      (fetch) => decrementListChildren("list:one", countRequest, fetch),
+    );
+    await expectSnapshotPost(PROJECT_FOREST_PATH_V2, forestRequest, (fetch) =>
+      replaceSectionForest(forestRequest, fetch),
     );
   });
 
