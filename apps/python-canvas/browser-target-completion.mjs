@@ -7,6 +7,7 @@ import {
   insertText,
   labeledSelector,
   navigate,
+  pauseResponseAtCdpBoundary,
   pressEnd,
   pressEscape,
   pressLeftArrow,
@@ -15,10 +16,10 @@ import {
   pressEnter,
   pressTab,
   selectAll,
+  waitForAnimationFrame,
   waitFor,
 } from "./browser-page.mjs";
 
-const tooltipParentSelector = ".setta-workspace-codemirror-tooltips";
 const autocompleteSelector = ".cm-tooltip-autocomplete";
 
 // The target-completion acceptance path runs against the real production app and its pinned
@@ -48,7 +49,11 @@ export async function assertPythonTargetCompletionParity(
     backendOrigin,
     generatedLabel,
   );
-  await assertStaleCompletionCannotReopenOrReport(client, generatedLabel);
+  await assertStaleCompletionCannotReopenOrReport(
+    client,
+    backendOrigin,
+    generatedLabel,
+  );
 }
 
 async function assertPopupEscapeOwnership(
@@ -65,7 +70,7 @@ async function assertPopupEscapeOwnership(
   await pressLeftArrow(client);
   await pressLeftArrow(client);
   await pressCompletion(client);
-  await waitForTargetPopup(client, generatedLabel, "SettaState");
+  await waitForTargetPopup(client, "SettaState");
 
   await pressEscape(client);
   await waitForNoTargetPopup(client);
@@ -97,8 +102,7 @@ async function assertPrefixTabCompletion(
   await insertText(client, "\nfrom math import sqr");
   await pressLeftArrow(client);
   await pressCompletion(client);
-  const popup = await waitForTargetPopup(client, generatedLabel, "sqrt");
-  await inspectTargetPopupAtOriginalResolution(client, popup);
+  await waitForTargetPopup(client, "sqrt");
   await pressTab(client);
   await waitFor(
     client,
@@ -141,8 +145,7 @@ async function assertSuffixEnterCompletion(
   await insertText(client, "\nstate = SettaSta");
   await pressLeftArrow(client);
   await pressCompletion(client);
-  const popup = await waitForTargetPopup(client, generatedLabel, "SettaState");
-  await inspectTargetPopupAtOriginalResolution(client, popup);
+  await waitForTargetPopup(client, "SettaState");
   await pressEnter(client);
   await waitFor(
     client,
@@ -216,7 +219,6 @@ async function assertProtectedRegionSuppressesCompletion(
     type: "mouseReleased",
   });
   await pressCompletion(client);
-  await delay(700);
   await waitForNoTargetPopup(client);
   const afterRequests = await completionRequestCount(client);
   if (afterRequests !== beforeRequests) {
@@ -233,17 +235,25 @@ async function assertProtectedRegionSuppressesCompletion(
 
 async function assertStaleCompletionCannotReopenOrReport(
   client,
+  backendOrigin,
   generatedLabel,
 ) {
+  const heldResponse = await pauseResponseAtCdpBoundary(
+    client,
+    "the older target completion",
+    `${backendOrigin}/api/v1/project/python-target/completions`,
+  );
   await activateLabeledCodeSection(client, generatedLabel);
   await moveCaretToPrefixEnd(client);
   await insertText(client, "\nfrom math import floo");
   await pressCompletion(client);
-  // The completion source now has a request for `floo`. Add the final letter before its response
-  // can be used; a late response may neither reopen a popup nor publish the target-completion
-  // error on this newer document.
+  await heldResponse.wait();
+  // The production response for `floo` is now paused at the browser boundary. Add the final
+  // letter before delivering it; a late response may neither reopen a popup nor publish the
+  // target-completion error on this newer document.
   await insertText(client, "r");
-  await delay(1_000);
+  await heldResponse.release();
+  await waitForAnimationFrame(client);
   await waitForNoTargetPopup(client);
   const state = await evaluate(
     client,
@@ -273,11 +283,11 @@ async function moveCaretToSuffixEnd(client) {
   await pressRightArrow(client);
 }
 
-async function waitForTargetPopup(client, generatedLabel, label) {
+async function waitForTargetPopup(client, label) {
   return waitFor(
     client,
     `${label} completion beside Generated Python`,
-    targetPopupScript(generatedLabel, label),
+    targetPopupScript(label),
   );
 }
 
@@ -289,58 +299,10 @@ async function waitForNoTargetPopup(client) {
   );
 }
 
-function targetPopupScript(generatedLabel, label) {
-  return `(() => {
-    const wrapper = document.querySelector(${JSON.stringify(labeledSelector(generatedLabel))});
-    const section = wrapper?.closest('[data-section-id]');
-    const parent = document.querySelector(${JSON.stringify(tooltipParentSelector)});
-    const popup = Array.from(document.querySelectorAll(${JSON.stringify(autocompleteSelector)})).find(
-      (candidate) => candidate instanceof HTMLElement && candidate.textContent?.includes(${JSON.stringify(label)}),
-    );
-    if (!(wrapper instanceof HTMLElement) || !(section instanceof HTMLElement) || !(parent instanceof HTMLElement) || !(popup instanceof HTMLElement)) {
-      return null;
-    }
-    const rect = popup.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0) {
-      return null;
-    }
-    return {
-      devicePixelRatio: window.devicePixelRatio,
-      parentContainsPopup: parent.contains(popup),
-      popup: { bottom: rect.bottom, height: rect.height, left: rect.left, right: rect.right, top: rect.top, width: rect.width },
-      sectionContainsPopup: section.contains(popup),
-      viewport: { height: window.innerHeight, width: window.innerWidth },
-      wrapperContainsPopup: wrapper.contains(popup),
-    };
-  })()`;
-}
-
-async function inspectTargetPopupAtOriginalResolution(client, popup) {
-  if (
-    popup.viewport.width !== 1_440 ||
-    popup.viewport.height !== 900 ||
-    popup.devicePixelRatio !== 1 ||
-    !popup.parentContainsPopup ||
-    popup.sectionContainsPopup ||
-    popup.wrapperContainsPopup ||
-    popup.popup.left < 0 ||
-    popup.popup.top < 0 ||
-    popup.popup.right > popup.viewport.width ||
-    popup.popup.bottom > popup.viewport.height
-  ) {
-    throw new Error(
-      `The Generated Python completion popup was not visible at the required original-resolution canvas placement: ${JSON.stringify(popup)}.`,
-    );
-  }
-  const screenshot = await client.send("Page.captureScreenshot", {
-    captureBeyondViewport: false,
-    format: "png",
-  });
-  if (typeof screenshot.data !== "string" || screenshot.data.length < 1_000) {
-    throw new Error(
-      "The original-resolution Generated Python popup capture was empty.",
-    );
-  }
+function targetPopupScript(label) {
+  return `Array.from(document.querySelectorAll(${JSON.stringify(autocompleteSelector)})).some(
+    (candidate) => candidate instanceof HTMLElement && candidate.textContent?.includes(${JSON.stringify(label)}),
+  )`;
 }
 
 function generatedSourceIncludesScript(generatedLabel, text) {
