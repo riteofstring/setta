@@ -2,6 +2,7 @@ import { insertIntoArray } from "./arrayUtils";
 import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
 import { getSectionOrThrow } from "./documentSelectors";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
+import { canWorkspaceSectionOwnNestedSections } from "./sectionKindRegistry";
 import {
   getActiveSectionsStore,
   getNodeInternalsStore,
@@ -40,6 +41,7 @@ export function moveSections(
     getWorkspaceDocumentStore(host).getState(),
     getNodeInternalsStore(host).getState().x,
   );
+  assertValidMoveSectionsInput(host, documentState, sectionIds, newParentId);
   const nextDocumentState =
     newParentId === null
       ? moveSectionsToPane({ documentState, sectionIds, positionsById })
@@ -69,6 +71,50 @@ export function moveSections(
     },
   );
   notifyWorkspaceDocumentChange(host);
+}
+
+// The live DnD path rejects invalid targets before it reaches this commit funnel, but callers
+// may also invoke the canonical move directly. Validate the complete structural request here so
+// a non-container, a cycle, or a parent-and-child selection cannot publish an invalid forest.
+function assertValidMoveSectionsInput(
+  host: WorkspaceHost,
+  documentState: WorkspaceDocumentState,
+  sectionIds: Array<string>,
+  newParentId: string | null,
+): void {
+  const movingSet = new Set(sectionIds);
+  if (movingSet.size !== sectionIds.length) {
+    throw new Error("A section move cannot contain duplicate section ids.");
+  }
+  for (const sectionId of sectionIds) {
+    getSectionOrThrow(documentState, sectionId);
+    let parentId = documentState.parentSectionMap[sectionId] ?? null;
+    while (parentId !== null) {
+      if (movingSet.has(parentId)) {
+        throw new Error(
+          "A section move cannot include both a section and its ancestor.",
+        );
+      }
+      parentId = documentState.parentSectionMap[parentId] ?? null;
+    }
+  }
+  if (newParentId === null) {
+    return;
+  }
+
+  const newParent = getSectionOrThrow(documentState, newParentId);
+  if (!canWorkspaceSectionOwnNestedSections(host, newParent)) {
+    throw new Error(`Section ${newParentId} cannot own nested sections.`);
+  }
+  let ancestorId: string | null = newParentId;
+  while (ancestorId !== null) {
+    if (movingSet.has(ancestorId)) {
+      throw new Error(
+        "A section move cannot place a section inside itself or its descendant.",
+      );
+    }
+    ancestorId = documentState.parentSectionMap[ancestorId] ?? null;
+  }
 }
 
 function moveSectionsToPane({
@@ -168,7 +214,6 @@ function moveSectionsIntoParent({
   if (newIndex === null) {
     throw new Error("Expected newIndex when moving sections into parent.");
   }
-  getSectionOrThrow(documentState, newParentId);
 
   const movingSet = new Set(sectionIds);
   const sections = removeSectionsFromParentChildren(documentState, movingSet);

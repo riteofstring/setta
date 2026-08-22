@@ -18,6 +18,7 @@ import { deactivateItemSelect } from "./itemSelectionMode";
 import { assertValidWorkspaceSectionItemTree } from "./itemTreeValidation";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
 import {
+  canWorkspaceSectionOwnNestedSections,
   getRegisteredSectionKindOrThrow,
   getWorkspaceItemAreaPresentationOrThrow,
 } from "./sectionKindRegistry";
@@ -105,6 +106,7 @@ function assertValidSectionOverflowModes(
 }
 
 function buildParentSectionMap(
+  host: WorkspaceHost,
   sections: Record<string, WorkspaceSection>,
 ): Record<string, string> {
   const parentSectionMap: Record<string, string> = {};
@@ -113,6 +115,12 @@ function buildParentSectionMap(
       throw new Error(
         `Section record key ${sectionId} does not match section id ${section.id}.`,
       );
+    }
+    if (
+      section.children.length > 0 &&
+      !canWorkspaceSectionOwnNestedSections(host, section)
+    ) {
+      throw new Error(`Section ${sectionId} cannot own nested sections.`);
     }
     for (const childId of section.children) {
       if (!(childId in sections)) {
@@ -255,7 +263,7 @@ export function resolveAndValidateWorkspaceSections(
   assertValidRegisteredSectionData(host, sections);
   assertValidSectionStyleColors(sections);
   assertValidSectionOverflowModes(sections);
-  const parentSectionMap = buildParentSectionMap(sections);
+  const parentSectionMap = buildParentSectionMap(host, sections);
   assertAcyclicParentChains(parentSectionMap);
   assertValidSectionItemTrees(host, sections);
   return { sections, parentSectionMap };

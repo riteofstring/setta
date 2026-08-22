@@ -124,6 +124,7 @@ describe("loadWorkspaceDocument", () => {
         renderContent: () => null,
         itemArea: { toolbar: "authoring-and-filter" },
       },
+      list: { renderContent: () => null, nestedSections: "vertical" },
     });
     resetWorkspaceStores();
   });
@@ -257,6 +258,39 @@ describe("loadWorkspaceDocument", () => {
     loadWorkspaceDocument(testWorkspace.host, document);
     expect(getHighestAncestor(testWorkspace.host, "deep")).toBe("root");
     expect(getHighestAncestor(testWorkspace.host, "root")).toBe("root");
+  });
+
+  it("allows declared ordinary vertical containers and rejects nested leaf sections", () => {
+    loadWorkspaceDocument(
+      testWorkspace.host,
+      makeDocument({
+        sections: {
+          list: makeSection("list", { kind: "list", children: ["child"] }),
+          child: makeSection("child"),
+        },
+        topLevelSections: {
+          list: { x: 0, y: 0, w: 400, h: 300, zIndex: 0 },
+        },
+      }),
+    );
+    expect(testWorkspace.document.getState().parentSectionMap).toEqual({
+      child: "list",
+    });
+
+    expect(() =>
+      loadWorkspaceDocument(
+        testWorkspace.host,
+        makeDocument({
+          sections: {
+            leaf: makeSection("leaf", { children: ["child"] }),
+            child: makeSection("child"),
+          },
+          topLevelSections: {
+            leaf: { x: 0, y: 0, w: 400, h: 300, zIndex: 0 },
+          },
+        }),
+      ),
+    ).toThrowError(/Section leaf cannot own nested sections/);
   });
 
   it("rejects an unparseable style color even when the section is nested", () => {

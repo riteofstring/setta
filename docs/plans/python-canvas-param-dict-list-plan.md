@@ -2,7 +2,9 @@
 
 ## Status and purpose
 
-**Status: Planned; implementation has not started.**
+**Status: In progress. The generic `@setta/workspace` registered vertical-container seam is
+implemented; the remaining Phase 1 backend, Python Canvas, production-proof, review, and closeout
+work is incomplete.**
 
 Add the next two Python Canvas section types from main: **Param Dict** and **List of Objects**.
 This is one closed vertical slice across the validated Go aggregate, strict project file, generated
@@ -343,4 +345,7 @@ scope into the explicit non-goals or performs a general edge-case audit.
 
 ### Phase 1 — Param Dict and List of Objects vertical slice
 
+- [x] Generic `@setta/workspace` registered vertical-container seam: registry, load and move
+      validation, vertical nested projection, DnD eligibility, accessible container labeling, and
+      focused workspace boundary tests
 - [ ] Implementation, production headless proof, review, and closeout complete

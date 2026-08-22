@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import { GROUP_SECTION_KIND } from "./documentSelectors";
 import {
+  canWorkspaceSectionOwnNestedSections,
   getMetaControlPresentation,
   getRegisteredSectionKindOrThrow,
   getWorkspaceItemAreaPresentationOrThrow,
@@ -103,6 +104,36 @@ describe("sectionKindRegistry", () => {
     ).toThrowError(/package-owned/);
   });
 
+  it("recognizes the package group and a declared ordinary vertical container", () => {
+    registerSectionKinds(host, {
+      leaf: makeDefinition(),
+      list: { renderContent: () => null, nestedSections: "vertical" },
+    });
+
+    expect(
+      canWorkspaceSectionOwnNestedSections(host, {
+        kind: GROUP_SECTION_KIND,
+      }),
+    ).toBe(true);
+    expect(canWorkspaceSectionOwnNestedSections(host, { kind: "list" })).toBe(
+      true,
+    );
+    expect(canWorkspaceSectionOwnNestedSections(host, { kind: "leaf" })).toBe(
+      false,
+    );
+  });
+
+  it("rejects an unknown ordinary nested-sections presentation", () => {
+    expect(() =>
+      registerSectionKinds(host, {
+        list: {
+          renderContent: () => null,
+          nestedSections: "horizontal",
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/unknown nested-sections presentation horizontal/);
+  });
+
   it("returns the registered direct-on-canvas presentation for a meta section", () => {
     const presentation = {
       type: "meta-control" as const,
@@ -195,6 +226,22 @@ describe("sectionKindRegistry", () => {
         } as unknown as SectionKindDefinition,
       }),
     ).toThrowError(/cannot register renderHeaderControls/);
+  });
+
+  it("rejects nested sections on package-owned meta placement", () => {
+    expect(() =>
+      registerSectionKinds(host, {
+        meta: {
+          renderContent: () => null,
+          nestedSections: "vertical",
+          presentation: {
+            type: "meta-control",
+            resolveControlKind: () => "button",
+            onEdit: () => {},
+          },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/meta controls cannot own section children/);
   });
 
   it("rejects a non-function header control renderer", () => {

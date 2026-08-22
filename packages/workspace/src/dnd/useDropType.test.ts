@@ -33,8 +33,8 @@ import { getBehaviorDropType, getOverId } from "./useDropType";
 
 // The reference's suite also freezes its app-only drop rules (code/terminal attachment,
 // frozen variants, the global-variables singleton, top-level-only workflow shells); those rules
-// left with their features, so the package suite freezes the two package-side rules — groups
-// nest, and never into the dragged selection — plus the over-id resolution.
+// left with their features, so the package suite freezes the two package-side rules — declared
+// containers nest, and never into the dragged selection — plus the over-id resolution.
 
 type SectionSpec = {
   id: string;
@@ -61,6 +61,7 @@ function makeSection(spec: SectionSpec): WorkspaceSection {
 function seedDocument(specs: Array<SectionSpec>) {
   registerSectionKinds(testWorkspace.host, {
     leaf: { renderContent: () => null },
+    list: { renderContent: () => null, nestedSections: "vertical" },
   });
   const sections = Object.fromEntries(
     specs.map((spec) => [spec.id, makeSection(spec)]),
@@ -145,6 +146,14 @@ describe("getBehaviorDropType", () => {
 
     expect(behavior).not.toBe(BehaviorDropTypeEnum.INVALID);
     expect(behavior).toBeNull();
+  });
+
+  it("allows drops into registered ordinary vertical containers", () => {
+    seedDocument([{ id: "list", kind: "list" }, { id: "dragged" }]);
+
+    expect(
+      getBehaviorDropType(testWorkspace.host, "dragged", "list"),
+    ).toBeNull();
   });
 
   it("rejects drop targets that are not groups", () => {

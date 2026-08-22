@@ -53,6 +53,7 @@ function makeSection(
 function loadTestDocument() {
   registerSectionKinds(testWorkspace.host, {
     leaf: { renderContent: () => null },
+    list: { renderContent: () => null, nestedSections: "vertical" },
   });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
@@ -68,6 +69,27 @@ function loadTestDocument() {
     topLevelSections: {
       leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 },
       group: { x: 300, y: 0, w: null, h: null, zIndex: 1 },
+    },
+    viewport: { x: 0, y: 0, zoom: 1 },
+    activeIds: [],
+  });
+}
+
+function loadVerticalContainerDocument() {
+  loadWorkspaceDocument(testWorkspace.host, {
+    sections: {
+      list: makeSection("list", {
+        kind: "list",
+        size: { width: "auto", height: "auto" },
+        children: ["first", "second"],
+      }),
+      first: makeSection("first"),
+      second: makeSection("second"),
+      leaf: makeSection("leaf"),
+    },
+    topLevelSections: {
+      list: { x: 0, y: 0, w: null, h: null, zIndex: 0 },
+      leaf: { x: 300, y: 0, w: 224, h: 96, zIndex: 1 },
     },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
@@ -119,6 +141,37 @@ describe("moveSections", () => {
     expect(state.parentSectionMap["leaf"]).toBe("group");
     expect(state.topLevelSections["leaf"]).toBeUndefined();
     expect(testWorkspace.nodeInternals.getState().x.has("leaf")).toBe(false);
+  });
+
+  it("moves into, reorders within, and moves back out of a declared vertical container", () => {
+    loadVerticalContainerDocument();
+
+    moveSections(testWorkspace.host, {
+      sectionIds: ["leaf"],
+      newParentId: "list",
+      newIndex: 1,
+      positionsById: null,
+    });
+    moveSections(testWorkspace.host, {
+      sectionIds: ["second"],
+      newParentId: "list",
+      newIndex: 0,
+      positionsById: null,
+    });
+    expect(
+      testWorkspace.document.getState().sections["list"]?.children,
+    ).toEqual(["second", "first", "leaf"]);
+
+    moveSections(testWorkspace.host, {
+      sectionIds: ["leaf"],
+      newParentId: null,
+      newIndex: 0,
+      positionsById: { leaf: { x: 420, y: 80 } },
+    });
+    const state = testWorkspace.document.getState();
+    expect(state.sections["list"]?.children).toEqual(["second", "first"]);
+    expect(state.parentSectionMap["leaf"]).toBeUndefined();
+    expect(state.topLevelSections["leaf"]?.x).toBe(420);
   });
 
   it("moves a nested section to the pane at the dropped position above every node", () => {
@@ -181,6 +234,40 @@ describe("moveSections", () => {
         positionsById: null,
       }),
     ).toThrow("Expected positionsById when moving sections to pane.");
+  });
+
+  it("rejects a leaf parent and a descendant target at the canonical move boundary", () => {
+    expect(() =>
+      moveSections(testWorkspace.host, {
+        sectionIds: ["leaf"],
+        newParentId: "nested-a",
+        newIndex: 0,
+        positionsById: null,
+      }),
+    ).toThrow("Section nested-a cannot own nested sections.");
+
+    loadWorkspaceDocument(testWorkspace.host, {
+      sections: {
+        parent: makeSection("parent", {
+          kind: GROUP_SECTION_KIND,
+          children: ["child"],
+        }),
+        child: makeSection("child", { kind: GROUP_SECTION_KIND }),
+      },
+      topLevelSections: {
+        parent: { x: 0, y: 0, w: null, h: null, zIndex: 0 },
+      },
+      viewport: { x: 0, y: 0, zoom: 1 },
+      activeIds: [],
+    });
+    expect(() =>
+      moveSections(testWorkspace.host, {
+        sectionIds: ["parent"],
+        newParentId: "child",
+        newIndex: 0,
+        positionsById: null,
+      }),
+    ).toThrow(/cannot place a section inside itself or its descendant/);
   });
 
   it("preserves a node z-raise that has not reached a layout commit", () => {

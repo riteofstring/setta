@@ -7,7 +7,10 @@ import {
   shouldRetainNativeContextMenu,
 } from "../../context-menu/workspaceMenuOwnership";
 import { getSectionOrThrow } from "../../document/documentSelectors";
-import { getMetaControlPresentation } from "../../document/sectionKindRegistry";
+import {
+  canWorkspaceSectionOwnNestedSections,
+  getMetaControlPresentation,
+} from "../../document/sectionKindRegistry";
 import {
   useActiveSections,
   useWorkspaceAppearance,
@@ -39,6 +42,10 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
   const darkMode = useWorkspaceAppearance((x) => x.darkMode);
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isMetaControl = getMetaControlPresentation(host, section) !== null;
+  const canOwnNestedSections = canWorkspaceSectionOwnNestedSections(
+    host,
+    section,
+  );
 
   // Frozen main suppresses authored section-style colors for the transparent meta presentation.
   const sectionStyleTheme =
@@ -109,7 +116,13 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
       onContextMenu={onContextMenu}
       onKeyDown={onKeyDown}
       role="group"
-      aria-label={`${section.name} ${isMetaControl ? "meta control" : "section"}${isActiveSection ? ", selected" : ""}`}
+      aria-label={`${section.name} ${
+        isMetaControl
+          ? "meta control"
+          : canOwnNestedSections
+            ? "section with nested sections"
+            : "section"
+      }${isActiveSection ? ", selected" : ""}`}
       aria-keyshortcuts="Enter Space Shift+F10 ContextMenu"
       tabIndex={-1} // keeps section focusable for programmatic focus
       ref={refForPosition}

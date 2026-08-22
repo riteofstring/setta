@@ -84,6 +84,11 @@ export type WorkspaceItemAreaPresentation = Readonly<{
   toolbar: WorkspaceItemToolbarMode;
 }>;
 
+// An ordinary registered kind may opt into the package's existing sortable child-section
+// surface. The capability deliberately names only the ordinary vertical flow: group-specific
+// orientation, overflow, chrome, and ungrouping remain package-owned group behavior.
+export type WorkspaceNestedSectionsPresentation = "vertical";
+
 type WorkspaceInspectorContributionInput =
   | { type: "section"; section: WorkspaceSection }
   | { type: "item"; section: WorkspaceSection; item: WorkspaceItem };
@@ -141,6 +146,9 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         // minimize, delete) — the reference's own slot for its per-type header controls. The
         // built-in Text section's edit/render toggle is the package's one use of it.
         renderHeaderControls?: (section: WorkspaceSection) => ReactNode;
+        // Lets this ordinary kind own section children through the package's existing nested
+        // sortable surface. The one supported registered flow is vertical.
+        nestedSections?: WorkspaceNestedSectionsPresentation;
         presentation?: undefined;
       }
     | {
@@ -152,6 +160,7 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         getItemSearchableText?: never;
         itemArea?: never;
         renderHeaderControls?: never;
+        nestedSections?: never;
         presentation: MetaControlSectionPresentation;
       }
   );
@@ -265,6 +274,24 @@ function assertMetaControlDefinition(
         "its package-owned chrome has no section header.",
     );
   }
+  if (definition.nestedSections !== undefined) {
+    throw new Error(
+      `Meta-control section kind ${kind} cannot register nestedSections; ` +
+        "meta controls cannot own section children.",
+    );
+  }
+}
+
+function assertNestedSectionsPresentation(
+  kind: string,
+  nestedSections: unknown,
+): asserts nestedSections is WorkspaceNestedSectionsPresentation | undefined {
+  if (nestedSections !== undefined && nestedSections !== "vertical") {
+    throw new Error(
+      `Section kind ${kind} declares the unknown nested-sections presentation ` +
+        `${String(nestedSections)}.`,
+    );
+  }
 }
 
 function assertSectionKindDefinition(
@@ -299,6 +326,7 @@ function assertSectionKindDefinition(
     assertMetaControlDefinition(kind, definition);
     return;
   }
+  assertNestedSectionsPresentation(kind, definition.nestedSections);
   if (definition.itemArea !== undefined) {
     assertItemAreaPresentation(kind, definition.itemArea);
   }
@@ -445,4 +473,22 @@ export function getMetaControlPresentation(
   }
   assertMetaControlPresentation(section.kind, presentation);
   return presentation;
+}
+
+// One capability check owns the package's distinction between a leaf and a section that may
+// contain sections. It includes the package-owned group kind, whose horizontal variant stays a
+// separate group concern, and registered ordinary kinds that explicitly declare the vertical
+// nested-section surface.
+export function canWorkspaceSectionOwnNestedSections(
+  host: WorkspaceHost,
+  section: Pick<WorkspaceSection, "kind">,
+): boolean {
+  if (section.kind === GROUP_SECTION_KIND) {
+    return true;
+  }
+  const definition = getRegisteredSectionKindOrThrow(host, section.kind);
+  return (
+    definition.presentation === undefined &&
+    definition.nestedSections === "vertical"
+  );
 }

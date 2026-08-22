@@ -133,6 +133,25 @@ function loadDeepDocument() {
   });
 }
 
+function loadVerticalContainerDocument() {
+  loadWorkspaceDocument(testWorkspace.host, {
+    sections: {
+      list: makeSection("list", {
+        kind: "list",
+        name: "List section",
+        children: ["first", "second"],
+      }),
+      first: makeSection("first", { name: "First child" }),
+      second: makeSection("second", { name: "Second child" }),
+    },
+    topLevelSections: {
+      list: { x: 0, y: 0, w: 320, h: 180, zIndex: 0 },
+    },
+    viewport: { x: 0, y: 0, zoom: 1 },
+    activeIds: [],
+  });
+}
+
 function loadMetaControlDocument(
   onEdit: (section: WorkspaceSection) => void,
   overrides: Partial<WorkspaceSection> = {},
@@ -247,6 +266,7 @@ describe("SectionContainer", () => {
     registerWorkspaceCommands(testWorkspace.host, []);
     registerSectionKinds(testWorkspace.host, {
       leaf: { renderContent: renderSectionBody },
+      list: { renderContent: renderSectionBody, nestedSections: "vertical" },
     });
     loadTestDocument();
     host = document.createElement("div");
@@ -892,6 +912,36 @@ describe("SectionContainer", () => {
     expect(
       groupHeader?.querySelector('[aria-label="Minimize section"]'),
     ).toBeNull();
+  });
+
+  it("renders a registered vertical container as an ordinary shell followed by accessible vertical children", async () => {
+    loadVerticalContainerDocument();
+    await mount("list");
+
+    const shell = getRequiredElement(host, '[data-section-id="list"]');
+    expectSectionGroupSemantics(
+      shell,
+      "List section section with nested sections",
+    );
+    expect(shell.className).toContain("rounded-lg");
+    expect(host.querySelector(".group\\/group-section")).toBeNull();
+    expect(
+      host.querySelector('[aria-label="Flow children horizontally"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector('[aria-label="Minimize section"]'),
+    ).not.toBeNull();
+
+    const nestedList = getRequiredElement(host, ".mt-2.flex.flex-col");
+    expect(
+      nestedList.querySelectorAll("[data-sortable-section-id]"),
+    ).toHaveLength(2);
+    expect(
+      nestedList.querySelector('[data-sortable-section-id="first"]'),
+    ).not.toBeNull();
+    expect(
+      nestedList.querySelector('[data-sortable-section-id="second"]'),
+    ).not.toBeNull();
   });
 
   it("bounds a group through one persistent scroll surface with native wheel ownership", async () => {

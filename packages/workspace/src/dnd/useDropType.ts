@@ -4,8 +4,8 @@ import {
   getSectionChildren,
   getSectionIsHorizontalOrientation,
   getSectionOrThrow,
-  isGroupSection,
 } from "../document/documentSelectors";
+import { canWorkspaceSectionOwnNestedSections } from "../document/sectionKindRegistry";
 import {
   getRootSelectedSectionIds,
   getSharedParentId,
@@ -44,11 +44,11 @@ import { BehaviorDropTypeEnum } from "./dropTypes";
 import { resetSortingOverState } from "./sortingOverState";
 
 // The reference's `useDropType.ts` (live re-parenting during a drag). Cuts at the package
-// seams: the drop-validity rules collapse to "groups nest, and never into the dragged
-// selection" — the reference's variant freezing, singleton, top-level-only, and code/terminal
-// constraints left with their app features — and the reference's multi-parent-selection toast
-// notification left with the app notification system (the fallback behavior is identical:
-// only the active section drags).
+// seams: the drop-validity rules collapse to "declared containers nest, and never into the
+// dragged selection" — the reference's variant freezing, singleton, top-level-only, and
+// code/terminal constraints left with their app features — and the reference's multi-parent-
+// selection toast notification left with the app notification system (the fallback behavior is
+// identical: only the active section drags).
 
 type DropTypeRuntime = {
   lastPastHalfwayByOverId: Record<string, boolean>;
@@ -939,7 +939,12 @@ export function getBehaviorDropType(
   const state = getWorkspaceDocumentStore(host).getState();
   const selectedIds = getSelectedDragIds(host, activeId);
 
-  if (!isGroupSection(getSectionOrThrow(state, newParentId))) {
+  if (
+    !canWorkspaceSectionOwnNestedSections(
+      host,
+      getSectionOrThrow(state, newParentId),
+    )
+  ) {
     return BehaviorDropTypeEnum.INVALID;
   }
   if (
