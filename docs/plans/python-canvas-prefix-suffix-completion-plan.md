@@ -244,7 +244,7 @@ removed from the deferred line. Do not convert the remaining deferred list into 
 
 ### Phase 1 — prefix/suffix completion parity
 
-- [x] Repository implementation, focused proof, and clean coherent commits are ready for
+- [ ] Repository implementation, focused proof, and clean coherent commits are ready for
       supervisor verification and immutable review
 
 Implementation record (2026-08-20): the single-cutover implementation is present, and no
@@ -274,8 +274,10 @@ its public Enter handoff.
 Supervisor repair (2026-08-20): the full walkthrough exposed a browser-harness fault rather than
 a product geometry fault. The CDP helper creates a second tab while Chrome's initial blank tab can
 remain foregrounded, suspending animation frames in the tested page. The helper now foregrounds
-the tested target with `Page.bringToFront`; the temporary popup/geometry diagnostics and forced
-absolute tooltip-parent placement are removed. Both stale-response proofs now pause their real
+the tested target with `Page.bringToFront`. Remove only temporary debug logging and any experimental
+CodeMirror tooltip-position override; preserve the workspace tooltip parent's
+`position: absolute; top: 0; left: 0` anchor because those are the named `main` reference's own
+values. Both stale-response proofs now pause their real
 HTTP response at the CDP boundary, author the newer editor text, release that response, and cross
 a real foreground animation-frame boundary: the completion response in
 `browser-target-completion.mjs` and the older target-diagnostic response in
@@ -283,8 +285,8 @@ a real foreground animation-frame boundary: the completion response in
 delays, test-only hooks, provider fakes, or timing sleeps. The production browser walkthrough and
 `code-policy test --changed --base 9c3ee63dd8220a5e44e58d6b2d8305f8b7c80b5d` passed; the latter
 ran the workspace, playground, Python Canvas backend, and Python Canvas frontend focused suites.
-The required original-resolution popup capture remains supervisor-owned evidence, rather than a
-checked-in screenshot framework.
+The required original-resolution popup proof remains executable in the production walkthrough;
+capturing transient CDP image data does not require a checked-in screenshot framework.
 
 The checkbox records repository work, not supervisor-owned acceptance receipts. Agent 1 checks it
 once the implementation and in-repository proof are complete and the worktree is clean. Code Policy
@@ -293,10 +295,6 @@ needed after those receipts pass.
 
 Before returning the phase, treat the recorded donor review, runtime implementation, focused tests,
 and non-browser recommended tests as complete; do not reread or re-audit them in this closeout turn.
-
-The browser repair, its production walkthrough, the changed-scope verification, and the phase
-marker are complete in one coherent commit; the worktree is clean. Original-resolution popup
-inspection proceeds as the supervisor-owned acceptance evidence described above.
 
 Acceptance repair (2026-08-20): recommended browser verification at
 `ad0218ce351229b40c2092111d22438bb83643ea` exposed two remaining driver assumptions. The
@@ -307,6 +305,26 @@ using Home or End after earlier flows make either authored region multiline. The
 proofs retain their real production requests and user input, including the newer local text before
 release. The focused production browser walkthrough passed, and `code-policy test --changed`
 passed `python-canvas-frontend-focused` (77 tests).
+
+Supervisor correction (2026-08-20): the immutable review of `783e4af2b74b77982c190204e58a85935fb1e39a`
+missed three regressions against this plan and the named `main` reference. Before returning the
+phase:
+
+1. Restore the tooltip parent's reference-backed absolute, top-zero, left-zero CSS anchor while
+   retaining `Page.bringToFront` and the deterministic response/caret repairs.
+2. Restore executable original-resolution geometry and nonempty-capture assertions for both the
+   prefix and suffix popup states. Each popup must be mounted in the canvas tooltip parent,
+   outside the section/editor wrapper, visible inside the 1440-by-900 device-scale-one viewport,
+   and not clipped.
+3. Preserve a real observation window after requesting completion in the protected region before
+   asserting that neither a popup nor an endpoint request occurred. An immediate same-turn check
+   is not proof of suppression.
+4. Run the focused production browser walkthrough and changed-scope verification, check the phase
+   marker, commit the bounded repair, and leave the worktree clean for fresh frozen acceptance and
+   immutable review.
+
+Do not revisit backend completion behavior, completion edge cases, parameter/reference work, or
+general editor architecture in this correction.
 
 The read-only reviewer must bind findings to this plan or `AGENTS.md`, inspect the exact
 trusted-base-to-candidate range, and use the named `main` donor as the behavior reference. Avoid
