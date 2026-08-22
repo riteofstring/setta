@@ -166,7 +166,7 @@ async function assertStaleTargetlessResponseClears(
     (snapshot) => snapshot.pythonTarget?.prefix === stalePrefix,
     true,
   );
-  const staleDiagnostic = targetlessDiagnosticForText(
+  const staleDiagnostic = targetlessErrorForText(
     staleResponse,
     targetlessPrefixName,
     "The older authored prefix",
@@ -189,7 +189,7 @@ async function assertStaleTargetlessResponseClears(
     true,
   );
   return {
-    diagnostic: targetlessDiagnosticForText(
+    diagnostic: targetlessErrorForText(
       diagnosed,
       targetlessPrefixName,
       "The shifted authored prefix",
@@ -198,8 +198,12 @@ async function assertStaleTargetlessResponseClears(
   };
 }
 
-function targetlessDiagnosticForText(snapshot, text, description) {
-  const diagnostics = snapshot.diagnostics.filter((candidate) => {
+// Basedpyright can report an independent unused-expression warning at the same
+// authored identifier as its undefined-name error. The walkthrough needs the
+// error's provider message, not an assumption that it is the only finding on
+// that exact source span.
+function targetlessErrorForText(snapshot, text, description) {
+  const matchingDiagnostics = snapshot.diagnostics.filter((candidate) => {
     if (candidate.targetId !== null) {
       return false;
     }
@@ -210,12 +214,15 @@ function targetlessDiagnosticForText(snapshot, text, description) {
     );
     return diagnosticText === text;
   });
-  if (diagnostics.length !== 1) {
+  const errors = matchingDiagnostics.filter(
+    (candidate) => candidate.severity === "error",
+  );
+  if (errors.length !== 1) {
     throw new Error(
-      `${description} did not produce exactly one targetless diagnostic on ${JSON.stringify(text)}: ${JSON.stringify(snapshot.diagnostics)}.`,
+      `${description} did not produce exactly one targetless error on ${JSON.stringify(text)}: ${JSON.stringify(matchingDiagnostics)}.`,
     );
   }
-  return diagnostics[0];
+  return errors[0];
 }
 
 // The generated body has its own blue protected-region paint, so a mapped parameter diagnostic

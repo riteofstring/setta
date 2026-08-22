@@ -334,6 +334,15 @@ Its syntax checks and the selected `test --changed --base
 its other eight suites; its browser suite stopped at the sandbox's `127.0.0.1` `EPERM` before the
 application started, so the supervisor environment must supply that production-browser evidence.
 
+Implementation record — targetless browser diagnostic selection correction: Basedpyright also
+emits an independent unused-expression warning on the authored undefined-name span. The production
+walkthrough now requires exactly one targetless error at that span and uses its complete provider
+message, rather than treating the co-located warning as a duplicate error. It still proves the
+same rendered range, hover message, stale-response clearing, and corrected-prefix clearing. The
+browser-script syntax check and selected `test --changed --base
+9dbdf9dffd09d74ddbda856ddea03c9ea957441b` passed (workspace, playground, backend, and Python
+Canvas focused suites).
+
 Intentional donor differences, recorded after reading every named main donor: main's historical
 generated-Python mapper used `reportCallIssue` message wording to choose parameters, whereas this
 slice uses the exact provider code plus canonical signature metadata, so wording cannot create a
