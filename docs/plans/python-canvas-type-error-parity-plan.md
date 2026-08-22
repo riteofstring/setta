@@ -338,8 +338,9 @@ tests, and the headless production-browser walkthrough. That walkthrough proved 
 callable, and targetless document diagnostic destinations, their accessible messages and clearing,
 the absence of mapped/generated duplication, and stale-response protection on the fixed production
 viewport. A fresh immutable read-only phase review of the same trusted-base-to-candidate range
-reported no repository-contract finding, requested-outcome finding, or recommendation. No developer
-evidence or approval gate remains.
+inspected the named main donor files, accepted the recorded intentional differences, and reported no
+repository-contract finding, requested-outcome finding, or recommendation. No developer evidence or
+approval gate remains.
 
 Intentional donor differences, recorded after reading every named main donor: main's historical
 generated-Python mapper used `reportCallIssue` message wording to choose parameters, whereas this
