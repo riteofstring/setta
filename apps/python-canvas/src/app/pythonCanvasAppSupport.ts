@@ -45,13 +45,16 @@ export type MutationState =
     }
   | { kind: "error"; message: string };
 
-export type RevisionConflictDraft = {
-  callableId: string;
-  kind: "parameters";
-} | {
-  dictionaryId: string;
-  kind: "dictionary";
-} | null;
+export type RevisionConflictDraft =
+  | {
+      callableId: string;
+      kind: "parameters";
+    }
+  | {
+      dictionaryId: string;
+      kind: "dictionary";
+    }
+  | null;
 
 export type SectionStructureMutation =
   | { kind: "delete"; sectionId: string; sectionKind: "callable" }
@@ -75,6 +78,13 @@ export type SectionStructureMutation =
       sectionId: string;
       sectionKind: "list";
     };
+
+type SectionStructureRecord = {
+  id: string;
+  name: string;
+  sectionKind: SectionStructureMutation["sectionKind"];
+  workspaceId: string;
+};
 
 export type AppController = {
   commitCallable: (callableId: string, value: string) => void;
@@ -143,7 +153,24 @@ export function sectionStructureMutations(
   document: WorkspaceDocument,
   snapshot: ProjectSnapshotV2,
 ): SectionStructureMutation[] {
-  const records = [
+  const records = sectionStructureRecords(snapshot);
+  const missing = missingSectionIDs(document, records);
+  const parentByChild = listParentByChild(snapshot);
+  return records.flatMap((record) => {
+    const mutation = sectionStructureMutation(
+      document,
+      record,
+      missing,
+      parentByChild,
+    );
+    return mutation === null ? [] : [mutation];
+  });
+}
+
+function sectionStructureRecords(
+  snapshot: ProjectSnapshotV2,
+): SectionStructureRecord[] {
+  return [
     ...snapshot.callables.map((callable) => ({
       id: callable.id,
       name: callable.name,
@@ -163,49 +190,70 @@ export function sectionStructureMutations(
       workspaceId: listSectionID(list.id),
     })),
   ];
-  const missing = new Set(
+}
+
+function missingSectionIDs(
+  document: WorkspaceDocument,
+  records: ReadonlyArray<SectionStructureRecord>,
+): ReadonlySet<string> {
+  return new Set(
     records
       .filter((record) => document.sections[record.workspaceId] === undefined)
       .map((record) => record.id),
   );
+}
+
+function listParentByChild(
+  snapshot: ProjectSnapshotV2,
+): ReadonlyMap<string, string> {
   const parentByChild = new Map<string, string>();
   for (const list of snapshot.lists) {
     for (const childId of list.childSectionIds) {
       parentByChild.set(childId, list.id);
     }
   }
-  const mutations: SectionStructureMutation[] = [];
-  for (const record of records) {
-    if (missing.has(record.id)) {
-      let parent = parentByChild.get(record.id);
-      let hasMissingAncestor = false;
-      while (parent !== undefined) {
-        if (missing.has(parent)) {
-          hasMissingAncestor = true;
-          break;
-        }
-        parent = parentByChild.get(parent);
-      }
-      if (!hasMissingAncestor) {
-        mutations.push({
+  return parentByChild;
+}
+
+function sectionStructureMutation(
+  document: WorkspaceDocument,
+  record: SectionStructureRecord,
+  missing: ReadonlySet<string>,
+  parentByChild: ReadonlyMap<string, string>,
+): SectionStructureMutation | null {
+  if (missing.has(record.id)) {
+    return hasMissingAncestor(record.id, missing, parentByChild)
+      ? null
+      : {
           kind: "delete",
           sectionId: record.id,
           sectionKind: record.sectionKind,
-        });
-      }
-      continue;
-    }
-    const section = document.sections[record.workspaceId];
-    if (section !== undefined && section.name !== record.name) {
-      mutations.push({
+        };
+  }
+  const section = document.sections[record.workspaceId];
+  return section === undefined || section.name === record.name
+    ? null
+    : {
         kind: "rename",
         name: section.name,
         sectionId: record.id,
         sectionKind: record.sectionKind,
-      });
+      };
+}
+
+function hasMissingAncestor(
+  sectionId: string,
+  missing: ReadonlySet<string>,
+  parentByChild: ReadonlyMap<string, string>,
+): boolean {
+  let parent = parentByChild.get(sectionId);
+  while (parent !== undefined) {
+    if (missing.has(parent)) {
+      return true;
     }
+    parent = parentByChild.get(parent);
   }
-  return mutations;
+  return false;
 }
 
 export function parameterListDraft(
@@ -411,7 +459,9 @@ function sameDictionaryEntryLists(
   );
 }
 
-function validDictionaryEntries(entries: ReadonlyArray<DictionaryEntryV2>): boolean {
+function validDictionaryEntries(
+  entries: ReadonlyArray<DictionaryEntryV2>,
+): boolean {
   const names = new Set<string>();
   for (const entry of entries) {
     const normalized = entry.name.trim();
@@ -423,10 +473,7 @@ function validDictionaryEntries(entries: ReadonlyArray<DictionaryEntryV2>): bool
       return false;
     }
     names.add(normalized);
-    if (
-      entry.kind === "parent" &&
-      !validDictionaryEntries(entry.children)
-    ) {
+    if (entry.kind === "parent" && !validDictionaryEntries(entry.children)) {
       return false;
     }
   }
@@ -440,7 +487,9 @@ function sameSectionForest(
   },
   snapshot: ProjectSnapshotV2,
 ): boolean {
-  if (!sameStringList(proposal.topLevelSectionIds, snapshot.topLevelSectionIds)) {
+  if (
+    !sameStringList(proposal.topLevelSectionIds, snapshot.topLevelSectionIds)
+  ) {
     return false;
   }
   if (proposal.listChildren.length !== snapshot.lists.length) {
@@ -458,7 +507,10 @@ function sameStringList(
   left: ReadonlyArray<string>,
   right: ReadonlyArray<string>,
 ): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
 }
 
 export function sameCanonicalPythonTarget(

@@ -1,10 +1,6 @@
 import {
-  WORKSPACE_CODE_SECTION_KIND,
   commitWorkspaceDocument,
-  createWorkspaceCodeSectionData,
-  getWorkspaceCodeSectionData,
   setItemData,
-  type WorkspaceCodeSectionDiagnostic,
   type WorkspaceDocument,
   type WorkspaceHost,
   type WorkspaceItem,
@@ -16,12 +12,9 @@ import {
 
 import {
   DIAGNOSTIC_SEVERITY_INFORMATION_V2,
-  DICTIONARY_ENTRY_KIND_LEAF_V2,
-  DICTIONARY_ENTRY_KIND_PARENT_V2,
   PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
   type CallableV2,
   type DiagnosticV2,
-  type DictionaryEntryV2,
   type ListV2,
   type ParameterDictionaryV2,
   type ParameterV2,
@@ -32,12 +25,36 @@ import {
   type ParameterItemData,
   readParameterItemData,
 } from "../sections/CallableSection";
-import {
-  type DictionaryEntryItemData,
-  type ParameterDictionarySectionData,
-  readDictionaryEntryItemData,
-} from "../sections/ParamDictSection";
+import { type ParameterDictionarySectionData } from "../sections/ParamDictSection";
 import { type ListSectionData } from "../sections/ListSection";
+import {
+  projectGeneratedPythonSection,
+  readGeneratedPythonTarget as readGeneratedPythonTargetForSection,
+  retainedGeneratedCodeData,
+} from "./generatedPythonProjection";
+import {
+  createParameterDictionaryEntryItem,
+  dictionaryEntryRootID,
+  dictionaryEntryWorkspaceItemID,
+  parameterDictionarySectionID,
+  projectCanonicalDictionaryEntries,
+  projectParameterDictionarySectionData,
+  promoteDictionaryEntryParents,
+  readParameterDictionaryEntries,
+  setDictionaryEntryExpression,
+  setDictionaryEntryName,
+} from "./workspaceProjectionDictionary";
+import { projectWorkspaceForestProposal } from "./workspaceForestProjection";
+
+export {
+  createParameterDictionaryEntryItem,
+  dictionaryEntryWorkspaceItemID,
+  parameterDictionarySectionID,
+  promoteDictionaryEntryParents,
+  readParameterDictionaryEntries,
+  setDictionaryEntryExpression,
+  setDictionaryEntryName,
+};
 
 export const CALLABLE_SECTION_KIND = "python-canvas.callable" as const;
 export const PENDING_CALLABLE_SECTION_KIND =
@@ -62,10 +79,7 @@ export const GENERATED_PYTHON_SECTION_SIZE = {
   height: 420,
 } as const;
 
-const generatedCodeSeparator = "\n\n";
 const parameterWorkspaceItemPrefix = "python-canvas:parameter-item:";
-const dictionaryEntryWorkspaceItemPrefix =
-  "python-canvas:dictionary-entry-item:";
 
 type ProjectSectionDescriptor =
   | {
@@ -100,10 +114,6 @@ export function callableSectionID(callableId: string): string {
   return `python-canvas:callable:${callableId}`;
 }
 
-export function parameterDictionarySectionID(dictionaryId: string): string {
-  return `python-canvas:parameter-dictionary:${dictionaryId}`;
-}
-
 export function listSectionID(listId: string): string {
   return `python-canvas:list:${listId}`;
 }
@@ -112,18 +122,10 @@ function parameterItemRootID(callableId: string): string {
   return `${callableSectionID(callableId)}:parameter-root`;
 }
 
-function dictionaryEntryRootID(dictionaryId: string): string {
-  return `${parameterDictionarySectionID(dictionaryId)}:entry-root`;
-}
-
 // Canonical IDs are opaque application data. Their workspace structural
 // counterparts live in disjoint namespaces, including the two item roots.
 export function parameterWorkspaceItemID(parameterId: string): string {
   return `${parameterWorkspaceItemPrefix}${encodeURIComponent(parameterId)}`;
-}
-
-export function dictionaryEntryWorkspaceItemID(entryId: string): string {
-  return `${dictionaryEntryWorkspaceItemPrefix}${encodeURIComponent(entryId)}`;
 }
 
 export function createPendingCallableSection(
@@ -209,7 +211,11 @@ function projectWorkspaceDocumentWithDescriptors(
 ): WorkspaceDocument {
   const descriptorByCanonicalID = descriptorsByCanonicalID(descriptors);
   const sections: WorkspaceDocument["sections"] = {
-    [GENERATED_PYTHON_SECTION_ID]: projectGeneratedPythonSection(snapshot),
+    [GENERATED_PYTHON_SECTION_ID]: projectGeneratedPythonSection(
+      snapshot,
+      GENERATED_PYTHON_SECTION_ID,
+      GENERATED_PYTHON_SECTION_SIZE,
+    ),
   };
   for (const descriptor of descriptors) {
     sections[descriptor.workspaceId] = projectSection(
@@ -255,7 +261,10 @@ export function applyProjectSnapshotToWorkspace(
   const current = host.getSnapshot();
   const descriptors = projectSectionDescriptors(snapshot);
   const descriptorByCanonicalID = descriptorsByCanonicalID(descriptors);
-  const projected = projectWorkspaceDocumentWithDescriptors(snapshot, descriptors);
+  const projected = projectWorkspaceDocumentWithDescriptors(
+    snapshot,
+    descriptors,
+  );
   const sections: WorkspaceDocument["sections"] = {};
 
   for (const descriptor of descriptors) {
@@ -325,26 +334,7 @@ export function readGeneratedPythonTarget(host: WorkspaceHost): {
   prefix: string;
   suffix: string;
 } {
-  const data = getWorkspaceCodeSectionData(host, GENERATED_PYTHON_SECTION_ID);
-  if (data.mode !== "generated-document") {
-    throw new Error("Generated Python is not a generated document.");
-  }
-  const { from, to } = data.generatedRegion;
-  const protectedCode = data.code.slice(from, to);
-  if (
-    !protectedCode.startsWith(generatedCodeSeparator) ||
-    !protectedCode.endsWith(generatedCodeSeparator)
-  ) {
-    throw new Error("Generated Python separators are not canonical.");
-  }
-  return {
-    generated: protectedCode.slice(
-      generatedCodeSeparator.length,
-      -generatedCodeSeparator.length,
-    ),
-    prefix: data.code.slice(0, from),
-    suffix: data.code.slice(to),
-  };
+  return readGeneratedPythonTargetForSection(host, GENERATED_PYTHON_SECTION_ID);
 }
 
 export function setParameterItemExpression(
@@ -371,82 +361,6 @@ export function setParameterItemName(
   );
 }
 
-export function setDictionaryEntryExpression(
-  host: WorkspaceHost,
-  dictionaryId: string,
-  entryItemId: string,
-  authoredExpression: string,
-): void {
-  updateDictionaryEntryItem(host, dictionaryId, entryItemId, (data) => {
-    if (data.kind !== DICTIONARY_ENTRY_KIND_LEAF_V2) {
-      return null;
-    }
-    return data.authoredExpression === authoredExpression
-      ? null
-      : { ...data, authoredExpression };
-  });
-}
-
-export function setDictionaryEntryName(
-  host: WorkspaceHost,
-  dictionaryId: string,
-  entryItemId: string,
-  name: string,
-): void {
-  updateDictionaryEntryItem(host, dictionaryId, entryItemId, (data) =>
-    data.name === name ? null : { ...data, name },
-  );
-}
-
-// The generic item tree intentionally owns only structural movement. Once a
-// leaf owns a child, make its application data an explicit dictionary parent
-// in the same local document transaction. That marker remains after its last
-// child moves away, so an empty parent never turns back into a leaf expression.
-export function promoteDictionaryEntryParents(
-  host: WorkspaceHost,
-  dictionaryId: string,
-): boolean {
-  const document = host.getSnapshot();
-  const sectionId = parameterDictionarySectionID(dictionaryId);
-  const section = document.sections[sectionId];
-  const itemTree = section?.itemTree;
-  if (section === undefined || itemTree === undefined) {
-    return false;
-  }
-  let changed = false;
-  const items: WorkspaceSectionItemTree["items"] = { ...itemTree.items };
-  for (const [itemId, item] of Object.entries(itemTree.items)) {
-    if (itemId === itemTree.rootId || item.children.length === 0) {
-      continue;
-    }
-    const data = readDictionaryEntryItemData(item.data);
-    if (data.kind === DICTIONARY_ENTRY_KIND_LEAF_V2) {
-      items[itemId] = {
-        ...item,
-        data: {
-          kind: DICTIONARY_ENTRY_KIND_PARENT_V2,
-          name: data.name,
-        } satisfies DictionaryEntryItemData,
-      };
-      changed = true;
-    }
-  }
-  if (!changed) {
-    return false;
-  }
-  commitWorkspaceDocument(host, {
-    ...document,
-    sections: {
-      ...document.sections,
-      [sectionId]: {
-        ...section,
-        itemTree: { ...itemTree, items },
-      },
-    },
-  });
-  return true;
-}
-
 export function createCallableParameterItem(): WorkspaceItem {
   const parameterId = `parameter:authored:${crypto.randomUUID()}`;
   return {
@@ -461,19 +375,6 @@ export function createCallableParameterItem(): WorkspaceItem {
       providerOrdinal: null,
       typeAnnotation: null,
     } satisfies ParameterItemData,
-  };
-}
-
-export function createParameterDictionaryEntryItem(): WorkspaceItem {
-  const entryId = `dictionary-entry:authored:${crypto.randomUUID()}`;
-  return {
-    id: dictionaryEntryWorkspaceItemID(entryId),
-    children: [],
-    data: {
-      authoredExpression: "",
-      kind: DICTIONARY_ENTRY_KIND_LEAF_V2,
-      name: "",
-    } satisfies DictionaryEntryItemData,
   };
 }
 
@@ -511,19 +412,6 @@ export function readCallableParameterItems(
   }));
 }
 
-export function readParameterDictionaryEntries(
-  document: WorkspaceDocument,
-  dictionaryId: string,
-): DictionaryEntryV2[] {
-  const section = document.sections[parameterDictionarySectionID(dictionaryId)];
-  if (section?.itemTree === undefined) {
-    throw new Error(
-      `Python Canvas parameter dictionary ${dictionaryId} is missing.`,
-    );
-  }
-  return readDictionaryEntriesFromTree(section.itemTree);
-}
-
 // Returns only a complete placement proposal. A transient deletion or creation
 // intentionally returns null, leaving its typed create/delete command as the
 // sole owner of the mutation.
@@ -534,67 +422,11 @@ export function workspaceForestProposal(
   listChildren: Array<{ childSectionIds: string[]; listId: string }>;
   topLevelSectionIds: string[];
 } | null {
-  const descriptors = projectSectionDescriptors(snapshot);
-  const descriptorByWorkspaceID = new Map(
-    descriptors.map((descriptor) => [descriptor.workspaceId, descriptor]),
+  return projectWorkspaceForestProposal(
+    document,
+    snapshot.lists,
+    projectSectionDescriptors(snapshot),
   );
-  const canonicalIDs = new Set(
-    descriptors.map((descriptor) => descriptor.canonicalId),
-  );
-  const placements = new Set<string>();
-  const listChildren: Array<{ childSectionIds: string[]; listId: string }> = [];
-
-  for (const list of snapshot.lists) {
-    const section = document.sections[listSectionID(list.id)];
-    if (section === undefined) {
-      return null;
-    }
-    const childSectionIds: string[] = [];
-    for (const workspaceChildId of section.children) {
-      const child = descriptorByWorkspaceID.get(workspaceChildId);
-      if (child === undefined || placements.has(child.canonicalId)) {
-        return null;
-      }
-      placements.add(child.canonicalId);
-      childSectionIds.push(child.canonicalId);
-    }
-    listChildren.push({ childSectionIds, listId: list.id });
-  }
-
-  const topLevelSectionIds = Object.entries(document.topLevelSections)
-    .map(([workspaceId, layout]) => ({
-      descriptor: descriptorByWorkspaceID.get(workspaceId),
-      workspaceId,
-      zIndex: layout.zIndex,
-    }))
-    .filter(
-      (
-        entry,
-      ): entry is {
-        descriptor: ProjectSectionDescriptor;
-        workspaceId: string;
-        zIndex: number;
-      } => entry.descriptor !== undefined,
-    )
-    .sort(
-      (left, right) =>
-        left.zIndex - right.zIndex ||
-        left.workspaceId.localeCompare(right.workspaceId),
-    )
-    .map(({ descriptor }) => descriptor.canonicalId);
-  for (const canonicalId of topLevelSectionIds) {
-    if (placements.has(canonicalId)) {
-      return null;
-    }
-    placements.add(canonicalId);
-  }
-  if (
-    placements.size !== canonicalIDs.size ||
-    [...canonicalIDs].some((id) => !placements.has(id))
-  ) {
-    return null;
-  }
-  return { listChildren, topLevelSectionIds };
 }
 
 function ordinarySectionInput({
@@ -845,7 +677,11 @@ function projectGeneratedSection(
       : {
           ...retainSectionPresentation(previous, next),
           data: options.keepAuthoredPython
-            ? retainedGeneratedCodeData(host, snapshot)
+            ? retainedGeneratedCodeData(
+                host,
+                snapshot,
+                GENERATED_PYTHON_SECTION_ID,
+              )
             : next.data,
         };
   const layout =
@@ -941,94 +777,6 @@ function projectCanonicalParameterItems(
   };
 }
 
-function projectCanonicalDictionaryEntries(
-  previous: WorkspaceSectionItemTree | undefined,
-  dictionary: ParameterDictionaryV2,
-): WorkspaceSectionItemTree {
-  const rootId = dictionaryEntryRootID(dictionary.id);
-  const items: Record<string, WorkspaceItem> = {
-    [rootId]: { id: rootId, children: [] },
-  };
-
-  function projectEntries(
-    parentId: string,
-    entries: ReadonlyArray<DictionaryEntryV2>,
-  ) {
-    const parent = items[parentId];
-    if (parent === undefined) {
-      throw new Error(`Python Canvas dictionary entry ${parentId} is missing.`);
-    }
-    const childIds = entries.map((entry) =>
-      dictionaryEntryWorkspaceItemID(entry.id),
-    );
-    items[parentId] = { ...parent, children: childIds };
-    for (const entry of entries) {
-      const itemId = dictionaryEntryWorkspaceItemID(entry.id);
-      items[itemId] = {
-        children:
-          entry.kind === DICTIONARY_ENTRY_KIND_PARENT_V2
-            ? entry.children.map((child) =>
-                dictionaryEntryWorkspaceItemID(child.id),
-              )
-            : [],
-        data: projectDictionaryEntryItemData(entry),
-        id: itemId,
-      };
-      if (entry.kind === DICTIONARY_ENTRY_KIND_PARENT_V2) {
-        projectEntries(itemId, entry.children);
-      }
-    }
-  }
-
-  projectEntries(rootId, dictionary.entries);
-  const itemIds = new Set(Object.keys(items));
-  return {
-    rootId,
-    items,
-    selectedItemIds:
-      previous?.selectedItemIds.filter((id) => itemIds.has(id)) ?? [],
-  };
-}
-
-function readDictionaryEntriesFromTree(
-  itemTree: WorkspaceSectionItemTree,
-): DictionaryEntryV2[] {
-  function readEntries(parentId: string): DictionaryEntryV2[] {
-    const parent = itemTree.items[parentId];
-    if (parent === undefined) {
-      throw new Error(`Python Canvas dictionary entry ${parentId} is missing.`);
-    }
-    return parent.children.map((itemId) => {
-      const item = itemTree.items[itemId];
-      if (item === undefined) {
-        throw new Error(
-          `Python Canvas dictionary entry ${itemId} is missing.`,
-        );
-      }
-      const data = readDictionaryEntryItemData(item.data);
-      const id = canonicalDictionaryEntryID(item.id);
-      if (
-        data.kind === DICTIONARY_ENTRY_KIND_PARENT_V2 ||
-        item.children.length > 0
-      ) {
-        return {
-          children: readEntries(item.id),
-          id,
-          kind: DICTIONARY_ENTRY_KIND_PARENT_V2,
-          name: data.name,
-        };
-      }
-      return {
-        authoredExpression: data.authoredExpression,
-        id,
-        kind: DICTIONARY_ENTRY_KIND_LEAF_V2,
-        name: data.name,
-      };
-    });
-  }
-  return readEntries(itemTree.rootId);
-}
-
 function updateParameterItem(
   host: WorkspaceHost,
   callableId: string,
@@ -1049,25 +797,6 @@ function updateParameterItem(
   const data = next(current.data);
   if (data !== null) {
     setItemData(host, sectionId, parameterItemId, data);
-  }
-}
-
-function updateDictionaryEntryItem(
-  host: WorkspaceHost,
-  dictionaryId: string,
-  entryItemId: string,
-  next: (data: DictionaryEntryItemData) => DictionaryEntryItemData | null,
-): void {
-  const sectionId = parameterDictionarySectionID(dictionaryId);
-  const item = host.getSnapshot().sections[sectionId]?.itemTree?.items[
-    entryItemId
-  ];
-  if (item === undefined) {
-    return;
-  }
-  const data = next(readDictionaryEntryItemData(item.data));
-  if (data !== null) {
-    setItemData(host, sectionId, entryItemId, data);
   }
 }
 
@@ -1107,37 +836,6 @@ function projectCallableSectionData(
   };
 }
 
-function projectParameterDictionarySectionData(
-  snapshot: ProjectSnapshotV2,
-  dictionary: ParameterDictionaryV2,
-): ParameterDictionarySectionData {
-  const entryIDs = new Set<string>();
-  function collect(entries: ReadonlyArray<DictionaryEntryV2>) {
-    for (const entry of entries) {
-      entryIDs.add(entry.id);
-      if (entry.kind === DICTIONARY_ENTRY_KIND_PARENT_V2) {
-        collect(entry.children);
-      }
-    }
-  }
-  collect(dictionary.entries);
-  const entryDiagnostics: ParameterDictionarySectionData["entryDiagnostics"] =
-    {};
-  for (const diagnostic of snapshot.diagnostics) {
-    if (diagnostic.targetId !== null && entryIDs.has(diagnostic.targetId)) {
-      const itemId = dictionaryEntryWorkspaceItemID(diagnostic.targetId);
-      entryDiagnostics[itemId] = [
-        ...(entryDiagnostics[itemId] ?? []),
-        projectItemDiagnostic(diagnostic),
-      ];
-    }
-  }
-  return {
-    dictionary: { id: dictionary.id, name: dictionary.name },
-    entryDiagnostics,
-  };
-}
-
 function projectParameterItemData(parameter: ParameterV2): ParameterItemData {
   return {
     authoredExpression: parameter.authoredExpression,
@@ -1147,19 +845,6 @@ function projectParameterItemData(parameter: ParameterV2): ParameterItemData {
     passingStyle: parameter.passingStyle,
     providerOrdinal: parameter.providerOrdinal,
     typeAnnotation: parameter.typeAnnotation,
-  };
-}
-
-function projectDictionaryEntryItemData(
-  entry: DictionaryEntryV2,
-): DictionaryEntryItemData {
-  if (entry.kind === DICTIONARY_ENTRY_KIND_PARENT_V2) {
-    return { kind: entry.kind, name: entry.name };
-  }
-  return {
-    authoredExpression: entry.authoredExpression,
-    kind: entry.kind,
-    name: entry.name,
   };
 }
 
@@ -1175,113 +860,9 @@ function projectItemDiagnostic(
   };
 }
 
-function projectGeneratedPythonSection(
-  snapshot: ProjectSnapshotV2,
-): WorkspaceSection {
-  return ordinarySectionInput({
-    data: projectGeneratedCodeData(snapshot),
-    id: GENERATED_PYTHON_SECTION_ID,
-    kind: WORKSPACE_CODE_SECTION_KIND,
-    name: "Generated Python",
-    size: GENERATED_PYTHON_SECTION_SIZE,
-  });
-}
-
-function projectGeneratedCodeData(snapshot: ProjectSnapshotV2) {
-  const { prefix, suffix } = snapshot.pythonTarget;
-  const { body, code, generatedBodyRange } = snapshot.generatedCode;
-  const expected = `${prefix}${generatedCodeSeparator}${body}${generatedCodeSeparator}${suffix}`;
-  if (code !== expected) {
-    throw new Error(
-      "Generated Python does not compose its canonical target and body.",
-    );
-  }
-  return generatedCodeSectionData({
-    body,
-    diagnostics: projectDocumentDiagnostics(snapshot),
-    generatedBodyRange,
-    prefix,
-    suffix,
-  });
-}
-
-function retainedGeneratedCodeData(
-  host: WorkspaceHost,
-  snapshot: ProjectSnapshotV2,
-) {
-  const { prefix, suffix } = readGeneratedPythonTarget(host);
-  return generatedCodeSectionData({
-    body: snapshot.generatedCode.body,
-    diagnostics: [],
-    prefix,
-    suffix,
-  });
-}
-
-function generatedCodeSectionData({
-  body,
-  diagnostics,
-  generatedBodyRange,
-  prefix,
-  suffix,
-}: {
-  body: string;
-  diagnostics: ReadonlyArray<WorkspaceCodeSectionDiagnostic>;
-  generatedBodyRange?: { end: number; start: number };
-  prefix: string;
-  suffix: string;
-}) {
-  const bodyStartBytes =
-    generatedBodyRange?.start ??
-    utf8ByteLength(prefix) + generatedCodeSeparator.length;
-  const bodyEndBytes =
-    generatedBodyRange?.end ?? bodyStartBytes + utf8ByteLength(body);
-  const code = `${prefix}${generatedCodeSeparator}${body}${generatedCodeSeparator}${suffix}`;
-  const separatorBytes = utf8ByteLength(generatedCodeSeparator);
-  return createWorkspaceCodeSectionData({
-    code,
-    diagnostics: [...diagnostics],
-    generatedRegion: {
-      from: utf8ByteOffsetToUtf16Offset(code, bodyStartBytes - separatorBytes),
-      to: utf8ByteOffsetToUtf16Offset(code, bodyEndBytes + separatorBytes),
-    },
-    indentWidth: 4,
-    language: "python",
-    lineNumbers: true,
-    mode: "generated-document",
-    wrapLines: true,
-  });
-}
-
-function projectDocumentDiagnostics(
-  snapshot: ProjectSnapshotV2,
-): Array<WorkspaceCodeSectionDiagnostic> {
-  return snapshot.diagnostics.flatMap((diagnostic) => {
-    if (diagnostic.targetId !== null) {
-      return [];
-    }
-    return [
-      {
-        from: utf8ByteOffsetToUtf16Offset(
-          snapshot.generatedCode.code,
-          diagnostic.start,
-        ),
-        to: utf8ByteOffsetToUtf16Offset(
-          snapshot.generatedCode.code,
-          diagnostic.end,
-        ),
-        message: diagnostic.message,
-        severity:
-          diagnostic.severity === DIAGNOSTIC_SEVERITY_INFORMATION_V2
-            ? "info"
-            : diagnostic.severity,
-      },
-    ];
-  });
-}
-
 function sectionLayout(index: number, section: WorkspaceSection) {
-  const width = typeof section.size.width === "number" ? section.size.width : 360;
+  const width =
+    typeof section.size.width === "number" ? section.size.width : 360;
   const height =
     typeof section.size.height === "number" ? section.size.height : 300;
   const column = index % 2;
@@ -1314,14 +895,6 @@ function canonicalParameterID(itemId: string): string {
   );
 }
 
-function canonicalDictionaryEntryID(itemId: string): string {
-  return canonicalWorkspaceItemID(
-    itemId,
-    dictionaryEntryWorkspaceItemPrefix,
-    "dictionary entry",
-  );
-}
-
 function canonicalWorkspaceItemID(
   itemId: string,
   prefix: string,
@@ -1341,29 +914,4 @@ function canonicalWorkspaceItemID(
     throw new Error(`Python Canvas ${kind} item ${itemId} is invalid.`);
   }
   return id;
-}
-
-function utf8ByteLength(value: string): number {
-  return new TextEncoder().encode(value).length;
-}
-
-function utf8ByteOffsetToUtf16Offset(code: string, byteOffset: number): number {
-  const encoder = new TextEncoder();
-  let utf8Offset = 0;
-  let utf16Offset = 0;
-  if (byteOffset === 0) {
-    return 0;
-  }
-  for (const character of code) {
-    const nextUtf8Offset = utf8Offset + encoder.encode(character).length;
-    if (byteOffset < nextUtf8Offset) {
-      throw new Error("Document offset is not a UTF-8 boundary.");
-    }
-    utf8Offset = nextUtf8Offset;
-    utf16Offset += character.length;
-    if (byteOffset === utf8Offset) {
-      return utf16Offset;
-    }
-  }
-  throw new Error("Document offset exceeds generated Python.");
 }

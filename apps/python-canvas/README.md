@@ -72,8 +72,12 @@ through `GET /api/v2/project`. The browser then creates multiple callables from
 the blank-pane menu, renames them from their sections, commits them, exercises
 the public parameter toolbar, filter, item actions, ItemNameEditor,
 app/provider expressions, and target document boundaries, then deletes one
-callable. It restarts against the same path without `--create` and compares the
-remaining callables, canonical parameter metadata, and generated Python bytes.
+callable. It also creates a Param Dict and List of Objects, authors and nests
+dictionary entries, checks entry-owned diagnostics, creates and moves list
+children (including a nested list lifecycle), and verifies the persisted forest
+and generated Python on restart. It restarts against the same path without
+`--create` and compares the canonical sections, forest, diagnostics, parameter
+metadata, and generated Python bytes.
 It starts local services and a browser, so do not run it unless that suite is
 explicitly authorized.
 

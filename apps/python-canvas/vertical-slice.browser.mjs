@@ -12,6 +12,12 @@ import {
   waitForSnapshot,
 } from "./callable-commit.browser.mjs";
 import { exerciseResolvedMathCallableLifecycle } from "./callable-lifecycle.browser.mjs";
+import { exerciseParamDictAndListSlice } from "./param-dict-list.browser.mjs";
+import {
+  editPythonTargetOuterRegions,
+  generatedPythonEditorSelector,
+  observeTargetDiagnostics,
+} from "./python-target.browser.mjs";
 import {
   activateAndSelectAllContentEditableTextBox,
   activateCodeEditor,
@@ -44,9 +50,6 @@ import {
   waitFor,
 } from "./browser-page.mjs";
 
-const generatedPythonEditorSelector = labeledSelector(
-  "Generated Python code editor, generated output read-only",
-);
 const defaultCallableName = "New callable";
 const sampleCallableName = "Sample callable";
 const zeroCallableName = "Zero callable";
@@ -157,7 +160,7 @@ await runAgainstProductionApp(
       `${callableSectionSelector(zeroCallableName)} ${labeledSelector("Delete section")}`,
       "the zero-callable section delete control",
     );
-    const beforeRestart = await waitForSnapshot(
+    const afterZeroCallableDelete = await waitForSnapshot(
       backendOrigin,
       "the remaining callable after deletion",
       (snapshot) =>
@@ -165,19 +168,41 @@ await runAgainstProductionApp(
         snapshot.callables[0]?.name === sampleCallableName,
     );
     assertCanonicalParameterMetadata(
-      findRequiredCallable(beforeRestart, sampleCallableName),
+      findRequiredCallable(afterZeroCallableDelete, sampleCallableName),
     );
     assertRetainedProviderMetadata(
-      findRequiredCallable(beforeRestart, sampleCallableName),
+      findRequiredCallable(afterZeroCallableDelete, sampleCallableName),
       initialProviderMetadata,
+    );
+    const paramDictAndList = await exerciseParamDictAndListSlice(
+      client,
+      backendOrigin,
+      findRequiredCallable(afterZeroCallableDelete, sampleCallableName).id,
+    );
+    const beforeRestart = await fetchCanonicalSnapshot(backendOrigin);
+    assert.ok(
+      beforeRestart.callables.some(
+        (callable) => callable.name === sampleCallableName,
+      ),
+      "The sample callable was removed while exercising Param Dict and List of Objects.",
     );
 
     await restart();
     const restored = await fetchCanonicalSnapshot(backendOrigin);
     assert.equal(restored.version, "v2");
     assert.deepEqual(restored.callables, beforeRestart.callables);
+    assert.deepEqual(
+      restored.parameterDictionaries,
+      beforeRestart.parameterDictionaries,
+    );
+    assert.deepEqual(restored.lists, beforeRestart.lists);
+    assert.deepEqual(
+      restored.topLevelSectionIds,
+      beforeRestart.topLevelSectionIds,
+    );
     assert.deepEqual(restored.pythonTarget, beforeRestart.pythonTarget);
     assert.equal(restored.generatedCode.code, beforeRestart.generatedCode.code);
+    assert.deepEqual(restored.diagnostics, beforeRestart.diagnostics);
     assertCanonicalParameterMetadata(
       findRequiredCallable(restored, sampleCallableName),
     );
@@ -193,7 +218,9 @@ await runAgainstProductionApp(
       `(() => {
         const canvas = document.querySelector('[role="region"][aria-label="Workspace canvas"]');
         const callable = document.querySelector(${JSON.stringify(callableSectionSelector(sampleCallableName))});
-        return canvas instanceof HTMLElement && callable !== null;
+        const dictionary = document.querySelector(${JSON.stringify(`[data-section-id="python-canvas:parameter-dictionary:${paramDictAndList.dictionaryId}"]`)});
+        const list = document.querySelector(${JSON.stringify(`[data-section-id="python-canvas:list:${paramDictAndList.listId}"]`)});
+        return canvas instanceof HTMLElement && callable !== null && dictionary !== null && list !== null;
       })()`,
     );
 
@@ -210,35 +237,6 @@ await runAgainstProductionApp(
     );
   },
 );
-
-async function editPythonTargetOuterRegions(client, backendOrigin) {
-  await activateCodeEditor(
-    client,
-    generatedPythonEditorSelector,
-    "the Generated Python document",
-  );
-  await moveCaretToDocumentStart(client);
-  await insertText(client, "import fixture_module\n");
-  await waitForSnapshot(
-    backendOrigin,
-    "the authored Generated Python prefix",
-    (snapshot) => snapshot.pythonTarget.prefix === "import fixture_module\n",
-  );
-
-  await activateCodeEditor(
-    client,
-    generatedPythonEditorSelector,
-    "the Generated Python document",
-  );
-  await moveCaretToDocumentEnd(client);
-  await insertText(client, "\nprint('browser suffix')");
-  await waitForSnapshot(
-    backendOrigin,
-    "the authored Generated Python suffix",
-    (snapshot) =>
-      snapshot.pythonTarget.suffix.endsWith("print('browser suffix')"),
-  );
-}
 
 async function createCallable(client, backendOrigin, name) {
   const existingCallableIds = new Set(
@@ -826,22 +824,6 @@ async function observeGeneratedDocumentBoundaries(client, backendOrigin) {
     await targetCompletionRequestCount(client),
     beforeProtectedCompletion,
     "A generated-body cursor requested target completion.",
-  );
-}
-
-async function observeTargetDiagnostics(client, backendOrigin) {
-  await activateCodeEditor(
-    client,
-    generatedPythonEditorSelector,
-    "the Generated Python document",
-  );
-  await moveCaretToDocumentEnd(client);
-  await insertText(client, "\nnot_defined_in_browser_walkthrough");
-  await waitForSnapshot(
-    backendOrigin,
-    "a diagnostic for the authored target suffix",
-    (snapshot) =>
-      snapshot.diagnostics.some((diagnostic) => diagnostic.targetId === null),
   );
 }
 

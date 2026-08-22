@@ -1,0 +1,869 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  createWorkspaceHost,
+  registerWorkspaceCreationCommands,
+  setWorkspaceColorMode,
+  type TextValueCompletionProvider,
+  type WorkspaceDocument,
+} from "@setta/workspace";
+
+import {
+  ProjectClientError,
+  commitCallable,
+  fetchProjectSnapshot,
+  refreshCallableParameters,
+} from "../backend/client";
+import type { ProjectSnapshotV2 } from "../backend/generatedContract";
+import { createCallableCompletionProvider } from "../sections/callableCompletion";
+import { createPythonTargetCompletionProvider } from "../sections/pythonTargetCompletion";
+import {
+  applyProjectSnapshotToWorkspace,
+  createPendingCallableSection,
+  createPendingListSection,
+  createPendingParameterDictionarySection,
+  promoteDictionaryEntryParents,
+  projectWorkspaceDocument,
+  readGeneratedPythonTarget,
+  type ProjectSnapshotProjectionOptions,
+} from "./workspaceProjection";
+import type { PythonCanvasMutationContextValue } from "./PythonCanvasMutationContext";
+import {
+  changedParameterCallableIds,
+  changedDictionaryIds,
+  dictionaryEntryDraft,
+  forestMutationProposal,
+  hasPythonTargetChange,
+  isCallableResolutionFailure,
+  mutationErrorMessage,
+  parameterListDraft,
+  sameCanonicalPythonTarget,
+  sameDictionaryEntries,
+  sameParameterList,
+  sameProposedList,
+  sectionStructureMutations,
+  type AppController,
+  type AppState,
+  type MutationAnswer,
+  type MutationState,
+  type RevisionConflictDraft,
+} from "./pythonCanvasAppSupport";
+import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
+import { createPythonCanvasMutations } from "./pythonCanvasMutations";
+import {
+  dispatchSectionStructureMutation,
+  nextCreatedSectionName,
+} from "./pythonCanvasMutationSupport";
+import { PythonCanvasView } from "./PythonCanvasView";
+
+const defaultCallableName = "New callable";
+const defaultParameterDictionaryName = "New Param Dict";
+const defaultListName = "New List of Objects";
+
+type CallableMutationStates = Record<string, MutationState>;
+type DictionaryMutationStates = Record<string, MutationState>;
+type ListMutationStates = Record<string, MutationState>;
+type CallableDrafts = Record<string, string>;
+type CompletionProviders = Record<string, TextValueCompletionProvider>;
+type CompletionErrors = Record<string, string>;
+
+export function PythonCanvasController() {
+  const [state, setState] = useState<AppState>({ kind: "loading" });
+  const [callableDrafts, setCallableDrafts] = useState<CallableDrafts>({});
+  const [completionProviders, setCompletionProviders] =
+    useState<CompletionProviders>({});
+  const [completionErrors, setCompletionErrors] = useState<CompletionErrors>(
+    {},
+  );
+  const [pythonTargetCompletionError, setPythonTargetCompletionError] =
+    useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState<MutationState>({
+    kind: "idle",
+  });
+  const [callableMutations, setCallableMutations] =
+    useState<CallableMutationStates>({});
+  const [dictionaryMutations, setDictionaryMutations] =
+    useState<DictionaryMutationStates>({});
+  const [listMutations, setListMutations] = useState<ListMutationStates>({});
+  const controllerRef = useRef<AppController | null>(null);
+  const isProjectingRef = useRef(false);
+
+  useEffect(() => {
+    const host = createWorkspaceHost();
+    setWorkspaceColorMode(host, "system");
+    let active = true;
+    let disposed = false;
+    let snapshot: ProjectSnapshotV2 | null = null;
+    const pendingCallableCommits = new Set<string>();
+    let mutationChain = Promise.resolve();
+
+    const disposeHost = () => {
+      if (!disposed) {
+        disposed = true;
+        host.dispose();
+      }
+    };
+    const updateAnnouncement = (next: MutationState) => {
+      if (active) {
+        setAnnouncement(next);
+      }
+    };
+    const updateCallableMutation = (
+      callableId: string,
+      next: MutationState,
+    ) => {
+      if (!active) {
+        return;
+      }
+      if (next.kind !== "pending" && pendingCallableCommits.has(callableId)) {
+        return;
+      }
+      setCallableMutations((current) => {
+        if (next.kind === "idle") {
+          const { [callableId]: _cleared, ...remaining } = current;
+          return remaining;
+        }
+        return { ...current, [callableId]: next };
+      });
+      setAnnouncement(next);
+    };
+    const updateDictionaryMutation = (
+      dictionaryId: string,
+      next: MutationState,
+    ) => {
+      if (!active) {
+        return;
+      }
+      setDictionaryMutations((current) => {
+        if (next.kind === "idle") {
+          const { [dictionaryId]: _cleared, ...remaining } = current;
+          return remaining;
+        }
+        return { ...current, [dictionaryId]: next };
+      });
+      setAnnouncement(next);
+    };
+    const updateListMutation = (listId: string, next: MutationState) => {
+      if (!active) {
+        return;
+      }
+      setListMutations((current) => {
+        if (next.kind === "idle") {
+          const { [listId]: _cleared, ...remaining } = current;
+          return remaining;
+        }
+        return { ...current, [listId]: next };
+      });
+      setAnnouncement(next);
+    };
+    const clearCallableError = (callableId: string) => {
+      if (!active) {
+        return;
+      }
+      setCallableMutations((current) => {
+        if (current[callableId]?.kind !== "error") {
+          return current;
+        }
+        const { [callableId]: _cleared, ...remaining } = current;
+        return remaining;
+      });
+      setAnnouncement((current) =>
+        current.kind === "error" ? { kind: "idle" } : current,
+      );
+    };
+    const clearDictionaryError = (dictionaryId: string) => {
+      if (!active) {
+        return;
+      }
+      setDictionaryMutations((current) => {
+        if (current[dictionaryId]?.kind !== "error") {
+          return current;
+        }
+        const { [dictionaryId]: _cleared, ...remaining } = current;
+        return remaining;
+      });
+      setAnnouncement((current) =>
+        current.kind === "error" ? { kind: "idle" } : current,
+      );
+    };
+    const applyProjection = (
+      nextSnapshot: ProjectSnapshotV2,
+      options: ProjectSnapshotProjectionOptions,
+    ) => {
+      isProjectingRef.current = true;
+      try {
+        applyProjectSnapshotToWorkspace(host, nextSnapshot, options);
+        for (const callableId of [...pendingCallableCommits]) {
+          if (
+            !nextSnapshot.callables.some(
+              (callable) => callable.id === callableId,
+            )
+          ) {
+            pendingCallableCommits.delete(callableId);
+          }
+        }
+      } finally {
+        isProjectingRef.current = false;
+      }
+    };
+    const setParameterAuthoringPending = (
+      callableId: string,
+      pending: boolean,
+    ) => {
+      if (pending) {
+        pendingCallableCommits.add(callableId);
+      } else {
+        pendingCallableCommits.delete(callableId);
+      }
+    };
+    const enqueue = (operation: () => Promise<void>) => {
+      const run = async () => {
+        try {
+          await operation();
+        } catch (error) {
+          updateAnnouncement({
+            kind: "error",
+            message: mutationErrorMessage("the project", error),
+          });
+        }
+      };
+      mutationChain = mutationChain.then(run, run);
+    };
+    const newCallableCompletionProvider = (callableId: string) =>
+      createCallableCompletionProvider({
+        callableId,
+        onFailure: (message) => {
+          if (active) {
+            setCompletionErrors((current) =>
+              current[callableId] === message
+                ? current
+                : { ...current, [callableId]: message },
+            );
+          }
+        },
+        onSuccess: () => {
+          if (active) {
+            setCompletionErrors((current) => {
+              if (current[callableId] === undefined) {
+                return current;
+              }
+              const { [callableId]: _cleared, ...remaining } = current;
+              return remaining;
+            });
+          }
+        },
+        projectId: snapshot?.project.id ?? "",
+      });
+    const synchronizeReactProjection = (
+      nextSnapshot: ProjectSnapshotV2,
+      resetCallableId: string | null,
+    ) => {
+      setCallableDrafts((current) => {
+        const next: CallableDrafts = {};
+        for (const callable of nextSnapshot.callables) {
+          const currentDraft = current[callable.id];
+          next[callable.id] =
+            resetCallableId === callable.id || currentDraft === undefined
+              ? callable.authoredExpression
+              : currentDraft;
+        }
+        return next;
+      });
+      setCompletionProviders((current) => {
+        const next: CompletionProviders = {};
+        for (const callable of nextSnapshot.callables) {
+          next[callable.id] =
+            current[callable.id] ?? newCallableCompletionProvider(callable.id);
+        }
+        return next;
+      });
+      setCompletionErrors((current) => {
+        const next: CompletionErrors = {};
+        for (const callable of nextSnapshot.callables) {
+          const currentError = current[callable.id];
+          if (currentError !== undefined) {
+            next[callable.id] = currentError;
+          }
+        }
+        return next;
+      });
+      setCallableMutations((current) => {
+        const next: CallableMutationStates = {};
+        for (const callable of nextSnapshot.callables) {
+          const currentMutation = current[callable.id];
+          if (
+            currentMutation !== undefined &&
+            currentMutation.kind !== "idle"
+          ) {
+            next[callable.id] = currentMutation;
+          }
+        }
+        return next;
+      });
+      setDictionaryMutations((current) => {
+        const next: DictionaryMutationStates = {};
+        for (const dictionary of nextSnapshot.parameterDictionaries) {
+          const mutation = current[dictionary.id];
+          if (mutation !== undefined && mutation.kind !== "idle") {
+            next[dictionary.id] = mutation;
+          }
+        }
+        return next;
+      });
+      setListMutations((current) => {
+        const next: ListMutationStates = {};
+        for (const list of nextSnapshot.lists) {
+          const mutation = current[list.id];
+          if (mutation !== undefined && mutation.kind !== "idle") {
+            next[list.id] = mutation;
+          }
+        }
+        return next;
+      });
+    };
+    const collectRetainedParameterLists = (
+      document: WorkspaceDocument,
+      nextSnapshot: ProjectSnapshotV2,
+      answer: MutationAnswer,
+    ) => {
+      const retained = new Set<string>();
+      for (const callable of nextSnapshot.callables) {
+        const draft = parameterListDraft(document, callable.id);
+        if (draft === null) {
+          continue;
+        }
+        if (answer.kind === "refresh" && answer.callableId === callable.id) {
+          continue;
+        }
+        if (answer.kind === "parameters" && answer.callableId === callable.id) {
+          if (!sameProposedList(answer.sent, draft)) {
+            retained.add(callable.id);
+          }
+          continue;
+        }
+        if (!sameParameterList(draft, callable)) {
+          retained.add(callable.id);
+        }
+      }
+      return retained;
+    };
+    const collectRetainedDictionaryEntries = (
+      document: WorkspaceDocument,
+      nextSnapshot: ProjectSnapshotV2,
+      answer: MutationAnswer,
+    ) => {
+      const retained = new Set<string>();
+      for (const dictionary of nextSnapshot.parameterDictionaries) {
+        const draft = dictionaryEntryDraft(document, dictionary.id);
+        if (draft === null) {
+          continue;
+        }
+        if (
+          answer.kind === "dictionary" &&
+          answer.dictionaryId === dictionary.id
+        ) {
+          if (!sameDictionaryEntries(answer.sent, { entries: draft })) {
+            retained.add(dictionary.id);
+          }
+          continue;
+        }
+        if (!sameDictionaryEntries(draft, dictionary)) {
+          retained.add(dictionary.id);
+        }
+      }
+      return retained;
+    };
+    const acceptCanonicalSnapshot = (
+      nextSnapshot: ProjectSnapshotV2,
+      answer: MutationAnswer,
+      revisionConflictDraft: RevisionConflictDraft = null,
+      pendingSectionIds: ReadonlyMap<string, string> = new Map(),
+    ) => {
+      const document = host.getSnapshot();
+      let keepAuthoredPython = false;
+      try {
+        const authored = readGeneratedPythonTarget(host);
+        keepAuthoredPython = !sameCanonicalPythonTarget(authored, nextSnapshot);
+      } catch {
+        keepAuthoredPython = false;
+      }
+      applyProjection(nextSnapshot, {
+        keepAuthoredPython,
+        keepParameterLists: new Set([
+          ...collectRetainedParameterLists(document, nextSnapshot, answer),
+          ...(revisionConflictDraft?.kind === "parameters"
+            ? [revisionConflictDraft.callableId]
+            : []),
+        ]),
+        keepDictionaryEntries: new Set([
+          ...collectRetainedDictionaryEntries(document, nextSnapshot, answer),
+          ...(revisionConflictDraft?.kind === "dictionary"
+            ? [revisionConflictDraft.dictionaryId]
+            : []),
+        ]),
+        pendingSectionIds,
+      });
+      synchronizeReactProjection(
+        nextSnapshot,
+        answer.kind === "commit" ? answer.callableId : null,
+      );
+    };
+    const restoreCanonicalProject = (
+      answer: MutationAnswer = { kind: "other" },
+    ) => {
+      if (snapshot === null) {
+        return;
+      }
+      applyProjection(snapshot, {
+        keepAuthoredPython: false,
+        keepParameterLists: collectRetainedParameterLists(
+          host.getSnapshot(),
+          snapshot,
+          answer,
+        ),
+        keepDictionaryEntries: collectRetainedDictionaryEntries(
+          host.getSnapshot(),
+          snapshot,
+          answer,
+        ),
+        pendingSectionIds: new Map(),
+      });
+      synchronizeReactProjection(snapshot, null);
+    };
+    const recoverRevisionConflict = async (
+      revisionConflictDraft: RevisionConflictDraft,
+      reportFailure: (next: MutationState) => void,
+    ) => {
+      const latest = await fetchProjectSnapshot();
+      if (!active) {
+        return;
+      }
+      snapshot = latest;
+      acceptCanonicalSnapshot(latest, { kind: "other" }, revisionConflictDraft);
+      reportFailure({
+        kind: "error",
+        message:
+          revisionConflictDraft === null
+            ? "The project changed before this update could be saved. The latest project has been loaded. Review and retry your update."
+            : revisionConflictDraft.kind === "parameters"
+              ? "The project changed before this update could be saved. The latest project has been loaded, and your parameter draft is still available to retry."
+              : "The project changed before this update could be saved. The latest project has been loaded, and your dictionary draft is still available to retry.",
+      });
+    };
+    const handleMutationFailure = async (
+      target: string,
+      error: unknown,
+      options: {
+        reportFailure: (next: MutationState) => void;
+        restore: () => void;
+        revisionConflictDraft?: RevisionConflictDraft;
+      },
+    ) => {
+      if (
+        error instanceof ProjectClientError &&
+        error.code === "revision_conflict"
+      ) {
+        try {
+          await recoverRevisionConflict(
+            options.revisionConflictDraft ?? null,
+            options.reportFailure,
+          );
+          return;
+        } catch (refreshError) {
+          options.reportFailure({
+            kind: "error",
+            message: mutationErrorMessage(target, refreshError),
+          });
+          return;
+        }
+      }
+      options.restore();
+      options.reportFailure({
+        kind: "error",
+        message: mutationErrorMessage(target, error),
+      });
+    };
+    const finishCallableMutation = (callableId: string) => {
+      setParameterAuthoringPending(callableId, false);
+      updateCallableMutation(callableId, { kind: "idle" });
+    };
+    const persistCallableExpression = async (
+      callableId: string,
+      value: string,
+      current: ProjectSnapshotV2,
+    ): Promise<ProjectSnapshotV2 | null> => {
+      try {
+        const committedSnapshot = await commitCallable(callableId, {
+          authoredExpression: value,
+          expectedRevision: current.project.revision,
+          projectId: current.project.id,
+        });
+        if (!active) {
+          return null;
+        }
+        snapshot = committedSnapshot;
+        acceptCanonicalSnapshot(committedSnapshot, {
+          callableId,
+          kind: "commit",
+        });
+        return committedSnapshot;
+      } catch (error) {
+        if (active) {
+          setParameterAuthoringPending(callableId, false);
+          await handleMutationFailure("the callable", error, {
+            reportFailure: (next) => updateCallableMutation(callableId, next),
+            restore: () =>
+              restoreCanonicalProject({ callableId, kind: "commit" }),
+          });
+        }
+        return null;
+      }
+    };
+    const retrieveCallableParameters = async (
+      callableId: string,
+      committedSnapshot: ProjectSnapshotV2,
+    ) => {
+      try {
+        const refreshedSnapshot = await refreshCallableParameters(callableId, {
+          expectedRevision: committedSnapshot.project.revision,
+          projectId: committedSnapshot.project.id,
+        });
+        if (!active) {
+          return;
+        }
+        snapshot = refreshedSnapshot;
+        acceptCanonicalSnapshot(refreshedSnapshot, {
+          callableId,
+          kind: "refresh",
+        });
+        finishCallableMutation(callableId);
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        setParameterAuthoringPending(callableId, false);
+        if (isCallableResolutionFailure(error)) {
+          // The expression commit is already durable and its Basedpyright
+          // diagnostics are canonical. A missing symbol can prevent signature
+          // help, but it must not turn that successful commit into a mutation
+          // failure or restore the preceding expression.
+          updateCallableMutation(callableId, { kind: "idle" });
+          return;
+        }
+        await handleMutationFailure("the callable parameters", error, {
+          reportFailure: (next) => updateCallableMutation(callableId, next),
+          restore: () =>
+            restoreCanonicalProject({ callableId, kind: "refresh" }),
+        });
+      }
+    };
+    const setCallableDraft = (callableId: string, value: string) => {
+      setCallableDrafts((current) =>
+        current[callableId] === value
+          ? current
+          : { ...current, [callableId]: value },
+      );
+    };
+    const clearCallableCompletionError = (callableId: string) => {
+      setCompletionErrors((current) => {
+        if (current[callableId] === undefined) {
+          return current;
+        }
+        const { [callableId]: _cleared, ...remaining } = current;
+        return remaining;
+      });
+    };
+    const mutations = createPythonCanvasMutations({
+      acceptCanonicalSnapshot,
+      clearCallableCompletionError,
+      clearCallableError,
+      clearDictionaryError,
+      currentSnapshot: () => snapshot,
+      enqueue,
+      finishCallableMutation,
+      handleMutationFailure,
+      host,
+      isActive: () => active,
+      isParameterAuthoringPending: (callableId) =>
+        pendingCallableCommits.has(callableId),
+      persistCallableExpression,
+      publishSnapshot: (nextSnapshot) => {
+        snapshot = nextSnapshot;
+      },
+      restoreCanonicalProject,
+      retrieveCallableParameters,
+      setCallableDraft,
+      setParameterAuthoringPending,
+      updateAnnouncement,
+      updateCallableMutation,
+      updateDictionaryMutation,
+      updateListMutation,
+    });
+    controllerRef.current = mutations.controller;
+
+    const currentWorkspaceSnapshot = () =>
+      active && !isProjectingRef.current ? snapshot : null;
+    const promotesDictionaryEntryParents = (
+      current: ProjectSnapshotV2,
+    ): boolean =>
+      current.parameterDictionaries.some((dictionary) =>
+        promoteDictionaryEntryParents(host, dictionary.id),
+      );
+    const scheduleChangedParameterLists = (
+      document: WorkspaceDocument,
+      current: ProjectSnapshotV2,
+    ) => {
+      for (const callableId of changedParameterCallableIds(document, current)) {
+        if (pendingCallableCommits.has(callableId)) {
+          continue;
+        }
+        mutations.scheduleParameterListMutation(callableId);
+      }
+    };
+    const scheduleChangedDictionaryEntries = (
+      document: WorkspaceDocument,
+      current: ProjectSnapshotV2,
+      valueEditedDictionaries: ReadonlySet<string>,
+    ) => {
+      for (const dictionaryId of changedDictionaryIds(document, current)) {
+        mutations.scheduleDictionaryEntriesMutation(
+          dictionaryId,
+          !valueEditedDictionaries.has(dictionaryId),
+        );
+      }
+    };
+    const dispatchChangedSectionStructures = (
+      document: WorkspaceDocument,
+      current: ProjectSnapshotV2,
+    ) => {
+      for (const mutation of sectionStructureMutations(document, current)) {
+        dispatchSectionStructureMutation(controllerRef.current, mutation);
+      }
+    };
+    const scheduleChangedWorkspaceForest = (
+      document: WorkspaceDocument,
+      current: ProjectSnapshotV2,
+    ) => {
+      if (forestMutationProposal(document, current) !== null) {
+        mutations.queueForestMutation();
+      }
+    };
+    const scheduleChangedPythonTarget = (current: ProjectSnapshotV2) => {
+      if (hasPythonTargetChange(host, current)) {
+        mutations.schedulePythonTargetMutation();
+      }
+    };
+    const handleWorkspaceDocumentChange = (document: WorkspaceDocument) => {
+      const current = currentWorkspaceSnapshot();
+      if (current === null || promotesDictionaryEntryParents(current)) {
+        return;
+      }
+      const valueEditedDictionaries = mutations.consumeDictionaryValueEdits();
+      scheduleChangedParameterLists(document, current);
+      scheduleChangedDictionaryEntries(
+        document,
+        current,
+        valueEditedDictionaries,
+      );
+      dispatchChangedSectionStructures(document, current);
+      scheduleChangedWorkspaceForest(document, current);
+      scheduleChangedPythonTarget(current);
+    };
+    const unsubscribe = host.subscribe(handleWorkspaceDocumentChange);
+
+    const load = async () => {
+      try {
+        const initialSnapshot = await fetchProjectSnapshot();
+        if (!active) {
+          return;
+        }
+        snapshot = initialSnapshot;
+        const pythonTargetCompletionProvider =
+          createPythonTargetCompletionProvider({
+            onFailure: (message) => {
+              if (active) {
+                setPythonTargetCompletionError(message);
+              }
+            },
+            onSuccess: () => {
+              if (active) {
+                setPythonTargetCompletionError(null);
+              }
+            },
+            projectId: initialSnapshot.project.id,
+          });
+        registerPythonCanvasSectionKinds(host, pythonTargetCompletionProvider);
+        registerWorkspaceCreationCommands(host, [
+          {
+            id: "python-callable",
+            label: "Python callable",
+            group: "Python",
+            createSection: () => {
+              if (snapshot === null) {
+                throw new Error(
+                  "Python Canvas cannot create a callable before loading.",
+                );
+              }
+              const name = nextCreatedSectionName(
+                snapshot,
+                defaultCallableName,
+              );
+              const sectionId = `python-canvas:pending-callable:${crypto.randomUUID()}`;
+              const section = createPendingCallableSection(
+                snapshot,
+                sectionId,
+                name,
+              );
+              mutations.createCallableFromPane(sectionId, name);
+              return section;
+            },
+          },
+          {
+            id: "parameter-dictionary",
+            label: "Param Dict",
+            group: "Python",
+            createSection: () => {
+              if (snapshot === null) {
+                throw new Error(
+                  "Python Canvas cannot create a Param Dict before loading.",
+                );
+              }
+              const name = nextCreatedSectionName(
+                snapshot,
+                defaultParameterDictionaryName,
+              );
+              const sectionId = `python-canvas:pending-parameter-dictionary:${crypto.randomUUID()}`;
+              const section = createPendingParameterDictionarySection(
+                sectionId,
+                name,
+              );
+              mutations.createParameterDictionaryFromPane(sectionId, name);
+              return section;
+            },
+          },
+          {
+            id: "list-of-objects",
+            label: "List of Objects",
+            group: "Python",
+            createSection: () => {
+              if (snapshot === null) {
+                throw new Error(
+                  "Python Canvas cannot create a List of Objects before loading.",
+                );
+              }
+              const name = nextCreatedSectionName(snapshot, defaultListName);
+              const sectionId = `python-canvas:pending-list:${crypto.randomUUID()}`;
+              const section = createPendingListSection(sectionId, name);
+              mutations.createListFromPane(sectionId, name);
+              return section;
+            },
+          },
+        ]);
+        isProjectingRef.current = true;
+        try {
+          host.loadDocument(projectWorkspaceDocument(initialSnapshot));
+        } finally {
+          isProjectingRef.current = false;
+        }
+        synchronizeReactProjection(initialSnapshot, null);
+        setState({ kind: "ready", host });
+      } catch {
+        if (active) {
+          disposeHost();
+          setState({ kind: "error" });
+        }
+      }
+    };
+
+    void load();
+    return () => {
+      active = false;
+      mutations.cancelTargetMutation();
+      mutations.cancelAllParameterMutations();
+      mutations.cancelAllDictionaryMutations();
+      controllerRef.current = null;
+      unsubscribe();
+      disposeHost();
+    };
+  }, []);
+
+  const mutationContext = useMemo<PythonCanvasMutationContextValue>(
+    () => ({
+      callableCompletionError: (callableId) =>
+        completionErrors[callableId] ?? null,
+      callableCompletionProvider: (callableId) =>
+        completionProviders[callableId],
+      callableMutationError: (callableId) => {
+        const mutation = callableMutations[callableId];
+        return mutation?.kind === "error" ? mutation.message : null;
+      },
+      dictionaryMutationError: (dictionaryId) => {
+        const mutation = dictionaryMutations[dictionaryId];
+        return mutation?.kind === "error" ? mutation.message : null;
+      },
+      listMutationError: (listId) => {
+        const mutation = listMutations[listId];
+        return mutation?.kind === "error" ? mutation.message : null;
+      },
+      callableDraft: (callableId) => callableDrafts[callableId] ?? "",
+      onCallableCommit: (callableId, value) =>
+        controllerRef.current?.commitCallable(callableId, value),
+      onCallableAlternateCommit: (callableId, value) =>
+        controllerRef.current?.commitCallableAndRefreshParameters(
+          callableId,
+          value,
+        ),
+      onCallableDraftChange: (callableId, value) =>
+        controllerRef.current?.setCallableDraft(callableId, value),
+      onCallableRevert: (callableId) =>
+        controllerRef.current?.revertCallableDraft(callableId),
+      onParameterExpressionChange: (callableId, parameterId, value) =>
+        controllerRef.current?.setParameterExpression(
+          callableId,
+          parameterId,
+          value,
+        ),
+      onParameterNameChange: (callableId, parameterId, name) =>
+        controllerRef.current?.setParameterName(callableId, parameterId, name),
+      onDictionaryEntryExpressionChange: (dictionaryId, entryId, value) =>
+        controllerRef.current?.setDictionaryEntryExpression(
+          dictionaryId,
+          entryId,
+          value,
+        ),
+      onDictionaryEntryNameChange: (dictionaryId, entryId, name) =>
+        controllerRef.current?.setDictionaryEntryName(
+          dictionaryId,
+          entryId,
+          name,
+        ),
+      onListDecrement: (listId, count) =>
+        controllerRef.current?.decrementListChildren(listId, count),
+      onListIncrement: (listId, count) =>
+        controllerRef.current?.incrementListChildren(listId, count),
+      parameterAuthoringPending: (callableId) => {
+        const mutation = callableMutations[callableId];
+        return (
+          mutation?.kind === "pending" &&
+          mutation.parameterAuthoringPending === true
+        );
+      },
+    }),
+    [
+      callableDrafts,
+      callableMutations,
+      completionErrors,
+      completionProviders,
+      dictionaryMutations,
+      listMutations,
+    ],
+  );
+
+  return (
+    <PythonCanvasView
+      announcement={announcement}
+      mutationContext={mutationContext}
+      pythonTargetCompletionError={pythonTargetCompletionError}
+      state={state}
+    />
+  );
+}

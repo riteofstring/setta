@@ -180,47 +180,79 @@ export function dictionaryEntryNameErrors(
   itemTree: WorkspaceSectionItemTree,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
-
-  function visit(parentId: string) {
-    const parent = itemTree.items[parentId];
-    if (parent === undefined) {
-      throw new Error(`Parameter Dictionary item ${parentId} is missing.`);
-    }
-    const names = new Map<string, number>();
-    for (const childId of parent.children) {
-      const child = itemTree.items[childId];
-      if (child === undefined) {
-        throw new Error(`Parameter Dictionary item ${childId} is missing.`);
-      }
-      const name = readDictionaryEntryItemData(child.data).name.trim();
-      if (name !== "") {
-        names.set(name, (names.get(name) ?? 0) + 1);
-      }
-    }
-    for (const childId of parent.children) {
-      const child = itemTree.items[childId];
-      if (child === undefined) {
-        throw new Error(`Parameter Dictionary item ${childId} is missing.`);
-      }
-      const name = readDictionaryEntryItemData(child.data).name;
-      const normalized = name.trim();
-      if (normalized === "") {
-        errors[childId] = "Dictionary entry name is required.";
-      } else if (normalized !== name) {
-        errors[childId] =
-          "Dictionary entry name cannot include surrounding whitespace.";
-      } else if ((names.get(normalized) ?? 0) > 1) {
-        errors[childId] = `Dictionary entry name "${normalized}" already exists under this parent.`;
-      }
-      visit(childId);
-    }
-  }
-
-  visit(itemTree.rootId);
+  collectDictionaryEntryNameErrors(itemTree, itemTree.rootId, errors);
   return errors;
 }
 
-export function isDictionaryEntryGroup(item: WorkspaceItem): boolean {
+function collectDictionaryEntryNameErrors(
+  itemTree: WorkspaceSectionItemTree,
+  parentId: string,
+  errors: Record<string, string>,
+): void {
+  const children = dictionaryEntryChildren(itemTree, parentId);
+  const siblingNames = dictionaryEntryNameCounts(children);
+  for (const child of children) {
+    const error = dictionaryEntryNameError(child.item, siblingNames);
+    if (error !== null) {
+      errors[child.id] = error;
+    }
+    collectDictionaryEntryNameErrors(itemTree, child.id, errors);
+  }
+}
+
+function dictionaryEntryChildren(
+  itemTree: WorkspaceSectionItemTree,
+  parentId: string,
+): Array<{ id: string; item: WorkspaceItem }> {
+  const parent = requireDictionaryEntryItem(itemTree, parentId);
+  return parent.children.map((childId) => ({
+    id: childId,
+    item: requireDictionaryEntryItem(itemTree, childId),
+  }));
+}
+
+function requireDictionaryEntryItem(
+  itemTree: WorkspaceSectionItemTree,
+  itemId: string,
+): WorkspaceItem {
+  const item = itemTree.items[itemId];
+  if (item === undefined) {
+    throw new Error(`Parameter Dictionary item ${itemId} is missing.`);
+  }
+  return item;
+}
+
+function dictionaryEntryNameCounts(
+  children: ReadonlyArray<{ item: WorkspaceItem }>,
+): ReadonlyMap<string, number> {
+  const names = new Map<string, number>();
+  for (const { item } of children) {
+    const name = readDictionaryEntryItemData(item.data).name.trim();
+    if (name !== "") {
+      names.set(name, (names.get(name) ?? 0) + 1);
+    }
+  }
+  return names;
+}
+
+function dictionaryEntryNameError(
+  item: WorkspaceItem,
+  siblingNames: ReadonlyMap<string, number>,
+): string | null {
+  const name = readDictionaryEntryItemData(item.data).name;
+  const normalized = name.trim();
+  if (normalized === "") {
+    return "Dictionary entry name is required.";
+  }
+  if (normalized !== name) {
+    return "Dictionary entry name cannot include surrounding whitespace.";
+  }
+  return (siblingNames.get(normalized) ?? 0) > 1
+    ? `Dictionary entry name "${normalized}" already exists under this parent.`
+    : null;
+}
+
+function isDictionaryEntryGroup(item: WorkspaceItem): boolean {
   return (
     item.children.length > 0 ||
     readDictionaryEntryItemData(item.data).kind ===
@@ -307,7 +339,9 @@ function requireExactFields(
     keys.length !== fields.length ||
     fields.some((field) => !keys.includes(field))
   ) {
-    throw new Error("Parameter Dictionary section data contains unexpected fields.");
+    throw new Error(
+      "Parameter Dictionary section data contains unexpected fields.",
+    );
   }
 }
 
