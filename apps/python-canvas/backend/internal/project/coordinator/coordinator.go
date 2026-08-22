@@ -44,10 +44,11 @@ type Coordinator struct {
 	closed                  bool
 }
 
-// Open strictly loads one existing authored project or exclusively creates one
-// blank project. It then renders and materializes the exact derived module
-// before publishing the first private snapshot. Provider startup failures are
-// represented explicitly in that snapshot rather than as an empty success.
+// Open strictly loads one existing authored project or prepares one blank
+// project for exclusive creation. A new authored file is created only after
+// its exact derived module has rendered and materialized, so a failed startup
+// leaves that path retryable. Provider startup failures are represented
+// explicitly in the published snapshot rather than as an empty success.
 func Open(ctx context.Context, options Options) (*Coordinator, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -74,16 +75,27 @@ func Open(ctx context.Context, options Options) (*Coordinator, error) {
 		renderCandidate = renderer.Render
 	}
 
-	state, err := loadOrCreate(projectPath, options.Create, options.IDGenerator, files)
+	state, createProject, err := loadOrPrepareCreate(projectPath, options.Create, options.IDGenerator, files)
 	if err != nil {
 		return nil, err
 	}
 	rendered, err := renderCandidate(state)
 	if err != nil {
-		return nil, fmt.Errorf("%w: initial project: %v", ErrRenderFailed, err)
+		return nil, cleanupFailedOpenMaterialization(
+			options.Materializer,
+			fmt.Errorf("%w: initial project: %v", ErrRenderFailed, err),
+		)
 	}
 	if err := options.Materializer.Initialize(rendered.Code); err != nil {
-		return nil, fmt.Errorf("%w: initialize generated document: %v", ErrMaterializationFailed, err)
+		return nil, cleanupFailedOpenMaterialization(
+			options.Materializer,
+			fmt.Errorf("%w: initialize generated document: %v", ErrMaterializationFailed, err),
+		)
+	}
+	if createProject {
+		if err := files.Create(projectPath, state); err != nil {
+			return nil, cleanupFailedOpenMaterialization(options.Materializer, err)
+		}
 	}
 
 	coordinator := &Coordinator{
@@ -465,23 +477,28 @@ func (coordinator *Coordinator) signatureRequest(
 	}, nil
 }
 
-func loadOrCreate(
+func loadOrPrepareCreate(
 	projectPath string,
 	create bool,
 	nextID aggregate.IDGenerator,
 	files projectfile.Store,
-) (aggregate.State, error) {
+) (aggregate.State, bool, error) {
 	if !create {
-		return files.Load(projectPath)
+		state, err := files.Load(projectPath)
+		return state, false, err
 	}
 	state, err := aggregate.NewBlank(nextID)
 	if err != nil {
-		return aggregate.State{}, err
+		return aggregate.State{}, false, err
 	}
-	if err := files.Create(projectPath, state); err != nil {
-		return aggregate.State{}, err
+	return state, true, nil
+}
+
+func cleanupFailedOpenMaterialization(document materializer.Handle, primary error) error {
+	if err := document.Close(); err != nil {
+		return errors.Join(primary, fmt.Errorf("%w: clean up generated document after failed startup: %v", ErrMaterializationFailed, err))
 	}
-	return state, nil
+	return primary
 }
 
 func canonicalProjectPath(path string) (string, error) {

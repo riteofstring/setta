@@ -129,14 +129,22 @@ func utf16ByteOffset(value string, target int) (int, bool) {
 func parseSignatureParameter(label string, passingStyle aggregate.PassingStyle) (normalizedSignatureParameter, error) {
 	parameter := normalizedSignatureParameter{PassingStyle: passingStyle}
 	label = strings.TrimSpace(label)
-	if beforeDefault, defaultValue, found := strings.Cut(label, "="); found {
-		label = strings.TrimSpace(beforeDefault)
-		value := strings.TrimSpace(defaultValue)
+	defaultIndex, err := signatureTopLevelDelimiter(label, '=')
+	if err != nil {
+		return normalizedSignatureParameter{}, err
+	}
+	if defaultIndex >= 0 {
+		value := strings.TrimSpace(label[defaultIndex+1:])
+		label = strings.TrimSpace(label[:defaultIndex])
 		parameter.Default = &value
 	}
-	if beforeType, typeAnnotation, found := strings.Cut(label, ":"); found {
-		label = strings.TrimSpace(beforeType)
-		annotation := strings.TrimSpace(typeAnnotation)
+	typeIndex, err := signatureTopLevelDelimiter(label, ':')
+	if err != nil {
+		return normalizedSignatureParameter{}, err
+	}
+	if typeIndex >= 0 {
+		annotation := strings.TrimSpace(label[typeIndex+1:])
+		label = strings.TrimSpace(label[:typeIndex])
 		if annotation == "" {
 			return normalizedSignatureParameter{}, fmt.Errorf("%w: parameter label %q has an empty type annotation", ErrMalformedSignature, label)
 		}
@@ -297,66 +305,112 @@ func signatureParameterBounds(label string) (int, int, error) {
 	if open == -1 {
 		return 0, 0, fmt.Errorf("%w: signature label has no parameter list", ErrMalformedSignature)
 	}
-	depth := 0
+	state := signatureDelimiterState{}
 	for index, runeValue := range label[open:] {
-		var closed bool
-		depth, closed = advanceSignatureDepth(depth, runeValue)
-		if closed {
+		wasQuoted := state.quoted()
+		if err := state.advance(runeValue); err != nil {
+			return 0, 0, err
+		}
+		if !wasQuoted && runeValue == ')' && state.nesting == 0 {
 			return open, open + index, nil
 		}
-		if depth < 0 {
-			return 0, 0, fmt.Errorf("%w: signature parameter list is unbalanced", ErrMalformedSignature)
-		}
+	}
+	if err := state.validate("signature parameter list"); err != nil {
+		return 0, 0, err
 	}
 	return 0, 0, fmt.Errorf("%w: signature parameter list is unbalanced", ErrMalformedSignature)
-}
-
-func advanceSignatureDepth(depth int, character rune) (int, bool) {
-	switch character {
-	case '(':
-		return depth + 1, false
-	case ')':
-		depth--
-		return depth, depth == 0
-	default:
-		return depth, false
-	}
 }
 
 func splitSignatureTokens(contents string) ([]string, error) {
 	tokens := make([]string, 0, 4)
 	start := 0
-	nesting := 0
+	state := signatureDelimiterState{}
 	for index, runeValue := range contents {
-		var err error
-		nesting, err = advanceTokenNesting(nesting, runeValue)
-		if err != nil {
-			return nil, err
-		}
-		if runeValue == ',' && nesting == 0 {
+		if runeValue == ',' && state.topLevel() {
 			tokens = append(tokens, strings.TrimSpace(contents[start:index]))
 			start = index + 1
+			continue
+		}
+		if err := state.advance(runeValue); err != nil {
+			return nil, err
 		}
 	}
-	if nesting != 0 {
-		return nil, fmt.Errorf("%w: signature parameter token is unbalanced", ErrMalformedSignature)
+	if err := state.validate("signature parameter token"); err != nil {
+		return nil, err
 	}
 	tokens = append(tokens, strings.TrimSpace(contents[start:]))
 	return tokens, nil
 }
 
-func advanceTokenNesting(nesting int, character rune) (int, error) {
-	switch character {
-	case '(', '[', '{':
-		return nesting + 1, nil
-	case ')', ']', '}':
-		if nesting == 0 {
-			return 0, fmt.Errorf("%w: signature parameter token is unbalanced", ErrMalformedSignature)
+func signatureTopLevelDelimiter(value string, delimiter rune) (int, error) {
+	state := signatureDelimiterState{}
+	found := -1
+	for index, runeValue := range value {
+		if runeValue == delimiter && state.topLevel() && found == -1 {
+			found = index
+			continue
 		}
-		return nesting - 1, nil
-	default:
-		return nesting, nil
+		if err := state.advance(runeValue); err != nil {
+			return -1, err
+		}
 	}
+	if err := state.validate("signature parameter label"); err != nil {
+		return -1, err
+	}
+	return found, nil
+}
+
+type signatureDelimiterState struct {
+	nesting int
+	quote   rune
+	escaped bool
+}
+
+func (state *signatureDelimiterState) advance(character rune) error {
+	if state.quoted() {
+		if state.escaped {
+			state.escaped = false
+			return nil
+		}
+		if character == '\\' {
+			state.escaped = true
+			return nil
+		}
+		if character == state.quote {
+			state.quote = 0
+		}
+		return nil
+	}
+	switch character {
+	case '\'', '"':
+		state.quote = character
+	case '(', '[', '{':
+		state.nesting++
+	case ')', ']', '}':
+		if state.nesting == 0 {
+			return fmt.Errorf("%w: signature delimiter is unbalanced", ErrMalformedSignature)
+		}
+		state.nesting--
+	}
+	return nil
+}
+
+func (state signatureDelimiterState) quoted() bool {
+	return state.quote != 0
+}
+
+func (state signatureDelimiterState) topLevel() bool {
+	return state.nesting == 0 && !state.quoted()
+}
+
+func (state signatureDelimiterState) validate(label string) error {
+	if state.quoted() {
+		return fmt.Errorf("%w: %s has an unterminated quoted literal", ErrMalformedSignature, label)
+	}
+	if state.nesting != 0 {
+		return fmt.Errorf("%w: %s is unbalanced", ErrMalformedSignature, label)
+	}
+	return nil
 }
 
 func copyString(value *string) *string {

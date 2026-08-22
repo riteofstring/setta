@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
@@ -58,6 +59,70 @@ func TestParseSignatureParameterKeepsUnannotatedMetadataNull(t *testing.T) {
 	}
 	if parameter.TypeAnnotation != nil {
 		t.Fatalf("unannotated parameter type = %#v, want nil", parameter.TypeAnnotation)
+	}
+}
+
+func TestNormalizeSignatureHelpKeepsQuotedLiteralDelimitersOpaque(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name           string
+		signatureLabel string
+		parameterLabel string
+		wantAnnotation string
+		wantDefault    string
+		hasDefault     bool
+	}{
+		{
+			name:           "quoted comma default",
+			signatureLabel: "f(value: str = 'a,b')",
+			parameterLabel: "value: str = 'a,b'",
+			wantAnnotation: "str",
+			wantDefault:    "'a,b'",
+			hasDefault:     true,
+		},
+		{
+			name:           "quoted equals annotation",
+			signatureLabel: "f(value: Literal['='])",
+			parameterLabel: "value: Literal['=']",
+			wantAnnotation: "Literal['=']",
+		},
+		{
+			name:           "escaped quote default",
+			signatureLabel: `f(value: str = 'a\',b')`,
+			parameterLabel: `value: str = 'a\',b'`,
+			wantAnnotation: "str",
+			wantDefault:    "'a\\',b'",
+			hasDefault:     true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			parameterLabel, err := json.Marshal(test.parameterLabel)
+			if err != nil {
+				t.Fatalf("marshal parameter label: %v", err)
+			}
+			parameters, err := normalizeSignatureHelp(SignatureHelpResult{Signatures: []SignatureInformation{{
+				Label:      test.signatureLabel,
+				Parameters: []ParameterInformation{{Label: parameterLabel}},
+			}}})
+			if err != nil {
+				t.Fatalf("normalizeSignatureHelp() error = %v", err)
+			}
+			if len(parameters) != 1 {
+				t.Fatalf("normalized parameters = %#v, want one parameter", parameters)
+			}
+			parameter := parameters[0]
+			if parameter.Name != "value" || parameter.PassingStyle != aggregate.PassingStylePositionalOrKeyword || parameter.TypeAnnotation == nil || *parameter.TypeAnnotation != test.wantAnnotation {
+				t.Fatalf("normalized parameter metadata = %#v", parameter)
+			}
+			if test.hasDefault {
+				if parameter.Default == nil || *parameter.Default != test.wantDefault {
+					t.Fatalf("normalized default = %#v, want %q", parameter.Default, test.wantDefault)
+				}
+			} else if parameter.Default != nil {
+				t.Fatalf("normalized default = %#v, want nil", parameter.Default)
+			}
+		})
 	}
 }
 

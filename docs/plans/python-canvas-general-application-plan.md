@@ -846,7 +846,7 @@ or live probe.
 
 ### Phase E — focused verification closeout
 
-- [x] Iteration-0011 focused verification remediation complete and ready for
+- [x] Iteration-0012 focused verification remediation complete and ready for
       a fresh independent audit
 
 1. Run the focused module suites and changed-file selection listed below in the
@@ -923,6 +923,24 @@ python-canvas-frontend` passed; the latter completed all 38 component tests.
 playground, Python Canvas backend, and Python Canvas frontend suites after the
 allowed control-plane fixture update. No browser, local service, provider
 session, or live probe ran.
+
+**Iteration-0012 remediation record (2026-08-21):** Initial `--create` now
+prepares the blank aggregate, renders it, and initializes its disposable
+materialization before the strict adapter executes its exclusive authored-file
+create. A render or initialization failure cleans the materialization while no
+new project file exists, so an immediate `--create` retry can acquire the
+target. The bounded signature delimiter scanner now treats single- and
+double-quoted literal contents, including escaped quotes, as opaque when
+identifying parameter-list commas and top-level `=` or `:` separators. It
+therefore retains one provider parameter for `f(value: str = 'a,b')` and
+preserves `Literal['=']` as type-annotation metadata.
+
+**Iteration-0012 focused proof (2026-08-21):** `go test -count=1
+./internal/lsp ./internal/project/coordinator` passed. `code-policy test
+--module python-canvas-backend`, `code-policy test --module
+python-canvas-frontend`, and `code-policy test --changed` passed; the frontend
+module suite completed all 38 component tests. No browser, local service,
+provider session, or live probe ran.
 
 ## Exact acceptance matrix
 

@@ -26,6 +26,70 @@ func TestOpenStrictlyCreatesReloadsAndRefusesOverwrite(t *testing.T) {
 	requireCreateRefusesExistingProject(t, path)
 }
 
+func TestOpenCreatePersistsOnlyAfterInitialRenderAndMaterialization(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name            string
+		render          RenderFunc
+		materialization func(t *testing.T, path string) materializer.Handle
+		wantError       error
+	}{
+		{
+			name: "render failure",
+			render: func(aggregate.State) (renderer.Result, error) {
+				return renderer.Result{}, errors.New("injected initial render failure")
+			},
+			materialization: func(t *testing.T, path string) materializer.Handle {
+				return newMaterialization(t, path)
+			},
+			wantError: ErrRenderFailed,
+		},
+		{
+			name: "materialization initialization failure",
+			materialization: func(_ *testing.T, path string) materializer.Handle {
+				return &memoryMaterialization{
+					path:            filepath.Join(filepath.Dir(path), ".initial-failure.py"),
+					initializeError: errors.New("injected initial materialization failure"),
+				}
+			},
+			wantError: ErrMaterializationFailed,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "project.json")
+			_, err := Open(context.Background(), Options{
+				ProjectPath:  path,
+				Create:       true,
+				IDGenerator:  sequenceIDs("project-failed"),
+				Materializer: test.materialization(t, path),
+				Provider:     readyProvider(),
+				Render:       test.render,
+			})
+			if !errors.Is(err, test.wantError) {
+				t.Fatalf("Open() error = %v, want %v", err, test.wantError)
+			}
+			if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
+				t.Fatalf("project path after failed startup stat error = %v, want not exist", statErr)
+			}
+
+			retry, err := Open(context.Background(), Options{
+				ProjectPath:  path,
+				Create:       true,
+				IDGenerator:  sequenceIDs("project-retried"),
+				Materializer: newMaterialization(t, path),
+				Provider:     readyProvider(),
+			})
+			if err != nil {
+				t.Fatalf("Open(retry --create) error = %v, want successful exclusive creation", err)
+			}
+			if err := retry.Close(); err != nil {
+				t.Fatalf("close retried coordinator: %v", err)
+			}
+		})
+	}
+}
+
 func requireMissingProjectFails(t *testing.T, path string) {
 	t.Helper()
 	missingMaterialization := newMaterialization(t, path)
@@ -665,10 +729,11 @@ func (replacement failingReplacement) Commit() error {
 }
 
 type memoryMaterialization struct {
-	path       string
-	code       string
-	stageError error
-	closed     bool
+	path            string
+	code            string
+	initializeError error
+	stageError      error
+	closed          bool
 }
 
 func (document *memoryMaterialization) Path() string { return document.path }
@@ -676,6 +741,9 @@ func (document *memoryMaterialization) Path() string { return document.path }
 func (document *memoryMaterialization) Initialize(code string) error {
 	if document.closed {
 		return materializer.ErrMaterializerClosed
+	}
+	if document.initializeError != nil {
+		return document.initializeError
 	}
 	document.code = code
 	return nil
