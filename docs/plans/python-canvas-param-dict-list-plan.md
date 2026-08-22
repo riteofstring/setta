@@ -11,7 +11,8 @@ implemented and
 covered by focused frontend tests. The existing single production browser walkthrough now contains
 the seven Param Dict/List acceptance flows and maps each canonical section type to its workspace
 section identity, list-child wrapper/projection polling, non-stealing focus check, and nested-item
-child-adoption gesture regressions; its
+child-adoption gesture regressions; same-parent list reordering uses the proven free section drag
+rather than the synthetic sorting chord; its
 bounded policy structure and format checks now pass. Supervised production headless execution,
 review, and remaining Code Policy closeout remain incomplete.**
 

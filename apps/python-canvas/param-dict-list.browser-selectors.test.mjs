@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { JSDOM } from "jsdom";
 
@@ -37,6 +38,19 @@ test("Param Dict and List walkthrough selectors use workspace section identities
     listSectionSelector("list:objects"),
     '[data-section-id="python-canvas:list:list:objects"]',
   );
+});
+
+test("List walkthrough reorders a Param Dict with the proven free move gesture", async () => {
+  const walkthrough = await readFile(
+    new URL("./param-dict-list.browser.mjs", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    walkthrough,
+    /const dictionaryReorderFocus = await dragFreeSectionToSection\(\s*client,\s*dictionarySelector,\s*callableSectionSelector\(outerChildIds\[0\]\),\s*"reordering the Param Dict to the front of the list",\s*0\.25,/,
+  );
+  assert.doesNotMatch(walkthrough, /dragSortedSectionToSection/);
 });
 
 test("List walkthrough finds direct vertical children beside its shell", () => {

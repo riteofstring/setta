@@ -283,7 +283,7 @@ export async function exerciseParamDictAndListSlice(
   assertGeneratedListOrder(dictionaryInList, 3);
 
   const beforeListReorder = dictionaryInList;
-  const dictionaryReorderFocus = await dragSortedSectionToSection(
+  const dictionaryReorderFocus = await dragFreeSectionToSection(
     client,
     dictionarySelector,
     callableSectionSelector(outerChildIds[0]),
@@ -792,24 +792,6 @@ async function dragFreeSectionToSection(
   return dragSection(client, {
     description,
     mode: "free",
-    sourceSelector,
-    targetSelector,
-    targetYFraction,
-    verifyFocusContext,
-  });
-}
-
-async function dragSortedSectionToSection(
-  client,
-  sourceSelector,
-  targetSelector,
-  description,
-  targetYFraction,
-  verifyFocusContext = false,
-) {
-  return dragSection(client, {
-    description,
-    mode: "sorting",
     sourceSelector,
     targetSelector,
     targetYFraction,
