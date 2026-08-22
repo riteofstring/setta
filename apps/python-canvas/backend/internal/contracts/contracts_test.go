@@ -92,6 +92,7 @@ func TestV2MutationsRequireExpectedRevision(t *testing.T) {
 		{"rename callable", RenameCallableRequestV2{ProjectID: "project:test", Name: "Callable"}},
 		{"delete callable", DeleteCallableRequestV2{ProjectID: "project:test"}},
 		{"commit callable", CommitCallableRequestV2{ProjectID: "project:test", AuthoredExpression: "value"}},
+		{"refresh callable parameters", RefreshCallableParametersRequestV2{ProjectID: "project:test"}},
 		{"parameters", SetCallableParametersRequestV2{ProjectID: "project:test", Parameters: []ParameterProposalV2{}}},
 		{"target", SetPythonTargetRequestV2{ProjectID: "project:test"}},
 	} {

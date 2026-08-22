@@ -72,10 +72,14 @@ class CdpClient {
     }
     const id = this.#nextId;
     this.#nextId += 1;
+    const commandTimeout = timeoutError(
+      `Chrome DevTools command ${method}`,
+      timeoutMs,
+    );
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.#pending.delete(id);
-        reject(timeoutError(`Chrome DevTools command ${method}`, timeoutMs));
+        reject(commandTimeout);
       }, timeoutMs);
       this.#pending.set(id, { method, reject, resolve, timeout });
       this.#socket.send(JSON.stringify({ id, method, params }));
@@ -83,11 +87,15 @@ class CdpClient {
   }
 
   waitForEvent(method, timeoutMs = DEFAULT_TIMEOUT_MS) {
+    const eventTimeout = timeoutError(
+      `Chrome DevTools event ${method}`,
+      timeoutMs,
+    );
     return new Promise((resolve, reject) => {
       let unsubscribe = () => {};
       const timeout = setTimeout(() => {
         unsubscribe();
-        reject(timeoutError(`Chrome DevTools event ${method}`, timeoutMs));
+        reject(eventTimeout);
       }, timeoutMs);
       unsubscribe = this.on(method, (params) => {
         clearTimeout(timeout);

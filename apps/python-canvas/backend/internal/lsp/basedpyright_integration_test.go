@@ -292,7 +292,16 @@ func createIntegrationCallable(
 		t.Fatalf("CommitCallable(%q) error = %v", expression, err)
 	}
 	requireReadyBasedpyrightProvider(t, committed.ProviderStatus)
-	return committed
+	refreshed, err := application.RefreshCallableParameters(ctx, aggregate.RefreshCallableParametersCommand{
+		ProjectID:        committed.State.Project.ID,
+		CallableID:       callable.ID,
+		ExpectedRevision: committed.State.Project.Revision,
+	})
+	if err != nil {
+		t.Fatalf("RefreshCallableParameters(%q) error = %v", expression, err)
+	}
+	requireReadyBasedpyrightProvider(t, refreshed.ProviderStatus)
+	return refreshed
 }
 
 func integrationCallable(t *testing.T, state aggregate.State, callableID string) aggregate.Callable {

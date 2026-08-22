@@ -14,6 +14,7 @@ import {
   createCallable,
   deleteCallable,
   fetchProjectSnapshot,
+  refreshCallableParameters,
   renameCallable,
   setCallableParameters,
   setPythonTarget,
@@ -24,10 +25,8 @@ import { createPythonTargetCompletionProvider } from "../sections/pythonTargetCo
 import {
   applyProjectSnapshotToWorkspace,
   createPendingCallableSection,
-  isCallableParameterAuthoringPending,
   projectWorkspaceDocument,
   readGeneratedPythonTarget,
-  setCallableParameterAuthoringPending,
   setParameterItemExpression,
   setParameterItemName,
   type ProjectSnapshotProjectionOptions,
@@ -153,12 +152,10 @@ export function PythonCanvasApp() {
         applyProjectSnapshotToWorkspace(host, nextSnapshot, options);
         for (const callableId of [...pendingCallableCommits]) {
           if (
-            nextSnapshot.callables.some(
+            !nextSnapshot.callables.some(
               (callable) => callable.id === callableId,
             )
           ) {
-            setCallableParameterAuthoringPending(host, callableId, true);
-          } else {
             pendingCallableCommits.delete(callableId);
           }
         }
@@ -174,12 +171,6 @@ export function PythonCanvasApp() {
         pendingCallableCommits.add(callableId);
       } else {
         pendingCallableCommits.delete(callableId);
-      }
-      isProjectingRef.current = true;
-      try {
-        setCallableParameterAuthoringPending(host, callableId, pending);
-      } finally {
-        isProjectingRef.current = false;
       }
     };
     const cancelTargetMutation = () => {
@@ -297,7 +288,7 @@ export function PythonCanvasApp() {
         if (draft === null) {
           continue;
         }
-        if (answer.kind === "commit" && answer.callableId === callable.id) {
+        if (answer.kind === "refresh" && answer.callableId === callable.id) {
           continue;
         }
         if (answer.kind === "parameters" && answer.callableId === callable.id) {
@@ -585,76 +576,103 @@ export function PythonCanvasApp() {
       });
     };
 
-    controllerRef.current = {
-      commitCallable: (callableId, value) => {
-        if (
-          !active ||
-          snapshot === null ||
-          !snapshot.callables.some((callable) => callable.id === callableId)
-        ) {
+    const queueCallableCommit = (
+      callableId: string,
+      value: string,
+      refreshParameters: boolean,
+    ) => {
+      if (
+        !active ||
+        snapshot === null ||
+        !snapshot.callables.some((callable) => callable.id === callableId)
+      ) {
+        return;
+      }
+      cancelParameterMutation(callableId);
+      setCallableDrafts((current) =>
+        current[callableId] === value
+          ? current
+          : { ...current, [callableId]: value },
+      );
+      setCompletionErrors((current) => {
+        if (current[callableId] === undefined) {
+          return current;
+        }
+        const { [callableId]: _cleared, ...remaining } = current;
+        return remaining;
+      });
+      setParameterAuthoringPending(callableId, true);
+      updateCallableMutation(callableId, {
+        description: "Checking the callable with Basedpyright.",
+        kind: "pending",
+      });
+      enqueue(async () => {
+        if (!active || snapshot === null) {
           return;
         }
-        cancelParameterMutation(callableId);
-        setCallableDrafts((current) =>
-          current[callableId] === value
-            ? current
-            : { ...current, [callableId]: value },
+        const callable = snapshot.callables.find(
+          (candidate) => candidate.id === callableId,
         );
-        setCompletionErrors((current) => {
-          if (current[callableId] === undefined) {
-            return current;
-          }
-          const { [callableId]: _cleared, ...remaining } = current;
-          return remaining;
-        });
-        setParameterAuthoringPending(callableId, true);
-        updateCallableMutation(callableId, {
-          description: "Checking the callable with Basedpyright.",
-          kind: "pending",
-        });
-        enqueue(async () => {
-          if (!active || snapshot === null) {
+        if (callable === undefined) {
+          setParameterAuthoringPending(callableId, false);
+          updateCallableMutation(callableId, { kind: "idle" });
+          return;
+        }
+        try {
+          const committedSnapshot = await commitCallable(callableId, {
+            authoredExpression: value,
+            expectedRevision: snapshot.project.revision,
+            projectId: snapshot.project.id,
+          });
+          if (!active) {
             return;
           }
-          const callable = snapshot.callables.find(
-            (candidate) => candidate.id === callableId,
-          );
-          if (callable === undefined) {
-            setParameterAuthoringPending(callableId, false);
-            updateCallableMutation(callableId, { kind: "idle" });
-            return;
-          }
-          try {
-            const nextSnapshot = await commitCallable(callableId, {
-              authoredExpression: value,
-              expectedRevision: snapshot.project.revision,
-              projectId: snapshot.project.id,
-            });
+          snapshot = committedSnapshot;
+          acceptCanonicalSnapshot(committedSnapshot, {
+            callableId,
+            kind: "commit",
+          });
+          if (refreshParameters) {
+            const refreshedSnapshot = await refreshCallableParameters(
+              callableId,
+              {
+                expectedRevision: committedSnapshot.project.revision,
+                projectId: committedSnapshot.project.id,
+              },
+            );
             if (!active) {
               return;
             }
-            pendingCallableCommits.delete(callableId);
-            snapshot = nextSnapshot;
-            acceptCanonicalSnapshot(nextSnapshot, {
+            snapshot = refreshedSnapshot;
+            acceptCanonicalSnapshot(refreshedSnapshot, {
               callableId,
-              kind: "commit",
+              kind: "refresh",
             });
-            updateCallableMutation(callableId, { kind: "idle" });
-          } catch (error) {
-            if (active) {
-              setParameterAuthoringPending(callableId, false);
-              await handleMutationFailure("the callable", error, {
-                reportFailure: (next) =>
-                  updateCallableMutation(callableId, next),
-                restore: () =>
-                  restoreCanonicalProject({
-                    callableId,
-                    kind: "commit",
-                  }),
-              });
-            }
           }
-        });
+          setParameterAuthoringPending(callableId, false);
+          updateCallableMutation(callableId, { kind: "idle" });
+        } catch (error) {
+          if (active) {
+            setParameterAuthoringPending(callableId, false);
+            await handleMutationFailure("the callable", error, {
+              reportFailure: (next) => updateCallableMutation(callableId, next),
+              restore: () =>
+                restoreCanonicalProject({
+                  callableId,
+                  kind: "commit",
+                }),
+            });
+          }
+        }
+      });
+    };
+
+    controllerRef.current = {
+      commitCallable: (callableId, value) => {
+        queueCallableCommit(callableId, value, false);
+      },
+      commitCallableAndRefreshParameters: (callableId, value) => {
+        queueCallableCommit(callableId, value, true);
       },
       deleteCallable: (callableId) => {
         if (requestedCallableDeletes.has(callableId)) {
@@ -768,23 +786,27 @@ export function PythonCanvasApp() {
         clearCallableError(callableId);
       },
       setParameterExpression: (callableId, parameterId, value) => {
-        if (
-          active &&
-          !isCallableParameterAuthoringPending(host.getSnapshot(), callableId)
-        ) {
+        if (active && !pendingCallableCommits.has(callableId)) {
           clearCallableError(callableId);
           setParameterItemExpression(host, callableId, parameterId, value);
         }
       },
       setParameterName: (callableId, parameterId, name) => {
-        if (
-          active &&
-          !isCallableParameterAuthoringPending(host.getSnapshot(), callableId)
-        ) {
+        if (active && !pendingCallableCommits.has(callableId)) {
           clearCallableError(callableId);
           setParameterItemName(host, callableId, parameterId, name);
         }
       },
+    };
+
+    const requestCallableStructureMutation = (
+      mutation: ReturnType<typeof callableStructureMutations>[number],
+    ) => {
+      if (mutation.kind === "delete") {
+        controllerRef.current?.deleteCallable(mutation.callableId);
+        return;
+      }
+      controllerRef.current?.renameCallable(mutation.callableId, mutation.name);
     };
 
     const unsubscribe = host.subscribe((document) => {
@@ -795,17 +817,12 @@ export function PythonCanvasApp() {
         document,
         snapshot,
       )) {
-        scheduleParameterListMutation(callableId);
+        if (!pendingCallableCommits.has(callableId)) {
+          scheduleParameterListMutation(callableId);
+        }
       }
       for (const mutation of callableStructureMutations(document, snapshot)) {
-        if (mutation.kind === "delete") {
-          controllerRef.current?.deleteCallable(mutation.callableId);
-        } else {
-          controllerRef.current?.renameCallable(
-            mutation.callableId,
-            mutation.name,
-          );
-        }
+        requestCallableStructureMutation(mutation);
       }
       if (hasPythonTargetChange(host, snapshot)) {
         schedulePythonTargetMutation();
@@ -898,6 +915,11 @@ export function PythonCanvasApp() {
       callableDraft: (callableId) => callableDrafts[callableId] ?? "",
       onCallableCommit: (callableId, value) =>
         controllerRef.current?.commitCallable(callableId, value),
+      onCallableAlternateCommit: (callableId, value) =>
+        controllerRef.current?.commitCallableAndRefreshParameters(
+          callableId,
+          value,
+        ),
       onCallableDraftChange: (callableId, value) =>
         controllerRef.current?.setCallableDraft(callableId, value),
       onCallableRevert: (callableId) =>

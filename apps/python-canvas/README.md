@@ -76,3 +76,11 @@ callable. It restarts against the same path without `--create` and compares the
 remaining callables, canonical parameter metadata, and generated Python bytes.
 It starts local services and a browser, so do not run it unless that suite is
 explicitly authorized.
+
+The walkthrough launches the resolved Chrome binary only with `--headless=new`
+and a disposable profile. Its launcher uses a mock keychain and the basic
+password store, does not attach to an existing browser session, and keeps
+keyboard shortcuts inside the page so the suite cannot take desktop focus. By
+default it resolves the system Google Chrome executable on macOS;
+`PYTHON_CANVAS_CHROME_BINARY` may name a different existing absolute Chromium
+executable for a headless environment.

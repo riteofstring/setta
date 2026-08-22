@@ -64,9 +64,45 @@ body {
 /* The package owns the section's insets. This grid only spaces the app-owned
  * callable controls and messages inside its section. */
 .python-canvas-callable-section {
+  position: relative;
   display: grid;
   gap: 0.625rem;
   min-inline-size: 0;
+}
+
+/* Main leaves the callable editor active while a commit is pending and covers
+ * only parameter authoring with a transparent, centered spinner layer. */
+.python-canvas-parameter-pending-overlay {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-block-start: 0.75rem;
+  pointer-events: auto;
+  background: transparent;
+}
+
+.python-canvas-parameter-spinner {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  border: 0.1875rem solid color-mix(in srgb, #3b82f6 24%, transparent);
+  border-block-start-color: #3b82f6;
+  border-radius: 50%;
+  animation: python-canvas-parameter-spin 700ms linear infinite;
+}
+
+@keyframes python-canvas-parameter-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .python-canvas-parameter-spinner {
+    animation: none;
+  }
 }
 
 .python-canvas-callable-field {

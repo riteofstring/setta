@@ -342,6 +342,22 @@ inspected the named main donor files, accepted the recorded intentional differen
 repository-contract finding, requested-outcome finding, or recommendation. No developer evidence or
 approval gate remains.
 
+Follow-up correction record — normal callable commit parity: commit `71102041e` is superseded as
+proof of this interaction. Hiding its provider-failure card did not match main because ordinary
+Enter still combined expression persistence with signature resolution, briefly projected a locked
+section, and rejected an unresolved expression. A direct headless reproduction on the named main
+donor confirmed that ordinary Enter persists the expression and publishes its Basedpyright
+diagnostics while Alt-Enter is the separate parameter-refresh gesture. Python Canvas now uses the
+same split: the ordinary backend commit never resolves a signature and preserves the current
+parameter list; the explicit refresh endpoint owns provider resolution and replaces the list only
+after the expression commit has succeeded. The callable editor remains enabled while only parameter
+authoring receives main's transparent pending overlay, and callable-targeted diagnostics continue
+through the existing field-local error projection. The production browser acceptance enters
+`math.sqrt` without importing `math`, gates the commit response to inspect the pending frame, and
+proves persistence, a callable Basedpyright error, no section lock, no refresh request, and no large
+error panel. The same headless run also completes the existing explicit-refresh, parameter,
+diagnostic, restart, and responsive-layout walkthrough.
+
 Intentional donor differences, recorded after reading every named main donor: main's historical
 generated-Python mapper used `reportCallIssue` message wording to choose parameters, whereas this
 slice uses the exact provider code plus canonical signature metadata, so wording cannot create a

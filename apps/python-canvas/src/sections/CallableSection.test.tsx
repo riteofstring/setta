@@ -114,6 +114,7 @@ describe("CallableSection", () => {
 
   it("renders the accepted compact callable field and delegates its interactions", () => {
     const completionProvider = vi.fn();
+    const onCallableAlternateCommit = vi.fn();
     const onCallableCommit = vi.fn();
     const onCallableDraftChange = vi.fn();
     const onCallableRevert = vi.fn();
@@ -129,6 +130,7 @@ describe("CallableSection", () => {
           () => null,
           () => completionProvider,
         ),
+        onCallableAlternateCommit,
         onCallableCommit,
         onCallableDraftChange,
         onCallableRevert,
@@ -149,10 +151,30 @@ describe("CallableSection", () => {
     });
     (field?.onValueChange as (value: string) => void)("draft");
     (field?.onCommit as (value: string) => void)("value");
+    (field?.onAlternateCommit as (value: string) => void)("value");
     (field?.onEscape as () => void)();
     expect(onCallableDraftChange).toHaveBeenCalledWith("callable:one", "draft");
     expect(onCallableCommit).toHaveBeenCalledWith("callable:one", "value");
+    expect(onCallableAlternateCommit).toHaveBeenCalledWith(
+      "callable:one",
+      "value",
+    );
     expect(onCallableRevert).toHaveBeenCalledWith("callable:one");
+  });
+
+  it("projects a Basedpyright callable diagnostic into the field presentation", () => {
+    const data = sectionData({ state: "ready", status: "available" });
+    render(
+      <CallableExpressionField
+        data={{ ...data, callableDiagnosticMessage: `"math" is not defined` }}
+        sectionId="python-canvas:callable:one"
+      />,
+    );
+
+    expect(editorProps[0]).toMatchObject({
+      diagnosticMessage: `"math" is not defined`,
+      presentation: "section-field",
+    });
   });
 
   it("keeps section and item data closed at the rendering boundary", () => {
@@ -190,9 +212,7 @@ describe("CallableSection", () => {
     );
 
     const alert = view.querySelector("[role='alert']");
-    expect(alert?.textContent).toBe(
-      "Unable to save this callable. Try again.",
-    );
+    expect(alert?.textContent).toBe("Unable to save this callable. Try again.");
     expect(alert?.classList.contains("python-canvas-announcer")).toBe(true);
     expect(editorProps[0]?.diagnosticMessage).toBeUndefined();
   });
@@ -287,9 +307,17 @@ describe("CallableSection", () => {
         .querySelector(".python-canvas-callable-parameter-authoring")
         ?.hasAttribute("inert"),
     ).toBe(true);
+    expect(
+      view.querySelector("[data-python-canvas-parameter-pending='true']"),
+    ).not.toBeNull();
+    expect(
+      view
+        .querySelector(".python-canvas-callable-section")
+        ?.getAttribute("aria-busy"),
+    ).toBe("true");
   });
 
-  it("scopes pending state without adding inline error UI", () => {
+  it("keeps callable fields enabled while pending state stays scoped", () => {
     const second = {
       ...sectionData({ state: "ready", status: "available" }),
       callable: {
@@ -319,8 +347,8 @@ describe("CallableSection", () => {
     );
 
     expect(editorProps).toHaveLength(2);
-    expect(editorProps[0]?.disabled).toBe(true);
-    expect(editorProps[1]?.disabled).toBe(false);
+    expect(editorProps[0]?.disabled).toBeUndefined();
+    expect(editorProps[1]?.disabled).toBeUndefined();
     const alert = view.querySelector("[role='alert']");
     expect(alert?.textContent).toBe("Unable to save this callable.");
     expect(alert?.classList.contains("python-canvas-announcer")).toBe(true);
@@ -377,6 +405,7 @@ function mutationContext(
     callableMutationError,
     callablePending,
     callableDraft: () => "value",
+    onCallableAlternateCommit: vi.fn(),
     onCallableCommit: vi.fn(),
     onCallableDraftChange: vi.fn(),
     onCallableRevert: vi.fn(),

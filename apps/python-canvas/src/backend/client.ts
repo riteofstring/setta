@@ -7,6 +7,7 @@ import {
   projectCallableCompletionsPath,
   projectCallableDeletePath,
   projectCallableParametersPath,
+  projectCallableRefreshParametersPath,
   projectCallableRenamePath,
   type APIErrorCodeV2,
   type CallableCompletionRequestV2,
@@ -16,6 +17,7 @@ import {
   type DeleteCallableRequestV2,
   type ProjectSnapshotV2,
   type PythonTargetCompletionRequestV2,
+  type RefreshCallableParametersRequestV2,
   type RenameCallableRequestV2,
   type SetCallableParametersRequestV2,
   type SetPythonTargetRequestV2,
@@ -95,6 +97,18 @@ export function commitCallable(
 ): Promise<ProjectSnapshotV2> {
   return requestProjectSnapshot(
     projectCallableCommitPath(callableId),
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function refreshCallableParameters(
+  callableId: string,
+  request: RefreshCallableParametersRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV2> {
+  return requestProjectSnapshot(
+    projectCallableRefreshParametersPath(callableId),
     jsonPost(request),
     fetchImplementation,
   );

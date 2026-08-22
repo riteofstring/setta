@@ -53,6 +53,8 @@ func TestHandlerExposesOnlyTheExactV2ProjectRoute(t *testing.T) {
 func TestHandlerForwardsRevisionBoundProjectAndParameterMutations(t *testing.T) {
 	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
 	var renamed contracts.RenameProjectRequestV2
+	var refreshedCallableID string
+	var refresh contracts.RefreshCallableParametersRequestV2
 	var parameterCallableID string
 	var parameters contracts.SetCallableParametersRequestV2
 	service.renameProject = func(_ context.Context, request contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error) {
@@ -62,6 +64,11 @@ func TestHandlerForwardsRevisionBoundProjectAndParameterMutations(t *testing.T) 
 	service.setParameters = func(_ context.Context, callableID string, request contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error) {
 		parameterCallableID = callableID
 		parameters = request
+		return service.snapshot, nil
+	}
+	service.refreshParameters = func(_ context.Context, callableID string, request contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error) {
+		refreshedCallableID = callableID
+		refresh = request
 		return service.snapshot, nil
 	}
 	handler := newHandlerForTest(t, service)
@@ -79,6 +86,18 @@ func TestHandlerForwardsRevisionBoundProjectAndParameterMutations(t *testing.T) 
 	}
 
 	callableID := "callable:dynamic"
+	refreshResponse := postJSON(
+		handler,
+		contracts.ProjectCallablesPathV2+"/"+callableID+"/refresh-parameters",
+		`{"projectId":"project:fixture","expectedRevision":1}`,
+	)
+	if refreshResponse.Code != http.StatusOK {
+		t.Fatalf("refresh status = %d; body = %s", refreshResponse.Code, refreshResponse.Body.String())
+	}
+	if refreshedCallableID != callableID || refresh != (contracts.RefreshCallableParametersRequestV2{ProjectID: "project:fixture", ExpectedRevision: 1}) {
+		t.Fatalf("refresh request for %q = %#v", refreshedCallableID, refresh)
+	}
+
 	parametersResponse := postJSON(
 		handler,
 		contracts.ProjectCallablesPathV2+"/"+callableID+"/parameters",
@@ -155,7 +174,7 @@ func TestHandlerRejectsURLDecodedNULCallableIDsBeforeDispatch(t *testing.T) {
 
 func TestHandlerClassifiesMalformedProviderSignaturesAsProviderFailures(t *testing.T) {
 	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
-	service.commitCallable = func(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
+	service.refreshParameters = func(context.Context, string, contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error) {
 		return contracts.ProjectSnapshotV2{}, errors.Join(
 			coordinator.ErrProviderFailed,
 			aggregate.ErrProviderSignatureInvalid,
@@ -166,8 +185,8 @@ func TestHandlerClassifiesMalformedProviderSignaturesAsProviderFailures(t *testi
 
 	response := postJSON(
 		handler,
-		contracts.ProjectCallablesPathV2+"/callable:dynamic/commit",
-		`{"projectId":"project:fixture","expectedRevision":1,"authoredExpression":"fixture.dynamic"}`,
+		contracts.ProjectCallablesPathV2+"/callable:dynamic/refresh-parameters",
+		`{"projectId":"project:fixture","expectedRevision":1}`,
 	)
 	if response.Code != http.StatusBadGateway {
 		t.Fatalf("status = %d, want %d; body = %s", response.Code, http.StatusBadGateway, response.Body.String())
@@ -235,9 +254,10 @@ func assertErrorCode(t *testing.T, response *httptest.ResponseRecorder, want con
 type stubProjectService struct {
 	snapshot contracts.ProjectSnapshotV2
 
-	renameProject  func(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
-	commitCallable func(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error)
-	setParameters  func(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
+	renameProject     func(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
+	commitCallable    func(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error)
+	refreshParameters func(context.Context, string, contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
+	setParameters     func(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
 }
 
 func (service *stubProjectService) Snapshot() contracts.ProjectSnapshotV2 { return service.snapshot }
@@ -266,6 +286,13 @@ func (service *stubProjectService) CommitCallable(ctx context.Context, callableI
 		return service.snapshot, nil
 	}
 	return service.commitCallable(ctx, callableID, request)
+}
+
+func (service *stubProjectService) RefreshCallableParameters(ctx context.Context, callableID string, request contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error) {
+	if service.refreshParameters == nil {
+		return service.snapshot, nil
+	}
+	return service.refreshParameters(ctx, callableID, request)
 }
 
 func (service *stubProjectService) SetCallableParameters(ctx context.Context, callableID string, request contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error) {

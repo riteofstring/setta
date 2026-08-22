@@ -196,11 +196,18 @@ func (coordinator *Coordinator) SetTarget(ctx context.Context, command aggregate
 	})
 }
 
-// CommitCallable resolves a changed expression in a rendered candidate
-// context, then replaces its complete parameter list with the provider's
-// normalized signature. A canonical recommit never calls the provider or
-// allocates IDs.
+// CommitCallable persists one callable expression and publishes the resulting
+// generated-document diagnostics. Signature resolution is an explicit,
+// separate mutation.
 func (coordinator *Coordinator) CommitCallable(ctx context.Context, command aggregate.CommitCallableCommand) (Snapshot, error) {
+	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+		return state.CommitCallable(command)
+	})
+}
+
+// RefreshCallableParameters resolves the signature of the callable's current
+// persisted expression and atomically replaces its provider-owned rows.
+func (coordinator *Coordinator) RefreshCallableParameters(ctx context.Context, command aggregate.RefreshCallableParametersCommand) (Snapshot, error) {
 	if coordinator == nil {
 		return Snapshot{}, ErrCoordinatorClosed
 	}
@@ -213,15 +220,12 @@ func (coordinator *Coordinator) CommitCallable(ctx context.Context, command aggr
 		return Snapshot{}, err
 	}
 	state := coordinator.snapshot.State
-	expression, changed, err := state.PrepareCallableCommit(command)
+	expression, err := state.PrepareCallableParameterRefresh(command)
 	if err != nil {
 		return Snapshot{}, err
 	}
 	if err := coordinator.requireMutableProvider(ctx); err != nil {
 		return Snapshot{}, err
-	}
-	if !changed {
-		return coordinator.snapshot.Clone(), nil
 	}
 	request, err := coordinator.signatureRequest(state, command.CallableID, expression)
 	if err != nil {
@@ -231,7 +235,7 @@ func (coordinator *Coordinator) CommitCallable(ctx context.Context, command aggr
 	if err != nil {
 		return Snapshot{}, providerFailure("resolve callable signature", err)
 	}
-	candidate, err := state.CommitCallable(command, signature, coordinator.idGenerator)
+	candidate, err := state.RefreshCallableParameters(command, signature, coordinator.idGenerator)
 	if err != nil {
 		if errors.Is(err, aggregate.ErrProviderSignatureInvalid) {
 			return Snapshot{}, providerFailure("validate provider signature", err)

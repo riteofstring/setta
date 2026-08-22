@@ -9,6 +9,7 @@ import {
   projectCallableCommitPath,
   projectCallableDeletePath,
   projectCallableParametersPath,
+  projectCallableRefreshParametersPath,
   projectCallableRenamePath,
 } from "./generatedContract";
 import {
@@ -19,6 +20,7 @@ import {
   createCallable,
   deleteCallable,
   fetchProjectSnapshot,
+  refreshCallableParameters,
   renameCallable,
   setCallableParameters,
   setPythonTarget,
@@ -61,6 +63,10 @@ describe("Python Canvas V2 project client", () => {
       expectedRevision: 1,
       projectId: "project:fixture",
     };
+    const refreshRequest = {
+      expectedRevision: 1,
+      projectId: "project:fixture",
+    };
     const parameterRequest = {
       expectedRevision: 1,
       parameters: [
@@ -98,6 +104,11 @@ describe("Python Canvas V2 project client", () => {
       projectCallableCommitPath(callableId),
       commitRequest,
       (fetch) => commitCallable(callableId, commitRequest, fetch),
+    );
+    await expectSnapshotPost(
+      projectCallableRefreshParametersPath(callableId),
+      refreshRequest,
+      (fetch) => refreshCallableParameters(callableId, refreshRequest, fetch),
     );
     await expectSnapshotPost(
       projectCallableParametersPath(callableId),

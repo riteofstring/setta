@@ -83,6 +83,7 @@ export type TextValueEditorProps =
       presentation: "item-row";
       diagnosticMessage?: never;
       endAdornment?: never;
+      onAlternateCommit?: never;
     })
   | (TextValueEditorBaseProps & {
       presentation: "section-field";
@@ -92,6 +93,10 @@ export type TextValueEditorProps =
       // The package owns the adornment's layout space inside the field surface; the caller owns
       // its content, semantics, and ARIA. It is never editor value and takes no keyboard behavior.
       endAdornment?: ReactNode;
+      // Alt-Enter is the reference's explicit alternate commit gesture. It is
+      // distinct from the ordinary Enter commit and is available only to the
+      // compact section field that owns that interaction.
+      onAlternateCommit?: (value: string) => void;
     });
 
 type TextValueEditorCoreProps = TextValueEditorBaseProps & {
@@ -99,11 +104,16 @@ type TextValueEditorCoreProps = TextValueEditorBaseProps & {
   presentation: TextValueEditorPresentation | "meta-control";
   endAdornment?: ReactNode;
   metaMinimumHeight?: boolean;
+  onAlternateCommit?: (value: string) => void;
 };
 
 type MetaTextValueEditorProps = Omit<
   TextValueEditorCoreProps,
-  "completionProvider" | "diagnosticMessage" | "endAdornment" | "presentation"
+  | "completionProvider"
+  | "diagnosticMessage"
+  | "endAdornment"
+  | "onAlternateCommit"
+  | "presentation"
 >;
 
 type TextValueDiagnosticState = {
@@ -318,6 +328,7 @@ function TextValueEditorCore({
   value,
   onValueChange,
   onCommit,
+  onAlternateCommit,
   onEscape,
   placeholder,
   language = null,
@@ -427,6 +438,7 @@ function TextValueEditorCore({
           setRealIsInitialized={setRealIsInitialized}
           onValueChange={onValueChange}
           onCommit={onCommit}
+          onAlternateCommit={onAlternateCommit}
           disabled={isDisabled}
           completionProvider={completionProvider}
           onEscape={() => {
@@ -471,6 +483,7 @@ function LiveTextValueEditor({
   setRealIsInitialized,
   onValueChange,
   onCommit,
+  onAlternateCommit,
   disabled,
   completionProvider,
   onEscape,
@@ -493,6 +506,7 @@ function LiveTextValueEditor({
   setRealIsInitialized: (initialized: boolean) => void;
   onValueChange: (nextValue: string) => void;
   onCommit: ((value: string) => void) | undefined;
+  onAlternateCommit: ((value: string) => void) | undefined;
   disabled: boolean;
   completionProvider: TextValueCompletionProvider | undefined;
   onEscape: () => void;
@@ -548,6 +562,7 @@ function LiveTextValueEditor({
       wrapLines,
       onEscape,
       onCommit,
+      onAlternateCommit,
       isDisabled: () => disabledRef.current,
       completionProvider,
       completionRequests,

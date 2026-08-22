@@ -200,8 +200,10 @@ export function CallableExpressionField({
         completionProvider={mutation.callableCompletionProvider(callableId)}
         controlId={`callable-expression:${callableId}`}
         diagnosticMessage={data.callableDiagnosticMessage ?? undefined}
-        disabled={mutation.callablePending(callableId)}
         language="python"
+        onAlternateCommit={(value) =>
+          mutation.onCallableAlternateCommit(callableId, value)
+        }
         onCommit={(value) => mutation.onCallableCommit(callableId, value)}
         onEscape={() => mutation.onCallableRevert(callableId)}
         onValueChange={(value) =>
@@ -252,6 +254,15 @@ export function CallableSection({
       aria-busy={parameterAuthoringPending}
       className="python-canvas-callable-section"
     >
+      {parameterAuthoringPending ? (
+        <div
+          aria-hidden="true"
+          className="python-canvas-parameter-pending-overlay"
+          data-python-canvas-parameter-pending="true"
+        >
+          <span className="python-canvas-parameter-spinner" />
+        </div>
+      ) : null}
       <div
         className="python-canvas-callable-parameter-authoring"
         inert={parameterAuthoringPending || undefined}

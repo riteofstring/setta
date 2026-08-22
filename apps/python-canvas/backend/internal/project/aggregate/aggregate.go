@@ -141,6 +141,14 @@ type CommitCallableCommand struct {
 	AuthoredExpression string
 }
 
+// RefreshCallableParametersCommand requests a fresh provider-owned signature
+// for the callable's already-persisted expression.
+type RefreshCallableParametersCommand struct {
+	ProjectID        string
+	CallableID       string
+	ExpectedRevision int
+}
+
 // ProviderParameter is an already normalized provider signature record. The
 // aggregate assigns its stable ID and zero-based original signature ordinal.
 type ProviderParameter struct {
@@ -397,8 +405,8 @@ func (state State) DeleteCallable(command DeleteCallableCommand) (Candidate, err
 	return changedCandidate(candidate)
 }
 
-// PrepareCallableCommit validates a command before a coordinator asks its
-// provider for a new signature. Changed is false for a canonical recommit.
+// PrepareCallableCommit validates and canonicalizes an expression-only
+// callable commit. Changed is false for a canonical recommit.
 func (state State) PrepareCallableCommit(command CommitCallableCommand) (expression string, changed bool, err error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return "", false, err
@@ -414,14 +422,10 @@ func (state State) PrepareCallableCommit(command CommitCallableCommand) (express
 	return expression, expression != state.Callables[callableIndex].AuthoredExpression, nil
 }
 
-// CommitCallable applies a changed canonical expression and atomically replaces
-// its entire list with provider-derived rows. A canonical recommit preserves all
-// existing records and does not consume IDs.
-func (state State) CommitCallable(
-	command CommitCallableCommand,
-	signature []ProviderParameter,
-	nextID IDGenerator,
-) (Candidate, error) {
+// CommitCallable persists a changed canonical expression without coupling that
+// edit to provider signature resolution. Existing parameter records remain
+// intact until the caller explicitly refreshes them.
+func (state State) CommitCallable(command CommitCallableCommand) (Candidate, error) {
 	expression, changed, err := state.PrepareCallableCommit(command)
 	if err != nil {
 		return Candidate{}, err
@@ -434,11 +438,47 @@ func (state State) CommitCallable(
 		return Candidate{}, err
 	}
 	candidate := state.Clone()
+	candidate.Callables[callableIndex].AuthoredExpression = expression
+	return changedCandidate(candidate)
+}
+
+// PrepareCallableParameterRefresh validates an explicit signature refresh and
+// returns the callable's current persisted expression.
+func (state State) PrepareCallableParameterRefresh(command RefreshCallableParametersCommand) (string, error) {
+	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
+		return "", err
+	}
+	callableIndex, err := state.callableIndex(command.CallableID)
+	if err != nil {
+		return "", err
+	}
+	expression, err := canonicalCallableExpression(state.Callables[callableIndex].AuthoredExpression)
+	if err != nil {
+		return "", err
+	}
+	return expression, nil
+}
+
+// RefreshCallableParameters atomically replaces the callable's complete
+// parameter list with a provider-derived signature for its persisted
+// expression.
+func (state State) RefreshCallableParameters(
+	command RefreshCallableParametersCommand,
+	signature []ProviderParameter,
+	nextID IDGenerator,
+) (Candidate, error) {
+	if _, err := state.PrepareCallableParameterRefresh(command); err != nil {
+		return Candidate{}, err
+	}
+	callableIndex, err := state.callableIndex(command.CallableID)
+	if err != nil {
+		return Candidate{}, err
+	}
+	candidate := state.Clone()
 	parameters, err := newProviderParameters(signature, nextID, candidate.targetIDs())
 	if err != nil {
 		return Candidate{}, err
 	}
-	candidate.Callables[callableIndex].AuthoredExpression = expression
 	candidate.Callables[callableIndex].Parameters = parameters
 	return changedCandidate(candidate)
 }

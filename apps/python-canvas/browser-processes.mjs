@@ -157,13 +157,25 @@ function startHeadlessChrome() {
   );
   const browser = startProcess(
     chromeBinaryPath(),
+    // Keep the disposable profile away from desktop credentials and prevent
+    // command-heavy CDP polling from being throttled as renderer IPC flooding.
     [
       "--headless=new",
+      "--allow-pre-commit-input",
+      "--disable-backgrounding-occluded-windows",
       "--disable-background-timer-throttling",
+      "--disable-component-extensions-with-background-pages",
+      "--disable-default-apps",
       "--disable-extensions",
+      "--disable-hang-monitor",
+      "--disable-ipc-flooding-protection",
+      "--disable-renderer-backgrounding",
       "--no-default-browser-check",
       "--no-first-run",
+      "--no-service-autorun",
+      "--password-store=basic",
       "--remote-debugging-port=0",
+      "--use-mock-keychain",
       `--user-data-dir=${profileDirectory}`,
       "about:blank",
     ],
@@ -187,9 +199,6 @@ async function waitForHeadlessChrome(browser) {
       if (Number.isInteger(port) && port > 0 && port <= 65_535) {
         return port;
       }
-      throw new Error(
-        `Headless Chrome wrote an invalid DevTools port: ${rawPort}.`,
-      );
     }
     await delay(50);
   }
@@ -262,7 +271,6 @@ export async function runAgainstProductionApp(callback) {
     const cdpPort = await waitForHeadlessChrome(browser);
     const page = await createCdpPage(cdpPort);
     client = page.client;
-    await client.send("Page.bringToFront");
     await Promise.all([
       client.send("Page.enable"),
       client.send("Runtime.enable"),

@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
-import { setTimeout as delay } from "node:timers/promises";
 
 import {
   fetchCanonicalSnapshot,
-  productionTimeoutMs,
   runAgainstProductionApp,
 } from "./browser-processes.mjs";
+import {
+  commitCallableExpressionAndRefresh,
+  exerciseUnresolvedCallableCommit,
+  openWorkspaceCanvas,
+  waitForCallableUiIdle,
+  waitForSnapshot,
+} from "./callable-commit.browser.mjs";
 import {
   activateCodeEditor,
   activateContentEditableTextBox,
@@ -43,6 +48,33 @@ const generatedPythonEditorSelector = labeledSelector(
 const defaultCallableName = "New callable";
 const sampleCallableName = "Sample callable";
 const zeroCallableName = "Zero callable";
+const callableCommitHarness = {
+  callableSectionSelector,
+  findCallable,
+  findRequiredCallable,
+};
+const waitForCallablePresentation = (client, name) =>
+  waitForCallableUiIdle(client, name, callableCommitHarness);
+
+// Keep the callable-error acceptance isolated from the longer authoring
+// walkthrough. Each run owns a fresh project, services, and headless browser,
+// so a deliberately unresolved editor state cannot leak focus or completion
+// work into unrelated drag-and-drop coverage.
+await runAgainstProductionApp(
+  async ({ backendOrigin, client, previewOrigin }) => {
+    const initial = await fetchCanonicalSnapshot(backendOrigin);
+    assert.deepEqual(initial.callables, []);
+    await openWorkspaceCanvas(client, previewOrigin);
+    await editPythonTargetOuterRegions(client, backendOrigin);
+    await createCallable(client, backendOrigin, sampleCallableName);
+    await exerciseUnresolvedCallableCommit(
+      client,
+      backendOrigin,
+      sampleCallableName,
+      callableCommitHarness,
+    );
+  },
+);
 
 // The browser suite is a separately authorized standard check. Its only path
 // is the V2 product: a fresh project is created through the launcher, every
@@ -54,28 +86,17 @@ await runAgainstProductionApp(
     assert.equal(initial.version, "v2");
     assert.deepEqual(initial.callables, []);
 
-    await navigate(client, previewOrigin);
-    await waitFor(
-      client,
-      "the edge-to-edge workspace canvas without app chrome",
-      `(() => {
-        const canvas = document.querySelector('[role="region"][aria-label="Workspace canvas"]');
-        const pane = document.querySelector('.react-flow__pane[aria-label="Workspace canvas background"]');
-        return canvas instanceof HTMLElement && pane instanceof HTMLElement &&
-          document.querySelector('.python-canvas-heading') === null &&
-          document.querySelector('.python-canvas-project-controls') === null &&
-          document.querySelector('.python-canvas-empty-state') === null;
-      })()`,
-    );
+    await openWorkspaceCanvas(client, previewOrigin);
 
     await editPythonTargetOuterRegions(client, backendOrigin);
 
     await createCallable(client, backendOrigin, sampleCallableName);
-    await commitCallableExpression(
+    await commitCallableExpressionAndRefresh(
       client,
       backendOrigin,
       sampleCallableName,
       "fixture_module.sample",
+      callableCommitHarness,
     );
     const sampleWithProviderParameters = await waitForSnapshot(
       backendOrigin,
@@ -95,11 +116,12 @@ await runAgainstProductionApp(
     );
 
     await createCallable(client, backendOrigin, zeroCallableName);
-    await commitCallableExpression(
+    await commitCallableExpressionAndRefresh(
       client,
       backendOrigin,
       zeroCallableName,
       "fixture_module.zero",
+      callableCommitHarness,
     );
     await waitForSnapshot(
       backendOrigin,
@@ -109,7 +131,6 @@ await runAgainstProductionApp(
         return callable !== null && callable.parameters.length === 0;
       },
     );
-
     await waitFor(
       client,
       "both dynamic callable sections",
@@ -308,28 +329,7 @@ async function createCallable(client, backendOrigin, name) {
     `the ${name} callable expression control`,
     `document.querySelector(${JSON.stringify(expressionSelector)}) instanceof HTMLElement`,
   );
-}
-
-async function commitCallableExpression(
-  client,
-  backendOrigin,
-  name,
-  expression,
-) {
-  await activateContentEditableTextBox(
-    client,
-    `${callableSectionSelector(name)} ${contentEditableTextBoxSelector("Callable expression")}`,
-    `the ${name} callable expression`,
-  );
-  await selectAll(client);
-  await insertText(client, expression);
-  await pressEnter(client);
-  await waitForSnapshot(
-    backendOrigin,
-    `the ${name} callable expression commit`,
-    (snapshot) =>
-      findCallable(snapshot, name)?.authoredExpression === expression,
-  );
+  await waitForCallablePresentation(client, name);
 }
 
 async function exerciseParameterAuthoring(
@@ -377,6 +377,7 @@ async function exerciseParameterAuthoring(
         (parameter) => parameter.id === last.id,
       ),
   );
+  await waitForCallablePresentation(client, sampleCallableName);
 
   await filterParameters(client, firstApp.id, transient.id, "browser_value");
   await invokeParameterItemAction(client, backendOrigin, transient.id);
@@ -470,6 +471,7 @@ async function addAppParameter(client, backendOrigin, callable) {
     sampleCallableName,
   ).parameters.find((parameter) => !beforeIDs.has(parameter.id));
   assert.ok(added, "The added app-authored parameter was not persisted.");
+  await waitForCallablePresentation(client, sampleCallableName);
   return added;
 }
 
@@ -490,6 +492,7 @@ async function setParameterName(client, backendOrigin, parameterID, name) {
         (parameter) => parameter.id === parameterID && parameter.name === name,
       ),
   );
+  await waitForCallablePresentation(client, sampleCallableName);
 }
 
 async function setParameterExpression(
@@ -522,6 +525,7 @@ async function setParameterExpression(
         candidate.authoredExpression === expression,
     ),
   );
+  await waitForCallablePresentation(client, sampleCallableName);
 }
 
 async function filterParameters(
@@ -590,6 +594,7 @@ async function invokeParameterItemAction(client, backendOrigin, parameterID) {
         (parameter) => parameter.id === parameterID,
       ),
   );
+  await waitForCallablePresentation(client, sampleCallableName);
 }
 
 async function dragParameterToDifferentPosition(
@@ -631,6 +636,7 @@ async function dragParameterToDifferentPosition(
     ).parameters.map((parameter) => parameter.id);
     return after.indexOf(sourceID) !== before.indexOf(sourceID);
   });
+  await waitForCallablePresentation(client, sampleCallableName);
 }
 
 async function activateSampleCallableSection(client) {
@@ -684,6 +690,7 @@ async function deleteSelectedParameter(
         (parameter) => parameter.id === parameterID,
       ),
   );
+  await waitForCallablePresentation(client, sampleCallableName);
 }
 
 async function clearParameterSelection(client) {
@@ -890,21 +897,6 @@ async function waitForTargetCompletionRequest(client, before, description) {
         return false;
       }
     }).length > ${String(before)}`,
-  );
-}
-
-async function waitForSnapshot(backendOrigin, description, predicate) {
-  const deadline = Date.now() + productionTimeoutMs;
-  let latest = null;
-  while (Date.now() < deadline) {
-    latest = await fetchCanonicalSnapshot(backendOrigin);
-    if (predicate(latest)) {
-      return latest;
-    }
-    await delay(100);
-  }
-  throw new Error(
-    `${description} did not reach the canonical V2 project: ${JSON.stringify(latest)}.`,
   );
 }
 

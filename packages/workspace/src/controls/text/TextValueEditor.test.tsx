@@ -852,6 +852,30 @@ describe("TextValueEditor section-field presentation", () => {
     expect(view.state.doc.lines).toBe(1);
   });
 
+  it("routes Alt-Enter to the section field's explicit alternate commit", async () => {
+    const onCommit = vi.fn();
+    const onAlternateCommit = vi.fn();
+    await mountField({ onAlternateCommit, onCommit });
+    await activateField();
+    const view = getFieldView();
+
+    const alternateEnter = new KeyboardEvent("keydown", {
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+      code: "Enter",
+      key: "Enter",
+    });
+    await act(async () => {
+      view.contentDOM.dispatchEvent(alternateEnter);
+    });
+
+    expect(alternateEnter.defaultPrevented).toBe(true);
+    expect(onAlternateCommit).toHaveBeenCalledWith("math.sq");
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(view.state.doc.lines).toBe(1);
+  });
+
   // The field is the reference's callable search: Tab accepts an offered name into the draft and
   // commits nothing, then one unmodified Enter commits the draft the field is showing. Both fail
   // if the rejected candidate's popup-owns-Enter behavior returns.

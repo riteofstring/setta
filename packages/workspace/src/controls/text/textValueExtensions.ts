@@ -43,6 +43,7 @@ type TextValueExtensionsOptions = {
   wrapLines: boolean | undefined;
   onEscape: () => void;
   onCommit?: (value: string) => void;
+  onAlternateCommit?: (value: string) => void;
   isDisabled?: () => boolean;
   completionProvider?: TextValueCompletionProvider;
   completionRequests?: TextValueCompletionRequests;
@@ -66,6 +67,10 @@ function hasModifier(event: KeyboardEvent) {
   return event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
 }
 
+function isAlternateCommit(event: KeyboardEvent) {
+  return event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+}
+
 function isEnter(event: KeyboardEvent) {
   return event.key === "Enter" || event.code === "Enter";
 }
@@ -84,16 +89,23 @@ function getEnterCommit(
   {
     singleLine,
     onCommit,
+    onAlternateCommit,
     isDisabled,
-  }: Pick<TextValueExtensionsOptions, "singleLine" | "onCommit" | "isDisabled">,
+  }: Pick<
+    TextValueExtensionsOptions,
+    "singleLine" | "onCommit" | "onAlternateCommit" | "isDisabled"
+  >,
 ) {
-  if (!singleLine || !onCommit || isDisabled?.()) {
+  if (!singleLine || isDisabled?.()) {
     return undefined;
   }
-  if (isComposing(event, view) || hasModifier(event) || !isEnter(event)) {
+  if (isComposing(event, view) || !isEnter(event)) {
     return undefined;
   }
-  return onCommit;
+  if (!hasModifier(event)) {
+    return onCommit;
+  }
+  return isAlternateCommit(event) ? onAlternateCommit : undefined;
 }
 
 export function getTextValueExtensions({
@@ -102,6 +114,7 @@ export function getTextValueExtensions({
   wrapLines,
   onEscape,
   onCommit,
+  onAlternateCommit,
   isDisabled,
   completionProvider,
   completionRequests,
@@ -145,6 +158,7 @@ export function getTextValueExtensions({
             hasCompletionProvider: completionProvider !== undefined,
             isDisabled: isDisabled ?? (() => false),
             onCommit,
+            onAlternateCommit,
             singleLine,
           });
           if (completionResult !== null) {
@@ -153,6 +167,7 @@ export function getTextValueExtensions({
           return handleEditorKeydown(event, view, {
             isDisabled,
             onCommit,
+            onAlternateCommit,
             onEscape,
             singleLine,
           });
@@ -176,8 +191,12 @@ function handleCompletionKeydown(
     hasCompletionProvider,
     isDisabled,
     onCommit,
+    onAlternateCommit,
     singleLine,
-  }: Pick<TextValueExtensionsOptions, "onCommit" | "singleLine"> & {
+  }: Pick<
+    TextValueExtensionsOptions,
+    "onCommit" | "onAlternateCommit" | "singleLine"
+  > & {
     hasCompletionProvider: boolean;
     isDisabled: () => boolean;
   },
@@ -198,6 +217,7 @@ function handleCompletionKeydown(
     return handleCompletionEnter(event, view, {
       isDisabled,
       onCommit,
+      onAlternateCommit,
       singleLine,
     });
   }
@@ -212,14 +232,25 @@ function handleCompletionEnter(
   {
     isDisabled,
     onCommit,
+    onAlternateCommit,
     singleLine,
-  }: Pick<TextValueExtensionsOptions, "isDisabled" | "onCommit" | "singleLine">,
+  }: Pick<
+    TextValueExtensionsOptions,
+    "isDisabled" | "onCommit" | "onAlternateCommit" | "singleLine"
+  >,
 ): boolean | null {
   if (isComposing(event, view)) {
     event.stopPropagation();
     return true;
   }
-  if (!getEnterCommit(event, view, { singleLine, onCommit, isDisabled })) {
+  if (
+    !getEnterCommit(event, view, {
+      singleLine,
+      onCommit,
+      onAlternateCommit,
+      isDisabled,
+    })
+  ) {
     return runCompletionCommand(event, view, acceptCompletion);
   }
   // The declared commit owns this Enter. Close the popup first, so the commit path sends the
@@ -258,11 +289,12 @@ function handleEditorKeydown(
   {
     isDisabled,
     onCommit,
+    onAlternateCommit,
     onEscape,
     singleLine,
   }: Pick<
     TextValueExtensionsOptions,
-    "isDisabled" | "onCommit" | "onEscape" | "singleLine"
+    "isDisabled" | "onCommit" | "onAlternateCommit" | "onEscape" | "singleLine"
   >,
 ): boolean {
   if (isEscape(event)) {
@@ -273,6 +305,7 @@ function handleEditorKeydown(
   const commit = getEnterCommit(event, view, {
     singleLine,
     onCommit,
+    onAlternateCommit,
     isDisabled,
   });
   if (!commit) {

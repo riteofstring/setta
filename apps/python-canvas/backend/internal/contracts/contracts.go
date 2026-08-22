@@ -154,6 +154,11 @@ type CommitCallableRequestV2 struct {
 	AuthoredExpression string `json:"authoredExpression"`
 }
 
+type RefreshCallableParametersRequestV2 struct {
+	ProjectID        string `json:"projectId"`
+	ExpectedRevision int    `json:"expectedRevision"`
+}
+
 type ParameterProposalV2 struct {
 	ID                 string `json:"id"`
 	Name               string `json:"name"`
@@ -419,6 +424,10 @@ func (request CommitCallableRequestV2) Validate() error {
 		return err
 	}
 	return requireNonBlankText("authoredExpression", request.AuthoredExpression)
+}
+
+func (request RefreshCallableParametersRequestV2) Validate() error {
+	return validateMutationRequest(request.ProjectID, request.ExpectedRevision)
 }
 
 func (request SetCallableParametersRequestV2) Validate() error {

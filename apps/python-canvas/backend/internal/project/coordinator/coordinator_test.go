@@ -247,18 +247,64 @@ func TestCoordinatorClassifiesMalformedProviderSignatureAsProviderFailure(t *tes
 		{Name: "rest", PassingStyle: aggregate.PassingStyleVariadicPositional},
 		{Name: "value", PassingStyle: aggregate.PassingStylePositionalOrKeyword},
 	}
-	before := coordinator.Snapshot()
-	_, err = coordinator.CommitCallable(context.Background(), aggregate.CommitCallableCommand{
+	committed, err := coordinator.CommitCallable(context.Background(), aggregate.CommitCallableCommand{
 		ProjectID: created.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: created.State.Project.Revision, AuthoredExpression: "fixture.dynamic",
 	})
+	if err != nil {
+		t.Fatalf("CommitCallable() error = %v", err)
+	}
+	before := coordinator.Snapshot()
+	_, err = coordinator.RefreshCallableParameters(context.Background(), aggregate.RefreshCallableParametersCommand{
+		ProjectID: committed.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: committed.State.Project.Revision,
+	})
 	if !errors.Is(err, ErrProviderFailed) {
-		t.Fatalf("CommitCallable() error = %v, want provider failure", err)
+		t.Fatalf("RefreshCallableParameters() error = %v, want provider failure", err)
 	}
 	if !errors.Is(err, aggregate.ErrProviderSignatureInvalid) || !errors.Is(err, aggregate.ErrValidation) {
-		t.Fatalf("CommitCallable() error = %v, want malformed provider signature cause", err)
+		t.Fatalf("RefreshCallableParameters() error = %v, want malformed provider signature cause", err)
 	}
 	if !reflect.DeepEqual(coordinator.Snapshot(), before) {
-		t.Fatal("CommitCallable() published a malformed provider signature")
+		t.Fatal("RefreshCallableParameters() published a malformed provider signature")
+	}
+}
+
+func TestCoordinatorPersistsUnresolvedCallableAndPublishesItsDiagnostic(t *testing.T) {
+	t.Parallel()
+
+	coordinator, provider, _ := newSignatureCoordinator(t)
+	defer coordinator.Close()
+	provider.signatureError = errors.New("an unresolved callable has no signature")
+	provider.diagnostics = func(request GeneratedDocumentRequest) []ProviderDiagnostic {
+		start := strings.Index(request.Code, "math.sqrt")
+		if start < 0 {
+			return nil
+		}
+		return []ProviderDiagnostic{{
+			Start: start, End: start + len("math.sqrt"), Severity: ProviderDiagnosticError, Message: `"math" is not defined`, Code: "reportUndefinedVariable",
+		}}
+	}
+
+	initial := coordinator.Snapshot()
+	created, err := coordinator.CreateCallable(context.Background(), aggregate.CreateCallableCommand{
+		ProjectID: initial.State.Project.ID, ExpectedRevision: initial.State.Project.Revision, Name: "Missing import",
+	})
+	if err != nil {
+		t.Fatalf("CreateCallable() error = %v", err)
+	}
+	committed, err := coordinator.CommitCallable(context.Background(), aggregate.CommitCallableCommand{
+		ProjectID: created.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: created.State.Project.Revision, AuthoredExpression: "math.sqrt",
+	})
+	if err != nil {
+		t.Fatalf("CommitCallable() error = %v", err)
+	}
+	if got := committed.State.Callables[0].AuthoredExpression; got != "math.sqrt" {
+		t.Fatalf("persisted expression = %q, want math.sqrt", got)
+	}
+	if len(provider.signatureRequests) != 0 {
+		t.Fatalf("expression commit requested a signature: %#v", provider.signatureRequests)
+	}
+	if len(committed.Diagnostics) != 1 || committed.Diagnostics[0].TargetID == nil || *committed.Diagnostics[0].TargetID != "callable-dynamic" {
+		t.Fatalf("callable diagnostics = %#v", committed.Diagnostics)
 	}
 }
 
@@ -306,7 +352,13 @@ func commitDynamicCallable(t *testing.T, coordinator *Coordinator) Snapshot {
 	if err != nil {
 		t.Fatalf("CommitCallable() error = %v", err)
 	}
-	return committed
+	refreshed, err := coordinator.RefreshCallableParameters(context.Background(), aggregate.RefreshCallableParametersCommand{
+		ProjectID: committed.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: committed.State.Project.Revision,
+	})
+	if err != nil {
+		t.Fatalf("RefreshCallableParameters() error = %v", err)
+	}
+	return refreshed
 }
 
 func requireNormalizedProviderParameters(t *testing.T, snapshot Snapshot) {
@@ -366,11 +418,20 @@ func requireDurableAuthoredState(t *testing.T, path string, want aggregate.State
 func requireZeroSignatureReplacementAndRecommit(t *testing.T, coordinator *Coordinator, provider *fakeProvider, authored Snapshot) {
 	t.Helper()
 	provider.signature = []aggregate.ProviderParameter{}
-	replaced, err := coordinator.CommitCallable(context.Background(), aggregate.CommitCallableCommand{
+	committed, err := coordinator.CommitCallable(context.Background(), aggregate.CommitCallableCommand{
 		ProjectID: authored.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: authored.State.Project.Revision, AuthoredExpression: "fixture.zero",
 	})
 	if err != nil {
 		t.Fatalf("CommitCallable(zero signature) error = %v", err)
+	}
+	if !reflect.DeepEqual(committed.State.Callables[0].Parameters, authored.State.Callables[0].Parameters) {
+		t.Fatalf("expression commit replaced parameters: %#v", committed.State.Callables[0].Parameters)
+	}
+	replaced, err := coordinator.RefreshCallableParameters(context.Background(), aggregate.RefreshCallableParametersCommand{
+		ProjectID: committed.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: committed.State.Project.Revision,
+	})
+	if err != nil {
+		t.Fatalf("RefreshCallableParameters(zero signature) error = %v", err)
 	}
 	if len(replaced.State.Callables[0].Parameters) != 0 {
 		t.Fatalf("zero-signature replacement retained parameters: %#v", replaced.State.Callables[0].Parameters)
@@ -905,11 +966,17 @@ func durableState(t *testing.T) aggregate.State {
 	state = created.State
 	committed, err := state.CommitCallable(aggregate.CommitCallableCommand{
 		ProjectID: state.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: state.Project.Revision, AuthoredExpression: "fixture.dynamic",
-	}, []aggregate.ProviderParameter{{Name: "value", PassingStyle: aggregate.PassingStylePositionalOrKeyword, TypeAnnotation: stringPointer("int")}}, nextID)
+	})
 	if err != nil {
 		t.Fatalf("CommitCallable() error = %v", err)
 	}
-	state = committed.State
+	refreshed, err := committed.State.RefreshCallableParameters(aggregate.RefreshCallableParametersCommand{
+		ProjectID: committed.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: committed.State.Project.Revision,
+	}, []aggregate.ProviderParameter{{Name: "value", PassingStyle: aggregate.PassingStylePositionalOrKeyword, TypeAnnotation: stringPointer("int")}}, nextID)
+	if err != nil {
+		t.Fatalf("RefreshCallableParameters() error = %v", err)
+	}
+	state = refreshed.State
 	parameters, err := state.SetParameters(aggregate.SetParametersCommand{
 		ProjectID:        state.Project.ID,
 		CallableID:       "callable-dynamic",

@@ -51,6 +51,11 @@ type commitCallablePayload struct {
 	AuthoredExpression *string `json:"authoredExpression"`
 }
 
+type refreshCallableParametersPayload struct {
+	ProjectID        *string `json:"projectId"`
+	ExpectedRevision *int    `json:"expectedRevision"`
+}
+
 type parameterProposalPayload struct {
 	ID                 *string `json:"id"`
 	Name               *string `json:"name"`
@@ -121,6 +126,13 @@ func (payload commitCallablePayload) contract() (contracts.CommitCallableRequest
 		return contracts.CommitCallableRequestV2{}, false
 	}
 	return contracts.CommitCallableRequestV2{ProjectID: *payload.ProjectID, ExpectedRevision: *payload.ExpectedRevision, AuthoredExpression: *payload.AuthoredExpression}, true
+}
+
+func (payload refreshCallableParametersPayload) contract() (contracts.RefreshCallableParametersRequestV2, bool) {
+	if payload.ProjectID == nil || payload.ExpectedRevision == nil {
+		return contracts.RefreshCallableParametersRequestV2{}, false
+	}
+	return contracts.RefreshCallableParametersRequestV2{ProjectID: *payload.ProjectID, ExpectedRevision: *payload.ExpectedRevision}, true
 }
 
 func (payload setParametersPayload) contract() (contracts.SetCallableParametersRequestV2, bool) {
@@ -218,6 +230,8 @@ func dispatchCallableRoute(response http.ResponseWriter, request *http.Request, 
 		handleDeleteCallable(response, request, service, callableID)
 	case "commit":
 		handleCommitCallable(response, request, service, callableID)
+	case "refresh-parameters":
+		handleRefreshCallableParameters(response, request, service, callableID)
 	case "parameters":
 		handleParameters(response, request, service, callableID)
 	case "completions":
@@ -336,6 +350,27 @@ func handleCommitCallable(response http.ResponseWriter, request *http.Request, s
 		return
 	}
 	snapshot, err := service.CommitCallable(request.Context(), callableID, body)
+	if err != nil {
+		writeServiceError(response, service, err, body.ExpectedRevision)
+		return
+	}
+	writeSnapshot(response, snapshot)
+}
+
+func handleRefreshCallableParameters(response http.ResponseWriter, request *http.Request, service ProjectService, callableID string) {
+	if !requireMutationMethod(response, request) || !rejectQuery(response, request) {
+		return
+	}
+	var payload refreshCallableParametersPayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.contract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Callable parameter refresh request is invalid.")
+		return
+	}
+	snapshot, err := service.RefreshCallableParameters(request.Context(), callableID, body)
 	if err != nil {
 		writeServiceError(response, service, err, body.ExpectedRevision)
 		return

@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   createWorkspaceHost: vi.fn(),
   fetchProjectSnapshot: vi.fn(),
   getWorkspaceCodeSectionData: vi.fn(),
+  refreshCallableParameters: vi.fn(),
   renameCallable: vi.fn(),
   registerWorkspaceCreationCommands: vi.fn(),
   registerSectionKinds: vi.fn(),
@@ -149,6 +150,7 @@ vi.mock("../backend/client", () => ({
   createCallable: mocks.createCallable,
   deleteCallable: mocks.deleteCallable,
   fetchProjectSnapshot: mocks.fetchProjectSnapshot,
+  refreshCallableParameters: mocks.refreshCallableParameters,
   renameCallable: mocks.renameCallable,
   setCallableParameters: mocks.setCallableParameters,
   setPythonTarget: mocks.setPythonTarget,
@@ -724,16 +726,28 @@ describe("PythonCanvasApp", () => {
     );
   });
 
-  it("drops a stale parameter list when a callable commit returns fresh provider IDs", async () => {
+  it("persists a callable diagnostic without refreshing or locking its section", async () => {
     vi.useFakeTimers();
     const initialSnapshot = callableSnapshot(1, [
       providerParameter("parameter:old-provider", "value"),
     ]);
-    const committedSnapshot = callableSnapshot(
-      2,
-      [providerParameter("parameter:fresh-provider", "resolved")],
-      "fixture.resolved",
-    );
+    const committedSnapshot = {
+      ...callableSnapshot(
+        2,
+        [providerParameter("parameter:old-provider", "value")],
+        "math.sqrt",
+      ),
+      diagnostics: [
+        {
+          end: 9,
+          id: "diagnostic:missing-math",
+          message: `"math" is not defined`,
+          severity: "error" as const,
+          start: 0,
+          targetId: "callable:one",
+        },
+      ],
+    };
     const commitRequest = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
     const workspace = installWorkspaceHarness();
     mocks.renderWorkspaceCanvas = true;
@@ -752,8 +766,82 @@ describe("PythonCanvasApp", () => {
       throw new Error("Expected the compact callable expression field.");
     }
     await act(async () => {
-      (expression.onValueChange as (value: string) => void)("fixture.resolved");
-      (expression.onCommit as (value: string) => void)("fixture.resolved");
+      (expression.onValueChange as (value: string) => void)("math.sqrt");
+      (expression.onCommit as (value: string) => void)("math.sqrt");
+      await flushMicrotasks();
+    });
+
+    expect(mocks.commitCallable).toHaveBeenCalledWith("callable:one", {
+      authoredExpression: "math.sqrt",
+      expectedRevision: 1,
+      projectId: initialSnapshot.project.id,
+    });
+    expect(
+      workspace.getDocument().sections[callableSectionID("callable:one")],
+    ).toMatchObject({
+      kind: CALLABLE_SECTION_KIND,
+      positionAndSizeLocked: false,
+    });
+    expect(mocks.textValueEditorProps.at(-1)?.disabled).toBeUndefined();
+    expect(mocks.refreshCallableParameters).not.toHaveBeenCalled();
+
+    await act(async () => {
+      commitRequest.resolve(committedSnapshot);
+      await flushMicrotasks();
+    });
+    expect(parameterIds(workspace.getDocument(), "callable:one")).toEqual([
+      "parameter:old-provider",
+    ]);
+    expect(
+      workspace.getDocument().sections[callableSectionID("callable:one")],
+    ).toMatchObject({
+      kind: CALLABLE_SECTION_KIND,
+      positionAndSizeLocked: false,
+    });
+    expect(mocks.textValueEditorProps.at(-1)?.diagnosticMessage).toBe(
+      `"math" is not defined`,
+    );
+    expect(mocks.refreshCallableParameters).not.toHaveBeenCalled();
+    expect(mocks.setCallableParameters).not.toHaveBeenCalled();
+  });
+
+  it("refreshes parameters only through the alternate callable commit", async () => {
+    const initialSnapshot = callableSnapshot(1, [
+      providerParameter("parameter:old-provider", "value"),
+    ]);
+    const committedSnapshot = callableSnapshot(
+      2,
+      [providerParameter("parameter:old-provider", "value")],
+      "fixture.resolved",
+    );
+    const refreshedSnapshot = callableSnapshot(
+      3,
+      [providerParameter("parameter:fresh-provider", "resolved")],
+      "fixture.resolved",
+    );
+    const refreshRequest =
+      deferred<ReturnType<typeof parseProjectSnapshotV2>>();
+    const workspace = installWorkspaceHarness();
+    mocks.renderWorkspaceCanvas = true;
+    mocks.workspaceCanvasHost = workspace.host as unknown as {
+      getSnapshot: () => { sections: Record<string, unknown> };
+    };
+    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
+    mocks.commitCallable.mockResolvedValueOnce(committedSnapshot);
+    mocks.refreshCallableParameters.mockReturnValueOnce(refreshRequest.promise);
+
+    renderApp();
+    await flushEffects();
+    const expression = mocks.textValueEditorProps.find(
+      (props) => props.presentation === "section-field",
+    );
+    if (expression === undefined) {
+      throw new Error("Expected the compact callable expression field.");
+    }
+    await act(async () => {
+      (expression.onAlternateCommit as (value: string) => void)(
+        "fixture.resolved",
+      );
       await flushMicrotasks();
     });
 
@@ -762,33 +850,15 @@ describe("PythonCanvasApp", () => {
       expectedRevision: 1,
       projectId: initialSnapshot.project.id,
     });
-    expect(
-      workspace.getDocument().sections[callableSectionID("callable:one")],
-    ).toMatchObject({
-      kind: PENDING_CALLABLE_SECTION_KIND,
-      positionAndSizeLocked: true,
-    });
-
-    workspace.publish(
-      appendParameter(
-        workspace.getDocument(),
-        "callable:one",
-        authoredParameter("parameter:later", "later", "later"),
-      ),
+    expect(mocks.refreshCallableParameters).toHaveBeenCalledWith(
+      "callable:one",
+      {
+        expectedRevision: 2,
+        projectId: committedSnapshot.project.id,
+      },
     );
     expect(parameterIds(workspace.getDocument(), "callable:one")).toEqual([
       "parameter:old-provider",
-      "parameter:later",
-    ]);
-    await advanceMutationDebounce();
-    expect(mocks.setCallableParameters).not.toHaveBeenCalled();
-
-    await act(async () => {
-      commitRequest.resolve(committedSnapshot);
-      await flushMicrotasks();
-    });
-    expect(parameterIds(workspace.getDocument(), "callable:one")).toEqual([
-      "parameter:fresh-provider",
     ]);
     expect(
       workspace.getDocument().sections[callableSectionID("callable:one")],
@@ -796,9 +866,15 @@ describe("PythonCanvasApp", () => {
       kind: CALLABLE_SECTION_KIND,
       positionAndSizeLocked: false,
     });
-    await advanceMutationDebounce();
 
-    expect(mocks.setCallableParameters).not.toHaveBeenCalled();
+    await act(async () => {
+      refreshRequest.resolve(refreshedSnapshot);
+      await flushMicrotasks();
+    });
+
+    expect(parameterIds(workspace.getDocument(), "callable:one")).toEqual([
+      "parameter:fresh-provider",
+    ]);
   });
 });
 
@@ -1042,6 +1118,7 @@ function renderView(
           callableMutationError: () => null,
           callablePending: () => false,
           callableDraft: () => "",
+          onCallableAlternateCommit: vi.fn(),
           onCallableCommit: vi.fn(),
           onCallableDraftChange: vi.fn(),
           onCallableRevert: vi.fn(),

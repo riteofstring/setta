@@ -15,11 +15,20 @@ export function itemSelectionModifiers() {
 }
 
 export async function evaluate(client, expression) {
-  const response = await client.send("Runtime.evaluate", {
-    awaitPromise: true,
-    expression,
-    returnByValue: true,
-  });
+  let response;
+  try {
+    response = await client.send("Runtime.evaluate", {
+      awaitPromise: true,
+      expression,
+      returnByValue: true,
+    });
+  } catch (error) {
+    const summary = expression.replaceAll(/\s+/g, " ").trim().slice(0, 180);
+    throw new Error(
+      `Browser evaluation command failed for ${JSON.stringify(summary)}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
   if (response.exceptionDetails) {
     throw new Error(
       `Browser evaluation failed: ${response.exceptionDetails.exception?.description ?? response.exceptionDetails.text}`,
@@ -295,47 +304,53 @@ export async function insertText(client, text) {
 }
 
 export async function pressEnter(client) {
-  await pressKey(client, {
+  await dispatchFocusedKey(client, { code: "Enter", key: "Enter" });
+}
+
+export async function pressAlternateEnter(client) {
+  await dispatchFocusedKey(client, {
+    altKey: true,
     code: "Enter",
     key: "Enter",
-    keyCode: 13,
   });
 }
 
 export async function pressEscape(client) {
-  await pressKey(client, {
-    code: "Escape",
-    key: "Escape",
-    keyCode: 27,
-  });
+  await dispatchFocusedKey(client, { code: "Escape", key: "Escape" });
 }
 
 export async function pressEnd(client) {
-  await pressKey(client, { code: "End", key: "End", keyCode: 35 });
+  const moved = await evaluate(
+    client,
+    `(() => {
+      const target = document.activeElement;
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        target.setSelectionRange(target.value.length, target.value.length);
+        return true;
+      }
+      const selection = window.getSelection();
+      if (target.getAttribute("contenteditable") !== "true" || selection === null) {
+        return false;
+      }
+      selection.modify("move", "forward", "lineboundary");
+      document.dispatchEvent(new Event("selectionchange"));
+      return true;
+    })()`,
+  );
+  if (!moved) {
+    throw new Error("End had no focused text editor target.");
+  }
+  await nextAnimationFrame(client);
 }
 
 export async function pressCompletion(client) {
-  const modifiers = 2;
-  await client.send("Input.dispatchKeyEvent", {
-    code: "ControlLeft",
-    key: "Control",
-    modifiers,
-    type: "rawKeyDown",
-  });
-  for (const type of ["keyDown", "keyUp"]) {
-    await client.send("Input.dispatchKeyEvent", {
-      code: "Space",
-      key: " ",
-      modifiers,
-      nativeVirtualKeyCode: 32,
-      type,
-      windowsVirtualKeyCode: 32,
-    });
-  }
-  await client.send("Input.dispatchKeyEvent", {
-    code: "ControlLeft",
-    key: "Control",
-    type: "keyUp",
+  await dispatchFocusedKey(client, {
+    code: "Space",
+    ctrlKey: true,
+    key: " ",
   });
 }
 
@@ -390,22 +405,10 @@ async function setActiveTextSelection(client, mode) {
 }
 
 export async function pressItemActionMenuKey(client) {
-  await client.send("Input.dispatchKeyEvent", {
-    code: "ShiftLeft",
-    key: "Shift",
-    modifiers: 8,
-    type: "rawKeyDown",
-  });
-  await pressKey(client, {
+  await dispatchFocusedKey(client, {
     code: "F10",
     key: "F10",
-    keyCode: 121,
-    modifiers: 8,
-  });
-  await client.send("Input.dispatchKeyEvent", {
-    code: "ShiftLeft",
-    key: "Shift",
-    type: "keyUp",
+    shiftKey: true,
   });
 }
 
@@ -590,20 +593,37 @@ export async function dragBetweenPoints(client, start, end) {
 export async function nextAnimationFrame(client) {
   await evaluate(
     client,
-    "new Promise((resolve) => requestAnimationFrame(() => resolve(true)))",
+    `new Promise((resolve) => {
+      const fallback = setTimeout(() => resolve(true), 250);
+      requestAnimationFrame(() => {
+        clearTimeout(fallback);
+        resolve(true);
+      });
+    })`,
   );
 }
 
-async function pressKey(client, { code, key, keyCode, modifiers = 0 }) {
-  for (const type of ["keyDown", "keyUp"]) {
-    await client.send("Input.dispatchKeyEvent", {
-      code,
-      key,
-      modifiers,
-      nativeVirtualKeyCode: keyCode,
-      type,
-      windowsVirtualKeyCode: keyCode,
-    });
+async function dispatchFocusedKey(client, eventInit) {
+  const dispatched = await evaluate(
+    client,
+    `(() => {
+      const target = document.activeElement;
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+      const eventInit = ${JSON.stringify(eventInit)};
+      for (const type of ["keydown", "keyup"]) {
+        target.dispatchEvent(new KeyboardEvent(type, {
+          ...eventInit,
+          bubbles: true,
+          cancelable: true,
+        }));
+      }
+      return true;
+    })()`,
+  );
+  if (!dispatched) {
+    throw new Error(`${eventInit.key} had no focused target.`);
   }
 }
 

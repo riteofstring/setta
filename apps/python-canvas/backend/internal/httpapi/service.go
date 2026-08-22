@@ -19,6 +19,7 @@ type ProjectService interface {
 	RenameCallable(context.Context, string, contracts.RenameCallableRequestV2) (contracts.ProjectSnapshotV2, error)
 	DeleteCallable(context.Context, string, contracts.DeleteCallableRequestV2) (contracts.ProjectSnapshotV2, error)
 	CommitCallable(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error)
+	RefreshCallableParameters(context.Context, string, contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
 	SetCallableParameters(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
 	SetPythonTarget(context.Context, contracts.SetPythonTargetRequestV2) (contracts.ProjectSnapshotV2, error)
 	CompleteCallable(context.Context, string, contracts.CallableCompletionRequestV2) ([]contracts.CompletionItemV2, error)
@@ -75,6 +76,11 @@ func (service *CoordinatorService) DeleteCallable(ctx context.Context, callableI
 
 func (service *CoordinatorService) CommitCallable(ctx context.Context, callableID string, request contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
 	snapshot, err := service.coordinator.CommitCallable(ctx, aggregate.CommitCallableCommand{ProjectID: request.ProjectID, CallableID: callableID, ExpectedRevision: request.ExpectedRevision, AuthoredExpression: request.AuthoredExpression})
+	return mappedSnapshot(snapshot, err)
+}
+
+func (service *CoordinatorService) RefreshCallableParameters(ctx context.Context, callableID string, request contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error) {
+	snapshot, err := service.coordinator.RefreshCallableParameters(ctx, aggregate.RefreshCallableParametersCommand{ProjectID: request.ProjectID, CallableID: callableID, ExpectedRevision: request.ExpectedRevision})
 	return mappedSnapshot(snapshot, err)
 }
 

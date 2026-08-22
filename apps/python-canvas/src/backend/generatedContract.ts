@@ -15,6 +15,9 @@ export function projectCallableDeletePath(callableId: string): string {
 export function projectCallableCommitPath(callableId: string): string {
   return "/api/v2/project/callables/" + encodeURIComponent(callableId) + "/commit";
 }
+export function projectCallableRefreshParametersPath(callableId: string): string {
+  return "/api/v2/project/callables/" + encodeURIComponent(callableId) + "/refresh-parameters";
+}
 export function projectCallableParametersPath(callableId: string): string {
   return "/api/v2/project/callables/" + encodeURIComponent(callableId) + "/parameters";
 }
@@ -146,6 +149,7 @@ export interface CreateCallableRequestV2 { projectId: string; expectedRevision: 
 export interface RenameCallableRequestV2 { projectId: string; expectedRevision: number; name: string; }
 export interface DeleteCallableRequestV2 { projectId: string; expectedRevision: number; }
 export interface CommitCallableRequestV2 { projectId: string; expectedRevision: number; authoredExpression: string; }
+export interface RefreshCallableParametersRequestV2 { projectId: string; expectedRevision: number; }
 export interface ParameterProposalV2 { id: string; name: string; authoredExpression: string; }
 export interface SetCallableParametersRequestV2 { projectId: string; expectedRevision: number; parameters: ParameterProposalV2[]; }
 export interface SetPythonTargetRequestV2 { projectId: string; expectedRevision: number; prefix: string; suffix: string; }

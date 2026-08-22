@@ -9,13 +9,13 @@ import type {
 import { hasBlockingParameterName } from "../sections/parameterNames";
 import {
   callableSectionID,
-  isCallableParameterAuthoringPending,
   readCallableParameterItems,
   readGeneratedPythonTarget,
 } from "./workspaceProjection";
 
 export type MutationAnswer =
   | { callableId: string; kind: "commit" }
+  | { callableId: string; kind: "refresh" }
   | { callableId: string; kind: "parameters"; sent: ParameterProposalV2[] }
   | { kind: "other" };
 
@@ -24,12 +24,16 @@ export type RevisionConflictDraft = {
   kind: "parameters";
 } | null;
 
-export type CallableStructureMutation =
+type CallableStructureMutation =
   | { callableId: string; kind: "delete" }
   | { callableId: string; kind: "rename"; name: string };
 
 export type AppController = {
   commitCallable: (callableId: string, value: string) => void;
+  commitCallableAndRefreshParameters: (
+    callableId: string,
+    value: string,
+  ) => void;
   deleteCallable: (callableId: string) => void;
   renameCallable: (callableId: string, name: string) => void;
   revertCallableDraft: (callableId: string) => void;
@@ -105,9 +109,6 @@ export function parameterMutationProposal(
   snapshot: ProjectSnapshotV2,
   callableId: string,
 ): ParameterProposalV2[] | null {
-  if (isCallableParameterAuthoringPending(document, callableId)) {
-    return null;
-  }
   const callable = snapshot.callables.find(
     (candidate) => candidate.id === callableId,
   );
@@ -127,9 +128,6 @@ export function changedParameterCallableIds(
 ): string[] {
   const changed: string[] = [];
   for (const callable of snapshot.callables) {
-    if (isCallableParameterAuthoringPending(document, callable.id)) {
-      continue;
-    }
     const proposal = proposedParameterList(document, callable.id);
     if (proposal !== null && !sameParameterList(proposal, callable)) {
       changed.push(callable.id);
