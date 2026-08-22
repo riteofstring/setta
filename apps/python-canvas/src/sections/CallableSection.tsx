@@ -19,11 +19,13 @@ import {
   type WorkspaceItemDiagnostic,
   type WorkspaceItemDiagnosticRegistry,
 } from "@setta/workspace";
+import { useEffect, useRef, useState } from "react";
 
 import { usePythonCanvasMutationContext } from "../app/PythonCanvasMutationContext";
 import { parameterNameErrors } from "./parameterNames";
 
 const PARAMETER_LIST_KEY = "python-canvas-callable-parameters";
+const CALLABLE_APPLY_HINT_DELAY_MS = 1_000;
 
 const unnamedParameterLabel = "Unnamed parameter";
 
@@ -192,6 +194,11 @@ export function CallableExpressionField({
   const callableId = data.callable.id;
   const completionError = mutation.callableCompletionError(callableId);
   const mutationError = mutation.callableMutationError(callableId);
+  const draft = mutation.callableDraft(callableId);
+  const applyHint = useCallableApplyHint(
+    data.callable.authoredExpression,
+    draft,
+  );
 
   return (
     <div className="python-canvas-callable-field">
@@ -201,18 +208,26 @@ export function CallableExpressionField({
         controlId={`callable-expression:${callableId}`}
         diagnosticMessage={data.callableDiagnosticMessage ?? undefined}
         language="python"
-        onAlternateCommit={(value) =>
-          mutation.onCallableAlternateCommit(callableId, value)
-        }
-        onCommit={(value) => mutation.onCallableCommit(callableId, value)}
-        onEscape={() => mutation.onCallableRevert(callableId)}
+        onAlternateCommit={(value) => {
+          applyHint.clear();
+          mutation.onCallableAlternateCommit(callableId, value);
+        }}
+        onCommit={(value) => {
+          applyHint.clear();
+          mutation.onCallableCommit(callableId, value);
+        }}
+        onEscape={() => {
+          applyHint.clear();
+          mutation.onCallableRevert(callableId);
+        }}
         onValueChange={(value) =>
           mutation.onCallableDraftChange(callableId, value)
         }
         presentation="section-field"
         sectionId={sectionId}
         singleLine
-        value={mutation.callableDraft(callableId)}
+        uncommitted={applyHint.visible}
+        value={draft}
         wrapLines={false}
       />
       {mutationError === null ? null : (
@@ -233,6 +248,43 @@ export function CallableExpressionField({
       )}
     </div>
   );
+}
+
+function useCallableApplyHint(canonical: string, draft: string) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [visibleFor, setVisibleFor] = useState<{
+    canonical: string;
+    draft: string;
+  } | null>(null);
+  useEffect(() => {
+    if (canonical === draft) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      timerRef.current = null;
+      setVisibleFor({ canonical, draft });
+    }, CALLABLE_APPLY_HINT_DELAY_MS);
+    timerRef.current = timer;
+    return () => {
+      clearTimeout(timer);
+      if (timerRef.current === timer) {
+        timerRef.current = null;
+      }
+    };
+  }, [canonical, draft]);
+  return {
+    clear: () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      setVisibleFor(null);
+    },
+    visible:
+      canonical !== draft &&
+      visibleFor?.canonical === canonical &&
+      visibleFor.draft === draft,
+  };
 }
 
 export function CallableSection({

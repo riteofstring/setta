@@ -6,7 +6,7 @@ import {
 } from "./browser-processes.mjs";
 import {
   commitCallableExpressionAndRefresh,
-  exerciseUnresolvedCallableCommit,
+  exerciseCallableCommitParity,
   openWorkspaceCanvas,
   waitForCallableUiIdle,
   waitForSnapshot,
@@ -66,7 +66,7 @@ await runAgainstProductionApp(
     await openWorkspaceCanvas(client, previewOrigin);
     await editPythonTargetOuterRegions(client, backendOrigin);
     await createCallable(client, backendOrigin, sampleCallableName);
-    await exerciseUnresolvedCallableCommit(
+    await exerciseCallableCommitParity(
       client,
       backendOrigin,
       sampleCallableName,

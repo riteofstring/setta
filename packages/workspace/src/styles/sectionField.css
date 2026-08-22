@@ -16,6 +16,9 @@
  * control from the chrome it belongs to. */
 
 .setta-workspace-section-field {
+  --setta-workspace-section-field-ready-from: #f59e0b;
+  --setta-workspace-section-field-ready-to: #3b82f6;
+  --setta-workspace-section-field-ready-glow: rgb(59 130 246 / 35%);
   display: flex;
   min-width: 0;
   align-items: center;
@@ -29,6 +32,9 @@
 }
 
 .setta-workspace.setta-workspace-dark .setta-workspace-section-field {
+  --setta-workspace-section-field-ready-from: #92400e;
+  --setta-workspace-section-field-ready-to: #60a5fa;
+  --setta-workspace-section-field-ready-glow: rgb(96 165 250 / 35%);
   border-color: hsl(220 26% 14%);
   background-color: hsl(220 25% 3%);
 }
@@ -64,6 +70,24 @@
 .setta-workspace.setta-workspace-dark
   .setta-workspace-section-field[data-diagnostic="true"]:focus-within {
   border-color: rgb(153 27 27 / 30%);
+}
+
+/* Main waits until typing has paused before marking a callable draft as ready to apply. The
+ * unfocused state stays orange; while focused, its border and corner-return hint pulse from that
+ * orange to the ordinary focus blue. */
+.setta-workspace-section-field[data-uncommitted="true"] {
+  border-color: var(--setta-workspace-section-field-ready-from);
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.setta-workspace-section-field[data-uncommitted="true"]:not(:focus-within) {
+  border-color: var(--setta-workspace-section-field-ready-from);
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.setta-workspace-section-field[data-uncommitted="true"]:focus-within {
+  animation: setta-workspace-section-field-ready-border 1.4s ease-in-out
+    infinite;
 }
 
 /* The surface signals focus through its border colour alone, and the live editor below suppresses
@@ -160,4 +184,91 @@
 .setta-workspace-section-field-diagnostic-indicator > svg {
   inline-size: 14px;
   block-size: 14px;
+}
+
+.setta-workspace-section-field-apply-indicator {
+  display: inline-grid;
+  flex: none;
+  inline-size: 22px;
+  block-size: 22px;
+  place-items: center;
+  color: var(--setta-workspace-section-field-ready-from);
+}
+
+.setta-workspace-section-field:focus-within
+  .setta-workspace-section-field-apply-indicator {
+  animation: setta-workspace-section-field-ready-icon 1.4s ease-in-out infinite;
+}
+
+/* Exact css.gg corner-right-down glyph used by main's callable-ready indicator. */
+.setta-workspace-section-field-apply-indicator .gg-corner-right-down {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  transform: scale(var(--ggs, 1));
+}
+
+.setta-workspace-section-field-apply-indicator .gg-corner-right-down::after,
+.setta-workspace-section-field-apply-indicator .gg-corner-right-down::before {
+  position: absolute;
+  bottom: 3px;
+  display: block;
+  box-sizing: border-box;
+  content: "";
+}
+
+.setta-workspace-section-field-apply-indicator .gg-corner-right-down::after {
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid;
+  border-bottom: 2px solid;
+  transform: rotate(45deg);
+}
+
+.setta-workspace-section-field-apply-indicator .gg-corner-right-down::before {
+  right: 6px;
+  width: 12px;
+  height: 16px;
+  border-top: 2px solid;
+  border-right: 2px solid;
+  border-top-right-radius: 4px;
+}
+
+@keyframes setta-workspace-section-field-ready-border {
+  0%,
+  100% {
+    border-color: var(--setta-workspace-section-field-ready-from);
+    box-shadow: 0 0 0 0 transparent;
+  }
+
+  50% {
+    border-color: var(--setta-workspace-section-field-ready-to);
+    box-shadow: 0 0 0 1px var(--setta-workspace-section-field-ready-glow);
+  }
+}
+
+@keyframes setta-workspace-section-field-ready-icon {
+  0%,
+  100% {
+    color: var(--setta-workspace-section-field-ready-from);
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+
+  50% {
+    color: var(--setta-workspace-section-field-ready-to);
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setta-workspace-section-field[data-uncommitted="true"]:focus-within,
+  .setta-workspace-section-field:focus-within
+    .setta-workspace-section-field-apply-indicator {
+    animation: none;
+  }
 }

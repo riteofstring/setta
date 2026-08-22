@@ -162,6 +162,38 @@ describe("CallableSection", () => {
     expect(onCallableRevert).toHaveBeenCalledWith("callable:one");
   });
 
+  it("shows main's apply hint after the draft settles and clears it on commit", () => {
+    vi.useFakeTimers();
+    try {
+      const onCallableCommit = vi.fn();
+      render(
+        <CallableExpressionField
+          data={sectionData({ state: "ready", status: "available" })}
+          sectionId="python-canvas:callable:one"
+        />,
+        {
+          ...mutationContext(),
+          callableDraft: () => "draft",
+          onCallableCommit,
+        },
+      );
+
+      expect(editorProps.at(-1)?.uncommitted).toBe(false);
+      act(() => vi.advanceTimersByTime(999));
+      expect(editorProps.at(-1)?.uncommitted).toBe(false);
+      act(() => vi.advanceTimersByTime(1));
+      expect(editorProps.at(-1)?.uncommitted).toBe(true);
+
+      act(() => {
+        (editorProps.at(-1)?.onCommit as (value: string) => void)("draft");
+      });
+      expect(editorProps.at(-1)?.uncommitted).toBe(false);
+      expect(onCallableCommit).toHaveBeenCalledWith("callable:one", "draft");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("projects a Basedpyright callable diagnostic into the field presentation", () => {
     const data = sectionData({ state: "ready", status: "available" });
     render(

@@ -64,7 +64,113 @@ export async function commitCallableExpressionAndRefresh(
   await waitForCallableUiIdle(client, name, harness);
 }
 
-export async function exerciseUnresolvedCallableCommit(
+export async function exerciseCallableCommitParity(
+  client,
+  backendOrigin,
+  name,
+  expectedGeneratedPath,
+  harness,
+) {
+  await exerciseCallableCompletionApply(client, backendOrigin, name, harness);
+  await exerciseUnresolvedCallableCommit(
+    client,
+    backendOrigin,
+    name,
+    expectedGeneratedPath,
+    harness,
+  );
+}
+
+async function exerciseCallableCompletionApply(
+  client,
+  backendOrigin,
+  name,
+  harness,
+) {
+  const initial = harness.findRequiredCallable(
+    await fetchCanonicalSnapshot(backendOrigin),
+    name,
+  );
+  const sectionSelector = harness.callableSectionSelector(name);
+  const editorSelector = contentEditableTextBoxSelector("Callable expression");
+  const expressionSelector = `${sectionSelector} ${editorSelector}`;
+  await activateContentEditableTextBox(
+    client,
+    expressionSelector,
+    `the ${name} callable expression`,
+  );
+  await selectAll(client);
+  await insertText(client, "fixture_module.sam");
+  await waitFor(
+    client,
+    "the selected callable completion",
+    `(() => {
+      const popup = document.querySelector('.cm-tooltip-autocomplete');
+      const selected = popup?.querySelector('[role="option"][aria-selected="true"]');
+      return popup instanceof HTMLElement && selected?.textContent?.includes("sample") === true;
+    })()`,
+  );
+  const requestsBefore = await callableCommitRequestCount(client);
+  await pressEnter(client);
+  await waitFor(
+    client,
+    "main's completed draft and apply hint after the first Enter",
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sectionSelector)});
+      const field = section?.querySelector('[data-workspace-section-field="true"]');
+      const editor = section?.querySelector(${JSON.stringify(editorSelector)});
+      const indicator = field?.querySelector('.setta-workspace-section-field-apply-indicator');
+      return field?.getAttribute('data-uncommitted') === 'true' &&
+        field?.getAttribute('data-diagnostic') === 'false' &&
+        editor?.textContent === 'fixture_module.sample' &&
+        editor === document.activeElement &&
+        indicator?.getAttribute('role') === 'status' &&
+        indicator?.getAttribute('aria-label') === 'Callable expression changed. Press Enter to apply' &&
+        indicator?.getAttribute('title') === 'Press Enter to apply' &&
+        indicator?.querySelector('.gg-corner-right-down') instanceof HTMLElement &&
+        document.querySelector('.cm-tooltip-autocomplete') === null;
+    })()`,
+  );
+  assert.equal(
+    harness.findRequiredCallable(
+      await fetchCanonicalSnapshot(backendOrigin),
+      name,
+    ).authoredExpression,
+    initial.authoredExpression,
+    "The completion-accepting Enter persisted the callable.",
+  );
+  assert.equal(
+    await callableCommitRequestCount(client),
+    requestsBefore,
+    "The completion-accepting Enter sent a callable commit.",
+  );
+
+  await pressEnter(client);
+  await waitForSnapshot(
+    backendOrigin,
+    "the completed callable applied by the second Enter",
+    (snapshot) =>
+      harness.findCallable(snapshot, name)?.authoredExpression ===
+      "fixture_module.sample",
+  );
+  await waitFor(
+    client,
+    "the cleared callable apply hint",
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sectionSelector)});
+      const field = section?.querySelector('[data-workspace-section-field="true"]');
+      return field?.getAttribute('data-uncommitted') === 'false' &&
+        field?.querySelector('.setta-workspace-section-field-apply-indicator') === null;
+    })()`,
+  );
+  assert.equal(
+    await callableCommitRequestCount(client),
+    requestsBefore + 1,
+    "The second Enter did not send exactly one callable commit.",
+  );
+}
+
+async function exerciseUnresolvedCallableCommit(
   client,
   backendOrigin,
   name,
@@ -294,6 +400,19 @@ async function callableParameterRefreshRequestCount(client) {
     `performance.getEntriesByType("resource").filter((entry) => {
       try {
         return new URL(entry.name).pathname.endsWith("/refresh-parameters");
+      } catch {
+        return false;
+      }
+    }).length`,
+  );
+}
+
+async function callableCommitRequestCount(client) {
+  return evaluate(
+    client,
+    `performance.getEntriesByType("resource").filter((entry) => {
+      try {
+        return new URL(entry.name).pathname.endsWith("/commit");
       } catch {
         return false;
       }

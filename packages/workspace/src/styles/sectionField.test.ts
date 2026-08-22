@@ -134,6 +134,31 @@ describe("section-field surface contract", () => {
     );
   });
 
+  it("ports main's callable-ready paint, hint geometry, and motion fallback", () => {
+    const wrapper = ruleFor(WRAPPER);
+    expect(
+      wrapper.declarations.get("--setta-workspace-section-field-ready-from"),
+    ).toBe("#f59e0b");
+    const dark = ruleFor(`.setta-workspace.setta-workspace-dark ${WRAPPER}`);
+    expect(
+      dark.declarations.get("--setta-workspace-section-field-ready-from"),
+    ).toBe("#92400e");
+    const ready = ruleFor(`${WRAPPER}[data-uncommitted="true"]`);
+    expect(ready.declarations.get("border-color")).toBe(
+      "var(--setta-workspace-section-field-ready-from)",
+    );
+    const focused = ruleFor(`${WRAPPER}[data-uncommitted="true"]:focus-within`);
+    expect(focused.declarations.get("animation")).toBe(
+      "setta-workspace-section-field-ready-border 1.4s ease-in-out infinite",
+    );
+    const indicator = ruleFor(".setta-workspace-section-field-apply-indicator");
+    expect(indicator.declarations.get("inline-size")).toBe("22px");
+    expect(indicator.declarations.get("block-size")).toBe("22px");
+    expect(sectionFieldStyles).toMatch(
+      /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*animation:\s*none/u,
+    );
+  });
+
   it("changes only the border colour when the field takes focus", () => {
     const light = ruleFor(`${WRAPPER}:focus-within`);
     expect(light.declarations.get("border-color")).toBe("rgb(59 130 246)");

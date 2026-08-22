@@ -93,6 +93,9 @@ export type TextValueEditorProps =
       // The package owns the adornment's layout space inside the field surface; the caller owns
       // its content, semantics, and ARIA. It is never editor value and takes no keyboard behavior.
       endAdornment?: ReactNode;
+      // The caller classifies whether the displayed value differs from its canonical value. The
+      // package owns main's delayed apply presentation once that state is active.
+      uncommitted?: boolean;
       // Alt-Enter is the reference's explicit alternate commit gesture. It is
       // distinct from the ordinary Enter commit and is available only to the
       // compact section field that owns that interaction.
@@ -103,6 +106,7 @@ type TextValueEditorCoreProps = TextValueEditorBaseProps & {
   diagnosticMessage?: string;
   presentation: TextValueEditorPresentation | "meta-control";
   endAdornment?: ReactNode;
+  uncommitted?: boolean;
   metaMinimumHeight?: boolean;
   onAlternateCommit?: (value: string) => void;
 };
@@ -112,6 +116,7 @@ type MetaTextValueEditorProps = Omit<
   | "completionProvider"
   | "diagnosticMessage"
   | "endAdornment"
+  | "uncommitted"
   | "onAlternateCommit"
   | "presentation"
 >;
@@ -194,12 +199,14 @@ function getTextValuePresentationConfig(
 function getTextValueDiagnosticState(
   host: WorkspaceHost,
   presentation: TextValueEditorCoreProps["presentation"],
-  diagnosticMessage: string,
+  diagnostic: { message: string; uncommitted: boolean },
   sectionId: string,
   controlId: string,
 ): TextValueDiagnosticState {
   const hasDiagnostic =
-    presentation === "section-field" && diagnosticMessage.trim() !== "";
+    presentation === "section-field" &&
+    !diagnostic.uncommitted &&
+    diagnostic.message.trim() !== "";
   const descriptionId = `${getWorkspaceHostDomId(host)}-${sectionId}-${controlId}-SectionFieldDiagnostic`;
   return {
     ariaDescribedBy: hasDiagnostic ? descriptionId : undefined,
@@ -222,20 +229,24 @@ function wrapTextValueEditorLayers({
   config,
   editorLayers,
   endAdornment,
+  ariaLabel,
   diagnosticMessage,
   diagnosticDescriptionId,
   hasDiagnostic,
   isDisabled,
   presentation,
+  uncommitted,
 }: {
   config: TextValuePresentationConfig;
   editorLayers: ReactNode;
   endAdornment: ReactNode;
+  ariaLabel: string;
   diagnosticMessage: string;
   diagnosticDescriptionId: string;
   hasDiagnostic: boolean;
   isDisabled: boolean;
   presentation: TextValueEditorCoreProps["presentation"];
+  uncommitted: boolean;
 }): ReactNode {
   if (!config.wrapperClassName) {
     return editorLayers;
@@ -251,6 +262,7 @@ function wrapTextValueEditorLayers({
       className={config.wrapperClassName}
       data-disabled={isDisabled}
       data-diagnostic={hasDiagnostic}
+      data-uncommitted={uncommitted}
       data-workspace-section-field="true"
     >
       <div className="setta-workspace-section-field-input">{editorLayers}</div>
@@ -261,6 +273,17 @@ function wrapTextValueEditorLayers({
           title={diagnosticMessage}
         >
           <BiError focusable="false" />
+        </span>
+      ) : null}
+      {uncommitted ? (
+        <span
+          aria-atomic="true"
+          aria-label={`${ariaLabel} changed. Press Enter to apply`}
+          className="setta-workspace-section-field-apply-indicator"
+          role="status"
+          title="Press Enter to apply"
+        >
+          <i aria-hidden="true" className="gg-corner-right-down" />
         </span>
       ) : null}
       {endAdornment === undefined || endAdornment === null ? null : (
@@ -338,6 +361,7 @@ function TextValueEditorCore({
   completionProvider,
   endAdornment,
   diagnosticMessage = "",
+  uncommitted,
   presentation,
   metaMinimumHeight = false,
 }: TextValueEditorCoreProps) {
@@ -347,10 +371,11 @@ function TextValueEditorCore({
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
+  const hasUncommittedDraft = uncommitted === true;
   const diagnosticState = getTextValueDiagnosticState(
     host,
     presentation,
-    diagnosticMessage,
+    { message: diagnosticMessage, uncommitted: hasUncommittedDraft },
     sectionId,
     controlId,
   );
@@ -455,6 +480,7 @@ function TextValueEditorCore({
   );
   return wrapTextValueEditorLayers({
     config: presentationConfig,
+    ariaLabel,
     diagnosticDescriptionId: diagnosticState.descriptionId,
     diagnosticMessage,
     editorLayers,
@@ -462,6 +488,7 @@ function TextValueEditorCore({
     isDisabled,
     hasDiagnostic: diagnosticState.hasDiagnostic,
     presentation,
+    uncommitted: hasUncommittedDraft,
   });
 }
 

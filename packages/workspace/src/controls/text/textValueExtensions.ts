@@ -178,12 +178,10 @@ export function getTextValueExtensions({
   return extensions;
 }
 
-// The reference installs the consumer's own bindings ahead of `completionKeymap`, so a visible
-// popup never takes a key the consumer declared. Tab is the popup's accept key and Escape closes
-// it, but an unmodified Enter belongs to a declared commit whether or not the popup is showing —
-// the reference's Callable search commits the draft it is displaying and the popup does not
-// consume that Enter. A control that declares no commit keeps CodeMirror's Enter-accepts
-// behavior, which is what the reference's ordinary parameter rows have.
+// Main's callable search gives an active completion popup the first unmodified Enter. Accepting
+// the selected option updates only the draft; the next Enter, after the popup closes, reaches the
+// declared commit. Tab accepts the same way, Escape closes the popup, and Alt-Enter remains the
+// caller's explicit alternate commit even while a popup is visible.
 function handleCompletionKeydown(
   event: KeyboardEvent,
   view: EditorView,
@@ -243,18 +241,19 @@ function handleCompletionEnter(
     event.stopPropagation();
     return true;
   }
-  if (
-    !getEnterCommit(event, view, {
-      singleLine,
-      onCommit,
-      onAlternateCommit,
-      isDisabled,
-    })
-  ) {
+  if (!hasModifier(event)) {
     return runCompletionCommand(event, view, acceptCompletion);
   }
-  // The declared commit owns this Enter. Close the popup first, so the commit path sends the
-  // draft the field is showing rather than one an accept would have replaced behind it.
+  const commit = getEnterCommit(event, view, {
+    singleLine,
+    onCommit,
+    onAlternateCommit,
+    isDisabled,
+  });
+  if (!commit) {
+    return false;
+  }
+  // Main's modified alternate gesture belongs to the caller, not the popup.
   closeCompletion(view);
   return null;
 }

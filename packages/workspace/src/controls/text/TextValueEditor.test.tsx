@@ -315,11 +315,9 @@ describe("TextValueEditor", () => {
     expect(view.state.doc.toString()).toBe("0.001");
   });
 
-  // The reference's completion keys: Tab accepts, Escape closes, and an unmodified Enter belongs
-  // to the declared commit even while the popup is showing. A rejected candidate spent that Enter
-  // on the popup and required a second one to commit, which is the behavior these assertions fail
-  // on if it returns.
-  it("gives an active completion popup Tab and Escape but never the declared commit's Enter", async () => {
+  // Main gives Tab, Escape, and the first unmodified Enter to an active completion popup. Only a
+  // later Enter, after the selected option has replaced the draft and closed the popup, commits.
+  it("accepts an active completion before a declared Enter commit", async () => {
     const onCommit = vi.fn();
     const provider = sqrtCompletionProvider();
     await mount({
@@ -388,9 +386,21 @@ describe("TextValueEditor", () => {
       view.contentDOM.dispatchEvent(enter);
     });
     expect(enter.defaultPrevented).toBe(true);
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(completionStatus(view.state)).not.toBe("active");
+
+    const applyEnter = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Enter",
+      key: "Enter",
+    });
+    await act(async () => {
+      view.contentDOM.dispatchEvent(applyEnter);
+    });
+    expect(applyEnter.defaultPrevented).toBe(true);
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith("math.sqrt");
-    expect(completionStatus(view.state)).not.toBe("active");
   });
 
   // The reference's ordinary parameter rows declare no Enter action, so their popup keeps
@@ -772,6 +782,40 @@ describe("TextValueEditor section-field presentation", () => {
     ).toBeNull();
   });
 
+  it("presents main's uncommitted apply hint ahead of a stale diagnostic", async () => {
+    await mountField({
+      diagnosticMessage: "The previous value is unresolved.",
+      uncommitted: true,
+    });
+    const field = host.querySelector<HTMLElement>(
+      ".setta-workspace-section-field",
+    );
+    const indicator = host.querySelector<HTMLElement>(
+      ".setta-workspace-section-field-apply-indicator",
+    );
+    if (!field || !indicator) {
+      throw new Error("The uncommitted section-field state did not render.");
+    }
+    expect(field.dataset["uncommitted"]).toBe("true");
+    expect(field.dataset["diagnostic"]).toBe("false");
+    expect(indicator.getAttribute("role")).toBe("status");
+    expect(indicator.getAttribute("aria-label")).toBe(
+      "Expression changed. Press Enter to apply",
+    );
+    expect(indicator.getAttribute("title")).toBe("Press Enter to apply");
+    expect(
+      indicator
+        .querySelector(".gg-corner-right-down")
+        ?.getAttribute("aria-hidden"),
+    ).toBe("true");
+    expect(
+      field.querySelector(
+        ".setta-workspace-section-field-diagnostic-indicator",
+      ),
+    ).toBeNull();
+    expect(getFieldDummy().getAttribute("aria-invalid")).toBeNull();
+  });
+
   it("keeps the caller's end adornment out of the value and out of keyboard order", async () => {
     const onValueChange = vi.fn();
     await mountField({
@@ -884,10 +928,9 @@ describe("TextValueEditor section-field presentation", () => {
     expect(view.state.doc.lines).toBe(1);
   });
 
-  // The field is the reference's callable search: Tab accepts an offered name into the draft and
-  // commits nothing, then one unmodified Enter commits the draft the field is showing. Both fail
-  // if the rejected candidate's popup-owns-Enter behavior returns.
-  it("accepts a completion on Tab and commits the shown draft on one Enter", async () => {
+  // Directly measured on main: the first Enter accepts the selected callable completion without a
+  // mutation, and the second Enter applies the completed draft.
+  it("accepts a callable completion on the first Enter and commits on the second", async () => {
     const onCommit = vi.fn();
     await mountField({
       completionProvider: sqrtCompletionProvider(),
@@ -897,21 +940,19 @@ describe("TextValueEditor section-field presentation", () => {
     const view = getFieldView();
 
     await openCompletionAtCaretEnd(view);
-    const tab = new KeyboardEvent("keydown", {
+    const completionEnter = new KeyboardEvent("keydown", {
       bubbles: true,
       cancelable: true,
-      code: "Tab",
-      key: "Tab",
+      code: "Enter",
+      key: "Enter",
     });
     await act(async () => {
-      view.contentDOM.dispatchEvent(tab);
+      view.contentDOM.dispatchEvent(completionEnter);
     });
-    expect(tab.defaultPrevented).toBe(true);
+    expect(completionEnter.defaultPrevented).toBe(true);
     expect(view.state.doc.toString()).toBe("math.sqrt");
     expect(onCommit).not.toHaveBeenCalled();
-
-    // Re-open the popup: the commit Enter has to win over a visible one, not merely over none.
-    await openCompletionAtCaretEnd(view);
+    expect(completionStatus(view.state)).not.toBe("active");
     await act(async () => {
       view.contentDOM.dispatchEvent(
         new KeyboardEvent("keydown", {
