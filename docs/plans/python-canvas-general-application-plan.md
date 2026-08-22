@@ -36,6 +36,13 @@ workspace APIs. This plan changes the product model, not that ownership split.
 
 The authoritative behavior anchors are deliberately narrow:
 
+- The accepted parameter-authoring behavior in
+  docs/plans/python-canvas-callable-section-presentation-plan.md and
+  apps/python-canvas/README.md establishes one complete, revision-bound
+  parameter-list mutation per callable, real app-authored rows alongside
+  provider-derived rows, and the existing public workspace item-authoring
+  interactions. This plan generalizes that accepted behavior to every dynamic
+  callable without reopening its broader presentation audit.
 - The current Python Canvas implementation and README establish the Go-owned
   snapshot, a generated body placed between authored Python regions, real
   Basedpyright completion and diagnostics, and a frontend that uses only public
@@ -109,9 +116,17 @@ The persisted aggregate is the sole authored model. It contains:
 - editable Python prefix and suffix;
 - an ordered list of zero or more callable records, each with stable ID,
   editable name, and authored dotted callable expression; and
-- for each callable, an ordered list of zero or more signature-derived
-  parameter records with stable ID, signature name, passing style, type
-  annotation, optional default, and authored expression.
+- for each callable, an ordered list of zero or more parameter records, each
+  with stable ID, name, `nameEditable`, passing style, type annotation,
+  optional default, and authored expression.
+
+Provider-derived parameters retain their provider-owned passing style, type
+annotation, and default; their signature name is immutable and
+`nameEditable=false`. App-authored parameters use stable client-proposed IDs,
+`nameEditable=true`, positional-or-keyword passing, and editable name and
+expression. They have no fabricated type annotation or default: their
+persisted canonical metadata records the absence of provider-derived type and
+default information rather than inventing either value.
 
 Generated Python, generated body boundaries, semantic source ranges,
 diagnostics, completion results, Basedpyright document state, and temporary
@@ -124,19 +139,30 @@ arbitrary Python expressions. A callable may exist with an empty expression
 before it is committed; that is an authored empty section, not an implicit
 default callable.
 
-Only a callable commit creates or replaces parameter membership. A commit
-resolves the current expression against Basedpyright and atomically replaces
-that callable's entire parameter collection with freshly allocated
-signature-derived IDs. It does so even when a user recommits the same
-expression. There is no parameter identity migration, matching, preservation,
-or reconciliation across commits.
+Committing a callable first compares its validated canonical expression with
+the stored canonical expression. Recommitting the same canonical expression is
+idempotent: it preserves the existing complete parameter list and IDs and does
+not publish a semantic change. A changed canonical expression resolves against
+Basedpyright and atomically replaces that callable's entire parameter list with
+the newly normalized provider signature. That replacement discards every
+app-authored row without matching or reconciliation; it is the current desired
+behavior, not a compatibility or migration rule.
 
-A set-parameters mutation carries the complete ordered expression list for one
-current callable. Its IDs and order must exactly match that callable's current
-signature-derived collection; it changes authored expressions only. It cannot
-add, rename, reorder, or delete parameters. Empty authored expressions remain
-valid in-progress values and are omitted from the generated call, allowing the
-provider to report a real missing-argument diagnostic where applicable.
+A set-parameters mutation carries the complete proposed ordered list of
+`{ id, name, authoredExpression }` records for one current callable. It may
+insert, delete, reorder, and rename app-authored records as well as edit any
+record's expression. The aggregate validates the whole proposal once: IDs are
+stable, unique, noncolliding, and scoped to that callable; immutable names stay
+unchanged; and names/expressions meet their lexical and size bounds. It
+preserves all backend-owned metadata for every retained record, refuses changes
+to provider-owned names or metadata, and creates the canonical app-authored
+defaults for each new stable client-proposed ID. An app-authored name may be
+blank in progress; a present name must be a non-keyword Python identifier and
+unique within its callable. It accepts no client-supplied passing style, type
+annotation, default, or `nameEditable` override. Empty authored expressions
+remain valid in-progress values; an app-authored row remains persisted and is
+omitted from the generated call until it has both a valid name and an
+expression.
 
 ### Rendering and generated module
 
@@ -153,10 +179,10 @@ position. Renaming changes the rendered path only through this one renderer.
 
 The supported provider passing styles and their exact call syntax are:
 
-| Signature passing style | Rendered argument |
+| Canonical passing style | Rendered argument |
 | --- | --- |
 | positional-only | state.<parameter-path> |
-| positional-or-keyword | <signature-name>=state.<parameter-path> |
+| positional-or-keyword | <canonical-name>=state.<parameter-path> |
 | keyword-only | <signature-name>=state.<parameter-path> |
 | variadic positional | *state.<parameter-path> |
 | variadic keyword | **state.<parameter-path> |
@@ -169,18 +195,23 @@ marker pseudo-parameters, or an invalid normalized signature fail at the
 provider/aggregate boundary; the renderer never guesses another calling
 convention.
 
+For a provider-derived parameter, the canonical name in that table is its
+immutable signature name. For an app-authored parameter, it is that record's
+validated editable name; app-authored rows use only positional-or-keyword
+passing and are not rendered until their name and expression are both present.
+
 Every accepted mutation rerenders the complete aggregate automatically. Prefix
 and suffix are one expected-revision target mutation. The generated body is
 never writable by a client and is shown as read-only UI output.
 
 ### Revision, validation, and failure rules
 
-Every mutation carries expectedRevision, including create callable, rename
-callable, delete callable, commit callable, set parameter expressions, and set
-target. The coordinator serializes mutations, checks the expected revision
-before constructing a candidate, and increments revision exactly once for an
-accepted semantic change. Read-only snapshot and completion queries are not
-mutations.
+Every mutation carries expectedRevision, including rename project, create
+callable, rename callable, delete callable, commit callable, set the complete
+parameter list, and set target. The coordinator serializes mutations, checks
+the expected revision before constructing a candidate, and increments revision
+exactly once for an accepted semantic change. Read-only snapshot and completion
+queries are not mutations.
 
 Candidate construction is all-or-nothing:
 
@@ -217,6 +248,8 @@ parity. The implementation must not add or investigate:
   cancellation;
 - ports, edges, connection gestures, values, or graph topology beyond callable
   parameters;
+- multi-project management, project discovery, clone/save-as, or a project
+  picker; this slice operates only on the one explicit --project path;
 - user-facing CLI or MCP product commands; --project/--create are startup
   delivery wiring only;
 - authentication, collaboration, WebSockets, server-sent events, deployment,
@@ -230,9 +263,9 @@ parity. The implementation must not add or investigate:
 - malformed-input combinatorial auditing beyond strict file, transport, and
   public boundary contracts.
 
-Do not add a Generate Python command, endpoint, or button. Do not add a
-project-name editor, rename refactoring, parameter identity reconciliation, or
-hand-authored parameter metadata in this plan.
+Do not add a Generate Python command, endpoint, or button. Do not add rename
+refactoring beyond the one in-place project-name mutation, parameter identity
+reconciliation, or any project-management surface beyond that labelled control.
 
 ## Ownership and dependency direction
 
@@ -301,12 +334,22 @@ top-level shape:
       "authoredExpression": "package.function",
       "parameters": [
         {
-          "id": "opaque stable parameter id",
+          "id": "opaque stable provider-derived parameter id",
           "name": "argument",
+          "nameEditable": false,
           "passingStyle": "positional_or_keyword",
           "typeAnnotation": "int",
           "default": null,
           "authoredExpression": "42"
+        },
+        {
+          "id": "stable client-proposed app-authored parameter id",
+          "name": "scale",
+          "nameEditable": true,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "authoredExpression": "2"
         }
       ]
     }
@@ -314,9 +357,13 @@ top-level shape:
 }
 ~~~
 
-The format field must equal python-canvas-project/v1. Decoding rejects unknown
-fields, missing fields, wrong JSON types, unsupported passing styles, duplicate
-stable IDs, dangling structure, invalid strings at the declared boundaries, and
+The format field must equal python-canvas-project/v1. Every parameter persists
+its canonical ID, name, `nameEditable`, passing style, type annotation, default,
+and authored expression. For an app-authored record, null type/default fields
+mean that no provider metadata exists; they are not fabricated hints or values.
+Decoding rejects unknown fields, missing fields, wrong JSON types, unsupported
+passing styles, duplicate stable IDs, dangling structure, invalid strings at the
+declared boundaries, incoherent provider-derived or app-authored metadata, and
 any derived field. It does not inspect old formats or attempt a best-effort
 import.
 
@@ -337,7 +384,9 @@ regenerates TypeScript from it. The V2 snapshot has:
 - project { id, name, revision };
 - pythonTarget { prefix, suffix };
 - callables: CallableV2[], where every callable embeds its ordered
-  ParameterV2[] records;
+  ParameterV2[] records. Each ParameterV2 includes id, name, `nameEditable`,
+  passingStyle, typeAnnotation, default, and authoredExpression; clients never
+  infer provider ownership from an ID, blank name, or position;
 - generatedCode { code, body, body boundaries, sourceRangesByTargetId };
 - diagnostics keyed to a dynamic target ID when a range intersects one; and
 - explicit Basedpyright provider status.
@@ -363,11 +412,12 @@ is no V1 route alias.
 | Method and path | Request responsibility |
 | --- | --- |
 | GET /api/v2/project | Return the current canonical snapshot |
+| POST /api/v2/project/rename | Rename the one current project from projectId, expectedRevision, and a nonempty name |
 | POST /api/v2/project/callables | Create one callable from projectId, expectedRevision, and a nonempty name |
 | POST /api/v2/project/callables/{callableId}/rename | Rename that callable from projectId, expectedRevision, and name |
 | POST /api/v2/project/callables/{callableId}/delete | Delete that callable from projectId and expectedRevision |
-| POST /api/v2/project/callables/{callableId}/commit | Resolve authoredExpression and replace that callable's signature-derived parameters; carries projectId and expectedRevision |
-| POST /api/v2/project/callables/{callableId}/parameters | Set one complete ordered list of { id, authoredExpression } records; carries projectId and expectedRevision |
+| POST /api/v2/project/callables/{callableId}/commit | Commit authoredExpression; a changed canonical expression replaces the entire list from its provider signature, while the same canonical expression preserves it; carries projectId and expectedRevision |
+| POST /api/v2/project/callables/{callableId}/parameters | Set one complete ordered list of `{ id, name, authoredExpression }` records; carries projectId and expectedRevision |
 | POST /api/v2/project/target | Set prefix and suffix together; carries projectId and expectedRevision |
 | POST /api/v2/project/callables/{callableId}/completions | Read-only callable completion for its draft and UTF-16 cursor |
 | POST /api/v2/project/target/completions | Read-only prefix or suffix completion using the complete target draft and UTF-16 cursor |
@@ -383,19 +433,20 @@ The coordinator exposes exactly these aggregate commands:
 
 | Command | Candidate effect |
 | --- | --- |
+| Rename project | Validate and replace the current project's nonempty name, rerender, persist, and publish |
 | Create callable | Allocate one callable ID, add an empty expression and zero parameters in ordered position, render, persist, and publish |
 | Rename callable | Keep its ID and nested parameters, validate the new nonempty name, rerender, persist, and publish |
 | Delete callable | Remove only that callable and its nested parameters, rerender the remaining aggregate, persist, and publish |
-| Commit callable | Validate its dotted expression, resolve its signature with the pinned provider in the candidate target context, allocate a fresh full parameter collection, rerender, persist, and publish |
-| Set parameters | Require the current callable's exact parameter IDs and order, replace authored expressions as one list, rerender, persist, and publish |
+| Commit callable | If its canonical expression is unchanged, preserve the current parameter list without a new semantic publication; otherwise resolve the changed expression in the candidate target context, replace the full list with provider-derived records, discard app-authored records without reconciliation, rerender, persist, and publish |
+| Set parameters | Validate and replace one complete ordered `{ id, name, authoredExpression }` list: retain backend metadata for retained records, preserve provider-owned names and metadata, and create canonical app-authored defaults for new client-proposed IDs; rerender, persist, and publish once |
 | Set target | Validate and replace prefix and suffix together, rerender, persist, and publish |
 
-For commit, the coordinator creates a temporary complete candidate module from
-the current prefix, generated body, and suffix, asks the real pinned
-Basedpyright session for signature help at the renderer-provided call position,
-and normalizes zero or more parameters. It accepts only the five stated
-passing-style values. It never hard-codes math, assumes a parameter count, or
-uses a default callable.
+For a changed commit, the coordinator creates a temporary complete candidate
+module from the current prefix, generated body, and suffix, asks the real
+pinned Basedpyright session for signature help at the renderer-provided call
+position, and normalizes zero or more provider-derived parameters. It accepts
+only the five stated passing-style values. It never hard-codes math, assumes a
+parameter count, or uses a default callable.
 
 For all commands, generated diagnostics are derived from the exact candidate
 materialization. The LSP adapter converts provider positions at its boundary,
@@ -418,8 +469,12 @@ and the generated-code surface, but does not serialize positions, viewport,
 section size, or any other layout state. Reloading deliberately recalculates
 that layout from the snapshot.
 
-### Empty and callable sections
+### Project name, empty state, and callable sections
 
+- The frontend presents one labelled Project name control for the current
+  project. Its controlled draft sends the expected-revision project-rename
+  mutation, reflects the canonical response or conflict, and neither selects,
+  discovers, clones, nor saves another project.
 - A project with no callables renders an explanatory empty state: callables are
   Python functions or methods that Python Canvas can call after their signature
   is resolved. It includes an accessible native Add callable button.
@@ -432,10 +487,18 @@ that layout from the snapshot.
   expression; independent Rename callable, Commit callable, and explicitly
   labelled Delete callable <name> buttons; its own completion popup; and its
   dynamic parameter rows.
-- A parameter row exposes its signature name, passing-style information where
-  helpful, type/default metadata as read-only context, and a labelled native
-  expression input. The frontend does not let a user rename a signature-derived
-  parameter or create a second parameter model.
+- Each callable projects its canonical parameter list directly into the existing
+  public workspace item tree. Its `authoring-and-filter` surface provides Add,
+  Remove Last, Delete Selected, drag reorder, filtering, and item actions per
+  callable; each action proposes the resulting complete ordered list rather
+  than a second frontend parameter model. Add assigns a stable client-proposed
+  ID before that list is sent.
+- A provider-derived parameter renders its immutable signature name and its
+  `nameEditable=false` metadata; passing style, type, and default remain
+  provider-owned read-only context where helpful. An app-authored parameter
+  renders the existing workspace `ItemNameEditor` with `nameEditable=true` and
+  an editable expression. It shows no fabricated type/default metadata. The
+  frontend never infers either row kind from an ID, blank name, or position.
 - Each callable has its own draft, completion request/cancellation state,
   pending state, validation/provider error, and diagnostic presentation. Use a
   map keyed by callable ID, never one shared callable draft or one
@@ -465,13 +528,15 @@ visible for deliberate retry rather than silently overwriting it.
 
 ### Accessibility and responsive behavior
 
-Use native buttons, inputs, and textareas for app-owned controls. Every input
-has an associated label; buttons have action-specific names; destructive
-controls say Delete callable rather than relying on an icon; and all custom
-completion and status behavior is keyboard complete. Visible focus uses
-focus-visible styling, errors have a programmatic relationship to their
-control, and pending/success/conflict/provider status is announced through a
-polite live region without repeatedly interrupting input.
+Use native buttons, inputs, and textareas for app-owned controls, and the
+documented public workspace controls for parameter items. Every input,
+including Project name and each app-authored `ItemNameEditor`, has an associated
+label; buttons have action-specific names; destructive controls say Delete
+callable rather than relying on an icon; and all custom completion and status
+behavior is keyboard complete. Visible focus uses focus-visible styling, errors
+have a programmatic relationship to their control, and
+pending/success/conflict/provider status is announced through a polite live
+region without repeatedly interrupting input.
 
 Cards and target controls use fluid grid/flex layouts with min-inline-size: 0,
 wrapping labels, and no page-level horizontal overflow at narrow widths.
@@ -483,8 +548,10 @@ rather than require horizontal scrolling.
 ### Phase A — private aggregate, file format, and general renderer
 
 1. Replace singleton assumptions in a new pure aggregate boundary: dynamic
-   stable IDs, ordered nested callable/parameter records, expected-revision
-   candidate commands, and no Square Root bootstrap/default import.
+   stable IDs, ordered nested callable/parameter records with persisted
+   `nameEditable` and provider/app-authored metadata, expected-revision
+   candidate commands including project rename and complete parameter lists,
+   and no Square Root bootstrap/default import.
 2. Add the strict python-canvas-project/v1 codec and narrow project-file
    adapter with exclusive create, full load validation, staged same-filesystem
    replacement, and temporary-state tests.
@@ -499,10 +566,14 @@ rather than require horizontal scrolling.
 1. Build the application coordinator around the private aggregate, renderer,
    project-file adapter, materializer, and existing pinned Basedpyright session.
 2. Change signature normalization from V1's exact-one positional restriction to
-   zero to many records across the five declared styles. Keep completion and
-   diagnostics normalized at the LSP boundary.
+   zero to many provider-derived records across the five declared styles. A
+   changed callable expression replaces the whole list and discards
+   app-authored rows; recommitting the same canonical expression is idempotent
+   and preserves the list. Keep completion and diagnostics normalized at the
+   LSP boundary.
 3. Implement staged candidate materialization, exact diagnostic mapping, durable
-   file replacement/rollback, and typed validation/provider/render/
+   file replacement/rollback, project rename, complete parameter-list
+   validation and canonical defaults, and typed validation/provider/render/
    materialization/persistence failures.
 4. Exercise the private load-or-create lifecycle with temporary state, including
    required project-path validation and create/load/refuse-overwrite behavior.
@@ -514,7 +585,8 @@ rather than require horizontal scrolling.
 This is the only public contract cutover. Land it as one coherent candidate:
 
 1. Replace Go V1 contracts, routes, handlers, generated artifacts, schema
-   fixtures, and HTTP tests with the V2 snapshot, requests, errors, and exact
+   fixtures, and HTTP tests with the V2 snapshot, including the project-rename
+   route and complete parameter-list request shape, requests, errors, and exact
    V2 paths above.
 2. Wire the command to load/create the selected project and serve the V2
    coordinator. Remove InitialProjectSnapshot, BootstrapShippedExample,
@@ -523,10 +595,11 @@ This is the only public contract cutover. Land it as one coherent candidate:
 3. Regenerate TypeScript from Go, replace the V1 runtime decoder/client with
    strict V2 versions, and make any V1 payload or route absent/rejected rather
    than tolerated.
-4. Replace the fixed frontend projection with dynamic callable-ID-keyed
-   sections, independent drafts, full parameter expression lists, labelled
-   target controls, and the read-only generated surface. Use public workspace
-   APIs only.
+4. Replace the fixed frontend projection with a labelled project-name control,
+   dynamic callable-ID-keyed sections, independent drafts, complete parameter
+   lists with app-authored ItemNameEditor/Add/Remove Last/Delete Selected/drag
+   reorder/filtering/item actions, labelled target controls, and the read-only
+   generated surface. Use public workspace APIs only.
 5. Replace README startup instructions, browser process setup, browser
    walkthroughs, and test fixtures in the same candidate so the checked-in
    product contains no demo-only or V1 public surface.
@@ -561,15 +634,15 @@ Square Root bootstrap data.
 
 | Area | Required observable evidence |
 | --- | --- |
-| Project lifecycle | Temporary-state tests cover missing --project, missing file without --create, exclusive create, refuse-overwrite, strict load, invalid format/field rejection, and same-filesystem atomic-write rollback. Restart proves persisted authored state restores without derived fields stored in the file. |
-| Aggregate | Focused project tests cover blank zero-callable state, create/rename/delete by dynamic ID, independent commits of two callables, stale expectedRevision, atomic parameter-list replacement on recommit, zero-parameter signatures, and no fixed Square Root/math assumptions. |
-| Renderer | Focused renderer tests cover an empty SettaState body, two callables, multiple and zero parameters, every supported passing style, deletion, byte-stable output, and sourceRangesByTargetId for dynamic callable/parameter IDs. They assert a default suffix can instantiate SettaState and a blank project has no hard-coded math import. |
-| File/coordinator transaction | Failure-injection tests prove validation, provider, render, materialization, and persistence failures leave the published snapshot and project file unchanged. Success increments revision once, writes only canonical authored state, regenerates code automatically, and maps candidate diagnostics after publication. |
+| Project lifecycle | Temporary-state tests cover missing --project, missing file without --create, exclusive create, refuse-overwrite, strict load, invalid format/field rejection, and same-filesystem atomic-write rollback. They prove an expected-revision project rename persists across restart without adding project discovery, clone/save-as, or derived fields to the file. |
+| Aggregate | Focused project tests cover blank zero-callable state, project/callable create/rename/delete behavior by dynamic ID, independent commits of two callables, stale expectedRevision, and no fixed Square Root/math assumptions. They prove a changed commit replaces the complete list from its provider signature and discards app-authored rows without reconciliation, while a same-canonical-expression recommit preserves the existing list and IDs. They cover one atomic parameter-list candidate that inserts, deletes, reorders, renames app-authored rows, edits expressions, preserves retained backend metadata, refuses provider-owned changes, and creates canonical defaults for stable client-proposed IDs. |
+| Renderer | Focused renderer tests cover an empty SettaState body, two callables, multiple and zero parameters, provider-derived and app-authored rows, every supported passing style, deletion, byte-stable output, and sourceRangesByTargetId for dynamic callable/parameter IDs. They assert a default suffix can instantiate SettaState, a blank project has no hard-coded math import, and app-authored positional-or-keyword rows use their validated editable names without fabricated type/default metadata. |
+| File/coordinator transaction | Failure-injection tests prove validation, provider, render, materialization, and persistence failures leave the published snapshot and project file unchanged for rename project, callable, complete parameter-list, and target mutations. Success increments revision once, writes only canonical authored state including `nameEditable` and all parameter metadata, regenerates code automatically, and maps candidate diagnostics after publication. |
 | Basedpyright integration | A real executable resolved from the pinned app dependency resolves at least two fixture-module signatures, including a zero-parameter callable and a multi-parameter callable covering all passing styles. It proves callable and target completion, diagnostic-to-dynamic-ID mapping, correct target context, and explicit unavailable behavior without an empty fallback. |
-| V2 transport | Go contract generation and drift tests produce only V2 artifacts. Contract, HTTP, runtime-decoder, and client tests accept valid V2 snapshots/errors, reject V1 and unknown shapes, require expectedRevision on every mutation, verify typed conflicts/failures, and prove /api/v1 paths are absent. |
-| Frontend projection | Component tests cover the explanatory empty state, Add callable, rename, delete, multiple dynamically rendered sections, zero/arbitrary parameter rows, independent callable drafts, completion isolation, prefix/suffix target context, generated-code read-only output, revision conflicts, pending/error handling, and callable/parameter/document diagnostics. |
-| Accessibility and reflow | Component or browser assertions verify labels, native controls, visible focus, keyboard add/rename/commit/delete/completion flows, explicit destructive labels, polite announcements, errors associated with controls, and no page-level horizontal scroll at a narrow viewport. |
-| Production browser walkthrough | Start against a temporary absent project with --project and --create plus a temporary fixture module. Create and commit multiple callables, edit expressions for multiple parameters and both target regions, observe completion and diagnostics, delete one callable, stop and restart the backend without --create, and prove the project file restores the remaining callables and byte-identical generated code. |
+| V2 transport | Go contract generation and drift tests produce only V2 artifacts. Contract, HTTP, runtime-decoder, and client tests accept valid V2 snapshots/errors, reject V1 and unknown shapes, require expectedRevision on every mutation including project rename, verify the `{ id, name, authoredExpression }` parameter-list request and persisted `nameEditable` metadata, verify typed conflicts/failures, and prove /api/v1 paths are absent. |
+| Frontend projection | Component tests cover the labelled project-name control and conflict recovery, explanatory empty state, Add callable, rename, delete, multiple dynamically rendered sections, zero/arbitrary provider-derived and app-authored parameter rows, independent callable drafts, per-callable Add/Remove Last/Delete Selected/drag reorder/filtering/item actions and ItemNameEditor behavior, completion isolation, prefix/suffix target context, generated-code read-only output, revision conflicts, pending/error handling, and callable/parameter/document diagnostics. |
+| Accessibility and reflow | Component or browser assertions verify labels including Project name and app-authored parameter names, native and public-workspace controls, visible focus, keyboard project/callable/parameter add/rename/commit/delete/completion flows, explicit destructive labels, polite announcements, errors associated with controls, and no page-level horizontal scroll at a narrow viewport. |
+| Production browser walkthrough | Start against a temporary absent project with --project and --create plus a temporary fixture module. Rename the project, create and commit multiple callables, author app parameters through Add, Remove Last, Delete Selected, drag reorder, filtering, item actions, and ItemNameEditor, edit expressions for provider-derived and app-authored parameters and both target regions, observe completion and diagnostics, delete one callable, stop and restart the backend without --create, and prove the project file restores the renamed project, remaining callables, canonical parameter metadata, and byte-identical generated code. |
 
 ## Removal checklist
 
@@ -581,6 +654,14 @@ Square Root bootstrap data.
 - [ ] Remove singleton canonical state, exact-one callable/signature checks,
       fixed parameter slots, fixed source ranges, and callables[0] selection
       from project, renderer, provider, and HTTP code.
+- [ ] Remove parameter-expression-only routes, request types, and provider-only
+      membership assumptions. Remove client inference of parameter ownership and
+      any UI that withholds Add, Remove Last, Delete Selected, drag reorder,
+      filtering, item actions, or ItemNameEditor from dynamic callable lists.
+- [ ] Remove fixed/non-configurable project-name handling. Keep only the one
+      expected-revision V2 project-rename route and labelled in-place control;
+      do not replace it with project discovery, clone/save-as, or multi-project
+      management.
 - [ ] Remove V1 generatedContract.ts, V1 runtime parser, V1 client route
       constants, V1 decoder aliases, and fixed frontend callable/parameter
       IDs. Regenerate only V2 TypeScript.
@@ -618,22 +699,33 @@ reported before any such expansion.
 
 This plan is complete only when:
 
-1. The backend requires --project, implements exclusive --create, and persists
-   exactly one strict python-canvas-project/v1 authored document.
+1. The backend requires --project, implements exclusive --create, persists
+   exactly one strict python-canvas-project/v1 authored document, and renames
+   that project's nonempty name only through the expected-revision V2 mutation.
 2. A blank project is truly empty of callables and hard-coded math, while its
    renderer preserves the SettaState body/default suffix convention.
 3. The pure aggregate, pure renderer, file adapter, application coordinator,
    LSP adapter, HTTP adapter, Go contract generator, and frontend have the
    ownership boundaries stated above.
-4. All mutable behavior is V2, expected-revision-bound, automatically
-   regenerated, durable, and all-or-nothing with typed failures.
+4. All mutable behavior — project rename, callable changes, complete parameter
+   lists, and target edits — is V2, expected-revision-bound, automatically
+   regenerated where relevant, durable, and all-or-nothing with typed failures.
 5. The application supports zero to many callables and parameters without
    fixed IDs, positions, Square Root data, or callables[0] anywhere in product
    code.
-6. The frontend provides an accessible, responsive empty-to-many-callables
-   authoring flow with independent drafts and canonical read-only generated
+6. Provider-derived parameters persist their immutable signature name and
+   provider-owned passing style/type/default with `nameEditable=false`;
+   app-authored parameters persist stable client-proposed IDs,
+   `nameEditable=true`, positional-or-keyword passing, editable name/expression,
+   and no fabricated type/default metadata.
+7. A changed callable commit replaces its complete parameter list from the
+   provider signature and discards app-authored rows without reconciliation; a
+   same-canonical-expression recommit is idempotent and preserves that list.
+8. The frontend provides an accessible, responsive labelled project-name and
+   empty-to-many-callables authoring flow with independent drafts, per-callable
+   public-workspace parameter authoring, and canonical read-only generated
    code.
-7. The full acceptance matrix passes under focused verification and the
+9. The full acceptance matrix passes under focused verification and the
    production browser walkthrough proves persistence across a backend restart.
-8. V1 is absent rather than supported, the removal checklist is complete, and
+10. V1 is absent rather than supported, the removal checklist is complete, and
    no forbidden scope or control-plane change was introduced.
