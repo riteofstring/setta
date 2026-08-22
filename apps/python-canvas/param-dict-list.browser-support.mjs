@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 
 import { evaluate, waitFor } from "./browser-page.mjs";
 
-export async function sectionSize(client, sectionId) {
+export async function sectionSize(client, selector) {
   const size = await evaluate(
     client,
     `(() => {
-      const section = document.querySelector(${JSON.stringify(sectionSelector(sectionId))});
+      const section = document.querySelector(${JSON.stringify(selector)});
       if (!(section instanceof HTMLElement)) {
         return null;
       }
@@ -18,8 +18,8 @@ export async function sectionSize(client, sectionId) {
   return size;
 }
 
-export async function assertSectionSize(client, sectionId, expected) {
-  const actual = await sectionSize(client, sectionId);
+export async function assertSectionSize(client, selector, expected) {
+  const actual = await sectionSize(client, selector);
   assert.ok(
     Math.abs(actual.width - expected.width) < 0.5 &&
       Math.abs(actual.height - expected.height) < 0.5,
@@ -27,11 +27,11 @@ export async function assertSectionSize(client, sectionId, expected) {
   );
 }
 
-export async function sectionFieldSize(client, sectionId) {
+export async function sectionFieldSize(client, selector) {
   const size = await evaluate(
     client,
     `(() => {
-      const field = document.querySelector(${JSON.stringify(`${sectionSelector(sectionId)} [data-workspace-section-field="true"]`)});
+      const field = document.querySelector(${JSON.stringify(`${selector} [data-workspace-section-field="true"]`)});
       if (!(field instanceof HTMLElement)) {
         return null;
       }
@@ -43,8 +43,8 @@ export async function sectionFieldSize(client, sectionId) {
   return size;
 }
 
-export async function assertSectionFieldSize(client, sectionId, expected) {
-  const actual = await sectionFieldSize(client, sectionId);
+export async function assertSectionFieldSize(client, selector, expected) {
+  const actual = await sectionFieldSize(client, selector);
   assert.ok(
     Math.abs(actual.width - expected.width) < 0.5 &&
       Math.abs(actual.height - expected.height) < 0.5,
@@ -52,12 +52,12 @@ export async function assertSectionFieldSize(client, sectionId, expected) {
   );
 }
 
-export async function assertFocusedSection(client, sectionId) {
+export async function assertFocusedSection(client, selector) {
   await waitFor(
     client,
     "the moved section retaining focus",
     `(() => {
-      const section = document.querySelector(${JSON.stringify(sectionSelector(sectionId))});
+      const section = document.querySelector(${JSON.stringify(selector)});
       return section instanceof HTMLElement && section.contains(document.activeElement);
     })()`,
   );
@@ -302,8 +302,20 @@ export function snapshotCollection(snapshot, name) {
   return value;
 }
 
-export function sectionSelector(sectionId) {
-  return `[data-section-id=${JSON.stringify(sectionId)}]`;
+export function callableSectionSelector(callableId) {
+  return sectionSelector(`python-canvas:callable:${callableId}`);
+}
+
+export function parameterDictionarySectionSelector(dictionaryId) {
+  return sectionSelector(`python-canvas:parameter-dictionary:${dictionaryId}`);
+}
+
+export function listSectionSelector(listId) {
+  return sectionSelector(`python-canvas:list:${listId}`);
+}
+
+function sectionSelector(workspaceSectionId) {
+  return `[data-section-id=${JSON.stringify(workspaceSectionId)}]`;
 }
 
 export function itemRowSelector(workspaceItemId) {

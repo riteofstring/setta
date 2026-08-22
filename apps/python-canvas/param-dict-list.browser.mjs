@@ -19,13 +19,15 @@ import {
   dictionaryRowHeight,
   findDictionaryEntry,
   itemRowSelector,
+  callableSectionSelector,
+  listSectionSelector,
   listChildCountSelector,
+  parameterDictionarySectionSelector,
   requireCallable,
   requireDiagnostic,
   requireDictionary,
   requireList,
   sameListChildren,
-  sectionSelector,
   sectionFieldSize,
   sectionSize,
   snapshotCollection,
@@ -64,11 +66,13 @@ export async function exerciseParamDictAndListSlice(
     collection: "parameterDictionaries",
     defaultName: "New Param Dict",
     label: "Param Dict",
+    sectionSelector: parameterDictionarySectionSelector,
   });
-  const dictionarySize = await sectionSize(client, dictionary.id);
+  const dictionarySelector = parameterDictionarySectionSelector(dictionary.id);
+  const dictionarySize = await sectionSize(client, dictionarySelector);
   const topLevelCallableSize = await sectionFieldSize(
     client,
-    topLevelCallableId,
+    callableSectionSelector(topLevelCallableId),
   );
   const radius = await addDictionaryEntry(client, dictionary.id);
   await setDictionaryEntryName(
@@ -133,7 +137,7 @@ export async function exerciseParamDictAndListSlice(
     options.id,
     scale.id,
   );
-  await assertSectionSize(client, dictionary.id, dictionarySize);
+  await assertSectionSize(client, dictionarySelector, dictionarySize);
   assertGeneratedDictionary(nestedDictionary, "missing_radius");
 
   const correctedDictionary = await setDictionaryEntryExpression(
@@ -155,13 +159,14 @@ export async function exerciseParamDictAndListSlice(
     radius.workspaceItemId,
     rowHeight,
   );
-  await assertSectionSize(client, dictionary.id, dictionarySize);
+  await assertSectionSize(client, dictionarySelector, dictionarySize);
   assertGeneratedDictionary(correctedDictionary, "4");
 
   const outerList = await createPaneSection(client, backendOrigin, {
     collection: "lists",
     defaultName: "New List of Objects",
     label: "List of Objects",
+    sectionSelector: listSectionSelector,
   });
   await setListChildCountToTwo(client, outerList.id);
   const listWithChildren = await addListChildren(
@@ -203,8 +208,8 @@ export async function exerciseParamDictAndListSlice(
   const beforeDictionaryMove = await fetchCanonicalSnapshot(backendOrigin);
   await dragFreeSectionToSection(
     client,
-    dictionary.id,
-    outerChildIds[1],
+    dictionarySelector,
+    callableSectionSelector(outerChildIds[1]),
     "moving the Param Dict between the list children",
     0.25,
   );
@@ -219,17 +224,25 @@ export async function exerciseParamDictAndListSlice(
       ]),
   );
   assertRevisionIncremented(beforeDictionaryMove, dictionaryInList);
-  await assertSectionSize(client, dictionary.id, dictionarySize);
-  await assertSectionFieldSize(client, outerChildIds[0], topLevelCallableSize);
-  await assertSectionFieldSize(client, outerChildIds[1], topLevelCallableSize);
-  await assertFocusedSection(client, dictionary.id);
+  await assertSectionSize(client, dictionarySelector, dictionarySize);
+  await assertSectionFieldSize(
+    client,
+    callableSectionSelector(outerChildIds[0]),
+    topLevelCallableSize,
+  );
+  await assertSectionFieldSize(
+    client,
+    callableSectionSelector(outerChildIds[1]),
+    topLevelCallableSize,
+  );
+  await assertFocusedSection(client, dictionarySelector);
   assertGeneratedListOrder(dictionaryInList, 3);
 
   const beforeListReorder = dictionaryInList;
   await dragSortedSectionToSection(
     client,
-    dictionary.id,
-    outerChildIds[0],
+    dictionarySelector,
+    callableSectionSelector(outerChildIds[0]),
     "reordering the Param Dict to the front of the list",
     0.25,
   );
@@ -244,16 +257,24 @@ export async function exerciseParamDictAndListSlice(
       ]),
   );
   assertRevisionIncremented(beforeListReorder, dictionaryFirst);
-  await assertSectionSize(client, dictionary.id, dictionarySize);
-  await assertSectionFieldSize(client, outerChildIds[0], topLevelCallableSize);
-  await assertSectionFieldSize(client, outerChildIds[1], topLevelCallableSize);
-  await assertFocusedSection(client, dictionary.id);
+  await assertSectionSize(client, dictionarySelector, dictionarySize);
+  await assertSectionFieldSize(
+    client,
+    callableSectionSelector(outerChildIds[0]),
+    topLevelCallableSize,
+  );
+  await assertSectionFieldSize(
+    client,
+    callableSectionSelector(outerChildIds[1]),
+    topLevelCallableSize,
+  );
+  await assertFocusedSection(client, dictionarySelector);
   assertGeneratedListOrder(dictionaryFirst, 3);
 
   const beforeTopLevelMove = dictionaryFirst;
   await dragFreeSectionToCanvas(
     client,
-    outerChildIds[0],
+    callableSectionSelector(outerChildIds[0]),
     "moving a callable back to the top level",
   );
   const callableAtTopLevel = await waitForSnapshot(
@@ -267,21 +288,30 @@ export async function exerciseParamDictAndListSlice(
       ]),
   );
   assertRevisionIncremented(beforeTopLevelMove, callableAtTopLevel);
-  await assertSectionFieldSize(client, outerChildIds[0], topLevelCallableSize);
-  await assertSectionFieldSize(client, outerChildIds[1], topLevelCallableSize);
-  await assertFocusedSection(client, outerChildIds[0]);
+  await assertSectionFieldSize(
+    client,
+    callableSectionSelector(outerChildIds[0]),
+    topLevelCallableSize,
+  );
+  await assertSectionFieldSize(
+    client,
+    callableSectionSelector(outerChildIds[1]),
+    topLevelCallableSize,
+  );
+  await assertFocusedSection(client, callableSectionSelector(outerChildIds[0]));
   assertGeneratedListOrder(callableAtTopLevel, 2);
 
   const nestedList = await createPaneSection(client, backendOrigin, {
     collection: "lists",
     defaultName: "New List of Objects 2",
     label: "List of Objects",
+    sectionSelector: listSectionSelector,
   });
   const beforeNestedListMove = await fetchCanonicalSnapshot(backendOrigin);
   await dragFreeSectionToSection(
     client,
-    nestedList.id,
-    outerChildIds[1],
+    listSectionSelector(nestedList.id),
+    callableSectionSelector(outerChildIds[1]),
     "moving a nested list into the outer list",
     0.25,
   );
@@ -335,7 +365,7 @@ export async function exerciseParamDictAndListSlice(
 
   await clickElementCenter(
     client,
-    `${sectionSelector(nestedList.id)} ${labeledSelector("Delete section")}`,
+    `${listSectionSelector(nestedList.id)} ${labeledSelector("Delete section")}`,
     "the nested list delete control",
   );
   const afterNestedDelete = await waitForSnapshot(
@@ -424,7 +454,7 @@ async function createPaneSection(client, backendOrigin, configuration) {
   await waitFor(
     client,
     `the ${configuration.label} section`,
-    `document.querySelector(${JSON.stringify(sectionSelector(created.id))}) instanceof HTMLElement`,
+    `document.querySelector(${JSON.stringify(configuration.sectionSelector(created.id))}) instanceof HTMLElement`,
   );
   return created;
 }
@@ -439,7 +469,7 @@ function creationMenuItemExpression(label) {
 }
 
 async function addDictionaryEntry(client, dictionaryId) {
-  const section = sectionSelector(dictionaryId);
+  const section = parameterDictionarySectionSelector(dictionaryId);
   const before = await dictionaryWorkspaceItemIDs(client, dictionaryId);
   await clickElementCenter(
     client,
@@ -478,7 +508,7 @@ async function addDictionaryEntry(client, dictionaryId) {
 async function dictionaryWorkspaceItemIDs(client, dictionaryId) {
   const values = await evaluate(
     client,
-    `Array.from(document.querySelectorAll(${JSON.stringify(`${sectionSelector(dictionaryId)} [data-workspace-item-id]`)}),
+    `Array.from(document.querySelectorAll(${JSON.stringify(`${parameterDictionarySectionSelector(dictionaryId)} [data-workspace-item-id]`)}),
       (row) => row.getAttribute("data-workspace-item-id"))
       .filter((itemId) => typeof itemId === "string")`,
   );
@@ -548,7 +578,11 @@ async function moveDictionaryEntryUnder(
   source,
   target,
 ) {
-  await activateSection(client, dictionaryId, "the Param Dict section");
+  await activateSection(
+    client,
+    parameterDictionarySectionSelector(dictionaryId),
+    "the Param Dict section",
+  );
   await prepareElementDrag(
     client,
     itemRowSelector(source.workspaceItemId),
@@ -583,8 +617,7 @@ async function moveDictionaryEntryUnder(
   );
 }
 
-async function activateSection(client, sectionId, description) {
-  const selector = sectionSelector(sectionId);
+async function activateSection(client, selector, description) {
   await focusElement(client, selector, description);
   await pressEnter(client);
   await waitFor(
@@ -632,7 +665,7 @@ async function setListChildCountToTwo(client, listId) {
 async function addListChildren(client, backendOrigin, listId, count) {
   await clickElementCenter(
     client,
-    `${sectionSelector(listId)} ${labeledSelector("Add children")}`,
+    `${listSectionSelector(listId)} ${labeledSelector("Add children")}`,
     "the List of Objects Add children control",
   );
   return waitForSnapshot(
@@ -651,7 +684,7 @@ async function removeListChildren(
 ) {
   await clickElementCenter(
     client,
-    `${sectionSelector(listId)} ${labeledSelector("Remove children")}`,
+    `${listSectionSelector(listId)} ${labeledSelector("Remove children")}`,
     "the List of Objects Remove children control",
   );
   return waitForSnapshot(
@@ -671,7 +704,7 @@ async function assertVerticalListPresentation(
   const presentation = await evaluate(
     client,
     `(() => {
-      const section = document.querySelector(${JSON.stringify(sectionSelector(listId))});
+      const section = document.querySelector(${JSON.stringify(listSectionSelector(listId))});
       if (!(section instanceof HTMLElement)) {
         return null;
       }
@@ -718,7 +751,7 @@ async function assertVerticalListPresentation(
 }
 
 async function renameCallable(client, backendOrigin, callable, name) {
-  const selector = sectionSelector(callable.id);
+  const selector = callableSectionSelector(callable.id);
   const titleSelector = `${selector} [role="button"][aria-label=${JSON.stringify(`${callable.name}, edit section title`)}]`;
   await focusElement(
     client,
@@ -753,7 +786,7 @@ async function exerciseChildCallableCommitParity(
   expectedGeneratedPath,
 ) {
   const harness = {
-    callableSectionSelector: () => sectionSelector(callable.id),
+    callableSectionSelector: () => callableSectionSelector(callable.id),
     findCallable: (snapshot) =>
       snapshot.callables.find((candidate) => candidate.id === callable.id) ??
       null,
@@ -770,41 +803,41 @@ async function exerciseChildCallableCommitParity(
 
 async function dragFreeSectionToSection(
   client,
-  sourceId,
-  targetId,
+  sourceSelector,
+  targetSelector,
   description,
   targetYFraction,
 ) {
   await dragSection(client, {
     description,
     mode: "free",
-    sourceId,
-    targetSelector: sectionSelector(targetId),
+    sourceSelector,
+    targetSelector,
     targetYFraction,
   });
 }
 
 async function dragSortedSectionToSection(
   client,
-  sourceId,
-  targetId,
+  sourceSelector,
+  targetSelector,
   description,
   targetYFraction,
 ) {
   await dragSection(client, {
     description,
     mode: "sorting",
-    sourceId,
-    targetSelector: sectionSelector(targetId),
+    sourceSelector,
+    targetSelector,
     targetYFraction,
   });
 }
 
-async function dragFreeSectionToCanvas(client, sourceId, description) {
+async function dragFreeSectionToCanvas(client, sourceSelector, description) {
   await dragSection(client, {
     description,
     mode: "free",
-    sourceId,
+    sourceSelector,
     targetSelector:
       '.react-flow__pane[aria-label="Workspace canvas background"]',
     targetYFraction: 0.25,
@@ -812,7 +845,7 @@ async function dragFreeSectionToCanvas(client, sourceId, description) {
 }
 
 async function dragSection(client, configuration) {
-  const sourceSelector = sectionSelector(configuration.sourceId);
+  const { sourceSelector } = configuration;
   await focusElement(
     client,
     sourceSelector,

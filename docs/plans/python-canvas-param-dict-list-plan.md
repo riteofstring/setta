@@ -9,8 +9,9 @@ app-owned kinds, forest projection/DnD persistence, subscription-safe dictionary
 and diagnostics, list increment/decrement controls, and placeholder geometry reconciliation) are
 implemented and
 covered by focused frontend tests. The existing single production browser walkthrough now contains
-the seven Param Dict/List acceptance flows; supervised production headless execution, review, and
-Code Policy closeout remain incomplete.**
+the seven Param Dict/List acceptance flows and maps each canonical section type to its workspace
+section identity, with a static selector regression; supervised production headless execution,
+review, and Code Policy closeout remain incomplete.**
 
 Add the next two Python Canvas section types from main: **Param Dict** and **List of Objects**.
 This is one closed vertical slice across the validated Go aggregate, strict project file, generated
