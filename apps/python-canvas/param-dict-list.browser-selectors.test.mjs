@@ -23,6 +23,9 @@ import {
   listNestedSortableSectionSelector,
   releaseMovingFreeSectionDragMode,
   sectionDragStartPoint,
+  sectionDragPointerHoldMs,
+  sectionDragPointerMoveSteps,
+  tryMovingFreeSectionDrag,
   waitForSectionDragModeRelease,
   waitForListNestedChildOrder,
 } from "./param-dict-list.browser.mjs";
@@ -139,9 +142,7 @@ test("Section drag starts from a non-control title-header point and holds Alt th
         code: "AltLeft",
         key: "Alt",
         modifiers: 1,
-        nativeVirtualKeyCode: 18,
         type: "keyDown",
-        windowsVirtualKeyCode: 18,
       },
     },
     {
@@ -150,12 +151,97 @@ test("Section drag starts from a non-control title-header point and holds Alt th
         code: "AltLeft",
         key: "Alt",
         modifiers: 0,
-        nativeVirtualKeyCode: 18,
         type: "keyUp",
-        windowsVirtualKeyCode: 18,
       },
     },
   ]);
+});
+
+test("Section drag replays the donor pointer gesture with standard Alt payloads", async () => {
+  const inputEvents = [];
+  const trace = [];
+  const source = { x: 14, y: 28 };
+  const target = { x: 154, y: 168 };
+  const client = {
+    async send(method, parameters) {
+      if (method === "Runtime.evaluate") {
+        return { result: { value: true } };
+      }
+      inputEvents.push({ method, parameters });
+      trace.push(parameters.type);
+      return {};
+    },
+  };
+
+  const didActivate = await tryMovingFreeSectionDrag(client, {
+    captureFocus: false,
+    description: "the donor-shaped section drag",
+    onCaptureFocus: () => {
+      throw new Error("The gesture does not capture focus in this test.");
+    },
+    sleep: async (milliseconds) => {
+      trace.push(`sleep:${String(milliseconds)}`);
+    },
+    source,
+    sourceSelector: '[data-section-id="source"]',
+    target,
+  });
+
+  assert.equal(didActivate, true);
+  assert.deepEqual(trace, [
+    "keyDown",
+    "mouseMoved",
+    "mousePressed",
+    `sleep:${String(sectionDragPointerHoldMs)}`,
+    ...Array.from({ length: sectionDragPointerMoveSteps }, () => "mouseMoved"),
+    "mouseReleased",
+    "keyUp",
+  ]);
+  const keyEvents = inputEvents.filter(
+    ({ method }) => method === "Input.dispatchKeyEvent",
+  );
+  assert.deepEqual(
+    keyEvents.map(({ parameters }) => parameters),
+    [
+      { code: "AltLeft", key: "Alt", modifiers: 1, type: "keyDown" },
+      { code: "AltLeft", key: "Alt", modifiers: 0, type: "keyUp" },
+    ],
+  );
+  const mouseEvents = inputEvents
+    .filter(({ method }) => method === "Input.dispatchMouseEvent")
+    .map(({ parameters }) => parameters);
+  assert.deepEqual(mouseEvents[0], {
+    ...source,
+    buttons: 0,
+    modifiers: 1,
+    type: "mouseMoved",
+  });
+  assert.deepEqual(mouseEvents[1], {
+    ...source,
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    modifiers: 1,
+    type: "mousePressed",
+  });
+  assert.deepEqual(
+    mouseEvents.slice(2, 2 + sectionDragPointerMoveSteps),
+    Array.from({ length: sectionDragPointerMoveSteps }, (_, index) => ({
+      button: "left",
+      buttons: 1,
+      modifiers: 1,
+      type: "mouseMoved",
+      x: source.x + (index + 1) * 10,
+      y: source.y + (index + 1) * 10,
+    })),
+  );
+  assert.deepEqual(mouseEvents.at(-1), {
+    ...target,
+    button: "left",
+    buttons: 0,
+    modifiers: 1,
+    type: "mouseReleased",
+  });
 });
 
 test("List walkthrough waits for the exact mounted Param Dict drag source", () => {

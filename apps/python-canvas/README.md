@@ -81,10 +81,11 @@ metadata, and generated Python bytes.
 It starts local services and a browser, so do not run it unless that suite is
 explicitly authorized.
 
-The walkthrough launches the resolved Chrome binary only with `--headless=new`
-and a disposable profile. Its launcher uses a mock keychain and the basic
-password store, does not attach to an existing browser session, and keeps
-keyboard shortcuts inside the page so the suite cannot take desktop focus. By
-default it resolves the system Google Chrome executable on macOS;
-`PYTHON_CANVAS_CHROME_BINARY` may name a different existing absolute Chromium
-executable for a headless environment.
+The walkthrough launches an explicit headless Chrome executable only with
+`--headless=new` and a disposable profile. Its launcher uses a mock keychain
+and the basic password store, does not attach to an existing browser session,
+and keeps keyboard shortcuts inside the page so the suite cannot take desktop
+focus. On macOS, `PYTHON_CANVAS_CHROME_BINARY` is required and must name an
+absolute raw `chrome-headless-shell` executable; GUI
+`.app/Contents/MacOS` application paths are rejected. The `--mute-audio` flag
+only mutes renderer audio and cannot suppress AppKit system-alert sounds.

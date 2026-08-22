@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { fetchCanonicalSnapshot } from "./browser-processes.mjs";
 import {
@@ -62,6 +63,8 @@ const dictionaryEntryWorkspaceItemPrefix =
 
 const sectionDragActivationAttemptLimit = 3;
 const sectionDragActivationTimeoutMs = 2_000;
+export const sectionDragPointerHoldMs = 200;
+export const sectionDragPointerMoveSteps = 14;
 
 export const dictionaryEntryChildAdoptionDragTarget = Object.freeze({
   targetXFraction: 0.5,
@@ -927,9 +930,10 @@ async function dragSection(client, configuration) {
   );
 }
 
-async function tryMovingFreeSectionDrag(client, configuration) {
+export async function tryMovingFreeSectionDrag(client, configuration) {
   const modifiers = sectionDragModifiers();
   let mousePressed = false;
+  let pointer = configuration.source;
   await holdMovingFreeSectionDragMode(client);
   try {
     await waitFor(
@@ -946,7 +950,13 @@ async function tryMovingFreeSectionDrag(client, configuration) {
       );
     }
     await client.send("Input.dispatchMouseEvent", {
-      ...configuration.source,
+      ...pointer,
+      buttons: 0,
+      modifiers,
+      type: "mouseMoved",
+    });
+    await client.send("Input.dispatchMouseEvent", {
+      ...pointer,
       button: "left",
       buttons: 1,
       clickCount: 1,
@@ -954,16 +964,26 @@ async function tryMovingFreeSectionDrag(client, configuration) {
       type: "mousePressed",
     });
     mousePressed = true;
-    await nextAnimationFrame(client);
-    await client.send("Input.dispatchMouseEvent", {
-      button: "left",
-      buttons: 1,
-      modifiers,
-      type: "mouseMoved",
-      x: (configuration.source.x + configuration.target.x) / 2,
-      y: (configuration.source.y + configuration.target.y) / 2,
-    });
-    await nextAnimationFrame(client);
+    await (configuration.sleep ?? delay)(sectionDragPointerHoldMs);
+    for (let step = 1; step <= sectionDragPointerMoveSteps; step += 1) {
+      pointer = {
+        x:
+          configuration.source.x +
+          ((configuration.target.x - configuration.source.x) * step) /
+            sectionDragPointerMoveSteps,
+        y:
+          configuration.source.y +
+          ((configuration.target.y - configuration.source.y) * step) /
+            sectionDragPointerMoveSteps,
+      };
+      await client.send("Input.dispatchMouseEvent", {
+        ...pointer,
+        button: "left",
+        buttons: 1,
+        modifiers,
+        type: "mouseMoved",
+      });
+    }
     if (
       !(await waitForSectionDragActivation(
         client,
@@ -974,15 +994,7 @@ async function tryMovingFreeSectionDrag(client, configuration) {
       return false;
     }
     await client.send("Input.dispatchMouseEvent", {
-      ...configuration.target,
-      button: "left",
-      buttons: 1,
-      modifiers,
-      type: "mouseMoved",
-    });
-    await nextAnimationFrame(client);
-    await client.send("Input.dispatchMouseEvent", {
-      ...configuration.target,
+      ...pointer,
       button: "left",
       buttons: 0,
       modifiers,
@@ -993,7 +1005,7 @@ async function tryMovingFreeSectionDrag(client, configuration) {
   } finally {
     if (mousePressed) {
       await client.send("Input.dispatchMouseEvent", {
-        ...configuration.source,
+        ...pointer,
         button: "left",
         buttons: 0,
         modifiers,
@@ -1023,9 +1035,7 @@ export async function holdMovingFreeSectionDragMode(client) {
     code: "AltLeft",
     key: "Alt",
     modifiers: 1,
-    nativeVirtualKeyCode: 18,
     type: "keyDown",
-    windowsVirtualKeyCode: 18,
   });
 }
 
@@ -1034,9 +1044,7 @@ export async function releaseMovingFreeSectionDragMode(client) {
     code: "AltLeft",
     key: "Alt",
     modifiers: 0,
-    nativeVirtualKeyCode: 18,
     type: "keyUp",
-    windowsVirtualKeyCode: 18,
   });
 }
 

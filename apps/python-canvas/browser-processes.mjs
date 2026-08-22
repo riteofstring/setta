@@ -1,10 +1,13 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import {
+  accessSync,
+  constants,
   existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import os from "node:os";
@@ -21,9 +24,6 @@ const launcherPath = path.join(
   "scripts",
   "run-python-canvas.sh",
 );
-const chromeDefaultPath =
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-
 export const productionTimeoutMs = 30_000;
 const productionViewport = {
   deviceScaleFactor: 1,
@@ -133,22 +133,47 @@ export async function fetchCanonicalSnapshot(backendOrigin) {
   return response.json();
 }
 
-function chromeBinaryPath() {
-  const explicitPath = process.env.PYTHON_CANVAS_CHROME_BINARY;
-  if (explicitPath !== undefined && explicitPath !== "") {
-    if (!path.isAbsolute(explicitPath) || !existsSync(explicitPath)) {
+function isExecutableFile(filePath) {
+  try {
+    accessSync(filePath, constants.X_OK);
+    return statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function isMacOSGuiApplicationPath(filePath) {
+  return /(?:^|\/)[^/]+\.app\/Contents\/MacOS(?:\/|$)/iu.test(
+    path.normalize(filePath),
+  );
+}
+
+export function resolveHeadlessChromeBinary({
+  environment = process.env,
+  platform = process.platform,
+} = {}) {
+  const explicitPath = environment.PYTHON_CANVAS_CHROME_BINARY;
+  if (typeof explicitPath !== "string" || explicitPath === "") {
+    if (platform === "darwin") {
       throw new Error(
-        "PYTHON_CANVAS_CHROME_BINARY must name an existing absolute Chrome path.",
+        "PYTHON_CANVAS_CHROME_BINARY is required on macOS and must name an absolute raw chrome-headless-shell executable.",
       );
     }
-    return explicitPath;
-  }
-  if (!existsSync(chromeDefaultPath)) {
     throw new Error(
-      "Chrome is required for the Python Canvas browser suite. Set PYTHON_CANVAS_CHROME_BINARY to an absolute executable path.",
+      "A headless Chrome executable is required for the Python Canvas browser suite. Set PYTHON_CANVAS_CHROME_BINARY to an absolute executable path.",
     );
   }
-  return chromeDefaultPath;
+  if (platform === "darwin" && isMacOSGuiApplicationPath(explicitPath)) {
+    throw new Error(
+      "PYTHON_CANVAS_CHROME_BINARY must name a raw chrome-headless-shell executable on macOS; GUI .app/Contents/MacOS application paths are not supported.",
+    );
+  }
+  if (!path.isAbsolute(explicitPath) || !isExecutableFile(explicitPath)) {
+    throw new Error(
+      "PYTHON_CANVAS_CHROME_BINARY must name an existing absolute executable path.",
+    );
+  }
+  return explicitPath;
 }
 
 export function headlessChromeArguments(profileDirectory) {
@@ -182,7 +207,7 @@ function startHeadlessChrome() {
     path.join(os.tmpdir(), "setta-python-canvas-chrome-"),
   );
   const browser = startProcess(
-    chromeBinaryPath(),
+    resolveHeadlessChromeBinary(),
     headlessChromeArguments(profileDirectory),
     { cwd: appRoot, label: "Headless Chrome" },
   );
