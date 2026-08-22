@@ -236,6 +236,14 @@ duplicate-name and removal checks. Those later actions are independent mutations
 from merely local generated output allowed a delayed value write to overlap the removal assertion.
 The focused Python Canvas suite (8 files / 68 tests) and browser-script syntax check passed.
 
+Implementation record — browser authoring completion correction: after restoring the refused
+duplicate name to `scale`, the walkthrough now requires the resulting next canonical revision and
+an enabled `scale expression` row before it removes the argument. The canonical project already
+held `scale=2`, so the earlier value-only wait could return before the replacement request and let
+the removal overlap that row's in-flight disabled state. The focused Python Canvas suite (8 files /
+68 tests), browser-script syntax check, and `code-policy test --changed` (the
+`python-canvas-frontend-focused` suite) passed.
+
 Environment evidence not yet sufficient for phase closeout: the supervisor completed
 `code-policy dependency-review --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
 against the no-script candidate lockfile with no vulnerabilities. The required local production

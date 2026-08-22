@@ -204,8 +204,16 @@ async function assertDuplicateNameIsRefusedInTheRow(client, backendOrigin) {
   await waitForCanonicalParameters(
     backendOrigin,
     "the renamed authored parameter",
-    (parameters) => parameters.length === 2 && parameters[1].name === "scale",
+    (parameters, canonical) =>
+      canonical.project.revision === beforeRename.project.revision + 1 &&
+      parameters.length === 2 &&
+      parameters[1].name === "scale" &&
+      parameters[1].authoredExpression === "2",
   );
+  // The canonical list already held scale=2 before the rejected duplicate-name edit. Wait for the
+  // replacement revision and the response's row projection, otherwise the next structural action
+  // can run while this row is still disabled for the re-entry request.
+  await waitForEditableRowControl(client, "scale expression");
 }
 
 // Delete Selected is one validated transaction rather than a loop of partial deletes, so two
@@ -311,7 +319,7 @@ async function waitForCanonicalParameters(backendOrigin, description, matches) {
   while (Date.now() < deadline) {
     const canonical = await fetchCanonicalSnapshot(backendOrigin);
     parameters = canonical.parameters ?? [];
-    if (matches(parameters)) {
+    if (matches(parameters, canonical)) {
       return canonical;
     }
     await delay(100);
