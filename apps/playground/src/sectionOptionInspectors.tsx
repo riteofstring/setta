@@ -49,8 +49,16 @@ function withPlaygroundCodeMode(
   current: WorkspaceCodeSectionData,
   mode: WorkspaceCodeSectionMode,
 ): WorkspaceCodeSectionData {
-  const { code, indentWidth, language, lineNumbers, wrapLines } = current;
-  const common = { code, indentWidth, language, lineNumbers, wrapLines };
+  const { code, diagnostics, indentWidth, language, lineNumbers, wrapLines } =
+    current;
+  const common = {
+    code,
+    diagnostics,
+    indentWidth,
+    language,
+    lineNumbers,
+    wrapLines,
+  };
   if (mode !== "generated-document") {
     return { ...common, mode };
   }
