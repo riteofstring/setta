@@ -7,6 +7,8 @@ export type PythonCanvasMutationContextValue = {
   ) => TextValueCompletionProvider | undefined;
   callableCompletionError: (callableId: string) => string | null;
   callableMutationError: (callableId: string) => string | null;
+  dictionaryMutationError: (dictionaryId: string) => string | null;
+  listMutationError: (listId: string) => string | null;
   parameterAuthoringPending: (callableId: string) => boolean;
   callableDraft: (callableId: string) => string;
   onCallableAlternateCommit: (callableId: string, value: string) => void;
@@ -23,6 +25,18 @@ export type PythonCanvasMutationContextValue = {
     parameterId: string,
     name: string,
   ) => void;
+  onDictionaryEntryExpressionChange: (
+    dictionaryId: string,
+    entryId: string,
+    value: string,
+  ) => void;
+  onDictionaryEntryNameChange: (
+    dictionaryId: string,
+    entryId: string,
+    name: string,
+  ) => void;
+  onListDecrement: (listId: string, count: number) => void;
+  onListIncrement: (listId: string, count: number) => void;
 };
 
 export const PythonCanvasMutationContext =

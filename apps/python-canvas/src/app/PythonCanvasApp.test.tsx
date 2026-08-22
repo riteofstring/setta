@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
 
 import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
-import type { ParameterV2 } from "../backend/generatedContract";
+import type {
+  DictionaryEntryV2,
+  ParameterV2,
+} from "../backend/generatedContract";
 import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
 import { ProjectClientError } from "../backend/client";
 
@@ -13,21 +16,32 @@ const mocks = vi.hoisted(() => ({
   commitCallable: vi.fn(),
   commitWorkspaceDocument: vi.fn(),
   createCallable: vi.fn(),
+  createList: vi.fn(),
+  createParameterDictionary: vi.fn(),
+  decrementListChildren: vi.fn(),
   deleteCallable: vi.fn(),
+  deleteList: vi.fn(),
+  deleteParameterDictionary: vi.fn(),
   createWorkspaceCodeSection: vi.fn(),
   createWorkspaceHost: vi.fn(),
   fetchProjectSnapshot: vi.fn(),
   getWorkspaceCodeSectionData: vi.fn(),
+  incrementListChildren: vi.fn(),
   refreshCallableParameters: vi.fn(),
   renameCallable: vi.fn(),
+  renameList: vi.fn(),
+  renameParameterDictionary: vi.fn(),
   registerWorkspaceCreationCommands: vi.fn(),
   registerSectionKinds: vi.fn(),
+  replaceSectionForest: vi.fn(),
   renderWorkspaceCanvas: false,
   setItemData: vi.fn(),
   setCallableParameters: vi.fn(),
+  setParameterDictionaryEntries: vi.fn(),
   setPythonTarget: vi.fn(),
   setWorkspaceColorMode: vi.fn(),
   textValueEditorProps: [] as Array<Record<string, unknown>>,
+  workspaceCanvasSectionId: null as string | null,
   workspaceCanvasHost: null as {
     getSnapshot: () => {
       sections: Record<string, unknown>;
@@ -41,6 +55,8 @@ type MockSectionRegistration = {
     renderLeadingContent?: (section: unknown) => ReactNode;
     toolbar?: string;
   };
+  nestedSections?: string;
+  renderContent?: (section: unknown) => ReactNode;
 };
 
 type MockCreationCommand = {
@@ -59,8 +75,26 @@ function MockWorkspaceCanvas() {
       )}
       data-testid="workspace-canvas"
     >
-      {mocks.renderWorkspaceCanvas ? mockWorkspaceLeadingContent() : null}
+      {mocks.renderWorkspaceCanvas ? mockWorkspaceContent() : null}
     </div>
+  );
+}
+
+function mockWorkspaceContent(): ReactNode {
+  if (mocks.workspaceCanvasSectionId === null) {
+    return mockWorkspaceLeadingContent();
+  }
+  const host = mocks.workspaceCanvasHost;
+  if (host === null) {
+    return null;
+  }
+  const section = host.getSnapshot().sections[mocks.workspaceCanvasSectionId];
+  const sectionKind = mockSectionKind(section);
+  if (sectionKind === null) {
+    return null;
+  }
+  return (
+    lastMockSectionRegistrations()[sectionKind]?.renderContent?.(section) ?? null
   );
 }
 
@@ -109,25 +143,28 @@ function requiredMockSectionRegistration(
   return registration;
 }
 
-function requiredMockCreationCommand(): MockCreationCommand {
+function requiredMockCreationCommand(
+  id = "python-callable",
+): MockCreationCommand {
   const commands = mocks.registerWorkspaceCreationCommands.mock.calls.at(
     -1,
   )?.[1] as ReadonlyArray<MockCreationCommand> | undefined;
   const command = commands?.find(
-    (candidate) => candidate.id === "python-callable",
+    (candidate) => candidate.id === id,
   );
   if (command === undefined) {
-    throw new Error("Missing Python callable creation command.");
+    throw new Error(`Missing ${id} creation command.`);
   }
   return command;
 }
 
 function invokeMockCreationCommand(
   context: unknown,
+  id = "python-callable",
 ): WorkspaceDocument["sections"][string] {
   let section: WorkspaceDocument["sections"][string] | null = null;
   act(() => {
-    section = requiredMockCreationCommand().createSection(context);
+    section = requiredMockCreationCommand(id).createSection(context);
   });
   if (section === null) {
     throw new Error(
@@ -154,11 +191,21 @@ vi.mock("../backend/client", () => ({
   },
   commitCallable: mocks.commitCallable,
   createCallable: mocks.createCallable,
+  createList: mocks.createList,
+  createParameterDictionary: mocks.createParameterDictionary,
+  decrementListChildren: mocks.decrementListChildren,
   deleteCallable: mocks.deleteCallable,
+  deleteList: mocks.deleteList,
+  deleteParameterDictionary: mocks.deleteParameterDictionary,
   fetchProjectSnapshot: mocks.fetchProjectSnapshot,
+  incrementListChildren: mocks.incrementListChildren,
   refreshCallableParameters: mocks.refreshCallableParameters,
   renameCallable: mocks.renameCallable,
+  renameList: mocks.renameList,
+  renameParameterDictionary: mocks.renameParameterDictionary,
+  replaceSectionForest: mocks.replaceSectionForest,
   setCallableParameters: mocks.setCallableParameters,
+  setParameterDictionaryEntries: mocks.setParameterDictionaryEntries,
   setPythonTarget: mocks.setPythonTarget,
 }));
 
@@ -197,8 +244,15 @@ import { PythonCanvasView } from "./PythonCanvasView";
 import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import {
   CALLABLE_SECTION_KIND,
+  LIST_SECTION_KIND,
   PENDING_CALLABLE_SECTION_KIND,
+  PENDING_LIST_SECTION_KIND,
+  PENDING_PARAMETER_DICTIONARY_SECTION_KIND,
+  PARAMETER_DICTIONARY_SECTION_KIND,
   callableSectionID,
+  dictionaryEntryWorkspaceItemID,
+  listSectionID,
+  parameterDictionarySectionID,
   parameterWorkspaceItemID,
   readCallableParameterItems,
 } from "./workspaceProjection";
@@ -214,6 +268,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.textValueEditorProps.length = 0;
   mocks.renderWorkspaceCanvas = false;
+  mocks.workspaceCanvasSectionId = null;
   mocks.workspaceCanvasHost = null;
   mocks.createWorkspaceCodeSection.mockReturnValue({
     renderContent: () => <div data-testid="target-editor" />,
@@ -247,6 +302,7 @@ describe("PythonCanvasApp", () => {
           parameters: [],
         },
       ],
+      topLevelSectionIds: ["callable:created"],
       project: {
         ...initialSnapshot.project,
         revision: initialSnapshot.project.revision + 1,
@@ -314,6 +370,123 @@ describe("PythonCanvasApp", () => {
       workspace.getDocument().topLevelSections[canonicalSectionId],
     ).toEqual(pendingLayout);
     expect(workspace.getDocument().activeIds).toEqual([canonicalSectionId]);
+    expect(workspace.getDocument().sections[canonicalSectionId]).toMatchObject({
+      positionAndSizeLocked: false,
+    });
+  });
+
+  it("registers the exact three Python creation labels", async () => {
+    renderApp();
+    await flushEffects();
+
+    const commands = mocks.registerWorkspaceCreationCommands.mock.calls.at(
+      -1,
+    )?.[1] as ReadonlyArray<MockCreationCommand> | undefined;
+    expect(commands?.map((command) => command.label)).toEqual([
+      "Python callable",
+      "Param Dict",
+      "List of Objects",
+    ]);
+  });
+
+  it("serializes dictionary item-tree changes at the current revision", async () => {
+    const initialSnapshot = dictionarySnapshot(1, []);
+    const entries = [
+      {
+        authoredExpression: "4",
+        id: "entry:radius",
+        kind: "leaf" as const,
+        name: "radius",
+      },
+    ];
+    const persistedSnapshot = dictionarySnapshot(2, entries);
+    const workspace = installWorkspaceHarness();
+    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
+    mocks.setParameterDictionaryEntries.mockResolvedValueOnce(
+      persistedSnapshot,
+    );
+
+    renderApp();
+    await flushEffects();
+    workspace.publish(
+      appendDictionaryEntry(
+        workspace.getDocument(),
+        "dictionary:options",
+        entries[0]!,
+      ),
+    );
+    await flushEffects();
+
+    expect(mocks.setParameterDictionaryEntries).toHaveBeenCalledWith(
+      "dictionary:options",
+      {
+        entries,
+        expectedRevision: initialSnapshot.project.revision,
+        projectId: initialSnapshot.project.id,
+      },
+    );
+    expect(
+      workspace.getDocument().sections[
+        parameterDictionarySectionID("dictionary:options")
+      ]?.itemTree?.items[dictionaryEntryWorkspaceItemID("entry:radius")],
+    ).toMatchObject({
+      data: {
+        authoredExpression: "4",
+        kind: "leaf",
+        name: "radius",
+      },
+    });
+  });
+
+  it("serializes list increment and decrement commands with their latest revisions", async () => {
+    const initialSnapshot = listSnapshot(1, []);
+    const incrementedSnapshot = listSnapshot(2, ["callable:created"]);
+    const decrementedSnapshot = listSnapshot(3, []);
+    const workspace = installWorkspaceHarness();
+    mocks.renderWorkspaceCanvas = true;
+    mocks.workspaceCanvasHost = workspace.host as unknown as {
+      getSnapshot: () => { sections: Record<string, unknown> };
+    };
+    mocks.workspaceCanvasSectionId = listSectionID("list:objects");
+    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
+    mocks.incrementListChildren.mockResolvedValueOnce(incrementedSnapshot);
+    mocks.decrementListChildren.mockResolvedValueOnce(decrementedSnapshot);
+
+    const view = renderApp();
+    await flushEffects();
+    const add = view.querySelector<HTMLButtonElement>(
+      "button[aria-label='Add children']",
+    );
+    if (add === null) {
+      throw new Error("Expected the List of Objects add button.");
+    }
+    expect(add.disabled).toBe(false);
+    await act(async () => {
+      add.click();
+      await flushMicrotasks();
+    });
+    expect(mocks.incrementListChildren).toHaveBeenCalledWith("list:objects", {
+      count: 1,
+      expectedRevision: 1,
+      projectId: initialSnapshot.project.id,
+    });
+
+    const remove = view.querySelector<HTMLButtonElement>(
+      "button[aria-label='Remove children']",
+    );
+    if (remove === null) {
+      throw new Error("Expected the List of Objects remove button.");
+    }
+    expect(remove.disabled).toBe(false);
+    await act(async () => {
+      remove.click();
+      await flushMicrotasks();
+    });
+    expect(mocks.decrementListChildren).toHaveBeenCalledWith("list:objects", {
+      count: 1,
+      expectedRevision: 2,
+      projectId: incrementedSnapshot.project.id,
+    });
   });
 
   it("persists a callable rename made through the workspace section header", async () => {
@@ -360,6 +533,7 @@ describe("PythonCanvasApp", () => {
     const deletedSnapshot = parseProjectSnapshotV2({
       ...initialSnapshot,
       callables: [],
+      topLevelSectionIds: [],
       project: { ...initialSnapshot.project, revision: 2 },
     });
     const workspace = installWorkspaceHarness();
@@ -425,7 +599,7 @@ describe("PythonCanvasApp", () => {
     ).toContain("Unable to update the callable");
   });
 
-  it("registers parameter authoring and pending filter-only workspace controls", () => {
+  it("registers authored dictionaries and vertical lists through their app-owned kinds", () => {
     const host = createHost();
     registerPythonCanvasSectionKinds(host);
 
@@ -433,9 +607,23 @@ describe("PythonCanvasApp", () => {
     const pending = requiredMockSectionRegistration(
       PENDING_CALLABLE_SECTION_KIND,
     );
+    const dictionary = requiredMockSectionRegistration(
+      PARAMETER_DICTIONARY_SECTION_KIND,
+    );
+    const pendingDictionary = requiredMockSectionRegistration(
+      PENDING_PARAMETER_DICTIONARY_SECTION_KIND,
+    );
+    const list = requiredMockSectionRegistration(LIST_SECTION_KIND);
+    const pendingList = requiredMockSectionRegistration(PENDING_LIST_SECTION_KIND);
     expect(authoring.itemArea?.toolbar).toBe("authoring-and-filter");
     expect(pending.itemArea?.toolbar).toBe("filter-only");
     expect(pending.createItem).toBeUndefined();
+    expect(dictionary.itemArea?.toolbar).toBe("authoring-and-filter");
+    expect(dictionary.createItem).toEqual(expect.any(Function));
+    expect(pendingDictionary.itemArea?.toolbar).toBe("filter-only");
+    expect(pendingDictionary.createItem).toBeUndefined();
+    expect(list.nestedSections).toBe("vertical");
+    expect(pendingList.nestedSections).toBe("vertical");
   });
 
   it("associates target completion failures with the app-owned editor boundary", () => {
@@ -516,6 +704,7 @@ describe("PythonCanvasApp", () => {
           parameters: [],
         },
       ],
+      topLevelSectionIds: ["callable:created"],
       project: {
         ...initialSnapshot.project,
         revision: initialSnapshot.project.revision + 1,
@@ -1060,7 +1249,37 @@ function callableSnapshot(
         parameters,
       },
     ],
+    topLevelSectionIds: ["callable:one"],
     project: { ...projectSnapshotFixture.project, revision },
+  });
+}
+
+function dictionarySnapshot(
+  revision: number,
+  entries: DictionaryEntryV2[],
+) {
+  return parseProjectSnapshotV2({
+    ...projectSnapshotFixture,
+    parameterDictionaries: [
+      { entries, id: "dictionary:options", name: "Options" },
+    ],
+    project: { ...projectSnapshotFixture.project, revision },
+    topLevelSectionIds: ["dictionary:options"],
+  });
+}
+
+function listSnapshot(revision: number, childSectionIds: string[]) {
+  return parseProjectSnapshotV2({
+    ...projectSnapshotFixture,
+    callables: childSectionIds.map((id) => ({
+      authoredExpression: "",
+      id,
+      name: "New callable",
+      parameters: [],
+    })),
+    lists: [{ childSectionIds, id: "list:objects", name: "Objects" }],
+    project: { ...projectSnapshotFixture.project, revision },
+    topLevelSectionIds: ["list:objects"],
   });
 }
 
@@ -1167,6 +1386,49 @@ function appendParameter(
   };
 }
 
+function appendDictionaryEntry(
+  document: WorkspaceDocument,
+  dictionaryId: string,
+  entry: DictionaryEntryV2,
+): WorkspaceDocument {
+  const sectionId = parameterDictionarySectionID(dictionaryId);
+  const section = document.sections[sectionId];
+  const itemTree = section?.itemTree;
+  const root = itemTree?.items[itemTree.rootId];
+  if (section === undefined || itemTree === undefined || root === undefined) {
+    throw new Error(`Missing dictionary entry list for ${dictionaryId}.`);
+  }
+  if (entry.kind !== "leaf") {
+    throw new Error("This test helper accepts only dictionary leaf entries.");
+  }
+  const itemId = dictionaryEntryWorkspaceItemID(entry.id);
+  return {
+    ...document,
+    sections: {
+      ...document.sections,
+      [sectionId]: {
+        ...section,
+        itemTree: {
+          ...itemTree,
+          items: {
+            ...itemTree.items,
+            [root.id]: { ...root, children: [...root.children, itemId] },
+            [itemId]: {
+              children: [],
+              data: {
+                authoredExpression: entry.authoredExpression,
+                kind: entry.kind,
+                name: entry.name,
+              },
+              id: itemId,
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
 function parameterIds(document: WorkspaceDocument, callableId: string) {
   return readCallableParameterItems(document, callableId).map(
     (parameter) => parameter.id,
@@ -1220,6 +1482,8 @@ function renderView(
           callableCompletionError: () => null,
           callableCompletionProvider: () => undefined,
           callableMutationError: () => null,
+          dictionaryMutationError: () => null,
+          listMutationError: () => null,
           callableDraft: () => "",
           onCallableAlternateCommit: vi.fn(),
           onCallableCommit: vi.fn(),
@@ -1227,6 +1491,10 @@ function renderView(
           onCallableRevert: vi.fn(),
           onParameterExpressionChange: vi.fn(),
           onParameterNameChange: vi.fn(),
+          onDictionaryEntryExpressionChange: vi.fn(),
+          onDictionaryEntryNameChange: vi.fn(),
+          onListDecrement: vi.fn(),
+          onListIncrement: vi.fn(),
           parameterAuthoringPending: () => false,
         }}
         pythonTargetCompletionError={pythonTargetCompletionError}

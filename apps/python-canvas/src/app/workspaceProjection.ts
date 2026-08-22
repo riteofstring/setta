@@ -16,9 +16,14 @@ import {
 
 import {
   DIAGNOSTIC_SEVERITY_INFORMATION_V2,
+  DICTIONARY_ENTRY_KIND_LEAF_V2,
+  DICTIONARY_ENTRY_KIND_PARENT_V2,
   PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
   type CallableV2,
   type DiagnosticV2,
+  type DictionaryEntryV2,
+  type ListV2,
+  type ParameterDictionaryV2,
   type ParameterV2,
   type ProjectSnapshotV2,
 } from "../backend/generatedContract";
@@ -27,64 +32,99 @@ import {
   type ParameterItemData,
   readParameterItemData,
 } from "../sections/CallableSection";
+import {
+  type DictionaryEntryItemData,
+  type ParameterDictionarySectionData,
+  readDictionaryEntryItemData,
+} from "../sections/ParamDictSection";
+import { type ListSectionData } from "../sections/ListSection";
 
 export const CALLABLE_SECTION_KIND = "python-canvas.callable" as const;
 export const PENDING_CALLABLE_SECTION_KIND =
   "python-canvas.callable-pending" as const;
+export const PARAMETER_DICTIONARY_SECTION_KIND =
+  "python-canvas.parameter-dictionary" as const;
+export const PENDING_PARAMETER_DICTIONARY_SECTION_KIND =
+  "python-canvas.parameter-dictionary-pending" as const;
+export const LIST_SECTION_KIND = "python-canvas.list" as const;
+export const PENDING_LIST_SECTION_KIND = "python-canvas.list-pending" as const;
 export const GENERATED_PYTHON_SECTION_ID =
   "python-canvas:generated-python" as const;
 
 export const CALLABLE_SECTION_SIZE = { width: 360, height: 300 } as const;
+export const PARAMETER_DICTIONARY_SECTION_SIZE = {
+  width: 420,
+  height: 300,
+} as const;
+export const LIST_SECTION_SIZE = { width: 360, height: 144 } as const;
 export const GENERATED_PYTHON_SECTION_SIZE = {
   width: 640,
   height: 420,
 } as const;
 
 const generatedCodeSeparator = "\n\n";
+const parameterWorkspaceItemPrefix = "python-canvas:parameter-item:";
+const dictionaryEntryWorkspaceItemPrefix =
+  "python-canvas:dictionary-entry-item:";
+
+type ProjectSectionDescriptor =
+  | {
+      callable: CallableV2;
+      canonicalId: string;
+      kind: "callable";
+      workspaceId: string;
+    }
+  | {
+      canonicalId: string;
+      dictionary: ParameterDictionaryV2;
+      kind: "dictionary";
+      workspaceId: string;
+    }
+  | {
+      canonicalId: string;
+      kind: "list";
+      list: ListV2;
+      workspaceId: string;
+    };
+
+export type ProjectSnapshotProjectionOptions = Readonly<{
+  keepAuthoredPython: boolean;
+  keepDictionaryEntries: ReadonlySet<string>;
+  keepParameterLists: ReadonlySet<string>;
+  // Creation returns a short-lived local section before the canonical server
+  // identity is known. Reconcile that placeholder in place on its response.
+  pendingSectionIds: ReadonlyMap<string, string>;
+}>;
 
 export function callableSectionID(callableId: string): string {
   return `python-canvas:callable:${callableId}`;
+}
+
+export function parameterDictionarySectionID(dictionaryId: string): string {
+  return `python-canvas:parameter-dictionary:${dictionaryId}`;
+}
+
+export function listSectionID(listId: string): string {
+  return `python-canvas:list:${listId}`;
 }
 
 function parameterItemRootID(callableId: string): string {
   return `${callableSectionID(callableId)}:parameter-root`;
 }
 
-const parameterWorkspaceItemPrefix = "python-canvas:parameter-item:";
+function dictionaryEntryRootID(dictionaryId: string): string {
+  return `${parameterDictionarySectionID(dictionaryId)}:entry-root`;
+}
 
-// Canonical parameter IDs are opaque application data. Encode them into a
-// disjoint workspace-owned item namespace so no accepted canonical ID can
-// collide with the structural parameter root.
+// Canonical IDs are opaque application data. Their workspace structural
+// counterparts live in disjoint namespaces, including the two item roots.
 export function parameterWorkspaceItemID(parameterId: string): string {
   return `${parameterWorkspaceItemPrefix}${encodeURIComponent(parameterId)}`;
 }
 
-function canonicalParameterID(itemId: string): string {
-  if (!itemId.startsWith(parameterWorkspaceItemPrefix)) {
-    throw new Error(`Python Canvas parameter item ${itemId} is invalid.`);
-  }
-  const encoded = itemId.slice(parameterWorkspaceItemPrefix.length);
-  let parameterId: string;
-  try {
-    parameterId = decodeURIComponent(encoded);
-  } catch {
-    throw new Error(`Python Canvas parameter item ${itemId} is invalid.`);
-  }
-  if (parameterId === "" || parameterWorkspaceItemID(parameterId) !== itemId) {
-    throw new Error(`Python Canvas parameter item ${itemId} is invalid.`);
-  }
-  return parameterId;
+export function dictionaryEntryWorkspaceItemID(entryId: string): string {
+  return `${dictionaryEntryWorkspaceItemPrefix}${encodeURIComponent(entryId)}`;
 }
-
-export type ProjectSnapshotProjectionOptions = Readonly<{
-  keepAuthoredPython: boolean;
-  keepParameterLists: ReadonlySet<string>;
-  // The public creation command must synchronously return a section, while the
-  // server remains the source of truth for callable identity. Once the server
-  // responds, this maps its canonical callable ID back to that short-lived
-  // section so the viewport position and selection do not jump.
-  pendingCallableSectionIds: ReadonlyMap<string, string>;
-}>;
 
 export function createPendingCallableSection(
   snapshot: Pick<ProjectSnapshotV2, "providerStatus">,
@@ -93,18 +133,14 @@ export function createPendingCallableSection(
 ): WorkspaceSectionInput {
   const rootId = parameterItemRootID(sectionId);
   return {
-    id: sectionId,
-    kind: PENDING_CALLABLE_SECTION_KIND,
-    name,
-    size: CALLABLE_SECTION_SIZE,
-    overflowMode: false,
-    isMinimized: false,
+    ...ordinarySectionInput({
+      data: pendingCallableSectionData(snapshot, sectionId, name),
+      id: sectionId,
+      kind: PENDING_CALLABLE_SECTION_KIND,
+      name,
+      size: CALLABLE_SECTION_SIZE,
+    }),
     positionAndSizeLocked: true,
-    isHorizontalOrientation: false,
-    styleColor: null,
-    tagColor: null,
-    children: [],
-    data: pendingCallableSectionData(snapshot, sectionId, name),
     itemTree: {
       rootId,
       items: { [rootId]: { id: rootId, children: [] } },
@@ -113,41 +149,93 @@ export function createPendingCallableSection(
   };
 }
 
-function pendingCallableSectionData(
-  snapshot: Pick<ProjectSnapshotV2, "providerStatus">,
+export function createPendingParameterDictionarySection(
   sectionId: string,
   name: string,
-): CallableSectionData {
+): WorkspaceSectionInput {
+  const rootId = dictionaryEntryRootID(sectionId);
   return {
-    callable: {
-      authoredExpression: "",
+    ...ordinarySectionInput({
+      data: {
+        dictionary: { id: sectionId, name },
+        entryDiagnostics: {},
+      } satisfies ParameterDictionarySectionData,
       id: sectionId,
+      kind: PENDING_PARAMETER_DICTIONARY_SECTION_KIND,
       name,
+      size: PARAMETER_DICTIONARY_SECTION_SIZE,
+    }),
+    positionAndSizeLocked: true,
+    itemTree: {
+      rootId,
+      items: { [rootId]: { id: rootId, children: [] } },
+      selectedItemIds: [],
     },
-    callableDiagnosticMessage: null,
-    parameterDiagnostics: {},
-    providerStatus: snapshot.providerStatus,
+  };
+}
+
+export function createPendingListSection(
+  sectionId: string,
+  name: string,
+): WorkspaceSectionInput {
+  return {
+    ...ordinarySectionInput({
+      data: {
+        childCount: 0,
+        list: { id: sectionId, name },
+        pending: true,
+      } satisfies ListSectionData,
+      id: sectionId,
+      kind: PENDING_LIST_SECTION_KIND,
+      name,
+      size: LIST_SECTION_SIZE,
+    }),
+    positionAndSizeLocked: true,
   };
 }
 
 export function projectWorkspaceDocument(
   snapshot: ProjectSnapshotV2,
 ): WorkspaceDocument {
+  return projectWorkspaceDocumentWithDescriptors(
+    snapshot,
+    projectSectionDescriptors(snapshot),
+  );
+}
+
+function projectWorkspaceDocumentWithDescriptors(
+  snapshot: ProjectSnapshotV2,
+  descriptors: ReadonlyArray<ProjectSectionDescriptor>,
+): WorkspaceDocument {
+  const descriptorByCanonicalID = descriptorsByCanonicalID(descriptors);
   const sections: WorkspaceDocument["sections"] = {
     [GENERATED_PYTHON_SECTION_ID]: projectGeneratedPythonSection(snapshot),
   };
+  for (const descriptor of descriptors) {
+    sections[descriptor.workspaceId] = projectSection(
+      snapshot,
+      descriptor,
+      descriptorByCanonicalID,
+    );
+  }
   const topLevelSections: WorkspaceDocument["topLevelSections"] = {
     [GENERATED_PYTHON_SECTION_ID]: generatedPythonLayout(
-      snapshot.callables.length,
+      snapshot.topLevelSectionIds.length,
     ),
   };
-
-  for (const [index, callable] of snapshot.callables.entries()) {
-    const sectionId = callableSectionID(callable.id);
-    sections[sectionId] = projectCallableSection(snapshot, callable);
-    topLevelSections[sectionId] = callableLayout(index);
+  for (const [index, canonicalId] of snapshot.topLevelSectionIds.entries()) {
+    const descriptor = requireSectionDescriptor(
+      descriptorByCanonicalID,
+      canonicalId,
+    );
+    const section = sections[descriptor.workspaceId];
+    if (section === undefined) {
+      throw new Error(
+        `Python Canvas projection is missing ${descriptor.workspaceId}.`,
+      );
+    }
+    topLevelSections[descriptor.workspaceId] = sectionLayout(index, section);
   }
-
   return {
     sections,
     topLevelSections,
@@ -156,39 +244,68 @@ export function projectWorkspaceDocument(
   };
 }
 
-// Applies a complete canonical snapshot in one workspace transaction. Section
-// and item identities come from the current callable IDs. Canvas geometry
-// remains transient: it is retained when that exact section survives a
-// response, or when a just-created canonical callable replaces its pending
-// placeholder.
+// Publishes one complete canonical snapshot in a single workspace transaction.
+// The server owns data and placement; the client retains only section geometry,
+// local selection, filtering, and unresolved local item proposals.
 export function applyProjectSnapshotToWorkspace(
   host: WorkspaceHost,
   snapshot: ProjectSnapshotV2,
   options: ProjectSnapshotProjectionOptions,
 ): void {
   const current = host.getSnapshot();
-  const projected = projectWorkspaceDocument(snapshot);
-  const projectedCallables = projectCallableSections(
-    current,
-    projected,
-    snapshot,
-    options,
-  );
-  const projectedGenerated = projectGeneratedSection(
+  const descriptors = projectSectionDescriptors(snapshot);
+  const descriptorByCanonicalID = descriptorsByCanonicalID(descriptors);
+  const projected = projectWorkspaceDocumentWithDescriptors(snapshot, descriptors);
+  const sections: WorkspaceDocument["sections"] = {};
+
+  for (const descriptor of descriptors) {
+    const next = requireProjectedSection(projected, descriptor.workspaceId);
+    const pendingSectionId = options.pendingSectionIds.get(
+      descriptor.canonicalId,
+    );
+    const previous =
+      current.sections[descriptor.workspaceId] ??
+      (pendingSectionId === undefined
+        ? undefined
+        : current.sections[pendingSectionId]);
+    sections[descriptor.workspaceId] = projectCanonicalResponseSection(
+      previous,
+      next,
+      descriptor,
+      options,
+    );
+  }
+
+  const generated = projectGeneratedSection(
     current,
     projected,
     snapshot,
     options,
     host,
   );
-  const sections: WorkspaceDocument["sections"] = {
-    ...projectedCallables.sections,
-    [GENERATED_PYTHON_SECTION_ID]: projectedGenerated.section,
-  };
+  sections[GENERATED_PYTHON_SECTION_ID] = generated.section;
   const topLevelSections: WorkspaceDocument["topLevelSections"] = {
-    ...projectedCallables.topLevelSections,
-    [GENERATED_PYTHON_SECTION_ID]: projectedGenerated.layout,
+    [GENERATED_PYTHON_SECTION_ID]: generated.layout,
   };
+  for (const canonicalId of snapshot.topLevelSectionIds) {
+    const descriptor = requireSectionDescriptor(
+      descriptorByCanonicalID,
+      canonicalId,
+    );
+    const pendingSectionId = options.pendingSectionIds.get(canonicalId);
+    const layout =
+      current.topLevelSections[descriptor.workspaceId] ??
+      (pendingSectionId === undefined
+        ? undefined
+        : current.topLevelSections[pendingSectionId]) ??
+      projected.topLevelSections[descriptor.workspaceId];
+    if (layout === undefined) {
+      throw new Error(
+        `Python Canvas projection is missing top-level layout ${descriptor.workspaceId}.`,
+      );
+    }
+    topLevelSections[descriptor.workspaceId] = layout;
+  }
 
   commitWorkspaceDocument(host, {
     ...current,
@@ -197,139 +314,10 @@ export function applyProjectSnapshotToWorkspace(
     activeIds: projectActiveSectionIds(
       current.activeIds,
       sections,
-      options.pendingCallableSectionIds,
+      descriptors,
+      options.pendingSectionIds,
     ),
   });
-}
-
-function projectCallableSections(
-  current: WorkspaceDocument,
-  projected: WorkspaceDocument,
-  snapshot: ProjectSnapshotV2,
-  options: ProjectSnapshotProjectionOptions,
-): Pick<WorkspaceDocument, "sections" | "topLevelSections"> {
-  const sections: WorkspaceDocument["sections"] = {};
-  const topLevelSections: WorkspaceDocument["topLevelSections"] = {};
-  for (const [index, callable] of snapshot.callables.entries()) {
-    const sectionId = callableSectionID(callable.id);
-    const pendingSectionId = options.pendingCallableSectionIds.get(callable.id);
-    const previous =
-      current.sections[sectionId] ??
-      (pendingSectionId === undefined
-        ? undefined
-        : current.sections[pendingSectionId]);
-    const next = requireProjectedSection(projected, sectionId);
-    sections[sectionId] = projectCallableResponseSection(
-      previous,
-      next,
-      callable,
-      options,
-    );
-    topLevelSections[sectionId] =
-      current.topLevelSections[sectionId] ??
-      (pendingSectionId === undefined
-        ? undefined
-        : current.topLevelSections[pendingSectionId]) ??
-      projected.topLevelSections[sectionId] ??
-      callableLayout(index);
-  }
-  return { sections, topLevelSections };
-}
-
-function projectActiveSectionIds(
-  activeIds: ReadonlyArray<string>,
-  sections: WorkspaceDocument["sections"],
-  pendingCallableSectionIds: ReadonlyMap<string, string>,
-): string[] {
-  const canonicalIdsByPendingSectionId = new Map<string, string>();
-  for (const [callableId, pendingSectionId] of pendingCallableSectionIds) {
-    canonicalIdsByPendingSectionId.set(
-      pendingSectionId,
-      callableSectionID(callableId),
-    );
-  }
-  const projected: string[] = [];
-  for (const activeId of activeIds) {
-    const projectedId =
-      sections[activeId] === undefined
-        ? canonicalIdsByPendingSectionId.get(activeId)
-        : activeId;
-    if (
-      projectedId !== undefined &&
-      sections[projectedId] !== undefined &&
-      !projected.includes(projectedId)
-    ) {
-      projected.push(projectedId);
-    }
-  }
-  return projected;
-}
-
-function requireProjectedSection(
-  projected: WorkspaceDocument,
-  sectionId: string,
-): WorkspaceSection {
-  const section = projected.sections[sectionId];
-  if (section === undefined) {
-    throw new Error(`Python Canvas projection is missing ${sectionId}.`);
-  }
-  return section;
-}
-
-function projectCallableResponseSection(
-  previous: WorkspaceSection | undefined,
-  next: WorkspaceSection,
-  callable: CallableV2,
-  options: ProjectSnapshotProjectionOptions,
-): WorkspaceSection {
-  if (previous === undefined) {
-    return next;
-  }
-  return {
-    ...next,
-    itemTree: projectCallableItemTree(previous.itemTree, callable, options),
-  };
-}
-
-function projectCallableItemTree(
-  previous: WorkspaceSectionItemTree | undefined,
-  callable: CallableV2,
-  options: ProjectSnapshotProjectionOptions,
-): WorkspaceSectionItemTree {
-  if (previous !== undefined && options.keepParameterLists.has(callable.id)) {
-    return projectRetainedParameterItems(previous);
-  }
-  return projectCanonicalParameterItems(previous, callable);
-}
-
-function projectGeneratedSection(
-  current: WorkspaceDocument,
-  projected: WorkspaceDocument,
-  snapshot: ProjectSnapshotV2,
-  options: ProjectSnapshotProjectionOptions,
-  host: WorkspaceHost,
-): {
-  layout: WorkspaceDocument["topLevelSections"][string];
-  section: WorkspaceSection;
-} {
-  const next = requireProjectedSection(projected, GENERATED_PYTHON_SECTION_ID);
-  const previous = current.sections[GENERATED_PYTHON_SECTION_ID];
-  const section =
-    previous === undefined
-      ? next
-      : {
-          ...next,
-          data: options.keepAuthoredPython
-            ? retainedGeneratedCodeData(host, snapshot)
-            : next.data,
-        };
-  return {
-    layout:
-      current.topLevelSections[GENERATED_PYTHON_SECTION_ID] ??
-      projected.topLevelSections[GENERATED_PYTHON_SECTION_ID] ??
-      generatedPythonLayout(snapshot.callables.length),
-    section,
-  };
 }
 
 export function readGeneratedPythonTarget(host: WorkspaceHost): {
@@ -383,6 +371,82 @@ export function setParameterItemName(
   );
 }
 
+export function setDictionaryEntryExpression(
+  host: WorkspaceHost,
+  dictionaryId: string,
+  entryItemId: string,
+  authoredExpression: string,
+): void {
+  updateDictionaryEntryItem(host, dictionaryId, entryItemId, (data) => {
+    if (data.kind !== DICTIONARY_ENTRY_KIND_LEAF_V2) {
+      return null;
+    }
+    return data.authoredExpression === authoredExpression
+      ? null
+      : { ...data, authoredExpression };
+  });
+}
+
+export function setDictionaryEntryName(
+  host: WorkspaceHost,
+  dictionaryId: string,
+  entryItemId: string,
+  name: string,
+): void {
+  updateDictionaryEntryItem(host, dictionaryId, entryItemId, (data) =>
+    data.name === name ? null : { ...data, name },
+  );
+}
+
+// The generic item tree intentionally owns only structural movement. Once a
+// leaf owns a child, make its application data an explicit dictionary parent
+// in the same local document transaction. That marker remains after its last
+// child moves away, so an empty parent never turns back into a leaf expression.
+export function promoteDictionaryEntryParents(
+  host: WorkspaceHost,
+  dictionaryId: string,
+): boolean {
+  const document = host.getSnapshot();
+  const sectionId = parameterDictionarySectionID(dictionaryId);
+  const section = document.sections[sectionId];
+  const itemTree = section?.itemTree;
+  if (section === undefined || itemTree === undefined) {
+    return false;
+  }
+  let changed = false;
+  const items: WorkspaceSectionItemTree["items"] = { ...itemTree.items };
+  for (const [itemId, item] of Object.entries(itemTree.items)) {
+    if (itemId === itemTree.rootId || item.children.length === 0) {
+      continue;
+    }
+    const data = readDictionaryEntryItemData(item.data);
+    if (data.kind === DICTIONARY_ENTRY_KIND_LEAF_V2) {
+      items[itemId] = {
+        ...item,
+        data: {
+          kind: DICTIONARY_ENTRY_KIND_PARENT_V2,
+          name: data.name,
+        } satisfies DictionaryEntryItemData,
+      };
+      changed = true;
+    }
+  }
+  if (!changed) {
+    return false;
+  }
+  commitWorkspaceDocument(host, {
+    ...document,
+    sections: {
+      ...document.sections,
+      [sectionId]: {
+        ...section,
+        itemTree: { ...itemTree, items },
+      },
+    },
+  });
+  return true;
+}
+
 export function createCallableParameterItem(): WorkspaceItem {
   const parameterId = `parameter:authored:${crypto.randomUUID()}`;
   return {
@@ -397,6 +461,19 @@ export function createCallableParameterItem(): WorkspaceItem {
       providerOrdinal: null,
       typeAnnotation: null,
     } satisfies ParameterItemData,
+  };
+}
+
+export function createParameterDictionaryEntryItem(): WorkspaceItem {
+  const entryId = `dictionary-entry:authored:${crypto.randomUUID()}`;
+  return {
+    id: dictionaryEntryWorkspaceItemID(entryId),
+    children: [],
+    data: {
+      authoredExpression: "",
+      kind: DICTIONARY_ENTRY_KIND_LEAF_V2,
+      name: "",
+    } satisfies DictionaryEntryItemData,
   };
 }
 
@@ -434,54 +511,407 @@ export function readCallableParameterItems(
   }));
 }
 
+export function readParameterDictionaryEntries(
+  document: WorkspaceDocument,
+  dictionaryId: string,
+): DictionaryEntryV2[] {
+  const section = document.sections[parameterDictionarySectionID(dictionaryId)];
+  if (section?.itemTree === undefined) {
+    throw new Error(
+      `Python Canvas parameter dictionary ${dictionaryId} is missing.`,
+    );
+  }
+  return readDictionaryEntriesFromTree(section.itemTree);
+}
+
+// Returns only a complete placement proposal. A transient deletion or creation
+// intentionally returns null, leaving its typed create/delete command as the
+// sole owner of the mutation.
+export function workspaceForestProposal(
+  document: WorkspaceDocument,
+  snapshot: ProjectSnapshotV2,
+): {
+  listChildren: Array<{ childSectionIds: string[]; listId: string }>;
+  topLevelSectionIds: string[];
+} | null {
+  const descriptors = projectSectionDescriptors(snapshot);
+  const descriptorByWorkspaceID = new Map(
+    descriptors.map((descriptor) => [descriptor.workspaceId, descriptor]),
+  );
+  const canonicalIDs = new Set(
+    descriptors.map((descriptor) => descriptor.canonicalId),
+  );
+  const placements = new Set<string>();
+  const listChildren: Array<{ childSectionIds: string[]; listId: string }> = [];
+
+  for (const list of snapshot.lists) {
+    const section = document.sections[listSectionID(list.id)];
+    if (section === undefined) {
+      return null;
+    }
+    const childSectionIds: string[] = [];
+    for (const workspaceChildId of section.children) {
+      const child = descriptorByWorkspaceID.get(workspaceChildId);
+      if (child === undefined || placements.has(child.canonicalId)) {
+        return null;
+      }
+      placements.add(child.canonicalId);
+      childSectionIds.push(child.canonicalId);
+    }
+    listChildren.push({ childSectionIds, listId: list.id });
+  }
+
+  const topLevelSectionIds = Object.entries(document.topLevelSections)
+    .map(([workspaceId, layout]) => ({
+      descriptor: descriptorByWorkspaceID.get(workspaceId),
+      workspaceId,
+      zIndex: layout.zIndex,
+    }))
+    .filter(
+      (
+        entry,
+      ): entry is {
+        descriptor: ProjectSectionDescriptor;
+        workspaceId: string;
+        zIndex: number;
+      } => entry.descriptor !== undefined,
+    )
+    .sort(
+      (left, right) =>
+        left.zIndex - right.zIndex ||
+        left.workspaceId.localeCompare(right.workspaceId),
+    )
+    .map(({ descriptor }) => descriptor.canonicalId);
+  for (const canonicalId of topLevelSectionIds) {
+    if (placements.has(canonicalId)) {
+      return null;
+    }
+    placements.add(canonicalId);
+  }
+  if (
+    placements.size !== canonicalIDs.size ||
+    [...canonicalIDs].some((id) => !placements.has(id))
+  ) {
+    return null;
+  }
+  return { listChildren, topLevelSectionIds };
+}
+
+function ordinarySectionInput({
+  data,
+  id,
+  kind,
+  name,
+  size,
+}: {
+  data: WorkspaceSection["data"];
+  id: string;
+  kind: string;
+  name: string;
+  size: WorkspaceSection["size"];
+}): WorkspaceSection {
+  return {
+    id,
+    kind,
+    name,
+    size,
+    overflowMode: false,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isHorizontalOrientation: false,
+    styleColor: null,
+    tagColor: null,
+    children: [],
+    data,
+  };
+}
+
+function pendingCallableSectionData(
+  snapshot: Pick<ProjectSnapshotV2, "providerStatus">,
+  sectionId: string,
+  name: string,
+): CallableSectionData {
+  return {
+    callable: { authoredExpression: "", id: sectionId, name },
+    callableDiagnosticMessage: null,
+    parameterDiagnostics: {},
+    providerStatus: snapshot.providerStatus,
+  };
+}
+
+function projectSectionDescriptors(
+  snapshot: ProjectSnapshotV2,
+): ProjectSectionDescriptor[] {
+  return [
+    ...snapshot.callables.map((callable) => ({
+      callable,
+      canonicalId: callable.id,
+      kind: "callable" as const,
+      workspaceId: callableSectionID(callable.id),
+    })),
+    ...snapshot.parameterDictionaries.map((dictionary) => ({
+      canonicalId: dictionary.id,
+      dictionary,
+      kind: "dictionary" as const,
+      workspaceId: parameterDictionarySectionID(dictionary.id),
+    })),
+    ...snapshot.lists.map((list) => ({
+      canonicalId: list.id,
+      kind: "list" as const,
+      list,
+      workspaceId: listSectionID(list.id),
+    })),
+  ];
+}
+
+function descriptorsByCanonicalID(
+  descriptors: ReadonlyArray<ProjectSectionDescriptor>,
+): Map<string, ProjectSectionDescriptor> {
+  return new Map(
+    descriptors.map((descriptor) => [descriptor.canonicalId, descriptor]),
+  );
+}
+
+function requireSectionDescriptor(
+  descriptors: ReadonlyMap<string, ProjectSectionDescriptor>,
+  canonicalId: string,
+): ProjectSectionDescriptor {
+  const descriptor = descriptors.get(canonicalId);
+  if (descriptor === undefined) {
+    throw new Error(`Python Canvas projection is missing ${canonicalId}.`);
+  }
+  return descriptor;
+}
+
+function projectSection(
+  snapshot: ProjectSnapshotV2,
+  descriptor: ProjectSectionDescriptor,
+  descriptorByCanonicalID: ReadonlyMap<string, ProjectSectionDescriptor>,
+): WorkspaceSection {
+  switch (descriptor.kind) {
+    case "callable":
+      return projectCallableSection(snapshot, descriptor.callable);
+    case "dictionary":
+      return projectParameterDictionarySection(snapshot, descriptor.dictionary);
+    case "list":
+      return projectListSection(descriptor.list, descriptorByCanonicalID);
+  }
+}
+
+function projectCanonicalResponseSection(
+  previous: WorkspaceSection | undefined,
+  next: WorkspaceSection,
+  descriptor: ProjectSectionDescriptor,
+  options: ProjectSnapshotProjectionOptions,
+): WorkspaceSection {
+  if (previous === undefined) {
+    return next;
+  }
+  const retained = retainSectionPresentation(previous, next);
+  switch (descriptor.kind) {
+    case "callable":
+      return {
+        ...retained,
+        itemTree: projectCallableItemTree(
+          previous.itemTree,
+          descriptor.callable,
+          options,
+        ),
+      };
+    case "dictionary":
+      return {
+        ...retained,
+        itemTree: projectDictionaryItemTree(
+          previous.itemTree,
+          descriptor.dictionary,
+          options,
+        ),
+      };
+    case "list":
+      return retained;
+  }
+}
+
+function retainSectionPresentation(
+  previous: WorkspaceSection,
+  next: WorkspaceSection,
+): WorkspaceSection {
+  return {
+    ...next,
+    isHorizontalOrientation: previous.isHorizontalOrientation,
+    isMinimized: previous.isMinimized,
+    positionAndSizeLocked: isPendingPythonCanvasSection(previous.kind)
+      ? next.positionAndSizeLocked
+      : previous.positionAndSizeLocked,
+    size: previous.size,
+    styleColor: previous.styleColor,
+    tagColor: previous.tagColor,
+  };
+}
+
+function isPendingPythonCanvasSection(kind: string): boolean {
+  return (
+    kind === PENDING_CALLABLE_SECTION_KIND ||
+    kind === PENDING_PARAMETER_DICTIONARY_SECTION_KIND ||
+    kind === PENDING_LIST_SECTION_KIND
+  );
+}
+
+function projectActiveSectionIds(
+  activeIds: ReadonlyArray<string>,
+  sections: WorkspaceDocument["sections"],
+  descriptors: ReadonlyArray<ProjectSectionDescriptor>,
+  pendingSectionIds: ReadonlyMap<string, string>,
+): string[] {
+  const descriptorsByID = descriptorsByCanonicalID(descriptors);
+  const canonicalIDsByPendingSectionID = new Map<string, string>();
+  for (const [canonicalId, pendingSectionId] of pendingSectionIds) {
+    const descriptor = descriptorsByID.get(canonicalId);
+    if (descriptor !== undefined) {
+      canonicalIDsByPendingSectionID.set(
+        pendingSectionId,
+        descriptor.workspaceId,
+      );
+    }
+  }
+  const projected: string[] = [];
+  for (const activeId of activeIds) {
+    const projectedId =
+      sections[activeId] === undefined
+        ? canonicalIDsByPendingSectionID.get(activeId)
+        : activeId;
+    if (
+      projectedId !== undefined &&
+      sections[projectedId] !== undefined &&
+      !projected.includes(projectedId)
+    ) {
+      projected.push(projectedId);
+    }
+  }
+  return projected;
+}
+
+function requireProjectedSection(
+  projected: WorkspaceDocument,
+  sectionId: string,
+): WorkspaceSection {
+  const section = projected.sections[sectionId];
+  if (section === undefined) {
+    throw new Error(`Python Canvas projection is missing ${sectionId}.`);
+  }
+  return section;
+}
+
+function projectCallableItemTree(
+  previous: WorkspaceSectionItemTree | undefined,
+  callable: CallableV2,
+  options: ProjectSnapshotProjectionOptions,
+): WorkspaceSectionItemTree {
+  if (previous !== undefined && options.keepParameterLists.has(callable.id)) {
+    return previous;
+  }
+  return projectCanonicalParameterItems(previous, callable);
+}
+
+function projectDictionaryItemTree(
+  previous: WorkspaceSectionItemTree | undefined,
+  dictionary: ParameterDictionaryV2,
+  options: ProjectSnapshotProjectionOptions,
+): WorkspaceSectionItemTree {
+  if (
+    previous !== undefined &&
+    options.keepDictionaryEntries.has(dictionary.id)
+  ) {
+    return previous;
+  }
+  return projectCanonicalDictionaryEntries(previous, dictionary);
+}
+
+function projectGeneratedSection(
+  current: WorkspaceDocument,
+  projected: WorkspaceDocument,
+  snapshot: ProjectSnapshotV2,
+  options: ProjectSnapshotProjectionOptions,
+  host: WorkspaceHost,
+): {
+  layout: WorkspaceDocument["topLevelSections"][string];
+  section: WorkspaceSection;
+} {
+  const next = requireProjectedSection(projected, GENERATED_PYTHON_SECTION_ID);
+  const previous = current.sections[GENERATED_PYTHON_SECTION_ID];
+  const section =
+    previous === undefined
+      ? next
+      : {
+          ...retainSectionPresentation(previous, next),
+          data: options.keepAuthoredPython
+            ? retainedGeneratedCodeData(host, snapshot)
+            : next.data,
+        };
+  const layout =
+    current.topLevelSections[GENERATED_PYTHON_SECTION_ID] ??
+    projected.topLevelSections[GENERATED_PYTHON_SECTION_ID];
+  if (layout === undefined) {
+    throw new Error("Python Canvas projection is missing Generated Python.");
+  }
+  return { layout, section };
+}
+
 function projectCallableSection(
   snapshot: ProjectSnapshotV2,
   callable: CallableV2,
 ): WorkspaceSection {
   const sectionId = callableSectionID(callable.id);
   return {
-    id: sectionId,
-    kind: CALLABLE_SECTION_KIND,
-    name: callable.name,
-    size: CALLABLE_SECTION_SIZE,
-    overflowMode: false,
-    isMinimized: false,
-    positionAndSizeLocked: false,
-    isHorizontalOrientation: false,
-    styleColor: null,
-    tagColor: null,
-    children: [],
-    data: projectCallableSectionData(snapshot, callable),
+    ...ordinarySectionInput({
+      data: projectCallableSectionData(snapshot, callable),
+      id: sectionId,
+      kind: CALLABLE_SECTION_KIND,
+      name: callable.name,
+      size: CALLABLE_SECTION_SIZE,
+    }),
     itemTree: projectCanonicalParameterItems(undefined, callable),
   };
 }
 
-function projectGeneratedPythonSection(
+function projectParameterDictionarySection(
   snapshot: ProjectSnapshotV2,
+  dictionary: ParameterDictionaryV2,
 ): WorkspaceSection {
+  const sectionId = parameterDictionarySectionID(dictionary.id);
   return {
-    id: GENERATED_PYTHON_SECTION_ID,
-    kind: WORKSPACE_CODE_SECTION_KIND,
-    name: "Generated Python",
-    size: GENERATED_PYTHON_SECTION_SIZE,
-    overflowMode: false,
-    isMinimized: false,
-    positionAndSizeLocked: false,
-    isHorizontalOrientation: false,
-    styleColor: null,
-    tagColor: null,
-    children: [],
-    data: projectGeneratedCodeData(snapshot),
+    ...ordinarySectionInput({
+      data: projectParameterDictionarySectionData(snapshot, dictionary),
+      id: sectionId,
+      kind: PARAMETER_DICTIONARY_SECTION_KIND,
+      name: dictionary.name,
+      size: PARAMETER_DICTIONARY_SECTION_SIZE,
+    }),
+    itemTree: projectCanonicalDictionaryEntries(undefined, dictionary),
   };
 }
 
-function projectRetainedParameterItems(
-  itemTree: WorkspaceSectionItemTree,
-): WorkspaceSectionItemTree {
-  // A retained list is a local whole-list proposal, not a partial merge. A
-  // response for another mutation must not replace a name, expression, order,
-  // selection, or app-authored row while this callable still has a draft.
-  return itemTree;
+function projectListSection(
+  list: ListV2,
+  descriptorByCanonicalID: ReadonlyMap<string, ProjectSectionDescriptor>,
+): WorkspaceSection {
+  return {
+    ...ordinarySectionInput({
+      data: {
+        childCount: list.childSectionIds.length,
+        list: { id: list.id, name: list.name },
+        pending: false,
+      } satisfies ListSectionData,
+      id: listSectionID(list.id),
+      kind: LIST_SECTION_KIND,
+      name: list.name,
+      size: LIST_SECTION_SIZE,
+    }),
+    children: list.childSectionIds.map(
+      (childId) =>
+        requireSectionDescriptor(descriptorByCanonicalID, childId).workspaceId,
+    ),
+  };
 }
 
 function projectCanonicalParameterItems(
@@ -511,13 +941,102 @@ function projectCanonicalParameterItems(
   };
 }
 
+function projectCanonicalDictionaryEntries(
+  previous: WorkspaceSectionItemTree | undefined,
+  dictionary: ParameterDictionaryV2,
+): WorkspaceSectionItemTree {
+  const rootId = dictionaryEntryRootID(dictionary.id);
+  const items: Record<string, WorkspaceItem> = {
+    [rootId]: { id: rootId, children: [] },
+  };
+
+  function projectEntries(
+    parentId: string,
+    entries: ReadonlyArray<DictionaryEntryV2>,
+  ) {
+    const parent = items[parentId];
+    if (parent === undefined) {
+      throw new Error(`Python Canvas dictionary entry ${parentId} is missing.`);
+    }
+    const childIds = entries.map((entry) =>
+      dictionaryEntryWorkspaceItemID(entry.id),
+    );
+    items[parentId] = { ...parent, children: childIds };
+    for (const entry of entries) {
+      const itemId = dictionaryEntryWorkspaceItemID(entry.id);
+      items[itemId] = {
+        children:
+          entry.kind === DICTIONARY_ENTRY_KIND_PARENT_V2
+            ? entry.children.map((child) =>
+                dictionaryEntryWorkspaceItemID(child.id),
+              )
+            : [],
+        data: projectDictionaryEntryItemData(entry),
+        id: itemId,
+      };
+      if (entry.kind === DICTIONARY_ENTRY_KIND_PARENT_V2) {
+        projectEntries(itemId, entry.children);
+      }
+    }
+  }
+
+  projectEntries(rootId, dictionary.entries);
+  const itemIds = new Set(Object.keys(items));
+  return {
+    rootId,
+    items,
+    selectedItemIds:
+      previous?.selectedItemIds.filter((id) => itemIds.has(id)) ?? [],
+  };
+}
+
+function readDictionaryEntriesFromTree(
+  itemTree: WorkspaceSectionItemTree,
+): DictionaryEntryV2[] {
+  function readEntries(parentId: string): DictionaryEntryV2[] {
+    const parent = itemTree.items[parentId];
+    if (parent === undefined) {
+      throw new Error(`Python Canvas dictionary entry ${parentId} is missing.`);
+    }
+    return parent.children.map((itemId) => {
+      const item = itemTree.items[itemId];
+      if (item === undefined) {
+        throw new Error(
+          `Python Canvas dictionary entry ${itemId} is missing.`,
+        );
+      }
+      const data = readDictionaryEntryItemData(item.data);
+      const id = canonicalDictionaryEntryID(item.id);
+      if (
+        data.kind === DICTIONARY_ENTRY_KIND_PARENT_V2 ||
+        item.children.length > 0
+      ) {
+        return {
+          children: readEntries(item.id),
+          id,
+          kind: DICTIONARY_ENTRY_KIND_PARENT_V2,
+          name: data.name,
+        };
+      }
+      return {
+        authoredExpression: data.authoredExpression,
+        id,
+        kind: DICTIONARY_ENTRY_KIND_LEAF_V2,
+        name: data.name,
+      };
+    });
+  }
+  return readEntries(itemTree.rootId);
+}
+
 function updateParameterItem(
   host: WorkspaceHost,
   callableId: string,
   parameterItemId: string,
   next: (data: ParameterItemData) => ParameterItemData | null,
 ): void {
-  const section = host.getSnapshot().sections[callableSectionID(callableId)];
+  const sectionId = callableSectionID(callableId);
+  const section = host.getSnapshot().sections[sectionId];
   if (section === undefined) {
     return;
   }
@@ -529,7 +1048,26 @@ function updateParameterItem(
   }
   const data = next(current.data);
   if (data !== null) {
-    setItemData(host, callableSectionID(callableId), parameterItemId, data);
+    setItemData(host, sectionId, parameterItemId, data);
+  }
+}
+
+function updateDictionaryEntryItem(
+  host: WorkspaceHost,
+  dictionaryId: string,
+  entryItemId: string,
+  next: (data: DictionaryEntryItemData) => DictionaryEntryItemData | null,
+): void {
+  const sectionId = parameterDictionarySectionID(dictionaryId);
+  const item = host.getSnapshot().sections[sectionId]?.itemTree?.items[
+    entryItemId
+  ];
+  if (item === undefined) {
+    return;
+  }
+  const data = next(readDictionaryEntryItemData(item.data));
+  if (data !== null) {
+    setItemData(host, sectionId, entryItemId, data);
   }
 }
 
@@ -552,7 +1090,7 @@ function projectCallableSectionData(
       const itemId = parameterWorkspaceItemID(diagnostic.targetId);
       parameterDiagnostics[itemId] = [
         ...(parameterDiagnostics[itemId] ?? []),
-        projectParameterDiagnostic(diagnostic),
+        projectItemDiagnostic(diagnostic),
       ];
     }
   }
@@ -569,6 +1107,37 @@ function projectCallableSectionData(
   };
 }
 
+function projectParameterDictionarySectionData(
+  snapshot: ProjectSnapshotV2,
+  dictionary: ParameterDictionaryV2,
+): ParameterDictionarySectionData {
+  const entryIDs = new Set<string>();
+  function collect(entries: ReadonlyArray<DictionaryEntryV2>) {
+    for (const entry of entries) {
+      entryIDs.add(entry.id);
+      if (entry.kind === DICTIONARY_ENTRY_KIND_PARENT_V2) {
+        collect(entry.children);
+      }
+    }
+  }
+  collect(dictionary.entries);
+  const entryDiagnostics: ParameterDictionarySectionData["entryDiagnostics"] =
+    {};
+  for (const diagnostic of snapshot.diagnostics) {
+    if (diagnostic.targetId !== null && entryIDs.has(diagnostic.targetId)) {
+      const itemId = dictionaryEntryWorkspaceItemID(diagnostic.targetId);
+      entryDiagnostics[itemId] = [
+        ...(entryDiagnostics[itemId] ?? []),
+        projectItemDiagnostic(diagnostic),
+      ];
+    }
+  }
+  return {
+    dictionary: { id: dictionary.id, name: dictionary.name },
+    entryDiagnostics,
+  };
+}
+
 function projectParameterItemData(parameter: ParameterV2): ParameterItemData {
   return {
     authoredExpression: parameter.authoredExpression,
@@ -579,6 +1148,43 @@ function projectParameterItemData(parameter: ParameterV2): ParameterItemData {
     providerOrdinal: parameter.providerOrdinal,
     typeAnnotation: parameter.typeAnnotation,
   };
+}
+
+function projectDictionaryEntryItemData(
+  entry: DictionaryEntryV2,
+): DictionaryEntryItemData {
+  if (entry.kind === DICTIONARY_ENTRY_KIND_PARENT_V2) {
+    return { kind: entry.kind, name: entry.name };
+  }
+  return {
+    authoredExpression: entry.authoredExpression,
+    kind: entry.kind,
+    name: entry.name,
+  };
+}
+
+function projectItemDiagnostic(
+  diagnostic: DiagnosticV2,
+): WorkspaceItemDiagnostic {
+  return {
+    message: diagnostic.message,
+    severity:
+      diagnostic.severity === DIAGNOSTIC_SEVERITY_INFORMATION_V2
+        ? "info"
+        : diagnostic.severity,
+  };
+}
+
+function projectGeneratedPythonSection(
+  snapshot: ProjectSnapshotV2,
+): WorkspaceSection {
+  return ordinarySectionInput({
+    data: projectGeneratedCodeData(snapshot),
+    id: GENERATED_PYTHON_SECTION_ID,
+    kind: WORKSPACE_CODE_SECTION_KIND,
+    name: "Generated Python",
+    size: GENERATED_PYTHON_SECTION_SIZE,
+  });
 }
 
 function projectGeneratedCodeData(snapshot: ProjectSnapshotV2) {
@@ -632,9 +1238,6 @@ function generatedCodeSectionData({
     generatedBodyRange?.end ?? bodyStartBytes + utf8ByteLength(body);
   const code = `${prefix}${generatedCodeSeparator}${body}${generatedCodeSeparator}${suffix}`;
   const separatorBytes = utf8ByteLength(generatedCodeSeparator);
-  // The backend's byte range owns the exact generated body. Main's editor protects the blank
-  // separators with it, making those lines the rounded boundaries and every generated code line
-  // a fully painted interior line while leaving the authored prefix and suffix outside.
   return createWorkspaceCodeSectionData({
     code,
     diagnostics: [...diagnostics],
@@ -677,39 +1280,67 @@ function projectDocumentDiagnostics(
   });
 }
 
-function projectParameterDiagnostic(
-  diagnostic: DiagnosticV2,
-): WorkspaceItemDiagnostic {
-  return {
-    message: diagnostic.message,
-    severity:
-      diagnostic.severity === DIAGNOSTIC_SEVERITY_INFORMATION_V2
-        ? "info"
-        : diagnostic.severity,
-  };
-}
-
-function callableLayout(index: number) {
+function sectionLayout(index: number, section: WorkspaceSection) {
+  const width = typeof section.size.width === "number" ? section.size.width : 360;
+  const height =
+    typeof section.size.height === "number" ? section.size.height : 300;
   const column = index % 2;
   const row = Math.floor(index / 2);
   return {
-    x: column * (CALLABLE_SECTION_SIZE.width + 32),
-    y: row * (CALLABLE_SECTION_SIZE.height + 32),
-    w: CALLABLE_SECTION_SIZE.width,
-    h: CALLABLE_SECTION_SIZE.height,
+    x: column * (width + 32),
+    y: row * (height + 32),
+    w: width,
+    h: height,
     zIndex: index,
   };
 }
 
-function generatedPythonLayout(callableCount: number) {
-  const rows = Math.max(1, Math.ceil(callableCount / 2));
+function generatedPythonLayout(topLevelCount: number) {
+  const rows = Math.max(1, Math.ceil(topLevelCount / 2));
   return {
     x: 0,
     y: rows * (CALLABLE_SECTION_SIZE.height + 48),
     w: GENERATED_PYTHON_SECTION_SIZE.width,
     h: GENERATED_PYTHON_SECTION_SIZE.height,
-    zIndex: callableCount,
+    zIndex: topLevelCount,
   };
+}
+
+function canonicalParameterID(itemId: string): string {
+  return canonicalWorkspaceItemID(
+    itemId,
+    parameterWorkspaceItemPrefix,
+    "parameter",
+  );
+}
+
+function canonicalDictionaryEntryID(itemId: string): string {
+  return canonicalWorkspaceItemID(
+    itemId,
+    dictionaryEntryWorkspaceItemPrefix,
+    "dictionary entry",
+  );
+}
+
+function canonicalWorkspaceItemID(
+  itemId: string,
+  prefix: string,
+  kind: string,
+): string {
+  if (!itemId.startsWith(prefix)) {
+    throw new Error(`Python Canvas ${kind} item ${itemId} is invalid.`);
+  }
+  const encoded = itemId.slice(prefix.length);
+  let id: string;
+  try {
+    id = decodeURIComponent(encoded);
+  } catch {
+    throw new Error(`Python Canvas ${kind} item ${itemId} is invalid.`);
+  }
+  if (id === "" || `${prefix}${encodeURIComponent(id)}` !== itemId) {
+    throw new Error(`Python Canvas ${kind} item ${itemId} is invalid.`);
+  }
+  return id;
 }
 
 function utf8ByteLength(value: string): number {

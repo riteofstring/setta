@@ -2,10 +2,13 @@
 
 ## Status and purpose
 
-**Status: In progress. The generic `@setta/workspace` registered vertical-container seam and the
+**Status: In progress. The generic `@setta/workspace` registered vertical-container seam, the
 canonical backend cutover (aggregate forest, strict project document, renderer, coordinator, V2
-HTTP/generated TypeScript contract, and fixture) are implemented; Python Canvas projection,
-production proof, review, and closeout work remain incomplete.**
+HTTP/generated TypeScript contract, and fixture), and the Python Canvas implementation (three
+app-owned kinds, forest projection/DnD persistence, dictionary item proposals and diagnostics,
+list increment/decrement controls, and placeholder geometry reconciliation) are implemented and
+covered by focused frontend tests. Supervised production headless proof, review, and closeout work
+remain incomplete.**
 
 Add the next two Python Canvas section types from main: **Param Dict** and **List of Objects**.
 This is one closed vertical slice across the validated Go aggregate, strict project file, generated

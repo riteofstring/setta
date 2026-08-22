@@ -14,12 +14,25 @@ import {
   readCallableSectionData,
 } from "../sections/CallableSection";
 import {
+  ParameterDictionarySection,
+  readDictionaryEntryItemData,
+  readParameterDictionarySectionData,
+} from "../sections/ParamDictSection";
+import { ListSection, readListSectionData } from "../sections/ListSection";
+import {
   CALLABLE_SECTION_KIND,
   CALLABLE_SECTION_SIZE,
   GENERATED_PYTHON_SECTION_ID,
   GENERATED_PYTHON_SECTION_SIZE,
+  LIST_SECTION_KIND,
+  LIST_SECTION_SIZE,
   PENDING_CALLABLE_SECTION_KIND,
+  PENDING_LIST_SECTION_KIND,
+  PENDING_PARAMETER_DICTIONARY_SECTION_KIND,
+  PARAMETER_DICTIONARY_SECTION_KIND,
+  PARAMETER_DICTIONARY_SECTION_SIZE,
   createCallableParameterItem,
+  createParameterDictionaryEntryItem,
   readCallableParameterRows,
 } from "./workspaceProjection";
 import { PythonTargetCompletionBoundary } from "./PythonTargetCompletionBoundary";
@@ -57,6 +70,37 @@ export function registerPythonCanvasSectionKinds(
       );
     },
   };
+  const parameterDictionarySectionKind = {
+    defaultSize: PARAMETER_DICTIONARY_SECTION_SIZE,
+    assertValidData: (section: WorkspaceDocument["sections"][string]) => {
+      readParameterDictionarySectionData(section.data);
+    },
+    getItemSearchableText: (context: { item: { data?: unknown } }) =>
+      readDictionaryEntryItemData(context.item.data).name,
+    renderContent: (section: WorkspaceDocument["sections"][string]) => {
+      const itemTree = section.itemTree;
+      if (itemTree === undefined) {
+        throw new Error("Parameter Dictionary section has no item tree.");
+      }
+      return (
+        <ParameterDictionarySection
+          data={readParameterDictionarySectionData(section.data)}
+          itemTree={itemTree}
+          sectionId={section.id}
+        />
+      );
+    },
+  };
+  const listSectionKind = {
+    defaultSize: LIST_SECTION_SIZE,
+    nestedSections: "vertical" as const,
+    assertValidData: (section: WorkspaceDocument["sections"][string]) => {
+      readListSectionData(section.data);
+    },
+    renderContent: (section: WorkspaceDocument["sections"][string]) => (
+      <ListSection data={readListSectionData(section.data)} />
+    ),
+  };
   registerSectionKinds(host, {
     [CALLABLE_SECTION_KIND]: {
       ...callableSectionKind,
@@ -73,6 +117,21 @@ export function registerPythonCanvasSectionKinds(
         toolbar: "filter-only",
       },
     },
+    [PARAMETER_DICTIONARY_SECTION_KIND]: {
+      ...parameterDictionarySectionKind,
+      itemArea: {
+        toolbar: "authoring-and-filter",
+      },
+      createItem: () => createParameterDictionaryEntryItem(),
+    },
+    [PENDING_PARAMETER_DICTIONARY_SECTION_KIND]: {
+      ...parameterDictionarySectionKind,
+      itemArea: {
+        toolbar: "filter-only",
+      },
+    },
+    [LIST_SECTION_KIND]: listSectionKind,
+    [PENDING_LIST_SECTION_KIND]: listSectionKind,
     [WORKSPACE_CODE_SECTION_KIND]: {
       ...pythonTargetSection,
       renderContent: (section) =>

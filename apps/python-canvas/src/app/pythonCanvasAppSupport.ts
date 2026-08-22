@@ -3,20 +3,32 @@ import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
 import { ProjectClientError } from "../backend/client";
 import type {
   CallableV2,
+  DictionaryEntryV2,
+  ListChildrenV2,
+  ParameterDictionaryV2,
   ParameterProposalV2,
   ProjectSnapshotV2,
 } from "../backend/generatedContract";
 import { hasBlockingParameterName } from "../sections/parameterNames";
 import {
   callableSectionID,
+  listSectionID,
+  parameterDictionarySectionID,
   readCallableParameterItems,
+  readParameterDictionaryEntries,
   readGeneratedPythonTarget,
+  workspaceForestProposal,
 } from "./workspaceProjection";
 
 export type MutationAnswer =
   | { callableId: string; kind: "commit" }
   | { callableId: string; kind: "refresh" }
   | { callableId: string; kind: "parameters"; sent: ParameterProposalV2[] }
+  | {
+      dictionaryId: string;
+      kind: "dictionary";
+      sent: DictionaryEntryV2[];
+    }
   | { kind: "other" };
 
 export type AppState =
@@ -36,11 +48,33 @@ export type MutationState =
 export type RevisionConflictDraft = {
   callableId: string;
   kind: "parameters";
+} | {
+  dictionaryId: string;
+  kind: "dictionary";
 } | null;
 
-type CallableStructureMutation =
-  | { callableId: string; kind: "delete" }
-  | { callableId: string; kind: "rename"; name: string };
+export type SectionStructureMutation =
+  | { kind: "delete"; sectionId: string; sectionKind: "callable" }
+  | { kind: "delete"; sectionId: string; sectionKind: "dictionary" }
+  | { kind: "delete"; sectionId: string; sectionKind: "list" }
+  | {
+      kind: "rename";
+      name: string;
+      sectionId: string;
+      sectionKind: "callable";
+    }
+  | {
+      kind: "rename";
+      name: string;
+      sectionId: string;
+      sectionKind: "dictionary";
+    }
+  | {
+      kind: "rename";
+      name: string;
+      sectionId: string;
+      sectionKind: "list";
+    };
 
 export type AppController = {
   commitCallable: (callableId: string, value: string) => void;
@@ -49,7 +83,11 @@ export type AppController = {
     value: string,
   ) => void;
   deleteCallable: (callableId: string) => void;
+  deleteDictionary: (dictionaryId: string) => void;
+  deleteList: (listId: string) => void;
   renameCallable: (callableId: string, name: string) => void;
+  renameDictionary: (dictionaryId: string, name: string) => void;
+  renameList: (listId: string, name: string) => void;
   revertCallableDraft: (callableId: string) => void;
   setCallableDraft: (callableId: string, value: string) => void;
   setParameterExpression: (
@@ -62,6 +100,18 @@ export type AppController = {
     parameterId: string,
     name: string,
   ) => void;
+  setDictionaryEntryExpression: (
+    dictionaryId: string,
+    entryId: string,
+    value: string,
+  ) => void;
+  setDictionaryEntryName: (
+    dictionaryId: string,
+    entryId: string,
+    name: string,
+  ) => void;
+  decrementListChildren: (listId: string, count: number) => void;
+  incrementListChildren: (listId: string, count: number) => void;
 };
 
 export function isCallableResolutionFailure(error: unknown): boolean {
@@ -86,23 +136,72 @@ export function callableParameterRefreshRequired(
   );
 }
 
-// Callable sections use the workspace's main-derived header controls. Translate
-// the two structural edits those controls can make back into the server-owned
-// callable aggregate instead of rendering a second set of app-specific forms.
-export function callableStructureMutations(
+// Section titles and deletion use the package-owned ordinary header. Translate
+// those structural changes through the typed server commands, keeping a parent
+// deletion singular even when its list subtree disappeared from the document.
+export function sectionStructureMutations(
   document: WorkspaceDocument,
   snapshot: ProjectSnapshotV2,
-): CallableStructureMutation[] {
-  const mutations: CallableStructureMutation[] = [];
-  for (const callable of snapshot.callables) {
-    const section = document.sections[callableSectionID(callable.id)];
-    if (section === undefined) {
-      mutations.push({ callableId: callable.id, kind: "delete" });
-    } else if (section.name !== callable.name) {
+): SectionStructureMutation[] {
+  const records = [
+    ...snapshot.callables.map((callable) => ({
+      id: callable.id,
+      name: callable.name,
+      sectionKind: "callable" as const,
+      workspaceId: callableSectionID(callable.id),
+    })),
+    ...snapshot.parameterDictionaries.map((dictionary) => ({
+      id: dictionary.id,
+      name: dictionary.name,
+      sectionKind: "dictionary" as const,
+      workspaceId: parameterDictionarySectionID(dictionary.id),
+    })),
+    ...snapshot.lists.map((list) => ({
+      id: list.id,
+      name: list.name,
+      sectionKind: "list" as const,
+      workspaceId: listSectionID(list.id),
+    })),
+  ];
+  const missing = new Set(
+    records
+      .filter((record) => document.sections[record.workspaceId] === undefined)
+      .map((record) => record.id),
+  );
+  const parentByChild = new Map<string, string>();
+  for (const list of snapshot.lists) {
+    for (const childId of list.childSectionIds) {
+      parentByChild.set(childId, list.id);
+    }
+  }
+  const mutations: SectionStructureMutation[] = [];
+  for (const record of records) {
+    if (missing.has(record.id)) {
+      let parent = parentByChild.get(record.id);
+      let hasMissingAncestor = false;
+      while (parent !== undefined) {
+        if (missing.has(parent)) {
+          hasMissingAncestor = true;
+          break;
+        }
+        parent = parentByChild.get(parent);
+      }
+      if (!hasMissingAncestor) {
+        mutations.push({
+          kind: "delete",
+          sectionId: record.id,
+          sectionKind: record.sectionKind,
+        });
+      }
+      continue;
+    }
+    const section = document.sections[record.workspaceId];
+    if (section !== undefined && section.name !== record.name) {
       mutations.push({
-        callableId: callable.id,
         kind: "rename",
         name: section.name,
+        sectionId: record.id,
+        sectionKind: record.sectionKind,
       });
     }
   }
@@ -172,6 +271,62 @@ export function changedParameterCallableIds(
   return changed;
 }
 
+export function dictionaryEntryDraft(
+  document: WorkspaceDocument,
+  dictionaryId: string,
+): DictionaryEntryV2[] | null {
+  try {
+    return readParameterDictionaryEntries(document, dictionaryId);
+  } catch {
+    return null;
+  }
+}
+
+export function dictionaryEntryMutationProposal(
+  document: WorkspaceDocument,
+  snapshot: ProjectSnapshotV2,
+  dictionaryId: string,
+): DictionaryEntryV2[] | null {
+  const dictionary = snapshot.parameterDictionaries.find(
+    (candidate) => candidate.id === dictionaryId,
+  );
+  const proposal = dictionaryEntryDraft(document, dictionaryId);
+  if (
+    dictionary === undefined ||
+    proposal === null ||
+    !validDictionaryEntries(proposal) ||
+    sameDictionaryEntries(proposal, dictionary)
+  ) {
+    return null;
+  }
+  return proposal;
+}
+
+export function changedDictionaryIds(
+  document: WorkspaceDocument,
+  snapshot: ProjectSnapshotV2,
+): string[] {
+  return snapshot.parameterDictionaries.flatMap((dictionary) =>
+    dictionaryEntryMutationProposal(document, snapshot, dictionary.id) === null
+      ? []
+      : [dictionary.id],
+  );
+}
+
+export function forestMutationProposal(
+  document: WorkspaceDocument,
+  snapshot: ProjectSnapshotV2,
+): {
+  listChildren: ListChildrenV2[];
+  topLevelSectionIds: string[];
+} | null {
+  const proposal = workspaceForestProposal(document, snapshot);
+  if (proposal === null || sameSectionForest(proposal, snapshot)) {
+    return null;
+  }
+  return proposal;
+}
+
 export function hasPythonTargetChange(
   host: WorkspaceHost,
   snapshot: ProjectSnapshotV2,
@@ -220,6 +375,90 @@ export function sameParameterList(
       );
     })
   );
+}
+
+export function sameDictionaryEntries(
+  proposal: ReadonlyArray<DictionaryEntryV2>,
+  dictionary: Pick<ParameterDictionaryV2, "entries">,
+): boolean {
+  return sameDictionaryEntryLists(proposal, dictionary.entries);
+}
+
+function sameDictionaryEntryLists(
+  left: ReadonlyArray<DictionaryEntryV2>,
+  right: ReadonlyArray<DictionaryEntryV2>,
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((entry, index) => {
+      const other = right[index];
+      if (
+        other === undefined ||
+        entry.id !== other.id ||
+        entry.kind !== other.kind ||
+        entry.name !== other.name
+      ) {
+        return false;
+      }
+      if (entry.kind === "leaf" && other.kind === "leaf") {
+        return entry.authoredExpression === other.authoredExpression;
+      }
+      if (entry.kind === "parent" && other.kind === "parent") {
+        return sameDictionaryEntryLists(entry.children, other.children);
+      }
+      return false;
+    })
+  );
+}
+
+function validDictionaryEntries(entries: ReadonlyArray<DictionaryEntryV2>): boolean {
+  const names = new Set<string>();
+  for (const entry of entries) {
+    const normalized = entry.name.trim();
+    if (
+      normalized === "" ||
+      normalized !== entry.name ||
+      names.has(normalized)
+    ) {
+      return false;
+    }
+    names.add(normalized);
+    if (
+      entry.kind === "parent" &&
+      !validDictionaryEntries(entry.children)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function sameSectionForest(
+  proposal: {
+    listChildren: ReadonlyArray<ListChildrenV2>;
+    topLevelSectionIds: ReadonlyArray<string>;
+  },
+  snapshot: ProjectSnapshotV2,
+): boolean {
+  if (!sameStringList(proposal.topLevelSectionIds, snapshot.topLevelSectionIds)) {
+    return false;
+  }
+  if (proposal.listChildren.length !== snapshot.lists.length) {
+    return false;
+  }
+  const childrenByList = new Map(
+    proposal.listChildren.map((list) => [list.listId, list.childSectionIds]),
+  );
+  return snapshot.lists.every((list) =>
+    sameStringList(childrenByList.get(list.id) ?? [], list.childSectionIds),
+  );
+}
+
+function sameStringList(
+  left: ReadonlyArray<string>,
+  right: ReadonlyArray<string>,
+): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 export function sameCanonicalPythonTarget(

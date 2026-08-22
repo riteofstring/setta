@@ -12,14 +12,24 @@ import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import {
   CALLABLE_SECTION_KIND,
   GENERATED_PYTHON_SECTION_ID,
+  LIST_SECTION_KIND,
+  PARAMETER_DICTIONARY_SECTION_KIND,
   applyProjectSnapshotToWorkspace,
   callableSectionID,
   createPendingCallableSection,
+  createPendingListSection,
+  createPendingParameterDictionarySection,
+  dictionaryEntryWorkspaceItemID,
+  listSectionID,
   parameterWorkspaceItemID,
+  parameterDictionarySectionID,
+  promoteDictionaryEntryParents,
   projectWorkspaceDocument,
   readCallableParameterItems,
+  readParameterDictionaryEntries,
   readGeneratedPythonTarget,
   setParameterItemName,
+  workspaceForestProposal,
 } from "./workspaceProjection";
 
 describe("Python Canvas V2 workspace projection", () => {
@@ -151,11 +161,13 @@ describe("Python Canvas V2 workspace projection", () => {
       name: "New callable",
       parameters: [],
     });
+    createdSnapshot.topLevelSectionIds.push("callable:created");
 
     applyProjectSnapshotToWorkspace(host, createdSnapshot, {
       keepAuthoredPython: false,
+      keepDictionaryEntries: new Set(),
       keepParameterLists: new Set(),
-      pendingCallableSectionIds: new Map([
+      pendingSectionIds: new Map([
         ["callable:created", pendingSectionId],
       ]),
     });
@@ -264,8 +276,9 @@ describe("Python Canvas V2 workspace projection", () => {
     );
     applyProjectSnapshotToWorkspace(host, snapshot, {
       keepAuthoredPython: false,
+      keepDictionaryEntries: new Set(),
       keepParameterLists: new Set(["callable:second"]),
-      pendingCallableSectionIds: new Map(),
+      pendingSectionIds: new Map(),
     });
 
     expect(
@@ -298,8 +311,9 @@ describe("Python Canvas V2 workspace projection", () => {
     );
     applyProjectSnapshotToWorkspace(host, snapshot, {
       keepAuthoredPython: false,
+      keepDictionaryEntries: new Set(),
       keepParameterLists: new Set(["callable:second"]),
-      pendingCallableSectionIds: new Map(),
+      pendingSectionIds: new Map(),
     });
 
     expect(
@@ -314,6 +328,252 @@ describe("Python Canvas V2 workspace projection", () => {
         }),
       ]),
     );
+    host.dispose();
+  });
+
+  it("projects a mixed authored forest with recursive dictionary diagnostics", () => {
+    const snapshot = forestSnapshot();
+    const document = projectWorkspaceDocument(snapshot);
+    const dictionaryId = parameterDictionarySectionID("dictionary:options");
+    const listId = listSectionID("list:objects");
+
+    expect(Object.keys(document.sections)).toEqual([
+      GENERATED_PYTHON_SECTION_ID,
+      callableSectionID("callable:child"),
+      dictionaryId,
+      listId,
+    ]);
+    expect(document.sections[dictionaryId]).toMatchObject({
+      kind: PARAMETER_DICTIONARY_SECTION_KIND,
+      name: "Options",
+    });
+    expect(document.sections[listId]).toMatchObject({
+      children: [callableSectionID("callable:child"), dictionaryId],
+      kind: LIST_SECTION_KIND,
+      name: "Objects",
+    });
+    expect(Object.keys(document.topLevelSections)).toEqual([
+      GENERATED_PYTHON_SECTION_ID,
+      listId,
+    ]);
+    expect(readParameterDictionaryEntries(document, "dictionary:options")).toEqual([
+      {
+        authoredExpression: "missing_radius",
+        id: "entry:radius",
+        kind: "leaf",
+        name: "radius",
+      },
+      {
+        children: [
+          {
+            authoredExpression: "2",
+            id: "entry:scale",
+            kind: "leaf",
+            name: "scale",
+          },
+        ],
+        id: "entry:options",
+        kind: "parent",
+        name: "options",
+      },
+    ]);
+    expect(document.sections[dictionaryId]?.data).toMatchObject({
+      entryDiagnostics: {
+        [dictionaryEntryWorkspaceItemID("entry:radius")]: [
+          { message: '"missing_radius" is not defined', severity: "error" },
+        ],
+      },
+    });
+  });
+
+  it("serializes list nesting and top-level section order as one forest proposal", () => {
+    const snapshot = forestSnapshot();
+    const document = projectWorkspaceDocument(snapshot);
+    const dictionaryId = parameterDictionarySectionID("dictionary:options");
+    const listId = listSectionID("list:objects");
+    const moved = {
+      ...document,
+      sections: {
+        ...document.sections,
+        [listId]: {
+          ...document.sections[listId]!,
+          children: [callableSectionID("callable:child")],
+        },
+      },
+      topLevelSections: {
+        ...document.topLevelSections,
+        [dictionaryId]: {
+          h: 300,
+          w: 420,
+          x: 452,
+          y: 0,
+          zIndex: 1,
+        },
+        [listId]: { h: 144, w: 360, x: 0, y: 0, zIndex: 0 },
+      },
+    };
+
+    expect(workspaceForestProposal(moved, snapshot)).toEqual({
+      listChildren: [
+        { childSectionIds: ["callable:child"], listId: "list:objects" },
+      ],
+      topLevelSectionIds: ["list:objects", "dictionary:options"],
+    });
+  });
+
+  it("promotes a nested leaf once and keeps the resulting empty parent typed", () => {
+    const snapshot = forestSnapshot();
+    const host = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(host);
+    host.loadDocument(projectWorkspaceDocument(snapshot));
+    const sectionId = parameterDictionarySectionID("dictionary:options");
+    const radiusId = dictionaryEntryWorkspaceItemID("entry:radius");
+    const optionsId = dictionaryEntryWorkspaceItemID("entry:options");
+    const scaleId = dictionaryEntryWorkspaceItemID("entry:scale");
+    const first = host.getSnapshot();
+    const section = first.sections[sectionId];
+    if (section?.itemTree === undefined) {
+      throw new Error("Expected the projected dictionary item tree.");
+    }
+    const tree = section.itemTree;
+    host.loadDocument({
+      ...first,
+      sections: {
+        ...first.sections,
+        [sectionId]: {
+          ...section,
+          itemTree: {
+            ...tree,
+            items: {
+              ...tree.items,
+              [radiusId]: {
+                ...tree.items[radiusId]!,
+                children: [scaleId],
+              },
+              [optionsId]: { ...tree.items[optionsId]!, children: [] },
+              [tree.rootId]: {
+                ...tree.items[tree.rootId]!,
+                children: [radiusId, optionsId],
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(promoteDictionaryEntryParents(host, "dictionary:options")).toBe(
+      true,
+    );
+
+    const promoted = host.getSnapshot();
+    const promotedSection = promoted.sections[sectionId];
+    if (promotedSection?.itemTree === undefined) {
+      throw new Error("Expected the promoted dictionary item tree.");
+    }
+    const promotedTree = promotedSection.itemTree;
+    host.loadDocument({
+      ...promoted,
+      sections: {
+        ...promoted.sections,
+        [sectionId]: {
+          ...promotedSection,
+          itemTree: {
+            ...promotedTree,
+            items: {
+              ...promotedTree.items,
+              [radiusId]: {
+                ...promotedTree.items[radiusId]!,
+                children: [],
+              },
+              [promotedTree.rootId]: {
+                ...promotedTree.items[promotedTree.rootId]!,
+                children: [radiusId, optionsId, scaleId],
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(readParameterDictionaryEntries(host.getSnapshot(), "dictionary:options")).toEqual([
+      {
+        children: [],
+        id: "entry:radius",
+        kind: "parent",
+        name: "radius",
+      },
+      { children: [], id: "entry:options", kind: "parent", name: "options" },
+      {
+        authoredExpression: "2",
+        id: "entry:scale",
+        kind: "leaf",
+        name: "scale",
+      },
+    ]);
+    host.dispose();
+  });
+
+  it("reconciles dictionary and list placeholders without retaining their creation lock", () => {
+    const snapshot = forestSnapshot();
+    const host = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(host);
+    host.loadDocument(projectWorkspaceDocument(parseProjectSnapshotV2(projectSnapshotFixture)));
+    const pendingDictionaryId = "python-canvas:pending-parameter-dictionary:test";
+    const pendingListId = "python-canvas:pending-list:test";
+    const current = host.getSnapshot();
+    const dictionaryLayout = { h: 300, w: 420, x: 24, y: 48, zIndex: 3 };
+    const listLayout = { h: 144, w: 360, x: 516, y: 48, zIndex: 4 };
+    host.loadDocument({
+      ...current,
+      activeIds: [pendingDictionaryId, pendingListId],
+      sections: {
+        ...current.sections,
+        [pendingDictionaryId]: createPendingParameterDictionarySection(
+          pendingDictionaryId,
+          "Options",
+        ),
+        [pendingListId]: createPendingListSection(pendingListId, "Objects"),
+      },
+      topLevelSections: {
+        ...current.topLevelSections,
+        [pendingDictionaryId]: dictionaryLayout,
+        [pendingListId]: listLayout,
+      },
+    });
+
+    const createdSnapshot = parseProjectSnapshotV2({
+      ...projectSnapshotFixture,
+      parameterDictionaries: [
+        { entries: [], id: "dictionary:created", name: "Options" },
+      ],
+      lists: [{ childSectionIds: [], id: "list:created", name: "Objects" }],
+      topLevelSectionIds: ["dictionary:created", "list:created"],
+    });
+    applyProjectSnapshotToWorkspace(host, createdSnapshot, {
+      keepAuthoredPython: false,
+      keepDictionaryEntries: new Set(),
+      keepParameterLists: new Set(),
+      pendingSectionIds: new Map([
+        ["dictionary:created", pendingDictionaryId],
+        ["list:created", pendingListId],
+      ]),
+    });
+
+    const dictionaryId = parameterDictionarySectionID("dictionary:created");
+    const listId = listSectionID("list:created");
+    expect(host.getSnapshot().sections[pendingDictionaryId]).toBeUndefined();
+    expect(host.getSnapshot().sections[pendingListId]).toBeUndefined();
+    expect(host.getSnapshot().topLevelSections[dictionaryId]).toEqual(
+      dictionaryLayout,
+    );
+    expect(host.getSnapshot().topLevelSections[listId]).toEqual(listLayout);
+    expect(host.getSnapshot().sections[dictionaryId]).toMatchObject({
+      positionAndSizeLocked: false,
+    });
+    expect(host.getSnapshot().sections[listId]).toMatchObject({
+      positionAndSizeLocked: false,
+    });
+    expect(host.getSnapshot().activeIds).toEqual([dictionaryId, listId]);
     host.dispose();
   });
 });
@@ -356,6 +616,7 @@ function dynamicSnapshot() {
         ],
       },
     ],
+    topLevelSectionIds: ["callable:first", "callable:second"],
     generatedCode: {
       ...projectSnapshotFixture.generatedCode,
       sourceRangesByTargetId: {
@@ -365,5 +626,64 @@ function dynamicSnapshot() {
         "parameter:value": { end: 2, start: 2 },
       },
     },
+  });
+}
+
+function forestSnapshot() {
+  return parseProjectSnapshotV2({
+    ...projectSnapshotFixture,
+    callables: [
+      {
+        authoredExpression: "child",
+        id: "callable:child",
+        name: "Child callable",
+        parameters: [],
+      },
+    ],
+    diagnostics: [
+      {
+        end: 2,
+        id: "diagnostic:radius",
+        message: '"missing_radius" is not defined',
+        severity: "error",
+        start: 2,
+        targetId: "entry:radius",
+      },
+    ],
+    lists: [
+      {
+        childSectionIds: ["callable:child", "dictionary:options"],
+        id: "list:objects",
+        name: "Objects",
+      },
+    ],
+    parameterDictionaries: [
+      {
+        entries: [
+          {
+            authoredExpression: "missing_radius",
+            id: "entry:radius",
+            kind: "leaf",
+            name: "radius",
+          },
+          {
+            children: [
+              {
+                authoredExpression: "2",
+                id: "entry:scale",
+                kind: "leaf",
+                name: "scale",
+              },
+            ],
+            id: "entry:options",
+            kind: "parent",
+            name: "options",
+          },
+        ],
+        id: "dictionary:options",
+        name: "Options",
+      },
+    ],
+    topLevelSectionIds: ["list:objects"],
   });
 }

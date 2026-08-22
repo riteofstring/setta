@@ -435,12 +435,18 @@ function mutationContext(
     callableCompletionProvider,
     callableMutationError,
     callableDraft: () => "value",
+    dictionaryMutationError: () => null,
+    listMutationError: () => null,
     onCallableAlternateCommit: vi.fn(),
     onCallableCommit: vi.fn(),
     onCallableDraftChange: vi.fn(),
     onCallableRevert: vi.fn(),
     onParameterExpressionChange: vi.fn(),
     onParameterNameChange: vi.fn(),
+    onDictionaryEntryExpressionChange: vi.fn(),
+    onDictionaryEntryNameChange: vi.fn(),
+    onListDecrement: vi.fn(),
+    onListIncrement: vi.fn(),
     parameterAuthoringPending,
   };
 }
