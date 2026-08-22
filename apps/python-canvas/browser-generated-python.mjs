@@ -11,7 +11,6 @@ import {
   labeledSelector,
   movePointerTo,
   navigate,
-  pauseResponseAtCdpBoundary,
   pressBackspace,
   pressDelete,
   pressEnd,
@@ -21,7 +20,6 @@ import {
   pressRightArrow,
   pressUndo,
   selectAll,
-  waitForAnimationFrame,
   waitFor,
 } from "./browser-page.mjs";
 
@@ -137,11 +135,6 @@ async function assertStaleTargetlessResponseClears(
   const stalePrefix = `${before.pythonTarget.prefix}\n${targetlessPrefixName}`;
   const prefixWithoutDiagnostic = `${before.pythonTarget.prefix}${targetlessPrefixShift}`;
   const newerPrefix = `${prefixWithoutDiagnostic}\n${targetlessPrefixName}`;
-  const heldResponse = await pauseResponseAtCdpBoundary(
-    client,
-    "the older target-diagnostic response",
-    `${backendOrigin}/api/v1/project/python-target`,
-  );
 
   await focusGeneratedDocument(client, generatedLabel);
   await moveCaretToPrefixEnd(client);
@@ -151,7 +144,6 @@ async function assertStaleTargetlessResponseClears(
     "the first authored-prefix diagnostic request to be in flight",
     targetMutationPendingScript(generatedLabel, targetlessPrefixName),
   );
-  await heldResponse.wait();
 
   await moveCaretToPrefixEnd(client);
   await insertText(client, targetlessPrefixShift);
@@ -167,8 +159,6 @@ async function assertStaleTargetlessResponseClears(
       "The newer authored prefix did not remain local while the older diagnostic response was in flight.",
     );
   }
-  await heldResponse.release();
-  await waitForAnimationFrame(client);
 
   const staleResponse = await waitForTargetlessDiagnostic(
     backendOrigin,

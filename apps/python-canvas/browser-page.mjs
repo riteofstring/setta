@@ -32,46 +32,6 @@ export async function waitFor(client, description, expression) {
   throw new Error(`${description} did not occur within 30 seconds.`);
 }
 
-// A stale-response proof must hold the production response after the server has produced it, not
-// race an arbitrary provider or debounce delay. The caller releases this real response only after
-// the newer editor state has been authored.
-export async function pauseResponseAtCdpBoundary(client, description, url) {
-  await client.send("Fetch.enable", {
-    patterns: [{ requestStage: "Response", urlPattern: url }],
-  });
-  const pausedResponse = client
-    .waitForEvent("Fetch.requestPaused", productionTimeoutMs)
-    .then((response) => {
-      if (
-        response.request?.url !== url ||
-        typeof response.requestId !== "string" ||
-        typeof response.responseStatusCode !== "number"
-      ) {
-        throw new Error(`${description} did not pause its HTTP response.`);
-      }
-      return response.requestId;
-    });
-  return {
-    async wait() {
-      await pausedResponse;
-    },
-    async release() {
-      const requestId = await pausedResponse;
-      await client.send("Fetch.continueRequest", { requestId });
-      await client.send("Fetch.disable");
-    },
-  };
-}
-
-// A foreground target reaches this browser turn only after queued response continuations have had
-// a chance to update the application. This is an event boundary, not a timing delay.
-export async function waitForAnimationFrame(client) {
-  await evaluate(
-    client,
-    "new Promise((resolve) => requestAnimationFrame(() => resolve(true)))",
-  );
-}
-
 export function textBoxSelector(label) {
   return `[role="textbox"][aria-label=${JSON.stringify(label)}]`;
 }

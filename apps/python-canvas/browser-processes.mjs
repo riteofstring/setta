@@ -308,9 +308,6 @@ export async function runAgainstProductionApp(callback) {
     const cdpPort = await waitForHeadlessChrome(browser);
     const page = await createCdpPage(cdpPort);
     client = page.client;
-    // Chrome starts with its initial about:blank target as well as the fresh target the CDP helper
-    // creates. Make the latter foreground before a walkthrough relies on animation frames.
-    await client.send("Page.bringToFront");
     await Promise.all([
       client.send("Page.enable"),
       client.send("Runtime.enable"),
