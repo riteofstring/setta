@@ -47,7 +47,7 @@ export function contentEditableTextBoxSelector(label) {
   return `[role="textbox"][aria-label=${JSON.stringify(label)}]`;
 }
 
-export async function elementCenter(client, selector, description) {
+async function elementCenter(client, selector, description) {
   const box = await evaluate(
     client,
     `(() => {
@@ -187,6 +187,81 @@ export async function clickElementCenter(
     await elementCenter(client, selector, description),
     modifiers,
   );
+}
+
+export async function replaceNativeInputAndSubmit(
+  client,
+  selector,
+  value,
+  description,
+) {
+  await clickElementCenter(client, selector, description);
+  await waitFor(
+    client,
+    `${description} keyboard focus`,
+    `document.activeElement === document.querySelector(${JSON.stringify(selector)})`,
+  );
+  const replaced = await evaluate(
+    client,
+    `(() => {
+      const input = document.querySelector(${JSON.stringify(selector)});
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      if (!(input instanceof HTMLInputElement) || setter === undefined) {
+        return false;
+      }
+      setter.call(input, ${JSON.stringify(value)});
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return input.value === ${JSON.stringify(value)};
+    })()`,
+  );
+  if (!replaced) {
+    throw new Error(`${description} could not be edited.`);
+  }
+  await nextAnimationFrame(client);
+  await waitFor(
+    client,
+    `${description} controlled value`,
+    `document.querySelector(${JSON.stringify(selector)})?.value === ${JSON.stringify(value)}`,
+  );
+  const submitReady = await evaluate(
+    client,
+    `(() => {
+      const input = document.querySelector(${JSON.stringify(selector)});
+      const button = input instanceof HTMLInputElement
+        ? input.form?.querySelector("button[type='submit']")
+        : null;
+      if (!(button instanceof HTMLButtonElement)) {
+        return false;
+      }
+      button.scrollIntoView({ block: "center", inline: "center" });
+      return true;
+    })()`,
+  );
+  if (!submitReady) {
+    throw new Error(`${description} submit action is missing.`);
+  }
+  await nextAnimationFrame(client);
+  const submitPoint = await evaluate(
+    client,
+    `(() => {
+      const input = document.querySelector(${JSON.stringify(selector)});
+      const button = input instanceof HTMLInputElement
+        ? input.form?.querySelector("button[type='submit']")
+        : null;
+      if (!(button instanceof HTMLButtonElement)) {
+        return null;
+      }
+      const rect = button.getBoundingClientRect();
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    })()`,
+  );
+  if (submitPoint === null) {
+    throw new Error(`${description} submit action is missing.`);
+  }
+  await clickPoint(client, submitPoint);
 }
 
 export async function focusElement(client, selector, description) {

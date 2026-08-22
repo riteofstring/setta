@@ -112,18 +112,14 @@ export function readParameterItemData(value: unknown): ParameterItemData {
     "parameter.typeAnnotation",
   );
   const defaultValue = readStringOrNull(record.default, "parameter.default");
-  if (
-    nameEditable &&
-    (passingStyle !== PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2 ||
-      providerOrdinal !== null ||
-      typeAnnotation !== null ||
-      defaultValue !== null)
-  ) {
-    throw new Error("App-authored parameter metadata is incoherent.");
-  }
-  if (!nameEditable && (name === "" || providerOrdinal === null)) {
-    throw new Error("Provider-derived parameter metadata is incoherent.");
-  }
+  validateParameterMetadata({
+    defaultValue,
+    name,
+    nameEditable,
+    passingStyle,
+    providerOrdinal,
+    typeAnnotation,
+  });
   return {
     authoredExpression: readString(
       record.authoredExpression,
@@ -136,6 +132,56 @@ export function readParameterItemData(value: unknown): ParameterItemData {
     providerOrdinal,
     typeAnnotation,
   };
+}
+
+function validateParameterMetadata({
+  defaultValue,
+  name,
+  nameEditable,
+  passingStyle,
+  providerOrdinal,
+  typeAnnotation,
+}: {
+  defaultValue: string | null;
+  name: string;
+  nameEditable: boolean;
+  passingStyle: ParameterPassingStyleV2;
+  providerOrdinal: number | null;
+  typeAnnotation: string | null;
+}) {
+  if (nameEditable) {
+    validateAppAuthoredParameterMetadata({
+      defaultValue,
+      passingStyle,
+      providerOrdinal,
+      typeAnnotation,
+    });
+    return;
+  }
+  if (name === "" || providerOrdinal === null) {
+    throw new Error("Provider-derived parameter metadata is incoherent.");
+  }
+}
+
+function validateAppAuthoredParameterMetadata({
+  defaultValue,
+  passingStyle,
+  providerOrdinal,
+  typeAnnotation,
+}: {
+  defaultValue: string | null;
+  passingStyle: ParameterPassingStyleV2;
+  providerOrdinal: number | null;
+  typeAnnotation: string | null;
+}) {
+  if (
+    passingStyle !== PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2 ||
+    providerOrdinal !== null ||
+    typeAnnotation !== null ||
+    defaultValue !== null
+  ) {
+    throw new Error("App-authored parameter metadata is incoherent.");
+  }
 }
 
 export function CallableExpressionField({

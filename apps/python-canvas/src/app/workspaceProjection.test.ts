@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
 import { readCallableSectionData } from "../sections/CallableSection";
-import { registerPythonCanvasSectionKinds } from "./PythonCanvasApp";
+import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import {
   CALLABLE_SECTION_KIND,
   GENERATED_PYTHON_SECTION_ID,

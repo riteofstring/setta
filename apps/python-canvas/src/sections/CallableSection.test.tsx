@@ -133,24 +133,28 @@ describe("CallableSection", () => {
       { ...mutationContext(), onCallableCommit },
     );
 
-    const input = view.querySelector<HTMLInputElement>(
+    const input = requiredElement<HTMLInputElement>(
+      view,
       "input[name='callable-expression']",
     );
-    expect(input?.id).toBe("python-canvas-callable-expression-callable%3Aone");
-    expect(
-      view.querySelector(
-        "label[for='python-canvas-callable-expression-callable%3Aone']",
-      )?.textContent,
-    ).toBe("Callable expression");
-    expect(input?.tagName).toBe("INPUT");
-    expect(input?.form?.classList.contains(NO_DRAG_CLASS_NAME)).toBe(true);
-    expect(input?.form?.classList.contains(NO_PAN_CLASS_NAME)).toBe(true);
-    expect(input?.form?.getAttribute("data-tab-native")).toBe("true");
-    expect(
-      input?.form?.querySelector("button[type='submit']")?.textContent,
-    ).toBe("Commit callable");
+    const label = requiredElement<HTMLLabelElement>(
+      view,
+      "label[for='python-canvas-callable-expression-callable%3Aone']",
+    );
+    const form = requiredForm(input);
+    const submit = requiredElement<HTMLButtonElement>(
+      form,
+      "button[type='submit']",
+    );
+    expect(input.id).toBe("python-canvas-callable-expression-callable%3Aone");
+    expect(label.textContent).toBe("Callable expression");
+    expect(input.tagName).toBe("INPUT");
+    expect(form.classList.contains(NO_DRAG_CLASS_NAME)).toBe(true);
+    expect(form.classList.contains(NO_PAN_CLASS_NAME)).toBe(true);
+    expect(form.getAttribute("data-tab-native")).toBe("true");
+    expect(submit.textContent).toBe("Commit callable");
     act(() => {
-      input?.form?.dispatchEvent(
+      form.dispatchEvent(
         new Event("submit", { bubbles: true, cancelable: true }),
       );
     });
@@ -546,6 +550,24 @@ function render(node: ReactNode, context = mutationContext()): HTMLDivElement {
     );
   });
   return container;
+}
+
+function requiredElement<T extends Element>(
+  root: ParentNode,
+  selector: string,
+): T {
+  const element = root.querySelector<T>(selector);
+  if (element === null) {
+    throw new Error(`Missing test element ${selector}.`);
+  }
+  return element;
+}
+
+function requiredForm(input: HTMLInputElement): HTMLFormElement {
+  if (input.form === null) {
+    throw new Error("The test input is missing its form.");
+  }
+  return input.form;
 }
 
 function sectionData({

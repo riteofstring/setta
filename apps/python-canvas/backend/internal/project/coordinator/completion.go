@@ -170,7 +170,7 @@ func validateCanonicalPythonTargetBodyMapping(code string, input pythonTargetCom
 		return fmt.Errorf("%w: canonical renderer body is empty", ErrCompletionInvalid)
 	}
 	canonicalStart := strings.Index(code, canonicalBody)
-	if canonicalStart < 0 || strings.Index(code[canonicalStart+1:], canonicalBody) >= 0 {
+	if canonicalStart < 0 || strings.Contains(code[canonicalStart+1:], canonicalBody) {
 		return fmt.Errorf("%w: canonical renderer body is not uniquely mapped", ErrCompletionInvalid)
 	}
 	canonicalEnd := canonicalStart + len(canonicalBody)

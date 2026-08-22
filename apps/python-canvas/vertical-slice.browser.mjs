@@ -30,6 +30,7 @@ import {
   pressItemActionMenuKey,
   prepareElementDrag,
   releaseItemSelectionChord,
+  replaceNativeInputAndSubmit,
   selectAll,
   contentEditableTextBoxSelector,
   waitFor,
@@ -841,75 +842,6 @@ async function waitForTargetCompletionRequest(client, before, description) {
       }
     }).length > ${String(before)}`,
   );
-}
-
-async function replaceNativeInputAndSubmit(
-  client,
-  selector,
-  value,
-  description,
-) {
-  await clickElementCenter(client, selector, description);
-  await waitFor(
-    client,
-    `${description} keyboard focus`,
-    `document.activeElement === document.querySelector(${JSON.stringify(selector)})`,
-  );
-  const replaced = await evaluate(
-    client,
-    `(() => {
-      const input = document.querySelector(${JSON.stringify(selector)});
-      const setter = Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
-        "value",
-      )?.set;
-      if (!(input instanceof HTMLInputElement) || setter === undefined) {
-        return false;
-      }
-      setter.call(input, ${JSON.stringify(value)});
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      return input.value === ${JSON.stringify(value)};
-    })()`,
-  );
-  assert.equal(replaced, true, `${description} could not be edited.`);
-  await nextAnimationFrame(client);
-  await waitFor(
-    client,
-    `${description} controlled value`,
-    `document.querySelector(${JSON.stringify(selector)})?.value === ${JSON.stringify(value)}`,
-  );
-  const submitReady = await evaluate(
-    client,
-    `(() => {
-      const input = document.querySelector(${JSON.stringify(selector)});
-      const button = input instanceof HTMLInputElement
-        ? input.form?.querySelector("button[type='submit']")
-        : null;
-      if (!(button instanceof HTMLButtonElement)) {
-        return false;
-      }
-      button.scrollIntoView({ block: "center", inline: "center" });
-      return true;
-    })()`,
-  );
-  assert.equal(submitReady, true, `${description} submit action is missing.`);
-  await nextAnimationFrame(client);
-  const submitPoint = await evaluate(
-    client,
-    `(() => {
-      const input = document.querySelector(${JSON.stringify(selector)});
-      const button = input instanceof HTMLInputElement
-        ? input.form?.querySelector("button[type='submit']")
-        : null;
-      if (!(button instanceof HTMLButtonElement)) {
-        return null;
-      }
-      const rect = button.getBoundingClientRect();
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-    })()`,
-  );
-  assert.notEqual(submitPoint, null, `${description} submit action is missing.`);
-  await clickPoint(client, submitPoint);
 }
 
 async function waitForSnapshot(backendOrigin, description, predicate) {

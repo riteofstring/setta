@@ -32,6 +32,68 @@ const mocks = vi.hoisted(() => ({
   } | null,
 }));
 
+type MockSectionRegistration = {
+  createItem?: unknown;
+  itemArea?: {
+    renderLeadingContent?: (section: unknown) => ReactNode;
+    toolbar?: string;
+  };
+};
+
+function MockWorkspaceCanvas() {
+  if (!mocks.renderWorkspaceCanvas) {
+    return <div data-testid="workspace-canvas" />;
+  }
+  return (
+    <div data-testid="workspace-canvas">{mockWorkspaceLeadingContent()}</div>
+  );
+}
+
+function mockWorkspaceLeadingContent(): ReactNode {
+  const host = mocks.workspaceCanvasHost;
+  if (host === null) {
+    return null;
+  }
+  const section =
+    host.getSnapshot().sections["python-canvas:callable:callable:one"];
+  const sectionKind = mockSectionKind(section);
+  if (sectionKind === null) {
+    return null;
+  }
+  return (
+    lastMockSectionRegistrations()[
+      sectionKind
+    ]?.itemArea?.renderLeadingContent?.(section) ?? null
+  );
+}
+
+function mockSectionKind(section: unknown): string | null {
+  if (typeof section !== "object" || section === null || !("kind" in section)) {
+    return null;
+  }
+  return String(section.kind);
+}
+
+function lastMockSectionRegistrations(): Record<
+  string,
+  MockSectionRegistration
+> {
+  return (
+    (mocks.registerSectionKinds.mock.calls.at(-1)?.[1] as
+      Record<string, MockSectionRegistration> | undefined) ?? {}
+  );
+}
+
+function requiredMockSectionRegistration(
+  kind: string,
+): MockSectionRegistration {
+  const registration = lastMockSectionRegistrations()[kind];
+  if (registration === undefined) {
+    throw new Error(`Missing mock section registration ${kind}.`);
+  }
+  return registration;
+}
+
 vi.mock("../backend/client", () => ({
   ProjectClientError: class extends Error {
     public readonly code: string | undefined;
@@ -64,40 +126,7 @@ vi.mock("@setta/workspace", () => ({
   NO_DRAG_CLASS_NAME: "nodrag",
   NO_PAN_CLASS_NAME: "nopan",
   TextValueEditor: () => <input aria-label="Callable expression" readOnly />,
-  WorkspaceCanvas: () => {
-    if (!mocks.renderWorkspaceCanvas || mocks.workspaceCanvasHost === null) {
-      return <div data-testid="workspace-canvas" />;
-    }
-    const registrations = mocks.registerSectionKinds.mock.calls.at(-1)?.[1] as
-      | Record<
-          string,
-          {
-            itemArea?: {
-              renderLeadingContent?: (section: unknown) => ReactNode;
-            };
-          }
-        >
-      | undefined;
-    const section =
-      mocks.workspaceCanvasHost.getSnapshot().sections[
-        "python-canvas:callable:callable:one"
-      ];
-    const sectionKind =
-      typeof section === "object" && section !== null && "kind" in section
-        ? (section as { kind: string }).kind
-        : null;
-    const renderLeadingContent =
-      sectionKind === null
-        ? undefined
-        : registrations?.[sectionKind]?.itemArea?.renderLeadingContent;
-    return (
-      <div data-testid="workspace-canvas">
-        {section === undefined || renderLeadingContent === undefined
-          ? null
-          : renderLeadingContent(section)}
-      </div>
-    );
-  },
+  WorkspaceCanvas: MockWorkspaceCanvas,
   WorkspaceItemLabel: ({ children }: { children?: ReactNode }) => (
     <span>{children}</span>
   ),
@@ -115,11 +144,9 @@ vi.mock("@setta/workspace", () => ({
   setWorkspaceColorMode: mocks.setWorkspaceColorMode,
 }));
 
-import {
-  PythonCanvasApp,
-  registerPythonCanvasSectionKinds,
-} from "./PythonCanvasApp";
+import { PythonCanvasApp } from "./PythonCanvasApp";
 import { PythonCanvasView } from "./PythonCanvasView";
+import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import {
   CALLABLE_SECTION_KIND,
   PENDING_CALLABLE_SECTION_KIND,
@@ -224,24 +251,13 @@ describe("PythonCanvasApp", () => {
     const host = createHost();
     registerPythonCanvasSectionKinds(host);
 
-    const registrations = mocks.registerSectionKinds.mock.calls.at(-1)?.[1] as
-      | Record<
-          string,
-          {
-            createItem?: unknown;
-            itemArea?: { toolbar?: string };
-          }
-        >
-      | undefined;
-    expect(registrations?.[CALLABLE_SECTION_KIND]?.itemArea?.toolbar).toBe(
-      "authoring-and-filter",
+    const authoring = requiredMockSectionRegistration(CALLABLE_SECTION_KIND);
+    const pending = requiredMockSectionRegistration(
+      PENDING_CALLABLE_SECTION_KIND,
     );
-    expect(
-      registrations?.[PENDING_CALLABLE_SECTION_KIND]?.itemArea?.toolbar,
-    ).toBe("filter-only");
-    expect(
-      registrations?.[PENDING_CALLABLE_SECTION_KIND]?.createItem,
-    ).toBeUndefined();
+    expect(authoring.itemArea?.toolbar).toBe("authoring-and-filter");
+    expect(pending.itemArea?.toolbar).toBe("filter-only");
+    expect(pending.createItem).toBeUndefined();
   });
 
   it("associates target completion failures with the app-owned editor boundary", () => {

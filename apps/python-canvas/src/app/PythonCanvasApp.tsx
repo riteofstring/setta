@@ -1,12 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  WORKSPACE_CODE_SECTION_KIND,
-  createWorkspaceCodeSection,
   createWorkspaceHost,
-  registerSectionKinds,
   setWorkspaceColorMode,
   type TextValueCompletionProvider,
-  type WorkspaceCodeSectionCompletionProvider,
   type WorkspaceDocument,
   type WorkspaceHost,
 } from "@setta/workspace";
@@ -22,32 +18,13 @@ import {
   setCallableParameters,
   setPythonTarget,
 } from "../backend/client";
-import type {
-  CallableV2,
-  ParameterProposalV2,
-  ProjectSnapshotV2,
-} from "../backend/generatedContract";
-import {
-  CallableExpressionField,
-  CallableSection,
-  parameterItemSearchableText,
-  readCallableSectionData,
-} from "../sections/CallableSection";
+import type { ProjectSnapshotV2 } from "../backend/generatedContract";
 import { createCallableCompletionProvider } from "../sections/callableCompletion";
-import { hasBlockingParameterName } from "../sections/parameterNames";
 import { createPythonTargetCompletionProvider } from "../sections/pythonTargetCompletion";
 import {
-  CALLABLE_SECTION_KIND,
-  CALLABLE_SECTION_SIZE,
-  GENERATED_PYTHON_SECTION_ID,
-  GENERATED_PYTHON_SECTION_SIZE,
-  PENDING_CALLABLE_SECTION_KIND,
   applyProjectSnapshotToWorkspace,
-  createCallableParameterItem,
   isCallableParameterAuthoringPending,
   projectWorkspaceDocument,
-  readCallableParameterItems,
-  readCallableParameterRows,
   readGeneratedPythonTarget,
   setCallableParameterAuthoringPending,
   setParameterItemExpression,
@@ -55,7 +32,20 @@ import {
   type ProjectSnapshotProjectionOptions,
 } from "./workspaceProjection";
 import type { PythonCanvasMutationContextValue } from "./PythonCanvasMutationContext";
-import { PythonTargetCompletionBoundary } from "./PythonTargetCompletionBoundary";
+import {
+  changedParameterCallableIds,
+  hasPythonTargetChange,
+  mutationErrorMessage,
+  parameterListDraft,
+  parameterMutationProposal,
+  sameCanonicalPythonTarget,
+  sameParameterList,
+  sameProposedList,
+  type AppController,
+  type MutationAnswer,
+  type RevisionConflictDraft,
+} from "./pythonCanvasAppSupport";
+import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import { PythonCanvasView } from "./PythonCanvasView";
 
 const mutationDebounceMs = 300;
@@ -75,101 +65,6 @@ type CallableDrafts = Record<string, string>;
 type CallableNameDrafts = Record<string, string>;
 type CompletionProviders = Record<string, TextValueCompletionProvider>;
 type CompletionErrors = Record<string, string>;
-
-type MutationAnswer =
-  | { callableId: string; kind: "commit" }
-  | { callableId: string; kind: "parameters"; sent: ParameterProposalV2[] }
-  | { kind: "other" };
-
-type RevisionConflictDraft =
-  | { callableId: string; kind: "callable-rename"; name: string }
-  | { callableId: string; kind: "parameters" }
-  | { kind: "project-rename"; name: string }
-  | null;
-
-type AppController = {
-  commitCallable: (callableId: string, value: string) => void;
-  createCallable: (name: string) => void;
-  deleteCallable: (callableId: string) => void;
-  renameCallable: (callableId: string, name: string) => void;
-  renameProject: (name: string) => void;
-  revertCallableDraft: (callableId: string) => void;
-  setCallableDraft: (callableId: string, value: string) => void;
-  setCallableNameDraft: (callableId: string, name: string) => void;
-  setParameterExpression: (
-    callableId: string,
-    parameterId: string,
-    value: string,
-  ) => void;
-  setParameterName: (
-    callableId: string,
-    parameterId: string,
-    name: string,
-  ) => void;
-};
-
-export function registerPythonCanvasSectionKinds(
-  host: WorkspaceHost,
-  pythonTargetCompletionProvider?: WorkspaceCodeSectionCompletionProvider,
-): void {
-  const pythonTargetSection = createWorkspaceCodeSection({
-    completionProvider: pythonTargetCompletionProvider,
-    defaultSize: GENERATED_PYTHON_SECTION_SIZE,
-    languages: ["python"],
-  });
-  const callableItemArea = {
-    renderLeadingContent: (section: WorkspaceDocument["sections"][string]) => {
-      const data = readCallableSectionData(section.data);
-      return <CallableExpressionField data={data} />;
-    },
-  };
-  const callableSectionKind = {
-    defaultSize: CALLABLE_SECTION_SIZE,
-    assertValidData: (section: WorkspaceDocument["sections"][string]) => {
-      readCallableSectionData(section.data);
-    },
-    getItemSearchableText: (context: { item: { data?: unknown } }) =>
-      parameterItemSearchableText(context.item),
-    renderContent: (section: WorkspaceDocument["sections"][string]) => {
-      const data = readCallableSectionData(section.data);
-      return (
-        <CallableSection
-          data={data}
-          parameters={readCallableParameterRows(section)}
-          sectionId={section.id}
-        />
-      );
-    },
-  };
-  registerSectionKinds(host, {
-    [CALLABLE_SECTION_KIND]: {
-      ...callableSectionKind,
-      itemArea: {
-        ...callableItemArea,
-        toolbar: "authoring-and-filter",
-      },
-      createItem: () => createCallableParameterItem(),
-    },
-    [PENDING_CALLABLE_SECTION_KIND]: {
-      ...callableSectionKind,
-      itemArea: {
-        ...callableItemArea,
-        toolbar: "filter-only",
-      },
-    },
-    [WORKSPACE_CODE_SECTION_KIND]: {
-      ...pythonTargetSection,
-      renderContent: (section) =>
-        section.id === GENERATED_PYTHON_SECTION_ID ? (
-          <PythonTargetCompletionBoundary>
-            {pythonTargetSection.renderContent(section)}
-          </PythonTargetCompletionBoundary>
-        ) : (
-          pythonTargetSection.renderContent(section)
-        ),
-    },
-  });
-}
 
 export function PythonCanvasApp() {
   const [state, setState] = useState<AppState>({ kind: "loading" });
@@ -614,22 +509,12 @@ export function PythonCanvasApp() {
           if (!active || snapshot === null) {
             return;
           }
-          if (
-            isCallableParameterAuthoringPending(host.getSnapshot(), callableId)
-          ) {
-            return;
-          }
-          const callable = snapshot.callables.find(
-            (candidate) => candidate.id === callableId,
-          );
-          if (callable === undefined) {
-            return;
-          }
-          const proposal = proposedParameterList(
+          const proposal = parameterMutationProposal(
             host.getSnapshot(),
+            snapshot,
             callableId,
           );
-          if (proposal === null || sameParameterList(proposal, callable)) {
+          if (proposal === null) {
             return;
           }
           const current = snapshot;
@@ -934,22 +819,13 @@ export function PythonCanvasApp() {
       if (isProjectingRef.current || snapshot === null || !active) {
         return;
       }
-      for (const callable of snapshot.callables) {
-        if (isCallableParameterAuthoringPending(document, callable.id)) {
-          continue;
-        }
-        const proposal = proposedParameterList(document, callable.id);
-        if (proposal !== null && !sameParameterList(proposal, callable)) {
-          scheduleParameterListMutation(callable.id);
-        }
+      for (const callableId of changedParameterCallableIds(
+        document,
+        snapshot,
+      )) {
+        scheduleParameterListMutation(callableId);
       }
-      try {
-        if (
-          !sameCanonicalPythonTarget(readGeneratedPythonTarget(host), snapshot)
-        ) {
-          schedulePythonTargetMutation();
-        }
-      } catch {
+      if (hasPythonTargetChange(host, snapshot)) {
         schedulePythonTargetMutation();
       }
     });
@@ -1087,99 +963,4 @@ export function PythonCanvasApp() {
       state={state}
     />
   );
-}
-
-function documentParameterList(
-  document: WorkspaceDocument,
-  callableId: string,
-): ParameterProposalV2[] {
-  return readCallableParameterItems(document, callableId).map((item) => ({
-    authoredExpression: item.data.authoredExpression,
-    id: item.id,
-    name: item.data.name,
-  }));
-}
-
-function parameterListDraft(
-  document: WorkspaceDocument,
-  callableId: string,
-): ParameterProposalV2[] | null {
-  try {
-    return documentParameterList(document, callableId);
-  } catch {
-    return null;
-  }
-}
-
-function proposedParameterList(
-  document: WorkspaceDocument,
-  callableId: string,
-): ParameterProposalV2[] | null {
-  let items: ReturnType<typeof readCallableParameterItems>;
-  try {
-    items = readCallableParameterItems(document, callableId);
-  } catch {
-    return null;
-  }
-  if (hasBlockingParameterName(items)) {
-    return null;
-  }
-  return items.map((item) => ({
-    authoredExpression: item.data.authoredExpression,
-    id: item.id,
-    name: item.data.name,
-  }));
-}
-
-function sameProposedList(
-  left: ReadonlyArray<ParameterProposalV2>,
-  right: ReadonlyArray<ParameterProposalV2>,
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every((parameter, index) => {
-      const other = right[index];
-      return (
-        other !== undefined &&
-        other.id === parameter.id &&
-        other.name === parameter.name &&
-        other.authoredExpression === parameter.authoredExpression
-      );
-    })
-  );
-}
-
-function sameParameterList(
-  proposal: ReadonlyArray<ParameterProposalV2>,
-  callable: CallableV2,
-): boolean {
-  return (
-    proposal.length === callable.parameters.length &&
-    proposal.every((parameter, index) => {
-      const canonical = callable.parameters[index];
-      return (
-        canonical !== undefined &&
-        canonical.id === parameter.id &&
-        canonical.name === parameter.name &&
-        canonical.authoredExpression === parameter.authoredExpression
-      );
-    })
-  );
-}
-
-function sameCanonicalPythonTarget(
-  authored: { prefix: string; suffix: string },
-  snapshot: ProjectSnapshotV2,
-): boolean {
-  return (
-    authored.prefix === snapshot.pythonTarget.prefix &&
-    authored.suffix === snapshot.pythonTarget.suffix
-  );
-}
-
-function mutationErrorMessage(target: string, error: unknown): string {
-  if (error instanceof ProjectClientError) {
-    return `Unable to update ${target}. ${error.message}`;
-  }
-  return `Unable to update ${target}. Try again.`;
 }

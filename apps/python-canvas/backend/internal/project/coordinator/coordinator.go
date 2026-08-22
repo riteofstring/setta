@@ -27,6 +27,12 @@ type Options struct {
 	Render       RenderFunc
 }
 
+type openInputs struct {
+	projectPath string
+	files       projectfile.Store
+	render      RenderFunc
+}
+
 // Coordinator serializes candidate construction, derived materialization,
 // provider synchronization, persistence, and publication for one project.
 type Coordinator struct {
@@ -53,33 +59,20 @@ func Open(ctx context.Context, options Options) (*Coordinator, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	projectPath, err := canonicalProjectPath(options.ProjectPath)
+	inputs, err := prepareOpenInputs(options)
 	if err != nil {
 		return nil, err
 	}
-	if options.IDGenerator == nil {
-		return nil, aggregate.ErrIDGeneratorRequired
-	}
-	if options.Materializer == nil {
-		return nil, ErrMaterializerRequired
-	}
-	if err := validateMaterializerPath(projectPath, options.Materializer.Path()); err != nil {
-		return nil, err
-	}
-	files := options.Files
-	if files == nil {
-		files = projectfile.NewAdapter()
-	}
-	renderCandidate := options.Render
-	if renderCandidate == nil {
-		renderCandidate = renderer.Render
-	}
-
-	state, createProject, err := loadOrPrepareCreate(projectPath, options.Create, options.IDGenerator, files)
+	state, createProject, err := loadOrPrepareCreate(
+		inputs.projectPath,
+		options.Create,
+		options.IDGenerator,
+		inputs.files,
+	)
 	if err != nil {
 		return nil, err
 	}
-	rendered, err := renderCandidate(state)
+	rendered, err := inputs.render(state)
 	if err != nil {
 		return nil, cleanupFailedOpenMaterialization(
 			options.Materializer,
@@ -93,18 +86,18 @@ func Open(ctx context.Context, options Options) (*Coordinator, error) {
 		)
 	}
 	if createProject {
-		if err := files.Create(projectPath, state); err != nil {
+		if err := inputs.files.Create(inputs.projectPath, state); err != nil {
 			return nil, cleanupFailedOpenMaterialization(options.Materializer, err)
 		}
 	}
 
 	coordinator := &Coordinator{
-		projectPath:  projectPath,
+		projectPath:  inputs.projectPath,
 		idGenerator:  options.IDGenerator,
-		files:        files,
+		files:        inputs.files,
 		materializer: options.Materializer,
 		provider:     options.Provider,
-		render:       renderCandidate,
+		render:       inputs.render,
 		snapshot: Snapshot{
 			State:          state.Clone(),
 			Rendered:       cloneRendered(rendered),
@@ -114,6 +107,35 @@ func Open(ctx context.Context, options Options) (*Coordinator, error) {
 	}
 	coordinator.initializeProvider(ctx)
 	return coordinator, nil
+}
+
+func prepareOpenInputs(options Options) (openInputs, error) {
+	projectPath, err := canonicalProjectPath(options.ProjectPath)
+	if err != nil {
+		return openInputs{}, err
+	}
+	if options.IDGenerator == nil {
+		return openInputs{}, aggregate.ErrIDGeneratorRequired
+	}
+	if options.Materializer == nil {
+		return openInputs{}, ErrMaterializerRequired
+	}
+	if err := validateMaterializerPath(projectPath, options.Materializer.Path()); err != nil {
+		return openInputs{}, err
+	}
+	files := options.Files
+	if files == nil {
+		files = projectfile.NewAdapter()
+	}
+	renderCandidate := options.Render
+	if renderCandidate == nil {
+		renderCandidate = renderer.Render
+	}
+	return openInputs{
+		projectPath: projectPath,
+		files:       files,
+		render:      renderCandidate,
+	}, nil
 }
 
 // Snapshot returns the complete currently published private state.
