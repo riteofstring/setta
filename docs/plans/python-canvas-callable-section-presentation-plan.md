@@ -2200,10 +2200,13 @@ it, as decision 15 requires. The set is the one the supervisor's corrections fix
 Square Root card idle and focused, the Generated Python reader idle and clicked, and the settled 2x
 card idle, focused, and with completion showing, in both appearances, each with eight CSS px of
 surrounding surface — and the harness again asserted every donor geometry, typography,
-generated-region, and interaction value while it recorded, so it cannot file a capture of a drifted
-surface. It still waits for the canonical first render and performs no setup mutation of its own.
+generated-region, and interaction value it owns while it recorded, so a capture of a surface that
+has drifted in one of those values cannot be filed. Which values those are, and which belong to the
+production walkthrough instead, is stated in the record below. It still waits for the canonical
+first render and performs no setup mutation of its own.
 
-These images show the two behaviors the developer rejected the previous candidate for. The Args
+These images show the two behaviors the developer rejected candidate
+`e5cb62bd8aa79c6fc77b59c4d685602089619615` for. The Args
 surface is the package's `authoring-and-filter` toolbar, so the card carries main's remove-last,
 add, and delete-selected controls beside the `ARGS` label rather than a filter alone; the idle card
 reads `Filter` and the focused card, where entering the callable field makes Square Root the sole
@@ -2254,6 +2257,75 @@ raised here because no file this batch touches reaches it. Run against the same 
 `code-policy test --changed` matches no suite, which is the honest result for a batch that changes
 only recorded evidence and this plan: no source, test, dependency, or Code Policy configuration file
 is in it.
+
+**Bundle prose coherence record.** The hand-written README the supervisor judges these images
+against is corrected where it still spoke for an older rejection, and the two documents stop
+restating the numbers the metrics file already owns.
+
+`docs/evidence/python-canvas-callable-presentation/README.md` used "the previous candidate" for the
+blurred settled zoom and the section-clipped completion popup. Those are the defects candidate
+`838ad70b9116e0e9bb54993836cd4a38401f4773` was rejected for and candidate
+`e5cb62bd8aa79c6fc77b59c4d685602089619615` already corrected, while the record above used the same
+phrase for `e5cb62bd8`'s own rejection — the filter-only toolbar and the wholly non-editable
+generated document. Read together, the bundle offered its enlarged crops as the answer to the most
+recent rejection, which this plan's history contradicts. The enlarged paragraph now names the older
+rejection it answers and says the source candidate already corrects both of those defects, and it
+points at the authoring-toolbar and generated-document paragraphs as the behaviors this bundle
+exists to show. The record above names `e5cb62bd8` outright instead of "the previous candidate", so
+one rejection history is stated across both documents.
+
+The README also restated measurements the metrics file records, and the two transcriptions had
+already drifted in form: the enlarged card's clearance read "65 CSS px" there against "65.4" here,
+and the popup's overhang "roughly 60 CSS px" against "60.4 in light and 58.4 in dark". Both were
+within rounding of `computed/presentation-metrics.json`, and both had to be re-transcribed in two
+prose documents after every rerun. The README now names the metric and leaves the number in the
+JSON: the enlarged paragraph points at each capture's recorded zoom factor, card box, and canvas
+box; the completion paragraph at the popup's own box against the field's and the two options it
+offers; and the generated paragraph at the block's bottom against the document's content bottom.
+What each image has to show is stated as a relationship a reader can see in it. Donor targets the
+harness asserts against — the zero-pixel composition steps, the item list's own step, the pill's
+radius and margins, the fixed 390px section — stay written out, because those are the contract
+rather than one run's observation. This is what replaces the enlarged measurements the preceding
+batch wrote into that prose.
+
+One sentence was wrong rather than stale: the completion paragraph said the popup "geometrically
+covers the filter", and in the recorded 07 and 14 crops it covers the three authoring controls
+beside it as well. It now says so. Every state those two images are required to show — the header,
+the `math.sq` draft, the `ARGS` label, the complete `x` row, and the unclipped popup — is present.
+
+What the capture asserts is stated more exactly than "every donor value". While it records, it
+asserts the callable field's donor surface and its idle-to-focused type and box parity, the card's
+four composition steps with the field's symmetric inset and the app's zero content padding, the
+generated region's paint, badge placement, per-line marks, bounds against the authored prefix and
+suffix, and editable-document reads, the settled card's compositing and its place inside the canvas,
+the completion popup's escape from the field and the section with its hit tests, and the rule that
+no crop is ever clamped. It does not assert the Args toolbar's mode, its three authoring controls,
+or the placeholder its filter advertises; only the toolbar's box reaches the metrics file. The
+production walkthrough owns those: it requires `authoring-and-filter`, the `ARGS` label, the
+remove-last, add, and delete-selected control set with no pin or edge control beside them, the empty
+filter of the sole active section advertising this platform's chord without replacing its
+`Filter parameters` accessible name, and that chord moving focus into it. A regression to the
+rejected filter-only toolbar therefore fails the walkthrough rather than the capture, and the record
+above is narrowed to say so instead of implying the images are themselves that guard.
+
+Recording the toolbar's control set and advertised placeholder beside its geometry would put this
+phase's headline behavior under the capture as well, and it should. That is a change to
+`apps/python-canvas/callable-presentation.mjs`, and this plan already binds a change of the source a
+bundle names to a recapture before developer review — the format closeout correction above took a
+whole rerun for a change that altered no rendered surface — so it travels with the next capture
+rerun rather than separating the committed images from the commit they record. Three stale comments
+are owed to that same rerun: the module header of `callable-presentation.mjs` still describes "the
+pair of negative `.cm-cursor` and `.cm-activeLine` reads below" as its caret evidence though
+`be6632ea5` replaced them with `caretInsideBlock`, and both `callable-presentation.capture.mjs`'s
+enlarged-state comment and `vertical-slice.browser.mjs`'s field-parity comment still say "the
+previous candidate" for rejections two and three candidates back. This batch touches no tracked
+source file, so the bundle still names a commit whose source tree the working tree matches.
+
+Verification for this batch: `code-policy check --git-changes` over the two changed documents
+completes without findings, and `code-policy test --changed --base e739b8fda` matches no suite,
+which is the honest result for a batch that changes only the evidence bundle's prose and this plan.
+The images, the metrics file, and the source candidate they name are untouched, so this batch owes
+no recapture.
 
 What remains in Phase B: the immutable read-only review of the source candidate, supervisor
 inspection of these fourteen images against main at original resolution, developer visual acceptance

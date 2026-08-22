@@ -61,8 +61,9 @@ so the three generated body lines carry the blue region and its three-pixel lead
 two blank separators supply the donor's partial rounded boundary, and `import math` on line 1 and
 `state = SettaState()` on line 7 stay on the ordinary Code-section surface. The compact uppercase
 **GENERATED READ-ONLY** badge is centred on the block's upper boundary. The fixed 390px section
-leaves the rest of its height unpainted — in the light idle capture the block ends 276.9 CSS px
-above the section's own bottom.
+leaves the rest of its height unpainted: every generated capture records the block's own bottom
+against the document's content bottom, and in each one the block ends far above it, hugging the code
+instead of filling the section.
 
 The document around that block is authored Python, so it is an ordinary editing surface: a real
 pointer click focuses it and leaves a caret and active line where authoring is allowed. In the
@@ -72,23 +73,32 @@ bytes are identical to the idle capture, no caret sits on any marked line, and t
 inner outline. The section's own selection chrome around the clicked captures is ordinary workspace
 behaviour, not part of this surface.
 
-The zoomed crops are the two defects the developer rejected the previous candidate on, at the
-enlarged zoom they were found at. The scene is exactly doubled and settled, with the pointer resting
-on the card, and the card carries no compositor layer of its own — `will-change: auto`,
-`transform: none`, `backface-visibility: visible`, `isolation: auto` — so its text, icons, and
-borders are rasterized at the size they are displayed at rather than scaled from the layer a gesture
-left behind. Judge them for crispness against the same scene in main.
+The zoomed crops answer an older rejection than the two behaviours above. An earlier candidate was
+rejected for a blurred settled zoom and for a completion popup the section clipped down to a line
+across the pill; these crops are those two defects at the enlarged zoom they were found at, and the
+candidate this bundle is rendered from already corrects both. The behaviours this bundle exists to
+show are the authoring toolbar and the authored generated document described above. The scene here
+is exactly doubled and settled, with the pointer resting on the card, and the card carries no
+compositor layer of its own — `will-change: auto`, `transform: none`,
+`backface-visibility: visible`, `isolation: auto` — so its text, icons, and borders are rasterized
+at the size they are displayed at rather than scaled from the layer a gesture left behind. Judge
+them for crispness against the same scene in main.
 
-Each enlarged image holds the card's whole composition. The doubled card measures 724 by 564 CSS px
-in a 1400 by 630 CSS px canvas. Its header clears the application status strip by 65 CSS px; no
-header, field, toolbar, or parameter content is clipped. One CSS pixel of its left border overhangs
-the canvas, inside the harness's two-pixel tolerance for the selection stroke. The canvas minimap
-overlays the card's empty lower-left area as ordinary workspace chrome.
+Each enlarged image holds the card's whole composition. Every enlarged capture records the settled
+zoom factor, the doubled card's box, and the canvas box it sits in, so the exact numbers stay in
+`computed/presentation-metrics.json` instead of being restated here: what the image itself has to
+show is a card that clears the canvas's own top edge with no header, field, toolbar, or parameter
+content clipped. Its left border overhangs the canvas by less than the harness's two-pixel tolerance
+for the selection stroke. The canvas minimap overlays the card's empty lower-left area as ordinary
+workspace chrome.
 
 Idle and focused images show the full committed `math.sqrt` and the whole Args row — label, the
 three authoring controls, and the filter. Completion images record the workflow after entering
 `math.sq`: the pill shows that draft, the `ARGS` label and complete `x` row remain visible, and the
-popup geometrically covers the filter. The whole two-option popup is 500 CSS px wide, extends
-roughly 60 CSS px past the field, is inside neither the field nor the section, and is what the page
-hit-tests at both recorded points. The single horizontal line that previously crossed the focused
-pill was the only visible remnant when the section clipped this popup.
+popup geometrically covers the rest of the Args row, the three authoring controls as well as the
+filter. Each completion capture records the popup's own box against the field's and the two options
+it offers, so its width and how far past the field it reaches are read from the metrics file rather
+than from this prose. What the image has to show is a whole two-option list that is inside neither
+the field nor the section, and the recorded hit tests are what prove the page itself puts it in
+front at both points. The single horizontal line that previously crossed the focused pill was the
+only visible remnant when the section clipped this popup.
