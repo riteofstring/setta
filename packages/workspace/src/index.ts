@@ -27,6 +27,12 @@ export type {
 } from "./builtin/codeSectionData";
 export { createWorkspaceCodeSection } from "./builtin/codeSectionKind";
 export type { WorkspaceCodeSectionRegistration } from "./builtin/codeSectionKind";
+export type {
+  WorkspaceCodeSectionCompletionOption,
+  WorkspaceCodeSectionCompletionProvider,
+  WorkspaceCodeSectionCompletionRequest,
+  WorkspaceCodeSectionCompletionResult,
+} from "./builtin/codeSectionCompletion";
 export {
   getWorkspaceTextSectionData,
   setWorkspaceTextSectionData,

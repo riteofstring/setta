@@ -16,7 +16,9 @@ func Render(input Input) (Result, error) {
 	}
 
 	body, ranges, callableCallOffset, callableCallEnd := renderBody(graph)
-	prefixOffset := len(input.Prefix) + len(generatedCodeSeparator)
+	prefixEnd := len(input.Prefix)
+	prefixOffset := prefixEnd + len(generatedCodeSeparator)
+	suffixStart := prefixOffset + len(body) + len(generatedCodeSeparator)
 	for index := range ranges {
 		ranges[index].Start += prefixOffset
 		ranges[index].End += prefixOffset
@@ -32,6 +34,9 @@ func Render(input Input) (Result, error) {
 		Code:               input.Prefix + generatedCodeSeparator + body + generatedCodeSeparator + input.Suffix,
 		Body:               body,
 		SourceRanges:       ranges,
+		PrefixStart:        0,
+		PrefixEnd:          prefixEnd,
+		SuffixStart:        suffixStart,
 		CallableCallOffset: callableCallOffset,
 		CallableCallEnd:    callableCallEnd,
 	}, nil

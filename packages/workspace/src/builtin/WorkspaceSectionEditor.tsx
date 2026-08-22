@@ -1,5 +1,12 @@
 import CodeMirror, { type ViewUpdate } from "@uiw/react-codemirror";
-import { useCallback, useMemo, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type KeyboardEvent,
+} from "react";
+import { useCodeMirrorTooltipParent } from "../canvas/codeMirrorTooltipParent";
 import type { WorkspaceEditorLanguage } from "../controls/text/textValueLanguages";
 import { useTextValueTheme } from "../controls/text/textValueTheme";
 import {
@@ -15,6 +22,8 @@ import {
   type WorkspaceSectionEditorPresentation,
 } from "./sectionEditorExtensions";
 import type { WorkspaceCodeSectionDiagnostic } from "./codeSectionData";
+import type { WorkspaceCodeSectionCompletionProvider } from "./codeSectionCompletion";
+import type { WorkspaceCodeSectionLanguage } from "./codeSectionData";
 import { useSectionEditorHeight } from "./useSectionEditorHeight";
 
 // The section-scale editor both built-in content sections mount: the reference's `CoreCodeArea`
@@ -47,6 +56,8 @@ type WorkspaceSectionEditorProps = {
   sectionId: string;
   value: string;
   language: WorkspaceEditorLanguage | null;
+  completionLanguage?: WorkspaceCodeSectionLanguage;
+  completionProvider?: WorkspaceCodeSectionCompletionProvider;
   wrapLines: boolean;
   lineNumbers: boolean;
   indentWidth: number;
@@ -62,6 +73,8 @@ export function WorkspaceSectionEditor({
   sectionId,
   value,
   language,
+  completionLanguage,
+  completionProvider,
   wrapLines,
   lineNumbers,
   indentWidth,
@@ -72,6 +85,32 @@ export function WorkspaceSectionEditor({
   const isEditable = isSectionEditorEditable(presentation);
   const isGeneratedDocument = presentation.mode === "generated-document";
   const theme = useTextValueTheme();
+  // The canvas owns one sibling tooltip parent, keeping a popup outside this section's clipped
+  // shell while it continues to pan and scale with the workspace.
+  const tooltipParent = useCodeMirrorTooltipParent();
+  // A Code section without a provider must retain the exact extension set it had before this
+  // capability existed. The canvas may publish its tooltip parent after the editor mounts, but
+  // that must not reconfigure an editor that has no completion surface.
+  const completionTooltipParent =
+    completionProvider === undefined ? null : tooltipParent;
+  const completionRequestRef = useRef<AbortController | null>(null);
+  const completionRequests = useRef({
+    abort() {
+      completionRequestRef.current?.abort();
+      completionRequestRef.current = null;
+    },
+    clear(controller: AbortController) {
+      if (completionRequestRef.current === controller) {
+        completionRequestRef.current = null;
+      }
+    },
+    start() {
+      completionRequestRef.current?.abort();
+      const controller = new AbortController();
+      completionRequestRef.current = controller;
+      return controller;
+    },
+  }).current;
   const {
     editorHeight,
     wrapperRef,
@@ -90,6 +129,20 @@ export function WorkspaceSectionEditor({
     });
   }, [wrapperRef]);
 
+  useLayoutEffect(() => {
+    completionRequests.abort();
+    return () => {
+      completionRequests.abort();
+    };
+  }, [
+    completionLanguage,
+    completionProvider,
+    completionRequests,
+    isEditable,
+    presentation,
+    sectionId,
+  ]);
+
   const { extensions, readGeneratedRegion } = useMemo(
     () =>
       getSectionEditorExtensions({
@@ -99,8 +152,25 @@ export function WorkspaceSectionEditor({
         diagnostics,
         presentation,
         onEscape,
+        completionLanguage: completionLanguage ?? "plaintext",
+        completionProvider,
+        completionRequests,
+        sectionId,
+        tooltipParent: completionTooltipParent,
       }),
-    [diagnostics, indentWidth, language, onEscape, presentation, wrapLines],
+    [
+      completionLanguage,
+      completionProvider,
+      completionRequests,
+      diagnostics,
+      indentWidth,
+      language,
+      onEscape,
+      presentation,
+      sectionId,
+      completionTooltipParent,
+      wrapLines,
+    ],
   );
   const basicSetup = useMemo(
     () => getSectionEditorBasicSetup({ lineNumbers, presentation }),

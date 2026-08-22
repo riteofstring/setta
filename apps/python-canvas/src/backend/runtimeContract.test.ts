@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ProjectSnapshotValidationError,
-  parseCallableCompletionResponseV1,
+  parseCompletionResponseV1,
   parseErrorResponseV1,
   parseProjectSnapshotV1,
 } from "./runtimeContract";
@@ -258,16 +258,16 @@ describe("parseErrorResponseV1", () => {
   });
 });
 
-describe("parseCallableCompletionResponseV1", () => {
+describe("parseCompletionResponseV1", () => {
   it("accepts only the exact declared completion response shape", () => {
     expect(
-      parseCallableCompletionResponseV1({
+      parseCompletionResponseV1({
         items: [{ label: "sqrt", insertText: "sqrt" }],
       }),
     ).toEqual({
       items: [{ label: "sqrt", insertText: "sqrt" }],
     });
-    expect(parseCallableCompletionResponseV1({ items: [] })).toEqual({
+    expect(parseCompletionResponseV1({ items: [] })).toEqual({
       items: [],
     });
   });
@@ -280,7 +280,7 @@ describe("parseCallableCompletionResponseV1", () => {
       { items: {} },
       { items: [], unexpected: true },
     ]) {
-      expect(() => parseCallableCompletionResponseV1(response)).toThrow(
+      expect(() => parseCompletionResponseV1(response)).toThrow(
         ProjectSnapshotValidationError,
       );
     }

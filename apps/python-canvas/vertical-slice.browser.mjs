@@ -8,6 +8,7 @@ import {
   shippedExample,
 } from "./browser-first-render.mjs";
 import { assertCallableDiagnosticPresentation } from "./browser-diagnostics.mjs";
+import { assertPythonTargetCompletionParity } from "./browser-target-completion.mjs";
 import {
   assertAuthoredParameterAuthoring,
   assertStructuralParameterControls,
@@ -641,6 +642,12 @@ async function runWalkthrough(client, backendOrigin, previewOrigin) {
     callableLabel,
     generatedLabel,
     generatedSource,
+  );
+  await assertPythonTargetCompletionParity(
+    client,
+    backendOrigin,
+    previewOrigin,
+    generatedLabel,
   );
 
   await waitFor(

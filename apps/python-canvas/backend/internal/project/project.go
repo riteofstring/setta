@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/setta/python-canvas/backend/internal/codegen"
 	"github.com/setta/python-canvas/backend/internal/contracts"
@@ -416,7 +417,7 @@ func (store *Store) resolveProposedTargetLocked(
 // Either region may be empty, because the reference permits deleting one outright. What
 // it may not be is unbounded or carry a byte no Python source can hold.
 func validatePythonTargetRegion(region string, text string) error {
-	if len(text) > maxPythonTargetBytes || strings.ContainsRune(text, '\x00') {
+	if len(text) > maxPythonTargetBytes || strings.ContainsRune(text, '\x00') || !utf8.ValidString(text) {
 		return fmt.Errorf("%w: %s", ErrPythonTargetInvalid, region)
 	}
 	return nil

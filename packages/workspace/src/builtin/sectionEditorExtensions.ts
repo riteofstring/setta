@@ -1,6 +1,15 @@
 import { indentUnit } from "@codemirror/language";
 import { linter, type Diagnostic } from "@codemirror/lint";
 import {
+  acceptCompletion,
+  autocompletion,
+  closeCompletion,
+  completionKeymap,
+  completionStatus,
+  type CompletionContext,
+  type CompletionResult,
+} from "@codemirror/autocomplete";
+import {
   EditorSelection,
   EditorState,
   Prec,
@@ -11,23 +20,32 @@ import {
   type Text,
   type TransactionSpec,
 } from "@codemirror/state";
-import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
+import {
+  Decoration,
+  EditorView,
+  keymap,
+  tooltips,
+  type DecorationSet,
+} from "@codemirror/view";
 import {
   getTextValueLanguageExtensions,
   type WorkspaceEditorLanguage,
 } from "../controls/text/textValueLanguages";
 import type {
   WorkspaceCodeSectionDiagnostic,
+  WorkspaceCodeSectionLanguage,
   WorkspaceGeneratedRegion,
 } from "./codeSectionData";
+import type {
+  WorkspaceCodeSectionCompletionProvider,
+  WorkspaceCodeSectionCompletionResult,
+} from "./codeSectionCompletion";
 
-// The reference's `getExtensions` at the shape its section-scale editors reach, minus every
-// application service: no LSP completion source or `completionKeymap`, no tooltip parent, no app
-// undo/redo shortcut overrides, and no tab-scope focus navigation. What remains is the reference's
-// gutter border removal, its line wrapping, its language pack, its read-only state, and its Escape
-// binding, plus the authored indentation width and the non-editable view this package's contract
-// adds. Both built-in content sections compile their editor from here, so the Code Editor and the
-// Text section's edit mode cannot drift apart.
+// The reference's `getExtensions` at the shape its section-scale editors reach: gutter border
+// removal, wrapping, language, read-only state, Escape, and an opt-in host completion adapter.
+// App undo/redo shortcut overrides and tab-scope focus navigation remain application services.
+// Both built-in content sections compile their editor from here, so their ordinary editor behavior
+// cannot drift; only a registered Code-section provider adds completion and its canvas tooltip.
 
 // The reference's `CODEMIRROR_GUTTER_LAYOUT_FIX`.
 const GUTTER_LAYOUT_FIX = EditorView.baseTheme({
@@ -297,6 +315,17 @@ type SectionEditorExtensionsOptions = {
   diagnostics: ReadonlyArray<WorkspaceCodeSectionDiagnostic>;
   presentation: WorkspaceSectionEditorPresentation;
   onEscape: () => void;
+  sectionId: string;
+  completionLanguage: WorkspaceCodeSectionLanguage;
+  completionProvider: WorkspaceCodeSectionCompletionProvider | undefined;
+  completionRequests: SectionEditorCompletionRequests;
+  tooltipParent: HTMLElement | null;
+};
+
+type SectionEditorCompletionRequests = {
+  abort: () => void;
+  clear: (controller: AbortController) => void;
+  start: () => AbortController;
 };
 
 export function getSectionEditorExtensions({
@@ -306,6 +335,11 @@ export function getSectionEditorExtensions({
   diagnostics,
   presentation,
   onEscape,
+  sectionId,
+  completionLanguage,
+  completionProvider,
+  completionRequests,
+  tooltipParent,
 }: SectionEditorExtensionsOptions): WorkspaceSectionEditorCompilation {
   const extensions: Array<Extension> = [
     GUTTER_LAYOUT_FIX,
@@ -358,6 +392,31 @@ export function getSectionEditorExtensions({
     }
     readGeneratedRegion = (state) => state.field(region, false) ?? null;
   }
+  const enabledCompletionProvider = isSectionEditorEditable(presentation)
+    ? completionProvider
+    : undefined;
+  const completionEnabled = enabledCompletionProvider !== undefined;
+  if (enabledCompletionProvider !== undefined) {
+    if (tooltipParent !== null) {
+      extensions.push(tooltips({ parent: tooltipParent }));
+    }
+    extensions.push(
+      autocompletion({
+        defaultKeymap: false,
+        interactionDelay: 0,
+        override: [
+          getSectionCompletionSource({
+            completionLanguage,
+            completionProvider: enabledCompletionProvider,
+            completionRequests,
+            readGeneratedRegion,
+            sectionId,
+          }),
+        ],
+      }),
+      Prec.high(keymap.of(completionKeymap)),
+    );
+  }
   // The editor owns Escape ahead of the workspace's own chords: the reference's code area
   // returns focus to its wrapper, and letting the same keypress continue would clear the
   // selection the wrapper was just given. The reference consults `completionStatus` first;
@@ -365,7 +424,14 @@ export function getSectionEditorExtensions({
   extensions.push(
     Prec.highest(
       EditorView.domEventHandlers({
-        keydown: (event) => {
+        keydown: (event, view) => {
+          const completionResult = handleSectionCompletionKeydown(event, {
+            completionEnabled,
+            view,
+          });
+          if (completionResult !== null) {
+            return completionResult;
+          }
           if (event.key === "Escape" || event.code === "Escape") {
             event.stopPropagation();
             onEscape();
@@ -379,10 +445,166 @@ export function getSectionEditorExtensions({
   return { extensions, readGeneratedRegion };
 }
 
-// `@uiw/react-codemirror` enables its bundled autocompletion by default, and the reference's
-// non-Python code areas inherit exactly that implicit source. This milestone keeps implicit
-// completion off; the package ships no completion source, so there is no enabled state to
-// configure and no completion key for the editor to own.
+function getSectionCompletionSource({
+  completionLanguage,
+  completionProvider,
+  completionRequests,
+  readGeneratedRegion,
+  sectionId,
+}: {
+  completionLanguage: WorkspaceCodeSectionLanguage;
+  completionProvider: WorkspaceCodeSectionCompletionProvider;
+  completionRequests: SectionEditorCompletionRequests;
+  readGeneratedRegion: WorkspaceSectionEditorCompilation["readGeneratedRegion"];
+  sectionId: string;
+}) {
+  return async (
+    context: CompletionContext,
+  ): Promise<CompletionResult | null> => {
+    const generatedRegion = readGeneratedRegion(context.state);
+    // The generated range is a half-open interval. Its start remains an authored edit boundary,
+    // but completion treats the full protected interval as unavailable; its end is the first
+    // suffix position that may ask a provider.
+    if (
+      generatedRegion !== null &&
+      context.pos >= generatedRegion.from &&
+      context.pos < generatedRegion.to
+    ) {
+      return null;
+    }
+    const controller = completionRequests.start();
+    context.addEventListener(
+      "abort",
+      () => {
+        controller.abort();
+      },
+      { onDocChange: true },
+    );
+    try {
+      const result = await completionProvider({
+        cursorOffsetUtf16: context.pos,
+        generatedRegion,
+        language: completionLanguage,
+        sectionId,
+        signal: controller.signal,
+        text: context.state.doc.toString(),
+        trigger: context.explicit ? "explicit" : "typing",
+      });
+      if (result === null || context.aborted || controller.signal.aborted) {
+        return null;
+      }
+      return completionResultForSectionEditor(result, context, generatedRegion);
+    } finally {
+      completionRequests.clear(controller);
+    }
+  };
+}
+
+function completionResultForSectionEditor(
+  result: unknown,
+  context: CompletionContext,
+  generatedRegion: WorkspaceGeneratedRegion | null,
+): CompletionResult | null {
+  const documentLength = context.state.doc.length;
+  if (
+    !isWorkspaceCodeSectionCompletionResult(result) ||
+    !Number.isSafeInteger(result.from) ||
+    !Number.isSafeInteger(result.to) ||
+    result.from < 0 ||
+    result.to < result.from ||
+    result.to > documentLength ||
+    (generatedRegion !== null &&
+      result.from < generatedRegion.to &&
+      result.to > generatedRegion.from)
+  ) {
+    return null;
+  }
+  const options: Array<{ apply: string; label: string }> = [];
+  for (const option of result.options) {
+    if (
+      typeof option !== "object" ||
+      option === null ||
+      typeof option.label !== "string" ||
+      typeof option.insertText !== "string" ||
+      option.label.trim() === "" ||
+      option.insertText.trim() === ""
+    ) {
+      return null;
+    }
+    options.push({ apply: option.insertText, label: option.label });
+  }
+  if (options.length === 0) {
+    return null;
+  }
+  return { from: result.from, options, to: result.to };
+}
+
+function isWorkspaceCodeSectionCompletionResult(
+  result: unknown,
+): result is WorkspaceCodeSectionCompletionResult {
+  return (
+    typeof result === "object" &&
+    result !== null &&
+    "from" in result &&
+    "to" in result &&
+    "options" in result &&
+    Array.isArray(result.options)
+  );
+}
+
+function isCompletionKey(
+  event: KeyboardEvent,
+  key: "Enter" | "Escape" | "Tab",
+) {
+  return event.key === key || event.code === key;
+}
+
+function hasModifier(event: KeyboardEvent) {
+  return event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
+}
+
+function runCompletionCommand(
+  event: KeyboardEvent,
+  view: EditorView,
+  command: (view: EditorView) => boolean,
+) {
+  event.preventDefault();
+  event.stopPropagation();
+  return command(view);
+}
+
+// Completion has the first Escape. Ordinary Enter and Tab accept an active choice, while arrows
+// and paging are left to CodeMirror's completion keymap. Once the popup is gone, Escape returns
+// focus to the section wrapper and Tab retains the editor's existing indentation behavior.
+function handleSectionCompletionKeydown(
+  event: KeyboardEvent,
+  {
+    completionEnabled,
+    view,
+  }: {
+    completionEnabled: boolean;
+    view: EditorView;
+  },
+): boolean | null {
+  if (!completionEnabled || completionStatus(view.state) !== "active") {
+    return null;
+  }
+  if (isCompletionKey(event, "Escape")) {
+    return runCompletionCommand(event, view, closeCompletion);
+  }
+  if (
+    !event.isComposing &&
+    !view.composing &&
+    !hasModifier(event) &&
+    (isCompletionKey(event, "Enter") || isCompletionKey(event, "Tab"))
+  ) {
+    return runCompletionCommand(event, view, acceptCompletion);
+  }
+  return false;
+}
+
+// `@uiw/react-codemirror` enables its bundled autocompletion by default. The package keeps that
+// implicit source off: only an explicit Code-section registration provider enables completion.
 export function getSectionEditorBasicSetup({
   lineNumbers,
   presentation,

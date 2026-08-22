@@ -119,6 +119,33 @@ export async function pressEscape(client) {
   await client.send("Input.dispatchKeyEvent", { ...params, type: "keyUp" });
 }
 
+// CodeMirror's completion keymap owns Ctrl-Space independently of the platform's ordinary Mod
+// shortcut. It starts an explicit completion request without inventing an editor-private API.
+export async function pressCompletion(client) {
+  const modifiers = 2; // Control
+  await client.send("Input.dispatchKeyEvent", {
+    code: "ControlLeft",
+    key: "Control",
+    modifiers,
+    type: "rawKeyDown",
+  });
+  for (const type of ["keyDown", "keyUp"]) {
+    await client.send("Input.dispatchKeyEvent", {
+      code: "Space",
+      key: " ",
+      modifiers,
+      nativeVirtualKeyCode: 32,
+      type,
+      windowsVirtualKeyCode: 32,
+    });
+  }
+  await client.send("Input.dispatchKeyEvent", {
+    code: "ControlLeft",
+    key: "Control",
+    type: "keyUp",
+  });
+}
+
 // A real pointer drag across an element, which is how a reader selects text they mean to copy.
 // Unlike a programmatic range, it fails on a surface the browser refuses to select.
 export async function dragSelectElement(client, selector, description) {

@@ -42,6 +42,9 @@ func TestRenderProducesDeterministicPositionalOnlyModuleAndExactRanges(t *testin
 	if first.Body != wantBody {
 		t.Fatalf("Render().Body = %q, want %q", first.Body, wantBody)
 	}
+	if first.PrefixStart != 0 || first.PrefixEnd != len(input.Prefix) || first.SuffixStart != len(wantCode)-len(input.Suffix) {
+		t.Fatalf("Render() target boundaries = start %d, prefix end %d, suffix start %d; want 0, %d, %d", first.PrefixStart, first.PrefixEnd, first.SuffixStart, len(input.Prefix), len(wantCode)-len(input.Suffix))
+	}
 	wantRanges := []SourceRange{
 		{TargetID: "parameter:square-root:1", Start: 87, End: 88},
 		{TargetID: "callable:square-root", Start: 117, End: 126},

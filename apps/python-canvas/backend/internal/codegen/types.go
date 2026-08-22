@@ -53,6 +53,14 @@ type Result struct {
 	Code         string
 	Body         string
 	SourceRanges []SourceRange
+	// PrefixStart is the byte boundary at the beginning of the authored prefix in Code.
+	PrefixStart int
+	// PrefixEnd is the byte boundary just before the separator that introduces the generated body.
+	// It belongs to the renderer so a caller never reconstructs a target position by searching text.
+	PrefixEnd int
+	// SuffixStart is the byte boundary just after the separator that follows the generated body.
+	// It is the start of the authored suffix in Code.
+	SuffixStart int
 	// CallableCallOffset is the byte offset immediately inside the rendered
 	// callable's opening parenthesis, or -1 when no callable is rendered.
 	CallableCallOffset int

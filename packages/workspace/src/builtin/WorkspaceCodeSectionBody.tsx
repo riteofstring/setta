@@ -14,6 +14,7 @@ import {
   type WorkspaceCodeSectionLanguage,
   type WorkspaceGeneratedRegion,
 } from "./codeSectionData";
+import type { WorkspaceCodeSectionCompletionProvider } from "./codeSectionCompletion";
 import {
   EDITABLE_SECTION_EDITOR_PRESENTATION,
   READ_ONLY_SECTION_EDITOR_PRESENTATION,
@@ -102,11 +103,13 @@ function nextCodeSectionData(
 type WorkspaceCodeSectionBodyProps = {
   section: WorkspaceSection;
   allowedLanguages: ReadonlyArray<WorkspaceCodeSectionLanguage>;
+  completionProvider?: WorkspaceCodeSectionCompletionProvider;
 };
 
 export function WorkspaceCodeSectionBody({
   section,
   allowedLanguages,
+  completionProvider,
 }: WorkspaceCodeSectionBodyProps) {
   const host = useWorkspaceHost();
   const sectionId = section.id;
@@ -170,6 +173,8 @@ export function WorkspaceCodeSectionBody({
   return (
     <WorkspaceSectionEditor
       ariaLabel={resolveEditorAriaLabel(section.name, presentation)}
+      completionLanguage={data.language}
+      completionProvider={completionProvider}
       indentWidth={data.indentWidth}
       language={getWorkspaceCodeSectionEditorLanguage(data.language)}
       lineNumbers={data.lineNumbers}

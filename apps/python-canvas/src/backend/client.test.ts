@@ -5,6 +5,7 @@ import {
   PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
   PROJECT_CALLABLE_PATH_V1,
   PROJECT_PARAMETERS_PATH_V1,
+  PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1,
   PROJECT_TARGET_PATH_V1,
   PROJECT_PATH_V1,
 } from "./generatedContract";
@@ -12,6 +13,7 @@ import {
   ProjectClientError,
   commitCallable,
   completeCallable,
+  completePythonTarget,
   fetchProjectSnapshot,
   setCallableParameters,
   setPythonTarget,
@@ -180,6 +182,41 @@ describe("Python Canvas project client", () => {
       kind: "invalid_response",
       status: 200,
     } satisfies Partial<ProjectClientError>);
+  });
+
+  it("requests Python target completions through the shared completion response contract", async () => {
+    const response = createJsonResponse({
+      items: [{ label: "math", insertText: "math" }],
+    });
+    const fetchImplementation = vi.fn().mockResolvedValue(response);
+    const controller = new AbortController();
+    const request = {
+      cursorOffsetUtf16: 9,
+      prefix: "import mat",
+      projectId: "project:python-canvas",
+      region: "prefix" as const,
+      suffix: "state = SettaState()",
+    };
+
+    await expect(
+      completePythonTarget(
+        request,
+        controller.signal,
+        fetchImplementation as typeof fetch,
+      ),
+    ).resolves.toEqual({ items: [{ label: "math", insertText: "math" }] });
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1,
+      {
+        body: JSON.stringify(request),
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+        signal: controller.signal,
+      },
+    );
   });
 
   it("reports a typed V1 mutation failure", async () => {

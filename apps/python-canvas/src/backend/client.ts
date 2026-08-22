@@ -1,20 +1,22 @@
 import {
   PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
   PROJECT_CALLABLE_PATH_V1,
+  PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1,
   PROJECT_PARAMETERS_PATH_V1,
   PROJECT_PATH_V1,
   PROJECT_TARGET_PATH_V1,
   type APIErrorCodeV1,
   type CallableCompletionRequestV1,
-  type CallableCompletionResponseV1,
+  type CompletionResponseV1,
   type CommitCallableRequestV1,
   type ProjectSnapshotV1,
+  type PythonTargetCompletionRequestV1,
   type SetCallableParametersRequestV1,
   type SetPythonTargetRequestV1,
 } from "./generatedContract";
 import {
   ProjectSnapshotValidationError,
-  parseCallableCompletionResponseV1,
+  parseCompletionResponseV1,
   parseErrorResponseV1,
   parseProjectSnapshotV1,
 } from "./runtimeContract";
@@ -60,11 +62,25 @@ export async function completeCallable(
   request: CallableCompletionRequestV1,
   signal: AbortSignal,
   fetchImplementation: typeof fetch = fetch,
-): Promise<CallableCompletionResponseV1> {
-  return requestCallableCompletions(
+): Promise<CompletionResponseV1> {
+  return requestCompletions(
     PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
     jsonPost(request, signal),
     fetchImplementation,
+    "callable",
+  );
+}
+
+export async function completePythonTarget(
+  request: PythonTargetCompletionRequestV1,
+  signal: AbortSignal,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<CompletionResponseV1> {
+  return requestCompletions(
+    PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1,
+    jsonPost(request, signal),
+    fetchImplementation,
+    "Python target",
   );
 }
 
@@ -157,11 +173,12 @@ async function requestProjectSnapshot(
   }
 }
 
-async function requestCallableCompletions(
+async function requestCompletions(
   path: string,
   init: RequestInit,
   fetchImplementation: typeof fetch,
-): Promise<CallableCompletionResponseV1> {
+  subject: string,
+): Promise<CompletionResponseV1> {
   let response: Response;
   try {
     response = await fetchImplementation(path, init);
@@ -191,12 +208,12 @@ async function requestCallableCompletions(
   }
 
   try {
-    return parseCallableCompletionResponseV1(payload);
+    return parseCompletionResponseV1(payload);
   } catch (cause) {
     if (cause instanceof ProjectSnapshotValidationError) {
       throw new ProjectClientError(
         "invalid_response",
-        "Project endpoint returned an invalid callable completion response.",
+        `Project endpoint returned an invalid ${subject} completion response.`,
         response.status,
         cause,
       );

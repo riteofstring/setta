@@ -8,6 +8,7 @@ import { parseProjectSnapshotV1 } from "../backend/runtimeContract";
 
 const mocks = vi.hoisted(() => ({
   fetchProjectSnapshot: vi.fn(),
+  completePythonTarget: vi.fn(),
   setCallableParameters: vi.fn(),
   setPythonTarget: vi.fn(),
   commitWorkspaceDocument: vi.fn(),
@@ -30,6 +31,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../backend/client", () => ({
   ProjectClientError: class extends Error {},
+  completePythonTarget: mocks.completePythonTarget,
   fetchProjectSnapshot: mocks.fetchProjectSnapshot,
   setCallableParameters: mocks.setCallableParameters,
   setPythonTarget: mocks.setPythonTarget,
@@ -138,7 +140,7 @@ afterEach(() => {
 });
 
 describe("PythonCanvasApp", () => {
-  it("loads one host once, registers before loading, renders the initial canvas, and disposes it", async () => {
+  it("registers the generated Python completion only after a strict initial response, then loads one host and disposes it", async () => {
     const pending = createDeferred<ReturnType<typeof parseProjectSnapshotV1>>();
     const host = createHostStub();
     mocks.createWorkspaceHost.mockReturnValue(host);
@@ -154,6 +156,7 @@ describe("PythonCanvasApp", () => {
     );
     expect(app.querySelector("[role='alert']")).toBeNull();
     expect(mocks.createWorkspaceHost).toHaveBeenCalledTimes(1);
+    expect(mocks.registerSectionKinds).not.toHaveBeenCalled();
 
     pending.resolve(parseProjectSnapshotV1(projectSnapshotFixture));
     await act(async () => {
@@ -163,6 +166,12 @@ describe("PythonCanvasApp", () => {
     expect(host.loadDocument).toHaveBeenCalledTimes(1);
     expect(mocks.registerSectionKinds.mock.invocationCallOrder[0]).toBeLessThan(
       host.loadDocument.mock.invocationCallOrder[0] ?? Infinity,
+    );
+    expect(mocks.createWorkspaceCodeSection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        completionProvider: expect.any(Function),
+        languages: ["python"],
+      }),
     );
     // This view has no appearance control, so it follows the reader's system appearance, and it
     // resolves that before the document loads because node projection reads it.
@@ -466,6 +475,38 @@ describe("PythonCanvasApp", () => {
 
     unmountApp();
     expect(host.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a Python target completion failure through app-level error chrome", async () => {
+    const host = createHostStub();
+    mocks.createWorkspaceHost.mockReturnValue(host);
+    mocks.fetchProjectSnapshot.mockResolvedValue(committedSnapshot());
+    mocks.completePythonTarget.mockRejectedValue(new Error("offline"));
+
+    const app = renderApp();
+    await settle();
+    const registration = mocks.createWorkspaceCodeSection.mock.calls[0]?.[0] as
+      | { completionProvider?: (request: Record<string, unknown>) => Promise<unknown> }
+      | undefined;
+    if (registration?.completionProvider === undefined) {
+      throw new Error("The generated Python registration has no completion provider.");
+    }
+    const data = generatedDocumentData(committedSnapshot().pythonTarget.prefix);
+    await act(async () => {
+      await registration.completionProvider?.({
+        cursorOffsetUtf16: data.generatedRegion.from - 1,
+        generatedRegion: data.generatedRegion,
+        language: "python",
+        sectionId: "python-canvas:generated-python",
+        signal: new AbortController().signal,
+        text: data.code,
+        trigger: "explicit",
+      });
+    });
+
+    expect(
+      app.querySelector(".python-canvas-completion-error")?.textContent,
+    ).toContain("Unable to load Python target completions.");
   });
 
   it("ignores a result that arrives after unmount", async () => {

@@ -299,7 +299,7 @@ func TestProviderStatusV1ValidateAcceptsExplicitLSPStates(t *testing.T) {
 	}
 }
 
-func TestCallableCompletionV1ContractsValidateOnlyTheDeclaredRequestAndResponseFields(t *testing.T) {
+func TestCompletionV1ContractsValidateOnlyTheDeclaredRequestAndResponseFields(t *testing.T) {
 	request := CallableCompletionRequestV1{
 		ProjectID:          "project:test",
 		SectionID:          "callable:test",
@@ -313,15 +313,29 @@ func TestCallableCompletionV1ContractsValidateOnlyTheDeclaredRequestAndResponseF
 		t.Fatal("CallableCompletionRequestV1.Validate() error = nil for a negative UTF-16 offset")
 	}
 
-	response := CallableCompletionResponseV1{Items: []CallableCompletionItemV1{{
+	response := CompletionResponseV1{Items: []CompletionItemV1{{
 		Label:      "sqrt",
 		InsertText: "sqrt",
 	}}}
 	if err := response.Validate(); err != nil {
-		t.Fatalf("CallableCompletionResponseV1.Validate() error = %v", err)
+		t.Fatalf("CompletionResponseV1.Validate() error = %v", err)
 	}
-	if err := (CallableCompletionResponseV1{Items: []CallableCompletionItemV1{{Label: "sqrt"}}}).Validate(); err == nil {
-		t.Fatal("CallableCompletionResponseV1.Validate() error = nil for a blank insertion text")
+	if err := (CompletionResponseV1{Items: []CompletionItemV1{{Label: "sqrt"}}}).Validate(); err == nil {
+		t.Fatal("CompletionResponseV1.Validate() error = nil for a blank insertion text")
+	}
+
+	target := PythonTargetCompletionRequestV1{
+		ProjectID:         "project:test",
+		Region:            PythonTargetCompletionRegionPrefixV1,
+		Prefix:            "import mat",
+		Suffix:            "state = SettaState()",
+		CursorOffsetUTF16: 9,
+	}
+	if err := target.Validate(); err != nil {
+		t.Fatalf("PythonTargetCompletionRequestV1.Validate() error = %v", err)
+	}
+	if err := (PythonTargetCompletionRequestV1{ProjectID: "project:test", Region: "body"}).Validate(); err == nil {
+		t.Fatal("PythonTargetCompletionRequestV1.Validate() error = nil for an unsupported region")
 	}
 }
 

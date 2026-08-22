@@ -16,6 +16,7 @@ export const PROJECT_SNAPSHOT_VERSION_V1 = %q as const;
 export const PROJECT_PATH_V1 = %q as const;
 export const PROJECT_CALLABLE_PATH_V1 = %q as const;
 export const PROJECT_CALLABLE_COMPLETIONS_PATH_V1 = %q as const;
+export const PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1 = %q as const;
 export const PROJECT_PARAMETERS_PATH_V1 = %q as const;
 export const PROJECT_TARGET_PATH_V1 = %q as const;
 
@@ -36,6 +37,9 @@ export const PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1 = %q as const;
 export const PROVIDER_LIFECYCLE_STATE_READY_V1 = %q as const;
 export const PROVIDER_LIFECYCLE_STATE_PENDING_V1 = %q as const;
 export const PROVIDER_LIFECYCLE_STATE_FAILED_V1 = %q as const;
+
+export const PYTHON_TARGET_COMPLETION_REGION_PREFIX_V1 = %q as const;
+export const PYTHON_TARGET_COMPLETION_REGION_SUFFIX_V1 = %q as const;
 
 // The store refuses a parameter name that Python reserves, and the client applies
 // that same rule to a name being written rather than sending one the store will
@@ -63,6 +67,9 @@ export type ProviderLifecycleStateV1 =
   | typeof PROVIDER_LIFECYCLE_STATE_READY_V1
   | typeof PROVIDER_LIFECYCLE_STATE_PENDING_V1
   | typeof PROVIDER_LIFECYCLE_STATE_FAILED_V1;
+export type PythonTargetCompletionRegionV1 =
+  | typeof PYTHON_TARGET_COMPLETION_REGION_PREFIX_V1
+  | typeof PYTHON_TARGET_COMPLETION_REGION_SUFFIX_V1;
 export type APIErrorCodeV1 =
   | %q
   | %q
@@ -154,13 +161,21 @@ export interface CallableCompletionRequestV1 {
   cursorOffsetUtf16: number;
 }
 
-export interface CallableCompletionItemV1 {
+export interface PythonTargetCompletionRequestV1 {
+  projectId: string;
+  region: PythonTargetCompletionRegionV1;
+  prefix: string;
+  suffix: string;
+  cursorOffsetUtf16: number;
+}
+
+export interface CompletionItemV1 {
   label: string;
   insertText: string;
 }
 
-export interface CallableCompletionResponseV1 {
-  items: CallableCompletionItemV1[];
+export interface CompletionResponseV1 {
+  items: CompletionItemV1[];
 }
 
 export interface ParameterProposalV1 {
@@ -196,6 +211,7 @@ export interface ErrorResponseV1 {
 		ProjectPathV1,
 		ProjectCallablePathV1,
 		ProjectCallableCompletionsPathV1,
+		ProjectPythonTargetCompletionsPathV1,
 		ProjectParametersPathV1,
 		ProjectTargetPathV1,
 		ParameterPassingStylePositionalOnlyV1,
@@ -213,6 +229,8 @@ export interface ErrorResponseV1 {
 		ProviderLifecycleStateReadyV1,
 		ProviderLifecycleStatePendingV1,
 		ProviderLifecycleStateFailedV1,
+		PythonTargetCompletionRegionPrefixV1,
+		PythonTargetCompletionRegionSuffixV1,
 		pythonKeywordEntries(),
 		APIErrorCodeInvalidRequestV1,
 		APIErrorCodeMethodNotAllowedV1,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -107,7 +108,7 @@ func TestCallableCompletionsEndpointStrictlyDecodesMapsFailuresAndLeavesAReadOnl
 	contextKey := requestContextKey{}
 	var receivedContext context.Context
 	var received contracts.CallableCompletionRequestV1
-	service.completeCallable = func(ctx context.Context, projectID, sectionID, expression string, cursorOffsetUTF16 int) ([]project.CallableCompletionItem, error) {
+	service.completeCallable = func(ctx context.Context, projectID, sectionID, expression string, cursorOffsetUTF16 int) ([]project.CompletionItem, error) {
 		receivedContext = ctx
 		received = contracts.CallableCompletionRequestV1{
 			ProjectID:          projectID,
@@ -115,7 +116,7 @@ func TestCallableCompletionsEndpointStrictlyDecodesMapsFailuresAndLeavesAReadOnl
 			AuthoredExpression: expression,
 			CursorOffsetUTF16:  cursorOffsetUTF16,
 		}
-		return []project.CallableCompletionItem{{Label: "sqrt", InsertText: "sqrt"}}, nil
+		return []project.CompletionItem{{Label: "sqrt", InsertText: "sqrt"}}, nil
 	}
 	handler := newHandlerForTest(t, service)
 
@@ -140,7 +141,7 @@ func TestCallableCompletionsEndpointStrictlyDecodesMapsFailuresAndLeavesAReadOnl
 	}) {
 		t.Fatalf("callable completion request = %#v", received)
 	}
-	var completion contracts.CallableCompletionResponseV1
+	var completion contracts.CompletionResponseV1
 	if err := json.Unmarshal(response.Body.Bytes(), &completion); err != nil {
 		t.Fatalf("decode callable completion response: %v", err)
 	}
@@ -154,7 +155,7 @@ func TestCallableCompletionsEndpointStrictlyDecodesMapsFailuresAndLeavesAReadOnl
 
 func TestCallableCompletionsEndpointRejectsInvalidRequestsAndMapsProviderFailures(t *testing.T) {
 	service := newStubService()
-	service.completeCallable = func(_ context.Context, projectID, _ string, expression string, _ int) ([]project.CallableCompletionItem, error) {
+	service.completeCallable = func(_ context.Context, projectID, _ string, expression string, _ int) ([]project.CompletionItem, error) {
 		if projectID == "project:missing" {
 			return nil, project.ErrProjectNotFound
 		}
@@ -194,6 +195,124 @@ func TestCallableCompletionsEndpointRejectsInvalidRequestsAndMapsProviderFailure
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
 			assertResponse(t, response, test.wantStatus, test.wantCode, test.wantAllow)
+		})
+	}
+}
+
+func TestPythonTargetCompletionsEndpointStrictlyDecodesBothAuthoredRegionsAndUsesTheSharedResponse(t *testing.T) {
+	service := newStubService()
+	var received contracts.PythonTargetCompletionRequestV1
+	service.completePythonTarget = func(
+		_ context.Context,
+		projectID string,
+		region project.PythonTargetCompletionRegion,
+		prefix string,
+		suffix string,
+		cursorOffsetUTF16 int,
+	) ([]project.CompletionItem, error) {
+		received = contracts.PythonTargetCompletionRequestV1{
+			ProjectID:         projectID,
+			Region:            contracts.PythonTargetCompletionRegionV1(region),
+			Prefix:            prefix,
+			Suffix:            suffix,
+			CursorOffsetUTF16: cursorOffsetUTF16,
+		}
+		return []project.CompletionItem{{Label: "math", InsertText: "math"}}, nil
+	}
+	handler := newHandlerForTest(t, service)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		contracts.ProjectPythonTargetCompletionsPathV1,
+		strings.NewReader(`{"projectId":"project:python-canvas","region":"prefix","prefix":"import mat","suffix":"state = SettaState()","cursorOffsetUtf16":9}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	assertResponse(t, response, http.StatusOK, "", "")
+	if received != (contracts.PythonTargetCompletionRequestV1{
+		ProjectID:         "project:python-canvas",
+		Region:            contracts.PythonTargetCompletionRegionPrefixV1,
+		Prefix:            "import mat",
+		Suffix:            "state = SettaState()",
+		CursorOffsetUTF16: 9,
+	}) {
+		t.Fatalf("Python target completion request = %#v", received)
+	}
+	var completion contracts.CompletionResponseV1
+	if err := json.Unmarshal(response.Body.Bytes(), &completion); err != nil {
+		t.Fatalf("decode Python target completion response: %v", err)
+	}
+	if err := completion.Validate(); err != nil {
+		t.Fatalf("Python target completion response validation: %v", err)
+	}
+
+	for _, testCase := range []struct {
+		name string
+		body string
+	}{
+		{name: "missing suffix", body: `{"projectId":"project:python-canvas","region":"prefix","prefix":"import mat","cursorOffsetUtf16":9}`},
+		{name: "unknown region", body: `{"projectId":"project:python-canvas","region":"body","prefix":"import mat","suffix":"state = SettaState()","cursorOffsetUtf16":9}`},
+		{name: "unknown field", body: `{"projectId":"project:python-canvas","region":"prefix","prefix":"import mat","suffix":"state = SettaState()","cursorOffsetUtf16":9,"unexpected":true}`},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			invalidRequest := httptest.NewRequest(
+				http.MethodPost,
+				contracts.ProjectPythonTargetCompletionsPathV1,
+				strings.NewReader(testCase.body),
+			)
+			invalidRequest.Header.Set("Content-Type", "application/json")
+			invalidResponse := httptest.NewRecorder()
+			handler.ServeHTTP(invalidResponse, invalidRequest)
+			assertResponse(t, invalidResponse, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "")
+		})
+	}
+}
+
+func TestPythonTargetCompletionsEndpointMapsReadOnlyQueryFailures(t *testing.T) {
+	service := newStubService()
+	service.completePythonTarget = func(
+		_ context.Context,
+		projectID string,
+		_ project.PythonTargetCompletionRegion,
+		prefix string,
+		_ string,
+		_ int,
+	) ([]project.CompletionItem, error) {
+		switch {
+		case projectID == "project:missing":
+			return nil, project.ErrProjectNotFound
+		case prefix == "invalid":
+			return nil, project.ErrPythonTargetCompletionInvalid
+		default:
+			return nil, project.ErrProviderUnavailable
+		}
+	}
+	handler := newHandlerForTest(t, service)
+
+	for _, testCase := range []struct {
+		name       string
+		projectID  string
+		prefix     string
+		wantStatus int
+		wantCode   contracts.APIErrorCodeV1
+	}{
+		{name: "unknown project", projectID: "project:missing", prefix: "import mat", wantStatus: http.StatusNotFound, wantCode: contracts.APIErrorCodeNotFoundV1},
+		{name: "invalid target", projectID: "project:python-canvas", prefix: "invalid", wantStatus: http.StatusBadRequest, wantCode: contracts.APIErrorCodeInvalidRequestV1},
+		{name: "provider unavailable", projectID: "project:python-canvas", prefix: "import mat", wantStatus: http.StatusServiceUnavailable, wantCode: contracts.APIErrorCodeProviderUnavailableV1},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			body := fmt.Sprintf(`{"projectId":%q,"region":"prefix","prefix":%q,"suffix":"state = SettaState()","cursorOffsetUtf16":9}`, testCase.projectID, testCase.prefix)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				contracts.ProjectPythonTargetCompletionsPathV1,
+				strings.NewReader(body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			assertResponse(t, response, testCase.wantStatus, testCase.wantCode, "")
 		})
 	}
 }
@@ -503,7 +622,8 @@ func assertResponse(
 type stubService struct {
 	snapshot              contracts.ProjectSnapshotV1
 	commitCallable        func(context.Context, string, string, string) (contracts.ProjectSnapshotV1, error)
-	completeCallable      func(context.Context, string, string, string, int) ([]project.CallableCompletionItem, error)
+	completeCallable      func(context.Context, string, string, string, int) ([]project.CompletionItem, error)
+	completePythonTarget  func(context.Context, string, project.PythonTargetCompletionRegion, string, string, int) ([]project.CompletionItem, error)
 	setCallableParameters func(context.Context, string, string, int, []project.ParameterProposal) (contracts.ProjectSnapshotV1, error)
 	setPythonTarget       func(context.Context, string, int, string, string) (contracts.ProjectSnapshotV1, error)
 }
@@ -534,11 +654,25 @@ func (service *stubService) CompleteCallable(
 	sectionID string,
 	expression string,
 	cursorOffsetUTF16 int,
-) ([]project.CallableCompletionItem, error) {
+) ([]project.CompletionItem, error) {
 	if service.completeCallable == nil {
-		return []project.CallableCompletionItem{}, nil
+		return []project.CompletionItem{}, nil
 	}
 	return service.completeCallable(ctx, projectID, sectionID, expression, cursorOffsetUTF16)
+}
+
+func (service *stubService) CompletePythonTarget(
+	ctx context.Context,
+	projectID string,
+	region project.PythonTargetCompletionRegion,
+	prefix string,
+	suffix string,
+	cursorOffsetUTF16 int,
+) ([]project.CompletionItem, error) {
+	if service.completePythonTarget == nil {
+		return []project.CompletionItem{}, nil
+	}
+	return service.completePythonTarget(ctx, projectID, region, prefix, suffix, cursorOffsetUTF16)
 }
 
 func (service *stubService) SetCallableParameters(

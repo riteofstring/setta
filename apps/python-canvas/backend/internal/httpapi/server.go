@@ -36,7 +36,15 @@ type ProjectService interface {
 		string,
 		string,
 		int,
-	) ([]project.CallableCompletionItem, error)
+	) ([]project.CompletionItem, error)
+	CompletePythonTarget(
+		context.Context,
+		string,
+		project.PythonTargetCompletionRegion,
+		string,
+		string,
+		int,
+	) ([]project.CompletionItem, error)
 	SetCallableParameters(
 		context.Context,
 		string,
@@ -66,6 +74,14 @@ type callableCompletionPayload struct {
 	CursorOffsetUTF16  *int    `json:"cursorOffsetUtf16"`
 }
 
+type pythonTargetCompletionPayload struct {
+	ProjectID         string  `json:"projectId"`
+	Region            *string `json:"region"`
+	Prefix            *string `json:"prefix"`
+	Suffix            *string `json:"suffix"`
+	CursorOffsetUTF16 *int    `json:"cursorOffsetUtf16"`
+}
+
 func (payload callableCompletionPayload) toContract() (contracts.CallableCompletionRequestV1, bool) {
 	if payload.AuthoredExpression == nil || payload.CursorOffsetUTF16 == nil {
 		return contracts.CallableCompletionRequestV1{}, false
@@ -75,6 +91,19 @@ func (payload callableCompletionPayload) toContract() (contracts.CallableComplet
 		SectionID:          payload.SectionID,
 		AuthoredExpression: *payload.AuthoredExpression,
 		CursorOffsetUTF16:  *payload.CursorOffsetUTF16,
+	}, true
+}
+
+func (payload pythonTargetCompletionPayload) toContract() (contracts.PythonTargetCompletionRequestV1, bool) {
+	if payload.Region == nil || payload.Prefix == nil || payload.Suffix == nil || payload.CursorOffsetUTF16 == nil {
+		return contracts.PythonTargetCompletionRequestV1{}, false
+	}
+	return contracts.PythonTargetCompletionRequestV1{
+		ProjectID:         payload.ProjectID,
+		Region:            contracts.PythonTargetCompletionRegionV1(*payload.Region),
+		Prefix:            *payload.Prefix,
+		Suffix:            *payload.Suffix,
+		CursorOffsetUTF16: *payload.CursorOffsetUTF16,
 	}, true
 }
 
@@ -163,6 +192,8 @@ func NewHandler(service ProjectService) (http.Handler, error) {
 			handleCallable(response, request, service)
 		case isExactPath(request, contracts.ProjectCallableCompletionsPathV1):
 			handleCallableCompletions(response, request, service)
+		case isExactPath(request, contracts.ProjectPythonTargetCompletionsPathV1):
+			handlePythonTargetCompletions(response, request, service)
 		case isExactPath(request, contracts.ProjectParametersPathV1):
 			handleParameters(response, request, service)
 		case isExactPath(request, contracts.ProjectTargetPathV1):
@@ -200,17 +231,52 @@ func handleCallableCompletions(response http.ResponseWriter, request *http.Reque
 		writeCallableCompletionError(response, err)
 		return
 	}
-	result := contracts.CallableCompletionResponseV1{
-		Items: make([]contracts.CallableCompletionItemV1, 0, len(items)),
+	writeCompletionResponse(response, items, "callable")
+}
+
+func handlePythonTargetCompletions(response http.ResponseWriter, request *http.Request, service ProjectService) {
+	if !requireMethod(response, request, http.MethodPost) {
+		return
+	}
+	if !rejectQuery(response, request) {
+		return
+	}
+	var payload pythonTargetCompletionPayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.toContract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "Python target completion request is invalid")
+		return
+	}
+	items, err := service.CompletePythonTarget(
+		request.Context(),
+		body.ProjectID,
+		project.PythonTargetCompletionRegion(body.Region),
+		body.Prefix,
+		body.Suffix,
+		body.CursorOffsetUTF16,
+	)
+	if err != nil {
+		writePythonTargetCompletionError(response, err)
+		return
+	}
+	writeCompletionResponse(response, items, "Python target")
+}
+
+func writeCompletionResponse(response http.ResponseWriter, items []project.CompletionItem, subject string) {
+	result := contracts.CompletionResponseV1{
+		Items: make([]contracts.CompletionItemV1, 0, len(items)),
 	}
 	for _, item := range items {
-		result.Items = append(result.Items, contracts.CallableCompletionItemV1{
+		result.Items = append(result.Items, contracts.CompletionItemV1{
 			Label:      item.Label,
 			InsertText: item.InsertText,
 		})
 	}
 	if err := result.Validate(); err != nil {
-		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, "callable completion response is invalid")
+		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, subject+" completion response is invalid")
 		return
 	}
 	writeJSON(response, http.StatusOK, result)
@@ -410,6 +476,23 @@ func writeCallableCompletionError(response http.ResponseWriter, err error) {
 		writeError(response, http.StatusServiceUnavailable, contracts.APIErrorCodeProviderUnavailableV1, "Basedpyright is unavailable")
 	default:
 		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, "unable to complete the callable")
+	}
+}
+
+func writePythonTargetCompletionError(response http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, project.ErrProjectNotFound):
+		writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "the requested project resource does not exist")
+	case errors.Is(err, project.ErrPythonTargetCompletionInvalid):
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "Python target completion request is invalid")
+	case errors.Is(err, project.ErrLSPProviderRequired),
+		errors.Is(err, project.ErrProviderUnavailable),
+		errors.Is(err, project.ErrStoreClosed),
+		errors.Is(err, context.Canceled),
+		errors.Is(err, context.DeadlineExceeded):
+		writeError(response, http.StatusServiceUnavailable, contracts.APIErrorCodeProviderUnavailableV1, "Basedpyright is unavailable")
+	default:
+		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, "unable to complete the Python target")
 	}
 }
 

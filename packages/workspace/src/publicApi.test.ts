@@ -128,6 +128,34 @@ describe("public package API", () => {
     ).resolves.toEqual({ from: 5, options: [{ label: "choice" }] });
   });
 
+  it("types Code-section completion as a registration capability rather than document data", async () => {
+    const completionProvider: workspace.WorkspaceCodeSectionCompletionProvider =
+      async (request) => ({
+        from: request.cursorOffsetUtf16,
+        options: [{ insertText: "math", label: "math" }],
+        to: request.cursorOffsetUtf16,
+      });
+    const registration = {
+      completionProvider,
+      languages: ["python"],
+    } satisfies workspace.WorkspaceCodeSectionRegistration;
+    expect(
+      await registration.completionProvider({
+        cursorOffsetUtf16: 0,
+        generatedRegion: null,
+        language: "python",
+        sectionId: "section-1",
+        signal: new AbortController().signal,
+        text: "",
+        trigger: "explicit",
+      }),
+    ).toEqual({
+      from: 0,
+      options: [{ insertText: "math", label: "math" }],
+      to: 0,
+    });
+  });
+
   it("types the section-field placement with its own optional end adornment", () => {
     const presentation: workspace.TextValueEditorPresentation = "section-field";
     let abandonedDraft = false;

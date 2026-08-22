@@ -49,6 +49,16 @@ responses keep Go's generated body between the authored prefix and suffix.
 Undo and redo take authored edits back and put them back; a regeneration Go
 sends is nobody's edit, so it never joins that history.
 
+The authored prefix and suffix each support narrow Python identifier completion
+against a temporary complete module containing the current outer Python and
+Go's generated body. Completion never queries inside the protected region.
+Its popup is mounted beside the canvas rather than clipped by the card; arrow
+keys navigate it, `Tab` and ordinary `Enter` accept an active choice, and the
+first `Escape` closes it before a later `Escape` returns focus to the section.
+An accepted choice edits only the active outer region and then follows the
+ordinary debounced, revision-bound Python-target mutation; an abandoned or
+stale query changes neither canonical project data nor the generated file.
+
 ## Run locally
 
 From the repository root, run the local-development wrapper:
@@ -93,7 +103,9 @@ Last, because it reloads the page, it authors Python around the generated body:
 every edit that touches the protected range leaves both the document and the
 project alone, an added import and an added statement each survive the canonical
 response and the reload, and undo and redo of those authored edits keep the
-block around exactly the generated body.
+block around exactly the generated body. It also verifies prefix and suffix
+completion against the complete temporary module, including popup placement,
+acceptance, cancellation, and the canonical target reload path.
 
 ## Deliberately deferred
 
@@ -114,8 +126,7 @@ is a no-support list, not a compatibility promise or future roadmap.
 - Variants, section policies, code-object value policies, metadata generation,
   rename refactoring, or generated-output export.
 - More than one generated region per document, hover or documentation popovers,
-  prefix/suffix completion, parameter completion, or general semantic-editor
-  services.
+  parameter completion, or general semantic-editor services.
 - Arbitrary callable expressions, additional parameter-control kinds, a
   callable/plugin catalog, alternate language servers, or fallback servers.
 - A public package, final naming, licensing, desktop packaging, deployment, or

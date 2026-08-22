@@ -247,6 +247,21 @@ removed from the deferred line. Do not convert the remaining deferred list into 
 - [ ] Repository implementation, focused proof, and clean coherent commits are ready for
       supervisor verification and immutable review
 
+Implementation record (2026-08-20): the single-cutover implementation is present, and no
+intentional difference from the named `main` completion behavior was identified. Focused workspace,
+playground, Python Canvas backend (including pinned Basedpyright), Python Canvas frontend,
+contract, and build checks passed. The required production-browser walkthrough cannot start in this
+sandbox because its loopback listener is denied (`listen EPERM` on `127.0.0.1`), so the required
+original-resolution prefix and suffix popup captures are unavailable. The closeout
+`code-policy test --changed --base 9c3ee63dd8220a5e44e58d6b2d8305f8b7c80b5d` ran all four selected
+suites successfully but reported eight pre-existing expired `.code-policy.json` exceptions:
+`date-time-control-parity-length`, `drop-type-parity-owner-length`,
+`item-column-resize-pointer-parity`, `item-row-dynamic-group-semantics`,
+`key-activations-parity-test-length`, `playground-section-kinds-parity-length`,
+`workspace-parity-stylesheet-length`, and `zoom-pane-parity-owner-length`. The phase marker remains
+unchecked because these two conditions prevent complete in-repository proof; this record is not
+supervisor acceptance evidence.
+
 The checkbox records repository work, not supervisor-owned acceptance receipts. Agent 1 checks it
 once the implementation and in-repository proof are complete and the worktree is clean. Code Policy
 then owns exact-candidate verification and read-only review; no status-only repair commit should be

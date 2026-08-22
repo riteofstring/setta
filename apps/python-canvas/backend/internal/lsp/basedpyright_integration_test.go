@@ -250,7 +250,7 @@ func TestPinnedBasedpyrightCompletesCallableNameInCanonicalMathContext(t *testin
 	if err != nil {
 		t.Fatalf("CompleteCallable(math.sq) error = %v", err)
 	}
-	if !hasCallableCompletion(items, "sqrt") {
+	if !hasCompletion(items, "sqrt") {
 		t.Fatalf("math.sq completion items = %#v, want sqrt", items)
 	}
 	if after := store.Snapshot(); !reflect.DeepEqual(after, before) {
@@ -263,6 +263,116 @@ func TestPinnedBasedpyrightCompletesCallableNameInCanonicalMathContext(t *testin
 	if string(afterCode) != string(beforeCode) {
 		t.Fatalf("canonical generated file changed after completion: got %q, want %q", afterCode, beforeCode)
 	}
+}
+
+func TestPinnedBasedpyrightCompletesPythonTargetPrefixAndSuffixWithoutChangingCanonicalState(t *testing.T) {
+	generatedFile, err := project.NewTemporaryGeneratedFile()
+	if err != nil {
+		t.Fatalf("NewTemporaryGeneratedFile() error = %v", err)
+	}
+	workspaceRoot := filepath.Dir(generatedFile.Path())
+	provider, err := NewBasedpyrightProvider(BasedpyrightOptions{
+		AppRoot:           appRootForIntegrationTest(t),
+		WorkspaceRoot:     workspaceRoot,
+		RequestTimeout:    20 * time.Second,
+		DiagnosticTimeout: 15 * time.Second,
+	})
+	if err != nil {
+		_ = generatedFile.Close()
+		t.Fatalf("NewBasedpyrightProvider() error = %v", err)
+	}
+	store, err := project.NewStoreWithProvider(generatedFile, provider)
+	if err != nil {
+		_ = provider.Close()
+		_ = generatedFile.Close()
+		t.Fatalf("NewStoreWithProvider() error = %v", err)
+	}
+	generatedPath := store.GeneratedFilePath()
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Fatalf("Close() error = %v", err)
+		}
+		if _, err := os.Stat(workspaceRoot); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("temporary workspace stat after Close() = %v, want removed", err)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+	if err := store.BootstrapShippedExample(ctx); err != nil {
+		t.Fatalf("BootstrapShippedExample() error = %v", err)
+	}
+	before := store.Snapshot()
+	beforeDocuments := documentVersionsForIntegrationTest(provider.session)
+	beforeCode, err := os.ReadFile(generatedPath)
+	if err != nil {
+		t.Fatalf("read canonical generated file before target completion: %v", err)
+	}
+	for _, testCase := range []struct {
+		name        string
+		region      project.PythonTargetCompletionRegion
+		prefix      string
+		suffix      string
+		cursorUTF16 int
+		label       string
+	}{
+		{
+			name:        "prefix import",
+			region:      project.PythonTargetCompletionPrefix,
+			prefix:      "import mat",
+			suffix:      before.PythonTarget.Suffix,
+			cursorUTF16: len("import mat") - 1,
+			label:       "math",
+		},
+		{
+			name:        "suffix generated class",
+			region:      project.PythonTargetCompletionSuffix,
+			prefix:      before.PythonTarget.Prefix,
+			suffix:      "state = SettaSta",
+			cursorUTF16: len("state = SettaSta") - 1,
+			label:       "SettaState",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			items, err := store.CompletePythonTarget(
+				ctx,
+				before.Project.ID,
+				testCase.region,
+				testCase.prefix,
+				testCase.suffix,
+				testCase.cursorUTF16,
+			)
+			if err != nil {
+				t.Fatalf("CompletePythonTarget() error = %v", err)
+			}
+			if !hasCompletion(items, testCase.label) {
+				t.Fatalf("%s completion items = %#v, want %q", testCase.name, items, testCase.label)
+			}
+			if after := store.Snapshot(); !reflect.DeepEqual(after, before) {
+				t.Fatalf("canonical snapshot changed after %s completion:\n got: %#v\nwant: %#v", testCase.name, after, before)
+			}
+			if afterDocuments := documentVersionsForIntegrationTest(provider.session); !reflect.DeepEqual(afterDocuments, beforeDocuments) {
+				t.Fatalf("open canonical LSP documents changed after %s completion: got %#v, want %#v", testCase.name, afterDocuments, beforeDocuments)
+			}
+			afterCode, err := os.ReadFile(generatedPath)
+			if err != nil {
+				t.Fatalf("read canonical generated file after target completion: %v", err)
+			}
+			if string(afterCode) != string(beforeCode) {
+				t.Fatalf("canonical generated file changed after %s completion", testCase.name)
+			}
+		})
+	}
+}
+
+func documentVersionsForIntegrationTest(session *Session) map[string]int {
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	versions := make(map[string]int, len(session.documentVersions))
+	for path, version := range session.documentVersions {
+		versions[path] = version
+	}
+	return versions
 }
 
 func requireReadyBasedpyrightStatus(t *testing.T, status contracts.ProviderStatusV1) {
@@ -322,7 +432,7 @@ func containsTargetlessDiagnosticMessage(diagnostics []contracts.DiagnosticV1, m
 	return false
 }
 
-func hasCallableCompletion(items []project.CallableCompletionItem, label string) bool {
+func hasCompletion(items []project.CompletionItem, label string) bool {
 	for _, item := range items {
 		if item.Label == label && item.InsertText == label {
 			return true

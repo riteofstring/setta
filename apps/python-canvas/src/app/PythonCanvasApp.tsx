@@ -8,6 +8,7 @@ import {
   registerSectionKinds,
   setWorkspaceColorMode,
   type TextValueCompletionProvider,
+  type WorkspaceCodeSectionCompletionProvider,
   type WorkspaceDocument,
   type WorkspaceHost,
 } from "@setta/workspace";
@@ -31,6 +32,7 @@ import {
   readCallableSectionData,
 } from "../sections/CallableSection";
 import { createCallableCompletionProvider } from "../sections/callableCompletion";
+import { createPythonTargetCompletionProvider } from "../sections/pythonTargetCompletion";
 import { hasBlockingParameterName } from "../sections/parameterNames";
 import {
   CALLABLE_SECTION_KIND,
@@ -75,7 +77,10 @@ type AppController = {
   setParameterName: (parameterID: string, name: string) => void;
 };
 
-export function registerPythonCanvasSectionKinds(host: WorkspaceHost): void {
+export function registerPythonCanvasSectionKinds(
+  host: WorkspaceHost,
+  pythonTargetCompletionProvider?: WorkspaceCodeSectionCompletionProvider,
+): void {
   registerSectionKinds(host, {
     [CALLABLE_SECTION_KIND]: {
       defaultSize: CALLABLE_SECTION_SIZE,
@@ -106,6 +111,7 @@ export function registerPythonCanvasSectionKinds(host: WorkspaceHost): void {
       ),
     },
     [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
+      completionProvider: pythonTargetCompletionProvider,
       defaultSize: GENERATED_PYTHON_SECTION_SIZE,
       languages: ["python"],
     }),
@@ -118,6 +124,8 @@ export function PythonCanvasApp() {
   const [callableCompletionProvider, setCallableCompletionProvider] =
     useState<TextValueCompletionProvider>();
   const [completionError, setCompletionError] = useState<string | null>(null);
+  const [pythonTargetCompletionError, setPythonTargetCompletionError] =
+    useState<string | null>(null);
   const [mutation, setMutation] = useState<MutationState>({ kind: "idle" });
   const controllerRef = useRef<AppController | null>(null);
   const isProjectingRef = useRef(false);
@@ -129,8 +137,6 @@ export function PythonCanvasApp() {
     // index.css. Appearance is resolved before the document loads because node projection derives
     // section-style backgrounds from it.
     setWorkspaceColorMode(host, "system");
-    registerPythonCanvasSectionKinds(host);
-
     let active = true;
     let disposed = false;
     let snapshot: ProjectSnapshotV1 | null = null;
@@ -446,6 +452,26 @@ export function PythonCanvasApp() {
           return;
         }
         snapshot = initialSnapshot;
+        const pythonTargetCompletionProvider =
+          createPythonTargetCompletionProvider({
+            onFailure: (message) => {
+              if (active) {
+                setPythonTargetCompletionError(message);
+              }
+            },
+            onSuccess: () => {
+              if (active) {
+                setPythonTargetCompletionError(null);
+              }
+            },
+            // `fetchProjectSnapshot` returned this only after strict V1 parsing, including the
+            // stable project-id relationship the provider closes over for its lifetime.
+            projectId: initialSnapshot.project.id,
+          });
+        // Register only after the initial V1 response is known valid. The generated Python Code
+        // section is the sole section that receives this provider; no serialized workspace data
+        // carries it and no other editor gains target completion as a side effect.
+        registerPythonCanvasSectionKinds(host, pythonTargetCompletionProvider);
         setCallableCompletionProvider(() =>
           createCallableCompletionProvider({
             onFailure: (message) => {
@@ -533,6 +559,11 @@ export function PythonCanvasApp() {
           reload the page.
         </p>
       ) : null}
+      {pythonTargetCompletionError === null ? null : (
+        <p className="python-canvas-completion-error" role="alert">
+          {pythonTargetCompletionError}
+        </p>
+      )}
       {state.kind === "ready" ? (
         <div className="python-canvas-workspace">
           <PythonCanvasMutationContext.Provider value={mutationContext}>

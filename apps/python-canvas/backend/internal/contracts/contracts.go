@@ -8,12 +8,13 @@ import (
 )
 
 const (
-	ProjectSnapshotVersionV1         = "v1"
-	ProjectPathV1                    = "/api/v1/project"
-	ProjectCallablePathV1            = "/api/v1/project/callable"
-	ProjectCallableCompletionsPathV1 = "/api/v1/project/callable/completions"
-	ProjectParametersPathV1          = "/api/v1/project/parameters"
-	ProjectTargetPathV1              = "/api/v1/project/target"
+	ProjectSnapshotVersionV1             = "v1"
+	ProjectPathV1                        = "/api/v1/project"
+	ProjectCallablePathV1                = "/api/v1/project/callable"
+	ProjectCallableCompletionsPathV1     = "/api/v1/project/callable/completions"
+	ProjectPythonTargetCompletionsPathV1 = "/api/v1/project/python-target/completions"
+	ProjectParametersPathV1              = "/api/v1/project/parameters"
+	ProjectTargetPathV1                  = "/api/v1/project/target"
 )
 
 // ProjectSnapshotV1 is the complete, normalized project document returned by
@@ -161,16 +162,47 @@ func (request CallableCompletionRequestV1) Validate() error {
 	return nil
 }
 
-type CallableCompletionItemV1 struct {
+// PythonTargetCompletionRegionV1 selects exactly one authored side of the generated body.
+// The complete prefix and suffix still travel together so the provider can inspect a valid module.
+type PythonTargetCompletionRegionV1 string
+
+const (
+	PythonTargetCompletionRegionPrefixV1 PythonTargetCompletionRegionV1 = "prefix"
+	PythonTargetCompletionRegionSuffixV1 PythonTargetCompletionRegionV1 = "suffix"
+)
+
+type PythonTargetCompletionRequestV1 struct {
+	ProjectID         string                         `json:"projectId"`
+	Region            PythonTargetCompletionRegionV1 `json:"region"`
+	Prefix            string                         `json:"prefix"`
+	Suffix            string                         `json:"suffix"`
+	CursorOffsetUTF16 int                            `json:"cursorOffsetUtf16"`
+}
+
+func (request PythonTargetCompletionRequestV1) Validate() error {
+	if err := requireRequestID("projectId", request.ProjectID); err != nil {
+		return err
+	}
+	if request.Region != PythonTargetCompletionRegionPrefixV1 && request.Region != PythonTargetCompletionRegionSuffixV1 {
+		return ValidationError{Field: "region", Problem: "must be prefix or suffix"}
+	}
+	if request.CursorOffsetUTF16 < 0 {
+		return ValidationError{Field: "cursorOffsetUtf16", Problem: "must not be negative"}
+	}
+	return nil
+}
+
+// CompletionItemV1 is shared by every read-only Python completion route.
+type CompletionItemV1 struct {
 	Label      string `json:"label"`
 	InsertText string `json:"insertText"`
 }
 
-type CallableCompletionResponseV1 struct {
-	Items []CallableCompletionItemV1 `json:"items"`
+type CompletionResponseV1 struct {
+	Items []CompletionItemV1 `json:"items"`
 }
 
-func (response CallableCompletionResponseV1) Validate() error {
+func (response CompletionResponseV1) Validate() error {
 	if response.Items == nil {
 		return ValidationError{Field: "items", Problem: "must be an array"}
 	}

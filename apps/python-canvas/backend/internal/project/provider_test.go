@@ -339,15 +339,17 @@ func TestStoreDropsDiagnosticsForDeletedParametersBeforeValidatingTheCandidate(t
 }
 
 type recordingProvider struct {
-	resolver           signatureResolverFunc
-	completionResolver completionResolverFunc
-	syncResolver       func(context.Context, GeneratedDocumentRequest) (GeneratedDocumentResult, error)
-	pending            bool
-	syncErr            error
-	closed             bool
-	resolveCalls       int
-	completionCalls    int
-	synchronizeCalls   int
+	resolver                 signatureResolverFunc
+	completionResolver       completionResolverFunc
+	targetCompletionResolver pythonTargetCompletionResolverFunc
+	syncResolver             func(context.Context, GeneratedDocumentRequest) (GeneratedDocumentResult, error)
+	pending                  bool
+	syncErr                  error
+	closed                   bool
+	resolveCalls             int
+	completionCalls          int
+	targetCompletionCalls    int
+	synchronizeCalls         int
 }
 
 func (provider *recordingProvider) ResolveCallableSignature(
@@ -364,12 +366,23 @@ func (provider *recordingProvider) ResolveCallableSignature(
 func (provider *recordingProvider) CompleteCallable(
 	ctx context.Context,
 	request CallableCompletionRequest,
-) ([]CallableCompletionItem, error) {
+) ([]CompletionItem, error) {
 	provider.completionCalls++
 	if provider.completionResolver != nil {
 		return provider.completionResolver(ctx, request)
 	}
-	return []CallableCompletionItem{}, nil
+	return []CompletionItem{}, nil
+}
+
+func (provider *recordingProvider) CompletePythonTarget(
+	ctx context.Context,
+	request PythonTargetCompletionRequest,
+) ([]CompletionItem, error) {
+	provider.targetCompletionCalls++
+	if provider.targetCompletionResolver != nil {
+		return provider.targetCompletionResolver(ctx, request)
+	}
+	return []CompletionItem{}, nil
 }
 
 func (provider *recordingProvider) SynchronizeGeneratedDocument(

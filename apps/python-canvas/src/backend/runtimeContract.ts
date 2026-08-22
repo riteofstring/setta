@@ -16,8 +16,8 @@ import {
   PROVIDER_LIFECYCLE_STATE_PENDING_V1,
   PROVIDER_LIFECYCLE_STATE_READY_V1,
   type CallableV1,
-  type CallableCompletionItemV1,
-  type CallableCompletionResponseV1,
+  type CompletionItemV1,
+  type CompletionResponseV1,
   type APIErrorCodeV1,
   type DiagnosticSeverityV1,
   type DiagnosticV1,
@@ -92,26 +92,21 @@ export function parseErrorResponseV1(value: unknown): ErrorResponseV1 {
   };
 }
 
-export function parseCallableCompletionResponseV1(
+export function parseCompletionResponseV1(
   value: unknown,
-): CallableCompletionResponseV1 {
-  const response = readClosedRecord(value, "callable completion response", [
-    "items",
-  ]);
+): CompletionResponseV1 {
+  const response = readClosedRecord(value, "completion response", ["items"]);
   return {
     items: readArray(
       response.items,
-      "callable completion response.items",
-      parseCallableCompletionItem,
+      "completion response.items",
+      parseCompletionItem,
     ),
   };
 }
 
-function parseCallableCompletionItem(
-  value: unknown,
-  index: number,
-): CallableCompletionItemV1 {
-  const field = `callable completion response.items[${index}]`;
+function parseCompletionItem(value: unknown, index: number): CompletionItemV1 {
+  const field = `completion response.items[${index}]`;
   const record = readClosedRecord(value, field, ["label", "insertText"]);
   return {
     label: readNonBlankString(record.label, `${field}.label`),

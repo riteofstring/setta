@@ -18,6 +18,7 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { indentUnit } from "@codemirror/language";
+import { completionStatus, startCompletion } from "@codemirror/autocomplete";
 import { diagnosticCount, forceLinting } from "@codemirror/lint";
 import { EditorSelection } from "@codemirror/state";
 import { activateHover, EditorView } from "@codemirror/view";
@@ -48,6 +49,10 @@ import {
   type WorkspaceCodeSectionDataOverrides,
 } from "./codeSectionData";
 import { createWorkspaceCodeSection } from "./codeSectionKind";
+import type {
+  WorkspaceCodeSectionCompletionProvider,
+  WorkspaceCodeSectionCompletionRequest,
+} from "./codeSectionCompletion";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -95,7 +100,7 @@ globalThis.ResizeObserver =
 // unrelated workspace changes, which is what preserves cursor, undo history, scroll, and focus.
 
 const SECTION_ID = "code";
-const definition = createWorkspaceCodeSection();
+let definition = createWorkspaceCodeSection();
 
 // The generated block, read the way a consumer or a capture reads it: the package's documented
 // per-line hook, in rendered order.
@@ -223,6 +228,7 @@ describe("built-in code section body", () => {
 
   beforeEach(() => {
     resizeCallbacksByTarget.clear();
+    definition = createWorkspaceCodeSection();
     registerSectionKinds(testWorkspace.host, {
       leaf: { renderContent: () => null },
       [WORKSPACE_CODE_SECTION_KIND]: definition,
@@ -255,6 +261,31 @@ describe("built-in code section body", () => {
         </WorkspaceTestProvider>,
       );
     });
+  }
+
+  async function mountWithCompletion(
+    completionProvider: WorkspaceCodeSectionCompletionProvider,
+    section: WorkspaceSectionInput = makeGeneratedSection(),
+  ) {
+    definition = createWorkspaceCodeSection({ completionProvider });
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+      [WORKSPACE_CODE_SECTION_KIND]: definition,
+    });
+    await mount(section);
+  }
+
+  async function waitForCompletion(
+    view: EditorView,
+    expected: "active" | null,
+  ) {
+    const deadline = Date.now() + 1_000;
+    while (completionStatus(view.state) !== expected && Date.now() < deadline) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      });
+    }
+    expect(completionStatus(view.state)).toBe(expected);
   }
 
   // A case that compares two documents mounts the second one over a reset store, exactly as the
@@ -918,6 +949,153 @@ describe("built-in code section body", () => {
     // The workspace's own Escape chord must not also run and clear the selection behind it.
     expect(documentEscape).not.toHaveBeenCalled();
     document.removeEventListener("keydown", documentEscape);
+  });
+
+  it("requests outer generated-Python completions with live UTF-16 context and lets the popup own its keys", async () => {
+    const requests: WorkspaceCodeSectionCompletionRequest[] = [];
+    const completionProvider: WorkspaceCodeSectionCompletionProvider = vi.fn(
+      async (request) => {
+        requests.push(request);
+        return {
+          from: request.cursorOffsetUtf16 - 3,
+          options: [{ insertText: "mathlib", label: "mathlib" }],
+          to: request.cursorOffsetUtf16,
+        };
+      },
+    );
+    await mountWithCompletion(completionProvider);
+    const view = getView();
+    const prefixCursor = GENERATED_PREFIX.length - 1;
+    await act(async () => {
+      view.dispatch({ selection: { anchor: prefixCursor } });
+      expect(startCompletion(view)).toBe(true);
+    });
+    await waitForCompletion(view, "active");
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      cursorOffsetUtf16: prefixCursor,
+      generatedRegion: GENERATED_REGION,
+      language: "python",
+      sectionId: SECTION_ID,
+      text: GENERATED_CODE,
+      trigger: "explicit",
+    });
+
+    const tab = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Tab",
+      key: "Tab",
+    });
+    await act(async () => {
+      view.contentDOM.dispatchEvent(tab);
+    });
+    expect(tab.defaultPrevented).toBe(true);
+    expect(view.state.doc.toString()).toContain("import mathlib");
+
+    // The protected interval has no provider visibility, even for an explicit request.
+    const liveRegion = (
+      getSectionData() as WorkspaceCodeSectionData & {
+        generatedRegion: { from: number; to: number };
+      }
+    ).generatedRegion;
+    await act(async () => {
+      view.dispatch({ selection: { anchor: liveRegion.from + 1 } });
+      expect(startCompletion(view)).toBe(true);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(requests).toHaveLength(1);
+  });
+
+  it("aborts stale section completion work", async () => {
+    let resolve:
+      | ((value: {
+          from: number;
+          options: Array<{ insertText: string; label: string }>;
+          to: number;
+        }) => void)
+      | null = null;
+    let request: WorkspaceCodeSectionCompletionRequest | null = null;
+    const completionProvider: WorkspaceCodeSectionCompletionProvider = vi.fn(
+      (nextRequest) => {
+        // The input edit immediately starts a replacement typing request. Returning no result
+        // from that new request leaves this test focused on the late first response.
+        if (request !== null) {
+          return Promise.resolve(null);
+        }
+        request = nextRequest;
+        return new Promise((nextResolve) => {
+          resolve = nextResolve;
+        });
+      },
+    );
+    await mountWithCompletion(completionProvider);
+    const view = getView();
+    await act(async () => {
+      view.dispatch({ selection: { anchor: GENERATED_PREFIX.length - 1 } });
+      expect(startCompletion(view)).toBe(true);
+    });
+    const deadline = Date.now() + 1_000;
+    while (request === null && Date.now() < deadline) {
+      await act(async () => {
+        await new Promise((next) => setTimeout(next, 5));
+      });
+    }
+    if (request === null || resolve === null) {
+      throw new Error("The section completion provider was not invoked.");
+    }
+    await act(async () => {
+      view.dispatch({
+        changes: { from: 0, insert: "# " },
+        userEvent: "input.type",
+      });
+    });
+    expect(request.signal.aborted).toBe(true);
+    resolve({
+      from: GENERATED_REGION.from - 1,
+      options: [{ insertText: "blocked", label: "blocked" }],
+      to: GENERATED_REGION.to + 1,
+    });
+    await waitForCompletion(view, null);
+    expect(view.state.doc.toString()).not.toContain("blocked");
+  });
+
+  it("ignores a malformed completion result without changing the optional editor surface", async () => {
+    const completionProvider = vi.fn(async () =>
+      ({
+        from: GENERATED_PREFIX.length - 1,
+        options: [{ insertText: "", label: "" }],
+        to: GENERATED_PREFIX.length,
+      }) as unknown as Awaited<
+        ReturnType<WorkspaceCodeSectionCompletionProvider>
+      >,
+    );
+    await mountWithCompletion(completionProvider);
+    const view = getView();
+    await act(async () => {
+      view.dispatch({ selection: { anchor: GENERATED_PREFIX.length - 1 } });
+      expect(startCompletion(view)).toBe(true);
+    });
+    await waitForCompletion(view, null);
+    expect(view.state.doc.toString()).toBe(GENERATED_CODE);
+  });
+
+  it("rejects a completion replacement that crosses the live generated region", async () => {
+    const completionProvider: WorkspaceCodeSectionCompletionProvider = vi.fn(
+      async () => ({
+        from: GENERATED_REGION.from - 1,
+        options: [{ insertText: "blocked", label: "blocked" }],
+        to: GENERATED_REGION.to + 1,
+      }),
+    );
+    await mountWithCompletion(completionProvider);
+    const view = getView();
+    await act(async () => {
+      view.dispatch({ selection: { anchor: GENERATED_PREFIX.length - 1 } });
+      expect(startCompletion(view)).toBe(true);
+    });
+    await waitForCompletion(view, null);
+    expect(view.state.doc.toString()).toBe(GENERATED_CODE);
   });
 
   it("repaints when a host writes the typed section data", async () => {
