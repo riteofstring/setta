@@ -19,6 +19,20 @@ export type MutationAnswer =
   | { callableId: string; kind: "parameters"; sent: ParameterProposalV2[] }
   | { kind: "other" };
 
+export type AppState =
+  | { kind: "loading" }
+  | { kind: "ready"; host: WorkspaceHost }
+  | { kind: "error" };
+
+export type MutationState =
+  | { kind: "idle" }
+  | {
+      description: string;
+      kind: "pending";
+      parameterAuthoringPending?: boolean;
+    }
+  | { kind: "error"; message: string };
+
 export type RevisionConflictDraft = {
   callableId: string;
   kind: "parameters";
@@ -49,6 +63,28 @@ export type AppController = {
     name: string,
   ) => void;
 };
+
+export function isCallableResolutionFailure(error: unknown): boolean {
+  return (
+    error instanceof ProjectClientError && error.code === "provider_failed"
+  );
+}
+
+export function callableParameterRefreshRequired(
+  previous: CallableV2,
+  committedSnapshot: ProjectSnapshotV2,
+  forceParameterRefresh: boolean,
+): boolean {
+  const committed = committedSnapshot.callables.find(
+    (candidate) => candidate.id === previous.id,
+  );
+  return (
+    committed !== undefined &&
+    committed.authoredExpression !== "" &&
+    (forceParameterRefresh ||
+      committed.authoredExpression !== previous.authoredExpression)
+  );
+}
 
 // Callable sections use the workspace's main-derived header controls. Translate
 // the two structural edits those controls can make back into the server-owned
