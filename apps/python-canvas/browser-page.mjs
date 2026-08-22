@@ -50,14 +50,19 @@ export async function pauseResponseAtCdpBoundary(client, description, url) {
         throw new Error(`${description} did not pause its HTTP response.`);
       }
       return response.requestId;
+    })
+    .catch((error) => {
+      throw new Error(`${description} did not pause its HTTP response: ${error.message}`);
     });
   return {
     async wait() {
       await pausedResponse;
     },
     async release() {
-      const requestId = await pausedResponse;
-      await client.send("Fetch.continueRequest", { requestId });
+      await pausedResponse;
+      // A newer document edit can abort this fetch. Disabling interception either resumes a
+      // response that remains held or leaves that expected browser cancellation in place, unlike
+      // a direct continuation that can fail after Chrome invalidates the interception ID.
       await client.send("Fetch.disable");
     },
   };
@@ -78,6 +83,45 @@ export function textBoxSelector(label) {
 
 export function labeledSelector(label) {
   return `[aria-label=${JSON.stringify(label)}]`;
+}
+
+// The generated region's first marked line is a documented package hook. A real pointer just
+// inside that line exercises the editor's own caret policy, which moves it to the nearby prefix
+// boundary instead of leaving it inside the protected range. This remains correct when authored
+// prefix text spans several lines, where Home and End only address the first line.
+export async function moveCaretToGeneratedPrefixBoundary(client, generatedLabel) {
+  await moveCaretToGeneratedBoundary(client, generatedLabel, "prefix");
+}
+
+// The same marked-line boundary gives the first editable suffix position without assuming the
+// suffix itself fits on one line.
+export async function moveCaretToGeneratedSuffixBoundary(client, generatedLabel) {
+  await moveCaretToGeneratedBoundary(client, generatedLabel, "suffix");
+}
+
+async function moveCaretToGeneratedBoundary(client, generatedLabel, edge) {
+  const point = await evaluate(
+    client,
+    `(() => {
+      const lines = Array.from(document.querySelectorAll(${JSON.stringify(`${labeledSelector(generatedLabel)} [data-workspace-generated-line]`)}));
+      const line = lines.at(${JSON.stringify(edge === "prefix" ? 0 : -1)}) ?? null;
+      if (!(line instanceof HTMLElement)) {
+        return null;
+      }
+      const rect = line.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        return null;
+      }
+      return {
+        x: rect.left + Math.min(1, rect.width / 2),
+        y: rect.top + rect.height / 2,
+      };
+    })()`,
+  );
+  if (point === null) {
+    throw new Error(`The generated Python block did not expose a visible ${edge} boundary.`);
+  }
+  await clickPoint(client, point);
 }
 
 export async function activateTextBox(client, label) {

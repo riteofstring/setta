@@ -298,6 +298,16 @@ The browser repair, its production walkthrough, the changed-scope verification, 
 marker are complete in one coherent commit; the worktree is clean. Original-resolution popup
 inspection proceeds as the supervisor-owned acceptance evidence described above.
 
+Acceptance repair (2026-08-20): recommended browser verification at
+`ad0218ce351229b40c2092111d22438bb83643ea` exposed two remaining driver assumptions. The
+production page sends its target and completion requests through the preview proxy, so the CDP
+response holds now match that origin and the current target route. The walkthrough also reaches
+the true prefix and suffix edges by clicking the package's marked generated lines, rather than
+using Home or End after earlier flows make either authored region multiline. The stale-response
+proofs retain their real production requests and user input, including the newer local text before
+release. The focused production browser walkthrough passed, and `code-policy test --changed`
+passed `python-canvas-frontend-focused` (77 tests).
+
 The read-only reviewer must bind findings to this plan or `AGENTS.md`, inspect the exact
 trusted-base-to-candidate range, and use the named `main` donor as the behavior reference. Avoid
 parameter/reference work, general editor architecture, unrelated parity auditing, and pathological

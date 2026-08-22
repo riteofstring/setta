@@ -6,6 +6,7 @@ import {
   evaluate,
   insertText,
   labeledSelector,
+  moveCaretToGeneratedPrefixBoundary,
   navigate,
   pauseResponseAtCdpBoundary,
   pressEnd,
@@ -52,6 +53,7 @@ export async function assertPythonTargetCompletionParity(
   await assertStaleCompletionCannotReopenOrReport(
     client,
     backendOrigin,
+    previewOrigin,
     generatedLabel,
   );
 }
@@ -95,7 +97,7 @@ async function assertPrefixTabCompletion(
 ) {
   const before = await fetchCanonicalSnapshot(backendOrigin);
   await activateLabeledCodeSection(client, generatedLabel);
-  await moveCaretToPrefixEnd(client);
+  await moveCaretToGeneratedPrefixBoundary(client, generatedLabel);
   // This complete import statement has a stable `sqrt` completion in the pinned provider. Moving
   // back one UTF-16 position keeps the cursor outside the protected range while the identifier's
   // replacement range still covers the whole partial token.
@@ -236,21 +238,27 @@ async function assertProtectedRegionSuppressesCompletion(
 async function assertStaleCompletionCannotReopenOrReport(
   client,
   backendOrigin,
+  previewOrigin,
   generatedLabel,
 ) {
   const heldResponse = await pauseResponseAtCdpBoundary(
     client,
     "the older target completion",
-    `${backendOrigin}/api/v1/project/python-target/completions`,
+    `${previewOrigin}/api/v1/project/python-target/completions`,
   );
   await activateLabeledCodeSection(client, generatedLabel);
-  await moveCaretToPrefixEnd(client);
+  await moveCaretToGeneratedPrefixBoundary(client, generatedLabel);
   await insertText(client, "\nfrom math import floo");
+  // The new text ends at the protected boundary, where completion is deliberately unavailable.
+  // Step into the partial identifier for the request, then return to its line end to author the
+  // newer text while that real response remains paused.
+  await pressLeftArrow(client);
   await pressCompletion(client);
   await heldResponse.wait();
   // The production response for `floo` is now paused at the browser boundary. Add the final
   // letter before delivering it; a late response may neither reopen a popup nor publish the
   // target-completion error on this newer document.
+  await pressEnd(client);
   await insertText(client, "r");
   await heldResponse.release();
   await waitForAnimationFrame(client);
@@ -270,12 +278,14 @@ async function assertStaleCompletionCannotReopenOrReport(
       `A stale target completion changed or reported the newer document: ${JSON.stringify(state)}.`,
     );
   }
-}
-
-async function moveCaretToPrefixEnd(client) {
-  await selectAll(client);
-  await pressLeftArrow(client);
-  await pressEnd(client);
+  // The newer `floor` text is ordinary authored Python, so its existing debounce reaches the
+  // canonical target before the next browser proof starts from that same document state.
+  await waitForCanonicalTarget(
+    backendOrigin,
+    "the newer authored prefix after a stale completion response",
+    (snapshot) =>
+      snapshot.pythonTarget?.prefix?.includes("from math import floor") === true,
+  );
 }
 
 async function moveCaretToSuffixEnd(client) {

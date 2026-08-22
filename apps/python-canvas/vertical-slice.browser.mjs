@@ -750,6 +750,7 @@ async function runWalkthrough(client, backendOrigin, previewOrigin) {
   await assertTargetlessDocumentDiagnostic(
     client,
     backendOrigin,
+    previewOrigin,
     generatedLabel,
   );
   // Real Python authoring around the generated body, which the rejected whole-document read-only

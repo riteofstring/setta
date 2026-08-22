@@ -9,12 +9,13 @@ import {
   evaluate,
   insertText,
   labeledSelector,
+  moveCaretToGeneratedPrefixBoundary,
+  moveCaretToGeneratedSuffixBoundary,
   movePointerTo,
   navigate,
   pauseResponseAtCdpBoundary,
   pressBackspace,
   pressDelete,
-  pressEnd,
   pressHome,
   pressLeftArrow,
   pressRedo,
@@ -68,6 +69,7 @@ export async function assertAuthoredPythonAroundTheGeneratedBody(
 export async function assertTargetlessDocumentDiagnostic(
   client,
   backendOrigin,
+  previewOrigin,
   generatedLabel,
 ) {
   const before = await fetchCanonicalSnapshot(backendOrigin);
@@ -75,6 +77,7 @@ export async function assertTargetlessDocumentDiagnostic(
     await assertStaleTargetlessResponseClears(
       client,
       backendOrigin,
+      previewOrigin,
       generatedLabel,
       before,
     );
@@ -92,11 +95,11 @@ export async function assertTargetlessDocumentDiagnostic(
   );
 
   // The exact characters added above are all outside the protected generated region. Deleting
-  // them from its prefix boundary sends the next canonical target and must remove the old lint
-  // range rather than leaving it attached to unrelated code.
-  await moveCaretToPrefixEnd(client);
+  // backwards from its prefix boundary sends the next canonical target and must remove the old
+  // lint range rather than leaving it attached to unrelated code.
+  await moveCaretToGeneratedPrefixBoundary(client, generatedLabel);
   for (const _character of `\n${targetlessPrefixName}`) {
-    await pressDelete(client);
+    await pressBackspace(client);
   }
   const cleared = await waitForTargetlessDiagnostic(
     backendOrigin,
@@ -118,9 +121,14 @@ export async function assertTargetlessDocumentDiagnostic(
   }
   await waitFor(
     client,
-    "the cleared targetless diagnostic message",
-    `!(${visibleDiagnosticMessageScript(generatedLabel, diagnostic.message)})`,
+    "the corrected target response projection",
+    correctedTargetResponseProjectionScript(
+      generatedLabel,
+      prefixWithoutDiagnostic,
+      diagnostic.message,
+    ),
   );
+  await waitForAnimationFrame(client);
 }
 
 // A response for the first invalid line is deliberately held in flight while the person adds text
@@ -131,6 +139,7 @@ export async function assertTargetlessDocumentDiagnostic(
 async function assertStaleTargetlessResponseClears(
   client,
   backendOrigin,
+  previewOrigin,
   generatedLabel,
   before,
 ) {
@@ -140,11 +149,11 @@ async function assertStaleTargetlessResponseClears(
   const heldResponse = await pauseResponseAtCdpBoundary(
     client,
     "the older target-diagnostic response",
-    `${backendOrigin}/api/v1/project/python-target`,
+    `${previewOrigin}/api/v1/project/target`,
   );
 
   await focusGeneratedDocument(client, generatedLabel);
-  await moveCaretToPrefixEnd(client);
+  await moveCaretToGeneratedPrefixBoundary(client, generatedLabel);
   await insertText(client, `\n${targetlessPrefixName}`);
   await waitFor(
     client,
@@ -153,14 +162,14 @@ async function assertStaleTargetlessResponseClears(
   );
   await heldResponse.wait();
 
-  await moveCaretToPrefixEnd(client);
+  // The first edit ends at the generated boundary. Home and Left return to the end of the prior
+  // authored line, so this second edit shifts the diagnostic's source range before its name.
+  await pressHome(client);
+  await pressLeftArrow(client);
   await insertText(client, targetlessPrefixShift);
   const newerTextWasAuthoredWhilePending = await evaluate(
     client,
-    targetMutationPendingScript(
-      generatedLabel,
-      `${before.pythonTarget.prefix}${targetlessPrefixShift}`,
-    ),
+    targetMutationPendingScript(generatedLabel, newerPrefix),
   );
   if (!newerTextWasAuthoredWhilePending) {
     throw new Error(
@@ -187,7 +196,7 @@ async function assertStaleTargetlessResponseClears(
     "the newer prefix after the stale diagnostic response",
     staleDocumentDiagnosticClearedScript(
       generatedLabel,
-      `${before.pythonTarget.prefix}${targetlessPrefixShift}`,
+      newerPrefix,
       staleDiagnostic.message,
     ),
   );
@@ -279,8 +288,11 @@ function targetMutationPendingScript(generatedLabel, text) {
     const requestIsPending = Array.from(document.querySelectorAll('[role="status"]')).some(
       (status) => status.textContent?.trim() === ${JSON.stringify(targetMutationPendingMessage)},
     );
+    const source = editor instanceof HTMLElement
+      ? Array.from(editor.querySelectorAll('.cm-line'), (line) => line.textContent ?? "").join("\\n")
+      : null;
     return editor instanceof HTMLElement &&
-      editor.textContent?.includes(${JSON.stringify(text)}) === true &&
+      source?.includes(${JSON.stringify(text)}) === true &&
       requestIsPending;
   })()`;
 }
@@ -295,10 +307,37 @@ function staleDocumentDiagnosticClearedScript(
     const responseWasApplied = Array.from(document.querySelectorAll('[role="status"]')).some(
       (status) => status.textContent?.trim() === "Project loaded.",
     );
+    const source = editor instanceof HTMLElement
+      ? Array.from(editor.querySelectorAll('.cm-line'), (line) => line.textContent ?? "").join("\\n")
+      : null;
     return editor instanceof HTMLElement &&
-      editor.textContent?.includes(${JSON.stringify(newerText)}) === true &&
+      source?.includes(${JSON.stringify(newerText)}) === true &&
       responseWasApplied &&
       ${authoredPrefixHasNoDiagnosticInkScript(generatedLabel)} &&
+      !(${visibleDiagnosticMessageScript(generatedLabel, message)});
+  })()`;
+}
+
+function correctedTargetResponseProjectionScript(
+  generatedLabel,
+  correctedText,
+  message,
+) {
+  return `(() => {
+    const editor = document.querySelector(${JSON.stringify(`${labeledSelector(generatedLabel)} [role="textbox"]`)});
+    if (!(editor instanceof HTMLElement)) {
+      return false;
+    }
+    const source = Array.from(editor.querySelectorAll('.cm-line'), (line) => line.textContent ?? "").join("\\n");
+    const responseWasApplied = Array.from(document.querySelectorAll('[role="status"]')).some(
+      (status) => status.textContent?.trim() === "Project loaded.",
+    );
+    const mutationIsPending = Array.from(document.querySelectorAll('[role="status"]')).some(
+      (status) => status.textContent?.trim() === ${JSON.stringify(targetMutationPendingMessage)},
+    );
+    return source.includes(${JSON.stringify(correctedText)}) &&
+      responseWasApplied &&
+      !mutationIsPending &&
       !(${visibleDiagnosticMessageScript(generatedLabel, message)});
   })()`;
 }
@@ -385,14 +424,14 @@ async function assertProtectedRangeRefusesEveryEdit(
     [
       "deleting forward from the end of the prefix",
       async () => {
-        await moveCaretToPrefixEnd(client);
+        await moveCaretToGeneratedPrefixBoundary(client, generatedLabel);
         await pressDelete(client);
       },
     ],
     [
       "deleting backward from the start of the suffix",
       async () => {
-        await moveCaretToSuffixStart(client);
+        await moveCaretToGeneratedSuffixBoundary(client, generatedLabel);
         await pressBackspace(client);
       },
     ],
@@ -429,7 +468,7 @@ async function assertAuthoredRegionsPersist(
 ) {
   const before = await fetchCanonicalSnapshot(backendOrigin);
 
-  await moveCaretToPrefixEnd(client);
+  await moveCaretToGeneratedPrefixBoundary(client, generatedLabel);
   await insertText(client, `\n${authoredPrefixLine}`);
   const withPrefix = await waitForCanonicalTarget(
     backendOrigin,
@@ -558,20 +597,6 @@ function assertGeneratedBodyUnchanged(stage, before, after) {
       `${stage} changed the generated body from ${JSON.stringify(before.generatedCode.body)} to ${JSON.stringify(after.generatedCode.body)}.`,
     );
   }
-}
-
-// Document-relative caret moves that need no coordinates: collapsing a full selection puts the
-// caret at one end of the document, and Home/End reach that line's own boundary.
-async function moveCaretToPrefixEnd(client) {
-  await selectAll(client);
-  await pressLeftArrow(client);
-  await pressEnd(client);
-}
-
-async function moveCaretToSuffixStart(client) {
-  await selectAll(client);
-  await pressRightArrow(client);
-  await pressHome(client);
 }
 
 async function moveCaretToSuffixEnd(client) {
