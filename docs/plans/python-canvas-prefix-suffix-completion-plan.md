@@ -256,14 +256,20 @@ were renewed for seven days and the playground suite now builds its workspace de
 
 Browser closeout (2026-08-20): the initial production walkthrough confirmed the recorded driver
 failure: it looked for the generated Code section's wrapper label directly on its nested CodeMirror
-textbox. The page abstraction now resolves the labeled section and focuses its nested editable
-textbox; both prefix and suffix completion flows use that abstraction, with the production
-accessible markup unchanged. The repeated production walkthrough passed, including its two
+textbox. The page abstraction now resolves the labeled section and enters its nested editable
+textbox through the wrapper's public Enter handoff; both prefix and suffix completion flows use
+that abstraction, with the production accessible markup unchanged. The repeated production
+walkthrough passed, including its two
 1440-by-900, device-scale-one popup captures and checks that each popup is mounted outside the
 section, visible in the viewport, and not clipped. `code-policy test --changed --base
 9c3ee63dd8220a5e44e58d6b2d8305f8b7c80b5d` also passed all four selected focused suites
 (workspace, playground, Python Canvas backend, and Python Canvas frontend). No intentional
 behavior difference from the named `main` completion behavior was identified.
+
+Follow-up (2026-08-20): exact-candidate recommended verification at
+`08818ac16b472107b8a1c1b39d588dcaf4682498` timed out while the Escape flow started completion
+after directly focusing the nested editor. The browser driver now uses the section's wrapper and
+its public Enter handoff; a fresh production walkthrough passed with that path.
 
 The checkbox records repository work, not supervisor-owned acceptance receipts. Agent 1 checks it
 once the implementation and in-repository proof are complete and the worktree is clean. Code Policy
