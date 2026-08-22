@@ -3,7 +3,7 @@
 ## Purpose and status
 
 **Status: Phase A through Phase E implementation closeout is complete and ready
-for independent Agent 2 review.**
+for final audit.**
 
 This is the bounded implementation plan for replacing Python Canvas's fixed,
 in-memory V1 Square Root demonstration with a persisted, general-purpose Python
@@ -846,8 +846,8 @@ or live probe.
 
 ### Phase E — focused verification closeout
 
-- [x] Iteration-0017 focused verification remediation complete and ready for
-      a fresh independent audit
+- [x] Iteration-0019 final-report remediation complete and ready for final
+      audit
 
 1. Run the focused module suites and changed-file selection listed below in the
    plan-loop.
@@ -969,6 +969,26 @@ python-canvas-frontend` passed (39 tests); and `code-policy test --changed`
 passed for both Python Canvas modules. No browser or local service ran. The
 provider process ran only as part of the authorized backend Code Policy module
 suite; no standalone live probe ran.
+
+**Iteration-0019 remediation record (2026-08-21):** Target completion now
+binds a supplied mapped body range to exactly one occurrence of the
+snapshot's renderer-owned body. A duplicated byte-identical body in an outer
+region is an invalid completion draft and is never forwarded to the provider;
+ordinary uniquely mapped prefix and suffix completion remains available. Add
+callable no longer cancels a pending debounced outer-target mutation. The
+existing serialized mutation chain therefore sends the retained complete
+prefix/suffix draft after the create response, using that response's revision,
+and projects the persisted canonical target back into the workspace.
+
+**Iteration-0019 focused proof (2026-08-21):** `go test -count=1
+./internal/project/coordinator` passed from `apps/python-canvas/backend`, and
+`pnpm --filter @setta/python-canvas exec vitest run
+src/app/PythonCanvasApp.test.tsx --reporter=dot` passed (8 tests). The exact
+`code-policy test --module python-canvas-backend` and `code-policy test
+--module python-canvas-frontend` checks and `code-policy test --changed`
+passed, with the changed planner selecting those same two Python Canvas
+modules. The backend module's pinned provider ran only through that declared
+suite. No browser, local service, or standalone provider probe ran.
 
 ## Exact acceptance matrix
 

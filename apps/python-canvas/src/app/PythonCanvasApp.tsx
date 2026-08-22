@@ -676,7 +676,6 @@ export function PythonCanvasApp() {
         });
       },
       createCallable: (name) => {
-        cancelTargetMutation();
         enqueue(async () => {
           if (!active || snapshot === null) {
             return;

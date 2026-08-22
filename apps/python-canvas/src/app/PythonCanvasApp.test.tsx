@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { WorkspaceHost } from "@setta/workspace";
+import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
 
 import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
 import { ProjectClientError } from "../backend/client";
@@ -10,6 +10,7 @@ import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
 
 const mocks = vi.hoisted(() => ({
   commitWorkspaceDocument: vi.fn(),
+  createCallable: vi.fn(),
   createWorkspaceCodeSection: vi.fn(),
   createWorkspaceHost: vi.fn(),
   fetchProjectSnapshot: vi.fn(),
@@ -18,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   renameProject: vi.fn(),
   registerSectionKinds: vi.fn(),
   setItemData: vi.fn(),
+  setPythonTarget: vi.fn(),
   setWorkspaceColorMode: vi.fn(),
 }));
 
@@ -37,13 +39,13 @@ vi.mock("../backend/client", () => ({
     }
   },
   commitCallable: vi.fn(),
-  createCallable: vi.fn(),
+  createCallable: mocks.createCallable,
   deleteCallable: vi.fn(),
   fetchProjectSnapshot: mocks.fetchProjectSnapshot,
   renameCallable: mocks.renameCallable,
   renameProject: mocks.renameProject,
   setCallableParameters: vi.fn(),
-  setPythonTarget: vi.fn(),
+  setPythonTarget: mocks.setPythonTarget,
 }));
 
 vi.mock("@setta/workspace", () => ({
@@ -93,6 +95,7 @@ afterEach(() => {
   root = undefined;
   container?.remove();
   container = undefined;
+  vi.useRealTimers();
 });
 
 describe("PythonCanvasApp", () => {
@@ -260,6 +263,162 @@ describe("PythonCanvasApp", () => {
 
     expect(view.querySelector("[role='status']")?.textContent).toBe(
       "Project loaded. Basedpyright is unavailable.",
+    );
+  });
+
+  it("persists a pending outer target draft after creating a callable", async () => {
+    vi.useFakeTimers();
+    const initialSnapshot = parseProjectSnapshotV2(projectSnapshotFixture);
+    const localPrefix = "# local prefix";
+    const localSuffix = "local_state = SettaState()";
+    const createdSnapshot = parseProjectSnapshotV2({
+      ...initialSnapshot,
+      callables: [
+        {
+          authoredExpression: "",
+          id: "callable:created",
+          name: "Created callable",
+          parameters: [],
+        },
+      ],
+      project: {
+        ...initialSnapshot.project,
+        revision: initialSnapshot.project.revision + 1,
+      },
+    });
+    const bodyStart = localPrefix.length + 2;
+    const persistedSnapshot = parseProjectSnapshotV2({
+      ...createdSnapshot,
+      generatedCode: {
+        ...createdSnapshot.generatedCode,
+        code: `${localPrefix}\n\n${createdSnapshot.generatedCode.body}\n\n${localSuffix}`,
+        generatedBodyRange: {
+          end: bodyStart + createdSnapshot.generatedCode.body.length,
+          start: bodyStart,
+        },
+      },
+      project: {
+        ...createdSnapshot.project,
+        revision: createdSnapshot.project.revision + 1,
+      },
+      pythonTarget: { prefix: localPrefix, suffix: localSuffix },
+    });
+    let workspaceDocument: WorkspaceDocument = {
+      activeIds: [],
+      sections: {},
+      topLevelSections: {},
+      viewport: null,
+    };
+    let subscriber: ((next: WorkspaceDocument) => void) | null = null;
+    const host = {
+      dispose: vi.fn(),
+      getSnapshot: vi.fn(() => workspaceDocument),
+      loadDocument: vi.fn((next: WorkspaceDocument) => {
+        workspaceDocument = next;
+      }),
+      subscribe: vi.fn((next: (updated: WorkspaceDocument) => void) => {
+        subscriber = next;
+        return () => {
+          if (subscriber === next) {
+            subscriber = null;
+          }
+        };
+      }),
+    } as unknown as WorkspaceHost;
+    mocks.createWorkspaceHost.mockReturnValue(host);
+    mocks.commitWorkspaceDocument.mockImplementation(
+      (_host: WorkspaceHost, document: WorkspaceDocument) => {
+        workspaceDocument = document;
+      },
+    );
+    mocks.getWorkspaceCodeSectionData.mockImplementation(
+      (_host: WorkspaceHost, sectionId: string) => {
+        const section = workspaceDocument.sections[sectionId];
+        if (section === undefined) {
+          throw new Error(`Missing workspace section ${sectionId}.`);
+        }
+        return section.data;
+      },
+    );
+    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
+    mocks.createCallable.mockResolvedValue(createdSnapshot);
+    mocks.setPythonTarget.mockResolvedValue(persistedSnapshot);
+
+    const view = renderApp();
+    await flushEffects();
+    const generatedSection =
+      workspaceDocument.sections["python-canvas:generated-python"];
+    if (generatedSection === undefined) {
+      throw new Error("Generated Python section is missing.");
+    }
+    const localCode = `${localPrefix}\n\n${initialSnapshot.generatedCode.body}\n\n${localSuffix}`;
+    workspaceDocument = {
+      ...workspaceDocument,
+      sections: {
+        ...workspaceDocument.sections,
+        "python-canvas:generated-python": {
+          ...generatedSection,
+          data: {
+            ...(generatedSection.data as object),
+            code: localCode,
+            generatedRegion: {
+              from: bodyStart,
+              to: bodyStart + initialSnapshot.generatedCode.body.length,
+            },
+          },
+        },
+      },
+    };
+    subscriber?.(workspaceDocument);
+
+    const addCallable = view.querySelector<HTMLButtonElement>(
+      ".python-canvas-empty-state button",
+    );
+    if (addCallable === null) {
+      throw new Error("Expected the empty-state Add callable control.");
+    }
+    await act(async () => {
+      addCallable.click();
+      await flushMicrotasks();
+    });
+    const callableInput = view.querySelector<HTMLInputElement>(
+      "input[name='new-callable-name']",
+    );
+    if (callableInput === null || callableInput.form === null) {
+      throw new Error("Expected the callable creation form.");
+    }
+    await act(async () => {
+      setInputValue(callableInput, "Created callable");
+      callableInput.form?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+      await flushMicrotasks();
+    });
+
+    expect(mocks.createCallable).toHaveBeenCalledWith({
+      expectedRevision: initialSnapshot.project.revision,
+      name: "Created callable",
+      projectId: initialSnapshot.project.id,
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+      await flushMicrotasks();
+    });
+
+    expect(mocks.setPythonTarget).toHaveBeenCalledWith({
+      expectedRevision: createdSnapshot.project.revision,
+      prefix: localPrefix,
+      projectId: createdSnapshot.project.id,
+      suffix: localSuffix,
+    });
+    const persistedSection =
+      workspaceDocument.sections["python-canvas:generated-python"];
+    if (persistedSection === undefined) {
+      throw new Error("Persisted generated Python section is missing.");
+    }
+    expect((persistedSection.data as { code: string }).code).toBe(
+      persistedSnapshot.generatedCode.code,
     );
   });
 });

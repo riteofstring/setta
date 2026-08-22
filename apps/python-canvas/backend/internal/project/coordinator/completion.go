@@ -85,8 +85,8 @@ func (coordinator *Coordinator) CompletePythonTarget(
 	if err != nil {
 		return nil, err
 	}
-	if code[input.bodyStart:input.bodyEnd] != snapshot.Rendered.Body {
-		return nil, fmt.Errorf("%w: protected body differs from the canonical renderer body", ErrCompletionInvalid)
+	if err := validateCanonicalPythonTargetBodyMapping(code, input, snapshot.Rendered.Body); err != nil {
+		return nil, err
 	}
 	completionProvider, err := completionProviderFor(snapshot, provider)
 	if err != nil {
@@ -160,6 +160,27 @@ func validatePythonTargetCompletionInput(code string, protectedBodyRange UTF16Ra
 		return pythonTargetCompletionInput{}, fmt.Errorf("%w: target cursor", ErrCompletionInvalid)
 	}
 	return pythonTargetCompletionInput{bodyStart: start, bodyEnd: end, cursorOffsetByte: cursor}, nil
+}
+
+// validateCanonicalPythonTargetBodyMapping binds the caller's mapped range to
+// exactly one occurrence of the renderer-owned body. The range is a UI
+// coordinate claim, never a selector for which matching body is protected.
+func validateCanonicalPythonTargetBodyMapping(code string, input pythonTargetCompletionInput, canonicalBody string) error {
+	if canonicalBody == "" {
+		return fmt.Errorf("%w: canonical renderer body is empty", ErrCompletionInvalid)
+	}
+	canonicalStart := strings.Index(code, canonicalBody)
+	if canonicalStart < 0 || strings.Index(code[canonicalStart+1:], canonicalBody) >= 0 {
+		return fmt.Errorf("%w: canonical renderer body is not uniquely mapped", ErrCompletionInvalid)
+	}
+	canonicalEnd := canonicalStart + len(canonicalBody)
+	if input.bodyStart != canonicalStart || input.bodyEnd != canonicalEnd {
+		return fmt.Errorf("%w: protected body range does not map the canonical renderer body", ErrCompletionInvalid)
+	}
+	if input.cursorOffsetByte >= canonicalStart && input.cursorOffsetByte <= canonicalEnd {
+		return fmt.Errorf("%w: target cursor", ErrCompletionInvalid)
+	}
+	return nil
 }
 
 func (coordinator *Coordinator) completionState(ctx context.Context, projectID string) (Snapshot, Provider, error) {

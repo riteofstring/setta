@@ -649,16 +649,18 @@ func TestCoordinatorReportsUnavailableProviderWithoutEmptyMutationResult(t *test
 }
 
 type fakeProvider struct {
-	signature            []aggregate.ProviderParameter
-	diagnostics          func(GeneratedDocumentRequest) []ProviderDiagnostic
-	status               ProviderStatus
-	synchronizeError     error
-	failSynchronizations int
-	signatureError       error
-	signatureRequests    []SignatureRequest
-	synchronizeRequests  []GeneratedDocumentRequest
-	lastDocumentVersion  int
-	closed               bool
+	signature                      []aggregate.ProviderParameter
+	diagnostics                    func(GeneratedDocumentRequest) []ProviderDiagnostic
+	status                         ProviderStatus
+	synchronizeError               error
+	failSynchronizations           int
+	signatureError                 error
+	signatureRequests              []SignatureRequest
+	synchronizeRequests            []GeneratedDocumentRequest
+	lastDocumentVersion            int
+	closed                         bool
+	pythonTargetCompletionItems    []CompletionItem
+	pythonTargetCompletionRequests []PythonTargetCompletionRequest
 }
 
 func readyProvider() *fakeProvider {
@@ -690,6 +692,15 @@ func (provider *fakeProvider) SynchronizeGeneratedDocument(_ context.Context, re
 		diagnostics = provider.diagnostics(request)
 	}
 	return GeneratedDocumentResult{Diagnostics: diagnostics, ProviderStatus: provider.status}, nil
+}
+
+func (provider *fakeProvider) CompleteCallable(context.Context, CallableCompletionRequest) ([]CompletionItem, error) {
+	return []CompletionItem{}, nil
+}
+
+func (provider *fakeProvider) CompletePythonTarget(_ context.Context, request PythonTargetCompletionRequest) ([]CompletionItem, error) {
+	provider.pythonTargetCompletionRequests = append(provider.pythonTargetCompletionRequests, request)
+	return append([]CompletionItem{}, provider.pythonTargetCompletionItems...), nil
 }
 
 func (provider *fakeProvider) Close() error {
