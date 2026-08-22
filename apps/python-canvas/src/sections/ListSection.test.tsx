@@ -23,14 +23,11 @@ describe("ListSection", () => {
   it("uses native labeled controls and delegates the positive action count", () => {
     const onListDecrement = vi.fn();
     const onListIncrement = vi.fn();
-    const view = render(
-      <ListSection data={listData({ childCount: 3 })} />,
-      {
-        ...mutationContext(),
-        onListDecrement,
-        onListIncrement,
-      },
-    );
+    const view = render(<ListSection data={listData({ childCount: 3 })} />, {
+      ...mutationContext(),
+      onListDecrement,
+      onListIncrement,
+    });
 
     const input = requiredInput(view);
     const remove = requiredButton(view, "Remove children");
@@ -86,7 +83,8 @@ describe("ListSection", () => {
       <ListSection data={listData({ childCount: 0, pending: true })} />,
       {
         ...mutationContext(),
-        listMutationError: () => "Unable to update the list children. Try again.",
+        listMutationError: () =>
+          "Unable to update the list children. Try again.",
       },
     );
     expect(requiredButton(pending, "Remove children").disabled).toBe(true);
@@ -124,10 +122,7 @@ function listData({
   };
 }
 
-function render(
-  node: ReactNode,
-  context = mutationContext(),
-): HTMLDivElement {
+function render(node: ReactNode, context = mutationContext()): HTMLDivElement {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -142,16 +137,17 @@ function render(
 }
 
 function requiredInput(view: HTMLDivElement): HTMLInputElement {
-  const input = view.querySelector<HTMLInputElement>(
-    "input[name='children']",
-  );
+  const input = view.querySelector<HTMLInputElement>("input[name='children']");
   if (input === null) {
     throw new Error("Expected the List of Objects child-count input.");
   }
   return input;
 }
 
-function requiredButton(view: HTMLDivElement, label: string): HTMLButtonElement {
+function requiredButton(
+  view: HTMLDivElement,
+  label: string,
+): HTMLButtonElement {
   const button = view.querySelector<HTMLButtonElement>(
     `button[aria-label='${label}']`,
   );

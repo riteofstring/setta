@@ -82,26 +82,54 @@ function assertValidMoveSectionsInput(
   sectionIds: Array<string>,
   newParentId: string | null,
 ): void {
+  const movingSet = assertValidMovingSectionSelection(
+    documentState,
+    sectionIds,
+  );
+  if (newParentId === null) {
+    return;
+  }
+
+  assertValidMoveParent(host, documentState, movingSet, newParentId);
+}
+
+function assertValidMovingSectionSelection(
+  documentState: WorkspaceDocumentState,
+  sectionIds: Array<string>,
+): Set<string> {
   const movingSet = new Set(sectionIds);
   if (movingSet.size !== sectionIds.length) {
     throw new Error("A section move cannot contain duplicate section ids.");
   }
   for (const sectionId of sectionIds) {
     getSectionOrThrow(documentState, sectionId);
-    let parentId = documentState.parentSectionMap[sectionId] ?? null;
-    while (parentId !== null) {
-      if (movingSet.has(parentId)) {
-        throw new Error(
-          "A section move cannot include both a section and its ancestor.",
-        );
-      }
-      parentId = documentState.parentSectionMap[parentId] ?? null;
-    }
+    assertSectionHasNoMovingAncestor(documentState, sectionId, movingSet);
   }
-  if (newParentId === null) {
-    return;
-  }
+  return movingSet;
+}
 
+function assertSectionHasNoMovingAncestor(
+  documentState: WorkspaceDocumentState,
+  sectionId: string,
+  movingSet: ReadonlySet<string>,
+): void {
+  let parentId = documentState.parentSectionMap[sectionId] ?? null;
+  while (parentId !== null) {
+    if (movingSet.has(parentId)) {
+      throw new Error(
+        "A section move cannot include both a section and its ancestor.",
+      );
+    }
+    parentId = documentState.parentSectionMap[parentId] ?? null;
+  }
+}
+
+function assertValidMoveParent(
+  host: WorkspaceHost,
+  documentState: WorkspaceDocumentState,
+  movingSet: ReadonlySet<string>,
+  newParentId: string,
+): void {
   const newParent = getSectionOrThrow(documentState, newParentId);
   if (!canWorkspaceSectionOwnNestedSections(host, newParent)) {
     throw new Error(`Section ${newParentId} cannot own nested sections.`);

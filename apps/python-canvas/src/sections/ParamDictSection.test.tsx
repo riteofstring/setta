@@ -12,12 +12,8 @@ const dictionaryRows = vi.hoisted(
     }>,
 );
 const itemListProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
-const nameEditorProps = vi.hoisted(
-  () => [] as Array<Record<string, unknown>>,
-);
-const valueEditorProps = vi.hoisted(
-  () => [] as Array<Record<string, unknown>>,
-);
+const nameEditorProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
+const valueEditorProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 
 vi.mock("@setta/workspace", () => ({
   ItemDndContext: ({ children }: { children?: ReactNode }) => <>{children}</>,
@@ -100,7 +96,11 @@ describe("ParameterDictionarySection", () => {
     dictionaryRows.push(
       {
         children: [],
-        data: { authoredExpression: "missing_radius", kind: "leaf", name: "radius" },
+        data: {
+          authoredExpression: "missing_radius",
+          kind: "leaf",
+          name: "radius",
+        },
         id: "entry:radius",
       },
       {
@@ -152,8 +152,7 @@ describe("ParameterDictionarySection", () => {
       ],
     });
     const isGroupItem = itemListProps[0]?.isGroupItem as
-      | ((item: (typeof dictionaryRows)[number]) => boolean)
-      | undefined;
+      ((item: (typeof dictionaryRows)[number]) => boolean) | undefined;
     expect(isGroupItem?.(dictionaryRows[1]!)).toBe(true);
 
     (nameEditorProps[0]?.onNameChange as (name: string) => void)("size");
@@ -174,7 +173,11 @@ describe("ParameterDictionarySection", () => {
     expect(
       dictionaryEntryNameErrors({
         items: {
-          a: { children: ["nested"], data: { kind: "parent", name: "same" }, id: "a" },
+          a: {
+            children: ["nested"],
+            data: { kind: "parent", name: "same" },
+            id: "a",
+          },
           b: {
             children: [],
             data: { authoredExpression: "2", kind: "leaf", name: "same" },
@@ -215,10 +218,7 @@ describe("ParameterDictionarySection", () => {
   });
 });
 
-function render(
-  node: ReactNode,
-  context = mutationContext(),
-): HTMLDivElement {
+function render(node: ReactNode, context = mutationContext()): HTMLDivElement {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);

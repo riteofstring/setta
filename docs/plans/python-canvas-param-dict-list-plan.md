@@ -10,8 +10,9 @@ and diagnostics, list increment/decrement controls, and placeholder geometry rec
 implemented and
 covered by focused frontend tests. The existing single production browser walkthrough now contains
 the seven Param Dict/List acceptance flows and maps each canonical section type to its workspace
-section identity, with a static selector regression; supervised production headless execution,
-review, and Code Policy closeout remain incomplete.**
+section identity, with a static selector regression; its bounded policy structure and format checks
+now pass. Supervised production headless execution, review, and remaining Code Policy closeout
+remain incomplete.**
 
 Add the next two Python Canvas section types from main: **Param Dict** and **List of Objects**.
 This is one closed vertical slice across the validated Go aggregate, strict project file, generated

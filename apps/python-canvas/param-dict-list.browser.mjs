@@ -16,6 +16,7 @@ import {
   assertRevisionIncremented,
   assertSectionFieldSize,
   assertSectionSize,
+  createPaneSection,
   dictionaryRowHeight,
   findDictionaryEntry,
   itemRowSelector,
@@ -48,7 +49,6 @@ import {
   pressEnter,
   pressEscape,
   releaseItemSelectionChord,
-  rightClickPoint,
   selectAll,
   visibleElementPoint,
   waitFor,
@@ -392,80 +392,6 @@ export async function exerciseParamDictAndListSlice(
     dictionaryId: dictionary.id,
     listId: outerList.id,
   };
-}
-
-async function createPaneSection(client, backendOrigin, configuration) {
-  const existingIds = new Set(
-    snapshotCollection(
-      await fetchCanonicalSnapshot(backendOrigin),
-      configuration.collection,
-    ).map((section) => section.id),
-  );
-  await rightClickPoint(
-    client,
-    await visibleElementPoint(
-      client,
-      '.react-flow__pane[aria-label="Workspace canvas background"]',
-      "the blank workspace pane",
-    ),
-  );
-  await waitFor(
-    client,
-    `the ${configuration.label} creation menu item`,
-    creationMenuItemExpression(configuration.label),
-  );
-  const clicked = await evaluate(
-    client,
-    `(() => {
-      const menu = document.querySelector(${JSON.stringify(labeledSelector("Create a workspace section"))});
-      const item = Array.from(menu?.querySelectorAll('[role="menuitem"]') ?? [])
-        .find((candidate) => candidate.textContent?.trim() === ${JSON.stringify(configuration.label)});
-      if (!(item instanceof HTMLElement) || item.getAttribute("aria-disabled") === "true") {
-        return false;
-      }
-      item.click();
-      return true;
-    })()`,
-  );
-  assert.equal(
-    clicked,
-    true,
-    `The ${configuration.label} creation item is missing.`,
-  );
-  const snapshot = await waitForSnapshot(
-    backendOrigin,
-    `the canonical ${configuration.label} created from the pane menu`,
-    (next) =>
-      snapshotCollection(next, configuration.collection).some(
-        (section) =>
-          !existingIds.has(section.id) &&
-          section.name === configuration.defaultName,
-      ),
-  );
-  const created = snapshotCollection(snapshot, configuration.collection).find(
-    (section) =>
-      !existingIds.has(section.id) &&
-      section.name === configuration.defaultName,
-  );
-  assert.ok(
-    created,
-    `The pane menu did not create one ${configuration.label}.`,
-  );
-  await waitFor(
-    client,
-    `the ${configuration.label} section`,
-    `document.querySelector(${JSON.stringify(configuration.sectionSelector(created.id))}) instanceof HTMLElement`,
-  );
-  return created;
-}
-
-function creationMenuItemExpression(label) {
-  return `(() => {
-    const menu = document.querySelector(${JSON.stringify(labeledSelector("Create a workspace section"))});
-    const item = Array.from(menu?.querySelectorAll('[role="menuitem"]') ?? [])
-      .find((candidate) => candidate.textContent?.trim() === ${JSON.stringify(label)});
-    return item instanceof HTMLElement && item.getAttribute("aria-disabled") !== "true";
-  })()`;
 }
 
 async function addDictionaryEntry(client, dictionaryId) {

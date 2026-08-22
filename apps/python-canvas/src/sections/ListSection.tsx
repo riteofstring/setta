@@ -22,7 +22,9 @@ export function readListSectionData(value: unknown): ListSectionData {
     !Number.isSafeInteger(childCount) ||
     childCount < 0
   ) {
-    throw new Error("List of Objects childCount must be a non-negative integer.");
+    throw new Error(
+      "List of Objects childCount must be a non-negative integer.",
+    );
   }
   if (typeof record.pending !== "boolean") {
     throw new Error("List of Objects pending must be a boolean.");

@@ -167,9 +167,7 @@ describe("Python Canvas V2 workspace projection", () => {
       keepAuthoredPython: false,
       keepDictionaryEntries: new Set(),
       keepParameterLists: new Set(),
-      pendingSectionIds: new Map([
-        ["callable:created", pendingSectionId],
-      ]),
+      pendingSectionIds: new Map([["callable:created", pendingSectionId]]),
     });
 
     const createdSectionId = callableSectionID("callable:created");
@@ -356,7 +354,9 @@ describe("Python Canvas V2 workspace projection", () => {
       GENERATED_PYTHON_SECTION_ID,
       listId,
     ]);
-    expect(readParameterDictionaryEntries(document, "dictionary:options")).toEqual([
+    expect(
+      readParameterDictionaryEntries(document, "dictionary:options"),
+    ).toEqual([
       {
         authoredExpression: "missing_radius",
         id: "entry:radius",
@@ -495,7 +495,9 @@ describe("Python Canvas V2 workspace projection", () => {
       },
     });
 
-    expect(readParameterDictionaryEntries(host.getSnapshot(), "dictionary:options")).toEqual([
+    expect(
+      readParameterDictionaryEntries(host.getSnapshot(), "dictionary:options"),
+    ).toEqual([
       {
         children: [],
         id: "entry:radius",
@@ -517,8 +519,11 @@ describe("Python Canvas V2 workspace projection", () => {
     const snapshot = forestSnapshot();
     const host = createWorkspaceHost();
     registerPythonCanvasSectionKinds(host);
-    host.loadDocument(projectWorkspaceDocument(parseProjectSnapshotV2(projectSnapshotFixture)));
-    const pendingDictionaryId = "python-canvas:pending-parameter-dictionary:test";
+    host.loadDocument(
+      projectWorkspaceDocument(parseProjectSnapshotV2(projectSnapshotFixture)),
+    );
+    const pendingDictionaryId =
+      "python-canvas:pending-parameter-dictionary:test";
     const pendingListId = "python-canvas:pending-list:test";
     const current = host.getSnapshot();
     const dictionaryLayout = { h: 300, w: 420, x: 24, y: 48, zIndex: 3 };

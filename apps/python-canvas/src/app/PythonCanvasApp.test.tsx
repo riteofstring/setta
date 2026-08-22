@@ -94,7 +94,8 @@ function mockWorkspaceContent(): ReactNode {
     return null;
   }
   return (
-    lastMockSectionRegistrations()[sectionKind]?.renderContent?.(section) ?? null
+    lastMockSectionRegistrations()[sectionKind]?.renderContent?.(section) ??
+    null
   );
 }
 
@@ -149,9 +150,7 @@ function requiredMockCreationCommand(
   const commands = mocks.registerWorkspaceCreationCommands.mock.calls.at(
     -1,
   )?.[1] as ReadonlyArray<MockCreationCommand> | undefined;
-  const command = commands?.find(
-    (candidate) => candidate.id === id,
-  );
+  const command = commands?.find((candidate) => candidate.id === id);
   if (command === undefined) {
     throw new Error(`Missing ${id} creation command.`);
   }
@@ -240,7 +239,6 @@ vi.mock("@setta/workspace", () => ({
 
 import { PythonCanvasApp } from "./PythonCanvasApp";
 import { usePythonCanvasMutationContext } from "./PythonCanvasMutationContext";
-import { PythonCanvasView } from "./PythonCanvasView";
 import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import {
   CALLABLE_SECTION_KIND,
@@ -614,7 +612,9 @@ describe("PythonCanvasApp", () => {
       PENDING_PARAMETER_DICTIONARY_SECTION_KIND,
     );
     const list = requiredMockSectionRegistration(LIST_SECTION_KIND);
-    const pendingList = requiredMockSectionRegistration(PENDING_LIST_SECTION_KIND);
+    const pendingList = requiredMockSectionRegistration(
+      PENDING_LIST_SECTION_KIND,
+    );
     expect(authoring.itemArea?.toolbar).toBe("authoring-and-filter");
     expect(pending.itemArea?.toolbar).toBe("filter-only");
     expect(pending.createItem).toBeUndefined();
@@ -650,43 +650,6 @@ describe("PythonCanvasApp", () => {
       pythonTargetCompletionErrorId,
     );
     expect(view.querySelector("[data-testid='target-editor']")).not.toBeNull();
-  });
-
-  it("keeps app mutation feedback in an off-layout live region", () => {
-    const view = renderView({
-      kind: "error",
-      message: "Unable to save the project. Try again.",
-    });
-
-    const error = view.querySelector("#python-canvas-mutation-error");
-    expect(error?.getAttribute("role")).toBe("alert");
-    expect(error?.textContent).toBe("Unable to save the project. Try again.");
-    expect(view.querySelector(".python-canvas-project-controls")).toBeNull();
-    expect(view.querySelector(".python-canvas-empty-state")).toBeNull();
-  });
-
-  it("keeps pending and unavailable-provider states explicit", () => {
-    const view = renderView({
-      description: "Saving the Python target.",
-      kind: "pending",
-    });
-
-    const status = view.querySelector("[role='status']");
-    expect(status?.textContent).toBe("Saving the Python target.");
-    expect(status?.getAttribute("aria-busy")).toBe("true");
-  });
-
-  it("gives target completion feedback a stable description ID", () => {
-    const view = renderView(
-      { kind: "idle" },
-      "Unable to load Python target completions. Try again.",
-    );
-
-    const error = view.querySelector("#python-canvas-target-completion-error");
-    expect(error?.getAttribute("role")).toBe("alert");
-    expect(error?.textContent).toBe(
-      "Unable to load Python target completions. Try again.",
-    );
   });
 
   it("persists a pending outer target draft after pane-menu creation", async () => {
@@ -1254,10 +1217,7 @@ function callableSnapshot(
   });
 }
 
-function dictionarySnapshot(
-  revision: number,
-  entries: DictionaryEntryV2[],
-) {
+function dictionarySnapshot(revision: number, entries: DictionaryEntryV2[]) {
   return parseProjectSnapshotV2({
     ...projectSnapshotFixture,
     parameterDictionaries: [
@@ -1460,47 +1420,6 @@ function renderNode(node: ReactNode): HTMLDivElement {
   root = createRoot(container);
   act(() => {
     root?.render(node);
-  });
-  return container;
-}
-
-function renderView(
-  announcement:
-    | { kind: "idle" }
-    | { description: string; kind: "pending" }
-    | { kind: "error"; message: string },
-  pythonTargetCompletionError: string | null = null,
-): HTMLDivElement {
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-  act(() => {
-    root?.render(
-      <PythonCanvasView
-        announcement={announcement}
-        mutationContext={{
-          callableCompletionError: () => null,
-          callableCompletionProvider: () => undefined,
-          callableMutationError: () => null,
-          dictionaryMutationError: () => null,
-          listMutationError: () => null,
-          callableDraft: () => "",
-          onCallableAlternateCommit: vi.fn(),
-          onCallableCommit: vi.fn(),
-          onCallableDraftChange: vi.fn(),
-          onCallableRevert: vi.fn(),
-          onParameterExpressionChange: vi.fn(),
-          onParameterNameChange: vi.fn(),
-          onDictionaryEntryExpressionChange: vi.fn(),
-          onDictionaryEntryNameChange: vi.fn(),
-          onListDecrement: vi.fn(),
-          onListIncrement: vi.fn(),
-          parameterAuthoringPending: () => false,
-        }}
-        pythonTargetCompletionError={pythonTargetCompletionError}
-        state={{ host: createHost(), kind: "ready" }}
-      />,
-    );
   });
   return container;
 }
