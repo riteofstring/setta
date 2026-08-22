@@ -7,6 +7,7 @@ import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
 import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
 import type { ParameterV2 } from "../backend/generatedContract";
 import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
+import { ProjectClientError } from "../backend/client";
 
 const mocks = vi.hoisted(() => ({
   commitCallable: vi.fn(),
@@ -737,7 +738,7 @@ describe("PythonCanvasApp", () => {
     );
   });
 
-  it("persists a callable diagnostic without refreshing or locking its section", async () => {
+  it("persists a callable diagnostic when initial parameter retrieval fails", async () => {
     vi.useFakeTimers();
     const initialSnapshot = callableSnapshot(1, [
       providerParameter("parameter:old-provider", "value"),
@@ -767,6 +768,15 @@ describe("PythonCanvasApp", () => {
     };
     mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
     mocks.commitCallable.mockReturnValueOnce(commitRequest.promise);
+    mocks.refreshCallableParameters.mockRejectedValueOnce(
+      new ProjectClientError(
+        "http",
+        "Basedpyright could not complete this request.",
+        502,
+        undefined,
+        "provider_failed",
+      ),
+    );
 
     const view = renderApp();
     await flushEffects();
@@ -817,8 +827,20 @@ describe("PythonCanvasApp", () => {
     expect(mocks.textValueEditorProps.at(-1)?.diagnosticMessage).toBe(
       `"math" is not defined`,
     );
-    expect(mocks.refreshCallableParameters).not.toHaveBeenCalled();
+    expect(mocks.refreshCallableParameters).toHaveBeenCalledWith(
+      "callable:one",
+      {
+        expectedRevision: 2,
+        projectId: committedSnapshot.project.id,
+      },
+    );
     expect(mocks.setCallableParameters).not.toHaveBeenCalled();
+    expect(
+      view.querySelector(".python-canvas-callable-mutation-error"),
+    ).toBeNull();
+    expect(
+      view.querySelector("#python-canvas-mutation-error")?.textContent,
+    ).toBe("");
     expect(
       view
         .querySelector("[data-testid='workspace-canvas']")
@@ -826,7 +848,7 @@ describe("PythonCanvasApp", () => {
     ).toBe("false");
   });
 
-  it("refreshes parameters only through the alternate callable commit", async () => {
+  it("retrieves parameters for a new callable through normal Enter", async () => {
     const initialSnapshot = callableSnapshot(1, [
       providerParameter("parameter:old-provider", "value"),
     ]);
@@ -860,9 +882,7 @@ describe("PythonCanvasApp", () => {
       throw new Error("Expected the compact callable expression field.");
     }
     await act(async () => {
-      (expression.onAlternateCommit as (value: string) => void)(
-        "fixture.resolved",
-      );
+      (expression.onCommit as (value: string) => void)("fixture.resolved");
       await flushMicrotasks();
     });
 
@@ -895,6 +915,69 @@ describe("PythonCanvasApp", () => {
 
     expect(parameterIds(workspace.getDocument(), "callable:one")).toEqual([
       "parameter:fresh-provider",
+    ]);
+  });
+
+  it("skips a selected callable on normal Enter and force-refreshes it on alternate Enter", async () => {
+    const selectedSnapshot = callableSnapshot(
+      3,
+      [providerParameter("parameter:current-provider", "selected")],
+      "fixture.selected",
+    );
+    const forceRefreshedSnapshot = callableSnapshot(
+      4,
+      [providerParameter("parameter:force-refreshed", "selected")],
+      "fixture.selected",
+    );
+    const workspace = installWorkspaceHarness();
+    mocks.renderWorkspaceCanvas = true;
+    mocks.workspaceCanvasHost = workspace.host as unknown as {
+      getSnapshot: () => { sections: Record<string, unknown> };
+    };
+    mocks.fetchProjectSnapshot.mockResolvedValue(selectedSnapshot);
+    mocks.commitCallable
+      .mockResolvedValueOnce(selectedSnapshot)
+      .mockResolvedValueOnce(selectedSnapshot);
+    mocks.refreshCallableParameters.mockResolvedValueOnce(
+      forceRefreshedSnapshot,
+    );
+
+    renderApp();
+    await flushEffects();
+    const expression = mocks.textValueEditorProps.find(
+      (props) => props.presentation === "section-field",
+    );
+    if (expression === undefined) {
+      throw new Error("Expected the compact callable expression field.");
+    }
+
+    await act(async () => {
+      (expression.onCommit as (value: string) => void)("fixture.selected");
+      await flushMicrotasks();
+    });
+    expect(mocks.commitCallable).toHaveBeenLastCalledWith("callable:one", {
+      authoredExpression: "fixture.selected",
+      expectedRevision: 3,
+      projectId: selectedSnapshot.project.id,
+    });
+    expect(mocks.refreshCallableParameters).not.toHaveBeenCalled();
+
+    await act(async () => {
+      (expression.onAlternateCommit as (value: string) => void)(
+        "fixture.selected",
+      );
+      await flushMicrotasks();
+    });
+    expect(mocks.refreshCallableParameters).toHaveBeenCalledTimes(1);
+    expect(mocks.refreshCallableParameters).toHaveBeenCalledWith(
+      "callable:one",
+      {
+        expectedRevision: 3,
+        projectId: selectedSnapshot.project.id,
+      },
+    );
+    expect(parameterIds(workspace.getDocument(), "callable:one")).toEqual([
+      "parameter:force-refreshed",
     ]);
   });
 });

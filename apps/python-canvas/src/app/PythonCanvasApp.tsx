@@ -52,6 +52,12 @@ import { PythonCanvasView } from "./PythonCanvasView";
 const mutationDebounceMs = 300;
 const defaultCallableName = "New callable";
 
+function isCallableResolutionFailure(error: unknown): boolean {
+  return (
+    error instanceof ProjectClientError && error.code === "provider_failed"
+  );
+}
+
 type AppState =
   | { kind: "loading" }
   | { kind: "ready"; host: WorkspaceHost }
@@ -583,7 +589,7 @@ export function PythonCanvasApp() {
     const queueCallableCommit = (
       callableId: string,
       value: string,
-      refreshParameters: boolean,
+      forceParameterRefresh: boolean,
     ) => {
       if (
         !active ||
@@ -623,8 +629,9 @@ export function PythonCanvasApp() {
           updateCallableMutation(callableId, { kind: "idle" });
           return;
         }
+        let committedSnapshot: ProjectSnapshotV2;
         try {
-          const committedSnapshot = await commitCallable(callableId, {
+          committedSnapshot = await commitCallable(callableId, {
             authoredExpression: value,
             expectedRevision: snapshot.project.revision,
             projectId: snapshot.project.id,
@@ -637,25 +644,6 @@ export function PythonCanvasApp() {
             callableId,
             kind: "commit",
           });
-          if (refreshParameters) {
-            const refreshedSnapshot = await refreshCallableParameters(
-              callableId,
-              {
-                expectedRevision: committedSnapshot.project.revision,
-                projectId: committedSnapshot.project.id,
-              },
-            );
-            if (!active) {
-              return;
-            }
-            snapshot = refreshedSnapshot;
-            acceptCanonicalSnapshot(refreshedSnapshot, {
-              callableId,
-              kind: "refresh",
-            });
-          }
-          setParameterAuthoringPending(callableId, false);
-          updateCallableMutation(callableId, { kind: "idle" });
         } catch (error) {
           if (active) {
             setParameterAuthoringPending(callableId, false);
@@ -668,6 +656,61 @@ export function PythonCanvasApp() {
                 }),
             });
           }
+          return;
+        }
+
+        const committedCallable = committedSnapshot.callables.find(
+          (candidate) => candidate.id === callableId,
+        );
+        const selectionChanged =
+          committedCallable !== undefined &&
+          committedCallable.authoredExpression !== callable.authoredExpression;
+        const shouldRefreshParameters =
+          committedCallable !== undefined &&
+          committedCallable.authoredExpression !== "" &&
+          (forceParameterRefresh || selectionChanged);
+        if (!shouldRefreshParameters) {
+          setParameterAuthoringPending(callableId, false);
+          updateCallableMutation(callableId, { kind: "idle" });
+          return;
+        }
+
+        try {
+          const refreshedSnapshot = await refreshCallableParameters(
+            callableId,
+            {
+              expectedRevision: committedSnapshot.project.revision,
+              projectId: committedSnapshot.project.id,
+            },
+          );
+          if (!active) {
+            return;
+          }
+          snapshot = refreshedSnapshot;
+          acceptCanonicalSnapshot(refreshedSnapshot, {
+            callableId,
+            kind: "refresh",
+          });
+          setParameterAuthoringPending(callableId, false);
+          updateCallableMutation(callableId, { kind: "idle" });
+        } catch (error) {
+          if (!active) {
+            return;
+          }
+          setParameterAuthoringPending(callableId, false);
+          if (isCallableResolutionFailure(error)) {
+            // The expression commit is already durable and its Basedpyright
+            // diagnostics are canonical. A missing symbol can prevent signature
+            // help, but it must not turn that successful commit into a mutation
+            // failure or restore the preceding expression.
+            updateCallableMutation(callableId, { kind: "idle" });
+            return;
+          }
+          await handleMutationFailure("the callable parameters", error, {
+            reportFailure: (next) => updateCallableMutation(callableId, next),
+            restore: () =>
+              restoreCanonicalProject({ callableId, kind: "refresh" }),
+          });
         }
       });
     };

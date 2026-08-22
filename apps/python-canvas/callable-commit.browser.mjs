@@ -38,7 +38,7 @@ export async function openWorkspaceCanvas(client, previewOrigin) {
   );
 }
 
-export async function commitCallableExpressionAndRefresh(
+export async function commitNewCallableExpression(
   client,
   backendOrigin,
   name,
@@ -53,7 +53,7 @@ export async function commitCallableExpressionAndRefresh(
   );
   await selectAll(client);
   await insertText(client, expression);
-  await pressAlternateEnter(client);
+  await pressEnter(client);
   await waitForSnapshot(
     backendOrigin,
     `the ${name} callable expression commit`,
@@ -111,6 +111,8 @@ async function exerciseCallableCompletionApply(
     })()`,
   );
   const requestsBefore = await callableCommitRequestCount(client);
+  const refreshRequestsBefore =
+    await callableParameterRefreshRequestCount(client);
   await pressEnter(client);
   await waitFor(
     client,
@@ -151,8 +153,10 @@ async function exerciseCallableCompletionApply(
     "the completed callable applied by the second Enter",
     (snapshot) =>
       harness.findCallable(snapshot, name)?.authoredExpression ===
-      "fixture_module.sample",
+        "fixture_module.sample" &&
+      harness.findCallable(snapshot, name)?.parameters.length === 5,
   );
+  await waitForCallableUiIdle(client, name, harness);
   await waitFor(
     client,
     "the cleared callable apply hint",
@@ -167,6 +171,11 @@ async function exerciseCallableCompletionApply(
     await callableCommitRequestCount(client),
     requestsBefore + 1,
     "The second Enter did not send exactly one callable commit.",
+  );
+  assert.equal(
+    await callableParameterRefreshRequestCount(client),
+    refreshRequestsBefore + 1,
+    "The second Enter did not retrieve parameters for the new callable.",
   );
 }
 
@@ -273,8 +282,33 @@ async function exerciseUnresolvedCallableCommit(
   }
   assert.equal(
     await callableParameterRefreshRequestCount(client),
-    refreshRequestsBefore,
-    "Normal Enter unexpectedly refreshed callable parameters.",
+    refreshRequestsBefore + 1,
+    "Normal Enter did not attempt parameter retrieval for a new callable.",
+  );
+
+  const repeatCommitRequestsBefore = await callableCommitRequestCount(client);
+  await activateContentEditableTextBox(
+    client,
+    expressionSelector,
+    "the already-selected unresolved callable expression",
+  );
+  await pressEnter(client);
+  await waitFor(
+    client,
+    "the already-selected callable recommit",
+    `performance.getEntriesByType("resource").filter((entry) => {
+      try {
+        return new URL(entry.name).pathname.endsWith("/commit");
+      } catch {
+        return false;
+      }
+    }).length === ${String(repeatCommitRequestsBefore + 1)}`,
+  );
+  await waitForCallableUiIdle(client, name, harness);
+  assert.equal(
+    await callableParameterRefreshRequestCount(client),
+    refreshRequestsBefore + 1,
+    "Normal Enter re-fetched parameters for an already-selected callable.",
   );
   await assertGeneratedBodyPresentation(client, unresolved);
 }

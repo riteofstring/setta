@@ -5,7 +5,7 @@ import {
   runAgainstProductionApp,
 } from "./browser-processes.mjs";
 import {
-  commitCallableExpressionAndRefresh,
+  commitNewCallableExpression,
   exerciseCallableCommitParity,
   openWorkspaceCanvas,
   waitForCallableUiIdle,
@@ -97,7 +97,7 @@ await runAgainstProductionApp(
     await editPythonTargetOuterRegions(client, backendOrigin);
 
     await createCallable(client, backendOrigin, sampleCallableName);
-    await commitCallableExpressionAndRefresh(
+    await commitNewCallableExpression(
       client,
       backendOrigin,
       sampleCallableName,
@@ -122,7 +122,7 @@ await runAgainstProductionApp(
     );
 
     await createCallable(client, backendOrigin, zeroCallableName);
-    await commitCallableExpressionAndRefresh(
+    await commitNewCallableExpression(
       client,
       backendOrigin,
       zeroCallableName,
