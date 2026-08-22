@@ -33,6 +33,7 @@ func TestOpenCreatePersistsOnlyAfterInitialRenderAndMaterialization(t *testing.T
 		name            string
 		render          RenderFunc
 		materialization func(t *testing.T, path string) materializer.Handle
+		assertCleaned   func(t *testing.T, document materializer.Handle)
 		wantError       error
 	}{
 		{
@@ -42,6 +43,12 @@ func TestOpenCreatePersistsOnlyAfterInitialRenderAndMaterialization(t *testing.T
 			},
 			materialization: func(t *testing.T, path string) materializer.Handle {
 				return newMaterialization(t, path)
+			},
+			assertCleaned: func(t *testing.T, document materializer.Handle) {
+				t.Helper()
+				if _, err := os.Stat(document.Path()); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("generated materialization after failed startup stat error = %v, want not exist", err)
+				}
 			},
 			wantError: ErrRenderFailed,
 		},
@@ -53,16 +60,24 @@ func TestOpenCreatePersistsOnlyAfterInitialRenderAndMaterialization(t *testing.T
 					initializeError: errors.New("injected initial materialization failure"),
 				}
 			},
+			assertCleaned: func(t *testing.T, document materializer.Handle) {
+				t.Helper()
+				memory, ok := document.(*memoryMaterialization)
+				if !ok || !memory.closed {
+					t.Fatalf("materialization after failed startup = %#v, want closed", document)
+				}
+			},
 			wantError: ErrMaterializationFailed,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "project.json")
+			initialMaterialization := test.materialization(t, path)
 			_, err := Open(context.Background(), Options{
 				ProjectPath:  path,
 				Create:       true,
 				IDGenerator:  sequenceIDs("project-failed"),
-				Materializer: test.materialization(t, path),
+				Materializer: initialMaterialization,
 				Provider:     readyProvider(),
 				Render:       test.render,
 			})
@@ -72,6 +87,7 @@ func TestOpenCreatePersistsOnlyAfterInitialRenderAndMaterialization(t *testing.T
 			if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
 				t.Fatalf("project path after failed startup stat error = %v, want not exist", statErr)
 			}
+			test.assertCleaned(t, initialMaterialization)
 
 			retry, err := Open(context.Background(), Options{
 				ProjectPath:  path,
@@ -163,8 +179,8 @@ func requireCreateRefusesExistingProject(t *testing.T, path string) {
 	if !errors.Is(err, projectfile.ErrProjectFileExists) {
 		t.Fatalf("Open(existing --create) error = %v, want exclusive-create refusal", err)
 	}
-	if err := overwriteMaterialization.Close(); err != nil {
-		t.Fatalf("close overwrite materialization: %v", err)
+	if _, statErr := os.Stat(overwriteMaterialization.Path()); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("generated materialization after exclusive-create refusal stat error = %v, want not exist", statErr)
 	}
 }
 

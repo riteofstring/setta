@@ -82,6 +82,14 @@ func TestNormalizeSignatureHelpKeepsQuotedLiteralDelimitersOpaque(t *testing.T) 
 			hasDefault:     true,
 		},
 		{
+			name:           "double quoted comma default",
+			signatureLabel: `f(value: str = "a,b")`,
+			parameterLabel: `value: str = "a,b"`,
+			wantAnnotation: "str",
+			wantDefault:    `"a,b"`,
+			hasDefault:     true,
+		},
+		{
 			name:           "quoted equals annotation",
 			signatureLabel: "f(value: Literal['='])",
 			parameterLabel: "value: Literal['=']",
