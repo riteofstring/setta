@@ -1,7 +1,7 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
-import { FiAlertCircle } from "react-icons/fi";
+import { BiError } from "react-icons/bi";
 import {
   useEffect,
   useLayoutEffect,
@@ -260,7 +260,7 @@ function wrapTextValueEditorLayers({
           className="setta-workspace-section-field-diagnostic-indicator"
           title={diagnosticMessage}
         >
-          <FiAlertCircle focusable="false" />
+          <BiError focusable="false" />
         </span>
       ) : null}
       {endAdornment === undefined || endAdornment === null ? null : (
