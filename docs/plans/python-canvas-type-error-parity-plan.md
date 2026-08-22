@@ -202,6 +202,27 @@ target; targetless diagnostics survive as document diagnostics; and exact `repor
 diagnostics on the callable call map to empty required provider-derived parameters. The workspace
 presentation, Canvas projection, production walkthrough, and phase closeout remain incomplete.
 
+Implementation record — workspace/frontend batch: `TextValueEditor` now owns the callable
+field's controlled error surface, compact indicator, and idle/live `aria-invalid` description;
+the generic Code-section contract now validates UTF-16 document diagnostics and renders them with
+the direct, exact `@codemirror/lint` dependency; and Python Canvas partitions canonical snapshots
+into callable, parameter, and targetless document diagnostics. Targetless UTF-8 byte ranges are
+converted once at the projection boundary, while accepted local outer-code edits and retained
+newer authored code clear old document diagnostics. The locked Code Policy release passed
+`test --changed --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`; focused Go, workspace,
+playground, and Canvas checks passed, as did the recommended workspace suite (143 files / 1,205
+tests), playground suite (8 files / 43 tests), contract-drift and cross-language boundary suites,
+workspace build, Canvas TypeScript/Vite build, and browser-script syntax checks.
+
+Environment evidence not yet sufficient for phase closeout: the supervisor completed
+`code-policy dependency-review --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
+against the no-script candidate lockfile with no vulnerabilities. The required local production
+browser walkthrough could not run inside Agent 1's sandbox because it rejects binding
+`127.0.0.1` with `EPERM`. The phase marker remains unchecked; frozen acceptance and the required
+full-resolution browser evidence still need to run in the supervisor environment. Both are already
+authorized for this loop and are supervisor-owned acceptance work, not a developer evidence or
+approval gate.
+
 Intentional donor differences, recorded after reading every named main donor: main's historical
 generated-Python mapper used `reportCallIssue` message wording to choose parameters, whereas this
 slice uses the exact provider code plus canonical signature metadata, so wording cannot create a
