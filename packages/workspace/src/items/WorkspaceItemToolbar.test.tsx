@@ -204,6 +204,31 @@ describe("WorkspaceItemToolbar", () => {
     expect(onChange).toHaveBeenCalledTimes(3);
   });
 
+  it("keeps a live inline editor stable for a one-click removal", async () => {
+    await mount();
+    const liveEditor = document.createElement("div");
+    liveEditor.contentEditable = "true";
+    liveEditor.tabIndex = -1;
+    host.prepend(liveEditor);
+    liveEditor.focus();
+    expect(document.activeElement).toBe(liveEditor);
+
+    const removeLast = getButton(host, "Remove last parameter");
+    const press = new MouseEvent("mousedown", {
+      bubbles: true,
+      button: 0,
+      cancelable: true,
+    });
+    await act(async () => {
+      removeLast.dispatchEvent(press);
+    });
+    expect(press.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(liveEditor);
+
+    await act(async () => removeLast.click());
+    expect(getPanelItemTree().items.beta).toBeUndefined();
+  });
+
   it("exposes accurate disabled states for capability, lock, drag, and a missing factory", async () => {
     await mount();
     await act(async () => {

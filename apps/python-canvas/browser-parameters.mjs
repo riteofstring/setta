@@ -118,6 +118,25 @@ export async function assertAuthoredParameterAuthoring(
 
   await assertDuplicateNameIsRefusedInTheRow(client, backendOrigin);
 
+  // The restored scale name remains a live editor. A person can remove that parameter with one
+  // ordinary click; do not close it first, retry the click, or manufacture an intervening change.
+  await waitFor(
+    client,
+    "the recovered scale name editor retaining focus for one-click removal",
+    `(() => {
+      const editors = Array.from(
+        document.querySelectorAll(${JSON.stringify(textBoxSelector("Item name"))}),
+      );
+      return editors.some(
+        (editor) =>
+          editor instanceof HTMLElement &&
+          editor.textContent?.trim() === "scale" &&
+          editor.getAttribute("contenteditable") === "true" &&
+          document.activeElement === editor,
+      );
+    })()`,
+  );
+
   await clickElementCenter(
     client,
     labeledSelector("Remove last parameter"),

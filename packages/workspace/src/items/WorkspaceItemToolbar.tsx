@@ -17,6 +17,7 @@ import {
 import { useWorkspaceItemFilter } from "./WorkspaceItemFilterContext";
 import { WorkspaceItemFilterControls } from "./WorkspaceItemFilterControls";
 import { useWorkspaceHost } from "../workspaceHostContext";
+import type { MouseEvent } from "react";
 
 function getItemAuthoringToneClasses(hasSectionStyleTheme: boolean): {
   button: string;
@@ -46,6 +47,16 @@ function isItemAuthoringMutationDisabled(
   sectionLocked: boolean,
 ): boolean {
   return !canEditStructure || itemDragActive || sectionLocked;
+}
+
+// An inline CodeMirror editor replaces itself with its idle layer after blur. Letting a toolbar
+// mouse press take focus can therefore replace the layout under that same click before its release
+// arrives. Structural actions preserve the active editor through the pointer gesture; keyboard
+// activation still uses the button's normal focus behavior.
+function preserveInlineEditorDuringAuthoringPress(
+  event: MouseEvent<HTMLButtonElement>,
+): void {
+  event.preventDefault();
 }
 
 // The registered item-area presentation selects which of these exact behaviors renders. The
@@ -130,6 +141,7 @@ function WorkspaceItemAuthoringActions({
         data-setta-workspace-touch-target="compact"
         disabled={mutationDisabled || !state.hasTopLevelItems}
         onClick={() => deleteLastWorkspaceItem(host, sectionId)}
+        onMouseDown={preserveInlineEditorDuringAuthoringPress}
         title="Remove last parameter"
         type="button"
       >
@@ -141,6 +153,7 @@ function WorkspaceItemAuthoringActions({
         data-setta-workspace-touch-target="compact"
         disabled={mutationDisabled || !state.canCreateItem}
         onClick={() => insertWorkspaceItem(host, sectionId)}
+        onMouseDown={preserveInlineEditorDuringAuthoringPress}
         title={
           state.canCreateItem ? "Add parameter" : "Add parameter unavailable"
         }
@@ -154,6 +167,7 @@ function WorkspaceItemAuthoringActions({
         data-setta-workspace-touch-target="compact"
         disabled={mutationDisabled || !state.hasSelectedItems}
         onClick={() => deleteSelectedWorkspaceItems(host, sectionId)}
+        onMouseDown={preserveInlineEditorDuringAuthoringPress}
         title="Delete selected parameters"
         type="button"
       >

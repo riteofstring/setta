@@ -243,6 +243,16 @@ the duplicate error clears and the restored `scale expression` row is editable b
 genuine structural mutation. The focused Python Canvas Code Policy suite (8 files / 68 tests) and
 browser-script syntax check passed.
 
+Implementation record — live-editor toolbar correction: an inline name editor schedules its
+CodeMirror-to-idle-layer swap when a native toolbar mouse press blurs it, which can move the target
+between that press and its release. The shared structural actions now preserve inline-editor focus
+through the pointer gesture, while keyboard activation retains normal button focus behavior. The
+production walkthrough now requires the recovered live `scale` name editor to own focus immediately
+before one ordinary Remove Last click, then waits for its canonical deletion; it does not send
+Escape, retry the click, or manufacture a revision. The targeted toolbar test (5 tests), the focused Python
+Canvas suite (8 files / 68 tests), the workspace component suite (143 files / 1,206 tests), and the
+browser-script syntax check passed.
+
 Environment evidence not yet sufficient for phase closeout: the supervisor completed
 `code-policy dependency-review --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
 against the no-script candidate lockfile with no vulnerabilities. The required local production
