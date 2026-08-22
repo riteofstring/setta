@@ -1,18 +1,22 @@
 import {
   PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
   PROJECT_CALLABLE_PATH_V1,
-  PROJECT_PARAMETER_PATH_V1,
+  PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1,
+  PROJECT_PARAMETERS_PATH_V1,
   PROJECT_PATH_V1,
+  PROJECT_TARGET_PATH_V1,
   type APIErrorCodeV1,
   type CallableCompletionRequestV1,
-  type CallableCompletionResponseV1,
+  type CompletionResponseV1,
   type CommitCallableRequestV1,
   type ProjectSnapshotV1,
-  type SetParameterExpressionRequestV1,
+  type PythonTargetCompletionRequestV1,
+  type SetCallableParametersRequestV1,
+  type SetPythonTargetRequestV1,
 } from "./generatedContract";
 import {
   ProjectSnapshotValidationError,
-  parseCallableCompletionResponseV1,
+  parseCompletionResponseV1,
   parseErrorResponseV1,
   parseProjectSnapshotV1,
 } from "./runtimeContract";
@@ -32,10 +36,6 @@ export class ProjectClientError extends Error {
     super(message);
   }
 }
-
-type SetParameterExpressionInput = SetParameterExpressionRequestV1 & {
-  parameterId: string;
-};
 
 export async function fetchProjectSnapshot(
   fetchImplementation: typeof fetch = fetch,
@@ -62,22 +62,50 @@ export async function completeCallable(
   request: CallableCompletionRequestV1,
   signal: AbortSignal,
   fetchImplementation: typeof fetch = fetch,
-): Promise<CallableCompletionResponseV1> {
-  return requestCallableCompletions(
+): Promise<CompletionResponseV1> {
+  return requestCompletions(
     PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
     jsonPost(request, signal),
+    fetchImplementation,
+    "callable",
+  );
+}
+
+export async function completePythonTarget(
+  request: PythonTargetCompletionRequestV1,
+  signal: AbortSignal,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<CompletionResponseV1> {
+  return requestCompletions(
+    PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1,
+    jsonPost(request, signal),
+    fetchImplementation,
+    "Python target",
+  );
+}
+
+// One request carries the callable's complete proposed parameter list, so an
+// added, renamed, revalued, reordered, or deleted record is the same round trip.
+export async function setCallableParameters(
+  request: SetCallableParametersRequestV1,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ProjectSnapshotV1> {
+  return requestProjectSnapshot(
+    PROJECT_PARAMETERS_PATH_V1,
+    jsonPost(request),
     fetchImplementation,
   );
 }
 
-export async function setParameterExpression(
-  request: SetParameterExpressionInput,
+// One request carries the complete authored Python around the generated body, so a
+// prefix edit and a suffix edit reach the store as the same candidate.
+export async function setPythonTarget(
+  request: SetPythonTargetRequestV1,
   fetchImplementation: typeof fetch = fetch,
 ): Promise<ProjectSnapshotV1> {
-  const { parameterId, ...body } = request;
   return requestProjectSnapshot(
-    parameterExpressionPath(parameterId),
-    jsonPost(body),
+    PROJECT_TARGET_PATH_V1,
+    jsonPost(request),
     fetchImplementation,
   );
 }
@@ -95,16 +123,6 @@ function jsonPost(body: object, signal?: AbortSignal): RequestInit {
     request.signal = signal;
   }
   return request;
-}
-
-function parameterExpressionPath(parameterId: string): string {
-  if (!/^[A-Za-z0-9:_-]+$/u.test(parameterId)) {
-    throw new ProjectClientError(
-      "invalid_response",
-      "Project endpoint returned an unsafe parameter ID.",
-    );
-  }
-  return `${PROJECT_PARAMETER_PATH_V1}${parameterId}`;
 }
 
 async function requestProjectSnapshot(
@@ -155,11 +173,12 @@ async function requestProjectSnapshot(
   }
 }
 
-async function requestCallableCompletions(
+async function requestCompletions(
   path: string,
   init: RequestInit,
   fetchImplementation: typeof fetch,
-): Promise<CallableCompletionResponseV1> {
+  subject: string,
+): Promise<CompletionResponseV1> {
   let response: Response;
   try {
     response = await fetchImplementation(path, init);
@@ -189,12 +208,12 @@ async function requestCallableCompletions(
   }
 
   try {
-    return parseCallableCompletionResponseV1(payload);
+    return parseCompletionResponseV1(payload);
   } catch (cause) {
     if (cause instanceof ProjectSnapshotValidationError) {
       throw new ProjectClientError(
         "invalid_response",
-        "Project endpoint returned an invalid callable completion response.",
+        `Project endpoint returned an invalid ${subject} completion response.`,
         response.status,
         cause,
       );

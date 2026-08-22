@@ -17,13 +17,17 @@ import { assertValidSectionOverflowMode } from "./groupOverflow";
 import { deactivateItemSelect } from "./itemSelectionMode";
 import { assertValidWorkspaceSectionItemTree } from "./itemTreeValidation";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
-import { getRegisteredSectionKindOrThrow } from "./sectionKindRegistry";
+import {
+  getRegisteredSectionKindOrThrow,
+  getWorkspaceItemAreaPresentationOrThrow,
+} from "./sectionKindRegistry";
 import { resolveWorkspaceSectionSize } from "./sectionSize";
 import {
   getActiveSectionsStore,
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
   runWithAtomicallyPublishedWorkspaceStores,
+  type NodeInternalsState,
   type WorkspaceDocumentState,
 } from "./stores";
 import type { WorkspaceHost } from "../workspaceHost";
@@ -141,6 +145,7 @@ function assertAcyclicParentChains(parentSectionMap: Record<string, string>) {
 }
 
 function assertValidSectionItemTrees(
+  host: WorkspaceHost,
   sections: Record<string, WorkspaceSection>,
 ) {
   for (const [sectionId, section] of Object.entries(sections)) {
@@ -154,6 +159,9 @@ function assertValidSectionItemTrees(
         `Section ${sectionId} is a group section and cannot carry an item tree.`,
       );
     }
+    // The item area is package-owned composition, so its declaration is part of the document
+    // boundary: a kind that carries items without one fails here, not on first paint.
+    getWorkspaceItemAreaPresentationOrThrow(host, section);
     assertValidWorkspaceSectionItemTree(sectionId, section.itemTree);
   }
 }
@@ -170,36 +178,19 @@ function assertKnownSectionIds(
   }
 }
 
-export function resolveAndValidateWorkspaceSections(
-  host: WorkspaceHost,
-  sectionInputs: Record<string, WorkspaceSectionInput>,
-): {
-  sections: Record<string, WorkspaceSection>;
-  parentSectionMap: Record<string, string>;
-} {
-  const sections = resolveLoadedSections(host, sectionInputs);
-  assertValidRegisteredSectionData(host, sections);
-  assertValidSectionStyleColors(sections);
-  assertValidSectionOverflowModes(sections);
-  const parentSectionMap = buildParentSectionMap(sections);
-  assertAcyclicParentChains(parentSectionMap);
-  assertValidSectionItemTrees(sections);
-  return { sections, parentSectionMap };
-}
+type PreparedWorkspaceDocumentCommit = {
+  activeSections: { activeIds: Array<string> };
+  document: WorkspaceDocumentState;
+  nodeInternals: NodeInternalsState;
+};
 
-// Replaces the canonical workspace state with a host-supplied document. The document, its
-// derived node geometry, and the selection publish atomically so no subscriber observes a
-// mixture of old and new state. The whole load suppresses intermediate notifications and emits
-// one completed host snapshot after the replacement finishes.
-//
-// This file is the deliberate composition point between the document layer and the canvas/dnd
-// runtimes: a load on a mounted canvas re-applies the loaded camera (or re-arms fit-on-init)
-// and resets the drag-session bookkeeping, replacing the Phase 1 load-before-mount-only seam.
-// The funnel modules themselves stay canvas-free.
-export function loadWorkspaceDocument(
+// Resolves every cross-resource invariant before a document replacement touches any workspace
+// store. Both an external load and a host-driven canonical projection use this one preparation
+// boundary, so neither can leave a partly validated document behind.
+function prepareWorkspaceDocumentCommit(
   host: WorkspaceHost,
   document: WorkspaceDocumentInput,
-): void {
+): PreparedWorkspaceDocumentCommit {
   const { sections, parentSectionMap } = resolveAndValidateWorkspaceSections(
     host,
     document.sections,
@@ -222,7 +213,68 @@ export function loadWorkspaceDocument(
     nextDocumentState,
     getNodeInternalsStore(host).getState().x,
   );
-  const nextActiveSections = { activeIds: document.activeIds };
+  return {
+    activeSections: { activeIds: document.activeIds },
+    document: nextDocumentState,
+    nodeInternals: { x: nextNodesMap },
+  };
+}
+
+function publishPreparedWorkspaceDocument(
+  host: WorkspaceHost,
+  prepared: PreparedWorkspaceDocumentCommit,
+): void {
+  runWithAtomicallyPublishedWorkspaceStores(host, prepared, () => {
+    getNodeInternalsStore(host).setState(prepared.nodeInternals);
+    // The stores used below share the host-scoped atomic staging above.
+    getWorkspaceDocumentStore(host).setState(prepared.document);
+    getActiveSectionsStore(host).setState(prepared.activeSections);
+  });
+}
+
+// Commits a complete host-authored document without the lifecycle resets that an external load
+// needs. The whole replacement validates before any store write and host subscribers receive one
+// complete snapshot, which makes it the boundary for coupled application projections.
+export function commitWorkspaceDocument(
+  host: WorkspaceHost,
+  document: WorkspaceDocumentInput,
+): void {
+  const prepared = prepareWorkspaceDocumentCommit(host, document);
+  publishPreparedWorkspaceDocument(host, prepared);
+  notifyWorkspaceDocumentSubscribers(host);
+}
+
+export function resolveAndValidateWorkspaceSections(
+  host: WorkspaceHost,
+  sectionInputs: Record<string, WorkspaceSectionInput>,
+): {
+  sections: Record<string, WorkspaceSection>;
+  parentSectionMap: Record<string, string>;
+} {
+  const sections = resolveLoadedSections(host, sectionInputs);
+  assertValidRegisteredSectionData(host, sections);
+  assertValidSectionStyleColors(sections);
+  assertValidSectionOverflowModes(sections);
+  const parentSectionMap = buildParentSectionMap(sections);
+  assertAcyclicParentChains(parentSectionMap);
+  assertValidSectionItemTrees(host, sections);
+  return { sections, parentSectionMap };
+}
+
+// Replaces the canonical workspace state with a host-supplied document. The document, its
+// derived node geometry, and the selection publish atomically so no subscriber observes a
+// mixture of old and new state. The whole load suppresses intermediate notifications and emits
+// one completed host snapshot after the replacement finishes.
+//
+// This file is the deliberate composition point between the document layer and the canvas/dnd
+// runtimes: a load on a mounted canvas re-applies the loaded camera (or re-arms fit-on-init)
+// and resets the drag-session bookkeeping, replacing the Phase 1 load-before-mount-only seam.
+// The funnel modules themselves stay canvas-free.
+export function loadWorkspaceDocument(
+  host: WorkspaceHost,
+  document: WorkspaceDocumentInput,
+): void {
+  const prepared = prepareWorkspaceDocumentCommit(host, document);
   // A menu context is an immutable snapshot of the outgoing document. Release it only after the
   // incoming document validates, and do not restore focus into the surface being replaced.
   closeWorkspaceMenu(host, false);
@@ -230,20 +282,7 @@ export function loadWorkspaceDocument(
     // Arming precedes the publication so the sync mirror fired by the flag flip lands in the
     // outgoing document state, leaving the loaded null viewport intact.
     armLoadedDocumentFitView(host, document.viewport);
-    runWithAtomicallyPublishedWorkspaceStores(
-      host,
-      {
-        document: nextDocumentState,
-        nodeInternals: { x: nextNodesMap },
-        activeSections: nextActiveSections,
-      },
-      () => {
-        getNodeInternalsStore(host).setState({ x: nextNodesMap });
-        // The stores used below share the host-scoped atomic staging above.
-        getWorkspaceDocumentStore(host).setState(nextDocumentState);
-        getActiveSectionsStore(host).setState(nextActiveSections);
-      },
-    );
+    publishPreparedWorkspaceDocument(host, prepared);
     resetDndSessionForLoadedDocument(
       host,
       new Set(Object.keys(document.sections)),

@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -11,6 +12,10 @@ import {
 import { getSectionOrThrow } from "../document/documentSelectors";
 import { useWorkspaceDocument } from "../document/stores";
 import { filterWorkspaceSectionItems } from "./itemFiltering";
+import {
+  registerItemFilterFocusTarget,
+  unregisterItemFilterFocusTarget,
+} from "./itemFilterFocusRegistry";
 import { useWorkspaceHost } from "../workspaceHostContext";
 
 type WorkspaceItemFilterContextValue = {
@@ -60,6 +65,23 @@ export function WorkspaceItemFilterProvider({
     setQuery("");
     filterInputRef.current?.focus();
   }, []);
+  // The filter owner is what `workspace.focus-item-filter` reaches. A declared item area that
+  // renders no toolbar mounts no input, so the target reports that it took nothing and the
+  // operation declines. The reference focuses without scrolling the canvas to the control.
+  const focusItemFilter = useCallback(() => {
+    const input = filterInputRef.current;
+    if (!input) {
+      return false;
+    }
+    input.focus({ preventScroll: true });
+    return true;
+  }, []);
+  useEffect(() => {
+    registerItemFilterFocusTarget(host, sectionId, focusItemFilter);
+    return () => {
+      unregisterItemFilterFocusTarget(host, sectionId, focusItemFilter);
+    };
+  }, [focusItemFilter, host, sectionId]);
   const value = useMemo(
     () => ({
       clearAndFocus,

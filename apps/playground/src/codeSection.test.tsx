@@ -21,10 +21,8 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
-import {
-  PlaygroundCodeSectionInspector,
-  registerPlaygroundSectionKinds,
-} from "./sectionKinds";
+import { registerPlaygroundSectionKinds } from "./sectionKinds";
+import { PlaygroundCodeSectionInspector } from "./sectionOptionInspectors";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -48,6 +46,18 @@ function setNativeInputValue(input: HTMLInputElement, value: string) {
     throw new Error("This environment has no native input value setter.");
   }
   descriptor.set.call(input, value);
+}
+
+// The Inspector's controls are resolved by their own element type and order. Missing one is a
+// broken contribution rather than a soft assertion, and naming it keeps the failure readable.
+function requireControl<T extends HTMLElement>(
+  control: T | null | undefined,
+  description: string,
+): T {
+  if (!control) {
+    throw new Error(`The host code section Inspector lost its ${description}.`);
+  }
+  return control;
 }
 
 describe("the playground's built-in code section", () => {
@@ -81,7 +91,7 @@ describe("the playground's built-in code section", () => {
       language: "python",
       lineNumbers: true,
       indentWidth: 4,
-      readOnly: false,
+      mode: "editable",
       wrapLines: false,
     });
     expect(
@@ -90,28 +100,34 @@ describe("the playground's built-in code section", () => {
   });
 
   it("authors every typed option from host Inspector UI", () => {
-    act(() => {
-      root.render(
-        createElement(
-          WorkspaceProvider,
-          { host: workspaceHost },
-          createElement(PlaygroundCodeSectionInspector, {
-            sectionId: SECTION_ID,
-          }),
-        ),
-      );
-    });
-    const language = container.querySelector<HTMLSelectElement>("select");
-    const [wrapLines, lineNumbers] =
-      container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-    const indentWidth = container.querySelector<HTMLInputElement>(
-      'input[type="number"]',
+    // The host renders this contribution; it reads the typed data rather than subscribing, so a
+    // render is how the Inspector picks up the option it just wrote.
+    const renderInspector = () => {
+      act(() => {
+        root.render(
+          createElement(
+            WorkspaceProvider,
+            { host: workspaceHost },
+            createElement(PlaygroundCodeSectionInspector, {
+              sectionId: SECTION_ID,
+            }),
+          ),
+        );
+      });
+    };
+    renderInspector();
+    const selects = container.querySelectorAll<HTMLSelectElement>("select");
+    const switches = container.querySelectorAll<HTMLInputElement>(
+      'input[type="checkbox"]',
     );
-    if (!language || !wrapLines || !lineNumbers || !indentWidth) {
-      throw new Error(
-        "The host code section Inspector lost one of its controls.",
-      );
-    }
+    const language = requireControl(selects[0], "language select");
+    const mode = requireControl(selects[1], "mode select");
+    const wrapLines = requireControl(switches[0], "wrap lines switch");
+    const lineNumbers = requireControl(switches[1], "line numbers switch");
+    const indentWidth = requireControl(
+      container.querySelector<HTMLInputElement>('input[type="number"]'),
+      "indent width control",
+    );
     expect(container.querySelector("legend")?.textContent).toBe(
       "Editor options",
     );
@@ -126,9 +142,24 @@ describe("the playground's built-in code section", () => {
     ).toBe(true);
     expect(wrapLines.closest("label")?.textContent).toContain("Wrap lines");
 
+    // The mode is a closed choice rather than a read-only switch, so the host authors all three
+    // presentations from the same typed write.
+    expect([...mode.options].map((option) => option.value)).toStrictEqual([
+      "editable",
+      "read-only",
+      "generated-document",
+    ]);
+    expect(mode.closest("label")?.textContent).toContain("Mode");
+    // Only the generated mode carries a region, so its offsets are not on offer until it does.
+    expect(container.querySelectorAll('input[type="number"]')).toHaveLength(1);
+
     act(() => {
       language.value = "yaml";
       language.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    act(() => {
+      mode.value = "generated-document";
+      mode.dispatchEvent(new Event("change", { bubbles: true }));
     });
     act(() => {
       wrapLines.click();
@@ -141,13 +172,41 @@ describe("the playground's built-in code section", () => {
       indentWidth.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
-    expect(
-      getWorkspaceCodeSectionData(workspaceHost, SECTION_ID),
-    ).toMatchObject({
+    const authored = getWorkspaceCodeSectionData(workspaceHost, SECTION_ID);
+    expect(authored).toMatchObject({
       language: "yaml",
       wrapLines: true,
       lineNumbers: false,
       indentWidth: 2,
+      mode: "generated-document",
+      // Selecting the mode seeds the separator-bounded range this paint is built for, so the
+      // authored `import setta` line stays on the ordinary editing surface. Both edges are the
+      // seeded document's own boundaries — the end of its first line and the end of the document
+      // — rather than the expression the Inspector computes them with.
+      generatedRegion: {
+        from: "import setta".length,
+        to: authored.code.length,
+      },
+    });
+
+    // The offsets are host-authored, and the Inspector may not write a region the package would
+    // reject at its data boundary.
+    renderInspector();
+    const generatedFrom = requireControl(
+      container.querySelectorAll<HTMLInputElement>('input[type="number"]')[1],
+      "generated region from control",
+    );
+    act(() => {
+      setNativeInputValue(generatedFrom, String(authored.code.length + 40));
+      generatedFrom.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(
+      getWorkspaceCodeSectionData(workspaceHost, SECTION_ID),
+    ).toMatchObject({
+      generatedRegion: {
+        from: authored.code.length - 1,
+        to: authored.code.length,
+      },
     });
   });
 

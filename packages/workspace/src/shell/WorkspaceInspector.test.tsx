@@ -253,6 +253,7 @@ describe("WorkspaceInspector", () => {
     registerSectionKinds(testWorkspace.host, {
       leaf: {
         renderContent: () => null,
+        itemArea: { toolbar: "authoring-and-filter" },
         createItem: () => ({
           id: "created",
           children: [],
@@ -975,9 +976,13 @@ describe("WorkspaceInspector", () => {
   it("renders a typed host contribution for custom section and item content", async () => {
     const contexts: Array<WorkspaceInspectorContributionContext> = [];
     registerSectionKinds(testWorkspace.host, {
-      leaf: { renderContent: () => null },
+      leaf: {
+        renderContent: () => null,
+        itemArea: { toolbar: "authoring-and-filter" },
+      },
       custom: {
         renderContent: () => null,
+        itemArea: { toolbar: "authoring-and-filter" },
         renderInspector: (context) => {
           contexts.push(context);
           return <button type="button">Host {context.type} inspector</button>;

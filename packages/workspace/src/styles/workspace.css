@@ -292,6 +292,19 @@ input.setta-workspace-native-color::-moz-focus-inner {
   pointer-events: none;
 }
 
+/* The canvas's CodeMirror tooltip parent, at the reference's own values: a zero-area anchor in the
+ * transformed scene, above section content and clickable while the viewport around it is not. */
+.setta-workspace-codemirror-tooltips {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  z-index: 300;
+  overflow: visible;
+  pointer-events: auto;
+}
+
 .react-flow__renderer {
   z-index: auto;
 }
@@ -319,27 +332,14 @@ input.setta-workspace-native-color::-moz-focus-inner {
   cursor: move;
 }
 
-/* Preparing the leaf shells before motion avoids creating every compositor layer on the first
- * pan frame. Hover-capable browsers prepare while the canvas is hovered; the explicit marker keeps
- * preparation alive through inertia or a pointer leaving mid-gesture. Browsers without hover
- * cannot provide that lead, so their canvas keeps the same exact-live-content promotion ready
- * continuously. The marker is canvas-owned so gesture start never re-renders every section. */
-.setta-workspace.react-flow:hover [data-section-id],
+/* Leaf shells take a compositor layer only while a viewport gesture runs; ZoomPane clears this
+ * canvas-owned marker after it, so settled zoomed content is rasterized instead of scaled. */
 .setta-workspace.react-flow[data-viewport-interaction-active="true"]
   [data-section-id] {
   will-change: transform;
   transform: translateZ(0);
   backface-visibility: hidden;
   isolation: isolate;
-}
-
-@media (hover: none) {
-  .setta-workspace.react-flow [data-section-id] {
-    will-change: transform;
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    isolation: isolate;
-  }
 }
 
 .react-flow__nodesselection {

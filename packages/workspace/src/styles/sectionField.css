@@ -1,0 +1,163 @@
+/* The section-field text presentation: one compact, full-width rounded surface a section renders
+ * above its item toolbar. It is frozen main's callable field (`SectionSearch`): a 16px-radius
+ * pill with a one-pixel border, 4px block and 10px inline padding, 2px inline margin, and
+ * 12px/16px monospace type over main's white/`setta-950` field colours. The package owns the box,
+ * the type, the focus treatment, and the layout gutter reserved for a caller-owned end adornment;
+ * the caller owns only what it renders inside that gutter.
+ *
+ * Main paints that box on both of its stacked layers and leaves its live layer on CodeMirror's own
+ * generic font and 1.4 line box, so activating main's field changes its type and its height. Here
+ * one wrapper owns the box and one class owns the type for both layers, and the live layer's
+ * CodeMirror descendants inherit that same font shorthand and line box. Activation therefore
+ * changes the border colour and nothing else.
+ *
+ * The field owns no block margin. Main's field begins at the section header's own boundary and its
+ * Args surface begins at the field's, and a gap invented here separates the section's primary
+ * control from the chrome it belongs to. */
+
+.setta-workspace-section-field {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  margin-inline: 2px;
+  padding: 4px 10px;
+  border: 1px solid hsl(219 24% 89%);
+  border-radius: 16px;
+  background-color: rgb(255 255 255);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-section-field {
+  border-color: hsl(220 26% 14%);
+  background-color: hsl(220 25% 3%);
+}
+
+/* A field-local diagnostic is one real error state, rather than red text beside an ordinary
+ * field. Main's callable error takes the same pale red surface in both its idle and live layers;
+ * the wrapper owns that surface here, so activation cannot clear it. */
+.setta-workspace-section-field[data-diagnostic="true"] {
+  border-color: rgb(254 202 202);
+  background-color: rgb(254 202 202);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-section-field[data-diagnostic="true"] {
+  border-color: rgb(153 27 27 / 30%);
+  background-color: rgb(153 27 27 / 30%);
+}
+
+/* Main's live layer swaps the idle border colour for its focus blue and changes nothing else. */
+.setta-workspace-section-field:focus-within {
+  border-color: rgb(59 130 246);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-section-field:focus-within {
+  border-color: rgb(96 165 250 / 50%);
+}
+
+.setta-workspace-section-field[data-diagnostic="true"]:focus-within {
+  border-color: rgb(254 202 202);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-section-field[data-diagnostic="true"]:focus-within {
+  border-color: rgb(153 27 27 / 30%);
+}
+
+/* The surface signals focus through its border colour alone, and the live editor below suppresses
+ * the redundant native outline. Forced colours replace the authored border, so restore an explicit
+ * focus cue on the surface the same way the item filter input does. */
+@media (forced-colors: active) {
+  .setta-workspace-section-field:focus-within {
+    outline: 1px solid Highlight;
+    outline-offset: -1px;
+  }
+}
+
+/* The two editor layers stack in the same cell so the idle highlighted layer and the live
+ * CodeMirror layer occupy identical geometry through the activation swap. */
+.setta-workspace-section-field-input {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+/* One type owner for both layers: main's `font-mono text-xs` metrics over the value editor
+ * theme's own foreground, so neither the font nor the text colour moves on activation. The
+ * disabled state stays interaction-only, as it does in main and in the package's item-row
+ * control; it must not repaint an ordinary pending field. */
+.setta-workspace-section-field-editor {
+  min-width: 0;
+  grid-column: 1 / 2;
+  grid-row: 1 / 2;
+  overflow: hidden;
+  color: rgb(36 41 46);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  tab-size: 4;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-section-field-editor {
+  color: rgb(201 209 217);
+}
+
+.setta-workspace-section-field[data-disabled="false"]
+  .setta-workspace-section-field-editor {
+  cursor: text;
+  user-select: text;
+}
+
+/* CodeMirror's own base theme sets a generic monospace family and a 1.4 line box on the scroller
+ * and pads the content and line boxes. Hand every layer of the live editor back to the field's
+ * shared type and let the wrapper own all padding, so the live layer's line box is exactly the
+ * idle layer's. */
+.setta-workspace-section-field-editor-live .cm-editor,
+.setta-workspace-section-field-editor-live .cm-scroller,
+.setta-workspace-section-field-editor-live .cm-content,
+.setta-workspace-section-field-editor-live .cm-line {
+  font: inherit;
+}
+
+.setta-workspace-section-field-editor-live .cm-content,
+.setta-workspace-section-field-editor-live .cm-line {
+  padding: 0;
+}
+
+.setta-workspace-section-field-editor-live * {
+  outline: 0;
+}
+
+.setta-workspace-section-field-adornment {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 14px;
+  min-block-size: 14px;
+}
+
+.setta-workspace-section-field-diagnostic-indicator {
+  display: inline-grid;
+  flex: none;
+  inline-size: 18px;
+  block-size: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background-color: rgb(239 68 68 / 80%);
+  color: rgb(255 255 255);
+}
+
+.setta-workspace-section-field-diagnostic-indicator > svg {
+  inline-size: 14px;
+  block-size: 14px;
+}

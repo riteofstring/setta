@@ -150,34 +150,36 @@ function useWrapperDivDimensions(ref: RefObject<HTMLDivElement | null>) {
     height: 0,
   });
 
-  useEffect(() => {
-    let resizeObserver: ResizeObserver;
-
-    if (ref.current) {
-      resizeObserver = new ResizeObserver((entries) => {
-        if (!entries[0]) {
-          return;
-        }
-
-        const { width, height } = entries[0].contentRect;
-
-        // Set wrapper dimensions
-        setWrapperDimensions({ width, height });
-
-        // Set canvas store state
-        getReactFlowStore(host).setState({
-          width: width || 500,
-          height: height || 500,
-        });
-      });
-
-      resizeObserver.observe(ref.current);
+  useLayoutEffect(() => {
+    const wrapper = ref.current;
+    if (!wrapper) {
+      return;
     }
 
-    return () => {
-      if (resizeObserver) {
-        resizeObserver.disconnect();
+    const commitDimensions = (width: number, height: number) => {
+      setWrapperDimensions({ width, height });
+      getReactFlowStore(host).setState({
+        width: width || 500,
+        height: height || 500,
+      });
+    };
+
+    // ResizeObserver reports later changes, but its initial delivery is not a reliable first-paint
+    // boundary. Measure the mounted wrapper now so a loaded document never waits at 0 × 0.
+    const initialBounds = wrapper.getBoundingClientRect();
+    commitDimensions(initialBounds.width, initialBounds.height);
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) {
+        return;
       }
+      commitDimensions(entry.contentRect.width, entry.contentRect.height);
+    });
+    resizeObserver.observe(wrapper);
+
+    return () => {
+      resizeObserver.disconnect();
     };
   }, [host, ref]);
 

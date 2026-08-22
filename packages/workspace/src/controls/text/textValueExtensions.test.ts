@@ -21,6 +21,7 @@ function createState(
       singleLine: false,
       wrapLines: undefined,
       onEscape: () => {},
+      tooltipParent: null,
       ...options,
     }),
   });
@@ -39,6 +40,7 @@ describe("getTextValueExtensions", () => {
         singleLine: false,
         wrapLines: undefined,
         onEscape: () => {},
+        tooltipParent: null,
       }),
     ).toHaveLength(2);
     expect(
@@ -47,6 +49,7 @@ describe("getTextValueExtensions", () => {
         singleLine: true,
         wrapLines: undefined,
         onEscape: () => {},
+        tooltipParent: null,
       }),
     ).toHaveLength(2); // single-line filter + keymap, no wrapping
     expect(
@@ -55,6 +58,7 @@ describe("getTextValueExtensions", () => {
         singleLine: false,
         wrapLines: undefined,
         onEscape: () => {},
+        tooltipParent: null,
       }),
     ).toHaveLength(3); // wrap + language pack + keymap
   });
@@ -66,8 +70,33 @@ describe("getTextValueExtensions", () => {
         singleLine: true,
         wrapLines: true,
         onEscape: () => {},
+        tooltipParent: null,
       }),
     ).toHaveLength(3); // wrap + single-line filter + keymap
+  });
+
+  // The reference configures its canvas tooltip parent from the same assembly. A control never
+  // opts in: the parent is whatever the host canvas published, so the only two shapes are the one
+  // with it and the one an editor rendered outside a canvas gets.
+  it("configures a published canvas tooltip parent and nothing when there is none", () => {
+    const parent = document.createElement("div");
+    const withParent = getTextValueExtensions({
+      language: null,
+      singleLine: true,
+      wrapLines: undefined,
+      onEscape: () => {},
+      tooltipParent: parent,
+    });
+    expect(withParent).toHaveLength(3); // tooltip parent + single-line filter + keymap
+    expect(
+      getTextValueExtensions({
+        language: null,
+        singleLine: true,
+        wrapLines: undefined,
+        onEscape: () => {},
+        tooltipParent: null,
+      }),
+    ).toHaveLength(2);
   });
 
   it("blocks transactions that would grow a single-line document beyond one line", () => {

@@ -284,6 +284,22 @@ export function getWorkspaceKeyBindings(
   );
 }
 
+// One binding's chord written for this platform, without building every other operation's label.
+// A package surface that advertises its own shortcut reads it here, so display and dispatch answer
+// from the same registry and a host rebinding or unbinding moves both. Null means unbound.
+export function getWorkspaceKeyBindingChordLabel(
+  host: WorkspaceHost,
+  id: string,
+): string | null {
+  const definitions = listWorkspaceKeyBindingDefinitions(host);
+  assertKnownBindingId(id, definitions);
+  const assignment = buildChordAssignments(
+    getRegistryState(host).hostChords,
+    definitions,
+  ).find((candidate) => candidate.definition.id === id);
+  return assignment ? formatWorkspaceChord(assignment.parsed, isMacOs()) : null;
+}
+
 // The chord rules depend on the platform, so the dispatcher resolves against the platform it is
 // listening on and the result is reused until the host rebinds something.
 export function getResolvedWorkspaceKeyBindings(

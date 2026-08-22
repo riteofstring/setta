@@ -1,25 +1,15 @@
 import {
   createWorkspaceCodeSection,
   createWorkspaceTextSection,
-  getWorkspaceCodeSectionData,
-  getWorkspaceTextSectionData,
   ItemDndContext,
   MetaControl,
   registerItemHandlers,
   registerSectionKinds,
   setItemControlConfiguration,
   setSectionData,
-  setWorkspaceCodeSectionData,
-  setWorkspaceTextSectionData,
   useWorkspaceHost,
   WORKSPACE_CODE_SECTION_KIND,
-  WORKSPACE_CODE_SECTION_LANGUAGES,
-  WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH,
-  WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH,
-  WORKSPACE_TEXT_SECTION_FORMATS,
   WORKSPACE_TEXT_SECTION_KIND,
-  WORKSPACE_TEXT_SECTION_MAXIMUM_FONT_SIZE,
-  WORKSPACE_TEXT_SECTION_MINIMUM_FONT_SIZE,
   WorkspaceItemList,
   type ColorValueChoice,
   type DropzoneAcceptedResult,
@@ -28,8 +18,6 @@ import {
   type DropzoneRejection,
   type MetaControlDefinition,
   type MetaControlKind,
-  type WorkspaceCodeSectionData,
-  type WorkspaceCodeSectionLanguage,
   type WorkspaceDropzoneItemControlConfiguration,
   type WorkspaceInspectorContributionContext,
   type WorkspaceItem,
@@ -37,10 +25,12 @@ import {
   type WorkspaceHost,
   type WorkspaceSection,
   type WorkspaceSectionData,
-  type WorkspaceTextSectionData,
-  type WorkspaceTextSectionFormat,
 } from "@setta/workspace";
 import { createContext, useContext, type ReactNode } from "react";
+import {
+  PlaygroundCodeSectionInspector,
+  PlaygroundTextSectionInspector,
+} from "./sectionOptionInspectors";
 // The host side of the registration seam: the package owns the shell, chrome, header, and
 // resize treatment; the playground registers its one leaf kind and renders the section body
 // from the kind's opaque data. No icon is registered, so headers keep the reference's
@@ -100,195 +90,6 @@ function PlaygroundInspectorContribution({
   return (
     <div className="playground-host-pane">
       <p>Host Inspector contribution for {identity || "unnamed content"}.</p>
-    </div>
-  );
-}
-
-// The package owns the code section's data contract and its editor; the host owns any UI that
-// authors those options. This contribution is that UI: it reads and writes the same typed data
-// the editor commits through, so every option is reachable without a package-invented settings
-// panel (frozen main's own code-area settings are entirely file-binding, which is application
-// state this package does not carry).
-function updatePlaygroundCodeSection(
-  host: WorkspaceHost,
-  sectionId: string,
-  update: (current: WorkspaceCodeSectionData) => WorkspaceCodeSectionData,
-) {
-  setWorkspaceCodeSectionData(
-    host,
-    sectionId,
-    update(getWorkspaceCodeSectionData(host, sectionId)),
-  );
-}
-
-export function PlaygroundCodeSectionInspector({
-  sectionId,
-}: {
-  sectionId: string;
-}) {
-  const host = useWorkspaceHost();
-  const data = getWorkspaceCodeSectionData(host, sectionId);
-  return (
-    <div className="playground-host-pane">
-      <fieldset className="playground-section-options">
-        <legend>Editor options</legend>
-        <label className="playground-section-option-row">
-          <span>Language</span>
-          <select
-            className="playground-section-option-control"
-            onChange={(event) =>
-              updatePlaygroundCodeSection(host, sectionId, (current) => ({
-                ...current,
-                language: event.target.value as WorkspaceCodeSectionLanguage,
-              }))
-            }
-            value={data.language}
-          >
-            {WORKSPACE_CODE_SECTION_LANGUAGES.map((language) => (
-              <option key={language} value={language}>
-                {language}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="playground-section-option-row">
-          <span>Wrap lines</span>
-          <input
-            checked={data.wrapLines}
-            className="playground-section-option-switch"
-            onChange={(event) =>
-              updatePlaygroundCodeSection(host, sectionId, (current) => ({
-                ...current,
-                wrapLines: event.target.checked,
-              }))
-            }
-            type="checkbox"
-          />
-        </label>
-        <label className="playground-section-option-row">
-          <span>Line numbers</span>
-          <input
-            checked={data.lineNumbers}
-            className="playground-section-option-switch"
-            onChange={(event) =>
-              updatePlaygroundCodeSection(host, sectionId, (current) => ({
-                ...current,
-                lineNumbers: event.target.checked,
-              }))
-            }
-            type="checkbox"
-          />
-        </label>
-        <label className="playground-section-option-row">
-          <span>Indent width</span>
-          <input
-            className="playground-section-option-control playground-section-option-number"
-            max={WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH}
-            min={WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH}
-            onChange={(event) =>
-              updatePlaygroundCodeSection(host, sectionId, (current) => ({
-                ...current,
-                indentWidth: Number(event.target.value),
-              }))
-            }
-            type="number"
-            value={data.indentWidth}
-          />
-        </label>
-        <label className="playground-section-option-row">
-          <span>Read only</span>
-          <input
-            checked={data.readOnly}
-            className="playground-section-option-switch"
-            onChange={(event) =>
-              updatePlaygroundCodeSection(host, sectionId, (current) => ({
-                ...current,
-                readOnly: event.target.checked,
-              }))
-            }
-            type="checkbox"
-          />
-        </label>
-      </fieldset>
-    </div>
-  );
-}
-
-// The text section's options are host UI over the same typed data the editor and the header
-// control commit through, so no option needs a package-invented settings panel.
-function updatePlaygroundTextSection(
-  host: WorkspaceHost,
-  sectionId: string,
-  update: (current: WorkspaceTextSectionData) => WorkspaceTextSectionData,
-) {
-  setWorkspaceTextSectionData(
-    host,
-    sectionId,
-    update(getWorkspaceTextSectionData(host, sectionId)),
-  );
-}
-
-export function PlaygroundTextSectionInspector({
-  sectionId,
-}: {
-  sectionId: string;
-}) {
-  const host = useWorkspaceHost();
-  const data = getWorkspaceTextSectionData(host, sectionId);
-  return (
-    <div className="playground-host-pane">
-      <fieldset className="playground-section-options">
-        <legend>Text options</legend>
-        <label className="playground-section-option-row">
-          <span>Format</span>
-          <select
-            className="playground-section-option-control"
-            onChange={(event) =>
-              updatePlaygroundTextSection(host, sectionId, (current) => ({
-                ...current,
-                format: event.target.value as WorkspaceTextSectionFormat,
-              }))
-            }
-            value={data.format}
-          >
-            {WORKSPACE_TEXT_SECTION_FORMATS.map((format) => (
-              <option key={format} value={format}>
-                {format}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="playground-section-option-row">
-          <span>Font size</span>
-          <input
-            className="playground-section-option-control playground-section-option-number"
-            max={WORKSPACE_TEXT_SECTION_MAXIMUM_FONT_SIZE}
-            min={WORKSPACE_TEXT_SECTION_MINIMUM_FONT_SIZE}
-            onChange={(event) =>
-              updatePlaygroundTextSection(host, sectionId, (current) => ({
-                ...current,
-                fontSizePx: Number(event.target.value),
-              }))
-            }
-            type="number"
-            value={data.fontSizePx}
-          />
-        </label>
-        <label className="playground-section-option-row">
-          <span>Read only</span>
-          <input
-            checked={data.readOnly}
-            className="playground-section-option-switch"
-            onChange={(event) =>
-              updatePlaygroundTextSection(host, sectionId, (current) => ({
-                ...current,
-                readOnly: event.target.checked,
-              }))
-            }
-            type="checkbox"
-          />
-        </label>
-      </fieldset>
     </div>
   );
 }
@@ -1069,10 +870,9 @@ export function MetaControlSectionBody({
 }
 
 // Loading validates every non-group kind against the registry, so registration precedes the
-// initial document load. Registered sizes describe the inner section surface; the shell adds
-// a 1 px border on every side. The leaf's 200 x 122 renders the accepted 202 x 124 outer
-// geometry, and the item panel's 550 x 350 renders the recorded 552 x 352 `/settings` Dict
-// outer measurement from the Phase 4 gate.
+// initial document load. Registered sizes are inner surfaces; the shell adds a 1 px border per
+// side, so the leaf's 200 x 122 renders the accepted 202 x 124 outer geometry and the item panel's
+// 550 x 350 the recorded 552 x 352 `/settings` Dict outer measurement from the Phase 4 gate.
 export function registerPlaygroundSectionKinds(host: WorkspaceHost): void {
   registerPlaygroundItemHandlers(host);
   registerSectionKinds(host, {
@@ -1086,6 +886,7 @@ export function registerPlaygroundSectionKinds(host: WorkspaceHost): void {
     },
     "item-list": {
       createItem: createPlaygroundCodeItem,
+      itemArea: { toolbar: "authoring-and-filter" },
       renderContent: (section) => <ItemListSectionBody section={section} />,
       renderInspector: (context) => (
         <PlaygroundInspectorContribution context={context} />

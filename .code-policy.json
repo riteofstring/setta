@@ -15,6 +15,7 @@
       "apps/playground/vitest.setup.ts",
       "apps/python-canvas/backend/cmd/python-canvas/main.go",
       "apps/python-canvas/src/main.tsx",
+      "apps/python-canvas/vitest.setup.ts",
       "packages/workspace/tailwind-preset.mjs",
       "packages/workspace/tailwind.config.d.ts",
       "packages/workspace/vitest.setup.ts",
@@ -140,10 +141,8 @@
           "pnpm",
           "--filter",
           "@setta/playground",
-          "exec",
-          "vitest",
           "run",
-          "src/hostToolbarControls.test.tsx"
+          "test:focused"
         ],
         "runOn": ["focused", "recommended", "full"],
         "timeoutSeconds": 300
@@ -199,7 +198,13 @@
           "apps/python-canvas/src/backend/generatedContract.ts",
           "apps/python-canvas/package.json"
         ],
-        "argv": ["pnpm", "--filter", "@setta/python-canvas", "run", "contract:check"],
+        "argv": [
+          "pnpm",
+          "--filter",
+          "@setta/python-canvas",
+          "run",
+          "contract:check"
+        ],
         "runOn": ["recommended", "full"],
         "timeoutSeconds": 300
       },
@@ -231,7 +236,13 @@
         "scope": "repository",
         "cost": "standard",
         "paths": ["apps/python-canvas/**"],
-        "argv": ["pnpm", "--filter", "@setta/python-canvas", "run", "browser:test"],
+        "argv": [
+          "pnpm",
+          "--filter",
+          "@setta/python-canvas",
+          "run",
+          "browser:test"
+        ],
         "runOn": ["recommended", "full"],
         "timeoutSeconds": 300
       },
@@ -418,7 +429,7 @@
       "subject": "1125",
       "reason": "The sealed formatter exposed this backend-free playground registry above the shared limit; component tests cover it while responsibility-based extraction is completed without changing playground behavior.",
       "owner": "workspace-extraction",
-      "expires": "2026-08-20"
+      "expires": "2026-08-27"
     },
     {
       "id": "zoom-pane-parity-owner-length",
@@ -427,7 +438,7 @@
       "subject": "1196",
       "reason": "This extracted interaction owner is protected by canvas unit, component, and browser checks; split it without changing frozen-reference behavior before expiry.",
       "owner": "workspace-extraction",
-      "expires": "2026-08-20"
+      "expires": "2026-08-27"
     },
     {
       "id": "key-activations-parity-test-length",
@@ -436,7 +447,7 @@
       "subject": "2002",
       "reason": "The sealed formatter exposed this regression matrix above the test-file limit; the executable assertions remain intact while the fixture and scenario groups are split without reducing coverage.",
       "owner": "workspace-extraction",
-      "expires": "2026-08-20"
+      "expires": "2026-08-27"
     },
     {
       "id": "date-time-control-parity-length",
@@ -445,7 +456,7 @@
       "subject": "1116",
       "reason": "The sealed formatter exposed this accepted date-time interaction owner above the shared limit; its component suite protects behavior while calendar responsibilities are extracted before expiry.",
       "owner": "workspace-extraction",
-      "expires": "2026-08-20"
+      "expires": "2026-08-27"
     },
     {
       "id": "drop-type-parity-owner-length",
@@ -454,7 +465,7 @@
       "subject": "1318",
       "reason": "This extracted drag-and-drop owner is protected by focused and browser interaction checks; split it without changing frozen-reference behavior before expiry.",
       "owner": "workspace-extraction",
-      "expires": "2026-08-20"
+      "expires": "2026-08-27"
     },
     {
       "id": "item-column-resize-pointer-parity",
@@ -463,7 +474,7 @@
       "subject": "jsx-a11y/no-static-element-interactions",
       "reason": "The accepted non-tab-stop divider preserves frozen pointer-drag and double-click behavior under focused component tests; keyboard resize semantics require a visible product interaction decision before changing this surface.",
       "owner": "workspace-extraction",
-      "expires": "2026-08-20"
+      "expires": "2026-08-27"
     },
     {
       "id": "item-row-dynamic-group-semantics",
@@ -472,7 +483,7 @@
       "subject": "jsx-a11y/no-static-element-interactions",
       "reason": "The row becomes a named keyboard-operable group only in item-select mode and its dynamic role, tab stop, and key behavior are component-tested; the static lint rule cannot resolve that state-dependent contract.",
       "owner": "workspace-extraction",
-      "expires": "2026-08-20"
+      "expires": "2026-08-27"
     },
     {
       "id": "workspace-parity-stylesheet-length",
@@ -481,7 +492,7 @@
       "subject": "2040",
       "reason": "The scoped parity stylesheet is protected by accepted visual evidence and browser checks; split it by surface without redesigning styles before expiry.",
       "owner": "workspace-extraction",
-      "expires": "2026-08-20"
+      "expires": "2026-08-27"
     }
   ]
 }

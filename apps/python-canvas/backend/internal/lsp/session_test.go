@@ -59,6 +59,58 @@ func TestSessionSignalsDiagnosticWaiterForStructurallyMalformedPublishDiagnostic
 	}
 }
 
+func TestDecodePublishDiagnosticsRetainsStringDiagnosticCode(t *testing.T) {
+	publication, err := decodePublishDiagnostics(json.RawMessage(`{
+  "uri":"file:///temporary/setta_gen.py",
+  "version":1,
+  "diagnostics":[{
+    "range":{"start":{"line":0,"character":0},"end":{"line":0,"character":4}},
+    "severity":1,
+    "message":"Argument missing",
+    "code":"reportCallIssue"
+  }]
+}`))
+	if err != nil {
+		t.Fatalf("decodePublishDiagnostics() error = %v", err)
+	}
+	if len(publication.Diagnostics) != 1 || publication.Diagnostics[0].Code != "reportCallIssue" {
+		t.Fatalf("decoded diagnostics = %#v", publication.Diagnostics)
+	}
+}
+
+func TestDecodePublishDiagnosticsRejectsMalformedDiagnosticCodes(t *testing.T) {
+	for _, code := range []string{"42", `" "`, "null", "{}"} {
+		t.Run(code, func(t *testing.T) {
+			_, err := decodePublishDiagnostics(json.RawMessage(`{
+  "uri":"file:///temporary/setta_gen.py",
+  "diagnostics":[{
+    "range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},
+    "message":"diagnostic",
+    "code":` + code + `
+  }]
+}`))
+			if err == nil || !strings.Contains(err.Error(), "code") {
+				t.Fatalf("decodePublishDiagnostics() error = %v, want malformed code failure", err)
+			}
+		})
+	}
+}
+
+func TestNormalizeDiagnosticsCarriesValidatedCodeToProjectBoundary(t *testing.T) {
+	diagnostics := normalizeDiagnostics("value", []Diagnostic{{
+		Range: Range{
+			Start: Position{Line: 0, Character: 0},
+			End:   Position{Line: 0, Character: 5},
+		},
+		Severity: 1,
+		Message:  "Argument missing",
+		Code:     "reportCallIssue",
+	}})
+	if len(diagnostics) != 1 || diagnostics[0].Code != "reportCallIssue" {
+		t.Fatalf("normalized diagnostics = %#v", diagnostics)
+	}
+}
+
 const (
 	sessionInitializationHelperEnv          = "SETTA_LSP_SESSION_INITIALIZATION_HELPER"
 	sessionInitializationSignalDirectoryEnv = "SETTA_LSP_SESSION_INITIALIZATION_SIGNAL_DIRECTORY"

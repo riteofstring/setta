@@ -44,7 +44,9 @@ func TestProjectSnapshotV1ValidateAcceptsNormalizedDocument(t *testing.T) {
 			ID:       "diagnostic:value",
 			Severity: DiagnosticSeverityWarningV1,
 			Message:  "example diagnostic",
-			TargetID: "parameter:value",
+			Start:    12,
+			End:      28,
+			TargetID: stringPointerForTest("parameter:value"),
 		}},
 		ProviderStatus: ProviderStatusV1{
 			Provider: ProviderBasedpyrightV1,
@@ -115,13 +117,97 @@ func TestProjectSnapshotV1ValidateRequiresExactlyOneCallable(t *testing.T) {
 	}
 }
 
+func TestProjectSnapshotV1AcceptsAnEmptyAuthoredRegionButNotOneCarryingNUL(t *testing.T) {
+	// The authored Python around the generated body may be deleted outright, which is
+	// what the reference permits; what it may not carry is a byte Python source cannot.
+	emptied := validSnapshotForTest()
+	emptied.PythonTarget = PythonTargetV1{}
+	emptied.GeneratedCode.Code = "\n\n"
+	if err := emptied.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v, want an emptied target to be accepted", err)
+	}
+
+	for _, test := range []struct {
+		name   string
+		field  string
+		mutate func(*ProjectSnapshotV1)
+	}{
+		{
+			name:   "prefix",
+			field:  "pythonTarget.prefix",
+			mutate: func(snapshot *ProjectSnapshotV1) { snapshot.PythonTarget.Prefix = "import os\x00" },
+		},
+		{
+			name:   "suffix",
+			field:  "pythonTarget.suffix",
+			mutate: func(snapshot *ProjectSnapshotV1) { snapshot.PythonTarget.Suffix = "print()\x00" },
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := validSnapshotForTest()
+			test.mutate(&snapshot)
+
+			err := snapshot.Validate()
+			var validationError ValidationError
+			if !errors.As(err, &validationError) {
+				t.Fatalf("Validate() error = %T %v, want ValidationError", err, err)
+			}
+			if validationError.Field != test.field || validationError.Problem != "must not contain NUL" {
+				t.Fatalf("ValidationError = %#v", validationError)
+			}
+		})
+	}
+}
+
+func TestSetPythonTargetRequestV1ValidatesItsBoundRevision(t *testing.T) {
+	valid := SetPythonTargetRequestV1{
+		ProjectID:        "project:test",
+		ExpectedRevision: 2,
+		Prefix:           "",
+		Suffix:           "",
+	}
+	// Both regions emptied is a complete, valid candidate.
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	for _, test := range []struct {
+		name    string
+		request SetPythonTargetRequestV1
+		field   string
+	}{
+		{
+			name:    "blank project",
+			request: SetPythonTargetRequestV1{ProjectID: " ", ExpectedRevision: 2},
+			field:   "projectId",
+		},
+		{
+			name:    "unbound revision",
+			request: SetPythonTargetRequestV1{ProjectID: "project:test"},
+			field:   "expectedRevision",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var validationError ValidationError
+			if !errors.As(test.request.Validate(), &validationError) {
+				t.Fatalf("Validate() accepted %#v", test.request)
+			}
+			if validationError.Field != test.field {
+				t.Fatalf("ValidationError = %#v", validationError)
+			}
+		})
+	}
+}
+
 func TestProjectSnapshotV1ValidateRequiresStableDiagnosticTarget(t *testing.T) {
 	snapshot := validSnapshotForTest()
 	snapshot.Diagnostics = []DiagnosticV1{{
 		ID:       "diagnostic:unknown-target",
 		Severity: DiagnosticSeverityErrorV1,
 		Message:  "unknown target",
-		TargetID: "callable:missing",
+		Start:    0,
+		End:      0,
+		TargetID: stringPointerForTest("callable:missing"),
 	}}
 
 	err := snapshot.Validate()
@@ -131,6 +217,61 @@ func TestProjectSnapshotV1ValidateRequiresStableDiagnosticTarget(t *testing.T) {
 	}
 	if validationError.Field != "diagnostics[0].targetId" {
 		t.Fatalf("ValidationError.Field = %q", validationError.Field)
+	}
+}
+
+func TestProjectSnapshotV1ValidateAllowsTargetlessDiagnosticsAndRejectsInvalidUTF8Ranges(t *testing.T) {
+	snapshot := validSnapshotForTest()
+	snapshot.GeneratedCode = GeneratedCodeV1{
+		Code:         "π",
+		Body:         "",
+		SourceRanges: []GeneratedSourceRangeV1{},
+	}
+	snapshot.Diagnostics = []DiagnosticV1{{
+		ID:       "diagnostic:document",
+		Severity: DiagnosticSeverityErrorV1,
+		Message:  "document diagnostic",
+		Start:    0,
+		End:      2,
+		TargetID: nil,
+	}}
+	if err := snapshot.Validate(); err != nil {
+		t.Fatalf("Validate() targetless diagnostic error = %v", err)
+	}
+
+	for _, test := range []struct {
+		name   string
+		mutate func(*DiagnosticV1)
+		field  string
+	}{
+		{
+			name: "start inside rune",
+			mutate: func(diagnostic *DiagnosticV1) {
+				diagnostic.Start = 1
+			},
+			field: "diagnostics[0].start",
+		},
+		{
+			name: "end exceeds code",
+			mutate: func(diagnostic *DiagnosticV1) {
+				diagnostic.End = 3
+			},
+			field: "diagnostics[0].end",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			invalid := snapshot
+			invalid.Diagnostics = append([]DiagnosticV1(nil), snapshot.Diagnostics...)
+			test.mutate(&invalid.Diagnostics[0])
+
+			var validationError ValidationError
+			if !errors.As(invalid.Validate(), &validationError) {
+				t.Fatalf("Validate() accepted %#v", invalid.Diagnostics)
+			}
+			if validationError.Field != test.field {
+				t.Fatalf("ValidationError = %#v", validationError)
+			}
+		})
 	}
 }
 
@@ -158,7 +299,7 @@ func TestProviderStatusV1ValidateAcceptsExplicitLSPStates(t *testing.T) {
 	}
 }
 
-func TestCallableCompletionV1ContractsValidateOnlyTheDeclaredRequestAndResponseFields(t *testing.T) {
+func TestCompletionV1ContractsValidateOnlyTheDeclaredRequestAndResponseFields(t *testing.T) {
 	request := CallableCompletionRequestV1{
 		ProjectID:          "project:test",
 		SectionID:          "callable:test",
@@ -172,15 +313,94 @@ func TestCallableCompletionV1ContractsValidateOnlyTheDeclaredRequestAndResponseF
 		t.Fatal("CallableCompletionRequestV1.Validate() error = nil for a negative UTF-16 offset")
 	}
 
-	response := CallableCompletionResponseV1{Items: []CallableCompletionItemV1{{
+	response := CompletionResponseV1{Items: []CompletionItemV1{{
 		Label:      "sqrt",
 		InsertText: "sqrt",
 	}}}
 	if err := response.Validate(); err != nil {
-		t.Fatalf("CallableCompletionResponseV1.Validate() error = %v", err)
+		t.Fatalf("CompletionResponseV1.Validate() error = %v", err)
 	}
-	if err := (CallableCompletionResponseV1{Items: []CallableCompletionItemV1{{Label: "sqrt"}}}).Validate(); err == nil {
-		t.Fatal("CallableCompletionResponseV1.Validate() error = nil for a blank insertion text")
+	if err := (CompletionResponseV1{Items: []CompletionItemV1{{Label: "sqrt"}}}).Validate(); err == nil {
+		t.Fatal("CompletionResponseV1.Validate() error = nil for a blank insertion text")
+	}
+
+	target := PythonTargetCompletionRequestV1{
+		ProjectID:         "project:test",
+		Region:            PythonTargetCompletionRegionPrefixV1,
+		Prefix:            "import mat",
+		Suffix:            "state = SettaState()",
+		CursorOffsetUTF16: 9,
+	}
+	if err := target.Validate(); err != nil {
+		t.Fatalf("PythonTargetCompletionRequestV1.Validate() error = %v", err)
+	}
+	if err := (PythonTargetCompletionRequestV1{ProjectID: "project:test", Region: "body"}).Validate(); err == nil {
+		t.Fatal("PythonTargetCompletionRequestV1.Validate() error = nil for an unsupported region")
+	}
+}
+
+func TestProjectSnapshotV1AcceptsAnUnnamedAuthoredParameterButNotAPaddedName(t *testing.T) {
+	// A record whose name has not been written yet is ordinary canonical state: the
+	// renderer omits it until it has one.
+	snapshot := validSnapshotForTest()
+	snapshot.Callables[0].AuthoredExpression = "math.sqrt"
+	snapshot.Callables[0].ParameterIDs = []string{"parameter:authored:1"}
+	snapshot.Parameters = []ParameterV1{{
+		ID:           "parameter:authored:1",
+		Name:         "",
+		NameEditable: true,
+		PassingStyle: ParameterPassingStylePositionalOrKeywordV1,
+	}}
+	if err := snapshot.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v for a blank authored parameter name", err)
+	}
+
+	snapshot.Parameters[0].Name = " scale "
+	err := snapshot.Validate()
+	var validationError ValidationError
+	if !errors.As(err, &validationError) ||
+		validationError.Field != "parameters[0].name" ||
+		validationError.Problem != "must not include surrounding whitespace" {
+		t.Fatalf("Validate() error = %#v, want a padded-name failure", err)
+	}
+}
+
+func TestSetCallableParametersRequestV1ValidatesItsCompleteCandidate(t *testing.T) {
+	request := SetCallableParametersRequestV1{
+		ProjectID:        "project:test",
+		CallableID:       "callable:square-root",
+		ExpectedRevision: 2,
+		Parameters: []ParameterProposalV1{
+			{ID: "parameter:square-root:1", Name: "x", AuthoredExpression: "3"},
+			{ID: "parameter:authored:1", Name: "", AuthoredExpression: ""},
+		},
+	}
+	if err := request.Validate(); err != nil {
+		t.Fatalf("SetCallableParametersRequestV1.Validate() error = %v", err)
+	}
+
+	for _, test := range []struct {
+		name    string
+		request SetCallableParametersRequestV1
+	}{
+		{name: "missing callable", request: SetCallableParametersRequestV1{ProjectID: "project:test", ExpectedRevision: 2, Parameters: []ParameterProposalV1{}}},
+		{name: "unbound revision", request: SetCallableParametersRequestV1{ProjectID: "project:test", CallableID: "callable:square-root", Parameters: []ParameterProposalV1{}}},
+		{name: "absent list", request: SetCallableParametersRequestV1{ProjectID: "project:test", CallableID: "callable:square-root", ExpectedRevision: 2}},
+		{
+			name: "blank record id",
+			request: SetCallableParametersRequestV1{
+				ProjectID:        "project:test",
+				CallableID:       "callable:square-root",
+				ExpectedRevision: 2,
+				Parameters:       []ParameterProposalV1{{ID: " ", Name: "x"}},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.request.Validate(); err == nil {
+				t.Fatalf("SetCallableParametersRequestV1.Validate() error = nil for %s", test.name)
+			}
+		})
 	}
 }
 
@@ -214,4 +434,8 @@ func validSnapshotForTest() ProjectSnapshotV1 {
 			State:    ProviderLifecycleStateNotStartedV1,
 		},
 	}
+}
+
+func stringPointerForTest(value string) *string {
+	return &value
 }

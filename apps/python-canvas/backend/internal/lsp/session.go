@@ -66,6 +66,7 @@ type diagnosticPayload struct {
 	Range    *rangePayload             `json:"range"`
 	Severity diagnosticSeverityPayload `json:"severity,omitempty"`
 	Message  *string                   `json:"message"`
+	Code     diagnosticCodePayload     `json:"code,omitempty"`
 }
 
 type rangePayload struct {
@@ -81,6 +82,14 @@ type positionPayload struct {
 type diagnosticSeverityPayload struct {
 	present bool
 	value   int
+}
+
+// diagnosticCodePayload accepts the provider's optional diagnostic code only
+// as a nonblank string. The project layer receives the normalized string, not
+// raw JSON, so semantic classification never depends on protocol shapes.
+type diagnosticCodePayload struct {
+	present bool
+	value   string
 }
 
 type documentSynchronization struct {
@@ -799,6 +808,7 @@ func diagnosticFromPayload(payload diagnosticPayload) (Diagnostic, error) {
 		Range:    rangeValue,
 		Severity: severity,
 		Message:  *payload.Message,
+		Code:     payload.Code.value,
 	}, nil
 }
 
@@ -854,6 +864,19 @@ func (payload *diagnosticSeverityPayload) UnmarshalJSON(raw []byte) error {
 		return errors.New("severity must be an integer")
 	}
 	payload.value = severity
+	return nil
+}
+
+func (payload *diagnosticCodePayload) UnmarshalJSON(raw []byte) error {
+	payload.present = true
+	var code string
+	if err := json.Unmarshal(raw, &code); err != nil {
+		return errors.New("code must be a string")
+	}
+	if strings.TrimSpace(code) == "" {
+		return errors.New("code must not be empty")
+	}
+	payload.value = code
 	return nil
 }
 

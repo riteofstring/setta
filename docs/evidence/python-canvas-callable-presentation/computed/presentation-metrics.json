@@ -1,0 +1,1275 @@
+{
+  "capture": {
+    "appearances": [
+      "light",
+      "dark"
+    ],
+    "browser": "Chrome/152.0.7977.42",
+    "capturedAt": "2026-08-20T09:32:39.377Z",
+    "committedCallable": "math.sqrt",
+    "cropMarginCssPx": 8,
+    "sourceCommit": "97828f51fa7836146df821e18291f19db1a4e1f3",
+    "surface": "Production @setta/workspace and Python Canvas builds served by vite preview, the real Go service, and its pinned Basedpyright.",
+    "viewport": {
+      "deviceScaleFactor": 1,
+      "height": 900,
+      "width": 1440
+    }
+  },
+  "comparison": {
+    "donorReferenceImages": [
+      "docs/evidence/phase0/reference/screenshots/27-root-callable-selected-with-params-light.png",
+      "docs/evidence/phase0/reference/screenshots/25-root-callable-selected-with-params-dark.png"
+    ],
+    "donorSources": [
+      "frontend/src/components/Section/SectionParts/Search.tsx",
+      "frontend/src/components/Section/Layouts/CodeArea.tsx"
+    ],
+    "geometryToleranceCssPx": 1,
+    "pixelDiffTolerance": null
+  },
+  "captures": [
+    {
+      "appearance": "light",
+      "crop": {
+        "height": 298,
+        "width": 378,
+        "x": 192,
+        "y": 199.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "composition": {
+          "fieldToToolbarCssPx": 0,
+          "headerToFieldCssPx": 0,
+          "sectionToFieldInlineCssPx": 2,
+          "toolbarToFirstParameterCssPx": 8
+        },
+        "field": {
+          "borderColor": "rgb(220, 225, 234)",
+          "focusBorderColor": "rgb(59, 130, 246)",
+          "surface": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          }
+        }
+      },
+      "id": "01-callable-section-idle-light",
+      "observed": {
+        "composition": {
+          "field": {
+            "bottom": 260.390625,
+            "height": 26,
+            "left": 203,
+            "right": 559,
+            "top": 234.390625,
+            "width": 356
+          },
+          "firstParameter": {
+            "bottom": 313.890625,
+            "height": 19,
+            "left": 215,
+            "right": 377,
+            "top": 294.890625,
+            "width": 162
+          },
+          "header": {
+            "bottom": 234.390625,
+            "height": 22,
+            "left": 209,
+            "right": 553,
+            "top": 212.390625,
+            "width": 344
+          },
+          "section": {
+            "bottom": 489.390625,
+            "height": 282,
+            "left": 200,
+            "right": 562,
+            "top": 207.390625,
+            "width": 362
+          },
+          "toolbar": {
+            "bottom": 286.390625,
+            "height": 26,
+            "left": 201,
+            "right": 561,
+            "top": 260.390625,
+            "width": 360
+          },
+          "contentPadding": {
+            "content": "0px",
+            "slot": "0px"
+          }
+        },
+        "field": {
+          "box": {
+            "height": 26,
+            "width": 356,
+            "x": 203,
+            "y": 234.390625
+          },
+          "surface": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          },
+          "borderColor": "rgb(220, 225, 234)",
+          "isActiveElement": false,
+          "contentEditable": null,
+          "value": "math.sqrt",
+          "type": {
+            "color": "rgb(36, 41, 46)",
+            "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+            "fontSize": "12px",
+            "fontWeight": "400",
+            "lineHeight": "16px"
+          }
+        }
+      },
+      "screenshot": "screenshots/01-callable-section-idle-light-1440x900.png",
+      "screenshotSha256": "426d968a384fa2ea2b158dfbdc7546bc16b6e4e9cb613f349156f778b7c28869",
+      "state": "idle",
+      "surface": "callable-section"
+    },
+    {
+      "appearance": "light",
+      "crop": {
+        "height": 298,
+        "width": 378,
+        "x": 192,
+        "y": 199.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "composition": {
+          "fieldToToolbarCssPx": 0,
+          "headerToFieldCssPx": 0,
+          "sectionToFieldInlineCssPx": 2,
+          "toolbarToFirstParameterCssPx": 8
+        },
+        "field": {
+          "borderColor": "rgb(220, 225, 234)",
+          "focusBorderColor": "rgb(59, 130, 246)",
+          "surface": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          }
+        }
+      },
+      "id": "02-callable-section-focused-light",
+      "observed": {
+        "composition": {
+          "field": {
+            "bottom": 260.390625,
+            "height": 26,
+            "left": 203,
+            "right": 559,
+            "top": 234.390625,
+            "width": 356
+          },
+          "firstParameter": {
+            "bottom": 313.890625,
+            "height": 19,
+            "left": 215,
+            "right": 377,
+            "top": 294.890625,
+            "width": 162
+          },
+          "header": {
+            "bottom": 234.390625,
+            "height": 22,
+            "left": 209,
+            "right": 553,
+            "top": 212.390625,
+            "width": 344
+          },
+          "section": {
+            "bottom": 489.390625,
+            "height": 282,
+            "left": 200,
+            "right": 562,
+            "top": 207.390625,
+            "width": 362
+          },
+          "toolbar": {
+            "bottom": 286.390625,
+            "height": 26,
+            "left": 201,
+            "right": 561,
+            "top": 260.390625,
+            "width": 360
+          },
+          "contentPadding": {
+            "content": "0px",
+            "slot": "0px"
+          }
+        },
+        "field": {
+          "box": {
+            "height": 26,
+            "width": 356,
+            "x": 203,
+            "y": 234.390625
+          },
+          "surface": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          },
+          "borderColor": "rgb(59, 130, 246)",
+          "isActiveElement": true,
+          "contentEditable": "true",
+          "value": "math.sqrt",
+          "type": {
+            "color": "rgb(36, 41, 46)",
+            "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+            "fontSize": "12px",
+            "fontWeight": "400",
+            "lineHeight": "16px"
+          }
+        }
+      },
+      "screenshot": "screenshots/02-callable-section-focused-light-1440x900.png",
+      "screenshotSha256": "8a068fa8cef2f101ef73b89eba5c716a0bd2606f52b5ffbe801c146f2dbf9aa6",
+      "state": "focused",
+      "surface": "callable-section"
+    },
+    {
+      "appearance": "light",
+      "crop": {
+        "height": 406,
+        "width": 656,
+        "x": 593,
+        "y": 226.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "badge": {
+          "backgroundColor": "rgb(37, 99, 235)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(96, 165, 250) 0px, rgb(96, 165, 250) 3px, rgb(219, 234, 254) 3px)",
+          "borderRadius": "6px"
+        }
+      },
+      "id": "03-generated-document-idle-light",
+      "observed": {
+        "box": {
+          "height": 390,
+          "width": 640,
+          "x": 601,
+          "y": 234.390625
+        },
+        "block": {
+          "bottom": 347.515625,
+          "lineBoxCssPx": 18.1875,
+          "lineCount": 5,
+          "marks": [
+            "start",
+            "middle",
+            "middle",
+            "middle",
+            "end"
+          ],
+          "text": "\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n",
+          "top": 256.578125,
+          "width": 610.171875
+        },
+        "content": {
+          "bottom": 624.390625,
+          "top": 234.390625
+        },
+        "wrapper": {
+          "backgroundImage": "none"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(96, 165, 250) 0px, rgb(96, 165, 250) 3px, rgb(219, 234, 254) 3px)",
+          "borderRadius": "6px"
+        },
+        "placement": {
+          "badgeInlineStart": "305.078px",
+          "badgeInsetBlockStart": "14.5469px",
+          "badgeTransform": "matrix(1, 0, 0, 1, -50.7578, -6.19531)",
+          "regionInlineEnd": "4px",
+          "regionInlineStart": "0px",
+          "regionInsetBlockStart": "14.5469px"
+        },
+        "badge": {
+          "backgroundColor": "rgb(37, 99, 235)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "text": {
+          "contentEditable": "true",
+          "isActiveElement": false,
+          "outlineStyle": "none",
+          "outlineWidth": "0px",
+          "readOnly": null,
+          "source": "import mathclass SettaState:    def __init__(state):        state.Square_Root = math.sqrt()state = SettaState()"
+        },
+        "caretInsideBlock": false
+      },
+      "screenshot": "screenshots/03-generated-document-idle-light-1440x900.png",
+      "screenshotSha256": "c50db8190215d44fcdab546675b1a1f678e4c9bc58408e09972c21ad33ae682c",
+      "state": "idle",
+      "surface": "generated-document"
+    },
+    {
+      "appearance": "light",
+      "crop": {
+        "height": 406,
+        "width": 656,
+        "x": 593,
+        "y": 226.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "badge": {
+          "backgroundColor": "rgb(37, 99, 235)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(96, 165, 250) 0px, rgb(96, 165, 250) 3px, rgb(219, 234, 254) 3px)",
+          "borderRadius": "6px"
+        }
+      },
+      "id": "04-generated-document-clicked-light",
+      "observed": {
+        "box": {
+          "height": 390,
+          "width": 640,
+          "x": 601,
+          "y": 234.390625
+        },
+        "block": {
+          "bottom": 347.515625,
+          "lineBoxCssPx": 18.1875,
+          "lineCount": 5,
+          "marks": [
+            "start",
+            "middle",
+            "middle",
+            "middle",
+            "end"
+          ],
+          "text": "\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n",
+          "top": 256.578125,
+          "width": 610.171875
+        },
+        "content": {
+          "bottom": 624.390625,
+          "top": 234.390625
+        },
+        "wrapper": {
+          "backgroundImage": "none"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(96, 165, 250) 0px, rgb(96, 165, 250) 3px, rgb(219, 234, 254) 3px)",
+          "borderRadius": "6px"
+        },
+        "placement": {
+          "badgeInlineStart": "305.078px",
+          "badgeInsetBlockStart": "14.5469px",
+          "badgeTransform": "matrix(1, 0, 0, 1, -50.7578, -6.19531)",
+          "regionInlineEnd": "4px",
+          "regionInlineStart": "0px",
+          "regionInsetBlockStart": "14.5469px"
+        },
+        "badge": {
+          "backgroundColor": "rgb(37, 99, 235)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "text": {
+          "contentEditable": "true",
+          "isActiveElement": true,
+          "outlineStyle": "none",
+          "outlineWidth": "0px",
+          "readOnly": null,
+          "source": "import mathclass SettaState:    def __init__(state):        state.Square_Root = math.sqrt()state = SettaState()"
+        },
+        "caretInsideBlock": false
+      },
+      "screenshot": "screenshots/04-generated-document-clicked-light-1440x900.png",
+      "screenshotSha256": "d266d6b00a6fb4f4eae9bf0baf0997ed91f41b504c54ff9fbf82bd87c5e37bdc",
+      "state": "clicked",
+      "surface": "generated-document"
+    },
+    {
+      "appearance": "light",
+      "crop": {
+        "height": 580,
+        "width": 740,
+        "x": 11,
+        "y": 159.78125,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "compositing": {
+          "backfaceVisibility": "visible",
+          "isolation": "auto",
+          "transform": "none",
+          "willChange": "auto"
+        },
+        "field": {
+          "borderColor": "rgb(220, 225, 234)",
+          "focusBorderColor": "rgb(59, 130, 246)",
+          "surface": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          }
+        }
+      },
+      "id": "05-zoomed-callable-section-zoomed-idle-light",
+      "observed": {
+        "field": {
+          "box": {
+            "height": 52,
+            "width": 712,
+            "x": 25,
+            "y": 221.78125
+          },
+          "surface": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          },
+          "borderColor": "rgb(220, 225, 234)",
+          "isActiveElement": false,
+          "contentEditable": null,
+          "value": "math.sqrt",
+          "type": {
+            "color": "rgb(36, 41, 46)",
+            "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+            "fontSize": "12px",
+            "fontWeight": "400",
+            "lineHeight": "16px"
+          }
+        },
+        "section": {
+          "box": {
+            "height": 564,
+            "width": 724,
+            "x": 19,
+            "y": 167.78125
+          },
+          "canvas": {
+            "bottom": 732.390625,
+            "left": 20,
+            "right": 1420,
+            "top": 102.390625
+          },
+          "compositing": {
+            "backfaceVisibility": "visible",
+            "isolation": "auto",
+            "transform": "none",
+            "willChange": "auto"
+          },
+          "zoom": 2
+        }
+      },
+      "screenshot": "screenshots/05-zoomed-callable-section-zoomed-idle-light-1440x900.png",
+      "screenshotSha256": "4ff598ff01ba2949ebaa31a33ed1a4e685f21738cbebaa3b9834b801092f37f8",
+      "state": "zoomed-idle",
+      "surface": "zoomed-callable-section"
+    },
+    {
+      "appearance": "light",
+      "crop": {
+        "height": 580,
+        "width": 740,
+        "x": 11,
+        "y": 159.78125,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "compositing": {
+          "backfaceVisibility": "visible",
+          "isolation": "auto",
+          "transform": "none",
+          "willChange": "auto"
+        },
+        "field": {
+          "borderColor": "rgb(220, 225, 234)",
+          "focusBorderColor": "rgb(59, 130, 246)",
+          "surface": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          }
+        }
+      },
+      "id": "06-zoomed-callable-section-zoomed-focused-light",
+      "observed": {
+        "field": {
+          "box": {
+            "height": 52,
+            "width": 712,
+            "x": 25,
+            "y": 221.78125
+          },
+          "surface": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          },
+          "borderColor": "rgb(59, 130, 246)",
+          "isActiveElement": true,
+          "contentEditable": "true",
+          "value": "math.sqrt",
+          "type": {
+            "color": "rgb(36, 41, 46)",
+            "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+            "fontSize": "12px",
+            "fontWeight": "400",
+            "lineHeight": "16px"
+          }
+        },
+        "section": {
+          "box": {
+            "height": 564,
+            "width": 724,
+            "x": 19,
+            "y": 167.78125
+          },
+          "canvas": {
+            "bottom": 732.390625,
+            "left": 20,
+            "right": 1420,
+            "top": 102.390625
+          },
+          "compositing": {
+            "backfaceVisibility": "visible",
+            "isolation": "auto",
+            "transform": "none",
+            "willChange": "auto"
+          },
+          "zoom": 2
+        }
+      },
+      "screenshot": "screenshots/06-zoomed-callable-section-zoomed-focused-light-1440x900.png",
+      "screenshotSha256": "74ac7a2d1f5d7f65a775fdc32d91b94e33ba97aeeeae81a432b7072d58704d34",
+      "state": "zoomed-focused",
+      "surface": "zoomed-callable-section"
+    },
+    {
+      "appearance": "light",
+      "crop": {
+        "height": 580,
+        "width": 740,
+        "x": 11,
+        "y": 159.78125,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "compositing": {
+          "backfaceVisibility": "visible",
+          "isolation": "auto",
+          "transform": "none",
+          "willChange": "auto"
+        },
+        "field": {
+          "borderColor": "rgb(220, 225, 234)",
+          "focusBorderColor": "rgb(59, 130, 246)",
+          "surface": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          }
+        }
+      },
+      "id": "07-zoomed-callable-section-zoomed-completion-light",
+      "observed": {
+        "popup": {
+          "field": {
+            "bottom": 273.78125,
+            "height": 52,
+            "top": 221.78125
+          },
+          "popup": {
+            "bottom": 334.15625,
+            "height": 70.375,
+            "top": 263.78125,
+            "width": 500
+          },
+          "fieldContainsPopup": false,
+          "sectionContainsPopup": false,
+          "isVisibleAtMiddle": true,
+          "isVisibleAtBottom": true,
+          "optionCount": 2
+        },
+        "section": {
+          "box": {
+            "height": 564,
+            "width": 724,
+            "x": 19,
+            "y": 167.78125
+          },
+          "canvas": {
+            "bottom": 732.390625,
+            "left": 20,
+            "right": 1420,
+            "top": 102.390625
+          },
+          "compositing": {
+            "backfaceVisibility": "visible",
+            "isolation": "auto",
+            "transform": "none",
+            "willChange": "auto"
+          },
+          "zoom": 2
+        }
+      },
+      "screenshot": "screenshots/07-zoomed-callable-section-zoomed-completion-light-1440x900.png",
+      "screenshotSha256": "528c70ba790dff4b88b677d5e9d4fdf87b1156e6d32938d47f1cc66ae6b1748b",
+      "state": "zoomed-completion",
+      "surface": "zoomed-callable-section"
+    },
+    {
+      "appearance": "dark",
+      "crop": {
+        "height": 298,
+        "width": 378,
+        "x": 192,
+        "y": 199.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "composition": {
+          "fieldToToolbarCssPx": 0,
+          "headerToFieldCssPx": 0,
+          "sectionToFieldInlineCssPx": 2,
+          "toolbarToFirstParameterCssPx": 8
+        },
+        "field": {
+          "borderColor": "rgb(26, 33, 45)",
+          "focusBorderColor": "rgba(96, 165, 250, 0.498)",
+          "surface": {
+            "backgroundColor": "rgb(6, 7, 10)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          }
+        }
+      },
+      "id": "08-callable-section-idle-dark",
+      "observed": {
+        "composition": {
+          "field": {
+            "bottom": 260.390625,
+            "height": 26,
+            "left": 203,
+            "right": 559,
+            "top": 234.390625,
+            "width": 356
+          },
+          "firstParameter": {
+            "bottom": 313.890625,
+            "height": 19,
+            "left": 215,
+            "right": 377,
+            "top": 294.890625,
+            "width": 162
+          },
+          "header": {
+            "bottom": 234.390625,
+            "height": 22,
+            "left": 209,
+            "right": 553,
+            "top": 212.390625,
+            "width": 344
+          },
+          "section": {
+            "bottom": 489.390625,
+            "height": 282,
+            "left": 200,
+            "right": 562,
+            "top": 207.390625,
+            "width": 362
+          },
+          "toolbar": {
+            "bottom": 286.390625,
+            "height": 26,
+            "left": 201,
+            "right": 561,
+            "top": 260.390625,
+            "width": 360
+          },
+          "contentPadding": {
+            "content": "0px",
+            "slot": "0px"
+          }
+        },
+        "field": {
+          "box": {
+            "height": 26,
+            "width": 356,
+            "x": 203,
+            "y": 234.390625
+          },
+          "surface": {
+            "backgroundColor": "rgb(6, 7, 10)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          },
+          "borderColor": "rgb(26, 33, 45)",
+          "isActiveElement": false,
+          "contentEditable": null,
+          "value": "math.sqrt",
+          "type": {
+            "color": "rgb(201, 209, 217)",
+            "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+            "fontSize": "12px",
+            "fontWeight": "400",
+            "lineHeight": "16px"
+          }
+        }
+      },
+      "screenshot": "screenshots/08-callable-section-idle-dark-1440x900.png",
+      "screenshotSha256": "717f0bcd43288494ff64bf99e0d8b3a9df3d5b32a950fc820aca467e1e73eaac",
+      "state": "idle",
+      "surface": "callable-section"
+    },
+    {
+      "appearance": "dark",
+      "crop": {
+        "height": 298,
+        "width": 378,
+        "x": 192,
+        "y": 199.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "composition": {
+          "fieldToToolbarCssPx": 0,
+          "headerToFieldCssPx": 0,
+          "sectionToFieldInlineCssPx": 2,
+          "toolbarToFirstParameterCssPx": 8
+        },
+        "field": {
+          "borderColor": "rgb(26, 33, 45)",
+          "focusBorderColor": "rgba(96, 165, 250, 0.498)",
+          "surface": {
+            "backgroundColor": "rgb(6, 7, 10)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          }
+        }
+      },
+      "id": "09-callable-section-focused-dark",
+      "observed": {
+        "composition": {
+          "field": {
+            "bottom": 260.390625,
+            "height": 26,
+            "left": 203,
+            "right": 559,
+            "top": 234.390625,
+            "width": 356
+          },
+          "firstParameter": {
+            "bottom": 313.890625,
+            "height": 19,
+            "left": 215,
+            "right": 377,
+            "top": 294.890625,
+            "width": 162
+          },
+          "header": {
+            "bottom": 234.390625,
+            "height": 22,
+            "left": 209,
+            "right": 553,
+            "top": 212.390625,
+            "width": 344
+          },
+          "section": {
+            "bottom": 489.390625,
+            "height": 282,
+            "left": 200,
+            "right": 562,
+            "top": 207.390625,
+            "width": 362
+          },
+          "toolbar": {
+            "bottom": 286.390625,
+            "height": 26,
+            "left": 201,
+            "right": 561,
+            "top": 260.390625,
+            "width": 360
+          },
+          "contentPadding": {
+            "content": "0px",
+            "slot": "0px"
+          }
+        },
+        "field": {
+          "box": {
+            "height": 26,
+            "width": 356,
+            "x": 203,
+            "y": 234.390625
+          },
+          "surface": {
+            "backgroundColor": "rgb(6, 7, 10)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          },
+          "borderColor": "rgba(96, 165, 250, 0.498)",
+          "isActiveElement": true,
+          "contentEditable": "true",
+          "value": "math.sqrt",
+          "type": {
+            "color": "rgb(201, 209, 217)",
+            "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+            "fontSize": "12px",
+            "fontWeight": "400",
+            "lineHeight": "16px"
+          }
+        }
+      },
+      "screenshot": "screenshots/09-callable-section-focused-dark-1440x900.png",
+      "screenshotSha256": "690355829bd23da3d650fe5e9cbf17b6fecab19fc225d127931ce9737c93e6d8",
+      "state": "focused",
+      "surface": "callable-section"
+    },
+    {
+      "appearance": "dark",
+      "crop": {
+        "height": 406,
+        "width": 656,
+        "x": 593,
+        "y": 226.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "badge": {
+          "backgroundColor": "rgb(30, 64, 175)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(37, 99, 235) 0px, rgb(37, 99, 235) 3px, rgb(23, 37, 84) 3px)",
+          "borderRadius": "6px"
+        }
+      },
+      "id": "10-generated-document-idle-dark",
+      "observed": {
+        "box": {
+          "height": 390,
+          "width": 640,
+          "x": 601,
+          "y": 234.390625
+        },
+        "block": {
+          "bottom": 347.515625,
+          "lineBoxCssPx": 18.1875,
+          "lineCount": 5,
+          "marks": [
+            "start",
+            "middle",
+            "middle",
+            "middle",
+            "end"
+          ],
+          "text": "\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n",
+          "top": 256.578125,
+          "width": 610.171875
+        },
+        "content": {
+          "bottom": 624.390625,
+          "top": 234.390625
+        },
+        "wrapper": {
+          "backgroundImage": "none"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(37, 99, 235) 0px, rgb(37, 99, 235) 3px, rgb(23, 37, 84) 3px)",
+          "borderRadius": "6px"
+        },
+        "placement": {
+          "badgeInlineStart": "305.078px",
+          "badgeInsetBlockStart": "14.5469px",
+          "badgeTransform": "matrix(1, 0, 0, 1, -50.7578, -6.19531)",
+          "regionInlineEnd": "4px",
+          "regionInlineStart": "0px",
+          "regionInsetBlockStart": "14.5469px"
+        },
+        "badge": {
+          "backgroundColor": "rgb(30, 64, 175)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "text": {
+          "contentEditable": "true",
+          "isActiveElement": false,
+          "outlineStyle": "none",
+          "outlineWidth": "0px",
+          "readOnly": null,
+          "source": "import mathclass SettaState:    def __init__(state):        state.Square_Root = math.sqrt()state = SettaState()"
+        },
+        "caretInsideBlock": false
+      },
+      "screenshot": "screenshots/10-generated-document-idle-dark-1440x900.png",
+      "screenshotSha256": "28a2e23d733b1527243794942bdcdb64b8ebeb8aabba6026acf8abfea08301bb",
+      "state": "idle",
+      "surface": "generated-document"
+    },
+    {
+      "appearance": "dark",
+      "crop": {
+        "height": 406,
+        "width": 656,
+        "x": 593,
+        "y": 226.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "badge": {
+          "backgroundColor": "rgb(30, 64, 175)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(37, 99, 235) 0px, rgb(37, 99, 235) 3px, rgb(23, 37, 84) 3px)",
+          "borderRadius": "6px"
+        }
+      },
+      "id": "11-generated-document-clicked-dark",
+      "observed": {
+        "box": {
+          "height": 390,
+          "width": 640,
+          "x": 601,
+          "y": 234.390625
+        },
+        "block": {
+          "bottom": 347.515625,
+          "lineBoxCssPx": 18.1875,
+          "lineCount": 5,
+          "marks": [
+            "start",
+            "middle",
+            "middle",
+            "middle",
+            "end"
+          ],
+          "text": "\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n",
+          "top": 256.578125,
+          "width": 610.171875
+        },
+        "content": {
+          "bottom": 624.390625,
+          "top": 234.390625
+        },
+        "wrapper": {
+          "backgroundImage": "none"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(37, 99, 235) 0px, rgb(37, 99, 235) 3px, rgb(23, 37, 84) 3px)",
+          "borderRadius": "6px"
+        },
+        "placement": {
+          "badgeInlineStart": "305.078px",
+          "badgeInsetBlockStart": "14.5469px",
+          "badgeTransform": "matrix(1, 0, 0, 1, -50.7578, -6.19531)",
+          "regionInlineEnd": "4px",
+          "regionInlineStart": "0px",
+          "regionInsetBlockStart": "14.5469px"
+        },
+        "badge": {
+          "backgroundColor": "rgb(30, 64, 175)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "text": {
+          "contentEditable": "true",
+          "isActiveElement": true,
+          "outlineStyle": "none",
+          "outlineWidth": "0px",
+          "readOnly": null,
+          "source": "import mathclass SettaState:    def __init__(state):        state.Square_Root = math.sqrt()state = SettaState()"
+        },
+        "caretInsideBlock": false
+      },
+      "screenshot": "screenshots/11-generated-document-clicked-dark-1440x900.png",
+      "screenshotSha256": "486f1efcb90661554e1aef55e6da94cb99e7e974bc2aade287c1a38fdf1aa68b",
+      "state": "clicked",
+      "surface": "generated-document"
+    },
+    {
+      "appearance": "dark",
+      "crop": {
+        "height": 580,
+        "width": 740,
+        "x": 11,
+        "y": 159.78125,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "compositing": {
+          "backfaceVisibility": "visible",
+          "isolation": "auto",
+          "transform": "none",
+          "willChange": "auto"
+        },
+        "field": {
+          "borderColor": "rgb(26, 33, 45)",
+          "focusBorderColor": "rgba(96, 165, 250, 0.498)",
+          "surface": {
+            "backgroundColor": "rgb(6, 7, 10)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          }
+        }
+      },
+      "id": "12-zoomed-callable-section-zoomed-idle-dark",
+      "observed": {
+        "field": {
+          "box": {
+            "height": 52,
+            "width": 712,
+            "x": 25,
+            "y": 221.78125
+          },
+          "surface": {
+            "backgroundColor": "rgb(6, 7, 10)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          },
+          "borderColor": "rgb(26, 33, 45)",
+          "isActiveElement": false,
+          "contentEditable": null,
+          "value": "math.sqrt",
+          "type": {
+            "color": "rgb(201, 209, 217)",
+            "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+            "fontSize": "12px",
+            "fontWeight": "400",
+            "lineHeight": "16px"
+          }
+        },
+        "section": {
+          "box": {
+            "height": 564,
+            "width": 724,
+            "x": 19,
+            "y": 167.78125
+          },
+          "canvas": {
+            "bottom": 732.390625,
+            "left": 20,
+            "right": 1420,
+            "top": 102.390625
+          },
+          "compositing": {
+            "backfaceVisibility": "visible",
+            "isolation": "auto",
+            "transform": "none",
+            "willChange": "auto"
+          },
+          "zoom": 2
+        }
+      },
+      "screenshot": "screenshots/12-zoomed-callable-section-zoomed-idle-dark-1440x900.png",
+      "screenshotSha256": "d9520639021a9cb65eb0200874b490dd6edadcd35796c645b9b08f7cc1bf7152",
+      "state": "zoomed-idle",
+      "surface": "zoomed-callable-section"
+    },
+    {
+      "appearance": "dark",
+      "crop": {
+        "height": 580,
+        "width": 740,
+        "x": 11,
+        "y": 159.78125,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "compositing": {
+          "backfaceVisibility": "visible",
+          "isolation": "auto",
+          "transform": "none",
+          "willChange": "auto"
+        },
+        "field": {
+          "borderColor": "rgb(26, 33, 45)",
+          "focusBorderColor": "rgba(96, 165, 250, 0.498)",
+          "surface": {
+            "backgroundColor": "rgb(6, 7, 10)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          }
+        }
+      },
+      "id": "13-zoomed-callable-section-zoomed-focused-dark",
+      "observed": {
+        "field": {
+          "box": {
+            "height": 52,
+            "width": 712,
+            "x": 25,
+            "y": 221.78125
+          },
+          "surface": {
+            "backgroundColor": "rgb(6, 7, 10)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          },
+          "borderColor": "rgba(96, 165, 250, 0.498)",
+          "isActiveElement": true,
+          "contentEditable": "true",
+          "value": "math.sqrt",
+          "type": {
+            "color": "rgb(201, 209, 217)",
+            "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+            "fontSize": "12px",
+            "fontWeight": "400",
+            "lineHeight": "16px"
+          }
+        },
+        "section": {
+          "box": {
+            "height": 564,
+            "width": 724,
+            "x": 19,
+            "y": 167.78125
+          },
+          "canvas": {
+            "bottom": 732.390625,
+            "left": 20,
+            "right": 1420,
+            "top": 102.390625
+          },
+          "compositing": {
+            "backfaceVisibility": "visible",
+            "isolation": "auto",
+            "transform": "none",
+            "willChange": "auto"
+          },
+          "zoom": 2
+        }
+      },
+      "screenshot": "screenshots/13-zoomed-callable-section-zoomed-focused-dark-1440x900.png",
+      "screenshotSha256": "493c5586e0024e7c705fe99d4e52d374906d85bd783cb80821ffe3b9589f714b",
+      "state": "zoomed-focused",
+      "surface": "zoomed-callable-section"
+    },
+    {
+      "appearance": "dark",
+      "crop": {
+        "height": 580,
+        "width": 740,
+        "x": 11,
+        "y": 159.78125,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "compositing": {
+          "backfaceVisibility": "visible",
+          "isolation": "auto",
+          "transform": "none",
+          "willChange": "auto"
+        },
+        "field": {
+          "borderColor": "rgb(26, 33, 45)",
+          "focusBorderColor": "rgba(96, 165, 250, 0.498)",
+          "surface": {
+            "backgroundColor": "rgb(6, 7, 10)",
+            "borderRadius": "16px",
+            "borderWidth": "1px",
+            "marginInline": "2px 2px",
+            "padding": "4px 10px 4px 10px"
+          }
+        }
+      },
+      "id": "14-zoomed-callable-section-zoomed-completion-dark",
+      "observed": {
+        "popup": {
+          "field": {
+            "bottom": 273.78125,
+            "height": 52,
+            "top": 221.78125
+          },
+          "popup": {
+            "bottom": 332.15625,
+            "height": 70.375,
+            "top": 261.78125,
+            "width": 500
+          },
+          "fieldContainsPopup": false,
+          "sectionContainsPopup": false,
+          "isVisibleAtMiddle": true,
+          "isVisibleAtBottom": true,
+          "optionCount": 2
+        },
+        "section": {
+          "box": {
+            "height": 564,
+            "width": 724,
+            "x": 19,
+            "y": 167.78125
+          },
+          "canvas": {
+            "bottom": 732.390625,
+            "left": 20,
+            "right": 1420,
+            "top": 102.390625
+          },
+          "compositing": {
+            "backfaceVisibility": "visible",
+            "isolation": "auto",
+            "transform": "none",
+            "willChange": "auto"
+          },
+          "zoom": 2
+        }
+      },
+      "screenshot": "screenshots/14-zoomed-callable-section-zoomed-completion-dark-1440x900.png",
+      "screenshotSha256": "245af53a4aad00e3184ad297b53432931da3de7b69a4a70fbeec33008728ed17",
+      "state": "zoomed-completion",
+      "surface": "zoomed-callable-section"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import { GROUP_SECTION_KIND } from "./documentSelectors";
 import {
   getMetaControlPresentation,
   getRegisteredSectionKindOrThrow,
+  getWorkspaceItemAreaPresentationOrThrow,
   registerSectionKinds,
   type SectionKindDefinition,
 } from "./sectionKindRegistry";
@@ -229,5 +230,98 @@ describe("sectionKindRegistry", () => {
         } as unknown as SectionKindDefinition,
       }),
     ).toThrowError(/must provide resolveControlKind/);
+  });
+
+  it("retains a declared item-area presentation and its leading content", () => {
+    const renderLeadingContent = () => "leading control";
+    registerSectionKinds(host, {
+      items: {
+        renderContent: () => null,
+        itemArea: { renderLeadingContent, toolbar: "filter-only" },
+      },
+    });
+
+    const itemArea = getWorkspaceItemAreaPresentationOrThrow(host, {
+      id: "panel",
+      kind: "items",
+    });
+    expect(itemArea.toolbar).toBe("filter-only");
+    expect(itemArea.renderLeadingContent).toBe(renderLeadingContent);
+  });
+
+  it("names the kind when an item-carrying section has no declared item area", () => {
+    registerSectionKinds(host, { items: makeDefinition() });
+
+    expect(() =>
+      getWorkspaceItemAreaPresentationOrThrow(host, {
+        id: "panel",
+        kind: "items",
+      }),
+    ).toThrowError(
+      /Section panel carries an item tree, but section kind items does not declare an item-area presentation/,
+    );
+  });
+
+  it("names the meta-control constraint when such a section carries items", () => {
+    registerSectionKinds(host, {
+      meta: {
+        renderContent: () => null,
+        presentation: {
+          type: "meta-control",
+          resolveControlKind: () => "button",
+          onEdit: () => {},
+        },
+      },
+    });
+
+    expect(() =>
+      getWorkspaceItemAreaPresentationOrThrow(host, {
+        id: "panel",
+        kind: "meta",
+      }),
+    ).toThrowError(/meta controls cannot carry item trees/);
+  });
+
+  it("rejects an item-area presentation on package-owned meta placement", () => {
+    expect(() =>
+      registerSectionKinds(host, {
+        meta: {
+          renderContent: () => null,
+          itemArea: { toolbar: "hidden" },
+          presentation: {
+            type: "meta-control",
+            resolveControlKind: () => "button",
+            onEdit: () => {},
+          },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/cannot register an item-area presentation/);
+  });
+
+  it("rejects an unknown toolbar mode instead of choosing a plausible one", () => {
+    expect(() =>
+      registerSectionKinds(host, {
+        items: {
+          renderContent: () => null,
+          itemArea: { toolbar: "read-only" },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(
+      /Section kind items declares the unknown item toolbar mode read-only/,
+    );
+  });
+
+  it("rejects a non-function leading-content renderer", () => {
+    expect(() =>
+      registerSectionKinds(host, {
+        items: {
+          renderContent: () => null,
+          itemArea: {
+            renderLeadingContent: "leading control",
+            toolbar: "filter-only",
+          },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/renderLeadingContent must be a function/);
   });
 });

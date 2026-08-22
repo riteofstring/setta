@@ -371,8 +371,9 @@ describe("built-in text section", () => {
   it("makes a locked or read-only section read-only and refuses its control", async () => {
     await mount(makeTextSection({}, { positionAndSizeLocked: true }));
     expect(getView().state.readOnly).toBe(true);
-    // Selection and scrolling survive; only mutation is refused.
-    expect(getView().contentDOM.getAttribute("contenteditable")).toBe("true");
+    // Selection and scrolling survive, but the shared editor stops being an editing surface
+    // rather than leaving a caret in one that refuses every keystroke.
+    expect(getView().contentDOM.getAttribute("contenteditable")).toBe("false");
     expect(getDisplayModeButton().disabled).toBe(true);
 
     await act(async () => {

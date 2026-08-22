@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -47,6 +48,44 @@ func TestInitialProjectSnapshotIsCanonicalV1State(t *testing.T) {
 	}
 }
 
+func TestBootstrapShippedExampleCommitsTheDemoThroughTheProviderPath(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	store, provider := newStoreForTest(t, writer, func(ctx context.Context, request SignatureRequest) (CallableSignature, error) {
+		requireSquareRootSignatureRequest(t, ctx, request)
+		return squareRootSignature(), nil
+	})
+
+	if err := store.BootstrapShippedExample(context.Background()); err != nil {
+		t.Fatalf("BootstrapShippedExample() error = %v", err)
+	}
+
+	snapshot := store.Snapshot()
+	requireCallableReconciliation(t, snapshot)
+	requireReconciledParameter(t, snapshot)
+	const wantCode = "import math\n\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n\nstate = SettaState()"
+	requireMaterializedGeneratedCode(t, snapshot, writer, wantCode, "bootstrap")
+	if provider.resolveCalls != 1 {
+		t.Fatalf("bootstrap signature requests = %d, want the ordinary commit path's single request", provider.resolveCalls)
+	}
+}
+
+func TestBootstrapShippedExampleFailsRatherThanServingAnEmptyDemo(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	resolverErr := errors.New("signature unavailable")
+	store, _ := newStoreForTest(t, writer, func(context.Context, SignatureRequest) (CallableSignature, error) {
+		return CallableSignature{}, resolverErr
+	})
+	uncommitted := store.Snapshot()
+	uncommittedCode := writer.code
+
+	err := store.BootstrapShippedExample(context.Background())
+
+	if !errors.Is(err, resolverErr) {
+		t.Fatalf("BootstrapShippedExample() error = %v, want the provider failure", err)
+	}
+	requireUnchangedStore(t, store, writer, uncommitted, uncommittedCode)
+}
+
 func TestStoreAutomaticallyReconcilesCallableAndParameter(t *testing.T) {
 	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
 	store, _ := newStoreForTest(t, writer, func(ctx context.Context, request SignatureRequest) (CallableSignature, error) {
@@ -69,9 +108,15 @@ func TestStoreAutomaticallyReconcilesCallableAndParameter(t *testing.T) {
 	const wantCallableCode = "import math\n\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n\nstate = SettaState()"
 	requireMaterializedGeneratedCode(t, callableSnapshot, writer, wantCallableCode, "callable")
 
-	finalSnapshot, err := store.SetParameterExpression(context.Background(), initialProjectID, parameterID, "3")
+	finalSnapshot, err := store.SetCallableParameters(
+		context.Background(),
+		initialProjectID,
+		squareRootCallableID,
+		callableSnapshot.Project.Revision,
+		[]ParameterProposal{{ID: parameterID, Name: "x", AuthoredExpression: "3"}},
+	)
 	if err != nil {
-		t.Fatalf("SetParameterExpression() error = %v", err)
+		t.Fatalf("SetCallableParameters() error = %v", err)
 	}
 	const wantFinalCode = "import math\n\nclass SettaState:\n    def __init__(state):\n        state.Square_Root__x = 3\n        state.Square_Root = math.sqrt(state.Square_Root__x)\n\nstate = SettaState()"
 	requireParameterReconciliation(t, finalSnapshot, writer, wantFinalCode)
@@ -149,12 +194,11 @@ func TestStoreLeavesStateAndGeneratedFileUntouchedWhenMutationsFail(t *testing.T
 		t.Fatalf("CommitCallable() error = %v", err)
 	}
 	committedCode := writer.code
-	parameterID := committedSnapshot.Parameters[0].ID
 
 	writer.writeErr = writeErr
-	_, err = store.SetParameterExpression(context.Background(), initialProjectID, parameterID, "3")
+	_, err = setParameterExpression(store, committedSnapshot, "3")
 	if !errors.Is(err, writeErr) {
-		t.Fatalf("SetParameterExpression() error = %v, want materialization error", err)
+		t.Fatalf("SetCallableParameters() error = %v, want materialization error", err)
 	}
 	requireUnchangedStore(t, store, writer, committedSnapshot, committedCode)
 
@@ -167,12 +211,368 @@ func TestStoreLeavesStateAndGeneratedFileUntouchedWhenMutationsFail(t *testing.T
 		{name: "statement separator", expression: "3; state.other = 4"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			_, err := store.SetParameterExpression(context.Background(), initialProjectID, parameterID, testCase.expression)
+			_, err := setParameterExpression(store, committedSnapshot, testCase.expression)
 			if !errors.Is(err, ErrParameterExpressionInvalid) {
-				t.Fatalf("SetParameterExpression() error = %v, want invalid expression", err)
+				t.Fatalf("SetCallableParameters() error = %v, want invalid expression", err)
 			}
 			requireUnchangedStore(t, store, writer, committedSnapshot, committedCode)
 		})
+	}
+}
+
+func TestStoreAppliesOneCompleteOrderedParameterListPerTransaction(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	store := newCommittedStoreForTest(t, writer)
+	committed := store.Snapshot()
+	provided := committed.Parameters[0]
+
+	// One transaction adds two authored records, values the provider-derived row, and
+	// puts an authored record ahead of it. A blank record is legal and stays out of the
+	// rendered call until it has a name.
+	authoredSnapshot, err := store.SetCallableParameters(
+		context.Background(),
+		initialProjectID,
+		squareRootCallableID,
+		committed.Project.Revision,
+		[]ParameterProposal{
+			{ID: "parameter:authored:scale", Name: "scale", AuthoredExpression: "2"},
+			{ID: provided.ID, Name: provided.Name, AuthoredExpression: "3"},
+			{ID: "parameter:authored:blank", Name: "", AuthoredExpression: ""},
+		},
+	)
+	if err != nil {
+		t.Fatalf("SetCallableParameters() error = %v", err)
+	}
+	if authoredSnapshot.Project.Revision != committed.Project.Revision+1 {
+		t.Fatalf("one transaction produced revision %d, want %d", authoredSnapshot.Project.Revision, committed.Project.Revision+1)
+	}
+	wantIDs := []string{"parameter:authored:scale", provided.ID, "parameter:authored:blank"}
+	if !reflect.DeepEqual(authoredSnapshot.Callables[0].ParameterIDs, wantIDs) {
+		t.Fatalf("parameter order = %#v, want %#v", authoredSnapshot.Callables[0].ParameterIDs, wantIDs)
+	}
+	requireAuthoredParameterDefaults(t, authoredSnapshot.Parameters[0])
+	if authoredSnapshot.Parameters[1].NameEditable {
+		t.Fatalf("provider-derived parameter = %#v, want a name this store owns", authoredSnapshot.Parameters[1])
+	}
+	// The authored record is assigned in its own list position and passed as a keyword
+	// argument, which Python requires to follow the positional one.
+	const wantAuthoredCode = "import math\n\nclass SettaState:\n" +
+		"    def __init__(state):\n" +
+		"        state.Square_Root__scale = 2\n" +
+		"        state.Square_Root__x = 3\n" +
+		"        state.Square_Root = math.sqrt(state.Square_Root__x, scale=state.Square_Root__scale)\n" +
+		"\nstate = SettaState()"
+	requireMaterializedGeneratedCode(t, authoredSnapshot, writer, wantAuthoredCode, "authored list")
+
+	// Naming the blank record is what admits it to the generated call.
+	namedSnapshot, err := store.SetCallableParameters(
+		context.Background(),
+		initialProjectID,
+		squareRootCallableID,
+		authoredSnapshot.Project.Revision,
+		[]ParameterProposal{
+			{ID: "parameter:authored:scale", Name: "scale", AuthoredExpression: "2"},
+			{ID: provided.ID, Name: provided.Name, AuthoredExpression: "3"},
+			{ID: "parameter:authored:blank", Name: "offset", AuthoredExpression: "1"},
+		},
+	)
+	if err != nil {
+		t.Fatalf("SetCallableParameters(named) error = %v", err)
+	}
+	if !strings.Contains(namedSnapshot.GeneratedCode.Code, "state.Square_Root__offset = 1") {
+		t.Fatalf("named record generated code = %q", namedSnapshot.GeneratedCode.Code)
+	}
+
+	// Delete Selected is one transaction rather than a loop of partial deletes.
+	deletedSnapshot, err := store.SetCallableParameters(
+		context.Background(),
+		initialProjectID,
+		squareRootCallableID,
+		namedSnapshot.Project.Revision,
+		[]ParameterProposal{{ID: provided.ID, Name: provided.Name, AuthoredExpression: "3"}},
+	)
+	if err != nil {
+		t.Fatalf("SetCallableParameters(deleted) error = %v", err)
+	}
+	if deletedSnapshot.Project.Revision != namedSnapshot.Project.Revision+1 {
+		t.Fatalf("bulk delete revision = %d, want one new revision", deletedSnapshot.Project.Revision)
+	}
+	if !reflect.DeepEqual(deletedSnapshot.Callables[0].ParameterIDs, []string{provided.ID}) {
+		t.Fatalf("parameters after bulk delete = %#v", deletedSnapshot.Callables[0].ParameterIDs)
+	}
+	const wantDeletedCode = "import math\n\nclass SettaState:\n    def __init__(state):\n        state.Square_Root__x = 3\n        state.Square_Root = math.sqrt(state.Square_Root__x)\n\nstate = SettaState()"
+	requireMaterializedGeneratedCode(t, deletedSnapshot, writer, wantDeletedCode, "bulk delete")
+
+	// Proposing exactly what the store already holds publishes nothing.
+	repeated, err := store.SetCallableParameters(
+		context.Background(),
+		initialProjectID,
+		squareRootCallableID,
+		deletedSnapshot.Project.Revision,
+		[]ParameterProposal{{ID: provided.ID, Name: provided.Name, AuthoredExpression: "3"}},
+	)
+	if err != nil {
+		t.Fatalf("SetCallableParameters(repeated) error = %v", err)
+	}
+	if !reflect.DeepEqual(repeated, deletedSnapshot) {
+		t.Fatalf("repeating the canonical list published revision %d", repeated.Project.Revision)
+	}
+}
+
+func TestStoreRejectsInvalidParameterListsWithoutPublishing(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	store := newCommittedStoreForTest(t, writer)
+	committed := store.Snapshot()
+	committedCode := writer.code
+	provided := committed.Parameters[0]
+	revision := committed.Project.Revision
+
+	for _, testCase := range []struct {
+		name      string
+		revision  int
+		proposals []ParameterProposal
+		wantErr   error
+	}{
+		{
+			name:      "stale revision",
+			revision:  revision - 1,
+			proposals: []ParameterProposal{{ID: provided.ID, Name: provided.Name, AuthoredExpression: "3"}},
+			wantErr:   ErrProjectRevisionStale,
+		},
+		{
+			name:      "renamed provider parameter",
+			revision:  revision,
+			proposals: []ParameterProposal{{ID: provided.ID, Name: "renamed", AuthoredExpression: ""}},
+			wantErr:   ErrParameterListInvalid,
+		},
+		{
+			name:      "repeated id",
+			revision:  revision,
+			proposals: []ParameterProposal{{ID: provided.ID, Name: provided.Name}, {ID: provided.ID, Name: provided.Name}},
+			wantErr:   ErrParameterListInvalid,
+		},
+		{
+			name:      "id colliding with the callable",
+			revision:  revision,
+			proposals: []ParameterProposal{{ID: squareRootCallableID, Name: "scale"}},
+			wantErr:   ErrParameterListInvalid,
+		},
+		{
+			name:      "keyword name",
+			revision:  revision,
+			proposals: []ParameterProposal{{ID: "parameter:authored:1", Name: "class"}},
+			wantErr:   ErrParameterNameInvalid,
+		},
+		{
+			name:      "name that is not an identifier",
+			revision:  revision,
+			proposals: []ParameterProposal{{ID: "parameter:authored:1", Name: "2 scale"}},
+			wantErr:   ErrParameterNameInvalid,
+		},
+		{
+			name:      "authored expression carrying a statement separator",
+			revision:  revision,
+			proposals: []ParameterProposal{{ID: "parameter:authored:1", Name: "scale", AuthoredExpression: "2; state.other = 4"}},
+			wantErr:   ErrParameterExpressionInvalid,
+		},
+		{
+			// One call cannot take the same keyword argument twice, so this candidate
+			// would render a module Python refuses to parse.
+			name:     "two records claiming one name",
+			revision: revision,
+			proposals: []ParameterProposal{
+				{ID: "parameter:authored:1", Name: "scale", AuthoredExpression: "2"},
+				{ID: "parameter:authored:2", Name: "scale", AuthoredExpression: "3"},
+			},
+			wantErr: ErrParameterNameInvalid,
+		},
+		{
+			// The quieter half of the same defect: both records render one generated
+			// path, so one assignment would silently overwrite the other.
+			name:     "authored record claiming the resolved signature's name",
+			revision: revision,
+			proposals: []ParameterProposal{
+				{ID: provided.ID, Name: provided.Name, AuthoredExpression: "3"},
+				{ID: "parameter:authored:1", Name: provided.Name, AuthoredExpression: "4"},
+			},
+			wantErr: ErrParameterNameInvalid,
+		},
+		{
+			name:      "more records than one call takes",
+			revision:  revision,
+			proposals: proposalsBeyondTheAcceptedBound(),
+			wantErr:   ErrParameterListInvalid,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := store.SetCallableParameters(
+				context.Background(),
+				initialProjectID,
+				squareRootCallableID,
+				testCase.revision,
+				testCase.proposals,
+			)
+			if !errors.Is(err, testCase.wantErr) {
+				t.Fatalf("SetCallableParameters() error = %v, want %v", err, testCase.wantErr)
+			}
+			requireUnchangedStore(t, store, writer, committed, committedCode)
+		})
+	}
+}
+
+func TestStoreAppliesTheCompleteAuthoredPythonTarget(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	store := newCommittedStoreForTest(t, writer)
+	committed := store.Snapshot()
+
+	authored, err := store.SetPythonTarget(
+		context.Background(),
+		initialProjectID,
+		committed.Project.Revision,
+		"import math\nimport os",
+		"state = SettaState()\nprint(state)",
+	)
+	if err != nil {
+		t.Fatalf("SetPythonTarget() error = %v", err)
+	}
+	if authored.Project.Revision != committed.Project.Revision+1 {
+		t.Fatalf("target revision = %d, want %d", authored.Project.Revision, committed.Project.Revision+1)
+	}
+	if authored.PythonTarget.Prefix != "import math\nimport os" ||
+		authored.PythonTarget.Suffix != "state = SettaState()\nprint(state)" {
+		t.Fatalf("canonical target = %#v", authored.PythonTarget)
+	}
+	// The generated body is the store's own; only the text around it moved.
+	if authored.GeneratedCode.Body != committed.GeneratedCode.Body {
+		t.Fatalf("generated body = %q, want the canonical body unchanged", authored.GeneratedCode.Body)
+	}
+	wantCode := "import math\nimport os\n\n" + committed.GeneratedCode.Body + "\n\nstate = SettaState()\nprint(state)"
+	requireMaterializedGeneratedCode(t, authored, writer, wantCode, "authored target")
+
+	// Either region may be deleted outright, exactly as the reference permits.
+	emptied, err := store.SetPythonTarget(
+		context.Background(),
+		initialProjectID,
+		authored.Project.Revision,
+		"",
+		"",
+	)
+	if err != nil {
+		t.Fatalf("SetPythonTarget(emptied) error = %v", err)
+	}
+	requireMaterializedGeneratedCode(t, emptied, writer, "\n\n"+committed.GeneratedCode.Body+"\n\n", "emptied target")
+
+	// Proposing exactly what the store already holds publishes nothing.
+	repeated, err := store.SetPythonTarget(
+		context.Background(),
+		initialProjectID,
+		emptied.Project.Revision,
+		"",
+		"",
+	)
+	if err != nil {
+		t.Fatalf("SetPythonTarget(repeated) error = %v", err)
+	}
+	if !reflect.DeepEqual(repeated, emptied) {
+		t.Fatalf("repeating the canonical target published revision %d", repeated.Project.Revision)
+	}
+}
+
+func TestStoreRejectsInvalidPythonTargetsWithoutPublishing(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	store := newCommittedStoreForTest(t, writer)
+	committed := store.Snapshot()
+	committedCode := writer.code
+	revision := committed.Project.Revision
+
+	for _, testCase := range []struct {
+		name      string
+		projectID string
+		revision  int
+		prefix    string
+		suffix    string
+		wantErr   error
+	}{
+		{
+			name:      "unknown project",
+			projectID: "project:other",
+			revision:  revision,
+			prefix:    "import os",
+			suffix:    committed.PythonTarget.Suffix,
+			wantErr:   ErrProjectNotFound,
+		},
+		{
+			name:      "stale revision",
+			projectID: initialProjectID,
+			revision:  revision - 1,
+			prefix:    "import os",
+			suffix:    committed.PythonTarget.Suffix,
+			wantErr:   ErrProjectRevisionStale,
+		},
+		{
+			name:      "prefix carrying NUL",
+			projectID: initialProjectID,
+			revision:  revision,
+			prefix:    "import os\x00",
+			suffix:    committed.PythonTarget.Suffix,
+			wantErr:   ErrPythonTargetInvalid,
+		},
+		{
+			name:      "suffix beyond the accepted bound",
+			projectID: initialProjectID,
+			revision:  revision,
+			prefix:    committed.PythonTarget.Prefix,
+			suffix:    strings.Repeat("x", maxPythonTargetBytes+1),
+			wantErr:   ErrPythonTargetInvalid,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := store.SetPythonTarget(
+				context.Background(),
+				testCase.projectID,
+				testCase.revision,
+				testCase.prefix,
+				testCase.suffix,
+			)
+			if !errors.Is(err, testCase.wantErr) {
+				t.Fatalf("SetPythonTarget() error = %v, want %v", err, testCase.wantErr)
+			}
+			requireUnchangedStore(t, store, writer, committed, committedCode)
+		})
+	}
+}
+
+func TestStoreReplacesAuthoredParametersWhenANewCallableIsCommitted(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	store := newCommittedStoreForTest(t, writer)
+	committed := store.Snapshot()
+
+	authored, err := store.SetCallableParameters(
+		context.Background(),
+		initialProjectID,
+		squareRootCallableID,
+		committed.Project.Revision,
+		[]ParameterProposal{
+			{ID: committed.Parameters[0].ID, Name: committed.Parameters[0].Name},
+			{ID: "parameter:authored:scale", Name: "scale", AuthoredExpression: "2"},
+		},
+	)
+	if err != nil {
+		t.Fatalf("SetCallableParameters() error = %v", err)
+	}
+
+	recommitted, err := store.CommitCallable(context.Background(), initialProjectID, squareRootCallableID, "math.floor")
+	if err != nil {
+		t.Fatalf("CommitCallable(math.floor) error = %v", err)
+	}
+	if len(recommitted.Parameters) != 1 || recommitted.Parameters[0].NameEditable {
+		t.Fatalf("parameters after recommit = %#v, want the resolved signature alone", recommitted.Parameters)
+	}
+	if strings.Contains(recommitted.GeneratedCode.Code, "scale") {
+		t.Fatalf("generated code after recommit = %q, want the authored record gone", recommitted.GeneratedCode.Code)
+	}
+	if recommitted.Project.Revision != authored.Project.Revision+1 {
+		t.Fatalf("recommit revision = %d, want one new revision", recommitted.Project.Revision)
 	}
 }
 
@@ -253,7 +653,7 @@ func requireCallableReconciliation(t *testing.T, snapshot contracts.ProjectSnaps
 		t.Fatalf("callable revision = %d, want 2", snapshot.Project.Revision)
 	}
 	callable := snapshot.Callables[0]
-	if callable.AuthoredExpression != "math.sqrt" || !reflect.DeepEqual(callable.ParameterIDs, []string{"parameter:square-root:1"}) {
+	if callable.AuthoredExpression != "math.sqrt" || !reflect.DeepEqual(callable.ParameterIDs, []string{"parameter:square-root:provider"}) {
 		t.Fatalf("callable after commit = %#v", callable)
 	}
 	if len(snapshot.Parameters) != 1 {
@@ -264,11 +664,70 @@ func requireCallableReconciliation(t *testing.T, snapshot contracts.ProjectSnaps
 func requireReconciledParameter(t *testing.T, snapshot contracts.ProjectSnapshotV1) {
 	t.Helper()
 	parameter := snapshot.Parameters[0]
-	if parameter.ID != "parameter:square-root:1" || parameter.Name != "x" ||
+	if parameter.ID != "parameter:square-root:provider" || parameter.Name != "x" || parameter.NameEditable ||
 		parameter.PassingStyle != contracts.ParameterPassingStylePositionalOnlyV1 ||
 		parameter.TypeAnnotation != "float" || parameter.Default != nil || parameter.AuthoredExpression != "" {
 		t.Fatalf("parameter after callable commit = %#v", parameter)
 	}
+}
+
+func requireAuthoredParameterDefaults(t *testing.T, parameter contracts.ParameterV1) {
+	t.Helper()
+	if !parameter.NameEditable ||
+		parameter.PassingStyle != contracts.ParameterPassingStylePositionalOrKeywordV1 ||
+		parameter.TypeAnnotation != "" || parameter.Default != nil {
+		t.Fatalf("authored parameter = %#v, want the backend's own authored defaults", parameter)
+	}
+}
+
+// One valid record past the bound the store accepts, so the list itself is what the
+// store refuses rather than anything about the records in it.
+func proposalsBeyondTheAcceptedBound() []ParameterProposal {
+	proposals := make([]ParameterProposal, 0, maxProposedParameters+1)
+	for index := 0; index <= maxProposedParameters; index++ {
+		proposals = append(proposals, ParameterProposal{
+			ID:   fmt.Sprintf("parameter:authored:%d", index),
+			Name: fmt.Sprintf("scale_%d", index),
+		})
+	}
+	return proposals
+}
+
+// The store's own two-step demo state: the shipped callable committed through the
+// provider path, which is where every parameter-list case starts.
+func newCommittedStoreForTest(t *testing.T, writer GeneratedFileWriter) *Store {
+	t.Helper()
+	store, _ := newStoreForTest(t, writer, func(_ context.Context, _ SignatureRequest) (CallableSignature, error) {
+		return squareRootSignature(), nil
+	})
+	if _, err := store.CommitCallable(context.Background(), initialProjectID, squareRootCallableID, "math.sqrt"); err != nil {
+		t.Fatalf("CommitCallable() error = %v", err)
+	}
+	return store
+}
+
+// Editing one value is the same complete-list transaction as every other change,
+// so tests that only care about a value send the list the snapshot already holds.
+func setParameterExpression(
+	store *Store,
+	snapshot contracts.ProjectSnapshotV1,
+	expression string,
+) (contracts.ProjectSnapshotV1, error) {
+	proposals := make([]ParameterProposal, 0, len(snapshot.Parameters))
+	for _, parameter := range snapshot.Parameters {
+		proposals = append(proposals, ParameterProposal{
+			ID:                 parameter.ID,
+			Name:               parameter.Name,
+			AuthoredExpression: expression,
+		})
+	}
+	return store.SetCallableParameters(
+		context.Background(),
+		snapshot.Project.ID,
+		snapshot.Callables[0].ID,
+		snapshot.Project.Revision,
+		proposals,
+	)
 }
 
 func requireMaterializedGeneratedCode(

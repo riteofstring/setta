@@ -13,14 +13,26 @@ export {
   WORKSPACE_CODE_SECTION_LANGUAGES,
   WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH,
   WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH,
+  WORKSPACE_CODE_SECTION_MODES,
   createWorkspaceCodeSectionData,
 } from "./builtin/codeSectionData";
 export type {
   WorkspaceCodeSectionData,
+  WorkspaceCodeSectionDataOverrides,
+  WorkspaceCodeSectionDiagnostic,
+  WorkspaceCodeSectionDiagnosticSeverity,
   WorkspaceCodeSectionLanguage,
+  WorkspaceCodeSectionMode,
+  WorkspaceGeneratedRegion,
 } from "./builtin/codeSectionData";
 export { createWorkspaceCodeSection } from "./builtin/codeSectionKind";
 export type { WorkspaceCodeSectionRegistration } from "./builtin/codeSectionKind";
+export type {
+  WorkspaceCodeSectionCompletionOption,
+  WorkspaceCodeSectionCompletionProvider,
+  WorkspaceCodeSectionCompletionRequest,
+  WorkspaceCodeSectionCompletionResult,
+} from "./builtin/codeSectionCompletion";
 export {
   getWorkspaceTextSectionData,
   setWorkspaceTextSectionData,
@@ -142,7 +154,10 @@ export type { SliderValueControlProps } from "./controls/slider/SliderValueContr
 export { SwitchValueControl } from "./controls/switch/SwitchValueControl";
 export type { SwitchValueControlProps } from "./controls/switch/SwitchValueControl";
 export { TextValueEditor } from "./controls/text/TextValueEditor";
-export type { TextValueEditorProps } from "./controls/text/TextValueEditor";
+export type {
+  TextValueEditorPresentation,
+  TextValueEditorProps,
+} from "./controls/text/TextValueEditor";
 export type {
   TextValueCompletionOption,
   TextValueCompletionProvider,
@@ -155,6 +170,7 @@ export { setWorkspaceColorMode } from "./document/appearance";
 export { useWorkspaceCapabilities } from "./document/capabilities";
 export type { WorkspaceCapabilitiesState } from "./document/capabilities";
 export type { WorkspaceDocumentSubscription } from "./document/documentChangeCallback";
+export { commitWorkspaceDocument } from "./document/loadWorkspaceDocument";
 export { GROUP_SECTION_KIND } from "./document/documentSelectors";
 export { setItemData } from "./document/itemData";
 export {
@@ -176,10 +192,12 @@ export type {
   MetaControlSectionPresentation,
   SectionKindDefinition,
   WorkspaceInspectorContributionContext,
+  WorkspaceItemAreaPresentation,
   WorkspaceItemFactory,
   WorkspaceItemFactoryContext,
   WorkspaceItemSearchContext,
   WorkspaceItemSearchableText,
+  WorkspaceItemToolbarMode,
   WorkspaceSectionKindIconProps,
 } from "./document/sectionKindRegistry";
 export { useWorkspaceAppearance } from "./document/stores";

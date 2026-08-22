@@ -16,8 +16,8 @@ import {
   PROVIDER_LIFECYCLE_STATE_PENDING_V1,
   PROVIDER_LIFECYCLE_STATE_READY_V1,
   type CallableV1,
-  type CallableCompletionItemV1,
-  type CallableCompletionResponseV1,
+  type CompletionItemV1,
+  type CompletionResponseV1,
   type APIErrorCodeV1,
   type DiagnosticSeverityV1,
   type DiagnosticV1,
@@ -92,26 +92,21 @@ export function parseErrorResponseV1(value: unknown): ErrorResponseV1 {
   };
 }
 
-export function parseCallableCompletionResponseV1(
+export function parseCompletionResponseV1(
   value: unknown,
-): CallableCompletionResponseV1 {
-  const response = readClosedRecord(value, "callable completion response", [
-    "items",
-  ]);
+): CompletionResponseV1 {
+  const response = readClosedRecord(value, "completion response", ["items"]);
   return {
     items: readArray(
       response.items,
-      "callable completion response.items",
-      parseCallableCompletionItem,
+      "completion response.items",
+      parseCompletionItem,
     ),
   };
 }
 
-function parseCallableCompletionItem(
-  value: unknown,
-  index: number,
-): CallableCompletionItemV1 {
-  const field = `callable completion response.items[${index}]`;
+function parseCompletionItem(value: unknown, index: number): CompletionItemV1 {
+  const field = `completion response.items[${index}]`;
   const record = readClosedRecord(value, field, ["label", "insertText"]);
   return {
     label: readNonBlankString(record.label, `${field}.label`),
@@ -172,6 +167,7 @@ function parseParameters(value: unknown): ParameterV1[] {
     const record = readClosedRecord(entry, field, [
       "id",
       "name",
+      "nameEditable",
       "passingStyle",
       "typeAnnotation",
       "default",
@@ -180,6 +176,7 @@ function parseParameters(value: unknown): ParameterV1[] {
     return {
       id: readString(record.id, `${field}.id`),
       name: readString(record.name, `${field}.name`),
+      nameEditable: readBoolean(record.nameEditable, `${field}.nameEditable`),
       passingStyle: parsePassingStyle(
         record.passingStyle,
         `${field}.passingStyle`,
@@ -234,13 +231,17 @@ function parseDiagnostics(value: unknown): DiagnosticV1[] {
       "id",
       "severity",
       "message",
+      "start",
+      "end",
       "targetId",
     ]);
     return {
       id: readString(record.id, `${field}.id`),
       severity: parseDiagnosticSeverity(record.severity, `${field}.severity`),
       message: readString(record.message, `${field}.message`),
-      targetId: readString(record.targetId, `${field}.targetId`),
+      start: readInteger(record.start, `${field}.start`),
+      end: readInteger(record.end, `${field}.end`),
+      targetId: readStringOrNull(record.targetId, `${field}.targetId`),
     };
   });
 }
@@ -362,21 +363,29 @@ function parseDiagnosticSeverity(
   }
 }
 
+// Every code the generated union carries, listed once. This reader decides membership rather than
+// mapping each code to its own behavior, so the codes belong in a list rather than in branches.
+const API_ERROR_CODES_V1: ReadonlyArray<APIErrorCodeV1> = [
+  "invalid_request",
+  "method_not_allowed",
+  "not_found",
+  "invalid_callable",
+  "invalid_parameter_expression",
+  "invalid_parameter_name",
+  "invalid_python_target",
+  "revision_conflict",
+  "unsupported_signature",
+  "provider_unavailable",
+  "internal",
+];
+
 function parseApiErrorCode(value: unknown): APIErrorCodeV1 {
   const code = readString(value, "error response.error.code");
-  switch (code) {
-    case "invalid_request":
-    case "method_not_allowed":
-    case "not_found":
-    case "invalid_callable":
-    case "invalid_parameter_expression":
-    case "unsupported_signature":
-    case "provider_unavailable":
-    case "internal":
-      return code;
-    default:
-      fail("error response.error.code", "is not supported by V1");
+  const supported = API_ERROR_CODES_V1.find((candidate) => candidate === code);
+  if (supported === undefined) {
+    fail("error response.error.code", "is not supported by V1");
   }
+  return supported;
 }
 
 function validateSnapshotRelationships(snapshot: ProjectSnapshotV1): void {
@@ -391,7 +400,11 @@ function validateSnapshotRelationships(snapshot: ProjectSnapshotV1): void {
     targetIds,
     new TextEncoder().encode(snapshot.generatedCode.code).length,
   );
-  validateDiagnostics(snapshot.diagnostics, targetIds);
+  validateDiagnostics(
+    snapshot.diagnostics,
+    targetIds,
+    new TextEncoder().encode(snapshot.generatedCode.code),
+  );
 }
 
 function validateSnapshotRoot(snapshot: ProjectSnapshotV1): void {
@@ -418,7 +431,11 @@ function validateParameters(
     if (targetIds.has(parameter.id)) {
       fail(`${field}.id`, "must be unique");
     }
-    requireNonBlank(`${field}.name`, parameter.name);
+    // An app-authored record may still be unnamed, which the backend renders as no
+    // parameter at all. Surrounding whitespace is not a name anyone meant.
+    if (parameter.name !== parameter.name.trim()) {
+      fail(`${field}.name`, "must not include surrounding whitespace");
+    }
     targetIds.add(parameter.id);
     parameterIds.add(parameter.id);
   }
@@ -494,6 +511,7 @@ function validateSourceRange(
 function validateDiagnostics(
   diagnostics: DiagnosticV1[],
   targetIds: Set<string>,
+  code: Uint8Array,
 ): void {
   const diagnosticIds = new Set<string>();
   for (const [index, diagnostic] of diagnostics.entries()) {
@@ -503,11 +521,43 @@ function validateDiagnostics(
       fail(`${field}.id`, "must be unique");
     }
     requireNonBlank(`${field}.message`, diagnostic.message);
-    if (!targetIds.has(diagnostic.targetId)) {
+    validateDiagnosticRange(field, diagnostic, code);
+    if (diagnostic.targetId !== null && !targetIds.has(diagnostic.targetId)) {
       fail(`${field}.targetId`, "must reference a stable target ID");
     }
     diagnosticIds.add(diagnostic.id);
   }
+}
+
+function validateDiagnosticRange(
+  field: string,
+  diagnostic: DiagnosticV1,
+  code: Uint8Array,
+): void {
+  if (diagnostic.start < 0) {
+    fail(`${field}.start`, "must not be negative");
+  }
+  if (diagnostic.end < diagnostic.start) {
+    fail(`${field}.end`, "must not precede start");
+  }
+  if (diagnostic.end > code.length) {
+    fail(`${field}.end`, "must not exceed generated code length");
+  }
+  if (!isUtf8ByteBoundary(code, diagnostic.start)) {
+    fail(`${field}.start`, "must be on a UTF-8 byte boundary");
+  }
+  if (!isUtf8ByteBoundary(code, diagnostic.end)) {
+    fail(`${field}.end`, "must be on a UTF-8 byte boundary");
+  }
+}
+
+function isUtf8ByteBoundary(code: Uint8Array, offset: number): boolean {
+  const byte = code[offset];
+  return (
+    offset === 0 ||
+    offset === code.length ||
+    (byte !== undefined && (byte & 0b1100_0000) !== 0b1000_0000)
+  );
 }
 
 function readClosedRecord(
@@ -582,6 +632,13 @@ function readStringOrNull(value: unknown, field: string): string | null {
     return null;
   }
   return readString(value, field);
+}
+
+function readBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") {
+    fail(field, "must be a boolean");
+  }
+  return value;
 }
 
 function readInteger(value: unknown, field: string): number {

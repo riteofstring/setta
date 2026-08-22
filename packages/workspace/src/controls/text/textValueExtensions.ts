@@ -8,7 +8,7 @@ import {
   type CompletionContext,
   type CompletionResult,
 } from "@codemirror/autocomplete";
-import { EditorView, keymap } from "@codemirror/view";
+import { EditorView, keymap, tooltips } from "@codemirror/view";
 import {
   getTextValueLanguageExtensions,
   type TextValueLanguage,
@@ -20,10 +20,11 @@ import type {
 
 // The reference's `getExtensions` trimmed to the paths its text value editor reaches: line
 // wrapping, the declared language pack, the single-line transaction filter, the optional
-// consumer-owned Enter commit seam, and the Escape binding. Autocomplete, tooltip parents, app
-// undo/redo shortcut overrides, and the tab-scope
-// focus navigation are application services and stay application-side; without a completion
-// source Escape always reports (the reference consults `completionStatus` first).
+// consumer-owned Enter commit seam, the Escape binding, the reference's Tab-accepts-completion
+// binding, and the reference's canvas tooltip parent. App undo/redo shortcut overrides and the
+// reference's tab-scope focus manager are application services and stay application-side, so Tab
+// outside an open popup remains the browser's own focus move; without a completion source Escape
+// always reports (the reference consults `completionStatus` first).
 
 // `@uiw/react-codemirror` otherwise enables its bundled autocompletion extension by default.
 // Keep that implicit source off. A supplied consumer-neutral provider installs the narrow
@@ -45,6 +46,10 @@ type TextValueExtensionsOptions = {
   isDisabled?: () => boolean;
   completionProvider?: TextValueCompletionProvider;
   completionRequests?: TextValueCompletionRequests;
+  // The canvas's own tooltip parent, resolved from the host rather than passed by a consumer. It
+  // is null only for an editor rendered with no canvas, which is also a tree with no section
+  // clipping the popup this would move out of.
+  tooltipParent: HTMLElement | null;
 };
 
 type TextValueCompletionRequests = {
@@ -63,6 +68,14 @@ function hasModifier(event: KeyboardEvent) {
 
 function isEnter(event: KeyboardEvent) {
   return event.key === "Enter" || event.code === "Enter";
+}
+
+function isEscape(event: KeyboardEvent) {
+  return event.key === "Escape" || event.code === "Escape";
+}
+
+function isTab(event: KeyboardEvent) {
+  return event.key === "Tab" || event.code === "Tab";
 }
 
 function getEnterCommit(
@@ -92,11 +105,15 @@ export function getTextValueExtensions({
   isDisabled,
   completionProvider,
   completionRequests,
+  tooltipParent,
 }: TextValueExtensionsOptions): Array<Extension> {
   const extensions: Array<Extension> = [];
   const shouldWrap = wrapLines ?? !singleLine;
   if (shouldWrap) {
     extensions.push(EditorView.lineWrapping);
+  }
+  if (tooltipParent) {
+    extensions.push(tooltips({ parent: tooltipParent }));
   }
   extensions.push(...getTextValueLanguageExtensions(language));
   if (singleLine) {
@@ -124,12 +141,12 @@ export function getTextValueExtensions({
     Prec.highest(
       EditorView.domEventHandlers({
         keydown: (event, view) => {
-          const completionResult = handleCompletionKeydown(
-            event,
-            view,
-            completionProvider !== undefined,
-            isDisabled ?? (() => false),
-          );
+          const completionResult = handleCompletionKeydown(event, view, {
+            hasCompletionProvider: completionProvider !== undefined,
+            isDisabled: isDisabled ?? (() => false),
+            onCommit,
+            singleLine,
+          });
           if (completionResult !== null) {
             return completionResult;
           }
@@ -146,11 +163,24 @@ export function getTextValueExtensions({
   return extensions;
 }
 
+// The reference installs the consumer's own bindings ahead of `completionKeymap`, so a visible
+// popup never takes a key the consumer declared. Tab is the popup's accept key and Escape closes
+// it, but an unmodified Enter belongs to a declared commit whether or not the popup is showing —
+// the reference's Callable search commits the draft it is displaying and the popup does not
+// consume that Enter. A control that declares no commit keeps CodeMirror's Enter-accepts
+// behavior, which is what the reference's ordinary parameter rows have.
 function handleCompletionKeydown(
   event: KeyboardEvent,
   view: EditorView,
-  hasCompletionProvider: boolean,
-  isDisabled: () => boolean,
+  {
+    hasCompletionProvider,
+    isDisabled,
+    onCommit,
+    singleLine,
+  }: Pick<TextValueExtensionsOptions, "onCommit" | "singleLine"> & {
+    hasCompletionProvider: boolean;
+    isDisabled: () => boolean;
+  },
 ): boolean | null {
   if (!hasCompletionProvider || completionStatus(view.state) !== "active") {
     return null;
@@ -158,26 +188,51 @@ function handleCompletionKeydown(
   if (isDisabled()) {
     return handleDisabledCompletionKeydown(event, view);
   }
-  if (isEnter(event)) {
-    if (isComposing(event, view)) {
-      event.stopPropagation();
-      return true;
-    }
+  if (isTab(event) && !hasModifier(event)) {
     return runCompletionCommand(event, view, acceptCompletion);
   }
-  if (event.key === "Escape" || event.code === "Escape") {
+  if (isEscape(event)) {
     return runCompletionCommand(event, view, closeCompletion);
   }
+  if (isEnter(event)) {
+    return handleCompletionEnter(event, view, {
+      isDisabled,
+      onCommit,
+      singleLine,
+    });
+  }
   // Arrow and paging bindings stay with CodeMirror's completion keymap. The editor's ordinary
-  // Enter commit and Escape-to-section behavior never run while the popup is visible.
+  // Escape-to-section behavior never runs while the popup is visible.
   return false;
+}
+
+function handleCompletionEnter(
+  event: KeyboardEvent,
+  view: EditorView,
+  {
+    isDisabled,
+    onCommit,
+    singleLine,
+  }: Pick<TextValueExtensionsOptions, "isDisabled" | "onCommit" | "singleLine">,
+): boolean | null {
+  if (isComposing(event, view)) {
+    event.stopPropagation();
+    return true;
+  }
+  if (!getEnterCommit(event, view, { singleLine, onCommit, isDisabled })) {
+    return runCompletionCommand(event, view, acceptCompletion);
+  }
+  // The declared commit owns this Enter. Close the popup first, so the commit path sends the
+  // draft the field is showing rather than one an accept would have replaced behind it.
+  closeCompletion(view);
+  return null;
 }
 
 function handleDisabledCompletionKeydown(
   event: KeyboardEvent,
   view: EditorView,
 ): boolean {
-  if (event.key === "Escape" || event.code === "Escape") {
+  if (isEscape(event)) {
     return runCompletionCommand(event, view, closeCompletion);
   }
   if (isEnter(event)) {
@@ -210,7 +265,7 @@ function handleEditorKeydown(
     "isDisabled" | "onCommit" | "onEscape" | "singleLine"
   >,
 ): boolean {
-  if (event.key === "Escape" || event.code === "Escape") {
+  if (isEscape(event)) {
     event.stopPropagation();
     onEscape();
     return true;

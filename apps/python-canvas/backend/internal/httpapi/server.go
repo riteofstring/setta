@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/setta/python-canvas/backend/internal/contracts"
@@ -37,10 +36,26 @@ type ProjectService interface {
 		string,
 		string,
 		int,
-	) ([]project.CallableCompletionItem, error)
-	SetParameterExpression(
+	) ([]project.CompletionItem, error)
+	CompletePythonTarget(
 		context.Context,
 		string,
+		project.PythonTargetCompletionRegion,
+		string,
+		string,
+		int,
+	) ([]project.CompletionItem, error)
+	SetCallableParameters(
+		context.Context,
+		string,
+		string,
+		int,
+		[]project.ParameterProposal,
+	) (contracts.ProjectSnapshotV1, error)
+	SetPythonTarget(
+		context.Context,
+		string,
+		int,
 		string,
 		string,
 	) (contracts.ProjectSnapshotV1, error)
@@ -59,6 +74,14 @@ type callableCompletionPayload struct {
 	CursorOffsetUTF16  *int    `json:"cursorOffsetUtf16"`
 }
 
+type pythonTargetCompletionPayload struct {
+	ProjectID         string  `json:"projectId"`
+	Region            *string `json:"region"`
+	Prefix            *string `json:"prefix"`
+	Suffix            *string `json:"suffix"`
+	CursorOffsetUTF16 *int    `json:"cursorOffsetUtf16"`
+}
+
 func (payload callableCompletionPayload) toContract() (contracts.CallableCompletionRequestV1, bool) {
 	if payload.AuthoredExpression == nil || payload.CursorOffsetUTF16 == nil {
 		return contracts.CallableCompletionRequestV1{}, false
@@ -68,6 +91,19 @@ func (payload callableCompletionPayload) toContract() (contracts.CallableComplet
 		SectionID:          payload.SectionID,
 		AuthoredExpression: *payload.AuthoredExpression,
 		CursorOffsetUTF16:  *payload.CursorOffsetUTF16,
+	}, true
+}
+
+func (payload pythonTargetCompletionPayload) toContract() (contracts.PythonTargetCompletionRequestV1, bool) {
+	if payload.Region == nil || payload.Prefix == nil || payload.Suffix == nil || payload.CursorOffsetUTF16 == nil {
+		return contracts.PythonTargetCompletionRequestV1{}, false
+	}
+	return contracts.PythonTargetCompletionRequestV1{
+		ProjectID:         payload.ProjectID,
+		Region:            contracts.PythonTargetCompletionRegionV1(*payload.Region),
+		Prefix:            *payload.Prefix,
+		Suffix:            *payload.Suffix,
+		CursorOffsetUTF16: *payload.CursorOffsetUTF16,
 	}, true
 }
 
@@ -82,24 +118,64 @@ func (payload commitCallablePayload) toContract() (contracts.CommitCallableReque
 	}, true
 }
 
-type setParameterExpressionPayload struct {
-	ProjectID          string  `json:"projectId"`
+type parameterProposalPayload struct {
+	ID                 string  `json:"id"`
+	Name               *string `json:"name"`
 	AuthoredExpression *string `json:"authoredExpression"`
 }
 
-func (payload setParameterExpressionPayload) toContract() (contracts.SetParameterExpressionRequestV1, bool) {
-	if payload.AuthoredExpression == nil {
-		return contracts.SetParameterExpressionRequestV1{}, false
+type setCallableParametersPayload struct {
+	ProjectID        string                      `json:"projectId"`
+	CallableID       string                      `json:"callableId"`
+	ExpectedRevision *int                        `json:"expectedRevision"`
+	Parameters       *[]parameterProposalPayload `json:"parameters"`
+}
+
+func (payload setCallableParametersPayload) toContract() (contracts.SetCallableParametersRequestV1, bool) {
+	if payload.ExpectedRevision == nil || payload.Parameters == nil {
+		return contracts.SetCallableParametersRequestV1{}, false
 	}
-	return contracts.SetParameterExpressionRequestV1{
-		ProjectID:          payload.ProjectID,
-		AuthoredExpression: *payload.AuthoredExpression,
+	parameters := make([]contracts.ParameterProposalV1, 0, len(*payload.Parameters))
+	for _, parameter := range *payload.Parameters {
+		if parameter.Name == nil || parameter.AuthoredExpression == nil {
+			return contracts.SetCallableParametersRequestV1{}, false
+		}
+		parameters = append(parameters, contracts.ParameterProposalV1{
+			ID:                 parameter.ID,
+			Name:               *parameter.Name,
+			AuthoredExpression: *parameter.AuthoredExpression,
+		})
+	}
+	return contracts.SetCallableParametersRequestV1{
+		ProjectID:        payload.ProjectID,
+		CallableID:       payload.CallableID,
+		ExpectedRevision: *payload.ExpectedRevision,
+		Parameters:       parameters,
 	}, true
 }
 
-// NewHandler creates the three V1 routes after validating the current
-// canonical snapshot. Every successful mutation returns the same snapshot
-// shape, so the frontend has one source of truth after each request.
+type setPythonTargetPayload struct {
+	ProjectID        string  `json:"projectId"`
+	ExpectedRevision *int    `json:"expectedRevision"`
+	Prefix           *string `json:"prefix"`
+	Suffix           *string `json:"suffix"`
+}
+
+func (payload setPythonTargetPayload) toContract() (contracts.SetPythonTargetRequestV1, bool) {
+	if payload.ExpectedRevision == nil || payload.Prefix == nil || payload.Suffix == nil {
+		return contracts.SetPythonTargetRequestV1{}, false
+	}
+	return contracts.SetPythonTargetRequestV1{
+		ProjectID:        payload.ProjectID,
+		ExpectedRevision: *payload.ExpectedRevision,
+		Prefix:           *payload.Prefix,
+		Suffix:           *payload.Suffix,
+	}, true
+}
+
+// NewHandler creates the V1 routes after validating the current canonical
+// snapshot. Every successful mutation returns the same snapshot shape, so the
+// frontend has one source of truth after each request.
 func NewHandler(service ProjectService) (http.Handler, error) {
 	if service == nil {
 		return nil, ErrProjectServiceRequired
@@ -116,13 +192,14 @@ func NewHandler(service ProjectService) (http.Handler, error) {
 			handleCallable(response, request, service)
 		case isExactPath(request, contracts.ProjectCallableCompletionsPathV1):
 			handleCallableCompletions(response, request, service)
+		case isExactPath(request, contracts.ProjectPythonTargetCompletionsPathV1):
+			handlePythonTargetCompletions(response, request, service)
+		case isExactPath(request, contracts.ProjectParametersPathV1):
+			handleParameters(response, request, service)
+		case isExactPath(request, contracts.ProjectTargetPathV1):
+			handleTarget(response, request, service)
 		default:
-			parameterID, matchesParameterPath := parameterIDFromRequestPath(request)
-			if !matchesParameterPath {
-				writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "route not found")
-				return
-			}
-			handleParameter(response, request, service, parameterID)
+			writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "route not found")
 		}
 	}), nil
 }
@@ -154,17 +231,52 @@ func handleCallableCompletions(response http.ResponseWriter, request *http.Reque
 		writeCallableCompletionError(response, err)
 		return
 	}
-	result := contracts.CallableCompletionResponseV1{
-		Items: make([]contracts.CallableCompletionItemV1, 0, len(items)),
+	writeCompletionResponse(response, items, "callable")
+}
+
+func handlePythonTargetCompletions(response http.ResponseWriter, request *http.Request, service ProjectService) {
+	if !requireMethod(response, request, http.MethodPost) {
+		return
+	}
+	if !rejectQuery(response, request) {
+		return
+	}
+	var payload pythonTargetCompletionPayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.toContract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "Python target completion request is invalid")
+		return
+	}
+	items, err := service.CompletePythonTarget(
+		request.Context(),
+		body.ProjectID,
+		project.PythonTargetCompletionRegion(body.Region),
+		body.Prefix,
+		body.Suffix,
+		body.CursorOffsetUTF16,
+	)
+	if err != nil {
+		writePythonTargetCompletionError(response, err)
+		return
+	}
+	writeCompletionResponse(response, items, "Python target")
+}
+
+func writeCompletionResponse(response http.ResponseWriter, items []project.CompletionItem, subject string) {
+	result := contracts.CompletionResponseV1{
+		Items: make([]contracts.CompletionItemV1, 0, len(items)),
 	}
 	for _, item := range items {
-		result.Items = append(result.Items, contracts.CallableCompletionItemV1{
+		result.Items = append(result.Items, contracts.CompletionItemV1{
 			Label:      item.Label,
 			InsertText: item.InsertText,
 		})
 	}
 	if err := result.Validate(); err != nil {
-		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, "callable completion response is invalid")
+		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, subject+" completion response is invalid")
 		return
 	}
 	writeJSON(response, http.StatusOK, result)
@@ -209,11 +321,12 @@ func handleCallable(response http.ResponseWriter, request *http.Request, service
 	writeJSON(response, http.StatusOK, snapshot)
 }
 
-func handleParameter(
+// One route owns the callable's whole parameter list, so a reorder, rename,
+// value edit, insertion, and deletion all arrive as the same complete candidate.
+func handleParameters(
 	response http.ResponseWriter,
 	request *http.Request,
 	service ProjectService,
-	parameterID string,
 ) {
 	if !requireMethod(response, request, http.MethodPost) {
 		return
@@ -221,20 +334,65 @@ func handleParameter(
 	if !rejectQuery(response, request) {
 		return
 	}
-	var payload setParameterExpressionPayload
+	var payload setCallableParametersPayload
 	if !decodeJSONBody(response, request, &payload) {
 		return
 	}
-	body, hasAuthoredExpression := payload.toContract()
-	if !hasAuthoredExpression || body.Validate() != nil {
-		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "parameter request is invalid")
+	body, complete := payload.toContract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "parameter list request is invalid")
 		return
 	}
-	snapshot, err := service.SetParameterExpression(
+	proposals := make([]project.ParameterProposal, 0, len(body.Parameters))
+	for _, parameter := range body.Parameters {
+		proposals = append(proposals, project.ParameterProposal{
+			ID:                 parameter.ID,
+			Name:               parameter.Name,
+			AuthoredExpression: parameter.AuthoredExpression,
+		})
+	}
+	snapshot, err := service.SetCallableParameters(
 		request.Context(),
 		body.ProjectID,
-		parameterID,
-		body.AuthoredExpression,
+		body.CallableID,
+		body.ExpectedRevision,
+		proposals,
+	)
+	if err != nil {
+		writeMutationError(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, snapshot)
+}
+
+// One route owns the authored Python on both sides of the generated body, so a
+// prefix edit and a suffix edit are the same complete candidate.
+func handleTarget(
+	response http.ResponseWriter,
+	request *http.Request,
+	service ProjectService,
+) {
+	if !requireMethod(response, request, http.MethodPost) {
+		return
+	}
+	if !rejectQuery(response, request) {
+		return
+	}
+	var payload setPythonTargetPayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.toContract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "Python target request is invalid")
+		return
+	}
+	snapshot, err := service.SetPythonTarget(
+		request.Context(),
+		body.ProjectID,
+		body.ExpectedRevision,
+		body.Prefix,
+		body.Suffix,
 	)
 	if err != nil {
 		writeMutationError(response, err)
@@ -276,13 +434,20 @@ func rejectRequestBody(response http.ResponseWriter, request *http.Request) bool
 func writeMutationError(response http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, project.ErrProjectNotFound),
-		errors.Is(err, project.ErrCallableSectionNotFound),
-		errors.Is(err, project.ErrParameterNotFound):
+		errors.Is(err, project.ErrCallableSectionNotFound):
 		writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "the requested project resource does not exist")
 	case errors.Is(err, project.ErrCallableExpressionInvalid):
 		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidCallableV1, "callable expression is invalid")
 	case errors.Is(err, project.ErrParameterExpressionInvalid):
 		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidParameterExpressionV1, "parameter expression is invalid")
+	case errors.Is(err, project.ErrParameterNameInvalid):
+		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidParameterNameV1, "parameter name is invalid")
+	case errors.Is(err, project.ErrPythonTargetInvalid):
+		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidPythonTargetV1, "Python target is invalid")
+	case errors.Is(err, project.ErrParameterListInvalid):
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "parameter list request is invalid")
+	case errors.Is(err, project.ErrProjectRevisionStale):
+		writeError(response, http.StatusConflict, contracts.APIErrorCodeRevisionConflictV1, "the project changed since this revision")
 	case errors.Is(err, project.ErrUnsupportedSignature):
 		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeUnsupportedSignatureV1, "callable signature is not supported")
 	case errors.Is(err, project.ErrLSPProviderRequired),
@@ -314,24 +479,27 @@ func writeCallableCompletionError(response http.ResponseWriter, err error) {
 	}
 }
 
+func writePythonTargetCompletionError(response http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, project.ErrProjectNotFound):
+		writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "the requested project resource does not exist")
+	case errors.Is(err, project.ErrPythonTargetCompletionInvalid):
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "Python target completion request is invalid")
+	case errors.Is(err, project.ErrLSPProviderRequired),
+		errors.Is(err, project.ErrProviderUnavailable),
+		errors.Is(err, project.ErrStoreClosed),
+		errors.Is(err, context.Canceled),
+		errors.Is(err, context.DeadlineExceeded):
+		writeError(response, http.StatusServiceUnavailable, contracts.APIErrorCodeProviderUnavailableV1, "Basedpyright is unavailable")
+	default:
+		writeError(response, http.StatusInternalServerError, contracts.APIErrorCodeInternalV1, "unable to complete the Python target")
+	}
+}
+
 func isExactPath(request *http.Request, path string) bool {
 	return request.URL.Path == path &&
 		request.URL.RawPath == "" &&
 		request.URL.EscapedPath() == path
-}
-
-func parameterIDFromRequestPath(request *http.Request) (string, bool) {
-	if request.URL.RawPath != "" || request.URL.EscapedPath() != request.URL.Path {
-		return "", false
-	}
-	if !strings.HasPrefix(request.URL.Path, contracts.ProjectParameterPathV1) {
-		return "", false
-	}
-	parameterID := strings.TrimPrefix(request.URL.Path, contracts.ProjectParameterPathV1)
-	if parameterID == "" || strings.Contains(parameterID, "/") {
-		return "", false
-	}
-	return parameterID, true
 }
 
 // ListenLoopback binds only the IPv4 loopback interface.

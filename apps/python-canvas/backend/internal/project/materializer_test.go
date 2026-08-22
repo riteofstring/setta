@@ -36,9 +36,9 @@ func TestTemporaryStoreMaterializesFinalGeneratedFileAndCleansUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CommitCallable() error = %v", err)
 	}
-	_, err = store.SetParameterExpression(context.Background(), initialProjectID, callableSnapshot.Parameters[0].ID, "3")
+	_, err = setParameterExpression(store, callableSnapshot, "3")
 	if err != nil {
-		t.Fatalf("SetParameterExpression() error = %v", err)
+		t.Fatalf("SetCallableParameters() error = %v", err)
 	}
 
 	const wantFinalCode = "import math\n\nclass SettaState:\n    def __init__(state):\n        state.Square_Root__x = 3\n        state.Square_Root = math.sqrt(state.Square_Root__x)\n\nstate = SettaState()"
@@ -51,9 +51,9 @@ func TestTemporaryStoreMaterializesFinalGeneratedFileAndCleansUp(t *testing.T) {
 	if _, err := os.Stat(workspace); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("temporary workspace stat error = %v, want not exist", err)
 	}
-	_, err = store.SetParameterExpression(context.Background(), initialProjectID, callableSnapshot.Parameters[0].ID, "4")
+	_, err = setParameterExpression(store, callableSnapshot, "4")
 	if !errors.Is(err, ErrStoreClosed) {
-		t.Fatalf("SetParameterExpression() after Close error = %v, want closed store", err)
+		t.Fatalf("SetCallableParameters() after Close error = %v, want closed store", err)
 	}
 }
 

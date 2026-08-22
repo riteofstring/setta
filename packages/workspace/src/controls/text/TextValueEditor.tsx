@@ -1,6 +1,7 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
+import { FiAlertCircle } from "react-icons/fi";
 import {
   useEffect,
   useLayoutEffect,
@@ -10,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController";
+import { useCodeMirrorTooltipParent } from "../../canvas/codeMirrorTooltipParent";
 import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { focusSectionAfterEscape } from "../sectionFocus";
@@ -30,25 +32,44 @@ import {
   type TextValueTheme,
 } from "./textValueTheme";
 import { useWorkspaceHost } from "../../workspaceHostContext";
+import type { WorkspaceHost } from "../../workspaceHost";
 import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
 
 // The item-controls milestone's text value editor: the reference's two-layer
 // `TextInputCodeMirror` at the `ParamUI` text presentation, behind the package's controlled
 // string seam. The idle layer is the highlighted dummy; a primary mouse-down capture or a
 // keyboard focus swaps in the live CodeMirror editor, every document change reports once
-// through the host subscription, and Escape returns focus to the owning section. Backend editor
-// services (completion, diagnostics, the waiting spinner) and the reference's error-message
-// plumbing stay application-side. The control disables from the host flag and, package-wide,
+// through the host subscription, and Escape reports to the caller holding the draft before
+// returning focus to the owning section. Backend editor
+// services (completion and the waiting spinner) stay application-side. A section field can carry
+// a caller-owned diagnostic message through the package-owned error presentation, but the package
+// never infers diagnostic content or state. The control disables from the host flag and, package-wide,
 // while item-select mode is active — the reference's interaction-first disabled contract with
 // no blanket opacity treatment.
+//
+// One editor core serves every placement. The public presentations are the parameter row and
+// the compact section field a section renders above its item toolbar (the reference's own
+// callable-first composition); the meta-control placement stays a package-internal seam. The
+// lifecycle, controlled-value path, completion adapter, keymap, activation model, and theme are
+// shared — presentations differ only in their surrounding surface.
 
-export type TextValueEditorProps = {
+// The two supported public placements. `item-row` is the parameter-row control; `section-field`
+// is the compact full-width field a section renders above its item toolbar. Callers state which
+// one they mean; the package never guesses from an identifier or DOM position.
+export type TextValueEditorPresentation = "item-row" | "section-field";
+
+type TextValueEditorBaseProps = {
   ariaLabel: string;
   sectionId: string;
-  itemId: string;
+  controlId: string;
   value: string;
   onValueChange: (nextValue: string) => void;
   onCommit?: (value: string) => void;
+  // Escape abandoned the editor without committing. A caller holding an uncommitted draft
+  // restores its canonical value here, exactly as the reference's callable search does. An open
+  // completion popup takes the first Escape for itself and this never runs for it. The package
+  // still returns focus to the owning section afterwards.
+  onEscape?: () => void;
   placeholder?: string;
   language?: TextValueLanguage | null;
   singleLine?: boolean;
@@ -57,16 +78,39 @@ export type TextValueEditorProps = {
   completionProvider?: TextValueCompletionProvider;
 };
 
-type TextValueEditorCoreProps = Omit<TextValueEditorProps, "itemId"> & {
-  controlId: string;
-  presentation: "item-row" | "meta-control";
+export type TextValueEditorProps =
+  | (TextValueEditorBaseProps & {
+      presentation: "item-row";
+      diagnosticMessage?: never;
+      endAdornment?: never;
+    })
+  | (TextValueEditorBaseProps & {
+      presentation: "section-field";
+      // The package owns the error treatment, indicator, and accessible wiring; the consumer owns
+      // the already-classified complete message. An absent or empty message is the ordinary state.
+      diagnosticMessage?: string;
+      // The package owns the adornment's layout space inside the field surface; the caller owns
+      // its content, semantics, and ARIA. It is never editor value and takes no keyboard behavior.
+      endAdornment?: ReactNode;
+    });
+
+type TextValueEditorCoreProps = TextValueEditorBaseProps & {
+  diagnosticMessage?: string;
+  presentation: TextValueEditorPresentation | "meta-control";
+  endAdornment?: ReactNode;
   metaMinimumHeight?: boolean;
 };
 
 type MetaTextValueEditorProps = Omit<
   TextValueEditorCoreProps,
-  "completionProvider" | "presentation"
+  "completionProvider" | "diagnosticMessage" | "endAdornment" | "presentation"
 >;
+
+type TextValueDiagnosticState = {
+  ariaDescribedBy: string | undefined;
+  descriptionId: string;
+  hasDiagnostic: boolean;
+};
 
 // The reference `ParamUI` class strings for the text control, minus its backend error branch.
 function getItemRowDummyClassName(isDisabled: boolean) {
@@ -87,6 +131,14 @@ const META_CONTROL_REAL_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}
 function getDividerClassName(isSelectingItems: boolean) {
   return `section-value self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingItems ? "peer-focus-within/textinput:border-blue-400" : ""}`;
 }
+
+// The compact section-field surface: one rounded, full-width field whose box geometry, type,
+// focus treatment, and adornment gutter live in the scoped package stylesheet rather than in
+// caller-supplied class strings. The wrapper owns the box and the shared editor class owns the
+// type, so the idle and live layers paint the same field.
+const SECTION_FIELD_WRAPPER_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} setta-workspace-section-field`;
+const SECTION_FIELD_DUMMY_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} setta-workspace-section-field-editor`;
+const SECTION_FIELD_REAL_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} setta-workspace-section-field-editor setta-workspace-section-field-editor-live`;
 
 type TextValuePresentationConfig = {
   dummyClassName: string;
@@ -111,12 +163,38 @@ function getTextValuePresentationConfig(
       wrapperClassName: META_CONTROL_WRAPPER_CLASS_NAME,
     };
   }
+  if (presentation === "section-field") {
+    return {
+      dummyClassName: SECTION_FIELD_DUMMY_CLASS_NAME,
+      realClassName: SECTION_FIELD_REAL_CLASS_NAME,
+      dummyIdSuffix: "SectionField",
+      showDivider: false,
+      wrapperClassName: SECTION_FIELD_WRAPPER_CLASS_NAME,
+    };
+  }
   return {
     dummyClassName: getItemRowDummyClassName(isDisabled),
     realClassName: ITEM_ROW_REAL_CLASS_NAME,
     dummyIdSuffix: "ItemValueInput",
     showDivider: true,
     wrapperClassName: null,
+  };
+}
+
+function getTextValueDiagnosticState(
+  host: WorkspaceHost,
+  presentation: TextValueEditorCoreProps["presentation"],
+  diagnosticMessage: string,
+  sectionId: string,
+  controlId: string,
+): TextValueDiagnosticState {
+  const hasDiagnostic =
+    presentation === "section-field" && diagnosticMessage.trim() !== "";
+  const descriptionId = `${getWorkspaceHostDomId(host)}-${sectionId}-${controlId}-SectionFieldDiagnostic`;
+  return {
+    ariaDescribedBy: hasDiagnostic ? descriptionId : undefined,
+    descriptionId,
+    hasDiagnostic,
   };
 }
 
@@ -130,24 +208,71 @@ function renderTextValueDivider(
   return <span className={getDividerClassName(isSelectingItems)} />;
 }
 
-function wrapTextValueEditorLayers(
-  config: TextValuePresentationConfig,
-  editorLayers: ReactNode,
-): ReactNode {
+function wrapTextValueEditorLayers({
+  config,
+  editorLayers,
+  endAdornment,
+  diagnosticMessage,
+  diagnosticDescriptionId,
+  hasDiagnostic,
+  isDisabled,
+  presentation,
+}: {
+  config: TextValuePresentationConfig;
+  editorLayers: ReactNode;
+  endAdornment: ReactNode;
+  diagnosticMessage: string;
+  diagnosticDescriptionId: string;
+  hasDiagnostic: boolean;
+  isDisabled: boolean;
+  presentation: TextValueEditorCoreProps["presentation"];
+}): ReactNode {
   if (!config.wrapperClassName) {
     return editorLayers;
   }
-  return <div className={config.wrapperClassName}>{editorLayers}</div>;
+  if (presentation !== "section-field") {
+    return <div className={config.wrapperClassName}>{editorLayers}</div>;
+  }
+  // `data-workspace-section-field` is the one public hook for observing this surface. The package
+  // owns its class names, so a consumer proving the field's geometry or capturing its states reads
+  // this attribute instead of the private class the stylesheet paints.
+  return (
+    <div
+      className={config.wrapperClassName}
+      data-disabled={isDisabled}
+      data-diagnostic={hasDiagnostic}
+      data-workspace-section-field="true"
+    >
+      <div className="setta-workspace-section-field-input">{editorLayers}</div>
+      {hasDiagnostic ? (
+        <span
+          aria-hidden="true"
+          className="setta-workspace-section-field-diagnostic-indicator"
+          title={diagnosticMessage}
+        >
+          <FiAlertCircle focusable="false" />
+        </span>
+      ) : null}
+      {endAdornment === undefined || endAdornment === null ? null : (
+        <div className="setta-workspace-section-field-adornment">
+          {endAdornment}
+        </div>
+      )}
+      <span
+        aria-atomic="true"
+        aria-live="polite"
+        className="sr-only"
+        id={diagnosticDescriptionId}
+        role="status"
+      >
+        {hasDiagnostic ? `Error: ${diagnosticMessage}` : ""}
+      </span>
+    </div>
+  );
 }
 
-export function TextValueEditor({ itemId, ...props }: TextValueEditorProps) {
-  return (
-    <TextValueEditorCore
-      {...props}
-      controlId={itemId}
-      presentation="item-row"
-    />
-  );
+export function TextValueEditor(props: TextValueEditorProps) {
+  return <TextValueEditorCore {...props} />;
 }
 
 // Package-internal composition seam for the direct-on-canvas text control. The public item-row
@@ -193,12 +318,15 @@ function TextValueEditorCore({
   value,
   onValueChange,
   onCommit,
+  onEscape,
   placeholder,
   language = null,
   singleLine = false,
   wrapLines,
   disabled = false,
   completionProvider,
+  endAdornment,
+  diagnosticMessage = "",
   presentation,
   metaMinimumHeight = false,
 }: TextValueEditorCoreProps) {
@@ -208,6 +336,13 @@ function TextValueEditorCore({
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
+  const diagnosticState = getTextValueDiagnosticState(
+    host,
+    presentation,
+    diagnosticMessage,
+    sectionId,
+    controlId,
+  );
   const theme = useTextValueTheme();
   const presentationConfig = getTextValuePresentationConfig(
     presentation,
@@ -268,12 +403,16 @@ function TextValueEditorCore({
           placeholder={placeholder}
           language={language}
           ariaLabel={ariaLabel}
+          ariaDescribedBy={diagnosticState.ariaDescribedBy}
+          ariaInvalid={diagnosticState.hasDiagnostic}
           ariaDisabled={isDisabled}
         />
       )}
       {activationEvent && (
         <LiveTextValueEditor
           ariaLabel={ariaLabel}
+          ariaDescribedBy={diagnosticState.ariaDescribedBy}
+          ariaInvalid={diagnosticState.hasDiagnostic}
           sectionId={sectionId}
           controlId={controlId}
           value={value}
@@ -290,18 +429,34 @@ function TextValueEditorCore({
           onCommit={onCommit}
           disabled={isDisabled}
           completionProvider={completionProvider}
-          onEscape={() => focusSectionAfterEscape(host, sectionId)}
+          onEscape={() => {
+            // The caller drops its draft first, so the idle layer this Escape swaps back in
+            // already paints the value it restored.
+            onEscape?.();
+            focusSectionAfterEscape(host, sectionId);
+          }}
           onBlur={localOnBlur}
         />
       )}
       {renderTextValueDivider(presentationConfig, isSelectingItems)}
     </>
   );
-  return wrapTextValueEditorLayers(presentationConfig, editorLayers);
+  return wrapTextValueEditorLayers({
+    config: presentationConfig,
+    diagnosticDescriptionId: diagnosticState.descriptionId,
+    diagnosticMessage,
+    editorLayers,
+    endAdornment,
+    isDisabled,
+    hasDiagnostic: diagnosticState.hasDiagnostic,
+    presentation,
+  });
 }
 
 function LiveTextValueEditor({
   ariaLabel,
+  ariaDescribedBy,
+  ariaInvalid,
   sectionId,
   controlId,
   value,
@@ -322,6 +477,8 @@ function LiveTextValueEditor({
   onBlur,
 }: {
   ariaLabel: string;
+  ariaDescribedBy: string | undefined;
+  ariaInvalid: boolean;
   sectionId: string;
   controlId: string;
   value: string;
@@ -342,6 +499,9 @@ function LiveTextValueEditor({
   onBlur: () => void;
 }) {
   const host = useWorkspaceHost();
+  // The canvas renders one tooltip parent per host, so a completion popup opens beside the scene
+  // instead of inside the section box that would clip it. No caller names, passes, or opts into it.
+  const tooltipParent = useCodeMirrorTooltipParent();
   const editorId = `${getWorkspaceHostDomId(host)}-CodeMirror-${sectionId}-${controlId}`;
   // @uiw/react-codemirror replaces extensions in a passive effect. Keep the current disabled
   // state and controlled value available to already-installed input extensions during that
@@ -391,6 +551,7 @@ function LiveTextValueEditor({
       isDisabled: () => disabledRef.current,
       completionProvider,
       completionRequests,
+      tooltipParent,
     }),
     EditorState.changeFilter.of((transaction) => {
       if (!disabledRef.current || !transaction.docChanged) {
@@ -398,7 +559,7 @@ function LiveTextValueEditor({
       }
       return transaction.newDoc.toString() === valueRef.current;
     }),
-    EditorView.contentAttributes.of({ "aria-label": ariaLabel }),
+    getCodeMirrorContentAttributes(ariaLabel, ariaDescribedBy, ariaInvalid),
   ];
   const onCreateEditor = getOnCreateEditor({
     host,
@@ -428,4 +589,19 @@ function LiveTextValueEditor({
       indentWithTab={false} // the reference binds Tab in its app extensions; the package binds none
     />
   );
+}
+
+function getCodeMirrorContentAttributes(
+  ariaLabel: string,
+  ariaDescribedBy: string | undefined,
+  ariaInvalid: boolean,
+) {
+  const attributes: Record<string, string> = { "aria-label": ariaLabel };
+  if (ariaInvalid) {
+    attributes["aria-invalid"] = "true";
+  }
+  if (ariaDescribedBy !== undefined) {
+    attributes["aria-describedby"] = ariaDescribedBy;
+  }
+  return EditorView.contentAttributes.of(attributes);
 }

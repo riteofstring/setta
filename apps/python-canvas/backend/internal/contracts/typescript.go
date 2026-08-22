@@ -1,6 +1,11 @@
 package contracts
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/setta/python-canvas/backend/internal/codegen"
+)
 
 // TypeScriptV1 renders the client contract directly from the V1 transport
 // constants and shapes owned by this package.
@@ -11,7 +16,9 @@ export const PROJECT_SNAPSHOT_VERSION_V1 = %q as const;
 export const PROJECT_PATH_V1 = %q as const;
 export const PROJECT_CALLABLE_PATH_V1 = %q as const;
 export const PROJECT_CALLABLE_COMPLETIONS_PATH_V1 = %q as const;
-export const PROJECT_PARAMETER_PATH_V1 = %q as const;
+export const PROJECT_PYTHON_TARGET_COMPLETIONS_PATH_V1 = %q as const;
+export const PROJECT_PARAMETERS_PATH_V1 = %q as const;
+export const PROJECT_TARGET_PATH_V1 = %q as const;
 
 export const PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1 = %q as const;
 export const PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1 = %q as const;
@@ -30,6 +37,15 @@ export const PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1 = %q as const;
 export const PROVIDER_LIFECYCLE_STATE_READY_V1 = %q as const;
 export const PROVIDER_LIFECYCLE_STATE_PENDING_V1 = %q as const;
 export const PROVIDER_LIFECYCLE_STATE_FAILED_V1 = %q as const;
+
+export const PYTHON_TARGET_COMPLETION_REGION_PREFIX_V1 = %q as const;
+export const PYTHON_TARGET_COMPLETION_REGION_SUFFIX_V1 = %q as const;
+
+// The store refuses a parameter name that Python reserves, and the client applies
+// that same rule to a name being written rather than sending one the store will
+// reject. The list is rendered from its one Go owner so the two cannot drift.
+export const PYTHON_KEYWORDS_V1 = [
+%s] as const;
 
 export type ProjectSnapshotVersionV1 = typeof PROJECT_SNAPSHOT_VERSION_V1;
 export type ParameterPassingStyleV1 =
@@ -51,7 +67,13 @@ export type ProviderLifecycleStateV1 =
   | typeof PROVIDER_LIFECYCLE_STATE_READY_V1
   | typeof PROVIDER_LIFECYCLE_STATE_PENDING_V1
   | typeof PROVIDER_LIFECYCLE_STATE_FAILED_V1;
+export type PythonTargetCompletionRegionV1 =
+  | typeof PYTHON_TARGET_COMPLETION_REGION_PREFIX_V1
+  | typeof PYTHON_TARGET_COMPLETION_REGION_SUFFIX_V1;
 export type APIErrorCodeV1 =
+  | %q
+  | %q
+  | %q
   | %q
   | %q
   | %q
@@ -92,6 +114,7 @@ export interface CallableV1 {
 export interface ParameterV1 {
   id: string;
   name: string;
+  nameEditable: boolean;
   passingStyle: ParameterPassingStyleV1;
   typeAnnotation: string;
   default: string | null;
@@ -114,7 +137,9 @@ export interface DiagnosticV1 {
   id: string;
   severity: DiagnosticSeverityV1;
   message: string;
-  targetId: string;
+  start: number;
+  end: number;
+  targetId: string | null;
 }
 
 export interface ProviderStatusV1 {
@@ -136,18 +161,41 @@ export interface CallableCompletionRequestV1 {
   cursorOffsetUtf16: number;
 }
 
-export interface CallableCompletionItemV1 {
+export interface PythonTargetCompletionRequestV1 {
+  projectId: string;
+  region: PythonTargetCompletionRegionV1;
+  prefix: string;
+  suffix: string;
+  cursorOffsetUtf16: number;
+}
+
+export interface CompletionItemV1 {
   label: string;
   insertText: string;
 }
 
-export interface CallableCompletionResponseV1 {
-  items: CallableCompletionItemV1[];
+export interface CompletionResponseV1 {
+  items: CompletionItemV1[];
 }
 
-export interface SetParameterExpressionRequestV1 {
-  projectId: string;
+export interface ParameterProposalV1 {
+  id: string;
+  name: string;
   authoredExpression: string;
+}
+
+export interface SetCallableParametersRequestV1 {
+  projectId: string;
+  callableId: string;
+  expectedRevision: number;
+  parameters: ParameterProposalV1[];
+}
+
+export interface SetPythonTargetRequestV1 {
+  projectId: string;
+  expectedRevision: number;
+  prefix: string;
+  suffix: string;
 }
 
 export interface APIErrorV1 {
@@ -163,7 +211,9 @@ export interface ErrorResponseV1 {
 		ProjectPathV1,
 		ProjectCallablePathV1,
 		ProjectCallableCompletionsPathV1,
-		ProjectParameterPathV1,
+		ProjectPythonTargetCompletionsPathV1,
+		ProjectParametersPathV1,
+		ProjectTargetPathV1,
 		ParameterPassingStylePositionalOnlyV1,
 		ParameterPassingStylePositionalOrKeywordV1,
 		ParameterPassingStyleKeywordOnlyV1,
@@ -179,13 +229,27 @@ export interface ErrorResponseV1 {
 		ProviderLifecycleStateReadyV1,
 		ProviderLifecycleStatePendingV1,
 		ProviderLifecycleStateFailedV1,
+		PythonTargetCompletionRegionPrefixV1,
+		PythonTargetCompletionRegionSuffixV1,
+		pythonKeywordEntries(),
 		APIErrorCodeInvalidRequestV1,
 		APIErrorCodeMethodNotAllowedV1,
 		APIErrorCodeNotFoundV1,
 		APIErrorCodeInvalidCallableV1,
 		APIErrorCodeInvalidParameterExpressionV1,
+		APIErrorCodeInvalidParameterNameV1,
+		APIErrorCodeInvalidPythonTargetV1,
+		APIErrorCodeRevisionConflictV1,
 		APIErrorCodeUnsupportedSignatureV1,
 		APIErrorCodeProviderUnavailableV1,
 		APIErrorCodeInternalV1,
 	))
+}
+
+func pythonKeywordEntries() string {
+	var entries strings.Builder
+	for _, keyword := range codegen.PythonKeywords() {
+		fmt.Fprintf(&entries, "  %q,\n", keyword)
+	}
+	return entries.String()
 }

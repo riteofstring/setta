@@ -7,7 +7,8 @@
     "dev": "vite --port 5174 --strictPort",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "pnpm --filter @setta/workspace run build && vitest run",
+    "test:focused": "pnpm --filter @setta/workspace run build && vitest run src/hostToolbarControls.test.tsx"
   },
   "dependencies": {
     "@setta/workspace": "workspace:*",

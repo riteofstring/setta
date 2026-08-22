@@ -17,16 +17,7 @@ const completionSnapshotSeparator = "\n\n"
 func (provider *BasedpyrightProvider) CompleteCallable(
 	ctx context.Context,
 	request project.CallableCompletionRequest,
-) ([]project.CallableCompletionItem, error) {
-	if provider == nil {
-		return nil, ErrProviderClosed
-	}
-	provider.mu.Lock()
-	defer provider.mu.Unlock()
-	if provider.closed {
-		return nil, ErrProviderClosed
-	}
-
+) ([]project.CompletionItem, error) {
 	snapshotCode, draftStart, err := completionSnapshot(request.CanonicalCode, request.AuthoredExpression)
 	if err != nil {
 		return nil, err
@@ -35,7 +26,35 @@ func (provider *BasedpyrightProvider) CompleteCallable(
 	if err != nil {
 		return nil, fmt.Errorf("lsp: resolve completion cursor: %w", err)
 	}
-	position, err := positionForByteOffset(snapshotCode, draftStart+draftOffset)
+	return provider.completeSnapshot(ctx, snapshotCode, draftStart+draftOffset)
+}
+
+// CompletePythonTarget uses the same temporary-document lifecycle as callable completion. Its
+// request is already a fully rendered candidate module and a renderer-derived byte boundary.
+func (provider *BasedpyrightProvider) CompletePythonTarget(
+	ctx context.Context,
+	request project.PythonTargetCompletionRequest,
+) ([]project.CompletionItem, error) {
+	return provider.completeSnapshot(ctx, request.Code, request.CursorOffsetByte)
+}
+
+func (provider *BasedpyrightProvider) completeSnapshot(
+	ctx context.Context,
+	snapshotCode string,
+	cursorOffsetByte int,
+) ([]project.CompletionItem, error) {
+	if provider == nil {
+		return nil, ErrProviderClosed
+	}
+	provider.mu.Lock()
+	defer provider.mu.Unlock()
+	if provider.closed {
+		return nil, ErrProviderClosed
+	}
+	if strings.TrimSpace(snapshotCode) == "" {
+		return nil, fmt.Errorf("lsp: completion context is empty")
+	}
+	position, err := positionForByteOffset(snapshotCode, cursorOffsetByte)
 	if err != nil {
 		return nil, fmt.Errorf("lsp: resolve completion position: %w", err)
 	}
@@ -96,8 +115,8 @@ func (provider *BasedpyrightProvider) createCompletionSnapshot(code string) (str
 	return snapshotPath, nil
 }
 
-func normalizeCompletionItems(result CompletionResult) []project.CallableCompletionItem {
-	items := make([]project.CallableCompletionItem, 0, len(result.Items))
+func normalizeCompletionItems(result CompletionResult) []project.CompletionItem {
+	items := make([]project.CompletionItem, 0, len(result.Items))
 	for _, item := range result.Items {
 		label := strings.TrimSpace(item.Label)
 		if label == "" {
@@ -107,7 +126,7 @@ func normalizeCompletionItems(result CompletionResult) []project.CallableComplet
 		if insertText == "" {
 			insertText = label
 		}
-		items = append(items, project.CallableCompletionItem{
+		items = append(items, project.CompletionItem{
 			Label:      label,
 			InsertText: insertText,
 		})

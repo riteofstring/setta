@@ -149,7 +149,9 @@ describe("built-in code section registration", () => {
     expect(() =>
       loadWorkspaceDocument(
         testWorkspace.host,
-        makeDocument({ data: { code: "x = 1" } }),
+        makeDocument({
+          data: { code: "x = 1", diagnostics: [], mode: "editable" },
+        }),
       ),
     ).toThrow(/Code section code is missing its string language field/u);
   });
