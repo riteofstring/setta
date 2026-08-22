@@ -10,12 +10,17 @@ import {
   contentEditableTextBoxSelector,
   evaluate,
   insertText,
+  labeledSelector,
   navigate,
   pressAlternateEnter,
   pressEnter,
   selectAll,
   waitFor,
 } from "./browser-page.mjs";
+
+const generatedPythonEditorSelector = labeledSelector(
+  "Generated Python code editor, generated output read-only",
+);
 
 export async function openWorkspaceCanvas(client, previewOrigin) {
   await navigate(client, previewOrigin);
@@ -155,6 +160,7 @@ export async function exerciseUnresolvedCallableCommit(
     refreshRequestsBefore,
     "Normal Enter unexpectedly refreshed callable parameters.",
   );
+  await assertGeneratedBodyPresentation(client, unresolved);
 }
 
 export async function waitForCallableUiIdle(client, name, harness) {
@@ -283,4 +289,52 @@ async function callableParameterRefreshRequestCount(client) {
       }
     }).length`,
   );
+}
+
+async function assertGeneratedBodyPresentation(client, snapshot) {
+  const expectedBodyLines = snapshot.generatedCode.body.split("\n");
+  const firstBodyLine = snapshot.pythonTarget.prefix.split("\n").length + 1;
+  await waitFor(
+    client,
+    "every generated Python body line inside the protected block",
+    `(() => {
+      const editor = document.querySelector(${JSON.stringify(generatedPythonEditorSelector)});
+      const lines = Array.from(editor?.querySelectorAll('.cm-line') ?? []);
+      const body = lines.slice(${String(firstBodyLine)}, ${String(firstBodyLine + expectedBodyLines.length)});
+      return body.length === ${String(expectedBodyLines.length)} &&
+        JSON.stringify(body.map((line) => line.textContent ?? "")) === ${JSON.stringify(JSON.stringify(expectedBodyLines))} &&
+        body.every((line) => line.getAttribute('data-workspace-generated-line') === 'middle');
+    })()`,
+  );
+  const presentation = await evaluate(
+    client,
+    `(() => {
+      const editor = document.querySelector(${JSON.stringify(generatedPythonEditorSelector)});
+      const lines = Array.from(editor?.querySelectorAll('.cm-line') ?? []);
+      const body = lines.slice(${String(firstBodyLine)}, ${String(firstBodyLine + expectedBodyLines.length)});
+      return {
+        body: body.map((line) => ({
+          background: getComputedStyle(line, '::before').backgroundImage,
+          mark: line.getAttribute('data-workspace-generated-line'),
+          text: line.textContent ?? "",
+        })),
+        endBoundary: lines[${String(firstBodyLine + expectedBodyLines.length)}]?.getAttribute('data-workspace-generated-line') ?? null,
+        startBoundary: lines[${String(firstBodyLine - 1)}]?.getAttribute('data-workspace-generated-line') ?? null,
+      };
+    })()`,
+  );
+  assert.deepEqual(
+    presentation.body.map((line) => line.text),
+    expectedBodyLines,
+    "The generated Python block did not contain the canonical body lines.",
+  );
+  assert.ok(
+    presentation.body.every(
+      (line) =>
+        line.mark === "middle" && line.background.includes("linear-gradient"),
+    ),
+    `Generated Python body lines escaped the visible protected surface: ${JSON.stringify(presentation)}.`,
+  );
+  assert.equal(presentation.startBoundary, "start");
+  assert.equal(presentation.endBoundary, "end");
 }

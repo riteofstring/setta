@@ -169,7 +169,7 @@ describe("Python Canvas V2 workspace projection", () => {
     host.dispose();
   });
 
-  it("uses the exact body range for one combined generated document and preserves outer edits", () => {
+  it("protects the generated body and its separators while preserving outer edits", () => {
     const snapshot = dynamicSnapshot();
     const host = createWorkspaceHost();
     registerPythonCanvasSectionKinds(host);
@@ -185,20 +185,21 @@ describe("Python Canvas V2 workspace projection", () => {
       );
     }
     expect(generated.generatedRegion).toEqual({
-      from: snapshot.generatedCode.generatedBodyRange.start,
-      to: snapshot.generatedCode.generatedBodyRange.end,
+      from: snapshot.pythonTarget.prefix.length,
+      to:
+        snapshot.generatedCode.code.length -
+        snapshot.pythonTarget.suffix.length,
     });
 
     const prefix = "import os";
     const suffix = "state = SettaState()\nprint('done')";
     const code = `${prefix}\n\n${snapshot.generatedCode.body}\n\n${suffix}`;
-    const bodyStart = prefix.length + 2;
     setWorkspaceCodeSectionData(host, GENERATED_PYTHON_SECTION_ID, {
       ...generated,
       code,
       generatedRegion: {
-        from: bodyStart,
-        to: bodyStart + snapshot.generatedCode.body.length,
+        from: prefix.length,
+        to: code.length - suffix.length,
       },
     });
 
@@ -206,6 +207,45 @@ describe("Python Canvas V2 workspace projection", () => {
       generated: snapshot.generatedCode.body,
       prefix,
       suffix,
+    });
+    host.dispose();
+  });
+
+  it("maps the backend body byte range to a separator-bounded UTF-16 editor region", () => {
+    const prefix = "# π";
+    const suffix = "state = SettaState()  # 🐍";
+    const body = projectSnapshotFixture.generatedCode.body;
+    const code = `${prefix}\n\n${body}\n\n${suffix}`;
+    const bodyStart = new TextEncoder().encode(`${prefix}\n\n`).length;
+    const snapshot = parseProjectSnapshotV2({
+      ...projectSnapshotFixture,
+      generatedCode: {
+        body,
+        code,
+        generatedBodyRange: {
+          start: bodyStart,
+          end: bodyStart + new TextEncoder().encode(body).length,
+        },
+        sourceRangesByTargetId: {},
+      },
+      pythonTarget: { prefix, suffix },
+    });
+
+    const host = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(host);
+    host.loadDocument(projectWorkspaceDocument(snapshot));
+    const generated = getWorkspaceCodeSectionData(
+      host,
+      GENERATED_PYTHON_SECTION_ID,
+    );
+    if (generated.mode !== "generated-document") {
+      throw new Error(
+        "generated Python did not use the generated-document mode",
+      );
+    }
+    expect(generated.generatedRegion).toEqual({
+      from: prefix.length,
+      to: code.length - suffix.length,
     });
     host.dispose();
   });

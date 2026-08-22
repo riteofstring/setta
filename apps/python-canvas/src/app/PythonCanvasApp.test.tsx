@@ -591,8 +591,8 @@ describe("PythonCanvasApp", () => {
             ...(generatedSection.data as object),
             code: localCode,
             generatedRegion: {
-              from: bodyStart,
-              to: bodyStart + initialSnapshot.generatedCode.body.length,
+              from: localPrefix.length,
+              to: localCode.length - localSuffix.length,
             },
           },
         },

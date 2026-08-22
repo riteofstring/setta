@@ -342,18 +342,20 @@ export function readGeneratedPythonTarget(host: WorkspaceHost): {
     throw new Error("Generated Python is not a generated document.");
   }
   const { from, to } = data.generatedRegion;
-  const beforeBody = data.code.slice(0, from);
-  const afterBody = data.code.slice(to);
+  const protectedCode = data.code.slice(from, to);
   if (
-    !beforeBody.endsWith(generatedCodeSeparator) ||
-    !afterBody.startsWith(generatedCodeSeparator)
+    !protectedCode.startsWith(generatedCodeSeparator) ||
+    !protectedCode.endsWith(generatedCodeSeparator)
   ) {
     throw new Error("Generated Python separators are not canonical.");
   }
   return {
-    generated: data.code.slice(from, to),
-    prefix: beforeBody.slice(0, -generatedCodeSeparator.length),
-    suffix: afterBody.slice(generatedCodeSeparator.length),
+    generated: protectedCode.slice(
+      generatedCodeSeparator.length,
+      -generatedCodeSeparator.length,
+    ),
+    prefix: data.code.slice(0, from),
+    suffix: data.code.slice(to),
   };
 }
 
@@ -629,12 +631,16 @@ function generatedCodeSectionData({
   const bodyEndBytes =
     generatedBodyRange?.end ?? bodyStartBytes + utf8ByteLength(body);
   const code = `${prefix}${generatedCodeSeparator}${body}${generatedCodeSeparator}${suffix}`;
+  const separatorBytes = utf8ByteLength(generatedCodeSeparator);
+  // The backend's byte range owns the exact generated body. Main's editor protects the blank
+  // separators with it, making those lines the rounded boundaries and every generated code line
+  // a fully painted interior line while leaving the authored prefix and suffix outside.
   return createWorkspaceCodeSectionData({
     code,
     diagnostics: [...diagnostics],
     generatedRegion: {
-      from: utf8ByteOffsetToUtf16Offset(code, bodyStartBytes),
-      to: utf8ByteOffsetToUtf16Offset(code, bodyEndBytes),
+      from: utf8ByteOffsetToUtf16Offset(code, bodyStartBytes - separatorBytes),
+      to: utf8ByteOffsetToUtf16Offset(code, bodyEndBytes + separatorBytes),
     },
     indentWidth: 4,
     language: "python",
