@@ -788,7 +788,7 @@ local service, provider session, or live probe ran in this phase.
 
 ### Phase D — acceptance evidence and removal audit
 
-- [x] Iteration-0021 callable-expression interaction-boundary remediation
+- [x] Iteration-0022 callable-expression interaction-boundary remediation
       complete
 
 1. Complete focused backend, contract, HTTP, runtime-decoder, client, and
@@ -877,9 +877,23 @@ form now carries the public workspace `NO_DRAG_CLASS_NAME` and
 expression input therefore retains native text-selection behavior instead of
 starting a callable-card drag or canvas pan.
 
+**Iteration-0022 remediation record (2026-08-21):** The callable expression
+form now declares the public workspace `data-tab-native` boundary, so Tab and
+Shift+Tab retain native focus navigation when parameters are selected. Its
+Escape path stops propagation after cancelling its completion request, clearing
+its completion options, and reverting its draft; the workspace document Escape
+handler therefore cannot deselect the card or blur the input.
+
+**Iteration-0022 Phase D focused proof (2026-08-21):** `pnpm --filter
+@setta/python-canvas exec vitest run src/sections/CallableSection.test.tsx
+--reporter=dot` passed (12 tests), including the native Tab boundary and
+document-Escape isolation regression assertions. `code-policy test --module
+python-canvas-frontend` passed all 46 frontend tests. No browser, local
+service, provider session, or live probe ran.
+
 ### Phase E — focused verification closeout
 
-- [x] Iteration-0021 focused verification complete and ready for a fresh
+- [x] Iteration-0022 focused verification complete and ready for a fresh
       independent audit
 
 1. Run the focused module suites and changed-file selection listed below in the
@@ -891,6 +905,10 @@ starting a callable-card drag or canvas pan.
    suite, including `python-canvas-browser`, runs. The plan-loop does not run,
    request, or imply authorization for recommended, full, verify, gate,
    merge-gate, test --all, or supplemental suites.
+
+**Iteration-0022 focused proof (2026-08-21):** `code-policy test --changed`
+selected the `python-canvas-frontend` focused suite and passed all 46 frontend
+tests. No browser, local service, provider session, or live probe ran.
 
 **Iteration-0021 focused proof (2026-08-21):** `pnpm --filter
 @setta/python-canvas exec vitest run src/sections/CallableSection.test.tsx

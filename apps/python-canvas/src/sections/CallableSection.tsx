@@ -222,6 +222,7 @@ export function CallableExpressionField({
   return (
     <form
       className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} python-canvas-callable-expression-controls`}
+      data-tab-native="true"
       onSubmit={(event) => {
         event.preventDefault();
         mutation.onCallableCommit(callableId, draft);
@@ -241,6 +242,7 @@ export function CallableExpressionField({
         }}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
+            event.stopPropagation();
             completionRequest.current?.abort();
             setCompletionOptions([]);
             mutation.onCallableRevert(callableId);

@@ -133,6 +133,7 @@ describe("CallableSection", () => {
     expect(input?.tagName).toBe("INPUT");
     expect(input?.form?.classList.contains(NO_DRAG_CLASS_NAME)).toBe(true);
     expect(input?.form?.classList.contains(NO_PAN_CLASS_NAME)).toBe(true);
+    expect(input?.form?.getAttribute("data-tab-native")).toBe("true");
     expect(
       input?.form?.querySelector("button[type='submit']")?.textContent,
     ).toBe("Commit callable");
@@ -331,6 +332,7 @@ describe("CallableSection", () => {
   it("reverts on Escape and aborts stale callable completion requests", () => {
     const completionProvider = vi.fn().mockResolvedValue(null);
     const onCallableRevert = vi.fn();
+    const workspaceEscapeHandler = vi.fn();
     const view = render(
       <CallableExpressionField
         data={sectionData({ state: "ready", status: "available" })}
@@ -353,13 +355,19 @@ describe("CallableSection", () => {
       throw new Error("Expected the callable expression input.");
     }
 
-    act(() => {
-      setInputValue(input, "first");
-      setInputValue(input, "second");
-      input.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
-      );
-    });
+    document.addEventListener("keydown", workspaceEscapeHandler);
+    try {
+      act(() => {
+        setInputValue(input, "first");
+        setInputValue(input, "second");
+        input.focus();
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+        );
+      });
+    } finally {
+      document.removeEventListener("keydown", workspaceEscapeHandler);
+    }
 
     const [firstRequest, secondRequest] = completionProvider.mock.calls.map(
       ([request]) => request as { signal: AbortSignal },
@@ -367,6 +375,8 @@ describe("CallableSection", () => {
     expect(firstRequest?.signal.aborted).toBe(true);
     expect(secondRequest?.signal.aborted).toBe(true);
     expect(onCallableRevert).toHaveBeenCalledWith("callable:one");
+    expect(workspaceEscapeHandler).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(input);
   });
 
   it("renders immutable provider metadata, including an unannotated type", () => {
