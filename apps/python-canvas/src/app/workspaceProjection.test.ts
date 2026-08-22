@@ -18,6 +18,7 @@ import {
   PENDING_CALLABLE_SECTION_KIND,
   applyProjectSnapshotToWorkspace,
   callableSectionID,
+  createPendingCallableSection,
   isCallableParameterAuthoringPending,
   parameterWorkspaceItemID,
   projectWorkspaceDocument,
@@ -181,6 +182,63 @@ describe("Python Canvas V2 workspace projection", () => {
     host.dispose();
   });
 
+  it("replaces a pending callable with its canonical section at the requested position", () => {
+    const snapshot = dynamicSnapshot();
+    const host = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(host);
+    host.loadDocument(projectWorkspaceDocument(snapshot));
+
+    const pendingSectionId = "python-canvas:pending-callable:test";
+    const pendingSection = createPendingCallableSection(
+      snapshot,
+      pendingSectionId,
+      "New callable",
+    );
+    const pendingLayout = {
+      h: 300,
+      w: 360,
+      x: 912,
+      y: 488,
+      zIndex: 12,
+    };
+    const current = host.getSnapshot();
+    host.loadDocument({
+      ...current,
+      activeIds: [pendingSectionId],
+      sections: {
+        ...current.sections,
+        [pendingSectionId]: pendingSection,
+      },
+      topLevelSections: {
+        ...current.topLevelSections,
+        [pendingSectionId]: pendingLayout,
+      },
+    });
+    const createdSnapshot = dynamicSnapshot();
+    createdSnapshot.callables.push({
+      authoredExpression: "",
+      id: "callable:created",
+      name: "New callable",
+      parameters: [],
+    });
+
+    applyProjectSnapshotToWorkspace(host, createdSnapshot, {
+      keepAuthoredPython: false,
+      keepParameterLists: new Set(),
+      pendingCallableSectionIds: new Map([
+        ["callable:created", pendingSectionId],
+      ]),
+    });
+
+    const createdSectionId = callableSectionID("callable:created");
+    expect(host.getSnapshot().sections[pendingSectionId]).toBeUndefined();
+    expect(host.getSnapshot().topLevelSections[createdSectionId]).toEqual(
+      pendingLayout,
+    );
+    expect(host.getSnapshot().activeIds).toEqual([createdSectionId]);
+    host.dispose();
+  });
+
   it("uses the exact body range for one combined generated document and preserves outer edits", () => {
     const snapshot = dynamicSnapshot();
     const host = createWorkspaceHost();
@@ -237,6 +295,7 @@ describe("Python Canvas V2 workspace projection", () => {
     applyProjectSnapshotToWorkspace(host, snapshot, {
       keepAuthoredPython: false,
       keepParameterLists: new Set(["callable:second"]),
+      pendingCallableSectionIds: new Map(),
     });
 
     expect(
@@ -270,6 +329,7 @@ describe("Python Canvas V2 workspace projection", () => {
     applyProjectSnapshotToWorkspace(host, snapshot, {
       keepAuthoredPython: false,
       keepParameterLists: new Set(["callable:second"]),
+      pendingCallableSectionIds: new Map(),
     });
 
     expect(

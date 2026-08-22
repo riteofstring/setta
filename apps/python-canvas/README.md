@@ -40,10 +40,11 @@ save-as flow.
 
 ## Authoring model
 
-Use the labelled **Project name** control to rename the one project. Use **New
-callable name** and **Add callable** to create a callable; every callable gets a
-section keyed by its canonical ID. Its expression field keeps a separate draft
-until it is committed or reverted.
+Right-click a blank part of the canvas and choose **Python callable** to create
+a callable. It appears at the requested canvas position with the default name
+**New callable**; rename it from the callable section itself. Every callable
+gets a section keyed by its canonical ID. Its expression field keeps a separate
+draft until it is committed or reverted.
 
 Each callable section uses the workspace's public authoring-and-filter item
 toolbar. It supports Add, Remove Last, Delete Selected, drag reorder, filtering,
@@ -66,11 +67,11 @@ protected UTF-16 range.
 walkthrough for a separately authorized standard verification run. It creates a
 temporary absent project through the launcher with explicit `--project` and
 `--create`, writes a temporary fixture module, and observes readiness only
-through `GET /api/v2/project`. The browser then renames the project, creates
-and commits multiple callables, exercises the public parameter toolbar,
-filter, item actions, ItemNameEditor, app/provider expressions, and target
-document boundaries, then deletes one callable. It restarts against the same
-path without `--create` and compares the renamed project, remaining callables,
-canonical parameter metadata, and generated Python bytes. It starts local
-services and a browser, so do not run it unless that suite is explicitly
-authorized.
+through `GET /api/v2/project`. The browser then creates multiple callables from
+the blank-pane menu, renames them from their sections, commits them, exercises
+the public parameter toolbar, filter, item actions, ItemNameEditor,
+app/provider expressions, and target document boundaries, then deletes one
+callable. It restarts against the same path without `--create` and compares the
+remaining callables, canonical parameter metadata, and generated Python bytes.
+It starts local services and a browser, so do not run it unless that suite is
+explicitly authorized.

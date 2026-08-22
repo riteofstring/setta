@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
 
 import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
-import { ProjectClientError } from "../backend/client";
 import type { ParameterV2 } from "../backend/generatedContract";
 import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
 
@@ -18,7 +17,7 @@ const mocks = vi.hoisted(() => ({
   fetchProjectSnapshot: vi.fn(),
   getWorkspaceCodeSectionData: vi.fn(),
   renameCallable: vi.fn(),
-  renameProject: vi.fn(),
+  registerWorkspaceCreationCommands: vi.fn(),
   registerSectionKinds: vi.fn(),
   renderWorkspaceCanvas: false,
   setItemData: vi.fn(),
@@ -38,6 +37,13 @@ type MockSectionRegistration = {
     renderLeadingContent?: (section: unknown) => ReactNode;
     toolbar?: string;
   };
+};
+
+type MockCreationCommand = {
+  createSection: (context: unknown) => WorkspaceDocument["sections"][string];
+  group: string;
+  id: string;
+  label: string;
 };
 
 function MockWorkspaceCanvas() {
@@ -94,6 +100,34 @@ function requiredMockSectionRegistration(
   return registration;
 }
 
+function requiredMockCreationCommand(): MockCreationCommand {
+  const commands = mocks.registerWorkspaceCreationCommands.mock.calls.at(
+    -1,
+  )?.[1] as ReadonlyArray<MockCreationCommand> | undefined;
+  const command = commands?.find(
+    (candidate) => candidate.id === "python-callable",
+  );
+  if (command === undefined) {
+    throw new Error("Missing Python callable creation command.");
+  }
+  return command;
+}
+
+function invokeMockCreationCommand(
+  context: unknown,
+): WorkspaceDocument["sections"][string] {
+  let section: WorkspaceDocument["sections"][string] | null = null;
+  act(() => {
+    section = requiredMockCreationCommand().createSection(context);
+  });
+  if (section === null) {
+    throw new Error(
+      "The Python callable creation command returned no section.",
+    );
+  }
+  return section;
+}
+
 vi.mock("../backend/client", () => ({
   ProjectClientError: class extends Error {
     public readonly code: string | undefined;
@@ -114,7 +148,6 @@ vi.mock("../backend/client", () => ({
   deleteCallable: vi.fn(),
   fetchProjectSnapshot: mocks.fetchProjectSnapshot,
   renameCallable: mocks.renameCallable,
-  renameProject: mocks.renameProject,
   setCallableParameters: mocks.setCallableParameters,
   setPythonTarget: mocks.setPythonTarget,
 }));
@@ -139,6 +172,7 @@ vi.mock("@setta/workspace", () => ({
   createWorkspaceCodeSectionData: (data: Record<string, unknown>) => data,
   createWorkspaceHost: mocks.createWorkspaceHost,
   getWorkspaceCodeSectionData: mocks.getWorkspaceCodeSectionData,
+  registerWorkspaceCreationCommands: mocks.registerWorkspaceCreationCommands,
   registerSectionKinds: mocks.registerSectionKinds,
   setItemData: mocks.setItemData,
   setWorkspaceColorMode: mocks.setWorkspaceColorMode,
@@ -186,54 +220,85 @@ afterEach(() => {
 });
 
 describe("PythonCanvasApp", () => {
-  it("opens and focuses the labelled callable-name flow from the empty state", async () => {
+  it("creates a canonical callable from the registered pane command without app chrome", async () => {
+    const initialSnapshot = parseProjectSnapshotV2(projectSnapshotFixture);
+    const createdSnapshot = parseProjectSnapshotV2({
+      ...initialSnapshot,
+      callables: [
+        {
+          authoredExpression: "",
+          id: "callable:created",
+          name: "New callable",
+          parameters: [],
+        },
+      ],
+      project: {
+        ...initialSnapshot.project,
+        revision: initialSnapshot.project.revision + 1,
+      },
+    });
+    const request = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
+    const workspace = installWorkspaceHarness();
+    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
+    mocks.createCallable.mockReturnValueOnce(request.promise);
+
     const view = renderApp();
     await flushEffects();
 
     expect(
-      view.querySelector<HTMLInputElement>("input[name='project-name']")?.value,
-    ).toBe("Fixture project");
-    expect(
-      view.querySelector("label[for='python-canvas-project-name']")
-        ?.textContent,
-    ).toBe("Project name");
-    expect(view.querySelector("button[type='submit']")?.textContent).toBe(
-      "Rename project",
-    );
-    expect(
-      view.querySelector(".python-canvas-empty-state")?.textContent,
-    ).toContain("No callables yet");
-    expect(
-      view.querySelector(".python-canvas-empty-state")?.textContent,
-    ).toContain(
-      "Callables are Python functions or methods that Python Canvas can call after their signature is resolved.",
-    );
-    expect(
       view.querySelector("[data-testid='workspace-canvas']"),
     ).not.toBeNull();
+    expect(view.querySelector(".python-canvas-heading")).toBeNull();
+    expect(view.querySelector(".python-canvas-project-controls")).toBeNull();
+    expect(view.querySelector(".python-canvas-empty-state")).toBeNull();
     expect(mocks.setWorkspaceColorMode).toHaveBeenCalledWith(
       expect.anything(),
       "system",
     );
 
-    const addCallable = view.querySelector<HTMLButtonElement>(
-      ".python-canvas-empty-state button",
-    );
-    if (addCallable === null) {
-      throw new Error("Expected the empty-state Add callable control.");
-    }
+    const pending = invokeMockCreationCommand({
+      workspacePosition: { x: 912, y: 488 },
+    });
+    expect(pending).toMatchObject({
+      kind: PENDING_CALLABLE_SECTION_KIND,
+      name: "New callable",
+      positionAndSizeLocked: true,
+    });
+    const pendingLayout = {
+      h: 300,
+      w: 360,
+      x: 912,
+      y: 488,
+      zIndex: 4,
+    };
+    workspace.publish({
+      ...workspace.getDocument(),
+      activeIds: [pending.id],
+      sections: { ...workspace.getDocument().sections, [pending.id]: pending },
+      topLevelSections: {
+        ...workspace.getDocument().topLevelSections,
+        [pending.id]: pendingLayout,
+      },
+    });
+    await flushEffects();
+
+    expect(mocks.createCallable).toHaveBeenCalledWith({
+      expectedRevision: initialSnapshot.project.revision,
+      name: "New callable",
+      projectId: initialSnapshot.project.id,
+    });
+
     await act(async () => {
-      addCallable.click();
+      request.resolve(createdSnapshot);
       await flushMicrotasks();
     });
-    const callableInput = view.querySelector<HTMLInputElement>(
-      "input[name='new-callable-name']",
-    );
+
+    const canonicalSectionId = callableSectionID("callable:created");
+    expect(workspace.getDocument().sections[pending.id]).toBeUndefined();
     expect(
-      view.querySelector("label[for='python-canvas-new-callable']")
-        ?.textContent,
-    ).toBe("New callable name");
-    expect(document.activeElement).toBe(callableInput);
+      workspace.getDocument().topLevelSections[canonicalSectionId],
+    ).toEqual(pendingLayout);
+    expect(workspace.getDocument().activeIds).toEqual([canonicalSectionId]);
   });
 
   it("reports an initial load failure without mounting a workspace canvas", async () => {
@@ -245,6 +310,32 @@ describe("PythonCanvasApp", () => {
       "Unable to load Python Canvas",
     );
     expect(view.querySelector("[data-testid='workspace-canvas']")).toBeNull();
+  });
+
+  it("removes a pending pane callable when its backend creation fails", async () => {
+    const workspace = installWorkspaceHarness();
+    mocks.createCallable.mockRejectedValueOnce(new Error("offline"));
+    const view = renderApp();
+    await flushEffects();
+
+    const pending = invokeMockCreationCommand({
+      workspacePosition: { x: 48, y: 64 },
+    });
+    workspace.publish({
+      ...workspace.getDocument(),
+      activeIds: [pending.id],
+      sections: { ...workspace.getDocument().sections, [pending.id]: pending },
+      topLevelSections: {
+        ...workspace.getDocument().topLevelSections,
+        [pending.id]: { h: 300, w: 360, x: 48, y: 64, zIndex: 4 },
+      },
+    });
+    await flushEffects();
+
+    expect(workspace.getDocument().sections[pending.id]).toBeUndefined();
+    expect(
+      view.querySelector("#python-canvas-mutation-error")?.textContent,
+    ).toContain("Unable to update the callable");
   });
 
   it("registers parameter authoring and pending filter-only workspace controls", () => {
@@ -286,85 +377,17 @@ describe("PythonCanvasApp", () => {
     expect(view.querySelector("[data-testid='target-editor']")).not.toBeNull();
   });
 
-  it("announces mutation failures and associates them with the native project controls", () => {
-    const view = renderView(
-      {
-        kind: "error",
-        message: "Unable to save the project. Try again.",
-      },
-      true,
-    );
-
-    expect(
-      view.querySelector("#python-canvas-mutation-error")?.textContent,
-    ).toBe("Unable to save the project. Try again.");
-    expect(view.querySelector("[role='status']")?.textContent).toBe(
-      "Unable to save the project. Try again.",
-    );
-    expect(
-      view.querySelector("#python-canvas-mutation-error")?.getAttribute("role"),
-    ).toBeNull();
-    expect(
-      view
-        .querySelector<HTMLInputElement>("input[name='project-name']")
-        ?.getAttribute("aria-describedby"),
-    ).toBe("python-canvas-mutation-error");
-    expect(
-      view
-        .querySelector<HTMLInputElement>("input[name='new-callable-name']")
-        ?.getAttribute("aria-describedby"),
-    ).toBe("python-canvas-mutation-error");
-  });
-
-  it("retains a project rename draft after a revision-conflict refresh", async () => {
-    const initialSnapshot = parseProjectSnapshotV2(projectSnapshotFixture);
-    const latestSnapshot = parseProjectSnapshotV2({
-      ...projectSnapshotFixture,
-      project: {
-        ...projectSnapshotFixture.project,
-        name: "Remote project name",
-        revision: initialSnapshot.project.revision + 1,
-      },
-    });
-    mocks.fetchProjectSnapshot
-      .mockResolvedValueOnce(initialSnapshot)
-      .mockResolvedValueOnce(latestSnapshot);
-    mocks.renameProject.mockRejectedValueOnce(
-      new ProjectClientError(
-        "http",
-        "revision conflict",
-        409,
-        undefined,
-        "revision_conflict",
-      ),
-    );
-
-    const view = renderApp();
-    await flushEffects();
-    const input = view.querySelector<HTMLInputElement>(
-      "input[name='project-name']",
-    );
-    if (input === null || input.form === null) {
-      throw new Error("Expected the project rename form.");
-    }
-    await act(async () => {
-      setInputValue(input, "Local retry project name");
-    });
-    await act(async () => {
-      input.form?.dispatchEvent(
-        new Event("submit", { bubbles: true, cancelable: true }),
-      );
-      await flushMicrotasks();
+  it("keeps app mutation feedback in an off-layout live region", () => {
+    const view = renderView({
+      kind: "error",
+      message: "Unable to save the project. Try again.",
     });
 
-    expect(input.value).toBe("Local retry project name");
-    expect(view.querySelector("[role='status']")?.textContent).toContain(
-      "your name draft is still available to retry",
-    );
-    expect(
-      view.querySelector("#python-canvas-mutation-error")?.getAttribute("role"),
-    ).toBeNull();
-    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(2);
+    const error = view.querySelector("#python-canvas-mutation-error");
+    expect(error?.getAttribute("role")).toBe("alert");
+    expect(error?.textContent).toBe("Unable to save the project. Try again.");
+    expect(view.querySelector(".python-canvas-project-controls")).toBeNull();
+    expect(view.querySelector(".python-canvas-empty-state")).toBeNull();
   });
 
   it("keeps pending and unavailable-provider states explicit", () => {
@@ -378,18 +401,9 @@ describe("PythonCanvasApp", () => {
     expect(status?.getAttribute("aria-busy")).toBe("true");
   });
 
-  it("reports an unavailable provider in the persistent status region", () => {
-    const view = renderView({ kind: "idle" });
-
-    expect(view.querySelector("[role='status']")?.textContent).toBe(
-      "Project loaded. Basedpyright is unavailable.",
-    );
-  });
-
   it("gives target completion feedback a stable description ID", () => {
     const view = renderView(
       { kind: "idle" },
-      false,
       "Unable to load Python target completions. Try again.",
     );
 
@@ -400,7 +414,7 @@ describe("PythonCanvasApp", () => {
     );
   });
 
-  it("persists a pending outer target draft after creating a callable", async () => {
+  it("persists a pending outer target draft after pane-menu creation", async () => {
     vi.useFakeTimers();
     const initialSnapshot = parseProjectSnapshotV2(projectSnapshotFixture);
     const localPrefix = "# local prefix";
@@ -411,7 +425,7 @@ describe("PythonCanvasApp", () => {
         {
           authoredExpression: "",
           id: "callable:created",
-          name: "Created callable",
+          name: "New callable",
           parameters: [],
         },
       ],
@@ -479,7 +493,7 @@ describe("PythonCanvasApp", () => {
     mocks.createCallable.mockResolvedValue(createdSnapshot);
     mocks.setPythonTarget.mockResolvedValue(persistedSnapshot);
 
-    const view = renderApp();
+    renderApp();
     await flushEffects();
     const generatedSection =
       workspaceDocument.sections["python-canvas:generated-python"];
@@ -506,33 +520,24 @@ describe("PythonCanvasApp", () => {
     };
     publish(workspaceDocument);
 
-    const addCallable = view.querySelector<HTMLButtonElement>(
-      ".python-canvas-empty-state button",
-    );
-    if (addCallable === null) {
-      throw new Error("Expected the empty-state Add callable control.");
-    }
-    await act(async () => {
-      addCallable.click();
-      await flushMicrotasks();
+    const pending = invokeMockCreationCommand({
+      workspacePosition: { x: 912, y: 488 },
     });
-    const callableInput = view.querySelector<HTMLInputElement>(
-      "input[name='new-callable-name']",
-    );
-    if (callableInput === null || callableInput.form === null) {
-      throw new Error("Expected the callable creation form.");
-    }
-    await act(async () => {
-      setInputValue(callableInput, "Created callable");
-      callableInput.form?.dispatchEvent(
-        new Event("submit", { bubbles: true, cancelable: true }),
-      );
-      await flushMicrotasks();
-    });
+    workspaceDocument = {
+      ...workspaceDocument,
+      activeIds: [pending.id],
+      sections: { ...workspaceDocument.sections, [pending.id]: pending },
+      topLevelSections: {
+        ...workspaceDocument.topLevelSections,
+        [pending.id]: { h: 300, w: 360, x: 912, y: 488, zIndex: 4 },
+      },
+    };
+    publish(workspaceDocument);
+    await flushEffects();
 
     expect(mocks.createCallable).toHaveBeenCalledWith({
       expectedRevision: initialSnapshot.project.revision,
-      name: "Created callable",
+      name: "New callable",
       projectId: initialSnapshot.project.id,
     });
 
@@ -945,7 +950,6 @@ function renderView(
     | { kind: "idle" }
     | { description: string; kind: "pending" }
     | { kind: "error"; message: string },
-  callableFormOpen = false,
   pythonTargetCompletionError: string | null = null,
 ): HTMLDivElement {
   container = document.createElement("div");
@@ -955,7 +959,6 @@ function renderView(
     root?.render(
       <PythonCanvasView
         announcement={announcement}
-        callableFormOpen={callableFormOpen}
         mutationContext={{
           callableCompletionError: () => null,
           callableCompletionProvider: () => undefined,
@@ -972,16 +975,6 @@ function renderView(
           onParameterExpressionChange: vi.fn(),
           onParameterNameChange: vi.fn(),
         }}
-        newCallableName=""
-        onCloseCallableForm={vi.fn()}
-        onCreateCallable={vi.fn()}
-        onNewCallableNameChange={vi.fn()}
-        onOpenCallableForm={vi.fn()}
-        onProjectNameChange={vi.fn()}
-        onRenameProject={vi.fn()}
-        project={parseProjectSnapshotV2(projectSnapshotFixture)}
-        projectNameDraft="Fixture project"
-        projectMutation={announcement}
         pythonTargetCompletionError={pythonTargetCompletionError}
         state={{ host: createHost(), kind: "ready" }}
       />,

@@ -31,14 +31,17 @@ import {
   prepareElementDrag,
   releaseItemSelectionChord,
   replaceNativeInputAndSubmit,
+  rightClickPoint,
   selectAll,
   contentEditableTextBoxSelector,
+  visibleElementPoint,
   waitFor,
 } from "./browser-page.mjs";
 
 const generatedPythonEditorSelector = labeledSelector(
   "Generated Python code editor, generated output read-only",
 );
+const defaultCallableName = "New callable";
 const sampleCallableName = "Sample callable";
 const zeroCallableName = "Zero callable";
 
@@ -55,25 +58,15 @@ await runAgainstProductionApp(
     await navigate(client, previewOrigin);
     await waitFor(
       client,
-      "the labelled project control and empty-state action",
+      "the edge-to-edge workspace canvas without app chrome",
       `(() => {
-        const projectName = document.querySelector("label[for='python-canvas-project-name']");
-        const addCallable = document.querySelector(".python-canvas-empty-state button");
-        return projectName?.textContent === "Project name" &&
-          addCallable?.textContent === "Add callable";
+        const canvas = document.querySelector('[role="region"][aria-label="Workspace canvas"]');
+        const pane = document.querySelector('.react-flow__pane[aria-label="Workspace canvas background"]');
+        return canvas instanceof HTMLElement && pane instanceof HTMLElement &&
+          document.querySelector('.python-canvas-heading') === null &&
+          document.querySelector('.python-canvas-project-controls') === null &&
+          document.querySelector('.python-canvas-empty-state') === null;
       })()`,
-    );
-
-    await replaceNativeInputAndSubmit(
-      client,
-      "input[name='project-name']",
-      "Browser walkthrough project",
-      "the Project name control",
-    );
-    await waitForSnapshot(
-      backendOrigin,
-      "the renamed project",
-      (snapshot) => snapshot.project.name === "Browser walkthrough project",
     );
 
     await editPythonTargetOuterRegions(client, backendOrigin);
@@ -155,7 +148,6 @@ await runAgainstProductionApp(
     await restart();
     const restored = await fetchCanonicalSnapshot(backendOrigin);
     assert.equal(restored.version, "v2");
-    assert.equal(restored.project.name, "Browser walkthrough project");
     assert.deepEqual(restored.callables, beforeRestart.callables);
     assert.deepEqual(restored.pythonTarget, beforeRestart.pythonTarget);
     assert.equal(restored.generatedCode.code, beforeRestart.generatedCode.code);
@@ -170,12 +162,11 @@ await runAgainstProductionApp(
     await navigate(client, previewOrigin);
     await waitFor(
       client,
-      "the restored project and callable controls",
+      "the restored callable section on the workspace canvas",
       `(() => {
-        const projectName = document.querySelector("input[name='project-name']");
+        const canvas = document.querySelector('[role="region"][aria-label="Workspace canvas"]');
         const callable = document.querySelector(${JSON.stringify(callableSectionSelector(sampleCallableName))});
-        return projectName instanceof HTMLInputElement &&
-          projectName.value === "Browser walkthrough project" && callable !== null;
+        return canvas instanceof HTMLElement && callable !== null;
       })()`,
     );
 
@@ -223,32 +214,80 @@ async function editPythonTargetOuterRegions(client, backendOrigin) {
 }
 
 async function createCallable(client, backendOrigin, name) {
-  const inputSelector = "input[name='new-callable-name']";
-  if (
-    !(await evaluate(
+  const existingCallableIds = new Set(
+    (await fetchCanonicalSnapshot(backendOrigin)).callables.map(
+      (callable) => callable.id,
+    ),
+  );
+  await rightClickPoint(
+    client,
+    await visibleElementPoint(
       client,
-      `document.querySelector(${JSON.stringify(inputSelector)}) instanceof HTMLInputElement`,
-    ))
-  ) {
-    const emptyStateAction = await evaluate(
-      client,
-      'document.querySelector(".python-canvas-empty-state button") instanceof HTMLButtonElement',
-    );
-    const actionSelector = emptyStateAction
-      ? ".python-canvas-empty-state button"
-      : ".python-canvas-project-controls > button";
-    await clickElementCenter(client, actionSelector, "the Add callable action");
-    await waitFor(
-      client,
-      "the focused callable-name input",
-      `document.activeElement === document.querySelector(${JSON.stringify(inputSelector)})`,
-    );
-  }
+      '.react-flow__pane[aria-label="Workspace canvas background"]',
+      "the blank workspace pane",
+    ),
+  );
+  await waitFor(
+    client,
+    "the blank-pane creation menu",
+    `(() => {
+      const menu = document.querySelector(${JSON.stringify(labeledSelector("Create a workspace section"))});
+      const item = Array.from(menu?.querySelectorAll('[role="menuitem"]') ?? [])
+        .find((candidate) => candidate.textContent?.trim() === "Python callable");
+      return item instanceof HTMLElement &&
+        item.getAttribute("data-disabled") !== "" &&
+        item.getAttribute("aria-disabled") !== "true";
+    })()`,
+  );
+  const created = await evaluate(
+    client,
+    `(() => {
+      const menu = document.querySelector(${JSON.stringify(labeledSelector("Create a workspace section"))});
+      const item = Array.from(menu?.querySelectorAll('[role="menuitem"]') ?? [])
+        .find((candidate) => candidate.textContent?.trim() === "Python callable");
+      if (!(item instanceof HTMLElement) || item.getAttribute("aria-disabled") === "true") {
+        return false;
+      }
+      item.click();
+      return true;
+    })()`,
+  );
+  assert.equal(
+    created,
+    true,
+    "The Python callable creation menu item is missing.",
+  );
+  const createdSnapshot = await waitForSnapshot(
+    backendOrigin,
+    "the canonical callable created from the pane menu",
+    (snapshot) =>
+      snapshot.callables.some(
+        (callable) =>
+          !existingCallableIds.has(callable.id) &&
+          callable.name === defaultCallableName,
+      ),
+  );
+  const createdCallable = createdSnapshot.callables.find(
+    (callable) =>
+      !existingCallableIds.has(callable.id) &&
+      callable.name === defaultCallableName,
+  );
+  assert.ok(
+    createdCallable,
+    "The pane menu did not create one canonical callable.",
+  );
+  const defaultSectionSelector = callableSectionSelector(defaultCallableName);
+  const nameSelector = `${defaultSectionSelector} input[name='callable-name']`;
+  await waitFor(
+    client,
+    "the created callable name control",
+    `document.querySelector(${JSON.stringify(nameSelector)}) instanceof HTMLInputElement`,
+  );
   await replaceNativeInputAndSubmit(
     client,
-    inputSelector,
+    nameSelector,
     name,
-    `the ${name} create control`,
+    `the ${defaultCallableName} callable name control`,
   );
   await waitForSnapshot(
     backendOrigin,

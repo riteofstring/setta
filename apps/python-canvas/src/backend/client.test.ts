@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   PROJECT_CALLABLES_PATH_V2,
   PROJECT_PATH_V2,
-  PROJECT_RENAME_PATH_V2,
   PROJECT_TARGET_COMPLETIONS_PATH_V2,
   PROJECT_TARGET_PATH_V2,
   projectCallableCommitPath,
@@ -21,7 +20,6 @@ import {
   deleteCallable,
   fetchProjectSnapshot,
   renameCallable,
-  renameProject,
   setCallableParameters,
   setPythonTarget,
 } from "./client";
@@ -44,9 +42,9 @@ describe("Python Canvas V2 project client", () => {
 
   it("uses exact generated V2 paths for every revision-bound mutation", async () => {
     const callableId = "callable:one";
-    const projectRequest = {
+    const createRequest = {
       expectedRevision: 1,
-      name: "Renamed project",
+      name: "New callable",
       projectId: "project:fixture",
     };
     const callableRequest = {
@@ -81,13 +79,10 @@ describe("Python Canvas V2 project client", () => {
       suffix: "state = SettaState()",
     };
 
-    await expectSnapshotPost(PROJECT_RENAME_PATH_V2, projectRequest, (fetch) =>
-      renameProject(projectRequest, fetch),
-    );
     await expectSnapshotPost(
       PROJECT_CALLABLES_PATH_V2,
-      projectRequest,
-      (fetch) => createCallable(projectRequest, fetch),
+      createRequest,
+      (fetch) => createCallable(createRequest, fetch),
     );
     await expectSnapshotPost(
       projectCallableRenamePath(callableId),
@@ -179,10 +174,10 @@ describe("Python Canvas V2 project client", () => {
     } as unknown as Response);
 
     await expect(
-      renameProject(
+      createCallable(
         {
           expectedRevision: 3,
-          name: "Renamed project",
+          name: "New callable",
           projectId: "project:fixture",
         },
         conflictFetch as typeof fetch,

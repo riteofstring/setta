@@ -68,7 +68,7 @@ async function elementCenter(client, selector, description) {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
-async function visibleElementPoint(
+export async function visibleElementPoint(
   client,
   selector,
   description,
@@ -152,6 +152,26 @@ export async function clickPoint(client, point, modifiers = 0) {
   await client.send("Input.dispatchMouseEvent", {
     ...params,
     buttons: 1,
+    type: "mousePressed",
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    ...params,
+    buttons: 0,
+    type: "mouseReleased",
+  });
+}
+
+export async function rightClickPoint(client, point) {
+  const params = {
+    button: "right",
+    clickCount: 1,
+    modifiers: 0,
+    x: point.x,
+    y: point.y,
+  };
+  await client.send("Input.dispatchMouseEvent", {
+    ...params,
+    buttons: 2,
     type: "mousePressed",
   });
   await client.send("Input.dispatchMouseEvent", {

@@ -21,15 +21,12 @@ export type MutationAnswer =
 export type RevisionConflictDraft =
   | { callableId: string; kind: "callable-rename"; name: string }
   | { callableId: string; kind: "parameters" }
-  | { kind: "project-rename"; name: string }
   | null;
 
 export type AppController = {
   commitCallable: (callableId: string, value: string) => void;
-  createCallable: (name: string) => void;
   deleteCallable: (callableId: string) => void;
   renameCallable: (callableId: string, name: string) => void;
-  renameProject: (name: string) => void;
   revertCallableDraft: (callableId: string) => void;
   setCallableDraft: (callableId: string, value: string) => void;
   setCallableNameDraft: (callableId: string, name: string) => void;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createWorkspaceHost,
+  registerWorkspaceCreationCommands,
   setWorkspaceColorMode,
   type TextValueCompletionProvider,
   type WorkspaceDocument,
@@ -14,7 +15,6 @@ import {
   deleteCallable,
   fetchProjectSnapshot,
   renameCallable,
-  renameProject,
   setCallableParameters,
   setPythonTarget,
 } from "../backend/client";
@@ -23,6 +23,7 @@ import { createCallableCompletionProvider } from "../sections/callableCompletion
 import { createPythonTargetCompletionProvider } from "../sections/pythonTargetCompletion";
 import {
   applyProjectSnapshotToWorkspace,
+  createPendingCallableSection,
   isCallableParameterAuthoringPending,
   projectWorkspaceDocument,
   readGeneratedPythonTarget,
@@ -49,6 +50,7 @@ import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import { PythonCanvasView } from "./PythonCanvasView";
 
 const mutationDebounceMs = 300;
+const defaultCallableName = "New callable";
 
 type AppState =
   | { kind: "loading" }
@@ -68,9 +70,6 @@ type CompletionErrors = Record<string, string>;
 
 export function PythonCanvasApp() {
   const [state, setState] = useState<AppState>({ kind: "loading" });
-  const [project, setProject] = useState<ProjectSnapshotV2 | null>(null);
-  const [projectNameDraft, setProjectNameDraft] = useState("");
-  const [newCallableName, setNewCallableName] = useState("");
   const [callableDrafts, setCallableDrafts] = useState<CallableDrafts>({});
   const [callableNameDrafts, setCallableNameDrafts] =
     useState<CallableNameDrafts>({});
@@ -84,12 +83,8 @@ export function PythonCanvasApp() {
   const [announcement, setAnnouncement] = useState<MutationState>({
     kind: "idle",
   });
-  const [projectMutation, setProjectMutation] = useState<MutationState>({
-    kind: "idle",
-  });
   const [callableMutations, setCallableMutations] =
     useState<CallableMutationStates>({});
-  const [callableFormOpen, setCallableFormOpen] = useState(false);
   const controllerRef = useRef<AppController | null>(null);
   const isProjectingRef = useRef(false);
 
@@ -111,9 +106,8 @@ export function PythonCanvasApp() {
         host.dispose();
       }
     };
-    const updateProjectMutation = (next: MutationState) => {
+    const updateAnnouncement = (next: MutationState) => {
       if (active) {
-        setProjectMutation(next);
         setAnnouncement(next);
       }
     };
@@ -213,7 +207,7 @@ export function PythonCanvasApp() {
         try {
           await operation();
         } catch (error) {
-          updateProjectMutation({
+          updateAnnouncement({
             kind: "error",
             message: mutationErrorMessage("the project", error),
           });
@@ -247,12 +241,6 @@ export function PythonCanvasApp() {
       resetCallableId: string | null,
       revisionConflictDraft: RevisionConflictDraft = null,
     ) => {
-      setProject(nextSnapshot);
-      setProjectNameDraft(
-        revisionConflictDraft?.kind === "project-rename"
-          ? revisionConflictDraft.name
-          : nextSnapshot.project.name,
-      );
       setCallableDrafts((current) => {
         const next: CallableDrafts = {};
         for (const callable of nextSnapshot.callables) {
@@ -349,6 +337,7 @@ export function PythonCanvasApp() {
       nextSnapshot: ProjectSnapshotV2,
       answer: MutationAnswer,
       revisionConflictDraft: RevisionConflictDraft = null,
+      pendingCallableSectionIds: ReadonlyMap<string, string> = new Map(),
     ) => {
       const document = host.getSnapshot();
       let keepAuthoredPython = false;
@@ -366,6 +355,7 @@ export function PythonCanvasApp() {
             ? [revisionConflictDraft.callableId]
             : []),
         ]),
+        pendingCallableSectionIds,
       });
       synchronizeReactProjection(
         nextSnapshot,
@@ -386,6 +376,7 @@ export function PythonCanvasApp() {
           snapshot,
           answer,
         ),
+        pendingCallableSectionIds: new Map(),
       });
       synchronizeReactProjection(snapshot, null);
     };
@@ -455,7 +446,7 @@ export function PythonCanvasApp() {
             authored = readGeneratedPythonTarget(host);
           } catch (error) {
             restoreCanonicalProject();
-            updateProjectMutation({
+            updateAnnouncement({
               kind: "error",
               message: "The generated Python boundary cannot be edited.",
             });
@@ -466,14 +457,14 @@ export function PythonCanvasApp() {
           }
           if (authored.generated !== snapshot.generatedCode.body) {
             restoreCanonicalProject();
-            updateProjectMutation({
+            updateAnnouncement({
               kind: "error",
               message: "The generated Python body cannot be edited.",
             });
             return;
           }
           const current = snapshot;
-          updateProjectMutation({
+          updateAnnouncement({
             description: "Checking the Python target with Basedpyright.",
             kind: "pending",
           });
@@ -489,11 +480,11 @@ export function PythonCanvasApp() {
             }
             snapshot = nextSnapshot;
             acceptCanonicalSnapshot(nextSnapshot, { kind: "other" });
-            updateProjectMutation({ kind: "idle" });
+            updateAnnouncement({ kind: "idle" });
           } catch (error) {
             if (active) {
               await handleMutationFailure("the Python target", error, {
-                reportFailure: updateProjectMutation,
+                reportFailure: updateAnnouncement,
                 restore: restoreCanonicalProject,
               });
             }
@@ -558,6 +549,66 @@ export function PythonCanvasApp() {
       parameterTimers.set(callableId, timer);
     };
 
+    const createCallableFromPane = (pendingSectionId: string) => {
+      if (!active || snapshot === null) {
+        throw new Error(
+          "Python Canvas cannot create a callable before loading.",
+        );
+      }
+      updateCallableMutation(pendingSectionId, {
+        description: "Creating the callable.",
+        kind: "pending",
+      });
+      enqueue(async () => {
+        if (!active || snapshot === null) {
+          return;
+        }
+        const current = snapshot;
+        const existingCallableIds = new Set(
+          current.callables.map((callable) => callable.id),
+        );
+        try {
+          const nextSnapshot = await createCallable({
+            expectedRevision: current.project.revision,
+            name: defaultCallableName,
+            projectId: current.project.id,
+          });
+          if (!active) {
+            return;
+          }
+          snapshot = nextSnapshot;
+          const created = nextSnapshot.callables.filter(
+            (callable) => !existingCallableIds.has(callable.id),
+          );
+          const createdCallable = created[0];
+          if (created.length !== 1 || createdCallable === undefined) {
+            acceptCanonicalSnapshot(nextSnapshot, { kind: "other" });
+            updateCallableMutation(pendingSectionId, {
+              kind: "error",
+              message:
+                "The created callable could not be identified. The latest project has been loaded.",
+            });
+            return;
+          }
+          acceptCanonicalSnapshot(
+            nextSnapshot,
+            { kind: "other" },
+            null,
+            new Map([[createdCallable.id, pendingSectionId]]),
+          );
+          updateCallableMutation(pendingSectionId, { kind: "idle" });
+        } catch (error) {
+          if (active) {
+            await handleMutationFailure("the callable", error, {
+              reportFailure: (next) =>
+                updateCallableMutation(pendingSectionId, next),
+              restore: restoreCanonicalProject,
+            });
+          }
+        }
+      });
+    };
+
     controllerRef.current = {
       commitCallable: (callableId, value) => {
         if (
@@ -617,39 +668,6 @@ export function PythonCanvasApp() {
                     callableId,
                     kind: "commit",
                   }),
-              });
-            }
-          }
-        });
-      },
-      createCallable: (name) => {
-        enqueue(async () => {
-          if (!active || snapshot === null) {
-            return;
-          }
-          updateProjectMutation({
-            description: "Creating the callable.",
-            kind: "pending",
-          });
-          try {
-            const nextSnapshot = await createCallable({
-              expectedRevision: snapshot.project.revision,
-              name,
-              projectId: snapshot.project.id,
-            });
-            if (!active) {
-              return;
-            }
-            snapshot = nextSnapshot;
-            setNewCallableName("");
-            setCallableFormOpen(false);
-            acceptCanonicalSnapshot(nextSnapshot, { kind: "other" });
-            updateProjectMutation({ kind: "idle" });
-          } catch (error) {
-            if (active) {
-              await handleMutationFailure("the callable", error, {
-                reportFailure: updateProjectMutation,
-                restore: restoreCanonicalProject,
               });
             }
           }
@@ -717,41 +735,6 @@ export function PythonCanvasApp() {
                 revisionConflictDraft: {
                   callableId,
                   kind: "callable-rename",
-                  name,
-                },
-              });
-            }
-          }
-        });
-      },
-      renameProject: (name) => {
-        enqueue(async () => {
-          if (!active || snapshot === null) {
-            return;
-          }
-          updateProjectMutation({
-            description: "Renaming the project.",
-            kind: "pending",
-          });
-          try {
-            const nextSnapshot = await renameProject({
-              expectedRevision: snapshot.project.revision,
-              name,
-              projectId: snapshot.project.id,
-            });
-            if (!active) {
-              return;
-            }
-            snapshot = nextSnapshot;
-            acceptCanonicalSnapshot(nextSnapshot, { kind: "other" });
-            updateProjectMutation({ kind: "idle" });
-          } catch (error) {
-            if (active) {
-              await handleMutationFailure("the project", error, {
-                reportFailure: updateProjectMutation,
-                restore: restoreCanonicalProject,
-                revisionConflictDraft: {
-                  kind: "project-rename",
                   name,
                 },
               });
@@ -852,6 +835,28 @@ export function PythonCanvasApp() {
             projectId: initialSnapshot.project.id,
           });
         registerPythonCanvasSectionKinds(host, pythonTargetCompletionProvider);
+        registerWorkspaceCreationCommands(host, [
+          {
+            id: "python-callable",
+            label: "Python callable",
+            group: "Python",
+            createSection: () => {
+              if (snapshot === null) {
+                throw new Error(
+                  "Python Canvas cannot create a callable before loading.",
+                );
+              }
+              const sectionId = `python-canvas:pending-callable:${crypto.randomUUID()}`;
+              const section = createPendingCallableSection(
+                snapshot,
+                sectionId,
+                defaultCallableName,
+              );
+              createCallableFromPane(sectionId);
+              return section;
+            },
+          },
+        ]);
         isProjectingRef.current = true;
         try {
           host.loadDocument(projectWorkspaceDocument(initialSnapshot));
@@ -878,15 +883,6 @@ export function PythonCanvasApp() {
       disposeHost();
     };
   }, []);
-
-  const clearProjectError = () => {
-    setProjectMutation((current) =>
-      current.kind === "error" ? { kind: "idle" } : current,
-    );
-    setAnnouncement((current) =>
-      current.kind === "error" ? { kind: "idle" } : current,
-    );
-  };
 
   const mutationContext = useMemo<PythonCanvasMutationContextValue>(
     () => ({
@@ -935,30 +931,7 @@ export function PythonCanvasApp() {
   return (
     <PythonCanvasView
       announcement={announcement}
-      callableFormOpen={callableFormOpen}
       mutationContext={mutationContext}
-      newCallableName={newCallableName}
-      onCloseCallableForm={() => {
-        setCallableFormOpen(false);
-        setNewCallableName("");
-      }}
-      onCreateCallable={(name) => controllerRef.current?.createCallable(name)}
-      onNewCallableNameChange={(name) => {
-        clearProjectError();
-        setNewCallableName(name);
-      }}
-      onOpenCallableForm={() => {
-        clearProjectError();
-        setCallableFormOpen(true);
-      }}
-      onProjectNameChange={(name) => {
-        clearProjectError();
-        setProjectNameDraft(name);
-      }}
-      onRenameProject={(name) => controllerRef.current?.renameProject(name)}
-      project={project}
-      projectNameDraft={projectNameDraft}
-      projectMutation={projectMutation}
       pythonTargetCompletionError={pythonTargetCompletionError}
       state={state}
     />

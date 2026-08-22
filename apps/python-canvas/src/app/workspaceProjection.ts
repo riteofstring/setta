@@ -10,6 +10,7 @@ import {
   type WorkspaceItem,
   type WorkspaceItemDiagnostic,
   type WorkspaceSection,
+  type WorkspaceSectionInput,
   type WorkspaceSectionItemTree,
 } from "@setta/workspace";
 
@@ -129,7 +130,56 @@ function canonicalParameterID(itemId: string): string {
 export type ProjectSnapshotProjectionOptions = Readonly<{
   keepAuthoredPython: boolean;
   keepParameterLists: ReadonlySet<string>;
+  // The public creation command must synchronously return a section, while the
+  // server remains the source of truth for callable identity. Once the server
+  // responds, this maps its canonical callable ID back to that short-lived
+  // section so the viewport position and selection do not jump.
+  pendingCallableSectionIds: ReadonlyMap<string, string>;
 }>;
+
+export function createPendingCallableSection(
+  snapshot: Pick<ProjectSnapshotV2, "providerStatus">,
+  sectionId: string,
+  name: string,
+): WorkspaceSectionInput {
+  const rootId = parameterItemRootID(sectionId);
+  return {
+    id: sectionId,
+    kind: PENDING_CALLABLE_SECTION_KIND,
+    name,
+    size: CALLABLE_SECTION_SIZE,
+    overflowMode: false,
+    isMinimized: false,
+    positionAndSizeLocked: true,
+    isHorizontalOrientation: false,
+    styleColor: null,
+    tagColor: null,
+    children: [],
+    data: pendingCallableSectionData(snapshot, sectionId, name),
+    itemTree: {
+      rootId,
+      items: { [rootId]: { id: rootId, children: [] } },
+      selectedItemIds: [],
+    },
+  };
+}
+
+function pendingCallableSectionData(
+  snapshot: Pick<ProjectSnapshotV2, "providerStatus">,
+  sectionId: string,
+  name: string,
+): CallableSectionData {
+  return {
+    callable: {
+      authoredExpression: "",
+      id: sectionId,
+      name,
+    },
+    callableDiagnosticMessage: null,
+    parameterDiagnostics: {},
+    providerStatus: snapshot.providerStatus,
+  };
+}
 
 export function projectWorkspaceDocument(
   snapshot: ProjectSnapshotV2,
@@ -158,9 +208,10 @@ export function projectWorkspaceDocument(
 }
 
 // Applies a complete canonical snapshot in one workspace transaction. Section
-// and item identities come from the current callable IDs, while canvas geometry
-// remains a transient workspace concern and is retained when that exact section
-// survives a response.
+// and item identities come from the current callable IDs. Canvas geometry
+// remains transient: it is retained when that exact section survives a
+// response, or when a just-created canonical callable replaces its pending
+// placeholder.
 export function applyProjectSnapshotToWorkspace(
   host: WorkspaceHost,
   snapshot: ProjectSnapshotV2,
@@ -194,7 +245,11 @@ export function applyProjectSnapshotToWorkspace(
     ...current,
     sections,
     topLevelSections,
-    activeIds: current.activeIds.filter((id) => sections[id] !== undefined),
+    activeIds: projectActiveSectionIds(
+      current.activeIds,
+      sections,
+      options.pendingCallableSectionIds,
+    ),
   });
 }
 
@@ -208,19 +263,57 @@ function projectCallableSections(
   const topLevelSections: WorkspaceDocument["topLevelSections"] = {};
   for (const [index, callable] of snapshot.callables.entries()) {
     const sectionId = callableSectionID(callable.id);
+    const pendingSectionId = options.pendingCallableSectionIds.get(callable.id);
+    const previous =
+      current.sections[sectionId] ??
+      (pendingSectionId === undefined
+        ? undefined
+        : current.sections[pendingSectionId]);
     const next = requireProjectedSection(projected, sectionId);
     sections[sectionId] = projectCallableResponseSection(
-      current.sections[sectionId],
+      previous,
       next,
       callable,
       options,
     );
     topLevelSections[sectionId] =
       current.topLevelSections[sectionId] ??
+      (pendingSectionId === undefined
+        ? undefined
+        : current.topLevelSections[pendingSectionId]) ??
       projected.topLevelSections[sectionId] ??
       callableLayout(index);
   }
   return { sections, topLevelSections };
+}
+
+function projectActiveSectionIds(
+  activeIds: ReadonlyArray<string>,
+  sections: WorkspaceDocument["sections"],
+  pendingCallableSectionIds: ReadonlyMap<string, string>,
+): string[] {
+  const canonicalIdsByPendingSectionId = new Map<string, string>();
+  for (const [callableId, pendingSectionId] of pendingCallableSectionIds) {
+    canonicalIdsByPendingSectionId.set(
+      pendingSectionId,
+      callableSectionID(callableId),
+    );
+  }
+  const projected: string[] = [];
+  for (const activeId of activeIds) {
+    const projectedId =
+      sections[activeId] === undefined
+        ? canonicalIdsByPendingSectionId.get(activeId)
+        : activeId;
+    if (
+      projectedId !== undefined &&
+      sections[projectedId] !== undefined &&
+      !projected.includes(projectedId)
+    ) {
+      projected.push(projectedId);
+    }
+  }
+  return projected;
 }
 
 function requireProjectedSection(

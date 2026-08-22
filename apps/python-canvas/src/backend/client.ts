@@ -1,7 +1,6 @@
 import {
   PROJECT_CALLABLES_PATH_V2,
   PROJECT_PATH_V2,
-  PROJECT_RENAME_PATH_V2,
   PROJECT_TARGET_COMPLETIONS_PATH_V2,
   PROJECT_TARGET_PATH_V2,
   projectCallableCommitPath,
@@ -18,7 +17,6 @@ import {
   type ProjectSnapshotV2,
   type PythonTargetCompletionRequestV2,
   type RenameCallableRequestV2,
-  type RenameProjectRequestV2,
   type SetCallableParametersRequestV2,
   type SetPythonTargetRequestV2,
 } from "./generatedContract";
@@ -51,17 +49,6 @@ export async function fetchProjectSnapshot(
   return requestProjectSnapshot(
     PROJECT_PATH_V2,
     { headers: { Accept: "application/json" }, method: "GET" },
-    fetchImplementation,
-  );
-}
-
-export function renameProject(
-  request: RenameProjectRequestV2,
-  fetchImplementation: typeof fetch = fetch,
-): Promise<ProjectSnapshotV2> {
-  return requestProjectSnapshot(
-    PROJECT_RENAME_PATH_V2,
-    jsonPost(request),
     fetchImplementation,
   );
 }
