@@ -428,6 +428,7 @@ describe("PythonCanvasApp", () => {
       viewport: null,
     };
     let subscriber: ((next: WorkspaceDocument) => void) | null = null;
+    const publish = (next: WorkspaceDocument) => subscriber?.(next);
     const host = {
       dispose: vi.fn(),
       getSnapshot: vi.fn(() => workspaceDocument),
@@ -487,7 +488,7 @@ describe("PythonCanvasApp", () => {
         },
       },
     };
-    subscriber?.(workspaceDocument);
+    publish(workspaceDocument);
 
     const addCallable = view.querySelector<HTMLButtonElement>(
       ".python-canvas-empty-state button",
