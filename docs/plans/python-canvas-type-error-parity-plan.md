@@ -243,21 +243,25 @@ the duplicate error clears and the restored `scale expression` row is editable b
 genuine structural mutation. The focused Python Canvas Code Policy suite (8 files / 68 tests) and
 browser-script syntax check passed.
 
-Implementation record — live-editor toolbar correction: an inline name editor schedules its
-CodeMirror-to-idle-layer swap when a native toolbar mouse press blurs it, which can move the target
-between that press and its release. The shared structural actions now preserve inline-editor focus
-through the pointer gesture, while keyboard activation retains normal button focus behavior. The
-production walkthrough now requires the recovered live `scale` name editor to own focus immediately
-before one ordinary Remove Last click, then waits for its canonical deletion; it does not send
-Escape, retry the click, or manufacture a revision. The targeted toolbar test (5 tests), the focused Python
-Canvas suite (8 files / 68 tests), the workspace component suite (143 files / 1,206 tests), and the
-browser-script syntax check passed.
+Implementation record — backend parameter-removal correction: the supervisor trace proved that the
+ordinary pointer sequence reached the enabled Remove Last control and submitted one valid complete
+deletion at revision 5, so the toolbar focus override and its test were removed to preserve normal
+pointer-focus behavior. The 500 came from a mutation candidate copying diagnostics tied to the prior
+generated document: the provider's `scale` diagnostic survived into a candidate whose list no
+longer contained `scale`, and preliminary snapshot validation correctly rejected that dangling
+target. Candidate clones now start with no diagnostics; the provider replaces them only after the
+new generated Python is materialized. The project regression covers an authored `scale` parameter,
+its mapped diagnostic, and its one-revision deletion. The focused backend suite
+(including its pinned Basedpyright integration), focused Python Canvas suite (8 files / 68 tests),
+workspace component suite (143 files / 1,205 tests), and browser-script syntax checks passed.
 
 Environment evidence not yet sufficient for phase closeout: the supervisor completed
 `code-policy dependency-review --base 9dbdf9dffd09d74ddbda856ddea03c9ea957441b`
 against the no-script candidate lockfile with no vulnerabilities. The required local production
-browser walkthrough could not run inside Agent 1's sandbox because it rejects binding
-`127.0.0.1` with `EPERM`. The phase marker remains unchecked; frozen acceptance and the required
+browser walkthrough again could not run inside Agent 1's sandbox because it rejects binding
+`127.0.0.1` with `EPERM`; the selected `test --changed --base
+9dbdf9dffd09d74ddbda856ddea03c9ea957441b` passed before that browser-only limitation. The phase
+marker remains unchecked; frozen acceptance and the required
 full-resolution browser evidence still need to run in the supervisor environment. Both are already
 authorized for this loop and are supervisor-owned acceptance work, not a developer evidence or
 approval gate.

@@ -231,6 +231,89 @@ func TestStoreReplacesDiagnosticsForEachCanonicalSnapshot(t *testing.T) {
 	}
 }
 
+func TestStoreDropsDiagnosticsForDeletedParametersBeforeValidatingTheCandidate(t *testing.T) {
+	writer := &memoryGeneratedFileWriter{path: "/temporary/setta_gen.py"}
+	provider := &recordingProvider{
+		syncResolver: func(_ context.Context, request GeneratedDocumentRequest) (GeneratedDocumentResult, error) {
+			const scaleAssignment = "state.Square_Root__scale = 2"
+			assignmentStart := strings.Index(request.Code, scaleAssignment)
+			diagnostics := []ProviderDiagnostic{}
+			if assignmentStart >= 0 {
+				expressionStart := assignmentStart + len(scaleAssignment) - 1
+				diagnostics = append(diagnostics, ProviderDiagnostic{
+					Start:    expressionStart,
+					End:      expressionStart + 1,
+					Severity: ProviderDiagnosticSeverityError,
+					Message:  "scale is not a valid math.sqrt argument",
+					Code:     "reportCallIssue",
+				})
+			}
+			return GeneratedDocumentResult{
+				Diagnostics:    diagnostics,
+				ProviderStatus: readyProviderStatusForTest(),
+			}, nil
+		},
+	}
+	store, err := NewStoreWithProvider(writer, provider)
+	if err != nil {
+		t.Fatalf("NewStoreWithProvider() error = %v", err)
+	}
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Fatalf("Close() error = %v", err)
+		}
+	}()
+
+	initial := store.Snapshot()
+	callable, err := store.CommitCallable(
+		context.Background(),
+		initial.Project.ID,
+		initial.Callables[0].ID,
+		"math.sqrt",
+	)
+	if err != nil {
+		t.Fatalf("CommitCallable(math.sqrt) error = %v", err)
+	}
+	provided := callable.Parameters[0]
+	authored, err := store.SetCallableParameters(
+		context.Background(),
+		callable.Project.ID,
+		callable.Callables[0].ID,
+		callable.Project.Revision,
+		[]ParameterProposal{
+			{ID: provided.ID, Name: provided.Name, AuthoredExpression: "3"},
+			{ID: "parameter:authored:scale", Name: "scale", AuthoredExpression: "2"},
+		},
+	)
+	if err != nil {
+		t.Fatalf("SetCallableParameters(scale) error = %v", err)
+	}
+	if len(authored.Diagnostics) != 1 || authored.Diagnostics[0].TargetID == nil ||
+		*authored.Diagnostics[0].TargetID != "parameter:authored:scale" {
+		t.Fatalf("authored diagnostics = %#v, want the scale diagnostic", authored.Diagnostics)
+	}
+
+	deleted, err := store.SetCallableParameters(
+		context.Background(),
+		authored.Project.ID,
+		authored.Callables[0].ID,
+		authored.Project.Revision,
+		[]ParameterProposal{{ID: provided.ID, Name: provided.Name, AuthoredExpression: "3"}},
+	)
+	if err != nil {
+		t.Fatalf("SetCallableParameters(delete scale) error = %v", err)
+	}
+	if deleted.Project.Revision != authored.Project.Revision+1 {
+		t.Fatalf("delete revision = %d, want %d", deleted.Project.Revision, authored.Project.Revision+1)
+	}
+	if len(deleted.Parameters) != 1 || deleted.Parameters[0].ID != provided.ID {
+		t.Fatalf("deleted parameters = %#v, want only %#v", deleted.Parameters, provided)
+	}
+	if len(deleted.Diagnostics) != 0 {
+		t.Fatalf("deleted diagnostics = %#v, want stale scale diagnostics cleared", deleted.Diagnostics)
+	}
+}
+
 type recordingProvider struct {
 	resolver           signatureResolverFunc
 	completionResolver completionResolverFunc

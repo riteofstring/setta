@@ -889,13 +889,17 @@ func (state canonicalState) snapshot() contracts.ProjectSnapshotV1 {
 
 func cloneState(state canonicalState) canonicalState {
 	clone := state
+	// Diagnostics carry ranges and semantic targets for one exact generated document.
+	// Every clone is rendered into a candidate document, so carrying those records into
+	// pre-materialization validation could leave a diagnostic pointing at a removed target.
+	// The provider replaces this empty set only after the candidate is materialized.
+	clone.diagnostics = []contracts.DiagnosticV1{}
 	clone.parameters = make([]parameterState, 0, len(state.parameters))
 	for _, parameter := range state.parameters {
 		parameter.Default = copyStringPointer(parameter.Default)
 		clone.parameters = append(clone.parameters, parameter)
 	}
 	clone.rendered.SourceRanges = append([]codegen.SourceRange(nil), state.rendered.SourceRanges...)
-	clone.diagnostics = append([]contracts.DiagnosticV1{}, state.diagnostics...)
 	return clone
 }
 
