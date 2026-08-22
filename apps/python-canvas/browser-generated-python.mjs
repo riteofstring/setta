@@ -9,6 +9,7 @@ import {
   evaluate,
   insertText,
   labeledSelector,
+  movePointerTo,
   navigate,
   pressBackspace,
   pressDelete,
@@ -26,6 +27,7 @@ import {
 // store keeps, so each one is checked in the canonical project rather than only on screen.
 const authoredPrefixLine = "import os";
 const authoredSuffixLine = "print(state.Square_Root)";
+const targetlessPrefixName = "undefined_prefix_name";
 
 // The generated document is main's generated Python area: ordinary editable text around one
 // declared range that refuses every edit touching it. These proofs drive real keys and a real
@@ -51,6 +53,85 @@ export async function assertAuthoredPythonAroundTheGeneratedBody(
     backendOrigin,
     previewOrigin,
     generatedLabel,
+  );
+}
+
+// A provider diagnostic in the authored prefix has no generated semantic target. It must stay on
+// the exact document range CodeMirror renders, rather than being lost or attached to the callable
+// or a parameter. The test drives the same outer-code editing path as a person, reads the real
+// canonical response, hovers the actual rendered range, and removes the authored error again.
+export async function assertTargetlessDocumentDiagnostic(
+  client,
+  backendOrigin,
+  generatedLabel,
+) {
+  const before = await fetchCanonicalSnapshot(backendOrigin);
+  await focusGeneratedDocument(client, generatedLabel);
+  await moveCaretToPrefixEnd(client);
+  await insertText(client, `\n${targetlessPrefixName}`);
+
+  const diagnosed = await waitForTargetlessDiagnostic(
+    backendOrigin,
+    "the authored prefix diagnostic",
+    (snapshot) =>
+      snapshot.pythonTarget?.prefix.endsWith(`\n${targetlessPrefixName}`),
+    true,
+  );
+  const diagnostic = diagnosed.diagnostics.find(
+    (candidate) => candidate.targetId === null,
+  );
+  if (diagnostic === undefined) {
+    throw new Error("The authored prefix produced no targetless diagnostic.");
+  }
+  const diagnosticText = new TextDecoder().decode(
+    new TextEncoder()
+      .encode(diagnosed.generatedCode.code)
+      .slice(diagnostic.start, diagnostic.end),
+  );
+  if (diagnosticText !== targetlessPrefixName) {
+    throw new Error(
+      `The targetless diagnostic covered ${JSON.stringify(diagnosticText)} instead of ${JSON.stringify(targetlessPrefixName)}.`,
+    );
+  }
+
+  const paintedRange = await waitFor(
+    client,
+    "the rendered targetless diagnostic range",
+    documentDiagnosticRangeScript(generatedLabel, targetlessPrefixName),
+  );
+  if (!paintedRange.hasDiagnosticInk) {
+    throw new Error(
+      "The authored prefix diagnostic did not paint a CodeMirror diagnostic underline.",
+    );
+  }
+  await movePointerTo(client, paintedRange.point);
+  await waitFor(
+    client,
+    "the targetless diagnostic hover message",
+    visibleDiagnosticMessageScript(generatedLabel, diagnostic.message),
+  );
+
+  // The exact characters added above are all outside the protected generated region. Deleting
+  // them from its prefix boundary sends the next canonical target and must remove the old lint
+  // range rather than leaving it attached to unrelated code.
+  await moveCaretToPrefixEnd(client);
+  for (const _character of `\n${targetlessPrefixName}`) {
+    await pressDelete(client);
+  }
+  const cleared = await waitForTargetlessDiagnostic(
+    backendOrigin,
+    "the corrected authored prefix",
+    (snapshot) => snapshot.pythonTarget?.prefix === before.pythonTarget.prefix,
+  );
+  if (cleared.diagnostics.some((candidate) => candidate.targetId === null)) {
+    throw new Error(
+      "Correcting the authored prefix retained a document diagnostic.",
+    );
+  }
+  await waitFor(
+    client,
+    "the cleared targetless diagnostic message",
+    `!(${visibleDiagnosticMessageScript(generatedLabel, diagnostic.message)})`,
   );
 }
 
@@ -313,6 +394,102 @@ async function waitForCanonicalTarget(backendOrigin, description, matches) {
   throw new Error(
     `${description} did not reach the canonical project: ${JSON.stringify(target)}.`,
   );
+}
+
+// A canonical response publishes its source and diagnostics together. The first caller needs the
+// new targetless diagnostic as well as the authored prefix; the clearing caller only needs the
+// corrected document, since it explicitly checks that the old diagnostic has gone below.
+async function waitForTargetlessDiagnostic(
+  backendOrigin,
+  description,
+  matches,
+  requiresTargetlessDiagnostic = false,
+) {
+  const deadline = Date.now() + productionTimeoutMs;
+  let canonical = null;
+  while (Date.now() < deadline) {
+    canonical = await fetchCanonicalSnapshot(backendOrigin);
+    const hasTargetlessDiagnostic = canonical.diagnostics.some(
+      (diagnostic) => diagnostic.targetId === null,
+    );
+    if (
+      matches(canonical) &&
+      (!requiresTargetlessDiagnostic || hasTargetlessDiagnostic)
+    ) {
+      return canonical;
+    }
+    await delay(100);
+  }
+  throw new Error(
+    `${description} did not reach the canonical project: ${JSON.stringify(canonical?.pythonTarget)}.`,
+  );
+}
+
+// The lint package owns its DOM classes, so the production proof treats the underline as a visual
+// property instead: the text's rendered range must have a visible decoration on it. This remains
+// valid if CodeMirror changes the class name or wraps the range differently.
+function documentDiagnosticRangeScript(generatedLabel, text) {
+  return `(() => {
+    const editor = document.querySelector(${JSON.stringify(`${labeledSelector(generatedLabel)} [role="textbox"]`)});
+    if (!(editor instanceof HTMLElement)) {
+      return null;
+    }
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+      const start = node.textContent?.indexOf(${JSON.stringify(text)}) ?? -1;
+      if (start < 0) {
+        continue;
+      }
+      const range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, start + ${text.length});
+      const rect = range.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        continue;
+      }
+      let element = node.parentElement;
+      let hasDiagnosticInk = false;
+      while (element instanceof HTMLElement && editor.contains(element)) {
+        const style = window.getComputedStyle(element);
+        if (
+          style.backgroundImage !== "none" ||
+          style.textDecorationLine.includes("underline")
+        ) {
+          hasDiagnosticInk = true;
+          break;
+        }
+        element = element.parentElement;
+      }
+      return {
+        hasDiagnosticInk,
+        point: {
+          x: rect.x + Math.max(1, Math.min(8, rect.width / 2)),
+          y: rect.y + rect.height / 2,
+        },
+      };
+    }
+    return null;
+  })()`;
+}
+
+// A hover tooltip is the accessible, visible explanation of the underline. Look for its actual
+// rendered text rather than the lint package's private tooltip class, and exclude the editor's
+// source text so the source identifier itself cannot satisfy the assertion.
+function visibleDiagnosticMessageScript(generatedLabel, message) {
+  return `(() => {
+    const editor = document.querySelector(${JSON.stringify(`${labeledSelector(generatedLabel)} [role="textbox"]`)});
+    return Array.from(document.querySelectorAll("body *")).some((element) => {
+      if (!(element instanceof HTMLElement) || editor?.contains(element)) {
+        return false;
+      }
+      if (element.textContent?.trim() !== ${JSON.stringify(message)}) {
+        return false;
+      }
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
+    });
+  })()`;
 }
 
 // Where the caret is, in the only vocabulary this package publishes for the block: the line it

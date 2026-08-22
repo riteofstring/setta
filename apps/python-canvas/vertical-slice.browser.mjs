@@ -1,4 +1,8 @@
-import { assertAuthoredPythonAroundTheGeneratedBody } from "./browser-generated-python.mjs";
+import {
+  assertAuthoredPythonAroundTheGeneratedBody,
+  assertTargetlessDocumentDiagnostic,
+} from "./browser-generated-python.mjs";
+import { assertCallableDiagnosticPresentation } from "./browser-diagnostics.mjs";
 import {
   assertAuthoredParameterAuthoring,
   assertStructuralParameterControls,
@@ -826,6 +830,17 @@ async function runWalkthrough(client, backendOrigin, previewOrigin) {
   await assertArgsFilterRemainsOperable(client, parameterLabel);
   // Real argument authoring, which the rejected filter-only candidate did not offer at all.
   await assertAuthoredParameterAuthoring(client, backendOrigin, generatedLabel);
+  await assertCallableDiagnosticPresentation(
+    client,
+    backendOrigin,
+    callableLabel,
+    generatedLabel,
+  );
+  await assertTargetlessDocumentDiagnostic(
+    client,
+    backendOrigin,
+    generatedLabel,
+  );
   // Real Python authoring around the generated body, which the rejected whole-document read-only
   // candidate did not offer at all. It runs last because it reloads the page.
   await assertAuthoredPythonAroundTheGeneratedBody(

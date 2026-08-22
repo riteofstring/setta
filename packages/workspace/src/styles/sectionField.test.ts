@@ -83,10 +83,12 @@ describe("section-field surface contract", () => {
     );
     // No other rule may re-open the box: a second padding or border owner is how the idle and
     // live layers drifted apart in main.
-    const boxOwners = rules.filter((rule) =>
-      ["border", "border-radius", "border-width", "padding"].some((property) =>
-        rule.declarations.has(property),
-      ),
+    const boxOwners = rules.filter(
+      (rule) =>
+        (rule.selector === WRAPPER || rule.selector.startsWith(`${LIVE} `)) &&
+        ["border", "border-radius", "border-width", "padding"].some(
+          (property) => rule.declarations.has(property),
+        ),
     );
     expect(boxOwners.map((rule) => rule.selector)).toStrictEqual([
       WRAPPER,
@@ -101,6 +103,35 @@ describe("section-field surface contract", () => {
     const dark = ruleFor(`.setta-workspace.setta-workspace-dark ${WRAPPER}`);
     expect(dark.declarations.get("border-color")).toBe("hsl(220 26% 14%)");
     expect(dark.declarations.get("background-color")).toBe("hsl(220 25% 3%)");
+  });
+
+  it("keeps a diagnostic field red through its idle and focused layers", () => {
+    const diagnostic = ruleFor(`${WRAPPER}[data-diagnostic="true"]`);
+    expect(diagnostic.declarations.get("border-color")).toBe(
+      "rgb(254 202 202)",
+    );
+    expect(diagnostic.declarations.get("background-color")).toBe(
+      "rgb(254 202 202)",
+    );
+    const darkDiagnostic = ruleFor(
+      `.setta-workspace.setta-workspace-dark ${WRAPPER}[data-diagnostic="true"]`,
+    );
+    expect(darkDiagnostic.declarations.get("border-color")).toBe(
+      "rgb(153 27 27 / 30%)",
+    );
+    expect(
+      ruleFor(
+        `${WRAPPER}[data-diagnostic="true"]:focus-within`,
+      ).declarations.get("border-color"),
+    ).toBe("rgb(254 202 202)");
+    const indicator = ruleFor(
+      ".setta-workspace-section-field-diagnostic-indicator",
+    );
+    expect(indicator.declarations.get("inline-size")).toBe("18px");
+    expect(indicator.declarations.get("block-size")).toBe("18px");
+    expect(indicator.declarations.get("background-color")).toBe(
+      "rgb(239 68 68 / 80%)",
+    );
   });
 
   it("changes only the border colour when the field takes focus", () => {

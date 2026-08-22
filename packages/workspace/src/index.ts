@@ -19,6 +19,8 @@ export {
 export type {
   WorkspaceCodeSectionData,
   WorkspaceCodeSectionDataOverrides,
+  WorkspaceCodeSectionDiagnostic,
+  WorkspaceCodeSectionDiagnosticSeverity,
   WorkspaceCodeSectionLanguage,
   WorkspaceCodeSectionMode,
   WorkspaceGeneratedRegion,

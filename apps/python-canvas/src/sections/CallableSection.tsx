@@ -37,6 +37,9 @@ export type CallableSectionData = {
     id: string;
     name: string;
   };
+  // A callable-targeted diagnostic is compact field feedback. The projection
+  // joins multiple canonical messages before this opaque section boundary.
+  callableDiagnosticMessage: string | null;
   // Keyed by canonical parameter ID, which is also the workspace item ID.
   parameterDiagnostics: Record<string, Array<WorkspaceItemDiagnostic>>;
   providerStatus: {
@@ -65,6 +68,7 @@ export function readCallableSectionData(value: unknown): CallableSectionData {
   }
   requireExactFields(value, [
     "callable",
+    "callableDiagnosticMessage",
     "parameterDiagnostics",
     "providerStatus",
   ]);
@@ -82,6 +86,10 @@ export function readCallableSectionData(value: unknown): CallableSectionData {
   };
   return {
     callable,
+    callableDiagnosticMessage: readNonBlankStringOrNull(
+      value.callableDiagnosticMessage,
+      "callableDiagnosticMessage",
+    ),
     parameterDiagnostics: readParameterDiagnostics(value.parameterDiagnostics),
     providerStatus: readProviderStatus(value.providerStatus),
   };
@@ -151,7 +159,11 @@ function readParameterDiagnostics(
 // Its keys are main's: Tab accepts an offered completion into the draft, one unmodified Enter
 // commits the draft the field is showing even while the popup is open, and Escape — once the popup
 // has taken its own first Escape — abandons the draft for the canonical expression.
-export function CallableExpressionField() {
+export function CallableExpressionField({
+  diagnosticMessage = null,
+}: {
+  diagnosticMessage?: string | null;
+}) {
   const mutation = usePythonCanvasMutationContext();
 
   return (
@@ -160,6 +172,7 @@ export function CallableExpressionField() {
         ariaLabel="Callable expression"
         completionProvider={mutation.callableCompletionProvider}
         controlId={CALLABLE_EXPRESSION_CONTROL_ID}
+        diagnosticMessage={diagnosticMessage ?? undefined}
         disabled={mutation.pending}
         language="python"
         onCommit={mutation.onCallableCommit}
@@ -400,6 +413,16 @@ function readNonBlankString(value: unknown, field: string): string {
     throw new Error(`${field} must not be empty.`);
   }
   return text;
+}
+
+function readNonBlankStringOrNull(
+  value: unknown,
+  field: string,
+): string | null {
+  if (value === null) {
+    return null;
+  }
+  return readNonBlankString(value, field);
 }
 
 function readString(value: unknown, field: string): string {

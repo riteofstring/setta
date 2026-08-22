@@ -117,6 +117,22 @@ describe("CallableSection", () => {
     expect(renderedEditor("x expression").onEscape).toBeUndefined();
   });
 
+  it("gives callable diagnostics only to the compact callable field", () => {
+    const message = 'Argument has incompatible type "str".';
+    render(
+      {},
+      {
+        ...callableData(),
+        callableDiagnosticMessage: message,
+      },
+    );
+
+    expect(renderedEditor("Callable expression").diagnosticMessage).toBe(
+      message,
+    );
+    expect(renderedEditor("x expression").diagnosticMessage).toBeUndefined();
+  });
+
   it("keeps project pending state out of the callable field's presentation", () => {
     render({ pending: true });
 
@@ -324,7 +340,9 @@ function render(
           ...overrides,
         }}
       >
-        <CallableExpressionField />
+        <CallableExpressionField
+          diagnosticMessage={data.callableDiagnosticMessage}
+        />
         <CallableSection data={data} parameters={items} />
       </PythonCanvasMutationContext.Provider>,
     );
@@ -411,6 +429,7 @@ function callableData(
       id: "callable:square-root",
       name: "Square Root",
     },
+    callableDiagnosticMessage: null,
     parameterDiagnostics: {},
     providerStatus,
   };
