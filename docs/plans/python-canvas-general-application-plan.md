@@ -972,6 +972,12 @@ parameter IDs through the same item-namespace rule for DOM interaction. No ID
 grammar restriction, migration, compatibility path, dependency, workspace
 package change, or further exploratory audit was introduced.
 
+The final requirement audit also bound the declared responsive behavior to an
+observable walkthrough assertion: after the restart proof, the browser switches
+to a 320 CSS-pixel viewport and requires the document scroll width not to exceed
+its client width. This closes the acceptance-matrix evidence gap without
+executing or widening the separately authorized browser suite.
+
 **Iteration-0026 focused proof (2026-08-22):** `go test -count=1
 ./internal/httpapi` passed the encoded-slash route regression. `pnpm --filter
 @setta/python-canvas exec vitest run src/app/workspaceProjection.test.ts

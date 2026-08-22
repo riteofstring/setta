@@ -176,6 +176,18 @@ await runAgainstProductionApp(
           projectName.value === "Browser walkthrough project" && callable !== null;
       })()`,
     );
+
+    await client.send("Emulation.setDeviceMetricsOverride", {
+      deviceScaleFactor: 1,
+      height: 720,
+      mobile: false,
+      width: 320,
+    });
+    await waitFor(
+      client,
+      "the narrow page reflow without horizontal scrolling",
+      `document.documentElement.scrollWidth <= document.documentElement.clientWidth`,
+    );
   },
 );
 
