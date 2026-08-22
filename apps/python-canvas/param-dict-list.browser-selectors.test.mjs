@@ -18,6 +18,7 @@ import {
   listNestedChildOrderExpression,
   listNestedSectionSurfaceSelector,
   listNestedSortableSectionSelector,
+  waitForSectionDragModeRelease,
   waitForListNestedChildOrder,
 } from "./param-dict-list.browser.mjs";
 
@@ -225,6 +226,43 @@ test("List walkthrough waits for projected direct sortable children in canonical
   );
   await waitForListNestedChildOrder(client, "list:objects", expectedChildIds);
   assert.equal(evaluations.length, 3);
+});
+
+test("Section drag waits for its previous mode to deactivate before another gesture", async () => {
+  const window = new JSDOM(
+    `
+      <div class="nodrag">
+        <div data-section-id="python-canvas:parameter-dictionary:dictionary:options"></div>
+      </div>
+    `,
+    { runScripts: "outside-only" },
+  ).window;
+  const document = window.document;
+  const source = document.querySelector(
+    parameterDictionarySectionSelector("dictionary:options"),
+  );
+  if (!(source instanceof window.HTMLElement) || !source.parentElement) {
+    throw new Error("Expected the section drag source.");
+  }
+  const evaluations = [];
+  const client = {
+    async send(method, parameters) {
+      assert.equal(method, "Runtime.evaluate");
+      evaluations.push(parameters.expression);
+      const value = window.eval(parameters.expression);
+      if (evaluations.length === 1) {
+        source.parentElement.classList.remove("nodrag");
+      }
+      return { result: { value } };
+    },
+  };
+
+  await waitForSectionDragModeRelease(
+    client,
+    parameterDictionarySectionSelector("dictionary:options"),
+  );
+
+  assert.equal(evaluations.length, 2);
 });
 
 function focusFixture() {

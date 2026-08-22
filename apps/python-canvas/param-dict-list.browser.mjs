@@ -893,6 +893,7 @@ async function dragSection(client, configuration) {
   } finally {
     await releaseSectionDragMode(client, sourceSelector, configuration.mode);
   }
+  await waitForSectionDragModeRelease(client, sourceSelector);
   await nextAnimationFrame(client);
   return focusCapture;
 }
@@ -976,6 +977,22 @@ function sectionDragModeExpression(sourceSelector) {
   return `(() => {
     const section = document.querySelector(${JSON.stringify(sourceSelector)});
     return section?.parentElement?.classList.contains("nodrag") === true;
+  })()`;
+}
+
+export async function waitForSectionDragModeRelease(client, sourceSelector) {
+  await waitFor(
+    client,
+    "the previous section drag mode to deactivate",
+    sectionDragModeReleaseExpression(sourceSelector),
+  );
+}
+
+function sectionDragModeReleaseExpression(sourceSelector) {
+  return `(() => {
+    const section = document.querySelector(${JSON.stringify(sourceSelector)});
+    return section instanceof HTMLElement &&
+      section.parentElement?.classList.contains("nodrag") !== true;
   })()`;
 }
 
