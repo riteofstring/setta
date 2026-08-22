@@ -193,6 +193,10 @@ function CallableNameControl({
 }) {
   const mutation = usePythonCanvasMutationContext();
   const inputId = useId();
+  const mutationErrorId =
+    mutation.mutationError === null
+      ? undefined
+      : "python-canvas-mutation-error";
   const [name, setName] = useState(callable.name);
 
   useEffect(() => {
@@ -209,6 +213,7 @@ function CallableNameControl({
     >
       <label htmlFor={inputId}>Callable name</label>
       <input
+        aria-describedby={mutationErrorId}
         id={inputId}
         name="callable-name"
         onChange={(event) => setName(event.target.value)}

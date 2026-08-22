@@ -58,7 +58,12 @@ function PythonCanvasStatus({
   return (
     <div className="python-canvas-heading">
       <h1>Python Canvas</h1>
-      <p className="python-canvas-status" role="status" aria-live="polite">
+      <p
+        aria-busy={mutation.kind === "pending"}
+        aria-live="polite"
+        className="python-canvas-status"
+        role="status"
+      >
         {pythonCanvasStatusMessage(state, mutation, project)}
       </p>
     </div>
@@ -103,10 +108,20 @@ function PythonCanvasMutationError({
   mutation,
 }: Pick<PythonCanvasViewProps, "mutation">) {
   if (mutation.kind !== "error") {
-    return null;
+    return (
+      <p
+        className="python-canvas-announcer"
+        id="python-canvas-mutation-error"
+        role="alert"
+      />
+    );
   }
   return (
-    <p className="python-canvas-error" role="alert">
+    <p
+      className="python-canvas-error"
+      id="python-canvas-mutation-error"
+      role="alert"
+    >
       {mutation.message}
     </p>
   );
@@ -161,6 +176,8 @@ function PythonCanvasProjectControls({
   | "projectNameDraft"
 >) {
   const pending = mutation.kind === "pending";
+  const mutationErrorId =
+    mutation.kind === "error" ? "python-canvas-mutation-error" : undefined;
   return (
     <section
       className="python-canvas-project-controls"
@@ -174,6 +191,7 @@ function PythonCanvasProjectControls({
       >
         <label htmlFor="python-canvas-project-name">Project name</label>
         <input
+          aria-describedby={mutationErrorId}
           id="python-canvas-project-name"
           name="project-name"
           onChange={(event) => onProjectNameChange(event.target.value)}
@@ -193,6 +211,7 @@ function PythonCanvasProjectControls({
       >
         <label htmlFor="python-canvas-new-callable">New callable name</label>
         <input
+          aria-describedby={mutationErrorId}
           id="python-canvas-new-callable"
           name="new-callable-name"
           onChange={(event) => onNewCallableNameChange(event.target.value)}

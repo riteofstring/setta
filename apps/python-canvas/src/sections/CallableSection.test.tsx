@@ -112,15 +112,35 @@ describe("CallableSection", () => {
       }),
     ).toBe("scale");
   });
+
+  it("associates a mutation failure with the callable name control", () => {
+    const view = render(
+      <CallableSection
+        data={sectionData({ state: "ready", status: "available" })}
+        parameters={[]}
+        sectionId="python-canvas:callable:one"
+      />,
+      mutationContext("Unable to save this callable. Try again."),
+    );
+
+    expect(
+      view
+        .querySelector<HTMLInputElement>("input[name='callable-name']")
+        ?.getAttribute("aria-describedby"),
+    ).toBe("python-canvas-mutation-error");
+  });
 });
 
-function render(node: ReactNode): HTMLDivElement {
+function render(
+  node: ReactNode,
+  context = mutationContext(),
+): HTMLDivElement {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
   act(() => {
     root?.render(
-      <PythonCanvasMutationContext.Provider value={mutationContext()}>
+      <PythonCanvasMutationContext.Provider value={context}>
         {node}
       </PythonCanvasMutationContext.Provider>,
     );
@@ -151,12 +171,12 @@ function sectionData({
   };
 }
 
-function mutationContext() {
+function mutationContext(mutationError: string | null = null) {
   return {
     callableCompletionError: () => null,
     callableCompletionProvider: () => undefined,
     callableDraft: () => "value",
-    mutationError: null,
+    mutationError,
     onCallableCommit: vi.fn(),
     onCallableDelete: vi.fn(),
     onCallableDraftChange: vi.fn(),

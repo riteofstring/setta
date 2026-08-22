@@ -61,6 +61,16 @@ body {
   color: light-dark(#4c5a73, #8b98ad);
 }
 
+.python-canvas-announcer {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .python-canvas-error {
   max-inline-size: 72rem;
   padding: 0.75rem 1rem;

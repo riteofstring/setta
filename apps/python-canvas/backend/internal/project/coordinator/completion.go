@@ -156,7 +156,7 @@ func validatePythonTargetCompletionInput(code string, protectedBodyRange UTF16Ra
 	if err != nil {
 		return pythonTargetCompletionInput{}, fmt.Errorf("%w: target cursor", ErrCompletionInvalid)
 	}
-	if cursorOffsetUTF16 > protectedBodyRange.Start && cursorOffsetUTF16 < protectedBodyRange.End {
+	if cursorOffsetUTF16 >= protectedBodyRange.Start && cursorOffsetUTF16 <= protectedBodyRange.End {
 		return pythonTargetCompletionInput{}, fmt.Errorf("%w: target cursor", ErrCompletionInvalid)
 	}
 	return pythonTargetCompletionInput{bodyStart: start, bodyEnd: end, cursorOffsetByte: cursor}, nil

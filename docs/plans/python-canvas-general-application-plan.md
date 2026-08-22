@@ -2,7 +2,8 @@
 
 ## Purpose and status
 
-**Status: Phase A, Phase B, and Phase C are complete; Phase D is next for Code Policy plan-loop.**
+**Status: Phase A, Phase B, and Phase C are complete; Phase D is ready for
+Agent 2 review. Phase E follows that audit.**
 
 This is the bounded implementation plan for replacing Python Canvas's fixed,
 in-memory V1 Square Root demonstration with a persisted, general-purpose Python
@@ -787,6 +788,9 @@ local service, provider session, or live probe ran in this phase.
 
 ### Phase D — acceptance evidence and removal audit
 
+- [x] Protected-boundary completion and accessible failure-feedback evidence
+      complete
+
 1. Complete focused backend, contract, HTTP, runtime-decoder, client, and
    frontend evidence from the matrix below. Implement or update the production
    browser walkthrough artifact, but do not execute `python-canvas-browser` in
@@ -803,6 +807,22 @@ local service, provider session, or live probe ran in this phase.
 4. If public workspace APIs cannot support the dynamic accessible projection,
    stop with the concrete missing API and affected UI behavior. Do not redesign
    workspace-core or change package/workspace configuration speculatively.
+
+**Implementation record (2026-08-21):** Target completion now rejects a cursor
+at either protected generated-body edge as well as one inside that range, so a
+direct V2 request cannot bypass the frontend's outer-only completion boundary.
+The persistent mutation feedback region now has one stable ID and native
+project/callable name controls reference it whenever a mutation fails. Pending
+work is exposed through `aria-busy` on the existing polite status region;
+provider-unavailable, revision-conflict, validation, and persistence failures
+remain explicit text rather than a color-only state.
+
+**Focused proof (2026-08-21):** `go test -count=1
+./internal/project/coordinator` passed from `apps/python-canvas/backend`, and
+`pnpm --filter @setta/python-canvas exec vitest run
+src/app/PythonCanvasApp.test.tsx src/sections/CallableSection.test.tsx` passed.
+These checks use only fakes and component rendering; no browser, local service,
+or Basedpyright provider session ran.
 
 ### Phase E — focused verification closeout
 

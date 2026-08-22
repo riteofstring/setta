@@ -56,6 +56,7 @@ import {
   PythonCanvasApp,
   registerPythonCanvasSectionKinds,
 } from "./PythonCanvasApp";
+import { PythonCanvasView } from "./PythonCanvasView";
 
 let container: HTMLDivElement | undefined;
 let root: Root | undefined;
@@ -130,6 +131,44 @@ describe("PythonCanvasApp", () => {
       "authoring-and-filter",
     );
   });
+
+  it("announces mutation failures and associates them with the native project controls", () => {
+    const view = renderView({
+      kind: "error",
+      message: "Unable to save the project. Try again.",
+    });
+
+    expect(
+      view.querySelector("#python-canvas-mutation-error")?.textContent,
+    ).toBe("Unable to save the project. Try again.");
+    expect(
+      view.querySelector<HTMLInputElement>("input[name='project-name']")
+        ?.getAttribute("aria-describedby"),
+    ).toBe("python-canvas-mutation-error");
+    expect(
+      view.querySelector<HTMLInputElement>("input[name='new-callable-name']")
+        ?.getAttribute("aria-describedby"),
+    ).toBe("python-canvas-mutation-error");
+  });
+
+  it("keeps pending and unavailable-provider states explicit", () => {
+    const view = renderView({
+      description: "Saving the Python target.",
+      kind: "pending",
+    });
+
+    const status = view.querySelector("[role='status']");
+    expect(status?.textContent).toBe("Saving the Python target.");
+    expect(status?.getAttribute("aria-busy")).toBe("true");
+  });
+
+  it("reports an unavailable provider in the persistent status region", () => {
+    const view = renderView({ kind: "idle" });
+
+    expect(view.querySelector("[role='status']")?.textContent).toBe(
+      "Project loaded. Basedpyright is unavailable.",
+    );
+  });
 });
 
 function createHost(): WorkspaceHost {
@@ -152,6 +191,48 @@ function renderApp(): HTMLDivElement {
   root = createRoot(container);
   act(() => {
     root?.render(<PythonCanvasApp />);
+  });
+  return container;
+}
+
+function renderView(
+  mutation:
+    | { kind: "idle" }
+    | { description: string; kind: "pending" }
+    | { kind: "error"; message: string },
+): HTMLDivElement {
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+  act(() => {
+    root?.render(
+      <PythonCanvasView
+        mutation={mutation}
+        mutationContext={{
+          callableCompletionError: () => null,
+          callableCompletionProvider: () => undefined,
+          callableDraft: () => "",
+          mutationError: null,
+          onCallableCommit: vi.fn(),
+          onCallableDelete: vi.fn(),
+          onCallableDraftChange: vi.fn(),
+          onCallableRename: vi.fn(),
+          onCallableRevert: vi.fn(),
+          onParameterExpressionChange: vi.fn(),
+          onParameterNameChange: vi.fn(),
+          pending: mutation.kind === "pending",
+        }}
+        newCallableName=""
+        onCreateCallable={vi.fn()}
+        onNewCallableNameChange={vi.fn()}
+        onProjectNameChange={vi.fn()}
+        onRenameProject={vi.fn()}
+        project={parseProjectSnapshotV2(projectSnapshotFixture)}
+        projectNameDraft="Fixture project"
+        pythonTargetCompletionError={null}
+        state={{ host: createHost(), kind: "ready" }}
+      />,
+    );
   });
   return container;
 }
