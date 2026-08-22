@@ -44,11 +44,10 @@ editable text, and between them one declared region holds the module Go
 rendered. That region stays selectable and copyable while refusing every edit
 that touches it — typing, paste, cut, deletion, and replacement — and the caret
 and cursor motion step over it rather than into it. Edits to the Python around
-it reach Go as one complete revision-bound Python target, and every canonical
-response writes the generated body back between the two regions the person is
-authoring, so their unsent text is never overwritten by the response that
-crossed it. Undo and redo take those authored edits back and put them back; a
-regeneration Go sends is nobody's edit, so it never joins that history.
+it reach Go as one complete revision-bound Python target, and canonical
+responses keep Go's generated body between the authored prefix and suffix.
+Undo and redo take authored edits back and put them back; a regeneration Go
+sends is nobody's edit, so it never joins that history.
 
 ## Run locally
 

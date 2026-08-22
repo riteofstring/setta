@@ -2366,11 +2366,11 @@ The fix is one transaction contract in `sectionEditorExtensions.ts`: an `EditorS
 annotates every document change carrying no `Transaction.userEvent` with `addToHistory: false`. That
 is the same user/host distinction the protected range already refuses and maps by, so the editor has
 one answer to who made a change rather than two, and it is what CodeMirror already defines for a
-change the editor did not originate — history maps the events it holds through the host's write
-instead of recording it. Authored prefix and suffix edits stay undoable and redoable with the range
-mapping both ways, and Undo can only ever reach an edit somebody made. Nothing identifies the
-generated body by substring, no Python or application vocabulary enters the package, and no history
-is reset.
+change the editor did not originate — history maps whatever prior events remain meaningful through
+the host's write instead of recording it, and stays active for edits authored afterward. A complete
+host replacement is the boundary for older events it makes obsolete; it cannot itself become an
+Undo step that replaces canonical bytes. Nothing identifies the generated body by substring, no
+Python or application vocabulary enters the package, and no history is reset.
 
 Three cases in `WorkspaceCodeSectionBody.test.tsx` hold it, all against the section body rather than
 the extension in isolation: a host regeneration followed by Undo leaves the regenerated document,
@@ -2396,14 +2396,10 @@ ones), the complete `@setta/workspace` suite passes (1201 cases across 143 files
 `code-policy test --changed --base 2ce28a317` passes its three impacted suites without findings.
 `code-policy format --git-changes` passes and the package TypeScript project is clean.
 `code-policy check --git-changes` raises only the Knip entry-point false positive for the live
-`apps/python-canvas/vitest.setup.ts` that this plan already records. The production browser
-walkthrough could not be run in this worktree: it builds the Go service before it starts, and no Go
-toolchain is installed here (`spawnSync go ENOENT`), so the undo and redo it drives over the
-authored suffix is proven only by the deterministic package cases above and owes a run on a machine
-that has one. It exercises the ordering this change does not alter — every canonical response in
-that step writes back the text the editor already holds, so no controlled replacement occurs between
-the authored edit and the Undo — and in any ordering where one did, this contract leaves the
-protected body alone where the pre-fix editor overwrote it.
+`apps/python-canvas/vitest.setup.ts` that this plan already records. The production browser suite
+also passes through the locked Code Policy release against fresh production builds, its bundled Go
+toolchain, the real service, pinned Basedpyright, and headless Chrome. Its undo and redo over the
+authored suffix retain the protected body and its canonical persistence.
 
 This batch changes tracked source, so the capture bundle no longer names the commit its working
 tree matches and the fourteen images owe a rerun from the final source candidate, as decision 15

@@ -201,10 +201,10 @@ function isUserTransaction(transaction: Transaction): boolean {
 // refusal, put the superseded generated body back, and map the range through a replacement of the
 // entire document — leaving the editor holding text the workspace never wrote and a region that no
 // longer describes it. Declaring the host's synchronization out of history is the whole fix, and it
-// is the one CodeMirror already defines for a change the editor did not originate: history maps the
-// events it has recorded through it and keeps them, so Undo still reaches what somebody typed —
-// the authored text around a protected block included — and only ever reaches an edit somebody
-// made. Every presentation compiles it, because every one of them renders a document its host owns.
+// is the one CodeMirror already defines for a change the editor did not originate: history maps
+// whatever prior events remain meaningful through it instead of recording the host change, and
+// stays active for edits authored afterward. Every presentation compiles it, because every one of
+// them renders a document its host owns.
 const HOST_SYNCHRONIZATION_OUT_OF_HISTORY = EditorState.transactionExtender.of(
   (transaction) =>
     transaction.docChanged && !isUserTransaction(transaction)
