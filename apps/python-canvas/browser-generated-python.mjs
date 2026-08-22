@@ -118,9 +118,17 @@ export async function assertTargetlessDocumentDiagnostic(
     "the corrected authored prefix",
     (snapshot) => snapshot.pythonTarget?.prefix === before.pythonTarget.prefix,
   );
-  if (cleared.diagnostics.some((candidate) => candidate.targetId === null)) {
+  // A later, independent document diagnostic would not make this corrected prefix stale. The
+  // exact provider message that annotated the removed name must disappear; the next assertion
+  // proves the same rule at the rendered CodeMirror boundary.
+  if (
+    cleared.diagnostics.some(
+      (candidate) =>
+        candidate.targetId === null && candidate.message === diagnostic.message,
+    )
+  ) {
     throw new Error(
-      "Correcting the authored prefix retained a document diagnostic.",
+      "Correcting the authored prefix retained its document diagnostic.",
     );
   }
   await waitFor(
@@ -392,8 +400,9 @@ async function waitForCanonicalTarget(backendOrigin, description, matches) {
 }
 
 // A canonical response publishes its source and diagnostics together. The first caller needs the
-// new targetless diagnostic as well as the authored prefix; the clearing caller only needs the
-// corrected document, since it explicitly checks that the old diagnostic has gone below.
+// new targetless diagnostic as well as the authored prefix; the clearing caller then checks the
+// removed name's exact provider message, without treating a distinct later document diagnostic as
+// its stale range.
 async function waitForTargetlessDiagnostic(
   backendOrigin,
   description,
