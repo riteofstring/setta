@@ -5,10 +5,10 @@
       "dark"
     ],
     "browser": "Chrome/152.0.7977.42",
-    "capturedAt": "2026-08-20T01:42:44.607Z",
+    "capturedAt": "2026-08-20T07:30:59.659Z",
     "committedCallable": "math.sqrt",
     "cropMarginCssPx": 8,
-    "sourceCommit": "e4108da66b80b98ac21d17fcfaca32fa7f8a83e6",
+    "sourceCommit": "be6632ea5f7554e4e9e8051bf0def6985cfb92c6",
     "surface": "Production @setta/workspace and Python Canvas builds served by vite preview, the real Go service, and its pinned Basedpyright.",
     "viewport": {
       "deviceScaleFactor": 1,
@@ -34,8 +34,8 @@
       "crop": {
         "height": 298,
         "width": 378,
-        "x": 191,
-        "y": 198.390625,
+        "x": 192,
+        "y": 199.390625,
         "marginCssPx": 8
       },
       "donor": {
@@ -61,43 +61,43 @@
       "observed": {
         "composition": {
           "field": {
-            "bottom": 259.390625,
+            "bottom": 260.390625,
             "height": 26,
-            "left": 202,
-            "right": 558,
-            "top": 233.390625,
+            "left": 203,
+            "right": 559,
+            "top": 234.390625,
             "width": 356
           },
           "firstParameter": {
-            "bottom": 312.890625,
+            "bottom": 313.890625,
             "height": 19,
-            "left": 214,
-            "right": 376,
-            "top": 293.890625,
+            "left": 215,
+            "right": 377,
+            "top": 294.890625,
             "width": 162
           },
           "header": {
-            "bottom": 233.390625,
+            "bottom": 234.390625,
             "height": 22,
-            "left": 208,
-            "right": 552,
-            "top": 211.390625,
+            "left": 209,
+            "right": 553,
+            "top": 212.390625,
             "width": 344
           },
           "section": {
-            "bottom": 488.390625,
+            "bottom": 489.390625,
             "height": 282,
-            "left": 199,
-            "right": 561,
-            "top": 206.390625,
+            "left": 200,
+            "right": 562,
+            "top": 207.390625,
             "width": 362
           },
           "toolbar": {
-            "bottom": 285.390625,
+            "bottom": 286.390625,
             "height": 26,
-            "left": 200,
-            "right": 560,
-            "top": 259.390625,
+            "left": 201,
+            "right": 561,
+            "top": 260.390625,
             "width": 360
           },
           "contentPadding": {
@@ -109,8 +109,8 @@
           "box": {
             "height": 26,
             "width": 356,
-            "x": 202,
-            "y": 233.390625
+            "x": 203,
+            "y": 234.390625
           },
           "surface": {
             "backgroundColor": "rgb(255, 255, 255)",
@@ -133,7 +133,7 @@
         }
       },
       "screenshot": "screenshots/01-callable-section-idle-light-1440x900.png",
-      "screenshotSha256": "f462fe6a304c08bc3d444d89f914e79c0914a01e3374990563ba45a0d32fb07b",
+      "screenshotSha256": "394e3b673f1c53360a5342ed95970860cd892f216fb9d74dde79e4ef68323e99",
       "state": "idle",
       "surface": "callable-section"
     },
@@ -142,8 +142,8 @@
       "crop": {
         "height": 298,
         "width": 378,
-        "x": 191,
-        "y": 198.390625,
+        "x": 192,
+        "y": 199.390625,
         "marginCssPx": 8
       },
       "donor": {
@@ -169,43 +169,43 @@
       "observed": {
         "composition": {
           "field": {
-            "bottom": 259.390625,
+            "bottom": 260.390625,
             "height": 26,
-            "left": 202,
-            "right": 558,
-            "top": 233.390625,
+            "left": 203,
+            "right": 559,
+            "top": 234.390625,
             "width": 356
           },
           "firstParameter": {
-            "bottom": 312.890625,
+            "bottom": 313.890625,
             "height": 19,
-            "left": 214,
-            "right": 376,
-            "top": 293.890625,
+            "left": 215,
+            "right": 377,
+            "top": 294.890625,
             "width": 162
           },
           "header": {
-            "bottom": 233.390625,
+            "bottom": 234.390625,
             "height": 22,
-            "left": 208,
-            "right": 552,
-            "top": 211.390625,
+            "left": 209,
+            "right": 553,
+            "top": 212.390625,
             "width": 344
           },
           "section": {
-            "bottom": 488.390625,
+            "bottom": 489.390625,
             "height": 282,
-            "left": 199,
-            "right": 561,
-            "top": 206.390625,
+            "left": 200,
+            "right": 562,
+            "top": 207.390625,
             "width": 362
           },
           "toolbar": {
-            "bottom": 285.390625,
+            "bottom": 286.390625,
             "height": 26,
-            "left": 200,
-            "right": 560,
-            "top": 259.390625,
+            "left": 201,
+            "right": 561,
+            "top": 260.390625,
             "width": 360
           },
           "contentPadding": {
@@ -217,8 +217,8 @@
           "box": {
             "height": 26,
             "width": 356,
-            "x": 202,
-            "y": 233.390625
+            "x": 203,
+            "y": 234.390625
           },
           "surface": {
             "backgroundColor": "rgb(255, 255, 255)",
@@ -241,7 +241,7 @@
         }
       },
       "screenshot": "screenshots/02-callable-section-focused-light-1440x900.png",
-      "screenshotSha256": "51725627e26228e6d043c3f792d4feb2073527db1b09440f7fe400d9a9830c0b",
+      "screenshotSha256": "8a068fa8cef2f101ef73b89eba5c716a0bd2606f52b5ffbe801c146f2dbf9aa6",
       "state": "focused",
       "surface": "callable-section"
     },
@@ -250,8 +250,8 @@
       "crop": {
         "height": 406,
         "width": 656,
-        "x": 592,
-        "y": 225.390625,
+        "x": 593,
+        "y": 226.390625,
         "marginCssPx": 8
       },
       "donor": {
@@ -270,11 +270,11 @@
         "box": {
           "height": 390,
           "width": 640,
-          "x": 600,
-          "y": 233.390625
+          "x": 601,
+          "y": 234.390625
         },
         "block": {
-          "bottom": 346.515625,
+          "bottom": 347.515625,
           "lineBoxCssPx": 18.1875,
           "lineCount": 5,
           "marks": [
@@ -285,12 +285,12 @@
             "end"
           ],
           "text": "\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n",
-          "top": 255.578125,
+          "top": 256.578125,
           "width": 610.171875
         },
         "content": {
-          "bottom": 623.390625,
-          "top": 233.390625
+          "bottom": 624.390625,
+          "top": 234.390625
         },
         "wrapper": {
           "backgroundImage": "none"
@@ -313,18 +313,17 @@
           "textTransform": "uppercase"
         },
         "text": {
-          "contentEditable": "false",
+          "contentEditable": "true",
           "isActiveElement": false,
           "outlineStyle": "none",
           "outlineWidth": "0px",
-          "readOnly": "true",
+          "readOnly": null,
           "source": "import mathclass SettaState:    def __init__(state):        state.Square_Root = math.sqrt()state = SettaState()"
         },
-        "hasCaretLayer": false,
-        "hasActiveLine": false
+        "caretInsideBlock": false
       },
       "screenshot": "screenshots/03-generated-document-idle-light-1440x900.png",
-      "screenshotSha256": "43e8447bdf1d1fcd79f04437d93eef7414ef57311fcb023f2b8b7185dff12d18",
+      "screenshotSha256": "c50db8190215d44fcdab546675b1a1f678e4c9bc58408e09972c21ad33ae682c",
       "state": "idle",
       "surface": "generated-document"
     },
@@ -333,8 +332,8 @@
       "crop": {
         "height": 406,
         "width": 656,
-        "x": 592,
-        "y": 225.390625,
+        "x": 593,
+        "y": 226.390625,
         "marginCssPx": 8
       },
       "donor": {
@@ -353,11 +352,11 @@
         "box": {
           "height": 390,
           "width": 640,
-          "x": 600,
-          "y": 233.390625
+          "x": 601,
+          "y": 234.390625
         },
         "block": {
-          "bottom": 346.515625,
+          "bottom": 347.515625,
           "lineBoxCssPx": 18.1875,
           "lineCount": 5,
           "marks": [
@@ -368,12 +367,12 @@
             "end"
           ],
           "text": "\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n",
-          "top": 255.578125,
+          "top": 256.578125,
           "width": 610.171875
         },
         "content": {
-          "bottom": 623.390625,
-          "top": 233.390625
+          "bottom": 624.390625,
+          "top": 234.390625
         },
         "wrapper": {
           "backgroundImage": "none"
@@ -396,18 +395,17 @@
           "textTransform": "uppercase"
         },
         "text": {
-          "contentEditable": "false",
-          "isActiveElement": false,
+          "contentEditable": "true",
+          "isActiveElement": true,
           "outlineStyle": "none",
           "outlineWidth": "0px",
-          "readOnly": "true",
+          "readOnly": null,
           "source": "import mathclass SettaState:    def __init__(state):        state.Square_Root = math.sqrt()state = SettaState()"
         },
-        "hasCaretLayer": false,
-        "hasActiveLine": false
+        "caretInsideBlock": false
       },
       "screenshot": "screenshots/04-generated-document-clicked-light-1440x900.png",
-      "screenshotSha256": "5d8da95a1a5472db37e498bda6de534cbac375c14dbeabe6a45ebeeb7fed0174",
+      "screenshotSha256": "d266d6b00a6fb4f4eae9bf0baf0997ed91f41b504c54ff9fbf82bd87c5e37bdc",
       "state": "clicked",
       "surface": "generated-document"
     },
@@ -416,8 +414,8 @@
       "crop": {
         "height": 580,
         "width": 740,
-        "x": 10,
-        "y": 158.78125,
+        "x": 11,
+        "y": 159.78125,
         "marginCssPx": 8
       },
       "donor": {
@@ -445,8 +443,8 @@
           "box": {
             "height": 52,
             "width": 712,
-            "x": 24,
-            "y": 220.78125
+            "x": 25,
+            "y": 221.78125
           },
           "surface": {
             "backgroundColor": "rgb(255, 255, 255)",
@@ -471,8 +469,8 @@
           "box": {
             "height": 564,
             "width": 724,
-            "x": 18,
-            "y": 166.78125
+            "x": 19,
+            "y": 167.78125
           },
           "canvas": {
             "bottom": 732.390625,
@@ -490,7 +488,7 @@
         }
       },
       "screenshot": "screenshots/05-zoomed-callable-section-zoomed-idle-light-1440x900.png",
-      "screenshotSha256": "f0de721f13bec62798a9c9ed5e4be8c7dea14563457d89be34786ec8f5591720",
+      "screenshotSha256": "4ff598ff01ba2949ebaa31a33ed1a4e685f21738cbebaa3b9834b801092f37f8",
       "state": "zoomed-idle",
       "surface": "zoomed-callable-section"
     },
@@ -499,8 +497,8 @@
       "crop": {
         "height": 580,
         "width": 740,
-        "x": 10,
-        "y": 158.78125,
+        "x": 11,
+        "y": 159.78125,
         "marginCssPx": 8
       },
       "donor": {
@@ -528,8 +526,8 @@
           "box": {
             "height": 52,
             "width": 712,
-            "x": 24,
-            "y": 220.78125
+            "x": 25,
+            "y": 221.78125
           },
           "surface": {
             "backgroundColor": "rgb(255, 255, 255)",
@@ -554,8 +552,8 @@
           "box": {
             "height": 564,
             "width": 724,
-            "x": 18,
-            "y": 166.78125
+            "x": 19,
+            "y": 167.78125
           },
           "canvas": {
             "bottom": 732.390625,
@@ -573,7 +571,7 @@
         }
       },
       "screenshot": "screenshots/06-zoomed-callable-section-zoomed-focused-light-1440x900.png",
-      "screenshotSha256": "2c19e298121cd9217d32217d47d5baf1d40a997413fc00d51f73dab99c6c8b1b",
+      "screenshotSha256": "74ac7a2d1f5d7f65a775fdc32d91b94e33ba97aeeeae81a432b7072d58704d34",
       "state": "zoomed-focused",
       "surface": "zoomed-callable-section"
     },
@@ -582,8 +580,8 @@
       "crop": {
         "height": 580,
         "width": 740,
-        "x": 10,
-        "y": 158.78125,
+        "x": 11,
+        "y": 159.78125,
         "marginCssPx": 8
       },
       "donor": {
@@ -609,14 +607,14 @@
       "observed": {
         "popup": {
           "field": {
-            "bottom": 272.78125,
+            "bottom": 273.78125,
             "height": 52,
-            "top": 220.78125
+            "top": 221.78125
           },
           "popup": {
-            "bottom": 333.15625,
+            "bottom": 334.15625,
             "height": 70.375,
-            "top": 262.78125,
+            "top": 263.78125,
             "width": 500
           },
           "fieldContainsPopup": false,
@@ -629,8 +627,8 @@
           "box": {
             "height": 564,
             "width": 724,
-            "x": 18,
-            "y": 166.78125
+            "x": 19,
+            "y": 167.78125
           },
           "canvas": {
             "bottom": 732.390625,
@@ -648,7 +646,7 @@
         }
       },
       "screenshot": "screenshots/07-zoomed-callable-section-zoomed-completion-light-1440x900.png",
-      "screenshotSha256": "0fa01f94f60c46c6d9dd265edd1c1330cb8fcfd50f50e5eea31fa098c65b3923",
+      "screenshotSha256": "528c70ba790dff4b88b677d5e9d4fdf87b1156e6d32938d47f1cc66ae6b1748b",
       "state": "zoomed-completion",
       "surface": "zoomed-callable-section"
     },
@@ -657,8 +655,8 @@
       "crop": {
         "height": 298,
         "width": 378,
-        "x": 191,
-        "y": 198.390625,
+        "x": 192,
+        "y": 199.390625,
         "marginCssPx": 8
       },
       "donor": {
@@ -684,43 +682,43 @@
       "observed": {
         "composition": {
           "field": {
-            "bottom": 259.390625,
+            "bottom": 260.390625,
             "height": 26,
-            "left": 202,
-            "right": 558,
-            "top": 233.390625,
+            "left": 203,
+            "right": 559,
+            "top": 234.390625,
             "width": 356
           },
           "firstParameter": {
-            "bottom": 312.890625,
+            "bottom": 313.890625,
             "height": 19,
-            "left": 214,
-            "right": 376,
-            "top": 293.890625,
+            "left": 215,
+            "right": 377,
+            "top": 294.890625,
             "width": 162
           },
           "header": {
-            "bottom": 233.390625,
+            "bottom": 234.390625,
             "height": 22,
-            "left": 208,
-            "right": 552,
-            "top": 211.390625,
+            "left": 209,
+            "right": 553,
+            "top": 212.390625,
             "width": 344
           },
           "section": {
-            "bottom": 488.390625,
+            "bottom": 489.390625,
             "height": 282,
-            "left": 199,
-            "right": 561,
-            "top": 206.390625,
+            "left": 200,
+            "right": 562,
+            "top": 207.390625,
             "width": 362
           },
           "toolbar": {
-            "bottom": 285.390625,
+            "bottom": 286.390625,
             "height": 26,
-            "left": 200,
-            "right": 560,
-            "top": 259.390625,
+            "left": 201,
+            "right": 561,
+            "top": 260.390625,
             "width": 360
           },
           "contentPadding": {
@@ -732,8 +730,8 @@
           "box": {
             "height": 26,
             "width": 356,
-            "x": 202,
-            "y": 233.390625
+            "x": 203,
+            "y": 234.390625
           },
           "surface": {
             "backgroundColor": "rgb(6, 7, 10)",
@@ -756,7 +754,7 @@
         }
       },
       "screenshot": "screenshots/08-callable-section-idle-dark-1440x900.png",
-      "screenshotSha256": "7268ba5f637c4b3a6a2b8c2ad0a8c823c688d3f565232cf4896aaace16e2694f",
+      "screenshotSha256": "3dedcb9336b8c945d1b8bb7e719eea718f6cd7b04f1e146359612a979013728b",
       "state": "idle",
       "surface": "callable-section"
     },
@@ -765,8 +763,8 @@
       "crop": {
         "height": 298,
         "width": 378,
-        "x": 191,
-        "y": 198.390625,
+        "x": 192,
+        "y": 199.390625,
         "marginCssPx": 8
       },
       "donor": {
@@ -792,43 +790,43 @@
       "observed": {
         "composition": {
           "field": {
-            "bottom": 259.390625,
+            "bottom": 260.390625,
             "height": 26,
-            "left": 202,
-            "right": 558,
-            "top": 233.390625,
+            "left": 203,
+            "right": 559,
+            "top": 234.390625,
             "width": 356
           },
           "firstParameter": {
-            "bottom": 312.890625,
+            "bottom": 313.890625,
             "height": 19,
-            "left": 214,
-            "right": 376,
-            "top": 293.890625,
+            "left": 215,
+            "right": 377,
+            "top": 294.890625,
             "width": 162
           },
           "header": {
-            "bottom": 233.390625,
+            "bottom": 234.390625,
             "height": 22,
-            "left": 208,
-            "right": 552,
-            "top": 211.390625,
+            "left": 209,
+            "right": 553,
+            "top": 212.390625,
             "width": 344
           },
           "section": {
-            "bottom": 488.390625,
+            "bottom": 489.390625,
             "height": 282,
-            "left": 199,
-            "right": 561,
-            "top": 206.390625,
+            "left": 200,
+            "right": 562,
+            "top": 207.390625,
             "width": 362
           },
           "toolbar": {
-            "bottom": 285.390625,
+            "bottom": 286.390625,
             "height": 26,
-            "left": 200,
-            "right": 560,
-            "top": 259.390625,
+            "left": 201,
+            "right": 561,
+            "top": 260.390625,
             "width": 360
           },
           "contentPadding": {
@@ -840,8 +838,8 @@
           "box": {
             "height": 26,
             "width": 356,
-            "x": 202,
-            "y": 233.390625
+            "x": 203,
+            "y": 234.390625
           },
           "surface": {
             "backgroundColor": "rgb(6, 7, 10)",
@@ -864,7 +862,7 @@
         }
       },
       "screenshot": "screenshots/09-callable-section-focused-dark-1440x900.png",
-      "screenshotSha256": "261b7dbd8948305dfaacb6d74daf764acbe8e21af8bd0e068c81042486358ec7",
+      "screenshotSha256": "690355829bd23da3d650fe5e9cbf17b6fecab19fc225d127931ce9737c93e6d8",
       "state": "focused",
       "surface": "callable-section"
     },
@@ -873,8 +871,8 @@
       "crop": {
         "height": 406,
         "width": 656,
-        "x": 592,
-        "y": 225.390625,
+        "x": 593,
+        "y": 226.390625,
         "marginCssPx": 8
       },
       "donor": {
@@ -893,11 +891,11 @@
         "box": {
           "height": 390,
           "width": 640,
-          "x": 600,
-          "y": 233.390625
+          "x": 601,
+          "y": 234.390625
         },
         "block": {
-          "bottom": 346.515625,
+          "bottom": 347.515625,
           "lineBoxCssPx": 18.1875,
           "lineCount": 5,
           "marks": [
@@ -908,12 +906,12 @@
             "end"
           ],
           "text": "\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n",
-          "top": 255.578125,
+          "top": 256.578125,
           "width": 610.171875
         },
         "content": {
-          "bottom": 623.390625,
-          "top": 233.390625
+          "bottom": 624.390625,
+          "top": 234.390625
         },
         "wrapper": {
           "backgroundImage": "none"
@@ -936,18 +934,17 @@
           "textTransform": "uppercase"
         },
         "text": {
-          "contentEditable": "false",
+          "contentEditable": "true",
           "isActiveElement": false,
           "outlineStyle": "none",
           "outlineWidth": "0px",
-          "readOnly": "true",
+          "readOnly": null,
           "source": "import mathclass SettaState:    def __init__(state):        state.Square_Root = math.sqrt()state = SettaState()"
         },
-        "hasCaretLayer": false,
-        "hasActiveLine": false
+        "caretInsideBlock": false
       },
       "screenshot": "screenshots/10-generated-document-idle-dark-1440x900.png",
-      "screenshotSha256": "4e612824f8739ae415467efd2c435646ea02e025d2688263c10a1a72417b1b53",
+      "screenshotSha256": "28a2e23d733b1527243794942bdcdb64b8ebeb8aabba6026acf8abfea08301bb",
       "state": "idle",
       "surface": "generated-document"
     },
@@ -956,8 +953,8 @@
       "crop": {
         "height": 406,
         "width": 656,
-        "x": 592,
-        "y": 225.390625,
+        "x": 593,
+        "y": 226.390625,
         "marginCssPx": 8
       },
       "donor": {
@@ -976,11 +973,11 @@
         "box": {
           "height": 390,
           "width": 640,
-          "x": 600,
-          "y": 233.390625
+          "x": 601,
+          "y": 234.390625
         },
         "block": {
-          "bottom": 346.515625,
+          "bottom": 347.515625,
           "lineBoxCssPx": 18.1875,
           "lineCount": 5,
           "marks": [
@@ -991,12 +988,12 @@
             "end"
           ],
           "text": "\nclass SettaState:\n    def __init__(state):\n        state.Square_Root = math.sqrt()\n",
-          "top": 255.578125,
+          "top": 256.578125,
           "width": 610.171875
         },
         "content": {
-          "bottom": 623.390625,
-          "top": 233.390625
+          "bottom": 624.390625,
+          "top": 234.390625
         },
         "wrapper": {
           "backgroundImage": "none"
@@ -1019,18 +1016,17 @@
           "textTransform": "uppercase"
         },
         "text": {
-          "contentEditable": "false",
-          "isActiveElement": false,
+          "contentEditable": "true",
+          "isActiveElement": true,
           "outlineStyle": "none",
           "outlineWidth": "0px",
-          "readOnly": "true",
+          "readOnly": null,
           "source": "import mathclass SettaState:    def __init__(state):        state.Square_Root = math.sqrt()state = SettaState()"
         },
-        "hasCaretLayer": false,
-        "hasActiveLine": false
+        "caretInsideBlock": false
       },
       "screenshot": "screenshots/11-generated-document-clicked-dark-1440x900.png",
-      "screenshotSha256": "6c33fc97411879931f957c4da206d44e139be0640f9ab6e5450ce72fc8cde92a",
+      "screenshotSha256": "486f1efcb90661554e1aef55e6da94cb99e7e974bc2aade287c1a38fdf1aa68b",
       "state": "clicked",
       "surface": "generated-document"
     },
@@ -1039,8 +1035,8 @@
       "crop": {
         "height": 580,
         "width": 740,
-        "x": 10,
-        "y": 158.78125,
+        "x": 11,
+        "y": 159.78125,
         "marginCssPx": 8
       },
       "donor": {
@@ -1068,8 +1064,8 @@
           "box": {
             "height": 52,
             "width": 712,
-            "x": 24,
-            "y": 220.78125
+            "x": 25,
+            "y": 221.78125
           },
           "surface": {
             "backgroundColor": "rgb(6, 7, 10)",
@@ -1094,8 +1090,8 @@
           "box": {
             "height": 564,
             "width": 724,
-            "x": 18,
-            "y": 166.78125
+            "x": 19,
+            "y": 167.78125
           },
           "canvas": {
             "bottom": 732.390625,
@@ -1113,7 +1109,7 @@
         }
       },
       "screenshot": "screenshots/12-zoomed-callable-section-zoomed-idle-dark-1440x900.png",
-      "screenshotSha256": "f4db2d36114d1402ea75000717ad8ddbfee35d9b4eb79526cbbb4891fe825ece",
+      "screenshotSha256": "d9520639021a9cb65eb0200874b490dd6edadcd35796c645b9b08f7cc1bf7152",
       "state": "zoomed-idle",
       "surface": "zoomed-callable-section"
     },
@@ -1122,8 +1118,8 @@
       "crop": {
         "height": 580,
         "width": 740,
-        "x": 10,
-        "y": 158.78125,
+        "x": 11,
+        "y": 159.78125,
         "marginCssPx": 8
       },
       "donor": {
@@ -1151,8 +1147,8 @@
           "box": {
             "height": 52,
             "width": 712,
-            "x": 24,
-            "y": 220.78125
+            "x": 25,
+            "y": 221.78125
           },
           "surface": {
             "backgroundColor": "rgb(6, 7, 10)",
@@ -1177,8 +1173,8 @@
           "box": {
             "height": 564,
             "width": 724,
-            "x": 18,
-            "y": 166.78125
+            "x": 19,
+            "y": 167.78125
           },
           "canvas": {
             "bottom": 732.390625,
@@ -1196,7 +1192,7 @@
         }
       },
       "screenshot": "screenshots/13-zoomed-callable-section-zoomed-focused-dark-1440x900.png",
-      "screenshotSha256": "d8a1e58a081463e64f295dcebbc2907cf86ac45b0269a2377d9b84985d74fd9f",
+      "screenshotSha256": "e1514c6e9b092c3c0eb904ac7eabedb72ef5cfe2ceb5d0e9d55522d97b495629",
       "state": "zoomed-focused",
       "surface": "zoomed-callable-section"
     },
@@ -1205,8 +1201,8 @@
       "crop": {
         "height": 580,
         "width": 740,
-        "x": 10,
-        "y": 158.78125,
+        "x": 11,
+        "y": 159.78125,
         "marginCssPx": 8
       },
       "donor": {
@@ -1232,14 +1228,14 @@
       "observed": {
         "popup": {
           "field": {
-            "bottom": 272.78125,
+            "bottom": 273.78125,
             "height": 52,
-            "top": 220.78125
+            "top": 221.78125
           },
           "popup": {
-            "bottom": 331.15625,
+            "bottom": 332.15625,
             "height": 70.375,
-            "top": 260.78125,
+            "top": 261.78125,
             "width": 500
           },
           "fieldContainsPopup": false,
@@ -1252,8 +1248,8 @@
           "box": {
             "height": 564,
             "width": 724,
-            "x": 18,
-            "y": 166.78125
+            "x": 19,
+            "y": 167.78125
           },
           "canvas": {
             "bottom": 732.390625,
@@ -1271,7 +1267,7 @@
         }
       },
       "screenshot": "screenshots/14-zoomed-callable-section-zoomed-completion-dark-1440x900.png",
-      "screenshotSha256": "6d0bbf26b963e517368a0d0d80dd7dc4952e31921463a6d9da5700682cc08549",
+      "screenshotSha256": "28dacaf879318ae3f8aaff8e3b2f15f3209505b5e8e4ab3c8d30641d8b04705a",
       "state": "zoomed-completion",
       "surface": "zoomed-callable-section"
     }

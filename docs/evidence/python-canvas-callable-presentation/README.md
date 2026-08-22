@@ -39,14 +39,21 @@ load of the shipped `math.sqrt` scene.
 The Square Root crops are the whole card, because the composition is the point: the callable field
 begins at the section header's own boundary, the Args toolbar begins at the field's with a measured
 zero-pixel step, the first parameter row follows the toolbar by the item list's own eight pixels,
-and the field is inset from both card edges by nothing but its own 2px margin. Compare that
-continuous header → field → Args → parameters stack against main's
-`docs/evidence/phase0/reference/screenshots/27-root-callable-selected-with-params-light.png` and its
-dark counterpart.
+and the field is inset from both card edges by nothing but its own 2px margin, within the harness's
+stated one-pixel tolerance. Compare that continuous header → field → Args → parameters stack against
+main's `docs/evidence/phase0/reference/screenshots/27-root-callable-selected-with-params-light.png`
+and its dark counterpart.
 
 The field itself is main's 16px-radius pill holding the committed `math.sqrt`, and activation
 changes its border colour and nothing else: its box may drift by at most one CSS px and its computed
 font family, size, weight, line height, and colour are identical across the swap.
+
+The Args toolbar is the package's `authoring-and-filter` surface, so the card shows main's real
+parameter authoring beside the `ARGS` label: remove last, add, delete selected, and the filter. The
+filter advertises the workspace binding that focuses it, which is why the idle card reads `Filter`
+and the focused card — where the callable field has made Square Root the sole active section —
+reads `⌘ + K`. That text is the built-in `workspace.focus-item-filter` binding resolved for this
+platform, not a string the application spells.
 
 Generated Python paints only the declared generated region. In this seven-line document the block
 runs from the end of the authored prefix to the start of the authored suffix — five marked lines,
@@ -55,9 +62,15 @@ two blank separators supply the donor's partial rounded boundary, and `import ma
 `state = SettaState()` on line 7 stay on the ordinary Code-section surface. The compact uppercase
 **GENERATED READ-ONLY** badge is centred on the block's upper boundary. The fixed 390px section
 leaves the rest of its height unpainted — in the light idle capture the block ends 276.9 CSS px
-above the section's own bottom. A real pointer click changes none of that paint and leaves the text
-non-editable, unfocused, caret-free, and free of an inner outline; the section's own selection
-chrome around the clicked captures is ordinary workspace behaviour, not part of this surface.
+above the section's own bottom.
+
+The document around that block is authored Python, so it is an ordinary editing surface: a real
+pointer click focuses it and leaves a caret and active line where authoring is allowed. In the
+clicked captures the click lands in the empty height below the code, so the caret rests at the end
+of the authored suffix on line 7 and the block above it is untouched — its region, rail, badge, and
+bytes are identical to the idle capture, no caret sits on any marked line, and the text draws no
+inner outline. The section's own selection chrome around the clicked captures is ordinary workspace
+behaviour, not part of this surface.
 
 The zoomed crops are the two defects the developer rejected the previous candidate on, at the
 enlarged zoom they were found at. The scene is exactly doubled and settled, with the pointer resting
@@ -67,15 +80,15 @@ borders are rasterized at the size they are displayed at rather than scaled from
 left behind. Judge them for crispness against the same scene in main.
 
 Each enlarged image holds the card's whole composition. The doubled card measures 724 by 564 CSS px
-in a 1400 by 630 CSS px canvas. Its header clears the application status strip by 64 CSS px; no
-header, field, toolbar, or parameter content is clipped. Two CSS pixels of its left border overhang
-the canvas, which is the harness's declared tolerance. The canvas minimap overlays the card's empty
-lower-left area as ordinary workspace chrome.
+in a 1400 by 630 CSS px canvas. Its header clears the application status strip by 65 CSS px; no
+header, field, toolbar, or parameter content is clipped. One CSS pixel of its left border overhangs
+the canvas, inside the harness's two-pixel tolerance for the selection stroke. The canvas minimap
+overlays the card's empty lower-left area as ordinary workspace chrome.
 
-Idle and focused images show the full committed `math.sqrt` and the Args label beside its Filter
-control. Completion images record the workflow after entering `math.sq`: the pill shows that draft,
-the `ARGS` label and complete `x` row remain visible, and the popup geometrically covers Filter. The
-whole two-option popup is 500 CSS px wide, extends roughly 60 CSS px past the field, is inside
-neither the field nor the section, and is what the page hit-tests at both recorded points. The
-single horizontal line that previously crossed the focused pill was the only visible remnant when
-the section clipped this popup.
+Idle and focused images show the full committed `math.sqrt` and the whole Args row — label, the
+three authoring controls, and the filter. Completion images record the workflow after entering
+`math.sq`: the pill shows that draft, the `ARGS` label and complete `x` row remain visible, and the
+popup geometrically covers the filter. The whole two-option popup is 500 CSS px wide, extends
+roughly 60 CSS px past the field, is inside neither the field nor the section, and is what the page
+hit-tests at both recorded points. The single horizontal line that previously crossed the focused
+pill was the only visible remnant when the section clipped this popup.

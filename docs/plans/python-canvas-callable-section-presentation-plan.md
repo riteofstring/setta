@@ -2193,9 +2193,72 @@ check's only remaining finding is the already-recorded Knip entry-point false po
 `apps/python-canvas/vitest.setup.ts`; format and type findings in the new canvas regression were
 fixed. Temporary browser and runtime probes used to isolate the reload defect were removed.
 
-What remains in Phase B is immutable review, fresh visual capture from a committed source candidate,
-supervisor inspection against main at original resolution, developer acceptance, and the closing
-Code Policy steps.
+**Authoring-toolbar and protected-document capture record.** The capture this phase owed is taken.
+All fourteen images at `docs/evidence/python-canvas-callable-presentation` are rerun from the
+immutable source candidate `be6632ea5f7554e4e9e8051bf0def6985cfb92c6` and committed separately from
+it, as decision 15 requires. The set is the one the supervisor's corrections fixed — the complete
+Square Root card idle and focused, the Generated Python reader idle and clicked, and the settled 2x
+card idle, focused, and with completion showing, in both appearances, each with eight CSS px of
+surrounding surface — and the harness again asserted every donor geometry, typography,
+generated-region, and interaction value while it recorded, so it cannot file a capture of a drifted
+surface. It still waits for the canonical first render and performs no setup mutation of its own.
+
+These images show the two behaviors the developer rejected the previous candidate for. The Args
+surface is the package's `authoring-and-filter` toolbar, so the card carries main's remove-last,
+add, and delete-selected controls beside the `ARGS` label rather than a filter alone; the idle card
+reads `Filter` and the focused card, where entering the callable field makes Square Root the sole
+active section, reads the resolved `⌘ + K` of the built-in `workspace.focus-item-filter` binding.
+The generated document reports `contenteditable="true"` with no `aria-readonly`, and the clicked
+captures land the caret and active line at the end of the authored suffix on line 7 while the block
+above keeps its region, rail, badge, and bytes unchanged from the idle capture. The two values the
+rejected bundle recorded for a whole-document reader — `hasCaretLayer` and `hasActiveLine` — are
+replaced by `caretInsideBlock`, which is `false` in every generated capture, because the question is
+no longer whether the surface has a caret but whether one can rest inside the protected range.
+
+Every donor value the bundle is judged on is unchanged. In the light idle card the header's bottom
+and the field's top are the same 234.39 CSS px and the field's bottom and the Args toolbar's top are
+the same 260.39, so both donor steps measure zero; the first parameter row follows the toolbar by
+the item list's own 8.5 CSS px, and the app's content root and the package's content slot both
+report `0px` padding. In the light idle generated capture the block is one run of `start`, three
+`middle`, and `end` marks over the five lines between the authored prefix and suffix, its text
+claims neither `import math` nor `state = SettaState()`, and it ends 276.9 CSS px above the fixed
+390px section's own bottom while the wrapper's own `background-image` is `none`. The doubled card
+measures 724 by 564 CSS px in a 1400 by 630 CSS px canvas, clears the canvas top by 65.4 CSS px with
+nothing clipped, and reports `will-change: auto`, `transform: none`, `backface-visibility: visible`,
+and `isolation: auto` in every enlarged state; the completion popup is 500 CSS px wide, reaches 60.4
+CSS px past the field in light appearance and 58.4 in dark, is inside neither the field nor the
+section, and is what the page hit-tests at both recorded points.
+
+One recorded difference is not a presentation change and is stated rather than glossed: every scene
+rectangle sits exactly one CSS px further right and down than in the superseded bundle rendered from
+`e4108da66b80b98ac21d17fcfaca32fa7f8a83e6`, while the workspace canvas's own rectangle is identical. The initial fit's inputs are the section bounds,
+which this candidate does not move, and the canvas size at the moment it runs, which this candidate
+now takes from a layout-effect measurement instead of the ResizeObserver's first delivery — the
+canvas-startup fix the preceding batch made for the reload defect. Every donor value above is a
+relationship between recorded rectangles, so the one-pixel translation leaves all of them
+unchanged, and the card's own left border consequently overhangs the canvas by 1 CSS px rather than
+2, still inside the harness's selection-stroke tolerance. The evidence README is rewritten for this
+bundle: the Args row it describes now includes the authoring controls and the advertised binding,
+the generated paragraph describes an authored document around a protected block instead of a
+non-editable reader, and the two enlarged measurements above replace their stale values. This is
+unaccepted working evidence, not a regression lock.
+
+Verification for this batch: the production browser walkthrough passes against the production
+builds, the real Go service, pinned Basedpyright, and headless Chrome at 1440x900 device scale 1, so
+the source candidate these images name is green before it is photographed. The capture itself is the
+batch's other proof: it asserts all fourteen states' donor values as it records them, and it refuses
+to run at all against a modified tracked tree, so the recorded `sourceCommit` is checkable.
+`code-policy check` over this batch's seventeen changed files completes without findings; the
+`quality.deadCode` finding on `apps/python-canvas/vitest.setup.ts` this plan already reports is not
+raised here because no file this batch touches reaches it. Run against the same base,
+`code-policy test --changed` matches no suite, which is the honest result for a batch that changes
+only recorded evidence and this plan: no source, test, dependency, or Code Policy configuration file
+is in it.
+
+What remains in Phase B: the immutable read-only review of the source candidate, supervisor
+inspection of these fourteen images against main at original resolution, developer visual acceptance
+with its accepted-candidate record, and the closing `test --changed --base <trusted-base>` and
+`test-levels --base <trusted-base>` steps against the accepted candidate.
 
 ## Stop conditions
 
