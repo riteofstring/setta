@@ -244,7 +244,7 @@ removed from the deferred line. Do not convert the remaining deferred list into 
 
 ### Phase 1 — prefix/suffix completion parity
 
-- [x] Repository implementation, focused proof, and clean coherent commits are ready for
+- [ ] Repository implementation, focused proof, and clean coherent commits are ready for
       supervisor verification and immutable review
 
 Implementation record (2026-08-20): the single-cutover implementation is present, and no
@@ -269,7 +269,17 @@ behavior difference from the named `main` completion behavior was identified.
 Follow-up (2026-08-20): exact-candidate recommended verification at
 `08818ac16b472107b8a1c1b39d588dcaf4682498` timed out while the Escape flow started completion
 after directly focusing the nested editor. The browser driver now uses the section's wrapper and
-its public Enter handoff; a fresh production walkthrough passed with that path.
+its public Enter handoff.
+
+Supervisor restart (2026-08-20): the full walkthrough exposed a browser-harness fault rather than
+a product geometry fault. The CDP helper creates a second tab while Chrome's initial blank tab can
+remain foregrounded, suspending animation frames in the tested page. Foreground the tested target
+with `Page.bringToFront`; remove the temporary popup/geometry diagnostics and the forced absolute
+tooltip positioning. Once frames run normally, make both existing stale-response proofs
+deterministic by pausing each real HTTP response at the CDP boundary until after the newer edit:
+the completion response in `browser-target-completion.mjs` and the older target-diagnostic response
+in `browser-generated-python.mjs`. Keep the real production endpoint and provider in both flows;
+do not add product delays, test-only product hooks, provider fakes, or timing sleeps as proof.
 
 The checkbox records repository work, not supervisor-owned acceptance receipts. Agent 1 checks it
 once the implementation and in-repository proof are complete and the worktree is clean. Code Policy
