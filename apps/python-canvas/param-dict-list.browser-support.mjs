@@ -461,8 +461,12 @@ export function callableSectionSelector(callableId) {
   return sectionSelector(callableWorkspaceSectionId(callableId));
 }
 
+export function parameterDictionaryWorkspaceSectionId(dictionaryId) {
+  return `python-canvas:parameter-dictionary:${dictionaryId}`;
+}
+
 export function parameterDictionarySectionSelector(dictionaryId) {
-  return sectionSelector(`python-canvas:parameter-dictionary:${dictionaryId}`);
+  return sectionSelector(parameterDictionaryWorkspaceSectionId(dictionaryId));
 }
 
 export function listSectionSelector(listId) {

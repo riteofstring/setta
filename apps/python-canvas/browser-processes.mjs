@@ -151,34 +151,39 @@ function chromeBinaryPath() {
   return chromeDefaultPath;
 }
 
+export function headlessChromeArguments(profileDirectory) {
+  // Keep the disposable profile away from desktop credentials and prevent
+  // command-heavy CDP polling from being throttled as renderer IPC flooding.
+  return [
+    "--headless=new",
+    "--allow-pre-commit-input",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-background-timer-throttling",
+    "--disable-component-extensions-with-background-pages",
+    "--disable-default-apps",
+    "--disable-extensions",
+    "--disable-hang-monitor",
+    "--disable-ipc-flooding-protection",
+    "--disable-renderer-backgrounding",
+    "--no-default-browser-check",
+    "--no-first-run",
+    "--no-service-autorun",
+    "--mute-audio",
+    "--password-store=basic",
+    "--remote-debugging-port=0",
+    "--use-mock-keychain",
+    `--user-data-dir=${profileDirectory}`,
+    "about:blank",
+  ];
+}
+
 function startHeadlessChrome() {
   const profileDirectory = mkdtempSync(
     path.join(os.tmpdir(), "setta-python-canvas-chrome-"),
   );
   const browser = startProcess(
     chromeBinaryPath(),
-    // Keep the disposable profile away from desktop credentials and prevent
-    // command-heavy CDP polling from being throttled as renderer IPC flooding.
-    [
-      "--headless=new",
-      "--allow-pre-commit-input",
-      "--disable-backgrounding-occluded-windows",
-      "--disable-background-timer-throttling",
-      "--disable-component-extensions-with-background-pages",
-      "--disable-default-apps",
-      "--disable-extensions",
-      "--disable-hang-monitor",
-      "--disable-ipc-flooding-protection",
-      "--disable-renderer-backgrounding",
-      "--no-default-browser-check",
-      "--no-first-run",
-      "--no-service-autorun",
-      "--password-store=basic",
-      "--remote-debugging-port=0",
-      "--use-mock-keychain",
-      `--user-data-dir=${profileDirectory}`,
-      "about:blank",
-    ],
+    headlessChromeArguments(profileDirectory),
     { cwd: appRoot, label: "Headless Chrome" },
   );
   return { ...browser, profileDirectory };

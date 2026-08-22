@@ -26,6 +26,7 @@ import {
   listSectionSelector,
   listChildCountSelector,
   parameterDictionarySectionSelector,
+  parameterDictionaryWorkspaceSectionId,
   requireCallable,
   requireDiagnostic,
   requireDictionary,
@@ -61,7 +62,6 @@ const dictionaryEntryWorkspaceItemPrefix =
 
 const sectionDragActivationAttemptLimit = 3;
 const sectionDragActivationTimeoutMs = 2_000;
-export const sectionDragStartOffsetPx = 12;
 
 export const dictionaryEntryChildAdoptionDragTarget = Object.freeze({
   targetXFraction: 0.5,
@@ -101,6 +101,57 @@ export async function waitForListNestedChildOrder(
     client,
     "the List of Objects direct child projection",
     listNestedChildOrderExpression(listId, expectedWorkspaceChildIds),
+  );
+}
+
+export function listNestedSectionSourceExpression(
+  listId,
+  expectedWorkspaceChildIds,
+  sourceWorkspaceSectionId,
+) {
+  return `(() => {
+    const section = document.querySelector(${JSON.stringify(listSectionSelector(listId))});
+    const sectionWrapper = section?.parentElement;
+    if (!(section instanceof HTMLElement) || !(sectionWrapper instanceof HTMLElement)) {
+      return false;
+    }
+    const sortables = Array.from(
+      sectionWrapper.querySelectorAll(${JSON.stringify(listNestedSortableSectionSelector)}),
+    );
+    const expected = ${JSON.stringify(expectedWorkspaceChildIds)};
+    if (
+      sortables.length !== expected.length ||
+      sortables.some(
+        (sortable, index) =>
+          sortable.getAttribute("data-sortable-section-id") !== expected[index],
+      )
+    ) {
+      return false;
+    }
+    const source = sortables.find(
+      (sortable) =>
+        sortable.getAttribute("data-sortable-section-id") ===
+        ${JSON.stringify(sourceWorkspaceSectionId)},
+    );
+    return source instanceof HTMLElement &&
+      source.querySelector(${JSON.stringify(`[data-section-id=${JSON.stringify(sourceWorkspaceSectionId)}] header.section-title`)}) instanceof HTMLElement;
+  })()`;
+}
+
+export async function waitForListNestedSectionSource(
+  client,
+  listId,
+  expectedWorkspaceChildIds,
+  sourceWorkspaceSectionId,
+) {
+  await waitFor(
+    client,
+    "the List of Objects nested section drag source",
+    listNestedSectionSourceExpression(
+      listId,
+      expectedWorkspaceChildIds,
+      sourceWorkspaceSectionId,
+    ),
   );
 }
 
@@ -272,6 +323,16 @@ export async function exerciseParamDictAndListSlice(
       ]),
   );
   assertRevisionIncremented(beforeDictionaryMove, dictionaryInList);
+  await waitForListNestedSectionSource(
+    client,
+    outerList.id,
+    [
+      callableWorkspaceSectionId(outerChildIds[0]),
+      parameterDictionaryWorkspaceSectionId(dictionary.id),
+      callableWorkspaceSectionId(outerChildIds[1]),
+    ],
+    parameterDictionaryWorkspaceSectionId(dictionary.id),
+  );
   await assertSectionSize(client, dictionarySelector, dictionarySize);
   await assertSectionFieldSize(
     client,
@@ -679,11 +740,7 @@ async function assertVerticalListPresentation(
   expectedCallableFieldSize,
 ) {
   const expectedWorkspaceChildIds = childIds.map(callableWorkspaceSectionId);
-  await waitForListNestedChildOrder(
-    client,
-    listId,
-    expectedWorkspaceChildIds,
-  );
+  await waitForListNestedChildOrder(client, listId, expectedWorkspaceChildIds);
   const presentation = await evaluate(
     client,
     `(() => {
@@ -882,7 +939,10 @@ async function tryMovingFreeSectionDrag(client, configuration) {
     );
     if (configuration.captureFocus) {
       configuration.onCaptureFocus(
-        await captureFocusBeforeSectionMove(client, configuration.sourceSelector),
+        await captureFocusBeforeSectionMove(
+          client,
+          configuration.sourceSelector,
+        ),
       );
     }
     await client.send("Input.dispatchMouseEvent", {
@@ -946,30 +1006,16 @@ async function tryMovingFreeSectionDrag(client, configuration) {
   }
 }
 
-export async function sectionDragStartPoint(client, sourceSelector, description) {
-  const result = await evaluate(
+export async function sectionDragStartPoint(
+  client,
+  sourceSelector,
+  description,
+) {
+  return visibleElementPoint(
     client,
-    `(() => {
-      const section = document.querySelector(${JSON.stringify(sourceSelector)});
-      if (!(section instanceof HTMLElement)) {
-        return null;
-      }
-      const headerHandle = section.querySelector("header.section-title");
-      const handle = headerHandle instanceof HTMLElement ? headerHandle : section;
-      const rect = handle.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) {
-        return null;
-      }
-      return {
-        x: rect.x + Math.min(${sectionDragStartOffsetPx}, rect.width / 2),
-        y: rect.y + Math.min(${sectionDragStartOffsetPx}, rect.height / 2),
-      };
-    })()`,
+    `${sourceSelector} header.section-title`,
+    `${description} title header`,
   );
-  if (result === null || result === undefined) {
-    throw new Error(`${description} has no section title/header drag point.`);
-  }
-  return result;
 }
 
 export async function holdMovingFreeSectionDragMode(client) {

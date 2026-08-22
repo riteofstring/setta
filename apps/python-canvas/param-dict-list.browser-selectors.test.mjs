@@ -11,16 +11,17 @@ import {
   focusNotStolenAfterSectionMoveExpression,
   listSectionSelector,
   parameterDictionarySectionSelector,
+  parameterDictionaryWorkspaceSectionId,
 } from "./param-dict-list.browser-support.mjs";
 import { dragElementToElement } from "./browser-page.mjs";
 import {
   dictionaryEntryChildAdoptionDragTarget,
   holdMovingFreeSectionDragMode,
   listNestedChildOrderExpression,
+  listNestedSectionSourceExpression,
   listNestedSectionSurfaceSelector,
   listNestedSortableSectionSelector,
   releaseMovingFreeSectionDragMode,
-  sectionDragStartOffsetPx,
   sectionDragStartPoint,
   waitForSectionDragModeRelease,
   waitForListNestedChildOrder,
@@ -58,11 +59,15 @@ test("List walkthrough reorders a Param Dict with the proven free move gesture",
   assert.doesNotMatch(walkthrough, /dragSortedSectionToSection/);
 });
 
-test("Section drag starts from the title handle and holds Alt through CDP", async () => {
+test("Section drag starts from a non-control title-header point and holds Alt through CDP", async () => {
   const window = new JSDOM(
     `
       <div data-section-id="python-canvas:parameter-dictionary:dictionary:options">
-        <header class="section-title"></header>
+        <header class="section-title">
+          <button class="nodrag" type="button">Menu</button>
+          <div data-drag-safe="true">Param Dict</div>
+          <button class="nodrag" type="button">Delete</button>
+        </header>
         <div data-item-dnd-owner="true"></div>
       </div>
     `,
@@ -73,11 +78,33 @@ test("Section drag starts from the title handle and holds Alt through CDP", asyn
     parameterDictionarySectionSelector("dictionary:options"),
   );
   const title = source?.querySelector("header.section-title");
-  if (!(source instanceof window.HTMLElement) || !(title instanceof window.HTMLElement)) {
+  if (
+    !(source instanceof window.HTMLElement) ||
+    !(title instanceof window.HTMLElement)
+  ) {
     throw new Error("Expected a section title handle.");
   }
   source.getBoundingClientRect = () => new window.DOMRect(20, 40, 300, 180);
   title.getBoundingClientRect = () => new window.DOMRect(30, 50, 240, 32);
+  const menu = title.querySelector("button:first-child");
+  const safeTitle = title.querySelector("[data-drag-safe='true']");
+  const deleteButton = title.querySelector("button:last-child");
+  if (
+    !(menu instanceof window.HTMLButtonElement) ||
+    !(safeTitle instanceof window.HTMLElement) ||
+    !(deleteButton instanceof window.HTMLButtonElement)
+  ) {
+    throw new Error("Expected title-header controls.");
+  }
+  document.elementFromPoint = (x) => {
+    if (x < 100) {
+      return menu;
+    }
+    if (x > 200) {
+      return deleteButton;
+    }
+    return safeTitle;
+  };
   const inputEvents = [];
   const client = {
     async send(method, parameters) {
@@ -98,8 +125,8 @@ test("Section drag starts from the title handle and holds Alt through CDP", asyn
       )),
     },
     {
-      x: 30 + sectionDragStartOffsetPx,
-      y: 50 + sectionDragStartOffsetPx,
+      x: 150,
+      y: 51,
     },
   );
   await holdMovingFreeSectionDragMode(client);
@@ -129,6 +156,73 @@ test("Section drag starts from the title handle and holds Alt through CDP", asyn
       },
     },
   ]);
+});
+
+test("List walkthrough waits for the exact mounted Param Dict drag source", () => {
+  const dictionaryWorkspaceId =
+    parameterDictionaryWorkspaceSectionId("dictionary:options");
+  const expectedChildIds = [
+    callableWorkspaceSectionId("callable:one"),
+    dictionaryWorkspaceId,
+    callableWorkspaceSectionId("callable:two"),
+  ];
+  const window = new JSDOM(
+    `
+      <div data-section-id="python-canvas:parameter-dictionary:dictionary:options">
+        <header class="section-title"></header>
+      </div>
+      <div>
+        <div data-section-id="python-canvas:list:list:objects"></div>
+        <div class="flex flex-col">
+          <div class="flex items-stretch">
+            <div class="mt-2 flex flex-col items-start gap-2">
+              <div data-sortable-section-id="python-canvas:callable:callable:one"></div>
+              <div data-sortable-section-id="python-canvas:parameter-dictionary:dictionary:options"></div>
+              <div data-sortable-section-id="python-canvas:callable:callable:two"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `,
+    { runScripts: "outside-only" },
+  ).window;
+
+  assert.equal(
+    window.eval(
+      listNestedSectionSourceExpression(
+        "list:objects",
+        expectedChildIds,
+        dictionaryWorkspaceId,
+      ),
+    ),
+    false,
+    "A stale top-level section must not satisfy the nested drag source.",
+  );
+
+  const sortable = window.document.querySelector(
+    `[data-sortable-section-id=${JSON.stringify(dictionaryWorkspaceId)}]`,
+  );
+  const projectedDictionary = window.document.querySelector(
+    parameterDictionarySectionSelector("dictionary:options"),
+  );
+  if (
+    !(sortable instanceof window.HTMLElement) ||
+    !(projectedDictionary instanceof window.HTMLElement)
+  ) {
+    throw new Error("Expected the nested Param Dict projection.");
+  }
+  sortable.append(projectedDictionary);
+
+  assert.equal(
+    window.eval(
+      listNestedSectionSourceExpression(
+        "list:objects",
+        expectedChildIds,
+        dictionaryWorkspaceId,
+      ),
+    ),
+    true,
+  );
 });
 
 test("List walkthrough finds direct vertical children beside its shell", () => {
@@ -357,12 +451,15 @@ function focusFixture() {
     { runScripts: "outside-only" },
   ).window;
   const document = window.document;
-  const sourceSelector = parameterDictionarySectionSelector("dictionary:options");
+  const sourceSelector =
+    parameterDictionarySectionSelector("dictionary:options");
   const source = document.querySelector(sourceSelector);
   const canvas = document.querySelector(
     '.react-flow__pane[aria-label="Workspace canvas background"]',
   );
-  const otherControl = document.querySelector("[data-unrelated-control='true']");
+  const otherControl = document.querySelector(
+    "[data-unrelated-control='true']",
+  );
   if (
     !(source instanceof window.HTMLElement) ||
     !(canvas instanceof window.HTMLElement) ||
