@@ -84,6 +84,9 @@ function pythonCanvasStatusMessage(
   if (mutation.kind === "pending") {
     return mutation.description;
   }
+  if (mutation.kind === "error") {
+    return mutation.message;
+  }
   if (project?.providerStatus.status === "unavailable") {
     return "Project loaded. Basedpyright is unavailable.";
   }
@@ -107,22 +110,16 @@ function PythonCanvasLoadError({
 function PythonCanvasMutationError({
   mutation,
 }: Pick<PythonCanvasViewProps, "mutation">) {
-  if (mutation.kind !== "error") {
-    return (
-      <p
-        className="python-canvas-announcer"
-        id="python-canvas-mutation-error"
-        role="alert"
-      />
-    );
-  }
   return (
     <p
-      className="python-canvas-error"
+      className={
+        mutation.kind === "error"
+          ? "python-canvas-error"
+          : "python-canvas-announcer"
+      }
       id="python-canvas-mutation-error"
-      role="alert"
     >
-      {mutation.message}
+      {mutation.kind === "error" ? mutation.message : null}
     </p>
   );
 }

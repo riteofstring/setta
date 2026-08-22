@@ -15,6 +15,7 @@ import {
 
 import {
   DIAGNOSTIC_SEVERITY_INFORMATION_V2,
+  PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
   type CallableV2,
   type DiagnosticV2,
   type ParameterV2,
@@ -285,6 +286,9 @@ export function createCallableParameterItem(): WorkspaceItem {
       disabled: false,
       name: "",
       nameEditable: true,
+      passingStyle: PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
+      providerOrdinal: null,
+      typeAnnotation: null,
     } satisfies ParameterItemData,
   };
 }
@@ -455,6 +459,9 @@ function projectParameterItemData(parameter: ParameterV2): ParameterItemData {
     disabled: false,
     name: parameter.name,
     nameEditable: parameter.nameEditable,
+    passingStyle: parameter.passingStyle,
+    providerOrdinal: parameter.providerOrdinal,
+    typeAnnotation: parameter.typeAnnotation,
   };
 }
 

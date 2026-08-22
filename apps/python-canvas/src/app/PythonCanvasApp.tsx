@@ -67,6 +67,7 @@ type MutationState =
   | { kind: "error"; message: string };
 
 type CallableDrafts = Record<string, string>;
+type CallableNameDrafts = Record<string, string>;
 type CompletionProviders = Record<string, TextValueCompletionProvider>;
 type CompletionErrors = Record<string, string>;
 
@@ -74,6 +75,11 @@ type MutationAnswer =
   | { kind: "commit"; callableId: string }
   | { callableId: string; kind: "parameters"; sent: ParameterProposalV2[] }
   | { kind: "other" };
+
+type RevisionConflictDraft =
+  | { callableId: string; kind: "callable-rename"; name: string }
+  | { kind: "project-rename"; name: string }
+  | null;
 
 type AppController = {
   commitCallable: (callableId: string, value: string) => void;
@@ -83,6 +89,7 @@ type AppController = {
   renameProject: (name: string) => void;
   revertCallableDraft: (callableId: string) => void;
   setCallableDraft: (callableId: string, value: string) => void;
+  setCallableNameDraft: (callableId: string, name: string) => void;
   setParameterExpression: (
     callableId: string,
     parameterId: string,
@@ -140,6 +147,8 @@ export function PythonCanvasApp() {
   const [projectNameDraft, setProjectNameDraft] = useState("");
   const [newCallableName, setNewCallableName] = useState("");
   const [callableDrafts, setCallableDrafts] = useState<CallableDrafts>({});
+  const [callableNameDrafts, setCallableNameDrafts] =
+    useState<CallableNameDrafts>({});
   const [completionProviders, setCompletionProviders] =
     useState<CompletionProviders>({});
   const [completionErrors, setCompletionErrors] = useState<CompletionErrors>(
@@ -157,6 +166,7 @@ export function PythonCanvasApp() {
     let active = true;
     let disposed = false;
     let snapshot: ProjectSnapshotV2 | null = null;
+    let canonicalCallableNames = new Map<string, string>();
     let targetTimer: ReturnType<typeof setTimeout> | null = null;
     const parameterTimers = new Map<string, ReturnType<typeof setTimeout>>();
     let mutationChain = Promise.resolve();
@@ -254,9 +264,14 @@ export function PythonCanvasApp() {
     const synchronizeReactProjection = (
       nextSnapshot: ProjectSnapshotV2,
       resetCallableId: string | null,
+      revisionConflictDraft: RevisionConflictDraft = null,
     ) => {
       setProject(nextSnapshot);
-      setProjectNameDraft(nextSnapshot.project.name);
+      setProjectNameDraft(
+        revisionConflictDraft?.kind === "project-rename"
+          ? revisionConflictDraft.name
+          : nextSnapshot.project.name,
+      );
       setCallableDrafts((current) => {
         const next: CallableDrafts = {};
         for (const callable of nextSnapshot.callables) {
@@ -265,6 +280,28 @@ export function PythonCanvasApp() {
             resetCallableId === callable.id || currentDraft === undefined
               ? callable.authoredExpression
               : currentDraft;
+        }
+        return next;
+      });
+      const previousCanonicalCallableNames = canonicalCallableNames;
+      canonicalCallableNames = new Map(
+        nextSnapshot.callables.map((callable) => [callable.id, callable.name]),
+      );
+      setCallableNameDrafts((current) => {
+        const next: CallableNameDrafts = {};
+        for (const callable of nextSnapshot.callables) {
+          const conflictName =
+            revisionConflictDraft?.kind === "callable-rename" &&
+            revisionConflictDraft.callableId === callable.id
+              ? revisionConflictDraft.name
+              : undefined;
+          const canonicalNameChanged =
+            previousCanonicalCallableNames.get(callable.id) !== callable.name;
+          next[callable.id] =
+            conflictName ??
+            (!canonicalNameChanged && current[callable.id] !== undefined
+              ? current[callable.id]
+              : callable.name);
         }
         return next;
       });
@@ -297,26 +334,32 @@ export function PythonCanvasApp() {
       });
       synchronizeReactProjection(snapshot, null);
     };
-    const recoverRevisionConflict = async () => {
+    const recoverRevisionConflict = async (
+      revisionConflictDraft: RevisionConflictDraft,
+    ) => {
       const latest = await fetchProjectSnapshot();
       if (!active) {
         return;
       }
       snapshot = latest;
-      acceptCanonicalSnapshot(latest, { kind: "other" });
+      acceptCanonicalSnapshot(latest, { kind: "other" }, revisionConflictDraft);
       updateMutation({
         kind: "error",
         message:
-          "The project changed before this update could be saved. The latest project has been loaded.",
+          "The project changed before this update could be saved. The latest project has been loaded, and your name draft is still available to retry.",
       });
     };
-    const handleMutationFailure = async (target: string, error: unknown) => {
+    const handleMutationFailure = async (
+      target: string,
+      error: unknown,
+      revisionConflictDraft: RevisionConflictDraft = null,
+    ) => {
       if (
         error instanceof ProjectClientError &&
         error.code === "revision_conflict"
       ) {
         try {
-          await recoverRevisionConflict();
+          await recoverRevisionConflict(revisionConflictDraft);
           return;
         } catch (refreshError) {
           updateMutation({
@@ -361,6 +404,7 @@ export function PythonCanvasApp() {
     const acceptCanonicalSnapshot = (
       nextSnapshot: ProjectSnapshotV2,
       answer: MutationAnswer,
+      revisionConflictDraft: RevisionConflictDraft = null,
     ) => {
       const document = host.getSnapshot();
       let keepAuthoredPython = false;
@@ -381,6 +425,7 @@ export function PythonCanvasApp() {
       synchronizeReactProjection(
         nextSnapshot,
         answer.kind === "commit" ? answer.callableId : null,
+        revisionConflictDraft,
       );
       updateMutation({ kind: "idle" });
     };
@@ -613,7 +658,11 @@ export function PythonCanvasApp() {
             acceptCanonicalSnapshot(nextSnapshot, { kind: "other" });
           } catch (error) {
             if (active) {
-              await handleMutationFailure("the callable", error);
+              await handleMutationFailure("the callable", error, {
+                callableId,
+                kind: "callable-rename",
+                name,
+              });
             }
           }
         });
@@ -640,7 +689,10 @@ export function PythonCanvasApp() {
             acceptCanonicalSnapshot(nextSnapshot, { kind: "other" });
           } catch (error) {
             if (active) {
-              await handleMutationFailure("the project", error);
+              await handleMutationFailure("the project", error, {
+                kind: "project-rename",
+                name,
+              });
             }
           }
         });
@@ -669,6 +721,16 @@ export function PythonCanvasApp() {
           const { [callableId]: _cleared, ...remaining } = current;
           return remaining;
         });
+        clearError();
+      },
+      setCallableNameDraft: (callableId, name) => {
+        if (!active) {
+          return;
+        }
+        setCallableNameDrafts((current) => ({
+          ...current,
+          [callableId]: name,
+        }));
         clearError();
       },
       setParameterExpression: (callableId, parameterId, value) => {
@@ -762,6 +824,7 @@ export function PythonCanvasApp() {
       callableCompletionProvider: (callableId) =>
         completionProviders[callableId],
       callableDraft: (callableId) => callableDrafts[callableId] ?? "",
+      callableNameDraft: (callableId) => callableNameDrafts[callableId] ?? null,
       mutationError: mutation.kind === "error" ? mutation.message : null,
       onCallableCommit: (callableId, value) =>
         controllerRef.current?.commitCallable(callableId, value),
@@ -769,6 +832,8 @@ export function PythonCanvasApp() {
         controllerRef.current?.deleteCallable(callableId),
       onCallableDraftChange: (callableId, value) =>
         controllerRef.current?.setCallableDraft(callableId, value),
+      onCallableNameDraftChange: (callableId, name) =>
+        controllerRef.current?.setCallableNameDraft(callableId, name),
       onCallableRename: (callableId, name) =>
         controllerRef.current?.renameCallable(callableId, name),
       onCallableRevert: (callableId) =>
@@ -783,7 +848,13 @@ export function PythonCanvasApp() {
         controllerRef.current?.setParameterName(callableId, parameterId, name),
       pending: mutation.kind === "pending",
     }),
-    [callableDrafts, completionErrors, completionProviders, mutation],
+    [
+      callableDrafts,
+      callableNameDrafts,
+      completionErrors,
+      completionProviders,
+      mutation,
+    ],
   );
 
   return (

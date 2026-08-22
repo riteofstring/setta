@@ -846,8 +846,8 @@ or live probe.
 
 ### Phase E — focused verification closeout
 
-- [x] Focused verification closeout implementation complete and ready for
-      independent Agent 2 review
+- [x] Focused verification remediation complete and ready for a fresh
+      independent audit
 
 1. Run the focused module suites and changed-file selection listed below in the
    plan-loop.
@@ -858,6 +858,26 @@ or live probe.
    suite, including `python-canvas-browser`, runs. The plan-loop does not run,
    request, or imply authorization for recommended, full, verify, gate,
    merge-gate, test --all, or supplemental suites.
+
+**Remediation record (2026-08-21):** The dynamic parameter projection now
+retains every provider-owned field used by the UI: immutable
+`nameEditable=false`, nullable `typeAnnotation`, passing style, and immutable
+`providerOrdinal`. Provider rows render their signature name and read-only
+metadata; a nullable annotation reads as `Type unannotated`, rather than being
+rejected or rendered as `null`. Project and callable rename drafts now survive
+a revision-conflict refresh for deliberate retry while ordinary canonical name
+changes still update their drafts. Conflict and provider state use the one
+persistent polite status region; associated mutation text remains linked to
+the relevant native control without an assertive live role, and callable cards
+no longer duplicate provider alerts.
+
+**Focused proof (2026-08-21):** `pnpm --filter @setta/python-canvas exec
+vitest run src/app/PythonCanvasApp.test.tsx
+src/app/workspaceProjection.test.ts src/sections/CallableSection.test.tsx`
+passed (17 tests). `code-policy test --module python-canvas-frontend` passed
+(36 tests, including the package build and boundary check), and `code-policy
+test --changed` selected that same focused frontend suite and passed. No
+browser, local service, provider session, or live probe ran.
 
 ## Exact acceptance matrix
 

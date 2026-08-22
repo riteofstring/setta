@@ -1,8 +1,12 @@
-import { useEffect, useId, useState } from "react";
+import { useId } from "react";
 import {
-  PROVIDER_AVAILABILITY_AVAILABLE_V2,
+  PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V2,
+  PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V2,
+  PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
+  PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2,
+  PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2,
   PROVIDER_BASEDPYRIGHT_V2,
-  PROVIDER_LIFECYCLE_STATE_FAILED_V2,
+  type ParameterPassingStyleV2,
   type ProviderAvailabilityV2,
   type ProviderLifecycleStateV2,
 } from "../backend/generatedContract";
@@ -44,6 +48,9 @@ export type ParameterItemData = {
   disabled: boolean;
   name: string;
   nameEditable: boolean;
+  passingStyle: ParameterPassingStyleV2;
+  providerOrdinal: number | null;
+  typeAnnotation: string | null;
 };
 
 export function readCallableSectionData(value: unknown): CallableSectionData {
@@ -85,6 +92,9 @@ export function readParameterItemData(value: unknown): ParameterItemData {
     "disabled",
     "name",
     "nameEditable",
+    "passingStyle",
+    "providerOrdinal",
+    "typeAnnotation",
   ]);
   if (typeof record.disabled !== "boolean") {
     throw new Error("Callable parameter item disabled must be a boolean.");
@@ -92,15 +102,42 @@ export function readParameterItemData(value: unknown): ParameterItemData {
   if (typeof record.nameEditable !== "boolean") {
     throw new Error("Callable parameter item nameEditable must be a boolean.");
   }
+  const name = readString(record.name, "parameter.name");
+  const nameEditable = record.nameEditable;
+  const passingStyle = readParameterPassingStyle(record.passingStyle);
+  const providerOrdinal = readNonNegativeIntegerOrNull(
+    record.providerOrdinal,
+    "parameter.providerOrdinal",
+  );
+  const typeAnnotation = readStringOrNull(
+    record.typeAnnotation,
+    "parameter.typeAnnotation",
+  );
+  const defaultValue = readStringOrNull(record.default, "parameter.default");
+  if (
+    nameEditable &&
+    (passingStyle !== PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2 ||
+      providerOrdinal !== null ||
+      typeAnnotation !== null ||
+      defaultValue !== null)
+  ) {
+    throw new Error("App-authored parameter metadata is incoherent.");
+  }
+  if (!nameEditable && (name === "" || providerOrdinal === null)) {
+    throw new Error("Provider-derived parameter metadata is incoherent.");
+  }
   return {
     authoredExpression: readString(
       record.authoredExpression,
       "parameter.authoredExpression",
     ),
-    default: readStringOrNull(record.default, "parameter.default"),
+    default: defaultValue,
     disabled: record.disabled,
-    name: readString(record.name, "parameter.name"),
-    nameEditable: record.nameEditable,
+    name,
+    nameEditable,
+    passingStyle,
+    providerOrdinal,
+    typeAnnotation,
   };
 }
 
@@ -154,17 +191,11 @@ export function CallableSection({
   sectionId: string;
 }) {
   const itemDiagnostics = parameterDiagnosticRegistry(data);
-  const providerFailure = providerFailureMessage(data.providerStatus);
   const nameErrors = parameterNameErrors(parameters);
 
   return (
     <div className="python-canvas-callable-section">
       <CallableNameControl callable={data.callable} />
-      {providerFailure === null ? null : (
-        <p className="python-canvas-provider-error" role="alert">
-          {providerFailure}
-        </p>
-      )}
       <WorkspaceItemList
         itemDiagnostics={itemDiagnostics}
         listKey={`${PARAMETER_LIST_KEY}:${data.callable.id}`}
@@ -197,11 +228,7 @@ function CallableNameControl({
     mutation.mutationError === null
       ? undefined
       : "python-canvas-mutation-error";
-  const [name, setName] = useState(callable.name);
-
-  useEffect(() => {
-    setName(callable.name);
-  }, [callable.name]);
+  const name = mutation.callableNameDraft(callable.id) ?? callable.name;
 
   return (
     <form
@@ -216,7 +243,9 @@ function CallableNameControl({
         aria-describedby={mutationErrorId}
         id={inputId}
         name="callable-name"
-        onChange={(event) => setName(event.target.value)}
+        onChange={(event) =>
+          mutation.onCallableNameDraftChange(callable.id, event.target.value)
+        }
         required
         type="text"
         value={name}
@@ -251,6 +280,7 @@ function ParameterItemRow({
   const data = readParameterItemData(context.item.data);
   const disabled = data.disabled || mutation.pending;
   const label = data.name === "" ? unnamedParameterLabel : data.name;
+  const providerMetadata = providerParameterMetadata(data);
   return (
     <>
       {data.nameEditable ? (
@@ -269,8 +299,14 @@ function ParameterItemRow({
         <WorkspaceItemLabel
           className="python-canvas-parameter-label"
           isGroup={false}
+          title={providerMetadata ?? undefined}
         >
-          {data.name}
+          <span className="python-canvas-parameter-name">{data.name}</span>
+          {providerMetadata === null ? null : (
+            <span className="python-canvas-parameter-metadata">
+              {providerMetadata}
+            </span>
+          )}
         </WorkspaceItemLabel>
       )}
       <TextValueEditor
@@ -304,16 +340,18 @@ function parameterDiagnosticRegistry(
     : data.parameterDiagnostics;
 }
 
-function providerFailureMessage(
-  status: CallableSectionData["providerStatus"],
-): string | null {
-  if (
-    status.status !== PROVIDER_AVAILABILITY_AVAILABLE_V2 ||
-    status.state === PROVIDER_LIFECYCLE_STATE_FAILED_V2
-  ) {
-    return "Basedpyright is unavailable. Try the change again when it is ready.";
+function providerParameterMetadata(data: ParameterItemData): string | null {
+  if (data.nameEditable) {
+    return null;
   }
-  return null;
+  return [
+    `Provider ordinal ${String(data.providerOrdinal)}`,
+    `Passing style ${passingStyleLabel(data.passingStyle)}`,
+    `Type ${data.typeAnnotation ?? "unannotated"}`,
+    data.default === null ? null : `Default ${data.default}`,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(" · ");
 }
 
 function readParameterDiagnostics(
@@ -434,4 +472,34 @@ function readString(value: unknown, field: string): string {
 
 function readStringOrNull(value: unknown, field: string): string | null {
   return value === null ? null : readString(value, field);
+}
+
+function readNonNegativeIntegerOrNull(
+  value: unknown,
+  field: string,
+): number | null {
+  if (value === null) {
+    return null;
+  }
+  if (!Number.isInteger(value) || (value as number) < 0) {
+    throw new Error(`${field} must be a non-negative integer or null.`);
+  }
+  return value as number;
+}
+
+function readParameterPassingStyle(value: unknown): ParameterPassingStyleV2 {
+  switch (value) {
+    case PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V2:
+    case PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2:
+    case PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V2:
+    case PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2:
+    case PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2:
+      return value;
+    default:
+      throw new Error("Callable parameter passingStyle is unsupported.");
+  }
+}
+
+function passingStyleLabel(style: ParameterPassingStyleV2): string {
+  return style.replaceAll("_", " ");
 }

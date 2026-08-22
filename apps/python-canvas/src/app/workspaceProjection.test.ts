@@ -46,6 +46,34 @@ describe("Python Canvas V2 workspace projection", () => {
       document.sections[secondId]?.itemTree?.items[`${secondId}:parameter-root`]
         ?.children,
     ).toEqual(["parameter:value", "parameter:scale"]);
+    expect(readCallableParameterItems(document, "callable:second")).toEqual([
+      {
+        data: {
+          authoredExpression: "value",
+          default: null,
+          disabled: false,
+          name: "value",
+          nameEditable: false,
+          passingStyle: "positional_or_keyword",
+          providerOrdinal: 0,
+          typeAnnotation: "float",
+        },
+        id: "parameter:value",
+      },
+      {
+        data: {
+          authoredExpression: "2",
+          default: null,
+          disabled: false,
+          name: "scale",
+          nameEditable: true,
+          passingStyle: "positional_or_keyword",
+          providerOrdinal: null,
+          typeAnnotation: null,
+        },
+        id: "parameter:scale",
+      },
+    ]);
   });
 
   it("uses the exact body range for one combined generated document and preserves outer edits", () => {

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceHost } from "@setta/workspace";
 
 import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
+import { ProjectClientError } from "../backend/client";
 import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
 
 const mocks = vi.hoisted(() => ({
@@ -13,19 +14,34 @@ const mocks = vi.hoisted(() => ({
   createWorkspaceHost: vi.fn(),
   fetchProjectSnapshot: vi.fn(),
   getWorkspaceCodeSectionData: vi.fn(),
+  renameCallable: vi.fn(),
+  renameProject: vi.fn(),
   registerSectionKinds: vi.fn(),
   setItemData: vi.fn(),
   setWorkspaceColorMode: vi.fn(),
 }));
 
 vi.mock("../backend/client", () => ({
-  ProjectClientError: class extends Error {},
+  ProjectClientError: class extends Error {
+    public readonly code: string | undefined;
+
+    public constructor(
+      _kind: unknown,
+      message: string,
+      _status?: number,
+      _cause?: unknown,
+      code?: string,
+    ) {
+      super(message);
+      this.code = code;
+    }
+  },
   commitCallable: vi.fn(),
   createCallable: vi.fn(),
   deleteCallable: vi.fn(),
   fetchProjectSnapshot: mocks.fetchProjectSnapshot,
-  renameCallable: vi.fn(),
-  renameProject: vi.fn(),
+  renameCallable: mocks.renameCallable,
+  renameProject: mocks.renameProject,
   setCallableParameters: vi.fn(),
   setPythonTarget: vi.fn(),
 }));
@@ -141,14 +157,73 @@ describe("PythonCanvasApp", () => {
     expect(
       view.querySelector("#python-canvas-mutation-error")?.textContent,
     ).toBe("Unable to save the project. Try again.");
+    expect(view.querySelector("[role='status']")?.textContent).toBe(
+      "Unable to save the project. Try again.",
+    );
     expect(
-      view.querySelector<HTMLInputElement>("input[name='project-name']")
+      view.querySelector("#python-canvas-mutation-error")?.getAttribute("role"),
+    ).toBeNull();
+    expect(
+      view
+        .querySelector<HTMLInputElement>("input[name='project-name']")
         ?.getAttribute("aria-describedby"),
     ).toBe("python-canvas-mutation-error");
     expect(
-      view.querySelector<HTMLInputElement>("input[name='new-callable-name']")
+      view
+        .querySelector<HTMLInputElement>("input[name='new-callable-name']")
         ?.getAttribute("aria-describedby"),
     ).toBe("python-canvas-mutation-error");
+  });
+
+  it("retains a project rename draft after a revision-conflict refresh", async () => {
+    const initialSnapshot = parseProjectSnapshotV2(projectSnapshotFixture);
+    const latestSnapshot = parseProjectSnapshotV2({
+      ...projectSnapshotFixture,
+      project: {
+        ...projectSnapshotFixture.project,
+        name: "Remote project name",
+        revision: initialSnapshot.project.revision + 1,
+      },
+    });
+    mocks.fetchProjectSnapshot
+      .mockResolvedValueOnce(initialSnapshot)
+      .mockResolvedValueOnce(latestSnapshot);
+    mocks.renameProject.mockRejectedValueOnce(
+      new ProjectClientError(
+        "http",
+        "revision conflict",
+        409,
+        undefined,
+        "revision_conflict",
+      ),
+    );
+
+    const view = renderApp();
+    await flushEffects();
+    const input = view.querySelector<HTMLInputElement>(
+      "input[name='project-name']",
+    );
+    if (input === null || input.form === null) {
+      throw new Error("Expected the project rename form.");
+    }
+    await act(async () => {
+      setInputValue(input, "Local retry project name");
+    });
+    await act(async () => {
+      input.form?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+      await flushMicrotasks();
+    });
+
+    expect(input.value).toBe("Local retry project name");
+    expect(view.querySelector("[role='status']")?.textContent).toContain(
+      "your name draft is still available to retry",
+    );
+    expect(
+      view.querySelector("#python-canvas-mutation-error")?.getAttribute("role"),
+    ).toBeNull();
+    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(2);
   });
 
   it("keeps pending and unavailable-provider states explicit", () => {
@@ -212,10 +287,12 @@ function renderView(
           callableCompletionError: () => null,
           callableCompletionProvider: () => undefined,
           callableDraft: () => "",
+          callableNameDraft: () => null,
           mutationError: null,
           onCallableCommit: vi.fn(),
           onCallableDelete: vi.fn(),
           onCallableDraftChange: vi.fn(),
+          onCallableNameDraftChange: vi.fn(),
           onCallableRename: vi.fn(),
           onCallableRevert: vi.fn(),
           onParameterExpressionChange: vi.fn(),
@@ -239,7 +316,24 @@ function renderView(
 
 async function flushEffects(): Promise<void> {
   await act(async () => {
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushMicrotasks();
   });
+}
+
+async function flushMicrotasks(): Promise<void> {
+  for (let index = 0; index < 8; index += 1) {
+    await Promise.resolve();
+  }
+}
+
+function setInputValue(input: HTMLInputElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  )?.set;
+  if (setter === undefined) {
+    throw new Error("The native input value setter is unavailable.");
+  }
+  setter.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
 }

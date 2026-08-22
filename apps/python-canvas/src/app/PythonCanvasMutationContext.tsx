@@ -7,10 +7,12 @@ export type PythonCanvasMutationContextValue = {
   ) => TextValueCompletionProvider | undefined;
   callableCompletionError: (callableId: string) => string | null;
   callableDraft: (callableId: string) => string;
+  callableNameDraft: (callableId: string) => string | null;
   mutationError: string | null;
   pending: boolean;
   onCallableCommit: (callableId: string, value: string) => void;
   onCallableDraftChange: (callableId: string, value: string) => void;
+  onCallableNameDraftChange: (callableId: string, name: string) => void;
   onCallableRevert: (callableId: string) => void;
   onCallableDelete: (callableId: string) => void;
   onCallableRename: (callableId: string, name: string) => void;
