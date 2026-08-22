@@ -57,6 +57,7 @@ describe("Python Canvas workspace projection", () => {
         id: snapshot.callables[0].id,
         name: snapshot.callables[0].name,
       },
+      callableDiagnosticMessage: null,
       parameterDiagnostics: {},
     });
     // An uncommitted callable has no parameters, so its list has no rows.
@@ -75,6 +76,7 @@ describe("Python Canvas workspace projection", () => {
       positionAndSizeLocked: false,
       data: {
         code: snapshot.generatedCode.code,
+        diagnostics: [],
         language: "python",
         mode: "generated-document",
         // Only the Go-owned body is generated: the region runs from the end of the target's
@@ -120,6 +122,62 @@ describe("Python Canvas workspace projection", () => {
         { message: 'Name "missing_value" is not defined', severity: "error" },
       ],
     });
+  });
+
+  it("partitions callable, parameter, and document diagnostics without duplicates", () => {
+    const snapshot = snapshotWithAllDiagnosticPartitions();
+    const document = projectWorkspaceDocument(snapshot);
+    const callable = readCallableSectionData(
+      document.sections[CALLABLE_SECTION_ID]?.data,
+    );
+    const generated = document.sections[GENERATED_PYTHON_SECTION_ID]?.data as {
+      diagnostics: Array<unknown>;
+    };
+    const documentStart = snapshot.generatedCode.code.indexOf("math.sqrt");
+
+    expect(callable.callableDiagnosticMessage).toBe(
+      "Callable invocation is invalid.",
+    );
+    expect(callable.parameterDiagnostics).toEqual({
+      "parameter:square-root:provider": [
+        {
+          message: "Parameter value is undefined.",
+          severity: "warning",
+        },
+      ],
+    });
+    // The canonical bytes contain an astral character before this range. The
+    // projected CodeMirror range is the matching UTF-16 position, and only the
+    // targetless diagnostic reaches the document — neither semantic field copy
+    // is also rendered inline.
+    expect(generated.diagnostics).toEqual([
+      {
+        from: documentStart,
+        message: "Generated document has an unresolved name.",
+        severity: "error",
+        to: documentStart + "math.sqrt".length,
+      },
+    ]);
+
+    const host = createHostForTest(snapshot);
+    applyProjectSnapshotToWorkspace(
+      host,
+      snapshotWithParameters([providerParameter("3")]),
+      KEEP_NOTHING,
+    );
+    expect(
+      readCallableSectionData(
+        host.getSnapshot().sections[CALLABLE_SECTION_ID]?.data,
+      ),
+    ).toMatchObject({
+      callableDiagnosticMessage: null,
+      parameterDiagnostics: {},
+    });
+    expect(
+      getWorkspaceCodeSectionData(host, GENERATED_PYTHON_SECTION_ID)
+        .diagnostics,
+    ).toEqual([]);
+    host.dispose();
   });
 
   it("refuses generated Python that does not compose its canonical parts", () => {
@@ -300,7 +358,7 @@ describe("Python Canvas workspace projection", () => {
   // would take back what they just wrote — and leaving the whole document alone would keep a
   // generated body the store has already replaced.
   it("keeps the authored Python a document moved on to and still lands the response's body", () => {
-    const held = snapshotWithParameters([providerParameter("3")]);
+    const held = snapshotWithAllDiagnosticPartitions();
     const host = createHostForTest(held);
     const typed = `${held.pythonTarget.prefix}\nimport os${generatedPythonRegionText(held)}${held.pythonTarget.suffix}`;
     setWorkspaceCodeSectionData(host, GENERATED_PYTHON_SECTION_ID, {
@@ -331,6 +389,12 @@ describe("Python Canvas workspace projection", () => {
         (item) => item.data.authoredExpression,
       ),
     ).toEqual(["9"]);
+    // The retained prefix has shifted the snapshot's byte coordinates, so a
+    // targetless diagnostic cannot be reused after this authoring race.
+    expect(
+      getWorkspaceCodeSectionData(host, GENERATED_PYTHON_SECTION_ID)
+        .diagnostics,
+    ).toEqual([]);
 
     host.dispose();
   });
@@ -473,5 +537,55 @@ function snapshotWithParameters(
       state: "ready",
       status: "available",
     },
+  });
+}
+
+function snapshotWithAllDiagnosticPartitions(): ReturnType<
+  typeof parseProjectSnapshotV1
+> {
+  const base = snapshotWithParameters([providerParameter("3")]);
+  const unicodePrefix = "# 🐍\n";
+  const code = `${unicodePrefix}${base.generatedCode.code}`;
+  const callableStart = code.indexOf("math.sqrt");
+  const parameterStart = code.indexOf("3");
+  const toUtf8ByteOffset = (utf16Offset: number) =>
+    new TextEncoder().encode(code.slice(0, utf16Offset)).length;
+
+  return parseProjectSnapshotV1({
+    ...base,
+    pythonTarget: {
+      ...base.pythonTarget,
+      prefix: `${unicodePrefix}${base.pythonTarget.prefix}`,
+    },
+    generatedCode: {
+      ...base.generatedCode,
+      code,
+    },
+    diagnostics: [
+      {
+        end: toUtf8ByteOffset(callableStart + "math.sqrt".length),
+        id: "diagnostic:callable",
+        message: "Callable invocation is invalid.",
+        severity: "error",
+        start: toUtf8ByteOffset(callableStart),
+        targetId: "callable:square-root",
+      },
+      {
+        end: toUtf8ByteOffset(parameterStart + 1),
+        id: "diagnostic:parameter",
+        message: "Parameter value is undefined.",
+        severity: "warning",
+        start: toUtf8ByteOffset(parameterStart),
+        targetId: "parameter:square-root:provider",
+      },
+      {
+        end: toUtf8ByteOffset(callableStart + "math.sqrt".length),
+        id: "diagnostic:document",
+        message: "Generated document has an unresolved name.",
+        severity: "error",
+        start: toUtf8ByteOffset(callableStart),
+        targetId: null,
+      },
+    ],
   });
 }
