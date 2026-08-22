@@ -325,6 +325,15 @@ full-resolution browser evidence still need to run in the supervisor environment
 authorized for this loop and are supervisor-owned acceptance work, not a developer evidence or
 approval gate.
 
+Implementation record — browser canonical comparison correction: the raw-first-render helper now
+compares the parsed shipped snapshot structurally rather than comparing its JSON serialization.
+The API's provider-status member order is not observable behavior; the check continues to require
+the exact callable, generated call, provider-derived `x` parameter, and ready Basedpyright status.
+Its syntax checks and the selected `test --changed --base
+9dbdf9dffd09d74ddbda856ddea03c9ea957441b` passed. The selected recommended ordinary run passed
+its other eight suites; its browser suite stopped at the sandbox's `127.0.0.1` `EPERM` before the
+application started, so the supervisor environment must supply that production-browser evidence.
+
 Intentional donor differences, recorded after reading every named main donor: main's historical
 generated-Python mapper used `reportCallIssue` message wording to choose parameters, whereas this
 slice uses the exact provider code plus canonical signature metadata, so wording cannot create a

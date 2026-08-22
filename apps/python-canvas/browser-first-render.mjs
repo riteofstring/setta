@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 
 import {
@@ -251,7 +252,5 @@ function assertRenderedValueIsCanonical(control, rendered, canonical) {
 }
 
 function assertCanonicalValue(expected, actual, message) {
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(message);
-  }
+  deepStrictEqual(actual, expected, message);
 }
