@@ -168,7 +168,13 @@ Use the exact proven versions already present on frozen main unless dependency r
 - `@xterm/addon-fit@0.11.0`;
 - `github.com/coder/websocket@v1.8.14`;
 - `github.com/creack/pty@v1.1.21` for Unix PTYs; and
-- `github.com/aymanbagabas/go-pty@v0.2.2` for the Windows PTY adapter.
+- `github.com/UserExistsError/conpty@v0.1.4` for the Windows PTY adapter; and
+- `golang.org/x/sys@v0.44.0`, pinned directly for the Windows API surface.
+
+Frozen main's `github.com/aymanbagabas/go-pty@v0.2.2` candidate was rejected by the final online
+supply-chain gate because it brought vulnerable `golang.org/x/crypto@v0.17.0` and
+`golang.org/x/sys@v0.16.0`. The replacement keeps native ConPTY behavior while removing the
+unrelated `u-root` and `x/crypto` graph entirely.
 
 Before installing them, generate candidate JavaScript and Go lock state without lifecycle scripts
 and run `code-policy dependency-review --base <trusted-merge-target>`. Review the direct and
@@ -264,10 +270,11 @@ between this plan and checked-in code; possible future terminal features are not
 
 The required dependency-review command was attempted against `origin/main`. Code Policy 0.13.0
 stopped before evaluating the candidate because it cannot parse the trusted base's existing
-`uv.lock` entry whose exact version is `5.0`. A supplemental exact-start-base review enumerated
-only the five planned dependencies and reported no known vulnerabilities; the same exact versions
-are already present on frozen main. No policy file or lock governing Code Policy was changed to
-work around that base-input failure.
+`uv.lock` entry whose exact version is `5.0`. Supplemental reviews against the exact task-start
+and immediate pre-replacement commits enumerated only this batch's dependency deltas and passed
+the online supply-chain profile. The final review records the Windows adapter replacement, direct
+safe `x/sys` pin, and removal of `go-pty`, `u-root`, and `x/crypto`. No policy file or lock governing
+Code Policy was changed to work around the trusted-base input failure.
 
 Focused Go, workspace, frontend, generated-contract, and production-build checks pass. The
 production raw-headless walkthrough uses the real launcher, PTY, WebSocket proxy, and xterm and

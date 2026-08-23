@@ -3,18 +3,19 @@
 package terminal
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 
-	goPty "github.com/aymanbagabas/go-pty"
+	"github.com/UserExistsError/conpty"
+	"golang.org/x/sys/windows"
 )
 
 type windowsPTY struct {
-	pty       goPty.Pty
-	command   *goPty.Cmd
+	pty       *conpty.ConPty
 	closeOnce sync.Once
 }
 
@@ -37,22 +38,20 @@ func resolveCommand(command []string) ([]string, error) {
 }
 
 func openPTY(command []string, directory string, columns int, rows int) (ptySession, error) {
-	instance, err := goPty.New()
-	if err != nil {
-		return nil, fmt.Errorf("open terminal PTY: %w", err)
+	commandLine := make([]string, len(command))
+	for index, argument := range command {
+		commandLine[index] = windows.EscapeArg(argument)
 	}
-	cmd := instance.Command(command[0], command[1:]...)
-	cmd.Dir = directory
-	cmd.Env = os.Environ()
-	if err := cmd.Start(); err != nil {
-		_ = instance.Close()
+	instance, err := conpty.Start(
+		strings.Join(commandLine, " "),
+		conpty.ConPtyWorkDir(directory),
+		conpty.ConPtyEnv(os.Environ()),
+		conpty.ConPtyDimensions(columns, rows),
+	)
+	if err != nil {
 		return nil, fmt.Errorf("start terminal PTY: %w", err)
 	}
-	if err := instance.Resize(columns, rows); err != nil {
-		_ = instance.Close()
-		return nil, fmt.Errorf("resize terminal PTY: %w", err)
-	}
-	return &windowsPTY{pty: instance, command: cmd}, nil
+	return &windowsPTY{pty: instance}, nil
 }
 
 func (session *windowsPTY) Read(data []byte) (int, error)  { return session.pty.Read(data) }
@@ -65,7 +64,10 @@ func (session *windowsPTY) Close() error {
 	session.closeOnce.Do(func() { result = session.pty.Close() })
 	return result
 }
-func (session *windowsPTY) Wait() error { return session.command.Wait() }
+func (session *windowsPTY) Wait() error {
+	_, err := session.pty.Wait(context.Background())
+	return err
+}
 
 func managedRunCommand(interpreter string, artifact string) string {
 	return windowsQuote(interpreter) + " " + windowsQuote(artifact) + " & del /f /q " + windowsQuote(artifact) + "\r\n"
