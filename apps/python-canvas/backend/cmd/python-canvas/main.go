@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/setta/python-canvas/backend/internal/cli"
 	"github.com/setta/python-canvas/backend/internal/httpapi"
 	"github.com/setta/python-canvas/backend/internal/lsp"
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
@@ -31,13 +32,48 @@ const (
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := run(ctx, os.Args[1:], serve); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	exitCode := runCommand(ctx, os.Args[1:], serve, cli.Options{
+		Stdin:  os.Stdin,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	})
+	if exitCode != 0 {
+		os.Exit(exitCode)
 	}
 }
 
 type serviceStarter func(context.Context, uint16, string, bool, string) error
+
+func runCommand(ctx context.Context, arguments []string, start serviceStarter, options cli.Options) int {
+	if cli.IsCommand(arguments) {
+		return cli.Run(ctx, arguments, options)
+	}
+	if isRootHelp(arguments) {
+		writer := options.Stdout
+		if writer == nil {
+			writer = io.Discard
+		}
+		_, _ = fmt.Fprintln(writer, "Usage: python-canvas {schema|snapshot|apply} ...")
+		_, _ = fmt.Fprintln(writer, "       python-canvas --project PATH --app-origin ORIGIN [--port PORT] [--create]")
+		return 0
+	}
+	if len(arguments) != 0 && !strings.HasPrefix(arguments[0], "-") {
+		return cli.Run(ctx, arguments, options)
+	}
+	if err := run(ctx, arguments, start); err != nil {
+		writer := options.Stderr
+		if writer == nil {
+			writer = io.Discard
+		}
+		_, _ = fmt.Fprintln(writer, err)
+		return 1
+	}
+	return 0
+}
+
+func isRootHelp(arguments []string) bool {
+	return len(arguments) == 1 && (arguments[0] == "--help" || arguments[0] == "-h" || arguments[0] == "help")
+}
 
 func run(ctx context.Context, arguments []string, start serviceStarter) error {
 	flags := flag.NewFlagSet("python-canvas", flag.ContinueOnError)

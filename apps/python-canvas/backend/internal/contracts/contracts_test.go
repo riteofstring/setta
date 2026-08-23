@@ -14,6 +14,23 @@ func TestProjectSnapshotV2ValidateAcceptsDynamicNestedRecords(t *testing.T) {
 	}
 }
 
+func TestDefaultParameterUIV2ProjectsEverySupportedType(t *testing.T) {
+	for _, uiType := range ParameterUITypesV2() {
+		t.Run(string(uiType), func(t *testing.T) {
+			ui, err := DefaultParameterUIV2(uiType)
+			if err != nil {
+				t.Fatalf("DefaultParameterUIV2(%q) error = %v", uiType, err)
+			}
+			if ui.Type != uiType {
+				t.Fatalf("default UI type = %q, want %q", ui.Type, uiType)
+			}
+			if _, err := ui.Aggregate(); err != nil {
+				t.Fatalf("default UI %q does not aggregate: %v", uiType, err)
+			}
+		})
+	}
+}
+
 func TestProjectSnapshotV2ValidateAcceptsUnannotatedProviderMetadata(t *testing.T) {
 	snapshot := snapshotWithCallableForTest()
 	snapshot.Callables[0].Parameters[0].TypeAnnotation = nil

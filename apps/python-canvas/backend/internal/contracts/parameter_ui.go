@@ -27,6 +27,37 @@ const (
 	ParameterUITypeNestedV2   ParameterUITypeV2 = "NestedParam"
 )
 
+// ParameterUITypesV2 returns the complete closed V2 UI vocabulary in its
+// stable publication order.
+func ParameterUITypesV2() []ParameterUITypeV2 {
+	return []ParameterUITypeV2{
+		ParameterUITypeCodeV2,
+		ParameterUITypeTextV2,
+		ParameterUITypeDateV2,
+		ParameterUITypeTimeV2,
+		ParameterUITypeSliderV2,
+		ParameterUITypeRotaryV2,
+		ParameterUITypeSwitchV2,
+		ParameterUITypeColorV2,
+		ParameterUITypeDropdownV2,
+		ParameterUITypePasswordV2,
+		ParameterUITypeTextAreaV2,
+		ParameterUITypeDropzoneV2,
+		ParameterUITypeNestedV2,
+	}
+}
+
+// DefaultParameterUIV2 projects the authoritative aggregate default for one
+// supported UI type into its complete strict V2 envelope.
+func DefaultParameterUIV2(uiType ParameterUITypeV2) (ParameterUIV2, error) {
+	aggregateType := aggregate.ParameterUIType(uiType)
+	value := aggregate.DefaultParameterUI(aggregateType)
+	if value.Type != aggregateType {
+		return ParameterUIV2{}, fmt.Errorf("parameter UI type %q is unsupported", uiType)
+	}
+	return NewParameterUIV2(value)
+}
+
 // ParameterUIV2 is the strict transport envelope for one complete parameter
 // presentation. Configuration is decoded exactly once into an aggregate type
 // before a mutation crosses the HTTP boundary.
