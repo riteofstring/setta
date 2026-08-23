@@ -7,6 +7,7 @@ export const PROJECT_PATH_V2 = "/api/v2/project" as const;
 export const PROJECT_EVENTS_PATH_V2 = "/api/v2/project/events" as const;
 export const PROJECT_RENAME_PATH_V2 = "/api/v2/project/rename" as const;
 export const PROJECT_CALLABLES_PATH_V2 = "/api/v2/project/callables" as const;
+export const PROJECT_CONFIGURED_CALLABLE_PATH_V2 = "/api/v2/project/callables/configured" as const;
 export const PROJECT_PARAMETER_DICTIONARIES_PATH_V2 = "/api/v2/project/parameter-dictionaries" as const;
 export const PROJECT_LISTS_PATH_V2 = "/api/v2/project/lists" as const;
 export const PROJECT_FOREST_PATH_V2 = "/api/v2/project/forest" as const;
@@ -224,6 +225,7 @@ export interface DiagnosticV2 { id: string; severity: DiagnosticSeverityV2; mess
 export interface ProviderStatusV2 { provider: typeof PROVIDER_BASEDPYRIGHT_V2; status: ProviderAvailabilityV2; state: ProviderLifecycleStateV2; }
 export interface RenameProjectRequestV2 { projectId: string; expectedRevision: number; name: string; }
 export interface CreateCallableRequestV2 { projectId: string; expectedRevision: number; name: string; }
+export interface CreateConfiguredCallableRequestV2 { projectId: string; expectedRevision: number; name: string; authoredExpression: string; parameterValues?: Record<string, string>; }
 export interface RenameCallableRequestV2 { projectId: string; expectedRevision: number; name: string; }
 export interface DeleteCallableRequestV2 { projectId: string; expectedRevision: number; }
 export interface CommitCallableRequestV2 { projectId: string; expectedRevision: number; authoredExpression: string; }

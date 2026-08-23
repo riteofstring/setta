@@ -18,6 +18,7 @@ type ProjectService interface {
 	CaptureGeneratedProgram(context.Context, string, int) (GeneratedProgram, error)
 	RenameProject(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
 	CreateCallable(context.Context, contracts.CreateCallableRequestV2) (contracts.ProjectSnapshotV2, error)
+	CreateConfiguredCallable(context.Context, contracts.CreateConfiguredCallableRequestV2) (contracts.ProjectSnapshotV2, error)
 	RenameCallable(context.Context, string, contracts.RenameCallableRequestV2) (contracts.ProjectSnapshotV2, error)
 	DeleteCallable(context.Context, string, contracts.DeleteCallableRequestV2) (contracts.ProjectSnapshotV2, error)
 	CreateParameterDictionary(context.Context, contracts.CreateParameterDictionaryRequestV2) (contracts.ProjectSnapshotV2, error)
@@ -140,6 +141,17 @@ func (service *CoordinatorService) RenameProject(ctx context.Context, request co
 
 func (service *CoordinatorService) CreateCallable(ctx context.Context, request contracts.CreateCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
 	snapshot, err := service.coordinator.CreateCallable(ctx, aggregate.CreateCallableCommand{ProjectID: request.ProjectID, ExpectedRevision: request.ExpectedRevision, Name: request.Name})
+	return mappedSnapshot(snapshot, err)
+}
+
+func (service *CoordinatorService) CreateConfiguredCallable(ctx context.Context, request contracts.CreateConfiguredCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
+	snapshot, err := service.coordinator.CreateConfiguredCallable(ctx, aggregate.CreateConfiguredCallableCommand{
+		ProjectID:          request.ProjectID,
+		ExpectedRevision:   request.ExpectedRevision,
+		Name:               request.Name,
+		AuthoredExpression: request.AuthoredExpression,
+		ParameterValues:    request.ParameterValues,
+	})
 	return mappedSnapshot(snapshot, err)
 }
 

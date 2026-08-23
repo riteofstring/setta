@@ -36,7 +36,7 @@ func TestSchemaPublishesTheClosedOperationRegistry(t *testing.T) {
 	}
 	want := []string{
 		"project.rename",
-		"callable.create", "callable.rename", "callable.delete", "callable.commit", "callable.parameters.refresh", "callable.parameters.set",
+		"callable.create", "callable.createConfigured", "callable.rename", "callable.delete", "callable.commit", "callable.parameters.refresh", "callable.parameters.set",
 		"parameterDictionary.create", "parameterDictionary.rename", "parameterDictionary.delete", "parameterDictionary.entries.set",
 		"list.create", "list.rename", "list.delete", "list.children.increment", "list.children.decrement",
 		"forest.replace", "pythonTarget.set",
@@ -69,6 +69,9 @@ func TestSchemaPublishesTheClosedOperationRegistry(t *testing.T) {
 			if example.AuthoredExpression != "math.sqrt" {
 				t.Fatalf("callable.commit expression example = %q, want callable reference", example.AuthoredExpression)
 			}
+		}
+		if operation.Name == "callable.createConfigured" && !containsString(operation.Optional, "parameterValues") {
+			t.Fatalf("configured callable schema optional fields = %#v, want parameterValues", operation.Optional)
 		}
 	}
 	if len(document.V2Vocabulary) < 4 {
@@ -113,6 +116,7 @@ func TestOperationRegistryBindsEveryAuthoredMutation(t *testing.T) {
 	wantRoutes := map[string]string{
 		"project.rename":                  contracts.ProjectRenamePathV2,
 		"callable.create":                 contracts.ProjectCallablesPathV2,
+		"callable.createConfigured":       contracts.ProjectConfiguredCallablePathV2,
 		"callable.rename":                 contracts.ProjectCallablesPathV2 + "/" + url.PathEscape("callable:example") + "/rename",
 		"callable.delete":                 contracts.ProjectCallablesPathV2 + "/" + url.PathEscape("callable:example") + "/delete",
 		"callable.commit":                 contracts.ProjectCallablesPathV2 + "/" + url.PathEscape("callable:example") + "/commit",
@@ -227,6 +231,65 @@ func TestApplyFetchesBindsAndReturnsTheCanonicalSnapshot(t *testing.T) {
 	}
 	if result.Project.Revision != after.Project.Revision {
 		t.Fatalf("apply output revision = %d, want %d", result.Project.Revision, after.Project.Revision)
+	}
+}
+
+func TestApplyConfiguredCallableUsesOneMutationAndReturnsTheCanonicalSnapshot(t *testing.T) {
+	before := snapshotAtRevision(3)
+	after := snapshotAtRevision(4)
+	var getCalls, postCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch {
+		case request.Method == http.MethodGet && request.URL.Path == contracts.ProjectPathV2:
+			getCalls++
+			writeJSONResponse(t, response, before)
+		case request.Method == http.MethodPost && request.URL.Path == contracts.ProjectConfiguredCallablePathV2:
+			postCalls++
+			var body contracts.CreateConfiguredCallableRequestV2
+			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+				t.Errorf("decode mutation body: %v", err)
+				return
+			}
+			if body.ProjectID != before.Project.ID || body.ExpectedRevision != before.Project.Revision || body.Name != "Ceiling" || body.AuthoredExpression != "math.ceil" || len(body.ParameterValues) != 1 || body.ParameterValues["x"] != "7.25" {
+				t.Errorf("mutation body = %#v", body)
+				return
+			}
+			writeJSONResponse(t, response, after)
+		default:
+			t.Errorf("unexpected request %s %s", request.Method, request.URL.Path)
+			response.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	exitCode, stdout, stderr := runForTest(t, []string{"apply", "--url", server.URL, "--file", "-"}, `{"operation":"callable.createConfigured","name":"Ceiling","authoredExpression":"math.ceil","parameterValues":{"x":"7.25"}}`, server.Client())
+	if exitCode != exitSuccess || stderr != "" {
+		t.Fatalf("apply exit code = %d, stderr = %s", exitCode, stderr)
+	}
+	if getCalls != 1 || postCalls != 1 {
+		t.Fatalf("requests = GET %d POST %d, want one each", getCalls, postCalls)
+	}
+	var result contracts.ProjectSnapshotV2
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("decode apply stdout: %v", err)
+	}
+	if err := result.Validate(); err != nil || result.Project.Revision != after.Project.Revision {
+		t.Fatalf("apply result = %#v, validation error = %v", result, err)
+	}
+}
+
+func TestConfiguredCallableOperationAllowsOmittedParameterValues(t *testing.T) {
+	decoded, err := decodeOperationDocument([]byte(`{"operation":"callable.createConfigured","name":"Ceiling","authoredExpression":"math.ceil"}`))
+	if err != nil {
+		t.Fatalf("decode configured operation: %v", err)
+	}
+	request, err := decoded.mutation(snapshotAtRevision(1))
+	if err != nil {
+		t.Fatalf("bind configured operation: %v", err)
+	}
+	body, ok := request.body.(contracts.CreateConfiguredCallableRequestV2)
+	if !ok || len(body.ParameterValues) != 0 {
+		t.Fatalf("configured request body = %#v", request.body)
 	}
 }
 

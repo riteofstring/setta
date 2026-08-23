@@ -186,6 +186,51 @@ func (coordinator *Coordinator) CreateCallable(ctx context.Context, command aggr
 	})
 }
 
+// CreateConfiguredCallable resolves a callable signature against an
+// unpublished draft, then publishes the fully configured callable through one
+// durable candidate transaction.
+func (coordinator *Coordinator) CreateConfiguredCallable(ctx context.Context, command aggregate.CreateConfiguredCallableCommand) (Snapshot, error) {
+	if coordinator == nil {
+		return Snapshot{}, ErrCoordinatorClosed
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	coordinator.mu.Lock()
+	defer coordinator.mu.Unlock()
+	if err := coordinator.requireOpen(ctx); err != nil {
+		return Snapshot{}, err
+	}
+
+	prepared, err := coordinator.snapshot.State.PrepareCreateConfiguredCallable(command, coordinator.idGenerator)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	if err := coordinator.requireMutableProvider(ctx); err != nil {
+		return Snapshot{}, err
+	}
+	request, err := coordinator.signatureRequest(
+		prepared.SignatureState(),
+		prepared.CallableID(),
+		prepared.AuthoredExpression(),
+	)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	signature, err := coordinator.resolveCallableSignature(ctx, request)
+	if err != nil {
+		return Snapshot{}, providerFailure("resolve callable signature", err)
+	}
+	candidate, err := prepared.Finalize(signature, coordinator.idGenerator)
+	if err != nil {
+		if errors.Is(err, aggregate.ErrProviderSignatureInvalid) {
+			return Snapshot{}, providerFailure("validate provider signature", err)
+		}
+		return Snapshot{}, err
+	}
+	return coordinator.applyCandidate(ctx, candidate)
+}
+
 // RenameCallable preserves a callable's ID and nested records while applying
 // its new display name through the shared durable transaction.
 func (coordinator *Coordinator) RenameCallable(ctx context.Context, command aggregate.RenameCallableCommand) (Snapshot, error) {

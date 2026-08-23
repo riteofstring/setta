@@ -127,6 +127,38 @@ func TestHandlerForwardsRevisionBoundProjectAndParameterMutations(t *testing.T) 
 	assertErrorCode(t, invalid, contracts.APIErrorCodeInvalidRequestV2)
 }
 
+func TestHandlerForwardsConfiguredCallableMutation(t *testing.T) {
+	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
+	var received contracts.CreateConfiguredCallableRequestV2
+	service.createConfiguredCallable = func(_ context.Context, request contracts.CreateConfiguredCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
+		received = request
+		return service.snapshot, nil
+	}
+	handler := newHandlerForTest(t, service)
+
+	response := postJSON(
+		handler,
+		contracts.ProjectConfiguredCallablePathV2,
+		`{"projectId":"project:fixture","expectedRevision":1,"name":"Ceiling","authoredExpression":"math.ceil","parameterValues":{"x":"7.25"}}`,
+	)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d; body = %s", response.Code, response.Body.String())
+	}
+	if received.ProjectID != "project:fixture" || received.ExpectedRevision != 1 || received.Name != "Ceiling" || received.AuthoredExpression != "math.ceil" || len(received.ParameterValues) != 1 || received.ParameterValues["x"] != "7.25" {
+		t.Fatalf("configured request = %#v", received)
+	}
+
+	invalid := postJSON(
+		handler,
+		contracts.ProjectConfiguredCallablePathV2,
+		`{"projectId":"project:fixture","expectedRevision":1,"name":"Ceiling","authoredExpression":"math.ceil","parameterValues":{"x":"7.25"},"legacy":true}`,
+	)
+	if invalid.Code != http.StatusBadRequest {
+		t.Fatalf("unknown request field status = %d; body = %s", invalid.Code, invalid.Body.String())
+	}
+	assertErrorCode(t, invalid, contracts.APIErrorCodeInvalidRequestV2)
+}
+
 func TestHandlerAcceptsEveryClosedSectionForestMutationRoute(t *testing.T) {
 	handler := newHandlerForTest(t, &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()})
 	for _, test := range []struct {
@@ -280,6 +312,7 @@ type stubProjectService struct {
 	subscribeProjectSnapshots func(context.Context) <-chan contracts.ProjectSnapshotV2
 	captureGeneratedProgram   func(context.Context, string, int) (GeneratedProgram, error)
 	renameProject             func(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
+	createConfiguredCallable  func(context.Context, contracts.CreateConfiguredCallableRequestV2) (contracts.ProjectSnapshotV2, error)
 	commitCallable            func(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error)
 	refreshParameters         func(context.Context, string, contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
 	setParameters             func(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
@@ -322,6 +355,13 @@ func (service *stubProjectService) RenameProject(ctx context.Context, request co
 
 func (service *stubProjectService) CreateCallable(context.Context, contracts.CreateCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
 	return service.snapshot, nil
+}
+
+func (service *stubProjectService) CreateConfiguredCallable(ctx context.Context, request contracts.CreateConfiguredCallableRequestV2) (contracts.ProjectSnapshotV2, error) {
+	if service.createConfiguredCallable == nil {
+		return service.snapshot, nil
+	}
+	return service.createConfiguredCallable(ctx, request)
 }
 
 func (service *stubProjectService) RenameCallable(context.Context, string, contracts.RenameCallableRequestV2) (contracts.ProjectSnapshotV2, error) {

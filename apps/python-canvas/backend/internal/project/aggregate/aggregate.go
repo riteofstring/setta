@@ -131,6 +131,45 @@ type CreateCallableCommand struct {
 	Name             string
 }
 
+// CreateConfiguredCallableCommand creates one callable only after its
+// provider-derived signature and authored parameter values form one complete
+// valid candidate.
+type CreateConfiguredCallableCommand struct {
+	ProjectID          string
+	ExpectedRevision   int
+	Name               string
+	AuthoredExpression string
+	ParameterValues    map[string]string
+}
+
+// PreparedConfiguredCallable is an unpublished callable draft used only to
+// resolve the provider signature before the final candidate is constructed.
+// Its aggregate state remains at the current project revision until Finalize.
+type PreparedConfiguredCallable struct {
+	state              State
+	callableID         string
+	authoredExpression string
+	parameterValues    map[string]string
+}
+
+// CallableID identifies the unpublished callable in the provider signature
+// request. It is allocated by the aggregate and never supplied by a client.
+func (prepared PreparedConfiguredCallable) CallableID() string {
+	return prepared.callableID
+}
+
+// AuthoredExpression returns the canonical expression that the provider must
+// resolve against the prepared draft.
+func (prepared PreparedConfiguredCallable) AuthoredExpression() string {
+	return prepared.authoredExpression
+}
+
+// SignatureState returns a defensive copy of the unpublished draft used to
+// render temporary provider code. It cannot mutate the prepared candidate.
+func (prepared PreparedConfiguredCallable) SignatureState() State {
+	return prepared.state.Clone()
+}
+
 // RenameCallableCommand replaces one callable display name.
 type RenameCallableCommand struct {
 	ProjectID        string
@@ -396,6 +435,125 @@ func (state State) CreateCallable(command CreateCallableCommand, nextID IDGenera
 	})
 	candidate.TopLevelSectionIDs = append(candidate.TopLevelSectionIDs, id)
 	return changedCandidate(candidate)
+}
+
+// PrepareCreateConfiguredCallable validates and builds an unpublished callable
+// draft without incrementing the project revision. The coordinator renders this
+// exact draft only for provider signature resolution; it is never persisted.
+func (state State) PrepareCreateConfiguredCallable(
+	command CreateConfiguredCallableCommand,
+	nextID IDGenerator,
+) (PreparedConfiguredCallable, error) {
+	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
+		return PreparedConfiguredCallable{}, err
+	}
+	name, err := canonicalDisplayName("callable", command.Name)
+	if err != nil {
+		return PreparedConfiguredCallable{}, err
+	}
+	expression, err := canonicalCallableExpression(command.AuthoredExpression)
+	if err != nil {
+		return PreparedConfiguredCallable{}, err
+	}
+	parameterValues, err := configuredParameterValues(command.ParameterValues)
+	if err != nil {
+		return PreparedConfiguredCallable{}, err
+	}
+
+	candidate := state.Clone()
+	id, err := newStableID(nextID, candidate.targetIDs())
+	if err != nil {
+		return PreparedConfiguredCallable{}, err
+	}
+	candidate.Callables = append(candidate.Callables, Callable{
+		ID:                 id,
+		Name:               name,
+		AuthoredExpression: expression,
+		Parameters:         []Parameter{},
+	})
+	candidate.TopLevelSectionIDs = append(candidate.TopLevelSectionIDs, id)
+	if err := candidate.Validate(); err != nil {
+		return PreparedConfiguredCallable{}, err
+	}
+	return PreparedConfiguredCallable{
+		state:              candidate,
+		callableID:         id,
+		authoredExpression: expression,
+		parameterValues:    parameterValues,
+	}, nil
+}
+
+// Finalize validates one provider signature, applies the caller's values by
+// exact provider parameter name, and returns the one changed durable candidate.
+func (prepared PreparedConfiguredCallable) Finalize(
+	signature []ProviderParameter,
+	nextID IDGenerator,
+) (Candidate, error) {
+	if err := prepared.state.Validate(); err != nil {
+		return Candidate{}, err
+	}
+	callableIndex, err := prepared.state.callableIndex(prepared.callableID)
+	if err != nil {
+		return Candidate{}, err
+	}
+	candidate := prepared.state.Clone()
+	parameters, err := newProviderParameters(signature, nextID, candidate.targetIDs())
+	if err != nil {
+		return Candidate{}, err
+	}
+	if err := applyConfiguredParameterValues(parameters, prepared.parameterValues); err != nil {
+		return Candidate{}, err
+	}
+	candidate.Callables[callableIndex].Parameters = parameters
+	return changedCandidate(candidate)
+}
+
+func configuredParameterValues(values map[string]string) (map[string]string, error) {
+	if len(values) > maxParametersPerCallable {
+		return nil, validationError("configured parameter value map is too large")
+	}
+	result := make(map[string]string, len(values))
+	names := make([]string, 0, len(values))
+	for name := range values {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		canonicalName, err := canonicalParameterName(name)
+		if err != nil || canonicalName == "" || canonicalName != name {
+			return nil, validationError("configured parameter name %q is invalid", name)
+		}
+		expression := values[name]
+		if err := validateParameterExpression(expression); err != nil {
+			return nil, fmt.Errorf("configured parameter %q: %w", name, err)
+		}
+		result[name] = expression
+	}
+	return result, nil
+}
+
+func applyConfiguredParameterValues(parameters []Parameter, values map[string]string) error {
+	remaining := make(map[string]string, len(values))
+	for name, expression := range values {
+		remaining[name] = expression
+	}
+	for index := range parameters {
+		expression, found := remaining[parameters[index].Name]
+		if !found {
+			continue
+		}
+		parameters[index].AuthoredExpression = expression
+		delete(remaining, parameters[index].Name)
+	}
+	if len(remaining) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(remaining))
+	for name := range remaining {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return validationError("configured parameter %q is not in the provider signature", names[0])
 }
 
 // RenameCallable validates and constructs one expected-revision candidate.

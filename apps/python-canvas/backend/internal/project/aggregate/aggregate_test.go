@@ -67,6 +67,100 @@ func TestCandidateCommandsUseDynamicIDsAndExpectedRevisions(t *testing.T) {
 	requireTarget(t, state, "import example", "state = SettaState()\nprint(state)", 7)
 }
 
+func TestConfiguredCallablePreparesAndFinalizesOneCandidate(t *testing.T) {
+	t.Parallel()
+
+	state := mustBlank(t, "project-configured")
+	before := state.Clone()
+	prepared, err := state.PrepareCreateConfiguredCallable(CreateConfiguredCallableCommand{
+		ProjectID:          state.Project.ID,
+		ExpectedRevision:   state.Project.Revision,
+		Name:               "Ceiling",
+		AuthoredExpression: " math.ceil ",
+		ParameterValues:    map[string]string{"x": "7.25"},
+	}, sequenceIDs("callable-ceiling"))
+	if err != nil {
+		t.Fatalf("PrepareCreateConfiguredCallable() error = %v", err)
+	}
+	if !reflect.DeepEqual(state, before) {
+		t.Fatalf("prepare changed source state:\n got: %#v\nwant: %#v", state, before)
+	}
+	draft := prepared.SignatureState()
+	if draft.Project.Revision != before.Project.Revision || len(draft.Callables) != 1 {
+		t.Fatalf("prepared draft = %#v, want one unpublished callable at revision %d", draft, before.Project.Revision)
+	}
+	if callable := draft.Callables[0]; callable.ID != prepared.CallableID() || callable.Name != "Ceiling" || callable.AuthoredExpression != "math.ceil" || len(callable.Parameters) != 0 {
+		t.Fatalf("prepared callable = %#v", callable)
+	}
+
+	candidate, err := prepared.Finalize([]ProviderParameter{{
+		Name: "x", PassingStyle: PassingStylePositionalOrKeyword,
+	}}, sequenceIDs("parameter-x"))
+	if err != nil {
+		t.Fatalf("Finalize() error = %v", err)
+	}
+	if !candidate.Changed || candidate.State.Project.Revision != before.Project.Revision+1 {
+		t.Fatalf("configured candidate = %#v, want one revision increment", candidate)
+	}
+	callable := candidate.State.Callables[0]
+	if callable.ID != "callable-ceiling" || callable.AuthoredExpression != "math.ceil" || len(callable.Parameters) != 1 {
+		t.Fatalf("configured callable = %#v", callable)
+	}
+	if parameter := callable.Parameters[0]; parameter.ID != "parameter-x" || parameter.Name != "x" || parameter.AuthoredExpression != "7.25" || parameter.NameEditable {
+		t.Fatalf("configured parameter = %#v", parameter)
+	}
+}
+
+func TestConfiguredCallableRejectsUnknownResolvedParameterWithoutCandidate(t *testing.T) {
+	t.Parallel()
+
+	state := mustBlank(t, "project-configured-unknown")
+	prepared, err := state.PrepareCreateConfiguredCallable(CreateConfiguredCallableCommand{
+		ProjectID:          state.Project.ID,
+		ExpectedRevision:   state.Project.Revision,
+		Name:               "Ceiling",
+		AuthoredExpression: "math.ceil",
+		ParameterValues:    map[string]string{"unknown": "7.25"},
+	}, sequenceIDs("callable-ceiling"))
+	if err != nil {
+		t.Fatalf("PrepareCreateConfiguredCallable() error = %v", err)
+	}
+	_, err = prepared.Finalize([]ProviderParameter{{
+		Name: "x", PassingStyle: PassingStylePositionalOrKeyword,
+	}}, sequenceIDs("parameter-x"))
+	if !errors.Is(err, ErrValidation) {
+		t.Fatalf("Finalize() error = %v, want validation failure", err)
+	}
+	if got := prepared.SignatureState(); len(got.Callables) != 1 || got.Callables[0].AuthoredExpression != "math.ceil" || len(got.Callables[0].Parameters) != 0 {
+		t.Fatalf("failed finalize changed prepared draft: %#v", got)
+	}
+}
+
+func TestConfiguredCallableAllowsOmittedResolvedParameter(t *testing.T) {
+	t.Parallel()
+
+	state := mustBlank(t, "project-configured-omitted")
+	prepared, err := state.PrepareCreateConfiguredCallable(CreateConfiguredCallableCommand{
+		ProjectID:          state.Project.ID,
+		ExpectedRevision:   state.Project.Revision,
+		Name:               "Length",
+		AuthoredExpression: "len",
+	}, sequenceIDs("callable-length"))
+	if err != nil {
+		t.Fatalf("PrepareCreateConfiguredCallable() error = %v", err)
+	}
+	candidate, err := prepared.Finalize([]ProviderParameter{{
+		Name: "obj", PassingStyle: PassingStylePositionalOnly,
+	}}, sequenceIDs("parameter-obj"))
+	if err != nil {
+		t.Fatalf("Finalize() error = %v", err)
+	}
+	parameter := candidate.State.Callables[0].Parameters[0]
+	if parameter.Name != "obj" || parameter.AuthoredExpression != "" {
+		t.Fatalf("omitted configured parameter = %#v, want an empty resolved obj parameter", parameter)
+	}
+}
+
 func TestCommitPersistsExpressionAndExplicitRefreshReplacesProviderRows(t *testing.T) {
 	t.Parallel()
 

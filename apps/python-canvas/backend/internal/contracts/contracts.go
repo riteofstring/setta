@@ -15,6 +15,7 @@ const (
 	ProjectEventsPathV2                = "/api/v2/project/events"
 	ProjectRenamePathV2                = "/api/v2/project/rename"
 	ProjectCallablesPathV2             = "/api/v2/project/callables"
+	ProjectConfiguredCallablePathV2    = "/api/v2/project/callables/configured"
 	ProjectParameterDictionariesPathV2 = "/api/v2/project/parameter-dictionaries"
 	ProjectListsPathV2                 = "/api/v2/project/lists"
 	ProjectForestPathV2                = "/api/v2/project/forest"
@@ -151,6 +152,17 @@ type CreateCallableRequestV2 struct {
 	ProjectID        string `json:"projectId"`
 	ExpectedRevision int    `json:"expectedRevision"`
 	Name             string `json:"name"`
+}
+
+// CreateConfiguredCallableRequestV2 creates a callable, resolves its
+// provider-owned signature, and applies values by exact parameter name as one
+// expected-revision mutation. Parameter metadata remains server-owned.
+type CreateConfiguredCallableRequestV2 struct {
+	ProjectID          string            `json:"projectId"`
+	ExpectedRevision   int               `json:"expectedRevision"`
+	Name               string            `json:"name"`
+	AuthoredExpression string            `json:"authoredExpression"`
+	ParameterValues    map[string]string `json:"parameterValues,omitempty"`
 }
 
 type RenameCallableRequestV2 struct {
@@ -528,6 +540,27 @@ func (request CreateCallableRequestV2) Validate() error {
 		return err
 	}
 	return requireDisplayName("name", request.Name)
+}
+
+func (request CreateConfiguredCallableRequestV2) Validate() error {
+	if err := validateMutationRequest(request.ProjectID, request.ExpectedRevision); err != nil {
+		return err
+	}
+	if err := requireDisplayName("name", request.Name); err != nil {
+		return err
+	}
+	if err := requireNonBlankText("authoredExpression", request.AuthoredExpression); err != nil {
+		return err
+	}
+	for name, expression := range request.ParameterValues {
+		if err := validateText("parameterValues."+name, name, false); err != nil {
+			return err
+		}
+		if err := validateText("parameterValues."+name, expression, true); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (request RenameCallableRequestV2) Validate() error {

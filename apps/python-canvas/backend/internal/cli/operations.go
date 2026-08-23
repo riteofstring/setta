@@ -28,10 +28,11 @@ type mutation struct {
 }
 
 type operationDefinition struct {
-	name    string
-	fields  []fieldSchema
-	example json.RawMessage
-	decode  func(map[string]json.RawMessage) (operation, error)
+	name           string
+	fields         []fieldSchema
+	optionalFields []fieldSchema
+	example        json.RawMessage
+	decode         func(map[string]json.RawMessage) (operation, error)
 }
 
 type fieldSchema struct {
@@ -82,6 +83,30 @@ var operationRegistry = []operationDefinition{
 		decode: func(fields map[string]json.RawMessage) (operation, error) {
 			name, err := requiredString(fields, "name")
 			return callableCreateOperation{name: name}, err
+		},
+	},
+	{
+		name: "callable.createConfigured",
+		fields: []fieldSchema{
+			{Name: "name", Type: "string", Description: "Callable display name."},
+			{Name: "authoredExpression", Type: "string", Description: "Callable expression resolved for its provider-owned signature."},
+		},
+		optionalFields: []fieldSchema{{Name: "parameterValues", Type: "object", Description: "Authored expressions keyed by exact provider parameter name."}},
+		example:        json.RawMessage(`{"operation":"callable.createConfigured","name":"Ceiling","authoredExpression":"math.ceil","parameterValues":{"x":"7.25"}}`),
+		decode: func(fields map[string]json.RawMessage) (operation, error) {
+			name, err := requiredString(fields, "name")
+			if err != nil {
+				return nil, err
+			}
+			expression, err := requiredString(fields, "authoredExpression")
+			if err != nil {
+				return nil, err
+			}
+			parameterValues := map[string]string{}
+			if _, err := optionalStrictField(fields, "parameterValues", &parameterValues); err != nil {
+				return nil, err
+			}
+			return callableCreateConfiguredOperation{name: name, expression: expression, parameterValues: parameterValues}, nil
 		},
 	},
 	{
@@ -317,11 +342,18 @@ func schema() (schemaDocument, error) {
 		for _, field := range definition.fields {
 			required = append(required, field.Name)
 		}
+		optional := make([]string, 0, len(definition.optionalFields))
+		fields := make([]fieldSchema, 0, len(definition.fields)+len(definition.optionalFields))
+		fields = append(fields, definition.fields...)
+		for _, field := range definition.optionalFields {
+			optional = append(optional, field.Name)
+			fields = append(fields, field)
+		}
 		operations = append(operations, operationSchema{
 			Name:     definition.name,
 			Required: required,
-			Optional: []string{},
-			Fields:   append([]fieldSchema(nil), definition.fields...),
+			Optional: optional,
+			Fields:   fields,
 			Example:  append(json.RawMessage(nil), definition.example...),
 		})
 	}
@@ -449,9 +481,12 @@ func requireJSONEOF(decoder *json.Decoder) error {
 }
 
 func requireExactOperationFields(fields map[string]json.RawMessage, definition operationDefinition) error {
-	expected := make(map[string]struct{}, len(definition.fields)+1)
+	expected := make(map[string]struct{}, len(definition.fields)+len(definition.optionalFields)+1)
 	expected["operation"] = struct{}{}
 	for _, field := range definition.fields {
+		expected[field.Name] = struct{}{}
+	}
+	for _, field := range definition.optionalFields {
 		expected[field.Name] = struct{}{}
 	}
 	unknown := make([]string, 0)
@@ -464,10 +499,10 @@ func requireExactOperationFields(fields map[string]json.RawMessage, definition o
 		sort.Strings(unknown)
 		return fmt.Errorf("operation document has unknown field %q", unknown[0])
 	}
-	missing := make([]string, 0)
-	for field := range expected {
-		if _, exists := fields[field]; !exists {
-			missing = append(missing, field)
+	missing := make([]string, 0, len(definition.fields)+1)
+	for _, field := range append([]fieldSchema{{Name: "operation"}}, definition.fields...) {
+		if _, exists := fields[field.Name]; !exists {
+			missing = append(missing, field.Name)
 		}
 	}
 	if len(missing) != 0 {
@@ -512,6 +547,25 @@ func requiredStrictField(fields map[string]json.RawMessage, name string, destina
 	return nil
 }
 
+func optionalStrictField(fields map[string]json.RawMessage, name string, destination any) (bool, error) {
+	content, exists := fields[name]
+	if !exists {
+		return false, nil
+	}
+	if bytes.Equal(bytes.TrimSpace(content), []byte("null")) {
+		return false, fmt.Errorf("operation field %s must not be null", name)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(content))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return false, fmt.Errorf("operation field %s is invalid: %w", name, err)
+	}
+	if err := requireJSONEOF(decoder); err != nil {
+		return false, fmt.Errorf("operation field %s is invalid: %w", name, err)
+	}
+	return true, nil
+}
+
 func validationSnapshot() contracts.ProjectSnapshotV2 {
 	return contracts.ProjectSnapshotV2{Project: contracts.ProjectV2{ID: "project:cli-validation", Revision: 1}}
 }
@@ -551,6 +605,22 @@ type callableCreateOperation struct{ name string }
 
 func (operation callableCreateOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
 	return validatedMutation(contracts.ProjectCallablesPathV2, contracts.CreateCallableRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, Name: operation.name})
+}
+
+type callableCreateConfiguredOperation struct {
+	name            string
+	expression      string
+	parameterValues map[string]string
+}
+
+func (operation callableCreateConfiguredOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
+	return validatedMutation(contracts.ProjectConfiguredCallablePathV2, contracts.CreateConfiguredCallableRequestV2{
+		ProjectID:          snapshot.Project.ID,
+		ExpectedRevision:   snapshot.Project.Revision,
+		Name:               operation.name,
+		AuthoredExpression: operation.expression,
+		ParameterValues:    operation.parameterValues,
+	})
 }
 
 type callableRenameOperation struct{ id, name string }

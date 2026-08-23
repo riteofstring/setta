@@ -34,6 +34,14 @@ type createCallablePayload struct {
 	Name             *string `json:"name"`
 }
 
+type createConfiguredCallablePayload struct {
+	ProjectID          *string            `json:"projectId"`
+	ExpectedRevision   *int               `json:"expectedRevision"`
+	Name               *string            `json:"name"`
+	AuthoredExpression *string            `json:"authoredExpression"`
+	ParameterValues    *map[string]string `json:"parameterValues"`
+}
+
 type renameCallablePayload struct {
 	ProjectID        *string `json:"projectId"`
 	ExpectedRevision *int    `json:"expectedRevision"`
@@ -106,6 +114,22 @@ func (payload createCallablePayload) contract() (contracts.CreateCallableRequest
 		return contracts.CreateCallableRequestV2{}, false
 	}
 	return contracts.CreateCallableRequestV2{ProjectID: *payload.ProjectID, ExpectedRevision: *payload.ExpectedRevision, Name: *payload.Name}, true
+}
+
+func (payload createConfiguredCallablePayload) contract() (contracts.CreateConfiguredCallableRequestV2, bool) {
+	if payload.ProjectID == nil || payload.ExpectedRevision == nil || payload.Name == nil || payload.AuthoredExpression == nil {
+		return contracts.CreateConfiguredCallableRequestV2{}, false
+	}
+	request := contracts.CreateConfiguredCallableRequestV2{
+		ProjectID:          *payload.ProjectID,
+		ExpectedRevision:   *payload.ExpectedRevision,
+		Name:               *payload.Name,
+		AuthoredExpression: *payload.AuthoredExpression,
+	}
+	if payload.ParameterValues != nil {
+		request.ParameterValues = *payload.ParameterValues
+	}
+	return request, true
 }
 
 func (payload renameCallablePayload) contract() (contracts.RenameCallableRequestV2, bool) {
@@ -226,6 +250,8 @@ func dispatchProjectCollectionRoute(response http.ResponseWriter, request *http.
 		handleProjectEvents(response, request, service)
 	case isExactPath(request, contracts.ProjectRenamePathV2):
 		handleRenameProject(response, request, service)
+	case isExactPath(request, contracts.ProjectConfiguredCallablePathV2):
+		handleCreateConfiguredCallable(response, request, service)
 	case isExactPath(request, contracts.ProjectCallablesPathV2):
 		handleCreateCallable(response, request, service)
 	case isExactPath(request, contracts.ProjectTargetPathV2):
@@ -303,6 +329,27 @@ func handleCreateCallable(response http.ResponseWriter, request *http.Request, s
 		return
 	}
 	snapshot, err := service.CreateCallable(request.Context(), body)
+	if err != nil {
+		writeServiceError(response, service, err, body.ExpectedRevision)
+		return
+	}
+	writeSnapshot(response, snapshot)
+}
+
+func handleCreateConfiguredCallable(response http.ResponseWriter, request *http.Request, service ProjectService) {
+	if !requireMutationMethod(response, request) || !rejectQuery(response, request) {
+		return
+	}
+	var payload createConfiguredCallablePayload
+	if !decodeJSONBody(response, request, &payload) {
+		return
+	}
+	body, complete := payload.contract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Create configured callable request is invalid.")
+		return
+	}
+	snapshot, err := service.CreateConfiguredCallable(request.Context(), body)
 	if err != nil {
 		writeServiceError(response, service, err, body.ExpectedRevision)
 		return

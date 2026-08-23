@@ -1,6 +1,7 @@
 package coordinator
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -269,6 +270,116 @@ func TestCoordinatorClassifiesMalformedProviderSignatureAsProviderFailure(t *tes
 	}
 	if !reflect.DeepEqual(coordinator.Snapshot(), before) {
 		t.Fatal("RefreshCallableParameters() published a malformed provider signature")
+	}
+}
+
+func TestCoordinatorCreatesConfiguredCallableAsOneFinalPublication(t *testing.T) {
+	t.Parallel()
+
+	coordinator, provider, store, path := newConfiguredCallableCoordinator(t)
+	defer coordinator.Close()
+	stream, unsubscribe := coordinator.SubscribeSnapshots()
+	defer unsubscribe()
+	<-stream
+
+	before := coordinator.Snapshot()
+	created, err := coordinator.CreateConfiguredCallable(context.Background(), aggregate.CreateConfiguredCallableCommand{
+		ProjectID:          before.State.Project.ID,
+		ExpectedRevision:   before.State.Project.Revision,
+		Name:               "Ceiling",
+		AuthoredExpression: "math.ceil",
+		ParameterValues:    map[string]string{"x": "7.25"},
+	})
+	if err != nil {
+		t.Fatalf("CreateConfiguredCallable() error = %v", err)
+	}
+	if created.State.Project.Revision != before.State.Project.Revision+1 || len(created.State.Callables) != 1 {
+		t.Fatalf("configured snapshot = %#v", created.State)
+	}
+	callable := created.State.Callables[0]
+	if callable.Name != "Ceiling" || callable.AuthoredExpression != "math.ceil" || len(callable.Parameters) != 1 {
+		t.Fatalf("configured callable = %#v", callable)
+	}
+	if parameter := callable.Parameters[0]; parameter.Name != "x" || parameter.AuthoredExpression != "7.25" || parameter.NameEditable {
+		t.Fatalf("configured parameter = %#v", parameter)
+	}
+	if len(provider.signatureRequests) != 1 || provider.signatureRequests[0].CallableID != callable.ID || provider.signatureRequests[0].AuthoredExpression != "math.ceil" {
+		t.Fatalf("signature requests = %#v", provider.signatureRequests)
+	}
+	published := awaitPushedSnapshot(t, stream)
+	if !reflect.DeepEqual(published, created) {
+		t.Fatalf("published snapshot = %#v, want %#v", published, created)
+	}
+	select {
+	case extra := <-stream:
+		t.Fatalf("configured creation published more than one snapshot: %#v", extra)
+	default:
+	}
+	if store.stageCount != 1 || store.commitCount != 1 {
+		t.Fatalf("configured persistence = stages %d commits %d, want one each", store.stageCount, store.commitCount)
+	}
+	requireDurableAuthoredState(t, path, created.State)
+}
+
+func TestCoordinatorConfiguredCallableFailuresLeavePublishedStateUntouched(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name      string
+		configure func(*fakeProvider)
+		values    map[string]string
+		wantError error
+	}{
+		{
+			name: "unknown parameter name",
+			configure: func(provider *fakeProvider) {
+				provider.signature = []aggregate.ProviderParameter{{Name: "x", PassingStyle: aggregate.PassingStylePositionalOrKeyword}}
+			},
+			values:    map[string]string{"unknown": "7.25"},
+			wantError: aggregate.ErrValidation,
+		},
+		{
+			name:      "provider signature failure",
+			configure: func(provider *fakeProvider) { provider.signatureError = errors.New("signature unavailable") },
+			values:    map[string]string{"x": "7.25"},
+			wantError: ErrProviderFailed,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			coordinator, provider, store, path := newConfiguredCallableCoordinator(t)
+			defer coordinator.Close()
+			test.configure(provider)
+			stream, unsubscribe := coordinator.SubscribeSnapshots()
+			defer unsubscribe()
+			<-stream
+			before := coordinator.Snapshot()
+			beforeBytes := readFile(t, path)
+
+			_, err := coordinator.CreateConfiguredCallable(context.Background(), aggregate.CreateConfiguredCallableCommand{
+				ProjectID:          before.State.Project.ID,
+				ExpectedRevision:   before.State.Project.Revision,
+				Name:               "Ceiling",
+				AuthoredExpression: "math.ceil",
+				ParameterValues:    test.values,
+			})
+			if !errors.Is(err, test.wantError) {
+				t.Fatalf("CreateConfiguredCallable() error = %v, want %v", err, test.wantError)
+			}
+			if after := coordinator.Snapshot(); !reflect.DeepEqual(after, before) {
+				t.Fatalf("failed configured creation changed snapshot:\n got: %#v\nwant: %#v", after, before)
+			}
+			if afterBytes := readFile(t, path); !bytes.Equal(afterBytes, beforeBytes) {
+				t.Fatalf("failed configured creation changed durable project bytes")
+			}
+			if store.stageCount != 0 || store.commitCount != 0 {
+				t.Fatalf("failed configured persistence = stages %d commits %d, want zero", store.stageCount, store.commitCount)
+			}
+			select {
+			case publication := <-stream:
+				t.Fatalf("failed configured creation published %#v", publication)
+			default:
+			}
+		})
 	}
 }
 
@@ -596,6 +707,28 @@ func newSignatureCoordinator(t *testing.T) (*Coordinator, *fakeProvider, string)
 		t.Fatalf("Open() error = %v", err)
 	}
 	return coordinator, provider, path
+}
+
+func newConfiguredCallableCoordinator(t *testing.T) (*Coordinator, *fakeProvider, *countingStore, string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "project.json")
+	provider := readyProvider()
+	provider.signature = []aggregate.ProviderParameter{{
+		Name: "x", PassingStyle: aggregate.PassingStylePositionalOrKeyword,
+	}}
+	store := &countingStore{delegate: projectfile.NewAdapter()}
+	coordinator, err := Open(context.Background(), Options{
+		ProjectPath:  path,
+		Create:       true,
+		IDGenerator:  sequenceIDs("project-configured", "callable-ceiling", "parameter-x"),
+		Files:        store,
+		Materializer: newMaterialization(t, path),
+		Provider:     provider,
+	})
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	return coordinator, provider, store, path
 }
 
 func scaleDiagnostic(request GeneratedDocumentRequest) []ProviderDiagnostic {
@@ -1047,6 +1180,39 @@ type failingStore struct {
 	delegate    projectfile.Store
 	stageError  error
 	commitError error
+}
+
+type countingStore struct {
+	delegate    projectfile.Store
+	stageCount  int
+	commitCount int
+}
+
+func (store *countingStore) Load(path string) (aggregate.State, error) {
+	return store.delegate.Load(path)
+}
+
+func (store *countingStore) Create(path string, state aggregate.State) error {
+	return store.delegate.Create(path, state)
+}
+
+func (store *countingStore) StageReplacement(path string, state aggregate.State) (projectfile.Replacement, error) {
+	store.stageCount++
+	replacement, err := store.delegate.StageReplacement(path, state)
+	if err != nil {
+		return nil, err
+	}
+	return &countingReplacement{Replacement: replacement, store: store}, nil
+}
+
+type countingReplacement struct {
+	projectfile.Replacement
+	store *countingStore
+}
+
+func (replacement *countingReplacement) Commit() error {
+	replacement.store.commitCount++
+	return replacement.Replacement.Commit()
 }
 
 type oneTimeCommitFailingStore struct {

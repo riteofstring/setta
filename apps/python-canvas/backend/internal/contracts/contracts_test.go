@@ -176,6 +176,7 @@ func TestV2MutationsRequireExpectedRevision(t *testing.T) {
 	}{
 		{"rename project", RenameProjectRequestV2{ProjectID: "project:test", Name: "Renamed"}},
 		{"create callable", CreateCallableRequestV2{ProjectID: "project:test", Name: "Callable"}},
+		{"create configured callable", CreateConfiguredCallableRequestV2{ProjectID: "project:test", Name: "Callable", AuthoredExpression: "math.ceil"}},
 		{"rename callable", RenameCallableRequestV2{ProjectID: "project:test", Name: "Callable"}},
 		{"delete callable", DeleteCallableRequestV2{ProjectID: "project:test"}},
 		{"commit callable", CommitCallableRequestV2{ProjectID: "project:test", AuthoredExpression: "value"}},
