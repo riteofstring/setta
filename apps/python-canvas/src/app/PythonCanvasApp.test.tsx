@@ -418,8 +418,8 @@ describe("PythonCanvasApp", () => {
       positionAndSizeLocked: true,
     });
     const pendingLayout = {
-      h: 300,
-      w: 360,
+      h: 150,
+      w: 250,
       x: 912,
       y: 488,
       zIndex: 4,
@@ -610,7 +610,7 @@ describe("PythonCanvasApp", () => {
     );
   });
 
-  it("persists a callable deletion made through the workspace section header", async () => {
+  it("keeps a callable visually deleted while its server mutation is pending", async () => {
     const initialSnapshot = callableSnapshot(1, []);
     const deletedSnapshot = parseProjectSnapshotV2({
       ...initialSnapshot,
@@ -618,9 +618,10 @@ describe("PythonCanvasApp", () => {
       topLevelSectionIds: [],
       project: { ...initialSnapshot.project, revision: 2 },
     });
+    const request = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
     const workspace = installWorkspaceHarness();
     mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
-    mocks.deleteCallable.mockResolvedValueOnce(deletedSnapshot);
+    mocks.deleteCallable.mockReturnValueOnce(request.promise);
 
     renderApp();
     await flushEffects();
@@ -640,6 +641,12 @@ describe("PythonCanvasApp", () => {
     expect(mocks.deleteCallable).toHaveBeenCalledWith("callable:one", {
       expectedRevision: 1,
       projectId: initialSnapshot.project.id,
+    });
+    expect(workspace.getDocument().sections[sectionId]).toBeUndefined();
+
+    await act(async () => {
+      request.resolve(deletedSnapshot);
+      await flushMicrotasks();
     });
     expect(workspace.getDocument().sections[sectionId]).toBeUndefined();
   });
@@ -670,7 +677,7 @@ describe("PythonCanvasApp", () => {
       sections: { ...workspace.getDocument().sections, [pending.id]: pending },
       topLevelSections: {
         ...workspace.getDocument().topLevelSections,
-        [pending.id]: { h: 300, w: 360, x: 48, y: 64, zIndex: 4 },
+        [pending.id]: { h: 150, w: 250, x: 48, y: 64, zIndex: 4 },
       },
     });
     await flushEffects();
@@ -829,7 +836,7 @@ describe("PythonCanvasApp", () => {
       sections: { ...workspaceDocument.sections, [pending.id]: pending },
       topLevelSections: {
         ...workspaceDocument.topLevelSections,
-        [pending.id]: { h: 300, w: 360, x: 912, y: 488, zIndex: 4 },
+        [pending.id]: { h: 150, w: 250, x: 912, y: 488, zIndex: 4 },
       },
     };
     publish(workspaceDocument);

@@ -48,6 +48,7 @@ describe("Python Canvas V2 workspace projection", () => {
       id: firstId,
       kind: CALLABLE_SECTION_KIND,
       name: "First callable",
+      size: { height: 150, width: 250 },
     });
     expect(
       readCallableSectionData(document.sections[firstId]?.data),
@@ -138,8 +139,8 @@ describe("Python Canvas V2 workspace projection", () => {
       size: { width: 100, height: 80 },
     };
     const pendingLayout = {
-      h: 300,
-      w: 360,
+      h: 150,
+      w: 250,
       x: 912,
       y: 488,
       zIndex: 12,

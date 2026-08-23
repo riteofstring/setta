@@ -40,6 +40,10 @@ describe("ListSection", () => {
     expect(view.querySelector(".section-row-main svg path")).not.toBeNull();
     expect(remove.classList.contains("gg-math-minus")).toBe(true);
     expect(add.classList.contains("gg-math-plus")).toBe(true);
+    expect(remove.classList.contains("cursor-pointer")).toBe(true);
+    expect(add.classList.contains("cursor-pointer")).toBe(true);
+    expect(remove.classList.contains("disabled:cursor-default")).toBe(true);
+    expect(add.classList.contains("disabled:cursor-default")).toBe(true);
     expect(remove.textContent).toBe("");
     expect(add.textContent).toBe("");
     expect(remove.dataset.settaWorkspaceTouchTarget).toBe("compact");

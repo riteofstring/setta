@@ -49,6 +49,8 @@ func TestPinnedBasedpyrightV2CoordinatorIntegration(t *testing.T) {
 		IDGenerator: pinnedIntegrationIDs(
 			"project-v2",
 			"callable-zero",
+			"callable-math",
+			"parameter-math-x",
 			"callable-styles",
 			"parameter-positional-only",
 			"parameter-positional-or-keyword",
@@ -79,7 +81,32 @@ func TestPinnedBasedpyrightV2CoordinatorIntegration(t *testing.T) {
 		t.Fatalf("zero-parameter signature = %#v, want one callable with zero parameters", zero.State.Callables)
 	}
 
-	styles := createIntegrationCallable(t, ctx, application, zero, "All styles", "fixture.all_styles")
+	createdMath, err := application.CreateCallable(ctx, aggregate.CreateCallableCommand{
+		ProjectID: zero.State.Project.ID, ExpectedRevision: zero.State.Project.Revision, Name: "Missing math import",
+	})
+	if err != nil {
+		t.Fatalf("CreateCallable(math.sqrt) error = %v", err)
+	}
+	unresolvedMath, err := application.CommitCallable(ctx, aggregate.CommitCallableCommand{
+		ProjectID: createdMath.State.Project.ID, CallableID: "callable-math", ExpectedRevision: createdMath.State.Project.Revision, AuthoredExpression: "math.sqrt",
+	})
+	if err != nil {
+		t.Fatalf("CommitCallable(math.sqrt) error = %v", err)
+	}
+	mathCallable := integrationCallable(t, unresolvedMath.State, "callable-math")
+	if len(mathCallable.Parameters) != 0 {
+		t.Fatalf("unresolved math.sqrt parameters = %#v, want none before import", mathCallable.Parameters)
+	}
+	requireDiagnosticCodeForTarget(t, unresolvedMath.Diagnostics, mathCallable.ID, "reportUndefinedVariable")
+
+	resolvedMath := setIntegrationTarget(t, ctx, application, unresolvedMath, "import fixture\nimport math")
+	mathCallable = integrationCallable(t, resolvedMath.State, "callable-math")
+	if len(mathCallable.Parameters) != 1 || mathCallable.Parameters[0].Name != "x" {
+		t.Fatalf("automatically refreshed math.sqrt parameters = %#v, want x", mathCallable.Parameters)
+	}
+	requireNoDiagnosticCodeForTarget(t, resolvedMath.Diagnostics, mathCallable.ID, "reportUndefinedVariable")
+
+	styles := createIntegrationCallable(t, ctx, application, resolvedMath, "All styles", "fixture.all_styles")
 	callable := integrationCallable(t, styles.State, "callable-styles")
 	requireAllPassingStyles(t, callable.Parameters)
 
@@ -376,6 +403,25 @@ func requireDiagnosticForTarget(t *testing.T, diagnostics []coordinator.Diagnost
 		}
 	}
 	t.Fatalf("diagnostics = %#v, want an error mapped to %q", diagnostics, targetID)
+}
+
+func requireDiagnosticCodeForTarget(t *testing.T, diagnostics []coordinator.Diagnostic, targetID string, code string) {
+	t.Helper()
+	for _, diagnostic := range diagnostics {
+		if diagnostic.TargetID != nil && *diagnostic.TargetID == targetID && diagnostic.Code == code {
+			return
+		}
+	}
+	t.Fatalf("diagnostics = %#v, want %q mapped to %q", diagnostics, code, targetID)
+}
+
+func requireNoDiagnosticCodeForTarget(t *testing.T, diagnostics []coordinator.Diagnostic, targetID string, code string) {
+	t.Helper()
+	for _, diagnostic := range diagnostics {
+		if diagnostic.TargetID != nil && *diagnostic.TargetID == targetID && diagnostic.Code == code {
+			t.Fatalf("diagnostics = %#v, do not want %q mapped to %q", diagnostics, code, targetID)
+		}
+	}
 }
 
 func pinnedIntegrationIDs(ids ...string) aggregate.IDGenerator {

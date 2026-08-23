@@ -322,6 +322,20 @@ async function createCallable(client, backendOrigin, name) {
     "the created callable section title",
     `document.querySelector(${JSON.stringify(titleSelector)}) instanceof HTMLElement`,
   );
+  const defaultSectionSize = await evaluate(
+    client,
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(defaultSectionSelector)});
+      return section instanceof HTMLElement
+        ? { height: section.clientHeight, width: section.clientWidth }
+        : null;
+    })()`,
+  );
+  assert.deepEqual(
+    defaultSectionSize,
+    { height: 150, width: 250 },
+    "The default callable size does not match main.",
+  );
   await focusElement(
     client,
     titleSelector,

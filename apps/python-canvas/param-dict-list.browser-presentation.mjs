@@ -144,12 +144,14 @@ export async function assertListRootMainPresentation(client, listId) {
       const labelStyle = getComputedStyle(label);
       const inputStyle = getComputedStyle(input);
       const buttonStyle = getComputedStyle(add);
+      const removeStyle = getComputedStyle(remove);
       const incrementerRect = incrementer.getBoundingClientRect();
       const inputRect = input.getBoundingClientRect();
       return {
         button: {
           backgroundColor: buttonStyle.backgroundColor,
           borderWidth: buttonStyle.borderWidth,
+          cursors: { add: buttonStyle.cursor, remove: removeStyle.cursor },
           height: buttonStyle.height,
           width: buttonStyle.width,
         },
@@ -223,6 +225,7 @@ export async function assertListRootMainPresentation(client, listId) {
   assert.deepEqual(presentation.button, {
     backgroundColor: "rgba(0, 0, 0, 0)",
     borderWidth: "2px",
+    cursors: { add: "pointer", remove: "pointer" },
     height: "22px",
     width: "22px",
   });

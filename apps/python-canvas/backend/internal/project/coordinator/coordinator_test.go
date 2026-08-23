@@ -402,11 +402,14 @@ func TestCoordinatorDoesNotDuplicateAutomaticRefreshAfterUndefinedCallableResolv
 	}
 }
 
-func TestCoordinatorSkipsAutomaticRefreshWhenCallableErrorReplacesUndefinedDiagnostic(t *testing.T) {
+func TestCoordinatorAutoRefreshesWhenCallIssueReplacesUndefinedDiagnostic(t *testing.T) {
 	t.Parallel()
 
 	coordinator, provider, _ := newSignatureCoordinator(t)
 	defer coordinator.Close()
+	provider.signature = []aggregate.ProviderParameter{{
+		Name: "x", PassingStyle: aggregate.PassingStylePositionalOrKeyword,
+	}}
 	provider.diagnostics = undefinedMathCallableWithReplacementErrorDiagnostic
 
 	unresolved := commitUndefinedMathCallable(t, coordinator, provider)
@@ -418,14 +421,14 @@ func TestCoordinatorSkipsAutomaticRefreshWhenCallableErrorReplacesUndefinedDiagn
 		t.Fatalf("SetTarget(import math) error = %v", err)
 	}
 	callable := updated.State.Callables[0]
-	if updated.State.PythonTarget.Prefix != "import math\n" || len(callable.Parameters) != 0 {
+	if updated.State.PythonTarget.Prefix != "import math\n" || len(callable.Parameters) != 1 || callable.Parameters[0].Name != "x" {
 		t.Fatalf("target with replacement callable error = %#v", updated.State)
 	}
-	if !hasCallableDiagnostic(updated.Diagnostics, callable.ID, "reportCallIssue") {
-		t.Fatalf("replacement callable diagnostics = %#v", updated.Diagnostics)
+	if hasCallableDiagnostic(updated.Diagnostics, callable.ID, "reportCallIssue") {
+		t.Fatalf("replacement call issue remained on callable = %#v", updated.Diagnostics)
 	}
-	if len(provider.signatureRequests) != 0 {
-		t.Fatalf("automatic signature requests = %#v, want none while callable error remains", provider.signatureRequests)
+	if len(provider.signatureRequests) != 1 || provider.signatureRequests[0].AuthoredExpression != "math.sqrt" {
+		t.Fatalf("automatic signature requests = %#v, want one math.sqrt request", provider.signatureRequests)
 	}
 }
 

@@ -227,7 +227,7 @@ describe("PythonCanvasApp concurrency", () => {
     const pendingCallable = invokeMockCreationCommand({
       workspacePosition: { x: 48, y: 64 },
     });
-    const callableLayout = { h: 300, w: 360, x: 48, y: 64, zIndex: 4 };
+    const callableLayout = { h: 150, w: 250, x: 48, y: 64, zIndex: 4 };
     workspace.publish({
       ...workspace.getDocument(),
       activeIds: [pendingCallable.id],

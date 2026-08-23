@@ -83,7 +83,7 @@ export function ListSection({ data }: { data: ListSectionData }) {
         />
         <button
           aria-label="Remove children"
-          className="nodrag setta-workspace-native-reset gg-math-minus rounded-full focus-visible:ring-2 dark:text-setta-300"
+          className="nodrag setta-workspace-native-reset gg-math-minus cursor-pointer rounded-full focus-visible:ring-2 disabled:cursor-default dark:text-setta-300"
           data-setta-workspace-touch-target="compact"
           disabled={data.pending}
           onClick={() =>
@@ -95,7 +95,7 @@ export function ListSection({ data }: { data: ListSectionData }) {
         />
         <button
           aria-label="Add children"
-          className="nodrag setta-workspace-native-reset gg-math-plus rounded-full focus-visible:ring-2 dark:text-setta-300"
+          className="nodrag setta-workspace-native-reset gg-math-plus cursor-pointer rounded-full focus-visible:ring-2 disabled:cursor-default dark:text-setta-300"
           data-setta-workspace-touch-target="compact"
           disabled={data.pending}
           onClick={() =>

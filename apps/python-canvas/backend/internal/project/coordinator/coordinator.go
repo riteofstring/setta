@@ -264,9 +264,8 @@ func (coordinator *Coordinator) SetParameters(ctx context.Context, command aggre
 
 // SetTarget updates both editable outer Python regions as one durable
 // candidate; the generated body remains renderer-owned. When a target edit
-// resolves a callable's prior undefined-symbol diagnostic without replacing it
-// with another callable error, it also performs one best-effort signature
-// refresh after the target itself is durable.
+// resolves a callable's prior undefined-symbol diagnostic, it also performs one
+// best-effort signature refresh after the target itself is durable.
 func (coordinator *Coordinator) SetTarget(ctx context.Context, command aggregate.SetTargetCommand) (Snapshot, error) {
 	if coordinator == nil {
 		return Snapshot{}, ErrCoordinatorClosed
@@ -371,13 +370,9 @@ func resolvedUndefinedCallableIDs(before Snapshot, updated Snapshot) []string {
 		return nil
 	}
 	currentUndefined := callableUndefinedDiagnosticIDs(updated)
-	currentErrors := callableErrorDiagnosticIDs(updated)
 	resolved := make([]string, 0, len(previousUndefined))
 	for callableID := range previousUndefined {
 		if _, remainsUndefined := currentUndefined[callableID]; remainsUndefined {
-			continue
-		}
-		if _, replacementError := currentErrors[callableID]; replacementError {
 			continue
 		}
 		resolved = append(resolved, callableID)
@@ -398,20 +393,6 @@ func callableUndefinedDiagnosticIDs(snapshot Snapshot) map[string]struct{} {
 		}
 	}
 	return undefined
-}
-
-func callableErrorDiagnosticIDs(snapshot Snapshot) map[string]struct{} {
-	callableIDs := snapshotCallableIDs(snapshot)
-	errorsByCallable := make(map[string]struct{})
-	for _, diagnostic := range snapshot.Diagnostics {
-		if diagnostic.Severity != ProviderDiagnosticError || diagnostic.TargetID == nil {
-			continue
-		}
-		if _, isCallable := callableIDs[*diagnostic.TargetID]; isCallable {
-			errorsByCallable[*diagnostic.TargetID] = struct{}{}
-		}
-	}
-	return errorsByCallable
 }
 
 func snapshotCallableIDs(snapshot Snapshot) map[string]struct{} {
