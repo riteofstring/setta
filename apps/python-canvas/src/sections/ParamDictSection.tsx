@@ -22,7 +22,7 @@ export type ParameterDictionarySectionData = {
   entryDiagnostics: Record<string, Array<WorkspaceItemDiagnostic>>;
 };
 
-export type DictionaryEntryItemData =
+type DictionaryEntryItemData =
   | {
       authoredExpression: string;
       kind: typeof DICTIONARY_ENTRY_KIND_LEAF_V2;

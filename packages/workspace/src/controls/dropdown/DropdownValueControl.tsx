@@ -77,13 +77,39 @@ const PARAMETER_CONFIG_TOGGLE_BUTTON_CLASS_NAME = `${NO_DRAG_CLASS_NAME} grid h-
 const TOGGLE_ICON_SIZE_PX = 10;
 const GROUP_HEADER_CLASS_NAME =
   "mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-400 first:pt-2";
-const ITEM_CLASS_NAME =
-  "mx-1 truncate rounded-lg px-2 py-[.125rem] text-xs";
+const ITEM_CLASS_NAME = "mx-1 truncate rounded-lg px-2 py-[.125rem] text-xs";
 const ITEM_HIGHLIGHTED_CLASS_NAME = "bg-setta-300/50 dark:bg-setta-900/50";
 
 type DropdownCombobox = ReturnType<typeof useDropdownCombobox>;
+type DropdownPresentation = "item-row" | "meta-control" | "parameter-config";
 
-export type ParameterConfigurationTypeChoice = {
+const OUTER_CLASS_NAMES: Record<DropdownPresentation, string> = {
+  "item-row": ITEM_OUTER_DIV_CLASS_NAME,
+  "meta-control": META_OUTER_DIV_CLASS_NAME,
+  "parameter-config": PARAMETER_CONFIG_OUTER_DIV_CLASS_NAME,
+};
+const SEARCH_CLASS_NAMES: Record<DropdownPresentation, string> = {
+  "item-row": ITEM_SEARCH_WRAPPER_CLASS_NAME,
+  "meta-control": META_SEARCH_WRAPPER_CLASS_NAME,
+  "parameter-config": PARAMETER_CONFIG_SEARCH_WRAPPER_CLASS_NAME,
+};
+const INPUT_CLASS_NAMES: Record<DropdownPresentation, string> = {
+  "item-row": INPUT_CLASS_NAME,
+  "meta-control": INPUT_CLASS_NAME,
+  "parameter-config": PARAMETER_CONFIG_INPUT_CLASS_NAME,
+};
+const TOGGLE_CLASS_NAMES: Record<DropdownPresentation, string> = {
+  "item-row": TOGGLE_BUTTON_CLASS_NAME,
+  "meta-control": TOGGLE_BUTTON_CLASS_NAME,
+  "parameter-config": PARAMETER_CONFIG_TOGGLE_BUTTON_CLASS_NAME,
+};
+const TOGGLE_ICON_SIZES: Record<DropdownPresentation, number> = {
+  "item-row": TOGGLE_ICON_SIZE_PX,
+  "meta-control": TOGGLE_ICON_SIZE_PX,
+  "parameter-config": 12,
+};
+
+type ParameterConfigurationTypeChoice = {
   id: string;
   name: string;
   disabled?: boolean;
@@ -216,7 +242,7 @@ function DropdownCombobox({
   onSelectedItemChange: OnSelectedItemChange;
   placeholder: string;
   isDisabled: boolean;
-  presentation: "item-row" | "meta-control" | "parameter-config";
+  presentation: DropdownPresentation;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const combobox = useDropdownCombobox({
@@ -224,32 +250,15 @@ function DropdownCombobox({
     value,
     onSelectedItemChange,
   });
+  const ToggleIcon = combobox.isOpen ? HiChevronUp : HiChevronDown;
   return (
-    <div
-      className={
-        presentation === "parameter-config"
-          ? PARAMETER_CONFIG_OUTER_DIV_CLASS_NAME
-          : presentation === "meta-control"
-            ? META_OUTER_DIV_CLASS_NAME
-            : ITEM_OUTER_DIV_CLASS_NAME
-      }
-    >
+    <div className={OUTER_CLASS_NAMES[presentation]}>
       <search
         aria-label={`${ariaLabel} choices`}
-        className={
-          presentation === "parameter-config"
-            ? PARAMETER_CONFIG_SEARCH_WRAPPER_CLASS_NAME
-            : presentation === "meta-control"
-              ? META_SEARCH_WRAPPER_CLASS_NAME
-              : ITEM_SEARCH_WRAPPER_CLASS_NAME
-        }
+        className={SEARCH_CLASS_NAMES[presentation]}
       >
         <input
-          className={
-            presentation === "parameter-config"
-              ? PARAMETER_CONFIG_INPUT_CLASS_NAME
-              : INPUT_CLASS_NAME
-          }
+          className={INPUT_CLASS_NAMES[presentation]}
           placeholder={placeholder}
           {...combobox.getInputProps({
             "aria-label": ariaLabel,
@@ -264,11 +273,7 @@ function DropdownCombobox({
         />
         <div className={RIGHT_ADORNMENT_CLASS_NAME}>
           <button
-            className={
-              presentation === "parameter-config"
-                ? PARAMETER_CONFIG_TOGGLE_BUTTON_CLASS_NAME
-                : TOGGLE_BUTTON_CLASS_NAME
-            }
+            className={TOGGLE_CLASS_NAMES[presentation]}
             data-setta-workspace-touch-target="compact"
             {...combobox.getToggleButtonProps({
               "aria-label": `${combobox.isOpen ? "Close" : "Open"} ${ariaLabel} choices`,
@@ -276,27 +281,11 @@ function DropdownCombobox({
               type: "button",
             })}
           >
-            {combobox.isOpen ? (
-              <HiChevronUp
-                aria-hidden="true"
-                focusable="false"
-                size={
-                  presentation === "parameter-config"
-                    ? 12
-                    : TOGGLE_ICON_SIZE_PX
-                }
-              />
-            ) : (
-              <HiChevronDown
-                aria-hidden="true"
-                focusable="false"
-                size={
-                  presentation === "parameter-config"
-                    ? 12
-                    : TOGGLE_ICON_SIZE_PX
-                }
-              />
-            )}
+            <ToggleIcon
+              aria-hidden="true"
+              focusable="false"
+              size={TOGGLE_ICON_SIZES[presentation]}
+            />
           </button>
         </div>
       </search>

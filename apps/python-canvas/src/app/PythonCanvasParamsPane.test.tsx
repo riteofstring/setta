@@ -38,8 +38,9 @@ import {
   PARAMETER_DICTIONARY_SECTION_KIND,
 } from "./workspaceProjection";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean })
-  .IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 let container: HTMLDivElement | undefined;
 let root: Root | undefined;

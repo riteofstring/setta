@@ -423,24 +423,6 @@
   },
   "exceptions": [
     {
-      "id": "playground-section-kinds-parity-length",
-      "check": "quality.fileLength",
-      "path": "apps/playground/src/sectionKinds.tsx",
-      "subject": "1125",
-      "reason": "The sealed formatter exposed this backend-free playground registry above the shared limit; component tests cover it while responsibility-based extraction is completed without changing playground behavior.",
-      "owner": "workspace-extraction",
-      "expires": "2026-08-27"
-    },
-    {
-      "id": "zoom-pane-parity-owner-length",
-      "check": "quality.fileLength",
-      "path": "packages/workspace/src/canvas/ZoomPane.tsx",
-      "subject": "1196",
-      "reason": "This extracted interaction owner is protected by canvas unit, component, and browser checks; split it without changing frozen-reference behavior before expiry.",
-      "owner": "workspace-extraction",
-      "expires": "2026-08-27"
-    },
-    {
       "id": "key-activations-parity-test-length",
       "check": "quality.fileLength",
       "path": "packages/workspace/src/canvas/keyActivations.test.tsx",
@@ -459,15 +441,6 @@
       "expires": "2026-08-27"
     },
     {
-      "id": "drop-type-parity-owner-length",
-      "check": "quality.fileLength",
-      "path": "packages/workspace/src/dnd/useDropType.ts",
-      "subject": "1318",
-      "reason": "This extracted drag-and-drop owner is protected by focused and browser interaction checks; split it without changing frozen-reference behavior before expiry.",
-      "owner": "workspace-extraction",
-      "expires": "2026-08-27"
-    },
-    {
       "id": "item-column-resize-pointer-parity",
       "check": "quality.lint",
       "path": "packages/workspace/src/items/ItemColumnResizeHandle.tsx",
@@ -482,15 +455,6 @@
       "path": "packages/workspace/src/items/ItemRow.tsx",
       "subject": "jsx-a11y/no-static-element-interactions",
       "reason": "The row becomes a named keyboard-operable group only in item-select mode and its dynamic role, tab stop, and key behavior are component-tested; the static lint rule cannot resolve that state-dependent contract.",
-      "owner": "workspace-extraction",
-      "expires": "2026-08-27"
-    },
-    {
-      "id": "workspace-parity-stylesheet-length",
-      "check": "quality.fileLength",
-      "path": "packages/workspace/src/styles/workspace.css",
-      "subject": "2040",
-      "reason": "The scoped parity stylesheet is protected by accepted visual evidence and browser checks; split it by surface without redesigning styles before expiry.",
       "owner": "workspace-extraction",
       "expires": "2026-08-27"
     }

@@ -140,51 +140,205 @@ type ParameterUI struct {
 	Dropzone *DropzoneUIConfiguration
 }
 
+type parameterUIBehavior struct {
+	applyDefault     func(*ParameterUI)
+	configuration    func(ParameterUI) any
+	newConfiguration func(*ParameterUI) any
+	validate         func(ParameterUI) error
+}
+
+func configuredParameterUIBehavior[Configuration any](
+	set func(*ParameterUI, *Configuration),
+	get func(ParameterUI) *Configuration,
+	defaultConfiguration func() Configuration,
+	validateConfiguration func(Configuration) error,
+) parameterUIBehavior {
+	return parameterUIBehavior{
+		applyDefault: func(ui *ParameterUI) {
+			configuration := defaultConfiguration()
+			set(ui, &configuration)
+		},
+		configuration: func(ui ParameterUI) any {
+			return get(ui)
+		},
+		newConfiguration: func(ui *ParameterUI) any {
+			configuration := new(Configuration)
+			set(ui, configuration)
+			return configuration
+		},
+		validate: func(ui ParameterUI) error {
+			return validateConfiguration(*get(ui))
+		},
+	}
+}
+
+func validConfiguration[Configuration any](Configuration) error {
+	return nil
+}
+
+var parameterUIBehaviors = map[ParameterUIType]parameterUIBehavior{
+	ParameterUITypeCode: configuredParameterUIBehavior(
+		func(ui *ParameterUI, configuration *CodeUIConfiguration) { ui.Code = configuration },
+		func(ui ParameterUI) *CodeUIConfiguration { return ui.Code },
+		func() CodeUIConfiguration {
+			return CodeUIConfiguration{Language: "python", SingleLine: true, WrapLines: true}
+		},
+		validateCodeUI,
+	),
+	ParameterUITypeText: configuredParameterUIBehavior(
+		func(ui *ParameterUI, configuration *TextUIConfiguration) { ui.Text = configuration },
+		func(ui ParameterUI) *TextUIConfiguration { return ui.Text },
+		func() TextUIConfiguration {
+			return TextUIConfiguration{SingleLine: true, WrapLines: true}
+		},
+		validateTextUI,
+	),
+	ParameterUITypeTextArea: configuredParameterUIBehavior(
+		func(ui *ParameterUI, configuration *TextAreaUIConfiguration) { ui.TextArea = configuration },
+		func(ui ParameterUI) *TextAreaUIConfiguration { return ui.TextArea },
+		func() TextAreaUIConfiguration { return TextAreaUIConfiguration{} },
+		validateTextAreaUI,
+	),
+	ParameterUITypeSwitch: configuredParameterUIBehavior(
+		func(ui *ParameterUI, configuration *SwitchUIConfiguration) { ui.Switch = configuration },
+		func(ui ParameterUI) *SwitchUIConfiguration { return ui.Switch },
+		func() SwitchUIConfiguration { return SwitchUIConfiguration{} },
+		validConfiguration[SwitchUIConfiguration],
+	),
+	ParameterUITypeDropdown: configuredParameterUIBehavior(
+		func(ui *ParameterUI, configuration *DropdownUIConfiguration) { ui.Dropdown = configuration },
+		func(ui ParameterUI) *DropdownUIConfiguration { return ui.Dropdown },
+		func() DropdownUIConfiguration {
+			choices := []string{}
+			return DropdownUIConfiguration{FlatChoices: &choices}
+		},
+		validateDropdownUI,
+	),
+	ParameterUITypeColor: configuredParameterUIBehavior(
+		func(ui *ParameterUI, configuration *ColorUIConfiguration) { ui.Color = configuration },
+		func(ui ParameterUI) *ColorUIConfiguration { return ui.Color },
+		func() ColorUIConfiguration {
+			choices := []ColorChoice{}
+			return ColorUIConfiguration{Choices: &choices}
+		},
+		validateColorUI,
+	),
+	ParameterUITypeSlider: configuredParameterUIBehavior(
+		func(ui *ParameterUI, configuration *NumericUIConfiguration) { ui.Numeric = configuration },
+		func(ui ParameterUI) *NumericUIConfiguration { return ui.Numeric },
+		func() NumericUIConfiguration {
+			return NumericUIConfiguration{Min: 0, Max: 100, Step: 1}
+		},
+		validateNumericUI,
+	),
+	ParameterUITypeRotary: configuredParameterUIBehavior(
+		func(ui *ParameterUI, configuration *NumericUIConfiguration) { ui.Numeric = configuration },
+		func(ui ParameterUI) *NumericUIConfiguration { return ui.Numeric },
+		func() NumericUIConfiguration {
+			return NumericUIConfiguration{Min: 0, Max: 1, Step: 0.1}
+		},
+		validateNumericUI,
+	),
+	ParameterUITypePassword: configuredParameterUIBehavior(
+		func(ui *ParameterUI, configuration *PasswordUIConfiguration) { ui.Password = configuration },
+		func(ui ParameterUI) *PasswordUIConfiguration { return ui.Password },
+		func() PasswordUIConfiguration { return PasswordUIConfiguration{} },
+		func(configuration PasswordUIConfiguration) error {
+			return validateOptionalUIString("password placeholder", configuration.Placeholder)
+		},
+	),
+	ParameterUITypeDate: configuredParameterUIBehavior(
+		func(ui *ParameterUI, configuration *DateUIConfiguration) { ui.Date = configuration },
+		func(ui ParameterUI) *DateUIConfiguration { return ui.Date },
+		func() DateUIConfiguration {
+			return DateUIConfiguration{
+				DisplayFormat:     "iso",
+				ControlMode:       "input",
+				SelectionMode:     "single",
+				WeekStart:         "sunday",
+				TimeDisplayFormat: "twenty_four_hour",
+			}
+		},
+		validateDateUI,
+	),
+	ParameterUITypeTime: configuredParameterUIBehavior(
+		func(ui *ParameterUI, configuration *TimeUIConfiguration) { ui.Time = configuration },
+		func(ui ParameterUI) *TimeUIConfiguration { return ui.Time },
+		func() TimeUIConfiguration {
+			return TimeUIConfiguration{
+				ControlMode:   "display",
+				DisplayFormat: "twenty_four_hour",
+				Scale:         1,
+				Font:          "monospace",
+			}
+		},
+		validateTimeUI,
+	),
+	ParameterUITypeDropzone: configuredParameterUIBehavior(
+		func(ui *ParameterUI, configuration *DropzoneUIConfiguration) { ui.Dropzone = configuration },
+		func(ui ParameterUI) *DropzoneUIConfiguration { return ui.Dropzone },
+		func() DropzoneUIConfiguration {
+			return DropzoneUIConfiguration{
+				Placeholder: "Drop files here",
+				Policy: DropzonePolicy{
+					MaxFileBytes:        26_214_400,
+					AllowedMIMEPrefixes: []string{},
+				},
+			}
+		},
+		validateDropzoneUI,
+	),
+	ParameterUITypeNested: {
+		applyDefault:     func(*ParameterUI) {},
+		configuration:    func(ParameterUI) any { return struct{}{} },
+		newConfiguration: func(*ParameterUI) any { return new(struct{}) },
+		validate:         func(ParameterUI) error { return nil },
+	},
+}
+
+// DefaultParameterUI constructs the canonical complete default for a supported
+// UI type. An unsupported type returns the zero value.
 func DefaultParameterUI(uiType ParameterUIType) ParameterUI {
-	switch uiType {
-	case ParameterUITypeCode:
-		return ParameterUI{Type: uiType, Code: &CodeUIConfiguration{Language: "python", SingleLine: true, WrapLines: true}}
-	case ParameterUITypeText:
-		return ParameterUI{Type: uiType, Text: &TextUIConfiguration{SingleLine: true, WrapLines: true}}
-	case ParameterUITypeTextArea:
-		return ParameterUI{Type: uiType, TextArea: &TextAreaUIConfiguration{}}
-	case ParameterUITypeSwitch:
-		return ParameterUI{Type: uiType, Switch: &SwitchUIConfiguration{}}
-	case ParameterUITypeDropdown:
-		choices := []string{}
-		return ParameterUI{Type: uiType, Dropdown: &DropdownUIConfiguration{FlatChoices: &choices}}
-	case ParameterUITypeColor:
-		choices := []ColorChoice{}
-		return ParameterUI{Type: uiType, Color: &ColorUIConfiguration{Choices: &choices}}
-	case ParameterUITypeSlider:
-		return ParameterUI{Type: uiType, Numeric: &NumericUIConfiguration{Min: 0, Max: 100, Step: 1}}
-	case ParameterUITypeRotary:
-		return ParameterUI{Type: uiType, Numeric: &NumericUIConfiguration{Min: 0, Max: 1, Step: 0.1}}
-	case ParameterUITypePassword:
-		return ParameterUI{Type: uiType, Password: &PasswordUIConfiguration{}}
-	case ParameterUITypeDate:
-		return ParameterUI{Type: uiType, Date: &DateUIConfiguration{
-			DisplayFormat: "iso", ControlMode: "input", SelectionMode: "single",
-			WeekStart: "sunday", TimeDisplayFormat: "twenty_four_hour",
-		}}
-	case ParameterUITypeTime:
-		return ParameterUI{Type: uiType, Time: &TimeUIConfiguration{
-			ControlMode: "display", DisplayFormat: "twenty_four_hour", Scale: 1, Font: "monospace",
-		}}
-	case ParameterUITypeDropzone:
-		return ParameterUI{Type: uiType, Dropzone: &DropzoneUIConfiguration{
-			Placeholder: "Drop files here",
-			Policy:      DropzonePolicy{MaxFileBytes: 26_214_400, AllowedMIMEPrefixes: []string{}},
-		}}
-	case ParameterUITypeNested:
-		return ParameterUI{Type: uiType}
-	default:
+	behavior, exists := parameterUIBehaviors[uiType]
+	if !exists {
 		return ParameterUI{}
 	}
+	ui := ParameterUI{Type: uiType}
+	behavior.applyDefault(&ui)
+	return ui
+}
+
+// NewEmptyParameterUI allocates the configuration destination for one supported
+// type. Transport adapters decode their strict representation into that
+// destination, then validate the returned aggregate.
+func NewEmptyParameterUI(uiType ParameterUIType) (ParameterUI, any) {
+	behavior, exists := parameterUIBehaviors[uiType]
+	if !exists {
+		return ParameterUI{}, nil
+	}
+	ui := ParameterUI{Type: uiType}
+	destination := behavior.newConfiguration(&ui)
+	return ui, destination
+}
+
+// Configuration returns the validated configuration selected by Type.
+func (ui ParameterUI) Configuration() (any, error) {
+	if err := ui.Validate(); err != nil {
+		return nil, err
+	}
+	return parameterUIBehaviors[ui.Type].configuration(ui), nil
 }
 
 func (ui ParameterUI) Clone() ParameterUI {
 	clone := ui
+	cloneTextParameterUIConfigurations(ui, &clone)
+	cloneChoiceParameterUIConfigurations(ui, &clone)
+	cloneScalarParameterUIConfigurations(ui, &clone)
+	cloneDropzoneParameterUIConfiguration(ui, &clone)
+	return clone
+}
+
+func cloneTextParameterUIConfigurations(ui ParameterUI, clone *ParameterUI) {
 	if ui.Text != nil {
 		value := *ui.Text
 		value.Placeholder = cloneString(value.Placeholder)
@@ -201,10 +355,14 @@ func (ui ParameterUI) Clone() ParameterUI {
 		value.Placeholder = cloneString(value.Placeholder)
 		clone.TextArea = &value
 	}
-	if ui.Switch != nil {
-		value := *ui.Switch
-		clone.Switch = &value
+	if ui.Password != nil {
+		value := *ui.Password
+		value.Placeholder = cloneString(value.Placeholder)
+		clone.Password = &value
 	}
+}
+
+func cloneChoiceParameterUIConfigurations(ui ParameterUI, clone *ParameterUI) {
 	if ui.Dropdown != nil {
 		value := *ui.Dropdown
 		value.Placeholder = cloneString(value.Placeholder)
@@ -217,14 +375,16 @@ func (ui ParameterUI) Clone() ParameterUI {
 		value.Choices = cloneColorChoices(value.Choices)
 		clone.Color = &value
 	}
+}
+
+func cloneScalarParameterUIConfigurations(ui ParameterUI, clone *ParameterUI) {
+	if ui.Switch != nil {
+		value := *ui.Switch
+		clone.Switch = &value
+	}
 	if ui.Numeric != nil {
 		value := *ui.Numeric
 		clone.Numeric = &value
-	}
-	if ui.Password != nil {
-		value := *ui.Password
-		value.Placeholder = cloneString(value.Placeholder)
-		clone.Password = &value
 	}
 	if ui.Date != nil {
 		value := *ui.Date
@@ -234,48 +394,28 @@ func (ui ParameterUI) Clone() ParameterUI {
 		value := *ui.Time
 		clone.Time = &value
 	}
-	if ui.Dropzone != nil {
-		value := *ui.Dropzone
-		value.Policy.MaxAttachments = cloneInt(value.Policy.MaxAttachments)
-		value.Policy.MaxTotalBytes = cloneInt(value.Policy.MaxTotalBytes)
-		value.Policy.AllowedMIMEPrefixes = cloneStrings(value.Policy.AllowedMIMEPrefixes)
-		clone.Dropzone = &value
+}
+
+func cloneDropzoneParameterUIConfiguration(ui ParameterUI, clone *ParameterUI) {
+	if ui.Dropzone == nil {
+		return
 	}
-	return clone
+	value := *ui.Dropzone
+	value.Policy.MaxAttachments = cloneInt(value.Policy.MaxAttachments)
+	value.Policy.MaxTotalBytes = cloneInt(value.Policy.MaxTotalBytes)
+	value.Policy.AllowedMIMEPrefixes = cloneStrings(value.Policy.AllowedMIMEPrefixes)
+	clone.Dropzone = &value
 }
 
 func (ui ParameterUI) Validate() error {
 	if !ui.hasOnlyExpectedConfiguration() {
 		return validationError("parameter UI %q has an incoherent configuration union", ui.Type)
 	}
-	switch ui.Type {
-	case ParameterUITypeCode:
-		return validateCodeUI(*ui.Code)
-	case ParameterUITypeText:
-		return validateTextUI(*ui.Text)
-	case ParameterUITypeTextArea:
-		return validateTextAreaUI(*ui.TextArea)
-	case ParameterUITypeSwitch:
-		return nil
-	case ParameterUITypeDropdown:
-		return validateDropdownUI(*ui.Dropdown)
-	case ParameterUITypeColor:
-		return validateColorUI(*ui.Color)
-	case ParameterUITypeSlider, ParameterUITypeRotary:
-		return validateNumericUI(*ui.Numeric)
-	case ParameterUITypePassword:
-		return validateOptionalUIString("password placeholder", ui.Password.Placeholder)
-	case ParameterUITypeDate:
-		return validateDateUI(*ui.Date)
-	case ParameterUITypeTime:
-		return validateTimeUI(*ui.Time)
-	case ParameterUITypeDropzone:
-		return validateDropzoneUI(*ui.Dropzone)
-	case ParameterUITypeNested:
-		return nil
-	default:
+	behavior, exists := parameterUIBehaviors[ui.Type]
+	if !exists {
 		return validationError("parameter UI type %q is unsupported", ui.Type)
 	}
+	return behavior.validate(ui)
 }
 
 func (ui ParameterUI) hasOnlyExpectedConfiguration() bool {

@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
   type FocusEvent,
-  type FormEvent,
   type KeyboardEvent,
   type ReactNode,
   type RefObject,
@@ -27,20 +26,15 @@ import {
   toggleGroupOrientation,
   toggleMinimized,
 } from "../document/sectionMutations";
-import {
-  useActiveSections,
-  useNodeInternals,
-  useWorkspaceDocument,
-} from "../document/stores";
-import type { SectionSizeValue, WorkspaceSection } from "../document/types";
+import { useActiveSections, useWorkspaceDocument } from "../document/stores";
+import type { WorkspaceSection } from "../document/types";
 import { setGroupOverflowMode } from "../section/groupOverflowAction";
-import { useSectionRefs } from "../section/sectionRefs";
-import { persistSectionSizeChange } from "../section/sectionSizes";
 import {
   resolveSectionTagColorPalette,
   type WorkspaceSectionTagColorPalette,
 } from "../section/sectionTagColors";
 import { SectionTagColorEditor } from "./SectionTagColorEditor";
+import { SectionSizeEditor } from "./SectionSizeEditor";
 import { WorkspaceInspectorCommandActions } from "./WorkspaceInspectorCommandActions";
 import {
   getWorkspaceInspectorLockState,
@@ -163,239 +157,6 @@ function CommitTextField({
         </p>
       ) : null}
     </div>
-  );
-}
-
-function parseSectionSizeValue(
-  rawValue: string,
-  field: "height" | "width",
-):
-  | { ok: true; value: SectionSizeValue }
-  | { ok: false; field: "height" | "width"; message: string } {
-  const normalized = rawValue.trim().toLowerCase();
-  if (normalized === "auto") {
-    return { ok: true, value: "auto" };
-  }
-  const value = Number(normalized);
-  if (!Number.isFinite(value) || value <= 0) {
-    return {
-      ok: false,
-      field,
-      message: `${field} must be auto or a positive number.`,
-    };
-  }
-  return { ok: true, value };
-}
-
-function formatResolvedSizeValue(
-  authored: SectionSizeValue,
-  resolved: number | null,
-): string {
-  const authoredText = authored === "auto" ? "Auto" : `${authored}px`;
-  return resolved === null || authored !== "auto"
-    ? authoredText
-    : `${authoredText} (${Math.round(resolved)}px resolved)`;
-}
-
-type SectionSizeError = { field: "height" | "width"; message: string };
-type ParsedSectionSize =
-  | { ok: true; width: SectionSizeValue; height: SectionSizeValue }
-  | { ok: false; error: SectionSizeError };
-
-function parseSectionSizeDraft(
-  width: string,
-  height: string,
-): ParsedSectionSize {
-  const nextWidth = parseSectionSizeValue(width, "width");
-  if (!nextWidth.ok) {
-    return { ok: false, error: nextWidth };
-  }
-  const nextHeight = parseSectionSizeValue(height, "height");
-  if (!nextHeight.ok) {
-    return { ok: false, error: nextHeight };
-  }
-  return { ok: true, width: nextWidth.value, height: nextHeight.value };
-}
-
-function focusSectionSizeField(
-  form: HTMLFormElement,
-  field: "height" | "width",
-): void {
-  const target = form.elements.namedItem(field);
-  if (!(target instanceof HTMLElement)) {
-    throw new Error(`Workspace Inspector ${field} field is not mounted.`);
-  }
-  target.focus();
-}
-
-function getResolvedSectionSize(
-  nodeValue: number | null | undefined,
-  sectionElement: HTMLElement | null,
-  field: "height" | "width",
-): number | null {
-  if (nodeValue !== null && nodeValue !== undefined) {
-    return nodeValue;
-  }
-  if (!sectionElement) {
-    return null;
-  }
-  return sectionElement.getBoundingClientRect()[field];
-}
-
-function SectionSizeField({
-  canEditLayout,
-  error,
-  errorId,
-  field,
-  onChange,
-  onKeyDown,
-  value,
-}: {
-  canEditLayout: boolean;
-  error: SectionSizeError | null;
-  errorId: string;
-  field: "height" | "width";
-  onChange: (value: string) => void;
-  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
-  value: string;
-}) {
-  const invalid = error?.field === field;
-  return (
-    <label>
-      <span>{field === "width" ? "Width" : "Height"}</span>
-      <input
-        aria-describedby={invalid ? errorId : undefined}
-        aria-invalid={invalid ? true : undefined}
-        className="setta-workspace-inspector-input"
-        disabled={!canEditLayout}
-        name={field}
-        onChange={(event) => onChange(event.currentTarget.value)}
-        onKeyDown={onKeyDown}
-        value={value}
-      />
-    </label>
-  );
-}
-
-function SectionSizeEditor({
-  onEscape,
-  onStatusChange,
-  section,
-}: {
-  onEscape: () => void;
-  onStatusChange: (message: string) => void;
-  section: WorkspaceSection;
-}) {
-  const host = useWorkspaceHost();
-  const canEditLayout = useWorkspaceCapabilities(
-    (state) => state.canEditLayout,
-  );
-  const canEditSize = canEditLayout && !section.positionAndSizeLocked;
-  const node = useNodeInternals((state) => state.x.get(section.id));
-  const sectionElement = useSectionRefs(
-    (state) =>
-      state.selfOnly[section.id] ?? state.withNested[section.id] ?? null,
-  );
-  const [width, setWidth] = useState(String(section.size.width));
-  const [height, setHeight] = useState(String(section.size.height));
-  const [error, setError] = useState<SectionSizeError | null>(null);
-  const hasDraftChange =
-    width !== String(section.size.width) ||
-    height !== String(section.size.height);
-  const resolvedWidth = getResolvedSectionSize(
-    node?.width,
-    sectionElement,
-    "width",
-  );
-  const resolvedHeight = getResolvedSectionSize(
-    node?.height,
-    sectionElement,
-    "height",
-  );
-
-  useEffect(() => {
-    setWidth(String(section.size.width));
-    setHeight(String(section.size.height));
-    setError(null);
-  }, [section.size.height, section.size.width]);
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    const parsed = parseSectionSizeDraft(width, height);
-    if (!parsed.ok) {
-      setError(parsed.error);
-      focusSectionSizeField(event.currentTarget, parsed.error.field);
-      return;
-    }
-    setError(null);
-    persistSectionSizeChange(host, section.id, {
-      width: parsed.width,
-      height: parsed.height,
-    });
-    onStatusChange(`Section size updated to ${width} by ${height}.`);
-  }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
-    if (event.key !== "Escape") {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    setWidth(String(section.size.width));
-    setHeight(String(section.size.height));
-    setError(null);
-    onEscape();
-  }
-
-  const errorId = `setta-inspector-size-${section.id}-error`;
-  return (
-    <form
-      className="setta-workspace-inspector-size"
-      data-inspector-focus-key="section-size"
-      onSubmit={handleSubmit}
-    >
-      <h4>Size</h4>
-      <div className="setta-workspace-inspector-size-fields">
-        <SectionSizeField
-          canEditLayout={canEditSize}
-          error={error}
-          errorId={errorId}
-          field="width"
-          onChange={setWidth}
-          onKeyDown={handleKeyDown}
-          value={width}
-        />
-        <SectionSizeField
-          canEditLayout={canEditSize}
-          error={error}
-          errorId={errorId}
-          field="height"
-          onChange={setHeight}
-          onKeyDown={handleKeyDown}
-          value={height}
-        />
-      </div>
-      {error ? (
-        <p className="setta-workspace-inspector-error" id={errorId}>
-          {error.message}
-        </p>
-      ) : null}
-      <div className="setta-workspace-inspector-resolved-size">
-        <span>
-          {formatResolvedSizeValue(section.size.width, resolvedWidth)}
-        </span>
-        <span>
-          {formatResolvedSizeValue(section.size.height, resolvedHeight)}
-        </span>
-      </div>
-      <button
-        className="setta-workspace-inspector-primary-action"
-        disabled={!canEditSize || !hasDraftChange}
-        type="submit"
-      >
-        Apply size
-      </button>
-    </form>
   );
 }
 
@@ -530,6 +291,337 @@ function SectionStyleColorEditor({
   );
 }
 
+type SectionEditorContentProps = {
+  focusRoot: () => void;
+  onStatusChange: (message: string) => void;
+  section: WorkspaceSection;
+};
+
+function SectionNameField({
+  focusRoot,
+  onStatusChange,
+  section,
+}: SectionEditorContentProps) {
+  const host = useWorkspaceHost();
+  const canEditStructure = useWorkspaceCapabilities(
+    (state) => state.canEditStructure,
+  );
+  return (
+    <CommitTextField
+      disabled={!canEditStructure}
+      focusKey="section-name"
+      label="Name"
+      onCommit={(value) => setSectionName(host, section.id, value.trim())}
+      onEscape={focusRoot}
+      onStatusChange={onStatusChange}
+      statusMessage={(value) =>
+        `Section name changed to ${value.trim() || "blank"}.`
+      }
+      value={section.name}
+    />
+  );
+}
+
+function SectionLockToggle({
+  onStatusChange,
+  section,
+}: Omit<SectionEditorContentProps, "focusRoot">) {
+  const host = useWorkspaceHost();
+  const canEditLayout = useWorkspaceCapabilities(
+    (state) => state.canEditLayout,
+  );
+  function toggleLock(): void {
+    const nextLocked = !section.positionAndSizeLocked;
+    setSectionsPositionLocked(host, [section.id], nextLocked);
+    onStatusChange(
+      nextLocked
+        ? "Section position and size locked."
+        : "Section position and size unlocked.",
+    );
+  }
+  return (
+    <button
+      aria-pressed={section.positionAndSizeLocked}
+      className="setta-workspace-inspector-toggle"
+      disabled={!canEditLayout}
+      onClick={toggleLock}
+      type="button"
+    >
+      {section.positionAndSizeLocked
+        ? "Position and size locked"
+        : "Position and size unlocked"}
+    </button>
+  );
+}
+
+function SectionMinimizeToggle({
+  onStatusChange,
+  section,
+}: Omit<SectionEditorContentProps, "focusRoot">) {
+  const host = useWorkspaceHost();
+  function minimizeOrExpand(): void {
+    toggleMinimized(host, section.id);
+    onStatusChange(
+      section.isMinimized ? "Section expanded." : "Section minimized.",
+    );
+  }
+  return (
+    <button
+      aria-pressed={section.isMinimized}
+      className="setta-workspace-inspector-toggle"
+      onClick={minimizeOrExpand}
+      type="button"
+    >
+      {section.isMinimized ? "Minimized" : "Expanded"}
+    </button>
+  );
+}
+
+function GroupSectionLayoutToggles({
+  onStatusChange,
+  section,
+}: Omit<SectionEditorContentProps, "focusRoot">) {
+  const host = useWorkspaceHost();
+  const canEditLayout = useWorkspaceCapabilities(
+    (state) => state.canEditLayout,
+  );
+  function changeOrientation(): void {
+    toggleGroupOrientation(host, section.id);
+    onStatusChange(
+      section.isHorizontalOrientation
+        ? "Group children now stack vertically."
+        : "Group children now flow horizontally.",
+    );
+  }
+  function changeOverflowMode(): void {
+    const nextOverflowMode = !section.overflowMode;
+    setGroupOverflowMode(host, section.id, nextOverflowMode);
+    onStatusChange(
+      nextOverflowMode
+        ? "Bounded overflow enabled."
+        : "Bounded overflow disabled.",
+    );
+  }
+  return (
+    <>
+      <button
+        aria-pressed={section.isHorizontalOrientation}
+        className="setta-workspace-inspector-toggle"
+        disabled={!canEditLayout}
+        onClick={changeOrientation}
+        type="button"
+      >
+        {section.isHorizontalOrientation ? "Horizontal" : "Vertical"}
+      </button>
+      <button
+        aria-pressed={section.overflowMode}
+        className="setta-workspace-inspector-toggle"
+        disabled={!canEditLayout || section.positionAndSizeLocked}
+        onClick={changeOverflowMode}
+        type="button"
+      >
+        Bounded overflow
+      </button>
+    </>
+  );
+}
+
+function SectionLayoutSettings({
+  focusRoot,
+  includeInspectorCommands,
+  onStatusChange,
+  section,
+}: SectionEditorContentProps & { includeInspectorCommands: boolean }) {
+  return (
+    <>
+      <div className="setta-workspace-inspector-toggle-grid">
+        <SectionLockToggle onStatusChange={onStatusChange} section={section} />
+        {includeInspectorCommands ? (
+          <SectionMinimizeToggle
+            onStatusChange={onStatusChange}
+            section={section}
+          />
+        ) : null}
+        {isGroupSection(section) ? (
+          <GroupSectionLayoutToggles
+            onStatusChange={onStatusChange}
+            section={section}
+          />
+        ) : null}
+      </div>
+      <SectionSizeEditor
+        onEscape={focusRoot}
+        onStatusChange={onStatusChange}
+        section={section}
+      />
+    </>
+  );
+}
+
+function SectionSettings({
+  focusRoot,
+  includeInspectorCommands,
+  mainPresentation,
+  onStatusChange,
+  section,
+}: SectionEditorContentProps & {
+  includeInspectorCommands: boolean;
+  mainPresentation: boolean;
+}) {
+  const nameField = (
+    <SectionNameField
+      focusRoot={focusRoot}
+      onStatusChange={onStatusChange}
+      section={section}
+    />
+  );
+  const layoutSettings = (
+    <SectionLayoutSettings
+      focusRoot={focusRoot}
+      includeInspectorCommands={includeInspectorCommands}
+      onStatusChange={onStatusChange}
+      section={section}
+    />
+  );
+  return (
+    <InspectorSettingsGroup
+      defaultOpen
+      key={`${section.id}:section-settings`}
+      title="Section Settings"
+    >
+      {mainPresentation ? (
+        <div className="setta-workspace-section-config-fields">
+          <section className="setta-workspace-section-config-card">
+            <h4>Identity</h4>
+            {nameField}
+          </section>
+          <section className="setta-workspace-section-config-card">
+            <h4>Layout</h4>
+            {layoutSettings}
+          </section>
+        </div>
+      ) : (
+        <>
+          {nameField}
+          {layoutSettings}
+        </>
+      )}
+    </InspectorSettingsGroup>
+  );
+}
+
+function CompactSectionStyleColorEditor({
+  focusRoot,
+  onStatusChange,
+  section,
+}: SectionEditorContentProps) {
+  const host = useWorkspaceHost();
+  const canEditStructure = useWorkspaceCapabilities(
+    (state) => state.canEditStructure,
+  );
+  return (
+    <CommitTextField
+      disabled={!canEditStructure}
+      focusKey="section-style"
+      label="Style accent"
+      onCommit={(value) => setSectionStyleColor(host, section.id, value)}
+      onEscape={focusRoot}
+      onStatusChange={onStatusChange}
+      statusMessage={(value) =>
+        value.trim() === ""
+          ? "Section style accent cleared."
+          : `Section style accent set to ${value}.`
+      }
+      validate={(value) =>
+        value.trim() === "" || /^#?[0-9a-f]{6}$/iu.test(value.trim())
+          ? null
+          : "Enter a six-digit hex color or leave this blank."
+      }
+      value={section.styleColor ?? ""}
+    />
+  );
+}
+
+function SectionAppearanceSettings({
+  focusRoot,
+  mainPresentation,
+  onStatusChange,
+  section,
+  sectionTagColorPalette,
+}: SectionEditorContentProps & {
+  mainPresentation: boolean;
+  sectionTagColorPalette: WorkspaceSectionTagColorPalette;
+}) {
+  return (
+    <InspectorSettingsGroup
+      defaultOpen={false}
+      key={`${section.id}:appearance`}
+      title="Appearance"
+    >
+      {mainPresentation ? (
+        <SectionStyleColorEditor
+          onStatusChange={onStatusChange}
+          section={section}
+        />
+      ) : (
+        <CompactSectionStyleColorEditor
+          focusRoot={focusRoot}
+          onStatusChange={onStatusChange}
+          section={section}
+        />
+      )}
+      <SectionTagColorEditor
+        mainPresentation={mainPresentation}
+        onEscape={focusRoot}
+        onStatusChange={onStatusChange}
+        palette={sectionTagColorPalette}
+        section={section}
+      />
+    </InspectorSettingsGroup>
+  );
+}
+
+function SectionInspectorHeading({ section }: { section: WorkspaceSection }) {
+  return (
+    <>
+      <div className="setta-workspace-inspector-section-heading">
+        <h3>{section.name || section.id}</h3>
+        <span>Section</span>
+      </div>
+      <div className="setta-workspace-inspector-readonly-row">
+        <span>Kind</span>
+        <span className="setta-workspace-inspector-readonly-value">
+          {isGroupSection(section) ? "Group" : section.kind}
+        </span>
+      </div>
+    </>
+  );
+}
+
+function SectionInspectorCommands({
+  onStatusChange,
+  section,
+}: Omit<SectionEditorContentProps, "focusRoot">) {
+  const host = useWorkspaceHost();
+  const contexts = [createSectionCommandContext(host, section, [section])];
+  return (
+    <>
+      <WorkspaceInspectorCommandActions
+        contexts={contexts}
+        focusKey="section-actions"
+        onStatusChange={onStatusChange}
+        surface="inspector"
+      />
+      <WorkspaceInspectorCommandActions
+        contexts={contexts}
+        focusKey="item-authoring-actions"
+        onStatusChange={onStatusChange}
+        surface="inspector-parameters"
+      />
+    </>
+  );
+}
+
 function SectionInspector({
   focusRoot,
   includeInspectorCommands,
@@ -543,109 +635,7 @@ function SectionInspector({
   sectionTagColorPalette: WorkspaceSectionTagColorPalette;
   section: WorkspaceSection;
 }) {
-  const host = useWorkspaceHost();
-  const capabilities = useWorkspaceCapabilities((state) => state);
   const mainPresentation = !includeInspectorCommands;
-  const nameField = (
-    <CommitTextField
-      disabled={!capabilities.canEditStructure}
-      focusKey="section-name"
-      label="Name"
-      onCommit={(value) => setSectionName(host, section.id, value.trim())}
-      onEscape={focusRoot}
-      onStatusChange={onStatusChange}
-      statusMessage={(value) =>
-        `Section name changed to ${value.trim() || "blank"}.`
-      }
-      value={section.name}
-    />
-  );
-  const layoutSettings = (
-    <>
-      <div className="setta-workspace-inspector-toggle-grid">
-        <button
-          aria-pressed={section.positionAndSizeLocked}
-          className="setta-workspace-inspector-toggle"
-          disabled={!capabilities.canEditLayout}
-          onClick={() => {
-            const nextLocked = !section.positionAndSizeLocked;
-            setSectionsPositionLocked(host, [section.id], nextLocked);
-            onStatusChange(
-              nextLocked
-                ? "Section position and size locked."
-                : "Section position and size unlocked.",
-            );
-          }}
-          type="button"
-        >
-          {section.positionAndSizeLocked
-            ? "Position and size locked"
-            : "Position and size unlocked"}
-        </button>
-        {includeInspectorCommands ? (
-          <button
-            aria-pressed={section.isMinimized}
-            className="setta-workspace-inspector-toggle"
-            onClick={() => {
-              toggleMinimized(host, section.id);
-              onStatusChange(
-                section.isMinimized
-                  ? "Section expanded."
-                  : "Section minimized.",
-              );
-            }}
-            type="button"
-          >
-            {section.isMinimized ? "Minimized" : "Expanded"}
-          </button>
-        ) : null}
-        {isGroupSection(section) ? (
-          <>
-            <button
-              aria-pressed={section.isHorizontalOrientation}
-              className="setta-workspace-inspector-toggle"
-              disabled={!capabilities.canEditLayout}
-              onClick={() => {
-                toggleGroupOrientation(host, section.id);
-                onStatusChange(
-                  section.isHorizontalOrientation
-                    ? "Group children now stack vertically."
-                    : "Group children now flow horizontally.",
-                );
-              }}
-              type="button"
-            >
-              {section.isHorizontalOrientation ? "Horizontal" : "Vertical"}
-            </button>
-            <button
-              aria-pressed={section.overflowMode}
-              className="setta-workspace-inspector-toggle"
-              disabled={
-                !capabilities.canEditLayout || section.positionAndSizeLocked
-              }
-              onClick={() => {
-                const nextOverflowMode = !section.overflowMode;
-                setGroupOverflowMode(host, section.id, nextOverflowMode);
-                onStatusChange(
-                  nextOverflowMode
-                    ? "Bounded overflow enabled."
-                    : "Bounded overflow disabled.",
-                );
-              }}
-              type="button"
-            >
-              Bounded overflow
-            </button>
-          </>
-        ) : null}
-      </div>
-      <SectionSizeEditor
-        onEscape={focusRoot}
-        onStatusChange={onStatusChange}
-        section={section}
-      />
-    </>
-  );
   return (
     <div
       className="setta-workspace-inspector-editor"
@@ -653,96 +643,27 @@ function SectionInspector({
       data-main-presentation={mainPresentation || undefined}
     >
       {includeInspectorCommands ? (
-        <>
-          <div className="setta-workspace-inspector-section-heading">
-            <h3>{section.name || section.id}</h3>
-            <span>Section</span>
-          </div>
-          <div className="setta-workspace-inspector-readonly-row">
-            <span>Kind</span>
-            <span className="setta-workspace-inspector-readonly-value">
-              {isGroupSection(section) ? "Group" : section.kind}
-            </span>
-          </div>
-        </>
+        <SectionInspectorHeading section={section} />
       ) : null}
-      <InspectorSettingsGroup
-        defaultOpen
-        key={`${section.id}:section-settings`}
-        title="Section Settings"
-      >
-        {mainPresentation ? (
-          <div className="setta-workspace-section-config-fields">
-            <section className="setta-workspace-section-config-card">
-              <h4>Identity</h4>
-              {nameField}
-            </section>
-            <section className="setta-workspace-section-config-card">
-              <h4>Layout</h4>
-              {layoutSettings}
-            </section>
-          </div>
-        ) : (
-          <>
-            {nameField}
-            {layoutSettings}
-          </>
-        )}
-      </InspectorSettingsGroup>
-      <InspectorSettingsGroup
-        defaultOpen={false}
-        key={`${section.id}:appearance`}
-        title="Appearance"
-      >
-        {mainPresentation ? (
-          <SectionStyleColorEditor
-            onStatusChange={onStatusChange}
-            section={section}
-          />
-        ) : (
-          <CommitTextField
-            disabled={!capabilities.canEditStructure}
-            focusKey="section-style"
-            label="Style accent"
-            onCommit={(value) => setSectionStyleColor(host, section.id, value)}
-            onEscape={focusRoot}
-            onStatusChange={onStatusChange}
-            statusMessage={(value) =>
-              value.trim() === ""
-                ? "Section style accent cleared."
-                : `Section style accent set to ${value}.`
-            }
-            validate={(value) =>
-              value.trim() === "" || /^#?[0-9a-f]{6}$/iu.test(value.trim())
-                ? null
-                : "Enter a six-digit hex color or leave this blank."
-            }
-            value={section.styleColor ?? ""}
-          />
-        )}
-        <SectionTagColorEditor
-          mainPresentation={mainPresentation}
-          onEscape={focusRoot}
+      <SectionSettings
+        focusRoot={focusRoot}
+        includeInspectorCommands={includeInspectorCommands}
+        mainPresentation={mainPresentation}
+        onStatusChange={onStatusChange}
+        section={section}
+      />
+      <SectionAppearanceSettings
+        focusRoot={focusRoot}
+        mainPresentation={mainPresentation}
+        onStatusChange={onStatusChange}
+        section={section}
+        sectionTagColorPalette={sectionTagColorPalette}
+      />
+      {includeInspectorCommands ? (
+        <SectionInspectorCommands
           onStatusChange={onStatusChange}
-          palette={sectionTagColorPalette}
           section={section}
         />
-      </InspectorSettingsGroup>
-      {includeInspectorCommands ? (
-        <>
-          <WorkspaceInspectorCommandActions
-            contexts={[createSectionCommandContext(host, section, [section])]}
-            focusKey="section-actions"
-            onStatusChange={onStatusChange}
-            surface="inspector"
-          />
-          <WorkspaceInspectorCommandActions
-            contexts={[createSectionCommandContext(host, section, [section])]}
-            focusKey="item-authoring-actions"
-            onStatusChange={onStatusChange}
-            surface="inspector-parameters"
-          />
-        </>
       ) : null}
       <SectionContribution
         includeUnsupportedMessage={includeInspectorCommands}

@@ -470,14 +470,15 @@ function renderParameterConfigurationFields(
   onCommit: ConfigurationCommit,
   onEscape: () => void,
 ): ReactNode {
+  if (isFieldlessParameterControl(control)) {
+    return null;
+  }
   const props = { control, disabled, onCommit, onEscape };
   switch (control.kind) {
     case "slider":
       return <NumericConfigurationEditor {...props} control={control} />;
     case "color":
-      return (
-        <ColorParameterConfigurationEditor {...props} control={control} />
-      );
+      return <ColorParameterConfigurationEditor {...props} control={control} />;
     case "dropdown":
       return (
         <DropdownParameterConfigurationEditor {...props} control={control} />
@@ -494,16 +495,29 @@ function renderParameterConfigurationFields(
       return <TimeConfigurationEditor {...props} control={control} />;
     case "dropzone":
       return <DropzoneConfigurationEditor {...props} control={control} />;
-    case "code":
-    case "text":
-    case "textarea":
-    case "switch":
-    case "rotary":
-    case "password":
-      return null;
     default:
       return assertNever(control);
   }
+}
+
+type FieldlessParameterControl = Extract<
+  WorkspaceItemValueControl,
+  { kind: "code" | "password" | "rotary" | "switch" | "text" | "textarea" }
+>;
+
+const FIELDLESS_PARAMETER_CONTROL_KINDS: ReadonlySet<string> = new Set([
+  "code",
+  "password",
+  "rotary",
+  "switch",
+  "text",
+  "textarea",
+]);
+
+function isFieldlessParameterControl(
+  control: WorkspaceItemValueControl,
+): control is FieldlessParameterControl {
+  return FIELDLESS_PARAMETER_CONTROL_KINDS.has(control.kind);
 }
 
 function assertNever(value: never): never {

@@ -459,32 +459,42 @@ function sameDictionaryEntryLists(
   left: ReadonlyArray<DictionaryEntryV2>,
   right: ReadonlyArray<DictionaryEntryV2>,
 ): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((entry, index) => sameDictionaryEntry(entry, right[index]));
+}
+
+function sameDictionaryEntry(
+  entry: DictionaryEntryV2,
+  other: DictionaryEntryV2 | undefined,
+): boolean {
+  if (other === undefined || !sameDictionaryEntryIdentity(entry, other)) {
+    return false;
+  }
+  if (entry.kind === "leaf" && other.kind === "leaf") {
+    return (
+      entry.authoredExpression === other.authoredExpression &&
+      sameParameterUI(entry.ui, other.ui)
+    );
+  }
+  if (entry.kind === "parent" && other.kind === "parent") {
+    return (
+      sameParameterUI(entry.ui, other.ui) &&
+      sameDictionaryEntryLists(entry.children, other.children)
+    );
+  }
+  return false;
+}
+
+function sameDictionaryEntryIdentity(
+  entry: DictionaryEntryV2,
+  other: DictionaryEntryV2,
+): boolean {
   return (
-    left.length === right.length &&
-    left.every((entry, index) => {
-      const other = right[index];
-      if (
-        other === undefined ||
-        entry.id !== other.id ||
-        entry.kind !== other.kind ||
-        entry.name !== other.name
-      ) {
-        return false;
-      }
-      if (entry.kind === "leaf" && other.kind === "leaf") {
-        return (
-          entry.authoredExpression === other.authoredExpression &&
-          sameParameterUI(entry.ui, other.ui)
-        );
-      }
-      if (entry.kind === "parent" && other.kind === "parent") {
-        return (
-          sameParameterUI(entry.ui, other.ui) &&
-          sameDictionaryEntryLists(entry.children, other.children)
-        );
-      }
-      return false;
-    })
+    entry.id === other.id &&
+    entry.kind === other.kind &&
+    entry.name === other.name
   );
 }
 

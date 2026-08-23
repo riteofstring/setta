@@ -39,11 +39,7 @@ describe("ParameterDictionarySection", () => {
     const itemTree = {
       items: {
         root: { children: ["entry:radius", "entry:options"], id: "root" },
-        "entry:radius": codeItem(
-          "entry:radius",
-          "radius",
-          "missing_radius",
-        ),
+        "entry:radius": codeItem("entry:radius", "radius", "missing_radius"),
         "entry:options": {
           children: [],
           id: "entry:options",

@@ -289,6 +289,17 @@ func Decode(content []byte) (aggregate.State, error) {
 	if format != Format {
 		return aggregate.State{}, invalidFile("unsupported format %q", format)
 	}
+	state, err := decodeAuthoredState(fields)
+	if err != nil {
+		return aggregate.State{}, err
+	}
+	if err := state.Validate(); err != nil {
+		return aggregate.State{}, invalidFile("incoherent authored aggregate: %v", err)
+	}
+	return state, nil
+}
+
+func decodeAuthoredState(fields map[string]json.RawMessage) (aggregate.State, error) {
 	project, err := decodeProject(fields["project"])
 	if err != nil {
 		return aggregate.State{}, err
@@ -309,7 +320,7 @@ func Decode(content []byte) (aggregate.State, error) {
 	if err != nil {
 		return aggregate.State{}, err
 	}
-	state := aggregate.State{
+	return aggregate.State{
 		Project:               project,
 		PythonTarget:          target,
 		Callables:             callables,
@@ -317,11 +328,7 @@ func Decode(content []byte) (aggregate.State, error) {
 		Lists:                 sections.lists,
 		TopLevelSectionIDs:    sections.topLevelSectionIDs,
 		ParameterUIOverrides:  parameterUIOverrides,
-	}
-	if err := state.Validate(); err != nil {
-		return aggregate.State{}, invalidFile("incoherent authored aggregate: %v", err)
-	}
-	return state, nil
+	}, nil
 }
 
 func (adapter Adapter) replacer() replaceFunc {

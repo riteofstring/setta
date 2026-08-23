@@ -11,8 +11,9 @@ import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import { WorkspaceParameterConfigurationView } from "./WorkspaceParameterConfigurationView";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean })
-  .IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("WorkspaceParameterConfigurationView", () => {
   let container: HTMLDivElement;
@@ -95,46 +96,19 @@ describe("WorkspaceParameterConfigurationView", () => {
         ".setta-workspace-parameter-config-filter .gg-sort-az",
       ),
     ).not.toBeNull();
-    expect(
-      Array.from(
-        container.querySelectorAll(
-          ".setta-workspace-parameter-config-title-row h3",
-        ),
-      ).map((element) => element.textContent),
-    ).toEqual(["amount", "options", "other"]);
+    expect(parameterTitles(container)).toEqual(["amount", "options", "other"]);
     expect(container.textContent).toContain("NestedParam");
     expect(
       container.querySelector("[aria-label='code configuration']"),
     ).toBeNull();
 
-    const typeInput = container.querySelector<HTMLInputElement>(
+    const typeInput = requiredInput(
+      container,
       "input[aria-label='amount UI type']",
     );
-    if (typeInput === null) {
-      throw new Error("Expected the parameter UI type combobox.");
-    }
     expect(typeInput.value).toBe("CodeParam");
-    for (const expectedClass of [
-      "h-7",
-      "rounded-full",
-      "font-mono",
-      "text-xs",
-      "ps-2",
-      "pe-8",
-      "focus-visible:ring-2",
-    ]) {
-      expect(typeInput.classList.contains(expectedClass)).toBe(true);
-    }
-    const toggle = typeInput.closest("search")?.querySelector("button");
-    if (!(toggle instanceof HTMLButtonElement)) {
-      throw new Error("Expected the parameter UI type toggle.");
-    }
-    await act(async () => toggle.click());
-    const listId = typeInput.getAttribute("aria-controls");
-    const list = listId === null ? null : document.getElementById(listId);
-    if (list === null) {
-      throw new Error("Expected the parameter UI type list.");
-    }
+    expectParameterTypeInputStyles(typeInput);
+    const list = await openParameterTypeList(typeInput);
     expect(list.querySelector("dt")?.textContent).toBe("Base");
     const options = Array.from(list.querySelectorAll("dd"));
     expect(options.map((option) => option.textContent)).toEqual([
@@ -151,18 +125,12 @@ describe("WorkspaceParameterConfigurationView", () => {
       "TextAreaParam",
       "DropzoneParam",
     ]);
-    expect(
-      options[options.length - 1]?.getAttribute("aria-disabled"),
-    ).toBe("true");
+    expect(options[options.length - 1]?.getAttribute("aria-disabled")).toBe(
+      "true",
+    );
 
     await act(async () => {
-      const sliderOption = options.find(
-        (option) => option.textContent === "SliderParam",
-      );
-      if (!(sliderOption instanceof HTMLElement)) {
-        throw new Error("Expected SliderParam in the type list.");
-      }
-      sliderOption.click();
+      requiredOption(options, "SliderParam").click();
     });
     const storedControl =
       workspace.document.getState().sections.parameters?.itemTree?.items.amount
@@ -175,22 +143,77 @@ describe("WorkspaceParameterConfigurationView", () => {
     expect(container.textContent).toContain("max");
     expect(container.textContent).toContain("step");
 
-    const filter = container.querySelector<HTMLInputElement>(
+    const filter = requiredInput(
+      container,
       "input[aria-label='Filter parameters']",
     );
-    if (filter === null) {
-      throw new Error("Expected the parameter filter.");
-    }
     await act(async () => setInputValue(filter, "options"));
-    expect(
-      Array.from(
-        container.querySelectorAll(
-          ".setta-workspace-parameter-config-title-row h3",
-        ),
-      ).map((element) => element.textContent),
-    ).toEqual(["options"]);
+    expect(parameterTitles(container)).toEqual(["options"]);
   });
 });
+
+function parameterTitles(container: HTMLElement): Array<string | null> {
+  return Array.from(
+    container.querySelectorAll(
+      ".setta-workspace-parameter-config-title-row h3",
+    ),
+  ).map((element) => element.textContent);
+}
+
+function requiredInput(
+  container: HTMLElement,
+  selector: string,
+): HTMLInputElement {
+  const input = container.querySelector<HTMLInputElement>(selector);
+  if (input === null) {
+    throw new Error(`Expected input ${selector}.`);
+  }
+  return input;
+}
+
+function expectParameterTypeInputStyles(input: HTMLInputElement): void {
+  for (const expectedClass of [
+    "h-7",
+    "rounded-full",
+    "font-mono",
+    "text-xs",
+    "ps-2",
+    "pe-8",
+    "focus-visible:ring-2",
+  ]) {
+    expect(input.classList.contains(expectedClass)).toBe(true);
+  }
+}
+
+async function openParameterTypeList(
+  input: HTMLInputElement,
+): Promise<HTMLElement> {
+  const toggle = input.closest("search")?.querySelector("button");
+  if (!(toggle instanceof HTMLButtonElement)) {
+    throw new Error("Expected the parameter UI type toggle.");
+  }
+  await act(async () => toggle.click());
+  const listId = input.getAttribute("aria-controls");
+  if (listId === null) {
+    throw new Error("Expected the parameter UI type list ID.");
+  }
+  const list = document.getElementById(listId);
+  if (list === null) {
+    throw new Error("Expected the parameter UI type list.");
+  }
+  return list;
+}
+
+function requiredOption(
+  options: ReadonlyArray<Element>,
+  name: string,
+): HTMLElement {
+  const option = options.find((candidate) => candidate.textContent === name);
+  if (!(option instanceof HTMLElement)) {
+    throw new Error(`Expected ${name} in the type list.`);
+  }
+  return option;
+}
 
 function codeItem(id: string, label: string, value: string) {
   return {

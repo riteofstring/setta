@@ -10,37 +10,9 @@ import (
 )
 
 func encodeDiskParameterUI(ui aggregate.ParameterUI) (diskParameterUI, error) {
-	if err := ui.Validate(); err != nil {
+	configuration, err := ui.Configuration()
+	if err != nil {
 		return diskParameterUI{}, err
-	}
-	var configuration any
-	switch ui.Type {
-	case aggregate.ParameterUITypeCode:
-		configuration = ui.Code
-	case aggregate.ParameterUITypeText:
-		configuration = ui.Text
-	case aggregate.ParameterUITypeTextArea:
-		configuration = ui.TextArea
-	case aggregate.ParameterUITypeSwitch:
-		configuration = ui.Switch
-	case aggregate.ParameterUITypeDropdown:
-		configuration = ui.Dropdown
-	case aggregate.ParameterUITypeColor:
-		configuration = ui.Color
-	case aggregate.ParameterUITypeSlider, aggregate.ParameterUITypeRotary:
-		configuration = ui.Numeric
-	case aggregate.ParameterUITypePassword:
-		configuration = ui.Password
-	case aggregate.ParameterUITypeDate:
-		configuration = ui.Date
-	case aggregate.ParameterUITypeTime:
-		configuration = ui.Time
-	case aggregate.ParameterUITypeDropzone:
-		configuration = ui.Dropzone
-	case aggregate.ParameterUITypeNested:
-		configuration = struct{}{}
-	default:
-		return diskParameterUI{}, fmt.Errorf("unsupported parameter UI type %q", ui.Type)
 	}
 	encoded, err := json.Marshal(configuration)
 	if err != nil {
@@ -77,47 +49,11 @@ func decodeDiskParameterUI(raw json.RawMessage, label string) (aggregate.Paramet
 	if err != nil {
 		return aggregate.ParameterUI{}, err
 	}
-	result := aggregate.ParameterUI{Type: aggregate.ParameterUIType(uiType)}
-	switch result.Type {
-	case aggregate.ParameterUITypeCode:
-		result.Code = new(aggregate.CodeUIConfiguration)
-		err = decodeExactUIConfiguration(fields["configuration"], result.Code, label)
-	case aggregate.ParameterUITypeText:
-		result.Text = new(aggregate.TextUIConfiguration)
-		err = decodeExactUIConfiguration(fields["configuration"], result.Text, label)
-	case aggregate.ParameterUITypeTextArea:
-		result.TextArea = new(aggregate.TextAreaUIConfiguration)
-		err = decodeExactUIConfiguration(fields["configuration"], result.TextArea, label)
-	case aggregate.ParameterUITypeSwitch:
-		result.Switch = new(aggregate.SwitchUIConfiguration)
-		err = decodeExactUIConfiguration(fields["configuration"], result.Switch, label)
-	case aggregate.ParameterUITypeDropdown:
-		result.Dropdown = new(aggregate.DropdownUIConfiguration)
-		err = decodeExactUIConfiguration(fields["configuration"], result.Dropdown, label)
-	case aggregate.ParameterUITypeColor:
-		result.Color = new(aggregate.ColorUIConfiguration)
-		err = decodeExactUIConfiguration(fields["configuration"], result.Color, label)
-	case aggregate.ParameterUITypeSlider, aggregate.ParameterUITypeRotary:
-		result.Numeric = new(aggregate.NumericUIConfiguration)
-		err = decodeExactUIConfiguration(fields["configuration"], result.Numeric, label)
-	case aggregate.ParameterUITypePassword:
-		result.Password = new(aggregate.PasswordUIConfiguration)
-		err = decodeExactUIConfiguration(fields["configuration"], result.Password, label)
-	case aggregate.ParameterUITypeDate:
-		result.Date = new(aggregate.DateUIConfiguration)
-		err = decodeExactUIConfiguration(fields["configuration"], result.Date, label)
-	case aggregate.ParameterUITypeTime:
-		result.Time = new(aggregate.TimeUIConfiguration)
-		err = decodeExactUIConfiguration(fields["configuration"], result.Time, label)
-	case aggregate.ParameterUITypeDropzone:
-		result.Dropzone = new(aggregate.DropzoneUIConfiguration)
-		err = decodeExactUIConfiguration(fields["configuration"], result.Dropzone, label)
-	case aggregate.ParameterUITypeNested:
-		err = decodeExactUIConfiguration(fields["configuration"], new(struct{}), label)
-	default:
+	result, destination := aggregate.NewEmptyParameterUI(aggregate.ParameterUIType(uiType))
+	if destination == nil {
 		return aggregate.ParameterUI{}, invalidFile("%s type %q is unsupported", label, uiType)
 	}
-	if err != nil {
+	if err := decodeExactUIConfiguration(fields["configuration"], destination, label); err != nil {
 		return aggregate.ParameterUI{}, err
 	}
 	if err := result.Validate(); err != nil {

@@ -95,10 +95,7 @@ export function dictionaryEntryParentPromotionRequired(
     if (itemId === itemTree.rootId || item.children.length === 0) {
       return false;
     }
-    return (
-      readDictionaryEntryItem(item).kind ===
-      DICTIONARY_ENTRY_KIND_LEAF_V2
-    );
+    return readDictionaryEntryItem(item).kind === DICTIONARY_ENTRY_KIND_LEAF_V2;
   });
 }
 

@@ -91,7 +91,7 @@ func (ui *ParameterUIV2) UnmarshalJSON(content []byte) error {
 }
 
 func NewParameterUIV2(ui aggregate.ParameterUI) (ParameterUIV2, error) {
-	configuration, err := parameterUIConfiguration(ui)
+	configuration, err := ui.Configuration()
 	if err != nil {
 		return ParameterUIV2{}, err
 	}
@@ -103,110 +103,18 @@ func NewParameterUIV2(ui aggregate.ParameterUI) (ParameterUIV2, error) {
 }
 
 func (ui ParameterUIV2) Aggregate() (aggregate.ParameterUI, error) {
-	var result aggregate.ParameterUI
-	result.Type = aggregate.ParameterUIType(ui.Type)
-	switch result.Type {
-	case aggregate.ParameterUITypeCode:
-		result.Code = new(aggregate.CodeUIConfiguration)
-		if err := decodeExactParameterUIConfiguration(ui.Configuration, result.Code); err != nil {
-			return aggregate.ParameterUI{}, err
-		}
-	case aggregate.ParameterUITypeText:
-		result.Text = new(aggregate.TextUIConfiguration)
-		if err := decodeExactParameterUIConfiguration(ui.Configuration, result.Text); err != nil {
-			return aggregate.ParameterUI{}, err
-		}
-	case aggregate.ParameterUITypeTextArea:
-		result.TextArea = new(aggregate.TextAreaUIConfiguration)
-		if err := decodeExactParameterUIConfiguration(ui.Configuration, result.TextArea); err != nil {
-			return aggregate.ParameterUI{}, err
-		}
-	case aggregate.ParameterUITypeSwitch:
-		result.Switch = new(aggregate.SwitchUIConfiguration)
-		if err := decodeExactParameterUIConfiguration(ui.Configuration, result.Switch); err != nil {
-			return aggregate.ParameterUI{}, err
-		}
-	case aggregate.ParameterUITypeDropdown:
-		result.Dropdown = new(aggregate.DropdownUIConfiguration)
-		if err := decodeExactParameterUIConfiguration(ui.Configuration, result.Dropdown); err != nil {
-			return aggregate.ParameterUI{}, err
-		}
-	case aggregate.ParameterUITypeColor:
-		result.Color = new(aggregate.ColorUIConfiguration)
-		if err := decodeExactParameterUIConfiguration(ui.Configuration, result.Color); err != nil {
-			return aggregate.ParameterUI{}, err
-		}
-	case aggregate.ParameterUITypeSlider, aggregate.ParameterUITypeRotary:
-		result.Numeric = new(aggregate.NumericUIConfiguration)
-		if err := decodeExactParameterUIConfiguration(ui.Configuration, result.Numeric); err != nil {
-			return aggregate.ParameterUI{}, err
-		}
-	case aggregate.ParameterUITypePassword:
-		result.Password = new(aggregate.PasswordUIConfiguration)
-		if err := decodeExactParameterUIConfiguration(ui.Configuration, result.Password); err != nil {
-			return aggregate.ParameterUI{}, err
-		}
-	case aggregate.ParameterUITypeDate:
-		result.Date = new(aggregate.DateUIConfiguration)
-		if err := decodeExactParameterUIConfiguration(ui.Configuration, result.Date); err != nil {
-			return aggregate.ParameterUI{}, err
-		}
-	case aggregate.ParameterUITypeTime:
-		result.Time = new(aggregate.TimeUIConfiguration)
-		if err := decodeExactParameterUIConfiguration(ui.Configuration, result.Time); err != nil {
-			return aggregate.ParameterUI{}, err
-		}
-	case aggregate.ParameterUITypeDropzone:
-		result.Dropzone = new(aggregate.DropzoneUIConfiguration)
-		if err := decodeExactParameterUIConfiguration(ui.Configuration, result.Dropzone); err != nil {
-			return aggregate.ParameterUI{}, err
-		}
-	case aggregate.ParameterUITypeNested:
-		var empty struct{}
-		if err := decodeExactParameterUIConfiguration(ui.Configuration, &empty); err != nil {
-			return aggregate.ParameterUI{}, err
-		}
-	default:
+	uiType := aggregate.ParameterUIType(ui.Type)
+	result, destination := aggregate.NewEmptyParameterUI(uiType)
+	if destination == nil {
 		return aggregate.ParameterUI{}, fmt.Errorf("parameter UI type %q is unsupported", ui.Type)
+	}
+	if err := decodeExactParameterUIConfiguration(ui.Configuration, destination); err != nil {
+		return aggregate.ParameterUI{}, err
 	}
 	if err := result.Validate(); err != nil {
 		return aggregate.ParameterUI{}, err
 	}
 	return result, nil
-}
-
-func parameterUIConfiguration(ui aggregate.ParameterUI) (any, error) {
-	if err := ui.Validate(); err != nil {
-		return nil, err
-	}
-	switch ui.Type {
-	case aggregate.ParameterUITypeCode:
-		return ui.Code, nil
-	case aggregate.ParameterUITypeText:
-		return ui.Text, nil
-	case aggregate.ParameterUITypeTextArea:
-		return ui.TextArea, nil
-	case aggregate.ParameterUITypeSwitch:
-		return ui.Switch, nil
-	case aggregate.ParameterUITypeDropdown:
-		return ui.Dropdown, nil
-	case aggregate.ParameterUITypeColor:
-		return ui.Color, nil
-	case aggregate.ParameterUITypeSlider, aggregate.ParameterUITypeRotary:
-		return ui.Numeric, nil
-	case aggregate.ParameterUITypePassword:
-		return ui.Password, nil
-	case aggregate.ParameterUITypeDate:
-		return ui.Date, nil
-	case aggregate.ParameterUITypeTime:
-		return ui.Time, nil
-	case aggregate.ParameterUITypeDropzone:
-		return ui.Dropzone, nil
-	case aggregate.ParameterUITypeNested:
-		return struct{}{}, nil
-	default:
-		return nil, fmt.Errorf("parameter UI type %q is unsupported", ui.Type)
-	}
 }
 
 func decodeExactParameterUIConfiguration(content json.RawMessage, destination any) error {

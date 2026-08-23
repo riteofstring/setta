@@ -10,7 +10,7 @@ import {
   PARAMETER_DICTIONARY_SECTION_KIND,
 } from "./workspaceProjection";
 
-export type PythonCanvasParamsPaneModel = {
+type PythonCanvasParamsPaneModel = {
   section: WorkspaceSection;
 };
 
@@ -42,7 +42,5 @@ export function PythonCanvasParamsPane() {
   if (model === null) {
     return null;
   }
-  return (
-    <WorkspaceParameterConfigurationView sectionId={model.section.id} />
-  );
+  return <WorkspaceParameterConfigurationView sectionId={model.section.id} />;
 }

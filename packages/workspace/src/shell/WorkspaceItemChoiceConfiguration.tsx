@@ -627,10 +627,7 @@ export function ColorParameterConfigurationEditor({
         disabled={disabled}
         label="Add color"
         onClick={() =>
-          commitChoices([
-            ...choices,
-            { color: "#ff0000", description: "" },
-          ])
+          commitChoices([...choices, { color: "#ff0000", description: "" }])
         }
         onEscape={onEscape}
       >
@@ -688,9 +685,7 @@ export function ColorParameterConfigurationEditor({
               label={`Remove color ${choice.description || choice.color}`}
               onClick={() =>
                 commitChoices(
-                  choices.filter(
-                    (_, currentIndex) => currentIndex !== index,
-                  ),
+                  choices.filter((_, currentIndex) => currentIndex !== index),
                 )
               }
               onEscape={onEscape}

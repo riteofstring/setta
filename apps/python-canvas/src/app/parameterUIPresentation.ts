@@ -1,6 +1,4 @@
-import type {
-  ParameterUIV2,
-} from "../backend/generatedContract";
+import type { ParameterUIV2 } from "../backend/generatedContract";
 import type {
   WorkspaceItemControlPresentation,
   WorkspaceItemPresentation,
@@ -24,7 +22,37 @@ export function defaultCodeParameterUI(): ConfigurableParameterUIV2 {
   };
 }
 
-type ValueControl = Exclude<WorkspaceItemControlPresentation, { kind: "group" }>;
+type ValueControl = Exclude<
+  WorkspaceItemControlPresentation,
+  { kind: "group" }
+>;
+type TextParameterUI = Extract<
+  ParameterUIV2,
+  { type: "CodeParam" | "PasswordParam" | "TextAreaParam" | "TextParam" }
+>;
+type ChoiceParameterUI = Extract<
+  ParameterUIV2,
+  { type: "ColorPickerParam" | "DropdownParam" | "RotaryParam" | "SliderParam" }
+>;
+type RemainingParameterUI = Exclude<
+  ParameterUIV2,
+  TextParameterUI | ChoiceParameterUI
+>;
+type TextValueControl = Extract<
+  ValueControl,
+  {
+    kind:
+      "color" | "date" | "dropdown" | "password" | "text" | "textarea" | "time";
+  }
+>;
+type SpecialValueControl = Extract<
+  ValueControl,
+  { kind: "dropzone" | "switch" }
+>;
+type RawValueControl = Exclude<
+  ValueControl,
+  TextValueControl | SpecialValueControl
+>;
 
 export function projectParameterPresentation({
   expression,
@@ -49,9 +77,20 @@ export function projectParameterControl(
   expression: string,
 ): WorkspaceItemControlPresentation {
   const value = controlValueFromPythonExpression(ui.type, expression);
+  if (isTextParameterUI(ui)) {
+    return projectTextParameterControl(ui, value);
+  }
+  if (isChoiceParameterUI(ui)) {
+    return projectChoiceParameterControl(ui, value);
+  }
+  return projectRemainingParameterControl(ui, value);
+}
+
+function projectTextParameterControl(
+  ui: TextParameterUI,
+  value: string,
+): WorkspaceItemControlPresentation {
   switch (ui.type) {
-    case "NestedParam":
-      return { kind: "group" };
     case "CodeParam":
       return {
         kind: "code",
@@ -70,8 +109,25 @@ export function projectParameterControl(
         value,
         configuration: { ...ui.configuration, autocomplete: "off" },
       };
-    case "SwitchParam":
-      return { kind: "switch", value, configuration: ui.configuration };
+    case "PasswordParam":
+      return {
+        kind: "password",
+        value,
+        configuration: {
+          ...ui.configuration,
+          savedValuePending: false,
+        },
+      };
+    default:
+      return assertNever(ui);
+  }
+}
+
+function projectChoiceParameterControl(
+  ui: ChoiceParameterUI,
+  value: string,
+): WorkspaceItemControlPresentation {
+  switch (ui.type) {
     case "DropdownParam":
       return {
         kind: "dropdown",
@@ -91,15 +147,20 @@ export function projectParameterControl(
       return { kind: "slider", value, configuration: ui.configuration };
     case "RotaryParam":
       return { kind: "rotary", value, configuration: ui.configuration };
-    case "PasswordParam":
-      return {
-        kind: "password",
-        value,
-        configuration: {
-          ...ui.configuration,
-          savedValuePending: false,
-        },
-      };
+    default:
+      return assertNever(ui);
+  }
+}
+
+function projectRemainingParameterControl(
+  ui: RemainingParameterUI,
+  value: string,
+): WorkspaceItemControlPresentation {
+  switch (ui.type) {
+    case "NestedParam":
+      return { kind: "group" };
+    case "SwitchParam":
+      return { kind: "switch", value, configuration: ui.configuration };
     case "DateParam":
       return { kind: "date", value, configuration: ui.configuration };
     case "TimeParam":
@@ -123,9 +184,19 @@ export function projectParameterControl(
 export function parameterUIFromWorkspaceControl(
   control: WorkspaceItemControlPresentation,
 ): ParameterUIV2 {
+  if (isTextWorkspaceControl(control)) {
+    return parameterUIFromTextControl(control);
+  }
+  if (isChoiceWorkspaceControl(control)) {
+    return parameterUIFromChoiceControl(control);
+  }
+  return parameterUIFromRemainingControl(control);
+}
+
+function parameterUIFromTextControl(
+  control: TextParameterControl,
+): ParameterUIV2 {
   switch (control.kind) {
-    case "group":
-      return { type: "NestedParam", configuration: {} };
     case "code": {
       const { autocomplete: _autocomplete, ...configuration } =
         control.configuration;
@@ -141,8 +212,20 @@ export function parameterUIFromWorkspaceControl(
         control.configuration;
       return { type: "TextAreaParam", configuration };
     }
-    case "switch":
-      return { type: "SwitchParam", configuration: control.configuration };
+    case "password": {
+      const { savedValuePending: _savedValuePending, ...configuration } =
+        control.configuration;
+      return { type: "PasswordParam", configuration };
+    }
+    default:
+      return assertNever(control);
+  }
+}
+
+function parameterUIFromChoiceControl(
+  control: ChoiceParameterControl,
+): ParameterUIV2 {
+  switch (control.kind) {
     case "dropdown": {
       const choices = control.configuration.choices;
       const grouped = choices.some(
@@ -167,11 +250,19 @@ export function parameterUIFromWorkspaceControl(
       return { type: "SliderParam", configuration: control.configuration };
     case "rotary":
       return { type: "RotaryParam", configuration: control.configuration };
-    case "password": {
-      const { savedValuePending: _savedValuePending, ...configuration } =
-        control.configuration;
-      return { type: "PasswordParam", configuration };
-    }
+    default:
+      return assertNever(control);
+  }
+}
+
+function parameterUIFromRemainingControl(
+  control: RemainingParameterControl,
+): ParameterUIV2 {
+  switch (control.kind) {
+    case "group":
+      return { type: "NestedParam", configuration: {} };
+    case "switch":
+      return { type: "SwitchParam", configuration: control.configuration };
     case "date":
       return { type: "DateParam", configuration: control.configuration };
     case "time":
@@ -196,19 +287,28 @@ export function pythonExpressionFromWorkspaceControl(
   if (control.kind === "group") {
     return "";
   }
+  if (isTextValueControl(control)) {
+    return JSON.stringify(control.value);
+  }
+  if (isSpecialValueControl(control)) {
+    return specialPythonExpression(control);
+  }
+  return rawPythonExpression(control);
+}
+
+function specialPythonExpression(control: SpecialValueControl): string {
   switch (control.kind) {
     case "switch":
       return control.value === "true" ? "True" : "False";
-    case "text":
-    case "textarea":
-    case "dropdown":
-    case "color":
-    case "password":
-    case "date":
-    case "time":
-      return JSON.stringify(control.value);
     case "dropzone":
       return control.value === "" ? "[]" : control.value;
+    default:
+      return assertNever(control);
+  }
+}
+
+function rawPythonExpression(control: RawValueControl): string {
+  switch (control.kind) {
     case "code":
     case "slider":
     case "rotary":
@@ -250,6 +350,79 @@ function isStringParameterUI(type: ParameterUIV2["type"]): boolean {
   );
 }
 
+type TextParameterControl = Extract<
+  WorkspaceItemControlPresentation,
+  { kind: "code" | "password" | "text" | "textarea" }
+>;
+type ChoiceParameterControl = Extract<
+  WorkspaceItemControlPresentation,
+  { kind: "color" | "dropdown" | "rotary" | "slider" }
+>;
+type RemainingParameterControl = Exclude<
+  WorkspaceItemControlPresentation,
+  TextParameterControl | ChoiceParameterControl
+>;
+
+function isTextParameterUI(ui: ParameterUIV2): ui is TextParameterUI {
+  return (
+    ui.type === "CodeParam" ||
+    ui.type === "PasswordParam" ||
+    ui.type === "TextAreaParam" ||
+    ui.type === "TextParam"
+  );
+}
+
+function isChoiceParameterUI(ui: ParameterUIV2): ui is ChoiceParameterUI {
+  return (
+    ui.type === "ColorPickerParam" ||
+    ui.type === "DropdownParam" ||
+    ui.type === "RotaryParam" ||
+    ui.type === "SliderParam"
+  );
+}
+
+function isTextWorkspaceControl(
+  control: WorkspaceItemControlPresentation,
+): control is TextParameterControl {
+  return (
+    control.kind === "code" ||
+    control.kind === "password" ||
+    control.kind === "text" ||
+    control.kind === "textarea"
+  );
+}
+
+function isChoiceWorkspaceControl(
+  control: WorkspaceItemControlPresentation,
+): control is ChoiceParameterControl {
+  return (
+    control.kind === "color" ||
+    control.kind === "dropdown" ||
+    control.kind === "rotary" ||
+    control.kind === "slider"
+  );
+}
+
+function isTextValueControl(
+  control: ValueControl,
+): control is TextValueControl {
+  return (
+    control.kind === "color" ||
+    control.kind === "date" ||
+    control.kind === "dropdown" ||
+    control.kind === "password" ||
+    control.kind === "text" ||
+    control.kind === "textarea" ||
+    control.kind === "time"
+  );
+}
+
+function isSpecialValueControl(
+  control: ValueControl,
+): control is SpecialValueControl {
+  return control.kind === "dropzone" || control.kind === "switch";
+}
+
 function decodeJSONString(expression: string): string | null {
   try {
     const value: unknown = JSON.parse(expression);
@@ -257,10 +430,6 @@ function decodeJSONString(expression: string): string | null {
   } catch {
     return null;
   }
-}
-
-export function isDropzoneControl(control: ValueControl): boolean {
-  return control.kind === "dropzone";
 }
 
 function assertNever(value: never): never {

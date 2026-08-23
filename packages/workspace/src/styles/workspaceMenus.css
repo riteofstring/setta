@@ -1,0 +1,232 @@
+/* Frozen main's shared context-menu core and pane-menu list, scoped to the package's portaled
+ * menu surface. The package keeps the same compact visible geometry while adding semantic
+ * Radix focus ownership and viewport-relative placement. */
+.setta-workspace-menu {
+  position: fixed;
+  z-index: 300;
+  display: flex;
+  box-sizing: border-box;
+  width: clamp(5rem, 20vw, 10rem);
+  max-height: 40vh;
+  min-width: 8rem;
+  flex-direction: column;
+  padding: 0 8px 8px;
+  overflow-y: auto;
+  border: 1px solid rgb(86 105 143 / 50%);
+  border-radius: 6px;
+  background-color: white;
+  box-shadow:
+    0 0 #0000,
+    0 0 #0000,
+    0 20px 25px -5px rgb(0 0 0 / 10%),
+    0 8px 10px -6px rgb(0 0 0 / 10%);
+  color: hsl(219 26% 23%);
+  cursor: pointer;
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+.setta-workspace-menu.setta-workspace-dark {
+  background-color: hsl(220 27% 6%);
+  color: hsl(222 28% 95%);
+}
+
+.setta-workspace-menu-filter {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  align-items: center;
+  margin-block-end: 4px;
+  padding: 8px 8px 4px;
+  background-color: white;
+}
+
+.setta-workspace-dark .setta-workspace-menu-filter {
+  background-color: hsl(220 27% 6%);
+}
+
+.setta-workspace-menu-filter-icon {
+  position: absolute;
+  inset-inline-start: 0;
+  display: grid;
+  padding-inline-start: 4px;
+  color: hsl(219 25% 34%);
+  place-items: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.setta-workspace-menu-filter-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.setta-workspace-dark .setta-workspace-menu-filter-icon {
+  color: hsl(220 26% 57%);
+}
+
+.setta-workspace-menu-filter input {
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding-block: 4px;
+  padding-inline: 20px 0;
+  overflow: hidden;
+  border: 0 solid hsl(219 25% 77%);
+  border-block-end-width: 1px;
+  background-color: transparent;
+  color: black;
+  cursor: auto;
+  font:
+    400 12px/16px ui-sans-serif,
+    system-ui,
+    sans-serif;
+  outline: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setta-workspace-menu-filter input::placeholder {
+  color: hsl(220 26% 57%);
+}
+
+.setta-workspace-menu-filter input:focus-visible {
+  border-block-end-color: rgb(147 197 253);
+}
+
+.setta-workspace-dark .setta-workspace-menu-filter input {
+  border-block-end-color: hsl(220 26% 14%);
+  color: hsl(219 25% 77%);
+}
+
+.setta-workspace-dark .setta-workspace-menu-filter input::placeholder {
+  color: hsl(219 26% 23%);
+}
+
+.setta-workspace-dark .setta-workspace-menu-filter input:focus-visible {
+  border-block-end-color: rgb(147 197 253);
+}
+
+.setta-workspace-menu-group + .setta-workspace-menu-group {
+  margin-block-start: 6px;
+}
+
+.setta-workspace-menu-label {
+  min-width: 100px;
+  margin: 0 8px 4px;
+  padding-block: 4px;
+  border-block-end: 1px solid hsl(219 24% 89%);
+  color: hsl(220 25% 67%);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+.setta-workspace-dark .setta-workspace-menu-label {
+  border-block-end-color: hsl(219 26% 23%);
+  color: hsl(220 25% 45%);
+}
+
+.setta-workspace-menu-item {
+  position: relative;
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 8px;
+  padding: 2.4px 8px;
+  border-radius: 6px;
+  color: hsl(219 26% 23%);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  outline: none;
+  user-select: none;
+}
+
+.setta-workspace-menu-item::before {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 50%;
+  z-index: 0;
+  height: 20.8px;
+  border-radius: 6px;
+  background-color: hsl(219 24% 89%);
+  content: "";
+  opacity: 0;
+  transform: translateY(-50%);
+}
+
+.setta-workspace-menu-item:hover::before,
+.setta-workspace-menu-item[data-highlighted]::before {
+  opacity: 1;
+}
+
+.setta-workspace-menu-item > * {
+  position: relative;
+  z-index: 1;
+}
+
+.setta-workspace-menu-item:focus-visible {
+  box-shadow: 0 0 0 1px currentColor;
+}
+
+.setta-workspace-dark .setta-workspace-menu-item {
+  color: hsl(219 24% 89%);
+}
+
+.setta-workspace-dark .setta-workspace-menu-item::before {
+  background-color: hsl(219 26% 23%);
+}
+
+.setta-workspace-menu-item[data-disabled] {
+  color: hsl(220 25% 67%);
+  cursor: default;
+  pointer-events: none;
+}
+
+.setta-workspace-menu-item[data-disabled]:focus-visible {
+  box-shadow: 0 0 0 1px rgb(59 130 246);
+}
+
+.setta-workspace-dark .setta-workspace-menu-item[data-disabled] {
+  color: hsl(219 26% 23%);
+}
+
+.setta-workspace-menu-item-icon {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  align-items: center;
+  justify-content: center;
+}
+
+.setta-workspace-menu-item-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.setta-workspace-menu-separator {
+  height: 1px;
+  margin: 6px 8px;
+  background-color: hsl(219 24% 89%);
+}
+
+.setta-workspace-dark .setta-workspace-menu-separator {
+  background-color: hsl(219 26% 23%);
+}
+
+.setta-workspace-menu-empty {
+  margin: 8px;
+  color: hsl(220 25% 45%);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+}

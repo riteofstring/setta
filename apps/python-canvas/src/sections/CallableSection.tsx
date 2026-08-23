@@ -51,7 +51,7 @@ export type ParameterItemData = {
   typeAnnotation: string | null;
 };
 
-export type CallableParameterMetadata = Pick<
+type CallableParameterMetadata = Pick<
   ParameterItemData,
   "default" | "passingStyle" | "providerOrdinal" | "typeAnnotation"
 >;

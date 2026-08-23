@@ -21,10 +21,7 @@ type WorkspaceParameterConfigurationViewProps = {
   sectionId: string;
 };
 
-const MAIN_UI_TYPE_LABELS: Record<
-  WorkspaceInspectorItemControlKind,
-  string
-> = {
+const MAIN_UI_TYPE_LABELS: Record<WorkspaceInspectorItemControlKind, string> = {
   code: "CodeParam",
   text: "TextParam",
   date: "DateParam",
@@ -130,12 +127,7 @@ function ParameterConfigurationElement({
   const typeChoices = useMemo(
     () =>
       MAIN_SECTION_PARAMETER_CONTROL_KINDS.map((kind) => ({
-        disabled: !isControlKindAvailable(
-          host,
-          sectionId,
-          item.id,
-          kind,
-        ),
+        disabled: !isControlKindAvailable(host, sectionId, item.id, kind),
         id: kind,
         name: MAIN_UI_TYPE_LABELS[kind],
       })),
@@ -161,12 +153,7 @@ function ParameterConfigurationElement({
       nextControl.configuration.controlMode = "display";
       nextControl.configuration.font = "monospace";
     }
-    setItemPresentation(
-      host,
-      sectionId,
-      item.id,
-      nextControl,
-    );
+    setItemPresentation(host, sectionId, item.id, nextControl);
     onStatusChange(
       `${item.presentation.label || "Parameter"} now uses ${MAIN_UI_TYPE_LABELS[kind]}.`,
     );
@@ -183,10 +170,7 @@ function ParameterConfigurationElement({
         </div>
       ) : (
         <>
-          <label
-            className="setta-workspace-visually-hidden"
-            htmlFor={inputId}
-          >
+          <label className="setta-workspace-visually-hidden" htmlFor={inputId}>
             {item.presentation.label || "Unnamed parameter"} UI type
           </label>
           <ParameterConfigurationTypeCombobox
@@ -195,9 +179,7 @@ function ParameterConfigurationElement({
             disabled={!canEditStructure}
             inputId={inputId}
             onValueChange={(value) => {
-              if (
-                !isWorkspaceInspectorItemControlKind(value)
-              ) {
+              if (!isWorkspaceInspectorItemControlKind(value)) {
                 throw new Error("Selected parameter UI type is unsupported.");
               }
               changeControlKind(value);
@@ -221,9 +203,7 @@ function ParameterConfigurationElement({
   );
 }
 
-function collectPresentedItems(
-  itemTree: WorkspaceSectionItemTree,
-): Array<{
+function collectPresentedItems(itemTree: WorkspaceSectionItemTree): Array<{
   item: WorkspaceItem & {
     presentation: NonNullable<WorkspaceItem["presentation"]>;
   };
@@ -272,12 +252,4 @@ function isControlKindAvailable(
     return registration === null || registration.kind === "password";
   }
   return true;
-}
-
-export function workspaceParameterUITypeLabel(
-  control: WorkspaceItemControlPresentation,
-): string {
-  return control.kind === "group"
-    ? "NestedParam"
-    : MAIN_UI_TYPE_LABELS[control.kind];
 }

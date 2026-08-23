@@ -9,23 +9,8 @@ import {
 } from "@setta/workspace";
 
 import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
-import type {
-  DictionaryEntryV2,
-  ParameterV2,
-} from "../backend/generatedContract";
 import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
 import { ProjectClientError } from "../backend/client";
-
-const CODE_UI = {
-  type: "CodeParam",
-  configuration: {
-    disabled: false,
-    language: "python",
-    placeholder: null,
-    singleLine: true,
-    wrapLines: true,
-  },
-} as const;
 
 const mocks = vi.hoisted(() => ({
   commitCallable: vi.fn(),
@@ -374,6 +359,19 @@ import {
   PythonTargetCompletionErrorProvider,
   pythonTargetCompletionErrorId,
 } from "./PythonTargetCompletionBoundary";
+import {
+  appendDictionaryEntry,
+  appendParameter,
+  authoredParameter,
+  callableSnapshot,
+  changeParameterExpression,
+  CODE_UI,
+  dictionarySnapshot,
+  listSnapshot,
+  parameterIds,
+  providerParameter,
+  pushedCallableSnapshots,
+} from "./pythonCanvasAppTestFixtures";
 
 let container: HTMLDivElement | undefined;
 let root: Root | undefined;
@@ -1184,74 +1182,12 @@ describe("PythonCanvasApp", () => {
 
   it("reconciles pushed callable commits and parameter refreshes as one consistent view", async () => {
     const initialSnapshot = parseProjectSnapshotV2(projectSnapshotFixture);
-    const createdSnapshot = parseProjectSnapshotV2({
-      ...callableSnapshot(2, [], "", "CLI live demo"),
-      diagnosticsRevision: 2,
-    });
-    const committedSnapshot = parseProjectSnapshotV2({
-      ...createdSnapshot,
-      callables: [
-        {
-          ...createdSnapshot.callables[0],
-          authoredExpression: "math.fabs",
-        },
-      ],
-      diagnostics: [
-        {
-          end: 9,
-          id: "diagnostic:callable-warning",
-          message: "The callable has not resolved yet.",
-          severity: "warning",
-          start: 0,
-          targetId: "callable:one",
-        },
-      ],
-      diagnosticsRevision: 3,
-      project: { ...createdSnapshot.project, revision: 3 },
-    });
-    const refreshedSnapshot = parseProjectSnapshotV2({
-      ...committedSnapshot,
-      callables: [
-        {
-          ...committedSnapshot.callables[0],
-          parameters: [
-            {
-              ...providerParameter("parameter:x", ""),
-              name: "x",
-            },
-          ],
-        },
-      ],
-      diagnostics: [
-        {
-          end: 1,
-          id: "diagnostic:required-x",
-          message: "Value is required.",
-          severity: "error",
-          start: 0,
-          targetId: "parameter:x",
-        },
-      ],
-      diagnosticsRevision: 4,
-      project: { ...committedSnapshot.project, revision: 4 },
-    });
-    const completedSnapshot = parseProjectSnapshotV2({
-      ...refreshedSnapshot,
-      callables: [
-        {
-          ...refreshedSnapshot.callables[0],
-          parameters: [
-            {
-              ...refreshedSnapshot.callables[0]?.parameters[0],
-              authoredExpression: "-12.5",
-            },
-          ],
-        },
-      ],
-      diagnostics: [],
-      diagnosticsRevision: 5,
-      project: { ...refreshedSnapshot.project, revision: 5 },
-    });
+    const {
+      committed: committedSnapshot,
+      completed: completedSnapshot,
+      created: createdSnapshot,
+      refreshed: refreshedSnapshot,
+    } = pushedCallableSnapshots();
     const workspace = installWorkspaceHarness();
     mocks.renderWorkspaceCanvas = true;
     mocks.workspaceCanvasHost = workspace.host as unknown as {
@@ -1273,25 +1209,10 @@ describe("PythonCanvasApp", () => {
 
     await pushProjectSnapshot(refreshedSnapshot);
     const parameterItemId = parameterWorkspaceItemID("parameter:x");
-    const refreshedSection =
-      workspace.getDocument().sections[callableSectionID("callable:one")];
-    expect(refreshedSection?.itemTree?.items[parameterItemId]).toBeDefined();
-    expect(refreshedSection?.data).toMatchObject({
-      parameterDiagnostics: {
-        [parameterItemId]: [
-          { message: "Value is required.", severity: "error" },
-        ],
-      },
-    });
-    for (const itemId of Object.keys(
-      (
-        refreshedSection?.data as {
-          parameterDiagnostics: Record<string, unknown>;
-        }
-      ).parameterDiagnostics,
-    )) {
-      expect(refreshedSection?.itemTree?.items[itemId]).toBeDefined();
-    }
+    expectProjectedParameterDiagnostic(
+      workspace.getDocument(),
+      parameterItemId,
+    );
 
     await pushProjectSnapshot(completedSnapshot);
     expect(
@@ -1372,6 +1293,28 @@ describe("PythonCanvasApp", () => {
   });
 });
 
+function expectProjectedParameterDiagnostic(
+  workspaceDocument: WorkspaceDocument,
+  parameterItemId: string,
+): void {
+  const section = workspaceDocument.sections[callableSectionID("callable:one")];
+  if (section === undefined) {
+    throw new Error("Expected the pushed callable section.");
+  }
+  expect(section.itemTree?.items[parameterItemId]).toBeDefined();
+  expect(section.data).toMatchObject({
+    parameterDiagnostics: {
+      [parameterItemId]: [{ message: "Value is required.", severity: "error" }],
+    },
+  });
+  const data = section.data as {
+    parameterDiagnostics: Record<string, unknown>;
+  };
+  for (const itemId of Object.keys(data.parameterDiagnostics)) {
+    expect(section.itemTree?.items[itemId]).toBeDefined();
+  }
+}
+
 function createHost(): WorkspaceHost {
   return {
     dispose: vi.fn(),
@@ -1432,235 +1375,6 @@ function installWorkspaceHarness() {
       subscriber?.(next);
     },
   };
-}
-
-function callableSnapshot(
-  revision: number,
-  parameters: Array<ParameterV2>,
-  authoredExpression = "fixture.initial",
-  name = "One callable",
-) {
-  return parseProjectSnapshotV2({
-    ...projectSnapshotFixture,
-    callables: [
-      {
-        authoredExpression,
-        id: "callable:one",
-        name,
-        parameters,
-      },
-    ],
-    topLevelSectionIds: ["callable:one"],
-    project: { ...projectSnapshotFixture.project, revision },
-  });
-}
-
-function dictionarySnapshot(revision: number, entries: DictionaryEntryV2[]) {
-  return parseProjectSnapshotV2({
-    ...projectSnapshotFixture,
-    parameterDictionaries: [
-      { entries, id: "dictionary:options", name: "Options" },
-    ],
-    project: { ...projectSnapshotFixture.project, revision },
-    topLevelSectionIds: ["dictionary:options"],
-  });
-}
-
-function listSnapshot(revision: number, childSectionIds: string[]) {
-  return parseProjectSnapshotV2({
-    ...projectSnapshotFixture,
-    callables: childSectionIds.map((id) => ({
-      authoredExpression: "",
-      id,
-      name: "New callable",
-      parameters: [],
-    })),
-    lists: [{ childSectionIds, id: "list:objects", name: "Objects" }],
-    project: { ...projectSnapshotFixture.project, revision },
-    topLevelSectionIds: ["list:objects"],
-  });
-}
-
-function providerParameter(id: string, authoredExpression: string) {
-  return {
-    authoredExpression,
-    default: null,
-    id,
-    name: "value",
-    nameEditable: false,
-    passingStyle: "positional_or_keyword" as const,
-    providerOrdinal: 0,
-    typeAnnotation: "float",
-    ui: CODE_UI,
-  };
-}
-
-function authoredParameter(
-  id: string,
-  name: string,
-  authoredExpression: string,
-) {
-  return {
-    authoredExpression,
-    default: null,
-    id,
-    name,
-    nameEditable: true,
-    passingStyle: "positional_or_keyword" as const,
-    providerOrdinal: null,
-    typeAnnotation: null,
-    ui: CODE_UI,
-  };
-}
-
-function changeParameterExpression(
-  document: WorkspaceDocument,
-  callableId: string,
-  parameterId: string,
-  authoredExpression: string,
-): WorkspaceDocument {
-  const sectionId = callableSectionID(callableId);
-  const itemId = parameterWorkspaceItemID(parameterId);
-  const section = document.sections[sectionId];
-  const item = section?.itemTree?.items[itemId];
-  if (section?.itemTree === undefined || item === undefined) {
-    throw new Error(`Missing parameter ${parameterId}.`);
-  }
-  return {
-    ...document,
-    sections: {
-      ...document.sections,
-      [sectionId]: {
-        ...section,
-        itemTree: {
-          ...section.itemTree,
-          items: {
-            ...section.itemTree.items,
-            [itemId]: {
-              ...item,
-              presentation: {
-                ...item.presentation!,
-                control: {
-                  ...(item.presentation!.control as Exclude<
-                    NonNullable<typeof item.presentation>["control"],
-                    { kind: "group" }
-                  >),
-                  value: authoredExpression,
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  };
-}
-
-function appendParameter(
-  document: WorkspaceDocument,
-  callableId: string,
-  parameter: ReturnType<typeof authoredParameter>,
-): WorkspaceDocument {
-  const sectionId = callableSectionID(callableId);
-  const section = document.sections[sectionId];
-  const itemTree = section?.itemTree;
-  const root = itemTree?.items[itemTree.rootId];
-  if (section === undefined || itemTree === undefined || root === undefined) {
-    throw new Error(`Missing parameter list for ${callableId}.`);
-  }
-  const { id } = parameter;
-  const itemId = parameterWorkspaceItemID(id);
-  return {
-    ...document,
-    sections: {
-      ...document.sections,
-      [sectionId]: {
-        ...section,
-        itemTree: {
-          ...itemTree,
-          items: {
-            ...itemTree.items,
-            [root.id]: {
-              ...root,
-              children: [...root.children, itemId],
-            },
-            [itemId]: {
-              children: [],
-              id: itemId,
-              presentation: {
-                control: {
-                  kind: "code",
-                  value: parameter.authoredExpression,
-                  configuration: {
-                    ...CODE_UI.configuration,
-                    autocomplete: "off",
-                  },
-                },
-                label: parameter.name,
-                labelEditable: true,
-              },
-            },
-          },
-        },
-      },
-    },
-  };
-}
-
-function appendDictionaryEntry(
-  document: WorkspaceDocument,
-  dictionaryId: string,
-  entry: DictionaryEntryV2,
-): WorkspaceDocument {
-  const sectionId = parameterDictionarySectionID(dictionaryId);
-  const section = document.sections[sectionId];
-  const itemTree = section?.itemTree;
-  const root = itemTree?.items[itemTree.rootId];
-  if (section === undefined || itemTree === undefined || root === undefined) {
-    throw new Error(`Missing dictionary entry list for ${dictionaryId}.`);
-  }
-  if (entry.kind !== "leaf") {
-    throw new Error("This test helper accepts only dictionary leaf entries.");
-  }
-  const itemId = dictionaryEntryWorkspaceItemID(entry.id);
-  return {
-    ...document,
-    sections: {
-      ...document.sections,
-      [sectionId]: {
-        ...section,
-        itemTree: {
-          ...itemTree,
-          items: {
-            ...itemTree.items,
-            [root.id]: { ...root, children: [...root.children, itemId] },
-            [itemId]: {
-              children: [],
-              presentation: {
-                control: {
-                  kind: "code",
-                  value: entry.authoredExpression,
-                  configuration: {
-                    ...CODE_UI.configuration,
-                    autocomplete: "off",
-                  },
-                },
-                label: entry.name,
-                labelEditable: true,
-              },
-              id: itemId,
-            },
-          },
-        },
-      },
-    },
-  };
-}
-
-function parameterIds(document: WorkspaceDocument, callableId: string) {
-  return readCallableParameterItems(document, callableId).map(
-    (parameter) => parameter.id,
-  );
 }
 
 function deferred<T>() {

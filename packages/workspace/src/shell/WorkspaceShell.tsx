@@ -82,6 +82,25 @@ type ShellFocusRegistry = {
   panelRefs: ShellPanelRefs;
 };
 
+function tabIndexForNavigationKey(
+  key: string,
+  currentIndex: number,
+  tabCount: number,
+): number | null {
+  switch (key) {
+    case "ArrowDown":
+      return (currentIndex + 1) % tabCount;
+    case "ArrowUp":
+      return (currentIndex - 1 + tabCount) % tabCount;
+    case "Home":
+      return 0;
+    case "End":
+      return tabCount - 1;
+    default:
+      return null;
+  }
+}
+
 function viewStatesEqual(
   a: WorkspaceShellViewState,
   b: WorkspaceShellViewState,
@@ -692,16 +711,11 @@ export function WorkspaceShell({
     if (currentIndex === -1 || enabledTabs.length === 0) {
       return;
     }
-    let nextIndex: number | null = null;
-    if (event.key === "ArrowDown") {
-      nextIndex = (currentIndex + 1) % enabledTabs.length;
-    } else if (event.key === "ArrowUp") {
-      nextIndex = (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
-    } else if (event.key === "Home") {
-      nextIndex = 0;
-    } else if (event.key === "End") {
-      nextIndex = enabledTabs.length - 1;
-    }
+    const nextIndex = tabIndexForNavigationKey(
+      event.key,
+      currentIndex,
+      enabledTabs.length,
+    );
     if (nextIndex === null) {
       return;
     }

@@ -14,10 +14,7 @@ import {
   fetchProjectSnapshot,
   refreshCallableParameters,
 } from "../backend/client";
-import type {
-  ParameterProposalV2,
-  ProjectSnapshotV2,
-} from "../backend/generatedContract";
+import type { ProjectSnapshotV2 } from "../backend/generatedContract";
 import { createCallableCompletionProvider } from "../sections/callableCompletion";
 import { createPythonTargetCompletionProvider } from "../sections/pythonTargetCompletion";
 import {
@@ -26,22 +23,16 @@ import {
   createPendingListSection,
   createPendingParameterDictionarySection,
   projectWorkspaceDocument,
-  readGeneratedPythonTarget,
   type ProjectSnapshotProjectionOptions,
 } from "./workspaceProjection";
 import type { PythonCanvasMutationContextValue } from "./PythonCanvasMutationContext";
 import {
   changedParameterCallableIds,
   changedDictionaryIds,
-  dictionaryEntryDraft,
   forestMutationProposal,
   hasPythonTargetChange,
   isCallableResolutionFailure,
   mutationErrorMessage,
-  parameterListDraft,
-  sameCanonicalPythonTarget,
-  sameDictionaryEntries,
-  sameParameterList,
   sameProposedList,
   sectionStructureMutations,
   type AppController,
@@ -50,6 +41,11 @@ import {
   type MutationState,
   type RevisionConflictDraft,
 } from "./pythonCanvasAppSupport";
+import {
+  collectRetainedDictionaryEntries,
+  collectRetainedParameterLists,
+  shouldKeepAuthoredPython,
+} from "./pythonCanvasProjectionRetention";
 import { createDictionaryEntryParentPromotionScheduler } from "./dictionaryEntryParentPromotion";
 import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import { createPythonCanvasMutations } from "./pythonCanvasMutations";
@@ -75,8 +71,6 @@ type ListMutationStates = Record<string, MutationState>;
 type CallableDrafts = Record<string, string>;
 type CompletionProviders = Record<string, TextValueCompletionProvider>;
 type CompletionErrors = Record<string, string>;
-type ProjectCallable = ProjectSnapshotV2["callables"][number];
-
 function isNewerSnapshot(
   candidate: ProjectSnapshotV2,
   current: ProjectSnapshotV2,
@@ -86,34 +80,6 @@ function isNewerSnapshot(
     (candidate.project.revision === current.project.revision &&
       candidate.diagnosticsRevision > current.diagnosticsRevision)
   );
-}
-
-function shouldRetainParameterListDraft(
-  draft: ParameterProposalV2[],
-  callable: ProjectCallable,
-  answer: MutationAnswer,
-) {
-  if (answer.kind === "publication") {
-    const previous = answer.previousSnapshot.callables.find(
-      (candidate) => candidate.id === callable.id,
-    );
-    return previous !== undefined && !sameParameterList(draft, previous);
-  }
-  if (answer.kind === "refresh") {
-    return (
-      answer.callableId !== callable.id && !sameParameterList(draft, callable)
-    );
-  }
-  if (answer.kind === "python-target") {
-    return (
-      !answer.refreshedCallableIds.has(callable.id) &&
-      !sameParameterList(draft, callable)
-    );
-  }
-  if (answer.kind === "parameters" && answer.callableId === callable.id) {
-    return !sameProposedList(answer.sent, draft);
-  }
-  return !sameParameterList(draft, callable);
 }
 
 export function PythonCanvasController() {
@@ -392,61 +358,6 @@ export function PythonCanvasController() {
         return next;
       });
     };
-    const collectRetainedParameterLists = (
-      document: WorkspaceDocument,
-      nextSnapshot: ProjectSnapshotV2,
-      answer: MutationAnswer,
-    ) => {
-      const retained = new Set<string>();
-      for (const callable of nextSnapshot.callables) {
-        const draft = parameterListDraft(document, callable.id);
-        if (
-          draft !== null &&
-          shouldRetainParameterListDraft(draft, callable, answer)
-        ) {
-          retained.add(callable.id);
-        }
-      }
-      return retained;
-    };
-    const collectRetainedDictionaryEntries = (
-      document: WorkspaceDocument,
-      nextSnapshot: ProjectSnapshotV2,
-      answer: MutationAnswer,
-    ) => {
-      const retained = new Set<string>();
-      for (const dictionary of nextSnapshot.parameterDictionaries) {
-        const draft = dictionaryEntryDraft(document, dictionary.id);
-        if (draft === null) {
-          continue;
-        }
-        if (answer.kind === "publication") {
-          const previous = answer.previousSnapshot.parameterDictionaries.find(
-            (candidate) => candidate.id === dictionary.id,
-          );
-          if (
-            previous !== undefined &&
-            !sameDictionaryEntries(draft, previous)
-          ) {
-            retained.add(dictionary.id);
-          }
-          continue;
-        }
-        if (
-          answer.kind === "dictionary" &&
-          answer.dictionaryId === dictionary.id
-        ) {
-          if (!sameDictionaryEntries(answer.sent, { entries: draft })) {
-            retained.add(dictionary.id);
-          }
-          continue;
-        }
-        if (!sameDictionaryEntries(draft, dictionary)) {
-          retained.add(dictionary.id);
-        }
-      }
-      return retained;
-    };
     const acceptCanonicalSnapshot = (
       nextSnapshot: ProjectSnapshotV2,
       answer: MutationAnswer,
@@ -455,32 +366,24 @@ export function PythonCanvasController() {
     ) => {
       snapshot = nextSnapshot;
       const document = host.getSnapshot();
-      let keepAuthoredPython = false;
-      try {
-        const authored = readGeneratedPythonTarget(host);
-        keepAuthoredPython = !sameCanonicalPythonTarget(
-          authored,
-          answer.kind === "publication"
-            ? answer.previousSnapshot
-            : nextSnapshot,
-        );
-      } catch {
-        keepAuthoredPython = false;
-      }
       applyProjection(nextSnapshot, {
-        keepAuthoredPython,
-        keepParameterLists: new Set([
-          ...collectRetainedParameterLists(document, nextSnapshot, answer),
-          ...(revisionConflictDraft?.kind === "parameters"
-            ? [revisionConflictDraft.callableId]
-            : []),
-        ]),
-        keepDictionaryEntries: new Set([
-          ...collectRetainedDictionaryEntries(document, nextSnapshot, answer),
-          ...(revisionConflictDraft?.kind === "dictionary"
-            ? [revisionConflictDraft.dictionaryId]
-            : []),
-        ]),
+        keepAuthoredPython: shouldKeepAuthoredPython(
+          host,
+          nextSnapshot,
+          answer,
+        ),
+        keepParameterLists: collectRetainedParameterLists(
+          document,
+          nextSnapshot,
+          answer,
+          revisionConflictDraft,
+        ),
+        keepDictionaryEntries: collectRetainedDictionaryEntries(
+          document,
+          nextSnapshot,
+          answer,
+          revisionConflictDraft,
+        ),
         pendingSectionIds,
         unresolvedPendingSectionIds,
       });

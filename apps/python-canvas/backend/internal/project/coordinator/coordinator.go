@@ -503,11 +503,7 @@ func (coordinator *Coordinator) Close() error {
 	if analysisDone != nil {
 		<-analysisDone
 	}
-	for _, replacement := range cleanup {
-		if err := replacement.Discard(); err != nil {
-			failures = append(failures, fmt.Errorf("discard retained materialization backup: %w", err))
-		}
-	}
+	failures = append(failures, discardMaterializationReplacements(cleanup)...)
 	if provider != nil {
 		coordinator.providerMu.Lock()
 		if err := provider.Close(); err != nil {
@@ -521,6 +517,16 @@ func (coordinator *Coordinator) Close() error {
 		}
 	}
 	return errors.Join(failures...)
+}
+
+func discardMaterializationReplacements(cleanup []materializer.Replacement) []error {
+	var failures []error
+	for _, replacement := range cleanup {
+		if err := replacement.Discard(); err != nil {
+			failures = append(failures, fmt.Errorf("discard retained materialization backup: %w", err))
+		}
+	}
+	return failures
 }
 
 type candidateBuilder func(aggregate.State) (aggregate.Candidate, error)

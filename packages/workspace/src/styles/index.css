@@ -10,6 +10,12 @@
 
 @import "./scopedBase.css";
 @import "./workspace.css";
+@import "./workspaceShell.css";
+@import "./workspaceInspector.css";
+@import "./workspaceInspectorConfiguration.css";
+@import "./workspaceOutline.css";
+@import "./workspaceMenus.css";
+@import "./workspaceParameterConfiguration.css";
 @import "./sectionAttachment.css";
 @import "./listRoot.css";
 @import "./itemToolbar.css";

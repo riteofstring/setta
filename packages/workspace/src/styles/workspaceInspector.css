@@ -1,0 +1,565 @@
+/* Built-in Inspector. The pane title, empty-state scale, 12/16 labels, 30 px configuration
+ * controls, colors, and spacing follow the frozen UI Editor capture. The selection-aware forms
+ * add explicit focus/error/status behavior and keep all validation chrome inside the pane. */
+.setta-workspace-inspector,
+.setta-workspace-inspector-branch {
+  min-width: 0;
+  min-height: 100%;
+}
+
+.setta-workspace-inspector {
+  color: rgb(43 54 74);
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector {
+  color: rgb(182 192 211);
+}
+
+.setta-workspace-inspector-branch:focus-visible {
+  outline: 2px solid rgb(37 99 235);
+  outline-offset: -2px;
+}
+
+.setta-workspace-inspector-empty {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: rgb(86 105 143);
+  text-align: center;
+}
+
+.setta-workspace-inspector-empty svg {
+  width: 80px;
+  height: 80px;
+  color: rgb(182 192 211);
+  stroke-width: 1.25;
+}
+
+.setta-workspace-inspector-empty h3 {
+  margin: 0;
+  color: rgb(150 164 192);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 28px;
+  letter-spacing: 0.1em;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-empty svg {
+  color: rgb(43 54 74);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-empty h3 {
+  color: rgb(65 80 108);
+}
+
+.setta-workspace-inspector-editor,
+.setta-workspace-inspector-unsupported {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 8px 24px;
+}
+
+.setta-workspace-inspector-editor[data-main-presentation="true"] {
+  gap: 8px;
+  padding: 0 6px 24px;
+}
+
+.setta-workspace-inspector-settings-group {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgb(203 213 225 / 80%);
+  border-radius: 8px;
+  background-color: rgb(255 255 255 / 85%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-settings-group {
+  border-color: rgb(43 54 74 / 80%);
+  background-color: rgb(15 18 25 / 70%);
+}
+
+.setta-workspace-inspector-settings-summary {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  color: rgb(86 105 143);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  line-height: 16px;
+  list-style: none;
+  text-transform: uppercase;
+}
+
+.setta-workspace-inspector-settings-summary::-webkit-details-marker {
+  display: none;
+}
+
+.setta-workspace-inspector-settings-summary:hover {
+  background-color: rgb(241 245 249 / 80%);
+}
+
+.setta-workspace-inspector-settings-summary:focus-visible {
+  outline: 2px solid rgb(96 165 250);
+  outline-offset: -2px;
+}
+
+.setta-workspace-inspector-settings-summary svg {
+  flex: 0 0 auto;
+  color: rgb(100 116 139);
+  transition: transform 150ms ease;
+}
+
+.setta-workspace-inspector-settings-group[open]
+  > .setta-workspace-inspector-settings-summary
+  svg {
+  transform: rotate(180deg);
+}
+
+.setta-workspace-inspector-settings-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px;
+  border-top: 1px solid rgb(203 213 225 / 70%);
+}
+
+.setta-workspace-section-config-fields {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.setta-workspace-section-config-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgb(219 234 254);
+  border-radius: 6px;
+  background-color: rgb(239 246 255 / 60%);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-section-config-card {
+  border-color: rgb(43 54 74 / 40%);
+  background-color: rgb(23 37 84 / 30%);
+}
+
+.setta-workspace-section-config-card > h4 {
+  margin: 0;
+  color: rgb(37 99 235 / 70%);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-section-config-card
+  > h4 {
+  color: rgb(147 197 253 / 60%);
+}
+
+.setta-workspace-inspector-editor[data-main-presentation="true"]
+  .setta-workspace-inspector-input {
+  min-height: 28px;
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 9999px;
+  background-color: rgb(255 255 255);
+  box-shadow: 0 0 0 2px rgb(182 192 211);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-editor[data-main-presentation="true"]
+  .setta-workspace-inspector-input {
+  background-color: rgb(11 14 19);
+  box-shadow: 0 0 0 2px rgb(43 54 74);
+}
+
+.setta-workspace-inspector-editor[data-main-presentation="true"]
+  .setta-workspace-inspector-input:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 2px rgb(59 130 246);
+}
+
+.setta-workspace-inspector-editor[data-main-presentation="true"]
+  .setta-workspace-inspector-toggle-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.setta-workspace-inspector-editor[data-main-presentation="true"]
+  .setta-workspace-inspector-toggle,
+.setta-workspace-inspector-editor[data-main-presentation="true"]
+  .setta-workspace-inspector-primary-action {
+  min-height: 26px;
+  align-self: flex-start;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: rgb(255 255 255 / 80%);
+  color: rgb(29 78 216 / 80%);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-editor[data-main-presentation="true"]
+  .setta-workspace-inspector-toggle,
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-editor[data-main-presentation="true"]
+  .setta-workspace-inspector-primary-action {
+  border-color: rgb(43 54 74 / 60%);
+  background-color: rgb(11 14 19 / 60%);
+  color: rgb(191 219 254 / 80%);
+}
+
+.setta-workspace-inspector-editor[data-main-presentation="true"]
+  .setta-workspace-inspector-toggle[aria-pressed="true"] {
+  border-color: rgb(96 165 250 / 70%);
+  background-color: rgb(219 234 254 / 70%);
+  color: rgb(30 64 175);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-editor[data-main-presentation="true"]
+  .setta-workspace-inspector-toggle[aria-pressed="true"] {
+  border-color: rgb(59 130 246 / 70%);
+  background-color: rgb(30 58 138 / 40%);
+  color: rgb(219 234 254);
+}
+
+.setta-workspace-inspector-editor[data-main-presentation="true"]
+  .setta-workspace-inspector-size {
+  gap: 8px;
+  padding-block-start: 4px;
+  border-block-start: 0;
+}
+
+.setta-workspace-inspector-editor[data-main-presentation="true"]
+  .setta-workspace-inspector-size
+  > h4 {
+  color: rgb(65 80 108);
+  font-weight: 700;
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-editor[data-main-presentation="true"]
+  .setta-workspace-inspector-size
+  > h4 {
+  color: rgb(182 192 211);
+}
+
+.setta-workspace-inspector-appearance-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background-color: rgb(226 232 240 / 70%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-appearance-card {
+  background-color: rgb(11 14 19 / 60%);
+}
+
+.setta-workspace-inspector-appearance-card-heading,
+.setta-workspace-inspector-appearance-value,
+.setta-workspace-inspector-appearance-value > div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.setta-workspace-inspector-appearance-card-heading {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.setta-workspace-inspector-appearance-card-heading h3 {
+  margin: 0;
+  color: rgb(65 80 108);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-appearance-card-heading
+  h3 {
+  color: rgb(117 136 174);
+}
+
+.setta-workspace-inspector-appearance-value {
+  gap: 8px;
+}
+
+.setta-workspace-inspector-appearance-value > p {
+  margin: 0;
+  color: rgb(86 105 143);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.setta-workspace-inspector-appearance-value > div {
+  gap: 8px;
+}
+
+.setta-workspace-inspector-appearance-value span {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 10%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-appearance-value
+  span {
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 10%);
+}
+
+.setta-workspace-inspector-appearance-value code {
+  overflow: hidden;
+  color: rgb(65 80 108);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-appearance-value
+  code {
+  color: rgb(117 136 174);
+}
+
+input.setta-workspace-inspector-style-picker[type="color" i] {
+  box-sizing: border-box;
+  width: 144px;
+  height: 32px;
+  flex: 0 1 144px;
+  padding: 1px;
+  border: 1px solid rgb(182 192 211 / 70%);
+  border-radius: 8px;
+  cursor: pointer;
+  background-color: transparent;
+}
+
+.setta-workspace.setta-workspace-dark
+  input.setta-workspace-inspector-style-picker[type="color" i] {
+  border-color: rgb(43 54 74 / 70%);
+}
+
+input.setta-workspace-inspector-style-picker:focus-visible {
+  outline: 2px solid rgb(59 130 246);
+  outline-offset: 2px;
+}
+
+.setta-workspace-inspector-tag-color-select {
+  box-sizing: border-box;
+  width: 144px;
+  min-width: 0;
+  height: 32px;
+  flex: 0 1 144px;
+  padding: 4px 28px 4px 10px;
+  border: 1px solid rgb(182 192 211 / 70%);
+  border-radius: 8px;
+  background-color: rgb(255 255 255);
+  color: rgb(65 80 108);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-tag-color-select {
+  border-color: rgb(43 54 74 / 70%);
+  background-color: rgb(11 14 19);
+  color: rgb(150 164 192);
+}
+
+.setta-workspace-inspector-tag-color-select:focus-visible {
+  border-color: rgb(59 130 246);
+  outline: 2px solid rgb(59 130 246);
+  outline-offset: 2px;
+}
+
+.setta-workspace-inspector-tag-color-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.setta-workspace-inspector-appearance-value
+  .setta-workspace-inspector-tag-color-select
+  + div
+  > span {
+  width: 10px;
+  height: 10px;
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-settings-summary {
+  color: rgb(150 164 192);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-settings-summary:hover {
+  background-color: rgb(21 26 35 / 80%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-settings-summary
+  svg {
+  color: rgb(86 105 143);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-settings-content {
+  border-top-color: rgb(43 54 74 / 70%);
+}
+
+.setta-workspace-inspector-section-heading {
+  display: flex;
+  min-width: 0;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-block-end: 1px solid rgb(182 192 211 / 55%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-section-heading {
+  border-block-end-color: rgb(43 54 74 / 70%);
+}
+
+.setta-workspace-inspector-section-heading h3,
+.setta-workspace-inspector-unsupported h3,
+.setta-workspace-inspector-unsupported h4,
+.setta-workspace-inspector-config h4,
+.setta-workspace-inspector-size h4 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: rgb(65 80 108);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-section-heading
+  h3,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-unsupported h3,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-unsupported h4,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-config h4,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-size h4 {
+  color: rgb(150 164 192);
+}
+
+.setta-workspace-inspector-section-heading > span {
+  flex: none;
+  color: rgb(100 116 139);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.setta-workspace-inspector-field,
+.setta-workspace-inspector-config,
+.setta-workspace-inspector-size {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setta-workspace-inspector-size,
+.setta-workspace-inspector-contribution {
+  padding-block-start: 12px;
+  border-block-start: 1px solid rgb(182 192 211 / 45%);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-size,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-contribution {
+  border-block-start-color: rgb(43 54 74 / 70%);
+}
+
+.setta-workspace-inspector-label,
+.setta-workspace-inspector-size label > span {
+  color: rgb(86 105 143);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.setta-workspace-inspector-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid rgb(182 192 211 / 70%);
+  border-radius: 4px;
+  background-color: rgb(255 255 255 / 55%);
+  color: rgb(43 54 74);
+  font: inherit;
+  line-height: 18px;
+}
+
+select.setta-workspace-inspector-input {
+  border-radius: 9999px;
+  padding-inline: 12px 30px;
+}
+
+textarea.setta-workspace-inspector-input {
+  min-height: 76px;
+  resize: vertical;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-input {
+  border-color: rgb(43 54 74 / 70%);
+  background-color: rgb(11 14 19);
+  color: rgb(182 192 211);
+}
+
+.setta-workspace-inspector-input:focus-visible,
+.setta-workspace-inspector-config-input:focus-visible,
+.setta-workspace-inspector button:focus-visible,
+.setta-workspace-inspector input[type="checkbox"]:focus-visible,
+.setta-workspace-inspector-item-name [tabindex]:focus-visible {
+  outline: 2px solid rgb(37 99 235);
+  outline-offset: 2px;
+}
+
+.setta-workspace-inspector-input[aria-invalid="true"] {
+  border-color: rgb(220 38 38);
+  outline-color: rgb(220 38 38);
+}

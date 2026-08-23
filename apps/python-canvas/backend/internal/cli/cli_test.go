@@ -31,9 +31,20 @@ func TestSchemaPublishesTheClosedOperationRegistry(t *testing.T) {
 	if err := json.Unmarshal([]byte(stdout), &document); err != nil {
 		t.Fatalf("decode schema output: %v", err)
 	}
+	assertSchemaVersion(t, document)
+	assertOperationSchemas(t, document.Operations)
+	assertParameterUIVocabulary(t, document.V2Vocabulary)
+}
+
+func assertSchemaVersion(t *testing.T, document schemaDocument) {
+	t.Helper()
 	if document.Version != cliContractVersion {
 		t.Fatalf("schema version = %q, want %q", document.Version, cliContractVersion)
 	}
+}
+
+func assertOperationSchemas(t *testing.T, operations []operationSchema) {
+	t.Helper()
 	want := []string{
 		"project.rename",
 		"callable.create", "callable.createConfigured", "callable.rename", "callable.delete", "callable.commit", "callable.parameters.refresh", "callable.parameters.set",
@@ -41,49 +52,63 @@ func TestSchemaPublishesTheClosedOperationRegistry(t *testing.T) {
 		"list.create", "list.rename", "list.delete", "list.children.increment", "list.children.decrement",
 		"forest.replace", "pythonTarget.set",
 	}
-	if len(document.Operations) != len(want) {
-		t.Fatalf("schema operation count = %d, want %d", len(document.Operations), len(want))
+	if len(operations) != len(want) {
+		t.Fatalf("schema operation count = %d, want %d", len(operations), len(want))
 	}
-	for index, operation := range document.Operations {
-		if operation.Name != want[index] {
-			t.Fatalf("schema operation %d = %q, want %q", index, operation.Name, want[index])
-		}
-		if !containsString(operation.Required, "operation") {
-			t.Fatalf("schema %q does not require operation", operation.Name)
-		}
-		for _, forbidden := range []string{"projectId", "expectedRevision"} {
-			if containsString(operation.Required, forbidden) || containsString(operation.Optional, forbidden) {
-				t.Fatalf("schema %q exposes transport field %q", operation.Name, forbidden)
-			}
-		}
-		if !json.Valid(operation.Example) {
-			t.Fatalf("schema %q example is invalid JSON: %s", operation.Name, operation.Example)
-		}
-		if operation.Name == "callable.commit" {
-			var example struct {
-				AuthoredExpression string `json:"authoredExpression"`
-			}
-			if err := json.Unmarshal(operation.Example, &example); err != nil {
-				t.Fatalf("decode callable.commit example: %v", err)
-			}
-			if example.AuthoredExpression != "math.sqrt" {
-				t.Fatalf("callable.commit expression example = %q, want callable reference", example.AuthoredExpression)
-			}
-		}
-		if operation.Name == "callable.createConfigured" && !containsString(operation.Optional, "parameterValues") {
-			t.Fatalf("configured callable schema optional fields = %#v, want parameterValues", operation.Optional)
-		}
+	for index, operation := range operations {
+		assertOperationSchema(t, index, operation, want[index])
 	}
-	if len(document.V2Vocabulary) < 4 {
-		t.Fatalf("schema V2 vocabulary = %#v", document.V2Vocabulary)
+}
+
+func assertOperationSchema(t *testing.T, index int, operation operationSchema, wantName string) {
+	t.Helper()
+	if operation.Name != wantName {
+		t.Fatalf("schema operation %d = %q, want %q", index, operation.Name, wantName)
 	}
-	var parameterUIVocabulary *vocabularyShape
-	for index := range document.V2Vocabulary {
-		if document.V2Vocabulary[index].Name == "ParameterUIV2" {
-			parameterUIVocabulary = &document.V2Vocabulary[index]
-			break
+	if !containsString(operation.Required, "operation") {
+		t.Fatalf("schema %q does not require operation", operation.Name)
+	}
+	assertOperationHidesTransportFields(t, operation)
+	if !json.Valid(operation.Example) {
+		t.Fatalf("schema %q example is invalid JSON: %s", operation.Name, operation.Example)
+	}
+	assertCallableCommitExample(t, operation)
+	if operation.Name == "callable.createConfigured" && !containsString(operation.Optional, "parameterValues") {
+		t.Fatalf("configured callable schema optional fields = %#v, want parameterValues", operation.Optional)
+	}
+}
+
+func assertOperationHidesTransportFields(t *testing.T, operation operationSchema) {
+	t.Helper()
+	for _, forbidden := range []string{"projectId", "expectedRevision"} {
+		if containsString(operation.Required, forbidden) || containsString(operation.Optional, forbidden) {
+			t.Fatalf("schema %q exposes transport field %q", operation.Name, forbidden)
 		}
 	}
+}
+
+func assertCallableCommitExample(t *testing.T, operation operationSchema) {
+	t.Helper()
+	if operation.Name != "callable.commit" {
+		return
+	}
+	var example struct {
+		AuthoredExpression string `json:"authoredExpression"`
+	}
+	if err := json.Unmarshal(operation.Example, &example); err != nil {
+		t.Fatalf("decode callable.commit example: %v", err)
+	}
+	if example.AuthoredExpression != "math.sqrt" {
+		t.Fatalf("callable.commit expression example = %q, want callable reference", example.AuthoredExpression)
+	}
+}
+
+func assertParameterUIVocabulary(t *testing.T, vocabulary []vocabularyShape) {
+	t.Helper()
+	if len(vocabulary) < 4 {
+		t.Fatalf("schema V2 vocabulary = %#v", vocabulary)
+	}
+	parameterUIVocabulary := findVocabulary(vocabulary, "ParameterUIV2")
 	if parameterUIVocabulary == nil {
 		t.Fatal("schema does not publish ParameterUIV2 vocabulary")
 	}
@@ -92,19 +117,33 @@ func TestSchemaPublishesTheClosedOperationRegistry(t *testing.T) {
 		t.Fatalf("ParameterUIV2 default examples = %d, want %d", len(parameterUIVocabulary.DefaultExamples), len(uiTypes))
 	}
 	for index, example := range parameterUIVocabulary.DefaultExamples {
-		if example.Type != uiTypes[index] {
-			t.Fatalf("ParameterUIV2 default example %d type = %q, want %q", index, example.Type, uiTypes[index])
+		assertParameterUIDefaultExample(t, index, example, uiTypes[index])
+	}
+}
+
+func findVocabulary(vocabulary []vocabularyShape, name string) *vocabularyShape {
+	for index := range vocabulary {
+		if vocabulary[index].Name == name {
+			return &vocabulary[index]
 		}
-		if _, err := example.Aggregate(); err != nil {
-			t.Fatalf("ParameterUIV2 default example %q does not aggregate: %v", example.Type, err)
-		}
-		want, err := contracts.DefaultParameterUIV2(uiTypes[index])
-		if err != nil {
-			t.Fatalf("build authoritative default %q: %v", uiTypes[index], err)
-		}
-		if !reflect.DeepEqual(example, want) {
-			t.Fatalf("ParameterUIV2 default example %q = %#v, want %#v", example.Type, example, want)
-		}
+	}
+	return nil
+}
+
+func assertParameterUIDefaultExample(t *testing.T, index int, example contracts.ParameterUIV2, uiType contracts.ParameterUITypeV2) {
+	t.Helper()
+	if example.Type != uiType {
+		t.Fatalf("ParameterUIV2 default example %d type = %q, want %q", index, example.Type, uiType)
+	}
+	if _, err := example.Aggregate(); err != nil {
+		t.Fatalf("ParameterUIV2 default example %q does not aggregate: %v", example.Type, err)
+	}
+	want, err := contracts.DefaultParameterUIV2(uiType)
+	if err != nil {
+		t.Fatalf("build authoritative default %q: %v", uiType, err)
+	}
+	if !reflect.DeepEqual(example, want) {
+		t.Fatalf("ParameterUIV2 default example %q = %#v, want %#v", example.Type, example, want)
 	}
 }
 

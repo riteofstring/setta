@@ -61,6 +61,21 @@ import {
   pythonExpressionFromWorkspaceControl,
   workspaceControlValue,
 } from "./parameterUIPresentation";
+import {
+  callableSectionID,
+  canonicalParameterID,
+  listSectionID,
+  parameterItemRootID,
+  parameterWorkspaceItemID,
+} from "./workspaceProjectionIds";
+import {
+  CALLABLE_SECTION_SIZE,
+  GENERATED_PYTHON_SECTION_SIZE,
+  generatedPythonLayout,
+  LIST_SECTION_SIZE,
+  PARAMETER_DICTIONARY_SECTION_SIZE,
+  sectionLayout,
+} from "./workspaceProjectionLayout";
 
 export {
   createParameterDictionaryEntryItem,
@@ -72,6 +87,17 @@ export {
   setDictionaryEntryExpression,
   setDictionaryEntryName,
 };
+export {
+  callableSectionID,
+  listSectionID,
+  parameterWorkspaceItemID,
+} from "./workspaceProjectionIds";
+export {
+  CALLABLE_SECTION_SIZE,
+  GENERATED_PYTHON_SECTION_SIZE,
+  LIST_SECTION_SIZE,
+  PARAMETER_DICTIONARY_SECTION_SIZE,
+} from "./workspaceProjectionLayout";
 
 export const CALLABLE_SECTION_KIND = "python-canvas.callable" as const;
 export const PENDING_CALLABLE_SECTION_KIND =
@@ -84,24 +110,6 @@ export const LIST_SECTION_KIND = "python-canvas.list" as const;
 export const PENDING_LIST_SECTION_KIND = "python-canvas.list-pending" as const;
 export const GENERATED_PYTHON_SECTION_ID =
   "python-canvas:generated-python" as const;
-
-export const CALLABLE_SECTION_SIZE = { width: 250, height: 150 } as const;
-export const PARAMETER_DICTIONARY_SECTION_SIZE = {
-  width: 420,
-  height: 300,
-} as const;
-export const LIST_SECTION_SIZE = { width: 250, height: 50 } as const;
-export const GENERATED_PYTHON_SECTION_SIZE = {
-  width: 640,
-  height: 420,
-} as const;
-const INITIAL_SECTION_ROW_HEIGHT = Math.max(
-  CALLABLE_SECTION_SIZE.height,
-  PARAMETER_DICTIONARY_SECTION_SIZE.height,
-  LIST_SECTION_SIZE.height,
-);
-
-const parameterWorkspaceItemPrefix = "python-canvas:parameter-item:";
 
 type ProjectSectionDescriptor =
   | {
@@ -135,24 +143,6 @@ export type ProjectSnapshotProjectionOptions = Readonly<{
   // creation response provides its canonical identity.
   unresolvedPendingSectionIds: ReadonlySet<string>;
 }>;
-
-export function callableSectionID(callableId: string): string {
-  return `python-canvas:callable:${callableId}`;
-}
-
-export function listSectionID(listId: string): string {
-  return `python-canvas:list:${listId}`;
-}
-
-function parameterItemRootID(callableId: string): string {
-  return `${callableSectionID(callableId)}:parameter-root`;
-}
-
-// Canonical IDs are opaque application data. Their workspace structural
-// counterparts live in disjoint namespaces, including the two item roots.
-export function parameterWorkspaceItemID(parameterId: string): string {
-  return `${parameterWorkspaceItemPrefix}${encodeURIComponent(parameterId)}`;
-}
 
 export function createPendingCallableSection(
   snapshot: Pick<ProjectSnapshotV2, "providerStatus">,
@@ -997,64 +987,4 @@ function projectItemDiagnostic(
         ? "info"
         : diagnostic.severity,
   };
-}
-
-function sectionLayout(index: number, section: WorkspaceSection) {
-  const width =
-    typeof section.size.width === "number"
-      ? section.size.width
-      : CALLABLE_SECTION_SIZE.width;
-  const height =
-    typeof section.size.height === "number"
-      ? section.size.height
-      : CALLABLE_SECTION_SIZE.height;
-  const column = index % 2;
-  const row = Math.floor(index / 2);
-  return {
-    x: column * (width + 32),
-    y: row * (height + 32),
-    w: width,
-    h: height,
-    zIndex: index,
-  };
-}
-
-function generatedPythonLayout(topLevelCount: number) {
-  const rows = Math.max(1, Math.ceil(topLevelCount / 2));
-  return {
-    x: 0,
-    y: rows * (INITIAL_SECTION_ROW_HEIGHT + 48),
-    w: GENERATED_PYTHON_SECTION_SIZE.width,
-    h: GENERATED_PYTHON_SECTION_SIZE.height,
-    zIndex: topLevelCount,
-  };
-}
-
-function canonicalParameterID(itemId: string): string {
-  return canonicalWorkspaceItemID(
-    itemId,
-    parameterWorkspaceItemPrefix,
-    "parameter",
-  );
-}
-
-function canonicalWorkspaceItemID(
-  itemId: string,
-  prefix: string,
-  kind: string,
-): string {
-  if (!itemId.startsWith(prefix)) {
-    throw new Error(`Python Canvas ${kind} item ${itemId} is invalid.`);
-  }
-  const encoded = itemId.slice(prefix.length);
-  let id: string;
-  try {
-    id = decodeURIComponent(encoded);
-  } catch {
-    throw new Error(`Python Canvas ${kind} item ${itemId} is invalid.`);
-  }
-  if (id === "" || `${prefix}${encodeURIComponent(id)}` !== itemId) {
-    throw new Error(`Python Canvas ${kind} item ${itemId} is invalid.`);
-  }
-  return id;
 }

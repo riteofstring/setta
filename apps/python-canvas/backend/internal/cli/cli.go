@@ -104,51 +104,63 @@ func Run(ctx context.Context, arguments []string, options Options) int {
 
 	switch arguments[0] {
 	case "schema":
-		pretty, help, failure := parseSchemaArguments(arguments[1:])
-		if help {
-			writeHelp(options.Stdout, "schema")
-			return exitSuccess
-		}
-		if failure != nil {
-			writeFailure(options.Stderr, failure, false)
-			return failure.exitCode
-		}
-		document, err := schema()
-		if err != nil {
-			writeFailure(options.Stderr, unexpectedFailure("internal_error", "Unable to build the command schema."), pretty)
-			return exitUnexpectedFailure
-		}
-		if err := writeJSON(options.Stdout, document, pretty); err != nil {
-			writeFailure(options.Stderr, unexpectedFailure("internal_error", "Unable to write command output."), pretty)
-			return exitUnexpectedFailure
-		}
-		return exitSuccess
+		return runSchemaCommand(arguments[1:], options)
 	case "snapshot":
-		command, help, failure := parseServiceArguments("snapshot", arguments[1:], false)
-		if help {
-			writeHelp(options.Stdout, "snapshot")
-			return exitSuccess
-		}
-		if failure != nil {
-			writeFailure(options.Stderr, failure, false)
-			return failure.exitCode
-		}
-		return runSnapshot(ctx, command, options)
+		return runSnapshotCommand(ctx, arguments[1:], options)
 	case "apply":
-		command, help, failure := parseServiceArguments("apply", arguments[1:], true)
-		if help {
-			writeHelp(options.Stdout, "apply")
-			return exitSuccess
-		}
-		if failure != nil {
-			writeFailure(options.Stderr, failure, false)
-			return failure.exitCode
-		}
-		return runApply(ctx, command, options)
+		return runApplyCommand(ctx, arguments[1:], options)
 	default:
 		writeFailure(options.Stderr, inputFailure("invalid_command", "The Python Canvas command is not supported."), false)
 		return exitInputOrTypedV2Failure
 	}
+}
+
+func runSchemaCommand(arguments []string, options Options) int {
+	pretty, help, failure := parseSchemaArguments(arguments)
+	if help {
+		writeHelp(options.Stdout, "schema")
+		return exitSuccess
+	}
+	if failure != nil {
+		writeFailure(options.Stderr, failure, false)
+		return failure.exitCode
+	}
+	document, err := schema()
+	if err != nil {
+		writeFailure(options.Stderr, unexpectedFailure("internal_error", "Unable to build the command schema."), pretty)
+		return exitUnexpectedFailure
+	}
+	if err := writeJSON(options.Stdout, document, pretty); err != nil {
+		writeFailure(options.Stderr, unexpectedFailure("internal_error", "Unable to write command output."), pretty)
+		return exitUnexpectedFailure
+	}
+	return exitSuccess
+}
+
+func runSnapshotCommand(ctx context.Context, arguments []string, options Options) int {
+	command, help, failure := parseServiceArguments("snapshot", arguments, false)
+	if help {
+		writeHelp(options.Stdout, "snapshot")
+		return exitSuccess
+	}
+	if failure != nil {
+		writeFailure(options.Stderr, failure, false)
+		return failure.exitCode
+	}
+	return runSnapshot(ctx, command, options)
+}
+
+func runApplyCommand(ctx context.Context, arguments []string, options Options) int {
+	command, help, failure := parseServiceArguments("apply", arguments, true)
+	if help {
+		writeHelp(options.Stdout, "apply")
+		return exitSuccess
+	}
+	if failure != nil {
+		writeFailure(options.Stderr, failure, false)
+		return failure.exitCode
+	}
+	return runApply(ctx, command, options)
 }
 
 func normalizedOptions(options Options) Options {
@@ -186,7 +198,25 @@ func parseSchemaArguments(arguments []string) (pretty bool, help bool, failure *
 	return *prettyFlag, false, nil
 }
 
+type serviceArgumentValues struct {
+	file             string
+	pretty           bool
+	timeoutSpecified bool
+	timeoutValue     string
+	url              string
+	waitDiagnostics  bool
+}
+
 func parseServiceArguments(command string, arguments []string, requireFile bool) (serviceCommandOptions, bool, *commandFailure) {
+	values, help, failure := parseServiceArgumentValues(command, arguments)
+	if help || failure != nil {
+		return serviceCommandOptions{}, help, failure
+	}
+	options, failure := validateServiceArguments(values, requireFile)
+	return options, false, failure
+}
+
+func parseServiceArgumentValues(command string, arguments []string) (serviceArgumentValues, bool, *commandFailure) {
 	flags := newFlagSet(command)
 	urlValue := flags.String("url", defaultServiceURL, "loopback Python Canvas service URL")
 	pretty := flags.Bool("pretty", false, "indent JSON output")
@@ -195,18 +225,12 @@ func parseServiceArguments(command string, arguments []string, requireFile bool)
 	file := flags.String("file", "", "operation JSON file, or - for stdin")
 	if err := flags.Parse(arguments); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			return serviceCommandOptions{}, true, nil
+			return serviceArgumentValues{}, true, nil
 		}
-		return serviceCommandOptions{}, false, inputFailure("invalid_input", "Command arguments are invalid.")
+		return serviceArgumentValues{}, false, inputFailure("invalid_input", "Command arguments are invalid.")
 	}
 	if flags.NArg() != 0 {
-		return serviceCommandOptions{}, false, inputFailure("invalid_input", "Command does not accept positional arguments.")
-	}
-	if requireFile && *file == "" {
-		return serviceCommandOptions{}, false, inputFailure("invalid_input", "Apply requires --file PATH or --file -.")
-	}
-	if !requireFile && *file != "" {
-		return serviceCommandOptions{}, false, inputFailure("invalid_input", "Snapshot does not accept --file.")
+		return serviceArgumentValues{}, false, inputFailure("invalid_input", "Command does not accept positional arguments.")
 	}
 	timeoutSpecified := false
 	flags.Visit(func(value *flag.Flag) {
@@ -214,29 +238,61 @@ func parseServiceArguments(command string, arguments []string, requireFile bool)
 			timeoutSpecified = true
 		}
 	})
-	if timeoutSpecified && !*waitDiagnostics {
-		return serviceCommandOptions{}, false, inputFailure("invalid_input", "--timeout requires --wait-diagnostics.")
+	return serviceArgumentValues{
+		file:             *file,
+		pretty:           *pretty,
+		timeoutSpecified: timeoutSpecified,
+		timeoutValue:     *timeoutValue,
+		url:              *urlValue,
+		waitDiagnostics:  *waitDiagnostics,
+	}, false, nil
+}
+
+func validateServiceArguments(values serviceArgumentValues, requireFile bool) (serviceCommandOptions, *commandFailure) {
+	if failure := validateServiceFileArgument(values.file, requireFile); failure != nil {
+		return serviceCommandOptions{}, failure
 	}
-	if timeoutSpecified && *timeoutValue == "" {
-		return serviceCommandOptions{}, false, inputFailure("invalid_input", "Diagnostic timeout must be greater than zero and no more than one minute.")
+	if _, err := validateServiceURL(values.url); err != nil {
+		return serviceCommandOptions{}, inputFailure("invalid_url", "The service URL must be an absolute loopback HTTP URL without a base path, query, user info, or fragment.")
 	}
-	if _, err := validateServiceURL(*urlValue); err != nil {
-		return serviceCommandOptions{}, false, inputFailure("invalid_url", "The service URL must be an absolute loopback HTTP URL without a base path, query, user info, or fragment.")
-	}
-	timeout, failure := parseDiagnosticTimeout(*timeoutValue)
+	timeout, failure := validatedDiagnosticTimeout(values)
 	if failure != nil {
-		return serviceCommandOptions{}, false, failure
-	}
-	if !*waitDiagnostics {
-		timeout = 0
+		return serviceCommandOptions{}, failure
 	}
 	return serviceCommandOptions{
-		url:             *urlValue,
-		file:            *file,
-		pretty:          *pretty,
-		waitDiagnostics: *waitDiagnostics,
+		url:             values.url,
+		file:            values.file,
+		pretty:          values.pretty,
+		waitDiagnostics: values.waitDiagnostics,
 		timeout:         timeout,
-	}, false, nil
+	}, nil
+}
+
+func validateServiceFileArgument(file string, requireFile bool) *commandFailure {
+	if requireFile && file == "" {
+		return inputFailure("invalid_input", "Apply requires --file PATH or --file -.")
+	}
+	if !requireFile && file != "" {
+		return inputFailure("invalid_input", "Snapshot does not accept --file.")
+	}
+	return nil
+}
+
+func validatedDiagnosticTimeout(values serviceArgumentValues) (time.Duration, *commandFailure) {
+	if values.timeoutSpecified && !values.waitDiagnostics {
+		return 0, inputFailure("invalid_input", "--timeout requires --wait-diagnostics.")
+	}
+	if values.timeoutSpecified && values.timeoutValue == "" {
+		return 0, inputFailure("invalid_input", "Diagnostic timeout must be greater than zero and no more than one minute.")
+	}
+	timeout, failure := parseDiagnosticTimeout(values.timeoutValue)
+	if failure != nil {
+		return 0, failure
+	}
+	if !values.waitDiagnostics {
+		timeout = 0
+	}
+	return timeout, nil
 }
 
 func newFlagSet(name string) *flag.FlagSet {
@@ -381,26 +437,45 @@ func validateServiceURL(value string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if parsed.Scheme != "http" || parsed.Opaque != "" || parsed.Host == "" || parsed.User != nil || parsed.Path != "" || parsed.RawPath != "" || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" {
+	if hasForbiddenServiceURLComponents(parsed) {
 		return "", errors.New("URL is outside the loopback service boundary")
 	}
-	host := parsed.Hostname()
-	if host == "" {
-		return "", errors.New("URL host is empty")
+	if err := validateLoopbackHost(parsed.Hostname()); err != nil {
+		return "", err
 	}
-	if !strings.EqualFold(host, "localhost") {
-		ip := net.ParseIP(host)
-		if ip == nil || !ip.IsLoopback() {
-			return "", errors.New("URL host is not loopback")
-		}
-	}
-	if port := parsed.Port(); port != "" {
-		value, err := strconv.Atoi(port)
-		if err != nil || value < 1 || value > 65535 {
-			return "", errors.New("URL port is invalid")
-		}
+	if err := validateServicePort(parsed.Port()); err != nil {
+		return "", err
 	}
 	return parsed.String(), nil
+}
+
+func hasForbiddenServiceURLComponents(parsed *url.URL) bool {
+	return parsed.Scheme != "http" || parsed.Opaque != "" || parsed.Host == "" || parsed.User != nil || parsed.Path != "" || parsed.RawPath != "" || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != ""
+}
+
+func validateLoopbackHost(host string) error {
+	if host == "" {
+		return errors.New("URL host is empty")
+	}
+	if strings.EqualFold(host, "localhost") {
+		return nil
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || !ip.IsLoopback() {
+		return errors.New("URL host is not loopback")
+	}
+	return nil
+}
+
+func validateServicePort(port string) error {
+	if port == "" {
+		return nil
+	}
+	value, err := strconv.Atoi(port)
+	if err != nil || value < 1 || value > 65535 {
+		return errors.New("URL port is invalid")
+	}
+	return nil
 }
 
 func (client *serviceClient) snapshot(ctx context.Context) (contracts.ProjectSnapshotV2, *commandFailure) {
@@ -442,45 +517,76 @@ func (client *serviceClient) snapshotEvents(ctx context.Context) (*http.Response
 func (client *serviceClient) request(ctx context.Context, method string, path string, payload any) (contracts.ProjectSnapshotV2, *commandFailure) {
 	requestContext, cancel := context.WithTimeout(ctx, defaultRequestTimeout)
 	defer cancel()
-	var body io.Reader
-	if payload != nil {
-		encoded, err := json.Marshal(payload)
-		if err != nil {
-			return contracts.ProjectSnapshotV2{}, unexpectedFailure("internal_error", "Unable to encode the project request.")
-		}
-		body = bytes.NewReader(encoded)
+	body, failure := encodeRequestBody(payload)
+	if failure != nil {
+		return contracts.ProjectSnapshotV2{}, failure
 	}
 	request, err := http.NewRequestWithContext(requestContext, method, client.baseURL+path, body)
 	if err != nil {
 		return contracts.ProjectSnapshotV2{}, unexpectedFailure("internal_error", "Unable to create the project request.")
 	}
-	request.Header.Set("Accept", "application/json")
-	if payload != nil {
-		request.Header.Set("Content-Type", "application/json")
-	}
+	configureJSONRequest(request, payload != nil)
 	response, err := client.http.Do(request)
 	if err != nil {
 		return contracts.ProjectSnapshotV2{}, classifyRequestError(ctx, requestContext)
 	}
-	if response == nil || response.Body == nil {
+	if !validHTTPResponse(response) {
 		return contracts.ProjectSnapshotV2{}, unexpectedFailure("malformed_response", "The service returned an invalid response.")
 	}
 	defer response.Body.Close()
-	content, err := readBounded(response.Body, maxResponseBytes)
-	if errors.Is(err, errInputTooLarge) {
-		return contracts.ProjectSnapshotV2{}, unexpectedFailure("response_too_large", "The service response exceeds the size limit.")
+	content, failure := readResponseBody(response.Body)
+	if failure != nil {
+		return contracts.ProjectSnapshotV2{}, failure
 	}
-	if err != nil {
-		return contracts.ProjectSnapshotV2{}, unexpectedFailure("malformed_response", "The service response could not be read.")
-	}
-	if response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices {
-		var snapshot contracts.ProjectSnapshotV2
-		if err := decodeStrictJSON(content, &snapshot); err != nil || snapshot.Validate() != nil {
-			return contracts.ProjectSnapshotV2{}, unexpectedFailure("malformed_response", "The service returned an invalid project snapshot.")
-		}
-		return snapshot, nil
+	if successfulHTTPStatus(response.StatusCode) {
+		return decodeProjectSnapshotResponse(content)
 	}
 	return contracts.ProjectSnapshotV2{}, typedV2Failure(content)
+}
+
+func encodeRequestBody(payload any) (io.Reader, *commandFailure) {
+	if payload == nil {
+		return nil, nil
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return nil, unexpectedFailure("internal_error", "Unable to encode the project request.")
+	}
+	return bytes.NewReader(encoded), nil
+}
+
+func configureJSONRequest(request *http.Request, hasPayload bool) {
+	request.Header.Set("Accept", "application/json")
+	if hasPayload {
+		request.Header.Set("Content-Type", "application/json")
+	}
+}
+
+func validHTTPResponse(response *http.Response) bool {
+	return response != nil && response.Body != nil
+}
+
+func readResponseBody(body io.Reader) ([]byte, *commandFailure) {
+	content, err := readBounded(body, maxResponseBytes)
+	if errors.Is(err, errInputTooLarge) {
+		return nil, unexpectedFailure("response_too_large", "The service response exceeds the size limit.")
+	}
+	if err != nil {
+		return nil, unexpectedFailure("malformed_response", "The service response could not be read.")
+	}
+	return content, nil
+}
+
+func successfulHTTPStatus(status int) bool {
+	return status >= http.StatusOK && status < http.StatusMultipleChoices
+}
+
+func decodeProjectSnapshotResponse(content []byte) (contracts.ProjectSnapshotV2, *commandFailure) {
+	var snapshot contracts.ProjectSnapshotV2
+	if err := decodeStrictJSON(content, &snapshot); err != nil || snapshot.Validate() != nil {
+		return contracts.ProjectSnapshotV2{}, unexpectedFailure("malformed_response", "The service returned an invalid project snapshot.")
+	}
+	return snapshot, nil
 }
 
 func classifyRequestError(parent context.Context, requestContext context.Context) *commandFailure {
@@ -554,10 +660,7 @@ func settleDiagnostics(ctx context.Context, client *serviceClient, snapshot cont
 	latest := snapshot
 	response, failure := client.snapshotEvents(waitContext)
 	if failure != nil {
-		if errors.Is(waitContext.Err(), context.DeadlineExceeded) {
-			return contracts.ProjectSnapshotV2{}, diagnosticsTimeoutFailure(latest)
-		}
-		return contracts.ProjectSnapshotV2{}, failure
+		return contracts.ProjectSnapshotV2{}, diagnosticWaitFailure(waitContext, latest, failure)
 	}
 	defer response.Body.Close()
 	scanner := bufio.NewScanner(response.Body)
@@ -565,16 +668,9 @@ func settleDiagnostics(ctx context.Context, client *serviceClient, snapshot cont
 	for {
 		candidate, err := scanSnapshotEvent(scanner)
 		if err != nil {
-			if errors.Is(waitContext.Err(), context.DeadlineExceeded) {
-				return contracts.ProjectSnapshotV2{}, diagnosticsTimeoutFailure(latest)
-			}
-			if errors.Is(waitContext.Err(), context.Canceled) {
-				return contracts.ProjectSnapshotV2{}, unexpectedFailure("request_canceled", "The diagnostic wait was canceled.")
-			}
-			return contracts.ProjectSnapshotV2{}, unexpectedFailure("malformed_response", "The project event stream ended before diagnostics settled.")
+			return contracts.ProjectSnapshotV2{}, diagnosticStreamFailure(waitContext, latest)
 		}
-		if candidate.Project.ID != latest.Project.ID || candidate.Project.Revision < latest.Project.Revision ||
-			(candidate.Project.Revision == latest.Project.Revision && candidate.DiagnosticsRevision < latest.DiagnosticsRevision) {
+		if !consistentDiagnosticSnapshot(candidate, latest) {
 			return contracts.ProjectSnapshotV2{}, unexpectedFailure("malformed_response", "The project event stream returned an inconsistent snapshot.")
 		}
 		latest = candidate
@@ -582,6 +678,30 @@ func settleDiagnostics(ctx context.Context, client *serviceClient, snapshot cont
 			return latest, nil
 		}
 	}
+}
+
+func diagnosticWaitFailure(ctx context.Context, latest contracts.ProjectSnapshotV2, failure *commandFailure) *commandFailure {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return diagnosticsTimeoutFailure(latest)
+	}
+	return failure
+}
+
+func diagnosticStreamFailure(ctx context.Context, latest contracts.ProjectSnapshotV2) *commandFailure {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return diagnosticsTimeoutFailure(latest)
+	}
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return unexpectedFailure("request_canceled", "The diagnostic wait was canceled.")
+	}
+	return unexpectedFailure("malformed_response", "The project event stream ended before diagnostics settled.")
+}
+
+func consistentDiagnosticSnapshot(candidate contracts.ProjectSnapshotV2, latest contracts.ProjectSnapshotV2) bool {
+	if candidate.Project.ID != latest.Project.ID || candidate.Project.Revision < latest.Project.Revision {
+		return false
+	}
+	return candidate.Project.Revision != latest.Project.Revision || candidate.DiagnosticsRevision >= latest.DiagnosticsRevision
 }
 
 func scanSnapshotEvent(scanner *bufio.Scanner) (contracts.ProjectSnapshotV2, error) {

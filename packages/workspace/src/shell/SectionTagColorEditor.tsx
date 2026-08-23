@@ -37,6 +37,164 @@ function TagColorPreview({ tagColor }: { tagColor: string | null }) {
   );
 }
 
+type TagColorPresentationProps = {
+  customColor: string | null;
+  disabled: boolean;
+  inputId: string;
+  onChange: (tagColor: string | null) => void;
+  onEscape: (event: KeyboardEvent<HTMLSelectElement>) => void;
+  palette: WorkspaceSectionTagColorPalette;
+  section: WorkspaceSection;
+};
+
+function customTagColor(
+  palette: WorkspaceSectionTagColorPalette,
+  tagColor: string | null,
+): string | null {
+  if (
+    tagColor === null ||
+    palette.some((choice) => choice.color === tagColor)
+  ) {
+    return null;
+  }
+  return tagColor;
+}
+
+function TagColorOptions({
+  customColor,
+  palette,
+}: Pick<TagColorPresentationProps, "customColor" | "palette">) {
+  return (
+    <>
+      <option value="">None</option>
+      {customColor === null ? null : (
+        <option value={customColor}>Custom ({customColor})</option>
+      )}
+      {palette.map((choice) => (
+        <option key={choice.color} value={choice.color}>
+          {choice.description}
+        </option>
+      ))}
+    </>
+  );
+}
+
+function MainTagColorEditor({
+  customColor,
+  disabled,
+  inputId,
+  onChange,
+  onEscape,
+  palette,
+  section,
+}: TagColorPresentationProps) {
+  return (
+    <div
+      className="setta-workspace-inspector-appearance-card"
+      data-inspector-focus-key="section-tag-color"
+    >
+      <div className="setta-workspace-inspector-appearance-card-heading">
+        <h3>
+          <label htmlFor={inputId}>Color tag</label>
+        </h3>
+        <button
+          aria-label="Reset color tag to none"
+          className={RESET_BUTTON_CLASS_NAME}
+          data-setta-workspace-touch-target="compact"
+          disabled={disabled || section.tagColor === null}
+          onClick={() => onChange(null)}
+          type="button"
+        >
+          Reset
+        </button>
+      </div>
+      <div className="setta-workspace-inspector-appearance-value">
+        <select
+          className="setta-workspace-inspector-tag-color-select"
+          disabled={disabled}
+          id={inputId}
+          onChange={(event) => onChange(event.currentTarget.value || null)}
+          onKeyDown={onEscape}
+          value={section.tagColor ?? ""}
+        >
+          <TagColorOptions customColor={customColor} palette={palette} />
+        </select>
+        {section.tagColor === null ? (
+          <p>None</p>
+        ) : (
+          <div>
+            <TagColorPreview tagColor={section.tagColor} />
+            <code>{section.tagColor}</code>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CompactTagColorEditor({
+  customColor,
+  disabled,
+  inputId,
+  onChange,
+  onEscape,
+  palette,
+  section,
+}: TagColorPresentationProps) {
+  const descriptionId = `${inputId}-description`;
+  const currentDescription =
+    section.tagColor === null
+      ? "None"
+      : getTagColorDescription(palette, section.tagColor);
+  return (
+    <div
+      className="flex min-w-0 flex-col gap-2 rounded-lg bg-setta-100/70 px-3 py-2 dark:bg-setta-900/60"
+      data-inspector-focus-key="section-tag-color"
+    >
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <label
+          className="min-w-0 text-xs font-bold uppercase tracking-wide text-setta-600 dark:text-setta-400"
+          htmlFor={inputId}
+        >
+          Color tag
+        </label>
+        <button
+          aria-label="Reset color tag to none"
+          className={RESET_BUTTON_CLASS_NAME}
+          data-setta-workspace-touch-target="compact"
+          disabled={disabled || section.tagColor === null}
+          onClick={() => onChange(null)}
+          type="button"
+        >
+          Reset
+        </button>
+      </div>
+      <div className="flex min-w-0 items-center gap-2">
+        <TagColorPreview tagColor={section.tagColor} />
+        <select
+          aria-describedby={descriptionId}
+          className="setta-workspace-inspector-input min-w-0 flex-1"
+          disabled={disabled}
+          id={inputId}
+          onChange={(event) => onChange(event.currentTarget.value || null)}
+          onKeyDown={onEscape}
+          value={section.tagColor ?? ""}
+        >
+          <TagColorOptions customColor={customColor} palette={palette} />
+        </select>
+      </div>
+      <p
+        className="m-0 min-w-0 truncate font-mono text-[11px] text-setta-600 dark:text-setta-400"
+        id={descriptionId}
+      >
+        {section.tagColor === null
+          ? "None · no tag color"
+          : `${currentDescription} · ${section.tagColor}`}
+      </p>
+    </div>
+  );
+}
+
 export function SectionTagColorEditor({
   mainPresentation = false,
   onEscape,
@@ -56,16 +214,7 @@ export function SectionTagColorEditor({
   );
   const disabled = !canEditLayout || section.positionAndSizeLocked;
   const inputId = `setta-inspector-section-tag-${useId().replaceAll(":", "")}`;
-  const descriptionId = `${inputId}-description`;
-  const customColor =
-    section.tagColor !== null &&
-    !palette.some((choice) => choice.color === section.tagColor)
-      ? section.tagColor
-      : null;
-  const currentDescription =
-    section.tagColor === null
-      ? "None"
-      : getTagColorDescription(palette, section.tagColor);
+  const customColor = customTagColor(palette, section.tagColor);
 
   function updateTagColor(tagColor: string | null): void {
     setSectionTagColor(host, section.id, tagColor);
@@ -87,114 +236,27 @@ export function SectionTagColorEditor({
 
   if (mainPresentation) {
     return (
-      <div
-        className="setta-workspace-inspector-appearance-card"
-        data-inspector-focus-key="section-tag-color"
-      >
-        <div className="setta-workspace-inspector-appearance-card-heading">
-          <h3>
-            <label htmlFor={inputId}>Color tag</label>
-          </h3>
-          <button
-            aria-label="Reset color tag to none"
-            className={RESET_BUTTON_CLASS_NAME}
-            data-setta-workspace-touch-target="compact"
-            disabled={disabled || section.tagColor === null}
-            onClick={() => updateTagColor(null)}
-            type="button"
-          >
-            Reset
-          </button>
-        </div>
-        <div className="setta-workspace-inspector-appearance-value">
-          <select
-            className="setta-workspace-inspector-tag-color-select"
-            disabled={disabled}
-            id={inputId}
-            onChange={(event) =>
-              updateTagColor(event.currentTarget.value || null)
-            }
-            onKeyDown={handleKeyDown}
-            value={section.tagColor ?? ""}
-          >
-            <option value="">None</option>
-            {customColor === null ? null : (
-              <option value={customColor}>Custom ({customColor})</option>
-            )}
-            {palette.map((choice) => (
-              <option key={choice.color} value={choice.color}>
-                {choice.description}
-              </option>
-            ))}
-          </select>
-          {section.tagColor === null ? (
-            <p>None</p>
-          ) : (
-            <div>
-              <TagColorPreview tagColor={section.tagColor} />
-              <code>{section.tagColor}</code>
-            </div>
-          )}
-        </div>
-      </div>
+      <MainTagColorEditor
+        customColor={customColor}
+        disabled={disabled}
+        inputId={inputId}
+        onChange={updateTagColor}
+        onEscape={handleKeyDown}
+        palette={palette}
+        section={section}
+      />
     );
   }
 
   return (
-    <div
-      className="flex min-w-0 flex-col gap-2 rounded-lg bg-setta-100/70 px-3 py-2 dark:bg-setta-900/60"
-      data-inspector-focus-key="section-tag-color"
-    >
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <label
-          className="min-w-0 text-xs font-bold uppercase tracking-wide text-setta-600 dark:text-setta-400"
-          htmlFor={inputId}
-        >
-          Color tag
-        </label>
-        <button
-          aria-label="Reset color tag to none"
-          className={RESET_BUTTON_CLASS_NAME}
-          data-setta-workspace-touch-target="compact"
-          disabled={disabled || section.tagColor === null}
-          onClick={() => updateTagColor(null)}
-          type="button"
-        >
-          Reset
-        </button>
-      </div>
-      <div className="flex min-w-0 items-center gap-2">
-        <TagColorPreview tagColor={section.tagColor} />
-        <select
-          aria-describedby={descriptionId}
-          className="setta-workspace-inspector-input min-w-0 flex-1"
-          disabled={disabled}
-          id={inputId}
-          onChange={(event) =>
-            updateTagColor(event.currentTarget.value || null)
-          }
-          onKeyDown={handleKeyDown}
-          value={section.tagColor ?? ""}
-        >
-          <option value="">None</option>
-          {customColor === null ? null : (
-            <option value={customColor}>Custom ({customColor})</option>
-          )}
-          {palette.map((choice) => (
-            <option key={choice.color} value={choice.color}>
-              {choice.description}
-            </option>
-          ))}
-        </select>
-      </div>
-      <p
-        className="m-0 min-w-0 truncate font-mono text-[11px] text-setta-600 dark:text-setta-400"
-        id={descriptionId}
-      >
-        {section.tagColor === null
-          ? "None · no tag color"
-          : `${currentDescription} · ${section.tagColor}`}
-      </p>
-    </div>
+    <CompactTagColorEditor
+      customColor={customColor}
+      disabled={disabled}
+      inputId={inputId}
+      onChange={updateTagColor}
+      onEscape={handleKeyDown}
+      palette={palette}
+      section={section}
+    />
   );
 }
