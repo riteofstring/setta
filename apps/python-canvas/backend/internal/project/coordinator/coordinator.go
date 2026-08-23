@@ -612,13 +612,14 @@ func (coordinator *Coordinator) applyStructuralCandidate(candidate aggregate.Can
 	next := Snapshot{
 		State:               candidate.State.Clone(),
 		Rendered:            cloneRendered(rendered),
-		Diagnostics:         compilerDiagnostics(rendered),
+		Diagnostics:         []Diagnostic{},
 		DiagnosticsRevision: coordinator.snapshot.DiagnosticsRevision,
 		ProviderStatus:      pendingProviderStatus(),
 	}
 	if coordinator.provider == nil {
 		next.DiagnosticsRevision = candidate.State.Project.Revision
 		next.ProviderStatus = unavailableProviderStatus(ProviderLifecycleFailed)
+		next.Diagnostics = compilerDiagnostics(rendered)
 	}
 	coordinator.snapshot = next
 	coordinator.setProviderTargetRevision(candidate.State.Project.Revision)
