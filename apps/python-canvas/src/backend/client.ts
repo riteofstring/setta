@@ -64,14 +64,22 @@ export class ProjectClientError extends Error {
   }
 }
 
+type FetchProjectSnapshotOptions = Readonly<{
+  signal?: AbortSignal;
+}>;
+
 export async function fetchProjectSnapshot(
+  options: FetchProjectSnapshotOptions = {},
   fetchImplementation: typeof fetch = fetch,
 ): Promise<ProjectSnapshotV2> {
-  return requestProjectSnapshot(
-    PROJECT_PATH_V2,
-    { headers: { Accept: "application/json" }, method: "GET" },
-    fetchImplementation,
-  );
+  const request: RequestInit = {
+    headers: { Accept: "application/json" },
+    method: "GET",
+  };
+  if (options.signal !== undefined) {
+    request.signal = options.signal;
+  }
+  return requestProjectSnapshot(PROJECT_PATH_V2, request, fetchImplementation);
 }
 
 export function createCallable(

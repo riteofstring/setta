@@ -54,13 +54,30 @@ describe("Python Canvas V2 project client", () => {
       .mockResolvedValue(createJsonResponse(projectSnapshotFixture));
 
     await expect(
-      fetchProjectSnapshot(fetchImplementation as typeof fetch),
+      fetchProjectSnapshot({}, fetchImplementation as typeof fetch),
     ).resolves.toEqual(projectSnapshotFixture);
 
     expect(fetchImplementation).toHaveBeenCalledWith(PROJECT_PATH_V2, {
       headers: { Accept: "application/json" },
       method: "GET",
     });
+  });
+
+  it("forwards a caller-owned cancellation signal for project revalidation", async () => {
+    const controller = new AbortController();
+    const fetchImplementation = vi
+      .fn()
+      .mockResolvedValue(createJsonResponse(projectSnapshotFixture));
+
+    await fetchProjectSnapshot(
+      { signal: controller.signal },
+      fetchImplementation as typeof fetch,
+    );
+
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      PROJECT_PATH_V2,
+      expect.objectContaining({ signal: controller.signal }),
+    );
   });
 
   it("uses exact generated V2 paths for every revision-bound mutation", async () => {
@@ -310,7 +327,7 @@ describe("Python Canvas V2 project client", () => {
       .fn()
       .mockResolvedValue(createJsonResponse({ version: "v2" }));
     await expect(
-      fetchProjectSnapshot(malformedFetch as typeof fetch),
+      fetchProjectSnapshot({}, malformedFetch as typeof fetch),
     ).rejects.toMatchObject({ kind: "invalid_response", status: 200 });
   });
 });

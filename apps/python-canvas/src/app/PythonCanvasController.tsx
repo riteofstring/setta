@@ -50,6 +50,7 @@ import {
   type RevisionConflictDraft,
 } from "./pythonCanvasAppSupport";
 import { createDictionaryEntryParentPromotionScheduler } from "./dictionaryEntryParentPromotion";
+import { createDiagnosticsRevalidator } from "./diagnosticsRevalidation";
 import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import { createPythonCanvasMutations } from "./pythonCanvasMutations";
 import {
@@ -402,6 +403,7 @@ export function PythonCanvasController() {
       revisionConflictDraft: RevisionConflictDraft = null,
       pendingSectionIds: ReadonlyMap<string, string> = new Map(),
     ) => {
+      snapshot = nextSnapshot;
       const document = host.getSnapshot();
       let keepAuthoredPython = false;
       try {
@@ -431,7 +433,22 @@ export function PythonCanvasController() {
         nextSnapshot,
         answer.kind === "commit" ? answer.callableId : null,
       );
+      diagnosticsRevalidator.revalidate(nextSnapshot);
     };
+    const diagnosticsRevalidator = createDiagnosticsRevalidator({
+      acceptSnapshot: (nextSnapshot) =>
+        acceptCanonicalSnapshot(nextSnapshot, { kind: "other" }),
+      currentSnapshot: () => snapshot,
+      fetchSnapshot: fetchProjectSnapshot,
+      hasPendingWorkspaceStructure: (current) => {
+        const document = host.getSnapshot();
+        return (
+          sectionStructureMutations(document, current).length > 0 ||
+          forestMutationProposal(document, current) !== null
+        );
+      },
+      isActive: () => active,
+    });
     const restoreCanonicalProject = (
       answer: MutationAnswer = { kind: "other" },
     ) => {
@@ -796,6 +813,7 @@ export function PythonCanvasController() {
         }
         synchronizeReactProjection(initialSnapshot, null);
         setState({ kind: "ready", host });
+        diagnosticsRevalidator.revalidate(initialSnapshot);
       } catch {
         if (active) {
           disposeHost();
@@ -810,6 +828,7 @@ export function PythonCanvasController() {
       mutations.cancelTargetMutation();
       mutations.cancelAllParameterMutations();
       mutations.cancelAllDictionaryMutations();
+      diagnosticsRevalidator.dispose();
       controllerRef.current = null;
       unsubscribe();
       disposeHost();

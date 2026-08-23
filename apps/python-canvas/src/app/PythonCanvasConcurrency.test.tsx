@@ -41,6 +41,12 @@ type MockCreationCommand = {
   id: string;
 };
 
+type WorkspaceHarness = {
+  getDocument: () => WorkspaceDocument;
+  publish: (next: WorkspaceDocument) => void;
+  replace: (next: WorkspaceDocument) => void;
+};
+
 vi.mock("../backend/client", () => ({
   ProjectClientError: class extends Error {},
   commitCallable: mocks.commitCallable,
@@ -199,6 +205,7 @@ describe("PythonCanvasApp concurrency", () => {
           parameters: [],
         },
       ],
+      diagnosticsRevision: 2,
       project: { ...initialSnapshot.project, revision: 2 },
       topLevelSectionIds: ["callable:created"],
     });
@@ -207,6 +214,7 @@ describe("PythonCanvasApp concurrency", () => {
       parameterDictionaries: [
         { entries: [], id: "dictionary:created", name: "New Param Dict" },
       ],
+      diagnosticsRevision: 3,
       project: { ...callableSnapshot.project, revision: 3 },
       topLevelSectionIds: ["callable:created", "dictionary:created"],
     });
@@ -310,6 +318,300 @@ describe("PythonCanvasApp concurrency", () => {
       callableSectionId,
       dictionarySectionId,
     ]);
+  });
+
+  it("settles same-revision diagnostics without visible pending state or losing an unresolved placeholder", async () => {
+    vi.useFakeTimers();
+    const initialSnapshot = parseProjectSnapshotV2(projectSnapshotFixture);
+    const localParameter = {
+      authoredExpression: "",
+      default: null,
+      id: "parameter:local",
+      name: "local",
+      nameEditable: true,
+      passingStyle: "positional_or_keyword" as const,
+      providerOrdinal: null,
+      typeAnnotation: null,
+    };
+    const createdSnapshot = laggingCallableSnapshot(2, [
+      {
+        id: "callable:created",
+        name: "New callable",
+        parameters: [localParameter],
+      },
+    ]);
+    const settledSnapshot = settledDiagnosticsSnapshot(
+      createdSnapshot,
+      "callable:created",
+    );
+    const diagnosticsRequest =
+      deferred<ReturnType<typeof parseProjectSnapshotV2>>();
+    const secondCreationRequest =
+      deferred<ReturnType<typeof parseProjectSnapshotV2>>();
+    const workspace = installWorkspaceHarness();
+    mocks.fetchProjectSnapshot
+      .mockResolvedValueOnce(initialSnapshot)
+      .mockReturnValueOnce(diagnosticsRequest.promise);
+    mocks.createCallable
+      .mockResolvedValueOnce(createdSnapshot)
+      .mockReturnValueOnce(secondCreationRequest.promise);
+
+    const view = renderApp();
+    await flushEffects();
+
+    const pendingCallable = invokeMockCreationCommand({
+      workspacePosition: { x: 48, y: 64 },
+    });
+    const callableLayout = { h: 150, w: 250, x: 48, y: 64, zIndex: 4 };
+    workspace.publish({
+      ...workspace.getDocument(),
+      activeIds: [pendingCallable.id],
+      sections: {
+        ...workspace.getDocument().sections,
+        [pendingCallable.id]: pendingCallable,
+      },
+      topLevelSections: {
+        ...workspace.getDocument().topLevelSections,
+        [pendingCallable.id]: callableLayout,
+      },
+    });
+    await flushEffects();
+
+    const canonicalSectionId = callableSectionID("callable:created");
+    const parameterId = parameterWorkspaceItemID(localParameter.id);
+    installLocalParameterDraft(workspace, canonicalSectionId, parameterId);
+    await advanceDiagnosticsRevalidation();
+    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(2);
+    expectReadyStatus(view);
+
+    const pendingSecondCallable = invokeMockCreationCommand({
+      workspacePosition: { x: 516, y: 336 },
+    });
+    const secondCallableLayout = {
+      h: 150,
+      w: 250,
+      x: 516,
+      y: 336,
+      zIndex: 5,
+    };
+    workspace.publish({
+      ...workspace.getDocument(),
+      activeIds: [canonicalSectionId, pendingSecondCallable.id],
+      sections: {
+        ...workspace.getDocument().sections,
+        [pendingSecondCallable.id]: pendingSecondCallable,
+      },
+      topLevelSections: {
+        ...workspace.getDocument().topLevelSections,
+        [pendingSecondCallable.id]: secondCallableLayout,
+      },
+    });
+    await flushEffects();
+
+    const statusBeforeDiagnosticsSettle = statusMessage(view);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+      await flushMicrotasks();
+    });
+    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      diagnosticsRequest.resolve(settledSnapshot);
+      await flushMicrotasks();
+    });
+
+    expect(statusMessage(view)).toBe(statusBeforeDiagnosticsSettle);
+    expectDiagnosticsReconciliation({
+      callableLayout,
+      canonicalSectionId,
+      parameterId,
+      pendingSecondCallable,
+      secondCallableLayout,
+      workspace,
+    });
+    expectNoMutationError(view);
+  });
+
+  it("cancels obsolete diagnostics polling and ignores its late older snapshot", async () => {
+    vi.useFakeTimers();
+    const initialSnapshot = parseProjectSnapshotV2(projectSnapshotFixture);
+    const firstSnapshot = laggingCallableSnapshot(2, [
+      { id: "callable:first", name: "New callable" },
+    ]);
+    const secondSnapshot = laggingCallableSnapshot(3, [
+      { id: "callable:first", name: "New callable" },
+      { id: "callable:second", name: "New callable 2" },
+    ]);
+    const olderDiagnosticsRequest =
+      deferred<ReturnType<typeof parseProjectSnapshotV2>>();
+    const workspace = installWorkspaceHarness();
+    mocks.fetchProjectSnapshot
+      .mockResolvedValueOnce(initialSnapshot)
+      .mockReturnValueOnce(olderDiagnosticsRequest.promise)
+      .mockResolvedValueOnce(
+        settledDiagnosticsSnapshot(secondSnapshot, "callable:second"),
+      );
+    mocks.createCallable
+      .mockResolvedValueOnce(firstSnapshot)
+      .mockResolvedValueOnce(secondSnapshot);
+
+    renderApp();
+    await flushEffects();
+
+    const firstPending = invokeMockCreationCommand({
+      workspacePosition: { x: 48, y: 64 },
+    });
+    workspace.publish({
+      ...workspace.getDocument(),
+      activeIds: [firstPending.id],
+      sections: {
+        ...workspace.getDocument().sections,
+        [firstPending.id]: firstPending,
+      },
+      topLevelSections: {
+        ...workspace.getDocument().topLevelSections,
+        [firstPending.id]: { h: 150, w: 250, x: 48, y: 64, zIndex: 4 },
+      },
+    });
+    await flushEffects();
+
+    await advanceDiagnosticsRevalidation();
+    const olderRequestOptions = mocks.fetchProjectSnapshot.mock
+      .calls[1]?.[0] as { signal?: AbortSignal } | undefined;
+    expect(olderRequestOptions?.signal).toBeDefined();
+
+    const secondPending = invokeMockCreationCommand({
+      workspacePosition: { x: 516, y: 336 },
+    });
+    workspace.publish({
+      ...workspace.getDocument(),
+      activeIds: [callableSectionID("callable:first"), secondPending.id],
+      sections: {
+        ...workspace.getDocument().sections,
+        [secondPending.id]: secondPending,
+      },
+      topLevelSections: {
+        ...workspace.getDocument().topLevelSections,
+        [secondPending.id]: { h: 150, w: 250, x: 516, y: 336, zIndex: 5 },
+      },
+    });
+    await flushEffects();
+
+    expect(olderRequestOptions?.signal?.aborted).toBe(true);
+    await advanceDiagnosticsRevalidation();
+    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(3);
+
+    await act(async () => {
+      olderDiagnosticsRequest.resolve(
+        settledDiagnosticsSnapshot(firstSnapshot, "callable:first"),
+      );
+      await flushMicrotasks();
+    });
+
+    const secondSectionId = callableSectionID("callable:second");
+    expect(
+      workspace.getDocument().sections[secondSectionId]?.data,
+    ).toMatchObject({
+      callableDiagnosticMessage: "The callable needs diagnostics.",
+    });
+    expect(workspace.getDocument().sections[secondSectionId]).toBeDefined();
+    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not resurrect a local deletion from a diagnostics-only response", async () => {
+    vi.useFakeTimers();
+    const initialSnapshot = laggingCallableSnapshot(2, [
+      { id: "callable:one", name: "One callable" },
+    ]);
+    const diagnosticsRequest =
+      deferred<ReturnType<typeof parseProjectSnapshotV2>>();
+    const deleteRequest = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
+    const workspace = installWorkspaceHarness();
+    mocks.fetchProjectSnapshot
+      .mockResolvedValueOnce(initialSnapshot)
+      .mockReturnValueOnce(diagnosticsRequest.promise);
+    mocks.deleteCallable.mockReturnValueOnce(deleteRequest.promise);
+
+    renderApp();
+    await flushEffects();
+    await advanceDiagnosticsRevalidation();
+
+    const sectionId = callableSectionID("callable:one");
+    const sections = { ...workspace.getDocument().sections };
+    const topLevelSections = { ...workspace.getDocument().topLevelSections };
+    delete sections[sectionId];
+    delete topLevelSections[sectionId];
+    workspace.publish({
+      ...workspace.getDocument(),
+      sections,
+      topLevelSections,
+    });
+    await flushEffects();
+
+    await act(async () => {
+      diagnosticsRequest.resolve(
+        settledDiagnosticsSnapshot(initialSnapshot, "callable:one"),
+      );
+      await flushMicrotasks();
+    });
+
+    expect(workspace.getDocument().sections[sectionId]).toBeUndefined();
+    expect(workspace.getDocument().topLevelSections[sectionId]).toBeUndefined();
+    expect(mocks.deleteCallable).toHaveBeenCalledWith("callable:one", {
+      expectedRevision: initialSnapshot.project.revision,
+      projectId: initialSnapshot.project.id,
+    });
+  });
+
+  it("stops after a failed diagnostics result without an app error", async () => {
+    vi.useFakeTimers();
+    const initialSnapshot = laggingCallableSnapshot(2, [
+      { id: "callable:one", name: "One callable" },
+    ]);
+    installWorkspaceHarness();
+    mocks.fetchProjectSnapshot
+      .mockResolvedValueOnce(initialSnapshot)
+      .mockResolvedValueOnce(failedDiagnosticsSnapshot(initialSnapshot));
+
+    const view = renderApp();
+    await flushEffects();
+    await advanceDiagnosticsRevalidation();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+      await flushMicrotasks();
+    });
+    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(2);
+    expect(
+      view.querySelector("#python-canvas-mutation-error")?.textContent,
+    ).toBe("");
+  });
+
+  it("aborts a held diagnostics request when the controller unmounts", async () => {
+    vi.useFakeTimers();
+    const initialSnapshot = laggingCallableSnapshot(2, [
+      { id: "callable:one", name: "One callable" },
+    ]);
+    const heldRequest = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
+    installWorkspaceHarness();
+    mocks.fetchProjectSnapshot
+      .mockResolvedValueOnce(initialSnapshot)
+      .mockReturnValueOnce(heldRequest.promise);
+
+    renderApp();
+    await flushEffects();
+    await advanceDiagnosticsRevalidation();
+    const requestOptions = mocks.fetchProjectSnapshot.mock.calls[1]?.[0] as
+      { signal?: AbortSignal } | undefined;
+
+    act(() => root?.unmount());
+    root = undefined;
+    expect(requestOptions?.signal?.aborted).toBe(true);
+
+    await act(async () => {
+      heldRequest.resolve(failedDiagnosticsSnapshot(initialSnapshot));
+      await flushMicrotasks();
+    });
   });
 
   it("accepts parameters refreshed by a Python target response", async () => {
@@ -419,7 +721,7 @@ function createHost(): WorkspaceHost {
   } as unknown as WorkspaceHost;
 }
 
-function installWorkspaceHarness() {
+function installWorkspaceHarness(): WorkspaceHarness {
   let document: WorkspaceDocument = {
     activeIds: [],
     sections: {},
@@ -463,7 +765,97 @@ function installWorkspaceHarness() {
       document = next;
       subscriber?.(next);
     },
+    replace: (next: WorkspaceDocument) => {
+      document = next;
+    },
   };
+}
+
+function installLocalParameterDraft(
+  workspace: WorkspaceHarness,
+  canonicalSectionId: string,
+  parameterId: string,
+) {
+  const document = workspace.getDocument();
+  const section = document.sections[canonicalSectionId];
+  const parameter = section?.itemTree?.items[parameterId];
+  if (section?.itemTree === undefined || parameter === undefined) {
+    throw new Error("Expected the canonical callable parameter draft.");
+  }
+  workspace.replace({
+    ...document,
+    sections: {
+      ...document.sections,
+      [canonicalSectionId]: {
+        ...section,
+        itemTree: {
+          ...section.itemTree,
+          items: {
+            ...section.itemTree.items,
+            [parameterId]: {
+              ...parameter,
+              data: {
+                ...(parameter.data as object),
+                authoredExpression: "local draft",
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function expectReadyStatus(view: HTMLElement) {
+  const status = view.querySelector("[role='status']");
+  expect(status?.textContent).toBe("Python Canvas ready.");
+  expect(status?.getAttribute("aria-busy")).toBe("false");
+}
+
+function statusMessage(view: HTMLElement) {
+  return view.querySelector("[role='status']")?.textContent ?? null;
+}
+
+function expectDiagnosticsReconciliation({
+  callableLayout,
+  canonicalSectionId,
+  parameterId,
+  pendingSecondCallable,
+  secondCallableLayout,
+  workspace,
+}: {
+  callableLayout: WorkspaceDocument["topLevelSections"][string];
+  canonicalSectionId: string;
+  parameterId: string;
+  pendingSecondCallable: WorkspaceDocument["sections"][string];
+  secondCallableLayout: WorkspaceDocument["topLevelSections"][string];
+  workspace: WorkspaceHarness;
+}) {
+  const document = workspace.getDocument();
+  const canonical = document.sections[canonicalSectionId];
+  expect(document.topLevelSections[canonicalSectionId]).toEqual(callableLayout);
+  expect(canonical?.data).toMatchObject({
+    callableDiagnosticMessage: "The callable needs diagnostics.",
+  });
+  expect(canonical?.itemTree?.items[parameterId]?.data).toMatchObject({
+    authoredExpression: "local draft",
+  });
+  expect(document.sections[pendingSecondCallable.id]).toBe(
+    pendingSecondCallable,
+  );
+  expect(document.topLevelSections[pendingSecondCallable.id]).toEqual(
+    secondCallableLayout,
+  );
+  expect(document.activeIds).toEqual([
+    canonicalSectionId,
+    pendingSecondCallable.id,
+  ]);
+}
+
+function expectNoMutationError(view: HTMLElement) {
+  expect(view.querySelector("#python-canvas-mutation-error")?.textContent).toBe(
+    "",
+  );
 }
 
 function invokeMockCreationCommand(
@@ -500,6 +892,7 @@ function multiCallableSnapshot(revision: number, topLevelSectionIds: string[]) {
       name: id,
       parameters: [],
     })),
+    diagnosticsRevision: revision,
     project: { ...projectSnapshotFixture.project, revision },
     topLevelSectionIds,
   });
@@ -519,8 +912,77 @@ function singleCallableSnapshot(
         parameters,
       },
     ],
+    diagnosticsRevision: revision,
     project: { ...projectSnapshotFixture.project, revision },
     topLevelSectionIds: ["callable:one"],
+  });
+}
+
+function laggingCallableSnapshot(
+  revision: number,
+  callables: ReadonlyArray<{
+    id: string;
+    name: string;
+    parameters?: ReadonlyArray<Record<string, unknown>>;
+  }>,
+) {
+  return parseProjectSnapshotV2({
+    ...projectSnapshotFixture,
+    callables: callables.map((callable) => ({
+      authoredExpression: "",
+      id: callable.id,
+      name: callable.name,
+      parameters: callable.parameters ?? [],
+    })),
+    diagnostics: [],
+    diagnosticsRevision: revision - 1,
+    project: { ...projectSnapshotFixture.project, revision },
+    providerStatus: {
+      provider: "basedpyright",
+      state: "pending",
+      status: "available",
+    },
+    topLevelSectionIds: callables.map((callable) => callable.id),
+  });
+}
+
+function settledDiagnosticsSnapshot(
+  snapshot: ReturnType<typeof parseProjectSnapshotV2>,
+  targetId: string,
+) {
+  return parseProjectSnapshotV2({
+    ...snapshot,
+    diagnostics: [
+      {
+        end: 3,
+        id: `diagnostic:${targetId}`,
+        message: "The callable needs diagnostics.",
+        severity: "error",
+        start: 2,
+        targetId,
+      },
+    ],
+    diagnosticsRevision: snapshot.project.revision,
+    providerStatus: {
+      provider: "basedpyright",
+      state: "ready",
+      status: "available",
+    },
+  });
+}
+
+function failedDiagnosticsSnapshot(
+  snapshot: ReturnType<typeof parseProjectSnapshotV2>,
+) {
+  return parseProjectSnapshotV2({
+    ...snapshot,
+    diagnostics: [],
+    diagnosticsRevision: snapshot.project.revision,
+    providerStatus: {
+      provider: "basedpyright",
+      state: "failed",
+      status: "unavailable",
+    },
   });
 }
 
@@ -568,6 +1030,13 @@ function renderApp(): HTMLDivElement {
 
 async function flushEffects(): Promise<void> {
   await act(async () => {
+    await flushMicrotasks();
+  });
+}
+
+async function advanceDiagnosticsRevalidation(): Promise<void> {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(100);
     await flushMicrotasks();
   });
 }

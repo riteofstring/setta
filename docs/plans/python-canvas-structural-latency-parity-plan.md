@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-**Status: Planned on 2026-08-23.**
+**Status: Phase 2 implemented on 2026-08-23; Phase 3 acceptance remains.**
 
 Implement one bounded Python Canvas parity batch that makes section creation and deletion feel as
 immediate as `main` without painting a provisional section or weakening the durable project
@@ -199,8 +199,8 @@ Unrequested edge cases and possible future transports are not blockers.
 
 ### Phase 2 — Frontend reconciliation
 
-- [ ] Bounded GET revalidation without visible pending behavior
-- [ ] Same/newer revision projection preserves drafts, layout, and identity reconciliation
+- [x] Bounded GET revalidation without visible pending behavior
+- [x] Same/newer revision projection preserves drafts, layout, and identity reconciliation
 
 ### Phase 3 — Acceptance
 
