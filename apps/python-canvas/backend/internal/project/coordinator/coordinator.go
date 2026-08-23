@@ -428,6 +428,13 @@ func (coordinator *Coordinator) Close() error {
 	if coordinator == nil {
 		return nil
 	}
+	// analysisCancel is initialized once by Open and is safe to invoke before
+	// waiting for mu. A synchronous provider-dependent mutation can hold mu
+	// while waiting for providerMu, while diagnostics owns providerMu in a
+	// cancellable call. Cancelling first breaks that wait cycle.
+	if coordinator.analysisCancel != nil {
+		coordinator.analysisCancel()
+	}
 	coordinator.mu.Lock()
 	if coordinator.closed {
 		coordinator.mu.Unlock()
@@ -438,14 +445,10 @@ func (coordinator *Coordinator) Close() error {
 	document := coordinator.materializer
 	cleanup := append([]materializer.Replacement{}, coordinator.cleanup...)
 	coordinator.cleanup = nil
-	cancelAnalysis := coordinator.analysisCancel
 	analysisDone := coordinator.analysisDone
 	coordinator.mu.Unlock()
 
 	var failures []error
-	if cancelAnalysis != nil {
-		cancelAnalysis()
-	}
 	if analysisDone != nil {
 		<-analysisDone
 	}

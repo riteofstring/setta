@@ -519,6 +519,67 @@ describe("PythonCanvasApp concurrency", () => {
     expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(3);
   });
 
+  it("does not let diagnostics polling overtake pending create reconciliation", async () => {
+    vi.useFakeTimers();
+    const initialSnapshot = laggingCallableSnapshot(2, []);
+    const createdSnapshot = laggingCallableSnapshot(3, [
+      { id: "callable:created", name: "New callable" },
+    ]);
+    const diagnosticsRequest =
+      deferred<ReturnType<typeof parseProjectSnapshotV2>>();
+    const createRequest = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
+    const workspace = installWorkspaceHarness();
+    mocks.fetchProjectSnapshot
+      .mockResolvedValueOnce(initialSnapshot)
+      .mockReturnValueOnce(diagnosticsRequest.promise);
+    mocks.createCallable.mockReturnValueOnce(createRequest.promise);
+
+    renderApp();
+    await flushEffects();
+    await advanceDiagnosticsRevalidation();
+
+    const pending = invokeMockCreationCommand({
+      workspacePosition: { x: 48, y: 64 },
+    });
+    const pendingLayout = { h: 150, w: 250, x: 48, y: 64, zIndex: 4 };
+    workspace.publish({
+      ...workspace.getDocument(),
+      activeIds: [pending.id],
+      sections: { ...workspace.getDocument().sections, [pending.id]: pending },
+      topLevelSections: {
+        ...workspace.getDocument().topLevelSections,
+        [pending.id]: pendingLayout,
+      },
+    });
+    await flushEffects();
+
+    await act(async () => {
+      diagnosticsRequest.resolve(createdSnapshot);
+      await flushMicrotasks();
+    });
+
+    const canonicalSectionId = callableSectionID("callable:created");
+    expect(
+      workspace.getDocument().sections[canonicalSectionId],
+    ).toBeUndefined();
+    expect(workspace.getDocument().sections[pending.id]).toBe(pending);
+    expect(workspace.getDocument().topLevelSections[pending.id]).toEqual(
+      pendingLayout,
+    );
+    expect(workspace.getDocument().activeIds).toEqual([pending.id]);
+
+    await act(async () => {
+      createRequest.resolve(createdSnapshot);
+      await flushMicrotasks();
+    });
+
+    expect(workspace.getDocument().sections[pending.id]).toBeUndefined();
+    expect(
+      workspace.getDocument().topLevelSections[canonicalSectionId],
+    ).toEqual(pendingLayout);
+    expect(workspace.getDocument().activeIds).toEqual([canonicalSectionId]);
+  });
+
   it("does not resurrect a local deletion from a diagnostics-only response", async () => {
     vi.useFakeTimers();
     const initialSnapshot = laggingCallableSnapshot(2, [

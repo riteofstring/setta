@@ -11,7 +11,10 @@ type DiagnosticsRevalidationEnvironment = Readonly<{
   fetchSnapshot: (options: {
     signal?: AbortSignal;
   }) => Promise<ProjectSnapshotV2>;
-  hasPendingWorkspaceStructure: (snapshot: ProjectSnapshotV2) => boolean;
+  hasPendingWorkspaceStructure: (
+    current: ProjectSnapshotV2,
+    candidate: ProjectSnapshotV2,
+  ) => boolean;
   isActive: () => boolean;
 }>;
 
@@ -68,7 +71,7 @@ export function createDiagnosticsRevalidator(
           }
           return;
         }
-        if (environment.hasPendingWorkspaceStructure(latest)) {
+        if (environment.hasPendingWorkspaceStructure(latest, nextSnapshot)) {
           revalidate(latest);
           return;
         }

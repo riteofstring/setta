@@ -391,6 +391,63 @@ func TestCoordinatorCloseCancelsBackgroundDiagnosticsBeforeClosingProvider(t *te
 	}
 }
 
+func TestCoordinatorCloseCancelsHeldDiagnosticsWhileSynchronousMutationWaits(t *testing.T) {
+	provider := newHeldDiagnosticsProvider()
+	coordinator, _ := newStructuralDiagnosticsCoordinator(t, provider, "project:close-interleaving", "callable:created")
+	provider.setHeld(true)
+	before := coordinator.Snapshot()
+	created := awaitStructuralMutation(t, func() (Snapshot, error) {
+		return coordinator.CreateCallable(context.Background(), aggregate.CreateCallableCommand{
+			ProjectID: before.State.Project.ID, ExpectedRevision: before.State.Project.Revision, Name: "Created callable",
+		})
+	})
+	provider.awaitStarted(t)
+
+	type mutationResult struct {
+		snapshot Snapshot
+		err      error
+	}
+	renamedResult := make(chan mutationResult, 1)
+	go func() {
+		snapshot, err := coordinator.RenameProject(context.Background(), aggregate.RenameProjectCommand{
+			ProjectID: created.State.Project.ID, ExpectedRevision: created.State.Project.Revision, Name: "Renamed project",
+		})
+		renamedResult <- mutationResult{snapshot: snapshot, err: err}
+	}()
+	awaitCondition(t, "synchronous provider mutation", func() bool {
+		return coordinator.providerTargetRevision.Load() == int64(created.State.Project.Revision+1)
+	})
+
+	closed := make(chan error, 1)
+	go func() {
+		closed <- coordinator.Close()
+	}()
+
+	// The second held request can only begin after Close cancels the background
+	// request that held providerMu while the rename holds coordinator.mu.
+	provider.awaitStarted(t)
+	provider.releaseSuccess("Renamed diagnostics.")
+	select {
+	case renamed := <-renamedResult:
+		if renamed.err != nil {
+			t.Fatalf("RenameProject() error = %v", renamed.err)
+		}
+	case <-time.After(testWaitTimeout):
+		t.Fatal("RenameProject() remained blocked after Close cancelled diagnostics")
+	}
+	select {
+	case err := <-closed:
+		if err != nil {
+			t.Fatalf("Close() error = %v", err)
+		}
+	case <-time.After(testWaitTimeout):
+		t.Fatal("Close() remained blocked behind held diagnostics and a synchronous mutation")
+	}
+	if !provider.isClosed() {
+		t.Fatal("Close() did not close the provider after the interleaving settled")
+	}
+}
+
 const testWaitTimeout = 2 * time.Second
 
 type heldDiagnosticsProvider struct {

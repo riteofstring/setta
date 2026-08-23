@@ -440,9 +440,16 @@ export function PythonCanvasController() {
         acceptCanonicalSnapshot(nextSnapshot, { kind: "other" }),
       currentSnapshot: () => snapshot,
       fetchSnapshot: fetchProjectSnapshot,
-      hasPendingWorkspaceStructure: (current) => {
+      hasPendingWorkspaceStructure: (current, candidate) => {
         const document = host.getSnapshot();
         return (
+          // A diagnostics GET can observe a durable create before its POST
+          // continuation maps the hidden local identity to the canonical ID.
+          // Preserve that identity as a projection boundary until its own
+          // response performs the in-place reconciliation. Same-revision
+          // diagnostics remain safe to project while the create is pending.
+          (unresolvedPendingSectionIds.size > 0 &&
+            candidate.project.revision > current.project.revision) ||
           sectionStructureMutations(document, current).length > 0 ||
           forestMutationProposal(document, current) !== null
         );
