@@ -20,7 +20,9 @@ const trailingPaneSelector = '[data-pane="trailing"]';
 const leadingRailSelector = '[data-workspace-shell-rail="leading"]';
 const trailingRailSelector = '[data-workspace-shell-rail="trailing"]';
 const centerSelector = ".setta-workspace-shell-center";
-const inspectorTabSelector = '[data-workspace-shell-tab="trailing:inspector"]';
+const sectionTabSelector =
+  '[data-workspace-shell-tab="trailing:section-settings"]';
+const paramsTabSelector = '[data-workspace-shell-tab="trailing:params"]';
 const leadingResizeSelector = '[data-workspace-shell-resize="leading"]';
 const viewportSelector = ".react-flow__viewport";
 const settledPaneConfiguration = {
@@ -36,7 +38,7 @@ const settledPaneConfiguration = {
     handleSelector: null,
     paneSelector: trailingPaneSelector,
     regionSelector: trailingPaneRegionSelector,
-    title: "Inspector",
+    title: "Section",
   },
 };
 
@@ -48,6 +50,7 @@ export async function exercisePythonCanvasSidePaneParity(
 ) {
   const expectedOutline = expectedOutlineEntries(snapshot);
   const nestedSection = requireNestedSection(snapshot);
+  const providerCallable = requireProviderCallable(snapshot);
 
   await waitForWorkspaceShell(
     client,
@@ -64,7 +67,7 @@ export async function exercisePythonCanvasSidePaneParity(
     initialGeometry.trailing.width,
     40,
     1,
-    "The initial Inspector rail did not use the package 40 px closed width.",
+    "The initial Section/Params rail did not use the package 40 px closed width.",
   );
   assert.equal(
     initialGeometry.leading.visible,
@@ -74,12 +77,24 @@ export async function exercisePythonCanvasSidePaneParity(
   assert.equal(
     initialGeometry.trailing.visible,
     "false",
-    "The initial Inspector pane was unexpectedly open.",
+    "The initial Section pane was unexpectedly open.",
   );
   assert.equal(
     initialGeometry.noHorizontalOverflow,
     true,
     "The initial workspace shell introduced horizontal page scrolling.",
+  );
+  await waitFor(
+    client,
+    "the initial Section and disabled Params rail tabs",
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sectionTabSelector)});
+      const params = document.querySelector(${JSON.stringify(paramsTabSelector)});
+      return section instanceof HTMLButtonElement &&
+        section.getAttribute('aria-selected') === 'true' &&
+        params instanceof HTMLButtonElement && params.disabled === true &&
+        params.getAttribute('aria-disabled') === 'true';
+    })()`,
   );
   assert.deepEqual(
     await visibleOutlineEntries(client),
@@ -110,8 +125,8 @@ export async function exercisePythonCanvasSidePaneParity(
 
   try {
     await activateNestedOutlineSection(client, nestedSection);
-    await openInspectorForSelection(client, nestedSection.name);
-    await closeInspector(client);
+    await openSectionForSelection(client, nestedSection.name);
+    await closeSection(client);
 
     const resizedGeometry = await resizeLeadingPane(client);
     await reloadAndAssertPanePreference(
@@ -119,6 +134,7 @@ export async function exercisePythonCanvasSidePaneParity(
       previewOrigin,
       resizedGeometry.leading.width,
     );
+    await exerciseCallableParams(client, providerCallable, nestedSection);
     await exerciseNarrowViewportReconciliation(client);
   } finally {
     unsubscribe();
@@ -219,6 +235,28 @@ function requireNestedSection(snapshot) {
   };
 }
 
+function requireProviderCallable(snapshot) {
+  const callable = snapshot.callables.find((candidate) =>
+    candidate.parameters.some((parameter) => parameter.nameEditable === false),
+  );
+  if (callable === undefined) {
+    throw new Error(
+      "The saved project has no callable with provider parameters.",
+    );
+  }
+  const parameter = callable.parameters.find(
+    (candidate) => candidate.nameEditable === false,
+  );
+  if (parameter === undefined) {
+    throw new Error("The provider-backed callable has no provider parameter.");
+  }
+  return {
+    id: `python-canvas:callable:${callable.id}`,
+    name: callable.name,
+    parameter,
+  };
+}
+
 async function waitForWorkspaceShell(client, description) {
   await waitFor(
     client,
@@ -294,15 +332,15 @@ async function activateNestedOutlineSection(client, section) {
   );
 }
 
-async function openInspectorForSelection(client, sectionName) {
+async function openSectionForSelection(client, sectionName) {
   await clickElementCenter(
     client,
-    inspectorTabSelector,
-    "the Inspector workspace rail tab",
+    sectionTabSelector,
+    "the Section workspace rail tab",
   );
   await waitFor(
     client,
-    `the Inspector for ${sectionName}`,
+    `the Section settings for ${sectionName}`,
     `(() => {
       const pane = document.querySelector(${JSON.stringify(trailingPaneSelector)});
       const inspector = document.querySelector('[data-inspector-branch="section"]');
@@ -314,17 +352,118 @@ async function openInspectorForSelection(client, sectionName) {
   await waitForSettledPane(client, "trailing");
 }
 
-async function closeInspector(client) {
+async function closeSection(client) {
   await clickElementCenter(
     client,
-    inspectorTabSelector,
-    "the open Inspector workspace rail tab",
+    sectionTabSelector,
+    "the open Section workspace rail tab",
   );
   await waitFor(
     client,
-    "the closed Inspector pane",
+    "the closed Section pane",
     `document.querySelector(${JSON.stringify(trailingPaneSelector)})?.getAttribute('data-visible') === 'false'`,
   );
+}
+
+async function exerciseCallableParams(client, callable, unavailableSection) {
+  await activateNestedOutlineSection(client, callable);
+  await waitFor(
+    client,
+    "the enabled Params rail tab",
+    `(() => {
+      const tab = document.querySelector(${JSON.stringify(paramsTabSelector)});
+      return tab instanceof HTMLButtonElement && tab.disabled === false &&
+        tab.getAttribute('aria-disabled') === null;
+    })()`,
+  );
+  await clickElementCenter(
+    client,
+    paramsTabSelector,
+    "the Params workspace rail tab",
+  );
+  await waitFor(
+    client,
+    `the provider Params for ${callable.name}`,
+    `(() => {
+      const pane = document.querySelector(${JSON.stringify(trailingPaneSelector)});
+      const params = document.querySelector('[data-python-canvas-params-pane]');
+      const filter = params?.querySelector('input[aria-label="Filter parameters"]');
+      const parameter = Array.from(params?.querySelectorAll('[data-python-canvas-parameter-group]') ?? [])
+        .find((group) => group.textContent?.includes(${JSON.stringify(callable.parameter.name)}));
+      return pane instanceof HTMLElement && pane.dataset.visible === 'true' &&
+        params instanceof HTMLElement && filter instanceof HTMLInputElement &&
+        parameter instanceof HTMLElement && params.querySelectorAll('input').length === 1;
+    })()`,
+  );
+  await waitForSettledPane(client, "trailing");
+
+  const unmatchedFilterApplied = await evaluate(
+    client,
+    `(() => {
+      const filter = document.querySelector('[data-python-canvas-params-pane] input[aria-label="Filter parameters"]');
+      if (!(filter instanceof HTMLInputElement)) return false;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      if (setter === undefined) return false;
+      setter.call(filter, '__no_matching_provider_parameter__');
+      filter.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`,
+  );
+  assert.equal(
+    unmatchedFilterApplied,
+    true,
+    "The Params filter input was unavailable.",
+  );
+  await waitFor(
+    client,
+    "the empty provider parameter filter result",
+    `(() => {
+      const groups = Array.from(document.querySelectorAll('[data-python-canvas-parameter-group]'));
+      return groups.length === 0 &&
+        document.querySelector('[data-python-canvas-params-pane]')?.textContent?.includes('No provider parameters match this filter.') === true;
+    })()`,
+  );
+  const matchingFilterApplied = await evaluate(
+    client,
+    `(() => {
+      const filter = document.querySelector('[data-python-canvas-params-pane] input[aria-label="Filter parameters"]');
+      if (!(filter instanceof HTMLInputElement)) return false;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      if (setter === undefined) return false;
+      setter.call(filter, ${JSON.stringify(callable.parameter.name)});
+      filter.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`,
+  );
+  assert.equal(
+    matchingFilterApplied,
+    true,
+    "The Params filter could not be updated.",
+  );
+  await waitFor(
+    client,
+    "the matching provider parameter filter result",
+    `(() => {
+      const groups = Array.from(document.querySelectorAll('[data-python-canvas-parameter-group]'));
+      return groups.length === 1 && groups[0]?.textContent?.includes(${JSON.stringify(callable.parameter.name)}) === true;
+    })()`,
+  );
+
+  await activateNestedOutlineSection(client, unavailableSection);
+  await waitFor(
+    client,
+    "the disabled Params transition back to Section",
+    `(() => {
+      const pane = document.querySelector(${JSON.stringify(trailingPaneSelector)});
+      const sectionTab = document.querySelector(${JSON.stringify(sectionTabSelector)});
+      const paramsTab = document.querySelector(${JSON.stringify(paramsTabSelector)});
+      return pane instanceof HTMLElement && pane.dataset.visible === 'true' &&
+        sectionTab instanceof HTMLButtonElement && sectionTab.getAttribute('aria-selected') === 'true' &&
+        paramsTab instanceof HTMLButtonElement && paramsTab.disabled === true &&
+        paramsTab.getAttribute('aria-disabled') === 'true';
+    })()`,
+  );
+  await closeSection(client);
 }
 
 async function resizeLeadingPane(client) {
@@ -453,8 +592,10 @@ async function reloadAndAssertPanePreference(client, previewOrigin, width) {
       const leading = document.querySelector(${JSON.stringify(leadingPaneRegionSelector)});
       const trailing = document.querySelector(${JSON.stringify(trailingPaneRegionSelector)});
       const trailingPane = document.querySelector(${JSON.stringify(trailingPaneSelector)});
+      const sectionTab = document.querySelector(${JSON.stringify(sectionTabSelector)});
       return leading instanceof HTMLElement && trailing instanceof HTMLElement &&
         trailingPane instanceof HTMLElement &&
+        sectionTab instanceof HTMLButtonElement && sectionTab.getAttribute('aria-selected') === 'true' &&
         Math.abs(leading.getBoundingClientRect().width - ${String(width)}) <= 2 &&
         Math.abs(trailing.getBoundingClientRect().width - 40) <= 1 &&
         trailingPane.dataset.visible === 'false';
@@ -476,12 +617,12 @@ async function exerciseNarrowViewportReconciliation(client) {
   );
   await clickElementCenter(
     client,
-    inspectorTabSelector,
-    "the constrained Inspector workspace rail tab",
+    sectionTabSelector,
+    "the constrained Section workspace rail tab",
   );
   await waitFor(
     client,
-    "Inspector opening with the constrained Outline pane closed",
+    "Section opening with the constrained Outline pane closed",
     `(() => {
       const leading = document.querySelector(${JSON.stringify(leadingPaneSelector)});
       const trailing = document.querySelector(${JSON.stringify(trailingPaneSelector)});
@@ -549,7 +690,7 @@ async function exerciseNarrowViewportReconciliation(client) {
   );
   assert.ok(
     reachability.exposedCenterStrip > 0,
-    "The constrained Inspector left no exposed center strip between the rails.",
+    "The constrained Section pane left no exposed center strip between the rails.",
   );
   assert.ok(
     reachability.centerWidth > 0 && reachability.centerReachable,

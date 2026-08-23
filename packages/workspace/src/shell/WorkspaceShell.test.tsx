@@ -139,9 +139,11 @@ const INITIAL_LEADING_TAB_ID = "notes";
 const INITIAL_TRAILING_TAB_ID = "details";
 
 function Harness({
+  includeBuiltInInspector = true,
   leadingPaneShiftsCanvas = true,
   onChange,
 }: {
+  includeBuiltInInspector?: boolean;
   leadingPaneShiftsCanvas?: boolean;
   onChange: (viewState: WorkspaceShellViewState) => void;
 }) {
@@ -154,6 +156,7 @@ function Harness({
   return (
     <WorkspaceShell
       ariaLabel="Test workspace"
+      includeBuiltInInspector={includeBuiltInInspector}
       leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
       leadingTabs={leadingTabs}
       onViewStateChange={(nextState) => {
@@ -161,6 +164,44 @@ function Harness({
         setViewState(nextState);
       }}
       trailingTabs={trailingTabs}
+      viewState={viewState}
+    />
+  );
+}
+
+function ContextualTrailingTabsHarness({
+  activityDisabled,
+  onChange,
+}: {
+  activityDisabled: boolean;
+  onChange: (viewState: WorkspaceShellViewState) => void;
+}) {
+  const [viewState, setViewState] = useState(() =>
+    createWorkspaceShellViewState({
+      leadingTabId: INITIAL_LEADING_TAB_ID,
+      trailingTabId: INITIAL_TRAILING_TAB_ID,
+    }),
+  );
+  const contextualTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
+    trailingTabs[0]!,
+    { ...trailingTabs[1]!, disabled: activityDisabled },
+    {
+      id: "history",
+      label: "History",
+      icon: TestIcon,
+      renderContent: () => <p>History content</p>,
+    },
+  ];
+  return (
+    <WorkspaceShell
+      ariaLabel="Contextual tabs workspace"
+      includeBuiltInInspector={false}
+      leadingTabs={leadingTabs}
+      onViewStateChange={(nextState) => {
+        onChange(nextState);
+        setViewState(nextState);
+      }}
+      trailingTabs={contextualTabs}
       viewState={viewState}
     />
   );
@@ -420,6 +461,20 @@ describe("WorkspaceShell", () => {
     expect(getButton("Inspector").getAttribute("aria-selected")).toBe("true");
   });
 
+  it("leaves the trailing rail entirely host-owned when the built-in Inspector is omitted", async () => {
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<Harness includeBuiltInInspector={false} onChange={onChange} />}
+        </WorkspaceTestProvider>,
+      );
+    });
+
+    expect(host.querySelector('button[aria-label="Inspector"]')).toBeNull();
+    expect(getButton("Details").getAttribute("aria-selected")).toBe("true");
+    expect(getButton("Activity")).not.toBeNull();
+  });
+
   it("opens a registered tab into its requested focus target and restores its rail tab on close", async () => {
     await act(async () => {
       getButton("Guide").dispatchEvent(
@@ -471,6 +526,86 @@ describe("WorkspaceShell", () => {
     });
     expect(document.activeElement).toBe(getButton("Inspector"));
     expect(host.textContent).toContain("Select A Section to Edit");
+  });
+
+  it("keeps disabled contextual tabs visible, skips them while roving, and normalizes selection once", async () => {
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {
+            <ContextualTrailingTabsHarness
+              activityDisabled={false}
+              onChange={onChange}
+            />
+          }
+        </WorkspaceTestProvider>,
+      );
+    });
+    await resizeShell(800);
+
+    await act(async () => {
+      getButton("Activity").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+    expect(getButton("Activity").getAttribute("aria-selected")).toBe("true");
+    onChange.mockClear();
+
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {
+            <ContextualTrailingTabsHarness
+              activityDisabled
+              onChange={onChange}
+            />
+          }
+        </WorkspaceTestProvider>,
+      );
+    });
+
+    const activity = getButton("Activity");
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0]?.[0].trailing).toMatchObject({
+      rememberedNonFullWidth: 500,
+      selectedTabId: "details",
+      visible: true,
+      width: 500,
+    });
+    expect(activity.disabled).toBe(true);
+    expect(activity.getAttribute("aria-disabled")).toBe("true");
+    expect(activity.getAttribute("aria-selected")).toBe("false");
+    expect(activity.getAttribute("data-disabled")).toBe("true");
+    onChange.mockClear();
+
+    await act(async () => {
+      activity.click();
+    });
+    expect(onChange).not.toHaveBeenCalled();
+
+    const details = getButton("Details");
+    details.focus();
+    await act(async () => {
+      details.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }),
+      );
+    });
+    expect(document.activeElement).toBe(getButton("History"));
+    expect(getButton("History").getAttribute("aria-selected")).toBe("true");
+
+    await act(async () => {
+      getButton("History").dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Home" }),
+      );
+    });
+    expect(document.activeElement).toBe(getButton("Details"));
+
+    await act(async () => {
+      getButton("Details").dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "End" }),
+      );
+    });
+    expect(document.activeElement).toBe(getButton("History"));
   });
 
   it("resizes by keyboard in logical direction and exposes separator values", async () => {

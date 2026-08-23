@@ -136,6 +136,11 @@ function assertTabDefinition(
       `Workspace shell ${pane} tab ${tab.id} requires renderContent.`,
     );
   }
+  if (tab.disabled !== undefined && typeof tab.disabled !== "boolean") {
+    throw new Error(
+      `Workspace shell ${pane} tab ${tab.id} disabled must be a boolean when supplied.`,
+    );
+  }
   ids.add(tab.id);
 }
 
@@ -224,6 +229,38 @@ function getTab(
   return getTabs(pane, tabs).find((candidate) => candidate.id === tabId);
 }
 
+function getFirstEnabledTab(
+  tabs: ReadonlyArray<WorkspaceShellTabDefinition>,
+): WorkspaceShellTabDefinition | undefined {
+  return tabs.find((tab) => !tab.disabled);
+}
+
+function normalizeUnavailableTabSelection(
+  viewState: WorkspaceShellViewState,
+  tabs: ShellTabCollections,
+): WorkspaceShellViewState {
+  let nextState = viewState;
+  for (const pane of ["leading", "trailing"] as const) {
+    const paneTabs = getTabs(pane, tabs);
+    const selectedTab = getTab(pane, nextState[pane].selectedTabId, tabs);
+    if (!selectedTab?.disabled) {
+      continue;
+    }
+    const replacement = getFirstEnabledTab(paneTabs);
+    if (!replacement || replacement.id === selectedTab.id) {
+      continue;
+    }
+    nextState = {
+      ...nextState,
+      [pane]: {
+        ...nextState[pane],
+        selectedTabId: replacement.id,
+      },
+    };
+  }
+  return nextState;
+}
+
 function focusRegisteredTab(
   pane: WorkspaceShellPaneSide,
   tabId: string,
@@ -234,6 +271,9 @@ function focusRegisteredTab(
   const tab = getTab(pane, tabId, tabs);
   const initialTarget =
     target === "initial" ? tab?.initialFocusRef?.current : null;
+  if (tab?.disabled) {
+    return;
+  }
   (initialTarget ?? tabRefs.get(`${pane}:${tabId}`))?.focus();
 }
 
@@ -347,6 +387,7 @@ function getPointerResizeState(
 export function WorkspaceShell({
   ariaLabel = "Workspace",
   className,
+  includeBuiltInInspector = true,
   leadingPaneShiftsCanvas = true,
   leadingTabs,
   onViewStateChange,
@@ -441,12 +482,21 @@ export function WorkspaceShell({
     [resolvedSectionTagColorPalette],
   );
   const combinedTrailingTabs = useMemo(
-    () => [inspectorTab, ...trailingTabs],
-    [inspectorTab, trailingTabs],
+    () =>
+      includeBuiltInInspector ? [inspectorTab, ...trailingTabs] : trailingTabs,
+    [includeBuiltInInspector, inspectorTab, trailingTabs],
   );
   assertOutlineViewState(viewState);
   assertTabs("leading", combinedLeadingTabs, viewState.leading);
   assertTabs("trailing", combinedTrailingTabs, viewState.trailing);
+
+  useLayoutEffect(() => {
+    const normalized = normalizeUnavailableTabSelection(viewState, {
+      leadingTabs: combinedLeadingTabs,
+      trailingTabs: combinedTrailingTabs,
+    });
+    requestViewState(normalized);
+  }, [combinedLeadingTabs, combinedTrailingTabs, requestViewState, viewState]);
 
   const leadingViewportInset = getWorkspaceShellPaneTrueWidth(
     displayState.leading,
@@ -589,16 +639,20 @@ export function WorkspaceShell({
   }
 
   function activateTab(pane: WorkspaceShellPaneSide, tabId: string): void {
+    const tabs = {
+      leadingTabs: combinedLeadingTabs,
+      trailingTabs: combinedTrailingTabs,
+    };
+    const tab = getTab(pane, tabId, tabs);
+    if (!tab || tab.disabled) {
+      return;
+    }
     const next = selectWorkspaceShellTab(
       viewStateRef.current,
       pane,
       tabId,
       requireMeasuredWidth(),
     );
-    const tab = getTab(pane, tabId, {
-      leadingTabs: combinedLeadingTabs,
-      trailingTabs: combinedTrailingTabs,
-    });
     requestViewState(next, {
       pane,
       tabId,
@@ -633,22 +687,26 @@ export function WorkspaceShell({
       leadingTabs: combinedLeadingTabs,
       trailingTabs: combinedTrailingTabs,
     });
-    const currentIndex = tabs.findIndex((tab) => tab.id === tabId);
+    const enabledTabs = tabs.filter((tab) => !tab.disabled);
+    const currentIndex = enabledTabs.findIndex((tab) => tab.id === tabId);
+    if (currentIndex === -1 || enabledTabs.length === 0) {
+      return;
+    }
     let nextIndex: number | null = null;
     if (event.key === "ArrowDown") {
-      nextIndex = (currentIndex + 1) % tabs.length;
+      nextIndex = (currentIndex + 1) % enabledTabs.length;
     } else if (event.key === "ArrowUp") {
-      nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+      nextIndex = (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
     } else if (event.key === "Home") {
       nextIndex = 0;
     } else if (event.key === "End") {
-      nextIndex = tabs.length - 1;
+      nextIndex = enabledTabs.length - 1;
     }
     if (nextIndex === null) {
       return;
     }
     event.preventDefault();
-    const nextTab = tabs[nextIndex];
+    const nextTab = enabledTabs[nextIndex];
     if (!nextTab) {
       throw new Error(
         `Workspace shell ${pane} tab navigation resolved no tab at ${nextIndex}.`,

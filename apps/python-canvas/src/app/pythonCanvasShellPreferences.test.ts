@@ -7,6 +7,10 @@ import {
   PYTHON_CANVAS_SHELL_PREFERENCE_KEY,
   PYTHON_CANVAS_SHELL_PREFERENCE_VERSION,
 } from "./pythonCanvasShellPreferences";
+import {
+  PYTHON_CANVAS_PARAMS_TAB_ID,
+  PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,
+} from "./pythonCanvasRightPane";
 
 function createStorageHarness(value: string | null) {
   return {
@@ -15,7 +19,16 @@ function createStorageHarness(value: string | null) {
   };
 }
 
-function storedPreference(viewState: unknown, version = 1): string {
+function pythonCanvasDefaultViewState() {
+  return createWorkspaceShellViewState({
+    trailingTabId: PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,
+  });
+}
+
+function storedPreference(
+  viewState: unknown,
+  version = PYTHON_CANVAS_SHELL_PREFERENCE_VERSION,
+): string {
   return JSON.stringify({ version, viewState });
 }
 
@@ -24,17 +37,18 @@ describe("Python Canvas shell preferences", () => {
     const storage = createStorageHarness(null);
 
     expect(loadPythonCanvasShellViewState(storage)).toEqual(
-      createWorkspaceShellViewState(),
+      pythonCanvasDefaultViewState(),
     );
     expect(storage.setItem).not.toHaveBeenCalled();
   });
 
   it("round-trips a complete valid shell state", () => {
     const storage = createStorageHarness(null);
-    const viewState = createWorkspaceShellViewState();
+    const viewState = pythonCanvasDefaultViewState();
     viewState.leading.width = 410;
     viewState.leading.rememberedNonFullWidth = 390;
     viewState.trailing.visible = true;
+    viewState.trailing.selectedTabId = PYTHON_CANVAS_PARAMS_TAB_ID;
     viewState.trailing.width = 540;
     viewState.trailing.rememberedNonFullWidth = 515;
     viewState.outline = {
@@ -66,27 +80,37 @@ describe("Python Canvas shell preferences", () => {
     ["malformed JSON", "{"],
     [
       "a stale schema version",
-      storedPreference(createWorkspaceShellViewState(), 0),
+      storedPreference(pythonCanvasDefaultViewState(), 1),
     ],
     ["a partial view state", storedPreference({ leading: {} })],
     [
-      "an invalid built-in tab ID",
+      "an invalid leading tab ID",
       storedPreference({
-        ...createWorkspaceShellViewState(),
+        ...pythonCanvasDefaultViewState(),
         leading: {
-          ...createWorkspaceShellViewState().leading,
+          ...pythonCanvasDefaultViewState().leading,
           selectedTabId: "host-notes",
         },
       }),
     ],
     [
+      "the retired Inspector tab ID",
+      storedPreference({
+        ...pythonCanvasDefaultViewState(),
+        trailing: {
+          ...pythonCanvasDefaultViewState().trailing,
+          selectedTabId: "inspector",
+        },
+      }),
+    ],
+    [
       "a non-finite pane width",
-      '{"version":1,"viewState":{"leading":{"selectedTabId":"outline","visible":true,"width":1e999,"rememberedNonFullWidth":335},"trailing":{"selectedTabId":"inspector","visible":false,"width":500,"rememberedNonFullWidth":500},"outline":{"collapsedGroupIds":[],"focusedSectionId":null}}}',
+      '{"version":2,"viewState":{"leading":{"selectedTabId":"outline","visible":true,"width":1e999,"rememberedNonFullWidth":335},"trailing":{"selectedTabId":"section-settings","visible":false,"width":500,"rememberedNonFullWidth":500},"outline":{"collapsedGroupIds":[],"focusedSectionId":null}}}',
     ],
     [
       "duplicate collapsed groups",
       storedPreference({
-        ...createWorkspaceShellViewState(),
+        ...pythonCanvasDefaultViewState(),
         outline: {
           collapsedGroupIds: [
             "python-canvas:list:group",
@@ -99,7 +123,7 @@ describe("Python Canvas shell preferences", () => {
     [
       "a non-string collapsed group",
       storedPreference({
-        ...createWorkspaceShellViewState(),
+        ...pythonCanvasDefaultViewState(),
         outline: { collapsedGroupIds: [42], focusedSectionId: null },
       }),
     ],
@@ -107,7 +131,7 @@ describe("Python Canvas shell preferences", () => {
     const storage = createStorageHarness(serialized);
 
     expect(loadPythonCanvasShellViewState(storage)).toEqual(
-      createWorkspaceShellViewState(),
+      pythonCanvasDefaultViewState(),
     );
     expect(storage.setItem).not.toHaveBeenCalled();
   });
@@ -125,11 +149,11 @@ describe("Python Canvas shell preferences", () => {
         throw new Error("quota exceeded");
       }),
     };
-    const viewState = createWorkspaceShellViewState();
+    const viewState = pythonCanvasDefaultViewState();
     viewState.trailing.visible = true;
 
     expect(loadPythonCanvasShellViewState(readFailure)).toEqual(
-      createWorkspaceShellViewState(),
+      pythonCanvasDefaultViewState(),
     );
     expect(() =>
       persistPythonCanvasShellViewState(viewState, writeFailure),

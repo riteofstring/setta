@@ -1,11 +1,15 @@
 import {
   WorkspaceProvider,
+  WorkspaceParameterConfigurationIcon,
+  WorkspaceSectionEditor,
+  WorkspaceSectionSettingsIcon,
   WorkspaceShell,
+  useWorkspaceDocumentSnapshot,
   type WorkspaceHost,
   type WorkspaceShellTabDefinition,
   type WorkspaceShellViewState,
 } from "@setta/workspace";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   PythonCanvasMutationContext,
@@ -23,8 +27,30 @@ import {
   loadPythonCanvasShellViewState,
   persistPythonCanvasShellViewState,
 } from "./pythonCanvasShellPreferences";
+import {
+  PythonCanvasParamsPane,
+  getPythonCanvasParamsPaneModel,
+} from "./PythonCanvasParamsPane";
+import {
+  PYTHON_CANVAS_PARAMS_TAB_ID,
+  PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,
+} from "./pythonCanvasRightPane";
 
 const EMPTY_SHELL_TABS: ReadonlyArray<WorkspaceShellTabDefinition> = [];
+
+const PYTHON_CANVAS_SECTION_TAB: WorkspaceShellTabDefinition = {
+  icon: WorkspaceSectionSettingsIcon,
+  id: PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,
+  label: "Section",
+  renderContent: () => <WorkspaceSectionEditor />,
+};
+
+const PYTHON_CANVAS_PARAMS_TAB: WorkspaceShellTabDefinition = {
+  icon: WorkspaceParameterConfigurationIcon,
+  id: PYTHON_CANVAS_PARAMS_TAB_ID,
+  label: "Params",
+  renderContent: () => <PythonCanvasParamsPane />,
+};
 
 type ViewState =
   | { kind: "loading" }
@@ -178,12 +204,8 @@ function PythonCanvasReadyWorkspace({
             error={pythonTargetCompletionError}
           >
             <WorkspaceProvider host={state.host}>
-              <WorkspaceShell
-                ariaLabel="Python Canvas workspace"
-                leadingPaneShiftsCanvas={true}
-                leadingTabs={EMPTY_SHELL_TABS}
+              <PythonCanvasWorkspaceShell
                 onViewStateChange={handleShellViewStateChange}
-                trailingTabs={EMPTY_SHELL_TABS}
                 viewState={shellViewState}
               />
             </WorkspaceProvider>
@@ -191,5 +213,34 @@ function PythonCanvasReadyWorkspace({
         </GeneratedPythonTerminalContext.Provider>
       </PythonCanvasMutationContext.Provider>
     </div>
+  );
+}
+
+function PythonCanvasWorkspaceShell({
+  onViewStateChange,
+  viewState,
+}: {
+  onViewStateChange: (nextState: WorkspaceShellViewState) => void;
+  viewState: WorkspaceShellViewState;
+}) {
+  const document = useWorkspaceDocumentSnapshot();
+  const paramsEnabled = getPythonCanvasParamsPaneModel(document) !== null;
+  const trailingTabs = useMemo<ReadonlyArray<WorkspaceShellTabDefinition>>(
+    () => [
+      PYTHON_CANVAS_SECTION_TAB,
+      { ...PYTHON_CANVAS_PARAMS_TAB, disabled: !paramsEnabled },
+    ],
+    [paramsEnabled],
+  );
+  return (
+    <WorkspaceShell
+      ariaLabel="Python Canvas workspace"
+      includeBuiltInInspector={false}
+      leadingPaneShiftsCanvas={true}
+      leadingTabs={EMPTY_SHELL_TABS}
+      onViewStateChange={onViewStateChange}
+      trailingTabs={trailingTabs}
+      viewState={viewState}
+    />
   );
 }

@@ -325,6 +325,13 @@ vi.mock("@setta/workspace", async (importOriginal) => ({
   registerSectionKinds: mocks.registerSectionKinds,
   setItemData: mocks.setItemData,
   setWorkspaceColorMode: mocks.setWorkspaceColorMode,
+  useWorkspaceDocumentSnapshot: () =>
+    mocks.workspaceCanvasHost?.getSnapshot() ?? {
+      activeIds: [],
+      sections: {},
+      topLevelSections: {},
+      viewport: null,
+    },
 }));
 
 import { PythonCanvasApp } from "./PythonCanvasApp";

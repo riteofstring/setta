@@ -1,14 +1,17 @@
 import {
   createWorkspaceShellViewState,
-  WORKSPACE_INSPECTOR_TAB_ID,
   WORKSPACE_OUTLINE_TAB_ID,
   type WorkspaceShellPaneViewState,
   type WorkspaceShellViewState,
 } from "@setta/workspace";
+import {
+  PYTHON_CANVAS_PARAMS_TAB_ID,
+  PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,
+} from "./pythonCanvasRightPane";
 
 export const PYTHON_CANVAS_SHELL_PREFERENCE_KEY =
   "setta.python-canvas.workspace-shell";
-export const PYTHON_CANVAS_SHELL_PREFERENCE_VERSION = 1;
+export const PYTHON_CANVAS_SHELL_PREFERENCE_VERSION = 2;
 
 type BrowserStorage = Pick<Storage, "getItem" | "setItem">;
 
@@ -42,7 +45,7 @@ function isNonEmptyString(value: unknown): value is string {
 
 function parsePane(
   value: unknown,
-  selectedTabId: string,
+  acceptedTabIds: ReadonlyArray<string>,
 ): WorkspaceShellPaneViewState | null {
   if (
     !isRecord(value) ||
@@ -52,7 +55,8 @@ function parsePane(
       "width",
       "rememberedNonFullWidth",
     ]) ||
-    value.selectedTabId !== selectedTabId ||
+    !isNonEmptyString(value.selectedTabId) ||
+    !acceptedTabIds.includes(value.selectedTabId) ||
     typeof value.visible !== "boolean" ||
     !isPositiveFiniteNumber(value.width) ||
     !isPositiveFiniteNumber(value.rememberedNonFullWidth)
@@ -60,7 +64,7 @@ function parsePane(
     return null;
   }
   return {
-    selectedTabId,
+    selectedTabId: value.selectedTabId,
     visible: value.visible,
     width: value.width,
     rememberedNonFullWidth: value.rememberedNonFullWidth,
@@ -99,11 +103,13 @@ function parsePreference(
   ) {
     return null;
   }
-  const leading = parsePane(value.viewState.leading, WORKSPACE_OUTLINE_TAB_ID);
-  const trailing = parsePane(
-    value.viewState.trailing,
-    WORKSPACE_INSPECTOR_TAB_ID,
-  );
+  const leading = parsePane(value.viewState.leading, [
+    WORKSPACE_OUTLINE_TAB_ID,
+  ]);
+  const trailing = parsePane(value.viewState.trailing, [
+    PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,
+    PYTHON_CANVAS_PARAMS_TAB_ID,
+  ]);
   const outline = parseOutline(value.viewState.outline);
   if (!leading || !trailing || !outline) {
     return null;
@@ -112,6 +118,12 @@ function parsePreference(
     version: PYTHON_CANVAS_SHELL_PREFERENCE_VERSION,
     viewState: { leading, trailing, outline },
   };
+}
+
+function createPythonCanvasShellViewState(): WorkspaceShellViewState {
+  return createWorkspaceShellViewState({
+    trailingTabId: PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,
+  });
 }
 
 function browserStorage(): BrowserStorage | null {
@@ -145,17 +157,17 @@ export function loadPythonCanvasShellViewState(
   storage: BrowserStorage | null = browserStorage(),
 ): WorkspaceShellViewState {
   if (storage === null) {
-    return createWorkspaceShellViewState();
+    return createPythonCanvasShellViewState();
   }
   try {
     const rawValue = storage.getItem(PYTHON_CANVAS_SHELL_PREFERENCE_KEY);
     if (rawValue === null) {
-      return createWorkspaceShellViewState();
+      return createPythonCanvasShellViewState();
     }
     const preference = parsePreference(JSON.parse(rawValue));
-    return preference?.viewState ?? createWorkspaceShellViewState();
+    return preference?.viewState ?? createPythonCanvasShellViewState();
   } catch {
-    return createWorkspaceShellViewState();
+    return createPythonCanvasShellViewState();
   }
 }
 

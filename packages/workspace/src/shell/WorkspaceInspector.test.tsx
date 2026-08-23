@@ -47,7 +47,10 @@ import {
   DEFAULT_SECTION_TAG_COLOR_PALETTE,
   type WorkspaceSectionTagColorPalette,
 } from "../section/sectionTagColors";
-import { WorkspaceInspector } from "./WorkspaceInspector";
+import {
+  WorkspaceInspector,
+  WorkspaceSectionEditor,
+} from "./WorkspaceInspector";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -321,6 +324,19 @@ describe("WorkspaceInspector", () => {
     return initialFocusRef;
   }
 
+  async function renderSectionEditor(document: WorkspaceDocumentInput) {
+    loadWorkspaceDocument(testWorkspace.host, document);
+    const initialFocusRef = createRef<HTMLElement>();
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceSectionEditor initialFocusRef={initialFocusRef} />}
+        </WorkspaceTestProvider>,
+      );
+    });
+    return initialFocusRef;
+  }
+
   it("renders and focuses the reference empty state", async () => {
     const initialFocusRef = await renderInspector(createDocument([]));
 
@@ -328,6 +344,59 @@ describe("WorkspaceInspector", () => {
     expect(initialFocusRef.current?.getAttribute("aria-label")).toBe(
       "Workspace Inspector selection",
     );
+  });
+
+  it("projects a selected item to its reduced owning Section editor", async () => {
+    const initialFocusRef = await renderSectionEditor(
+      createDocument(["items"], {
+        items: makeItemSection(
+          {
+            kind: "text",
+            value: "value",
+            configuration: {
+              autocomplete: "off",
+              disabled: false,
+              placeholder: null,
+              singleLine: true,
+              wrapLines: true,
+            },
+          },
+          ["value"],
+        ),
+      }),
+    );
+
+    expect(initialFocusRef.current?.getAttribute("aria-label")).toBe(
+      "Workspace section settings",
+    );
+    expect(getLabeledControl<HTMLInputElement>(host, "Name").value).toBe(
+      "Items",
+    );
+    expect(host.textContent).not.toContain("Amount");
+    expect(
+      host.querySelector('[data-inspector-focus-key="section-actions"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector('[data-inspector-focus-key="item-authoring-actions"]'),
+    ).toBeNull();
+    expect(
+      [...host.querySelectorAll("button")].map((button) => button.textContent),
+    ).not.toContain("Minimized");
+    expect(
+      [...host.querySelectorAll("button")].map((button) => button.textContent),
+    ).not.toContain("Expanded");
+    const settingsGroups = [
+      ...host.querySelectorAll<HTMLDetailsElement>(
+        ".setta-workspace-inspector-settings-group",
+      ),
+    ];
+    expect(
+      settingsGroups.map(
+        (group) => group.querySelector("summary")?.textContent,
+      ),
+    ).toEqual(["Section Settings", "Appearance"]);
+    expect(settingsGroups.map((group) => group.open)).toEqual([true, false]);
+    expect(host.textContent).not.toContain("Custom section content");
   });
 
   it("keeps invalid section accents inside the pane and restores focus on Escape", async () => {

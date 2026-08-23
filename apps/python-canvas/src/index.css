@@ -57,6 +57,119 @@ body {
   white-space: nowrap;
 }
 
+/* The contextual Params tab keeps its application-specific facts in the package pane's existing
+ * scrolling surface. Its low-chrome filter and flat parameter groups mirror main's UIConfig
+ * reading rhythm without creating an item editor or another pane/card hierarchy. */
+.python-canvas-params-pane {
+  display: flex;
+  min-block-size: 100%;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 8px 24px;
+  color: light-dark(rgb(43 54 74), rgb(182 192 211));
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.python-canvas-params-filter {
+  display: flex;
+  min-inline-size: 0;
+}
+
+.python-canvas-params-filter input {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 28px;
+  padding: 4px 5px;
+  border: 0;
+  border-block-end: 1px solid light-dark(rgb(182 192 211), rgb(43 54 74));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 18px;
+}
+
+.python-canvas-params-filter input:focus-visible {
+  border-block-end-color: rgb(147 197 253);
+  outline: 0;
+}
+
+.python-canvas-params-list {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 14px;
+  margin-block-start: 4px;
+}
+
+.python-canvas-params-group {
+  min-inline-size: 0;
+  padding-block-end: 10px;
+  border-block-end: 1px solid
+    light-dark(rgb(182 192 211 / 50%), rgb(43 54 74 / 70%));
+}
+
+.python-canvas-params-group:last-child {
+  padding-block-end: 0;
+  border-block-end: 0;
+}
+
+.python-canvas-params-group h3 {
+  min-inline-size: 0;
+  margin: 0 0 8px;
+  overflow: hidden;
+  color: light-dark(rgb(65 80 108), rgb(150 164 192));
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.python-canvas-params-group dl {
+  display: flex;
+  min-inline-size: 0;
+  margin: 0;
+  flex-direction: column;
+  gap: 0;
+}
+
+.python-canvas-params-group dl > div {
+  display: grid;
+  min-inline-size: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 8px;
+  padding-block: 3px;
+  border-block-end: 1px solid
+    light-dark(rgb(182 192 211 / 38%), rgb(43 54 74 / 56%));
+}
+
+.python-canvas-params-group dl > div:last-child {
+  border-block-end: 0;
+}
+
+.python-canvas-params-group dt {
+  color: light-dark(rgb(86 105 143), rgb(150 164 192));
+  font-weight: 600;
+}
+
+.python-canvas-params-group dd {
+  min-inline-size: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.python-canvas-params-group code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+}
+
+.python-canvas-params-empty {
+  margin: 0;
+  color: light-dark(rgb(100 116 139), rgb(86 105 143));
+}
+
 .python-canvas-target-editor-boundary {
   display: flex;
   flex: 1 1 auto;

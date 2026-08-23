@@ -44,7 +44,10 @@ const RUNTIME_EXPORTS = [
   "WorkspaceProvider",
   "WorkspaceItemLabel",
   "WorkspaceItemList",
+  "WorkspaceParameterConfigurationIcon",
   "WorkspaceShell",
+  "WorkspaceSectionEditor",
+  "WorkspaceSectionSettingsIcon",
   "WorkspaceTooltip",
   "WORKSPACE_INSPECTOR_TAB_ID",
   "WORKSPACE_OUTLINE_TAB_ID",
@@ -90,6 +93,7 @@ const RUNTIME_EXPORTS = [
   "useItemSelectionMode",
   "useWorkspaceAppearance",
   "useWorkspaceCapabilities",
+  "useWorkspaceDocumentSnapshot",
   "useWorkspaceHost",
   "useWorkspaceOptions",
 ] as const;

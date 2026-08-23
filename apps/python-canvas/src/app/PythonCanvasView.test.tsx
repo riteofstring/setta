@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { act } from "react";
+import { act, useCallback, useSyncExternalStore } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
+  WorkspaceDocument,
   WorkspaceHost,
   WorkspaceShellTabDefinition,
   WorkspaceShellViewState,
@@ -19,6 +20,7 @@ import {
 
 type ShellPropsCapture = {
   ariaLabel?: string;
+  includeBuiltInInspector?: boolean;
   leadingPaneShiftsCanvas?: boolean;
   leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
   onViewStateChange: (nextState: WorkspaceShellViewState) => void;
@@ -26,15 +28,27 @@ type ShellPropsCapture = {
   viewState: WorkspaceShellViewState;
 };
 
+type TestWorkspaceHost = WorkspaceHost & {
+  publish: (nextDocument: WorkspaceDocument) => void;
+};
+
 const workspaceMocks = vi.hoisted(() => ({
   providerHosts: [] as Array<WorkspaceHost>,
   shellProps: [] as Array<ShellPropsCapture>,
 }));
 
+const paramsPaneMocks = vi.hoisted(() => ({
+  getModel: vi.fn<(document: unknown) => unknown>(() => null),
+}));
+
 vi.mock("@setta/workspace", () => ({
   WORKSPACE_INSPECTOR_TAB_ID: "inspector",
   WORKSPACE_OUTLINE_TAB_ID: "outline",
-  createWorkspaceShellViewState: () => ({
+  createWorkspaceShellViewState: ({
+    trailingTabId = "inspector",
+  }: {
+    trailingTabId?: string;
+  } = {}) => ({
     leading: {
       rememberedNonFullWidth: 335,
       selectedTabId: "outline",
@@ -44,7 +58,7 @@ vi.mock("@setta/workspace", () => ({
     outline: { collapsedGroupIds: [], focusedSectionId: null },
     trailing: {
       rememberedNonFullWidth: 500,
-      selectedTabId: "inspector",
+      selectedTabId: trailingTabId,
       visible: false,
       width: 500,
     },
@@ -76,6 +90,27 @@ vi.mock("@setta/workspace", () => ({
     workspaceMocks.providerHosts.push(host);
     return <div data-testid="workspace-provider">{children}</div>;
   },
+  WorkspaceParameterConfigurationIcon: () => null,
+  WorkspaceSectionEditor: () => <div data-testid="workspace-section-editor" />,
+  WorkspaceSectionSettingsIcon: () => null,
+  useWorkspaceDocumentSnapshot: () => {
+    const host = workspaceMocks.providerHosts.at(-1);
+    if (host === undefined) {
+      throw new Error("Expected a workspace provider host.");
+    }
+    const subscribe = useCallback(
+      (onStoreChange: () => void) => host.subscribe(() => onStoreChange()),
+      [host],
+    );
+    return useSyncExternalStore(subscribe, host.getSnapshot, host.getSnapshot);
+  },
+  useWorkspaceHost: () => workspaceMocks.providerHosts.at(-1),
+}));
+
+vi.mock("./PythonCanvasParamsPane", () => ({
+  PythonCanvasParamsPane: () => null,
+  getPythonCanvasParamsPaneModel: (document: unknown) =>
+    paramsPaneMocks.getModel(document),
 }));
 
 let container: HTMLDivElement | undefined;
@@ -87,6 +122,8 @@ const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
 );
 
 beforeEach(() => {
+  paramsPaneMocks.getModel.mockReset();
+  paramsPaneMocks.getModel.mockReturnValue(null);
   testLocalStorage = createTestLocalStorage();
   Object.defineProperty(window, "localStorage", {
     configurable: true,
@@ -171,7 +208,7 @@ describe("PythonCanvasView", () => {
   });
 
   it("mounts the package shell with controlled, stable host integrations", () => {
-    const host = {} as WorkspaceHost;
+    const host = createWorkspaceHostForView();
     const view = renderView({ kind: "idle" }, null, null, {
       host,
       kind: "ready",
@@ -180,12 +217,23 @@ describe("PythonCanvasView", () => {
     const provider = view.querySelector("[data-testid='workspace-provider']");
 
     expect(initialShell.ariaLabel).toBe("Python Canvas workspace");
+    expect(initialShell.includeBuiltInInspector).toBe(false);
     expect(initialShell.leadingPaneShiftsCanvas).toBe(true);
     expect(initialShell.leadingTabs).toEqual([]);
-    expect(initialShell.trailingTabs).toEqual([]);
-    expect(initialShell.leadingTabs).toBe(initialShell.trailingTabs);
+    expect(initialShell.trailingTabs.map((tab) => tab.id)).toEqual([
+      "section-settings",
+      "params",
+    ]);
+    expect(initialShell.trailingTabs[0]?.label).toBe("Section");
+    expect(initialShell.trailingTabs[1]).toMatchObject({
+      disabled: true,
+      label: "Params",
+    });
     expect(initialShell.viewState.leading.visible).toBe(true);
     expect(initialShell.viewState.trailing.visible).toBe(false);
+    expect(initialShell.viewState.trailing.selectedTabId).toBe(
+      "section-settings",
+    );
     expect(workspaceMocks.providerHosts).toEqual([host]);
     expect(view.querySelector("[data-testid='workspace-canvas']")).toBeNull();
 
@@ -215,6 +263,40 @@ describe("PythonCanvasView", () => {
       version: PYTHON_CANVAS_SHELL_PREFERENCE_VERSION,
       viewState: updatedShell.viewState,
     });
+  });
+
+  it("keeps stable Section and Params definitions while only Params availability follows selection", () => {
+    paramsPaneMocks.getModel.mockImplementation((document: unknown) =>
+      (document as WorkspaceDocument).activeIds.length === 1 ? {} : null,
+    );
+    const host = createWorkspaceHostForView(callableDocumentForParams());
+    renderView({ kind: "idle" }, null, null, { host, kind: "ready" });
+    const callableShell = lastShellProps();
+    const initialSectionTab = callableShell.trailingTabs[0];
+    const initialParamsTab = callableShell.trailingTabs[1];
+
+    expect(initialParamsTab).toMatchObject({
+      disabled: false,
+      id: "params",
+    });
+
+    act(() => {
+      host.publish({
+        activeIds: [],
+        sections: {},
+        topLevelSections: {},
+        viewport: null,
+      });
+    });
+
+    const unavailableShell = lastShellProps();
+    expect(unavailableShell.trailingTabs[0]).toBe(initialSectionTab);
+    expect(unavailableShell.trailingTabs[1]).not.toBe(initialParamsTab);
+    expect(unavailableShell.trailingTabs[1]).toMatchObject({
+      disabled: true,
+      id: "params",
+    });
+    expect(unavailableShell.trailingTabs[1]?.icon).toBe(initialParamsTab?.icon);
   });
 
   it("does not mount a shell before the workspace is ready", () => {
@@ -276,7 +358,7 @@ function renderView(
     | { kind: "loading" }
     | { kind: "error" }
     | { host: WorkspaceHost; kind: "ready" } = {
-    host: {} as WorkspaceHost,
+    host: createWorkspaceHostForView(),
     kind: "ready",
   },
 ): HTMLDivElement {
@@ -298,6 +380,80 @@ function renderView(
     );
   });
   return container;
+}
+
+function createWorkspaceHostForView(
+  initialDocument: WorkspaceDocument = {
+    activeIds: [],
+    sections: {},
+    topLevelSections: {},
+    viewport: null,
+  },
+): TestWorkspaceHost {
+  let document = initialDocument;
+  const listeners = new Set<(document: WorkspaceDocument) => void>();
+  return {
+    dispose: () => {},
+    getSnapshot: () => document,
+    loadDocument: () => {},
+    publish: (nextDocument) => {
+      document = nextDocument;
+      for (const listener of listeners) {
+        listener(document);
+      }
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+function callableDocumentForParams(): WorkspaceDocument {
+  const rootId = "parameter-root";
+  const parameterId = "provider-parameter";
+  return {
+    activeIds: ["callable"],
+    sections: {
+      callable: {
+        children: [],
+        id: "callable",
+        isHorizontalOrientation: false,
+        isMinimized: false,
+        itemTree: {
+          items: {
+            [rootId]: { children: [parameterId], id: rootId },
+            [parameterId]: {
+              children: [],
+              data: {
+                authoredExpression: "value",
+                default: null,
+                name: "value",
+                nameEditable: false,
+                passingStyle: "positional_or_keyword",
+                providerOrdinal: 0,
+                typeAnnotation: null,
+              },
+              id: parameterId,
+            },
+          },
+          rootId,
+          selectedItemIds: [],
+        },
+        kind: "python-canvas.callable",
+        name: "Callable",
+        overflowMode: false,
+        positionAndSizeLocked: false,
+        size: { height: 150, width: 250 },
+        styleColor: null,
+        tagColor: null,
+      },
+    },
+    topLevelSections: {
+      callable: { h: 150, w: 250, x: 0, y: 0, zIndex: 0 },
+    },
+    viewport: null,
+  };
 }
 
 function lastShellProps(): ShellPropsCapture {

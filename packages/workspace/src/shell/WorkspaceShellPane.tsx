@@ -102,17 +102,21 @@ function PaneRail({
         aria-orientation="vertical"
       >
         {tabs.map((tab) => {
-          const selected = paneState.selectedTabId === tab.id;
+          const disabled = tab.disabled === true;
+          const selected = !disabled && paneState.selectedTabId === tab.id;
           const Icon = tab.icon;
           return (
             <button
               aria-controls={panelId}
+              aria-disabled={disabled || undefined}
               aria-expanded={selected && paneState.visible}
               aria-label={tab.label}
               aria-selected={selected}
               className="setta-workspace-shell-tab"
               data-active={selected && paneState.visible ? "true" : "false"}
+              data-disabled={disabled ? "true" : "false"}
               data-workspace-shell-tab={`${pane}:${tab.id}`}
+              disabled={disabled}
               id={getTabDomId(instanceId, pane, tab.id)}
               key={tab.id}
               onClick={() => onActivateTab(pane, tab.id)}
@@ -120,7 +124,7 @@ function PaneRail({
               ref={(element) => registerTab(pane, tab.id, element)}
               role="tab"
               tabIndex={selected ? 0 : -1}
-              title={tab.label}
+              title={disabled ? `${tab.label} unavailable` : tab.label}
               type="button"
             >
               <Icon

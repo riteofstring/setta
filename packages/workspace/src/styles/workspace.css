@@ -868,12 +868,27 @@ input.setta-workspace-native-color::-moz-focus-inner {
   color: rgb(65 80 108);
 }
 
+.setta-workspace-shell-tab:disabled,
+.setta-workspace-shell-tab[data-disabled="true"] {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.setta-workspace-shell-tab:disabled:hover {
+  color: rgb(117 136 174);
+}
+
 .setta-workspace.setta-workspace-dark .setta-workspace-shell-tab {
   color: rgb(65 80 108);
 }
 
 .setta-workspace.setta-workspace-dark .setta-workspace-shell-tab:hover {
   color: rgb(86 105 143);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-shell-tab:disabled:hover {
+  color: rgb(65 80 108);
 }
 
 .setta-workspace-shell-tab[data-active="true"] {
@@ -1011,6 +1026,92 @@ input.setta-workspace-native-color::-moz-focus-inner {
   flex-direction: column;
   gap: 12px;
   padding: 4px 8px 24px;
+}
+
+.setta-workspace-inspector-settings-group {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgb(203 213 225 / 80%);
+  border-radius: 8px;
+  background-color: rgb(255 255 255 / 85%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-settings-group {
+  border-color: rgb(43 54 74 / 80%);
+  background-color: rgb(15 18 25 / 70%);
+}
+
+.setta-workspace-inspector-settings-summary {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  color: rgb(86 105 143);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  line-height: 16px;
+  list-style: none;
+  text-transform: uppercase;
+}
+
+.setta-workspace-inspector-settings-summary::-webkit-details-marker {
+  display: none;
+}
+
+.setta-workspace-inspector-settings-summary:hover {
+  background-color: rgb(241 245 249 / 80%);
+}
+
+.setta-workspace-inspector-settings-summary:focus-visible {
+  outline: 2px solid rgb(96 165 250);
+  outline-offset: -2px;
+}
+
+.setta-workspace-inspector-settings-summary svg {
+  flex: 0 0 auto;
+  color: rgb(100 116 139);
+  transition: transform 150ms ease;
+}
+
+.setta-workspace-inspector-settings-group[open]
+  > .setta-workspace-inspector-settings-summary
+  svg {
+  transform: rotate(180deg);
+}
+
+.setta-workspace-inspector-settings-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px;
+  border-top: 1px solid rgb(203 213 225 / 70%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-settings-summary {
+  color: rgb(150 164 192);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-settings-summary:hover {
+  background-color: rgb(21 26 35 / 80%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-settings-summary
+  svg {
+  color: rgb(86 105 143);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-settings-content {
+  border-top-color: rgb(43 54 74 / 70%);
 }
 
 .setta-workspace-inspector-section-heading {

@@ -8,9 +8,11 @@ import {
   type FocusEvent,
   type FormEvent,
   type KeyboardEvent,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { FiEdit3 } from "react-icons/fi";
+import { HiChevronDown } from "react-icons/hi2";
 import { createSectionCommandContext } from "../commands/workspaceCommandContexts";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { isGroupSection } from "../document/documentSelectors";
@@ -34,7 +36,10 @@ import type { SectionSizeValue, WorkspaceSection } from "../document/types";
 import { setGroupOverflowMode } from "../section/groupOverflowAction";
 import { useSectionRefs } from "../section/sectionRefs";
 import { persistSectionSizeChange } from "../section/sectionSizes";
-import type { WorkspaceSectionTagColorPalette } from "../section/sectionTagColors";
+import {
+  resolveSectionTagColorPalette,
+  type WorkspaceSectionTagColorPalette,
+} from "../section/sectionTagColors";
 import { SectionTagColorEditor } from "./SectionTagColorEditor";
 import { WorkspaceInspectorCommandActions } from "./WorkspaceInspectorCommandActions";
 import {
@@ -48,8 +53,18 @@ import { WorkspaceItemInspector } from "./WorkspaceItemInspector";
 import { useWorkspaceHost } from "../workspaceHostContext";
 
 type WorkspaceInspectorProps = {
+  ariaLabel?: string;
   initialFocusRef: RefObject<HTMLElement | null>;
   sectionTagColorPalette: WorkspaceSectionTagColorPalette;
+  sectionOnly?: boolean;
+};
+
+export type WorkspaceSectionEditorProps = {
+  // The shell can direct its first programmatic focus to this editor without the host needing
+  // access to the package's selection or focus stores.
+  initialFocusRef?: RefObject<HTMLElement | null>;
+  // Omit for the package palette. Hosts can provide their complete supported choice set.
+  sectionTagColorPalette?: WorkspaceSectionTagColorPalette;
 };
 
 type CommitTextFieldProps = {
@@ -381,7 +396,13 @@ function SectionSizeEditor({
   );
 }
 
-function SectionContribution({ section }: { section: WorkspaceSection }) {
+function SectionContribution({
+  includeUnsupportedMessage,
+  section,
+}: {
+  includeUnsupportedMessage: boolean;
+  section: WorkspaceSection;
+}) {
   const host = useWorkspaceHost();
   if (isGroupSection(section)) {
     return null;
@@ -405,6 +426,9 @@ function SectionContribution({ section }: { section: WorkspaceSection }) {
       </div>
     );
   }
+  if (!includeUnsupportedMessage) {
+    return null;
+  }
   return (
     <div className="setta-workspace-inspector-unsupported" role="note">
       <h4>Custom section content</h4>
@@ -413,13 +437,40 @@ function SectionContribution({ section }: { section: WorkspaceSection }) {
   );
 }
 
+function InspectorSettingsGroup({
+  children,
+  defaultOpen,
+  title,
+}: {
+  children: ReactNode;
+  defaultOpen: boolean;
+  title: string;
+}) {
+  return (
+    <details
+      className="setta-workspace-inspector-settings-group"
+      open={defaultOpen || undefined}
+    >
+      <summary className="setta-workspace-inspector-settings-summary">
+        <span>{title}</span>
+        <HiChevronDown aria-hidden="true" size={16} />
+      </summary>
+      <div className="setta-workspace-inspector-settings-content">
+        {children}
+      </div>
+    </details>
+  );
+}
+
 function SectionInspector({
   focusRoot,
+  includeInspectorCommands,
   onStatusChange,
   sectionTagColorPalette,
   section,
 }: {
   focusRoot: () => void;
+  includeInspectorCommands: boolean;
   onStatusChange: (message: string) => void;
   sectionTagColorPalette: WorkspaceSectionTagColorPalette;
   section: WorkspaceSection;
@@ -441,132 +492,157 @@ function SectionInspector({
           {isGroupSection(section) ? "Group" : section.kind}
         </span>
       </div>
-      <CommitTextField
-        disabled={!capabilities.canEditStructure}
-        focusKey="section-name"
-        label="Name"
-        onCommit={(value) => setSectionName(host, section.id, value.trim())}
-        onEscape={focusRoot}
-        onStatusChange={onStatusChange}
-        statusMessage={(value) =>
-          `Section name changed to ${value.trim() || "blank"}.`
-        }
-        value={section.name}
-      />
-      <CommitTextField
-        disabled={!capabilities.canEditStructure}
-        focusKey="section-style"
-        label="Style accent"
-        onCommit={(value) => setSectionStyleColor(host, section.id, value)}
-        onEscape={focusRoot}
-        onStatusChange={onStatusChange}
-        statusMessage={(value) =>
-          value.trim() === ""
-            ? "Section style accent cleared."
-            : `Section style accent set to ${value}.`
-        }
-        validate={(value) =>
-          value.trim() === "" || /^#?[0-9a-f]{6}$/iu.test(value.trim())
-            ? null
-            : "Enter a six-digit hex color or leave this blank."
-        }
-        value={section.styleColor ?? ""}
-      />
-      <SectionTagColorEditor
-        onEscape={focusRoot}
-        onStatusChange={onStatusChange}
-        palette={sectionTagColorPalette}
-        section={section}
-      />
-      <div className="setta-workspace-inspector-toggle-grid">
-        <button
-          aria-pressed={section.positionAndSizeLocked}
-          className="setta-workspace-inspector-toggle"
-          disabled={!capabilities.canEditLayout}
-          onClick={() => {
-            const nextLocked = !section.positionAndSizeLocked;
-            setSectionsPositionLocked(host, [section.id], nextLocked);
-            onStatusChange(
-              nextLocked
-                ? "Section position and size locked."
-                : "Section position and size unlocked.",
-            );
-          }}
-          type="button"
-        >
-          {section.positionAndSizeLocked ? "Locked" : "Unlocked"}
-        </button>
-        <button
-          aria-pressed={section.isMinimized}
-          className="setta-workspace-inspector-toggle"
-          onClick={() => {
-            toggleMinimized(host, section.id);
-            onStatusChange(
-              section.isMinimized ? "Section expanded." : "Section minimized.",
-            );
-          }}
-          type="button"
-        >
-          {section.isMinimized ? "Minimized" : "Expanded"}
-        </button>
-        {isGroupSection(section) ? (
-          <>
+      <InspectorSettingsGroup
+        defaultOpen
+        key={`${section.id}:section-settings`}
+        title="Section Settings"
+      >
+        <CommitTextField
+          disabled={!capabilities.canEditStructure}
+          focusKey="section-name"
+          label="Name"
+          onCommit={(value) => setSectionName(host, section.id, value.trim())}
+          onEscape={focusRoot}
+          onStatusChange={onStatusChange}
+          statusMessage={(value) =>
+            `Section name changed to ${value.trim() || "blank"}.`
+          }
+          value={section.name}
+        />
+        <div className="setta-workspace-inspector-toggle-grid">
+          <button
+            aria-pressed={section.positionAndSizeLocked}
+            className="setta-workspace-inspector-toggle"
+            disabled={!capabilities.canEditLayout}
+            onClick={() => {
+              const nextLocked = !section.positionAndSizeLocked;
+              setSectionsPositionLocked(host, [section.id], nextLocked);
+              onStatusChange(
+                nextLocked
+                  ? "Section position and size locked."
+                  : "Section position and size unlocked.",
+              );
+            }}
+            type="button"
+          >
+            {section.positionAndSizeLocked
+              ? "Position and size locked"
+              : "Position and size unlocked"}
+          </button>
+          {includeInspectorCommands ? (
             <button
-              aria-pressed={section.isHorizontalOrientation}
+              aria-pressed={section.isMinimized}
               className="setta-workspace-inspector-toggle"
-              disabled={!capabilities.canEditLayout}
               onClick={() => {
-                toggleGroupOrientation(host, section.id);
+                toggleMinimized(host, section.id);
                 onStatusChange(
-                  section.isHorizontalOrientation
-                    ? "Group children now stack vertically."
-                    : "Group children now flow horizontally.",
+                  section.isMinimized
+                    ? "Section expanded."
+                    : "Section minimized.",
                 );
               }}
               type="button"
             >
-              {section.isHorizontalOrientation ? "Horizontal" : "Vertical"}
+              {section.isMinimized ? "Minimized" : "Expanded"}
             </button>
-            <button
-              aria-pressed={section.overflowMode}
-              className="setta-workspace-inspector-toggle"
-              disabled={
-                !capabilities.canEditLayout || section.positionAndSizeLocked
-              }
-              onClick={() => {
-                const nextOverflowMode = !section.overflowMode;
-                setGroupOverflowMode(host, section.id, nextOverflowMode);
-                onStatusChange(
-                  nextOverflowMode
-                    ? "Bounded overflow enabled."
-                    : "Bounded overflow disabled.",
-                );
-              }}
-              type="button"
-            >
-              Bounded overflow
-            </button>
-          </>
-        ) : null}
-      </div>
-      <WorkspaceInspectorCommandActions
-        contexts={[createSectionCommandContext(host, section, [section])]}
-        focusKey="section-actions"
-        onStatusChange={onStatusChange}
-        surface="inspector"
-      />
-      <WorkspaceInspectorCommandActions
-        contexts={[createSectionCommandContext(host, section, [section])]}
-        focusKey="item-authoring-actions"
-        onStatusChange={onStatusChange}
-        surface="inspector-parameters"
-      />
-      <SectionSizeEditor
-        onEscape={focusRoot}
-        onStatusChange={onStatusChange}
+          ) : null}
+          {isGroupSection(section) ? (
+            <>
+              <button
+                aria-pressed={section.isHorizontalOrientation}
+                className="setta-workspace-inspector-toggle"
+                disabled={!capabilities.canEditLayout}
+                onClick={() => {
+                  toggleGroupOrientation(host, section.id);
+                  onStatusChange(
+                    section.isHorizontalOrientation
+                      ? "Group children now stack vertically."
+                      : "Group children now flow horizontally.",
+                  );
+                }}
+                type="button"
+              >
+                {section.isHorizontalOrientation ? "Horizontal" : "Vertical"}
+              </button>
+              <button
+                aria-pressed={section.overflowMode}
+                className="setta-workspace-inspector-toggle"
+                disabled={
+                  !capabilities.canEditLayout || section.positionAndSizeLocked
+                }
+                onClick={() => {
+                  const nextOverflowMode = !section.overflowMode;
+                  setGroupOverflowMode(host, section.id, nextOverflowMode);
+                  onStatusChange(
+                    nextOverflowMode
+                      ? "Bounded overflow enabled."
+                      : "Bounded overflow disabled.",
+                  );
+                }}
+                type="button"
+              >
+                Bounded overflow
+              </button>
+            </>
+          ) : null}
+        </div>
+        <SectionSizeEditor
+          onEscape={focusRoot}
+          onStatusChange={onStatusChange}
+          section={section}
+        />
+      </InspectorSettingsGroup>
+      <InspectorSettingsGroup
+        defaultOpen={false}
+        key={`${section.id}:appearance`}
+        title="Appearance"
+      >
+        <CommitTextField
+          disabled={!capabilities.canEditStructure}
+          focusKey="section-style"
+          label="Style accent"
+          onCommit={(value) => setSectionStyleColor(host, section.id, value)}
+          onEscape={focusRoot}
+          onStatusChange={onStatusChange}
+          statusMessage={(value) =>
+            value.trim() === ""
+              ? "Section style accent cleared."
+              : `Section style accent set to ${value}.`
+          }
+          validate={(value) =>
+            value.trim() === "" || /^#?[0-9a-f]{6}$/iu.test(value.trim())
+              ? null
+              : "Enter a six-digit hex color or leave this blank."
+          }
+          value={section.styleColor ?? ""}
+        />
+        <SectionTagColorEditor
+          onEscape={focusRoot}
+          onStatusChange={onStatusChange}
+          palette={sectionTagColorPalette}
+          section={section}
+        />
+      </InspectorSettingsGroup>
+      {includeInspectorCommands ? (
+        <>
+          <WorkspaceInspectorCommandActions
+            contexts={[createSectionCommandContext(host, section, [section])]}
+            focusKey="section-actions"
+            onStatusChange={onStatusChange}
+            surface="inspector"
+          />
+          <WorkspaceInspectorCommandActions
+            contexts={[createSectionCommandContext(host, section, [section])]}
+            focusKey="item-authoring-actions"
+            onStatusChange={onStatusChange}
+            surface="inspector-parameters"
+          />
+        </>
+      ) : null}
+      <SectionContribution
+        includeUnsupportedMessage={includeInspectorCommands}
         section={section}
       />
-      <SectionContribution section={section} />
     </div>
   );
 }
@@ -683,11 +759,13 @@ function MultipleItemsInspector({
 
 function InspectorBranch({
   focusRoot,
+  includeInspectorCommands,
   onStatusChange,
   selection,
   sectionTagColorPalette,
 }: {
   focusRoot: () => void;
+  includeInspectorCommands: boolean;
   onStatusChange: (message: string) => void;
   selection: WorkspaceInspectorSelection;
   sectionTagColorPalette: WorkspaceSectionTagColorPalette;
@@ -699,6 +777,7 @@ function InspectorBranch({
       return (
         <SectionInspector
           focusRoot={focusRoot}
+          includeInspectorCommands={includeInspectorCommands}
           onStatusChange={onStatusChange}
           sectionTagColorPalette={sectionTagColorPalette}
           section={selection.section}
@@ -731,15 +810,31 @@ function InspectorBranch({
 }
 
 export function WorkspaceInspector({
+  ariaLabel = "Workspace Inspector selection",
   initialFocusRef,
   sectionTagColorPalette,
+  sectionOnly = false,
 }: WorkspaceInspectorProps) {
   const documentState = useWorkspaceDocument((state) => state);
   const activeSectionIds = useActiveSections((state) => state.activeIds);
-  const selection = useMemo(
+  const inspectorSelection = useMemo(
     () => getWorkspaceInspectorSelection(documentState, activeSectionIds),
     [activeSectionIds, documentState],
   );
+  const selection = useMemo<WorkspaceInspectorSelection>(() => {
+    if (!sectionOnly) {
+      return inspectorSelection;
+    }
+    switch (inspectorSelection.type) {
+      case "section":
+      case "item":
+        return { type: "section", section: inspectorSelection.section };
+      case "empty":
+      case "multiple-items":
+      case "multiple-sections":
+        return { type: "empty" };
+    }
+  }, [inspectorSelection, sectionOnly]);
   const selectionKey = getWorkspaceInspectorSelectionKey(selection);
   const rootRef = useRef<HTMLDivElement>(null);
   const branchRootRef = useRef<HTMLDivElement>(null);
@@ -822,7 +917,7 @@ export function WorkspaceInspector({
       ref={rootRef}
     >
       <div
-        aria-label="Workspace Inspector selection"
+        aria-label={ariaLabel}
         className="setta-workspace-inspector-branch"
         data-inspector-branch-root="true"
         ref={branchRootRef}
@@ -830,6 +925,7 @@ export function WorkspaceInspector({
       >
         <InspectorBranch
           focusRoot={focusRoot}
+          includeInspectorCommands={!sectionOnly}
           onStatusChange={setStatus}
           selection={selection}
           sectionTagColorPalette={sectionTagColorPalette}
@@ -844,5 +940,28 @@ export function WorkspaceInspector({
         {status}
       </p>
     </div>
+  );
+}
+
+// A host-composed contextual rail uses this focused subset rather than reproducing package-owned
+// section mutations. Item selection intentionally resolves to its owning section; typed item
+// configuration remains the generic Inspector's separate branch.
+export function WorkspaceSectionEditor({
+  initialFocusRef: suppliedInitialFocusRef,
+  sectionTagColorPalette,
+}: WorkspaceSectionEditorProps) {
+  const fallbackInitialFocusRef = useRef<HTMLElement>(null);
+  const initialFocusRef = suppliedInitialFocusRef ?? fallbackInitialFocusRef;
+  const resolvedSectionTagColorPalette = useMemo(
+    () => resolveSectionTagColorPalette(sectionTagColorPalette),
+    [sectionTagColorPalette],
+  );
+  return (
+    <WorkspaceInspector
+      ariaLabel="Workspace section settings"
+      initialFocusRef={initialFocusRef}
+      sectionOnly
+      sectionTagColorPalette={resolvedSectionTagColorPalette}
+    />
   );
 }

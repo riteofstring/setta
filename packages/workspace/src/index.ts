@@ -171,6 +171,7 @@ export { setWorkspaceColorMode } from "./document/appearance";
 export { useWorkspaceCapabilities } from "./document/capabilities";
 export type { WorkspaceCapabilitiesState } from "./document/capabilities";
 export type { WorkspaceDocumentSubscription } from "./document/documentChangeCallback";
+export { useWorkspaceDocumentSnapshot } from "./document/useWorkspaceDocumentSnapshot";
 export { commitWorkspaceDocument } from "./document/loadWorkspaceDocument";
 export { GROUP_SECTION_KIND } from "./document/documentSelectors";
 export { setItemData } from "./document/itemData";
@@ -291,6 +292,12 @@ export type {
 export { setSectionTagColor } from "./section/tagColorAction";
 export { ungroupSections } from "./section/ungroupAction";
 export { WorkspaceShell } from "./shell/WorkspaceShell";
+export {
+  WorkspaceParameterConfigurationIcon,
+  WorkspaceSectionSettingsIcon,
+} from "./shell/WorkspaceShellIcons";
+export { WorkspaceSectionEditor } from "./shell/WorkspaceInspector";
+export type { WorkspaceSectionEditorProps } from "./shell/WorkspaceInspector";
 export {
   WORKSPACE_INSPECTOR_TAB_ID,
   WORKSPACE_OUTLINE_TAB_ID,

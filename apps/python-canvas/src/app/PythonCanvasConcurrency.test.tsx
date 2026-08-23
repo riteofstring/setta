@@ -34,6 +34,7 @@ const mocks = vi.hoisted(() => ({
   setParameterDictionaryEntries: vi.fn(),
   setPythonTarget: vi.fn(),
   setWorkspaceColorMode: vi.fn(),
+  workspaceCanvasHost: null as WorkspaceHost | null,
 }));
 
 type MockCreationCommand = {
@@ -99,6 +100,13 @@ vi.mock("@setta/workspace", async (importOriginal) => ({
   registerWorkspaceCreationCommands: mocks.registerWorkspaceCreationCommands,
   setItemData: mocks.setItemData,
   setWorkspaceColorMode: mocks.setWorkspaceColorMode,
+  useWorkspaceDocumentSnapshot: () =>
+    mocks.workspaceCanvasHost?.getSnapshot() ?? {
+      activeIds: [],
+      sections: {},
+      topLevelSections: {},
+      viewport: null,
+    },
 }));
 
 import { PythonCanvasApp } from "./PythonCanvasApp";
@@ -116,7 +124,8 @@ beforeEach(() => {
   mocks.createWorkspaceCodeSection.mockReturnValue({
     renderContent: () => <div />,
   });
-  mocks.createWorkspaceHost.mockReturnValue(createHost());
+  mocks.workspaceCanvasHost = createHost();
+  mocks.createWorkspaceHost.mockReturnValue(mocks.workspaceCanvasHost);
   mocks.fetchProjectSnapshot.mockResolvedValue(
     parseProjectSnapshotV2(projectSnapshotFixture),
   );
@@ -129,6 +138,7 @@ afterEach(() => {
   root = undefined;
   container?.remove();
   container = undefined;
+  mocks.workspaceCanvasHost = null;
   vi.useRealTimers();
 });
 
@@ -811,6 +821,7 @@ function installWorkspaceHarness(): WorkspaceHarness {
       };
     }),
   } as unknown as WorkspaceHost;
+  mocks.workspaceCanvasHost = host;
   mocks.createWorkspaceHost.mockReturnValue(host);
   mocks.commitWorkspaceDocument.mockImplementation(
     (_host: WorkspaceHost, next: WorkspaceDocument) => {
