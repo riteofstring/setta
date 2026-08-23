@@ -154,6 +154,9 @@ pnpm install --frozen-lockfile
 echo "Building @setta/workspace..."
 pnpm --filter @setta/workspace run build
 
+echo "Building Python Canvas production frontend..."
+pnpm --filter @setta/python-canvas run build
+
 if curl --fail --silent http://127.0.0.1:8080/api/v2/project >/dev/null 2>&1; then
   echo "Port 8080 already has a Python Canvas backend. Stop it and run this script again." >&2
   exit 1
@@ -170,12 +173,12 @@ wait_for_backend
 
 echo
 echo "Python Canvas backend is ready."
-echo "Open the Local URL that Vite prints below. Press Ctrl-C here to stop everything."
+echo "Open http://127.0.0.1:5173. Press Ctrl-C here to stop everything."
 echo
 
 (
   cd "${repo_root}/apps/python-canvas"
-  exec ./node_modules/.bin/vite
+  exec ./node_modules/.bin/vite preview --host 127.0.0.1 --port 5173 --strictPort
 ) &
 vite_pid=$!
 wait "${vite_pid}"

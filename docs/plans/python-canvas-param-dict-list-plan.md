@@ -36,8 +36,9 @@ raises a clear harness-contract error when that size is absent; focused static s
 cover that contract. Its policy structure and format checks now pass. The focused closeout fixes
 now reject list drops outside the three authored section kinds and disclose that deleting a list
 removes all nested descendants; focused workspace and frontend boundary tests cover both. The
-supervisor has accepted this phase's frozen acceptance candidate; final independent audit remains
-supervisor-owned.**
+production launcher now builds `@setta/python-canvas` and serves it through Vite preview on the
+fixed loopback origin; a focused static process regression covers that command. The supervisor has
+accepted this phase's frozen acceptance candidate; final independent audit remains supervisor-owned.**
 
 Add the next two Python Canvas section types from main: **Param Dict** and **List of Objects**.
 This is one closed vertical slice across the validated Go aggregate, strict project file, generated

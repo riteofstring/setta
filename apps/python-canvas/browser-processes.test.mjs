@@ -3,6 +3,7 @@ import {
   chmodSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -38,7 +39,7 @@ test("Headless Chrome keeps an isolated renderer profile and audio flag", () => 
   );
 });
 
-test("launcher readiness waits for the Vite frontend after the backend", async (t) => {
+test("launcher readiness waits for the Vite production preview after the backend", async (t) => {
   const originalFetch = globalThis.fetch;
   const requests = [];
   let frontendAttempts = 0;
@@ -64,6 +65,18 @@ test("launcher readiness waits for the Vite frontend after the backend", async (
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5173",
   ]);
+});
+
+test("production launcher builds and previews the Python Canvas frontend", () => {
+  const launcher = readFileSync(
+    new URL("../../scripts/run-python-canvas.sh", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    launcher,
+    /pnpm --filter @setta\/python-canvas run build[\s\S]*exec \.\/node_modules\/\.bin\/vite preview --host 127\.0\.0\.1 --port 5173 --strictPort/u,
+  );
 });
 
 function writeExecutable(filePath) {

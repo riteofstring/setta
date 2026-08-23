@@ -370,7 +370,7 @@ export async function waitForLauncher(launcher) {
   await waitForHttp(
     launcher,
     "http://127.0.0.1:5173",
-    "Python Canvas Vite frontend",
+    "Python Canvas Vite production preview",
   );
 }
 

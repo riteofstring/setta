@@ -22,10 +22,10 @@ mkdir -p .local/python-canvas
   --create
 ```
 
-The launcher installs frozen dependencies, builds the public workspace package,
-starts the loopback backend, waits only for `GET /api/v2/project`, and then
-starts Vite. Open the local URL Vite prints. Use Ctrl-C to stop the launcher and
-its backend.
+The launcher installs frozen dependencies, builds the public workspace package
+and Python Canvas production frontend, starts the loopback backend, waits only
+for `GET /api/v2/project`, and then serves the built frontend with Vite preview
+at `http://127.0.0.1:5173`. Use Ctrl-C to stop the launcher and its backend.
 
 To reopen that same project later, use the same path without `--create`:
 
@@ -67,11 +67,12 @@ protected UTF-16 range.
 `pnpm --filter @setta/python-canvas run browser:test` is the checked-in browser
 walkthrough for a separately authorized standard verification run. It creates a
 temporary absent project through the launcher with explicit `--project` and
-`--create`, writes a temporary fixture module, and observes readiness only
-through `GET /api/v2/project`. The browser then creates multiple callables from
-the blank-pane menu, renames them from their sections, commits them, exercises
-the public parameter toolbar, filter, item actions, ItemNameEditor,
-app/provider expressions, and target document boundaries, then deletes one
+`--create`, writes a temporary fixture module, and waits for both
+`GET /api/v2/project` and the Vite production preview origin. The browser then
+creates multiple callables from the blank-pane menu, renames them from their
+sections, commits them, exercises the public parameter toolbar, filter, item
+actions, ItemNameEditor, app/provider expressions, and target document
+boundaries, then deletes one
 callable. It also creates a Param Dict and List of Objects, authors and nests
 dictionary entries, checks entry-owned diagnostics, creates and moves list
 children (including a nested list lifecycle), and verifies the persisted forest
