@@ -97,6 +97,18 @@ test("Nested List removal waits for its zero-child postcondition", async () => {
   );
 });
 
+test("Nested List deletion targets its explicit destructive action label", async () => {
+  const walkthrough = await readFile(
+    new URL("./param-dict-list.browser.mjs", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    walkthrough,
+    /\$\{listSectionSelector\(nestedList\.id\)\} \$\{labeledSelector\("Delete list and all nested descendants"\)\}/,
+  );
+});
+
 test("Canvas extraction keeps the whole dragged section inside an exposed pane lane", async () => {
   const walkthrough = await readFile(
     new URL("./param-dict-list.browser.mjs", import.meta.url),

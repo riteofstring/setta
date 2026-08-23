@@ -499,7 +499,7 @@ export async function exerciseParamDictAndListSlice(
 
   await clickElementCenter(
     client,
-    `${listSectionSelector(nestedList.id)} ${labeledSelector("Delete section")}`,
+    `${listSectionSelector(nestedList.id)} ${labeledSelector("Delete list and all nested descendants")}`,
     "the nested list delete control",
   );
   const afterNestedDelete = await waitForSnapshot(
