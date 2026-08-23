@@ -460,7 +460,7 @@ describe("Python Canvas V2 workspace projection", () => {
     host.dispose();
   });
 
-  it("replaces or clears retained diagnostics when a snapshot settles, including provider failure", () => {
+  it("replaces diagnostics when settled and clears them on a lagging provider failure", () => {
     const settled = diagnosticContinuitySnapshot({
       diagnostics: [
         diagnostic("callable:survives", "Old callable error"),
@@ -478,6 +478,7 @@ describe("Python Canvas V2 workspace projection", () => {
     const resolved = diagnosticContinuitySnapshot({
       diagnostics: [
         diagnostic("callable:survives", "Replacement callable error"),
+        diagnostic("parameter:survives", "Replacement parameter error"),
         diagnostic("entry:survives", "Replacement dictionary entry error"),
       ],
       diagnosticsRevision: 2,
@@ -485,7 +486,7 @@ describe("Python Canvas V2 workspace projection", () => {
     });
     const failed = diagnosticContinuitySnapshot({
       diagnostics: [],
-      diagnosticsRevision: 3,
+      diagnosticsRevision: 2,
       providerStatus: {
         provider: "basedpyright",
         state: "failed",
@@ -502,7 +503,11 @@ describe("Python Canvas V2 workspace projection", () => {
 
     expect(projectedCallableData(host, "callable:survives")).toMatchObject({
       callableDiagnosticMessage: "Replacement callable error",
-      parameterDiagnostics: {},
+      parameterDiagnostics: {
+        [parameterWorkspaceItemID("parameter:survives")]: [
+          { message: "Replacement parameter error", severity: "error" },
+        ],
+      },
     });
     expect(projectedDictionaryData(host, "dictionary:options")).toMatchObject({
       entryDiagnostics: {

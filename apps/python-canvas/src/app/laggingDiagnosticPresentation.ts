@@ -1,6 +1,9 @@
 import { type WorkspaceSection } from "@setta/workspace";
 
-import { type ProjectSnapshotV2 } from "../backend/generatedContract";
+import {
+  PROVIDER_LIFECYCLE_STATE_FAILED_V2,
+  type ProjectSnapshotV2,
+} from "../backend/generatedContract";
 import {
   readCallableSectionData,
   type CallableSectionData,
@@ -26,7 +29,8 @@ export function retainLaggingDiagnosticPresentation(
 ): WorkspaceSection {
   if (
     target === null ||
-    snapshot.diagnosticsRevision >= snapshot.project.revision
+    snapshot.diagnosticsRevision >= snapshot.project.revision ||
+    snapshot.providerStatus.state === PROVIDER_LIFECYCLE_STATE_FAILED_V2
   ) {
     return next;
   }
