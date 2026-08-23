@@ -88,7 +88,10 @@ describe("Python Canvas shell preferences", () => {
       storedPreference({
         ...createWorkspaceShellViewState(),
         outline: {
-          collapsedGroupIds: ["python-canvas:list:group", "python-canvas:list:group"],
+          collapsedGroupIds: [
+            "python-canvas:list:group",
+            "python-canvas:list:group",
+          ],
           focusedSectionId: null,
         },
       }),
@@ -128,7 +131,9 @@ describe("Python Canvas shell preferences", () => {
     expect(loadPythonCanvasShellViewState(readFailure)).toEqual(
       createWorkspaceShellViewState(),
     );
-    expect(() => persistPythonCanvasShellViewState(viewState, writeFailure)).not.toThrow();
+    expect(() =>
+      persistPythonCanvasShellViewState(viewState, writeFailure),
+    ).not.toThrow();
     expect(writeFailure.setItem).toHaveBeenCalledOnce();
   });
 });

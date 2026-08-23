@@ -44,10 +44,7 @@ type PythonCanvasViewProps = {
   terminalContext: GeneratedPythonTerminalContextValue;
 };
 
-type PythonCanvasReadyWorkspaceProps = Omit<
-  PythonCanvasViewProps,
-  "state"
-> & {
+type PythonCanvasReadyWorkspaceProps = Omit<PythonCanvasViewProps, "state"> & {
   state: Extract<ViewState, { kind: "ready" }>;
 };
 
@@ -163,8 +160,9 @@ function PythonCanvasReadyWorkspace({
   state,
   terminalContext,
 }: PythonCanvasReadyWorkspaceProps) {
-  const [shellViewState, setShellViewState] =
-    useState<WorkspaceShellViewState>(loadPythonCanvasShellViewState);
+  const [shellViewState, setShellViewState] = useState<WorkspaceShellViewState>(
+    loadPythonCanvasShellViewState,
+  );
   const handleShellViewStateChange = useCallback(
     (nextState: WorkspaceShellViewState): void => {
       setShellViewState(nextState);

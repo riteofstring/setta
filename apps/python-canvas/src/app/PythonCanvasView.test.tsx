@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   WorkspaceHost,
   WorkspaceShellTabDefinition,
@@ -12,6 +12,10 @@ import type { PythonCanvasMutationContextValue } from "./PythonCanvasMutationCon
 import type { GeneratedPythonTerminalContextValue } from "./generatedPythonTerminalContext";
 import type { GeneratedPythonTerminalState } from "./generatedPythonTerminalController";
 import { PythonCanvasView } from "./PythonCanvasView";
+import {
+  PYTHON_CANVAS_SHELL_PREFERENCE_KEY,
+  PYTHON_CANVAS_SHELL_PREFERENCE_VERSION,
+} from "./pythonCanvasShellPreferences";
 
 type ShellPropsCapture = {
   ariaLabel?: string;
@@ -76,6 +80,19 @@ vi.mock("@setta/workspace", () => ({
 
 let container: HTMLDivElement | undefined;
 let root: Root | undefined;
+let testLocalStorage: ReturnType<typeof createTestLocalStorage>;
+const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "localStorage",
+);
+
+beforeEach(() => {
+  testLocalStorage = createTestLocalStorage();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: testLocalStorage,
+  });
+});
 
 afterEach(() => {
   if (root !== undefined) {
@@ -84,6 +101,16 @@ afterEach(() => {
   root = undefined;
   container?.remove();
   container = undefined;
+  window.localStorage.removeItem(PYTHON_CANVAS_SHELL_PREFERENCE_KEY);
+  if (originalLocalStorageDescriptor === undefined) {
+    Reflect.deleteProperty(window, "localStorage");
+  } else {
+    Object.defineProperty(
+      window,
+      "localStorage",
+      originalLocalStorageDescriptor,
+    );
+  }
   workspaceMocks.providerHosts.length = 0;
   workspaceMocks.shellProps.length = 0;
 });
@@ -176,11 +203,23 @@ describe("PythonCanvasView", () => {
     expect(view.querySelector("[data-testid='workspace-provider']")).toBe(
       provider,
     );
+    const persisted = testLocalStorage.getItem(
+      PYTHON_CANVAS_SHELL_PREFERENCE_KEY,
+    );
+    expect(persisted).not.toBeNull();
+    if (persisted === null) {
+      throw new Error("The shell state was not persisted.");
+    }
+    expect(JSON.parse(persisted)).toEqual({
+      version: PYTHON_CANVAS_SHELL_PREFERENCE_VERSION,
+      viewState: updatedShell.viewState,
+    });
   });
 
   it("does not mount a shell before the workspace is ready", () => {
     renderView({ kind: "idle" }, null, null, { kind: "loading" });
 
+    expect(testLocalStorage.getItem).not.toHaveBeenCalled();
     expect(workspaceMocks.shellProps).toEqual([]);
   });
 });
@@ -266,4 +305,13 @@ function lastShellProps(): ShellPropsCapture {
     throw new Error("WorkspaceShell did not render.");
   }
   return props;
+}
+
+function createTestLocalStorage() {
+  const values = new Map<string, string>();
+  return {
+    getItem: vi.fn((key: string) => values.get(key) ?? null),
+    removeItem: vi.fn((key: string) => values.delete(key)),
+    setItem: vi.fn((key: string, value: string) => values.set(key, value)),
+  };
 }

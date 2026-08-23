@@ -67,7 +67,9 @@ function parsePane(
   };
 }
 
-function parseOutline(value: unknown): WorkspaceShellViewState["outline"] | null {
+function parseOutline(
+  value: unknown,
+): WorkspaceShellViewState["outline"] | null {
   if (
     !isRecord(value) ||
     !hasExactKeys(value, ["collapsedGroupIds", "focusedSectionId"]) ||
