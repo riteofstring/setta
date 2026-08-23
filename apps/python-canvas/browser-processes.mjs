@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import {
   accessSync,
+  copyFileSync,
   constants,
   existsSync,
   lstatSync,
@@ -465,11 +466,33 @@ async function allocateLoopbackPorts() {
   return { backendPort, previewPort };
 }
 
-// This is the one checked-in browser lifecycle: an absent, temporary project
-// is created through the public launcher, and a later restart reopens the same
-// path without --create. The walkthrough owns only public HTTP and browser
-// surfaces; it never injects a project into an in-memory backend.
 export async function runAgainstProductionApp(callback) {
+  return runAgainstProductionProject({
+    callback,
+    projectSourcePath: null,
+    browserOriginHostname: "127.0.0.1",
+  });
+}
+
+export async function runAgainstCopiedProductionProject(
+  projectSourcePath,
+  callback,
+) {
+  return runAgainstProductionProject({
+    callback,
+    projectSourcePath,
+    browserOriginHostname: "localhost",
+  });
+}
+
+// Browser acceptance owns only public launcher, HTTP, and raw-headless browser
+// surfaces. A saved-project run copies its source before the backend starts;
+// neither path injects state into an in-memory backend.
+async function runAgainstProductionProject({
+  callback,
+  projectSourcePath,
+  browserOriginHostname,
+}) {
   const ports = await allocateLoopbackPorts();
   const temporaryDirectory = mkdtempSync(
     path.join(os.tmpdir(), "setta-python-canvas-browser-"),
@@ -486,10 +509,11 @@ export async function runAgainstProductionApp(callback) {
   let browser = null;
   let client = null;
   const backendOrigin = `http://127.0.0.1:${String(ports.backendPort)}`;
-  const previewOrigin = `http://127.0.0.1:${String(ports.previewPort)}`;
+  const launcherPreviewOrigin = `http://127.0.0.1:${String(ports.previewPort)}`;
+  const previewOrigin = `http://${browserOriginHostname}:${String(ports.previewPort)}`;
   const launch = async (create) => {
     launcher = startLauncher(projectPath, create, ports);
-    await waitForLauncher(launcher, backendOrigin, previewOrigin);
+    await waitForLauncher(launcher, backendOrigin, launcherPreviewOrigin);
   };
   const restart = async () => {
     await stopProcess(launcher);
@@ -497,7 +521,12 @@ export async function runAgainstProductionApp(callback) {
   };
 
   try {
-    await launch(true);
+    if (projectSourcePath === null) {
+      await launch(true);
+    } else {
+      copyFileSync(projectSourcePath, projectPath);
+      await launch(false);
+    }
     browser = startHeadlessChrome();
     const cdpPort = await waitForHeadlessChrome(browser);
     const page = await createCdpPage(cdpPort);

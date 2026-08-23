@@ -46,7 +46,7 @@ func run(ctx context.Context, arguments []string, start serviceStarter) error {
 	projectPath := flags.String("project", "", "authored project path")
 	create := flags.Bool("create", false, "exclusively create the project if it is absent")
 	var appOrigin string
-	flags.Func("app-origin", "exact loopback browser origin allowed to attach the terminal", func(value string) error {
+	flags.Func("app-origin", "loopback browser origin allowed to attach the terminal", func(value string) error {
 		if strings.TrimSpace(value) == "" {
 			return fmt.Errorf("app origin must not be empty")
 		}

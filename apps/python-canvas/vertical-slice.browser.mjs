@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import {
   fetchCanonicalSnapshot,
+  runAgainstCopiedProductionProject,
   runAgainstProductionApp,
 } from "./browser-processes.mjs";
 import {
@@ -13,7 +15,10 @@ import {
 } from "./callable-commit.browser.mjs";
 import { exerciseResolvedMathCallableLifecycle } from "./callable-lifecycle.browser.mjs";
 import { observeGeneratedDocumentBoundaries } from "./generated-document-boundaries.browser.mjs";
-import { exerciseGeneratedPythonTerminalLifecycle } from "./generated-python-terminal.browser.mjs";
+import {
+  exerciseCopiedParamDictListTerminalRun,
+  exerciseGeneratedPythonTerminalLifecycle,
+} from "./generated-python-terminal.browser.mjs";
 import { exerciseParamDictAndListSlice } from "./param-dict-list.browser.mjs";
 import { exerciseStructuralDiagnosticsLifecycle } from "./structural-diagnostics.browser.mjs";
 import {
@@ -54,6 +59,21 @@ import {
 const defaultCallableName = "New callable";
 const sampleCallableName = "Sample callable";
 const zeroCallableName = "Zero callable";
+const savedParamDictListProjectURL = new URL(
+  "./testdata/param-dict-list-demo.json",
+  import.meta.url,
+);
+const savedParamDictListProject = JSON.parse(
+  readFileSync(savedParamDictListProjectURL, "utf8"),
+);
+const savedParamDictListProjectShape = {
+  callables: savedParamDictListProject.callables,
+  lists: savedParamDictListProject.lists,
+  parameterDictionaries: savedParamDictListProject.parameterDictionaries,
+  project: savedParamDictListProject.project,
+  pythonTarget: savedParamDictListProject.pythonTarget,
+  topLevelSectionIds: savedParamDictListProject.topLevelSectionIds,
+};
 const callableCommitHarness = {
   callableToolbarButtonSelector,
   callableSectionSelector,
@@ -63,6 +83,31 @@ const callableCommitHarness = {
 };
 const waitForCallablePresentation = (client, name) =>
   waitForCallableUiIdle(client, name, callableCommitHarness);
+
+function savedProjectShape(snapshot) {
+  return {
+    callables: snapshot.callables,
+    lists: snapshot.lists,
+    parameterDictionaries: snapshot.parameterDictionaries,
+    project: snapshot.project,
+    pythonTarget: snapshot.pythonTarget,
+    topLevelSectionIds: snapshot.topLevelSectionIds,
+  };
+}
+
+await runAgainstCopiedProductionProject(
+  savedParamDictListProjectURL,
+  async ({ backendOrigin, client, previewOrigin }) => {
+    const initial = await fetchCanonicalSnapshot(backendOrigin);
+    assert.deepEqual(
+      savedProjectShape(initial),
+      savedParamDictListProjectShape,
+      "The localhost terminal acceptance did not start from the saved Param Dict and List project shape.",
+    );
+    await openWorkspaceCanvas(client, previewOrigin);
+    await exerciseCopiedParamDictListTerminalRun(client);
+  },
+);
 
 await runAgainstProductionApp(
   async ({ backendOrigin, client, previewOrigin }) => {

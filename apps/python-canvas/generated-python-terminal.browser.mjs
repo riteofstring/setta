@@ -35,6 +35,8 @@ const longRunStartedMarker = "SETTA_TERMINAL_LONG_RUN_STARTED";
 const afterInterruptMarker = "SETTA_TERMINAL_AFTER_INTERRUPT";
 const beforeTrashMarker = "SETTA_TERMINAL_BEFORE_TRASH";
 const absentRunMarker = "SETTA_TERMINAL_ABSENT_RUN";
+const copiedParamDictListRunMarker =
+  "SETTA_TERMINAL_COPIED_PARAM_DICT_LIST_RUN";
 
 export async function exerciseGeneratedPythonTerminalLifecycle(
   client,
@@ -275,6 +277,20 @@ export async function exerciseGeneratedPythonTerminalLifecycle(
   );
   await waitForTerminalReady(client);
   await waitForTerminalMarkerCount(client, absentRunMarker, 1);
+}
+
+export async function exerciseCopiedParamDictListTerminalRun(client) {
+  await clickElementCenter(
+    client,
+    runSelector,
+    "the copied Param Dict and List Generated Python Run control",
+  );
+  await waitForTerminalReady(client);
+  await typeTerminalCommand(
+    client,
+    `printf '${octalShellText(copiedParamDictListRunMarker)}\\n'`,
+  );
+  await waitForTerminalMarkerCount(client, copiedParamDictListRunMarker, 1);
 }
 
 async function appendPythonSuffix(client, backendOrigin, text) {

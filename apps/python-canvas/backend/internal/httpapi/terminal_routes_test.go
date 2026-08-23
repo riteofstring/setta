@@ -89,6 +89,11 @@ func TestTerminalStreamUsesReadyHistoryLiveAndValidatedInput(t *testing.T) {
 
 func openTerminalStreamForTest(t *testing.T, handler http.Handler) (context.Context, *websocket.Conn) {
 	t.Helper()
+	return openTerminalStreamWithOriginForTest(t, handler, "http://127.0.0.1:5173")
+}
+
+func openTerminalStreamWithOriginForTest(t *testing.T, handler http.Handler, origin string) (context.Context, *websocket.Conn) {
+	t.Helper()
 	opened := postJSON(handler, contracts.ProjectTerminalPathV2, `{"projectId":"project:fixture","columns":80,"rows":24}`)
 	if opened.Code != http.StatusOK {
 		t.Fatalf("open status = %d; body = %s", opened.Code, opened.Body.String())
@@ -108,7 +113,7 @@ func openTerminalStreamForTest(t *testing.T, handler http.Handler) (context.Cont
 	t.Cleanup(cancel)
 	streamURL := "ws" + strings.TrimPrefix(server.URL, "http") + contracts.ProjectTerminalStreamPathV2 + "?ticket=" + url.QueryEscape(ticket.Ticket)
 	connection, response, err := websocket.Dial(ctx, streamURL, &websocket.DialOptions{
-		HTTPHeader: http.Header{"Origin": []string{"http://127.0.0.1:5173"}},
+		HTTPHeader: http.Header{"Origin": []string{origin}},
 	})
 	if err != nil {
 		if response != nil {
@@ -118,6 +123,55 @@ func openTerminalStreamForTest(t *testing.T, handler http.Handler) (context.Cont
 	}
 	t.Cleanup(func() { _ = connection.Close(websocket.StatusNormalClosure, "") })
 	return ctx, connection
+}
+
+func TestTerminalStreamAcceptsMainParityLocalhostAlias(t *testing.T) {
+	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
+	runtime := newTerminalRuntimeStub()
+	runtime.history = []byte("retained marker\n")
+	handler := newTerminalHandlerForTest(t, service, runtime)
+
+	ctx, connection := openTerminalStreamWithOriginForTest(t, handler, "http://localhost:5173")
+	assertTerminalReadyAndHistory(t, ctx, connection)
+}
+
+func TestTerminalOriginAliasesStayOnTheConfiguredLoopbackPort(t *testing.T) {
+	routes, err := newTerminalRoutes(HandlerOptions{
+		Terminal:  newTerminalRuntimeStub(),
+		AppOrigin: "http://127.0.0.1:5173",
+	})
+	if err != nil {
+		t.Fatalf("new terminal routes: %v", err)
+	}
+	for _, origin := range []string{
+		"http://127.0.0.1:5173",
+		"http://localhost:5173",
+	} {
+		if !routes.allowsOrigin(origin) {
+			t.Fatalf("terminal routes rejected allowed origin %q", origin)
+		}
+	}
+	for _, origin := range []string{
+		"http://127.0.0.1:4173",
+		"http://localhost:4173",
+		"http://[::1]:5173",
+		"https://localhost:5173",
+		"http://example.com:5173",
+	} {
+		if routes.allowsOrigin(origin) {
+			t.Fatalf("terminal routes accepted unconfigured origin %q", origin)
+		}
+	}
+	localhostRoutes, err := newTerminalRoutes(HandlerOptions{
+		Terminal:  newTerminalRuntimeStub(),
+		AppOrigin: "http://localhost:5173",
+	})
+	if err != nil {
+		t.Fatalf("new localhost terminal routes: %v", err)
+	}
+	if localhostRoutes.allowsOrigin("http://127.0.0.1:5173") {
+		t.Fatal("localhost terminal configuration gained an unconfigured IPv4 alias")
+	}
 }
 
 func assertTerminalReadyAndHistory(t *testing.T, ctx context.Context, connection *websocket.Conn) {

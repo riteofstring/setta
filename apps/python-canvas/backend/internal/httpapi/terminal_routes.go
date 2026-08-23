@@ -26,7 +26,10 @@ var ErrTerminalRuntimeRequired = errors.New("httpapi: terminal runtime is requir
 // origins allowed to upgrade its terminal WebSocket. The loopback listener is
 // not itself an origin authorization policy because Vite proxies upgrades.
 type HandlerOptions struct {
-	Terminal  terminal.Runtime
+	Terminal terminal.Runtime
+	// AppOrigin identifies the loopback browser origin permitted to upgrade the
+	// terminal stream. A 127.0.0.1 origin with an explicit port also permits
+	// main's matching localhost alias on that port.
 	AppOrigin string
 	// Lifecycle is canceled as the loopback server shuts down so a live
 	// WebSocket input read cannot outlive the service that owns its PTY.
@@ -34,9 +37,9 @@ type HandlerOptions struct {
 }
 
 type terminalRoutes struct {
-	runtime   terminal.Runtime
-	appOrigin string
-	lifecycle context.Context
+	runtime        terminal.Runtime
+	allowedOrigins map[string]struct{}
+	lifecycle      context.Context
 }
 
 type openTerminalPayload struct {
@@ -112,7 +115,11 @@ func newTerminalRoutes(options HandlerOptions) (*terminalRoutes, error) {
 	if lifecycle == nil {
 		lifecycle = context.Background()
 	}
-	return &terminalRoutes{runtime: options.Terminal, appOrigin: appOrigin, lifecycle: lifecycle}, nil
+	return &terminalRoutes{
+		runtime:        options.Terminal,
+		allowedOrigins: terminalAllowedOrigins(appOrigin),
+		lifecycle:      lifecycle,
+	}, nil
 }
 
 func (routes *terminalRoutes) dispatch(response http.ResponseWriter, request *http.Request, service ProjectService) bool {
@@ -394,7 +401,24 @@ func terminalTicketFromQuery(requestURL *url.URL) (string, bool) {
 
 func (routes *terminalRoutes) allowsOrigin(value string) bool {
 	normalized, ok := normalizeOrigin(value)
-	return ok && normalized == routes.appOrigin
+	if !ok {
+		return false
+	}
+	_, allowed := routes.allowedOrigins[normalized]
+	return allowed
+}
+
+func terminalAllowedOrigins(appOrigin string) map[string]struct{} {
+	allowed := map[string]struct{}{appOrigin: {}}
+	parsed, err := url.Parse(appOrigin)
+	if err != nil || parsed.Hostname() != "127.0.0.1" || parsed.Port() == "" {
+		return allowed
+	}
+	// Main treats localhost as the equivalent browser spelling for a configured
+	// IPv4 loopback dev origin. Keep the same scheme and exact launcher port;
+	// no other loopback address gains access to this terminal stream.
+	allowed[parsed.Scheme+"://localhost:"+parsed.Port()] = struct{}{}
+	return allowed
 }
 
 func normalizeOrigin(value string) (string, bool) {
