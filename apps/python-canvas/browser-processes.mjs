@@ -439,7 +439,9 @@ function allocateLoopbackPort() {
       const address = listener.address();
       if (address === null || typeof address === "string") {
         listener.close(() => {
-          reject(new Error("Loopback port allocation did not expose a TCP port."));
+          reject(
+            new Error("Loopback port allocation did not expose a TCP port."),
+          );
         });
         return;
       }

@@ -13,7 +13,10 @@ import {
   fetchProjectSnapshot,
   refreshCallableParameters,
 } from "../backend/client";
-import type { ProjectSnapshotV2 } from "../backend/generatedContract";
+import type {
+  ParameterProposalV2,
+  ProjectSnapshotV2,
+} from "../backend/generatedContract";
 import { createCallableCompletionProvider } from "../sections/callableCompletion";
 import { createPythonTargetCompletionProvider } from "../sections/pythonTargetCompletion";
 import {
@@ -65,6 +68,29 @@ type ListMutationStates = Record<string, MutationState>;
 type CallableDrafts = Record<string, string>;
 type CompletionProviders = Record<string, TextValueCompletionProvider>;
 type CompletionErrors = Record<string, string>;
+type ProjectCallable = ProjectSnapshotV2["callables"][number];
+
+function shouldRetainParameterListDraft(
+  draft: ParameterProposalV2[],
+  callable: ProjectCallable,
+  answer: MutationAnswer,
+) {
+  if (answer.kind === "refresh") {
+    return (
+      answer.callableId !== callable.id && !sameParameterList(draft, callable)
+    );
+  }
+  if (answer.kind === "python-target") {
+    return (
+      !answer.refreshedCallableIds.has(callable.id) &&
+      !sameParameterList(draft, callable)
+    );
+  }
+  if (answer.kind === "parameters" && answer.callableId === callable.id) {
+    return !sameProposedList(answer.sent, draft);
+  }
+  return !sameParameterList(draft, callable);
+}
 
 export function PythonCanvasController() {
   const [state, setState] = useState<AppState>({ kind: "loading" });
@@ -335,25 +361,10 @@ export function PythonCanvasController() {
       const retained = new Set<string>();
       for (const callable of nextSnapshot.callables) {
         const draft = parameterListDraft(document, callable.id);
-        if (draft === null) {
-          continue;
-        }
-        if (answer.kind === "refresh" && answer.callableId === callable.id) {
-          continue;
-        }
         if (
-          answer.kind === "python-target" &&
-          answer.refreshedCallableIds.has(callable.id)
+          draft !== null &&
+          shouldRetainParameterListDraft(draft, callable, answer)
         ) {
-          continue;
-        }
-        if (answer.kind === "parameters" && answer.callableId === callable.id) {
-          if (!sameProposedList(answer.sent, draft)) {
-            retained.add(callable.id);
-          }
-          continue;
-        }
-        if (!sameParameterList(draft, callable)) {
           retained.add(callable.id);
         }
       }
