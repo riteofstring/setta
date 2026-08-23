@@ -13,7 +13,7 @@ import {
   parameterDictionarySectionSelector,
   parameterDictionaryWorkspaceSectionId,
 } from "./param-dict-list.browser-support.mjs";
-import { dragElementToElement } from "./browser-page.mjs";
+import { dragElementToElement, pressArrowUp } from "./browser-page.mjs";
 import {
   describeSectionMoveFailure,
   dictionaryEntryChildAdoptionDragTarget,
@@ -50,6 +50,34 @@ test("Param Dict and List walkthrough selectors use workspace section identities
     listSectionSelector("list:objects"),
     '[data-section-id="python-canvas:list:list:objects"]',
   );
+});
+
+test("List child count ArrowUp uses a native focused key gesture", async () => {
+  const events = [];
+  await pressArrowUp({
+    async send(method, parameters) {
+      events.push({ method, parameters });
+    },
+  });
+
+  assert.deepEqual(events, [
+    {
+      method: "Input.dispatchKeyEvent",
+      parameters: {
+        code: "ArrowUp",
+        key: "ArrowUp",
+        type: "keyDown",
+      },
+    },
+    {
+      method: "Input.dispatchKeyEvent",
+      parameters: {
+        code: "ArrowUp",
+        key: "ArrowUp",
+        type: "keyUp",
+      },
+    },
+  ]);
 });
 
 test("List walkthrough reorders a Param Dict with the proven free move gesture", async () => {

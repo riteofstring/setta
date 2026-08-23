@@ -349,6 +349,19 @@ export async function pressEnter(client) {
   await dispatchFocusedKey(client, { code: "Enter", key: "Enter" });
 }
 
+export async function pressArrowUp(client) {
+  await client.send("Input.dispatchKeyEvent", {
+    code: "ArrowUp",
+    key: "ArrowUp",
+    type: "keyDown",
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    code: "ArrowUp",
+    key: "ArrowUp",
+    type: "keyUp",
+  });
+}
+
 export async function pressAlternateEnter(client) {
   await dispatchFocusedKey(client, {
     altKey: true,

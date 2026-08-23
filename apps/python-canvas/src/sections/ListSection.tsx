@@ -50,14 +50,15 @@ export function ListSection({ data }: { data: ListSectionData }) {
   return (
     <div className="python-canvas-list-section">
       <div className="python-canvas-list-incrementer">
+        <ListRootIcon />
         <label
           className="python-canvas-list-incrementer-label"
           htmlFor={`list-child-count:${data.list.id}`}
         >
-          Children
+          Children:
         </label>
         <input
-          className="python-canvas-list-incrementer-input"
+          className="nodrag setta-workspace-native-reset python-canvas-list-incrementer-input"
           id={`list-child-count:${data.list.id}`}
           inputMode="numeric"
           min={1}
@@ -85,7 +86,8 @@ export function ListSection({ data }: { data: ListSectionData }) {
         />
         <button
           aria-label="Remove children"
-          className="python-canvas-list-incrementer-button"
+          className="nodrag setta-workspace-native-reset python-canvas-list-incrementer-button"
+          data-setta-workspace-touch-target="compact"
           disabled={decrementUnavailable}
           onClick={() => {
             if (requestCount !== null) {
@@ -94,11 +96,12 @@ export function ListSection({ data }: { data: ListSectionData }) {
           }}
           type="button"
         >
-          <span aria-hidden="true">−</span>
+          <i aria-hidden="true" className="gg-math-minus" />
         </button>
         <button
           aria-label="Add children"
-          className="python-canvas-list-incrementer-button"
+          className="nodrag setta-workspace-native-reset python-canvas-list-incrementer-button"
+          data-setta-workspace-touch-target="compact"
           disabled={incrementUnavailable}
           onClick={() => {
             if (requestCount !== null) {
@@ -107,7 +110,7 @@ export function ListSection({ data }: { data: ListSectionData }) {
           }}
           type="button"
         >
-          <span aria-hidden="true">+</span>
+          <i aria-hidden="true" className="gg-math-plus" />
         </button>
       </div>
       {error === null ? null : (
@@ -116,6 +119,27 @@ export function ListSection({ data }: { data: ListSectionData }) {
         </p>
       )}
     </div>
+  );
+}
+
+function ListRootIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="python-canvas-list-incrementer-icon"
+      fill="none"
+      focusable="false"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path d="M10 15l-3 3l-3 -3" />
+      <path d="M7 6v12" />
+      <path d="M14 18.333c0 .369 .298 .667 .667 .667h2.666a.667 .667 0 0 0 .667 -.667v-2.666a.667 .667 0 0 0 -.667 -.667h-2.666a.667 .667 0 0 0 -.667 .667v2.666z" />
+      <path d="M14 10.833c0 .645 .522 1.167 1.167 1.167h4.666c.645 0 1.167 -.522 1.167 -1.167v-4.666c0 -.645 -.522 -1.167 -1.167 -1.167h-4.666c-.645 0 -1.167 .522 -1.167 1.167v4.666z" />
+    </svg>
   );
 }
 

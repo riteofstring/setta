@@ -47,6 +47,7 @@ import {
   itemSelectionModifiers,
   labeledSelector,
   prepareElementDrag,
+  pressArrowUp,
   pressEnter,
   pressEscape,
   releaseItemSelectionChord,
@@ -59,6 +60,11 @@ import {
   listNestedSectionSurfaceSelector,
   listNestedSortableSectionSelector,
 } from "./param-dict-list.browser-drag.mjs";
+import {
+  assertListRootMainPresentation,
+  assertParameterDictionaryMainPresentation,
+  emulateDarkMainReferencePresentation,
+} from "./param-dict-list.browser-presentation.mjs";
 
 export {
   describeSectionMoveFailure,
@@ -170,6 +176,7 @@ export async function exerciseParamDictAndListSlice(
   backendOrigin,
   topLevelCallableId,
 ) {
+  await emulateDarkMainReferencePresentation(client);
   const dictionary = await createPaneSection(client, backendOrigin, {
     collection: "parameterDictionaries",
     defaultName: "New Param Dict",
@@ -177,6 +184,7 @@ export async function exerciseParamDictAndListSlice(
     sectionSelector: parameterDictionarySectionSelector,
   });
   const dictionarySelector = parameterDictionarySectionSelector(dictionary.id);
+  await assertParameterDictionaryMainPresentation(client, dictionary.id);
   const dictionarySize = await sectionSize(client, dictionarySelector);
   const topLevelCallableSize = await sectionFieldSize(
     client,
@@ -276,6 +284,7 @@ export async function exerciseParamDictAndListSlice(
     label: "List of Objects",
     sectionSelector: listSectionSelector,
   });
+  await assertListRootMainPresentation(client, outerList.id);
   await setListChildCountToTwo(client, outerList.id);
   const listWithChildren = await addListChildren(
     client,
@@ -715,7 +724,7 @@ async function setListChildCountToTwo(client, listId) {
     selector,
     "the List of Objects child-count input",
   );
-  await dispatchFocusedKey(client, "ArrowUp", "ArrowUp");
+  await pressArrowUp(client);
   await waitFor(
     client,
     "the List of Objects child count of two",
