@@ -14,6 +14,7 @@ import test from "node:test";
 
 import {
   headlessChromeArguments,
+  launcherArguments,
   resolveHeadlessChromeBinary,
   waitForLauncher,
 } from "./browser-processes.mjs";
@@ -39,13 +40,15 @@ test("Headless Chrome keeps an isolated renderer profile and audio flag", () => 
   );
 });
 
-test("launcher readiness waits for the Vite production preview after the backend", async (t) => {
+test("launcher routes readiness checks through its supplied ports", async (t) => {
   const originalFetch = globalThis.fetch;
   const requests = [];
+  const backendOrigin = "http://127.0.0.1:43111";
+  const previewOrigin = "http://127.0.0.1:43112";
   let frontendAttempts = 0;
   globalThis.fetch = async (origin) => {
     requests.push(origin);
-    if (origin === "http://127.0.0.1:5173" && frontendAttempts++ === 0) {
+    if (origin === previewOrigin && frontendAttempts++ === 0) {
       throw new TypeError("connection refused");
     }
     return { ok: true };
@@ -54,17 +57,39 @@ test("launcher readiness waits for the Vite production preview after the backend
     globalThis.fetch = originalFetch;
   });
 
-  await waitForLauncher({
-    child: { exitCode: null },
-    label: "Python Canvas launcher",
-    output: { stderr: "", stdout: "" },
-  });
+  await waitForLauncher(
+    {
+      child: { exitCode: null },
+      label: "Python Canvas launcher",
+      output: { stderr: "", stdout: "" },
+    },
+    backendOrigin,
+    previewOrigin,
+  );
 
   assert.deepEqual(requests, [
-    "http://127.0.0.1:8080/api/v2/project",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5173",
+    "http://127.0.0.1:43111/api/v2/project",
+    "http://127.0.0.1:43112",
+    "http://127.0.0.1:43112",
   ]);
+});
+
+test("launcher receives per-run backend and preview ports", () => {
+  assert.deepEqual(
+    launcherArguments("/tmp/python-canvas/project.json", true, {
+      backendPort: 43111,
+      previewPort: 43112,
+    }),
+    [
+      "--project",
+      "/tmp/python-canvas/project.json",
+      "--backend-port",
+      "43111",
+      "--preview-port",
+      "43112",
+      "--create",
+    ],
+  );
 });
 
 test("production launcher builds and previews the Python Canvas frontend", () => {
@@ -75,7 +100,7 @@ test("production launcher builds and previews the Python Canvas frontend", () =>
 
   assert.match(
     launcher,
-    /pnpm --filter @setta\/python-canvas run build[\s\S]*exec \.\/node_modules\/\.bin\/vite preview --host 127\.0\.0\.1 --port 5173 --strictPort/u,
+    /backend_args=\(--project "\$\{project_path\}" --port "\$\{backend_port\}"\)[\s\S]*PYTHON_CANVAS_BACKEND_ORIGIN="http:\/\/127\.0\.0\.1:\$\{backend_port\}"[\s\S]*exec \.\/node_modules\/\.bin\/vite preview --host 127\.0\.0\.1 --port "\$\{preview_port\}" --strictPort/u,
   );
 });
 

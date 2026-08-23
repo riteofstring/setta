@@ -7,9 +7,11 @@ backend_pid=""
 vite_pid=""
 project_path=""
 create_project="false"
+backend_port="8080"
+preview_port="5173"
 
 usage() {
-  echo "Usage: $0 --project PATH [--create]" >&2
+  echo "Usage: $0 --project PATH [--create] [--backend-port PORT] [--preview-port PORT]" >&2
 }
 
 while (($# > 0)); do
@@ -26,6 +28,22 @@ while (($# > 0)); do
       create_project="true"
       shift
       ;;
+    --backend-port)
+      if (($# < 2)) || [[ -z "$2" ]]; then
+        usage
+        exit 2
+      fi
+      backend_port="$2"
+      shift 2
+      ;;
+    --preview-port)
+      if (($# < 2)) || [[ -z "$2" ]]; then
+        usage
+        exit 2
+      fi
+      preview_port="$2"
+      shift 2
+      ;;
     --help)
       usage
       exit 0
@@ -41,6 +59,19 @@ if [[ -z "${project_path}" ]]; then
   usage
   exit 2
 fi
+
+validate_port() {
+  local port_name="$1"
+  local port_value="$2"
+
+  if [[ ! "${port_value}" =~ ^[1-9][0-9]{0,4}$ ]] || ((10#${port_value} > 65535)); then
+    echo "${port_name} must be an integer between 1 and 65535." >&2
+    exit 2
+  fi
+}
+
+validate_port "--backend-port" "${backend_port}"
+validate_port "--preview-port" "${preview_port}"
 
 require_command() {
   local command_name="$1"
@@ -121,7 +152,7 @@ wait_for_backend() {
       echo "Python Canvas backend exited before it became ready." >&2
       return 1
     fi
-    if curl --fail --silent --show-error http://127.0.0.1:8080/api/v2/project \
+    if curl --fail --silent --show-error "http://127.0.0.1:${backend_port}/api/v2/project" \
       >/dev/null 2>&1; then
       return 0
     fi
@@ -157,13 +188,13 @@ pnpm --filter @setta/workspace run build
 echo "Building Python Canvas production frontend..."
 pnpm --filter @setta/python-canvas run build
 
-if curl --fail --silent http://127.0.0.1:8080/api/v2/project >/dev/null 2>&1; then
-  echo "Port 8080 already has a Python Canvas backend. Stop it and run this script again." >&2
+if curl --fail --silent "http://127.0.0.1:${backend_port}/api/v2/project" >/dev/null 2>&1; then
+  echo "Port ${backend_port} already has a Python Canvas backend. Stop it and run this script again." >&2
   exit 1
 fi
 
 echo "Starting the Go backend and pinned Basedpyright..."
-backend_args=(--project "${project_path}")
+backend_args=(--project "${project_path}" --port "${backend_port}")
 if [[ "${create_project}" == "true" ]]; then
   backend_args+=(--create)
 fi
@@ -173,12 +204,13 @@ wait_for_backend
 
 echo
 echo "Python Canvas backend is ready."
-echo "Open http://127.0.0.1:5173. Press Ctrl-C here to stop everything."
+echo "Open http://127.0.0.1:${preview_port}. Press Ctrl-C here to stop everything."
 echo
 
 (
   cd "${repo_root}/apps/python-canvas"
-  exec ./node_modules/.bin/vite preview --host 127.0.0.1 --port 5173 --strictPort
+  PYTHON_CANVAS_BACKEND_ORIGIN="http://127.0.0.1:${backend_port}" \
+    exec ./node_modules/.bin/vite preview --host 127.0.0.1 --port "${preview_port}" --strictPort
 ) &
 vite_pid=$!
 wait "${vite_pid}"

@@ -11,6 +11,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -386,29 +387,80 @@ async function stopHeadlessChrome(browser) {
   }
 }
 
-function startLauncher(projectPath, create) {
-  const arguments_ = ["--project", projectPath];
+export function launcherArguments(projectPath, create, ports) {
+  const arguments_ = [
+    "--project",
+    projectPath,
+    "--backend-port",
+    String(ports.backendPort),
+    "--preview-port",
+    String(ports.previewPort),
+  ];
   if (create) {
     arguments_.push("--create");
   }
-  return startProcess(launcherPath, arguments_, {
-    cwd: repositoryRoot,
-    label: "Python Canvas launcher",
-    ownsProcessGroup: true,
-  });
+  return arguments_;
 }
 
-export async function waitForLauncher(launcher) {
+function startLauncher(projectPath, create, ports) {
+  return startProcess(
+    launcherPath,
+    launcherArguments(projectPath, create, ports),
+    {
+      cwd: repositoryRoot,
+      label: "Python Canvas launcher",
+      ownsProcessGroup: true,
+    },
+  );
+}
+
+export async function waitForLauncher(
+  launcher,
+  backendOrigin = "http://127.0.0.1:8080",
+  previewOrigin = "http://127.0.0.1:5173",
+) {
   await waitForHttp(
     launcher,
-    "http://127.0.0.1:8080/api/v2/project",
+    `${backendOrigin}/api/v2/project`,
     "Python Canvas backend",
   );
   await waitForHttp(
     launcher,
-    "http://127.0.0.1:5173",
+    previewOrigin,
     "Python Canvas Vite production preview",
   );
+}
+
+function allocateLoopbackPort() {
+  return new Promise((resolve, reject) => {
+    const listener = createServer();
+    listener.once("error", reject);
+    listener.listen(0, "127.0.0.1", () => {
+      const address = listener.address();
+      if (address === null || typeof address === "string") {
+        listener.close(() => {
+          reject(new Error("Loopback port allocation did not expose a TCP port."));
+        });
+        return;
+      }
+      listener.close((error) => {
+        if (error !== undefined) {
+          reject(error);
+          return;
+        }
+        resolve(address.port);
+      });
+    });
+  });
+}
+
+async function allocateLoopbackPorts() {
+  const backendPort = await allocateLoopbackPort();
+  let previewPort = await allocateLoopbackPort();
+  while (previewPort === backendPort) {
+    previewPort = await allocateLoopbackPort();
+  }
+  return { backendPort, previewPort };
 }
 
 // This is the one checked-in browser lifecycle: an absent, temporary project
@@ -416,6 +468,7 @@ export async function waitForLauncher(launcher) {
 // path without --create. The walkthrough owns only public HTTP and browser
 // surfaces; it never injects a project into an in-memory backend.
 export async function runAgainstProductionApp(callback) {
+  const ports = await allocateLoopbackPorts();
   const temporaryDirectory = mkdtempSync(
     path.join(os.tmpdir(), "setta-python-canvas-browser-"),
   );
@@ -430,11 +483,11 @@ export async function runAgainstProductionApp(callback) {
   let launcher = null;
   let browser = null;
   let client = null;
-  const backendOrigin = "http://127.0.0.1:8080";
-  const previewOrigin = "http://127.0.0.1:5173";
+  const backendOrigin = `http://127.0.0.1:${String(ports.backendPort)}`;
+  const previewOrigin = `http://127.0.0.1:${String(ports.previewPort)}`;
   const launch = async (create) => {
-    launcher = startLauncher(projectPath, create);
-    await waitForLauncher(launcher);
+    launcher = startLauncher(projectPath, create, ports);
+    await waitForLauncher(launcher, backendOrigin, previewOrigin);
   };
   const restart = async () => {
     await stopProcess(launcher);
