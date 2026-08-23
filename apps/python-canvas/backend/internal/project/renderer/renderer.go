@@ -92,7 +92,7 @@ func renderBody(state aggregate.State) (string, map[string]ByteRange, map[string
 	renderer := newForestRenderer(state)
 	renderer.body.WriteString(stateClassHeader)
 	for _, sectionID := range state.TopLevelSectionIDs {
-		renderer.renderSection(sectionID, renderer.topLevelPaths[sectionID])
+		renderer.renderSection(sectionID)
 	}
 	if !renderer.wroteStatement {
 		renderer.body.WriteString(stateBodyIndent)
@@ -107,7 +107,7 @@ type forestRenderer struct {
 	sourceRanges      map[string]ByteRange
 	compositionRanges map[string]ByteRange
 	callPositions     map[string]CallPosition
-	topLevelPaths     map[string]string
+	paths             map[string]string
 	callables         map[string]aggregate.Callable
 	dictionaries      map[string]aggregate.ParameterDictionary
 	lists             map[string]aggregate.List
@@ -130,14 +130,15 @@ func newForestRenderer(state aggregate.State) *forestRenderer {
 		sourceRanges:      make(map[string]ByteRange),
 		compositionRanges: make(map[string]ByteRange),
 		callPositions:     make(map[string]CallPosition),
-		topLevelPaths:     allocateTopLevelPaths(state, callables, dictionaries, lists),
+		paths:             allocateForestPaths(state, callables, dictionaries, lists),
 		callables:         callables,
 		dictionaries:      dictionaries,
 		lists:             lists,
 	}
 }
 
-func (renderer *forestRenderer) renderSection(sectionID string, path string) {
+func (renderer *forestRenderer) renderSection(sectionID string) {
+	path := renderer.paths[sectionID]
 	if callable, exists := renderer.callables[sectionID]; exists {
 		renderer.renderCallable(callable, path)
 		return
@@ -155,7 +156,7 @@ func (renderer *forestRenderer) renderCallable(callable aggregate.Callable, path
 		if !isRenderedParameter(parameter) {
 			continue
 		}
-		parameterPath := path + "__" + parameter.Name
+		parameterPath := renderer.paths[parameter.ID]
 		renderedParameters = append(renderedParameters, renderedParameter{parameter: parameter, path: parameterPath})
 		start := renderer.writeAssignmentPrefix(parameterPath)
 		renderer.body.WriteString(parameter.AuthoredExpression)
@@ -177,7 +178,7 @@ func (renderer *forestRenderer) renderCallable(callable aggregate.Callable, path
 }
 
 func (renderer *forestRenderer) renderDictionary(dictionary aggregate.ParameterDictionary, path string) {
-	items := renderer.renderDictionaryEntries(path, dictionary.Entries)
+	items := renderer.renderDictionaryEntries(dictionary.Entries)
 	start := renderer.writeAssignmentPrefix(path)
 	renderer.writeDictionary(items)
 	renderer.compositionRanges[dictionary.ID] = ByteRange{Start: start, End: renderer.body.Len()}
@@ -188,11 +189,10 @@ type renderedDictionaryItem struct {
 	path string
 }
 
-func (renderer *forestRenderer) renderDictionaryEntries(path string, entries []aggregate.DictionaryEntry) []renderedDictionaryItem {
-	paths := allocateDictionaryEntryPaths(path, entries)
+func (renderer *forestRenderer) renderDictionaryEntries(entries []aggregate.DictionaryEntry) []renderedDictionaryItem {
 	items := make([]renderedDictionaryItem, 0, len(entries))
 	for _, entry := range entries {
-		entryPath := paths[entry.ID]
+		entryPath := renderer.paths[entry.ID]
 		if entry.Leaf != nil {
 			if entry.Leaf.AuthoredExpression == "" {
 				continue
@@ -203,7 +203,7 @@ func (renderer *forestRenderer) renderDictionaryEntries(path string, entries []a
 			items = append(items, renderedDictionaryItem{name: entry.Name, path: entryPath})
 			continue
 		}
-		children := renderer.renderDictionaryEntries(entryPath, entry.Parent.Children)
+		children := renderer.renderDictionaryEntries(entry.Parent.Children)
 		start := renderer.writeAssignmentPrefix(entryPath)
 		renderer.writeDictionary(children)
 		renderer.compositionRanges[entry.ID] = ByteRange{Start: start, End: renderer.body.Len()}
@@ -226,8 +226,8 @@ func (renderer *forestRenderer) writeDictionary(items []renderedDictionaryItem) 
 }
 
 func (renderer *forestRenderer) renderList(list aggregate.List, path string) {
-	for index, childID := range list.ChildSectionIDs {
-		renderer.renderSection(childID, fmt.Sprintf("%s__%d", path, index))
+	for _, childID := range list.ChildSectionIDs {
+		renderer.renderSection(childID)
 	}
 	start := renderer.writeAssignmentPrefix(path)
 	renderer.body.WriteByte('[')
@@ -236,7 +236,7 @@ func (renderer *forestRenderer) renderList(list aggregate.List, path string) {
 			renderer.body.WriteString(", ")
 		}
 		renderer.body.WriteString("state.")
-		renderer.body.WriteString(fmt.Sprintf("%s__%d", path, index))
+		renderer.body.WriteString(renderer.paths[list.ChildSectionIDs[index]])
 	}
 	renderer.body.WriteByte(']')
 	renderer.compositionRanges[list.ID] = ByteRange{Start: start, End: renderer.body.Len()}
@@ -308,25 +308,164 @@ type pathCandidate struct {
 	base string
 }
 
-func allocateTopLevelPaths(
+type pathReservation struct {
+	id   string
+	path string
+}
+
+type pathAllocator struct {
+	paths        map[string]string
+	used         map[string]struct{}
+	callables    map[string]aggregate.Callable
+	dictionaries map[string]aggregate.ParameterDictionary
+	lists        map[string]aggregate.List
+}
+
+// allocateForestPaths reserves every generated state path before rendering.
+// In particular, a List keeps its required indexed child paths while its
+// top-level path changes if any descendant would otherwise collide.
+func allocateForestPaths(
 	state aggregate.State,
 	callables map[string]aggregate.Callable,
 	dictionaries map[string]aggregate.ParameterDictionary,
 	lists map[string]aggregate.List,
 ) map[string]string {
+	allocator := pathAllocator{
+		paths:        make(map[string]string),
+		used:         make(map[string]struct{}),
+		callables:    callables,
+		dictionaries: dictionaries,
+		lists:        lists,
+	}
 	candidates := make([]pathCandidate, 0, len(state.TopLevelSectionIDs))
 	for _, sectionID := range state.TopLevelSectionIDs {
 		candidates = append(candidates, pathCandidate{id: sectionID, base: sanitizedPathName(sectionName(sectionID, callables, dictionaries, lists))})
 	}
-	return allocatePaths(candidates)
+	sortPathCandidates(candidates)
+	for _, candidate := range candidates {
+		allocator.allocateTopLevelSection(candidate)
+	}
+	return allocator.paths
 }
 
-func allocateDictionaryEntryPaths(parentPath string, entries []aggregate.DictionaryEntry) map[string]string {
-	candidates := make([]pathCandidate, 0, len(entries))
-	for _, entry := range entries {
-		candidates = append(candidates, pathCandidate{id: entry.ID, base: parentPath + "__" + sanitizedPathName(entry.Name)})
+func (allocator *pathAllocator) allocateTopLevelSection(candidate pathCandidate) {
+	if _, isList := allocator.lists[candidate.id]; isList {
+		allocator.allocateList(candidate.id, candidate.base)
+		return
 	}
-	return allocatePaths(candidates)
+	allocator.paths[candidate.id] = allocator.allocatePath(candidate.base)
+	allocator.allocateSectionContents(candidate.id)
+}
+
+func (allocator *pathAllocator) allocateList(listID string, base string) {
+	for suffix := 1; ; suffix++ {
+		path := pathWithSuffix(base, suffix)
+		reservations := allocator.listSectionPaths(listID, path)
+		if !allocator.pathsAreAvailable(reservations) {
+			continue
+		}
+		for _, reservation := range reservations {
+			allocator.paths[reservation.id] = reservation.path
+			allocator.used[reservation.path] = struct{}{}
+		}
+		allocator.allocateSectionContents(listID)
+		return
+	}
+}
+
+func (allocator *pathAllocator) listSectionPaths(sectionID string, path string) []pathReservation {
+	reservations := []pathReservation{{id: sectionID, path: path}}
+	list, isList := allocator.lists[sectionID]
+	if !isList {
+		return reservations
+	}
+	for index, childID := range list.ChildSectionIDs {
+		childPath := fmt.Sprintf("%s__%d", path, index)
+		reservations = append(reservations, allocator.listSectionPaths(childID, childPath)...)
+	}
+	return reservations
+}
+
+func (allocator *pathAllocator) pathsAreAvailable(reservations []pathReservation) bool {
+	reserved := make(map[string]struct{}, len(reservations))
+	for _, reservation := range reservations {
+		if _, used := allocator.used[reservation.path]; used {
+			return false
+		}
+		if _, duplicate := reserved[reservation.path]; duplicate {
+			return false
+		}
+		reserved[reservation.path] = struct{}{}
+	}
+	return true
+}
+
+func (allocator *pathAllocator) allocateSectionContents(sectionID string) {
+	if callable, isCallable := allocator.callables[sectionID]; isCallable {
+		allocator.allocateCallableParameters(callable, allocator.paths[sectionID])
+		return
+	}
+	if dictionary, isDictionary := allocator.dictionaries[sectionID]; isDictionary {
+		allocator.allocateDictionaryEntries(allocator.paths[sectionID], dictionary.Entries)
+		return
+	}
+	for _, childID := range allocator.lists[sectionID].ChildSectionIDs {
+		allocator.allocateSectionContents(childID)
+	}
+}
+
+func (allocator *pathAllocator) allocateCallableParameters(callable aggregate.Callable, path string) {
+	candidates := make([]pathCandidate, 0, len(callable.Parameters))
+	for _, parameter := range callable.Parameters {
+		if !isRenderedParameter(parameter) {
+			continue
+		}
+		candidates = append(candidates, pathCandidate{id: parameter.ID, base: path + "__" + parameter.Name})
+	}
+	allocator.allocateCandidates(candidates)
+}
+
+func (allocator *pathAllocator) allocateDictionaryEntries(parentPath string, entries []aggregate.DictionaryEntry) {
+	orderedEntries := append([]aggregate.DictionaryEntry(nil), entries...)
+	sort.Slice(orderedEntries, func(left int, right int) bool {
+		return orderedEntries[left].ID < orderedEntries[right].ID
+	})
+	for _, entry := range orderedEntries {
+		if entry.Leaf != nil && entry.Leaf.AuthoredExpression == "" {
+			continue
+		}
+		allocator.paths[entry.ID] = allocator.allocatePath(parentPath + "__" + sanitizedPathName(entry.Name))
+	}
+	for _, entry := range orderedEntries {
+		if entry.Parent != nil {
+			allocator.allocateDictionaryEntries(allocator.paths[entry.ID], entry.Parent.Children)
+		}
+	}
+}
+
+func (allocator *pathAllocator) allocateCandidates(candidates []pathCandidate) {
+	sortPathCandidates(candidates)
+	for _, candidate := range candidates {
+		allocator.paths[candidate.id] = allocator.allocatePath(candidate.base)
+	}
+}
+
+func (allocator *pathAllocator) allocatePath(base string) string {
+	for suffix := 1; ; suffix++ {
+		path := pathWithSuffix(base, suffix)
+		if _, used := allocator.used[path]; used {
+			continue
+		}
+		allocator.used[path] = struct{}{}
+		return path
+	}
+}
+
+func pathWithSuffix(base string, suffix int) string {
+	if suffix == 1 {
+		return base
+	}
+	return fmt.Sprintf("%s_%d", base, suffix)
 }
 
 func sectionName(
@@ -344,26 +483,12 @@ func sectionName(
 	return lists[sectionID].Name
 }
 
-// allocatePaths keeps names human-readable and assigns collision suffixes by
-// stable ID, independent of the authored rendering order.
-func allocatePaths(candidates []pathCandidate) map[string]string {
+// sortPathCandidates gives same-name paths a stable-ID tie break independent
+// of authored rendering order.
+func sortPathCandidates(candidates []pathCandidate) {
 	sort.Slice(candidates, func(left int, right int) bool {
 		return candidates[left].id < candidates[right].id
 	})
-	paths := make(map[string]string, len(candidates))
-	used := make(map[string]struct{}, len(candidates))
-	for _, candidate := range candidates {
-		path := candidate.base
-		for suffix := 2; ; suffix++ {
-			if _, exists := used[path]; !exists {
-				break
-			}
-			path = fmt.Sprintf("%s_%d", candidate.base, suffix)
-		}
-		used[path] = struct{}{}
-		paths[candidate.id] = path
-	}
-	return paths
 }
 
 func sanitizedPathName(value string) string {

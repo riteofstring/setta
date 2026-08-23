@@ -148,6 +148,41 @@ func TestRenderPathsRemainCollisionSafeWhenNamesSanitizeAlike(t *testing.T) {
 	}
 }
 
+func TestRenderReservesListChildPathsAgainstTopLevelSections(t *testing.T) {
+	t.Parallel()
+
+	state := aggregate.State{
+		Project:      aggregate.Project{ID: "project-list-path-collision", Name: "List path collision", Revision: 1},
+		PythonTarget: aggregate.PythonTarget{Suffix: aggregate.DefaultPythonSuffix},
+		Callables: []aggregate.Callable{
+			{ID: "callable-top-level", Name: "Things__0", AuthoredExpression: "fixture.top_level", Parameters: []aggregate.Parameter{}},
+			{ID: "callable-list-child", Name: "Child", AuthoredExpression: "fixture.child", Parameters: []aggregate.Parameter{}},
+		},
+		Lists:              []aggregate.List{{ID: "list-things", Name: "Things", ChildSectionIDs: []string{"callable-list-child"}}},
+		TopLevelSectionIDs: []string{"callable-top-level", "list-things"},
+	}
+
+	result, err := Render(state)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	topLevelPath := assignmentPath(t, result.Code, result.SourceRangesByTargetID["callable-top-level"])
+	childPath := assignmentPath(t, result.Code, result.SourceRangesByTargetID["callable-list-child"])
+	listPath := assignmentPath(t, result.Code, result.CompositionRangesByTargetID["list-things"])
+	if topLevelPath == childPath || topLevelPath == listPath || childPath == listPath {
+		t.Fatalf("top-level, list child, and list paths must be distinct: %q, %q, %q", topLevelPath, childPath, listPath)
+	}
+	if got := assignmentValue(t, result.Body, topLevelPath); got != "fixture.top_level()" {
+		t.Fatalf("top-level state value = %q, want fixture.top_level()", got)
+	}
+	if got := assignmentValue(t, result.Body, childPath); got != "fixture.child()" {
+		t.Fatalf("list child state value = %q, want fixture.child()", got)
+	}
+	if got := assignmentValue(t, result.Body, listPath); got != "[state."+childPath+"]" {
+		t.Fatalf("list state value = %q, want child lookup", got)
+	}
+}
+
 func TestRenderCallablePathsRemainValidPythonIdentifiers(t *testing.T) {
 	t.Parallel()
 
@@ -241,6 +276,50 @@ func TestRenderForestUsesPostOrderPathsAndSeparatesCompositionRanges(t *testing.
 	}
 }
 
+func TestRenderReservesNestedDictionaryPathsAgainstSiblings(t *testing.T) {
+	t.Parallel()
+
+	state := aggregate.State{
+		Project:      aggregate.Project{ID: "project-dictionary-path-collision", Name: "Dictionary path collision", Revision: 1},
+		PythonTarget: aggregate.PythonTarget{Suffix: aggregate.DefaultPythonSuffix},
+		ParameterDictionaries: []aggregate.ParameterDictionary{
+			{
+				ID: "dictionary-values", Name: "Values", Entries: []aggregate.DictionaryEntry{
+					{ID: "entry-a", Name: "a", Parent: &aggregate.DictionaryParent{Children: []aggregate.DictionaryEntry{
+						{ID: "entry-a-b", Name: "b", Leaf: &aggregate.DictionaryLeaf{AuthoredExpression: "nested_value"}},
+					}}},
+					{ID: "entry-a-b-sibling", Name: "a__b", Leaf: &aggregate.DictionaryLeaf{AuthoredExpression: "sibling_value"}},
+				},
+			},
+		},
+		TopLevelSectionIDs: []string{"dictionary-values"},
+	}
+
+	result, err := Render(state)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	nestedPath := assignmentPath(t, result.Code, result.SourceRangesByTargetID["entry-a-b"])
+	siblingPath := assignmentPath(t, result.Code, result.SourceRangesByTargetID["entry-a-b-sibling"])
+	parentPath := assignmentPath(t, result.Code, result.CompositionRangesByTargetID["entry-a"])
+	dictionaryPath := assignmentPath(t, result.Code, result.CompositionRangesByTargetID["dictionary-values"])
+	if nestedPath == siblingPath || nestedPath == parentPath || siblingPath == parentPath {
+		t.Fatalf("nested dictionary paths must be distinct: %q, %q, %q", nestedPath, siblingPath, parentPath)
+	}
+	if got := assignmentValue(t, result.Body, nestedPath); got != "nested_value" {
+		t.Fatalf("nested state value = %q, want nested_value", got)
+	}
+	if got := assignmentValue(t, result.Body, siblingPath); got != "sibling_value" {
+		t.Fatalf("sibling state value = %q, want sibling_value", got)
+	}
+	if got := assignmentValue(t, result.Body, parentPath); got != "{\"b\": state."+nestedPath+"}" {
+		t.Fatalf("parent dictionary value = %q, want nested lookup", got)
+	}
+	if got := assignmentValue(t, result.Body, dictionaryPath); got != "{\"a\": state."+parentPath+", \"a__b\": state."+siblingPath+"}" {
+		t.Fatalf("dictionary state value = %q, want distinct nested and sibling lookups", got)
+	}
+}
+
 func multiCallableState() aggregate.State {
 	firstType := "int"
 	secondType := "tuple[int, ...]"
@@ -279,6 +358,18 @@ func assignmentPath(t *testing.T, code string, valueRange ByteRange) string {
 		t.Fatalf("assignment prefix = %q", assignment)
 	}
 	return strings.TrimSuffix(strings.TrimPrefix(assignment, prefix), " = ")
+}
+
+func assignmentValue(t *testing.T, body string, path string) string {
+	t.Helper()
+	prefix := stateBodyIndent + "state." + path + " = "
+	for _, line := range strings.Split(body, "\n") {
+		if strings.HasPrefix(line, prefix) {
+			return strings.TrimPrefix(line, prefix)
+		}
+	}
+	t.Fatalf("assignment for state.%s is missing from %q", path, body)
+	return ""
 }
 
 func intPointer(value int) *int {

@@ -38,7 +38,10 @@ now reject list drops outside the three authored section kinds and disclose that
 removes all nested descendants; focused workspace and frontend boundary tests cover both. The
 production launcher now builds `@setta/python-canvas` and serves it through Vite preview on the
 fixed loopback origin; a focused static process regression covers that command. The supervisor has
-accepted this phase's frozen acceptance candidate; final independent audit remains supervisor-owned.**
+accepted this phase's frozen acceptance candidate. The renderer now reserves every emitted state
+path across the complete forest, including list descendants and nested dictionary entries; focused
+renderer regressions prove both collision classes. Final independent audit remains
+supervisor-owned.**
 
 Add the next two Python Canvas section types from main: **Param Dict** and **List of Objects**.
 This is one closed vertical slice across the validated Go aggregate, strict project file, generated
