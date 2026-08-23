@@ -151,6 +151,6 @@ The package-only decisions and the deliberate behavior changes each Milestone C 
 Frozen main at `043d3b2e9c69caf99d1246f1408b3ad7194b7864` has no command registry. Its actions are
 written directly into each surface — section header buttons, context menus, Inspector panes — and
 its shortcut engine binds separate application handlers. The registry, its surfaces, and its
-disabled-state explanations are therefore package design authorized by C1 of
-`docs/plans/setta-workspace-extraction-plan.md`, not main parity. Every canonical operation the
-commands run is unchanged accepted package behavior.
+disabled-state explanations are therefore package design accepted during Milestone C at
+`a0e50eccf`, not main parity. Every canonical operation the commands run is unchanged accepted
+package behavior.

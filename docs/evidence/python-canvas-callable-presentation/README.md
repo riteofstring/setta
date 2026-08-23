@@ -1,7 +1,7 @@
 # Python Canvas callable presentation captures
 
-Working visual evidence for
-[the callable section presentation plan](../../plans/python-canvas-callable-section-presentation-plan.md).
+Working visual evidence for the completed callable-section presentation work. Its implementation
+plan remains available in Git history at `77ca7c357`.
 It is not an accepted regression lock: the supervisor inspects these images and the developer
 accepts or rejects the live section. Only after that acceptance may this bundle become a baseline.
 

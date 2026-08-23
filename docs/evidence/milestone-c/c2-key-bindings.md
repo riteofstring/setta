@@ -2,8 +2,8 @@
 
 Recorded with the first C2 batch. Frozen main binds these operations through its application
 shortcut engine and its settings store; the package has neither, so the binding model below is
-package design authorized by C2 of `docs/plans/setta-workspace-extraction-plan.md`. The chords
-themselves are main's shipped defaults.
+package design accepted during Milestone C at `a0e50eccf`. The chords themselves are main's shipped
+defaults.
 
 ## Model
 
