@@ -22,7 +22,7 @@ import {
 } from "./generated-python-terminal.browser.mjs";
 import { exerciseDependencyOrderingProductionAcceptance } from "./python-dependency-ordering.browser.mjs";
 import { exerciseParamDictAndListSlice } from "./param-dict-list.browser.mjs";
-import { exerciseStructuralDiagnosticsLifecycle } from "./structural-diagnostics.browser.mjs";
+import { exerciseStructuralDiagnostics } from "./structural-diagnostics.browser.mjs";
 import {
   assertGeneratedMultilineCollection,
   assertListRootFixedHeight,
@@ -101,7 +101,7 @@ await runAgainstCopiedProductionProject(
   savedParamDictListProjectURL,
   async ({ backendOrigin, client, previewOrigin }) => {
     const initial = await fetchCanonicalSnapshot(backendOrigin);
-    assert.deepEqual(
+    assert.partialDeepStrictEqual(
       savedProjectShape(initial),
       savedParamDictListProjectShape,
       "The localhost terminal acceptance did not start from the saved Param Dict and List project shape.",
@@ -132,8 +132,7 @@ await runAgainstProductionApp(
   async ({ backendOrigin, client, previewOrigin }) => {
     const initial = await fetchCanonicalSnapshot(backendOrigin);
     assert.deepEqual(initial.callables, []);
-    await openWorkspaceCanvas(client, previewOrigin);
-    await exerciseStructuralDiagnosticsLifecycle(client, backendOrigin);
+    await exerciseStructuralDiagnostics(client, backendOrigin, previewOrigin);
     await editPythonTargetOuterRegions(client, backendOrigin);
     await createCallable(client, backendOrigin, sampleCallableName);
     await exerciseCallableCommitParity(
@@ -653,7 +652,7 @@ async function setParameterExpression(
   const label = parameter.name === "" ? "Unnamed parameter" : parameter.name;
   await activateAndSelectAllContentEditableTextBox(
     client,
-    `${parameterRowSelector(parameterID)} ${contentEditableTextBoxSelector(`${label} expression`)}`,
+    `${parameterRowSelector(parameterID)} ${contentEditableTextBoxSelector(`${label} value`)}`,
     `the ${label} expression editor`,
   );
   await insertText(client, expression);

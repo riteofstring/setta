@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { fetchCanonicalSnapshot } from "./browser-processes.mjs";
+import { openWorkspaceCanvas } from "./callable-commit.browser.mjs";
 import { callableSectionSelector } from "./param-dict-list.browser-support.mjs";
 import { generatedPythonEditorSelector } from "./python-target.browser.mjs";
 import {
@@ -33,10 +34,13 @@ export function matchesStructuralDiagnosticsMutation(
   return false;
 }
 
-export async function exerciseStructuralDiagnosticsLifecycle(
+export async function exerciseStructuralDiagnostics(
   client,
   backendOrigin,
+  previewOrigin,
 ) {
+  await installDiagnosticsStreamGate(client);
+  await openWorkspaceCanvas(client, previewOrigin);
   const beforeCreate = await fetchCanonicalSnapshot(backendOrigin);
   assert.deepEqual(
     beforeCreate.callables,
@@ -44,7 +48,11 @@ export async function exerciseStructuralDiagnosticsLifecycle(
     "The structural diagnostics lifecycle requires a fresh callable forest.",
   );
 
-  await installDiagnosticsResponseGate(client, "create");
+  await installDiagnosticsResponseGate(
+    client,
+    "create",
+    beforeCreate.project.revision,
+  );
   try {
     await createCallable(client);
     const created = await waitForLaggingMutationResponse(client, "create");
@@ -76,7 +84,11 @@ export async function exerciseStructuralDiagnosticsLifecycle(
     );
 
     await disposeDiagnosticsResponseGate(client);
-    await installDiagnosticsResponseGate(client, "delete");
+    await installDiagnosticsResponseGate(
+      client,
+      "delete",
+      created.project.revision,
+    );
     try {
       const beforeDelete = settledCreatePresentation;
       await clickElementCenter(
@@ -151,7 +163,53 @@ async function createCallable(client) {
   assert.equal(clicked, true, "The Python callable creation item is missing.");
 }
 
-async function installDiagnosticsResponseGate(client, operation) {
+async function installDiagnosticsStreamGate(client) {
+  const installed = await client.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `(() => {
+      const gateKey = ${JSON.stringify(diagnosticsGateKey)};
+      const NativeEventSource = globalThis.EventSource;
+      globalThis.EventSource = class DiagnosticsGatedEventSource extends NativeEventSource {
+        set onmessage(listener) {
+          this.addEventListener("message", async (event) => {
+            let snapshot = null;
+            try {
+              snapshot = JSON.parse(event.data);
+            } catch {}
+            const gate = globalThis[gateKey];
+            if (
+              gate !== undefined &&
+              Number.isInteger(snapshot?.project?.revision) &&
+              snapshot.project.revision > gate.baselineRevision &&
+              snapshot.diagnosticsRevision === snapshot.project.revision
+            ) {
+              if (!gate.intercepted) {
+                gate.intercepted = true;
+                gate.heldSnapshot = snapshot;
+              }
+              await gate.held;
+              gate.latestDeliveredSnapshot = snapshot;
+              gate.freshResponseDelivered = true;
+            }
+            if (typeof listener === "function") {
+              listener.call(this, event);
+            }
+          });
+        }
+      };
+    })()`,
+  });
+  assert.equal(
+    typeof installed.identifier,
+    "string",
+    "The diagnostics EventSource gate was not registered for navigation.",
+  );
+}
+
+async function installDiagnosticsResponseGate(
+  client,
+  operation,
+  baselineRevision,
+) {
   const installed = await evaluate(
     client,
     `(() => {
@@ -162,7 +220,9 @@ async function installDiagnosticsResponseGate(client, operation) {
       let release;
       const held = new Promise((resolve) => { release = resolve; });
       const gate = {
+        baselineRevision: ${String(baselineRevision)},
         freshResponseDelivered: false,
+        held,
         heldSnapshot: null,
         intercepted: false,
         latestDeliveredSnapshot: null,
@@ -186,27 +246,14 @@ async function installDiagnosticsResponseGate(client, operation) {
           args[1]?.method ?? (input instanceof Request ? input.method : "GET"),
         ).toUpperCase();
         const path = new URL(requestUrl, location.href).pathname;
-        const isProjectGet = method === "GET" && path === "/api/v2/project";
         const isMutation = matchesMutation(gate.operation, method, path);
         const response = await originalFetch.apply(window, args);
-        if (!isMutation && !(gate.mutationResponseSeen && isProjectGet)) {
+        if (!isMutation) {
           return response;
         }
         const snapshot = await response.clone().json().catch(() => null);
-        if (isMutation) {
-          gate.mutationResponseSeen = true;
-          gate.mutationSnapshot = snapshot;
-          return response;
-        }
-        if (!gate.intercepted) {
-          gate.intercepted = true;
-          gate.heldSnapshot = snapshot;
-          await held;
-        }
-        gate.latestDeliveredSnapshot = snapshot;
-        if (snapshot?.diagnosticsRevision === snapshot?.project?.revision) {
-          gate.freshResponseDelivered = true;
-        }
+        gate.mutationResponseSeen = true;
+        gate.mutationSnapshot = snapshot;
         return response;
       };
       return true;

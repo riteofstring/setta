@@ -710,7 +710,7 @@ async function setDictionaryEntryExpression(
   assert.ok(current, `The ${entry.id} dictionary entry is missing.`);
   await activateAndSelectAllContentEditableTextBox(
     client,
-    `${itemRowSelector(entry.workspaceItemId)} ${contentEditableTextBoxSelector(`${current.name || "Unnamed entry"} expression`)}`,
+    `${itemRowSelector(entry.workspaceItemId)} ${contentEditableTextBoxSelector(`${current.name || "Unnamed entry"} value`)}`,
     `the ${current.name} dictionary expression`,
   );
   await insertText(client, expression);

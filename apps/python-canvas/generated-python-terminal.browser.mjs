@@ -520,7 +520,15 @@ async function exerciseTerminalPresentationAndScrollOwnership(client) {
     "The active canvas pan-scroll gesture scrolled xterm while crossing the terminal.",
   );
 
-  await evaluate(client, "new Promise((resolve) => setTimeout(resolve, 175))");
+  await waitFor(
+    client,
+    "the canvas pan-scroll gesture to release wheel ownership",
+    `(() => {
+      const canvas = document.querySelector(".setta-workspace.react-flow");
+      return canvas instanceof HTMLElement &&
+        !canvas.hasAttribute("data-viewport-interaction-active");
+    })()`,
+  );
   const beforeTerminalOwnedWheel = await terminalScrollState(client);
   await dispatchTerminalWheelBurst(client, -120);
   await waitFor(
@@ -724,15 +732,11 @@ async function dispatchPhysicalWheel(client, point, { deltaX, deltaY }) {
 }
 
 async function dispatchTerminalWheelBurst(client, deltaY) {
-  const screen = await elementRect(
+  const point = await visibleElementPoint(
     client,
     terminalScreenSelector,
-    "the xterm screen",
+    "the visible xterm screen",
   );
-  const point = {
-    x: screen.x + screen.width / 2,
-    y: screen.y + screen.height / 2,
-  };
   for (let index = 0; index < 12; index += 1) {
     await dispatchPhysicalWheel(client, point, { deltaX: 0, deltaY });
   }

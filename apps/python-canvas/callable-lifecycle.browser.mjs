@@ -460,7 +460,7 @@ async function setParameterExpression(
     client,
     harness.parameterRowSelector(parameter.id) +
       " " +
-      contentEditableTextBoxSelector(label + " expression"),
+      contentEditableTextBoxSelector(label + " value"),
     "the " + label + " expression editor",
   );
   await insertText(client, expression);
@@ -542,7 +542,7 @@ async function assertParameterMutationHasNoListPendingPresentation(
       JSON.stringify(rowSelector) +
       ");" +
       "const editor = row?.querySelector(" +
-      JSON.stringify(contentEditableTextBoxSelector(label + " expression")) +
+      JSON.stringify(contentEditableTextBoxSelector(label + " value")) +
       ");" +
       "const overlay = section?.querySelector('[data-python-canvas-parameter-pending=true]');" +
       "const spinner = section?.querySelector('.python-canvas-parameter-spinner');" +
@@ -733,7 +733,7 @@ function callableUiStateExpression(name, parameterId, harness) {
     "const row = document.querySelector(" +
     JSON.stringify(rowSelector) +
     ");" +
-    "const label = row?.querySelector('.python-canvas-parameter-label');" +
+    "const label = row?.querySelector('[data-workspace-static-item-label=true]');" +
     "const marker = row?.querySelector('[data-setta-workspace-item-diagnostic-marker=true]');" +
     "const markerRect = marker?.getBoundingClientRect();" +
     "const description = row?.querySelector('[data-setta-workspace-item-quick-info-description=true]');" +

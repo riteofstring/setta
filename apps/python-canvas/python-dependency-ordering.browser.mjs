@@ -16,6 +16,16 @@ import {
 } from "./browser-page.mjs";
 
 const runtimeMarker = "SETTA_DEPENDENCY_ORDER_RUNTIME:21";
+const codeParameterUI = {
+  configuration: {
+    disabled: false,
+    language: "python",
+    placeholder: null,
+    singleLine: true,
+    wrapLines: true,
+  },
+  type: "CodeParam",
+};
 const generatedPythonEditorSelector = labeledSelector(
   "Generated Python code editor, generated output read-only",
 );
@@ -78,6 +88,7 @@ def consume(value):
           authoredExpression: "0",
           id: "parameter:consumer:value",
           name: "value",
+          ui: codeParameterUI,
         },
       ],
       projectId: snapshot.project.id,
@@ -120,7 +131,7 @@ def consume(value):
   await openWorkspaceCanvas(client, previewOrigin);
   await activateAndSelectAllContentEditableTextBox(
     client,
-    `${parameterRowSelector("parameter:consumer:value")} ${contentEditableTextBoxSelector("value expression")}`,
+    `${parameterRowSelector("parameter:consumer:value")} ${contentEditableTextBoxSelector("value value")}`,
     "the Consumer value expression",
   );
   await insertText(client, "state.Producer");
@@ -199,6 +210,7 @@ def consume(value):
           id: "dictionary-entry:inputs:dog",
           kind: "leaf",
           name: "dog",
+          ui: codeParameterUI,
         },
       ],
       expectedRevision: snapshot.project.revision,
@@ -217,7 +229,7 @@ def consume(value):
   await openWorkspaceCanvas(client, previewOrigin);
   await activateAndSelectAllContentEditableTextBox(
     client,
-    `${parameterRowSelector("parameter:consumer:value")} ${contentEditableTextBoxSelector("value expression")}`,
+    `${parameterRowSelector("parameter:consumer:value")} ${contentEditableTextBoxSelector("value value")}`,
     "the Consumer dictionary-entry expression",
   );
   await insertText(client, "state.Inputs__dog");
