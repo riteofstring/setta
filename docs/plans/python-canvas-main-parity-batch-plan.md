@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-**Status: Ready for supervised implementation.**
+**Status: Completed on 2026-08-23.**
 
 Implement one bounded Python Canvas parity batch covering three behaviors already present on
 `main` but absent or incomplete on this branch:
@@ -207,3 +207,14 @@ owns the final `code-policy test --changed` and ordinary merge gate after review
 - [x] Main-equivalent generated multiline layout with correct semantic coordinates
 - [x] Undefined callable auto-refresh after Python-target resolution
 - [x] Production headless acceptance route extended for the required verification
+
+## Completion evidence
+
+- The supervised GPT-5.6 Terra/max implementation stayed within the three named product outcomes
+  and stopped after the acceptance paths were complete.
+- `pnpm --filter @setta/python-canvas test` passed with 72 Vitest tests and 24 browser-harness
+  tests.
+- `pnpm --filter @setta/python-canvas run browser:test` passed against the production frontend,
+  real Go service, pinned Basedpyright provider, isolated temporary project, and raw headless Chrome.
+  The route covers the actual resize/reload, multiline thresholds, and held-response callable
+  reconciliation states required above.
