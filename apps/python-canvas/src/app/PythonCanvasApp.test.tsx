@@ -64,14 +64,12 @@ type MockSectionRegistration = {
   nestedSections?: string;
   renderContent?: (section: unknown) => ReactNode;
 };
-
 type MockCreationCommand = {
   createSection: (context: unknown) => WorkspaceDocument["sections"][string];
   group: string;
   id: string;
   label: string;
 };
-
 type RegisteredPythonCanvasSectionKinds = {
   authoring: MockSectionRegistration;
   dictionary: MockSectionRegistration;
@@ -298,7 +296,8 @@ vi.mock("./GeneratedPythonTerminal", () => ({
   GeneratedPythonTerminalSection: ({ editor }: { editor: ReactNode }) => editor,
 }));
 
-vi.mock("@setta/workspace", () => ({
+vi.mock("@setta/workspace", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@setta/workspace")>()),
   WORKSPACE_CODE_SECTION_KIND: "setta.code",
   ItemDndContext: ({ children }: { children?: ReactNode }) => <>{children}</>,
   ItemNameEditor: () => <input aria-label="Parameter name" readOnly />,
@@ -316,6 +315,7 @@ vi.mock("@setta/workspace", () => ({
   WorkspaceProvider: ({ children }: { children?: ReactNode }) => (
     <>{children}</>
   ),
+  WorkspaceShell: MockWorkspaceCanvas,
   commitWorkspaceDocument: mocks.commitWorkspaceDocument,
   createWorkspaceCodeSection: mocks.createWorkspaceCodeSection,
   createWorkspaceCodeSectionData: (data: Record<string, unknown>) => data,

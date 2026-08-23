@@ -47,6 +47,10 @@ type WorkspaceHarness = {
   replace: (next: WorkspaceDocument) => void;
 };
 
+function MockWorkspaceCanvas() {
+  return <div data-testid="workspace-canvas" />;
+}
+
 vi.mock("../backend/client", () => ({
   ProjectClientError: class extends Error {},
   commitCallable: mocks.commitCallable,
@@ -69,14 +73,15 @@ vi.mock("../backend/client", () => ({
   setPythonTarget: mocks.setPythonTarget,
 }));
 
-vi.mock("@setta/workspace", () => ({
+vi.mock("@setta/workspace", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@setta/workspace")>()),
   WORKSPACE_CODE_SECTION_KIND: "setta.code",
   ItemDndContext: ({ children }: { children?: ReactNode }) => <>{children}</>,
   ItemNameEditor: () => <input aria-label="Item name" readOnly />,
   NO_DRAG_CLASS_NAME: "nodrag",
   NO_PAN_CLASS_NAME: "nopan",
   TextValueEditor: () => <input aria-label="Value" readOnly />,
-  WorkspaceCanvas: () => <div data-testid="workspace-canvas" />,
+  WorkspaceCanvas: MockWorkspaceCanvas,
   WorkspaceItemLabel: ({ children }: { children?: ReactNode }) => (
     <span>{children}</span>
   ),
@@ -84,6 +89,7 @@ vi.mock("@setta/workspace", () => ({
   WorkspaceProvider: ({ children }: { children?: ReactNode }) => (
     <>{children}</>
   ),
+  WorkspaceShell: MockWorkspaceCanvas,
   commitWorkspaceDocument: mocks.commitWorkspaceDocument,
   createWorkspaceCodeSection: mocks.createWorkspaceCodeSection,
   createWorkspaceCodeSectionData: (data: Record<string, unknown>) => data,
