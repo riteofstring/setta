@@ -102,9 +102,10 @@ func (coordinator *Coordinator) publishDiagnostics(work *diagnosticsWork, diagno
 		coordinator.snapshot.Diagnostics = compilerDiagnostics(work.rendered)
 		coordinator.snapshot.DiagnosticsRevision = work.revision
 		coordinator.snapshot.ProviderStatus = unavailableProviderStatus(ProviderLifecycleFailed)
-		return
+	} else {
+		coordinator.snapshot.Diagnostics = cloneDiagnostics(diagnostics)
+		coordinator.snapshot.DiagnosticsRevision = work.revision
+		coordinator.snapshot.ProviderStatus = status
 	}
-	coordinator.snapshot.Diagnostics = cloneDiagnostics(diagnostics)
-	coordinator.snapshot.DiagnosticsRevision = work.revision
-	coordinator.snapshot.ProviderStatus = status
+	coordinator.publishSnapshotLocked()
 }

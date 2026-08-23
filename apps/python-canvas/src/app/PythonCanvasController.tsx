@@ -10,6 +10,7 @@ import {
 import {
   ProjectClientError,
   commitCallable,
+  connectProjectSnapshotStream,
   fetchProjectSnapshot,
   refreshCallableParameters,
 } from "../backend/client";
@@ -50,7 +51,6 @@ import {
   type RevisionConflictDraft,
 } from "./pythonCanvasAppSupport";
 import { createDictionaryEntryParentPromotionScheduler } from "./dictionaryEntryParentPromotion";
-import { createDiagnosticsRevalidator } from "./diagnosticsRevalidation";
 import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import { createPythonCanvasMutations } from "./pythonCanvasMutations";
 import {
@@ -76,6 +76,17 @@ type CallableDrafts = Record<string, string>;
 type CompletionProviders = Record<string, TextValueCompletionProvider>;
 type CompletionErrors = Record<string, string>;
 type ProjectCallable = ProjectSnapshotV2["callables"][number];
+
+function isNewerSnapshot(
+  candidate: ProjectSnapshotV2,
+  current: ProjectSnapshotV2,
+) {
+  return (
+    candidate.project.revision > current.project.revision ||
+    (candidate.project.revision === current.project.revision &&
+      candidate.diagnosticsRevision > current.diagnosticsRevision)
+  );
+}
 
 function shouldRetainParameterListDraft(
   draft: ParameterProposalV2[],
@@ -132,6 +143,7 @@ export function PythonCanvasController() {
     let active = true;
     let disposed = false;
     let snapshot: ProjectSnapshotV2 | null = null;
+    let disconnectProjectSnapshotStream: (() => void) | null = null;
     const pendingCallableCommits = new Set<string>();
     const unresolvedPendingSectionIds = new Set<string>();
     let mutationChain = Promise.resolve();
@@ -446,29 +458,7 @@ export function PythonCanvasController() {
         nextSnapshot,
         answer.kind === "commit" ? answer.callableId : null,
       );
-      diagnosticsRevalidator.revalidate(nextSnapshot);
     };
-    const diagnosticsRevalidator = createDiagnosticsRevalidator({
-      acceptSnapshot: (nextSnapshot) =>
-        acceptCanonicalSnapshot(nextSnapshot, { kind: "other" }),
-      currentSnapshot: () => snapshot,
-      fetchSnapshot: fetchProjectSnapshot,
-      hasPendingWorkspaceStructure: (current, candidate) => {
-        const document = host.getSnapshot();
-        return (
-          // A diagnostics GET can observe a durable create before its POST
-          // continuation maps the hidden local identity to the canonical ID.
-          // Preserve that identity as a projection boundary until its own
-          // response performs the in-place reconciliation. Same-revision
-          // diagnostics remain safe to project while the create is pending.
-          (unresolvedPendingSectionIds.size > 0 &&
-            candidate.project.revision > current.project.revision) ||
-          sectionStructureMutations(document, current).length > 0 ||
-          forestMutationProposal(document, current) !== null
-        );
-      },
-      isActive: () => active,
-    });
     const restoreCanonicalProject = (
       answer: MutationAnswer = { kind: "other" },
     ) => {
@@ -840,7 +830,35 @@ export function PythonCanvasController() {
         }
         synchronizeReactProjection(initialSnapshot, null);
         setState({ kind: "ready", host });
-        diagnosticsRevalidator.revalidate(initialSnapshot);
+        disconnectProjectSnapshotStream = connectProjectSnapshotStream({
+          onProtocolError: () => {
+            updateAnnouncement({
+              kind: "error",
+              message:
+                "Python Canvas received an invalid project update from the server.",
+            });
+          },
+          onSnapshot: (nextSnapshot) => {
+            void enqueue(async () => {
+              const current = snapshot;
+              if (!active || current === null) {
+                return;
+              }
+              if (nextSnapshot.project.id !== current.project.id) {
+                updateAnnouncement({
+                  kind: "error",
+                  message:
+                    "Python Canvas received an update for a different project.",
+                });
+                return;
+              }
+              if (!isNewerSnapshot(nextSnapshot, current)) {
+                return;
+              }
+              acceptCanonicalSnapshot(nextSnapshot, { kind: "other" });
+            });
+          },
+        });
       } catch {
         if (active) {
           disposeHost();
@@ -855,7 +873,7 @@ export function PythonCanvasController() {
       mutations.cancelTargetMutation();
       mutations.cancelAllParameterMutations();
       mutations.cancelAllDictionaryMutations();
-      diagnosticsRevalidator.dispose();
+      disconnectProjectSnapshotStream?.();
       controllerRef.current = null;
       terminalRuntime.dispose();
       terminalRuntimeRef.current = null;

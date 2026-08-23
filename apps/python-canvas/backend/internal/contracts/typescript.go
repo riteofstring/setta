@@ -15,6 +15,7 @@ export const PROJECT_SNAPSHOT_VERSION_V2 = %q as const;
 export const TERMINAL_STREAM_READY_TYPE_V2 = %q as const;
 export const TERMINAL_STREAM_RESIZE_TYPE_V2 = %q as const;
 export const PROJECT_PATH_V2 = %q as const;
+export const PROJECT_EVENTS_PATH_V2 = %q as const;
 export const PROJECT_RENAME_PATH_V2 = %q as const;
 export const PROJECT_CALLABLES_PATH_V2 = %q as const;
 export const PROJECT_PARAMETER_DICTIONARIES_PATH_V2 = %q as const;
@@ -239,6 +240,7 @@ export interface ErrorResponseV2 { error: APIErrorV2; }
 		TerminalStreamReadyTypeV2,
 		TerminalStreamResizeTypeV2,
 		ProjectPathV2,
+		ProjectEventsPathV2,
 		ProjectRenamePathV2,
 		ProjectCallablesPathV2,
 		ProjectParameterDictionariesPathV2,

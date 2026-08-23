@@ -103,8 +103,10 @@ once at the CLI boundary and use validated typed values internally.
 ### 4. Diagnostics can be settled explicitly
 
 Both `snapshot` and `apply` accept `--wait-diagnostics` and a bounded `--timeout` (default 10s when
-waiting). Waiting polls canonical snapshots until `diagnosticsRevision == project.revision` and the
-provider is no longer pending. The returned document is still an ordinary `ProjectSnapshotV2`.
+waiting). Waiting opens the canonical project event stream and consumes pushed snapshots until
+`diagnosticsRevision == project.revision` and the provider is no longer pending. The browser uses
+the same stream, so a CLI mutation appears in an already-open canvas without reload or polling. A
+new or reconnected subscriber immediately receives the current complete `ProjectSnapshotV2`.
 
 Timeout returns a typed error containing the latest project revision, diagnostics revision, and
 provider state. Cancellation and timeout do not mutate the project. Do not hide provider failure,
@@ -145,8 +147,12 @@ Route construction and request encoding belong to the operation registry. Common
 are injected after the operation has been strictly decoded. Percent-encode path IDs with URL path
 segment semantics; never concatenate untrusted IDs into a route without escaping.
 
-No frontend or `@setta/workspace` API change is required for the CLI. The only workspace change in
-this batch is the separately requested small parameter-picker leading-inset correction.
+The coordinator owns one latest-value publication stream. The HTTP adapter exposes it as
+`GET /api/v2/project/events` using server-sent events. Every event contains a complete validated
+snapshot; there are no partial patches, event cursors, heartbeat timers, or client polling loops.
+The browser reconciles newer pushed snapshots through its existing serialized mutation boundary so
+a publication cannot overtake the HTTP response that maps an optimistic section to its canonical
+identity. No `@setta/workspace` API change is required.
 
 ## Acceptance behavior
 
@@ -156,8 +162,8 @@ this batch is the separately requested small parameter-picker leading-inset corr
    snapshot and no other stdout.
 3. `apply` reads one strict operation from a file or stdin, fetches the current snapshot, sends the
    correctly typed V2 mutation with its exact ID/revision, and emits the returned canonical snapshot.
-4. A callable create followed by callable commit is immediately visible in both CLI snapshot output
-   and the browser because both clients use the same coordinator.
+4. A callable create followed by callable commit is pushed into an already-open browser without a
+   reload; the browser performs no repeated project GETs.
 5. Every current authored mutation family has at least one registry/route/request conformance test;
    nested parameter and dictionary UI payloads are preserved exactly.
 6. A concurrent browser mutation produces `revision_conflict`; the CLI does not retry and reports
@@ -176,7 +182,7 @@ this batch is the separately requested small parameter-picker leading-inset corr
 - Table-driven Go tests for root dispatch, help, exit codes, URL validation, exact JSON decoding,
   file/stdin input, stable schema output, and operation registry completeness.
 - `httptest` contract tests for every operation route/body, snapshot validation, backend errors,
-  no-conflict-retry behavior, and diagnostic settling/timeout.
+  no-conflict-retry behavior, the long-lived event stream, and pushed diagnostic settling/timeout.
 - One live-handler acceptance test that applies a mutation through the CLI and observes the same
   coordinator snapshot through the V2 endpoint.
 - Existing `cmd/python-canvas` startup tests to prove server launch arguments are unchanged.
@@ -190,7 +196,8 @@ this batch is the separately requested small parameter-picker leading-inset corr
 2. Add the closed operation registry, strict input/error/output types, and stable schema command.
 3. Add the bounded loopback client, snapshot command, operation-to-V2 apply mapping, and response
    validation.
-4. Add explicit diagnostic settling and the focused live-handler acceptance.
+4. Add canonical snapshot publication, browser reconciliation, push-based diagnostic settling, and
+   the focused live-handler acceptance.
 5. Run focused tests, changed-scope policy tests, record evidence, and mark this plan implemented.
 
 Stop when the ten acceptance behaviors pass. Do not expand into PyPI packaging, environment
@@ -206,6 +213,7 @@ framework adoption.
 - [x] Every existing authored mutation mapped without raw transport escape hatches
 - [x] Revision conflicts preserved without retry
 - [x] Explicit bounded diagnostic settling
+- [x] Push-only browser synchronization and diagnostic settling
 - [x] Strict machine output and stable exit statuses
 - [x] Focused and live-handler acceptance tests passing
 - [x] `code-policy test --changed` evidence recorded
@@ -221,6 +229,9 @@ framework adoption.
   callable diagnostic appeared without `import math`; setting the Python prefix to `import math`
   automatically refreshed the callable, retrieved parameter `x`, and cleared the callable
   diagnostic.
+- The coordinator now publishes complete canonical snapshots for both authored mutations and
+  asynchronous diagnostics. One SSE connection updates an already-open browser and powers
+  `--wait-diagnostics`; the former browser timer and CLI ticker were removed.
 - `code-policy test --changed` selected and passed the workspace, playground, Python Canvas backend,
   and Python Canvas frontend suites. The command then reported six pre-existing vulnerability
   assessments in `.code-policy.json` that expired on 2026-08-24; this batch does not alter or renew

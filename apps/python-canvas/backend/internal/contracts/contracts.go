@@ -12,6 +12,7 @@ const (
 	TerminalStreamReadyTypeV2          = "ready"
 	TerminalStreamResizeTypeV2         = "resize"
 	ProjectPathV2                      = "/api/v2/project"
+	ProjectEventsPathV2                = "/api/v2/project/events"
 	ProjectRenamePathV2                = "/api/v2/project/rename"
 	ProjectCallablesPathV2             = "/api/v2/project/callables"
 	ProjectParameterDictionariesPathV2 = "/api/v2/project/parameter-dictionaries"

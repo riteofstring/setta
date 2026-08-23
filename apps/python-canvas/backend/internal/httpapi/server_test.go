@@ -277,14 +277,25 @@ func assertErrorCode(t *testing.T, response *httptest.ResponseRecorder, want con
 type stubProjectService struct {
 	snapshot contracts.ProjectSnapshotV2
 
-	captureGeneratedProgram func(context.Context, string, int) (GeneratedProgram, error)
-	renameProject           func(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
-	commitCallable          func(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error)
-	refreshParameters       func(context.Context, string, contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
-	setParameters           func(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
+	subscribeProjectSnapshots func(context.Context) <-chan contracts.ProjectSnapshotV2
+	captureGeneratedProgram   func(context.Context, string, int) (GeneratedProgram, error)
+	renameProject             func(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
+	commitCallable            func(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error)
+	refreshParameters         func(context.Context, string, contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
+	setParameters             func(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
 }
 
 func (service *stubProjectService) Snapshot() contracts.ProjectSnapshotV2 { return service.snapshot }
+
+func (service *stubProjectService) SubscribeProjectSnapshots(ctx context.Context) <-chan contracts.ProjectSnapshotV2 {
+	if service.subscribeProjectSnapshots != nil {
+		return service.subscribeProjectSnapshots(ctx)
+	}
+	stream := make(chan contracts.ProjectSnapshotV2, 1)
+	stream <- service.snapshot
+	close(stream)
+	return stream
+}
 
 func (service *stubProjectService) CaptureGeneratedProgram(ctx context.Context, projectID string, expectedRevision int) (GeneratedProgram, error) {
 	if service.captureGeneratedProgram != nil {

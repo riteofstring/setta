@@ -4,6 +4,7 @@ export const PROJECT_SNAPSHOT_VERSION_V2 = "v2" as const;
 export const TERMINAL_STREAM_READY_TYPE_V2 = "ready" as const;
 export const TERMINAL_STREAM_RESIZE_TYPE_V2 = "resize" as const;
 export const PROJECT_PATH_V2 = "/api/v2/project" as const;
+export const PROJECT_EVENTS_PATH_V2 = "/api/v2/project/events" as const;
 export const PROJECT_RENAME_PATH_V2 = "/api/v2/project/rename" as const;
 export const PROJECT_CALLABLES_PATH_V2 = "/api/v2/project/callables" as const;
 export const PROJECT_PARAMETER_DICTIONARIES_PATH_V2 = "/api/v2/project/parameter-dictionaries" as const;

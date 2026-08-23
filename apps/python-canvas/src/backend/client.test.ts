@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   PROJECT_CALLABLES_PATH_V2,
+  PROJECT_EVENTS_PATH_V2,
   PROJECT_FOREST_PATH_V2,
   PROJECT_LISTS_PATH_V2,
   PROJECT_PARAMETER_DICTIONARIES_PATH_V2,
@@ -44,6 +45,7 @@ import {
   closeTerminal,
   completeCallable,
   completePythonTarget,
+  connectProjectSnapshotStream,
   createCallable,
   createList,
   createParameterDictionary,
@@ -67,6 +69,52 @@ import {
 } from "./client";
 
 describe("Python Canvas V2 project client", () => {
+  it("consumes canonical snapshots from one server-pushed event stream", () => {
+    const source = createProjectSnapshotEventSource();
+    const createEventSource = vi.fn(() => source);
+    const onProtocolError = vi.fn();
+    const onSnapshot = vi.fn();
+
+    const disconnect = connectProjectSnapshotStream(
+      { onProtocolError, onSnapshot },
+      createEventSource,
+    );
+
+    expect(createEventSource).toHaveBeenCalledWith(PROJECT_EVENTS_PATH_V2);
+    source.onmessage?.call(
+      source as EventSource,
+      new MessageEvent("message", {
+        data: JSON.stringify(projectSnapshotFixture),
+      }),
+    );
+    source.onerror?.call(source as EventSource, new Event("error"));
+
+    expect(onSnapshot).toHaveBeenCalledWith(projectSnapshotFixture);
+    expect(onProtocolError).not.toHaveBeenCalled();
+    expect(source.close).not.toHaveBeenCalled();
+
+    disconnect();
+    expect(source.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes a project stream whose pushed snapshot violates the contract", () => {
+    const source = createProjectSnapshotEventSource();
+    const onProtocolError = vi.fn();
+    const onSnapshot = vi.fn();
+
+    connectProjectSnapshotStream({ onProtocolError, onSnapshot }, () => source);
+    source.onmessage?.call(
+      source as EventSource,
+      new MessageEvent("message", {
+        data: JSON.stringify({ version: "v2" }),
+      }),
+    );
+
+    expect(source.close).toHaveBeenCalledTimes(1);
+    expect(onProtocolError).toHaveBeenCalledTimes(1);
+    expect(onSnapshot).not.toHaveBeenCalled();
+  });
+
   it("uses one exact JSON GET request and validates the V2 snapshot", async () => {
     const fetchImplementation = vi
       .fn()
@@ -477,4 +525,15 @@ function createJsonResponse(
     ok: true,
     status: 200,
   } as unknown as Response & { json: ReturnType<typeof vi.fn> };
+}
+
+function createProjectSnapshotEventSource(): Pick<
+  EventSource,
+  "close" | "onerror" | "onmessage"
+> {
+  return {
+    close: vi.fn(),
+    onerror: null,
+    onmessage: null,
+  };
 }

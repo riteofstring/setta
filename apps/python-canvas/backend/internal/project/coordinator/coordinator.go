@@ -61,6 +61,8 @@ type Coordinator struct {
 	analysisDone           chan struct{}
 	analysisWake           chan struct{}
 	pendingAnalysis        *diagnosticsWork
+	snapshotSubscribers    map[uint64]chan Snapshot
+	nextSnapshotSubscriber uint64
 }
 
 // Open strictly loads one existing authored project or prepares one blank
@@ -441,6 +443,10 @@ func (coordinator *Coordinator) Close() error {
 		return nil
 	}
 	coordinator.closed = true
+	for subscriberID, subscriber := range coordinator.snapshotSubscribers {
+		close(subscriber)
+		delete(coordinator.snapshotSubscribers, subscriberID)
+	}
 	provider := coordinator.provider
 	document := coordinator.materializer
 	cleanup := append([]materializer.Replacement{}, coordinator.cleanup...)
@@ -575,6 +581,7 @@ func (coordinator *Coordinator) applyCandidate(ctx context.Context, candidate ag
 		DiagnosticsRevision: candidate.State.Project.Revision,
 		ProviderStatus:      providerStatus,
 	}
+	coordinator.publishSnapshotLocked()
 	return coordinator.snapshot.Clone(), nil
 }
 
@@ -622,6 +629,7 @@ func (coordinator *Coordinator) applyStructuralCandidate(candidate aggregate.Can
 		next.Diagnostics = compilerDiagnostics(rendered)
 	}
 	coordinator.snapshot = next
+	coordinator.publishSnapshotLocked()
 	coordinator.setProviderTargetRevision(candidate.State.Project.Revision)
 	if coordinator.provider != nil {
 		coordinator.scheduleDiagnosticsLocked(candidate.State, rendered)

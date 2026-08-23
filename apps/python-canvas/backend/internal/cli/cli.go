@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -28,7 +29,6 @@ const (
 	defaultRequestTimeout     = 10 * time.Second
 	defaultDiagnosticTimeout  = 10 * time.Second
 	maxDiagnosticTimeout      = 60 * time.Second
-	diagnosticPollingInterval = 50 * time.Millisecond
 	maxResponseBytes          = 16 << 20
 	exitSuccess               = 0
 	exitUnexpectedFailure     = 1
@@ -163,7 +163,6 @@ func normalizedOptions(options Options) Options {
 	}
 	if options.HTTPClient == nil {
 		options.HTTPClient = &http.Client{
-			Timeout: defaultRequestTimeout,
 			CheckRedirect: func(*http.Request, []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
@@ -412,6 +411,34 @@ func (client *serviceClient) apply(ctx context.Context, request mutation) (contr
 	return client.request(ctx, http.MethodPost, request.path, request.body)
 }
 
+func (client *serviceClient) snapshotEvents(ctx context.Context) (*http.Response, *commandFailure) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseURL+contracts.ProjectEventsPathV2, nil)
+	if err != nil {
+		return nil, unexpectedFailure("internal_error", "Unable to create the project event request.")
+	}
+	request.Header.Set("Accept", "text/event-stream")
+	response, err := client.http.Do(request)
+	if err != nil {
+		return nil, classifyRequestError(ctx, ctx)
+	}
+	if response == nil || response.Body == nil {
+		return nil, unexpectedFailure("malformed_response", "The service returned an invalid event response.")
+	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		defer response.Body.Close()
+		content, readErr := readBounded(response.Body, maxResponseBytes)
+		if readErr != nil {
+			return nil, unexpectedFailure("malformed_response", "The service event error response could not be read.")
+		}
+		return nil, typedV2Failure(content)
+	}
+	if mediaType := strings.TrimSpace(strings.Split(response.Header.Get("Content-Type"), ";")[0]); mediaType != "text/event-stream" {
+		_ = response.Body.Close()
+		return nil, unexpectedFailure("malformed_response", "The service returned an invalid project event stream.")
+	}
+	return response, nil
+}
+
 func (client *serviceClient) request(ctx context.Context, method string, path string, payload any) (contracts.ProjectSnapshotV2, *commandFailure) {
 	requestContext, cancel := context.WithTimeout(ctx, defaultRequestTimeout)
 	defer cancel()
@@ -525,29 +552,72 @@ func settleDiagnostics(ctx context.Context, client *serviceClient, snapshot cont
 	waitContext, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	latest := snapshot
-	ticker := time.NewTicker(diagnosticPollingInterval)
-	defer ticker.Stop()
+	response, failure := client.snapshotEvents(waitContext)
+	if failure != nil {
+		if errors.Is(waitContext.Err(), context.DeadlineExceeded) {
+			return contracts.ProjectSnapshotV2{}, diagnosticsTimeoutFailure(latest)
+		}
+		return contracts.ProjectSnapshotV2{}, failure
+	}
+	defer response.Body.Close()
+	scanner := bufio.NewScanner(response.Body)
+	scanner.Buffer(make([]byte, 64<<10), maxResponseBytes+len("data: "))
 	for {
-		select {
-		case <-waitContext.Done():
+		candidate, err := scanSnapshotEvent(scanner)
+		if err != nil {
 			if errors.Is(waitContext.Err(), context.DeadlineExceeded) {
 				return contracts.ProjectSnapshotV2{}, diagnosticsTimeoutFailure(latest)
 			}
-			return contracts.ProjectSnapshotV2{}, unexpectedFailure("request_canceled", "The diagnostic wait was canceled.")
-		case <-ticker.C:
-			candidate, failure := client.snapshot(waitContext)
-			if failure != nil {
-				if errors.Is(waitContext.Err(), context.DeadlineExceeded) {
-					return contracts.ProjectSnapshotV2{}, diagnosticsTimeoutFailure(latest)
-				}
-				return contracts.ProjectSnapshotV2{}, failure
+			if errors.Is(waitContext.Err(), context.Canceled) {
+				return contracts.ProjectSnapshotV2{}, unexpectedFailure("request_canceled", "The diagnostic wait was canceled.")
 			}
-			latest = candidate
-			if diagnosticsSettled(latest) {
-				return latest, nil
-			}
+			return contracts.ProjectSnapshotV2{}, unexpectedFailure("malformed_response", "The project event stream ended before diagnostics settled.")
+		}
+		if candidate.Project.ID != latest.Project.ID || candidate.Project.Revision < latest.Project.Revision ||
+			(candidate.Project.Revision == latest.Project.Revision && candidate.DiagnosticsRevision < latest.DiagnosticsRevision) {
+			return contracts.ProjectSnapshotV2{}, unexpectedFailure("malformed_response", "The project event stream returned an inconsistent snapshot.")
+		}
+		latest = candidate
+		if diagnosticsSettled(latest) {
+			return latest, nil
 		}
 	}
+}
+
+func scanSnapshotEvent(scanner *bufio.Scanner) (contracts.ProjectSnapshotV2, error) {
+	var data strings.Builder
+	for scanner.Scan() {
+		line := strings.TrimSuffix(scanner.Text(), "\r")
+		if line == "" {
+			if data.Len() == 0 {
+				continue
+			}
+			var snapshot contracts.ProjectSnapshotV2
+			if err := decodeStrictJSON([]byte(data.String()), &snapshot); err != nil {
+				return contracts.ProjectSnapshotV2{}, err
+			}
+			if err := snapshot.Validate(); err != nil {
+				return contracts.ProjectSnapshotV2{}, err
+			}
+			return snapshot, nil
+		}
+		if strings.HasPrefix(line, ":") || !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		value := strings.TrimPrefix(line, "data:")
+		value = strings.TrimPrefix(value, " ")
+		if data.Len() > 0 {
+			data.WriteByte('\n')
+		}
+		if data.Len()+len(value) > maxResponseBytes {
+			return contracts.ProjectSnapshotV2{}, errInputTooLarge
+		}
+		data.WriteString(value)
+	}
+	if err := scanner.Err(); err != nil {
+		return contracts.ProjectSnapshotV2{}, err
+	}
+	return contracts.ProjectSnapshotV2{}, io.ErrUnexpectedEOF
 }
 
 func diagnosticsSettled(snapshot contracts.ProjectSnapshotV2) bool {

@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   PROJECT_CALLABLES_PATH_V2,
+  PROJECT_EVENTS_PATH_V2,
   PROJECT_PATH_V2,
   PROJECT_RENAME_PATH_V2,
   PROJECT_SNAPSHOT_VERSION_V2,
@@ -17,6 +18,7 @@ describe("generated V2 contract", () => {
     const snapshot = parseProjectSnapshotV2(projectSnapshotFixture);
 
     expect(PROJECT_PATH_V2).toBe("/api/v2/project");
+    expect(PROJECT_EVENTS_PATH_V2).toBe("/api/v2/project/events");
     expect(PROJECT_RENAME_PATH_V2).toBe("/api/v2/project/rename");
     expect(PROJECT_CALLABLES_PATH_V2).toBe("/api/v2/project/callables");
     expect(projectCallableParametersPath("callable:one/two")).toBe(

@@ -14,6 +14,7 @@ import (
 // adapter. It exposes canonical snapshots, never a mutable transport model.
 type ProjectService interface {
 	Snapshot() contracts.ProjectSnapshotV2
+	SubscribeProjectSnapshots(context.Context) <-chan contracts.ProjectSnapshotV2
 	CaptureGeneratedProgram(context.Context, string, int) (GeneratedProgram, error)
 	RenameProject(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
 	CreateCallable(context.Context, contracts.CreateCallableRequestV2) (contracts.ProjectSnapshotV2, error)
@@ -72,6 +73,45 @@ func (service *CoordinatorService) Snapshot() contracts.ProjectSnapshotV2 {
 		return contracts.ProjectSnapshotV2{}
 	}
 	return snapshot
+}
+
+// SubscribeProjectSnapshots maps the coordinator's latest-value publication
+// stream onto the public V2 contract. Closing the request context releases the
+// coordinator subscription; no timer or polling request is involved.
+func (service *CoordinatorService) SubscribeProjectSnapshots(ctx context.Context) <-chan contracts.ProjectSnapshotV2 {
+	stream := make(chan contracts.ProjectSnapshotV2, 1)
+	if service == nil || service.coordinator == nil {
+		close(stream)
+		return stream
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	publications, unsubscribe := service.coordinator.SubscribeSnapshots()
+	go func() {
+		defer close(stream)
+		defer unsubscribe()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case publication, open := <-publications:
+				if !open {
+					return
+				}
+				snapshot, err := snapshotV2(publication)
+				if err != nil {
+					return
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case stream <- snapshot:
+				}
+			}
+		}
+	}()
+	return stream
 }
 
 func (service *CoordinatorService) CaptureGeneratedProgram(

@@ -21,6 +21,7 @@ const CODE_UI = {
 const mocks = vi.hoisted(() => ({
   commitCallable: vi.fn(),
   commitWorkspaceDocument: vi.fn(),
+  connectProjectSnapshotStream: vi.fn(),
   createCallable: vi.fn(),
   createList: vi.fn(),
   createParameterDictionary: vi.fn(),
@@ -45,6 +46,11 @@ const mocks = vi.hoisted(() => ({
   setParameterDictionaryEntries: vi.fn(),
   setPythonTarget: vi.fn(),
   setWorkspaceColorMode: vi.fn(),
+  disconnectProjectSnapshotStream: vi.fn(),
+  projectSnapshotStreamOptions: null as {
+    onProtocolError: () => void;
+    onSnapshot: (snapshot: unknown) => void;
+  } | null,
   workspaceCanvasHost: null as WorkspaceHost | null,
 }));
 
@@ -66,6 +72,7 @@ function MockWorkspaceCanvas() {
 vi.mock("../backend/client", () => ({
   ProjectClientError: class extends Error {},
   commitCallable: mocks.commitCallable,
+  connectProjectSnapshotStream: mocks.connectProjectSnapshotStream,
   createCallable: mocks.createCallable,
   createList: mocks.createList,
   createParameterDictionary: mocks.createParameterDictionary,
@@ -132,6 +139,11 @@ let root: Root | undefined;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.projectSnapshotStreamOptions = null;
+  mocks.connectProjectSnapshotStream.mockImplementation((options) => {
+    mocks.projectSnapshotStreamOptions = options;
+    return mocks.disconnectProjectSnapshotStream;
+  });
   mocks.createWorkspaceCodeSection.mockReturnValue({
     renderContent: () => <div />,
   });
@@ -347,8 +359,7 @@ describe("PythonCanvasApp concurrency", () => {
     ]);
   });
 
-  it("settles same-revision diagnostics without visible pending state or losing an unresolved placeholder", async () => {
-    vi.useFakeTimers();
+  it("applies pushed same-revision diagnostics without polling or losing a local parameter draft", async () => {
     const initialSnapshot = parseProjectSnapshotV2(projectSnapshotFixture);
     const localParameter = {
       authoredExpression: "",
@@ -372,17 +383,9 @@ describe("PythonCanvasApp concurrency", () => {
       createdSnapshot,
       "callable:created",
     );
-    const diagnosticsRequest =
-      deferred<ReturnType<typeof parseProjectSnapshotV2>>();
-    const secondCreationRequest =
-      deferred<ReturnType<typeof parseProjectSnapshotV2>>();
     const workspace = installWorkspaceHarness();
-    mocks.fetchProjectSnapshot
-      .mockResolvedValueOnce(initialSnapshot)
-      .mockReturnValueOnce(diagnosticsRequest.promise);
-    mocks.createCallable
-      .mockResolvedValueOnce(createdSnapshot)
-      .mockReturnValueOnce(secondCreationRequest.promise);
+    mocks.fetchProjectSnapshot.mockResolvedValueOnce(initialSnapshot);
+    mocks.createCallable.mockResolvedValueOnce(createdSnapshot);
 
     const view = renderApp();
     await flushEffects();
@@ -408,61 +411,24 @@ describe("PythonCanvasApp concurrency", () => {
     const canonicalSectionId = callableSectionID("callable:created");
     const parameterId = parameterWorkspaceItemID(localParameter.id);
     installLocalParameterDraft(workspace, canonicalSectionId, parameterId);
-    await advanceDiagnosticsRevalidation();
-    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(2);
+    await pushProjectSnapshot(settledSnapshot);
+
+    const canonical = workspace.getDocument().sections[canonicalSectionId];
+    expect(
+      workspace.getDocument().topLevelSections[canonicalSectionId],
+    ).toEqual(callableLayout);
+    expect(canonical?.data).toMatchObject({
+      callableDiagnosticMessage: "The callable needs diagnostics.",
+    });
+    expect(
+      canonical?.itemTree?.items[parameterId]?.presentation?.control,
+    ).toMatchObject({ value: "local draft" });
+    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(1);
     expectReadyStatus(view);
-
-    const pendingSecondCallable = invokeMockCreationCommand({
-      workspacePosition: { x: 516, y: 336 },
-    });
-    const secondCallableLayout = {
-      h: 150,
-      w: 250,
-      x: 516,
-      y: 336,
-      zIndex: 5,
-    };
-    workspace.publish({
-      ...workspace.getDocument(),
-      activeIds: [canonicalSectionId, pendingSecondCallable.id],
-      sections: {
-        ...workspace.getDocument().sections,
-        [pendingSecondCallable.id]: pendingSecondCallable,
-      },
-      topLevelSections: {
-        ...workspace.getDocument().topLevelSections,
-        [pendingSecondCallable.id]: secondCallableLayout,
-      },
-    });
-    await flushEffects();
-
-    const statusBeforeDiagnosticsSettle = statusMessage(view);
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(500);
-      await flushMicrotasks();
-    });
-    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(2);
-
-    await act(async () => {
-      diagnosticsRequest.resolve(settledSnapshot);
-      await flushMicrotasks();
-    });
-
-    expect(statusMessage(view)).toBe(statusBeforeDiagnosticsSettle);
-    expectDiagnosticsReconciliation({
-      callableLayout,
-      canonicalSectionId,
-      parameterId,
-      pendingSecondCallable,
-      secondCallableLayout,
-      workspace,
-    });
     expectNoMutationError(view);
   });
 
-  it("cancels obsolete diagnostics polling and ignores its late older snapshot", async () => {
-    vi.useFakeTimers();
+  it("ignores a late pushed snapshot after accepting a newer revision", async () => {
     const initialSnapshot = parseProjectSnapshotV2(projectSnapshotFixture);
     const firstSnapshot = laggingCallableSnapshot(2, [
       { id: "callable:first", name: "New callable" },
@@ -471,15 +437,8 @@ describe("PythonCanvasApp concurrency", () => {
       { id: "callable:first", name: "New callable" },
       { id: "callable:second", name: "New callable 2" },
     ]);
-    const olderDiagnosticsRequest =
-      deferred<ReturnType<typeof parseProjectSnapshotV2>>();
     const workspace = installWorkspaceHarness();
-    mocks.fetchProjectSnapshot
-      .mockResolvedValueOnce(initialSnapshot)
-      .mockReturnValueOnce(olderDiagnosticsRequest.promise)
-      .mockResolvedValueOnce(
-        settledDiagnosticsSnapshot(secondSnapshot, "callable:second"),
-      );
+    mocks.fetchProjectSnapshot.mockResolvedValueOnce(initialSnapshot);
     mocks.createCallable
       .mockResolvedValueOnce(firstSnapshot)
       .mockResolvedValueOnce(secondSnapshot);
@@ -504,11 +463,6 @@ describe("PythonCanvasApp concurrency", () => {
     });
     await flushEffects();
 
-    await advanceDiagnosticsRevalidation();
-    const olderRequestOptions = mocks.fetchProjectSnapshot.mock
-      .calls[1]?.[0] as { signal?: AbortSignal } | undefined;
-    expect(olderRequestOptions?.signal).toBeDefined();
-
     const secondPending = invokeMockCreationCommand({
       workspacePosition: { x: 516, y: 336 },
     });
@@ -526,16 +480,12 @@ describe("PythonCanvasApp concurrency", () => {
     });
     await flushEffects();
 
-    expect(olderRequestOptions?.signal?.aborted).toBe(true);
-    await advanceDiagnosticsRevalidation();
-    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(3);
-
-    await act(async () => {
-      olderDiagnosticsRequest.resolve(
-        settledDiagnosticsSnapshot(firstSnapshot, "callable:first"),
-      );
-      await flushMicrotasks();
-    });
+    await pushProjectSnapshot(
+      settledDiagnosticsSnapshot(secondSnapshot, "callable:second"),
+    );
+    await pushProjectSnapshot(
+      settledDiagnosticsSnapshot(firstSnapshot, "callable:first"),
+    );
 
     const secondSectionId = callableSectionID("callable:second");
     expect(
@@ -544,27 +494,21 @@ describe("PythonCanvasApp concurrency", () => {
       callableDiagnosticMessage: "The callable needs diagnostics.",
     });
     expect(workspace.getDocument().sections[secondSectionId]).toBeDefined();
-    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(3);
+    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it("does not let diagnostics polling overtake pending create reconciliation", async () => {
-    vi.useFakeTimers();
+  it("does not let a pushed snapshot overtake pending create reconciliation", async () => {
     const initialSnapshot = laggingCallableSnapshot(2, []);
     const createdSnapshot = laggingCallableSnapshot(3, [
       { id: "callable:created", name: "New callable" },
     ]);
-    const diagnosticsRequest =
-      deferred<ReturnType<typeof parseProjectSnapshotV2>>();
     const createRequest = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
     const workspace = installWorkspaceHarness();
-    mocks.fetchProjectSnapshot
-      .mockResolvedValueOnce(initialSnapshot)
-      .mockReturnValueOnce(diagnosticsRequest.promise);
+    mocks.fetchProjectSnapshot.mockResolvedValueOnce(initialSnapshot);
     mocks.createCallable.mockReturnValueOnce(createRequest.promise);
 
     renderApp();
     await flushEffects();
-    await advanceDiagnosticsRevalidation();
 
     const pending = invokeMockCreationCommand({
       workspacePosition: { x: 48, y: 64 },
@@ -581,10 +525,8 @@ describe("PythonCanvasApp concurrency", () => {
     });
     await flushEffects();
 
-    await act(async () => {
-      diagnosticsRequest.resolve(createdSnapshot);
-      await flushMicrotasks();
-    });
+    publishProjectSnapshot(createdSnapshot);
+    await flushMicrotasks();
 
     const canonicalSectionId = callableSectionID("callable:created");
     expect(
@@ -608,23 +550,18 @@ describe("PythonCanvasApp concurrency", () => {
     expect(workspace.getDocument().activeIds).toEqual([canonicalSectionId]);
   });
 
-  it("does not resurrect a local deletion from a diagnostics-only response", async () => {
-    vi.useFakeTimers();
+  it("does not resurrect a local deletion from an older pushed snapshot", async () => {
     const initialSnapshot = laggingCallableSnapshot(2, [
       { id: "callable:one", name: "One callable" },
     ]);
-    const diagnosticsRequest =
-      deferred<ReturnType<typeof parseProjectSnapshotV2>>();
+    const deletedSnapshot = laggingCallableSnapshot(3, []);
     const deleteRequest = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
     const workspace = installWorkspaceHarness();
-    mocks.fetchProjectSnapshot
-      .mockResolvedValueOnce(initialSnapshot)
-      .mockReturnValueOnce(diagnosticsRequest.promise);
+    mocks.fetchProjectSnapshot.mockResolvedValueOnce(initialSnapshot);
     mocks.deleteCallable.mockReturnValueOnce(deleteRequest.promise);
 
     renderApp();
     await flushEffects();
-    await advanceDiagnosticsRevalidation();
 
     const sectionId = callableSectionID("callable:one");
     const sections = { ...workspace.getDocument().sections };
@@ -638,10 +575,12 @@ describe("PythonCanvasApp concurrency", () => {
     });
     await flushEffects();
 
+    publishProjectSnapshot(
+      settledDiagnosticsSnapshot(initialSnapshot, "callable:one"),
+    );
+    await flushMicrotasks();
     await act(async () => {
-      diagnosticsRequest.resolve(
-        settledDiagnosticsSnapshot(initialSnapshot, "callable:one"),
-      );
+      deleteRequest.resolve(deletedSnapshot);
       await flushMicrotasks();
     });
 
@@ -653,54 +592,42 @@ describe("PythonCanvasApp concurrency", () => {
     });
   });
 
-  it("stops after a failed diagnostics result without an app error", async () => {
-    vi.useFakeTimers();
+  it("accepts a pushed provider failure without an app mutation error", async () => {
     const initialSnapshot = laggingCallableSnapshot(2, [
       { id: "callable:one", name: "One callable" },
     ]);
     installWorkspaceHarness();
-    mocks.fetchProjectSnapshot
-      .mockResolvedValueOnce(initialSnapshot)
-      .mockResolvedValueOnce(failedDiagnosticsSnapshot(initialSnapshot));
+    mocks.fetchProjectSnapshot.mockResolvedValueOnce(initialSnapshot);
 
     const view = renderApp();
     await flushEffects();
-    await advanceDiagnosticsRevalidation();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(500);
-      await flushMicrotasks();
-    });
-    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(2);
+    await pushProjectSnapshot(failedDiagnosticsSnapshot(initialSnapshot));
+    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(1);
     expect(
       view.querySelector("#python-canvas-mutation-error")?.textContent,
     ).toBe("");
   });
 
-  it("aborts a held diagnostics request when the controller unmounts", async () => {
+  it("disconnects the project stream when the controller unmounts", async () => {
     vi.useFakeTimers();
     const initialSnapshot = laggingCallableSnapshot(2, [
       { id: "callable:one", name: "One callable" },
     ]);
-    const heldRequest = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
     installWorkspaceHarness();
-    mocks.fetchProjectSnapshot
-      .mockResolvedValueOnce(initialSnapshot)
-      .mockReturnValueOnce(heldRequest.promise);
+    mocks.fetchProjectSnapshot.mockResolvedValueOnce(initialSnapshot);
 
     renderApp();
     await flushEffects();
-    await advanceDiagnosticsRevalidation();
-    const requestOptions = mocks.fetchProjectSnapshot.mock.calls[1]?.[0] as
-      { signal?: AbortSignal } | undefined;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+      await flushMicrotasks();
+    });
+    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(1);
+    expect(mocks.connectProjectSnapshotStream).toHaveBeenCalledTimes(1);
 
     act(() => root?.unmount());
     root = undefined;
-    expect(requestOptions?.signal?.aborted).toBe(true);
-
-    await act(async () => {
-      heldRequest.resolve(failedDiagnosticsSnapshot(initialSnapshot));
-      await flushMicrotasks();
-    });
+    expect(mocks.disconnectProjectSnapshotStream).toHaveBeenCalledTimes(1);
   });
 
   it("accepts parameters refreshed by a Python target response", async () => {
@@ -874,10 +801,7 @@ function installLocalParameterDraft(
     throw new Error("Expected the canonical callable parameter draft.");
   }
   const presentation = parameter.presentation;
-  if (
-    presentation === undefined ||
-    presentation.control.kind === "group"
-  ) {
+  if (presentation === undefined || presentation.control.kind === "group") {
     throw new Error("Expected a typed callable parameter draft.");
   }
   workspace.replace({
@@ -911,48 +835,6 @@ function expectReadyStatus(view: HTMLElement) {
   const status = view.querySelector("[role='status']");
   expect(status?.textContent).toBe("Python Canvas ready.");
   expect(status?.getAttribute("aria-busy")).toBe("false");
-}
-
-function statusMessage(view: HTMLElement) {
-  return view.querySelector("[role='status']")?.textContent ?? null;
-}
-
-function expectDiagnosticsReconciliation({
-  callableLayout,
-  canonicalSectionId,
-  parameterId,
-  pendingSecondCallable,
-  secondCallableLayout,
-  workspace,
-}: {
-  callableLayout: WorkspaceDocument["topLevelSections"][string];
-  canonicalSectionId: string;
-  parameterId: string;
-  pendingSecondCallable: WorkspaceDocument["sections"][string];
-  secondCallableLayout: WorkspaceDocument["topLevelSections"][string];
-  workspace: WorkspaceHarness;
-}) {
-  const document = workspace.getDocument();
-  const canonical = document.sections[canonicalSectionId];
-  expect(document.topLevelSections[canonicalSectionId]).toEqual(callableLayout);
-  expect(canonical?.data).toMatchObject({
-    callableDiagnosticMessage: "The callable needs diagnostics.",
-  });
-  expect(
-    canonical?.itemTree?.items[parameterId]?.presentation?.control,
-  ).toMatchObject({
-    value: "local draft",
-  });
-  expect(document.sections[pendingSecondCallable.id]).toBe(
-    pendingSecondCallable,
-  );
-  expect(document.topLevelSections[pendingSecondCallable.id]).toEqual(
-    secondCallableLayout,
-  );
-  expect(document.activeIds).toEqual([
-    canonicalSectionId,
-    pendingSecondCallable.id,
-  ]);
 }
 
 function expectNoMutationError(view: HTMLElement) {
@@ -1137,10 +1019,22 @@ async function flushEffects(): Promise<void> {
   });
 }
 
-async function advanceDiagnosticsRevalidation(): Promise<void> {
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(100);
-    await flushMicrotasks();
+async function pushProjectSnapshot(
+  snapshot: ReturnType<typeof parseProjectSnapshotV2>,
+): Promise<void> {
+  publishProjectSnapshot(snapshot);
+  await flushEffects();
+}
+
+function publishProjectSnapshot(
+  snapshot: ReturnType<typeof parseProjectSnapshotV2>,
+): void {
+  const options = mocks.projectSnapshotStreamOptions;
+  if (options === null) {
+    throw new Error("The project snapshot stream is not connected.");
+  }
+  act(() => {
+    options.onSnapshot(snapshot);
   });
 }
 

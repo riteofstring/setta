@@ -1,5 +1,6 @@
 import {
   PROJECT_CALLABLES_PATH_V2,
+  PROJECT_EVENTS_PATH_V2,
   PROJECT_FOREST_PATH_V2,
   PROJECT_LISTS_PATH_V2,
   PROJECT_PARAMETER_DICTIONARIES_PATH_V2,
@@ -81,6 +82,43 @@ export class ProjectClientError extends Error {
 type FetchProjectSnapshotOptions = Readonly<{
   signal?: AbortSignal;
 }>;
+
+type ProjectSnapshotEventSource = Pick<
+  EventSource,
+  "close" | "onerror" | "onmessage"
+>;
+
+type ProjectSnapshotEventSourceFactory = (
+  url: string,
+) => ProjectSnapshotEventSource;
+
+type ProjectSnapshotStreamOptions = Readonly<{
+  onProtocolError: () => void;
+  onSnapshot: (snapshot: ProjectSnapshotV2) => void;
+}>;
+
+// connectProjectSnapshotStream consumes the backend's server-pushed canonical
+// snapshot stream. Native EventSource reconnection receives an immediate
+// current snapshot, so no timer, retry fetch, or polling loop is required.
+export function connectProjectSnapshotStream(
+  options: ProjectSnapshotStreamOptions,
+  createEventSource: ProjectSnapshotEventSourceFactory = (url) =>
+    new EventSource(url),
+): () => void {
+  const source = createEventSource(PROJECT_EVENTS_PATH_V2);
+  source.onmessage = (event) => {
+    try {
+      options.onSnapshot(parseProjectSnapshotV2(JSON.parse(event.data)));
+    } catch {
+      source.close();
+      options.onProtocolError();
+    }
+  };
+  // EventSource owns transport reconnection. The server begins every new
+  // connection with its current snapshot, which is the catch-up mechanism.
+  source.onerror = () => {};
+  return () => source.close();
+}
 
 export async function fetchProjectSnapshot(
   options: FetchProjectSnapshotOptions = {},

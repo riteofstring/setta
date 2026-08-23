@@ -30,6 +30,7 @@ const CODE_UI = {
 const mocks = vi.hoisted(() => ({
   commitCallable: vi.fn(),
   commitWorkspaceDocument: vi.fn(),
+  connectProjectSnapshotStream: vi.fn(),
   createCallable: vi.fn(),
   createList: vi.fn(),
   createParameterDictionary: vi.fn(),
@@ -55,6 +56,11 @@ const mocks = vi.hoisted(() => ({
   setParameterDictionaryEntries: vi.fn(),
   setPythonTarget: vi.fn(),
   setWorkspaceColorMode: vi.fn(),
+  disconnectProjectSnapshotStream: vi.fn(),
+  projectSnapshotStreamOptions: null as {
+    onProtocolError: () => void;
+    onSnapshot: (snapshot: unknown) => void;
+  } | null,
   textValueEditorProps: [] as Array<Record<string, unknown>>,
   workspaceCanvasSectionId: null as string | null,
   workspaceCanvasHost: null as {
@@ -282,6 +288,7 @@ vi.mock("../backend/client", () => ({
     }
   },
   commitCallable: mocks.commitCallable,
+  connectProjectSnapshotStream: mocks.connectProjectSnapshotStream,
   createCallable: mocks.createCallable,
   createList: mocks.createList,
   createParameterDictionary: mocks.createParameterDictionary,
@@ -372,6 +379,11 @@ let root: Root | undefined;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.projectSnapshotStreamOptions = null;
+  mocks.connectProjectSnapshotStream.mockImplementation((options) => {
+    mocks.projectSnapshotStreamOptions = options;
+    return mocks.disconnectProjectSnapshotStream;
+  });
   mocks.textValueEditorProps.length = 0;
   mocks.renderWorkspaceCanvas = false;
   mocks.workspaceCanvasSectionId = null;
@@ -927,7 +939,12 @@ describe("PythonCanvasApp", () => {
       {
         expectedRevision: 1,
         parameters: [
-          { authoredExpression: "first", id: "parameter:value", name: "value", ui: CODE_UI },
+          {
+            authoredExpression: "first",
+            id: "parameter:value",
+            name: "value",
+            ui: CODE_UI,
+          },
         ],
         projectId: initialSnapshot.project.id,
       },
@@ -965,8 +982,18 @@ describe("PythonCanvasApp", () => {
       {
         expectedRevision: 2,
         parameters: [
-          { authoredExpression: "first", id: "parameter:value", name: "value", ui: CODE_UI },
-          { authoredExpression: "later", id: "parameter:later", name: "later", ui: CODE_UI },
+          {
+            authoredExpression: "first",
+            id: "parameter:value",
+            name: "value",
+            ui: CODE_UI,
+          },
+          {
+            authoredExpression: "later",
+            id: "parameter:later",
+            name: "later",
+            ui: CODE_UI,
+          },
         ],
         projectId: firstAnswer.project.id,
       },

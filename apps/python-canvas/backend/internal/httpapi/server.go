@@ -222,6 +222,8 @@ func dispatchProjectCollectionRoute(response http.ResponseWriter, request *http.
 	switch {
 	case isExactPath(request, contracts.ProjectPathV2):
 		handleProject(response, request, service)
+	case isExactPath(request, contracts.ProjectEventsPathV2):
+		handleProjectEvents(response, request, service)
 	case isExactPath(request, contracts.ProjectRenamePathV2):
 		handleRenameProject(response, request, service)
 	case isExactPath(request, contracts.ProjectCallablesPathV2):

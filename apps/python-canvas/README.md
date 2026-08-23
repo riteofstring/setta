@@ -7,9 +7,14 @@ rendered Python, diagnostics, persistence, and Basedpyright lifecycle; the
 React application renders the V2 snapshot using only public
 `@setta/workspace` APIs.
 
-The only project endpoint is `GET /api/v2/project`. Every update is bound to
-the project ID and current revision, so a stale update receives a typed conflict
-instead of silently replacing newer authored state.
+`GET /api/v2/project` returns the current canonical snapshot.
+`GET /api/v2/project/events` opens a server-sent event stream that immediately
+publishes that same complete snapshot and then pushes every authored or
+diagnostic update. The browser keeps one stream open and never polls for
+project changes; EventSource reconnection catches up by receiving the current
+snapshot again. Every mutation is bound to the project ID and current revision,
+so a stale update receives a typed conflict instead of silently replacing newer
+authored state.
 
 ## Start a project
 

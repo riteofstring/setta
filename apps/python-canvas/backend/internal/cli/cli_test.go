@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -416,14 +417,18 @@ func TestSnapshotDiagnosticsWaitSettlesAndTimesOutWithFacts(t *testing.T) {
 	settled := snapshotAtRevision(2)
 	settled.ProviderStatus.Status = contracts.ProviderAvailabilityAvailableV2
 	settled.ProviderStatus.State = contracts.ProviderLifecycleStateReadyV2
-	var calls int
+	var snapshotCalls, eventCalls int
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		calls++
-		if calls == 1 {
+		switch request.URL.Path {
+		case contracts.ProjectPathV2:
+			snapshotCalls++
 			writeJSONResponse(t, response, stale)
-			return
+		case contracts.ProjectEventsPathV2:
+			eventCalls++
+			writeSnapshotEvents(t, response, stale, settled)
+		default:
+			http.NotFound(response, request)
 		}
-		writeJSONResponse(t, response, settled)
 	}))
 	defer server.Close()
 
@@ -435,12 +440,20 @@ func TestSnapshotDiagnosticsWaitSettlesAndTimesOutWithFacts(t *testing.T) {
 	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
 		t.Fatalf("decode settled output: %v", err)
 	}
-	if !diagnosticsSettled(result) || calls < 2 {
-		t.Fatalf("settled output = %#v; calls = %d", result, calls)
+	if !diagnosticsSettled(result) || snapshotCalls != 1 || eventCalls != 1 {
+		t.Fatalf("settled output = %#v; snapshot calls = %d event calls = %d", result, snapshotCalls, eventCalls)
 	}
 
 	timeoutServer := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		writeJSONResponse(t, response, stale)
+		switch request.URL.Path {
+		case contracts.ProjectPathV2:
+			writeJSONResponse(t, response, stale)
+		case contracts.ProjectEventsPathV2:
+			writeSnapshotEvents(t, response, stale)
+			<-request.Context().Done()
+		default:
+			http.NotFound(response, request)
+		}
 	}))
 	defer timeoutServer.Close()
 	exitCode, stdout, stderr = runForTest(t, []string{"snapshot", "--url", timeoutServer.URL, "--wait-diagnostics", "--timeout", "1ms"}, "", timeoutServer.Client())
@@ -450,6 +463,24 @@ func TestSnapshotDiagnosticsWaitSettlesAndTimesOutWithFacts(t *testing.T) {
 	detail := decodeError(t, stderr)
 	if detail.Code != "diagnostics_timeout" || detail.ProjectRevision == nil || detail.DiagnosticsRevision == nil || *detail.ProjectRevision != stale.Project.Revision || *detail.DiagnosticsRevision != stale.DiagnosticsRevision || detail.ProviderState != string(stale.ProviderStatus.State) {
 		t.Fatalf("diagnostic timeout detail = %#v", detail)
+	}
+}
+
+func writeSnapshotEvents(t *testing.T, response http.ResponseWriter, snapshots ...contracts.ProjectSnapshotV2) {
+	t.Helper()
+	response.Header().Set("Content-Type", "text/event-stream")
+	response.WriteHeader(http.StatusOK)
+	for _, snapshot := range snapshots {
+		encoded, err := json.Marshal(snapshot)
+		if err != nil {
+			t.Fatalf("encode event snapshot: %v", err)
+		}
+		if _, err := fmt.Fprintf(response, "data: %s\n\n", encoded); err != nil {
+			t.Fatalf("write event snapshot: %v", err)
+		}
+	}
+	if flusher, ok := response.(http.Flusher); ok {
+		flusher.Flush()
 	}
 }
 
