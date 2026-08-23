@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-**Status: Ready for implementation.**
+**Status: Implemented; repository policy validation in progress.**
 
 Make authored Python references between canvas values executable regardless of visual section
 order. A user can write `state.Other_section` or `state.Other_section__parameter` in a callable,
@@ -196,13 +196,15 @@ unrelated source-reconciliation features.
 
 ## Completion checklist
 
-- [ ] Exact tree-sitter dependencies reviewed and pinned
-- [ ] Parser-backed `state.*` extraction implemented
-- [ ] Assignment graph and stable dependency-first emission implemented
-- [ ] Unknown targets preserve the existing Basedpyright field diagnostic path
-- [ ] Cycles publish stable field-level compiler diagnostics
-- [ ] Surviving path changes atomically refactor references
-- [ ] Existing generated source ranges and signature refresh remain correct after reordering
-- [ ] Focused backend, frontend, and raw-headless acceptance tests pass
-- [ ] `code-policy test --changed` passes
+- [ ] Formal dependency review completes; it is currently blocked before candidate analysis by the
+      repository's existing `uv.lock` parse failure. The exact tree-sitter versions are pinned to
+      the versions already used on `main`, and manual native/OSV review found no vulnerability.
+- [x] Parser-backed `state.*` extraction implemented
+- [x] Assignment graph and stable dependency-first emission implemented
+- [x] Unknown targets preserve the existing Basedpyright field diagnostic path
+- [x] Cycles publish stable field-level compiler diagnostics
+- [x] Surviving path changes atomically refactor references
+- [x] Existing generated source ranges and signature refresh remain correct after reordering
+- [x] Focused backend, frontend, and raw-headless acceptance tests pass
+- [x] `code-policy test --changed` passes
 - [ ] Policy-selected merge gate passes
