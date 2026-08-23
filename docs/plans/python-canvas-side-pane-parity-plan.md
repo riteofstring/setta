@@ -2,7 +2,8 @@
 
 ## Status and purpose
 
-**Status: Implemented; final policy verification pending.**
+**Status: Implemented; policy verification is blocked by six repository-wide vulnerability
+assessments that expired on 2026-08-24.**
 
 Add the useful leading and trailing pane experience from `main` to Python Canvas without importing
 the unrelated product systems that happen to occupy those panes on `main`. The leading pane gives
@@ -160,5 +161,6 @@ unrelated visual polish.
 - [x] Pane state survives reload without entering project state
 - [x] Pane-only changes preserve selections, diagnostics, editors, and terminal sessions
 - [x] Focused frontend and production raw-headless acceptance tests pass
-- [ ] `code-policy test --changed` passes
+- [ ] `code-policy test --changed` passes (currently blocked before suite selection by the expired
+  repository vulnerability assessments)
 - [ ] Policy-selected merge gate passes
