@@ -2,9 +2,7 @@ import assert from "node:assert/strict";
 
 import { fetchCanonicalSnapshot } from "./browser-processes.mjs";
 import { openWorkspaceCanvas } from "./callable-commit.browser.mjs";
-import {
-  runGeneratedPythonAndWaitForMarker,
-} from "./generated-python-terminal.browser.mjs";
+import { runGeneratedPythonAndWaitForMarker } from "./generated-python-terminal.browser.mjs";
 
 const runtimeMarker = "SETTA_DEPENDENCY_ORDER_RUNTIME:21";
 

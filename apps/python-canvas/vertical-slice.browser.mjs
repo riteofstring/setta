@@ -19,9 +19,7 @@ import {
   exerciseCopiedParamDictListTerminalRun,
   exerciseGeneratedPythonTerminalLifecycle,
 } from "./generated-python-terminal.browser.mjs";
-import {
-  exerciseDependencyOrderingProductionAcceptance,
-} from "./python-dependency-ordering.browser.mjs";
+import { exerciseDependencyOrderingProductionAcceptance } from "./python-dependency-ordering.browser.mjs";
 import { exerciseParamDictAndListSlice } from "./param-dict-list.browser.mjs";
 import { exerciseStructuralDiagnosticsLifecycle } from "./structural-diagnostics.browser.mjs";
 import {

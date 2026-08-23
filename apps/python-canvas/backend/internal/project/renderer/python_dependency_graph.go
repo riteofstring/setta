@@ -330,77 +330,33 @@ func (graph *assignmentGraph) stableDependencyOrder() []string {
 }
 
 func (graph *assignmentGraph) findCycleTargetIDs() []string {
-	indices := make(map[string]int, len(graph.nodeOrder))
-	lowLinks := make(map[string]int, len(graph.nodeOrder))
-	onStack := make(map[string]bool, len(graph.nodeOrder))
-	componentByTargetID := make(map[string]int, len(graph.nodeOrder))
-	componentSizes := []int{}
-	stack := []string{}
-	nextIndex := 0
+	components := newAssignmentComponentFinder(graph).find()
+	return graph.orderedCycleTargetIDs(components)
+}
 
-	var visit func(string)
-	visit = func(targetID string) {
-		indices[targetID] = nextIndex
-		lowLinks[targetID] = nextIndex
-		nextIndex++
-		stack = append(stack, targetID)
-		onStack[targetID] = true
+type assignmentComponents struct {
+	byTargetID map[string]int
+	sizes      []int
+}
 
-		for _, dependency := range graph.nodes[targetID].dependencies {
-			if _, exists := graph.nodes[dependency.targetID]; !exists {
-				continue
-			}
-			if _, visited := indices[dependency.targetID]; !visited {
-				visit(dependency.targetID)
-				if lowLinks[dependency.targetID] < lowLinks[targetID] {
-					lowLinks[targetID] = lowLinks[dependency.targetID]
-				}
-				continue
-			}
-			if onStack[dependency.targetID] && indices[dependency.targetID] < lowLinks[targetID] {
-				lowLinks[targetID] = indices[dependency.targetID]
-			}
-		}
-
-		if lowLinks[targetID] != indices[targetID] {
-			return
-		}
-		componentID := len(componentSizes)
-		size := 0
-		for {
-			last := len(stack) - 1
-			member := stack[last]
-			stack = stack[:last]
-			onStack[member] = false
-			componentByTargetID[member] = componentID
-			size++
-			if member == targetID {
-				break
-			}
-		}
-		componentSizes = append(componentSizes, size)
+func (components assignmentComponents) hasCycleExpressionEdge(targetID string, dependencyID string) bool {
+	targetComponentID, hasTarget := components.byTargetID[targetID]
+	dependencyComponentID, hasDependency := components.byTargetID[dependencyID]
+	if !hasTarget || !hasDependency || targetComponentID != dependencyComponentID {
+		return false
 	}
+	return components.sizes[targetComponentID] > 1 || targetID == dependencyID
+}
 
-	for _, targetID := range graph.nodeOrder {
-		if _, visited := indices[targetID]; !visited {
-			visit(targetID)
-		}
-	}
-
+func (graph *assignmentGraph) orderedCycleTargetIDs(components assignmentComponents) []string {
 	cycleTargets := make(map[string]struct{})
 	for _, targetID := range graph.nodeOrder {
-		node := graph.nodes[targetID]
-		for _, dependency := range node.dependencies {
-			if !dependency.expression || componentByTargetID[targetID] != componentByTargetID[dependency.targetID] {
-				continue
-			}
-			componentID := componentByTargetID[targetID]
-			if componentSizes[componentID] > 1 || targetID == dependency.targetID {
+		for _, dependency := range graph.nodes[targetID].dependencies {
+			if dependency.expression && components.hasCycleExpressionEdge(targetID, dependency.targetID) {
 				cycleTargets[targetID] = struct{}{}
 			}
 		}
 	}
-
 	ordered := make([]string, 0, len(cycleTargets))
 	for _, targetID := range graph.nodeOrder {
 		if _, exists := cycleTargets[targetID]; exists {
@@ -408,6 +364,101 @@ func (graph *assignmentGraph) findCycleTargetIDs() []string {
 		}
 	}
 	return ordered
+}
+
+type assignmentComponentFinder struct {
+	graph               *assignmentGraph
+	indices             map[string]int
+	lowLinks            map[string]int
+	onStack             map[string]bool
+	stack               []string
+	componentByTargetID map[string]int
+	componentSizes      []int
+	nextIndex           int
+}
+
+func newAssignmentComponentFinder(graph *assignmentGraph) *assignmentComponentFinder {
+	return &assignmentComponentFinder{
+		graph:               graph,
+		indices:             make(map[string]int, len(graph.nodeOrder)),
+		lowLinks:            make(map[string]int, len(graph.nodeOrder)),
+		onStack:             make(map[string]bool, len(graph.nodeOrder)),
+		stack:               []string{},
+		componentByTargetID: make(map[string]int, len(graph.nodeOrder)),
+		componentSizes:      []int{},
+	}
+}
+
+func (finder *assignmentComponentFinder) find() assignmentComponents {
+	for _, targetID := range finder.graph.nodeOrder {
+		if _, visited := finder.indices[targetID]; !visited {
+			finder.visit(targetID)
+		}
+	}
+	return assignmentComponents{
+		byTargetID: finder.componentByTargetID,
+		sizes:      finder.componentSizes,
+	}
+}
+
+func (finder *assignmentComponentFinder) visit(targetID string) {
+	finder.indices[targetID] = finder.nextIndex
+	finder.lowLinks[targetID] = finder.nextIndex
+	finder.nextIndex++
+	finder.stack = append(finder.stack, targetID)
+	finder.onStack[targetID] = true
+	finder.visitDependencies(targetID)
+	if finder.lowLinks[targetID] == finder.indices[targetID] {
+		finder.recordComponent(targetID)
+	}
+}
+
+func (finder *assignmentComponentFinder) visitDependencies(targetID string) {
+	for _, dependency := range finder.graph.nodes[targetID].dependencies {
+		finder.visitDependency(targetID, dependency.targetID)
+	}
+}
+
+func (finder *assignmentComponentFinder) visitDependency(targetID string, dependencyID string) {
+	if _, exists := finder.graph.nodes[dependencyID]; !exists {
+		return
+	}
+	if _, visited := finder.indices[dependencyID]; !visited {
+		finder.visit(dependencyID)
+		finder.lowerLowLink(targetID, finder.lowLinks[dependencyID])
+		return
+	}
+	if finder.onStack[dependencyID] {
+		finder.lowerLowLink(targetID, finder.indices[dependencyID])
+	}
+}
+
+func (finder *assignmentComponentFinder) lowerLowLink(targetID string, candidate int) {
+	if candidate < finder.lowLinks[targetID] {
+		finder.lowLinks[targetID] = candidate
+	}
+}
+
+func (finder *assignmentComponentFinder) recordComponent(rootID string) {
+	componentID := len(finder.componentSizes)
+	size := 0
+	for {
+		member := finder.pop()
+		finder.componentByTargetID[member] = componentID
+		size++
+		if member == rootID {
+			break
+		}
+	}
+	finder.componentSizes = append(finder.componentSizes, size)
+}
+
+func (finder *assignmentComponentFinder) pop() string {
+	last := len(finder.stack) - 1
+	member := finder.stack[last]
+	finder.stack = finder.stack[:last]
+	finder.onStack[member] = false
+	return member
 }
 
 func renderGraphBody(graph *assignmentGraph) (string, map[string]ByteRange, map[string]ByteRange, map[string]CallPosition) {

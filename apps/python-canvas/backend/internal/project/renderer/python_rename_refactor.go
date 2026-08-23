@@ -87,9 +87,17 @@ func rewriteStateReferencesInExpression(expression string, replacementsByPath ma
 	if expression == "" || len(replacementsByPath) == 0 {
 		return expression, nil
 	}
-	references, err := findPythonStateReferences(expression)
+	replacements, err := stateReferenceReplacements(expression, replacementsByPath)
 	if err != nil {
 		return "", err
+	}
+	return applyStateReplacements(expression, replacements)
+}
+
+func stateReferenceReplacements(expression string, replacementsByPath map[string]string) ([]pythonStateReplacement, error) {
+	references, err := findPythonStateReferences(expression)
+	if err != nil {
+		return nil, err
 	}
 	replacements := make([]pythonStateReplacement, 0, len(references))
 	for _, reference := range references {
@@ -103,6 +111,10 @@ func rewriteStateReferencesInExpression(expression string, replacementsByPath ma
 			new:    "state." + newPath,
 		})
 	}
+	return replacements, nil
+}
+
+func applyStateReplacements(expression string, replacements []pythonStateReplacement) (string, error) {
 	if len(replacements) == 0 {
 		return expression, nil
 	}
@@ -113,14 +125,8 @@ func rewriteStateReferencesInExpression(expression string, replacementsByPath ma
 	output := []byte(expression)
 	lastStart := len(expression) + 1
 	for _, replacement := range replacements {
-		if replacement.range_.Start < 0 || replacement.range_.End < replacement.range_.Start || replacement.range_.End > len(expression) {
-			return "", fmt.Errorf("replacement range %#v is out of bounds", replacement.range_)
-		}
-		if replacement.range_.End > lastStart {
-			return "", fmt.Errorf("replacement ranges overlap at %#v", replacement.range_)
-		}
-		if string(output[replacement.range_.Start:replacement.range_.End]) != replacement.old {
-			return "", fmt.Errorf("expected %q at %#v", replacement.old, replacement.range_)
+		if err := validateStateReplacement(expression, output, lastStart, replacement); err != nil {
+			return "", err
 		}
 		output = append(
 			output[:replacement.range_.Start],
@@ -129,4 +135,17 @@ func rewriteStateReferencesInExpression(expression string, replacementsByPath ma
 		lastStart = replacement.range_.Start
 	}
 	return string(output), nil
+}
+
+func validateStateReplacement(expression string, output []byte, lastStart int, replacement pythonStateReplacement) error {
+	if replacement.range_.Start < 0 || replacement.range_.End < replacement.range_.Start || replacement.range_.End > len(expression) {
+		return fmt.Errorf("replacement range %#v is out of bounds", replacement.range_)
+	}
+	if replacement.range_.End > lastStart {
+		return fmt.Errorf("replacement ranges overlap at %#v", replacement.range_)
+	}
+	if string(output[replacement.range_.Start:replacement.range_.End]) != replacement.old {
+		return fmt.Errorf("expected %q at %#v", replacement.old, replacement.range_)
+	}
+	return nil
 }
