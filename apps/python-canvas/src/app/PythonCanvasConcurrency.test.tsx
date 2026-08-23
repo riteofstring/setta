@@ -7,6 +7,17 @@ import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
 import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
 import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
 
+const CODE_UI = {
+  type: "CodeParam",
+  configuration: {
+    disabled: false,
+    language: "python",
+    placeholder: null,
+    singleLine: true,
+    wrapLines: true,
+  },
+} as const;
+
 const mocks = vi.hoisted(() => ({
   commitCallable: vi.fn(),
   commitWorkspaceDocument: vi.fn(),
@@ -348,6 +359,7 @@ describe("PythonCanvasApp concurrency", () => {
       passingStyle: "positional_or_keyword" as const,
       providerOrdinal: null,
       typeAnnotation: null,
+      ui: CODE_UI,
     };
     const createdSnapshot = laggingCallableSnapshot(2, [
       {
@@ -703,6 +715,7 @@ describe("PythonCanvasApp concurrency", () => {
       passingStyle: "positional_or_keyword" as const,
       providerOrdinal: 0,
       typeAnnotation: "float",
+      ui: CODE_UI,
     };
     const prefix = "import math";
     const body = initialSnapshot.generatedCode.body;
@@ -860,6 +873,13 @@ function installLocalParameterDraft(
   if (section?.itemTree === undefined || parameter === undefined) {
     throw new Error("Expected the canonical callable parameter draft.");
   }
+  const presentation = parameter.presentation;
+  if (
+    presentation === undefined ||
+    presentation.control.kind === "group"
+  ) {
+    throw new Error("Expected a typed callable parameter draft.");
+  }
   workspace.replace({
     ...document,
     sections: {
@@ -872,9 +892,12 @@ function installLocalParameterDraft(
             ...section.itemTree.items,
             [parameterId]: {
               ...parameter,
-              data: {
-                ...(parameter.data as object),
-                authoredExpression: "local draft",
+              presentation: {
+                ...presentation,
+                control: {
+                  ...presentation.control,
+                  value: "local draft",
+                },
               },
             },
           },
@@ -915,8 +938,10 @@ function expectDiagnosticsReconciliation({
   expect(canonical?.data).toMatchObject({
     callableDiagnosticMessage: "The callable needs diagnostics.",
   });
-  expect(canonical?.itemTree?.items[parameterId]?.data).toMatchObject({
-    authoredExpression: "local draft",
+  expect(
+    canonical?.itemTree?.items[parameterId]?.presentation?.control,
+  ).toMatchObject({
+    value: "local draft",
   });
   expect(document.sections[pendingSecondCallable.id]).toBe(
     pendingSecondCallable,

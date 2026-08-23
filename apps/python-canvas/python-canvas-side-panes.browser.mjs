@@ -51,6 +51,8 @@ export async function exercisePythonCanvasSidePaneParity(
   const expectedOutline = expectedOutlineEntries(snapshot);
   const nestedSection = requireNestedSection(snapshot);
   const providerCallable = requireProviderCallable(snapshot);
+  const parameterDictionary = requireParameterDictionary(snapshot);
+  const listSection = requireListSection(snapshot);
 
   await waitForWorkspaceShell(
     client,
@@ -134,7 +136,12 @@ export async function exercisePythonCanvasSidePaneParity(
       previewOrigin,
       resizedGeometry.leading.width,
     );
-    await exerciseCallableParams(client, providerCallable, nestedSection);
+    await exerciseParameterConfiguration(
+      client,
+      providerCallable,
+      parameterDictionary,
+      listSection,
+    );
     await exerciseNarrowViewportReconciliation(client);
   } finally {
     unsubscribe();
@@ -254,6 +261,36 @@ function requireProviderCallable(snapshot) {
     id: `python-canvas:callable:${callable.id}`,
     name: callable.name,
     parameter,
+  };
+}
+
+function requireParameterDictionary(snapshot) {
+  const dictionary = snapshot.parameterDictionaries.find(
+    (candidate) => candidate.entries.length > 0,
+  );
+  const entry = dictionary?.entries.find(
+    (candidate) => candidate.kind === "leaf",
+  );
+  if (dictionary === undefined || entry === undefined) {
+    throw new Error(
+      "The saved project has no Parameter Dictionary leaf for Params-pane verification.",
+    );
+  }
+  return {
+    entry,
+    id: `python-canvas:parameter-dictionary:${dictionary.id}`,
+    name: dictionary.name,
+  };
+}
+
+function requireListSection(snapshot) {
+  const list = snapshot.lists[0];
+  if (list === undefined) {
+    throw new Error("The saved project has no List section.");
+  }
+  return {
+    id: `python-canvas:list:${list.id}`,
+    name: list.name,
   };
 }
 
@@ -442,7 +479,12 @@ async function closeSection(client) {
   );
 }
 
-async function exerciseCallableParams(client, callable, unavailableSection) {
+async function exerciseParameterConfiguration(
+  client,
+  callable,
+  parameterDictionary,
+  unavailableSection,
+) {
   await activateNestedOutlineSection(client, callable);
   await waitFor(
     client,
@@ -463,69 +505,96 @@ async function exerciseCallableParams(client, callable, unavailableSection) {
     `the provider Params for ${callable.name}`,
     `(() => {
       const pane = document.querySelector(${JSON.stringify(trailingPaneSelector)});
-      const params = document.querySelector('[data-python-canvas-params-pane]');
+      const params = document.querySelector('[data-workspace-parameter-config]');
       const filter = params?.querySelector('input[aria-label="Filter parameters"]');
-      const filterIcon = params?.querySelector('.python-canvas-params-filter .gg-sort-az');
-      const parameter = Array.from(params?.querySelectorAll('[data-python-canvas-parameter-group]') ?? [])
-        .find((group) => group.textContent?.includes(${JSON.stringify(callable.parameter.name)}));
+      const filterIcon = params?.querySelector('.setta-workspace-parameter-config-filter .gg-sort-az');
+      const parameter = Array.from(params?.querySelectorAll('.setta-workspace-parameter-config-element') ?? [])
+        .find((group) => group.querySelector('h3')?.textContent === ${JSON.stringify(callable.parameter.name)});
+      const typeInput = parameter?.querySelector('input[role="combobox"]');
       return pane instanceof HTMLElement && pane.dataset.visible === 'true' &&
+        params?.getAttribute('data-workspace-parameter-config') === ${JSON.stringify(callable.id)} &&
         params instanceof HTMLElement && filter instanceof HTMLInputElement &&
         filter.placeholder === 'Filter' && filterIcon instanceof HTMLElement &&
-        parameter instanceof HTMLElement && params.querySelectorAll('input').length === 1;
+        parameter instanceof HTMLElement && typeInput instanceof HTMLInputElement &&
+        typeInput.value === 'CodeParam' && typeInput.classList.contains('rounded-full') &&
+        typeInput.classList.contains('font-mono') && typeInput.classList.contains('h-7');
     })()`,
   );
   await waitForSettledPane(client, "trailing");
 
-  const unmatchedFilterApplied = await evaluate(
+  await setParameterConfigurationFilter(
     client,
-    `(() => {
-      const filter = document.querySelector('[data-python-canvas-params-pane] input[aria-label="Filter parameters"]');
-      if (!(filter instanceof HTMLInputElement)) return false;
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-      if (setter === undefined) return false;
-      setter.call(filter, '__no_matching_provider_parameter__');
-      filter.dispatchEvent(new Event('input', { bubbles: true }));
-      return true;
-    })()`,
-  );
-  assert.equal(
-    unmatchedFilterApplied,
-    true,
-    "The Params filter input was unavailable.",
+    "__no_matching_provider_parameter__",
   );
   await waitFor(
     client,
     "the empty provider parameter filter result",
-    `(() => {
-      const groups = Array.from(document.querySelectorAll('[data-python-canvas-parameter-group]'));
-      return groups.length === 0 &&
-        document.querySelector('[data-python-canvas-params-pane]')?.textContent?.includes('No provider parameters match this filter.') === true;
-    })()`,
+    `document.querySelectorAll('[data-workspace-parameter-config] .setta-workspace-parameter-config-element').length === 0`,
   );
-  const matchingFilterApplied = await evaluate(
-    client,
-    `(() => {
-      const filter = document.querySelector('[data-python-canvas-params-pane] input[aria-label="Filter parameters"]');
-      if (!(filter instanceof HTMLInputElement)) return false;
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-      if (setter === undefined) return false;
-      setter.call(filter, ${JSON.stringify(callable.parameter.name)});
-      filter.dispatchEvent(new Event('input', { bubbles: true }));
-      return true;
-    })()`,
-  );
-  assert.equal(
-    matchingFilterApplied,
-    true,
-    "The Params filter could not be updated.",
-  );
+  await setParameterConfigurationFilter(client, callable.parameter.name);
   await waitFor(
     client,
     "the matching provider parameter filter result",
     `(() => {
-      const groups = Array.from(document.querySelectorAll('[data-python-canvas-parameter-group]'));
-      return groups.length === 1 && groups[0]?.textContent?.includes(${JSON.stringify(callable.parameter.name)}) === true;
+      const groups = Array.from(document.querySelectorAll('[data-workspace-parameter-config] .setta-workspace-parameter-config-element'));
+      return groups.length === 1 && groups[0]?.querySelector('h3')?.textContent === ${JSON.stringify(callable.parameter.name)};
     })()`,
+  );
+
+  await setParameterConfigurationFilter(client, "");
+  await activateNestedOutlineSection(client, parameterDictionary);
+  await waitFor(
+    client,
+    `the Parameter Dictionary Params for ${parameterDictionary.name}`,
+    `(() => {
+      const params = document.querySelector('[data-workspace-parameter-config]');
+      const parameter = Array.from(params?.querySelectorAll('.setta-workspace-parameter-config-element') ?? [])
+        .find((group) => group.querySelector('h3')?.textContent === ${JSON.stringify(parameterDictionary.entry.name)});
+      const typeInput = parameter?.querySelector('input[role="combobox"]');
+      return params?.getAttribute('data-workspace-parameter-config') === ${JSON.stringify(parameterDictionary.id)} &&
+        parameter instanceof HTMLElement && typeInput instanceof HTMLInputElement &&
+        typeInput.value === 'CodeParam';
+    })()`,
+  );
+
+  const dictionaryRootSelector = `[data-workspace-parameter-config=${JSON.stringify(parameterDictionary.id)}]`;
+  await clickElementCenter(
+    client,
+    `${dictionaryRootSelector} search button`,
+    `the ${parameterDictionary.entry.name} UI-type combobox`,
+  );
+  const visibleTypes = await evaluate(
+    client,
+    `(() => {
+      const input = document.querySelector(${JSON.stringify(`${dictionaryRootSelector} input[role="combobox"]`)});
+      const listId = input?.getAttribute('aria-controls');
+      const list = listId ? document.getElementById(listId) : null;
+      if (!(input instanceof HTMLInputElement) || !(list instanceof HTMLElement) || input.getAttribute('aria-expanded') !== 'true') return null;
+      return Array.from(list.querySelectorAll('dd')).map((option) => option.textContent ?? '');
+    })()`,
+  );
+  assert.deepEqual(
+    visibleTypes,
+    [
+      "CodeParam",
+      "TextParam",
+      "DateParam",
+      "TimeParam",
+      "SliderParam",
+      "RotaryParam",
+      "SwitchParam",
+      "ColorPickerParam",
+      "DropdownParam",
+      "PasswordParam",
+      "TextAreaParam",
+      "DropzoneParam",
+    ],
+    "The Parameter Dictionary UI-type combobox did not match main's section-param options.",
+  );
+  await clickElementCenter(
+    client,
+    `${dictionaryRootSelector} search button`,
+    `the open ${parameterDictionary.entry.name} UI-type combobox`,
   );
 
   await activateNestedOutlineSection(client, unavailableSection);
@@ -543,6 +612,22 @@ async function exerciseCallableParams(client, callable, unavailableSection) {
     })()`,
   );
   await closeSection(client);
+}
+
+async function setParameterConfigurationFilter(client, value) {
+  const applied = await evaluate(
+    client,
+    `(() => {
+      const filter = document.querySelector('[data-workspace-parameter-config] input[aria-label="Filter parameters"]');
+      if (!(filter instanceof HTMLInputElement)) return false;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      if (setter === undefined) return false;
+      setter.call(filter, ${JSON.stringify(value)});
+      filter.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`,
+  );
+  assert.equal(applied, true, "The Params filter input was unavailable.");
 }
 
 async function resizeLeadingPane(client) {

@@ -57,9 +57,10 @@ type refreshCallableParametersPayload struct {
 }
 
 type parameterProposalPayload struct {
-	ID                 *string `json:"id"`
-	Name               *string `json:"name"`
-	AuthoredExpression *string `json:"authoredExpression"`
+	ID                 *string                  `json:"id"`
+	Name               *string                  `json:"name"`
+	AuthoredExpression *string                  `json:"authoredExpression"`
+	UI                 *contracts.ParameterUIV2 `json:"ui"`
 }
 
 type setParametersPayload struct {
@@ -141,10 +142,10 @@ func (payload setParametersPayload) contract() (contracts.SetCallableParametersR
 	}
 	parameters := make([]contracts.ParameterProposalV2, 0, len(*payload.Parameters))
 	for _, parameter := range *payload.Parameters {
-		if parameter.ID == nil || parameter.Name == nil || parameter.AuthoredExpression == nil {
+		if parameter.ID == nil || parameter.Name == nil || parameter.AuthoredExpression == nil || parameter.UI == nil {
 			return contracts.SetCallableParametersRequestV2{}, false
 		}
-		parameters = append(parameters, contracts.ParameterProposalV2{ID: *parameter.ID, Name: *parameter.Name, AuthoredExpression: *parameter.AuthoredExpression})
+		parameters = append(parameters, contracts.ParameterProposalV2{ID: *parameter.ID, Name: *parameter.Name, AuthoredExpression: *parameter.AuthoredExpression, UI: *parameter.UI})
 	}
 	return contracts.SetCallableParametersRequestV2{ProjectID: *payload.ProjectID, ExpectedRevision: *payload.ExpectedRevision, Parameters: parameters}, true
 }

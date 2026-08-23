@@ -55,6 +55,7 @@ export function useDropdownCombobox({
     stateReducer,
     selectedItem: selection,
     items: singleListItems,
+    isItemDisabled: (item) => item.disabled ?? false,
     itemToString,
     onSelectedItemChange: localOnSelectedItemChange,
   });

@@ -129,7 +129,11 @@ func (service *CoordinatorService) DeleteParameterDictionary(ctx context.Context
 }
 
 func (service *CoordinatorService) SetParameterDictionaryEntries(ctx context.Context, dictionaryID string, request contracts.SetParameterDictionaryEntriesRequestV2) (contracts.ProjectSnapshotV2, error) {
-	snapshot, err := service.coordinator.SetParameterDictionaryEntries(ctx, aggregate.SetParameterDictionaryEntriesCommand{ProjectID: request.ProjectID, DictionaryID: dictionaryID, ExpectedRevision: request.ExpectedRevision, Entries: dictionaryEntriesFromV2(request.Entries)})
+	entries, uiOverrides, err := dictionaryEntriesFromV2(request.Entries)
+	if err != nil {
+		return contracts.ProjectSnapshotV2{}, err
+	}
+	snapshot, err := service.coordinator.SetParameterDictionaryEntries(ctx, aggregate.SetParameterDictionaryEntriesCommand{ProjectID: request.ProjectID, DictionaryID: dictionaryID, ExpectedRevision: request.ExpectedRevision, Entries: entries, UIOverrides: uiOverrides})
 	return mappedSnapshot(snapshot, err)
 }
 
@@ -176,7 +180,11 @@ func (service *CoordinatorService) RefreshCallableParameters(ctx context.Context
 func (service *CoordinatorService) SetCallableParameters(ctx context.Context, callableID string, request contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error) {
 	parameters := make([]aggregate.ParameterProposal, 0, len(request.Parameters))
 	for _, parameter := range request.Parameters {
-		parameters = append(parameters, aggregate.ParameterProposal{ID: parameter.ID, Name: parameter.Name, AuthoredExpression: parameter.AuthoredExpression})
+		ui, err := parameter.UI.Aggregate()
+		if err != nil {
+			return contracts.ProjectSnapshotV2{}, err
+		}
+		parameters = append(parameters, aggregate.ParameterProposal{ID: parameter.ID, Name: parameter.Name, AuthoredExpression: parameter.AuthoredExpression, UI: &ui})
 	}
 	snapshot, err := service.coordinator.SetParameters(ctx, aggregate.SetParametersCommand{ProjectID: request.ProjectID, CallableID: callableID, ExpectedRevision: request.ExpectedRevision, Parameters: parameters})
 	return mappedSnapshot(snapshot, err)
@@ -209,6 +217,10 @@ func snapshotV2(snapshot coordinator.Snapshot) (contracts.ProjectSnapshotV2, err
 	for _, callable := range snapshot.State.Callables {
 		parameters := make([]contracts.ParameterV2, 0, len(callable.Parameters))
 		for _, parameter := range callable.Parameters {
+			ui, err := contracts.NewParameterUIV2(snapshot.State.ResolveParameterUI(parameter.ID))
+			if err != nil {
+				return contracts.ProjectSnapshotV2{}, err
+			}
 			parameters = append(parameters, contracts.ParameterV2{
 				ID:                 parameter.ID,
 				Name:               parameter.Name,
@@ -218,6 +230,7 @@ func snapshotV2(snapshot coordinator.Snapshot) (contracts.ProjectSnapshotV2, err
 				Default:            cloneString(parameter.Default),
 				ProviderOrdinal:    cloneInt(parameter.ProviderOrdinal),
 				AuthoredExpression: parameter.AuthoredExpression,
+				UI:                 ui,
 			})
 		}
 		callables = append(callables, contracts.CallableV2{ID: callable.ID, Name: callable.Name, AuthoredExpression: callable.AuthoredExpression, Parameters: parameters})
@@ -242,7 +255,7 @@ func snapshotV2(snapshot coordinator.Snapshot) (contracts.ProjectSnapshotV2, err
 		Project:               contracts.ProjectV2{ID: snapshot.State.Project.ID, Name: snapshot.State.Project.Name, Revision: snapshot.State.Project.Revision},
 		PythonTarget:          contracts.PythonTargetV2{Prefix: snapshot.State.PythonTarget.Prefix, Suffix: snapshot.State.PythonTarget.Suffix},
 		Callables:             callables,
-		ParameterDictionaries: parameterDictionariesV2(snapshot.State.ParameterDictionaries),
+		ParameterDictionaries: nil,
 		Lists:                 listsV2(snapshot.State.Lists),
 		TopLevelSectionIDs:    cloneSectionIDs(snapshot.State.TopLevelSectionIDs),
 		GeneratedCode: contracts.GeneratedCodeV2{
@@ -259,6 +272,11 @@ func snapshotV2(snapshot coordinator.Snapshot) (contracts.ProjectSnapshotV2, err
 			State:    contracts.ProviderLifecycleStateV2(snapshot.ProviderStatus.State),
 		},
 	}
+	parameterDictionaries, err := parameterDictionariesV2(snapshot.State)
+	if err != nil {
+		return contracts.ProjectSnapshotV2{}, err
+	}
+	result.ParameterDictionaries = parameterDictionaries
 	if err := result.Validate(); err != nil {
 		return contracts.ProjectSnapshotV2{}, err
 	}

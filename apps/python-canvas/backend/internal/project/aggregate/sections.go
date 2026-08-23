@@ -84,10 +84,12 @@ func (state State) SetParameterDictionaryEntries(
 	}
 	candidate := state.Clone()
 	entries := cloneDictionaryEntries(command.Entries)
-	if sameDictionaryEntries(candidate.ParameterDictionaries[index].Entries, entries) {
+	currentEntries := candidate.ParameterDictionaries[index].Entries
+	if sameDictionaryEntries(currentEntries, entries) && sameDictionaryEntryUIs(candidate, entries, command.UIOverrides) {
 		return Candidate{State: candidate}, nil
 	}
 	candidate.ParameterDictionaries[index].Entries = entries
+	replaceDictionaryEntryUIs(&candidate, currentEntries, entries, command.UIOverrides)
 	return changedCandidate(candidate)
 }
 
@@ -278,6 +280,7 @@ func (state *State) removeSectionSubtrees(roots []string) error {
 	state.Callables = filterCallables(state.Callables, removed)
 	state.ParameterDictionaries = filterParameterDictionaries(state.ParameterDictionaries, removed)
 	state.Lists = filterLists(state.Lists, removed)
+	state.retainParameterUIOverrides()
 	return nil
 }
 

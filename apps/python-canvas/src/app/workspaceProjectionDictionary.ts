@@ -1,6 +1,7 @@
 import {
   commitWorkspaceDocument,
-  setItemData,
+  setItemLabel,
+  setItemValue,
   type WorkspaceDocument,
   type WorkspaceHost,
   type WorkspaceItem,
@@ -18,10 +19,17 @@ import {
   type ProjectSnapshotV2,
 } from "../backend/generatedContract";
 import {
-  type DictionaryEntryItemData,
   type ParameterDictionarySectionData,
-  readDictionaryEntryItemData,
+  readDictionaryEntryItem,
 } from "../sections/ParamDictSection";
+import {
+  defaultCodeParameterUI,
+  parameterUIFromWorkspaceControl,
+  projectParameterControl,
+  projectParameterPresentation,
+  pythonExpressionFromWorkspaceControl,
+  workspaceControlValue,
+} from "./parameterUIPresentation";
 
 const dictionaryEntryWorkspaceItemPrefix =
   "python-canvas:dictionary-entry-item:";
@@ -44,14 +52,18 @@ export function setDictionaryEntryExpression(
   entryItemId: string,
   authoredExpression: string,
 ): void {
-  updateDictionaryEntryItem(host, dictionaryId, entryItemId, (data) => {
-    if (data.kind !== DICTIONARY_ENTRY_KIND_LEAF_V2) {
-      return null;
-    }
-    return data.authoredExpression === authoredExpression
-      ? null
-      : { ...data, authoredExpression };
-  });
+  const sectionId = parameterDictionarySectionID(dictionaryId);
+  const control =
+    host.getSnapshot().sections[sectionId]?.itemTree?.items[entryItemId]
+      ?.presentation?.control;
+  if (control === undefined || control.kind === "group") {
+    return;
+  }
+  const next = projectParameterControl(
+    parameterUIFromWorkspaceControl(control),
+    authoredExpression,
+  );
+  setItemValue(host, sectionId, entryItemId, workspaceControlValue(next));
 }
 
 export function setDictionaryEntryName(
@@ -60,8 +72,11 @@ export function setDictionaryEntryName(
   entryItemId: string,
   name: string,
 ): void {
-  updateDictionaryEntryItem(host, dictionaryId, entryItemId, (data) =>
-    data.name === name ? null : { ...data, name },
+  setItemLabel(
+    host,
+    parameterDictionarySectionID(dictionaryId),
+    entryItemId,
+    name,
   );
 }
 
@@ -81,7 +96,7 @@ export function dictionaryEntryParentPromotionRequired(
       return false;
     }
     return (
-      readDictionaryEntryItemData(item.data).kind ===
+      readDictionaryEntryItem(item).kind ===
       DICTIONARY_ENTRY_KIND_LEAF_V2
     );
   });
@@ -108,14 +123,16 @@ export function promoteDictionaryEntryParents(
     if (itemId === itemTree.rootId || item.children.length === 0) {
       continue;
     }
-    const data = readDictionaryEntryItemData(item.data);
+    const data = readDictionaryEntryItem(item);
     if (data.kind === DICTIONARY_ENTRY_KIND_LEAF_V2) {
       items[itemId] = {
         ...item,
-        data: {
-          kind: DICTIONARY_ENTRY_KIND_PARENT_V2,
-          name: data.name,
-        } satisfies DictionaryEntryItemData,
+        presentation: projectParameterPresentation({
+          expression: "",
+          label: data.name,
+          labelEditable: true,
+          ui: { type: "NestedParam", configuration: {} },
+        }),
       };
       changed = true;
     }
@@ -141,11 +158,12 @@ export function createParameterDictionaryEntryItem(): WorkspaceItem {
   return {
     id: dictionaryEntryWorkspaceItemID(entryId),
     children: [],
-    data: {
-      authoredExpression: "",
-      kind: DICTIONARY_ENTRY_KIND_LEAF_V2,
-      name: "",
-    } satisfies DictionaryEntryItemData,
+    presentation: projectParameterPresentation({
+      expression: "",
+      label: "",
+      labelEditable: true,
+      ui: defaultCodeParameterUI(),
+    }),
   };
 }
 
@@ -194,8 +212,16 @@ export function projectCanonicalDictionaryEntries(
                 dictionaryEntryWorkspaceItemID(child.id),
               )
             : [],
-        data: projectDictionaryEntryItemData(entry),
         id: itemId,
+        presentation: projectParameterPresentation({
+          expression:
+            entry.kind === DICTIONARY_ENTRY_KIND_LEAF_V2
+              ? entry.authoredExpression
+              : "",
+          label: entry.name,
+          labelEditable: true,
+          ui: entry.ui,
+        }),
       };
       if (entry.kind === DICTIONARY_ENTRY_KIND_PARENT_V2) {
         projectEntries(itemId, entry.children);
@@ -236,24 +262,6 @@ export function projectParameterDictionarySectionData(
   };
 }
 
-function updateDictionaryEntryItem(
-  host: WorkspaceHost,
-  dictionaryId: string,
-  entryItemId: string,
-  next: (data: DictionaryEntryItemData) => DictionaryEntryItemData | null,
-): void {
-  const sectionId = parameterDictionarySectionID(dictionaryId);
-  const item =
-    host.getSnapshot().sections[sectionId]?.itemTree?.items[entryItemId];
-  if (item === undefined) {
-    return;
-  }
-  const data = next(readDictionaryEntryItemData(item.data));
-  if (data !== null) {
-    setItemData(host, sectionId, entryItemId, data);
-  }
-}
-
 function readDictionaryEntriesFromTree(
   itemTree: WorkspaceSectionItemTree,
 ): DictionaryEntryV2[] {
@@ -267,7 +275,7 @@ function readDictionaryEntriesFromTree(
       if (item === undefined) {
         throw new Error(`Python Canvas dictionary entry ${itemId} is missing.`);
       }
-      const data = readDictionaryEntryItemData(item.data);
+      const data = readDictionaryEntryItem(item);
       const id = canonicalDictionaryEntryID(item.id);
       if (
         data.kind === DICTIONARY_ENTRY_KIND_PARENT_V2 ||
@@ -278,13 +286,27 @@ function readDictionaryEntriesFromTree(
           id,
           kind: DICTIONARY_ENTRY_KIND_PARENT_V2,
           name: data.name,
+          ui: { type: "NestedParam", configuration: {} },
         };
       }
+      const control = item.presentation?.control;
+      if (control === undefined || control.kind === "group") {
+        throw new Error(
+          `Python Canvas dictionary entry ${itemId} has no value presentation.`,
+        );
+      }
+      const ui = parameterUIFromWorkspaceControl(control);
+      if (ui.type === "NestedParam") {
+        throw new Error(
+          `Python Canvas dictionary entry ${itemId} has a nested leaf UI.`,
+        );
+      }
       return {
-        authoredExpression: data.authoredExpression,
+        authoredExpression: pythonExpressionFromWorkspaceControl(control),
         id,
         kind: DICTIONARY_ENTRY_KIND_LEAF_V2,
         name: data.name,
+        ui,
       };
     });
   }
@@ -330,19 +352,6 @@ function collectDictionaryEntryIDs(
       collectDictionaryEntryIDs(entry.children, entryIDs);
     }
   }
-}
-
-function projectDictionaryEntryItemData(
-  entry: DictionaryEntryV2,
-): DictionaryEntryItemData {
-  if (entry.kind === DICTIONARY_ENTRY_KIND_PARENT_V2) {
-    return { kind: entry.kind, name: entry.name };
-  }
-  return {
-    authoredExpression: entry.authoredExpression,
-    kind: entry.kind,
-    name: entry.name,
-  };
 }
 
 function projectItemDiagnostic(

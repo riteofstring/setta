@@ -18,7 +18,7 @@ import (
 )
 
 // Format is the sole accepted authored project-file format.
-const Format = "python-canvas-project/v1"
+const Format = "python-canvas-project/v2"
 
 var (
 	ErrInvalidProjectFile = errors.New("projectfile: invalid project file")
@@ -230,6 +230,14 @@ func Encode(state aggregate.State) ([]byte, error) {
 		ParameterDictionaries: encodeParameterDictionaries(state.ParameterDictionaries),
 		Lists:                 encodeLists(state.Lists),
 		TopLevelSectionIDs:    cloneStringSlice(state.TopLevelSectionIDs),
+		ParameterUIOverrides:  make(map[string]diskParameterUI, len(state.ParameterUIOverrides)),
+	}
+	for targetID, ui := range state.ParameterUIOverrides {
+		encodedUI, err := encodeDiskParameterUI(ui)
+		if err != nil {
+			return nil, fmt.Errorf("encode parameter UI override %q: %w", targetID, err)
+		}
+		document.ParameterUIOverrides[targetID] = encodedUI
 	}
 	for _, callable := range state.Callables {
 		diskCallable := diskCallable{
@@ -271,7 +279,7 @@ func Decode(content []byte) (aggregate.State, error) {
 	if err != nil {
 		return aggregate.State{}, err
 	}
-	if err := requireExactFields(fields, "document", "format", "project", "pythonTarget", "callables", "parameterDictionaries", "lists", "topLevelSectionIds"); err != nil {
+	if err := requireExactFields(fields, "document", "format", "project", "pythonTarget", "callables", "parameterDictionaries", "lists", "topLevelSectionIds", "parameterUIOverrides"); err != nil {
 		return aggregate.State{}, err
 	}
 	format, err := decodeString(fields["format"], "document format")
@@ -297,6 +305,10 @@ func Decode(content []byte) (aggregate.State, error) {
 	if err != nil {
 		return aggregate.State{}, err
 	}
+	parameterUIOverrides, err := decodeParameterUIOverrides(fields["parameterUIOverrides"])
+	if err != nil {
+		return aggregate.State{}, err
+	}
 	state := aggregate.State{
 		Project:               project,
 		PythonTarget:          target,
@@ -304,6 +316,7 @@ func Decode(content []byte) (aggregate.State, error) {
 		ParameterDictionaries: sections.parameterDictionaries,
 		Lists:                 sections.lists,
 		TopLevelSectionIDs:    sections.topLevelSectionIDs,
+		ParameterUIOverrides:  parameterUIOverrides,
 	}
 	if err := state.Validate(); err != nil {
 		return aggregate.State{}, invalidFile("incoherent authored aggregate: %v", err)
@@ -344,13 +357,19 @@ func writeAndSync(file *os.File, content []byte) error {
 }
 
 type diskDocument struct {
-	Format                string                    `json:"format"`
-	Project               diskProject               `json:"project"`
-	PythonTarget          diskPythonTarget          `json:"pythonTarget"`
-	Callables             []diskCallable            `json:"callables"`
-	ParameterDictionaries []diskParameterDictionary `json:"parameterDictionaries"`
-	Lists                 []diskList                `json:"lists"`
-	TopLevelSectionIDs    []string                  `json:"topLevelSectionIds"`
+	Format                string                     `json:"format"`
+	Project               diskProject                `json:"project"`
+	PythonTarget          diskPythonTarget           `json:"pythonTarget"`
+	Callables             []diskCallable             `json:"callables"`
+	ParameterDictionaries []diskParameterDictionary  `json:"parameterDictionaries"`
+	Lists                 []diskList                 `json:"lists"`
+	TopLevelSectionIDs    []string                   `json:"topLevelSectionIds"`
+	ParameterUIOverrides  map[string]diskParameterUI `json:"parameterUIOverrides"`
+}
+
+type diskParameterUI struct {
+	Type          string          `json:"type"`
+	Configuration json.RawMessage `json:"configuration"`
 }
 
 type diskProject struct {

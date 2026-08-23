@@ -101,7 +101,7 @@ func TestHandlerForwardsRevisionBoundProjectAndParameterMutations(t *testing.T) 
 	parametersResponse := postJSON(
 		handler,
 		contracts.ProjectCallablesPathV2+"/"+callableID+"/parameters",
-		`{"projectId":"project:fixture","expectedRevision":1,"parameters":[{"id":"parameter:client","name":"scale","authoredExpression":"2"}]}`,
+		`{"projectId":"project:fixture","expectedRevision":1,"parameters":[{"id":"parameter:client","name":"scale","authoredExpression":"2","ui":{"type":"CodeParam","configuration":{"disabled":false,"language":"python","placeholder":null,"singleLine":true,"wrapLines":true}}}]}`,
 	)
 	if parametersResponse.Code != http.StatusOK {
 		t.Fatalf("parameter status = %d; body = %s", parametersResponse.Code, parametersResponse.Body.String())
@@ -112,7 +112,7 @@ func TestHandlerForwardsRevisionBoundProjectAndParameterMutations(t *testing.T) 
 	if parameters.ProjectID != "project:fixture" || parameters.ExpectedRevision != 1 || len(parameters.Parameters) != 1 {
 		t.Fatalf("parameter request = %#v", parameters)
 	}
-	if parameter := parameters.Parameters[0]; parameter != (contracts.ParameterProposalV2{ID: "parameter:client", Name: "scale", AuthoredExpression: "2"}) {
+	if parameter := parameters.Parameters[0]; parameter.ID != "parameter:client" || parameter.Name != "scale" || parameter.AuthoredExpression != "2" || parameter.UI.Type != contracts.ParameterUITypeCodeV2 {
 		t.Fatalf("parameter proposal = %#v", parameter)
 	}
 
@@ -137,7 +137,7 @@ func TestHandlerAcceptsEveryClosedSectionForestMutationRoute(t *testing.T) {
 		{"create dictionary", contracts.ProjectParameterDictionariesPathV2, `{"projectId":"project:fixture","expectedRevision":1,"name":"Options"}`},
 		{"rename dictionary", contracts.ProjectParameterDictionariesPathV2 + "/dictionary%3Aone/rename", `{"projectId":"project:fixture","expectedRevision":1,"name":"Options"}`},
 		{"delete dictionary", contracts.ProjectParameterDictionariesPathV2 + "/dictionary%3Aone/delete", `{"projectId":"project:fixture","expectedRevision":1}`},
-		{"set dictionary entries", contracts.ProjectParameterDictionariesPathV2 + "/dictionary%3Aone/entries", `{"projectId":"project:fixture","expectedRevision":1,"entries":[{"kind":"leaf","id":"entry:one","name":"radius","authoredExpression":"4"}]}`},
+		{"set dictionary entries", contracts.ProjectParameterDictionariesPathV2 + "/dictionary%3Aone/entries", `{"projectId":"project:fixture","expectedRevision":1,"entries":[{"kind":"leaf","id":"entry:one","name":"radius","authoredExpression":"4","ui":{"type":"CodeParam","configuration":{"disabled":false,"language":"python","placeholder":null,"singleLine":true,"wrapLines":true}}}]}`},
 		{"create list", contracts.ProjectListsPathV2, `{"projectId":"project:fixture","expectedRevision":1,"name":"Objects"}`},
 		{"rename list", contracts.ProjectListsPathV2 + "/list%3Aone/rename", `{"projectId":"project:fixture","expectedRevision":1,"name":"Objects"}`},
 		{"delete list", contracts.ProjectListsPathV2 + "/list%3Aone/delete", `{"projectId":"project:fixture","expectedRevision":1}`},

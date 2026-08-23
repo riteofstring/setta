@@ -13,6 +13,18 @@ import {
 } from "./workspaceProjection";
 import { createDictionaryEntryParentPromotionScheduler } from "./dictionaryEntryParentPromotion";
 
+const CODE_UI = {
+  type: "CodeParam",
+  configuration: {
+    disabled: false,
+    language: "python",
+    placeholder: null,
+    singleLine: true,
+    wrapLines: true,
+  },
+} as const;
+const NESTED_UI = { type: "NestedParam", configuration: {} } as const;
+
 describe("dictionary entry parent promotion", () => {
   it("defers a leaf-to-parent promotion beyond the workspace notification", async () => {
     const radius = {
@@ -20,12 +32,14 @@ describe("dictionary entry parent promotion", () => {
       id: "entry:radius",
       kind: "leaf" as const,
       name: "radius",
+      ui: CODE_UI,
     };
     const scale = {
       authoredExpression: "2",
       id: "entry:scale",
       kind: "leaf" as const,
       name: "scale",
+      ui: CODE_UI,
     };
     const snapshot = parseProjectSnapshotV2({
       ...projectSnapshotFixture,
@@ -61,8 +75,8 @@ describe("dictionary entry parent promotion", () => {
         host.getSnapshot().sections[
           parameterDictionarySectionID("dictionary:options")
         ]?.itemTree?.items[dictionaryEntryWorkspaceItemID("entry:radius")]
-          ?.data,
-      ).toMatchObject({ kind: "leaf" });
+          ?.presentation?.control,
+      ).toMatchObject({ kind: "code" });
 
       await new Promise<void>((resolve) => queueMicrotask(resolve));
 
@@ -70,8 +84,8 @@ describe("dictionary entry parent promotion", () => {
         host.getSnapshot().sections[
           parameterDictionarySectionID("dictionary:options")
         ]?.itemTree?.items[dictionaryEntryWorkspaceItemID("entry:radius")]
-          ?.data,
-      ).toMatchObject({ kind: "parent" });
+          ?.presentation?.control,
+      ).toMatchObject({ kind: "group" });
       expect(
         readParameterDictionaryEntries(
           host.getSnapshot(),
@@ -83,6 +97,7 @@ describe("dictionary entry parent promotion", () => {
           id: radius.id,
           kind: "parent",
           name: radius.name,
+          ui: NESTED_UI,
         },
       ]);
     } finally {

@@ -69,6 +69,8 @@ type SetParameterDictionaryEntriesCommand struct {
 	DictionaryID     string
 	ExpectedRevision int
 	Entries          []DictionaryEntry
+	// UIOverrides contains only non-default leaf presentations keyed by entry ID.
+	UIOverrides map[string]ParameterUI
 }
 
 // CreateListCommand appends one empty List of Objects to the top-level forest.

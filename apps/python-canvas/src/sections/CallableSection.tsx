@@ -11,11 +11,9 @@ import {
 } from "../backend/generatedContract";
 import {
   ItemDndContext,
-  ItemNameEditor,
   TextValueEditor,
-  WorkspaceItemLabel,
   WorkspaceItemList,
-  type ItemRowRenderContext,
+  type WorkspaceItem,
   type WorkspaceItemDiagnostic,
   type WorkspaceItemDiagnosticRegistry,
 } from "@setta/workspace";
@@ -27,8 +25,6 @@ import { parameterNameErrors } from "./parameterNames";
 const PARAMETER_LIST_KEY = "python-canvas-callable-parameters";
 const CALLABLE_APPLY_HINT_DELAY_MS = 1_000;
 
-const unnamedParameterLabel = "Unnamed parameter";
-
 export type CallableSectionData = {
   callable: {
     authoredExpression: string;
@@ -37,6 +33,7 @@ export type CallableSectionData = {
   };
   callableDiagnosticMessage: string | null;
   parameterDiagnostics: Record<string, Array<WorkspaceItemDiagnostic>>;
+  parameterMetadata: Record<string, CallableParameterMetadata>;
   providerStatus: {
     provider: typeof PROVIDER_BASEDPYRIGHT_V2;
     status: ProviderAvailabilityV2;
@@ -54,12 +51,18 @@ export type ParameterItemData = {
   typeAnnotation: string | null;
 };
 
+export type CallableParameterMetadata = Pick<
+  ParameterItemData,
+  "default" | "passingStyle" | "providerOrdinal" | "typeAnnotation"
+>;
+
 export function readCallableSectionData(value: unknown): CallableSectionData {
   const record = readRecord(value, "Callable section data");
   requireExactFields(record, [
     "callable",
     "callableDiagnosticMessage",
     "parameterDiagnostics",
+    "parameterMetadata",
     "providerStatus",
   ]);
   const callableRecord = readRecord(
@@ -81,6 +84,7 @@ export function readCallableSectionData(value: unknown): CallableSectionData {
       "callableDiagnosticMessage",
     ),
     parameterDiagnostics: readParameterDiagnostics(record.parameterDiagnostics),
+    parameterMetadata: readParameterMetadata(record.parameterMetadata),
     providerStatus: readProviderStatus(record.providerStatus),
   };
 }
@@ -297,8 +301,8 @@ export function CallableSection({
   sectionId: string;
 }) {
   const mutation = usePythonCanvasMutationContext();
-  const itemDiagnostics = parameterDiagnosticRegistry(data);
   const nameErrors = parameterNameErrors(parameters);
+  const itemDiagnostics = parameterDiagnosticRegistry(data, nameErrors);
   const parameterAuthoringPending = mutation.parameterAuthoringPending(
     data.callable.id,
   );
@@ -325,14 +329,6 @@ export function CallableSection({
           <WorkspaceItemList
             itemDiagnostics={itemDiagnostics}
             listKey={`${PARAMETER_LIST_KEY}:${data.callable.id}`}
-            renderItem={(context) => (
-              <ParameterItemRow
-                callableId={data.callable.id}
-                context={context}
-                disabled={parameterAuthoringPending}
-                nameError={nameErrors[context.item.id] ?? ""}
-              />
-            )}
             sectionId={sectionId}
             topLevelItemIds={parameters.map((parameter) => parameter.id)}
           />
@@ -342,75 +338,27 @@ export function CallableSection({
   );
 }
 
-export function parameterItemSearchableText(item: { data?: unknown }): string {
-  return readParameterItemData(item.data).name;
-}
-
-function ParameterItemRow({
-  callableId,
-  context,
-  disabled,
-  nameError,
-}: {
-  callableId: string;
-  context: ItemRowRenderContext;
-  disabled: boolean;
-  nameError: string;
-}) {
-  const mutation = usePythonCanvasMutationContext();
-  const data = readParameterItemData(context.item.data);
-  const label = data.name === "" ? unnamedParameterLabel : data.name;
-  return (
-    <>
-      {data.nameEditable ? (
-        <ItemNameEditor
-          errorMessage={nameError}
-          disabled={disabled}
-          itemId={context.item.id}
-          language="python"
-          name={data.name}
-          onNameChange={(name) =>
-            mutation.onParameterNameChange(callableId, context.item.id, name)
-          }
-          sectionId={context.sectionId}
-        />
-      ) : (
-        <WorkspaceItemLabel
-          className="python-canvas-parameter-label"
-          isGroup={false}
-        >
-          {data.name}
-        </WorkspaceItemLabel>
-      )}
-      <TextValueEditor
-        ariaLabel={`${label} expression`}
-        controlId={context.item.id}
-        disabled={disabled}
-        language="python"
-        onValueChange={(value) =>
-          mutation.onParameterExpressionChange(
-            callableId,
-            context.item.id,
-            value,
-          )
-        }
-        placeholder={data.default ?? undefined}
-        presentation="item-row"
-        sectionId={context.sectionId}
-        singleLine
-        value={data.authoredExpression}
-        wrapLines={false}
-      />
-    </>
-  );
+export function parameterItemSearchableText(item: WorkspaceItem): string {
+  if (item.presentation === undefined) {
+    throw new Error("Callable parameter item presentation is missing.");
+  }
+  return item.presentation.label;
 }
 
 function parameterDiagnosticRegistry(
   data: CallableSectionData,
+  nameErrors: Readonly<Record<string, string>>,
 ): WorkspaceItemDiagnosticRegistry | undefined {
-  return Object.keys(data.parameterDiagnostics).length === 0
-    ? undefined
-    : data.parameterDiagnostics;
+  const diagnostics: Record<string, Array<WorkspaceItemDiagnostic>> = {
+    ...data.parameterDiagnostics,
+  };
+  for (const [itemId, message] of Object.entries(nameErrors)) {
+    diagnostics[itemId] = [
+      ...(diagnostics[itemId] ?? []),
+      { message, severity: "error" },
+    ];
+  }
+  return Object.keys(diagnostics).length === 0 ? undefined : diagnostics;
 }
 
 function readParameterDiagnostics(
@@ -428,6 +376,35 @@ function readParameterDiagnostics(
       entries.map((entry, index) => readWorkspaceDiagnostic(entry, index));
   }
   return diagnostics;
+}
+
+function readParameterMetadata(
+  value: unknown,
+): CallableSectionData["parameterMetadata"] {
+  const record = readRecord(value, "Callable parameterMetadata");
+  const metadata: CallableSectionData["parameterMetadata"] = {};
+  for (const [itemId, entry] of Object.entries(record)) {
+    const fields = readRecord(entry, `parameterMetadata[${itemId}]`);
+    requireExactFields(fields, [
+      "default",
+      "passingStyle",
+      "providerOrdinal",
+      "typeAnnotation",
+    ]);
+    metadata[readStableId(itemId, "parameterMetadata key")] = {
+      default: readStringOrNull(fields.default, "parameterMetadata.default"),
+      passingStyle: readParameterPassingStyle(fields.passingStyle),
+      providerOrdinal: readNonNegativeIntegerOrNull(
+        fields.providerOrdinal,
+        "parameterMetadata.providerOrdinal",
+      ),
+      typeAnnotation: readStringOrNull(
+        fields.typeAnnotation,
+        "parameterMetadata.typeAnnotation",
+      ),
+    };
+  }
+  return metadata;
 }
 
 function readProviderStatus(

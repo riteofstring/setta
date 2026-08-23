@@ -127,6 +127,35 @@ export type APIErrorCodeV2 =
   | "method_not_allowed"
   | "internal";
 
+export type ParameterUIV2 =
+  | { type: "CodeParam"; configuration: CodeParameterUIConfigurationV2 }
+  | { type: "TextParam"; configuration: TextParameterUIConfigurationV2 }
+  | { type: "DateParam"; configuration: DateParameterUIConfigurationV2 }
+  | { type: "TimeParam"; configuration: TimeParameterUIConfigurationV2 }
+  | { type: "SliderParam"; configuration: NumericParameterUIConfigurationV2 }
+  | { type: "RotaryParam"; configuration: NumericParameterUIConfigurationV2 }
+  | { type: "SwitchParam"; configuration: SwitchParameterUIConfigurationV2 }
+  | { type: "ColorPickerParam"; configuration: ColorParameterUIConfigurationV2 }
+  | { type: "DropdownParam"; configuration: DropdownParameterUIConfigurationV2 }
+  | { type: "PasswordParam"; configuration: PasswordParameterUIConfigurationV2 }
+  | { type: "TextAreaParam"; configuration: TextAreaParameterUIConfigurationV2 }
+  | { type: "DropzoneParam"; configuration: DropzoneParameterUIConfigurationV2 }
+  | { type: "NestedParam"; configuration: Record<string, never> };
+export interface TextParameterUIConfigurationV2 { disabled: boolean; placeholder: string | null; singleLine: boolean; wrapLines: boolean; }
+export interface CodeParameterUIConfigurationV2 extends TextParameterUIConfigurationV2 { language: "python" | "typescript" | "javascript" | "json" | "yaml" | "toml" | "markdown"; }
+export interface TextAreaParameterUIConfigurationV2 { disabled: boolean; language: CodeParameterUIConfigurationV2["language"] | null; placeholder: string | null; }
+export interface SwitchParameterUIConfigurationV2 { disabled: boolean; }
+export interface DropdownChoiceGroupV2 { group: string; choices: string[]; }
+export interface DropdownParameterUIConfigurationV2 { disabled: boolean; placeholder: string | null; flatChoices: string[] | null; groupedChoices: DropdownChoiceGroupV2[] | null; }
+export interface ColorChoiceV2 { color: string; description: string; }
+export interface ColorParameterUIConfigurationV2 { disabled: boolean; choices: ColorChoiceV2[] | null; }
+export interface NumericParameterUIConfigurationV2 { disabled: boolean; min: number; max: number; step: number; }
+export interface PasswordParameterUIConfigurationV2 { disabled: boolean; placeholder: string | null; }
+export interface DateParameterUIConfigurationV2 { disabled: boolean; displayFormat: "iso" | "us" | "eu" | "long"; controlMode: "input" | "calendar"; selectionMode: "single" | "multiple"; weekStart: "sunday" | "monday"; includeTime: boolean; timeDisplayFormat: "twenty_four_hour" | "twelve_hour"; }
+export interface TimeParameterUIConfigurationV2 { disabled: boolean; controlMode: "input" | "display"; displayFormat: "twenty_four_hour" | "twelve_hour"; transparent: boolean; scale: number; font: "clock" | "monospace" | "system"; }
+export interface DropzonePolicyV2 { maxAttachments: number | null; maxFileBytes: number; maxTotalBytes: number | null; allowedMimePrefixes: string[]; }
+export interface DropzoneParameterUIConfigurationV2 { disabled: boolean; placeholder: string; policy: DropzonePolicyV2; }
+
 export interface ProjectSnapshotV2 {
   version: typeof PROJECT_SNAPSHOT_VERSION_V2;
   project: ProjectV2;
@@ -145,8 +174,8 @@ export interface PythonTargetV2 { prefix: string; suffix: string; }
 export interface CallableV2 { id: string; name: string; authoredExpression: string; parameters: ParameterV2[]; }
 export interface ParameterDictionaryV2 { id: string; name: string; entries: DictionaryEntryV2[]; }
 export type DictionaryEntryV2 = DictionaryLeafEntryV2 | DictionaryParentEntryV2;
-export interface DictionaryLeafEntryV2 { kind: typeof DICTIONARY_ENTRY_KIND_LEAF_V2; id: string; name: string; authoredExpression: string; }
-export interface DictionaryParentEntryV2 { kind: typeof DICTIONARY_ENTRY_KIND_PARENT_V2; id: string; name: string; children: DictionaryEntryV2[]; }
+export interface DictionaryLeafEntryV2 { kind: typeof DICTIONARY_ENTRY_KIND_LEAF_V2; id: string; name: string; ui: Exclude<ParameterUIV2, { type: "NestedParam" }>; authoredExpression: string; }
+export interface DictionaryParentEntryV2 { kind: typeof DICTIONARY_ENTRY_KIND_PARENT_V2; id: string; name: string; ui: Extract<ParameterUIV2, { type: "NestedParam" }>; children: DictionaryEntryV2[]; }
 export interface ListV2 { id: string; name: string; childSectionIds: string[]; }
 export interface ParameterV2 {
   id: string;
@@ -157,6 +186,7 @@ export interface ParameterV2 {
   default: string | null;
   providerOrdinal: number | null;
   authoredExpression: string;
+	ui: Exclude<ParameterUIV2, { type: "NestedParam" }>;
 }
 export interface ByteRangeV2 { start: number; end: number; }
 export interface GeneratedCodeV2 {
@@ -173,7 +203,7 @@ export interface RenameCallableRequestV2 { projectId: string; expectedRevision: 
 export interface DeleteCallableRequestV2 { projectId: string; expectedRevision: number; }
 export interface CommitCallableRequestV2 { projectId: string; expectedRevision: number; authoredExpression: string; }
 export interface RefreshCallableParametersRequestV2 { projectId: string; expectedRevision: number; }
-export interface ParameterProposalV2 { id: string; name: string; authoredExpression: string; }
+export interface ParameterProposalV2 { id: string; name: string; authoredExpression: string; ui: Exclude<ParameterUIV2, { type: "NestedParam" }>; }
 export interface SetCallableParametersRequestV2 { projectId: string; expectedRevision: number; parameters: ParameterProposalV2[]; }
 export interface CreateParameterDictionaryRequestV2 { projectId: string; expectedRevision: number; name: string; }
 export interface RenameParameterDictionaryRequestV2 { projectId: string; expectedRevision: number; name: string; }

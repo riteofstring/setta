@@ -101,6 +101,7 @@ type State struct {
 	PythonTarget          PythonTarget
 	Callables             []Callable
 	ParameterDictionaries []ParameterDictionary
+	ParameterUIOverrides  map[string]ParameterUI
 	Lists                 []List
 	TopLevelSectionIDs    []string
 }
@@ -176,6 +177,9 @@ type ParameterProposal struct {
 	ID                 string
 	Name               string
 	AuthoredExpression string
+	// UI is nil for the canonical CodeParam presentation. Commands carry only
+	// an explicit non-default selection here.
+	UI *ParameterUI
 }
 
 // SetParametersCommand replaces one callable's complete ordered parameter list.
@@ -209,6 +213,7 @@ func NewBlank(nextID IDGenerator) (State, error) {
 		PythonTarget:          PythonTarget{Suffix: DefaultPythonSuffix},
 		Callables:             []Callable{},
 		ParameterDictionaries: []ParameterDictionary{},
+		ParameterUIOverrides:  map[string]ParameterUI{},
 		Lists:                 []List{},
 		TopLevelSectionIDs:    []string{},
 	}
@@ -234,6 +239,7 @@ func (state State) Clone() State {
 		clone.Callables[callableIndex] = callableClone
 	}
 	clone.ParameterDictionaries = cloneParameterDictionaries(state.ParameterDictionaries)
+	clone.ParameterUIOverrides = cloneParameterUIOverrides(state.ParameterUIOverrides)
 	clone.Lists = cloneLists(state.Lists)
 	clone.TopLevelSectionIDs = cloneStrings(state.TopLevelSectionIDs)
 	return clone
@@ -251,7 +257,10 @@ func (state State) Validate() error {
 			return err
 		}
 	}
-	return validateParameterDictionariesAndForest(state, claimedIDs)
+	if err := validateParameterDictionariesAndForest(state, claimedIDs); err != nil {
+		return err
+	}
+	return validateParameterUIOverrides(state)
 }
 
 func validateProjectState(state State) error {
@@ -491,11 +500,13 @@ func (state State) RefreshCallableParameters(
 		return Candidate{}, err
 	}
 	candidate := state.Clone()
+	currentParameters := candidate.Callables[callableIndex].Parameters
 	parameters, err := newProviderParameters(signature, nextID, candidate.targetIDs())
 	if err != nil {
 		return Candidate{}, err
 	}
 	candidate.Callables[callableIndex].Parameters = parameters
+	preserveRefreshedParameterUIs(&candidate, currentParameters, parameters)
 	return changedCandidate(candidate)
 }
 
@@ -522,10 +533,11 @@ func (state State) SetParameters(command SetParametersCommand) (Candidate, error
 	if err != nil {
 		return Candidate{}, err
 	}
-	if sameParameters(current.Parameters, parameters) {
+	if sameParameters(current.Parameters, parameters) && sameProposedParameterUIs(candidate, command.Parameters) {
 		return Candidate{State: candidate}, nil
 	}
 	candidate.Callables[callableIndex].Parameters = parameters
+	replaceProposedParameterUIs(&candidate, current.Parameters, command.Parameters)
 	return changedCandidate(candidate)
 }
 

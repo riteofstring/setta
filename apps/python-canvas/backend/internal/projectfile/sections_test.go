@@ -27,7 +27,8 @@ func TestStrictProjectFilePersistsTheCompleteSectionForestAndEntryUnion(t *testi
 		Lists: []aggregate.List{{
 			ID: "list-objects", Name: "Objects", ChildSectionIDs: []string{"callable-child", "dictionary-options"},
 		}},
-		TopLevelSectionIDs: []string{"list-objects"},
+		TopLevelSectionIDs:   []string{"list-objects"},
+		ParameterUIOverrides: map[string]aggregate.ParameterUI{},
 	}
 	encoded, err := Encode(state)
 	if err != nil {

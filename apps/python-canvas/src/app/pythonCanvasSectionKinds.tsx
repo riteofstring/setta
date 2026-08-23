@@ -6,17 +6,16 @@ import {
   type WorkspaceCodeSectionCompletionProvider,
   type WorkspaceDocument,
   type WorkspaceHost,
+  type WorkspaceItemSearchContext,
 } from "@setta/workspace";
 
 import {
   CallableExpressionField,
   CallableSection,
-  parameterItemSearchableText,
   readCallableSectionData,
 } from "../sections/CallableSection";
 import {
   ParameterDictionarySection,
-  readDictionaryEntryItemData,
   readParameterDictionarySectionData,
 } from "../sections/ParamDictSection";
 import { ListSection, readListSectionData } from "../sections/ListSection";
@@ -102,8 +101,8 @@ export function registerPythonCanvasSectionKinds(
     assertValidData: (section: WorkspaceDocument["sections"][string]) => {
       readCallableSectionData(section.data);
     },
-    getItemSearchableText: (context: { item: { data?: unknown } }) =>
-      parameterItemSearchableText(context.item),
+    getItemSearchableText: (context: WorkspaceItemSearchContext) =>
+      context.item.presentation?.label ?? "",
     renderContent: (section: WorkspaceDocument["sections"][string]) => {
       const data = readCallableSectionData(section.data);
       return (
@@ -121,8 +120,8 @@ export function registerPythonCanvasSectionKinds(
     assertValidData: (section: WorkspaceDocument["sections"][string]) => {
       readParameterDictionarySectionData(section.data);
     },
-    getItemSearchableText: (context: { item: { data?: unknown } }) =>
-      readDictionaryEntryItemData(context.item.data).name,
+    getItemSearchableText: (context: WorkspaceItemSearchContext) =>
+      context.item.presentation?.label ?? "",
     renderContent: (section: WorkspaceDocument["sections"][string]) => {
       const itemTree = section.itemTree;
       if (itemTree === undefined) {

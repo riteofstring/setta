@@ -1,9 +1,6 @@
 import {
   ItemDndContext,
-  ItemNameEditor,
-  TextValueEditor,
   WorkspaceItemList,
-  type ItemRowRenderContext,
   type WorkspaceItem,
   type WorkspaceItemDiagnostic,
   type WorkspaceItemDiagnosticRegistry,
@@ -15,10 +12,7 @@ import {
   DICTIONARY_ENTRY_KIND_PARENT_V2,
   type DictionaryEntryKindV2,
 } from "../backend/generatedContract";
-import { usePythonCanvasMutationContext } from "../app/PythonCanvasMutationContext";
-
 const DICTIONARY_ITEM_LIST_KEY = "python-canvas-parameter-dictionary";
-const unnamedEntryLabel = "Unnamed entry";
 
 export type ParameterDictionarySectionData = {
   dictionary: {
@@ -81,6 +75,26 @@ export function readDictionaryEntryItemData(
   };
 }
 
+export function readDictionaryEntryItem(
+  item: WorkspaceItem,
+): DictionaryEntryItemData {
+  const presentation = item.presentation;
+  if (presentation === undefined) {
+    throw new Error("Parameter Dictionary entry presentation is missing.");
+  }
+  if (presentation.control.kind === "group") {
+    return {
+      kind: DICTIONARY_ENTRY_KIND_PARENT_V2,
+      name: presentation.label,
+    };
+  }
+  return {
+    authoredExpression: presentation.control.value,
+    kind: DICTIONARY_ENTRY_KIND_LEAF_V2,
+    name: presentation.label,
+  };
+}
+
 export function ParameterDictionarySection({
   data,
   itemTree,
@@ -95,84 +109,19 @@ export function ParameterDictionarySection({
     throw new Error("The Parameter Dictionary item root is missing.");
   }
   const entryNameErrors = dictionaryEntryNameErrors(itemTree);
+  const itemDiagnostics = entryDiagnosticRegistry(data, entryNameErrors);
 
   return (
     <div className="python-canvas-parameter-dictionary-section">
       <ItemDndContext>
         <WorkspaceItemList
-          isGroupItem={isDictionaryEntryGroup}
-          itemDiagnostics={entryDiagnosticRegistry(data)}
+          itemDiagnostics={itemDiagnostics}
           listKey={`${DICTIONARY_ITEM_LIST_KEY}:${data.dictionary.id}`}
-          renderItem={(context) => (
-            <DictionaryEntryRow
-              context={context}
-              dictionaryId={data.dictionary.id}
-              nameError={entryNameErrors[context.item.id] ?? ""}
-            />
-          )}
           sectionId={sectionId}
           topLevelItemIds={root.children}
         />
       </ItemDndContext>
     </div>
-  );
-}
-
-function DictionaryEntryRow({
-  context,
-  dictionaryId,
-  nameError,
-}: {
-  context: ItemRowRenderContext;
-  dictionaryId: string;
-  nameError: string;
-}) {
-  const mutation = usePythonCanvasMutationContext();
-  const data = readDictionaryEntryItemData(context.item.data);
-  const isParent = isDictionaryEntryGroup(context.item);
-  const label = data.name === "" ? unnamedEntryLabel : data.name;
-
-  return (
-    <>
-      <ItemNameEditor
-        errorMessage={nameError}
-        hasChildren={isParent}
-        itemId={context.item.id}
-        language="python"
-        name={data.name}
-        onNameChange={(name) =>
-          mutation.onDictionaryEntryNameChange(
-            dictionaryId,
-            context.item.id,
-            name,
-          )
-        }
-        sectionId={context.sectionId}
-      />
-      {isParent ? null : (
-        <TextValueEditor
-          ariaLabel={`${label} expression`}
-          controlId={context.item.id}
-          language="python"
-          onValueChange={(value) =>
-            mutation.onDictionaryEntryExpressionChange(
-              dictionaryId,
-              context.item.id,
-              value,
-            )
-          }
-          presentation="item-row"
-          sectionId={context.sectionId}
-          singleLine
-          value={
-            data.kind === DICTIONARY_ENTRY_KIND_LEAF_V2
-              ? data.authoredExpression
-              : ""
-          }
-          wrapLines={false}
-        />
-      )}
-    </>
   );
 }
 
@@ -227,7 +176,7 @@ function dictionaryEntryNameCounts(
 ): ReadonlyMap<string, number> {
   const names = new Map<string, number>();
   for (const { item } of children) {
-    const name = readDictionaryEntryItemData(item.data).name.trim();
+    const name = readDictionaryEntryItem(item).name.trim();
     if (name !== "") {
       names.set(name, (names.get(name) ?? 0) + 1);
     }
@@ -239,7 +188,7 @@ function dictionaryEntryNameError(
   item: WorkspaceItem,
   siblingNames: ReadonlyMap<string, number>,
 ): string | null {
-  const name = readDictionaryEntryItemData(item.data).name;
+  const name = readDictionaryEntryItem(item).name;
   const normalized = name.trim();
   if (normalized === "") {
     return "Dictionary entry name is required.";
@@ -252,20 +201,20 @@ function dictionaryEntryNameError(
     : null;
 }
 
-function isDictionaryEntryGroup(item: WorkspaceItem): boolean {
-  return (
-    item.children.length > 0 ||
-    readDictionaryEntryItemData(item.data).kind ===
-      DICTIONARY_ENTRY_KIND_PARENT_V2
-  );
-}
-
 function entryDiagnosticRegistry(
   data: ParameterDictionarySectionData,
+  nameErrors: Readonly<Record<string, string>>,
 ): WorkspaceItemDiagnosticRegistry | undefined {
-  return Object.keys(data.entryDiagnostics).length === 0
-    ? undefined
-    : data.entryDiagnostics;
+  const diagnostics: Record<string, Array<WorkspaceItemDiagnostic>> = {
+    ...data.entryDiagnostics,
+  };
+  for (const [itemId, message] of Object.entries(nameErrors)) {
+    diagnostics[itemId] = [
+      ...(diagnostics[itemId] ?? []),
+      { message, severity: "error" },
+    ];
+  }
+  return Object.keys(diagnostics).length === 0 ? undefined : diagnostics;
 }
 
 function readEntryDiagnostics(

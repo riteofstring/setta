@@ -26,6 +26,7 @@ type DictionaryEntryV2 struct {
 	Kind               DictionaryEntryKindV2
 	ID                 string
 	Name               string
+	UI                 ParameterUIV2
 	AuthoredExpression *string
 	Children           []DictionaryEntryV2
 }
@@ -40,11 +41,13 @@ func (entry DictionaryEntryV2) MarshalJSON() ([]byte, error) {
 			Kind               DictionaryEntryKindV2 `json:"kind"`
 			ID                 string                `json:"id"`
 			Name               string                `json:"name"`
+			UI                 ParameterUIV2         `json:"ui"`
 			AuthoredExpression string                `json:"authoredExpression"`
 		}{
 			Kind:               entry.Kind,
 			ID:                 entry.ID,
 			Name:               entry.Name,
+			UI:                 entry.UI,
 			AuthoredExpression: *entry.AuthoredExpression,
 		})
 	case DictionaryEntryKindParentV2:
@@ -55,11 +58,13 @@ func (entry DictionaryEntryV2) MarshalJSON() ([]byte, error) {
 			Kind     DictionaryEntryKindV2 `json:"kind"`
 			ID       string                `json:"id"`
 			Name     string                `json:"name"`
+			UI       ParameterUIV2         `json:"ui"`
 			Children []DictionaryEntryV2   `json:"children"`
 		}{
 			Kind:     entry.Kind,
 			ID:       entry.ID,
 			Name:     entry.Name,
+			UI:       entry.UI,
 			Children: entry.Children,
 		})
 	default:
@@ -108,7 +113,7 @@ func decodeDictionaryEntryByKind(kind DictionaryEntryKindV2, fields map[string]j
 }
 
 func decodeDictionaryLeafV2(fields map[string]json.RawMessage) (DictionaryEntryV2, error) {
-	if err := requireExactJSONFields(fields, "kind", "id", "name", "authoredExpression"); err != nil {
+	if err := requireExactJSONFields(fields, "kind", "id", "name", "ui", "authoredExpression"); err != nil {
 		return DictionaryEntryV2{}, err
 	}
 	id, name, err := decodeDictionaryEntryIdentity(fields)
@@ -119,11 +124,15 @@ func decodeDictionaryLeafV2(fields map[string]json.RawMessage) (DictionaryEntryV
 	if err != nil {
 		return DictionaryEntryV2{}, fmt.Errorf("dictionary leaf authoredExpression is invalid: %w", err)
 	}
-	return DictionaryEntryV2{Kind: DictionaryEntryKindLeafV2, ID: id, Name: name, AuthoredExpression: &expression}, nil
+	ui, err := decodeDictionaryEntryUI(fields["ui"])
+	if err != nil {
+		return DictionaryEntryV2{}, err
+	}
+	return DictionaryEntryV2{Kind: DictionaryEntryKindLeafV2, ID: id, Name: name, UI: ui, AuthoredExpression: &expression}, nil
 }
 
 func decodeDictionaryParentV2(fields map[string]json.RawMessage) (DictionaryEntryV2, error) {
-	if err := requireExactJSONFields(fields, "kind", "id", "name", "children"); err != nil {
+	if err := requireExactJSONFields(fields, "kind", "id", "name", "ui", "children"); err != nil {
 		return DictionaryEntryV2{}, err
 	}
 	id, name, err := decodeDictionaryEntryIdentity(fields)
@@ -137,7 +146,19 @@ func decodeDictionaryParentV2(fields map[string]json.RawMessage) (DictionaryEntr
 	if err := json.Unmarshal(fields["children"], &children); err != nil || children == nil {
 		return DictionaryEntryV2{}, fmt.Errorf("dictionary parent children is invalid")
 	}
-	return DictionaryEntryV2{Kind: DictionaryEntryKindParentV2, ID: id, Name: name, Children: children}, nil
+	ui, err := decodeDictionaryEntryUI(fields["ui"])
+	if err != nil {
+		return DictionaryEntryV2{}, err
+	}
+	return DictionaryEntryV2{Kind: DictionaryEntryKindParentV2, ID: id, Name: name, UI: ui, Children: children}, nil
+}
+
+func decodeDictionaryEntryUI(raw json.RawMessage) (ParameterUIV2, error) {
+	var ui ParameterUIV2
+	if err := json.Unmarshal(raw, &ui); err != nil {
+		return ParameterUIV2{}, fmt.Errorf("dictionary entry UI is invalid: %w", err)
+	}
+	return ui, nil
 }
 
 func decodeDictionaryEntryIdentity(fields map[string]json.RawMessage) (string, string, error) {
@@ -339,12 +360,20 @@ func validateSnapshotDictionaryLeaf(entry DictionaryEntryV2, field string) error
 	if entry.AuthoredExpression == nil || entry.Children != nil {
 		return ValidationError{Field: field, Problem: "must be an exact leaf union"}
 	}
+	_, err := entry.UI.Aggregate()
+	if err != nil || entry.UI.Type == ParameterUITypeNestedV2 {
+		return ValidationError{Field: field + ".ui", Problem: "must be a configurable leaf UI"}
+	}
 	return validateText(field+".authoredExpression", *entry.AuthoredExpression, true)
 }
 
 func validateSnapshotDictionaryParent(entry DictionaryEntryV2, field string, targetIDs map[string]struct{}, projectID string) error {
 	if entry.AuthoredExpression != nil || entry.Children == nil {
 		return ValidationError{Field: field, Problem: "must be an exact parent union"}
+	}
+	_, err := entry.UI.Aggregate()
+	if err != nil || entry.UI.Type != ParameterUITypeNestedV2 {
+		return ValidationError{Field: field + ".ui", Problem: "must be NestedParam"}
 	}
 	return validateSnapshotDictionaryEntries(entry.Children, field+".children", targetIDs, projectID)
 }

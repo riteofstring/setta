@@ -27,6 +27,17 @@ import {
   projectParameterDictionaryRenamePath,
   type SetParameterDictionaryEntriesRequestV2,
 } from "./generatedContract";
+
+const CODE_UI = {
+  type: "CodeParam",
+  configuration: {
+    disabled: false,
+    language: "python",
+    placeholder: null,
+    singleLine: true,
+    wrapLines: true,
+  },
+} as const;
 import {
   ProjectClientError,
   commitCallable,
@@ -120,6 +131,7 @@ describe("Python Canvas V2 project client", () => {
           authoredExpression: "2",
           id: "parameter:scale",
           name: "scale",
+          ui: CODE_UI,
         },
       ],
       projectId: "project:fixture",
@@ -142,6 +154,7 @@ describe("Python Canvas V2 project client", () => {
           id: "entry:radius",
           kind: "leaf",
           name: "radius",
+          ui: CODE_UI,
         },
       ],
       expectedRevision: 1,

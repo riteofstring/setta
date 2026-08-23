@@ -1,0 +1,653 @@
+package aggregate
+
+import (
+	"fmt"
+	"math"
+	"reflect"
+	"regexp"
+	"strings"
+	"unicode/utf8"
+)
+
+// ParameterUIType is the persisted presentation selected for one callable
+// parameter or Parameter Dictionary leaf. The names intentionally match the
+// product's public UI-type labels.
+type ParameterUIType string
+
+const (
+	ParameterUITypeCode     ParameterUIType = "CodeParam"
+	ParameterUITypeText     ParameterUIType = "TextParam"
+	ParameterUITypeDate     ParameterUIType = "DateParam"
+	ParameterUITypeTime     ParameterUIType = "TimeParam"
+	ParameterUITypeSlider   ParameterUIType = "SliderParam"
+	ParameterUITypeRotary   ParameterUIType = "RotaryParam"
+	ParameterUITypeSwitch   ParameterUIType = "SwitchParam"
+	ParameterUITypeColor    ParameterUIType = "ColorPickerParam"
+	ParameterUITypeDropdown ParameterUIType = "DropdownParam"
+	ParameterUITypePassword ParameterUIType = "PasswordParam"
+	ParameterUITypeTextArea ParameterUIType = "TextAreaParam"
+	ParameterUITypeDropzone ParameterUIType = "DropzoneParam"
+	ParameterUITypeNested   ParameterUIType = "NestedParam"
+)
+
+type TextUIConfiguration struct {
+	Disabled    bool    `json:"disabled"`
+	Placeholder *string `json:"placeholder"`
+	SingleLine  bool    `json:"singleLine"`
+	WrapLines   bool    `json:"wrapLines"`
+}
+
+type CodeUIConfiguration struct {
+	Disabled    bool    `json:"disabled"`
+	Language    string  `json:"language"`
+	Placeholder *string `json:"placeholder"`
+	SingleLine  bool    `json:"singleLine"`
+	WrapLines   bool    `json:"wrapLines"`
+}
+
+type TextAreaUIConfiguration struct {
+	Disabled    bool    `json:"disabled"`
+	Language    *string `json:"language"`
+	Placeholder *string `json:"placeholder"`
+}
+
+type SwitchUIConfiguration struct {
+	Disabled bool `json:"disabled"`
+}
+
+type DropdownChoiceGroup struct {
+	Group   string   `json:"group"`
+	Choices []string `json:"choices"`
+}
+
+// DropdownUIConfiguration is a strict choice-set union. Exactly one of
+// FlatChoices and GroupedChoices is present, including for an empty set.
+type DropdownUIConfiguration struct {
+	Disabled       bool                   `json:"disabled"`
+	Placeholder    *string                `json:"placeholder"`
+	FlatChoices    *[]string              `json:"flatChoices"`
+	GroupedChoices *[]DropdownChoiceGroup `json:"groupedChoices"`
+}
+
+type ColorChoice struct {
+	Color       string `json:"color"`
+	Description string `json:"description"`
+}
+
+type ColorUIConfiguration struct {
+	Disabled bool           `json:"disabled"`
+	Choices  *[]ColorChoice `json:"choices"`
+}
+
+type NumericUIConfiguration struct {
+	Disabled bool    `json:"disabled"`
+	Min      float64 `json:"min"`
+	Max      float64 `json:"max"`
+	Step     float64 `json:"step"`
+}
+
+type PasswordUIConfiguration struct {
+	Disabled    bool    `json:"disabled"`
+	Placeholder *string `json:"placeholder"`
+}
+
+type DateUIConfiguration struct {
+	Disabled          bool   `json:"disabled"`
+	DisplayFormat     string `json:"displayFormat"`
+	ControlMode       string `json:"controlMode"`
+	SelectionMode     string `json:"selectionMode"`
+	WeekStart         string `json:"weekStart"`
+	IncludeTime       bool   `json:"includeTime"`
+	TimeDisplayFormat string `json:"timeDisplayFormat"`
+}
+
+type TimeUIConfiguration struct {
+	Disabled      bool    `json:"disabled"`
+	ControlMode   string  `json:"controlMode"`
+	DisplayFormat string  `json:"displayFormat"`
+	Transparent   bool    `json:"transparent"`
+	Scale         float64 `json:"scale"`
+	Font          string  `json:"font"`
+}
+
+type DropzonePolicy struct {
+	MaxAttachments      *int     `json:"maxAttachments"`
+	MaxFileBytes        int      `json:"maxFileBytes"`
+	MaxTotalBytes       *int     `json:"maxTotalBytes"`
+	AllowedMIMEPrefixes []string `json:"allowedMimePrefixes"`
+}
+
+type DropzoneUIConfiguration struct {
+	Disabled    bool           `json:"disabled"`
+	Placeholder string         `json:"placeholder"`
+	Policy      DropzonePolicy `json:"policy"`
+}
+
+// ParameterUI is a closed discriminated union. Exactly one configuration
+// pointer matching Type is present; NestedParam has no configuration pointer.
+type ParameterUI struct {
+	Type     ParameterUIType
+	Text     *TextUIConfiguration
+	Code     *CodeUIConfiguration
+	TextArea *TextAreaUIConfiguration
+	Switch   *SwitchUIConfiguration
+	Dropdown *DropdownUIConfiguration
+	Color    *ColorUIConfiguration
+	Numeric  *NumericUIConfiguration
+	Password *PasswordUIConfiguration
+	Date     *DateUIConfiguration
+	Time     *TimeUIConfiguration
+	Dropzone *DropzoneUIConfiguration
+}
+
+func DefaultParameterUI(uiType ParameterUIType) ParameterUI {
+	switch uiType {
+	case ParameterUITypeCode:
+		return ParameterUI{Type: uiType, Code: &CodeUIConfiguration{Language: "python", SingleLine: true, WrapLines: true}}
+	case ParameterUITypeText:
+		return ParameterUI{Type: uiType, Text: &TextUIConfiguration{SingleLine: true, WrapLines: true}}
+	case ParameterUITypeTextArea:
+		return ParameterUI{Type: uiType, TextArea: &TextAreaUIConfiguration{}}
+	case ParameterUITypeSwitch:
+		return ParameterUI{Type: uiType, Switch: &SwitchUIConfiguration{}}
+	case ParameterUITypeDropdown:
+		choices := []string{}
+		return ParameterUI{Type: uiType, Dropdown: &DropdownUIConfiguration{FlatChoices: &choices}}
+	case ParameterUITypeColor:
+		choices := []ColorChoice{}
+		return ParameterUI{Type: uiType, Color: &ColorUIConfiguration{Choices: &choices}}
+	case ParameterUITypeSlider:
+		return ParameterUI{Type: uiType, Numeric: &NumericUIConfiguration{Min: 0, Max: 100, Step: 1}}
+	case ParameterUITypeRotary:
+		return ParameterUI{Type: uiType, Numeric: &NumericUIConfiguration{Min: 0, Max: 1, Step: 0.1}}
+	case ParameterUITypePassword:
+		return ParameterUI{Type: uiType, Password: &PasswordUIConfiguration{}}
+	case ParameterUITypeDate:
+		return ParameterUI{Type: uiType, Date: &DateUIConfiguration{
+			DisplayFormat: "iso", ControlMode: "input", SelectionMode: "single",
+			WeekStart: "sunday", TimeDisplayFormat: "twenty_four_hour",
+		}}
+	case ParameterUITypeTime:
+		return ParameterUI{Type: uiType, Time: &TimeUIConfiguration{
+			ControlMode: "display", DisplayFormat: "twenty_four_hour", Scale: 1, Font: "monospace",
+		}}
+	case ParameterUITypeDropzone:
+		return ParameterUI{Type: uiType, Dropzone: &DropzoneUIConfiguration{
+			Placeholder: "Drop files here",
+			Policy:      DropzonePolicy{MaxFileBytes: 26_214_400, AllowedMIMEPrefixes: []string{}},
+		}}
+	case ParameterUITypeNested:
+		return ParameterUI{Type: uiType}
+	default:
+		return ParameterUI{}
+	}
+}
+
+func (ui ParameterUI) Clone() ParameterUI {
+	clone := ui
+	if ui.Text != nil {
+		value := *ui.Text
+		value.Placeholder = cloneString(value.Placeholder)
+		clone.Text = &value
+	}
+	if ui.Code != nil {
+		value := *ui.Code
+		value.Placeholder = cloneString(value.Placeholder)
+		clone.Code = &value
+	}
+	if ui.TextArea != nil {
+		value := *ui.TextArea
+		value.Language = cloneString(value.Language)
+		value.Placeholder = cloneString(value.Placeholder)
+		clone.TextArea = &value
+	}
+	if ui.Switch != nil {
+		value := *ui.Switch
+		clone.Switch = &value
+	}
+	if ui.Dropdown != nil {
+		value := *ui.Dropdown
+		value.Placeholder = cloneString(value.Placeholder)
+		value.FlatChoices = cloneStringSlicePointer(value.FlatChoices)
+		value.GroupedChoices = cloneDropdownChoiceGroups(value.GroupedChoices)
+		clone.Dropdown = &value
+	}
+	if ui.Color != nil {
+		value := *ui.Color
+		value.Choices = cloneColorChoices(value.Choices)
+		clone.Color = &value
+	}
+	if ui.Numeric != nil {
+		value := *ui.Numeric
+		clone.Numeric = &value
+	}
+	if ui.Password != nil {
+		value := *ui.Password
+		value.Placeholder = cloneString(value.Placeholder)
+		clone.Password = &value
+	}
+	if ui.Date != nil {
+		value := *ui.Date
+		clone.Date = &value
+	}
+	if ui.Time != nil {
+		value := *ui.Time
+		clone.Time = &value
+	}
+	if ui.Dropzone != nil {
+		value := *ui.Dropzone
+		value.Policy.MaxAttachments = cloneInt(value.Policy.MaxAttachments)
+		value.Policy.MaxTotalBytes = cloneInt(value.Policy.MaxTotalBytes)
+		value.Policy.AllowedMIMEPrefixes = cloneStrings(value.Policy.AllowedMIMEPrefixes)
+		clone.Dropzone = &value
+	}
+	return clone
+}
+
+func (ui ParameterUI) Validate() error {
+	if !ui.hasOnlyExpectedConfiguration() {
+		return validationError("parameter UI %q has an incoherent configuration union", ui.Type)
+	}
+	switch ui.Type {
+	case ParameterUITypeCode:
+		return validateCodeUI(*ui.Code)
+	case ParameterUITypeText:
+		return validateTextUI(*ui.Text)
+	case ParameterUITypeTextArea:
+		return validateTextAreaUI(*ui.TextArea)
+	case ParameterUITypeSwitch:
+		return nil
+	case ParameterUITypeDropdown:
+		return validateDropdownUI(*ui.Dropdown)
+	case ParameterUITypeColor:
+		return validateColorUI(*ui.Color)
+	case ParameterUITypeSlider, ParameterUITypeRotary:
+		return validateNumericUI(*ui.Numeric)
+	case ParameterUITypePassword:
+		return validateOptionalUIString("password placeholder", ui.Password.Placeholder)
+	case ParameterUITypeDate:
+		return validateDateUI(*ui.Date)
+	case ParameterUITypeTime:
+		return validateTimeUI(*ui.Time)
+	case ParameterUITypeDropzone:
+		return validateDropzoneUI(*ui.Dropzone)
+	case ParameterUITypeNested:
+		return nil
+	default:
+		return validationError("parameter UI type %q is unsupported", ui.Type)
+	}
+}
+
+func (ui ParameterUI) hasOnlyExpectedConfiguration() bool {
+	present := map[ParameterUIType]bool{
+		ParameterUITypeText:     ui.Text != nil,
+		ParameterUITypeCode:     ui.Code != nil,
+		ParameterUITypeTextArea: ui.TextArea != nil,
+		ParameterUITypeSwitch:   ui.Switch != nil,
+		ParameterUITypeDropdown: ui.Dropdown != nil,
+		ParameterUITypeColor:    ui.Color != nil,
+		ParameterUITypeSlider:   ui.Numeric != nil,
+		ParameterUITypeRotary:   ui.Numeric != nil,
+		ParameterUITypePassword: ui.Password != nil,
+		ParameterUITypeDate:     ui.Date != nil,
+		ParameterUITypeTime:     ui.Time != nil,
+		ParameterUITypeDropzone: ui.Dropzone != nil,
+	}
+	count := 0
+	for _, value := range []bool{ui.Text != nil, ui.Code != nil, ui.TextArea != nil, ui.Switch != nil, ui.Dropdown != nil, ui.Color != nil, ui.Numeric != nil, ui.Password != nil, ui.Date != nil, ui.Time != nil, ui.Dropzone != nil} {
+		if value {
+			count++
+		}
+	}
+	if ui.Type == ParameterUITypeNested {
+		return count == 0
+	}
+	return count == 1 && present[ui.Type]
+}
+
+func SameParameterUI(left ParameterUI, right ParameterUI) bool {
+	return reflect.DeepEqual(left, right)
+}
+
+func cloneParameterUIOverrides(values map[string]ParameterUI) map[string]ParameterUI {
+	if values == nil {
+		return nil
+	}
+	clone := make(map[string]ParameterUI, len(values))
+	for targetID, ui := range values {
+		clone[targetID] = ui.Clone()
+	}
+	return clone
+}
+
+func validateParameterUIOverrides(state State) error {
+	configurableTargets := make(map[string]struct{})
+	for _, callable := range state.Callables {
+		for _, parameter := range callable.Parameters {
+			configurableTargets[parameter.ID] = struct{}{}
+		}
+	}
+	for _, dictionary := range state.ParameterDictionaries {
+		collectConfigurableDictionaryEntryIDs(dictionary.Entries, configurableTargets)
+	}
+	for targetID, ui := range state.ParameterUIOverrides {
+		if _, exists := configurableTargets[targetID]; !exists {
+			return validationError("parameter UI override target %q is not a callable parameter or dictionary leaf", targetID)
+		}
+		if err := ui.Validate(); err != nil {
+			return fmt.Errorf("parameter UI override %q: %w", targetID, err)
+		}
+		if ui.Type == ParameterUITypeNested {
+			return validationError("parameter UI override %q cannot use NestedParam", targetID)
+		}
+		if SameParameterUI(ui, DefaultParameterUI(ParameterUITypeCode)) {
+			return validationError("parameter UI override %q redundantly stores the default CodeParam", targetID)
+		}
+	}
+	return nil
+}
+
+func collectConfigurableDictionaryEntryIDs(entries []DictionaryEntry, targetIDs map[string]struct{}) {
+	for _, entry := range entries {
+		if entry.Leaf != nil {
+			targetIDs[entry.ID] = struct{}{}
+		}
+		if entry.Parent != nil {
+			collectConfigurableDictionaryEntryIDs(entry.Parent.Children, targetIDs)
+		}
+	}
+}
+
+// ResolveParameterUI returns the authored override or the canonical default
+// for a configurable leaf target. The returned value is always a defensive copy.
+func (state State) ResolveParameterUI(targetID string) ParameterUI {
+	if override, exists := state.ParameterUIOverrides[targetID]; exists {
+		return override.Clone()
+	}
+	return DefaultParameterUI(ParameterUITypeCode)
+}
+
+func (state *State) retainParameterUIOverrides() {
+	configurableTargets := make(map[string]struct{})
+	for _, callable := range state.Callables {
+		for _, parameter := range callable.Parameters {
+			configurableTargets[parameter.ID] = struct{}{}
+		}
+	}
+	for _, dictionary := range state.ParameterDictionaries {
+		collectConfigurableDictionaryEntryIDs(dictionary.Entries, configurableTargets)
+	}
+	for targetID := range state.ParameterUIOverrides {
+		if _, exists := configurableTargets[targetID]; !exists {
+			delete(state.ParameterUIOverrides, targetID)
+		}
+	}
+}
+
+func sameProposedParameterUIs(state State, proposals []ParameterProposal) bool {
+	for _, proposal := range proposals {
+		if !SameParameterUI(state.ResolveParameterUI(proposal.ID), proposedParameterUI(proposal)) {
+			return false
+		}
+	}
+	return true
+}
+
+func replaceProposedParameterUIs(state *State, previous []Parameter, proposals []ParameterProposal) {
+	for _, parameter := range previous {
+		delete(state.ParameterUIOverrides, parameter.ID)
+	}
+	for _, proposal := range proposals {
+		ui := proposedParameterUI(proposal)
+		if !SameParameterUI(ui, DefaultParameterUI(ParameterUITypeCode)) {
+			ensureParameterUIOverrides(state)
+			state.ParameterUIOverrides[proposal.ID] = ui.Clone()
+		}
+	}
+}
+
+func proposedParameterUI(proposal ParameterProposal) ParameterUI {
+	if proposal.UI == nil {
+		return DefaultParameterUI(ParameterUITypeCode)
+	}
+	return proposal.UI.Clone()
+}
+
+func preserveRefreshedParameterUIs(state *State, previous []Parameter, next []Parameter) {
+	byName := make(map[string]ParameterUI, len(previous))
+	for _, parameter := range previous {
+		if override, exists := state.ParameterUIOverrides[parameter.ID]; exists {
+			byName[parameter.Name] = override.Clone()
+		}
+		delete(state.ParameterUIOverrides, parameter.ID)
+	}
+	for _, parameter := range next {
+		if ui, exists := byName[parameter.Name]; exists {
+			ensureParameterUIOverrides(state)
+			state.ParameterUIOverrides[parameter.ID] = ui
+		}
+	}
+}
+
+func sameDictionaryEntryUIs(state State, entries []DictionaryEntry, overrides map[string]ParameterUI) bool {
+	leafIDs := make(map[string]struct{})
+	collectConfigurableDictionaryEntryIDs(entries, leafIDs)
+	for leafID := range leafIDs {
+		expected := DefaultParameterUI(ParameterUITypeCode)
+		if override, exists := overrides[leafID]; exists {
+			expected = override
+		}
+		if !SameParameterUI(state.ResolveParameterUI(leafID), expected) {
+			return false
+		}
+	}
+	return true
+}
+
+func replaceDictionaryEntryUIs(state *State, previous []DictionaryEntry, next []DictionaryEntry, overrides map[string]ParameterUI) {
+	previousLeafIDs := make(map[string]struct{})
+	collectConfigurableDictionaryEntryIDs(previous, previousLeafIDs)
+	for leafID := range previousLeafIDs {
+		delete(state.ParameterUIOverrides, leafID)
+	}
+	nextLeafIDs := make(map[string]struct{})
+	collectConfigurableDictionaryEntryIDs(next, nextLeafIDs)
+	for leafID, ui := range overrides {
+		if _, exists := nextLeafIDs[leafID]; exists && !SameParameterUI(ui, DefaultParameterUI(ParameterUITypeCode)) {
+			ensureParameterUIOverrides(state)
+			state.ParameterUIOverrides[leafID] = ui.Clone()
+		}
+	}
+}
+
+func ensureParameterUIOverrides(state *State) {
+	if state.ParameterUIOverrides == nil {
+		state.ParameterUIOverrides = make(map[string]ParameterUI)
+	}
+}
+
+func validateCodeUI(config CodeUIConfiguration) error {
+	if !isSupportedUILanguage(config.Language) {
+		return validationError("code UI language %q is unsupported", config.Language)
+	}
+	return validateOptionalUIString("code placeholder", config.Placeholder)
+}
+
+func validateTextUI(config TextUIConfiguration) error {
+	return validateOptionalUIString("text placeholder", config.Placeholder)
+}
+
+func validateTextAreaUI(config TextAreaUIConfiguration) error {
+	if config.Language != nil && !isSupportedUILanguage(*config.Language) {
+		return validationError("text area UI language %q is unsupported", *config.Language)
+	}
+	return validateOptionalUIString("text area placeholder", config.Placeholder)
+}
+
+func isSupportedUILanguage(value string) bool {
+	switch value {
+	case "python", "typescript", "javascript", "json", "yaml", "toml", "markdown":
+		return true
+	default:
+		return false
+	}
+}
+
+func validateOptionalUIString(label string, value *string) error {
+	if value == nil {
+		return nil
+	}
+	return validateUIString(label, *value, true)
+}
+
+func validateUIString(label string, value string, allowEmpty bool) error {
+	if (!allowEmpty && strings.TrimSpace(value) == "") || len(value) > maxAuthoredExpressionBytes || !utf8.ValidString(value) || strings.ContainsRune(value, '\x00') {
+		return validationError("%s is invalid", label)
+	}
+	return nil
+}
+
+func validateDropdownUI(config DropdownUIConfiguration) error {
+	if (config.FlatChoices == nil) == (config.GroupedChoices == nil) {
+		return validationError("dropdown UI must contain exactly one choice-set variant")
+	}
+	if err := validateOptionalUIString("dropdown placeholder", config.Placeholder); err != nil {
+		return err
+	}
+	if config.FlatChoices != nil {
+		return validateUIChoices("dropdown choice", *config.FlatChoices)
+	}
+	for index, group := range *config.GroupedChoices {
+		if err := validateUIString(fmt.Sprintf("dropdown group %d", index), group.Group, false); err != nil {
+			return err
+		}
+		if err := validateUIChoices(fmt.Sprintf("dropdown group %d choice", index), group.Choices); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateUIChoices(label string, choices []string) error {
+	seen := map[string]struct{}{}
+	for index, choice := range choices {
+		if err := validateUIString(fmt.Sprintf("%s %d", label, index), choice, false); err != nil {
+			return err
+		}
+		if _, exists := seen[choice]; exists {
+			return validationError("%s %d repeats %q", label, index, choice)
+		}
+		seen[choice] = struct{}{}
+	}
+	return nil
+}
+
+var colorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
+func validateColorUI(config ColorUIConfiguration) error {
+	if config.Choices == nil {
+		return nil
+	}
+	for index, choice := range *config.Choices {
+		if !colorPattern.MatchString(choice.Color) {
+			return validationError("color UI choice %d has invalid color %q", index, choice.Color)
+		}
+		if err := validateUIString(fmt.Sprintf("color UI choice %d description", index), choice.Description, true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateNumericUI(config NumericUIConfiguration) error {
+	if !finite(config.Min) || !finite(config.Max) || !finite(config.Step) {
+		return validationError("numeric UI bounds must be finite")
+	}
+	if config.Min >= config.Max {
+		return validationError("numeric UI min must be less than max")
+	}
+	if config.Step <= 0 || config.Step > config.Max-config.Min {
+		return validationError("numeric UI step must be positive and no larger than max minus min")
+	}
+	return nil
+}
+
+func finite(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+func validateDateUI(config DateUIConfiguration) error {
+	if !oneOf(config.DisplayFormat, "iso", "us", "eu", "long") ||
+		!oneOf(config.ControlMode, "input", "calendar") ||
+		!oneOf(config.SelectionMode, "single", "multiple") ||
+		!oneOf(config.WeekStart, "sunday", "monday") ||
+		!oneOf(config.TimeDisplayFormat, "twenty_four_hour", "twelve_hour") {
+		return validationError("date UI configuration contains an unsupported option")
+	}
+	return nil
+}
+
+func validateTimeUI(config TimeUIConfiguration) error {
+	if !oneOf(config.ControlMode, "input", "display") ||
+		!oneOf(config.DisplayFormat, "twenty_four_hour", "twelve_hour") ||
+		!oneOf(config.Font, "clock", "monospace", "system") {
+		return validationError("time UI configuration contains an unsupported option")
+	}
+	if !finite(config.Scale) || config.Scale < 0.5 || config.Scale > 3 {
+		return validationError("time UI scale must be between 0.5 and 3")
+	}
+	return nil
+}
+
+func validateDropzoneUI(config DropzoneUIConfiguration) error {
+	if err := validateUIString("dropzone placeholder", config.Placeholder, true); err != nil {
+		return err
+	}
+	if config.Policy.MaxFileBytes <= 0 ||
+		(config.Policy.MaxAttachments != nil && *config.Policy.MaxAttachments <= 0) ||
+		(config.Policy.MaxTotalBytes != nil && *config.Policy.MaxTotalBytes <= 0) {
+		return validationError("dropzone UI limits must be positive")
+	}
+	for index, prefix := range config.Policy.AllowedMIMEPrefixes {
+		if err := validateUIString(fmt.Sprintf("dropzone MIME prefix %d", index), prefix, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func oneOf(value string, choices ...string) bool {
+	for _, choice := range choices {
+		if value == choice {
+			return true
+		}
+	}
+	return false
+}
+
+func cloneStringSlicePointer(value *[]string) *[]string {
+	if value == nil {
+		return nil
+	}
+	clone := cloneStrings(*value)
+	return &clone
+}
+
+func cloneDropdownChoiceGroups(value *[]DropdownChoiceGroup) *[]DropdownChoiceGroup {
+	if value == nil {
+		return nil
+	}
+	clone := make([]DropdownChoiceGroup, len(*value))
+	for index, group := range *value {
+		clone[index] = DropdownChoiceGroup{Group: group.Group, Choices: cloneStrings(group.Choices)}
+	}
+	return &clone
+}
+
+func cloneColorChoices(value *[]ColorChoice) *[]ColorChoice {
+	if value == nil {
+		return nil
+	}
+	clone := append([]ColorChoice(nil), (*value)...)
+	return &clone
+}

@@ -55,6 +55,9 @@ const ITEM_OUTER_DIV_CLASS_NAME =
 const ITEM_SEARCH_WRAPPER_CLASS_NAME = `flex min-w-0 mx-[2px] items-center relative ${NO_DRAG_CLASS_NAME} dark:text-setta-200`;
 const META_OUTER_DIV_CLASS_NAME = `flex h-[20px] relative w-full min-w-0 flex-col items-stretch overflow-visible ${NO_DRAG_CLASS_NAME} section-value flex w-full justify-self-start self-center`;
 const META_SEARCH_WRAPPER_CLASS_NAME = `flex min-w-0 mx-[2px] items-center relative ${NO_DRAG_CLASS_NAME} dark:text-setta-200 !mx-0`;
+const PARAMETER_CONFIG_OUTER_DIV_CLASS_NAME =
+  "relative flex h-8 w-full min-w-0 flex-col items-stretch overflow-visible";
+const PARAMETER_CONFIG_SEARCH_WRAPPER_CLASS_NAME = `relative mt-0.5 flex min-w-0 items-center ${NO_DRAG_CLASS_NAME} dark:text-setta-200`;
 // The recorded pill presentation at the small size: rounded-full 12 px mono over the default
 // white/setta-900 field, 12 px leading and 24 px trailing padding around the 16 px content height,
 // and the recorded 2 px blue focus-visible ring. The package-only reset marker recreates main's
@@ -62,20 +65,69 @@ const META_SEARCH_WRAPPER_CLASS_NAME = `flex min-w-0 mx-[2px] items-center relat
 // one-pixel authored borders produce main's recorded 18 px outer height.
 const INPUT_CLASS_NAME =
   "setta-workspace-native-reset flex-grow truncate outline-0 cursor-auto rounded-full text-xs font-mono text-setta-600 font-medium ps-3 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 bg-white dark:bg-setta-900 pe-6 h-4 my-auto";
+const PARAMETER_CONFIG_INPUT_CLASS_NAME =
+  "setta-workspace-native-reset h-7 min-w-0 flex-grow cursor-auto truncate rounded-full border border-solid border-setta-100 bg-white ps-3 pe-8 font-mono text-xs font-medium text-setta-600 outline-0 placeholder:text-setta-200 hover:bg-white/50 focus-visible:border-white focus-visible:ring-2 disabled:cursor-not-allowed dark:border-setta-700/70 dark:bg-setta-900 dark:text-setta-300 dark:placeholder:text-setta-700 dark:hover:bg-setta-950 dark:focus-visible:border-setta-900";
 const RIGHT_ADORNMENT_CLASS_NAME =
   "absolute inset-y-0 end-0 grid select-none place-items-center";
 // The reference `StandardSearchRightBtn` at the pill/small composition, verbatim (the trailing
 // end-1 rides along from the reference's pill class map even though the button is static).
 const TOGGLE_BUTTON_CLASS_NAME = `${NO_DRAG_CLASS_NAME} grid cursor-pointer place-items-center justify-center focus-visible:ring-2 bg-transparent text-setta-500 rounded-full p-0 h-4 w-4 hover:bg-blue-500 hover:text-white dark:text-setta-500 dark:hover:bg-blue-700 dark:hover:text-setta-100 end-1`;
+const PARAMETER_CONFIG_TOGGLE_BUTTON_CLASS_NAME = `${NO_DRAG_CLASS_NAME} grid h-7 w-7 cursor-pointer place-items-center justify-center rounded-full bg-transparent p-0 text-setta-500 hover:bg-blue-500 hover:text-white focus-visible:ring-2 disabled:cursor-not-allowed dark:text-setta-500 dark:hover:bg-blue-700 dark:hover:text-setta-100`;
 // The recorded pill/small chevron size.
 const TOGGLE_ICON_SIZE_PX = 10;
 const GROUP_HEADER_CLASS_NAME =
   "mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-400 first:pt-2";
 const ITEM_CLASS_NAME =
-  "mx-1 cursor-pointer truncate rounded-lg px-2 py-[.125rem] text-xs";
+  "mx-1 truncate rounded-lg px-2 py-[.125rem] text-xs";
 const ITEM_HIGHLIGHTED_CLASS_NAME = "bg-setta-300/50 dark:bg-setta-900/50";
 
 type DropdownCombobox = ReturnType<typeof useDropdownCombobox>;
+
+export type ParameterConfigurationTypeChoice = {
+  id: string;
+  name: string;
+  disabled?: boolean;
+};
+
+export function ParameterConfigurationTypeCombobox({
+  ariaLabel,
+  choices,
+  disabled,
+  inputId,
+  onValueChange,
+  value,
+}: {
+  ariaLabel: string;
+  choices: ReadonlyArray<ParameterConfigurationTypeChoice>;
+  disabled: boolean;
+  inputId: string;
+  onValueChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <DropdownCombobox
+      allItems={[
+        {
+          group: "Base",
+          items: choices.map((choice) => ({ ...choice })),
+        },
+      ]}
+      ariaLabel={ariaLabel}
+      inputId={inputId}
+      isDisabled={disabled}
+      onSelectedItemChange={(selectedId) => {
+        const selected = choices.find((choice) => choice.id === selectedId);
+        if (selected === undefined || selected.disabled) {
+          return;
+        }
+        onValueChange(selected.id);
+      }}
+      placeholder="Search"
+      presentation="parameter-config"
+      value={value}
+    />
+  );
+}
 
 function isChoiceGroups(
   choices: Array<string> | Array<DropdownValueChoiceGroup>,
@@ -150,6 +202,7 @@ function DropdownValueControlCore({
 function DropdownCombobox({
   ariaLabel,
   allItems,
+  inputId,
   value,
   onSelectedItemChange,
   placeholder,
@@ -158,11 +211,12 @@ function DropdownCombobox({
 }: {
   ariaLabel: string;
   allItems: Array<ComboboxItemGroup>;
+  inputId?: string;
   value: string | null;
   onSelectedItemChange: OnSelectedItemChange;
   placeholder: string;
   isDisabled: boolean;
-  presentation: "item-row" | "meta-control";
+  presentation: "item-row" | "meta-control" | "parameter-config";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const combobox = useDropdownCombobox({
@@ -173,27 +227,35 @@ function DropdownCombobox({
   return (
     <div
       className={
-        presentation === "meta-control"
-          ? META_OUTER_DIV_CLASS_NAME
-          : ITEM_OUTER_DIV_CLASS_NAME
+        presentation === "parameter-config"
+          ? PARAMETER_CONFIG_OUTER_DIV_CLASS_NAME
+          : presentation === "meta-control"
+            ? META_OUTER_DIV_CLASS_NAME
+            : ITEM_OUTER_DIV_CLASS_NAME
       }
     >
       <search
         aria-label={`${ariaLabel} choices`}
         className={
-          presentation === "meta-control"
-            ? META_SEARCH_WRAPPER_CLASS_NAME
-            : ITEM_SEARCH_WRAPPER_CLASS_NAME
+          presentation === "parameter-config"
+            ? PARAMETER_CONFIG_SEARCH_WRAPPER_CLASS_NAME
+            : presentation === "meta-control"
+              ? META_SEARCH_WRAPPER_CLASS_NAME
+              : ITEM_SEARCH_WRAPPER_CLASS_NAME
         }
       >
         <input
-          className={INPUT_CLASS_NAME}
+          className={
+            presentation === "parameter-config"
+              ? PARAMETER_CONFIG_INPUT_CLASS_NAME
+              : INPUT_CLASS_NAME
+          }
           placeholder={placeholder}
           {...combobox.getInputProps({
             "aria-label": ariaLabel,
             // The reference params path forwards no input id, and its explicit undefined
             // clobbers downshift's generated one; the rendered input carries no id in main.
-            id: undefined,
+            id: presentation === "parameter-config" ? inputId : undefined,
             onKeyDown: combobox.onKeyDown,
             ref: inputRef,
             disabled: isDisabled,
@@ -202,7 +264,11 @@ function DropdownCombobox({
         />
         <div className={RIGHT_ADORNMENT_CLASS_NAME}>
           <button
-            className={TOGGLE_BUTTON_CLASS_NAME}
+            className={
+              presentation === "parameter-config"
+                ? PARAMETER_CONFIG_TOGGLE_BUTTON_CLASS_NAME
+                : TOGGLE_BUTTON_CLASS_NAME
+            }
             data-setta-workspace-touch-target="compact"
             {...combobox.getToggleButtonProps({
               "aria-label": `${combobox.isOpen ? "Close" : "Open"} ${ariaLabel} choices`,
@@ -214,13 +280,21 @@ function DropdownCombobox({
               <HiChevronUp
                 aria-hidden="true"
                 focusable="false"
-                size={TOGGLE_ICON_SIZE_PX}
+                size={
+                  presentation === "parameter-config"
+                    ? 12
+                    : TOGGLE_ICON_SIZE_PX
+                }
               />
             ) : (
               <HiChevronDown
                 aria-hidden="true"
                 focusable="false"
-                size={TOGGLE_ICON_SIZE_PX}
+                size={
+                  presentation === "parameter-config"
+                    ? 12
+                    : TOGGLE_ICON_SIZE_PX
+                }
               />
             )}
           </button>
@@ -312,9 +386,12 @@ const DropdownComboboxItem = memo(function DropdownComboboxItem({
   itemString: string;
 }) {
   const bg = isHighlighted ? ITEM_HIGHLIGHTED_CLASS_NAME : "";
+  const availability = item.disabled
+    ? "cursor-not-allowed opacity-50"
+    : "cursor-pointer";
   return (
     <dd
-      className={`${ITEM_CLASS_NAME} ${bg}`}
+      className={`${ITEM_CLASS_NAME} ${bg} ${availability}`}
       {...getItemProps({ item, index })}
     >
       {itemString}

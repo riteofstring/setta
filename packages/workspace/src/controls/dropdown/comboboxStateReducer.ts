@@ -20,7 +20,11 @@ import {
 // match-sorter, reopening shows the full list again, Escape and blur reset the draft text to
 // the committed selection, and Enter with no highlighted row commits the first filtered match.
 
-export type ComboboxItem = { id: string; name: string };
+export type ComboboxItem = {
+  id: string;
+  name: string;
+  disabled?: boolean;
+};
 
 export type ComboboxItemGroup = { group: string; items: Array<ComboboxItem> };
 

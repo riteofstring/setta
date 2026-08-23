@@ -117,6 +117,7 @@ func TestProjectSnapshotV2ValidateRejectsUnsupportedAndIncoherentNestedMetadata(
 					TypeAnnotation:     stringPointerForTest("int"),
 					ProviderOrdinal:    &ordinal,
 					AuthoredExpression: "other",
+					UI:                 codeParameterUIForTest(),
 				})
 			},
 			field: callableParameterField(0, 2, "providerOrdinal"),
@@ -219,6 +220,7 @@ func snapshotWithCallableForTest() ProjectSnapshotV2 {
 				Default:            &defaultExpression,
 				ProviderOrdinal:    &ordinal,
 				AuthoredExpression: "value",
+				UI:                 codeParameterUIForTest(),
 			},
 			{
 				ID:                 "parameter:scale",
@@ -229,11 +231,26 @@ func snapshotWithCallableForTest() ProjectSnapshotV2 {
 				Default:            nil,
 				ProviderOrdinal:    nil,
 				AuthoredExpression: "1",
+				UI:                 codeParameterUIForTest(),
 			},
 		},
 	}}
 	snapshot.TopLevelSectionIDs = []string{"callable:one"}
 	return snapshot
+}
+
+func codeParameterUIForTest() ParameterUIV2 {
+	return ParameterUIV2{
+		Type:          ParameterUITypeCodeV2,
+		Configuration: []byte(`{"disabled":false,"language":"python","placeholder":null,"singleLine":true,"wrapLines":true}`),
+	}
+}
+
+func nestedParameterUIForTest() ParameterUIV2 {
+	return ParameterUIV2{
+		Type:          ParameterUITypeNestedV2,
+		Configuration: []byte(`{}`),
+	}
 }
 
 func stringPointerForTest(value string) *string {

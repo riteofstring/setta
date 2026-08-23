@@ -3,75 +3,23 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const dictionaryRows = vi.hoisted(
-  () =>
-    [] as Array<{
-      children: string[];
-      data: Record<string, string>;
-      id: string;
-    }>,
-);
 const itemListProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
-const nameEditorProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
-const valueEditorProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 
 vi.mock("@setta/workspace", () => ({
   ItemDndContext: ({ children }: { children?: ReactNode }) => <>{children}</>,
-  ItemNameEditor: (props: Record<string, unknown>) => {
-    nameEditorProps.push(props);
-    return (
-      <input
-        aria-label="Dictionary entry name"
-        readOnly
-        value={String(props.name)}
-      />
-    );
-  },
-  TextValueEditor: (props: Record<string, unknown>) => {
-    valueEditorProps.push(props);
-    return (
-      <input
-        aria-label={String(props.ariaLabel)}
-        disabled={Boolean(props.disabled)}
-        readOnly
-        value={String(props.value)}
-      />
-    );
-  },
-  WorkspaceItemList: ({
-    renderItem,
-    sectionId,
-    topLevelItemIds,
-    ...props
-  }: {
-    renderItem: (context: {
-      item: { children: string[]; data: Record<string, string>; id: string };
-      sectionId: string;
-    }) => ReactNode;
-    sectionId: string;
-    topLevelItemIds: string[];
-  }) => {
+  WorkspaceItemList: (props: Record<string, unknown>) => {
     itemListProps.push(props);
-    return (
-      <div data-testid="dictionary-entry-list">
-        {topLevelItemIds.map((itemId) => {
-          const item = dictionaryRows.find((row) => row.id === itemId);
-          return item === undefined ? null : (
-            <div key={item.id}>{renderItem({ item, sectionId })}</div>
-          );
-        })}
-      </div>
-    );
+    return <div data-testid="dictionary-entry-list" />;
   },
 }));
 
 import {
   ParameterDictionarySection,
   dictionaryEntryNameErrors,
+  readDictionaryEntryItem,
   readDictionaryEntryItemData,
   readParameterDictionarySectionData,
 } from "./ParamDictSection";
-import { PythonCanvasMutationContext } from "../app/PythonCanvasMutationContext";
 
 let container: HTMLDivElement | undefined;
 let root: Root | undefined;
@@ -83,32 +31,32 @@ afterEach(() => {
   root = undefined;
   container?.remove();
   container = undefined;
-  dictionaryRows.length = 0;
   itemListProps.length = 0;
-  nameEditorProps.length = 0;
-  valueEditorProps.length = 0;
 });
 
 describe("ParameterDictionarySection", () => {
-  it("renders editable leaf rows, preserves empty parents, and delegates entry changes", () => {
-    const onDictionaryEntryExpressionChange = vi.fn();
-    const onDictionaryEntryNameChange = vi.fn();
-    dictionaryRows.push(
-      {
-        children: [],
-        data: {
-          authoredExpression: "missing_radius",
-          kind: "leaf",
-          name: "radius",
+  it("delegates typed leaves and nested parents to the built-in workspace list", () => {
+    const itemTree = {
+      items: {
+        root: { children: ["entry:radius", "entry:options"], id: "root" },
+        "entry:radius": codeItem(
+          "entry:radius",
+          "radius",
+          "missing_radius",
+        ),
+        "entry:options": {
+          children: [],
+          id: "entry:options",
+          presentation: {
+            control: { kind: "group" as const },
+            label: "options",
+            labelEditable: true,
+          },
         },
-        id: "entry:radius",
       },
-      {
-        children: [],
-        data: { kind: "parent", name: "options" },
-        id: "entry:options",
-      },
-    );
+      rootId: "root",
+      selectedItemIds: [],
+    };
 
     render(
       <ParameterDictionarySection
@@ -120,74 +68,40 @@ describe("ParameterDictionarySection", () => {
             ],
           },
         }}
-        itemTree={{
-          items: {
-            root: { children: ["entry:radius", "entry:options"], id: "root" },
-            "entry:options": dictionaryRows[1]!,
-            "entry:radius": dictionaryRows[0]!,
-          },
-          rootId: "root",
-          selectedItemIds: [],
-        }}
+        itemTree={itemTree}
         sectionId="python-canvas:parameter-dictionary:dictionary:options"
       />,
-      {
-        ...mutationContext(),
-        onDictionaryEntryExpressionChange,
-        onDictionaryEntryNameChange,
+    );
+
+    expect(itemListProps[0]).toMatchObject({
+      itemDiagnostics: {
+        "entry:radius": [
+          { message: '"missing_radius" is not defined', severity: "error" },
+        ],
       },
-    );
-
-    expect(nameEditorProps).toHaveLength(2);
-    expect(valueEditorProps).toHaveLength(1);
-    expect(valueEditorProps[0]).toMatchObject({
-      ariaLabel: "radius expression",
-      presentation: "item-row",
-      value: "missing_radius",
+      topLevelItemIds: ["entry:radius", "entry:options"],
     });
-    expect(valueEditorProps[0]?.disabled).toBeUndefined();
-    expect(itemListProps[0]?.itemDiagnostics).toEqual({
-      "entry:radius": [
-        { message: '"missing_radius" is not defined', severity: "error" },
-      ],
+    expect(readDictionaryEntryItem(itemTree.items["entry:radius"])).toEqual({
+      authoredExpression: "missing_radius",
+      kind: "leaf",
+      name: "radius",
     });
-    const isGroupItem = itemListProps[0]?.isGroupItem as
-      ((item: (typeof dictionaryRows)[number]) => boolean) | undefined;
-    expect(isGroupItem?.(dictionaryRows[1]!)).toBe(true);
-
-    (nameEditorProps[0]?.onNameChange as (name: string) => void)("size");
-    (valueEditorProps[0]?.onValueChange as (value: string) => void)("4");
-    expect(onDictionaryEntryNameChange).toHaveBeenCalledWith(
-      "dictionary:options",
-      "entry:radius",
-      "size",
-    );
-    expect(onDictionaryEntryExpressionChange).toHaveBeenCalledWith(
-      "dictionary:options",
-      "entry:radius",
-      "4",
-    );
+    expect(readDictionaryEntryItem(itemTree.items["entry:options"])).toEqual({
+      kind: "parent",
+      name: "options",
+    });
   });
 
-  it("reports recursive sibling name validation at the visible rows", () => {
+  it("reports recursive sibling name validation at visible typed rows", () => {
     expect(
       dictionaryEntryNameErrors({
         items: {
           a: {
+            ...groupItem("a", "same"),
             children: ["nested"],
-            data: { kind: "parent", name: "same" },
-            id: "a",
           },
-          b: {
-            children: [],
-            data: { authoredExpression: "2", kind: "leaf", name: "same" },
-            id: "b",
-          },
-          nested: {
-            children: [],
-            data: { authoredExpression: "", kind: "leaf", name: "" },
-            id: "nested",
-          },
+          b: codeItem("b", "same", "2"),
+          nested: codeItem("nested", "", ""),
           root: { children: ["a", "b"], id: "root" },
         },
         rootId: "root",
@@ -200,7 +114,7 @@ describe("ParameterDictionarySection", () => {
     });
   });
 
-  it("keeps section and entry data closed at the rendering boundary", () => {
+  it("keeps section and legacy entry parsing closed at the rendering boundary", () => {
     expect(() =>
       readParameterDictionarySectionData({
         dictionary: { id: "dictionary:one", name: "One" },
@@ -218,38 +132,45 @@ describe("ParameterDictionarySection", () => {
   });
 });
 
-function render(node: ReactNode, context = mutationContext()): HTMLDivElement {
+function codeItem(id: string, label: string, value: string) {
+  return {
+    children: [],
+    id,
+    presentation: {
+      control: {
+        kind: "code" as const,
+        value,
+        configuration: {
+          autocomplete: "off" as const,
+          disabled: false,
+          language: "python" as const,
+          placeholder: null,
+          singleLine: true,
+          wrapLines: true,
+        },
+      },
+      label,
+      labelEditable: true,
+    },
+  };
+}
+
+function groupItem(id: string, label: string) {
+  return {
+    children: [],
+    id,
+    presentation: {
+      control: { kind: "group" as const },
+      label,
+      labelEditable: true,
+    },
+  };
+}
+
+function render(node: ReactNode): HTMLDivElement {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
-  act(() => {
-    root?.render(
-      <PythonCanvasMutationContext.Provider value={context}>
-        {node}
-      </PythonCanvasMutationContext.Provider>,
-    );
-  });
+  act(() => root?.render(node));
   return container;
-}
-
-function mutationContext() {
-  return {
-    callableCompletionError: () => null,
-    callableCompletionProvider: () => undefined,
-    callableDraft: () => "",
-    callableMutationError: () => null,
-    dictionaryMutationError: () => null,
-    listMutationError: () => null,
-    onCallableAlternateCommit: vi.fn(),
-    onCallableCommit: vi.fn(),
-    onCallableDraftChange: vi.fn(),
-    onCallableRevert: vi.fn(),
-    onDictionaryEntryExpressionChange: vi.fn(),
-    onDictionaryEntryNameChange: vi.fn(),
-    onListDecrement: vi.fn(),
-    onListIncrement: vi.fn(),
-    onParameterExpressionChange: vi.fn(),
-    onParameterNameChange: vi.fn(),
-    parameterAuthoringPending: () => false,
-  };
 }

@@ -58,11 +58,12 @@ function handleEscape(
 }
 
 export function DateConfigurationEditor({
+  allowCalendarUI = true,
   control,
   disabled,
   onCommit,
   onEscape,
-}: ConfigurationEditorProps<DateControl>) {
+}: ConfigurationEditorProps<DateControl> & { allowCalendarUI?: boolean }) {
   const configuration = control.configuration;
   const commit = (nextConfiguration: DateControl["configuration"]) =>
     onCommit(createConfigurationUpdate(control, nextConfiguration));
@@ -83,21 +84,25 @@ export function DateConfigurationEditor({
         options={DATE_DISPLAY_OPTIONS}
         value={configuration.displayFormat}
       />
-      <SelectConfigurationRow
-        disabled={disabled}
-        label="Date UI"
-        name="date-control-mode"
-        onChange={(controlMode) =>
-          commit({
-            ...configuration,
-            controlMode:
-              controlMode as DateControl["configuration"]["controlMode"],
-          })
-        }
-        onEscape={onEscape}
-        options={DATE_CONTROL_OPTIONS}
-        value={configuration.controlMode}
-      />
+      {allowCalendarUI ? (
+        <SelectConfigurationRow
+          disabled={disabled}
+          label="Date UI"
+          name="date-control-mode"
+          onChange={(controlMode) =>
+            commit({
+              ...configuration,
+              controlMode:
+                controlMode as DateControl["configuration"]["controlMode"],
+            })
+          }
+          onEscape={onEscape}
+          options={DATE_CONTROL_OPTIONS}
+          value={configuration.controlMode}
+        />
+      ) : (
+        <ReadOnlyConfigurationRow label="Date UI" value="Date input" />
+      )}
       <BooleanConfigurationRow
         checked={configuration.includeTime}
         disabled={disabled}
@@ -128,7 +133,7 @@ export function DateConfigurationEditor({
           value={configuration.timeDisplayFormat}
         />
       ) : null}
-      {configuration.controlMode === "calendar" ? (
+      {allowCalendarUI && configuration.controlMode === "calendar" ? (
         <>
           {configuration.includeTime ? (
             <ReadOnlyConfigurationRow label="Selection" value="Single date" />

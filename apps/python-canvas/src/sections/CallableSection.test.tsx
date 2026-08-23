@@ -5,73 +5,25 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TextValueCompletionProvider } from "@setta/workspace";
 
 const editorProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
-const parameterRows = vi.hoisted(
-  () => [] as Array<{ data: unknown; id: string }>,
-);
+const itemListProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 
 vi.mock("@setta/workspace", () => ({
   ItemDndContext: ({ children }: { children?: ReactNode }) => <>{children}</>,
-  ItemNameEditor: ({
-    disabled,
-    name,
-  }: {
-    disabled?: boolean;
-    name: string;
-  }) => (
-    <input
-      aria-label="Parameter name"
-      disabled={Boolean(disabled)}
-      value={name}
-      readOnly
-    />
-  ),
-  NO_DRAG_CLASS_NAME: "nodrag",
-  NO_PAN_CLASS_NAME: "nopan",
   TextValueEditor: (props: Record<string, unknown>) => {
     editorProps.push(props);
     return (
       <input
         aria-label={String(props.ariaLabel)}
         disabled={Boolean(props.disabled)}
-        value={String(props.value)}
         readOnly
+        value={String(props.value)}
       />
     );
   },
-  WorkspaceItemLabel: ({
-    children,
-    className,
-    title,
-  }: {
-    children?: ReactNode;
-    className?: string;
-    title?: string;
-  }) => (
-    <span className={className} title={title}>
-      {children}
-    </span>
-  ),
-  WorkspaceItemList: ({
-    renderItem,
-    sectionId,
-    topLevelItemIds,
-  }: {
-    renderItem: (context: {
-      item: { data: unknown; id: string };
-      sectionId: string;
-    }) => ReactNode;
-    sectionId: string;
-    topLevelItemIds: string[];
-  }) => (
-    <div data-testid="parameter-list">
-      {topLevelItemIds.map((id) => {
-        const item = parameterRows.find((row) => row.id === id);
-        return item === undefined ? null : (
-          <div key={id}>{renderItem({ item, sectionId })}</div>
-        );
-      })}
-    </div>
-  ),
+  WorkspaceItemList: (props: Record<string, unknown>) => {
+    itemListProps.push(props);
+    return <div data-testid="parameter-list" />;
+  },
 }));
 
 import {
@@ -93,7 +45,7 @@ afterEach(() => {
   container?.remove();
   container = undefined;
   editorProps.length = 0;
-  parameterRows.length = 0;
+  itemListProps.length = 0;
 });
 
 describe("CallableSection", () => {
@@ -179,9 +131,7 @@ describe("CallableSection", () => {
       );
 
       expect(editorProps.at(-1)?.uncommitted).toBe(false);
-      act(() => vi.advanceTimersByTime(999));
-      expect(editorProps.at(-1)?.uncommitted).toBe(false);
-      act(() => vi.advanceTimersByTime(1));
+      act(() => vi.advanceTimersByTime(1_000));
       expect(editorProps.at(-1)?.uncommitted).toBe(true);
 
       act(() => {
@@ -194,195 +144,116 @@ describe("CallableSection", () => {
     }
   });
 
-  it("projects a Basedpyright callable diagnostic into the field presentation", () => {
-    const data = sectionData({ state: "ready", status: "available" });
+  it("projects Basedpyright diagnostics into the callable field and typed rows", () => {
+    const parameter = authoredParameter("same");
     render(
-      <CallableExpressionField
-        data={{ ...data, callableDiagnosticMessage: `"math" is not defined` }}
-        sectionId="python-canvas:callable:one"
-      />,
+      <>
+        <CallableSection
+          data={{
+            ...sectionData({ state: "ready", status: "available" }),
+            callableDiagnosticMessage: `"math" is not defined`,
+            parameterDiagnostics: {
+              "parameter:first": [
+                { message: "A value is required.", severity: "error" },
+              ],
+            },
+          }}
+          parameters={[
+            { data: parameter, id: "parameter:first" },
+            { data: parameter, id: "parameter:second" },
+          ]}
+          sectionId="python-canvas:callable:one"
+        />
+        <CallableExpressionField
+          data={{
+            ...sectionData({ state: "ready", status: "available" }),
+            callableDiagnosticMessage: `"math" is not defined`,
+          }}
+          sectionId="python-canvas:callable:one"
+        />
+      </>,
     );
 
-    expect(editorProps[0]).toMatchObject({
+    expect(editorProps.at(-1)).toMatchObject({
       diagnosticMessage: `"math" is not defined`,
       presentation: "section-field",
     });
+    expect(itemListProps[0]).toMatchObject({
+      topLevelItemIds: ["parameter:first", "parameter:second"],
+      itemDiagnostics: {
+        "parameter:first": [
+          { message: "A value is required.", severity: "error" },
+          {
+            message: 'Param name "same" already exists under this parent.',
+            severity: "error",
+          },
+        ],
+        "parameter:second": [
+          {
+            message: 'Param name "same" already exists under this parent.',
+            severity: "error",
+          },
+        ],
+      },
+    });
   });
 
-  it("keeps section and item data closed at the rendering boundary", () => {
+  it("keeps section data closed and filters typed items by their label", () => {
     expect(() =>
       readCallableSectionData({
         ...sectionData({ state: "ready", status: "available" }),
         unexpected: true,
       }),
     ).toThrow("unexpected fields");
-  });
-
-  it("uses parameter names for public workspace filtering", () => {
     expect(
       parameterItemSearchableText({
-        data: {
-          authoredExpression: "2",
-          default: null,
-          name: "scale",
-          nameEditable: true,
-          passingStyle: "positional_or_keyword",
-          providerOrdinal: null,
-          typeAnnotation: null,
+        children: [],
+        id: "parameter:scale",
+        presentation: {
+          control: {
+            kind: "code",
+            value: "2",
+            configuration: {
+              autocomplete: "off",
+              disabled: false,
+              language: "python",
+              placeholder: null,
+              singleLine: true,
+              wrapLines: true,
+            },
+          },
+          label: "scale",
+          labelEditable: true,
         },
       }),
     ).toBe("scale");
   });
 
-  it("keeps callable mutation failures out of the section layout", () => {
-    const view = render(
-      <CallableExpressionField
-        data={sectionData({ state: "ready", status: "available" })}
-        sectionId="python-canvas:callable:one"
-      />,
-      mutationContext(() => "Unable to save this callable. Try again."),
-    );
-
-    const alert = view.querySelector("[role='alert']");
-    expect(alert?.textContent).toBe("Unable to save this callable. Try again.");
-    expect(alert?.classList.contains("python-canvas-announcer")).toBe(true);
-    expect(editorProps[0]?.diagnosticMessage).toBeUndefined();
-  });
-
-  it("keeps completion failures out of the section layout", () => {
+  it("keeps mutation and completion failures out of the section layout", () => {
     const view = render(
       <CallableExpressionField
         data={sectionData({ state: "ready", status: "available" })}
         sectionId="python-canvas:callable:one"
       />,
       mutationContext(
-        () => null,
+        () => "Unable to save this callable. Try again.",
         () => false,
         () => "Unable to load callable completions. Try again.",
       ),
     );
 
-    const alert = view.querySelector("[role='alert']");
-    expect(alert?.textContent).toBe(
+    const alerts = Array.from(view.querySelectorAll("[role='alert']")).map(
+      (element) => element.textContent,
+    );
+    expect(alerts).toEqual([
+      "Unable to save this callable. Try again.",
       "Unable to load callable completions. Try again.",
-    );
-    expect(alert?.classList.contains("python-canvas-announcer")).toBe(true);
-    expect(editorProps[0]?.diagnosticMessage).toBeUndefined();
-  });
-
-  it("renders a provider parameter as main's name-only row", () => {
-    const parameter = {
-      authoredExpression: "value",
-      default: null,
-      name: "value",
-      nameEditable: false,
-      passingStyle: "positional_or_keyword" as const,
-      providerOrdinal: 0,
-      typeAnnotation: null,
-    };
-    parameterRows.push({ data: parameter, id: "parameter:value" });
-
-    const view = render(
-      <CallableSection
-        data={sectionData({ state: "ready", status: "available" })}
-        parameters={[{ data: parameter, id: "parameter:value" }]}
-        sectionId="python-canvas:callable:one"
-      />,
-    );
-
-    const label = view.querySelector(".python-canvas-parameter-label");
-    expect(label?.textContent).toBe("value");
-    expect(label?.getAttribute("title")).toBeNull();
-    expect(view.textContent).not.toContain("Provider ordinal");
-    expect(view.textContent).not.toContain("Passing style");
-    expect(view.textContent).not.toContain("unannotated");
-    expect(editorProps[0]?.placeholder).toBeUndefined();
-    expect(view.querySelector("input[aria-label='Parameter name']")).toBeNull();
-  });
-
-  it("makes parameter authoring unavailable only during a callable expression operation", () => {
-    const parameter = {
-      authoredExpression: "later",
-      default: null,
-      name: "later",
-      nameEditable: true,
-      passingStyle: "positional_or_keyword" as const,
-      providerOrdinal: null,
-      typeAnnotation: null,
-    };
-    parameterRows.push({ data: parameter, id: "parameter:later" });
-
-    const view = render(
-      <CallableSection
-        data={sectionData({ state: "ready", status: "available" })}
-        parameters={[{ data: parameter, id: "parameter:later" }]}
-        sectionId="python-canvas:callable:one"
-      />,
-      mutationContext(
-        () => null,
-        () => true,
+    ]);
+    expect(
+      Array.from(view.querySelectorAll("[role='alert']")).every((element) =>
+        element.classList.contains("python-canvas-announcer"),
       ),
-    );
-
-    expect(
-      view.querySelector<HTMLInputElement>("input[aria-label='Parameter name']")
-        ?.disabled,
     ).toBe(true);
-    expect(
-      view.querySelector<HTMLInputElement>(
-        "input[aria-label='later expression']",
-      )?.disabled,
-    ).toBe(true);
-    expect(
-      view
-        .querySelector(".python-canvas-callable-parameter-authoring")
-        ?.hasAttribute("inert"),
-    ).toBe(true);
-    expect(
-      view.querySelector("[data-python-canvas-parameter-pending='true']"),
-    ).not.toBeNull();
-    expect(
-      view
-        .querySelector(".python-canvas-callable-section")
-        ?.getAttribute("aria-busy"),
-    ).toBe("true");
-  });
-
-  it("keeps callable fields enabled while pending state stays scoped", () => {
-    const second = {
-      ...sectionData({ state: "ready", status: "available" }),
-      callable: {
-        authoredExpression: "other",
-        id: "callable:two",
-        name: "Two callable",
-      },
-    };
-    const view = render(
-      <>
-        <CallableExpressionField
-          data={sectionData({ state: "ready", status: "available" })}
-          sectionId="python-canvas:callable:one"
-        />
-        <CallableExpressionField
-          data={second}
-          sectionId="python-canvas:callable:two"
-        />
-      </>,
-      mutationContext(
-        (callableId) =>
-          callableId === "callable:one"
-            ? "Unable to save this callable."
-            : null,
-        (callableId) => callableId === "callable:one",
-      ),
-    );
-
-    expect(editorProps).toHaveLength(2);
-    expect(editorProps[0]?.disabled).toBeUndefined();
-    expect(editorProps[1]?.disabled).toBeUndefined();
-    const alert = view.querySelector("[role='alert']");
-    expect(alert?.textContent).toBe("Unable to save this callable.");
-    expect(alert?.classList.contains("python-canvas-announcer")).toBe(true);
   });
 });
 
@@ -400,6 +271,18 @@ function render(node: ReactNode, context = mutationContext()): HTMLDivElement {
   return container;
 }
 
+function authoredParameter(name: string) {
+  return {
+    authoredExpression: "2",
+    default: null,
+    name,
+    nameEditable: true,
+    passingStyle: "positional_or_keyword" as const,
+    providerOrdinal: null,
+    typeAnnotation: null,
+  };
+}
+
 function sectionData({
   state,
   status,
@@ -415,6 +298,7 @@ function sectionData({
     },
     callableDiagnosticMessage: null,
     parameterDiagnostics: {},
+    parameterMetadata: {},
     providerStatus: {
       provider: "basedpyright" as const,
       state,

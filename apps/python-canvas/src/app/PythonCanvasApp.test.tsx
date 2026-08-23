@@ -16,6 +16,17 @@ import type {
 import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
 import { ProjectClientError } from "../backend/client";
 
+const CODE_UI = {
+  type: "CodeParam",
+  configuration: {
+    disabled: false,
+    language: "python",
+    placeholder: null,
+    singleLine: true,
+    wrapLines: true,
+  },
+} as const;
+
 const mocks = vi.hoisted(() => ({
   commitCallable: vi.fn(),
   commitWorkspaceDocument: vi.fn(),
@@ -492,6 +503,7 @@ describe("PythonCanvasApp", () => {
         id: "entry:radius",
         kind: "leaf" as const,
         name: "radius",
+        ui: CODE_UI,
       },
     ];
     const persistedSnapshot = dictionarySnapshot(2, entries);
@@ -525,10 +537,12 @@ describe("PythonCanvasApp", () => {
         parameterDictionarySectionID("dictionary:options")
       ]?.itemTree?.items[dictionaryEntryWorkspaceItemID("entry:radius")],
     ).toMatchObject({
-      data: {
-        authoredExpression: "4",
-        kind: "leaf",
-        name: "radius",
+      presentation: {
+        control: {
+          kind: "code",
+          value: "4",
+        },
+        label: "radius",
       },
     });
   });
@@ -913,7 +927,7 @@ describe("PythonCanvasApp", () => {
       {
         expectedRevision: 1,
         parameters: [
-          { authoredExpression: "first", id: "parameter:value", name: "value" },
+          { authoredExpression: "first", id: "parameter:value", name: "value", ui: CODE_UI },
         ],
         projectId: initialSnapshot.project.id,
       },
@@ -951,8 +965,8 @@ describe("PythonCanvasApp", () => {
       {
         expectedRevision: 2,
         parameters: [
-          { authoredExpression: "first", id: "parameter:value", name: "value" },
-          { authoredExpression: "later", id: "parameter:later", name: "later" },
+          { authoredExpression: "first", id: "parameter:value", name: "value", ui: CODE_UI },
+          { authoredExpression: "later", id: "parameter:later", name: "later", ui: CODE_UI },
         ],
         projectId: firstAnswer.project.id,
       },
@@ -1323,6 +1337,7 @@ function providerParameter(id: string, authoredExpression: string) {
     passingStyle: "positional_or_keyword" as const,
     providerOrdinal: 0,
     typeAnnotation: "float",
+    ui: CODE_UI,
   };
 }
 
@@ -1340,6 +1355,7 @@ function authoredParameter(
     passingStyle: "positional_or_keyword" as const,
     providerOrdinal: null,
     typeAnnotation: null,
+    ui: CODE_UI,
   };
 }
 
@@ -1368,9 +1384,15 @@ function changeParameterExpression(
             ...section.itemTree.items,
             [itemId]: {
               ...item,
-              data: {
-                ...(item.data as Record<string, unknown>),
-                authoredExpression,
+              presentation: {
+                ...item.presentation!,
+                control: {
+                  ...(item.presentation!.control as Exclude<
+                    NonNullable<typeof item.presentation>["control"],
+                    { kind: "group" }
+                  >),
+                  value: authoredExpression,
+                },
               },
             },
           },
@@ -1392,7 +1414,7 @@ function appendParameter(
   if (section === undefined || itemTree === undefined || root === undefined) {
     throw new Error(`Missing parameter list for ${callableId}.`);
   }
-  const { id, ...data } = parameter;
+  const { id } = parameter;
   const itemId = parameterWorkspaceItemID(id);
   return {
     ...document,
@@ -1408,7 +1430,22 @@ function appendParameter(
               ...root,
               children: [...root.children, itemId],
             },
-            [itemId]: { children: [], data, id: itemId },
+            [itemId]: {
+              children: [],
+              id: itemId,
+              presentation: {
+                control: {
+                  kind: "code",
+                  value: parameter.authoredExpression,
+                  configuration: {
+                    ...CODE_UI.configuration,
+                    autocomplete: "off",
+                  },
+                },
+                label: parameter.name,
+                labelEditable: true,
+              },
+            },
           },
         },
       },
@@ -1445,10 +1482,17 @@ function appendDictionaryEntry(
             [root.id]: { ...root, children: [...root.children, itemId] },
             [itemId]: {
               children: [],
-              data: {
-                authoredExpression: entry.authoredExpression,
-                kind: entry.kind,
-                name: entry.name,
+              presentation: {
+                control: {
+                  kind: "code",
+                  value: entry.authoredExpression,
+                  configuration: {
+                    ...CODE_UI.configuration,
+                    autocomplete: "off",
+                  },
+                },
+                label: entry.name,
+                labelEditable: true,
               },
               id: itemId,
             },

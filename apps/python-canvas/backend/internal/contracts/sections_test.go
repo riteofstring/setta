@@ -14,8 +14,8 @@ func TestProjectSnapshotV2ValidatesTypedForestAndRecursiveDictionaryUnion(t *tes
 	}}
 	snapshot.ParameterDictionaries = []ParameterDictionaryV2{{
 		ID: "dictionary-options", Name: "Options", Entries: []DictionaryEntryV2{
-			{Kind: DictionaryEntryKindLeafV2, ID: "entry-radius", Name: "radius", AuthoredExpression: &expression},
-			{Kind: DictionaryEntryKindParentV2, ID: "entry-group", Name: "group", Children: []DictionaryEntryV2{}},
+			{Kind: DictionaryEntryKindLeafV2, ID: "entry-radius", Name: "radius", AuthoredExpression: &expression, UI: codeParameterUIForTest()},
+			{Kind: DictionaryEntryKindParentV2, ID: "entry-group", Name: "group", Children: []DictionaryEntryV2{}, UI: nestedParameterUIForTest()},
 		},
 	}}
 	snapshot.Lists = []ListV2{{

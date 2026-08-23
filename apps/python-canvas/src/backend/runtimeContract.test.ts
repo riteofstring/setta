@@ -8,6 +8,18 @@ import {
   parseProjectSnapshotV2,
 } from "./runtimeContract";
 
+const CODE_UI = {
+  type: "CodeParam",
+  configuration: {
+    disabled: false,
+    language: "python",
+    placeholder: null,
+    singleLine: true,
+    wrapLines: true,
+  },
+} as const;
+const NESTED_UI = { type: "NestedParam", configuration: {} } as const;
+
 describe("parseProjectSnapshotV2", () => {
   it("accepts the Go-produced blank project fixture", () => {
     expect(parseProjectSnapshotV2(projectSnapshotFixture)).toEqual(
@@ -129,6 +141,7 @@ describe("parseProjectSnapshotV2", () => {
               passingStyle: "positional_or_keyword",
               providerOrdinal: 0,
               typeAnnotation: "int",
+              ui: CODE_UI,
             },
           ],
         },
@@ -206,12 +219,14 @@ describe("parseProjectSnapshotV2", () => {
               id: "entry:radius",
               kind: "leaf",
               name: "radius",
+              ui: CODE_UI,
             },
             {
               children: [],
               id: "entry:options",
               kind: "parent",
               name: "options",
+              ui: NESTED_UI,
             },
           ],
           id: "dictionary:options",
@@ -323,6 +338,7 @@ function dynamicSnapshot() {
             passingStyle: "positional_or_keyword",
             providerOrdinal: 0,
             typeAnnotation: "float",
+            ui: CODE_UI,
           },
           {
             authoredExpression: "2",
@@ -333,6 +349,7 @@ function dynamicSnapshot() {
             passingStyle: "positional_or_keyword",
             providerOrdinal: null,
             typeAnnotation: null,
+            ui: CODE_UI,
           },
         ],
       },

@@ -1,5 +1,5 @@
 {
-  "format": "python-canvas-project/v1",
+  "format": "python-canvas-project/v2",
   "project": {
     "id": "id:5ba8c74a1b33ea7ac979b58487c84839",
     "name": "Untitled Python Canvas",
@@ -98,7 +98,14 @@
     {
       "id": "id:1b6c40bc15e50b97ab4bc9bd6d698d98",
       "name": "New Param Dict",
-      "entries": []
+      "entries": [
+        {
+          "kind": "leaf",
+          "id": "id:demo-param-dict-radius",
+          "name": "radius",
+          "authoredExpression": "4"
+        }
+      ]
     },
     {
       "id": "id:48cac961fcce0d7283b1c4857f2cd83e",
@@ -116,6 +123,7 @@
       "entries": []
     }
   ],
+  "parameterUIOverrides": {},
   "lists": [
     {
       "id": "id:9ac2342007fd9cdd1c7cb8114a5cdfa0",

@@ -285,6 +285,7 @@ function proposedParameterList(
     authoredExpression: item.data.authoredExpression,
     id: item.id,
     name: item.data.name,
+    ui: item.ui,
   }));
 }
 
@@ -420,7 +421,8 @@ export function sameProposedList(
         other !== undefined &&
         other.id === parameter.id &&
         other.name === parameter.name &&
-        other.authoredExpression === parameter.authoredExpression
+        other.authoredExpression === parameter.authoredExpression &&
+        sameParameterUI(other.ui, parameter.ui)
       );
     })
   );
@@ -438,7 +440,8 @@ export function sameParameterList(
         canonical !== undefined &&
         canonical.id === parameter.id &&
         canonical.name === parameter.name &&
-        canonical.authoredExpression === parameter.authoredExpression
+        canonical.authoredExpression === parameter.authoredExpression &&
+        sameParameterUI(canonical.ui, parameter.ui)
       );
     })
   );
@@ -468,10 +471,16 @@ function sameDictionaryEntryLists(
         return false;
       }
       if (entry.kind === "leaf" && other.kind === "leaf") {
-        return entry.authoredExpression === other.authoredExpression;
+        return (
+          entry.authoredExpression === other.authoredExpression &&
+          sameParameterUI(entry.ui, other.ui)
+        );
       }
       if (entry.kind === "parent" && other.kind === "parent") {
-        return sameDictionaryEntryLists(entry.children, other.children);
+        return (
+          sameParameterUI(entry.ui, other.ui) &&
+          sameDictionaryEntryLists(entry.children, other.children)
+        );
       }
       return false;
     })
@@ -557,5 +566,13 @@ function documentParameterList(
     authoredExpression: item.data.authoredExpression,
     id: item.id,
     name: item.data.name,
+    ui: item.ui,
   }));
+}
+
+function sameParameterUI(left: { type: string; configuration: unknown }, right: { type: string; configuration: unknown }): boolean {
+  return (
+    left.type === right.type &&
+    JSON.stringify(left.configuration) === JSON.stringify(right.configuration)
+  );
 }

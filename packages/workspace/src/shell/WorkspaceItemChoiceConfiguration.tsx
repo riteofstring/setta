@@ -363,6 +363,81 @@ export function DropdownConfigurationEditor(
   );
 }
 
+export function DropdownParameterConfigurationEditor(
+  props: ConfigurationEditorProps<DropdownControl>,
+) {
+  const { control, disabled, onCommit, onEscape } = props;
+  const choices = control.configuration.choices;
+  if (choices.length > 0 && typeof choices[0] !== "string") {
+    return (
+      <GroupedDropdownChoices
+        {...props}
+        choices={choices as Array<WorkspaceDropdownChoiceGroup>}
+      />
+    );
+  }
+  const flatChoices = choices as Array<string>;
+  const commitChoices = (nextChoices: Array<string>) =>
+    onCommit(
+      createConfigurationUpdate(control, {
+        ...control.configuration,
+        choices: nextChoices,
+      }),
+    );
+  return (
+    <>
+      <ConfigurationActionButton
+        disabled={disabled}
+        label="Add choice"
+        onClick={() => commitChoices([...flatChoices, ""])}
+        onEscape={onEscape}
+      >
+        <span>Add Choices</span>
+        <span aria-hidden="true">+</span>
+      </ConfigurationActionButton>
+      <div className="setta-workspace-inspector-config-list">
+        {flatChoices.map((choice, index) => (
+          <div
+            className="setta-workspace-parameter-config-choice-row"
+            key={index}
+          >
+            <input
+              aria-label={`Choice ${index + 1}`}
+              className="setta-workspace-parameter-config-choice-text"
+              disabled={disabled}
+              onChange={(event) =>
+                commitChoices(
+                  flatChoices.map((currentChoice, currentIndex) =>
+                    currentIndex === index
+                      ? event.currentTarget.value
+                      : currentChoice,
+                  ),
+                )
+              }
+              onKeyDown={(event) => handleButtonEscape(event, onEscape)}
+              placeholder="Add description..."
+              type="text"
+              value={choice}
+            />
+            <RemoveConfigurationButton
+              disabled={disabled}
+              label={`Remove choice ${choice || index + 1}`}
+              onClick={() =>
+                commitChoices(
+                  flatChoices.filter(
+                    (_, currentIndex) => currentIndex !== index,
+                  ),
+                )
+              }
+              onEscape={onEscape}
+            />
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function createNextColor(choices: Array<WorkspaceColorChoice>): string {
   const existing = new Set(choices.map((choice) => choice.color));
   if (!existing.has("#ff0000")) {
@@ -524,6 +599,101 @@ export function ColorConfigurationEditor({
                   : null
               }
               value={choice.description}
+            />
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+export function ColorParameterConfigurationEditor({
+  control,
+  disabled,
+  onCommit,
+  onEscape,
+}: ConfigurationEditorProps<ColorControl>) {
+  const choices = control.configuration.choices ?? [];
+  const commitChoices = (nextChoices: Array<WorkspaceColorChoice>) =>
+    onCommit(
+      createConfigurationUpdate(control, {
+        ...control.configuration,
+        choices: nextChoices,
+      }),
+    );
+  return (
+    <>
+      <ConfigurationActionButton
+        disabled={disabled}
+        label="Add color"
+        onClick={() =>
+          commitChoices([
+            ...choices,
+            { color: "#ff0000", description: "" },
+          ])
+        }
+        onEscape={onEscape}
+      >
+        <span>Add Colors</span>
+        <span aria-hidden="true">+</span>
+      </ConfigurationActionButton>
+      <div className="setta-workspace-inspector-config-list">
+        {choices.map((choice, index) => (
+          <div
+            className="setta-workspace-parameter-config-choice-row"
+            key={index}
+          >
+            <div className="setta-workspace-parameter-config-color-fields">
+              <input
+                aria-label={`Color ${index + 1}`}
+                className="setta-workspace-parameter-config-color-input"
+                disabled={disabled}
+                onChange={(event) =>
+                  commitChoices(
+                    choices.map((currentChoice, currentIndex) =>
+                      currentIndex === index
+                        ? { ...currentChoice, color: event.currentTarget.value }
+                        : currentChoice,
+                    ),
+                  )
+                }
+                onKeyDown={(event) => handleButtonEscape(event, onEscape)}
+                type="color"
+                value={choice.color}
+              />
+              <input
+                aria-label={`Color ${index + 1} description`}
+                className="setta-workspace-parameter-config-choice-text"
+                disabled={disabled}
+                onChange={(event) =>
+                  commitChoices(
+                    choices.map((currentChoice, currentIndex) =>
+                      currentIndex === index
+                        ? {
+                            ...currentChoice,
+                            description: event.currentTarget.value,
+                          }
+                        : currentChoice,
+                    ),
+                  )
+                }
+                onKeyDown={(event) => handleButtonEscape(event, onEscape)}
+                placeholder="Add description..."
+                type="text"
+                value={choice.description}
+              />
+            </div>
+            <RemoveConfigurationButton
+              disabled={disabled}
+              label={`Remove color ${choice.description || choice.color}`}
+              onClick={() =>
+                commitChoices(
+                  choices.filter(
+                    (_, currentIndex) => currentIndex !== index,
+                  ),
+                )
+              }
+              onEscape={onEscape}
             />
           </div>
         ))}

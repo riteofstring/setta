@@ -81,6 +81,7 @@ type ParameterV2 struct {
 	Default            *string                 `json:"default"`
 	ProviderOrdinal    *int                    `json:"providerOrdinal"`
 	AuthoredExpression string                  `json:"authoredExpression"`
+	UI                 ParameterUIV2           `json:"ui"`
 }
 
 // ByteRangeV2 is a half-open UTF-8 byte range into GeneratedCodeV2.Code.
@@ -174,9 +175,10 @@ type RefreshCallableParametersRequestV2 struct {
 }
 
 type ParameterProposalV2 struct {
-	ID                 string `json:"id"`
-	Name               string `json:"name"`
-	AuthoredExpression string `json:"authoredExpression"`
+	ID                 string        `json:"id"`
+	Name               string        `json:"name"`
+	AuthoredExpression string        `json:"authoredExpression"`
+	UI                 ParameterUIV2 `json:"ui"`
 }
 
 type SetCallableParametersRequestV2 struct {
@@ -566,6 +568,9 @@ func (request SetCallableParametersRequestV2) Validate() error {
 		if err := validateText(fmt.Sprintf("parameters[%d].authoredExpression", index), parameter.AuthoredExpression, true); err != nil {
 			return err
 		}
+		if _, err := parameter.UI.Aggregate(); err != nil {
+			return ValidationError{Field: fmt.Sprintf("parameters[%d].ui", index), Problem: err.Error()}
+		}
 	}
 	return nil
 }
@@ -710,6 +715,9 @@ func validateParameterFields(field string, parameter ParameterV2) error {
 	}
 	if !isPassingStyle(parameter.PassingStyle) {
 		return ValidationError{Field: field + ".passingStyle", Problem: "is unsupported"}
+	}
+	if _, err := parameter.UI.Aggregate(); err != nil || parameter.UI.Type == ParameterUITypeNestedV2 {
+		return ValidationError{Field: field + ".ui", Problem: "must be a configurable parameter UI"}
 	}
 	return nil
 }

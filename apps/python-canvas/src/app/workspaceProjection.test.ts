@@ -2,6 +2,7 @@ import projectSnapshotFixture from "../../backend/internal/contracts/testdata/pr
 import {
   createWorkspaceHost,
   getWorkspaceCodeSectionData,
+  setItemPresentation,
   setWorkspaceCodeSectionData,
   type WorkspaceHost,
 } from "@setta/workspace";
@@ -33,6 +34,21 @@ import {
   setParameterItemName,
   workspaceForestProposal,
 } from "./workspaceProjection";
+
+const CODE_UI = {
+  type: "CodeParam",
+  configuration: {
+    disabled: false,
+    language: "python",
+    placeholder: null,
+    singleLine: true,
+    wrapLines: true,
+  },
+} as const;
+const NESTED_UI = {
+  type: "NestedParam",
+  configuration: {},
+} as const;
 
 describe("Python Canvas V2 workspace projection", () => {
   it("derives sections and ordered parameter rows from dynamic callable IDs", () => {
@@ -76,6 +92,7 @@ describe("Python Canvas V2 workspace projection", () => {
           typeAnnotation: "float",
         },
         id: "parameter:value",
+        ui: CODE_UI,
       },
       {
         data: {
@@ -88,6 +105,7 @@ describe("Python Canvas V2 workspace projection", () => {
           typeAnnotation: null,
         },
         id: "parameter:scale",
+        ui: CODE_UI,
       },
     ]);
   });
@@ -106,6 +124,7 @@ describe("Python Canvas V2 workspace projection", () => {
         passingStyle: "positional_or_keyword",
         providerOrdinal: null,
         typeAnnotation: null,
+        ui: CODE_UI,
       },
     ];
 
@@ -118,11 +137,81 @@ describe("Python Canvas V2 workspace projection", () => {
     expect(tree?.items[structuralRootId]?.children).toEqual([parameterItemId]);
     expect(tree?.items[parameterItemId]).toMatchObject({
       id: parameterItemId,
-      data: { name: "scale" },
+      presentation: { label: "scale" },
     });
     expect(readCallableParameterItems(document, callableId)).toEqual([
       expect.objectContaining({ id: structuralRootId }),
     ]);
+  });
+
+  it("round-trips configured controls for callable parameters and Param Dict leaves", () => {
+    const callableSnapshot = dynamicSnapshot();
+    const callableHost = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(callableHost);
+    callableHost.loadDocument(projectWorkspaceDocument(callableSnapshot));
+    setItemPresentation(
+      callableHost,
+      callableSectionID("callable:second"),
+      parameterWorkspaceItemID("parameter:scale"),
+      {
+        kind: "slider",
+        value: "8",
+        configuration: { disabled: false, max: 10, min: 0, step: 0.5 },
+      },
+    );
+    expect(
+      readCallableParameterItems(
+        callableHost.getSnapshot(),
+        "callable:second",
+      ).find((parameter) => parameter.id === "parameter:scale"),
+    ).toMatchObject({
+      data: { authoredExpression: "8" },
+      ui: {
+        type: "SliderParam",
+        configuration: { disabled: false, max: 10, min: 0, step: 0.5 },
+      },
+    });
+    callableHost.dispose();
+
+    const dictionarySnapshot = forestSnapshot();
+    const dictionaryHost = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(dictionaryHost);
+    dictionaryHost.loadDocument(projectWorkspaceDocument(dictionarySnapshot));
+    setItemPresentation(
+      dictionaryHost,
+      parameterDictionarySectionID("dictionary:options"),
+      dictionaryEntryWorkspaceItemID("entry:radius"),
+      {
+        kind: "dropdown",
+        value: "large",
+        configuration: {
+          choices: ["small", "large"],
+          disabled: false,
+          placeholder: null,
+        },
+      },
+    );
+    expect(
+      readParameterDictionaryEntries(
+        dictionaryHost.getSnapshot(),
+        "dictionary:options",
+      )[0],
+    ).toEqual({
+      authoredExpression: '"large"',
+      id: "entry:radius",
+      kind: "leaf",
+      name: "radius",
+      ui: {
+        type: "DropdownParam",
+        configuration: {
+          disabled: false,
+          flatChoices: ["small", "large"],
+          groupedChoices: null,
+          placeholder: null,
+        },
+      },
+    });
+    dictionaryHost.dispose();
   });
 
   it("replaces a pending callable with its canonical section at the requested position", () => {
@@ -565,6 +654,7 @@ describe("Python Canvas V2 workspace projection", () => {
         id: "entry:radius",
         kind: "leaf",
         name: "radius",
+        ui: CODE_UI,
       },
       {
         children: [
@@ -573,11 +663,13 @@ describe("Python Canvas V2 workspace projection", () => {
             id: "entry:scale",
             kind: "leaf",
             name: "scale",
+            ui: CODE_UI,
           },
         ],
         id: "entry:options",
         kind: "parent",
         name: "options",
+        ui: NESTED_UI,
       },
     ]);
     expect(document.sections[dictionaryId]?.data).toMatchObject({
@@ -709,13 +801,21 @@ describe("Python Canvas V2 workspace projection", () => {
         id: "entry:radius",
         kind: "parent",
         name: "radius",
+        ui: NESTED_UI,
       },
-      { children: [], id: "entry:options", kind: "parent", name: "options" },
+      {
+        children: [],
+        id: "entry:options",
+        kind: "parent",
+        name: "options",
+        ui: NESTED_UI,
+      },
       {
         authoredExpression: "2",
         id: "entry:scale",
         kind: "leaf",
         name: "scale",
+        ui: CODE_UI,
       },
     ]);
     host.dispose();
@@ -879,6 +979,7 @@ function diagnosticContinuitySnapshot({
             passingStyle: "positional_or_keyword",
             providerOrdinal: 0,
             typeAnnotation: "float",
+            ui: CODE_UI,
           },
           {
             authoredExpression: "",
@@ -889,6 +990,7 @@ function diagnosticContinuitySnapshot({
             passingStyle: "positional_or_keyword",
             providerOrdinal: 1,
             typeAnnotation: "float",
+            ui: CODE_UI,
           },
         ],
       },
@@ -909,12 +1011,14 @@ function diagnosticContinuitySnapshot({
             id: "entry:survives",
             kind: "leaf",
             name: "surviving",
+            ui: CODE_UI,
           },
           {
             authoredExpression: "missing_value",
             id: "entry:deleted",
             kind: "leaf",
             name: "deleted",
+            ui: CODE_UI,
           },
         ],
         id: "dictionary:options",
@@ -955,6 +1059,7 @@ function dynamicSnapshot() {
             passingStyle: "positional_or_keyword",
             providerOrdinal: 0,
             typeAnnotation: "float",
+            ui: CODE_UI,
           },
           {
             authoredExpression: "2",
@@ -965,6 +1070,7 @@ function dynamicSnapshot() {
             passingStyle: "positional_or_keyword",
             providerOrdinal: null,
             typeAnnotation: null,
+            ui: CODE_UI,
           },
         ],
       },
@@ -1018,6 +1124,7 @@ function forestSnapshot() {
             id: "entry:radius",
             kind: "leaf",
             name: "radius",
+            ui: CODE_UI,
           },
           {
             children: [
@@ -1026,11 +1133,13 @@ function forestSnapshot() {
                 id: "entry:scale",
                 kind: "leaf",
                 name: "scale",
+                ui: CODE_UI,
               },
             ],
             id: "entry:options",
             kind: "parent",
             name: "options",
+            ui: NESTED_UI,
           },
         ],
         id: "dictionary:options",

@@ -1678,6 +1678,61 @@ input[type="color"].setta-workspace-inspector-config-input {
   gap: 4px;
 }
 
+.setta-workspace-parameter-config-choice-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 8px;
+}
+
+.setta-workspace-parameter-config-color-fields {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.setta-workspace-parameter-config-choice-text {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid rgb(182 192 211);
+  border-radius: 4px;
+  background: transparent;
+  color: rgb(43 54 74);
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-parameter-config-choice-text {
+  border-color: rgb(43 54 74);
+  color: rgb(148 163 184);
+}
+
+.setta-workspace-parameter-config-choice-text:focus-visible {
+  border-color: rgb(59 130 246);
+  outline: 2px solid rgb(59 130 246);
+  outline-offset: 0;
+}
+
+.setta-workspace-parameter-config-color-input {
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  cursor: pointer;
+  padding: 0;
+  border: 1px solid rgb(100 116 139 / 30%);
+  border-radius: 9999px;
+  background: transparent;
+}
+
 .setta-workspace-inspector-config-remove {
   display: grid;
   width: 28px;
@@ -2411,6 +2466,166 @@ input[type="range"].setta-workspace-inspector-config-input {
   font-size: 12px;
   line-height: 16px;
   text-align: center;
+}
+
+/* Main's UIConfig hierarchy: one understated filter, a separated scrolling
+ * list, compact parameter titles, and the UI type immediately followed by its
+ * type-specific fields. */
+.setta-workspace-parameter-config {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.setta-workspace-parameter-config-filter {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.setta-workspace-parameter-config-filter > i {
+  position: absolute;
+  inset-inline-start: 3px;
+  color: rgb(100 116 139);
+  pointer-events: none;
+  transform: scale(0.75);
+}
+
+.setta-workspace-parameter-config-filter > input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 2px 4px 20px;
+  border: 0;
+  border-block-end: 1px solid rgb(182 192 211);
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+}
+
+.setta-workspace-parameter-config-filter > input:focus-visible {
+  border-block-end-color: rgb(96 165 250);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-parameter-config-filter
+  > input {
+  border-block-end-color: rgb(43 54 74);
+}
+
+.setta-workspace-parameter-config-list {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  margin-block-start: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.setta-workspace-parameter-config-element {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-self: stretch;
+  margin-inline: 2px;
+  text-align: start;
+}
+
+.setta-workspace-parameter-config-element:last-of-type {
+  margin-block-end: 400px;
+}
+
+.setta-workspace-parameter-config-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.setta-workspace-parameter-config-title-row h3 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: rgb(100 116 139);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setta-workspace-parameter-config-element:hover
+  .setta-workspace-parameter-config-title-row
+  h3 {
+  color: rgb(15 23 42);
+  transition: color 500ms;
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-parameter-config-element:hover
+  .setta-workspace-parameter-config-title-row
+  h3 {
+  color: rgb(203 213 225);
+}
+
+.setta-workspace-parameter-config-nested {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  margin-block-start: 2px;
+  padding: 4px 30px 4px 12px;
+  border: 0;
+  border-radius: 9999px;
+  background-color: rgb(255 255 255);
+  box-shadow: 0 0 0 2px rgb(182 192 211);
+  color: rgb(43 54 74);
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.setta-workspace-parameter-config-nested {
+  padding-inline-end: 12px;
+  color: rgb(100 116 139);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-parameter-config-nested {
+  background-color: rgb(11 14 19);
+  box-shadow: 0 0 0 2px rgb(43 54 74);
+  color: rgb(182 192 211);
+}
+
+.setta-workspace-parameter-config-empty {
+  margin: 12px 2px;
+  color: rgb(100 116 139);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.setta-workspace-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 
 @media (forced-colors: active) {

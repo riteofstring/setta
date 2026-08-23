@@ -7,7 +7,9 @@ import type {
 } from "../document/types";
 import {
   ColorConfigurationEditor,
+  ColorParameterConfigurationEditor,
   DropdownConfigurationEditor,
+  DropdownParameterConfigurationEditor,
 } from "./WorkspaceItemChoiceConfiguration";
 import {
   DateConfigurationEditor,
@@ -33,6 +35,7 @@ type WorkspaceItemConfigurationEditorProps = {
   disabled: boolean;
   onEscape: () => void;
   onStatusChange: (message: string) => void;
+  surface?: "inspector" | "parameter-config";
 };
 
 type TextControl = Extract<
@@ -461,6 +464,54 @@ function renderConfigurationFields(
   );
 }
 
+function renderParameterConfigurationFields(
+  control: WorkspaceItemValueControl,
+  disabled: boolean,
+  onCommit: ConfigurationCommit,
+  onEscape: () => void,
+): ReactNode {
+  const props = { control, disabled, onCommit, onEscape };
+  switch (control.kind) {
+    case "slider":
+      return <NumericConfigurationEditor {...props} control={control} />;
+    case "color":
+      return (
+        <ColorParameterConfigurationEditor {...props} control={control} />
+      );
+    case "dropdown":
+      return (
+        <DropdownParameterConfigurationEditor {...props} control={control} />
+      );
+    case "date":
+      return (
+        <DateConfigurationEditor
+          {...props}
+          allowCalendarUI={false}
+          control={control}
+        />
+      );
+    case "time":
+      return <TimeConfigurationEditor {...props} control={control} />;
+    case "dropzone":
+      return <DropzoneConfigurationEditor {...props} control={control} />;
+    case "code":
+    case "text":
+    case "textarea":
+    case "switch":
+    case "rotary":
+    case "password":
+      return null;
+    default:
+      return assertNever(control);
+  }
+}
+
+function assertNever(value: never): never {
+  throw new Error(
+    `Parameter configuration has no fields for ${JSON.stringify(value)}.`,
+  );
+}
+
 function createDisabledUpdate(
   control: WorkspaceItemValueControl,
   disabled: boolean,
@@ -478,6 +529,7 @@ export function WorkspaceItemConfigurationEditor({
   onEscape,
   onStatusChange,
   sectionId,
+  surface = "inspector",
 }: WorkspaceItemConfigurationEditorProps) {
   const host = useWorkspaceHost();
   function commitUpdate(update: WorkspaceItemControlConfiguration): void {
@@ -489,6 +541,18 @@ export function WorkspaceItemConfigurationEditor({
     setItemControlConfiguration(host, sectionId, itemId, update);
     onStatusChange(`${control.kind} configuration updated.`);
   }
+  const fields =
+    surface === "parameter-config"
+      ? renderParameterConfigurationFields(
+          control,
+          disabled,
+          commitUpdate,
+          onEscape,
+        )
+      : renderConfigurationFields(control, disabled, commitUpdate, onEscape);
+  if (surface === "parameter-config" && fields === null) {
+    return null;
+  }
 
   return (
     <div
@@ -496,16 +560,18 @@ export function WorkspaceItemConfigurationEditor({
       className="setta-workspace-inspector-config"
       role="group"
     >
-      {renderConfigurationFields(control, disabled, commitUpdate, onEscape)}
-      <BooleanConfigurationRow
-        checked={control.configuration.disabled}
-        disabled={disabled}
-        label="Disable control"
-        onChange={(nextDisabled) =>
-          commitUpdate(createDisabledUpdate(control, nextDisabled))
-        }
-        onEscape={onEscape}
-      />
+      {fields}
+      {surface === "inspector" ? (
+        <BooleanConfigurationRow
+          checked={control.configuration.disabled}
+          disabled={disabled}
+          label="Disable control"
+          onChange={(nextDisabled) =>
+            commitUpdate(createDisabledUpdate(control, nextDisabled))
+          }
+          onEscape={onEscape}
+        />
+      ) : null}
     </div>
   );
 }

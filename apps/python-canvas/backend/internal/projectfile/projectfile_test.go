@@ -44,7 +44,7 @@ func TestCreateLoadAndEncodeRoundTripStrictAuthoredState(t *testing.T) {
 	}
 	encoded := string(first)
 	for _, want := range []string{
-		`"format": "python-canvas-project/v1"`,
+		`"format": "python-canvas-project/v2"`,
 		`"nameEditable": false`,
 		`"providerOrdinal": 0`,
 		`"nameEditable": true`,
@@ -98,7 +98,7 @@ func TestDecodeRejectsUnknownMissingWrongAndIncoherentFields(t *testing.T) {
 		{
 			name: "duplicate field",
 			content: func(t *testing.T) []byte {
-				return []byte(strings.Replace(base, `"format": "python-canvas-project/v1"`, `"format": "python-canvas-project/v1", "format": "python-canvas-project/v1"`, 1))
+				return []byte(strings.Replace(base, `"format": "python-canvas-project/v2"`, `"format": "python-canvas-project/v2", "format": "python-canvas-project/v2"`, 1))
 			},
 		},
 		{
@@ -246,6 +246,7 @@ func validState() aggregate.State {
 		ParameterDictionaries: []aggregate.ParameterDictionary{},
 		Lists:                 []aggregate.List{},
 		TopLevelSectionIDs:    []string{"callable-dynamic"},
+		ParameterUIOverrides:  map[string]aggregate.ParameterUI{},
 	}
 }
 

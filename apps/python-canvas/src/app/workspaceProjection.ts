@@ -1,6 +1,7 @@
 import {
   commitWorkspaceDocument,
-  setItemData,
+  setItemLabel,
+  setItemValue,
   type WorkspaceDocument,
   type WorkspaceHost,
   type WorkspaceItem,
@@ -23,6 +24,7 @@ import {
 import {
   type CallableSectionData,
   type ParameterItemData,
+  readCallableSectionData,
   readParameterItemData,
 } from "../sections/CallableSection";
 import { type ParameterDictionarySectionData } from "../sections/ParamDictSection";
@@ -47,6 +49,15 @@ import {
   setDictionaryEntryName,
 } from "./workspaceProjectionDictionary";
 import { projectWorkspaceForestProposal } from "./workspaceForestProjection";
+import {
+  type ConfigurableParameterUIV2,
+  defaultCodeParameterUI,
+  parameterUIFromWorkspaceControl,
+  projectParameterControl,
+  projectParameterPresentation,
+  pythonExpressionFromWorkspaceControl,
+  workspaceControlValue,
+} from "./parameterUIPresentation";
 
 export {
   createParameterDictionaryEntryItem,
@@ -357,11 +368,17 @@ export function setParameterItemExpression(
   parameterId: string,
   authoredExpression: string,
 ): void {
-  updateParameterItem(host, callableId, parameterId, (data) =>
-    data.authoredExpression === authoredExpression
-      ? null
-      : { ...data, authoredExpression },
+  const section = host.getSnapshot().sections[callableSectionID(callableId)];
+  const item = section?.itemTree?.items[parameterId];
+  const control = item?.presentation?.control;
+  if (control === undefined || control.kind === "group") {
+    return;
+  }
+  const next = projectParameterControl(
+    parameterUIFromWorkspaceControl(control),
+    authoredExpression,
   );
+  setItemValue(host, callableSectionID(callableId), parameterId, workspaceControlValue(next));
 }
 
 export function setParameterItemName(
@@ -370,9 +387,7 @@ export function setParameterItemName(
   parameterId: string,
   name: string,
 ): void {
-  updateParameterItem(host, callableId, parameterId, (data) =>
-    data.name === name ? null : { ...data, name },
-  );
+  setItemLabel(host, callableSectionID(callableId), parameterId, name);
 }
 
 export function createCallableParameterItem(): WorkspaceItem {
@@ -380,21 +395,22 @@ export function createCallableParameterItem(): WorkspaceItem {
   return {
     id: parameterWorkspaceItemID(parameterId),
     children: [],
-    data: {
-      authoredExpression: "",
-      default: null,
-      name: "",
-      nameEditable: true,
-      passingStyle: PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
-      providerOrdinal: null,
-      typeAnnotation: null,
-    } satisfies ParameterItemData,
+    presentation: projectParameterPresentation({
+      expression: "",
+      label: "",
+      labelEditable: true,
+      ui: defaultCodeParameterUI(),
+    }),
   };
 }
 
 export function readCallableParameterRows(
   section: WorkspaceSection,
-): Array<{ data: ParameterItemData; id: string }> {
+): Array<{
+  data: ParameterItemData;
+  id: string;
+  ui: ConfigurableParameterUIV2;
+}> {
   const itemTree = section.itemTree;
   if (itemTree === undefined) {
     throw new Error("The Python Canvas callable section has no item tree.");
@@ -403,19 +419,49 @@ export function readCallableParameterRows(
   if (root === undefined) {
     throw new Error("The Python Canvas callable parameter root is missing.");
   }
+  const sectionData = readCallableSectionData(section.data);
   return root.children.map((itemId) => {
     const item = itemTree.items[itemId];
     if (item === undefined) {
       throw new Error(`Python Canvas parameter item ${itemId} is missing.`);
     }
-    return { data: readParameterItemData(item.data), id: itemId };
+    const presentation = item.presentation;
+    if (presentation === undefined || presentation.control.kind === "group") {
+      throw new Error(`Python Canvas parameter item ${itemId} has no value presentation.`);
+    }
+    const metadata = sectionData.parameterMetadata[itemId] ?? {
+      default: null,
+      passingStyle: PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
+      providerOrdinal: null,
+      typeAnnotation: null,
+    };
+    const ui = parameterUIFromWorkspaceControl(presentation.control);
+    if (ui.type === "NestedParam") {
+      throw new Error(`Python Canvas parameter item ${itemId} has a nested UI.`);
+    }
+    return {
+      data: readParameterItemData({
+        authoredExpression: pythonExpressionFromWorkspaceControl(
+          presentation.control,
+        ),
+        ...metadata,
+        name: presentation.label,
+        nameEditable: presentation.labelEditable,
+      }),
+      id: itemId,
+      ui,
+    };
   });
 }
 
 export function readCallableParameterItems(
   document: WorkspaceDocument,
   callableId: string,
-): Array<{ data: ParameterItemData; id: string }> {
+): Array<{
+  data: ParameterItemData;
+  id: string;
+  ui: ConfigurableParameterUIV2;
+}> {
   const section = document.sections[callableSectionID(callableId)];
   if (section === undefined) {
     throw new Error(`Python Canvas callable ${callableId} is missing.`);
@@ -423,6 +469,7 @@ export function readCallableParameterItems(
   return readCallableParameterRows(section).map((item) => ({
     data: item.data,
     id: canonicalParameterID(item.id),
+    ui: item.ui,
   }));
 }
 
@@ -481,6 +528,7 @@ function pendingCallableSectionData(
     callable: { authoredExpression: "", id: sectionId, name },
     callableDiagnosticMessage: null,
     parameterDiagnostics: {},
+    parameterMetadata: {},
     providerStatus: snapshot.providerStatus,
   };
 }
@@ -815,7 +863,12 @@ function projectCanonicalParameterItems(
     items[itemId] = {
       id: itemId,
       children: [],
-      data: projectParameterItemData(parameter),
+      presentation: projectParameterPresentation({
+        expression: parameter.authoredExpression,
+        label: parameter.name,
+        labelEditable: parameter.nameEditable,
+        ui: parameter.ui,
+      }),
     };
   }
   return {
@@ -824,29 +877,6 @@ function projectCanonicalParameterItems(
     selectedItemIds:
       previous?.selectedItemIds.filter((id) => ids.includes(id)) ?? [],
   };
-}
-
-function updateParameterItem(
-  host: WorkspaceHost,
-  callableId: string,
-  parameterItemId: string,
-  next: (data: ParameterItemData) => ParameterItemData | null,
-): void {
-  const sectionId = callableSectionID(callableId);
-  const section = host.getSnapshot().sections[sectionId];
-  if (section === undefined) {
-    return;
-  }
-  const current = readCallableParameterRows(section).find(
-    (item) => item.id === parameterItemId,
-  );
-  if (current === undefined) {
-    return;
-  }
-  const data = next(current.data);
-  if (data !== null) {
-    setItemData(host, sectionId, parameterItemId, data);
-  }
 }
 
 function projectCallableSectionData(
@@ -858,6 +888,11 @@ function projectCallableSectionData(
   );
   const callableMessages: string[] = [];
   const parameterDiagnostics: CallableSectionData["parameterDiagnostics"] = {};
+  const parameterMetadata: CallableSectionData["parameterMetadata"] = {};
+  for (const parameter of callable.parameters) {
+    parameterMetadata[parameterWorkspaceItemID(parameter.id)] =
+      projectParameterItemMetadata(parameter);
+  }
   for (const diagnostic of snapshot.diagnostics) {
     if (diagnostic.targetId === callable.id) {
       callableMessages.push(diagnostic.message);
@@ -881,16 +916,16 @@ function projectCallableSectionData(
     callableDiagnosticMessage:
       callableMessages.length === 0 ? null : callableMessages.join("\n"),
     parameterDiagnostics,
+    parameterMetadata,
     providerStatus: snapshot.providerStatus,
   };
 }
 
-function projectParameterItemData(parameter: ParameterV2): ParameterItemData {
+function projectParameterItemMetadata(
+  parameter: ParameterV2,
+): CallableSectionData["parameterMetadata"][string] {
   return {
-    authoredExpression: parameter.authoredExpression,
     default: parameter.default,
-    name: parameter.name,
-    nameEditable: parameter.nameEditable,
     passingStyle: parameter.passingStyle,
     providerOrdinal: parameter.providerOrdinal,
     typeAnnotation: parameter.typeAnnotation,
