@@ -96,17 +96,19 @@ func TestRenderWholeSnapshotUsesDynamicRangesAndAllPassingStyles(t *testing.T) {
 	callableRange := first.SourceRangesByTargetID["callable-first"]
 	position := first.CallableCallPositionsByID["callable-first"]
 	call := first.Code[callableRange.Start:position.End]
-	wantCall := "fixture.first(" +
-		"state." + parameterPaths["parameter-left"] + ", " +
-		"state." + parameterPaths["parameter-right"] + ", " +
-		"*state." + parameterPaths["parameter-rest"] + ", " +
-		"factor=state." + parameterPaths["parameter-app"] + ", " +
-		"scale=state." + parameterPaths["parameter-scale"] + ", " +
-		"flag=state." + parameterPaths["parameter-flag"] + ", " +
-		"**state." + parameterPaths["parameter-options"] + ")"
+	wantCall := "fixture.first(\n" +
+		"            state." + parameterPaths["parameter-left"] + ",\n" +
+		"            state." + parameterPaths["parameter-right"] + ",\n" +
+		"            *state." + parameterPaths["parameter-rest"] + ",\n" +
+		"            factor=state." + parameterPaths["parameter-app"] + ",\n" +
+		"            scale=state." + parameterPaths["parameter-scale"] + ",\n" +
+		"            flag=state." + parameterPaths["parameter-flag"] + ",\n" +
+		"            **state." + parameterPaths["parameter-options"] + ",\n" +
+		"        )"
 	if call != wantCall {
 		t.Fatalf("rendered all-style call = %q, want %q", call, wantCall)
 	}
+	assertCallableCallPosition(t, first.Code, callableRange, position, wantCall)
 	if first.CallableCallPositionsByID["callable-second"].Offset <= position.End {
 		t.Fatalf("second callable position = %#v, want a second dynamic call after first", first.CallableCallPositionsByID)
 	}
@@ -370,6 +372,14 @@ func assignmentValue(t *testing.T, body string, path string) string {
 	}
 	t.Fatalf("assignment for state.%s is missing from %q", path, body)
 	return ""
+}
+
+func assertCallableCallPosition(t *testing.T, code string, callableRange ByteRange, position CallPosition, wantCall string) {
+	t.Helper()
+	callStart := strings.Index(wantCall, "(") + 1
+	if position.Offset != callableRange.End+1 || code[position.Offset:position.End] != wantCall[callStart:] {
+		t.Fatalf("call position = %#v, want exact signature-help coordinates for %q", position, wantCall)
+	}
 }
 
 func intPointer(value int) *int {

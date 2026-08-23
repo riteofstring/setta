@@ -204,6 +204,6 @@ owns the final `code-policy test --changed` and ordinary merge gate after review
 ### Phase 1 — Main parity batch
 
 - [x] Registered per-kind sizing and fixed-height List of Objects
-- [ ] Main-equivalent generated multiline layout with correct semantic coordinates
+- [x] Main-equivalent generated multiline layout with correct semantic coordinates
 - [ ] Undefined callable auto-refresh after Python-target resolution
 - [ ] Production headless acceptance, review, and Code Policy closeout

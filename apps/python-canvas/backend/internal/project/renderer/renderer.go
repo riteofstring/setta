@@ -14,9 +14,12 @@ import (
 )
 
 const (
-	generatedCodeSeparator = "\n\n"
-	stateClassHeader       = "class SettaState:\n    def __init__(state):\n"
-	stateBodyIndent        = "        "
+	generatedCodeSeparator              = "\n\n"
+	stateClassHeader                    = "class SettaState:\n    def __init__(state):\n"
+	stateBodyIndent                     = "        "
+	collectionContinuationIndent        = stateBodyIndent + "    "
+	maxInlineCollectionChars            = 88
+	multilineCollectionMinimumItemCount = 4
 )
 
 // ByteRange is a half-open UTF-8 byte range in a rendered document.
@@ -168,12 +171,9 @@ func (renderer *forestRenderer) renderCallable(callable aggregate.Callable, path
 		renderer.body.WriteString("None")
 		return
 	}
-	renderer.body.WriteString(callable.AuthoredExpression)
 	renderer.sourceRanges[callable.ID] = ByteRange{Start: start, End: start + len(callable.AuthoredExpression)}
-	renderer.body.WriteByte('(')
-	callOffset := renderer.body.Len()
-	renderer.body.WriteString(renderCallArguments(renderedParameters))
-	renderer.body.WriteByte(')')
+	callOffset := start + len(callable.AuthoredExpression) + 1
+	renderer.writeCollection(callable.AuthoredExpression+"(", ")", renderCallArgumentItems(renderedParameters))
 	renderer.callPositions[callable.ID] = CallPosition{Offset: callOffset, End: renderer.body.Len()}
 }
 
@@ -213,16 +213,11 @@ func (renderer *forestRenderer) renderDictionaryEntries(entries []aggregate.Dict
 }
 
 func (renderer *forestRenderer) writeDictionary(items []renderedDictionaryItem) {
-	renderer.body.WriteByte('{')
-	for index, item := range items {
-		if index > 0 {
-			renderer.body.WriteString(", ")
-		}
-		renderer.body.WriteString(strconv.Quote(item.name))
-		renderer.body.WriteString(": state.")
-		renderer.body.WriteString(item.path)
+	renderedItems := make([]string, 0, len(items))
+	for _, item := range items {
+		renderedItems = append(renderedItems, strconv.Quote(item.name)+": state."+item.path)
 	}
-	renderer.body.WriteByte('}')
+	renderer.writeCollection("{", "}", renderedItems)
 }
 
 func (renderer *forestRenderer) renderList(list aggregate.List, path string) {
@@ -230,15 +225,11 @@ func (renderer *forestRenderer) renderList(list aggregate.List, path string) {
 		renderer.renderSection(childID)
 	}
 	start := renderer.writeAssignmentPrefix(path)
-	renderer.body.WriteByte('[')
-	for index := range list.ChildSectionIDs {
-		if index > 0 {
-			renderer.body.WriteString(", ")
-		}
-		renderer.body.WriteString("state.")
-		renderer.body.WriteString(renderer.paths[list.ChildSectionIDs[index]])
+	items := make([]string, 0, len(list.ChildSectionIDs))
+	for _, childID := range list.ChildSectionIDs {
+		items = append(items, "state."+renderer.paths[childID])
 	}
-	renderer.body.WriteByte(']')
+	renderer.writeCollection("[", "]", items)
 	renderer.compositionRanges[list.ID] = ByteRange{Start: start, End: renderer.body.Len()}
 }
 
@@ -266,7 +257,34 @@ func isRenderedParameter(parameter aggregate.Parameter) bool {
 	return !parameter.NameEditable || parameter.Name != ""
 }
 
-func renderCallArguments(parameters []renderedParameter) string {
+func (renderer *forestRenderer) writeCollection(opening string, closing string, items []string) {
+	inline := opening + strings.Join(items, ", ") + closing
+	if !shouldMultilineCollection(items, inline) {
+		renderer.body.WriteString(inline)
+		return
+	}
+	renderer.body.WriteString(opening)
+	for _, item := range items {
+		renderer.body.WriteByte('\n')
+		renderer.body.WriteString(collectionContinuationIndent)
+		renderer.body.WriteString(item)
+		renderer.body.WriteByte(',')
+	}
+	renderer.body.WriteByte('\n')
+	renderer.body.WriteString(stateBodyIndent)
+	renderer.body.WriteString(closing)
+}
+
+func shouldMultilineCollection(items []string, inline string) bool {
+	for _, item := range items {
+		if strings.Contains(item, "\n") {
+			return true
+		}
+	}
+	return len(items) >= multilineCollectionMinimumItemCount || len(inline) > maxInlineCollectionChars
+}
+
+func renderCallArgumentItems(parameters []renderedParameter) []string {
 	positionalOnly := make([]renderedParameter, 0, len(parameters))
 	variadicPositional := make([]renderedParameter, 0, len(parameters))
 	middle := make([]renderedParameter, 0, len(parameters))
@@ -300,7 +318,7 @@ func renderCallArguments(parameters []renderedParameter) string {
 	for _, parameter := range variadicKeyword {
 		arguments = append(arguments, "**state."+parameter.path)
 	}
-	return strings.Join(arguments, ", ")
+	return arguments
 }
 
 type pathCandidate struct {
