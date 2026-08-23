@@ -50,6 +50,8 @@ type Result struct {
 	SourceRangesByTargetID      map[string]ByteRange
 	CompositionRangesByTargetID map[string]ByteRange
 	CallableCallPositionsByID   map[string]CallPosition
+	TargetPathsByID             map[string]string
+	DependencyCycleTargetIDs    []string
 }
 
 // Render accepts one complete validated aggregate and has no filesystem, LSP,
@@ -58,7 +60,11 @@ func Render(state aggregate.State) (Result, error) {
 	if err := state.Validate(); err != nil {
 		return Result{}, fmt.Errorf("render validated project: %w", err)
 	}
-	body, ranges, compositions, callPositions := renderBody(state)
+	graph, err := buildAssignmentGraph(state)
+	if err != nil {
+		return Result{}, fmt.Errorf("build assignment graph: %w", err)
+	}
+	body, ranges, compositions, callPositions := renderGraphBody(graph)
 	bodyStart := len(state.PythonTarget.Prefix) + len(generatedCodeSeparator)
 	bodyEnd := bodyStart + len(body)
 	suffixStart := bodyEnd + len(generatedCodeSeparator)
@@ -80,6 +86,8 @@ func Render(state aggregate.State) (Result, error) {
 		SourceRangesByTargetID:      ranges,
 		CompositionRangesByTargetID: compositions,
 		CallableCallPositionsByID:   callPositions,
+		TargetPathsByID:             cloneTargetPaths(graph.paths),
+		DependencyCycleTargetIDs:    append([]string(nil), graph.cycleTargetIDs...),
 	}, nil
 }
 
@@ -89,19 +97,6 @@ func offsetRanges(ranges map[string]ByteRange, offset int) {
 		sourceRange.End += offset
 		ranges[targetID] = sourceRange
 	}
-}
-
-func renderBody(state aggregate.State) (string, map[string]ByteRange, map[string]ByteRange, map[string]CallPosition) {
-	renderer := newForestRenderer(state)
-	renderer.body.WriteString(stateClassHeader)
-	for _, sectionID := range state.TopLevelSectionIDs {
-		renderer.renderSection(sectionID)
-	}
-	if !renderer.wroteStatement {
-		renderer.body.WriteString(stateBodyIndent)
-		renderer.body.WriteString("pass")
-	}
-	return renderer.body.String(), renderer.sourceRanges, renderer.compositionRanges, renderer.callPositions
 }
 
 type forestRenderer struct {
