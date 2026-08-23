@@ -65,6 +65,22 @@ test("List walkthrough reorders a Param Dict with the proven free move gesture",
   assert.doesNotMatch(walkthrough, /dragSortedSectionToSection/);
 });
 
+test("Nested List presentation checks receive the measured Callable field size", async () => {
+  const walkthrough = await readFile(
+    new URL("./param-dict-list.browser.mjs", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    walkthrough,
+    /await assertVerticalListPresentation\(\s*client,\s*nestedList\.id,\s*nestedChildIds,\s*topLevelCallableSize,?\s*\);/,
+  );
+  assert.match(
+    walkthrough,
+    /Harness contract error: assertVerticalListPresentation requires a measured callable field size\./,
+  );
+});
+
 test("Canvas extraction keeps the whole dragged section inside an exposed pane lane", async () => {
   const walkthrough = await readFile(
     new URL("./param-dict-list.browser.mjs", import.meta.url),

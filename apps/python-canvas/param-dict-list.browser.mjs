@@ -471,7 +471,12 @@ export async function exerciseParamDictAndListSlice(
     1,
     "The nested list did not add one callable.",
   );
-  await assertVerticalListPresentation(client, nestedList.id, nestedChildIds);
+  await assertVerticalListPresentation(
+    client,
+    nestedList.id,
+    nestedChildIds,
+    topLevelCallableSize,
+  );
 
   const nestedWithoutChild = await removeListChildren(
     client,
@@ -757,6 +762,15 @@ async function assertVerticalListPresentation(
   childIds,
   expectedCallableFieldSize,
 ) {
+  if (
+    !expectedCallableFieldSize ||
+    !Number.isFinite(expectedCallableFieldSize.width) ||
+    !Number.isFinite(expectedCallableFieldSize.height)
+  ) {
+    throw new Error(
+      "Harness contract error: assertVerticalListPresentation requires a measured callable field size.",
+    );
+  }
   const expectedWorkspaceChildIds = childIds.map(callableWorkspaceSectionId);
   await waitForListNestedChildOrder(client, listId, expectedWorkspaceChildIds);
   const presentation = await evaluate(

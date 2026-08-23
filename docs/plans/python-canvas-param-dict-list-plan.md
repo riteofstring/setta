@@ -31,7 +31,9 @@ empty-collision state settle; focused static harness tests
 cover these behaviors. A final failed callable-to-top-level attempt now emits a failure-only
 receipt with canonical forest order, list DOM projection, visible mutation/alert text, and final
 source/target hit geometry; focused static tests cover the receipt and its final-failure-only
-invocation. Its policy structure and format checks now pass. Supervised
+invocation. Nested-list presentation passes the measured top-level Callable field size and
+raises a clear harness-contract error when that size is absent; focused static selector tests
+cover that contract. Its policy structure and format checks now pass. Supervised
 production headless execution, review, and remaining Code Policy closeout remain incomplete.**
 
 Add the next two Python Canvas section types from main: **Param Dict** and **List of Objects**.
