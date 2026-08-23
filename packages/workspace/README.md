@@ -1,16 +1,38 @@
 # @setta/workspace
 
-The Setta workspace UI, extracted as a standalone TypeScript/React package. Phase 5 ratified the
-package surface exported from `src/index.ts`; package-relative modules are implementation details.
-`@setta/workspace` remains the confirmed working name for this local, unpublished extraction. It is
-not a final publication-name decision.
+The Setta workspace UI is a standalone TypeScript/React package. Its public surface is the package
+root exported from `src/index.ts`; package-relative modules are implementation details.
+`@setta/workspace` is private and unpublished in this repository.
 
-The runtime owns one workspace document and its interaction state. A host registers section kinds,
-loads the controlled serializable document, configures the package-owned appearance controller,
-capability store, and interaction store, and mounts the integrated shell or an intentionally
-standalone canvas.
-Package changes may still change this unpublished API directly; no compatibility aliases or
-transition paths are provided.
+Each `createWorkspaceHost()` owns one workspace document and all of its interaction state. A host
+registers its extension catalogs, loads one controlled serializable document, configures appearance,
+and mounts the integrated shell or an intentionally standalone canvas. There is no default or
+process-global workspace. Package changes may update this unpublished API directly; no
+compatibility aliases or transition paths are provided.
+
+## Host lifecycle
+
+Every imperative registry, mutation, and subscription receives its `WorkspaceHost` explicitly.
+Components and hooks resolve the same host from `WorkspaceProvider`.
+
+```tsx
+const host = createWorkspaceHost();
+setWorkspaceColorMode(host, "light");
+registerSectionKinds(host, hostKinds);
+
+const unsubscribe = host.subscribe((document) => saveDocument(document));
+host.loadDocument(initialDocument);
+
+createRoot(rootElement).render(
+  <WorkspaceProvider host={host}>
+    <HostWorkspace />
+  </WorkspaceProvider>,
+);
+```
+
+`host.dispose()` releases every host-owned store, registry, listener, and runtime. Unmount the React
+tree, remove external subscriptions such as `unsubscribe`, and dispose the host when its lifetime
+ends. A disposed host rejects later reads or writes.
 
 ## Public composition surface
 
@@ -27,10 +49,10 @@ transition paths are provided.
   intentionally does not want the integrated shell. The canvas fills its host element; a
   standalone host owns the other surfaces' placement.
 - `registerSectionKinds` is the section extension point. Each kind supplies opaque-content
-  rendering, an optional icon, an optional default size, and an optional typed Inspector
-  contribution for custom section or item content. Ordinary content is automatically placed in the
-  package-owned body slot; `contentClassName` adds host padding or layout to that wrapper without
-  exposing the section grid vocabulary.
+  rendering, an optional icon, an optional default size and size constraints, and an optional
+  typed Inspector contribution for custom section or item content. Ordinary content is
+  automatically placed in the package-owned body slot; `contentClassName` adds host padding or
+  layout to that wrapper without exposing the section grid vocabulary.
 - `createWorkspaceTextSection` and `createWorkspaceCodeSection` are two optional batteries-included
   content sections a host composes into that same registration call, or leaves out entirely. They
   bring their own typed document contracts, editors, and rendered Markdown surface.
@@ -54,12 +76,14 @@ it. Creating application sections from tooltip text remains host application beh
 
 ## Controlled workspace shell
 
-The built-in `Outline` is always the first leading tab and the built-in `Inspector` is always the
-first trailing tab; `WORKSPACE_OUTLINE_TAB_ID` and `WORKSPACE_INSPECTOR_TAB_ID` are their reserved
-ids. A host supplies zero or more additional tabs on either side with unique stable ids, non-empty
-labels, decorative icon components, and render functions. The selected tab, visibility, current
-width, remembered non-full width, Outline disclosure, and Outline keyboard focus are controlled
-serializable view state, deliberately separate from the canonical workspace document.
+The built-in `Outline` is always the first leading tab. The built-in `Inspector` is the first
+trailing tab when enabled, which is the default; `includeBuiltInInspector={false}` lets a host own
+the complete trailing catalog. `WORKSPACE_OUTLINE_TAB_ID` is always reserved, and
+`WORKSPACE_INSPECTOR_TAB_ID` is reserved while that built-in tab is enabled. A host supplies zero or
+more additional tabs on either side with unique stable ids, non-empty labels, decorative icon
+components, and render functions. The selected tab, visibility, current width, remembered non-full
+width, Outline disclosure, and Outline keyboard focus are controlled serializable view state,
+deliberately separate from the canonical workspace document.
 
 ```tsx
 const leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
@@ -123,28 +147,36 @@ changes canonical selection.
 The Inspector projects canonical section and typed-item selection. Its empty state mirrors the
 frozen UI Editor; one section exposes package-owned identity, name, style accent, named color tag,
 lock/minimize, authored/resolved size, group orientation, bounded overflow, and ungroup actions;
-one typed item
-exposes its editable label, ordinary UI type, and only that type's valid configuration. Its
+one typed item exposes its editable label, ordinary UI type, and only that type's valid
+configuration. Its
 canonical live value control remains in the section on the canvas rather than being duplicated in
 the Inspector. Compact configuration rows commit each valid field or list action immediately;
 invalid numeric/text drafts remain local until corrected or canceled with Escape. Dropdown and
 color choices use dedicated item editors rather than JSON, and date/time options appear only when
 their selected mode uses them. Multiple sections expose only compatible batch lock/unlock, group,
 ungroup, and delete actions, including an explicit mixed lock state. Every mutation uses the
-existing document funnels and change callback. Custom
-section or item data is never decoded: the owning section kind receives a read-only
-`WorkspaceInspectorContributionContext`, or the pane shows an explicit unsupported state. The
+existing document funnels and host publication boundary. Custom section or item data is never
+decoded: the owning section kind receives a read-only `WorkspaceInspectorContributionContext`, or
+the pane shows an explicit unsupported state. The
 Inspector owns inline validation, Escape restoration for its configuration fields, and a persistent
 polite mutation/selection status.
 
-## Context-menu extensions
+Hosts that need separate contextual panes can disable the generic Inspector with
+`includeBuiltInInspector={false}` and compose `WorkspaceSectionEditor` and
+`WorkspaceParameterConfigurationView` into their own trailing tabs. The matching
+`WorkspaceSectionSettingsIcon` and `WorkspaceParameterConfigurationIcon` keep those tabs visually
+consistent. `WorkspaceParameterConfigurationView` receives the owning `sectionId`. Host pane
+content can use `useWorkspaceDocumentSnapshot()` to derive contextual availability without
+creating a second document subscription.
+
+## Commands and creation extensions
 
 The canvas mounts package-owned pane, section, selection, item, and Outline menus. Register the
-complete host-owned command and action sets before mounting the canvas. Each registration call
-replaces its prior set, matching the package's other registries.
+complete host-owned command and creation catalogs before mounting it. Each registration call is
+host-scoped and replaces that host's previous complete set.
 
 ```tsx
-registerWorkspaceCreationCommands([
+registerWorkspaceCreationCommands(host, [
   {
     id: "host-note",
     label: "Note",
@@ -154,7 +186,10 @@ registerWorkspaceCreationCommands([
       kind: "note",
       name: "Note",
       data: {
-        text: `Created at ${workspacePosition.x}, ${workspacePosition.y}`,
+        text:
+          workspacePosition === null
+            ? "Created from the keyboard"
+            : `Created at ${workspacePosition.x}, ${workspacePosition.y}`,
       },
       isMinimized: false,
       positionAndSizeLocked: false,
@@ -167,12 +202,13 @@ registerWorkspaceCreationCommands([
   },
 ]);
 
-registerWorkspaceMenuActions([
+registerWorkspaceCommands(host, [
   {
     id: "host-section-details",
     scope: "section",
+    surfaces: ["context-menu", "header", "inspector", "outline"],
     label: "Show host details",
-    onSelect: ({ section, selectedSections }) =>
+    run: ({ section, selectedSections }) =>
       showHostDetails(
         section.id,
         selectedSections.map(({ id }) => id),
@@ -183,43 +219,49 @@ registerWorkspaceMenuActions([
 
 Creation factories receive the invocation point already converted into workspace coordinates. The
 package validates the returned top-level section, resolves its registered default size, inserts and
-selects it through one atomic document commit, and reports one document change. Additional actions
-may target `pane`, `section`, `item`, or `outline`; callbacks receive a deeply frozen public snapshot
-and no package store or private selector. A section-scoped action also makes ordinary section
-header icons into menu buttons; kinds without package or host header actions keep their decorative
-icon. Group header menus begin with the package-owned checked overflow mode and ungroup actions,
-followed by section-scoped host actions. The package retains native context menus for inputs,
-editors, links, buttons, and explicit no-drag surfaces. Other menu owners support pointer, Context
-Menu key, and Shift+F10 invocation with viewport-edge placement, Escape dismissal, and focus
-restoration. Header menu buttons additionally support Arrow Down/Up to open at the first or last
-enabled item.
+selects it through one atomic document commit, and reports one document publication.
+
+Commands use `pane`, `section`, or `item` scope and declare the surfaces that offer them:
+`context-menu`, `header`, `inspector`, `inspector-parameters`, `outline`, or `toolbar`. A callback
+receives its host plus a deeply frozen public context, never a package store or private selector.
+The same command definition owns its label, enabled explanation, checked state, status, and work on
+every declared surface. `registerWorkspaceToolbarContributions(host, contributions)` places
+existing pane commands or creation commands in the package toolbar;
+`registerWorkspaceKeyBindings(host, bindings)` rebinds or unbinds known operations after conflict
+validation.
+
+The package retains native context menus for inputs, editors, links, buttons, and explicit no-drag
+surfaces. Other menu owners support pointer, Context Menu key, and Shift+F10 invocation with
+viewport-edge placement, Escape dismissal, and focus restoration. Header menu buttons additionally
+support Arrow Down/Up to open at the first or last enabled item.
 
 Group header, section context-menu, Outline, Inspector, Shift+Cmd/Ctrl+G, and direct host
-invocations all call the public `ungroupSections(groupIds)` operation. It rejects an unavailable
-structure capability and any missing, locked, non-group, mixed, or inconsistent request before
-changing the document. Nested children replace their group at the same parent position. Top-level
-children retain the group origin and receive fresh frontmost stacking positions in child order.
+invocations all call the public `ungroupSections(host, groupIds)` operation. It rejects an
+unavailable structure capability and any missing, locked, non-group, mixed, or inconsistent request
+before changing the document. Nested children replace their group at the same parent position.
+Top-level children retain the group origin and receive fresh frontmost stacking positions in child
+order.
 Surviving selection is preserved, focus moves predictably from a removed group, and the host
-receives exactly one document-change notification.
+receives exactly one document publication.
 
 `WorkspaceSection.overflowMode` is the explicit reload-stable group layout mode: `false` keeps the
 group intrinsic, while `true` applies each positive numeric `size` dimension as a fixed border-box
 bound and scrolls the existing child subtree inside it. A dimension reset to `"auto"` remains
 intrinsic while overflow mode stays enabled, matching resize-handle reset behavior. Every canonical
 section carries the boolean, and non-groups keep it `false`. A host calls
-`setGroupOverflowMode(groupId, enabled)`;
-enabling a group whose width or height is `"auto"` first promotes only those dimensions from the
-mounted outer group rectangle, so the visible size does not jump. Numeric bounds survive disabling
+`setGroupOverflowMode(host, groupId, enabled)`. Enabling a group whose width or height is `"auto"`
+first promotes only those dimensions from the mounted outer group rectangle, so the visible size
+does not jump. Numeric bounds survive disabling
 and can be re-enabled without a remeasure. The operation validates layout capability, group
-identity, lock state, and required live
-measurement before one document write and one notification. The persistent child surface keeps
-nested drop targets and scroll position intact, and takes wheel ownership only when it actually
+identity, lock state, and required live measurement before one document write and one publication.
+The persistent child surface keeps nested drop targets and scroll position intact, and takes wheel
+ownership only when it actually
 overflows. The group header, section/Outline context menus, Inspector, and direct hosts all call
 this operation.
 
-`setSectionTagColor(sectionId, color)` is the one tag-color mutation used by the Inspector and
+`setSectionTagColor(host, sectionId, color)` is the one tag-color mutation used by the Inspector and
 direct hosts. It accepts `null` to reset to none and canonicalizes a six-digit RGB hex color before
-one document write and one notification. It rejects unavailable layout capability, a locked or
+one document write and one publication. It rejects unavailable layout capability, a locked or
 missing section, and malformed color input before writing. `DEFAULT_SECTION_TAG_COLOR_PALETTE`
 exports frozen main's Red, Orange, Yellow, Green, Cyan, Blue, Purple, and Slate categories. A
 `WorkspaceShell` host may replace the complete Inspector palette with uniquely colored, named
@@ -235,6 +277,10 @@ as scrolling. `MANUAL_WHEEL_CLASS_NAME` is for controls with an `onWheel` handle
 receives the event, while the canvas synchronously prevents Chrome from latching horizontal
 Back/Forward navigation. Package controls apply these boundaries themselves.
 
+An attached host surface that must suspend its own scrolling while the canvas owns a pan-scroll
+gesture can use `subscribeWorkspaceCanvasPanScrolling(host, listener)`. The returned function
+removes that host-scoped subscription.
+
 ## Peer dependencies
 
 React and React DOM are host-provided peers with the documented compatible range `^19.1.0`:
@@ -249,7 +295,7 @@ resolving the React-19-compatible `react-remove-scroll 2.7.2` graph.
 
 ## Appearance and semantic color
 
-Call `setWorkspaceColorMode("light" | "dark" | "system")` before the first document load. Light
+Call `setWorkspaceColorMode(host, "light" | "dark" | "system")` before the first document load. Light
 and dark resolve immediately. System mode reads `(prefers-color-scheme: dark)` and stays subscribed
 until an explicit mode replaces it; it requires `window.matchMedia`, so server-rendered hosts choose
 an explicit mode and select system after hydration. Invalid modes fail specifically. Appearance
@@ -257,7 +303,7 @@ changes rebuild projected style-color backgrounds as well as re-rendering mounte
 not report a document change because appearance is view state, not serialized workspace state.
 
 ```tsx
-setWorkspaceColorMode("system");
+setWorkspaceColorMode(host, "system");
 
 function HostChrome() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
@@ -317,39 +363,42 @@ than creating page-level horizontal scrolling. Do not restrict browser zoom in t
 tag. The playground and packed-consumer fixture demonstrate wrapping chrome at the 200% browser-zoom
 content breakpoint and a compact 320 px shell.
 
-## Controlled document and change callback
+## Controlled document and subscriptions
 
-`loadWorkspaceDocument(document)` replaces the canonical workspace state with a host-supplied
-serializable document (sections, top-level layout, camera, selection). A load on a mounted
-canvas re-applies the loaded camera through d3-zoom — or re-arms fit-on-init when the loaded
-`viewport` is `null` — and force-ends any drag session, so a host can swap documents without
-remounting `WorkspaceCanvas`.
+`host.loadDocument(document)` replaces the canonical workspace state with a host-supplied
+serializable document (sections, top-level layout, camera, and selection). A load validates the
+complete document before publication, re-applies its camera through d3-zoom — or re-arms
+fit-on-init when `viewport` is `null` — and ends active drag sessions so a host can swap documents
+without remounting `WorkspaceCanvas`.
 
-`setWorkspaceDocumentChangeCallback(callback)` registers the host notification for
-package-initiated canonical commits: selection, move, resize, rename, the header flag toggles,
-color-tag edits, delete, drag-end layout writes, measurement writes, and viewport mirrors. Each commit invokes
-the callback once with the full serializable document (`getWorkspaceDocument()` returns the
-same snapshot on demand). Notification cadence matches the reference's canonical writes — the
-reference debounces only its network transport, so viewport pans and measurement passes notify
-per commit and any debouncing is host policy. Loads never notify: the callback reports the
-package's changes, not echoes of the host's own writes. The callback must not mutate the
-workspace synchronously; apply host reactions (including rejecting a change by re-loading the
-authoritative document) asynchronously. Snapshots share store state — treat them as immutable.
+`host.subscribe(listener)` reports every later canonical publication, including explicit loads and
+package-initiated selection, move, resize, rename, flag, color, delete, measurement, and viewport
+commits. Each publication supplies one complete serializable document. `host.getSnapshot()` reads
+the current snapshot on demand. Notifications are immediate; transport debouncing is host policy.
+Subscribers must not mutate the workspace synchronously—schedule reactions, including an
+authoritative reload, after the callback returns. Snapshots share validated store values and must be
+treated as immutable.
 
-Registered renderers commit host-owned payloads through `setSectionData(sectionId, data)` and
-custom item renderers through `setItemData(sectionId, itemId, data)`. Both replace one opaque
-payload, preserve package-owned structure, and issue one canonical document notification. A typed
+`commitWorkspaceDocument(host, document)` is the narrower complete-document boundary for a host
+that already coordinates a live application projection. It validates and atomically publishes one
+complete document without the camera and drag lifecycle resets of an external load. Ordinary
+document replacement uses `host.loadDocument`.
+
+Registered renderers commit host-owned payloads through `setSectionData(host, sectionId, data)` and
+custom item renderers through `setItemData(host, sectionId, itemId, data)`. Both replace one opaque
+payload, preserve package-owned structure, and issue one canonical document publication. A typed
 item rejects `setItemData`; its label, scalar value, complete control presentation, and typed
-configuration use `setItemLabel`, `setItemValue`, `setItemPresentation`, and
-`setItemControlConfiguration` respectively. Optional help uses `setItemHelpText`; passing `null`
-removes the field. Each accepted call publishes once.
+configuration use `setItemLabel(host, ...)`, `setItemValue(host, ...)`,
+`setItemPresentation(host, ...)`, and `setItemControlConfiguration(host, ...)` respectively.
+Optional help uses `setItemHelpText(host, ...)`; passing `null` removes the field. Each accepted
+call publishes once.
 
 Sections with a `WorkspaceSectionItemTree` also carry the package-owned item-column layout. An
 omitted `itemColumnWidth` derives the live half-width split; dragging any row's shared center
 divider persists the authored width on the tree, and double-clicking resets it. The split is shared
 across the section, stays proportional while its container resizes, accounts for canvas zoom and
 the deepest nested item, preserves at least 100 px for the value column, and reports drag/reset
-commits through the same document-change callback. Consumers do not set the private
+commits through the same host subscription boundary. Consumers do not set the private
 `--param-column-width` CSS variable. The first visible divider in a mounted list joins the keyboard
 order: Left/Right Arrow adjusts by 10 px (Shift adjusts by 1 px), while activating the button resets
 the default split. Left/Right describe visual movement and therefore mirror under RTL. The remaining
@@ -372,16 +421,17 @@ follows the pointer, escapes nested section and bounded-group overflow, clamps a
 widths, and disappears on Q release. Item-select keyboard focus stages the same content, and an
 in-row screen-reader description keeps it available without opening the visual surface.
 
-Changing UI type directly uses `setItemPresentation` with the complete next control (kind, value,
-and configuration); callers outside the integrated Inspector still supply that complete value. The
+Changing UI type directly uses `setItemPresentation(host, ...)` with the complete next control
+(kind, value, and configuration); callers outside the integrated Inspector still supply that
+complete value. The
 Inspector applies its explicit valid default for the chosen ordinary type, preserving the previous
 value only where that type accepts it, and then exposes the full type-specific configuration for
 editing. Configuration-only edits carry their current kind to `setItemControlConfiguration`, so a
 stale Inspector write fails instead of applying options to the wrong control.
 
-Browser and host actions are intentionally not serializable. `registerItemHandlers([...])` replaces
-the explicit handler set keyed by section and stable item id; register it before mounting those
-rows. Replacing handlers does not mutate or notify the document. A built-in dropzone requires
+Browser and host actions are intentionally not serializable. `registerItemHandlers(host, [...])`
+replaces the explicit handler set keyed by section and stable item id; register it before mounting
+those rows. Replacing handlers does not mutate or publish the document. A built-in dropzone requires
 accepted and rejected-result handlers and may register server-picker and attachment-removal
 callbacks. A password may register a saved-value reveal action; its pending flag stays in the
 serializable configuration. Scalar controls and labels need no handler registration. Custom items
@@ -396,8 +446,8 @@ section's rendered filter; with any other number of active sections, or where th
 area renders no filter, it declines and leaves the chord to the browser. That filter's accessible
 name stays **Filter parameters**, and while its section is the sole active one its empty input
 advertises whichever chord the registry currently resolves for that operation — so rebinding or
-unbinding it through `registerWorkspaceKeyBindings` changes the advertisement as well as the
-dispatch, and an unbound operation leaves the ordinary **Filter** text. Where the filter
+unbinding it through `registerWorkspaceKeyBindings(host, bindings)` changes the advertisement as
+well as the dispatch, and an unbound operation leaves the ordinary **Filter** text. Where the filter
 renders, its query is local view state and never mutates or notifies the canonical document. Fuzzy
 matching uses built-in `presentation.label` values and preserves document order while revealing a
 matching item's ancestor path. Custom opaque items participate only when their owning section kind
@@ -420,9 +470,8 @@ the host's asynchronous state catches up, that previously valid entry stays dorm
 host continues supplying it; clearing the entry also clears that temporary compatibility record.
 
 Diagnostics are host view input only. They do not enter `WorkspaceDocument`, receive automatic
-reload persistence, invoke the document-change callback, define validation rules, or start
-asynchronous work. A host replaces the React prop when its own validation state changes and owns
-any persistence:
+reload persistence, publish a canonical document, define validation rules, or start asynchronous
+work. A host replaces the React prop when its own validation state changes and owns any persistence:
 
 ```tsx
 const itemDiagnostics = {
@@ -442,16 +491,19 @@ const itemDiagnostics = {
 
 ## Section kind registration
 
-`registerSectionKinds(kinds)` replaces the registered application kind set; hosts register
+`registerSectionKinds(host, kinds)` replaces the registered application kind set; hosts register
 every kind once, before loading or rendering documents that use them. A
 `SectionKindDefinition` maps a kind to its content renderer (the section body inside the
-package-owned shell, chrome, and header), an optional header icon component (kinds without
-one render the reference's gg-menu fallback glyph), and an optional default size, applied
-when a loaded section omits `size` (kinds without one load at the reference's auto/auto
-default; emitted documents always carry resolved sizes). Groups are the one package-owned
-kind and cannot be registered. Sections may carry application-owned opaque serializable
-`data` (JSON values): the package round-trips it through the document and hands it to the
-kind's renderer without reading it. A kind may also register `renderInspector(context)` for
+package-owned shell, chrome, and header), an optional header icon component (kinds without one
+render the reference's gg-menu fallback glyph), an optional default size, and optional size
+constraints. The default is applied when a loaded section omits `size` (kinds without one load at
+the reference's auto/auto default; emitted documents always carry resolved sizes). Groups are the
+one package-owned kind and cannot be registered.
+
+`setWorkspaceSectionSize(host, sectionId, nextSize)` is the direct host resize funnel and applies
+the registered constraints before one publication. Sections may carry application-owned opaque
+serializable `data` (JSON values): the package round-trips it through the document and hands it to
+the kind's renderer without reading it. A kind may also register `renderInspector(context)` for
 host-owned configuration. The context is a deeply frozen snapshot that discriminates a selected
 section from a selected custom item plus its owning section; it exposes no package store, live
 canonical object, or private selector.
@@ -491,8 +543,8 @@ stay with the caller. Both editor layers share that one box and type owner, so a
 changes only its border colour. The field owns no block margin, so it begins at the section
 header's own boundary and the item toolbar begins at the field's, exactly as the reference
 composes them; a host that wants space around it gives that space to its own content. The rendered
-field carries `data-workspace-section-field`: that
-attribute is the one documented hook for observing or capturing the surface, and no field class,
+field carries `data-workspace-section-field`: that attribute is the one documented hook for
+observing or capturing the surface, and no field class,
 inner structure, or CodeMirror internal is public.
 
 Both placements share the reference's editing keys. A supplied `completionProvider` offers its
@@ -513,8 +565,9 @@ returns one complete serializable item with a stable ID, empty `children`, and i
 `deleteWorkspaceItems`, `deleteLastWorkspaceItem`, and `deleteSelectedWorkspaceItems` are the
 canonical public operations used by the package toolbar, item menu, Inspector, and direct host
 actions. The package appends insertions at the item root, validates the complete next tree, updates
-selection and focus, and reports exactly one document change. The operations reject unavailable
-structure capability, locked sections, and active item drags before invoking a factory or writing.
+selection and focus, and reports exactly one document publication. The operations reject
+unavailable structure capability, locked sections, and active item drags before invoking a factory
+or writing.
 A kind without a factory remains readable and deletable: the `authoring-and-filter` toolbar disables
 its Add parameter control, while `filter-only` and `hidden` render no toolbar Add control at all.
 The declared mode selects that toolbar and nothing else. It never changes structure capability, the
@@ -524,7 +577,9 @@ actions keep calling under their own rules in every mode.
 That ordinary kind may also register `getItemSearchableText(context)` for custom opaque items.
 Built-in items always use their package-owned label, so the callback is invoked only for custom
 rows while a nonblank filter is active. It receives the same kind of detached, deeply frozen public
-section and item snapshots as the other host contribution seams.
+section and item snapshots as the other host contribution seams. The imperative item operations all
+take the host first, for example `insertWorkspaceItem(host, sectionId)` and
+`deleteWorkspaceItems(host, sectionId, itemIds)`.
 
 A kind whose `data` has a real shape may register `assertValidData(section)`. The package runs it
 once per section of that kind at load, before the document is published, so a malformed document
@@ -548,7 +603,7 @@ header-below body slot; consumers must not add `section-full-no-title` or any ot
 class. For example:
 
 ```tsx
-registerSectionKinds({
+registerSectionKinds(host, {
   note: {
     renderContent: (section) => <Note data={section.data} />,
     icon: NoteIcon,
@@ -599,11 +654,11 @@ package's existing unknown-kind contract rather than rendering a placeholder.
 
 Their `data` is package-owned rather than opaque. `createWorkspaceTextSectionData` and
 `createWorkspaceCodeSectionData` build a complete serializable value from partial creation
-defaults, `getWorkspaceTextSectionData`/`getWorkspaceCodeSectionData` read one back as a validated
-type, and `setWorkspaceTextSectionData`/`setWorkspaceCodeSectionData` write one through the same
-controlled document path and single change notification as every other canonical operation. Both
-contracts are parsed at load and rejected there when malformed or outside what the registration
-allows.
+defaults, `getWorkspaceTextSectionData(host, ...)`/`getWorkspaceCodeSectionData(host, ...)` read one
+back as a validated type, and `setWorkspaceTextSectionData(host, ...)`/
+`setWorkspaceCodeSectionData(host, ...)` write one through the same controlled document path and
+single publication as every other canonical operation. Both contracts are parsed at load and
+rejected there when malformed or outside what the registration allows.
 
 The Text section carries `text`, `format` (`plaintext` or `markdown`), `displayMode` (`edit` or
 `render`), `fontSizePx`, and `readOnly`. Its edit mode is the package's CodeMirror editor; its
@@ -649,7 +704,7 @@ internal is public.
 Registration options are how a host customizes them:
 
 ```tsx
-registerSectionKinds({
+registerSectionKinds(host, {
   ...hostKinds,
   [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
     icon: NotesIcon,
@@ -672,8 +727,9 @@ choice outside the list fails explicitly. A single-mode `displayModes` list forc
 leaves the header's edit/render control out; `showDisplayModeControl: false` leaves the control out
 while both modes stay authorable, for a host that drives the mode from its own UI. Labels and the
 creation surface stay host-owned: sections carry the `name` the host gives them, and whether either
-built-in appears in a creation menu is decided by the host's own `registerWorkspaceCreationCommands`
-catalog, which builds the section with these creation defaults.
+built-in appears in a creation menu is decided by the host's own
+`registerWorkspaceCreationCommands(host, commands)` catalog, which builds the section with these
+creation defaults.
 
 Their presentation ships in the one compiled stylesheet. The rendered Markdown surface compiles
 from the Tailwind typography plugin under the package-owned `setta-prose` class name, and KaTeX's
@@ -681,7 +737,7 @@ own presentation rules are folded into the same sheet, scoped to the workspace s
 their faces inline. Consumers import no dependency CSS, resolve no dependency fonts, and add no
 bundler configuration for either section.
 
-## Consumption during extraction
+## Build and consumption
 
 Consumers install the compiled package: the `exports` map serves ESM with a source map
 (`dist/index.js`), TypeScript declarations (`dist/types/`), and the compiled scoped stylesheet
@@ -710,4 +766,5 @@ The manifest is deliberately exports-only: it has no duplicate top-level `main`,
 resolution mode (`"bundler"`, `"node16"`, or `"nodenext"`). CommonJS and legacy
 `moduleResolution: "node"` consumption are outside this ESM package contract.
 
-The package is local and unpublished for the duration of the extraction plan.
+The package remains private and unpublished. Publication metadata and a final package-name decision
+are intentionally absent.
