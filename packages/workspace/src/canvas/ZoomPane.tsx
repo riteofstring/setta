@@ -1,12 +1,11 @@
 import { interpolate } from "d3-interpolate";
-import { pointer, select, type Selection as D3Selection } from "d3-selection";
+import { select } from "d3-selection";
 import { zoom, zoomIdentity, type D3ZoomEvent } from "d3-zoom";
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { shallow } from "zustand/shallow";
 import { getDndStateStore } from "../dnd/dndState";
 import {
   MANUAL_WHEEL_CLASS_NAME,
-  NATIVE_VERTICAL_WHEEL_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
 } from "../interaction";
@@ -21,23 +20,24 @@ import type {
   PanOnScrollMode,
   ReactFlowState,
 } from "./types";
-import { clamp, getWheelDelta, isMacOs } from "./utils";
+import { clamp, isMacOs } from "./utils";
+import {
+  isNativeVerticalWheelEvent,
+  isPinchZoomWheelEvent,
+  isWrappedWithClass,
+  useZoomWheelBehavior,
+  wheelDelta,
+  type ViewportInteractionCleanupRefs,
+  type ViewportInteractionRefs,
+} from "./zoomWheelBehavior";
 
-type InternalWheelEvent = WheelEvent & { internal?: boolean };
+export {
+  isNativeVerticalWheelEvent,
+  resolvePanOnScrollDelta,
+} from "./zoomWheelBehavior";
+
 type ZoomFilterEvent = MouseEvent | TouchEvent | WheelEvent;
 type ZoomSourceEvent = ZoomFilterEvent & { internal?: boolean };
-type ScaleToFn = (
-  selection: D3Selection<Element, unknown, null, undefined>,
-  zoomLevel: number,
-  point?: [number, number],
-  event?: WheelEvent,
-) => void;
-type TranslateByFn = (
-  selection: D3Selection<Element, unknown, null, undefined>,
-  deltaX: number,
-  deltaY: number,
-  event?: InternalWheelEvent,
-) => void;
 
 type ZoomPaneProps = {
   zoomOnScroll: boolean;
@@ -58,49 +58,6 @@ type ViewportInteractionFlags = {
   isZoomingOrPanning: boolean;
 };
 
-type ViewportInteractionRefs = {
-  host: WorkspaceHost;
-  isPanScrolling: { current: boolean };
-  isWheelZooming: { current: boolean };
-  isZoomingOrPanning: { current: boolean };
-};
-
-type ViewportInteractionCleanupRefs = ViewportInteractionRefs & {
-  panScrollTimeout: { current: ReturnType<typeof setTimeout> | undefined };
-  wheelZoomTimeout: { current: ReturnType<typeof setTimeout> | undefined };
-};
-
-type PanOnScrollDelta = {
-  deltaX: number;
-  deltaY: number;
-};
-
-type WheelTargetDisposition = "canvas" | "manual" | "native";
-
-type PinchZoomCheck = {
-  event: Pick<WheelEvent, "ctrlKey">;
-  zoomOnPinch: boolean;
-  isMacOS: boolean;
-};
-
-type PanOnScrollWheelHandlerParams = {
-  d3Selection: D3Selection<Element, unknown, null, undefined>;
-  interactionRefs: ViewportInteractionCleanupRefs;
-  panOnScrollMode: PanOnScrollMode;
-  panOnScrollSpeed: number;
-  scaleTo: ScaleToFn;
-  translateBy: TranslateByFn;
-  zoomActivationKeyPressed: boolean;
-  zoomOnPinch: boolean;
-};
-
-type DefaultWheelHandlerParams = {
-  d3ZoomHandler: NonNullable<ReactFlowState["d3ZoomHandler"]>;
-  interactionRefs: ViewportInteractionCleanupRefs;
-  zoomActivationKeyPressed: boolean;
-  zoomOnPinch: boolean;
-};
-
 type ZoomFilterParams = {
   event: ZoomFilterEvent;
   host: WorkspaceHost;
@@ -111,17 +68,6 @@ type ZoomFilterParams = {
   zoomOnDoubleClick: boolean;
   zoomOnPinch: boolean;
   zoomOnScroll: boolean;
-};
-
-const isWrappedWithClass = (event: Event, className?: string): boolean => {
-  if (!className) {
-    return false;
-  }
-  const target = event.target;
-  if (!(target instanceof Element)) {
-    return false;
-  }
-  return target.closest(`.${className}`) !== null;
 };
 
 const getEventButton = (event: ZoomFilterEvent): number =>
@@ -196,12 +142,6 @@ export function resetViewportInteractionState({
   });
 }
 
-const wheelDelta = (event: WheelEvent) => {
-  const factor = event.ctrlKey && isMacOs() ? 10 : 1;
-
-  return getWheelDelta(event, factor);
-};
-
 const selector = (s: ReactFlowState) => ({
   d3Zoom: s.d3Zoom,
   d3Selection: s.d3Selection,
@@ -211,243 +151,6 @@ const selector = (s: ReactFlowState) => ({
   fitViewOnInitDone: s.fitViewOnInitDone,
   fitViewOnInitOptions: s.fitViewOnInitOptions,
 });
-
-function startWheelZoomBurst(interactionRefs: ViewportInteractionCleanupRefs) {
-  clearTimeout(interactionRefs.wheelZoomTimeout.current);
-  if (interactionRefs.isWheelZooming.current) {
-    return;
-  }
-  interactionRefs.isWheelZooming.current = true;
-  syncViewportInteractionActive(interactionRefs);
-}
-
-function scheduleWheelZoomBurstEnd(
-  interactionRefs: ViewportInteractionCleanupRefs,
-) {
-  interactionRefs.wheelZoomTimeout.current = setTimeout(() => {
-    interactionRefs.isWheelZooming.current = false;
-    syncViewportInteractionActive(interactionRefs);
-  }, 180);
-}
-
-function ensurePanScrollInteraction(
-  interactionRefs: ViewportInteractionCleanupRefs,
-) {
-  if (interactionRefs.isPanScrolling.current) {
-    return;
-  }
-  getReactFlowStore(interactionRefs.host).setState({ isPanScrolling: true });
-  interactionRefs.isPanScrolling.current = true;
-  syncViewportInteractionActive(interactionRefs);
-}
-
-function schedulePanScrollInteractionEnd(
-  interactionRefs: ViewportInteractionCleanupRefs,
-) {
-  clearTimeout(interactionRefs.panScrollTimeout.current);
-  interactionRefs.panScrollTimeout.current = setTimeout(() => {
-    interactionRefs.isPanScrolling.current = false;
-    getReactFlowStore(interactionRefs.host).setState({
-      isPanScrolling: false,
-    });
-    syncViewportInteractionActive(interactionRefs);
-  }, 150);
-}
-
-function isPinchZoomWheelEvent({
-  event,
-  zoomOnPinch,
-  isMacOS,
-}: PinchZoomCheck): boolean {
-  return event.ctrlKey && zoomOnPinch && isMacOS;
-}
-
-export function isNativeVerticalWheelEvent(
-  event: WheelEvent,
-  isMacOS: boolean,
-): boolean {
-  return (
-    isWrappedWithClass(event, NATIVE_VERTICAL_WHEEL_CLASS_NAME) &&
-    (isMacOS || !event.shiftKey) &&
-    Math.abs(event.deltaY) >= Math.abs(event.deltaX)
-  );
-}
-
-export function resolvePanOnScrollDelta({
-  event,
-  isMacOS,
-  panOnScrollMode,
-}: {
-  event: WheelEvent;
-  isMacOS: boolean;
-  panOnScrollMode: PanOnScrollMode;
-}): PanOnScrollDelta {
-  const deltaNormalize = event.deltaMode === 1 ? 20 : 1;
-  let deltaX =
-    panOnScrollMode === "vertical" ? 0 : event.deltaX * deltaNormalize;
-  let deltaY =
-    panOnScrollMode === "horizontal" ? 0 : event.deltaY * deltaNormalize;
-
-  if (!isMacOS && event.shiftKey && panOnScrollMode !== "vertical") {
-    deltaX = event.deltaY * deltaNormalize;
-    deltaY = 0;
-  }
-
-  return { deltaX, deltaY };
-}
-
-function resolveWheelTargetDisposition({
-  event,
-  isMacOS,
-  isPanScrolling,
-  zoomActivationKeyPressed,
-  zoomOnPinch,
-}: {
-  event: WheelEvent;
-  isMacOS: boolean;
-  isPanScrolling: boolean;
-  zoomActivationKeyPressed: boolean;
-  zoomOnPinch: boolean;
-}): WheelTargetDisposition {
-  if (
-    zoomActivationKeyPressed ||
-    isPinchZoomWheelEvent({ event, zoomOnPinch, isMacOS })
-  ) {
-    return "canvas";
-  }
-  if (isWrappedWithClass(event, MANUAL_WHEEL_CLASS_NAME)) {
-    return "manual";
-  }
-  if (isPanScrolling) {
-    return "canvas";
-  }
-  return isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) ||
-    isNativeVerticalWheelEvent(event, isMacOS)
-    ? "native"
-    : "canvas";
-}
-
-function handlePinchZoomWheelEvent({
-  currentZoom,
-  d3Selection,
-  event,
-  interactionRefs,
-  scaleTo,
-  zoomOnPinch,
-  isMacOS,
-}: {
-  currentZoom: number;
-  d3Selection: D3Selection<Element, unknown, null, undefined>;
-  event: WheelEvent;
-  interactionRefs: ViewportInteractionCleanupRefs;
-  scaleTo: ScaleToFn;
-  zoomOnPinch: boolean;
-  isMacOS: boolean;
-}): boolean {
-  if (!isPinchZoomWheelEvent({ event, zoomOnPinch, isMacOS })) {
-    return false;
-  }
-
-  startWheelZoomBurst(interactionRefs);
-  const point = pointer(event);
-  const pinchDelta = wheelDelta(event);
-  const nextZoom = currentZoom * Math.pow(2, pinchDelta);
-  scaleTo(d3Selection, nextZoom, point, event);
-  scheduleWheelZoomBurstEnd(interactionRefs);
-  return true;
-}
-
-function createPanOnScrollWheelHandler({
-  d3Selection,
-  interactionRefs,
-  panOnScrollMode,
-  panOnScrollSpeed,
-  scaleTo,
-  translateBy,
-  zoomActivationKeyPressed,
-  zoomOnPinch,
-}: PanOnScrollWheelHandlerParams) {
-  return (event: WheelEvent) => {
-    const isMacOS = isMacOs();
-    const targetDisposition = resolveWheelTargetDisposition({
-      event,
-      isMacOS,
-      isPanScrolling: interactionRefs.isPanScrolling.current,
-      zoomActivationKeyPressed,
-      zoomOnPinch,
-    });
-    if (targetDisposition !== "canvas") {
-      if (targetDisposition === "manual") {
-        event.preventDefault();
-      }
-      return;
-    }
-
-    event.preventDefault();
-    event.stopImmediatePropagation();
-
-    const currentZoom = d3Selection.property("__zoom").k || 1;
-    if (
-      handlePinchZoomWheelEvent({
-        currentZoom,
-        d3Selection,
-        event,
-        interactionRefs,
-        scaleTo,
-        zoomOnPinch,
-        isMacOS,
-      })
-    ) {
-      return;
-    }
-
-    const { deltaX, deltaY } = resolvePanOnScrollDelta({
-      event,
-      isMacOS,
-      panOnScrollMode,
-    });
-    translateBy(
-      d3Selection,
-      -(deltaX / currentZoom) * panOnScrollSpeed,
-      -(deltaY / currentZoom) * panOnScrollSpeed,
-      { internal: true } as InternalWheelEvent,
-    );
-    ensurePanScrollInteraction(interactionRefs);
-    schedulePanScrollInteractionEnd(interactionRefs);
-  };
-}
-
-function createDefaultWheelHandler({
-  d3ZoomHandler,
-  interactionRefs,
-  zoomActivationKeyPressed,
-  zoomOnPinch,
-}: DefaultWheelHandlerParams) {
-  return function defaultWheelHandler(
-    this: Element,
-    event: WheelEvent,
-    data: unknown,
-  ) {
-    const targetDisposition = resolveWheelTargetDisposition({
-      event,
-      isMacOS: isMacOs(),
-      isPanScrolling: false,
-      zoomActivationKeyPressed,
-      zoomOnPinch,
-    });
-    if (targetDisposition !== "canvas") {
-      if (targetDisposition === "manual") {
-        event.preventDefault();
-      }
-      return;
-    }
-
-    event.preventDefault();
-    startWheelZoomBurst(interactionRefs);
-    d3ZoomHandler.call(this, event, data);
-    scheduleWheelZoomBurstEnd(interactionRefs);
-  };
-}
 
 function allowNodeMiddleClickPan({
   event,
@@ -760,120 +463,6 @@ function useViewportInteractionCleanup({
   ]);
 }
 
-function useZoomWheelBehavior({
-  d3Selection,
-  d3Zoom,
-  d3ZoomHandler,
-  interactionRefs,
-  panOnScroll,
-  panOnScrollMode,
-  panOnScrollSpeed,
-  userSelectionActive,
-  zoomActivationKeyPressed,
-  zoomOnPinch,
-}: {
-  d3Selection: ReactFlowState["d3Selection"];
-  d3Zoom: ReactFlowState["d3Zoom"];
-  d3ZoomHandler: ReactFlowState["d3ZoomHandler"];
-  interactionRefs: ViewportInteractionCleanupRefs;
-  panOnScroll: boolean;
-  panOnScrollMode: PanOnScrollMode;
-  panOnScrollSpeed: number;
-  userSelectionActive: boolean;
-  zoomActivationKeyPressed: boolean;
-  zoomOnPinch: boolean;
-}) {
-  const {
-    host,
-    isPanScrolling,
-    isWheelZooming,
-    isZoomingOrPanning,
-    panScrollTimeout,
-    wheelZoomTimeout,
-  } = interactionRefs;
-
-  useEffect(() => {
-    if (!d3Selection || !d3Zoom) {
-      return;
-    }
-
-    const wheelInteractionRefs: ViewportInteractionCleanupRefs = {
-      host,
-      isPanScrolling,
-      isWheelZooming,
-      isZoomingOrPanning,
-      panScrollTimeout,
-      wheelZoomTimeout,
-    };
-    const scaleTo = d3Zoom.scaleTo as unknown as ScaleToFn;
-    const translateBy = d3Zoom.translateBy as unknown as TranslateByFn;
-
-    if (panOnScroll && !zoomActivationKeyPressed && !userSelectionActive) {
-      const panOnScrollWheelHandler = createPanOnScrollWheelHandler({
-        d3Selection,
-        interactionRefs: wheelInteractionRefs,
-        panOnScrollMode,
-        panOnScrollSpeed,
-        scaleTo,
-        translateBy,
-        zoomActivationKeyPressed,
-        zoomOnPinch,
-      });
-      d3Selection.on("wheel.zoom", panOnScrollWheelHandler, { passive: false });
-      d3Selection.on(
-        "wheel.pan-scroll-capture",
-        (event: WheelEvent) => {
-          if (
-            !isPanScrolling.current ||
-            !isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) ||
-            isWrappedWithClass(event, MANUAL_WHEEL_CLASS_NAME)
-          ) {
-            return;
-          }
-          panOnScrollWheelHandler(event);
-        },
-        { capture: true, passive: false },
-      );
-      return () => {
-        d3Selection.on("wheel.pan-scroll-capture", null);
-      };
-    }
-
-    d3Selection.on("wheel.pan-scroll-capture", null);
-
-    if (typeof d3ZoomHandler === "undefined") {
-      return;
-    }
-
-    d3Selection.on(
-      "wheel.zoom",
-      createDefaultWheelHandler({
-        d3ZoomHandler,
-        interactionRefs: wheelInteractionRefs,
-        zoomActivationKeyPressed,
-        zoomOnPinch,
-      }),
-      { passive: false },
-    );
-  }, [
-    d3Selection,
-    d3Zoom,
-    d3ZoomHandler,
-    host,
-    isPanScrolling,
-    isWheelZooming,
-    isZoomingOrPanning,
-    panScrollTimeout,
-    wheelZoomTimeout,
-    panOnScroll,
-    panOnScrollMode,
-    panOnScrollSpeed,
-    userSelectionActive,
-    zoomActivationKeyPressed,
-    zoomOnPinch,
-  ]);
-}
-
 function useZoomLifecycleHandlers({
   d3Zoom,
   host,
@@ -1090,6 +679,7 @@ const ZoomPane = ({
     panOnScroll,
     panOnScrollMode,
     panOnScrollSpeed,
+    syncViewportInteractionActive,
     userSelectionActive,
     zoomActivationKeyPressed,
     zoomOnPinch,
