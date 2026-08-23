@@ -85,6 +85,29 @@ func TestRenderLeavesUnknownStateReferenceForProviderDiagnostics(t *testing.T) {
 	}
 }
 
+func TestRenderOrdersDictionaryLeafReferenceBeforeItsComposition(t *testing.T) {
+	t.Parallel()
+
+	state := dependencyOrderingState()
+	state.Callables = state.Callables[1:]
+	state.ParameterDictionaries = []aggregate.ParameterDictionary{{
+		ID: "dictionary-consumer", Name: "Consumer options", Entries: []aggregate.DictionaryEntry{{
+			ID: "entry-consumer-value", Name: "value", Leaf: &aggregate.DictionaryLeaf{AuthoredExpression: "state.Producer"},
+		}}},
+	}
+	state.TopLevelSectionIDs = []string{"dictionary-consumer", "callable-producer"}
+
+	result, err := Render(state)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	producer := "state.Producer = make_value(value=state.Producer__value)"
+	leaf := "state.Consumer_options__value = state.Producer"
+	dictionary := "state.Consumer_options = {\"value\": state.Consumer_options__value}"
+	assertRenderedBefore(t, result.Body, producer, leaf)
+	assertRenderedBefore(t, result.Body, leaf, dictionary)
+}
+
 func TestRenderDeduplicatesResolvedDependencyAndPublishesCycleTargets(t *testing.T) {
 	t.Parallel()
 

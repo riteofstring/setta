@@ -89,7 +89,7 @@ func (coordinator *Coordinator) synchronizeDiagnostics(ctx context.Context, work
 	if err != nil {
 		return nil, ProviderStatus{}, true, fmt.Errorf("map generated diagnostics: %w", err)
 	}
-	return diagnostics, result.ProviderStatus, true, nil
+	return mergeDiagnostics(compilerDiagnostics(work.rendered), diagnostics), result.ProviderStatus, true, nil
 }
 
 func (coordinator *Coordinator) publishDiagnostics(work *diagnosticsWork, diagnostics []Diagnostic, status ProviderStatus, analysisErr error) {
@@ -99,7 +99,7 @@ func (coordinator *Coordinator) publishDiagnostics(work *diagnosticsWork, diagno
 		return
 	}
 	if analysisErr != nil {
-		coordinator.snapshot.Diagnostics = []Diagnostic{}
+		coordinator.snapshot.Diagnostics = compilerDiagnostics(work.rendered)
 		coordinator.snapshot.DiagnosticsRevision = work.revision
 		coordinator.snapshot.ProviderStatus = unavailableProviderStatus(ProviderLifecycleFailed)
 		return

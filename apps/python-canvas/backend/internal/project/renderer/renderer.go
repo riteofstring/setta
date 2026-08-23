@@ -5,7 +5,6 @@ package renderer
 import (
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -99,147 +98,6 @@ func offsetRanges(ranges map[string]ByteRange, offset int) {
 	}
 }
 
-type forestRenderer struct {
-	body              strings.Builder
-	wroteStatement    bool
-	sourceRanges      map[string]ByteRange
-	compositionRanges map[string]ByteRange
-	callPositions     map[string]CallPosition
-	paths             map[string]string
-	callables         map[string]aggregate.Callable
-	dictionaries      map[string]aggregate.ParameterDictionary
-	lists             map[string]aggregate.List
-}
-
-func newForestRenderer(state aggregate.State) *forestRenderer {
-	callables := make(map[string]aggregate.Callable, len(state.Callables))
-	for _, callable := range state.Callables {
-		callables[callable.ID] = callable
-	}
-	dictionaries := make(map[string]aggregate.ParameterDictionary, len(state.ParameterDictionaries))
-	for _, dictionary := range state.ParameterDictionaries {
-		dictionaries[dictionary.ID] = dictionary
-	}
-	lists := make(map[string]aggregate.List, len(state.Lists))
-	for _, list := range state.Lists {
-		lists[list.ID] = list
-	}
-	return &forestRenderer{
-		sourceRanges:      make(map[string]ByteRange),
-		compositionRanges: make(map[string]ByteRange),
-		callPositions:     make(map[string]CallPosition),
-		paths:             allocateForestPaths(state, callables, dictionaries, lists),
-		callables:         callables,
-		dictionaries:      dictionaries,
-		lists:             lists,
-	}
-}
-
-func (renderer *forestRenderer) renderSection(sectionID string) {
-	path := renderer.paths[sectionID]
-	if callable, exists := renderer.callables[sectionID]; exists {
-		renderer.renderCallable(callable, path)
-		return
-	}
-	if dictionary, exists := renderer.dictionaries[sectionID]; exists {
-		renderer.renderDictionary(dictionary, path)
-		return
-	}
-	renderer.renderList(renderer.lists[sectionID], path)
-}
-
-func (renderer *forestRenderer) renderCallable(callable aggregate.Callable, path string) {
-	renderedParameters := make([]renderedParameter, 0, len(callable.Parameters))
-	for _, parameter := range callable.Parameters {
-		if !isRenderedParameter(parameter) {
-			continue
-		}
-		parameterPath := renderer.paths[parameter.ID]
-		renderedParameters = append(renderedParameters, renderedParameter{parameter: parameter, path: parameterPath})
-		start := renderer.writeAssignmentPrefix(parameterPath)
-		renderer.body.WriteString(parameter.AuthoredExpression)
-		renderer.sourceRanges[parameter.ID] = ByteRange{Start: start, End: renderer.body.Len()}
-	}
-
-	start := renderer.writeAssignmentPrefix(path)
-	if callable.AuthoredExpression == "" {
-		renderer.body.WriteString("None")
-		return
-	}
-	renderer.sourceRanges[callable.ID] = ByteRange{Start: start, End: start + len(callable.AuthoredExpression)}
-	callOffset := start + len(callable.AuthoredExpression) + 1
-	renderer.writeCollection(callable.AuthoredExpression+"(", ")", renderCallArgumentItems(renderedParameters))
-	renderer.callPositions[callable.ID] = CallPosition{Offset: callOffset, End: renderer.body.Len()}
-}
-
-func (renderer *forestRenderer) renderDictionary(dictionary aggregate.ParameterDictionary, path string) {
-	items := renderer.renderDictionaryEntries(dictionary.Entries)
-	start := renderer.writeAssignmentPrefix(path)
-	renderer.writeDictionary(items)
-	renderer.compositionRanges[dictionary.ID] = ByteRange{Start: start, End: renderer.body.Len()}
-}
-
-type renderedDictionaryItem struct {
-	name string
-	path string
-}
-
-func (renderer *forestRenderer) renderDictionaryEntries(entries []aggregate.DictionaryEntry) []renderedDictionaryItem {
-	items := make([]renderedDictionaryItem, 0, len(entries))
-	for _, entry := range entries {
-		entryPath := renderer.paths[entry.ID]
-		if entry.Leaf != nil {
-			if entry.Leaf.AuthoredExpression == "" {
-				continue
-			}
-			start := renderer.writeAssignmentPrefix(entryPath)
-			renderer.body.WriteString(entry.Leaf.AuthoredExpression)
-			renderer.sourceRanges[entry.ID] = ByteRange{Start: start, End: renderer.body.Len()}
-			items = append(items, renderedDictionaryItem{name: entry.Name, path: entryPath})
-			continue
-		}
-		children := renderer.renderDictionaryEntries(entry.Parent.Children)
-		start := renderer.writeAssignmentPrefix(entryPath)
-		renderer.writeDictionary(children)
-		renderer.compositionRanges[entry.ID] = ByteRange{Start: start, End: renderer.body.Len()}
-		items = append(items, renderedDictionaryItem{name: entry.Name, path: entryPath})
-	}
-	return items
-}
-
-func (renderer *forestRenderer) writeDictionary(items []renderedDictionaryItem) {
-	renderedItems := make([]string, 0, len(items))
-	for _, item := range items {
-		renderedItems = append(renderedItems, strconv.Quote(item.name)+": state."+item.path)
-	}
-	renderer.writeCollection("{", "}", renderedItems)
-}
-
-func (renderer *forestRenderer) renderList(list aggregate.List, path string) {
-	for _, childID := range list.ChildSectionIDs {
-		renderer.renderSection(childID)
-	}
-	start := renderer.writeAssignmentPrefix(path)
-	items := make([]string, 0, len(list.ChildSectionIDs))
-	for _, childID := range list.ChildSectionIDs {
-		items = append(items, "state."+renderer.paths[childID])
-	}
-	renderer.writeCollection("[", "]", items)
-	renderer.compositionRanges[list.ID] = ByteRange{Start: start, End: renderer.body.Len()}
-}
-
-func (renderer *forestRenderer) writeAssignmentPrefix(path string) int {
-	if renderer.wroteStatement {
-		renderer.body.WriteByte('\n')
-	}
-	renderer.wroteStatement = true
-	renderer.body.WriteString(stateBodyIndent)
-	renderer.body.WriteString("state.")
-	renderer.body.WriteString(path)
-	renderer.body.WriteString(" = ")
-	return renderer.body.Len()
-}
-
 type renderedParameter struct {
 	parameter aggregate.Parameter
 	path      string
@@ -250,24 +108,6 @@ func isRenderedParameter(parameter aggregate.Parameter) bool {
 		return false
 	}
 	return !parameter.NameEditable || parameter.Name != ""
-}
-
-func (renderer *forestRenderer) writeCollection(opening string, closing string, items []string) {
-	inline := opening + strings.Join(items, ", ") + closing
-	if !shouldMultilineCollection(items, inline) {
-		renderer.body.WriteString(inline)
-		return
-	}
-	renderer.body.WriteString(opening)
-	for _, item := range items {
-		renderer.body.WriteByte('\n')
-		renderer.body.WriteString(collectionContinuationIndent)
-		renderer.body.WriteString(item)
-		renderer.body.WriteByte(',')
-	}
-	renderer.body.WriteByte('\n')
-	renderer.body.WriteString(stateBodyIndent)
-	renderer.body.WriteString(closing)
 }
 
 func shouldMultilineCollection(items []string, inline string) bool {

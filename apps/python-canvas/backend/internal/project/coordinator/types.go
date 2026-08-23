@@ -251,6 +251,11 @@ func cloneRendered(result renderer.Result) renderer.Result {
 	for targetID, position := range result.CallableCallPositionsByID {
 		clone.CallableCallPositionsByID[targetID] = position
 	}
+	clone.TargetPathsByID = make(map[string]string, len(result.TargetPathsByID))
+	for targetID, path := range result.TargetPathsByID {
+		clone.TargetPathsByID[targetID] = path
+	}
+	clone.DependencyCycleTargetIDs = append([]string(nil), result.DependencyCycleTargetIDs...)
 	return clone
 }
 

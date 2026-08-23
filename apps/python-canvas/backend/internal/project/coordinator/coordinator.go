@@ -115,7 +115,7 @@ func Open(ctx context.Context, options Options) (*Coordinator, error) {
 		snapshot: Snapshot{
 			State:               state.Clone(),
 			Rendered:            cloneRendered(rendered),
-			Diagnostics:         []Diagnostic{},
+			Diagnostics:         compilerDiagnostics(rendered),
 			DiagnosticsRevision: state.Project.Revision,
 			ProviderStatus:      unavailableProviderStatus(ProviderLifecycleNotStarted),
 		},
@@ -529,6 +529,11 @@ func (coordinator *Coordinator) applyCandidate(ctx context.Context, candidate ag
 	if !candidate.Changed {
 		return coordinator.snapshot.Clone(), nil
 	}
+	prepared, err := coordinator.prepareCandidate(candidate)
+	if err != nil {
+		return Snapshot{}, fmt.Errorf("%w: prepare candidate references: %v", ErrRenderFailed, err)
+	}
+	candidate = prepared
 	rendered, err := coordinator.render(candidate.State)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("%w: candidate: %v", ErrRenderFailed, err)
@@ -574,6 +579,11 @@ func (coordinator *Coordinator) applyCandidate(ctx context.Context, candidate ag
 }
 
 func (coordinator *Coordinator) applyStructuralCandidate(candidate aggregate.Candidate) (Snapshot, error) {
+	prepared, err := coordinator.prepareCandidate(candidate)
+	if err != nil {
+		return Snapshot{}, fmt.Errorf("%w: prepare structural candidate references: %v", ErrRenderFailed, err)
+	}
+	candidate = prepared
 	rendered, err := coordinator.render(candidate.State)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("%w: candidate: %v", ErrRenderFailed, err)
@@ -602,7 +612,7 @@ func (coordinator *Coordinator) applyStructuralCandidate(candidate aggregate.Can
 	next := Snapshot{
 		State:               candidate.State.Clone(),
 		Rendered:            cloneRendered(rendered),
-		Diagnostics:         []Diagnostic{},
+		Diagnostics:         compilerDiagnostics(rendered),
 		DiagnosticsRevision: coordinator.snapshot.DiagnosticsRevision,
 		ProviderStatus:      pendingProviderStatus(),
 	}
@@ -683,7 +693,7 @@ func (coordinator *Coordinator) synchronizeCandidate(
 	if err != nil {
 		return nil, ProviderStatus{}, providerFailure("map generated diagnostics", err)
 	}
-	return diagnostics, result.ProviderStatus, nil
+	return mergeDiagnostics(compilerDiagnostics(rendered), diagnostics), result.ProviderStatus, nil
 }
 
 func (coordinator *Coordinator) restorePublishedProvider(ctx context.Context) error {
@@ -704,7 +714,7 @@ func (coordinator *Coordinator) restorePublishedProvider(ctx context.Context) er
 }
 
 func (coordinator *Coordinator) initializeProvider(ctx context.Context) {
-	coordinator.snapshot.Diagnostics = []Diagnostic{}
+	coordinator.snapshot.Diagnostics = compilerDiagnostics(coordinator.snapshot.Rendered)
 	coordinator.snapshot.DiagnosticsRevision = coordinator.snapshot.State.Project.Revision
 	if coordinator.provider == nil {
 		return
@@ -712,17 +722,17 @@ func (coordinator *Coordinator) initializeProvider(ctx context.Context) {
 	result, err := coordinator.synchronizeGeneratedDocument(ctx, coordinator.snapshot.Rendered)
 	if err != nil || result.ProviderStatus.Validate() != nil || !providerIsReady(result.ProviderStatus) {
 		coordinator.snapshot.ProviderStatus = unavailableProviderStatus(ProviderLifecycleFailed)
-		coordinator.snapshot.Diagnostics = []Diagnostic{}
+		coordinator.snapshot.Diagnostics = compilerDiagnostics(coordinator.snapshot.Rendered)
 		return
 	}
 	coordinator.snapshot.ProviderStatus = result.ProviderStatus
 	diagnostics, err := mapDiagnostics(coordinator.snapshot.State, coordinator.snapshot.Rendered, result.Diagnostics)
 	if err != nil {
 		coordinator.snapshot.ProviderStatus = unavailableProviderStatus(ProviderLifecycleFailed)
-		coordinator.snapshot.Diagnostics = []Diagnostic{}
+		coordinator.snapshot.Diagnostics = compilerDiagnostics(coordinator.snapshot.Rendered)
 		return
 	}
-	coordinator.snapshot.Diagnostics = diagnostics
+	coordinator.snapshot.Diagnostics = mergeDiagnostics(compilerDiagnostics(coordinator.snapshot.Rendered), diagnostics)
 }
 
 func (coordinator *Coordinator) synchronizeGeneratedDocument(ctx context.Context, rendered renderer.Result) (GeneratedDocumentResult, error) {
