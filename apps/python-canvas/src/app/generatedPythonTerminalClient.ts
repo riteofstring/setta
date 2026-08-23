@@ -1,6 +1,10 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
+import {
+  subscribeWorkspaceCanvasPanScrolling,
+  type WorkspaceHost,
+} from "@setta/workspace";
 
 import { getTerminalTicket } from "../backend/client";
 import {
@@ -86,12 +90,14 @@ export function mountGeneratedPythonTerminal({
   onScrollbackChange,
   projectId,
   sessionKey,
+  workspaceHost,
 }: {
   container: HTMLDivElement;
   onError: (message: string) => void;
   onScrollbackChange: (hasScrollback: boolean) => void;
   projectId: string;
   sessionKey: string;
+  workspaceHost: WorkspaceHost;
 }): () => void {
   let session = sessions.get(sessionKey);
   if (!session) {
@@ -127,11 +133,23 @@ export function mountGeneratedPythonTerminal({
   const scrollbackDisposable = session.terminal.onRender(() => {
     onScrollbackChange(session.terminal.buffer.active.baseY > 0);
   });
+  const unsubscribePanScrolling = subscribeWorkspaceCanvasPanScrolling(
+    workspaceHost,
+    (isPanScrolling) => {
+      // Suppress terminal-side scrolling while the canvas owns an active pan-scroll gesture.
+      // ZoomPane's narrow capture bridge handles xterm 6 propagation; this mirrors main's
+      // terminal-state contract until its 150 ms pan-scroll timer settles.
+      session.terminal.options.scrollSensitivity = isPanScrolling
+        ? Number.MIN_VALUE
+        : 1;
+    },
+  );
 
   return () => {
     cancelScheduledAnimationFrame(frame);
     resizeObserver?.disconnect();
     scrollbackDisposable.dispose();
+    unsubscribePanScrolling();
     releaseTerminalSession(sessionKey, session);
   };
 }

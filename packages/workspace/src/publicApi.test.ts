@@ -86,6 +86,7 @@ const RUNTIME_EXPORTS = [
   "setWorkspaceTextSectionData",
   "setWorkspaceColorMode",
   "ungroupSections",
+  "subscribeWorkspaceCanvasPanScrolling",
   "useItemSelectionMode",
   "useWorkspaceAppearance",
   "useWorkspaceCapabilities",

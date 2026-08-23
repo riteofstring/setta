@@ -9,6 +9,7 @@ import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
+  useWorkspaceHost,
 } from "@setta/workspace";
 
 import { mountGeneratedPythonTerminal } from "./generatedPythonTerminalClient";
@@ -118,6 +119,7 @@ function GeneratedPythonTerminalPane({
   terminalHeight: number;
 }) {
   const terminalRef = useRef<HTMLDivElement | null>(null);
+  const workspaceHost = useWorkspaceHost();
   const [hasScrollback, setHasScrollback] = useState(false);
   useLayoutEffect(() => {
     const container = terminalRef.current;
@@ -130,8 +132,9 @@ function GeneratedPythonTerminalPane({
       onScrollbackChange: setHasScrollback,
       projectId,
       sessionKey,
+      workspaceHost,
     });
-  }, [onStreamError, projectId, sessionKey]);
+  }, [onStreamError, projectId, sessionKey, workspaceHost]);
 
   return (
     <section

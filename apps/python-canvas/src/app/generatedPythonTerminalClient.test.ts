@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => {
   class FakeTerminal {
     public readonly buffer = { active: { baseY: 0 } };
     public readonly cols = 80;
+    public readonly options = { scrollSensitivity: 1 };
     public readonly rows = 24;
     public element: HTMLElement | null = null;
     public readonly dispose = vi.fn();
@@ -92,8 +93,20 @@ const mocks = vi.hoisted(() => {
     FakeTerminal,
     FakeWebSocket,
     getTerminalTicket: vi.fn(),
+    panScrollingSubscribers: [] as Array<(isPanScrolling: boolean) => void>,
     sockets: [] as FakeWebSocket[],
     terminals: [] as FakeTerminal[],
+    unsubscribePanScrolling: vi.fn(),
+    workspaceHost: {} as never,
+    subscribeWorkspaceCanvasPanScrolling: vi.fn(
+      (
+        _workspaceHost: unknown,
+        listener: (isPanScrolling: boolean) => void,
+      ) => {
+        mocks.panScrollingSubscribers.push(listener);
+        return mocks.unsubscribePanScrolling;
+      },
+    ),
   };
 });
 
@@ -102,6 +115,10 @@ vi.mock("@xterm/addon-fit", () => ({ FitAddon: mocks.FakeFitAddon }));
 vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
 vi.mock("../backend/client", () => ({
   getTerminalTicket: mocks.getTerminalTicket,
+}));
+vi.mock("@setta/workspace", () => ({
+  subscribeWorkspaceCanvasPanScrolling:
+    mocks.subscribeWorkspaceCanvasPanScrolling,
 }));
 
 import {
@@ -114,6 +131,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.sockets.length = 0;
   mocks.terminals.length = 0;
+  mocks.panScrollingSubscribers.length = 0;
   mocks.getTerminalTicket.mockResolvedValue({ ticket: "ticket-value" });
   vi.stubGlobal("WebSocket", mocks.FakeWebSocket);
 });
@@ -135,6 +153,7 @@ describe("Generated Python terminal client", () => {
       onScrollbackChange: vi.fn(),
       projectId: "project:terminal",
       sessionKey: "project:terminal:generated-python:1",
+      workspaceHost: mocks.workspaceHost,
     });
     await flushMicrotasks();
 
@@ -160,6 +179,7 @@ describe("Generated Python terminal client", () => {
       onScrollbackChange: vi.fn(),
       projectId: "project:terminal",
       sessionKey: "project:terminal:generated-python:1",
+      workspaceHost: mocks.workspaceHost,
     });
     await flushMicrotasks();
 
@@ -190,6 +210,7 @@ describe("Generated Python terminal client", () => {
       onScrollbackChange: vi.fn(),
       projectId: "project:terminal",
       sessionKey: "project:terminal:generated-python:retry",
+      workspaceHost: mocks.workspaceHost,
     });
     await flushMicrotasks();
 
@@ -232,6 +253,7 @@ describe("Generated Python terminal client", () => {
       onScrollbackChange,
       projectId: "project:terminal",
       sessionKey: "project:terminal:scrollback",
+      workspaceHost: mocks.workspaceHost,
     });
     await flushMicrotasks();
 
@@ -248,6 +270,39 @@ describe("Generated Python terminal client", () => {
 
     release();
     disposeGeneratedPythonTerminal("project:terminal:scrollback");
+  });
+
+  it("suppresses xterm scrolling only while the workspace owns a pan-scroll gesture", async () => {
+    const release = mountGeneratedPythonTerminal({
+      container: document.createElement("div"),
+      onError: vi.fn(),
+      onScrollbackChange: vi.fn(),
+      projectId: "project:terminal",
+      sessionKey: "project:terminal:pan-scroll",
+      workspaceHost: mocks.workspaceHost,
+    });
+    await flushMicrotasks();
+
+    const terminal = mocks.terminals[0];
+    const listener = mocks.panScrollingSubscribers[0];
+    if (terminal === undefined || listener === undefined) {
+      throw new Error("Expected the terminal pan-scroll subscription.");
+    }
+    expect(mocks.subscribeWorkspaceCanvasPanScrolling).toHaveBeenCalledWith(
+      mocks.workspaceHost,
+      expect.any(Function),
+    );
+    expect(terminal.options.scrollSensitivity).toBe(1);
+
+    listener(true);
+    expect(terminal.options.scrollSensitivity).toBe(Number.MIN_VALUE);
+
+    listener(false);
+    expect(terminal.options.scrollSensitivity).toBe(1);
+
+    release();
+    expect(mocks.unsubscribePanScrolling).toHaveBeenCalledTimes(1);
+    disposeGeneratedPythonTerminal("project:terminal:pan-scroll");
   });
 });
 

@@ -22,7 +22,11 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import { useWorkspaceOptions } from "./options";
-import { initialCanvasState, useReactFlow } from "./store";
+import {
+  initialCanvasState,
+  subscribeWorkspaceCanvasPanScrolling,
+  useReactFlow,
+} from "./store";
 import ZoomPane, {
   getViewportInteractionActiveValue,
   isNativeVerticalWheelEvent,
@@ -348,6 +352,89 @@ describe("getViewportInteractionActiveValue", () => {
     );
     expect(testWorkspace.reactFlow.getState().paneDragging).toBe(false);
     expect(canvas.hasAttribute("data-viewport-interaction-active")).toBe(false);
+  });
+
+  it("keeps a pan-scroll gesture canvas-owned across a nowheel surface for 150 ms", async () => {
+    const panScrollingTransitions: boolean[] = [];
+    const unsubscribe = subscribeWorkspaceCanvasPanScrolling(
+      testWorkspace.host,
+      (isPanScrolling) => panScrollingTransitions.push(isPanScrolling),
+    );
+    const { host, renderer, root } = await renderZoomPane({
+      panOnScroll: true,
+      zoomOnScroll: false,
+    });
+    const terminal = document.createElement("div");
+    terminal.className = "nowheel";
+    const terminalWheelListener = vi.fn((event: WheelEvent) => {
+      event.stopPropagation();
+    });
+    terminal.addEventListener("wheel", terminalWheelListener);
+    renderer.appendChild(terminal);
+
+    try {
+      await act(async () => {
+        renderer.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            deltaX: 20,
+          }),
+        );
+      });
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([-10, 0, 1]);
+      expect(testWorkspace.reactFlow.getState().isPanScrolling).toBe(true);
+      expect(panScrollingTransitions).toEqual([true]);
+
+      let crossingEvent: WheelEvent | undefined;
+      await act(async () => {
+        crossingEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaY: 20,
+        });
+        terminal.dispatchEvent(crossingEvent);
+      });
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([
+        -10, -10, 1,
+      ]);
+      expect(crossingEvent?.defaultPrevented).toBe(true);
+      expect(terminalWheelListener).not.toHaveBeenCalled();
+      expect(panScrollingTransitions).toEqual([true]);
+
+      await act(async () => {
+        vi.advanceTimersByTime(149);
+      });
+      expect(testWorkspace.reactFlow.getState().isPanScrolling).toBe(true);
+      expect(panScrollingTransitions).toEqual([true]);
+
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(testWorkspace.reactFlow.getState().isPanScrolling).toBe(false);
+      expect(panScrollingTransitions).toEqual([true, false]);
+
+      let terminalEvent: WheelEvent | undefined;
+      await act(async () => {
+        terminalEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaY: 20,
+        });
+        terminal.dispatchEvent(terminalEvent);
+      });
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([
+        -10, -10, 1,
+      ]);
+      expect(terminalEvent?.defaultPrevented).toBe(false);
+      expect(terminalWheelListener).toHaveBeenCalledTimes(1);
+    } finally {
+      unsubscribe();
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
 
   it("distinguishes native wheel areas from manually consumed controls", async () => {

@@ -54,6 +54,7 @@ export type {
 export { createWorkspaceTextSection } from "./builtin/textSectionKind";
 export type { WorkspaceTextSectionRegistration } from "./builtin/textSectionKind";
 export { useWorkspaceOptions } from "./canvas/options";
+export { subscribeWorkspaceCanvasPanScrolling } from "./canvas/store";
 export type {
   MiniMapSide,
   WorkspaceGridPattern,

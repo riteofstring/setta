@@ -29,6 +29,7 @@ const terminalScreenSelector = `${terminalSurfaceSelector} .xterm-screen`;
 const terminalViewportSelector = `${terminalSurfaceSelector} .xterm-viewport`;
 const terminalTrashSelector = `${terminalPaneSelector} [data-attached-terminal-trash]`;
 const terminalSplitterSelector = `${terminalPaneSelector} [aria-label="Resize terminal height"]`;
+const canvasPaneSelector = ".react-flow__pane";
 
 const createOnlyMarker = "SETTA_TERMINAL_CREATE_DID_NOT_RUN";
 const shellSessionMarker = "SETTA_TERMINAL_SHELL_SESSION";
@@ -429,40 +430,88 @@ async function exerciseTerminalPresentationAndScrollOwnership(client) {
     beforeScroll.visibleRows.includes(`${scrollbackMarker}-095`),
     `Terminal did not render its live output before scrolling: ${JSON.stringify(beforeScroll)}.`,
   );
+  const blankCanvasPoint = await visibleElementPoint(
+    client,
+    canvasPaneSelector,
+    "a blank workspace canvas point",
+    { exactElementHit: true },
+  );
+  const terminalScreen = await elementRect(
+    client,
+    terminalScreenSelector,
+    "the xterm screen before a canvas pan-scroll",
+  );
+  await dispatchPhysicalWheel(client, blankCanvasPoint, {
+    deltaX: 20,
+    deltaY: 0,
+  });
+  await dispatchPhysicalWheel(
+    client,
+    {
+      x: terminalScreen.x + terminalScreen.width / 2,
+      y: terminalScreen.y + terminalScreen.height / 2,
+    },
+    { deltaX: 0, deltaY: -120 },
+  );
+  await waitForCanvasOffset(
+    client,
+    "the blank-canvas and terminal-crossing pan-scroll gesture to move both canvas axes",
+    beforeScroll.canvasOffset,
+    { x: true, y: true },
+  );
+  const afterPanScrollGesture = await terminalScrollState(client);
+  assert.notEqual(
+    afterPanScrollGesture.canvasOffset.x,
+    beforeScroll.canvasOffset.x,
+    "The blank-canvas wheel gesture did not move the canvas horizontally.",
+  );
+  assert.notEqual(
+    afterPanScrollGesture.canvasOffset.y,
+    beforeScroll.canvasOffset.y,
+    "The active canvas pan-scroll gesture stopped when it crossed the terminal.",
+  );
+  assert.equal(
+    afterPanScrollGesture.visibleRows,
+    beforeScroll.visibleRows,
+    "The active canvas pan-scroll gesture scrolled xterm while crossing the terminal.",
+  );
+
+  await evaluate(client, "new Promise((resolve) => setTimeout(resolve, 175))");
+  const beforeTerminalOwnedWheel = await terminalScrollState(client);
   await dispatchTerminalWheelBurst(client, -120);
   await waitFor(
     client,
-    "the terminal to scroll upward with its native wheel event",
+    "the terminal to scroll upward after the canvas pan-scroll timeout",
     `(() => {
       const rows = document.querySelector(${JSON.stringify(terminalRowsSelector)});
       const text = rows instanceof HTMLElement ? rows.textContent ?? "" : "";
       return text.includes(${JSON.stringify(scrollbackMarker)}) &&
         !text.includes(${JSON.stringify(`${scrollbackMarker}-095`)}) &&
-        text !== ${JSON.stringify(beforeScroll.visibleRows)};
+        text !== ${JSON.stringify(beforeTerminalOwnedWheel.visibleRows)};
     })()`,
   );
   const afterScrollUp = await terminalScrollState(client);
   assert.ok(
     afterScrollUp.visibleRows.includes(scrollbackMarker) &&
       !afterScrollUp.visibleRows.includes(`${scrollbackMarker}-095`) &&
-      afterScrollUp.visibleRows !== beforeScroll.visibleRows,
-    "The terminal did not consume the wheel event to enter scrollback.",
+      afterScrollUp.visibleRows !== beforeTerminalOwnedWheel.visibleRows,
+    "The terminal did not regain wheel ownership after the canvas pan-scroll timeout.",
   );
   assertApproximately(
     afterScrollUp.pane.left,
-    beforeScroll.pane.left,
+    beforeTerminalOwnedWheel.pane.left,
     0.5,
     "Terminal scrollback panned the canvas horizontally.",
   );
   assertApproximately(
     afterScrollUp.pane.top,
-    beforeScroll.pane.top,
+    beforeTerminalOwnedWheel.pane.top,
     0.5,
     "Terminal scrollback panned the canvas vertically.",
   );
   assert.equal(
     afterScrollUp.canvasTransform,
-    beforeScroll.canvasTransform,
+    beforeTerminalOwnedWheel.canvasTransform,
     "Terminal scrollback changed the canvas transform.",
   );
 }
@@ -546,7 +595,11 @@ async function terminalScrollState(client) {
         return null;
       }
       const paneRect = pane.getBoundingClientRect();
+      const canvasMatrix = new DOMMatrixReadOnly(
+        getComputedStyle(canvasViewport).transform,
+      );
       return {
+        canvasOffset: { x: canvasMatrix.m41, y: canvasMatrix.m42 },
         canvasTransform: getComputedStyle(canvasViewport).transform,
         pane: { left: paneRect.left, top: paneRect.top },
         visibleRows: rows.textContent ?? "",
@@ -557,23 +610,50 @@ async function terminalScrollState(client) {
   return state;
 }
 
+async function waitForCanvasOffset(client, description, before, changed) {
+  await waitFor(
+    client,
+    description,
+    `(() => {
+      const canvasViewport = document.querySelector(".react-flow__viewport");
+      if (!(canvasViewport instanceof HTMLElement)) {
+        return false;
+      }
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(canvasViewport).transform);
+      const xChanged = Math.abs(matrix.m41 - ${String(before.x)}) > 0.5;
+      const yChanged = Math.abs(matrix.m42 - ${String(before.y)}) > 0.5;
+      return xChanged === ${String(changed.x)} && yChanged === ${String(changed.y)};
+    })()`,
+  );
+}
+
+async function dispatchPhysicalWheel(client, point, { deltaX, deltaY }) {
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: point.x,
+    y: point.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    deltaX,
+    deltaY,
+    type: "mouseWheel",
+    x: point.x,
+    y: point.y,
+  });
+}
+
 async function dispatchTerminalWheelBurst(client, deltaY) {
   const screen = await elementRect(
     client,
     terminalScreenSelector,
     "the xterm screen",
   );
-  const x = screen.x + screen.width / 2;
-  const y = screen.y + screen.height / 2;
-  await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+  const point = {
+    x: screen.x + screen.width / 2,
+    y: screen.y + screen.height / 2,
+  };
   for (let index = 0; index < 12; index += 1) {
-    await client.send("Input.dispatchMouseEvent", {
-      deltaX: 0,
-      deltaY,
-      type: "mouseWheel",
-      x,
-      y,
-    });
+    await dispatchPhysicalWheel(client, point, { deltaX: 0, deltaY });
   }
 }
 

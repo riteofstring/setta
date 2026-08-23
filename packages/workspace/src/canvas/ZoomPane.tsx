@@ -190,6 +190,7 @@ export function resetViewportInteractionState({
   clearTimeout(wheelZoomTimeout.current);
   markViewportInteractionActive(host, false);
   getReactFlowStore(host).setState({
+    isPanScrolling: false,
     paneDragging: false,
     viewportInteractionActive: false,
   });
@@ -235,6 +236,7 @@ function ensurePanScrollInteraction(
   if (interactionRefs.isPanScrolling.current) {
     return;
   }
+  getReactFlowStore(interactionRefs.host).setState({ isPanScrolling: true });
   interactionRefs.isPanScrolling.current = true;
   syncViewportInteractionActive(interactionRefs);
 }
@@ -245,6 +247,9 @@ function schedulePanScrollInteractionEnd(
   clearTimeout(interactionRefs.panScrollTimeout.current);
   interactionRefs.panScrollTimeout.current = setTimeout(() => {
     interactionRefs.isPanScrolling.current = false;
+    getReactFlowStore(interactionRefs.host).setState({
+      isPanScrolling: false,
+    });
     syncViewportInteractionActive(interactionRefs);
   }, 150);
 }
@@ -804,22 +809,37 @@ function useZoomWheelBehavior({
     const translateBy = d3Zoom.translateBy as unknown as TranslateByFn;
 
     if (panOnScroll && !zoomActivationKeyPressed && !userSelectionActive) {
+      const panOnScrollWheelHandler = createPanOnScrollWheelHandler({
+        d3Selection,
+        interactionRefs: wheelInteractionRefs,
+        panOnScrollMode,
+        panOnScrollSpeed,
+        scaleTo,
+        translateBy,
+        zoomActivationKeyPressed,
+        zoomOnPinch,
+      });
+      d3Selection.on("wheel.zoom", panOnScrollWheelHandler, { passive: false });
       d3Selection.on(
-        "wheel.zoom",
-        createPanOnScrollWheelHandler({
-          d3Selection,
-          interactionRefs: wheelInteractionRefs,
-          panOnScrollMode,
-          panOnScrollSpeed,
-          scaleTo,
-          translateBy,
-          zoomActivationKeyPressed,
-          zoomOnPinch,
-        }),
-        { passive: false },
+        "wheel.pan-scroll-capture",
+        (event: WheelEvent) => {
+          if (
+            !isPanScrolling.current ||
+            !isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) ||
+            isWrappedWithClass(event, MANUAL_WHEEL_CLASS_NAME)
+          ) {
+            return;
+          }
+          panOnScrollWheelHandler(event);
+        },
+        { capture: true, passive: false },
       );
-      return;
+      return () => {
+        d3Selection.on("wheel.pan-scroll-capture", null);
+      };
     }
+
+    d3Selection.on("wheel.pan-scroll-capture", null);
 
     if (typeof d3ZoomHandler === "undefined") {
       return;

@@ -56,6 +56,7 @@ export type ReactFlowStore = {
   transform: Transform;
   domNode: HTMLDivElement | null;
   paneDragging: boolean;
+  isPanScrolling: boolean;
   viewportInteractionActive: boolean;
 
   d3Zoom: ZoomBehavior<Element, unknown> | null;

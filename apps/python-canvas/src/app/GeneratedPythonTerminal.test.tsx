@@ -6,12 +6,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   cleanupTerminal: vi.fn(),
   mountGeneratedPythonTerminal: vi.fn(),
+  workspaceHost: {} as never,
 }));
 
 vi.mock("@setta/workspace", () => ({
   NO_DRAG_CLASS_NAME: "nodrag",
   NO_PAN_CLASS_NAME: "nopan",
   NO_WHEEL_CLASS_NAME: "nowheel",
+  useWorkspaceHost: () => mocks.workspaceHost,
 }));
 
 vi.mock("./generatedPythonTerminalClient", () => ({
@@ -125,6 +127,7 @@ describe("GeneratedPythonTerminal", () => {
       onScrollbackChange: expect.any(Function),
       projectId: "project:terminal",
       sessionKey: "project:terminal:generated-python:1",
+      workspaceHost: mocks.workspaceHost,
     });
     const terminalSurface = view.querySelector<HTMLDivElement>(
       "[data-attached-terminal-section-id='generated-python-runtime']",
@@ -233,6 +236,7 @@ describe("GeneratedPythonTerminal", () => {
       onScrollbackChange: expect.any(Function),
       projectId: "project:terminal",
       sessionKey: "project:terminal:generated-python:1",
+      workspaceHost: mocks.workspaceHost,
     });
   });
 });

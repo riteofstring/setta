@@ -29,6 +29,7 @@ export const initialCanvasState: ReactFlowStore = {
   userSelectionRect: null,
   domNode: null,
   paneDragging: false,
+  isPanScrolling: false,
   viewportInteractionActive: false,
   nodeDragThreshold: 1,
   fitViewOnInit: false,
@@ -124,6 +125,16 @@ export function getReactFlowStore(host: WorkspaceHost) {
   const store = createReactFlowStore(host);
   storesByHost.set(host, store);
   return store;
+}
+
+export function subscribeWorkspaceCanvasPanScrolling(
+  host: WorkspaceHost,
+  listener: (isPanScrolling: boolean) => void,
+): () => void {
+  return getReactFlowStore(host).subscribe(
+    (state) => state.isPanScrolling,
+    listener,
+  );
 }
 
 export function useReactFlow<T>(
