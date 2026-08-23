@@ -6,6 +6,7 @@ import { JSDOM } from "jsdom";
 import {
   assertFocusNotStolenAfterSectionMove,
   callableSectionSelector,
+  callableSortableSectionSelector,
   callableWorkspaceSectionId,
   captureFocusBeforeSectionMove,
   focusNotStolenAfterSectionMoveExpression,
@@ -15,6 +16,7 @@ import {
 } from "./param-dict-list.browser-support.mjs";
 import { matchesStructuralDiagnosticsMutation } from "./structural-diagnostics.browser.mjs";
 import { dragElementToElement, pressArrowUp } from "./browser-page.mjs";
+import { visibleLeadingSortableSectionPoint } from "./param-dict-list.browser-drag.mjs";
 import {
   describeSectionMoveFailure,
   dictionaryEntryChildAdoptionDragTarget,
@@ -124,9 +126,59 @@ test("List walkthrough reorders a Param Dict with the proven free move gesture",
 
   assert.match(
     walkthrough,
-    /const dictionaryReorderFocus = await dragFreeSectionToSection\(\s*client,\s*\{[\s\S]*?description: "reordering the Param Dict to the front of the list",[\s\S]*?sourceSelector: dictionarySelector,[\s\S]*?targetSelector: callableSectionSelector\(outerChildIds\[0\]\),[\s\S]*?targetYFraction: 0\.25,/,
+    /const dictionaryReorderFocus = await dragFreeSectionToSection\(\s*client,\s*\{[\s\S]*?description: "reordering the Param Dict to the front of the list",[\s\S]*?sourceSelector: dictionarySelector,[\s\S]*?targetSortableSelector: callableSortableSectionSelector\(outerChildIds\[0\]\),[\s\S]*?targetYFraction: 0\.25,/,
   );
   assert.doesNotMatch(walkthrough, /dragSortedSectionToSection/);
+});
+
+test("Section-to-section targets retain a control-covered leading sortable coordinate", async () => {
+  const workspaceSectionId = callableWorkspaceSectionId("callable:child");
+  const window = new JSDOM(
+    `
+      <div data-sortable-section-id="${workspaceSectionId}">
+        <button type="button">Control</button>
+      </div>
+    `,
+    { runScripts: "outside-only" },
+  ).window;
+  const document = window.document;
+  const target = document.querySelector(
+    callableSortableSectionSelector("callable:child"),
+  );
+  const control = target?.querySelector("button");
+  if (
+    !(target instanceof window.HTMLElement) ||
+    !(control instanceof window.HTMLButtonElement)
+  ) {
+    throw new Error("Expected the sortable target fixture.");
+  }
+  Object.defineProperties(window, {
+    innerHeight: { configurable: true, value: 900 },
+    innerWidth: { configurable: true, value: 1440 },
+  });
+  target.getBoundingClientRect = () => new window.DOMRect(100, 200, 300, 200);
+  document.elementFromPoint = (x, y) => {
+    if (x === 250 && y === 250) {
+      return control;
+    }
+    return null;
+  };
+  const client = {
+    async send(method, parameters) {
+      assert.equal(method, "Runtime.evaluate");
+      return { result: { value: window.eval(parameters.expression) } };
+    },
+  };
+
+  const point = await visibleLeadingSortableSectionPoint(
+    client,
+    callableSortableSectionSelector("callable:child"),
+    "the child sortable target",
+    0.25,
+  );
+
+  assert.deepEqual({ ...point }, { x: 250, y: 250 });
+  assert.ok(point.y < 300, "The target point must remain in the leading half.");
 });
 
 test("Nested List presentation checks receive the measured Callable field size", async () => {

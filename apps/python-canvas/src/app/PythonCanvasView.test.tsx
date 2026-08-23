@@ -203,6 +203,7 @@ describe("PythonCanvasView", () => {
     expect(view.querySelector("[data-testid='workspace-provider']")).toBe(
       provider,
     );
+    expect(view.querySelector("[data-testid='workspace-shell']")).toBe(shell);
     const persisted = testLocalStorage.getItem(
       PYTHON_CANVAS_SHELL_PREFERENCE_KEY,
     );

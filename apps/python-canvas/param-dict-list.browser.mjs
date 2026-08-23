@@ -19,6 +19,7 @@ import {
   assertSectionFieldSize,
   assertSectionSize,
   callableWorkspaceSectionId,
+  callableSortableSectionSelector,
   createPaneSection,
   dictionaryRowHeight,
   findDictionaryEntry,
@@ -342,7 +343,7 @@ export async function exerciseParamDictAndListSlice(
     hasMoved: async () =>
       dictionaryInListPredicate(await fetchCanonicalSnapshot(backendOrigin)),
     sourceSelector: dictionarySelector,
-    targetSelector: callableSectionSelector(outerChildIds[1]),
+    targetSortableSelector: callableSortableSectionSelector(outerChildIds[1]),
     targetYFraction: 0.25,
     verifyFocusContext: true,
   });
@@ -394,7 +395,7 @@ export async function exerciseParamDictAndListSlice(
     hasMoved: async () =>
       dictionaryFirstPredicate(await fetchCanonicalSnapshot(backendOrigin)),
     sourceSelector: dictionarySelector,
-    targetSelector: callableSectionSelector(outerChildIds[0]),
+    targetSortableSelector: callableSortableSectionSelector(outerChildIds[0]),
     targetYFraction: 0.25,
     verifyFocusContext: true,
   });
@@ -468,7 +469,7 @@ export async function exerciseParamDictAndListSlice(
     hasMoved: async () =>
       nestedListPlacedPredicate(await fetchCanonicalSnapshot(backendOrigin)),
     sourceSelector: listSectionSelector(nestedList.id),
-    targetSelector: callableSectionSelector(outerChildIds[1]),
+    targetSortableSelector: callableSortableSectionSelector(outerChildIds[1]),
     targetYFraction: 0.25,
   });
   const nestedListPlaced = await waitForSnapshot(

@@ -36,7 +36,7 @@ export async function dragFreeSectionToSection(
     description,
     hasMoved,
     sourceSelector,
-    targetSelector,
+    targetSortableSelector,
     targetYFraction,
     verifyFocusContext = false,
   },
@@ -46,7 +46,14 @@ export async function dragFreeSectionToSection(
     hasMoved,
     mode: "free",
     sourceSelector,
-    targetSelector,
+    resolveTargetPoint: () =>
+      visibleLeadingSortableSectionPoint(
+        client,
+        targetSortableSelector,
+        `${description} target`,
+        targetYFraction,
+      ),
+    targetSelector: targetSortableSelector,
     targetYFraction,
     verifyFocusContext,
   });
@@ -146,6 +153,75 @@ async function dragSection(client, configuration) {
       return focusCapture;
     },
   });
+}
+
+export async function visibleLeadingSortableSectionPoint(
+  client,
+  targetSortableSelector,
+  description,
+  targetYFraction,
+) {
+  if (!(targetYFraction > 0 && targetYFraction < 0.5)) {
+    throw new Error(
+      `${description} targetYFraction must be within the leading vertical half.`,
+    );
+  }
+  const result = await evaluate(
+    client,
+    `(() => {
+      const target = document.querySelector(${JSON.stringify(targetSortableSelector)});
+      if (!(target instanceof HTMLElement)) {
+        return { point: null, reason: "missing sortable target" };
+      }
+      const rect = target.getBoundingClientRect();
+      const left = Math.max(0, rect.left);
+      const right = Math.min(window.innerWidth, rect.right);
+      const top = Math.max(0, rect.top);
+      const bottom = Math.min(window.innerHeight, rect.bottom);
+      if (right <= left || bottom <= top) {
+        return { point: null, reason: "sortable target outside viewport", rect: rect.toJSON() };
+      }
+      const yFractions = Array.from(
+        new Set([${JSON.stringify(targetYFraction)}, 0.25, 0.125, 0.375]),
+      ).filter((fraction) => fraction > 0 && fraction < 0.5);
+      const xFractions = [0.5, 0.4, 0.6];
+      const blockedHits = [];
+      // This locates a drop collision rather than a drag activator: controls and resize chrome
+      // remain valid when they belong to the sortable target itself.
+      for (const yFraction of yFractions) {
+        for (const xFraction of xFractions) {
+          const point = {
+            x: left + (right - left) * xFraction,
+            y: top + (bottom - top) * yFraction,
+          };
+          const hit = document.elementFromPoint(point.x, point.y);
+          if (hit instanceof HTMLElement && target.contains(hit)) {
+            return { point, reason: null };
+          }
+          if (blockedHits.length < 5) {
+            blockedHits.push({
+              className: hit instanceof HTMLElement ? hit.className : null,
+              tagName: hit instanceof HTMLElement ? hit.tagName : null,
+              xFraction,
+              yFraction,
+            });
+          }
+        }
+      }
+      return {
+        blockedHits,
+        point: null,
+        reason: "no pointer-reachable leading sortable target point",
+        rect: rect.toJSON(),
+      };
+    })()`,
+  );
+  if (result?.point === null || result?.point === undefined) {
+    throw new Error(
+      `${description} has no pointer-reachable leading sortable target point: ${JSON.stringify(result)}.`,
+    );
+  }
+  return result.point;
 }
 
 // A pane drop is resolved from the dragged section's rectangle, not just its pointer. Pick an

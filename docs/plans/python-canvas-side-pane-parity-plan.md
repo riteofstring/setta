@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-**Status: Planned.**
+**Status: Implemented; final policy verification pending.**
 
 Add the useful leading and trailing pane experience from `main` to Python Canvas without importing
 the unrelated product systems that happen to occupy those panes on `main`. The leading pane gives
@@ -98,7 +98,8 @@ terminal sessions, canvas geometry, and generated-code editor state.
 ## Acceptance behavior
 
 1. On first load, Outline is visible at the package default width, Inspector is closed to its rail,
-   and the canvas fills the remaining center region without a transient direct-canvas frame.
+   and the full-size canvas renders beneath the overlay panes. Pane viewport insets and the leading
+   camera shift preserve the usable view without a transient direct-canvas frame.
 2. The Outline shows top-level and nested Python Canvas sections in document order. Activating an
    entry focuses the corresponding section through the existing workspace host.
 3. Selecting a supported section or item and opening Inspector shows the package-owned inspector
@@ -151,13 +152,13 @@ unrelated visual polish.
 
 ## Completion checklist
 
-- [ ] Obsolete parser-ordering plan removed
-- [ ] One validated, versioned local shell-preference boundary exists
-- [ ] Python Canvas mounts the package `WorkspaceShell`
-- [ ] Built-in Outline and Inspector work with Python Canvas sections
-- [ ] Main-aligned defaults, resizing, canvas shift, and narrow-width behavior are verified
-- [ ] Pane state survives reload without entering project state
-- [ ] Pane-only changes preserve selections, diagnostics, editors, and terminal sessions
-- [ ] Focused frontend and production raw-headless acceptance tests pass
+- [x] Obsolete parser-ordering plan removed
+- [x] One validated, versioned local shell-preference boundary exists
+- [x] Python Canvas mounts the package `WorkspaceShell`
+- [x] Built-in Outline and Inspector work with Python Canvas sections
+- [x] Main-aligned defaults, resizing, canvas shift, and narrow-width behavior are verified
+- [x] Pane state survives reload without entering project state
+- [x] Pane-only changes preserve selections, diagnostics, editors, and terminal sessions
+- [x] Focused frontend and production raw-headless acceptance tests pass
 - [ ] `code-policy test --changed` passes
 - [ ] Policy-selected merge gate passes

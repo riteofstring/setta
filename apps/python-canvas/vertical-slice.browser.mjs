@@ -14,6 +14,7 @@ import {
   waitForSnapshot,
 } from "./callable-commit.browser.mjs";
 import { exerciseResolvedMathCallableLifecycle } from "./callable-lifecycle.browser.mjs";
+import { exercisePythonCanvasSidePaneParity } from "./python-canvas-side-panes.browser.mjs";
 import { observeGeneratedDocumentBoundaries } from "./generated-document-boundaries.browser.mjs";
 import {
   exerciseCopiedParamDictListTerminalRun,
@@ -106,6 +107,12 @@ await runAgainstCopiedProductionProject(
       "The localhost terminal acceptance did not start from the saved Param Dict and List project shape.",
     );
     await openWorkspaceCanvas(client, previewOrigin);
+    await exercisePythonCanvasSidePaneParity(
+      client,
+      backendOrigin,
+      previewOrigin,
+      initial,
+    );
     await exerciseCopiedParamDictListTerminalRun(client);
   },
 );

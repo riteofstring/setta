@@ -724,6 +724,11 @@ export function callableSectionSelector(callableId) {
   return sectionSelector(callableWorkspaceSectionId(callableId));
 }
 
+export function callableSortableSectionSelector(callableId) {
+  const workspaceSectionId = callableWorkspaceSectionId(callableId);
+  return `[data-sortable-section-id=${JSON.stringify(workspaceSectionId)}]`;
+}
+
 export function parameterDictionaryWorkspaceSectionId(dictionaryId) {
   return `python-canvas:parameter-dictionary:${dictionaryId}`;
 }
