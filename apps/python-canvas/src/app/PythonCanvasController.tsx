@@ -341,6 +341,12 @@ export function PythonCanvasController() {
         if (answer.kind === "refresh" && answer.callableId === callable.id) {
           continue;
         }
+        if (
+          answer.kind === "python-target" &&
+          answer.refreshedCallableIds.has(callable.id)
+        ) {
+          continue;
+        }
         if (answer.kind === "parameters" && answer.callableId === callable.id) {
           if (!sameProposedList(answer.sent, draft)) {
             retained.add(callable.id);

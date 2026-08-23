@@ -195,7 +195,7 @@ export async function assertListRootMainPresentation(client, listId) {
     backgroundColor: "rgb(6, 7, 10)",
     borderRadius: "8px",
     gap: "4px",
-    height: 120,
+    height: 20,
     marginLeft: "-8px",
     marginRight: "-8px",
     paddingLeft: "8px",

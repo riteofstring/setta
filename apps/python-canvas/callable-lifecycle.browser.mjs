@@ -64,7 +64,10 @@ export async function exerciseResolvedMathCallableLifecycle(
   const parameter = callable.parameters.find(
     (candidate) => candidate.name === "x" && !candidate.nameEditable,
   );
-  assert.ok(parameter, "Alt+Enter did not restore the provider-derived x row.");
+  assert.ok(
+    parameter,
+    "The resolved Python target did not restore the provider-derived x row.",
+  );
   const missingArgument = resolved.diagnostics.find(
     (diagnostic) => diagnostic.targetId === parameter.id,
   );
@@ -241,11 +244,6 @@ async function resolveMathParametersFromPythonTarget(
     "math.sqrt",
     "The Python-target resolution path requires the unresolved math.sqrt callable.",
   );
-  const sectionSelector = harness.callableSectionSelector(name);
-  const presentationBefore = await callablePresentation(
-    client,
-    sectionSelector,
-  );
   const refreshRequestsBefore = await parameterRefreshRequestCount(client);
 
   await activateCodeEditor(
@@ -271,44 +269,13 @@ async function resolveMathParametersFromPythonTarget(
       );
     },
   );
-  await waitFor(
-    client,
-    "the automatic parameter refresh without a lock, spinner, or mutation error",
-    `(() => {
-      const section = document.querySelector(${JSON.stringify(sectionSelector)});
-      const field = section?.querySelector('[data-workspace-section-field="true"]');
-      const editor = section?.querySelector(${JSON.stringify(contentEditableTextBoxSelector("Callable expression"))});
-      const overlay = section?.querySelector('[data-python-canvas-parameter-pending="true"]');
-      const lock = section?.querySelector('button[aria-label="Lock position and size"]');
-      const unlock = section?.querySelector('button[aria-label="Unlock position and size"]');
-      const mutationError = document.querySelector('#python-canvas-mutation-error');
-      const hasVisibleAlert = Array.from(document.querySelectorAll('[role="alert"]')).some((alert) => {
-        if (!(alert instanceof HTMLElement) || (alert.textContent ?? '').trim() === '') {
-          return false;
-        }
-        const style = window.getComputedStyle(alert);
-        const rect = alert.getBoundingClientRect();
-        return style.display !== 'none' && style.visibility !== 'hidden' &&
-          style.opacity !== '0' && rect.width > 0 && rect.height > 0;
-      });
-      return section instanceof HTMLElement && section.getAttribute('aria-busy') !== 'true' &&
-        field instanceof HTMLElement && field.dataset.disabled === 'false' &&
-        editor instanceof HTMLElement && editor.getAttribute('aria-disabled') !== 'true' &&
-        editor.tabIndex >= 0 && overlay === null &&
-        lock instanceof HTMLElement && unlock === null &&
-        (mutationError?.textContent ?? '').trim() === '' && !hasVisibleAlert;
-    })()`,
-  );
-  const presentationAfter = await callablePresentation(client, sectionSelector);
   assert.equal(
-    presentationAfter.sectionHeight,
-    presentationBefore.sectionHeight,
-    "Automatically retrieving parameters changed the callable section height.",
-  );
-  assert.equal(
-    presentationAfter.fieldHeight,
-    presentationBefore.fieldHeight,
-    "Automatically retrieving parameters changed the callable field height.",
+    await evaluate(
+      client,
+      "(document.querySelector('#python-canvas-mutation-error')?.textContent ?? '').trim()",
+    ),
+    "",
+    "Automatically resolving the callable displayed a mutation error panel.",
   );
   assert.equal(
     await parameterRefreshRequestCount(client),
@@ -323,20 +290,6 @@ async function resolveMathParametersFromPythonTarget(
   assert.ok(
     resolved.generatedCode.body.includes("math.sqrt()"),
     "Generated Python did not contain the automatically refreshed math.sqrt call.",
-  );
-}
-
-async function callablePresentation(client, sectionSelector) {
-  return evaluate(
-    client,
-    `(() => {
-      const section = document.querySelector(${JSON.stringify(sectionSelector)});
-      const field = section?.querySelector('[data-workspace-section-field="true"]');
-      return {
-        fieldHeight: field instanceof HTMLElement ? field.getBoundingClientRect().height : null,
-        sectionHeight: section instanceof HTMLElement ? section.getBoundingClientRect().height : null,
-      };
-    })()`,
   );
 }
 

@@ -26,6 +26,7 @@ import {
 } from "./workspaceProjection";
 import {
   callableParameterRefreshRequired,
+  changedCanonicalParameterCallableIds,
   dictionaryEntryMutationProposal,
   forestMutationProposal,
   isCallableResolutionFailure,
@@ -158,7 +159,13 @@ export function createPythonCanvasMutations(
             return;
           }
           environment.publishSnapshot(next);
-          environment.acceptCanonicalSnapshot(next, { kind: "other" });
+          environment.acceptCanonicalSnapshot(next, {
+            kind: "python-target",
+            refreshedCallableIds: changedCanonicalParameterCallableIds(
+              current,
+              next,
+            ),
+          });
           environment.updateAnnouncement({ kind: "idle" });
         } catch (error) {
           if (environment.isActive()) {

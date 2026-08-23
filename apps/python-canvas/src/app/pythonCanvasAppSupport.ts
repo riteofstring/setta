@@ -24,6 +24,7 @@ export type MutationAnswer =
   | { callableId: string; kind: "commit" }
   | { callableId: string; kind: "refresh" }
   | { callableId: string; kind: "parameters"; sent: ParameterProposalV2[] }
+  | { kind: "python-target"; refreshedCallableIds: ReadonlySet<string> }
   | {
       dictionaryId: string;
       kind: "dictionary";
@@ -317,6 +318,24 @@ export function changedParameterCallableIds(
     }
   }
   return changed;
+}
+
+export function changedCanonicalParameterCallableIds(
+  previous: ProjectSnapshotV2,
+  next: ProjectSnapshotV2,
+): ReadonlySet<string> {
+  const previousById = new Map(
+    previous.callables.map((callable) => [callable.id, callable]),
+  );
+  return new Set(
+    next.callables.flatMap((callable) => {
+      const prior = previousById.get(callable.id);
+      return prior !== undefined &&
+        sameParameterList(prior.parameters, callable)
+        ? []
+        : [callable.id];
+    }),
+  );
 }
 
 export function dictionaryEntryDraft(

@@ -465,10 +465,14 @@ export function assertGeneratedListOrder(snapshot, count) {
     { length: count },
     (_, index) => `state.New_List_of_Objects__${String(index)}`,
   );
+  const multiline =
+    "state.New_List_of_Objects = [\n" +
+    values.map((value) => `            ${value},`).join("\n") +
+    "\n        ]";
+  const inline = `state.New_List_of_Objects = [${values.join(", ")}]`;
   assert.ok(
-    snapshot.generatedCode.body.includes(
-      `state.New_List_of_Objects = [${values.join(", ")}]`,
-    ),
+    snapshot.generatedCode.body.includes(inline) ||
+      snapshot.generatedCode.body.includes(multiline),
     "Generated Python does not use the canonical list index paths and order.",
   );
 }

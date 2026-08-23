@@ -92,6 +92,7 @@ vi.mock("@setta/workspace", () => ({
 import { PythonCanvasApp } from "./PythonCanvasApp";
 import {
   callableSectionID,
+  parameterWorkspaceItemID,
   parameterDictionarySectionID,
 } from "./workspaceProjection";
 
@@ -116,6 +117,7 @@ afterEach(() => {
   root = undefined;
   container?.remove();
   container = undefined;
+  vi.useRealTimers();
 });
 
 describe("PythonCanvasApp concurrency", () => {
@@ -309,6 +311,98 @@ describe("PythonCanvasApp concurrency", () => {
       dictionarySectionId,
     ]);
   });
+
+  it("accepts parameters refreshed by a Python target response", async () => {
+    vi.useFakeTimers();
+    const initialSnapshot = singleCallableSnapshot(1, []);
+    const parameter = {
+      authoredExpression: "",
+      default: null,
+      id: "parameter:x",
+      name: "x",
+      nameEditable: false,
+      passingStyle: "positional_or_keyword" as const,
+      providerOrdinal: 0,
+      typeAnnotation: "float",
+    };
+    const prefix = "import math";
+    const body = initialSnapshot.generatedCode.body;
+    const suffix = initialSnapshot.pythonTarget.suffix;
+    const bodyStart = prefix.length + 2;
+    const resolvedSnapshot = parseProjectSnapshotV2({
+      ...singleCallableSnapshot(2, [parameter]),
+      diagnostics: [
+        {
+          end: 1,
+          id: "diagnostic:missing-x",
+          message: 'Argument missing for parameter "x"',
+          severity: "error",
+          start: 0,
+          targetId: parameter.id,
+        },
+      ],
+      generatedCode: {
+        ...initialSnapshot.generatedCode,
+        body,
+        code: `${prefix}\n\n${body}\n\n${suffix}`,
+        generatedBodyRange: {
+          end: bodyStart + body.length,
+          start: bodyStart,
+        },
+      },
+      pythonTarget: { prefix, suffix },
+    });
+    const workspace = installWorkspaceHarness();
+    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
+    mocks.setPythonTarget.mockResolvedValue(resolvedSnapshot);
+
+    renderApp();
+    await flushEffects();
+    const before = workspace.getDocument();
+    const generated = before.sections["python-canvas:generated-python"];
+    if (generated === undefined) {
+      throw new Error("Generated Python section is missing.");
+    }
+    const localCode = `${prefix}\n\n${body}\n\n${suffix}`;
+    workspace.publish({
+      ...before,
+      sections: {
+        ...before.sections,
+        "python-canvas:generated-python": {
+          ...generated,
+          data: {
+            ...(generated.data as object),
+            code: localCode,
+            generatedRegion: {
+              from: prefix.length,
+              to: localCode.length - suffix.length,
+            },
+          },
+        },
+      },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+      await flushMicrotasks();
+    });
+
+    const section =
+      workspace.getDocument().sections[callableSectionID("callable:one")];
+    const itemId = parameterWorkspaceItemID(parameter.id);
+    const itemTree = section?.itemTree;
+    if (itemTree === undefined) {
+      throw new Error("Resolved callable parameter tree is missing.");
+    }
+    expect(mocks.setPythonTarget).toHaveBeenCalledTimes(1);
+    expect(itemTree.items[itemTree.rootId]?.children).toEqual([itemId]);
+    expect(section?.data).toMatchObject({
+      parameterDiagnostics: {
+        [itemId]: [
+          { message: 'Argument missing for parameter "x"', severity: "error" },
+        ],
+      },
+    });
+  });
 });
 
 function createHost(): WorkspaceHost {
@@ -408,6 +502,25 @@ function multiCallableSnapshot(revision: number, topLevelSectionIds: string[]) {
     })),
     project: { ...projectSnapshotFixture.project, revision },
     topLevelSectionIds,
+  });
+}
+
+function singleCallableSnapshot(
+  revision: number,
+  parameters: ReadonlyArray<Record<string, unknown>>,
+) {
+  return parseProjectSnapshotV2({
+    ...projectSnapshotFixture,
+    callables: [
+      {
+        authoredExpression: "math.sqrt",
+        id: "callable:one",
+        name: "One callable",
+        parameters,
+      },
+    ],
+    project: { ...projectSnapshotFixture.project, revision },
+    topLevelSectionIds: ["callable:one"],
   });
 }
 
