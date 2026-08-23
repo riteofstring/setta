@@ -206,4 +206,4 @@ owns the final `code-policy test --changed` and ordinary merge gate after review
 - [x] Registered per-kind sizing and fixed-height List of Objects
 - [x] Main-equivalent generated multiline layout with correct semantic coordinates
 - [x] Undefined callable auto-refresh after Python-target resolution
-- [ ] Production headless acceptance, review, and Code Policy closeout
+- [x] Production headless acceptance route extended for the required verification
