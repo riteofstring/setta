@@ -32,6 +32,7 @@ import {
   readGeneratedPythonTarget as readGeneratedPythonTargetForSection,
   retainedGeneratedCodeData,
 } from "./generatedPythonProjection";
+import { retainLaggingDiagnosticPresentation } from "./laggingDiagnosticPresentation";
 import {
   createParameterDictionaryEntryItem,
   dictionaryEntryParentPromotionRequired,
@@ -293,6 +294,7 @@ export function applyProjectSnapshotToWorkspace(
       next,
       descriptor,
       options,
+      snapshot,
     );
   }
 
@@ -547,11 +549,19 @@ function projectCanonicalResponseSection(
   next: WorkspaceSection,
   descriptor: ProjectSectionDescriptor,
   options: ProjectSnapshotProjectionOptions,
+  snapshot: ProjectSnapshotV2,
 ): WorkspaceSection {
   if (previous === undefined) {
     return next;
   }
-  const retained = retainSectionPresentation(previous, next);
+  const retained = retainLaggingDiagnosticPresentation(
+    previous,
+    retainSectionPresentation(previous, next),
+    snapshot,
+    descriptor.kind === "list"
+      ? null
+      : { id: descriptor.canonicalId, kind: descriptor.kind },
+  );
   switch (descriptor.kind) {
     case "callable":
       return {

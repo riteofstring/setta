@@ -3,11 +3,13 @@ import {
   createWorkspaceHost,
   getWorkspaceCodeSectionData,
   setWorkspaceCodeSectionData,
+  type WorkspaceHost,
 } from "@setta/workspace";
 import { describe, expect, it } from "vitest";
 
 import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
 import { readCallableSectionData } from "../sections/CallableSection";
+import { readParameterDictionarySectionData } from "../sections/ParamDictSection";
 import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import {
   CALLABLE_SECTION_KIND,
@@ -344,6 +346,187 @@ describe("Python Canvas V2 workspace projection", () => {
     host.dispose();
   });
 
+  it("keeps settled diagnostics on surviving callable, parameter, and dictionary targets while a structural snapshot lags", () => {
+    const settled = diagnosticContinuitySnapshot({
+      diagnostics: [
+        diagnostic("callable:survives", "Callable error"),
+        diagnostic("parameter:survives", "Parameter error"),
+        diagnostic("entry:survives", "Dictionary entry error"),
+      ],
+      diagnosticsRevision: 1,
+      revision: 1,
+    });
+    const lagging = parseProjectSnapshotV2({
+      ...settled,
+      diagnostics: [],
+      lists: [
+        {
+          childSectionIds: [],
+          id: "list:created",
+          name: "Unrelated List",
+        },
+      ],
+      diagnosticsRevision: 1,
+      project: { ...settled.project, revision: 2 },
+      providerStatus: {
+        provider: "basedpyright",
+        state: "pending",
+        status: "available",
+      },
+      topLevelSectionIds: [...settled.topLevelSectionIds, "list:created"],
+    });
+    const host = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(host);
+    host.loadDocument(projectWorkspaceDocument(settled));
+
+    applyCanonicalSnapshot(host, lagging);
+
+    expect(projectedCallableData(host, "callable:survives")).toMatchObject({
+      callableDiagnosticMessage: "Callable error",
+      parameterDiagnostics: {
+        [parameterWorkspaceItemID("parameter:survives")]: [
+          { message: "Parameter error", severity: "error" },
+        ],
+      },
+    });
+    expect(projectedDictionaryData(host, "dictionary:options")).toMatchObject({
+      entryDiagnostics: {
+        [dictionaryEntryWorkspaceItemID("entry:survives")]: [
+          { message: "Dictionary entry error", severity: "error" },
+        ],
+      },
+    });
+    expect(
+      host.getSnapshot().sections[listSectionID("list:created")],
+    ).toBeDefined();
+    host.dispose();
+  });
+
+  it("does not retain diagnostics for targets removed by a lagging structural snapshot", () => {
+    const settled = diagnosticContinuitySnapshot({
+      diagnostics: [
+        diagnostic("callable:deleted", "Deleted callable error"),
+        diagnostic("parameter:deleted", "Deleted parameter error"),
+        diagnostic("entry:deleted", "Deleted dictionary entry error"),
+      ],
+      diagnosticsRevision: 1,
+      revision: 1,
+    });
+    const lagging = parseProjectSnapshotV2({
+      ...settled,
+      callables: settled.callables
+        .filter((callable) => callable.id !== "callable:deleted")
+        .map((callable) => ({
+          ...callable,
+          parameters: callable.parameters.filter(
+            (parameter) => parameter.id !== "parameter:deleted",
+          ),
+        })),
+      diagnostics: [],
+      diagnosticsRevision: 1,
+      parameterDictionaries: settled.parameterDictionaries.map(
+        (dictionary) => ({
+          ...dictionary,
+          entries: dictionary.entries.filter(
+            (entry) => entry.id !== "entry:deleted",
+          ),
+        }),
+      ),
+      project: { ...settled.project, revision: 2 },
+      providerStatus: {
+        provider: "basedpyright",
+        state: "pending",
+        status: "available",
+      },
+      topLevelSectionIds: settled.topLevelSectionIds.filter(
+        (sectionId) => sectionId !== "callable:deleted",
+      ),
+    });
+    const host = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(host);
+    host.loadDocument(projectWorkspaceDocument(settled));
+
+    applyCanonicalSnapshot(host, lagging);
+
+    expect(
+      host.getSnapshot().sections[callableSectionID("callable:deleted")],
+    ).toBeUndefined();
+    expect(
+      projectedCallableData(host, "callable:survives").parameterDiagnostics,
+    ).toEqual({});
+    expect(
+      projectedDictionaryData(host, "dictionary:options").entryDiagnostics,
+    ).toEqual({});
+    host.dispose();
+  });
+
+  it("replaces or clears retained diagnostics when a snapshot settles, including provider failure", () => {
+    const settled = diagnosticContinuitySnapshot({
+      diagnostics: [
+        diagnostic("callable:survives", "Old callable error"),
+        diagnostic("parameter:survives", "Old parameter error"),
+        diagnostic("entry:survives", "Old dictionary entry error"),
+      ],
+      diagnosticsRevision: 1,
+      revision: 1,
+    });
+    const lagging = diagnosticContinuitySnapshot({
+      diagnostics: [],
+      diagnosticsRevision: 1,
+      revision: 2,
+    });
+    const resolved = diagnosticContinuitySnapshot({
+      diagnostics: [
+        diagnostic("callable:survives", "Replacement callable error"),
+        diagnostic("entry:survives", "Replacement dictionary entry error"),
+      ],
+      diagnosticsRevision: 2,
+      revision: 2,
+    });
+    const failed = diagnosticContinuitySnapshot({
+      diagnostics: [],
+      diagnosticsRevision: 3,
+      providerStatus: {
+        provider: "basedpyright",
+        state: "failed",
+        status: "unavailable",
+      },
+      revision: 3,
+    });
+    const host = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(host);
+    host.loadDocument(projectWorkspaceDocument(settled));
+
+    applyCanonicalSnapshot(host, lagging);
+    applyCanonicalSnapshot(host, resolved);
+
+    expect(projectedCallableData(host, "callable:survives")).toMatchObject({
+      callableDiagnosticMessage: "Replacement callable error",
+      parameterDiagnostics: {},
+    });
+    expect(projectedDictionaryData(host, "dictionary:options")).toMatchObject({
+      entryDiagnostics: {
+        [dictionaryEntryWorkspaceItemID("entry:survives")]: [
+          {
+            message: "Replacement dictionary entry error",
+            severity: "error",
+          },
+        ],
+      },
+    });
+
+    applyCanonicalSnapshot(host, failed);
+
+    expect(projectedCallableData(host, "callable:survives")).toMatchObject({
+      callableDiagnosticMessage: null,
+      parameterDiagnostics: {},
+    });
+    expect(projectedDictionaryData(host, "dictionary:options")).toMatchObject({
+      entryDiagnostics: {},
+    });
+    host.dispose();
+  });
+
   it("projects a mixed authored forest with recursive dictionary diagnostics", () => {
     const snapshot = forestSnapshot();
     const document = projectWorkspaceDocument(snapshot);
@@ -617,6 +800,131 @@ describe("Python Canvas V2 workspace projection", () => {
     host.dispose();
   });
 });
+
+function applyCanonicalSnapshot(
+  host: WorkspaceHost,
+  snapshot: ReturnType<typeof parseProjectSnapshotV2>,
+) {
+  applyProjectSnapshotToWorkspace(host, snapshot, {
+    keepAuthoredPython: false,
+    keepDictionaryEntries: new Set(),
+    keepParameterLists: new Set(),
+    pendingSectionIds: new Map(),
+    unresolvedPendingSectionIds: new Set(),
+  });
+}
+
+function projectedCallableData(host: WorkspaceHost, callableId: string) {
+  const section = host.getSnapshot().sections[callableSectionID(callableId)];
+  if (section === undefined) {
+    throw new Error(`Expected projected callable ${callableId}.`);
+  }
+  return readCallableSectionData(section.data);
+}
+
+function projectedDictionaryData(host: WorkspaceHost, dictionaryId: string) {
+  const section =
+    host.getSnapshot().sections[parameterDictionarySectionID(dictionaryId)];
+  if (section === undefined) {
+    throw new Error(`Expected projected dictionary ${dictionaryId}.`);
+  }
+  return readParameterDictionarySectionData(section.data);
+}
+
+function diagnostic(targetId: string, message: string) {
+  return {
+    end: 1,
+    id: `diagnostic:${targetId}`,
+    message,
+    severity: "error",
+    start: 0,
+    targetId,
+  } as const;
+}
+
+function diagnosticContinuitySnapshot({
+  diagnostics,
+  diagnosticsRevision,
+  providerStatus = {
+    provider: "basedpyright",
+    state: "ready",
+    status: "available",
+  },
+  revision,
+}: {
+  diagnostics: ReadonlyArray<ReturnType<typeof diagnostic>>;
+  diagnosticsRevision: number;
+  providerStatus?: unknown;
+  revision: number;
+}) {
+  return parseProjectSnapshotV2({
+    ...projectSnapshotFixture,
+    callables: [
+      {
+        authoredExpression: "math.sqrt",
+        id: "callable:survives",
+        name: "Surviving callable",
+        parameters: [
+          {
+            authoredExpression: "",
+            default: null,
+            id: "parameter:survives",
+            name: "value",
+            nameEditable: false,
+            passingStyle: "positional_or_keyword",
+            providerOrdinal: 0,
+            typeAnnotation: "float",
+          },
+          {
+            authoredExpression: "",
+            default: null,
+            id: "parameter:deleted",
+            name: "scale",
+            nameEditable: false,
+            passingStyle: "positional_or_keyword",
+            providerOrdinal: 1,
+            typeAnnotation: "float",
+          },
+        ],
+      },
+      {
+        authoredExpression: "math.floor",
+        id: "callable:deleted",
+        name: "Deleted callable",
+        parameters: [],
+      },
+    ],
+    diagnostics,
+    diagnosticsRevision,
+    parameterDictionaries: [
+      {
+        entries: [
+          {
+            authoredExpression: "missing_value",
+            id: "entry:survives",
+            kind: "leaf",
+            name: "surviving",
+          },
+          {
+            authoredExpression: "missing_value",
+            id: "entry:deleted",
+            kind: "leaf",
+            name: "deleted",
+          },
+        ],
+        id: "dictionary:options",
+        name: "Options",
+      },
+    ],
+    project: { ...projectSnapshotFixture.project, revision },
+    providerStatus,
+    topLevelSectionIds: [
+      "callable:survives",
+      "callable:deleted",
+      "dictionary:options",
+    ],
+  });
+}
 
 function dynamicSnapshot() {
   return parseProjectSnapshotV2({

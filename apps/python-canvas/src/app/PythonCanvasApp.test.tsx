@@ -967,6 +967,7 @@ describe("PythonCanvasApp", () => {
           targetId: "callable:one",
         },
       ],
+      diagnosticsRevision: 2,
     };
     const commitRequest = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
     const workspace = installWorkspaceHarness();
