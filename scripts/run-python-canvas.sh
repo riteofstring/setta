@@ -83,22 +83,22 @@ require_command() {
 }
 
 resolve_go_command() {
-  local code_policy_path=""
-  local code_policy_prefix=""
-  local code_policy_version=""
+  local code_polishy_path=""
+  local code_polishy_prefix=""
+  local code_polishy_version=""
   local release_digest=""
   local os_tag=""
   local arch_tag=""
   local pinned_go=""
-  local -a code_policy_prefixes=()
+  local -a code_polishy_prefixes=()
 
-  code_policy_version="$(
-    sed -n 's/^[[:space:]]*"codePolicyVersion":[[:space:]]*"\([^"]*\)".*/\1/p' \
-      "${repo_root}/.code-policy.lock.json"
+  code_polishy_version="$(
+    sed -n 's/^[[:space:]]*"codePolishyVersion":[[:space:]]*"\([^"]*\)".*/\1/p' \
+      "${repo_root}/.code-polishy.lock.json"
   )"
   release_digest="$(
     sed -n 's/^[[:space:]]*"releaseDigest":[[:space:]]*"\([^"]*\)".*/\1/p' \
-      "${repo_root}/.code-policy.lock.json"
+      "${repo_root}/.code-polishy.lock.json"
   )"
   case "$(uname -s)" in
     Darwin) os_tag="darwin" ;;
@@ -109,17 +109,17 @@ resolve_go_command() {
     x86_64 | amd64) arch_tag="amd64" ;;
   esac
 
-  code_policy_path="$(command -v code-policy 2>/dev/null || true)"
-  if [[ -n "${code_policy_path}" ]]; then
-    code_policy_prefixes+=("$(cd "$(dirname "${code_policy_path}")/.." && pwd -P)")
+  code_polishy_path="$(command -v code-polishy 2>/dev/null || true)"
+  if [[ -n "${code_polishy_path}" ]]; then
+    code_polishy_prefixes+=("$(cd "$(dirname "${code_polishy_path}")/.." && pwd -P)")
   fi
   if [[ -n "${HOME:-}" ]]; then
-    code_policy_prefixes+=("${HOME}/.local/share/code-policy")
+    code_polishy_prefixes+=("${HOME}/.local/share/code-polishy")
   fi
 
-  for code_policy_prefix in "${code_policy_prefixes[@]}"; do
-    pinned_go="${code_policy_prefix}/releases/${code_policy_version}-${release_digest}/.tools/go/${os_tag}-${arch_tag}/go/bin/go"
-    if [[ -n "${code_policy_version}" && -n "${release_digest}" && -x "${pinned_go}" ]]; then
+  for code_polishy_prefix in "${code_polishy_prefixes[@]}"; do
+    pinned_go="${code_polishy_prefix}/releases/${code_polishy_version}-${release_digest}/.tools/go/${os_tag}-${arch_tag}/go/bin/go"
+    if [[ -n "${code_polishy_version}" && -n "${release_digest}" && -x "${pinned_go}" ]]; then
       printf '%s\n' "${pinned_go}"
       return 0
     fi
@@ -172,8 +172,8 @@ trap 'exit 129' HUP
 require_command pnpm
 require_command curl
 if ! go_command="$(resolve_go_command)"; then
-  echo "Python Canvas could not find the Go toolchain carried by this repo's locked Code Policy release." >&2
-  echo "Reinstall the locked Code Policy release and run this script again." >&2
+  echo "Python Canvas could not find the Go toolchain carried by this repo's locked Code Polishy release." >&2
+  echo "Reinstall the locked Code Polishy release and run this script again." >&2
   exit 1
 fi
 

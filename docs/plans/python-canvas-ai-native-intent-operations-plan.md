@@ -85,7 +85,7 @@ Focused tests must prove observable behavior rather than repeat implementation l
 8. Existing `callable.create`, `callable.commit`, `callable.refreshParameters`, and `parameter.setValue` behavior remains unchanged.
 9. Generated Go/TypeScript contracts remain current and the frontend builds.
 
-After focused tests, run the changed-scope Code Policy suite. Finally, exercise the operation against a temporary headless app and verify that the pushed browser state appears once in its final configured form.
+After focused tests, run the changed-scope Code Polishy suite. Finally, exercise the operation against a temporary headless app and verify that the pushed browser state appears once in its final configured form.
 
 ## Explicit non-goals
 

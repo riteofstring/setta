@@ -187,7 +187,7 @@ identity. No `@setta/workspace` API change is required.
   coordinator snapshot through the V2 endpoint.
 - Existing `cmd/python-canvas` startup tests to prove server launch arguments are unchanged.
 - Focused workspace test for the adjusted parameter-picker inset.
-- Near completion, run `code-policy test --changed` in the caller's single task session. Do not turn
+- Near completion, run `code-polishy test --changed` in the caller's single task session. Do not turn
   unrelated full-repository, mutation, platform, packaging, or browser audits into completion work.
 
 ## Implementation sequence
@@ -216,7 +216,7 @@ framework adoption.
 - [x] Push-only browser synchronization and diagnostic settling
 - [x] Strict machine output and stable exit statuses
 - [x] Focused and live-handler acceptance tests passing
-- [x] `code-policy test --changed` evidence recorded
+- [x] `code-polishy test --changed` evidence recorded
 
 ## Implementation evidence
 

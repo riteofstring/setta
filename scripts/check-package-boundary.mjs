@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { repositoryRoot } from "./lib/process.mjs";
 
-// Setta-specific package contract that remains after Code Policy takes ownership of source import
+// Setta-specific package contract that remains after Code Polishy takes ownership of source import
 // direction and declared dependency use. The package exposes only compiled exports, avoids alias
 // escape hatches, keeps its unrelated-consumer fixture explicit, and emits the exact artifact
 // surface and scoped stylesheet consumers require.
