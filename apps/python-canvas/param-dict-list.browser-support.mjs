@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { fetchCanonicalSnapshot } from "./browser-processes.mjs";
 import { waitForSnapshot } from "./callable-commit.browser.mjs";
 import {
+  dragBetweenPoints,
   evaluate,
   labeledSelector,
   rightClickPoint,
@@ -209,6 +210,132 @@ export async function assertSectionSize(client, selector, expected) {
       Math.abs(actual.height - expected.height) < 0.5,
     "Moving the Param Dict changed its section dimensions.",
   );
+}
+
+export async function assertListRootFixedHeight(
+  client,
+  listId,
+  description = "The List of Objects root",
+) {
+  const actual = await evaluate(
+    client,
+    `(() => {
+      const shell = document.querySelector(${JSON.stringify(listSectionSelector(listId))});
+      const resizable = shell?.querySelector('[id$="-CustomResizable"]');
+      if (!(resizable instanceof HTMLElement)) return null;
+      const rect = resizable.getBoundingClientRect();
+      const style = getComputedStyle(resizable);
+      return {
+        height: Number.parseFloat(style.height),
+        renderedHeight: rect.height,
+        renderedWidth: rect.width,
+        width: Number.parseFloat(style.width),
+      };
+    })()`,
+  );
+  assert.ok(actual, `${description} resizable surface is not mounted.`);
+  assert.ok(
+    Math.abs(actual.height - 50) < 0.5,
+    `${description} height was ${String(actual.height)}px instead of the fixed 50px.`,
+  );
+  return actual;
+}
+
+// A fixed-height List intentionally exposes only its right resize handle. Drive
+// that real handle diagonally so the browser attempts a large vertical resize
+// while the horizontal component still proves that width remains editable.
+export async function resizeListRootHorizontallyWhileAttemptingVerticalResize(
+  client,
+  listId,
+) {
+  const selector = listSectionSelector(listId);
+  const before = await assertListRootFixedHeight(
+    client,
+    listId,
+    "The List of Objects root before its resize attempt",
+  );
+  const geometry = await evaluate(
+    client,
+    `(() => {
+      const shell = document.querySelector(${JSON.stringify(selector)});
+      const resizable = shell?.querySelector('[id$="-CustomResizable"]');
+      const right = resizable?.querySelector(".section-resize-handle-right");
+      const bottom = resizable?.querySelector(".section-resize-handle-bottom");
+      const bottomRight = resizable?.querySelector(".section-resize-handle-bottom-right");
+      if (!(resizable instanceof HTMLElement) || !(right instanceof HTMLElement)) {
+        return null;
+      }
+      resizable.scrollIntoView({ block: "center", inline: "center" });
+      const rect = resizable.getBoundingClientRect();
+      const rightRect = right.getBoundingClientRect();
+      if (rightRect.width <= 0 || rightRect.height <= 0) {
+        return null;
+      }
+      const start = {
+        x: Math.max(12, Math.min(window.innerWidth - 12, rightRect.left + rightRect.width / 2)),
+        y: Math.max(12, Math.min(window.innerHeight - 12, rightRect.top + rightRect.height / 2)),
+      };
+      const end = {
+        x: Math.min(window.innerWidth - 24, start.x + 128),
+        y: Math.min(window.innerHeight - 24, start.y + 256),
+      };
+      return {
+        bottomPresent: bottom instanceof HTMLElement,
+        bottomRightPresent: bottomRight instanceof HTMLElement,
+        end,
+        section: { height: rect.height, width: rect.width },
+        start,
+      };
+    })()`,
+  );
+  assert.ok(
+    geometry,
+    "The List of Objects right resize handle is not mounted.",
+  );
+  assert.equal(
+    geometry.bottomPresent,
+    false,
+    "The fixed-height List of Objects still exposes a bottom resize handle.",
+  );
+  assert.equal(
+    geometry.bottomRightPresent,
+    false,
+    "The fixed-height List of Objects still exposes a bottom-right resize handle.",
+  );
+  assert.ok(
+    geometry.end.x - geometry.start.x >= 64,
+    "The List of Objects horizontal resize attempt was too small to prove width remains editable.",
+  );
+  assert.ok(
+    geometry.end.y - geometry.start.y >= 160,
+    "The List of Objects vertical resize attempt was not large enough.",
+  );
+
+  await dragBetweenPoints(client, geometry.start, geometry.end);
+  await waitFor(
+    client,
+    "the List of Objects horizontal resize",
+    `(() => {
+      const shell = document.querySelector(${JSON.stringify(selector)});
+      const resizable = shell?.querySelector('[id$="-CustomResizable"]');
+      return resizable instanceof HTMLElement &&
+        Number.parseFloat(getComputedStyle(resizable).width) > ${String(before.width + 32)};
+    })()`,
+  );
+  const after = await assertListRootFixedHeight(
+    client,
+    listId,
+    "The List of Objects root after its vertical resize attempt",
+  );
+  assert.ok(
+    after.width > before.width + 32,
+    "The fixed-height List of Objects did not remain horizontally resizable.",
+  );
+  assert.ok(
+    Math.abs(after.renderedHeight - before.renderedHeight) < 0.5,
+    "The List of Objects outer height changed during its vertical resize attempt.",
+  );
+  return { after, before };
 }
 
 export async function sectionFieldSize(client, selector) {
@@ -460,20 +587,53 @@ export function assertNoGeneratedPythonDuplicate(snapshot, diagnostic) {
   );
 }
 
-export function assertGeneratedListOrder(snapshot, count) {
+export function assertGeneratedMultilineCollection(
+  snapshot,
+  { closing, description, itemCount, prefix },
+) {
+  const body = snapshot.generatedCode.body;
+  const start = body.indexOf(`${prefix}\n`);
+  assert.notEqual(start, -1, `${description} did not start on a new line.`);
+  const itemStart = start + prefix.length + 1;
+  const end = body.indexOf(`\n        ${closing}`, itemStart);
+  assert.notEqual(end, -1, `${description} closing delimiter is not aligned.`);
+  const lines = body.slice(itemStart, end).split("\n");
+  assert.equal(
+    lines.length,
+    itemCount,
+    `${description} did not render ${String(itemCount)} items.`,
+  );
+  assert.ok(
+    lines.every(
+      (line) =>
+        line.startsWith("            ") &&
+        line.endsWith(",") &&
+        line.trim().length > 1,
+    ),
+    `${description} items are not indented with trailing commas.`,
+  );
+  return lines.map((line) => line.trim().slice(0, -1));
+}
+
+export function assertGeneratedListOrder(
+  snapshot,
+  count,
+  path = "New_List_of_Objects",
+) {
   const values = Array.from(
     { length: count },
-    (_, index) => `state.New_List_of_Objects__${String(index)}`,
+    (_, index) => `state.${path}__${String(index)}`,
   );
+  const collection = `[${values.join(", ")}]`;
   const multiline =
-    "state.New_List_of_Objects = [\n" +
+    `state.${path} = [\n` +
     values.map((value) => `            ${value},`).join("\n") +
     "\n        ]";
-  const inline = `state.New_List_of_Objects = [${values.join(", ")}]`;
+  const inline = `state.${path} = ${collection}`;
+  const expected = count >= 4 || collection.length > 88 ? multiline : inline;
   assert.ok(
-    snapshot.generatedCode.body.includes(inline) ||
-      snapshot.generatedCode.body.includes(multiline),
-    "Generated Python does not use the canonical list index paths and order.",
+    snapshot.generatedCode.body.includes(expected),
+    "Generated Python does not use the required collection layout, index paths, and order.",
   );
 }
 

@@ -29,7 +29,7 @@ export async function exerciseResolvedMathCallableLifecycle(
   harness,
 ) {
   const subject = { harness, name };
-  await resolveMathParametersFromPythonTarget(
+  const initialPresentation = await resolveMathParametersFromPythonTarget(
     client,
     backendOrigin,
     name,
@@ -81,6 +81,13 @@ export async function exerciseResolvedMathCallableLifecycle(
     parameter.id,
     missingArgument.message,
     harness,
+  );
+  await waitForSetTargetCallablePresentation(
+    client,
+    "the resolved SetTarget response without callable presentation changes",
+    harness.callableSectionSelector(name),
+    initialPresentation,
+    false,
   );
 
   await setParameterExpression(client, backendOrigin, subject, parameter, {
@@ -245,14 +252,38 @@ async function resolveMathParametersFromPythonTarget(
     "The Python-target resolution path requires the unresolved math.sqrt callable.",
   );
   const refreshRequestsBefore = await parameterRefreshRequestCount(client);
-
-  await activateCodeEditor(
+  const sectionSelector = harness.callableSectionSelector(name);
+  const initialPresentation = await readCallableResolutionPresentation(
     client,
-    generatedPythonEditorSelector,
-    "the Generated Python document for the math import",
+    sectionSelector,
   );
-  await moveCaretToDocumentStart(client);
-  await insertText(client, "import math\n");
+
+  await gateNextSetTargetResponse(client);
+  try {
+    await activateCodeEditor(
+      client,
+      generatedPythonEditorSelector,
+      "the Generated Python document for the math import",
+    );
+    await moveCaretToDocumentStart(client);
+    await insertText(client, "import math\n");
+    await waitForSetTargetCallablePresentation(
+      client,
+      "the held SetTarget response without callable reconciliation pending presentation",
+      sectionSelector,
+      initialPresentation,
+      true,
+    );
+  } finally {
+    const intercepted = await evaluate(
+      client,
+      "window.__pythonCanvasSetTargetGate?.intercepted === true",
+    );
+    if (intercepted) {
+      await releaseSetTargetResponse(client);
+    }
+  }
+
   const resolved = await waitForSnapshot(
     backendOrigin,
     "the Python-target-resolved math.sqrt signature",
@@ -291,6 +322,112 @@ async function resolveMathParametersFromPythonTarget(
     resolved.generatedCode.body.includes("math.sqrt()"),
     "Generated Python did not contain the automatically refreshed math.sqrt call.",
   );
+  return initialPresentation;
+}
+
+async function readCallableResolutionPresentation(client, sectionSelector) {
+  const presentation = await evaluate(
+    client,
+    callableResolutionPresentationExpression(sectionSelector),
+  );
+  assert.ok(
+    presentation,
+    "The unresolved callable has no measurable section and field presentation.",
+  );
+  return presentation;
+}
+
+async function waitForSetTargetCallablePresentation(
+  client,
+  description,
+  sectionSelector,
+  initialPresentation,
+  responseHeld,
+) {
+  await waitFor(
+    client,
+    description,
+    "(() => { const state = " +
+      callableResolutionPresentationExpression(sectionSelector) +
+      "; return " +
+      (responseHeld
+        ? "window.__pythonCanvasSetTargetGate?.intercepted === true && "
+        : "") +
+      "state !== null && state.callableBusy === false &&" +
+      "state.fieldDisabled === 'false' && state.editorDisabled === false &&" +
+      "state.overlayPresent === false && state.spinnerPresent === false &&" +
+      "state.lockPresent === true && state.unlockPresent === false &&" +
+      "Math.abs(state.sectionHeight - " +
+      String(initialPresentation.sectionHeight) +
+      ") < 0.5 && Math.abs(state.fieldHeight - " +
+      String(initialPresentation.fieldHeight) +
+      ") < 0.5; })()",
+  );
+}
+
+function callableResolutionPresentationExpression(sectionSelector) {
+  return (
+    "(() => {" +
+    "const section = document.querySelector(" +
+    JSON.stringify(sectionSelector) +
+    ");" +
+    "const callable = section?.querySelector('.python-canvas-callable-section');" +
+    "const field = section?.querySelector('[data-workspace-section-field=true]');" +
+    "const editor = field?.querySelector(" +
+    JSON.stringify(contentEditableTextBoxSelector("Callable expression")) +
+    ");" +
+    "const overlay = section?.querySelector('[data-python-canvas-parameter-pending=true]');" +
+    "const spinner = section?.querySelector('.python-canvas-parameter-spinner');" +
+    "const lock = section?.querySelector('button[aria-label=\"Lock position and size\"]');" +
+    "const unlock = section?.querySelector('button[aria-label=\"Unlock position and size\"]');" +
+    "if (!(section instanceof HTMLElement) || !(callable instanceof HTMLElement) || !(field instanceof HTMLElement) || !(editor instanceof HTMLElement)) return null;" +
+    "return { callableBusy: callable.getAttribute('aria-busy') === 'true', editorDisabled: editor.getAttribute('aria-disabled') === 'true', fieldDisabled: field.dataset.disabled, fieldHeight: field.getBoundingClientRect().height, lockPresent: lock instanceof HTMLElement, overlayPresent: overlay !== null, sectionHeight: section.getBoundingClientRect().height, spinnerPresent: spinner !== null, unlockPresent: unlock !== null };" +
+    "})()"
+  );
+}
+
+async function gateNextSetTargetResponse(client) {
+  const installed = await evaluate(
+    client,
+    "(() => {" +
+      "if (window.__pythonCanvasSetTargetGate !== undefined) return false;" +
+      "const originalFetch = window.fetch;" +
+      "let release;" +
+      "const wait = new Promise((resolve) => { release = resolve; });" +
+      "const gate = { intercepted: false, release: () => release(true) };" +
+      "window.__pythonCanvasSetTargetGate = gate;" +
+      "window.fetch = async (...args) => {" +
+      "const input = args[0];" +
+      "const requestUrl = typeof input === 'string' || input instanceof URL ? String(input) : input.url;" +
+      "const method = (args[1]?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();" +
+      "const response = await originalFetch.apply(window, args);" +
+      "if (!gate.intercepted && method === 'POST' && new URL(requestUrl, location.href).pathname.endsWith('/target')) {" +
+      "gate.intercepted = true; await wait; window.fetch = originalFetch;" +
+      "}" +
+      "return response;" +
+      "};" +
+      "return true;" +
+      "})()",
+  );
+  assert.equal(
+    installed,
+    true,
+    "The SetTarget response gate was not installed.",
+  );
+}
+
+async function releaseSetTargetResponse(client) {
+  const released = await evaluate(
+    client,
+    "(() => {" +
+      "const gate = window.__pythonCanvasSetTargetGate;" +
+      "if (gate?.intercepted !== true) return false;" +
+      "gate.release();" +
+      "delete window.__pythonCanvasSetTargetGate;" +
+      "return true;" +
+      "})()",
+  );
+  assert.equal(released, true, "The SetTarget response was not gated.");
 }
 
 async function parameterRefreshRequestCount(client) {

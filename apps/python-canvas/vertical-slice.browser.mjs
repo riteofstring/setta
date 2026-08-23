@@ -14,6 +14,8 @@ import {
 import { exerciseResolvedMathCallableLifecycle } from "./callable-lifecycle.browser.mjs";
 import { exerciseParamDictAndListSlice } from "./param-dict-list.browser.mjs";
 import {
+  assertGeneratedMultilineCollection,
+  assertListRootFixedHeight,
   assertPendingCreationHidden,
   installCreationResponseGate,
   releaseCreationResponseGate,
@@ -227,6 +229,11 @@ await runAgainstProductionApp(
         const list = document.querySelector(${JSON.stringify(`[data-section-id="python-canvas:list:${paramDictAndList.listId}"]`)});
         return canvas instanceof HTMLElement && callable !== null && dictionary !== null && list !== null;
       })()`,
+    );
+    await assertListRootFixedHeight(
+      client,
+      paramDictAndList.listId,
+      "The restored List of Objects root",
     );
 
     await client.send("Emulation.setDeviceMetricsOverride", {
@@ -459,6 +466,44 @@ async function exerciseParameterAuthoring(
     backendOrigin,
     providerKeyword.id,
     "provider-derived parameter",
+  );
+  await setParameterName(
+    client,
+    backendOrigin,
+    firstApp.id,
+    "browser_value_with_a_name_long_enough_to_force_multiline_rendering",
+  );
+  assertGeneratedMultilineCollection(
+    await fetchCanonicalSnapshot(backendOrigin),
+    {
+      closing: ")",
+      description: "The over-88-character Callable argument list",
+      itemCount: 3,
+      prefix: "fixture_module.sample(",
+    },
+  );
+  await setParameterName(client, backendOrigin, firstApp.id, "browser_value");
+  const beforeFourthArgument = await fetchCanonicalSnapshot(backendOrigin);
+  const fourthArgument = await addAppParameter(
+    client,
+    backendOrigin,
+    findRequiredCallable(beforeFourthArgument, sampleCallableName),
+  );
+  await setParameterName(
+    client,
+    backendOrigin,
+    fourthArgument.id,
+    "fourth_value",
+  );
+  await setParameterExpression(client, backendOrigin, fourthArgument.id, "8");
+  assertGeneratedMultilineCollection(
+    await fetchCanonicalSnapshot(backendOrigin),
+    {
+      closing: ")",
+      description: "The four-item Callable argument list",
+      itemCount: 4,
+      prefix: "fixture_module.sample(",
+    },
   );
   return initialProviderMetadata;
 }

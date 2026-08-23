@@ -12,6 +12,8 @@ import {
   assertFocusNotStolenAfterSectionMove,
   assertGeneratedDictionary,
   assertGeneratedListOrder,
+  assertGeneratedMultilineCollection,
+  assertListRootFixedHeight,
   assertNoGeneratedPythonDuplicate,
   assertRevisionIncremented,
   assertSectionFieldSize,
@@ -30,6 +32,7 @@ import {
   requireDiagnostic,
   requireDictionary,
   requireList,
+  resizeListRootHorizontallyWhileAttemptingVerticalResize,
   sameListChildren,
   sectionFieldSize,
   sectionSize,
@@ -286,7 +289,11 @@ export async function exerciseParamDictAndListSlice(
     sectionSelector: listSectionSelector,
   });
   await assertListRootMainPresentation(client, outerList.id);
-  await setListChildCountToTwo(client, outerList.id);
+  await resizeListRootHorizontallyWhileAttemptingVerticalResize(
+    client,
+    outerList.id,
+  );
+  await setListChildCount(client, outerList.id, 2);
   const listWithChildren = await addListChildren(
     client,
     backendOrigin,
@@ -368,6 +375,12 @@ export async function exerciseParamDictAndListSlice(
   );
   await assertFocusNotStolenAfterSectionMove(client, dictionaryMoveFocus);
   assertGeneratedListOrder(dictionaryInList, 3);
+  assertGeneratedMultilineCollection(dictionaryInList, {
+    closing: "]",
+    description: "The over-88-character List of Objects composition",
+    itemCount: 3,
+    prefix: "state.New_List_of_Objects = [",
+  });
 
   const beforeListReorder = dictionaryInList;
   const dictionaryFirstPredicate = (snapshot) =>
@@ -530,6 +543,80 @@ export async function exerciseParamDictAndListSlice(
     "Deleting the nested list left a dangling generated state lookup.",
   );
   assertGeneratedListOrder(afterNestedDelete, 2);
+
+  const width = await addDictionaryEntry(client, dictionary.id);
+  await setDictionaryEntryName(
+    client,
+    backendOrigin,
+    dictionary.id,
+    width,
+    "width_with_a_name_long_enough_to_force_multiline_rendering",
+  );
+  const threeItemDictionary = await setDictionaryEntryExpression(
+    client,
+    backendOrigin,
+    dictionary.id,
+    width,
+    "6",
+  );
+  assertGeneratedMultilineCollection(threeItemDictionary, {
+    closing: "}",
+    description: "The over-88-character Param Dict composition",
+    itemCount: 3,
+    prefix: "state.New_List_of_Objects__0 = {",
+  });
+  await setDictionaryEntryName(
+    client,
+    backendOrigin,
+    dictionary.id,
+    width,
+    "width",
+  );
+
+  const height = await addDictionaryEntry(client, dictionary.id);
+  await setDictionaryEntryName(
+    client,
+    backendOrigin,
+    dictionary.id,
+    height,
+    "height",
+  );
+  const fourItemDictionary = await setDictionaryEntryExpression(
+    client,
+    backendOrigin,
+    dictionary.id,
+    height,
+    "7",
+  );
+  assertGeneratedMultilineCollection(fourItemDictionary, {
+    closing: "}",
+    description: "The four-item Param Dict composition",
+    itemCount: 4,
+    prefix: "state.New_List_of_Objects__0 = {",
+  });
+
+  const formattingList = await createPaneSection(client, backendOrigin, {
+    collection: "lists",
+    defaultName: "New List of Objects 2",
+    label: "List of Objects",
+    pendingKind: "python-canvas.list-pending",
+    sectionSelector: listSectionSelector,
+  });
+  await assertListRootFixedHeight(client, formattingList.id);
+  await setListChildCount(client, formattingList.id, 4);
+  const fourItemList = await addListChildren(
+    client,
+    backendOrigin,
+    formattingList.id,
+    4,
+  );
+  assertGeneratedListOrder(fourItemList, 4, "New_List_of_Objects_2");
+  assertGeneratedMultilineCollection(fourItemList, {
+    closing: "]",
+    description: "The four-item List of Objects composition",
+    itemCount: 4,
+    prefix: "state.New_List_of_Objects_2 = [",
+  });
 
   return {
     dictionaryId: dictionary.id,
@@ -719,7 +806,7 @@ async function waitForDictionarySelectionModeReleased(client, workspaceItemId) {
   );
 }
 
-async function setListChildCountToTwo(client, listId) {
+async function setListChildCount(client, listId, count) {
   const selector = listChildCountSelector(listId);
   await clickElementCenter(
     client,
@@ -727,11 +814,11 @@ async function setListChildCountToTwo(client, listId) {
     "the List of Objects child-count input",
   );
   await selectAll(client);
-  await insertText(client, "2");
+  await insertText(client, String(count));
   await waitFor(
     client,
-    "the List of Objects child count of two",
-    `document.querySelector(${JSON.stringify(selector)})?.value === "2"`,
+    `the List of Objects child count of ${String(count)}`,
+    `document.querySelector(${JSON.stringify(selector)})?.value === ${JSON.stringify(String(count))}`,
   );
 }
 

@@ -339,6 +339,11 @@ export async function activateCodeEditor(client, selector, description) {
       return control instanceof HTMLElement && control.getAttribute("contenteditable") === "true";
     })()`,
   );
+  await focusElement(
+    client,
+    `${selector} [role="textbox"]`,
+    `${description} text control`,
+  );
 }
 
 export async function insertText(client, text) {
