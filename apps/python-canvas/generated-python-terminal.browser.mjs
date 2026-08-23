@@ -286,6 +286,7 @@ export async function exerciseGeneratedPythonTerminalLifecycle(
   );
   await waitForTerminalReady(client);
   await waitForTerminalMarkerCount(client, absentRunMarker, 1);
+  await assertManagedRunTranscript(client);
 }
 
 export async function exerciseCopiedParamDictListTerminalRun(client) {
@@ -405,6 +406,36 @@ async function terminalMarkerCount(client, marker) {
       return (rows.textContent ?? "").split(${JSON.stringify(marker)}).length - 1;
     })()`,
   );
+}
+
+async function assertManagedRunTranscript(client) {
+  const visibleRows = await evaluate(
+    client,
+    `(() => {
+      const rows = document.querySelector(${JSON.stringify(terminalRowsSelector)});
+      return rows instanceof HTMLElement ? rows.textContent ?? "" : null;
+    })()`,
+  );
+  assert.equal(
+    typeof visibleRows,
+    "string",
+    "The terminal rows are missing after the generated Python Run.",
+  );
+  assert.ok(
+    visibleRows.includes(".setta-run-"),
+    `The terminal transcript did not show the relative run artifact: ${JSON.stringify(visibleRows)}.`,
+  );
+  for (const implementationDetail of [
+    "__setta_status",
+    "rm -f",
+    "del /f /q",
+    ".setta-python-canvas-run-",
+  ]) {
+    assert.ok(
+      !visibleRows.includes(implementationDetail),
+      `The terminal transcript exposed ${JSON.stringify(implementationDetail)}: ${JSON.stringify(visibleRows)}.`,
+    );
+  }
 }
 
 async function exerciseTerminalPresentationAndScrollOwnership(client) {
@@ -547,6 +578,20 @@ function assertTerminalPresentation(presentation) {
     /148, 163, 184/,
     "The xterm viewport did not use main's muted scrollbar color.",
   );
+  assert.ok(
+    presentation.trash.inlineSize === "16px" &&
+      presentation.trash.blockSize === "16px" &&
+      presentation.trash.width > 0 &&
+      presentation.trash.height > 0,
+    "The terminal trash control lost its existing visible 16 px hit target.",
+  );
+  assert.ok(
+    presentation.trash.left >= presentation.pane.left &&
+      presentation.trash.right <= presentation.pane.right &&
+      presentation.trash.top >= presentation.pane.top &&
+      presentation.trash.bottom <= presentation.pane.bottom,
+    `The terminal trash control is clipped outside its pane: ${JSON.stringify(presentation)}.`,
+  );
 }
 
 async function terminalOwnsWheel(client) {
@@ -562,12 +607,19 @@ async function terminalPresentation(client) {
     `(() => {
       const surface = document.querySelector(${JSON.stringify(terminalSurfaceSelector)});
       const viewport = document.querySelector(${JSON.stringify(terminalViewportSelector)});
+      const pane = document.querySelector(${JSON.stringify(terminalPaneSelector)});
+      const trash = document.querySelector(${JSON.stringify(terminalTrashSelector)});
       if (!(surface instanceof HTMLElement) ||
-        !(viewport instanceof HTMLElement)) {
+        !(viewport instanceof HTMLElement) ||
+        !(pane instanceof HTMLElement) ||
+        !(trash instanceof HTMLElement)) {
         return null;
       }
       const surfaceStyle = getComputedStyle(surface);
       const viewportStyle = getComputedStyle(viewport);
+      const trashStyle = getComputedStyle(trash);
+      const paneRect = pane.getBoundingClientRect();
+      const trashRect = trash.getBoundingClientRect();
       return {
         paddingBlockEnd: surfaceStyle.paddingBlockEnd,
         paddingBlockStart: surfaceStyle.paddingBlockStart,
@@ -575,6 +627,22 @@ async function terminalPresentation(client) {
         paddingInlineStart: surfaceStyle.paddingInlineStart,
         scrollbarColor: viewportStyle.scrollbarColor,
         scrollbarWidth: viewportStyle.scrollbarWidth,
+        pane: {
+          bottom: paneRect.bottom,
+          left: paneRect.left,
+          right: paneRect.right,
+          top: paneRect.top,
+        },
+        trash: {
+          blockSize: trashStyle.blockSize,
+          bottom: trashRect.bottom,
+          height: trashRect.height,
+          inlineSize: trashStyle.inlineSize,
+          left: trashRect.left,
+          right: trashRect.right,
+          top: trashRect.top,
+          width: trashRect.width,
+        },
       };
     })()`,
   );

@@ -3,9 +3,45 @@ package terminal
 import (
 	"bytes"
 	"errors"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestManagedRunCommandShowsOnlyInterpreterAndRelativeArtifact(t *testing.T) {
+	directory := t.TempDir()
+	artifact, err := createRunArtifact(directory, "print('managed artifact')\n")
+	if err != nil {
+		t.Fatalf("create run artifact: %v", err)
+	}
+	t.Cleanup(func() { _ = artifact.remove() })
+	if filepath.IsAbs(artifact.relativePath) {
+		t.Fatalf("run artifact path = %q, want relative", artifact.relativePath)
+	}
+	if !strings.HasPrefix(artifact.relativePath, ".setta-run-") {
+		t.Fatalf("run artifact path = %q, want backend-owned short name", artifact.relativePath)
+	}
+
+	command := managedRunCommand("python-interpreter", artifact.relativePath)
+	if !strings.Contains(command, "python-interpreter") ||
+		!strings.Contains(command, artifact.relativePath) {
+		t.Fatalf("run command = %q, want interpreter and artifact", command)
+	}
+	if strings.Count(command, artifact.relativePath) != 1 {
+		t.Fatalf("run command = %q, want one artifact reference", command)
+	}
+	for _, implementationDetail := range []string{
+		"__setta_status",
+		"rm -f",
+		"del /f /q",
+		directory,
+	} {
+		if strings.Contains(command, implementationDetail) {
+			t.Fatalf("run command = %q, unexpectedly exposes %q", command, implementationDetail)
+		}
+	}
+}
 
 func TestAttachHandoffPreservesHistoryAndOneActiveStream(t *testing.T) {
 	session := &session{

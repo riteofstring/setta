@@ -269,7 +269,7 @@ body {
   position: absolute;
   z-index: 20;
   inset-block-start: 0.25rem;
-  inset-inline-end: -0.25rem;
+  inset-inline-end: 0.25rem;
   display: inline-flex;
   inline-size: 1rem;
   min-inline-size: 1rem;

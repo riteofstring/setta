@@ -70,7 +70,7 @@ func (session *windowsPTY) Wait() error {
 }
 
 func managedRunCommand(interpreter string, artifact string) string {
-	return windowsQuote(interpreter) + " " + windowsQuote(artifact) + " & del /f /q " + windowsQuote(artifact) + "\r\n"
+	return windowsQuote(interpreter) + " " + windowsQuote(artifact) + "\r\n"
 }
 
 func windowsQuote(value string) string { return "\"" + strings.ReplaceAll(value, "\"", "\\\"") + "\"" }

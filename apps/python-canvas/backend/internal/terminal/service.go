@@ -173,7 +173,9 @@ func (service *Service) Open(columns int, rows int) (Session, bool, error) {
 }
 
 // Run creates or reuses the shell and writes a backend-owned Python command
-// into its PTY. The command is never supplied by a caller.
+// into its PTY. Each immutable artifact retains its exact generated revision
+// until the session's Delete or Close cleanup. The command is never supplied
+// by a caller.
 func (service *Service) Run(ctx context.Context, code string, columns int, rows int) (Session, bool, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -201,7 +203,7 @@ func (service *Service) Run(ctx context.Context, code string, columns int, rows 
 		_ = artifact.remove()
 		return Session{}, created, ErrSessionExited
 	}
-	command := managedRunCommand(interpreter, artifact.path)
+	command := managedRunCommand(interpreter, artifact.relativePath)
 	if err := session.write([]byte(command)); err != nil {
 		session.untrackArtifact(artifact.path)
 		_ = artifact.remove()
@@ -560,7 +562,7 @@ func (session *session) finish() {
 		close(output)
 	}
 	for _, path := range artifacts {
-		_ = os.Remove(path)
+		_ = removeRunArtifact(path)
 	}
 	_ = session.pty.Close()
 	// Close only after owned artifacts are gone so Delete and launcher
@@ -588,11 +590,12 @@ func (history *historyBuffer) copy() []byte {
 }
 
 type runArtifact struct {
-	path string
+	path         string
+	relativePath string
 }
 
 func createRunArtifact(directory string, code string) (runArtifact, error) {
-	file, err := os.CreateTemp(directory, ".setta-python-canvas-run-*.py")
+	file, err := os.CreateTemp(directory, ".setta-run-*.py")
 	if err != nil {
 		return runArtifact{}, fmt.Errorf("create generated Python run artifact: %w", err)
 	}
@@ -620,14 +623,25 @@ func createRunArtifact(directory string, code string) (runArtifact, error) {
 		return runArtifact{}, fmt.Errorf("make generated Python run artifact immutable: %w", err)
 	}
 	committed = true
-	return runArtifact{path: path}, nil
+	// The PTY starts in the project directory. Keep the absolute path only for
+	// backend cleanup; the terminal sees a concise relative artifact name.
+	return runArtifact{path: path, relativePath: filepath.Base(path)}, nil
 }
 
 func (artifact runArtifact) remove() error {
-	if artifact.path == "" {
+	return removeRunArtifact(artifact.path)
+}
+
+func removeRunArtifact(path string) error {
+	if path == "" {
 		return nil
 	}
-	if err := os.Remove(artifact.path); err != nil && !errors.Is(err, os.ErrNotExist) {
+	// Clearing the read-only bit keeps backend cleanup portable: Windows does
+	// not delete a read-only file until its attribute is removed.
+	if err := os.Chmod(path, 0o600); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	return nil

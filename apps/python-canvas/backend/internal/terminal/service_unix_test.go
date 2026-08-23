@@ -65,43 +65,63 @@ func TestServicePTYInputResizeInterruptReconnectAndDelete(t *testing.T) {
 	}
 }
 
-func TestServiceRunArtifactIsReadOnlyAndShutdownCleansIt(t *testing.T) {
+func TestServiceRunArtifactIsReadOnlyAndLifecycleCleansIt(t *testing.T) {
 	if _, err := exec.LookPath("python3"); err != nil {
 		if _, fallbackErr := exec.LookPath("python"); fallbackErr != nil {
 			t.Skip("Python interpreter is unavailable")
 		}
 	}
-	directory := t.TempDir()
-	service := newUnixTerminalServiceAt(t, directory)
-	if _, created, err := service.Open(80, 24); err != nil || !created {
-		t.Fatalf("open terminal = created %t error %v", created, err)
-	}
-	attachment := attachUnixTerminal(t, service)
+	for _, lifecycle := range []struct {
+		name   string
+		finish func(context.Context, *Service) error
+	}{
+		{
+			name: "Delete",
+			finish: func(ctx context.Context, service *Service) error {
+				return service.Delete(ctx)
+			},
+		},
+		{
+			name: "Close",
+			finish: func(ctx context.Context, service *Service) error {
+				return service.Close(ctx)
+			},
+		},
+	} {
+		t.Run(lifecycle.name, func(t *testing.T) {
+			directory := t.TempDir()
+			service := newUnixTerminalServiceAt(t, directory)
+			if _, created, err := service.Open(80, 24); err != nil || !created {
+				t.Fatalf("open terminal = created %t error %v", created, err)
+			}
+			attachment := attachUnixTerminal(t, service)
 
-	_, created, err := service.Run(context.Background(), "import time\nprint('__setta_run_marker__', flush=True)\ntime.sleep(30)\n", 80, 24)
-	if err != nil || created {
-		t.Fatalf("run generated Python = created %t error %v", created, err)
-	}
-	artifact := trackedArtifactPath(t, service)
-	info, err := os.Stat(artifact)
-	if err != nil {
-		t.Fatalf("stat run artifact %q: %v", artifact, err)
-	}
-	if info.Mode().Perm() != 0o400 {
-		t.Fatalf("run artifact mode = %o, want 0400", info.Mode().Perm())
-	}
-	waitForTerminalOutput(t, attachment, "__setta_run_marker__")
+			_, created, err := service.Run(context.Background(), "import time\nprint('__setta_run_marker__', flush=True)\ntime.sleep(30)\n", 80, 24)
+			if err != nil || created {
+				t.Fatalf("run generated Python = created %t error %v", created, err)
+			}
+			artifact := trackedArtifactPath(t, service)
+			info, err := os.Stat(artifact)
+			if err != nil {
+				t.Fatalf("stat run artifact %q: %v", artifact, err)
+			}
+			if info.Mode().Perm() != 0o400 {
+				t.Fatalf("run artifact mode = %o, want 0400", info.Mode().Perm())
+			}
+			waitForTerminalOutput(t, attachment, "__setta_run_marker__")
 
-	shutdownContext, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancelShutdown()
-	if err := service.Close(shutdownContext); err != nil {
-		t.Fatalf("shutdown terminal service: %v", err)
-	}
-	if _, err := os.Stat(artifact); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("run artifact after shutdown stat error = %v, want not exist", err)
-	}
-	if matches, err := filepath.Glob(filepath.Join(directory, ".setta-python-canvas-run-*.py")); err != nil || len(matches) != 0 {
-		t.Fatalf("run artifacts after shutdown = %q error %v", matches, err)
+			shutdownContext, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelShutdown()
+			if err := lifecycle.finish(shutdownContext, service); err != nil {
+				t.Fatalf("%s terminal: %v", lifecycle.name, err)
+			}
+			if _, err := os.Stat(artifact); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("run artifact after %s stat error = %v, want not exist", lifecycle.name, err)
+			}
+			if matches, err := filepath.Glob(filepath.Join(directory, ".setta-run-*.py")); err != nil || len(matches) != 0 {
+				t.Fatalf("run artifacts after %s = %q error %v", lifecycle.name, matches, err)
+			}
+		})
 	}
 }
 

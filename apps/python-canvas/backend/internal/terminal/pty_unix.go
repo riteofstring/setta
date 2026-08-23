@@ -116,7 +116,7 @@ func (session *unixPTY) Wait() error {
 }
 
 func managedRunCommand(interpreter string, artifact string) string {
-	return shellQuote(interpreter) + " " + shellQuote(artifact) + "; __setta_status=$?; rm -f " + shellQuote(artifact) + "; unset __setta_status\n"
+	return shellQuote(interpreter) + " " + shellQuote(artifact) + "\n"
 }
 
 func shellQuote(value string) string {
