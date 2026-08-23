@@ -14,6 +14,7 @@ import {
 import { exerciseResolvedMathCallableLifecycle } from "./callable-lifecycle.browser.mjs";
 import { observeGeneratedDocumentBoundaries } from "./generated-document-boundaries.browser.mjs";
 import { exerciseParamDictAndListSlice } from "./param-dict-list.browser.mjs";
+import { exerciseStructuralDiagnosticsLifecycle } from "./structural-diagnostics.browser.mjs";
 import {
   assertGeneratedMultilineCollection,
   assertListRootFixedHeight,
@@ -67,6 +68,7 @@ await runAgainstProductionApp(
     const initial = await fetchCanonicalSnapshot(backendOrigin);
     assert.deepEqual(initial.callables, []);
     await openWorkspaceCanvas(client, previewOrigin);
+    await exerciseStructuralDiagnosticsLifecycle(client, backendOrigin);
     await editPythonTargetOuterRegions(client, backendOrigin);
     await createCallable(client, backendOrigin, sampleCallableName);
     await exerciseCallableCommitParity(

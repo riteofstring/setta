@@ -13,6 +13,7 @@ import {
   parameterDictionarySectionSelector,
   parameterDictionaryWorkspaceSectionId,
 } from "./param-dict-list.browser-support.mjs";
+import { matchesStructuralDiagnosticsMutation } from "./structural-diagnostics.browser.mjs";
 import { dragElementToElement, pressArrowUp } from "./browser-page.mjs";
 import {
   describeSectionMoveFailure,
@@ -49,6 +50,41 @@ test("Param Dict and List walkthrough selectors use workspace section identities
   assert.equal(
     listSectionSelector("list:objects"),
     '[data-section-id="python-canvas:list:list:objects"]',
+  );
+});
+
+test("Structural diagnostics gate matches only callable structural routes", () => {
+  assert.equal(
+    matchesStructuralDiagnosticsMutation(
+      "create",
+      "POST",
+      "/api/v2/project/callables",
+    ),
+    true,
+  );
+  assert.equal(
+    matchesStructuralDiagnosticsMutation(
+      "delete",
+      "POST",
+      "/api/v2/project/callables/callable%3Aone/delete",
+    ),
+    true,
+  );
+  assert.equal(
+    matchesStructuralDiagnosticsMutation(
+      "delete",
+      "DELETE",
+      "/api/v2/project/callables/callable%3Aone/delete",
+    ),
+    false,
+  );
+  assert.equal(
+    matchesStructuralDiagnosticsMutation(
+      "delete",
+      "POST",
+      "/api/v2/project/callables/callable%3Aone/commit",
+    ),
+    false,
   );
 });
 
