@@ -216,13 +216,34 @@ func NewHandler(service ProjectService, options HandlerOptions) (http.Handler, e
 	if err != nil {
 		return nil, err
 	}
+	runRoutes, err := newRunRoutes(options)
+	if err != nil {
+		return nil, err
+	}
+	runtimeSession, err := newRuntimeSessionRoute(options)
+	if err != nil {
+		return nil, err
+	}
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		dispatchProjectRequest(response, request, service, terminalRoutes)
+		dispatchProjectRequest(response, request, service, terminalRoutes, runRoutes, runtimeSession)
 	}), nil
 }
 
-func dispatchProjectRequest(response http.ResponseWriter, request *http.Request, service ProjectService, terminalRoutes *terminalRoutes) {
+func dispatchProjectRequest(
+	response http.ResponseWriter,
+	request *http.Request,
+	service ProjectService,
+	terminalRoutes *terminalRoutes,
+	runRoutes *runRoutes,
+	runtimeSession *runtimeSessionRoute,
+) {
+	if runtimeSession.dispatch(response, request) {
+		return
+	}
 	if terminalRoutes.dispatch(response, request, service) {
+		return
+	}
+	if runRoutes.dispatch(response, request, service) {
 		return
 	}
 	if dispatchProjectCollectionRoute(response, request, service) {

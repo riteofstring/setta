@@ -57,6 +57,16 @@
       "name": "python-canvas-frontend",
       "paths": ["apps/python-canvas/*", "apps/python-canvas/src/**"],
       "dependsOn": ["workspace", "python-canvas-backend"]
+    },
+    {
+      "name": "setta-runtime",
+      "paths": [
+        "packages/setta-runtime/**",
+        "pyproject.toml",
+        "uv.lock",
+        "uv.toml"
+      ],
+      "dependsOn": ["python-canvas-backend", "python-canvas-frontend"]
     }
   ],
   "checks": [
@@ -108,11 +118,94 @@
       "modules": ["workspace", "playground"],
       "runOn": ["supply-chain"],
       "timeoutSeconds": 300
+    },
+    {
+      "name": "setta-python-lock-sync",
+      "provides": ["lock-sync"],
+      "argv": ["uv", "lock", "--check"],
+      "modules": ["setta-runtime"],
+      "runOn": ["supply-chain"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "setta-runtime-architecture",
+      "provides": ["architecture"],
+      "argv": [
+        "python3",
+        "packages/setta-runtime/scripts/check_runtime_boundary.py",
+        "--check",
+        "imports"
+      ],
+      "modules": ["setta-runtime"],
+      "runOn": ["check", "gate"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "setta-runtime-complexity",
+      "provides": ["complexity"],
+      "argv": [
+        "python3",
+        "packages/setta-runtime/scripts/check_runtime_boundary.py",
+        "--check",
+        "complexity"
+      ],
+      "modules": ["setta-runtime"],
+      "runOn": ["check", "gate"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "setta-runtime-typecheck",
+      "provides": ["typecheck"],
+      "argv": [
+        "uv",
+        "run",
+        "--frozen",
+        "--no-sync",
+        "basedpyright",
+        "--level",
+        "error",
+        "packages/setta-runtime/src/setta"
+      ],
+      "modules": ["setta-runtime"],
+      "runOn": ["check", "gate"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "setta-runtime-build",
+      "provides": ["build"],
+      "argv": [
+        "python3",
+        "packages/setta-runtime/scripts/build_setta_wheel.py"
+      ],
+      "modules": ["setta-runtime"],
+      "runOn": ["build"],
+      "timeoutSeconds": 1800
     }
   ],
   "tests": {
     "requiredKinds": ["component", "browser", "contract"],
     "suites": [
+      {
+        "name": "setta-runtime-focused",
+        "kind": "unit",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["setta-runtime"],
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "packages/setta-runtime/tests",
+          "-t",
+          "packages/setta-runtime",
+          "-p",
+          "test_*.py"
+        ],
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 300
+      },
       {
         "name": "workspace-focused",
         "kind": "unit",

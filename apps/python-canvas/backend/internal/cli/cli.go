@@ -25,14 +25,18 @@ const (
 	// MaxOperationBytes bounds one apply document before it is decoded or sent.
 	MaxOperationBytes = 1 << 20
 
-	defaultServiceURL         = "http://127.0.0.1:8080"
-	defaultRequestTimeout     = 10 * time.Second
-	defaultDiagnosticTimeout  = 10 * time.Second
-	maxDiagnosticTimeout      = 60 * time.Second
-	maxResponseBytes          = 16 << 20
-	exitSuccess               = 0
-	exitUnexpectedFailure     = 1
-	exitInputOrTypedV2Failure = 2
+	defaultServiceURL          = "http://127.0.0.1:8080"
+	defaultRequestTimeout      = 10 * time.Second
+	defaultDiagnosticTimeout   = 10 * time.Second
+	maxDiagnosticTimeout       = 60 * time.Second
+	defaultRunTimeout          = 30 * time.Second
+	maxRunTimeout              = time.Duration(contracts.MaxRunTimeoutMillisecondsV2) * time.Millisecond
+	runRequestGrace            = 5 * time.Second
+	maxResponseBytes           = 16 << 20
+	exitSuccess                = 0
+	exitUnexpectedFailure      = 1
+	exitInputOrTypedV2Failure  = 2
+	exitCompletedPythonFailure = 3
 )
 
 // HTTPClient is the narrow seam used by the CLI. The production default is a
@@ -77,6 +81,14 @@ type serviceCommandOptions struct {
 	timeout         time.Duration
 }
 
+type runCommandOptions struct {
+	url                string
+	pretty             bool
+	waitDiagnostics    bool
+	diagnosticsTimeout time.Duration
+	runTimeout         time.Duration
+}
+
 // IsCommand reports whether arguments select the machine-readable CLI rather
 // than the existing server-startup argument surface.
 func IsCommand(arguments []string) bool {
@@ -84,7 +96,7 @@ func IsCommand(arguments []string) bool {
 		return false
 	}
 	switch arguments[0] {
-	case "schema", "snapshot", "apply":
+	case "schema", "snapshot", "apply", "run":
 		return true
 	default:
 		return false
@@ -109,6 +121,8 @@ func Run(ctx context.Context, arguments []string, options Options) int {
 		return runSnapshotCommand(ctx, arguments[1:], options)
 	case "apply":
 		return runApplyCommand(ctx, arguments[1:], options)
+	case "run":
+		return runGeneratedProgramCommand(ctx, arguments[1:], options)
 	default:
 		writeFailure(options.Stderr, inputFailure("invalid_command", "The Python Canvas command is not supported."), false)
 		return exitInputOrTypedV2Failure
@@ -161,6 +175,19 @@ func runApplyCommand(ctx context.Context, arguments []string, options Options) i
 		return failure.exitCode
 	}
 	return runApply(ctx, command, options)
+}
+
+func runGeneratedProgramCommand(ctx context.Context, arguments []string, options Options) int {
+	command, help, failure := parseRunArguments(arguments)
+	if help {
+		writeHelp(options.Stdout, "run")
+		return exitSuccess
+	}
+	if failure != nil {
+		writeFailure(options.Stderr, failure, false)
+		return failure.exitCode
+	}
+	return runGeneratedProgram(ctx, command, options)
 }
 
 func normalizedOptions(options Options) Options {
@@ -381,6 +408,45 @@ func runApply(ctx context.Context, command serviceCommandOptions, options Option
 	return exitSuccess
 }
 
+func runGeneratedProgram(ctx context.Context, command runCommandOptions, options Options) int {
+	client, failure := newServiceClient(command.url, options.HTTPClient)
+	if failure != nil {
+		writeFailure(options.Stderr, failure, command.pretty)
+		return failure.exitCode
+	}
+	snapshot, failure := client.snapshot(ctx)
+	if failure == nil && command.waitDiagnostics {
+		snapshot, failure = settleDiagnostics(ctx, client, snapshot, command.diagnosticsTimeout)
+	}
+	if failure != nil {
+		writeFailure(options.Stderr, failure, command.pretty)
+		return failure.exitCode
+	}
+	timeoutMilliseconds := int((command.runTimeout + time.Millisecond - 1) / time.Millisecond)
+	request := contracts.RunGeneratedProgramRequestV2{
+		ProjectID:              snapshot.Project.ID,
+		ExpectedRevision:       snapshot.Project.Revision,
+		RunTimeoutMilliseconds: &timeoutMilliseconds,
+	}
+	if err := request.Validate(); err != nil {
+		writeFailure(options.Stderr, unexpectedFailure("internal_error", "Unable to build the generated-program run request."), command.pretty)
+		return exitUnexpectedFailure
+	}
+	result, failure := client.runGeneratedProgram(ctx, request, command.runTimeout+runRequestGrace)
+	if failure != nil {
+		writeFailure(options.Stderr, failure, command.pretty)
+		return failure.exitCode
+	}
+	if err := writeJSON(options.Stdout, result, command.pretty); err != nil {
+		writeFailure(options.Stderr, unexpectedFailure("internal_error", "Unable to write command output."), command.pretty)
+		return exitUnexpectedFailure
+	}
+	if result.Termination == contracts.GeneratedProgramTerminationExitedV2 && result.ExitCode != nil && *result.ExitCode == 0 {
+		return exitSuccess
+	}
+	return exitCompletedPythonFailure
+}
+
 func openOperationReader(path string, stdin io.Reader) (io.Reader, func(), *commandFailure) {
 	if path == "-" {
 		return stdin, func() {}, nil
@@ -486,6 +552,22 @@ func (client *serviceClient) apply(ctx context.Context, request mutation) (contr
 	return client.request(ctx, http.MethodPost, request.path, request.body)
 }
 
+func (client *serviceClient) runGeneratedProgram(
+	ctx context.Context,
+	request contracts.RunGeneratedProgramRequestV2,
+	timeout time.Duration,
+) (contracts.GeneratedProgramRunResultV2, *commandFailure) {
+	content, failure := client.requestContent(ctx, http.MethodPost, contracts.ProjectRunPathV2, request, timeout)
+	if failure != nil {
+		return contracts.GeneratedProgramRunResultV2{}, failure
+	}
+	var result contracts.GeneratedProgramRunResultV2
+	if err := decodeStrictJSON(content, &result); err != nil || result.Validate() != nil {
+		return contracts.GeneratedProgramRunResultV2{}, unexpectedFailure("malformed_response", "The service returned an invalid generated-program run result.")
+	}
+	return result, nil
+}
+
 func (client *serviceClient) snapshotEvents(ctx context.Context) (*http.Response, *commandFailure) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseURL+contracts.ProjectEventsPathV2, nil)
 	if err != nil {
@@ -515,33 +597,44 @@ func (client *serviceClient) snapshotEvents(ctx context.Context) (*http.Response
 }
 
 func (client *serviceClient) request(ctx context.Context, method string, path string, payload any) (contracts.ProjectSnapshotV2, *commandFailure) {
-	requestContext, cancel := context.WithTimeout(ctx, defaultRequestTimeout)
-	defer cancel()
-	body, failure := encodeRequestBody(payload)
+	content, failure := client.requestContent(ctx, method, path, payload, defaultRequestTimeout)
 	if failure != nil {
 		return contracts.ProjectSnapshotV2{}, failure
 	}
+	return decodeProjectSnapshotResponse(content)
+}
+
+func (client *serviceClient) requestContent(ctx context.Context, method string, path string, payload any, timeout time.Duration) ([]byte, *commandFailure) {
+	if timeout <= 0 {
+		return nil, unexpectedFailure("internal_error", "The service request timeout is invalid.")
+	}
+	requestContext, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	body, failure := encodeRequestBody(payload)
+	if failure != nil {
+		return nil, failure
+	}
 	request, err := http.NewRequestWithContext(requestContext, method, client.baseURL+path, body)
 	if err != nil {
-		return contracts.ProjectSnapshotV2{}, unexpectedFailure("internal_error", "Unable to create the project request.")
+		return nil, unexpectedFailure("internal_error", "Unable to create the project request.")
 	}
 	configureJSONRequest(request, payload != nil)
 	response, err := client.http.Do(request)
 	if err != nil {
-		return contracts.ProjectSnapshotV2{}, classifyRequestError(ctx, requestContext)
+		return nil, classifyRequestError(ctx, requestContext)
 	}
 	if !validHTTPResponse(response) {
-		return contracts.ProjectSnapshotV2{}, unexpectedFailure("malformed_response", "The service returned an invalid response.")
+		return nil, unexpectedFailure("malformed_response", "The service returned an invalid response.")
 	}
 	defer response.Body.Close()
 	content, failure := readResponseBody(response.Body)
 	if failure != nil {
-		return contracts.ProjectSnapshotV2{}, failure
+		return nil, failure
 	}
 	if successfulHTTPStatus(response.StatusCode) {
-		return decodeProjectSnapshotResponse(content)
+		return content, nil
 	}
-	return contracts.ProjectSnapshotV2{}, typedV2Failure(content)
+	return nil, typedV2Failure(content)
 }
 
 func encodeRequestBody(payload any) (io.Reader, *commandFailure) {
@@ -644,7 +737,8 @@ func validAPIError(value contracts.APIErrorV2) bool {
 	case contracts.APIErrorCodeValidationFailedV2, contracts.APIErrorCodeNotFoundV2, contracts.APIErrorCodeInvalidRequestV2,
 		contracts.APIErrorCodeProviderUnavailableV2, contracts.APIErrorCodeProviderFailedV2, contracts.APIErrorCodeRenderFailedV2,
 		contracts.APIErrorCodeMaterializationFailedV2, contracts.APIErrorCodePersistenceFailedV2, contracts.APIErrorCodeTerminalUnavailableV2,
-		contracts.APIErrorCodeTerminalFailedV2, contracts.APIErrorCodeMethodNotAllowedV2, contracts.APIErrorCodeInternalV2:
+		contracts.APIErrorCodeTerminalFailedV2, contracts.APIErrorCodeRunnerUnavailableV2, contracts.APIErrorCodeRunnerFailedV2,
+		contracts.APIErrorCodeMethodNotAllowedV2, contracts.APIErrorCodeInternalV2:
 		return value.ExpectedRevision == nil && value.CurrentRevision == nil
 	default:
 		return false
@@ -812,5 +906,7 @@ func writeHelp(writer io.Writer, command string) {
 		_, _ = fmt.Fprintln(writer, "Usage: python-canvas snapshot [--url URL] [--wait-diagnostics] [--timeout DURATION] [--pretty]")
 	case "apply":
 		_, _ = fmt.Fprintln(writer, "Usage: python-canvas apply --file PATH| - [--url URL] [--wait-diagnostics] [--timeout DURATION] [--pretty]")
+	case "run":
+		_, _ = fmt.Fprintln(writer, "Usage: python-canvas run [--url URL] [--wait-diagnostics] [--diagnostics-timeout DURATION] [--run-timeout DURATION] [--pretty]")
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 	"unicode/utf16"
@@ -13,23 +14,25 @@ import (
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 	"github.com/setta/python-canvas/backend/internal/project/coordinator"
 	"github.com/setta/python-canvas/backend/internal/project/materializer"
+	"github.com/setta/python-canvas/backend/internal/pythonenv"
 )
 
-func TestPinnedBasedpyrightV2CoordinatorIntegration(t *testing.T) {
+func TestExplicitBasedpyrightV2CoordinatorIntegration(t *testing.T) {
 	workspaceRoot := t.TempDir()
 	writeV2FixtureModule(t, workspaceRoot)
 	projectPath := filepath.Join(workspaceRoot, "project.json")
-	appRoot := appRootForPinnedBasedpyrightIntegration(t)
-	executable, err := ResolvePinnedBasedpyrightExecutable(appRoot)
+	executable := basedpyrightExecutableForIntegration(t)
+	pythonEnvironment, err := pythonenv.Resolve(context.Background(), pythonenv.Options{
+		ProjectPath:    projectPath,
+		LauncherPython: lspTestPython(t),
+	})
 	if err != nil {
-		t.Fatalf("ResolvePinnedBasedpyrightExecutable() error = %v", err)
-	}
-	if executable != filepath.Join(appRoot, "node_modules", ".bin", "basedpyright-langserver") {
-		t.Fatalf("pinned executable = %q, want the Python Canvas dependency executable", executable)
+		t.Fatalf("resolve integration Python environment: %v", err)
 	}
 	provider, err := NewBasedpyrightProvider(BasedpyrightOptions{
-		AppRoot:           appRoot,
+		Command:           executable,
 		WorkspaceRoot:     workspaceRoot,
+		PythonEnvironment: pythonEnvironment,
 		RequestTimeout:    20 * time.Second,
 		DiagnosticTimeout: 15 * time.Second,
 	})
@@ -451,7 +454,7 @@ func utf16Length(value string) int {
 	return len(utf16.Encode([]rune(value)))
 }
 
-func appRootForPinnedBasedpyrightIntegration(t *testing.T) string {
+func basedpyrightExecutableForIntegration(t *testing.T) string {
 	t.Helper()
 	directory, err := os.Getwd()
 	if err != nil {
@@ -459,11 +462,19 @@ func appRootForPinnedBasedpyrightIntegration(t *testing.T) string {
 	}
 	for {
 		if info, err := os.Stat(filepath.Join(directory, "backend", "go.mod")); err == nil && info.Mode().IsRegular() {
-			return directory
+			name := "basedpyright-langserver"
+			if runtime.GOOS == "windows" {
+				name += ".cmd"
+			}
+			executable := filepath.Join(directory, "node_modules", ".bin", name)
+			if _, err := ResolveBasedpyrightExecutable(executable); err != nil {
+				t.Fatalf("resolve integration Basedpyright executable: %v", err)
+			}
+			return executable
 		}
 		parent := filepath.Dir(directory)
 		if parent == directory {
-			t.Fatal("find Python Canvas app root")
+			t.Fatal("find integration Basedpyright executable")
 		}
 		directory = parent
 	}

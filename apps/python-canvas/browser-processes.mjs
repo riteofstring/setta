@@ -47,11 +47,12 @@ const productionViewport = {
 };
 
 function startProcess(command, arguments_, options) {
+  const supervisedStdin = options.supervisedStdin === true;
   const child = spawn(command, arguments_, {
     cwd: options.cwd,
     detached: options.ownsProcessGroup === true,
     env: { ...process.env, ...options.env },
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: [supervisedStdin ? "pipe" : "ignore", "pipe", "pipe"],
   });
   const output = { stderr: "", stdout: "" };
   child.stderr.on("data", (chunk) => {
@@ -65,7 +66,17 @@ function startProcess(command, arguments_, options) {
     label: options.label,
     output,
     ownsProcessGroup: options.ownsProcessGroup === true,
+    supervisedStdin,
   };
+}
+
+// The packaged server treats stdin closure as its supervisor's shutdown
+// request. Keep that pipe open while the browser suite owns the launcher.
+export function startSupervisedProcess(command, arguments_, options) {
+  return startProcess(command, arguments_, {
+    ...options,
+    supervisedStdin: true,
+  });
 }
 
 function signalProcess(processHandle, signal) {
@@ -87,27 +98,79 @@ function signalProcess(processHandle, signal) {
   processHandle.child.kill(signal);
 }
 
-async function stopProcess(processHandle) {
+function closeSupervisedStdin(processHandle) {
+  if (!processHandle.supervisedStdin) {
+    return;
+  }
+  const stdin = processHandle.child.stdin;
+  if (stdin === null || stdin.destroyed || stdin.writableEnded) {
+    return;
+  }
+  stdin.once("error", () => {});
+  stdin.end();
+}
+
+async function waitForExit(exit, timeoutMilliseconds) {
+  let timeout;
+  const timedOut = new Promise((resolve) => {
+    timeout = setTimeout(() => {
+      resolve(false);
+    }, timeoutMilliseconds);
+  });
+  try {
+    return await Promise.race([exit.then(() => true), timedOut]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function waitForExitAfter(processHandle, action, timeoutMilliseconds) {
+  if (processHandle.child.exitCode !== null) {
+    return true;
+  }
+  const exit = once(processHandle.child, "exit");
+  action();
+  if (processHandle.child.exitCode !== null) {
+    return true;
+  }
+  return waitForExit(exit, timeoutMilliseconds);
+}
+
+export async function stopProcess(processHandle) {
   if (processHandle === null || processHandle.child.exitCode !== null) {
     return;
   }
-  const gracefulExit = once(processHandle.child, "exit");
-  signalProcess(processHandle, "SIGTERM");
   if (
-    await Promise.race([
-      gracefulExit.then(() => true),
-      delay(5_000).then(() => false),
-    ])
+    processHandle.supervisedStdin &&
+    (await waitForExitAfter(
+      processHandle,
+      () => {
+        closeSupervisedStdin(processHandle);
+      },
+      5_000,
+    ))
   ) {
     return;
   }
-  const forcedExit = once(processHandle.child, "exit");
-  signalProcess(processHandle, "SIGKILL");
   if (
-    !(await Promise.race([
-      forcedExit.then(() => true),
-      delay(2_000).then(() => false),
-    ]))
+    await waitForExitAfter(
+      processHandle,
+      () => {
+        signalProcess(processHandle, "SIGTERM");
+      },
+      5_000,
+    )
+  ) {
+    return;
+  }
+  if (
+    !(await waitForExitAfter(
+      processHandle,
+      () => {
+        signalProcess(processHandle, "SIGKILL");
+      },
+      2_000,
+    ))
   ) {
     throw new Error(
       `${processHandle.label} process ${String(processHandle.child.pid)} did not terminate.`,
@@ -388,25 +451,18 @@ async function stopHeadlessChrome(browser) {
   }
 }
 
-export function launcherArguments(projectPath, create, ports) {
-  const arguments_ = [
-    "--project",
-    projectPath,
-    "--backend-port",
-    String(ports.backendPort),
-    "--preview-port",
-    String(ports.previewPort),
-  ];
+export function launcherArguments(projectPath, create, serverPort) {
+  const arguments_ = ["--project", projectPath, "--port", String(serverPort)];
   if (create) {
     arguments_.push("--create");
   }
   return arguments_;
 }
 
-function startLauncher(projectPath, create, ports) {
-  return startProcess(
+function startLauncher(projectPath, create, serverPort) {
+  return startSupervisedProcess(
     launcherPath,
-    launcherArguments(projectPath, create, ports),
+    launcherArguments(projectPath, create, serverPort),
     {
       cwd: repositoryRoot,
       label: "Python Canvas launcher",
@@ -417,18 +473,17 @@ function startLauncher(projectPath, create, ports) {
 
 export async function waitForLauncher(
   launcher,
-  backendOrigin = "http://127.0.0.1:8080",
-  previewOrigin = "http://127.0.0.1:5173",
+  serverOrigin = "http://127.0.0.1:8080",
 ) {
   await waitForHttp(
     launcher,
-    `${backendOrigin}/api/v2/project`,
-    "Python Canvas backend",
+    `${serverOrigin}/api/v2/project`,
+    "Python Canvas API",
   );
   await waitForHttp(
     launcher,
-    previewOrigin,
-    "Python Canvas Vite production preview",
+    serverOrigin,
+    "Python Canvas production web application",
   );
 }
 
@@ -457,20 +512,10 @@ function allocateLoopbackPort() {
   });
 }
 
-async function allocateLoopbackPorts() {
-  const backendPort = await allocateLoopbackPort();
-  let previewPort = await allocateLoopbackPort();
-  while (previewPort === backendPort) {
-    previewPort = await allocateLoopbackPort();
-  }
-  return { backendPort, previewPort };
-}
-
 export async function runAgainstProductionApp(callback) {
   return runAgainstProductionProject({
     callback,
     projectSourcePath: null,
-    browserOriginHostname: "127.0.0.1",
   });
 }
 
@@ -481,19 +526,14 @@ export async function runAgainstCopiedProductionProject(
   return runAgainstProductionProject({
     callback,
     projectSourcePath,
-    browserOriginHostname: "localhost",
   });
 }
 
-// Browser acceptance owns only public launcher, HTTP, and raw-headless browser
+// Browser acceptance owns only the source launcher, HTTP, and raw-headless browser
 // surfaces. A saved-project run copies its source before the backend starts;
 // neither path injects state into an in-memory backend.
-async function runAgainstProductionProject({
-  callback,
-  projectSourcePath,
-  browserOriginHostname,
-}) {
-  const ports = await allocateLoopbackPorts();
+async function runAgainstProductionProject({ callback, projectSourcePath }) {
+  const serverPort = await allocateLoopbackPort();
   const temporaryDirectory = mkdtempSync(
     path.join(os.tmpdir(), "setta-python-canvas-browser-"),
   );
@@ -508,12 +548,12 @@ async function runAgainstProductionProject({
   let launcher = null;
   let browser = null;
   let client = null;
-  const backendOrigin = `http://127.0.0.1:${String(ports.backendPort)}`;
-  const launcherPreviewOrigin = `http://127.0.0.1:${String(ports.previewPort)}`;
-  const previewOrigin = `http://${browserOriginHostname}:${String(ports.previewPort)}`;
+  const serverOrigin = `http://127.0.0.1:${String(serverPort)}`;
+  const backendOrigin = serverOrigin;
+  const previewOrigin = serverOrigin;
   const launch = async (create) => {
-    launcher = startLauncher(projectPath, create, ports);
-    await waitForLauncher(launcher, backendOrigin, launcherPreviewOrigin);
+    launcher = startLauncher(projectPath, create, serverPort);
+    await waitForLauncher(launcher, serverOrigin);
   };
   const restart = async () => {
     await stopProcess(launcher);

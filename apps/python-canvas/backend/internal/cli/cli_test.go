@@ -32,7 +32,10 @@ func TestSchemaPublishesTheClosedOperationRegistry(t *testing.T) {
 		t.Fatalf("decode schema output: %v", err)
 	}
 	assertSchemaVersion(t, document)
+	assertCommandSchemas(t, document.Commands)
 	assertOperationSchemas(t, document.Operations)
+	assertResultSchemas(t, document.Results)
+	assertErrorSchemas(t, document.Errors)
 	assertParameterUIVocabulary(t, document.V2Vocabulary)
 }
 
@@ -58,6 +61,83 @@ func assertOperationSchemas(t *testing.T, operations []operationSchema) {
 	for index, operation := range operations {
 		assertOperationSchema(t, index, operation, want[index])
 	}
+}
+
+func assertCommandSchemas(t *testing.T, commands []commandSchema) {
+	t.Helper()
+	want := []string{"schema", "open", "session.inspect", "snapshot", "apply", "run"}
+	if len(commands) != len(want) {
+		t.Fatalf("schema command count = %d, want %d", len(commands), len(want))
+	}
+	for index, name := range want {
+		command := commands[index]
+		if command.Name != name || command.Usage == "" || command.Summary == "" || command.Result == "" {
+			t.Fatalf("schema command %d = %#v", index, command)
+		}
+		if (name == "snapshot" || name == "apply" || name == "run") && len(command.Selectors) != 2 {
+			t.Fatalf("schema command %q selectors = %#v", name, command.Selectors)
+		}
+		if name == "run" {
+			if !containsExitCode(command.ExitCodes, exitCompletedPythonFailure) || !containsString(fieldNames(command.Options), "--run-timeout") {
+				t.Fatalf("run schema = %#v", command)
+			}
+		}
+	}
+}
+
+func assertResultSchemas(t *testing.T, results []resultSchema) {
+	t.Helper()
+	runResult := findResult(results, "GeneratedProgramRunResultV2")
+	if runResult == nil {
+		t.Fatal("schema does not publish the generated-program run result")
+	}
+	for _, field := range []string{"projectId", "revision", "stdout", "stderr", "stdoutTruncated", "stderrTruncated", "exitCode", "terminationReason", "elapsedMilliseconds"} {
+		if !containsString(fieldNames(runResult.Fields), field) {
+			t.Fatalf("run result schema fields = %#v, want %q", runResult.Fields, field)
+		}
+	}
+}
+
+func assertErrorSchemas(t *testing.T, values []errorSchema) {
+	t.Helper()
+	for _, code := range []string{"invalid_input", string(contracts.APIErrorCodeRunnerUnavailableV2), string(contracts.APIErrorCodeRunnerFailedV2), "connection_failed"} {
+		found := false
+		for _, value := range values {
+			if value.Code == code {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("schema errors do not publish %q: %#v", code, values)
+		}
+	}
+}
+
+func fieldNames(fields []fieldSchema) []string {
+	values := make([]string, 0, len(fields))
+	for _, field := range fields {
+		values = append(values, field.Name)
+	}
+	return values
+}
+
+func findResult(results []resultSchema, name string) *resultSchema {
+	for index := range results {
+		if results[index].Name == name {
+			return &results[index]
+		}
+	}
+	return nil
+}
+
+func containsExitCode(values []exitCodeSchema, want int) bool {
+	for _, value := range values {
+		if value.Code == want {
+			return true
+		}
+	}
+	return false
 }
 
 func assertOperationSchema(t *testing.T, index int, operation operationSchema, wantName string) {
@@ -439,6 +519,169 @@ func TestApplyRejectsInvalidOperationBeforeMutation(t *testing.T) {
 		})
 	}
 }
+
+func TestRunCapturesSnapshotRevisionPublishesCompletedFailureAndUsesExitThree(t *testing.T) {
+	snapshot := snapshotAtRevision(3)
+	var snapshotCalls, runCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch {
+		case request.Method == http.MethodGet && request.URL.Path == contracts.ProjectPathV2:
+			snapshotCalls++
+			writeJSONResponse(t, response, snapshot)
+		case request.Method == http.MethodPost && request.URL.Path == contracts.ProjectRunPathV2:
+			runCalls++
+			var body contracts.RunGeneratedProgramRequestV2
+			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+				t.Errorf("decode run request: %v", err)
+				return
+			}
+			if body.ProjectID != snapshot.Project.ID || body.ExpectedRevision != snapshot.Project.Revision || body.RunTimeoutMilliseconds == nil || *body.RunTimeoutMilliseconds != 125 {
+				t.Errorf("run request = %#v", body)
+				return
+			}
+			exitCode := 7
+			writeJSONResponse(t, response, contracts.GeneratedProgramRunResultV2{
+				ProjectID:     snapshot.Project.ID,
+				Revision:      snapshot.Project.Revision,
+				Stdout:        "stdout marker\n",
+				Stderr:        "stderr marker\n",
+				ExitCode:      &exitCode,
+				Termination:   contracts.GeneratedProgramTerminationExitedV2,
+				ElapsedMillis: 17,
+			})
+		default:
+			t.Errorf("unexpected request %s %s", request.Method, request.URL.Path)
+			response.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	exitCode, stdout, stderr := runForTest(t, []string{"run", "--url", server.URL, "--run-timeout", "125ms"}, "", server.Client())
+	if exitCode != exitCompletedPythonFailure || stderr != "" {
+		t.Fatalf("run exit = %d stderr = %q", exitCode, stderr)
+	}
+	if snapshotCalls != 1 || runCalls != 1 {
+		t.Fatalf("requests = snapshot %d run %d", snapshotCalls, runCalls)
+	}
+	var result contracts.GeneratedProgramRunResultV2
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("decode run output: %v", err)
+	}
+	if err := result.Validate(); err != nil || result.ExitCode == nil || *result.ExitCode != 7 {
+		t.Fatalf("run output = %#v, validation error = %v", result, err)
+	}
+}
+
+func TestRunReturnsExitZeroForPythonSuccessAndThreeForEnforcedTermination(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		termination contracts.GeneratedProgramTerminationReasonV2
+		exitCode    *int
+		wantExit    int
+	}{
+		{
+			name:        "success",
+			termination: contracts.GeneratedProgramTerminationExitedV2,
+			exitCode:    integerPointerForCLITest(0),
+			wantExit:    exitSuccess,
+		},
+		{
+			name:        "timed out",
+			termination: contracts.GeneratedProgramTerminationTimedOutV2,
+			wantExit:    exitCompletedPythonFailure,
+		},
+		{
+			name:        "output limit",
+			termination: contracts.GeneratedProgramTerminationOutputLimitV2,
+			wantExit:    exitCompletedPythonFailure,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := snapshotAtRevision(2)
+			server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				if request.Method == http.MethodGet && request.URL.Path == contracts.ProjectPathV2 {
+					writeJSONResponse(t, response, snapshot)
+					return
+				}
+				if request.Method == http.MethodPost && request.URL.Path == contracts.ProjectRunPathV2 {
+					var body contracts.RunGeneratedProgramRequestV2
+					if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+						t.Errorf("decode default run request: %v", err)
+						return
+					}
+					if body.RunTimeoutMilliseconds == nil || *body.RunTimeoutMilliseconds != 30000 {
+						t.Errorf("default run request = %#v", body)
+						return
+					}
+					writeJSONResponse(t, response, contracts.GeneratedProgramRunResultV2{
+						ProjectID:     snapshot.Project.ID,
+						Revision:      snapshot.Project.Revision,
+						ExitCode:      test.exitCode,
+						Termination:   test.termination,
+						ElapsedMillis: 1,
+					})
+					return
+				}
+				response.WriteHeader(http.StatusNotFound)
+			}))
+			defer server.Close()
+
+			exitCode, stdout, stderr := runForTest(t, []string{"run", "--url", server.URL}, "", server.Client())
+			if exitCode != test.wantExit || stderr != "" || stdout == "" {
+				t.Fatalf("run result = exit %d stdout %q stderr %q", exitCode, stdout, stderr)
+			}
+		})
+	}
+}
+
+func TestRunRejectsOutOfRangeTimeoutsAndInvalidDiagnosticFlagsBeforeContactingTheService(t *testing.T) {
+	for _, arguments := range [][]string{
+		{"run", "--run-timeout", "0s"},
+		{"run", "--run-timeout", "300001ms"},
+		{"run", "--run-timeout="},
+		{"run", "--diagnostics-timeout", "1s"},
+		{"run", "--wait-diagnostics", "--diagnostics-timeout="},
+	} {
+		client := &recordingClient{}
+		exitCode, stdout, stderr := runForTest(t, arguments, "", client)
+		if exitCode != exitInputOrTypedV2Failure || stdout != "" || len(client.requests) != 0 {
+			t.Fatalf("arguments %q = exit %d stdout %q requests %d", arguments, exitCode, stdout, len(client.requests))
+		}
+		if detail := decodeError(t, stderr); detail.Code != "invalid_input" {
+			t.Fatalf("arguments %q error = %#v", arguments, detail)
+		}
+	}
+}
+
+func TestRunPreservesTypedRunnerFailure(t *testing.T) {
+	snapshot := snapshotAtRevision(2)
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.Method == http.MethodGet && request.URL.Path == contracts.ProjectPathV2 {
+			writeJSONResponse(t, response, snapshot)
+			return
+		}
+		if request.Method == http.MethodPost && request.URL.Path == contracts.ProjectRunPathV2 {
+			response.WriteHeader(http.StatusInternalServerError)
+			writeJSONResponse(t, response, contracts.ErrorResponseV2{Error: contracts.APIErrorV2{
+				Code:    contracts.APIErrorCodeRunnerFailedV2,
+				Message: "runner artifact cleanup failed",
+			}})
+			return
+		}
+		response.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	exitCode, stdout, stderr := runForTest(t, []string{"run", "--url", server.URL}, "", server.Client())
+	if exitCode != exitInputOrTypedV2Failure || stdout != "" {
+		t.Fatalf("typed run failure = exit %d stdout %q stderr %q", exitCode, stdout, stderr)
+	}
+	if detail := decodeError(t, stderr); detail.Code != string(contracts.APIErrorCodeRunnerFailedV2) {
+		t.Fatalf("typed run failure detail = %#v", detail)
+	}
+}
+
+func integerPointerForCLITest(value int) *int { return &value }
 
 func TestTimeoutRequiresDiagnosticWaiting(t *testing.T) {
 	for _, test := range []struct {

@@ -21,6 +21,7 @@ import (
 const (
 	defaultRequestTimeout  = 10 * time.Second
 	defaultShutdownTimeout = 3 * time.Second
+	sessionDrainTimeout    = 250 * time.Millisecond
 )
 
 var (
@@ -37,14 +38,17 @@ type SessionOptions struct {
 	Args           []string
 	WorkspaceRoot  string
 	RequestTimeout time.Duration
+	Environment    []string
+	Configuration  map[string]any
 }
 
 type rpcEnvelope struct {
-	ID     json.RawMessage `json:"id,omitempty"`
-	Method string          `json:"method,omitempty"`
-	Params json.RawMessage `json:"params,omitempty"`
-	Result json.RawMessage `json:"result,omitempty"`
-	Error  *rpcError       `json:"error,omitempty"`
+	ID      json.RawMessage `json:"id,omitempty"`
+	Method  string          `json:"method,omitempty"`
+	Params  json.RawMessage `json:"params,omitempty"`
+	Result  json.RawMessage `json:"result,omitempty"`
+	Error   *rpcError       `json:"error,omitempty"`
+	failure error
 }
 
 type rpcError struct {
@@ -76,9 +80,15 @@ type Session struct {
 	startErr    error
 	cmd         *exec.Cmd
 	stdin       io.WriteCloser
+	stdout      io.ReadCloser
+	stderr      io.ReadCloser
 
 	readerDone chan struct{}
 	stderrDone chan struct{}
+	stopDone   chan struct{}
+	forceStop  chan struct{}
+	stopOnce   sync.Once
+	forcedStop bool
 
 	pending                       map[string]chan rpcEnvelope
 	documentVersions              map[string]int
@@ -103,6 +113,16 @@ func NewSession(options SessionOptions) (*Session, error) {
 			return nil, fmt.Errorf("lsp: resolve workspace root: %w", err)
 		}
 		options.WorkspaceRoot = workspaceRoot
+	}
+	if options.Environment != nil {
+		options.Environment = append([]string(nil), options.Environment...)
+	}
+	if options.Configuration != nil {
+		configuration, err := cloneConfiguration(options.Configuration)
+		if err != nil {
+			return nil, err
+		}
+		options.Configuration = configuration
 	}
 	return &Session{
 		options:              options,
@@ -202,7 +222,11 @@ func (session *Session) awaitInitialization(ctx context.Context, startDone <-cha
 
 func (session *Session) startProcessLocked() error {
 	command := exec.Command(session.options.Command, session.options.Args...)
-	command.Env = os.Environ()
+	if session.options.Environment == nil {
+		command.Env = os.Environ()
+	} else {
+		command.Env = append([]string(nil), session.options.Environment...)
+	}
 	command.Dir = session.options.WorkspaceRoot
 
 	stdin, err := command.StdinPipe()
@@ -223,11 +247,15 @@ func (session *Session) startProcessLocked() error {
 
 	session.cmd = command
 	session.stdin = stdin
+	session.stdout = stdout
+	session.stderr = stderr
 	session.started = true
 	session.readerDone = make(chan struct{})
 	session.stderrDone = make(chan struct{})
-	go session.readLoop(stdout)
-	go session.drainStderr(stderr)
+	session.stopDone = make(chan struct{})
+	session.forceStop = make(chan struct{})
+	go session.readLoop(stdout, session.readerDone)
+	go session.drainStderr(stderr, session.stderrDone)
 	return nil
 }
 
@@ -268,7 +296,27 @@ func (session *Session) initialize(ctx context.Context) error {
 	if err := session.call(ctx, "initialize", params, &result, false); err != nil {
 		return err
 	}
-	return session.notify("initialized", map[string]any{}, false)
+	if err := session.notify("initialized", map[string]any{}, false); err != nil {
+		return err
+	}
+	if session.options.Configuration == nil {
+		return nil
+	}
+	return session.notify("workspace/didChangeConfiguration", map[string]any{
+		"settings": session.options.Configuration,
+	}, false)
+}
+
+func cloneConfiguration(configuration map[string]any) (map[string]any, error) {
+	encoded, err := json.Marshal(configuration)
+	if err != nil {
+		return nil, fmt.Errorf("lsp: encode session configuration: %w", err)
+	}
+	var cloned map[string]any
+	if err := json.Unmarshal(encoded, &cloned); err != nil {
+		return nil, fmt.Errorf("lsp: decode session configuration: %w", err)
+	}
+	return cloned, nil
 }
 
 // SynchronizeDocument publishes one exact positive transport version as an LSP
@@ -443,38 +491,69 @@ func (session *Session) Close() error {
 		return nil
 	}
 
+	stopDone := session.requestStop(false)
+	if stopDone != nil {
+		<-stopDone
+	}
+	return nil
+}
+
+// requestStop elects one owner to stop and reap a started command. A terminal
+// stream failure may arrive on the reader goroutine, so the owner always runs
+// independently of that reader rather than waiting for it inline.
+func (session *Session) requestStop(force bool) <-chan struct{} {
 	session.mu.Lock()
-	if session.closed || session.closing {
+	if session.closed {
 		session.mu.Unlock()
 		return nil
 	}
-	session.closing = true
 	if !session.started {
 		session.closed = true
-		session.closing = false
 		session.mu.Unlock()
 		return nil
 	}
+	if force && !session.forcedStop {
+		close(session.forceStop)
+		session.forcedStop = true
+	}
+	session.closing = true
 	command := session.cmd
 	stdin := session.stdin
+	stdout := session.stdout
+	stderr := session.stderr
 	readerDone := session.readerDone
 	stderrDone := session.stderrDone
+	forceStop := session.forceStop
+	stopDone := session.stopDone
 	session.mu.Unlock()
 
+	session.stopOnce.Do(func() {
+		go session.stopStartedProcess(command, stdin, stdout, stderr, readerDone, stderrDone, forceStop, stopDone)
+	})
+	return stopDone
+}
+
+func (session *Session) stopStartedProcess(
+	command *exec.Cmd,
+	stdin io.WriteCloser,
+	stdout io.ReadCloser,
+	stderr io.ReadCloser,
+	readerDone <-chan struct{},
+	stderrDone <-chan struct{},
+	forceStop <-chan struct{},
+	stopDone chan struct{},
+) {
 	shutdownContext, cancel := context.WithTimeout(context.Background(), defaultShutdownTimeout)
 	defer cancel()
-	_ = session.call(shutdownContext, "shutdown", map[string]any{}, nil, true)
-	_ = session.notify("exit", map[string]any{}, true)
+
+	if !stopForced(forceStop) {
+		_ = session.call(shutdownContext, "shutdown", map[string]any{}, nil, true)
+		_ = session.notify("exit", map[string]any{}, true)
+	}
 	if stdin != nil {
 		_ = stdin.Close()
 	}
-	waitForSessionProcess(command, shutdownContext)
-	if readerDone != nil {
-		<-readerDone
-	}
-	if stderrDone != nil {
-		<-stderrDone
-	}
+	waitForSessionProcess(command, stdout, stderr, readerDone, stderrDone, shutdownContext, forceStop)
 
 	session.failPending(ErrSessionClosed)
 	session.mu.Lock()
@@ -482,24 +561,98 @@ func (session *Session) Close() error {
 	session.closing = false
 	session.cmd = nil
 	session.stdin = nil
+	session.stdout = nil
+	session.stderr = nil
 	session.readerDone = nil
 	session.stderrDone = nil
+	session.forceStop = nil
 	session.mu.Unlock()
-	return nil
+	close(stopDone)
 }
 
-func waitForSessionProcess(command *exec.Cmd, ctx context.Context) {
+func stopForced(forceStop <-chan struct{}) bool {
+	select {
+	case <-forceStop:
+		return true
+	default:
+		return false
+	}
+}
+
+func waitForSessionProcess(
+	command *exec.Cmd,
+	stdout io.Closer,
+	stderr io.Closer,
+	readerDone <-chan struct{},
+	stderrDone <-chan struct{},
+	shutdownContext context.Context,
+	forceStop <-chan struct{},
+) {
 	if command == nil || command.Process == nil {
 		return
 	}
+
+	terminated := !waitForSessionStreams(readerDone, stderrDone, shutdownContext.Done(), forceStop)
+	if terminated {
+		_ = command.Process.Kill()
+		waitForSessionStreamDrain(stdout, stderr, readerDone, stderrDone)
+	}
 	waitDone := make(chan error, 1)
 	go func() { waitDone <- command.Wait() }()
+	if terminated {
+		<-waitDone
+		return
+	}
 	select {
-	case <-ctx.Done():
+	case <-waitDone:
+	case <-shutdownContext.Done():
 		_ = command.Process.Kill()
 		<-waitDone
-	case <-waitDone:
+	case <-forceStop:
+		_ = command.Process.Kill()
+		<-waitDone
 	}
+}
+
+func waitForSessionStreams(
+	readerDone <-chan struct{},
+	stderrDone <-chan struct{},
+	shutdownDone <-chan struct{},
+	forceStop <-chan struct{},
+) bool {
+	for readerDone != nil || stderrDone != nil {
+		select {
+		case <-readerDone:
+			readerDone = nil
+		case <-stderrDone:
+			stderrDone = nil
+		case <-shutdownDone:
+			return false
+		case <-forceStop:
+			return false
+		}
+	}
+	return true
+}
+
+func waitForSessionStreamDrain(
+	stdout io.Closer,
+	stderr io.Closer,
+	readerDone <-chan struct{},
+	stderrDone <-chan struct{},
+) {
+	drainContext, cancel := context.WithTimeout(context.Background(), sessionDrainTimeout)
+	defer cancel()
+	if waitForSessionStreams(readerDone, stderrDone, drainContext.Done(), nil) {
+		return
+	}
+	if stdout != nil {
+		_ = stdout.Close()
+	}
+	if stderr != nil {
+		_ = stderr.Close()
+	}
+	_ = waitForSessionStreams(readerDone, stderrDone, nil, nil)
 }
 
 func (session *Session) call(ctx context.Context, method string, params any, result any, allowClosing bool) error {
@@ -598,6 +751,9 @@ func (session *Session) decodeCallResponse(
 	result any,
 ) error {
 	session.removePending(requestID)
+	if envelope.failure != nil {
+		return envelope.failure
+	}
 	if envelope.Error != nil {
 		return fmt.Errorf("lsp: %s failed (%d): %s", method, envelope.Error.Code, envelope.Error.Message)
 	}
@@ -650,8 +806,8 @@ func (session *Session) writeEnvelope(payload map[string]any, allowClosing bool)
 	return nil
 }
 
-func (session *Session) readLoop(stdout io.Reader) {
-	defer close(session.readerDone)
+func (session *Session) readLoop(stdout io.Reader, readerDone chan<- struct{}) {
+	defer close(readerDone)
 	reader := bufio.NewReader(stdout)
 	for {
 		envelope, err := readEnvelope(reader)
@@ -663,8 +819,8 @@ func (session *Session) readLoop(stdout io.Reader) {
 	}
 }
 
-func (session *Session) drainStderr(stderr io.Reader) {
-	defer close(session.stderrDone)
+func (session *Session) drainStderr(stderr io.Reader, stderrDone chan<- struct{}) {
+	defer close(stderrDone)
 	_, _ = io.Copy(io.Discard, stderr)
 }
 
@@ -703,6 +859,7 @@ func (session *Session) failSession(cause error) {
 	session.mu.Unlock()
 
 	session.failPending(failure)
+	session.requestStop(true)
 }
 
 func (session *Session) failPending(cause error) {
@@ -713,7 +870,7 @@ func (session *Session) failPending(cause error) {
 	defer session.mu.Unlock()
 	for requestID, response := range session.pending {
 		select {
-		case response <- rpcEnvelope{Error: &rpcError{Code: -32000, Message: cause.Error()}}:
+		case response <- rpcEnvelope{failure: cause}:
 		default:
 		}
 		delete(session.pending, requestID)

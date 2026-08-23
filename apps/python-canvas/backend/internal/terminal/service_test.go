@@ -43,6 +43,34 @@ func TestManagedRunCommandShowsOnlyInterpreterAndRelativeArtifact(t *testing.T) 
 	}
 }
 
+func TestNewRequiresResolvedPythonEnvironment(t *testing.T) {
+	_, err := New(Options{ProjectDirectory: t.TempDir()})
+	if !errors.Is(err, ErrPythonEnvironmentRequired) {
+		t.Fatalf("New() error = %v, want resolved Python environment", err)
+	}
+}
+
+func TestValidateSizeUsesTheSharedConPTYSafeMaximum(t *testing.T) {
+	for _, size := range [][2]int{
+		{1, 1},
+		{terminalMaximumDimension, terminalMaximumDimension},
+	} {
+		if err := validateSize(size[0], size[1]); err != nil {
+			t.Fatalf("validateSize(%d, %d) error = %v", size[0], size[1], err)
+		}
+	}
+	for _, size := range [][2]int{
+		{0, 24},
+		{80, 0},
+		{terminalMaximumDimension + 1, 24},
+		{80, terminalMaximumDimension + 1},
+	} {
+		if err := validateSize(size[0], size[1]); !errors.Is(err, ErrInvalidSize) {
+			t.Fatalf("validateSize(%d, %d) error = %v, want %v", size[0], size[1], err, ErrInvalidSize)
+		}
+	}
+}
+
 func TestAttachHandoffPreservesHistoryAndOneActiveStream(t *testing.T) {
 	session := &session{
 		columns:   80,

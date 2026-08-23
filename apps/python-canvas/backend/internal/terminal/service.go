@@ -11,11 +11,14 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/setta/python-canvas/backend/internal/pythonenv"
+	"github.com/setta/python-canvas/backend/internal/terminalbounds"
 )
 
 const (
@@ -24,16 +27,20 @@ const (
 	defaultHistoryLimit     = 64 * 1024
 	defaultAttachmentBuffer = 64
 	defaultTicketTTL        = time.Minute
+	// terminalMaximumDimension is shared with the transport contract so every
+	// platform fits Windows ConPTY's signed COORD fields.
+	terminalMaximumDimension = terminalbounds.MaximumDimension
 )
 
 var (
-	ErrClosed            = errors.New("terminal: service is closed")
-	ErrSessionNotFound   = errors.New("terminal: session is not open")
-	ErrSessionExited     = errors.New("terminal: session has exited")
-	ErrAttachmentActive  = errors.New("terminal: browser attachment is already active")
-	ErrInvalidTicket     = errors.New("terminal: attachment ticket is invalid")
-	ErrInvalidSize       = errors.New("terminal: size must be positive")
-	ErrPythonUnavailable = errors.New("terminal: Python interpreter is unavailable")
+	ErrClosed                    = errors.New("terminal: service is closed")
+	ErrSessionNotFound           = errors.New("terminal: session is not open")
+	ErrSessionExited             = errors.New("terminal: session has exited")
+	ErrAttachmentActive          = errors.New("terminal: browser attachment is already active")
+	ErrInvalidTicket             = errors.New("terminal: attachment ticket is invalid")
+	ErrInvalidSize               = errors.New("terminal: size must be between 1 and 32767")
+	ErrPythonEnvironmentRequired = errors.New("terminal: resolved Python environment is required")
+	ErrPythonUnavailable         = errors.New("terminal: Python interpreter is unavailable")
 )
 
 // Runtime is the narrow process boundary used by the HTTP adapter. There is
@@ -50,11 +57,12 @@ type Runtime interface {
 }
 
 type Options struct {
-	ProjectDirectory string
-	Shell            []string
-	HistoryLimit     int
-	TicketTTL        time.Duration
-	Random           io.Reader
+	ProjectDirectory  string
+	PythonEnvironment pythonenv.ResolvedPythonEnvironment
+	Shell             []string
+	HistoryLimit      int
+	TicketTTL         time.Duration
+	Random            io.Reader
 }
 
 type Session struct {
@@ -86,10 +94,15 @@ func (attachment *Attachment) Close() {
 
 type Service struct {
 	projectDirectory string
+	interpreter      string
+	childEnvironment []string
 	shell            []string
 	historyLimit     int
 	ticketTTL        time.Duration
 	random           io.Reader
+	openTerminal     func([]string, string, []string, int, int) (ptySession, error)
+	createArtifact   func(string, string) (runArtifact, error)
+	removeArtifact   func(string) error
 
 	mu      sync.Mutex
 	closed  bool
@@ -115,6 +128,10 @@ type session struct {
 	attachment  *liveAttachment
 	artifacts   map[string]struct{}
 	cleanupOnce sync.Once
+	waitErr     error
+	closing     bool
+	stopErr     error
+	remove      func(string) error
 }
 
 type liveAttachment struct {
@@ -130,6 +147,14 @@ type historyBuffer struct {
 func New(options Options) (*Service, error) {
 	directory, err := validateProjectDirectory(options.ProjectDirectory)
 	if err != nil {
+		return nil, err
+	}
+	interpreter := options.PythonEnvironment.InterpreterPath()
+	childEnvironment := options.PythonEnvironment.ChildEnvironment()
+	if strings.TrimSpace(interpreter) == "" || len(childEnvironment) == 0 {
+		return nil, ErrPythonEnvironmentRequired
+	}
+	if err := validateConfiguredInterpreter(interpreter); err != nil {
 		return nil, err
 	}
 	shell, err := resolveShell(options.Shell)
@@ -156,10 +181,15 @@ func New(options Options) (*Service, error) {
 	}
 	return &Service{
 		projectDirectory: directory,
+		interpreter:      interpreter,
+		childEnvironment: childEnvironment,
 		shell:            shell,
 		historyLimit:     historyLimit,
 		ticketTTL:        ticketTTL,
 		random:           random,
+		openTerminal:     openPTY,
+		createArtifact:   createRunArtifact,
+		removeArtifact:   removeRunArtifact,
 		tickets:          make(map[string]ticket),
 	}, nil
 }
@@ -183,31 +213,31 @@ func (service *Service) Run(ctx context.Context, code string, columns int, rows 
 	if err := ctx.Err(); err != nil {
 		return Session{}, false, err
 	}
+	if err := validateConfiguredInterpreter(service.interpreter); err != nil {
+		return Session{}, false, err
+	}
 	session, created, err := service.ensureSession(columns, rows)
 	if err != nil {
 		return Session{}, false, err
 	}
-	interpreter, err := resolvePython()
-	if err != nil {
-		return Session{}, created, err
+	createArtifact := service.createArtifact
+	if createArtifact == nil {
+		createArtifact = createRunArtifact
 	}
-	artifact, err := createRunArtifact(service.projectDirectory, code)
+	artifact, err := createArtifact(service.projectDirectory, code)
 	if err != nil {
 		return Session{}, created, err
 	}
 	if err := ctx.Err(); err != nil {
-		_ = artifact.remove()
-		return Session{}, created, err
+		return Session{}, created, service.removeArtifactAfterFailure(artifact.path, err)
 	}
 	if !session.trackArtifact(artifact.path) {
-		_ = artifact.remove()
-		return Session{}, created, ErrSessionExited
+		return Session{}, created, service.removeArtifactAfterFailure(artifact.path, ErrSessionExited)
 	}
-	command := managedRunCommand(interpreter, artifact.relativePath)
+	command := managedRunCommand(service.interpreter, artifact.relativePath)
 	if err := session.write([]byte(command)); err != nil {
 		session.untrackArtifact(artifact.path)
-		_ = artifact.remove()
-		return Session{}, created, err
+		return Session{}, created, service.removeArtifactAfterFailure(artifact.path, err)
 	}
 	return session.info(), created, nil
 }
@@ -223,7 +253,7 @@ func (service *Service) IssueTicket() (string, error) {
 	if service.session == nil {
 		return "", ErrSessionNotFound
 	}
-	if service.session.isExited() {
+	if service.session.isExited() || service.session.isClosing() {
 		return "", ErrSessionExited
 	}
 	value, err := newTicket(service.random)
@@ -254,7 +284,7 @@ func (service *Service) Attach(value string) (*Attachment, error) {
 	service.mu.Unlock()
 
 	entry.session.mu.Lock()
-	if entry.session.exited {
+	if entry.session.exited || entry.session.closing {
 		entry.session.mu.Unlock()
 		return nil, ErrSessionExited
 	}
@@ -294,7 +324,7 @@ func (service *Service) Resize(columns int, rows int) error {
 		return fmt.Errorf("resize terminal PTY: %w", err)
 	}
 	session.mu.Lock()
-	if !session.exited {
+	if !session.exited && !session.closing {
 		session.columns = columns
 		session.rows = rows
 	}
@@ -312,7 +342,6 @@ func (service *Service) Delete(ctx context.Context) error {
 		return ErrSessionNotFound
 	}
 	session := service.session
-	service.session = nil
 	service.discardTicketsLocked(session)
 	service.mu.Unlock()
 	return service.stopAndWait(ctx, session)
@@ -351,18 +380,47 @@ func (service *Service) ensureSession(columns int, rows int) (*session, bool, er
 	if service.closed {
 		return nil, false, ErrClosed
 	}
-	if service.session != nil && !service.session.isExited() {
-		existing := service.session
+	existing, handled, err := service.resolveExistingSessionLocked(columns, rows)
+	if handled || err != nil {
+		return existing, false, err
+	}
+	return service.startSessionLocked(columns, rows)
+}
+
+func (service *Service) resolveExistingSessionLocked(columns int, rows int) (*session, bool, error) {
+	existing := service.session
+	if existing == nil {
+		return nil, false, nil
+	}
+	if !existing.isExited() && !existing.isClosing() {
 		if err := existing.resize(columns, rows); err != nil {
-			return nil, false, err
+			return nil, true, err
 		}
-		return existing, false, nil
+		return existing, true, nil
 	}
-	if service.session != nil {
-		service.discardTicketsLocked(service.session)
+	return service.clearFinishedSessionLocked(existing)
+}
+
+func (service *Service) clearFinishedSessionLocked(existing *session) (*session, bool, error) {
+	select {
+	case <-existing.done:
+		service.discardTicketsLocked(existing)
 		service.session = nil
+		if err := existing.waitError(); err != nil {
+			return nil, true, fmt.Errorf("terminal session cleanup: %w", err)
+		}
+		return nil, false, nil
+	default:
+		return nil, true, ErrSessionExited
 	}
-	pty, err := openPTY(service.shell, service.projectDirectory, columns, rows)
+}
+
+func (service *Service) startSessionLocked(columns int, rows int) (*session, bool, error) {
+	openTerminal := service.openTerminal
+	if openTerminal == nil {
+		openTerminal = openPTY
+	}
+	pty, err := openTerminal(service.shell, service.projectDirectory, service.childEnvironment, columns, rows)
 	if err != nil {
 		return nil, false, err
 	}
@@ -373,6 +431,7 @@ func (service *Service) ensureSession(columns int, rows int) (*session, bool, er
 		done:      make(chan struct{}),
 		history:   historyBuffer{limit: service.historyLimit},
 		artifacts: make(map[string]struct{}),
+		remove:    service.removeArtifact,
 	}
 	service.session = created
 	go service.readLoop(created)
@@ -389,19 +448,19 @@ func (service *Service) liveSession() (*session, error) {
 	if service.session == nil {
 		return nil, ErrSessionNotFound
 	}
-	if service.session.isExited() {
+	if service.session.isExited() || service.session.isClosing() {
 		return nil, ErrSessionExited
 	}
 	return service.session, nil
 }
 
 func (service *Service) stopAndWait(ctx context.Context, session *session) error {
-	session.stop()
+	stopErr := session.stop()
 	select {
 	case <-session.done:
-		return nil
+		return errors.Join(stopErr, session.waitError())
 	case <-ctx.Done():
-		return ctx.Err()
+		return errors.Join(ctx.Err(), stopErr)
 	}
 }
 
@@ -419,8 +478,7 @@ func (service *Service) readLoop(session *session) {
 }
 
 func (service *Service) waitLoop(session *session) {
-	_ = session.pty.Wait()
-	session.finish()
+	session.finish(session.pty.Wait())
 }
 
 func (service *Service) appendOutput(session *session, data []byte) {
@@ -429,7 +487,7 @@ func (service *Service) appendOutput(session *session, data []byte) {
 	}
 	var stale *liveAttachment
 	session.mu.Lock()
-	if session.exited {
+	if session.exited || session.closing {
 		session.mu.Unlock()
 		return
 	}
@@ -485,12 +543,18 @@ func (session *session) isExited() bool {
 	return session.exited
 }
 
+func (session *session) isClosing() bool {
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	return session.closing
+}
+
 func (session *session) resize(columns int, rows int) error {
 	if err := session.pty.Resize(columns, rows); err != nil {
 		return fmt.Errorf("resize terminal PTY: %w", err)
 	}
 	session.mu.Lock()
-	if session.exited {
+	if session.exited || session.closing {
 		session.mu.Unlock()
 		return ErrSessionExited
 	}
@@ -505,7 +569,7 @@ func (session *session) write(data []byte) error {
 		return nil
 	}
 	session.mu.Lock()
-	exited := session.exited
+	exited := session.exited || session.closing
 	session.mu.Unlock()
 	if exited {
 		return ErrSessionExited
@@ -521,7 +585,7 @@ func (session *session) write(data []byte) error {
 func (session *session) trackArtifact(path string) bool {
 	session.mu.Lock()
 	defer session.mu.Unlock()
-	if session.exited {
+	if session.exited || session.closing {
 		return false
 	}
 	session.artifacts[path] = struct{}{}
@@ -534,13 +598,22 @@ func (session *session) untrackArtifact(path string) {
 	session.mu.Unlock()
 }
 
-func (session *session) stop() {
+func (session *session) stop() error {
+	session.mu.Lock()
+	session.closing = true
+	session.mu.Unlock()
 	session.cleanupOnce.Do(func() {
-		_ = session.pty.Close()
+		err := session.pty.Close()
+		session.mu.Lock()
+		session.stopErr = err
+		session.mu.Unlock()
 	})
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	return session.stopErr
 }
 
-func (session *session) finish() {
+func (session *session) finish(waitErr error) {
 	var output chan []byte
 	var artifacts []string
 	session.mu.Lock()
@@ -549,6 +622,7 @@ func (session *session) finish() {
 		return
 	}
 	session.exited = true
+	session.waitErr = waitErr
 	if session.attachment != nil {
 		output = session.attachment.output
 		session.attachment = nil
@@ -561,13 +635,46 @@ func (session *session) finish() {
 	if output != nil {
 		close(output)
 	}
+	var cleanupErr error
 	for _, path := range artifacts {
-		_ = removeRunArtifact(path)
+		if err := session.removeArtifact(path); err != nil {
+			cleanupErr = errors.Join(cleanupErr, fmt.Errorf("remove generated Python run artifact %q: %w", path, err))
+		}
 	}
-	_ = session.pty.Close()
+	stopErr := session.stop()
+	session.mu.Lock()
+	session.waitErr = errors.Join(session.waitErr, cleanupErr, stopErr)
+	session.mu.Unlock()
 	// Close only after owned artifacts are gone so Delete and launcher
 	// shutdown return with their process-boundary cleanup complete.
 	close(session.done)
+}
+
+func (session *session) removeArtifact(path string) error {
+	if session.remove != nil {
+		return session.remove(path)
+	}
+	return removeRunArtifact(path)
+}
+
+func (service *Service) removeArtifactAfterFailure(path string, cause error) error {
+	remove := service.removeArtifact
+	if remove == nil {
+		remove = removeRunArtifact
+	}
+	if err := remove(path); err != nil {
+		return errors.Join(cause, fmt.Errorf("remove generated Python run artifact %q: %w", path, err))
+	}
+	return cause
+}
+
+func (session *session) waitError() error {
+	if session == nil {
+		return nil
+	}
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	return session.waitErr
 }
 
 func (history *historyBuffer) append(data []byte) {
@@ -594,38 +701,99 @@ type runArtifact struct {
 	relativePath string
 }
 
-func createRunArtifact(directory string, code string) (runArtifact, error) {
+type runArtifactWriter struct {
+	file      *os.File
+	path      string
+	fileOpen  bool
+	committed bool
+}
+
+func createRunArtifact(directory string, code string) (created runArtifact, resultErr error) {
 	file, err := os.CreateTemp(directory, ".setta-run-*.py")
 	if err != nil {
 		return runArtifact{}, fmt.Errorf("create generated Python run artifact: %w", err)
 	}
-	path := file.Name()
-	committed := false
-	defer func() {
-		if !committed {
-			_ = file.Close()
-			_ = os.Remove(path)
-		}
-	}()
-	if err := file.Chmod(0o600); err != nil {
-		return runArtifact{}, fmt.Errorf("protect generated Python run artifact: %w", err)
+	writer := &runArtifactWriter{file: file, path: file.Name(), fileOpen: true}
+	defer writer.cleanupOnFailure(&resultErr)
+	if err := writer.protect(); err != nil {
+		return runArtifact{}, err
 	}
-	if _, err := io.WriteString(file, code); err != nil {
-		return runArtifact{}, fmt.Errorf("write generated Python run artifact: %w", err)
+	if err := writer.write(code); err != nil {
+		return runArtifact{}, err
 	}
-	if err := file.Sync(); err != nil {
-		return runArtifact{}, fmt.Errorf("sync generated Python run artifact: %w", err)
+	if err := writer.sync(); err != nil {
+		return runArtifact{}, err
 	}
-	if err := file.Close(); err != nil {
-		return runArtifact{}, fmt.Errorf("close generated Python run artifact: %w", err)
+	if err := writer.close(); err != nil {
+		return runArtifact{}, err
 	}
-	if err := os.Chmod(path, 0o400); err != nil {
-		return runArtifact{}, fmt.Errorf("make generated Python run artifact immutable: %w", err)
+	if err := writer.makeImmutable(); err != nil {
+		return runArtifact{}, err
 	}
-	committed = true
+	writer.committed = true
 	// The PTY starts in the project directory. Keep the absolute path only for
 	// backend cleanup; the terminal sees a concise relative artifact name.
-	return runArtifact{path: path, relativePath: filepath.Base(path)}, nil
+	return runArtifact{path: writer.path, relativePath: filepath.Base(writer.path)}, nil
+}
+
+func (writer *runArtifactWriter) protect() error {
+	if err := writer.file.Chmod(0o600); err != nil {
+		return fmt.Errorf("protect generated Python run artifact: %w", err)
+	}
+	return nil
+}
+
+func (writer *runArtifactWriter) write(code string) error {
+	if _, err := io.WriteString(writer.file, code); err != nil {
+		return fmt.Errorf("write generated Python run artifact: %w", err)
+	}
+	return nil
+}
+
+func (writer *runArtifactWriter) sync() error {
+	if err := writer.file.Sync(); err != nil {
+		return fmt.Errorf("sync generated Python run artifact: %w", err)
+	}
+	return nil
+}
+
+func (writer *runArtifactWriter) close() error {
+	err := writer.file.Close()
+	writer.fileOpen = false
+	if err != nil {
+		return fmt.Errorf("close generated Python run artifact: %w", err)
+	}
+	return nil
+}
+
+func (writer *runArtifactWriter) makeImmutable() error {
+	if err := os.Chmod(writer.path, 0o400); err != nil {
+		return fmt.Errorf("make generated Python run artifact immutable: %w", err)
+	}
+	return nil
+}
+
+func (writer *runArtifactWriter) cleanupOnFailure(resultErr *error) {
+	if writer.committed {
+		return
+	}
+	if cleanupErr := writer.cleanup(); cleanupErr != nil {
+		*resultErr = errors.Join(
+			*resultErr,
+			fmt.Errorf("clean up incomplete generated Python run artifact: %w", cleanupErr),
+		)
+	}
+}
+
+func (writer *runArtifactWriter) cleanup() error {
+	var result error
+	if writer.fileOpen {
+		result = writer.file.Close()
+	}
+	if err := os.Remove(writer.path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		result = errors.Join(result, err)
+	}
+	return result
 }
 
 func (artifact runArtifact) remove() error {
@@ -647,14 +815,22 @@ func removeRunArtifact(path string) error {
 	return nil
 }
 
-func resolvePython() (string, error) {
-	for _, name := range []string{"python3", "python"} {
-		path, err := exec.LookPath(name)
-		if err == nil {
-			return path, nil
-		}
+func validateConfiguredInterpreter(interpreter string) error {
+	interpreter = strings.TrimSpace(interpreter)
+	if interpreter == "" || !filepath.IsAbs(interpreter) {
+		return ErrPythonUnavailable
 	}
-	return "", ErrPythonUnavailable
+	info, err := os.Stat(interpreter)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrPythonUnavailable, err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("%w: %q is not a regular file", ErrPythonUnavailable, interpreter)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+		return fmt.Errorf("%w: %q is not executable", ErrPythonUnavailable, interpreter)
+	}
+	return nil
 }
 
 func newTicket(random io.Reader) (string, error) {
@@ -684,7 +860,7 @@ func validateProjectDirectory(path string) (string, error) {
 }
 
 func validateSize(columns int, rows int) error {
-	if columns < 1 || rows < 1 {
+	if columns < 1 || rows < 1 || columns > terminalMaximumDimension || rows > terminalMaximumDimension {
 		return ErrInvalidSize
 	}
 	return nil

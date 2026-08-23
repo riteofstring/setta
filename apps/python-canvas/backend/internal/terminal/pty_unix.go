@@ -9,16 +9,21 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/creack/pty"
 )
 
 type unixPTY struct {
-	file      *os.File
-	command   *exec.Cmd
-	closeOnce sync.Once
+	file           *os.File
+	command        *exec.Cmd
+	lifetimeWriter *os.File
+	closeOnce      sync.Once
+	closeErr       error
+	waitOnce       sync.Once
+	waitErr        error
 }
+
+var resolveTerminalGuardianInvocation = defaultTerminalGuardianInvocation
 
 func resolveShell(configured []string) ([]string, error) {
 	if len(configured) != 0 {
@@ -42,20 +47,70 @@ func resolveCommand(command []string) ([]string, error) {
 	return append([]string{path}, command[1:]...), nil
 }
 
-func openPTY(command []string, directory string, columns int, rows int) (ptySession, error) {
+func openPTY(command []string, directory string, environment []string, columns int, rows int) (ptySession, error) {
 	if len(command) == 0 {
 		return nil, errors.New("terminal command is required")
 	}
-	cmd := exec.Command(command[0], command[1:]...)
-	cmd.Dir = directory
-	cmd.Env = os.Environ()
-	// pty.StartWithSize creates the shell's session and controlling terminal;
-	// its PID is consequently the process-group target used during shutdown.
-	file, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(columns), Rows: uint16(rows)})
+	lifetimeReader, lifetimeWriter, err := os.Pipe()
 	if err != nil {
+		return nil, fmt.Errorf("create terminal guardian lifetime pipe: %w", err)
+	}
+	defer lifetimeReader.Close()
+	guardian, err := newTerminalGuardianCommand(command, directory, environment, lifetimeReader)
+	if err != nil {
+		_ = lifetimeWriter.Close()
+		return nil, err
+	}
+	// pty.StartWithSize creates the guardian's session and controlling terminal.
+	// The guardian then starts the configured shell in that same session while
+	// retaining the stable session identity needed after the shell has exited.
+	file, err := pty.StartWithSize(guardian, &pty.Winsize{Cols: uint16(columns), Rows: uint16(rows)})
+	if err != nil {
+		_ = lifetimeWriter.Close()
 		return nil, fmt.Errorf("start terminal PTY: %w", err)
 	}
-	return &unixPTY{file: file, command: cmd}, nil
+	return &unixPTY{
+		file:           file,
+		command:        guardian,
+		lifetimeWriter: lifetimeWriter,
+	}, nil
+}
+
+func defaultTerminalGuardianInvocation(shell []string) ([]string, error) {
+	arguments, err := terminalGuardianArguments(shell)
+	if err != nil {
+		return nil, err
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("resolve terminal guardian executable: %w", err)
+	}
+	return append([]string{executable}, arguments...), nil
+}
+
+func newTerminalGuardianCommand(
+	shell []string,
+	directory string,
+	environment []string,
+	lifetimeReader *os.File,
+) (*exec.Cmd, error) {
+	if lifetimeReader == nil {
+		return nil, errors.New("terminal guardian lifetime pipe is required")
+	}
+	invocation, err := resolveTerminalGuardianInvocation(shell)
+	if err != nil {
+		return nil, err
+	}
+	if len(invocation) == 0 || strings.TrimSpace(invocation[0]) == "" {
+		return nil, errors.New("terminal guardian invocation is required")
+	}
+	command := exec.Command(invocation[0], invocation[1:]...)
+	// cwd and environment are inherited by the shell through the guardian. They
+	// deliberately do not cross its private argv boundary or appear as metadata.
+	command.Dir = directory
+	command.Env = append([]string(nil), environment...)
+	command.ExtraFiles = []*os.File{lifetimeReader}
+	return command, nil
 }
 
 func (session *unixPTY) Read(data []byte) (int, error) {
@@ -71,48 +126,30 @@ func (session *unixPTY) Resize(columns int, rows int) error {
 }
 
 func (session *unixPTY) Close() error {
-	var result error
 	session.closeOnce.Do(func() {
-		if session.command != nil && session.command.Process != nil {
-			result = terminateProcessGroup(session.command.Process.Pid)
-		}
-		if session.file != nil {
-			if err := session.file.Close(); err != nil && result == nil {
-				result = err
-			}
+		if session.lifetimeWriter != nil {
+			session.closeErr = session.lifetimeWriter.Close()
 		}
 	})
-	return result
-}
-
-func terminateProcessGroup(pid int) error {
-	if pid < 1 {
-		return nil
-	}
-	groupID, err := syscall.Getpgid(pid)
-	if err != nil {
-		if err == syscall.ESRCH {
-			return nil
-		}
-		return err
-	}
-	if err := syscall.Kill(-groupID, syscall.SIGTERM); err != nil && err != syscall.ESRCH {
-		return err
-	}
-	// Interactive shells may deliberately ignore SIGTERM. The runtime has no
-	// reusable process after Delete or shutdown, so immediately force the same
-	// isolated process group down and let Wait reap it deterministically.
-	if err := syscall.Kill(-groupID, syscall.SIGKILL); err != nil && err != syscall.ESRCH {
-		return err
-	}
-	return nil
+	return session.closeErr
 }
 
 func (session *unixPTY) Wait() error {
-	if session.command == nil {
+	if session == nil {
 		return nil
 	}
-	return session.command.Wait()
+	session.waitOnce.Do(func() {
+		if session.command != nil {
+			session.waitErr = session.command.Wait()
+		}
+		if err := session.Close(); err != nil {
+			session.waitErr = errors.Join(session.waitErr, fmt.Errorf("close terminal guardian lifetime pipe: %w", err))
+		}
+		if session.file != nil {
+			_ = session.file.Close()
+		}
+	})
+	return session.waitErr
 }
 
 func managedRunCommand(interpreter string, artifact string) string {

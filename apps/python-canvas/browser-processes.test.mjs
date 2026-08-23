@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import {
   chmodSync,
   mkdirSync,
@@ -16,6 +17,8 @@ import {
   headlessChromeArguments,
   launcherArguments,
   resolveHeadlessChromeBinary,
+  startSupervisedProcess,
+  stopProcess,
   waitForLauncher,
 } from "./browser-processes.mjs";
 
@@ -40,15 +43,14 @@ test("Headless Chrome keeps an isolated renderer profile and audio flag", () => 
   );
 });
 
-test("launcher routes readiness checks through its supplied ports", async (t) => {
+test("launcher checks API and web readiness on one supplied origin", async (t) => {
   const originalFetch = globalThis.fetch;
   const requests = [];
-  const backendOrigin = "http://127.0.0.1:43111";
-  const previewOrigin = "http://127.0.0.1:43112";
-  let frontendAttempts = 0;
+  const serverOrigin = "http://127.0.0.1:43111";
+  let webAttempts = 0;
   globalThis.fetch = async (origin) => {
     requests.push(origin);
-    if (origin === previewOrigin && frontendAttempts++ === 0) {
+    if (origin === serverOrigin && webAttempts++ === 0) {
       throw new TypeError("connection refused");
     }
     return { ok: true };
@@ -63,36 +65,156 @@ test("launcher routes readiness checks through its supplied ports", async (t) =>
       label: "Python Canvas launcher",
       output: { stderr: "", stdout: "" },
     },
-    backendOrigin,
-    previewOrigin,
+    serverOrigin,
   );
 
   assert.deepEqual(requests, [
     "http://127.0.0.1:43111/api/v2/project",
-    "http://127.0.0.1:43112",
-    "http://127.0.0.1:43112",
+    "http://127.0.0.1:43111",
+    "http://127.0.0.1:43111",
   ]);
 });
 
-test("launcher receives per-run backend and preview ports", () => {
+test("launcher receives one per-run same-origin port", () => {
   assert.deepEqual(
-    launcherArguments("/tmp/python-canvas/project.json", true, {
-      backendPort: 43111,
-      previewPort: 43112,
-    }),
+    launcherArguments("/tmp/python-canvas/project.json", true, 43111),
     [
       "--project",
       "/tmp/python-canvas/project.json",
-      "--backend-port",
+      "--port",
       "43111",
-      "--preview-port",
-      "43112",
       "--create",
     ],
   );
 });
 
-test("production launcher builds and previews the Python Canvas frontend", () => {
+test("supervised launcher keeps stdin open until its owner shuts down", async (t) => {
+  const temporaryDirectory = mkdtempSync(
+    path.join(os.tmpdir(), "setta-python-canvas-supervisor-"),
+  );
+  const fixturePath = path.join(temporaryDirectory, "supervised-child.mjs");
+  writeFileSync(
+    fixturePath,
+    [
+      'process.once("SIGTERM", () => {',
+      '  process.stdout.write("received signal\\n");',
+      "  process.exit(9);",
+      "});",
+      'process.stdin.once("end", () => {',
+      '  process.stdout.write("supervisor stdin closed\\n");',
+      "  process.exit(0);",
+      "});",
+      "process.stdin.resume();",
+      'process.stdout.write("ready\\n");',
+    ].join("\n"),
+    "utf8",
+  );
+  const processHandle = startSupervisedProcess(
+    process.execPath,
+    [fixturePath],
+    {
+      cwd: temporaryDirectory,
+      label: "supervised launcher fixture",
+    },
+  );
+  t.after(async () => {
+    await stopProcess(processHandle);
+    rmSync(temporaryDirectory, { force: true, recursive: true });
+  });
+
+  await waitForProcessOutput(processHandle, "ready\n");
+  assert.equal(processHandle.child.exitCode, null);
+
+  await stopProcess(processHandle);
+
+  assert.equal(processHandle.child.exitCode, 0);
+  assert.match(processHandle.output.stdout, /supervisor stdin closed/u);
+  assert.doesNotMatch(processHandle.output.stdout, /received signal/u);
+});
+
+test("supervised launcher falls back to SIGTERM after an ignored EOF", async (t) => {
+  const temporaryDirectory = mkdtempSync(
+    path.join(os.tmpdir(), "setta-python-canvas-supervisor-fallback-"),
+  );
+  const fixturePath = path.join(temporaryDirectory, "supervised-child.mjs");
+  writeFileSync(
+    fixturePath,
+    [
+      "const keepAlive = setInterval(() => {}, 1_000);",
+      'process.once("SIGTERM", () => {',
+      "  clearInterval(keepAlive);",
+      '  process.stdout.write("received signal\\n");',
+      "  process.exit(0);",
+      "});",
+      "process.stdin.resume();",
+      'process.stdout.write("ready\\n");',
+    ].join("\n"),
+    "utf8",
+  );
+  const processHandle = startSupervisedProcess(
+    process.execPath,
+    [fixturePath],
+    {
+      cwd: temporaryDirectory,
+      label: "supervised fallback fixture",
+    },
+  );
+  t.after(async () => {
+    await stopProcess(processHandle);
+    rmSync(temporaryDirectory, { force: true, recursive: true });
+  });
+
+  await waitForProcessOutput(processHandle, "ready\n");
+  await stopProcess(processHandle);
+
+  assert.equal(processHandle.child.exitCode, 0);
+  assert.match(processHandle.output.stdout, /received signal/u);
+});
+
+test("unsupervised process receives SIGTERM without an EOF wait", async (t) => {
+  const temporaryDirectory = mkdtempSync(
+    path.join(os.tmpdir(), "setta-python-canvas-signal-"),
+  );
+  const fixturePath = path.join(temporaryDirectory, "signal-child.mjs");
+  writeFileSync(
+    fixturePath,
+    [
+      "const timeout = setTimeout(() => {",
+      '  process.stdout.write("waited instead of receiving signal\\n");',
+      "  process.exit(8);",
+      "}, 1_000);",
+      'process.once("SIGTERM", () => {',
+      "  clearTimeout(timeout);",
+      '  process.stdout.write("received signal\\n");',
+      "  process.exit(0);",
+      "});",
+      'process.stdout.write("ready\\n");',
+    ].join("\n"),
+    "utf8",
+  );
+  const processHandle = startUnsupervisedProcess(
+    process.execPath,
+    [fixturePath],
+    temporaryDirectory,
+    "unsupervised signal fixture",
+  );
+  t.after(async () => {
+    await stopProcess(processHandle);
+    rmSync(temporaryDirectory, { force: true, recursive: true });
+  });
+
+  await waitForProcessOutput(processHandle, "ready\n");
+  await stopProcess(processHandle);
+
+  assert.equal(processHandle.child.exitCode, 0);
+  assert.match(processHandle.output.stdout, /received signal/u);
+  assert.doesNotMatch(
+    processHandle.output.stdout,
+    /waited instead of receiving signal/u,
+  );
+});
+
+test("production launcher supplies the private same-origin server inputs", () => {
   const launcher = readFileSync(
     new URL("../../scripts/run-python-canvas.sh", import.meta.url),
     "utf8",
@@ -100,9 +222,54 @@ test("production launcher builds and previews the Python Canvas frontend", () =>
 
   assert.match(
     launcher,
-    /backend_args=\([\s\S]*--project "\$\{project_path\}"[\s\S]*--port "\$\{backend_port\}"[\s\S]*--app-origin "http:\/\/127\.0\.0\.1:\$\{preview_port\}"[\s\S]*\)[\s\S]*PYTHON_CANVAS_BACKEND_ORIGIN="http:\/\/127\.0\.0\.1:\$\{backend_port\}"[\s\S]*exec \.\/node_modules\/\.bin\/vite preview --host 127\.0\.0\.1 --port "\$\{preview_port\}" --strictPort/u,
+    /server_args=\([\s\S]*serve[\s\S]*--project "\$\{canonical_project\}"[\s\S]*--launcher-python "\$\{launcher_python\}"[\s\S]*--basedpyright "\$\{basedpyright\}"[\s\S]*--web-root "\$\{web_root\}"[\s\S]*--port "\$\{server_port\}"[\s\S]*--session-nonce "\$\{session_nonce\}"[\s\S]*--supervised-stdin[\s\S]*\)[\s\S]*exec "\$\{go_command\}" -C apps\/python-canvas\/backend run \.\/cmd\/python-canvas/u,
+  );
+  assert.doesNotMatch(
+    launcher,
+    /--app-origin|vite preview|PYTHON_CANVAS_BACKEND_ORIGIN/u,
   );
 });
+
+async function waitForProcessOutput(processHandle, output) {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (processHandle.output.stdout.includes(output)) {
+      return;
+    }
+    if (processHandle.child.exitCode !== null) {
+      throw new Error(
+        `${processHandle.label} exited before writing ${JSON.stringify(output)}.`,
+      );
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, 10);
+    });
+  }
+  throw new Error(
+    `${processHandle.label} did not write ${JSON.stringify(output)}.`,
+  );
+}
+
+function startUnsupervisedProcess(command, arguments_, cwd, label) {
+  const child = spawn(command, arguments_, {
+    cwd,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const output = { stderr: "", stdout: "" };
+  child.stderr.on("data", (chunk) => {
+    output.stderr = `${output.stderr}${String(chunk)}`;
+  });
+  child.stdout.on("data", (chunk) => {
+    output.stdout = `${output.stdout}${String(chunk)}`;
+  });
+  return {
+    child,
+    label,
+    output,
+    ownsProcessGroup: false,
+    supervisedStdin: false,
+  };
+}
 
 function writeExecutable(filePath) {
   mkdirSync(path.dirname(filePath), { recursive: true });

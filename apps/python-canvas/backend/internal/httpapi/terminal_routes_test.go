@@ -74,6 +74,30 @@ func TestTerminalRoutesRunExactCaptureAndClose(t *testing.T) {
 	}
 }
 
+func TestTerminalRoutesRejectOversizedSizesBeforeRuntimeAdmission(t *testing.T) {
+	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
+	runtime := newTerminalRuntimeStub()
+	handler := newTerminalHandlerForTest(t, service, runtime)
+
+	response := postJSON(
+		handler,
+		contracts.ProjectTerminalPathV2,
+		fmt.Sprintf(
+			`{"projectId":"project:fixture","columns":%d,"rows":24}`,
+			contracts.MaxTerminalDimensionV2+1,
+		),
+	)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("oversized open status = %d; body = %s", response.Code, response.Body.String())
+	}
+	assertErrorCode(t, response, contracts.APIErrorCodeInvalidRequestV2)
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	if len(runtime.openCalls) != 0 {
+		t.Fatalf("oversized terminal request reached runtime: %#v", runtime.openCalls)
+	}
+}
+
 func TestTerminalStreamUsesReadyHistoryLiveAndValidatedInput(t *testing.T) {
 	service := &stubProjectService{snapshot: contracts.FixtureProjectSnapshotV2()}
 	runtime := newTerminalRuntimeStub()
@@ -310,8 +334,10 @@ func TestDecodeTerminalResizeIsClosedAndExact(t *testing.T) {
 func newTerminalHandlerForTest(t *testing.T, service ProjectService, runtime terminal.Runtime) http.Handler {
 	t.Helper()
 	handler, err := NewHandler(service, HandlerOptions{
-		Terminal:  runtime,
-		AppOrigin: "http://127.0.0.1:5173",
+		Terminal:       runtime,
+		Runner:         newGeneratedProgramRuntimeStub(),
+		RuntimeSession: runtimeSessionIdentityForTest(),
+		AppOrigin:      "http://127.0.0.1:5173",
 	})
 	if err != nil {
 		t.Fatalf("NewHandler() error = %v", err)

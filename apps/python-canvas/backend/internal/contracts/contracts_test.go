@@ -3,6 +3,7 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"testing"
 )
 
@@ -196,7 +197,7 @@ func TestV2MutationsRequireExpectedRevision(t *testing.T) {
 	}
 }
 
-func TestTerminalContractUsesPositiveSizesAndClosedControlFrames(t *testing.T) {
+func TestTerminalContractUsesPortableSizesAndClosedControlFrames(t *testing.T) {
 	if err := (OpenTerminalRequestV2{ProjectID: "project:terminal", Columns: 80, Rows: 24}).Validate(); err != nil {
 		t.Fatalf("validate terminal open request: %v", err)
 	}
@@ -209,16 +210,84 @@ func TestTerminalContractUsesPositiveSizesAndClosedControlFrames(t *testing.T) {
 
 	for _, value := range []interface{ Validate() error }{
 		OpenTerminalRequestV2{ProjectID: "project:terminal", Columns: 0, Rows: 24},
+		OpenTerminalRequestV2{ProjectID: "project:terminal", Columns: MaxTerminalDimensionV2 + 1, Rows: 24},
 		RunTerminalRequestV2{ProjectID: "project:terminal", ExpectedRevision: 0, Columns: 80, Rows: 24},
+		RunTerminalRequestV2{ProjectID: "project:terminal", ExpectedRevision: 1, Columns: 80, Rows: MaxTerminalDimensionV2 + 1},
 		TerminalTicketV2{Ticket: " "},
 		TerminalStreamReadyV2{Type: "unexpected"},
 		TerminalStreamResizeV2{Type: TerminalStreamReadyTypeV2, Columns: 80, Rows: 24},
+		TerminalStreamResizeV2{Type: TerminalStreamResizeTypeV2, Columns: MaxTerminalDimensionV2 + 1, Rows: 24},
 	} {
 		if err := value.Validate(); err == nil {
 			t.Fatalf("terminal contract accepted invalid value %#v", value)
 		}
 	}
 }
+
+func TestGeneratedProgramRunContractBindsExactRevisionAndCompletedOutcomes(t *testing.T) {
+	timeout := 30000
+	request := RunGeneratedProgramRequestV2{
+		ProjectID:              "project:runner",
+		ExpectedRevision:       4,
+		RunTimeoutMilliseconds: &timeout,
+	}
+	if err := request.Validate(); err != nil {
+		t.Fatalf("validate run request: %v", err)
+	}
+	zero := 0
+	if err := (GeneratedProgramRunResultV2{
+		ProjectID:   "project:runner",
+		Revision:    4,
+		Stdout:      "stdout\n",
+		Stderr:      "",
+		ExitCode:    &zero,
+		Termination: GeneratedProgramTerminationExitedV2,
+	}).Validate(); err != nil {
+		t.Fatalf("validate exited run result: %v", err)
+	}
+	if err := (GeneratedProgramRunResultV2{
+		ProjectID:   "project:runner",
+		Revision:    4,
+		Stdout:      "partial",
+		Stderr:      "",
+		Termination: GeneratedProgramTerminationTimedOutV2,
+	}).Validate(); err != nil {
+		t.Fatalf("validate timed-out run result: %v", err)
+	}
+
+	for _, value := range []interface{ Validate() error }{
+		RunGeneratedProgramRequestV2{ProjectID: "project:runner", ExpectedRevision: 0},
+		RunGeneratedProgramRequestV2{ProjectID: "project:runner", ExpectedRevision: 4, RunTimeoutMilliseconds: integerPointerForTest(MaxRunTimeoutMillisecondsV2 + 1)},
+		GeneratedProgramRunResultV2{ProjectID: "project:runner", Revision: 4, Termination: GeneratedProgramTerminationExitedV2},
+		GeneratedProgramRunResultV2{ProjectID: "project:runner", Revision: 4, ExitCode: &zero, Termination: GeneratedProgramTerminationTimedOutV2},
+	} {
+		if err := value.Validate(); err == nil {
+			t.Fatalf("run contract accepted invalid value %#v", value)
+		}
+	}
+}
+
+func TestRuntimeSessionIdentityContractIsClosedAndCanonical(t *testing.T) {
+	projectPath, err := filepath.Abs(filepath.Join("tmp", "project.json"))
+	if err != nil {
+		t.Fatalf("resolve test project path: %v", err)
+	}
+	identity := RuntimeSessionIdentityV2{
+		SchemaVersion: RuntimeSessionSchemaVersionV1,
+		AppID:         RuntimeSessionAppIDV1,
+		ProjectPath:   projectPath,
+		InstanceNonce: "a-verified-runtime-nonce",
+	}
+	if err := identity.Validate(); err != nil {
+		t.Fatalf("validate runtime session identity: %v", err)
+	}
+	identity.ProjectPath = "project.json"
+	if err := identity.Validate(); err == nil {
+		t.Fatal("runtime session identity accepted a relative project path")
+	}
+}
+
+func integerPointerForTest(value int) *int { return &value }
 
 func snapshotWithCallableForTest() ProjectSnapshotV2 {
 	snapshot := FixtureProjectSnapshotV2()

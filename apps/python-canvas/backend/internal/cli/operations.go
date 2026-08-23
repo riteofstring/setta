@@ -6,15 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/url"
 	"sort"
-	"strings"
 	"unicode/utf8"
 
 	"github.com/setta/python-canvas/backend/internal/contracts"
 )
 
-const cliContractVersion = "v1"
+const cliContractVersion = "v2"
 
 // operation is deliberately closed by operationRegistry. It is decoded before
 // the CLI contacts the service, then bound to the current canonical snapshot.
@@ -45,8 +43,41 @@ type fieldSchema struct {
 
 type schemaDocument struct {
 	Version      string            `json:"version"`
+	Commands     []commandSchema   `json:"commands"`
 	Operations   []operationSchema `json:"operations"`
+	Results      []resultSchema    `json:"results"`
+	Errors       []errorSchema     `json:"errors"`
 	V2Vocabulary []vocabularyShape `json:"v2Vocabulary"`
+}
+
+// commandSchema describes the public Setta Python Canvas grammar. The Setta
+// adapter resolves --project to a verified live session before invoking this
+// private native command with its --url escape hatch.
+type commandSchema struct {
+	Name      string           `json:"name"`
+	Summary   string           `json:"summary"`
+	Usage     string           `json:"usage"`
+	Selectors []fieldSchema    `json:"selectors,omitempty"`
+	Options   []fieldSchema    `json:"options,omitempty"`
+	Result    string           `json:"result"`
+	ExitCodes []exitCodeSchema `json:"exitCodes"`
+}
+
+type exitCodeSchema struct {
+	Code        int    `json:"code"`
+	Description string `json:"description"`
+}
+
+type resultSchema struct {
+	Name        string        `json:"name"`
+	Description string        `json:"description"`
+	Fields      []fieldSchema `json:"fields"`
+}
+
+type errorSchema struct {
+	Code        string `json:"code"`
+	ExitCode    int    `json:"exitCode"`
+	Description string `json:"description"`
 }
 
 type operationSchema struct {
@@ -370,7 +401,10 @@ func schema() (schemaDocument, error) {
 	}
 	return schemaDocument{
 		Version:    cliContractVersion,
+		Commands:   commandSchemas(),
 		Operations: operations,
+		Results:    resultSchemas(),
+		Errors:     errorSchemas(),
 		V2Vocabulary: []vocabularyShape{
 			{
 				Name:        "ParameterProposalV2",
@@ -413,6 +447,207 @@ func schema() (schemaDocument, error) {
 			},
 		},
 	}, nil
+}
+
+func commandSchemas() []commandSchema {
+	liveSelectors := []fieldSchema{
+		{Name: "--project", Type: "path", Description: "Canonical project path resolved to exactly one verified live Python Canvas session."},
+		{Name: "--url", Type: "url", Description: "Absolute loopback HTTP URL for expert automation."},
+	}
+	standardExitCodes := []exitCodeSchema{
+		{Code: exitSuccess, Description: "The command completed successfully."},
+		{Code: exitInputOrTypedV2Failure, Description: "Input was invalid or the live service returned a typed application error."},
+		{Code: exitUnexpectedFailure, Description: "Connection, timeout, malformed response, or an unexpected runtime failure occurred."},
+	}
+	runExitCodes := append([]exitCodeSchema(nil), standardExitCodes...)
+	runExitCodes = append(runExitCodes, exitCodeSchema{Code: exitCompletedPythonFailure, Description: "Generated Python completed with a nonzero exit, signal, timeout, or output limit."})
+	return []commandSchema{
+		{
+			Name:    "schema",
+			Summary: "Publish this versioned offline command contract.",
+			Usage:   "setta python-canvas schema [--pretty]",
+			Options: []fieldSchema{{Name: "--pretty", Type: "boolean", Description: "Indent the JSON document."}},
+			Result:  "PythonCanvasCommandSchemaV2",
+			ExitCodes: []exitCodeSchema{
+				{Code: exitSuccess, Description: "The offline schema was written."},
+				{Code: exitInputOrTypedV2Failure, Description: "Input was invalid."},
+				{Code: exitUnexpectedFailure, Description: "The schema could not be written."},
+			},
+		},
+		{
+			Name:    "open",
+			Summary: "Start and foreground-supervise one private live Python Canvas session.",
+			Usage:   "setta python-canvas open --project PATH [--create] [--no-open]",
+			Options: []fieldSchema{
+				{Name: "--project", Type: "path", Description: "Project path canonicalized before session ownership is acquired."},
+				{Name: "--create", Type: "boolean", Description: "Create the project only when it is absent."},
+				{Name: "--no-open", Type: "boolean", Description: "Do not open the browser after the live session is ready."},
+			},
+			Result:    "SettaOpenResultV1",
+			ExitCodes: append([]exitCodeSchema(nil), standardExitCodes...),
+		},
+		{
+			Name:    "session.inspect",
+			Summary: "Inspect one verified live Python Canvas session without changing project bytes.",
+			Usage:   "setta python-canvas session inspect --project PATH [--pretty]",
+			Options: []fieldSchema{
+				{Name: "--project", Type: "path", Description: "Project path canonicalized before locating its live session."},
+				{Name: "--pretty", Type: "boolean", Description: "Indent the JSON document."},
+			},
+			Result:    "LiveSessionV1",
+			ExitCodes: append([]exitCodeSchema(nil), standardExitCodes...),
+		},
+		{
+			Name:      "snapshot",
+			Summary:   "Read one canonical project snapshot from a verified live session.",
+			Usage:     "setta python-canvas snapshot (--project PATH | --url URL) [--wait-diagnostics] [--timeout DURATION] [--pretty]",
+			Selectors: append([]fieldSchema(nil), liveSelectors...),
+			Options: []fieldSchema{
+				{Name: "--wait-diagnostics", Type: "boolean", Description: "Wait until diagnostics match the observed project revision."},
+				{Name: "--timeout", Type: "duration", Description: "Diagnostic wait timeout from greater than zero through one minute; requires --wait-diagnostics."},
+				{Name: "--pretty", Type: "boolean", Description: "Indent the JSON document."},
+			},
+			Result:    "ProjectSnapshotV2",
+			ExitCodes: append([]exitCodeSchema(nil), standardExitCodes...),
+		},
+		{
+			Name:      "apply",
+			Summary:   "Apply exactly one closed authored operation without retrying a revision conflict.",
+			Usage:     "setta python-canvas apply (--project PATH | --url URL) --file PATH|- [--wait-diagnostics] [--timeout DURATION] [--pretty]",
+			Selectors: append([]fieldSchema(nil), liveSelectors...),
+			Options: []fieldSchema{
+				{Name: "--file", Type: "path", Description: "One operation JSON document, or - for standard input."},
+				{Name: "--wait-diagnostics", Type: "boolean", Description: "Wait until diagnostics match the post-mutation project revision."},
+				{Name: "--timeout", Type: "duration", Description: "Diagnostic wait timeout from greater than zero through one minute; requires --wait-diagnostics."},
+				{Name: "--pretty", Type: "boolean", Description: "Indent the JSON document."},
+			},
+			Result:    "ProjectSnapshotV2",
+			ExitCodes: append([]exitCodeSchema(nil), standardExitCodes...),
+		},
+		{
+			Name:      "run",
+			Summary:   "Run exactly one captured generated Python revision without using the attached terminal.",
+			Usage:     "setta python-canvas run (--project PATH | --url URL) [--wait-diagnostics] [--diagnostics-timeout DURATION] [--run-timeout DURATION] [--pretty]",
+			Selectors: append([]fieldSchema(nil), liveSelectors...),
+			Options: []fieldSchema{
+				{Name: "--wait-diagnostics", Type: "boolean", Description: "Wait until diagnostics match the observed project revision."},
+				{Name: "--diagnostics-timeout", Type: "duration", Description: "Diagnostic wait timeout from greater than zero through one minute; requires --wait-diagnostics."},
+				{Name: "--run-timeout", Type: "duration", Description: "Generated-program timeout from greater than zero through five minutes; defaults to 30 seconds."},
+				{Name: "--pretty", Type: "boolean", Description: "Indent the JSON document."},
+			},
+			Result:    "GeneratedProgramRunResultV2",
+			ExitCodes: runExitCodes,
+		},
+	}
+}
+
+func resultSchemas() []resultSchema {
+	return []resultSchema{
+		{
+			Name:        "SettaOpenResultV1",
+			Description: "Readiness information printed before the foreground session supervisor waits for its child.",
+			Fields: []fieldSchema{
+				{Name: "schemaVersion", Type: "string", Values: []string{"setta-open/v1"}},
+				{Name: "appId", Type: "string", Values: []string{"python-canvas"}},
+				{Name: "projectPath", Type: "path"},
+				{Name: "url", Type: "url"},
+			},
+		},
+		{
+			Name:        "LiveSessionV1",
+			Description: "Verified locator data for one foreground Python Canvas server; it contains no project state.",
+			Fields: []fieldSchema{
+				{Name: "formatVersion", Type: "string", Values: []string{"setta-live-session/v1"}},
+				{Name: "appId", Type: "string", Values: []string{"python-canvas"}},
+				{Name: "projectPath", Type: "path"},
+				{Name: "url", Type: "url"},
+				{Name: "ownerPid", Type: "integer"},
+				{Name: "instanceNonce", Type: "string"},
+			},
+		},
+		{
+			Name:        "ProjectSnapshotV2",
+			Description: "The canonical live coordinator snapshot returned by snapshot and apply.",
+			Fields: []fieldSchema{
+				{Name: "version", Type: "string", Values: []string{contracts.ProjectSnapshotVersionV2}},
+				{Name: "project", Type: "object", Reference: "ProjectV2"},
+				{Name: "pythonTarget", Type: "object", Reference: "PythonTargetV2"},
+				{Name: "callables", Type: "array", Reference: "CallableV2"},
+				{Name: "parameterDictionaries", Type: "array", Reference: "ParameterDictionaryV2"},
+				{Name: "lists", Type: "array", Reference: "ListV2"},
+				{Name: "topLevelSectionIds", Type: "array"},
+				{Name: "generatedCode", Type: "object", Reference: "GeneratedCodeV2"},
+				{Name: "diagnostics", Type: "array", Reference: "DiagnosticV2"},
+				{Name: "diagnosticsRevision", Type: "integer"},
+				{Name: "providerStatus", Type: "object", Reference: "ProviderStatusV2"},
+			},
+		},
+		{
+			Name:        "GeneratedProgramRunResultV2",
+			Description: "One completed generated Python execution with separately bounded output streams.",
+			Fields: []fieldSchema{
+				{Name: "projectId", Type: "string"},
+				{Name: "revision", Type: "integer", Description: "Exact captured coordinator revision."},
+				{Name: "stdout", Type: "string"},
+				{Name: "stderr", Type: "string"},
+				{Name: "stdoutTruncated", Type: "boolean"},
+				{Name: "stderrTruncated", Type: "boolean"},
+				{Name: "exitCode", Type: "integer", Description: "Present only when terminationReason is exited."},
+				{Name: "terminationReason", Type: "string", Values: []string{
+					string(contracts.GeneratedProgramTerminationExitedV2),
+					string(contracts.GeneratedProgramTerminationSignaledV2),
+					string(contracts.GeneratedProgramTerminationTimedOutV2),
+					string(contracts.GeneratedProgramTerminationOutputLimitV2),
+				}},
+				{Name: "elapsedMilliseconds", Type: "integer"},
+			},
+		},
+		{
+			Name:        "ErrorResponseV2",
+			Description: "One typed error written to standard error for invalid input, application rejection, or operational failure.",
+			Fields: []fieldSchema{
+				{Name: "error", Type: "object", Reference: "CLIErrorV2"},
+			},
+		},
+	}
+}
+
+func errorSchemas() []errorSchema {
+	return []errorSchema{
+		{Code: "invalid_input", ExitCode: exitInputOrTypedV2Failure, Description: "The command arguments are invalid."},
+		{Code: "invalid_command", ExitCode: exitInputOrTypedV2Failure, Description: "The command is unsupported."},
+		{Code: "session_not_found", ExitCode: exitInputOrTypedV2Failure, Description: "No verified live session exists for the selected project."},
+		{Code: "session_stale", ExitCode: exitInputOrTypedV2Failure, Description: "The stored live session is stale or failed identity verification."},
+		{Code: "session_already_running", ExitCode: exitInputOrTypedV2Failure, Description: "Another foreground owner already holds the project session lease."},
+		{Code: "invalid_url", ExitCode: exitInputOrTypedV2Failure, Description: "The URL is outside the absolute loopback service boundary."},
+		{Code: "input_too_large", ExitCode: exitInputOrTypedV2Failure, Description: "The operation document exceeds the bounded input size."},
+		{Code: "invalid_operation", ExitCode: exitInputOrTypedV2Failure, Description: "The supplied authored operation does not match the closed registry."},
+		{Code: "unknown_operation", ExitCode: exitInputOrTypedV2Failure, Description: "The supplied authored operation is unsupported."},
+		{Code: string(contracts.APIErrorCodeRevisionConflictV2), ExitCode: exitInputOrTypedV2Failure, Description: "The requested project revision is no longer current."},
+		{Code: string(contracts.APIErrorCodeValidationFailedV2), ExitCode: exitInputOrTypedV2Failure, Description: "The service rejected the request validation."},
+		{Code: string(contracts.APIErrorCodeNotFoundV2), ExitCode: exitInputOrTypedV2Failure, Description: "The requested project resource does not exist."},
+		{Code: string(contracts.APIErrorCodeInvalidRequestV2), ExitCode: exitInputOrTypedV2Failure, Description: "The service rejected the request shape."},
+		{Code: string(contracts.APIErrorCodeProviderUnavailableV2), ExitCode: exitInputOrTypedV2Failure, Description: "The configured language provider is unavailable."},
+		{Code: string(contracts.APIErrorCodeProviderFailedV2), ExitCode: exitInputOrTypedV2Failure, Description: "The configured language provider failed."},
+		{Code: string(contracts.APIErrorCodeRenderFailedV2), ExitCode: exitInputOrTypedV2Failure, Description: "The service could not render generated Python."},
+		{Code: string(contracts.APIErrorCodeMaterializationFailedV2), ExitCode: exitInputOrTypedV2Failure, Description: "The service could not materialize generated Python."},
+		{Code: string(contracts.APIErrorCodePersistenceFailedV2), ExitCode: exitInputOrTypedV2Failure, Description: "The service could not persist the project."},
+		{Code: string(contracts.APIErrorCodeTerminalUnavailableV2), ExitCode: exitInputOrTypedV2Failure, Description: "The attached terminal is unavailable."},
+		{Code: string(contracts.APIErrorCodeTerminalFailedV2), ExitCode: exitInputOrTypedV2Failure, Description: "The attached terminal failed."},
+		{Code: string(contracts.APIErrorCodeRunnerUnavailableV2), ExitCode: exitInputOrTypedV2Failure, Description: "The generated-program runner was interrupted."},
+		{Code: string(contracts.APIErrorCodeRunnerFailedV2), ExitCode: exitInputOrTypedV2Failure, Description: "The generated-program runner failed."},
+		{Code: string(contracts.APIErrorCodeMethodNotAllowedV2), ExitCode: exitInputOrTypedV2Failure, Description: "The service rejected the HTTP method."},
+		{Code: string(contracts.APIErrorCodeInternalV2), ExitCode: exitInputOrTypedV2Failure, Description: "The service reported an internal typed failure."},
+		{Code: "connection_failed", ExitCode: exitUnexpectedFailure, Description: "The Python Canvas service could not be reached."},
+		{Code: "request_timeout", ExitCode: exitUnexpectedFailure, Description: "The service request exceeded its client-side deadline."},
+		{Code: "request_canceled", ExitCode: exitUnexpectedFailure, Description: "The command context was canceled."},
+		{Code: "malformed_response", ExitCode: exitUnexpectedFailure, Description: "The service response did not match its contract."},
+		{Code: "response_too_large", ExitCode: exitUnexpectedFailure, Description: "The service response exceeds the bounded output size."},
+		{Code: "diagnostics_timeout", ExitCode: exitUnexpectedFailure, Description: "Diagnostics did not settle before the requested deadline."},
+		{Code: "runtime_invalid", ExitCode: exitUnexpectedFailure, Description: "The packaged runtime assets are unavailable or invalid."},
+		{Code: "runtime_failed", ExitCode: exitUnexpectedFailure, Description: "The packaged runtime could not execute the requested app command."},
+		{Code: "internal_error", ExitCode: exitUnexpectedFailure, Description: "The command could not complete an internal boundary."},
+	}
 }
 
 func decodeOperationDocument(content []byte) (operation, error) {
@@ -575,209 +810,4 @@ func validatedMutation(path string, body interface{ Validate() error }) (mutatio
 		return mutation{}, err
 	}
 	return mutation{path: path, body: body}, nil
-}
-
-func stableID(value string) error {
-	if strings.TrimSpace(value) == "" || value != strings.TrimSpace(value) || !utf8.ValidString(value) || strings.ContainsRune(value, '\x00') {
-		return fmt.Errorf("stable ID is invalid")
-	}
-	return nil
-}
-
-func sectionRoute(collectionPath string, id string, action string) (string, error) {
-	if err := stableID(id); err != nil {
-		return "", err
-	}
-	return collectionPath + "/" + url.PathEscape(id) + "/" + action, nil
-}
-
-type unknownOperationError struct{ name string }
-
-func (unknownOperationError) Error() string { return "operation name is not supported" }
-
-type projectRenameOperation struct{ name string }
-
-func (operation projectRenameOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	return validatedMutation(contracts.ProjectRenamePathV2, contracts.RenameProjectRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, Name: operation.name})
-}
-
-type callableCreateOperation struct{ name string }
-
-func (operation callableCreateOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	return validatedMutation(contracts.ProjectCallablesPathV2, contracts.CreateCallableRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, Name: operation.name})
-}
-
-type callableCreateConfiguredOperation struct {
-	name            string
-	expression      string
-	parameterValues map[string]string
-}
-
-func (operation callableCreateConfiguredOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	return validatedMutation(contracts.ProjectConfiguredCallablePathV2, contracts.CreateConfiguredCallableRequestV2{
-		ProjectID:          snapshot.Project.ID,
-		ExpectedRevision:   snapshot.Project.Revision,
-		Name:               operation.name,
-		AuthoredExpression: operation.expression,
-		ParameterValues:    operation.parameterValues,
-	})
-}
-
-type callableRenameOperation struct{ id, name string }
-
-func (operation callableRenameOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	path, err := sectionRoute(contracts.ProjectCallablesPathV2, operation.id, "rename")
-	if err != nil {
-		return mutation{}, err
-	}
-	return validatedMutation(path, contracts.RenameCallableRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, Name: operation.name})
-}
-
-type callableDeleteOperation struct{ id string }
-
-func (operation callableDeleteOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	path, err := sectionRoute(contracts.ProjectCallablesPathV2, operation.id, "delete")
-	if err != nil {
-		return mutation{}, err
-	}
-	return validatedMutation(path, contracts.DeleteCallableRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision})
-}
-
-type callableCommitOperation struct{ id, expression string }
-
-func (operation callableCommitOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	path, err := sectionRoute(contracts.ProjectCallablesPathV2, operation.id, "commit")
-	if err != nil {
-		return mutation{}, err
-	}
-	return validatedMutation(path, contracts.CommitCallableRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, AuthoredExpression: operation.expression})
-}
-
-type callableRefreshParametersOperation struct{ id string }
-
-func (operation callableRefreshParametersOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	path, err := sectionRoute(contracts.ProjectCallablesPathV2, operation.id, "refresh-parameters")
-	if err != nil {
-		return mutation{}, err
-	}
-	return validatedMutation(path, contracts.RefreshCallableParametersRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision})
-}
-
-type callableSetParametersOperation struct {
-	id         string
-	parameters []contracts.ParameterProposalV2
-}
-
-func (operation callableSetParametersOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	path, err := sectionRoute(contracts.ProjectCallablesPathV2, operation.id, "parameters")
-	if err != nil {
-		return mutation{}, err
-	}
-	return validatedMutation(path, contracts.SetCallableParametersRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, Parameters: operation.parameters})
-}
-
-type parameterDictionaryCreateOperation struct{ name string }
-
-func (operation parameterDictionaryCreateOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	return validatedMutation(contracts.ProjectParameterDictionariesPathV2, contracts.CreateParameterDictionaryRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, Name: operation.name})
-}
-
-type parameterDictionaryRenameOperation struct{ id, name string }
-
-func (operation parameterDictionaryRenameOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	path, err := sectionRoute(contracts.ProjectParameterDictionariesPathV2, operation.id, "rename")
-	if err != nil {
-		return mutation{}, err
-	}
-	return validatedMutation(path, contracts.RenameParameterDictionaryRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, Name: operation.name})
-}
-
-type parameterDictionaryDeleteOperation struct{ id string }
-
-func (operation parameterDictionaryDeleteOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	path, err := sectionRoute(contracts.ProjectParameterDictionariesPathV2, operation.id, "delete")
-	if err != nil {
-		return mutation{}, err
-	}
-	return validatedMutation(path, contracts.DeleteParameterDictionaryRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision})
-}
-
-type parameterDictionarySetEntriesOperation struct {
-	id      string
-	entries []contracts.DictionaryEntryV2
-}
-
-func (operation parameterDictionarySetEntriesOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	path, err := sectionRoute(contracts.ProjectParameterDictionariesPathV2, operation.id, "entries")
-	if err != nil {
-		return mutation{}, err
-	}
-	return validatedMutation(path, contracts.SetParameterDictionaryEntriesRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, Entries: operation.entries})
-}
-
-type listCreateOperation struct{ name string }
-
-func (operation listCreateOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	return validatedMutation(contracts.ProjectListsPathV2, contracts.CreateListRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, Name: operation.name})
-}
-
-type listRenameOperation struct{ id, name string }
-
-func (operation listRenameOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	path, err := sectionRoute(contracts.ProjectListsPathV2, operation.id, "rename")
-	if err != nil {
-		return mutation{}, err
-	}
-	return validatedMutation(path, contracts.RenameListRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, Name: operation.name})
-}
-
-type listDeleteOperation struct{ id string }
-
-func (operation listDeleteOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	path, err := sectionRoute(contracts.ProjectListsPathV2, operation.id, "delete")
-	if err != nil {
-		return mutation{}, err
-	}
-	return validatedMutation(path, contracts.DeleteListRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision})
-}
-
-type listIncrementOperation struct {
-	id    string
-	count int
-}
-
-func (operation listIncrementOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	path, err := sectionRoute(contracts.ProjectListsPathV2, operation.id, "increment")
-	if err != nil {
-		return mutation{}, err
-	}
-	return validatedMutation(path, contracts.IncrementListChildrenRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, Count: operation.count})
-}
-
-type listDecrementOperation struct {
-	id    string
-	count int
-}
-
-func (operation listDecrementOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	path, err := sectionRoute(contracts.ProjectListsPathV2, operation.id, "decrement")
-	if err != nil {
-		return mutation{}, err
-	}
-	return validatedMutation(path, contracts.DecrementListChildrenRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, Count: operation.count})
-}
-
-type forestReplaceOperation struct {
-	topLevel     []string
-	listChildren []contracts.ListChildrenV2
-}
-
-func (operation forestReplaceOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	return validatedMutation(contracts.ProjectForestPathV2, contracts.ReplaceSectionForestRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, TopLevelSectionIDs: operation.topLevel, ListChildren: operation.listChildren})
-}
-
-type pythonTargetSetOperation struct{ prefix, suffix string }
-
-func (operation pythonTargetSetOperation) mutation(snapshot contracts.ProjectSnapshotV2) (mutation, error) {
-	return validatedMutation(contracts.ProjectTargetPathV2, contracts.SetPythonTargetRequestV2{ProjectID: snapshot.Project.ID, ExpectedRevision: snapshot.Project.Revision, Prefix: operation.prefix, Suffix: operation.suffix})
 }

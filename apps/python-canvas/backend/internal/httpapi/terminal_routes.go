@@ -17,16 +17,25 @@ import (
 	"github.com/coder/websocket/wsjson"
 	"github.com/setta/python-canvas/backend/internal/contracts"
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
+	"github.com/setta/python-canvas/backend/internal/runner"
 	"github.com/setta/python-canvas/backend/internal/terminal"
 )
 
 var ErrTerminalRuntimeRequired = errors.New("httpapi: terminal runtime is required")
 
-// HandlerOptions binds the optional process boundary and the explicit browser
-// origins allowed to upgrade its terminal WebSocket. The loopback listener is
-// not itself an origin authorization policy because Vite proxies upgrades.
+// HandlerOptions binds every startup-owned process boundary plus the explicit
+// browser origins allowed to upgrade its terminal WebSocket. The loopback
+// listener is not itself an origin authorization policy because Vite proxies
+// upgrades.
 type HandlerOptions struct {
 	Terminal terminal.Runtime
+	// Runner owns direct, noninteractive generated-program execution. It is
+	// deliberately distinct from Terminal so AI-native calls cannot acquire or
+	// alter the attached PTY session.
+	Runner runner.Runtime
+	// RuntimeSession is startup-owned identity published for the generic Setta
+	// live-session locator. NewHandler validates it before exposing the route.
+	RuntimeSession contracts.RuntimeSessionIdentityV2
 	// AppOrigin identifies the loopback browser origin permitted to upgrade the
 	// terminal stream. A 127.0.0.1 origin with an explicit port also permits
 	// main's matching localhost alias on that port.

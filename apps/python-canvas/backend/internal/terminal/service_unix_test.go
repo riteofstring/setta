@@ -8,9 +8,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/setta/python-canvas/backend/internal/pythonenv"
 )
 
 func TestServicePTYInputResizeInterruptReconnectAndDelete(t *testing.T) {
@@ -32,7 +35,7 @@ func TestServicePTYInputResizeInterruptReconnectAndDelete(t *testing.T) {
 	}
 	waitForTerminalOutput(t, attachment, "37 101")
 
-	if err := service.Write([]byte("sh -c 'printf \"__setta_running__\\n\"; sleep 30; printf \"__setta_not_interrupted__\\n\"'\n")); err != nil {
+	if err := service.Write([]byte("printf '__setta_running__\\n'; while :; do :; done; printf '__setta_not_interrupted__\\n'\n")); err != nil {
 		t.Fatalf("start long-running foreground command: %v", err)
 	}
 	waitForTerminalOutput(t, attachment, "__setta_running__")
@@ -66,11 +69,6 @@ func TestServicePTYInputResizeInterruptReconnectAndDelete(t *testing.T) {
 }
 
 func TestServiceRunArtifactIsReadOnlyAndLifecycleCleansIt(t *testing.T) {
-	if _, err := exec.LookPath("python3"); err != nil {
-		if _, fallbackErr := exec.LookPath("python"); fallbackErr != nil {
-			t.Skip("Python interpreter is unavailable")
-		}
-	}
 	for _, lifecycle := range []struct {
 		name   string
 		finish func(context.Context, *Service) error
@@ -125,6 +123,50 @@ func TestServiceRunArtifactIsReadOnlyAndLifecycleCleansIt(t *testing.T) {
 	}
 }
 
+func TestServicePTYAndRunUseResolvedProjectVenv(t *testing.T) {
+	directory := t.TempDir()
+	launcher := terminalTestPython(t)
+	venvRoot := filepath.Join(directory, ".venv")
+	createTerminalVenv(t, launcher, venvRoot)
+	environment, err := pythonenv.Resolve(context.Background(), pythonenv.Options{
+		ProjectPath:    filepath.Join(directory, "project.json"),
+		LauncherPython: launcher,
+		InheritedEnvironment: []string{
+			"PATH=/ambient/bin",
+			"VIRTUAL_ENV=/ambient/venv",
+			"PYTHONPATH=/ambient/imports",
+			"SETTA_PYTHON=/ambient/python",
+		},
+	})
+	if err != nil {
+		t.Fatalf("resolve project Python environment: %v", err)
+	}
+	service := newUnixTerminalServiceWithEnvironment(t, directory, environment)
+	if _, created, err := service.Open(80, 24); err != nil || !created {
+		t.Fatalf("open terminal = created %t error %v", created, err)
+	}
+	attachment := attachUnixTerminal(t, service)
+	if err := service.Write([]byte("printf '__setta_venv__%s\\n' \"$VIRTUAL_ENV\"\n")); err != nil {
+		t.Fatalf("write VIRTUAL_ENV probe: %v", err)
+	}
+	if output := waitForTerminalOutput(t, attachment, "__setta_venv__"+venvRoot); !strings.Contains(output, "__setta_venv__"+venvRoot) {
+		t.Fatalf("terminal VIRTUAL_ENV output = %q, want %q", output, venvRoot)
+	}
+	if err := service.Write([]byte("printf '__setta_python__%s\\n' \"$(command -v python)\"\n")); err != nil {
+		t.Fatalf("write Python PATH probe: %v", err)
+	}
+	if output := waitForTerminalOutput(t, attachment, "__setta_python__"+environment.InterpreterPath()); !strings.Contains(output, "__setta_python__"+environment.InterpreterPath()) {
+		t.Fatalf("terminal Python path output = %q, want %q", output, environment.InterpreterPath())
+	}
+	runCode := "import os, sys\nprint('__setta_run_python__' + str(os.path.samefile(sys.executable, " + strconv.Quote(environment.InterpreterPath()) + ")), flush=True)\n"
+	if _, created, err := service.Run(context.Background(), runCode, 80, 24); err != nil || created {
+		t.Fatalf("run generated Python = created %t error %v", created, err)
+	}
+	if output := waitForTerminalOutput(t, attachment, "__setta_run_python__True"); !strings.Contains(output, "__setta_run_python__True") {
+		t.Fatalf("Run interpreter output = %q, want resolved interpreter", output)
+	}
+}
+
 func newUnixTerminalService(t *testing.T) *Service {
 	t.Helper()
 	return newUnixTerminalServiceAt(t, t.TempDir())
@@ -132,11 +174,21 @@ func newUnixTerminalService(t *testing.T) *Service {
 
 func newUnixTerminalServiceAt(t *testing.T, directory string) *Service {
 	t.Helper()
+	environment := resolvedTerminalPythonEnvironment(t, directory)
+	return newUnixTerminalServiceWithEnvironment(t, directory, environment)
+}
+
+func newUnixTerminalServiceWithEnvironment(t *testing.T, directory string, environment pythonenv.ResolvedPythonEnvironment) *Service {
+	t.Helper()
 	shell, err := exec.LookPath("sh")
 	if err != nil {
 		t.Skip("POSIX shell is unavailable")
 	}
-	service, err := New(Options{ProjectDirectory: directory, Shell: []string{shell, "-i"}})
+	service, err := New(Options{
+		ProjectDirectory:  directory,
+		PythonEnvironment: environment,
+		Shell:             []string{shell, "-i"},
+	})
 	if err != nil {
 		t.Fatalf("create terminal service: %v", err)
 	}
@@ -148,6 +200,45 @@ func newUnixTerminalServiceAt(t *testing.T, directory string) *Service {
 		}
 	})
 	return service
+}
+
+func resolvedTerminalPythonEnvironment(t *testing.T, directory string) pythonenv.ResolvedPythonEnvironment {
+	t.Helper()
+	environment, err := pythonenv.Resolve(context.Background(), pythonenv.Options{
+		ProjectPath:    filepath.Join(directory, "project.json"),
+		LauncherPython: terminalTestPython(t),
+	})
+	if err != nil {
+		t.Fatalf("resolve terminal Python environment: %v", err)
+	}
+	return environment
+}
+
+func terminalTestPython(t *testing.T) string {
+	t.Helper()
+	for _, name := range []string{"python3", "python"} {
+		path, err := exec.LookPath(name)
+		if err != nil {
+			continue
+		}
+		path, err = filepath.Abs(path)
+		if err != nil {
+			t.Fatalf("resolve %s path: %v", name, err)
+		}
+		return path
+	}
+	t.Skip("a Python interpreter is unavailable")
+	return ""
+}
+
+func createTerminalVenv(t *testing.T, launcher string, root string) {
+	t.Helper()
+	venvContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(venvContext, launcher, "-m", "venv", "--without-pip", root).CombinedOutput()
+	if err != nil {
+		t.Skipf("create real venv with %q: %v: %s", launcher, err, strings.TrimSpace(string(output)))
+	}
 }
 
 func attachUnixTerminal(t *testing.T, service *Service) *Attachment {

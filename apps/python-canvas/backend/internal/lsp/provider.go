@@ -6,32 +6,38 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 	"github.com/setta/python-canvas/backend/internal/project/coordinator"
+	"github.com/setta/python-canvas/backend/internal/pythonenv"
 )
 
 const defaultDiagnosticTimeout = 8 * time.Second
 
 var (
-	ErrAppRootRequired       = errors.New("lsp: app root is required")
-	ErrWorkspaceRootRequired = errors.New("lsp: workspace root is required")
-	ErrProviderClosed        = errors.New("lsp: provider is closed")
-	ErrDiagnosticsNotReady   = errors.New("lsp: exact diagnostics are not ready")
+	ErrBasedpyrightCommandRequired = errors.New("lsp: Basedpyright command is required")
+	ErrInvalidBasedpyrightCommand  = errors.New("lsp: Basedpyright command is invalid")
+	ErrWorkspaceRootRequired       = errors.New("lsp: workspace root is required")
+	ErrPythonEnvironmentRequired   = errors.New("lsp: resolved Python environment is required")
+	ErrProviderClosed              = errors.New("lsp: provider is closed")
+	ErrDiagnosticsNotReady         = errors.New("lsp: exact diagnostics are not ready")
 )
 
 type BasedpyrightOptions struct {
-	AppRoot           string
+	Command           string
 	WorkspaceRoot     string
+	PythonEnvironment pythonenv.ResolvedPythonEnvironment
 	RequestTimeout    time.Duration
 	DiagnosticTimeout time.Duration
 }
 
-// BasedpyrightProvider owns exactly one session backed by the app's pinned
-// dependency. It never searches PATH and accepts one canonical generated file.
+// BasedpyrightProvider owns exactly one session backed by the command supplied
+// by the packaged launcher. It never searches PATH and accepts one canonical
+// generated file.
 type BasedpyrightProvider struct {
 	mu sync.Mutex
 
@@ -43,9 +49,13 @@ type BasedpyrightProvider struct {
 }
 
 func NewBasedpyrightProvider(options BasedpyrightOptions) (*BasedpyrightProvider, error) {
-	executable, err := ResolvePinnedBasedpyrightExecutable(options.AppRoot)
+	executable, err := ResolveBasedpyrightExecutable(options.Command)
 	if err != nil {
 		return nil, err
+	}
+	interpreter := options.PythonEnvironment.InterpreterPath()
+	if strings.TrimSpace(interpreter) == "" || len(options.PythonEnvironment.ChildEnvironment()) == 0 {
+		return nil, ErrPythonEnvironmentRequired
 	}
 	workspaceRoot := strings.TrimSpace(options.WorkspaceRoot)
 	if workspaceRoot == "" {
@@ -64,6 +74,10 @@ func NewBasedpyrightProvider(options BasedpyrightOptions) (*BasedpyrightProvider
 		Args:           []string{"--stdio"},
 		WorkspaceRoot:  workspaceRoot,
 		RequestTimeout: options.RequestTimeout,
+		Environment:    options.PythonEnvironment.ChildEnvironment(),
+		Configuration: map[string]any{
+			"python": map[string]string{"pythonPath": interpreter},
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -79,36 +93,29 @@ func NewBasedpyrightProvider(options BasedpyrightOptions) (*BasedpyrightProvider
 	}, nil
 }
 
-// ResolvePinnedBasedpyrightExecutable resolves only the exact executable that
-// pnpm installed for this app. The resolved symlink target must remain within
-// appRoot/node_modules, so a global server can never become a fallback.
-func ResolvePinnedBasedpyrightExecutable(appRoot string) (string, error) {
-	appRoot = strings.TrimSpace(appRoot)
-	if appRoot == "" {
-		return "", ErrAppRootRequired
+// ResolveBasedpyrightExecutable accepts only an exact absolute executable
+// path supplied at startup. The server must never discover source-checkout or
+// global dependencies at runtime.
+func ResolveBasedpyrightExecutable(command string) (string, error) {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return "", ErrBasedpyrightCommandRequired
 	}
-	resolvedAppRoot, err := filepath.Abs(appRoot)
+	if !filepath.IsAbs(command) {
+		return "", fmt.Errorf("%w: path must be absolute", ErrInvalidBasedpyrightCommand)
+	}
+	command = filepath.Clean(command)
+	info, err := os.Stat(command)
 	if err != nil {
-		return "", fmt.Errorf("lsp: resolve app root: %w", err)
-	}
-	nodeModulesRoot := filepath.Join(resolvedAppRoot, "node_modules")
-	executable := filepath.Join(nodeModulesRoot, ".bin", "basedpyright-langserver")
-	resolvedExecutable, err := filepath.EvalSymlinks(executable)
-	if err != nil {
-		return "", fmt.Errorf("lsp: resolve pinned Basedpyright executable: %w", err)
-	}
-	insideNodeModules, err := filepath.Rel(nodeModulesRoot, resolvedExecutable)
-	if err != nil || insideNodeModules == ".." || strings.HasPrefix(insideNodeModules, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("lsp: pinned Basedpyright executable resolves outside app node_modules")
-	}
-	info, err := os.Stat(resolvedExecutable)
-	if err != nil {
-		return "", fmt.Errorf("lsp: stat pinned Basedpyright executable: %w", err)
+		return "", fmt.Errorf("%w: stat %q: %v", ErrInvalidBasedpyrightCommand, command, err)
 	}
 	if !info.Mode().IsRegular() {
-		return "", fmt.Errorf("lsp: pinned Basedpyright executable is not a regular file")
+		return "", fmt.Errorf("%w: %q is not a regular file", ErrInvalidBasedpyrightCommand, command)
 	}
-	return executable, nil
+	if info.Mode().Perm()&0o111 == 0 && runtime.GOOS != "windows" {
+		return "", fmt.Errorf("%w: %q is not executable", ErrInvalidBasedpyrightCommand, command)
+	}
+	return command, nil
 }
 
 func (provider *BasedpyrightProvider) ResolveCallableSignature(

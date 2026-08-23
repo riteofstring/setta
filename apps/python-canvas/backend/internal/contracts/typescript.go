@@ -23,11 +23,17 @@ export const PROJECT_PARAMETER_DICTIONARIES_PATH_V2 = %q as const;
 export const PROJECT_LISTS_PATH_V2 = %q as const;
 export const PROJECT_FOREST_PATH_V2 = %q as const;
 export const PROJECT_TARGET_PATH_V2 = %q as const;
+export const PROJECT_RUN_PATH_V2 = %q as const;
 export const PROJECT_TERMINAL_PATH_V2 = %q as const;
 export const PROJECT_TERMINAL_RUN_PATH_V2 = %q as const;
 export const PROJECT_TERMINAL_CLOSE_PATH_V2 = %q as const;
 export const PROJECT_TERMINAL_TICKET_PATH_V2 = %q as const;
 export const PROJECT_TERMINAL_STREAM_PATH_V2 = %q as const;
+export const RUNTIME_SESSION_PATH_V2 = %q as const;
+export const RUNTIME_SESSION_SCHEMA_VERSION_V1 = %q as const;
+export const RUNTIME_SESSION_APP_ID_V1 = %q as const;
+export const MAX_RUN_TIMEOUT_MILLISECONDS_V2 = %d as const;
+export const MAX_TERMINAL_DIMENSION_V2 = %d as const;
 
 export function projectCallableRenamePath(callableId: string): string {
   return %q + encodeURIComponent(callableId) + "/rename";
@@ -126,6 +132,8 @@ export type APIErrorCodeV2 =
   | "persistence_failed"
   | "terminal_unavailable"
   | "terminal_failed"
+  | "runner_unavailable"
+  | "runner_failed"
   | "method_not_allowed"
   | "internal";
 
@@ -223,12 +231,26 @@ export interface SetPythonTargetRequestV2 { projectId: string; expectedRevision:
 export interface CallableCompletionRequestV2 { projectId: string; authoredExpression: string; cursorOffsetUtf16: number; }
 export interface UTF16RangeV2 { start: number; end: number; }
 export interface PythonTargetCompletionRequestV2 { projectId: string; code: string; protectedBodyRange: UTF16RangeV2; cursorOffsetUtf16: number; }
+export interface RunGeneratedProgramRequestV2 { projectId: string; expectedRevision: number; runTimeoutMilliseconds?: number; }
+export type GeneratedProgramTerminationReasonV2 = "exited" | "signaled" | "timed_out" | "output_limit";
+export interface GeneratedProgramRunResultV2 {
+  projectId: string;
+  revision: number;
+  stdout: string;
+  stderr: string;
+  stdoutTruncated: boolean;
+  stderrTruncated: boolean;
+  exitCode?: number;
+  terminationReason: GeneratedProgramTerminationReasonV2;
+  elapsedMilliseconds: number;
+}
 export interface OpenTerminalRequestV2 { projectId: string; columns: number; rows: number; }
 export interface RunTerminalRequestV2 { projectId: string; expectedRevision: number; columns: number; rows: number; }
 export interface CloseTerminalRequestV2 { projectId: string; }
 export interface TerminalTicketRequestV2 { projectId: string; }
 export interface TerminalSessionV2 { created: boolean; columns: number; rows: number; }
 export interface TerminalTicketV2 { ticket: string; }
+export interface RuntimeSessionIdentityV2 { schemaVersion: typeof RUNTIME_SESSION_SCHEMA_VERSION_V1; appId: typeof RUNTIME_SESSION_APP_ID_V1; projectPath: string; instanceNonce: string; }
 export interface TerminalStreamReadyV2 { type: typeof TERMINAL_STREAM_READY_TYPE_V2; }
 export interface TerminalStreamResizeV2 { type: typeof TERMINAL_STREAM_RESIZE_TYPE_V2; columns: number; rows: number; }
 export interface CompletionItemV2 { label: string; insertText: string; }
@@ -250,11 +272,17 @@ export interface ErrorResponseV2 { error: APIErrorV2; }
 		ProjectListsPathV2,
 		ProjectForestPathV2,
 		ProjectTargetPathV2,
+		ProjectRunPathV2,
 		ProjectTerminalPathV2,
 		ProjectTerminalRunPathV2,
 		ProjectTerminalClosePathV2,
 		ProjectTerminalTicketPathV2,
 		ProjectTerminalStreamPathV2,
+		RuntimeSessionPathV2,
+		RuntimeSessionSchemaVersionV1,
+		RuntimeSessionAppIDV1,
+		MaxRunTimeoutMillisecondsV2,
+		MaxTerminalDimensionV2,
 		ProjectCallablesPathV2+"/",
 		ProjectCallablesPathV2+"/",
 		ProjectCallablesPathV2+"/",

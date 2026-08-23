@@ -8,77 +8,78 @@ The project contains callables, Parameter Dictionaries, Lists of Objects, their 
 one generated Python document. Every browser or CLI mutation is bound to the current project ID and
 revision, so stale writes fail with a typed conflict instead of replacing newer work.
 
-## Run locally
+## Install and open a project
 
-Install the repository's pinned Node and pnpm versions plus its locked Code Polishy release. The
-launcher also requires `curl` and resolves Go from that installed release.
-
-Choose the exact path that will hold the project. Create a new project with:
+Install Setta once, then use its app command from any directory:
 
 ```sh
+python -m pip install setta
 mkdir -p .local/python-canvas
+setta python-canvas open \
+  --project "$PWD/.local/python-canvas/project.json" \
+  --create
+```
+
+`open` foreground-supervises the local server and opens its browser UI. Press Ctrl-C in that
+terminal to stop it. Reopen the project later by omitting `--create`; creation is exclusive and
+never overwrites an existing file. There is no implicit project or background daemon.
+
+Python selection needs no setup. Python Canvas uses the nearest `.venv` above the project file. If
+none exists, it uses the Python that launched Setta. Basedpyright diagnostics and completion,
+interactive Run, AI Run, and the terminal all use that same selection. An invalid nearest `.venv`
+stops startup with a clear error instead of silently choosing something else.
+
+## AI-native CLI
+
+The CLI exposes a strict offline schema and controls the same live coordinator as the browser. Keep
+`open` running in one terminal, then use a second terminal for automation:
+
+```sh
+setta python-canvas schema --pretty
+
+setta python-canvas snapshot \
+  --project "$PWD/.local/python-canvas/project.json" \
+  --wait-diagnostics --pretty
+
+printf '%s\n' \
+  '{"operation":"callable.createConfigured","name":"Ceiling","authoredExpression":"math.ceil","parameterValues":{"x":"7.25"}}' \
+  | setta python-canvas apply \
+      --project "$PWD/.local/python-canvas/project.json" \
+      --file - --wait-diagnostics --pretty
+
+setta python-canvas run \
+  --project "$PWD/.local/python-canvas/project.json" \
+  --wait-diagnostics --pretty
+```
+
+The configured-callable example assumes the project prefix already contains `import math`.
+`snapshot`, `apply`, and `run` resolve the canonical project path to one verified live session;
+they never edit the project file directly or start an implicit server. `--url` is an expert escape
+hatch restricted to an absolute loopback HTTP URL.
+
+`schema` is the authoritative command and operation inventory, with exact fields, result shapes,
+errors, and exit semantics. `apply` binds one mutation to the current project ID and revision and
+never retries a conflict. `--wait-diagnostics` waits for diagnostics from that exact revision.
+Successful commands write one JSON document to stdout. Typed input or application failures write
+JSON to stderr and exit `2`; operational failures exit `1`. `run` also writes completed Python
+failures as results and exits `3` for a nonzero exit, signal, timeout, or output limit.
+
+Generated Python runs locally and unsandboxed with your user permissions. AI clients should inspect
+`schema`, apply the smallest intended mutation, confirm the returned snapshot, and use bounded
+`run` for noninteractive execution.
+
+## Source-checkout development
+
+Contributors can build and run the same private, same-origin server boundary with:
+
+```sh
 ./scripts/run-python-canvas.sh \
   --project "$PWD/.local/python-canvas/project.json" \
   --create
 ```
 
-The launcher installs the frozen pnpm dependencies, builds `@setta/workspace` and the production
-frontend, starts the loopback backend, and serves the built app at `http://127.0.0.1:5173`. The
-backend listens at `http://127.0.0.1:8080`. Both ports can be changed with `--preview-port` and
-`--backend-port`.
-
-Reopen the same project without `--create`:
-
-```sh
-./scripts/run-python-canvas.sh \
-  --project "$PWD/.local/python-canvas/project.json"
-```
-
-`--create` is exclusive: it creates an absent file and refuses to overwrite an existing project.
-There is no implicit project, discovery, clone, or save-as flow. Press Ctrl-C in the launcher
-terminal to stop both local services.
-
-## Live agent CLI
-
-The `python-canvas` Go command also exposes a strict machine-readable CLI. `schema` works without a
-running backend; `snapshot` and `apply` talk to the same live coordinator as the browser and never
-edit `project.json` directly.
-
-From the repository root, with the launcher running and Go available on `PATH`:
-
-```sh
-go -C apps/python-canvas/backend run ./cmd/python-canvas schema --pretty
-
-go -C apps/python-canvas/backend run ./cmd/python-canvas \
-  snapshot --wait-diagnostics --pretty
-
-printf '%s\n' \
-  '{"operation":"callable.createConfigured","name":"Ceiling","authoredExpression":"math.ceil","parameterValues":{"x":"7.25"}}' \
-  | go -C apps/python-canvas/backend run ./cmd/python-canvas \
-      apply --file - --wait-diagnostics --pretty
-```
-
-The configured-callable example assumes the project prefix already contains `import math`.
-
-Use `--url http://127.0.0.1:<port>` when the backend uses a non-default port. Service URLs must be
-absolute loopback HTTP URLs. `apply --file -` reads one operation from stdin; otherwise `--file`
-names a JSON file.
-
-`schema` is the authoritative operation inventory and includes the exact fields, nested V2 types,
-and one example for every operation. The CLI fetches one canonical snapshot, binds an apply to its
-exact ID and revision, submits it once, and never retries a revision conflict. Successful commands
-write one JSON document to stdout. Failures write one stable JSON error to stderr and return exit
-status `2` for invalid input or typed API failures and `1` for connection, timeout, malformed server
-response, or unexpected failures.
-
-`--wait-diagnostics` follows the project event stream until diagnostics match the returned project
-revision and the provider is no longer pending. Its default timeout is 10 seconds; `--timeout` may
-set a positive duration up to one minute and is valid only with `--wait-diagnostics`.
-
-`callable.createConfigured` is the atomic intent operation for agents. It creates a callable,
-resolves its provider-owned signature, and applies values by exact parameter name in one revision,
-one file replacement, and one final publication. An unknown parameter, provider failure, validation
-failure, or persistence failure leaves the published project and project file unchanged.
+This script requires the repository's pinned Node, pnpm, and locked Code Polishy toolchain. It is a
+development convenience, not an installed product command.
 
 ## Browser authoring
 
@@ -110,6 +111,11 @@ are runtime state, not authored project data.
 snapshot and then publishes every authored or diagnostic update. The browser holds one stream and
 does not poll. EventSource reconnection catches up by receiving the current complete snapshot.
 
+`POST /api/v2/project/run` captures and executes one exact generated-code revision with bounded,
+separate stdout and stderr. `GET /api/v2/runtime/session` exposes only the identity used to verify a
+foreground live-session record. The production web app and every API route share one loopback
+origin.
+
 The coordinator validates a complete mutation before its persistence boundary. Authored mutations
 replace the project file atomically and publish one canonical snapshot. Provider work may later
 publish a newer complete snapshot with settled diagnostics; unavailable provider work is surfaced
@@ -120,9 +126,17 @@ as a typed state, never as a plausible empty result.
 Focused checks:
 
 ```sh
+python3 -m unittest discover \
+  -s packages/setta-runtime/tests -t packages/setta-runtime -p 'test_*.py'
 pnpm --filter @setta/python-canvas test
 pnpm --filter @setta/python-canvas run contract:check
 go -C apps/python-canvas/backend test ./...
+```
+
+After reviewed frozen setup, build the current-platform wheel with:
+
+```sh
+python3 packages/setta-runtime/scripts/build_setta_wheel.py
 ```
 
 The standard browser acceptance is:
