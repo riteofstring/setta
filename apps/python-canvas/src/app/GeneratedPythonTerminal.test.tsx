@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@setta/workspace", () => ({
   NO_DRAG_CLASS_NAME: "nodrag",
   NO_PAN_CLASS_NAME: "nopan",
+  NO_WHEEL_CLASS_NAME: "nowheel",
 }));
 
 vi.mock("./generatedPythonTerminalClient", () => ({
@@ -121,9 +122,31 @@ describe("GeneratedPythonTerminal", () => {
     expect(mocks.mountGeneratedPythonTerminal).toHaveBeenCalledWith({
       container: expect.any(HTMLDivElement),
       onError: actions.reportStreamError,
+      onScrollbackChange: expect.any(Function),
       projectId: "project:terminal",
       sessionKey: "project:terminal:generated-python:1",
     });
+    const terminalSurface = view.querySelector<HTMLDivElement>(
+      "[data-attached-terminal-section-id='generated-python-runtime']",
+    );
+    if (terminalSurface === null) {
+      throw new Error("Expected the terminal surface.");
+    }
+    expect(terminalSurface.classList.contains("nowheel")).toBe(false);
+    const onScrollbackChange = mocks.mountGeneratedPythonTerminal.mock
+      .calls[0]?.[0].onScrollbackChange as
+      ((hasScrollback: boolean) => void) | undefined;
+    if (onScrollbackChange === undefined) {
+      throw new Error("Expected the terminal scrollback callback.");
+    }
+    act(() => {
+      onScrollbackChange(true);
+    });
+    expect(terminalSurface.classList.contains("nowheel")).toBe(true);
+    act(() => {
+      onScrollbackChange(false);
+    });
+    expect(terminalSurface.classList.contains("nowheel")).toBe(false);
 
     const splitter = view.querySelector<HTMLDivElement>(
       "[role='separator'][aria-label='Resize terminal height']",
@@ -137,6 +160,44 @@ describe("GeneratedPythonTerminal", () => {
       );
     });
     expect(actions.resize).toHaveBeenCalledWith(230);
+    Object.defineProperties(splitter, {
+      getBoundingClientRect: {
+        configurable: true,
+        value: () => ({ height: 4 }),
+      },
+      offsetHeight: {
+        configurable: true,
+        value: 8,
+      },
+      setPointerCapture: {
+        configurable: true,
+        value: vi.fn(),
+      },
+    });
+    act(() => {
+      splitter.dispatchEvent(
+        new MouseEvent("pointerdown", {
+          bubbles: true,
+          cancelable: true,
+          clientY: 100,
+        }),
+      );
+      splitter.dispatchEvent(
+        new MouseEvent("pointermove", {
+          bubbles: true,
+          cancelable: true,
+          clientY: 130,
+        }),
+      );
+      splitter.dispatchEvent(
+        new MouseEvent("pointerup", {
+          bubbles: true,
+          cancelable: true,
+          clientY: 130,
+        }),
+      );
+    });
+    expect(actions.resize).toHaveBeenLastCalledWith(280);
 
     const trash = requiredButton(view, "Trash terminal");
     expect(trash.classList.contains("nodrag")).toBe(true);
@@ -169,6 +230,7 @@ describe("GeneratedPythonTerminal", () => {
     expect(mocks.mountGeneratedPythonTerminal).toHaveBeenLastCalledWith({
       container: expect.any(HTMLDivElement),
       onError: actions.reportStreamError,
+      onScrollbackChange: expect.any(Function),
       projectId: "project:terminal",
       sessionKey: "project:terminal:generated-python:1",
     });

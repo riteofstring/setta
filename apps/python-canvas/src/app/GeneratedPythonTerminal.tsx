@@ -4,8 +4,12 @@ import type {
   PointerEvent,
   ReactNode,
 } from "react";
-import { useLayoutEffect, useRef } from "react";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "@setta/workspace";
+import { useLayoutEffect, useRef, useState } from "react";
+import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+} from "@setta/workspace";
 
 import { mountGeneratedPythonTerminal } from "./generatedPythonTerminalClient";
 import { useGeneratedPythonTerminal } from "./generatedPythonTerminalContext";
@@ -114,6 +118,7 @@ function GeneratedPythonTerminalPane({
   terminalHeight: number;
 }) {
   const terminalRef = useRef<HTMLDivElement | null>(null);
+  const [hasScrollback, setHasScrollback] = useState(false);
   useLayoutEffect(() => {
     const container = terminalRef.current;
     if (container === null) {
@@ -122,6 +127,7 @@ function GeneratedPythonTerminalPane({
     return mountGeneratedPythonTerminal({
       container,
       onError: onStreamError,
+      onScrollbackChange: setHasScrollback,
       projectId,
       sessionKey,
     });
@@ -149,7 +155,9 @@ function GeneratedPythonTerminalPane({
         <TrashIcon />
       </button>
       <div
-        className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} python-canvas-generated-python-terminal-surface`}
+        className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${
+          hasScrollback ? NO_WHEEL_CLASS_NAME : ""
+        } python-canvas-generated-python-terminal-surface`}
         data-attached-terminal-section-id="generated-python-runtime"
         data-section-main-editor
         ref={terminalRef}
@@ -176,6 +184,7 @@ function TerminalResizeHandle({
   terminalHeight: number;
 }) {
   const dragRef = useRef<{
+    scale: number;
     startHeight: number;
     startY: number;
   } | null>(null);
@@ -185,13 +194,14 @@ function TerminalResizeHandle({
     if (drag === null) {
       return;
     }
-    onResize(drag.startHeight + event.clientY - drag.startY);
+    onResize(drag.startHeight + (event.clientY - drag.startY) / drag.scale);
   }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     event.preventDefault();
     event.stopPropagation();
     dragRef.current = {
+      scale: effectiveVerticalScale(event.currentTarget),
       startHeight: terminalHeight,
       startY: event.clientY,
     };
@@ -241,6 +251,11 @@ function TerminalResizeHandle({
       tabIndex={0}
     />
   );
+}
+
+function effectiveVerticalScale(element: HTMLElement): number {
+  const scale = element.getBoundingClientRect().height / element.offsetHeight;
+  return Number.isFinite(scale) && scale > 0 ? scale : 1;
 }
 
 function PlayIcon() {

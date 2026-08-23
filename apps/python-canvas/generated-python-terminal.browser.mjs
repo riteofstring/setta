@@ -10,6 +10,7 @@ import {
   focusElement,
   insertText,
   moveCaretToDocumentEnd,
+  visibleElementPoint,
   waitFor,
 } from "./browser-page.mjs";
 import { generatedPythonEditorSelector } from "./python-target.browser.mjs";
@@ -24,6 +25,8 @@ const terminalPaneSelector = `${generatedGroupSelector} .python-canvas-generated
 const terminalSurfaceSelector = `${terminalPaneSelector} [data-attached-terminal-section-id="generated-python-runtime"]`;
 const terminalTextAreaSelector = `${terminalSurfaceSelector} .xterm-helper-textarea`;
 const terminalRowsSelector = `${terminalSurfaceSelector} .xterm-rows`;
+const terminalScreenSelector = `${terminalSurfaceSelector} .xterm-screen`;
+const terminalViewportSelector = `${terminalSurfaceSelector} .xterm-viewport`;
 const terminalTrashSelector = `${terminalPaneSelector} [data-attached-terminal-trash]`;
 const terminalSplitterSelector = `${terminalPaneSelector} [aria-label="Resize terminal height"]`;
 
@@ -106,6 +109,11 @@ export async function exerciseGeneratedPythonTerminalLifecycle(
     "The joined Generated Python group did not grow by the terminal height.",
   );
   assertPaneAligned(editorAfterCreate);
+  assert.equal(
+    await terminalOwnsWheel(client),
+    false,
+    "A terminal without scrollback took wheel ownership from the canvas.",
+  );
 
   await typeTerminalCommand(
     client,
@@ -291,6 +299,7 @@ export async function exerciseCopiedParamDictListTerminalRun(client) {
     `printf '${octalShellText(copiedParamDictListRunMarker)}\\n'`,
   );
   await waitForTerminalMarkerCount(client, copiedParamDictListRunMarker, 1);
+  await exerciseTerminalPresentationAndScrollOwnership(client);
 }
 
 async function appendPythonSuffix(client, backendOrigin, text) {
@@ -397,30 +406,205 @@ async function terminalMarkerCount(client, marker) {
   );
 }
 
+async function exerciseTerminalPresentationAndScrollOwnership(client) {
+  const scrollbackMarker = "SETTA_TERMINAL_SCROLLBACK";
+  await typeTerminalCommand(
+    client,
+    `python3 -c "for i in range(96): print('${scrollbackMarker}-%03d' % i)"`,
+  );
+  await waitForTerminalMarkerCount(client, `${scrollbackMarker}-095`, 1);
+  await waitFor(
+    client,
+    "terminal scrollback wheel ownership",
+    `(() => {
+      const surface = document.querySelector(${JSON.stringify(terminalSurfaceSelector)});
+      return surface instanceof HTMLElement &&
+        surface.classList.contains("nowheel");
+    })()`,
+  );
+  assertTerminalPresentation(await terminalPresentation(client));
+
+  const beforeScroll = await terminalScrollState(client);
+  assert.ok(
+    beforeScroll.visibleRows.includes(`${scrollbackMarker}-095`),
+    `Terminal did not render its live output before scrolling: ${JSON.stringify(beforeScroll)}.`,
+  );
+  await dispatchTerminalWheelBurst(client, -120);
+  await waitFor(
+    client,
+    "the terminal to scroll upward with its native wheel event",
+    `(() => {
+      const rows = document.querySelector(${JSON.stringify(terminalRowsSelector)});
+      const text = rows instanceof HTMLElement ? rows.textContent ?? "" : "";
+      return text.includes(${JSON.stringify(scrollbackMarker)}) &&
+        !text.includes(${JSON.stringify(`${scrollbackMarker}-095`)}) &&
+        text !== ${JSON.stringify(beforeScroll.visibleRows)};
+    })()`,
+  );
+  const afterScrollUp = await terminalScrollState(client);
+  assert.ok(
+    afterScrollUp.visibleRows.includes(scrollbackMarker) &&
+      !afterScrollUp.visibleRows.includes(`${scrollbackMarker}-095`) &&
+      afterScrollUp.visibleRows !== beforeScroll.visibleRows,
+    "The terminal did not consume the wheel event to enter scrollback.",
+  );
+  assertApproximately(
+    afterScrollUp.pane.left,
+    beforeScroll.pane.left,
+    0.5,
+    "Terminal scrollback panned the canvas horizontally.",
+  );
+  assertApproximately(
+    afterScrollUp.pane.top,
+    beforeScroll.pane.top,
+    0.5,
+    "Terminal scrollback panned the canvas vertically.",
+  );
+  assert.equal(
+    afterScrollUp.canvasTransform,
+    beforeScroll.canvasTransform,
+    "Terminal scrollback changed the canvas transform.",
+  );
+}
+
+function assertTerminalPresentation(presentation) {
+  assert.equal(
+    presentation.paddingBlockStart,
+    "0px",
+    "The attached terminal retained a top inset instead of filling its surface.",
+  );
+  assert.equal(
+    presentation.paddingBlockEnd,
+    "0px",
+    "The attached terminal retained a bottom inset instead of filling its surface.",
+  );
+  assert.equal(
+    presentation.paddingInlineStart,
+    "0px",
+    "The attached terminal retained a horizontal inset instead of filling its surface.",
+  );
+  assert.equal(
+    presentation.paddingInlineEnd,
+    "0px",
+    "The attached terminal retained a horizontal inset instead of filling its surface.",
+  );
+  assert.equal(
+    presentation.scrollbarWidth,
+    "thin",
+    "The xterm viewport did not use main's thin scrollbar presentation.",
+  );
+  assert.match(
+    presentation.scrollbarColor,
+    /148, 163, 184/,
+    "The xterm viewport did not use main's muted scrollbar color.",
+  );
+}
+
+async function terminalOwnsWheel(client) {
+  return evaluate(
+    client,
+    `document.querySelector(${JSON.stringify(terminalSurfaceSelector)})?.classList.contains("nowheel") ?? false`,
+  );
+}
+
+async function terminalPresentation(client) {
+  const presentation = await evaluate(
+    client,
+    `(() => {
+      const surface = document.querySelector(${JSON.stringify(terminalSurfaceSelector)});
+      const viewport = document.querySelector(${JSON.stringify(terminalViewportSelector)});
+      if (!(surface instanceof HTMLElement) ||
+        !(viewport instanceof HTMLElement)) {
+        return null;
+      }
+      const surfaceStyle = getComputedStyle(surface);
+      const viewportStyle = getComputedStyle(viewport);
+      return {
+        paddingBlockEnd: surfaceStyle.paddingBlockEnd,
+        paddingBlockStart: surfaceStyle.paddingBlockStart,
+        paddingInlineEnd: surfaceStyle.paddingInlineEnd,
+        paddingInlineStart: surfaceStyle.paddingInlineStart,
+        scrollbarColor: viewportStyle.scrollbarColor,
+        scrollbarWidth: viewportStyle.scrollbarWidth,
+      };
+    })()`,
+  );
+  assert.ok(presentation, "The xterm scrollbar presentation is missing.");
+  return presentation;
+}
+
+async function terminalScrollState(client) {
+  const state = await evaluate(
+    client,
+    `(() => {
+      const pane = document.querySelector(${JSON.stringify(terminalPaneSelector)});
+      const rows = document.querySelector(${JSON.stringify(terminalRowsSelector)});
+      const canvasViewport = document.querySelector(".react-flow__viewport");
+      if (!(pane instanceof HTMLElement) ||
+        !(rows instanceof HTMLElement) ||
+        !(canvasViewport instanceof HTMLElement)) {
+        return null;
+      }
+      const paneRect = pane.getBoundingClientRect();
+      return {
+        canvasTransform: getComputedStyle(canvasViewport).transform,
+        pane: { left: paneRect.left, top: paneRect.top },
+        visibleRows: rows.textContent ?? "",
+      };
+    })()`,
+  );
+  assert.ok(state, "The xterm viewport is missing.");
+  return state;
+}
+
+async function dispatchTerminalWheelBurst(client, deltaY) {
+  const screen = await elementRect(
+    client,
+    terminalScreenSelector,
+    "the xterm screen",
+  );
+  const x = screen.x + screen.width / 2;
+  const y = screen.y + screen.height / 2;
+  await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+  for (let index = 0; index < 12; index += 1) {
+    await client.send("Input.dispatchMouseEvent", {
+      deltaX: 0,
+      deltaY,
+      type: "mouseWheel",
+      x,
+      y,
+    });
+  }
+}
+
 async function exerciseTerminalResize(client) {
+  const resizeViewportDelta = -30;
   const before = await generatedTerminalGeometry(client);
   assert.ok(before.pane);
   const rowsBefore = await terminalRowCount(client);
-  const splitter = await elementRect(
+  const splitterPoint = await visibleElementPoint(
     client,
     terminalSplitterSelector,
     "the terminal height splitter",
+    { exactElementHit: true, preferredYFraction: 0.25 },
   );
-  await dragBetweenPoints(
-    client,
-    { x: splitter.x + splitter.width / 2, y: splitter.y + splitter.height / 2 },
-    {
-      x: splitter.x + splitter.width / 2,
-      y: splitter.y + splitter.height / 2 + 60,
-    },
-  );
+  await dragBetweenPoints(client, splitterPoint, {
+    x: splitterPoint.x,
+    y: splitterPoint.y + resizeViewportDelta,
+  });
   await waitFor(
     client,
     "the attached terminal height resize",
-    `document.querySelector(${JSON.stringify(terminalPaneSelector)})?.getBoundingClientRect().height >= ${String(before.pane.height + 50)}`,
+    `document.querySelector(${JSON.stringify(terminalPaneSelector)})?.getBoundingClientRect().height <= ${String(before.pane.height + resizeViewportDelta + 5)}`,
   );
   const afterHeight = await generatedTerminalGeometry(client);
   assert.ok(afterHeight.pane);
+  assertApproximately(
+    before.pane.height - afterHeight.pane.height,
+    Math.abs(resizeViewportDelta),
+    5,
+    "The terminal did not map the viewport resize delta through the canvas scale.",
+  );
   assertApproximately(
     afterHeight.editor.height,
     before.editor.height,
@@ -435,8 +619,8 @@ async function exerciseTerminalResize(client) {
   );
   await waitFor(
     client,
-    "xterm to fit additional rows after the terminal height resize",
-    `document.querySelector(${JSON.stringify(terminalRowsSelector)})?.children.length > ${String(rowsBefore)}`,
+    "xterm to fit fewer rows after the terminal height resize",
+    `document.querySelector(${JSON.stringify(terminalRowsSelector)})?.children.length < ${String(rowsBefore)}`,
   );
 
   const rightHandle = await elementRect(

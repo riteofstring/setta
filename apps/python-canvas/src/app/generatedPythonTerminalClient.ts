@@ -83,11 +83,13 @@ export function getGeneratedPythonTerminalDimensions(
 export function mountGeneratedPythonTerminal({
   container,
   onError,
+  onScrollbackChange,
   projectId,
   sessionKey,
 }: {
   container: HTMLDivElement;
   onError: (message: string) => void;
+  onScrollbackChange: (hasScrollback: boolean) => void;
   projectId: string;
   sessionKey: string;
 }): () => void {
@@ -122,10 +124,14 @@ export function mountGeneratedPythonTerminal({
       ? null
       : new ResizeObserver(() => syncTerminalSize());
   resizeObserver?.observe(container);
+  const scrollbackDisposable = session.terminal.onRender(() => {
+    onScrollbackChange(session.terminal.buffer.active.baseY > 0);
+  });
 
   return () => {
     cancelScheduledAnimationFrame(frame);
     resizeObserver?.disconnect();
+    scrollbackDisposable.dispose();
     releaseTerminalSession(sessionKey, session);
   };
 }

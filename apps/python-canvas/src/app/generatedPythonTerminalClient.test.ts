@@ -2,14 +2,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   class FakeTerminal {
+    public readonly buffer = { active: { baseY: 0 } };
     public readonly cols = 80;
     public readonly rows = 24;
     public element: HTMLElement | null = null;
     public readonly dispose = vi.fn();
     public readonly loadAddon = vi.fn();
     public readonly onData = vi.fn(() => ({ dispose: vi.fn() }));
+    public readonly onRender = vi.fn((listener: () => void) => {
+      this.renderListeners.push(listener);
+      return {
+        dispose: vi.fn(() => {
+          const index = this.renderListeners.indexOf(listener);
+          if (index !== -1) {
+            this.renderListeners.splice(index, 1);
+          }
+        }),
+      };
+    });
     public readonly onResize = vi.fn(() => ({ dispose: vi.fn() }));
     public readonly write = vi.fn();
+    private readonly renderListeners: Array<() => void> = [];
 
     public constructor(_options: unknown) {
       mocks.terminals.push(this);
@@ -18,6 +31,12 @@ const mocks = vi.hoisted(() => {
     public open(container: HTMLElement): void {
       this.element = document.createElement("div");
       container.append(this.element);
+    }
+
+    public render(): void {
+      for (const listener of this.renderListeners) {
+        listener();
+      }
     }
   }
 
@@ -113,6 +132,7 @@ describe("Generated Python terminal client", () => {
     const releaseFirst = mountGeneratedPythonTerminal({
       container: firstContainer,
       onError: reportError,
+      onScrollbackChange: vi.fn(),
       projectId: "project:terminal",
       sessionKey: "project:terminal:generated-python:1",
     });
@@ -137,6 +157,7 @@ describe("Generated Python terminal client", () => {
     const releaseSecond = mountGeneratedPythonTerminal({
       container: secondContainer,
       onError: reportError,
+      onScrollbackChange: vi.fn(),
       projectId: "project:terminal",
       sessionKey: "project:terminal:generated-python:1",
     });
@@ -166,6 +187,7 @@ describe("Generated Python terminal client", () => {
     const release = mountGeneratedPythonTerminal({
       container,
       onError: reportError,
+      onScrollbackChange: vi.fn(),
       projectId: "project:terminal",
       sessionKey: "project:terminal:generated-python:retry",
     });
@@ -199,6 +221,33 @@ describe("Generated Python terminal client", () => {
 
     release();
     disposeGeneratedPythonTerminal("project:terminal:generated-python:retry");
+  });
+
+  it("hands wheel ownership to the terminal only after xterm renders scrollback", async () => {
+    const container = document.createElement("div");
+    const onScrollbackChange = vi.fn();
+    const release = mountGeneratedPythonTerminal({
+      container,
+      onError: vi.fn(),
+      onScrollbackChange,
+      projectId: "project:terminal",
+      sessionKey: "project:terminal:scrollback",
+    });
+    await flushMicrotasks();
+
+    const terminal = mocks.terminals[0];
+    if (terminal === undefined) {
+      throw new Error("Expected an xterm instance.");
+    }
+    terminal.render();
+    expect(onScrollbackChange).toHaveBeenLastCalledWith(false);
+
+    terminal.buffer.active.baseY = 1;
+    terminal.render();
+    expect(onScrollbackChange).toHaveBeenLastCalledWith(true);
+
+    release();
+    disposeGeneratedPythonTerminal("project:terminal:scrollback");
   });
 });
 
