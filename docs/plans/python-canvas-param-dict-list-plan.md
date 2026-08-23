@@ -26,7 +26,10 @@ extraction now chooses an exposed far-right React Flow pane point proven by `ele
 retry polls a settled canonical result before issuing a second gesture. Each held section drag also
 yields one animation frame after its final pointer move and before release, letting its final
 empty-collision state settle; focused static harness tests
-cover these behaviors. Its policy structure and format checks now pass. Supervised
+cover these behaviors. A final failed callable-to-top-level attempt now emits a failure-only
+receipt with canonical forest order, list DOM projection, visible mutation/alert text, and final
+source/target hit geometry; focused static tests cover the receipt and its final-failure-only
+invocation. Its policy structure and format checks now pass. Supervised
 production headless execution, review, and remaining Code Policy closeout remain incomplete.**
 
 Add the next two Python Canvas section types from main: **Param Dict** and **List of Objects**.

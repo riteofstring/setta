@@ -402,6 +402,7 @@ export async function exerciseParamDictAndListSlice(
     async () =>
       callableAtTopLevelPredicate(await fetchCanonicalSnapshot(backendOrigin)),
     true,
+    { backendOrigin, sourceListId: outerList.id },
   );
   const callableAtTopLevel = await waitForSnapshot(
     backendOrigin,
@@ -881,9 +882,20 @@ async function dragFreeSectionToCanvas(
   description,
   hasMoved,
   verifyFocusContext = false,
+  failureDiagnostics = null,
 ) {
   return dragSection(client, {
     description,
+    describeFailure:
+      failureDiagnostics === null
+        ? undefined
+        : ({ target }) =>
+            describeSectionMoveFailure({
+              client,
+              sourceSelector,
+              target,
+              ...failureDiagnostics,
+            }),
     hasMoved,
     mode: "free",
     sourceSelector,
@@ -900,8 +912,12 @@ async function dragFreeSectionToCanvas(
 async function dragSection(client, configuration) {
   const { sourceSelector } = configuration;
   let focusCapture = null;
+  let attemptedTarget = null;
   return retrySectionMoveUntilObserved({
     description: configuration.description,
+    describeFailure: configuration.describeFailure
+      ? () => configuration.describeFailure({ target: attemptedTarget })
+      : undefined,
     hasMoved: configuration.hasMoved,
     performGesture: async (attempt) => {
       await focusElement(
@@ -928,14 +944,15 @@ async function dragSection(client, configuration) {
         configuration.targetXFraction ?? null,
         configuration.targetPointOptions,
       );
+      attemptedTarget = {
+        ...target,
+        y: target.y + attempt * (configuration.targetRetryYOffset ?? 2),
+      };
       await tryMovingFreeSectionDrag(client, {
         description: configuration.description,
         source,
         sourceSelector,
-        target: {
-          ...target,
-          y: target.y + attempt * (configuration.targetRetryYOffset ?? 2),
-        },
+        target: attemptedTarget,
         captureFocus: configuration.verifyFocusContext && focusCapture === null,
         onCaptureFocus: (capture) => {
           focusCapture = capture;
@@ -948,6 +965,7 @@ async function dragSection(client, configuration) {
 
 export async function retrySectionMoveUntilObserved({
   description,
+  describeFailure,
   hasMoved,
   observationPollIntervalMs = sectionMoveObservationPollIntervalMs,
   observationTimeoutMs = sectionMoveObservationTimeoutMs,
@@ -966,9 +984,136 @@ export async function retrySectionMoveUntilObserved({
     }
   }
 
+  const failureDetails = describeFailure ? await describeFailure() : null;
   throw new Error(
-    `${description} did not produce its expected canonical move after ${sectionMoveAttemptLimit} completed moving-free drag attempts.`,
+    `${description} did not produce its expected canonical move after ${sectionMoveAttemptLimit} completed moving-free drag attempts.${failureDetails === null ? "" : `\n${failureDetails}`}`,
   );
+}
+
+export async function describeSectionMoveFailure({
+  backendOrigin,
+  client,
+  fetchSnapshot = fetchCanonicalSnapshot,
+  sourceListId,
+  sourceSelector,
+  target,
+}) {
+  const snapshot = await fetchSnapshot(backendOrigin);
+  const sourceList = snapshot.lists.find((list) => list.id === sourceListId);
+  const dom = await evaluate(
+    client,
+    `(() => {
+      function elementIdentity(element) {
+        if (!(element instanceof HTMLElement)) {
+          return null;
+        }
+        return {
+          ariaLabel: element.getAttribute("aria-label"),
+          id: element.id || null,
+          sectionId: element.getAttribute("data-section-id"),
+          sortableSectionId: element.getAttribute("data-sortable-section-id"),
+          tagName: element.tagName,
+        };
+      }
+
+      function geometry(element) {
+        if (!(element instanceof HTMLElement)) {
+          return null;
+        }
+        const rect = element.getBoundingClientRect();
+        return {
+          bottom: rect.bottom,
+          height: rect.height,
+          left: rect.left,
+          right: rect.right,
+          top: rect.top,
+          width: rect.width,
+        };
+      }
+
+      function visibleText(element) {
+        if (!(element instanceof HTMLElement)) {
+          return null;
+        }
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        const text = (element.textContent ?? "").trim();
+        if (
+          text === "" ||
+          rect.width <= 1 ||
+          rect.height <= 1 ||
+          style.display === "none" ||
+          style.visibility === "hidden"
+        ) {
+          return null;
+        }
+        return text;
+      }
+
+      const source = document.querySelector(${JSON.stringify(sourceSelector)});
+      const list = document.querySelector(${JSON.stringify(listSectionSelector(sourceListId))});
+      const listWrapper = list?.parentElement;
+      const topLevelSectionIds = Array.from(
+        document.querySelectorAll("[data-section-id]"),
+      )
+        .filter(
+          (section) =>
+            section instanceof HTMLElement &&
+            section.closest("[data-sortable-section-id]") === null,
+        )
+        .map((section) => section.getAttribute("data-section-id"));
+      const nestedSortableSectionIds =
+        listWrapper instanceof HTMLElement
+          ? Array.from(
+              listWrapper.querySelectorAll(${JSON.stringify(listNestedSortableSectionSelector)}),
+            ).map((section) => section.getAttribute("data-sortable-section-id"))
+          : [];
+      const visibleMutationErrorOrAlertTexts = Array.from(
+        document.querySelectorAll("#python-canvas-mutation-error, [role=alert]"),
+      ).flatMap((element) => {
+        const text = visibleText(element);
+        return text === null
+          ? []
+          : [
+              {
+                id: element.id || null,
+                role: element.getAttribute("role"),
+                text,
+              },
+            ];
+      });
+      const target = ${JSON.stringify(target)};
+      const targetHit =
+        target === null
+          ? null
+          : elementIdentity(document.elementFromPoint(target.x, target.y));
+      return {
+        nestedSortableSectionIds,
+        source:
+          source instanceof HTMLElement
+            ? {
+                ancestor: elementIdentity(source.parentElement),
+                geometry: geometry(source),
+                identity: elementIdentity(source),
+              }
+            : null,
+        targetHit,
+        topLevelSectionIds,
+        visibleMutationErrorOrAlertTexts,
+      };
+    })()`,
+  );
+
+  return [
+    `canonical top-level section IDs: ${JSON.stringify(snapshot.topLevelSectionIds)}`,
+    `canonical source list ${JSON.stringify(sourceListId)} child section IDs: ${JSON.stringify(sourceList?.childSectionIds ?? null)}`,
+    `DOM top-level section IDs: ${JSON.stringify(dom.topLevelSectionIds)}`,
+    `DOM nested sortable section IDs under source list: ${JSON.stringify(dom.nestedSortableSectionIds)}`,
+    `visible Python Canvas mutation error or alert text: ${JSON.stringify(dom.visibleMutationErrorOrAlertTexts)}`,
+    `source current ancestor/geometry: ${JSON.stringify(dom.source)}`,
+    `attempted target point: ${JSON.stringify(target)}`,
+    `target elementFromPoint identity: ${JSON.stringify(dom.targetHit)}`,
+  ].join("\n");
 }
 
 async function canonicalMoveObservedWithinWindow(

@@ -15,6 +15,7 @@ import {
 } from "./param-dict-list.browser-support.mjs";
 import { dragElementToElement, visibleElementPoint } from "./browser-page.mjs";
 import {
+  describeSectionMoveFailure,
   dictionaryEntryChildAdoptionDragTarget,
   holdMovingFreeSectionDragMode,
   listNestedChildOrderExpression,
@@ -91,8 +92,7 @@ test("Canvas extraction requires an exposed React Flow pane point", async () => 
     throw new Error("Expected the canvas extraction fixture.");
   }
   canvas.getBoundingClientRect = () => new window.DOMRect(0, 0, 400, 300);
-  document.elementFromPoint = (x) =>
-    x <= 1 || x >= 350 ? canvas : list;
+  document.elementFromPoint = (x) => (x <= 1 || x >= 350 ? canvas : list);
   const client = {
     async send(method, parameters) {
       assert.equal(method, "Runtime.evaluate");
@@ -316,9 +316,14 @@ test("Section move observes a delayed canonical result before retrying", async (
   const attempts = [];
   let canonicalChecks = 0;
   let capturedFocus = null;
+  let failureDescriptionCalls = 0;
 
   const result = await retrySectionMoveUntilObserved({
     description: "the canonical section move",
+    describeFailure: async () => {
+      failureDescriptionCalls += 1;
+      return "failure-only details";
+    },
     hasMoved: async () => {
       canonicalChecks += 1;
       return canonicalChecks === 2;
@@ -335,6 +340,7 @@ test("Section move observes a delayed canonical result before retrying", async (
   assert.deepEqual(attempts, [0]);
   assert.equal(result, "focus from the first gesture");
   assert.equal(canonicalChecks, 2);
+  assert.equal(failureDescriptionCalls, 0);
 });
 
 test("Section move retries only after its canonical observation window expires", async () => {
@@ -358,6 +364,127 @@ test("Section move retries only after its canonical observation window expires",
   assert.deepEqual(attempts, [0, 1]);
   assert.equal(result, "focus from gesture 1");
   assert.ok(canonicalChecks > 2);
+});
+
+test("Section move appends its diagnostic receipt only after the final failed attempt", async () => {
+  const attempts = [];
+  let failureDescriptionCalls = 0;
+
+  await assert.rejects(
+    () =>
+      retrySectionMoveUntilObserved({
+        description: "the canonical section move",
+        describeFailure: async () => {
+          failureDescriptionCalls += 1;
+          return "failure-only receipt";
+        },
+        hasMoved: async () => false,
+        observationTimeoutMs: 0,
+        performGesture: async (attempt) => {
+          attempts.push(attempt);
+          return null;
+        },
+      }),
+    /canonical section move did not produce its expected canonical move after 3 completed moving-free drag attempts\.\nfailure-only receipt/,
+  );
+
+  assert.deepEqual(attempts, [0, 1, 2]);
+  assert.equal(failureDescriptionCalls, 1);
+});
+
+test("Top-level move failure receipt captures canonical state and visible DOM evidence", async () => {
+  const window = new JSDOM(
+    `
+      <div class="react-flow__pane" aria-label="Workspace canvas background">
+        <div data-section-id="python-canvas:parameter-dictionary:dictionary:top"></div>
+        <div data-list-wrapper="true">
+          <div data-section-id="python-canvas:list:list:outer"></div>
+          <div class="flex flex-col">
+            <div class="flex items-stretch">
+              <div class="mt-2 flex flex-col">
+                <div data-sortable-section-id="python-canvas:callable:callable:one">
+                  <div data-section-id="python-canvas:callable:callable:one"></div>
+                </div>
+                <div data-sortable-section-id="python-canvas:callable:callable:two"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p id="python-canvas-mutation-error" role="alert">Unable to update the project.</p>
+      </div>
+    `,
+    { runScripts: "outside-only" },
+  ).window;
+  const document = window.document;
+  const canvas = document.querySelector(".react-flow__pane");
+  const source = document.querySelector(
+    callableSectionSelector("callable:one"),
+  );
+  const alert = document.querySelector("#python-canvas-mutation-error");
+  if (
+    !(canvas instanceof window.HTMLElement) ||
+    !(source instanceof window.HTMLElement) ||
+    !(alert instanceof window.HTMLElement)
+  ) {
+    throw new Error("Expected the top-level move failure fixture.");
+  }
+  source.getBoundingClientRect = () => new window.DOMRect(40, 80, 240, 100);
+  alert.getBoundingClientRect = () => new window.DOMRect(0, 0, 240, 20);
+  document.elementFromPoint = () => canvas;
+  const client = {
+    async send(method, parameters) {
+      assert.equal(method, "Runtime.evaluate");
+      return { result: { value: window.eval(parameters.expression) } };
+    },
+  };
+
+  const receipt = await describeSectionMoveFailure({
+    backendOrigin: "http://backend.invalid",
+    client,
+    fetchSnapshot: async () => ({
+      lists: [
+        {
+          childSectionIds: ["callable:one", "callable:two"],
+          id: "list:outer",
+        },
+      ],
+      topLevelSectionIds: ["dictionary:top", "list:outer"],
+    }),
+    sourceListId: "list:outer",
+    sourceSelector: callableSectionSelector("callable:one"),
+    target: { x: 360, y: 180 },
+  });
+
+  assert.match(
+    receipt,
+    /canonical top-level section IDs: \["dictionary:top","list:outer"\]/,
+  );
+  assert.match(
+    receipt,
+    /canonical source list "list:outer" child section IDs: \["callable:one","callable:two"\]/,
+  );
+  assert.match(
+    receipt,
+    /DOM top-level section IDs: \["python-canvas:parameter-dictionary:dictionary:top","python-canvas:list:list:outer"\]/,
+  );
+  assert.match(
+    receipt,
+    /DOM nested sortable section IDs under source list: \["python-canvas:callable:callable:one","python-canvas:callable:callable:two"\]/,
+  );
+  assert.match(
+    receipt,
+    /visible Python Canvas mutation error or alert text: \[\{"id":"python-canvas-mutation-error","role":"alert","text":"Unable to update the project\."\}\]/,
+  );
+  assert.match(
+    receipt,
+    /source current ancestor\/geometry: .*"sortableSectionId":"python-canvas:callable:callable:one"/,
+  );
+  assert.match(receipt, /"width":240/);
+  assert.match(receipt, /attempted target point: \{"x":360,"y":180\}/);
+  assert.match(
+    receipt,
+    /target elementFromPoint identity: \{"ariaLabel":"Workspace canvas background","id":null,"sectionId":null,"sortableSectionId":null,"tagName":"DIV"\}/,
+  );
 });
 
 test("List walkthrough waits for the exact mounted Param Dict drag source", () => {
