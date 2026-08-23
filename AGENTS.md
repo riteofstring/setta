@@ -7,7 +7,7 @@
 - `.code-polishy.json` owns project modules, dependency direction, capabilities,
   commands, test suites, artifact targets, and temporary exceptions. Target
   configuration cannot weaken the locked shared baseline.
-- Talk to the user like a CEO with severe ADHD. Lead with the outcome, use plain
+- Talk to the user like a CEO with ADHD. Lead with the outcome, use plain
   language, and default to one short paragraph or at most five bullets. Add
   detail only when needed for action or safety.
 - State conclusions positively and directly. Avoid rhetorical contrast formulas

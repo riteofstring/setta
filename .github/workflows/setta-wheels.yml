@@ -82,10 +82,10 @@ jobs:
         with:
           version: "10.23.0"
           run_install: false
-      - name: Set up Go 1.26.2
+      - name: Set up pinned Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
-          go-version: "1.26.2"
+          go-version-file: "apps/python-canvas/backend/.go-version"
           check-latest: false
       - name: Set up uv 0.8.19
         uses: astral-sh/setup-uv@c7f87aa956e4c323abf06d5dec078e358f6b4d04 # v6.0.0
@@ -98,7 +98,8 @@ jobs:
           test "$(python --version)" = "Python 3.12.13"
           test "$(node --version)" = "v25.2.1"
           test "$(pnpm --version)" = "10.23.0"
-          test "$(go version | awk '{print $3}')" = "go1.26.2"
+          expected_go_version="$(tr -d '\r\n' < apps/python-canvas/backend/.go-version)"
+          test "$(go version | awk '{print $3}')" = "go${expected_go_version}"
           test "$(uv --version | awk '{print $2}')" = "0.8.19"
           test "$(uname -m)" = "${{ matrix.architecture }}"
       - name: Install frozen build dependencies
@@ -177,10 +178,10 @@ jobs:
         with:
           version: "10.23.0"
           run_install: false
-      - name: Set up Go 1.26.2
+      - name: Set up pinned Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
-          go-version: "1.26.2"
+          go-version-file: "apps/python-canvas/backend/.go-version"
           check-latest: false
       - name: Set up uv 0.8.19
         uses: astral-sh/setup-uv@c7f87aa956e4c323abf06d5dec078e358f6b4d04 # v6.0.0
@@ -193,7 +194,8 @@ jobs:
           test "$(python --version)" = "Python 3.12.13"
           test "$(node --version)" = "v25.2.1"
           test "$(pnpm --version)" = "10.23.0"
-          test "$(go version | awk '{print $3}')" = "go1.26.2"
+          expected_go_version="$(tr -d '\r\n' < apps/python-canvas/backend/.go-version)"
+          test "$(go version | awk '{print $3}')" = "go${expected_go_version}"
           test "$(uv --version | awk '{print $2}')" = "0.8.19"
           test "$(uname -m)" = "${{ matrix.architecture }}"
       - name: Install frozen build dependencies
@@ -299,10 +301,10 @@ jobs:
         with:
           version: "10.23.0"
           run_install: false
-      - name: Set up Go 1.26.2
+      - name: Set up pinned Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
-          go-version: "1.26.2"
+          go-version-file: "apps/python-canvas/backend/.go-version"
           check-latest: false
       - name: Set up uv 0.8.19
         uses: astral-sh/setup-uv@c7f87aa956e4c323abf06d5dec078e358f6b4d04 # v6.0.0
@@ -314,7 +316,9 @@ jobs:
           if ((python --version) -ne "Python 3.12.13") { throw "Wrong Python" }
           if ((node --version) -ne "v25.2.1") { throw "Wrong Node" }
           if ((pnpm --version) -ne "10.23.0") { throw "Wrong pnpm" }
-          if (-not ((go version) -match "go1\.26\.2")) { throw "Wrong Go" }
+          $expectedGoVersion = (Get-Content apps/python-canvas/backend/.go-version -Raw).Trim()
+          $actualGoVersion = ((go version) -split ' ')[2]
+          if ($actualGoVersion -ne "go${expectedGoVersion}") { throw "Wrong Go" }
           if (-not ((uv --version) -match "^uv 0\.8\.19")) { throw "Wrong uv" }
           if (-not [Environment]::Is64BitOperatingSystem) { throw "Windows amd64 runner required" }
       - name: Install frozen build dependencies

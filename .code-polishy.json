@@ -376,7 +376,27 @@
       "MPL-2.0",
       "Python-2.0"
     ],
+    "releaseArtifacts": [
+      {
+        "name": "go",
+        "versionFile": "apps/python-canvas/backend/.go-version",
+        "source": "go-toolchain"
+      }
+    ],
     "releaseAgeAssessments": [
+      {
+        "id": "go-1-26-6-security-fix",
+        "ecosystem": "artifact",
+        "package": "go",
+        "version": "1.26.6",
+        "scope": "apps/python-canvas/backend/.go-version",
+        "category": "security-fix",
+        "evidence": "https://groups.google.com/g/golang-announce/c/94pEornpRlI/m/_JhCbsOZBAAJ",
+        "reason": "Go 1.26.6 fixes CVE-2026-56865 and CVE-2026-56864 in cmd/go checksum verification used when Setta resolves backend modules; retaining 1.26.2 would allow a malicious GOPROXY, or coordinated GOPROXY and GOSUMDB, to persist attacker-controlled module content.",
+        "owner": "python-canvas-backend",
+        "reviewed": "2026-08-26",
+        "expires": "2026-09-12"
+      },
       {
         "id": "nanoid-zero-size-security-fix",
         "ecosystem": "pnpm",
