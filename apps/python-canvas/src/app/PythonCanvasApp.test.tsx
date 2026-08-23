@@ -19,6 +19,7 @@ import { ProjectClientError } from "../backend/client";
 const mocks = vi.hoisted(() => ({
   commitCallable: vi.fn(),
   commitWorkspaceDocument: vi.fn(),
+  closeTerminal: vi.fn(),
   createCallable: vi.fn(),
   createList: vi.fn(),
   createParameterDictionary: vi.fn(),
@@ -29,8 +30,14 @@ const mocks = vi.hoisted(() => ({
   createWorkspaceCodeSection: vi.fn(),
   createWorkspaceHost: vi.fn(),
   fetchProjectSnapshot: vi.fn(),
+  getGeneratedPythonTerminalDimensions: vi.fn(() => ({
+    columns: 80,
+    rows: 24,
+  })),
   getWorkspaceCodeSectionData: vi.fn(),
   incrementListChildren: vi.fn(),
+  mountGeneratedPythonTerminal: vi.fn(() => () => {}),
+  openTerminal: vi.fn(),
   refreshCallableParameters: vi.fn(),
   renameCallable: vi.fn(),
   renameList: vi.fn(),
@@ -51,6 +58,8 @@ const mocks = vi.hoisted(() => ({
       sections: Record<string, unknown>;
     };
   } | null,
+  runTerminal: vi.fn(),
+  disposeGeneratedPythonTerminal: vi.fn(),
 }));
 
 type MockSectionRegistration = {
@@ -273,6 +282,7 @@ vi.mock("../backend/client", () => ({
     }
   },
   commitCallable: mocks.commitCallable,
+  closeTerminal: mocks.closeTerminal,
   createCallable: mocks.createCallable,
   createList: mocks.createList,
   createParameterDictionary: mocks.createParameterDictionary,
@@ -282,6 +292,7 @@ vi.mock("../backend/client", () => ({
   deleteParameterDictionary: mocks.deleteParameterDictionary,
   fetchProjectSnapshot: mocks.fetchProjectSnapshot,
   incrementListChildren: mocks.incrementListChildren,
+  openTerminal: mocks.openTerminal,
   refreshCallableParameters: mocks.refreshCallableParameters,
   renameCallable: mocks.renameCallable,
   renameList: mocks.renameList,
@@ -290,6 +301,14 @@ vi.mock("../backend/client", () => ({
   setCallableParameters: mocks.setCallableParameters,
   setParameterDictionaryEntries: mocks.setParameterDictionaryEntries,
   setPythonTarget: mocks.setPythonTarget,
+  runTerminal: mocks.runTerminal,
+}));
+
+vi.mock("./generatedPythonTerminalClient", () => ({
+  disposeGeneratedPythonTerminal: mocks.disposeGeneratedPythonTerminal,
+  getGeneratedPythonTerminalDimensions:
+    mocks.getGeneratedPythonTerminalDimensions,
+  mountGeneratedPythonTerminal: mocks.mountGeneratedPythonTerminal,
 }));
 
 vi.mock("@setta/workspace", () => ({
@@ -322,6 +341,10 @@ vi.mock("@setta/workspace", () => ({
 }));
 
 import { PythonCanvasApp } from "./PythonCanvasApp";
+import {
+  GeneratedPythonTerminalContext,
+  type GeneratedPythonTerminalContextValue,
+} from "./generatedPythonTerminalContext";
 import { usePythonCanvasMutationContext } from "./PythonCanvasMutationContext";
 import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import {
@@ -694,9 +717,11 @@ describe("PythonCanvasApp", () => {
     }
 
     const view = renderNode(
-      <PythonTargetCompletionErrorProvider error="Unable to load Python target completions. Try again.">
-        {renderTarget({ id: "python-canvas:generated-python" } as never)}
-      </PythonTargetCompletionErrorProvider>,
+      <GeneratedPythonTerminalContext.Provider value={testTerminalContext}>
+        <PythonTargetCompletionErrorProvider error="Unable to load Python target completions. Try again.">
+          {renderTarget({ id: "python-canvas:generated-python" } as never)}
+        </PythonTargetCompletionErrorProvider>
+      </GeneratedPythonTerminalContext.Provider>,
     );
     const boundary = view.querySelector("[role='group']");
 
@@ -1190,6 +1215,26 @@ describe("PythonCanvasApp", () => {
     ]);
   });
 });
+
+const testTerminalContext: GeneratedPythonTerminalContextValue = {
+  actions: {
+    close: () => {},
+    create: () => {},
+    hide: () => {},
+    reportStreamError: () => {},
+    resize: () => {},
+    run: () => {},
+    show: () => {},
+  },
+  state: {
+    creating: false,
+    error: null,
+    projectId: null,
+    sessionKey: null,
+    status: "absent",
+    terminalHeight: 220,
+  },
+};
 
 function createHost(): WorkspaceHost {
   return {

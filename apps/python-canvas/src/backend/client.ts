@@ -6,6 +6,10 @@ import {
   PROJECT_PATH_V2,
   PROJECT_TARGET_COMPLETIONS_PATH_V2,
   PROJECT_TARGET_PATH_V2,
+  PROJECT_TERMINAL_CLOSE_PATH_V2,
+  PROJECT_TERMINAL_PATH_V2,
+  PROJECT_TERMINAL_RUN_PATH_V2,
+  PROJECT_TERMINAL_TICKET_PATH_V2,
   projectCallableCommitPath,
   projectCallableCompletionsPath,
   projectCallableDeletePath,
@@ -21,6 +25,7 @@ import {
   projectParameterDictionaryRenamePath,
   type APIErrorCodeV2,
   type CallableCompletionRequestV2,
+  type CloseTerminalRequestV2,
   type CommitCallableRequestV2,
   type CompletionResponseV2,
   type CreateCallableRequestV2,
@@ -31,15 +36,20 @@ import {
   type DeleteParameterDictionaryRequestV2,
   type DeleteCallableRequestV2,
   type ProjectSnapshotV2,
+  type OpenTerminalRequestV2,
   type PythonTargetCompletionRequestV2,
   type RefreshCallableParametersRequestV2,
   type RenameCallableRequestV2,
   type RenameListRequestV2,
   type RenameParameterDictionaryRequestV2,
+  type RunTerminalRequestV2,
   type ReplaceSectionForestRequestV2,
   type SetCallableParametersRequestV2,
   type SetParameterDictionaryEntriesRequestV2,
   type SetPythonTargetRequestV2,
+  type TerminalSessionV2,
+  type TerminalTicketRequestV2,
+  type TerminalTicketV2,
   type IncrementListChildrenRequestV2,
 } from "./generatedContract";
 import {
@@ -47,6 +57,8 @@ import {
   parseCompletionResponseV2,
   parseErrorResponseV2,
   parseProjectSnapshotV2,
+  parseTerminalSessionV2,
+  parseTerminalTicketV2,
 } from "./runtimeContract";
 
 type ProjectClientErrorKind = "network" | "http" | "invalid_response";
@@ -281,6 +293,60 @@ export function setPythonTarget(
   );
 }
 
+export function openTerminal(
+  request: OpenTerminalRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<TerminalSessionV2> {
+  return requestTerminalSession(
+    PROJECT_TERMINAL_PATH_V2,
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function runTerminal(
+  request: RunTerminalRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<TerminalSessionV2> {
+  return requestTerminalSession(
+    PROJECT_TERMINAL_RUN_PATH_V2,
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export async function closeTerminal(
+  closeRequest: CloseTerminalRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<void> {
+  const response = await request(
+    PROJECT_TERMINAL_CLOSE_PATH_V2,
+    jsonPost(closeRequest),
+    fetchImplementation,
+  );
+  if (!response.ok) {
+    throw await responseError(response);
+  }
+  if (response.status !== 204) {
+    throw new ProjectClientError(
+      "invalid_response",
+      "Terminal close endpoint did not return 204 No Content.",
+      response.status,
+    );
+  }
+}
+
+export function getTerminalTicket(
+  request: TerminalTicketRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<TerminalTicketV2> {
+  return requestTerminalTicket(
+    PROJECT_TERMINAL_TICKET_PATH_V2,
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
 export function completeCallable(
   callableId: string,
   request: CallableCompletionRequestV2,
@@ -366,6 +432,56 @@ async function requestCompletions(
       throw new ProjectClientError(
         "invalid_response",
         `Project endpoint returned an invalid ${subject} completion response.`,
+        response.status,
+        cause,
+      );
+    }
+    throw cause;
+  }
+}
+
+async function requestTerminalSession(
+  path: string,
+  init: RequestInit,
+  fetchImplementation: typeof fetch,
+): Promise<TerminalSessionV2> {
+  const response = await request(path, init, fetchImplementation);
+  if (!response.ok) {
+    throw await responseError(response);
+  }
+  const payload = await responseJson(response);
+  try {
+    return parseTerminalSessionV2(payload);
+  } catch (cause) {
+    if (cause instanceof ProjectSnapshotValidationError) {
+      throw new ProjectClientError(
+        "invalid_response",
+        "Project endpoint returned an invalid terminal session.",
+        response.status,
+        cause,
+      );
+    }
+    throw cause;
+  }
+}
+
+async function requestTerminalTicket(
+  path: string,
+  init: RequestInit,
+  fetchImplementation: typeof fetch,
+): Promise<TerminalTicketV2> {
+  const response = await request(path, init, fetchImplementation);
+  if (!response.ok) {
+    throw await responseError(response);
+  }
+  const payload = await responseJson(response);
+  try {
+    return parseTerminalTicketV2(payload);
+  } catch (cause) {
+    if (cause instanceof ProjectSnapshotValidationError) {
+      throw new ProjectClientError(
+        "invalid_response",
+        "Project endpoint returned an invalid terminal ticket.",
         response.status,
         cause,
       );

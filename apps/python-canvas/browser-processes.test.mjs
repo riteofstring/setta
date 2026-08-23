@@ -100,7 +100,7 @@ test("production launcher builds and previews the Python Canvas frontend", () =>
 
   assert.match(
     launcher,
-    /backend_args=\(--project "\$\{project_path\}" --port "\$\{backend_port\}"\)[\s\S]*PYTHON_CANVAS_BACKEND_ORIGIN="http:\/\/127\.0\.0\.1:\$\{backend_port\}"[\s\S]*exec \.\/node_modules\/\.bin\/vite preview --host 127\.0\.0\.1 --port "\$\{preview_port\}" --strictPort/u,
+    /backend_args=\([\s\S]*--project "\$\{project_path\}"[\s\S]*--port "\$\{backend_port\}"[\s\S]*--app-origin "http:\/\/127\.0\.0\.1:\$\{preview_port\}"[\s\S]*\)[\s\S]*PYTHON_CANVAS_BACKEND_ORIGIN="http:\/\/127\.0\.0\.1:\$\{backend_port\}"[\s\S]*exec \.\/node_modules\/\.bin\/vite preview --host 127\.0\.0\.1 --port "\$\{preview_port\}" --strictPort/u,
   );
 });
 

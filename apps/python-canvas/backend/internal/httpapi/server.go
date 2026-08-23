@@ -180,19 +180,26 @@ func (payload targetCompletionPayload) contract() (contracts.PythonTargetComplet
 
 // NewHandler creates only exact V2 routes. No legacy path, payload, or alias
 // is accepted after this public cutover.
-func NewHandler(service ProjectService) (http.Handler, error) {
+func NewHandler(service ProjectService, options HandlerOptions) (http.Handler, error) {
 	if service == nil {
 		return nil, ErrProjectServiceRequired
 	}
 	if err := service.Snapshot().Validate(); err != nil {
 		return nil, fmt.Errorf("validate project endpoint snapshot: %w", err)
 	}
+	terminalRoutes, err := newTerminalRoutes(options)
+	if err != nil {
+		return nil, err
+	}
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		dispatchProjectRequest(response, request, service)
+		dispatchProjectRequest(response, request, service, terminalRoutes)
 	}), nil
 }
 
-func dispatchProjectRequest(response http.ResponseWriter, request *http.Request, service ProjectService) {
+func dispatchProjectRequest(response http.ResponseWriter, request *http.Request, service ProjectService, terminalRoutes *terminalRoutes) {
+	if terminalRoutes.dispatch(response, request, service) {
+		return
+	}
 	if dispatchProjectCollectionRoute(response, request, service) {
 		return
 	}
@@ -585,19 +592,22 @@ func listenLoopback(port uint16, listen listenFunc) (net.Listener, error) {
 
 // ServeLoopback binds the V2 service to loopback and shuts it down when the
 // caller's service context ends.
-func ServeLoopback(ctx context.Context, port uint16, service ProjectService) error {
+func ServeLoopback(ctx context.Context, port uint16, service ProjectService, options HandlerOptions) error {
 	listener, err := ListenLoopback(port)
 	if err != nil {
 		return err
 	}
-	return serve(ctx, listener, service)
+	return serve(ctx, listener, service, options)
 }
 
-func serve(ctx context.Context, listener net.Listener, service ProjectService) error {
+func serve(ctx context.Context, listener net.Listener, service ProjectService, options HandlerOptions) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	handler, err := NewHandler(service)
+	if options.Lifecycle == nil {
+		options.Lifecycle = ctx
+	}
+	handler, err := NewHandler(service, options)
 	if err != nil {
 		_ = listener.Close()
 		return err

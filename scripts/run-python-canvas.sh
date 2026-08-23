@@ -194,7 +194,11 @@ if curl --fail --silent "http://127.0.0.1:${backend_port}/api/v2/project" >/dev/
 fi
 
 echo "Starting the Go backend and pinned Basedpyright..."
-backend_args=(--project "${project_path}" --port "${backend_port}")
+backend_args=(
+  --project "${project_path}"
+  --port "${backend_port}"
+  --app-origin "http://127.0.0.1:${preview_port}"
+)
 if [[ "${create_project}" == "true" ]]; then
   backend_args+=(--create)
 fi

@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-**Status: Active.**
+**Status: Implemented and verified.**
 
 Add code execution and a real interactive terminal to Python Canvas without introducing an
 application-level Run/Stop header or standalone Terminal sections. Generated Python owns one
@@ -238,24 +238,39 @@ between this plan and checked-in code; possible future terminal features are not
 
 ### Phase 1 — Boundary and dependencies
 
-- [ ] Candidate dependency state reviewed
-- [ ] Workspace size command exported and tested
-- [ ] Generated REST/WebSocket contract established
+- [x] Candidate dependency state reviewed
+- [x] Workspace size command exported and tested
+- [x] Generated REST/WebSocket contract established
 
 ### Phase 2 — Runtime
 
-- [ ] Real PTY session, history, input, resize, interrupt, reuse, and close
-- [ ] Exact revision capture and immutable run artifact
-- [ ] HTTP/WebSocket security and shutdown ownership
+- [x] Real PTY session, history, input, resize, interrupt, reuse, and close
+- [x] Exact revision capture and immutable run artifact
+- [x] HTTP/WebSocket security and shutdown ownership
 
 ### Phase 3 — UI
 
-- [ ] Main-style Generated Python Run and terminal controls
-- [ ] Joined xterm pane with stable editor geometry and local resize
-- [ ] Hide/show history reuse, error handling, and trash lifecycle
+- [x] Main-style Generated Python Run and terminal controls
+- [x] Joined xterm pane with stable editor geometry and local resize
+- [x] Hide/show history reuse, error handling, and trash lifecycle
 
 ### Phase 4 — Acceptance
 
-- [ ] Focused backend, workspace, and frontend tests
-- [ ] Production raw-headless terminal lifecycle acceptance
-- [ ] Required Code Policy verification
+- [x] Focused backend, workspace, and frontend tests
+- [x] Production raw-headless terminal lifecycle acceptance
+- [x] Required Code Policy changed-scope verification
+
+## Completion evidence
+
+The required dependency-review command was attempted against `origin/main`. Code Policy 0.13.0
+stopped before evaluating the candidate because it cannot parse the trusted base's existing
+`uv.lock` entry whose exact version is `5.0`. A supplemental exact-start-base review enumerated
+only the five planned dependencies and reported no known vulnerabilities; the same exact versions
+are already present on frozen main. No policy file or lock governing Code Policy was changed to
+work around that base-input failure.
+
+Focused Go, workspace, frontend, generated-contract, and production-build checks pass. The
+production raw-headless walkthrough uses the real launcher, PTY, WebSocket proxy, and xterm and
+causally covers all eight acceptance behaviors in one disposable project. It launches only the
+raw Playwright `chrome-headless-shell` with an isolated disposable profile, mock keychain, and
+muted audio.

@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceHost } from "@setta/workspace";
 
 import type { PythonCanvasMutationContextValue } from "./PythonCanvasMutationContext";
+import type { GeneratedPythonTerminalContextValue } from "./generatedPythonTerminalContext";
+import type { GeneratedPythonTerminalState } from "./generatedPythonTerminalController";
 import { PythonCanvasView } from "./PythonCanvasView";
 
 vi.mock("@setta/workspace", () => ({
@@ -63,6 +65,23 @@ describe("PythonCanvasView", () => {
       "Unable to load Python target completions. Try again.",
     );
   });
+
+  it("keeps terminal failures separate from project mutation feedback", () => {
+    const view = renderView(
+      { kind: "idle" },
+      null,
+      "Unable to attach the terminal. Try again.",
+    );
+
+    const terminalError = view.querySelector("#python-canvas-terminal-error");
+    expect(terminalError?.getAttribute("role")).toBe("alert");
+    expect(terminalError?.textContent).toBe(
+      "Unable to attach the terminal. Try again.",
+    );
+    expect(
+      view.querySelector("#python-canvas-mutation-error")?.textContent,
+    ).toBe("");
+  });
 });
 
 const mutationContext: PythonCanvasMutationContextValue = {
@@ -85,12 +104,33 @@ const mutationContext: PythonCanvasMutationContextValue = {
   parameterAuthoringPending: () => false,
 };
 
+const terminalContext: GeneratedPythonTerminalContextValue = {
+  actions: {
+    close: vi.fn(),
+    create: vi.fn(),
+    hide: vi.fn(),
+    reportStreamError: vi.fn(),
+    resize: vi.fn(),
+    run: vi.fn(),
+    show: vi.fn(),
+  },
+  state: {
+    creating: false,
+    error: null,
+    projectId: null,
+    sessionKey: null,
+    status: "absent",
+    terminalHeight: 220,
+  } satisfies GeneratedPythonTerminalState,
+};
+
 function renderView(
   announcement:
     | { kind: "idle" }
     | { description: string; kind: "pending" }
     | { kind: "error"; message: string },
   pythonTargetCompletionError: string | null = null,
+  terminalError: string | null = null,
 ): HTMLDivElement {
   container = document.createElement("div");
   document.body.append(container);
@@ -102,6 +142,10 @@ function renderView(
         mutationContext={mutationContext}
         pythonTargetCompletionError={pythonTargetCompletionError}
         state={{ host: {} as WorkspaceHost, kind: "ready" }}
+        terminalContext={{
+          ...terminalContext,
+          state: { ...terminalContext.state, error: terminalError },
+        }}
       />,
     );
   });

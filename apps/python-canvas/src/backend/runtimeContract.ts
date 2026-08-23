@@ -38,6 +38,8 @@ import {
   type ProviderLifecycleStateV2,
   type ProviderStatusV2,
   type PythonTargetV2,
+  type TerminalSessionV2,
+  type TerminalTicketV2,
 } from "./generatedContract";
 import { isUtf8Boundary, sliceByByteRange, utf8ByteLength } from "./utf8";
 
@@ -179,6 +181,28 @@ export function parseCompletionResponseV2(
       parseCompletionItem,
     ),
   };
+}
+
+export function parseTerminalSessionV2(value: unknown): TerminalSessionV2 {
+  const record = readClosedRecord(value, "terminal session", [
+    "created",
+    "columns",
+    "rows",
+  ]);
+  return {
+    columns: readPositiveInteger(record.columns, "terminal session.columns"),
+    created: readBoolean(record.created, "terminal session.created"),
+    rows: readPositiveInteger(record.rows, "terminal session.rows"),
+  };
+}
+
+export function parseTerminalTicketV2(value: unknown): TerminalTicketV2 {
+  const record = readClosedRecord(value, "terminal ticket", ["ticket"]);
+  const ticket = readNonBlankString(record.ticket, "terminal ticket.ticket");
+  if (ticket.length < 32) {
+    fail("terminal ticket.ticket", "is invalid");
+  }
+  return { ticket };
 }
 
 function parseProject(value: unknown): ProjectV2 {

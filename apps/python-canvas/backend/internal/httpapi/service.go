@@ -14,6 +14,7 @@ import (
 // adapter. It exposes canonical snapshots, never a mutable transport model.
 type ProjectService interface {
 	Snapshot() contracts.ProjectSnapshotV2
+	CaptureGeneratedProgram(context.Context, string, int) (GeneratedProgram, error)
 	RenameProject(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
 	CreateCallable(context.Context, contracts.CreateCallableRequestV2) (contracts.ProjectSnapshotV2, error)
 	RenameCallable(context.Context, string, contracts.RenameCallableRequestV2) (contracts.ProjectSnapshotV2, error)
@@ -34,6 +35,15 @@ type ProjectService interface {
 	SetPythonTarget(context.Context, contracts.SetPythonTargetRequestV2) (contracts.ProjectSnapshotV2, error)
 	CompleteCallable(context.Context, string, contracts.CallableCompletionRequestV2) ([]contracts.CompletionItemV2, error)
 	CompletePythonTarget(context.Context, contracts.PythonTargetCompletionRequestV2) ([]contracts.CompletionItemV2, error)
+}
+
+// GeneratedProgram is the exact revision-bound rendered Python captured by
+// the project boundary for the terminal runtime. It never crosses the public
+// transport contract.
+type GeneratedProgram struct {
+	ProjectID string
+	Revision  int
+	Code      string
 }
 
 // CoordinatorService is the deliberately thin V2 delivery adapter around the
@@ -62,6 +72,25 @@ func (service *CoordinatorService) Snapshot() contracts.ProjectSnapshotV2 {
 		return contracts.ProjectSnapshotV2{}
 	}
 	return snapshot
+}
+
+func (service *CoordinatorService) CaptureGeneratedProgram(
+	ctx context.Context,
+	projectID string,
+	expectedRevision int,
+) (GeneratedProgram, error) {
+	if service == nil || service.coordinator == nil {
+		return GeneratedProgram{}, coordinator.ErrCoordinatorClosed
+	}
+	program, err := service.coordinator.CaptureGeneratedProgram(ctx, projectID, expectedRevision)
+	if err != nil {
+		return GeneratedProgram{}, err
+	}
+	return GeneratedProgram{
+		ProjectID: program.ProjectID,
+		Revision:  program.Revision,
+		Code:      program.Code,
+	}, nil
 }
 
 func (service *CoordinatorService) RenameProject(ctx context.Context, request contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error) {

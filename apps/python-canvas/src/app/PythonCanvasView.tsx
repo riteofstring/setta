@@ -12,6 +12,10 @@ import {
   PythonTargetCompletionErrorProvider,
   pythonTargetCompletionErrorId,
 } from "./PythonTargetCompletionBoundary";
+import {
+  GeneratedPythonTerminalContext,
+  type GeneratedPythonTerminalContextValue,
+} from "./generatedPythonTerminalContext";
 
 type ViewState =
   | { kind: "loading" }
@@ -28,6 +32,7 @@ type PythonCanvasViewProps = {
   mutationContext: PythonCanvasMutationContextValue;
   pythonTargetCompletionError: string | null;
   state: ViewState;
+  terminalContext: GeneratedPythonTerminalContextValue;
 };
 
 export function PythonCanvasView(props: PythonCanvasViewProps) {
@@ -40,6 +45,7 @@ export function PythonCanvasView(props: PythonCanvasViewProps) {
       <PythonCanvasLoadError state={props.state} />
       <PythonCanvasMutationError announcement={props.announcement} />
       <PythonCanvasCompletionError error={props.pythonTargetCompletionError} />
+      <PythonCanvasTerminalError error={props.terminalContext.state.error} />
       <PythonCanvasReadyWorkspace {...props} />
     </main>
   );
@@ -115,10 +121,19 @@ function PythonCanvasCompletionError({ error }: { error: string | null }) {
   );
 }
 
+function PythonCanvasTerminalError({ error }: { error: string | null }) {
+  return (
+    <p className="python-canvas-announcer" id="python-canvas-terminal-error" role="alert">
+      {error}
+    </p>
+  );
+}
+
 function PythonCanvasReadyWorkspace({
   mutationContext,
   pythonTargetCompletionError,
   state,
+  terminalContext,
 }: PythonCanvasViewProps) {
   if (state.kind !== "ready") {
     return null;
@@ -126,13 +141,15 @@ function PythonCanvasReadyWorkspace({
   return (
     <div className="python-canvas-workspace">
       <PythonCanvasMutationContext.Provider value={mutationContext}>
-        <PythonTargetCompletionErrorProvider
-          error={pythonTargetCompletionError}
-        >
-          <WorkspaceProvider host={state.host}>
-            <WorkspaceCanvas />
-          </WorkspaceProvider>
-        </PythonTargetCompletionErrorProvider>
+        <GeneratedPythonTerminalContext.Provider value={terminalContext}>
+          <PythonTargetCompletionErrorProvider
+            error={pythonTargetCompletionError}
+          >
+            <WorkspaceProvider host={state.host}>
+              <WorkspaceCanvas />
+            </WorkspaceProvider>
+          </PythonTargetCompletionErrorProvider>
+        </GeneratedPythonTerminalContext.Provider>
       </PythonCanvasMutationContext.Provider>
     </div>
   );

@@ -63,7 +63,7 @@ export type PythonCanvasMutationEnvironment = {
   clearCallableError: (callableId: string) => void;
   clearDictionaryError: (dictionaryId: string) => void;
   currentSnapshot: () => ProjectSnapshotV2 | null;
-  enqueue: (operation: () => Promise<void>) => void;
+  enqueue: (operation: () => Promise<void>) => Promise<void>;
   finishCallableMutation: (callableId: string) => void;
   handleMutationFailure: (
     target: string,
@@ -127,60 +127,80 @@ export function createPythonCanvasMutations(
     cancelTargetMutation();
     targetTimer = setTimeout(() => {
       targetTimer = null;
-      environment.enqueue(async () => {
-        const current = requireCurrentSnapshot(environment);
-        if (current === null) {
-          return;
-        }
-        const authored = readEditablePythonTarget(environment);
-        if (authored === null || sameCanonicalPythonTarget(authored, current)) {
-          return;
-        }
-        if (authored.generated !== current.generatedCode.body) {
-          environment.restoreCanonicalProject();
-          environment.updateAnnouncement({
-            kind: "error",
-            message: "The generated Python body cannot be edited.",
-          });
-          return;
-        }
-        environment.updateAnnouncement({
-          description: "Checking the Python target with Basedpyright.",
-          kind: "pending",
-        });
-        try {
-          const next = await setPythonTarget({
-            expectedRevision: current.project.revision,
-            prefix: authored.prefix,
-            projectId: current.project.id,
-            suffix: authored.suffix,
-          });
-          if (!environment.isActive()) {
-            return;
-          }
-          environment.publishSnapshot(next);
-          environment.acceptCanonicalSnapshot(next, {
-            kind: "python-target",
-            refreshedCallableIds: changedCanonicalParameterCallableIds(
-              current,
-              next,
-            ),
-          });
-          environment.updateAnnouncement({ kind: "idle" });
-        } catch (error) {
-          if (environment.isActive()) {
-            await environment.handleMutationFailure(
-              "the Python target",
-              error,
-              {
-                reportFailure: environment.updateAnnouncement,
-                restore: environment.restoreCanonicalProject,
-              },
-            );
-          }
-        }
+      void environment.enqueue(async () => {
+        await persistPythonTargetMutation();
       });
     }, mutationDebounceMs);
+  }
+
+  async function persistPythonTargetMutation(): Promise<boolean> {
+    const current = requireCurrentSnapshot(environment);
+    if (current === null) {
+      return false;
+    }
+    const authored = readEditablePythonTarget(environment);
+    if (authored === null || sameCanonicalPythonTarget(authored, current)) {
+      return true;
+    }
+    if (authored.generated !== current.generatedCode.body) {
+      environment.restoreCanonicalProject();
+      environment.updateAnnouncement({
+        kind: "error",
+        message: "The generated Python body cannot be edited.",
+      });
+      return false;
+    }
+    environment.updateAnnouncement({
+      description: "Checking the Python target with Basedpyright.",
+      kind: "pending",
+    });
+    try {
+      const next = await setPythonTarget({
+        expectedRevision: current.project.revision,
+        prefix: authored.prefix,
+        projectId: current.project.id,
+        suffix: authored.suffix,
+      });
+      if (!environment.isActive()) {
+        return false;
+      }
+      environment.publishSnapshot(next);
+      environment.acceptCanonicalSnapshot(next, {
+        kind: "python-target",
+        refreshedCallableIds: changedCanonicalParameterCallableIds(
+          current,
+          next,
+        ),
+      });
+      environment.updateAnnouncement({ kind: "idle" });
+      return true;
+    } catch (error) {
+      if (environment.isActive()) {
+        await environment.handleMutationFailure("the Python target", error, {
+          reportFailure: environment.updateAnnouncement,
+          restore: environment.restoreCanonicalProject,
+        });
+      }
+      return false;
+    }
+  }
+
+  function runWithPythonTargetFlushed(
+    operation: (snapshot: ProjectSnapshotV2) => Promise<void>,
+  ): Promise<void> {
+    cancelTargetMutation();
+    return environment.enqueue(async () => {
+      const persisted = await persistPythonTargetMutation();
+      if (!persisted) {
+        return;
+      }
+      // Capture only after the forced persistence operation has settled on the same serialized
+      // chain. A Run never races a still-debounced target edit or reuses its prior revision.
+      const snapshot = requireCurrentSnapshot(environment);
+      if (snapshot !== null) {
+        await operation(snapshot);
+      }
+    });
   }
 
   function scheduleParameterListMutation(callableId: string) {
@@ -768,6 +788,7 @@ export function createPythonCanvasMutations(
     createListFromPane,
     createParameterDictionaryFromPane,
     queueForestMutation,
+    runWithPythonTargetFlushed,
     scheduleDictionaryEntriesMutation,
     scheduleParameterListMutation,
     schedulePythonTargetMutation,

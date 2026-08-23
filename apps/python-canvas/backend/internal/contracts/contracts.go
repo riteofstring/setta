@@ -9,6 +9,8 @@ import (
 
 const (
 	ProjectSnapshotVersionV2           = "v2"
+	TerminalStreamReadyTypeV2          = "ready"
+	TerminalStreamResizeTypeV2         = "resize"
 	ProjectPathV2                      = "/api/v2/project"
 	ProjectRenamePathV2                = "/api/v2/project/rename"
 	ProjectCallablesPathV2             = "/api/v2/project/callables"
@@ -16,6 +18,11 @@ const (
 	ProjectListsPathV2                 = "/api/v2/project/lists"
 	ProjectForestPathV2                = "/api/v2/project/forest"
 	ProjectTargetPathV2                = "/api/v2/project/target"
+	ProjectTerminalPathV2              = "/api/v2/project/terminal"
+	ProjectTerminalRunPathV2           = "/api/v2/project/terminal/run"
+	ProjectTerminalClosePathV2         = "/api/v2/project/terminal/close"
+	ProjectTerminalTicketPathV2        = "/api/v2/project/terminal/ticket"
+	ProjectTerminalStreamPathV2        = "/api/v2/project/terminal/stream"
 )
 
 // ProjectSnapshotV2 is the complete canonical response used by every V2
@@ -206,6 +213,57 @@ type PythonTargetCompletionRequestV2 struct {
 	CursorOffsetUTF16  int          `json:"cursorOffsetUtf16"`
 }
 
+// OpenTerminalRequestV2 creates or reuses the one runtime terminal owned by
+// Generated Python. It deliberately carries no authored-project mutation.
+type OpenTerminalRequestV2 struct {
+	ProjectID string `json:"projectId"`
+	Columns   int    `json:"columns"`
+	Rows      int    `json:"rows"`
+}
+
+// RunTerminalRequestV2 binds one generated-code run to the exact canonical
+// project revision observed by the frontend.
+type RunTerminalRequestV2 struct {
+	ProjectID        string `json:"projectId"`
+	ExpectedRevision int    `json:"expectedRevision"`
+	Columns          int    `json:"columns"`
+	Rows             int    `json:"rows"`
+}
+
+type CloseTerminalRequestV2 struct {
+	ProjectID string `json:"projectId"`
+}
+
+// TerminalTicketRequestV2 issues one opaque, single-use attachment ticket for
+// the already-open Generated Python terminal.
+type TerminalTicketRequestV2 struct {
+	ProjectID string `json:"projectId"`
+}
+
+type TerminalSessionV2 struct {
+	Created bool `json:"created"`
+	Columns int  `json:"columns"`
+	Rows    int  `json:"rows"`
+}
+
+type TerminalTicketV2 struct {
+	Ticket string `json:"ticket"`
+}
+
+// TerminalStreamReadyV2 is the one server-to-client control boundary before
+// retained history and live binary terminal output begin.
+type TerminalStreamReadyV2 struct {
+	Type string `json:"type"`
+}
+
+// TerminalStreamResizeV2 is the sole client-to-server JSON control frame.
+// Terminal input itself stays raw binary UTF-8 bytes.
+type TerminalStreamResizeV2 struct {
+	Type    string `json:"type"`
+	Columns int    `json:"columns"`
+	Rows    int    `json:"rows"`
+}
+
 type CompletionItemV2 struct {
 	Label      string `json:"label"`
 	InsertText string `json:"insertText"`
@@ -227,6 +285,8 @@ const (
 	APIErrorCodeRenderFailedV2          APIErrorCodeV2 = "render_failed"
 	APIErrorCodeMaterializationFailedV2 APIErrorCodeV2 = "materialization_failed"
 	APIErrorCodePersistenceFailedV2     APIErrorCodeV2 = "persistence_failed"
+	APIErrorCodeTerminalUnavailableV2   APIErrorCodeV2 = "terminal_unavailable"
+	APIErrorCodeTerminalFailedV2        APIErrorCodeV2 = "terminal_failed"
 	APIErrorCodeMethodNotAllowedV2      APIErrorCodeV2 = "method_not_allowed"
 	APIErrorCodeInternalV2              APIErrorCodeV2 = "internal"
 )
@@ -546,6 +606,53 @@ func (request PythonTargetCompletionRequestV2) Validate() error {
 	return nil
 }
 
+func (request OpenTerminalRequestV2) Validate() error {
+	if err := requireStableID("projectId", request.ProjectID); err != nil {
+		return err
+	}
+	return validateTerminalSize(request.Columns, request.Rows)
+}
+
+func (request RunTerminalRequestV2) Validate() error {
+	if err := validateMutationRequest(request.ProjectID, request.ExpectedRevision); err != nil {
+		return err
+	}
+	return validateTerminalSize(request.Columns, request.Rows)
+}
+
+func (request CloseTerminalRequestV2) Validate() error {
+	return requireStableID("projectId", request.ProjectID)
+}
+
+func (request TerminalTicketRequestV2) Validate() error {
+	return requireStableID("projectId", request.ProjectID)
+}
+
+func (session TerminalSessionV2) Validate() error {
+	return validateTerminalSize(session.Columns, session.Rows)
+}
+
+func (ticket TerminalTicketV2) Validate() error {
+	if len(ticket.Ticket) < 32 {
+		return ValidationError{Field: "ticket", Problem: "is invalid"}
+	}
+	return nil
+}
+
+func (ready TerminalStreamReadyV2) Validate() error {
+	if ready.Type != TerminalStreamReadyTypeV2 {
+		return ValidationError{Field: "type", Problem: "must be ready"}
+	}
+	return nil
+}
+
+func (resize TerminalStreamResizeV2) Validate() error {
+	if resize.Type != TerminalStreamResizeTypeV2 {
+		return ValidationError{Field: "type", Problem: "must be resize"}
+	}
+	return validateTerminalSize(resize.Columns, resize.Rows)
+}
+
 func (response CompletionResponseV2) Validate() error {
 	if response.Items == nil {
 		return ValidationError{Field: "items", Problem: "must be an array"}
@@ -567,6 +674,16 @@ func validateMutationRequest(projectID string, expectedRevision int) error {
 	}
 	if expectedRevision < 1 {
 		return ValidationError{Field: "expectedRevision", Problem: "must be at least 1"}
+	}
+	return nil
+}
+
+func validateTerminalSize(columns int, rows int) error {
+	if columns < 1 {
+		return ValidationError{Field: "columns", Problem: "must be positive"}
+	}
+	if rows < 1 {
+		return ValidationError{Field: "rows", Problem: "must be positive"}
 	}
 	return nil
 }

@@ -13,6 +13,7 @@ import {
 } from "./callable-commit.browser.mjs";
 import { exerciseResolvedMathCallableLifecycle } from "./callable-lifecycle.browser.mjs";
 import { observeGeneratedDocumentBoundaries } from "./generated-document-boundaries.browser.mjs";
+import { exerciseGeneratedPythonTerminalLifecycle } from "./generated-python-terminal.browser.mjs";
 import { exerciseParamDictAndListSlice } from "./param-dict-list.browser.mjs";
 import { exerciseStructuralDiagnosticsLifecycle } from "./structural-diagnostics.browser.mjs";
 import {
@@ -62,6 +63,15 @@ const callableCommitHarness = {
 };
 const waitForCallablePresentation = (client, name) =>
   waitForCallableUiIdle(client, name, callableCommitHarness);
+
+await runAgainstProductionApp(
+  async ({ backendOrigin, client, previewOrigin }) => {
+    const initial = await fetchCanonicalSnapshot(backendOrigin);
+    assert.deepEqual(initial.callables, []);
+    await openWorkspaceCanvas(client, previewOrigin);
+    await exerciseGeneratedPythonTerminalLifecycle(client, backendOrigin);
+  },
+);
 
 await runAgainstProductionApp(
   async ({ backendOrigin, client, previewOrigin }) => {

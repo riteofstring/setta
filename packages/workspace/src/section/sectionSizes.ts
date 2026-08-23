@@ -227,3 +227,15 @@ export function persistSectionSizeChange(
   documentStore.setState({ sections });
   notifyWorkspaceDocumentChange(host);
 }
+
+// Applications that compose runtime-only UI below a section still need the one canonical geometry
+// write. Keep that capability deliberately narrow: it exposes neither document stores nor a second
+// resize implementation, so it retains the same constraints, width propagation, validation, and
+// single document publication as package-owned handles and Inspector edits.
+export function setWorkspaceSectionSize(
+  host: WorkspaceHost,
+  sectionId: string,
+  nextSize: Partial<SectionSize>,
+): void {
+  persistSectionSizeChange(host, sectionId, nextSize);
+}

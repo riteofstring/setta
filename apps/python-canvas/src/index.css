@@ -70,6 +70,248 @@ body {
   min-inline-size: 0;
 }
 
+/* Generated Python keeps the package-owned section shell and header. Its one app-owned terminal
+ * consumes only the additional height the runtime adds to that same card, so the editor's
+ * available height remains unchanged when the pane appears or disappears. */
+.python-canvas-generated-python-section,
+.python-canvas-generated-python-editor {
+  display: flex;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.python-canvas-generated-python-section {
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.python-canvas-generated-python-editor {
+  flex: 1 1 auto;
+}
+
+.python-canvas-generated-python-editor > * {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+/* These are frozen main's 16 px, transparent per-code-section controls. The palette mirrors
+ * main's setta utility values while keeping this consumer-owned markup out of workspace CSS. */
+.python-canvas-generated-python-run-control,
+.python-canvas-generated-python-terminal-control {
+  display: inline-flex;
+  inline-size: 1rem;
+  block-size: 1rem;
+  align-items: center;
+  justify-content: center;
+  margin-inline-end: 0.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.python-canvas-generated-python-run-control {
+  color: hsl(219 25% 34%);
+}
+
+.python-canvas-generated-python-run-control:hover {
+  color: #22c55e;
+}
+
+.python-canvas-generated-python-run-control:active {
+  color: #1d4ed8;
+}
+
+.python-canvas-generated-python-terminal-control {
+  color: hsl(220 26% 57%);
+}
+
+.python-canvas-generated-python-terminal-control:hover {
+  color: hsl(219 25% 34%);
+}
+
+.python-canvas-generated-python-terminal-control-visible {
+  color: hsl(219 25% 34%);
+}
+
+.python-canvas-generated-python-terminal-control-visible:hover {
+  color: #2563eb;
+}
+
+.python-canvas-generated-python-run-control:focus-visible,
+.python-canvas-generated-python-terminal-control:focus-visible,
+.python-canvas-generated-python-terminal-trash:focus-visible,
+.python-canvas-generated-python-terminal-splitter:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+.python-canvas-generated-python-run-control:disabled,
+.python-canvas-generated-python-terminal-control:disabled,
+.python-canvas-generated-python-terminal-trash:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.python-canvas-generated-python-run-control svg {
+  inline-size: 1em;
+  block-size: 1em;
+  fill: currentcolor;
+}
+
+.python-canvas-generated-python-terminal-control svg {
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  fill: currentcolor;
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-run-control {
+  color: hsl(219 25% 34%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-run-control:hover {
+  color: #a6e22e;
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-terminal-control {
+  color: hsl(219 25% 34%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-terminal-control:hover {
+  color: hsl(220 25% 67%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-terminal-control-visible {
+  color: hsl(220 25% 45%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-terminal-control-visible:hover {
+  color: #0084ff;
+}
+
+.python-canvas-generated-python-terminal-pane {
+  position: relative;
+  display: flex;
+  min-block-size: 100px;
+  min-inline-size: 0;
+  flex-grow: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-block-start: 1px solid hsl(219 24% 89%);
+  background: #06070a;
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-terminal-pane {
+  border-block-start-color: hsl(220 26% 14%);
+}
+
+.python-canvas-generated-python-terminal-surface {
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.python-canvas-generated-python-terminal-surface .xterm {
+  block-size: 100%;
+}
+
+.python-canvas-generated-python-terminal-trash {
+  position: absolute;
+  z-index: 20;
+  inset-block-start: 0.25rem;
+  inset-inline-end: -0.25rem;
+  display: inline-flex;
+  inline-size: 1rem;
+  min-inline-size: 1rem;
+  block-size: 1rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: hsl(219 25% 34%);
+  cursor: pointer;
+}
+
+.python-canvas-generated-python-terminal-trash:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.python-canvas-gg-trash {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  inline-size: 10px;
+  block-size: 12px;
+  margin-block-start: 2px;
+  border: 2px solid transparent;
+  border-end-start-radius: 1px;
+  border-end-end-radius: 1px;
+  box-shadow:
+    0 0 0 2px,
+    inset -2px 0 0,
+    inset 2px 0 0;
+}
+
+.python-canvas-gg-trash::after,
+.python-canvas-gg-trash::before {
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+  content: "";
+}
+
+.python-canvas-gg-trash::after {
+  inset-block-start: -4px;
+  inset-inline-start: -5px;
+  inline-size: 16px;
+  block-size: 2px;
+  border-radius: 3px;
+  background: currentcolor;
+}
+
+.python-canvas-gg-trash::before {
+  inset-block-start: -7px;
+  inset-inline-start: -2px;
+  inline-size: 10px;
+  block-size: 4px;
+  border: 2px solid;
+  border-block-end-color: transparent;
+  border-start-start-radius: 2px;
+  border-start-end-radius: 2px;
+}
+
+.python-canvas-generated-python-terminal-splitter {
+  position: absolute;
+  z-index: 19;
+  inset-block-start: -0.25rem;
+  inset-inline: 0;
+  block-size: 0.5rem;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.python-canvas-generated-python-terminal-splitter::after {
+  position: absolute;
+  inset-block-start: 0.1875rem;
+  inset-inline: 0;
+  block-size: 1px;
+  background: hsl(220 25% 67% / 55%);
+  content: "";
+}
+
 /* The package owns the section's insets. This grid only spaces the app-owned
  * callable controls and messages inside its section. */
 .python-canvas-callable-section {

@@ -4,22 +4,29 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/setta/python-canvas/backend/internal/httpapi"
 	"github.com/setta/python-canvas/backend/internal/lsp"
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 	"github.com/setta/python-canvas/backend/internal/project/coordinator"
 	"github.com/setta/python-canvas/backend/internal/project/materializer"
+	"github.com/setta/python-canvas/backend/internal/terminal"
 )
 
-const defaultPort = 8080
+const (
+	defaultPort             = 8080
+	terminalShutdownTimeout = 5 * time.Second
+)
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -30,7 +37,7 @@ func main() {
 	}
 }
 
-type serviceStarter func(context.Context, uint16, string, bool) error
+type serviceStarter func(context.Context, uint16, string, bool, string) error
 
 func run(ctx context.Context, arguments []string, start serviceStarter) error {
 	flags := flag.NewFlagSet("python-canvas", flag.ContinueOnError)
@@ -38,6 +45,17 @@ func run(ctx context.Context, arguments []string, start serviceStarter) error {
 	port := flags.Uint("port", defaultPort, "loopback port")
 	projectPath := flags.String("project", "", "authored project path")
 	create := flags.Bool("create", false, "exclusively create the project if it is absent")
+	var appOrigin string
+	flags.Func("app-origin", "exact loopback browser origin allowed to attach the terminal", func(value string) error {
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("app origin must not be empty")
+		}
+		if appOrigin != "" {
+			return fmt.Errorf("app origin may be provided only once")
+		}
+		appOrigin = value
+		return nil
+	})
 	if err := flags.Parse(arguments); err != nil {
 		return err
 	}
@@ -50,10 +68,13 @@ func run(ctx context.Context, arguments []string, start serviceStarter) error {
 	if *projectPath == "" {
 		return fmt.Errorf("python-canvas requires --project PATH")
 	}
-	return start(ctx, uint16(*port), *projectPath, *create)
+	if appOrigin == "" {
+		return fmt.Errorf("python-canvas requires --app-origin ORIGIN")
+	}
+	return start(ctx, uint16(*port), *projectPath, *create, appOrigin)
 }
 
-func serve(ctx context.Context, port uint16, projectPath string, create bool) error {
+func serve(ctx context.Context, port uint16, projectPath string, create bool, appOrigin string) error {
 	appRoot, err := findAppRoot()
 	if err != nil {
 		return err
@@ -87,7 +108,24 @@ func serve(ctx context.Context, port uint16, projectPath string, create bool) er
 	if err != nil {
 		return err
 	}
-	return httpapi.ServeLoopback(ctx, port, service)
+	terminalRuntime, err := terminal.New(terminal.Options{ProjectDirectory: filepath.Dir(projectPath)})
+	if err != nil {
+		return err
+	}
+	serveErr := httpapi.ServeLoopback(ctx, port, service, httpapi.HandlerOptions{
+		Terminal:  terminalRuntime,
+		AppOrigin: appOrigin,
+	})
+	shutdownContext, cancel := context.WithTimeout(context.Background(), terminalShutdownTimeout)
+	defer cancel()
+	closeErr := terminalRuntime.Close(shutdownContext)
+	if serveErr == nil {
+		return closeErr
+	}
+	if closeErr == nil {
+		return serveErr
+	}
+	return errors.Join(serveErr, fmt.Errorf("shutdown terminal runtime: %w", closeErr))
 }
 
 func generatedID() (string, error) {

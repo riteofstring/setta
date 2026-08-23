@@ -201,6 +201,7 @@ export type {
   WorkspaceSectionKindIconProps,
 } from "./document/sectionKindRegistry";
 export type { WorkspaceSectionSizeConstraints } from "./section/resize/sectionSizingBounds";
+export { setWorkspaceSectionSize } from "./section/sectionSizes";
 export { useWorkspaceAppearance } from "./document/stores";
 export type {
   WorkspaceAppearanceState,

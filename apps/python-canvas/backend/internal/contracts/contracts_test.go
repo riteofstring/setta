@@ -177,6 +177,30 @@ func TestV2MutationsRequireExpectedRevision(t *testing.T) {
 	}
 }
 
+func TestTerminalContractUsesPositiveSizesAndClosedControlFrames(t *testing.T) {
+	if err := (OpenTerminalRequestV2{ProjectID: "project:terminal", Columns: 80, Rows: 24}).Validate(); err != nil {
+		t.Fatalf("validate terminal open request: %v", err)
+	}
+	if err := (TerminalStreamReadyV2{Type: TerminalStreamReadyTypeV2}).Validate(); err != nil {
+		t.Fatalf("validate terminal ready frame: %v", err)
+	}
+	if err := (TerminalStreamResizeV2{Type: TerminalStreamResizeTypeV2, Columns: 80, Rows: 24}).Validate(); err != nil {
+		t.Fatalf("validate terminal resize frame: %v", err)
+	}
+
+	for _, value := range []interface{ Validate() error }{
+		OpenTerminalRequestV2{ProjectID: "project:terminal", Columns: 0, Rows: 24},
+		RunTerminalRequestV2{ProjectID: "project:terminal", ExpectedRevision: 0, Columns: 80, Rows: 24},
+		TerminalTicketV2{Ticket: " "},
+		TerminalStreamReadyV2{Type: "unexpected"},
+		TerminalStreamResizeV2{Type: TerminalStreamReadyTypeV2, Columns: 80, Rows: 24},
+	} {
+		if err := value.Validate(); err == nil {
+			t.Fatalf("terminal contract accepted invalid value %#v", value)
+		}
+	}
+}
+
 func snapshotWithCallableForTest() ProjectSnapshotV2 {
 	snapshot := FixtureProjectSnapshotV2()
 	ordinal := 0

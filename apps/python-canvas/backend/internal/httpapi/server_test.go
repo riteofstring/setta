@@ -260,11 +260,7 @@ func retiredProjectPath() string {
 
 func newHandlerForTest(t *testing.T, service ProjectService) http.Handler {
 	t.Helper()
-	handler, err := NewHandler(service)
-	if err != nil {
-		t.Fatalf("NewHandler() error = %v", err)
-	}
-	return handler
+	return newTerminalHandlerForTest(t, service, newTerminalRuntimeStub())
 }
 
 func assertErrorCode(t *testing.T, response *httptest.ResponseRecorder, want contracts.APIErrorCodeV2) {
@@ -281,13 +277,30 @@ func assertErrorCode(t *testing.T, response *httptest.ResponseRecorder, want con
 type stubProjectService struct {
 	snapshot contracts.ProjectSnapshotV2
 
-	renameProject     func(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
-	commitCallable    func(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error)
-	refreshParameters func(context.Context, string, contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
-	setParameters     func(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
+	captureGeneratedProgram func(context.Context, string, int) (GeneratedProgram, error)
+	renameProject           func(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
+	commitCallable          func(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error)
+	refreshParameters       func(context.Context, string, contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
+	setParameters           func(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
 }
 
 func (service *stubProjectService) Snapshot() contracts.ProjectSnapshotV2 { return service.snapshot }
+
+func (service *stubProjectService) CaptureGeneratedProgram(ctx context.Context, projectID string, expectedRevision int) (GeneratedProgram, error) {
+	if service.captureGeneratedProgram != nil {
+		return service.captureGeneratedProgram(ctx, projectID, expectedRevision)
+	}
+	if err := ctx.Err(); err != nil {
+		return GeneratedProgram{}, err
+	}
+	if projectID != service.snapshot.Project.ID {
+		return GeneratedProgram{}, aggregate.ErrProjectNotFound
+	}
+	if expectedRevision != service.snapshot.Project.Revision {
+		return GeneratedProgram{}, aggregate.ErrRevisionConflict
+	}
+	return GeneratedProgram{ProjectID: projectID, Revision: expectedRevision, Code: service.snapshot.GeneratedCode.Code}, nil
+}
 
 func (service *stubProjectService) RenameProject(ctx context.Context, request contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error) {
 	if service.renameProject == nil {

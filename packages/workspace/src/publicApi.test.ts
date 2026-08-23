@@ -81,6 +81,7 @@ const RUNTIME_EXPORTS = [
   "setGroupOverflowMode",
   "setSectionData",
   "setSectionTagColor",
+  "setWorkspaceSectionSize",
   "setWorkspaceCodeSectionData",
   "setWorkspaceTextSectionData",
   "setWorkspaceColorMode",
@@ -95,6 +96,45 @@ const RUNTIME_EXPORTS = [
 describe("public package API", () => {
   it("exports only the ratified runtime surface", () => {
     expect(Object.keys(workspace).sort()).toEqual([...RUNTIME_EXPORTS].sort());
+  });
+
+  it("commits an app-owned section size through the canonical resize funnel", () => {
+    const host = workspace.createWorkspaceHost();
+    workspace.registerSectionKinds(host, {
+      leaf: { renderContent: () => null },
+    });
+    host.loadDocument({
+      activeIds: [],
+      sections: {
+        leaf: {
+          children: [],
+          id: "leaf",
+          isHorizontalOrientation: false,
+          isMinimized: false,
+          kind: "leaf",
+          name: "Leaf",
+          overflowMode: false,
+          positionAndSizeLocked: false,
+          size: { height: 100, width: 200 },
+          styleColor: null,
+          tagColor: null,
+        },
+      },
+      topLevelSections: { leaf: { h: 100, w: 200, x: 0, y: 0, zIndex: 0 } },
+      viewport: { x: 0, y: 0, zoom: 1 },
+    });
+
+    const publications: Array<workspace.WorkspaceDocument> = [];
+    const unsubscribe = host.subscribe((document) => publications.push(document));
+    workspace.setWorkspaceSectionSize(host, "leaf", { height: 320 });
+
+    expect(host.getSnapshot().sections["leaf"]?.size).toEqual({
+      height: 320,
+      width: 200,
+    });
+    expect(publications).toHaveLength(1);
+    unsubscribe();
+    host.dispose();
   });
 
   it("exposes the text editor commit callback through the public root", () => {

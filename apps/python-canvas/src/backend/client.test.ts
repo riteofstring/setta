@@ -9,6 +9,10 @@ import {
   PROJECT_PATH_V2,
   PROJECT_TARGET_COMPLETIONS_PATH_V2,
   PROJECT_TARGET_PATH_V2,
+  PROJECT_TERMINAL_CLOSE_PATH_V2,
+  PROJECT_TERMINAL_PATH_V2,
+  PROJECT_TERMINAL_RUN_PATH_V2,
+  PROJECT_TERMINAL_TICKET_PATH_V2,
   projectCallableCommitPath,
   projectCallableDeletePath,
   projectCallableParametersPath,
@@ -26,6 +30,7 @@ import {
 import {
   ProjectClientError,
   commitCallable,
+  closeTerminal,
   completeCallable,
   completePythonTarget,
   createCallable,
@@ -45,6 +50,9 @@ import {
   setParameterDictionaryEntries,
   setPythonTarget,
   incrementListChildren,
+  getTerminalTicket,
+  openTerminal,
+  runTerminal,
 } from "./client";
 
 describe("Python Canvas V2 project client", () => {
@@ -244,6 +252,74 @@ describe("Python Canvas V2 project client", () => {
     );
   });
 
+  it("uses the generated terminal routes and accepts only the close route's 204 boundary", async () => {
+    const projectId = "project:fixture";
+    const openRequest = { columns: 80, projectId, rows: 24 };
+    const runRequest = {
+      columns: 80,
+      expectedRevision: 1,
+      projectId,
+      rows: 24,
+    };
+    const ticketRequest = { projectId };
+    const closeRequest = { projectId };
+    const session = { columns: 80, created: true, rows: 24 };
+
+    await expectTerminalPost(PROJECT_TERMINAL_PATH_V2, openRequest, session, (fetch) =>
+      openTerminal(openRequest, fetch),
+    );
+    await expectTerminalPost(
+      PROJECT_TERMINAL_RUN_PATH_V2,
+      runRequest,
+      session,
+      (fetch) => runTerminal(runRequest, fetch),
+    );
+    await expectTerminalPost(
+      PROJECT_TERMINAL_TICKET_PATH_V2,
+      ticketRequest,
+      { ticket: "t".repeat(32) },
+      (fetch) => getTerminalTicket(ticketRequest, fetch),
+    );
+
+    const response = {
+      json: vi.fn(),
+      ok: true,
+      status: 204,
+    } as unknown as Response & { json: ReturnType<typeof vi.fn> };
+    const fetchImplementation = vi.fn().mockResolvedValue(response);
+    await expect(
+      closeTerminal(closeRequest, fetchImplementation as typeof fetch),
+    ).resolves.toBeUndefined();
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      PROJECT_TERMINAL_CLOSE_PATH_V2,
+      expect.objectContaining({
+        body: JSON.stringify(closeRequest),
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    expect(response.json).not.toHaveBeenCalled();
+
+    const unexpectedJsonResponse = {
+      json: vi.fn().mockResolvedValue({ closed: true }),
+      ok: true,
+      status: 200,
+    } as unknown as Response & { json: ReturnType<typeof vi.fn> };
+    await expect(
+      closeTerminal(
+        closeRequest,
+        vi.fn().mockResolvedValue(unexpectedJsonResponse) as typeof fetch,
+      ),
+    ).rejects.toMatchObject({
+      kind: "invalid_response",
+      status: 200,
+    } satisfies Partial<ProjectClientError>);
+    expect(unexpectedJsonResponse.json).not.toHaveBeenCalled();
+  });
+
   it("sends complete combined-document completion requests with cancellation", async () => {
     const fetchImplementation = vi.fn().mockResolvedValue(
       createJsonResponse({
@@ -340,6 +416,29 @@ async function expectSnapshotPost(
   const fetchImplementation = vi
     .fn()
     .mockResolvedValue(createJsonResponse(projectSnapshotFixture));
+  await invoke(fetchImplementation as typeof fetch);
+  expect(fetchImplementation).toHaveBeenCalledWith(
+    path,
+    expect.objectContaining({
+      body: JSON.stringify(body),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    }),
+  );
+}
+
+async function expectTerminalPost(
+  path: string,
+  body: object,
+  responseBody: object,
+  invoke: (fetchImplementation: typeof fetch) => Promise<unknown>,
+): Promise<void> {
+  const fetchImplementation = vi
+    .fn()
+    .mockResolvedValue(createJsonResponse(responseBody));
   await invoke(fetchImplementation as typeof fetch);
   expect(fetchImplementation).toHaveBeenCalledWith(
     path,

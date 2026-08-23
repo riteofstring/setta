@@ -2,6 +2,7 @@ import {
   WORKSPACE_CODE_SECTION_KIND,
   createWorkspaceCodeSection,
   registerSectionKinds,
+  type SectionKindDefinition,
   type WorkspaceCodeSectionCompletionProvider,
   type WorkspaceDocument,
   type WorkspaceHost,
@@ -36,6 +37,15 @@ import {
   readCallableParameterRows,
 } from "./workspaceProjection";
 import { PythonTargetCompletionBoundary } from "./PythonTargetCompletionBoundary";
+import {
+  GeneratedPythonTerminalHeaderControls,
+  GeneratedPythonTerminalSection,
+} from "./GeneratedPythonTerminal";
+
+type OrdinarySectionKindDefinition = Extract<
+  SectionKindDefinition,
+  { presentation?: undefined }
+>;
 
 const CALLABLE_SECTION_SIZE_CONSTRAINTS = {
   minHeight: 104,
@@ -72,11 +82,13 @@ export function registerPythonCanvasSectionKinds(
   host: WorkspaceHost,
   pythonTargetCompletionProvider?: WorkspaceCodeSectionCompletionProvider,
 ): void {
+  // The built-in code-section factory always returns the ordinary shell variant; narrow the
+  // public union once so this app can contribute the ordinary header-control slot.
   const pythonTargetSection = createWorkspaceCodeSection({
     completionProvider: pythonTargetCompletionProvider,
     defaultSize: GENERATED_PYTHON_SECTION_SIZE,
     languages: ["python"],
-  });
+  }) as OrdinarySectionKindDefinition;
   const callableItemArea = {
     renderLeadingContent: (section: WorkspaceDocument["sections"][string]) => {
       const data = readCallableSectionData(section.data);
@@ -171,14 +183,24 @@ export function registerPythonCanvasSectionKinds(
     [PENDING_LIST_SECTION_KIND]: listSectionKind,
     [WORKSPACE_CODE_SECTION_KIND]: {
       ...pythonTargetSection,
-      renderContent: (section) =>
-        section.id === GENERATED_PYTHON_SECTION_ID ? (
-          <PythonTargetCompletionBoundary>
-            {pythonTargetSection.renderContent(section)}
-          </PythonTargetCompletionBoundary>
+      renderContent: (section) => {
+        const editor = pythonTargetSection.renderContent(section);
+        return section.id === GENERATED_PYTHON_SECTION_ID ? (
+          <GeneratedPythonTerminalSection
+            editor={
+              <PythonTargetCompletionBoundary>
+                {editor}
+              </PythonTargetCompletionBoundary>
+            }
+          />
         ) : (
-          pythonTargetSection.renderContent(section)
-        ),
+          editor
+        );
+      },
+      renderHeaderControls: (section) =>
+        section.id === GENERATED_PYTHON_SECTION_ID ? (
+          <GeneratedPythonTerminalHeaderControls />
+        ) : null,
     },
   });
 }

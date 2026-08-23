@@ -57,6 +57,12 @@ import {
   dispatchSectionStructureMutation,
   nextCreatedSectionName,
 } from "./pythonCanvasMutationSupport";
+import type { GeneratedPythonTerminalContextValue } from "./generatedPythonTerminalContext";
+import {
+  createGeneratedPythonTerminalRuntime,
+  initialGeneratedPythonTerminalState,
+  type GeneratedPythonTerminalRuntime,
+} from "./generatedPythonTerminalController";
 import { PythonCanvasView } from "./PythonCanvasView";
 
 const defaultCallableName = "New callable";
@@ -111,7 +117,13 @@ export function PythonCanvasController() {
   const [dictionaryMutations, setDictionaryMutations] =
     useState<DictionaryMutationStates>({});
   const [listMutations, setListMutations] = useState<ListMutationStates>({});
+  const [terminalState, setTerminalState] = useState(
+    initialGeneratedPythonTerminalState,
+  );
   const controllerRef = useRef<AppController | null>(null);
+  const terminalRuntimeRef = useRef<GeneratedPythonTerminalRuntime | null>(
+    null,
+  );
   const isProjectingRef = useRef(false);
 
   useEffect(() => {
@@ -249,7 +261,7 @@ export function PythonCanvasController() {
         pendingCallableCommits.delete(callableId);
       }
     };
-    const enqueue = (operation: () => Promise<void>) => {
+    const enqueue = (operation: () => Promise<void>): Promise<void> => {
       const run = async () => {
         try {
           await operation();
@@ -261,6 +273,7 @@ export function PythonCanvasController() {
         }
       };
       mutationChain = mutationChain.then(run, run);
+      return mutationChain;
     };
     const newCallableCompletionProvider = (callableId: string) =>
       createCallableCompletionProvider({
@@ -655,6 +668,14 @@ export function PythonCanvasController() {
       updateListMutation,
     });
     controllerRef.current = mutations.controller;
+    const terminalRuntime = createGeneratedPythonTerminalRuntime({
+      currentSnapshot: () => snapshot,
+      host,
+      isActive: () => active,
+      runAfterTargetFlush: mutations.runWithPythonTargetFlushed,
+      updateState: setTerminalState,
+    });
+    terminalRuntimeRef.current = terminalRuntime;
 
     const currentWorkspaceSnapshot = () =>
       active && !isProjectingRef.current ? snapshot : null;
@@ -837,6 +858,8 @@ export function PythonCanvasController() {
       mutations.cancelAllDictionaryMutations();
       diagnosticsRevalidator.dispose();
       controllerRef.current = null;
+      terminalRuntime.dispose();
+      terminalRuntimeRef.current = null;
       unsubscribe();
       disposeHost();
     };
@@ -914,12 +937,31 @@ export function PythonCanvasController() {
     ],
   );
 
+  const terminalActions = useMemo(
+    () => ({
+      close: () => terminalRuntimeRef.current?.close(),
+      create: () => terminalRuntimeRef.current?.create(),
+      hide: () => terminalRuntimeRef.current?.hide(),
+      reportStreamError: (message: string) =>
+        terminalRuntimeRef.current?.reportStreamError(message),
+      resize: (height: number) => terminalRuntimeRef.current?.resize(height),
+      run: () => terminalRuntimeRef.current?.run(),
+      show: () => terminalRuntimeRef.current?.show(),
+    }),
+    [],
+  );
+  const terminalContext = useMemo<GeneratedPythonTerminalContextValue>(
+    () => ({ actions: terminalActions, state: terminalState }),
+    [terminalActions, terminalState],
+  );
+
   return (
     <PythonCanvasView
       announcement={announcement}
       mutationContext={mutationContext}
       pythonTargetCompletionError={pythonTargetCompletionError}
       state={state}
+      terminalContext={terminalContext}
     />
   );
 }
