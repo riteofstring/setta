@@ -372,6 +372,17 @@ describe("WorkspaceInspector", () => {
     expect(getLabeledControl<HTMLInputElement>(host, "Name").value).toBe(
       "Items",
     );
+    expect(
+      host.querySelector('[data-main-presentation="true"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector(".setta-workspace-inspector-section-heading"),
+    ).toBeNull();
+    expect(
+      host.querySelector(".setta-workspace-inspector-readonly-row"),
+    ).toBeNull();
+    expect(host.textContent).toContain("Identity");
+    expect(host.textContent).toContain("Layout");
     expect(host.textContent).not.toContain("Amount");
     expect(
       host.querySelector('[data-inspector-focus-key="section-actions"]'),
@@ -396,6 +407,15 @@ describe("WorkspaceInspector", () => {
       ),
     ).toEqual(["Section Settings", "Appearance"]);
     expect(settingsGroups.map((group) => group.open)).toEqual([true, false]);
+    expect(
+      host.querySelector<HTMLButtonElement>(
+        ".setta-workspace-inspector-primary-action",
+      )?.disabled,
+    ).toBe(true);
+    expect(
+      host.querySelector<HTMLInputElement>('input[aria-label="Style accent"]')
+        ?.type,
+    ).toBe("color");
     expect(host.textContent).not.toContain("Custom section content");
   });
 

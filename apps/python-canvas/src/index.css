@@ -62,32 +62,50 @@ body {
  * reading rhythm without creating an item editor or another pane/card hierarchy. */
 .python-canvas-params-pane {
   display: flex;
-  min-block-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 12px;
-  padding: 4px 8px 24px;
+  gap: 4px;
+  overflow: hidden;
   color: light-dark(rgb(43 54 74), rgb(182 192 211));
   font-size: 12px;
   line-height: 16px;
 }
 
 .python-canvas-params-filter {
+  position: relative;
   display: flex;
   min-inline-size: 0;
+  align-items: center;
+  margin-inline: 2px;
+}
+
+.python-canvas-params-filter-icon {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  color: light-dark(rgb(65 80 108), rgb(117 136 174));
+  pointer-events: none;
+  scale: 0.75;
 }
 
 .python-canvas-params-filter input {
   inline-size: 100%;
   min-inline-size: 0;
-  min-block-size: 28px;
-  padding: 4px 5px;
+  padding-block: 4px;
+  padding-inline: 20px 0;
   border: 0;
   border-block-end: 1px solid light-dark(rgb(182 192 211), rgb(43 54 74));
   background: transparent;
   color: inherit;
-  font: inherit;
-  line-height: 18px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-overflow: ellipsis;
 }
 
 .python-canvas-params-filter input:focus-visible {
@@ -95,36 +113,48 @@ body {
   outline: 0;
 }
 
+.python-canvas-params-filter input::placeholder {
+  color: light-dark(rgb(117 136 174), rgb(43 54 74));
+}
+
 .python-canvas-params-list {
   display: flex;
+  min-block-size: 0;
   min-inline-size: 0;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 14px;
-  margin-block-start: 4px;
+  gap: 8px;
+  margin-block-start: 16px;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  padding-inline: 6px;
+  scrollbar-gutter: stable;
 }
 
 .python-canvas-params-group {
+  display: flex;
   min-inline-size: 0;
-  padding-block-end: 10px;
-  border-block-end: 1px solid
-    light-dark(rgb(182 192 211 / 50%), rgb(43 54 74 / 70%));
-}
-
-.python-canvas-params-group:last-child {
-  padding-block-end: 0;
-  border-block-end: 0;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 8px;
+  margin-inline: 2px;
+  text-align: start;
 }
 
 .python-canvas-params-group h3 {
   min-inline-size: 0;
-  margin: 0 0 8px;
+  margin: 0;
   overflow: hidden;
-  color: light-dark(rgb(65 80 108), rgb(150 164 192));
+  color: rgb(86 105 143);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.python-canvas-params-group:hover h3 {
+  color: light-dark(rgb(0 0 0), rgb(182 192 211));
 }
 
 .python-canvas-params-group dl {
@@ -132,26 +162,31 @@ body {
   min-inline-size: 0;
   margin: 0;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
 }
 
 .python-canvas-params-group dl > div {
   display: grid;
   min-inline-size: 0;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  min-block-size: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 44%);
+  align-items: center;
   gap: 8px;
-  padding-block: 3px;
-  border-block-end: 1px solid
-    light-dark(rgb(182 192 211 / 38%), rgb(43 54 74 / 56%));
+  padding: 4px 12px;
+  border-radius: 9999px;
 }
 
-.python-canvas-params-group dl > div:last-child {
-  border-block-end: 0;
+.python-canvas-params-group dl > div:hover {
+  background-color: light-dark(rgb(203 213 225 / 17%), rgb(43 54 74 / 24%));
 }
 
 .python-canvas-params-group dt {
+  min-inline-size: 0;
+  overflow: hidden;
   color: light-dark(rgb(86 105 143), rgb(150 164 192));
   font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .python-canvas-params-group dd {
@@ -167,6 +202,7 @@ body {
 
 .python-canvas-params-empty {
   margin: 0;
+  padding-inline: 12px;
   color: light-dark(rgb(100 116 139), rgb(86 105 143));
 }
 

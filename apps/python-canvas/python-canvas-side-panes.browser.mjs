@@ -344,12 +344,89 @@ async function openSectionForSelection(client, sectionName) {
     `(() => {
       const pane = document.querySelector(${JSON.stringify(trailingPaneSelector)});
       const inspector = document.querySelector('[data-inspector-branch="section"]');
-      const heading = inspector?.querySelector('h3')?.textContent?.trim();
+      const name = inspector?.querySelector('[data-inspector-focus-key="section-name"] input');
+      const groups = inspector?.querySelectorAll('.setta-workspace-inspector-settings-group');
       return pane instanceof HTMLElement && pane.dataset.visible === 'true' &&
-        heading === ${JSON.stringify(sectionName)};
+        inspector instanceof HTMLElement && inspector.dataset.mainPresentation === 'true' &&
+        name instanceof HTMLInputElement && name.value === ${JSON.stringify(sectionName)} &&
+        groups?.length === 2 && groups[0]?.hasAttribute('open') === true &&
+        groups[1]?.hasAttribute('open') === false &&
+        inspector.querySelector('.setta-workspace-inspector-section-heading') === null &&
+        inspector.querySelector('.setta-workspace-inspector-readonly-row') === null;
     })()`,
   );
   await waitForSettledPane(client, "trailing");
+  const presentation = await evaluate(
+    client,
+    `(() => {
+      const pane = document.querySelector(${JSON.stringify(trailingPaneSelector)});
+      const title = pane?.querySelector('.setta-workspace-shell-pane-title');
+      const icon = document.querySelector(${JSON.stringify(sectionTabSelector)})
+        ?.querySelector('.setta-workspace-shell-tab-icon');
+      const editor = pane?.querySelector('[data-main-presentation="true"]');
+      const settings = editor?.querySelector('.setta-workspace-inspector-settings-group');
+      if (!(pane instanceof HTMLElement) || !(title instanceof HTMLElement) ||
+        !(icon instanceof SVGElement) || !(editor instanceof HTMLElement) ||
+        !(settings instanceof HTMLElement)) return null;
+      const paneRect = pane.getBoundingClientRect();
+      const iconRect = icon.getBoundingClientRect();
+      const settingsRect = settings.getBoundingClientRect();
+      const editorStyle = getComputedStyle(editor);
+      return {
+        iconHeight: iconRect.height,
+        iconWidth: iconRect.width,
+        settingsInlineInset: settingsRect.left - paneRect.left,
+        settingsTopInset: settingsRect.top - paneRect.top,
+        editorGap: editorStyle.gap,
+        editorPaddingInlineStart: editorStyle.paddingInlineStart,
+        titlePaddingInlineStart: getComputedStyle(title).paddingInlineStart,
+      };
+    })()`,
+  );
+  assert.notEqual(
+    presentation,
+    null,
+    "The main-style Section pane presentation could not be measured.",
+  );
+  assertApproximately(
+    presentation.iconWidth,
+    24,
+    0.5,
+    "The Section rail icon did not match main's 24 px glyph.",
+  );
+  assertApproximately(
+    presentation.iconHeight,
+    24,
+    0.5,
+    "The Section rail icon did not match main's 24 px glyph.",
+  );
+  assert.equal(
+    presentation.titlePaddingInlineStart,
+    "40px",
+    "The Section title did not retain main's right-pane control clearance.",
+  );
+  assert.equal(
+    presentation.editorPaddingInlineStart,
+    "6px",
+    "The Section scroll region did not match main's 6 px inline inset.",
+  );
+  assert.equal(
+    presentation.editorGap,
+    "8px",
+    "The Section accordion stack did not match main's 8 px gap.",
+  );
+  assertApproximately(
+    presentation.settingsInlineInset,
+    25,
+    1,
+    "The Section accordion did not align to main's pane content edge.",
+  );
+  assertApproximately(
+    presentation.settingsTopInset,
+    30,
+    1,
+    "The Section accordion did not align below main's pane title.",
+  );
 }
 
 async function closeSection(client) {
@@ -388,10 +465,12 @@ async function exerciseCallableParams(client, callable, unavailableSection) {
       const pane = document.querySelector(${JSON.stringify(trailingPaneSelector)});
       const params = document.querySelector('[data-python-canvas-params-pane]');
       const filter = params?.querySelector('input[aria-label="Filter parameters"]');
+      const filterIcon = params?.querySelector('.python-canvas-params-filter .gg-sort-az');
       const parameter = Array.from(params?.querySelectorAll('[data-python-canvas-parameter-group]') ?? [])
         .find((group) => group.textContent?.includes(${JSON.stringify(callable.parameter.name)}));
       return pane instanceof HTMLElement && pane.dataset.visible === 'true' &&
         params instanceof HTMLElement && filter instanceof HTMLInputElement &&
+        filter.placeholder === 'Filter' && filterIcon instanceof HTMLElement &&
         parameter instanceof HTMLElement && params.querySelectorAll('input').length === 1;
     })()`,
   );

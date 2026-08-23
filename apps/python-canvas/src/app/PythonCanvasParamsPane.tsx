@@ -155,10 +155,14 @@ export function PythonCanvasParamsPane() {
   return (
     <div className="python-canvas-params-pane" data-python-canvas-params-pane>
       <label className="python-canvas-params-filter">
+        <i
+          aria-hidden="true"
+          className="gg-sort-az python-canvas-params-filter-icon"
+        />
         <input
           aria-label="Filter parameters"
           onChange={(event) => setFilterDraft(event.currentTarget.value)}
-          placeholder="Filter parameters"
+          placeholder="Filter"
           type="search"
           value={filterDraft}
         />
@@ -167,12 +171,12 @@ export function PythonCanvasParamsPane() {
         {filteredParameters.map((parameter) => (
           <ParameterMetadata key={parameter.id} parameter={parameter} />
         ))}
+        {filteredParameters.length === 0 ? (
+          <p className="python-canvas-params-empty" role="status">
+            No provider parameters match this filter.
+          </p>
+        ) : null}
       </div>
-      {filteredParameters.length === 0 ? (
-        <p className="python-canvas-params-empty" role="status">
-          No provider parameters match this filter.
-        </p>
-      ) : null}
     </div>
   );
 }

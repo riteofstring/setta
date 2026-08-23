@@ -199,6 +199,13 @@ describe("PythonCanvasParamsPane", () => {
     if (!filter) {
       throw new Error("Expected the Params filter.");
     }
+    expect(filter.placeholder).toBe("Filter");
+    expect(
+      container.querySelector(".python-canvas-params-filter .gg-sort-az"),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(".python-canvas-params-list"),
+    ).not.toBeNull();
     expect(container.textContent).toContain("alpha");
     expect(container.textContent).toContain("Type");
     expect(container.textContent).toContain("int");

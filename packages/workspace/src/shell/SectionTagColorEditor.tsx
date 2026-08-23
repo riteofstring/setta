@@ -38,11 +38,13 @@ function TagColorPreview({ tagColor }: { tagColor: string | null }) {
 }
 
 export function SectionTagColorEditor({
+  mainPresentation = false,
   onEscape,
   onStatusChange,
   palette,
   section,
 }: {
+  mainPresentation?: boolean;
   onEscape: () => void;
   onStatusChange: (message: string) => void;
   palette: WorkspaceSectionTagColorPalette;
@@ -81,6 +83,61 @@ export function SectionTagColorEditor({
     event.preventDefault();
     event.stopPropagation();
     onEscape();
+  }
+
+  if (mainPresentation) {
+    return (
+      <div
+        className="setta-workspace-inspector-appearance-card"
+        data-inspector-focus-key="section-tag-color"
+      >
+        <div className="setta-workspace-inspector-appearance-card-heading">
+          <h3>
+            <label htmlFor={inputId}>Color tag</label>
+          </h3>
+          <button
+            aria-label="Reset color tag to none"
+            className={RESET_BUTTON_CLASS_NAME}
+            data-setta-workspace-touch-target="compact"
+            disabled={disabled || section.tagColor === null}
+            onClick={() => updateTagColor(null)}
+            type="button"
+          >
+            Reset
+          </button>
+        </div>
+        <div className="setta-workspace-inspector-appearance-value">
+          <select
+            className="setta-workspace-inspector-tag-color-select"
+            disabled={disabled}
+            id={inputId}
+            onChange={(event) =>
+              updateTagColor(event.currentTarget.value || null)
+            }
+            onKeyDown={handleKeyDown}
+            value={section.tagColor ?? ""}
+          >
+            <option value="">None</option>
+            {customColor === null ? null : (
+              <option value={customColor}>Custom ({customColor})</option>
+            )}
+            {palette.map((choice) => (
+              <option key={choice.color} value={choice.color}>
+                {choice.description}
+              </option>
+            ))}
+          </select>
+          {section.tagColor === null ? (
+            <p>None</p>
+          ) : (
+            <div>
+              <TagColorPreview tagColor={section.tagColor} />
+              <code>{section.tagColor}</code>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
