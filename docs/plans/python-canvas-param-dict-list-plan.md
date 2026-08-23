@@ -380,4 +380,6 @@ scope into the explicit non-goals or performs a general edge-case audit.
       focused workspace boundary tests
 - [x] Param Dict walkthrough uses the rightward item child-adoption lane for leaf-to-parent
       nesting, with a focused static gesture regression
+- [x] Nested-list removal waits for its zero-child postcondition and rejects invalid expected
+      child counts, with a focused static harness regression
 - [ ] Implementation, production headless proof, review, and closeout complete

@@ -482,7 +482,7 @@ export async function exerciseParamDictAndListSlice(
     client,
     backendOrigin,
     nestedList.id,
-    1,
+    0,
   );
   assert.deepEqual(
     requireList(nestedWithoutChild, nestedList.id).childSectionIds,
@@ -743,6 +743,11 @@ async function removeListChildren(
   listId,
   expectedCount,
 ) {
+  if (!Number.isInteger(expectedCount) || expectedCount < 0) {
+    throw new Error(
+      "Harness contract error: removeListChildren expectedCount must be a nonnegative integer.",
+    );
+  }
   await clickElementCenter(
     client,
     `${listSectionSelector(listId)} ${labeledSelector("Remove children")}`,

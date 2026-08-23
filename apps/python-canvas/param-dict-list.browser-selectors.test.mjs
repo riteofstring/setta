@@ -81,6 +81,22 @@ test("Nested List presentation checks receive the measured Callable field size",
   );
 });
 
+test("Nested List removal waits for its zero-child postcondition", async () => {
+  const walkthrough = await readFile(
+    new URL("./param-dict-list.browser.mjs", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    walkthrough,
+    /const nestedWithoutChild = await removeListChildren\(\s*client,\s*backendOrigin,\s*nestedList\.id,\s*0,?\s*\);/,
+  );
+  assert.match(
+    walkthrough,
+    /if \(!Number\.isInteger\(expectedCount\) \|\| expectedCount < 0\) \{\s*throw new Error\(\s*"Harness contract error: removeListChildren expectedCount must be a nonnegative integer\."/,
+  );
+});
+
 test("Canvas extraction keeps the whole dragged section inside an exposed pane lane", async () => {
   const walkthrough = await readFile(
     new URL("./param-dict-list.browser.mjs", import.meta.url),
