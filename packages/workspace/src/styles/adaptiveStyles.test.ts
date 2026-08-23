@@ -2,12 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const workspaceStyles = readFileSync(
-  new URL("./index.css", import.meta.url),
+  new URL("./workspace.css", import.meta.url),
   "utf8",
-).replace(
-  /^@import "(\.\/[^"]+)";$/gmu,
-  (_statement, relativePath: string) =>
-    readFileSync(new URL(relativePath, import.meta.url), "utf8"),
 );
 const itemToolbarStyles = readFileSync(
   new URL("./itemToolbar.css", import.meta.url),
