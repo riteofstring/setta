@@ -288,14 +288,21 @@ func validateProjectSnapshotBase(snapshot ProjectSnapshotV2) error {
 	if err := validateSnapshotArrays(snapshot); err != nil {
 		return err
 	}
+	if err := validateDiagnosticsFreshness(snapshot); err != nil {
+		return err
+	}
+	if err := snapshot.ProviderStatus.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateDiagnosticsFreshness(snapshot ProjectSnapshotV2) error {
 	if snapshot.DiagnosticsRevision < 0 || snapshot.DiagnosticsRevision > snapshot.Project.Revision {
 		return ValidationError{Field: "diagnosticsRevision", Problem: "must be between 0 and project.revision"}
 	}
 	if snapshot.DiagnosticsRevision < snapshot.Project.Revision && len(snapshot.Diagnostics) != 0 {
 		return ValidationError{Field: "diagnostics", Problem: "must be empty while diagnosticsRevision trails project.revision"}
-	}
-	if err := snapshot.ProviderStatus.Validate(); err != nil {
-		return err
 	}
 	return nil
 }

@@ -191,18 +191,28 @@ func TestStructuralCardinalityMutationsPublishBeforeDiagnostics(t *testing.T) {
 			snapshot := awaitStructuralMutation(t, func() (Snapshot, error) {
 				return test.invoke(coordinator, before)
 			})
-			requirePendingDiagnostics(t, snapshot)
-			if snapshot.Rendered.Code == before.Rendered.Code {
-				t.Fatal("structural response did not include updated Generated Python")
-			}
+			requireStructuralMutationPublished(t, before, snapshot)
 			test.assert(t, snapshot)
 			provider.awaitStarted(t)
 			provider.releaseSuccess("Settled structural diagnostics.")
 			settled := awaitDiagnosticsSettled(t, coordinator, snapshot.State.Project.Revision)
-			if len(settled.Diagnostics) != 1 || settled.Diagnostics[0].Message != "Settled structural diagnostics." {
-				t.Fatalf("settled diagnostics = %#v", settled.Diagnostics)
-			}
+			requireSettledStructuralDiagnostics(t, settled)
 		})
+	}
+}
+
+func requireStructuralMutationPublished(t *testing.T, before, snapshot Snapshot) {
+	t.Helper()
+	requirePendingDiagnostics(t, snapshot)
+	if snapshot.Rendered.Code == before.Rendered.Code {
+		t.Fatal("structural response did not include updated Generated Python")
+	}
+}
+
+func requireSettledStructuralDiagnostics(t *testing.T, snapshot Snapshot) {
+	t.Helper()
+	if len(snapshot.Diagnostics) != 1 || snapshot.Diagnostics[0].Message != "Settled structural diagnostics." {
+		t.Fatalf("settled diagnostics = %#v", snapshot.Diagnostics)
 	}
 }
 

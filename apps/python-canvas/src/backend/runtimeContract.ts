@@ -564,34 +564,26 @@ function validateParameterMetadata(
   metadata: ParsedParameterMetadata,
   providerOrdinals: Set<number>,
 ): void {
-  if (metadata.nameEditable) {
-    if (!isCoherentAppAuthoredMetadata(metadata)) {
-      fail(field, "has incoherent app-authored metadata");
-    }
-    return;
-  }
-  if (!isCoherentProviderMetadata(name, metadata)) {
-    fail(field, "has incoherent provider-derived metadata");
-  }
-  claimProviderOrdinal(providerOrdinals, metadata.providerOrdinal, field);
-}
-
-function isCoherentAppAuthoredMetadata(
-  metadata: ParsedParameterMetadata,
-): boolean {
-  return [
+  const isCoherentAppAuthoredMetadata = [
     metadata.passingStyle === PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
     metadata.typeAnnotation === null,
     metadata.default === null,
     metadata.providerOrdinal === null,
   ].every(Boolean);
-}
-
-function isCoherentProviderMetadata(
-  name: string,
-  metadata: ParsedParameterMetadata,
-): boolean {
-  return [name !== "", metadata.providerOrdinal !== null].every(Boolean);
+  const isCoherentProviderMetadata = [
+    name !== "",
+    metadata.providerOrdinal !== null,
+  ].every(Boolean);
+  if (metadata.nameEditable) {
+    if (!isCoherentAppAuthoredMetadata) {
+      fail(field, "has incoherent app-authored metadata");
+    }
+    return;
+  }
+  if (!isCoherentProviderMetadata) {
+    fail(field, "has incoherent provider-derived metadata");
+  }
+  claimProviderOrdinal(providerOrdinals, metadata.providerOrdinal, field);
 }
 
 function claimProviderOrdinal(
