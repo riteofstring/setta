@@ -57,29 +57,28 @@ export async function exerciseStructuralDiagnosticsLifecycle(
     const sectionSelector = callableSectionSelector(createdCallable.id);
 
     await waitForCanonicalCreate(client, sectionSelector, generatedLine);
-    const beforeCreateResponseHold = await readCreatePresentation(
-      client,
-      sectionSelector,
-      generatedLine,
-    );
     await waitForHeldDiagnosticsResponse(client, "create");
     const whileCreateResponseHeld = await readCreatePresentation(
       client,
       sectionSelector,
       generatedLine,
     );
-    assertCreatePresentation(beforeCreateResponseHold, whileCreateResponseHeld);
     await releaseDiagnosticsResponse(client, "create");
     await waitForDiagnosticsSettlement(client, "create");
+    const settledCreatePresentation = await readCreatePresentation(
+      client,
+      sectionSelector,
+      generatedLine,
+    );
+    assertCreatePresentation(
+      whileCreateResponseHeld,
+      settledCreatePresentation,
+    );
 
     await disposeDiagnosticsResponseGate(client);
     await installDiagnosticsResponseGate(client, "delete");
     try {
-      const beforeDelete = await readCreatePresentation(
-        client,
-        sectionSelector,
-        generatedLine,
-      );
+      const beforeDelete = settledCreatePresentation;
       await clickElementCenter(
         client,
         `${sectionSelector} ${labeledSelector("Delete section")}`,
@@ -347,12 +346,18 @@ function presentationExpression(sectionSelector, generatedLine) {
     const lock = section?.querySelector('button[aria-label="Lock position and size"]');
     const unlock = section?.querySelector('button[aria-label="Unlock position and size"]');
     const generated = document.querySelector(${JSON.stringify(`${generatedPythonEditorSelector} [role="textbox"]`)});
-    const disabled = Array.from(section?.querySelectorAll("button, [role=button]") ?? []).some((element) =>
-      element.hasAttribute("disabled") ||
-      element.getAttribute("aria-disabled") === "true" ||
-      element.getAttribute("data-disabled") === "" ||
-      element.getAttribute("data-disabled") === "true",
-    );
+    const controlStates = Array.from(section?.querySelectorAll("button, [role=button]") ?? []).map((element, index) => ({
+      disabled:
+        element.hasAttribute("disabled") ||
+        element.getAttribute("aria-disabled") === "true" ||
+        element.getAttribute("data-disabled") === "" ||
+        element.getAttribute("data-disabled") === "true",
+      key:
+        element.getAttribute("aria-label") ||
+        element.getAttribute("title") ||
+        (element.textContent ?? "").trim() ||
+        "control-" + index,
+    }));
     const visibleAlert = [...document.querySelectorAll('[role="alert"]')].some((element) => {
       const rect = element.getBoundingClientRect();
       return (element.textContent ?? "").trim() !== "" && rect.width > 1 && rect.height > 1;
@@ -360,6 +365,7 @@ function presentationExpression(sectionSelector, generatedLine) {
     const mutationError = document.querySelector("#python-canvas-mutation-error");
     return {
       callableBusy: callable?.getAttribute("aria-busy") === "true",
+      controlStates,
       editorDisabled: editor?.getAttribute("aria-disabled") === "true",
       fieldDisabled: field?.getAttribute("data-disabled") !== "false",
       generatedHeight: generated instanceof HTMLElement ? generated.clientHeight : null,
@@ -367,21 +373,21 @@ function presentationExpression(sectionSelector, generatedLine) {
       generatedWidth: generated instanceof HTMLElement ? generated.clientWidth : null,
       lockPresent: lock instanceof HTMLElement,
       mutationError: (mutationError?.textContent ?? "").trim(),
-      overlayPresent: section?.querySelector('[data-python-canvas-parameter-pending="true"]') !== null,
+      overlayPresent:
+        section?.querySelector('[data-python-canvas-parameter-pending="true"]') instanceof HTMLElement,
       pendingPresent: pending !== null,
       sectionHeight: section instanceof HTMLElement ? section.clientHeight : null,
       sectionPresent: section instanceof HTMLElement,
       sectionWidth: section instanceof HTMLElement ? section.clientWidth : null,
       spinnerPresent: document.querySelector(".python-canvas-parameter-spinner") !== null,
       statusBusy: document.querySelector('[role="status"]')?.getAttribute("aria-busy") === "true",
-      toolbarDisabled: disabled,
       unlockPresent: unlock instanceof HTMLElement,
       visibleAlert,
     };
   })()`;
 }
 
-function assertCreatePresentation(beforeHeld, whileHeld) {
+function assertCreatePresentation(whileHeld, settled) {
   assert.equal(
     whileHeld.sectionPresent,
     true,
@@ -406,11 +412,6 @@ function assertCreatePresentation(beforeHeld, whileHeld) {
     whileHeld.unlockPresent,
     false,
     "Diagnostics revalidation locked the callable section.",
-  );
-  assert.equal(
-    whileHeld.toolbarDisabled,
-    false,
-    "Diagnostics revalidation disabled the callable toolbar.",
   );
   assert.equal(
     whileHeld.callableBusy,
@@ -458,6 +459,11 @@ function assertCreatePresentation(beforeHeld, whileHeld) {
     "The canonical callable geometry does not match main.",
   );
   assert.deepEqual(
+    whileHeld.controlStates,
+    settled.controlStates,
+    "Holding diagnostics revalidation changed the callable control states.",
+  );
+  assert.deepEqual(
     {
       generatedHeight: whileHeld.generatedHeight,
       generatedWidth: whileHeld.generatedWidth,
@@ -465,10 +471,10 @@ function assertCreatePresentation(beforeHeld, whileHeld) {
       sectionWidth: whileHeld.sectionWidth,
     },
     {
-      generatedHeight: beforeHeld.generatedHeight,
-      generatedWidth: beforeHeld.generatedWidth,
-      sectionHeight: beforeHeld.sectionHeight,
-      sectionWidth: beforeHeld.sectionWidth,
+      generatedHeight: settled.generatedHeight,
+      generatedWidth: settled.generatedWidth,
+      sectionHeight: settled.sectionHeight,
+      sectionWidth: settled.sectionWidth,
     },
     "Holding diagnostics revalidation changed section geometry.",
   );

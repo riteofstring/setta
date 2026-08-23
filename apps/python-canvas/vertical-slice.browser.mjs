@@ -180,7 +180,11 @@ await runAgainstProductionApp(
       backendOrigin,
       findRequiredCallable(afterZeroCallableDelete, sampleCallableName).id,
     );
-    const beforeRestart = await fetchCanonicalSnapshot(backendOrigin);
+    const beforeRestart = await waitForSnapshot(
+      backendOrigin,
+      "settled diagnostics before the persistence restart",
+      (snapshot) => snapshot.diagnosticsRevision === snapshot.project.revision,
+    );
     assert.ok(
       beforeRestart.callables.some(
         (callable) => callable.name === sampleCallableName,

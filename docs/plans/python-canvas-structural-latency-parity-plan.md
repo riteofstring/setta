@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-**Status: Phase 3 acceptance route and focused causal tests implemented on 2026-08-23; frozen raw-headless and recommended verification remain.**
+**Status: Phase 3 implementation and raw-headless acceptance passed on 2026-08-23; required Code Policy verification remains.**
 
 Implement one bounded Python Canvas parity batch that makes section creation and deletion feel as
 immediate as `main` without painting a provisional section or weakening the durable project
@@ -205,5 +205,5 @@ Unrequested edge cases and possible future transports are not blockers.
 ### Phase 3 — Acceptance
 
 - [x] Focused backend/frontend causal tests
-- [ ] Production raw-headless create/delete lifecycle acceptance
+- [x] Production raw-headless create/delete lifecycle acceptance
 - [ ] Required Code Policy verification
