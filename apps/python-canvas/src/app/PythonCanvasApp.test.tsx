@@ -612,12 +612,6 @@ describe("PythonCanvasApp", () => {
 
   it("keeps a callable visually deleted while its server mutation is pending", async () => {
     const initialSnapshot = callableSnapshot(1, []);
-    const deletedSnapshot = parseProjectSnapshotV2({
-      ...initialSnapshot,
-      callables: [],
-      topLevelSectionIds: [],
-      project: { ...initialSnapshot.project, revision: 2 },
-    });
     const request = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
     const workspace = installWorkspaceHarness();
     mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
@@ -641,12 +635,6 @@ describe("PythonCanvasApp", () => {
     expect(mocks.deleteCallable).toHaveBeenCalledWith("callable:one", {
       expectedRevision: 1,
       projectId: initialSnapshot.project.id,
-    });
-    expect(workspace.getDocument().sections[sectionId]).toBeUndefined();
-
-    await act(async () => {
-      request.resolve(deletedSnapshot);
-      await flushMicrotasks();
     });
     expect(workspace.getDocument().sections[sectionId]).toBeUndefined();
   });

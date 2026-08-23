@@ -81,30 +81,7 @@ func TestPinnedBasedpyrightV2CoordinatorIntegration(t *testing.T) {
 		t.Fatalf("zero-parameter signature = %#v, want one callable with zero parameters", zero.State.Callables)
 	}
 
-	createdMath, err := application.CreateCallable(ctx, aggregate.CreateCallableCommand{
-		ProjectID: zero.State.Project.ID, ExpectedRevision: zero.State.Project.Revision, Name: "Missing math import",
-	})
-	if err != nil {
-		t.Fatalf("CreateCallable(math.sqrt) error = %v", err)
-	}
-	unresolvedMath, err := application.CommitCallable(ctx, aggregate.CommitCallableCommand{
-		ProjectID: createdMath.State.Project.ID, CallableID: "callable-math", ExpectedRevision: createdMath.State.Project.Revision, AuthoredExpression: "math.sqrt",
-	})
-	if err != nil {
-		t.Fatalf("CommitCallable(math.sqrt) error = %v", err)
-	}
-	mathCallable := integrationCallable(t, unresolvedMath.State, "callable-math")
-	if len(mathCallable.Parameters) != 0 {
-		t.Fatalf("unresolved math.sqrt parameters = %#v, want none before import", mathCallable.Parameters)
-	}
-	requireDiagnosticCodeForTarget(t, unresolvedMath.Diagnostics, mathCallable.ID, "reportUndefinedVariable")
-
-	resolvedMath := setIntegrationTarget(t, ctx, application, unresolvedMath, "import fixture\nimport math")
-	mathCallable = integrationCallable(t, resolvedMath.State, "callable-math")
-	if len(mathCallable.Parameters) != 1 || mathCallable.Parameters[0].Name != "x" {
-		t.Fatalf("automatically refreshed math.sqrt parameters = %#v, want x", mathCallable.Parameters)
-	}
-	requireNoDiagnosticCodeForTarget(t, resolvedMath.Diagnostics, mathCallable.ID, "reportUndefinedVariable")
+	resolvedMath := exerciseAutomaticMathRefresh(t, ctx, application, zero)
 
 	styles := createIntegrationCallable(t, ctx, application, resolvedMath, "All styles", "fixture.all_styles")
 	callable := integrationCallable(t, styles.State, "callable-styles")
@@ -329,6 +306,40 @@ func createIntegrationCallable(
 	}
 	requireReadyBasedpyrightProvider(t, refreshed.ProviderStatus)
 	return refreshed
+}
+
+func exerciseAutomaticMathRefresh(
+	t *testing.T,
+	ctx context.Context,
+	application *coordinator.Coordinator,
+	snapshot coordinator.Snapshot,
+) coordinator.Snapshot {
+	t.Helper()
+	created, err := application.CreateCallable(ctx, aggregate.CreateCallableCommand{
+		ProjectID: snapshot.State.Project.ID, ExpectedRevision: snapshot.State.Project.Revision, Name: "Missing math import",
+	})
+	if err != nil {
+		t.Fatalf("CreateCallable(math.sqrt) error = %v", err)
+	}
+	unresolved, err := application.CommitCallable(ctx, aggregate.CommitCallableCommand{
+		ProjectID: created.State.Project.ID, CallableID: "callable-math", ExpectedRevision: created.State.Project.Revision, AuthoredExpression: "math.sqrt",
+	})
+	if err != nil {
+		t.Fatalf("CommitCallable(math.sqrt) error = %v", err)
+	}
+	callable := integrationCallable(t, unresolved.State, "callable-math")
+	if len(callable.Parameters) != 0 {
+		t.Fatalf("unresolved math.sqrt parameters = %#v, want none before import", callable.Parameters)
+	}
+	requireDiagnosticCodeForTarget(t, unresolved.Diagnostics, callable.ID, "reportUndefinedVariable")
+
+	resolved := setIntegrationTarget(t, ctx, application, unresolved, "import fixture\nimport math")
+	callable = integrationCallable(t, resolved.State, "callable-math")
+	if len(callable.Parameters) != 1 || callable.Parameters[0].Name != "x" {
+		t.Fatalf("automatically refreshed math.sqrt parameters = %#v, want x", callable.Parameters)
+	}
+	requireNoDiagnosticCodeForTarget(t, resolved.Diagnostics, callable.ID, "reportUndefinedVariable")
+	return resolved
 }
 
 func integrationCallable(t *testing.T, state aggregate.State, callableID string) aggregate.Callable {
