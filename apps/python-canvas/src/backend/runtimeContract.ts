@@ -62,6 +62,7 @@ export function parseProjectSnapshotV2(value: unknown): ProjectSnapshotV2 {
     "topLevelSectionIds",
     "generatedCode",
     "diagnostics",
+    "diagnosticsRevision",
     "providerStatus",
   ]);
   const version = readString(record.version, "version");
@@ -98,6 +99,19 @@ export function parseProjectSnapshotV2(value: unknown): ProjectSnapshotV2 {
     generatedCode.code,
     targetIds,
   );
+  const diagnosticsRevision = readNonNegativeInteger(
+    record.diagnosticsRevision,
+    "diagnosticsRevision",
+  );
+  if (diagnosticsRevision > project.revision) {
+    fail("diagnosticsRevision", "must not exceed project.revision");
+  }
+  if (diagnosticsRevision < project.revision && diagnostics.length !== 0) {
+    fail(
+      "diagnostics",
+      "must be empty while diagnosticsRevision trails project.revision",
+    );
+  }
 
   return {
     version: PROJECT_SNAPSHOT_VERSION_V2,
@@ -109,6 +123,7 @@ export function parseProjectSnapshotV2(value: unknown): ProjectSnapshotV2 {
     topLevelSectionIds,
     generatedCode,
     diagnostics,
+    diagnosticsRevision,
     providerStatus: parseProviderStatus(record.providerStatus),
   };
 }

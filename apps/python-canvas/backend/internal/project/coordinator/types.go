@@ -98,6 +98,14 @@ func unavailableProviderStatus(state ProviderLifecycleState) ProviderStatus {
 	}
 }
 
+func pendingProviderStatus() ProviderStatus {
+	return ProviderStatus{
+		Provider:     "basedpyright",
+		Availability: ProviderAvailabilityAvailable,
+		State:        ProviderLifecyclePending,
+	}
+}
+
 // ProviderDiagnosticSeverity is normalized at the provider boundary, before
 // target mapping or public transport conversion.
 type ProviderDiagnosticSeverity string
@@ -141,10 +149,10 @@ type SignatureRequest struct {
 	CallOffset         int
 }
 
-// GeneratedDocumentRequest identifies the exact installed candidate document
-// that needs diagnostics before its authored state can be published. Revision
-// is a monotonic LSP transport version, intentionally distinct from the
-// authored project revision so a rollback can resynchronize prior code.
+// GeneratedDocumentRequest identifies the exact rendered document that needs
+// diagnostics. Revision is a monotonic LSP transport version, intentionally
+// distinct from the authored project revision so independently scheduled work
+// can synchronize each exact document in execution order.
 type GeneratedDocumentRequest struct {
 	Path     string
 	Revision int
@@ -208,13 +216,15 @@ type CompletionProvider interface {
 // injection at the coordinator boundary.
 type RenderFunc func(aggregate.State) (renderer.Result, error)
 
-// Snapshot is the private published state. The authored aggregate, rendered
-// document, diagnostics, and provider status all belong to one revision.
+// Snapshot is the private published state. DiagnosticsRevision identifies the
+// authored revision for which Diagnostics and ProviderStatus have settled; it
+// may trail State.Project.Revision while structural analysis is outstanding.
 type Snapshot struct {
-	State          aggregate.State
-	Rendered       renderer.Result
-	Diagnostics    []Diagnostic
-	ProviderStatus ProviderStatus
+	State               aggregate.State
+	Rendered            renderer.Result
+	Diagnostics         []Diagnostic
+	DiagnosticsRevision int
+	ProviderStatus      ProviderStatus
 }
 
 // Clone returns a fully independent snapshot so callers cannot mutate the
@@ -382,6 +392,10 @@ func isVariadicPassingStyle(style aggregate.PassingStyle) bool {
 
 func providerIsReady(status ProviderStatus) bool {
 	return status.Availability == ProviderAvailabilityAvailable && status.State == ProviderLifecycleReady
+}
+
+func providerCanSynchronize(status ProviderStatus) bool {
+	return status.Availability == ProviderAvailabilityAvailable && (status.State == ProviderLifecyclePending || status.State == ProviderLifecycleReady)
 }
 
 type rangeTarget struct {

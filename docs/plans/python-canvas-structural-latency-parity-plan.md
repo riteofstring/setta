@@ -193,9 +193,9 @@ Unrequested edge cases and possible future transports are not blockers.
 
 ### Phase 1 — Structural publication and diagnostics freshness
 
-- [ ] Generated `diagnosticsRevision` contract and validation
-- [ ] Fast durable cardinality mutations with revision-tagged background diagnostics
-- [ ] Serialized provider execution, stale-result rejection, and safe shutdown
+- [x] Generated `diagnosticsRevision` contract and validation
+- [x] Fast durable cardinality mutations with revision-tagged background diagnostics
+- [x] Serialized provider execution, stale-result rejection, and safe shutdown
 
 ### Phase 2 — Frontend reconciliation
 

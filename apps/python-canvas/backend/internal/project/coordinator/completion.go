@@ -42,7 +42,7 @@ func (coordinator *Coordinator) CompleteCallable(
 	if err != nil {
 		return nil, err
 	}
-	items, err := completionProvider.CompleteCallable(ctx, CallableCompletionRequest{
+	items, err := coordinator.completeCallable(ctx, completionProvider, CallableCompletionRequest{
 		ProjectID:          projectID,
 		CallableID:         callableID,
 		CanonicalCode:      snapshot.Rendered.Code,
@@ -92,7 +92,7 @@ func (coordinator *Coordinator) CompletePythonTarget(
 	if err != nil {
 		return nil, err
 	}
-	items, err := completionProvider.CompletePythonTarget(ctx, PythonTargetCompletionRequest{
+	items, err := coordinator.completePythonTarget(ctx, completionProvider, PythonTargetCompletionRequest{
 		Code:             code,
 		CursorOffsetByte: input.cursorOffsetByte,
 	})

@@ -139,6 +139,9 @@ func createAndRenameProject(t *testing.T, path string) aggregate.Project {
 	if initial.ProviderStatus.Availability != ProviderAvailabilityAvailable {
 		t.Fatalf("created provider status = %#v", initial.ProviderStatus)
 	}
+	if initial.DiagnosticsRevision != initial.State.Project.Revision {
+		t.Fatalf("created diagnostics revision = %d, want %d", initial.DiagnosticsRevision, initial.State.Project.Revision)
+	}
 	renamed, err := coordinator.RenameProject(context.Background(), aggregate.RenameProjectCommand{
 		ProjectID: initial.State.Project.ID, ExpectedRevision: initial.State.Project.Revision, Name: "Persisted project",
 	})
@@ -948,6 +951,9 @@ func TestCoordinatorReportsUnavailableProviderWithoutEmptyMutationResult(t *test
 	before := coordinator.Snapshot()
 	if before.ProviderStatus.Availability != ProviderAvailabilityUnavailable || before.ProviderStatus.State != ProviderLifecycleFailed {
 		t.Fatalf("unavailable startup status = %#v", before.ProviderStatus)
+	}
+	if before.DiagnosticsRevision != before.State.Project.Revision {
+		t.Fatalf("failed startup diagnostics revision = %d, want %d", before.DiagnosticsRevision, before.State.Project.Revision)
 	}
 	_, err = coordinator.RenameProject(context.Background(), aggregate.RenameProjectCommand{
 		ProjectID: before.State.Project.ID, ExpectedRevision: before.State.Project.Revision, Name: "Cannot mutate",

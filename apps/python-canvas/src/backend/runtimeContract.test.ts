@@ -45,6 +45,65 @@ describe("parseProjectSnapshotV2", () => {
     }
   });
 
+  it("enforces diagnostics freshness and rejects stale diagnostics", () => {
+    const lagging = {
+      ...projectSnapshotFixture,
+      diagnostics: [],
+      diagnosticsRevision: projectSnapshotFixture.project.revision,
+      project: {
+        ...projectSnapshotFixture.project,
+        revision: projectSnapshotFixture.project.revision + 1,
+      },
+      providerStatus: {
+        provider: "basedpyright",
+        state: "pending",
+        status: "available",
+      },
+    };
+
+    expect(parseProjectSnapshotV2(lagging)).toMatchObject({
+      diagnostics: [],
+      diagnosticsRevision: projectSnapshotFixture.project.revision,
+      project: { revision: projectSnapshotFixture.project.revision + 1 },
+    });
+
+    const settled = {
+      ...lagging,
+      diagnostics: [
+        {
+          end: 0,
+          id: "diagnostic:settled",
+          message: "Settled diagnostics.",
+          severity: "information",
+          start: 0,
+          targetId: null,
+        },
+      ],
+      diagnosticsRevision: lagging.project.revision,
+      providerStatus: {
+        provider: "basedpyright",
+        state: "ready",
+        status: "available",
+      },
+    };
+    expect(parseProjectSnapshotV2(settled).diagnostics).toEqual(
+      settled.diagnostics,
+    );
+
+    for (const malformed of [
+      { ...lagging, diagnosticsRevision: -1 },
+      {
+        ...lagging,
+        diagnosticsRevision: lagging.project.revision + 1,
+      },
+      { ...lagging, diagnostics: settled.diagnostics },
+    ]) {
+      expect(() => parseProjectSnapshotV2(malformed)).toThrow(
+        ProjectSnapshotValidationError,
+      );
+    }
+  });
+
   it("strictly parses dynamic nested callables and parameter ownership", () => {
     const snapshot = dynamicSnapshot();
 

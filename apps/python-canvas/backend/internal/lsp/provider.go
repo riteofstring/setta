@@ -197,14 +197,10 @@ func (provider *BasedpyrightProvider) SynchronizeGeneratedDocument(
 	if err != nil {
 		return coordinator.GeneratedDocumentResult{}, err
 	}
-	diskCode, err := os.ReadFile(path)
-	if err != nil {
-		return coordinator.GeneratedDocumentResult{}, fmt.Errorf("lsp: read generated document: %w", err)
-	}
-	if string(diskCode) != request.Code {
-		return coordinator.GeneratedDocumentResult{}, fmt.Errorf("lsp: generated document does not match its canonical revision")
-	}
-
+	// The coordinator materializes this exact code before scheduling analysis.
+	// A newer structural commit may replace the disposable on-disk document while
+	// this queued revision is waiting for serialized provider access, so the
+	// request payload—not a later disk read—is the exact LSP document boundary.
 	if err := provider.session.SynchronizeDocument(ctx, path, "python", request.Revision, request.Code); err != nil {
 		return coordinator.GeneratedDocumentResult{}, err
 	}

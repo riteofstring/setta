@@ -30,6 +30,7 @@ type ProjectSnapshotV2 struct {
 	TopLevelSectionIDs    []string                `json:"topLevelSectionIds"`
 	GeneratedCode         GeneratedCodeV2         `json:"generatedCode"`
 	Diagnostics           []DiagnosticV2          `json:"diagnostics"`
+	DiagnosticsRevision   int                     `json:"diagnosticsRevision"`
 	ProviderStatus        ProviderStatusV2        `json:"providerStatus"`
 }
 
@@ -286,6 +287,12 @@ func validateProjectSnapshotBase(snapshot ProjectSnapshotV2) error {
 	}
 	if err := validateSnapshotArrays(snapshot); err != nil {
 		return err
+	}
+	if snapshot.DiagnosticsRevision < 0 || snapshot.DiagnosticsRevision > snapshot.Project.Revision {
+		return ValidationError{Field: "diagnosticsRevision", Problem: "must be between 0 and project.revision"}
+	}
+	if snapshot.DiagnosticsRevision < snapshot.Project.Revision && len(snapshot.Diagnostics) != 0 {
+		return ValidationError{Field: "diagnostics", Problem: "must be empty while diagnosticsRevision trails project.revision"}
 	}
 	if err := snapshot.ProviderStatus.Validate(); err != nil {
 		return err
@@ -776,7 +783,8 @@ func FixtureProjectSnapshotV2() ProjectSnapshotV2 {
 			GeneratedBodyRange:     ByteRangeV2{Start: 2, End: 2 + len(body)},
 			SourceRangesByTargetID: map[string]ByteRangeV2{},
 		},
-		Diagnostics: []DiagnosticV2{},
+		Diagnostics:         []DiagnosticV2{},
+		DiagnosticsRevision: 1,
 		ProviderStatus: ProviderStatusV2{
 			Provider: ProviderBasedpyrightV2,
 			Status:   ProviderAvailabilityUnavailableV2,

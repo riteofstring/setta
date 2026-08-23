@@ -31,6 +31,7 @@ describe("generated V2 contract", () => {
       name: "Fixture project",
       revision: 1,
     });
+    expect(snapshot.diagnosticsRevision).toBe(snapshot.project.revision);
     expectTypeOf(snapshot).toEqualTypeOf<ProjectSnapshotV2>();
   });
 });

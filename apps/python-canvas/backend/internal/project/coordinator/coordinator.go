@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 	"github.com/setta/python-canvas/backend/internal/project/materializer"
@@ -34,10 +35,12 @@ type openInputs struct {
 	render      RenderFunc
 }
 
-// Coordinator serializes candidate construction, derived materialization,
-// provider synchronization, persistence, and publication for one project.
+// Coordinator serializes durable candidate construction, materialization,
+// persistence, and publication with mu. providerMu separately serializes every
+// provider operation so background diagnostics never invert that lock order.
 type Coordinator struct {
-	mu sync.Mutex
+	mu         sync.Mutex
+	providerMu sync.Mutex
 
 	projectPath             string
 	idGenerator             aggregate.IDGenerator
@@ -47,8 +50,17 @@ type Coordinator struct {
 	render                  RenderFunc
 	snapshot                Snapshot
 	providerDocumentVersion int
-	cleanup                 []materializer.Replacement
-	closed                  bool
+	// providerTargetRevision is the latest authored revision a queued
+	// diagnostics operation may synchronize. It is separate from the monotonic
+	// transport document version and is atomic so a worker never takes
+	// coordinator.mu while waiting for providerMu.
+	providerTargetRevision atomic.Int64
+	cleanup                []materializer.Replacement
+	closed                 bool
+	analysisCancel         context.CancelFunc
+	analysisDone           chan struct{}
+	analysisWake           chan struct{}
+	pendingAnalysis        *diagnosticsWork
 }
 
 // Open strictly loads one existing authored project or prepares one blank
@@ -92,6 +104,7 @@ func Open(ctx context.Context, options Options) (*Coordinator, error) {
 		}
 	}
 
+	analysisContext, cancelAnalysis := context.WithCancel(context.Background())
 	coordinator := &Coordinator{
 		projectPath:  inputs.projectPath,
 		idGenerator:  options.IDGenerator,
@@ -100,13 +113,19 @@ func Open(ctx context.Context, options Options) (*Coordinator, error) {
 		provider:     options.Provider,
 		render:       inputs.render,
 		snapshot: Snapshot{
-			State:          state.Clone(),
-			Rendered:       cloneRendered(rendered),
-			Diagnostics:    []Diagnostic{},
-			ProviderStatus: unavailableProviderStatus(ProviderLifecycleNotStarted),
+			State:               state.Clone(),
+			Rendered:            cloneRendered(rendered),
+			Diagnostics:         []Diagnostic{},
+			DiagnosticsRevision: state.Project.Revision,
+			ProviderStatus:      unavailableProviderStatus(ProviderLifecycleNotStarted),
 		},
+		analysisCancel: cancelAnalysis,
+		analysisDone:   make(chan struct{}),
+		analysisWake:   make(chan struct{}, 1),
 	}
+	coordinator.setProviderTargetRevision(state.Project.Revision)
 	coordinator.initializeProvider(ctx)
+	go coordinator.runDiagnostics(analysisContext)
 	return coordinator, nil
 }
 
@@ -160,7 +179,7 @@ func (coordinator *Coordinator) RenameProject(ctx context.Context, command aggre
 // CreateCallable appends one empty dynamic callable through the shared durable
 // transaction.
 func (coordinator *Coordinator) CreateCallable(ctx context.Context, command aggregate.CreateCallableCommand) (Snapshot, error) {
-	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.CreateCallable(command, coordinator.idGenerator)
 	})
 }
@@ -176,7 +195,7 @@ func (coordinator *Coordinator) RenameCallable(ctx context.Context, command aggr
 // DeleteCallable removes exactly one dynamic callable through the shared
 // durable transaction.
 func (coordinator *Coordinator) DeleteCallable(ctx context.Context, command aggregate.DeleteCallableCommand) (Snapshot, error) {
-	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.DeleteCallable(command)
 	})
 }
@@ -184,7 +203,7 @@ func (coordinator *Coordinator) DeleteCallable(ctx context.Context, command aggr
 // CreateParameterDictionary appends one empty Parameter Dictionary through the
 // same durable transaction as every other authored section mutation.
 func (coordinator *Coordinator) CreateParameterDictionary(ctx context.Context, command aggregate.CreateParameterDictionaryCommand) (Snapshot, error) {
-	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.CreateParameterDictionary(command, coordinator.idGenerator)
 	})
 }
@@ -198,7 +217,7 @@ func (coordinator *Coordinator) RenameParameterDictionary(ctx context.Context, c
 
 // DeleteParameterDictionary removes one dictionary section.
 func (coordinator *Coordinator) DeleteParameterDictionary(ctx context.Context, command aggregate.DeleteParameterDictionaryCommand) (Snapshot, error) {
-	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.DeleteParameterDictionary(command)
 	})
 }
@@ -212,7 +231,7 @@ func (coordinator *Coordinator) SetParameterDictionaryEntries(ctx context.Contex
 
 // CreateList appends one empty List of Objects to the forest.
 func (coordinator *Coordinator) CreateList(ctx context.Context, command aggregate.CreateListCommand) (Snapshot, error) {
-	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.CreateList(command, coordinator.idGenerator)
 	})
 }
@@ -226,7 +245,7 @@ func (coordinator *Coordinator) RenameList(ctx context.Context, command aggregat
 
 // DeleteList removes one List of Objects and its whole subtree.
 func (coordinator *Coordinator) DeleteList(ctx context.Context, command aggregate.DeleteListCommand) (Snapshot, error) {
-	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.DeleteList(command)
 	})
 }
@@ -234,14 +253,14 @@ func (coordinator *Coordinator) DeleteList(ctx context.Context, command aggregat
 // IncrementListChildren appends the requested number of empty Callable
 // sections atomically.
 func (coordinator *Coordinator) IncrementListChildren(ctx context.Context, command aggregate.IncrementListChildrenCommand) (Snapshot, error) {
-	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.IncrementListChildren(command, coordinator.idGenerator)
 	})
 }
 
 // DecrementListChildren removes trailing child subtrees atomically.
 func (coordinator *Coordinator) DecrementListChildren(ctx context.Context, command aggregate.DecrementListChildrenCommand) (Snapshot, error) {
-	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
+	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.DecrementListChildren(command)
 	})
 }
@@ -350,7 +369,7 @@ func (coordinator *Coordinator) refreshCallableParametersLocked(ctx context.Cont
 	if err != nil {
 		return Snapshot{}, err
 	}
-	signature, err := coordinator.provider.ResolveCallableSignature(ctx, request)
+	signature, err := coordinator.resolveCallableSignature(ctx, request)
 	if err != nil {
 		return Snapshot{}, providerFailure("resolve callable signature", err)
 	}
@@ -419,18 +438,28 @@ func (coordinator *Coordinator) Close() error {
 	document := coordinator.materializer
 	cleanup := append([]materializer.Replacement{}, coordinator.cleanup...)
 	coordinator.cleanup = nil
+	cancelAnalysis := coordinator.analysisCancel
+	analysisDone := coordinator.analysisDone
 	coordinator.mu.Unlock()
 
 	var failures []error
+	if cancelAnalysis != nil {
+		cancelAnalysis()
+	}
+	if analysisDone != nil {
+		<-analysisDone
+	}
 	for _, replacement := range cleanup {
 		if err := replacement.Discard(); err != nil {
 			failures = append(failures, fmt.Errorf("discard retained materialization backup: %w", err))
 		}
 	}
 	if provider != nil {
+		coordinator.providerMu.Lock()
 		if err := provider.Close(); err != nil {
 			failures = append(failures, fmt.Errorf("close provider: %w", err))
 		}
+		coordinator.providerMu.Unlock()
 	}
 	if document != nil {
 		if err := document.Close(); err != nil {
@@ -467,6 +496,32 @@ func (coordinator *Coordinator) mutate(ctx context.Context, build candidateBuild
 	return coordinator.applyCandidate(ctx, candidate)
 }
 
+// mutateStructural publishes one durable section-cardinality candidate before
+// its derived diagnostics settle. The structural boundary intentionally does
+// not require a ready provider: diagnostics are scheduled after the authored
+// project and generated document have committed.
+func (coordinator *Coordinator) mutateStructural(ctx context.Context, build candidateBuilder) (Snapshot, error) {
+	if coordinator == nil {
+		return Snapshot{}, ErrCoordinatorClosed
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	coordinator.mu.Lock()
+	defer coordinator.mu.Unlock()
+	if err := coordinator.requireOpen(ctx); err != nil {
+		return Snapshot{}, err
+	}
+	candidate, err := build(coordinator.snapshot.State)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	if !candidate.Changed {
+		return coordinator.snapshot.Clone(), nil
+	}
+	return coordinator.applyStructuralCandidate(candidate)
+}
+
 func (coordinator *Coordinator) applyCandidate(ctx context.Context, candidate aggregate.Candidate) (Snapshot, error) {
 	if !candidate.Changed {
 		return coordinator.snapshot.Clone(), nil
@@ -489,6 +544,7 @@ func (coordinator *Coordinator) applyCandidate(ctx context.Context, candidate ag
 		return Snapshot{}, fmt.Errorf("%w: install generated document: %v", ErrMaterializationFailed, err)
 	}
 
+	coordinator.setProviderTargetRevision(candidate.State.Project.Revision)
 	diagnostics, providerStatus, err := coordinator.synchronizeCandidate(ctx, candidate.State, rendered)
 	if err != nil {
 		return Snapshot{}, coordinator.rollbackAfterFailure(materializationStage, err)
@@ -505,15 +561,62 @@ func (coordinator *Coordinator) applyCandidate(ctx context.Context, candidate ag
 		coordinator.cleanup = append(coordinator.cleanup, materializationStage)
 	}
 	coordinator.snapshot = Snapshot{
-		State:          candidate.State.Clone(),
-		Rendered:       cloneRendered(rendered),
-		Diagnostics:    cloneDiagnostics(diagnostics),
-		ProviderStatus: providerStatus,
+		State:               candidate.State.Clone(),
+		Rendered:            cloneRendered(rendered),
+		Diagnostics:         cloneDiagnostics(diagnostics),
+		DiagnosticsRevision: candidate.State.Project.Revision,
+		ProviderStatus:      providerStatus,
+	}
+	return coordinator.snapshot.Clone(), nil
+}
+
+func (coordinator *Coordinator) applyStructuralCandidate(candidate aggregate.Candidate) (Snapshot, error) {
+	rendered, err := coordinator.render(candidate.State)
+	if err != nil {
+		return Snapshot{}, fmt.Errorf("%w: candidate: %v", ErrRenderFailed, err)
+	}
+	projectStage, err := coordinator.files.StageReplacement(coordinator.projectPath, candidate.State)
+	if err != nil {
+		return Snapshot{}, fmt.Errorf("%w: stage authored project: %v", ErrPersistenceFailed, err)
+	}
+	defer func() { _ = projectStage.Discard() }()
+	materializationStage, err := coordinator.materializer.Stage(rendered.Code)
+	if err != nil {
+		return Snapshot{}, fmt.Errorf("%w: stage generated document: %v", ErrMaterializationFailed, err)
+	}
+	defer func() { _ = materializationStage.Discard() }()
+	if err := materializationStage.Install(); err != nil {
+		return Snapshot{}, fmt.Errorf("%w: install generated document: %v", ErrMaterializationFailed, err)
+	}
+	if err := projectStage.Commit(); err != nil {
+		primary := fmt.Errorf("%w: replace authored project: %v", ErrPersistenceFailed, err)
+		return Snapshot{}, coordinator.rollbackMaterialization(materializationStage, primary)
+	}
+
+	if err := materializationStage.Finalize(); err != nil {
+		coordinator.cleanup = append(coordinator.cleanup, materializationStage)
+	}
+	next := Snapshot{
+		State:               candidate.State.Clone(),
+		Rendered:            cloneRendered(rendered),
+		Diagnostics:         []Diagnostic{},
+		DiagnosticsRevision: coordinator.snapshot.DiagnosticsRevision,
+		ProviderStatus:      pendingProviderStatus(),
+	}
+	if coordinator.provider == nil {
+		next.DiagnosticsRevision = candidate.State.Project.Revision
+		next.ProviderStatus = unavailableProviderStatus(ProviderLifecycleFailed)
+	}
+	coordinator.snapshot = next
+	coordinator.setProviderTargetRevision(candidate.State.Project.Revision)
+	if coordinator.provider != nil {
+		coordinator.scheduleDiagnosticsLocked(candidate.State, rendered)
 	}
 	return coordinator.snapshot.Clone(), nil
 }
 
 func (coordinator *Coordinator) rollbackAfterFailure(stage materializer.Replacement, primary error) error {
+	coordinator.setProviderTargetRevision(coordinator.snapshot.State.Project.Revision)
 	if err := stage.Rollback(); err != nil {
 		return errors.Join(primary, fmt.Errorf("%w: rollback generated document: %v", ErrMaterializationFailed, err))
 	}
@@ -521,7 +624,16 @@ func (coordinator *Coordinator) rollbackAfterFailure(stage materializer.Replacem
 	// canceled request. The prior exact document must be restored even when the
 	// caller's deadline expired while the candidate provider work was pending.
 	if err := coordinator.restorePublishedProvider(context.Background()); err != nil {
+		coordinator.reschedulePendingDiagnosticsLocked()
 		return errors.Join(primary, err)
+	}
+	coordinator.reschedulePendingDiagnosticsLocked()
+	return primary
+}
+
+func (coordinator *Coordinator) rollbackMaterialization(stage materializer.Replacement, primary error) error {
+	if err := stage.Rollback(); err != nil {
+		return errors.Join(primary, fmt.Errorf("%w: rollback generated document: %v", ErrMaterializationFailed, err))
 	}
 	return primary
 }
@@ -530,7 +642,7 @@ func (coordinator *Coordinator) requireMutableProvider(ctx context.Context) erro
 	if err := coordinator.requireOpen(ctx); err != nil {
 		return err
 	}
-	if coordinator.provider == nil || !providerIsReady(coordinator.snapshot.ProviderStatus) {
+	if coordinator.provider == nil || !providerCanSynchronize(coordinator.snapshot.ProviderStatus) {
 		return ErrProviderUnavailable
 	}
 	return nil
@@ -554,11 +666,7 @@ func (coordinator *Coordinator) synchronizeCandidate(
 	if coordinator.provider == nil {
 		return nil, ProviderStatus{}, ErrProviderUnavailable
 	}
-	result, err := coordinator.provider.SynchronizeGeneratedDocument(ctx, GeneratedDocumentRequest{
-		Path:     coordinator.materializer.Path(),
-		Revision: coordinator.nextProviderDocumentVersion(),
-		Code:     rendered.Code,
-	})
+	result, err := coordinator.synchronizeGeneratedDocument(ctx, rendered)
 	if err != nil {
 		return nil, ProviderStatus{}, providerFailure("synchronize generated document", err)
 	}
@@ -579,11 +687,7 @@ func (coordinator *Coordinator) restorePublishedProvider(ctx context.Context) er
 	if coordinator.provider == nil {
 		return nil
 	}
-	result, err := coordinator.provider.SynchronizeGeneratedDocument(ctx, GeneratedDocumentRequest{
-		Path:     coordinator.materializer.Path(),
-		Revision: coordinator.nextProviderDocumentVersion(),
-		Code:     coordinator.snapshot.Rendered.Code,
-	})
+	result, err := coordinator.synchronizeGeneratedDocument(ctx, coordinator.snapshot.Rendered)
 	if err != nil {
 		return providerFailure("restore published generated document", err)
 	}
@@ -597,14 +701,12 @@ func (coordinator *Coordinator) restorePublishedProvider(ctx context.Context) er
 }
 
 func (coordinator *Coordinator) initializeProvider(ctx context.Context) {
+	coordinator.snapshot.Diagnostics = []Diagnostic{}
+	coordinator.snapshot.DiagnosticsRevision = coordinator.snapshot.State.Project.Revision
 	if coordinator.provider == nil {
 		return
 	}
-	result, err := coordinator.provider.SynchronizeGeneratedDocument(ctx, GeneratedDocumentRequest{
-		Path:     coordinator.materializer.Path(),
-		Revision: coordinator.nextProviderDocumentVersion(),
-		Code:     coordinator.snapshot.Rendered.Code,
-	})
+	result, err := coordinator.synchronizeGeneratedDocument(ctx, coordinator.snapshot.Rendered)
 	if err != nil || result.ProviderStatus.Validate() != nil || !providerIsReady(result.ProviderStatus) {
 		coordinator.snapshot.ProviderStatus = unavailableProviderStatus(ProviderLifecycleFailed)
 		coordinator.snapshot.Diagnostics = []Diagnostic{}
@@ -620,7 +722,78 @@ func (coordinator *Coordinator) initializeProvider(ctx context.Context) {
 	coordinator.snapshot.Diagnostics = diagnostics
 }
 
-func (coordinator *Coordinator) nextProviderDocumentVersion() int {
+func (coordinator *Coordinator) synchronizeGeneratedDocument(ctx context.Context, rendered renderer.Result) (GeneratedDocumentResult, error) {
+	coordinator.providerMu.Lock()
+	defer coordinator.providerMu.Unlock()
+	return coordinator.synchronizeGeneratedDocumentLocked(ctx, rendered)
+}
+
+func (coordinator *Coordinator) synchronizeScheduledGeneratedDocument(ctx context.Context, revision int, rendered renderer.Result) (GeneratedDocumentResult, bool, error) {
+	coordinator.providerMu.Lock()
+	defer coordinator.providerMu.Unlock()
+	if coordinator.providerTargetRevision.Load() != int64(revision) {
+		return GeneratedDocumentResult{}, false, nil
+	}
+	result, err := coordinator.synchronizeGeneratedDocumentLocked(ctx, rendered)
+	return result, true, err
+}
+
+func (coordinator *Coordinator) synchronizeGeneratedDocumentLocked(ctx context.Context, rendered renderer.Result) (GeneratedDocumentResult, error) {
+	if coordinator.provider == nil {
+		return GeneratedDocumentResult{}, ErrProviderUnavailable
+	}
+	if err := ctx.Err(); err != nil {
+		return GeneratedDocumentResult{}, err
+	}
+	return coordinator.provider.SynchronizeGeneratedDocument(ctx, GeneratedDocumentRequest{
+		Path:     coordinator.materializer.Path(),
+		Revision: coordinator.nextProviderDocumentVersionLocked(),
+		Code:     rendered.Code,
+	})
+}
+
+func (coordinator *Coordinator) setProviderTargetRevision(revision int) {
+	coordinator.providerTargetRevision.Store(int64(revision))
+}
+
+func (coordinator *Coordinator) reschedulePendingDiagnosticsLocked() {
+	if coordinator.provider == nil || coordinator.snapshot.DiagnosticsRevision >= coordinator.snapshot.State.Project.Revision {
+		return
+	}
+	coordinator.scheduleDiagnosticsLocked(coordinator.snapshot.State, coordinator.snapshot.Rendered)
+}
+
+func (coordinator *Coordinator) resolveCallableSignature(ctx context.Context, request SignatureRequest) ([]aggregate.ProviderParameter, error) {
+	coordinator.providerMu.Lock()
+	defer coordinator.providerMu.Unlock()
+	if coordinator.provider == nil {
+		return nil, ErrProviderUnavailable
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return coordinator.provider.ResolveCallableSignature(ctx, request)
+}
+
+func (coordinator *Coordinator) completeCallable(ctx context.Context, provider CompletionProvider, request CallableCompletionRequest) ([]CompletionItem, error) {
+	coordinator.providerMu.Lock()
+	defer coordinator.providerMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return provider.CompleteCallable(ctx, request)
+}
+
+func (coordinator *Coordinator) completePythonTarget(ctx context.Context, provider CompletionProvider, request PythonTargetCompletionRequest) ([]CompletionItem, error) {
+	coordinator.providerMu.Lock()
+	defer coordinator.providerMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return provider.CompletePythonTarget(ctx, request)
+}
+
+func (coordinator *Coordinator) nextProviderDocumentVersionLocked() int {
 	coordinator.providerDocumentVersion++
 	return coordinator.providerDocumentVersion
 }

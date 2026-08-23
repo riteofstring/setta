@@ -152,6 +152,7 @@ export interface ProjectSnapshotV2 {
   topLevelSectionIds: string[];
   generatedCode: GeneratedCodeV2;
   diagnostics: DiagnosticV2[];
+  diagnosticsRevision: number;
   providerStatus: ProviderStatusV2;
 }
 export interface ProjectV2 { id: string; name: string; revision: number; }

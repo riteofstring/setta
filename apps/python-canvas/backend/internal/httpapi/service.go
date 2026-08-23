@@ -222,7 +222,8 @@ func snapshotV2(snapshot coordinator.Snapshot) (contracts.ProjectSnapshotV2, err
 			GeneratedBodyRange:     byteRangeV2(snapshot.Rendered.GeneratedBodyRange),
 			SourceRangesByTargetID: ranges,
 		},
-		Diagnostics: diagnostics,
+		Diagnostics:         diagnostics,
+		DiagnosticsRevision: snapshot.DiagnosticsRevision,
 		ProviderStatus: contracts.ProviderStatusV2{
 			Provider: contracts.ProviderV2(snapshot.ProviderStatus.Provider),
 			Status:   contracts.ProviderAvailabilityV2(snapshot.ProviderStatus.Availability),

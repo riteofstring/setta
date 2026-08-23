@@ -23,6 +23,7 @@
     "sourceRangesByTargetId": {}
   },
   "diagnostics": [],
+  "diagnosticsRevision": 1,
   "providerStatus": {
     "provider": "basedpyright",
     "status": "unavailable",

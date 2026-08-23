@@ -23,6 +23,75 @@ func TestProjectSnapshotV2ValidateAcceptsUnannotatedProviderMetadata(t *testing.
 	}
 }
 
+func TestProjectSnapshotV2ValidateDiagnosticsFreshness(t *testing.T) {
+	settled := FixtureProjectSnapshotV2()
+	settled.Diagnostics = []DiagnosticV2{{
+		ID:       "diagnostic:settled",
+		Severity: DiagnosticSeverityInformationV2,
+		Message:  "Settled diagnostics.",
+		Start:    0,
+		End:      0,
+		TargetID: nil,
+	}}
+	if err := settled.Validate(); err != nil {
+		t.Fatalf("Validate() settled snapshot error = %v", err)
+	}
+
+	lagging := FixtureProjectSnapshotV2()
+	lagging.Project.Revision++
+	if err := lagging.Validate(); err != nil {
+		t.Fatalf("Validate() lagging empty diagnostics error = %v", err)
+	}
+
+	for _, test := range []struct {
+		name   string
+		change func(*ProjectSnapshotV2)
+		field  string
+	}{
+		{
+			name: "negative diagnostics revision",
+			change: func(snapshot *ProjectSnapshotV2) {
+				snapshot.DiagnosticsRevision = -1
+			},
+			field: "diagnosticsRevision",
+		},
+		{
+			name: "diagnostics revision ahead of project",
+			change: func(snapshot *ProjectSnapshotV2) {
+				snapshot.DiagnosticsRevision = snapshot.Project.Revision + 1
+			},
+			field: "diagnosticsRevision",
+		},
+		{
+			name: "lagging diagnostics are stale",
+			change: func(snapshot *ProjectSnapshotV2) {
+				snapshot.Project.Revision++
+				snapshot.Diagnostics = []DiagnosticV2{{
+					ID:       "diagnostic:stale",
+					Severity: DiagnosticSeverityInformationV2,
+					Message:  "Stale diagnostics.",
+					Start:    0,
+					End:      0,
+					TargetID: nil,
+				}}
+			},
+			field: "diagnostics",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := FixtureProjectSnapshotV2()
+			test.change(&snapshot)
+			var validationError ValidationError
+			if !errors.As(snapshot.Validate(), &validationError) {
+				t.Fatalf("Validate() accepted an invalid diagnostics snapshot: %#v", snapshot)
+			}
+			if validationError.Field != test.field {
+				t.Fatalf("ValidationError.Field = %q, want %q", validationError.Field, test.field)
+			}
+		})
+	}
+}
+
 func TestProjectSnapshotV2ValidateRejectsUnsupportedAndIncoherentNestedMetadata(t *testing.T) {
 	for _, test := range []struct {
 		name   string
