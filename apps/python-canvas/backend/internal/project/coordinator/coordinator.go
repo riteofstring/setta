@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -262,11 +263,51 @@ func (coordinator *Coordinator) SetParameters(ctx context.Context, command aggre
 }
 
 // SetTarget updates both editable outer Python regions as one durable
-// candidate; the generated body remains renderer-owned.
+// candidate; the generated body remains renderer-owned. When a target edit
+// resolves a callable's prior undefined-symbol diagnostic without replacing it
+// with another callable error, it also performs one best-effort signature
+// refresh after the target itself is durable.
 func (coordinator *Coordinator) SetTarget(ctx context.Context, command aggregate.SetTargetCommand) (Snapshot, error) {
-	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
-		return state.SetTarget(command)
-	})
+	if coordinator == nil {
+		return Snapshot{}, ErrCoordinatorClosed
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	coordinator.mu.Lock()
+	defer coordinator.mu.Unlock()
+	if err := coordinator.requireOpen(ctx); err != nil {
+		return Snapshot{}, err
+	}
+
+	before := coordinator.snapshot.Clone()
+	candidate, err := before.State.SetTarget(command)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	if err := coordinator.requireMutableProvider(ctx); err != nil {
+		return Snapshot{}, err
+	}
+	if !candidate.Changed {
+		return coordinator.snapshot.Clone(), nil
+	}
+	updated, err := coordinator.applyCandidate(ctx, candidate)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	for _, callableID := range resolvedUndefinedCallableIDs(before, updated) {
+		_, refreshErr := coordinator.refreshCallableParametersLocked(ctx, aggregate.RefreshCallableParametersCommand{
+			ProjectID:        coordinator.snapshot.State.Project.ID,
+			CallableID:       callableID,
+			ExpectedRevision: coordinator.snapshot.State.Project.Revision,
+		})
+		if refreshErr != nil {
+			// The accepted Python target is already durable; automatic provider
+			// retrieval must not turn it into a failed mutation.
+			continue
+		}
+	}
+	return coordinator.snapshot.Clone(), nil
 }
 
 // CommitCallable persists one callable expression and publishes the resulting
@@ -289,6 +330,12 @@ func (coordinator *Coordinator) RefreshCallableParameters(ctx context.Context, c
 	}
 	coordinator.mu.Lock()
 	defer coordinator.mu.Unlock()
+	return coordinator.refreshCallableParametersLocked(ctx, command)
+}
+
+// refreshCallableParametersLocked applies an explicit or automatic signature
+// refresh while the coordinator's mutation lock is held.
+func (coordinator *Coordinator) refreshCallableParametersLocked(ctx context.Context, command aggregate.RefreshCallableParametersCommand) (Snapshot, error) {
 	if err := coordinator.requireOpen(ctx); err != nil {
 		return Snapshot{}, err
 	}
@@ -316,6 +363,63 @@ func (coordinator *Coordinator) RefreshCallableParameters(ctx context.Context, c
 		return Snapshot{}, err
 	}
 	return coordinator.applyCandidate(ctx, candidate)
+}
+
+func resolvedUndefinedCallableIDs(before Snapshot, updated Snapshot) []string {
+	previousUndefined := callableUndefinedDiagnosticIDs(before)
+	if len(previousUndefined) == 0 {
+		return nil
+	}
+	currentUndefined := callableUndefinedDiagnosticIDs(updated)
+	currentErrors := callableErrorDiagnosticIDs(updated)
+	resolved := make([]string, 0, len(previousUndefined))
+	for callableID := range previousUndefined {
+		if _, remainsUndefined := currentUndefined[callableID]; remainsUndefined {
+			continue
+		}
+		if _, replacementError := currentErrors[callableID]; replacementError {
+			continue
+		}
+		resolved = append(resolved, callableID)
+	}
+	sort.Strings(resolved)
+	return resolved
+}
+
+func callableUndefinedDiagnosticIDs(snapshot Snapshot) map[string]struct{} {
+	callableIDs := snapshotCallableIDs(snapshot)
+	undefined := make(map[string]struct{})
+	for _, diagnostic := range snapshot.Diagnostics {
+		if diagnostic.Code != "reportUndefinedVariable" || diagnostic.TargetID == nil {
+			continue
+		}
+		if _, isCallable := callableIDs[*diagnostic.TargetID]; isCallable {
+			undefined[*diagnostic.TargetID] = struct{}{}
+		}
+	}
+	return undefined
+}
+
+func callableErrorDiagnosticIDs(snapshot Snapshot) map[string]struct{} {
+	callableIDs := snapshotCallableIDs(snapshot)
+	errorsByCallable := make(map[string]struct{})
+	for _, diagnostic := range snapshot.Diagnostics {
+		if diagnostic.Severity != ProviderDiagnosticError || diagnostic.TargetID == nil {
+			continue
+		}
+		if _, isCallable := callableIDs[*diagnostic.TargetID]; isCallable {
+			errorsByCallable[*diagnostic.TargetID] = struct{}{}
+		}
+	}
+	return errorsByCallable
+}
+
+func snapshotCallableIDs(snapshot Snapshot) map[string]struct{} {
+	callableIDs := make(map[string]struct{}, len(snapshot.State.Callables))
+	for _, callable := range snapshot.State.Callables {
+		callableIDs[callable.ID] = struct{}{}
+	}
+	return callableIDs
 }
 
 // Close releases the one provider and disposable materialization owned by the

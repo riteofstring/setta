@@ -4,14 +4,12 @@ import { fetchCanonicalSnapshot } from "./browser-processes.mjs";
 import {
   activateAndSelectAllContentEditableTextBox,
   activateCodeEditor,
-  activateContentEditableTextBox,
   clickElementCenter,
   contentEditableTextBoxSelector,
   evaluate,
   insertText,
   labeledSelector,
   moveCaretToDocumentStart,
-  pressAlternateEnter,
   pressEscape,
   waitFor,
 } from "./browser-page.mjs";
@@ -31,8 +29,7 @@ export async function exerciseResolvedMathCallableLifecycle(
   harness,
 ) {
   const subject = { harness, name };
-  await importMath(client, backendOrigin);
-  await refreshMathParametersWithoutLocking(
+  await resolveMathParametersFromPythonTarget(
     client,
     backendOrigin,
     name,
@@ -231,7 +228,26 @@ export async function exerciseResolvedMathCallableLifecycle(
   );
 }
 
-async function importMath(client, backendOrigin) {
+async function resolveMathParametersFromPythonTarget(
+  client,
+  backendOrigin,
+  name,
+  harness,
+) {
+  const before = await fetchCanonicalSnapshot(backendOrigin);
+  const callable = harness.findRequiredCallable(before, name);
+  assert.equal(
+    callable.authoredExpression,
+    "math.sqrt",
+    "The Python-target resolution path requires the unresolved math.sqrt callable.",
+  );
+  const sectionSelector = harness.callableSectionSelector(name);
+  const presentationBefore = await callablePresentation(
+    client,
+    sectionSelector,
+  );
+  const refreshRequestsBefore = await parameterRefreshRequestCount(client);
+
   await activateCodeEditor(
     client,
     generatedPythonEditorSelector,
@@ -239,113 +255,93 @@ async function importMath(client, backendOrigin) {
   );
   await moveCaretToDocumentStart(client);
   await insertText(client, "import math\n");
-  await waitForSnapshot(backendOrigin, "the authored math import", (snapshot) =>
-    snapshot.pythonTarget.prefix.startsWith("import math\n"),
+  const resolved = await waitForSnapshot(
+    backendOrigin,
+    "the Python-target-resolved math.sqrt signature",
+    (snapshot) => {
+      const current = harness.findCallable(snapshot, name);
+      return (
+        snapshot.pythonTarget.prefix.startsWith("import math\n") &&
+        current?.parameters.some(
+          (parameter) => parameter.name === "x" && !parameter.nameEditable,
+        ) === true &&
+        snapshot.diagnostics.every(
+          (diagnostic) => diagnostic.targetId !== current.id,
+        )
+      );
+    },
   );
-}
-
-async function refreshMathParametersWithoutLocking(
-  client,
-  backendOrigin,
-  name,
-  harness,
-) {
-  const sectionSelector = harness.callableSectionSelector(name);
-  await gateNextParameterRefreshResponse(client);
-  await activateContentEditableTextBox(
-    client,
-    sectionSelector +
-      " " +
-      contentEditableTextBoxSelector("Callable expression"),
-    "the resolved math.sqrt callable expression",
-  );
-  await pressAlternateEnter(client);
   await waitFor(
     client,
-    "the parameter-refresh pending state without a section lock",
-    pendingRefreshExpression(sectionSelector),
+    "the automatic parameter refresh without a lock, spinner, or mutation error",
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sectionSelector)});
+      const field = section?.querySelector('[data-workspace-section-field="true"]');
+      const editor = section?.querySelector(${JSON.stringify(contentEditableTextBoxSelector("Callable expression"))});
+      const overlay = section?.querySelector('[data-python-canvas-parameter-pending="true"]');
+      const lock = section?.querySelector('button[aria-label="Lock position and size"]');
+      const unlock = section?.querySelector('button[aria-label="Unlock position and size"]');
+      const mutationError = document.querySelector('#python-canvas-mutation-error');
+      return section instanceof HTMLElement && section.getAttribute('aria-busy') !== 'true' &&
+        field instanceof HTMLElement && field.dataset.disabled === 'false' &&
+        editor instanceof HTMLElement && editor.getAttribute('contenteditable') === 'true' &&
+        editor.getAttribute('aria-disabled') !== 'true' && overlay === null &&
+        lock instanceof HTMLElement && unlock === null &&
+        (mutationError?.textContent ?? '').trim() === '';
+    })()`,
   );
-  await releaseParameterRefreshResponse(client);
-  await waitForCallableUiIdle(client, name, harness);
-  const snapshot = await fetchCanonicalSnapshot(backendOrigin);
+  const presentationAfter = await callablePresentation(client, sectionSelector);
   assert.equal(
-    harness.findRequiredCallable(snapshot, name).authoredExpression,
+    presentationAfter.sectionHeight,
+    presentationBefore.sectionHeight,
+    "Automatically retrieving parameters changed the callable section height.",
+  );
+  assert.equal(
+    presentationAfter.fieldHeight,
+    presentationBefore.fieldHeight,
+    "Automatically retrieving parameters changed the callable field height.",
+  );
+  assert.equal(
+    await parameterRefreshRequestCount(client),
+    refreshRequestsBefore,
+    "Resolving the Python target issued a second, frontend-owned parameter refresh.",
+  );
+  assert.equal(
+    harness.findRequiredCallable(resolved, name).authoredExpression,
     "math.sqrt",
-    "Alt+Enter replaced the persisted callable expression.",
+    "Resolving the Python target replaced the persisted callable expression.",
+  );
+  assert.ok(
+    resolved.generatedCode.body.includes("math.sqrt()"),
+    "Generated Python did not contain the automatically refreshed math.sqrt call.",
   );
 }
 
-async function gateNextParameterRefreshResponse(client) {
-  const installed = await evaluate(
+async function callablePresentation(client, sectionSelector) {
+  return evaluate(
     client,
-    "(() => {" +
-      "if (window.__pythonCanvasParameterRefreshGate !== undefined) return false;" +
-      "const originalFetch = window.fetch;" +
-      "let release;" +
-      "const wait = new Promise((resolve) => { release = resolve; });" +
-      "const gate = { intercepted: false, release: () => release(true) };" +
-      "window.__pythonCanvasParameterRefreshGate = gate;" +
-      "window.fetch = async (...args) => {" +
-      "const input = args[0];" +
-      "const requestUrl = typeof input === 'string' || input instanceof URL ? String(input) : input.url;" +
-      "const method = (args[1]?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();" +
-      "const response = await originalFetch.apply(window, args);" +
-      "if (!gate.intercepted && method === 'POST' && new URL(requestUrl, location.href).pathname.endsWith('/refresh-parameters')) {" +
-      "gate.intercepted = true; await wait; window.fetch = originalFetch;" +
-      "}" +
-      "return response;" +
-      "};" +
-      "return true;" +
-      "})()",
-  );
-  assert.equal(
-    installed,
-    true,
-    "The parameter refresh gate was not installed.",
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sectionSelector)});
+      const field = section?.querySelector('[data-workspace-section-field="true"]');
+      return {
+        fieldHeight: field instanceof HTMLElement ? field.getBoundingClientRect().height : null,
+        sectionHeight: section instanceof HTMLElement ? section.getBoundingClientRect().height : null,
+      };
+    })()`,
   );
 }
 
-function pendingRefreshExpression(sectionSelector) {
-  return (
-    "(() => {" +
-    "const section = document.querySelector(" +
-    JSON.stringify(sectionSelector) +
-    ");" +
-    "const field = section?.querySelector('[data-workspace-section-field=true]');" +
-    "const editor = section?.querySelector(" +
-    JSON.stringify(contentEditableTextBoxSelector("Callable expression")) +
-    ");" +
-    "const overlay = section?.querySelector('[data-python-canvas-parameter-pending=true]');" +
-    "const lock = section?.querySelector('button[aria-label=\"Lock position and size\"]');" +
-    "const unlock = section?.querySelector('button[aria-label=\"Unlock position and size\"]');" +
-    "const mutationError = document.querySelector('#python-canvas-mutation-error');" +
-    "const visibleAlert = [...document.querySelectorAll('[role=alert]')].some((element) => {" +
-    "const rect = element.getBoundingClientRect();" +
-    "return (element.textContent ?? '').trim() !== '' && rect.width > 1 && rect.height > 1;" +
-    "});" +
-    "return window.__pythonCanvasParameterRefreshGate?.intercepted === true &&" +
-    "section instanceof HTMLElement && field instanceof HTMLElement &&" +
-    "field.dataset.disabled === 'false' && editor instanceof HTMLElement &&" +
-    "editor.getAttribute('contenteditable') === 'true' &&" +
-    "editor.getAttribute('aria-disabled') !== 'true' &&" +
-    "overlay instanceof HTMLElement && lock instanceof HTMLElement && unlock === null &&" +
-    "(mutationError?.textContent ?? '').trim() === '' && visibleAlert === false;" +
-    "})()"
-  );
-}
-
-async function releaseParameterRefreshResponse(client) {
-  const released = await evaluate(
+async function parameterRefreshRequestCount(client) {
+  return evaluate(
     client,
-    "(() => {" +
-      "const gate = window.__pythonCanvasParameterRefreshGate;" +
-      "if (gate?.intercepted !== true) return false;" +
-      "gate.release();" +
-      "delete window.__pythonCanvasParameterRefreshGate;" +
-      "return true;" +
-      "})()",
+    `performance.getEntriesByType("resource").filter((entry) => {
+      try {
+        return new URL(entry.name).pathname.endsWith("/refresh-parameters");
+      } catch {
+        return false;
+      }
+    }).length`,
   );
-  assert.equal(released, true, "The parameter refresh response was not gated.");
 }
 
 async function setParameterExpression(

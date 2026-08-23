@@ -309,6 +309,190 @@ func TestCoordinatorPersistsUnresolvedCallableAndPublishesItsDiagnostic(t *testi
 	}
 }
 
+func TestCoordinatorAutoRefreshesResolvedUndefinedCallableAfterTargetMutation(t *testing.T) {
+	t.Parallel()
+
+	coordinator, provider, path := newSignatureCoordinator(t)
+	defer coordinator.Close()
+	provider.signature = []aggregate.ProviderParameter{{
+		Name: "x", PassingStyle: aggregate.PassingStylePositionalOrKeyword,
+	}}
+	provider.diagnostics = undefinedMathCallableDiagnostic
+
+	unresolved := commitUndefinedMathCallable(t, coordinator, provider)
+	resolved, err := coordinator.SetTarget(context.Background(), aggregate.SetTargetCommand{
+		ProjectID: unresolved.State.Project.ID, ExpectedRevision: unresolved.State.Project.Revision,
+		Prefix: "import math\n", Suffix: unresolved.State.PythonTarget.Suffix,
+	})
+	if err != nil {
+		t.Fatalf("SetTarget(import math) error = %v", err)
+	}
+	callable := resolved.State.Callables[0]
+	if callable.AuthoredExpression != "math.sqrt" || len(callable.Parameters) != 1 || callable.Parameters[0].Name != "x" {
+		t.Fatalf("resolved callable = %#v, want math.sqrt with provider x", callable)
+	}
+	if hasCallableDiagnostic(resolved.Diagnostics, callable.ID, "") {
+		t.Fatalf("resolved callable diagnostics = %#v, want none", resolved.Diagnostics)
+	}
+	if !strings.Contains(resolved.Rendered.Code, "math.sqrt()") {
+		t.Fatalf("generated Python = %q, want refreshed math.sqrt call", resolved.Rendered.Code)
+	}
+	if len(provider.signatureRequests) != 1 || provider.signatureRequests[0].AuthoredExpression != "math.sqrt" || !strings.Contains(provider.signatureRequests[0].Code, "import math\n") {
+		t.Fatalf("automatic signature requests = %#v, want one math.sqrt request with import", provider.signatureRequests)
+	}
+	requireDurableAuthoredState(t, path, resolved.State)
+}
+
+func TestCoordinatorKeepsResolvedTargetWhenAutomaticCallableRefreshFails(t *testing.T) {
+	t.Parallel()
+
+	coordinator, provider, path := newSignatureCoordinator(t)
+	defer coordinator.Close()
+	provider.diagnostics = undefinedMathCallableDiagnostic
+	provider.signatureError = errors.New("math signature is temporarily unavailable")
+
+	unresolved := commitUndefinedMathCallable(t, coordinator, provider)
+	resolved, err := coordinator.SetTarget(context.Background(), aggregate.SetTargetCommand{
+		ProjectID: unresolved.State.Project.ID, ExpectedRevision: unresolved.State.Project.Revision,
+		Prefix: "import math\n", Suffix: unresolved.State.PythonTarget.Suffix,
+	})
+	if err != nil {
+		t.Fatalf("SetTarget(import math) error = %v, want durable target success", err)
+	}
+	callable := resolved.State.Callables[0]
+	if resolved.State.PythonTarget.Prefix != "import math\n" || callable.AuthoredExpression != "math.sqrt" || len(callable.Parameters) != 0 {
+		t.Fatalf("target after failed automatic refresh = %#v", resolved.State)
+	}
+	if len(provider.signatureRequests) != 1 {
+		t.Fatalf("automatic signature requests = %#v, want one failed request", provider.signatureRequests)
+	}
+	if hasCallableDiagnostic(resolved.Diagnostics, callable.ID, "") {
+		t.Fatalf("resolved callable diagnostics = %#v, want no replacement callable error", resolved.Diagnostics)
+	}
+	requireDurableAuthoredState(t, path, resolved.State)
+}
+
+func TestCoordinatorDoesNotDuplicateAutomaticRefreshAfterUndefinedCallableResolves(t *testing.T) {
+	t.Parallel()
+
+	coordinator, provider, _ := newSignatureCoordinator(t)
+	defer coordinator.Close()
+	provider.signature = []aggregate.ProviderParameter{{
+		Name: "x", PassingStyle: aggregate.PassingStylePositionalOrKeyword,
+	}}
+	provider.diagnostics = undefinedMathCallableDiagnostic
+
+	unresolved := commitUndefinedMathCallable(t, coordinator, provider)
+	resolved, err := coordinator.SetTarget(context.Background(), aggregate.SetTargetCommand{
+		ProjectID: unresolved.State.Project.ID, ExpectedRevision: unresolved.State.Project.Revision,
+		Prefix: "import math\n", Suffix: unresolved.State.PythonTarget.Suffix,
+	})
+	if err != nil {
+		t.Fatalf("SetTarget(import math) error = %v", err)
+	}
+	_, err = coordinator.SetTarget(context.Background(), aggregate.SetTargetCommand{
+		ProjectID: resolved.State.Project.ID, ExpectedRevision: resolved.State.Project.Revision,
+		Prefix: "import math\n# still resolved\n", Suffix: resolved.State.PythonTarget.Suffix,
+	})
+	if err != nil {
+		t.Fatalf("SetTarget(still resolved) error = %v", err)
+	}
+	if len(provider.signatureRequests) != 1 {
+		t.Fatalf("automatic signature requests = %#v, want one undefined-to-resolved transition", provider.signatureRequests)
+	}
+}
+
+func TestCoordinatorSkipsAutomaticRefreshWhenCallableErrorReplacesUndefinedDiagnostic(t *testing.T) {
+	t.Parallel()
+
+	coordinator, provider, _ := newSignatureCoordinator(t)
+	defer coordinator.Close()
+	provider.diagnostics = undefinedMathCallableWithReplacementErrorDiagnostic
+
+	unresolved := commitUndefinedMathCallable(t, coordinator, provider)
+	updated, err := coordinator.SetTarget(context.Background(), aggregate.SetTargetCommand{
+		ProjectID: unresolved.State.Project.ID, ExpectedRevision: unresolved.State.Project.Revision,
+		Prefix: "import math\n", Suffix: unresolved.State.PythonTarget.Suffix,
+	})
+	if err != nil {
+		t.Fatalf("SetTarget(import math) error = %v", err)
+	}
+	callable := updated.State.Callables[0]
+	if updated.State.PythonTarget.Prefix != "import math\n" || len(callable.Parameters) != 0 {
+		t.Fatalf("target with replacement callable error = %#v", updated.State)
+	}
+	if !hasCallableDiagnostic(updated.Diagnostics, callable.ID, "reportCallIssue") {
+		t.Fatalf("replacement callable diagnostics = %#v", updated.Diagnostics)
+	}
+	if len(provider.signatureRequests) != 0 {
+		t.Fatalf("automatic signature requests = %#v, want none while callable error remains", provider.signatureRequests)
+	}
+}
+
+func commitUndefinedMathCallable(t *testing.T, coordinator *Coordinator, provider *fakeProvider) Snapshot {
+	t.Helper()
+	initial := coordinator.Snapshot()
+	created, err := coordinator.CreateCallable(context.Background(), aggregate.CreateCallableCommand{
+		ProjectID: initial.State.Project.ID, ExpectedRevision: initial.State.Project.Revision, Name: "Missing import",
+	})
+	if err != nil {
+		t.Fatalf("CreateCallable() error = %v", err)
+	}
+	committed, err := coordinator.CommitCallable(context.Background(), aggregate.CommitCallableCommand{
+		ProjectID: created.State.Project.ID, CallableID: "callable-dynamic", ExpectedRevision: created.State.Project.Revision, AuthoredExpression: "math.sqrt",
+	})
+	if err != nil {
+		t.Fatalf("CommitCallable() error = %v", err)
+	}
+	if !hasCallableDiagnostic(committed.Diagnostics, "callable-dynamic", "reportUndefinedVariable") {
+		t.Fatalf("unresolved callable diagnostics = %#v", committed.Diagnostics)
+	}
+	if len(provider.signatureRequests) != 0 {
+		t.Fatalf("expression commit requested a signature: %#v", provider.signatureRequests)
+	}
+	return committed
+}
+
+func undefinedMathCallableDiagnostic(request GeneratedDocumentRequest) []ProviderDiagnostic {
+	start := strings.Index(request.Code, "math.sqrt")
+	if start < 0 || strings.Contains(request.Code, "import math\n") {
+		return nil
+	}
+	return []ProviderDiagnostic{{
+		Start: start, End: start + len("math.sqrt"), Severity: ProviderDiagnosticError,
+		Message: `"math" is not defined`, Code: "reportUndefinedVariable",
+	}}
+}
+
+func undefinedMathCallableWithReplacementErrorDiagnostic(request GeneratedDocumentRequest) []ProviderDiagnostic {
+	start := strings.Index(request.Code, "math.sqrt")
+	if start < 0 {
+		return nil
+	}
+	if strings.Contains(request.Code, "import math\n") {
+		return []ProviderDiagnostic{{
+			Start: start, End: start + len("math.sqrt"), Severity: ProviderDiagnosticError,
+			Message: "replacement callable error", Code: "reportCallIssue",
+		}}
+	}
+	return []ProviderDiagnostic{{
+		Start: start, End: start + len("math.sqrt"), Severity: ProviderDiagnosticError,
+		Message: `"math" is not defined`, Code: "reportUndefinedVariable",
+	}}
+}
+
+func hasCallableDiagnostic(diagnostics []Diagnostic, callableID string, code string) bool {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.TargetID == nil || *diagnostic.TargetID != callableID {
+			continue
+		}
+		if code == "" || diagnostic.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
 func TestCoordinatorProjectsCallableCallIssuesToMissingProviderParameters(t *testing.T) {
 	t.Parallel()
 
