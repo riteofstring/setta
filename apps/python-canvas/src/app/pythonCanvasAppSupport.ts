@@ -30,6 +30,7 @@ export type MutationAnswer =
       kind: "dictionary";
       sent: DictionaryEntryV2[];
     }
+  | { kind: "publication"; previousSnapshot: ProjectSnapshotV2 }
   | { kind: "other" };
 
 export type AppState =
@@ -570,7 +571,10 @@ function documentParameterList(
   }));
 }
 
-function sameParameterUI(left: { type: string; configuration: unknown }, right: { type: string; configuration: unknown }): boolean {
+function sameParameterUI(
+  left: { type: string; configuration: unknown },
+  right: { type: string; configuration: unknown },
+): boolean {
   return (
     left.type === right.type &&
     JSON.stringify(left.configuration) === JSON.stringify(right.configuration)

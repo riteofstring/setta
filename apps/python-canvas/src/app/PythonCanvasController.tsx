@@ -93,6 +93,12 @@ function shouldRetainParameterListDraft(
   callable: ProjectCallable,
   answer: MutationAnswer,
 ) {
+  if (answer.kind === "publication") {
+    const previous = answer.previousSnapshot.callables.find(
+      (candidate) => candidate.id === callable.id,
+    );
+    return previous !== undefined && !sameParameterList(draft, previous);
+  }
   if (answer.kind === "refresh") {
     return (
       answer.callableId !== callable.id && !sameParameterList(draft, callable)
@@ -315,13 +321,20 @@ export function PythonCanvasController() {
     const synchronizeReactProjection = (
       nextSnapshot: ProjectSnapshotV2,
       resetCallableId: string | null,
+      publicationBaseline: ProjectSnapshotV2 | null,
     ) => {
       setCallableDrafts((current) => {
         const next: CallableDrafts = {};
         for (const callable of nextSnapshot.callables) {
           const currentDraft = current[callable.id];
+          const publishedPrevious = publicationBaseline?.callables.find(
+            (candidate) => candidate.id === callable.id,
+          );
           next[callable.id] =
-            resetCallableId === callable.id || currentDraft === undefined
+            resetCallableId === callable.id ||
+            currentDraft === undefined ||
+            (publishedPrevious !== undefined &&
+              currentDraft === publishedPrevious.authoredExpression)
               ? callable.authoredExpression
               : currentDraft;
         }
@@ -407,6 +420,18 @@ export function PythonCanvasController() {
         if (draft === null) {
           continue;
         }
+        if (answer.kind === "publication") {
+          const previous = answer.previousSnapshot.parameterDictionaries.find(
+            (candidate) => candidate.id === dictionary.id,
+          );
+          if (
+            previous !== undefined &&
+            !sameDictionaryEntries(draft, previous)
+          ) {
+            retained.add(dictionary.id);
+          }
+          continue;
+        }
         if (
           answer.kind === "dictionary" &&
           answer.dictionaryId === dictionary.id
@@ -433,7 +458,12 @@ export function PythonCanvasController() {
       let keepAuthoredPython = false;
       try {
         const authored = readGeneratedPythonTarget(host);
-        keepAuthoredPython = !sameCanonicalPythonTarget(authored, nextSnapshot);
+        keepAuthoredPython = !sameCanonicalPythonTarget(
+          authored,
+          answer.kind === "publication"
+            ? answer.previousSnapshot
+            : nextSnapshot,
+        );
       } catch {
         keepAuthoredPython = false;
       }
@@ -457,6 +487,7 @@ export function PythonCanvasController() {
       synchronizeReactProjection(
         nextSnapshot,
         answer.kind === "commit" ? answer.callableId : null,
+        answer.kind === "publication" ? answer.previousSnapshot : null,
       );
     };
     const restoreCanonicalProject = (
@@ -480,7 +511,7 @@ export function PythonCanvasController() {
         pendingSectionIds: new Map(),
         unresolvedPendingSectionIds,
       });
-      synchronizeReactProjection(snapshot, null);
+      synchronizeReactProjection(snapshot, null, null);
     };
     const recoverRevisionConflict = async (
       revisionConflictDraft: RevisionConflictDraft,
@@ -828,7 +859,7 @@ export function PythonCanvasController() {
         } finally {
           isProjectingRef.current = false;
         }
-        synchronizeReactProjection(initialSnapshot, null);
+        synchronizeReactProjection(initialSnapshot, null, null);
         setState({ kind: "ready", host });
         disconnectProjectSnapshotStream = connectProjectSnapshotStream({
           onProtocolError: () => {
@@ -855,7 +886,10 @@ export function PythonCanvasController() {
               if (!isNewerSnapshot(nextSnapshot, current)) {
                 return;
               }
-              acceptCanonicalSnapshot(nextSnapshot, { kind: "other" });
+              acceptCanonicalSnapshot(nextSnapshot, {
+                kind: "publication",
+                previousSnapshot: current,
+              });
             });
           },
         });

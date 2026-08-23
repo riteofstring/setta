@@ -27,7 +27,10 @@ import {
   readCallableSectionData,
   readParameterItemData,
 } from "../sections/CallableSection";
-import { type ParameterDictionarySectionData } from "../sections/ParamDictSection";
+import {
+  type ParameterDictionarySectionData,
+  readParameterDictionarySectionData,
+} from "../sections/ParamDictSection";
 import { type ListSectionData } from "../sections/ListSection";
 import {
   projectGeneratedPythonSection,
@@ -378,7 +381,12 @@ export function setParameterItemExpression(
     parameterUIFromWorkspaceControl(control),
     authoredExpression,
   );
-  setItemValue(host, callableSectionID(callableId), parameterId, workspaceControlValue(next));
+  setItemValue(
+    host,
+    callableSectionID(callableId),
+    parameterId,
+    workspaceControlValue(next),
+  );
 }
 
 export function setParameterItemName(
@@ -404,9 +412,7 @@ export function createCallableParameterItem(): WorkspaceItem {
   };
 }
 
-export function readCallableParameterRows(
-  section: WorkspaceSection,
-): Array<{
+export function readCallableParameterRows(section: WorkspaceSection): Array<{
   data: ParameterItemData;
   id: string;
   ui: ConfigurableParameterUIV2;
@@ -427,7 +433,9 @@ export function readCallableParameterRows(
     }
     const presentation = item.presentation;
     if (presentation === undefined || presentation.control.kind === "group") {
-      throw new Error(`Python Canvas parameter item ${itemId} has no value presentation.`);
+      throw new Error(
+        `Python Canvas parameter item ${itemId} has no value presentation.`,
+      );
     }
     const metadata = sectionData.parameterMetadata[itemId] ?? {
       default: null,
@@ -437,7 +445,9 @@ export function readCallableParameterRows(
     };
     const ui = parameterUIFromWorkspaceControl(presentation.control);
     if (ui.type === "NestedParam") {
-      throw new Error(`Python Canvas parameter item ${itemId} has a nested UI.`);
+      throw new Error(
+        `Python Canvas parameter item ${itemId} has a nested UI.`,
+      );
     }
     return {
       data: readParameterItemData({
@@ -611,27 +621,72 @@ function projectCanonicalResponseSection(
       : { id: descriptor.canonicalId, kind: descriptor.kind },
   );
   switch (descriptor.kind) {
-    case "callable":
+    case "callable": {
+      const itemTree = projectCallableItemTree(
+        previous.itemTree,
+        descriptor.callable,
+        options,
+      );
       return {
         ...retained,
-        itemTree: projectCallableItemTree(
-          previous.itemTree,
-          descriptor.callable,
-          options,
-        ),
+        data: callableDataForItemTree(retained.data, itemTree),
+        itemTree,
       };
-    case "dictionary":
+    }
+    case "dictionary": {
+      const itemTree = projectDictionaryItemTree(
+        previous.itemTree,
+        descriptor.dictionary,
+        options,
+      );
       return {
         ...retained,
-        itemTree: projectDictionaryItemTree(
-          previous.itemTree,
-          descriptor.dictionary,
-          options,
-        ),
+        data: dictionaryDataForItemTree(retained.data, itemTree),
+        itemTree,
       };
+    }
     case "list":
       return retained;
   }
+}
+
+function callableDataForItemTree(
+  value: unknown,
+  itemTree: WorkspaceSectionItemTree,
+): CallableSectionData {
+  const data = readCallableSectionData(value);
+  return {
+    ...data,
+    parameterDiagnostics: retainKnownItemEntries(
+      data.parameterDiagnostics,
+      itemTree,
+    ),
+    parameterMetadata: retainKnownItemEntries(data.parameterMetadata, itemTree),
+  };
+}
+
+function dictionaryDataForItemTree(
+  value: unknown,
+  itemTree: WorkspaceSectionItemTree,
+): ParameterDictionarySectionData {
+  const data = readParameterDictionarySectionData(value);
+  return {
+    ...data,
+    entryDiagnostics: retainKnownItemEntries(data.entryDiagnostics, itemTree),
+  };
+}
+
+function retainKnownItemEntries<T>(
+  entries: Readonly<Record<string, T>>,
+  itemTree: WorkspaceSectionItemTree,
+): Record<string, T> {
+  const retained: Record<string, T> = {};
+  for (const [itemId, entry] of Object.entries(entries)) {
+    if (itemTree.items[itemId] !== undefined) {
+      retained[itemId] = entry;
+    }
+  }
+  return retained;
 }
 
 function retainSectionPresentation(

@@ -100,6 +100,7 @@ function MockWorkspaceCanvas() {
   const mutation = usePythonCanvasMutationContext();
   return (
     <div
+      data-callable-draft={mutation.callableDraft("callable:one")}
       data-parameter-authoring-pending={String(
         mutation.parameterAuthoringPending("callable:one"),
       )}
@@ -1181,6 +1182,132 @@ describe("PythonCanvasApp", () => {
     ]);
   });
 
+  it("reconciles pushed callable commits and parameter refreshes as one consistent view", async () => {
+    const initialSnapshot = parseProjectSnapshotV2(projectSnapshotFixture);
+    const createdSnapshot = parseProjectSnapshotV2({
+      ...callableSnapshot(2, [], "", "CLI live demo"),
+      diagnosticsRevision: 2,
+    });
+    const committedSnapshot = parseProjectSnapshotV2({
+      ...createdSnapshot,
+      callables: [
+        {
+          ...createdSnapshot.callables[0],
+          authoredExpression: "math.fabs",
+        },
+      ],
+      diagnostics: [
+        {
+          end: 9,
+          id: "diagnostic:callable-warning",
+          message: "The callable has not resolved yet.",
+          severity: "warning",
+          start: 0,
+          targetId: "callable:one",
+        },
+      ],
+      diagnosticsRevision: 3,
+      project: { ...createdSnapshot.project, revision: 3 },
+    });
+    const refreshedSnapshot = parseProjectSnapshotV2({
+      ...committedSnapshot,
+      callables: [
+        {
+          ...committedSnapshot.callables[0],
+          parameters: [
+            {
+              ...providerParameter("parameter:x", ""),
+              name: "x",
+            },
+          ],
+        },
+      ],
+      diagnostics: [
+        {
+          end: 1,
+          id: "diagnostic:required-x",
+          message: "Value is required.",
+          severity: "error",
+          start: 0,
+          targetId: "parameter:x",
+        },
+      ],
+      diagnosticsRevision: 4,
+      project: { ...committedSnapshot.project, revision: 4 },
+    });
+    const completedSnapshot = parseProjectSnapshotV2({
+      ...refreshedSnapshot,
+      callables: [
+        {
+          ...refreshedSnapshot.callables[0],
+          parameters: [
+            {
+              ...refreshedSnapshot.callables[0]?.parameters[0],
+              authoredExpression: "-12.5",
+            },
+          ],
+        },
+      ],
+      diagnostics: [],
+      diagnosticsRevision: 5,
+      project: { ...refreshedSnapshot.project, revision: 5 },
+    });
+    const workspace = installWorkspaceHarness();
+    mocks.renderWorkspaceCanvas = true;
+    mocks.workspaceCanvasHost = workspace.host as unknown as {
+      getSnapshot: () => { sections: Record<string, unknown> };
+    };
+    mocks.workspaceCanvasSectionId = callableSectionID("callable:one");
+    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
+
+    const view = renderApp();
+    await flushEffects();
+    await pushProjectSnapshot(createdSnapshot);
+    await pushProjectSnapshot(committedSnapshot);
+
+    expect(
+      view
+        .querySelector("[data-testid='workspace-canvas']")
+        ?.getAttribute("data-callable-draft"),
+    ).toBe("math.fabs");
+
+    await pushProjectSnapshot(refreshedSnapshot);
+    const parameterItemId = parameterWorkspaceItemID("parameter:x");
+    const refreshedSection =
+      workspace.getDocument().sections[callableSectionID("callable:one")];
+    expect(refreshedSection?.itemTree?.items[parameterItemId]).toBeDefined();
+    expect(refreshedSection?.data).toMatchObject({
+      parameterDiagnostics: {
+        [parameterItemId]: [
+          { message: "Value is required.", severity: "error" },
+        ],
+      },
+    });
+    for (const itemId of Object.keys(
+      (
+        refreshedSection?.data as {
+          parameterDiagnostics: Record<string, unknown>;
+        }
+      ).parameterDiagnostics,
+    )) {
+      expect(refreshedSection?.itemTree?.items[itemId]).toBeDefined();
+    }
+
+    await pushProjectSnapshot(completedSnapshot);
+    expect(
+      readCallableParameterItems(workspace.getDocument(), "callable:one"),
+    ).toMatchObject([
+      {
+        data: { authoredExpression: "-12.5", name: "x" },
+        id: "parameter:x",
+      },
+    ]);
+    expect(
+      workspace.getDocument().sections[callableSectionID("callable:one")]?.data,
+    ).toMatchObject({ parameterDiagnostics: {} });
+    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(1);
+  });
+
   it("skips a selected callable on normal Enter and force-refreshes it on alternate Enter", async () => {
     const selectedSnapshot = callableSnapshot(
       3,
@@ -1569,6 +1696,19 @@ async function flushEffects(): Promise<void> {
   await act(async () => {
     await flushMicrotasks();
   });
+}
+
+async function pushProjectSnapshot(
+  snapshot: ReturnType<typeof parseProjectSnapshotV2>,
+): Promise<void> {
+  const options = mocks.projectSnapshotStreamOptions;
+  if (options === null) {
+    throw new Error("The project snapshot stream is not connected.");
+  }
+  act(() => {
+    options.onSnapshot(snapshot);
+  });
+  await flushEffects();
 }
 
 async function flushMicrotasks(): Promise<void> {
