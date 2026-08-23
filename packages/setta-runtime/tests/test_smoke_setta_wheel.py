@@ -644,8 +644,12 @@ class WheelSmokeContainmentTests(unittest.TestCase):
 def _wait_for_marker_pid(marker: Path) -> int:
     deadline = time.monotonic() + 5.0
     while time.monotonic() < deadline:
-        if marker.exists():
-            return int(marker.read_text(encoding="ascii"))
+        try:
+            published = marker.read_text(encoding="ascii").strip()
+        except FileNotFoundError:
+            published = ""
+        if published.isdecimal() and int(published) > 0:
+            return int(published)
         time.sleep(0.01)
     raise AssertionError("guardian did not publish its child PID")
 
