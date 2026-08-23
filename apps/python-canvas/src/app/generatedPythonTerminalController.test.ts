@@ -87,7 +87,11 @@ describe("Generated Python terminal runtime", () => {
 
   it("joins a Run to an in-flight Create so one session adds one pane height", async () => {
     const harness = createRuntimeHarness({ revision: 7 });
-    const open = deferred<{ columns: number; created: boolean; rows: number }>();
+    const open = deferred<{
+      columns: number;
+      created: boolean;
+      rows: number;
+    }>();
     mocks.openTerminal.mockReturnValue(open.promise);
     mocks.runTerminal.mockResolvedValue({
       columns: 80,

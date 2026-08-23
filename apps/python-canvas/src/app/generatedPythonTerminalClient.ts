@@ -122,7 +122,9 @@ export function mountGeneratedPythonTerminal({
   };
 }
 
-export function disposeGeneratedPythonTerminal(sessionKey: string | null): void {
+export function disposeGeneratedPythonTerminal(
+  sessionKey: string | null,
+): void {
   if (sessionKey === null) {
     return;
   }
@@ -182,16 +184,23 @@ async function connectTerminalStream(
   session: TerminalSession,
 ): Promise<void> {
   try {
-    const { ticket } = await getTerminalTicket({ projectId: session.projectId });
+    const { ticket } = await getTerminalTicket({
+      projectId: session.projectId,
+    });
     if (session.disposed || sessions.get(sessionKey) !== session) {
       return;
     }
     const socket = new WebSocket(buildTerminalStreamURL(ticket));
     socket.binaryType = "arraybuffer";
     session.socket = socket;
-    socket.addEventListener("open", () => queueTerminalResize(sessionKey, session));
+    socket.addEventListener("open", () =>
+      queueTerminalResize(sessionKey, session),
+    );
     socket.addEventListener("error", () => {
-      reportTerminalError(session, "The terminal connection failed. Try again.");
+      reportTerminalError(
+        session,
+        "The terminal connection failed. Try again.",
+      );
     });
     socket.addEventListener("message", (event) => {
       handleTerminalMessage(sessionKey, session, event);
@@ -204,7 +213,10 @@ async function connectTerminalStream(
 }
 
 function buildTerminalStreamURL(ticket: string): string {
-  const streamURL = new URL(PROJECT_TERMINAL_STREAM_PATH_V2, window.location.href);
+  const streamURL = new URL(
+    PROJECT_TERMINAL_STREAM_PATH_V2,
+    window.location.href,
+  );
   streamURL.protocol = streamURL.protocol === "https:" ? "wss:" : "ws:";
   streamURL.searchParams.set("ticket", ticket);
   return streamURL.toString();
@@ -220,7 +232,10 @@ function handleTerminalMessage(
   }
   if (typeof event.data === "string") {
     if (!isTerminalReadyMessage(event.data)) {
-      reportTerminalError(session, "The terminal stream returned an invalid control message.");
+      reportTerminalError(
+        session,
+        "The terminal stream returned an invalid control message.",
+      );
       session.socket?.close();
       return;
     }
@@ -269,7 +284,10 @@ function writeTerminalBytes(session: TerminalSession, data: ArrayBuffer): void {
   session.terminal.write(new TextDecoder().decode(data));
 }
 
-function queueTerminalResize(sessionKey: string, session: TerminalSession): void {
+function queueTerminalResize(
+  sessionKey: string,
+  session: TerminalSession,
+): void {
   const dimensions = getGeneratedPythonTerminalDimensions(sessionKey);
   const message = JSON.stringify({
     columns: dimensions.columns,
@@ -346,7 +364,10 @@ function releaseTerminalSession(
   }, TERMINAL_REUSE_DELAY_MS);
 }
 
-function disposeTerminalSession(sessionKey: string, session: TerminalSession): void {
+function disposeTerminalSession(
+  sessionKey: string,
+  session: TerminalSession,
+): void {
   if (sessions.get(sessionKey) !== session || session.disposed) {
     return;
   }

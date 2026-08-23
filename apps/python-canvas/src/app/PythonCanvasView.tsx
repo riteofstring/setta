@@ -123,7 +123,11 @@ function PythonCanvasCompletionError({ error }: { error: string | null }) {
 
 function PythonCanvasTerminalError({ error }: { error: string | null }) {
   return (
-    <p className="python-canvas-announcer" id="python-canvas-terminal-error" role="alert">
+    <p
+      className="python-canvas-announcer"
+      id="python-canvas-terminal-error"
+      role="alert"
+    >
       {error}
     </p>
   );

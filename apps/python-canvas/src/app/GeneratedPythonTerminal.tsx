@@ -1,9 +1,11 @@
-import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode } from "react";
+import type {
+  CSSProperties,
+  KeyboardEvent,
+  PointerEvent,
+  ReactNode,
+} from "react";
 import { useLayoutEffect, useRef } from "react";
-import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-} from "@setta/workspace";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "@setta/workspace";
 
 import { mountGeneratedPythonTerminal } from "./generatedPythonTerminalClient";
 import { useGeneratedPythonTerminal } from "./generatedPythonTerminalContext";

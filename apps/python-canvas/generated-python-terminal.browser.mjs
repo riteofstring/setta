@@ -102,8 +102,8 @@ export async function exerciseGeneratedPythonTerminalLifecycle(
   );
   await waitForTerminalMarkerCount(client, shellSessionMarker, 1);
 
-  const revisionBeforeHide = (await fetchCanonicalSnapshot(backendOrigin)).project
-    .revision;
+  const revisionBeforeHide = (await fetchCanonicalSnapshot(backendOrigin))
+    .project.revision;
   await clickElementCenter(
     client,
     terminalToggleSelector,
@@ -471,7 +471,10 @@ async function elementRect(client, selector, description) {
     })()`,
   );
   assert.ok(rect, `${description} is missing.`);
-  assert.ok(rect.width > 0 && rect.height > 0, `${description} is not visible.`);
+  assert.ok(
+    rect.width > 0 && rect.height > 0,
+    `${description} is not visible.`,
+  );
   return rect;
 }
 
@@ -500,7 +503,10 @@ function assertApproximately(actual, expected, tolerance, message) {
 
 function octalShellText(value) {
   return [...value]
-    .map((character) => `\\${character.charCodeAt(0).toString(8).padStart(3, "0")}`)
+    .map(
+      (character) =>
+        `\\${character.charCodeAt(0).toString(8).padStart(3, "0")}`,
+    )
     .join("");
 }
 

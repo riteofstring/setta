@@ -265,8 +265,11 @@ describe("Python Canvas V2 project client", () => {
     const closeRequest = { projectId };
     const session = { columns: 80, created: true, rows: 24 };
 
-    await expectTerminalPost(PROJECT_TERMINAL_PATH_V2, openRequest, session, (fetch) =>
-      openTerminal(openRequest, fetch),
+    await expectTerminalPost(
+      PROJECT_TERMINAL_PATH_V2,
+      openRequest,
+      session,
+      (fetch) => openTerminal(openRequest, fetch),
     );
     await expectTerminalPost(
       PROJECT_TERMINAL_RUN_PATH_V2,

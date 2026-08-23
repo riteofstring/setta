@@ -37,7 +37,10 @@ const mocks = vi.hoisted(() => {
       this.readyState = FakeWebSocket.CLOSED;
     });
     public readonly send = vi.fn();
-    private readonly listeners = new Map<string, Array<{ listener: Listener; once: boolean }>>();
+    private readonly listeners = new Map<
+      string,
+      Array<{ listener: Listener; once: boolean }>
+    >();
 
     public constructor(public readonly url: string) {
       mocks.sockets.push(this);
@@ -124,7 +127,9 @@ describe("Generated Python terminal client", () => {
     if (socket === undefined) {
       throw new Error("Expected the terminal WebSocket.");
     }
-    expect(socket.url).toContain("/api/v2/project/terminal/stream?ticket=ticket-value");
+    expect(socket.url).toContain(
+      "/api/v2/project/terminal/stream?ticket=ticket-value",
+    );
 
     releaseFirst();
     expect(socket.close).not.toHaveBeenCalled();
@@ -141,7 +146,10 @@ describe("Generated Python terminal client", () => {
     expect(mocks.getTerminalTicket).toHaveBeenCalledTimes(1);
     expect(mocks.sockets).toHaveLength(1);
 
-    socket.emit("message", new MessageEvent("message", { data: '{"type":"ready"}' }));
+    socket.emit(
+      "message",
+      new MessageEvent("message", { data: '{"type":"ready"}' }),
+    );
     expect(socket.send).toHaveBeenCalledWith(
       '{"columns":80,"rows":24,"type":"resize"}',
     );

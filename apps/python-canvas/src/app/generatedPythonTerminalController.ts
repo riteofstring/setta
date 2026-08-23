@@ -13,8 +13,8 @@ import {
 } from "./generatedPythonTerminalClient";
 import { GENERATED_PYTHON_SECTION_ID } from "./workspaceProjection";
 
-export const GENERATED_PYTHON_TERMINAL_DEFAULT_HEIGHT = 220;
-export const GENERATED_PYTHON_TERMINAL_MINIMUM_HEIGHT = 100;
+const GENERATED_PYTHON_TERMINAL_DEFAULT_HEIGHT = 220;
+const GENERATED_PYTHON_TERMINAL_MINIMUM_HEIGHT = 100;
 
 export type GeneratedPythonTerminalState = Readonly<{
   creating: boolean;
@@ -200,7 +200,8 @@ export function createGeneratedPythonTerminalRuntime({
       // Run remains visually enabled. When Create already owns the one shell request, join it
       // before asking the run route to reuse that shell rather than adding a second pane/height.
       await creatingPromise;
-      const sessionKey = state.sessionKey ?? makeSessionKey(snapshot.project.id);
+      const sessionKey =
+        state.sessionKey ?? makeSessionKey(snapshot.project.id);
       const dimensions = getGeneratedPythonTerminalDimensions(state.sessionKey);
       try {
         await runTerminal({

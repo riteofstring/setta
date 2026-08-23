@@ -406,12 +406,16 @@ func normalizeOrigin(value string) (string, bool) {
 	if scheme != "http" && scheme != "https" {
 		return "", false
 	}
-	hostname := strings.ToLower(parsed.Hostname())
-	if hostname != "localhost" {
-		address := net.ParseIP(hostname)
-		if address == nil || !address.IsLoopback() {
-			return "", false
-		}
+	if !isLoopbackHostname(strings.ToLower(parsed.Hostname())) {
+		return "", false
 	}
 	return scheme + "://" + strings.ToLower(parsed.Host), true
+}
+
+func isLoopbackHostname(hostname string) bool {
+	if hostname == "localhost" {
+		return true
+	}
+	address := net.ParseIP(hostname)
+	return address != nil && address.IsLoopback()
 }

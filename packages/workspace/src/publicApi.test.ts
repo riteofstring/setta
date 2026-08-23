@@ -125,7 +125,9 @@ describe("public package API", () => {
     });
 
     const publications: Array<workspace.WorkspaceDocument> = [];
-    const unsubscribe = host.subscribe((document) => publications.push(document));
+    const unsubscribe = host.subscribe((document) =>
+      publications.push(document),
+    );
     workspace.setWorkspaceSectionSize(host, "leaf", { height: 320 });
 
     expect(host.getSnapshot().sections["leaf"]?.size).toEqual({

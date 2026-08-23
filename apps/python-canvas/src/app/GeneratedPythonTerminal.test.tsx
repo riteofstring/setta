@@ -144,7 +144,9 @@ describe("GeneratedPythonTerminal", () => {
       <GeneratedPythonTerminalSection editor={<div data-testid="editor" />} />,
       terminalContext({ status: "hidden" }, actions),
     );
-    expect(view.querySelector("[data-attached-terminal-section-id]")).toBeNull();
+    expect(
+      view.querySelector("[data-attached-terminal-section-id]"),
+    ).toBeNull();
     expect(mocks.cleanupTerminal).toHaveBeenCalledTimes(1);
 
     renderIntoRoot(
@@ -215,7 +217,10 @@ function renderIntoRoot(
   });
 }
 
-function requiredButton(view: HTMLDivElement, label: string): HTMLButtonElement {
+function requiredButton(
+  view: HTMLDivElement,
+  label: string,
+): HTMLButtonElement {
   const button = view.querySelector<HTMLButtonElement>(
     `button[aria-label="${label}"]`,
   );

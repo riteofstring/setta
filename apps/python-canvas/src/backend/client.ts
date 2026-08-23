@@ -57,9 +57,11 @@ import {
   parseCompletionResponseV2,
   parseErrorResponseV2,
   parseProjectSnapshotV2,
+} from "./runtimeContract";
+import {
   parseTerminalSessionV2,
   parseTerminalTicketV2,
-} from "./runtimeContract";
+} from "./terminalRuntimeContract";
 
 type ProjectClientErrorKind = "network" | "http" | "invalid_response";
 

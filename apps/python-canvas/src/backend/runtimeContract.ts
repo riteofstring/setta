@@ -38,8 +38,6 @@ import {
   type ProviderLifecycleStateV2,
   type ProviderStatusV2,
   type PythonTargetV2,
-  type TerminalSessionV2,
-  type TerminalTicketV2,
 } from "./generatedContract";
 import { isUtf8Boundary, sliceByByteRange, utf8ByteLength } from "./utf8";
 
@@ -181,28 +179,6 @@ export function parseCompletionResponseV2(
       parseCompletionItem,
     ),
   };
-}
-
-export function parseTerminalSessionV2(value: unknown): TerminalSessionV2 {
-  const record = readClosedRecord(value, "terminal session", [
-    "created",
-    "columns",
-    "rows",
-  ]);
-  return {
-    columns: readPositiveInteger(record.columns, "terminal session.columns"),
-    created: readBoolean(record.created, "terminal session.created"),
-    rows: readPositiveInteger(record.rows, "terminal session.rows"),
-  };
-}
-
-export function parseTerminalTicketV2(value: unknown): TerminalTicketV2 {
-  const record = readClosedRecord(value, "terminal ticket", ["ticket"]);
-  const ticket = readNonBlankString(record.ticket, "terminal ticket.ticket");
-  if (ticket.length < 32) {
-    fail("terminal ticket.ticket", "is invalid");
-  }
-  return { ticket };
 }
 
 function parseProject(value: unknown): ProjectV2 {
@@ -918,7 +894,7 @@ function readTextOrNull(value: unknown, field: string): string | null {
   return value === null ? null : readText(value, field, true);
 }
 
-function readNonBlankString(value: unknown, field: string): string {
+export function readNonBlankString(value: unknown, field: string): string {
   const text = readText(value, field, false);
   if (text.trim() === "") {
     fail(field, "must not be empty");
@@ -933,14 +909,14 @@ function readString(value: unknown, field: string): string {
   return value;
 }
 
-function readBoolean(value: unknown, field: string): boolean {
+export function readBoolean(value: unknown, field: string): boolean {
   if (typeof value !== "boolean") {
     fail(field, "must be a boolean");
   }
   return value;
 }
 
-function readPositiveInteger(value: unknown, field: string): number {
+export function readPositiveInteger(value: unknown, field: string): number {
   const result = readNonNegativeInteger(value, field);
   if (result < 1) {
     fail(field, "must be positive");
@@ -973,7 +949,7 @@ function readArray<T>(
   return value.map(parseEntry);
 }
 
-function readClosedRecord(
+export function readClosedRecord(
   value: unknown,
   field: string,
   keys: readonly string[],
@@ -1018,6 +994,6 @@ function requireExactEnumerableKeys(
   }
 }
 
-function fail(field: string, problem: string): never {
+export function fail(field: string, problem: string): never {
   throw new ProjectSnapshotValidationError(field, problem);
 }

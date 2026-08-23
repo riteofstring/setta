@@ -79,7 +79,16 @@ func TestTerminalStreamUsesReadyHistoryLiveAndValidatedInput(t *testing.T) {
 	runtime := newTerminalRuntimeStub()
 	runtime.history = []byte("retained marker\n")
 	handler := newTerminalHandlerForTest(t, service, runtime)
+	ctx, connection := openTerminalStreamForTest(t, handler)
 
+	assertTerminalReadyAndHistory(t, ctx, connection)
+	assertTerminalLiveOutput(t, ctx, connection, runtime)
+	assertTerminalInput(t, ctx, connection, runtime)
+	assertTerminalResize(t, ctx, connection, runtime)
+}
+
+func openTerminalStreamForTest(t *testing.T, handler http.Handler) (context.Context, *websocket.Conn) {
+	t.Helper()
 	opened := postJSON(handler, contracts.ProjectTerminalPathV2, `{"projectId":"project:fixture","columns":80,"rows":24}`)
 	if opened.Code != http.StatusOK {
 		t.Fatalf("open status = %d; body = %s", opened.Code, opened.Body.String())
@@ -94,9 +103,9 @@ func TestTerminalStreamUsesReadyHistoryLiveAndValidatedInput(t *testing.T) {
 	}
 
 	server := httptest.NewServer(handler)
-	defer server.Close()
+	t.Cleanup(server.Close)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	t.Cleanup(cancel)
 	streamURL := "ws" + strings.TrimPrefix(server.URL, "http") + contracts.ProjectTerminalStreamPathV2 + "?ticket=" + url.QueryEscape(ticket.Ticket)
 	connection, response, err := websocket.Dial(ctx, streamURL, &websocket.DialOptions{
 		HTTPHeader: http.Header{"Origin": []string{"http://127.0.0.1:5173"}},
@@ -107,8 +116,12 @@ func TestTerminalStreamUsesReadyHistoryLiveAndValidatedInput(t *testing.T) {
 		}
 		t.Fatalf("dial terminal stream: %v", err)
 	}
-	defer connection.Close(websocket.StatusNormalClosure, "")
+	t.Cleanup(func() { _ = connection.Close(websocket.StatusNormalClosure, "") })
+	return ctx, connection
+}
 
+func assertTerminalReadyAndHistory(t *testing.T, ctx context.Context, connection *websocket.Conn) {
+	t.Helper()
 	messageType, data, err := connection.Read(ctx)
 	if err != nil {
 		t.Fatalf("read ready message: %v", err)
@@ -128,16 +141,22 @@ func TestTerminalStreamUsesReadyHistoryLiveAndValidatedInput(t *testing.T) {
 	if messageType != websocket.MessageBinary || string(data) != "retained marker\n" {
 		t.Fatalf("history frame = type %v data %q", messageType, string(data))
 	}
+}
 
+func assertTerminalLiveOutput(t *testing.T, ctx context.Context, connection *websocket.Conn, runtime *terminalRuntimeStub) {
+	t.Helper()
 	runtime.publish([]byte("live marker\n"))
-	messageType, data, err = connection.Read(ctx)
+	messageType, data, err := connection.Read(ctx)
 	if err != nil {
 		t.Fatalf("read live output: %v", err)
 	}
 	if messageType != websocket.MessageBinary || string(data) != "live marker\n" {
 		t.Fatalf("live frame = type %v data %q", messageType, string(data))
 	}
+}
 
+func assertTerminalInput(t *testing.T, ctx context.Context, connection *websocket.Conn, runtime *terminalRuntimeStub) {
+	t.Helper()
 	if err := connection.Write(ctx, websocket.MessageBinary, []byte("printf terminal-input\\n\n")); err != nil {
 		t.Fatalf("write binary terminal input: %v", err)
 	}
@@ -149,7 +168,10 @@ func TestTerminalStreamUsesReadyHistoryLiveAndValidatedInput(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal("server did not receive binary terminal input")
 	}
+}
 
+func assertTerminalResize(t *testing.T, ctx context.Context, connection *websocket.Conn, runtime *terminalRuntimeStub) {
+	t.Helper()
 	resize := contracts.TerminalStreamResizeV2{Type: contracts.TerminalStreamResizeTypeV2, Columns: 101, Rows: 37}
 	resizeData, err := json.Marshal(resize)
 	if err != nil {
