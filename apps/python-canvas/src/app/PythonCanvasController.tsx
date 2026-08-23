@@ -94,6 +94,7 @@ export function PythonCanvasController() {
     let disposed = false;
     let snapshot: ProjectSnapshotV2 | null = null;
     const pendingCallableCommits = new Set<string>();
+    const unresolvedPendingSectionIds = new Set<string>();
     let mutationChain = Promise.resolve();
     const dictionaryEntryParentPromotion =
       createDictionaryEntryParentPromotionScheduler({
@@ -407,6 +408,7 @@ export function PythonCanvasController() {
             : []),
         ]),
         pendingSectionIds,
+        unresolvedPendingSectionIds,
       });
       synchronizeReactProjection(
         nextSnapshot,
@@ -432,6 +434,7 @@ export function PythonCanvasController() {
           answer,
         ),
         pendingSectionIds: new Map(),
+        unresolvedPendingSectionIds,
       });
       synchronizeReactProjection(snapshot, null);
     };
@@ -597,8 +600,14 @@ export function PythonCanvasController() {
       },
       restoreCanonicalProject,
       retrieveCallableParameters,
+      registerPendingSection: (pendingSectionId) => {
+        unresolvedPendingSectionIds.add(pendingSectionId);
+      },
       setCallableDraft,
       setParameterAuthoringPending,
+      settlePendingSection: (pendingSectionId) => {
+        unresolvedPendingSectionIds.delete(pendingSectionId);
+      },
       updateAnnouncement,
       updateCallableMutation,
       updateDictionaryMutation,

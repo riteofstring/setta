@@ -40,8 +40,11 @@ production launcher now builds `@setta/python-canvas` and serves it through Vite
 fixed loopback origin; a focused static process regression covers that command. The supervisor has
 accepted this phase's frozen acceptance candidate. The renderer now reserves every emitted state
 path across the complete forest, including list descendants and nested dictionary entries; focused
-renderer regressions prove both collision classes. Final independent audit remains
-supervisor-owned.**
+renderer regressions prove both collision classes. The final frontend concurrency closeout retains
+a later local forest proposal across an earlier response and retains every unresolved create
+placeholder with its saved top-level layout until its own response; deterministic controller and
+projection regressions cover both sequences. Repository-actionable implementation and developer
+evidence gates are complete. Final independent audit remains supervisor-owned.**
 
 Add the next two Python Canvas section types from main: **Param Dict** and **List of Objects**.
 This is one closed vertical slice across the validated Go aggregate, strict project file, generated
@@ -389,4 +392,4 @@ scope into the explicit non-goals or performs a general edge-case audit.
       nesting, with a focused static gesture regression
 - [x] Nested-list removal waits for its zero-child postcondition and rejects invalid expected
       child counts, with a focused static harness regression
-- [ ] Implementation, production headless proof, review, and closeout complete
+- [x] Implementation, production headless proof, review, and closeout complete

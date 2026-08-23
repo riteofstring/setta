@@ -168,6 +168,7 @@ describe("Python Canvas V2 workspace projection", () => {
       keepDictionaryEntries: new Set(),
       keepParameterLists: new Set(),
       pendingSectionIds: new Map([["callable:created", pendingSectionId]]),
+      unresolvedPendingSectionIds: new Set(),
     });
 
     const createdSectionId = callableSectionID("callable:created");
@@ -277,6 +278,7 @@ describe("Python Canvas V2 workspace projection", () => {
       keepDictionaryEntries: new Set(),
       keepParameterLists: new Set(["callable:second"]),
       pendingSectionIds: new Map(),
+      unresolvedPendingSectionIds: new Set(),
     });
 
     expect(
@@ -312,6 +314,7 @@ describe("Python Canvas V2 workspace projection", () => {
       keepDictionaryEntries: new Set(),
       keepParameterLists: new Set(["callable:second"]),
       pendingSectionIds: new Map(),
+      unresolvedPendingSectionIds: new Set(),
     });
 
     expect(
@@ -562,6 +565,7 @@ describe("Python Canvas V2 workspace projection", () => {
         ["dictionary:created", pendingDictionaryId],
         ["list:created", pendingListId],
       ]),
+      unresolvedPendingSectionIds: new Set(),
     });
 
     const dictionaryId = parameterDictionarySectionID("dictionary:created");

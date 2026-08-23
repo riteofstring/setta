@@ -83,8 +83,10 @@ export type PythonCanvasMutationEnvironment = {
     callableId: string,
     snapshot: ProjectSnapshotV2,
   ) => Promise<void>;
+  registerPendingSection: (pendingSectionId: string) => void;
   setCallableDraft: (callableId: string, value: string) => void;
   setParameterAuthoringPending: (callableId: string, pending: boolean) => void;
+  settlePendingSection: (pendingSectionId: string) => void;
   updateAnnouncement: (next: MutationState) => void;
   updateCallableMutation: (callableId: string, next: MutationState) => void;
   updateDictionaryMutation: (dictionaryId: string, next: MutationState) => void;
@@ -324,8 +326,14 @@ export function createPythonCanvasMutations(
         if (!environment.isActive()) {
           return;
         }
+        const laterForestProposal = forestMutationProposal(
+          environment.host.getSnapshot(),
+          next,
+        );
         environment.publishSnapshot(next);
-        environment.acceptCanonicalSnapshot(next, { kind: "other" });
+        if (laterForestProposal === null) {
+          environment.acceptCanonicalSnapshot(next, { kind: "other" });
+        }
         environment.updateAnnouncement({ kind: "idle" });
       } catch (error) {
         if (environment.isActive()) {
@@ -362,6 +370,7 @@ export function createPythonCanvasMutations(
       description: "Creating the callable.",
       kind: "pending",
     });
+    environment.registerPendingSection(pendingSectionId);
     environment.enqueue(async () => {
       const currentSnapshot = requireCurrentSnapshot(environment);
       if (currentSnapshot === null) {
@@ -382,6 +391,7 @@ export function createPythonCanvasMutations(
         environment.publishSnapshot(next);
         const created = next.callables.filter((item) => !existing.has(item.id));
         if (created.length !== 1 || created[0] === undefined) {
+          environment.settlePendingSection(pendingSectionId);
           reportUnidentifiedCreatedSection(
             environment,
             pendingSectionId,
@@ -391,6 +401,7 @@ export function createPythonCanvasMutations(
           );
           return;
         }
+        environment.settlePendingSection(pendingSectionId);
         environment.acceptCanonicalSnapshot(
           next,
           { kind: "other" },
@@ -399,6 +410,7 @@ export function createPythonCanvasMutations(
         );
         environment.updateCallableMutation(pendingSectionId, { kind: "idle" });
       } catch (error) {
+        environment.settlePendingSection(pendingSectionId);
         await reportCreateFailure(environment, "the callable", error, (next) =>
           environment.updateCallableMutation(pendingSectionId, next),
         );
@@ -417,6 +429,7 @@ export function createPythonCanvasMutations(
       description: "Creating the Param Dict.",
       kind: "pending",
     });
+    environment.registerPendingSection(pendingSectionId);
     environment.enqueue(async () => {
       const currentSnapshot = requireCurrentSnapshot(environment);
       if (currentSnapshot === null) {
@@ -439,6 +452,7 @@ export function createPythonCanvasMutations(
           (item) => !existing.has(item.id),
         );
         if (created.length !== 1 || created[0] === undefined) {
+          environment.settlePendingSection(pendingSectionId);
           reportUnidentifiedCreatedSection(
             environment,
             pendingSectionId,
@@ -448,6 +462,7 @@ export function createPythonCanvasMutations(
           );
           return;
         }
+        environment.settlePendingSection(pendingSectionId);
         environment.acceptCanonicalSnapshot(
           next,
           { kind: "other" },
@@ -458,6 +473,7 @@ export function createPythonCanvasMutations(
           kind: "idle",
         });
       } catch (error) {
+        environment.settlePendingSection(pendingSectionId);
         await reportCreateFailure(
           environment,
           "the Param Dict",
@@ -480,6 +496,7 @@ export function createPythonCanvasMutations(
       description: "Creating the List of Objects.",
       kind: "pending",
     });
+    environment.registerPendingSection(pendingSectionId);
     environment.enqueue(async () => {
       const currentSnapshot = requireCurrentSnapshot(environment);
       if (currentSnapshot === null) {
@@ -498,6 +515,7 @@ export function createPythonCanvasMutations(
         environment.publishSnapshot(next);
         const created = next.lists.filter((item) => !existing.has(item.id));
         if (created.length !== 1 || created[0] === undefined) {
+          environment.settlePendingSection(pendingSectionId);
           reportUnidentifiedCreatedSection(
             environment,
             pendingSectionId,
@@ -507,6 +525,7 @@ export function createPythonCanvasMutations(
           );
           return;
         }
+        environment.settlePendingSection(pendingSectionId);
         environment.acceptCanonicalSnapshot(
           next,
           { kind: "other" },
@@ -515,6 +534,7 @@ export function createPythonCanvasMutations(
         );
         environment.updateListMutation(pendingSectionId, { kind: "idle" });
       } catch (error) {
+        environment.settlePendingSection(pendingSectionId);
         await reportCreateFailure(
           environment,
           "the List of Objects",

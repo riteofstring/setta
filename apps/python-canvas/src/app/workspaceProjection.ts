@@ -110,6 +110,10 @@ export type ProjectSnapshotProjectionOptions = Readonly<{
   // Creation returns a short-lived local section before the canonical server
   // identity is known. Reconcile that placeholder in place on its response.
   pendingSectionIds: ReadonlyMap<string, string>;
+  // Other locally created sections can still be waiting in the serialized
+  // mutation queue. Keep their saved top-level presentation until each own
+  // creation response provides its canonical identity.
+  unresolvedPendingSectionIds: ReadonlySet<string>;
 }>;
 
 export function callableSectionID(callableId: string): string {
@@ -317,6 +321,7 @@ export function applyProjectSnapshotToWorkspace(
     }
     topLevelSections[descriptor.workspaceId] = layout;
   }
+  retainUnresolvedPendingSections(current, sections, topLevelSections, options);
 
   commitWorkspaceDocument(host, {
     ...current,
@@ -589,6 +594,33 @@ function isPendingPythonCanvasSection(kind: string): boolean {
     kind === PENDING_PARAMETER_DICTIONARY_SECTION_KIND ||
     kind === PENDING_LIST_SECTION_KIND
   );
+}
+
+function retainUnresolvedPendingSections(
+  current: WorkspaceDocument,
+  sections: WorkspaceDocument["sections"],
+  topLevelSections: WorkspaceDocument["topLevelSections"],
+  options: ProjectSnapshotProjectionOptions,
+): void {
+  const resolvingPendingSectionIds = new Set(
+    options.pendingSectionIds.values(),
+  );
+  for (const pendingSectionId of options.unresolvedPendingSectionIds) {
+    if (resolvingPendingSectionIds.has(pendingSectionId)) {
+      continue;
+    }
+    const section = current.sections[pendingSectionId];
+    const layout = current.topLevelSections[pendingSectionId];
+    if (
+      section === undefined ||
+      layout === undefined ||
+      !isPendingPythonCanvasSection(section.kind)
+    ) {
+      continue;
+    }
+    sections[pendingSectionId] = section;
+    topLevelSections[pendingSectionId] = layout;
+  }
 }
 
 function projectActiveSectionIds(
