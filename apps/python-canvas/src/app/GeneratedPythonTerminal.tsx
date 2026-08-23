@@ -63,25 +63,36 @@ export function GeneratedPythonTerminalSection({
 }: {
   editor: ReactNode;
 }) {
-  const { actions, state } = useGeneratedPythonTerminal();
-  const isVisible = state.status === "visible";
   return (
-    <div
-      className="python-canvas-generated-python-section"
-      data-generated-python-terminal={isVisible ? "visible" : state.status}
-    >
+    <div className="python-canvas-generated-python-section">
       <div className="python-canvas-generated-python-editor">{editor}</div>
-      {isVisible && state.projectId !== null && state.sessionKey !== null ? (
-        <GeneratedPythonTerminalPane
-          onResize={actions.resize}
-          onStreamError={actions.reportStreamError}
-          onTrash={actions.close}
-          projectId={state.projectId}
-          sessionKey={state.sessionKey}
-          terminalHeight={state.terminalHeight}
-        />
-      ) : null}
     </div>
+  );
+}
+
+export function GeneratedPythonTerminalAttachment({
+  ownerWidth,
+}: {
+  ownerWidth: number | "auto";
+}) {
+  const { actions, state } = useGeneratedPythonTerminal();
+  if (
+    state.status !== "visible" ||
+    state.projectId === null ||
+    state.sessionKey === null
+  ) {
+    return null;
+  }
+  return (
+    <GeneratedPythonTerminalPane
+      onResize={actions.resize}
+      onStreamError={actions.reportStreamError}
+      onTrash={actions.close}
+      ownerWidth={ownerWidth}
+      projectId={state.projectId}
+      sessionKey={state.sessionKey}
+      terminalHeight={state.terminalHeight}
+    />
   );
 }
 
@@ -89,6 +100,7 @@ function GeneratedPythonTerminalPane({
   onResize,
   onStreamError,
   onTrash,
+  ownerWidth,
   projectId,
   sessionKey,
   terminalHeight,
@@ -96,6 +108,7 @@ function GeneratedPythonTerminalPane({
   onResize: (height: number) => void;
   onStreamError: (message: string) => void;
   onTrash: () => void;
+  ownerWidth: number | "auto";
   projectId: string;
   sessionKey: string;
   terminalHeight: number;
@@ -115,9 +128,11 @@ function GeneratedPythonTerminalPane({
   }, [onStreamError, projectId, sessionKey]);
 
   return (
-    <div
+    <section
+      aria-label="Generated Python terminal"
       className="python-canvas-generated-python-terminal-pane"
-      style={terminalPaneStyle(terminalHeight)}
+      data-workspace-attached-section
+      style={terminalPaneStyle(terminalHeight, ownerWidth)}
     >
       <TerminalResizeHandle
         onResize={onResize}
@@ -139,12 +154,18 @@ function GeneratedPythonTerminalPane({
         data-section-main-editor
         ref={terminalRef}
       />
-    </div>
+    </section>
   );
 }
 
-function terminalPaneStyle(terminalHeight: number): CSSProperties {
-  return { flexBasis: `${String(terminalHeight)}px` };
+function terminalPaneStyle(
+  terminalHeight: number,
+  ownerWidth: number | "auto",
+): CSSProperties {
+  return {
+    blockSize: `${String(terminalHeight)}px`,
+    inlineSize: ownerWidth === "auto" ? ownerWidth : `${String(ownerWidth)}px`,
+  };
 }
 
 function TerminalResizeHandle({

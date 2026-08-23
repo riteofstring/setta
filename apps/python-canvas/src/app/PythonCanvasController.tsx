@@ -670,7 +670,6 @@ export function PythonCanvasController() {
     controllerRef.current = mutations.controller;
     const terminalRuntime = createGeneratedPythonTerminalRuntime({
       currentSnapshot: () => snapshot,
-      host,
       isActive: () => active,
       runAfterTargetFlush: mutations.runWithPythonTargetFlushed,
       updateState: setTerminalState,

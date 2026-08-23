@@ -159,6 +159,47 @@ describe("Generated Python terminal client", () => {
     expect(socket.close).toHaveBeenCalledTimes(1);
     expect(mocks.terminals[0]?.dispose).toHaveBeenCalledTimes(1);
   });
+
+  it("reattaches after a transient stream reset instead of leaving a blank terminal", async () => {
+    const container = document.createElement("div");
+    const reportError = vi.fn();
+    const release = mountGeneratedPythonTerminal({
+      container,
+      onError: reportError,
+      projectId: "project:terminal",
+      sessionKey: "project:terminal:generated-python:retry",
+    });
+    await flushMicrotasks();
+
+    const firstSocket = mocks.sockets[0];
+    if (firstSocket === undefined) {
+      throw new Error("Expected the first terminal WebSocket.");
+    }
+    firstSocket.readyState = mocks.FakeWebSocket.CLOSED;
+    firstSocket.emit("close", new Event("close"));
+
+    await vi.advanceTimersByTimeAsync(100);
+    await flushMicrotasks();
+
+    expect(mocks.getTerminalTicket).toHaveBeenCalledTimes(2);
+    expect(mocks.sockets).toHaveLength(2);
+    const secondSocket = mocks.sockets[1];
+    if (secondSocket === undefined) {
+      throw new Error("Expected the replacement terminal WebSocket.");
+    }
+    secondSocket.emit(
+      "message",
+      new MessageEvent("message", { data: '{"type":"ready"}' }),
+    );
+
+    expect(reportError).not.toHaveBeenCalled();
+    expect(secondSocket.send).toHaveBeenCalledWith(
+      '{"columns":80,"rows":24,"type":"resize"}',
+    );
+
+    release();
+    disposeGeneratedPythonTerminal("project:terminal:generated-python:retry");
+  });
 });
 
 async function flushMicrotasks(): Promise<void> {

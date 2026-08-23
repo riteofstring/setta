@@ -18,6 +18,7 @@ vi.mock("./generatedPythonTerminalClient", () => ({
 }));
 
 import {
+  GeneratedPythonTerminalAttachment,
   GeneratedPythonTerminalHeaderControls,
   GeneratedPythonTerminalSection,
 } from "./GeneratedPythonTerminal";
@@ -103,14 +104,19 @@ describe("GeneratedPythonTerminal", () => {
       actions,
     );
     const view = renderTerminal(
-      <GeneratedPythonTerminalSection editor={<div data-testid="editor" />} />,
+      <>
+        <GeneratedPythonTerminalSection editor={<div data-testid="editor" />} />
+        <GeneratedPythonTerminalAttachment ownerWidth={640} />
+      </>,
       visible,
     );
 
     const pane = view.querySelector<HTMLDivElement>(
       ".python-canvas-generated-python-terminal-pane",
     );
-    expect(pane?.style.flexBasis).toBe("220px");
+    expect(pane?.style.blockSize).toBe("220px");
+    expect(pane?.style.inlineSize).toBe("640px");
+    expect(pane?.hasAttribute("data-workspace-attached-section")).toBe(true);
     expect(view.querySelector("[data-testid='editor']")).not.toBeNull();
     expect(mocks.mountGeneratedPythonTerminal).toHaveBeenCalledWith({
       container: expect.any(HTMLDivElement),
@@ -141,7 +147,10 @@ describe("GeneratedPythonTerminal", () => {
     expect(actions.close).toHaveBeenCalledTimes(1);
 
     renderIntoRoot(
-      <GeneratedPythonTerminalSection editor={<div data-testid="editor" />} />,
+      <>
+        <GeneratedPythonTerminalSection editor={<div data-testid="editor" />} />
+        <GeneratedPythonTerminalAttachment ownerWidth={640} />
+      </>,
       terminalContext({ status: "hidden" }, actions),
     );
     expect(
@@ -150,7 +159,10 @@ describe("GeneratedPythonTerminal", () => {
     expect(mocks.cleanupTerminal).toHaveBeenCalledTimes(1);
 
     renderIntoRoot(
-      <GeneratedPythonTerminalSection editor={<div data-testid="editor" />} />,
+      <>
+        <GeneratedPythonTerminalSection editor={<div data-testid="editor" />} />
+        <GeneratedPythonTerminalAttachment ownerWidth={640} />
+      </>,
       visible,
     );
     expect(mocks.mountGeneratedPythonTerminal).toHaveBeenCalledTimes(2);

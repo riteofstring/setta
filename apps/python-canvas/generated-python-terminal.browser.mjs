@@ -16,9 +16,11 @@ import { generatedPythonEditorSelector } from "./python-target.browser.mjs";
 
 const generatedSectionSelector =
   '[data-section-id="python-canvas:generated-python"]';
+const generatedGroupSelector =
+  '[data-workspace-joined-section-group]:has(> [data-section-id="python-canvas:generated-python"])';
 const runSelector = `${generatedSectionSelector} [data-generated-python-run]`;
 const terminalToggleSelector = `${generatedSectionSelector} [data-generated-python-terminal-toggle]`;
-const terminalPaneSelector = `${generatedSectionSelector} .python-canvas-generated-python-terminal-pane`;
+const terminalPaneSelector = `${generatedGroupSelector} .python-canvas-generated-python-terminal-pane`;
 const terminalSurfaceSelector = `${terminalPaneSelector} [data-attached-terminal-section-id="generated-python-runtime"]`;
 const terminalTextAreaSelector = `${terminalSurfaceSelector} .xterm-helper-textarea`;
 const terminalRowsSelector = `${terminalSurfaceSelector} .xterm-rows`;
@@ -32,6 +34,7 @@ const staleOrderingMarker = "SETTA_TERMINAL_STALE_ORDERING";
 const longRunStartedMarker = "SETTA_TERMINAL_LONG_RUN_STARTED";
 const afterInterruptMarker = "SETTA_TERMINAL_AFTER_INTERRUPT";
 const beforeTrashMarker = "SETTA_TERMINAL_BEFORE_TRASH";
+const absentRunMarker = "SETTA_TERMINAL_ABSENT_RUN";
 
 export async function exerciseGeneratedPythonTerminalLifecycle(
   client,
@@ -89,10 +92,16 @@ export async function exerciseGeneratedPythonTerminalLifecycle(
     "Creating the terminal changed the code editor height.",
   );
   assertApproximately(
-    editorAfterCreate.section.height - editorBeforeCreate.section.height,
-    220,
+    editorAfterCreate.section.height,
+    editorBeforeCreate.section.height,
     2,
-    "The Generated Python card did not grow by the terminal height.",
+    "Creating the terminal changed the authored Generated Python height.",
+  );
+  assertApproximately(
+    editorAfterCreate.group.height - editorBeforeCreate.group.height,
+    editorAfterCreate.pane.height,
+    2,
+    "The joined Generated Python group did not grow by the terminal height.",
   );
   assertPaneAligned(editorAfterCreate);
 
@@ -248,6 +257,24 @@ export async function exerciseGeneratedPythonTerminalLifecycle(
     0,
     "A newly created terminal replayed history from the trashed shell.",
   );
+
+  await clickElementCenter(
+    client,
+    terminalTrashSelector,
+    "the fresh attached terminal trash control",
+  );
+  await waitForTerminalState(client, "Create terminal", false);
+  await appendPythonSuffixWithoutWaiting(
+    client,
+    `\nprint(${JSON.stringify(absentRunMarker)})`,
+  );
+  await clickElementCenter(
+    client,
+    runSelector,
+    "the Generated Python Run control without an existing terminal",
+  );
+  await waitForTerminalReady(client);
+  await waitForTerminalMarkerCount(client, absentRunMarker, 1);
 }
 
 async function appendPythonSuffix(client, backendOrigin, text) {
@@ -385,10 +412,10 @@ async function exerciseTerminalResize(client) {
     "Resizing the terminal changed the code editor height.",
   );
   assertApproximately(
-    afterHeight.section.height - before.section.height,
+    afterHeight.group.height - before.group.height,
     afterHeight.pane.height - before.pane.height,
     2,
-    "The owning card did not follow the terminal height delta.",
+    "The joined group did not follow the terminal height delta.",
   );
   await waitFor(
     client,
@@ -438,9 +465,10 @@ async function generatedTerminalGeometry(client) {
     client,
     `(() => {
       const section = document.querySelector(${JSON.stringify(generatedSectionSelector)});
+      const group = document.querySelector(${JSON.stringify(generatedGroupSelector)});
       const editor = document.querySelector(${JSON.stringify(`${generatedSectionSelector} .python-canvas-generated-python-editor`)});
       const pane = document.querySelector(${JSON.stringify(terminalPaneSelector)});
-      if (!(section instanceof HTMLElement) || !(editor instanceof HTMLElement)) {
+      if (!(section instanceof HTMLElement) || !(group instanceof HTMLElement) || !(editor instanceof HTMLElement)) {
         return null;
       }
       const box = (element) => {
@@ -449,6 +477,7 @@ async function generatedTerminalGeometry(client) {
       };
       return {
         editor: box(editor),
+        group: box(group),
         pane: pane instanceof HTMLElement ? box(pane) : null,
         section: box(section),
       };

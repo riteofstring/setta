@@ -10,6 +10,7 @@
 
 @import "./scopedBase.css";
 @import "./workspace.css";
+@import "./sectionAttachment.css";
 @import "./listRoot.css";
 @import "./itemToolbar.css";
 @import "./sectionField.css";

@@ -13,6 +13,7 @@ import {
 
 const TERMINAL_REUSE_DELAY_MS = 1_200;
 const TERMINAL_RESIZE_THROTTLE_MS = 200;
+const TERMINAL_RECONNECT_DELAYS_MS = [100, 250, 500] as const;
 const DEFAULT_TERMINAL_DIMENSIONS = { columns: 80, rows: 24 } as const;
 
 type TerminalDimensions = {
@@ -22,6 +23,7 @@ type TerminalDimensions = {
 
 type TerminalSession = {
   closeTimeout: number | null;
+  connecting: boolean;
   disposed: boolean;
   fitAddon: FitAddon;
   inputDisposable: { dispose: () => void };
@@ -31,6 +33,8 @@ type TerminalSession = {
   pendingResizeMessage: string | null;
   pendingResizeTimeout: number | null;
   projectId: string;
+  reconnectAttempts: number;
+  reconnectTimeout: number | null;
   referenceCount: number;
   reportError: ((message: string) => void) | null;
   resizeDisposable: { dispose: () => void };
@@ -88,10 +92,6 @@ export function mountGeneratedPythonTerminal({
   sessionKey: string;
 }): () => void {
   let session = sessions.get(sessionKey);
-  if (session && session.referenceCount === 0 && isSocketClosed(session)) {
-    disposeTerminalSession(sessionKey, session);
-    session = undefined;
-  }
   if (!session) {
     session = createTerminalSession({ onError, projectId, sessionKey });
     sessions.set(sessionKey, session);
@@ -103,6 +103,14 @@ export function mountGeneratedPythonTerminal({
     session.closeTimeout = null;
   }
   attachTerminalToContainer(session.terminal, container);
+  if (
+    !session.connecting &&
+    session.socket === null &&
+    session.reconnectTimeout === null
+  ) {
+    session.reconnectAttempts = 0;
+    void connectTerminalStream(sessionKey, session);
+  }
 
   const syncTerminalSize = () => {
     fitTerminal(session);
@@ -148,6 +156,7 @@ function createTerminalSession({
   terminal.loadAddon(fitAddon);
   const session: TerminalSession = {
     closeTimeout: null,
+    connecting: false,
     disposed: false,
     fitAddon,
     inputDisposable: terminal.onData(() => {}),
@@ -157,6 +166,8 @@ function createTerminalSession({
     pendingResizeMessage: null,
     pendingResizeTimeout: null,
     projectId,
+    reconnectAttempts: 0,
+    reconnectTimeout: null,
     referenceCount: 0,
     reportError: onError,
     resizeDisposable: terminal.onResize(() => {}),
@@ -175,7 +186,6 @@ function createTerminalSession({
   session.resizeDisposable = terminal.onResize(() => {
     queueTerminalResize(sessionKey, session);
   });
-  void connectTerminalStream(sessionKey, session);
   return session;
 }
 
@@ -183,33 +193,64 @@ async function connectTerminalStream(
   sessionKey: string,
   session: TerminalSession,
 ): Promise<void> {
+  if (session.connecting || session.disposed) {
+    return;
+  }
+  session.connecting = true;
   try {
     const { ticket } = await getTerminalTicket({
       projectId: session.projectId,
     });
     if (session.disposed || sessions.get(sessionKey) !== session) {
+      session.connecting = false;
       return;
     }
     const socket = new WebSocket(buildTerminalStreamURL(ticket));
     socket.binaryType = "arraybuffer";
     session.socket = socket;
+    session.connecting = false;
     socket.addEventListener("open", () =>
       queueTerminalResize(sessionKey, session),
     );
-    socket.addEventListener("error", () => {
-      reportTerminalError(
-        session,
-        "The terminal connection failed. Try again.",
-      );
+    socket.addEventListener("close", () => {
+      if (session.disposed || session.socket !== socket) {
+        return;
+      }
+      session.socket = null;
+      session.isReady = false;
+      scheduleTerminalReconnect(sessionKey, session);
     });
     socket.addEventListener("message", (event) => {
       handleTerminalMessage(sessionKey, session, event);
     });
   } catch {
-    if (!session.disposed) {
-      reportTerminalError(session, "Unable to attach the terminal. Try again.");
-    }
+    session.connecting = false;
+    scheduleTerminalReconnect(sessionKey, session);
   }
+}
+
+function scheduleTerminalReconnect(
+  sessionKey: string,
+  session: TerminalSession,
+): void {
+  if (
+    session.disposed ||
+    sessions.get(sessionKey) !== session ||
+    session.referenceCount === 0 ||
+    session.reconnectTimeout !== null
+  ) {
+    return;
+  }
+  const delay = TERMINAL_RECONNECT_DELAYS_MS[session.reconnectAttempts];
+  if (delay === undefined) {
+    reportTerminalError(session, "Unable to attach the terminal. Try again.");
+    return;
+  }
+  session.reconnectAttempts += 1;
+  session.reconnectTimeout = window.setTimeout(() => {
+    session.reconnectTimeout = null;
+    void connectTerminalStream(sessionKey, session);
+  }, delay);
 }
 
 function buildTerminalStreamURL(ticket: string): string {
@@ -240,6 +281,7 @@ function handleTerminalMessage(
       return;
     }
     session.isReady = true;
+    session.reconnectAttempts = 0;
     queueTerminalResize(sessionKey, session);
     return;
   }
@@ -376,6 +418,10 @@ function disposeTerminalSession(
     window.clearTimeout(session.closeTimeout);
   }
   clearPendingResizeTimeout(session);
+  if (session.reconnectTimeout !== null) {
+    window.clearTimeout(session.reconnectTimeout);
+    session.reconnectTimeout = null;
+  }
   const socket = session.socket;
   if (socket?.readyState === WebSocket.OPEN) {
     socket.close();
@@ -393,13 +439,6 @@ function clearPendingResizeTimeout(session: TerminalSession): void {
     window.clearTimeout(session.pendingResizeTimeout);
     session.pendingResizeTimeout = null;
   }
-}
-
-function isSocketClosed(session: TerminalSession): boolean {
-  return (
-    session.socket?.readyState === WebSocket.CLOSED ||
-    session.socket?.readyState === WebSocket.CLOSING
-  );
 }
 
 function attachTerminalToContainer(

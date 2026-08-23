@@ -158,6 +158,11 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         // minimize, delete) — the reference's own slot for its per-type header controls. The
         // built-in Text section's edit/render toggle is the package's one use of it.
         renderHeaderControls?: (section: WorkspaceSection) => ReactNode;
+        // Renders one host-owned surface immediately below the ordinary section surface. The
+        // package owns the joined outline and corner treatment while the host owns the attached
+        // surface's content and runtime lifecycle. A renderer may return null without changing
+        // the ordinary section presentation.
+        renderAttachedContent?: (section: WorkspaceSection) => ReactNode;
         // Replaces the generic delete wording for an ordinary kind when its destructive action
         // has type-specific scope that must be clear before activation.
         deleteActionLabel?: string;
@@ -179,6 +184,7 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         getItemSearchableText?: never;
         itemArea?: never;
         renderHeaderControls?: never;
+        renderAttachedContent?: never;
         deleteActionLabel?: never;
         nestedSections?: never;
         canAcceptNestedSection?: never;
@@ -385,6 +391,12 @@ function assertMetaControlDefinition(
   );
   assertMetaControlDoesNotRegister(
     kind,
+    "renderAttachedContent",
+    definition.renderAttachedContent,
+    "meta controls render directly on the canvas.",
+  );
+  assertMetaControlDoesNotRegister(
+    kind,
     "deleteActionLabel",
     definition.deleteActionLabel,
     "its package-owned chrome has no section header.",
@@ -437,6 +449,11 @@ function assertSectionKindDefinition(
     kind,
     "renderHeaderControls",
     definition.renderHeaderControls,
+  );
+  assertOptionalSectionKindFunction(
+    kind,
+    "renderAttachedContent",
+    definition.renderAttachedContent,
   );
   assertOptionalSectionKindFunction(
     kind,

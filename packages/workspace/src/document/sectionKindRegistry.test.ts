@@ -346,6 +346,41 @@ describe("sectionKindRegistry", () => {
     ).toThrowError(/renderHeaderControls must be a function/);
   });
 
+  it("retains only a callable attached-content renderer", () => {
+    const renderAttachedContent = () => "attached surface";
+    registerSectionKinds(host, {
+      leaf: { renderContent: () => null, renderAttachedContent },
+    });
+    expect(
+      getRegisteredSectionKindOrThrow(host, "leaf").renderAttachedContent,
+    ).toBe(renderAttachedContent);
+
+    expect(() =>
+      registerSectionKinds(host, {
+        leaf: {
+          renderContent: () => null,
+          renderAttachedContent: "bad",
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/renderAttachedContent must be a function/);
+  });
+
+  it("rejects attached content on package-owned meta placement", () => {
+    expect(() =>
+      registerSectionKinds(host, {
+        meta: {
+          renderContent: () => null,
+          renderAttachedContent: () => null,
+          presentation: {
+            type: "meta-control",
+            resolveControlKind: () => "button",
+            onEdit: () => {},
+          },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/cannot register renderAttachedContent/);
+  });
+
   it("rejects unknown presentation discriminants instead of treating them as ordinary", () => {
     expect(() =>
       registerSectionKinds(host, {

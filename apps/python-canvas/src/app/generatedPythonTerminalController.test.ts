@@ -9,11 +9,6 @@ const mocks = vi.hoisted(() => ({
   })),
   openTerminal: vi.fn(),
   runTerminal: vi.fn(),
-  setWorkspaceSectionSize: vi.fn(),
-}));
-
-vi.mock("@setta/workspace", () => ({
-  setWorkspaceSectionSize: mocks.setWorkspaceSectionSize,
 }));
 
 vi.mock("../backend/client", () => ({
@@ -29,7 +24,6 @@ vi.mock("./generatedPythonTerminalClient", () => ({
     mocks.getGeneratedPythonTerminalDimensions,
 }));
 
-import type { WorkspaceHost } from "@setta/workspace";
 import type { ProjectSnapshotV2 } from "../backend/generatedContract";
 
 import {
@@ -40,7 +34,7 @@ import {
 const projectId = "project:terminal";
 
 describe("Generated Python terminal runtime", () => {
-  it("keeps the editor's outer geometry stable across create, hide, show, and a hidden run", async () => {
+  it("keeps terminal visibility and height in runtime state across create, hide, show, and a hidden run", async () => {
     const harness = createRuntimeHarness({ revision: 2 });
     mocks.openTerminal.mockResolvedValue({
       columns: 80,
@@ -57,17 +51,14 @@ describe("Generated Python terminal runtime", () => {
     await flushMicrotasks();
 
     expect(harness.currentState.status).toBe("visible");
-    expect(harness.sectionHeight()).toBe(640);
-    expect(mocks.setWorkspaceSectionSize).toHaveBeenLastCalledWith(
-      harness.host,
-      "python-canvas:generated-python",
-      { height: 640 },
-    );
+    expect(harness.currentState.terminalHeight).toBe(220);
     expect(mocks.runTerminal).not.toHaveBeenCalled();
+
+    harness.runtime.resize(310);
+    expect(harness.currentState.terminalHeight).toBe(310);
 
     harness.runtime.hide();
     expect(harness.currentState.status).toBe("hidden");
-    expect(harness.sectionHeight()).toBe(420);
 
     harness.runtime.run();
     await flushMicrotasks();
@@ -78,11 +69,10 @@ describe("Generated Python terminal runtime", () => {
       rows: 24,
     });
     expect(harness.currentState.status).toBe("hidden");
-    expect(harness.sectionHeight()).toBe(420);
 
     harness.runtime.show();
     expect(harness.currentState.status).toBe("visible");
-    expect(harness.sectionHeight()).toBe(640);
+    expect(harness.currentState.terminalHeight).toBe(310);
   });
 
   it("joins a Run to an in-flight Create so one session adds one pane height", async () => {
@@ -110,11 +100,9 @@ describe("Generated Python terminal runtime", () => {
     expect(mocks.openTerminal).toHaveBeenCalledTimes(1);
     expect(mocks.runTerminal).toHaveBeenCalledTimes(1);
     expect(harness.currentState.status).toBe("visible");
-    expect(harness.sectionHeight()).toBe(640);
-    expect(mocks.setWorkspaceSectionSize).toHaveBeenCalledTimes(1);
   });
 
-  it("closes the runtime session locally and restores only the owner height", async () => {
+  it("closes the runtime session locally without mutating authored layout", async () => {
     const harness = createRuntimeHarness({ revision: 2 });
     mocks.openTerminal.mockResolvedValue({
       columns: 80,
@@ -143,7 +131,6 @@ describe("Generated Python terminal runtime", () => {
       sessionKey: null,
       status: "absent",
     });
-    expect(harness.sectionHeight()).toBe(420);
     expect(harness.snapshot.project).toEqual({ id: projectId, revision: 2 });
   });
 
@@ -159,7 +146,6 @@ describe("Generated Python terminal runtime", () => {
       error: "Unable to create the terminal. Try again.",
       status: "absent",
     });
-    expect(mocks.setWorkspaceSectionSize).not.toHaveBeenCalled();
   });
 
   it("runs against the snapshot supplied after the target-flush operation", async () => {
@@ -191,33 +177,6 @@ function createRuntimeHarness({
   revision: number;
 }) {
   vi.clearAllMocks();
-  let document = {
-    sections: {
-      "python-canvas:generated-python": {
-        size: { height: 420, width: 640 },
-      },
-    },
-  };
-  const host = {
-    getSnapshot: () => document,
-  } as unknown as WorkspaceHost;
-  mocks.setWorkspaceSectionSize.mockImplementation(
-    (
-      _host: WorkspaceHost,
-      sectionId: "python-canvas:generated-python",
-      size: { height: number },
-    ) => {
-      document = {
-        sections: {
-          ...document.sections,
-          [sectionId]: {
-            ...document.sections[sectionId],
-            size: { ...document.sections[sectionId].size, ...size },
-          },
-        },
-      };
-    },
-  );
   const snapshot = projectSnapshot(revision);
   const flushedSnapshot = projectSnapshot(flushedRevision);
   let currentState: GeneratedPythonTerminalState;
@@ -226,7 +185,6 @@ function createRuntimeHarness({
   );
   const runtime = createGeneratedPythonTerminalRuntime({
     currentSnapshot: () => snapshot,
-    host,
     isActive: () => true,
     runAfterTargetFlush,
     updateState: (next) => {
@@ -245,12 +203,9 @@ function createRuntimeHarness({
     get currentState() {
       return currentState;
     },
-    host,
     runAfterTargetFlush,
     runtime,
     snapshot,
-    sectionHeight: () =>
-      document.sections["python-canvas:generated-python"].size.height,
   };
 }
 

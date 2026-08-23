@@ -38,6 +38,7 @@ import {
 } from "./workspaceProjection";
 import { PythonTargetCompletionBoundary } from "./PythonTargetCompletionBoundary";
 import {
+  GeneratedPythonTerminalAttachment,
   GeneratedPythonTerminalHeaderControls,
   GeneratedPythonTerminalSection,
 } from "./GeneratedPythonTerminal";
@@ -200,6 +201,10 @@ export function registerPythonCanvasSectionKinds(
       renderHeaderControls: (section) =>
         section.id === GENERATED_PYTHON_SECTION_ID ? (
           <GeneratedPythonTerminalHeaderControls />
+        ) : null,
+      renderAttachedContent: (section) =>
+        section.id === GENERATED_PYTHON_SECTION_ID ? (
+          <GeneratedPythonTerminalAttachment ownerWidth={section.size.width} />
         ) : null,
     },
   });

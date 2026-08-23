@@ -293,6 +293,7 @@ vi.mock("../backend/client", () => ({
 }));
 
 vi.mock("./GeneratedPythonTerminal", () => ({
+  GeneratedPythonTerminalAttachment: () => null,
   GeneratedPythonTerminalHeaderControls: () => null,
   GeneratedPythonTerminalSection: ({ editor }: { editor: ReactNode }) => editor,
 }));

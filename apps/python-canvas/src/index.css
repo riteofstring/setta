@@ -70,9 +70,8 @@ body {
   min-inline-size: 0;
 }
 
-/* Generated Python keeps the package-owned section shell and header. Its one app-owned terminal
- * consumes only the additional height the runtime adds to that same card, so the editor's
- * available height remains unchanged when the pane appears or disappears. */
+/* Generated Python keeps the package-owned section shell and header. Its runtime terminal is a
+ * separate joined surface, so opening or resizing it never changes the authored editor size. */
 .python-canvas-generated-python-section,
 .python-canvas-generated-python-editor {
   display: flex;
@@ -199,26 +198,29 @@ body {
 
 .python-canvas-generated-python-terminal-pane {
   position: relative;
-  display: flex;
+  box-sizing: border-box;
   min-block-size: 100px;
   min-inline-size: 0;
-  flex-grow: 0;
-  flex-shrink: 0;
+  margin-inline: 1px;
   overflow: hidden;
-  border-block-start: 1px solid hsl(219 24% 89%);
+  border: 1px solid hsl(219 24% 89%);
+  border-radius: 0.5rem;
   background: #06070a;
 }
 
 .setta-workspace.setta-workspace-dark
   .python-canvas-generated-python-terminal-pane {
-  border-block-start-color: hsl(220 26% 14%);
+  border-color: hsl(220 26% 14%);
 }
 
 .python-canvas-generated-python-terminal-surface {
+  box-sizing: border-box;
   inline-size: 100%;
   block-size: 100%;
   min-block-size: 0;
   min-inline-size: 0;
+  padding-block: 0.25rem;
+  padding-inline: 0.75rem;
 }
 
 .python-canvas-generated-python-terminal-surface .xterm {
@@ -296,7 +298,7 @@ body {
 .python-canvas-generated-python-terminal-splitter {
   position: absolute;
   z-index: 19;
-  inset-block-start: -0.25rem;
+  inset-block-end: -0.25rem;
   inset-inline: 0;
   block-size: 0.5rem;
   cursor: row-resize;
@@ -305,7 +307,7 @@ body {
 
 .python-canvas-generated-python-terminal-splitter::after {
   position: absolute;
-  inset-block-start: 0.1875rem;
+  inset-block-end: 0.1875rem;
   inset-inline: 0;
   block-size: 1px;
   background: hsl(220 25% 67% / 55%);

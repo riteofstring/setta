@@ -1,5 +1,3 @@
-import { setWorkspaceSectionSize, type WorkspaceHost } from "@setta/workspace";
-
 import {
   closeTerminal,
   openTerminal,
@@ -11,7 +9,6 @@ import {
   disposeGeneratedPythonTerminal,
   getGeneratedPythonTerminalDimensions,
 } from "./generatedPythonTerminalClient";
-import { GENERATED_PYTHON_SECTION_ID } from "./workspaceProjection";
 
 const GENERATED_PYTHON_TERMINAL_DEFAULT_HEIGHT = 220;
 const GENERATED_PYTHON_TERMINAL_MINIMUM_HEIGHT = 100;
@@ -55,13 +52,11 @@ type RunAfterTargetFlush = (
 
 export function createGeneratedPythonTerminalRuntime({
   currentSnapshot,
-  host,
   isActive,
   runAfterTargetFlush,
   updateState,
 }: {
   currentSnapshot: () => ProjectSnapshotV2 | null;
-  host: WorkspaceHost;
   isActive: () => boolean;
   runAfterTargetFlush: RunAfterTargetFlush;
   updateState: (state: GeneratedPythonTerminalState) => void;
@@ -78,19 +73,6 @@ export function createGeneratedPythonTerminalRuntime({
   };
   const update = (changes: Partial<GeneratedPythonTerminalState>) => {
     publish({ ...state, ...changes });
-  };
-  const adjustOwnerHeight = (delta: number): boolean => {
-    if (delta === 0) {
-      return true;
-    }
-    const section = host.getSnapshot().sections[GENERATED_PYTHON_SECTION_ID];
-    if (!section || typeof section.size.height !== "number") {
-      return false;
-    }
-    setWorkspaceSectionSize(host, GENERATED_PYTHON_SECTION_ID, {
-      height: section.size.height + delta,
-    });
-    return true;
   };
   const makeSessionKey = (projectId: string) => {
     nextSessionNumber += 1;
@@ -129,13 +111,6 @@ export function createGeneratedPythonTerminalRuntime({
         if (!isActive()) {
           return;
         }
-        if (!adjustOwnerHeight(state.terminalHeight)) {
-          update({
-            creating: false,
-            error: "Unable to show the terminal in this section.",
-          });
-          return;
-        }
         update({
           creating: false,
           error: null,
@@ -161,19 +136,11 @@ export function createGeneratedPythonTerminalRuntime({
     if (state.status !== "hidden") {
       return;
     }
-    if (!adjustOwnerHeight(state.terminalHeight)) {
-      update({ error: "Unable to show the terminal in this section." });
-      return;
-    }
     update({ error: null, status: "visible" });
   }
 
   function hide() {
     if (state.status !== "visible") {
-      return;
-    }
-    if (!adjustOwnerHeight(-state.terminalHeight)) {
-      update({ error: "Unable to hide the terminal in this section." });
       return;
     }
     update({ error: null, status: "hidden" });
@@ -187,11 +154,6 @@ export function createGeneratedPythonTerminalRuntime({
       GENERATED_PYTHON_TERMINAL_MINIMUM_HEIGHT,
       Math.round(nextHeight),
     );
-    const delta = terminalHeight - state.terminalHeight;
-    if (!adjustOwnerHeight(delta)) {
-      update({ error: "Unable to resize the terminal in this section." });
-      return;
-    }
     update({ error: null, terminalHeight });
   }
 
@@ -214,12 +176,8 @@ export function createGeneratedPythonTerminalRuntime({
           return;
         }
         // Main does not reveal or focus an existing hidden terminal on Run. A missing runtime
-        // terminal is the only case that grows the card and makes its pane visible.
+        // terminal is the only case that creates and shows an attached surface.
         if (state.status === "absent") {
-          if (!adjustOwnerHeight(state.terminalHeight)) {
-            update({ error: "Unable to show the terminal in this section." });
-            return;
-          }
           update({
             error: null,
             projectId: snapshot.project.id,
@@ -251,9 +209,6 @@ export function createGeneratedPythonTerminalRuntime({
           return;
         }
         disposeGeneratedPythonTerminal(sessionKey);
-        if (state.status === "visible") {
-          adjustOwnerHeight(-state.terminalHeight);
-        }
         update({
           creating: false,
           error: null,
