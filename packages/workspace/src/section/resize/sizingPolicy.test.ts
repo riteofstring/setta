@@ -57,6 +57,28 @@ describe("getSectionMinMaxDims", () => {
     });
   });
 
+  it("intersects a registered kind's complete bounds with the global safety policy", () => {
+    expect(
+      getSectionMinMaxDims({
+        isMinimized: false,
+        isAutoHeight: true,
+        isResizing: false,
+        sizeConstraints: {
+          minHeight: 50,
+          maxHeight: 50,
+          minWidth: 200,
+          maxWidth: 100_000,
+        },
+      }),
+    ).toEqual({
+      minHeight: 50,
+      maxHeight: 50,
+      minWidth: 200,
+      maxWidth: 100_000,
+      heightSizeMode: "any",
+    });
+  });
+
   it("applies a meta control's projected minimum without changing the policy maxima", () => {
     expect(
       getSectionMinMaxDims({

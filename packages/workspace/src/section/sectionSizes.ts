@@ -4,12 +4,17 @@ import {
   isGroupSection,
 } from "../document/documentSelectors";
 import { assertValidSectionOverflowMode } from "../document/groupOverflow";
+import { getSectionKindSizeConstraints } from "../document/sectionKindRegistry";
 import {
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
 } from "../document/stores";
 import type { SectionSize, WorkspaceSection } from "../document/types";
 import type { WorkspaceHost } from "../workspaceHost";
+import {
+  clampWorkspaceSectionSize,
+  getWorkspaceSectionSizeBounds,
+} from "./resize/sectionSizingBounds";
 
 // The reference's resize commit funnel (`state/actions/sections/sectionSizes.ts` +
 // `persistSectionSizeChange` in CustomResizable), minus the embedded attached-terminal branch
@@ -155,6 +160,44 @@ export function setSelfParentSiblingChildrenWidths(
   return { sections, updatedSectionSizes };
 }
 
+function clampRegisteredSectionSizes(
+  host: WorkspaceHost,
+  sections: Record<string, WorkspaceSection>,
+  updatedSectionSizes: Record<string, SectionSize>,
+): SectionSizeUpdateResult {
+  let resolvedSections = sections;
+  let resolvedSectionSizes = updatedSectionSizes;
+  for (const sectionId of Object.keys(updatedSectionSizes)) {
+    const section = resolvedSections[sectionId];
+    if (!section) {
+      throw new Error(`Size update lost section ${sectionId}.`);
+    }
+    const constraints = getSectionKindSizeConstraints(host, section);
+    if (!constraints) {
+      continue;
+    }
+    const size = clampWorkspaceSectionSize(
+      section.size,
+      getWorkspaceSectionSizeBounds(constraints),
+    );
+    if (
+      size.width === section.size.width &&
+      size.height === section.size.height
+    ) {
+      continue;
+    }
+    resolvedSections = {
+      ...resolvedSections,
+      [sectionId]: { ...section, size },
+    };
+    resolvedSectionSizes = { ...resolvedSectionSizes, [sectionId]: size };
+  }
+  return {
+    sections: resolvedSections,
+    updatedSectionSizes: resolvedSectionSizes,
+  };
+}
+
 // The single resize persistence funnel. The reference pairs the canonical write with a
 // `setSectionSizes` backend route; the host publishes its updated snapshot instead.
 export function persistSectionSizeChange(
@@ -164,10 +207,15 @@ export function persistSectionSizeChange(
 ) {
   const documentStore = getWorkspaceDocumentStore(host);
   const state = documentStore.getState();
-  const { sections, updatedSectionSizes } = setSelfParentSiblingChildrenWidths(
+  const resized = setSelfParentSiblingChildrenWidths(
     state,
     sectionId,
     nextSize,
+  );
+  const { sections, updatedSectionSizes } = clampRegisteredSectionSizes(
+    host,
+    resized.sections,
+    resized.updatedSectionSizes,
   );
   for (const updatedSectionId of Object.keys(updatedSectionSizes)) {
     const section = sections[updatedSectionId];

@@ -75,7 +75,7 @@ export const PARAMETER_DICTIONARY_SECTION_SIZE = {
   width: 420,
   height: 300,
 } as const;
-export const LIST_SECTION_SIZE = { width: 250, height: 150 } as const;
+export const LIST_SECTION_SIZE = { width: 250, height: 50 } as const;
 export const GENERATED_PYTHON_SECTION_SIZE = {
   width: 640,
   height: 420,

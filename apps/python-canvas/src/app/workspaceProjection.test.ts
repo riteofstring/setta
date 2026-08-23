@@ -129,11 +129,14 @@ describe("Python Canvas V2 workspace projection", () => {
     host.loadDocument(projectWorkspaceDocument(snapshot));
 
     const pendingSectionId = "python-canvas:pending-callable:test";
-    const pendingSection = createPendingCallableSection(
-      snapshot,
-      pendingSectionId,
-      "New callable",
-    );
+    const pendingSection = {
+      ...createPendingCallableSection(
+        snapshot,
+        pendingSectionId,
+        "New callable",
+      ),
+      size: { width: 100, height: 80 },
+    };
     const pendingLayout = {
       h: 300,
       w: 360,
@@ -153,6 +156,10 @@ describe("Python Canvas V2 workspace projection", () => {
         ...current.topLevelSections,
         [pendingSectionId]: pendingLayout,
       },
+    });
+    expect(host.getSnapshot().sections[pendingSectionId]?.size).toEqual({
+      width: 200,
+      height: 104,
     });
     const createdSnapshot = dynamicSnapshot();
     createdSnapshot.callables.push({
@@ -176,6 +183,10 @@ describe("Python Canvas V2 workspace projection", () => {
     expect(host.getSnapshot().topLevelSections[createdSectionId]).toEqual(
       pendingLayout,
     );
+    expect(host.getSnapshot().sections[createdSectionId]?.size).toEqual({
+      width: 200,
+      height: 104,
+    });
     expect(host.getSnapshot().activeIds).toEqual([createdSectionId]);
     host.dispose();
   });
@@ -395,7 +406,7 @@ describe("Python Canvas V2 workspace projection", () => {
     const dictionaryId = parameterDictionarySectionID("dictionary:options");
     const listId = listSectionID("list:objects");
     expect(document.sections[listId]?.size).toEqual({
-      height: 150,
+      height: 50,
       width: 250,
     });
     const moved = {
@@ -467,7 +478,6 @@ describe("Python Canvas V2 workspace projection", () => {
         },
       },
     });
-
     expect(promoteDictionaryEntryParents(host, "dictionary:options")).toBe(
       true,
     );
@@ -540,17 +550,31 @@ describe("Python Canvas V2 workspace projection", () => {
       activeIds: [pendingDictionaryId, pendingListId],
       sections: {
         ...current.sections,
-        [pendingDictionaryId]: createPendingParameterDictionarySection(
-          pendingDictionaryId,
-          "Options",
-        ),
-        [pendingListId]: createPendingListSection(pendingListId, "Objects"),
+        [pendingDictionaryId]: {
+          ...createPendingParameterDictionarySection(
+            pendingDictionaryId,
+            "Options",
+          ),
+          size: { width: 100, height: 70 },
+        },
+        [pendingListId]: {
+          ...createPendingListSection(pendingListId, "Objects"),
+          size: { width: 250, height: 150 },
+        },
       },
       topLevelSections: {
         ...current.topLevelSections,
         [pendingDictionaryId]: dictionaryLayout,
         [pendingListId]: listLayout,
       },
+    });
+    expect(host.getSnapshot().sections[pendingDictionaryId]?.size).toEqual({
+      width: 200,
+      height: 78,
+    });
+    expect(host.getSnapshot().sections[pendingListId]?.size).toEqual({
+      width: 250,
+      height: 50,
     });
 
     const createdSnapshot = parseProjectSnapshotV2({
@@ -582,9 +606,11 @@ describe("Python Canvas V2 workspace projection", () => {
     expect(host.getSnapshot().topLevelSections[listId]).toEqual(listLayout);
     expect(host.getSnapshot().sections[dictionaryId]).toMatchObject({
       positionAndSizeLocked: false,
+      size: { width: 200, height: 78 },
     });
     expect(host.getSnapshot().sections[listId]).toMatchObject({
       positionAndSizeLocked: false,
+      size: { width: 250, height: 50 },
     });
     expect(host.getSnapshot().activeIds).toEqual([dictionaryId, listId]);
     host.dispose();

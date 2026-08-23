@@ -6,6 +6,10 @@ import {
   cloneFrozenWorkspaceSnapshot,
   type WorkspaceSnapshot,
 } from "./workspaceSnapshot";
+import {
+  getWorkspaceSectionSizeBounds,
+  type WorkspaceSectionSizeConstraints,
+} from "../section/resize/sectionSizingBounds";
 import type { WorkspaceHost } from "../workspaceHost";
 
 // The registration half of the renderer seam: application-owned section kinds map to their
@@ -135,6 +139,9 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         // Applied when an ordinary loaded section omits its size. Kinds without one load at the
         // reference's auto/auto default, exactly like `createSectionSize()` without options.
         defaultSize?: SectionSize;
+        // Consumer-neutral bounds for this registered kind. The package intersects them with its
+        // global safety envelope at every geometry boundary.
+        sizeConstraints?: WorkspaceSectionSizeConstraints;
         // Appended to the package-owned body-slot wrapper. This is for host presentation such as
         // padding or flex layout; the package continues to own the grid placement itself.
         contentClassName?: string;
@@ -166,6 +173,7 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         // Direct-on-canvas kinds opt into package-owned chrome and per-control default/minimum
         // geometry; a competing registered default would make that contract ambiguous.
         defaultSize?: never;
+        sizeConstraints?: never;
         contentClassName?: never;
         createItem?: never;
         getItemSearchableText?: never;
@@ -246,6 +254,75 @@ function assertItemAreaPresentation(
   );
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function readSizeConstraintDimension(
+  kind: string,
+  candidate: Record<string, unknown>,
+  dimensionName: keyof WorkspaceSectionSizeConstraints,
+): number {
+  const value = candidate[dimensionName];
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new Error(
+      `Section kind ${kind} size constraint ${dimensionName} must be a finite non-negative number.`,
+    );
+  }
+  return value;
+}
+
+function readSectionKindSizeConstraints(
+  kind: string,
+  constraints: unknown,
+): WorkspaceSectionSizeConstraints {
+  if (!isRecord(constraints)) {
+    throw new Error(`Section kind ${kind} has malformed size constraints.`);
+  }
+  return {
+    minHeight: readSizeConstraintDimension(kind, constraints, "minHeight"),
+    maxHeight: readSizeConstraintDimension(kind, constraints, "maxHeight"),
+    minWidth: readSizeConstraintDimension(kind, constraints, "minWidth"),
+    maxWidth: readSizeConstraintDimension(kind, constraints, "maxWidth"),
+  };
+}
+
+function assertValidSectionKindSizeConstraints(
+  kind: string,
+  constraints: WorkspaceSectionSizeConstraints,
+): void {
+  if (
+    constraints.minHeight > constraints.maxHeight ||
+    constraints.minWidth > constraints.maxWidth
+  ) {
+    throw new Error(
+      `Section kind ${kind} has contradictory minimum and maximum size constraints.`,
+    );
+  }
+  const bounds = getWorkspaceSectionSizeBounds(constraints);
+  if (
+    bounds.minHeight > bounds.maxHeight ||
+    bounds.minWidth > bounds.maxWidth
+  ) {
+    throw new Error(
+      `Section kind ${kind} size constraints contradict the workspace safety bounds.`,
+    );
+  }
+}
+
+function assertSectionKindSizeConstraints(
+  kind: string,
+  constraints: unknown,
+): asserts constraints is WorkspaceSectionSizeConstraints | undefined {
+  if (constraints === undefined) {
+    return;
+  }
+  assertValidSectionKindSizeConstraints(
+    kind,
+    readSectionKindSizeConstraints(kind, constraints),
+  );
+}
+
 function assertMetaControlDoesNotRegister(
   kind: string,
   property: string,
@@ -275,6 +352,12 @@ function assertMetaControlDefinition(
     "a defaultSize",
     definition.defaultSize,
     "the package owns control-specific default geometry.",
+  );
+  assertMetaControlDoesNotRegister(
+    kind,
+    "size constraints",
+    definition.sizeConstraints,
+    "the package owns control-specific sizing.",
   );
   assertMetaControlDoesNotRegister(
     kind,
@@ -369,6 +452,7 @@ function assertSectionKindDefinition(
     assertMetaControlDefinition(kind, definition);
     return;
   }
+  assertSectionKindSizeConstraints(kind, definition.sizeConstraints);
   assertNestedSectionsPresentation(kind, definition.nestedSections);
   if (definition.itemArea !== undefined) {
     assertItemAreaPresentation(kind, definition.itemArea);
@@ -531,6 +615,21 @@ export function getMetaControlPresentation(
   }
   assertMetaControlPresentation(section.kind, presentation);
   return presentation;
+}
+
+// Registered ordinary kinds may narrow the generic safety envelope. Meta controls and groups
+// retain their package-owned geometry and therefore do not expose registered constraints.
+export function getSectionKindSizeConstraints(
+  host: WorkspaceHost,
+  section: Pick<WorkspaceSection, "kind">,
+): WorkspaceSectionSizeConstraints | null {
+  if (section.kind === GROUP_SECTION_KIND) {
+    return null;
+  }
+  const definition = getRegisteredSectionKindOrThrow(host, section.kind);
+  return definition.presentation === undefined
+    ? (definition.sizeConstraints ?? null)
+    : null;
 }
 
 // One capability check owns the package's distinction between a leaf and a section that may

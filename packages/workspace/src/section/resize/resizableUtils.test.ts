@@ -3,6 +3,7 @@ import {
   clampChangedSize,
   getAutoClampSize,
   getChangedSize,
+  getResizableEnable,
   getResizeHandleClickState,
   isResizeDoubleClick,
   shouldEmitResizeEndEvent,
@@ -160,26 +161,32 @@ describe("shouldEmitResizeEndEvent", () => {
 });
 
 describe("clampChangedSize", () => {
-  it("raises numeric dimensions to the minimums and leaves auto untouched", () => {
+  it("clamps numeric dimensions to the registered bounds and leaves auto untouched", () => {
     expect(
       clampChangedSize({
-        changedSize: { width: 50, height: 10 },
+        changedSize: { width: 50, height: 200 },
         minHeight: 32,
+        maxHeight: 50,
         minWidth: 200,
+        maxWidth: 240,
       }),
-    ).toEqual({ width: 200, height: 32 });
+    ).toEqual({ width: 200, height: 50 });
     expect(
       clampChangedSize({
         changedSize: { width: "auto", height: 400 },
         minHeight: 32,
+        maxHeight: 500,
         minWidth: 200,
+        maxWidth: 300,
       }),
     ).toEqual({ width: "auto", height: 400 });
     expect(
       clampChangedSize({
         changedSize: { width: 250 },
         minHeight: 32,
+        maxHeight: 500,
         minWidth: 200,
+        maxWidth: 300,
       }),
     ).toEqual({ width: 250 });
   });
@@ -191,7 +198,9 @@ describe("getAutoClampSize", () => {
       getAutoClampSize({
         size: { width: 100, height: 20 },
         minHeight: 32,
+        maxHeight: 100_000,
         minWidth: 200,
+        maxWidth: 100_000,
       }),
     ).toEqual({ width: 200, height: 32 });
     // Within the 2px tolerance no clamp fires.
@@ -199,15 +208,50 @@ describe("getAutoClampSize", () => {
       getAutoClampSize({
         size: { width: 199, height: 31 },
         minHeight: 32,
+        maxHeight: 100_000,
         minWidth: 200,
+        maxWidth: 100_000,
       }),
     ).toBeNull();
     expect(
       getAutoClampSize({
         size: { width: "auto", height: "auto" },
         minHeight: 32,
+        maxHeight: 100_000,
         minWidth: 200,
+        maxWidth: 100_000,
       }),
     ).toBeNull();
+    expect(
+      getAutoClampSize({
+        size: { width: 250, height: 150 },
+        minHeight: 50,
+        maxHeight: 50,
+        minWidth: 200,
+        maxWidth: 100_000,
+      }),
+    ).toEqual({ height: 50 });
+  });
+});
+
+describe("getResizableEnable", () => {
+  it("keeps horizontal resizing while removing fixed-height handles", () => {
+    expect(
+      getResizableEnable({
+        canEditLayout: true,
+        disablePointerEvents: false,
+        positionAndSizeLocked: false,
+        heightResizable: false,
+      }),
+    ).toEqual({
+      top: false,
+      left: false,
+      bottom: false,
+      right: true,
+      topRight: false,
+      bottomRight: false,
+      topLeft: false,
+      bottomLeft: false,
+    });
   });
 });

@@ -26,6 +26,7 @@ import {
   clampChangedSize,
   getAutoClampSize,
   getChangedSize,
+  getResizableEnable,
   getResizeHandleClickState,
   isResizeDoubleClick,
   shouldEmitResizeEndEvent,
@@ -231,7 +232,13 @@ export function CustomResizable({
       ref,
       isDoubleClick,
     });
-    const clampedSize = clampChangedSize({ changedSize, minHeight, minWidth });
+    const clampedSize = clampChangedSize({
+      changedSize,
+      minHeight,
+      maxHeight,
+      minWidth,
+      maxWidth,
+    });
     persistSectionSizeChange(host, sectionId, clampedSize);
     finishResizeStop(shouldEmitResizeEnd);
   }
@@ -244,7 +251,13 @@ export function CustomResizable({
       persistSectionSizeChange(host, sectionId, { height: "auto" });
       return;
     }
-    const nextSize = getAutoClampSize({ size, minHeight, minWidth });
+    const nextSize = getAutoClampSize({
+      size,
+      minHeight,
+      maxHeight,
+      minWidth,
+      maxWidth,
+    });
     if (!nextSize) {
       return;
     }
@@ -255,7 +268,9 @@ export function CustomResizable({
     // `size` is selected with deep equality, so its identity only changes with its contents.
   }, [
     minHeight,
+    maxHeight,
     minWidth,
+    maxWidth,
     sectionId,
     size,
     canEditLayout,
@@ -400,32 +415,6 @@ function shouldReplaceMeasuredSize(
   size: Partial<SectionSize>[keyof SectionSize],
 ) {
   return size === "auto" || (typeof size === "number" && Number.isNaN(size));
-}
-
-function getResizableEnable({
-  canEditLayout,
-  disablePointerEvents,
-  positionAndSizeLocked,
-  heightResizable,
-}: {
-  canEditLayout: boolean;
-  disablePointerEvents: boolean;
-  positionAndSizeLocked: boolean;
-  heightResizable: boolean;
-}) {
-  if (!canEditLayout || disablePointerEvents || positionAndSizeLocked) {
-    return false;
-  }
-  return {
-    top: false,
-    left: false,
-    bottom: heightResizable,
-    right: true,
-    topRight: false,
-    bottomRight: heightResizable,
-    topLeft: false,
-    bottomLeft: false,
-  };
 }
 
 function getResizeHandleDirection(

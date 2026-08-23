@@ -200,6 +200,7 @@ export type {
   WorkspaceItemToolbarMode,
   WorkspaceSectionKindIconProps,
 } from "./document/sectionKindRegistry";
+export type { WorkspaceSectionSizeConstraints } from "./section/resize/sectionSizingBounds";
 export { useWorkspaceAppearance } from "./document/stores";
 export type {
   WorkspaceAppearanceState,

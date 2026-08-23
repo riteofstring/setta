@@ -31,6 +31,76 @@ describe("sectionKindRegistry", () => {
     expect(getRegisteredSectionKindOrThrow(host, "leaf")).toBe(leaf);
   });
 
+  it("retains a complete ordinary registered-kind sizing declaration", () => {
+    const sizeConstraints = {
+      minHeight: 50,
+      maxHeight: 50,
+      minWidth: 200,
+      maxWidth: 100_000,
+    };
+    registerSectionKinds(host, {
+      list: { renderContent: () => null, sizeConstraints },
+    });
+
+    expect(
+      getRegisteredSectionKindOrThrow(host, "list").sizeConstraints,
+    ).toEqual(sizeConstraints);
+  });
+
+  it("rejects incomplete, invalid, and contradictory sizing declarations at registration", () => {
+    expect(() =>
+      registerSectionKinds(host, {
+        incomplete: {
+          renderContent: () => null,
+          sizeConstraints: {
+            minHeight: 0,
+            maxHeight: 100,
+            minWidth: 200,
+          },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/maxWidth must be a finite non-negative number/);
+    expect(() =>
+      registerSectionKinds(host, {
+        invalid: {
+          renderContent: () => null,
+          sizeConstraints: {
+            minHeight: 0,
+            maxHeight: Number.POSITIVE_INFINITY,
+            minWidth: 200,
+            maxWidth: 100_000,
+          },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/maxHeight must be a finite non-negative number/);
+    expect(() =>
+      registerSectionKinds(host, {
+        contradictory: {
+          renderContent: () => null,
+          sizeConstraints: {
+            minHeight: 80,
+            maxHeight: 50,
+            minWidth: 200,
+            maxWidth: 100_000,
+          },
+        },
+      }),
+    ).toThrowError(/contradictory minimum and maximum/);
+    expect(() =>
+      registerSectionKinds(host, {
+        outsideSafetyEnvelope: {
+          renderContent: () => null,
+          sizeConstraints: {
+            minHeight: 0,
+            maxHeight: 100_000,
+            minWidth: 0,
+            maxWidth: 199,
+          },
+        },
+      }),
+    ).toThrowError(/contradict the workspace safety bounds/);
+  });
+
   it("retains a typed host Inspector contribution", () => {
     const renderInspector = () => "Inspector content";
     registerSectionKinds(host, {
@@ -162,6 +232,27 @@ describe("sectionKindRegistry", () => {
         } as unknown as SectionKindDefinition,
       }),
     ).toThrowError(/cannot register a defaultSize/);
+  });
+
+  it("rejects registered size constraints for package-owned meta geometry", () => {
+    expect(() =>
+      registerSectionKinds(host, {
+        meta: {
+          renderContent: () => null,
+          sizeConstraints: {
+            minHeight: 50,
+            maxHeight: 50,
+            minWidth: 200,
+            maxWidth: 100_000,
+          },
+          presentation: {
+            type: "meta-control",
+            resolveControlKind: () => "button",
+            onEdit: () => {},
+          },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/cannot register size constraints/);
   });
 
   it("rejects a competing host content slot for package-owned meta placement", () => {

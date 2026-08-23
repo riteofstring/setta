@@ -37,6 +37,27 @@ import {
 } from "./workspaceProjection";
 import { PythonTargetCompletionBoundary } from "./PythonTargetCompletionBoundary";
 
+const CALLABLE_SECTION_SIZE_CONSTRAINTS = {
+  minHeight: 104,
+  maxHeight: 100_000,
+  minWidth: 200,
+  maxWidth: 100_000,
+} as const;
+
+const PARAMETER_DICTIONARY_SECTION_SIZE_CONSTRAINTS = {
+  minHeight: 78,
+  maxHeight: 100_000,
+  minWidth: 200,
+  maxWidth: 100_000,
+} as const;
+
+const LIST_SECTION_SIZE_CONSTRAINTS = {
+  minHeight: 50,
+  maxHeight: 50,
+  minWidth: 200,
+  maxWidth: 100_000,
+} as const;
+
 function canNestInList(
   section: WorkspaceDocument["sections"][string],
 ): boolean {
@@ -64,6 +85,7 @@ export function registerPythonCanvasSectionKinds(
   };
   const callableSectionKind = {
     defaultSize: CALLABLE_SECTION_SIZE,
+    sizeConstraints: CALLABLE_SECTION_SIZE_CONSTRAINTS,
     assertValidData: (section: WorkspaceDocument["sections"][string]) => {
       readCallableSectionData(section.data);
     },
@@ -82,6 +104,7 @@ export function registerPythonCanvasSectionKinds(
   };
   const parameterDictionarySectionKind = {
     defaultSize: PARAMETER_DICTIONARY_SECTION_SIZE,
+    sizeConstraints: PARAMETER_DICTIONARY_SECTION_SIZE_CONSTRAINTS,
     assertValidData: (section: WorkspaceDocument["sections"][string]) => {
       readParameterDictionarySectionData(section.data);
     },
@@ -104,6 +127,7 @@ export function registerPythonCanvasSectionKinds(
   const listSectionKind = {
     contentClassName: "contents",
     defaultSize: LIST_SECTION_SIZE,
+    sizeConstraints: LIST_SECTION_SIZE_CONSTRAINTS,
     nestedSections: "vertical" as const,
     canAcceptNestedSection: canNestInList,
     deleteActionLabel: "Delete list and all nested descendants",

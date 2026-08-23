@@ -148,27 +148,42 @@ export function shouldEmitResizeEndEvent({
 function clampNumericDimension(
   value: SectionSize["height"] | undefined,
   minValue: number,
+  maxValue: number,
 ) {
-  return typeof value === "number" ? Math.max(value, minValue) : value;
+  return typeof value === "number"
+    ? Math.min(Math.max(value, minValue), maxValue)
+    : value;
 }
 
 // The reference's aspect-ratio clamp branch left with the media section types that set one.
 export function clampChangedSize({
   changedSize,
   minHeight,
+  maxHeight,
   minWidth,
+  maxWidth,
 }: {
   changedSize: Partial<SectionSize>;
   minHeight: number;
+  maxHeight: number;
   minWidth: number;
+  maxWidth: number;
 }): Partial<SectionSize> {
   return {
     ...changedSize,
     ...(changedSize.height !== undefined
-      ? { height: clampNumericDimension(changedSize.height, minHeight) }
+      ? {
+          height: clampNumericDimension(
+            changedSize.height,
+            minHeight,
+            maxHeight,
+          ),
+        }
       : {}),
     ...(changedSize.width !== undefined
-      ? { width: clampNumericDimension(changedSize.width, minWidth) }
+      ? {
+          width: clampNumericDimension(changedSize.width, minWidth, maxWidth),
+        }
       : {}),
   };
 }
@@ -182,22 +197,64 @@ function shouldClampToMin(currentSize: SectionSize["width"], minSize: number) {
   );
 }
 
-// Raises an out-of-policy stored size back to the minimums (the reference's auto-clamp effect).
+function shouldClampToMax(currentSize: SectionSize["width"], maxSize: number) {
+  return typeof currentSize === "number" && currentSize > maxSize;
+}
+
+// Normalizes a stored manual size to the registered envelope (the reference's auto-clamp
+// effect). Maximum violations clamp exactly so a fixed-height kind cannot retain an oversized
+// persisted dimension.
 export function getAutoClampSize({
   size,
   minHeight,
+  maxHeight,
   minWidth,
+  maxWidth,
 }: {
   size: SectionSize;
   minHeight: number;
+  maxHeight: number;
   minWidth: number;
+  maxWidth: number;
 }): Partial<SectionSize> | null {
   const nextSize: Partial<SectionSize> = {};
   if (shouldClampToMin(size.height, minHeight)) {
     nextSize.height = minHeight;
+  } else if (shouldClampToMax(size.height, maxHeight)) {
+    nextSize.height = maxHeight;
   }
   if (shouldClampToMin(size.width, minWidth)) {
     nextSize.width = minWidth;
+  } else if (shouldClampToMax(size.width, maxWidth)) {
+    nextSize.width = maxWidth;
   }
   return Object.keys(nextSize).length > 0 ? nextSize : null;
+}
+
+// The resizable shell consumes this exact directional contract. A fixed-height registered kind
+// retains horizontal resizing while removing all height-affecting affordances.
+export function getResizableEnable({
+  canEditLayout,
+  disablePointerEvents,
+  positionAndSizeLocked,
+  heightResizable,
+}: {
+  canEditLayout: boolean;
+  disablePointerEvents: boolean;
+  positionAndSizeLocked: boolean;
+  heightResizable: boolean;
+}) {
+  if (!canEditLayout || disablePointerEvents || positionAndSizeLocked) {
+    return false;
+  }
+  return {
+    top: false,
+    left: false,
+    bottom: heightResizable,
+    right: true,
+    topRight: false,
+    bottomRight: heightResizable,
+    topLeft: false,
+    bottomLeft: false,
+  };
 }

@@ -545,6 +545,47 @@ describe("loadWorkspaceDocument", () => {
     expect(loaded["sized"]?.size).toEqual({ width: 64, height: 48 });
   });
 
+  it("normalizes an oversized persisted manual size through registered fixed-height bounds", () => {
+    registerSectionKinds(testWorkspace.host, {
+      list: {
+        renderContent: () => null,
+        sizeConstraints: {
+          minHeight: 50,
+          maxHeight: 50,
+          minWidth: 200,
+          maxWidth: 100_000,
+        },
+      },
+    });
+    const document = makeDocument({
+      sections: {
+        list: makeSection("list", {
+          kind: "list",
+          size: { width: 240, height: 150 },
+        }),
+      },
+      topLevelSections: {
+        list: { x: 0, y: 0, w: 240, h: 150, zIndex: 0 },
+      },
+      activeIds: [],
+    });
+
+    loadWorkspaceDocument(testWorkspace.host, document);
+    const normalized = getWorkspaceDocument(testWorkspace.host);
+    expect(normalized.sections["list"]?.size).toEqual({
+      width: 240,
+      height: 50,
+    });
+
+    loadWorkspaceDocument(testWorkspace.host, normalized);
+    expect(
+      getWorkspaceDocument(testWorkspace.host).sections["list"]?.size,
+    ).toEqual({
+      width: 240,
+      height: 50,
+    });
+  });
+
   it("resolves an omitted meta-control size from the package control policy", () => {
     registerSectionKinds(testWorkspace.host, {
       meta: {

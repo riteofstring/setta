@@ -2,7 +2,10 @@ import { getPaneRect } from "../canvas/graph";
 import { getReactFlowStore } from "../canvas/store";
 import { getMetaControlMinimumSize } from "../controls/meta/metaControlTypes";
 import { isGroupSection } from "../document/documentSelectors";
-import { getMetaControlPresentation } from "../document/sectionKindRegistry";
+import {
+  getMetaControlPresentation,
+  getSectionKindSizeConstraints,
+} from "../document/sectionKindRegistry";
 import { resolveWorkspaceSectionSize } from "../document/sectionSize";
 import {
   getNodeInternalsStore,
@@ -14,7 +17,7 @@ import type {
   WorkspaceSectionInput,
 } from "../document/types";
 import type { WorkspaceHost } from "../workspaceHost";
-import { SECTION_SIZING_POLICY } from "./resize/sizingPolicy";
+import { getWorkspaceSectionSizeBounds } from "./resize/sectionSizingBounds";
 
 // Where a section goes when nobody pointed at a place for it. The reference sends this decision to
 // its backend (`CreateTopLevelSection` with a null position, the current top-level layout, and the
@@ -52,13 +55,16 @@ function resolveMinimumExtent(
   const minimumSize = presentation
     ? getMetaControlMinimumSize(presentation.resolveControlKind(section))
     : null;
+  const sizeConstraints = isGroupSection(section)
+    ? null
+    : getSectionKindSizeConstraints(host, section);
+  const bounds = getWorkspaceSectionSizeBounds(
+    sizeConstraints ?? undefined,
+    minimumSize ?? undefined,
+  );
   return {
-    width: Math.max(1, SECTION_SIZING_POLICY.minWidth, minimumSize?.width ?? 0),
-    height: Math.max(
-      1,
-      SECTION_SIZING_POLICY.minHeight,
-      minimumSize?.height ?? 0,
-    ),
+    width: Math.max(1, bounds.minWidth),
+    height: Math.max(1, bounds.minHeight),
   };
 }
 
