@@ -165,10 +165,7 @@ export function focusNotStolenAfterSectionMoveExpression(
   })()`;
 }
 
-export function captureFocusBeforeSectionMoveExpression(
-  captureKey,
-  sourceSelector,
-) {
+function captureFocusBeforeSectionMoveExpression(captureKey, sourceSelector) {
   return `(() => {
       const source = document.querySelector(${JSON.stringify(sourceSelector)});
       const focused = document.activeElement;

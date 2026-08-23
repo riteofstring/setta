@@ -42,13 +42,12 @@ import {
 import { isUtf8Boundary, sliceByByteRange, utf8ByteLength } from "./utf8";
 
 export class ProjectSnapshotValidationError extends Error {
-  public readonly name = "ProjectSnapshotValidationError";
-
   public constructor(
     public readonly field: string,
     problem: string,
   ) {
     super(`Invalid ProjectSnapshotV2 ${field}: ${problem}.`);
+    this.name = "ProjectSnapshotValidationError";
   }
 }
 

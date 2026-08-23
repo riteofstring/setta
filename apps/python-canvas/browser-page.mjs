@@ -86,10 +86,9 @@ export async function visibleElementPoint(
   client,
   selector,
   description,
-  preferredYFraction = 0.5,
-  preferredXFraction = null,
   options = {},
 ) {
+  const { preferredYFraction = 0.5, preferredXFraction = null } = options;
   const exactElementHit = options.exactElementHit === true;
   const result = await evaluate(
     client,
@@ -549,9 +548,9 @@ export async function dragElementToElement(
   sourceSelector,
   targetSelector,
   description,
-  modifiers = 0,
-  target = {},
+  options = {},
 ) {
+  const { modifiers = 0, target = {} } = options;
   await delay(250);
   const source = await visibleElementPoint(
     client,
@@ -567,8 +566,11 @@ export async function dragElementToElement(
     client,
     targetSelector,
     `${description} target`,
-    target.targetYFraction ?? (targetCenter.y > source.y ? 0.75 : 0.25),
-    target.targetXFraction ?? null,
+    {
+      preferredXFraction: target.targetXFraction ?? null,
+      preferredYFraction:
+        target.targetYFraction ?? (targetCenter.y > source.y ? 0.75 : 0.25),
+    },
   );
   await client.send("Input.dispatchMouseEvent", {
     ...source,

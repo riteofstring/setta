@@ -626,7 +626,7 @@ async function dragParameterToDifferentPosition(
       parameterRowSelector(sourceID),
       parameterRowSelector(targetID),
       description,
-      itemSelectionModifiers(),
+      { modifiers: itemSelectionModifiers() },
     );
   } finally {
     await releaseItemSelectionChord(client);

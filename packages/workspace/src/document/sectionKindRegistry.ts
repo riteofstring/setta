@@ -246,65 +246,78 @@ function assertItemAreaPresentation(
   );
 }
 
+function assertMetaControlDoesNotRegister(
+  kind: string,
+  property: string,
+  value: unknown,
+  constraint: string,
+): void {
+  if (value !== undefined) {
+    throw new Error(
+      `Meta-control section kind ${kind} cannot register ${property}; ${constraint}`,
+    );
+  }
+}
+
 function assertMetaControlDefinition(
   kind: string,
   definition: SectionKindDefinition,
 ): void {
   assertMetaControlPresentation(kind, definition.presentation);
-  if (definition.itemArea !== undefined) {
-    throw new Error(
-      `Meta-control section kind ${kind} cannot register an item-area presentation; ` +
-        "meta controls cannot carry item trees.",
-    );
-  }
-  if (definition.defaultSize !== undefined) {
-    throw new Error(
-      `Meta-control section kind ${kind} cannot register a defaultSize; ` +
-        "the package owns control-specific default geometry.",
-    );
-  }
-  if (definition.contentClassName !== undefined) {
-    throw new Error(
-      `Meta-control section kind ${kind} cannot register a contentClassName; ` +
-        "the package owns its full-area control placement.",
-    );
-  }
-  if (definition.createItem !== undefined) {
-    throw new Error(
-      `Meta-control section kind ${kind} cannot register createItem; ` +
-        "meta controls cannot carry item trees.",
-    );
-  }
-  if (definition.getItemSearchableText !== undefined) {
-    throw new Error(
-      `Meta-control section kind ${kind} cannot register getItemSearchableText; ` +
-        "meta controls cannot carry item trees.",
-    );
-  }
-  if (definition.renderHeaderControls !== undefined) {
-    throw new Error(
-      `Meta-control section kind ${kind} cannot register renderHeaderControls; ` +
-        "its package-owned chrome has no section header.",
-    );
-  }
-  if (definition.deleteActionLabel !== undefined) {
-    throw new Error(
-      `Meta-control section kind ${kind} cannot register deleteActionLabel; ` +
-        "its package-owned chrome has no section header.",
-    );
-  }
-  if (definition.nestedSections !== undefined) {
-    throw new Error(
-      `Meta-control section kind ${kind} cannot register nestedSections; ` +
-        "meta controls cannot own section children.",
-    );
-  }
-  if (definition.canAcceptNestedSection !== undefined) {
-    throw new Error(
-      `Meta-control section kind ${kind} cannot register canAcceptNestedSection; ` +
-        "meta controls cannot own section children.",
-    );
-  }
+  assertMetaControlDoesNotRegister(
+    kind,
+    "an item-area presentation",
+    definition.itemArea,
+    "meta controls cannot carry item trees.",
+  );
+  assertMetaControlDoesNotRegister(
+    kind,
+    "a defaultSize",
+    definition.defaultSize,
+    "the package owns control-specific default geometry.",
+  );
+  assertMetaControlDoesNotRegister(
+    kind,
+    "a contentClassName",
+    definition.contentClassName,
+    "the package owns its full-area control placement.",
+  );
+  assertMetaControlDoesNotRegister(
+    kind,
+    "createItem",
+    definition.createItem,
+    "meta controls cannot carry item trees.",
+  );
+  assertMetaControlDoesNotRegister(
+    kind,
+    "getItemSearchableText",
+    definition.getItemSearchableText,
+    "meta controls cannot carry item trees.",
+  );
+  assertMetaControlDoesNotRegister(
+    kind,
+    "renderHeaderControls",
+    definition.renderHeaderControls,
+    "its package-owned chrome has no section header.",
+  );
+  assertMetaControlDoesNotRegister(
+    kind,
+    "deleteActionLabel",
+    definition.deleteActionLabel,
+    "its package-owned chrome has no section header.",
+  );
+  assertMetaControlDoesNotRegister(
+    kind,
+    "nestedSections",
+    definition.nestedSections,
+    "meta controls cannot own section children.",
+  );
+  assertMetaControlDoesNotRegister(
+    kind,
+    "canAcceptNestedSection",
+    definition.canAcceptNestedSection,
+    "meta controls cannot own section children.",
+  );
 }
 
 function assertNestedSectionsPresentation(

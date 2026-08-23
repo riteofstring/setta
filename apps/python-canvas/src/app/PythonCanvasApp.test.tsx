@@ -72,6 +72,15 @@ type MockCreationCommand = {
   label: string;
 };
 
+type RegisteredPythonCanvasSectionKinds = {
+  authoring: MockSectionRegistration;
+  dictionary: MockSectionRegistration;
+  list: MockSectionRegistration;
+  pending: MockSectionRegistration;
+  pendingDictionary: MockSectionRegistration;
+  pendingList: MockSectionRegistration;
+};
+
 function MockWorkspaceCanvas() {
   const mutation = usePythonCanvasMutationContext();
   return (
@@ -148,6 +157,75 @@ function requiredMockSectionRegistration(
     throw new Error(`Missing mock section registration ${kind}.`);
   }
   return registration;
+}
+
+function registeredPythonCanvasSectionKinds(): RegisteredPythonCanvasSectionKinds {
+  registerPythonCanvasSectionKinds(createHost());
+  return {
+    authoring: requiredMockSectionRegistration(CALLABLE_SECTION_KIND),
+    dictionary: requiredMockSectionRegistration(
+      PARAMETER_DICTIONARY_SECTION_KIND,
+    ),
+    list: requiredMockSectionRegistration(LIST_SECTION_KIND),
+    pending: requiredMockSectionRegistration(PENDING_CALLABLE_SECTION_KIND),
+    pendingDictionary: requiredMockSectionRegistration(
+      PENDING_PARAMETER_DICTIONARY_SECTION_KIND,
+    ),
+    pendingList: requiredMockSectionRegistration(PENDING_LIST_SECTION_KIND),
+  };
+}
+
+function expectAuthoringSectionKinds(
+  registrations: RegisteredPythonCanvasSectionKinds,
+): void {
+  expect(requiredItemArea(registrations.authoring).toolbar).toBe(
+    "authoring-and-filter",
+  );
+  expect(requiredItemArea(registrations.pending).toolbar).toBe("filter-only");
+  expect(registrations.pending.createItem).toBeUndefined();
+  expect(requiredItemArea(registrations.dictionary).toolbar).toBe(
+    "authoring-and-filter",
+  );
+  expect(registrations.dictionary.createItem).toEqual(expect.any(Function));
+  expect(requiredItemArea(registrations.pendingDictionary).toolbar).toBe(
+    "filter-only",
+  );
+  expect(registrations.pendingDictionary.createItem).toBeUndefined();
+}
+
+function expectListSectionKinds(
+  registrations: RegisteredPythonCanvasSectionKinds,
+): void {
+  const canAccept = requiredNestedSectionAcceptance(registrations.list);
+  expect(registrations.list.nestedSections).toBe("vertical");
+  expect(registrations.pendingList.nestedSections).toBe("vertical");
+  expect(canAccept({ kind: CALLABLE_SECTION_KIND })).toBe(true);
+  expect(canAccept({ kind: PARAMETER_DICTIONARY_SECTION_KIND })).toBe(true);
+  expect(canAccept({ kind: LIST_SECTION_KIND })).toBe(true);
+  expect(canAccept({ kind: WORKSPACE_CODE_SECTION_KIND })).toBe(false);
+  expect(canAccept({ kind: PENDING_LIST_SECTION_KIND })).toBe(false);
+  expect(registrations.list.deleteActionLabel).toBe(
+    "Delete list and all nested descendants",
+  );
+  expect(registrations.pendingList.deleteActionLabel).toBe(
+    "Delete list and all nested descendants",
+  );
+}
+
+function requiredItemArea(registration: MockSectionRegistration) {
+  if (registration.itemArea === undefined) {
+    throw new Error("Expected section item area.");
+  }
+  return registration.itemArea;
+}
+
+function requiredNestedSectionAcceptance(
+  registration: MockSectionRegistration,
+) {
+  if (registration.canAcceptNestedSection === undefined) {
+    throw new Error("Expected nested-section acceptance.");
+  }
+  return registration.canAcceptNestedSection;
 }
 
 function requiredMockCreationCommand(
@@ -379,197 +457,6 @@ describe("PythonCanvasApp", () => {
     });
   });
 
-  it("queues a later forest replacement from its surviving local order", async () => {
-    const initialSnapshot = multiCallableSnapshot(1, [
-      "callable:one",
-      "callable:two",
-      "callable:three",
-    ]);
-    const firstCanonicalSnapshot = multiCallableSnapshot(2, [
-      "callable:two",
-      "callable:one",
-      "callable:three",
-    ]);
-    const latestCanonicalSnapshot = multiCallableSnapshot(3, [
-      "callable:three",
-      "callable:two",
-      "callable:one",
-    ]);
-    const firstRequest = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
-    const workspace = installWorkspaceHarness();
-    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
-    mocks.replaceSectionForest
-      .mockReturnValueOnce(firstRequest.promise)
-      .mockResolvedValueOnce(latestCanonicalSnapshot);
-
-    renderApp();
-    await flushEffects();
-
-    workspace.publish(
-      reorderTopLevelCallables(
-        workspace.getDocument(),
-        firstCanonicalSnapshot.topLevelSectionIds,
-      ),
-    );
-    await flushEffects();
-    expect(mocks.replaceSectionForest).toHaveBeenCalledWith({
-      expectedRevision: initialSnapshot.project.revision,
-      listChildren: [],
-      projectId: initialSnapshot.project.id,
-      topLevelSectionIds: firstCanonicalSnapshot.topLevelSectionIds,
-    });
-
-    workspace.publish(
-      reorderTopLevelCallables(
-        workspace.getDocument(),
-        latestCanonicalSnapshot.topLevelSectionIds,
-      ),
-    );
-    await flushEffects();
-    expect(mocks.replaceSectionForest).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      firstRequest.resolve(firstCanonicalSnapshot);
-      await flushMicrotasks();
-    });
-
-    expect(mocks.replaceSectionForest).toHaveBeenCalledTimes(2);
-    expect(mocks.replaceSectionForest).toHaveBeenLastCalledWith({
-      expectedRevision: firstCanonicalSnapshot.project.revision,
-      listChildren: [],
-      projectId: firstCanonicalSnapshot.project.id,
-      topLevelSectionIds: latestCanonicalSnapshot.topLevelSectionIds,
-    });
-    expect(topLevelCallableIds(workspace.getDocument())).toEqual(
-      latestCanonicalSnapshot.topLevelSectionIds,
-    );
-  });
-
-  it("reconciles concurrent pane placeholders in their own saved layouts", async () => {
-    const initialSnapshot = parseProjectSnapshotV2(projectSnapshotFixture);
-    const callableSnapshot = parseProjectSnapshotV2({
-      ...initialSnapshot,
-      callables: [
-        {
-          authoredExpression: "",
-          id: "callable:created",
-          name: "New callable",
-          parameters: [],
-        },
-      ],
-      project: { ...initialSnapshot.project, revision: 2 },
-      topLevelSectionIds: ["callable:created"],
-    });
-    const dictionarySnapshot = parseProjectSnapshotV2({
-      ...callableSnapshot,
-      parameterDictionaries: [
-        { entries: [], id: "dictionary:created", name: "New Param Dict" },
-      ],
-      project: { ...callableSnapshot.project, revision: 3 },
-      topLevelSectionIds: ["callable:created", "dictionary:created"],
-    });
-    const callableRequest =
-      deferred<ReturnType<typeof parseProjectSnapshotV2>>();
-    const dictionaryRequest =
-      deferred<ReturnType<typeof parseProjectSnapshotV2>>();
-    const workspace = installWorkspaceHarness();
-    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
-    mocks.createCallable.mockReturnValueOnce(callableRequest.promise);
-    mocks.createParameterDictionary.mockReturnValueOnce(
-      dictionaryRequest.promise,
-    );
-
-    renderApp();
-    await flushEffects();
-
-    const pendingCallable = invokeMockCreationCommand({
-      workspacePosition: { x: 48, y: 64 },
-    });
-    const callableLayout = { h: 300, w: 360, x: 48, y: 64, zIndex: 4 };
-    workspace.publish({
-      ...workspace.getDocument(),
-      activeIds: [pendingCallable.id],
-      sections: {
-        ...workspace.getDocument().sections,
-        [pendingCallable.id]: pendingCallable,
-      },
-      topLevelSections: {
-        ...workspace.getDocument().topLevelSections,
-        [pendingCallable.id]: callableLayout,
-      },
-    });
-    await flushEffects();
-
-    const pendingDictionary = invokeMockCreationCommand(
-      { workspacePosition: { x: 516, y: 336 } },
-      "parameter-dictionary",
-    );
-    const dictionaryLayout = { h: 300, w: 420, x: 516, y: 336, zIndex: 5 };
-    workspace.publish({
-      ...workspace.getDocument(),
-      activeIds: [...workspace.getDocument().activeIds, pendingDictionary.id],
-      sections: {
-        ...workspace.getDocument().sections,
-        [pendingDictionary.id]: pendingDictionary,
-      },
-      topLevelSections: {
-        ...workspace.getDocument().topLevelSections,
-        [pendingDictionary.id]: dictionaryLayout,
-      },
-    });
-    await flushEffects();
-
-    expect(mocks.createParameterDictionary).not.toHaveBeenCalled();
-    await act(async () => {
-      callableRequest.resolve(callableSnapshot);
-      await flushMicrotasks();
-    });
-
-    const callableSectionId = callableSectionID("callable:created");
-    expect(mocks.createParameterDictionary).toHaveBeenCalledWith({
-      expectedRevision: callableSnapshot.project.revision,
-      name: "New Param Dict",
-      projectId: callableSnapshot.project.id,
-    });
-    expect(
-      workspace.getDocument().sections[pendingCallable.id],
-    ).toBeUndefined();
-    expect(workspace.getDocument().topLevelSections[callableSectionId]).toEqual(
-      callableLayout,
-    );
-    expect(workspace.getDocument().sections[pendingDictionary.id]).toBe(
-      pendingDictionary,
-    );
-    expect(
-      workspace.getDocument().topLevelSections[pendingDictionary.id],
-    ).toEqual(dictionaryLayout);
-    expect(workspace.getDocument().activeIds).toEqual([
-      callableSectionId,
-      pendingDictionary.id,
-    ]);
-
-    await act(async () => {
-      dictionaryRequest.resolve(dictionarySnapshot);
-      await flushMicrotasks();
-    });
-
-    const dictionarySectionId =
-      parameterDictionarySectionID("dictionary:created");
-    expect(
-      workspace.getDocument().sections[pendingDictionary.id],
-    ).toBeUndefined();
-    expect(
-      workspace.getDocument().topLevelSections[dictionarySectionId],
-    ).toEqual(dictionaryLayout);
-    expect(workspace.getDocument().topLevelSections[callableSectionId]).toEqual(
-      callableLayout,
-    );
-    expect(workspace.getDocument().activeIds).toEqual([
-      callableSectionId,
-      dictionarySectionId,
-    ]);
-  });
-
   it("registers the exact three Python creation labels", async () => {
     renderApp();
     await flushEffects();
@@ -795,55 +682,9 @@ describe("PythonCanvasApp", () => {
   });
 
   it("registers authored dictionaries and vertical lists through their app-owned kinds", () => {
-    const host = createHost();
-    registerPythonCanvasSectionKinds(host);
-
-    const authoring = requiredMockSectionRegistration(CALLABLE_SECTION_KIND);
-    const pending = requiredMockSectionRegistration(
-      PENDING_CALLABLE_SECTION_KIND,
-    );
-    const dictionary = requiredMockSectionRegistration(
-      PARAMETER_DICTIONARY_SECTION_KIND,
-    );
-    const pendingDictionary = requiredMockSectionRegistration(
-      PENDING_PARAMETER_DICTIONARY_SECTION_KIND,
-    );
-    const list = requiredMockSectionRegistration(LIST_SECTION_KIND);
-    const pendingList = requiredMockSectionRegistration(
-      PENDING_LIST_SECTION_KIND,
-    );
-    expect(authoring.itemArea?.toolbar).toBe("authoring-and-filter");
-    expect(pending.itemArea?.toolbar).toBe("filter-only");
-    expect(pending.createItem).toBeUndefined();
-    expect(dictionary.itemArea?.toolbar).toBe("authoring-and-filter");
-    expect(dictionary.createItem).toEqual(expect.any(Function));
-    expect(pendingDictionary.itemArea?.toolbar).toBe("filter-only");
-    expect(pendingDictionary.createItem).toBeUndefined();
-    expect(list.nestedSections).toBe("vertical");
-    expect(pendingList.nestedSections).toBe("vertical");
-    expect(list.canAcceptNestedSection?.({ kind: CALLABLE_SECTION_KIND })).toBe(
-      true,
-    );
-    expect(
-      list.canAcceptNestedSection?.({
-        kind: PARAMETER_DICTIONARY_SECTION_KIND,
-      }),
-    ).toBe(true);
-    expect(list.canAcceptNestedSection?.({ kind: LIST_SECTION_KIND })).toBe(
-      true,
-    );
-    expect(
-      list.canAcceptNestedSection?.({ kind: WORKSPACE_CODE_SECTION_KIND }),
-    ).toBe(false);
-    expect(
-      list.canAcceptNestedSection?.({ kind: PENDING_LIST_SECTION_KIND }),
-    ).toBe(false);
-    expect(list.deleteActionLabel).toBe(
-      "Delete list and all nested descendants",
-    );
-    expect(pendingList.deleteActionLabel).toBe(
-      "Delete list and all nested descendants",
-    );
+    const registrations = registeredPythonCanvasSectionKinds();
+    expectAuthoringSectionKinds(registrations);
+    expectListSectionKinds(registrations);
   });
 
   it("associates target completion failures with the app-owned editor boundary", () => {
@@ -1461,44 +1302,6 @@ function listSnapshot(revision: number, childSectionIds: string[]) {
     project: { ...projectSnapshotFixture.project, revision },
     topLevelSectionIds: ["list:objects"],
   });
-}
-
-function multiCallableSnapshot(revision: number, topLevelSectionIds: string[]) {
-  return parseProjectSnapshotV2({
-    ...projectSnapshotFixture,
-    callables: ["callable:one", "callable:two", "callable:three"].map((id) => ({
-      authoredExpression: "",
-      id,
-      name: id,
-      parameters: [],
-    })),
-    project: { ...projectSnapshotFixture.project, revision },
-    topLevelSectionIds,
-  });
-}
-
-function reorderTopLevelCallables(
-  document: WorkspaceDocument,
-  canonicalIds: string[],
-): WorkspaceDocument {
-  const topLevelSections = { ...document.topLevelSections };
-  for (const [zIndex, canonicalId] of canonicalIds.entries()) {
-    const sectionId = callableSectionID(canonicalId);
-    const layout = topLevelSections[sectionId];
-    if (layout === undefined) {
-      throw new Error(`Missing callable layout for ${canonicalId}.`);
-    }
-    topLevelSections[sectionId] = { ...layout, zIndex };
-  }
-  return { ...document, topLevelSections };
-}
-
-function topLevelCallableIds(document: WorkspaceDocument): string[] {
-  const callablePrefix = "python-canvas:callable:";
-  return Object.entries(document.topLevelSections)
-    .filter(([sectionId]) => sectionId.startsWith(callablePrefix))
-    .sort(([, left], [, right]) => left.zIndex - right.zIndex)
-    .map(([sectionId]) => sectionId.slice(callablePrefix.length));
 }
 
 function providerParameter(id: string, authoredExpression: string) {

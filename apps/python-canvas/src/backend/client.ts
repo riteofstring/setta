@@ -52,8 +52,6 @@ import {
 type ProjectClientErrorKind = "network" | "http" | "invalid_response";
 
 export class ProjectClientError extends Error {
-  public readonly name = "ProjectClientError";
-
   public constructor(
     public readonly kind: ProjectClientErrorKind,
     message: string,
@@ -62,6 +60,7 @@ export class ProjectClientError extends Error {
     public readonly code?: APIErrorCodeV2,
   ) {
     super(message);
+    this.name = "ProjectClientError";
   }
 }
 

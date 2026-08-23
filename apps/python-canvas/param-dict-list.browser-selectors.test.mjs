@@ -60,7 +60,7 @@ test("List walkthrough reorders a Param Dict with the proven free move gesture",
 
   assert.match(
     walkthrough,
-    /const dictionaryReorderFocus = await dragFreeSectionToSection\(\s*client,\s*dictionarySelector,\s*callableSectionSelector\(outerChildIds\[0\]\),\s*"reordering the Param Dict to the front of the list",\s*0\.25,/,
+    /const dictionaryReorderFocus = await dragFreeSectionToSection\(\s*client,\s*\{[\s\S]*?description: "reordering the Param Dict to the front of the list",[\s\S]*?sourceSelector: dictionarySelector,[\s\S]*?targetSelector: callableSectionSelector\(outerChildIds\[0\]\),[\s\S]*?targetYFraction: 0\.25,/,
   );
   assert.doesNotMatch(walkthrough, /dragSortedSectionToSection/);
 });
@@ -111,7 +111,7 @@ test("Nested List deletion targets its explicit destructive action label", async
 
 test("Canvas extraction keeps the whole dragged section inside an exposed pane lane", async () => {
   const walkthrough = await readFile(
-    new URL("./param-dict-list.browser.mjs", import.meta.url),
+    new URL("./param-dict-list.browser-drag.mjs", import.meta.url),
     "utf8",
   );
   assert.match(
@@ -926,8 +926,7 @@ test("Param Dict nesting targets the rightward item child-adoption lane", async 
     "[data-source]",
     "[data-target]",
     "the nested dictionary drop",
-    0,
-    dictionaryEntryChildAdoptionDragTarget,
+    { modifiers: 0, target: dictionaryEntryChildAdoptionDragTarget },
   );
 
   assert.match(evaluations[2] ?? "", /preferredXFraction = 0\.5/);

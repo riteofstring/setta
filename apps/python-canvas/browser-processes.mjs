@@ -173,57 +173,79 @@ function compareNumericRevisions(left, right) {
   return normalizedLeft > normalizedRight ? 1 : -1;
 }
 
-function findPlaywrightHeadlessShell(cacheRoot) {
+function isUnavailablePlaywrightCacheError(error) {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    ["EACCES", "ENOENT", "ENOTDIR"].includes(error.code)
+  );
+}
+
+function readPlaywrightCacheDirectoryEntries(cacheRoot) {
   if (!path.isAbsolute(cacheRoot)) {
     return null;
   }
-
-  let directoryEntries;
   try {
-    directoryEntries = readdirSync(cacheRoot, { withFileTypes: true });
+    return readdirSync(cacheRoot, { withFileTypes: true });
   } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      ["EACCES", "ENOENT", "ENOTDIR"].includes(error.code)
-    ) {
+    if (isUnavailablePlaywrightCacheError(error)) {
       return null;
     }
     throw error;
   }
+}
+
+function headlessShellCandidate(cacheRoot, directoryEntry) {
+  const match = playwrightHeadlessShellDirectoryPattern.exec(
+    directoryEntry.name,
+  );
+  if (!directoryEntry.isDirectory() || match === null) {
+    return null;
+  }
+  const shellPath = path.join(
+    cacheRoot,
+    directoryEntry.name,
+    playwrightHeadlessShellRelativePath,
+  );
+  if (!isExecutableRegularFile(shellPath)) {
+    return null;
+  }
+  return {
+    directoryName: directoryEntry.name,
+    path: shellPath,
+    revision: match[1],
+  };
+}
+
+function isPreferredHeadlessShellCandidate(highestCandidate, candidate) {
+  if (highestCandidate === null) {
+    return true;
+  }
+  const revisionComparison = compareNumericRevisions(
+    candidate.revision,
+    highestCandidate.revision,
+  );
+  if (revisionComparison !== 0) {
+    return revisionComparison > 0;
+  }
+  return candidate.directoryName > highestCandidate.directoryName;
+}
+
+function findPlaywrightHeadlessShell(cacheRoot) {
+  const directoryEntries = readPlaywrightCacheDirectoryEntries(cacheRoot);
+  if (directoryEntries === null) {
+    return null;
+  }
 
   let highestCandidate = null;
   for (const directoryEntry of directoryEntries) {
-    const match = playwrightHeadlessShellDirectoryPattern.exec(
-      directoryEntry.name,
-    );
-    if (!directoryEntry.isDirectory() || match === null) {
-      continue;
-    }
-    const shellPath = path.join(
-      cacheRoot,
-      directoryEntry.name,
-      playwrightHeadlessShellRelativePath,
-    );
-    if (!isExecutableRegularFile(shellPath)) {
-      continue;
-    }
-    const revision = match[1];
-    const revisionComparison =
-      highestCandidate === null
-        ? 1
-        : compareNumericRevisions(revision, highestCandidate.revision);
+    const candidate = headlessShellCandidate(cacheRoot, directoryEntry);
     if (
-      highestCandidate === null ||
-      revisionComparison > 0 ||
-      (revisionComparison === 0 &&
-        directoryEntry.name > highestCandidate.directoryName)
+      candidate !== null &&
+      isPreferredHeadlessShellCandidate(highestCandidate, candidate)
     ) {
-      highestCandidate = {
-        directoryName: directoryEntry.name,
-        path: shellPath,
-        revision,
-      };
+      highestCandidate = candidate;
     }
   }
   return highestCandidate;
@@ -240,39 +262,54 @@ function missingHeadlessChromeError(cacheRoot, platform) {
   );
 }
 
+function explicitHeadlessChromeBinary(environment, platform) {
+  const explicitPath = environment.PYTHON_CANVAS_CHROME_BINARY;
+  if (typeof explicitPath !== "string" || explicitPath === "") {
+    return null;
+  }
+  if (platform === "darwin" && isMacOSGuiApplicationPath(explicitPath)) {
+    throw new Error(
+      "PYTHON_CANVAS_CHROME_BINARY must name a raw chrome-headless-shell executable on macOS; GUI application executable paths are not supported.",
+    );
+  }
+  if (
+    !path.isAbsolute(explicitPath) ||
+    !isExecutableRegularFile(explicitPath)
+  ) {
+    throw new Error(
+      "PYTHON_CANVAS_CHROME_BINARY must name an existing absolute executable path.",
+    );
+  }
+  return { path: explicitPath, source: "PYTHON_CANVAS_CHROME_BINARY" };
+}
+
+function cachedHeadlessChromeBinary(platform, cacheRoot) {
+  if (platform !== "darwin") {
+    return null;
+  }
+  const cachedHeadlessShell = findPlaywrightHeadlessShell(cacheRoot);
+  if (cachedHeadlessShell === null) {
+    return null;
+  }
+  return {
+    path: cachedHeadlessShell.path,
+    source: `Playwright cache revision ${cachedHeadlessShell.revision}`,
+  };
+}
+
 export function resolveHeadlessChromeBinary({
   environment = process.env,
   platform = process.platform,
   cacheRoot = playwrightCacheRoot,
 } = {}) {
-  const explicitPath = environment.PYTHON_CANVAS_CHROME_BINARY;
-  if (typeof explicitPath === "string" && explicitPath !== "") {
-    if (platform === "darwin" && isMacOSGuiApplicationPath(explicitPath)) {
-      throw new Error(
-        "PYTHON_CANVAS_CHROME_BINARY must name a raw chrome-headless-shell executable on macOS; GUI application executable paths are not supported.",
-      );
-    }
-    if (
-      !path.isAbsolute(explicitPath) ||
-      !isExecutableRegularFile(explicitPath)
-    ) {
-      throw new Error(
-        "PYTHON_CANVAS_CHROME_BINARY must name an existing absolute executable path.",
-      );
-    }
-    return { path: explicitPath, source: "PYTHON_CANVAS_CHROME_BINARY" };
+  const explicitBinary = explicitHeadlessChromeBinary(environment, platform);
+  if (explicitBinary !== null) {
+    return explicitBinary;
   }
-
-  if (platform === "darwin") {
-    const cachedHeadlessShell = findPlaywrightHeadlessShell(cacheRoot);
-    if (cachedHeadlessShell !== null) {
-      return {
-        path: cachedHeadlessShell.path,
-        source: `Playwright cache revision ${cachedHeadlessShell.revision}`,
-      };
-    }
+  const cachedBinary = cachedHeadlessChromeBinary(platform, cacheRoot);
+  if (cachedBinary !== null) {
+    return cachedBinary;
   }
-
   throw missingHeadlessChromeError(cacheRoot, platform);
 }
 
