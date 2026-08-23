@@ -119,7 +119,7 @@ describe("WorkspaceParameterConfigurationView", () => {
       "rounded-full",
       "font-mono",
       "text-xs",
-      "ps-3",
+      "ps-2",
       "pe-8",
       "focus-visible:ring-2",
     ]) {

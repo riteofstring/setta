@@ -66,7 +66,7 @@ const PARAMETER_CONFIG_SEARCH_WRAPPER_CLASS_NAME = `relative mt-0.5 flex min-w-0
 const INPUT_CLASS_NAME =
   "setta-workspace-native-reset flex-grow truncate outline-0 cursor-auto rounded-full text-xs font-mono text-setta-600 font-medium ps-3 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 bg-white dark:bg-setta-900 pe-6 h-4 my-auto";
 const PARAMETER_CONFIG_INPUT_CLASS_NAME =
-  "setta-workspace-native-reset h-7 min-w-0 flex-grow cursor-auto truncate rounded-full border border-solid border-setta-100 bg-white ps-3 pe-8 font-mono text-xs font-medium text-setta-600 outline-0 placeholder:text-setta-200 hover:bg-white/50 focus-visible:border-white focus-visible:ring-2 disabled:cursor-not-allowed dark:border-setta-700/70 dark:bg-setta-900 dark:text-setta-300 dark:placeholder:text-setta-700 dark:hover:bg-setta-950 dark:focus-visible:border-setta-900";
+  "setta-workspace-native-reset h-7 min-w-0 flex-grow cursor-auto truncate rounded-full border border-solid border-setta-100 bg-white ps-2 pe-8 font-mono text-xs font-medium text-setta-600 outline-0 placeholder:text-setta-200 hover:bg-white/50 focus-visible:border-white focus-visible:ring-2 disabled:cursor-not-allowed dark:border-setta-700/70 dark:bg-setta-900 dark:text-setta-300 dark:placeholder:text-setta-700 dark:hover:bg-setta-950 dark:focus-visible:border-setta-900";
 const RIGHT_ADORNMENT_CLASS_NAME =
   "absolute inset-y-0 end-0 grid select-none place-items-center";
 // The reference `StandardSearchRightBtn` at the pill/small composition, verbatim (the trailing
