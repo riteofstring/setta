@@ -2,18 +2,76 @@ import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { WorkspaceHost } from "@setta/workspace";
+import type {
+  WorkspaceHost,
+  WorkspaceShellTabDefinition,
+  WorkspaceShellViewState,
+} from "@setta/workspace";
 
 import type { PythonCanvasMutationContextValue } from "./PythonCanvasMutationContext";
 import type { GeneratedPythonTerminalContextValue } from "./generatedPythonTerminalContext";
 import type { GeneratedPythonTerminalState } from "./generatedPythonTerminalController";
 import { PythonCanvasView } from "./PythonCanvasView";
 
+type ShellPropsCapture = {
+  ariaLabel?: string;
+  leadingPaneShiftsCanvas?: boolean;
+  leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
+  onViewStateChange: (nextState: WorkspaceShellViewState) => void;
+  trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
+  viewState: WorkspaceShellViewState;
+};
+
+const workspaceMocks = vi.hoisted(() => ({
+  providerHosts: [] as Array<WorkspaceHost>,
+  shellProps: [] as Array<ShellPropsCapture>,
+}));
+
 vi.mock("@setta/workspace", () => ({
-  WorkspaceCanvas: () => <div data-testid="workspace-canvas" />,
-  WorkspaceProvider: ({ children }: { children?: ReactNode }) => (
-    <>{children}</>
-  ),
+  WORKSPACE_INSPECTOR_TAB_ID: "inspector",
+  WORKSPACE_OUTLINE_TAB_ID: "outline",
+  createWorkspaceShellViewState: () => ({
+    leading: {
+      rememberedNonFullWidth: 335,
+      selectedTabId: "outline",
+      visible: true,
+      width: 335,
+    },
+    outline: { collapsedGroupIds: [], focusedSectionId: null },
+    trailing: {
+      rememberedNonFullWidth: 500,
+      selectedTabId: "inspector",
+      visible: false,
+      width: 500,
+    },
+  }),
+  WorkspaceShell: (props: ShellPropsCapture) => {
+    workspaceMocks.shellProps.push(props);
+    return (
+      <button
+        data-testid="workspace-shell"
+        onClick={() =>
+          props.onViewStateChange({
+            ...props.viewState,
+            trailing: { ...props.viewState.trailing, visible: true },
+          })
+        }
+        type="button"
+      >
+        Workspace shell
+      </button>
+    );
+  },
+  WorkspaceProvider: ({
+    children,
+    host,
+  }: {
+    children?: ReactNode;
+    host: WorkspaceHost;
+  }) => {
+    workspaceMocks.providerHosts.push(host);
+    return <div data-testid="workspace-provider">{children}</div>;
+  },
 }));
 
 let container: HTMLDivElement | undefined;
@@ -26,6 +84,8 @@ afterEach(() => {
   root = undefined;
   container?.remove();
   container = undefined;
+  workspaceMocks.providerHosts.length = 0;
+  workspaceMocks.shellProps.length = 0;
 });
 
 describe("PythonCanvasView", () => {
@@ -82,6 +142,47 @@ describe("PythonCanvasView", () => {
       view.querySelector("#python-canvas-mutation-error")?.textContent,
     ).toBe("");
   });
+
+  it("mounts the package shell with controlled, stable host integrations", () => {
+    const host = {} as WorkspaceHost;
+    const view = renderView({ kind: "idle" }, null, null, {
+      host,
+      kind: "ready",
+    });
+    const initialShell = lastShellProps();
+    const provider = view.querySelector("[data-testid='workspace-provider']");
+
+    expect(initialShell.ariaLabel).toBe("Python Canvas workspace");
+    expect(initialShell.leadingPaneShiftsCanvas).toBe(true);
+    expect(initialShell.leadingTabs).toEqual([]);
+    expect(initialShell.trailingTabs).toEqual([]);
+    expect(initialShell.leadingTabs).toBe(initialShell.trailingTabs);
+    expect(initialShell.viewState.leading.visible).toBe(true);
+    expect(initialShell.viewState.trailing.visible).toBe(false);
+    expect(workspaceMocks.providerHosts).toEqual([host]);
+    expect(view.querySelector("[data-testid='workspace-canvas']")).toBeNull();
+
+    const shell = view.querySelector("[data-testid='workspace-shell']");
+    expect(shell).not.toBeNull();
+    act(() => {
+      shell?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const updatedShell = lastShellProps();
+    expect(updatedShell.viewState.trailing.visible).toBe(true);
+    expect(updatedShell.leadingTabs).toBe(initialShell.leadingTabs);
+    expect(updatedShell.trailingTabs).toBe(initialShell.trailingTabs);
+    expect(workspaceMocks.providerHosts).toEqual([host, host]);
+    expect(view.querySelector("[data-testid='workspace-provider']")).toBe(
+      provider,
+    );
+  });
+
+  it("does not mount a shell before the workspace is ready", () => {
+    renderView({ kind: "idle" }, null, null, { kind: "loading" });
+
+    expect(workspaceMocks.shellProps).toEqual([]);
+  });
 });
 
 const mutationContext: PythonCanvasMutationContextValue = {
@@ -131,6 +232,13 @@ function renderView(
     | { kind: "error"; message: string },
   pythonTargetCompletionError: string | null = null,
   terminalError: string | null = null,
+  state:
+    | { kind: "loading" }
+    | { kind: "error" }
+    | { host: WorkspaceHost; kind: "ready" } = {
+    host: {} as WorkspaceHost,
+    kind: "ready",
+  },
 ): HTMLDivElement {
   container = document.createElement("div");
   document.body.append(container);
@@ -141,7 +249,7 @@ function renderView(
         announcement={announcement}
         mutationContext={mutationContext}
         pythonTargetCompletionError={pythonTargetCompletionError}
-        state={{ host: {} as WorkspaceHost, kind: "ready" }}
+        state={state}
         terminalContext={{
           ...terminalContext,
           state: { ...terminalContext.state, error: terminalError },
@@ -150,4 +258,12 @@ function renderView(
     );
   });
   return container;
+}
+
+function lastShellProps(): ShellPropsCapture {
+  const props = workspaceMocks.shellProps.at(-1);
+  if (props === undefined) {
+    throw new Error("WorkspaceShell did not render.");
+  }
+  return props;
 }

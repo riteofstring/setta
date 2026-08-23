@@ -1,8 +1,11 @@
 import {
-  WorkspaceCanvas,
   WorkspaceProvider,
+  WorkspaceShell,
   type WorkspaceHost,
+  type WorkspaceShellTabDefinition,
+  type WorkspaceShellViewState,
 } from "@setta/workspace";
+import { useCallback, useState } from "react";
 
 import {
   PythonCanvasMutationContext,
@@ -16,6 +19,12 @@ import {
   GeneratedPythonTerminalContext,
   type GeneratedPythonTerminalContextValue,
 } from "./generatedPythonTerminalContext";
+import {
+  loadPythonCanvasShellViewState,
+  persistPythonCanvasShellViewState,
+} from "./pythonCanvasShellPreferences";
+
+const EMPTY_SHELL_TABS: ReadonlyArray<WorkspaceShellTabDefinition> = [];
 
 type ViewState =
   | { kind: "loading" }
@@ -35,6 +44,13 @@ type PythonCanvasViewProps = {
   terminalContext: GeneratedPythonTerminalContextValue;
 };
 
+type PythonCanvasReadyWorkspaceProps = Omit<
+  PythonCanvasViewProps,
+  "state"
+> & {
+  state: Extract<ViewState, { kind: "ready" }>;
+};
+
 export function PythonCanvasView(props: PythonCanvasViewProps) {
   return (
     <main className="python-canvas-app">
@@ -46,7 +62,15 @@ export function PythonCanvasView(props: PythonCanvasViewProps) {
       <PythonCanvasMutationError announcement={props.announcement} />
       <PythonCanvasCompletionError error={props.pythonTargetCompletionError} />
       <PythonCanvasTerminalError error={props.terminalContext.state.error} />
-      <PythonCanvasReadyWorkspace {...props} />
+      {props.state.kind === "ready" ? (
+        <PythonCanvasReadyWorkspace
+          announcement={props.announcement}
+          mutationContext={props.mutationContext}
+          pythonTargetCompletionError={props.pythonTargetCompletionError}
+          state={props.state}
+          terminalContext={props.terminalContext}
+        />
+      ) : null}
     </main>
   );
 }
@@ -138,10 +162,16 @@ function PythonCanvasReadyWorkspace({
   pythonTargetCompletionError,
   state,
   terminalContext,
-}: PythonCanvasViewProps) {
-  if (state.kind !== "ready") {
-    return null;
-  }
+}: PythonCanvasReadyWorkspaceProps) {
+  const [shellViewState, setShellViewState] =
+    useState<WorkspaceShellViewState>(loadPythonCanvasShellViewState);
+  const handleShellViewStateChange = useCallback(
+    (nextState: WorkspaceShellViewState): void => {
+      setShellViewState(nextState);
+      persistPythonCanvasShellViewState(nextState);
+    },
+    [],
+  );
   return (
     <div className="python-canvas-workspace">
       <PythonCanvasMutationContext.Provider value={mutationContext}>
@@ -150,7 +180,14 @@ function PythonCanvasReadyWorkspace({
             error={pythonTargetCompletionError}
           >
             <WorkspaceProvider host={state.host}>
-              <WorkspaceCanvas />
+              <WorkspaceShell
+                ariaLabel="Python Canvas workspace"
+                leadingPaneShiftsCanvas={true}
+                leadingTabs={EMPTY_SHELL_TABS}
+                onViewStateChange={handleShellViewStateChange}
+                trailingTabs={EMPTY_SHELL_TABS}
+                viewState={shellViewState}
+              />
             </WorkspaceProvider>
           </PythonTargetCompletionErrorProvider>
         </GeneratedPythonTerminalContext.Provider>
