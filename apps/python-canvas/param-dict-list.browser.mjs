@@ -64,6 +64,10 @@ const dictionaryEntryWorkspaceItemPrefix =
 const sectionMoveAttemptLimit = 3;
 const sectionMoveObservationTimeoutMs = 500;
 const sectionMoveObservationPollIntervalMs = 50;
+const sectionCanvasDropMarginPx = 16;
+const sectionCanvasDropCollisionClearancePx = 8;
+const workspaceCanvasPaneSelector =
+  '.react-flow__pane[aria-label="Workspace canvas background"]';
 export const sectionDragPointerHoldMs = 200;
 export const sectionDragPointerMoveSteps = 14;
 
@@ -899,11 +903,14 @@ async function dragFreeSectionToCanvas(
     hasMoved,
     mode: "free",
     sourceSelector,
-    targetSelector:
-      '.react-flow__pane[aria-label="Workspace canvas background"]',
-    targetYFraction: 0.25,
-    targetXFraction: 0.9,
-    targetPointOptions: { exactElementHit: true },
+    resolveTargetPoint: (source) =>
+      visibleCanvasDropPointForSection(
+        client,
+        sourceSelector,
+        source,
+        `${description} target`,
+      ),
+    targetSelector: workspaceCanvasPaneSelector,
     targetRetryYOffset: 0,
     verifyFocusContext,
   });
@@ -936,16 +943,18 @@ async function dragSection(client, configuration) {
         sourceSelector,
         `${configuration.description} source`,
       );
-      const target = await visibleElementPoint(
-        client,
-        configuration.targetSelector,
-        `${configuration.description} target`,
-        configuration.targetYFraction,
-        configuration.targetXFraction ?? null,
-        configuration.targetPointOptions,
-      );
+      const target = configuration.resolveTargetPoint
+        ? await configuration.resolveTargetPoint(source)
+        : await visibleElementPoint(
+            client,
+            configuration.targetSelector,
+            `${configuration.description} target`,
+            configuration.targetYFraction,
+            configuration.targetXFraction ?? null,
+            configuration.targetPointOptions,
+          );
       attemptedTarget = {
-        ...target,
+        x: target.x,
         y: target.y + attempt * (configuration.targetRetryYOffset ?? 2),
       };
       await tryMovingFreeSectionDrag(client, {
@@ -961,6 +970,154 @@ async function dragSection(client, configuration) {
       return focusCapture;
     },
   });
+}
+
+// A pane drop is resolved from the dragged section's rectangle, not just its pointer. Pick an
+// exposed pane pixel that leaves the whole translated rectangle in the visible pane and away from
+// every live section collision surface. The call lives inside the retry gesture so a canonical
+// projection that settled between attempts always contributes fresh geometry.
+export async function visibleCanvasDropPointForSection(
+  client,
+  sourceSelector,
+  sourcePoint,
+  description,
+) {
+  const result = await evaluate(
+    client,
+    `(() => {
+      const pane = document.querySelector(${JSON.stringify(workspaceCanvasPaneSelector)});
+      const source = document.querySelector(${JSON.stringify(sourceSelector)});
+      if (!(pane instanceof HTMLElement) || !(source instanceof HTMLElement)) {
+        return { point: null, reason: "missing source or workspace canvas" };
+      }
+
+      const paneRect = pane.getBoundingClientRect();
+      const sourceRect = source.getBoundingClientRect();
+      const visiblePane = {
+        bottom: Math.min(window.innerHeight, paneRect.bottom),
+        left: Math.max(0, paneRect.left),
+        right: Math.min(window.innerWidth, paneRect.right),
+        top: Math.max(0, paneRect.top),
+      };
+      if (
+        sourceRect.width <= 0 ||
+        sourceRect.height <= 0 ||
+        visiblePane.right <= visiblePane.left ||
+        visiblePane.bottom <= visiblePane.top
+      ) {
+        return { point: null, reason: "source or canvas has no visible geometry" };
+      }
+
+      const sourcePoint = ${JSON.stringify(sourcePoint)};
+      const sourceOffset = {
+        x: sourcePoint.x - sourceRect.left,
+        y: sourcePoint.y - sourceRect.top,
+      };
+      const minimum = {
+        x: Math.ceil(visiblePane.left + ${sectionCanvasDropMarginPx} + sourceOffset.x),
+        y: Math.ceil(visiblePane.top + ${sectionCanvasDropMarginPx} + sourceOffset.y),
+      };
+      const maximum = {
+        x: Math.floor(
+          visiblePane.right -
+            ${sectionCanvasDropMarginPx} -
+            (sourceRect.width - sourceOffset.x),
+        ),
+        y: Math.floor(
+          visiblePane.bottom -
+            ${sectionCanvasDropMarginPx} -
+            (sourceRect.height - sourceOffset.y),
+        ),
+      };
+      if (minimum.x > maximum.x || minimum.y > maximum.y) {
+        return {
+          point: null,
+          reason: "source cannot fit inside the visible canvas",
+          maximum,
+          minimum,
+          sourceRect: sourceRect.toJSON(),
+          visiblePane,
+        };
+      }
+
+      const sourceSortable = source.closest("[data-sortable-section-id]");
+      const collisionRects = Array.from(
+        document.querySelectorAll("[data-section-id], [data-sortable-section-id]"),
+      )
+        .filter((element) => element instanceof HTMLElement)
+        .filter(
+          (element) =>
+            element !== source &&
+            element !== sourceSortable &&
+            !source.contains(element) &&
+            !(sourceSortable instanceof HTMLElement && sourceSortable.contains(element)),
+        )
+        .map((element) => ({
+          id:
+            element.getAttribute("data-section-id") ??
+            element.getAttribute("data-sortable-section-id") ??
+            "unknown",
+          rect: element.getBoundingClientRect(),
+        }))
+        .filter(({ rect }) => rect.width > 0 && rect.height > 0);
+
+      function candidateAxis(min, max, fractions) {
+        return [...new Set(
+          fractions.map((fraction) =>
+            Math.round(min + (max - min) * fraction),
+          ),
+        )];
+      }
+
+      function intersects(left, top, right, bottom, rect) {
+        const clearance = ${sectionCanvasDropCollisionClearancePx};
+        return (
+          left < rect.right + clearance &&
+          right > rect.left - clearance &&
+          top < rect.bottom + clearance &&
+          bottom > rect.top - clearance
+        );
+      }
+
+      const xs = candidateAxis(minimum.x, maximum.x, [1, 0.875, 0.75, 0.625, 0.5, 0.375, 0.25, 0.125, 0]);
+      const ys = candidateAxis(minimum.y, maximum.y, [0.25, 0.5, 0.75, 0.125, 0.875, 0, 1]);
+      for (const x of xs) {
+        for (const y of ys) {
+          const left = sourceRect.left + x - sourcePoint.x;
+          const top = sourceRect.top + y - sourcePoint.y;
+          const right = left + sourceRect.width;
+          const bottom = top + sourceRect.height;
+          if (
+            left < visiblePane.left + ${sectionCanvasDropMarginPx} ||
+            right > visiblePane.right - ${sectionCanvasDropMarginPx} ||
+            top < visiblePane.top + ${sectionCanvasDropMarginPx} ||
+            bottom > visiblePane.bottom - ${sectionCanvasDropMarginPx} ||
+            collisionRects.some(({ rect }) => intersects(left, top, right, bottom, rect)) ||
+            document.elementFromPoint(x, y) !== pane
+          ) {
+            continue;
+          }
+          return { point: { x, y } };
+        }
+      }
+
+      return {
+        point: null,
+        collisionIds: collisionRects.map(({ id }) => id),
+        maximum,
+        minimum,
+        reason: "no collision-clear exposed canvas target",
+        sourceRect: sourceRect.toJSON(),
+        visiblePane,
+      };
+    })()`,
+  );
+  if (result?.point === null || result?.point === undefined) {
+    throw new Error(
+      `${description} has no source-aware canvas drop point: ${JSON.stringify(result)}.`,
+    );
+  }
+  return result.point;
 }
 
 export async function retrySectionMoveUntilObserved({

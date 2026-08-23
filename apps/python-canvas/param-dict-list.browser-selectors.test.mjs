@@ -13,7 +13,7 @@ import {
   parameterDictionarySectionSelector,
   parameterDictionaryWorkspaceSectionId,
 } from "./param-dict-list.browser-support.mjs";
-import { dragElementToElement, visibleElementPoint } from "./browser-page.mjs";
+import { dragElementToElement } from "./browser-page.mjs";
 import {
   describeSectionMoveFailure,
   dictionaryEntryChildAdoptionDragTarget,
@@ -28,6 +28,7 @@ import {
   sectionDragPointerHoldMs,
   sectionDragPointerMoveSteps,
   tryMovingFreeSectionDrag,
+  visibleCanvasDropPointForSection,
   waitForSectionDragModeRelease,
   waitForListNestedChildOrder,
 } from "./param-dict-list.browser.mjs";
@@ -64,65 +65,93 @@ test("List walkthrough reorders a Param Dict with the proven free move gesture",
   assert.doesNotMatch(walkthrough, /dragSortedSectionToSection/);
 });
 
-test("Canvas extraction requires an exposed React Flow pane point", async () => {
+test("Canvas extraction keeps the whole dragged section inside an exposed pane lane", async () => {
   const walkthrough = await readFile(
     new URL("./param-dict-list.browser.mjs", import.meta.url),
     "utf8",
   );
   assert.match(
     walkthrough,
-    /targetXFraction: 0\.9,\s*targetPointOptions: \{ exactElementHit: true \},\s*targetRetryYOffset: 0,/,
+    /resolveTargetPoint: \(source\) =>\s*visibleCanvasDropPointForSection\(/,
   );
+  assert.doesNotMatch(walkthrough, /targetXFraction: 0\.9/);
 
   const window = new JSDOM(
     `
       <div class="react-flow__pane" aria-label="Workspace canvas background">
-        <div class="react-flow__node">Large list</div>
+        <div data-section-id="python-canvas:list:list:outer">
+          <div data-sortable-section-id="python-canvas:callable:callable:child">
+            <div data-section-id="python-canvas:callable:callable:child"></div>
+          </div>
+        </div>
       </div>
     `,
     { runScripts: "outside-only" },
   ).window;
   const document = window.document;
   const canvas = document.querySelector(".react-flow__pane");
-  const list = document.querySelector(".react-flow__node");
+  const list = document.querySelector(
+    '[data-section-id="python-canvas:list:list:outer"]',
+  );
+  const source = document.querySelector(
+    callableSectionSelector("callable:child"),
+  );
   if (
     !(canvas instanceof window.HTMLElement) ||
-    !(list instanceof window.HTMLElement)
+    !(list instanceof window.HTMLElement) ||
+    !(source instanceof window.HTMLElement)
   ) {
     throw new Error("Expected the canvas extraction fixture.");
   }
-  canvas.getBoundingClientRect = () => new window.DOMRect(0, 0, 400, 300);
-  document.elementFromPoint = (x) => (x <= 1 || x >= 350 ? canvas : list);
+  Object.defineProperties(window, {
+    innerHeight: { configurable: true, value: 900 },
+    innerWidth: { configurable: true, value: 1440 },
+  });
+  canvas.getBoundingClientRect = () => new window.DOMRect(0, 0, 1440, 900);
+  list.getBoundingClientRect = () => new window.DOMRect(509, 180, 362, 432);
+  source.getBoundingClientRect = () => new window.DOMRect(509, 310, 362, 302);
+  document.elementFromPoint = (x, y) => {
+    if (x >= 509 && x <= 871 && y >= 180 && y <= 612) {
+      return list;
+    }
+    return x >= 0 && x <= 1440 && y >= 0 && y <= 900 ? canvas : null;
+  };
   const client = {
     async send(method, parameters) {
       assert.equal(method, "Runtime.evaluate");
       return { result: { value: window.eval(parameters.expression) } };
     },
   };
+  const sourcePoint = { x: 521, y: 322 };
 
-  const point = await visibleElementPoint(
+  const point = await visibleCanvasDropPointForSection(
     client,
-    '.react-flow__pane[aria-label="Workspace canvas background"]',
+    callableSectionSelector("callable:child"),
+    sourcePoint,
     "the exposed canvas",
-    0.25,
-    0.9,
-    { exactElementHit: true },
   );
-  assert.deepEqual({ ...point }, { x: 360, y: 75 });
-  assert.equal(document.elementFromPoint(point.x, point.y), canvas);
+  const sourceRect = source.getBoundingClientRect();
+  const translated = {
+    bottom: sourceRect.bottom + point.y - sourcePoint.y,
+    left: sourceRect.left + point.x - sourcePoint.x,
+    right: sourceRect.right + point.x - sourcePoint.x,
+    top: sourceRect.top + point.y - sourcePoint.y,
+  };
 
-  document.elementFromPoint = () => list;
-  await assert.rejects(
-    () =>
-      visibleElementPoint(
-        client,
-        '.react-flow__pane[aria-label="Workspace canvas background"]',
-        "the covered canvas",
-        0.25,
-        null,
-        { exactElementHit: true },
-      ),
-    /the covered canvas has no pointer-reachable point/,
+  assert.notEqual(point.x, 1296);
+  assert.ok(translated.left >= 16);
+  assert.ok(translated.right <= 1440 - 16);
+  assert.ok(translated.top >= 16);
+  assert.ok(translated.bottom <= 900 - 16);
+  assert.equal(document.elementFromPoint(point.x, point.y), canvas);
+  const listRect = list.getBoundingClientRect();
+  assert.equal(
+    translated.left < listRect.right &&
+      translated.right > listRect.left &&
+      translated.top < listRect.bottom &&
+      translated.bottom > listRect.top,
+    false,
+    "The translated section must not collide with its parent List of Objects.",
   );
 });
 

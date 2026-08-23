@@ -22,8 +22,10 @@ both the Go endpoint and Vite preview origin before CDP navigation. Its isolated
 retains the disposable profile and keychain protections, resolves a valid explicit raw executable
 before the highest valid Playwright cached raw headless shell on macOS, reports its source and path,
 and uses `--mute-audio` only for renderer audio—not for AppKit system-alert sounds. Its canvas
-extraction now chooses an exposed far-right React Flow pane point proven by `elementFromPoint`, and its bounded
-retry polls a settled canonical result before issuing a second gesture. Each held section drag also
+extraction now recalculates an exposed React Flow pane point from the source title point and measured
+section rectangle, keeping the complete translated rectangle inside the visible pane margin and clear
+of live section collision rectangles; its bounded retry polls a settled canonical result before issuing
+a second gesture. Each held section drag also
 yields one animation frame after its final pointer move and before release, letting its final
 empty-collision state settle; focused static harness tests
 cover these behaviors. A final failed callable-to-top-level attempt now emits a failure-only
