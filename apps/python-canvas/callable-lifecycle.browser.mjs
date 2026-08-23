@@ -282,12 +282,21 @@ async function resolveMathParametersFromPythonTarget(
       const lock = section?.querySelector('button[aria-label="Lock position and size"]');
       const unlock = section?.querySelector('button[aria-label="Unlock position and size"]');
       const mutationError = document.querySelector('#python-canvas-mutation-error');
+      const hasVisibleAlert = Array.from(document.querySelectorAll('[role="alert"]')).some((alert) => {
+        if (!(alert instanceof HTMLElement) || (alert.textContent ?? '').trim() === '') {
+          return false;
+        }
+        const style = window.getComputedStyle(alert);
+        const rect = alert.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' &&
+          style.opacity !== '0' && rect.width > 0 && rect.height > 0;
+      });
       return section instanceof HTMLElement && section.getAttribute('aria-busy') !== 'true' &&
         field instanceof HTMLElement && field.dataset.disabled === 'false' &&
-        editor instanceof HTMLElement && editor.getAttribute('contenteditable') === 'true' &&
-        editor.getAttribute('aria-disabled') !== 'true' && overlay === null &&
+        editor instanceof HTMLElement && editor.getAttribute('aria-disabled') !== 'true' &&
+        editor.tabIndex >= 0 && overlay === null &&
         lock instanceof HTMLElement && unlock === null &&
-        (mutationError?.textContent ?? '').trim() === '';
+        (mutationError?.textContent ?? '').trim() === '' && !hasVisibleAlert;
     })()`,
   );
   const presentationAfter = await callablePresentation(client, sectionSelector);
