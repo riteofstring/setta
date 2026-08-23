@@ -21,10 +21,10 @@ type Diagnostic struct {
 	Code     string `json:"code"`
 }
 
-type PublishDiagnosticsParams struct {
-	URI         string       `json:"uri"`
-	Version     *int         `json:"version,omitempty"`
-	Diagnostics []Diagnostic `json:"diagnostics"`
+type DocumentDiagnostics struct {
+	URI         string
+	Version     int
+	Diagnostics []Diagnostic
 }
 
 type SignatureHelpResult struct {

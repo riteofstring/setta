@@ -65,7 +65,7 @@ func (provider *BasedpyrightProvider) completeSnapshot(
 	}
 	defer os.Remove(snapshotPath)
 
-	if err := provider.session.SynchronizeDocument(ctx, snapshotPath, "python", 1, snapshotCode, nil); err != nil {
+	if err := provider.session.SynchronizeDocument(ctx, snapshotPath, "python", 1, snapshotCode); err != nil {
 		return nil, err
 	}
 	closedDocument := false

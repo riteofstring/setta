@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
-	"github.com/setta/python-canvas/backend/internal/project/coordinator"
 )
 
 func TestNormalizeDiagnosticsRejectsMalformedProviderEntries(t *testing.T) {
@@ -36,19 +35,19 @@ func TestNormalizeCompletionItemsRejectsBlankLabels(t *testing.T) {
 	}
 }
 
-func TestWaitForExactDiagnosticsReturnsNotReadyFailureAfterCancellation(t *testing.T) {
+func TestDiagnosticContextReturnsNotReadyFailureAfterCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	provider := &BasedpyrightProvider{}
-	_, err := provider.waitForExactDiagnostics(ctx, coordinator.GeneratedDocumentRequest{
-		Revision: 1,
-	}, newDiagnosticWaiter())
+	_, diagnosticCancel, err := contextWithDiagnosticTimeout(ctx, defaultDiagnosticTimeout)
+	if diagnosticCancel != nil {
+		diagnosticCancel()
+	}
 	if !errors.Is(err, ErrDiagnosticsNotReady) {
-		t.Fatalf("waitForExactDiagnostics() error = %v, want explicit not-ready failure", err)
+		t.Fatalf("contextWithDiagnosticTimeout() error = %v, want explicit not-ready failure", err)
 	}
 	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("waitForExactDiagnostics() error = %v, want cancellation cause", err)
+		t.Fatalf("contextWithDiagnosticTimeout() error = %v, want cancellation cause", err)
 	}
 }
 

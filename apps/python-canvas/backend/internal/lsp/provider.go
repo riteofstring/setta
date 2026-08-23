@@ -42,69 +42,6 @@ type BasedpyrightProvider struct {
 	closed            bool
 }
 
-// diagnosticWaiter carries one document's publications and the terminal
-// session failure that makes waiting for a matching publication impossible.
-type diagnosticWaiter struct {
-	publications chan PublishDiagnosticsParams
-	failures     chan error
-}
-
-func newDiagnosticWaiter() *diagnosticWaiter {
-	return &diagnosticWaiter{
-		publications: make(chan PublishDiagnosticsParams, 16),
-		failures:     make(chan error, 1),
-	}
-}
-
-func (waiter *diagnosticWaiter) notify(publication PublishDiagnosticsParams, failure error) {
-	if failure != nil {
-		select {
-		case waiter.failures <- failure:
-		default:
-		}
-		return
-	}
-	select {
-	case waiter.publications <- publication:
-	default:
-	}
-}
-
-func (waiter *diagnosticWaiter) takeFailure() error {
-	select {
-	case failure := <-waiter.failures:
-		return failure
-	default:
-		return nil
-	}
-}
-
-func (waiter *diagnosticWaiter) await(
-	ctx context.Context,
-	timeout <-chan time.Time,
-) (PublishDiagnosticsParams, error, bool) {
-	if failure := waiter.takeFailure(); failure != nil {
-		return PublishDiagnosticsParams{}, failure, false
-	}
-	select {
-	case failure := <-waiter.failures:
-		return PublishDiagnosticsParams{}, failure, false
-	case publication := <-waiter.publications:
-		return publication, nil, false
-	case <-ctx.Done():
-		return waiter.pendingOutcome()
-	case <-timeout:
-		return waiter.pendingOutcome()
-	}
-}
-
-func (waiter *diagnosticWaiter) pendingOutcome() (PublishDiagnosticsParams, error, bool) {
-	if failure := waiter.takeFailure(); failure != nil {
-		return PublishDiagnosticsParams{}, failure, false
-	}
-	return PublishDiagnosticsParams{}, nil, true
-}
-
 func NewBasedpyrightProvider(options BasedpyrightOptions) (*BasedpyrightProvider, error) {
 	executable, err := ResolvePinnedBasedpyrightExecutable(options.AppRoot)
 	if err != nil {
@@ -200,7 +137,7 @@ func (provider *BasedpyrightProvider) ResolveCallableSignature(
 	}
 	defer os.Remove(snapshotPath)
 
-	if err := provider.session.SynchronizeDocument(ctx, snapshotPath, "python", 1, request.Code, nil); err != nil {
+	if err := provider.session.SynchronizeDocument(ctx, snapshotPath, "python", 1, request.Code); err != nil {
 		return nil, err
 	}
 	closedDocument := false
@@ -268,11 +205,41 @@ func (provider *BasedpyrightProvider) SynchronizeGeneratedDocument(
 		return coordinator.GeneratedDocumentResult{}, fmt.Errorf("lsp: generated document does not match its canonical revision")
 	}
 
-	waiter := newDiagnosticWaiter()
-	if err := provider.session.SynchronizeDocument(ctx, path, "python", request.Revision, request.Code, waiter.notify); err != nil {
+	if err := provider.session.SynchronizeDocument(ctx, path, "python", request.Revision, request.Code); err != nil {
 		return coordinator.GeneratedDocumentResult{}, err
 	}
-	return provider.waitForExactDiagnostics(ctx, request, waiter)
+	diagnostics, err := provider.pullGeneratedDocumentDiagnostics(ctx, path, request)
+	if err != nil {
+		return coordinator.GeneratedDocumentResult{}, err
+	}
+	return coordinator.GeneratedDocumentResult{
+		Diagnostics:    diagnostics,
+		ProviderStatus: readyProviderStatus(),
+	}, nil
+}
+
+func (provider *BasedpyrightProvider) pullGeneratedDocumentDiagnostics(
+	ctx context.Context,
+	path string,
+	request coordinator.GeneratedDocumentRequest,
+) ([]coordinator.ProviderDiagnostic, error) {
+	diagnosticContext, cancel, err := contextWithDiagnosticTimeout(ctx, provider.diagnosticTimeout)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	pulled, err := provider.session.PullDiagnostics(diagnosticContext, path, request.Revision)
+	if err != nil {
+		if cause := diagnosticContext.Err(); cause != nil {
+			return nil, diagnosticsNotReadyError(cause)
+		}
+		return nil, fmt.Errorf("lsp: pull diagnostics: %w", err)
+	}
+	diagnostics, err := normalizeDiagnostics(request.Code, pulled.Diagnostics)
+	if err != nil {
+		return nil, err
+	}
+	return diagnostics, nil
 }
 
 func (provider *BasedpyrightProvider) resolveCanonicalPath(path string) (string, error) {
@@ -294,46 +261,22 @@ func (provider *BasedpyrightProvider) resolveCanonicalPath(path string) (string,
 	return resolvedPath, nil
 }
 
-func (provider *BasedpyrightProvider) waitForExactDiagnostics(
+func contextWithDiagnosticTimeout(
 	ctx context.Context,
-	request coordinator.GeneratedDocumentRequest,
-	waiter *diagnosticWaiter,
-) (coordinator.GeneratedDocumentResult, error) {
+	configured time.Duration,
+) (context.Context, context.CancelFunc, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if waiter == nil {
-		return coordinator.GeneratedDocumentResult{}, errors.New("lsp: diagnostics waiter is required")
+	if err := ctx.Err(); err != nil {
+		return nil, nil, diagnosticsNotReadyError(err)
 	}
-	if failure := waiter.takeFailure(); failure != nil {
-		return diagnosticWaitFailure(failure)
-	}
-	timeout, expired := effectiveDiagnosticTimeout(ctx, provider.diagnosticTimeout)
+	timeout, expired := effectiveDiagnosticTimeout(ctx, configured)
 	if expired {
-		return coordinator.GeneratedDocumentResult{}, diagnosticsNotReadyError(ctx.Err())
+		return nil, nil, diagnosticsNotReadyError(ctx.Err())
 	}
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-	for {
-		publication, failure, pending := waiter.await(ctx, timer.C)
-		if failure != nil {
-			return diagnosticWaitFailure(failure)
-		}
-		if pending {
-			return coordinator.GeneratedDocumentResult{}, diagnosticsNotReadyError(ctx.Err())
-		}
-		if !matchesDocumentRevision(publication, request.Revision) {
-			continue
-		}
-		diagnostics, err := normalizeDiagnostics(request.Code, publication.Diagnostics)
-		if err != nil {
-			return coordinator.GeneratedDocumentResult{}, err
-		}
-		return coordinator.GeneratedDocumentResult{
-			Diagnostics:    diagnostics,
-			ProviderStatus: readyProviderStatus(),
-		}, nil
-	}
+	diagnosticContext, cancel := context.WithTimeout(ctx, timeout)
+	return diagnosticContext, cancel, nil
 }
 
 func effectiveDiagnosticTimeout(ctx context.Context, configured time.Duration) (time.Duration, bool) {
@@ -351,19 +294,11 @@ func effectiveDiagnosticTimeout(ctx context.Context, configured time.Duration) (
 	return configured, false
 }
 
-func diagnosticWaitFailure(failure error) (coordinator.GeneratedDocumentResult, error) {
-	return coordinator.GeneratedDocumentResult{}, fmt.Errorf("lsp: wait for diagnostics: %w", failure)
-}
-
 func diagnosticsNotReadyError(cause error) error {
 	if cause != nil {
 		return fmt.Errorf("%w: %w", ErrDiagnosticsNotReady, cause)
 	}
-	return fmt.Errorf("%w: timed out waiting for an exact publication", ErrDiagnosticsNotReady)
-}
-
-func matchesDocumentRevision(publication PublishDiagnosticsParams, revision int) bool {
-	return publication.Version != nil && *publication.Version == revision
+	return fmt.Errorf("%w: timed out pulling exact diagnostics", ErrDiagnosticsNotReady)
 }
 
 func normalizeDiagnostics(code string, diagnostics []Diagnostic) ([]coordinator.ProviderDiagnostic, error) {

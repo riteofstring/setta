@@ -39,10 +39,6 @@ type SessionOptions struct {
 	RequestTimeout time.Duration
 }
 
-// diagnosticsCallback receives either one valid publication or the terminal
-// stream/protocol failure that prevents any later publication from arriving.
-type diagnosticsCallback func(PublishDiagnosticsParams, error)
-
 type rpcEnvelope struct {
 	ID     json.RawMessage `json:"id,omitempty"`
 	Method string          `json:"method,omitempty"`
@@ -56,48 +52,10 @@ type rpcError struct {
 	Message string `json:"message"`
 }
 
-type publishDiagnosticsPayload struct {
-	URI         *string              `json:"uri"`
-	Version     *int                 `json:"version,omitempty"`
-	Diagnostics *[]diagnosticPayload `json:"diagnostics"`
-}
-
-type diagnosticPayload struct {
-	Range    *rangePayload             `json:"range"`
-	Severity diagnosticSeverityPayload `json:"severity,omitempty"`
-	Message  *string                   `json:"message"`
-	Code     diagnosticCodePayload     `json:"code,omitempty"`
-}
-
-type rangePayload struct {
-	Start *positionPayload `json:"start"`
-	End   *positionPayload `json:"end"`
-}
-
-type positionPayload struct {
-	Line      *int `json:"line"`
-	Character *int `json:"character"`
-}
-
-type diagnosticSeverityPayload struct {
-	present bool
-	value   int
-}
-
-// diagnosticCodePayload accepts the provider's optional diagnostic code only
-// as a nonblank string. The project layer receives the normalized string, not
-// raw JSON, so semantic classification never depends on protocol shapes.
-type diagnosticCodePayload struct {
-	present bool
-	value   string
-}
-
 type documentSynchronization struct {
-	uri              string
-	previousVersion  int
-	alreadyOpen      bool
-	previousCallback diagnosticsCallback
-	hadCallback      bool
+	uri             string
+	previousVersion int
+	alreadyOpen     bool
 }
 
 // Session owns one child language-server process and its JSON-RPC state. One
@@ -122,11 +80,14 @@ type Session struct {
 	readerDone chan struct{}
 	stderrDone chan struct{}
 
-	pending          map[string]chan rpcEnvelope
-	documentVersions map[string]int
-	callbacks        map[string]diagnosticsCallback
-	terminalErr      error
-	requestID        uint64
+	pending                       map[string]chan rpcEnvelope
+	documentVersions              map[string]int
+	pullDiagnosticsReady          chan struct{}
+	pullDiagnosticsReadyOnce      sync.Once
+	pullDiagnosticsRegistered     bool
+	pullDiagnosticsRegistrationID string
+	terminalErr                   error
+	requestID                     uint64
 }
 
 func NewSession(options SessionOptions) (*Session, error) {
@@ -144,10 +105,10 @@ func NewSession(options SessionOptions) (*Session, error) {
 		options.WorkspaceRoot = workspaceRoot
 	}
 	return &Session{
-		options:          options,
-		pending:          make(map[string]chan rpcEnvelope),
-		documentVersions: make(map[string]int),
-		callbacks:        make(map[string]diagnosticsCallback),
+		options:              options,
+		pending:              make(map[string]chan rpcEnvelope),
+		documentVersions:     make(map[string]int),
+		pullDiagnosticsReady: make(chan struct{}),
 	}, nil
 }
 
@@ -285,6 +246,13 @@ func (session *Session) initialize(ctx context.Context) error {
 		"capabilities": map[string]any{
 			"textDocument": map[string]any{
 				"publishDiagnostics": map[string]any{"versionSupport": true},
+				"diagnostic": map[string]any{
+					"dynamicRegistration": true,
+					"relatedInformation":  true,
+				},
+			},
+			"workspace": map[string]any{
+				"diagnostics": map[string]any{"refreshSupport": true},
 			},
 		},
 	}
@@ -304,15 +272,13 @@ func (session *Session) initialize(ctx context.Context) error {
 }
 
 // SynchronizeDocument publishes one exact positive transport version as an LSP
-// document version. It registers the diagnostic callback before emitting the
-// corresponding didOpen or didChange notification.
+// document version before a caller requests its diagnostics or language data.
 func (session *Session) SynchronizeDocument(
 	ctx context.Context,
 	path string,
 	languageID string,
 	version int,
 	content string,
-	callback diagnosticsCallback,
 ) error {
 	if version < 1 {
 		return fmt.Errorf("lsp: document version must be positive")
@@ -325,7 +291,7 @@ func (session *Session) SynchronizeDocument(
 		return err
 	}
 
-	synchronization, err := session.registerDocumentSynchronization(uri, version, callback)
+	synchronization, err := session.registerDocumentSynchronization(uri, version)
 	if err != nil {
 		return err
 	}
@@ -341,7 +307,6 @@ func (session *Session) SynchronizeDocument(
 func (session *Session) registerDocumentSynchronization(
 	uri string,
 	version int,
-	callback diagnosticsCallback,
 ) (documentSynchronization, error) {
 	session.mu.Lock()
 	defer session.mu.Unlock()
@@ -352,22 +317,14 @@ func (session *Session) registerDocumentSynchronization(
 		return documentSynchronization{}, session.terminalErr
 	}
 	previousVersion, alreadyOpen := session.documentVersions[uri]
-	previousCallback, hadCallback := session.callbacks[uri]
 	if alreadyOpen && version <= previousVersion {
 		return documentSynchronization{}, fmt.Errorf("lsp: document version %d does not advance %d", version, previousVersion)
 	}
 	session.documentVersions[uri] = version
-	if callback == nil {
-		delete(session.callbacks, uri)
-	} else {
-		session.callbacks[uri] = callback
-	}
 	return documentSynchronization{
-		uri:              uri,
-		previousVersion:  previousVersion,
-		alreadyOpen:      alreadyOpen,
-		previousCallback: previousCallback,
-		hadCallback:      hadCallback,
+		uri:             uri,
+		previousVersion: previousVersion,
+		alreadyOpen:     alreadyOpen,
 	}, nil
 }
 
@@ -378,11 +335,6 @@ func (session *Session) rollbackDocumentSynchronization(synchronization document
 		session.documentVersions[synchronization.uri] = synchronization.previousVersion
 	} else {
 		delete(session.documentVersions, synchronization.uri)
-	}
-	if synchronization.hadCallback {
-		session.callbacks[synchronization.uri] = synchronization.previousCallback
-	} else {
-		delete(session.callbacks, synchronization.uri)
 	}
 }
 
@@ -428,7 +380,6 @@ func (session *Session) CloseDocument(path string) error {
 	}
 	_, open := session.documentVersions[uri]
 	delete(session.documentVersions, uri)
-	delete(session.callbacks, uri)
 	session.mu.Unlock()
 	if !open {
 		return nil
@@ -719,6 +670,10 @@ func (session *Session) drainStderr(stderr io.Reader) {
 
 func (session *Session) dispatch(envelope rpcEnvelope) {
 	if requestID := envelopeID(envelope.ID); requestID != "" {
+		if envelope.Method != "" {
+			session.dispatchServerRequest(envelope)
+			return
+		}
 		session.mu.Lock()
 		response := session.pending[requestID]
 		session.mu.Unlock()
@@ -730,154 +685,7 @@ func (session *Session) dispatch(envelope rpcEnvelope) {
 		}
 		return
 	}
-	if envelope.Method != "textDocument/publishDiagnostics" {
-		return
-	}
-	params, err := decodePublishDiagnostics(envelope.Params)
-	if err != nil {
-		session.failSession(fmt.Errorf("lsp: decode publishDiagnostics: %w", err))
-		return
-	}
-	session.mu.Lock()
-	callback := session.callbacks[params.URI]
-	session.mu.Unlock()
-	if callback != nil {
-		callback(params, nil)
-	}
-}
-
-func decodePublishDiagnostics(raw json.RawMessage) (PublishDiagnosticsParams, error) {
-	payload, err := decodePublishDiagnosticsPayload(raw)
-	if err != nil {
-		return PublishDiagnosticsParams{}, err
-	}
-	return publishDiagnosticsFromPayload(payload)
-}
-
-func decodePublishDiagnosticsPayload(raw json.RawMessage) (publishDiagnosticsPayload, error) {
-	var payload publishDiagnosticsPayload
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return publishDiagnosticsPayload{}, err
-	}
-	return payload, nil
-}
-
-func publishDiagnosticsFromPayload(payload publishDiagnosticsPayload) (PublishDiagnosticsParams, error) {
-	if payload.URI == nil || strings.TrimSpace(*payload.URI) == "" {
-		return PublishDiagnosticsParams{}, errors.New("publishDiagnostics URI is required")
-	}
-	if payload.Diagnostics == nil {
-		return PublishDiagnosticsParams{}, errors.New("publishDiagnostics diagnostics array is required")
-	}
-	diagnostics, err := diagnosticsFromPayload(*payload.Diagnostics)
-	if err != nil {
-		return PublishDiagnosticsParams{}, err
-	}
-	return PublishDiagnosticsParams{
-		URI:         *payload.URI,
-		Version:     payload.Version,
-		Diagnostics: diagnostics,
-	}, nil
-}
-
-func diagnosticsFromPayload(payloads []diagnosticPayload) ([]Diagnostic, error) {
-	diagnostics := make([]Diagnostic, len(payloads))
-	for index, payload := range payloads {
-		diagnostic, err := diagnosticFromPayload(payload)
-		if err != nil {
-			return nil, fmt.Errorf("publishDiagnostics diagnostic %d is malformed: %w", index, err)
-		}
-		diagnostics[index] = diagnostic
-	}
-	return diagnostics, nil
-}
-
-func diagnosticFromPayload(payload diagnosticPayload) (Diagnostic, error) {
-	rangeValue, err := rangeFromPayload(payload.Range)
-	if err != nil {
-		return Diagnostic{}, err
-	}
-	if payload.Message == nil || strings.TrimSpace(*payload.Message) == "" {
-		return Diagnostic{}, errors.New("message is required")
-	}
-	severity, err := severityFromPayload(payload.Severity)
-	if err != nil {
-		return Diagnostic{}, err
-	}
-	return Diagnostic{
-		Range:    rangeValue,
-		Severity: severity,
-		Message:  *payload.Message,
-		Code:     payload.Code.value,
-	}, nil
-}
-
-func rangeFromPayload(payload *rangePayload) (Range, error) {
-	if payload == nil {
-		return Range{}, errors.New("range is required")
-	}
-	start, err := positionFromPayload(payload.Start)
-	if err != nil {
-		return Range{}, fmt.Errorf("start: %w", err)
-	}
-	end, err := positionFromPayload(payload.End)
-	if err != nil {
-		return Range{}, fmt.Errorf("end: %w", err)
-	}
-	if positionPrecedes(end, start) {
-		return Range{}, errors.New("end position precedes start position")
-	}
-	return Range{Start: start, End: end}, nil
-}
-
-func positionFromPayload(payload *positionPayload) (Position, error) {
-	if payload == nil {
-		return Position{}, errors.New("position is required")
-	}
-	if payload.Line == nil || payload.Character == nil {
-		return Position{}, errors.New("line and character are required")
-	}
-	if *payload.Line < 0 || *payload.Character < 0 {
-		return Position{}, errors.New("line and character must be nonnegative")
-	}
-	return Position{Line: *payload.Line, Character: *payload.Character}, nil
-}
-
-func positionPrecedes(left Position, right Position) bool {
-	return left.Line < right.Line || left.Line == right.Line && left.Character < right.Character
-}
-
-func severityFromPayload(payload diagnosticSeverityPayload) (int, error) {
-	if !payload.present {
-		return 0, nil
-	}
-	if payload.value < 1 || payload.value > 4 {
-		return 0, errors.New("severity must be between 1 and 4")
-	}
-	return payload.value, nil
-}
-
-func (payload *diagnosticSeverityPayload) UnmarshalJSON(raw []byte) error {
-	payload.present = true
-	severity, err := strconv.Atoi(strings.TrimSpace(string(raw)))
-	if err != nil {
-		return errors.New("severity must be an integer")
-	}
-	payload.value = severity
-	return nil
-}
-
-func (payload *diagnosticCodePayload) UnmarshalJSON(raw []byte) error {
-	payload.present = true
-	var code string
-	if err := json.Unmarshal(raw, &code); err != nil {
-		return errors.New("code must be a string")
-	}
-	if strings.TrimSpace(code) == "" {
-		return errors.New("code must not be empty")
-	}
-	payload.value = code
-	return nil
+	session.dispatchServerNotification(envelope)
 }
 
 func (session *Session) failSession(cause error) {
@@ -892,18 +700,9 @@ func (session *Session) failSession(cause error) {
 		return
 	}
 	session.terminalErr = failure
-	callbacks := make([]diagnosticsCallback, 0, len(session.callbacks))
-	for _, callback := range session.callbacks {
-		if callback != nil {
-			callbacks = append(callbacks, callback)
-		}
-	}
 	session.mu.Unlock()
 
 	session.failPending(failure)
-	for _, callback := range callbacks {
-		callback(PublishDiagnosticsParams{}, failure)
-	}
 }
 
 func (session *Session) failPending(cause error) {
