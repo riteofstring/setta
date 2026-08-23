@@ -37,6 +37,16 @@ import {
 } from "./workspaceProjection";
 import { PythonTargetCompletionBoundary } from "./PythonTargetCompletionBoundary";
 
+function canNestInList(
+  section: WorkspaceDocument["sections"][string],
+): boolean {
+  return (
+    section.kind === CALLABLE_SECTION_KIND ||
+    section.kind === PARAMETER_DICTIONARY_SECTION_KIND ||
+    section.kind === LIST_SECTION_KIND
+  );
+}
+
 export function registerPythonCanvasSectionKinds(
   host: WorkspaceHost,
   pythonTargetCompletionProvider?: WorkspaceCodeSectionCompletionProvider,
@@ -94,6 +104,8 @@ export function registerPythonCanvasSectionKinds(
   const listSectionKind = {
     defaultSize: LIST_SECTION_SIZE,
     nestedSections: "vertical" as const,
+    canAcceptNestedSection: canNestInList,
+    deleteActionLabel: "Delete list and all nested descendants",
     assertValidData: (section: WorkspaceDocument["sections"][string]) => {
       readListSectionData(section.data);
     },

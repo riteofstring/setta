@@ -33,8 +33,11 @@ receipt with canonical forest order, list DOM projection, visible mutation/alert
 source/target hit geometry; focused static tests cover the receipt and its final-failure-only
 invocation. Nested-list presentation passes the measured top-level Callable field size and
 raises a clear harness-contract error when that size is absent; focused static selector tests
-cover that contract. Its policy structure and format checks now pass. Supervised
-production headless execution, review, and remaining Code Policy closeout remain incomplete.**
+cover that contract. Its policy structure and format checks now pass. The focused closeout fixes
+now reject list drops outside the three authored section kinds and disclose that deleting a list
+removes all nested descendants; focused workspace and frontend boundary tests cover both. The
+supervisor has accepted this phase's frozen acceptance candidate; final independent audit remains
+supervisor-owned.**
 
 Add the next two Python Canvas section types from main: **Param Dict** and **List of Objects**.
 This is one closed vertical slice across the validated Go aggregate, strict project file, generated

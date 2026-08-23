@@ -2,7 +2,10 @@ import { insertIntoArray } from "./arrayUtils";
 import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
 import { getSectionOrThrow } from "./documentSelectors";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
-import { canWorkspaceSectionOwnNestedSections } from "./sectionKindRegistry";
+import {
+  canWorkspaceSectionAcceptNestedSection,
+  canWorkspaceSectionOwnNestedSections,
+} from "./sectionKindRegistry";
 import {
   getActiveSectionsStore,
   getNodeInternalsStore,
@@ -133,6 +136,19 @@ function assertValidMoveParent(
   const newParent = getSectionOrThrow(documentState, newParentId);
   if (!canWorkspaceSectionOwnNestedSections(host, newParent)) {
     throw new Error(`Section ${newParentId} cannot own nested sections.`);
+  }
+  for (const sectionId of movingSet) {
+    if (
+      !canWorkspaceSectionAcceptNestedSection(
+        host,
+        newParent,
+        getSectionOrThrow(documentState, sectionId),
+      )
+    ) {
+      throw new Error(
+        `Section ${sectionId} cannot be nested in ${newParentId}.`,
+      );
+    }
   }
   let ancestorId: string | null = newParentId;
   while (ancestorId !== null) {

@@ -174,6 +174,44 @@ describe("moveSections", () => {
     expect(state.topLevelSections["leaf"]?.x).toBe(420);
   });
 
+  it("rejects a direct move into a container that refuses its source kind", () => {
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+      list: {
+        renderContent: () => null,
+        nestedSections: "vertical",
+        canAcceptNestedSection: (section) => section.kind === "leaf",
+      },
+    });
+    loadWorkspaceDocument(testWorkspace.host, {
+      sections: {
+        parent: makeSection("parent", { kind: "list" }),
+        source: makeSection("source", { kind: "list" }),
+      },
+      topLevelSections: {
+        parent: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 },
+        source: { x: 300, y: 0, w: 224, h: 96, zIndex: 1 },
+      },
+      viewport: null,
+      activeIds: [],
+    });
+
+    expect(() =>
+      moveSections(testWorkspace.host, {
+        sectionIds: ["source"],
+        newParentId: "parent",
+        newIndex: 0,
+        positionsById: null,
+      }),
+    ).toThrowError(/Section source cannot be nested in parent/);
+    expect(
+      testWorkspace.document.getState().topLevelSections.source,
+    ).toBeDefined();
+    expect(testWorkspace.document.getState().sections.parent?.children).toEqual(
+      [],
+    );
+  });
+
   it("moves a nested section to the pane at the dropped position above every node", () => {
     moveSections(testWorkspace.host, {
       sectionIds: ["nested-a"],

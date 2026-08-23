@@ -944,6 +944,32 @@ describe("SectionContainer", () => {
     ).not.toBeNull();
   });
 
+  it("discloses a registered container's recursive deletion before invoking it", async () => {
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: renderSectionBody },
+      list: {
+        renderContent: renderSectionBody,
+        nestedSections: "vertical",
+        deleteActionLabel: "Delete list and all nested descendants",
+      },
+    });
+    loadVerticalContainerDocument();
+    await mount("list");
+
+    const deleteButton = getRequiredElement(
+      host,
+      '[aria-label="Delete list and all nested descendants"]',
+    ) as HTMLButtonElement;
+    expect(deleteButton.title).toBe("Delete list and all nested descendants");
+
+    await act(async () => {
+      deleteButton.click();
+    });
+    expect(testWorkspace.document.getState().sections.list).toBeUndefined();
+    expect(testWorkspace.document.getState().sections.first).toBeUndefined();
+    expect(testWorkspace.document.getState().sections.second).toBeUndefined();
+  });
+
   it("bounds a group through one persistent scroll surface with native wheel ownership", async () => {
     loadTestDocument({
       group: {

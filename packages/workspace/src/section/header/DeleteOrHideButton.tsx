@@ -14,6 +14,7 @@ import { useWorkspaceHost } from "../../workspaceHostContext";
 type DeleteOrHideButtonProps = {
   sectionId: string;
   hasSectionStyleTheme?: boolean;
+  label?: string;
   size?: string;
 };
 
@@ -52,11 +53,11 @@ function getDeleteOrHideButtonDefaults(hasSectionStyleTheme: boolean) {
 export function DeleteOrHideButton({
   sectionId,
   hasSectionStyleTheme = false,
+  label = "Delete section",
   size,
 }: DeleteOrHideButtonProps) {
   const host = useWorkspaceHost();
   const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
-  const label = "Delete section";
 
   function onClick(event: MouseEvent<HTMLButtonElement>) {
     if (!canEditStructure) {

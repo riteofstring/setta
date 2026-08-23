@@ -2,7 +2,11 @@ import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
+import {
+  WORKSPACE_CODE_SECTION_KIND,
+  type WorkspaceDocument,
+  type WorkspaceHost,
+} from "@setta/workspace";
 
 import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
 import type {
@@ -50,7 +54,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 type MockSectionRegistration = {
+  canAcceptNestedSection?: (section: { kind: string }) => boolean;
   createItem?: unknown;
+  deleteActionLabel?: string;
   itemArea?: {
     renderLeadingContent?: (section: unknown) => ReactNode;
     toolbar?: string;
@@ -624,6 +630,29 @@ describe("PythonCanvasApp", () => {
     expect(pendingDictionary.createItem).toBeUndefined();
     expect(list.nestedSections).toBe("vertical");
     expect(pendingList.nestedSections).toBe("vertical");
+    expect(list.canAcceptNestedSection?.({ kind: CALLABLE_SECTION_KIND })).toBe(
+      true,
+    );
+    expect(
+      list.canAcceptNestedSection?.({
+        kind: PARAMETER_DICTIONARY_SECTION_KIND,
+      }),
+    ).toBe(true);
+    expect(list.canAcceptNestedSection?.({ kind: LIST_SECTION_KIND })).toBe(
+      true,
+    );
+    expect(
+      list.canAcceptNestedSection?.({ kind: WORKSPACE_CODE_SECTION_KIND }),
+    ).toBe(false);
+    expect(
+      list.canAcceptNestedSection?.({ kind: PENDING_LIST_SECTION_KIND }),
+    ).toBe(false);
+    expect(list.deleteActionLabel).toBe(
+      "Delete list and all nested descendants",
+    );
+    expect(pendingList.deleteActionLabel).toBe(
+      "Delete list and all nested descendants",
+    );
   });
 
   it("associates target completion failures with the app-owned editor boundary", () => {

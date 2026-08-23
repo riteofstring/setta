@@ -89,6 +89,11 @@ export type WorkspaceItemAreaPresentation = Readonly<{
 // orientation, overflow, chrome, and ungrouping remain package-owned group behavior.
 type WorkspaceNestedSectionsPresentation = "vertical";
 
+// A vertical container may further restrict its child sections without teaching Workspace about
+// application section kinds. Kinds that omit this capability retain the existing generic
+// behavior of accepting every section kind.
+type WorkspaceNestedSectionAcceptance = (section: WorkspaceSection) => boolean;
+
 type WorkspaceInspectorContributionInput =
   | { type: "section"; section: WorkspaceSection }
   | { type: "item"; section: WorkspaceSection; item: WorkspaceItem };
@@ -146,9 +151,15 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         // minimize, delete) — the reference's own slot for its per-type header controls. The
         // built-in Text section's edit/render toggle is the package's one use of it.
         renderHeaderControls?: (section: WorkspaceSection) => ReactNode;
+        // Replaces the generic delete wording for an ordinary kind when its destructive action
+        // has type-specific scope that must be clear before activation.
+        deleteActionLabel?: string;
         // Lets this ordinary kind own section children through the package's existing nested
         // sortable surface. The one supported registered flow is vertical.
         nestedSections?: WorkspaceNestedSectionsPresentation;
+        // Narrows which source sections may enter this kind's nested-section surface. The
+        // package passes the opaque source section through unchanged.
+        canAcceptNestedSection?: WorkspaceNestedSectionAcceptance;
         presentation?: undefined;
       }
     | {
@@ -160,7 +171,9 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         getItemSearchableText?: never;
         itemArea?: never;
         renderHeaderControls?: never;
+        deleteActionLabel?: never;
         nestedSections?: never;
+        canAcceptNestedSection?: never;
         presentation: MetaControlSectionPresentation;
       }
   );
@@ -274,9 +287,21 @@ function assertMetaControlDefinition(
         "its package-owned chrome has no section header.",
     );
   }
+  if (definition.deleteActionLabel !== undefined) {
+    throw new Error(
+      `Meta-control section kind ${kind} cannot register deleteActionLabel; ` +
+        "its package-owned chrome has no section header.",
+    );
+  }
   if (definition.nestedSections !== undefined) {
     throw new Error(
       `Meta-control section kind ${kind} cannot register nestedSections; ` +
+        "meta controls cannot own section children.",
+    );
+  }
+  if (definition.canAcceptNestedSection !== undefined) {
+    throw new Error(
+      `Meta-control section kind ${kind} cannot register canAcceptNestedSection; ` +
         "meta controls cannot own section children.",
     );
   }
@@ -316,6 +341,11 @@ function assertSectionKindDefinition(
     kind,
     "renderHeaderControls",
     definition.renderHeaderControls,
+  );
+  assertOptionalSectionKindFunction(
+    kind,
+    "canAcceptNestedSection",
+    definition.canAcceptNestedSection,
   );
   assertOptionalSectionKindFunction(
     kind,
@@ -374,6 +404,21 @@ export function getSectionKindHeaderControls(
   const definition = getRegisteredSectionKindOrThrow(host, kind);
   return definition.presentation === undefined
     ? (definition.renderHeaderControls ?? null)
+    : null;
+}
+
+// Groups use the package-owned delete action wording. An ordinary registered kind can declare
+// the full scope of its own destructive action without replacing the package's control.
+export function getSectionKindDeleteActionLabel(
+  host: WorkspaceHost,
+  kind: string,
+): string | null {
+  if (kind === GROUP_SECTION_KIND) {
+    return null;
+  }
+  const definition = getRegisteredSectionKindOrThrow(host, kind);
+  return definition.presentation === undefined
+    ? (definition.deleteActionLabel ?? null)
     : null;
 }
 
@@ -490,5 +535,24 @@ export function canWorkspaceSectionOwnNestedSections(
   return (
     definition.presentation === undefined &&
     definition.nestedSections === "vertical"
+  );
+}
+
+// One predicate owns whether a source may enter a particular nested-section surface. Groups
+// retain their package-defined behavior; registered containers may opt into a generic source
+// predicate while kinds without one retain the existing accept-all behavior.
+export function canWorkspaceSectionAcceptNestedSection(
+  host: WorkspaceHost,
+  parent: Pick<WorkspaceSection, "kind">,
+  source: WorkspaceSection,
+): boolean {
+  if (parent.kind === GROUP_SECTION_KIND) {
+    return true;
+  }
+  const definition = getRegisteredSectionKindOrThrow(host, parent.kind);
+  return (
+    definition.presentation === undefined &&
+    definition.nestedSections === "vertical" &&
+    (definition.canAcceptNestedSection?.(source) ?? true)
   );
 }

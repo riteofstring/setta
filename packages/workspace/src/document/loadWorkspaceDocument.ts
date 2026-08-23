@@ -18,6 +18,7 @@ import { deactivateItemSelect } from "./itemSelectionMode";
 import { assertValidWorkspaceSectionItemTree } from "./itemTreeValidation";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
 import {
+  canWorkspaceSectionAcceptNestedSection,
   canWorkspaceSectionOwnNestedSections,
   getRegisteredSectionKindOrThrow,
   getWorkspaceItemAreaPresentationOrThrow,
@@ -123,8 +124,12 @@ function buildParentSectionMap(
       throw new Error(`Section ${sectionId} cannot own nested sections.`);
     }
     for (const childId of section.children) {
-      if (!(childId in sections)) {
+      const child = sections[childId];
+      if (!child) {
         throw new Error(`Section ${sectionId} lists unknown child ${childId}.`);
+      }
+      if (!canWorkspaceSectionAcceptNestedSection(host, section, child)) {
+        throw new Error(`Section ${childId} cannot be nested in ${sectionId}.`);
       }
       const existingParentId = parentSectionMap[childId];
       if (existingParentId !== undefined) {

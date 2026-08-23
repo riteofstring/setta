@@ -2,7 +2,7 @@ import {
   getSectionChildren,
   getSectionOrThrow,
 } from "../document/documentSelectors";
-import { canWorkspaceSectionOwnNestedSections } from "../document/sectionKindRegistry";
+import { canWorkspaceSectionAcceptNestedSection } from "../document/sectionKindRegistry";
 import { isDescendantOfSectionSelection } from "../document/sectionSelection";
 import { getWorkspaceDocumentStore } from "../document/stores";
 import { useWorkspaceHost } from "../workspaceHostContext";
@@ -901,10 +901,14 @@ export function getBehaviorDropType(
   const state = getWorkspaceDocumentStore(host).getState();
   const selectedIds = getSelectedDragIds(host, activeId);
 
+  const newParent = getSectionOrThrow(state, newParentId);
   if (
-    !canWorkspaceSectionOwnNestedSections(
-      host,
-      getSectionOrThrow(state, newParentId),
+    !selectedIds.every((selectedId) =>
+      canWorkspaceSectionAcceptNestedSection(
+        host,
+        newParent,
+        getSectionOrThrow(state, selectedId),
+      ),
     )
   ) {
     return BehaviorDropTypeEnum.INVALID;

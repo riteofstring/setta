@@ -58,10 +58,19 @@ function makeSection(spec: SectionSpec): WorkspaceSection {
   };
 }
 
-function seedDocument(specs: Array<SectionSpec>) {
+function seedDocument(
+  specs: Array<SectionSpec>,
+  canAcceptNestedSection?: (section: WorkspaceSection) => boolean,
+) {
   registerSectionKinds(testWorkspace.host, {
+    accepted: { renderContent: () => null },
     leaf: { renderContent: () => null },
-    list: { renderContent: () => null, nestedSections: "vertical" },
+    list: {
+      renderContent: () => null,
+      nestedSections: "vertical",
+      ...(canAcceptNestedSection ? { canAcceptNestedSection } : {}),
+    },
+    rejected: { renderContent: () => null },
   });
   const sections = Object.fromEntries(
     specs.map((spec) => [spec.id, makeSection(spec)]),
@@ -154,6 +163,24 @@ describe("getBehaviorDropType", () => {
     expect(
       getBehaviorDropType(testWorkspace.host, "dragged", "list"),
     ).toBeNull();
+  });
+
+  it("rejects sources a registered vertical container does not accept", () => {
+    seedDocument(
+      [
+        { id: "list", kind: "list" },
+        { id: "accepted", kind: "accepted" },
+        { id: "rejected", kind: "rejected" },
+      ],
+      (section) => section.kind === "accepted",
+    );
+
+    expect(
+      getBehaviorDropType(testWorkspace.host, "accepted", "list"),
+    ).toBeNull();
+    expect(getBehaviorDropType(testWorkspace.host, "rejected", "list")).toBe(
+      BehaviorDropTypeEnum.INVALID,
+    );
   });
 
   it("rejects drop targets that are not groups", () => {

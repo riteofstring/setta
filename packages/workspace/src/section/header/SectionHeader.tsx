@@ -1,6 +1,9 @@
 import type { CSSProperties } from "react";
 import { getSectionOrThrow } from "../../document/documentSelectors";
-import { getSectionKindHeaderControls } from "../../document/sectionKindRegistry";
+import {
+  getSectionKindDeleteActionLabel,
+  getSectionKindHeaderControls,
+} from "../../document/sectionKindRegistry";
 import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
 import { LockPositionButton } from "./LockPositionButton";
@@ -40,6 +43,8 @@ export function SectionHeader({
   const sectionKind = useWorkspaceDocument(
     (x) => getSectionOrThrow(x, sectionId).kind,
   );
+  const host = useWorkspaceHost();
+  const deleteActionLabel = getSectionKindDeleteActionLabel(host, sectionKind);
 
   return (
     <header
@@ -75,6 +80,7 @@ export function SectionHeader({
         <DeleteOrHideButton
           sectionId={sectionId}
           hasSectionStyleTheme={hasSectionStyleTheme}
+          label={deleteActionLabel ?? "Delete section"}
         />
       </div>
     </header>
