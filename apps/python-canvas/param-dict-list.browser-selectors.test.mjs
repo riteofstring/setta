@@ -661,6 +661,7 @@ test("List walkthrough finds direct vertical children beside its shell", () => {
       <div data-section-id="python-canvas:list:list:objects"></div>
       <div class="flex flex-col">
         <div class="flex items-stretch">
+          <button aria-label="Focus parent section"></button>
           <div class="mt-2 flex flex-col items-start gap-2">
             <div data-sortable-section-id="python-canvas:callable:callable:one"></div>
             <div data-sortable-section-id="python-canvas:callable:callable:two"></div>
@@ -779,6 +780,7 @@ test("List walkthrough waits for projected direct sortable children in canonical
         <div data-section-id="python-canvas:list:list:objects"></div>
         <div class="flex flex-col">
           <div class="flex items-stretch">
+            <button aria-label="Focus parent section"></button>
             <div class="mt-2 flex flex-col items-start gap-2"></div>
           </div>
         </div>

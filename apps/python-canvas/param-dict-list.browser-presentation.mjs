@@ -121,14 +121,12 @@ export async function assertListRootMainPresentation(client, listId) {
     client,
     `(() => {
       const section = document.querySelector(${JSON.stringify(sectionSelector)});
-      const incrementer = section?.querySelector(".python-canvas-list-incrementer");
-      const icon = incrementer?.querySelector(".python-canvas-list-incrementer-icon");
-      const label = incrementer?.querySelector(".python-canvas-list-incrementer-label");
-      const input = incrementer?.querySelector(".python-canvas-list-incrementer-input");
+      const incrementer = section?.querySelector(".section-key-value.section-row-main");
+      const icon = incrementer?.querySelector("svg");
+      const label = incrementer?.querySelector("p");
+      const input = incrementer?.querySelector('input[name="children"]');
       const remove = incrementer?.querySelector(${JSON.stringify(labeledSelector("Remove children"))});
       const add = incrementer?.querySelector(${JSON.stringify(labeledSelector("Add children"))});
-      const minus = remove?.querySelector(".gg-math-minus");
-      const plus = add?.querySelector(".gg-math-plus");
       if (
         !(incrementer instanceof HTMLElement) ||
         !(icon instanceof SVGElement) ||
@@ -136,8 +134,8 @@ export async function assertListRootMainPresentation(client, listId) {
         !(input instanceof HTMLInputElement) ||
         !(remove instanceof HTMLButtonElement) ||
         !(add instanceof HTMLButtonElement) ||
-        !(minus instanceof HTMLElement) ||
-        !(plus instanceof HTMLElement)
+        !remove.classList.contains("gg-math-minus") ||
+        !add.classList.contains("gg-math-plus")
       ) {
         return null;
       }
@@ -148,7 +146,6 @@ export async function assertListRootMainPresentation(client, listId) {
       const buttonStyle = getComputedStyle(add);
       const incrementerRect = incrementer.getBoundingClientRect();
       const inputRect = input.getBoundingClientRect();
-      const glyphRect = plus.getBoundingClientRect();
       return {
         button: {
           backgroundColor: buttonStyle.backgroundColor,
@@ -156,7 +153,6 @@ export async function assertListRootMainPresentation(client, listId) {
           height: buttonStyle.height,
           width: buttonStyle.width,
         },
-        glyph: { height: glyphRect.height, width: glyphRect.width },
         icon: {
           color: iconStyle.color,
           height: iconStyle.height,
@@ -180,6 +176,7 @@ export async function assertListRootMainPresentation(client, listId) {
           fontSize: inputStyle.fontSize,
           height: inputRect.height,
           lineHeight: inputStyle.lineHeight,
+          type: input.type,
           width: inputRect.width,
         },
         label: {
@@ -198,7 +195,7 @@ export async function assertListRootMainPresentation(client, listId) {
     backgroundColor: "rgb(6, 7, 10)",
     borderRadius: "8px",
     gap: "4px",
-    height: 22,
+    height: 120,
     marginLeft: "-8px",
     marginRight: "-8px",
     paddingLeft: "8px",
@@ -216,7 +213,7 @@ export async function assertListRootMainPresentation(client, listId) {
     fontWeight: "700",
     text: "Children:",
   });
-  assert.equal(presentation.input.appearance, "textfield");
+  assert.equal(presentation.input.type, "text");
   assert.equal(presentation.input.backgroundColor, "rgb(26, 33, 45)");
   assert.equal(presentation.input.borderWidth, "0px");
   assert.equal(presentation.input.fontSize, "12px");
@@ -225,10 +222,9 @@ export async function assertListRootMainPresentation(client, listId) {
   assert.ok(presentation.input.width <= 42);
   assert.deepEqual(presentation.button, {
     backgroundColor: "rgba(0, 0, 0, 0)",
-    borderWidth: "0px",
+    borderWidth: "2px",
     height: "22px",
     width: "22px",
   });
-  assert.deepEqual(presentation.glyph, { height: 11, width: 11 });
   assert.deepEqual(presentation.text, { add: "", remove: "" });
 }

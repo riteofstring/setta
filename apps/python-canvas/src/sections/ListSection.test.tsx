@@ -32,17 +32,14 @@ describe("ListSection", () => {
     const input = requiredInput(view);
     const remove = requiredButton(view, "Remove children");
     const add = requiredButton(view, "Add children");
-    expect(input.labels?.[0]?.textContent).toBe("Children:");
-    expect(input.type).toBe("number");
-    expect(input.min).toBe("1");
+    expect(input.getAttribute("aria-label")).toBe("Child count");
+    expect(input.type).toBe("text");
     expect(input.value).toBe("1");
     expect(remove.disabled).toBe(false);
     expect(add.disabled).toBe(false);
-    expect(
-      view.querySelector(".python-canvas-list-incrementer-icon path"),
-    ).not.toBeNull();
-    expect(remove.querySelector(".gg-math-minus")).not.toBeNull();
-    expect(add.querySelector(".gg-math-plus")).not.toBeNull();
+    expect(view.querySelector(".section-row-main svg path")).not.toBeNull();
+    expect(remove.classList.contains("gg-math-minus")).toBe(true);
+    expect(add.classList.contains("gg-math-plus")).toBe(true);
     expect(remove.textContent).toBe("");
     expect(add.textContent).toBe("");
     expect(remove.dataset.settaWorkspaceTouchTarget).toBe("compact");
@@ -78,9 +75,9 @@ describe("ListSection", () => {
     expect(input.value).toBe("1");
   });
 
-  it("disables only unavailable canonical actions and keeps errors out of the shell", () => {
+  it("keeps canonical actions available like main and keeps errors out of the shell", () => {
     const empty = render(<ListSection data={listData({ childCount: 0 })} />);
-    expect(requiredButton(empty, "Remove children").disabled).toBe(true);
+    expect(requiredButton(empty, "Remove children").disabled).toBe(false);
     expect(requiredButton(empty, "Add children").disabled).toBe(false);
 
     act(() => root?.unmount());

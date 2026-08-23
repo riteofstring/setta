@@ -10,6 +10,8 @@ import {
   waitFor,
 } from "./browser-page.mjs";
 
+const creationGateKey = "__pythonCanvasCreationResponseGate";
+
 export async function createPaneSection(client, backendOrigin, configuration) {
   const existingIds = new Set(
     snapshotCollection(
@@ -30,6 +32,7 @@ export async function createPaneSection(client, backendOrigin, configuration) {
     `the ${configuration.label} creation menu item`,
     creationMenuItemExpression(configuration.label),
   );
+  await installCreationResponseGate(client);
   const clicked = await evaluate(
     client,
     `(() => {
@@ -43,11 +46,20 @@ export async function createPaneSection(client, backendOrigin, configuration) {
       return true;
     })()`,
   );
-  assert.equal(
-    clicked,
-    true,
-    `The ${configuration.label} creation item is missing.`,
-  );
+  try {
+    assert.equal(
+      clicked,
+      true,
+      `The ${configuration.label} creation item is missing.`,
+    );
+    await assertPendingCreationHidden(
+      client,
+      configuration.pendingKind,
+      configuration.label,
+    );
+  } finally {
+    await releaseCreationResponseGate(client);
+  }
   const snapshot = await waitForSnapshot(
     backendOrigin,
     `the canonical ${configuration.label} created from the pane menu`,
@@ -73,6 +85,96 @@ export async function createPaneSection(client, backendOrigin, configuration) {
     `document.querySelector(${JSON.stringify(configuration.sectionSelector(created.id))}) instanceof HTMLElement`,
   );
   return created;
+}
+
+export async function installCreationResponseGate(client) {
+  const installed = await evaluate(
+    client,
+    `(() => {
+      if (globalThis[${JSON.stringify(creationGateKey)}] !== undefined) {
+        return false;
+      }
+      const originalFetch = window.fetch;
+      let release;
+      const held = new Promise((resolve) => {
+        release = resolve;
+      });
+      const gate = { intercepted: false, release };
+      globalThis[${JSON.stringify(creationGateKey)}] = gate;
+      window.fetch = async (...args) => {
+        const request = args[0];
+        const init = args[1];
+        const method = String(
+          init?.method ?? (request instanceof Request ? request.method : "GET"),
+        ).toUpperCase();
+        if (!gate.intercepted && method !== "GET" && method !== "HEAD") {
+          gate.intercepted = true;
+          await held;
+          window.fetch = originalFetch;
+        }
+        return originalFetch(...args);
+      };
+      return true;
+    })()`,
+  );
+  assert.equal(
+    installed,
+    true,
+    "The creation response gate was already installed.",
+  );
+}
+
+export async function assertPendingCreationHidden(client, pendingKind, label) {
+  await waitFor(
+    client,
+    `the held ${label} creation request`,
+    `globalThis[${JSON.stringify(creationGateKey)}]?.intercepted === true`,
+  );
+  await waitFor(
+    client,
+    `the hidden ${label} identity placeholder`,
+    `document.querySelector(${JSON.stringify(`[data-section-type="${pendingKind}"]`)}) instanceof HTMLElement`,
+  );
+  const presentation = await evaluate(
+    client,
+    `(() => {
+      const pending = document.querySelector(${JSON.stringify(`[data-section-type="${pendingKind}"]`)});
+      if (!(pending instanceof HTMLElement)) {
+        return null;
+      }
+      const style = getComputedStyle(pending);
+      const rect = pending.getBoundingClientRect();
+      return {
+        visible:
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          Number(style.opacity) !== 0 &&
+          rect.width > 0 &&
+          rect.height > 0,
+      };
+    })()`,
+  );
+  assert.deepEqual(
+    presentation,
+    { visible: false },
+    `Creating ${label} painted the optimistic lock state that main never shows.`,
+  );
+}
+
+export async function releaseCreationResponseGate(client) {
+  const released = await evaluate(
+    client,
+    `(() => {
+      const gate = globalThis[${JSON.stringify(creationGateKey)}];
+      if (gate === undefined) {
+        return false;
+      }
+      gate.release();
+      delete globalThis[${JSON.stringify(creationGateKey)}];
+      return true;
+    })()`,
+  );
+  assert.equal(released, true, "The creation response gate was unavailable.");
 }
 
 function creationMenuItemExpression(label) {
@@ -479,5 +581,5 @@ export function itemRowSelector(workspaceItemId) {
 }
 
 export function listChildCountSelector(listId) {
-  return `input[id=${JSON.stringify(`list-child-count:${listId}`)}]`;
+  return `${listSectionSelector(listId)} input[name="children"]`;
 }

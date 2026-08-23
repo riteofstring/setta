@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import { usePythonCanvasMutationContext } from "../app/PythonCanvasMutationContext";
 
@@ -42,83 +42,76 @@ export function readListSectionData(value: unknown): ListSectionData {
 export function ListSection({ data }: { data: ListSectionData }) {
   const mutation = usePythonCanvasMutationContext();
   const [count, setCount] = useState<number | "">(1);
-  const decrementUnavailable = data.pending || data.childCount === 0;
-  const incrementUnavailable = data.pending;
-  const requestCount = typeof count === "number" && count > 0 ? count : null;
   const error = mutation.listMutationError(data.list.id);
 
+  function changeCount(value: string) {
+    if (value === "") {
+      setCount("");
+      return;
+    }
+    const parsed = Number.parseInt(value);
+    if (!Number.isNaN(parsed) && parsed >= 0) {
+      setCount(parsed);
+    }
+  }
+
+  function resetEmptyCount() {
+    if (count === "" || count === 0) {
+      setCount(1);
+    }
+  }
+
+  function invoke(action: (nextCount: number) => void) {
+    if (typeof count === "number") {
+      action(count);
+    }
+  }
+
   return (
-    <div className="python-canvas-list-section">
-      <div className="python-canvas-list-incrementer">
+    <Fragment>
+      <div className="section-key-value section-row-main -mx-2 flex items-center gap-1 rounded-lg bg-setta-100 pl-2 pr-1 dark:bg-setta-950">
         <ListRootIcon />
-        <label
-          className="python-canvas-list-incrementer-label"
-          htmlFor={`list-child-count:${data.list.id}`}
-        >
-          Children:
-        </label>
+        <p className="text-[10px] font-bold text-setta-500">Children: </p>
         <input
-          className="nodrag setta-workspace-native-reset python-canvas-list-incrementer-input"
-          id={`list-child-count:${data.list.id}`}
-          inputMode="numeric"
-          min={1}
+          aria-label="Child count"
+          className="nodrag setta-workspace-native-reset max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-setta-800 dark:text-setta-300"
+          disabled={data.pending}
           name="children"
-          onBlur={() => {
-            if (count === "" || count <= 0) {
-              setCount(1);
-            }
-          }}
-          onChange={(event) => {
-            const value = event.target.value;
-            if (value === "") {
-              setCount("");
-              return;
-            }
-            const next = Number(value);
-            if (Number.isSafeInteger(next) && next >= 0) {
-              setCount(next);
-              return;
-            }
-            setCount("");
-          }}
-          type="number"
+          onBlur={resetEmptyCount}
+          onChange={(event) => changeCount(event.target.value)}
           value={count}
         />
         <button
           aria-label="Remove children"
-          className="nodrag setta-workspace-native-reset python-canvas-list-incrementer-button"
+          className="nodrag setta-workspace-native-reset gg-math-minus rounded-full focus-visible:ring-2 dark:text-setta-300"
           data-setta-workspace-touch-target="compact"
-          disabled={decrementUnavailable}
-          onClick={() => {
-            if (requestCount !== null) {
-              mutation.onListDecrement(data.list.id, requestCount);
-            }
-          }}
+          disabled={data.pending}
+          onClick={() =>
+            invoke((nextCount) =>
+              mutation.onListDecrement(data.list.id, nextCount),
+            )
+          }
           type="button"
-        >
-          <i aria-hidden="true" className="gg-math-minus" />
-        </button>
+        />
         <button
           aria-label="Add children"
-          className="nodrag setta-workspace-native-reset python-canvas-list-incrementer-button"
+          className="nodrag setta-workspace-native-reset gg-math-plus rounded-full focus-visible:ring-2 dark:text-setta-300"
           data-setta-workspace-touch-target="compact"
-          disabled={incrementUnavailable}
-          onClick={() => {
-            if (requestCount !== null) {
-              mutation.onListIncrement(data.list.id, requestCount);
-            }
-          }}
+          disabled={data.pending}
+          onClick={() =>
+            invoke((nextCount) =>
+              mutation.onListIncrement(data.list.id, nextCount),
+            )
+          }
           type="button"
-        >
-          <i aria-hidden="true" className="gg-math-plus" />
-        </button>
+        />
       </div>
       {error === null ? null : (
         <p className="python-canvas-announcer" role="alert">
           {error}
         </p>
       )}
-    </div>
+    </Fragment>
   );
 }
 
@@ -126,14 +119,17 @@ function ListRootIcon() {
   return (
     <svg
       aria-hidden="true"
-      className="python-canvas-list-incrementer-icon"
+      className="text-setta-300 dark:text-setta-600"
       fill="none"
       focusable="false"
+      height="1em"
       stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth="2"
       viewBox="0 0 24 24"
+      width="1em"
+      xmlns="http://www.w3.org/2000/svg"
     >
       <path d="M10 15l-3 3l-3 -3" />
       <path d="M7 6v12" />

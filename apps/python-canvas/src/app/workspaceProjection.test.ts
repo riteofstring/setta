@@ -394,6 +394,10 @@ describe("Python Canvas V2 workspace projection", () => {
     const document = projectWorkspaceDocument(snapshot);
     const dictionaryId = parameterDictionarySectionID("dictionary:options");
     const listId = listSectionID("list:objects");
+    expect(document.sections[listId]?.size).toEqual({
+      height: 150,
+      width: 250,
+    });
     const moved = {
       ...document,
       sections: {

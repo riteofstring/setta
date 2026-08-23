@@ -14,6 +14,11 @@ import {
 import { exerciseResolvedMathCallableLifecycle } from "./callable-lifecycle.browser.mjs";
 import { exerciseParamDictAndListSlice } from "./param-dict-list.browser.mjs";
 import {
+  assertPendingCreationHidden,
+  installCreationResponseGate,
+  releaseCreationResponseGate,
+} from "./param-dict-list.browser-support.mjs";
+import {
   editPythonTargetOuterRegions,
   generatedPythonEditorSelector,
   observeTargetDiagnostics,
@@ -264,6 +269,7 @@ async function createCallable(client, backendOrigin, name) {
         item.getAttribute("aria-disabled") !== "true";
     })()`,
   );
+  await installCreationResponseGate(client);
   const created = await evaluate(
     client,
     `(() => {
@@ -277,11 +283,20 @@ async function createCallable(client, backendOrigin, name) {
       return true;
     })()`,
   );
-  assert.equal(
-    created,
-    true,
-    "The Python callable creation menu item is missing.",
-  );
+  try {
+    assert.equal(
+      created,
+      true,
+      "The Python callable creation menu item is missing.",
+    );
+    await assertPendingCreationHidden(
+      client,
+      "python-canvas.callable-pending",
+      "Python callable",
+    );
+  } finally {
+    await releaseCreationResponseGate(client);
+  }
   const createdSnapshot = await waitForSnapshot(
     backendOrigin,
     "the canonical callable created from the pane menu",

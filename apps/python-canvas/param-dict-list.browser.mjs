@@ -47,7 +47,6 @@ import {
   itemSelectionModifiers,
   labeledSelector,
   prepareElementDrag,
-  pressArrowUp,
   pressEnter,
   pressEscape,
   releaseItemSelectionChord,
@@ -181,6 +180,7 @@ export async function exerciseParamDictAndListSlice(
     collection: "parameterDictionaries",
     defaultName: "New Param Dict",
     label: "Param Dict",
+    pendingKind: "python-canvas.parameter-dictionary-pending",
     sectionSelector: parameterDictionarySectionSelector,
   });
   const dictionarySelector = parameterDictionarySectionSelector(dictionary.id);
@@ -282,6 +282,7 @@ export async function exerciseParamDictAndListSlice(
     collection: "lists",
     defaultName: "New List of Objects",
     label: "List of Objects",
+    pendingKind: "python-canvas.list-pending",
     sectionSelector: listSectionSelector,
   });
   await assertListRootMainPresentation(client, outerList.id);
@@ -439,6 +440,7 @@ export async function exerciseParamDictAndListSlice(
     collection: "lists",
     defaultName: "New List of Objects 2",
     label: "List of Objects",
+    pendingKind: "python-canvas.list-pending",
     sectionSelector: listSectionSelector,
   });
   const beforeNestedListMove = await fetchCanonicalSnapshot(backendOrigin);
@@ -724,7 +726,8 @@ async function setListChildCountToTwo(client, listId) {
     selector,
     "the List of Objects child-count input",
   );
-  await pressArrowUp(client);
+  await selectAll(client);
+  await insertText(client, "2");
   await waitFor(
     client,
     "the List of Objects child count of two",
@@ -797,8 +800,14 @@ async function assertVerticalListPresentation(
       }
       const sortables = Array.from(sectionWrapper.querySelectorAll(${JSON.stringify(listNestedSortableSectionSelector)}));
       const fields = sortables.map((sortable) => sortable.querySelector('[data-workspace-section-field="true"]'));
+      const rail = sectionWrapper.querySelector('[aria-label="Focus parent section"]');
+      const sectionRect = section.getBoundingClientRect();
+      const firstSortableRect = sortables[0]?.getBoundingClientRect();
+      const railStyle = rail instanceof HTMLElement ? getComputedStyle(rail) : null;
+      const railRect = rail instanceof HTMLElement ? rail.getBoundingClientRect() : null;
       return {
         childIds: sortables.map((sortable) => sortable.getAttribute("data-sortable-section-id")),
+        childInset: firstSortableRect ? firstSortableRect.left - sectionRect.left : null,
         dimensions: fields.map((field) => {
           if (!(field instanceof HTMLElement)) {
             return null;
@@ -806,6 +815,10 @@ async function assertVerticalListPresentation(
           const rect = field.getBoundingClientRect();
           return { height: rect.height, width: rect.width };
         }),
+        rail: railRect && railStyle ? {
+          marginRight: railStyle.marginRight,
+          width: railRect.width,
+        } : null,
         vertical: sectionWrapper.querySelector(${JSON.stringify(listNestedSectionSurfaceSelector)}) instanceof HTMLElement,
       };
     })()`,
@@ -820,6 +833,16 @@ async function assertVerticalListPresentation(
     presentation.vertical,
     true,
     "The List of Objects children are not vertically presented.",
+  );
+  assert.deepEqual(
+    presentation.rail,
+    { marginRight: "8px", width: 8 },
+    "The List of Objects is missing main's nested-child side rail.",
+  );
+  assert.ok(
+    presentation.childInset !== null &&
+      Math.abs(presentation.childInset - 16) < 0.5,
+    "The List of Objects children do not have main's 16px inset.",
   );
   assert.equal(
     presentation.dimensions.length,

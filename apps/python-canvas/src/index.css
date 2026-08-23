@@ -38,6 +38,15 @@ body {
   overflow: hidden;
 }
 
+/* Main waits for the create response before mounting the canonical section. Keep the local
+ * identity placeholder available for position reconciliation, but never paint or expose it. */
+.setta-workspace [data-section-type="python-canvas.callable-pending"],
+.setta-workspace
+  [data-section-type="python-canvas.parameter-dictionary-pending"],
+.setta-workspace [data-section-type="python-canvas.list-pending"] {
+  visibility: hidden;
+}
+
 .python-canvas-announcer {
   position: fixed;
   inline-size: 1px;
@@ -119,94 +128,6 @@ body {
 .python-canvas-parameter-dictionary-section {
   display: grid;
   min-inline-size: 0;
-}
-
-.python-canvas-list-section {
-  display: grid;
-  min-inline-size: 0;
-}
-
-/* Exact compact geometry and color tokens from main's ListRoot Incrementer.
- * The app-owned native controls opt into the workspace reset in ListSection. */
-.python-canvas-list-incrementer {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-inline: -0.5rem;
-  padding-inline: 0.5rem 0.25rem;
-  border-radius: 0.5rem;
-  background: hsl(219 24% 89%);
-}
-
-.python-canvas-list-incrementer-icon {
-  inline-size: 1em;
-  block-size: 1em;
-  flex: none;
-  color: hsl(220 25% 67%);
-}
-
-.python-canvas-list-incrementer-label {
-  margin: 0;
-  color: hsl(220 25% 45%);
-  font-size: 0.625rem;
-  font-weight: 700;
-  line-height: 1.5;
-}
-
-.python-canvas-list-incrementer-input {
-  max-inline-size: 3ch;
-  padding-inline: 0.5rem;
-  border-radius: 0.375rem;
-  background: #fff;
-  color: inherit;
-  cursor: auto;
-  font-size: 0.75rem;
-  line-height: 1rem;
-  appearance: textfield;
-}
-
-.python-canvas-list-incrementer-input::-webkit-inner-spin-button,
-.python-canvas-list-incrementer-input::-webkit-outer-spin-button {
-  margin: 0;
-  appearance: none;
-}
-
-.python-canvas-list-incrementer-button {
-  display: inline-grid;
-  inline-size: 22px;
-  block-size: 22px;
-  place-items: center;
-  border-radius: 999px;
-  color: inherit;
-  cursor: pointer;
-}
-
-.python-canvas-list-incrementer-input:focus-visible,
-.python-canvas-list-incrementer-button:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px rgb(59 130 246 / 50%);
-}
-
-.python-canvas-list-incrementer-button:disabled {
-  cursor: default;
-  opacity: 0.5;
-}
-
-.setta-workspace-dark .python-canvas-list-incrementer {
-  background: hsl(220 25% 3%);
-}
-
-.setta-workspace-dark .python-canvas-list-incrementer-icon {
-  color: hsl(219 25% 34%);
-}
-
-.setta-workspace-dark .python-canvas-list-incrementer-input {
-  background: hsl(220 26% 14%);
-  color: hsl(220 25% 67%);
-}
-
-.setta-workspace-dark .python-canvas-list-incrementer-button {
-  color: hsl(220 25% 67%);
 }
 
 /* Main's ordinary parameter label is one truncating semibold name. Provider

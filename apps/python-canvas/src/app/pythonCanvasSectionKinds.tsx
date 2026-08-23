@@ -102,6 +102,7 @@ export function registerPythonCanvasSectionKinds(
     },
   };
   const listSectionKind = {
+    contentClassName: "contents",
     defaultSize: LIST_SECTION_SIZE,
     nestedSections: "vertical" as const,
     canAcceptNestedSection: canNestInList,

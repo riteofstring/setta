@@ -42,12 +42,12 @@ function SectionContainerComponent({
       isTopLevel={isTopLevel}
     >
       {isGroup ? (
-        <MaybeManyNestedSections sectionId={sectionId} />
+        <MaybeManyNestedSections isGroup sectionId={sectionId} />
       ) : (
         <>
           <SectionContainerCore sectionId={sectionId} />
           {canOwnNestedSections ? (
-            <MaybeManyNestedSections sectionId={sectionId} />
+            <MaybeManyNestedSections isGroup={false} sectionId={sectionId} />
           ) : null}
         </>
       )}
