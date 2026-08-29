@@ -9,6 +9,8 @@ import (
 	"github.com/setta/python-canvas/backend/internal/contracts"
 )
 
+// stableID keeps route identifiers in the same strict transport form used by
+// the contract layer before they are path escaped for a mutation endpoint.
 func stableID(value string) error {
 	if strings.TrimSpace(value) == "" || value != strings.TrimSpace(value) || !utf8.ValidString(value) || strings.ContainsRune(value, '\x00') {
 		return fmt.Errorf("stable ID is invalid")

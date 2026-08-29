@@ -69,6 +69,7 @@ export function canWorkspaceSectionOpenInWindow(
   );
 }
 
+/** Drops stale or newly ineligible section bindings in one controlled publication. */
 export function reconcileWorkspaceSectionWindowBindings(
   host: WorkspaceHost,
   document: Pick<WorkspaceDocument, "sections">,

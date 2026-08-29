@@ -35,6 +35,12 @@ import {
 } from "./MiniMapNodes";
 import type { MiniMapNodeProps } from "./types";
 
+// Ported from the reference fork's `minimap/MiniMapNodes.test.tsx`. The reactive-visuals cases
+// resolve through the package document (the application resolves variant indirection on its
+// side of the seam); the section-style *preview* case left with the app's style-color editing
+// feature, and the dark-mode case freezes the reactive appearance dependency the reference
+// exercises through its localStorage store.
+
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;

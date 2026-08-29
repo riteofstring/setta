@@ -1,6 +1,10 @@
 import { getSectionChildren } from "./documentSelectors";
 import type { WorkspaceDocumentState } from "./stores";
 
+// The reference's pure selection-shape selectors (`state/actions/sections/sectionSelection.ts`),
+// ported onto the package document state. The dnd slice uses them to resolve which sections a
+// drag carries and whether a drop target sits inside the dragged selection.
+
 type RootSectionSelection = {
   rootIds: Array<string>;
 };

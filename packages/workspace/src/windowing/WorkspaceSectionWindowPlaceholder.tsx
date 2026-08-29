@@ -4,18 +4,24 @@ import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip";
 import { useWorkspaceHost } from "../workspaceHostContext";
 
 export type WorkspaceSectionWindowPlaceholderProps = {
+  /** The canonical section whose canvas body this placeholder replaces. */
   sectionId: string;
-
+  /** The controlled external-window identity for the section. */
   windowId: string;
-
+  /** Whether the host currently permits layout-changing actions. */
   layoutEditable: boolean;
-
+  /** Reopen when necessary, then focus. This remains available in read-only mode. */
   onFocusWindow: (windowId: string) => void;
-
+  /** Return the controlled external-window binding to its canvas section. */
   onShowInCanvas: (windowId: string) => void;
   dataTestId?: string;
 };
 
+/**
+ * The canvas-side half of a controlled section/window handoff. The host owns
+ * placement and lifecycle state; this component only reads the live section
+ * name and reports the requested action.
+ */
 export function WorkspaceSectionWindowPlaceholder({
   dataTestId = "section-window-placeholder",
   layoutEditable,

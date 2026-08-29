@@ -8,9 +8,12 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from setta_wheel_smoke.acceptance import smoke_wheel
-from setta_wheel_smoke.inspection import inspect_wheel
-from setta_wheel_smoke.models import SmokeError, WheelInspection
+RUNTIME_MODULE_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(RUNTIME_MODULE_ROOT))
+
+from scripts.setta_wheel_smoke.acceptance import smoke_wheel
+from scripts.setta_wheel_smoke.inspection import inspect_wheel
+from scripts.setta_wheel_smoke.models import SmokeError, WheelInspection
 
 __all__ = ["SmokeError", "WheelInspection", "inspect_wheel", "main", "smoke_wheel"]
 

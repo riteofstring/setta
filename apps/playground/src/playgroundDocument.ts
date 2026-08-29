@@ -24,7 +24,8 @@ function makeLeafSection(
     id,
     kind: "leaf",
     name,
-
+    // The body text is the leaf kind's opaque data; the size comes from the kind's registered
+    // default (the accepted 200 x 122 leaf geometry).
     data: { body: name },
     isMinimized: false,
     positionAndSizeLocked: false,
@@ -37,6 +38,9 @@ function makeLeafSection(
   };
 }
 
+// One body of Markdown covering everything the rendered surface owns: heading levels, links,
+// ordered and unordered lists, a task list, a table, inline and fenced code, math, a long line,
+// and a blockquote.
 const PLAYGROUND_MARKDOWN = [
   "# Release notes",
   "",
@@ -94,6 +98,9 @@ function makeTextSection(
   };
 }
 
+// The item panel now uses the package-owned discriminated presentation directly. One explicit
+// group keeps cross-parent movement reachable, while every scalar row exercises the accepted
+// built-in ordinary controls without a host decoder or row renderer.
 function makeBuiltInItem(
   id: string,
   label: string,
@@ -312,6 +319,8 @@ const itemPanelTree: WorkspaceSectionItemTree = {
   selectedItemIds: [],
 };
 
+// Groups have no registered kind. Intrinsic groups omit size and load at auto/auto; the bounded
+// root fixture below supplies explicit reload-stable dimensions.
 function makeGroupSection(
   id: string,
   name: string,
@@ -343,7 +352,8 @@ function makeMetaControlSection(
     id,
     kind: "meta-control",
     name,
-
+    // The package resolves omitted sizes from the projected control kind. The calendar fixture
+    // alone keeps auto height so its live month grid can expand like frozen main.
     data,
     isMinimized: false,
     positionAndSizeLocked: false,
@@ -356,6 +366,13 @@ function makeMetaControlSection(
   };
 }
 
+// The accepted Phase 1 chrome states (idle, locked, style-colored root leaves) plus Phase 3's
+// representative recursive structure from the Phase 0 captures: the root group holds a nested
+// leaf and a nested group, which holds a horizontal group with three leaves — three group
+// levels with both child flows, leaves at the fourth. The freeform surface is the top-level
+// workspace layout itself, exactly as the reference: groups flow their children in order.
+// The workspace-shell milestone moves the item panel onto the typed built-in schema; the
+// meta-control fixture remains host-owned opaque section data by design.
 export const playgroundDocument: WorkspaceDocumentInput = {
   sections: {
     "idle-leaf": makeLeafSection("idle-leaf", "Idle leaf", {
@@ -521,7 +538,8 @@ export const playgroundDocument: WorkspaceDocumentInput = {
       showSectionTitle: false,
       editRequests: 0,
     }),
-
+    // The built-in Code Editor section. Its data is the package's own typed contract rather than
+    // opaque host data, so the fixture builds it from the package's creation defaults.
     "code-editor": {
       id: "code-editor",
       kind: WORKSPACE_CODE_SECTION_KIND,
@@ -546,7 +564,8 @@ export const playgroundDocument: WorkspaceDocumentInput = {
       tagColor: null,
       children: [],
     },
-
+    // The built-in Text section, in both of its display modes over one body of Markdown that
+    // exercises every element the rendered surface owns.
     "text-rendered": makeTextSection("text-rendered", "Release notes", {
       displayMode: "render",
     }),
@@ -559,9 +578,11 @@ export const playgroundDocument: WorkspaceDocumentInput = {
     "locked-leaf": { x: 312, y: 24, w: 200, h: 122, zIndex: 1 },
     "styled-leaf": { x: 600, y: 24, w: 200, h: 122, zIndex: 2 },
     "root-group": { x: 24, y: 216, w: null, h: null, zIndex: 3 },
-
+    // The recorded `/settings` Dict measurement (552 x 352) is the complete outer section;
+    // document dimensions describe the inner surface the shell borders by 1 px per side.
     "item-panel": { x: 600, y: 216, w: 550, h: 350, zIndex: 4 },
-
+    // The twelve controls follow frozen main's four-column by three-row fixture. Document
+    // dimensions describe the inner surface; the package shell contributes one pixel per side.
     "meta-dropdown": {
       x: 1200,
       y: 24,
@@ -646,9 +667,10 @@ export const playgroundDocument: WorkspaceDocumentInput = {
       h: DROPZONE_META_CONTROL_SIZE.height,
       zIndex: 16,
     },
-
+    // Frozen main's code section opens 500 wide at auto height.
     "code-editor": { x: 2320, y: 24, w: 500, h: null, zIndex: 17 },
-
+    // Frozen main's text block opens 500 x 150. Both text fixtures carry the same content so a
+    // gate can compare the rendered surface against its own source side by side.
     "text-rendered": { x: 2320, y: 420, w: 500, h: 260, zIndex: 18 },
     "text-source": { x: 2860, y: 420, w: 500, h: 260, zIndex: 19 },
   },

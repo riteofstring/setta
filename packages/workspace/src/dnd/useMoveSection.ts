@@ -23,6 +23,9 @@ import { getSortingOverState } from "./sortingOverState";
 import { getOverId } from "./useDropType";
 import { planFreeMove, planSortingMove } from "./useMoveSectionPlans";
 
+// The reference's drag-end commit (`useMoveSection.ts`): one canonical document change per
+// gesture through the package move funnel instead of `moveSectionsWithBackend`.
+
 function onSortEnd(
   host: WorkspaceHost,
   {
@@ -119,7 +122,7 @@ export function useOnDragEnd() {
     } else {
       manualDndChildrenReset(host);
     }
-
+    // don't reset isMovingFree or isSorting
     getDndStateStore(host)
       .getState()
       .reset((api) => {

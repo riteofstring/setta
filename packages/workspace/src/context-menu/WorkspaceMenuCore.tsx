@@ -27,7 +27,8 @@ export type WorkspaceMenuEntry = {
   label: string;
   icon?: ComponentType<WorkspaceCommandIconProps>;
   checked?: boolean;
-
+  // Why a disabled entry refuses to run. Menus keep their accepted item text and expose the same
+  // explanation the Inspector prints, through the item's pointer title and accessible description.
   description?: string;
   disabled: boolean;
   onSelect: () => void;

@@ -38,6 +38,10 @@ type normalizedSignatureParameter struct {
 	Default        *string
 }
 
+// normalizeSignatureParameters turns one provider signature into the five
+// canonical Python passing styles. Marker pseudo-parameters are interpreted
+// from the complete signature label rather than guessed from an individual
+// row, so positional-only and keyword-only boundaries remain exact.
 func normalizeSignatureParameters(result SignatureHelpResult) ([]normalizedSignatureParameter, error) {
 	if len(result.Signatures) == 0 {
 		return nil, ErrSignatureNotFound

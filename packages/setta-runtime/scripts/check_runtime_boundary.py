@@ -178,11 +178,11 @@ class _ComplexityCounter(ast.NodeVisitor):
     def __init__(self) -> None:
         self.decisions = 0
 
-    def visit_FunctionDef(self, _node: ast.FunctionDef) -> None:
-        return
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        del node
 
-    def visit_AsyncFunctionDef(self, _node: ast.AsyncFunctionDef) -> None:
-        return
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        del node
 
     def visit_If(self, node: ast.If) -> None:
         self.decisions += 1

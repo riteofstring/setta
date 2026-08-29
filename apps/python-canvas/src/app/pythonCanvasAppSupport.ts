@@ -148,6 +148,9 @@ export function callableParameterRefreshRequired(
   );
 }
 
+// Section titles and deletion use the package-owned ordinary header. Translate
+// those structural changes through the typed server commands, keeping a parent
+// deletion singular even when its list subtree disappeared from the document.
 export function sectionStructureMutations(
   document: WorkspaceDocument,
   snapshot: ProjectSnapshotV2,

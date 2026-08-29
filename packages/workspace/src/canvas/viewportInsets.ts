@@ -40,6 +40,10 @@ export function areViewportInsetsEqual(
   );
 }
 
+// The area the workspace frames content in. The insets name the canvas edges the shell's pane
+// regions physically cover, and they are a framing preference rather than a constraint: a compact
+// host whose open pane spans the whole canvas leaves nothing to frame against, so every viewport
+// consumer falls back to the canvas itself instead of the empty rectangle between the panes.
 export function getVisibleCanvasRect(
   dimensions: Dimensions,
   insets: ViewportInsets,

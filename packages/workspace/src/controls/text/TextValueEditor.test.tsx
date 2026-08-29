@@ -40,6 +40,13 @@ import { TextValueEditor, type TextValueEditorProps } from "./TextValueEditor";
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+// Freezes the two-layer text value editor against the reference's `TextInputCodeMirror`
+// behavior: the highlighted idle dummy (and its placeholder form), the primary-mouse-down
+// activation that swaps in the live CodeMirror editor and activates the section through the
+// input-focus intent, per-document-change reporting through the controlled seam, Escape
+// returning focus to the section container, and the interaction-first disabled contract for
+// the host flag and item-select mode.
+
 const SECTION_ID = "panel";
 const ITEM_ID = "item-alpha";
 const FIELD_ID = "expression";
@@ -153,11 +160,12 @@ describe("TextValueEditor", () => {
     ]) {
       expect(dummy.classList.contains(expectedClass)).toBe(true);
     }
-
+    // The Lezer highlight marks the python number token with a theme class inside a cm-line.
     const line = dummy.querySelector(".cm-line");
     expect(line).not.toBeNull();
     expect(line?.querySelector("span")?.className).toMatch(/ͼ/);
-
+    // The value-column divider carries the reference focus treatment while item-select mode
+    // is inactive.
     const divider = host.querySelector("span.section-value");
     expect(
       divider?.classList.contains(
@@ -232,9 +240,9 @@ describe("TextValueEditor", () => {
     expect(liveView.contentDOM.getAttribute("aria-label")).toBe(
       "Threshold value",
     );
-
+    // The dummy layer leaves once the live editor initializes.
     expect(host.querySelector(`#${getDummyId()}`)).toBeNull();
-
+    // The input-focus intent made the owning section the single active section.
     expect(testWorkspace.activeSections.getState().activeIds).toEqual([
       SECTION_ID,
     ]);
@@ -307,6 +315,9 @@ describe("TextValueEditor", () => {
     expect(view.state.doc.toString()).toBe("0.001");
   });
 
+  // Main gives Tab, Escape, and the first unmodified Enter to an active completion popup. Once an
+  // option has replaced the draft, a popup reopened over that unchanged value must not add a
+  // third acceptance step before commit.
   it("accepts an active completion before a declared Enter commit", async () => {
     const onCommit = vi.fn();
     const provider = sqrtCompletionProvider();
@@ -381,6 +392,8 @@ describe("TextValueEditor", () => {
     expect(completionStatus(view.state)).not.toBe("active");
   });
 
+  // The reference's ordinary parameter rows declare no Enter action, so their popup keeps
+  // CodeMirror's own Enter-accepts binding. Only a declared commit takes that key away.
   it("leaves Enter to the completion popup when the caller declares no commit", async () => {
     await mount({
       completionProvider: sqrtCompletionProvider(),
@@ -567,7 +580,7 @@ describe("TextValueEditor", () => {
     });
     expect(document.activeElement).toBe(sectionRoot);
     expect(documentEscape).not.toHaveBeenCalled();
-
+    // The blur handler resets both layers on the next tick.
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 1));
     });
@@ -602,6 +615,10 @@ describe("TextValueEditor", () => {
   });
 });
 
+// The section-field presentation is the same editor core inside the package's compact field
+// surface. These cases re-run the accepted commit, completion, IME, Escape, and disabled
+// behavior at that placement and pin the adornment's boundary: it is layout the package owns and
+// content the caller owns, never editor value and never a keyboard participant.
 describe("TextValueEditor section-field presentation", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -684,13 +701,14 @@ describe("TextValueEditor section-field presentation", () => {
     );
     expect(field).not.toBeNull();
     expect(field?.dataset["disabled"]).toBe("false");
-
+    // The one public hook for the surface: consumers and captures observe the field here rather
+    // than through the private class its stylesheet paints.
     expect(host.querySelector("[data-workspace-section-field='true']")).toBe(
       field,
     );
     expect(field?.classList.contains("nodrag")).toBe(true);
     expect(field?.classList.contains("nopan")).toBe(true);
-
+    // No underlined value-column divider and no item-row placement classes at this placement.
     expect(host.querySelector("span.section-value")).toBeNull();
     const dummy = getFieldDummy();
     expect(dummy.getAttribute("aria-label")).toBe("Expression");
@@ -737,6 +755,8 @@ describe("TextValueEditor section-field presentation", () => {
     expect(live.getAttribute("aria-invalid")).toBe("true");
     expect(live.getAttribute("aria-describedby")).toBe(description.id);
 
+    // A canonical snapshot replaces the diagnostic while the field is still live.
+    // Its controlled text and active layer stay intact; only error state disappears.
     await mountField();
     expect(field.dataset["diagnostic"]).toBe("false");
     expect(description.textContent).toBe("");
@@ -795,7 +815,7 @@ describe("TextValueEditor section-field presentation", () => {
       ".setta-workspace-section-field-adornment",
     );
     expect(adornment?.textContent).toBe("pending");
-
+    // Layout is package-owned and sits outside the editor layers.
     expect(adornment?.querySelector("[role='textbox'], .cm-editor")).toBeNull();
     expect(adornment?.contains(getFieldDummy())).toBe(false);
     expect(adornment?.querySelectorAll("[tabindex]")).toHaveLength(0);
@@ -806,6 +826,9 @@ describe("TextValueEditor section-field presentation", () => {
     expect(onValueChange).not.toHaveBeenCalled();
   });
 
+  // Main's field carries its box and its type on each stacked layer, so activating it changes both.
+  // Here the wrapper owns the box and both layers carry the one class that owns the type, which is
+  // what keeps the swap invisible.
   it("swaps the idle layer for a live editor on the same type owner", async () => {
     await mountField();
     const dummy = getFieldDummy();
@@ -824,7 +847,7 @@ describe("TextValueEditor section-field presentation", () => {
       live?.classList.contains("setta-workspace-section-field-editor"),
     ).toBe(true);
     expect(live?.querySelector(".cm-editor")).not.toBeNull();
-
+    // The box stays on the wrapper both layers sit inside, never on a layer.
     const field = host.querySelector<HTMLElement>(
       ".setta-workspace-section-field",
     );
@@ -894,6 +917,8 @@ describe("TextValueEditor section-field presentation", () => {
     expect(view.state.doc.lines).toBe(1);
   });
 
+  // Directly measured on main: the first Enter accepts the selected callable completion without a
+  // mutation, and the second Enter applies the completed draft.
   it("accepts a callable completion on the first Enter and commits on the second", async () => {
     const onCommit = vi.fn();
     await mountField({
@@ -917,7 +942,9 @@ describe("TextValueEditor section-field presentation", () => {
     expect(view.state.doc.toString()).toBe("math.sqrt");
     expect(onCommit).not.toHaveBeenCalled();
     expect(completionStatus(view.state)).not.toBe("active");
-
+    // A controlled editor can briefly reopen completion for the completed value after React
+    // projects the accepted draft back into CodeMirror. That popup must not consume a third
+    // Enter when accepting its selected option would leave the document unchanged.
     await openCompletionAtCaretEnd(view);
     await act(async () => {
       view.contentDOM.dispatchEvent(
@@ -934,6 +961,8 @@ describe("TextValueEditor section-field presentation", () => {
     expect(completionStatus(view.state)).not.toBe("active");
   });
 
+  // Escape's two steps, in the reference's order: the popup takes the first one for itself, and
+  // only the one that reaches the editor tells the caller its draft is abandoned.
   it("reports Escape to the caller only after the completion popup has taken its own", async () => {
     const onEscape = vi.fn();
     await mountField({
@@ -1011,6 +1040,8 @@ async function waitForCompletion(
   await waitFor(() => completionStatus(view.state) === status);
 }
 
+// One `sqrt` offer for whatever the caret has reached, so the popup can be reopened over a draft
+// the previous accept already completed — the state a commit Enter has to win against.
 function sqrtCompletionProvider() {
   return vi.fn(async (request: { cursorOffset: number }) => ({
     from: 5,
@@ -1019,6 +1050,8 @@ function sqrtCompletionProvider() {
   }));
 }
 
+// A person completes at the end of what they typed; activation alone leaves the caret wherever
+// the pointer landed, which is not a position an offer can replace text at.
 async function openCompletionAtCaretEnd(view: EditorView): Promise<void> {
   await act(async () => {
     view.dispatch({ selection: { anchor: view.state.doc.length } });

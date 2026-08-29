@@ -8,6 +8,11 @@ import {
   type OnSelectedItemChange,
 } from "./comboboxStateReducer";
 
+// The reference's `useIdNameCombobox` trimmed to the dropdown control: downshift wired to the
+// corrected state reducer over the filtered choice groups, with the open flag gated on a
+// non-empty filtered list. Escape blurs the input — the reference combobox contract; unlike the
+// switch and color controls, the keypress keeps bubbling to the canvas Escape shortcut exactly
+// as it does in main.
 export function useDropdownCombobox({
   allItems,
   value,

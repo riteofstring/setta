@@ -31,6 +31,10 @@ import {
   PlaygroundCodeSectionInspector,
   PlaygroundTextSectionInspector,
 } from "./sectionOptionInspectors";
+// The host side of the registration seam: the package owns the shell, chrome, header, and
+// resize treatment; the playground registers its one leaf kind and renders the section body
+// from the kind's opaque data. No icon is registered, so headers keep the reference's
+// gg-menu fallback glyph from the accepted side-by-side.
 
 function getLeafBody(section: WorkspaceSection): string {
   const data = section.data;
@@ -90,6 +94,9 @@ function PlaygroundInspectorContribution({
   );
 }
 
+// The item panel now mounts the package-owned typed row presentation directly. The host has no
+// control decoder or row renderer; only browser/server side effects for the dropzone cross the
+// explicit non-serializable handler registry.
 export const PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS = {
   "item-alpha": [
     {
@@ -501,6 +508,8 @@ function updateMetaControlData(
   setSectionData(host, sectionId, update(getMetaControlDataRecord(section)));
 }
 
+// Exported for the focused host-seam regression. The package reports an edit request; this
+// unrelated host decides how that request changes its opaque section data.
 export function commitPlaygroundMetaControlEditRequest(
   host: WorkspaceHost,
   sectionId: string,
@@ -842,6 +851,8 @@ function getPlaygroundMetaControl(
   return control;
 }
 
+// The complete direct-on-canvas fixture is host-owned opaque data. The package composes every
+// built-in control, while this unrelated host owns values, actions, validation, and file metadata.
 export function MetaControlSectionBody({
   section,
 }: {
@@ -858,6 +869,10 @@ export function MetaControlSectionBody({
   );
 }
 
+// Loading validates every non-group kind against the registry, so registration precedes the
+// initial document load. Registered sizes are inner surfaces; the shell adds a 1 px border per
+// side, so the leaf's 200 x 122 renders the accepted 202 x 124 outer geometry and the item panel's
+// 550 x 350 the recorded 552 x 352 `/settings` Dict outer measurement from the Phase 4 gate.
 export function registerPlaygroundSectionKinds(host: WorkspaceHost): void {
   registerPlaygroundItemHandlers(host);
   registerSectionKinds(host, {
@@ -890,14 +905,17 @@ export function registerPlaygroundSectionKinds(host: WorkspaceHost): void {
           commitPlaygroundMetaControlEditRequest(host, section.id),
       },
     },
-
+    // The built-in Code Editor section composes with this host's own kinds through the same
+    // registration call. Leaving it out would leave the workspace coherent; a document naming
+    // the kind would then fail through the package's unknown-kind contract.
     [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
       renderInspector: (context) =>
         context.type === "section" ? (
           <PlaygroundCodeSectionInspector sectionId={context.section.id} />
         ) : null,
     }),
-
+    // The built-in Text section registers the same way, and this host keeps both formats, both
+    // display modes, and the package's header control.
     [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
       renderInspector: (context) =>
         context.type === "section" ? (

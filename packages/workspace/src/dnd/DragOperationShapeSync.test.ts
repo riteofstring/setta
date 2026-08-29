@@ -136,6 +136,7 @@ describe("resolveSelectionBoundingRect", () => {
   });
 
   it("never combines section selection rects during an item drag", () => {
+    // Item drags size the operation shape from the item active rect, not the section selection.
     expect(
       resolveSelectionBoundingRect({
         draggingIds: ["a", "b"],

@@ -93,7 +93,8 @@ while :; do sleep 1; done`,
 		_ = pty.Close()
 		t.Fatalf("write worker PID: %v", err)
 	}
-
+	// The parent test kills this worker. Its death closes the only write end of
+	// the guardian lifetime pipe, which must clean the TERM-ignoring session.
 	for {
 		time.Sleep(time.Hour)
 	}

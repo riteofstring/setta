@@ -39,6 +39,11 @@ import type {
 const WORKSPACE_BOTTOM_DOCK_MIN_WINDOW_HEIGHT_PX = 220;
 const WORKSPACE_BOTTOM_DOCK_DEFAULT_HEIGHT_FRACTION = 0.7;
 
+/**
+ * The dock stays content-neutral. The integrated manager can map this callback
+ * to its generic chrome or the package section-window surface without a dock
+ * dependency on either owner.
+ */
 export type WorkspaceBottomDockRenderWindow = (
   window: WorkspaceFloatingWindow,
   options: WorkspaceBottomDockRenderWindowOptions,
@@ -56,7 +61,7 @@ export type WorkspaceBottomDockProps = {
   readonly onMaximizeWindow: (windowId: string) => void;
   readonly onMinimizeWindow: (windowId: string) => void;
   readonly onCloseWindow: (windowId: string) => void;
-
+  /** Receives exactly one complete dock layout candidate on a resize release. */
   readonly onDockLayoutCommit: (
     updates: readonly WorkspaceWindowDockLayoutUpdate[],
   ) => void;
@@ -144,6 +149,11 @@ function resizeDirectionIncludes(
   return direction === side || direction.includes(side);
 }
 
+/**
+ * A controlled, content-neutral bottom dock. It owns only responsive panel
+ * selection and local resize previews; every persistent state transition is
+ * reported through one caller-provided callback.
+ */
 export function WorkspaceBottomDock({
   ariaLabel = "Workspace bottom dock",
   className,

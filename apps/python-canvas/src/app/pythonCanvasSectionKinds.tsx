@@ -82,6 +82,8 @@ export function registerPythonCanvasSectionKinds(
   host: WorkspaceHost,
   pythonTargetCompletionProvider?: WorkspaceCodeSectionCompletionProvider,
 ): void {
+  // The built-in code-section factory always returns the ordinary shell variant; narrow the
+  // public union once so this app can contribute the ordinary header-control slot.
   const pythonTargetSection = createWorkspaceCodeSection({
     completionProvider: pythonTargetCompletionProvider,
     defaultSize: GENERATED_PYTHON_SECTION_SIZE,

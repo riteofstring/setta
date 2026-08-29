@@ -1,3 +1,7 @@
+/* Frozen main joins an attached runtime surface below its owner without changing the owner's
+ * authored size. The registered attachment seam keeps that geometry package-owned: the joined
+ * wrapper paints the one selection outline, while the ordinary section keeps its own border and
+ * resize behavior. Returning no attached surface leaves the ordinary section visually unchanged. */
 .setta-workspace-joined-section-group:not(
   :has([data-workspace-attached-section])
 ) {

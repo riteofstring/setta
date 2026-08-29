@@ -5,11 +5,16 @@ import json
 import os
 import tempfile
 import unittest
+from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 from unittest import mock
 
 from setta.cli import run
 from setta.registry import AppDescriptor, AppRegistry, CommandContext
+from setta.runtime import PackagedRuntime
+from setta.sessions import LiveSessionStore
+from setta.supervisor import NativeServerSupervisor
 
 
 class _Runtime:
@@ -25,12 +30,13 @@ class _FixtureApp:
     def descriptor(self) -> AppDescriptor:
         return AppDescriptor("fixture-app", "Fixture App", "A registry fixture.")
 
-    def dispatch(self, arguments: tuple[str, ...], context: CommandContext) -> int:
-        self.arguments = arguments
+    def dispatch(self, arguments: Sequence[str], context: CommandContext) -> int:
+        self.arguments = tuple(arguments)
         context.stdout.write("fixture dispatched\n")
         return 7
 
-    def doctor(self, _context: CommandContext) -> dict[str, object]:
+    def doctor(self, context: CommandContext) -> dict[str, object]:
+        del context
         return {"id": "fixture-app", "status": "ok", "checks": []}
 
 
@@ -39,9 +45,9 @@ class RootCliTests(unittest.TestCase):
         self.stdout = io.StringIO()
         self.stderr = io.StringIO()
         self.context = CommandContext(
-            runtime=_Runtime(),
-            sessions=object(),
-            supervisor=object(),
+            runtime=cast(PackagedRuntime, _Runtime()),
+            sessions=cast(LiveSessionStore, object()),
+            supervisor=cast(NativeServerSupervisor, object()),
             stdin=io.StringIO(),
             stdout=self.stdout,
             stderr=self.stderr,
@@ -96,7 +102,9 @@ class RootCliTests(unittest.TestCase):
             launcher.symlink_to(base_interpreter)
             with mock.patch("setta.registry.sys.executable", str(launcher)):
                 context = CommandContext.standard(
-                    runtime=object(), sessions=object(), supervisor=object()
+                    runtime=cast(PackagedRuntime, object()),
+                    sessions=cast(LiveSessionStore, object()),
+                    supervisor=cast(NativeServerSupervisor, object()),
                 )
             self.assertEqual(
                 context.launcher_python,

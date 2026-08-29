@@ -55,6 +55,7 @@ function registerCreationCommand(chord: string | null) {
   ]);
 }
 
+// jsdom reports no Mac user agent; the label case flips this to read the macOS chord text.
 let mockIsMacOs = false;
 vi.mock("../canvas/utils", async (importOriginal) => {
   const original = await importOriginal<typeof import("../canvas/utils")>();
@@ -144,7 +145,8 @@ describe("workspace key bindings", () => {
     expect(getBinding("workspace.ungroup-sections").chordLabel).toBe(
       "⌘ + Shift + G",
     );
-
+    // The surface that advertises its own binding reads the same label the descriptor carries.
+    // This is the reference's own text: `shortcutPrettified("Mod + K")` writes "⌘ + K" there.
     expect(getBinding("workspace.focus-item-filter").chordLabel).toBe("⌘ + K");
     expect(
       getWorkspaceKeyBindingChordLabel(host, "workspace.focus-item-filter"),
@@ -238,6 +240,9 @@ describe("workspace key bindings", () => {
     expect(getBinding("workspace.lock-sections").chord).toBeNull();
   });
 
+  // The package ships its focus chords on "Ctrl" and everything else on "Mod", so off macOS a host
+  // chord written the other way round is the same keypress and has to be refused there — while on
+  // macOS the two are different keys and both bindings stay reachable.
   it("collides Mod with Ctrl only on the platform where they are one key", () => {
     const candidate = [{ id: "workspace.lock-sections", chord: "Ctrl + G" }];
     expect(getWorkspaceKeyBindingConflicts(host, candidate)).toEqual([
@@ -292,7 +297,8 @@ describe("workspace key bindings", () => {
     const deleteSections = other.find(
       (binding) => binding.definition.id === "workspace.delete-sections",
     );
-
+    // "Alt + ArrowUp" is not a native editing chord on either platform, and its browser default
+    // is the binding's to take; "Backspace" is bare, so it stands down inside editors.
     expect(macMoveUp).toMatchObject({
       suppressesBrowserDefault: true,
       yieldsToEditableTarget: false,
@@ -303,6 +309,9 @@ describe("workspace key bindings", () => {
     });
   });
 
+  // A host's creation catalog joins the same binding vocabulary: the reference gives each of its
+  // own creation actions a configurable shortcut, and the package's creation commands are the
+  // host's equivalent of those actions.
   it("lists a creation command that carries a chord beside the package operations", () => {
     registerCreationCommand("N");
     expect(getBinding("host-note")).toMatchObject({
@@ -359,6 +368,8 @@ describe("workspace key bindings", () => {
     expect(getBinding("host-note").chord).toBe("Mod + Alt + N");
   });
 
+  // Select-all is the browser's and the caret's chord before it is the workspace's; adding Shift
+  // takes it back, which is what the reference's rules say about both chords.
   it("hands Mod+A to a caret but keeps Mod+Shift+A on every platform", () => {
     for (const macOS of [true, false]) {
       const resolved = getResolvedWorkspaceKeyBindings(host, macOS);

@@ -13,6 +13,10 @@ import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
 import MiniMapNode from "./MiniMapNode";
 import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";
 
+// The fork's `minimap/MiniMapNodes.tsx`. The reactive visuals resolve through the package
+// document instead of the reference's variant indirection (the application resolves variants on
+// its side of the seam), and the section-style *preview* colors left with the app's style-color
+// editing feature.
 type RenderableMiniMapNode = Node & {
   height: number;
   width: number;
@@ -222,6 +226,8 @@ const getAttrFunction = (
   func: string | GetMiniMapNodeAttribute,
 ): GetMiniMapNodeAttribute => (typeof func === "function" ? func : () => func);
 
+// The lint gate rejects the reference's underscore-prefixed component names; the memoized
+// components inline their named implementations instead.
 export const MiniMapNodesReactive = memo(function MiniMapNodesReactive(
   props: MiniMapNodesType,
 ) {

@@ -3,6 +3,9 @@ import type { Position } from "../document/types";
 import type { DragEndEvent } from "./adapter";
 import { BehaviorDropTypeEnum, type BehaviorDropType } from "./dropTypes";
 
+// The reference's pure move planners (`useMoveSectionPlans.ts`), unchanged apart from the
+// package `Position` type (extraction seam 6).
+
 type TopLevelSectionLayout = {
   x: number;
   y: number;

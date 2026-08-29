@@ -129,7 +129,8 @@ describe("item selection", () => {
     expect(testWorkspace.activeSections.getState().activeIds).toEqual([
       "section-a",
     ]);
-
+    // One notification for the selection commit, one for the active-section commit — the
+    // reference sends one toggle route and one active-ids route.
     expect(documentChangeSpy).toHaveBeenCalledTimes(2);
 
     toggleItemSelected(testWorkspace.host, "section-a", "a-2");

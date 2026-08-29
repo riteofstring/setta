@@ -110,7 +110,9 @@ function publishWorkspaceSectionMenu({
   initialFocus,
 }: WorkspaceSectionMenuInput): void {
   const selection = getSelectedSectionContext(host, sectionId);
-
+  // Frozen main's header action belongs to the owning group even when that group is part of a
+  // larger selection, so a header invocation targets its own section. Context menus keep acting
+  // on the captured selection. The difference lives in the context, not in the command.
   const selectedSections =
     surface === "header" ? [selection.section] : selection.selectedSections;
   publishWorkspaceMenuInvocation(host, {

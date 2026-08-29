@@ -9,6 +9,10 @@ export type WorkspaceGridPattern = "lines" | "dots" | "cross";
 
 export type MiniMapSide = "left" | "right";
 
+// The preferences/appearance seam: the reference reads these from `useSettings.gui` and
+// `useLocalStorage`; the package owns them as host-configurable interaction options. Defaults
+// match the frozen reference's shipped defaults (`internal/settingsstate/defaults.json` and the
+// `useLocalStorage` initial state at 043d3b2e9).
 export type WorkspaceInteractionOptions = {
   panOnDrag: boolean | Array<number>;
   panOnScroll: boolean;
@@ -88,6 +92,8 @@ export function useWorkspaceOptions<T>(
   );
 }
 
+// The reference's `toggleSnapToGrid`/`toggleMiniMap`/`toggleMiniMapSide`
+// (`state/actions/localStorage.ts`) flip the same preferences on its localStorage store.
 export function toggleSnapToGrid(host: WorkspaceHost) {
   getWorkspaceOptionsStore(host).setState((state) => ({
     snapToGrid: !state.snapToGrid,

@@ -17,6 +17,11 @@ import { getItemDndChildrenStore } from "./itemDndChildren";
 import { getItemDndStateStore, useItemDndState } from "./itemDndState";
 import { useItemDndSensors } from "./useDNDSensors";
 
+// The reference's fork-level `ParamDndContext`: the per-section nested drag provider that owns
+// the item collision tracker (item mode, collisions filtered to the active list) and mounts
+// the shape sync, monitor, and overlay helpers while item dnd is enabled or a drag is still
+// resolving. Hosts mount one around a section's item lists.
+
 export function ItemDndContext({ children }: { children: ReactNode }) {
   const host = useWorkspaceHost();
   const canEditStructure = useWorkspaceCapabilities(

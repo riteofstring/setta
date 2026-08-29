@@ -35,6 +35,14 @@ import { ResizableWithScale } from "./ResizableWithScale";
 import { setSectionResizeEvent } from "./resizeEvents";
 import { useSectionMinMaxDims } from "./sizingPolicy";
 
+// The reference's `CustomResizable`, trimmed to the slice-reachable resize treatment: only
+// bottom, right, and bottom-right handles; the reference's default hit geometry (10px edges with
+// -8px offsets, 20x20 corner from re-resizable's defaults); handles disabled entirely while
+// pointer events are suppressed, layout editing is unavailable, or the section is locked. The
+// meta-control milestone restores its enlarged invisible hit strips, restrained blue hover/active
+// paint, and the auto-only height policy used by Slider, Dropdown, and Password. Attached-terminal
+// treatment and aspect-ratio locking stay with their features. Handle marker classes preserve
+// direction hit-testing without changing paint.
 const HANDLE_BASE_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
 const DEFAULT_HANDLE_CLASSES = {
   right: `${HANDLE_BASE_CLASS_NAME} section-resize-handle section-resize-handle-right`,
@@ -237,6 +245,9 @@ export function CustomResizable({
 
   useEffect(() => {
     if (heightSizeMode === "auto-only" && size.height !== "auto") {
+      // This is projected document normalization rather than a user layout edit. Frozen main
+      // enforces auto-only sizing even for locked/read-only sections so a control-kind change
+      // cannot leave Slider, Dropdown, or Password at an unsupported manual height.
       persistSectionSizeChange(host, sectionId, { height: "auto" });
       return;
     }
@@ -254,6 +265,7 @@ export function CustomResizable({
       return;
     }
     persistSectionSizeChange(host, sectionId, nextSize);
+    // `size` is selected with deep equality, so its identity only changes with its contents.
   }, [
     minHeight,
     maxHeight,

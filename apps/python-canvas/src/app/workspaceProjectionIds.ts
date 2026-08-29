@@ -12,6 +12,8 @@ export function parameterItemRootID(callableId: string): string {
   return `${callableSectionID(callableId)}:parameter-root`;
 }
 
+// Canonical IDs are opaque application data. Their workspace structural
+// counterparts live in disjoint namespaces, including the two item roots.
 export function parameterWorkspaceItemID(parameterId: string): string {
   return `${parameterWorkspaceItemPrefix}${encodeURIComponent(parameterId)}`;
 }

@@ -2,6 +2,10 @@ import { getTopLevelSectionIdsForDisplay } from "../document/documentSelectors";
 import { getWorkspaceDocumentStore } from "../document/stores";
 import type { WorkspaceHost } from "../workspaceHost";
 
+// The reference's `getOrderedTopLevelSectionIds` (`utils/focusManager.ts`): keyboard reading
+// order across the canvas is the saved layout itself — top to bottom, then left to right, with
+// the stacking order and finally the id deciding sections that share a position, so the order is
+// total and never depends on object key order.
 export function getOrderedTopLevelSectionIds(
   host: WorkspaceHost,
 ): Array<string> {

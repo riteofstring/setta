@@ -224,6 +224,10 @@ export async function visibleLeadingSortableSectionPoint(
   return result.point;
 }
 
+// A pane drop is resolved from the dragged section's rectangle, not just its pointer. Pick an
+// exposed pane pixel that leaves the whole translated rectangle in the visible pane and away from
+// every live section collision surface. The call lives inside the retry gesture so a canonical
+// projection that settled between attempts always contributes fresh geometry.
 export async function visibleCanvasDropPointForSection(
   client,
   sourceSelector,

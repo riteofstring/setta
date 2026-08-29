@@ -95,6 +95,7 @@ describe("pointer location", () => {
   });
 
   afterEach(async () => {
+    // Unmounting releases the tracked pointer, so one test's pointer never leaks into the next.
     await act(async () => {
       root.unmount();
     });
@@ -116,6 +117,7 @@ describe("pointer location", () => {
 
     expect(zoomToPointerLocation(testWorkspace.host)).toBe(true);
 
+    // The pointer sits at (200, 100) in flow coordinates once the canvas offset is removed.
     expect(transform).toHaveBeenCalledWith(transitionObject, expect.anything());
     const applied = getAppliedTransform(transform);
     expect(applied.k).toBe(1);

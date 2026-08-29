@@ -5,17 +5,22 @@ import json
 import sys
 import tempfile
 import unittest
+import urllib.request
 from email.message import Message
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Self
+from typing import Self, cast
 from unittest import mock
 
 from setta.apps.python_canvas import APP_ID, PythonCanvasAdapter
 from setta.registry import CommandContext
-from setta.runtime import RuntimeApp
+from setta.runtime import PackagedRuntime, RuntimeApp
 from setta.sessions import LiveSession, LiveSessionStore
-from setta.supervisor import ServerReadiness
+from setta.supervisor import (
+    ExpectedReadiness,
+    NativeServerSupervisor,
+    ServerReadiness,
+)
 
 
 class _IdentityResponse:
@@ -38,10 +43,12 @@ class _IdentityResponse:
 class _IdentityOpener:
     def __init__(self, response: _IdentityResponse) -> None:
         self.response = response
-        self.request: object | None = None
+        self.request: urllib.request.Request | None = None
         self.timeout: float | None = None
 
-    def open(self, request: object, timeout: float) -> _IdentityResponse:
+    def open(
+        self, request: urllib.request.Request, timeout: float
+    ) -> _IdentityResponse:
         self.request = request
         self.timeout = timeout
         return self.response
@@ -57,7 +64,7 @@ class _Supervisor:
     def __init__(self) -> None:
         self.command: list[str | Path] | None = None
 
-    def start(self, command: list[str | Path], expected: object) -> object:
+    def start(self, command: list[str | Path], expected: ExpectedReadiness) -> object:
         self.command = command
         readiness = ServerReadiness(
             url="http://127.0.0.1:43123",
@@ -96,6 +103,8 @@ class PythonCanvasAdapterTests(unittest.TestCase):
             self.assertTrue(PythonCanvasAdapter._validate_live_session(session))
         request = opener.request
         self.assertIsNotNone(request)
+        if request is None:
+            self.fail("identity probe did not issue a request")
         self.assertEqual(
             request.full_url, "http://127.0.0.1:43123/api/v2/runtime/session"
         )
@@ -117,9 +126,9 @@ class PythonCanvasAdapterTests(unittest.TestCase):
             supervisor = _Supervisor()
             with tempfile.TemporaryFile(mode="w+t") as stdout:
                 context = CommandContext(
-                    runtime=_Runtime(),
+                    runtime=cast(PackagedRuntime, _Runtime()),
                     sessions=sessions,
-                    supervisor=supervisor,
+                    supervisor=cast(NativeServerSupervisor, supervisor),
                     stdin=sys.stdin,
                     stdout=stdout,
                     stderr=sys.stderr,
@@ -153,9 +162,9 @@ class PythonCanvasAdapterTests(unittest.TestCase):
             with self.subTest(arguments=arguments):
                 stdout = io.StringIO()
                 context = CommandContext(
-                    runtime=_Runtime(),
-                    sessions=object(),
-                    supervisor=object(),
+                    runtime=cast(PackagedRuntime, _Runtime()),
+                    sessions=cast(LiveSessionStore, object()),
+                    supervisor=cast(NativeServerSupervisor, object()),
                     stdin=io.StringIO(),
                     stdout=stdout,
                     stderr=io.StringIO(),

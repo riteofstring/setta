@@ -15,14 +15,16 @@ from pathlib import Path
 from unittest import mock
 
 TEST_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime"))
 sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "scripts"))
 
-import smoke_setta_wheel as smoke
-from setta_wheel_smoke import (
+from scripts.setta_wheel_smoke import (
     acceptance,
     models,
     process,
 )
+
+from scripts import smoke_setta_wheel as smoke
 
 
 class WheelInspectionTests(unittest.TestCase):
@@ -619,9 +621,11 @@ class WheelSmokeContainmentTests(unittest.TestCase):
             text=False,
         )
         try:
-            self.assertIsNotNone(bootstrap.stdin)
-            bootstrap.stdin.write(process._WINDOWS_BOOTSTRAP_RELEASE_TOKEN)
-            bootstrap.stdin.flush()
+            stdin = bootstrap.stdin
+            if stdin is None:
+                self.fail("Windows bootstrap did not expose its lifetime pipe")
+            stdin.write(process._WINDOWS_BOOTSTRAP_RELEASE_TOKEN)
+            stdin.flush()
             stdout, stderr = bootstrap.communicate(timeout=5.0)
         finally:
             if bootstrap.poll() is None:

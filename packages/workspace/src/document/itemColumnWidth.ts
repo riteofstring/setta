@@ -6,6 +6,10 @@ import {
 import { getWorkspaceDocumentStore } from "./stores";
 import type { WorkspaceHost } from "../workspaceHost";
 
+// The canonical commit behind the package-owned item-column divider. Frozen main stores the
+// corresponding width on its parameter-carrying section and sends one route when a drag/reset
+// commits; the package stores the item-termed equivalent on the section's item tree and notifies
+// its host once through the normal controlled-document seam.
 export function setItemColumnWidth(
   host: WorkspaceHost,
   sectionId: string,

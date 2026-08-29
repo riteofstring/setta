@@ -9,6 +9,8 @@ import (
 
 var ErrInvalidPosition = errors.New("lsp: invalid UTF-16 position")
 
+// positionForByteOffset converts a renderer-owned byte offset to the UTF-16
+// position required by LSP. It refuses offsets inside a UTF-8 code point.
 func positionForByteOffset(content string, offset int) (Position, error) {
 	if offset < 0 || offset > len(content) || !utf8.ValidString(content) {
 		return Position{}, ErrInvalidPosition
@@ -34,6 +36,8 @@ func positionForByteOffset(content string, offset int) (Position, error) {
 	return position, nil
 }
 
+// byteOffsetForPosition converts an LSP UTF-16 position back to a generated
+// source byte offset. A character position inside a surrogate pair is invalid.
 func byteOffsetForPosition(content string, position Position) (int, error) {
 	if err := validatePositionInput(content, position); err != nil {
 		return 0, err

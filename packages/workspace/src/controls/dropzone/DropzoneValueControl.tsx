@@ -30,6 +30,11 @@ import type {
   DropzoneValueControlProps,
 } from "./dropzoneTypes";
 
+// The remaining-controls milestone's backend-free Dropzone. Its default presentation and
+// drag-depth behavior come from the frozen `DropzoneInput`, while every side effect crosses an
+// explicit host seam. The package filters metadata and emits raw `File` objects or dropped text;
+// it never reads byte payloads, creates attachment identities, uploads, persists, or deletes.
+
 const INTERACTION_BOUNDARY_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 const ROOT_CLASS_NAME = `${INTERACTION_BOUNDARY_CLASS_NAME} section-value flex h-full min-h-0 w-full flex-col gap-2`;
 const DROP_TARGET_BASE_CLASS_NAME =

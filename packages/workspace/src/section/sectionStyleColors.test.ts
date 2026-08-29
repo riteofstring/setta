@@ -1,3 +1,6 @@
+// Characterization lock: expected values were produced by executing the frozen reference's
+// sectionStyleColors.ts (043d3b2e9) directly under Node. A diff here means the derivation
+// algorithm changed, which is a parity change.
 import { describe, expect, it } from "vitest";
 import { deriveSectionStyleTheme } from "./sectionStyleColors";
 import { resolveSectionStyleVars } from "./sectionStyleVars";

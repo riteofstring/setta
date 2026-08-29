@@ -332,7 +332,9 @@ export function normalizeWorkspaceShellViewState(
   shellWidth: number,
 ): WorkspaceShellViewState {
   let next = cloneViewState(state);
-
+  // Frozen main normalizes both mounted panes from the same render snapshot. Applying the leading
+  // and trailing requested widths in DOM order preserves the requested pane that runs last while
+  // shrinking the opposite pane by the exact overflow.
   for (const pane of ["leading", "trailing"] as const) {
     if (!state[pane].visible) {
       continue;

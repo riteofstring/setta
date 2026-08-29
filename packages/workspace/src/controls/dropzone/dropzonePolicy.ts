@@ -243,6 +243,7 @@ export function getDroppedTextRejection(
   return null;
 }
 
+// Ported from the reference SDK so attachment metadata keeps the same compact labels.
 export function formatDropzoneBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) {
     return "0 B";

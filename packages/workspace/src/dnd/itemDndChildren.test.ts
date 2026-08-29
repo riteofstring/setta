@@ -37,6 +37,7 @@ describe("itemDndChildren state", () => {
   });
 
   it("builds forward and reverse item child maps", () => {
+    // Validates map hydration for item parent/child relationships.
     updateItemChildren(testWorkspace.host, {
       parentA: ["child1", "child2"],
       parentB: ["child3"],
@@ -55,6 +56,7 @@ describe("itemDndChildren state", () => {
   });
 
   it("moves items between parents and updates reverse lookup", () => {
+    // Validates add operation reorders destination list and updates parent mapping.
     updateItemChildren(testWorkspace.host, {
       parentA: ["child1", "child2"],
       parentB: ["child3"],
@@ -69,6 +71,7 @@ describe("itemDndChildren state", () => {
   });
 
   it("replaces dragged items with a temporary placeholder", () => {
+    // Validates placeholder insertion position and stale temp cleanup.
     const staleTempId = getTempItemDndId(getItemDndId("stale", "pinned"));
     updateItemChildren(testWorkspace.host, {
       parentA: ["item-a", "item-b", "item-c"],
@@ -91,6 +94,7 @@ describe("itemDndChildren state", () => {
   });
 
   it("maps parentByChild to list-key-specific dnd ids", () => {
+    // Validates list-key remapping for item collisions and sortable lookups.
     const listKey: ItemListKey = "pinned";
     const tempChildId = getTempItemDndId(getItemDndId("child2", listKey));
     updateItemChildren(testWorkspace.host, {
@@ -109,6 +113,7 @@ describe("itemDndChildren state", () => {
   });
 
   it("supports explicit reset", () => {
+    // Validates manual reset path clears both lookup maps.
     updateItemChildren(testWorkspace.host, {
       parentA: ["child1"],
     });

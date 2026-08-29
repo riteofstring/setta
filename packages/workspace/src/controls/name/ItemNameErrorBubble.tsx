@@ -11,6 +11,11 @@ import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import { getWorkspaceSectionResizableId } from "../../section/sectionDomIds";
 
+// The reference `ParamNameInput` error bubble, positioned in the owning section's authored
+// coordinate space so canvas zoom does not distort its offset. The package adds an id for the
+// editor's `aria-describedby`; the persistent live region stays with the editor so assistive
+// technology observes error text changing inside an already-mounted status node.
+
 type BubblePosition = {
   top: number;
   left: number;

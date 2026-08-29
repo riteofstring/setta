@@ -1,22 +1,43 @@
 import type { WorkspaceEditorLanguage } from "../controls/text/textValueLanguages";
 import type { WorkspaceSectionData } from "../document/types";
 
+// The built-in Code Editor section's document contract. Unlike a host kind's opaque `data`, the
+// package owns this shape, so it is parsed once at the load boundary and read back as a validated
+// internal type. The reference's code section carries the same editor state in its generated
+// `CodeSection` impl (`code`, `codeLanguage`); its file binding, freeze flag, provider details,
+// and code generation are application concepts and stay out of the package. Document diagnostics
+// are generic editor presentation, so they travel with the exact text they describe; only their
+// source and semantic meaning stay application-side.
+
+// The stable kind ID hosts register this section under. It is package-reserved: a document
+// naming it is a built-in code section, whatever else the host registers beside it.
 export const WORKSPACE_CODE_SECTION_KIND = "setta.code";
 
 export type WorkspaceCodeSectionLanguage =
   WorkspaceEditorLanguage | "plaintext";
 
+// How the section presents its text. `editable` is the ordinary authored editor; `read-only`
+// keeps that paint without accepting edits; `generated-document` is non-editable too and
+// identifies exactly one region of the same document as machine-written output. The section
+// states which one it is, so nothing infers a presentation from a lock, an empty document, or a
+// host's own domain data.
 export type WorkspaceCodeSectionMode =
   "editable" | "read-only" | "generated-document";
 
 export const WORKSPACE_CODE_SECTION_MODES: ReadonlyArray<WorkspaceCodeSectionMode> =
   ["editable", "read-only", "generated-document"];
 
+// The one generated region a `generated-document` section declares, as a UTF-16 CodeMirror offset
+// range over its own `code`. The host owns where it is: the package never searches the text for a
+// marker, and text outside the range keeps ordinary read-only paint.
 export type WorkspaceGeneratedRegion = Readonly<{
   from: number;
   to: number;
 }>;
 
+// A document-local diagnostic is generic CodeMirror vocabulary: a half-open UTF-16 range over the
+// same `code` string, one presentation severity, and the complete message. It deliberately names
+// no language server, provider, request, or host target.
 export type WorkspaceCodeSectionDiagnosticSeverity =
   "error" | "warning" | "info";
 
@@ -27,6 +48,7 @@ export type WorkspaceCodeSectionDiagnostic = Readonly<{
   message: string;
 }>;
 
+// The reference's `CodeLanguageEnum`, in its declared order.
 export const WORKSPACE_CODE_SECTION_LANGUAGES: ReadonlyArray<WorkspaceCodeSectionLanguage> =
   [
     "python",
@@ -40,6 +62,9 @@ export const WORKSPACE_CODE_SECTION_LANGUAGES: ReadonlyArray<WorkspaceCodeSectio
     "plaintext",
   ];
 
+// Package-only design decision: the reference has no authored indentation width (it hard-codes
+// `tabSize: 4` at every code editor), so the package bounds its own option instead of accepting an
+// arbitrary integer that would render an unusable gutter.
 export const WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH = 1;
 export const WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH = 8;
 export const WORKSPACE_CODE_SECTION_DEFAULT_INDENT_WIDTH = 4;
@@ -53,6 +78,8 @@ type WorkspaceCodeSectionCommonData = {
   indentWidth: number;
 };
 
+// The region belongs to the one mode that paints it. A document cannot carry a generated region
+// on an ordinary mode, and a generated document cannot omit it.
 export type WorkspaceCodeSectionData =
   | (WorkspaceCodeSectionCommonData & { mode: "editable" | "read-only" })
   | (WorkspaceCodeSectionCommonData & {
@@ -60,6 +87,10 @@ export type WorkspaceCodeSectionData =
       mode: "generated-document";
     });
 
+// The ordinary modes fall back to the creation defaults below, but a generated document has no
+// default: its region is an offset range into its own `code`, so an omitted document could only
+// ever produce an empty one the parser then rejects. Requiring the text with the region keeps that
+// state unrepresentable here rather than only at the data boundary.
 export type WorkspaceCodeSectionDataOverrides =
   | (Partial<WorkspaceCodeSectionCommonData> & {
       mode?: "editable" | "read-only";
@@ -88,6 +119,8 @@ const WORKSPACE_CODE_SECTION_DIAGNOSTIC_FIELDS: ReadonlyArray<string> = [
   "message",
 ];
 
+// The reference's code area opens empty, at Python, wrapped off, with its gutters and its
+// four-space indentation.
 export function createWorkspaceCodeSectionData(
   overrides: WorkspaceCodeSectionDataOverrides = {},
 ): WorkspaceCodeSectionData {
@@ -133,6 +166,8 @@ function getDataRecord(
   return data;
 }
 
+// The declared mode selects which fields the document may carry, so a generated region on an
+// ordinary mode is rejected as the mode-incompatible value it is rather than as a stray key.
 function assertDeclaredFields(
   sectionId: string,
   record: { [key: string]: WorkspaceSectionData },
@@ -236,6 +271,8 @@ function getMode(
   return value as WorkspaceCodeSectionMode;
 }
 
+// One validated region or a typed failure: a missing, malformed, empty, reversed, fractional, or
+// out-of-document range is rejected here rather than painting a region the document does not have.
 function getGeneratedRegion(
   sectionId: string,
   record: { [key: string]: WorkspaceSectionData },
@@ -370,6 +407,8 @@ function getDiagnosticOffset(
   return value;
 }
 
+// One non-empty, forward, integral range inside the document: everything the region has to be for
+// the lines it covers to exist.
 function readGeneratedRange(
   from: WorkspaceSectionData | undefined,
   to: WorkspaceSectionData | undefined,
@@ -387,6 +426,9 @@ function readGeneratedRange(
     : null;
 }
 
+// The one parser for this contract. `loadWorkspaceDocument` runs it at the boundary so a
+// malformed document fails on load rather than on first paint, and the section body runs it
+// again over the live section so a later host write fails the same explicit way.
 export function parseWorkspaceCodeSectionData(
   sectionId: string,
   data: WorkspaceSectionData | undefined,
@@ -414,6 +456,8 @@ export function parseWorkspaceCodeSectionData(
   return { ...common, mode };
 }
 
+// Plain text is the absence of a language pack rather than a mode of its own, exactly as the
+// reference's `getCodeMirrorLanguageSupport` resolves its `plaintext` enum member to no support.
 export function getWorkspaceCodeSectionEditorLanguage(
   language: WorkspaceCodeSectionLanguage,
 ): WorkspaceEditorLanguage | null {

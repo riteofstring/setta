@@ -28,6 +28,8 @@ function getItemTreeOrder(itemTree: WorkspaceSectionItemTree): Array<string> {
   return order;
 }
 
+// The host supplies identity and domain defaults; the package owns structural placement,
+// validates the complete next tree, and selects the appended row as one prepared mutation.
 export function prepareWorkspaceItemInsertion(
   sectionId: string,
   itemTree: WorkspaceSectionItemTree,
@@ -67,6 +69,8 @@ export function prepareWorkspaceItemInsertion(
   };
   assertValidWorkspaceSectionItemTree(sectionId, candidateTree);
 
+  // Validation proves the host result is structured-cloneable JSON data. Detaching it here
+  // prevents a host from mutating canonical state through the object it returned.
   const detachedItem = structuredClone(item);
   return {
     itemTree: {
@@ -185,6 +189,9 @@ function resolveDeletionSelection(
   return focusTargetId ? [focusTargetId] : [];
 }
 
+// Every requested id is resolved before any object is copied. Ancestor/descendant requests
+// collapse into one subtree deletion, while selection moves to the row now occupying the first
+// deleted position (or the preceding row at the end of the tree).
 export function prepareWorkspaceItemDeletion(
   sectionId: string,
   itemTree: WorkspaceSectionItemTree,

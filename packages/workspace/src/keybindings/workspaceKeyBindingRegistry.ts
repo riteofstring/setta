@@ -38,6 +38,8 @@ export type ResolvedWorkspaceKeyBinding = Readonly<{
   yieldsToEditableTarget: boolean;
 }>;
 
+// The package's own operations plus every registered creation command that carries a chord: one
+// binding vocabulary, so a host lists, rebinds, and conflict-checks both through one registry.
 function listWorkspaceKeyBindingDefinitions(
   host: WorkspaceHost,
   creationCommands: ReadonlyArray<WorkspaceCreationCommand> = getWorkspaceCreationCommands(
@@ -52,6 +54,8 @@ function listWorkspaceKeyBindingDefinitions(
   ];
 }
 
+// Like command, section-kind, and item-handler registration, each call replaces the complete
+// host-owned set. A binding a host does not name keeps its default chord.
 type WorkspaceKeyBindingRegistryState = {
   hostChords: ReadonlyMap<string, string | null>;
   resolvedByPlatform: Map<boolean, ReadonlyArray<ResolvedWorkspaceKeyBinding>>;
@@ -102,6 +106,7 @@ function buildHostChords(
       throw new Error(`Workspace key binding ${binding.id} is bound twice.`);
     }
     if (binding.chord !== null) {
+      // Parsing here rejects an unusable chord before it can silently never match.
       parseWorkspaceChord(binding.chord);
     }
     chords.set(binding.id, binding.chord);
@@ -152,6 +157,9 @@ function toConflict(
   });
 }
 
+// A conflict is decided from the parsed chord on the platform the workspace is running on, so two
+// spellings of one chord collide — including "Mod" and "Ctrl" wherever they are the same key — and
+// a chord that a held interaction gesture already owns collides with that gesture.
 function findChordConflicts(
   assignments: ReadonlyArray<ChordAssignment>,
 ): ReadonlyArray<WorkspaceKeyBindingConflict> {
@@ -199,6 +207,8 @@ function assertNoChordConflicts(
   }
 }
 
+// What a candidate set of host bindings would collide with, without registering it, so a host can
+// explain a conflict to the person choosing the chord instead of catching a failure.
 export function getWorkspaceKeyBindingConflicts(
   host: WorkspaceHost,
   bindings: ReadonlyArray<WorkspaceKeyBinding>,
@@ -221,6 +231,8 @@ export function registerWorkspaceKeyBindings(
   state.resolvedByPlatform.clear();
 }
 
+// Registering creation commands changes the binding set, so the chords a host already registered
+// are checked against the incoming catalog before it takes effect.
 export function assertWorkspaceKeyBindingsForCreationCommands(
   host: WorkspaceHost,
   creationCommands: ReadonlyArray<WorkspaceCreationCommand>,
@@ -272,6 +284,9 @@ export function getWorkspaceKeyBindings(
   );
 }
 
+// One binding's chord written for this platform, without building every other operation's label.
+// A package surface that advertises its own shortcut reads it here, so display and dispatch answer
+// from the same registry and a host rebinding or unbinding moves both. Null means unbound.
 export function getWorkspaceKeyBindingChordLabel(
   host: WorkspaceHost,
   id: string,
@@ -285,6 +300,8 @@ export function getWorkspaceKeyBindingChordLabel(
   return assignment ? formatWorkspaceChord(assignment.parsed, isMacOs()) : null;
 }
 
+// The chord rules depend on the platform, so the dispatcher resolves against the platform it is
+// listening on and the result is reused until the host rebinds something.
 export function getResolvedWorkspaceKeyBindings(
   host: WorkspaceHost,
   macOS: boolean,

@@ -10,6 +10,8 @@ import (
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 )
 
+// CompleteCallable queries the provider with one uncommitted draft without
+// changing the durable aggregate or materialized canonical document.
 func (coordinator *Coordinator) CompleteCallable(
 	ctx context.Context,
 	projectID string,
@@ -53,6 +55,8 @@ func (coordinator *Coordinator) CompleteCallable(
 	return validateCompletionItems(items)
 }
 
+// CompletePythonTarget validates the frontend-mapped protected body range in
+// one complete target draft before offering completion only outside it.
 func (coordinator *Coordinator) CompletePythonTarget(
 	ctx context.Context,
 	projectID string,
@@ -158,6 +162,9 @@ func validatePythonTargetCompletionInput(code string, protectedBodyRange UTF16Ra
 	return pythonTargetCompletionInput{bodyStart: start, bodyEnd: end, cursorOffsetByte: cursor}, nil
 }
 
+// validateCanonicalPythonTargetBodyMapping binds the caller's mapped range to
+// exactly one occurrence of the renderer-owned body. The range is a UI
+// coordinate claim, never a selector for which matching body is protected.
 func validateCanonicalPythonTargetBodyMapping(code string, input pythonTargetCompletionInput, canonicalBody string) error {
 	if canonicalBody == "" {
 		return fmt.Errorf("%w: canonical renderer body is empty", ErrCompletionInvalid)
@@ -226,6 +233,8 @@ func validateCompletionItems(items []CompletionItem) ([]CompletionItem, error) {
 	return result, nil
 }
 
+// UTF16ByteOffset converts a JavaScript string offset to a Go byte boundary.
+// It rejects a surrogate-pair midpoint so every downstream position is exact.
 func UTF16ByteOffset(value string, offset int) (int, error) {
 	if offset < 0 || !utf8.ValidString(value) {
 		return 0, fmt.Errorf("invalid UTF-16 offset")

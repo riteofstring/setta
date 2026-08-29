@@ -249,7 +249,7 @@ func sortedSectionIDsByKind(sections map[string]sectionKind, kind sectionKind) [
 			result = append(result, sectionID)
 		}
 	}
-
+	// Keep validation errors deterministic even though this map is internal.
 	sort.Strings(result)
 	return result
 }

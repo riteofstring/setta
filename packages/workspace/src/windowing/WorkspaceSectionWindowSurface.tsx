@@ -18,14 +18,19 @@ import { useWorkspaceHost } from "../workspaceHostContext";
 
 export type WorkspaceSectionWindowSurfaceProps = {
   sectionId: string;
-
+  /** Window placement owns these controls; canvas-only controls stay hidden. */
   headerActions?: ReactNode;
-
+  /** Forwards controlled drag and other native header behavior to the section header. */
   headerProps?: Omit<ComponentPropsWithoutRef<"header">, "children" | "ref"> & {
     "data-testid"?: string;
   };
 };
 
+/**
+ * A section's normal registered presentation for an external window or dock.
+ * It shares the live body and header composition without mounting canvas-only
+ * resizers, refs, DnD wrappers, or XYFlow shells.
+ */
 export function WorkspaceSectionWindowSurface({
   headerActions = null,
   headerProps,

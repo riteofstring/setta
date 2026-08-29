@@ -30,6 +30,7 @@ function rect(
 
 describe("sorting adapter utilities", () => {
   it("treats identical item arrays as equal", () => {
+    // Validates the fast-path and element-by-element comparison behavior.
     const items = ["a", "b", "c"];
     expect(itemsEqual(items, items)).toBe(true);
     expect(itemsEqual(["a", "b"], ["a", "b"])).toBe(true);
@@ -38,6 +39,7 @@ describe("sorting adapter utilities", () => {
   });
 
   it("accepts only non-negative indexes", () => {
+    // Validates the index guard used by sortable bookkeeping.
     expect(isValidIndex(0)).toBe(true);
     expect(isValidIndex(3)).toBe(true);
     expect(isValidIndex(-1)).toBe(false);
@@ -45,6 +47,7 @@ describe("sorting adapter utilities", () => {
   });
 
   it("normalizes boolean disabled values to object shape", () => {
+    // Validates boolean inputs expand into draggable/droppable flags.
     expect(normalizeDisabled(true)).toEqual({
       draggable: true,
       droppable: true,
@@ -59,6 +62,7 @@ describe("sorting adapter utilities", () => {
   });
 
   it("resolves rects in item order", () => {
+    // Validates that sparse maps still align rects to item indices.
     const rects = new Map<string, ClientRect>([
       ["b", rect(0, 20, 20, 10)],
       ["a", rect(0, 0, 20, 10)],
@@ -72,6 +76,7 @@ describe("sorting adapter utilities", () => {
   });
 
   it("computes stable destination indexes at list boundaries", () => {
+    // Validates edge behavior for first and last active items.
     expect(computeNewIndex(0, 0, false, 3)).toBe(0);
     expect(computeNewIndex(0, 2, false, 3)).toBe(1);
     expect(computeNewIndex(0, 2, true, 3)).toBe(2);
@@ -82,6 +87,7 @@ describe("sorting adapter utilities", () => {
   });
 
   it("computes destination indexes for middle items", () => {
+    // Validates midpoint logic when moving upward or downward.
     expect(computeNewIndex(2, 0, false, 5)).toBe(0);
     expect(computeNewIndex(2, 0, true, 5)).toBe(1);
 
@@ -92,6 +98,7 @@ describe("sorting adapter utilities", () => {
   });
 
   it("builds rect-based transforms for layout sorting", () => {
+    // Validates transform deltas are derived from moved rect positions.
     const rects = [rect(0, 0, 10, 10), rect(20, 0, 10, 10)];
 
     expect(
@@ -114,6 +121,7 @@ describe("sorting adapter utilities", () => {
   });
 
   it("calculates vertical transforms and effective over index", () => {
+    // Validates vertical list movement math and over-index adjustment.
     const rects = [
       rect(0, 0, 100, 10),
       rect(0, 20, 100, 10),
@@ -142,6 +150,7 @@ describe("sorting adapter utilities", () => {
   });
 
   it("falls back to the next rect when vertical gap calculation lacks a previous rect", () => {
+    // Validates sparse rect fallback for displaced vertical siblings.
     const [siblingTransform, overIndex] = verticalListSortingStrategy({
       rects: [undefined, rect(0, 20, 100, 10), rect(0, 50, 100, 10)],
       activeIndex: 0,
@@ -156,6 +165,7 @@ describe("sorting adapter utilities", () => {
   });
 
   it("calculates horizontal transforms and effective over index", () => {
+    // Validates horizontal list movement math and over-index adjustment.
     const rects = [
       rect(0, 0, 10, 100),
       rect(20, 0, 10, 100),
@@ -184,6 +194,7 @@ describe("sorting adapter utilities", () => {
   });
 
   it("falls back to the previous rect when horizontal gap calculation lacks a next rect", () => {
+    // Validates sparse rect fallback for displaced horizontal siblings.
     const [siblingTransform, overIndex] = horizontalListSortingStrategy({
       rects: [rect(0, 0, 10, 100), rect(30, 0, 10, 100), undefined],
       activeIndex: 2,
@@ -198,6 +209,7 @@ describe("sorting adapter utilities", () => {
   });
 
   it("normalizes strategy results for callers", () => {
+    // Validates compatibility with null, tuple, and transform return shapes.
     expect(resolveStrategyResult(null, 4)).toEqual({
       transform: null,
       overIndex: 4,

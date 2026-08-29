@@ -14,6 +14,12 @@ import {
   type WorkspaceTextSectionFormat,
 } from "./textSectionData";
 
+// The reference's `ToggleTextBlockDisplayModeButton`: one compact header control that swaps a
+// text section between its editor and its rendered surface, painted in the reference's tones —
+// muted while rendering, blue while editing, with the icon showing what the next press does.
+// The reference gates it on its impl freeze flag; the package's equivalent state is the section
+// lock, which is also what makes its editor read-only.
+
 const FORMAT_LABELS: Record<WorkspaceTextSectionFormat, string> = {
   plaintext: "text",
   markdown: "Markdown",

@@ -34,6 +34,9 @@ import {
 import { useWorkspaceOptions } from "./options";
 import { initialCanvasState, useReactFlow } from "./store";
 
+// Ported from the reference fork's `utils/graph.test.ts`, including the section-DOM-ref
+// fallbacks that measure nested or unmeasured sections through the section-ref registry.
+
 function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
   return {
     id: overrides.id,
@@ -450,6 +453,7 @@ describe("getActiveSectionsBounds", () => {
       },
     });
 
+    // The default 15px snap grid rounds the measured origin; ignoreGrid preserves it.
     expect(getActiveSectionsBounds(testWorkspace.host, false)).toEqual({
       x: 30,
       y: 45,
@@ -514,6 +518,7 @@ describe("getViewportForBounds", () => {
       },
     );
 
+    // 800 / (400 * 1.1) is the limiting zoom on both axes.
     expect(viewport.zoom).toBeCloseTo(800 / 440);
     expect(viewport.x).toBeCloseTo(800 / 2 - 200 * viewport.zoom);
     expect(viewport.y).toBeCloseTo(600 / 2 - 150 * viewport.zoom);

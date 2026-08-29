@@ -9,6 +9,8 @@ import type {
 } from "../commands/workspaceCommandTypes";
 
 type WorkspaceInspectorCommandActionsProps = {
+  // Selection properties the Inspector edits in place, such as the lock state of a multiple
+  // selection, share the row with its commands instead of forming a second row.
   children?: ReactNode;
   contexts: ReadonlyArray<WorkspaceCommandContext>;
   focusKey: string;
@@ -27,6 +29,8 @@ function CommandActionRow({
   focusKey: string;
   onStatusChange: (message: string) => void;
 }) {
+  // Disabled entries explain themselves once, with the same sentence the menus attach to their
+  // items, so two commands blocked by one lock print one reason.
   const reasons = [
     ...new Set(
       entries.flatMap((entry) =>
@@ -71,6 +75,8 @@ function CommandActionRow({
   );
 }
 
+// One Inspector row per command surface. A row that resolves to nothing renders nothing, so a
+// selection without applicable commands keeps the accepted empty layout.
 export function WorkspaceInspectorCommandActions({
   children,
   contexts,

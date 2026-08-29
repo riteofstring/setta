@@ -13,13 +13,13 @@ sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "scripts"))
 sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime"))
 
 from platform_contract import required_platform_tag
+from scripts.stage_setta_wheel import StageError, StageInputs, parse_target, stage
 from setta.runtime import (
     PackagedRuntime,
     RuntimeTarget,
     _canonical_json_bytes,
     current_target,
 )
-from stage_setta_wheel import StageError, StageInputs, parse_target, stage
 
 
 class WheelStagingTests(unittest.TestCase):

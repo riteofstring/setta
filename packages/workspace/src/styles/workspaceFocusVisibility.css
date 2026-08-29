@@ -1,3 +1,6 @@
+/* Chromium can expose :focus-visible on a large surface that already owned pointer focus after an
+ * unrelated shortcut. Suppress only those known browser-owned surface rings: section outlines
+ * are package-owned selection paint and must remain visible when the selected section has focus. */
 .setta-workspace .react-flow__pane:focus-visible {
   outline: none;
 }
@@ -6,6 +9,8 @@
   outline: none;
 }
 
+/* Frozen main explicitly suppresses the browser's second outline on the selection surface; the
+ * dotted blue selection boundary remains the visible selection cue. */
 .react-flow__nodesselection-rect:focus,
 .react-flow__nodesselection-rect:focus-visible,
 .react-flow__selection:focus,

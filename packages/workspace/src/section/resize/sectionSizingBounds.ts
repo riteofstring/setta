@@ -1,5 +1,7 @@
 import type { SectionSize, SectionSizeValue } from "../../document/types";
 
+// The shipped generic section safety envelope from main's sectionSizingPolicy. Registered kinds
+// may narrow this range, but they cannot create a size outside it.
 export const SECTION_SIZING_POLICY = {
   minHeight: 0,
   maxHeight: 100_000,
@@ -34,6 +36,9 @@ const UNCONSTRAINED_SIZE_CONSTRAINTS: WorkspaceSectionSizeConstraints = {
 
 const NO_INTRINSIC_MINIMUM_SIZE: MinimumSize = { width: 0, height: 0 };
 
+// Resolves the one effective envelope used by registered-kind geometry. The optional intrinsic
+// minimum is for package-owned meta controls; ordinary kinds contribute only their registered
+// consumer-neutral constraints.
 export function getWorkspaceSectionSizeBounds(
   constraints?: WorkspaceSectionSizeConstraints,
   minimumSize?: MinimumSize,
@@ -72,6 +77,8 @@ function clampSizeValue(
     : value;
 }
 
+// A document boundary normalizes numeric persisted/default dimensions before publishing them.
+// Automatic dimensions remain automatic and receive the same limits from the rendered resizable.
 export function clampWorkspaceSectionSize(
   size: SectionSize,
   bounds: WorkspaceSectionSizeBounds,

@@ -10,6 +10,8 @@ import { toggleGroupOrientation } from "../../document/sectionMutations";
 import { useWorkspaceDocument } from "../../document/stores";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 
+// The reference's group-header `ChangeOrientationButton`: flips a group between vertical and
+// horizontal child flow.
 type ChangeOrientationButtonProps = {
   sectionId: string;
 };

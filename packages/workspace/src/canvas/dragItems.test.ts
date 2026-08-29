@@ -21,6 +21,8 @@ import { useActiveSections } from "../document/stores";
 import type { Node } from "../document/types";
 import { getDragItems } from "./dragItems";
 
+// Ported from the reference fork's `hooks/utils.test.ts`.
+
 function createNode(id: string, x: number, y: number): Node {
   return {
     id,

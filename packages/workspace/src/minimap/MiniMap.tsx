@@ -30,6 +30,11 @@ import {
 } from "./MiniMapNodes";
 import type { MiniMapNodesType, MiniMapProps } from "./types";
 
+// The fork's `minimap/MiniMap.tsx`. Cut at extraction with the surfaces the reference
+// application never reaches: the wheel-zoom handler behind `zoomable` (the app mounts the
+// minimap pannable-only), `inversePan`/`zoomStep`, and the `onNodeClick` node handler. The
+// mask and the click coordinate read the shell's physical pane insets through `getPaneRect`
+// and `setCenter`, where the reference reads its own Overview and UI-editor rail widths.
 const defaultWidth = 200;
 const defaultHeight = 150;
 const defaultMiniMapProps = {
@@ -409,7 +414,8 @@ function MiniMap(props: MiniMapProps) {
     nodeClassName,
     nodeBorderRadius,
     nodeStrokeWidth,
-
+    // We need to rename the prop to be `CapitalCase` so that JSX will render it as
+    // a component properly.
     nodeComponent,
     maskColor,
     maskStrokeColor,
@@ -576,6 +582,8 @@ function MiniMapSelectionSync({
     const activeSectionsStore = getActiveSectionsStore(host);
     applySelection(activeSectionsStore.getState().activeIds);
 
+    // The reference store carries the subscribeWithSelector middleware; the package store is
+    // plain, so the listener applies the reference's equality check itself.
     const unsubscribe = activeSectionsStore.subscribe(
       (state, previousState) => {
         if (!areStringArraysEqual(state.activeIds, previousState.activeIds)) {

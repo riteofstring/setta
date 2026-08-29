@@ -18,6 +18,11 @@ import {
 import type { WorkspaceSection } from "./types";
 import type { WorkspaceHost } from "../workspaceHost";
 
+// The reference's per-flag commit funnels (optimistic impl write + one backend route each:
+// `setSectionName`, `togglePositionLocks`, `toggleMinimized`, `toggleGroupOrientation`,
+// `deleteSections`). The package applies the same canonical writes directly and notifies the
+// host once per funnel through its document subscriptions.
+
 function setSectionValues(
   host: WorkspaceHost,
   sectionId: string,
@@ -139,7 +144,7 @@ export function toggleGroupOrientation(host: WorkspaceHost, sectionId: string) {
     getWorkspaceDocumentStore(host).getState(),
     sectionId,
   );
-
+  // The reference funnel refuses to write orientation onto anything but a group.
   if (!isGroupSection(section)) {
     return;
   }
@@ -164,6 +169,10 @@ function collectSectionSubtreeIds(
   return ids;
 }
 
+// Deletes a section and its descendants, mirroring the reference's `deleteSections` result:
+// the subtree leaves the section records, top-level layouts, parent map, and selection, and the
+// deleted section leaves its parent's children. The document, derived node geometry, and
+// selection publish atomically, like every other canonical replacement.
 export function deleteSection(host: WorkspaceHost, sectionId: string) {
   deleteSections(host, [sectionId]);
 }

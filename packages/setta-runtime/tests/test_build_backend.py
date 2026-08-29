@@ -19,8 +19,8 @@ sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "scripts"))
 
 import setta_build_backend as backend
 from platform_contract import required_platform_tag
+from scripts.stage_setta_wheel import StageInputs, stage
 from setta.runtime import RuntimeTarget, current_target
-from stage_setta_wheel import StageInputs, stage
 
 
 class SettaBuildBackendTests(unittest.TestCase):

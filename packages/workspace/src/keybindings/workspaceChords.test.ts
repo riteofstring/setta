@@ -111,7 +111,8 @@ describe("workspace chords", () => {
     expect(
       matchesWorkspaceChord(control, chord, false, heldKeysEqual(["KeyG"])),
     ).toBe(true);
-
+    // Off macOS the reference folds Mod into Control and never reads the Meta key, so a
+    // Windows key combination does not stand in for it.
     expect(
       matchesWorkspaceChord(meta, chord, false, heldKeysEqual(["KeyG"])),
     ).toBe(false);

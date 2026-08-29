@@ -42,6 +42,9 @@ const ITEM_DRAG_REASON =
 const SECTION_LOCKED_REASON =
   "Unlock this section to add or delete parameters.";
 
+// A command context names its target; the current document, capabilities, and drag state decide
+// whether the command applies and whether it can run. Resolving both from live state keeps an
+// open menu, the Inspector, and a keyboard chord in agreement while the workspace changes.
 type LiveSectionTargets = {
   complete: boolean;
   section: WorkspaceSection | null;
@@ -109,6 +112,8 @@ function formatSectionCount(count: number, noun: string): string {
   return `${count} ${count === 1 ? noun : `${noun}s`}`;
 }
 
+// Item authoring shares one precondition set: the host allows structural edits, no parameter drag
+// is in flight, and the owning section is unlocked.
 function getItemAuthoringReason(
   host: WorkspaceSectionCommandContext["host"],
   section: WorkspaceSection | null,
@@ -185,7 +190,8 @@ const toggleGroupOverflowCommand: WorkspacePackageCommandDefinition = {
   scope: "section",
   surfaces: ["context-menu", "header", "outline"],
   label: "Overflow Mode",
-
+  // Frozen main offers the bounded/auto toggle for one group at a time. A header invocation always
+  // carries its own section, so the same rule covers both surfaces.
   isApplicable: (context) => {
     const { section } = getLiveSectionTargets(context);
     return (
@@ -269,6 +275,8 @@ const deleteSectionsCommand: WorkspacePackageCommandDefinition = {
   },
 };
 
+// Locking and unlocking are separate commands so every surface can show one stable label instead
+// of a label that depends on the selection.
 const lockSectionsCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.lock-sections",
   scope: "section",
@@ -394,6 +402,7 @@ const deleteItemCommand: WorkspacePackageCommandDefinition = {
   },
 };
 
+// Registration order is the order every surface offers these commands in.
 export const builtInWorkspaceCommands: ReadonlyArray<WorkspacePackageCommandDefinition> =
   Object.freeze([
     groupSectionsCommand,

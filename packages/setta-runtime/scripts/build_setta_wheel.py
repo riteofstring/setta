@@ -11,8 +11,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-from stage_setta_wheel import StageError, StageInputs, parse_target, stage
-
 ROOT = Path(__file__).resolve().parents[3]
 RUNTIME_MODULE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RUNTIME_MODULE_ROOT))
@@ -29,6 +27,8 @@ from setta.runtime import (
     RuntimeTarget,
     current_target,
 )
+
+from scripts.stage_setta_wheel import StageError, StageInputs, parse_target, stage
 
 _REQUIRED_UV_VERSION = "0.8.19"
 _DEFAULT_STAGE_DIR = ROOT / "build" / "setta-wheel" / "stage"

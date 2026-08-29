@@ -9,6 +9,10 @@ import {
 } from "./textSectionData";
 import { buildWorkspaceTextTypographyScale } from "./textSectionTypography";
 
+// The built-in Text section's document contract is package-owned, so it is parsed rather than
+// trusted: a document that names an unknown field, an unsupported format, or an unusable font
+// size fails where it enters the package instead of on first paint.
+
 describe("built-in text section data", () => {
   it("opens on the reference's empty plain-text editor at its 14 px base", () => {
     expect(createWorkspaceTextSectionData()).toEqual({
@@ -118,6 +122,7 @@ describe("built-in text section data", () => {
   });
 
   it("scales the rendered typography from the reference's ratios", () => {
+    // The reference's own recorded scale at its 14 px base.
     expect(buildWorkspaceTextTypographyScale(14)).toEqual({
       bodyPx: 14,
       codePx: 12.9,

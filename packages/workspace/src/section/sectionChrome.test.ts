@@ -1,3 +1,6 @@
+// Characterization lock: the expected strings are the exact class lists the frozen reference's
+// sectionChrome.ts emits on the slice-reachable paths (leaf/group chrome; no application-only
+// options). Any diff here is a parity change and needs reference re-verification, not a test edit.
 import { describe, expect, it } from "vitest";
 import {
   getSectionContainerShellClassName,

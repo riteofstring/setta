@@ -44,6 +44,9 @@ export function registerWorkspaceHostCleanup(
   return () => internals.cleanup.delete(cleanup);
 }
 
+// DOM roots are an implementation detail of a live host, not a second way to resolve one. They
+// let document-level browser events stay scoped to the workspace that owns their target, including
+// portaled package chrome such as menus and tooltips.
 export function registerWorkspaceHostElement(
   host: WorkspaceHost,
   element: HTMLElement,

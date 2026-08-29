@@ -11,7 +11,7 @@ import zipfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import IO, Any, Protocol, TypeGuard
+from typing import IO, Any, Protocol, TypeGuard, cast
 
 MAX_WHEEL_ENTRIES = 20_000
 MAX_WHEEL_UNCOMPRESSED_BYTES = 768 * 1024 * 1024
@@ -142,7 +142,7 @@ class BoundedBytes:
             if len(value) > max(remaining, 0):
                 self._exceeded.set()
 
-    def bytes(self) -> bytes:
+    def content(self) -> bytes:
         with self._lock:
             return bytes(self._content)
 
@@ -255,13 +255,13 @@ def metadata_field(metadata: str, field: str) -> str:
 def require_object(value: object, label: str) -> dict[str, object]:
     if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
         raise SmokeError(f"{label} must be a JSON object")
-    return value
+    return cast(dict[str, object], value)
 
 
 def require_list(value: object, label: str) -> list[object]:
     if not isinstance(value, list):
         raise SmokeError(f"{label} must be a JSON array")
-    return value
+    return cast(list[object], value)
 
 
 def is_positive_int(value: object) -> TypeGuard[int]:

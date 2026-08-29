@@ -185,6 +185,8 @@ describe("viewport zoom helpers", () => {
     );
   });
 
+  // The keyboard chords ask these before they zoom, because the toolbar's buttons are simply
+  // absent or disabled in the same situations.
   it("reports the zoom runtime as unavailable until the zoom pane initializes", () => {
     expect(getIsZoomRuntimeReady(testWorkspace.host)).toBe(false);
     expect(getCanZoomIn(testWorkspace.host)).toBe(false);
@@ -229,6 +231,8 @@ describe("viewport zoom helpers", () => {
     expect(durations).toEqual([120]);
   });
 
+  // A compact host's open pane spans the canvas between the rails: there is no unobscured area to
+  // center in, and the section still has to travel.
   it("setCenter centers on the whole canvas when open panes cover it", () => {
     const { transform } = setupZoomRuntime();
     testWorkspace.reactFlow.setState({
@@ -308,6 +312,8 @@ describe("viewport zoom helpers", () => {
     ]);
   });
 
+  // Activating an Outline row is how a compact host reaches a section, and there its own pane
+  // covers the canvas. The travel runs against the whole canvas instead of failing.
   it("focuses a section from a pane that covers the canvas", () => {
     const { transform } = setupZoomRuntime();
     testWorkspace.document.setState({
@@ -355,6 +361,8 @@ describe("viewport zoom helpers", () => {
     expect(applied.y).toBe(861 / 2 - 95);
   });
 
+  // The reference's `movePaneToIncludeElement`: keyboard focus travels the canvas only as far as
+  // it must, and keeps the focused element 100px clear of the pane edges.
   function elementAt(x: number, y: number): HTMLElement {
     return {
       getBoundingClientRect: () => ({ x, y }),

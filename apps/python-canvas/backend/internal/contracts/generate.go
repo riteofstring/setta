@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 )
 
+// GenerateArtifacts writes, or checks, every V2 artifact from one validated
+// snapshot. The two targets are always generated together.
 func GenerateArtifacts(snapshot ProjectSnapshotV2, check bool) error {
 	appRoot, err := findAppRoot()
 	if err != nil {

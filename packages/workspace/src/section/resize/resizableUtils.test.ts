@@ -203,7 +203,7 @@ describe("getAutoClampSize", () => {
         maxWidth: 100_000,
       }),
     ).toEqual({ width: 200, height: 32 });
-
+    // Within the 2px tolerance no clamp fires.
     expect(
       getAutoClampSize({
         size: { width: 199, height: 31 },

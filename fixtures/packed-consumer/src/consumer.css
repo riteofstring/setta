@@ -1,3 +1,6 @@
+/* Plain host chrome for the packed-consumer fixture. Deliberately not Tailwind: the fixture
+ * proves that a consumer needs only the compiled dist/styles.css from the packed artifact. */
+
 body {
   margin: 0;
   font-family:

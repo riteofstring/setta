@@ -79,6 +79,10 @@ function getHostCommandStateVersion(host: WorkspaceHost): number {
   return getHostCommandState(host).version;
 }
 
+// A contributed toolbar control paints host-owned command state, so the host re-renders the tree
+// the workspace is in when that state changes — the same thing this host does for its own chrome.
+// Subscribed where the workspace is mounted rather than inside the readout, which is a leaf beside
+// it and would repaint only itself.
 export function usePlaygroundHostCommandState(): void {
   const host = useWorkspaceHost();
   useSyncExternalStore(
@@ -137,6 +141,8 @@ function PlaygroundCreationIcon({ className }: WorkspaceCommandIconProps) {
   );
 }
 
+// A pane-menu request carries the pointer's canvas position; a chord carries none, and the
+// package places the section in empty space after this factory returns.
 function describeCreationRequest(context: WorkspaceCreationContext): string {
   const position = context.workspacePosition;
   return position
@@ -167,6 +173,8 @@ function createPlaygroundLeaf(
   };
 }
 
+// Whether the built-in code section appears in a creation surface is the host's call: this one
+// lists it beside its own two kinds, on its own chord, built from the package's creation defaults.
 function createPlaygroundCodeSection(
   context: WorkspaceCreationContext,
 ): WorkspaceSectionInput {
@@ -187,6 +195,8 @@ function createPlaygroundCodeSection(
   };
 }
 
+// The built-in Text section joins the same catalog, created in the format this host wants and in
+// the reference's Edit-first display mode.
 function createPlaygroundTextSection(
   context: WorkspaceCreationContext,
 ): WorkspaceSectionInput {
@@ -209,6 +219,7 @@ function createPlaygroundTextSection(
 }
 
 export function registerPlaygroundMenuExtensions(host: WorkspaceHost): void {
+  // The chords are the reference's own creation defaults, "N" and "G", over this host's catalog.
   registerWorkspaceCreationCommands(host, [
     {
       id: "playground-note",
@@ -256,7 +267,9 @@ export function registerPlaygroundMenuExtensions(host: WorkspaceHost): void {
         );
       },
     },
-
+    // Two toolbar controls beside the package's own: a toggle whose pressed state the package
+    // paints from the command, and an action that refuses with a sentence until there is
+    // something to clear.
     {
       id: "playground-toolbar-highlight",
       scope: "pane",
@@ -345,7 +358,9 @@ export function registerPlaygroundMenuExtensions(host: WorkspaceHost): void {
         ),
     },
   ]);
-
+  // The creation control runs the same operation as the pane menu's "Host note" entry and the "N"
+  // chord, so the toolbar creates in empty space and travels to the section when it had to land
+  // out of sight.
   registerWorkspaceToolbarContributions(host, [
     {
       kind: "creation",
@@ -369,11 +384,14 @@ export function registerPlaygroundMenuExtensions(host: WorkspaceHost): void {
   ]);
 }
 
+// The package ships locking bindable but unbound, so the host chooses its own chords for it.
 const PLAYGROUND_KEY_BINDINGS: ReadonlyArray<WorkspaceKeyBinding> = [
   { id: "workspace.lock-sections", chord: "Mod + Alt + L" },
   { id: "workspace.unlock-sections", chord: "Mod + Alt + U" },
 ];
 
+// A chord the package already gives to grouping, kept here so the acceptance run can see what a
+// host learns before it applies a rebinding.
 const CONFLICTING_KEY_BINDING: WorkspaceKeyBinding = {
   id: "workspace.lock-sections",
   chord: "Mod + G",

@@ -8,12 +8,17 @@ import (
 	"github.com/setta/python-canvas/backend/internal/project/renderer"
 )
 
+// diagnosticsWork holds one immutable, durable structural revision until its
+// exact provider result settles or a newer revision makes that result stale.
 type diagnosticsWork struct {
 	state    aggregate.State
 	rendered renderer.Result
 	revision int
 }
 
+// scheduleDiagnosticsLocked coalesces queued structural revisions while the
+// current provider request, if any, remains serialized. The caller has already
+// published the durable snapshot and holds coordinator.mu.
 func (coordinator *Coordinator) scheduleDiagnosticsLocked(state aggregate.State, rendered renderer.Result) {
 	coordinator.pendingAnalysis = &diagnosticsWork{
 		state:    state.Clone(),

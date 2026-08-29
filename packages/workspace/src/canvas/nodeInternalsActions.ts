@@ -53,7 +53,8 @@ export function updateNodePositions(
     if (!node) {
       throw new Error(`Missing node ${item.id} during a drag position update.`);
     }
-
+    // Preserve the reference's published position object while cloning only the node record that
+    // changed. The drag loop replaces (rather than mutates) this object on its next frame.
     newNodes.set(item.id, { ...node, position: item.position });
   }
   nodeStore.setState({ x: newNodes });
@@ -81,6 +82,14 @@ export function raiseTempZIndex(
   nodeStore.setState({ x: newNodes });
 }
 
+// The reference funnels this through `debounced_route_set_top_level_section_layout`, which
+// mirrors node geometry into the canonical config immediately and debounces only the backend
+// send. The package keeps the immediate canonical mirror and publishes through the host's
+// subscriptions (host-side debouncing is transport policy). Like the reference
+// funnel, the layout dict is wholesale-replaced from entries filtered to parent-less sections,
+// so a section that currently has a parent loses its stale top-level entry at the first layout
+// write, and node geometry is written verbatim (a null measurement clears the stored size back
+// to auto).
 export function commitTopLevelLayoutToDocument(host: WorkspaceHost) {
   const documentStore = getWorkspaceDocumentStore(host);
   const documentState = documentStore.getState();
@@ -176,6 +185,9 @@ function applyNodeDimensionUpdate(
   return true;
 }
 
+// Also called by the load orchestrator after a mounted re-load arms fit-on-init: surviving
+// sections keep their measurements, so the armed fit may be completable without waiting for a
+// ResizeObserver pass.
 export function maybeCompleteInitialFitView(host: WorkspaceHost) {
   const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions } =
     getReactFlowStore(host).getState();

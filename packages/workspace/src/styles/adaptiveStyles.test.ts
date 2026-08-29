@@ -95,7 +95,8 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(workspaceStyles).toMatch(
       /\.setta-workspace\.react-flow\[data-viewport-interaction-active="true"\]\s+\[data-section-id\][^{]*\{[^}]*will-change: transform[^}]*transform: translateZ\(0\)[^}]*backface-visibility: hidden[^}]*isolation: isolate/su,
     );
-
+    // A settled section keeps no layer of its own, so an enlarged zoom rasterizes its content
+    // again instead of scaling the picture the gesture left behind.
     expect(workspaceStyles).not.toContain(
       ".react-flow:hover [data-section-id]",
     );
@@ -212,7 +213,7 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(generatedDocumentStyles).toMatch(
       /@media \(forced-colors: active\)[^{]*\{[^}]*\.setta-workspace-generated-document[^}]*border-inline-start: 3px solid CanvasText/su,
     );
-
+    // The badge's fill carries its only contrast, so it needs an authored edge as well.
     expect(generatedDocumentStyles).toMatch(
       /@media \(forced-colors: active\)[\s\S]*::after\s*\{[^}]*border: 1px solid CanvasText/u,
     );

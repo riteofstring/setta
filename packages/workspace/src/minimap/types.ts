@@ -7,6 +7,9 @@ import type {
 import type { PanelPosition } from "../canvas/types";
 import type { Node, Position } from "../document/types";
 
+// The fork minimap's prop types (`forks/xyflow/minimap/types.ts`). The zoomable/inversePan/
+// zoomStep wheel-zoom surface and the onNodeClick handler left with extraction: the reference
+// application mounts the minimap pannable-only and never passes a node click handler.
 export type GetMiniMapNodeAttribute = (node: Node) => string;
 
 export type MiniMapProps = Omit<HTMLAttributes<SVGSVGElement>, "onClick"> & {

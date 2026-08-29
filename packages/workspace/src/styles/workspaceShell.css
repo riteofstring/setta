@@ -1,3 +1,7 @@
+/* Integrated workspace shell. Frozen main's panes slide over a full-screen canvas; this package
+ * gives the canvas its real visible center instead, so fit, minimap, coordinate conversion, and
+ * auto-pan all measure the shell center directly. The 40/335/500 px geometry and compact paint
+ * come from the workspace-shell reference bundle. */
 .setta-workspace-shell {
   position: relative;
   display: flex;

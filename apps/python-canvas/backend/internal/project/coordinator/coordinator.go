@@ -16,6 +16,9 @@ import (
 	"github.com/setta/python-canvas/backend/internal/projectfile"
 )
 
+// Options supplies the narrow adapters around one explicit project path.
+// Command and HTTP wiring remain outside this private package until the public
+// V2 cutover.
 type Options struct {
 	ProjectPath  string
 	Create       bool
@@ -32,6 +35,9 @@ type openInputs struct {
 	render      RenderFunc
 }
 
+// Coordinator serializes durable candidate construction, materialization,
+// persistence, and publication with mu. providerMu separately serializes every
+// provider operation so background diagnostics never invert that lock order.
 type Coordinator struct {
 	mu         sync.Mutex
 	providerMu sync.Mutex
@@ -44,7 +50,10 @@ type Coordinator struct {
 	render                  RenderFunc
 	snapshot                Snapshot
 	providerDocumentVersion int
-
+	// providerTargetRevision is the latest authored revision a queued
+	// diagnostics operation may synchronize. It is separate from the monotonic
+	// transport document version and is atomic so a worker never takes
+	// coordinator.mu while waiting for providerMu.
 	providerTargetRevision atomic.Int64
 	cleanup                []materializer.Replacement
 	closed                 bool
@@ -56,6 +65,11 @@ type Coordinator struct {
 	nextSnapshotSubscriber uint64
 }
 
+// Open strictly loads one existing authored project or prepares one blank
+// project for exclusive creation. A new authored file is created only after
+// its exact derived module has rendered and materialized, so a failed startup
+// leaves that path retryable. Provider startup failures are represented
+// explicitly in the published snapshot rather than as an empty success.
 func Open(ctx context.Context, options Options) (*Coordinator, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -146,6 +160,7 @@ func prepareOpenInputs(options Options) (openInputs, error) {
 	}, nil
 }
 
+// Snapshot returns the complete currently published private state.
 func (coordinator *Coordinator) Snapshot() Snapshot {
 	if coordinator == nil {
 		return Snapshot{}
@@ -155,18 +170,25 @@ func (coordinator *Coordinator) Snapshot() Snapshot {
 	return coordinator.snapshot.Clone()
 }
 
+// RenameProject validates and durably publishes one expected-revision project
+// name candidate.
 func (coordinator *Coordinator) RenameProject(ctx context.Context, command aggregate.RenameProjectCommand) (Snapshot, error) {
 	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.RenameProject(command)
 	})
 }
 
+// CreateCallable appends one empty dynamic callable through the shared durable
+// transaction.
 func (coordinator *Coordinator) CreateCallable(ctx context.Context, command aggregate.CreateCallableCommand) (Snapshot, error) {
 	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.CreateCallable(command, coordinator.idGenerator)
 	})
 }
 
+// CreateConfiguredCallable resolves a callable signature against an
+// unpublished draft, then publishes the fully configured callable through one
+// durable candidate transaction.
 func (coordinator *Coordinator) CreateConfiguredCallable(ctx context.Context, command aggregate.CreateConfiguredCallableCommand) (Snapshot, error) {
 	if coordinator == nil {
 		return Snapshot{}, ErrCoordinatorClosed
@@ -209,84 +231,107 @@ func (coordinator *Coordinator) CreateConfiguredCallable(ctx context.Context, co
 	return coordinator.applyCandidate(ctx, candidate)
 }
 
+// RenameCallable preserves a callable's ID and nested records while applying
+// its new display name through the shared durable transaction.
 func (coordinator *Coordinator) RenameCallable(ctx context.Context, command aggregate.RenameCallableCommand) (Snapshot, error) {
 	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.RenameCallable(command)
 	})
 }
 
+// DeleteCallable removes exactly one dynamic callable through the shared
+// durable transaction.
 func (coordinator *Coordinator) DeleteCallable(ctx context.Context, command aggregate.DeleteCallableCommand) (Snapshot, error) {
 	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.DeleteCallable(command)
 	})
 }
 
+// CreateParameterDictionary appends one empty Parameter Dictionary through the
+// same durable transaction as every other authored section mutation.
 func (coordinator *Coordinator) CreateParameterDictionary(ctx context.Context, command aggregate.CreateParameterDictionaryCommand) (Snapshot, error) {
 	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.CreateParameterDictionary(command, coordinator.idGenerator)
 	})
 }
 
+// RenameParameterDictionary changes one dictionary display name.
 func (coordinator *Coordinator) RenameParameterDictionary(ctx context.Context, command aggregate.RenameParameterDictionaryCommand) (Snapshot, error) {
 	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.RenameParameterDictionary(command)
 	})
 }
 
+// DeleteParameterDictionary removes one dictionary section.
 func (coordinator *Coordinator) DeleteParameterDictionary(ctx context.Context, command aggregate.DeleteParameterDictionaryCommand) (Snapshot, error) {
 	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.DeleteParameterDictionary(command)
 	})
 }
 
+// SetParameterDictionaryEntries replaces one complete recursive entry tree.
 func (coordinator *Coordinator) SetParameterDictionaryEntries(ctx context.Context, command aggregate.SetParameterDictionaryEntriesCommand) (Snapshot, error) {
 	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.SetParameterDictionaryEntries(command)
 	})
 }
 
+// CreateList appends one empty List of Objects to the forest.
 func (coordinator *Coordinator) CreateList(ctx context.Context, command aggregate.CreateListCommand) (Snapshot, error) {
 	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.CreateList(command, coordinator.idGenerator)
 	})
 }
 
+// RenameList changes one List of Objects display name.
 func (coordinator *Coordinator) RenameList(ctx context.Context, command aggregate.RenameListCommand) (Snapshot, error) {
 	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.RenameList(command)
 	})
 }
 
+// DeleteList removes one List of Objects and its whole subtree.
 func (coordinator *Coordinator) DeleteList(ctx context.Context, command aggregate.DeleteListCommand) (Snapshot, error) {
 	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.DeleteList(command)
 	})
 }
 
+// IncrementListChildren appends the requested number of empty Callable
+// sections atomically.
 func (coordinator *Coordinator) IncrementListChildren(ctx context.Context, command aggregate.IncrementListChildrenCommand) (Snapshot, error) {
 	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.IncrementListChildren(command, coordinator.idGenerator)
 	})
 }
 
+// DecrementListChildren removes trailing child subtrees atomically.
 func (coordinator *Coordinator) DecrementListChildren(ctx context.Context, command aggregate.DecrementListChildrenCommand) (Snapshot, error) {
 	return coordinator.mutateStructural(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.DecrementListChildren(command)
 	})
 }
 
+// ReplaceSectionForest moves and reorders existing sections without allowing a
+// typed section payload change in the same mutation.
 func (coordinator *Coordinator) ReplaceSectionForest(ctx context.Context, command aggregate.ReplaceSectionForestCommand) (Snapshot, error) {
 	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.ReplaceSectionForest(command)
 	})
 }
 
+// SetParameters applies one complete parameter-list proposal through the
+// aggregate's metadata-preserving candidate boundary.
 func (coordinator *Coordinator) SetParameters(ctx context.Context, command aggregate.SetParametersCommand) (Snapshot, error) {
 	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.SetParameters(command)
 	})
 }
 
+// SetTarget updates both editable outer Python regions as one durable
+// candidate; the generated body remains renderer-owned. When a target edit
+// resolves a callable's prior undefined-symbol diagnostic, it also performs one
+// best-effort signature refresh after the target itself is durable.
 func (coordinator *Coordinator) SetTarget(ctx context.Context, command aggregate.SetTargetCommand) (Snapshot, error) {
 	if coordinator == nil {
 		return Snapshot{}, ErrCoordinatorClosed
@@ -322,19 +367,25 @@ func (coordinator *Coordinator) SetTarget(ctx context.Context, command aggregate
 			ExpectedRevision: coordinator.snapshot.State.Project.Revision,
 		})
 		if refreshErr != nil {
-
+			// The accepted Python target is already durable; automatic provider
+			// retrieval must not turn it into a failed mutation.
 			continue
 		}
 	}
 	return coordinator.snapshot.Clone(), nil
 }
 
+// CommitCallable persists one callable expression and publishes the resulting
+// generated-document diagnostics. Signature resolution is an explicit,
+// separate mutation.
 func (coordinator *Coordinator) CommitCallable(ctx context.Context, command aggregate.CommitCallableCommand) (Snapshot, error) {
 	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.CommitCallable(command)
 	})
 }
 
+// RefreshCallableParameters resolves the signature of the callable's current
+// persisted expression and atomically replaces its provider-owned rows.
 func (coordinator *Coordinator) RefreshCallableParameters(ctx context.Context, command aggregate.RefreshCallableParametersCommand) (Snapshot, error) {
 	if coordinator == nil {
 		return Snapshot{}, ErrCoordinatorClosed
@@ -347,6 +398,8 @@ func (coordinator *Coordinator) RefreshCallableParameters(ctx context.Context, c
 	return coordinator.refreshCallableParametersLocked(ctx, command)
 }
 
+// refreshCallableParametersLocked applies an explicit or automatic signature
+// refresh while the coordinator's mutation lock is held.
 func (coordinator *Coordinator) refreshCallableParametersLocked(ctx context.Context, command aggregate.RefreshCallableParametersCommand) (Snapshot, error) {
 	if err := coordinator.requireOpen(ctx); err != nil {
 		return Snapshot{}, err
@@ -416,11 +469,16 @@ func snapshotCallableIDs(snapshot Snapshot) map[string]struct{} {
 	return callableIDs
 }
 
+// Close releases the one provider and disposable materialization owned by the
+// coordinator. It never touches the authored project file.
 func (coordinator *Coordinator) Close() error {
 	if coordinator == nil {
 		return nil
 	}
-
+	// analysisCancel is initialized once by Open and is safe to invoke before
+	// waiting for mu. A synchronous provider-dependent mutation can hold mu
+	// while waiting for providerMu, while diagnostics owns providerMu in a
+	// cancellable call. Cancelling first breaks that wait cycle.
 	if coordinator.analysisCancel != nil {
 		coordinator.analysisCancel()
 	}
@@ -498,6 +556,10 @@ func (coordinator *Coordinator) mutate(ctx context.Context, build candidateBuild
 	return coordinator.applyCandidate(ctx, candidate)
 }
 
+// mutateStructural publishes one durable section-cardinality candidate before
+// its derived diagnostics settle. The structural boundary intentionally does
+// not require a ready provider: diagnostics are scheduled after the authored
+// project and generated document have committed.
 func (coordinator *Coordinator) mutateStructural(ctx context.Context, build candidateBuilder) (Snapshot, error) {
 	if coordinator == nil {
 		return Snapshot{}, ErrCoordinatorClosed
@@ -557,6 +619,9 @@ func (coordinator *Coordinator) applyCandidate(ctx context.Context, candidate ag
 		return Snapshot{}, coordinator.rollbackAfterFailure(materializationStage, primary)
 	}
 
+	// Cleanup is no longer part of the transaction after the authored file is
+	// durable. Preserve a failed backup cleanup for Close rather than reporting
+	// a false failed mutation after publication.
 	if err := materializationStage.Finalize(); err != nil {
 		coordinator.cleanup = append(coordinator.cleanup, materializationStage)
 	}
@@ -628,7 +693,9 @@ func (coordinator *Coordinator) rollbackAfterFailure(stage materializer.Replacem
 	if err := stage.Rollback(); err != nil {
 		return errors.Join(primary, fmt.Errorf("%w: rollback generated document: %v", ErrMaterializationFailed, err))
 	}
-
+	// Rollback is an internal transaction obligation, not a continuation of a
+	// canceled request. The prior exact document must be restored even when the
+	// caller's deadline expired while the candidate provider work was pending.
 	if err := coordinator.restorePublishedProvider(context.Background()); err != nil {
 		coordinator.reschedulePendingDiagnosticsLocked()
 		return errors.Join(primary, err)

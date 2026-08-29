@@ -1,3 +1,9 @@
+// Extracted from the frozen reference's sectionChrome.ts, trimmed to the states the approved
+// Phase 1 slice reached, with the direct-on-canvas meta-control branch restored by its owning
+// milestone. Still cut with their features (not kept as dead branches): joined attached-terminal
+// chrome, full-bleed section/chat-window overrides, agentic handle-scope
+// classes, AI-follow and agentic-scope highlight class slots, and the YouTube overflow special
+// case. Class emission order matches the reference so live DOM comparison stays diffable.
 import { getOutlineColor } from "./sectionColors";
 
 type SectionContainerShellClassNameOptions = {

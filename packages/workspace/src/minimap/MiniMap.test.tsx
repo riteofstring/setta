@@ -30,6 +30,9 @@ import {
 } from "./MiniMap";
 import type { MiniMapNodeProps } from "./types";
 
+// Ported from the reference fork's `minimap/MiniMap.test.ts`; the selection-sync source is the
+// package active-sections store instead of the reference's `useActiveSectionUI`.
+
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;

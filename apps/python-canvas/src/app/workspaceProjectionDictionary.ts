@@ -80,6 +80,8 @@ export function setDictionaryEntryName(
   );
 }
 
+// This check is deliberately pure so a host can defer the accompanying local
+// document mutation until after its change notification has completed.
 export function dictionaryEntryParentPromotionRequired(
   document: Pick<WorkspaceDocument, "sections">,
   dictionaryId: string,
@@ -97,6 +99,10 @@ export function dictionaryEntryParentPromotionRequired(
   });
 }
 
+// The generic item tree intentionally owns only structural movement. Once a
+// leaf owns a child, make its application data an explicit dictionary parent
+// in the same local document transaction. That marker remains after its last
+// child moves away, so an empty parent never turns back into a leaf expression.
 export function promoteDictionaryEntryParents(
   host: WorkspaceHost,
   dictionaryId: string,

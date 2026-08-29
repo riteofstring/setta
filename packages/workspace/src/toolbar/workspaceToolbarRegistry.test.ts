@@ -195,7 +195,7 @@ describe("workspace toolbar contributions", () => {
         { ...toolbarCommand, surfaces: ["context-menu"] },
       ]),
     ).toThrow(/does not offer the toolbar surface/);
-
+    // The refused registration never took effect, so the contributed command is still offered.
     expect(
       getWorkspaceCommands(host, "pane", "toolbar").map(
         (command) => command.definition.id,

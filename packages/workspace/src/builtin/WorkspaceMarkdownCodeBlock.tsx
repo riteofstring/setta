@@ -12,6 +12,16 @@ import {
 import { resolveMarkdownCodeLanguage } from "./markdownCodeLanguages";
 import { readFencedCode } from "./markdownHastReaders";
 
+// The reference's fenced-code presentation inside a rendered text block: a bordered, non-prose
+// container carrying its copy button over the same idle CodeMirror highlight every other
+// committed-code surface in the package paints.
+//
+// Package-only design decision: the reference resolves fenced from inline code inside its `code`
+// component, from the node's start column and whether the text contains a newline, because
+// react-markdown stopped passing an `inline` flag. That heuristic misreads a paragraph that
+// begins with inline code, which also starts at column 1. The package reads the tree instead:
+// `pre` is a fenced or indented block, `code` outside it is inline, and neither guesses.
+
 const COPY_RESET_MS = 2000;
 
 function CopyCodeButton({ code }: { code: string }) {
@@ -35,6 +45,10 @@ function CopyCodeButton({ code }: { code: string }) {
     resetTimeoutRef.current = setTimeout(() => setCopied(false), COPY_RESET_MS);
   }
 
+  // The same explicit refusal the package's other copy affordance takes: a browser without the
+  // API, or one that refuses the write, leaves the button reading "Copy code" rather than
+  // reporting a copy that never happened. The reference logs and swallows the rejection; the
+  // package has no console channel, so the un-copied label is the report.
   function onCopy() {
     if (!navigator.clipboard) {
       return;
@@ -67,6 +81,9 @@ export function WorkspaceMarkdownCodeBlock({ node }: { node?: unknown }) {
   const language = resolveMarkdownCodeLanguage(className);
 
   useEffect(() => {
+    // The idle highlight depends on CodeMirror classes that only mount when a real editor
+    // instantiates them, and a rendered text section may be the only editor-bearing surface on
+    // the canvas.
     mountTextValueThemeStyles();
   }, []);
 

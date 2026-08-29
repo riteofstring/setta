@@ -280,6 +280,9 @@ describe("WorkspaceItemFilter", () => {
     return input;
   }
 
+  // The real dispatcher over a real keydown, so the chord rules, the binding's own decision, and
+  // the browser default all answer the way they do in the product. The return value is what the
+  // browser is left with: `false` means the chord was not taken.
   function pressFocusItemFilterChord(target: Element): boolean {
     const event = new KeyboardEvent("keydown", {
       bubbles: true,
@@ -355,13 +358,16 @@ describe("WorkspaceItemFilter", () => {
     expect(search?.parentElement).toBe(toolbar);
   });
 
+  // The reference's empty Args filter reads as its own shortcut while its section is the sole
+  // active one, and as "Filter" otherwise. jsdom reports no Mac user agent, so the registry writes
+  // this platform's "Ctrl + K" for the shipped "Mod + K" default.
   it("advertises the focus binding on the sole active section's empty filter", async () => {
     const input = await mount();
     expect(testWorkspace.activeSections.getState().activeIds).toEqual([
       "panel",
     ]);
     expect(input.placeholder).toBe("Ctrl + K");
-
+    // The placeholder is not the control's name.
     expect(
       host.querySelector<HTMLLabelElement>(`label[for="${input.id}"]`)
         ?.textContent,
@@ -405,10 +411,13 @@ describe("WorkspaceItemFilter", () => {
     await act(async () => {
       testWorkspace.activeSections.setState({ activeIds: [] });
     });
-
+    // Without exactly one active section this is nobody's filter to focus, so the chord is left
+    // to the browser rather than swallowed.
     expect(pressFocusItemFilterChord(document.body)).toBe(false);
     expect(document.activeElement).not.toBe(input);
 
+    // A declared item area that renders no toolbar mounts no filter, so the operation declines
+    // there too even while its section is the sole active one.
     await act(async () => {
       testWorkspace.activeSections.setState({ activeIds: ["panel"] });
     });

@@ -1,3 +1,5 @@
+// Package renderer compiles one validated authored project into its complete
+// deterministic Python document and renderer-owned semantic coordinates.
 package renderer
 
 import (
@@ -19,16 +21,20 @@ const (
 	multilineCollectionMinimumItemCount = 4
 )
 
+// ByteRange is a half-open UTF-8 byte range in a rendered document.
 type ByteRange struct {
 	Start int
 	End   int
 }
 
+// CallPosition locates the complete rendered call so a provider can request
+// signature help immediately inside its opening parenthesis.
 type CallPosition struct {
 	Offset int
 	End    int
 }
 
+// Result is the immutable rendering of one complete authored aggregate.
 type Result struct {
 	Code string
 	Body string
@@ -37,6 +43,9 @@ type Result struct {
 	GeneratedBodyRange ByteRange
 	SuffixRange        ByteRange
 
+	// SourceRangesByTargetID contains only authored expression targets. It is
+	// intentionally separate from generated composition ranges so diagnostics
+	// on a dict/list composition stay in Generated Python.
 	SourceRangesByTargetID      map[string]ByteRange
 	CompositionRangesByTargetID map[string]ByteRange
 	CallableCallPositionsByID   map[string]CallPosition
@@ -44,6 +53,8 @@ type Result struct {
 	DependencyCycleTargetIDs    []string
 }
 
+// Render accepts one complete validated aggregate and has no filesystem, LSP,
+// process, HTTP, or UI dependency.
 func Render(state aggregate.State) (Result, error) {
 	if err := state.Validate(); err != nil {
 		return Result{}, fmt.Errorf("render validated project: %w", err)
@@ -163,6 +174,9 @@ type pathAllocator struct {
 	lists        map[string]aggregate.List
 }
 
+// allocateForestPaths reserves every generated state path before rendering.
+// In particular, a List keeps its required indexed child paths while its
+// top-level path changes if any descendant would otherwise collide.
 func allocateForestPaths(
 	state aggregate.State,
 	callables map[string]aggregate.Callable,
@@ -322,6 +336,8 @@ func sectionName(
 	return lists[sectionID].Name
 }
 
+// sortPathCandidates gives same-name paths a stable-ID tie break independent
+// of authored rendering order.
 func sortPathCandidates(candidates []pathCandidate) {
 	sort.Slice(candidates, func(left int, right int) bool {
 		return candidates[left].id < candidates[right].id

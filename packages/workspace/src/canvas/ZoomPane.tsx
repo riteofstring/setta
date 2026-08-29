@@ -304,6 +304,8 @@ function shouldBlockZoomFilterByInteractionState({
     return true;
   }
 
+  // The zoom pane suspends panning while a dnd mode is held; the two interaction engines
+  // coexist by giving the held mode's gesture one owner.
   const { isSorting, isMovingFree } = getDndStateStore(host).getState();
   return isSorting || isMovingFree;
 }
@@ -735,7 +737,12 @@ function useZoomPaneInit(
 ) {
   useEffect(() => {
     zoomPaneInit(host, zoomPane);
-
+    // The reference swaps whole keyed project surfaces, so it never observes a canvas store that
+    // outlives its zoom pane. The package canvas store does outlive an unmounted canvas, and the
+    // load orchestrator treats live d3 handles as "canvas mounted" — so an unmount must clear
+    // them. Only the handles: the fit flags feed the still-subscribed viewport sync (parent
+    // effects clean up after children), and the next mount's `getInitialCanvasViewport` resets
+    // them from the document either way.
     return () => {
       markViewportInteractionActive(host, false);
       getReactFlowStore(host).setState({
@@ -757,7 +764,7 @@ function zoomPaneInit(
     const translateExtent = infiniteExtent;
     const bbox = zoomPane.current.getBoundingClientRect();
     const { minZoom, maxZoom } = getWorkspaceOptionsStore(host).getState();
-
+    // .interpolate(interpolate) makes the interpolations linear instead of curved
     const d3ZoomInstance = zoom()
       .interpolate(interpolate)
       .scaleExtent([minZoom, maxZoom])
@@ -787,7 +794,7 @@ function zoomPaneInit(
       d3Zoom: d3ZoomInstance,
       d3Selection: selection,
       d3ZoomHandler,
-
+      // we need to pass transform because zoom handler is not registered when we set the initial transform
       transform: [
         constrainedTransform.x,
         constrainedTransform.y,

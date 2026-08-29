@@ -13,6 +13,15 @@ import { getWorkspaceDocumentStore } from "./stores";
 import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types";
 import type { WorkspaceHost } from "../workspaceHost";
 
+// The reference's canonical param move (`applyParamMove`/`moveParamsWithBackend`,
+// `state/actions/params/moveParams.ts`) minus the app-only branches: the optimistic-op plumbing
+// and backend route stay application-side (the host publishes a snapshot instead), and the
+// pinned/unpinned shown-order cache sync (`syncShownParamTopLevelOrder`) left
+// with the app — the package derives list membership from the canonical children live. Where
+// the reference's monitor and backend keep cyclic drops out of the canonical structure, the
+// package funnel is the last line and fails loudly instead. An aborted move (detached items,
+// out-of-range index) leaves the canonical tree untouched and does not notify.
+
 export type ItemTreeMove = {
   itemIds: Array<string>;
   newParentId: string;
@@ -45,6 +54,9 @@ export function moveItems(
   );
 }
 
+// One canonical commit and one host notification for however many tree changes the caller
+// folded together — the reference's keyboard actions apply a whole group-move batch through a
+// single optimistic dispatch. An unchanged tree commits and notifies nothing.
 export function commitSectionItemTree(
   host: WorkspaceHost,
   sectionId: string,
@@ -152,6 +164,8 @@ function applyCrossParentItemMove(
   });
 }
 
+// The reference keeps a multi-selection in its old-parent document order regardless of the
+// order the ids arrive in.
 export function orderItemIdsByParent(
   itemTree: WorkspaceSectionItemTree,
   parentId: string,

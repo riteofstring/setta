@@ -30,9 +30,10 @@
   exact files or modules and read only the returned current design documents.
   Plans, historical evidence, and superseded decisions require an explicit task
   need; do not load them as routine source context.
-- Keep governed handwritten source free of prose comments and docstrings.
-  Preserve exact machine-consumed directives only; put current non-local
-  rationale in mapped design documents.
+- Honor `quality.allowComments`. When it is false, keep governed handwritten
+  source free of prose comments and docstrings. When it is true, preserve useful
+  accurate comments and add one only when it conveys information the code
+  cannot. Put current non-local rationale in mapped design documents.
 - Keep domain modules independent of UI, HTTP, persistence, providers, and
   process details unless the checked-in architecture contract allows the edge.
 - Declare separately owned files, directories, repositories, and services as
@@ -50,8 +51,8 @@
   `code-polishy dependency-review --base <merge-target>` before installation.
 - Keep every exception exact, visible, owned, justified, and expiring.
 - Give every module a quick boundary suite. Test observable behavior with
-  temporary state. Reject tautological, no-op, pass-with-no-tests, and
-  coverage-only tests; checked-in Gherkin must execute.
+  temporary state. Reject tautological, change-detector, no-op,
+  pass-with-no-tests, and coverage-only tests; checked-in Gherkin must execute.
 - Run supplemental mutation or risk suites only when the caller or a checked-in
   workflow requires them. Keep credentialed, destructive, and live-provider
   probes in explicit external approval gates.

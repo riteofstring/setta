@@ -42,6 +42,8 @@ function nodeStylesMatch(
   );
 }
 
+// Appearance changes are independent of canonical document projection. In particular, they must
+// not overwrite a live drag position or temporary z-index with the last committed layout values.
 export function reprojectNodeStylesForAppearance(
   host: WorkspaceHost,
   state: WorkspaceDocumentState,
@@ -67,6 +69,7 @@ export function reprojectNodeStylesForAppearance(
   return nextNodes;
 }
 
+// Measured DOM size wins over the stored layout size once a node has rendered.
 function buildTopLevelSectionNode(
   sectionId: string,
   layout: TopLevelSectionLayout,

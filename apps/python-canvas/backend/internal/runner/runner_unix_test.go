@@ -254,7 +254,9 @@ func newHeldOutputMonitor(t *testing.T, timeout time.Duration, owner ownedProces
 	stdoutReader, stdoutWriter := newTestOutputPipe(t)
 	stderrReader, stderrWriter := newTestOutputPipe(t)
 	command := exec.Command("/bin/sleep", "30")
-
+	// These parent-owned writers keep both reads open after /bin/sleep dies.
+	// They model inherited descriptors retained by an escaped descendant without
+	// creating an orphaned process group in the governed test itself.
 	command.Stdout = stdoutWriter
 	command.Stderr = stderrWriter
 	if err := command.Start(); err != nil {

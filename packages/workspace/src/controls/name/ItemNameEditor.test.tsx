@@ -35,6 +35,10 @@ import { ItemNameEditor, type ItemNameEditorProps } from "./ItemNameEditor";
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+// Freezes the package name seam against the reference `ParamNameInput`: green highlighted idle
+// layer, single-line live CodeMirror swap, proposed-name reporting, key-column geometry, exact
+// duplicate-error treatment, Escape focus restoration, and interaction-first disabling.
+
 const SECTION_ID = "panel";
 const ITEM_ID = "item-rename";
 function getDummyId(): string {

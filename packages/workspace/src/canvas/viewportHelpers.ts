@@ -18,6 +18,9 @@ import type { ReactFlowState, Rect } from "./types";
 import { getVisibleCanvasRect } from "./viewportInsets";
 import { screenToFlowPosition } from "./viewportPosition";
 
+// The zoom commands from the reference's `hooks/useViewportHelper.ts`. `setCenter` returned with
+// the minimap batch that calls it; `setViewport` and the map-position helpers stayed behind with
+// the AI-follow feature.
 type TransitionOptions = {
   duration?: number;
 };
@@ -100,11 +103,16 @@ export function resetZoom(host: WorkspaceHost) {
   zoomTo(host, defaultZoomLevel, { duration: 100 });
 }
 
+// A keyboard chord can reach a viewport operation before the zoom pane initializes, where the
+// pointer surfaces that offer the same operations do not exist yet. The operation declines
+// instead of throwing, and the chord goes back to the browser.
 export function getIsZoomRuntimeReady(host: WorkspaceHost): boolean {
   const { d3Zoom, d3Selection } = getReactFlowStore(host).getState();
   return Boolean(d3Zoom && d3Selection);
 }
 
+// The toolbar disables its zoom buttons at the configured limits. The chords ask the same
+// question, so a keypress at a limit does exactly what pressing the disabled button does.
 export function getCanZoomIn(host: WorkspaceHost): boolean {
   return (
     getIsZoomRuntimeReady(host) &&
@@ -129,6 +137,8 @@ function getZoomLimits(host: WorkspaceHost): {
   return { minZoom, maxZoom };
 }
 
+// Center against the same unobscured canvas rectangle used by fit view, the minimap mask, focus
+// navigation, and edge auto-pan. Shell panes overlay the full canvas exactly as in frozen main.
 export function setCenter(
   host: WorkspaceHost,
   x: number,
@@ -153,6 +163,8 @@ export function setCenter(
   d3Zoom.transform(getZoomTarget(d3Selection, options?.duration), transform);
 }
 
+// The reference's `zoomToMouseLocation`: re-center the canvas on the pointer at the default zoom
+// level, so a chord frames what the pointer is already over without touching selection.
 export function zoomToPointerLocation(host: WorkspaceHost): boolean {
   const pointer = getWorkspacePointerLocation(host);
   if (!pointer || !getIsZoomRuntimeReady(host)) {
@@ -168,6 +180,8 @@ export function zoomToPointerLocation(host: WorkspaceHost): boolean {
   return true;
 }
 
+// The reference's `getRectTranslation` (`utils/graph.ts`): how far a point sits outside the
+// padded pane on each axis, and nothing at all when it is already inside.
 function getAxisOverflow(
   value: number,
   minimum: number,
@@ -200,6 +214,9 @@ function getPaneTranslationForPoint(
   return x === 0 && y === 0 ? null : { x, y };
 }
 
+// The reference's `movePaneToIncludeElement`: bring a just-focused element into view with the
+// smallest possible move, keeping its 100px margin from the pane edges. Keyboard focus can reach
+// an element before the zoom pane initializes, where the canvas simply has nowhere to travel yet.
 export function movePaneToIncludeElement(
   host: WorkspaceHost,
   element: HTMLElement,
@@ -220,6 +237,9 @@ export function movePaneToIncludeElement(
   d3Zoom.translateBy(d3Selection, -translation.x, -translation.y);
 }
 
+// Frozen main moves the map by the leading pane's true-width delta when its host setting is
+// enabled. The pane itself uses a 150ms CSS transform; the map follows through main's 100ms d3
+// viewport transition so section positions remain visually continuous while the pane opens.
 export function shiftWorkspaceMapForLeadingPane(
   host: WorkspaceHost,
   widthDiff: number,
@@ -235,6 +255,8 @@ export function shiftWorkspaceMapForLeadingPane(
   d3Zoom.transform(getZoomTarget(d3Selection, 100), nextTransform);
 }
 
+// The public counterpart of frozen main's Overview `goToSection`: fit one mounted section into
+// the actual canvas center, cap ordinary focus at 100%, and leave canonical selection untouched.
 export function focusWorkspaceSection(
   host: WorkspaceHost,
   sectionId: string,

@@ -10,7 +10,7 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from .errors import (
     RuntimeExecutionError,
@@ -470,9 +470,14 @@ class _CtypesWindowsProcessApi:
         import ctypes
         from ctypes import wintypes
 
+        win_dll: Any = getattr(ctypes, "WinDLL", None)
+        get_last_error: Any = getattr(ctypes, "get_last_error", None)
+        if not callable(win_dll) or not callable(get_last_error):
+            raise RuntimeExecutionError("Windows process APIs are unavailable.")
         self._ctypes = ctypes
         self._wintypes = wintypes
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        self._get_last_error: Any = get_last_error
+        kernel32: Any = win_dll("kernel32", use_last_error=True)
         self._open_process = kernel32.OpenProcess
         self._open_process.argtypes = (
             wintypes.DWORD,
@@ -499,7 +504,7 @@ class _CtypesWindowsProcessApi:
         return int(handle or 0)
 
     def last_error(self) -> int:
-        return int(self._ctypes.get_last_error())
+        return int(self._get_last_error())
 
     def exit_code(self, handle: int) -> int | None:
         exit_code = self._wintypes.DWORD()

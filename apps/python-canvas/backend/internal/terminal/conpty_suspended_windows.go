@@ -36,10 +36,17 @@ func (coord terminalConPTYCoord) packed() uintptr {
 	return uintptr((int32(coord.y) << 16) | int32(coord.x))
 }
 
+// Portions of this implementation derive from github.com/UserExistsError/conpty
+// v0.1.4, Copyright (c) 2020 UserExistsError, under the MIT License. See
+// conpty_suspended_windows_NOTICE.txt for the complete notice. CREATE_SUSPENDED
+// is deliberate: the configured shell cannot run or create descendants before
+// its root is inside the terminal Job Object.
 type suspendedWindowsConPTY struct {
 	pseudoConsole windows.Handle
 	process       windows.ProcessInformation
-
+	// waitProcess is a duplicate of process.Process owned exclusively by the
+	// wait monitor. Close never touches it while WaitForSingleObject is active;
+	// Win32 only permits CloseHandle after the wait has returned.
 	waitProcess   windows.Handle
 	ptyInput      windows.Handle
 	ptyOutput     windows.Handle
@@ -300,6 +307,9 @@ func terminalConPTYEnvironmentBlock(environment []string) ([]uint16, error) {
 	return append(block, 0), nil
 }
 
+// terminalConPTYSortedEnvironment mirrors the Go Windows CreateProcess
+// contract: environment entries are sorted case-insensitively by their name,
+// while preserving the caller's slice when it already meets that contract.
 func terminalConPTYSortedEnvironment(environment []string) []string {
 	compare := func(left string, right string) int {
 		return strings.Compare(

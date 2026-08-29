@@ -7,12 +7,19 @@ import (
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 )
 
+// GeneratedProgram is one immutable capture of the currently published
+// rendered Python. It stays private to the application boundary: transport
+// clients receive only the result of executing it in the terminal.
 type GeneratedProgram struct {
 	ProjectID string
 	Revision  int
 	Code      string
 }
 
+// CaptureGeneratedProgram takes the project identity, expected revision, and
+// complete rendered code under the coordinator's publication lock. It is
+// read-only: it does not schedule diagnostics, touch materialization, or
+// advance the authored project revision.
 func (coordinator *Coordinator) CaptureGeneratedProgram(
 	ctx context.Context,
 	projectID string,

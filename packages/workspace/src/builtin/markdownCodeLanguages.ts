@@ -1,5 +1,10 @@
 import type { WorkspaceEditorLanguage } from "../controls/text/textValueLanguages";
 
+// The reference's `MARKDOWN_CODE_LANGUAGE_BY_ALIAS`: the fence infostrings a Markdown author
+// writes, mapped onto the package's editor language set. Package-only design decision: the
+// reference resolves `jsx`/`tsx` to a JSX parser variant, which the package's language registry
+// deliberately does not carry (its editors receive one declared language), so those fences
+// highlight through the plain JavaScript and TypeScript packs.
 const MARKDOWN_CODE_LANGUAGE_BY_ALIAS: Record<
   string,
   WorkspaceEditorLanguage | null
@@ -25,6 +30,9 @@ const MARKDOWN_CODE_LANGUAGE_BY_ALIAS: Record<
   zsh: "bash",
 };
 
+// The reference's `resolveMarkdownCodeLanguage`. An unlisted or absent infostring is not an
+// error: a fence may legitimately carry a language the package does not highlight, and the block
+// still renders as code.
 export function resolveMarkdownCodeLanguage(
   className: string | undefined,
 ): WorkspaceEditorLanguage | null {

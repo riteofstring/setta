@@ -25,6 +25,11 @@ import { ItemNameErrorBubble } from "./ItemNameErrorBubble";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
 
+// The item-controls milestone's editable label: the reference `ParamNameInput` at its kwarg
+// presentation, behind a controlled proposed-name seam. The package owns only the two-layer
+// editor, label-column geometry, interaction boundaries, and captured error presentation.
+// Normalization, uniqueness rules, display-name meaning, and persistence remain host-owned.
+
 export type ItemNameEditorProps = {
   sectionId: string;
   itemId: string;
@@ -141,6 +146,7 @@ function useItemNameActivation({
   const [liveIsInitialized, setLiveIsInitialized] = useState(false);
 
   function localOnBlur() {
+    // The reference defers the layer reset to avoid CodeMirror blocking the next input focus.
     setTimeout(() => {
       setActivationEvent(null);
       setLiveIsInitialized(false);
@@ -183,6 +189,8 @@ export function ItemNameEditor(props: ItemNameEditorProps) {
   );
 }
 
+// Package-owned typed rows reserve their label's logical end for the B3 help disclosure without
+// adding that layout-only concern to the public ItemNameEditor props.
 export function BuiltInItemNameEditor(
   props: ItemNameEditorProps & { reserveEndControlSpace: boolean },
 ) {
@@ -338,7 +346,8 @@ function LiveItemNameEditor({
   errorId: string | undefined;
 }) {
   const host = useWorkspaceHost();
-
+  // The same canvas-owned tooltip parent every editor of this host uses. The reference's own name
+  // input names it too, and a name editor sits inside the same clipped section box a field does.
   const tooltipParent = useCodeMirrorTooltipParent();
   const extensions = [
     ...getTextValueExtensions({

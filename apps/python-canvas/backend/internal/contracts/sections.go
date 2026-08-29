@@ -13,12 +13,15 @@ const (
 	DictionaryEntryKindParentV2 DictionaryEntryKindV2 = "parent"
 )
 
+// ParameterDictionaryV2 is one typed authored dictionary section.
 type ParameterDictionaryV2 struct {
 	ID      string              `json:"id"`
 	Name    string              `json:"name"`
 	Entries []DictionaryEntryV2 `json:"entries"`
 }
 
+// DictionaryEntryV2 is a recursive discriminated transport union. A leaf has
+// only authoredExpression; a parent has only children.
 type DictionaryEntryV2 struct {
 	Kind               DictionaryEntryKindV2
 	ID                 string
@@ -193,6 +196,7 @@ func requireExactJSONFields(fields map[string]json.RawMessage, expected ...strin
 	return nil
 }
 
+// ListV2 is one authored List of Objects section and its ordered child IDs.
 type ListV2 struct {
 	ID              string   `json:"id"`
 	Name            string   `json:"name"`
@@ -251,6 +255,7 @@ type DecrementListChildrenRequestV2 struct {
 	Count            int    `json:"count"`
 }
 
+// ListChildrenV2 owns one list's children in a complete forest proposal.
 type ListChildrenV2 struct {
 	ListID          string   `json:"listId"`
 	ChildSectionIDs []string `json:"childSectionIds"`

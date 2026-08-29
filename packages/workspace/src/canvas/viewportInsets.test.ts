@@ -41,6 +41,8 @@ describe("workspace viewport insets", () => {
     ).toEqual({ x: 200, y: 10, width: 500, height: 570 });
   });
 
+  // The compact host: the open pane spans the canvas between the two rails, so there is no
+  // unobscured area to frame content against and the canvas itself is the framing area.
   it("returns the whole canvas when open panes leave no unobscured area", () => {
     expect(
       getVisibleCanvasRect(

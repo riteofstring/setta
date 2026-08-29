@@ -1,3 +1,4 @@
+// Package contracts owns the closed V2 transport contract for Python Canvas.
 package contracts
 
 import (
@@ -34,6 +35,8 @@ const (
 	MaxTerminalDimensionV2             = terminalbounds.MaximumDimension
 )
 
+// ProjectSnapshotV2 is the complete canonical response used by every V2
+// mutation and by the sole project/readiness endpoint.
 type ProjectSnapshotV2 struct {
 	Version               string                  `json:"version"`
 	Project               ProjectV2               `json:"project"`
@@ -76,6 +79,9 @@ const (
 	ParameterPassingStyleVariadicKeywordV2     ParameterPassingStyleV2 = "variadic_keyword"
 )
 
+// ParameterV2 keeps provider-owned metadata explicit. A nil providerOrdinal
+// is the sole marker for an app-authored record; clients never infer it from
+// an ID or position.
 type ParameterV2 struct {
 	ID                 string                  `json:"id"`
 	Name               string                  `json:"name"`
@@ -88,6 +94,7 @@ type ParameterV2 struct {
 	UI                 ParameterUIV2           `json:"ui"`
 }
 
+// ByteRangeV2 is a half-open UTF-8 byte range into GeneratedCodeV2.Code.
 type ByteRangeV2 struct {
 	Start int `json:"start"`
 	End   int `json:"end"`
@@ -155,6 +162,9 @@ type CreateCallableRequestV2 struct {
 	Name             string `json:"name"`
 }
 
+// CreateConfiguredCallableRequestV2 creates a callable, resolves its
+// provider-owned signature, and applies values by exact parameter name as one
+// expected-revision mutation. Parameter metadata remains server-owned.
 type CreateConfiguredCallableRequestV2 struct {
 	ProjectID          string            `json:"projectId"`
 	ExpectedRevision   int               `json:"expectedRevision"`
@@ -211,6 +221,9 @@ type CallableCompletionRequestV2 struct {
 	CursorOffsetUTF16  int    `json:"cursorOffsetUtf16"`
 }
 
+// UTF16RangeV2 carries the UI's already-mapped protected range for a complete
+// target draft. It is intentionally distinct from the UTF-8 byte ranges in a
+// canonical snapshot.
 type UTF16RangeV2 struct {
 	Start int `json:"start"`
 	End   int `json:"end"`
@@ -252,6 +265,8 @@ const (
 	APIErrorCodeInternalV2              APIErrorCodeV2 = "internal"
 )
 
+// APIErrorV2 is closed by its code. Revision fields are present only for the
+// revision_conflict variant.
 type APIErrorV2 struct {
 	Code             APIErrorCodeV2 `json:"code"`
 	Message          string         `json:"message"`
@@ -263,6 +278,8 @@ type ErrorResponseV2 struct {
 	Error APIErrorV2 `json:"error"`
 }
 
+// ValidationError points to one malformed transport field without exposing a
+// persistence or provider implementation detail.
 type ValidationError struct {
 	Field   string
 	Problem string
@@ -830,6 +847,8 @@ func isDiagnosticSeverity(severity DiagnosticSeverityV2) bool {
 	}
 }
 
+// FixtureProjectSnapshotV2 is intentionally a blank general project. It is a
+// generated-contract fixture, not startup data or a product fallback.
 func FixtureProjectSnapshotV2() ProjectSnapshotV2 {
 	body := "class SettaState:\n    def __init__(state):\n        pass"
 	prefix := ""

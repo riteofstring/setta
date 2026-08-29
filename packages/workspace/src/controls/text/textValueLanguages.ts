@@ -13,6 +13,11 @@ import { toml as tomlMode } from "@codemirror/legacy-modes/mode/toml";
 import type { Extension } from "@codemirror/state";
 import type { highlightTree } from "@lezer/highlight";
 
+// The reference's `codeMirrorLanguages` registry trimmed to the host-declared value languages.
+// The file-path resolution and the JSX/TSX parser variants serve application editors (Git
+// diffs, code files) and stay application-side; the text value editor receives one declared
+// language per control.
+
 const TOML_LANGUAGE = StreamLanguage.define(tomlMode);
 const SHELL_LANGUAGE = StreamLanguage.define(shellMode);
 
@@ -25,8 +30,15 @@ export type TextValueLanguage =
   | "toml"
   | "markdown";
 
+// The built-in code section's editor vocabulary. The reference declares `bash` in its code
+// language enum but registers no CodeMirror mode for it, so a bash code section renders
+// unhighlighted there. Package-only design decision: bash highlights through the legacy shell
+// stream mode from the already-pinned `@codemirror/legacy-modes`, the same package and shape
+// the reference already uses for TOML. Item value controls keep their own narrower vocabulary.
 export type WorkspaceEditorLanguage = TextValueLanguage | "bash";
 
+// Structural stand-in for the reference's `CodeMirrorParserLike`: the tree type rides
+// `highlightTree`'s own signature so the package declares no extra `@lezer` module.
 export type TextValueParserLike = {
   parse: (input: string) => Parameters<typeof highlightTree>[0];
 };

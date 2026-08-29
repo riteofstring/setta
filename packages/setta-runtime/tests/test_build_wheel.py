@@ -8,11 +8,13 @@ from pathlib import Path
 from unittest import mock
 
 TEST_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime"))
 sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "scripts"))
 sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "src"))
 
-import build_setta_wheel
 from setta.runtime import RuntimeTarget
+
+from scripts import build_setta_wheel
 
 
 class WheelBuildContractTests(unittest.TestCase):

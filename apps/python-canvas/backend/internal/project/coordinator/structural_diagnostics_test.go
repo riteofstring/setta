@@ -423,6 +423,8 @@ func TestCoordinatorCloseCancelsHeldDiagnosticsWhileSynchronousMutationWaits(t *
 		closed <- coordinator.Close()
 	}()
 
+	// The second held request can only begin after Close cancels the background
+	// request that held providerMu while the rename holds coordinator.mu.
 	provider.awaitStarted(t)
 	provider.releaseSuccess("Renamed diagnostics.")
 	select {

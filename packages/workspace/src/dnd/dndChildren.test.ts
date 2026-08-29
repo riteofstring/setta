@@ -39,6 +39,7 @@ describe("dndChildren state", () => {
   });
 
   it("builds parent and reverse-child maps from section children", () => {
+    // Validates map hydration from canonical parent->children input.
     updateDndChildren(host, {
       parentA: ["child1", "child2"],
       parentB: ["child3"],
@@ -57,6 +58,7 @@ describe("dndChildren state", () => {
   });
 
   it("moves a child between parents at a specific index", () => {
+    // Validates add operation performs remove + indexed insert + reverse map update.
     updateDndChildren(host, {
       parentA: ["child1", "child2"],
       parentB: ["child3"],
@@ -71,6 +73,7 @@ describe("dndChildren state", () => {
   });
 
   it("removes a child from its current parent", () => {
+    // Validates removal updates both parent children and reverse map.
     updateDndChildren(host, {
       parentA: ["child1", "child2"],
     });
@@ -83,6 +86,7 @@ describe("dndChildren state", () => {
   });
 
   it("replaces dragged sections with a temporary placeholder", () => {
+    // Validates grouped drag placeholder insertion and stale temp cleanup.
     const staleTempId = getDndSectionId("stale");
     updateDndChildren(host, {
       parentA: ["a", "b", "c"],

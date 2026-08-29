@@ -330,7 +330,9 @@ func normalizeForcedCapture(capture outputCapture, forced bool) outputCapture {
 	if !forced {
 		return capture
 	}
-
+	// The runner intentionally closed this stream after the bounded drain grace.
+	// Record the incomplete capture without treating that known close as an I/O
+	// failure; unsolicited closed-pipe errors still remain observable.
 	capture.truncated = true
 	if errors.Is(capture.err, os.ErrClosed) || errors.Is(capture.err, io.ErrClosedPipe) {
 		capture.err = nil

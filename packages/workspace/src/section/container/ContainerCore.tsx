@@ -34,6 +34,11 @@ import { useSectionRefAndInit } from "../sectionRefs";
 export type SectionDragListeners = React.HTMLAttributes<HTMLDivElement>;
 export type SectionDragRef = (element: Element | null) => void;
 
+// The reference's `ContainerCore`: the leaf wrapper div and the group chrome. A group paints
+// its frame and selection outline on an absolutely positioned sibling layer, so selection never
+// shifts group layout. The section element merges three ref systems (positional registry, dnd
+// droppable, dnd draggable) and spreads the mode-gated drag listeners over its whole surface.
+// Bounded overflow is restored here; the application-only view-mode props remain excluded.
 function ContainerComponent({
   isGroup,
   sectionId,
@@ -82,7 +87,7 @@ function ContainerComponent({
       className={`${className ?? ""} focus-visible:outline-none`}
       style={style}
       {...commonProps}
-      tabIndex={-1}
+      tabIndex={-1} // keeps section focusable for programmatic focus
     >
       {children}
     </div>
@@ -129,6 +134,9 @@ function ContainerGroup({
   const groupStyle = getGroupStyle(style, overflowMode, section.size);
   const contentClassName = getContentClassName(overflowMode, isScrollable);
 
+  // The reference activates sections through its app-level shortcut engine; the package keeps
+  // keyboard activation on the group itself for the repository's accessibility gate. The group
+  // role leaves its title and header buttons exposed to assistive technology.
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (
       event.target === event.currentTarget &&
@@ -173,6 +181,7 @@ function ContainerGroup({
     );
   }
 
+  // This surface owns pointer and programmatic-focus activation without hiding its real controls.
   return (
     <div
       className={getGroupRootClassName(overflowMode, className)}
@@ -183,7 +192,7 @@ function ContainerGroup({
       role="group"
       aria-label={`${section.name} group section${isActiveSection ? ", selected" : ""}`}
       aria-keyshortcuts="Enter Space Shift+F10 ContextMenu"
-      tabIndex={-1}
+      tabIndex={-1} // keeps section focusable for programmatic focus
       style={groupStyle}
       data-group-overflow-mode={overflowMode ? "bounded" : "auto"}
     >
@@ -205,6 +214,9 @@ function ContainerGroup({
 }
 
 function getPointerSelectClassName(disablePointerEvents: boolean) {
+  // Apply this only to the group title.
+  // For sections, this is applied in SectionContainerCore.
+  // We want to apply this lower down in the component tree, because dnd needs onPointerDown to work.
   return disablePointerEvents ? "pointer-events-none select-none" : "";
 }
 

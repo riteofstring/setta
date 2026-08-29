@@ -21,6 +21,9 @@ type linuxTerminalProcessSnapshot struct {
 	startTime uint64
 }
 
+// terminalProcessSnapshots reads Linux's fixed procfs boundary. The stat
+// session ID is only a snapshot filter; unix.Getsid revalidates every member
+// immediately before any signal is sent.
 func terminalProcessSnapshots() ([]terminalProcessSnapshot, error) {
 	linuxSnapshots, err := linuxTerminalProcessSnapshots()
 	return terminalProcessSnapshotsFromLinux(linuxSnapshots), err
@@ -89,7 +92,8 @@ func parseLinuxTerminalProcessStat(contents []byte) (linuxTerminalProcessSnapsho
 		return linuxTerminalProcessSnapshot{}, errors.New("missing process name terminator")
 	}
 	fields := strings.Fields(value[lastParenthesis+1:])
-
+	// Fields after the parenthesized command begin with state, PPID, process
+	// group, and session ID. A command may itself contain spaces or parentheses.
 	if len(fields) < 20 {
 		return linuxTerminalProcessSnapshot{}, errors.New("missing process state fields")
 	}
@@ -181,6 +185,10 @@ func terminalSnapshotDescendsFrom(
 	}
 }
 
+// signalTerminalSessionMember sends through a pidfd rather than a reusable PID.
+// We require the same Linux process start time and containment membership before
+// and after opening the pidfd, so a root that exits during cleanup cannot cause
+// a later unrelated PID to receive a terminal signal.
 func signalTerminalSessionMember(
 	pid int,
 	sessionID int,
@@ -204,7 +212,9 @@ func openTerminalProcessPIDFD(pid int) (int, bool, error) {
 		return process, true, nil
 	}
 	if errors.Is(err, unix.ESRCH) || terminalPIDFDUnavailable(err) {
-
+		// Older supported Linux kernels lack pidfd_open. After the direct shell
+		// is reaped, the subreaper fallback signals and waits its stable direct
+		// children without PID-reuse risk.
 		return 0, false, nil
 	}
 	return 0, false, fmt.Errorf("open terminal process pidfd: %w", err)

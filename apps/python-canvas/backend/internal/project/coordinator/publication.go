@@ -2,6 +2,10 @@ package coordinator
 
 import "sync"
 
+// SubscribeSnapshots returns a latest-value stream of canonical publications.
+// The first value is always the current snapshot, so a client that reconnects
+// catches up without polling or replay bookkeeping. Slow subscribers may skip
+// superseded intermediate publications but always retain the newest value.
 func (coordinator *Coordinator) SubscribeSnapshots() (<-chan Snapshot, func()) {
 	stream := make(chan Snapshot, 1)
 	if coordinator == nil {
@@ -37,6 +41,8 @@ func (coordinator *Coordinator) SubscribeSnapshots() (<-chan Snapshot, func()) {
 	}
 }
 
+// publishSnapshotLocked offers one independent clone to every subscriber. The
+// coordinator mutation lock must be held by the caller.
 func (coordinator *Coordinator) publishSnapshotLocked() {
 	for _, subscriber := range coordinator.snapshotSubscribers {
 		snapshot := coordinator.snapshot.Clone()

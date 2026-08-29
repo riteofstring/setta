@@ -5,6 +5,10 @@ import { useWorkspaceAppearance } from "../document/stores";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import MiniMap from "./MiniMap";
 
+// The reference's `components/Pages/Project/ResponsiveMiniMap.tsx`: `minimapSide` flips the panel
+// between bottom corners and the shell's physical pane insets keep it inside the unobscured map.
+// The reference node color branches for legacy xyflow "input"/"output"/"default" node types are
+// unreachable (no Setta section carries those types) and were cut at extraction.
 export function ResponsiveMiniMap() {
   const host = useWorkspaceHost();
   const darkMode = useWorkspaceAppearance((x) => x.darkMode);

@@ -6,9 +6,10 @@ import unittest
 from pathlib import Path
 
 TEST_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime"))
 sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "scripts"))
 
-from check_runtime_boundary import (
+from scripts.check_runtime_boundary import (
     MAX_PRODUCTION_COMPLEXITY,
     check_complexity,
     check_import_boundaries,

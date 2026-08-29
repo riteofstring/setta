@@ -31,6 +31,11 @@ import { useDndState } from "./dndState";
 import { BehaviorDropTypeEnum } from "./dropTypes";
 import { getBehaviorDropType, getOverId } from "./useDropType";
 
+// The reference's suite also freezes its app-only drop rules (code/terminal attachment,
+// frozen variants, the global-variables singleton, top-level-only workflow shells); those rules
+// left with their features, so the package suite freezes the two package-side rules — declared
+// containers nest, and never into the dragged selection — plus the over-id resolution.
+
 type SectionSpec = {
   id: string;
   kind?: string;
@@ -179,6 +184,7 @@ describe("getBehaviorDropType", () => {
   });
 
   it("rejects drop targets that are not groups", () => {
+    // Validates parent-kind guard for non-container section kinds.
     seedDocument([{ id: "leaf-parent" }, { id: "dragged" }]);
 
     expect(
@@ -187,6 +193,7 @@ describe("getBehaviorDropType", () => {
   });
 
   it("rejects dropping into descendants of selected sections", () => {
+    // Validates cycle-prevention guard when target is under dragged selection.
     seedDocument([
       { id: "parent", kind: GROUP_SECTION_KIND, children: ["child"] },
       { id: "child", kind: GROUP_SECTION_KIND },
@@ -198,6 +205,7 @@ describe("getBehaviorDropType", () => {
   });
 
   it("rejects dropping a multi-selection into one of its descendants", () => {
+    // Validates the dragging-ids selection feeds the descendant guard.
     seedDocument([
       { id: "parent", kind: GROUP_SECTION_KIND, children: ["child"] },
       { id: "child", kind: GROUP_SECTION_KIND },
@@ -221,6 +229,7 @@ describe("getOverId", () => {
   });
 
   it("returns fallback over id when collisions are missing", () => {
+    // Validates fallback behavior from raw over target.
     expect(getOverId(testWorkspace.host, { id: "fallback" }, null)).toBe(
       "fallback",
     );
@@ -228,6 +237,7 @@ describe("getOverId", () => {
   });
 
   it("prefers child collision over parent based on dndChildren mapping", () => {
+    // Validates live parent/child store integration in over-id resolution.
     updateDndChildren(testWorkspace.host, {
       parent: ["child"],
     });

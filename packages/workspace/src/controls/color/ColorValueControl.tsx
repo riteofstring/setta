@@ -13,6 +13,23 @@ import {
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
 
+// The item-controls milestone's color picker: the reference `ColorPickerInput` at the `ParamUI`
+// color presentation. With host-supplied choices it renders the recorded trigger — the rounded
+// swatch, auto-contrast label, and chevron — over a portaled listbox of 16 px round swatches;
+// without choices it renders the recorded native color input behind the eyedropper glyph. The
+// reference's choice-configuration editor, theme-override props, and `onCommit` transport stay
+// application-side; every pick reports once through the controlled string seam at the
+// reference's cadence (each native input gesture, each listbox selection). The control
+// disables from the host flag and, package-wide, while item-select mode is active.
+//
+// Two reference literals are trimmed where this build compiles nothing for them: the trigger's
+// `colorpicker` hook (only the reference's draw-area/meta-control surfaces target it) and
+// inert tokens that emit no CSS in either build (`min-w-0s`, and the label's
+// `@[90px]:inline-block`, whose container query never matches on the params path because no
+// ancestor establishes a container). Unlike the reference, the wrapper carries the package
+// no-drag boundary: the milestone requires that editing never starts a section drag, and the
+// package's drag filter exempts only that class.
+
 export type ColorValueChoice = {
   color: string;
   description: string;
@@ -28,6 +45,8 @@ export type ColorValueControlProps = {
   disabled?: boolean;
 };
 
+// The `ParamUI` placement wrapper and trigger literals plus the reference's default theme
+// class strings.
 const WRAPPER_CLASS_NAME = `${NO_DRAG_CLASS_NAME} section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0`;
 const CHOICES_TRIGGER_CLASS_NAME =
   "flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container h-full min-h-0 w-full min-w-0 items-center text-white";
@@ -39,10 +58,15 @@ const MENU_ITEM_CLASS_NAME =
   "flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700";
 const MENU_ITEM_TEXT_CLASS_NAME =
   "max-w-48 truncate text-xs text-setta-500 dark:text-setta-300";
-
+// The package-only reset marker recreates main's global input reset without touching controls
+// supplied through the host renderer seam. The native-color marker scopes main's root
+// color-swatch normalization to this package-owned input; the remaining classes are the native
+// path verbatim.
 const NATIVE_INPUT_CLASS_NAME =
   "setta-workspace-native-reset setta-workspace-native-color single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid !border-setta-500/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 dark:!border-setta-500/40";
 
+// The reference's auto-contrast paint: the swatch color as background, flipped to black or
+// white text by perceptual lightness (from https://codepen.io/devongovett/pen/QwLbRrW).
 function getAutoContrastStyle(color: string) {
   return {
     "--bg": color,
@@ -58,6 +82,7 @@ function resolveSelectedChoice(
   const selected =
     choices.find((choice) => choice.color === color) ?? choices[0];
   if (!selected) {
+    // Unreachable from the control: the choices path only renders when choices exist.
     throw new Error(
       "The color control cannot resolve a choice from an empty choice list.",
     );
@@ -129,7 +154,11 @@ function NativeColorPicker({
         id={`${getWorkspaceHostDomId(host)}-${sectionId}-${itemId}-ColorValueInput`}
         type="color"
         value={value}
-
+        // The reference binds both `onInput` and React's `onChange` to the same native input
+        // events, double-reporting each gesture into its idempotent app seam. The package seam
+        // specifies one report per edit, so the control binds only React's value-tracked
+        // `onChange`, which fires once per native input gesture and on the dialog's closing
+        // change event when no input event already carried its value.
         onChange={(e) => onValueChange(e.target.value)}
         className={NATIVE_INPUT_CLASS_NAME}
         disabled={isDisabled}

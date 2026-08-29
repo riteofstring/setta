@@ -54,6 +54,8 @@ func main() {
 	}
 }
 
+// serveOptions is the private native-server invocation received only from the
+// packaged Setta adapter. The public machine-facing commands live in cli.
 type serveOptions struct {
 	Port            uint16
 	ProjectPath     string
@@ -90,7 +92,8 @@ func runCommand(ctx context.Context, arguments []string, start serviceStarter, o
 		_, _ = fmt.Fprintln(writer, "Usage: python-canvas {schema|snapshot|apply|run} ...")
 		return 0
 	}
-
+	// Preserve the CLI's typed unknown-command response while rejecting every
+	// historical implicit server-startup form.
 	return cli.Run(ctx, arguments, options)
 }
 
@@ -98,6 +101,9 @@ func isRootHelp(arguments []string) bool {
 	return len(arguments) == 1 && (arguments[0] == "--help" || arguments[0] == "-h" || arguments[0] == "help")
 }
 
+// run parses only the package-private `serve` command. A server can never be
+// started implicitly by root-level flags, which prevents an accidental public
+// compatibility surface from reappearing as more Setta apps are added.
 func run(ctx context.Context, arguments []string, start serviceStarter) error {
 	if len(arguments) == 0 || arguments[0] != "serve" {
 		return fmt.Errorf("python-canvas requires the private serve command")

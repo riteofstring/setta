@@ -7,6 +7,10 @@ import {
   setSelfParentSiblingChildrenWidths,
 } from "./sectionSizes";
 
+// Characterizes the reference's width-propagation walk: the climb continues only while the
+// current section is a nested vertical group, then every descendant of the highest such
+// ancestor receives the width (excluding the resized section, which already has it).
+
 function makeSection(
   id: string,
   overrides: Partial<WorkspaceSection> = {},
@@ -60,6 +64,7 @@ describe("setSelfParentSiblingChildrenWidths", () => {
       },
     );
 
+    // The reference's predicate walk stops immediately for a leaf: only itself updates.
     expect(updatedSectionSizes).toEqual({
       "leaf-a": { width: 240, height: 50 },
     });
@@ -117,6 +122,7 @@ describe("setSelfParentSiblingChildrenWidths", () => {
       },
     );
 
+    // A horizontal group does not climb to its parent; its own subtree still updates.
     expect(Object.keys(updatedSectionSizes).sort()).toEqual([
       "inner",
       "inner-leaf",

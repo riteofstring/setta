@@ -6,6 +6,8 @@ export type WorkspaceSectionTagColorChoice = Readonly<WorkspaceColorChoice>;
 export type WorkspaceSectionTagColorPalette =
   ReadonlyArray<WorkspaceSectionTagColorChoice>;
 
+// Frozen main's SettingsGUI.sectionTagColorChoices defaults. Category persistence and editing stay
+// host-owned; this immutable value is the package's batteries-included Inspector palette.
 export const DEFAULT_SECTION_TAG_COLOR_PALETTE: WorkspaceSectionTagColorPalette =
   Object.freeze(
     [
@@ -39,6 +41,9 @@ export function normalizeSectionTagColor(
   return value === null ? null : normalizeHexColor(value, subject);
 }
 
+// WorkspaceShell is the public input boundary. It validates and freezes the complete replacement
+// palette before any built-in pane consumes it, so malformed or duplicate host categories never
+// turn into an ambiguous select state.
 export function resolveSectionTagColorPalette(
   palette: WorkspaceSectionTagColorPalette | undefined,
 ): WorkspaceSectionTagColorPalette {

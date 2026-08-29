@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
-from setta_wheel_smoke.models import (
+from .models import (
     AMBIENT_RUNTIME_TOOL_KEYS,
     APP_SESSION_FORCE_SETTLE_SECONDS,
     APP_SESSION_GRACE_SECONDS,
@@ -268,8 +268,8 @@ class ForegroundOpen:
                     process_failure_message(
                         self.command,
                         returncode,
-                        self.stdout.bytes(),
-                        self.stderr.bytes(),
+                        self.stdout.content(),
+                        self.stderr.content(),
                     )
                 )
             remaining = deadline - time.monotonic()
@@ -309,8 +309,8 @@ class ForegroundOpen:
         return ProcessResult(
             command=self.command,
             returncode=returncode,
-            stdout=self.stdout.bytes(),
-            stderr=self.stderr.bytes(),
+            stdout=self.stdout.content(),
+            stderr=self.stderr.content(),
         )
 
     def terminate(self) -> None:
@@ -387,21 +387,53 @@ def run_process(
     stderr = BoundedBytes(MAX_PROCESS_OUTPUT_BYTES)
     stdout_thread = start_reader(require_pipe(process.stdout, "stdout"), stdout)
     stderr_thread = start_reader(require_pipe(process.stderr, "stderr"), stderr)
-    deadline = time.monotonic() + timeout
-    failure: SmokeError | None = None
-    while process.poll() is None:
-        if stdout.exceeded or stderr.exceeded:
-            failure = SmokeError(f"{label} exceeded the bounded process output limit")
-            break
-        if time.monotonic() >= deadline:
-            failure = SmokeError(f"{label} exceeded its timeout")
-            break
-        time.sleep(0.02)
+    failure = _monitor_process(
+        process, stdout, stderr, time.monotonic() + timeout, label
+    )
     if failure is not None:
         terminate_process_tree(process)
     else:
         process.wait()
-    for thread in (stdout_thread, stderr_thread):
+    _close_process_output(process, (stdout_thread, stderr_thread))
+    if failure is None and (stdout.exceeded or stderr.exceeded):
+        failure = SmokeError(f"{label} exceeded the bounded process output limit")
+    if failure is not None:
+        raise failure
+    returncode = process.returncode
+    if returncode is None:
+        raise SmokeError(f"{label} ended without a process status")
+    result = ProcessResult(
+        tuple(command), returncode, stdout.content(), stderr.content()
+    )
+    if returncode not in allowed_returncodes:
+        raise SmokeError(
+            process_failure_message(
+                result.command, returncode, result.stdout, result.stderr
+            )
+        )
+    return result
+
+
+def _monitor_process(
+    process: subprocess.Popen[bytes],
+    stdout: BoundedBytes,
+    stderr: BoundedBytes,
+    deadline: float,
+    label: str,
+) -> SmokeError | None:
+    while process.poll() is None:
+        if stdout.exceeded or stderr.exceeded:
+            return SmokeError(f"{label} exceeded the bounded process output limit")
+        if time.monotonic() >= deadline:
+            return SmokeError(f"{label} exceeded its timeout")
+        time.sleep(0.02)
+    return None
+
+
+def _close_process_output(
+    process: subprocess.Popen[bytes], threads: Sequence[threading.Thread]
+) -> None:
+    for thread in threads:
         thread.join(timeout=2.0)
     for stream in (process.stdout, process.stderr):
         if stream is None:
@@ -410,21 +442,6 @@ def run_process(
             stream.close()
         except OSError:
             continue
-    if failure is None and (stdout.exceeded or stderr.exceeded):
-        failure = SmokeError(f"{label} exceeded the bounded process output limit")
-    if failure is not None:
-        raise failure
-    returncode = process.returncode
-    if returncode is None:
-        raise SmokeError(f"{label} ended without a process status")
-    result = ProcessResult(tuple(command), returncode, stdout.bytes(), stderr.bytes())
-    if returncode not in allowed_returncodes:
-        raise SmokeError(
-            process_failure_message(
-                result.command, returncode, result.stdout, result.stderr
-            )
-        )
-    return result
 
 
 def popen(

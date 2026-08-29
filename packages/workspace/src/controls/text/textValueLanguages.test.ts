@@ -5,6 +5,9 @@ import {
   type TextValueLanguage,
 } from "./textValueLanguages";
 
+// Ported from the reference's `codeMirrorLanguages.test.ts`, trimmed like the registry: the
+// file-path resolution cases stayed application-side with that capability.
+
 const SLICE_LANGUAGES: Array<TextValueLanguage> = [
   "python",
   "typescript",

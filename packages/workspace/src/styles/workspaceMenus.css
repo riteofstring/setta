@@ -1,3 +1,6 @@
+/* Frozen main's shared context-menu core and pane-menu list, scoped to the package's portaled
+ * menu surface. The package keeps the same compact visible geometry while adding semantic
+ * Radix focus ownership and viewport-relative placement. */
 .setta-workspace-menu {
   position: fixed;
   z-index: 300;

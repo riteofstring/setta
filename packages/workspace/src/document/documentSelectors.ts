@@ -5,6 +5,9 @@ import {
 import type { WorkspaceSection, WorkspaceSectionItemTree } from "./types";
 import type { WorkspaceHost } from "../workspaceHost";
 
+// The package equivalent of the reference's `SectionTypeEnum.Group`: groups are the one
+// package-owned section kind (nested children, orientation, group chrome). Every other kind is
+// host-registered and rendered through the content seam.
 export const GROUP_SECTION_KIND = "group";
 
 export function isGroupSection(
@@ -35,6 +38,7 @@ export function getSectionItemTreeOrThrow(
   return itemTree;
 }
 
+// The reference's `getHasSelectedParams` answers false for section types without params.
 export function getSectionHasSelectedItems(
   state: WorkspaceDocumentState,
   sectionId: string,
@@ -45,6 +49,9 @@ export function getSectionHasSelectedItems(
   );
 }
 
+// Only true top-level sections render as canvas nodes. A loaded document may carry a stale
+// layout entry for a section that currently has a parent; the entry is ignored here and, as in
+// the reference, purged at the first layout write (`commitTopLevelLayoutToDocument`).
 export function getTopLevelSectionIdsForDisplay(
   state: WorkspaceDocumentState,
 ): Array<string> {
@@ -61,6 +68,9 @@ export function getSectionChildren(
   return getSectionOrThrow(state, sectionId).children;
 }
 
+// The reference resolves this through the variant indirection (`getSectionIsHorizontalOrientation`
+// in `state/actions/sectionInfos.ts`); the package reads the resolved section. Non-groups are
+// never horizontal, exactly as the reference answers for non-group section types.
 export function getSectionIsHorizontalOrientation(
   host: WorkspaceHost,
   sectionId: string,

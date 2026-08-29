@@ -11,14 +11,14 @@ import urllib.request
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 
-from setta_wheel_smoke.inspection import inspect_wheel
-from setta_wheel_smoke.lifecycle import (
+from .inspection import inspect_wheel
+from .lifecycle import (
     FailureCapture,
     assert_server_unavailable,
     assert_session_cleanup,
     cleanup_live_server,
 )
-from setta_wheel_smoke.models import (
+from .models import (
     APP_ID,
     APPLIED_PROJECT_NAME,
     COMMAND_TIMEOUT_SECONDS,
@@ -53,7 +53,7 @@ from setta_wheel_smoke.models import (
     validate_exact_loopback_origin,
     validate_http_url,
 )
-from setta_wheel_smoke.process import (
+from .process import (
     ForegroundOpen,
     assert_no_retired_alias,
     install_environment,
@@ -676,8 +676,13 @@ def assert_clean_launcher_report(value: object, launcher_python: Path) -> None:
     executable = report.get("executable")
     prefix = report.get("prefix")
     base_prefix = report.get("basePrefix")
-    if not all(
-        isinstance(path, str) and path for path in (executable, prefix, base_prefix)
+    if (
+        not isinstance(executable, str)
+        or not executable
+        or not isinstance(prefix, str)
+        or not prefix
+        or not isinstance(base_prefix, str)
+        or not base_prefix
     ):
         raise SmokeError("clean-launcher fallback report has invalid paths")
     expected_root = launcher_python.parent.parent.resolve(strict=True)

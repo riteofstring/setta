@@ -10,6 +10,10 @@ function isValidOverflowSize(
   );
 }
 
+// One document-layer validator owns the serialized group overflow invariant. Main keeps overflow
+// mode enabled when a resize-handle reset returns either dimension to auto, so the mode and each
+// dimension are intentionally independent. Numeric dimensions remain concrete bounds while auto
+// dimensions retain intrinsic sizing across reloads.
 export function assertValidSectionOverflowMode(
   sectionId: string,
   section: WorkspaceSection,

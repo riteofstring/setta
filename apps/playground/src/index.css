@@ -3,6 +3,8 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Host-page context mirroring the frozen reference's body rendering environment
+ * (system font stack and workspace background colors from index.css at 043d3b2e9). */
 body {
   margin: 0;
   font-family:
@@ -712,6 +714,11 @@ html.dark .playground-section-option-control {
   }
 }
 
+/* The frozen host's scrollbar treatment (index.css at 043d3b2e9), copied verbatim including the
+ * Firefox-only body overflow line. Styling ::-webkit-scrollbar opts Chromium out of overlay
+ * scrollbars, so every scrollable descendant reserves the 6 px gutter inside its border box —
+ * the package's 550 px scroll shell yields main's 544 px client width. Host presentation
+ * context only; the package stylesheet ships no scrollbar policy. */
 @supports (-moz-appearance: none) {
   body {
     scrollbar-width: thin;

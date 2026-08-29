@@ -10,6 +10,9 @@ import {
   performanceProfileDocument,
 } from "./performanceProfileDocument";
 
+// Production-only-by-query profiling host. It composes the same package canvas, controls,
+// minimap, tooltip, registered leaf renderer, compiled stylesheet, and host chrome as the normal
+// playground while removing unrelated control fixtures from the measured document.
 export function PerformanceProfileApp() {
   const host = useWorkspaceHost();
   return (

@@ -3,6 +3,10 @@ import path from "node:path";
 
 import { repositoryRoot } from "./lib/process.mjs";
 
+// Setta-specific package contract that remains after Code Polishy takes ownership of source import
+// direction and declared dependency use. The package exposes only compiled exports, avoids alias
+// escape hatches, keeps its unrelated-consumer fixture explicit, and emits the exact artifact
+// surface and scoped stylesheet consumers require.
 const packageRootRelative = "packages/workspace";
 const packageRoot = path.join(repositoryRoot, packageRootRelative);
 const checkBuilt = process.argv.includes("--built");
@@ -112,7 +116,9 @@ function validateBuiltEntry() {
           `dist/index.js: bundled output must not import by path: ${specifier}`,
         ];
       }
-
+      // The package delivers one stylesheet. A dependency's CSS reaching the entry would make
+      // every consumer resolve that stylesheet and its fonts, and would ship it even to a host
+      // that registers neither built-in content section.
       if (specifier.endsWith(".css")) {
         return [
           `dist/index.js: bundled output must not import dependency CSS: ${specifier}`,
@@ -148,6 +154,8 @@ function validateBuiltStylesheet() {
   }
   const contents = readFileSync(stylesheetPath, "utf8");
   const requiredMarkers = [
+    // The scoped Preflight subset and the specificity-doubled reset-zoom rule must survive
+    // compilation; both are cascade-critical (scopedBase.css, commit ae1e8c3b6).
     [":where(.setta-workspace, .setta-workspace *)", "scoped base subset"],
     [":where(.setta-workspace) :where(dl, dd)", "scoped dropdown-list reset"],
     [
@@ -162,21 +170,29 @@ function validateBuiltStylesheet() {
       ".react-flow__controls-button.react-flow__controls-button",
       "reset-zoom control rule",
     ],
-
+    // Registered bodies are placed by the package-owned content slot. The rule must still ship
+    // unconditionally: the Phase 2 Setta-integration render proof caught its earlier layered form
+    // being tree-shaken out of the packed artifact.
     [".section-full-no-title", "registered content-slot rule"],
-
+    // The nested item grid contract: the Phase 4 gate rejection caught the compiled sheet
+    // shipping the nested placement vocabulary without these named grids, which collapsed a
+    // group's children into an implicit side column beside the group label.
     [".section-args-nested {", "nested item grid rule"],
     [".section-args-nested-key-value {", "nested-root item grid rule"],
     [
       String.raw`.\[\&\>p\]\:section-key-value > p`,
       "group-label placement rule",
     ],
-
+    // Frozen main's ordinary slider keeps its numeric field hidden until the value-column
+    // container reaches 132 px. The class tokens can survive source tests while the compiled
+    // container rules are absent, so lock the actual package artifact that consumers receive.
     ["container-name: slider;", "slider container-query root"],
     ["@container slider (min-width: 132px)", "slider numeric-field threshold"],
-
+    // Consumer Preflight can load after this scoped sheet. The unchecked switch track therefore
+    // needs an important utility instead of relying on stylesheet order against `[type=button]`.
     [String.raw`.\!bg-setta-400 {`, "host-resistant unchecked switch paint"],
-
+    // Adaptive hardening must survive Tailwind compilation: source-only class assertions do not
+    // prove that consumers receive motion preferences, coarse hit areas, or the narrow minimap.
     ["@media (prefers-reduced-motion: no-preference)", "motion opt-in query"],
     ["@media (prefers-reduced-motion: reduce)", "reduced-motion override"],
     ["@media (pointer: coarse)", "coarse-pointer hit-area query"],
@@ -185,7 +201,9 @@ function validateBuiltStylesheet() {
       "compact hit-area rule",
     ],
     ["width: min(200px, max(0px, calc(100% - 30px)))", "narrow minimap clamp"],
-
+    // The built-in Text section's rendered surface. Its Markdown presentation compiles from the
+    // typography plugin under the package's own class name, and only the class tokens live in
+    // source, so the shipped rules are the only proof a consumer receives them.
     [
       '.setta-prose :where(table):not(:where([class~="not-setta-prose"] *))',
       "rendered Markdown table rule",
@@ -198,7 +216,9 @@ function validateBuiltStylesheet() {
       String.raw`.setta-prose-h1\:text-\[length\:var\(--setta-workspace-text-h1-size\)\]`,
       "authored Markdown type scale",
     ],
-
+    // KaTeX's presentation is folded in by scripts/compile-katex-styles.mjs rather than imported
+    // by consumers: scoped to the workspace surface, including the equation counters KaTeX resets
+    // on `body`, and carrying its faces inline so no consumer resolves a dependency font.
     [".setta-workspace .katex{", "scoped math surface"],
     [
       ".setta-workspace{counter-reset:katexEqnNo",

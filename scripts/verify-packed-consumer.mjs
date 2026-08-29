@@ -13,6 +13,13 @@ import path from "node:path";
 
 import { repositoryRoot, run, runPnpm } from "./lib/process.mjs";
 
+// Phase 2's packed unrelated-consumer proof: build and pack @setta/workspace, materialize the
+// checked-in fixture (fixtures/packed-consumer) into a temporary directory against the packed
+// tarball, install it under the repository's supply-chain controls, and build it. The fixture
+// consumes only public exports and the compiled stylesheet; this command is a phase-gate
+// check, not part of the routine static quality gate. Pass --keep to retain the installed
+// consumer for developer inspection (`pnpm run preview` inside the kept directory).
+
 const fixtureRoot = path.join(repositoryRoot, "fixtures/packed-consumer");
 const fixtureManifestTemplate = "package.template.json";
 const fixtureWorkspaceTemplate = "pnpm-workspace.template.yaml";

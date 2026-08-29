@@ -87,7 +87,8 @@ export function WorkspacePaneMenu({
           !canEditStructure || (command.isDisabled?.(creationContext) ?? false),
         onSelect: () => {
           const section = command.createSection(creationContext);
-
+          // A pane request always carries the pointer's position; the package resolves a place
+          // only for the requests that have none.
           insertWorkspaceSection(host, section, invocation.workspacePosition);
           getReactFlowStore(host).setState({ nodesSelectionDims: null });
           closeWorkspaceMenu(host);

@@ -6,6 +6,14 @@ import {
 } from "./workspaceKeyBindingRegistry";
 import type { WorkspaceHost } from "../workspaceHost";
 
+// One keydown pass over the bound workspace operations. Registration guarantees at most one
+// binding answers to a chord, so the first match decides the keypress:
+//
+// - inside an editable control, a binding whose chord is a native editing chord stands down and
+//   the caret keeps the keypress;
+// - an auto-repeat keydown re-runs only the operations that accept repeats;
+// - the browser default is suppressed when the operation ran, and otherwise only for a binding
+//   that owns its chord even while declining.
 function runMatchedBinding(
   event: KeyboardEvent,
   binding: ResolvedWorkspaceKeyBinding,

@@ -54,8 +54,10 @@ type WorkspaceInspectorProps = {
 };
 
 export type WorkspaceSectionEditorProps = {
+  // The shell can direct its first programmatic focus to this editor without the host needing
+  // access to the package's selection or focus stores.
   initialFocusRef?: RefObject<HTMLElement | null>;
-
+  // Omit for the package palette. Hosts can provide their complete supported choice set.
   sectionTagColorPalette?: WorkspaceSectionTagColorPalette;
 };
 
@@ -967,6 +969,9 @@ export function WorkspaceInspector({
   );
 }
 
+// A host-composed contextual rail uses this focused subset rather than reproducing package-owned
+// section mutations. Item selection intentionally resolves to its owning section; typed item
+// configuration remains the generic Inspector's separate branch.
 export function WorkspaceSectionEditor({
   initialFocusRef: suppliedInitialFocusRef,
   sectionTagColorPalette,

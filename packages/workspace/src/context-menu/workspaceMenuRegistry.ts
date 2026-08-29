@@ -93,6 +93,13 @@ function validateCreationCommand(
   });
 }
 
+// Like section-kind and item-handler registration, each call replaces the complete host-owned
+// set. Hosts register before mounting the canvas; the package owns the built-in structural items.
+// A creation command carrying a chord is also a key binding, and a creation command can also be a
+// toolbar control, so the whole binding set and the standing toolbar contributions are revalidated
+// against the new catalog before it replaces the old one: a chord that would collide, a rebinding
+// left naming a command this call removes, or a contribution left naming one, fails here rather
+// than at the keypress or on the toolbar.
 export function registerWorkspaceCreationCommands(
   host: WorkspaceHost,
   commands: ReadonlyArray<WorkspaceCreationCommand>,

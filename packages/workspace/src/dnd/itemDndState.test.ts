@@ -8,12 +8,14 @@ import {
 
 describe("itemDndState id helpers", () => {
   it("creates list-key scoped item dnd ids", () => {
+    // Freezes the reference's canonical dnd id encoding for item + list key.
     expect(getItemDndId("item-1", "pinned")).toBe(
       "item-1::settaParamList::pinned",
     );
   });
 
   it("extracts item ids from scoped and temp ids", () => {
+    // Validates reverse decoding strips list key and temp suffixes.
     const scoped = getItemDndId("item-1", "unpinned");
     const temp = getTempItemDndId(scoped);
 
@@ -23,6 +25,7 @@ describe("itemDndState id helpers", () => {
   });
 
   it("identifies temp ids by suffix", () => {
+    // Validates temp-id marker detection used by placeholder logic.
     const scoped = getItemDndId("item-2", "pinned");
     const temp = getTempItemDndId(scoped);
 

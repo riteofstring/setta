@@ -62,6 +62,9 @@ type documentSynchronization struct {
 	alreadyOpen     bool
 }
 
+// Session owns one child language-server process and its JSON-RPC state. One
+// project store serializes mutations, while this type also keeps protocol
+// writes and pending requests safe on their own boundaries.
 type Session struct {
 	options SessionOptions
 
@@ -129,6 +132,9 @@ func NewSession(options SessionOptions) (*Session, error) {
 	}, nil
 }
 
+// Start initializes the shared server independently from the request that
+// happened to trigger startup. A canceled request must not close a session
+// that later requests can use.
 func (session *Session) Start(ctx context.Context) error {
 	if session == nil {
 		return ErrSessionClosed
@@ -313,6 +319,8 @@ func cloneConfiguration(configuration map[string]any) (map[string]any, error) {
 	return cloned, nil
 }
 
+// SynchronizeDocument publishes one exact positive transport version as an LSP
+// document version before a caller requests its diagnostics or language data.
 func (session *Session) SynchronizeDocument(
 	ctx context.Context,
 	path string,
@@ -490,6 +498,9 @@ func (session *Session) Close() error {
 	return nil
 }
 
+// requestStop elects one owner to stop and reap a started command. A terminal
+// stream failure may arrive on the reader goroutine, so the owner always runs
+// independently of that reader rather than waiting for it inline.
 func (session *Session) requestStop(force bool) <-chan struct{} {
 	session.mu.Lock()
 	if session.closed {

@@ -9,6 +9,9 @@ import (
 	"unicode/utf8"
 )
 
+// ParameterUIType is the persisted presentation selected for one callable
+// parameter or Parameter Dictionary leaf. The names intentionally match the
+// product's public UI-type labels.
 type ParameterUIType string
 
 const (
@@ -57,6 +60,8 @@ type DropdownChoiceGroup struct {
 	Choices []string `json:"choices"`
 }
 
+// DropdownUIConfiguration is a strict choice-set union. Exactly one of
+// FlatChoices and GroupedChoices is present, including for an empty set.
 type DropdownUIConfiguration struct {
 	Disabled       bool                   `json:"disabled"`
 	Placeholder    *string                `json:"placeholder"`
@@ -118,6 +123,8 @@ type DropzoneUIConfiguration struct {
 	Policy      DropzonePolicy `json:"policy"`
 }
 
+// ParameterUI is a closed discriminated union. Exactly one configuration
+// pointer matching Type is present; NestedParam has no configuration pointer.
 type ParameterUI struct {
 	Type     ParameterUIType
 	Text     *TextUIConfiguration
@@ -289,6 +296,8 @@ var parameterUIBehaviors = map[ParameterUIType]parameterUIBehavior{
 	},
 }
 
+// DefaultParameterUI constructs the canonical complete default for a supported
+// UI type. An unsupported type returns the zero value.
 func DefaultParameterUI(uiType ParameterUIType) ParameterUI {
 	behavior, exists := parameterUIBehaviors[uiType]
 	if !exists {
@@ -299,6 +308,9 @@ func DefaultParameterUI(uiType ParameterUIType) ParameterUI {
 	return ui
 }
 
+// NewEmptyParameterUI allocates the configuration destination for one supported
+// type. Transport adapters decode their strict representation into that
+// destination, then validate the returned aggregate.
 func NewEmptyParameterUI(uiType ParameterUIType) (ParameterUI, any) {
 	behavior, exists := parameterUIBehaviors[uiType]
 	if !exists {
@@ -309,6 +321,7 @@ func NewEmptyParameterUI(uiType ParameterUIType) (ParameterUI, any) {
 	return ui, destination
 }
 
+// Configuration returns the validated configuration selected by Type.
 func (ui ParameterUI) Configuration() (any, error) {
 	if err := ui.Validate(); err != nil {
 		return nil, err
@@ -485,6 +498,8 @@ func collectConfigurableDictionaryEntryIDs(entries []DictionaryEntry, targetIDs 
 	}
 }
 
+// ResolveParameterUI returns the authored override or the canonical default
+// for a configurable leaf target. The returned value is always a defensive copy.
 func (state State) ResolveParameterUI(targetID string) ParameterUI {
 	if override, exists := state.ParameterUIOverrides[targetID]; exists {
 		return override.Clone()

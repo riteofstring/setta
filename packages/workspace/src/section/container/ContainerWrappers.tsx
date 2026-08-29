@@ -9,6 +9,9 @@ import {
 } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
+// The reference's `ContainerWrappers.tsx` minus the view-mode visibility styling, which left
+// with the app's view modes.
+
 type DndWatcherProps = {
   isGroup: boolean;
   sectionId: string;
@@ -104,6 +107,8 @@ function DndWatcherAndContainerComponent({
     };
   }, [dragListeners, isMovingFree, isSorting, isTopLevel]);
 
+  // Don't want the react-flow node (which contains this child)
+  // to move when sorting
   const className = isSorting || isMovingFree ? "nodrag" : "";
   const fullStyle = {
     ...style,

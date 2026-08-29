@@ -70,6 +70,8 @@ function startProcess(command, arguments_, options) {
   };
 }
 
+// The packaged server treats stdin closure as its supervisor's shutdown
+// request. Keep that pipe open while the browser suite owns the launcher.
 export function startSupervisedProcess(command, arguments_, options) {
   return startProcess(command, arguments_, {
     ...options,
@@ -377,6 +379,8 @@ export function resolveHeadlessChromeBinary({
 }
 
 export function headlessChromeArguments(profileDirectory) {
+  // Keep the disposable profile away from desktop credentials and prevent
+  // command-heavy CDP polling from being throttled as renderer IPC flooding.
   return [
     "--headless=new",
     "--allow-pre-commit-input",
@@ -525,6 +529,9 @@ export async function runAgainstCopiedProductionProject(
   });
 }
 
+// Browser acceptance owns only the source launcher, HTTP, and raw-headless browser
+// surfaces. A saved-project run copies its source before the backend starts;
+// neither path injects state into an in-memory backend.
 async function runAgainstProductionProject({ callback, projectSourcePath }) {
   const serverPort = await allocateLoopbackPort();
   const temporaryDirectory = mkdtempSync(

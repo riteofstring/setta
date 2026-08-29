@@ -24,6 +24,15 @@ import { deriveSectionStyleTheme } from "../sectionStyleColors";
 import { resolveSectionStyleVars } from "../sectionStyleVars";
 import { SectionContainerContent } from "./SectionContainerContent";
 
+// The reference's `SectionContainerCore`: the leaf section shell. Selection remains the
+// reference's outward outline in every nesting state; bounded scrollports provide compensated
+// paint clearance so they do not clip it. The shell is prepared for compositor promotion by the
+// canvas stylesheet before viewport motion.
+// Keeping that preparation at the canvas boundary avoids re-rendering every section on the first
+// pan frame. The edge-handle layers, AI/agentic highlights, and style-color previews remain
+// excluded; the direct-on-canvas milestone restores the reference's transparent shell branch. The
+// reference renders the shell as a `<section>`; the repository's accessibility gate forbids
+// interactive roles on sections, so the package renders a visually identical `<div>`.
 export function SectionContainerCore({ sectionId }: { sectionId: string }) {
   const host = useWorkspaceHost();
   const section = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId));
@@ -38,6 +47,7 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
     section,
   );
 
+  // Frozen main suppresses authored section-style colors for the transparent meta presentation.
   const sectionStyleTheme =
     !isMetaControl && section.styleColor
       ? deriveSectionStyleTheme(section.styleColor, darkMode)
@@ -51,6 +61,9 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
   });
   const sectionShellStyle = resolveSectionStyleVars(sectionStyleTheme);
 
+  // The reference activates sections through its app-level shortcut engine; the package keeps
+  // keyboard activation on the shell itself for the repository's accessibility gate. A group
+  // role preserves the semantics of the interactive header and body descendants.
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (
       event.target === event.currentTarget &&
@@ -95,6 +108,7 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
     );
   }
 
+  // This surface owns pointer and programmatic-focus activation without hiding its real controls.
   return (
     <div
       className={`${sectionShellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
@@ -110,7 +124,7 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
             : "section"
       }${isActiveSection ? ", selected" : ""}`}
       aria-keyshortcuts="Enter Space Shift+F10 ContextMenu"
-      tabIndex={-1}
+      tabIndex={-1} // keeps section focusable for programmatic focus
       ref={refForPosition}
       data-section-id={sectionId}
       data-section-type={section.kind}

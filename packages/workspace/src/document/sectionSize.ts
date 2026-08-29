@@ -11,6 +11,8 @@ import {
 import type { SectionSize, WorkspaceSectionInput } from "./types";
 import type { WorkspaceHost } from "../workspaceHost";
 
+// The reference's `createSectionSize()` default: sections materialized without an explicit
+// size are auto-sized in both dimensions.
 const DEFAULT_SECTION_SIZE: SectionSize = { width: "auto", height: "auto" };
 
 function getSectionKindDefinition(
@@ -48,6 +50,11 @@ function getOrdinarySizeConstraints(definition: SectionKindDefinition | null) {
   return definition.sizeConstraints ?? null;
 }
 
+// Every non-group kind must be registered before its documents load. An omitted ordinary size
+// resolves through its registered default; an omitted meta size resolves through the projected
+// package control policy — the load-time equivalent of the reference's generated constructors.
+// Creation resolves the same way, so a section's size has one owner whether it arrives through a
+// loaded document or through a creation command that has not been placed on the canvas yet.
 export function resolveWorkspaceSectionSize(
   host: WorkspaceHost,
   section: WorkspaceSectionInput,

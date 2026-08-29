@@ -239,6 +239,10 @@ function assertSnapPreset(value: WorkspaceFloatingSnapPreset): void {
   }
 }
 
+/**
+ * Matches frozen-main behavior: negative insets are ignored and a pathological
+ * host still yields a one-pixel work area instead of a negative rectangle.
+ */
 export function resolveWorkspaceWindowWorkArea(
   viewportInput: WorkspaceWindowViewport,
 ): WorkspaceWindowWorkArea {
@@ -280,6 +284,7 @@ export interface ResolveWorkspaceFloatingSnapPresetFromPointerInput {
   readonly thresholdPx?: number;
 }
 
+/** Corners intentionally precede edges, matching the reference snap preview. */
 export function resolveWorkspaceFloatingSnapPresetFromPointer({
   pointerX,
   pointerY,
@@ -308,6 +313,10 @@ export function resolveWorkspaceFloatingSnapPresetFromPointer({
   );
 }
 
+/**
+ * Edge anchoring, rather than the original half/quarter dimensions, identifies
+ * a snap. This keeps split-resized tiles snapped.
+ */
 export function classifyWorkspaceFloatingSnapPreset(
   boundsInput: WorkspaceWindowBounds,
   viewport: WorkspaceWindowViewport,
@@ -340,6 +349,10 @@ export function normalizeWorkspaceWindowBounds(
   });
 }
 
+/**
+ * Normalized values are clamped on this geometry boundary to preserve the
+ * reference behavior for stale persisted fractions.
+ */
 export function denormalizeWorkspaceWindowBounds(
   normalizedBounds: WorkspaceNormalizedWindowBounds,
   viewport: WorkspaceWindowViewport,
@@ -590,6 +603,10 @@ function collectSnapResizeCandidates(
   return { vertical, horizontal };
 }
 
+/**
+ * Finds the exposed, merged seams between already-snapped windows. Input order
+ * remains the deterministic tie breaker for leading/trailing id arrays.
+ */
 export function buildWorkspaceFloatingSnapResizeSeams(
   windows: readonly WorkspaceSnappedWindow[],
 ): readonly WorkspaceFloatingSnapResizeSeam[] {
@@ -609,6 +626,10 @@ export function buildWorkspaceFloatingSnapResizeSeams(
   );
 }
 
+/**
+ * Moves a complete seam in one pure calculation. Callers validate the supplied
+ * coordinate against the chosen live/standalone minimum dimensions first.
+ */
 export function buildWorkspaceFloatingSnapResizeBounds(
   seam: WorkspaceFloatingSnapResizeSeam,
   startBoundsByWindowId: Readonly<Record<string, WorkspaceWindowBounds>>,

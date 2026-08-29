@@ -49,6 +49,11 @@ import { createWorkspaceTextSection } from "./textSectionKind";
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+// Freezes the built-in Text section against the reference's `TextBlock`: one section that either
+// renders Markdown or plain text, or edits it in the same section-scale editor the Code Editor
+// section uses. The header control swaps the surface without rewriting the text, locking makes the
+// editor read-only, and the rendered surface carries the reference's Markdown vocabulary.
+
 const SECTION_ID = "notes";
 
 function makeTextSection(
@@ -153,6 +158,7 @@ describe("built-in text section", () => {
       ?.data as WorkspaceTextSectionData;
   }
 
+  // jsdom implements no clipboard, so the copy affordance's two outcomes are driven from here.
   function setClipboard(
     clipboard: { writeText: (value: string) => Promise<void> } | undefined,
   ) {
@@ -194,7 +200,7 @@ describe("built-in text section", () => {
       expect(wrapper?.classList.contains(expectedClass)).toBe(true);
     }
     const view = getView();
-
+    // Prose wraps and needs no authored column, exactly as the reference's in-section editor does.
     expect(view.contentDOM.classList.contains("cm-lineWrapping")).toBe(true);
     expect(view.state.tabSize).toBe(4);
 
@@ -204,7 +210,7 @@ describe("built-in text section", () => {
     });
     expect(getSectionData().text).toBe("alpha!\nbeta\n");
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
-
+    // The commit never replaces the editor's own document, so the caret survives the round trip.
     expect(getView()).toBe(view);
   });
 
@@ -265,7 +271,7 @@ describe("built-in text section", () => {
     );
     const codeBlock = requireElement("[data-setta-workspace-code-block]");
     expect(codeBlock.textContent).toContain("alpha = 1");
-
+    // The parser's trailing newline is not a blank line the reader authored.
     expect(codeBlock.querySelectorAll(".cm-line")).toHaveLength(1);
     expect(
       codeBlock.querySelector("button[aria-label='Copy code']"),
@@ -290,6 +296,8 @@ describe("built-in text section", () => {
     expect(writeText).toHaveBeenCalledWith("alpha = 1");
     expect(requireElement("button[aria-label='Code copied']")).not.toBeNull();
 
+    // A refused write and a browser with no clipboard both leave the affordance saying the copy
+    // did not happen, rather than raising out of the click.
     writeText.mockImplementation(() => Promise.reject(new Error("denied")));
     await act(async () => {
       requireElement("button[aria-label='Code copied']").click();
@@ -363,7 +371,8 @@ describe("built-in text section", () => {
   it("makes a locked or read-only section read-only and refuses its control", async () => {
     await mount(makeTextSection({}, { positionAndSizeLocked: true }));
     expect(getView().state.readOnly).toBe(true);
-
+    // Selection and scrolling survive, but the shared editor stops being an editing surface
+    // rather than leaving a caret in one that refuses every keystroke.
     expect(getView().contentDOM.getAttribute("contenteditable")).toBe("false");
     expect(getDisplayModeButton().disabled).toBe(true);
 

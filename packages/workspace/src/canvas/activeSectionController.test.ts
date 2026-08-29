@@ -205,12 +205,14 @@ describe("applyActiveSectionChange", () => {
       },
     }));
 
+    // Clicking a section without selected items keeps the current active ids.
     applyActiveSectionChange(testWorkspace.host, {
       interaction: "section-click",
       sectionId: "child-a",
     });
     expect(getActiveSectionIds(testWorkspace.host)).toEqual(["group-a"]);
 
+    // Clicking a section whose items are selected activates it.
     const result = applyActiveSectionChange(testWorkspace.host, {
       interaction: "section-click",
       sectionId: "leaf-b",

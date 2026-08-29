@@ -248,7 +248,8 @@ def _validate_manylinux_glibc(content: bytes) -> None:
         return
     versions = _elf_glibc_requirements(content)
     _require(
-        versions, "dynamic Linux native server has no inspectable GLIBC requirements"
+        bool(versions),
+        "dynamic Linux native server has no inspectable GLIBC requirements",
     )
     above_floor = [version for version in versions if version > _LINUX_GLIBC_FLOOR]
     if above_floor:

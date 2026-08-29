@@ -1,5 +1,17 @@
+// One chord vocabulary for every workspace key binding and every reserved interaction gesture.
+// The reference parses its shortcut settings the same way (`parseShortcut` in
+// `state/actions/keyActivations.ts`): a chord is a "+"-separated list of the mod/ctrl/shift/alt
+// modifiers plus the non-modifier keys that must be held together, and the non-modifier keys are
+// compared as event codes so the physical key decides the match regardless of layout or the
+// character a modifier produces. "Mod" is Meta on macOS and Control elsewhere.
+//
+// Unlike the reference, an unknown key name fails here instead of being title-cased into a code
+// that can never match: chords are host input, so an unusable binding is reported at registration.
+
 const MODIFIER_TOKENS = new Set(["mod", "ctrl", "shift", "alt"]);
 
+// The reference's `specialEventKeyToEventCode`, plus the code spelling of each entry so both
+// "Mod + Comma" and "Mod + ," name the same key the way its shipped defaults already mix them.
 const KEY_CODES_BY_TOKEN: Readonly<Record<string, string>> = Object.freeze({
   ".": "Period",
   ",": "Comma",
@@ -48,7 +60,7 @@ export type ParsedWorkspaceChord = Readonly<{
   ctrl: boolean;
   shift: boolean;
   alt: boolean;
-
+  // Sorted event codes, so two spellings of the same chord produce one signature.
   keys: ReadonlyArray<string>;
 }>;
 
@@ -124,6 +136,10 @@ export function parseWorkspaceChord(chord: string): ParsedWorkspaceChord {
   return Object.freeze({ ...modifiers, keys: Object.freeze([...keys].sort()) });
 }
 
+// Two chords collide when one keypress can match both, which depends on the platform: off macOS
+// "Mod" is Control, so "Mod + G" and "Ctrl + G" are the same keypress there and share a signature;
+// on macOS they are different keys and keep their own. `matchesWorkspaceChord` folds them the same
+// way, so conflict detection answers for the platform the dispatcher will run on.
 export function getWorkspaceChordSignature(
   chord: ParsedWorkspaceChord,
   macOS: boolean,
@@ -139,6 +155,9 @@ export function getWorkspaceChordSignature(
   return `${modifiers}:${chord.keys.join(",")}`;
 }
 
+// The reference's `hasMatchingShortcutModifiers`: macOS distinguishes Meta from Control, every
+// other platform folds "Mod" into Control and ignores Meta. `heldKeysEqual` is the caller's live
+// pressed-key set, compared whole so a chord never matches while an extra key is down.
 export function matchesWorkspaceChord(
   event: KeyboardEvent,
   chord: ParsedWorkspaceChord,
@@ -164,6 +183,9 @@ function getKeyDisplay(code: string): string {
   return code;
 }
 
+// The reference prettifies a shortcut for display by substituting the platform's "Mod" symbol
+// (`shortcutPrettified`) and leaves the rest of the text alone. The package renders every chord
+// from its parse instead, so one binding reads the same however a host spelled it.
 export function formatWorkspaceChord(
   chord: ParsedWorkspaceChord,
   macOS: boolean,

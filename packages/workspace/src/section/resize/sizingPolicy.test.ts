@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { getSectionMinMaxDims, SECTION_SIZING_POLICY } from "./sizingPolicy";
 
+// Freezes the reference's shipped sizing-policy defaults and the reachable branches of
+// `useSectionMinMaxDims`: minimized sections pin their height to the minimized height, and
+// auto-height sections cap at the auto ceiling except while a resize is in flight.
 describe("getSectionMinMaxDims", () => {
   it("pins minimized sections to the minimized height", () => {
     expect(

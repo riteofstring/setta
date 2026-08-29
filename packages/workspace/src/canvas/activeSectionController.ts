@@ -18,18 +18,25 @@ import { getWorkspaceDocumentStore } from "../document/stores";
 import type { WorkspaceHost } from "../workspaceHost";
 import { getReactFlowStore } from "./store";
 
+// The reference controller also carries backend-sync options. Its param-toggle intents carry a
+// `hasSelectedParams` the policy never reads; the package item toggles drop it.
 type SectionClickIntent = {
   interaction: "section-click";
   sectionId: string;
-
+  // Pointer surfaces outside the canvas receive modifier state from their own event. Omitting
+  // this keeps canvas section clicks bound to the live interaction store.
   multiSelectionActive?: boolean;
 };
 
+// The reference's input-focus intent, package-owned since the built-in controls arrived:
+// activating an editing control activates and raises its section.
 type InputFocusIntent = {
   interaction: "input-focus";
   sectionId: string;
 };
 
+// The reference's go-to intent, which its Overview and its keyboard section navigation share:
+// the target becomes the single active section and is raised, without a pointer on it.
 type GoToIntent = {
   interaction: "go-to";
   sectionId: string;
@@ -142,6 +149,8 @@ export function applyActiveSectionChange(
   setActiveSectionIds(host, decision.nextActiveIds);
 
   if (decision.updateZIndex) {
+    // A go-to targets a top-level section directly; a click or an input focus can land deep
+    // inside one, so the reference raises the whole stack those two belong to.
     if (intent.interaction === "go-to") {
       setZIndices(host, [intent.sectionId]);
     } else if (

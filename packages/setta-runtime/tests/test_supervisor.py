@@ -154,16 +154,18 @@ class NativeServerSupervisorTests(unittest.TestCase):
                 errors="strict",
             )
             try:
-                self.assertIsNotNone(process.stdin)
-                self.assertIsNotNone(process.stdout)
-                process.stdin.write(_WINDOWS_GUARDIAN_RELEASE_TOKEN)
-                process.stdin.flush()
-                readiness = json.loads(process.stdout.readline())
+                stdin = process.stdin
+                stdout = process.stdout
+                if stdin is None or stdout is None:
+                    self.fail("Windows guardian did not expose its lifetime pipes")
+                stdin.write(_WINDOWS_GUARDIAN_RELEASE_TOKEN)
+                stdin.flush()
+                readiness = json.loads(stdout.readline())
                 self.assertEqual(readiness["owner"], process.pid)
                 self.assertEqual(readiness["cwd"], str(working_directory.resolve()))
                 self.assertEqual(readiness["value"], "環境-雪")
                 self.assertIsNone(process.poll())
-                process.stdin.close()
+                stdin.close()
                 self.assertEqual(process.wait(timeout=2), 0)
             finally:
                 if process.poll() is None:
@@ -393,6 +395,7 @@ class NativeServerSupervisorTests(unittest.TestCase):
         process = mock.Mock()
         process.wait.side_effect = KeyboardInterrupt()
         tree = mock.Mock()
+        stdin = mock.Mock()
         server = ManagedServer(
             process=process,
             readiness=ServerReadiness(
@@ -403,7 +406,7 @@ class NativeServerSupervisorTests(unittest.TestCase):
             ),
             stderr=mock.Mock(),
             tree=tree,
-            stdin=mock.Mock(),
+            stdin=stdin,
             stdout=mock.Mock(),
             stderr_stream=mock.Mock(),
         )
@@ -412,13 +415,14 @@ class NativeServerSupervisorTests(unittest.TestCase):
             exit_status = NativeServerSupervisor().wait_foreground(server)
 
         self.assertEqual(exit_status, 130)
-        server.stdin.close.assert_called()
+        stdin.close.assert_called()
         tree.close.assert_called_once_with()
 
     def test_wait_foreground_re_raises_system_exit_after_cleanup(self) -> None:
         process = mock.Mock()
         process.wait.side_effect = SystemExit(19)
         tree = mock.Mock()
+        stdin = mock.Mock()
         server = ManagedServer(
             process=process,
             readiness=ServerReadiness(
@@ -429,7 +433,7 @@ class NativeServerSupervisorTests(unittest.TestCase):
             ),
             stderr=mock.Mock(),
             tree=tree,
-            stdin=mock.Mock(),
+            stdin=stdin,
             stdout=mock.Mock(),
             stderr_stream=mock.Mock(),
         )
@@ -441,7 +445,7 @@ class NativeServerSupervisorTests(unittest.TestCase):
             NativeServerSupervisor().wait_foreground(server)
 
         self.assertEqual(raised.exception.code, 19)
-        server.stdin.close.assert_called()
+        stdin.close.assert_called()
         tree.close.assert_called_once_with()
 
     def test_windows_job_close_is_the_forced_tree_stop_and_is_idempotent(self) -> None:

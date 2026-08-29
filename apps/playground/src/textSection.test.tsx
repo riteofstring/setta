@@ -28,9 +28,16 @@ import { PlaygroundTextSectionInspector } from "./sectionOptionInspectors";
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+// The built-in Text section reaches this unrelated host entirely through public package APIs: it
+// is registered beside the host's own kinds in the one registration call, its document data is the
+// package's typed contract rather than host-decoded opaque data, and the host's own Inspector UI
+// authors that contract through the package's typed write.
+
 const RENDERED_SECTION_ID = "text-rendered";
 const SOURCE_SECTION_ID = "text-source";
 
+// React tracks a controlled input's last value on the node itself, so a test that assigns
+// `value` directly is swallowed as "unchanged". Write through the native setter it wraps.
 function setNativeInputValue(input: HTMLInputElement, value: string) {
   const descriptor = Object.getOwnPropertyDescriptor(
     HTMLInputElement.prototype,
@@ -81,7 +88,7 @@ describe("the playground's built-in text section", () => {
     expect(
       getWorkspaceTextSectionData(workspaceHost, SOURCE_SECTION_ID).displayMode,
     ).toBe("edit");
-
+    // Both fixtures carry the same source, so the gate can compare the two surfaces directly.
     expect(
       getWorkspaceTextSectionData(workspaceHost, RENDERED_SECTION_ID).text,
     ).toBe(getWorkspaceTextSectionData(workspaceHost, SOURCE_SECTION_ID).text);

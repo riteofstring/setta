@@ -45,6 +45,8 @@ export function MetaControl({
   showSectionTitle = false,
   control,
 }: MetaControlProps) {
+  // Public TypeScript callers already have the discriminated union; this runtime assertion keeps
+  // opaque-data adapters honest and preserves the package's specific no-fallback failure.
   assertMetaControlKind(
     (control as { kind?: unknown } | null | undefined)?.kind,
   );

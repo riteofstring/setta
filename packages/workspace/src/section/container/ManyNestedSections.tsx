@@ -12,6 +12,10 @@ import { useWorkspaceDocument } from "../../document/stores";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import { SortableSectionContainer } from "./SortableSectionContainer";
 
+// The reference's `ManyNestedSections.tsx` at the supported default-view slice: child lists render
+// from the live dnd projection (temp placeholder included), inside the sortable context. Ordinary
+// nested-section owners retain main's focus rail and inset; groups do not render that rail.
+
 export function MaybeManyNestedSections({
   isGroup,
   sectionId,

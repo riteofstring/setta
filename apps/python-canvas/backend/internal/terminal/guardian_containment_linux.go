@@ -12,6 +12,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// enableTerminalGuardianChildContainment makes the long-lived PTY guardian the
+// reaper for an orphaned shell descendant. A descendant can create its own
+// SID with setsid(), but Linux still reparents it to this subreaper when the
+// shell exits, so cleanup can retain the same containment boundary.
 func enableTerminalGuardianChildContainment() error {
 	return unix.Prctl(unix.PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)
 }
@@ -47,6 +51,11 @@ func defaultTerminalGuardianChildOperations() terminalGuardianChildOperations {
 	}
 }
 
+// reapTerminalGuardianChildren is the kernel-independent Linux fallback once
+// exec.Cmd.Wait has reaped the directly owned shell. PR_SET_CHILD_SUBREAPER
+// has adopted every remaining shell descendant into this guardian's direct
+// child tree. A direct child PID cannot be reused until this guardian reaps
+// it, so SIGKILL followed by wait4 is safe even on kernels without pidfd_open.
 func reapTerminalGuardianChildren(guardianPID int) error {
 	return reapTerminalGuardianChildrenWithOperations(
 		guardianPID,

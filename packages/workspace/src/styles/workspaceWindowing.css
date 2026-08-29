@@ -1,3 +1,5 @@
+/* Reusable floating-window chrome. These selectors stay package-prefixed so a host can opt in
+ * when it composes `WorkspaceWindowSurface` without changing any application-global controls. */
 .setta-workspace-window-surface {
   display: flex;
   width: 100%;

@@ -1,3 +1,11 @@
+/* Interaction corrections and post-extraction Outline additions live outside the retained
+ * reference stylesheet. Keeping them here makes focus modality, selection-paint clearance, and
+ * the package-owned Outline filter one reviewable policy layer. */
+
+/* A bounded group's native scrollport otherwise clips the reference's four-pixel outward section
+ * outlines at its edges. Expand the scrollport by exactly that paint width, then restore the same
+ * content edge with equal padding. Child coordinates and dimensions stay unchanged while selected
+ * and pressed outlines retain the top-level geometry. */
 .setta-workspace-bounded-group-scroll {
   margin-block-start: 4px;
   margin-block-end: -4px;
@@ -5,6 +13,10 @@
   padding: 4px;
 }
 
+/* A group paints its outline on a child layer, so the group's transient press state must drive
+ * that layer. The browser also marks every ancestor of the pressed target active; exclude an
+ * active descendant section or group so only the deepest pressed section receives feedback.
+ * Keep selected groups blue and suppress the press color for header controls. */
 [data-group-overflow-mode]:active:not(
     :has(
       button:active,
@@ -17,6 +29,8 @@
   outline-color: rgb(103 232 249);
 }
 
+/* Frozen main overlays both panes on one full-size canvas. The complete pane surface—including
+ * its mounted content—owns the transform, so chrome and content travel as one layer. */
 .setta-workspace-shell-pane-region {
   position: absolute;
   inset-block: 0;
@@ -36,6 +50,8 @@
   flex: 1 1 100%;
 }
 
+/* Pointer focus never paints a large surface boundary. Keyboard focus movement opts the same
+ * surfaces into a deliberate ring through data-workspace-keyboard-focus. */
 .react-flow__minimap svg:focus,
 .setta-workspace-shell-tab:focus,
 .setta-workspace-shell-full-width-button:focus,
@@ -76,6 +92,8 @@
   background-color: rgb(59 130 246);
 }
 
+/* Frozen main's compact Overview filter presentation, wrapped around the package's accepted tree
+ * projection. The search stays fixed while the tree owns the pane's remaining scroll area. */
 .setta-workspace-outline-surface {
   display: flex;
   width: 100%;

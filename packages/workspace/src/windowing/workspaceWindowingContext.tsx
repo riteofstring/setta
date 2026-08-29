@@ -19,7 +19,7 @@ export type WorkspaceShellWindowingConfiguration = {
   state: WorkspaceWindowingState;
   onStateChange: (nextState: WorkspaceWindowingState) => void;
   renderers: WorkspaceWindowRenderers;
-
+  /** The measured shell-local viewport used to seed section window geometry. */
   viewport: WorkspaceWindowViewport;
   layoutEditable?: boolean;
   shortcuts?: boolean;

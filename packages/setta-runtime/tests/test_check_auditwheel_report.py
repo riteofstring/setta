@@ -6,9 +6,10 @@ import unittest
 from pathlib import Path
 
 TEST_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime"))
 sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "scripts"))
 
-import check_auditwheel_report as auditwheel_report
+from scripts import check_auditwheel_report as auditwheel_report
 
 
 class AuditwheelReportValidationTests(unittest.TestCase):

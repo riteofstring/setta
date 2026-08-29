@@ -75,6 +75,7 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
               snapGrid[1] * Math.round(nextPosition.y / snapGrid[1]);
           }
 
+          // we want to make sure that we only fire a change event when there is a change
           hasChange =
             hasChange ||
             n.position.x !== nextPosition.x ||
@@ -90,7 +91,7 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         }
 
         updateNodePositions(host, dragItems.current);
-
+        // When dragging a selection, nodeId is undefined.
         if (!nodeId && nodesSelectionDims) {
           if (dragEnd && snapToGrid) {
             setNodesSelection(dragItems.current.length);
@@ -189,13 +190,14 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         autoPanStarted.current = false;
         dragStarted.current = false;
         cancelAnimationFrame(autoPanId.current);
-
+        // The reference's drag end always normalizes: every completed drag densely renumbers
+        // the nodes with the dragged ones on top before the layout commit.
         setZIndices(
           host,
           dragItems.current.map((dragItem) => dragItem.id),
           true,
         );
-
+        // The reference persists the finished gesture through its layout commit funnel here.
         commitTopLevelLayoutToDocument(host);
       };
 

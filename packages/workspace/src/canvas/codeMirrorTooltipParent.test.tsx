@@ -33,11 +33,19 @@ import { WorkspaceCanvas } from "./WorkspaceCanvas";
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+// The reference's canvas tooltip parent. A completion popup left inside its own editor is cropped
+// by the section shell that clips its content — in the callable field it survives as a single
+// horizontal line across the pill — so the canvas renders one parent beside the scene and the
+// package's editor assembly points CodeMirror's tooltips at it. These cases pin what that
+// placement has to hold: one parent per canvas, outside every section, and the popup inside it.
+
 const SECTION_ID = "callable";
 const FIELD_ID = "expression";
 const FIELD_LABEL = "Expression";
 const TOOLTIP_PARENT_SELECTOR = `.${CODEMIRROR_TOOLTIP_PARENT_CLASS_NAME}`;
 
+// Replaces the setup stub: the canvas renders nodes only once it has measured its wrapper, and
+// jsdom never measures one.
 const observedResizeTargets = new Map<Element, ResizeObserverCallback>();
 
 class CapturingResizeObserver {
@@ -247,11 +255,11 @@ describe("canvas CodeMirror tooltip parent", () => {
     if (!(parent instanceof HTMLElement)) {
       throw new Error("The canvas rendered no tooltip parent element.");
     }
-
+    // Inside the transformed viewport, so a tooltip pans and scales with the scene it annotates.
     expect(
       parent.parentElement?.classList.contains("react-flow__viewport"),
     ).toBe(true);
-
+    // Outside every section, so no section's clipping and overflow box can crop it.
     const section = getRequiredElement(
       container,
       `[data-section-id="${SECTION_ID}"]`,

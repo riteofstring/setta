@@ -1,3 +1,6 @@
+// Package webapp serves the packaged Python Canvas single-page application
+// beside its loopback-only API. It owns only static asset safety and HTTP
+// listener lifetime; project and API concerns remain in their owning packages.
 package webapp
 
 import (
@@ -25,11 +28,17 @@ var (
 	ErrListenerRequired   = errors.New("webapp: listener is required")
 )
 
+// Assets is a validated immutable-on-startup view of the packaged SPA tree.
+// It intentionally serves only regular non-symlink files so a malformed wheel
+// cannot use the browser endpoint to escape its declared web root.
 type Assets struct {
 	root      string
 	indexPath string
 }
 
+// Open validates a production SPA tree before a project is opened. The root
+// and index must both exist now, rather than being discovered after the server
+// has already published a live session.
 func Open(webRoot string) (*Assets, error) {
 	if strings.TrimSpace(webRoot) == "" {
 		return nil, ErrWebRootRequired
@@ -59,6 +68,7 @@ func Open(webRoot string) (*Assets, error) {
 	return &Assets{root: resolvedRoot, indexPath: indexPath}, nil
 }
 
+// Root returns the canonical absolute root that was validated at startup.
 func (assets *Assets) Root() string {
 	if assets == nil {
 		return ""
@@ -66,6 +76,9 @@ func (assets *Assets) Root() string {
 	return assets.root
 }
 
+// Handler joins exact API routing with the production SPA. API paths are never
+// allowed to fall through to index.html, which keeps an API typo observable to
+// callers instead of disguising it as a successful browser document request.
 func (assets *Assets) Handler(api http.Handler) (http.Handler, error) {
 	if assets == nil || assets.root == "" || assets.indexPath == "" {
 		return nil, ErrWebRootRequired
@@ -111,7 +124,8 @@ func (assets *Assets) serve(response http.ResponseWriter, request *http.Request)
 		http.NotFound(response, request)
 		return
 	}
-
+	// A missing extensionless browser route is client-side navigation. Serve the
+	// production entry document, while missing assets always remain 404s.
 	assets.serveFile(response, request, assets.indexPath)
 }
 
@@ -163,6 +177,8 @@ func validateStaticPathSegments(decoded string) (string, error) {
 	return relative, nil
 }
 
+// assetPath resolves one slash-separated packaged asset. It deliberately
+// refuses every symlink in the path, including a final file symlink.
 func (assets *Assets) assetPath(relative string) (string, bool, bool) {
 	if assets == nil || assets.root == "" || relative == "" {
 		return "", false, false
@@ -245,6 +261,9 @@ func requireRegularNonSymlinkFile(filePath string) error {
 	return nil
 }
 
+// LoopbackURL derives the one browser origin permitted for the server's API,
+// terminal socket, and packaged SPA. It accepts only the IPv4 listener shape
+// produced by httpapi.ListenLoopback.
 func LoopbackURL(listener net.Listener) (string, error) {
 	authority, err := loopbackAuthority(listener)
 	if err != nil {
@@ -270,11 +289,17 @@ func requireLoopbackAuthority(authority string, handler http.Handler) http.Handl
 	}
 	_, port, err := net.SplitHostPort(authority)
 	if err == nil {
-
+		// localhost is the documented browser alias for the same listener and
+		// remains a fixed loopback name rather than an attacker-owned DNS name.
 		allowed[net.JoinHostPort("localhost", port)] = struct{}{}
 	}
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-
+		// A loopback listener alone does not stop DNS rebinding: a browser can
+		// resolve an attacker-owned hostname to 127.0.0.1 and then treat the
+		// local API as the attacker's same origin. The server publishes exactly
+		// one closed set of literal listener authorities, so reject every other
+		// Host before any SPA, REST, or WebSocket handler can expose project
+		// state.
 		if request == nil {
 			response.Header().Set("Cache-Control", "no-store")
 			http.Error(response, "Misdirected Request", http.StatusMisdirectedRequest)
@@ -289,6 +314,10 @@ func requireLoopbackAuthority(authority string, handler http.Handler) http.Handl
 	})
 }
 
+// Serve starts serving an already-bound listener, invokes ready exactly once
+// after the accept loop is launched, and shuts down gracefully on cancellation.
+// Binding occurs outside this function so callers can derive the actual origin
+// before they construct origin-sensitive API routes.
 func Serve(ctx context.Context, listener net.Listener, handler http.Handler, ready func() error) error {
 	ctx, authority, err := prepareWebAppServe(ctx, listener, handler)
 	if err != nil {
@@ -394,4 +423,6 @@ func errorOrNil(err error, prefix string) error {
 	return fmt.Errorf("%s: %w", prefix, err)
 }
 
+// Keep io imported at this boundary so build tooling catches accidental API
+// changes in http.ServeContent's io.ReadSeeker requirement.
 var _ io.ReadSeeker = (*os.File)(nil)

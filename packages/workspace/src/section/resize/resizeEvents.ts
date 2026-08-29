@@ -7,6 +7,9 @@ import {
 import { assertWorkspaceHostActive } from "../../workspaceHostInternals";
 import type { WorkspaceHost } from "../../workspaceHost";
 
+// The reference's `useResizeEvent` store: a per-section "start"/"end" tick emitted around
+// height-affecting resize gestures. The sizing hook widens the auto-height ceiling while a
+// resize is in flight.
 type ResizeEventState = {
   resizeEvent: Record<string, "start" | "end">;
 };

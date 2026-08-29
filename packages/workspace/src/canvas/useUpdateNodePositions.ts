@@ -23,7 +23,8 @@ export const updatePositions = (
   const selectedNodes = getNodes(host).filter((n) =>
     activeSectionIds.includes(n.id),
   );
-
+  // by default a node moves 5px on each key press, or 20px if shift is pressed
+  // if snap grid is enabled, we use that for the velocity.
   const xVelo = snapToGrid ? snapGrid[0] : 5;
   const yVelo = snapToGrid ? snapGrid[1] : 5;
   const factor = params.isShiftPressed ? 4 : 1;

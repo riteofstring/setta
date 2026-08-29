@@ -151,6 +151,10 @@ await runAgainstProductionApp(
   },
 );
 
+// The browser suite is a separately authorized standard check. Its only path
+// is the V2 product: a fresh project is created through the launcher, every
+// mutation is made through the public UI, and canonical state is observed with
+// GET /api/v2/project before a restart opens the same file without --create.
 await runAgainstProductionApp(
   async ({ backendOrigin, client, previewOrigin, restart }) => {
     const initial = await fetchCanonicalSnapshot(backendOrigin);

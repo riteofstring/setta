@@ -1,5 +1,8 @@
 import type { SectionSize } from "../../document/types";
 
+// Package terms for frozen main's complete direct-on-canvas dispatch. CodeParam and TextParam
+// share the `text` kind because the host-selected language already distinguishes their editor
+// behavior; TextArea keeps its own kind because its intrinsic geometry differs.
 export type MetaControlKind =
   | "button"
   | "color"
@@ -92,6 +95,9 @@ export function getMetaControlDefaultSize(kind: MetaControlKind): SectionSize {
   return DEFAULT_META_CONTROL_SIZE;
 }
 
+// Frozen main's generated policy applies a 200 x 32 base minimum to ordinary meta controls.
+// TextArea's 96 px content minimum plus its wrapper border produces the captured 98 px inner
+// surface; Dropzone's generated minimum is 240 x 120. The package shell adds one pixel per side.
 export function getMetaControlMinimumSize(
   kind: MetaControlKind,
 ): MetaControlMinimumSize {
@@ -105,6 +111,8 @@ export function getMetaControlMinimumSize(
   return DEFAULT_META_CONTROL_MINIMUM_SIZE;
 }
 
+// The frozen sizing policy keeps these three compact controls at their intrinsic height while
+// still allowing horizontal resizing. Every other meta control is freely resizable in height.
 export function getMetaControlHeightSizeMode(
   kind: MetaControlKind,
 ): MetaControlHeightSizeMode {

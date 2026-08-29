@@ -52,6 +52,7 @@ function collision({
 
 describe("collision comparison", () => {
   it("returns null for empty collision input", () => {
+    // Validates null-safe behavior for no collision candidates.
     expect(resolveOverCollision(null, EMPTY_PARENT_BY_CHILD)).toBeNull();
     expect(resolveOverCollision([], EMPTY_PARENT_BY_CHILD)).toBeNull();
     expect(
@@ -60,6 +61,7 @@ describe("collision comparison", () => {
   });
 
   it("prefers sortable container collisions over non-sortable", () => {
+    // Validates sortable collisions win even when raw ratio is lower.
     const plain = collision({ id: "plain", intersectionRatio: 100 });
     const sortable = collision({
       id: "sortable",
@@ -73,6 +75,7 @@ describe("collision comparison", () => {
   });
 
   it("uses intersection ratio when both collisions are plain", () => {
+    // Validates higher overlap wins in non-sortable comparisons.
     const low = collision({ id: "low", intersectionRatio: 4 });
     const high = collision({ id: "high", intersectionRatio: 8 });
 
@@ -82,6 +85,7 @@ describe("collision comparison", () => {
   });
 
   it("uses sortable trigger distance when both collisions are sortable", () => {
+    // Validates sortable tie-breaker favors smaller absolute trigger distance.
     const farther = collision({
       id: "farther",
       containerId: "container",
@@ -103,6 +107,7 @@ describe("collision comparison", () => {
   });
 
   it("keeps the earlier sortable collision when the nearer target has passed the trigger", () => {
+    // Validates signed trigger distance still outranks raw proximity after crossing.
     const earlier = collision({
       id: "earlier",
       containerId: "container",
@@ -124,6 +129,7 @@ describe("collision comparison", () => {
   });
 
   it("prefers the nearer sortable collision when it is still before the trigger", () => {
+    // Validates the nearer pre-trigger sortable candidate can still win.
     const fartherPassed = collision({
       id: "farther-passed",
       containerId: "container",
@@ -146,6 +152,7 @@ describe("collision comparison", () => {
   });
 
   it("prefers an exactly-at-trigger sortable collision over a farther post-trigger candidate", () => {
+    // Validates trigger-state priority outranks absolute distance when signs differ.
     const fartherPassed = collision({
       id: "farther-passed",
       containerId: "container",
@@ -170,6 +177,7 @@ describe("collision comparison", () => {
   });
 
   it("falls back to ratio when sortable distances tie", () => {
+    // Validates equal-distance sortable collisions use overlap as the tie-breaker.
     const lowRatio = collision({
       id: "low-ratio",
       containerId: "container",
@@ -191,6 +199,7 @@ describe("collision comparison", () => {
   });
 
   it("promotes child collision when best candidate is its parent", () => {
+    // Validates parent-child map drives child promotion for nested droppables.
     const parent = collision({ id: "parent", intersectionRatio: 20 });
     const child = collision({ id: "child", intersectionRatio: 5 });
 
@@ -205,6 +214,7 @@ describe("collision comparison", () => {
   });
 
   it("reorders collisions so the best candidate appears first", () => {
+    // Validates consumers can read collisions[0] as the preferred target.
     const plain = collision({ id: "plain", intersectionRatio: 100 });
     const sortable = collision({
       id: "sortable",

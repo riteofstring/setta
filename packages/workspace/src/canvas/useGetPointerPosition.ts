@@ -5,7 +5,7 @@ import type { UseDragEvent } from "./types";
 
 function useGetPointerPosition() {
   const host = useWorkspaceHost();
-
+  // returns the pointer position projected to the canvas coordinate system
   const getPointerPosition = useCallback(
     ({ sourceEvent }: UseDragEvent) => {
       const { transform } = getReactFlowStore(host).getState();

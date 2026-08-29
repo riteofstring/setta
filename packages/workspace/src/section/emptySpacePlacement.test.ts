@@ -71,6 +71,8 @@ function loadSections(
   });
 }
 
+// The pane rectangle without a mounted canvas element is the transform over the measured canvas
+// size, which is what the reference sends as its viewport bounds.
 function setVisiblePane(width: number, height: number) {
   testWorkspace.reactFlow.setState({ width, height, transform: [0, 0, 1] });
 }
@@ -152,6 +154,8 @@ describe("empty-space placement", () => {
     loadSections({ first: { x: 0, y: 0 }, second: { x: 0, y: 200 } });
     setVisiblePane(300, 600);
 
+    // A 1 px tall reservation fits the 32 px gap between the two padded sections; the sized
+    // section below proves the same gap rejects a section that reserves its real height.
     expect(
       resolveWorkspaceEmptySpacePlacement(
         testWorkspace.host,
@@ -170,6 +174,8 @@ describe("empty-space placement", () => {
     loadSections({ existing: { x: 2000, y: 2000 } });
     setVisiblePane(800, 600);
 
+    // Below the workspace rather than beside it: the reference prefers the side that keeps the
+    // occupied area closest to square.
     expect(
       resolveWorkspaceEmptySpacePlacement(
         testWorkspace.host,

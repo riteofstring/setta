@@ -5,6 +5,10 @@ import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
 import { assertWorkspaceHostActive } from "../workspaceHostInternals";
 import type { WorkspaceHost } from "../workspaceHost";
 
+// The reference's `useSectionRefs` store plus `state/actions/sectionRefs.ts` and
+// `state/hooks/sectionRef.ts`. `withNested` holds the outer container element (group chrome
+// included); `selfOnly` holds the leaf section shell. DOM measurement fallbacks (marquee
+// hit-testing, selection bounds) read whichever is registered.
 type SectionRefsState = {
   withNested: Record<string, HTMLElement | null>;
   selfOnly: Record<string, HTMLElement | null>;

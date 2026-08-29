@@ -188,7 +188,8 @@ describe("setGroupOverflowMode", () => {
       size: { width: 368, height: 242 },
     });
     expect(reported[0]?.activeIds).toEqual(["group"]);
-
+    // The minimap continues to use the already-matching measured node bounds until the canvas's
+    // resize observer confirms the fixed DOM geometry; the document action never clears them.
     expect(testWorkspace.nodeInternals.getState().x.get("group")).toMatchObject(
       {
         width: 368,

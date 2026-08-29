@@ -47,6 +47,10 @@ import { createWorkspaceTextSection } from "./textSectionKind";
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+// The registration half of the built-in Text section: a host composes the helper's definition
+// with its own kinds, narrows what the registration accepts, decides whether the header carries
+// the display-mode control, and can leave the built-in out entirely.
+
 const SECTION_ID = "notes";
 
 function makeDocument(

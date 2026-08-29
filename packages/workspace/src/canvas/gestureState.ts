@@ -3,6 +3,8 @@ import { withResetFn } from "../state/storeUtils";
 import { assertWorkspaceHostActive } from "../workspaceHostInternals";
 import type { WorkspaceHost } from "../workspaceHost";
 
+// The reference tracks this on its app-wide `useMisc` store; it suppresses section click
+// activation while a section drag (and, in later batches, a resize) is in progress.
 type CanvasGestureState = {
   mouseDownDraggingSection: boolean;
 };

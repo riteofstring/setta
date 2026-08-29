@@ -6,6 +6,9 @@ import {
   resolveItemPlaceholderMovePlan,
 } from "./itemDndMonitorUtils";
 
+// The reference's `paramDndMonitorUtils.test.ts` in item terms, plus the list-key collision
+// filter shared by the item provider and the monitor.
+
 describe("isItemOverlayVisible", () => {
   it("requires an active, unsuppressed item drag with overlay metrics", () => {
     expect(

@@ -9,6 +9,13 @@ import {
 } from "./codeSectionData";
 import type { WorkspaceSectionData } from "../document/types";
 
+// The built-in code section's data is package-owned, so it is a parsed contract rather than
+// opaque host data: every field is required, unknown fields are a typed failure, a registration
+// that narrows its languages narrows what the document may say, and the one generated region
+// belongs to the one mode that paints it.
+
+// A generated document the way a host composes one: text before the region, the generated body,
+// and text after it, with the region declared from the end of the first to the start of the last.
 const GENERATED_PREFIX = "import math";
 const GENERATED_SUFFIX = "state = value";
 const GENERATED_CODE = `${GENERATED_PREFIX}\n\nvalue = math.sqrt(3)\n\n${GENERATED_SUFFIX}`;
@@ -32,7 +39,7 @@ function makeGeneratedData(generatedRegion: WorkspaceSectionData | undefined): {
 } {
   return {
     ...createWorkspaceCodeSectionData({ code: GENERATED_CODE }),
-
+    // A document that names the field without a value is as malformed as one that omits it.
     ...(generatedRegion === undefined ? {} : { generatedRegion }),
     mode: "generated-document",
   };
@@ -61,7 +68,7 @@ describe("code section data", () => {
       withoutMode,
       { ...withoutMode, mode: true },
       { ...withoutMode, mode: "generated" },
-
+      // The whole-document shape this region replaced is gone rather than accepted beside it.
       { ...withoutMode, mode: "generated-output" },
     ]) {
       expect(() => parseWorkspaceCodeSectionData("code", data)).toThrow(
@@ -82,7 +89,7 @@ describe("code section data", () => {
       undefined,
       null,
       "0-4",
-
+      // Empty, reversed, fractional, negative, and past the end of the document.
       { from: 4, to: 4 },
       { from: 9, to: 4 },
       { from: 0.5, to: 4 },
@@ -170,7 +177,8 @@ describe("code section data", () => {
           from: 0,
           message: "Undefined name 𝜋.",
           severity: "error",
-
+          // The code-section contract uses JavaScript's UTF-16 offsets, so the
+          // one code point occupies two units in this document.
           to: 2,
         },
         {

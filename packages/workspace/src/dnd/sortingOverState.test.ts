@@ -29,6 +29,7 @@ describe("sortingOverState", () => {
   });
 
   it("stores and returns over-state by container", () => {
+    // Validates per-container storage for sortable over metadata.
     setSortingOverState(testWorkspace.host, "container-a", "item-1", true);
 
     expect(getSortingOverState(testWorkspace.host, "container-a")).toEqual({
@@ -38,6 +39,7 @@ describe("sortingOverState", () => {
   });
 
   it("clears a single container state", () => {
+    // Validates container-scoped cleanup without affecting unrelated entries.
     setSortingOverState(testWorkspace.host, "container-a", "item-1", true);
     setSortingOverState(testWorkspace.host, "container-b", "item-2", false);
 
@@ -51,6 +53,7 @@ describe("sortingOverState", () => {
   });
 
   it("resets all container states", () => {
+    // Validates global cleanup path for drag lifecycle resets.
     setSortingOverState(testWorkspace.host, "container-a", "item-1", true);
     setSortingOverState(testWorkspace.host, "container-b", "item-2", false);
 

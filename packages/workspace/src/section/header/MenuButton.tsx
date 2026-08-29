@@ -13,6 +13,9 @@ import { useWorkspaceDocument } from "../../document/stores";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import { HeaderIcon } from "./HeaderIcon";
 
+// Frozen main makes the group icon a menu trigger for overflow and ungroup. The package additionally
+// promotes a registered kind's icon when section-scoped host actions exist, as explicitly designed
+// by A3. Kinds without either contribution keep the accepted decorative icon.
 type MenuButtonProps = {
   sectionId: string;
   sectionKind: string;
@@ -97,6 +100,9 @@ export function MenuButton({
     ? "nodrag flex select-none items-center justify-center rounded-full p-0.5 me-1 aspect-square font-semibold leading-none text-[color:var(--setta-section-style-muted-text)] outline-none motion-safe:transition-colors motion-safe:duration-150"
     : "nodrag flex select-none items-center justify-center rounded-full p-0.5 me-1 aspect-square font-semibold leading-none text-setta-700 outline-none motion-safe:transition-colors motion-safe:duration-150 dark:text-setta-200";
 
+  // The trigger asks the registry the same question the open menu answers: does this section have
+  // any applicable header command? Package applicability reads the live section, so the check
+  // costs one selector run per document change instead of a snapshot per paint.
   const hasActions = useWorkspaceDocument((state) => {
     const section = state.sections[sectionId];
     return section

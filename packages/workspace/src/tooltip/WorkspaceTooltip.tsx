@@ -23,6 +23,9 @@ import {
 } from "../workspaceHostInternals";
 import type { WorkspaceHost } from "../workspaceHost";
 
+// Main's reusable quick-info lifecycle: hold Q to reveal the staged pages, use the auxiliary
+// Q chords to navigate/copy/freeze, and keep a frozen box interactive until Escape closes it.
+// Main's product-specific plaintext/markdown section conversion stays in the application.
 const INITIAL_TOOLTIP_WIDTH_PX = 256;
 const MOUSE_OFFSET_PX = 10;
 const VIEWPORT_CLAMP_MARGIN_PX = 8;

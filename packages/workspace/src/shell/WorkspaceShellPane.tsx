@@ -173,6 +173,7 @@ function getPaneMeasurements(
   };
 }
 
+/* The ARIA Window Splitter pattern makes its separator focusable and interactive by design. */
 function PaneSurfaceContent({
   fullWidth,
   maximumWidth,
@@ -285,6 +286,8 @@ function PaneSurface(props: WorkspaceShellPaneProps) {
   );
 }
 
+// The pane region — rail included — is the focus scope its chord targets, so a closed pane hands
+// focus to the tab that reopens it rather than to nothing.
 export function WorkspaceShellPane(props: WorkspaceShellPaneProps) {
   const regionRef = useRef<HTMLElement>(null);
   useWorkspaceFocusScope(

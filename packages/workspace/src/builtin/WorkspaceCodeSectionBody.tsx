@@ -23,6 +23,13 @@ import {
 } from "./sectionEditorExtensions";
 import { WorkspaceSectionEditor } from "./WorkspaceSectionEditor";
 
+// The built-in Code Editor section body: the shared section-scale editor over the code section's
+// authored language, wrapping, gutter, indentation, and mode options.
+
+// Only a generated document carries a region, so the parsed pair is the mode. Locking a section
+// locks its content too, so a locked code section reads and scrolls but cannot be edited; it never
+// turns an ordinary editor into a generated document, and a locked generated document keeps the
+// block's paint while accepting nothing at all.
 function resolveEditorPresentation(
   generatedRegion: WorkspaceGeneratedRegion | null,
   isReadOnlyMode: boolean,
@@ -40,6 +47,9 @@ function resolveEditorPresentation(
     : EDITABLE_SECTION_EDITOR_PRESENTATION;
 }
 
+// The reader's own name for the surface, because the paint alone cannot tell a screen reader what
+// this section accepts: a generated document is an editor whose generated output refuses edits,
+// and the two non-editable presentations say they refuse everything.
 function resolveEditorAriaLabel(
   sectionName: string,
   presentation: WorkspaceSectionEditorPresentation,
@@ -55,6 +65,9 @@ function resolveEditorAriaLabel(
   return `${sectionName} code editor`;
 }
 
+// The next document data for one accepted edit, or null when the section has nothing to write.
+// A generated document persists the mapped range with the text, so its own data never describes a
+// region that has moved out from under it.
 function nextCodeSectionData(
   liveData: WorkspaceCodeSectionData,
   change: WorkspaceSectionEditorChange,
@@ -105,7 +118,8 @@ export function WorkspaceCodeSectionBody({
     section.data,
     allowedLanguages,
   );
-
+  // The data is parsed fresh on every render, so the presentation is rebuilt only when the values
+  // it carries move. That is what keeps the editor from reconfiguring itself between keystrokes.
   const isReadOnlyMode = data.mode === "read-only";
   const isLocked = section.positionAndSizeLocked;
   const regionFrom =
@@ -123,7 +137,8 @@ export function WorkspaceCodeSectionBody({
       ),
     [isLocked, isReadOnlyMode, regionFrom, regionTo],
   );
-
+  // Parsing correctly produces fresh records. Keep an unchanged diagnostic set referentially
+  // stable so an unrelated document publication never reconfigures CodeMirror mid-keystroke.
   const diagnosticsSignature = JSON.stringify(data.diagnostics);
   const diagnosticsRef = useRef({
     signature: diagnosticsSignature,

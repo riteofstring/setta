@@ -114,7 +114,8 @@ describe("PasswordValueControl", () => {
     }
     const toggle = getVisibilityToggle();
     expect(toggle.getAttribute("aria-label")).toBe("Show password");
-
+    // The frozen control removes this native button from tab order. The package keeps the
+    // non-visual native tab stop so keyboard users can reach the same show/hide action.
     expect(toggle.tabIndex).toBe(0);
     expect(toggle.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
       "true",

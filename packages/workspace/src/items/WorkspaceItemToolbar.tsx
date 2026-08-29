@@ -48,6 +48,13 @@ function isItemAuthoringMutationDisabled(
   return !canEditStructure || itemDragActive || sectionLocked;
 }
 
+// The registered item-area presentation selects which of these exact behaviors renders. The
+// `hidden` mode renders no toolbar at all, so it never reaches this component; the two visible
+// modes share one filter surface and one mutation implementation.
+//
+// `followsLeadingContent` is the item area's own composition input rather than a declared toolbar
+// mode: the reference gives a toolbar composed under a section's leading control `mt-0 pb-0` and
+// every other item toolbar `mt-1 pb-1`.
 export function WorkspaceItemToolbar({
   followsLeadingContent,
   mode,

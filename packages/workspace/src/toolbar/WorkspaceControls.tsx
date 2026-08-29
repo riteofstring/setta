@@ -37,6 +37,12 @@ import {
 import { WorkspaceToolbarGroup } from "./WorkspaceToolbarGroup";
 import { useWorkspaceHost } from "../workspaceHostContext";
 
+// The reference's viewport toolbar (`forks/xyflow/controls/Controls.tsx`) at the slice form the
+// seam proposal fixes: the viewport and minimap groups, with the host controls contributed around
+// them where the reference places its own. The edge-toggle group left with its feature, and with
+// it the only divider the package's own groups had — the reference renders no divider between the
+// viewport and minimap groups.
+
 function runZoomOnPointerDown(
   event: ReactPointerEvent<HTMLButtonElement>,
   zoom: () => void,
@@ -51,6 +57,8 @@ function runZoomOnNonPointerClick(
   event: ReactMouseEvent<HTMLButtonElement>,
   zoom: () => void,
 ): void {
+  // Pointer activation already ran on pointer-down. Native keyboard activation and assistive
+  // technology dispatch a click with detail 0, so they retain the button's standard semantics.
   if (event.detail === 0) {
     zoom();
   }
@@ -201,6 +209,10 @@ function useZoomReached() {
   );
 }
 
+// The reference memoizes this toolbar because its contributed controls are imperative mounts that
+// update themselves. The package paints contributed controls from host-owned command state, so the
+// toolbar re-renders with the host's tree exactly as the panes, the Outline, the Inspector, and the
+// canvas already do.
 export function WorkspaceControls() {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const workspaceScopeClassName = useWorkspaceScopeClassName();

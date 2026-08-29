@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// macOS may report sess= as zero for visible processes. Snapshot only fixed
+// numeric PID/PPID records here; unix.Getsid is the session authority.
 func terminalProcessSnapshots() ([]terminalProcessSnapshot, error) {
 	output, err := terminalProcessStatusOutput("-axo", "pid=,ppid=")
 	if err != nil {

@@ -1,3 +1,6 @@
+/* Main's UIConfig hierarchy: one understated filter, a separated scrolling
+ * list, compact parameter titles, and the UI type immediately followed by its
+ * type-specific fields. */
 .setta-workspace-parameter-config {
   display: flex;
   min-width: 0;

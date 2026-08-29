@@ -8,7 +8,7 @@ import zipfile
 from collections.abc import Sequence
 from pathlib import Path, PurePosixPath
 
-from setta_wheel_smoke.models import (
+from .models import (
     APP_ID,
     FORBIDDEN_ARCHIVE_ROOTS,
     FORBIDDEN_ARCHIVE_SEGMENTS,
@@ -231,7 +231,16 @@ def validate_runtime_manifest(
         raise SmokeError("runtime manifest has an invalid shape")
     if manifest["formatVersion"] != "setta-runtime/v1":
         raise SmokeError("runtime manifest has an unsupported format version")
-    target = require_object(manifest["target"], "runtime target")
+    manifest_target = _runtime_manifest_target(manifest["target"], platform_tag)
+    asset_paths = _runtime_manifest_assets(archive, names, manifest["assets"])
+    native_member, web_members = _runtime_manifest_app(
+        infos, names, manifest["apps"], asset_paths
+    )
+    return manifest_target, native_member, web_members
+
+
+def _runtime_manifest_target(value: object, platform_tag: str) -> tuple[str, str]:
+    target = require_object(value, "runtime target")
     if (
         set(target) != {"arch", "os"}
         or target.get("os") not in {"darwin", "linux", "windows"}
@@ -245,23 +254,18 @@ def validate_runtime_manifest(
             "runtime manifest target does not match the wheel platform tag "
             f"{platform_tag!r}"
         )
-    assets = require_list(manifest["assets"], "runtime assets")
+    return manifest_target
+
+
+def _runtime_manifest_assets(
+    archive: zipfile.ZipFile, names: set[str], value: object
+) -> dict[str, bool]:
+    assets = require_list(value, "runtime assets")
     if not assets:
         raise SmokeError("runtime manifest has no assets")
     asset_paths: dict[str, bool] = {}
     for asset in assets:
-        document = require_object(asset, "runtime asset")
-        if set(document) != {"executable", "path", "sha256"}:
-            raise SmokeError("runtime manifest has an invalid asset shape")
-        path = document.get("path")
-        digest = document.get("sha256")
-        executable = document.get("executable")
-        if (
-            not isinstance(path, str)
-            or not isinstance(digest, str)
-            or not isinstance(executable, bool)
-        ):
-            raise SmokeError("runtime manifest has an invalid asset value")
+        path, digest, executable = _runtime_asset_fields(asset)
         safe_runtime_relative_path(path)
         if path in asset_paths or not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise SmokeError("runtime manifest has duplicate or invalid assets")
@@ -285,7 +289,32 @@ def validate_runtime_manifest(
     }
     if actual_assets != set(asset_paths):
         raise SmokeError("runtime manifest asset inventory is not closed")
-    apps = require_list(manifest["apps"], "runtime apps")
+    return asset_paths
+
+
+def _runtime_asset_fields(value: object) -> tuple[str, str, bool]:
+    document = require_object(value, "runtime asset")
+    if set(document) != {"executable", "path", "sha256"}:
+        raise SmokeError("runtime manifest has an invalid asset shape")
+    path = document.get("path")
+    digest = document.get("sha256")
+    executable = document.get("executable")
+    if (
+        not isinstance(path, str)
+        or not isinstance(digest, str)
+        or not isinstance(executable, bool)
+    ):
+        raise SmokeError("runtime manifest has an invalid asset value")
+    return path, digest, executable
+
+
+def _runtime_manifest_app(
+    infos: Sequence[zipfile.ZipInfo],
+    names: set[str],
+    value: object,
+    asset_paths: dict[str, bool],
+) -> tuple[str, tuple[str, ...]]:
+    apps = require_list(value, "runtime apps")
     if len(apps) != 1:
         raise SmokeError("runtime manifest must contain exactly one app")
     app = require_object(apps[0], "runtime app")
@@ -310,7 +339,7 @@ def validate_runtime_manifest(
         raise SmokeError("wheel has no packaged Python Canvas index.html")
     if not any(name.startswith(web_prefix + "assets/") for name in web_members):
         raise SmokeError("wheel has no packaged Python Canvas hashed asset")
-    return manifest_target, native_member, web_members
+    return native_member, web_members
 
 
 def read_archive_text(archive: zipfile.ZipFile, name: str) -> str:

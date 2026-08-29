@@ -1,5 +1,11 @@
 import type { CSSProperties } from "react";
 
+// The reference's `buildTextBlockTypographyScale`: one authored base size drives the rendered
+// body, code, and heading sizes so a text section scales as a whole rather than through six
+// independent options. The reference publishes the result as CSS custom properties its Tailwind
+// typography variants read; the package keeps that mechanism, because the rendered surface is
+// the same `prose` composition.
+
 type WorkspaceTextTypographyScale = {
   bodyPx: number;
   codePx: number;

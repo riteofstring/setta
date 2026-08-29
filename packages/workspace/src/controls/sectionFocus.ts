@@ -13,6 +13,10 @@ type SectionControlKeyboardEvent = {
   stopPropagation: () => void;
 };
 
+// The reference's `focusOnSection(null, sectionId, false)` without its pane-move travel —
+// canvas focus/fit helpers are a deferred capability. Every built-in control routes its Escape
+// here: moving focus to the section container blurs the live control, which restores the idle
+// presentation without unselecting the section.
 export function focusSectionAfterEscape(
   host: WorkspaceHost,
   sectionId: string,
@@ -29,10 +33,14 @@ function getSectionFocusElement(
   sectionId: string,
 ): HTMLElement | null | undefined {
   const refs = getSectionRefsStore(host).getState();
-
+  // Leaves expose their named section group through selfOnly; groups have only the named outer
+  // container. Both are stable programmatic focus targets without adding a Tab stop.
   return refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
 }
 
+// Escape belongs to the focused control first. Keep the same keypress from reaching the
+// document-level canvas shortcut, which would immediately clear the section selection and blur
+// the focus target this helper just restored.
 export function handleSectionControlEscape(
   host: WorkspaceHost,
   event: SectionControlKeyboardEvent,

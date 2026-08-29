@@ -97,6 +97,9 @@ type ProjectSnapshotStreamOptions = Readonly<{
   onSnapshot: (snapshot: ProjectSnapshotV2) => void;
 }>;
 
+// connectProjectSnapshotStream consumes the backend's server-pushed canonical
+// snapshot stream. Native EventSource reconnection receives an immediate
+// current snapshot, so no timer, retry fetch, or polling loop is required.
 export function connectProjectSnapshotStream(
   options: ProjectSnapshotStreamOptions,
   createEventSource: ProjectSnapshotEventSourceFactory = (url) =>
@@ -111,7 +114,8 @@ export function connectProjectSnapshotStream(
       options.onProtocolError();
     }
   };
-
+  // EventSource owns transport reconnection. The server begins every new
+  // connection with its current snapshot, which is the catch-up mechanism.
   source.onerror = () => {};
   return () => source.close();
 }

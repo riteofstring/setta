@@ -132,6 +132,8 @@ function commitItemTree(
   restoreItemAuthoringFocus(host, focusPlan, focusTargetId);
 }
 
+// The only insertion funnel used by package controls and direct host invocation. The factory
+// executes after capability/lock/drag gates and before any canonical store publication.
 export function insertWorkspaceItem(
   host: WorkspaceHost,
   sectionId: string,
@@ -155,6 +157,8 @@ export function insertWorkspaceItem(
   );
 }
 
+// All deletion surfaces validate the complete request before one atomic publication and one
+// host notification. An empty request is a true no-op.
 export function deleteWorkspaceItems(
   host: WorkspaceHost,
   sectionId: string,

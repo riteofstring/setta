@@ -98,7 +98,11 @@ func prepareProcessLaunch(interpreter string, artifact string, directory string,
 }
 
 func prepareWindowsGuardianLaunch(interpreter string, artifact string, directory string, environment []string) (windowsGuardianLaunch, error) {
-
+	// The guardian runs only this fixed prelude until it has joined the private
+	// job. -I and -S prevent project startup hooks from running before the job
+	// owns the process. It remains the Job-owned root while nt.spawnv waits for
+	// the exact interpreter and artifact child with NUL stdin and inherited
+	// stdout/stderr.
 	command := exec.Command(interpreter, "-I", "-S", "-c", windowsGuardianPrelude, interpreter, artifact)
 	command.Dir = directory
 	command.Env = append([]string(nil), environment...)

@@ -14,6 +14,7 @@ export const infiniteExtent: CoordinateExtent = [
   [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY],
 ];
 
+// The reference's connection/handle fields left with the excluded edge features.
 export const initialCanvasState: ReactFlowStore = {
   width: 0,
   height: 0,

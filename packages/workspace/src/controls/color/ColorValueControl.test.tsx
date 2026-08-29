@@ -32,10 +32,17 @@ import {
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+// Freezes the color control against the reference `ColorPickerInput` at the `ParamUI` color
+// presentation: the configured-choice trigger over the portaled 16 px swatch listbox, the
+// native-input path behind the eyedropper glyph, single-report cadence through the string
+// seam, Escape returning focus to the section, canvas-transform repositioning for the open
+// popover, and the interaction-first disabled contract.
+
 const SECTION_ID = "panel";
 const ITEM_ID = "item-accent";
 const NATIVE_INPUT_ID = `${SECTION_ID}-${ITEM_ID}-ColorValueInput`;
 
+// The captured evidence fixture's choices (Red/Green/Blue).
 const CHOICES = [
   { color: "#ef4444", description: "Red" },
   { color: "#22c55e", description: "Green" },
@@ -106,7 +113,7 @@ describe("ColorValueControl", () => {
   it("renders the configured trigger with the reference presentation", async () => {
     await mount({ choices: CHOICES });
     const wrapper = host.firstElementChild;
-
+    // The ParamUI wrapper literal plus the package no-drag boundary.
     for (const expectedClass of [
       "nodrag",
       "section-value",
@@ -128,7 +135,8 @@ describe("ColorValueControl", () => {
     ]) {
       expect(trigger.classList.contains(expectedClass)).toBe(true);
     }
-
+    // The rounded swatch paints the selected choice; the label and chevron ride the
+    // auto-contrast layer.
     const swatch = trigger.querySelector<HTMLElement>(
       "div.single-cell-child.rounded-lg",
     );
@@ -159,7 +167,7 @@ describe("ColorValueControl", () => {
       "Green",
       "Blue",
     ]);
-
+    // The recorded 16 px round swatch inside each option row.
     const optionSwatch = options[0]?.querySelector<HTMLElement>(
       "div.h-4.w-4.rounded-full",
     );
@@ -261,7 +269,7 @@ describe("ColorValueControl", () => {
   it("repositions the open popover when the canvas transform changes", async () => {
     await mount({ choices: CHOICES });
     await openPopover();
-
+    // Flush the open-time reposition frame before observing the transform-driven one.
     await flushAnimationFrame();
     const onScroll = vi.fn();
     const onResize = vi.fn();

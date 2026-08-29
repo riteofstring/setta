@@ -16,6 +16,8 @@ import type { WorkspaceHost } from "../workspaceHost";
 const COMMAND_ID_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]*$/u;
 const PACKAGE_COMMAND_PREFIX = "workspace.";
 
+// A scope decides which surfaces can offer a command: pane commands only exist where the pane
+// itself is the target, and item commands never reach a section header or the section action row.
 const SURFACES_BY_SCOPE: Record<
   WorkspaceCommandScope,
   ReadonlyArray<WorkspaceCommandSurface>
@@ -159,6 +161,12 @@ function validateHostCommand(
   });
 }
 
+// Like section-kind and item-handler registration, each call replaces the complete host-owned set.
+// Package commands are always registered, so a host command that reuses a package id, an unknown
+// scope, or a surface its scope cannot reach fails here instead of at invocation time. A toolbar
+// contribution names a command, so the standing contributions are revalidated against the new
+// catalog: a registration that would drop a contributed command, or stop offering the toolbar
+// surface, fails here rather than leaving a control that cannot resolve.
 export function registerWorkspaceCommands(
   host: WorkspaceHost,
   commands: ReadonlyArray<WorkspaceCommandDefinition>,
@@ -181,6 +189,8 @@ export function registerWorkspaceCommands(
   getCommandsBySurfaceKey(host).clear();
 }
 
+// Section headers ask for their surface on every document change, so the composed per-surface list
+// is built once per registration instead of once per question.
 const commandsBySurfaceKeyByHost = new WeakMap<
   WorkspaceHost,
   Map<string, ReadonlyArray<RegisteredWorkspaceCommand>>
@@ -220,6 +230,8 @@ export function getWorkspaceCommands(
   return commands;
 }
 
+// Every registered command, in registration order, for the surfaces that address commands by id
+// instead of asking for a surface's set.
 export function listWorkspaceCommands(
   host: WorkspaceHost,
 ): ReadonlyArray<RegisteredWorkspaceCommand> {

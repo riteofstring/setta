@@ -19,6 +19,9 @@ const KINDS: ReadonlyArray<WorkspaceToolbarContribution["kind"]> = [
   "creation",
 ];
 
+// The registered contributions on their own, so the toolbar that paints them, the registration
+// that validates them, and the two command registries that must not strand them can all reach the
+// set without any of them owning another. `workspaceToolbarRegistry.ts` owns the public entry.
 const contributionsByHost = new WeakMap<
   WorkspaceHost,
   ReadonlyArray<WorkspaceToolbarContribution>
@@ -36,6 +39,9 @@ type WorkspaceToolbarCommandCatalog = Readonly<{
   toolbarCommandIds: ReadonlySet<string>;
 }>;
 
+// Both command registries replace their catalog atomically, so validation reads the catalog it is
+// asked about rather than the one currently registered: a contribution is checked against the set
+// that is about to take effect, and a registration that would strand one fails before it applies.
 export function createWorkspaceToolbarCommandCatalog(
   commands: ReadonlyArray<WorkspaceToolbarCommandSummary>,
   creationCommands: ReadonlyArray<{ id: string }>,

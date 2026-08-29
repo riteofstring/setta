@@ -96,6 +96,9 @@ function loadTestDocument(
   });
 }
 
+// The representative recursive structure from the Phase 0 captures: a root group holding a
+// nested group holding a horizontal group with three leaves — three group levels, leaves at
+// the fourth.
 function loadDeepDocument() {
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
@@ -192,6 +195,8 @@ function updateMetaSizeForTest(sections: Record<string, WorkspaceSection>) {
   };
 }
 
+// Mirrors production, where NodeRenderer stops rendering a section's container in the same
+// pass that removes it from the document.
 function SectionHost({ sectionId }: { sectionId: string }) {
   const exists = useWorkspaceDocument(
     (x) => x.sections[sectionId] !== undefined,
@@ -218,6 +223,7 @@ function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
   return element;
 }
 
+// The item toolbar's own block spacing, in the order the reference declares it.
 function getToolbarSpacing(root: ParentNode): Array<string> {
   const toolbar = getRequiredElement(root, ".section-args");
   return ["mt", "pb"].map((property) => {
@@ -287,6 +293,8 @@ describe("SectionContainer", () => {
     testWorkspace.reactFlow.setState({ ...initialCanvasState });
   });
 
+  // Production always renders section containers inside the dnd context, which also owns the
+  // document → dnd-children sync that feeds nested child lists.
   async function mount(sectionId: string) {
     await act(async () => {
       root.render(
@@ -349,6 +357,7 @@ describe("SectionContainer", () => {
     expect(rightHandle.style.right).toBe("-8px");
     expect(bottomHandle.style.bottom).toBe("-8px");
 
+    // The container registers both DOM refs for measurement fallbacks.
     expect(
       testWorkspace.sectionRefs.getState().selfOnly["leaf"],
     ).toBeInstanceOf(HTMLElement);
@@ -444,7 +453,8 @@ describe("SectionContainer", () => {
     ]) {
       expect(shell.classList.contains(expectedClass)).toBe(true);
     }
-
+    // Meta presentation suppresses a section style color rather than repainting its transparent
+    // shell with the ordinary themed variables.
     expect(shell.className).not.toContain("--setta-section-style");
     expect(String(shell.getAttribute("style"))).not.toContain(
       "--setta-section-style",
@@ -615,11 +625,14 @@ describe("SectionContainer", () => {
     loadTestDocument();
     await mount("leaf");
 
+    // The registered icon replaces the gg-menu fallback and carries the reference's default
+    // blue simple-icon treatment.
     expect(host.querySelector("i.gg-menu")).toBeNull();
     const icon = host.querySelector('[data-testid="kind-icon"]');
     expect(icon).not.toBeNull();
     expect(icon?.getAttribute("class")).toContain("text-setta-300");
 
+    // A style-colored section swaps in the themed treatment, exactly as the reference.
     loadTestDocument({ leaf: { styleColor: "#3b82f6" } });
     await mount("leaf");
     expect(
@@ -733,7 +746,7 @@ describe("SectionContainer", () => {
     const leading = getRequiredElement(body, '[data-testid="leading-content"]');
     const toolbar = getRequiredElement(body, ".section-args");
     expect(leading.textContent).toBe("Leading for Leaf section");
-
+    // Rendered order is the fixed public contract: leading content, toolbar, registered content.
     expect(
       leading.compareDocumentPosition(toolbar) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -742,10 +755,10 @@ describe("SectionContainer", () => {
       toolbar.compareDocumentPosition(content) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-
+    // The declared mode selects the toolbar, so no unavailable structural action is exposed.
     expect(toolbar.dataset["workspaceItemToolbar"]).toBe("filter-only");
     expect(host.querySelector('[aria-label="Add parameter"]')).toBeNull();
-
+    // The one filter provider still wraps every region.
     expect(
       host.querySelector(`#${testWorkspace.domId}-leaf-parameter-filter`),
     ).not.toBeNull();
@@ -773,6 +786,8 @@ describe("SectionContainer", () => {
     });
     await mount("leaf");
 
+    // The reference's callable card is continuous: its Args surface begins at the leading field's
+    // own boundary, so the toolbar directly below leading content carries no step above or below.
     expect(getToolbarSpacing(host)).toEqual(["mt-0", "pb-0"]);
 
     await act(async () => root.unmount());
@@ -785,6 +800,7 @@ describe("SectionContainer", () => {
     });
     await mount("leaf");
 
+    // An item area with no leading content keeps the ordinary item toolbar's existing spacing.
     expect(host.querySelector('[data-testid="leading-content"]')).toBeNull();
     expect(getToolbarSpacing(host)).toEqual(["mt-1", "pb-1"]);
   });
@@ -872,7 +888,7 @@ describe("SectionContainer", () => {
 
     const groupRoot = getRequiredElement(host, ".group\\/group-section");
     expectSectionGroupSemantics(groupRoot, "Group section group section");
-
+    // The frame and selection outline paint on an absolutely positioned sibling layer.
     expect(host.querySelector(".outline-4.absolute")).not.toBeNull();
     expect(
       host.querySelector('[aria-label="Flow children horizontally"]'),
@@ -891,7 +907,7 @@ describe("SectionContainer", () => {
     expect(
       nestedSlot.querySelector('[data-section-id="nested"]'),
     ).not.toBeNull();
-
+    // Groups never render a minimize control.
     const groupHeader = groupRoot.querySelector(".min-h-10");
     expect(
       groupHeader?.querySelector('[aria-label="Minimize section"]'),
@@ -1152,6 +1168,7 @@ describe("SectionContainer", () => {
     loadDeepDocument();
     await mount("outer");
 
+    // Every level renders full group chrome, recursively composed.
     expect(host.querySelectorAll(".group\\/group-section").length).toBe(3);
 
     const middleSlot = host.querySelector(
@@ -1168,9 +1185,11 @@ describe("SectionContainer", () => {
     }
     expect(host.textContent).toContain("Row A body");
 
+    // The middle group flows its children vertically; the inner group flows horizontally.
     expect(middleSlot.querySelector(".mt-2.flex.flex-col")).not.toBeNull();
     expect(innerSlot.querySelector(".mt-2.flex.flex-row")).not.toBeNull();
 
+    // Only the horizontal group offers the stack-vertically direction.
     expect(
       innerSlot.querySelector('[aria-label="Stack children vertically"]'),
     ).not.toBeNull();
@@ -1203,6 +1222,7 @@ describe("SectionContainer", () => {
     expect(innerSlot.querySelector(".mt-2.flex.flex-col")).not.toBeNull();
     expect(innerSlot.querySelector(".mt-2.flex.flex-row")).toBeNull();
 
+    // One canonical commit, one notification, carrying only the flipped group.
     expect(reported.length).toBe(1);
     expect(reported[0]?.sections["inner"]?.isHorizontalOrientation).toBe(false);
     expect(reported[0]?.sections["middle"]?.isHorizontalOrientation).toBe(
@@ -1237,6 +1257,7 @@ describe("SectionContainer", () => {
       input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
     });
 
+    // The commit normalizes surrounding whitespace, mirroring the reference.
     expect(testWorkspace.document.getState().sections["leaf"]?.name).toBe(
       "Renamed leaf",
     );
@@ -1292,7 +1313,7 @@ describe("SectionContainer", () => {
     const title = Array.from(host.querySelectorAll('[role="button"]')).find(
       (el) => el.textContent === "Leaf section",
     ) as HTMLElement;
-
+    // React synthesizes onMouseEnter/onMouseLeave from native mouseover/mouseout.
     await act(async () => {
       title.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
     });
@@ -1330,6 +1351,7 @@ describe("SectionContainer", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await act(async () => {
+      // Escape blurs the input itself; the escape flag swallows that blur without committing.
       input.dispatchEvent(
         new KeyboardEvent("keydown", { code: "Escape", bubbles: true }),
       );
@@ -1391,6 +1413,7 @@ describe("SectionContainer", () => {
     testWorkspace.capabilities.setState({ canEditStructure: false });
     await mount("leaf");
 
+    // The title renders the fixed presentation instead of the editable one.
     expect(host.querySelector("h2")?.textContent).toBe("Leaf section");
     const deleteButton = host.querySelector(
       '[aria-label="Delete section"]',

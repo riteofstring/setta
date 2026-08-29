@@ -7,6 +7,10 @@ import type {
 } from "react";
 import { useEffect, useRef, useState } from "react";
 
+// The reference's `components/Utils/Editable.tsx`: a text label that flips to a text input on
+// double-click (or keyboard activation), restoring focus to the label after keyboard submit. The
+// reference renders the label as a `<p>`; the repository's accessibility gate forbids
+// interactive roles on paragraphs, so the package renders a visually identical `<div>`.
 type EditableTitleClassNames = {
   editing?: string;
   notEditing?: string;
@@ -19,7 +23,7 @@ type EditableProps = {
   onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   titleProps: EditableTitleClassNames;
   restoreFocusAfterKeyboardSubmit: RefObject<boolean>;
-
+  // The reference forwards these to both modes so the section title can drive the tooltip.
   onMouseEnter?: (event: { currentTarget: HTMLElement }) => void;
   onMouseLeave?: () => void;
 };
@@ -38,6 +42,7 @@ export function Editable({
   const paragraphRef = useRef<HTMLDivElement | null>(null);
 
   function localOnBlur(e: FocusEvent<HTMLInputElement>) {
+    // Read before the submission hook resets its escape-specific blur state.
     const focusOnNonEdit = restoreFocusAfterKeyboardSubmit.current;
     setIsEditing(false);
     onBlur(e);
@@ -150,7 +155,7 @@ function InNonEditMode({
 }) {
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key === " " || e.key === "Enter") {
-      e.preventDefault();
+      e.preventDefault(); // need this to prevent title from getting erased
       onClick(e);
     }
   }

@@ -8,7 +8,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Self
 
-from setta_wheel_smoke.models import (
+from .models import (
     APP_ID,
     APP_SESSION_VERIFY_TIMEOUT_SECONDS,
     COMMAND_TIMEOUT_SECONDS,
@@ -20,7 +20,7 @@ from setta_wheel_smoke.models import (
     require_object,
     validate_exact_loopback_origin,
 )
-from setta_wheel_smoke.process import ForegroundOpen, run_process
+from .process import ForegroundOpen, run_process
 
 
 class FailureCapture:

@@ -1,3 +1,7 @@
+// Package unifiedenv exercises the public process boundaries together. Its
+// fixture dependency exists only in a temporary project .venv, so a passing
+// test proves consumers use the resolved environment instead of ambient
+// interpreter selection.
 package unifiedenv
 
 import (

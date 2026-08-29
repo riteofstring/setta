@@ -13,6 +13,9 @@ type PythonTargetCompletionProviderOptions = {
   projectId: string;
 };
 
+// The workspace supplies the exact generated-body range from the canonical
+// response. Completion is therefore offered only for the two editable outer
+// regions and never infers a boundary by searching rendered Python text.
 export function createPythonTargetCompletionProvider({
   fetchImplementation,
   onFailure,

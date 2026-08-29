@@ -67,6 +67,7 @@ describe("dragEventMapping", () => {
   });
 
   it("returns null on drag start when source is missing", () => {
+    // Validates null-safe handling for malformed drag-start operations.
     const result = mapDragStartEvent(testWorkspace.host, {
       operation: {
         source: null,
@@ -77,6 +78,7 @@ describe("dragEventMapping", () => {
   });
 
   it("prefers manager drag-operation shape for active rect", () => {
+    // Validates primary active rect source from live drag operation geometry.
     const active = { id: "active-1" };
     const manager = {
       dragOperation: {
@@ -118,6 +120,7 @@ describe("dragEventMapping", () => {
   });
 
   it("falls back to active droppable shape then active.rect", () => {
+    // Validates fallback order for active rect resolution.
     const active = {
       id: "active-1",
       rect: {
@@ -208,6 +211,7 @@ describe("dragEventMapping", () => {
   });
 
   it("returns null on drag events when active source is missing", () => {
+    // Validates null-safe handling for malformed drag move/over/end events.
     const manager = {
       collisionObserver: {
         collisions: [],
@@ -231,6 +235,7 @@ describe("dragEventMapping", () => {
   });
 
   it("maps drag events and preserves operation payload", () => {
+    // Validates baseline drag mapping for active/over/delta/collisions.
     const active = {
       id: "active-1",
       data: { current: { type: "section" } },
@@ -264,6 +269,7 @@ describe("dragEventMapping", () => {
   });
 
   it("promotes best item collision using list-key parent mapping", () => {
+    // Validates item drag collision ordering uses list-key aware parentByChild mapping.
     const listKey = "pinned";
     const parentId = "parent";
     const childId = "child";

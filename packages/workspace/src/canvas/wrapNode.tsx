@@ -61,6 +61,7 @@ const NodeWrapperComponent = ({
       className={cc([
         "react-flow__node",
         {
+          // this is overwritable by passing `nopan` as a class name
           [NO_PAN_CLASS_NAME]: isDraggable,
         },
       ])}

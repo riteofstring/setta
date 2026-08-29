@@ -31,6 +31,12 @@ import {
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+// Freezes the boolean switch against the reference `SwitchInput` at the `ParamUI` switch
+// presentation: the recorded Radix geometry and paint classes, the reference's checked parse
+// across the string seam, the stringified boolean commit, Escape returning focus to the
+// section without unselecting it, and the interaction-first disabled contract for the host
+// flag and item-select mode.
+
 const SECTION_ID = "panel";
 
 describe("SwitchValueControl", () => {
@@ -86,7 +92,9 @@ describe("SwitchValueControl", () => {
     );
     const switchButton = getSwitch();
     expect(switchButton.getAttribute("aria-label")).toBe("Enabled value");
-
+    // The recorded geometry: 10 px track and thumb (h-2.5/w-2.5), 3.2 px padding
+    // (p-[0.2rem]), full radius, blue-500/dark blue-700 checked paint, 16 px checked thumb
+    // translation (translate-x-4), and the no-drag boundary.
     for (const expectedClass of [
       "nodrag",
       "setta-workspace-native-reset",

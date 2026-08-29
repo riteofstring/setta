@@ -8,6 +8,8 @@ import (
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 )
 
+// TargetPaths allocates the exact generated paths renderer will use for a
+// validated aggregate. The returned map is independent of the caller.
 func TargetPaths(state aggregate.State) (map[string]string, error) {
 	if err := state.Validate(); err != nil {
 		return nil, fmt.Errorf("allocate target paths for validated project: %w", err)
@@ -56,6 +58,8 @@ const (
 	assignmentCollection
 )
 
+// assignmentNode is one emitted state assignment. Dependencies point from the
+// consumer node to every assignment that must run before it.
 type assignmentNode struct {
 	targetID        string
 	path            string
@@ -291,6 +295,10 @@ func (graph *assignmentGraph) resolveExpressionReferences() error {
 	return nil
 }
 
+// stableDependencyOrder preserves the existing structural post-order for
+// unrelated nodes while putting every resolved dependency before its consumer.
+// A back edge is skipped at traversal time so a cyclic project remains
+// renderable and deterministic for inspection.
 func (graph *assignmentGraph) stableDependencyOrder() []string {
 	ordered := make([]string, 0, len(graph.nodeOrder))
 	emitted := make(map[string]struct{}, len(graph.nodeOrder))

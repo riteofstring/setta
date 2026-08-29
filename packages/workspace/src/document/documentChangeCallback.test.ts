@@ -220,6 +220,8 @@ describe("document-change notification", () => {
   });
 
   it("snapshots consistently when notified during an atomic publication", () => {
+    // A subscriber-driven read during the delete publication must observe the staged state;
+    // the notification itself fires after the publication with the same committed document.
     const observedDuringPublication: { current: WorkspaceDocument | null } = {
       current: null,
     };

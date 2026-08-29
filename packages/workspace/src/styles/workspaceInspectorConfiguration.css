@@ -1,3 +1,6 @@
+/* Frozen main's parameter configuration presentation: compact hover rows, semibold sans labels,
+ * code-font values on a restrained bottom rule, immediate list actions, and conditional date/time
+ * fields. The package keeps its additional serializable schema fields in the same vocabulary. */
 .setta-workspace-inspector-config {
   gap: 4px;
   padding-block-start: 4px;

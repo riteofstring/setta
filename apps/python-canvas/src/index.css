@@ -1,3 +1,6 @@
+/* The workspace owns every visible application surface. These root rules only
+ * make its canvas fill the viewport and keep app-level announcements out of
+ * the layout. */
 :root {
   color-scheme: light dark;
   color: light-dark(#172033, #c9d1d9);
@@ -35,6 +38,8 @@ body {
   overflow: hidden;
 }
 
+/* Main waits for the create response before mounting the canonical section. Keep the local
+ * identity placeholder available for position reconciliation, but never paint or expose it. */
 .setta-workspace [data-section-type="python-canvas.callable-pending"],
 .setta-workspace
   [data-section-type="python-canvas.parameter-dictionary-pending"],
@@ -52,6 +57,9 @@ body {
   white-space: nowrap;
 }
 
+/* The contextual Params tab keeps its application-specific facts in the package pane's existing
+ * scrolling surface. Its low-chrome filter and flat parameter groups mirror main's UIConfig
+ * reading rhythm without creating an item editor or another pane/card hierarchy. */
 .python-canvas-params-pane {
   display: flex;
   block-size: 100%;
@@ -211,6 +219,8 @@ body {
   min-inline-size: 0;
 }
 
+/* Generated Python keeps the package-owned section shell and header. Its runtime terminal is a
+ * separate joined surface, so opening or resizing it never changes the authored editor size. */
 .python-canvas-generated-python-section,
 .python-canvas-generated-python-editor {
   display: flex;
@@ -233,6 +243,8 @@ body {
   min-inline-size: 0;
 }
 
+/* These are frozen main's 16 px, transparent per-code-section controls. The palette mirrors
+ * main's setta utility values while keeping this consumer-owned markup out of workspace CSS. */
 .python-canvas-generated-python-run-control,
 .python-canvas-generated-python-terminal-control {
   display: inline-flex;
@@ -489,6 +501,8 @@ body {
   content: "";
 }
 
+/* The package owns the section's insets. This grid only spaces the app-owned
+ * callable controls and messages inside its section. */
 .python-canvas-callable-section {
   position: relative;
   display: grid;
@@ -496,6 +510,8 @@ body {
   min-inline-size: 0;
 }
 
+/* Main leaves the callable editor active while a commit is pending and covers
+ * only parameter authoring with a transparent, centered spinner layer. */
 .python-canvas-parameter-pending-overlay {
   position: absolute;
   z-index: 10;
@@ -545,6 +561,8 @@ body {
   min-inline-size: 0;
 }
 
+/* Main's ordinary parameter label is one truncating semibold name. Provider
+ * metadata remains canonical data for generation and diagnostics, not row copy. */
 .python-canvas-parameter-label {
   min-inline-size: 0;
   margin: 0;

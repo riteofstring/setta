@@ -20,6 +20,8 @@ import {
 } from "./workspaceMenuState";
 import { WorkspacePaneMenu } from "./WorkspacePaneMenu";
 
+// Menus render whatever the command registry offers for their surface: package commands first,
+// host commands in their own group, both invoked through the same execution path.
 function toMenuEntry(
   host: WorkspaceHost,
   entry: WorkspaceCommandEntry,

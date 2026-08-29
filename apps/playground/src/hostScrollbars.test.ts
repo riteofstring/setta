@@ -1,10 +1,19 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+// Read the stylesheet source directly: vitest replaces `.css` imports (even `?raw`) with
+// empty modules, and this contract is about the authored host file, not a build output.
 const hostStylesheet = readFileSync(
   new URL("./index.css", import.meta.url),
   "utf8",
 );
+
+// The host-owned scrollbar regression from the Phase 4 host-context correction: the package
+// ships no scrollbar policy, so the frozen reference's host treatment — thin translucent
+// #94a3b83a Firefox scrollbars on body and every descendant, and the 0.375 rem WebKit
+// scrollbar that opts Chromium out of overlay scrollbars so a 550 px scroll shell reserves
+// the 6 px gutter and measures main's 544 px client width — is this host's contract, frozen
+// here as the literal blocks from the reference index.css at 043d3b2e9.
 
 const FROZEN_FIREFOX_SCROLLBAR_BLOCK = `@supports (-moz-appearance: none) {
   body {

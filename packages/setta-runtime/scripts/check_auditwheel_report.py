@@ -184,8 +184,9 @@ def _assert_external_library_policy(report: str) -> None:
         raise AuditwheelReportError(
             "auditwheel external-library section has an invalid shape"
         )
+    library_names = {name for name in libraries if isinstance(name, str)}
     non_policy_libraries = sorted(
-        set(libraries) - _MANYLINUX_2_28_ALLOWED_EXTERNAL_LIBRARIES
+        library_names - _MANYLINUX_2_28_ALLOWED_EXTERNAL_LIBRARIES
     )
     if non_policy_libraries:
         joined = ", ".join(non_policy_libraries)

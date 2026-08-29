@@ -1,3 +1,5 @@
+// Extracted verbatim from the frozen reference
+// (`../setta-main/frontend/src/utils/sectionStyleColors.ts` at 043d3b2e9).
 type Rgb = { r: number; g: number; b: number };
 
 type DerivedSectionStyleTheme = {
@@ -84,6 +86,10 @@ function pickReadableTextColor(bg: Rgb): Rgb {
   return contrastRatio(black, bg) >= contrastRatio(white, bg) ? black : white;
 }
 
+/**
+ * Derive a readable (light/dark mode aware) section chrome theme from a single base hex color.
+ * Returns null when the input is not a valid #RRGGBB hex color.
+ */
 export function deriveSectionStyleTheme(
   styleColor: string,
   darkMode: boolean,
@@ -105,10 +111,10 @@ export function deriveSectionStyleTheme(
     : { r: 255, g: 255, b: 255 };
 
   const bgRgb = mixSrgb(base, mixTarget, darkMode ? 0.18 : 0.12);
-
+  // Slightly stronger tint used for nested strips/panels that need separation from section bg.
   const panelBgRgb = mixSrgb(base, mixTarget, darkMode ? 0.26 : 0.2);
   const borderRgb = mixSrgb(base, mixTarget, darkMode ? 0.4 : 0.35);
-
+  // Outline should be more saturated than the border so it reads as a chrome/selection accent.
   const outlineRgb = mixSrgb(base, mixTarget, darkMode ? 0.7 : 0.65);
   const textRgb = pickReadableTextColor(bgRgb);
   const mutedRgb = mixSrgb(textRgb, bgRgb, 0.45);

@@ -1,3 +1,6 @@
+// Package pythonenv resolves the one Python runtime a Python Canvas server
+// owns for its entire lifetime. It deliberately accepts explicit startup
+// inputs only: project-local .venv discovery and the launcher's exact Python.
 package pythonenv
 
 import (
@@ -30,6 +33,7 @@ var (
 	ErrInvalidProbe           = errors.New("python environment: interpreter probe is invalid")
 )
 
+// SelectionSource records the only two supported resolution paths.
 type SelectionSource string
 
 const (
@@ -37,12 +41,17 @@ const (
 	SelectionSourceLauncher    SelectionSource = "launcher_python"
 )
 
+// Version is the parsed Python implementation version returned by the exact
+// selected interpreter.
 type Version struct {
 	Major int
 	Minor int
 	Micro int
 }
 
+// ResolvedPythonEnvironment is immutable after construction. Accessors return
+// scalar values or defensive copies, so every process consumer receives the
+// same startup selection without being able to mutate it for another consumer.
 type ResolvedPythonEnvironment struct {
 	interpreter      string
 	source           SelectionSource
@@ -66,10 +75,16 @@ func (environment ResolvedPythonEnvironment) VirtualEnvRoot() string {
 	return environment.virtualEnvRoot
 }
 
+// ChildEnvironment returns the prepared environment for a child language
+// server or PTY. It has the selected interpreter directory first on PATH and
+// no inherited Python selection variables.
 func (environment ResolvedPythonEnvironment) ChildEnvironment() []string {
 	return append([]string(nil), environment.childEnvironment...)
 }
 
+// Options provides the explicit process-launch inputs. A nil
+// InheritedEnvironment uses the current process environment; a non-nil empty
+// slice is useful for deterministic tests.
 type Options struct {
 	ProjectPath          string
 	LauncherPython       string
@@ -77,6 +92,9 @@ type Options struct {
 	ProbeTimeout         time.Duration
 }
 
+// Resolve chooses the nearest valid project .venv or the exact launcher
+// Python, validates that interpreter with one bounded JSON probe, and prepares
+// the environment every downstream child process will receive.
 func Resolve(ctx context.Context, options Options) (ResolvedPythonEnvironment, error) {
 	projectDirectory, err := projectDirectory(options.ProjectPath)
 	if err != nil {
@@ -423,7 +441,9 @@ func environmentKeyEqual(left string, right string) bool {
 
 func isPythonSelectionVariable(key string) bool {
 	for _, name := range []string{
-
+		// These values alter the executable or import root independently of
+		// the absolute interpreter selected above. Keep normal Python process
+		// behavior (for example PYTHONUTF8 and PYTHONWARNINGS) intact.
 		"PYTHONHOME",
 		"PYTHONPATH",
 		"PYTHONEXECUTABLE",

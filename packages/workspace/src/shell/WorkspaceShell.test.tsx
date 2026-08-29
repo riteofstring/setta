@@ -443,6 +443,7 @@ describe("WorkspaceShell", () => {
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
+  // The insets are physical: an RTL host's leading pane covers the canvas from the right.
   it("maps the pane insets onto the host's writing direction", async () => {
     host.dir = "rtl";
 

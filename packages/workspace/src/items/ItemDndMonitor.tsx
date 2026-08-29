@@ -15,6 +15,10 @@ import {
   resetItemDragState,
 } from "./itemDragHandlers";
 
+// The reference's `ParamDndMonitor` component: wires the drag lifecycle handlers into the
+// nested item provider, cancels a live item drag when item-select mode releases mid-gesture,
+// and completes the deferred reset once the drag operation returns to idle.
+
 export function ItemDndMonitor() {
   const host = useWorkspaceHost();
   const manager = useDragDropManager();

@@ -29,6 +29,9 @@ function resolveBoundedDimension(
   return rounded;
 }
 
+// Frozen main promotes only auto dimensions when bounded overflow is first enabled. The group
+// root uses border-box sizing, so the outer rectangle is also the numeric size that preserves the
+// currently visible group geometry when the fixed bounds take effect.
 export function getBoundedGroupSize(
   sectionId: string,
   size: SectionSize,
@@ -97,6 +100,9 @@ function getNextGroupSize(
   );
 }
 
+// One public action owns capability/section validation, measured auto-size promotion, the atomic
+// mode-and-size write, and the single host notification. A3 routes the package action surfaces
+// through this same operation.
 export function setGroupOverflowMode(
   host: WorkspaceHost,
   sectionId: string,

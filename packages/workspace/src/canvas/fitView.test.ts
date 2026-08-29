@@ -22,6 +22,8 @@ import { fitView, onFitViewHandler } from "./fitView";
 import { useWorkspaceOptions } from "./options";
 import { initialCanvasState, useReactFlow } from "./store";
 
+// Ported from the reference fork's `store/utils.test.ts`.
+
 function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
   return {
     id: overrides.id,

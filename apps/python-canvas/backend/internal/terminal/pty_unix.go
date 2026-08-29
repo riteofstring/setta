@@ -61,7 +61,9 @@ func openPTY(command []string, directory string, environment []string, columns i
 		_ = lifetimeWriter.Close()
 		return nil, err
 	}
-
+	// pty.StartWithSize creates the guardian's session and controlling terminal.
+	// The guardian then starts the configured shell in that same session while
+	// retaining the stable session identity needed after the shell has exited.
 	file, err := pty.StartWithSize(guardian, &pty.Winsize{Cols: uint16(columns), Rows: uint16(rows)})
 	if err != nil {
 		_ = lifetimeWriter.Close()
@@ -103,7 +105,8 @@ func newTerminalGuardianCommand(
 		return nil, errors.New("terminal guardian invocation is required")
 	}
 	command := exec.Command(invocation[0], invocation[1:]...)
-
+	// cwd and environment are inherited by the shell through the guardian. They
+	// deliberately do not cross its private argv boundary or appear as metadata.
 	command.Dir = directory
 	command.Env = append([]string(nil), environment...)
 	command.ExtraFiles = []*os.File{lifetimeReader}

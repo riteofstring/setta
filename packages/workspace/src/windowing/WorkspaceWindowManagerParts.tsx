@@ -225,7 +225,8 @@ function isInteractiveWorkspaceWindowHeaderTarget(
   target: EventTarget | null,
 ): boolean {
   if (!(target instanceof Element)) return false;
-
+  // Main uses the displayed section title as the drag surface. The package gives that
+  // title button semantics for keyboard editing; its actual editing input still blocks drag.
   const interactiveTarget = target.closest(
     "button, [role='button'], [role='menuitem'], input, textarea, select, a, [contenteditable='true']",
   );
@@ -260,6 +261,7 @@ type WorkspaceManagedWindowFrameProps = {
   readonly window: WorkspaceFloatingWindow;
 };
 
+/** Shared frame selection for floating, maximized, and bottom-docked hosts. */
 export function WorkspaceManagedWindowFrame({
   actions,
   layoutEditable,

@@ -30,6 +30,11 @@ import { StrictMode, useEffect, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import "./consumer.css";
 
+// An unrelated React application consuming the locally packed @setta/workspace artifact: it
+// depends only on the tarball's public exports and compiled stylesheet, registers its own
+// section kinds with host renderers, opaque data, and package presentation seams, and styles its
+// host chrome with plain CSS — no Tailwind, no package source, and no Setta application code.
+
 function getNoteText(section: WorkspaceSection): string {
   const data = section.data;
   if (data === null || typeof data !== "object" || Array.isArray(data)) {
@@ -43,6 +48,7 @@ function getNoteText(section: WorkspaceSection): string {
 }
 
 function NoteBody({ section }: { section: WorkspaceSection }) {
+  // Registration places this host content in the package-owned section body slot.
   return <p className="consumer-note-body">{getNoteText(section)}</p>;
 }
 
@@ -122,7 +128,8 @@ function makeNoteSection(
     id,
     kind: "note",
     name,
-
+    // The note text is the kind's opaque data; the size comes from the kind's registered
+    // default.
     data: { text },
     isMinimized: false,
     positionAndSizeLocked: false,
@@ -256,6 +263,8 @@ const consumerDocument: WorkspaceDocumentInput = {
   activeIds: [],
 };
 
+// The host side of the document-change callback: every package-initiated canonical commit
+// reports the serializable document once; the initial load never does.
 function DocumentChangeReadout() {
   const workspaceHost = useWorkspaceHost();
   const [documentChangeCount, setDocumentChangeCount] = useState(0);
@@ -422,6 +431,9 @@ function ConsumerApp() {
   );
 }
 
+// Kind registration precedes the load because loading validates section kinds against the
+// registry, and the appearance store must reflect the boot appearance before node
+// projection derives backgrounds from it.
 const workspaceHost = createWorkspaceHost();
 setWorkspaceColorMode(
   workspaceHost,
@@ -517,11 +529,11 @@ registerWorkspaceCommands(workspaceHost, [
       ),
   },
 ]);
-
+// The package ships locking bindable and unbound, so a consumer chooses its own chord for it.
 registerWorkspaceKeyBindings(workspaceHost, [
   { id: "workspace.lock-sections", chord: "Mod + Alt + L" },
 ]);
-
+// One contributed toolbar control over the creation command the pane menu already offers.
 registerWorkspaceToolbarContributions(workspaceHost, [
   {
     kind: "creation",

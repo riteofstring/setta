@@ -126,6 +126,8 @@ export function setWorkspaceColorMode(
     throw new Error(`Unknown workspace color mode: ${String(colorMode)}.`);
   }
   if (colorMode === "system") {
+    // Resolve support before replacing a working mode/listener so a rejected system request is
+    // atomic from the consumer's perspective.
     const mediaQuery = getSystemColorSchemeQuery();
     stopSystemColorSchemeSync(host);
     startSystemColorSchemeSync(host, mediaQuery);

@@ -24,6 +24,20 @@ import type { WorkspaceSectionItemTree } from "../document/types";
 import { getSectionItemVisibility } from "./itemListRegistry";
 import type { WorkspaceHost } from "../workspaceHost";
 
+// The reference's keyboard param movement (`moveSelectedParamsUp/Down`, `indentSelectedParams`,
+// `unindentSelectedParams` in `state/actions/params/moveParams.ts`) in item terms. The offset
+// moves keep the reference's visible-group resolution and apply the resolved group moves as one
+// canonical commit (the reference dispatches them through a single optimistic update); indent
+// and unindent port the reference backend's semantics (`param_moves.go`): indent moves each
+// contiguous selected run under its nearest preceding unselected sibling, unindent promotes
+// each per-parent run to just after its parent. The reference's leaf→`NestedParam` promotion on
+// indent and its empty-parent type restore on unindent are structural no-ops here — every item
+// carries `children`; presentation changes remain independent of structural movement.
+// App-only branches dropped: the backend routes (the host publishes one snapshot per applied
+// action), the deployment-mode guard (the `canEditStructure` capability), and
+// the filter/hidden/multi-parent toasts (the disabled fallbacks they narrate are unchanged).
+// Visibility and the active-filter answer come from the registered list views, like drag start.
+
 type ItemSelectionBase = {
   sectionId: string;
   itemTree: WorkspaceSectionItemTree;
@@ -118,7 +132,8 @@ export function indentSelectedItems(host: WorkspaceHost): boolean {
   }
   const selectedSet = new Set(context.rootSelected);
   let tree = context.itemTree;
-
+  // The reference backend builds the same contiguous selected runs, but over the parent's full
+  // child order — a hidden sibling splits a run even though it never renders.
   const groups = buildVisibleSelectionGroups(
     getItemOrThrow(tree, context.sharedParent).children,
     selectedSet,
@@ -261,6 +276,8 @@ function buildVisibleSelectionGroups(
   return groups;
 }
 
+// Downward moves process groups bottom-up so each group lands past the neighbor below it
+// before the group above recomputes its target.
 function getOffsetMoveGroups(
   direction: -1 | 1,
   visibleSiblings: Array<string>,
@@ -346,6 +363,8 @@ function resolveItemOffsetMove({
   };
 }
 
+// Later groups resolve against the sibling order the earlier groups already produced; the
+// canonical tree itself changes once, at the commit.
 function applyResolvedItemOffsetMove(
   moveState: ItemOffsetState,
   move: ResolvedItemOffsetMove,

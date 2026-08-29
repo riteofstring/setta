@@ -59,6 +59,8 @@ function leafSection(id: string, name: string) {
   };
 }
 
+// "top" and "bottom" are leaves stacked vertically with a group between them, so the reading
+// order is top, middle group, bottom regardless of the order they mounted in.
 function loadNavigationDocument() {
   registerSectionKinds(testWorkspace.host, {
     leaf: { renderContent: () => null },
@@ -196,6 +198,7 @@ describe("focusAdjacentTopLevelSection", () => {
     expect(getActiveSectionIds(testWorkspace.host)).toEqual(["middle"]);
   });
 
+  // A group is one target: focus lands on the group itself instead of reaching into a child.
   it("focuses a group as a whole", () => {
     mountAllSections();
     requireControl("top").focus();

@@ -21,11 +21,13 @@ import { applyZoomToTransform, transformToString } from "./zoom";
 
 describe("zoom adapter utilities", () => {
   it("returns null and empty string for null transforms", () => {
+    // Validates null-safe transform handling in drag style plumbing.
     expect(applyZoomToTransform(testWorkspace.host, null)).toBeNull();
     expect(transformToString(null)).toBe("");
   });
 
   it("normalizes translation by current react-flow zoom", () => {
+    // Validates drag translation stays in flow-space regardless of viewport zoom.
     testWorkspace.reactFlow.setState({ transform: [0, 0, 2] });
 
     expect(
@@ -44,6 +46,7 @@ describe("zoom adapter utilities", () => {
   });
 
   it("renders transform strings with and without scale", () => {
+    // Validates CSS transform serialization for sortable elements.
     expect(transformToString({ x: 4, y: 6, scaleX: 1, scaleY: 1 })).toBe(
       "translate3d(4px, 6px, 0)",
     );

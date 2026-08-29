@@ -7,6 +7,10 @@ import {
   TEXT_VALUE_BASIC_SETUP,
 } from "./textValueExtensions";
 
+// Characterizes the reference's `getExtensions` behavior on the trimmed text-value path: the
+// wrap default, the single-line transaction filter, and the extension counts the reference's
+// own test freezes for wrap and language packs.
+
 function createState(
   options: Partial<Parameters<typeof getTextValueExtensions>[0]> = {},
 ) {
@@ -29,6 +33,7 @@ describe("getTextValueExtensions", () => {
   });
 
   it("wraps by default and drops wrapping for single-line editors", () => {
+    // wrap + keymap; the reference asserts the same two-slot shape with wrapping off.
     expect(
       getTextValueExtensions({
         language: null,
@@ -46,7 +51,7 @@ describe("getTextValueExtensions", () => {
         onEscape: () => {},
         tooltipParent: null,
       }),
-    ).toHaveLength(2);
+    ).toHaveLength(2); // single-line filter + keymap, no wrapping
     expect(
       getTextValueExtensions({
         language: "python",
@@ -55,7 +60,7 @@ describe("getTextValueExtensions", () => {
         onEscape: () => {},
         tooltipParent: null,
       }),
-    ).toHaveLength(3);
+    ).toHaveLength(3); // wrap + language pack + keymap
   });
 
   it("keeps an explicit wrapLines override independent of single-line mode", () => {
@@ -67,9 +72,12 @@ describe("getTextValueExtensions", () => {
         onEscape: () => {},
         tooltipParent: null,
       }),
-    ).toHaveLength(3);
+    ).toHaveLength(3); // wrap + single-line filter + keymap
   });
 
+  // The reference configures its canvas tooltip parent from the same assembly. A control never
+  // opts in: the parent is whatever the host canvas published, so the only two shapes are the one
+  // with it and the one an editor rendered outside a canvas gets.
   it("configures a published canvas tooltip parent and nothing when there is none", () => {
     const parent = document.createElement("div");
     const withParent = getTextValueExtensions({
@@ -79,7 +87,7 @@ describe("getTextValueExtensions", () => {
       onEscape: () => {},
       tooltipParent: parent,
     });
-    expect(withParent).toHaveLength(3);
+    expect(withParent).toHaveLength(3); // tooltip parent + single-line filter + keymap
     expect(
       getTextValueExtensions({
         language: null,
@@ -120,6 +128,8 @@ describe("getTextValueExtensions", () => {
     });
 
     try {
+      // This models the interval after React commits disabled=true and before @uiw replaces
+      // CodeMirror's extensions in its passive effect.
       disabled.current = true;
       view.contentDOM.dispatchEvent(
         new KeyboardEvent("keydown", {

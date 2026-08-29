@@ -7,6 +7,8 @@ export type WorkspaceItemDiagnostic = Readonly<{
   message: string;
 }>;
 
+// A list-scoped host input. Item ids are resolved against the list's section, so unrelated
+// sections may use the same item id without sharing ephemeral validation state.
 export type WorkspaceItemDiagnosticRegistry = Readonly<
   Record<string, ReadonlyArray<WorkspaceItemDiagnostic>>
 >;
@@ -74,6 +76,9 @@ function normalizeDiagnostic(
   });
 }
 
+// Parse the complete external registry before publishing any of it to row contexts. Diagnostics
+// are intentionally absent from WorkspaceDocument; replacing this prop cannot mutate or notify the
+// canonical document.
 export function normalizeWorkspaceItemDiagnosticRegistry(
   registry: WorkspaceItemDiagnosticRegistry | undefined,
   sectionId: string,

@@ -21,6 +21,7 @@ export function hasSelector(
   return false;
 }
 
+// looks for all selected nodes and creates a NodeDragItem for each of them
 export function getDragItems(
   host: WorkspaceHost,
   nodeInternals: NodeInternalsState["x"],

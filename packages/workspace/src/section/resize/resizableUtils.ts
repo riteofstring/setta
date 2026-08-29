@@ -1,6 +1,12 @@
 import type { SectionSize } from "../../document/types";
 import type { ResizeHandleDirection } from "../sectionSizes";
 
+// Extracted from the reference's `components/Utils/Resizable/utils.ts`. The reference threads a
+// per-application-type size mode (`SIZE_MODE`) through these helpers. The package enforces the
+// extracted meta controls' auto-only height mode at the resizable boundary, so these pure helpers
+// only receive enabled directions. Double-click on a handle returns the affected dimensions to
+// "auto"; a plain resize commits the pixel size re-resizable wrote to the element.
+
 const RESIZE_HANDLE_DOUBLE_CLICK_MS = 300;
 
 type ResizeHandleClickState = {
@@ -149,6 +155,7 @@ function clampNumericDimension(
     : value;
 }
 
+// The reference's aspect-ratio clamp branch left with the media section types that set one.
 export function clampChangedSize({
   changedSize,
   minHeight,
@@ -194,6 +201,9 @@ function shouldClampToMax(currentSize: SectionSize["width"], maxSize: number) {
   return typeof currentSize === "number" && currentSize > maxSize;
 }
 
+// Normalizes a stored manual size to the registered envelope (the reference's auto-clamp
+// effect). Maximum violations clamp exactly so a fixed-height kind cannot retain an oversized
+// persisted dimension.
 export function getAutoClampSize({
   size,
   minHeight,
@@ -221,6 +231,8 @@ export function getAutoClampSize({
   return Object.keys(nextSize).length > 0 ? nextSize : null;
 }
 
+// The resizable shell consumes this exact directional contract. A fixed-height registered kind
+// retains horizontal resizing while removing all height-affecting affordances.
 export function getResizableEnable({
   canEditLayout,
   disablePointerEvents,

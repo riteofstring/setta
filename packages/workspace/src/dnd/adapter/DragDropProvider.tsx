@@ -16,6 +16,8 @@ import type {
   SettaCollision,
 } from "./types";
 
+// The reference's provider minus its DEV-only collision-stats instrumentation
+// (`window.__settaDndCollisionStats`), which is Vite-app debug tooling.
 type Props = PropsWithChildren<{
   sensors?: Sensors<DragDropManager>;
   modifiers?: Modifiers<DragDropManager>;
@@ -31,6 +33,10 @@ type Props = PropsWithChildren<{
   onDragCancel?: (event: DragCancelEvent) => void;
 }>;
 
+// The dependency accessibility plugin imperatively turns every full-surface drag activator into
+// an ARIA button with pressed/grabbed state. Section and item activators contain real controls, so
+// that role flattens their interactive descendants in screen-reader trees. The package supplies
+// explicit selection, keyboard movement, and focus semantics at those surfaces instead.
 const plugins = defaultPreset.plugins.filter(
   (plugin) => plugin !== Accessibility && plugin !== AutoScroller,
 );

@@ -1,3 +1,8 @@
+/**
+ * Serializable, application-neutral input carried by a window renderer.  The
+ * windowing package treats this as data: only the host-selected renderer knows
+ * how to interpret it.
+ */
 export type WorkspaceWindowJsonValue =
   | boolean
   | number
@@ -20,6 +25,7 @@ export interface WorkspaceWindowBoundaryInsets {
   readonly bottom: number;
 }
 
+/** Measurements are in the local coordinate system of the window layer. */
 export interface WorkspaceWindowViewport {
   readonly width: number;
   readonly height: number;
@@ -39,10 +45,20 @@ export type WorkspaceFloatingSnapPreset =
 export type WorkspaceWindowPlacement =
   "canvas_section" | "bottom_docked" | "floating" | "maximized";
 
+/** A maximized window can only return to one of the externally managed hosts. */
 export type WorkspaceWindowRestorePlacement = "bottom_docked" | "floating";
 
+/**
+ * The package-owned renderer key for a window that presents one workspace
+ * section. Its body is composed by the section-window layer, not a host
+ * generic renderer.
+ */
 export const WORKSPACE_SECTION_WINDOW_SURFACE_KIND = "workspace_section";
 
+/**
+ * Persisted intent for a dock panel. The dock resolves the actual width from
+ * this preference and the measured local host width.
+ */
 export interface WorkspaceWindowDockMetrics {
   readonly preferredWidthPx: number;
   readonly widthFraction: number;
@@ -56,20 +72,25 @@ export interface WorkspaceWindowDockMetricsInput {
 const WORKSPACE_WINDOW_DEFAULT_DOCK_PREFERRED_WIDTH_PX = 460;
 const WORKSPACE_WINDOW_DEFAULT_DOCK_WIDTH_FRACTION = 1;
 
+/**
+ * A window retains its floating bounds while maximized.  `restoreBounds` is
+ * populated only while its placement is maximized, so restore is independent
+ * of a host's current measured boundary.
+ */
 export interface WorkspaceFloatingWindow {
   readonly id: string;
   readonly contentId: string;
   readonly surfaceKind: string;
   readonly title: string;
   readonly rendererData: WorkspaceWindowJsonValue;
-
+  /** Null for generic host-rendered content; otherwise the bound document section. */
   readonly sectionId: string | null;
   readonly bounds: WorkspaceWindowBounds;
   readonly placement: WorkspaceWindowPlacement;
   readonly restoreBounds: WorkspaceWindowBounds | null;
-
+  /** Populated only while maximized so restore returns to dock or floating. */
   readonly restorePlacement: WorkspaceWindowRestorePlacement | null;
-
+  /** The pre-snap free bounds used when a snapped title drag crosses 6px. */
   readonly lastUnsnappedBounds: WorkspaceWindowBounds | null;
   readonly dockMetrics: WorkspaceWindowDockMetrics;
   readonly isMinimized: boolean;
@@ -77,6 +98,10 @@ export interface WorkspaceFloatingWindow {
   readonly zIndex: number;
 }
 
+/**
+ * Array order is a stable tie breaker for equal z-index values. `nextFocusOrder`
+ * is always greater than every extant z-index after construction.
+ */
 export interface WorkspaceWindowingState {
   readonly windows: readonly WorkspaceFloatingWindow[];
   readonly nextFocusOrder: number;
@@ -106,6 +131,7 @@ export interface WorkspaceWindowingStateInput {
 }
 
 export interface WorkspaceWindowingMutationOptions {
+  /** Defaults to true. Focus and reopen remain available when false. */
   readonly layoutEditable?: boolean;
 }
 
@@ -522,6 +548,7 @@ function assertWindowOwnership(
   assertCanvasSectionOwnership(sectionId, placement, isMinimized, isClosed);
 }
 
+/** Validates one serializable window and returns a detached immutable copy. */
 export function createWorkspaceFloatingWindow(
   input: WorkspaceFloatingWindowInput | unknown,
 ): WorkspaceFloatingWindow {
@@ -610,6 +637,7 @@ export function createWorkspaceFloatingWindow(
   });
 }
 
+/** Validates a local host boundary and returns a detached immutable copy. */
 export function createWorkspaceWindowViewport(
   input: WorkspaceWindowViewport | unknown,
 ): WorkspaceWindowViewport {
@@ -671,6 +699,7 @@ export function createWorkspaceWindowViewport(
   });
 }
 
+/** Validates a complete controlled value and makes z-index ties deterministic by array order. */
 export function createWorkspaceWindowingState(
   input: WorkspaceWindowingStateInput | unknown = {},
 ): WorkspaceWindowingState {

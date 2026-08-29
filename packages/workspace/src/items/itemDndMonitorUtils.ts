@@ -2,6 +2,9 @@ import { computeNewIndex } from "../dnd/adapter";
 import type { SettaCollision } from "../dnd/adapter/types";
 import type { ItemListKey } from "../dnd/itemDndState";
 
+// The reference's `paramDndMonitorUtils.ts` in item terms, plus the list-key collision filter
+// the reference duplicates between its fork provider and its monitor.
+
 type ItemOverlayVisibilityInput = {
   shouldRenderOverlay: boolean;
   isItemDragActive: boolean;

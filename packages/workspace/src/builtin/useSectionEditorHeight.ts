@@ -14,6 +14,16 @@ import { NO_WHEEL_CLASS_NAME } from "../interaction";
 import { useResizeEvent } from "../section/resize/resizeEvents";
 import { useSectionMinMaxDims } from "../section/resize/sizingPolicy";
 
+// The reference's `useCodeAreaHeight`, which its code area and its in-section Markdown editor
+// both call, minus the application bookkeeping that has no package
+// equivalent: its initialized/displayed code-area counters, its `requestUpdateNodeDimensions`
+// signal, and its `tempSavedSize` restoration all serve the reference's deferred node-dimension
+// measurement. What is left is the behavior the editor itself needs — the height ceiling, the
+// overflow it owns while its section is auto-height or mid-resize, the wheel ownership it takes
+// once its own scroller can scroll, the scroll hand-off across a resize gesture, and the
+// re-measure after the canvas finishes its initial fit.
+
+// The reference's header allowance: the editor's ceiling is the section box minus its header.
 const SECTION_HEADER_ALLOWANCE_PX = 30;
 
 type SectionEditorHeight = {
@@ -42,6 +52,8 @@ function getEditorHeightLayout(
   const maxHeight =
     resizeEvent === "start" ? undefined : `${String(availableHeight)}px`;
   return {
+    // A fixed-height section gives CodeMirror the whole remaining body. Without this, its native
+    // horizontal scrollbar hugs the final line and leaves a misleading empty area below it.
     editorHeight: isWrapperScroller ? undefined : "100%",
     maxHeight,
     overflowClassName: isWrapperScroller ? "overflow-y-auto" : "",
@@ -85,7 +97,8 @@ export function useSectionEditorHeight(sectionId: string): SectionEditorHeight {
       const resizeObserver = new ResizeObserver(() => {
         requestWheelOwnershipMeasure(view);
       });
-
+      // The scroller catches section resizes. The content catches wrapping and document changes
+      // that create or remove horizontal overflow without changing the scroller's own box.
       resizeObserver.observe(view.scrollDOM);
       resizeObserver.observe(view.contentDOM);
       resizeObserverRef.current = resizeObserver;
@@ -113,6 +126,8 @@ export function useSectionEditorHeight(sectionId: string): SectionEditorHeight {
 
   useEffect(() => {
     if (readyToBeVisible && editorRef.current) {
+      // The reference re-measures once the canvas finishes its fit, or some lines stay unpainted
+      // until the next interaction.
       editorRef.current.requestMeasure();
       requestWheelOwnershipMeasure(editorRef.current);
     }
@@ -124,11 +139,16 @@ export function useSectionEditorHeight(sectionId: string): SectionEditorHeight {
     resizeEvent,
   );
 
+  // The reference samples both offsets during render and hands them to an effect keyed on the
+  // resize tick alone. Sampling into a ref keeps that timing while leaving the effect's inputs
+  // honest.
   scrollHandoffRef.current = {
     editorScrollTop: editorRef.current?.scrollDOM.scrollTop ?? 0,
     wrapperScrollTop: wrapperRef.current?.scrollTop ?? 0,
   };
   useEffect(() => {
+    // The scroller changes hands during a resize gesture: the wrapper owns it while the section
+    // is being dragged, and the editor takes it back afterwards. Carry the position across.
     const { editorScrollTop, wrapperScrollTop } = scrollHandoffRef.current;
     if (wrapperRef.current && resizeEvent === "start") {
       wrapperRef.current.scrollTop = editorScrollTop;

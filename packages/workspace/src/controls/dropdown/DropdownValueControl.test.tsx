@@ -30,6 +30,13 @@ import {
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+// Freezes the dropdown against the reference `IdNameCombobox` at the `ParamUI` dropdown
+// presentation, and characterizes the ported combobox state algorithm: the recorded pill and
+// portaled grouped list, match-sorter filtering, the full list returning on reopen, Enter
+// committing the first filtered match when nothing is highlighted, Escape and blur resetting
+// the draft to the committed selection, single commits through the string seam, the
+// external-value honesty reset, and the interaction-first disabled contract.
+
 const CHOICES = ["Alpha", "Beta", "Gamma"];
 
 describe("DropdownValueControl", () => {
@@ -89,7 +96,7 @@ describe("DropdownValueControl", () => {
     if (!list?.parentElement) {
       throw new Error("The dropdown list is not portaled to the body.");
     }
-
+    // downshift's listbox role lands on the menu div that carries the reference classes.
     return list;
   }
 
@@ -145,7 +152,9 @@ describe("DropdownValueControl", () => {
     );
     expect(search?.getAttribute("aria-label")).toBe("Choice value choices");
     const input = getInput();
-
+    // The recorded pill geometry and paint: rounded-full 12 px mono, 12 px leading and 24 px
+    // trailing padding at the 16 px content height plus one-pixel borders, the default
+    // white/setta-900 field, and the 2 px focus-visible ring.
     for (const expectedClass of [
       "setta-workspace-native-reset",
       "rounded-full",
@@ -164,7 +173,8 @@ describe("DropdownValueControl", () => {
     ]) {
       expect(input.classList.contains(expectedClass)).toBe(true);
     }
-
+    // The reference params path renders no input id (its undefined pass-through clobbers
+    // downshift's generated one) and keeps the StandardSearch "Search" placeholder.
     expect(input.hasAttribute("id")).toBe(false);
     expect(input.placeholder).toBe("Search");
     expect(input.getAttribute("aria-label")).toBe("Choice value");
@@ -203,7 +213,7 @@ describe("DropdownValueControl", () => {
     expect(getToggleButton().getAttribute("aria-label")).toBe(
       "Close Choice value choices",
     );
-
+    // The reference's body-portaled list presentation with its interaction boundaries.
     for (const expectedClass of [
       "nowheel",
       "nodrag",
@@ -221,7 +231,7 @@ describe("DropdownValueControl", () => {
       ".setta-workspace-dropdown-scrollport",
     );
     expect(scrollport?.classList.contains("overflow-y-scroll")).toBe(true);
-
+    // Flat host choices take the reference's single recorded "Choices" group header.
     const headers = Array.from(list.querySelectorAll("dt"));
     expect(headers.map((header) => header.textContent)).toEqual(["Choices"]);
     expect(headers[0]?.className).toContain("uppercase");
@@ -261,7 +271,7 @@ describe("DropdownValueControl", () => {
     await openViaToggle();
     await typeInInput("ga");
     expect(getVisibleOptions()).toEqual(["Gamma"]);
-
+    // Clearing the draft restores every choice, exactly as the reference reducer.
     await typeInInput("");
     expect(getVisibleOptions()).toEqual(["Alpha", "Beta", "Gamma"]);
   });
@@ -302,7 +312,8 @@ describe("DropdownValueControl", () => {
     await openViaToggle();
     await typeInInput("ga");
     await pressKey("Escape");
-
+    // The reference blurs the input and resets the draft without committing; the keypress
+    // stays visible to the canvas-level Escape shortcut exactly as in main.
     expect(getInput().value).toBe("Beta");
     expect(onValueChange).not.toHaveBeenCalled();
     expect(getInput().getAttribute("aria-expanded")).toBe("false");
@@ -323,7 +334,8 @@ describe("DropdownValueControl", () => {
   it("reports a host value with no matching choice once as the cleared selection", async () => {
     const onValueChange = vi.fn();
     await mount({ value: "Delta", onValueChange });
-
+    // The reference's honesty reset fires when the committed value has no matching option;
+    // the null commit crosses the package seam as the empty string.
     expect(onValueChange).toHaveBeenCalledTimes(1);
     expect(onValueChange).toHaveBeenCalledWith("");
   });

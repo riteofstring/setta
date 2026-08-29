@@ -152,55 +152,50 @@ def _require_regular_file(value: Path, label: str) -> Path:
 
 def _collect_web_files(value: Path) -> list[tuple[Path, Path]]:
     root = value.expanduser()
-    try:
-        root_mode = root.lstat().st_mode
-    except OSError as error:
-        raise StageError(f"production web root is missing: {root}") from error
-    if stat.S_ISLNK(root_mode) or not stat.S_ISDIR(root_mode):
-        raise StageError("production web root must be a non-symlink directory")
+    _require_web_root(root)
     files: list[tuple[Path, Path]] = []
     for directory, directory_names, file_names in os.walk(
         root, topdown=True, followlinks=False
     ):
         directory_path = Path(directory)
         for name in sorted(directory_names):
-            candidate = directory_path / name
-            try:
-                mode = candidate.lstat().st_mode
-            except OSError as error:
-                raise StageError(
-                    f"production web directory is unreadable: {candidate}"
-                ) from error
-            if stat.S_ISLNK(mode):
-                raise StageError(
-                    f"production web tree contains a directory symlink: {candidate}"
-                )
-            if not stat.S_ISDIR(mode):
-                raise StageError(
-                    f"production web tree contains an invalid directory: {candidate}"
-                )
+            _require_web_entry(directory_path / name, directory=True)
         for name in sorted(file_names):
             candidate = directory_path / name
-            try:
-                mode = candidate.lstat().st_mode
-            except OSError as error:
-                raise StageError(
-                    f"production web asset is unreadable: {candidate}"
-                ) from error
-            if stat.S_ISLNK(mode):
-                raise StageError(
-                    f"production web tree contains a file symlink: {candidate}"
-                )
-            if not stat.S_ISREG(mode):
-                raise StageError(
-                    f"production web tree contains a non-regular asset: {candidate}"
-                )
+            _require_web_entry(candidate, directory=False)
             files.append((candidate, candidate.relative_to(root)))
     if not files or not any(
         relative.as_posix() == "index.html" for _, relative in files
     ):
         raise StageError("production web root must contain index.html")
     return sorted(files, key=lambda item: item[1].as_posix())
+
+
+def _require_web_root(root: Path) -> None:
+    try:
+        root_mode = root.lstat().st_mode
+    except OSError as error:
+        raise StageError(f"production web root is missing: {root}") from error
+    if stat.S_ISLNK(root_mode) or not stat.S_ISDIR(root_mode):
+        raise StageError("production web root must be a non-symlink directory")
+
+
+def _require_web_entry(path: Path, *, directory: bool) -> None:
+    kind = "directory" if directory else "asset"
+    try:
+        mode = path.lstat().st_mode
+    except OSError as error:
+        raise StageError(f"production web {kind} is unreadable: {path}") from error
+    if stat.S_ISLNK(mode):
+        entry_kind = "directory" if directory else "file"
+        raise StageError(f"production web tree contains a {entry_kind} symlink: {path}")
+    valid = stat.S_ISDIR(mode) if directory else stat.S_ISREG(mode)
+    if not valid:
+        invalid_kind = "invalid directory" if directory else "non-regular asset"
+        article = "an" if directory else "a"
+        raise StageError(
+            f"production web tree contains {article} {invalid_kind}: {path}"
+        )
 
 
 def _release_platform_tag(inputs: StageInputs) -> str:

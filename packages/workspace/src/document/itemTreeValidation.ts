@@ -229,6 +229,9 @@ function assertValidItemSelection(
   }
 }
 
+// A section's item tree is exactly one tree rooted at `rootId`: every child claim is unique,
+// every item is reachable, row content is serializable and valid, and selection names only real
+// non-root items. Insertion reuses this complete load-boundary validator before committing.
 export function assertValidWorkspaceSectionItemTree(
   sectionId: string,
   itemTree: WorkspaceSectionItemTree,

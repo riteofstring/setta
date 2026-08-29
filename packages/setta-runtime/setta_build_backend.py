@@ -12,7 +12,7 @@ import zipfile
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from platform_contract import (
     PlatformContractError,
@@ -449,7 +449,7 @@ def _string_sequence(value: object, field: str) -> tuple[str, ...]:
         not isinstance(item, str) or not item for item in value
     ):
         raise BuildBackendError(f"The Setta project {field!r} metadata is invalid.")
-    return tuple(value)
+    return tuple(cast(list[str], value))
 
 
 def _string_pair(name: object, target: object) -> tuple[str, str]:
