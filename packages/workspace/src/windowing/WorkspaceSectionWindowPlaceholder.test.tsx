@@ -116,6 +116,7 @@ describe("WorkspaceSectionWindowPlaceholder", () => {
     );
     expect(placeholder?.dataset.workspaceSectionId).toBe(SECTION_ID);
     expect(placeholder?.dataset.workspaceSectionWindowId).toBe(WINDOW_ID);
+    expect(placeholder?.classList.contains("section-main-full-w")).toBe(true);
     expect(host.textContent).toContain("Original section moved to a window");
     expect(host.textContent).toContain(
       "Focus the external window or return this section to the canvas.",

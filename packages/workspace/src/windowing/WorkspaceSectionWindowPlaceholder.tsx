@@ -42,7 +42,7 @@ export function WorkspaceSectionWindowPlaceholder({
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col"
+      className="section-main-full-w flex min-h-0 flex-1 flex-col"
       data-testid={dataTestId}
       data-workspace-section-id={sectionId}
       data-workspace-section-window-id={windowId}
