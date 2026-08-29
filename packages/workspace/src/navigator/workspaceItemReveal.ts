@@ -14,11 +14,11 @@ type WorkspaceItemRevealRegistry = {
   targetsBySection: Map<string, Map<string, Set<HTMLElement>>>;
 };
 
-export type WorkspaceItemRevealAvailability =
+type WorkspaceItemRevealAvailability =
   | Readonly<{ canReveal: true; statusMessage: null }>
   | Readonly<{ canReveal: false; statusMessage: string }>;
 
-export type WorkspaceItemRevealResult =
+type WorkspaceItemRevealResult =
   | Readonly<{ revealed: true; statusMessage: null }>
   | Readonly<{ revealed: false; statusMessage: string }>;
 

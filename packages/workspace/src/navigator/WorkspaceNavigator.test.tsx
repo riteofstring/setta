@@ -245,6 +245,28 @@ describe("WorkspaceNavigator", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  it("closes from the pointer backdrop and restores the opener focus", async () => {
+    const trigger = getTrigger();
+    trigger.focus();
+
+    await act(async () => {
+      trigger.click();
+    });
+    const backdrop = document.body.querySelector<HTMLButtonElement>(
+      ".setta-workspace-navigator-backdrop",
+    );
+    if (!backdrop) {
+      throw new Error("Expected workspace navigator backdrop.");
+    }
+
+    await act(async () => {
+      backdrop.click();
+    });
+
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it("keeps the opener's text direction on the portaled dialog", async () => {
     host.dir = "rtl";
     const trigger = getTrigger();

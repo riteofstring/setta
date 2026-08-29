@@ -26,7 +26,7 @@ export type WorkspaceCommandEntry = {
   tone: "danger" | null;
 };
 
-export type WorkspaceCommandResult = {
+type WorkspaceCommandResult = {
   ran: boolean;
   statusMessage: string | null;
 };

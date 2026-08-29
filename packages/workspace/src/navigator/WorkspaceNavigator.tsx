@@ -5,7 +5,8 @@ import {
   useLayoutEffect,
   useRef,
   type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 import { FiCheck, FiCommand, FiSearch, FiX } from "react-icons/fi";
@@ -148,7 +149,7 @@ function getWorkspaceNavigatorFocusableElements(
 ): Array<HTMLElement> {
   return [
     ...root.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      'button:not(:disabled):not([tabindex="-1"]), input:not(:disabled):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])',
     ),
   ].filter(
     (element) =>
@@ -192,6 +193,458 @@ function getNextWorkspaceNavigatorMode(
   return null;
 }
 
+type WorkspaceNavigatorActiveResolution = Readonly<{
+  activeEntry: WorkspaceNavigatorEntry | null;
+  activeOptionId: string | undefined;
+  resolvedActiveIndex: number;
+}>;
+
+function resolveWorkspaceNavigatorActiveEntry(
+  results: ReadonlyArray<WorkspaceNavigatorEntry>,
+  requestedIndex: number,
+  instanceId: string,
+): WorkspaceNavigatorActiveResolution {
+  if (results.length === 0) {
+    return {
+      activeEntry: null,
+      activeOptionId: undefined,
+      resolvedActiveIndex: -1,
+    };
+  }
+  const resolvedActiveIndex = Math.min(requestedIndex, results.length - 1);
+  const activeEntry = results[resolvedActiveIndex] ?? null;
+  return {
+    activeEntry,
+    activeOptionId: activeEntry
+      ? `${instanceId}-option-${resolvedActiveIndex}`
+      : undefined,
+    resolvedActiveIndex,
+  };
+}
+
+function resolveVisibleWorkspaceNavigatorEntries(
+  host: ReturnType<typeof useWorkspaceHost>,
+  isOpen: boolean,
+  mode: WorkspaceNavigatorMode,
+  query: string,
+): Array<WorkspaceNavigatorEntry> {
+  return isOpen ? getWorkspaceNavigatorEntries(host, mode, query) : [];
+}
+
+function getWorkspaceNavigatorTriggerShortcut(
+  defaultMode: WorkspaceNavigatorMode,
+  findShortcutLabel: string | null,
+  commandsShortcutLabel: string | null,
+): string | null {
+  return defaultMode === "find" ? findShortcutLabel : commandsShortcutLabel;
+}
+
+function getWorkspaceNavigatorLiveMessage(
+  isOpen: boolean,
+  statusMessage: string | null,
+  liveSummary: string,
+): string {
+  return isOpen || statusMessage ? liveSummary : "";
+}
+
+function getWorkspaceNavigatorPlaceholder(
+  mode: WorkspaceNavigatorMode,
+): string {
+  return mode === "find" ? "Search sections and parameters" : "Search commands";
+}
+
+function getWorkspaceNavigatorEmptyMessage(
+  mode: WorkspaceNavigatorMode,
+): string {
+  return mode === "find"
+    ? "No matching workspace entries."
+    : "No matching commands.";
+}
+
+function WorkspaceNavigatorLiveRegion({
+  message,
+  workspaceScopeClassName,
+}: {
+  message: string;
+  workspaceScopeClassName: string;
+}) {
+  return (
+    <span
+      aria-atomic="true"
+      aria-live="polite"
+      className={`${workspaceScopeClassName} setta-workspace-navigator-live`}
+      role="status"
+    >
+      {message}
+    </span>
+  );
+}
+
+function WorkspaceNavigatorTrigger({
+  className,
+  defaultMode,
+  onOpen,
+  shortcutLabel,
+  showTrigger,
+  workspaceScopeClassName,
+}: {
+  className?: string;
+  defaultMode: WorkspaceNavigatorMode;
+  onOpen: () => void;
+  shortcutLabel: string | null;
+  showTrigger: boolean;
+  workspaceScopeClassName: string;
+}) {
+  if (!showTrigger) {
+    return null;
+  }
+  return (
+    <button
+      aria-label="Open workspace navigator"
+      className={`${workspaceScopeClassName} setta-workspace-navigator-trigger${className ? ` ${className}` : ""}`}
+      onClick={onOpen}
+      type="button"
+    >
+      <FiSearch aria-hidden="true" focusable="false" />
+      <span>{getNavigatorModeLabel(defaultMode)}</span>
+      {shortcutLabel ? <kbd>{shortcutLabel}</kbd> : null}
+    </button>
+  );
+}
+
+function getWorkspaceNavigatorOptionIcon(
+  entry: WorkspaceNavigatorEntry,
+): ReactNode {
+  if (entry.icon) {
+    const Icon = entry.icon;
+    return <Icon />;
+  }
+  return entry.kind === "command" ? <FiCommand /> : <FiSearch />;
+}
+
+function WorkspaceNavigatorOption({
+  entry,
+  instanceId,
+  onActivate,
+  onRegister,
+  resultIndex,
+  selected,
+}: {
+  entry: WorkspaceNavigatorEntry;
+  instanceId: string;
+  onActivate: (entry: WorkspaceNavigatorEntry) => void;
+  onRegister: (entryId: string, element: HTMLElement | null) => void;
+  resultIndex: number;
+  selected: boolean;
+}) {
+  const reasonId = `${instanceId}-reason-${resultIndex}`;
+  return (
+    <button
+      aria-describedby={entry.disabledReason ? reasonId : undefined}
+      aria-disabled={entry.disabled || undefined}
+      aria-selected={selected}
+      className="setta-workspace-navigator-option"
+      data-active={selected}
+      data-disabled={entry.disabled}
+      id={`${instanceId}-option-${resultIndex}`}
+      onClick={() => onActivate(entry)}
+      onMouseDown={(event) => event.preventDefault()}
+      ref={(element) => onRegister(entry.id, element)}
+      role="option"
+      tabIndex={-1}
+      type="button"
+    >
+      <span
+        aria-hidden="true"
+        className="setta-workspace-navigator-option-icon"
+      >
+        {getWorkspaceNavigatorOptionIcon(entry)}
+      </span>
+      <span className="setta-workspace-navigator-option-copy">
+        <span className="setta-workspace-navigator-option-label">
+          {entry.label}
+        </span>
+        {entry.breadcrumb ? (
+          <span className="setta-workspace-navigator-option-breadcrumb">
+            {entry.breadcrumb}
+          </span>
+        ) : null}
+        {entry.disabledReason ? (
+          <span
+            className="setta-workspace-navigator-option-reason"
+            id={reasonId}
+          >
+            {entry.disabledReason}
+          </span>
+        ) : null}
+      </span>
+      {entry.checked === true ? (
+        <FiCheck
+          aria-label="Checked"
+          className="setta-workspace-navigator-option-checked"
+        />
+      ) : null}
+      {entry.shortcutLabel ? (
+        <kbd className="setta-workspace-navigator-option-shortcut">
+          {entry.shortcutLabel}
+        </kbd>
+      ) : null}
+    </button>
+  );
+}
+
+function WorkspaceNavigatorResults({
+  groups,
+  instanceId,
+  mode,
+  onActivateEntry,
+  onRegisterOption,
+  resolvedActiveIndex,
+  results,
+}: {
+  groups: ReadonlyArray<WorkspaceNavigatorEntryGroup>;
+  instanceId: string;
+  mode: WorkspaceNavigatorMode;
+  onActivateEntry: (entry: WorkspaceNavigatorEntry) => void;
+  onRegisterOption: (entryId: string, element: HTMLElement | null) => void;
+  resolvedActiveIndex: number;
+  results: ReadonlyArray<WorkspaceNavigatorEntry>;
+}) {
+  const listboxId = `${instanceId}-results`;
+  return (
+    <div
+      aria-label={getNavigatorResultLabel(mode)}
+      className="setta-workspace-navigator-results"
+      id={listboxId}
+      role="listbox"
+    >
+      {groups.length === 0 ? (
+        <p className="setta-workspace-navigator-empty">
+          {getWorkspaceNavigatorEmptyMessage(mode)}
+        </p>
+      ) : (
+        groups.map((group) => (
+          <div
+            aria-label={group.label}
+            className="setta-workspace-navigator-group"
+            key={group.label}
+            role="group"
+          >
+            <h2 className="setta-workspace-navigator-group-label">
+              {group.label}
+            </h2>
+            {group.entries.map((entry) => {
+              const resultIndex = results.indexOf(entry);
+              return (
+                <WorkspaceNavigatorOption
+                  entry={entry}
+                  instanceId={instanceId}
+                  key={entry.id}
+                  onActivate={onActivateEntry}
+                  onRegister={onRegisterOption}
+                  resultIndex={resultIndex}
+                  selected={resultIndex === resolvedActiveIndex}
+                />
+              );
+            })}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+type WorkspaceNavigatorDialogProps = Readonly<{
+  activeOptionId: string | undefined;
+  ariaLabel: string;
+  commandsShortcutLabel: string | null;
+  dialogRef: RefObject<HTMLDivElement | null>;
+  direction: "ltr" | "rtl" | undefined;
+  findShortcutLabel: string | null;
+  groups: ReadonlyArray<WorkspaceNavigatorEntryGroup>;
+  inputRef: RefObject<HTMLInputElement | null>;
+  instanceId: string;
+  liveSummary: string;
+  mode: WorkspaceNavigatorMode;
+  onActivateEntry: (entry: WorkspaceNavigatorEntry) => void;
+  onClose: () => void;
+  onDialogKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
+  onInputKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
+  onModeKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) => void;
+  onQueryChange: (query: string) => void;
+  onRegisterModeButton: (
+    mode: WorkspaceNavigatorMode,
+    element: HTMLButtonElement | null,
+  ) => void;
+  onRegisterOption: (entryId: string, element: HTMLElement | null) => void;
+  onSetMode: (mode: WorkspaceNavigatorMode) => void;
+  query: string;
+  resolvedActiveIndex: number;
+  results: ReadonlyArray<WorkspaceNavigatorEntry>;
+  workspaceScopeClassName: string;
+}>;
+
+function WorkspaceNavigatorDialog({
+  activeOptionId,
+  ariaLabel,
+  commandsShortcutLabel,
+  dialogRef,
+  direction,
+  findShortcutLabel,
+  groups,
+  inputRef,
+  instanceId,
+  liveSummary,
+  mode,
+  onActivateEntry,
+  onClose,
+  onDialogKeyDown,
+  onInputKeyDown,
+  onModeKeyDown,
+  onQueryChange,
+  onRegisterModeButton,
+  onRegisterOption,
+  onSetMode,
+  query,
+  resolvedActiveIndex,
+  results,
+  workspaceScopeClassName,
+}: WorkspaceNavigatorDialogProps) {
+  const listboxId = `${instanceId}-results`;
+  return (
+    <div
+      className={`${workspaceScopeClassName} setta-workspace-navigator-overlay`}
+      data-workspace-navigator-overlay="true"
+      dir={direction}
+    >
+      <button
+        aria-label="Close workspace navigator"
+        className="setta-workspace-navigator-backdrop"
+        onClick={onClose}
+        tabIndex={-1}
+        type="button"
+      />
+      <div
+        aria-describedby={`${instanceId}-summary`}
+        aria-label={ariaLabel}
+        aria-modal="true"
+        className="setta-workspace-navigator-dialog"
+        data-workspace-navigator-mode={mode}
+        onKeyDown={onDialogKeyDown}
+        ref={dialogRef}
+        role="dialog"
+      >
+        <div className="setta-workspace-navigator-heading">
+          <div
+            aria-label="Workspace navigator modes"
+            className="setta-workspace-navigator-tabs"
+            role="tablist"
+          >
+            {(["find", "commands"] as const).map((candidate) => {
+              const selected = candidate === mode;
+              const shortcutLabel =
+                candidate === "find"
+                  ? findShortcutLabel
+                  : commandsShortcutLabel;
+              return (
+                <button
+                  aria-controls={`${instanceId}-${candidate}-panel`}
+                  aria-selected={selected}
+                  className="setta-workspace-navigator-tab"
+                  data-active={selected}
+                  id={`${instanceId}-${candidate}-tab`}
+                  key={candidate}
+                  onClick={() => onSetMode(candidate)}
+                  onKeyDown={onModeKeyDown}
+                  ref={(element) => onRegisterModeButton(candidate, element)}
+                  role="tab"
+                  tabIndex={selected ? 0 : -1}
+                  type="button"
+                >
+                  {candidate === "find" ? (
+                    <FiSearch aria-hidden="true" focusable="false" />
+                  ) : (
+                    <FiCommand aria-hidden="true" focusable="false" />
+                  )}
+                  <span>{getNavigatorModeLabel(candidate)}</span>
+                  {shortcutLabel ? <kbd>{shortcutLabel}</kbd> : null}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            aria-label="Close workspace navigator"
+            className="setta-workspace-navigator-close"
+            onClick={onClose}
+            type="button"
+          >
+            <FiX aria-hidden="true" focusable="false" />
+          </button>
+        </div>
+        <div
+          aria-labelledby={`${instanceId}-${mode}-tab`}
+          className="setta-workspace-navigator-content"
+          id={`${instanceId}-${mode}-panel`}
+          role="tabpanel"
+        >
+          <label
+            className="setta-workspace-navigator-input-wrap"
+            htmlFor={`${instanceId}-input`}
+          >
+            <FiSearch aria-hidden="true" focusable="false" />
+            <span className="setta-workspace-navigator-input-label">
+              {getNavigatorInputLabel(mode)}
+            </span>
+            <input
+              aria-activedescendant={activeOptionId}
+              aria-autocomplete="list"
+              aria-controls={listboxId}
+              aria-expanded="true"
+              aria-label={getNavigatorInputLabel(mode)}
+              className="setta-workspace-navigator-input"
+              id={`${instanceId}-input`}
+              onChange={(event) => onQueryChange(event.currentTarget.value)}
+              onKeyDown={onInputKeyDown}
+              placeholder={getWorkspaceNavigatorPlaceholder(mode)}
+              ref={inputRef}
+              role="combobox"
+              value={query}
+            />
+          </label>
+          <p
+            className="setta-workspace-navigator-summary"
+            id={`${instanceId}-summary`}
+          >
+            {liveSummary}
+          </p>
+          <WorkspaceNavigatorResults
+            groups={groups}
+            instanceId={instanceId}
+            mode={mode}
+            onActivateEntry={onActivateEntry}
+            onRegisterOption={onRegisterOption}
+            resolvedActiveIndex={resolvedActiveIndex}
+            results={results}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceNavigatorPortal({
+  children,
+  isOpen,
+}: {
+  children: ReactNode;
+  isOpen: boolean;
+}) {
+  if (!isOpen || typeof document === "undefined") {
+    return null;
+  }
+  return createPortal(children, document.body);
+}
+
 export function WorkspaceNavigator({
   ariaLabel = "Workspace navigator",
   className,
@@ -216,16 +669,15 @@ export function WorkspaceNavigator({
     new Map<WorkspaceNavigatorMode, HTMLButtonElement>(),
   );
   const instanceId = `workspace-navigator-${hostId}-${useId().replaceAll(":", "")}`;
-  const results = isOpen ? getWorkspaceNavigatorEntries(host, mode, query) : [];
+  const results = resolveVisibleWorkspaceNavigatorEntries(
+    host,
+    isOpen,
+    mode,
+    query,
+  );
   const groups = groupWorkspaceNavigatorEntries(results);
-  const resolvedActiveIndex =
-    results.length === 0 ? -1 : Math.min(activeIndex, results.length - 1);
-  const activeEntry =
-    resolvedActiveIndex === -1 ? null : (results[resolvedActiveIndex] ?? null);
-  const activeOptionId = activeEntry
-    ? `${instanceId}-option-${resolvedActiveIndex}`
-    : undefined;
-  const listboxId = `${instanceId}-results`;
+  const { activeEntry, activeOptionId, resolvedActiveIndex } =
+    resolveWorkspaceNavigatorActiveEntry(results, activeIndex, instanceId);
   const findShortcutLabel = getWorkspaceKeyBindingChordLabel(
     host,
     "workspace.open-find",
@@ -234,15 +686,22 @@ export function WorkspaceNavigator({
     host,
     "workspace.open-command-palette",
   );
-  const triggerShortcutLabel =
-    defaultMode === "find" ? findShortcutLabel : commandsShortcutLabel;
+  const triggerShortcutLabel = getWorkspaceNavigatorTriggerShortcut(
+    defaultMode,
+    findShortcutLabel,
+    commandsShortcutLabel,
+  );
   const liveSummary = getWorkspaceNavigatorSummary(
     mode,
     query,
     results.length,
     statusMessage,
   );
-  const liveMessage = isOpen || statusMessage ? liveSummary : "";
+  const liveMessage = getWorkspaceNavigatorLiveMessage(
+    isOpen,
+    statusMessage,
+    liveSummary,
+  );
 
   useLayoutEffect(() => registerWorkspaceNavigatorSurface(host), [host]);
 
@@ -282,6 +741,17 @@ export function WorkspaceNavigator({
       optionRefs.current.set(entryId, element);
     } else {
       optionRefs.current.delete(entryId);
+    }
+  }
+
+  function registerModeButton(
+    candidate: WorkspaceNavigatorMode,
+    element: HTMLButtonElement | null,
+  ): void {
+    if (element) {
+      modeButtonRefs.current.set(candidate, element);
+    } else {
+      modeButtonRefs.current.delete(candidate);
     }
   }
 
@@ -389,255 +859,50 @@ export function WorkspaceNavigator({
     next.focus({ preventScroll: true });
   }
 
-  function handleBackdropMouseDown(
-    event: ReactMouseEvent<HTMLDivElement>,
-  ): void {
-    if (event.target === event.currentTarget) {
-      closeWorkspaceNavigator(host);
-    }
-  }
-
-  const liveRegion = (
-    <span
-      aria-atomic="true"
-      aria-live="polite"
-      className={`${workspaceScopeClassName} setta-workspace-navigator-live`}
-      role="status"
-    >
-      {liveMessage}
-    </span>
-  );
-
-  const dialog = !isOpen ? null : (
-    <div
-      className={`${workspaceScopeClassName} setta-workspace-navigator-overlay`}
-      data-workspace-navigator-overlay="true"
-      dir={opener ? getElementTextDirection(opener) : undefined}
-      onMouseDown={handleBackdropMouseDown}
-    >
-      <div
-        aria-describedby={`${instanceId}-summary`}
-        aria-label={ariaLabel}
-        aria-modal="true"
-        className="setta-workspace-navigator-dialog"
-        data-workspace-navigator-mode={mode}
-        onKeyDown={handleDialogKeyDown}
-        ref={dialogRef}
-        role="dialog"
-      >
-        <div className="setta-workspace-navigator-heading">
-          <div
-            aria-label="Workspace navigator modes"
-            className="setta-workspace-navigator-tabs"
-            role="tablist"
-          >
-            {(["find", "commands"] as const).map((candidate) => {
-              const selected = candidate === mode;
-              const shortcutLabel =
-                candidate === "find"
-                  ? findShortcutLabel
-                  : commandsShortcutLabel;
-              return (
-                <button
-                  aria-controls={`${instanceId}-${candidate}-panel`}
-                  aria-selected={selected}
-                  className="setta-workspace-navigator-tab"
-                  data-active={selected}
-                  id={`${instanceId}-${candidate}-tab`}
-                  key={candidate}
-                  onClick={() => setWorkspaceNavigatorMode(host, candidate)}
-                  onKeyDown={handleModeTabKeyDown}
-                  ref={(element) => {
-                    if (element) {
-                      modeButtonRefs.current.set(candidate, element);
-                    } else {
-                      modeButtonRefs.current.delete(candidate);
-                    }
-                  }}
-                  role="tab"
-                  tabIndex={selected ? 0 : -1}
-                  type="button"
-                >
-                  {candidate === "find" ? (
-                    <FiSearch aria-hidden="true" focusable="false" />
-                  ) : (
-                    <FiCommand aria-hidden="true" focusable="false" />
-                  )}
-                  <span>{getNavigatorModeLabel(candidate)}</span>
-                  {shortcutLabel ? <kbd>{shortcutLabel}</kbd> : null}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            aria-label="Close workspace navigator"
-            className="setta-workspace-navigator-close"
-            onClick={() => closeWorkspaceNavigator(host)}
-            type="button"
-          >
-            <FiX aria-hidden="true" focusable="false" />
-          </button>
-        </div>
-        <div
-          aria-labelledby={`${instanceId}-${mode}-tab`}
-          className="setta-workspace-navigator-content"
-          id={`${instanceId}-${mode}-panel`}
-          role="tabpanel"
-        >
-          <label
-            className="setta-workspace-navigator-input-wrap"
-            htmlFor={`${instanceId}-input`}
-          >
-            <FiSearch aria-hidden="true" focusable="false" />
-            <span className="setta-workspace-navigator-input-label">
-              {getNavigatorInputLabel(mode)}
-            </span>
-            <input
-              aria-activedescendant={activeOptionId}
-              aria-autocomplete="list"
-              aria-controls={listboxId}
-              aria-expanded="true"
-              aria-label={getNavigatorInputLabel(mode)}
-              className="setta-workspace-navigator-input"
-              id={`${instanceId}-input`}
-              onChange={(event) =>
-                setWorkspaceNavigatorQuery(host, event.currentTarget.value)
-              }
-              onKeyDown={handleInputKeyDown}
-              placeholder={
-                mode === "find"
-                  ? "Search sections and parameters"
-                  : "Search commands"
-              }
-              ref={inputRef}
-              role="combobox"
-              value={query}
-            />
-          </label>
-          <p
-            className="setta-workspace-navigator-summary"
-            id={`${instanceId}-summary`}
-          >
-            {liveSummary}
-          </p>
-          <div
-            aria-label={getNavigatorResultLabel(mode)}
-            className="setta-workspace-navigator-results"
-            id={listboxId}
-            role="listbox"
-          >
-            {groups.length === 0 ? (
-              <p className="setta-workspace-navigator-empty">
-                No{" "}
-                {mode === "find"
-                  ? "matching workspace entries"
-                  : "matching commands"}
-                .
-              </p>
-            ) : (
-              groups.map((group) => (
-                <div
-                  aria-label={group.label}
-                  className="setta-workspace-navigator-group"
-                  key={group.label}
-                  role="group"
-                >
-                  <h2 className="setta-workspace-navigator-group-label">
-                    {group.label}
-                  </h2>
-                  {group.entries.map((entry) => {
-                    const resultIndex = results.indexOf(entry);
-                    const selected = resultIndex === resolvedActiveIndex;
-                    const reasonId = `${instanceId}-reason-${resultIndex}`;
-                    const Icon = entry.icon;
-                    return (
-                      <div
-                        aria-describedby={
-                          entry.disabledReason ? reasonId : undefined
-                        }
-                        aria-disabled={entry.disabled || undefined}
-                        aria-selected={selected}
-                        className="setta-workspace-navigator-option"
-                        data-active={selected}
-                        data-disabled={entry.disabled}
-                        id={`${instanceId}-option-${resultIndex}`}
-                        key={entry.id}
-                        onClick={() => activateEntry(entry)}
-                        onMouseDown={(event) => event.preventDefault()}
-                        ref={(element) => registerOption(entry.id, element)}
-                        role="option"
-                      >
-                        <span
-                          aria-hidden="true"
-                          className="setta-workspace-navigator-option-icon"
-                        >
-                          {Icon ? (
-                            <Icon />
-                          ) : entry.kind === "command" ? (
-                            <FiCommand />
-                          ) : (
-                            <FiSearch />
-                          )}
-                        </span>
-                        <span className="setta-workspace-navigator-option-copy">
-                          <span className="setta-workspace-navigator-option-label">
-                            {entry.label}
-                          </span>
-                          {entry.breadcrumb ? (
-                            <span className="setta-workspace-navigator-option-breadcrumb">
-                              {entry.breadcrumb}
-                            </span>
-                          ) : null}
-                          {entry.disabledReason ? (
-                            <span
-                              className="setta-workspace-navigator-option-reason"
-                              id={reasonId}
-                            >
-                              {entry.disabledReason}
-                            </span>
-                          ) : null}
-                        </span>
-                        {entry.checked === true ? (
-                          <FiCheck
-                            aria-label="Checked"
-                            className="setta-workspace-navigator-option-checked"
-                          />
-                        ) : null}
-                        {entry.shortcutLabel ? (
-                          <kbd className="setta-workspace-navigator-option-shortcut">
-                            {entry.shortcutLabel}
-                          </kbd>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <>
-      {showTrigger ? (
-        <button
-          aria-label="Open workspace navigator"
-          className={`${workspaceScopeClassName} setta-workspace-navigator-trigger${className ? ` ${className}` : ""}`}
-          onClick={() => openWorkspaceNavigator(host, defaultMode)}
-          type="button"
-        >
-          <FiSearch aria-hidden="true" focusable="false" />
-          <span>{getNavigatorModeLabel(defaultMode)}</span>
-          {triggerShortcutLabel ? <kbd>{triggerShortcutLabel}</kbd> : null}
-        </button>
-      ) : null}
-      {liveRegion}
-      {typeof document === "undefined"
-        ? null
-        : createPortal(dialog, document.body)}
+      <WorkspaceNavigatorTrigger
+        className={className}
+        defaultMode={defaultMode}
+        onOpen={() => openWorkspaceNavigator(host, defaultMode)}
+        shortcutLabel={triggerShortcutLabel}
+        showTrigger={showTrigger}
+        workspaceScopeClassName={workspaceScopeClassName}
+      />
+      <WorkspaceNavigatorLiveRegion
+        message={liveMessage}
+        workspaceScopeClassName={workspaceScopeClassName}
+      />
+      <WorkspaceNavigatorPortal isOpen={isOpen}>
+        <WorkspaceNavigatorDialog
+          activeOptionId={activeOptionId}
+          ariaLabel={ariaLabel}
+          commandsShortcutLabel={commandsShortcutLabel}
+          dialogRef={dialogRef}
+          direction={opener ? getElementTextDirection(opener) : undefined}
+          findShortcutLabel={findShortcutLabel}
+          groups={groups}
+          inputRef={inputRef}
+          instanceId={instanceId}
+          liveSummary={liveSummary}
+          mode={mode}
+          onActivateEntry={activateEntry}
+          onClose={() => closeWorkspaceNavigator(host)}
+          onDialogKeyDown={handleDialogKeyDown}
+          onInputKeyDown={handleInputKeyDown}
+          onModeKeyDown={handleModeTabKeyDown}
+          onQueryChange={(nextQuery) =>
+            setWorkspaceNavigatorQuery(host, nextQuery)
+          }
+          onRegisterModeButton={registerModeButton}
+          onRegisterOption={registerOption}
+          onSetMode={(nextMode) => setWorkspaceNavigatorMode(host, nextMode)}
+          query={query}
+          resolvedActiveIndex={resolvedActiveIndex}
+          results={results}
+          workspaceScopeClassName={workspaceScopeClassName}
+        />
+      </WorkspaceNavigatorPortal>
     </>
   );
 }

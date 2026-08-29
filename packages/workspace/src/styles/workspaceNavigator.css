@@ -81,10 +81,23 @@
   place-items: start center;
   overflow: auto;
   padding: min(12vh, 5rem) 1rem 1rem;
+  isolation: isolate;
+}
+
+.setta-workspace-navigator-backdrop {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  border: 0;
+  border-radius: 0;
   background: rgb(15 23 42 / 42%);
+  padding: 0;
+  cursor: default;
 }
 
 .setta-workspace-navigator-dialog {
+  position: relative;
+  z-index: 1;
   display: flex;
   width: min(42rem, 100%);
   max-height: min(42rem, calc(100vh - 2rem));
@@ -255,13 +268,18 @@
 
 .setta-workspace-navigator-option {
   display: flex;
+  width: 100%;
   min-width: 0;
   min-height: 2.5rem;
   align-items: center;
   gap: 0.625rem;
+  border: 0;
   border-radius: 0.375rem;
+  background: transparent;
   padding: 0.375rem 0.5rem;
   color: rgb(30 41 59);
+  font: inherit;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -497,7 +515,7 @@
     color: HighlightText;
   }
 
-  .setta-workspace-navigator-overlay {
+  .setta-workspace-navigator-backdrop {
     background: Canvas;
   }
 

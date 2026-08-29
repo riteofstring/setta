@@ -17,7 +17,7 @@ import type { WorkspaceHost } from "../workspaceHost";
 import type { WorkspaceNavigatorActivation } from "./workspaceNavigatorTypes";
 import { revealWorkspaceItem } from "./workspaceItemReveal";
 
-export type WorkspaceFindSectionResult = Readonly<{
+type WorkspaceFindSectionResult = Readonly<{
   activate: () => WorkspaceNavigatorActivation;
   breadcrumb: string | null;
   checked: null;
@@ -33,7 +33,7 @@ export type WorkspaceFindSectionResult = Readonly<{
   shortcutLabel: null;
 }>;
 
-export type WorkspaceFindItemResult = Readonly<{
+type WorkspaceFindItemResult = Readonly<{
   activate: () => WorkspaceNavigatorActivation;
   breadcrumb: string | null;
   checked: null;
@@ -50,8 +50,7 @@ export type WorkspaceFindItemResult = Readonly<{
   shortcutLabel: null;
 }>;
 
-export type WorkspaceFindResult =
-  WorkspaceFindSectionResult | WorkspaceFindItemResult;
+type WorkspaceFindResult = WorkspaceFindSectionResult | WorkspaceFindItemResult;
 
 function joinWorkspaceFindSearchableText(parts: Array<string>): string {
   return parts.filter((part) => part !== "").join("\n");

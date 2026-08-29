@@ -44,12 +44,12 @@ const PALETTE_CREATION_DISABLED_REASON =
 const PALETTE_CREATION_UNAVAILABLE_REASON =
   "This creation command is currently unavailable.";
 
-export type WorkspacePaletteRunResult = Readonly<{
+type WorkspacePaletteRunResult = Readonly<{
   ran: boolean;
   statusMessage: string | null;
 }>;
 
-export type WorkspacePaletteEntry = Readonly<{
+type WorkspacePaletteEntry = Readonly<{
   checked: boolean | null;
   description?: string;
   disabled: boolean;
@@ -86,35 +86,44 @@ function getLiveActiveSections(
   return sections;
 }
 
+function resolveWorkspacePaletteSectionContext(
+  host: WorkspaceHost,
+  activeSections: Array<WorkspaceSection> | null,
+): WorkspaceCommandContext | null {
+  if (activeSections === null) {
+    return null;
+  }
+  const primarySection = activeSections[0];
+  return primarySection
+    ? createSectionCommandContext(host, primarySection, activeSections)
+    : null;
+}
+
+function resolveWorkspacePaletteItemContext(
+  host: WorkspaceHost,
+  activeSections: Array<WorkspaceSection> | null,
+): WorkspaceCommandContext | null {
+  if (activeSections === null || activeSections.length !== 1) {
+    return null;
+  }
+  const section = activeSections[0];
+  const itemTree = section?.itemTree;
+  if (!section || !itemTree || itemTree.selectedItemIds.length !== 1) {
+    return null;
+  }
+  const selectedItemId = itemTree.selectedItemIds[0];
+  const item = selectedItemId ? itemTree.items[selectedItemId] : undefined;
+  return item ? createItemCommandContext(host, section, item) : null;
+}
+
 function resolveWorkspacePaletteContexts(
   host: WorkspaceHost,
 ): WorkspacePaletteContexts {
   const activeSections = getLiveActiveSections(host);
-  const primarySection = activeSections?.[0] ?? null;
-  const section =
-    primarySection === null || activeSections === null
-      ? null
-      : createSectionCommandContext(host, primarySection, activeSections);
-  const onlyActiveSection =
-    activeSections?.length === 1 ? (activeSections[0] ?? null) : null;
-  const selectedItemId =
-    onlyActiveSection?.itemTree?.selectedItemIds[0] ?? null;
-  const item =
-    onlyActiveSection === null ||
-    onlyActiveSection.itemTree?.selectedItemIds.length !== 1 ||
-    selectedItemId === null
-      ? null
-      : onlyActiveSection.itemTree.items[selectedItemId] === undefined
-        ? null
-        : createItemCommandContext(
-            host,
-            onlyActiveSection,
-            onlyActiveSection.itemTree.items[selectedItemId],
-          );
   return Object.freeze({
-    item,
+    item: resolveWorkspacePaletteItemContext(host, activeSections),
     pane: createPaneCommandContext(host, null),
-    section,
+    section: resolveWorkspacePaletteSectionContext(host, activeSections),
   });
 }
 
