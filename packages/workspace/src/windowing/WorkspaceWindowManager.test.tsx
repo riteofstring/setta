@@ -244,6 +244,62 @@ describe("WorkspaceWindowManager", () => {
     ).toHaveLength(6);
   });
 
+  it("restores and focuses minimized windows from main-style recovery pills", async () => {
+    await mount({
+      initialState: createState([
+        makeWindow("visible", { zIndex: 3 }),
+        makeWindow("minimized", { isMinimized: true, zIndex: 5 }),
+        makeWindow("closed", { isClosed: true, zIndex: 7 }),
+      ]),
+    });
+    await resizeManager(800);
+    onChange.mockClear();
+
+    const pills = host.querySelectorAll<HTMLButtonElement>(
+      '[data-testid="workspace-window-restore-pill"]',
+    );
+    expect(pills).toHaveLength(1);
+    expect(pills[0]?.getAttribute("aria-label")).toBe(
+      "Restore Window minimized",
+    );
+
+    await act(async () => pills[0]?.click());
+
+    expect(onChange).toHaveBeenCalledOnce();
+    const nextState = onChange.mock.calls[0]?.[0];
+    expect(
+      nextState?.windows.find((window) => window.id === "minimized"),
+    ).toMatchObject({ isClosed: false, isMinimized: false });
+    expect(
+      host.querySelectorAll('[data-testid="workspace-window-manager-window"]'),
+    ).toHaveLength(2);
+    expect(getWindow("minimized").dataset.focused).toBe("true");
+    expect(
+      host.querySelector('[data-testid="workspace-window-restore-pill"]'),
+    ).toBeNull();
+  });
+
+  it("keeps minimized recovery available in read-only presentation", async () => {
+    await mount({
+      initialState: createState([
+        makeWindow("minimized", { isMinimized: true }),
+      ]),
+      layoutEditable: false,
+    });
+    await resizeManager(800);
+    onChange.mockClear();
+
+    const pill = host.querySelector<HTMLButtonElement>(
+      '[data-testid="workspace-window-restore-pill"]',
+    );
+    if (!pill) throw new Error("Expected a minimized-window recovery pill.");
+    await act(async () => pill.click());
+
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(getWindow("minimized").dataset.focused).toBe("true");
+    expect(host.querySelector('[aria-label="Minimized windows"]')).toBeNull();
+  });
+
   it("renders a local accessible state when a visible window has no registered renderer", async () => {
     await mount({ renderers: {} });
     await resizeManager(800);

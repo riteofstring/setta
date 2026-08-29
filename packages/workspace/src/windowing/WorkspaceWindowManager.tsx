@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import { registerWorkspaceHostElement } from "../workspaceHostInternals";
+import { WorkspaceMinimizedWindowStrip } from "./WorkspaceMinimizedWindowStrip";
 import {
   WorkspaceWindowManagerWindows,
   WorkspaceWindowManagerSnapPreview,
@@ -249,6 +250,7 @@ export function WorkspaceWindowManager({
     handleTitlePointerDown,
     handleTitlePointerMove,
     previewBoundsByWindowId,
+    reopenMinimizedWindow,
     snapPreview,
   } = useWorkspaceWindowManagerInteractions({
     emitState,
@@ -486,6 +488,12 @@ export function WorkspaceWindowManager({
             />
           ))
         : null}
+      <WorkspaceMinimizedWindowStrip
+        boundaryInsets={viewport?.insets}
+        onRestore={reopenMinimizedWindow}
+        windows={state.windows}
+        zIndex={overlayZIndex + 1}
+      />
     </div>
   );
 }

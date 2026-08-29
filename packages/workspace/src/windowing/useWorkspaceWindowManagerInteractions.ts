@@ -18,6 +18,7 @@ import {
   createDefaultWorkspaceFloatingWindowBounds,
   maximizeWorkspaceWindow,
   minimizeWorkspaceWindow,
+  reopenWorkspaceWindow,
   renameWorkspaceWindow,
   resizeWorkspaceFloatingWindow,
   restoreWorkspaceWindow,
@@ -148,6 +149,18 @@ export function useWorkspaceWindowManagerInteractions({
       emitState(next);
     },
     [emitState, mutationOptions, stateRef],
+  );
+  const reopenMinimizedWindow = useCallback(
+    (windowId: string) => {
+      const state = stateRef.current;
+      const window = state.windows.find(
+        (candidate) => candidate.id === windowId,
+      );
+      if (!window?.isMinimized || window.isClosed) return;
+      emitState(reopenWorkspaceWindow(state, windowId));
+      focusWindow(windowId);
+    },
+    [emitState, focusWindow, stateRef],
   );
   const commitTitle = useCallback(
     (windowId: string, title: string) =>
@@ -437,6 +450,7 @@ export function useWorkspaceWindowManagerInteractions({
     handleTitlePointerDown,
     handleTitlePointerMove,
     previewBoundsByWindowId,
+    reopenMinimizedWindow,
     snapPreview,
   };
 }
