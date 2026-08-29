@@ -26,7 +26,7 @@ function getRecoveryStripStyle(
   return {
     bottom: boundaryInsets.bottom,
     insetInlineEnd: boundaryInsets.right,
-    maxInlineSize: `calc(100% - ${boundaryInsets.left + boundaryInsets.right}px)`,
+    insetInlineStart: boundaryInsets.left,
     pointerEvents: "auto",
     zIndex,
   };

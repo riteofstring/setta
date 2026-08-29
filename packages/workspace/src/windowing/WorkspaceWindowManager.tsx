@@ -489,7 +489,7 @@ export function WorkspaceWindowManager({
           ))
         : null}
       <WorkspaceMinimizedWindowStrip
-        boundaryInsets={viewport?.insets}
+        boundaryInsets={boundaryInsets}
         onRestore={reopenMinimizedWindow}
         windows={state.windows}
         zIndex={overlayZIndex + 1}

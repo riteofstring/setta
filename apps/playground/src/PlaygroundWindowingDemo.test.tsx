@@ -126,6 +126,9 @@ describe("playground floating-window demo", () => {
     expect(recovery.closest("nav")?.getAttribute("aria-label")).toBe(
       "Minimized windows",
     );
+    expect(recovery.closest<HTMLElement>("nav")?.style.insetInlineEnd).toBe(
+      "500px",
+    );
 
     await act(async () => recovery.click());
 

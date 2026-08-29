@@ -16,6 +16,7 @@ import {
   type WorkspaceShellTabDefinition,
   type WorkspaceShellTabIconProps,
   type WorkspaceShellViewState,
+  type WorkspaceWindowBoundaryInsets,
   type WorkspaceWindowRenderers,
   type WorkspaceWindowSpace,
   type WorkspaceWindowingState,
@@ -38,12 +39,7 @@ const PLAYGROUND_WINDOW_VIEWPORT_FALLBACK = Object.freeze({
   height: 720,
   width: 1_200,
 });
-const PLAYGROUND_WINDOW_INSETS = Object.freeze({
-  bottom: 0,
-  left: 40,
-  right: 40,
-  top: 0,
-});
+const PLAYGROUND_CLOSED_PANE_WIDTH = 40;
 
 const PLAYGROUND_DEMO_WINDOWS = [
   {
@@ -190,7 +186,22 @@ function createPlaygroundWindowingState(): WorkspaceWindowingState {
   return createWorkspaceWindowingState({ windows: PLAYGROUND_DEMO_WINDOWS });
 }
 
-function usePlaygroundWindowViewport(): {
+function createPlaygroundWindowBoundaryInsets(
+  shellViewState: WorkspaceShellViewState,
+): WorkspaceWindowBoundaryInsets {
+  return {
+    bottom: 0,
+    left: shellViewState.leading.visible
+      ? shellViewState.leading.width
+      : PLAYGROUND_CLOSED_PANE_WIDTH,
+    right: shellViewState.trailing.visible
+      ? shellViewState.trailing.width
+      : PLAYGROUND_CLOSED_PANE_WIDTH,
+    top: 0,
+  };
+}
+
+function usePlaygroundWindowViewport(insets: WorkspaceWindowBoundaryInsets): {
   readonly ref: RefObject<HTMLDivElement | null>;
   readonly viewport: WorkspaceWindowViewport;
 } {
@@ -234,9 +245,9 @@ function usePlaygroundWindowViewport(): {
     () =>
       createWorkspaceWindowViewport({
         ...size,
-        insets: PLAYGROUND_WINDOW_INSETS,
+        insets,
       }),
-    [size],
+    [insets, size],
   );
   return { ref, viewport };
 }
@@ -284,8 +295,12 @@ export function PlaygroundWindowingDemo({
   sectionTagColorPalette,
   shellViewState,
 }: PlaygroundWindowingDemoProps) {
+  const windowBoundaryInsets = useMemo(
+    () => createPlaygroundWindowBoundaryInsets(shellViewState),
+    [shellViewState],
+  );
   const { ref: workspaceRef, viewport: windowViewport } =
-    usePlaygroundWindowViewport();
+    usePlaygroundWindowViewport(windowBoundaryInsets);
   const [windowingState, setWindowingState] = useState(
     createPlaygroundWindowingState,
   );

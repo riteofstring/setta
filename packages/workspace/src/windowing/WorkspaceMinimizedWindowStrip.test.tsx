@@ -132,7 +132,7 @@ describe("WorkspaceMinimizedWindowStrip", () => {
     expect(onRestore).toHaveBeenCalledWith("one");
   });
 
-  it("positions its pointer-enabled strip at the supplied bottom and inline end", async () => {
+  it("spans the supplied inline work area above its bottom inset", async () => {
     await mount({
       boundaryInsets: { bottom: 12, left: 6, right: 18, top: 4 },
       windows: [makeWindow("one", { isMinimized: true })],
@@ -142,7 +142,7 @@ describe("WorkspaceMinimizedWindowStrip", () => {
     const strip = getStrip();
     expect(strip.style.bottom).toBe("12px");
     expect(strip.style.insetInlineEnd).toBe("18px");
-    expect(strip.style.maxInlineSize).toBe("calc(100% - 24px)");
+    expect(strip.style.insetInlineStart).toBe("6px");
     expect(strip.style.pointerEvents).toBe("auto");
     expect(strip.style.zIndex).toBe("31");
   });
@@ -171,6 +171,15 @@ describe("workspace minimized-window strip stylesheet", () => {
   );
 
   it("keeps main-style recovery geometry, dark paint, narrow overflow, and motion preference", () => {
+    const stripRule = styles.match(
+      /\.setta-workspace-minimized-window-strip \{(?<declarations>[^}]*)\}/,
+    )?.groups?.declarations;
+    const scrollRule = styles.match(
+      /\.setta-workspace-minimized-window-strip-scroll \{(?<declarations>[^}]*)\}/,
+    )?.groups?.declarations;
+
+    expect(stripRule).not.toContain("width: max-content");
+    expect(scrollRule).toContain("width: 100%");
     expect(styles).toContain("height: 28px");
     expect(styles).toContain("border-radius: 0.375rem 0.375rem 0 0");
     expect(styles).toContain("overflow-x: auto");
