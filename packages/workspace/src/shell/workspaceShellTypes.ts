@@ -58,6 +58,9 @@ export type WorkspaceShellProps = {
   // Enabled by default for the package's generic editor. Hosts that compose their own complete
   // trailing rail can opt out without changing the shell's pane mechanics.
   includeBuiltInInspector?: boolean;
+  // A host-composed interactive window manager. The shell supplies its positioned, transparent
+  // stacking layer; the manager owns controlled state, geometry, and pointer-enabled descendants.
+  windowManager?: ReactNode;
   // Mirrors frozen main's `leftSidePaneShiftsMap` setting. Enabled by default: opening, closing,
   // or resizing the leading pane shifts the map by the pane's true-width delta. Disable it to
   // leave the canvas camera unchanged beneath the overlay pane.

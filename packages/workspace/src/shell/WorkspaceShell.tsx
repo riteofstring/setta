@@ -413,6 +413,7 @@ export function WorkspaceShell({
   sectionTagColorPalette,
   trailingTabs,
   viewState,
+  windowManager,
 }: WorkspaceShellProps) {
   const host = useWorkspaceHost();
   const scopeClassName = useWorkspaceScopeClassName();
@@ -893,6 +894,19 @@ export function WorkspaceShell({
       <div className="setta-workspace-shell-controls">
         <WorkspaceControls />
       </div>
+      {windowManager !== undefined && windowManager !== null ? (
+        <div
+          data-workspace-shell-window-manager="true"
+          style={{
+            inset: 0,
+            pointerEvents: "none",
+            position: "absolute",
+            zIndex: 25,
+          }}
+        >
+          {windowManager}
+        </div>
+      ) : null}
       <WorkspaceTooltip />
     </section>
   );

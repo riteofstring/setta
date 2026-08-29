@@ -17,7 +17,7 @@ afterEachWorkspaceTestHost(() => {
   testWorkspace.host.dispose();
 });
 
-import { act, createRef, useState } from "react";
+import { act, createRef, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
   afterEach,
@@ -142,10 +142,12 @@ function Harness({
   includeBuiltInInspector = true,
   leadingPaneShiftsCanvas = true,
   onChange,
+  windowManager,
 }: {
   includeBuiltInInspector?: boolean;
   leadingPaneShiftsCanvas?: boolean;
   onChange: (viewState: WorkspaceShellViewState) => void;
+  windowManager?: ReactNode;
 }) {
   const [viewState, setViewState] = useState(() =>
     createWorkspaceShellViewState({
@@ -165,6 +167,7 @@ function Harness({
       }}
       trailingTabs={trailingTabs}
       viewState={viewState}
+      windowManager={windowManager}
     />
   );
 }
@@ -361,6 +364,79 @@ describe("WorkspaceShell", () => {
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(
       panel.compareDocumentPosition(resizeHandle) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("places a host-composed window manager above the canvas and below shell chrome", async () => {
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {
+            <Harness
+              onChange={onChange}
+              windowManager={
+                <button
+                  data-testid="host-window-manager"
+                  style={{ pointerEvents: "auto" }}
+                  type="button"
+                >
+                  Floating window
+                </button>
+              }
+            />
+          }
+        </WorkspaceTestProvider>,
+      );
+    });
+
+    const manager = host.querySelector<HTMLElement>(
+      '[data-workspace-shell-window-manager="true"]',
+    );
+    const canvas = host.querySelector<HTMLElement>(
+      '[data-testid="workspace-canvas"]',
+    );
+    const controls = host.querySelector<HTMLElement>(
+      '[data-testid="workspace-controls"]',
+    );
+    const leadingPaneRegion = host.querySelector<HTMLElement>(
+      '[data-workspace-shell-pane-region="leading"]',
+    );
+    const trailingPaneRegion = host.querySelector<HTMLElement>(
+      '[data-workspace-shell-pane-region="trailing"]',
+    );
+    if (
+      !manager ||
+      !canvas ||
+      !controls ||
+      !leadingPaneRegion ||
+      !trailingPaneRegion
+    ) {
+      throw new Error("Expected shell canvas, chrome, and window manager.");
+    }
+
+    expect(manager.parentElement).toBe(getShell());
+    expect(manager.style).toMatchObject({
+      inset: "0px",
+      pointerEvents: "none",
+      position: "absolute",
+      zIndex: "25",
+    });
+    expect(manager.querySelector('[data-testid="host-window-manager"]'))
+      .not.toBeNull();
+    expect(
+      canvas.compareDocumentPosition(manager) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(
+      controls.compareDocumentPosition(manager) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(
+      leadingPaneRegion.compareDocumentPosition(manager) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(
+      trailingPaneRegion.compareDocumentPosition(manager) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
