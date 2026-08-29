@@ -38,9 +38,10 @@ ends. A disposed host rejects later reads or writes.
 
 - `WorkspaceShell` is the package-owned integrated surface. It composes the canvas, controls,
   tooltip, logical leading/trailing rails, controlled panes, the built-in leading Outline, and the
-  built-in trailing Inspector. Hosts register additional typed tabs with icons and content rendered
-  from public props only. Its optional `sectionTagColorPalette` is the complete host-supplied set of
-  named Inspector categories; omitting it uses the captured package defaults.
+  built-in trailing Inspector. Supplying `navigator` also mounts the package-owned global Find and
+  command palette. Hosts register additional typed tabs with icons and content rendered from public
+  props only. Its optional `sectionTagColorPalette` is the complete host-supplied set of named
+  Inspector categories; omitting it uses the captured package defaults.
 - `createWorkspaceShellViewState` creates the initial serializable pane state. Hosts own that value
   and apply the shell's single `onViewStateChange` callback directly or persist it separately from
   `WorkspaceDocument`. The same value owns Outline disclosure and roving-focus state; canonical
@@ -48,6 +49,9 @@ ends. A disposed host rejects later reads or writes.
 - `WorkspaceCanvas`, `WorkspaceControls`, and `WorkspaceTooltip` remain public for a host that
   intentionally does not want the integrated shell. The canvas fills its host element; a
   standalone host owns the other surfaces' placement.
+- `WorkspaceNavigator` is the optional host-scoped Find and command surface for a standalone
+  composition. `openWorkspaceNavigator` and `closeWorkspaceNavigator` let application chrome open
+  that mounted surface without reaching into package state.
 - `registerSectionKinds` is the section extension point. Each kind supplies opaque-content
   rendering, an optional icon, an optional default size and size constraints, and an optional
   typed Inspector contribution for custom section or item content. Ordinary content is
@@ -62,9 +66,10 @@ ends. A disposed host rejects later reads or writes.
   validation keyed by stable item id. `WorkspaceItemLabel` remains the grid-safe label helper for
   that custom renderer extension.
 
-Host application navigation and modal state stay outside the shell. Registered pane content may
-use its own application state, but receives no package store, XYFlow panel, dnd-kit store, Tailwind
-utility, or package-private DOM selector as an extension API.
+Application routing stays outside the shell. Navigator mode, query, active result, and modal focus
+are ephemeral package runtime owned by the host; they never enter `WorkspaceDocument`. Registered
+pane content may use its own application state, but receives no package store, XYFlow panel,
+dnd-kit store, Tailwind utility, or package-private DOM selector as an extension API.
 
 ## Managed windows, section handoff, and Window Spaces
 
@@ -245,6 +250,7 @@ function HostWorkspace() {
   return (
     <WorkspaceShell
       leadingTabs={leadingTabs}
+      navigator={{}}
       sectionTagColorPalette={sectionTagColorPalette}
       trailingTabs={trailingTabs}
       viewState={viewState}
@@ -295,6 +301,95 @@ consistent. `WorkspaceParameterConfigurationView` receives the owning `sectionId
 content can use `useWorkspaceDocumentSnapshot()` to derive contextual availability without
 creating a second document subscription.
 
+## Global Find and command palette
+
+Pass `navigator={{}}` to `WorkspaceShell` to enable one host-scoped navigator. The integrated shell
+shows a **Find** trigger by default; set `showTrigger: false` for a keyboard- and API-only surface,
+or set `defaultMode: "commands"` to make the trigger open the command palette first.
+
+```tsx
+<WorkspaceShell
+  leadingTabs={leadingTabs}
+  navigator={{ defaultMode: "find", showTrigger: true }}
+  onViewStateChange={setViewState}
+  trailingTabs={trailingTabs}
+  viewState={viewState}
+/>
+```
+
+A custom composition mounts `WorkspaceNavigator` once inside the same `WorkspaceProvider` as its
+canvas. Its direct trigger is opt-in. Application chrome can open either mode against the explicit
+host and close the current modal:
+
+```tsx
+function HostWorkspace() {
+  return (
+    <div className="host-workspace">
+      <WorkspaceCanvas />
+      <WorkspaceNavigator showTrigger />
+    </div>
+  );
+}
+
+openWorkspaceNavigator(host, "find");
+openWorkspaceNavigator(host, "commands");
+closeWorkspaceNavigator(host);
+```
+
+The default configurable operations are `workspace.open-find` on `Mod + P` and
+`workspace.open-command-palette` on `Mod + Shift + P`. They participate in the existing key-binding
+conflict and rebinding contract. A navigator operation declines without consuming the chord when
+that host has no mounted navigator. The section-local parameter filter remains a separate surface
+on `workspace.focus-item-filter`, bound to `Mod + K` by default.
+
+Find derives its index while open from the current canonical document. It includes section names
+and kinds, built-in item labels, and only the extra opaque text each section-kind owner explicitly
+returns. A host can add safe domain terms without exposing the rest of its data:
+
+```tsx
+registerSectionKinds(host, {
+  note: {
+    renderContent: (section) => <Note data={section.data} />,
+    getSectionSearchableText: (section) => readNoteSearchText(section.data),
+    getItemSearchableText: ({ item }) => readNoteItemSearchText(item.data),
+    itemArea: { toolbar: "filter-only" },
+  },
+});
+```
+
+Both callbacks receive detached, deeply frozen snapshots and must return a string synchronously.
+Do not return secrets, code bodies, file contents, provider data, or arbitrary serialized objects.
+Results keep canonical document order for an empty query and stable fuzzy rank otherwise. Section
+activation fits the mounted section without changing selection. Item activation also scrolls and
+focuses its mounted row with transient emphasis; a minimized, filtered, or unmounted row leaves its
+current visibility policy intact and announces why it could not be revealed.
+
+The command palette is a projection of the existing command and creation catalogs. Include
+`"palette"` in a pane, section, or item command's `surfaces`, and optionally provide validated
+search `keywords`:
+
+```tsx
+registerWorkspaceCommands(host, [
+  {
+    id: "host-section-details",
+    scope: "section",
+    surfaces: ["context-menu", "palette"],
+    label: "Show host details",
+    keywords: ["inspect", "metadata"],
+    run: ({ section }) => showHostDetails(section.id),
+  },
+]);
+```
+
+Pane commands receive a null workspace position. Section commands receive the primary active
+section and the complete active section set. Item commands appear only when one active section has
+exactly one selected item. Creation commands appear automatically under **Create**, retain their
+registered group, icon, disabled state, and resolved shortcut, and use the ordinary empty-space
+creation funnel. Every entry re-resolves live applicability, disabled explanations, targets, and
+capabilities before it runs, so a stale result never executes against removed content. The modal
+provides labelled tabs and combobox/listbox semantics, grouped results, arrow and Home/End
+navigation, Enter activation, Escape dismissal, a focus trap, focus restoration, and live status.
+
 ## Commands and creation extensions
 
 The canvas mounts package-owned pane, section, selection, item, and Outline menus. Register the
@@ -332,8 +427,9 @@ registerWorkspaceCommands(host, [
   {
     id: "host-section-details",
     scope: "section",
-    surfaces: ["context-menu", "header", "inspector", "outline"],
+    surfaces: ["context-menu", "header", "inspector", "outline", "palette"],
     label: "Show host details",
+    keywords: ["inspect", "metadata"],
     run: ({ section, selectedSections }) =>
       showHostDetails(
         section.id,
@@ -348,11 +444,11 @@ package validates the returned top-level section, resolves its registered defaul
 selects it through one atomic document commit, and reports one document publication.
 
 Commands use `pane`, `section`, or `item` scope and declare the surfaces that offer them:
-`context-menu`, `header`, `inspector`, `inspector-parameters`, `outline`, or `toolbar`. A callback
-receives its host plus a deeply frozen public context, never a package store or private selector.
-The same command definition owns its label, enabled explanation, checked state, status, and work on
-every declared surface. `registerWorkspaceToolbarContributions(host, contributions)` places
-existing pane commands or creation commands in the package toolbar;
+`context-menu`, `header`, `inspector`, `inspector-parameters`, `outline`, `palette`, or `toolbar`. A
+callback receives its host plus a deeply frozen public context, never a package store or private
+selector. The same command definition owns its label, enabled explanation, checked state, status,
+keywords, and work on every declared surface. `registerWorkspaceToolbarContributions(host,
+contributions)` places existing pane commands or creation commands in the package toolbar;
 `registerWorkspaceKeyBindings(host, bindings)` rebinds or unbinds known operations after conflict
 validation.
 
@@ -634,6 +730,11 @@ host-owned configuration. The context is a deeply frozen snapshot that discrimin
 section from a selected custom item plus its owning section; it exposes no package store, live
 canonical object, or private selector.
 
+An ordinary kind may register `getSectionSearchableText(section)` to contribute explicit safe text
+to global Find. Its detached, deeply frozen snapshot contains only `id`, `kind`, `name`, and opaque
+`data`; the callback returns one string and cannot mutate the document. Meta-control kinds cannot
+register this callback. Section name and kind remain searchable without it.
+
 An ordinary kind whose sections carry an `itemTree` must declare its item-area presentation:
 
 ```ts
@@ -701,10 +802,11 @@ registered factory, or these canonical operations, which the item menu, Inspecto
 actions keep calling under their own rules in every mode.
 
 That ordinary kind may also register `getItemSearchableText(context)` for custom opaque items.
-Built-in items always use their package-owned label, so the callback is invoked only for custom
-rows while a nonblank filter is active. It receives the same kind of detached, deeply frozen public
-section and item snapshots as the other host contribution seams. The imperative item operations all
-take the host first, for example `insertWorkspaceItem(host, sectionId)` and
+Built-in items always use their package-owned label. The section-local parameter filter invokes the
+callback for custom rows only while its query is nonblank; global Find invokes it while the Find
+surface is open to build that host's current index. It receives the same kind of detached, deeply
+frozen public section and item snapshots as the other host contribution seams. The imperative item
+operations all take the host first, for example `insertWorkspaceItem(host, sectionId)` and
 `deleteWorkspaceItems(host, sectionId, itemIds)`.
 
 A kind whose `data` has a real shape may register `assertValidData(section)`. The package runs it
@@ -732,6 +834,7 @@ class. For example:
 registerSectionKinds(host, {
   note: {
     renderContent: (section) => <Note data={section.data} />,
+    getSectionSearchableText: (section) => readNoteSearchText(section.data),
     icon: NoteIcon,
     defaultSize: { width: 240, height: 140 },
     contentClassName: "note-content",

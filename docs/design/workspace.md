@@ -43,6 +43,35 @@ once. Coupled resources such as a section forest, item tree, selection, and deri
 move through the same boundary. Browser objects, provider callbacks, file operations, and other
 nonserializable effects cross explicit registries and never enter `WorkspaceDocument`.
 
+## Navigator discovery boundary
+
+Global Find and the command palette share one `WorkspaceNavigator` presentation while retaining
+separate authorities. Its open mode, query, highlighted result, status, opener, and mounted-surface
+count are ephemeral runtime keyed by `WorkspaceHost`. A mounted surface registers its availability,
+so default navigator chords decline without consuming browser behavior when a host has not enabled
+the feature. The portaled modal is registered as a DOM root of that host for event ownership and
+carries the opener's text direction; close restores the opener unless a successful item reveal has
+already transferred focus.
+
+Find is an on-demand read projection of the validated canonical document. Section name and kind
+and built-in item labels are package-owned search inputs. Opaque section or custom-item data enters
+the index only through the owning section kind's synchronous searchable-text callbacks, which
+receive detached deeply frozen snapshots. The package does not walk arbitrary data, code, files,
+diagnostics, providers, or secrets. Empty-query order follows canonical section and item order;
+fuzzy ranks use that order as their tie-break. Item reveal uses a host-scoped registry of mounted
+rows, then scrolls, focuses, and transiently emphasizes the live row. It never queries global ids,
+changes selection, clears a local filter, or unminimizes content; unavailable visibility is a typed
+status at the presentation boundary.
+
+The palette projects the existing command and creation catalogs. `palette` command surfaces and
+their optional keywords are validated in the same atomic catalog replacement as every other
+surface. Pane, active-section, and sole-selected-item contexts are derived from live state when
+entries render and again when one runs. A changed capability, disabled explanation, removed target,
+or replaced catalog therefore wins over the displayed snapshot. Creation entries keep the creation
+registry as their owner and execute through the existing empty-space placement and atomic insertion
+funnel. The navigator owns discovery and accessibility only; command effects, provider work, and
+document mutations remain with their existing authorities.
+
 ## Controlled editor invariants
 
 The built-in Text and Code sections share one controlled CodeMirror assembly. A keystroke commits
