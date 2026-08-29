@@ -28,8 +28,8 @@ export function useWorkspaceFocusVisibility(
         root.removeAttribute(WORKSPACE_KEYBOARD_FOCUS_ATTRIBUTE);
       }
     };
-    const handleKeyDown = (): void => {
-      keyboardFocusPending = true;
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      keyboardFocusPending = event.key !== "Escape";
     };
     const handleKeyUp = (): void => {
       keyboardFocusPending = false;

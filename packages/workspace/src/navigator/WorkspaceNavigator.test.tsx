@@ -225,7 +225,7 @@ describe("WorkspaceNavigator", () => {
     expect(document.body.textContent).toContain("Create note");
   });
 
-  it("closes with Escape and restores the opener focus", async () => {
+  it("closes with Escape and restores opener focus without a retained ring", async () => {
     resolveWorkspaceFindResults.mockReturnValue([]);
     const trigger = getTrigger();
     trigger.focus();
@@ -243,7 +243,7 @@ describe("WorkspaceNavigator", () => {
 
     expect(document.body.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
-    expect(trigger.getAttribute("data-workspace-keyboard-focus")).toBe("true");
+    expect(trigger.hasAttribute("data-workspace-keyboard-focus")).toBe(false);
   });
 
   it("closes from the pointer backdrop and restores the opener focus", async () => {
