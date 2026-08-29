@@ -626,6 +626,70 @@ order: Left/Right Arrow adjusts by 10 px (Shift adjusts by 1 px), while activati
 the default split. Left/Right describe visual movement and therefore mirror under RTL. The remaining
 identical row targets stay pointer-accessible without adding one tab stop per row.
 
+## Structural history
+
+Structural history is host-scoped and disabled by default. Standalone consumers can opt into the
+bounded in-memory authority when they create the host:
+
+```ts
+const host = createWorkspaceHost({
+  history: { kind: "local", limit: 100 },
+});
+
+const unsubscribeHistory = subscribeWorkspaceHistory(host, (state) => {
+  renderHistoryControls({
+    redoDisabledReason: state.redoDisabledReason,
+    undoDisabledReason: state.undoDisabledReason,
+  });
+});
+
+undoWorkspace(host);
+redoWorkspace(host);
+```
+
+The limit defaults to 100 and must be a positive finite integer. `undoWorkspace` and
+`redoWorkspace` return `true` only when navigation was applied or dispatched. The built-in command
+palette exposes **Undo** and **Redo**, with default `Mod+Z` and `Mod+Shift+Z` bindings. Unavailable
+history declines without consuming the browser chord, and editable targets retain native or
+CodeMirror history.
+
+The local authority records completed section create, delete, group, ungroup, move, resize, layout,
+name, minimize, accent, and tag-color operations. It also records item insertion, deletion,
+reorder/reparent, and column width. One completed resize gesture is one entry. Current
+`canEditStructure` and `canEditLayout` capabilities gate the operation being replayed.
+
+Viewport, selection-only, opaque section and item data, typed item presentation and values,
+automatic geometry normalization, and built-in editor changes do not create entries. Replay keeps
+the live viewport and later unrecorded data, item presentation, and derived geometry while restoring
+the recorded selection. `host.loadDocument(...)` and `commitWorkspaceDocument(...)` clear local
+history because both establish a new external document authority.
+
+Applications with a backend or product-wide history can delegate authority instead:
+
+```ts
+const authority: WorkspaceHistoryAuthority = {
+  getState: () => productHistory.getState(),
+  subscribe: (listener) => productHistory.subscribe(listener),
+  record: (transaction) => productHistory.recordWorkspace(transaction),
+  synchronize: (event) => productHistory.synchronizeWorkspace(event),
+  undo: () => productHistory.undo(),
+  redo: () => productHistory.redo(),
+  dispose: () => productHistory.dispose(),
+};
+
+const host = createWorkspaceHost({
+  history: { kind: "delegated", authority },
+});
+```
+
+`record(transaction)` receives the exact package mutation kind, its required capability names, and
+detached deeply frozen before/after documents. `synchronize(event)` receives a frozen document with
+source `"load"` or `"projection"`. The authority owns persistence, revisions, conflicts,
+coalescing, state, and the eventual accepted document. Workspace forwards delegated navigation and
+does not replay the document itself. An unavailable delegated state may include
+`undoDisabledReason` and `redoDisabledReason`; Workspace supplies a generic reason when either is
+omitted.
+
 ## Typed built-in items
 
 `WorkspaceItem.presentation` is the package-owned serializable row schema. It contains an editable

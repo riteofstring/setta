@@ -95,6 +95,10 @@ the package-owned parameter configuration UI. The **Section** tab edits section 
 leading **Outline** mirrors the canonical forest. Pane presentation is browser-local view state and
 does not enter the project file.
 
+Python Canvas currently leaves Workspace structural history disabled because the backend has no
+revision-safe undo authority. Structural Undo and Redo are therefore unavailable; Cmd/Ctrl+Z inside
+an active text editor continues to use that editor's local history.
+
 **Generated Python** is one combined document. The prefix and suffix are editable; the generated
 body from the canonical snapshot is protected. Completion requests include the whole document and
 the exact protected UTF-16 range. Generated assignments are ordered from parsed authored

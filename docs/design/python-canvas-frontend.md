@@ -41,6 +41,24 @@ Callable expression commit and provider signature refresh remain separate mutati
 expression is durable even when a missing symbol prevents signature resolution. The UI keeps that
 canonical expression and its diagnostics instead of presenting provider failure as a reverted edit.
 
+## Workspace history boundary
+
+Python Canvas intentionally creates its `WorkspaceHost` without structural history. The backend
+snapshot is canonical, every accepted mutation is revision-checked, and the current backend has no
+cross-domain undo operation or durable inverse capable of recreating deleted canonical entities.
+A browser-local Workspace stack would therefore claim authority it does not have and could diverge
+from the next accepted projection. Editor-local CodeMirror history remains available for active
+text drafts.
+
+A future Python Canvas implementation can supply a delegated Workspace history authority after the
+backend owns the corresponding contract. That adapter will translate frozen package transactions
+into typed inverse-capable backend mutations, serialize them with the existing project mutation
+queue, expose pending and unavailable reasons through delegated state, and apply only accepted
+canonical snapshots. Workspace load/projection synchronization events then let the adapter
+acknowledge, clear, or rebase its history without treating a frontend snapshot as durable project
+state. Product effects outside `WorkspaceDocument` remain part of the backend transaction rather
+than a responsibility of the UI package.
+
 The Generated Python section receives the exact protected UTF-16 range from the canonical snapshot.
 Completion sends the complete draft and that range to the backend and is offered only in the two
 editable outer regions. Neither the frontend nor workspace searches text for generated markers.

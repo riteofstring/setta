@@ -43,6 +43,40 @@ once. Coupled resources such as a section forest, item tree, selection, and deri
 move through the same boundary. Browser objects, provider callbacks, file operations, and other
 nonserializable effects cross explicit registries and never enter `WorkspaceDocument`.
 
+## Structural history authority
+
+Structural history is an optional `WorkspaceHost` capability. Workspace owns the semantic boundary
+for its own completed document mutations because it alone knows when a drag, resize, grouping
+operation, or item action has become one coherent edit. A host without history configuration has
+no history runtime, preserving a clear default for applications whose canonical authority lives
+elsewhere.
+
+The local authority stores a bounded past/future stack of detached, deeply frozen before/after
+documents. It records section creation, deletion, grouping, movement, layout, and package-owned
+presentation plus item creation, deletion, movement, and column layout. One resize gesture uses a
+private batch boundary so automatic-size promotion and the final dimensions become one entry.
+Replay uses the complete-document validation and atomic publication boundary, restores the
+recorded selection, preserves the live viewport, and returns focus to a surviving selected section
+or the canvas. Current structure and layout capabilities gate each navigation step.
+
+Viewport, selection-only, opaque section and item data, typed item presentation and values, and
+automatic geometry normalization do not create structural entries. Local replay compares its
+recorded source endpoint with the live document so later unrecorded data, presentation, and derived
+geometry survive an unrelated structural undo. The source endpoint is refreshed when an entry
+moves between stacks, preserving those values when an entity is removed and later recreated by
+redo. CodeMirror retains its independent editor history.
+
+`loadDocument` and `commitWorkspaceDocument` are synchronization replacements rather than
+package-authored edits. They clear local history so snapshots never cross a new canonical
+application projection. A delegated authority receives the same frozen transaction metadata and
+explicit load/projection synchronization events, owns availability and navigation, and decides how
+to persist inverses, revisions, conflicts, or broader product history. Workspace forwards a
+delegated undo or redo request and never applies that authority's document itself.
+
+The package-owned palette commands and default `Mod+Z` and `Mod+Shift+Z` bindings read the live
+history authority. They decline without consuming the chord when unavailable and yield to editable
+targets so native controls and CodeMirror keep their own history.
+
 ## Navigator discovery boundary
 
 Global Find and the command palette share one `WorkspaceNavigator` presentation while retaining
