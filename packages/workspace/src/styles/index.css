@@ -24,6 +24,9 @@
 @import "./workspaceToolbar.css";
 @import "./workspaceFocusVisibility.css";
 @import "./workspaceInteractionPolicy.css";
+@import "./workspaceWindowing.css";
+@import "./workspaceWindowManager.css";
+@import "./workspaceWindowSpaces.css";
 
 @tailwind base;
 @tailwind components;

@@ -66,6 +66,103 @@ Host application navigation and modal state stay outside the shell. Registered p
 use its own application state, but receives no package store, XYFlow panel, dnd-kit store, Tailwind
 utility, or package-private DOM selector as an extension API.
 
+## Floating windows and Window Spaces
+
+Windowing is a controlled package feature, separate from `WorkspaceDocument`. A host owns its
+serializable `WorkspaceWindowingState` and any `WorkspaceWindowSpace` values, maps each stable
+`surfaceKind` to a renderer, persists changes, owns content identity and renderer data, and chooses
+the measured local boundary insets. The package never interprets `rendererData` or performs route,
+tab, backend, notification, or application-content work.
+
+```tsx
+const renderers = {
+  "host-note": (window) => (
+    <HostNote noteId={window.contentId} data={window.rendererData} />
+  ),
+} satisfies WorkspaceWindowRenderers;
+
+const [windowingState, setWindowingState] = useState(() =>
+  createWorkspaceWindowingState(),
+);
+
+// The host measures this same local layer when opening a window. The manager
+// observes its own element for later resize normalization.
+const viewport = createWorkspaceWindowViewport({
+  width: layerWidth,
+  height: layerHeight,
+  insets: { left: 40, right: 40, top: 40, bottom: 0 },
+});
+
+function openNote(noteId: string) {
+  setWindowingState((current) =>
+    openWorkspaceFloatingWindow(
+      current,
+      {
+        id: crypto.randomUUID(),
+        contentId: noteId,
+        surfaceKind: "host-note",
+        title: "Note",
+        rendererData: { noteId },
+      },
+      viewport,
+    ),
+  );
+}
+
+<WorkspaceWindowManager
+  boundaryInsets={viewport.insets}
+  onStateChange={setWindowingState}
+  renderers={renderers}
+  state={windowingState}
+/>;
+```
+
+Use the package constructors when data enters the host boundary, then use the pure transition
+functions (`focusWorkspaceWindow`, `moveWorkspaceFloatingWindow`,
+`resizeWorkspaceFloatingWindow`, `snapWorkspaceFloatingWindow`, lifecycle transitions, and
+`renameWorkspaceWindow`) to produce one next controlled state. Pixel bounds belong to the live
+window layer. `normalizeWorkspaceWindowBounds` and `denormalizeWorkspaceWindowBounds` convert
+between that layer and a saved Window Space; `buildWorkspaceFloatingSnapResizeSeams` and
+`buildWorkspaceFloatingSnapResizeBounds` cover an already-snapped shared separator without gaps
+or partial multi-window writes.
+
+`WorkspaceWindowSpacesPane` receives host-owned spaces and callbacks for save, restore, rename,
+delete, reorder, and opening a dedicated view. A snapshot deliberately includes only visible,
+ordinary floating windows: closed, minimized, and maximized windows are excluded. Restore is a
+merge, preserving unrelated live content, reusing matching content identities, and remapping an
+instance-id collision for different content. The host owns its persistence, failure messages, and
+dedicated-tab route.
+
+```tsx
+<WorkspaceWindowSpacesPane
+  layoutEditable={canEditWindowLayout}
+  onOpenDedicated={(space) => openSavedLayoutRoute(space.id)}
+  onSave={saveCurrentWindowSpace}
+  onStateChange={setWindowingState}
+  spaces={windowSpaces}
+  state={windowingState}
+  viewport={viewport}
+/>
+
+<StandaloneWorkspaceWindowSpaceSurface
+  renderers={renderers}
+  revision={savedLayoutRevision}
+  windowSpace={windowSpaceFromRoute}
+/>
+```
+
+Set `layoutEditable={false}` on the manager and Window Spaces pane, or
+`allowLayoutMutations={false}` on the reusable surface, for frozen read-only presentation. The UI
+removes title editing, drag/resize/snap and layout lifecycle controls; transition functions reject
+layout writes with the same option. Focus and reopen stay available, and a read-only Window Spaces
+pane still offers its non-mutating dedicated-view action.
+
+`StandaloneWorkspaceWindowSpaceSurface` is intentionally narrower than the live manager. It renders
+one saved layout locally with flat frames, local focus, and existing snapped shared-separator resize.
+It never persists those local changes and has no title drag, free resize, snap ghost, keyboard snap,
+maximize, minimize, close, or dock controls. A new space id or revision hydrates a fresh local
+layout; rerendering the same revision preserves local interaction state.
+
 ### Quick info shortcuts
 
 Hover a package control or focus a parameter row with quick info, then hold `Q` to reveal it. While

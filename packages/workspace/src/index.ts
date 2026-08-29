@@ -314,6 +314,101 @@ export type {
   WorkspaceShellTabIconProps,
   WorkspaceShellViewState,
 } from "./shell/workspaceShellTypes";
+export { WorkspaceWindowManager } from "./windowing/WorkspaceWindowManager";
+export type {
+  WorkspaceWindowManagerProps,
+  WorkspaceWindowRenderer,
+  WorkspaceWindowRenderers,
+} from "./windowing/WorkspaceWindowManager";
+export { WorkspaceWindowSurface } from "./windowing/WorkspaceWindowSurface";
+export type {
+  WorkspaceWindowSurfaceAction,
+  WorkspaceWindowSurfaceActionTone,
+  WorkspaceWindowSurfaceProps,
+} from "./windowing/WorkspaceWindowSurface";
+export {
+  buildWorkspaceFloatingSnapBounds,
+  buildWorkspaceFloatingSnapResizeBounds,
+  buildWorkspaceFloatingSnapResizeSeams,
+  classifyWorkspaceFloatingSnapPreset,
+  createWorkspaceWindowBoundaryInsets,
+  denormalizeWorkspaceWindowBounds,
+  normalizeWorkspaceWindowBounds,
+  resolveWorkspaceFloatingSnapPresetFromPointer,
+  resolveWorkspaceWindowWorkArea,
+} from "./windowing/windowingSnapLayout";
+export type {
+  ResolveWorkspaceFloatingSnapPresetFromPointerInput,
+  WorkspaceFloatingSnapResizeSeam,
+  WorkspaceNormalizedWindowBounds,
+  WorkspaceSnappedWindow,
+  WorkspaceWindowWorkArea,
+} from "./windowing/windowingSnapLayout";
+export {
+  closeWorkspaceWindow,
+  focusWorkspaceWindow,
+  maximizeWorkspaceWindow,
+  minimizeWorkspaceWindow,
+  moveWorkspaceFloatingWindow,
+  openWorkspaceFloatingWindow,
+  renameWorkspaceWindow,
+  reopenWorkspaceWindow,
+  resizeWorkspaceFloatingWindow,
+  restoreWorkspaceWindow,
+  setWorkspaceWindowBoundsAtomically,
+  snapWorkspaceFloatingWindow,
+} from "./windowing/windowingState";
+export type {
+  OpenWorkspaceFloatingWindowInput,
+  WorkspaceWindowBoundsUpdate,
+  WorkspaceWindowPosition,
+} from "./windowing/windowingState";
+export {
+  createWorkspaceFloatingWindow,
+  createWorkspaceWindowBounds,
+  createWorkspaceWindowingState,
+  createWorkspaceWindowViewport,
+  WorkspaceWindowingError,
+} from "./windowing/windowingTypes";
+export type {
+  WorkspaceFloatingSnapPreset,
+  WorkspaceFloatingWindow,
+  WorkspaceFloatingWindowInput,
+  WorkspaceWindowBoundaryInsets,
+  WorkspaceWindowBounds,
+  WorkspaceWindowingErrorCode,
+  WorkspaceWindowingMutationOptions,
+  WorkspaceWindowingState,
+  WorkspaceWindowingStateInput,
+  WorkspaceWindowJsonValue,
+  WorkspaceWindowPlacement,
+  WorkspaceWindowViewport,
+} from "./windowing/windowingTypes";
+export {
+  canSnapshotWorkspaceWindowSpace,
+  createWorkspaceWindowSpace,
+  restoreWorkspaceWindowSpace,
+  snapshotWorkspaceWindowSpace,
+} from "./windowing/windowSpaces";
+export type {
+  WorkspaceWindowSpace,
+  WorkspaceWindowSpaceInput,
+  WorkspaceWindowSpaceMetadata,
+  WorkspaceWindowSpaceRestoreResult,
+  WorkspaceWindowSpaceWindow,
+} from "./windowing/windowSpaces";
+export { WorkspaceWindowSpacesPane } from "./windowing/WorkspaceWindowSpacesPane";
+export type {
+  WorkspaceWindowSpaceErrors,
+  WorkspaceWindowSpacePending,
+  WorkspaceWindowSpacesPaneProps,
+} from "./windowing/WorkspaceWindowSpacesPane";
+export {
+  StandaloneWorkspaceWindowSpaceSurface,
+} from "./windowing/StandaloneWorkspaceWindowSpaceSurface";
+export type {
+  StandaloneWorkspaceWindowSpaceSurfaceProps,
+} from "./windowing/StandaloneWorkspaceWindowSpaceSurface";
 export { WorkspaceControls } from "./toolbar/WorkspaceControls";
 export { registerWorkspaceToolbarContributions } from "./toolbar/workspaceToolbarRegistry";
 export type {
