@@ -193,6 +193,18 @@ describe("playground floating-window demo", () => {
         gesture: { deltaX: 55, deltaY: 25, moveCount: 1 },
       },
     });
+    expect(
+      entries.find((entry) => entry["event"] === "pointermove"),
+    ).toMatchObject({
+      pointer: { clientX: 475, clientY: 145 },
+      surface: "section",
+      windowBounds: expect.objectContaining({
+        height: expect.any(Number),
+        left: expect.any(Number),
+        top: expect.any(Number),
+        width: expect.any(Number),
+      }),
+    });
     expect(entries.find((entry) => entry["event"] === "wheel")).toMatchObject({
       canvasInteractionActive: false,
       defaultPrevented: false,

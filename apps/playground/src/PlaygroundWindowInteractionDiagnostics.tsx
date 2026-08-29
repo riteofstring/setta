@@ -8,7 +8,6 @@ import {
 
 const DIAGNOSTIC_STORAGE_KEY =
   "setta-playground-window-interaction-diagnostics-v1";
-const MAX_DIAGNOSTIC_ENTRIES = 200;
 const WINDOW_SELECTOR = '[data-testid="workspace-window-manager-window"]';
 const DRAG_HANDLE_SELECTOR = '[data-workspace-window-drag-handle="true"]';
 const TITLE_DISPLAY_SELECTOR =
@@ -51,9 +50,7 @@ type TargetSnapshot = {
 function readStoredDiagnosticLines(): readonly string[] {
   try {
     const value = globalThis.sessionStorage?.getItem(DIAGNOSTIC_STORAGE_KEY);
-    return value
-      ? value.split("\n").filter(Boolean).slice(-MAX_DIAGNOSTIC_ENTRIES)
-      : [];
+    return value ? value.split("\n").filter(Boolean) : [];
   } catch (error) {
     if (error instanceof DOMException) return [];
     throw error;
@@ -70,6 +67,14 @@ function storeDiagnosticLines(lines: readonly string[]): void {
     if (error instanceof DOMException) return;
     throw error;
   }
+}
+
+export function appendPlaygroundWindowDiagnosticLine(
+  lines: string[],
+  entry: Record<string, unknown>,
+  recordedAt = new Date().toISOString(),
+): void {
+  lines.push(JSON.stringify({ recordedAt, ...entry }));
 }
 
 function getContainedClosest(
@@ -343,7 +348,10 @@ function appendRecordedEvent({
   targetSnapshot,
   windowElement,
 }: {
-  readonly appendDiagnostic: (entry: Record<string, unknown>) => void;
+  readonly appendDiagnostic: (
+    entry: Record<string, unknown>,
+    deferPresentation?: boolean,
+  ) => void;
   readonly event: Event;
   readonly pointerSessions: Map<number, PointerSession>;
   readonly root: HTMLElement;
@@ -365,6 +373,7 @@ function appendRecordedEvent({
       windowElement,
       windowId,
     }),
+    event.type === "pointermove" || event.type === "wheel",
   );
   if (isPointerFinished(event) && isPointerEventLike(event)) {
     pointerSessions.delete(event.pointerId);
@@ -376,23 +385,27 @@ export function PlaygroundWindowInteractionDiagnostics({
 }: {
   readonly rootRef: RefObject<HTMLDivElement | null>;
 }) {
-  const diagnosticLinesRef = useRef<readonly string[]>(
-    readStoredDiagnosticLines(),
-  );
+  const diagnosticLinesRef = useRef<string[]>([...readStoredDiagnosticLines()]);
   const pointerSessionsRef = useRef(new Map<number, PointerSession>());
   const [enabled, setEnabled] = useState(false);
   const [revision, setRevision] = useState(0);
   const [copyStatus, setCopyStatus] = useState("");
 
-  const appendDiagnostic = useCallback((entry: Record<string, unknown>) => {
-    const nextLines = [
-      ...diagnosticLinesRef.current,
-      JSON.stringify({ recordedAt: new Date().toISOString(), ...entry }),
-    ].slice(-MAX_DIAGNOSTIC_ENTRIES);
-    diagnosticLinesRef.current = nextLines;
-    storeDiagnosticLines(nextLines);
-    setRevision((current) => current + 1);
-  }, []);
+  const appendDiagnostic = useCallback(
+    (entry: Record<string, unknown>, deferPresentation = false) => {
+      appendPlaygroundWindowDiagnosticLine(diagnosticLinesRef.current, entry);
+      // Pointer moves and wheel bursts stay memory-only until the next lifecycle event. This keeps
+      // full-fidelity traces without synchronous sessionStorage writes or React renders changing
+      // the interaction being measured. Pointer up, the next pointer down, or Stop recording
+      // flushes the complete accumulated log.
+      if (deferPresentation) return;
+      storeDiagnosticLines(diagnosticLinesRef.current);
+      setRevision((current) => current + 1);
+    },
+    [],
+  );
+
+  useEffect(() => () => storeDiagnosticLines(diagnosticLinesRef.current), []);
 
   useEffect(() => {
     if (!enabled) return;
@@ -415,7 +428,6 @@ export function PlaygroundWindowInteractionDiagnostics({
         session.lastX = event.clientX;
         session.lastY = event.clientY;
         session.moveCount += 1;
-        return;
       }
 
       if (event.type === "pointerdown" && isPointerEventLike(event)) {
