@@ -32,6 +32,26 @@ function createVisibleWindowSpacesViewState(): WorkspaceShellViewState {
   };
 }
 
+function createPointerEvent(
+  type: string,
+  {
+    clientX,
+    clientY,
+    pointerId = 1,
+  }: { clientX: number; clientY: number; pointerId?: number },
+): MouseEvent {
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    button: 0,
+    cancelable: true,
+    clientX,
+    clientY,
+  });
+  Object.defineProperty(event, "pointerId", { value: pointerId });
+  Object.defineProperty(event, "pointerType", { value: "mouse" });
+  return event;
+}
+
 function WindowingDemoHarness() {
   const [shellViewState, setShellViewState] = useState(
     createVisibleWindowSpacesViewState,
@@ -55,6 +75,7 @@ describe("playground floating-window demo", () => {
   let workspaceHost: WorkspaceHost;
 
   beforeEach(async () => {
+    globalThis.sessionStorage.clear();
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
       function getPlaygroundTestBounds(this: HTMLElement) {
         if (
@@ -96,6 +117,90 @@ describe("playground floating-window demo", () => {
     }
     await act(async () => button.click());
   }
+
+  it("records section-window drag acceptance and uncanceled wheel routing", async () => {
+    await click('[data-testid="playground-window-diagnostics-toggle"]');
+    await click(
+      '[data-section-id="idle-leaf"] [data-testid="section-window-toggle"]',
+    );
+
+    const floatingSection = host.querySelector<HTMLElement>(
+      '[data-testid="workspace-window-manager-window"] [data-testid="section-window-surface"][data-section-id="idle-leaf"]',
+    );
+    const floatingWindow = floatingSection?.closest<HTMLElement>(
+      '[data-testid="workspace-window-manager-window"]',
+    );
+    const title = floatingWindow?.querySelector<HTMLElement>(
+      '[data-setta-workspace-section-title-display="true"]',
+    );
+    if (!floatingSection || !floatingWindow || !title) {
+      throw new Error("Expected the external Idle leaf window and title.");
+    }
+
+    await act(async () => {
+      title.dispatchEvent(
+        createPointerEvent("pointerdown", {
+          clientX: 420,
+          clientY: 120,
+          pointerId: 13,
+        }),
+      );
+      title.dispatchEvent(
+        createPointerEvent("pointermove", {
+          clientX: 475,
+          clientY: 145,
+          pointerId: 13,
+        }),
+      );
+      title.dispatchEvent(
+        createPointerEvent("pointerup", {
+          clientX: 475,
+          clientY: 145,
+          pointerId: 13,
+        }),
+      );
+      floatingSection.dispatchEvent(
+        new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaX: 42,
+          deltaY: 3,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    const log = host.querySelector<HTMLTextAreaElement>(
+      '[aria-label="Window interaction diagnostic log"]',
+    )?.value;
+    if (!log) throw new Error("Expected recorded window diagnostics.");
+    const entries = log
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+
+    expect(
+      entries.find((entry) => entry["event"] === "pointerdown"),
+    ).toMatchObject({
+      defaultPrevented: true,
+      surface: "section",
+      target: { isSectionTitleDisplay: true },
+    });
+    expect(
+      entries.find((entry) => entry["event"] === "pointerup"),
+    ).toMatchObject({
+      pointer: {
+        gesture: { deltaX: 55, deltaY: 25, moveCount: 1 },
+      },
+    });
+    expect(entries.find((entry) => entry["event"] === "wheel")).toMatchObject({
+      canvasInteractionActive: false,
+      defaultPrevented: false,
+      surface: "section",
+      wheel: { deltaX: 42, deltaY: 3 },
+    });
+    expect(log).not.toContain("Generic renderer");
+  });
 
   it("renders arbitrary content, reopens a closed demo window, and restores a host snapshot", async () => {
     expect(

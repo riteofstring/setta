@@ -390,6 +390,40 @@ html.dark .playground-host-pane {
   min-height: 0;
 }
 
+.playground-window-interaction-diagnostics {
+  display: grid;
+  min-width: 0;
+  gap: 0.5rem;
+  border-block-start: 1px solid var(--playground-border);
+  padding-block-start: 0.75rem;
+}
+
+.playground-window-interaction-diagnostics h3 {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.playground-window-interaction-diagnostic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.playground-window-interaction-diagnostics textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 8rem;
+  resize: vertical;
+  border: 1px solid var(--playground-border);
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  color: inherit;
+  background: var(--playground-surface);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.625rem;
+  line-height: 1.4;
+}
+
 .playground-floating-window-content {
   display: flex;
   box-sizing: border-box;

@@ -23,6 +23,7 @@ import {
 } from "@setta/workspace";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { PlaygroundItemDiagnosticsProvider } from "./sectionKinds";
+import { PlaygroundWindowInteractionDiagnostics } from "./PlaygroundWindowInteractionDiagnostics";
 
 type PlaygroundWindowingDemoProps = {
   readonly baseTrailingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
@@ -360,6 +361,7 @@ export function PlaygroundWindowingDemo({
           >
             Open or reopen reference note
           </button>
+          <PlaygroundWindowInteractionDiagnostics rootRef={workspaceRef} />
           <WorkspaceWindowSpacesPane
             errors={
               windowSpaceSaveError ? { save: windowSpaceSaveError } : undefined
