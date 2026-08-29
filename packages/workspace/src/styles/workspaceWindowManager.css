@@ -1,0 +1,162 @@
+/* Live, host-local floating-window composition. Both this full-size root and the shell slot stay
+ * transparent so uncovered canvas remains interactive; individual panels and handles opt in. */
+.setta-workspace-window-manager {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
+  pointer-events: none;
+}
+
+.setta-workspace-window-manager-window {
+  position: absolute;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  pointer-events: auto;
+}
+
+.setta-workspace-window-manager-window[data-workspace-window-snap-preset]
+  .setta-workspace-window-surface {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.setta-workspace-window-manager-window[data-workspace-window-maximized="true"]
+  .setta-workspace-window-surface {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.setta-workspace-window-manager-missing-renderer {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  text-align: center;
+}
+
+.setta-workspace-dark .setta-workspace-window-manager-missing-renderer {
+  color: rgb(148 163 184);
+}
+
+.setta-workspace-window-manager-snap-preview {
+  position: absolute;
+  border: 2px solid rgb(148 163 184 / 80%);
+  border-radius: 0;
+  background: rgb(203 213 225 / 20%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 45%);
+  pointer-events: none;
+}
+
+.setta-workspace-dark .setta-workspace-window-manager-snap-preview {
+  border-color: rgb(100 116 139 / 90%);
+  background: rgb(100 116 139 / 25%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 10%);
+}
+
+.setta-workspace-window-manager-free-resize-handle {
+  position: absolute;
+  touch-action: none;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.setta-workspace-window-manager-free-resize-handle[data-direction="top"],
+.setta-workspace-window-manager-free-resize-handle[data-direction="bottom"] {
+  inset-inline: 8px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.setta-workspace-window-manager-free-resize-handle[data-direction="top"] {
+  inset-block-start: -4px;
+}
+
+.setta-workspace-window-manager-free-resize-handle[data-direction="bottom"] {
+  inset-block-end: -4px;
+}
+
+.setta-workspace-window-manager-free-resize-handle[data-direction="top_left"],
+.setta-workspace-window-manager-free-resize-handle[data-direction="bottom_right"] {
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+}
+
+.setta-workspace-window-manager-free-resize-handle[data-direction="top_right"],
+.setta-workspace-window-manager-free-resize-handle[data-direction="bottom_left"] {
+  width: 12px;
+  height: 12px;
+  cursor: nesw-resize;
+}
+
+.setta-workspace-window-manager-free-resize-handle[data-direction="top_left"] {
+  inset-block-start: -4px;
+  inset-inline-start: -4px;
+}
+
+.setta-workspace-window-manager-free-resize-handle[data-direction="top_right"] {
+  inset-block-start: -4px;
+  inset-inline-end: -4px;
+}
+
+.setta-workspace-window-manager-free-resize-handle[data-direction="bottom_left"] {
+  inset-block-end: -4px;
+  inset-inline-start: -4px;
+}
+
+.setta-workspace-window-manager-free-resize-handle[data-direction="bottom_right"] {
+  inset-block-end: -4px;
+  inset-inline-end: -4px;
+}
+
+.setta-workspace-window-manager-snap-resize-handle {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.setta-workspace-window-manager-snap-resize-handle[data-axis="vertical"] {
+  cursor: col-resize;
+}
+
+.setta-workspace-window-manager-snap-resize-handle[data-axis="horizontal"] {
+  cursor: row-resize;
+}
+
+.setta-workspace-window-manager-snap-resize-handle::after {
+  border-radius: 9999px;
+  background: rgb(148 163 184 / 75%);
+  content: "";
+  transition: background-color 150ms ease;
+}
+
+.setta-workspace-window-manager-snap-resize-handle[data-axis="vertical"]::after {
+  width: 2px;
+  height: max(24px, calc(100% - 8px));
+}
+
+.setta-workspace-window-manager-snap-resize-handle[data-axis="horizontal"]::after {
+  width: max(24px, calc(100% - 8px));
+  height: 2px;
+}
+
+.setta-workspace-window-manager-snap-resize-handle:hover::after {
+  background: rgb(59 130 246);
+}

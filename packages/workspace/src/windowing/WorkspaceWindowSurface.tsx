@@ -39,6 +39,7 @@ export type WorkspaceWindowSurfaceProps = {
   onTitlePointerDown?: PointerEventHandler<HTMLParagraphElement>;
   onTitlePointerMove?: PointerEventHandler<HTMLParagraphElement>;
   onTitlePointerUp?: PointerEventHandler<HTMLParagraphElement>;
+  onTitlePointerCancel?: PointerEventHandler<HTMLParagraphElement>;
 };
 
 function joinClassNames(
@@ -61,6 +62,7 @@ type WorkspaceWindowTitleProps = Pick<
   | "onTitlePointerDown"
   | "onTitlePointerMove"
   | "onTitlePointerUp"
+  | "onTitlePointerCancel"
   | "allowLayoutMutations"
 >;
 
@@ -188,6 +190,7 @@ function WorkspaceWindowTitleDisplay({
   onTitlePointerDown,
   onTitlePointerMove,
   onTitlePointerUp,
+  onTitlePointerCancel,
   allowLayoutMutations,
   canEditTitle,
   beginEditing,
@@ -217,6 +220,7 @@ function WorkspaceWindowTitleDisplay({
       onPointerDown={allowLayoutMutations ? onTitlePointerDown : undefined}
       onPointerMove={allowLayoutMutations ? onTitlePointerMove : undefined}
       onPointerUp={allowLayoutMutations ? onTitlePointerUp : undefined}
+      onPointerCancel={allowLayoutMutations ? onTitlePointerCancel : undefined}
       title={title}
       data-testid={renderedDragHandleTestId ?? "workspace-window-title"}
       data-workspace-window-title="true"
@@ -237,6 +241,7 @@ function WorkspaceWindowTitle({
   onTitlePointerDown,
   onTitlePointerMove,
   onTitlePointerUp,
+  onTitlePointerCancel,
   allowLayoutMutations = true,
 }: WorkspaceWindowTitleProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -294,6 +299,7 @@ function WorkspaceWindowTitle({
         onTitlePointerDown,
         onTitlePointerMove,
         onTitlePointerUp,
+        onTitlePointerCancel,
       }}
       allowLayoutMutations={allowLayoutMutations}
       canEditTitle={canEditTitle}
@@ -368,6 +374,7 @@ function WorkspaceWindowHeader({
   onTitlePointerDown,
   onTitlePointerMove,
   onTitlePointerUp,
+  onTitlePointerCancel,
 }: WorkspaceWindowSurfaceProps) {
   const visibleActions = allowLayoutMutations
     ? actions
@@ -396,6 +403,7 @@ function WorkspaceWindowHeader({
           onTitlePointerDown,
           onTitlePointerMove,
           onTitlePointerUp,
+          onTitlePointerCancel,
           allowLayoutMutations,
         }}
       />
