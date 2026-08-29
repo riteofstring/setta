@@ -111,4 +111,34 @@ describe("playground floating-window demo", () => {
       host.querySelectorAll('[data-testid="workspace-window-manager-window"]'),
     ).toHaveLength(2);
   });
+
+  it("restores a minimized demo window from the manager recovery strip", async () => {
+    await click('[aria-label="Minimize Reference note"]');
+
+    expect(
+      host.querySelectorAll('[data-testid="workspace-window-manager-window"]'),
+    ).toHaveLength(1);
+    const recovery = host.querySelector<HTMLButtonElement>(
+      '[aria-label="Restore Reference note"]',
+    );
+    if (!recovery)
+      throw new Error("Expected the minimized-window recovery pill.");
+    expect(recovery.closest("nav")?.getAttribute("aria-label")).toBe(
+      "Minimized windows",
+    );
+
+    await act(async () => recovery.click());
+
+    expect(
+      host.querySelectorAll('[data-testid="workspace-window-manager-window"]'),
+    ).toHaveLength(2);
+    expect(
+      host.querySelector(
+        '[data-workspace-window-id="playground-reference-note-window"][data-focused="true"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[aria-label="Restore Reference note"]'),
+    ).toBeNull();
+  });
 });
