@@ -66,13 +66,13 @@ Host application navigation and modal state stay outside the shell. Registered p
 use its own application state, but receives no package store, XYFlow panel, dnd-kit store, Tailwind
 utility, or package-private DOM selector as an extension API.
 
-## Floating windows and Window Spaces
+## Managed windows, section handoff, and Window Spaces
 
 Windowing is a controlled package feature, separate from `WorkspaceDocument`. A host owns its
 serializable `WorkspaceWindowingState` and any `WorkspaceWindowSpace` values, maps each stable
-`surfaceKind` to a renderer, persists changes, owns content identity and renderer data, and chooses
-the measured local boundary insets. The package never interprets `rendererData` or performs route,
-tab, backend, notification, or application-content work.
+generic `surfaceKind` to a renderer, persists changes, owns generic content identity and renderer
+data, and supplies a measured local viewport with pane insets. The package never interprets
+`rendererData` or performs route, tab, backend, notification, or application-content work.
 
 ```tsx
 const renderers = {
@@ -85,8 +85,7 @@ const [windowingState, setWindowingState] = useState(() =>
   createWorkspaceWindowingState(),
 );
 
-// The host measures this same local layer when opening a window. The manager
-// observes its own element for later resize normalization.
+// Measure the WorkspaceShell's local layer and its open-pane insets.
 const viewport = createWorkspaceWindowViewport({
   width: layerWidth,
   height: layerHeight,
@@ -109,36 +108,52 @@ function openNote(noteId: string) {
   );
 }
 
-<WorkspaceWindowManager
-  boundaryInsets={viewport.insets}
-  onStateChange={setWindowingState}
-  renderers={renderers}
-  state={windowingState}
+<WorkspaceShell
+  {...shellProps}
+  windowing={{
+    layoutEditable: canEditWindowLayout,
+    onStateChange: setWindowingState,
+    renderers,
+    state: windowingState,
+    viewport,
+  }}
 />;
 ```
 
-Minimizing a managed window moves it into the manager's bottom-end recovery strip. The strip uses
-the same top-tab treatment as the reference UI, keeps every minimized window keyboard reachable at
-narrow widths, and reopens and focuses a window when its pill is activated. It spans the usable
-inline area between the manager's live `boundaryInsets`, keeping recovery pills clear of open shell
-panes and rails. Closed windows do not appear there; hosts continue to own launchers for closed
-content.
+The integrated `WorkspaceShell.windowing` contract is required for section handoff. Every eligible
+ordinary section gets the edit-only `Open section in floating window` header action. While that
+section is externally owned, its canvas location becomes a measured placeholder and the one live
+registered body moves through `floating`, `bottom_docked`, and `maximized` presentation. The
+placeholder remains for minimized and closed windows and offers `Focus window` plus `Show in
+canvas` when layout editing is allowed. Groups, roots, list roots, and meta controls cannot be
+externalized. `WorkspaceWindowManager` remains available as a standalone controlled presenter for
+generic windows outside `WorkspaceShell`.
+
+The bottom dock uses the measured usable area between shell panes. Open dock panels shrink to their
+reference minimum before overflowing into the recovery strip; narrower hosts progressively use
+full pills, compact pills, cycle controls, and a menu. Minimized windows reopen from the strip.
+Closed windows stay recoverable from the persistent window manager beside it. The same manager can
+focus visible instances and, for editable section instances, move them between canvas and floating
+placement or hide them.
 
 Use the package constructors when data enters the host boundary, then use the pure transition
-functions (`focusWorkspaceWindow`, `moveWorkspaceFloatingWindow`,
-`resizeWorkspaceFloatingWindow`, `snapWorkspaceFloatingWindow`, lifecycle transitions, and
-`renameWorkspaceWindow`) to produce one next controlled state. Pixel bounds belong to the live
-window layer. `normalizeWorkspaceWindowBounds` and `denormalizeWorkspaceWindowBounds` convert
-between that layer and a saved Window Space; `buildWorkspaceFloatingSnapResizeSeams` and
-`buildWorkspaceFloatingSnapResizeBounds` cover an already-snapped shared separator without gaps
-or partial multi-window writes.
+functions to produce one next controlled state. Generic windows use
+`openWorkspaceFloatingWindow`; section integrations use
+`showWorkspaceSectionInFloatingWindow`, `dockWorkspaceWindow`, `undockWorkspaceWindow`, and
+`moveWorkspaceWindowToCanvasSection`. Focus, move, resize, snap, maximize/restore,
+minimize/reopen, close, title, and atomic dock-layout transitions share the same authority. Pixel
+bounds belong to the live window layer. `normalizeWorkspaceWindowBounds` and
+`denormalizeWorkspaceWindowBounds` convert between that layer and a saved Window Space;
+`buildWorkspaceFloatingSnapResizeSeams` and `buildWorkspaceFloatingSnapResizeBounds` cover an
+already-snapped shared separator without gaps or partial multi-window writes.
 
 `WorkspaceWindowSpacesPane` receives host-owned spaces and callbacks for save, restore, rename,
 delete, reorder, and opening a dedicated view. A snapshot deliberately includes only visible,
-ordinary floating windows: closed, minimized, and maximized windows are excluded. Restore is a
-merge, preserving unrelated live content, reusing matching content identities, and remapping an
-instance-id collision for different content. The host owns its persistence, failure messages, and
-dedicated-tab route.
+ordinary floating windows: canvas-owned, bottom-docked, closed, minimized, and maximized instances
+are excluded. Restore is a merge, preserving unrelated live content, reusing matching content
+identities, ignoring saved section entries that already have a canvas or dock owner, and remapping
+an instance-id collision for different content. The host owns persistence, failure messages, and
+the dedicated-tab route.
 
 ```tsx
 <WorkspaceWindowSpacesPane
@@ -158,11 +173,12 @@ dedicated-tab route.
 />
 ```
 
-Set `layoutEditable={false}` on the manager and Window Spaces pane, or
-`allowLayoutMutations={false}` on the reusable surface, for frozen read-only presentation. The UI
-removes title editing, drag/resize/snap and layout lifecycle controls; transition functions reject
-layout writes with the same option. Focus and reopen stay available, and a read-only Window Spaces
-pane still offers its non-mutating dedicated-view action.
+Set `layoutEditable={false}` in `WorkspaceShell.windowing`, on a standalone manager and Window
+Spaces pane, or `allowLayoutMutations={false}` on the reusable surface, for frozen read-only
+presentation. The UI removes section handoff, title editing, drag/resize/snap, docking, and layout
+lifecycle controls; transition functions reject layout writes with the same option. Focus and
+reopen stay available, the canvas placeholder explains how to reach its external owner, and a
+read-only Window Spaces pane still offers its non-mutating dedicated-view action.
 
 `StandaloneWorkspaceWindowSpaceSurface` is intentionally narrower than the live manager. It renders
 one saved layout locally with flat frames, local focus, and existing snapped shared-separator resize.

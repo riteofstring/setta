@@ -6,7 +6,6 @@ import {
   reopenWorkspaceWindow,
   snapshotWorkspaceWindowSpace,
   WorkspaceShell,
-  WorkspaceWindowManager,
   WorkspaceWindowSpacesPane,
   WorkspaceWindowingError,
   type OpenWorkspaceFloatingWindowInput,
@@ -397,15 +396,13 @@ export function PlaygroundWindowingDemo({
           sectionTagColorPalette={sectionTagColorPalette}
           trailingTabs={trailingTabs}
           viewState={shellViewState}
-          windowManager={
-            <WorkspaceWindowManager
-              ariaLabel="Playground floating windows"
-              boundaryInsets={windowViewport.insets}
-              onStateChange={(nextState) => setWindowingState(nextState)}
-              renderers={playgroundWindowRenderers}
-              state={windowingState}
-            />
-          }
+          windowing={{
+            ariaLabel: "Playground windows",
+            onStateChange: setWindowingState,
+            renderers: playgroundWindowRenderers,
+            state: windowingState,
+            viewport: windowViewport,
+          }}
         />
       </PlaygroundItemDiagnosticsProvider>
     </div>

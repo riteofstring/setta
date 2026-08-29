@@ -10,7 +10,7 @@ import {
 } from "@setta/workspace";
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
 import { PlaygroundWindowingDemo } from "./PlaygroundWindowingDemo";
 import {
@@ -55,6 +55,18 @@ describe("playground floating-window demo", () => {
   let workspaceHost: WorkspaceHost;
 
   beforeEach(async () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function getPlaygroundTestBounds(this: HTMLElement) {
+        if (
+          this.classList.contains("playground-workspace") ||
+          this.classList.contains("react-flow") ||
+          this.dataset.workspaceWindowManager === "true"
+        ) {
+          return new DOMRect(0, 0, 1_600, 720);
+        }
+        return new DOMRect();
+      },
+    );
     workspaceHost = createWorkspaceHost();
     registerPlaygroundSectionKinds(workspaceHost);
     workspaceHost.loadDocument(playgroundDocument);
@@ -74,6 +86,7 @@ describe("playground floating-window demo", () => {
     await act(async () => root.unmount());
     host.remove();
     workspaceHost.dispose();
+    vi.restoreAllMocks();
   });
 
   async function click(selector: string): Promise<void> {
@@ -124,7 +137,7 @@ describe("playground floating-window demo", () => {
     if (!recovery)
       throw new Error("Expected the minimized-window recovery pill.");
     expect(recovery.closest("nav")?.getAttribute("aria-label")).toBe(
-      "Minimized windows",
+      "Window recovery and manager",
     );
     expect(recovery.closest<HTMLElement>("nav")?.style.insetInlineEnd).toBe(
       "500px",
@@ -143,5 +156,69 @@ describe("playground floating-window demo", () => {
     expect(
       host.querySelector('[aria-label="Restore Reference note"]'),
     ).toBeNull();
+  });
+
+  it("moves a real canvas section through the reference window placements and recovery paths", async () => {
+    const sectionSelector = '[data-section-id="idle-leaf"]';
+    await click(`${sectionSelector} [data-testid="section-window-toggle"]`);
+
+    expect(
+      host.querySelector(
+        '[data-testid="section-canvas-window-placeholder"][data-workspace-section-id="idle-leaf"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      host.querySelector(
+        '[data-testid="workspace-window-manager-window"] [data-testid="section-window-surface"][data-section-id="idle-leaf"]',
+      ),
+    ).not.toBeNull();
+
+    const clickSectionWindowAction = async (testId: string) => {
+      await click(
+        `[data-testid="section-window-surface"][data-section-id="idle-leaf"] [data-testid="${testId}"]`,
+      );
+    };
+    await clickSectionWindowAction("workspace-window-dock");
+    expect(
+      host.querySelector(
+        '[data-testid="workspace-bottom-dock-window-panel"] [data-testid="section-window-surface"][data-section-id="idle-leaf"]',
+      ),
+    ).not.toBeNull();
+
+    await clickSectionWindowAction("workspace-bottom-dock-window-maximize");
+    await clickSectionWindowAction("workspace-window-restore");
+    expect(
+      host.querySelector(
+        '[data-testid="workspace-bottom-dock-window-panel"] [data-section-id="idle-leaf"]',
+      ),
+    ).not.toBeNull();
+
+    await clickSectionWindowAction("workspace-bottom-dock-window-undock");
+    await clickSectionWindowAction("workspace-window-minimize");
+    expect(
+      host.querySelector('[aria-label="Restore Idle leaf"]'),
+    ).not.toBeNull();
+    await click(
+      `${sectionSelector} [data-testid="section-window-placeholder-focus"]`,
+    );
+
+    await clickSectionWindowAction("workspace-window-close");
+    await click(
+      '[data-workspace-window-id="workspace-section-window:idle-leaf"] [data-testid="workspace-bottom-dock-manager-reopen"]',
+    );
+    await clickSectionWindowAction("workspace-window-show-in-canvas");
+
+    expect(
+      host.querySelector(
+        '[data-testid="section-canvas-window-placeholder"][data-workspace-section-id="idle-leaf"]',
+      ),
+    ).toBeNull();
+    expect(
+      host
+        .querySelector(
+          `${sectionSelector} [data-testid="section-window-toggle"]`,
+        )
+        ?.getAttribute("aria-label"),
+    ).toBe("Open section in floating window");
   });
 });
