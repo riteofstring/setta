@@ -243,6 +243,7 @@ describe("WorkspaceNavigator", () => {
 
     expect(document.body.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
+    expect(trigger.getAttribute("data-workspace-keyboard-focus")).toBe("true");
   });
 
   it("closes from the pointer backdrop and restores the opener focus", async () => {
@@ -260,11 +261,13 @@ describe("WorkspaceNavigator", () => {
     }
 
     await act(async () => {
+      backdrop.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
       backdrop.click();
     });
 
     expect(document.body.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
+    expect(trigger.hasAttribute("data-workspace-keyboard-focus")).toBe(false);
   });
 
   it("keeps the opener's text direction on the portaled dialog", async () => {

@@ -182,6 +182,12 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(interactionPolicyStyles).toMatch(
       /\[data-workspace-keyboard-focus="true"\]\s+\.setta-workspace-shell-resize-handle:focus::after\s*\{[^}]*background-color: rgb\(59 130 246\)/su,
     );
+    expect(workspaceStyles).toContain(
+      '.setta-workspace-navigator-trigger[data-workspace-keyboard-focus="true"]:focus',
+    );
+    expect(workspaceStyles).not.toContain(
+      ".setta-workspace-navigator-trigger:focus-visible",
+    );
   });
 
   it("matches the reference selection surface without a second browser focus outline", () => {

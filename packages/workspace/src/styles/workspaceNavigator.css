@@ -363,7 +363,7 @@
   text-align: center;
 }
 
-.setta-workspace-navigator-trigger:focus-visible,
+.setta-workspace-navigator-trigger[data-workspace-keyboard-focus="true"]:focus,
 .setta-workspace-navigator-tab:focus-visible,
 .setta-workspace-navigator-close:focus-visible,
 .setta-workspace-navigator-input:focus-visible {
@@ -536,7 +536,7 @@
     outline-offset: -1px;
   }
 
-  .setta-workspace-navigator-trigger:focus-visible,
+  .setta-workspace-navigator-trigger[data-workspace-keyboard-focus="true"]:focus,
   .setta-workspace-navigator-tab:focus-visible,
   .setta-workspace-navigator-close:focus-visible {
     outline-color: Highlight;

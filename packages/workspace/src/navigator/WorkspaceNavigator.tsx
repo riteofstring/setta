@@ -13,6 +13,7 @@ import { FiCheck, FiCommand, FiSearch, FiX } from "react-icons/fi";
 import { useWorkspaceCommandState } from "../commands/workspaceCommandResolution";
 import { useActiveSections } from "../document/stores";
 import { getWorkspaceKeyBindingChordLabel } from "../keybindings/workspaceKeyBindingRegistry";
+import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
 import { getElementTextDirection } from "../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { useWorkspaceHost } from "../workspaceHostContext";
@@ -285,24 +286,22 @@ function WorkspaceNavigatorTrigger({
   defaultMode,
   onOpen,
   shortcutLabel,
-  showTrigger,
   workspaceScopeClassName,
 }: {
   className?: string;
   defaultMode: WorkspaceNavigatorMode;
   onOpen: () => void;
   shortcutLabel: string | null;
-  showTrigger: boolean;
   workspaceScopeClassName: string;
 }) {
-  if (!showTrigger) {
-    return null;
-  }
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  useWorkspaceFocusVisibility(triggerRef);
   return (
     <button
       aria-label="Open workspace navigator"
       className={`${workspaceScopeClassName} setta-workspace-navigator-trigger${className ? ` ${className}` : ""}`}
       onClick={onOpen}
+      ref={triggerRef}
       type="button"
     >
       <FiSearch aria-hidden="true" focusable="false" />
@@ -861,14 +860,15 @@ export function WorkspaceNavigator({
 
   return (
     <>
-      <WorkspaceNavigatorTrigger
-        className={className}
-        defaultMode={defaultMode}
-        onOpen={() => openWorkspaceNavigator(host, defaultMode)}
-        shortcutLabel={triggerShortcutLabel}
-        showTrigger={showTrigger}
-        workspaceScopeClassName={workspaceScopeClassName}
-      />
+      {showTrigger ? (
+        <WorkspaceNavigatorTrigger
+          className={className}
+          defaultMode={defaultMode}
+          onOpen={() => openWorkspaceNavigator(host, defaultMode)}
+          shortcutLabel={triggerShortcutLabel}
+          workspaceScopeClassName={workspaceScopeClassName}
+        />
+      ) : null}
       <WorkspaceNavigatorLiveRegion
         message={liveMessage}
         workspaceScopeClassName={workspaceScopeClassName}
