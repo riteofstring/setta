@@ -219,6 +219,31 @@ describe("WorkspaceWindowManager interactions", () => {
     return nextState;
   }
 
+  function getWindow(windowId: string): HTMLElement {
+    const window = host.querySelector<HTMLElement>(
+      `[data-testid="workspace-window-manager-window"][data-workspace-window-id="${windowId}"]`,
+    );
+    if (!window) throw new Error(`Expected window ${windowId}.`);
+    return window;
+  }
+
+  function getTitleDragHandle(windowId: string): HTMLElement {
+    const title = getWindow(windowId).querySelector<HTMLElement>(
+      '[data-testid="workspace-window-title-drag-handle"]',
+    );
+    if (!title) throw new Error(`Expected title drag handle for ${windowId}.`);
+    return title;
+  }
+
+  function getOverlayWindowIds(): string[] {
+    return Array.from(
+      host.querySelectorAll<HTMLElement>(
+        '[data-testid="workspace-window-manager-window"]',
+      ),
+      (window) => window.dataset.workspaceWindowId ?? "",
+    );
+  }
+
   it("previews a square snap ghost, cancels safely, and unsnaps at six pixels", async () => {
     await mount({
       initialState: createState([
@@ -335,6 +360,101 @@ describe("WorkspaceWindowManager interactions", () => {
       x: 120,
       y: 100,
     });
+  });
+
+  it("keeps overlay DOM order stable while focusing and dragging consecutive windows", async () => {
+    await mount({
+      initialState: createState([
+        makeWindow("one", { zIndex: 1 }),
+        makeWindow("two", {
+          bounds: { height: 300, width: 420, x: 520, y: 100 },
+          zIndex: 2,
+        }),
+      ]),
+    });
+    await resizeManager(1_000);
+    const firstTitle = getTitleDragHandle("one");
+    const firstCapture = vi.fn();
+    Object.defineProperty(firstTitle, "setPointerCapture", {
+      configurable: true,
+      value: firstCapture,
+    });
+
+    await act(async () => {
+      firstTitle.dispatchEvent(
+        createPointerEvent("pointerdown", {
+          clientX: 220,
+          clientY: 120,
+          pointerId: 41,
+        }),
+      );
+    });
+
+    expect(firstCapture).toHaveBeenCalledWith(41);
+    expect(getOverlayWindowIds()).toEqual(["one", "two"]);
+    expect(getTitleDragHandle("one")).toBe(firstTitle);
+    expect(Number(getWindow("one").style.zIndex)).toBeGreaterThan(
+      Number(getWindow("two").style.zIndex),
+    );
+
+    await act(async () => {
+      firstTitle.dispatchEvent(
+        createPointerEvent("pointermove", {
+          clientX: 240,
+          clientY: 130,
+          pointerId: 41,
+        }),
+      );
+      firstTitle.dispatchEvent(
+        createPointerEvent("pointerup", {
+          clientX: 240,
+          clientY: 130,
+          pointerId: 41,
+        }),
+      );
+    });
+
+    const secondTitle = getTitleDragHandle("two");
+    const secondCapture = vi.fn();
+    Object.defineProperty(secondTitle, "setPointerCapture", {
+      configurable: true,
+      value: secondCapture,
+    });
+    await act(async () => {
+      secondTitle.dispatchEvent(
+        createPointerEvent("pointerdown", {
+          clientX: 620,
+          clientY: 120,
+          pointerId: 42,
+        }),
+      );
+    });
+
+    expect(secondCapture).toHaveBeenCalledWith(42);
+    expect(getOverlayWindowIds()).toEqual(["one", "two"]);
+    expect(getTitleDragHandle("two")).toBe(secondTitle);
+
+    await act(async () => {
+      secondTitle.dispatchEvent(
+        createPointerEvent("pointermove", {
+          clientX: 650,
+          clientY: 140,
+          pointerId: 42,
+        }),
+      );
+      secondTitle.dispatchEvent(
+        createPointerEvent("pointerup", {
+          clientX: 650,
+          clientY: 140,
+          pointerId: 42,
+        }),
+      );
+    });
+
+    expect(getLastStateChange().windows).toMatchObject([
+      { bounds: { x: 140, y: 110 }, id: "one" },
+      { bounds: { x: 550, y: 120 }, id: "two" },
+    ]);
   });
 
   it("resizes every snapped neighbor across a shared seam in one controlled update", async () => {
