@@ -4,6 +4,33 @@
     "kind": "application",
     "capabilities": ["backend", "frontend", "ui"]
   },
+  "documentation": {
+    "design": [
+      {
+        "path": "docs/design/development-tooling.md",
+        "sourcePaths": [
+          "apps/playground/vitest.config.ts",
+          "apps/playground/vitest.setup.ts",
+          "packages/workspace/vite.config.ts",
+          "packages/workspace/vitest.setup.ts",
+          "scripts/cdp-port.sh",
+          "scripts/chrome-devtools-mcp.sh"
+        ]
+      },
+      {
+        "path": "docs/design/python-canvas-backend.md",
+        "module": "python-canvas-backend"
+      },
+      {
+        "path": "docs/design/python-canvas-frontend.md",
+        "module": "python-canvas-frontend"
+      },
+      {
+        "path": "docs/design/workspace.md",
+        "module": "workspace"
+      }
+    ]
+  },
   "scope": {
     "generated": [
       "apps/python-canvas/backend/internal/contracts/testdata/project-snapshot-v2.json",

@@ -15,6 +15,7 @@ Python Canvas uses `main` at `043d3b2e9` as its frozen behavior and presentation
 ## Repository map
 
 - Contributor workflow: [AGENTS.md](AGENTS.md)
+- Current implementation rationale: [`docs/design/`](docs/design/)
 - Workspace package and public API: [packages/workspace/README.md](packages/workspace/README.md)
 - Python Canvas installation, browser UI, and AI-native CLI: [apps/python-canvas/README.md](apps/python-canvas/README.md)
 - Accepted reference, review, and parity evidence: [`docs/evidence/`](docs/evidence/)

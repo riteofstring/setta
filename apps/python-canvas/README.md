@@ -121,6 +121,29 @@ replace the project file atomically and publish one canonical snapshot. Provider
 publish a newer complete snapshot with settled diagnostics; unavailable provider work is surfaced
 as a typed state, never as a plausible empty result.
 
+## Local security and process lifetime
+
+The loopback listener accepts only its exact `127.0.0.1:<port>` authority and the matching
+`localhost:<port>` browser alias. Rejecting every other `Host` value prevents an attacker-controlled
+DNS name that resolves to loopback from becoming same-origin with the local project API. Terminal
+WebSocket upgrades also require the configured browser origin and an opaque, single-use attachment
+ticket.
+
+The production asset tree is validated before the live session is published. Only regular,
+non-symlink files below that tree are served. Exact API paths remain API paths and never fall
+through to the single-page application document; missing browser assets remain 404s, while only
+extensionless client routes receive the application entry point.
+
+Generated runs and attached terminals use platform process-ownership boundaries so timeouts,
+output limits, terminal deletion, and launcher shutdown can terminate and reap descendants.
+Windows places a non-executing guardian or suspended ConPTY root in a Job Object before user code
+can create descendants. Linux guardians become child subreapers and use revalidated process
+identity when signaling. macOS applies an inherited syscall policy that keeps descendants inside
+the owned process group or terminal session. A noninteractive run is refused on another POSIX
+platform when no comparable process-tree boundary is available. These mechanisms own process
+lifetime; they do not sandbox Python permissions. Generated Python still runs with the current
+user's access.
+
 ## Verification
 
 Focused checks:
