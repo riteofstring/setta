@@ -1,6 +1,6 @@
 # Workspace section-window handoff and bottom docking
 
-Status: in progress
+Status: implemented
 
 ## Outcome
 
