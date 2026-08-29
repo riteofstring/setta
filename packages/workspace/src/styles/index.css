@@ -26,6 +26,7 @@
 @import "./workspaceInteractionPolicy.css";
 @import "./workspaceWindowing.css";
 @import "./workspaceWindowManager.css";
+@import "./workspaceMinimizedWindowStrip.css";
 @import "./workspaceWindowSpaces.css";
 
 @tailwind base;
