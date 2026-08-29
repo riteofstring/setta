@@ -8,7 +8,6 @@ import {
   setWorkspaceColorMode,
   useWorkspaceAppearance,
   useWorkspaceHost,
-  WorkspaceShell,
   type WorkspaceItemDiagnosticRegistry,
   type WorkspaceSectionTagColorPalette,
   type WorkspaceShellTabDefinition,
@@ -25,8 +24,8 @@ import { playgroundDocument } from "./playgroundDocument";
 import {
   PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS,
   PLAYGROUND_UPDATED_ITEM_DIAGNOSTICS,
-  PlaygroundItemDiagnosticsProvider,
 } from "./sectionKinds";
+import { PlaygroundWindowingDemo } from "./PlaygroundWindowingDemo";
 
 type PlaygroundIconProps = {
   className?: string;
@@ -482,7 +481,7 @@ const leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
   },
 ];
 
-const trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
+const baseTrailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
   {
     id: "host-status",
     label: "Host status",
@@ -565,19 +564,15 @@ export function App() {
           <PlaygroundGuideMenu />
         </nav>
       </header>
-      <div className="playground-workspace">
-        <PlaygroundItemDiagnosticsProvider diagnostics={itemDiagnostics}>
-          <WorkspaceShell
-            ariaLabel="Playground workspace"
-            leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
-            leadingTabs={leadingTabs}
-            onViewStateChange={setShellViewState}
-            sectionTagColorPalette={sectionTagColorPalette}
-            trailingTabs={trailingTabs}
-            viewState={shellViewState}
-          />
-        </PlaygroundItemDiagnosticsProvider>
-      </div>
+      <PlaygroundWindowingDemo
+        baseTrailingTabs={baseTrailingTabs}
+        itemDiagnostics={itemDiagnostics}
+        leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
+        leadingTabs={leadingTabs}
+        onShellViewStateChange={setShellViewState}
+        sectionTagColorPalette={sectionTagColorPalette}
+        shellViewState={shellViewState}
+      />
     </main>
   );
 }
