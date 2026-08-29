@@ -1,3 +1,4 @@
+import { MdOutlineWebAsset } from "react-icons/md";
 import { WorkspaceBottomDockManager } from "./WorkspaceBottomDockManager";
 import type { WorkspaceBottomDockPillDisplayMode } from "./workspaceBottomDockLayout";
 import type { WorkspaceFloatingWindow } from "./windowingTypes";
@@ -83,11 +84,8 @@ function WorkspaceBottomDockRecoveryPill({
       title={window.title}
       type="button"
     >
-      {compact ? (
-        <span aria-hidden="true">□</span>
-      ) : (
-        <span>{window.title}</span>
-      )}
+      <MdOutlineWebAsset aria-hidden="true" size={14} />
+      {compact ? null : <span>{window.title}</span>}
     </button>
   );
 }
@@ -196,7 +194,9 @@ export function WorkspaceBottomDockRecoveryStrip({
   const panelOffset = visibleDockedWindowCount > 0 ? panelWidth + 12 : 0;
   return (
     <nav
-      aria-label="Window recovery and manager"
+      aria-label={
+        showManager ? "Window recovery and manager" : "Window recovery"
+      }
       className="setta-workspace-bottom-dock-strip"
       data-pill-display-mode={props.pillDisplayMode}
       data-testid="workspace-bottom-dock-strip"

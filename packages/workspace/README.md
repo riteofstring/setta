@@ -132,9 +132,10 @@ generic windows outside `WorkspaceShell`.
 The bottom dock uses the measured usable area between shell panes. Open dock panels shrink to their
 reference minimum before overflowing into the recovery strip; narrower hosts progressively use
 full pills, compact pills, cycle controls, and a menu. Minimized windows reopen from the strip.
-Closed windows stay recoverable from the persistent window manager beside it. The same manager can
-focus visible instances and, for editable section instances, move them between canvas and floating
-placement or hide them.
+The window manager appears only when a closed instance or a width-hidden dock panel needs recovery.
+When present, it lists every instance, can focus visible windows, and can reopen closed windows.
+For editable section instances it can also move between canvas and floating placement or hide the
+external window.
 
 Use the package constructors when data enters the host boundary, then use the pure transition
 functions to produce one next controlled state. Generic windows use

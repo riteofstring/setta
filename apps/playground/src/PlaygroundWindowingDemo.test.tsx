@@ -137,7 +137,7 @@ describe("playground floating-window demo", () => {
     if (!recovery)
       throw new Error("Expected the minimized-window recovery pill.");
     expect(recovery.closest("nav")?.getAttribute("aria-label")).toBe(
-      "Window recovery and manager",
+      "Window recovery",
     );
     expect(recovery.closest<HTMLElement>("nav")?.style.insetInlineEnd).toBe(
       "500px",

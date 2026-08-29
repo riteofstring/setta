@@ -35,6 +35,13 @@ is part of this work.
 
 The package tests will restate the portable behavior without importing application modules.
 
+## Approved product adjustment
+
+User testing after the initial implementation made the manager trigger conditional: it appears
+only when a closed instance or a width-hidden dock panel needs recovery. This intentionally
+supersedes frozen `main`'s persistent-trigger rule while retaining its manager contents, actions,
+responsive overflow behavior, and minimized-tab styling.
+
 ## Product boundary
 
 `@setta/workspace` owns:
@@ -45,7 +52,7 @@ The package tests will restate the portable behavior without importing applicati
   surface.
 - Floating, docked, maximized, minimized, closed, and canvas-section placement transitions.
 - Dock measurement, proportional width allocation, overflow selection, cycle/menu recovery,
-  resizing, action chrome, and the persistent window manager trigger.
+  resizing, action chrome, and the conditional recovery manager trigger.
 - Reconciliation that prevents a saved floating layout from becoming a second owner of a section
   already hosted by the canvas or dock.
 
@@ -130,7 +137,7 @@ document updates.
   a floating restore also uses its remembered bounds.
 - Minimize hides the surface and exposes it in the bottom recovery strip. Reopen restores its
   existing placement and focuses it. Close hides the surface without a minimized pill, while the
-  persistent manager can reopen it.
+  recovery manager can reopen it.
 - A canvas-owned instance is not a visible managed window and cannot be moved, resized,
   minimized, or closed until externalized again.
 - Read-only mode removes every layout mutation, title mutation, drag, resize, snap, dock, undock,
@@ -156,9 +163,10 @@ canvas`, `Undock`, `Maximize`, `Minimize`, `Close`. Floating and maximized secti
 - The strip adapts from full-title pills to 28 px compact pills, then cycle controls, then a menu.
   With multiple windows and a viewport at or below 520 px it uses menu mode. A 360 px viewport may
   show no dock panel, but every instance remains recoverable.
-- The window manager trigger is persistent beside the strip. It lists every instance and its
-  placement. Visible instances can be focused; minimized/closed instances can be reopened.
-  Editable layouts additionally expose canvas/float placement and hide actions.
+- The window manager trigger appears beside the strip only when a closed instance or width-hidden
+  dock panel needs recovery. It lists every instance and its placement. Visible instances can be
+  focused; minimized/closed instances can be reopened. Editable layouts additionally expose
+  canvas/float placement and hide actions.
 - Existing floating keyboard shortcuts stay exact. Dock/undock remains a pointer/control action;
   no new shortcut is invented.
 
@@ -207,7 +215,7 @@ delegated workers edit bounded files and do not commit.
 - Dock geometry: exact constants; proportional shrink; minimum-width count; stable overflow
   selection; full/compact/cycle/menu modes; top/bottom/corner resize clamps; insets.
 - Components: exact labels and action order; section-type policy; placeholder actions and copy;
-  dock panel recovery; persistent manager; hidden read-only mutations; focus/reopen behavior.
+  dock panel recovery; conditional manager; hidden read-only mutations; focus/reopen behavior.
 - Window Spaces: dock/canvas exclusions and no competing restored section owner.
 - Integration: two isolated hosts, embedded measurement, pane inset changes, keyboard targeting,
   package public API, package boundary, build, and playground tests.

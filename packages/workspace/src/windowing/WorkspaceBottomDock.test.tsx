@@ -163,10 +163,65 @@ describe("WorkspaceBottomDock", () => {
       '[data-testid="workspace-bottom-dock-pill"][data-workspace-window-id="one"]',
     );
     expect(recoveryPill).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="workspace-bottom-dock-manager"]'),
+    ).not.toBeNull();
 
     await act(async () => recoveryPill?.click());
     expect(callbacks.onFocusWindow).toHaveBeenCalledWith("one");
     expect(dockPanelIds()).toEqual(["one", "two"]);
+  });
+
+  it("shows the manager only for closed or width-hidden windows", async () => {
+    await mount({
+      viewport: { ...VIEWPORT, width: 736 },
+      windows: [makeWindow("one"), makeWindow("two")],
+    });
+    expect(dockPanelIds()).toEqual(["one", "two"]);
+    expect(
+      host.querySelector('[data-testid="workspace-bottom-dock-manager"]'),
+    ).toBeNull();
+
+    await mount({
+      windows: [
+        makeWindow("minimized", {
+          isMinimized: true,
+          placement: "floating",
+        }),
+      ],
+    });
+    const recoveryPill = host.querySelector<HTMLButtonElement>(
+      '[data-testid="workspace-bottom-dock-pill"]',
+    );
+    expect(recoveryPill?.textContent).toBe("Window minimized");
+    expect(recoveryPill?.querySelector("svg")).not.toBeNull();
+    expect(recoveryPill?.closest("nav")?.getAttribute("aria-label")).toBe(
+      "Window recovery",
+    );
+    expect(
+      host.querySelector('[data-testid="workspace-bottom-dock-manager"]'),
+    ).toBeNull();
+
+    await mount({
+      windows: [makeWindow("visible", { placement: "floating" })],
+    });
+    expect(
+      host.querySelector('[data-testid="workspace-bottom-dock"]'),
+    ).toBeNull();
+
+    await mount({
+      windows: [
+        makeWindow("closed", { isClosed: true, placement: "floating" }),
+      ],
+    });
+    expect(
+      host.querySelector('[data-testid="workspace-bottom-dock-manager"]'),
+    ).not.toBeNull();
+    expect(
+      host
+        .querySelector('[data-testid="workspace-bottom-dock-strip"]')
+        ?.getAttribute("aria-label"),
+    ).toBe("Window recovery and manager");
   });
 
   it("passes the frozen dock header action order and disables title dragging", async () => {
@@ -373,6 +428,15 @@ describe("workspace bottom dock stylesheet", () => {
     );
     expect(styles).toMatch(
       /\.setta-workspace-dark \.setta-workspace-bottom-dock-manager-row button\s*\{[^}]*border-color: hsl\(219 25% 34%\);[^}]*color: hsl\(219 25% 77%\)/su,
+    );
+  });
+
+  it("matches the frozen minimized-tab typography and light/dark palette", () => {
+    expect(styles).toMatch(
+      /\.setta-workspace-bottom-dock-pill,[^{]*\{[^}]*background: hsl\(219 24% 89%\);[^}]*border: 1px solid hsl\(220 25% 67%\);[^}]*color: hsl\(219 26% 23%\);[^}]*font-size: 0\.75rem/su,
+    );
+    expect(styles).toMatch(
+      /\.setta-workspace-dark \.setta-workspace-bottom-dock-pill,[^{]*\{[^}]*background: hsl\(220 27% 6%\);[^}]*border-color: hsl\(219 26% 23%\);[^}]*color: hsl\(220 25% 67%\)/su,
     );
   });
 });

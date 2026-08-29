@@ -1,3 +1,4 @@
+import { MdOutlineWindow } from "react-icons/md";
 import type { WorkspaceFloatingWindow } from "./windowingTypes";
 
 type WorkspaceBottomDockManagerProps = {
@@ -145,7 +146,7 @@ export function WorkspaceBottomDockManager({
       data-testid="workspace-bottom-dock-manager"
     >
       <summary aria-label="Show windows" title="Show windows">
-        □
+        <MdOutlineWindow aria-hidden="true" size={14} />
       </summary>
       <div className="setta-workspace-bottom-dock-manager-menu" role="menu">
         {windows.map((window) => (

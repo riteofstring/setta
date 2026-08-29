@@ -181,7 +181,6 @@ export function WorkspaceBottomDock({
     () => windows.filter((window) => !window.isClosed).length,
     [windows],
   );
-  const showManager = windows.length > 0;
   const [dockCycleOffsetFromEnd, setDockCycleOffsetFromEnd] = useState(0);
   const [pillCycleStartIndex, setPillCycleStartIndex] = useState(0);
   const [pillDisplayMode, setPillDisplayMode] =
@@ -193,19 +192,34 @@ export function WorkspaceBottomDock({
   const previewSizeRef = useRef<Readonly<Record<string, DockPreviewSize>>>({});
   const previewAnimationFrameRef = useRef<number | null>(null);
   const pendingRevealWindowIdRef = useRef<string | null>(null);
+  const dockVisibilityWithoutManager = resolveWorkspaceBottomDockVisibility({
+    dockCycleOffsetFromEnd,
+    nonClosedWindowCount,
+    openDockedWindows,
+    showManager: false,
+    workWidth,
+  });
+  const hasClosedWindow = windows.some((window) => window.isClosed);
+  const hasWidthHiddenDockedWindow =
+    dockVisibilityWithoutManager.maxVisibleDockedCount <
+    openDockedWindows.length;
+  const showManager = hasClosedWindow || hasWidthHiddenDockedWindow;
+  const dockVisibility = showManager
+    ? resolveWorkspaceBottomDockVisibility({
+        dockCycleOffsetFromEnd,
+        nonClosedWindowCount,
+        openDockedWindows,
+        showManager: true,
+        workWidth,
+      })
+    : dockVisibilityWithoutManager;
   const {
     dockAvailableWidth,
     maxDockCycleOffset,
     maxVisibleDockedCount,
     visibleDockedStartIndex,
     visibleDockedWindows,
-  } = resolveWorkspaceBottomDockVisibility({
-    dockCycleOffsetFromEnd,
-    nonClosedWindowCount,
-    openDockedWindows,
-    showManager,
-    workWidth,
-  });
+  } = dockVisibility;
 
   useEffect(() => {
     setDockCycleOffsetFromEnd((current) =>
@@ -636,7 +650,13 @@ export function WorkspaceBottomDock({
     );
   };
 
-  if (!showManager && visibleDockedWindows.length === 0) return null;
+  if (
+    !showManager &&
+    visibleDockedWindows.length === 0 &&
+    recoveryWindows.length === 0
+  ) {
+    return null;
+  }
 
   return (
     <div
