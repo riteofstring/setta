@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { ComponentPropsWithoutRef, CSSProperties, ReactNode } from "react";
 import { getSectionOrThrow } from "../../document/documentSelectors";
 import {
   getSectionKindDeleteActionLabel,
@@ -28,14 +28,25 @@ const fixedTitleDefaultClassName = `${fixedTitleBaseClassName} text-setta-400`;
 const notEditingTitleBaseClassName =
   "px-1 py-0 -ms-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
 
-type SectionHeaderProps = {
+export type SectionHeaderProps = {
   sectionId: string;
   hasSectionStyleTheme: boolean;
+  /** Window surfaces supply their own lifecycle controls through this slot. */
+  extraControls?: ReactNode;
+  /** Canvas-only lock, minimize, and delete controls. */
+  showSectionContainerControls?: boolean;
+  /** Controlled window drag and header attributes belong on the real header element. */
+  headerProps?: Omit<ComponentPropsWithoutRef<"header">, "children" | "ref"> & {
+    "data-testid"?: string;
+  };
 };
 
 export function SectionHeader({
   sectionId,
   hasSectionStyleTheme,
+  extraControls = null,
+  showSectionContainerControls = true,
+  headerProps,
 }: SectionHeaderProps) {
   const tagColor = useWorkspaceDocument(
     (x) => getSectionOrThrow(x, sectionId).tagColor,
@@ -45,11 +56,20 @@ export function SectionHeader({
   );
   const host = useWorkspaceHost();
   const deleteActionLabel = getSectionKindDeleteActionLabel(host, sectionKind);
+  const {
+    className: headerClassName,
+    style: headerStyle,
+    ...nativeHeaderProps
+  } = headerProps ?? {};
 
   return (
     <header
-      className={sectionHeaderBaseClassName}
-      style={getSectionHeaderStyle(hasSectionStyleTheme)}
+      {...nativeHeaderProps}
+      className={getSectionHeaderClassName(headerClassName)}
+      style={getSectionHeaderStyle({
+        hasSectionStyleTheme,
+        style: headerStyle,
+      })}
     >
       <MenuButton
         sectionId={sectionId}
@@ -69,19 +89,24 @@ export function SectionHeader({
           sectionId={sectionId}
           sectionKind={sectionKind}
         />
-        <LockPositionButton
-          sectionId={sectionId}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
-        <MinimizeButton
-          sectionId={sectionId}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
-        <DeleteOrHideButton
-          sectionId={sectionId}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-          label={deleteActionLabel ?? "Delete section"}
-        />
+        {extraControls}
+        {showSectionContainerControls ? (
+          <>
+            <LockPositionButton
+              sectionId={sectionId}
+              hasSectionStyleTheme={hasSectionStyleTheme}
+            />
+            <MinimizeButton
+              sectionId={sectionId}
+              hasSectionStyleTheme={hasSectionStyleTheme}
+            />
+            <DeleteOrHideButton
+              sectionId={sectionId}
+              hasSectionStyleTheme={hasSectionStyleTheme}
+              label={deleteActionLabel ?? "Delete section"}
+            />
+          </>
+        ) : null}
       </div>
     </header>
   );
@@ -108,13 +133,23 @@ function SectionKindHeaderControls({
   return <>{renderHeaderControls(section)}</>;
 }
 
-function getSectionHeaderStyle(
-  hasSectionStyleTheme: boolean,
-): CSSProperties | undefined {
+function getSectionHeaderClassName(className: string | undefined): string {
+  return className
+    ? `${sectionHeaderBaseClassName} ${className}`
+    : sectionHeaderBaseClassName;
+}
+
+function getSectionHeaderStyle({
+  hasSectionStyleTheme,
+  style,
+}: {
+  hasSectionStyleTheme: boolean;
+  style: CSSProperties | undefined;
+}): CSSProperties | undefined {
   if (!hasSectionStyleTheme) {
-    return undefined;
+    return style;
   }
-  return { color: "var(--setta-section-style-text)" };
+  return { color: "var(--setta-section-style-text)", ...style };
 }
 
 function SectionTagColorIndicator({ tagColor }: { tagColor: string | null }) {

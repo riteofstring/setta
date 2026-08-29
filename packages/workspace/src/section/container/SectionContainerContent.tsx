@@ -23,6 +23,12 @@ type SectionContainerContentProps = {
   hasSectionStyleTheme: boolean;
 };
 
+export type WorkspaceSectionBodyContentProps = {
+  definition: SectionKindDefinition;
+  section: WorkspaceSection;
+  hasSectionStyleTheme: boolean;
+};
+
 export function SectionContainerContent({
   section,
   hasSectionStyleTheme,
@@ -54,31 +60,36 @@ export function SectionContainerContent({
           hasSectionStyleTheme={hasSectionStyleTheme}
         />
       )}
-      {!section.isMinimized &&
-        renderRegisteredContent(
-          host,
-          definition,
-          section,
-          hasSectionStyleTheme,
-        )}
+      <WorkspaceSectionBodyContent
+        definition={definition}
+        section={section}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
     </CustomResizable>
   );
 }
 
-function renderRegisteredContent(
-  host: WorkspaceHost,
-  definition: SectionKindDefinition,
-  section: WorkspaceSection,
-  hasSectionStyleTheme: boolean,
-) {
+/**
+ * The single registered section-body composition shared by canvas and window
+ * surfaces. It deliberately excludes canvas geometry, refs, and DnD chrome.
+ */
+export function WorkspaceSectionBodyContent({
+  definition,
+  section,
+  hasSectionStyleTheme,
+}: WorkspaceSectionBodyContentProps) {
+  const host = useWorkspaceHost();
+  if (section.isMinimized) {
+    return null;
+  }
+  const content = definition.renderContent(section);
   if (definition.presentation?.type === "meta-control") {
-    return definition.renderContent(section);
+    return <>{content}</>;
   }
   const itemTreeClassName = section.itemTree ? " flex min-h-0 flex-col" : "";
   const bodySlotClassName = definition.contentClassName
     ? `section-full-no-title${itemTreeClassName} ${definition.contentClassName}`
     : `section-full-no-title${itemTreeClassName}`;
-  const content = definition.renderContent(section);
   return (
     <div className={bodySlotClassName}>
       {section.itemTree
