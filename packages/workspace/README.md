@@ -117,6 +117,11 @@ function openNote(noteId: string) {
 />;
 ```
 
+Minimizing a managed window moves it into the manager's bottom-end recovery strip. The strip uses
+the same top-tab treatment as the reference UI, keeps every minimized window keyboard reachable at
+narrow widths, and reopens and focuses a window when its pill is activated. Closed windows do not
+appear there; hosts continue to own launchers for closed content.
+
 Use the package constructors when data enters the host boundary, then use the pure transition
 functions (`focusWorkspaceWindow`, `moveWorkspaceFloatingWindow`,
 `resizeWorkspaceFloatingWindow`, `snapWorkspaceFloatingWindow`, lifecycle transitions, and

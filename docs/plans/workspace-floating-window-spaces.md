@@ -1,6 +1,6 @@
 # Workspace floating windows and Window Spaces
 
-Status: implementation plan
+Status: implemented
 
 ## Outcome
 
@@ -26,6 +26,7 @@ contract. The sources below resolve its implementation details.
 | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Floating frame, title editing, header actions              | `frontend/src/components/ChatWindowing/ProjectChatWindowSurface.tsx`                                                       |
 | Move, resize, focus, maximize, minimize, close             | `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` and `frontend/src/state/actions/projectChatWindowing.ts` |
+| Minimized-window recovery strip                            | `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`                                                          |
 | Snap presets, previews, normalization, shared split resize | `frontend/src/components/ChatWindowing/projectChatSnapLayout.ts`                                                           |
 | Window Space save, restore, rename, delete, reorder        | `frontend/src/components/Panes/Overview/WindowSpacesPane.tsx` and `frontend/src/state/actions/windowSpaces.ts`             |
 | Dedicated saved-layout interaction and hydration           | `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` and adjacent helpers                              |
@@ -44,6 +45,7 @@ will restate portable behavior without importing application modules.
   close, and title change.
 - Floating chrome, pointer interactions, snap preview, shared split resize handles, and host-box
   measurement.
+- A bottom-end recovery strip for minimized windows.
 - Pure Window Space snapshot and restore functions.
 - A controlled Window Spaces management pane and a locally interactive dedicated-space surface.
 - Generic renderer dispatch by stable surface kind and content identity.
@@ -53,7 +55,7 @@ The host application owns:
 - Content components and their domain state, including chat, Git, section, URL, and backend data.
 - Opening a section as a window and rendering any canvas placeholder.
 - Persistence, optimistic writes, notifications, permissions, routing, and dedicated-tab URLs.
-- The launcher for closed or minimized content. The package exposes transitions to reopen it.
+- The launcher for closed content. The package exposes a transition to reopen it.
 - Choosing boundary insets imposed by application rails, headers, docks, or overlays.
 
 No window or Window Space state enters `WorkspaceDocument`. A host may persist the controlled
@@ -108,7 +110,10 @@ couple two owners of one section id.
   window is moved. Dragging a snapped window at least 6 px restores its cached free bounds, or the
   default float bounds when none exist.
 - Maximize fills the inset boundary and remembers the preceding floating bounds. Restore returns
-  to those bounds. Minimize and close hide the surface while preserving enough state to reopen.
+  to those bounds. Minimize hides the surface and adds a bottom-end recovery pill; activating that
+  pill reopens, focuses, and raises the same window. Close hides the surface without adding a pill.
+  Pills preserve stable window order, use the frozen 28 px top-tab treatment, and remain reachable
+  in a compact horizontal overflow strip at narrow widths.
 - The title is focusable. Double-click or `Space` starts editing; `Enter`/blur commits a non-empty
   trimmed title; `Escape` cancels and restores focus. Invalid drafts stay visible with an inline
   error.
@@ -174,7 +179,8 @@ couple two owners of one section id.
 2. **Geometry and controlled state.** Add validated types, pure snap/normalization/shared-resize
    geometry, lifecycle transitions, and focused boundary tests.
 3. **Interactive floating manager.** Add frame chrome, title editing, pointer move/resize, focus,
-   lifecycle buttons, snap preview, split handles, scoped styles, and component tests.
+   lifecycle buttons, minimized-window recovery, snap preview, split handles, scoped styles, and
+   component tests.
 4. **Window Spaces domain.** Add snapshot/restore identity rules and tests for exclusion,
    normalization, reuse, unrelated preservation, collision remapping, and atomic failure.
 5. **Management and dedicated surfaces.** Add the pane, local hydration rules, read-only behavior,
@@ -197,15 +203,15 @@ first when they are not exported until their complete consumer-facing batch is r
 - Spaces: save eligibility; exclusions; z-order; current-size restore; same-content reuse;
   unrelated preservation; conflicting-id remap; invalid batch leaves the original value untouched.
 - Components: title keyboard contract; headerless frame; hidden read-only actions; drag/resize/snap
-  preview; split handles; manager empty/actions/reorder; dedicated limited interaction, local
-  hydration, and renderer failures.
+  preview; split handles; minimized-only recovery and focus; manager empty/actions/reorder;
+  dedicated limited interaction, local hydration, and renderer failures.
 - Integration: two independent package hosts do not share state; embedded host measurement and
   resize normalization; package boundary/build; playground behavior.
 
 ## Completion criteria
 
 - A host can open multiple arbitrary content surfaces, move/resize/focus them, use every frozen snap
-  layout, and control lifecycle state through one serializable value.
+  layout, minimize and recover them, and control lifecycle state through one serializable value.
 - It can save, restore, rename, delete, reorder, and render Window Spaces with frozen-main behavior.
 - All new APIs are documented at the package root, use package-scoped styling, and introduce no
   application-domain dependency.
