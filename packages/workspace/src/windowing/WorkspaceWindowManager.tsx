@@ -425,18 +425,13 @@ export function WorkspaceWindowManager({
       getWorkspaceWindowStackingOrder(state).filter(isWorkspaceWindowVisible),
     [state],
   );
-  // Overlay DOM follows stable window ownership order. CSS z-index handles visual
-  // stack changes, which keeps a drag target in place while it receives pointer
-  // capture.
-  const overlayWindows = useMemo(
+  const orderedOverlayWindows = useMemo(
     () =>
-      state.windows.filter(
+      orderedVisibleWindows.filter(
         (window) =>
-          isWorkspaceWindowVisible(window) &&
-          (window.placement === "floating" ||
-            window.placement === "maximized"),
+          window.placement === "floating" || window.placement === "maximized",
       ),
-    [state],
+    [orderedVisibleWindows],
   );
   useEffect(() => {
     const current = focusedWindowIdRef.current;
@@ -569,7 +564,7 @@ export function WorkspaceWindowManager({
         readOnlyResizeBoundsByWindowId={readOnlyResizeBoundsByWindowId}
         renderers={renderers}
         viewport={viewport}
-        windows={overlayWindows}
+        windows={orderedOverlayWindows}
       />
       {layoutEditable
         ? snapSeams.map((seam) => (
