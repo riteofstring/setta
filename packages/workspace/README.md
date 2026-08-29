@@ -129,6 +129,11 @@ canvas` when layout editing is allowed. Groups, roots, list roots, and meta cont
 externalized. `WorkspaceWindowManager` remains available as a standalone controlled presenter for
 generic windows outside `WorkspaceShell`.
 
+Floating and maximized window surfaces participate in their host canvas's existing wheel routing.
+Canvas-owned pan and zoom gestures are canceled synchronously and applied to that canvas, while
+`NO_WHEEL_CLASS_NAME`, `MANUAL_WHEEL_CLASS_NAME`, and native vertical-wheel regions keep their
+documented content ownership and contain overscroll at the window boundary.
+
 The bottom dock uses the measured usable area between shell panes. Open dock panels shrink to their
 reference minimum before overflowing into the recovery strip; narrower hosts progressively use
 full pills, compact pills, cycle controls, and a menu. Minimized windows reopen from the strip.

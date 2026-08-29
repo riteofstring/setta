@@ -79,6 +79,8 @@ const GROUP_HEADER_CLASS_NAME =
   "mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-400 first:pt-2";
 const ITEM_CLASS_NAME = "mx-1 truncate rounded-lg px-2 py-[.125rem] text-xs";
 const ITEM_HIGHLIGHTED_CLASS_NAME = "bg-setta-300/50 dark:bg-setta-900/50";
+const MENU_SCROLLPORT_CLASS_NAME =
+  "setta-workspace-dropdown-scrollport w-full overflow-y-scroll";
 
 type DropdownCombobox = ReturnType<typeof useDropdownCombobox>;
 type DropdownPresentation = "item-row" | "meta-control" | "parameter-config";
@@ -355,7 +357,7 @@ function DropdownComboboxList({
         minWidth: listDims.width,
       }}
     >
-      <div className="w-full overflow-y-scroll">{children}</div>
+      <div className={MENU_SCROLLPORT_CLASS_NAME}>{children}</div>
     </div>,
     document.body,
   );

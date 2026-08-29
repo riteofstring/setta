@@ -64,6 +64,12 @@
   overscroll-behavior: contain;
 }
 
+/* Dropdown menus are portaled to body. Their inner list, rather than the no-wheel menu shell,
+ * owns native scrolling and must contain edge overscroll before Chromium claims history. */
+.setta-workspace-dropdown-scrollport {
+  overscroll-behavior: contain;
+}
+
 /* The reference's stacking grid (root index.css): one cell whose children overlay each other.
  * The color control layers its eyedropper glyph over the native input with it, exactly as the
  * reference's params color path does. */

@@ -118,7 +118,7 @@ describe("playground floating-window demo", () => {
     await act(async () => button.click());
   }
 
-  it("records section-window drag acceptance and uncanceled wheel routing", async () => {
+  it("records section-window drag acceptance and canvas-owned wheel routing", async () => {
     await click('[data-testid="playground-window-diagnostics-toggle"]');
     await click(
       '[data-section-id="idle-leaf"] [data-testid="section-window-toggle"]',
@@ -136,6 +136,10 @@ describe("playground floating-window demo", () => {
     if (!floatingSection || !floatingWindow || !title) {
       throw new Error("Expected the external Idle leaf window and title.");
     }
+    const viewport = host.querySelector<HTMLElement>(".react-flow__viewport");
+    if (!viewport) throw new Error("Expected the canvas viewport.");
+    const transformBeforeWheel = viewport.style.transform;
+    let wheelEvent: WheelEvent | undefined;
 
     await act(async () => {
       title.dispatchEvent(
@@ -159,14 +163,22 @@ describe("playground floating-window demo", () => {
           pointerId: 13,
         }),
       );
-      floatingSection.dispatchEvent(
-        new WheelEvent("wheel", {
-          bubbles: true,
-          cancelable: true,
-          deltaX: 42,
-          deltaY: 3,
-        }),
-      );
+      await Promise.resolve();
+    });
+    const currentFloatingSection = host.querySelector<HTMLElement>(
+      '[data-testid="workspace-window-manager-window"] [data-testid="section-window-surface"][data-section-id="idle-leaf"]',
+    );
+    if (!currentFloatingSection) {
+      throw new Error("Expected the moved external Idle leaf window.");
+    }
+    await act(async () => {
+      wheelEvent = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        deltaX: 42,
+        deltaY: 3,
+      });
+      currentFloatingSection.dispatchEvent(wheelEvent);
       await Promise.resolve();
     });
 
@@ -205,12 +217,8 @@ describe("playground floating-window demo", () => {
         width: expect.any(Number),
       }),
     });
-    expect(entries.find((entry) => entry["event"] === "wheel")).toMatchObject({
-      canvasInteractionActive: false,
-      defaultPrevented: false,
-      surface: "section",
-      wheel: { deltaX: 42, deltaY: 3 },
-    });
+    expect(wheelEvent?.defaultPrevented).toBe(true);
+    expect(viewport.style.transform).not.toBe(transformBeforeWheel);
     expect(log).not.toContain("Generic renderer");
   });
 

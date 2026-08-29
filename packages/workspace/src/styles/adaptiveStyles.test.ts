@@ -66,6 +66,18 @@ describe("workspace adaptive stylesheet contract", () => {
     );
   });
 
+  it("contains native floating-window scrollports before Chromium can claim browser history", () => {
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace-window-manager-window\s+\.nowheel,\s*\.setta-workspace-window-manager-window\s+\.setta-native-wheel-y\s*\{[^}]*overscroll-behavior:\s*contain/su,
+    );
+  });
+
+  it("contains the native scrollport inside a body-portaled dropdown menu", () => {
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace-dropdown-scrollport\s*\{[^}]*overscroll-behavior:\s*contain/su,
+    );
+  });
+
   it("preserves outward selection paint inside bounded group scrollports", () => {
     expect(interactionPolicyStyles).toMatch(
       /\.setta-workspace-bounded-group-scroll\s*\{[^}]*margin-block-start: 4px;[^}]*margin-block-end: -4px;[^}]*margin-inline: -4px;[^}]*padding: 4px;/su,

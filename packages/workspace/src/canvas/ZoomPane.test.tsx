@@ -21,6 +21,7 @@ import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals";
 import { useWorkspaceOptions } from "./options";
 import {
   initialCanvasState,
@@ -62,6 +63,7 @@ const zoomPaneOptions = {
 
 async function renderZoomPane(
   overrides: Partial<ComponentProps<typeof ZoomPane>> = {},
+  workspace: WorkspaceTestHost = testWorkspace,
 ): Promise<RenderedZoomPane> {
   const host = document.createElement("div");
   document.body.appendChild(host);
@@ -69,7 +71,7 @@ async function renderZoomPane(
   const root = createRoot(host);
   await act(async () => {
     root.render(
-      <WorkspaceTestProvider workspace={testWorkspace}>
+      <WorkspaceTestProvider workspace={workspace}>
         {
           <div className="react-flow">
             <ZoomPane {...zoomPaneOptions} {...overrides}>
@@ -102,6 +104,35 @@ function appendTargetWithClass(className: string): HTMLDivElement {
   target.className = className;
   document.body.appendChild(target);
   return target;
+}
+
+function appendWorkspaceWindowManagerWheelTarget({
+  host = testWorkspace.host,
+  overlay = true,
+  targetClassName = "",
+}: {
+  host?: WorkspaceTestHost["host"];
+  overlay?: boolean;
+  targetClassName?: string;
+}) {
+  const manager = document.createElement("div");
+  manager.setAttribute("data-workspace-window-manager", "true");
+  const window = document.createElement("article");
+  window.className = overlay
+    ? "setta-workspace-window-manager-window"
+    : "setta-workspace-bottom-dock-panel";
+  window.setAttribute("data-workspace-window-id", "window");
+  const target = document.createElement("div");
+  target.className = targetClassName;
+  window.appendChild(target);
+  manager.appendChild(window);
+  document.body.appendChild(manager);
+
+  return {
+    manager,
+    target,
+    unregister: registerWorkspaceHostElement(host, manager),
+  };
 }
 
 describe("resolvePanOnScrollDelta", () => {
@@ -576,6 +607,383 @@ describe("getViewportInteractionActiveValue", () => {
         root.unmount();
       });
       host.remove();
+    }
+  });
+
+  it("routes generic floating-window content through the canvas pan handler", async () => {
+    const { host, root } = await renderZoomPane({
+      panOnScroll: true,
+      zoomOnScroll: false,
+    });
+    const { manager, target, unregister } =
+      appendWorkspaceWindowManagerWheelTarget({});
+
+    try {
+      let wheelEvent: WheelEvent | undefined;
+      await act(async () => {
+        wheelEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaX: 20,
+        });
+        target.dispatchEvent(wheelEvent);
+      });
+
+      expect(wheelEvent?.defaultPrevented).toBe(true);
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([-10, 0, 1]);
+      expect(testWorkspace.reactFlow.getState().isPanScrolling).toBe(true);
+    } finally {
+      unregister();
+      manager.remove();
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("anchors bridged wheel zoom against the canvas renderer", async () => {
+    const { host, renderer, root } = await renderZoomPane();
+    const { manager, target, unregister } =
+      appendWorkspaceWindowManagerWheelTarget({});
+    vi.spyOn(renderer, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ height: 600, width: 800, x: 100, y: 50 }),
+    );
+
+    try {
+      let wheelEvent: WheelEvent | undefined;
+      await act(async () => {
+        wheelEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 260,
+          clientY: 180,
+          deltaY: -120,
+        });
+        target.dispatchEvent(wheelEvent);
+      });
+
+      const zoom = Math.pow(2, 0.24);
+      const [x, y, scale] = testWorkspace.reactFlow.getState().transform;
+      expect(wheelEvent?.defaultPrevented).toBe(true);
+      expect(scale).toBeCloseTo(zoom, 8);
+      expect(x).toBeCloseTo(160 * (1 - zoom), 8);
+      expect(y).toBeCloseTo(130 * (1 - zoom), 8);
+    } finally {
+      unregister();
+      manager.remove();
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("anchors bridged pinch zoom against the canvas renderer", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Macintosh");
+    const { host, renderer, root } = await renderZoomPane({
+      panOnScroll: true,
+      zoomOnScroll: false,
+    });
+    const { manager, target, unregister } =
+      appendWorkspaceWindowManagerWheelTarget({});
+    target.setAttribute("data-workspace-section-window-surface", "true");
+    vi.spyOn(renderer, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ height: 600, width: 800, x: 100, y: 50 }),
+    );
+
+    try {
+      let wheelEvent: WheelEvent | undefined;
+      await act(async () => {
+        wheelEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 260,
+          clientY: 180,
+          ctrlKey: true,
+          deltaY: -10,
+        });
+        target.dispatchEvent(wheelEvent);
+      });
+
+      const zoom = Math.pow(2, 0.2);
+      const [x, y, scale] = testWorkspace.reactFlow.getState().transform;
+      expect(wheelEvent?.defaultPrevented).toBe(true);
+      expect(scale).toBeCloseTo(zoom, 8);
+      expect(x).toBeCloseTo(160 * (1 - zoom), 8);
+      expect(y).toBeCloseTo(130 * (1 - zoom), 8);
+    } finally {
+      unregister();
+      manager.remove();
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("preserves native and manual wheel ownership in a floating window", async () => {
+    const { host, root } = await renderZoomPane({
+      panOnScroll: true,
+      zoomOnScroll: false,
+    });
+    const { manager, target, unregister } =
+      appendWorkspaceWindowManagerWheelTarget({});
+    const defaultsSeenByControl: boolean[] = [];
+    target.addEventListener("wheel", (event) => {
+      defaultsSeenByControl.push(event.defaultPrevented);
+    });
+
+    try {
+      target.className = "setta-native-wheel-y";
+      let nativeWheelEvent: WheelEvent | undefined;
+      await act(async () => {
+        nativeWheelEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaX: 8,
+          deltaY: 40,
+        });
+        target.dispatchEvent(nativeWheelEvent);
+      });
+
+      target.className = "nowheel";
+      let noWheelEvent: WheelEvent | undefined;
+      await act(async () => {
+        noWheelEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaX: 40,
+        });
+        target.dispatchEvent(noWheelEvent);
+      });
+
+      target.className = "setta-manual-wheel";
+      let manualWheelEvent: WheelEvent | undefined;
+      await act(async () => {
+        manualWheelEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaX: 40,
+        });
+        target.dispatchEvent(manualWheelEvent);
+      });
+
+      target.className = "setta-native-wheel-y";
+      let horizontalNativeWheelEvent: WheelEvent | undefined;
+      await act(async () => {
+        horizontalNativeWheelEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaX: 40,
+        });
+        target.dispatchEvent(horizontalNativeWheelEvent);
+      });
+
+      expect(nativeWheelEvent?.defaultPrevented).toBe(false);
+      expect(noWheelEvent?.defaultPrevented).toBe(false);
+      expect(manualWheelEvent?.defaultPrevented).toBe(true);
+      expect(horizontalNativeWheelEvent?.defaultPrevented).toBe(true);
+      expect(defaultsSeenByControl).toEqual([false, false, true]);
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([-20, 0, 1]);
+    } finally {
+      unregister();
+      manager.remove();
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("keeps activation-key ownership over a floating nowheel target", async () => {
+    const { host, root } = await renderZoomPane({
+      zoomActivationKeyPressed: true,
+    });
+    const { manager, target, unregister } =
+      appendWorkspaceWindowManagerWheelTarget({ targetClassName: "nowheel" });
+
+    try {
+      let wheelEvent: WheelEvent | undefined;
+      await act(async () => {
+        wheelEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaY: -120,
+        });
+        target.dispatchEvent(wheelEvent);
+      });
+
+      expect(wheelEvent?.defaultPrevented).toBe(true);
+      expect(testWorkspace.reactFlow.getState().transform[2]).toBeGreaterThan(
+        1,
+      );
+    } finally {
+      unregister();
+      manager.remove();
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("does not route registered dock or outline sibling chrome", async () => {
+    const { host, root } = await renderZoomPane();
+    const {
+      manager,
+      target: dockTarget,
+      unregister,
+    } = appendWorkspaceWindowManagerWheelTarget({ overlay: false });
+    const outline = document.createElement("div");
+    const outlineTarget = document.createElement("div");
+    outline.setAttribute("data-workspace-outline", "true");
+    outline.appendChild(outlineTarget);
+    document.body.appendChild(outline);
+    const unregisterOutline = registerWorkspaceHostElement(
+      testWorkspace.host,
+      outline,
+    );
+
+    try {
+      const dockEvent = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        deltaY: -120,
+      });
+      const outlineEvent = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        deltaY: -120,
+      });
+      await act(async () => {
+        dockTarget.dispatchEvent(dockEvent);
+        outlineTarget.dispatchEvent(outlineEvent);
+      });
+
+      expect(dockEvent.defaultPrevented).toBe(false);
+      expect(outlineEvent.defaultPrevented).toBe(false);
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([0, 0, 1]);
+    } finally {
+      unregisterOutline();
+      outline.remove();
+      unregister();
+      manager.remove();
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("does not route a second workspace host's floating window", async () => {
+    const { host, root } = await renderZoomPane();
+    const otherWorkspace = createWorkspaceTestHost();
+    const { manager, target, unregister } =
+      appendWorkspaceWindowManagerWheelTarget({ host: otherWorkspace.host });
+
+    try {
+      const wheelEvent = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        deltaY: -120,
+      });
+      await act(async () => {
+        target.dispatchEvent(wheelEvent);
+      });
+
+      expect(wheelEvent.defaultPrevented).toBe(false);
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([0, 0, 1]);
+    } finally {
+      unregister();
+      otherWorkspace.host.dispose();
+      manager.remove();
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("keeps live workspace bridges isolated and removes an unmounted bridge", async () => {
+    const otherWorkspace = createWorkspaceTestHost();
+    otherWorkspace.nodeInternals.getState().reset();
+    otherWorkspace.document.getState().reset();
+    otherWorkspace.document.setState({ viewport: { x: 0, y: 0, zoom: 1 } });
+    otherWorkspace.options.getState().reset();
+    otherWorkspace.reactFlow.setState({
+      ...initialCanvasState,
+      width: 800,
+      height: 600,
+    });
+    const firstPane = await renderZoomPane({
+      panOnScroll: true,
+      zoomOnScroll: false,
+    });
+    const secondPane = await renderZoomPane(
+      {
+        panOnScroll: true,
+        zoomOnScroll: false,
+      },
+      otherWorkspace,
+    );
+    const firstWindow = appendWorkspaceWindowManagerWheelTarget({});
+    const secondWindow = appendWorkspaceWindowManagerWheelTarget({
+      host: otherWorkspace.host,
+    });
+    let firstPaneUnmounted = false;
+
+    try {
+      const secondWheelEvent = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        deltaX: 20,
+      });
+      await act(async () => {
+        secondWindow.target.dispatchEvent(secondWheelEvent);
+      });
+
+      expect(secondWheelEvent.defaultPrevented).toBe(true);
+      expect(testWorkspace.reactFlow.getState().transform).toEqual([0, 0, 1]);
+      expect(otherWorkspace.reactFlow.getState().transform).toEqual([
+        -10, 0, 1,
+      ]);
+
+      await act(async () => {
+        firstPane.root.unmount();
+      });
+      firstPaneUnmounted = true;
+      firstPane.host.remove();
+
+      const staleTargetWheelEvent = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        deltaX: 20,
+      });
+      await act(async () => {
+        firstWindow.target.dispatchEvent(staleTargetWheelEvent);
+      });
+
+      expect(staleTargetWheelEvent.defaultPrevented).toBe(false);
+      expect(otherWorkspace.reactFlow.getState().transform).toEqual([
+        -10, 0, 1,
+      ]);
+    } finally {
+      firstWindow.unregister();
+      firstWindow.manager.remove();
+      secondWindow.unregister();
+      secondWindow.manager.remove();
+      if (!firstPaneUnmounted) {
+        await act(async () => {
+          firstPane.root.unmount();
+        });
+        firstPane.host.remove();
+      }
+      await act(async () => {
+        secondPane.root.unmount();
+      });
+      secondPane.host.remove();
+      otherWorkspace.host.dispose();
     }
   });
 

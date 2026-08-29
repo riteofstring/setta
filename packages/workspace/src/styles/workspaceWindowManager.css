@@ -20,6 +20,13 @@
   pointer-events: auto;
 }
 
+/* Window content that keeps native wheel ownership must also contain its scroll chain. Without
+ * this boundary Chromium can turn a horizontal remainder at an edge into browser history. */
+.setta-workspace-window-manager-window .nowheel,
+.setta-workspace-window-manager-window .setta-native-wheel-y {
+  overscroll-behavior: contain;
+}
+
 .setta-workspace-window-manager-window
   [data-workspace-window-drag-handle="true"] {
   cursor: grab;

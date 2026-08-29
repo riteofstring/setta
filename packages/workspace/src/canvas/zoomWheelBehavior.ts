@@ -6,6 +6,7 @@ import {
   NO_WHEEL_CLASS_NAME,
 } from "../interaction";
 import type { WorkspaceHost } from "../workspaceHost";
+import { isWorkspaceHostElement } from "../workspaceHostInternals";
 import { getReactFlowStore } from "./store";
 import type { PanOnScrollMode, ReactFlowState } from "./types";
 import { getWheelDelta, isMacOs } from "./utils";
@@ -22,6 +23,11 @@ type TranslateByFn = (
   deltaX: number,
   deltaY: number,
   event?: InternalWheelEvent,
+) => void;
+type ZoomPaneWheelHandler = (
+  this: Element,
+  event: WheelEvent,
+  data: unknown,
 ) => void;
 
 export type ViewportInteractionRefs = {
@@ -66,6 +72,14 @@ type DefaultWheelHandlerParams = {
   zoomActivationKeyPressed: boolean;
   zoomOnPinch: boolean;
 };
+
+// `data-workspace-window-id` also appears on bottom-dock and recovery controls. This class is
+// emitted only by the overlay article that sits alongside the canvas renderer, so the bridge
+// cannot take wheel ownership from dock or shell chrome.
+const WORKSPACE_WINDOW_MANAGER_OVERLAY_WINDOW_SELECTOR =
+  "article.setta-workspace-window-manager-window[data-workspace-window-id]";
+const WORKSPACE_WINDOW_MANAGER_SELECTOR =
+  '[data-workspace-window-manager="true"]';
 
 export const wheelDelta = (event: WheelEvent) => {
   const factor = event.ctrlKey && isMacOs() ? 10 : 1;
@@ -250,7 +264,10 @@ function handlePinchZoomWheelEvent({
   }
 
   startWheelZoomBurst({ interactionRefs, syncViewportInteractionActive });
-  const point = pointer(event);
+  // A bridged wheel event is captured on the host document, whose coordinate system differs
+  // from the renderer. Supplying the renderer keeps pinch anchoring identical to a wheel that
+  // arrived at the ZoomPane directly.
+  const point = pointer(event, d3Selection.node() ?? undefined);
   const pinchDelta = wheelDelta(event);
   const nextZoom = currentZoom * Math.pow(2, pinchDelta);
   scaleTo(d3Selection, nextZoom, point, event);
@@ -354,11 +371,83 @@ function createDefaultWheelHandler({
 
     event.preventDefault();
     startWheelZoomBurst({ interactionRefs, syncViewportInteractionActive });
-    d3ZoomHandler.call(this, event, data);
+    d3ZoomHandler.call(this, getWheelEventWithCurrentTarget(event, this), data);
     scheduleWheelZoomBurstEnd({
       interactionRefs,
       syncViewportInteractionActive,
     });
+  };
+}
+
+function getWheelEventWithCurrentTarget(
+  event: WheelEvent,
+  currentTarget: Element,
+): WheelEvent {
+  if (event.currentTarget === currentTarget) {
+    return event;
+  }
+
+  // D3 derives the wheel anchor from `event.currentTarget`. The bridge invokes its existing
+  // handler directly instead of redispatching a synthetic event, then gives only D3 a view of
+  // the original event with the renderer as that target. Bound methods retain the real event's
+  // synchronous `preventDefault` and propagation effects.
+  return new Proxy(event, {
+    get(originalEvent, property) {
+      if (property === "currentTarget") {
+        return currentTarget;
+      }
+      const value = Reflect.get(originalEvent, property, originalEvent);
+      return typeof value === "function" ? value.bind(originalEvent) : value;
+    },
+  });
+}
+
+function isWorkspaceWindowOverlayWheelEvent(
+  host: WorkspaceHost,
+  event: WheelEvent,
+): boolean {
+  const target = event.target;
+  if (!(target instanceof Element) || !isWorkspaceHostElement(host, target)) {
+    return false;
+  }
+  const window = target.closest(
+    WORKSPACE_WINDOW_MANAGER_OVERLAY_WINDOW_SELECTOR,
+  );
+  return (
+    window !== null &&
+    window.closest(WORKSPACE_WINDOW_MANAGER_SELECTOR) !== null
+  );
+}
+
+function installWorkspaceWindowWheelBridge({
+  d3Selection,
+  host,
+  wheelHandler,
+}: {
+  d3Selection: D3Selection<Element, unknown, null, undefined>;
+  host: WorkspaceHost;
+  wheelHandler: ZoomPaneWheelHandler;
+}): () => void {
+  const renderer = d3Selection.node();
+  if (!renderer) {
+    return () => undefined;
+  }
+  const wheelDocument = renderer.ownerDocument;
+  const bridgeWheelEvent = (event: WheelEvent) => {
+    if (!isWorkspaceWindowOverlayWheelEvent(host, event)) {
+      return;
+    }
+    wheelHandler.call(renderer, event, d3Selection.datum());
+  };
+
+  // Wheel must be non-passive and run during capture: Chrome only guarantees cancellation for
+  // the opening event of a trackpad burst, before it can latch a horizontal history gesture.
+  wheelDocument.addEventListener("wheel", bridgeWheelEvent, {
+    capture: true,
+    passive: false,
+  });
+  return () => {
+    wheelDocument.removeEventListener("wheel", bridgeWheelEvent, true);
   };
 }
 
@@ -441,8 +530,15 @@ export function useZoomWheelBehavior({
         },
         { capture: true, passive: false },
       );
+      const removeWorkspaceWindowWheelBridge =
+        installWorkspaceWindowWheelBridge({
+          d3Selection,
+          host,
+          wheelHandler: panOnScrollWheelHandler,
+        });
       return () => {
         d3Selection.on("wheel.pan-scroll-capture", null);
+        removeWorkspaceWindowWheelBridge();
       };
     }
 
@@ -452,17 +548,19 @@ export function useZoomWheelBehavior({
       return;
     }
 
-    d3Selection.on(
-      "wheel.zoom",
-      createDefaultWheelHandler({
-        d3ZoomHandler,
-        interactionRefs: wheelInteractionRefs,
-        syncViewportInteractionActive,
-        zoomActivationKeyPressed,
-        zoomOnPinch,
-      }),
-      { passive: false },
-    );
+    const defaultWheelHandler = createDefaultWheelHandler({
+      d3ZoomHandler,
+      interactionRefs: wheelInteractionRefs,
+      syncViewportInteractionActive,
+      zoomActivationKeyPressed,
+      zoomOnPinch,
+    });
+    d3Selection.on("wheel.zoom", defaultWheelHandler, { passive: false });
+    return installWorkspaceWindowWheelBridge({
+      d3Selection,
+      host,
+      wheelHandler: defaultWheelHandler,
+    });
   }, [
     d3Selection,
     d3Zoom,

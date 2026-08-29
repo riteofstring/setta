@@ -227,6 +227,10 @@ describe("DropdownValueControl", () => {
     ]) {
       expect(list.classList.contains(expectedClass)).toBe(true);
     }
+    const scrollport = list.querySelector<HTMLElement>(
+      ".setta-workspace-dropdown-scrollport",
+    );
+    expect(scrollport?.classList.contains("overflow-y-scroll")).toBe(true);
     // Flat host choices take the reference's single recorded "Choices" group header.
     const headers = Array.from(list.querySelectorAll("dt"));
     expect(headers.map((header) => header.textContent)).toEqual(["Choices"]);
