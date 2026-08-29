@@ -22,6 +22,8 @@ export interface WorkspaceWindowSpaceWindow {
   readonly surfaceKind: string;
   readonly title: string;
   readonly rendererData: WorkspaceWindowJsonValue;
+  /** Null for generic content; retained for section ownership reconciliation. */
+  readonly sectionId: string | null;
   readonly normalizedBounds: WorkspaceNormalizedWindowBounds;
   readonly zIndex: number;
 }
@@ -65,6 +67,7 @@ const SPACE_WINDOW_FIELDS = new Set([
   "surfaceKind",
   "title",
   "rendererData",
+  "sectionId",
   "normalizedBounds",
   "zIndex",
 ]);
@@ -195,6 +198,7 @@ function createWorkspaceWindowSpaceWindow(
     surfaceKind: record.surfaceKind as string,
     title: record.title as string,
     rendererData: record.rendererData as WorkspaceWindowJsonValue,
+    sectionId: record.sectionId as string | null,
     bounds: { x: 0, y: 0, width: 1, height: 1 },
   });
   return Object.freeze({
@@ -203,6 +207,7 @@ function createWorkspaceWindowSpaceWindow(
     surfaceKind: window.surfaceKind,
     title: window.title,
     rendererData: window.rendererData,
+    sectionId: window.sectionId,
     normalizedBounds: createNormalizedBounds(record.normalizedBounds),
     zIndex: assertNonnegativeInteger(
       record.zIndex,
@@ -216,6 +221,7 @@ function assertUniqueWindowIdentities(
 ): void {
   const ids = new Set<string>();
   const contentIds = new Set<string>();
+  const sectionIds = new Set<string>();
   for (const window of windows) {
     if (ids.has(window.id)) {
       throw new WorkspaceWindowingError(
@@ -229,8 +235,15 @@ function assertUniqueWindowIdentities(
         `Workspace Window Space contains duplicate content identity ${window.contentId}.`,
       );
     }
+    if (window.sectionId !== null && sectionIds.has(window.sectionId)) {
+      throw new WorkspaceWindowingError(
+        "duplicate_section_binding",
+        `Workspace Window Space contains duplicate section binding ${window.sectionId}.`,
+      );
+    }
     ids.add(window.id);
     contentIds.add(window.contentId);
+    if (window.sectionId !== null) sectionIds.add(window.sectionId);
   }
 }
 
@@ -278,6 +291,7 @@ function createSnapshotWindow(
     surfaceKind: window.surfaceKind,
     title: window.title,
     rendererData: window.rendererData,
+    sectionId: window.sectionId,
     normalizedBounds: normalizeWorkspaceWindowBounds(window.bounds, viewport),
     zIndex: window.zIndex,
   });
@@ -293,7 +307,8 @@ export function canSnapshotWorkspaceWindowSpace(
 
 /**
  * Captures visible floating windows in deterministic stacking order. Closed,
- * minimized, and maximized windows do not become part of a Window Space.
+ * minimized, docked, canvas-owned, and maximized windows do not become part
+ * of a Window Space.
  */
 export function snapshotWorkspaceWindowSpace(
   stateInput: WorkspaceWindowingState,
@@ -317,6 +332,67 @@ function createExistingWindowByContentId(
   state: WorkspaceWindowingState,
 ): ReadonlyMap<string, WorkspaceFloatingWindow> {
   return new Map(state.windows.map((window) => [window.contentId, window]));
+}
+
+function createExistingWindowBySectionId(
+  state: WorkspaceWindowingState,
+): ReadonlyMap<string, WorkspaceFloatingWindow> {
+  const windowsBySectionId = new Map<string, WorkspaceFloatingWindow>();
+  for (const window of state.windows) {
+    if (window.sectionId !== null) {
+      windowsBySectionId.set(window.sectionId, window);
+    }
+  }
+  return windowsBySectionId;
+}
+
+function isAuthoritativeSectionOwnerPlacement(
+  placement: WorkspaceFloatingWindow["placement"],
+): boolean {
+  return (
+    placement === "bottom_docked" ||
+    placement === "canvas_section" ||
+    placement === "maximized"
+  );
+}
+
+function shouldSkipSavedSectionWindow(
+  snapshot: WorkspaceWindowSpaceWindow,
+  existingByContentId: ReadonlyMap<string, WorkspaceFloatingWindow>,
+  existingBySectionId: ReadonlyMap<string, WorkspaceFloatingWindow>,
+): boolean {
+  if (snapshot.sectionId === null) {
+    return false;
+  }
+  const currentByContent = existingByContentId.get(snapshot.contentId);
+  const currentBySection = existingBySectionId.get(snapshot.sectionId);
+  return [currentByContent, currentBySection].some(
+    (window) =>
+      window !== undefined &&
+      isAuthoritativeSectionOwnerPlacement(window.placement),
+  );
+}
+
+function resolveReusableExistingWindow(
+  snapshot: WorkspaceWindowSpaceWindow,
+  existingByContentId: ReadonlyMap<string, WorkspaceFloatingWindow>,
+  existingBySectionId: ReadonlyMap<string, WorkspaceFloatingWindow>,
+): WorkspaceFloatingWindow | undefined {
+  const currentByContent = existingByContentId.get(snapshot.contentId);
+  if (snapshot.sectionId === null) {
+    return currentByContent;
+  }
+  const currentBySection = existingBySectionId.get(snapshot.sectionId);
+  if (
+    currentByContent !== undefined &&
+    currentBySection !== undefined &&
+    currentByContent.id !== currentBySection.id
+  ) {
+    // Replacing either would duplicate the other live identity. The saved
+    // section must wait until the host reconciles that inconsistent state.
+    return undefined;
+  }
+  return currentBySection ?? currentByContent;
 }
 
 function allocateRestoredWindowId(
@@ -365,10 +441,32 @@ function createRestorePlan(
 } {
   const usedIds = new Set(state.windows.map((window) => window.id));
   const existingByContentId = createExistingWindowByContentId(state);
+  const existingBySectionId = createExistingWindowBySectionId(state);
   const plans: WindowSpaceRestorePlan[] = [];
   const idRemaps: Record<string, string> = {};
   for (const snapshot of space.windows) {
-    const existing = existingByContentId.get(snapshot.contentId);
+    if (
+      shouldSkipSavedSectionWindow(
+        snapshot,
+        existingByContentId,
+        existingBySectionId,
+      )
+    ) {
+      continue;
+    }
+    const existing = resolveReusableExistingWindow(
+      snapshot,
+      existingByContentId,
+      existingBySectionId,
+    );
+    if (
+      snapshot.sectionId !== null &&
+      existing === undefined &&
+      (existingByContentId.has(snapshot.contentId) ||
+        existingBySectionId.has(snapshot.sectionId))
+    ) {
+      continue;
+    }
     // A visible maximized instance is the authoritative live presentation for
     // its content. Frozen-main restore does not replace it with a saved float
     // or create a second instance of the same content.
@@ -395,12 +493,14 @@ function createRestoredWindow(
     surfaceKind: snapshot.surfaceKind,
     title: snapshot.title,
     rendererData: snapshot.rendererData,
+    sectionId: snapshot.sectionId,
     bounds: denormalizeWorkspaceWindowBounds(
       snapshot.normalizedBounds,
       viewport,
     ),
     placement: "floating",
     restoreBounds: null,
+    restorePlacement: null,
     lastUnsnappedBounds: null,
     isMinimized: false,
     isClosed: false,
