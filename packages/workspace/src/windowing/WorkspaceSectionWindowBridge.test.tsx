@@ -31,6 +31,25 @@ import {
 
 const SECTION_ID = "section-a";
 
+function createPointerEvent(
+  type: string,
+  {
+    clientX,
+    clientY,
+    pointerId = 1,
+  }: { clientX: number; clientY: number; pointerId?: number },
+): MouseEvent {
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    button: 0,
+    cancelable: true,
+    clientX,
+    clientY,
+  });
+  Object.defineProperty(event, "pointerId", { value: pointerId });
+  return event;
+}
+
 function makeSection(): WorkspaceSection {
   return {
     children: [],
@@ -140,6 +159,50 @@ describe("workspace section/window bridge", () => {
     if (!button) throw new Error(`Expected ${testId}.`);
     return button;
   }
+
+  it("drags a floating section window from its displayed section title", async () => {
+    await mount();
+    await act(async () => getButton("section-window-toggle").click());
+
+    const floatingWindow = host.querySelector<HTMLElement>(
+      '[data-testid="workspace-window-manager-window"]',
+    );
+    const title = floatingWindow?.querySelector<HTMLElement>(
+      '[role="button"][aria-label="Research Notes, edit section title"]',
+    );
+    if (!floatingWindow || !title) {
+      throw new Error("Expected the floating section window and its title.");
+    }
+    const initialLeft = Number.parseFloat(floatingWindow.style.left);
+    const initialTop = Number.parseFloat(floatingWindow.style.top);
+
+    await act(async () => {
+      title.dispatchEvent(
+        createPointerEvent("pointerdown", {
+          clientX: 500,
+          clientY: 100,
+          pointerId: 7,
+        }),
+      );
+      title.dispatchEvent(
+        createPointerEvent("pointermove", {
+          clientX: 580,
+          clientY: 140,
+          pointerId: 7,
+        }),
+      );
+      title.dispatchEvent(
+        createPointerEvent("pointerup", {
+          clientX: 580,
+          clientY: 140,
+          pointerId: 7,
+        }),
+      );
+    });
+
+    expect(Number.parseFloat(floatingWindow.style.left)).toBe(initialLeft + 80);
+    expect(Number.parseFloat(floatingWindow.style.top)).toBe(initialTop + 40);
+  });
 
   it("moves one registered body through floating, docked, and canvas ownership", async () => {
     await mount();

@@ -224,11 +224,17 @@ function WorkspaceWindowFreeResizeHandles({
 function isInteractiveWorkspaceWindowHeaderTarget(
   target: EventTarget | null,
 ): boolean {
+  if (!(target instanceof Element)) return false;
+  // Main uses the displayed section title as the drag surface. The package gives that
+  // title button semantics for keyboard editing; its actual editing input still blocks drag.
+  const interactiveTarget = target.closest(
+    "button, [role='button'], [role='menuitem'], input, textarea, select, a, [contenteditable='true']",
+  );
   return (
-    target instanceof Element &&
-    target.closest(
-      "button, [role='button'], [role='menuitem'], input, textarea, select, a, [contenteditable='true']",
-    ) !== null
+    interactiveTarget !== null &&
+    !interactiveTarget.matches(
+      "[data-setta-workspace-section-title-display='true']",
+    )
   );
 }
 
@@ -271,6 +277,7 @@ export function WorkspaceManagedWindowFrame({
         ? {
             "data-testid": "workspace-window-title-drag-handle",
             "data-workspace-window-drag-handle": "true",
+            className: "cursor-move",
             onPointerCancel: titlePointerProps.onTitlePointerCancel,
             onPointerDown: (event: PointerEvent<HTMLElement>) => {
               if (isInteractiveWorkspaceWindowHeaderTarget(event.target))

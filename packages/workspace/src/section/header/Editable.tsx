@@ -164,6 +164,7 @@ function InNonEditMode({
     <div
       onClick={onClick}
       className={titleProps}
+      data-setta-workspace-section-title-display="true"
       role="button"
       aria-label={ariaLabel}
       tabIndex={0}
