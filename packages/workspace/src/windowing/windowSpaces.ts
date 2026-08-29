@@ -432,6 +432,65 @@ function createRestorePlanEntry(
   };
 }
 
+function hasUnresolvedSavedSectionIdentityConflict(
+  snapshot: WorkspaceWindowSpaceWindow,
+  existing: WorkspaceFloatingWindow | undefined,
+  existingByContentId: ReadonlyMap<string, WorkspaceFloatingWindow>,
+  existingBySectionId: ReadonlyMap<string, WorkspaceFloatingWindow>,
+): boolean {
+  return (
+    snapshot.sectionId !== null &&
+    existing === undefined &&
+    (existingByContentId.has(snapshot.contentId) ||
+      existingBySectionId.has(snapshot.sectionId))
+  );
+}
+
+function shouldSkipWorkspaceWindowSpaceRestore(
+  snapshot: WorkspaceWindowSpaceWindow,
+  existing: WorkspaceFloatingWindow | undefined,
+  existingByContentId: ReadonlyMap<string, WorkspaceFloatingWindow>,
+  existingBySectionId: ReadonlyMap<string, WorkspaceFloatingWindow>,
+): boolean {
+  return (
+    shouldSkipSavedSectionWindow(
+      snapshot,
+      existingByContentId,
+      existingBySectionId,
+    ) ||
+    hasUnresolvedSavedSectionIdentityConflict(
+      snapshot,
+      existing,
+      existingByContentId,
+      existingBySectionId,
+    ) ||
+    // A maximized live instance remains the authoritative presentation rather
+    // than being replaced with a saved floating layout.
+    existing?.placement === "maximized"
+  );
+}
+
+function createRestorePlanEntryIfRestorable(
+  snapshot: WorkspaceWindowSpaceWindow,
+  usedIds: Set<string>,
+  existingByContentId: ReadonlyMap<string, WorkspaceFloatingWindow>,
+  existingBySectionId: ReadonlyMap<string, WorkspaceFloatingWindow>,
+): WindowSpaceRestorePlan | null {
+  const existing = resolveReusableExistingWindow(
+    snapshot,
+    existingByContentId,
+    existingBySectionId,
+  );
+  return shouldSkipWorkspaceWindowSpaceRestore(
+    snapshot,
+    existing,
+    existingByContentId,
+    existingBySectionId,
+  )
+    ? null
+    : createRestorePlanEntry(snapshot, existing, usedIds);
+}
+
 function createRestorePlan(
   state: WorkspaceWindowingState,
   space: WorkspaceWindowSpace,
@@ -445,35 +504,15 @@ function createRestorePlan(
   const plans: WindowSpaceRestorePlan[] = [];
   const idRemaps: Record<string, string> = {};
   for (const snapshot of space.windows) {
-    if (
-      shouldSkipSavedSectionWindow(
-        snapshot,
-        existingByContentId,
-        existingBySectionId,
-      )
-    ) {
-      continue;
-    }
-    const existing = resolveReusableExistingWindow(
+    const plan = createRestorePlanEntryIfRestorable(
       snapshot,
+      usedIds,
       existingByContentId,
       existingBySectionId,
     );
-    if (
-      snapshot.sectionId !== null &&
-      existing === undefined &&
-      (existingByContentId.has(snapshot.contentId) ||
-        existingBySectionId.has(snapshot.sectionId))
-    ) {
+    if (plan === null) {
       continue;
     }
-    // A visible maximized instance is the authoritative live presentation for
-    // its content. Frozen-main restore does not replace it with a saved float
-    // or create a second instance of the same content.
-    if (existing?.placement === "maximized") {
-      continue;
-    }
-    const plan = createRestorePlanEntry(snapshot, existing, usedIds);
     if (plan.targetId !== snapshot.id) {
       idRemaps[snapshot.id] = plan.targetId;
     }

@@ -422,10 +422,12 @@ describe("WorkspaceShell", () => {
       position: "absolute",
       zIndex: "25",
     });
-    expect(manager.querySelector('[data-testid="host-window-manager"]'))
-      .not.toBeNull();
     expect(
-      canvas.compareDocumentPosition(manager) & Node.DOCUMENT_POSITION_FOLLOWING,
+      manager.querySelector('[data-testid="host-window-manager"]'),
+    ).not.toBeNull();
+    expect(
+      canvas.compareDocumentPosition(manager) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(
       controls.compareDocumentPosition(manager) &

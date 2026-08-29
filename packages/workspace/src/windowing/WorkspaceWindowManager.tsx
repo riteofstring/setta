@@ -8,11 +8,13 @@ import {
 } from "react";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import { registerWorkspaceHostElement } from "../workspaceHostInternals";
-import { WorkspaceMinimizedWindowStrip } from "./WorkspaceMinimizedWindowStrip";
+import { WorkspaceBottomDock } from "./WorkspaceBottomDock";
 import {
+  WorkspaceManagedWindowFrame,
   WorkspaceWindowManagerWindows,
   WorkspaceWindowManagerSnapPreview,
   WorkspaceWindowManagerSnapResizeHandle,
+  type WorkspaceManagedWindowAction,
   type WorkspaceWindowRenderers,
 } from "./WorkspaceWindowManagerParts";
 import {
@@ -32,10 +34,16 @@ import {
 } from "./windowingSnapLayout";
 import {
   clampWorkspaceFloatingWindowBounds,
+  dockWorkspaceWindow,
   focusWorkspaceWindow,
   getWorkspaceWindowStackingOrder,
+  moveWorkspaceWindowToCanvasSection,
+  reopenWorkspaceWindow,
   setWorkspaceWindowBoundsAtomically,
+  setWorkspaceWindowDockLayoutAtomically,
+  showWorkspaceSectionInFloatingWindow,
   snapWorkspaceFloatingWindow,
+  undockWorkspaceWindow,
 } from "./windowingState";
 import { useWorkspaceWindowManagerInteractions } from "./useWorkspaceWindowManagerInteractions";
 import {
@@ -129,6 +137,7 @@ function runWorkspaceWindowShortcut({
     activateWindowAction(window.id, "minimize");
     return;
   }
+  if (window.placement !== "floating") return;
   emitState(
     snapWorkspaceFloatingWindow(
       state,
@@ -250,7 +259,6 @@ export function WorkspaceWindowManager({
     handleTitlePointerDown,
     handleTitlePointerMove,
     previewBoundsByWindowId,
-    reopenMinimizedWindow,
     snapPreview,
   } = useWorkspaceWindowManagerInteractions({
     emitState,
@@ -260,6 +268,80 @@ export function WorkspaceWindowManager({
     stateRef,
     viewport,
   });
+  const activateManagedWindowAction = useCallback(
+    (windowId: string, action: WorkspaceManagedWindowAction) => {
+      if (action === "show_in_canvas") {
+        emitState(
+          moveWorkspaceWindowToCanvasSection(
+            stateRef.current,
+            windowId,
+            mutationOptions,
+          ),
+        );
+        return;
+      }
+      if (action === "dock") {
+        emitState(
+          dockWorkspaceWindow(stateRef.current, windowId, mutationOptions),
+        );
+        return;
+      }
+      activateWindowAction(windowId, action);
+    },
+    [activateWindowAction, emitState, mutationOptions],
+  );
+  const reopenWindow = useCallback(
+    (windowId: string) => {
+      const window = stateRef.current.windows.find(
+        (candidate) => candidate.id === windowId,
+      );
+      if (!window || window.placement === "canvas_section") return;
+      if (!window.isClosed && !window.isMinimized) {
+        focusWindow(windowId);
+        return;
+      }
+      emitState(reopenWorkspaceWindow(stateRef.current, windowId));
+      focusWindow(windowId);
+    },
+    [emitState, focusWindow],
+  );
+  const moveWindowToFloating = useCallback(
+    (windowId: string) => {
+      if (!viewport) return;
+      const window = stateRef.current.windows.find(
+        (candidate) => candidate.id === windowId,
+      );
+      if (!window) return;
+      if (window.placement === "bottom_docked") {
+        emitState(
+          undockWorkspaceWindow(
+            stateRef.current,
+            windowId,
+            viewport,
+            mutationOptions,
+          ),
+        );
+        return;
+      }
+      if (window.placement !== "canvas_section" || window.sectionId === null) {
+        return;
+      }
+      emitState(
+        showWorkspaceSectionInFloatingWindow(
+          stateRef.current,
+          {
+            contentId: window.contentId,
+            id: window.id,
+            sectionId: window.sectionId,
+            title: window.title,
+          },
+          viewport,
+          mutationOptions,
+        ),
+      );
+    },
+    [emitState, mutationOptions, viewport],
+  );
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -342,6 +424,14 @@ export function WorkspaceWindowManager({
     () =>
       getWorkspaceWindowStackingOrder(state).filter(isWorkspaceWindowVisible),
     [state],
+  );
+  const orderedOverlayWindows = useMemo(
+    () =>
+      orderedVisibleWindows.filter(
+        (window) =>
+          window.placement === "floating" || window.placement === "maximized",
+      ),
+    [orderedVisibleWindows],
   );
   useEffect(() => {
     const current = focusedWindowIdRef.current;
@@ -460,7 +550,7 @@ export function WorkspaceWindowManager({
       <WorkspaceWindowManagerWindows
         focusedWindowId={focusedWindowId}
         layoutEditable={layoutEditable}
-        onAction={activateWindowAction}
+        onAction={activateManagedWindowAction}
         onFocus={focusWindow}
         onFreeResizeFinish={finishFreeResize}
         onFreeResizePointerDown={handleFreeResizePointerDown}
@@ -474,7 +564,7 @@ export function WorkspaceWindowManager({
         readOnlyResizeBoundsByWindowId={readOnlyResizeBoundsByWindowId}
         renderers={renderers}
         viewport={viewport}
-        windows={orderedVisibleWindows}
+        windows={orderedOverlayWindows}
       />
       {layoutEditable
         ? snapSeams.map((seam) => (
@@ -488,9 +578,41 @@ export function WorkspaceWindowManager({
             />
           ))
         : null}
-      <WorkspaceMinimizedWindowStrip
-        boundaryInsets={boundaryInsets}
-        onRestore={reopenMinimizedWindow}
+      <WorkspaceBottomDock
+        layoutEditable={layoutEditable}
+        onCloseWindow={(windowId) => activateWindowAction(windowId, "close")}
+        onDockLayoutCommit={(updates) =>
+          emitState(
+            setWorkspaceWindowDockLayoutAtomically(
+              stateRef.current,
+              updates,
+              mutationOptions,
+            ),
+          )
+        }
+        onFocusWindow={focusWindow}
+        onMaximizeWindow={(windowId) =>
+          activateWindowAction(windowId, "maximize")
+        }
+        onMinimizeWindow={(windowId) =>
+          activateWindowAction(windowId, "minimize")
+        }
+        onMoveWindowToCanvasSection={(windowId) =>
+          activateManagedWindowAction(windowId, "show_in_canvas")
+        }
+        onMoveWindowToFloating={moveWindowToFloating}
+        onReopenWindow={reopenWindow}
+        renderWindow={(window, options) => (
+          <WorkspaceManagedWindowFrame
+            actions={options.actions}
+            layoutEditable={layoutEditable}
+            onFocus={options.onFocus}
+            onTitleCommit={(title) => commitTitle(window.id, title)}
+            renderers={renderers}
+            window={window}
+          />
+        )}
+        viewport={viewport}
         windows={state.windows}
         zIndex={overlayZIndex + 1}
       />

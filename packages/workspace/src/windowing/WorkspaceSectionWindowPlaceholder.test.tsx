@@ -81,7 +81,6 @@ describe("WorkspaceSectionWindowPlaceholder", () => {
           <WorkspaceSectionWindowPlaceholder
             layoutEditable={true}
             onFocusWindow={() => {}}
-            onReopenWindow={() => {}}
             onShowInCanvas={() => {}}
             sectionId={SECTION_ID}
             windowId={WINDOW_ID}
@@ -107,13 +106,10 @@ describe("WorkspaceSectionWindowPlaceholder", () => {
     const onFocusWindow = vi.fn((windowId: string) => {
       calls.push(`focus:${windowId}`);
     });
-    const onReopenWindow = vi.fn((windowId: string) => {
-      calls.push(`reopen:${windowId}`);
-    });
     const onShowInCanvas = vi.fn((windowId: string) => {
       calls.push(`canvas:${windowId}`);
     });
-    await mount({ onFocusWindow, onReopenWindow, onShowInCanvas });
+    await mount({ onFocusWindow, onShowInCanvas });
 
     const placeholder = host.querySelector<HTMLElement>(
       '[data-testid="section-window-placeholder"]',
@@ -137,11 +133,7 @@ describe("WorkspaceSectionWindowPlaceholder", () => {
       getButton("section-window-placeholder-focus").click();
       getButton("section-window-placeholder-restore").click();
     });
-    expect(calls).toEqual([
-      `reopen:${WINDOW_ID}`,
-      `focus:${WINDOW_ID}`,
-      `canvas:${WINDOW_ID}`,
-    ]);
+    expect(calls).toEqual([`focus:${WINDOW_ID}`, `canvas:${WINDOW_ID}`]);
 
     await act(async () => loadTestDocument(workspace, "Renamed section"));
     expect(host.textContent).toContain("Renamed section moved to a window");
@@ -149,12 +141,10 @@ describe("WorkspaceSectionWindowPlaceholder", () => {
 
   it("keeps Focus while hiding the canvas mutation and using read-only copy", async () => {
     const onFocusWindow = vi.fn();
-    const onReopenWindow = vi.fn();
     const onShowInCanvas = vi.fn();
     await mount({
       layoutEditable: false,
       onFocusWindow,
-      onReopenWindow,
       onShowInCanvas,
     });
 
@@ -167,7 +157,6 @@ describe("WorkspaceSectionWindowPlaceholder", () => {
     await act(async () => {
       getButton("section-window-placeholder-focus").click();
     });
-    expect(onReopenWindow).toHaveBeenCalledWith(WINDOW_ID);
     expect(onFocusWindow).toHaveBeenCalledWith(WINDOW_ID);
     expect(onShowInCanvas).not.toHaveBeenCalled();
   });

@@ -176,10 +176,7 @@ export function useWorkspaceWindowManagerInteractions({
   );
 
   const handleTitlePointerDown = useCallback(
-    (
-      event: PointerEvent<HTMLParagraphElement>,
-      window: WorkspaceFloatingWindow,
-    ) => {
+    (event: PointerEvent<HTMLElement>, window: WorkspaceFloatingWindow) => {
       const root = rootRef.current;
       if (
         !root ||
@@ -226,7 +223,7 @@ export function useWorkspaceWindowManagerInteractions({
     [focusWindow, rootRef, updateSnapPreview, viewport],
   );
   const handleTitlePointerMove = useCallback(
-    (event: PointerEvent<HTMLParagraphElement>) => {
+    (event: PointerEvent<HTMLElement>) => {
       const session = dragSessionRef.current;
       const root = rootRef.current;
       if (
@@ -248,7 +245,7 @@ export function useWorkspaceWindowManagerInteractions({
     [rootRef, setPreviews, updateSnapPreview, viewport],
   );
   const finishTitleDrag = useCallback(
-    (event: PointerEvent<HTMLParagraphElement>, commit: boolean) => {
+    (event: PointerEvent<HTMLElement>, commit: boolean) => {
       const session = dragSessionRef.current;
       if (!session || !viewport || session.pointerId !== event.pointerId)
         return;

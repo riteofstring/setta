@@ -63,11 +63,7 @@ describe("workspace bottom dock layout", () => {
 
   it("uses no width allocation when no panel can be measured", () => {
     expect(
-      resolveWorkspaceBottomDockWindowWidthsToFit(
-        [{ id: "a" }],
-        { a: 460 },
-        0,
-      ),
+      resolveWorkspaceBottomDockWindowWidthsToFit([{ id: "a" }], { a: 460 }, 0),
     ).toEqual({});
   });
 

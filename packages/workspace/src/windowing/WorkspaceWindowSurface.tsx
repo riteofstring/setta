@@ -309,7 +309,7 @@ function WorkspaceWindowTitle({
   );
 }
 
-function WorkspaceWindowActionButton({
+export function WorkspaceWindowActionButton({
   action,
   windowId,
 }: {

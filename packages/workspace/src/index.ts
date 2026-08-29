@@ -314,6 +314,7 @@ export type {
   WorkspaceShellTabIconProps,
   WorkspaceShellViewState,
 } from "./shell/workspaceShellTypes";
+export type { WorkspaceShellWindowingConfiguration } from "./windowing/workspaceWindowingContext";
 export { WorkspaceWindowManager } from "./windowing/WorkspaceWindowManager";
 export type {
   WorkspaceWindowManagerProps,
@@ -346,9 +347,11 @@ export type {
 } from "./windowing/windowingSnapLayout";
 export {
   closeWorkspaceWindow,
+  dockWorkspaceWindow,
   focusWorkspaceWindow,
   maximizeWorkspaceWindow,
   minimizeWorkspaceWindow,
+  moveWorkspaceWindowToCanvasSection,
   moveWorkspaceFloatingWindow,
   openWorkspaceFloatingWindow,
   renameWorkspaceWindow,
@@ -356,11 +359,16 @@ export {
   resizeWorkspaceFloatingWindow,
   restoreWorkspaceWindow,
   setWorkspaceWindowBoundsAtomically,
+  setWorkspaceWindowDockLayoutAtomically,
+  showWorkspaceSectionInFloatingWindow,
   snapWorkspaceFloatingWindow,
+  undockWorkspaceWindow,
 } from "./windowing/windowingState";
 export type {
   OpenWorkspaceFloatingWindowInput,
+  ShowWorkspaceSectionInFloatingWindowInput,
   WorkspaceWindowBoundsUpdate,
+  WorkspaceWindowDockLayoutUpdate,
   WorkspaceWindowPosition,
 } from "./windowing/windowingState";
 export {
@@ -376,12 +384,15 @@ export type {
   WorkspaceFloatingWindowInput,
   WorkspaceWindowBoundaryInsets,
   WorkspaceWindowBounds,
+  WorkspaceWindowDockMetrics,
+  WorkspaceWindowDockMetricsInput,
   WorkspaceWindowingErrorCode,
   WorkspaceWindowingMutationOptions,
   WorkspaceWindowingState,
   WorkspaceWindowingStateInput,
   WorkspaceWindowJsonValue,
   WorkspaceWindowPlacement,
+  WorkspaceWindowRestorePlacement,
   WorkspaceWindowViewport,
 } from "./windowing/windowingTypes";
 export {
@@ -403,12 +414,8 @@ export type {
   WorkspaceWindowSpacePending,
   WorkspaceWindowSpacesPaneProps,
 } from "./windowing/WorkspaceWindowSpacesPane";
-export {
-  StandaloneWorkspaceWindowSpaceSurface,
-} from "./windowing/StandaloneWorkspaceWindowSpaceSurface";
-export type {
-  StandaloneWorkspaceWindowSpaceSurfaceProps,
-} from "./windowing/StandaloneWorkspaceWindowSpaceSurface";
+export { StandaloneWorkspaceWindowSpaceSurface } from "./windowing/StandaloneWorkspaceWindowSpaceSurface";
+export type { StandaloneWorkspaceWindowSpaceSurfaceProps } from "./windowing/StandaloneWorkspaceWindowSpaceSurface";
 export { WorkspaceControls } from "./toolbar/WorkspaceControls";
 export { registerWorkspaceToolbarContributions } from "./toolbar/workspaceToolbarRegistry";
 export type {

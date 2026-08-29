@@ -256,7 +256,7 @@ describe("WorkspaceWindowManager", () => {
     onChange.mockClear();
 
     const pills = host.querySelectorAll<HTMLButtonElement>(
-      '[data-testid="workspace-window-restore-pill"]',
+      '[data-testid="workspace-bottom-dock-pill"]',
     );
     expect(pills).toHaveLength(1);
     expect(pills[0]?.getAttribute("aria-label")).toBe(
@@ -275,7 +275,7 @@ describe("WorkspaceWindowManager", () => {
     ).toHaveLength(2);
     expect(getWindow("minimized").dataset.focused).toBe("true");
     expect(
-      host.querySelector('[data-testid="workspace-window-restore-pill"]'),
+      host.querySelector('[data-testid="workspace-bottom-dock-pill"]'),
     ).toBeNull();
   });
 
@@ -290,7 +290,7 @@ describe("WorkspaceWindowManager", () => {
     onChange.mockClear();
 
     const pill = host.querySelector<HTMLButtonElement>(
-      '[data-testid="workspace-window-restore-pill"]',
+      '[data-testid="workspace-bottom-dock-pill"]',
     );
     if (!pill) throw new Error("Expected a minimized-window recovery pill.");
     await act(async () => pill.click());
@@ -298,6 +298,36 @@ describe("WorkspaceWindowManager", () => {
     expect(onChange).toHaveBeenCalledOnce();
     expect(getWindow("minimized").dataset.focused).toBe("true");
     expect(host.querySelector('[aria-label="Minimized windows"]')).toBeNull();
+  });
+
+  it("reopens closed windows from the persistent manager in read-only presentation", async () => {
+    await mount({
+      initialState: createState([makeWindow("closed", { isClosed: true })]),
+      layoutEditable: false,
+    });
+    await resizeManager(800);
+    onChange.mockClear();
+
+    const reopen = host.querySelector<HTMLButtonElement>(
+      '[data-testid="workspace-bottom-dock-manager-reopen"]',
+    );
+    if (!reopen) throw new Error("Expected the manager reopen action.");
+    expect(
+      host.querySelector('[data-testid="workspace-bottom-dock-manager-hide"]'),
+    ).toBeNull();
+
+    await act(async () => reopen.click());
+
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange.mock.calls[0]?.[0].windows[0]).toMatchObject({
+      isClosed: false,
+      isMinimized: false,
+    });
+    expect(
+      host.querySelector(
+        '[data-testid="workspace-window-manager-window"][data-workspace-window-id="closed"]',
+      ),
+    ).not.toBeNull();
   });
 
   it("renders a local accessible state when a visible window has no registered renderer", async () => {

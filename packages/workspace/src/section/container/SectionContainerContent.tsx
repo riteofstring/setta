@@ -13,6 +13,13 @@ import { DEFAULT_SECTION_BG_COLOR } from "../sectionColors";
 import { MetaControlChrome } from "./MetaControlChrome";
 import type { WorkspaceHost } from "../../workspaceHost";
 import { useWorkspaceHost } from "../../workspaceHostContext";
+import { WorkspaceSectionWindowPlaceholder } from "../../windowing/WorkspaceSectionWindowPlaceholder";
+import {
+  focusOrReopenWorkspaceWindow,
+  getExternalWorkspaceSectionWindowBinding,
+} from "../../windowing/workspaceSectionWindowing";
+import { moveWorkspaceWindowToCanvasSection } from "../../windowing/windowingState";
+import { useOptionalWorkspaceWindowing } from "../../windowing/workspaceWindowingContext";
 
 // The reference's `SectionContainerCoreResizabe`, cut at the renderer seam: application area
 // renderers, chat windowing, and section-window placeholders are replaced by registered content.
@@ -23,7 +30,7 @@ type SectionContainerContentProps = {
   hasSectionStyleTheme: boolean;
 };
 
-export type WorkspaceSectionBodyContentProps = {
+type WorkspaceSectionBodyContentProps = {
   definition: SectionKindDefinition;
   section: WorkspaceSection;
   hasSectionStyleTheme: boolean;
@@ -35,6 +42,10 @@ export function SectionContainerContent({
 }: SectionContainerContentProps) {
   const host = useWorkspaceHost();
   const definition = getRegisteredSectionKindOrThrow(host, section.kind);
+  const windowing = useOptionalWorkspaceWindowing();
+  const externalWindow = windowing
+    ? getExternalWorkspaceSectionWindowBinding(windowing.state, section.id)
+    : null;
   const metaControlPresentation =
     definition.presentation?.type === "meta-control"
       ? definition.presentation
@@ -60,11 +71,32 @@ export function SectionContainerContent({
           hasSectionStyleTheme={hasSectionStyleTheme}
         />
       )}
-      <WorkspaceSectionBodyContent
-        definition={definition}
-        section={section}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-      />
+      {externalWindow && windowing ? (
+        <WorkspaceSectionWindowPlaceholder
+          dataTestId="section-canvas-window-placeholder"
+          layoutEditable={windowing.layoutEditable}
+          onFocusWindow={(windowId) =>
+            windowing.onStateChange(
+              focusOrReopenWorkspaceWindow(windowing.state, windowId),
+            )
+          }
+          onShowInCanvas={(windowId) =>
+            windowing.onStateChange(
+              moveWorkspaceWindowToCanvasSection(windowing.state, windowId, {
+                layoutEditable: windowing.layoutEditable,
+              }),
+            )
+          }
+          sectionId={section.id}
+          windowId={externalWindow.id}
+        />
+      ) : (
+        <WorkspaceSectionBodyContent
+          definition={definition}
+          section={section}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
+      )}
     </CustomResizable>
   );
 }

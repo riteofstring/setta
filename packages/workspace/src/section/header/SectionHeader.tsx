@@ -11,6 +11,19 @@ import { MenuButton } from "./MenuButton";
 import { MinimizeButton } from "./MinimizeButton";
 import { SectionTitle, type SectionTitleClassNames } from "./SectionTitle";
 import { useWorkspaceHost } from "../../workspaceHostContext";
+import {
+  allocateWorkspaceSectionWindowId,
+  canWorkspaceSectionOpenInWindow,
+  createWorkspaceSectionWindowContentId,
+  getExternalWorkspaceSectionWindowBinding,
+  getWorkspaceSectionWindowBinding,
+} from "../../windowing/workspaceSectionWindowing";
+import {
+  moveWorkspaceWindowToCanvasSection,
+  showWorkspaceSectionInFloatingWindow,
+} from "../../windowing/windowingState";
+import { WorkspaceSectionWindowToggleButton } from "../../windowing/WorkspaceSectionWindowToggleButton";
+import { useOptionalWorkspaceWindowing } from "../../windowing/workspaceWindowingContext";
 
 // The reference's `SectionHeader`, trimmed to the slice-reachable groups: the leading icon,
 // tag-color indicator, and editable title, then the container controls (lock, minimize,
@@ -28,7 +41,7 @@ const fixedTitleDefaultClassName = `${fixedTitleBaseClassName} text-setta-400`;
 const notEditingTitleBaseClassName =
   "px-1 py-0 -ms-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
 
-export type SectionHeaderProps = {
+type SectionHeaderProps = {
   sectionId: string;
   hasSectionStyleTheme: boolean;
   /** Window surfaces supply their own lifecycle controls through this slot. */
@@ -89,6 +102,12 @@ export function SectionHeader({
           sectionId={sectionId}
           sectionKind={sectionKind}
         />
+        {showSectionContainerControls ? (
+          <SectionWindowControl
+            hasSectionStyleTheme={hasSectionStyleTheme}
+            sectionId={sectionId}
+          />
+        ) : null}
         {extraControls}
         {showSectionContainerControls ? (
           <>
@@ -109,6 +128,60 @@ export function SectionHeader({
         ) : null}
       </div>
     </header>
+  );
+}
+
+function SectionWindowControl({
+  hasSectionStyleTheme,
+  sectionId,
+}: {
+  hasSectionStyleTheme: boolean;
+  sectionId: string;
+}) {
+  const host = useWorkspaceHost();
+  const windowing = useOptionalWorkspaceWindowing();
+  const section = useWorkspaceDocument((state) =>
+    getSectionOrThrow(state, sectionId),
+  );
+  if (!windowing) return null;
+  const binding = getWorkspaceSectionWindowBinding(windowing.state, sectionId);
+  const externalBinding = getExternalWorkspaceSectionWindowBinding(
+    windowing.state,
+    sectionId,
+  );
+  return (
+    <WorkspaceSectionWindowToggleButton
+      hasOpenExternalWindow={externalBinding !== null}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      layoutEditable={windowing.layoutEditable}
+      onOpenInFloatingWindow={() => {
+        windowing.onStateChange(
+          showWorkspaceSectionInFloatingWindow(
+            windowing.state,
+            {
+              contentId: createWorkspaceSectionWindowContentId(sectionId),
+              id:
+                binding?.id ??
+                allocateWorkspaceSectionWindowId(windowing.state, sectionId),
+              sectionId,
+              title: section.name,
+            },
+            windowing.viewport,
+            { layoutEditable: windowing.layoutEditable },
+          ),
+        );
+      }}
+      onShowInCanvas={() => {
+        if (!binding) return;
+        windowing.onStateChange(
+          moveWorkspaceWindowToCanvasSection(windowing.state, binding.id, {
+            layoutEditable: windowing.layoutEditable,
+          }),
+        );
+      }}
+      sectionId={sectionId}
+      sectionWindowingSupported={canWorkspaceSectionOpenInWindow(host, section)}
+    />
   );
 }
 

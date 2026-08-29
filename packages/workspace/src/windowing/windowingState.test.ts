@@ -257,12 +257,13 @@ describe("workspace floating window state", () => {
       shown,
       "section-window",
     );
-    expect(canvasOwned.windows.find((window) => window.id === "section-window"))
-      .toMatchObject({
-        placement: "canvas_section",
-        isClosed: false,
-        isMinimized: false,
-      });
+    expect(
+      canvasOwned.windows.find((window) => window.id === "section-window"),
+    ).toMatchObject({
+      placement: "canvas_section",
+      isClosed: false,
+      isMinimized: false,
+    });
     expect(
       isWorkspaceWindowVisible(
         canvasOwned.windows.find((window) => window.id === "section-window")!,
@@ -279,10 +280,12 @@ describe("workspace floating window state", () => {
       },
       viewport,
     );
-    expect(reshown.windows.filter((window) => window.sectionId === "section-a"))
-      .toHaveLength(1);
-    expect(reshown.windows.find((window) => window.sectionId === "section-a"))
-      .toMatchObject({ id: "section-window", placement: "floating" });
+    expect(
+      reshown.windows.filter((window) => window.sectionId === "section-a"),
+    ).toHaveLength(1);
+    expect(
+      reshown.windows.find((window) => window.sectionId === "section-a"),
+    ).toMatchObject({ id: "section-window", placement: "floating" });
   });
 
   it("prevents canvas-owned section windows from receiving lifecycle or floating mutations", () => {
@@ -318,7 +321,9 @@ describe("workspace floating window state", () => {
   });
 
   it("docks, undocks, and restores maximized windows to their prior external host", () => {
-    const initial = createWorkspaceWindowingState({ windows: [makeWindow("a")] });
+    const initial = createWorkspaceWindowingState({
+      windows: [makeWindow("a")],
+    });
     const docked = dockWorkspaceWindow(initial, "a");
     expect(docked.windows[0]).toMatchObject({ placement: "bottom_docked" });
 
@@ -340,9 +345,9 @@ describe("workspace floating window state", () => {
     });
 
     const maximizedFloat = maximizeWorkspaceWindow(undocked, "a");
-    expect(restoreWorkspaceWindow(maximizedFloat, "a").windows[0]).toMatchObject(
-      { placement: "floating" },
-    );
+    expect(
+      restoreWorkspaceWindow(maximizedFloat, "a").windows[0],
+    ).toMatchObject({ placement: "floating" });
   });
 
   it("updates dock bounds and metrics atomically after validating every target", () => {
@@ -365,10 +370,9 @@ describe("workspace floating window state", () => {
         dockMetrics: { preferredWidthPx: 540, widthFraction: 0.6 },
       },
     ]);
-    expect(updated.windows.map((window) => window.dockMetrics.widthFraction)).toEqual([
-      0.4,
-      0.6,
-    ]);
+    expect(
+      updated.windows.map((window) => window.dockMetrics.widthFraction),
+    ).toEqual([0.4, 0.6]);
 
     expect(() =>
       setWorkspaceWindowDockLayoutAtomically(updated, [

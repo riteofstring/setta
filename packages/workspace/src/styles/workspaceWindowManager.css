@@ -20,6 +20,17 @@
   pointer-events: auto;
 }
 
+.setta-workspace-window-manager-window
+  [data-workspace-window-drag-handle="true"] {
+  cursor: grab;
+  touch-action: none;
+}
+
+.setta-workspace-window-manager-window
+  [data-workspace-window-drag-handle="true"]:active {
+  cursor: grabbing;
+}
+
 .setta-workspace-window-manager-window[data-workspace-window-snap-preset]
   .setta-workspace-window-surface {
   border-radius: 0;

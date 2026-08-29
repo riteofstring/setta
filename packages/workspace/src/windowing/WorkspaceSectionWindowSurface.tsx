@@ -1,8 +1,14 @@
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { getSectionOrThrow } from "../document/documentSelectors";
 import { getRegisteredSectionKindOrThrow } from "../document/sectionKindRegistry";
-import { useWorkspaceAppearance, useWorkspaceDocument } from "../document/stores";
-import { getSectionContainerShellClassName, getSectionSurfaceClassName } from "../section/sectionChrome";
+import {
+  useWorkspaceAppearance,
+  useWorkspaceDocument,
+} from "../document/stores";
+import {
+  getSectionContainerShellClassName,
+  getSectionSurfaceClassName,
+} from "../section/sectionChrome";
 import { DEFAULT_SECTION_BG_COLOR } from "../section/sectionColors";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
 import { resolveSectionStyleVars } from "../section/sectionStyleVars";
@@ -15,7 +21,9 @@ export type WorkspaceSectionWindowSurfaceProps = {
   /** Window placement owns these controls; canvas-only controls stay hidden. */
   headerActions?: ReactNode;
   /** Forwards controlled drag and other native header behavior to the section header. */
-  headerProps?: Omit<ComponentPropsWithoutRef<"header">, "children" | "ref">;
+  headerProps?: Omit<ComponentPropsWithoutRef<"header">, "children" | "ref"> & {
+    "data-testid"?: string;
+  };
 };
 
 /**

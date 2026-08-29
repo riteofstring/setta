@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode, RefObject } from "react";
 import type { WorkspaceSectionTagColorPalette } from "../section/sectionTagColors";
+import type { WorkspaceShellWindowingConfiguration } from "../windowing/workspaceWindowingContext";
 
 export type WorkspaceShellPane = "leading" | "trailing";
 
@@ -61,6 +62,10 @@ export type WorkspaceShellProps = {
   // A host-composed interactive window manager. The shell supplies its positioned, transparent
   // stacking layer; the manager owns controlled state, geometry, and pointer-enabled descendants.
   windowManager?: ReactNode;
+  // The integrated controlled contract for section handoff and bottom docking. It provides one
+  // state value to the canvas projection and the shell-owned manager. A host may instead keep
+  // using windowManager for a generic manager that has no section handoff integration.
+  windowing?: WorkspaceShellWindowingConfiguration;
   // Mirrors frozen main's `leftSidePaneShiftsMap` setting. Enabled by default: opening, closing,
   // or resizing the leading pane shifts the map by the pane's true-width delta. Disable it to
   // leave the canvas camera unchanged beneath the overlay pane.

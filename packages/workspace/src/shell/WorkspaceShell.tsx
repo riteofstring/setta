@@ -32,6 +32,11 @@ import { WorkspaceInspector } from "./WorkspaceInspector";
 import { WorkspaceOutline } from "./WorkspaceOutline";
 import { WorkspaceShellPane } from "./WorkspaceShellPane";
 import {
+  assertWorkspaceShellWindowingConfiguration,
+  WorkspaceShellWindowManagerLayer,
+  WorkspaceShellWindowingComposition,
+} from "./WorkspaceShellWindowing";
+import {
   getWorkspaceShellPaneMinimumWidth,
   getWorkspaceShellPaneTrueWidth,
   isWorkspaceShellPaneFullWidth,
@@ -414,7 +419,9 @@ export function WorkspaceShell({
   trailingTabs,
   viewState,
   windowManager,
+  windowing,
 }: WorkspaceShellProps) {
+  assertWorkspaceShellWindowingConfiguration({ windowManager, windowing });
   const host = useWorkspaceHost();
   const scopeClassName = useWorkspaceScopeClassName();
   const outlineInitialFocusRef = useRef<HTMLElement>(null);
@@ -864,50 +871,43 @@ export function WorkspaceShell({
   };
 
   return (
-    <section
-      aria-label={ariaLabel}
-      className={`${scopeClassName} setta-workspace-shell${className ? ` ${className}` : ""}`}
-      data-workspace-shell="true"
-      ref={rootRef}
-    >
-      <WorkspaceShellPane
-        {...sharedPaneProps}
-        pane="leading"
-        paneState={displayState.leading}
-        regionStyle={getRegionStyle(
-          getWorkspaceShellPaneTrueWidth(displayState.leading),
-        )}
-        tabs={combinedLeadingTabs}
-      />
-      <div className="setta-workspace-shell-center">
-        <WorkspaceCanvas />
-      </div>
-      <WorkspaceShellPane
-        {...sharedPaneProps}
-        pane="trailing"
-        paneState={displayState.trailing}
-        regionStyle={getRegionStyle(
-          getWorkspaceShellPaneTrueWidth(displayState.trailing),
-        )}
-        tabs={combinedTrailingTabs}
-      />
-      <div className="setta-workspace-shell-controls">
-        <WorkspaceControls />
-      </div>
-      {windowManager !== undefined && windowManager !== null ? (
-        <div
-          data-workspace-shell-window-manager="true"
-          style={{
-            inset: 0,
-            pointerEvents: "none",
-            position: "absolute",
-            zIndex: 25,
-          }}
-        >
-          {windowManager}
+    <WorkspaceShellWindowingComposition windowing={windowing}>
+      <section
+        aria-label={ariaLabel}
+        className={`${scopeClassName} setta-workspace-shell${className ? ` ${className}` : ""}`}
+        data-workspace-shell="true"
+        ref={rootRef}
+      >
+        <WorkspaceShellPane
+          {...sharedPaneProps}
+          pane="leading"
+          paneState={displayState.leading}
+          regionStyle={getRegionStyle(
+            getWorkspaceShellPaneTrueWidth(displayState.leading),
+          )}
+          tabs={combinedLeadingTabs}
+        />
+        <div className="setta-workspace-shell-center">
+          <WorkspaceCanvas />
         </div>
-      ) : null}
-      <WorkspaceTooltip />
-    </section>
+        <WorkspaceShellPane
+          {...sharedPaneProps}
+          pane="trailing"
+          paneState={displayState.trailing}
+          regionStyle={getRegionStyle(
+            getWorkspaceShellPaneTrueWidth(displayState.trailing),
+          )}
+          tabs={combinedTrailingTabs}
+        />
+        <div className="setta-workspace-shell-controls">
+          <WorkspaceControls />
+        </div>
+        <WorkspaceShellWindowManagerLayer
+          windowManager={windowManager}
+          windowing={windowing}
+        />
+        <WorkspaceTooltip />
+      </section>
+    </WorkspaceShellWindowingComposition>
   );
 }

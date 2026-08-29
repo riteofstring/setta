@@ -43,10 +43,7 @@ export type WorkspaceFloatingSnapPreset =
   | "bottom_right";
 
 export type WorkspaceWindowPlacement =
-  | "canvas_section"
-  | "bottom_docked"
-  | "floating"
-  | "maximized";
+  "canvas_section" | "bottom_docked" | "floating" | "maximized";
 
 /** A maximized window can only return to one of the externally managed hosts. */
 export type WorkspaceWindowRestorePlacement = "bottom_docked" | "floating";
@@ -72,8 +69,8 @@ export interface WorkspaceWindowDockMetricsInput {
   readonly widthFraction: number;
 }
 
-export const WORKSPACE_WINDOW_DEFAULT_DOCK_PREFERRED_WIDTH_PX = 460;
-export const WORKSPACE_WINDOW_DEFAULT_DOCK_WIDTH_FRACTION = 1;
+const WORKSPACE_WINDOW_DEFAULT_DOCK_PREFERRED_WIDTH_PX = 460;
+const WORKSPACE_WINDOW_DEFAULT_DOCK_WIDTH_FRACTION = 1;
 
 /**
  * A window retains its floating bounds while maximized.  `restoreBounds` is
@@ -426,10 +423,7 @@ function parseOptionalZIndex(value: unknown): number {
     : parseNonnegativeInteger(value, "Workspace floating window.zIndex");
 }
 
-function assertWindowLifecycle(
-  placement: WorkspaceWindowPlacement,
-  restoreBounds: WorkspaceWindowBounds | null,
-  restorePlacement: WorkspaceWindowRestorePlacement | null,
+function assertWindowIsNotMinimizedAndClosed(
   isMinimized: boolean,
   isClosed: boolean,
 ): void {
@@ -439,6 +433,13 @@ function assertWindowLifecycle(
       "A workspace floating window cannot be minimized and closed at the same time.",
     );
   }
+}
+
+function assertMaximizedWindowHasRestoreState(
+  placement: WorkspaceWindowPlacement,
+  restoreBounds: WorkspaceWindowBounds | null,
+  restorePlacement: WorkspaceWindowRestorePlacement | null,
+): void {
   if (placement === "maximized" && restoreBounds === null) {
     throw new WorkspaceWindowingError(
       "invalid_transition",
@@ -451,6 +452,13 @@ function assertWindowLifecycle(
       "A maximized workspace floating window requires a restore placement.",
     );
   }
+}
+
+function assertNonMaximizedWindowHasNoRestoreState(
+  placement: WorkspaceWindowPlacement,
+  restoreBounds: WorkspaceWindowBounds | null,
+  restorePlacement: WorkspaceWindowRestorePlacement | null,
+): void {
   if (placement !== "maximized" && restoreBounds !== null) {
     throw new WorkspaceWindowingError(
       "invalid_transition",
@@ -465,12 +473,29 @@ function assertWindowLifecycle(
   }
 }
 
-function assertWindowOwnership(
-  surfaceKind: string,
-  sectionId: string | null,
+function assertWindowLifecycle(
   placement: WorkspaceWindowPlacement,
+  restoreBounds: WorkspaceWindowBounds | null,
+  restorePlacement: WorkspaceWindowRestorePlacement | null,
   isMinimized: boolean,
   isClosed: boolean,
+): void {
+  assertWindowIsNotMinimizedAndClosed(isMinimized, isClosed);
+  assertMaximizedWindowHasRestoreState(
+    placement,
+    restoreBounds,
+    restorePlacement,
+  );
+  assertNonMaximizedWindowHasNoRestoreState(
+    placement,
+    restoreBounds,
+    restorePlacement,
+  );
+}
+
+function assertSectionSurfaceOwnership(
+  surfaceKind: string,
+  sectionId: string | null,
 ): void {
   if (
     sectionId !== null &&
@@ -490,21 +515,37 @@ function assertWindowOwnership(
       "The reserved workspace section surface kind requires a section id.",
     );
   }
+}
+
+function assertCanvasSectionOwnership(
+  sectionId: string | null,
+  placement: WorkspaceWindowPlacement,
+  isMinimized: boolean,
+  isClosed: boolean,
+): void {
   if (placement === "canvas_section" && sectionId === null) {
     throw new WorkspaceWindowingError(
       "invalid_transition",
       "Only a section-bound workspace window can be canvas-owned.",
     );
   }
-  if (
-    placement === "canvas_section" &&
-    (isMinimized || isClosed)
-  ) {
+  if (placement === "canvas_section" && (isMinimized || isClosed)) {
     throw new WorkspaceWindowingError(
       "invalid_transition",
       "A canvas-owned workspace section window cannot be minimized or closed.",
     );
   }
+}
+
+function assertWindowOwnership(
+  surfaceKind: string,
+  sectionId: string | null,
+  placement: WorkspaceWindowPlacement,
+  isMinimized: boolean,
+  isClosed: boolean,
+): void {
+  assertSectionSurfaceOwnership(surfaceKind, sectionId);
+  assertCanvasSectionOwnership(sectionId, placement, isMinimized, isClosed);
 }
 
 /** Validates one serializable window and returns a detached immutable copy. */

@@ -140,19 +140,28 @@ describe("WorkspaceSectionWindowSurface", () => {
     expect(header?.className).toContain("window-header-drag-handle");
     expect(host.textContent).toContain("Original section");
     expect(
-      host.querySelector('[data-testid="registered-section-body"]')?.textContent,
+      host.querySelector('[data-testid="registered-section-body"]')
+        ?.textContent,
     ).toBe("Original section body");
-    expect(host.querySelector('[data-testid="window-only-action"]')).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="window-only-action"]'),
+    ).not.toBeNull();
     expect(
       host.querySelector('[aria-label="Lock position and size"]'),
     ).toBeNull();
     expect(host.querySelector('[aria-label="Minimize section"]')).toBeNull();
     expect(host.querySelector('[aria-label="Delete section"]')).toBeNull();
-    expect(host.querySelector('[data-testid="section-window-toggle"]')).toBeNull();
+    expect(
+      host.querySelector('[data-testid="section-window-toggle"]'),
+    ).toBeNull();
     expect(host.querySelector(".react-resizable")).toBeNull();
     expect(host.querySelector(".section-resize-handle")).toBeNull();
-    expect(workspace.sectionRefs.getState().selfOnly[SECTION_ID]).toBeUndefined();
-    expect(workspace.sectionRefs.getState().withNested[SECTION_ID]).toBeUndefined();
+    expect(
+      workspace.sectionRefs.getState().selfOnly[SECTION_ID],
+    ).toBeUndefined();
+    expect(
+      workspace.sectionRefs.getState().withNested[SECTION_ID],
+    ).toBeUndefined();
 
     await act(async () => {
       header?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
@@ -175,7 +184,8 @@ describe("WorkspaceSectionWindowSurface", () => {
     const surface = getSurface();
     expect(host.textContent).toContain("Renamed section");
     expect(
-      host.querySelector('[data-testid="registered-section-body"]')?.textContent,
+      host.querySelector('[data-testid="registered-section-body"]')
+        ?.textContent,
     ).toBe("Renamed section body");
     expect(surface.style.getPropertyValue("--setta-section-style-bg")).not.toBe(
       "",

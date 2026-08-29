@@ -1,14 +1,16 @@
 import { type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { FiMaximize2, FiMinimize2, FiMinus, FiX } from "react-icons/fi";
+import { MdFlipToFront, MdVerticalAlignBottom } from "react-icons/md";
+import { WorkspaceSectionWindowSurface } from "./WorkspaceSectionWindowSurface";
 import {
   WORKSPACE_WINDOW_FREE_RESIZE_DIRECTIONS,
   type WorkspaceFreeResizeDirection,
   type WorkspaceWindowSnapPreview,
 } from "./workspaceWindowManagerInteractions";
 import {
+  WorkspaceWindowActionButton,
   WorkspaceWindowSurface,
   type WorkspaceWindowSurfaceAction,
-  type WorkspaceWindowSurfaceProps,
 } from "./WorkspaceWindowSurface";
 import {
   classifyWorkspaceFloatingSnapPreset,
@@ -24,7 +26,8 @@ import {
 
 const SNAP_RESIZE_HIT_SIZE_PX = 8;
 
-type WindowAction = "close" | "maximize" | "minimize" | "restore";
+export type WorkspaceManagedWindowAction =
+  "close" | "dock" | "maximize" | "minimize" | "restore" | "show_in_canvas";
 
 export type WorkspaceWindowRenderer = (
   window: WorkspaceFloatingWindow,
@@ -41,17 +44,17 @@ type WorkspaceManagedWindowProps = {
   zIndex: number;
   layoutEditable: boolean;
   focused: boolean;
-  content: ReactNode;
+  renderers: WorkspaceWindowRenderers;
   onFocus: (windowId: string) => void;
-  onAction: (windowId: string, action: WindowAction) => void;
+  onAction: (windowId: string, action: WorkspaceManagedWindowAction) => void;
   onTitleCommit: (windowId: string, title: string) => void;
   onTitlePointerDown: (
-    event: PointerEvent<HTMLParagraphElement>,
+    event: PointerEvent<HTMLElement>,
     window: WorkspaceFloatingWindow,
   ) => void;
-  onTitlePointerMove: (event: PointerEvent<HTMLParagraphElement>) => void;
-  onTitlePointerUp: (event: PointerEvent<HTMLParagraphElement>) => void;
-  onTitlePointerCancel: (event: PointerEvent<HTMLParagraphElement>) => void;
+  onTitlePointerMove: (event: PointerEvent<HTMLElement>) => void;
+  onTitlePointerUp: (event: PointerEvent<HTMLElement>) => void;
+  onTitlePointerCancel: (event: PointerEvent<HTMLElement>) => void;
   onFreeResizePointerDown: (
     event: PointerEvent<HTMLDivElement>,
     window: WorkspaceFloatingWindow,
@@ -64,13 +67,12 @@ type WorkspaceManagedWindowProps = {
   ) => void;
 };
 
-type WorkspaceWindowSurfaceDragProps = Pick<
-  WorkspaceWindowSurfaceProps,
-  | "onTitlePointerDown"
-  | "onTitlePointerMove"
-  | "onTitlePointerUp"
-  | "onTitlePointerCancel"
->;
+type WorkspaceWindowTitlePointerProps = {
+  onTitlePointerDown?: (event: PointerEvent<HTMLElement>) => void;
+  onTitlePointerMove?: (event: PointerEvent<HTMLElement>) => void;
+  onTitlePointerUp?: (event: PointerEvent<HTMLElement>) => void;
+  onTitlePointerCancel?: (event: PointerEvent<HTMLElement>) => void;
+};
 
 function getWindowStyle(
   bounds: WorkspaceWindowBounds,
@@ -90,30 +92,50 @@ function getWindowActions(
   window: WorkspaceFloatingWindow,
   onAction: WorkspaceManagedWindowProps["onAction"],
 ): readonly WorkspaceWindowSurfaceAction[] {
-  const maximizeAction: WindowAction =
-    window.placement === "maximized" ? "restore" : "maximize";
-  return [
-    {
-      icon:
-        maximizeAction === "restore" ? (
-          <FiMinimize2 aria-hidden="true" size={12} />
-        ) : (
-          <FiMaximize2 aria-hidden="true" size={12} />
-        ),
-      id: maximizeAction,
-      label:
-        maximizeAction === "restore"
-          ? `Restore ${window.title}`
-          : `Maximize ${window.title}`,
-      onClick: () => onAction(window.id, maximizeAction),
-      testId:
-        maximizeAction === "restore"
-          ? "workspace-window-restore"
-          : "workspace-window-maximize",
-    },
+  const actions: WorkspaceWindowSurfaceAction[] = [];
+  if (window.sectionId !== null) {
+    actions.push({
+      icon: <MdFlipToFront aria-hidden="true" size={12} />,
+      id: "show_in_canvas",
+      isLayoutAction: true,
+      label: `Show ${window.title} in canvas`,
+      onClick: () => onAction(window.id, "show_in_canvas"),
+      testId: "workspace-window-show-in-canvas",
+    });
+  }
+  if (window.placement === "maximized") {
+    actions.push({
+      icon: <FiMinimize2 aria-hidden="true" size={12} />,
+      id: "restore",
+      isLayoutAction: true,
+      label: `Restore ${window.title}`,
+      onClick: () => onAction(window.id, "restore"),
+      testId: "workspace-window-restore",
+    });
+  }
+  actions.push({
+    icon: <MdVerticalAlignBottom aria-hidden="true" size={12} />,
+    id: "dock",
+    isLayoutAction: true,
+    label: `Dock ${window.title}`,
+    onClick: () => onAction(window.id, "dock"),
+    testId: "workspace-window-dock",
+  });
+  if (window.placement !== "maximized") {
+    actions.push({
+      icon: <FiMaximize2 aria-hidden="true" size={12} />,
+      id: "maximize",
+      isLayoutAction: true,
+      label: `Maximize ${window.title}`,
+      onClick: () => onAction(window.id, "maximize"),
+      testId: "workspace-window-maximize",
+    });
+  }
+  actions.push(
     {
       icon: <FiMinus aria-hidden="true" size={12} />,
       id: "minimize",
+      isLayoutAction: true,
       label: `Minimize ${window.title}`,
       onClick: () => onAction(window.id, "minimize"),
       testId: "workspace-window-minimize",
@@ -122,12 +144,14 @@ function getWindowActions(
     {
       icon: <FiX aria-hidden="true" size={12} />,
       id: "close",
+      isLayoutAction: true,
       label: `Close ${window.title}`,
       onClick: () => onAction(window.id, "close"),
       testId: "workspace-window-close",
       tone: "close",
     },
-  ];
+  );
+  return actions;
 }
 
 function getWorkspaceWindowSurfaceDragProps({
@@ -143,7 +167,7 @@ function getWorkspaceWindowSurfaceDragProps({
   | "onTitlePointerMove"
   | "onTitlePointerUp"
   | "window"
->): WorkspaceWindowSurfaceDragProps {
+>): WorkspaceWindowTitlePointerProps {
   if (window.placement !== "floating") return {};
   return {
     onTitlePointerCancel,
@@ -197,9 +221,94 @@ function WorkspaceWindowFreeResizeHandles({
   );
 }
 
+function isInteractiveWorkspaceWindowHeaderTarget(
+  target: EventTarget | null,
+): boolean {
+  return (
+    target instanceof Element &&
+    target.closest(
+      "button, [role='button'], [role='menuitem'], input, textarea, select, a, [contenteditable='true']",
+    ) !== null
+  );
+}
+
+function renderSectionWindowActions(
+  actions: readonly WorkspaceWindowSurfaceAction[],
+  windowId: string,
+): ReactNode {
+  return actions.map((action) => (
+    <WorkspaceWindowActionButton
+      key={action.id}
+      action={action}
+      windowId={windowId}
+    />
+  ));
+}
+
+type WorkspaceManagedWindowFrameProps = {
+  readonly actions: readonly WorkspaceWindowSurfaceAction[];
+  readonly layoutEditable: boolean;
+  readonly onFocus: () => void;
+  readonly onTitleCommit: (title: string) => void;
+  readonly renderers: WorkspaceWindowRenderers;
+  readonly titlePointerProps?: WorkspaceWindowTitlePointerProps;
+  readonly window: WorkspaceFloatingWindow;
+};
+
+/** Shared frame selection for floating, maximized, and bottom-docked hosts. */
+export function WorkspaceManagedWindowFrame({
+  actions,
+  layoutEditable,
+  onFocus,
+  onTitleCommit,
+  renderers,
+  titlePointerProps = {},
+  window,
+}: WorkspaceManagedWindowFrameProps) {
+  if (window.sectionId !== null) {
+    const headerProps =
+      layoutEditable && titlePointerProps.onTitlePointerDown
+        ? {
+            "data-testid": "workspace-window-title-drag-handle",
+            "data-workspace-window-drag-handle": "true",
+            onPointerCancel: titlePointerProps.onTitlePointerCancel,
+            onPointerDown: (event: PointerEvent<HTMLElement>) => {
+              if (isInteractiveWorkspaceWindowHeaderTarget(event.target))
+                return;
+              titlePointerProps.onTitlePointerDown?.(event);
+            },
+            onPointerMove: titlePointerProps.onTitlePointerMove,
+            onPointerUp: titlePointerProps.onTitlePointerUp,
+          }
+        : undefined;
+    return (
+      <WorkspaceSectionWindowSurface
+        headerActions={
+          layoutEditable ? renderSectionWindowActions(actions, window.id) : null
+        }
+        headerProps={headerProps}
+        sectionId={window.sectionId}
+      />
+    );
+  }
+  return (
+    <WorkspaceWindowSurface
+      {...titlePointerProps}
+      actions={actions}
+      allowLayoutMutations={layoutEditable}
+      dragHandleTestId="workspace-window-title-drag-handle"
+      onFocus={onFocus}
+      onTitleCommit={onTitleCommit}
+      title={window.title}
+      windowId={window.id}
+    >
+      {renderWorkspaceManagedWindowContent(window, renderers)}
+    </WorkspaceWindowSurface>
+  );
+}
+
 function WorkspaceManagedWindow({
   bounds,
-  content,
   focused,
   layoutEditable,
   onAction,
@@ -212,6 +321,7 @@ function WorkspaceManagedWindow({
   onTitlePointerMove,
   onTitlePointerCancel,
   onTitlePointerUp,
+  renderers,
   snapPreset,
   window,
   zIndex,
@@ -241,18 +351,15 @@ function WorkspaceManagedWindow({
       data-workspace-window-snap-preset={snapPreset ?? undefined}
       onPointerDown={() => onFocus(window.id)}
     >
-      <WorkspaceWindowSurface
-        {...titlePointerProps}
+      <WorkspaceManagedWindowFrame
         actions={getWindowActions(window, onAction)}
-        allowLayoutMutations={layoutEditable}
-        dragHandleTestId="workspace-window-title-drag-handle"
+        layoutEditable={layoutEditable}
         onFocus={() => onFocus(window.id)}
         onTitleCommit={(title) => onTitleCommit(window.id, title)}
-        title={window.title}
-        windowId={window.id}
-      >
-        {content}
-      </WorkspaceWindowSurface>
+        renderers={renderers}
+        titlePointerProps={titlePointerProps}
+        window={window}
+      />
       {canFreeResize ? (
         <WorkspaceWindowFreeResizeHandles
           onFreeResizeFinish={onFreeResizeFinish}
@@ -268,7 +375,6 @@ function WorkspaceManagedWindow({
 type WorkspaceWindowManagerWindowsProps = Omit<
   WorkspaceManagedWindowProps,
   | "bounds"
-  | "content"
   | "focused"
   | "onTitlePointerCancel"
   | "onTitlePointerUp"
@@ -288,7 +394,7 @@ type WorkspaceWindowManagerWindowsProps = Omit<
   readonly viewport: WorkspaceWindowViewport | null;
   readonly windows: readonly WorkspaceFloatingWindow[];
   onTitlePointerFinish: (
-    event: PointerEvent<HTMLParagraphElement>,
+    event: PointerEvent<HTMLElement>,
     commit: boolean,
   ) => void;
 };
@@ -390,7 +496,6 @@ export function WorkspaceWindowManagerWindows({
           <WorkspaceManagedWindow
             key={window.id}
             bounds={bounds}
-            content={renderWorkspaceManagedWindowContent(window, renderers)}
             focused={focusedWindowId === window.id}
             layoutEditable={layoutEditable}
             onAction={onAction}
@@ -403,6 +508,7 @@ export function WorkspaceWindowManagerWindows({
             onTitlePointerDown={onTitlePointerDown}
             onTitlePointerMove={onTitlePointerMove}
             onTitlePointerUp={(event) => onTitlePointerFinish(event, true)}
+            renderers={renderers}
             snapPreset={getWorkspaceManagedWindowSnapPreset(
               window,
               bounds,

@@ -10,9 +10,7 @@ export type WorkspaceSectionWindowPlaceholderProps = {
   windowId: string;
   /** Whether the host currently permits layout-changing actions. */
   layoutEditable: boolean;
-  /** Reopen an externally bound window before it receives focus. */
-  onReopenWindow: (windowId: string) => void;
-  /** Focus an externally bound window. This remains available in read-only mode. */
+  /** Reopen when necessary, then focus. This remains available in read-only mode. */
   onFocusWindow: (windowId: string) => void;
   /** Return the controlled external-window binding to its canvas section. */
   onShowInCanvas: (windowId: string) => void;
@@ -28,7 +26,6 @@ export function WorkspaceSectionWindowPlaceholder({
   dataTestId = "section-window-placeholder",
   layoutEditable,
   onFocusWindow,
-  onReopenWindow,
   onShowInCanvas,
   sectionId,
   windowId,
@@ -72,10 +69,7 @@ export function WorkspaceSectionWindowPlaceholder({
               className="inline-flex items-center rounded-md border border-setta-300 bg-white px-2.5 py-1 text-xs font-medium text-setta-800 shadow-sm transition-colors hover:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100 dark:hover:bg-setta-850"
               data-setta-workspace-touch-target="compact"
               data-testid="section-window-placeholder-focus"
-              onClick={() => {
-                onReopenWindow(windowId);
-                onFocusWindow(windowId);
-              }}
+              onClick={() => onFocusWindow(windowId)}
               title={focusWindowTitle}
               {...getWorkspaceTooltipHandlers(host, {
                 content: focusWindowTitle,

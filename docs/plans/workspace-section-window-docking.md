@@ -21,17 +21,17 @@ composition, but must not invent alternate labels, actions, placement rules, res
 or permission behavior. The local reference is read with `git show` and `git grep`; no fetch or pull
 is part of this work.
 
-| Behavior | Frozen-main authority |
-| --- | --- |
-| Section header toggle | `frontend/src/components/Section/Header/SectionWindowToggleButton.tsx` and its test |
-| Canvas placeholder | `frontend/src/components/Section/Container/SectionWindowPlaceholder.tsx` and its test |
-| Section content in a window | `frontend/src/components/Section/Container/SectionWindowSurface.tsx` and its test |
-| Binding and placement transitions | `frontend/src/state/actions/projectChatWindowing.ts` and `projectChatWindowing.test.ts` |
-| Dock panels, actions, resize, overflow, and manager | `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` |
-| Pure responsive dock sizing | `frontend/src/components/ChatWindowing/projectChatBottomDockLayout.ts` and `ProjectChatBottomDock.test.ts` |
-| Layout permissions | `frontend/e2e/project-chat-layout-permissions.spec.ts` |
-| Responsive dock acceptance | `frontend/e2e/project-chat-bottom-dock.spec.ts` and `project-chat-manager-menu.spec.ts` |
-| Window Space ownership reconciliation | `frontend/src/state/actions/windowSpaces.ts` and its restore tests |
+| Behavior                                            | Frozen-main authority                                                                                      |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Section header toggle                               | `frontend/src/components/Section/Header/SectionWindowToggleButton.tsx` and its test                        |
+| Canvas placeholder                                  | `frontend/src/components/Section/Container/SectionWindowPlaceholder.tsx` and its test                      |
+| Section content in a window                         | `frontend/src/components/Section/Container/SectionWindowSurface.tsx` and its test                          |
+| Binding and placement transitions                   | `frontend/src/state/actions/projectChatWindowing.ts` and `projectChatWindowing.test.ts`                    |
+| Dock panels, actions, resize, overflow, and manager | `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`                                          |
+| Pure responsive dock sizing                         | `frontend/src/components/ChatWindowing/projectChatBottomDockLayout.ts` and `ProjectChatBottomDock.test.ts` |
+| Layout permissions                                  | `frontend/e2e/project-chat-layout-permissions.spec.ts`                                                     |
+| Responsive dock acceptance                          | `frontend/e2e/project-chat-bottom-dock.spec.ts` and `project-chat-manager-menu.spec.ts`                    |
+| Window Space ownership reconciliation               | `frontend/src/state/actions/windowSpaces.ts` and its restore tests                                         |
 
 The package tests will restate the portable behavior without importing application modules.
 
@@ -150,7 +150,7 @@ document updates.
   panels cannot fit, later focused panels remain visible and the other open panels move to the
   recovery strip/menu without being minimized or closed.
 - Docked section action order is cycle backward/forward when overflow requires it, `Show in
-  canvas`, `Undock`, `Maximize`, `Minimize`, `Close`. Floating and maximized section surfaces add
+canvas`, `Undock`, `Maximize`, `Minimize`, `Close`. Floating and maximized section surfaces add
   `Show in canvas` and the appropriate `Dock` or restore action around the existing lifecycle
   controls.
 - The strip adapts from full-title pills to 28 px compact pills, then cycle controls, then a menu.
