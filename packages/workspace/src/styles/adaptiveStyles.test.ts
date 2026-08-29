@@ -185,6 +185,9 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(workspaceStyles).toContain(
       '.setta-workspace-navigator-trigger[data-workspace-keyboard-focus="true"]:focus',
     );
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace-navigator-trigger:focus\s*\{[^}]*outline: none/su,
+    );
     expect(workspaceStyles).not.toContain(
       ".setta-workspace-navigator-trigger:focus-visible",
     );

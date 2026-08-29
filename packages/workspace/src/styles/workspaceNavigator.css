@@ -363,6 +363,10 @@
   text-align: center;
 }
 
+.setta-workspace-navigator-trigger:focus {
+  outline: none;
+}
+
 .setta-workspace-navigator-trigger[data-workspace-keyboard-focus="true"]:focus,
 .setta-workspace-navigator-tab:focus-visible,
 .setta-workspace-navigator-close:focus-visible,
