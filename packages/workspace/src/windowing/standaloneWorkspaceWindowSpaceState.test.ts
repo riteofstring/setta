@@ -11,7 +11,10 @@ import {
   hydrateStandaloneWorkspaceWindowSpaceState,
   resolveActiveStandaloneWorkspaceSnapResizeBounds,
 } from "./standaloneWorkspaceWindowSpaceState";
-import type { WorkspaceWindowViewport } from "./windowingTypes";
+import {
+  WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
+  type WorkspaceWindowViewport,
+} from "./windowingTypes";
 import { createWorkspaceWindowSpace } from "./windowSpaces";
 
 const viewport: WorkspaceWindowViewport = {
@@ -31,6 +34,7 @@ function createSpace(id = "space") {
         id: "left",
         normalizedBounds: { height: 1, width: 0.5, x: 0, y: 0 },
         rendererData: { version: 1 },
+        sectionId: null,
         surfaceKind: "example",
         title: "Left",
         zIndex: 3,
@@ -40,6 +44,7 @@ function createSpace(id = "space") {
         id: "right",
         normalizedBounds: { height: 1, width: 0.5, x: 0.5, y: 0 },
         rendererData: { version: 1 },
+        sectionId: null,
         surfaceKind: "example",
         title: "Right",
         zIndex: 3,
@@ -55,6 +60,38 @@ describe("standalone Window Space state", () => {
     ).toMatchObject([
       { bounds: { height: 800, width: 500, x: 0, y: 0 }, id: "left" },
       { bounds: { height: 800, width: 500, x: 500, y: 0 }, id: "right" },
+    ]);
+  });
+
+  it("retains a saved section binding in the standalone floating projection", () => {
+    const windows = hydrateStandaloneWorkspaceWindowSpace(
+      createWorkspaceWindowSpace({
+        id: "section-space",
+        name: "Section Space",
+        order: 0,
+        windows: [
+          {
+            contentId: "section-content",
+            id: "section-window",
+            normalizedBounds: { height: 1, width: 1, x: 0, y: 0 },
+            rendererData: {},
+            sectionId: "section-a",
+            surfaceKind: WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
+            title: "Section A",
+            zIndex: 0,
+          },
+        ],
+      }),
+      viewport,
+    );
+
+    expect(windows).toMatchObject([
+      {
+        id: "section-window",
+        sectionId: "section-a",
+        placement: "floating",
+        restorePlacement: null,
+      },
     ]);
   });
 

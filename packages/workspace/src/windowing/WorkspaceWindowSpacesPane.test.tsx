@@ -57,6 +57,7 @@ function createSpace(
         id: `window-${id}`,
         normalizedBounds: { height: 1, width: 0.5, x: 0, y: 0 },
         rendererData: { id },
+        sectionId: null,
         surfaceKind: "example",
         title: `${name} window`,
         zIndex: order,
