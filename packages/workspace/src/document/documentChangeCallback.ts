@@ -1,4 +1,6 @@
 import type { WorkspaceHost } from "../workspaceHost";
+import { notifyWorkspaceHistoryDocumentChange } from "../history/workspaceHistory";
+import type { WorkspaceHistoryChangeKind } from "../history/workspaceHistoryTypes";
 import { getActiveSectionsStore, getWorkspaceDocumentStore } from "./stores";
 import type { WorkspaceDocument } from "./types";
 import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
@@ -52,29 +54,6 @@ export function subscribeWorkspaceDocument(
   return () => state.subscribers.delete(listener);
 }
 
-export function notifyWorkspaceDocumentSubscribers(host: WorkspaceHost): void {
-  const state = getDocumentChangeState(host);
-  const subscribers = [...state.subscribers];
-  if (subscribers.length === 0) {
-    return;
-  }
-  if (state.notifying) {
-    throw new Error(
-      "A workspace document subscription mutated the workspace synchronously. " +
-        "Apply host reactions asynchronously to avoid a notification feedback loop.",
-    );
-  }
-  const document = getWorkspaceDocument(host);
-  state.notifying = true;
-  try {
-    for (const subscriber of subscribers) {
-      subscriber(document);
-    }
-  } finally {
-    state.notifying = false;
-  }
-}
-
 export function runWithWorkspaceDocumentChangeNotificationsSuppressed(
   host: WorkspaceHost,
   fn: () => void,
@@ -88,10 +67,28 @@ export function runWithWorkspaceDocumentChangeNotificationsSuppressed(
   }
 }
 
-export function notifyWorkspaceDocumentChange(host: WorkspaceHost): void {
+export function notifyWorkspaceDocumentChange(
+  host: WorkspaceHost,
+  kind: WorkspaceHistoryChangeKind | null,
+): void {
   const state = getDocumentChangeState(host);
   if (state.suppressionDepth > 0) {
     return;
   }
-  notifyWorkspaceDocumentSubscribers(host);
+  if (state.notifying) {
+    throw new Error(
+      "A workspace document subscription mutated the workspace synchronously. " +
+        "Apply host reactions asynchronously to avoid a notification feedback loop.",
+    );
+  }
+  const document = getWorkspaceDocument(host);
+  state.notifying = true;
+  try {
+    notifyWorkspaceHistoryDocumentChange(host, document, kind);
+    for (const subscriber of [...state.subscribers]) {
+      subscriber(document);
+    }
+  } finally {
+    state.notifying = false;
+  }
 }

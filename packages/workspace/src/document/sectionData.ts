@@ -18,5 +18,5 @@ export function setSectionData(
       [sectionId]: { ...section, data },
     },
   });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, null);
 }

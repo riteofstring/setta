@@ -244,6 +244,6 @@ describe("document-change notification", () => {
 describe("notifyWorkspaceDocumentChange", () => {
   it("is inert without a host subscription", () => {
     unsubscribe();
-    expect(() => notifyWorkspaceDocumentChange(host)).not.toThrow();
+    expect(() => notifyWorkspaceDocumentChange(host, null)).not.toThrow();
   });
 });

@@ -8,7 +8,10 @@ import {
   zoomOut,
   zoomToPointerLocation,
 } from "../canvas/viewportHelpers";
-import { createSectionCommandContext } from "../commands/workspaceCommandContexts";
+import {
+  createPaneCommandContext,
+  createSectionCommandContext,
+} from "../commands/workspaceCommandContexts";
 import { getWorkspaceCommandOrThrow } from "../commands/workspaceCommandRegistry";
 import { runWorkspaceCommandById } from "../commands/workspaceCommandResolution";
 import { getActiveSectionIds } from "../document/activeSections";
@@ -65,6 +68,29 @@ function runActiveSectionCommand(
     commandId,
     createSectionCommandContext(host, primarySection, sections),
   ).ran;
+}
+
+function runPaneCommand(host: WorkspaceHost, commandId: string): boolean {
+  return runWorkspaceCommandById(
+    commandId,
+    createPaneCommandContext(host, null),
+  ).ran;
+}
+
+function createPaneCommandBinding(
+  host: WorkspaceHost,
+  commandId: string,
+  defaultChord: string,
+): WorkspaceKeyBindingDefinition {
+  return Object.freeze({
+    id: commandId,
+    defaultChord,
+    allowRepeat: false,
+    keepsChordWhenDeclined: false,
+    getLabel: () =>
+      getWorkspaceCommandOrThrow(host, commandId).definition.label,
+    run: () => runPaneCommand(host, commandId),
+  });
 }
 
 function createSectionCommandBinding(
@@ -174,6 +200,8 @@ export function listBuiltInWorkspaceKeyBindings(
   host: WorkspaceHost,
 ): ReadonlyArray<WorkspaceKeyBindingDefinition> {
   return Object.freeze([
+    createPaneCommandBinding(host, "workspace.undo", "Mod + Z"),
+    createPaneCommandBinding(host, "workspace.redo", "Mod + Shift + Z"),
     createSectionCommandBinding(host, "workspace.group-sections", "Mod + G"),
     createSectionCommandBinding(
       host,

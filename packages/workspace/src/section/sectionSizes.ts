@@ -194,6 +194,7 @@ export function persistSectionSizeChange(
   host: WorkspaceHost,
   sectionId: string,
   nextSize: Partial<SectionSize>,
+  historyChangeKind: "section-resize" | null = "section-resize",
 ) {
   const documentStore = getWorkspaceDocumentStore(host);
   const state = documentStore.getState();
@@ -215,7 +216,7 @@ export function persistSectionSizeChange(
     assertValidSectionOverflowMode(updatedSectionId, section);
   }
   documentStore.setState({ sections });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, historyChangeKind);
 }
 
 export function setWorkspaceSectionSize(

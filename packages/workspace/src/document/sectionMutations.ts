@@ -22,6 +22,7 @@ function setSectionValues(
   host: WorkspaceHost,
   sectionId: string,
   values: Partial<WorkspaceSection>,
+  historyChangeKind: "section-layout" | "section-presentation",
 ) {
   getWorkspaceDocumentStore(host).setState((state) => {
     const section = getSectionOrThrow(state, sectionId);
@@ -29,7 +30,7 @@ function setSectionValues(
       sections: { ...state.sections, [sectionId]: { ...section, ...values } },
     };
   });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, historyChangeKind);
 }
 
 function getUniqueSectionIds(
@@ -52,7 +53,7 @@ export function setSectionName(
   sectionId: string,
   name: string,
 ) {
-  setSectionValues(host, sectionId, { name });
+  setSectionValues(host, sectionId, { name }, "section-presentation");
 }
 
 export function setSectionStyleColor(
@@ -98,7 +99,7 @@ export function setSectionStyleColor(
       getWorkspaceDocumentStore(host).setState(nextDocumentState);
     },
   );
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, "section-presentation");
 }
 
 export function setSectionsPositionLocked(
@@ -115,7 +116,7 @@ export function setSectionsPositionLocked(
     }
     return { sections };
   });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, "section-layout");
 }
 
 export function togglePositionLock(host: WorkspaceHost, sectionId: string) {
@@ -131,7 +132,12 @@ export function toggleMinimized(host: WorkspaceHost, sectionId: string) {
     getWorkspaceDocumentStore(host).getState(),
     sectionId,
   );
-  setSectionValues(host, sectionId, { isMinimized: !section.isMinimized });
+  setSectionValues(
+    host,
+    sectionId,
+    { isMinimized: !section.isMinimized },
+    "section-presentation",
+  );
 }
 
 export function toggleGroupOrientation(host: WorkspaceHost, sectionId: string) {
@@ -143,9 +149,14 @@ export function toggleGroupOrientation(host: WorkspaceHost, sectionId: string) {
   if (!isGroupSection(section)) {
     return;
   }
-  setSectionValues(host, sectionId, {
-    isHorizontalOrientation: !section.isHorizontalOrientation,
-  });
+  setSectionValues(
+    host,
+    sectionId,
+    {
+      isHorizontalOrientation: !section.isHorizontalOrientation,
+    },
+    "section-layout",
+  );
 }
 
 function collectSectionSubtreeIds(
@@ -238,7 +249,7 @@ export function deleteSections(
       getActiveSectionsStore(host).setState(nextActiveSections);
     },
   );
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, "section-delete");
 }
 
 function getGroupingParentId(
@@ -420,5 +431,5 @@ export function groupSections(
       getActiveSectionsStore(host).setState(nextActiveSections);
     },
   );
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, "section-group");
 }

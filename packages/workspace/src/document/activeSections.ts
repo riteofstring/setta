@@ -15,5 +15,5 @@ export function setActiveSectionIds(
     return;
   }
   getActiveSectionsStore(host).setState({ activeIds: ids });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, null);
 }

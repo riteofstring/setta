@@ -64,7 +64,7 @@ export function moveSections(
       getWorkspaceDocumentStore(host).setState(nextDocumentState);
     },
   );
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, "section-move");
 }
 
 function assertValidMoveSectionsInput(

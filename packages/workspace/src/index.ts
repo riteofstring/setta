@@ -1,5 +1,18 @@
 export { createWorkspaceHost } from "./workspaceHost";
-export type { WorkspaceHost } from "./workspaceHost";
+export type { WorkspaceHost, WorkspaceHostOptions } from "./workspaceHost";
+export {
+  getWorkspaceHistoryState,
+  redoWorkspace,
+  subscribeWorkspaceHistory,
+  undoWorkspace,
+} from "./history/workspaceHistory";
+export type {
+  WorkspaceHistoryAuthority,
+  WorkspaceHistoryChangeKind,
+  WorkspaceHistoryState,
+  WorkspaceHistorySynchronization,
+  WorkspaceHistoryTransaction,
+} from "./history/workspaceHistoryTypes";
 export { WorkspaceProvider, useWorkspaceHost } from "./workspaceHostContext";
 export {
   getWorkspaceCodeSectionData,

@@ -87,5 +87,5 @@ export function insertWorkspaceSection(
       getActiveSectionsStore(host).setState(nextActiveSections);
     },
   );
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, "section-create");
 }

@@ -4,6 +4,11 @@ import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import { isGroupSection } from "../document/documentSelectors";
 import { getWorkspaceItemFactory } from "../document/sectionKindRegistry";
 import {
+  getWorkspaceHistoryState,
+  redoWorkspace,
+  undoWorkspace,
+} from "../history/workspaceHistory";
+import {
   deleteSections,
   groupSections,
   setSectionsPositionLocked,
@@ -90,6 +95,30 @@ function getLayoutReason(
     ? null
     : LAYOUT_REASON;
 }
+
+const undoWorkspaceCommand: WorkspacePackageCommandDefinition = {
+  id: "workspace.undo",
+  scope: "pane",
+  surfaces: ["palette"],
+  label: "Undo",
+  getDisabledReason: (context) =>
+    getWorkspaceHistoryState(context.host).undoDisabledReason ?? null,
+  run: (context) => {
+    undoWorkspace(context.host);
+  },
+};
+
+const redoWorkspaceCommand: WorkspacePackageCommandDefinition = {
+  id: "workspace.redo",
+  scope: "pane",
+  surfaces: ["palette"],
+  label: "Redo",
+  getDisabledReason: (context) =>
+    getWorkspaceHistoryState(context.host).redoDisabledReason ?? null,
+  run: (context) => {
+    redoWorkspace(context.host);
+  },
+};
 
 function getSelectedSectionIds(
   context: WorkspaceSectionCommandContext,
@@ -396,6 +425,8 @@ const deleteItemCommand: WorkspacePackageCommandDefinition = {
 
 export const builtInWorkspaceCommands: ReadonlyArray<WorkspacePackageCommandDefinition> =
   Object.freeze([
+    undoWorkspaceCommand,
+    redoWorkspaceCommand,
     groupSectionsCommand,
     toggleGroupOverflowCommand,
     ungroupSectionsCommand,

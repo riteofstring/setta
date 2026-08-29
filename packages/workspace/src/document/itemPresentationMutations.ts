@@ -65,7 +65,7 @@ function commitItemPresentation(
       },
     },
   });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, null);
 }
 
 export function setItemLabel(

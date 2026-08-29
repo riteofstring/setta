@@ -18,9 +18,13 @@ afterEachWorkspaceTestHost(() => {
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import {
+  getWorkspaceCapabilitiesStore,
+  useWorkspaceCapabilities,
+} from "../document/capabilities";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { deleteSections } from "../document/sectionMutations";
 import {
   useActiveSections,
   useNodeInternals,
@@ -30,7 +34,11 @@ import type {
   WorkspaceSection,
   WorkspaceSectionInput,
 } from "../document/types";
-import { createSectionCommandContext } from "./workspaceCommandContexts";
+import {
+  createPaneCommandContext,
+  createSectionCommandContext,
+} from "./workspaceCommandContexts";
+import { createWorkspaceHost } from "../workspaceHost";
 import { registerWorkspaceCommands } from "./workspaceCommandRegistry";
 import {
   hasApplicableWorkspaceCommands,
@@ -105,6 +113,23 @@ function loadGroupDocument(): void {
   });
 }
 
+function createLocalHistoryHost() {
+  const host = createWorkspaceHost({ history: { kind: "local" } });
+  registerSectionKinds(host, {
+    leaf: { renderContent: () => null },
+  });
+  loadWorkspaceDocument(host, {
+    sections: { history: createSection("history") },
+    topLevelSections: {
+      history: { x: 0, y: 0, w: 200, h: 100, zIndex: 0 },
+    },
+    viewport: { x: 0, y: 0, zoom: 1 },
+    activeIds: ["history"],
+  });
+  deleteSections(host, ["history"]);
+  return host;
+}
+
 describe("workspace command resolution", () => {
   beforeEach(() => {
     registerWorkspaceCommands(testWorkspace.host, []);
@@ -162,6 +187,85 @@ describe("workspace command resolution", () => {
     expect(hasApplicableWorkspaceCommands("header", contextFor("leaf"))).toBe(
       false,
     );
+  });
+
+  it("offers history commands in the palette with their live availability", () => {
+    const context = createPaneCommandContext(testWorkspace.host, null);
+
+    expect(
+      resolveWorkspaceCommandEntries("palette", context)
+        .filter(
+          (entry) =>
+            entry.id === "workspace.undo" || entry.id === "workspace.redo",
+        )
+        .map((entry) => ({
+          disabled: entry.disabled,
+          disabledReason: entry.disabledReason,
+          id: entry.id,
+          label: entry.label,
+        })),
+    ).toEqual([
+      {
+        disabled: true,
+        disabledReason: "History is disabled for this workspace.",
+        id: "workspace.undo",
+        label: "Undo",
+      },
+      {
+        disabled: true,
+        disabledReason: "History is disabled for this workspace.",
+        id: "workspace.redo",
+        label: "Redo",
+      },
+    ]);
+  });
+
+  it("runs available history navigation and exposes its capability reason", () => {
+    const host = createLocalHistoryHost();
+    try {
+      const context = createPaneCommandContext(host, null);
+      const getHistoryEntry = (id: "workspace.redo" | "workspace.undo") => {
+        const entry = resolveWorkspaceCommandEntries("palette", context).find(
+          (candidate) => candidate.id === id,
+        );
+        if (!entry) {
+          throw new Error(`Missing history command ${id}.`);
+        }
+        return entry;
+      };
+
+      expect(getHistoryEntry("workspace.undo")).toMatchObject({
+        disabled: false,
+        disabledReason: null,
+      });
+      getWorkspaceCapabilitiesStore(host).setState({
+        canEditStructure: false,
+      });
+      expect(getHistoryEntry("workspace.undo")).toMatchObject({
+        disabled: true,
+        disabledReason: "Undo requires permission to edit workspace structure.",
+      });
+      expect(getHistoryEntry("workspace.undo").run()).toEqual({
+        ran: false,
+        statusMessage: null,
+      });
+
+      getWorkspaceCapabilitiesStore(host).setState({
+        canEditStructure: true,
+      });
+      expect(getHistoryEntry("workspace.undo").run()).toEqual({
+        ran: true,
+        statusMessage: null,
+      });
+      expect(host.getSnapshot().sections["history"]).toBeDefined();
+      expect(getHistoryEntry("workspace.redo").run()).toEqual({
+        ran: true,
+        statusMessage: null,
+      });
+      expect(host.getSnapshot().sections["history"]).toBeUndefined();
+    } finally {
+      host.dispose();
+    }
   });
 
   it("hides the overflow toggle for a multiple selection and flips lock with the selection", () => {

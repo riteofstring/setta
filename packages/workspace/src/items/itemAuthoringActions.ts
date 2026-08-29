@@ -103,9 +103,17 @@ function assertItemAuthoringAvailable(
 function commitItemTree(
   host: WorkspaceHost,
   sectionId: string,
-  itemTree: WorkspaceSectionItemTree,
-  focusTargetId: string | null,
-  focusPlan: ItemAuthoringFocusPlan | null,
+  {
+    focusPlan,
+    focusTargetId,
+    historyChangeKind,
+    itemTree,
+  }: {
+    focusPlan: ItemAuthoringFocusPlan | null;
+    focusTargetId: string | null;
+    historyChangeKind: "item-create" | "item-delete";
+    itemTree: WorkspaceSectionItemTree;
+  },
 ): void {
   const documentStore = getWorkspaceDocumentStore(host);
   const activeSectionsStore = getActiveSectionsStore(host);
@@ -128,7 +136,7 @@ function commitItemTree(
       activeSectionsStore.setState(activeSections);
     },
   );
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, historyChangeKind);
   restoreItemAuthoringFocus(host, focusPlan, focusTargetId);
 }
 
@@ -143,13 +151,12 @@ export function insertWorkspaceItem(
   const item = createWorkspaceItemFromFactory(host, section);
   const prepared = prepareWorkspaceItemInsertion(sectionId, itemTree, item);
   const focusPlan = captureItemAuthoringFocusPlan(host, sectionId);
-  commitItemTree(
-    host,
-    sectionId,
-    prepared.itemTree,
-    prepared.focusTargetId,
+  commitItemTree(host, sectionId, {
     focusPlan,
-  );
+    focusTargetId: prepared.focusTargetId,
+    historyChangeKind: "item-create",
+    itemTree: prepared.itemTree,
+  });
   return structuredClone(
     getItemOrThrow(prepared.itemTree, prepared.insertedItemId),
   );
@@ -169,13 +176,12 @@ export function deleteWorkspaceItems(
   assertItemAuthoringAvailable(host, section);
   const prepared = prepareWorkspaceItemDeletion(sectionId, itemTree, itemIds);
   const focusPlan = captureItemAuthoringFocusPlan(host, sectionId);
-  commitItemTree(
-    host,
-    sectionId,
-    prepared.itemTree,
-    prepared.focusTargetId,
+  commitItemTree(host, sectionId, {
     focusPlan,
-  );
+    focusTargetId: prepared.focusTargetId,
+    historyChangeKind: "item-delete",
+    itemTree: prepared.itemTree,
+  });
   return prepared.deletedItemIds;
 }
 

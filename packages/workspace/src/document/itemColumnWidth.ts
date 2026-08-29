@@ -28,5 +28,5 @@ export function setItemColumnWidth(
       },
     },
   });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, "item-layout");
 }

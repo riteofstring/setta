@@ -2,12 +2,17 @@ import {
   disposeWorkspaceHost,
   initializeWorkspaceHost,
 } from "./workspaceHostInternals";
+import { initializeWorkspaceHistory } from "./history/workspaceHistory";
+import type { WorkspaceHostOptions } from "./history/workspaceHistoryTypes";
 import {
   getWorkspaceDocument,
   subscribeWorkspaceDocument,
   type WorkspaceDocumentSubscription,
 } from "./document/documentChangeCallback";
-import { loadWorkspaceDocument } from "./document/loadWorkspaceDocument";
+import {
+  loadWorkspaceDocument,
+  replayWorkspaceHistoryDocument,
+} from "./document/loadWorkspaceDocument";
 import type {
   WorkspaceDocument,
   WorkspaceDocumentInput,
@@ -20,7 +25,11 @@ export type WorkspaceHost = {
   subscribe(listener: WorkspaceDocumentSubscription): () => void;
 };
 
-export function createWorkspaceHost(): WorkspaceHost {
+export type { WorkspaceHostOptions } from "./history/workspaceHistoryTypes";
+
+export function createWorkspaceHost(
+  options: WorkspaceHostOptions = {},
+): WorkspaceHost {
   let host: WorkspaceHost;
   host = {
     dispose: () => disposeWorkspaceHost(host),
@@ -29,5 +38,9 @@ export function createWorkspaceHost(): WorkspaceHost {
     subscribe: (listener) => subscribeWorkspaceDocument(host, listener),
   };
   initializeWorkspaceHost(host);
+  initializeWorkspaceHistory(host, options.history, {
+    getDocument: getWorkspaceDocument,
+    replayDocument: replayWorkspaceHistoryDocument,
+  });
   return host;
 }

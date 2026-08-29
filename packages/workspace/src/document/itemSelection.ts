@@ -34,7 +34,7 @@ export function toggleItemSelected(
       [sectionId]: { ...section, itemTree: { ...itemTree, selectedItemIds } },
     },
   });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, null);
   applyActiveSectionChange(host, {
     interaction: wasSelected ? "item-unselect" : "item-select",
     sectionId,
@@ -70,7 +70,7 @@ export function setSelectedItems(
       },
     },
   });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, null);
   applyActiveSectionChange(host, { interaction: "item-select", sectionId });
 }
 
@@ -105,7 +105,7 @@ export function unselectAllItems(host: WorkspaceHost): boolean {
     return false;
   }
   documentStore.setState({ sections });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, null);
   return true;
 }
 

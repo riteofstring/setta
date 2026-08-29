@@ -7,6 +7,12 @@ import { useShouldDisablePointerEvents } from "../../canvas/useShouldDisablePoin
 import { useWorkspaceCapabilities } from "../../document/capabilities";
 import { getSectionOrThrow } from "../../document/documentSelectors";
 import { useWorkspaceDocument } from "../../document/stores";
+import {
+  beginWorkspaceHistoryBatch,
+  cancelWorkspaceHistoryBatch,
+  completeWorkspaceHistoryBatch,
+  type WorkspaceHistoryBatch,
+} from "../../history/workspaceHistory";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import type { SectionSize } from "../../document/types";
 import {
@@ -114,6 +120,7 @@ export function CustomResizable({
   const resizeStartedRef = useRef(false);
   const autoSizePromotedRef = useRef(false);
   const resizeAttemptedRef = useRef(false);
+  const historyBatchRef = useRef<WorkspaceHistoryBatch | null>(null);
   const resizeClickRef = useRef<{
     lastTimestampMs: number | null;
     lastDirection: ResizeHandleDirection | null;
@@ -153,6 +160,14 @@ export function CustomResizable({
   }
 
   function onResizeStart(_event?: unknown, direction?: string) {
+    const previousBatch = historyBatchRef.current;
+    if (previousBatch !== null) {
+      cancelWorkspaceHistoryBatch(host, previousBatch);
+    }
+    historyBatchRef.current = beginWorkspaceHistoryBatch(
+      host,
+      "section-resize",
+    );
     setActiveResizeHandle(direction ?? null);
     resizeStartedRef.current = false;
     autoSizePromotedRef.current = false;
@@ -192,6 +207,11 @@ export function CustomResizable({
     autoSizePromotedRef.current = false;
     resizeAttemptedRef.current = false;
     doubleClickPendingRef.current = false;
+    const historyBatch = historyBatchRef.current;
+    if (historyBatch !== null) {
+      historyBatchRef.current = null;
+      completeWorkspaceHistoryBatch(host, historyBatch);
+    }
   }
 
   function onResizeStop(
@@ -231,13 +251,33 @@ export function CustomResizable({
       minWidth,
       maxWidth,
     });
-    persistSectionSizeChange(host, sectionId, clampedSize);
+    try {
+      persistSectionSizeChange(host, sectionId, clampedSize);
+    } catch (error) {
+      const historyBatch = historyBatchRef.current;
+      if (historyBatch !== null) {
+        historyBatchRef.current = null;
+        cancelWorkspaceHistoryBatch(host, historyBatch);
+      }
+      throw error;
+    }
     finishResizeStop(shouldEmitResizeEnd);
   }
 
   useEffect(() => {
+    return () => {
+      const historyBatch = historyBatchRef.current;
+      if (historyBatch === null) {
+        return;
+      }
+      historyBatchRef.current = null;
+      cancelWorkspaceHistoryBatch(host, historyBatch);
+    };
+  }, [host, sectionId]);
+
+  useEffect(() => {
     if (heightSizeMode === "auto-only" && size.height !== "auto") {
-      persistSectionSizeChange(host, sectionId, { height: "auto" });
+      persistSectionSizeChange(host, sectionId, { height: "auto" }, null);
       return;
     }
     const nextSize = getAutoClampSize({
@@ -253,7 +293,7 @@ export function CustomResizable({
     if (!canEditLayout || positionAndSizeLocked) {
       return;
     }
-    persistSectionSizeChange(host, sectionId, nextSize);
+    persistSectionSizeChange(host, sectionId, nextSize, null);
   }, [
     minHeight,
     maxHeight,

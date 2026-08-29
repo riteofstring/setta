@@ -186,6 +186,7 @@ const OTHER_PLATFORM_EDITING_CHORDS: ReadonlyArray<ChordPattern> = [
   { mode: "mod-or-ctrl", keys: ["KeyV"] },
   { mode: "mod-or-ctrl", keys: ["KeyX"] },
   { mode: "mod-or-ctrl", keys: ["KeyZ"] },
+  { mode: "mod-or-ctrl-shift", keys: ["KeyZ"] },
   { mode: "mod-or-ctrl", keys: ["KeyY"] },
   { mode: "mod-or-ctrl", keys: ["ArrowLeft"] },
   { mode: "mod-or-ctrl", keys: ["ArrowRight"] },

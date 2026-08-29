@@ -81,7 +81,10 @@ export function raiseTempZIndex(
   nodeStore.setState({ x: newNodes });
 }
 
-export function commitTopLevelLayoutToDocument(host: WorkspaceHost) {
+export function commitTopLevelLayoutToDocument(
+  host: WorkspaceHost,
+  historyChangeKind: "section-move" | null = "section-move",
+) {
   const documentStore = getWorkspaceDocumentStore(host);
   const documentState = documentStore.getState();
   const nodeInternals = getNodeInternalsStore(host).getState().x;
@@ -112,7 +115,7 @@ export function commitTopLevelLayoutToDocument(host: WorkspaceHost) {
     return;
   }
   documentStore.setState({ topLevelSections: nextLayouts });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, historyChangeKind);
 }
 
 export function updateNodeDimensionsFromResizeObserver(
@@ -134,7 +137,7 @@ export function updateNodeDimensionsFromResizeObserver(
   if (dimensionsChanged) {
     nodeStore.setState({ x: newNodes });
   }
-  commitTopLevelLayoutToDocument(host);
+  commitTopLevelLayoutToDocument(host, null);
   maybeCompleteInitialFitView(host);
 }
 

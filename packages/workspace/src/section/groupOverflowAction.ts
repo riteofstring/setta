@@ -130,5 +130,5 @@ export function setGroupOverflowMode(
       [sectionId]: nextSection,
     },
   });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, "section-layout");
 }

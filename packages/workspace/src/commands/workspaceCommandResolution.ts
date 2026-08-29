@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import { useItemDndState } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { useWorkspaceDocument } from "../document/stores";
+import { useWorkspaceHistoryState } from "../history/workspaceHistory";
 import {
   getWorkspaceCommandOrThrow,
   getWorkspaceCommands,
@@ -146,6 +147,7 @@ export function useWorkspaceCommandState(): void {
   useWorkspaceDocument((state) => state);
   useWorkspaceCapabilities((state) => state);
   useItemDndState((state) => state.activeId);
+  useWorkspaceHistoryState();
 }
 
 export function useWorkspaceCommandEntries(

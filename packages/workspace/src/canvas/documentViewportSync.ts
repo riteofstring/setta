@@ -49,7 +49,7 @@ export function startCanvasViewportDocumentSync(host: WorkspaceHost) {
       }
       const [x, y, zoom] = newState.transform;
       getWorkspaceDocumentStore(host).setState({ viewport: { x, y, zoom } });
-      notifyWorkspaceDocumentChange(host);
+      notifyWorkspaceDocumentChange(host, null);
     },
     { equalityFn: _.isEqual },
   );

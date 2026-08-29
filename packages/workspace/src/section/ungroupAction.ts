@@ -188,7 +188,7 @@ export function ungroupSections(
     },
   );
   getReactFlowStore(host).setState({ nodesSelectionDims: null });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, "section-ungroup");
   restoreUngroupFocus(
     host,
     focusPlan,

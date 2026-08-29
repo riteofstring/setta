@@ -41,5 +41,5 @@ export function setItemData(
       },
     },
   });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, null);
 }

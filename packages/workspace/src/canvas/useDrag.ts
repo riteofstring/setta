@@ -196,7 +196,7 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
           true,
         );
 
-        commitTopLevelLayoutToDocument(host);
+        commitTopLevelLayoutToDocument(host, "section-move");
       };
 
       if (disabled) {

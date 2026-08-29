@@ -32,6 +32,7 @@ import {
   getWorkspaceKeyBindings,
   registerWorkspaceKeyBindings,
 } from "./workspaceKeyBindingRegistry";
+import { runWorkspaceKeyBindings } from "./workspaceKeyBindingDispatch";
 
 const creationSection: WorkspaceSectionInput = {
   id: "created",
@@ -76,6 +77,34 @@ function getBinding(id: string) {
   return binding;
 }
 
+function pressHistoryBinding(
+  workspaceHost: WorkspaceHost,
+  target: EventTarget,
+  shiftKey: boolean,
+): boolean {
+  const event = new KeyboardEvent("keydown", {
+    bubbles: true,
+    cancelable: true,
+    code: "KeyZ",
+    ctrlKey: true,
+    shiftKey,
+  });
+  const dispatch = (candidate: Event) =>
+    runWorkspaceKeyBindings(
+      workspaceHost,
+      candidate as KeyboardEvent,
+      false,
+      (codes) => codes.length === 1 && codes[0] === "KeyZ",
+    );
+  document.addEventListener("keydown", dispatch);
+  try {
+    target.dispatchEvent(event);
+  } finally {
+    document.removeEventListener("keydown", dispatch);
+  }
+  return event.defaultPrevented;
+}
+
 describe("workspace key bindings", () => {
   beforeEach(() => {
     host = createWorkspaceHost();
@@ -87,6 +116,18 @@ describe("workspace key bindings", () => {
   });
 
   it("ships the reference's chords and takes each command's own label", () => {
+    expect(getBinding("workspace.undo")).toMatchObject({
+      chord: "Mod + Z",
+      chordLabel: "Ctrl + Z",
+      label: "Undo",
+      origin: "default",
+    });
+    expect(getBinding("workspace.redo")).toMatchObject({
+      chord: "Mod + Shift + Z",
+      chordLabel: "Ctrl + Shift + Z",
+      label: "Redo",
+      origin: "default",
+    });
     expect(getBinding("workspace.group-sections")).toMatchObject({
       chord: "Mod + G",
       chordLabel: "Ctrl + G",
@@ -169,6 +210,53 @@ describe("workspace key bindings", () => {
     expect(getWorkspaceNavigatorStore(host).getState().mode).toBe("commands");
 
     unregister();
+  });
+
+  it("leaves disabled history chords to the browser", () => {
+    const canvas = document.createElement("div");
+    document.body.append(canvas);
+    try {
+      expect(pressHistoryBinding(host, canvas, false)).toBe(false);
+      expect(pressHistoryBinding(host, canvas, true)).toBe(false);
+    } finally {
+      canvas.remove();
+    }
+  });
+
+  it("runs available history on the canvas and yields it to editable targets", () => {
+    const undo = vi.fn();
+    const redo = vi.fn();
+    const historyHost = createWorkspaceHost({
+      history: {
+        kind: "delegated",
+        authority: {
+          getState: () => ({ canRedo: true, canUndo: true }),
+          record: vi.fn(),
+          redo,
+          subscribe: () => () => undefined,
+          synchronize: vi.fn(),
+          undo,
+        },
+      },
+    });
+    const canvas = document.createElement("div");
+    const input = document.createElement("input");
+    document.body.append(canvas, input);
+    try {
+      expect(pressHistoryBinding(historyHost, canvas, false)).toBe(true);
+      expect(undo).toHaveBeenCalledTimes(1);
+      expect(pressHistoryBinding(historyHost, canvas, true)).toBe(true);
+      expect(redo).toHaveBeenCalledTimes(1);
+
+      expect(pressHistoryBinding(historyHost, input, false)).toBe(false);
+      expect(pressHistoryBinding(historyHost, input, true)).toBe(false);
+      expect(undo).toHaveBeenCalledTimes(1);
+      expect(redo).toHaveBeenCalledTimes(1);
+    } finally {
+      canvas.remove();
+      input.remove();
+      historyHost.dispose();
+    }
   });
 
   it("offers locking as a bindable operation the reference gives no chord", () => {
@@ -426,6 +514,24 @@ describe("workspace key bindings", () => {
         ),
       ).toMatchObject({
         suppressesBrowserDefault: false,
+        yieldsToEditableTarget: true,
+      });
+    }
+  });
+
+  it("yields native undo and redo to editable targets on every platform", () => {
+    for (const macOS of [true, false]) {
+      const resolved = getResolvedWorkspaceKeyBindings(host, macOS);
+      expect(
+        resolved.find((binding) => binding.definition.id === "workspace.undo"),
+      ).toMatchObject({
+        suppressesBrowserDefault: true,
+        yieldsToEditableTarget: true,
+      });
+      expect(
+        resolved.find((binding) => binding.definition.id === "workspace.redo"),
+      ).toMatchObject({
+        suppressesBrowserDefault: true,
         yieldsToEditableTarget: true,
       });
     }

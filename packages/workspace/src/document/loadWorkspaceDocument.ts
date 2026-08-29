@@ -9,9 +9,11 @@ import { resetItemDragState } from "../items/itemDragHandlers";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
 import { normalizeSectionTagColor } from "../section/sectionTagColors";
 import {
-  notifyWorkspaceDocumentSubscribers,
+  getWorkspaceDocument,
+  notifyWorkspaceDocumentChange,
   runWithWorkspaceDocumentChangeNotificationsSuppressed,
 } from "./documentChangeCallback";
+import { synchronizeWorkspaceHistory } from "../history/workspaceHistory";
 import { isGroupSection } from "./documentSelectors";
 import { assertValidSectionOverflowMode } from "./groupOverflow";
 import { deactivateItemSelect } from "./itemSelectionMode";
@@ -242,7 +244,17 @@ export function commitWorkspaceDocument(
 ): void {
   const prepared = prepareWorkspaceDocumentCommit(host, document);
   publishPreparedWorkspaceDocument(host, prepared);
-  notifyWorkspaceDocumentSubscribers(host);
+  synchronizeWorkspaceHistory(host, "projection", getWorkspaceDocument(host));
+  notifyWorkspaceDocumentChange(host, null);
+}
+
+export function replayWorkspaceHistoryDocument(
+  host: WorkspaceHost,
+  document: WorkspaceDocumentInput,
+): void {
+  const prepared = prepareWorkspaceDocumentCommit(host, document);
+  publishPreparedWorkspaceDocument(host, prepared);
+  notifyWorkspaceDocumentChange(host, null);
 }
 
 export function resolveAndValidateWorkspaceSections(
@@ -281,7 +293,8 @@ export function loadWorkspaceDocument(
     deactivateItemSelect(host);
     applyLoadedDocumentViewport(host, document.viewport);
   });
-  notifyWorkspaceDocumentSubscribers(host);
+  synchronizeWorkspaceHistory(host, "load", getWorkspaceDocument(host));
+  notifyWorkspaceDocumentChange(host, null);
 
   maybeCompleteInitialFitView(host);
 }

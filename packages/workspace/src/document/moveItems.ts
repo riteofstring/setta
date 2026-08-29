@@ -62,7 +62,7 @@ export function commitSectionItemTree(
       [sectionId]: { ...section, itemTree: nextItemTree },
     },
   });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, "item-move");
 }
 
 export function applyItemMoveToTree(

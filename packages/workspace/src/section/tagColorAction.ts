@@ -33,5 +33,5 @@ export function setSectionTagColor(
       [sectionId]: { ...section, tagColor: canonical },
     },
   });
-  notifyWorkspaceDocumentChange(host);
+  notifyWorkspaceDocumentChange(host, "section-presentation");
 }

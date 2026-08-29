@@ -96,6 +96,7 @@ const RUNTIME_EXPORTS = [
   "focusWorkspaceSection",
   "focusWorkspaceWindow",
   "getWorkspaceCodeSectionData",
+  "getWorkspaceHistoryState",
   "getWorkspaceTextSectionData",
   "getWorkspaceKeyBindingConflicts",
   "getWorkspaceKeyBindings",
@@ -115,6 +116,7 @@ const RUNTIME_EXPORTS = [
   "registerWorkspaceToolbarContributions",
   "renameWorkspaceWindow",
   "reopenWorkspaceWindow",
+  "redoWorkspace",
   "resizeWorkspaceFloatingWindow",
   "resolveWorkspaceFloatingSnapPresetFromPointer",
   "resolveWorkspaceWindowWorkArea",
@@ -137,10 +139,12 @@ const RUNTIME_EXPORTS = [
   "setWorkspaceColorMode",
   "ungroupSections",
   "subscribeWorkspaceCanvasPanScrolling",
+  "subscribeWorkspaceHistory",
   "snapWorkspaceFloatingWindow",
   "snapshotWorkspaceWindowSpace",
   "showWorkspaceSectionInFloatingWindow",
   "undockWorkspaceWindow",
+  "undoWorkspace",
   "useItemSelectionMode",
   "useWorkspaceAppearance",
   "useWorkspaceCapabilities",
@@ -170,6 +174,37 @@ describe("public package API", () => {
       showTrigger: true,
     });
     expect(closeParametersAreHostOnly).toBe(true);
+  });
+
+  it("exposes one opt-in structural history contract", () => {
+    const state = {
+      canRedo: false,
+      canUndo: false,
+    } satisfies workspace.WorkspaceHistoryState;
+    const authority = {
+      getState: () => state,
+      record: (_transaction: workspace.WorkspaceHistoryTransaction) =>
+        undefined,
+      redo: () => undefined,
+      subscribe:
+        (_listener: (next: workspace.WorkspaceHistoryState) => void) => () =>
+          undefined,
+      synchronize: (_event: workspace.WorkspaceHistorySynchronization) =>
+        undefined,
+      undo: () => undefined,
+    } satisfies workspace.WorkspaceHistoryAuthority;
+    const options = {
+      history: { authority, kind: "delegated" },
+    } satisfies workspace.WorkspaceHostOptions;
+    const changeKind: workspace.WorkspaceHistoryChangeKind = "section-move";
+    const createParameters: IsExactly<
+      Parameters<typeof workspace.createWorkspaceHost>,
+      [options?: workspace.WorkspaceHostOptions]
+    > = true;
+
+    expect(options.history.kind).toBe("delegated");
+    expect(changeKind).toBe("section-move");
+    expect(createParameters).toBe(true);
   });
 
   it("commits an app-owned section size through the canonical resize funnel", () => {
