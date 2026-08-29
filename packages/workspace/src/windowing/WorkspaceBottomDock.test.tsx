@@ -363,4 +363,16 @@ describe("workspace bottom dock stylesheet", () => {
     expect(styles).toContain("@container (max-width: 32.5rem)");
     expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
   });
+
+  it("keeps the manager menu readable in the frozen light and dark palettes", () => {
+    expect(styles).toMatch(
+      /\.setta-workspace-bottom-dock-manager-menu\s*\{[^}]*color: hsl\(219 26% 23%\)/su,
+    );
+    expect(styles).toMatch(
+      /\.setta-workspace-dark \.setta-workspace-bottom-dock-manager-menu\s*\{[^}]*background: hsl\(220 27% 6% \/ 98%\);[^}]*color: hsl\(219 25% 77%\)/su,
+    );
+    expect(styles).toMatch(
+      /\.setta-workspace-dark \.setta-workspace-bottom-dock-manager-row button\s*\{[^}]*border-color: hsl\(219 25% 34%\);[^}]*color: hsl\(219 25% 77%\)/su,
+    );
+  });
 });
