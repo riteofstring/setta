@@ -6,14 +6,17 @@ import {
 import {
   assertWorkspaceWindowingLayoutEditable,
   createWorkspaceFloatingWindow,
+  createWorkspaceWindowDockMetrics,
   createWorkspaceWindowBounds,
   createWorkspaceWindowingState,
   createWorkspaceWindowViewport,
   isWorkspaceWindowVisible,
+  WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
   type WorkspaceFloatingSnapPreset,
   type WorkspaceFloatingWindow,
   type WorkspaceFloatingWindowInput,
   type WorkspaceWindowBounds,
+  type WorkspaceWindowDockMetrics,
   type WorkspaceWindowingMutationOptions,
   type WorkspaceWindowingState,
   type WorkspaceWindowViewport,
@@ -38,12 +41,29 @@ export interface WorkspaceWindowBoundsUpdate {
   readonly bounds: WorkspaceWindowBounds;
 }
 
+/** One complete dock-resize publication: panel metrics and height/geometry move together. */
+export interface WorkspaceWindowDockLayoutUpdate {
+  readonly id: string;
+  readonly bounds: WorkspaceWindowBounds;
+  readonly dockMetrics: WorkspaceWindowDockMetrics;
+}
+
 export interface OpenWorkspaceFloatingWindowInput {
   readonly id: string;
   readonly contentId: string;
   readonly surfaceKind: string;
   readonly title: string;
   readonly rendererData: WorkspaceFloatingWindowInput["rendererData"];
+  readonly bounds?: WorkspaceWindowBounds;
+}
+
+/** Metadata supplied by the document-facing section handoff boundary. */
+export interface ShowWorkspaceSectionInFloatingWindowInput {
+  readonly id: string;
+  readonly contentId: string;
+  readonly sectionId: string;
+  /** Seed-only metadata; the section document remains the title authority. */
+  readonly title: string;
   readonly bounds?: WorkspaceWindowBounds;
 }
 
@@ -67,10 +87,23 @@ function getWindowOrThrow(
   return window;
 }
 
+function requireExternallyManagedWindow(
+  window: WorkspaceFloatingWindow,
+  operation: string,
+): void {
+  if (window.placement === "canvas_section") {
+    throw new WorkspaceWindowingError(
+      "invalid_transition",
+      `Cannot ${operation} a canvas-owned workspace section window.`,
+    );
+  }
+}
+
 function requireVisibleWindow(
   window: WorkspaceFloatingWindow,
   operation: string,
 ): void {
+  requireExternallyManagedWindow(window, operation);
   if (!isWorkspaceWindowVisible(window)) {
     throw new WorkspaceWindowingError(
       "invalid_transition",
@@ -87,7 +120,7 @@ function requireFloatingVisibleWindow(
   if (window.placement !== "floating") {
     throw new WorkspaceWindowingError(
       "invalid_transition",
-      `Cannot ${operation} a maximized workspace window.`,
+      `Cannot ${operation} a non-floating workspace window.`,
     );
   }
 }
@@ -284,9 +317,11 @@ export function openWorkspaceFloatingWindow(
   const zIndex = Math.max(state.nextFocusOrder, highestLiveZIndex(state) + 1);
   const window = createWorkspaceFloatingWindow({
     ...input,
+    sectionId: null,
     bounds: clampWorkspaceFloatingWindowBounds(requestedBounds, viewport),
     placement: "floating",
     restoreBounds: null,
+    restorePlacement: null,
     lastUnsnappedBounds: clampWorkspaceFloatingWindowBounds(
       requestedBounds,
       viewport,
@@ -301,6 +336,169 @@ export function openWorkspaceFloatingWindow(
   });
 }
 
+function createSectionWindowForShow(
+  input: ShowWorkspaceSectionInFloatingWindowInput,
+  viewport: WorkspaceWindowViewport,
+  zIndex: number,
+): WorkspaceFloatingWindow {
+  const requestedBounds =
+    input.bounds ?? createDefaultBoundsWithinViewport(viewport);
+  const bounds = clampWorkspaceFloatingWindowBounds(requestedBounds, viewport);
+  return createWorkspaceFloatingWindow({
+    id: input.id,
+    contentId: input.contentId,
+    surfaceKind: WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
+    title: input.title,
+    rendererData: null,
+    sectionId: input.sectionId,
+    bounds,
+    placement: "floating",
+    restoreBounds: null,
+    restorePlacement: null,
+    lastUnsnappedBounds: bounds,
+    isMinimized: false,
+    isClosed: false,
+    zIndex,
+  });
+}
+
+function getSectionWindow(
+  state: WorkspaceWindowingState,
+  sectionId: string,
+): WorkspaceFloatingWindow | undefined {
+  return state.windows.find((window) => window.sectionId === sectionId);
+}
+
+/**
+ * Reveals the sole bound section window as a focused floating window. New
+ * section instances use the package-reserved surface key; repeated requests
+ * retain their identity and only seed geometry when returning from a non-float
+ * owner.
+ */
+export function showWorkspaceSectionInFloatingWindow(
+  stateInput: WorkspaceWindowingState,
+  input: ShowWorkspaceSectionInFloatingWindowInput,
+  viewport: WorkspaceWindowViewport,
+  options?: WorkspaceWindowingMutationOptions,
+): WorkspaceWindowingState {
+  assertWorkspaceWindowingLayoutEditable(options);
+  const state = getValidatedState(stateInput);
+  const zIndex = Math.max(state.nextFocusOrder, highestLiveZIndex(state) + 1);
+  const candidate = createSectionWindowForShow(input, viewport, zIndex);
+  const current = getSectionWindow(state, candidate.sectionId!);
+  if (!current) {
+    return createWorkspaceWindowingState({
+      windows: [...state.windows, candidate],
+      nextFocusOrder: zIndex + 1,
+    });
+  }
+
+  const bounds =
+    current.placement === "floating"
+      ? current.bounds
+      : createDefaultBoundsWithinViewport(viewport);
+  const revealed = createWorkspaceFloatingWindow({
+    ...current,
+    bounds: clampWorkspaceFloatingWindowBounds(bounds, viewport),
+    placement: "floating",
+    restoreBounds: null,
+    restorePlacement: null,
+    lastUnsnappedBounds:
+      current.placement === "floating"
+        ? current.lastUnsnappedBounds
+        : clampWorkspaceFloatingWindowBounds(bounds, viewport),
+    isMinimized: false,
+    isClosed: false,
+  });
+  return createFocusedState(replaceWindow(state, revealed), revealed);
+}
+
+/** Moves a visible floating, docked, or maximized window into the bottom dock. */
+export function dockWorkspaceWindow(
+  stateInput: WorkspaceWindowingState,
+  id: string,
+  options?: WorkspaceWindowingMutationOptions,
+): WorkspaceWindowingState {
+  assertWorkspaceWindowingLayoutEditable(options);
+  const state = getValidatedState(stateInput);
+  const window = getWindowOrThrow(state, id);
+  requireVisibleWindow(window, "dock");
+  if (window.placement === "bottom_docked") return state;
+  const docked = createWorkspaceFloatingWindow({
+    ...window,
+    bounds:
+      window.placement === "maximized"
+        ? (window.restoreBounds ?? window.bounds)
+        : window.bounds,
+    placement: "bottom_docked",
+    restoreBounds: null,
+    restorePlacement: null,
+  });
+  return replaceWindow(state, docked);
+}
+
+/** Undocking always restores the same instance as a focused, open floating window. */
+export function undockWorkspaceWindow(
+  stateInput: WorkspaceWindowingState,
+  id: string,
+  viewport: WorkspaceWindowViewport,
+  options?: WorkspaceWindowingMutationOptions,
+): WorkspaceWindowingState {
+  assertWorkspaceWindowingLayoutEditable(options);
+  const state = getValidatedState(stateInput);
+  const window = getWindowOrThrow(state, id);
+  requireExternallyManagedWindow(window, "undock");
+  if (window.placement !== "bottom_docked") {
+    throw new WorkspaceWindowingError(
+      "invalid_transition",
+      "Only a bottom-docked workspace window can be undocked.",
+    );
+  }
+  const bounds = clampWorkspaceFloatingWindowBounds(window.bounds, viewport);
+  const undocked = createWorkspaceFloatingWindow({
+    ...window,
+    bounds,
+    placement: "floating",
+    restoreBounds: null,
+    restorePlacement: null,
+    lastUnsnappedBounds: window.lastUnsnappedBounds ?? bounds,
+    isMinimized: false,
+    isClosed: false,
+  });
+  return createFocusedState(replaceWindow(state, undocked), undocked);
+}
+
+/** Returns a bound section's same instance to its canvas host without deleting it. */
+export function moveWorkspaceWindowToCanvasSection(
+  stateInput: WorkspaceWindowingState,
+  id: string,
+  options?: WorkspaceWindowingMutationOptions,
+): WorkspaceWindowingState {
+  assertWorkspaceWindowingLayoutEditable(options);
+  const state = getValidatedState(stateInput);
+  const window = getWindowOrThrow(state, id);
+  if (window.sectionId === null) {
+    throw new WorkspaceWindowingError(
+      "invalid_transition",
+      "Only a section-bound workspace window can move to the canvas.",
+    );
+  }
+  if (window.placement === "canvas_section") return state;
+  const canvasOwned = createWorkspaceFloatingWindow({
+    ...window,
+    bounds:
+      window.placement === "maximized"
+        ? (window.restoreBounds ?? window.bounds)
+        : window.bounds,
+    placement: "canvas_section",
+    restoreBounds: null,
+    restorePlacement: null,
+    isMinimized: false,
+    isClosed: false,
+  });
+  return replaceWindow(state, canvasOwned);
+}
+
 /** Reopen remains allowed in a layout-disabled host, as in the frozen reference. */
 export function reopenWorkspaceWindow(
   stateInput: WorkspaceWindowingState,
@@ -308,6 +506,7 @@ export function reopenWorkspaceWindow(
 ): WorkspaceWindowingState {
   const state = getValidatedState(stateInput);
   const window = getWindowOrThrow(state, id);
+  requireExternallyManagedWindow(window, "reopen");
   const reopened = createWorkspaceFloatingWindow({
     ...window,
     isMinimized: false,
@@ -395,13 +594,69 @@ export function setWorkspaceWindowBoundsAtomically(
         `Workspace window bounds updates contain duplicate id ${update.id}.`,
       );
     }
-    getWindowOrThrow(state, update.id);
+    requireFloatingVisibleWindow(
+      getWindowOrThrow(state, update.id),
+      "update bounds for",
+    );
     boundsById.set(update.id, createWorkspaceWindowBounds(update.bounds));
   }
   return createWorkspaceWindowingState({
     windows: state.windows.map((window) => {
       const bounds = boundsById.get(window.id);
       return bounds ? { ...window, bounds } : window;
+    }),
+    nextFocusOrder: state.nextFocusOrder,
+  });
+}
+
+/**
+ * Validates every docked panel before replacing any of them. Dock resize uses
+ * this one transition so persisted width intent and panel geometry cannot
+ * diverge between controlled publications.
+ */
+export function setWorkspaceWindowDockLayoutAtomically(
+  stateInput: WorkspaceWindowingState,
+  updates: readonly WorkspaceWindowDockLayoutUpdate[],
+  options?: WorkspaceWindowingMutationOptions,
+): WorkspaceWindowingState {
+  assertWorkspaceWindowingLayoutEditable(options);
+  const state = getValidatedState(stateInput);
+  if (updates.length === 0) {
+    throw new WorkspaceWindowingError(
+      "invalid_input",
+      "Workspace dock layout updates must not be empty.",
+    );
+  }
+  const updatesById = new Map<
+    string,
+    Pick<WorkspaceWindowDockLayoutUpdate, "bounds" | "dockMetrics">
+  >();
+  for (const update of updates) {
+    if (updatesById.has(update.id)) {
+      throw new WorkspaceWindowingError(
+        "invalid_input",
+        `Workspace dock layout updates contain duplicate id ${update.id}.`,
+      );
+    }
+    const window = getWindowOrThrow(state, update.id);
+    requireVisibleWindow(window, "resize");
+    if (window.placement !== "bottom_docked") {
+      throw new WorkspaceWindowingError(
+        "invalid_transition",
+        "Only a bottom-docked workspace window can receive dock layout updates.",
+      );
+    }
+    updatesById.set(update.id, {
+      bounds: createWorkspaceWindowBounds(update.bounds),
+      dockMetrics: createWorkspaceWindowDockMetrics(update.dockMetrics),
+    });
+  }
+  return createWorkspaceWindowingState({
+    windows: state.windows.map((window) => {
+      const update = updatesById.get(window.id);
+      return update
+        ? { ...window, bounds: update.bounds, dockMetrics: update.dockMetrics }
+        : window;
     }),
     nextFocusOrder: state.nextFocusOrder,
   });
@@ -417,7 +672,7 @@ export function snapWorkspaceFloatingWindow(
   assertWorkspaceWindowingLayoutEditable(options);
   const state = getValidatedState(stateInput);
   const window = getWindowOrThrow(state, id);
-  requireVisibleWindow(window, "snap");
+  requireFloatingVisibleWindow(window, "snap");
   const snapBounds = buildWorkspaceFloatingSnapBounds(preset, viewport);
   const lastUnsnappedBounds = resolveSnapTransitionUnsnappedBounds(
     window,
@@ -428,6 +683,7 @@ export function snapWorkspaceFloatingWindow(
     bounds: snapBounds,
     placement: "floating",
     restoreBounds: null,
+    restorePlacement: null,
     lastUnsnappedBounds,
     isMinimized: false,
     isClosed: false,
@@ -443,6 +699,7 @@ export function minimizeWorkspaceWindow(
   assertWorkspaceWindowingLayoutEditable(options);
   const state = getValidatedState(stateInput);
   const window = getWindowOrThrow(state, id);
+  requireExternallyManagedWindow(window, "minimize");
   if (window.isClosed) {
     throw new WorkspaceWindowingError(
       "invalid_transition",
@@ -463,17 +720,25 @@ export function maximizeWorkspaceWindow(
   assertWorkspaceWindowingLayoutEditable(options);
   const state = getValidatedState(stateInput);
   const window = getWindowOrThrow(state, id);
+  requireExternallyManagedWindow(window, "maximize");
   if (window.isClosed) {
     throw new WorkspaceWindowingError(
       "invalid_transition",
       "Cannot maximize a closed workspace window.",
     );
   }
+  const restorePlacement =
+    window.placement === "maximized"
+      ? window.restorePlacement
+      : window.placement === "bottom_docked"
+        ? "bottom_docked"
+        : "floating";
   const maximized = createWorkspaceFloatingWindow({
     ...window,
     placement: "maximized",
     restoreBounds:
       window.placement === "maximized" ? window.restoreBounds : window.bounds,
+    restorePlacement,
     isMinimized: false,
   });
   return createFocusedState(replaceWindow(state, maximized), maximized);
@@ -487,20 +752,22 @@ export function restoreWorkspaceWindow(
   assertWorkspaceWindowingLayoutEditable(options);
   const state = getValidatedState(stateInput);
   const window = getWindowOrThrow(state, id);
+  requireExternallyManagedWindow(window, "restore");
   if (window.isClosed) {
     throw new WorkspaceWindowingError(
       "invalid_transition",
       "Cannot restore a closed workspace window.",
     );
   }
-  if (window.placement === "floating") {
+  if (window.placement !== "maximized") {
     return state;
   }
   const restored = createWorkspaceFloatingWindow({
     ...window,
     bounds: window.restoreBounds ?? window.bounds,
-    placement: "floating",
+    placement: window.restorePlacement ?? "floating",
     restoreBounds: null,
+    restorePlacement: null,
   });
   return replaceWindow(state, restored);
 }
@@ -513,6 +780,7 @@ export function closeWorkspaceWindow(
   assertWorkspaceWindowingLayoutEditable(options);
   const state = getValidatedState(stateInput);
   const window = getWindowOrThrow(state, id);
+  requireExternallyManagedWindow(window, "close");
   return replaceWindow(
     state,
     createWorkspaceFloatingWindow({
@@ -532,6 +800,13 @@ export function renameWorkspaceWindow(
   assertWorkspaceWindowingLayoutEditable(options);
   const state = getValidatedState(stateInput);
   const window = getWindowOrThrow(state, id);
+  requireExternallyManagedWindow(window, "rename");
+  if (window.sectionId !== null) {
+    throw new WorkspaceWindowingError(
+      "invalid_transition",
+      "A section-bound workspace window takes its title from the section document.",
+    );
+  }
   const nextTitle = title.trim();
   if (nextTitle.length === 0) {
     throw new WorkspaceWindowingError(

@@ -3,23 +3,31 @@ import {
   clampWorkspaceFloatingWindowBounds,
   closeWorkspaceWindow,
   createDefaultWorkspaceFloatingWindowBounds,
+  dockWorkspaceWindow,
   focusWorkspaceWindow,
   getWorkspaceWindowStackingOrder,
   maximizeWorkspaceWindow,
   minimizeWorkspaceWindow,
   moveWorkspaceFloatingWindow,
+  moveWorkspaceWindowToCanvasSection,
   openWorkspaceFloatingWindow,
   renameWorkspaceWindow,
   reopenWorkspaceWindow,
   resizeWorkspaceFloatingWindow,
   restoreWorkspaceWindow,
+  setWorkspaceWindowDockLayoutAtomically,
   setWorkspaceWindowBoundsAtomically,
+  showWorkspaceSectionInFloatingWindow,
   snapWorkspaceFloatingWindow,
+  undockWorkspaceWindow,
 } from "./windowingState";
 import {
+  createWorkspaceFloatingWindow,
   createWorkspaceWindowingState,
+  isWorkspaceWindowVisible,
   type WorkspaceFloatingWindowInput,
   type WorkspaceWindowViewport,
+  WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
   WorkspaceWindowingError,
 } from "./windowingTypes";
 
@@ -39,7 +47,10 @@ function makeWindow(
     surfaceKind: "example",
     title: `Window ${id}`,
     rendererData: { id },
+    sectionId: null,
     bounds: { x: 100, y: 120, width: 500, height: 300 },
+    restorePlacement: null,
+    dockMetrics: { preferredWidthPx: 460, widthFraction: 1 },
     ...overrides,
   };
 }
@@ -52,6 +63,61 @@ describe("workspace floating window state", () => {
       width: 820,
       height: 630,
     });
+  });
+
+  it("constructs explicit placement metadata and rejects incompatible section or dock input", () => {
+    const defaulted = createWorkspaceFloatingWindow({
+      id: "defaulted",
+      contentId: "content-defaulted",
+      surfaceKind: "example",
+      title: "Defaulted",
+      rendererData: null,
+      bounds: { x: 100, y: 120, width: 500, height: 300 },
+    });
+    expect(defaulted).toMatchObject({
+      sectionId: null,
+      placement: "floating",
+      restorePlacement: null,
+      dockMetrics: { preferredWidthPx: 460, widthFraction: 1 },
+    });
+
+    expect(() =>
+      createWorkspaceFloatingWindow(
+        makeWindow("section-with-generic-surface", { sectionId: "section-a" }),
+      ),
+    ).toThrow(WorkspaceWindowingError);
+    expect(() =>
+      createWorkspaceFloatingWindow({
+        ...makeWindow("reserved-without-section"),
+        surfaceKind: WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
+      }),
+    ).toThrow(WorkspaceWindowingError);
+    expect(() =>
+      createWorkspaceFloatingWindow({
+        ...makeWindow("canvas-without-section"),
+        placement: "canvas_section",
+      }),
+    ).toThrow(WorkspaceWindowingError);
+    expect(() =>
+      createWorkspaceFloatingWindow({
+        ...makeWindow("bad-dock-metrics"),
+        dockMetrics: { preferredWidthPx: 0, widthFraction: 1.1 },
+      }),
+    ).toThrow(WorkspaceWindowingError);
+    expect(() =>
+      createWorkspaceWindowingState({
+        windows: [
+          makeWindow("section-a", {
+            sectionId: "same-section",
+            surfaceKind: WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
+          }),
+          makeWindow("section-b", {
+            sectionId: "same-section",
+            surfaceKind: WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
+          }),
+        ],
+      }),
+    ).toThrow(WorkspaceWindowingError);
   });
 
   it("resolves equal z-indexes by stable state order and raises the focused window", () => {
@@ -135,6 +201,7 @@ describe("workspace floating window state", () => {
     expect(maximized.windows[0]).toMatchObject({
       placement: "maximized",
       restoreBounds: originalBounds,
+      restorePlacement: "floating",
     });
     const restored = restoreWorkspaceWindow(maximized, "a");
     expect(restored.windows[0]).toMatchObject({
@@ -155,6 +222,171 @@ describe("workspace floating window state", () => {
     expect(reopenWorkspaceWindow(closed, "a").windows[0]).toMatchObject({
       isClosed: false,
       isMinimized: false,
+    });
+  });
+
+  it("creates, reuses, externalizes, and returns one section binding to canvas ownership", () => {
+    const initial = createWorkspaceWindowingState({
+      windows: [makeWindow("generic", { zIndex: 5 })],
+      nextFocusOrder: 6,
+    });
+    const shown = showWorkspaceSectionInFloatingWindow(
+      initial,
+      {
+        id: "section-window",
+        contentId: "section-content-a",
+        sectionId: "section-a",
+        title: "Section A",
+      },
+      viewport,
+    );
+    const sectionWindow = shown.windows.find(
+      (window) => window.id === "section-window",
+    );
+    expect(sectionWindow).toMatchObject({
+      sectionId: "section-a",
+      surfaceKind: WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
+      placement: "floating",
+      isClosed: false,
+      isMinimized: false,
+      zIndex: 6,
+    });
+    expect(shown.nextFocusOrder).toBe(7);
+
+    const canvasOwned = moveWorkspaceWindowToCanvasSection(
+      shown,
+      "section-window",
+    );
+    expect(canvasOwned.windows.find((window) => window.id === "section-window"))
+      .toMatchObject({
+        placement: "canvas_section",
+        isClosed: false,
+        isMinimized: false,
+      });
+    expect(
+      isWorkspaceWindowVisible(
+        canvasOwned.windows.find((window) => window.id === "section-window")!,
+      ),
+    ).toBe(false);
+
+    const reshown = showWorkspaceSectionInFloatingWindow(
+      canvasOwned,
+      {
+        id: "ignored-new-id",
+        contentId: "ignored-new-content",
+        sectionId: "section-a",
+        title: "Renamed section metadata",
+      },
+      viewport,
+    );
+    expect(reshown.windows.filter((window) => window.sectionId === "section-a"))
+      .toHaveLength(1);
+    expect(reshown.windows.find((window) => window.sectionId === "section-a"))
+      .toMatchObject({ id: "section-window", placement: "floating" });
+  });
+
+  it("prevents canvas-owned section windows from receiving lifecycle or floating mutations", () => {
+    const canvasOwned = createWorkspaceWindowingState({
+      windows: [
+        makeWindow("section", {
+          sectionId: "section-a",
+          surfaceKind: WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
+          placement: "canvas_section",
+        }),
+      ],
+    });
+    expect(() => focusWorkspaceWindow(canvasOwned, "section")).toThrow(
+      WorkspaceWindowingError,
+    );
+    expect(() => reopenWorkspaceWindow(canvasOwned, "section")).toThrow(
+      WorkspaceWindowingError,
+    );
+    expect(() => minimizeWorkspaceWindow(canvasOwned, "section")).toThrow(
+      WorkspaceWindowingError,
+    );
+    expect(() => closeWorkspaceWindow(canvasOwned, "section")).toThrow(
+      WorkspaceWindowingError,
+    );
+    expect(() =>
+      moveWorkspaceFloatingWindow(
+        canvasOwned,
+        "section",
+        { x: 1, y: 1 },
+        viewport,
+      ),
+    ).toThrow(WorkspaceWindowingError);
+  });
+
+  it("docks, undocks, and restores maximized windows to their prior external host", () => {
+    const initial = createWorkspaceWindowingState({ windows: [makeWindow("a")] });
+    const docked = dockWorkspaceWindow(initial, "a");
+    expect(docked.windows[0]).toMatchObject({ placement: "bottom_docked" });
+
+    const maximizedDock = maximizeWorkspaceWindow(docked, "a");
+    expect(maximizedDock.windows[0]).toMatchObject({
+      placement: "maximized",
+      restorePlacement: "bottom_docked",
+    });
+    expect(restoreWorkspaceWindow(maximizedDock, "a").windows[0]).toMatchObject(
+      { placement: "bottom_docked" },
+    );
+
+    const minimizedDock = minimizeWorkspaceWindow(docked, "a");
+    const undocked = undockWorkspaceWindow(minimizedDock, "a", viewport);
+    expect(undocked.windows[0]).toMatchObject({
+      placement: "floating",
+      isMinimized: false,
+      isClosed: false,
+    });
+
+    const maximizedFloat = maximizeWorkspaceWindow(undocked, "a");
+    expect(restoreWorkspaceWindow(maximizedFloat, "a").windows[0]).toMatchObject(
+      { placement: "floating" },
+    );
+  });
+
+  it("updates dock bounds and metrics atomically after validating every target", () => {
+    const docked = dockWorkspaceWindow(
+      createWorkspaceWindowingState({
+        windows: [makeWindow("a"), makeWindow("b")],
+      }),
+      "a",
+    );
+    const bothDocked = dockWorkspaceWindow(docked, "b");
+    const updated = setWorkspaceWindowDockLayoutAtomically(bothDocked, [
+      {
+        id: "a",
+        bounds: { x: 0, y: 220, width: 360, height: 480 },
+        dockMetrics: { preferredWidthPx: 360, widthFraction: 0.4 },
+      },
+      {
+        id: "b",
+        bounds: { x: 372, y: 220, width: 540, height: 480 },
+        dockMetrics: { preferredWidthPx: 540, widthFraction: 0.6 },
+      },
+    ]);
+    expect(updated.windows.map((window) => window.dockMetrics.widthFraction)).toEqual([
+      0.4,
+      0.6,
+    ]);
+
+    expect(() =>
+      setWorkspaceWindowDockLayoutAtomically(updated, [
+        {
+          id: "a",
+          bounds: { x: 0, y: 100, width: 400, height: 400 },
+          dockMetrics: { preferredWidthPx: 400, widthFraction: 0.5 },
+        },
+        {
+          id: "missing",
+          bounds: { x: 400, y: 100, width: 400, height: 400 },
+          dockMetrics: { preferredWidthPx: 400, widthFraction: 0.5 },
+        },
+      ]),
+    ).toThrow(WorkspaceWindowingError);
+    expect(updated.windows[0]?.dockMetrics).toEqual({
+      preferredWidthPx: 360,
+      widthFraction: 0.4,
     });
   });
 
@@ -182,6 +414,35 @@ describe("workspace floating window state", () => {
     });
     expect(() =>
       renameWorkspaceWindow(closed, "a", "Renamed", { layoutEditable: false }),
+    ).toThrow(WorkspaceWindowingError);
+    expect(() =>
+      showWorkspaceSectionInFloatingWindow(
+        closed,
+        {
+          id: "section-window",
+          contentId: "section-content-a",
+          sectionId: "section-a",
+          title: "Section A",
+        },
+        viewport,
+        { layoutEditable: false },
+      ),
+    ).toThrow(WorkspaceWindowingError);
+    expect(() =>
+      dockWorkspaceWindow(closed, "a", { layoutEditable: false }),
+    ).toThrow(WorkspaceWindowingError);
+    expect(() =>
+      setWorkspaceWindowDockLayoutAtomically(
+        closed,
+        [
+          {
+            id: "a",
+            bounds: { x: 0, y: 100, width: 400, height: 400 },
+            dockMetrics: { preferredWidthPx: 400, widthFraction: 1 },
+          },
+        ],
+        { layoutEditable: false },
+      ),
     ).toThrow(WorkspaceWindowingError);
     expect(reopenWorkspaceWindow(closed, "a").windows[0]?.isClosed).toBe(false);
   });

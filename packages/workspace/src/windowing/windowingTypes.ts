@@ -42,7 +42,38 @@ export type WorkspaceFloatingSnapPreset =
   | "bottom_left"
   | "bottom_right";
 
-export type WorkspaceWindowPlacement = "floating" | "maximized";
+export type WorkspaceWindowPlacement =
+  | "canvas_section"
+  | "bottom_docked"
+  | "floating"
+  | "maximized";
+
+/** A maximized window can only return to one of the externally managed hosts. */
+export type WorkspaceWindowRestorePlacement = "bottom_docked" | "floating";
+
+/**
+ * The package-owned renderer key for a window that presents one workspace
+ * section. Its body is composed by the section-window layer, not a host
+ * generic renderer.
+ */
+export const WORKSPACE_SECTION_WINDOW_SURFACE_KIND = "workspace_section";
+
+/**
+ * Persisted intent for a dock panel. The dock resolves the actual width from
+ * this preference and the measured local host width.
+ */
+export interface WorkspaceWindowDockMetrics {
+  readonly preferredWidthPx: number;
+  readonly widthFraction: number;
+}
+
+export interface WorkspaceWindowDockMetricsInput {
+  readonly preferredWidthPx: number;
+  readonly widthFraction: number;
+}
+
+export const WORKSPACE_WINDOW_DEFAULT_DOCK_PREFERRED_WIDTH_PX = 460;
+export const WORKSPACE_WINDOW_DEFAULT_DOCK_WIDTH_FRACTION = 1;
 
 /**
  * A window retains its floating bounds while maximized.  `restoreBounds` is
@@ -55,11 +86,16 @@ export interface WorkspaceFloatingWindow {
   readonly surfaceKind: string;
   readonly title: string;
   readonly rendererData: WorkspaceWindowJsonValue;
+  /** Null for generic host-rendered content; otherwise the bound document section. */
+  readonly sectionId: string | null;
   readonly bounds: WorkspaceWindowBounds;
   readonly placement: WorkspaceWindowPlacement;
   readonly restoreBounds: WorkspaceWindowBounds | null;
+  /** Populated only while maximized so restore returns to dock or floating. */
+  readonly restorePlacement: WorkspaceWindowRestorePlacement | null;
   /** The pre-snap free bounds used when a snapped title drag crosses 6px. */
   readonly lastUnsnappedBounds: WorkspaceWindowBounds | null;
+  readonly dockMetrics: WorkspaceWindowDockMetrics;
   readonly isMinimized: boolean;
   readonly isClosed: boolean;
   readonly zIndex: number;
@@ -80,10 +116,13 @@ export interface WorkspaceFloatingWindowInput {
   readonly surfaceKind: string;
   readonly title: string;
   readonly rendererData: WorkspaceWindowJsonValue;
+  readonly sectionId?: string | null;
   readonly bounds: WorkspaceWindowBounds;
   readonly placement?: WorkspaceWindowPlacement;
   readonly restoreBounds?: WorkspaceWindowBounds | null;
+  readonly restorePlacement?: WorkspaceWindowRestorePlacement | null;
   readonly lastUnsnappedBounds?: WorkspaceWindowBounds | null;
+  readonly dockMetrics?: WorkspaceWindowDockMetricsInput;
   readonly isMinimized?: boolean;
   readonly isClosed?: boolean;
   readonly zIndex?: number;
@@ -101,6 +140,7 @@ export interface WorkspaceWindowingMutationOptions {
 
 export type WorkspaceWindowingErrorCode =
   | "duplicate_content_identity"
+  | "duplicate_section_binding"
   | "duplicate_window_id"
   | "invalid_bounds"
   | "invalid_input"
@@ -124,10 +164,13 @@ const WINDOW_FIELDS = new Set([
   "surfaceKind",
   "title",
   "rendererData",
+  "sectionId",
   "bounds",
   "placement",
   "restoreBounds",
+  "restorePlacement",
   "lastUnsnappedBounds",
+  "dockMetrics",
   "isMinimized",
   "isClosed",
   "zIndex",
@@ -261,12 +304,30 @@ function parsePlacement(
   value: unknown,
   owner: string,
 ): WorkspaceWindowPlacement {
-  if (value === "floating" || value === "maximized") {
+  if (
+    value === "canvas_section" ||
+    value === "bottom_docked" ||
+    value === "floating" ||
+    value === "maximized"
+  ) {
     return value;
   }
   throw new WorkspaceWindowingError(
     "invalid_input",
-    `${owner} must be floating or maximized.`,
+    `${owner} must be canvas_section, bottom_docked, floating, or maximized.`,
+  );
+}
+
+function parseRestorePlacement(
+  value: unknown,
+  owner: string,
+): WorkspaceWindowRestorePlacement {
+  if (value === "bottom_docked" || value === "floating") {
+    return value;
+  }
+  throw new WorkspaceWindowingError(
+    "invalid_input",
+    `${owner} must be bottom_docked or floating.`,
   );
 }
 
@@ -296,6 +357,65 @@ function parseOptionalBounds(
     : parseBounds(value, owner);
 }
 
+function parseOptionalRestorePlacement(
+  value: unknown,
+  owner: string,
+  placement: WorkspaceWindowPlacement,
+): WorkspaceWindowRestorePlacement | null {
+  if (value === undefined) {
+    return placement === "maximized" ? "floating" : null;
+  }
+  return value === null ? null : parseRestorePlacement(value, owner);
+}
+
+function parseOptionalSectionId(value: unknown, owner: string): string | null {
+  return value === undefined || value === null
+    ? null
+    : assertTrimmedNonblankString(value, owner);
+}
+
+function parseDockMetrics(
+  value: unknown,
+  owner: string,
+): WorkspaceWindowDockMetrics {
+  const record = assertRecord(value, owner);
+  assertKnownFields(
+    record,
+    new Set(["preferredWidthPx", "widthFraction"]),
+    owner,
+  );
+  const preferredWidthPx = assertFiniteNumber(
+    record.preferredWidthPx,
+    `${owner}.preferredWidthPx`,
+  );
+  const widthFraction = assertFiniteNumber(
+    record.widthFraction,
+    `${owner}.widthFraction`,
+  );
+  if (preferredWidthPx <= 0) {
+    throw new WorkspaceWindowingError(
+      "invalid_input",
+      `${owner}.preferredWidthPx must be greater than zero.`,
+    );
+  }
+  if (widthFraction <= 0 || widthFraction > 1) {
+    throw new WorkspaceWindowingError(
+      "invalid_input",
+      `${owner}.widthFraction must be greater than zero and no greater than one.`,
+    );
+  }
+  return Object.freeze({ preferredWidthPx, widthFraction });
+}
+
+function parseOptionalDockMetrics(value: unknown): WorkspaceWindowDockMetrics {
+  return value === undefined
+    ? Object.freeze({
+        preferredWidthPx: WORKSPACE_WINDOW_DEFAULT_DOCK_PREFERRED_WIDTH_PX,
+        widthFraction: WORKSPACE_WINDOW_DEFAULT_DOCK_WIDTH_FRACTION,
+      })
+    : parseDockMetrics(value, "Workspace floating window.dockMetrics");
+}
+
 function parseOptionalBoolean(value: unknown, owner: string): boolean {
   return value === undefined ? false : assertBoolean(value, owner);
 }
@@ -309,6 +429,7 @@ function parseOptionalZIndex(value: unknown): number {
 function assertWindowLifecycle(
   placement: WorkspaceWindowPlacement,
   restoreBounds: WorkspaceWindowBounds | null,
+  restorePlacement: WorkspaceWindowRestorePlacement | null,
   isMinimized: boolean,
   isClosed: boolean,
 ): void {
@@ -324,10 +445,64 @@ function assertWindowLifecycle(
       "A maximized workspace floating window requires restore bounds.",
     );
   }
-  if (placement === "floating" && restoreBounds !== null) {
+  if (placement === "maximized" && restorePlacement === null) {
     throw new WorkspaceWindowingError(
       "invalid_transition",
-      "A floating workspace window cannot retain maximize restore bounds.",
+      "A maximized workspace floating window requires a restore placement.",
+    );
+  }
+  if (placement !== "maximized" && restoreBounds !== null) {
+    throw new WorkspaceWindowingError(
+      "invalid_transition",
+      "Only a maximized workspace floating window can retain restore bounds.",
+    );
+  }
+  if (placement !== "maximized" && restorePlacement !== null) {
+    throw new WorkspaceWindowingError(
+      "invalid_transition",
+      "Only a maximized workspace floating window can retain a restore placement.",
+    );
+  }
+}
+
+function assertWindowOwnership(
+  surfaceKind: string,
+  sectionId: string | null,
+  placement: WorkspaceWindowPlacement,
+  isMinimized: boolean,
+  isClosed: boolean,
+): void {
+  if (
+    sectionId !== null &&
+    surfaceKind !== WORKSPACE_SECTION_WINDOW_SURFACE_KIND
+  ) {
+    throw new WorkspaceWindowingError(
+      "invalid_transition",
+      "A workspace section window must use the reserved section surface kind.",
+    );
+  }
+  if (
+    sectionId === null &&
+    surfaceKind === WORKSPACE_SECTION_WINDOW_SURFACE_KIND
+  ) {
+    throw new WorkspaceWindowingError(
+      "invalid_transition",
+      "The reserved workspace section surface kind requires a section id.",
+    );
+  }
+  if (placement === "canvas_section" && sectionId === null) {
+    throw new WorkspaceWindowingError(
+      "invalid_transition",
+      "Only a section-bound workspace window can be canvas-owned.",
+    );
+  }
+  if (
+    placement === "canvas_section" &&
+    (isMinimized || isClosed)
+  ) {
+    throw new WorkspaceWindowingError(
+      "invalid_transition",
+      "A canvas-owned workspace section window cannot be minimized or closed.",
     );
   }
 }
@@ -354,16 +529,26 @@ export function createWorkspaceFloatingWindow(
     record.title,
     "Workspace floating window.title",
   );
+  const sectionId = parseOptionalSectionId(
+    record.sectionId,
+    "Workspace floating window.sectionId",
+  );
   const bounds = parseBounds(record.bounds, "Workspace floating window.bounds");
   const placement = parseOptionalPlacement(record.placement);
   const restoreBounds = parseOptionalBounds(
     record.restoreBounds,
     "Workspace floating window.restoreBounds",
   );
+  const restorePlacement = parseOptionalRestorePlacement(
+    record.restorePlacement,
+    "Workspace floating window.restorePlacement",
+    placement,
+  );
   const lastUnsnappedBounds = parseOptionalBounds(
     record.lastUnsnappedBounds,
     "Workspace floating window.lastUnsnappedBounds",
   );
+  const dockMetrics = parseOptionalDockMetrics(record.dockMetrics);
   const isMinimized = parseOptionalBoolean(
     record.isMinimized,
     "Workspace floating window.isMinimized",
@@ -374,7 +559,20 @@ export function createWorkspaceFloatingWindow(
   );
   const zIndex = parseOptionalZIndex(record.zIndex);
 
-  assertWindowLifecycle(placement, restoreBounds, isMinimized, isClosed);
+  assertWindowLifecycle(
+    placement,
+    restoreBounds,
+    restorePlacement,
+    isMinimized,
+    isClosed,
+  );
+  assertWindowOwnership(
+    surfaceKind,
+    sectionId,
+    placement,
+    isMinimized,
+    isClosed,
+  );
 
   return Object.freeze({
     id,
@@ -385,10 +583,13 @@ export function createWorkspaceFloatingWindow(
       record.rendererData,
       "Workspace floating window.rendererData",
     ),
+    sectionId,
     bounds,
     placement,
     restoreBounds,
+    restorePlacement,
     lastUnsnappedBounds,
+    dockMetrics,
     isMinimized,
     isClosed,
     zIndex,
@@ -473,6 +674,7 @@ export function createWorkspaceWindowingState(
 
   const ids = new Set<string>();
   const contentIds = new Set<string>();
+  const sectionIds = new Set<string>();
   const windows = windowsValue.map((value, index) => {
     const window = createWorkspaceFloatingWindow(value);
     if (ids.has(window.id)) {
@@ -487,8 +689,15 @@ export function createWorkspaceWindowingState(
         `Workspace windowing state contains duplicate content identity ${window.contentId} at index ${index}.`,
       );
     }
+    if (window.sectionId !== null && sectionIds.has(window.sectionId)) {
+      throw new WorkspaceWindowingError(
+        "duplicate_section_binding",
+        `Workspace windowing state contains duplicate section binding ${window.sectionId} at index ${index}.`,
+      );
+    }
     ids.add(window.id);
     contentIds.add(window.contentId);
+    if (window.sectionId !== null) sectionIds.add(window.sectionId);
     return window;
   });
   const highestZIndex = windows.reduce(
@@ -516,7 +725,11 @@ export function createWorkspaceWindowingState(
 export function isWorkspaceWindowVisible(
   window: WorkspaceFloatingWindow,
 ): boolean {
-  return !window.isClosed && !window.isMinimized;
+  return (
+    window.placement !== "canvas_section" &&
+    !window.isClosed &&
+    !window.isMinimized
+  );
 }
 
 export function assertWorkspaceWindowingLayoutEditable(
@@ -534,4 +747,10 @@ export function createWorkspaceWindowBounds(
   input: WorkspaceWindowBounds | unknown,
 ): WorkspaceWindowBounds {
   return parseBounds(input, "Workspace window bounds");
+}
+
+export function createWorkspaceWindowDockMetrics(
+  input: WorkspaceWindowDockMetricsInput | unknown,
+): WorkspaceWindowDockMetrics {
+  return parseDockMetrics(input, "Workspace window dock metrics");
 }
