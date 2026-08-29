@@ -8,9 +8,9 @@ import {
   WorkspaceWindowingError,
 } from "./windowingTypes";
 
-export const WORKSPACE_FLOATING_SNAP_BOUNDS_TOLERANCE_PX = 2;
-export const WORKSPACE_FLOATING_SNAP_POINTER_ZONE_PX = 84;
-export const WORKSPACE_FLOATING_SNAP_RESIZE_MIN_SPAN_PX = 24;
+const WORKSPACE_FLOATING_SNAP_BOUNDS_TOLERANCE_PX = 2;
+const WORKSPACE_FLOATING_SNAP_POINTER_ZONE_PX = 84;
+const WORKSPACE_FLOATING_SNAP_RESIZE_MIN_SPAN_PX = 24;
 
 type WorkspaceWindowBoundaryEdge = "left" | "right" | "top" | "bottom";
 

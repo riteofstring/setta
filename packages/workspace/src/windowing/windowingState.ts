@@ -1,10 +1,7 @@
 import {
   buildWorkspaceFloatingSnapBounds,
-  buildWorkspaceFloatingSnapResizeSeams,
   classifyWorkspaceFloatingSnapPreset,
   resolveWorkspaceWindowWorkArea,
-  type WorkspaceFloatingSnapResizeSeam,
-  type WorkspaceSnappedWindow,
 } from "./windowingSnapLayout";
 import {
   assertWorkspaceWindowingLayoutEditable,
@@ -23,12 +20,12 @@ import {
   WorkspaceWindowingError,
 } from "./windowingTypes";
 
-export const WORKSPACE_FLOATING_WINDOW_DEFAULT_WIDTH_PX = 820;
-export const WORKSPACE_FLOATING_WINDOW_DEFAULT_HEIGHT_VIEWPORT_FRACTION = 0.7;
+const WORKSPACE_FLOATING_WINDOW_DEFAULT_WIDTH_PX = 820;
+const WORKSPACE_FLOATING_WINDOW_DEFAULT_HEIGHT_VIEWPORT_FRACTION = 0.7;
 export const WORKSPACE_FLOATING_WINDOW_MIN_WIDTH_PX = 380;
 export const WORKSPACE_FLOATING_WINDOW_MIN_HEIGHT_PX = 240;
 export const WORKSPACE_FLOATING_WINDOW_TITLE_BAR_HEIGHT_PX = 32;
-export const WORKSPACE_FLOATING_WINDOW_MIN_VISIBLE_WIDTH_PX = 120;
+const WORKSPACE_FLOATING_WINDOW_MIN_VISIBLE_WIDTH_PX = 120;
 export const WORKSPACE_FLOATING_WINDOW_UNSNAP_DRAG_THRESHOLD_PX = 6;
 
 export interface WorkspaceWindowPosition {
@@ -231,7 +228,7 @@ export function clampWorkspaceFloatingWindowBounds(
  * A snap transition caches its current free geometry. Windows restored from a
  * saved snapped layout intentionally have no cache and use the default float.
  */
-export function resolveWorkspaceWindowBoundsForUnsnap(
+function resolveWorkspaceWindowBoundsForUnsnap(
   windowInput: WorkspaceFloatingWindow,
   viewport: WorkspaceWindowViewport,
 ): WorkspaceWindowBounds {
@@ -271,44 +268,6 @@ export function getWorkspaceWindowStackingOrder(
           first.index - second.index,
       )
       .map(({ window }) => window),
-  );
-}
-
-export function getVisibleWorkspaceWindows(
-  stateInput: WorkspaceWindowingState,
-): readonly WorkspaceFloatingWindow[] {
-  return Object.freeze(
-    getValidatedState(stateInput).windows.filter(isWorkspaceWindowVisible),
-  );
-}
-
-export function getWorkspaceSnappedWindows(
-  stateInput: WorkspaceWindowingState,
-  viewport: WorkspaceWindowViewport,
-): readonly WorkspaceSnappedWindow[] {
-  const state = getValidatedState(stateInput);
-  const snapped: WorkspaceSnappedWindow[] = [];
-  for (const window of state.windows) {
-    if (!isWorkspaceWindowVisible(window) || window.placement !== "floating") {
-      continue;
-    }
-    const snapPreset = classifyWorkspaceFloatingSnapPreset(
-      window.bounds,
-      viewport,
-    );
-    if (snapPreset) {
-      snapped.push({ id: window.id, bounds: window.bounds, snapPreset });
-    }
-  }
-  return Object.freeze(snapped);
-}
-
-export function getWorkspaceFloatingSnapResizeSeams(
-  state: WorkspaceWindowingState,
-  viewport: WorkspaceWindowViewport,
-): readonly WorkspaceFloatingSnapResizeSeam[] {
-  return buildWorkspaceFloatingSnapResizeSeams(
-    getWorkspaceSnappedWindows(state, viewport),
   );
 }
 
