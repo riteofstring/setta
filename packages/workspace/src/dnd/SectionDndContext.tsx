@@ -18,9 +18,6 @@ import { onDragStart, useOnDragMove, useOnDragOver } from "./useDropType";
 import { useModifiers } from "./useModifiers";
 import { useOnDragEnd as useOnDragEndMoveSection } from "./useMoveSection";
 
-// The reference keeps the dnd children projection in sync through an app-level store
-// subscription (`state/subscriptions.ts`); the package owns the same lifecycle here, scoped to
-// the mounted dnd context.
 function useDndChildrenDocumentSync() {
   const host = useWorkspaceHost();
   useEffect(() => {

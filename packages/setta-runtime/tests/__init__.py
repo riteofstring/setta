@@ -1,5 +1,3 @@
-"""Test bootstrap for the source-only Setta runtime package."""
-
 from __future__ import annotations
 
 import sys

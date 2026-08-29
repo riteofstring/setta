@@ -1,5 +1,3 @@
-"""Bounded subprocess and clean-environment helpers for smoke acceptance."""
-
 from __future__ import annotations
 
 import ctypes
@@ -88,13 +86,11 @@ class _WindowsJobObjectExtendedLimitInformation(ctypes.Structure):
 
 
 class _ForegroundTree(Protocol):
-    """One ownership boundary for the foreground public CLI process."""
-
     def force_stop(self, process: subprocess.Popen[bytes]) -> None:
-        """Boundedly stop every process owned by this boundary."""
+        pass
 
     def close(self) -> None:
-        """Release the ownership boundary after all cleanup checks finish."""
+        pass
 
 
 class _PosixForegroundTree:
@@ -106,8 +102,6 @@ class _PosixForegroundTree:
 
 
 class _WindowsForegroundTree:
-    """A kill-on-close Job Object created before the CLI is allowed to run."""
-
     def __init__(self, handle: int, kernel32: Any):
         self._handle: int | None = handle
         self._kernel32 = kernel32
@@ -201,8 +195,6 @@ class _WindowsForegroundTree:
 
 @dataclass(frozen=True)
 class _PosixAppSession:
-    """A verified dedicated native-server session retained after readiness."""
-
     identity: LiveSessionIdentity
     session_id: int
     owner_start_token: str
@@ -240,8 +232,6 @@ class _PosixAppSession:
 
 
 class ForegroundOpen:
-    """Own the foreground ``setta python-canvas open`` process and its pipes."""
-
     def __init__(
         self,
         process: subprocess.Popen[bytes],
@@ -298,7 +288,6 @@ class ForegroundOpen:
             return value
 
     def close_gracefully(self, timeout: float) -> ProcessResult:
-        """Interrupt the foreground parent so its supervisor closes child stdin."""
 
         interrupt_foreground_process(self.process)
         deadline = time.monotonic() + timeout
@@ -325,24 +314,20 @@ class ForegroundOpen:
         )
 
     def terminate(self) -> None:
-        """Best-effort cleanup for a failed assertion before readiness completes."""
 
         self._force_stop_foreground()
         self._join_readers()
 
     def retain_app_session(self, identity: LiveSessionIdentity) -> None:
-        """Keep a safe cleanup boundary after the outer CLI may have exited."""
 
         if self._app_session is not None:
             raise SmokeError("foreground open attempted to retain two live sessions")
         if _WINDOWS:
-            # Job owns token-gated bootstrap before it launches the CLI.
             self._app_session = identity
             return
         self._app_session = _capture_posix_app_session(identity)
 
     def cleanup_retained_session(self) -> None:
-        """Stop the app boundary even when its public launcher already exited."""
 
         failures: list[SmokeError] = []
         try:
@@ -350,9 +335,6 @@ class ForegroundOpen:
             if isinstance(retained, _PosixAppSession):
                 retained.force_stop()
             else:
-                # On Windows the Job Object contains every inherited child even
-                # after the console launcher has exited. Before readiness, this
-                # remains the bounded cleanup available for a failed launch.
                 self._tree.force_stop(self.process)
         except SmokeError as error:
             failures.append(error)
@@ -478,7 +460,6 @@ def popen(
 def popen_foreground(
     command: Sequence[str], *, cwd: Path, env: Mapping[str, str], stdin: int
 ) -> tuple[subprocess.Popen[bytes], _ForegroundTree]:
-    """Start the public CLI inside an ownership boundary before it can fork."""
 
     if not _WINDOWS:
         return (popen(command, cwd=cwd, env=env, stdin=stdin), _PosixForegroundTree())
@@ -593,7 +574,6 @@ def start_reader(
 
 
 def read_stream_chunk(stream: ReadableBytes) -> bytes:
-    """Read what is available from a process pipe without waiting for 64 KiB."""
 
     read_one = getattr(stream, "read1", None)
     if callable(read_one):
@@ -640,7 +620,6 @@ def terminate_process_tree(process: subprocess.Popen[bytes]) -> None:
 
 
 def interrupt_foreground_process(process: subprocess.Popen[bytes]) -> None:
-    """Ask the public foreground process to unwind its owned native child."""
 
     if process.poll() is not None:
         return
@@ -893,9 +872,6 @@ def venv_python(root: Path) -> Path:
         except OSError:
             continue
         if (stat.S_ISREG(mode) or stat.S_ISLNK(mode)) and stat.S_ISREG(resolved_mode):
-            # A POSIX venv normally links to its base interpreter. Invoking
-            # that resolved target bypasses pyvenv.cfg and escapes the venv,
-            # so preserve the checked launcher path for every child command.
             return candidate
     raise SmokeError("clean virtual environment Python is missing")
 
@@ -936,7 +912,6 @@ def install_environment() -> dict[str, str]:
 
 
 def runtime_environment(scripts: Path) -> dict[str, str]:
-    """Give installed commands no ambient toolchain or source path to consult."""
 
     return scrubbed_environment(os.environ, path=runtime_path(scripts))
 

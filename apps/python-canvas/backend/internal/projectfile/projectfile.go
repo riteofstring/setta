@@ -1,6 +1,3 @@
-// Package projectfile owns strict on-disk encoding and same-filesystem project
-// replacement. It parses once at the filesystem boundary and returns only a
-// validated authored aggregate.
 package projectfile
 
 import (
@@ -17,7 +14,6 @@ import (
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 )
 
-// Format is the sole accepted authored project-file format.
 const Format = "python-canvas-project/v2"
 
 var (
@@ -30,36 +26,25 @@ var (
 
 type replaceFunc func(source string, destination string) error
 
-// Replacement is one staged authored-project replacement. The coordinator
-// owns its commit/discard ordering while this package remains the only owner
-// of serialization and same-filesystem replacement mechanics.
 type Replacement interface {
 	Commit() error
 	Discard() error
 }
 
-// Store is the narrow strict project-file port used by the application
-// coordinator. Adapter is its production implementation; the interface keeps
-// transaction failure injection local to focused coordinator tests.
 type Store interface {
 	Load(path string) (aggregate.State, error)
 	Create(path string, state aggregate.State) error
 	StageReplacement(path string, state aggregate.State) (Replacement, error)
 }
 
-// Adapter is the narrow project-file boundary. Its only injectable participant
-// is the atomic replace call used by this package's failure-injection tests.
 type Adapter struct {
 	replace replaceFunc
 }
 
-// NewAdapter constructs the production strict project-file adapter.
 func NewAdapter() Adapter {
 	return Adapter{replace: os.Rename}
 }
 
-// Load reads and validates one complete project file. It never guesses an old
-// format or returns a plausible empty aggregate for an unavailable file.
 func (adapter Adapter) Load(path string) (aggregate.State, error) {
 	if err := validatePath(path); err != nil {
 		return aggregate.State{}, err
@@ -78,8 +63,6 @@ func (adapter Adapter) Load(path string) (aggregate.State, error) {
 	return state, nil
 }
 
-// Create writes a new complete authored project through an exclusive create.
-// An existing path is never reset or overwritten.
 func (adapter Adapter) Create(path string, state aggregate.State) error {
 	if err := validatePath(path); err != nil {
 		return err
@@ -117,8 +100,6 @@ func (adapter Adapter) Create(path string, state aggregate.State) error {
 	return nil
 }
 
-// StagedReplacement owns complete synced project bytes in the target directory
-// until Commit atomically renames them over the target or Discard removes them.
 type StagedReplacement struct {
 	targetPath    string
 	temporaryPath string
@@ -126,8 +107,6 @@ type StagedReplacement struct {
 	closed        bool
 }
 
-// Stage serializes and syncs one complete candidate to a temporary sibling of
-// the target. That same directory is the required same-filesystem boundary.
 func (adapter Adapter) Stage(path string, state aggregate.State) (*StagedReplacement, error) {
 	if err := validatePath(path); err != nil {
 		return nil, err
@@ -168,7 +147,6 @@ func (adapter Adapter) Stage(path string, state aggregate.State) (*StagedReplace
 	}, nil
 }
 
-// Replace stages and atomically commits a complete project file in one call.
 func (adapter Adapter) Replace(path string, state aggregate.State) error {
 	staged, err := adapter.Stage(path, state)
 	if err != nil {
@@ -178,13 +156,10 @@ func (adapter Adapter) Replace(path string, state aggregate.State) error {
 	return staged.Commit()
 }
 
-// StageReplacement is the coordinator-facing form of Stage. It deliberately
-// exposes only the transaction behavior, not temporary paths or codec details.
 func (adapter Adapter) StageReplacement(path string, state aggregate.State) (Replacement, error) {
 	return adapter.Stage(path, state)
 }
 
-// Commit atomically replaces the target with the previously synced sibling.
 func (staged *StagedReplacement) Commit() error {
 	if staged == nil || staged.closed {
 		return ErrStagedClosed
@@ -196,8 +171,6 @@ func (staged *StagedReplacement) Commit() error {
 	return nil
 }
 
-// Discard removes an uncommitted staged file. It is idempotent after a
-// successful commit because the atomic rename has already consumed the temp.
 func (staged *StagedReplacement) Discard() error {
 	if staged == nil || staged.closed {
 		return nil
@@ -209,8 +182,6 @@ func (staged *StagedReplacement) Discard() error {
 	return nil
 }
 
-// Encode returns one byte-stable strict project document containing authored
-// state only.
 func Encode(state aggregate.State) ([]byte, error) {
 	if err := state.Validate(); err != nil {
 		return nil, fmt.Errorf("encode authored aggregate: %w", err)
@@ -267,9 +238,6 @@ func Encode(state aggregate.State) ([]byte, error) {
 	return append(encoded, '\n'), nil
 }
 
-// Decode parses exactly one strict project document and returns its one
-// validated aggregate. Unknown, missing, null-in-required, and derived fields
-// are all rejected at this boundary.
 func Decode(content []byte) (aggregate.State, error) {
 	raw, err := decodeSingleJSON(content)
 	if err != nil {

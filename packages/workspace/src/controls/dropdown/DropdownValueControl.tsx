@@ -22,17 +22,6 @@ import type {
 } from "./comboboxStateReducer";
 import { useDropdownCombobox } from "./useDropdownCombobox";
 
-// The item-controls milestone's dropdown: the reference `IdNameCombobox` at the `ParamUI`
-// dropdown presentation, trimmed to host-supplied options — the recorded small pill input
-// (rounded-full 12 px mono with the chevron toggle) inside the reference's `<search>` shell,
-// over a body-portaled filtered list with the recorded group headers. Flat host choices take
-// the reference's single "Choices" group; hosts that pass explicit groups get one recorded
-// header per group. Every selection reports once through the controlled string seam; the
-// pane variant, theme-override props, and the reference's config-editing surface have no
-// control-slice caller and stay behind. The control disables from the host flag and,
-// package-wide, while item-select mode is active — the reference's interaction-first disabled
-// contract with no blanket opacity treatment.
-
 export type DropdownValueChoiceGroup = {
   group: string;
   choices: Array<string>;
@@ -47,33 +36,26 @@ export type DropdownValueControlProps = {
   disabled?: boolean;
 };
 
-// The `ParamUI` placement wrapper composed after the reference combobox's small outer frame,
-// verbatim (including the reference composition's repeated flex token).
 const ITEM_OUTER_DIV_CLASS_NAME =
   "flex h-[20px] relative w-full min-w-0 flex-col items-stretch overflow-visible section-value flex justify-self-start self-center [&_search]:my-auto";
-// The reference `StandardSearch` shell; the `<search>` wrapper carries the no-drag boundary.
+
 const ITEM_SEARCH_WRAPPER_CLASS_NAME = `flex min-w-0 mx-[2px] items-center relative ${NO_DRAG_CLASS_NAME} dark:text-setta-200`;
 const META_OUTER_DIV_CLASS_NAME = `flex h-[20px] relative w-full min-w-0 flex-col items-stretch overflow-visible ${NO_DRAG_CLASS_NAME} section-value flex w-full justify-self-start self-center`;
 const META_SEARCH_WRAPPER_CLASS_NAME = `flex min-w-0 mx-[2px] items-center relative ${NO_DRAG_CLASS_NAME} dark:text-setta-200 !mx-0`;
 const PARAMETER_CONFIG_OUTER_DIV_CLASS_NAME =
   "relative flex h-8 w-full min-w-0 flex-col items-stretch overflow-visible";
 const PARAMETER_CONFIG_SEARCH_WRAPPER_CLASS_NAME = `relative mt-0.5 flex min-w-0 items-center ${NO_DRAG_CLASS_NAME} dark:text-setta-200`;
-// The recorded pill presentation at the small size: rounded-full 12 px mono over the default
-// white/setta-900 field, 12 px leading and 24 px trailing padding around the 16 px content height,
-// and the recorded 2 px blue focus-visible ring. The package-only reset marker recreates main's
-// global input reset without touching host-rendered inputs; its content-box geometry lets the
-// one-pixel authored borders produce main's recorded 18 px outer height.
+
 const INPUT_CLASS_NAME =
   "setta-workspace-native-reset flex-grow truncate outline-0 cursor-auto rounded-full text-xs font-mono text-setta-600 font-medium ps-3 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 bg-white dark:bg-setta-900 pe-6 h-4 my-auto";
 const PARAMETER_CONFIG_INPUT_CLASS_NAME =
   "setta-workspace-native-reset h-7 min-w-0 flex-grow cursor-auto truncate rounded-full border border-solid border-setta-100 bg-white ps-2 pe-8 font-mono text-xs font-medium text-setta-600 outline-0 placeholder:text-setta-200 hover:bg-white/50 focus-visible:border-white focus-visible:ring-2 disabled:cursor-not-allowed dark:border-setta-700/70 dark:bg-setta-900 dark:text-setta-300 dark:placeholder:text-setta-700 dark:hover:bg-setta-950 dark:focus-visible:border-setta-900";
 const RIGHT_ADORNMENT_CLASS_NAME =
   "absolute inset-y-0 end-0 grid select-none place-items-center";
-// The reference `StandardSearchRightBtn` at the pill/small composition, verbatim (the trailing
-// end-1 rides along from the reference's pill class map even though the button is static).
+
 const TOGGLE_BUTTON_CLASS_NAME = `${NO_DRAG_CLASS_NAME} grid cursor-pointer place-items-center justify-center focus-visible:ring-2 bg-transparent text-setta-500 rounded-full p-0 h-4 w-4 hover:bg-blue-500 hover:text-white dark:text-setta-500 dark:hover:bg-blue-700 dark:hover:text-setta-100 end-1`;
 const PARAMETER_CONFIG_TOGGLE_BUTTON_CLASS_NAME = `${NO_DRAG_CLASS_NAME} grid h-7 w-7 cursor-pointer place-items-center justify-center rounded-full bg-transparent p-0 text-setta-500 hover:bg-blue-500 hover:text-white focus-visible:ring-2 disabled:cursor-not-allowed dark:text-setta-500 dark:hover:bg-blue-700 dark:hover:text-setta-100`;
-// The recorded pill/small chevron size.
+
 const TOGGLE_ICON_SIZE_PX = 10;
 const GROUP_HEADER_CLASS_NAME =
   "mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-400 first:pt-2";
@@ -163,8 +145,6 @@ function isChoiceGroups(
   return choices.length > 0 && typeof choices[0] !== "string";
 }
 
-// The reference `DropdownInput` wraps its flat host choices in the single recorded "Choices"
-// group; explicit host groups map onto the reference's grouped-header presentation directly.
 function toItemGroups(
   choices: Array<string> | Array<DropdownValueChoiceGroup>,
 ): Array<ComboboxItemGroup> {
@@ -186,8 +166,6 @@ export function DropdownValueControl({ ...props }: DropdownValueControlProps) {
   return <DropdownValueControlCore {...props} presentation="item-row" />;
 }
 
-// Package-internal meta presentation. It shares the combobox state and portal while restoring
-// frozen main's edge-to-edge search shell and "Choose" placeholder.
 export function MetaDropdownValueControl(props: DropdownValueControlProps) {
   return <DropdownValueControlCore {...props} presentation="meta-control" />;
 }
@@ -197,8 +175,7 @@ function DropdownValueControlCore({
   value,
   onValueChange,
   choices,
-  // The reference's recorded default: the params path never overrides the `StandardSearch`
-  // "Search" placeholder.
+
   placeholder,
   disabled = false,
   presentation,
@@ -211,9 +188,7 @@ function DropdownValueControlCore({
     <DropdownCombobox
       ariaLabel={ariaLabel}
       allItems={toItemGroups(choices)}
-      // The reference maps the empty string to no selection on the way in; the control
-      // projects the reference's null commits back to the empty string across the package's
-      // string seam.
+
       value={value ? value : null}
       onSelectedItemChange={(id) => onValueChange(id ?? "")}
       placeholder={resolvedPlaceholder}
@@ -223,10 +198,6 @@ function DropdownValueControlCore({
   );
 }
 
-// The reference `IdNameCombobox` layer. It must stay a separate component below the seam
-// mapping: downshift resyncs its controlled selection by identity, so the choice groups (and
-// the selection object found in them) may only be rebuilt when the host props change — a
-// single flattened component would rebuild them on every downshift dispatch and loop forever.
 function DropdownCombobox({
   ariaLabel,
   allItems,
@@ -264,8 +235,7 @@ function DropdownCombobox({
           placeholder={placeholder}
           {...combobox.getInputProps({
             "aria-label": ariaLabel,
-            // The reference params path forwards no input id, and its explicit undefined
-            // clobbers downshift's generated one; the rendered input carries no id in main.
+
             id: presentation === "parameter-config" ? inputId : undefined,
             onKeyDown: combobox.onKeyDown,
             ref: inputRef,
@@ -325,8 +295,7 @@ function DropdownComboboxList({
   useLayoutEffect(() => {
     if (combobox.isOpen && inputRef.current) {
       const rect = inputRef.current.getBoundingClientRect();
-      // The reference positions the body-portaled list once per open: 30 px up from the
-      // input's bottom edge, pushed back down 32 px by mt-8 — net 2 px below the pill.
+
       const yMargin = -30;
       const direction = getElementTextDirection(inputRef.current);
       setListDims({
@@ -391,8 +360,6 @@ const DropdownComboboxItem = memo(function DropdownComboboxItem({
 });
 
 function DropdownComboboxItems({ combobox }: { combobox: DropdownCombobox }) {
-  // The highlighted row is tracked across the flattened groups, exactly as the reference
-  // threads its running item index through the grouped rendering.
   let globalIndex = 0;
   return (
     <>

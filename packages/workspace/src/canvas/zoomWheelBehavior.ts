@@ -73,9 +73,6 @@ type DefaultWheelHandlerParams = {
   zoomOnPinch: boolean;
 };
 
-// `data-workspace-window-id` also appears on bottom-dock and recovery controls. This class is
-// emitted only by the overlay article that sits alongside the canvas renderer, so the bridge
-// cannot take wheel ownership from dock or shell chrome.
 const WORKSPACE_WINDOW_MANAGER_OVERLAY_WINDOW_SELECTOR =
   "article.setta-workspace-window-manager-window[data-workspace-window-id]";
 const WORKSPACE_WINDOW_MANAGER_SELECTOR =
@@ -264,9 +261,7 @@ function handlePinchZoomWheelEvent({
   }
 
   startWheelZoomBurst({ interactionRefs, syncViewportInteractionActive });
-  // A bridged wheel event is captured on the host document, whose coordinate system differs
-  // from the renderer. Supplying the renderer keeps pinch anchoring identical to a wheel that
-  // arrived at the ZoomPane directly.
+
   const point = pointer(event, d3Selection.node() ?? undefined);
   const pinchDelta = wheelDelta(event);
   const nextZoom = currentZoom * Math.pow(2, pinchDelta);
@@ -387,10 +382,6 @@ function getWheelEventWithCurrentTarget(
     return event;
   }
 
-  // D3 derives the wheel anchor from `event.currentTarget`. The bridge invokes its existing
-  // handler directly instead of redispatching a synthetic event, then gives only D3 a view of
-  // the original event with the renderer as that target. Bound methods retain the real event's
-  // synchronous `preventDefault` and propagation effects.
   return new Proxy(event, {
     get(originalEvent, property) {
       if (property === "currentTarget") {
@@ -440,8 +431,6 @@ function installWorkspaceWindowWheelBridge({
     wheelHandler.call(renderer, event, d3Selection.datum());
   };
 
-  // Wheel must be non-passive and run during capture: Chrome only guarantees cancellation for
-  // the opening event of a trackpad burst, before it can latch a horizontal history gesture.
   wheelDocument.addEventListener("wheel", bridgeWheelEvent, {
     capture: true,
     passive: false,

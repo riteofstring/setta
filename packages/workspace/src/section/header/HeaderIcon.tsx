@@ -3,11 +3,6 @@ import { GROUP_SECTION_KIND } from "../../document/documentSelectors";
 import { getRegisteredSectionKindOrThrow } from "../../document/sectionKindRegistry";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 
-// The reference's `HeaderIcon` over the section-kind registry: the package-owned group icon,
-// the registered kind icon rendered with the reference's simple-icon treatment
-// (`renderSimpleHeaderIcon`), and the `gg-menu` fallback every kind without an icon receives.
-// The reference's per-application-type renderers (code language, text block, social, ...) are
-// the application's to register.
 const themedHeaderIconClassName =
   "text-[color:var(--setta-section-style-muted-text)] motion-safe:transition-colors group-hover/card-section:text-[color:var(--setta-section-style-outline)] group-hover/group-section:text-[color:var(--setta-section-style-outline)]";
 const defaultBlueHeaderIconClassName =

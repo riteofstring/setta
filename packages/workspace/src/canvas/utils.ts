@@ -29,8 +29,6 @@ const getWheelDeltaModeFactor = (deltaMode: number): number => {
 export const getWheelDelta = (event: WheelEvent, factor = 1): number =>
   -event.deltaY * getWheelDeltaModeFactor(event.deltaMode) * factor;
 
-// returns a number between 0 and 1 that represents the velocity of the movement
-// when the mouse is close to the edge of the canvas
 const calcAutoPanVelocity = (
   value: number,
   min: number,
@@ -45,7 +43,6 @@ const calcAutoPanVelocity = (
   return 0;
 };
 
-// The reference subtracts its app pane widths here; the package canvas owns its whole wrapper.
 export const calcAutoPan = (
   pos: { x: number; y: number },
   bounds: Dimensions,

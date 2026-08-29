@@ -11,12 +11,6 @@ import {
   type ItemListKey,
 } from "./itemDndState";
 
-// The reference's param dnd children store (`paramDndChildren.ts`): the live parent→children
-// projection an item drag mutates (temp placeholder replacement, live re-parenting) before one
-// commit funnel writes the canonical item structure. Package store style (plain setState instead
-// of the reference's immer middleware; identical observable state, including the referential
-// stability of untouched child arrays).
-
 type ItemDndChildrenState = {
   x: Record<string, Array<string>>;
   y: Record<string, string>;
@@ -31,8 +25,8 @@ type TempItemReplacementContext = {
 function createItemDndChildrenStore() {
   return createStore(
     withResetFn<ItemDndChildrenState>(() => ({
-      x: {}, // parent id to list of children
-      y: {}, // child id to parent id
+      x: {},
+      y: {},
     })),
   );
 }

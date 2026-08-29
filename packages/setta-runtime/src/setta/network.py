@@ -1,5 +1,3 @@
-"""Validation for the local-only URLs exposed by packaged applications."""
-
 from __future__ import annotations
 
 from urllib.parse import urlsplit, urlunsplit
@@ -10,7 +8,6 @@ _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 
 
 def validate_loopback_http_url(value: str) -> str:
-    """Return a canonical root loopback URL or raise a typed input error."""
 
     try:
         parsed = urlsplit(value)

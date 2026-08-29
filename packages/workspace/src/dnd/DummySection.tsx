@@ -9,8 +9,6 @@ import { useDndState } from "./dndState";
 import { resolveRectBoundsFromMap, type DragRectLike } from "./dragRectBounds";
 import { DRAG_PREVIEW_Z_INDEX } from "./layers";
 
-// The reference wraps these in `forwardRef`; the package's React 19 peer takes `ref` as a
-// regular prop.
 export function TempDNDSection({ ref }: { ref?: Ref<HTMLDivElement> }) {
   const { width, height } = useDndState(
     (x) => ({
@@ -23,7 +21,6 @@ export function TempDNDSection({ ref }: { ref?: Ref<HTMLDivElement> }) {
   const placeholderClassName =
     "flex items-center justify-center rounded-xl bg-setta-100/70 shadow-inner dark:bg-setta-500/60";
 
-  // The 2nd div (flex-auto) is needed to make dnd work from the right
   return (
     <>
       <div

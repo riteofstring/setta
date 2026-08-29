@@ -54,14 +54,6 @@ import {
   type WorkspaceItemDiagnosticSeverity,
 } from "./itemDiagnostics";
 
-// The reference's `ParamSwitch`/`ParamContainer` row pair trimmed to the package seam: the
-// package owns the row interaction chrome — sortable wiring with zoom-scaled transforms, the
-// temp placeholder row, selection and hover treatments, and the nested-children flow with the
-// reference's leading rail and shared item-column divider. Package-owned typed presentations
-// supply the accepted label and controls directly; only custom opaque rows delegate content to
-// the optional host renderer. The private `--param-column-width` wire variable rides the row
-// grids verbatim; the package derives and persists its item-termed document value.
-
 const ITEM_COLUMN_WIDTH = "var(--param-column-width, 200px)";
 
 const NESTED_CHILD_ROWS_CLASS_NAME =
@@ -334,8 +326,7 @@ function useItemSelectionHandlers(sectionId: string, itemId: string) {
     },
     [host, isSelectingItems, sectionId, itemId],
   );
-  // The reference toggles selection through its app-level pointer path only; the package adds
-  // the keyboard equivalent on the row for the repository's accessibility gate.
+
   const handleItemKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
       if (!isSelectingItems || e.target !== e.currentTarget) {
@@ -456,8 +447,7 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       styleColor,
     };
   }, _.isEqual);
-  // The same derived-theme gate as the section chrome: a style color that derives no theme
-  // leaves the row on the plain treatments, so the themed classes never reference unset vars.
+
   const hasSectionStyleTheme = Boolean(
     rowState.styleColor &&
     deriveSectionStyleTheme(rowState.styleColor, darkMode),
@@ -722,6 +712,12 @@ function ItemRowShell({
     quickInfo,
     quickInfoDescriptionId,
   });
+  const interactionHandlers: React.HTMLAttributes<HTMLDivElement> = {
+    onClick,
+    onContextMenu: handleContextMenu,
+    onKeyDown: handleKeyDown,
+    onMouseDownCapture: onMouseDown,
+  };
   function handleContextMenu(event: React.MouseEvent<HTMLDivElement>): void {
     if (shouldRetainNativeContextMenu(event.target, event.currentTarget)) {
       event.stopPropagation();
@@ -762,9 +758,6 @@ function ItemRowShell({
     onKeyDown(event);
   }
 
-  // The reference renders rows as role-less articles. Item-select mode exposes the package row
-  // group to Tab and names its canonical selection state without flattening the host-rendered
-  // controls or nested item descendants into an ARIA button.
   return (
     <div
       className={`${rowClassName} focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2`}
@@ -774,10 +767,7 @@ function ItemRowShell({
         diagnosticSeverity ?? undefined
       }
       data-workspace-item-id={itemId}
-      onMouseDownCapture={onMouseDown}
-      onClick={onClick}
-      onContextMenu={handleContextMenu}
-      onKeyDown={handleKeyDown}
+      {...interactionHandlers}
       ref={dndRef}
       {...(dndAttributes as React.HTMLAttributes<HTMLDivElement>)}
       {...(dndListeners as React.HTMLAttributes<HTMLDivElement>)}

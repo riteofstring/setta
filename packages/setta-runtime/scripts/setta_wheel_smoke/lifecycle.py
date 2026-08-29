@@ -1,5 +1,3 @@
-"""Failure-safe cleanup for the wheel smoke's retained live application."""
-
 from __future__ import annotations
 
 import http.client
@@ -7,6 +5,8 @@ import time
 import urllib.parse
 from collections.abc import Callable, Mapping
 from pathlib import Path
+from types import TracebackType
+from typing import Self
 
 from setta_wheel_smoke.models import (
     APP_ID,
@@ -23,6 +23,23 @@ from setta_wheel_smoke.models import (
 from setta_wheel_smoke.process import ForegroundOpen, run_process
 
 
+class FailureCapture:
+    def __init__(self) -> None:
+        self.error: BaseException | None = None
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        _exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        _traceback: TracebackType | None,
+    ) -> bool:
+        self.error = exception
+        return exception is not None
+
+
 def cleanup_live_server(
     live: ForegroundOpen,
     setta: Path,
@@ -36,7 +53,6 @@ def cleanup_live_server(
     session_cleanup: Callable[..., None],
     server_unavailable: Callable[..., None],
 ) -> SmokeError | None:
-    """Run all bounded cleanup checks and retain every cleanup failure."""
 
     failures: list[BaseException] = []
     _attempt(
@@ -67,10 +83,11 @@ def cleanup_live_server(
 
 
 def _attempt(failures: list[BaseException], action: Callable[[], None]) -> None:
-    try:
+    capture = FailureCapture()
+    with capture:
         action()
-    except BaseException as error:  # noqa: BLE001 - preserve every cleanup failure.
-        failures.append(error)
+    if capture.error is not None:
+        failures.append(capture.error)
 
 
 def assert_session_cleanup(

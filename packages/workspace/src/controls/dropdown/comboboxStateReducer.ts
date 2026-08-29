@@ -14,12 +14,6 @@ import {
   type EffectCallback,
 } from "react";
 
-// The reference's `ComboboxStateReducer` trimmed to the `ParamUI` dropdown path (no
-// null-selection Enter commit, no clear-input-after-selection): every downshift action is
-// corrected so the frozen combobox behavior holds — typing filters the choice groups through
-// match-sorter, reopening shows the full list again, Escape and blur reset the draft text to
-// the committed selection, and Enter with no highlighted row commits the first filtered match.
-
 export type ComboboxItem = {
   id: string;
   name: string;
@@ -106,7 +100,7 @@ function handleEnter(
   if (state.highlightedIndex !== -1) {
     return {};
   }
-  // only do the following if no item is highlighted
+
   if (state.inputValue) {
     const objContainingValue = getFirstMatch(items);
     if (objContainingValue) {
@@ -144,19 +138,6 @@ function getReducerModifications(
   }
 }
 
-/**
- * Custom hook equivalent to `useDeepCompareEffect` but using `useLayoutEffect`.
- * Downshift needs the filtered items and selection to be synchronized before the
- * browser paints; if we waited for the normal `useEffect` tick the menu would
- * briefly render stale options, then snap to the updated ones on the next frame.
- * We memoize the last dependency array via deep equality, bump a ref-backed
- * signal when the dependencies actually change, and feed that signal into
- * `useLayoutEffect` so React re-runs the effect only when the deep comparison
- * reports a difference. Unlike the reference, the effect runs through a
- * render-updated ref behind an inline closure: this package lints
- * `react-hooks/exhaustive-deps` at error, and React invokes the latest render's
- * effect closure either way, so the behavior is identical.
- */
 function useDeepCompareLayoutEffect(
   effect: EffectCallback,
   dependencies: DependencyList,
@@ -181,13 +162,12 @@ export function useComboboxStateReducerWithFilteredItems(
   setValue: OnSelectedItemChange,
 ) {
   const [filteredItems, setFilteredItems] = useState(allItems);
-  // Derive the controlled selection from the latest incoming value so Downshift never lags behind during render.
+
   const selection = getExactMatch(allItems, value);
 
   useDeepCompareLayoutEffect(() => {
     setFilteredItems(allItems);
-    // Keep external value honest if the matching option disappears.
-    // the following condition happens if the current selection is removed from the available options
+
     if (value && !selection) {
       setValue(null);
     }
@@ -206,18 +186,11 @@ export function useComboboxStateReducerWithFilteredItems(
       type === changeTypes.InputClick ||
       type === changeTypes.ToggleButtonClick
     ) {
-      // The user clicked on the search field, or the toggle button, or an item.
-      // So show all search results. To understand why, imagine the user has previously selected
-      // an item called "Slider". When the user revisits this combobox, we want them
-      // to be able to see all the results, not just the ones that match "Slider..."
-      // We don't want them to have to backspace just to see the full results.
       if (!_.isEqual(allItems, filteredItems)) {
         latestItems = allItems;
         setFilteredItems(latestItems);
       }
     } else if (type === changeTypes.InputChange) {
-      // The user is typing, so filter the search results.
-      // Or the combobox field is updated by external state, so also filter results in this case.
       const inputValue = changes.inputValue;
       if (inputValue) {
         latestItems = allItems
@@ -229,7 +202,6 @@ export function useComboboxStateReducerWithFilteredItems(
           }))
           .filter((group) => group.items.length > 0);
       } else {
-        // if the inputValue is "", then show all items
         latestItems = allItems;
       }
 

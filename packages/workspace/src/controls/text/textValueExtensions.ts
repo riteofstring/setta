@@ -24,17 +24,6 @@ import type {
   TextValueCompletionResult,
 } from "./textValueCompletion";
 
-// The reference's `getExtensions` trimmed to the paths its text value editor reaches: line
-// wrapping, the declared language pack, the single-line transaction filter, the optional
-// consumer-owned Enter commit seam, the Escape binding, the reference's Tab-accepts-completion
-// binding, and the reference's canvas tooltip parent. App undo/redo shortcut overrides and the
-// reference's tab-scope focus manager are application services and stay application-side, so Tab
-// outside an open popup remains the browser's own focus move; without a completion source Escape
-// always reports (the reference consults `completionStatus` first).
-
-// `@uiw/react-codemirror` otherwise enables its bundled autocompletion extension by default.
-// Keep that implicit source off. A supplied consumer-neutral provider installs the narrow
-// adapter below; the default editor remains syntax highlighting only.
 export const TEXT_VALUE_BASIC_SETUP = {
   lineNumbers: false,
   foldGutter: false,
@@ -57,9 +46,7 @@ type TextValueExtensionsOptions = {
   isDisabled?: () => boolean;
   completionProvider?: TextValueCompletionProvider;
   completionRequests?: TextValueCompletionRequests;
-  // The canvas's own tooltip parent, resolved from the host rather than passed by a consumer. It
-  // is null only for an editor rendered with no canvas, which is also a tree with no section
-  // clipping the popup this would move out of.
+
   tooltipParent: HTMLElement | null;
 };
 
@@ -168,9 +155,7 @@ export function getTextValueExtensions({
           ),
         ],
       }),
-      // The editor owns Enter's two-step accept/apply contract below. Keeping CodeMirror's
-      // competing Enter binding lets it accept before the DOM handler can distinguish the first
-      // acceptance from a popup reopened over the accepted value.
+
       Prec.high(keymap.of(TEXT_VALUE_COMPLETION_KEYMAP)),
     );
   }
@@ -202,10 +187,6 @@ export function getTextValueExtensions({
   return extensions;
 }
 
-// Main's callable search gives an active completion popup the first unmodified Enter. Accepting
-// the selected option updates only the draft; the next Enter, after the popup closes, reaches the
-// declared commit. Tab accepts the same way, Escape closes the popup, and Alt-Enter remains the
-// caller's explicit alternate commit even while a popup is visible.
 function handleCompletionKeydown(
   event: KeyboardEvent,
   view: EditorView,
@@ -243,8 +224,7 @@ function handleCompletionKeydown(
       singleLine,
     });
   }
-  // Arrow and paging bindings stay with CodeMirror's completion keymap. The editor's ordinary
-  // Escape-to-section behavior never runs while the popup is visible.
+
   return false;
 }
 
@@ -303,7 +283,7 @@ function handleCompletionEnter(
   if (!commit) {
     return false;
   }
-  // Main's modified alternate gesture belongs to the caller, not the popup.
+
   closeCompletion(view);
   return null;
 }

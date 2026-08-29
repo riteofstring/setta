@@ -1,12 +1,3 @@
-/* Extracted from the frozen reference's root index.css: the section grid system and the
- * transition-radius helper used by the section chrome. Compiled into the package-owned
- * stylesheet through src/styles/index.css; consumers import the compiled dist/styles.css.
- *
- * The reference declares the placement classes in `@layer utilities`, but the compiled
- * package stylesheet keeps them un-layered at the same effective cascade position. Registered
- * content now reaches these classes only through package-owned slots; consumers never depend on
- * the private vocabulary. */
-
 .section-title {
   grid-area: title;
 }
@@ -57,22 +48,14 @@
   grid-column: left-gutter / right-gutter;
 }
 
-/* A bounded group intentionally owns native scrolling on both axes. Contain overscroll at that
- * explicit boundary so Chromium cannot turn the non-cancelable remainder of a trackpad sequence
- * into browser-history navigation after the group reaches an edge. */
 .setta-workspace-bounded-group-scroll {
   overscroll-behavior: contain;
 }
 
-/* Dropdown menus are portaled to body. Their inner list, rather than the no-wheel menu shell,
- * owns native scrolling and must contain edge overscroll before Chromium claims history. */
 .setta-workspace-dropdown-scrollport {
   overscroll-behavior: contain;
 }
 
-/* The reference's stacking grid (root index.css): one cell whose children overlay each other.
- * The color control layers its eyedropper glyph over the native input with it, exactly as the
- * reference's params color path does. */
 .single-cell-container {
   display: grid;
   grid-template-columns: 1fr;
@@ -84,11 +67,6 @@
   grid-row: 1 / 2;
 }
 
-/* Frozen main's root native-color normalization. The class marker keeps these browser-engine
- * rules on the package-owned color control instead of affecting color inputs supplied through
- * the host renderer seam. The component's important width, height, radius, and border utilities
- * override the circular configuration-editor defaults just as they do in main; removing the
- * WebKit wrapper padding and swatch border is what makes the selected color fill that geometry. */
 input.setta-workspace-native-color[type="color" i] {
   border-radius: 50%;
   inline-size: 24px;
@@ -162,7 +140,6 @@ input.setta-workspace-native-color::-moz-focus-inner {
     "bottom-gutter bottom-gutter bottom-gutter bottom-gutter bottom-gutter";
 }
 
-/* Static by default; the accepted radius transition opts in only when the user permits motion. */
 @media (prefers-reduced-motion: no-preference) {
   .transition-radius {
     transition-property: border-radius, box-shadow, drop-shadow;
@@ -172,8 +149,6 @@ input.setta-workspace-native-color::-moz-focus-inner {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Sortable transforms are emitted as inline styles by the retained dnd-kit fork. Limit the
-   * override to package-owned sortable wrappers so host renderer animation remains host policy. */
   .setta-workspace [data-sortable-section-id],
   .setta-workspace [data-item-row="true"] {
     animation-duration: 0.01ms !important;
@@ -183,8 +158,6 @@ input.setta-workspace-native-color::-moz-focus-inner {
 }
 
 @media (pointer: coarse) {
-  /* Transparent pseudo-elements enlarge compact and gesture hit geometry without changing the
-   * accepted paint. */
   .setta-workspace [data-setta-workspace-touch-target] {
     position: relative;
   }
@@ -223,16 +196,12 @@ input.setta-workspace-native-color::-moz-focus-inner {
     block-size: 2.75rem;
   }
 
-  /* The toolbar clips its accepted 23 px buttons in the default presentation. Let their
-   * transparent 24 px coarse targets escape that clipping without changing button paint. */
   .setta-workspace
     .react-flow__controls
     [data-setta-workspace-touch-target="compact"] {
     overflow: visible;
   }
 
-  /* The accepted 16 px leaf-header controls have a 4 px end margin. One additional coarse-only
-   * gap keeps their 24 px hit surfaces tangent rather than overlapping. */
   .setta-workspace [data-setta-workspace-compact-control-group="true"] {
     column-gap: 0.25rem;
     margin-inline-start: 0.25rem;
@@ -274,11 +243,6 @@ input.setta-workspace-native-color::-moz-focus-inner {
   }
 }
 
-/* Canvas structural CSS extracted from the fork's init.css/style.css, written as the effective
- * values after the reference app's `react-flow-css.css` overrides (which reset the renderer and
- * pane z-indexes to auto). Edge, handle, and drag-handle rules left with their excluded
- * features. */
-
 .react-flow__container {
   position: absolute;
   width: 100%;
@@ -298,8 +262,6 @@ input.setta-workspace-native-color::-moz-focus-inner {
   pointer-events: none;
 }
 
-/* The canvas's CodeMirror tooltip parent, at the reference's own values: a zero-area anchor in the
- * transformed scene, above section content and clickable while the viewport around it is not. */
 .setta-workspace-codemirror-tooltips {
   position: absolute;
   top: 0;
@@ -338,8 +300,6 @@ input.setta-workspace-native-color::-moz-focus-inner {
   cursor: move;
 }
 
-/* Leaf shells take a compositor layer only while a viewport gesture runs; ZoomPane clears this
- * canvas-owned marker after it, so settled zoomed content is rasterized instead of scaled. */
 .setta-workspace.react-flow[data-viewport-interaction-active="true"]
   [data-section-id] {
   will-change: transform;
@@ -380,9 +340,6 @@ input.setta-workspace-native-color::-moz-focus-inner {
   border: 1px dotted rgba(0, 89, 220, 0.8);
 }
 
-/* The minimap panel, from the fork's init.css; only the bottom-corner placement classes the
- * minimap reaches ship. The minimap surface colors are the effective values after the
- * reference app's `react-flow-css.css` `!important` overrides of the fork's white background. */
 .react-flow__panel {
   position: absolute;
   z-index: 5;
@@ -428,17 +385,13 @@ input.setta-workspace-native-color::-moz-focus-inner {
   outline-offset: 2px;
 }
 
-/* The css.gg glyphs used by the extracted header controls, copied from the reference's root
- * icons.css (the reference loads the full 42-icon set; only the slice-reachable classes ship).
- * The reference sets the shared scale on its <main>; the package scopes it to the canvas root. */
 .react-flow {
   --ggs: 0.5;
-  /* Exact `bg-setta-light` canvas surface inherited from main's app-base. */
+
   background-color: #94a3b8;
 }
 
 .react-flow.setta-workspace.setta-workspace-dark {
-  /* Exact `dark:bg-setta-dark` canvas surface inherited from main's app-base. */
   background-color: hsl(220, 27%, 15%);
 }
 
@@ -603,8 +556,6 @@ input.setta-workspace-native-color::-moz-focus-inner {
   top: 2px;
 }
 
-/* The color control's glyphs: the trigger chevron and the eyedropper layered over the native
- * input, copied from the reference's root icons.css like the header glyphs above. */
 .gg-chevron-down {
   box-sizing: border-box;
   position: relative;
@@ -668,14 +619,6 @@ input.setta-workspace-native-color::-moz-focus-inner {
   border-bottom-right-radius: 100px;
 }
 
-/* The viewport toolbar stylesheet (`forks/xyflow/controls/style.css`), as the effective rules.
- * Only the reset-zoom control carries `react-flow__controls-button` in the reference (26x26
- * against the other controls' 23x23 — frozen in the Phase 0 computed metrics); the zoomin/
- * zoomout/fitview marker classes have no rules, and the stylesheet's `:disabled` rules are
- * unreachable because the reset-zoom control never disables. */
-
-/* Repeat the class so this imported rule remains authoritative when a consumer emits its
- * Tailwind utility layer after the package stylesheet. Main's live effective padding is 5 px. */
 .react-flow__controls-button.react-flow__controls-button {
   border: none;
   box-sizing: content-box;

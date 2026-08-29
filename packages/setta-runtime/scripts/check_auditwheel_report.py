@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail closed unless one auditwheel report supports the declared ABI policy."""
+
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ _EXTERNAL_LIBRARY_MARKER = (
 
 
 class AuditwheelReportError(RuntimeError):
-    """One typed, user-visible auditwheel report acceptance failure."""
+    pass
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -90,7 +90,6 @@ def main(arguments: Sequence[str] | None = None) -> int:
 def check_auditwheel_report(
     report_path: Path, *, expected_architecture: str, max_glibc_minor: int
 ) -> str:
-    """Validate one bounded, textual auditwheel show report."""
 
     if expected_architecture not in _SUPPORTED_ARCHITECTURES:
         raise AuditwheelReportError(

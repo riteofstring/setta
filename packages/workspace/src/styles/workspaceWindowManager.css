@@ -1,5 +1,3 @@
-/* Live, host-local floating-window composition. Both this full-size root and the shell slot stay
- * transparent so uncovered canvas remains interactive; individual panels and handles opt in. */
 .setta-workspace-window-manager {
   position: relative;
   width: 100%;
@@ -20,8 +18,6 @@
   pointer-events: auto;
 }
 
-/* Window content that keeps native wheel ownership must also contain its scroll chain. Without
- * this boundary Chromium can turn a horizontal remainder at an edge into browser history. */
 .setta-workspace-window-manager-window .nowheel,
 .setta-workspace-window-manager-window .setta-native-wheel-y {
   overscroll-behavior: contain;

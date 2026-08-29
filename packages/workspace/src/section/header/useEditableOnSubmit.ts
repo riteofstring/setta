@@ -1,8 +1,6 @@
 import type { ChangeEvent, FocusEvent, KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
-// The reference's `state/hooks/editableText.ts`: commit on blur or Enter when the normalized
-// value is non-empty, changed, and accepted by the condition; Escape reverts.
 export function useEditableOnSubmit(
   initialValue: string,
   onSetTitle: (x: string) => void,

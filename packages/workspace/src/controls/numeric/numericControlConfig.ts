@@ -4,9 +4,6 @@ export type NumericControlConfig = {
   step: number;
 };
 
-// Numeric-control configuration is host-owned. Fail at the public control boundary when it
-// cannot describe the reference's bounded, step-based interaction instead of silently choosing
-// replacement limits or a replacement step.
 export function assertNumericControlConfig(
   controlName: string,
   { min, max, step }: NumericControlConfig,

@@ -21,8 +21,6 @@ import { WorkspaceProvider } from "../src/workspaceHostContext";
 import { getWorkspaceHostDomId } from "../src/workspaceHostInternals";
 import { getWorkspaceTooltipStore } from "../src/tooltip/WorkspaceTooltip";
 
-// Test code gets the same explicit host boundary as consumers. The convenience fields are only
-// aliases for host-bound vanilla stores; they never resolve a default or current workspace.
 export type WorkspaceTestHost = {
   domId: string;
   host: WorkspaceHost;

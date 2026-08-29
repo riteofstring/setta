@@ -1,5 +1,3 @@
-"""Closed-inventory inspection for a built Setta platform wheel."""
-
 from __future__ import annotations
 
 import base64
@@ -36,7 +34,6 @@ from setta_wheel_smoke.models import (
 def inspect_wheel(
     value: Path, *, expected_platform_tag: str | None = None
 ) -> WheelInspection:
-    """Inspect the complete, closed runtime inventory before installation."""
 
     wheel = require_regular_wheel(value)
     try:

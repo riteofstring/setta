@@ -1,4 +1,3 @@
-// Package cli provides the machine-readable Python Canvas command line API.
 package cli
 
 import (
@@ -14,8 +13,6 @@ import (
 
 const cliContractVersion = "v2"
 
-// operation is deliberately closed by operationRegistry. It is decoded before
-// the CLI contacts the service, then bound to the current canonical snapshot.
 type operation interface {
 	mutation(contracts.ProjectSnapshotV2) (mutation, error)
 }
@@ -50,9 +47,6 @@ type schemaDocument struct {
 	V2Vocabulary []vocabularyShape `json:"v2Vocabulary"`
 }
 
-// commandSchema describes the public Setta Python Canvas grammar. The Setta
-// adapter resolves --project to a verified live session before invoking this
-// private native command with its --url escape hatch.
 type commandSchema struct {
 	Name      string           `json:"name"`
 	Summary   string           `json:"summary"`
@@ -95,8 +89,6 @@ type vocabularyShape struct {
 	DefaultExamples []contracts.ParameterUIV2 `json:"defaultExamples,omitempty"`
 }
 
-// operationRegistry is the one authoritative inventory for decoding, schema
-// publication, and V2 route/request selection.
 var operationRegistry = []operationDefinition{
 	{
 		name:    "project.rename",

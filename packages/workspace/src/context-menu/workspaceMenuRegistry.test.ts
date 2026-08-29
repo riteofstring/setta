@@ -80,8 +80,6 @@ describe("workspace creation command registry", () => {
     ).toThrow(/non-empty label/);
   });
 
-  // A chord makes the command a key binding, so an unusable one is rejected where it is written
-  // rather than at the keypress that would never match it.
   it("rejects an unusable creation chord", () => {
     expect(() =>
       registerWorkspaceCreationCommands(host, [

@@ -14,12 +14,6 @@ import {
 import { handleSectionControlEscape } from "../sectionFocus";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 
-// The remaining-controls milestone's slider: the reference `SliderInput` at the ordinary
-// `ParamUI` row presentation. Radix owns pointer and keyboard stepping; the adjacent numeric
-// field keeps the reference's temporary edit, finite parse, clamp, and blur-commit behavior.
-// Live gesture changes and end-of-gesture commits remain separate callbacks so a host can keep
-// the reference cadence without importing its debounced transport.
-
 export type SliderValueControlProps = {
   ariaLabel: string;
   sectionId: string;
@@ -32,8 +26,6 @@ export type SliderValueControlProps = {
   disabled?: boolean;
 };
 
-// The `ParamUI` placement and `SliderInput` class strings, with package interaction boundaries
-// on the wrapper so neither the track, thumb, nor numeric field starts section drag or canvas pan.
 const ITEM_WRAPPER_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} cursor-pointer @container/slider section-value flex gap-1`;
 const ITEM_ROOT_CLASS_NAME =
   "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5";
@@ -42,9 +34,6 @@ const ITEM_TRACK_CLASS_NAME =
 const RANGE_CLASS_NAME = "absolute h-full rounded-full bg-blue-500";
 const ITEM_THUMB_CLASS_NAME = `${NO_DRAG_CLASS_NAME} block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:!bg-setta-100 hover:dark:!bg-setta-700 focus-visible:!border-blue-500 focus-visible:bg-blue-500 focus-visible:dark:bg-blue-700 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600 data-[disabled]:pointer-events-none`;
 const ITEM_TEXT_INPUT_CLASS_NAME =
-  // The responsive display must beat a consumer's later generic `.hidden` utility. The package
-  // stylesheet is intentionally importable before host styles, unlike frozen main's single
-  // Tailwind sheet, so the threshold declaration is important while preserving the same result.
   "hidden my-auto me-[1px] h-5/6 cursor-auto resize-none rounded-lg border border-solid border-setta-300/20 bg-white px-2 text-center font-mono text-xs tabular-nums focus-visible:border-blue-300 dark:border-setta-875 dark:bg-setta-875 dark:text-setta-300 @[132px]/slider:!block";
 const META_WRAPPER_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex w-full min-w-0 items-center gap-2 cursor-pointer`;
 const META_ROOT_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full flex-1 touch-none select-none items-center data-[orientation='horizontal']:h-5 cursor-pointer`;
@@ -75,8 +64,6 @@ function getSliderPresentation(presentation: SliderPresentation) {
 function parseSliderValue(value: string, min: number, max: number): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
-    // Exact reference behavior: a malformed controlled value positions the Radix thumb at min;
-    // malformed temporary field edits still revert to the controlled string on blur below.
     return min;
   }
   return clampNumericValue(parsed, min, max);
@@ -91,9 +78,6 @@ function getDecimalPlaces(value: number): number {
   return Math.max(0, fractionLength - exponent);
 }
 
-// Reserve the widest fixed-point value implied by the configuration rather than sizing from the
-// live value. The field therefore neither clips a configured endpoint nor changes width while the
-// thumb moves. Its horizontal padding and borders remain outside this character-width budget.
 function getNumericFieldCharacterCount(
   min: number,
   max: number,
@@ -120,8 +104,6 @@ export function SliderValueControl({ ...props }: SliderValueControlProps) {
   return <SliderValueControlCore {...props} presentation="item-row" />;
 }
 
-// Package-internal meta presentation: the behavior stays shared while frozen main's full-width
-// track and always-hidden numeric field replace the ordinary row's responsive field.
 export function MetaSliderValueControl(props: SliderValueControlProps) {
   return <SliderValueControlCore {...props} presentation="meta-control" />;
 }

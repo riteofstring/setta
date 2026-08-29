@@ -5,8 +5,6 @@ import (
 	"sort"
 )
 
-// CreateParameterDictionary appends one empty Parameter Dictionary to the
-// top-level forest in the same candidate as its typed collection record.
 func (state State) CreateParameterDictionary(
 	command CreateParameterDictionaryCommand,
 	nextID IDGenerator,
@@ -32,7 +30,6 @@ func (state State) CreateParameterDictionary(
 	return changedCandidate(candidate)
 }
 
-// RenameParameterDictionary changes only the display name of one dictionary.
 func (state State) RenameParameterDictionary(
 	command RenameParameterDictionaryCommand,
 ) (Candidate, error) {
@@ -55,8 +52,6 @@ func (state State) RenameParameterDictionary(
 	return changedCandidate(candidate)
 }
 
-// DeleteParameterDictionary removes the target section from whichever forest
-// location owns it. A dictionary has no section descendants of its own.
 func (state State) DeleteParameterDictionary(
 	command DeleteParameterDictionaryCommand,
 ) (Candidate, error) {
@@ -69,9 +64,6 @@ func (state State) DeleteParameterDictionary(
 	return state.deleteSectionSubtree(command.DictionaryID)
 }
 
-// SetParameterDictionaryEntries validates and replaces one entire recursive
-// dictionary tree. This command cannot affect another section's payload or
-// placement.
 func (state State) SetParameterDictionaryEntries(
 	command SetParameterDictionaryEntriesCommand,
 ) (Candidate, error) {
@@ -93,8 +85,6 @@ func (state State) SetParameterDictionaryEntries(
 	return changedCandidate(candidate)
 }
 
-// CreateList appends one empty List of Objects to the top-level forest in the
-// same candidate as its typed collection record.
 func (state State) CreateList(command CreateListCommand, nextID IDGenerator) (Candidate, error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return Candidate{}, err
@@ -113,7 +103,6 @@ func (state State) CreateList(command CreateListCommand, nextID IDGenerator) (Ca
 	return changedCandidate(candidate)
 }
 
-// RenameList changes only a List of Objects display name.
 func (state State) RenameList(command RenameListCommand) (Candidate, error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return Candidate{}, err
@@ -134,7 +123,6 @@ func (state State) RenameList(command RenameListCommand) (Candidate, error) {
 	return changedCandidate(candidate)
 }
 
-// DeleteList removes a List of Objects with all of its nested child sections.
 func (state State) DeleteList(command DeleteListCommand) (Candidate, error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return Candidate{}, err
@@ -145,7 +133,6 @@ func (state State) DeleteList(command DeleteListCommand) (Candidate, error) {
 	return state.deleteSectionSubtree(command.ListID)
 }
 
-// IncrementListChildren appends Count fresh empty Callable children atomically.
 func (state State) IncrementListChildren(
 	command IncrementListChildrenCommand,
 	nextID IDGenerator,
@@ -181,8 +168,6 @@ func (state State) IncrementListChildren(
 	return changedCandidate(candidate)
 }
 
-// DecrementListChildren removes the last Count child subtrees, capped at the
-// current child count. Decrementing an empty list is idempotent.
 func (state State) DecrementListChildren(command DecrementListChildrenCommand) (Candidate, error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return Candidate{}, err
@@ -211,8 +196,6 @@ func (state State) DecrementListChildren(command DecrementListChildrenCommand) (
 	return changedCandidate(candidate)
 }
 
-// ReplaceSectionForest applies a complete list of forest placements without
-// accepting any typed section data in the same mutation.
 func (state State) ReplaceSectionForest(command ReplaceSectionForestCommand) (Candidate, error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return Candidate{}, err

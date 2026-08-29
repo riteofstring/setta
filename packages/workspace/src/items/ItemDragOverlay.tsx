@@ -10,10 +10,6 @@ import { useItemDndState } from "../dnd/itemDndState";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { isItemOverlayVisible } from "./itemDndMonitorUtils";
 
-// The reference's `ParamDragOverlay`: the fixed blue drag rectangle that follows the pointer
-// at the measured multi-item placeholder size while the temp placeholder holds the drop slot.
-// Portaled to document.body, so it carries the package scope marker class.
-
 type ItemDragEventData = { current?: { type?: string } };
 
 export function ItemDragOverlay() {

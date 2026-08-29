@@ -10,15 +10,9 @@ import { useDndChildren } from "./dndChildren";
 import { setDndDisabled, useDndMode, useDndState } from "./dndState";
 import { BehaviorDropTypeEnum } from "./dropTypes";
 
-// The reference keeps this beside the container chrome (`Container/utils.tsx`); it reads the
-// live dnd children projection so temp placeholders count as nested content.
 export function useHasTempNested(sectionId: string) {
   return useDndChildren((x) => (x.x[sectionId] ?? []).length > 0);
 }
-
-// The reference's `useDndUtils.ts` minus its variant freezing: the package document is resolved,
-// so the reference's frozen-impl draggable gate has no package-side state and sortables default
-// to draggable.
 
 export function useHighlightDroppable({
   sectionId,
@@ -137,11 +131,6 @@ export function useDndProps({
   sectionId: string;
   isTopLevel: boolean;
 }) {
-  // We only want to set disabled if positionAndSizeLocked is true.
-  // If positionAndSizeLocked is false, we don't want to set disabled to false,
-  // so we leave it undefined to avoid forcing a value.
-  // "onlyChildId" is the id of the child if the parent has just 1 child.
-  // It is needed to correctly trigger the leftDistCondition in collisionDetection.
   const { hasNested, disabled, onlyChildId } = useWorkspaceDocument((x) => {
     const section = x.sections[sectionId];
     const children = section ? section.children : [];

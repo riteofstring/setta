@@ -1,4 +1,3 @@
-/* Main places the ListRoot incrementer directly in the flexible body row. */
 .section-row-main {
   grid-row: left-gutter;
 }

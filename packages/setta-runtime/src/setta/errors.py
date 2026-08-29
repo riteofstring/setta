@@ -1,5 +1,3 @@
-"""Stable process-boundary errors for the Setta command runtime."""
-
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -8,8 +6,6 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class SettaError(Exception):
-    """A typed user-visible failure with a stable exit class."""
-
     code: str
     message: str
     exit_code: int = 2

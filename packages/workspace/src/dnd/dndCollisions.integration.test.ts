@@ -44,7 +44,6 @@ describe("dnd collision integration", () => {
   });
 
   it("resolves section over-collision with live dndChildren store mapping", () => {
-    // Validates collision resolution pulls parentByChild from shared dnd store.
     updateDndChildren(testWorkspace.host, {
       parent: ["child"],
     });
@@ -58,7 +57,6 @@ describe("dnd collision integration", () => {
   });
 
   it("promotes the resolved section collision to the front of the mapped drag event", () => {
-    // Validates drag event mapping integrates the section collision promotion.
     updateDndChildren(testWorkspace.host, {
       parent: ["child"],
     });
@@ -91,7 +89,6 @@ describe("dnd collision integration", () => {
   });
 
   it("maps item drag collisions using list-key aware parentByChild state", () => {
-    // Validates drag event mapping integrates item dnd stores + collision promotion.
     const listKey = "pinned";
     const parentId = "item-parent";
     const childId = "item-child";

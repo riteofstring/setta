@@ -1,5 +1,3 @@
-"""Small, deterministic JSON process-boundary helpers."""
-
 from __future__ import annotations
 
 import json

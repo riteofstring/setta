@@ -1,12 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-// The section-field surface is the one place a package-owned control has to match frozen main's
-// callable field exactly, and its accepted defect was that activating the field changed its size
-// and its type. These cases pin the donor box, the donor light/dark paint, and the invariant that
-// makes the swap invisible: one wrapper owns the box, one class owns the type, and the live
-// CodeMirror layers inherit that type instead of bringing CodeMirror's own.
-
 const sectionFieldStyles = readFileSync(
   new URL("./sectionField.css", import.meta.url),
   "utf8",
@@ -71,8 +65,7 @@ describe("section-field surface contract", () => {
     expect(wrapper.declarations.get("grid-template-columns")).toBe(
       "minmax(0, 1fr) max-content",
     );
-    // Main's field begins at the section header's boundary and its Args surface begins at the
-    // field's, so no rule here may open a block gap around the section's primary control.
+
     expect(
       rules.filter((rule) =>
         [...rule.declarations.keys()].some((property) =>
@@ -85,8 +78,7 @@ describe("section-field surface contract", () => {
     expect(wrapper.declarations.get("border")).toBe(
       "1px solid hsl(219 24% 89%)",
     );
-    // No other rule may re-open the box: a second padding or border owner is how the idle and
-    // live layers drifted apart in main.
+
     const boxOwners = rules.filter(
       (rule) =>
         (rule.selector === WRAPPER || rule.selector.startsWith(`${LIVE} `)) &&
@@ -205,7 +197,7 @@ describe("section-field surface contract", () => {
         "padding",
       ),
     ).toBe("0");
-    // Any live-only font declaration reintroduces the rejected activation jump.
+
     const liveTypeDeclarations = rulesTargeting(LIVE).flatMap((rule) =>
       [...rule.declarations.keys()].filter(
         (property) => property.startsWith("font") || property === "line-height",

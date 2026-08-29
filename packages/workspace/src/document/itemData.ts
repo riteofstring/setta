@@ -8,8 +8,6 @@ import { getWorkspaceDocumentStore } from "./stores";
 import type { WorkspaceSectionData } from "./types";
 import type { WorkspaceHost } from "../workspaceHost";
 
-// The custom-row persistence seam. Typed built-in rows use their dedicated label/value/kind/config
-// funnels; this replacement remains only for a host-rendered item's opaque JSON payload.
 export function setItemData(
   host: WorkspaceHost,
   sectionId: string,

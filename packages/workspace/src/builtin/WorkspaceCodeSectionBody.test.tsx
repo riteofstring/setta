@@ -93,28 +93,15 @@ class CapturingResizeObserver {
 globalThis.ResizeObserver =
   CapturingResizeObserver as unknown as typeof ResizeObserver;
 
-// Freezes the built-in Code Editor section against the reference's `CoreCodeArea`: the editor
-// paints the section's authored language, gutters, wrapping, and indentation; every keystroke
-// commits through one document mutation; locking or a non-editable mode stops it being an editing
-// surface at all; and its focusable wrapper is the keyboard's way in and out of an editor that
-// owns Tab. The controlled seam has to keep the same editor and the same selection across
-// unrelated workspace changes, which is what preserves cursor, undo history, scroll, and focus.
-
 const SECTION_ID = "code";
 let definition = createWorkspaceCodeSection();
 
-// The generated block, read the way a consumer or a capture reads it: the package's documented
-// per-line hook, in rendered order.
 function getGeneratedLineMarks(view: EditorView): Array<string | null> {
   return [...view.dom.querySelectorAll(".cm-line")].map((line) =>
     line.getAttribute("data-workspace-generated-line"),
   );
 }
 
-// A generated document the way a host composes one: authored text, the generated body between two
-// blank separators, and authored text again. The declared region runs from the end of the first to
-// the start of the last, so the separators are the block's boundary lines and the text outside it
-// keeps ordinary read-only paint.
 const GENERATED_PREFIX = "import math";
 const GENERATED_SUFFIX = "state = value";
 const GENERATED_CODE = `${GENERATED_PREFIX}\n\nvalue = math.sqrt(3)\n\n${GENERATED_SUFFIX}`;
@@ -123,9 +110,6 @@ const GENERATED_REGION = {
   to: GENERATED_CODE.length - GENERATED_SUFFIX.length,
 };
 
-// The body a host writes over the one above when it regenerates: a different length, so the range
-// it declares with it has to move too, and a range left over from the previous document would
-// describe the wrong bytes rather than the same ones.
 const REGENERATED_BODY = "\n\nvalue = math.floor(9.5)\n\n";
 const REGENERATED_CODE = `${GENERATED_PREFIX}${REGENERATED_BODY}${GENERATED_SUFFIX}`;
 const REGENERATED_REGION = {
@@ -150,8 +134,6 @@ function makeGeneratedSection(
   );
 }
 
-// The editor's own history keymap, driven the way a person reaches it. Undo and redo are the two
-// user transactions that can move the protected range without anybody typing a character.
 function pressHistory(view: EditorView, command: "undo" | "redo") {
   const isUndo = command === "undo";
   view.contentDOM.dispatchEvent(
@@ -214,7 +196,6 @@ function makeDocument(section: WorkspaceSectionInput): WorkspaceDocumentInput {
   };
 }
 
-// Mirrors the package's own section body slot: the live section drives the registered renderer.
 function CodeSectionHarness() {
   const section = useWorkspaceDocument((state) => state.sections[SECTION_ID]);
   if (!section) {
@@ -289,8 +270,6 @@ describe("built-in code section body", () => {
     expect(completionStatus(view.state)).toBe(expected);
   }
 
-  // A case that compares two documents mounts the second one over a reset store, exactly as the
-  // suite's own teardown does.
   async function remount(section: WorkspaceSectionInput) {
     await act(async () => {
       root.unmount();
@@ -323,9 +302,6 @@ describe("built-in code section body", () => {
     return data as WorkspaceCodeSectionData;
   }
 
-  // How a host's canonical regeneration reaches the editor: it writes the section's own data, so
-  // the controlled value the body renders with stops matching the doc the editor holds and
-  // `@uiw/react-codemirror` replaces the whole document with it.
   async function regenerate(prefix: string, body: string) {
     const code = `${prefix}${body}${GENERATED_SUFFIX}`;
     await act(async () => {
@@ -368,7 +344,7 @@ describe("built-in code section body", () => {
     ]) {
       expect(wrapper.classList.contains(expectedClass)).toBe(true);
     }
-    // The section is auto-height, so the editor owns its overflow, exactly as the reference does.
+
     expect(wrapper.classList.contains("overflow-y-auto")).toBe(true);
   });
 
@@ -386,9 +362,7 @@ describe("built-in code section body", () => {
     const message = 'Name "missing_value" is not defined.';
     await mount(makeCodeSection());
     const view = getView();
-    // A canonical host response publishes the text and its document-local diagnostics together
-    // after this editor is already mounted. Its reconfiguration must schedule CodeMirror's lint
-    // source for the newly supplied ranges instead of only rendering diagnostics present at mount.
+
     await act(async () => {
       setWorkspaceCodeSectionData(testWorkspace.host, SECTION_ID, {
         ...getSectionData(),
@@ -418,8 +392,6 @@ describe("built-in code section body", () => {
       message,
     );
 
-    // A local write changes the only text the diagnostic describes, so its
-    // section data clears it rather than reusing a stale source range.
     await act(async () => {
       view.dispatch({
         changes: { from: 0, insert: "# " },
@@ -459,8 +431,6 @@ describe("built-in code section body", () => {
     });
     await reportResize(view.scrollDOM);
 
-    // `nowheel` hands both native axes to the CodeMirror scroller. ZoomPane's wheel regression
-    // locks that a horizontal trackpad gesture on this target never becomes canvas panning.
     expect(getWrapper().classList.contains("nowheel")).toBe(true);
 
     Object.defineProperty(view.scrollDOM, "scrollWidth", {
@@ -480,7 +450,7 @@ describe("built-in code section body", () => {
     });
     expect(getSectionData().code).toBe("alpha = 10\nbeta = 2\n");
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
-    // The commit never replaces the editor's own document, so the caret survives the round trip.
+
     expect(getView().state.doc.toString()).toBe("alpha = 10\nbeta = 2\n");
   });
 
@@ -511,8 +481,7 @@ describe("built-in code section body", () => {
     await mount(makeCodeSection({ mode: "read-only" }));
     const view = getView();
     expect(view.state.readOnly).toBe(true);
-    // A read-only state alone leaves a focusable editing surface that merely refuses
-    // transactions; the view itself has to stop being one.
+
     expect(view.contentDOM.getAttribute("contenteditable")).toBe("false");
     expect(view.contentDOM.getAttribute("aria-readonly")).toBe("true");
     const wrapper = getWrapper();
@@ -520,7 +489,7 @@ describe("built-in code section body", () => {
     expect(wrapper.getAttribute("data-workspace-section-editor")).toBe(
       "read-only",
     );
-    // Nothing about it is a generated document.
+
     expect(
       wrapper.classList.contains("setta-workspace-generated-document"),
     ).toBe(false);
@@ -530,8 +499,7 @@ describe("built-in code section body", () => {
   it("keeps the text around a generated block authorable", async () => {
     await mount(makeGeneratedSection());
     const view = getView();
-    // The reference's generated Python area is an ordinary editing surface whose generated range
-    // refuses edits, so only the range is read-only.
+
     expect(view.state.readOnly).toBe(false);
     expect(view.contentDOM.getAttribute("contenteditable")).toBe("true");
     const wrapper = getWrapper();
@@ -544,9 +512,9 @@ describe("built-in code section body", () => {
     expect(wrapper.getAttribute("aria-label")).toBe(
       "train.py code editor, generated output read-only",
     );
-    // Its text is still there to select and copy.
+
     expect(view.dom.textContent).toContain(GENERATED_PREFIX);
-    // The keyboard reaches the authored Python the same way it reaches any other code section.
+
     expect(wrapper.getAttribute("aria-keyshortcuts")).toBe("Enter Escape");
     await act(async () => {
       wrapper.focus();
@@ -563,7 +531,6 @@ describe("built-in code section body", () => {
     const view = getView();
     testWorkspace.host.subscribe(onDocumentChange);
 
-    // An insertion at the range's own start belongs to the prefix, so the block starts after it.
     await act(async () => {
       view.dispatch({
         changes: { from: GENERATED_REGION.from, insert: "\nimport os" },
@@ -579,10 +546,9 @@ describe("built-in code section body", () => {
       },
     });
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
-    // The commit never replaces the editor's own document, so the caret survives the round trip.
+
     expect(getView()).toBe(view);
 
-    // An insertion at the range's end belongs to the suffix, so the block ends before it.
     await act(async () => {
       view.dispatch({
         changes: {
@@ -598,7 +564,7 @@ describe("built-in code section body", () => {
         to: GENERATED_REGION.to + shifted,
       },
     });
-    // The block still covers exactly the generated body and its two separator boundaries.
+
     expect(getGeneratedLineMarks(getView())).toStrictEqual([
       null,
       null,
@@ -611,8 +577,6 @@ describe("built-in code section body", () => {
   });
 
   it("refuses every user transaction that touches the protected range", async () => {
-    // Insertion, deletion, replacement, paste, and cut, at positions inside the range and across
-    // each of its boundaries. Each one is refused as a whole rather than partly applied.
     const refusals = [
       { changes: { from: 20, insert: "0" }, userEvent: "input.type" },
       { changes: { from: 30, to: 40 }, userEvent: "delete.forward" },
@@ -648,8 +612,7 @@ describe("built-in code section body", () => {
   it("keeps the caret out of a block the keyboard steps over", async () => {
     await mount(makeGeneratedSection());
     const view = getView();
-    // A pointer press inside the generated output leaves the caret at the nearer end of the
-    // block, because there is nowhere inside it for the next character to go.
+
     await act(async () => {
       view.dispatch({ selection: { anchor: GENERATED_REGION.from + 4 } });
     });
@@ -658,15 +621,14 @@ describe("built-in code section body", () => {
       view.dispatch({ selection: { anchor: GENERATED_REGION.to - 2 } });
     });
     expect(view.state.selection.main.anchor).toBe(GENERATED_REGION.to);
-    // A selection that spans the block is left alone: the output stays selectable and copyable.
+
     await act(async () => {
       view.dispatch({
         selection: { anchor: 0, head: view.state.doc.length },
       });
     });
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
-    // Cursor motion treats the block as one step, so the keyboard is never trapped between the
-    // authored text on either side of it.
+
     expect(
       view.moveByChar(EditorSelection.cursor(GENERATED_REGION.from), true).head,
     ).toBe(GENERATED_REGION.to);
@@ -715,18 +677,13 @@ describe("built-in code section body", () => {
   it("refuses to undo a host's regeneration of the protected body", async () => {
     await mount(makeGeneratedSection());
     const view = getView();
-    // The host regenerates the body. The section's data is the only thing that changed, so the
-    // editor is reconfigured around the new range and handed the new text rather than remounted.
+
     expect(await regenerate(GENERATED_PREFIX, REGENERATED_BODY)).toBe(
       REGENERATED_CODE,
     );
     expect(getView()).toBe(view);
     expect(view.state.doc.toString()).toBe(REGENERATED_CODE);
 
-    // Nobody authored that replacement, so history has nothing to take back. Undo is the one user
-    // transaction the protected range's filter never sees — history pops its events with
-    // `filter: false` — so a recorded host replacement would put the superseded body straight back
-    // over the protected bytes.
     await act(async () => {
       pressHistory(view, "undo");
     });
@@ -735,7 +692,7 @@ describe("built-in code section body", () => {
       code: REGENERATED_CODE,
       generatedRegion: REGENERATED_REGION,
     });
-    // The range still describes the body the host declared, so the block still paints...
+
     expect(getGeneratedLineMarks(getView())).toStrictEqual([
       null,
       "start",
@@ -743,7 +700,7 @@ describe("built-in code section body", () => {
       "end",
       null,
     ]);
-    // ...and still refuses the edits it exists to refuse.
+
     await act(async () => {
       view.dispatch({
         changes: { from: REGENERATED_REGION.from + 3, insert: "0" },
@@ -756,10 +713,7 @@ describe("built-in code section body", () => {
   it("keeps an authored edit from taking a host's regeneration back with it", async () => {
     await mount(makeGeneratedSection());
     const view = getView();
-    // Text somebody authored in the prefix, and then a regeneration that carries that authored
-    // line through. History joins changes made close together into one event, so a recorded host
-    // replacement is not even a separate step: one Undo of the authored line would revert the
-    // generated body with it.
+
     await act(async () => {
       view.dispatch({
         changes: { from: 0, insert: "# header\n" },
@@ -772,9 +726,7 @@ describe("built-in code section body", () => {
     await act(async () => {
       pressHistory(view, "undo");
     });
-    // Undo cannot reach across the host's own write: it replaced the whole document the authored
-    // edit applied to, and CodeMirror maps the events history holds through it rather than
-    // replaying them over text that no longer exists.
+
     expect(view.state.doc.toString()).toBe(code);
     expect(getSectionData()).toMatchObject({
       code,
@@ -794,9 +746,6 @@ describe("built-in code section body", () => {
   });
 
   it("still undoes text authored after a host's regeneration", async () => {
-    // The control for the two cases above: the same keypress that cannot reach a host's write
-    // still takes back an edit somebody made after it, and redo puts it back. Without it, an
-    // editor whose history had simply been switched off, reset, or refused would pass them both.
     await mount(makeGeneratedSection());
     const view = getView();
     const code = await regenerate(GENERATED_PREFIX, REGENERATED_BODY);
@@ -844,9 +793,6 @@ describe("built-in code section body", () => {
   });
 
   it("paints only the lines the declared region covers", async () => {
-    // The rejected candidate treated the whole document as generated, so the authored `import`
-    // and `state` lines were painted as machine-written output. The region's own boundary lines
-    // are the blank separators, and the text outside it keeps the ordinary surface.
     await mount(makeGeneratedSection());
     expect(getGeneratedLineMarks(getView())).toStrictEqual([
       null,
@@ -856,7 +802,6 @@ describe("built-in code section body", () => {
       null,
     ]);
 
-    // The block follows the host's regeneration: a longer body without leaving its boundaries.
     await regenerate(
       GENERATED_PREFIX,
       "\n\nvalue = math.sqrt(3)\nscaled = value * 2\n\n",
@@ -870,8 +815,6 @@ describe("built-in code section body", () => {
       null,
     ]);
 
-    // A region inside one line is both ends at once, which the reference's separator-bounded
-    // range never has to answer for.
     await remount(
       makeCodeSection({
         code: "value = 3",
@@ -889,8 +832,6 @@ describe("built-in code section body", () => {
       "read-only",
     );
 
-    // Locking a section locks its content, so a locked generated document keeps the block's paint
-    // while accepting nothing at all — not even the authored Python around it.
     await remount(
       makeGeneratedSection(GENERATED_CODE, { positionAndSizeLocked: true }),
     );
@@ -917,8 +858,6 @@ describe("built-in code section body", () => {
     const onDocumentChange = vi.fn();
     testWorkspace.host.subscribe(onDocumentChange);
     await act(async () => {
-      // A read-only state stops user commands; a direct dispatch still has to leave the document
-      // alone, which is the reference's own guard.
       getView().dispatch({ changes: { from: 0, insert: "#" } });
     });
     expect(getSectionData().code).toBe("alpha = 1\nbeta = 2\n");
@@ -947,7 +886,7 @@ describe("built-in code section body", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(document.activeElement).toBe(wrapper);
-    // The workspace's own Escape chord must not also run and clear the selection behind it.
+
     expect(documentEscape).not.toHaveBeenCalled();
     document.removeEventListener("keydown", documentEscape);
   });
@@ -966,8 +905,7 @@ describe("built-in code section body", () => {
     );
     await mountWithCompletion(completionProvider);
     const view = getView();
-    // A real prefix edit leaves the caret at the region's start. This boundary must remain an
-    // authored completion position even though the next character belongs to generated output.
+
     const prefixCursor = GENERATED_REGION.from;
     await act(async () => {
       view.dispatch({ selection: { anchor: prefixCursor } });
@@ -996,7 +934,6 @@ describe("built-in code section body", () => {
     expect(tab.defaultPrevented).toBe(true);
     expect(view.state.doc.toString()).toContain("import mathlib");
 
-    // The protected interval has no provider visibility, even for an explicit request.
     const liveRegion = (
       getSectionData() as WorkspaceCodeSectionData & {
         generatedRegion: { from: number; to: number };
@@ -1018,8 +955,6 @@ describe("built-in code section body", () => {
     } = { request: null, resolve: null };
     const completionProvider: WorkspaceCodeSectionCompletionProvider = vi.fn(
       (nextRequest): Promise<WorkspaceCodeSectionCompletionResult | null> => {
-        // The input edit immediately starts a replacement typing request. Returning no result
-        // from that new request leaves this test focused on the late first response.
         if (pending.request !== null) {
           return Promise.resolve(null);
         }

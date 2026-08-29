@@ -43,9 +43,6 @@ type terminalSessionOperations struct {
 	sleep   func(time.Duration)
 }
 
-// RunPrivatePTYGuardian recognizes the re-executed native helper only. It is
-// intentionally outside the terminal Runtime contract; the launcher invokes
-// it before command-line parsing and ordinary CLI paths never reach it.
 func RunPrivatePTYGuardian(arguments []string) (bool, error) {
 	shell, handled, err := parseTerminalGuardianInvocation(arguments)
 	if !handled || err != nil {
@@ -119,9 +116,7 @@ func terminalGuardianSession(lifetime *os.File) (int, int, error) {
 	if lifetime == nil {
 		return 0, 0, errors.New("terminal guardian lifetime pipe is required")
 	}
-	// The worker owns the writer. Mark the read end close-on-exec before the
-	// shell starts, so a shell or background job can never keep the worker's
-	// lifetime signal artificially alive.
+
 	syscall.CloseOnExec(int(lifetime.Fd()))
 	guardianPID := os.Getpid()
 	sessionID, err := unix.Getsid(0)
@@ -140,14 +135,11 @@ func startTerminalGuardianShell(shell []string) (*exec.Cmd, <-chan struct{}, <-c
 		return nil, nil, nil, err
 	}
 	command := exec.Command(protectedShell[0], protectedShell[1:]...)
-	// exec.Cmd otherwise supplies /dev/null for nil standard streams. The shell
-	// must inherit the guardian's PTY descriptors exactly.
+
 	command.Stdin = os.Stdin
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
-	// The guardian already owns the PTY session and controlling terminal. The
-	// shell gets its own foreground process group, preserving interactive job
-	// control while the guardian remains the stable session leader for cleanup.
+
 	command.SysProcAttr = &syscall.SysProcAttr{Foreground: true, Ctty: 0}
 	if err := command.Start(); err != nil {
 		return nil, nil, nil, fmt.Errorf("start terminal shell: %w", err)
@@ -201,9 +193,7 @@ func cleanupAndReapTerminalGuardian(
 	if reapErr != nil {
 		return errors.Join(cleanupErr, reapErr)
 	}
-	// On Linux this reaps adopted descendants after the direct shell has been
-	// reaped. On other supported POSIX platforms it is intentionally a no-op:
-	// their verified SID boundary remains authoritative.
+
 	return errors.Join(cleanupErr, reapTerminalGuardianChildren(guardianPID))
 }
 
@@ -211,8 +201,7 @@ func killTerminalShellIfRunning(command *exec.Cmd, shellDone <-chan struct{}) er
 	if shellExited(shellDone) || command == nil || command.Process == nil {
 		return nil
 	}
-	// The shell is a directly owned child. This fallback keeps cleanup bounded
-	// if the process listing itself is unavailable.
+
 	if err := command.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
 		return fmt.Errorf("kill terminal shell: %w", err)
 	}
@@ -225,8 +214,7 @@ func reapTerminalShell(shellDone <-chan struct{}, shellWait <-chan error) error 
 	}
 	if err := <-shellWait; err != nil {
 		var exitError *exec.ExitError
-		// A shell's exit status is terminal behavior, including crashes. Its
-		// Wait still reaps it; only a failure to wait is a guardian failure.
+
 		if !errors.As(err, &exitError) {
 			return fmt.Errorf("reap terminal shell: %w", err)
 		}
@@ -316,9 +304,7 @@ func verifyTerminalSessionCleanup(
 	if len(survivors) == 0 {
 		return result
 	}
-	// A process can arrive between the first SIGKILL snapshot and verification.
-	// Revalidate the known survivors immediately before one final bounded kill
-	// attempt, then verify again while the guardian still owns the session.
+
 	return errors.Join(
 		result,
 		finalizeTerminalSessionCleanup(sessionID, guardianPID, survivors, operations, provisionalSurvivors),

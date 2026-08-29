@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Create one closed, validated runtime tree for a platform Setta wheel.
 
-This intentionally does no frontend or native compilation. Its inputs are the
-already-built production web tree and native server, which lets CI separately
-prove each build step before the immutable wheel staging boundary.
-"""
 
 from __future__ import annotations
 
@@ -41,7 +36,7 @@ _APP_ID = "python-canvas"
 
 
 class StageError(Exception):
-    """A deterministic staging precondition failed."""
+    pass
 
 
 @dataclass(frozen=True)
@@ -93,12 +88,6 @@ def parse_target(value: str) -> RuntimeTarget:
 
 
 def stage(inputs: StageInputs) -> Path:
-    """Stage one new runtime tree and return its `_runtime` root.
-
-    Existing output is intentionally rejected. A release caller chooses a fresh
-    output directory, so a prior partial or stale staging tree cannot leak into
-    a wheel.
-    """
 
     native_server = _require_regular_file(inputs.native_server, "native server")
     web_files = _collect_web_files(inputs.web_root)
@@ -124,8 +113,7 @@ def stage(inputs: StageInputs) -> Path:
         manifest_path = runtime_root / "manifest.json"
         manifest_path.write_bytes(_canonical_json_bytes(manifest))
         _fsync_tree(runtime_root)
-        # Validate the exact staged tree, including closed inventory and hashes,
-        # before exposing it to a build backend.
+
         PackagedRuntime(runtime_root, expected_target=inputs.target).manifest()
         os.replace(temporary, output)
         published = True

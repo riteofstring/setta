@@ -1,5 +1,3 @@
-"""Validated access to the packaged platform runtime assets."""
-
 from __future__ import annotations
 
 import hashlib
@@ -69,8 +67,6 @@ def current_target() -> RuntimeTarget:
 
 
 class PackagedRuntime:
-    """Loads and validates the assets that one wheel owns."""
-
     def __init__(
         self, root: Path | None = None, *, expected_target: RuntimeTarget | None = None
     ):
@@ -191,7 +187,6 @@ def packaged_runtime_root() -> Path:
 
 
 def resolve_basedpyright_entrypoint() -> Path:
-    """Resolve only the direct runtime dependency's installed console entrypoint."""
 
     try:
         distribution = importlib.metadata.distribution("basedpyright")
@@ -452,7 +447,6 @@ def _validate_app_server(
 
 
 def _runtime_regular_files(root: Path) -> set[str]:
-    """Return every regular runtime file while rejecting symlinked tree entries."""
 
     _require_directory(root, "The packaged Setta runtime directory is invalid.")
     files: set[str] = set()

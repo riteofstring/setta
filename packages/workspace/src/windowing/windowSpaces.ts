@@ -22,7 +22,7 @@ export interface WorkspaceWindowSpaceWindow {
   readonly surfaceKind: string;
   readonly title: string;
   readonly rendererData: WorkspaceWindowJsonValue;
-  /** Null for generic content; retained for section ownership reconciliation. */
+
   readonly sectionId: string | null;
   readonly normalizedBounds: WorkspaceNormalizedWindowBounds;
   readonly zIndex: number;
@@ -50,7 +50,7 @@ export interface WorkspaceWindowSpaceMetadata {
 
 export interface WorkspaceWindowSpaceRestoreResult {
   readonly state: WorkspaceWindowingState;
-  /** Only ids that had to change are present. */
+
   readonly idRemaps: Readonly<Record<string, string>>;
 }
 
@@ -247,7 +247,6 @@ function assertUniqueWindowIdentities(
   }
 }
 
-/** Validates a serializable Window Space and returns a detached immutable copy. */
 export function createWorkspaceWindowSpace(
   input: WorkspaceWindowSpaceInput | unknown,
 ): WorkspaceWindowSpace {
@@ -305,11 +304,6 @@ export function canSnapshotWorkspaceWindowSpace(
   );
 }
 
-/**
- * Captures visible floating windows in deterministic stacking order. Closed,
- * minimized, docked, canvas-owned, and maximized windows do not become part
- * of a Window Space.
- */
 export function snapshotWorkspaceWindowSpace(
   stateInput: WorkspaceWindowingState,
   metadata: WorkspaceWindowSpaceMetadata,
@@ -388,8 +382,6 @@ function resolveReusableExistingWindow(
     currentBySection !== undefined &&
     currentByContent.id !== currentBySection.id
   ) {
-    // Replacing either would duplicate the other live identity. The saved
-    // section must wait until the host reconciles that inconsistent state.
     return undefined;
   }
   return currentBySection ?? currentByContent;
@@ -464,8 +456,6 @@ function shouldSkipWorkspaceWindowSpaceRestore(
       existingByContentId,
       existingBySectionId,
     ) ||
-    // A maximized live instance remains the authoritative presentation rather
-    // than being replaced with a saved floating layout.
     existing?.placement === "maximized"
   );
 }
@@ -572,11 +562,6 @@ function mergeRestoredWindows(
   ];
 }
 
-/**
- * Restores a snapshot through one complete, validated merge. Existing content
- * identities are reused, unrelated instances stay intact, and an id collision
- * for different content is deterministically remapped.
- */
 export function restoreWorkspaceWindowSpace(
   stateInput: WorkspaceWindowingState,
   spaceInput: WorkspaceWindowSpace,

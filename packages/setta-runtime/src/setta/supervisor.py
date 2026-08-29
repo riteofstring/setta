@@ -1,5 +1,3 @@
-"""Foreground supervision for a packaged native application server."""
-
 from __future__ import annotations
 
 import ctypes
@@ -22,9 +20,8 @@ from .network import validate_loopback_http_url
 _READINESS_TIMEOUT_SECONDS = 15.0
 _MAX_READINESS_LINE_BYTES = 16 * 1024
 _MAX_CAPTURED_STDERR_BYTES = 16 * 1024
-# The native backend gives HTTP and terminal cleanup up to five seconds. Keep
-# one additional second here so closing supervised stdin never cuts that
-# documented backend cleanup contract short.
+
+
 _BACKEND_CLEANUP_BUDGET_SECONDS = 5.0
 _GRACEFUL_SHUTDOWN_SECONDS = _BACKEND_CLEANUP_BUDGET_SECONDS + 1.0
 _FORCED_REAP_SECONDS = 2.0
@@ -95,10 +92,10 @@ class ServerReadiness:
 
 class _ProcessTree(Protocol):
     def force_stop(self, process: subprocess.Popen[str]) -> None:
-        """Stop every process owned by the native server boundary."""
+        pass
 
     def close(self) -> None:
-        """Release the process-tree ownership boundary."""
+        pass
 
 
 @dataclass(frozen=True)
@@ -247,8 +244,6 @@ class ManagedServer:
 
 
 class NativeServerSupervisor:
-    """Starts one private server and verifies its single readiness boundary."""
-
     def __init__(self, *, readiness_timeout: float = _READINESS_TIMEOUT_SECONDS):
         self._readiness_timeout = readiness_timeout
 
@@ -371,10 +366,7 @@ class NativeServerSupervisor:
         process: subprocess.Popen[str],
         tree: _ProcessTree,
     ) -> list[RuntimeExecutionError | None]:
-        # Stop the process boundary before closing a readiness stream. A
-        # background readline can hold TextIOWrapper's lock while blocked;
-        # closing that stream first could deadlock the timeout path instead of
-        # reaching the process-tree cleanup that releases the read.
+
         cleanup = [cls._stop_process(process, tree)]
         cleanup.extend(cls._close_process_streams(process))
         cleanup.append(cls._close_process_tree(tree))
@@ -542,8 +534,6 @@ def _start_windows_process(
             cwd=working_directory,
             creationflags=_WINDOWS_NEW_PROCESS_GROUP,
             stderr=subprocess.PIPE,
-            # Keep this pipe open for the server lifetime. The private server
-            # treats EOF as launcher death and stops instead of becoming orphaned.
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,

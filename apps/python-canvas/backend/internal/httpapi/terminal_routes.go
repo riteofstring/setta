@@ -23,25 +23,15 @@ import (
 
 var ErrTerminalRuntimeRequired = errors.New("httpapi: terminal runtime is required")
 
-// HandlerOptions binds every startup-owned process boundary plus the explicit
-// browser origins allowed to upgrade its terminal WebSocket. The loopback
-// listener is not itself an origin authorization policy because Vite proxies
-// upgrades.
 type HandlerOptions struct {
 	Terminal terminal.Runtime
-	// Runner owns direct, noninteractive generated-program execution. It is
-	// deliberately distinct from Terminal so AI-native calls cannot acquire or
-	// alter the attached PTY session.
+
 	Runner runner.Runtime
-	// RuntimeSession is startup-owned identity published for the generic Setta
-	// live-session locator. NewHandler validates it before exposing the route.
+
 	RuntimeSession contracts.RuntimeSessionIdentityV2
-	// AppOrigin identifies the loopback browser origin permitted to upgrade the
-	// terminal stream. A 127.0.0.1 origin with an explicit port also permits
-	// main's matching localhost alias on that port.
+
 	AppOrigin string
-	// Lifecycle is canceled as the loopback server shuts down so a live
-	// WebSocket input read cannot outlive the service that owns its PTY.
+
 	Lifecycle context.Context
 }
 
@@ -423,9 +413,7 @@ func terminalAllowedOrigins(appOrigin string) map[string]struct{} {
 	if err != nil || parsed.Hostname() != "127.0.0.1" || parsed.Port() == "" {
 		return allowed
 	}
-	// Main treats localhost as the equivalent browser spelling for a configured
-	// IPv4 loopback dev origin. Keep the same scheme and exact launcher port;
-	// no other loopback address gains access to this terminal stream.
+
 	allowed[parsed.Scheme+"://localhost:"+parsed.Port()] = struct{}{}
 	return allowed
 }

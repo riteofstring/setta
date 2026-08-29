@@ -2,8 +2,16 @@ import type { ComponentProps } from "react";
 import { describe, expect, it } from "vitest";
 import * as workspace from "./index";
 
-// Phase 5 ratifies one root runtime entry. This list makes additions/removals deliberate and keeps
-// package-private stores, fork primitives, and DOM selectors from leaking through a broad export.
+type IsExactly<Actual, Expected> =
+  (<Value>() => Value extends Actual ? 1 : 2) extends <
+    Value,
+  >() => Value extends Expected ? 1 : 2
+    ? true
+    : false;
+
+type IsRequiredProperty<Value, Key extends keyof Value> =
+  object extends Pick<Value, Key> ? false : true;
+
 const RUNTIME_EXPORTS = [
   "ColorValueControl",
   "DEFAULT_SECTION_TAG_COLOR_PALETTE",
@@ -250,8 +258,7 @@ describe("public package API", () => {
       ariaLabel: "Expression",
       controlId: "expression",
       endAdornment: null,
-      // The caller holding the draft is told when Escape abandoned it, so it can restore its own
-      // canonical value; the package never guesses what that value is.
+
       onEscape: () => {
         abandonedDraft = true;
       },
@@ -265,34 +272,27 @@ describe("public package API", () => {
     expect(props.presentation).toBe("section-field");
     props.onEscape();
     expect(abandonedDraft).toBe(true);
-    // The adornment belongs to the section-field placement alone.
-    const itemRow: ComponentProps<typeof workspace.TextValueEditor> = {
-      ariaLabel: "Expression",
-      controlId: "expression",
-      onValueChange: () => {},
-      presentation: "item-row",
-      sectionId: "section-1",
-      value: "draft",
-    };
-    // @ts-expect-error the item-row placement has no adornment slot.
-    itemRow.endAdornment = null;
+
+    type ItemRowProps = Extract<
+      ComponentProps<typeof workspace.TextValueEditor>,
+      { presentation: "item-row" }
+    >;
+    const itemRowEndAdornmentIsUndefined: IsExactly<
+      ItemRowProps["endAdornment"],
+      undefined
+    > = true;
+
+    expect(itemRowEndAdornmentIsUndefined).toBe(true);
   });
 
-  // The canvas renders the tooltip parent its editors use, so a consumer never passes, names, or
-  // opts into one, and no CodeMirror element, extension, or tooltip option crosses the root.
   it("resolves the canvas tooltip parent without a public seam for it", () => {
-    const field: ComponentProps<typeof workspace.TextValueEditor> = {
-      ariaLabel: "Expression",
-      controlId: "expression",
-      onValueChange: () => {},
-      presentation: "section-field",
-      sectionId: "section-1",
-      value: "draft",
-    };
-    // @ts-expect-error the package resolves its canvas tooltip parent from the host.
-    field.tooltipParent = null;
-    // `WorkspaceTooltip` is the package's own hover chrome and stays exported; nothing names the
-    // editor's tooltip placement or the CodeMirror objects behind it.
+    const hasTooltipParent: "tooltipParent" extends keyof ComponentProps<
+      typeof workspace.TextValueEditor
+    >
+      ? true
+      : false = false;
+
+    expect(hasTooltipParent).toBe(false);
     expect(
       RUNTIME_EXPORTS.filter((name) =>
         /codemirror|editorview|tooltipparent|extension/i.test(name),
@@ -309,8 +309,7 @@ describe("public package API", () => {
       itemArea,
       renderContent: () => null,
     } satisfies workspace.SectionKindDefinition;
-    // Keyed by every public mode: adding, removing, or renaming one fails this exhaustiveness
-    // proof at compile time, which counting a hand-written array never could.
+
     const presentationsByMode = {
       "authoring-and-filter": { toolbar: "authoring-and-filter" },
       "filter-only": itemArea,
@@ -334,8 +333,7 @@ describe("public package API", () => {
       generatedRegion,
       mode: "generated-document",
     });
-    // Keyed by every public mode: adding, removing, or renaming one fails this exhaustiveness
-    // proof at compile time.
+
     const dataByMode = {
       editable: workspace.createWorkspaceCodeSectionData(),
       "read-only": workspace.createWorkspaceCodeSectionData({
@@ -351,22 +349,30 @@ describe("public package API", () => {
     expect([...workspace.WORKSPACE_CODE_SECTION_MODES].sort()).toStrictEqual(
       Object.keys(dataByMode).sort(),
     );
-    // The region belongs to the one mode that paints it, and the whole-document shape it
-    // replaces is gone from the contract rather than accepted beside it.
+
+    type OrdinaryOverrides = Exclude<
+      workspace.WorkspaceCodeSectionDataOverrides,
+      { mode: "generated-document" }
+    >;
+    type GeneratedOverrides = Extract<
+      workspace.WorkspaceCodeSectionDataOverrides,
+      { mode: "generated-document" }
+    >;
+    const ordinaryHasGeneratedRegion: "generatedRegion" extends keyof OrdinaryOverrides
+      ? true
+      : false = false;
+    const generatedCodeIsRequired: IsRequiredProperty<
+      GeneratedOverrides,
+      "code"
+    > = true;
+    const generatedRegionIsRequired: IsRequiredProperty<
+      GeneratedOverrides,
+      "generatedRegion"
+    > = true;
+
     expect(dataByMode["read-only"]).not.toHaveProperty("generatedRegion");
-    const ordinary = {
-      mode: "read-only",
-      // @ts-expect-error an ordinary mode cannot declare a generated region.
-      generatedRegion,
-    } satisfies workspace.WorkspaceCodeSectionDataOverrides;
-    expect(ordinary.mode).toBe("read-only");
-    // The reciprocal: a region is offsets into a document, so the mode that carries one cannot
-    // fall back to the empty default text every other override may.
-    // @ts-expect-error a generated document cannot omit the code its region indexes.
-    const withoutCode: workspace.WorkspaceCodeSectionDataOverrides = {
-      generatedRegion,
-      mode: "generated-document",
-    };
-    expect(withoutCode.mode).toBe("generated-document");
+    expect(ordinaryHasGeneratedRegion).toBe(false);
+    expect(generatedCodeIsRequired).toBe(true);
+    expect(generatedRegionIsRequired).toBe(true);
   });
 });

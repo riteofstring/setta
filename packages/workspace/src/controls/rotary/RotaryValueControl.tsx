@@ -41,9 +41,6 @@ export type RotaryValueControlProps = {
   disabled?: boolean;
 };
 
-// The remaining-controls milestone's rotary is the frozen `RotaryInput` with its package seams:
-// string-controlled updates, host-supplied accessible naming, item-select disabledness, and the
-// package-owned wheel boundary so knob adjustment never also zooms or pans the canvas.
 export function RotaryValueControl({
   ariaLabel,
   sectionId,

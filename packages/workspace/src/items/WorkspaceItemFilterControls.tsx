@@ -82,11 +82,7 @@ export function WorkspaceItemFilterControls({
   )} hidden by this filter.`;
   const statusMessage = buildFilterStatusMessage(filter);
   const toneClassNames = getFilterToneClassNames(filter.hasSectionStyleTheme);
-  // The reference's empty Args filter advertises the same shortcut that focuses it while its
-  // section is the sole active one, and reads "Filter" otherwise. The chord comes from the
-  // binding registry rather than from a literal, so a host that rebinds or unbinds
-  // `workspace.focus-item-filter` changes what this says as well as what the chord does. The
-  // accessible name stays "Filter parameters": a placeholder is not a name.
+
   const focusChordLabel = getWorkspaceKeyBindingChordLabel(
     host,
     FOCUS_ITEM_FILTER_BINDING_ID,

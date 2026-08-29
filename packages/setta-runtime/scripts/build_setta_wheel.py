@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Build the frontend and native server, stage them, then make one wheel.
 
-This is a release/build tool. It never installs or synchronizes dependencies;
-the caller must already have completed dependency review and a frozen setup.
-"""
 
 from __future__ import annotations
 
@@ -39,7 +35,7 @@ _DEFAULT_STAGE_DIR = ROOT / "build" / "setta-wheel" / "stage"
 
 
 class BuildError(Exception):
-    """A build-tool precondition or command failed."""
+    pass
 
 
 def main(arguments: list[str] | None = None) -> int:

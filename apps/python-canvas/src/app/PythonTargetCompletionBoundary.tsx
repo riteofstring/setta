@@ -19,9 +19,6 @@ export function PythonTargetCompletionErrorProvider({
   );
 }
 
-// The public Code section owns the editor itself. Python Canvas owns this
-// labelled composite boundary, which keeps completion-failure feedback tied to
-// the one target editor without reaching into the package's rendered DOM.
 export function PythonTargetCompletionBoundary({
   children,
 }: {

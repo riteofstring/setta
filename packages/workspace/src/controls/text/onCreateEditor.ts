@@ -2,9 +2,6 @@ import type { EditorView } from "@codemirror/view";
 import { getReactFlowStore } from "../../canvas/store";
 import type { WorkspaceHost } from "../../workspaceHost";
 
-// The reference's `getOnCreateEditor` minus its completion wrapper: focus the fresh editor,
-// carry the activating pointer position into the initial selection, and reveal the layer.
-
 export type TextValueActivationEvent =
   "tab" | { clientX: number; clientY: number };
 
@@ -14,8 +11,6 @@ function fixPlaceholderCursor(
   value: string,
   placeholder: string | undefined,
 ) {
-  // The cursor appears the wrong size when there's a placeholder text and when you're zoomed in.
-  // This is a hacky solution to that problem.
   if (!value && placeholder) {
     const cursors = view.dom.querySelectorAll(".cm-cursor");
     cursors.forEach((cursor) => {

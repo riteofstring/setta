@@ -75,9 +75,9 @@ export type WorkspaceWindowManagerProps = {
   onStateChange: (nextState: WorkspaceWindowingState) => void;
   renderers: WorkspaceWindowRenderers;
   boundaryInsets?: WorkspaceWindowBoundaryInsets;
-  // Defaults to true. When false, focus remains available while layout mutations are hidden.
+
   layoutEditable?: boolean;
-  // Defaults to true. Hosts can opt out when they provide their own command surface.
+
   shortcuts?: boolean;
   ariaLabel?: string;
   className?: string;
@@ -425,9 +425,7 @@ export function WorkspaceWindowManager({
       getWorkspaceWindowStackingOrder(state).filter(isWorkspaceWindowVisible),
     [state],
   );
-  // Overlay DOM follows stable window ownership order. CSS z-index handles visual
-  // stack changes, which keeps a drag target in place while it receives pointer
-  // capture.
+
   const overlayWindows = useMemo(
     () =>
       state.windows.filter(

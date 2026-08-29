@@ -8,17 +8,11 @@ import (
 	tree_sitter_python "github.com/tree-sitter/tree-sitter-python/bindings/go"
 )
 
-// pythonStateReference is one parser-confirmed, unshadowed state path in an
-// authored expression. Range covers state.<path>, but not a longer attribute
-// chain that may follow it.
 type pythonStateReference struct {
 	Path  string
 	Range ByteRange
 }
 
-// findPythonStateReferences parses one authored Python expression and finds
-// unshadowed state.<generated_path> reads. Invalid or incomplete syntax is
-// deliberately left to Basedpyright and contributes no inferred dependency.
 func findPythonStateReferences(expression string) ([]pythonStateReference, error) {
 	if strings.TrimSpace(expression) == "" {
 		return nil, nil

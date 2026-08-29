@@ -1,5 +1,4 @@
 export type DropzoneAttachment = {
-  // Identity is opaque and host-owned; the package uses it only for rendering and removal.
   id: string;
   kind: "file" | "text";
   name: string;
@@ -7,20 +6,18 @@ export type DropzoneAttachment = {
 };
 
 export type DropzonePolicy = {
-  // `null` is the explicit unlimited form for count and per-result total bytes.
   maxAttachments: number | null;
   maxFileBytes: number;
-  // Matches the frozen stateless path: this limit applies to one accepted file batch or one
-  // dropped text result, not to the host's already-controlled attachment metadata.
+
   maxTotalBytes: number | null;
-  // Prefix matching is deliberate (`image/` accepts `image/png`); an empty list accepts all.
+
   allowedMimePrefixes: ReadonlyArray<string>;
 };
 
 export type DropzoneAcceptedResult =
   | {
       kind: "files";
-      // Raw browser objects cross the seam unchanged. The package never reads their bytes.
+
       files: ReadonlyArray<File>;
     }
   | {
@@ -55,8 +52,7 @@ export type DropzoneValueControlProps = {
   controlId: string;
   attachments: ReadonlyArray<DropzoneAttachment>;
   policy: DropzonePolicy;
-  // Results are stateless package output. The host decides whether and how to upload, persist,
-  // assign identities, or reflect display metadata back through `attachments`.
+
   onAccepted: (result: DropzoneAcceptedResult) => void;
   onRejected: (rejections: ReadonlyArray<DropzoneRejection>) => void;
   onServerFilePickerRequest?: (request: DropzoneServerPickerRequest) => void;

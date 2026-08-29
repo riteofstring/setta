@@ -6,12 +6,6 @@ import { handleSectionControlEscape } from "../sectionFocus";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
 
-// The remaining-controls milestone's password control: the frozen `PasswordInput` and its
-// ordinary-row `ParamUI` wrapper behind the package's controlled string seam. The package owns
-// only local obscured/visible presentation. A host that has a separately persisted secret may
-// provide the optional reveal action and its pending state; the package never infers a saved
-// secret from the value or placeholder and never stores credentials.
-
 export type PasswordSavedValueAction = {
   pending: boolean;
   onReveal: () => void;
@@ -30,9 +24,7 @@ export type PasswordValueControlProps = {
 
 const WRAPPER_CLASS_NAME = "section-value flex min-w-0 items-center gap-2";
 const INPUT_WRAPPER_CLASS_NAME = `section-value relative min-w-0 flex-1 ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
-// Frozen main receives a transparent input background from its global `input { all: unset }`
-// rule. The package cannot ship that host-wide reset, so both scoped password presentations carry
-// the equivalent background explicitly.
+
 const INPUT_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex w-full min-w-0 flex-1 self-center bg-transparent pe-8 font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
 const TOGGLE_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} absolute inset-y-0 end-0 grid w-8 place-items-center text-setta-400 dark:text-setta-500`;
 const DIVIDER_BASE_CLASS_NAME =
@@ -98,8 +90,6 @@ export function PasswordValueControl({
   );
 }
 
-// Package-internal meta presentation. The obscured/visible state and keyboard behavior remain
-// shared; only the full-area grid and frozen input/divider geometry differ from an item row.
 export function MetaPasswordValueControl({
   ariaLabel,
   sectionId,

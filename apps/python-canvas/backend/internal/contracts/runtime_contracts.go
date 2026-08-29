@@ -6,9 +6,6 @@ import (
 	"unicode/utf8"
 )
 
-// RunGeneratedProgramRequestV2 binds one noninteractive generated-program
-// execution to the exact canonical project revision. A nil timeout uses the
-// runner's startup-owned default.
 type RunGeneratedProgramRequestV2 struct {
 	ProjectID              string `json:"projectId"`
 	ExpectedRevision       int    `json:"expectedRevision"`
@@ -24,9 +21,6 @@ const (
 	GeneratedProgramTerminationOutputLimitV2 GeneratedProgramTerminationReasonV2 = "output_limit"
 )
 
-// GeneratedProgramRunResultV2 is returned for every started program, including
-// nonzero exits and runner-enforced termination. The separate truncation flags
-// make bounded capture observable without overloading the output strings.
 type GeneratedProgramRunResultV2 struct {
 	ProjectID       string                              `json:"projectId"`
 	Revision        int                                 `json:"revision"`
@@ -39,16 +33,12 @@ type GeneratedProgramRunResultV2 struct {
 	ElapsedMillis   int                                 `json:"elapsedMilliseconds"`
 }
 
-// OpenTerminalRequestV2 creates or reuses the one runtime terminal owned by
-// Generated Python. It deliberately carries no authored-project mutation.
 type OpenTerminalRequestV2 struct {
 	ProjectID string `json:"projectId"`
 	Columns   int    `json:"columns"`
 	Rows      int    `json:"rows"`
 }
 
-// RunTerminalRequestV2 binds one generated-code run to the exact canonical
-// project revision observed by the frontend.
 type RunTerminalRequestV2 struct {
 	ProjectID        string `json:"projectId"`
 	ExpectedRevision int    `json:"expectedRevision"`
@@ -60,8 +50,6 @@ type CloseTerminalRequestV2 struct {
 	ProjectID string `json:"projectId"`
 }
 
-// TerminalTicketRequestV2 issues one opaque, single-use attachment ticket for
-// the already-open Generated Python terminal.
 type TerminalTicketRequestV2 struct {
 	ProjectID string `json:"projectId"`
 }
@@ -76,9 +64,6 @@ type TerminalTicketV2 struct {
 	Ticket string `json:"ticket"`
 }
 
-// RuntimeSessionIdentityV2 is the authenticated-by-local-ownership identity
-// published by a private Python Canvas server. The generic Setta session
-// locator verifies this response in addition to owner process liveness.
 type RuntimeSessionIdentityV2 struct {
 	SchemaVersion string `json:"schemaVersion"`
 	AppID         string `json:"appId"`
@@ -86,14 +71,10 @@ type RuntimeSessionIdentityV2 struct {
 	InstanceNonce string `json:"instanceNonce"`
 }
 
-// TerminalStreamReadyV2 is the one server-to-client control boundary before
-// retained history and live binary terminal output begin.
 type TerminalStreamReadyV2 struct {
 	Type string `json:"type"`
 }
 
-// TerminalStreamResizeV2 is the sole client-to-server JSON control frame.
-// Terminal input itself stays raw binary UTF-8 bytes.
 type TerminalStreamResizeV2 struct {
 	Type    string `json:"type"`
 	Columns int    `json:"columns"`

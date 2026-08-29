@@ -411,43 +411,5 @@
         "expires": "2026-09-06"
       }
     ]
-  },
-  "exceptions": [
-    {
-      "id": "key-activations-parity-test-length",
-      "check": "quality.fileLength",
-      "path": "packages/workspace/src/canvas/keyActivations.test.tsx",
-      "subject": "2002",
-      "reason": "The sealed formatter exposed this regression matrix above the test-file limit; the executable assertions remain intact while the fixture and scenario groups are split without reducing coverage.",
-      "owner": "workspace-extraction",
-      "expires": "2026-08-27"
-    },
-    {
-      "id": "date-time-control-parity-length",
-      "check": "quality.fileLength",
-      "path": "packages/workspace/src/controls/date-time/DateTimeValueControl.tsx",
-      "subject": "1116",
-      "reason": "The sealed formatter exposed this accepted date-time interaction owner above the shared limit; its component suite protects behavior while calendar responsibilities are extracted before expiry.",
-      "owner": "workspace-extraction",
-      "expires": "2026-08-27"
-    },
-    {
-      "id": "item-column-resize-pointer-parity",
-      "check": "quality.lint",
-      "path": "packages/workspace/src/items/ItemColumnResizeHandle.tsx",
-      "subject": "jsx-a11y/no-static-element-interactions",
-      "reason": "The accepted non-tab-stop divider preserves frozen pointer-drag and double-click behavior under focused component tests; keyboard resize semantics require a visible product interaction decision before changing this surface.",
-      "owner": "workspace-extraction",
-      "expires": "2026-08-27"
-    },
-    {
-      "id": "item-row-dynamic-group-semantics",
-      "check": "quality.lint",
-      "path": "packages/workspace/src/items/ItemRow.tsx",
-      "subject": "jsx-a11y/no-static-element-interactions",
-      "reason": "The row becomes a named keyboard-operable group only in item-select mode and its dynamic role, tab stop, and key behavior are component-tested; the static lint rule cannot resolve that state-dependent contract.",
-      "owner": "workspace-extraction",
-      "expires": "2026-08-27"
-    }
-  ]
+  }
 }

@@ -46,7 +46,6 @@ describe("dndState", () => {
   });
 
   it("encodes and detects temporary dnd section ids", () => {
-    // Validates temporary section id conventions used by placeholder logic.
     const tempId = getDndSectionId("section-1");
     expect(tempId).toBe("section-1-TempDND");
     expect(isTempSection(tempId)).toBe(true);
@@ -54,7 +53,6 @@ describe("dndState", () => {
   });
 
   it("tracks active drag metadata", () => {
-    // Validates drag start state fields are persisted in the shared store.
     setActiveDnd(host, {
       activeId: "section-1",
       activeIsTopLevel: true,
@@ -79,7 +77,6 @@ describe("dndState", () => {
   });
 
   it("switches between sorting and free-move modes", () => {
-    // Validates mode toggles are mutually exclusive and clear pending deactivation.
     activateDndSortingMode(host);
     let state = getDndStateStore(host).getState();
     expect(state.isSorting).toBe(true);
@@ -93,7 +90,6 @@ describe("dndState", () => {
   });
 
   it("marks pending deactivation only while a drag mode is active", () => {
-    // Validates idle deactivation is ignored and active mode deactivation is queued.
     deactivateDnd(host);
     expect(getDndStateStore(host).getState().pendingDeactivation).toBe(false);
 
@@ -103,7 +99,6 @@ describe("dndState", () => {
   });
 
   it("resets drag state while preserving disabled map", () => {
-    // Validates hard reset keeps section-specific disabled settings.
     setDndDisabled(host, "section-1", { draggable: true, droppable: false });
     setActiveDnd(host, {
       activeId: "section-1",
@@ -134,7 +129,6 @@ describe("dndState", () => {
   });
 
   it("stores drag timestamps per section id", () => {
-    // Validates drag timestamp bookkeeping for hover throttling checks.
     setDndTime(host, "section-1");
     const time = getDndStateStore(host).getState().times["section-1"];
     expect(typeof time).toBe("number");

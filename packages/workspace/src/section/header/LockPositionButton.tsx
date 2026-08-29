@@ -9,8 +9,6 @@ import { useWorkspaceDocument } from "../../document/stores";
 import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 
-// The reference's `LockPositionButton`: css.gg lock glyphs, orange locked tone, `canEditLayout`
-// gate, and both the native `title` and the seam-8 tooltip handlers.
 type LockPositionButtonStyleState = {
   canEditLayout: boolean;
   hasSectionStyleTheme: boolean;

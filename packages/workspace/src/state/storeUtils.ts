@@ -3,8 +3,6 @@ import { type StateCreator, type StoreApi } from "zustand";
 type ResetCallback = (api: StoreApi<unknown>) => Record<string, unknown>;
 type ResetFn = (callback?: ResetCallback) => void;
 
-// The reset function must be re-included on every reset because the initial state captured
-// from the config does not contain it.
 export function withResetFn<T>(
   config: StateCreator<T>,
 ): StateCreator<T & { reset: ResetFn }> {

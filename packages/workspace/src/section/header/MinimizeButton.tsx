@@ -4,8 +4,6 @@ import { useWorkspaceDocument } from "../../document/stores";
 import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 
-// The reference's `MinimizeButton` (css.gg minus/maximize glyphs). Roots never minimize in the
-// reference, so the container only renders this for leaf sections.
 type MinimizeButtonProps = {
   sectionId: string;
   hasSectionStyleTheme?: boolean;

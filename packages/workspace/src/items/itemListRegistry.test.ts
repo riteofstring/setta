@@ -26,11 +26,6 @@ import {
   type RegisteredItemListView,
 } from "./itemListRegistry";
 
-// Freezes drag-start list-view resolution: the drag's own list key wins when it shows the
-// active item, other registered lists fall back in mount order (the reference's fixed
-// pinned-then-unpinned fallback generalized to host-registered lists), and an item hidden
-// from every list resolves nothing.
-
 function makeView(
   listKey: string,
   visibleItemIds: Array<string>,
@@ -103,7 +98,6 @@ describe("resolveItemListView", () => {
       makeView("pinned", ["item-a", "item-b"]),
     );
 
-    // The fallback still resolves the first-mounted list, not the most recently updated one.
     expect(resolveItemListView(host, "section", "item-a", null)?.listKey).toBe(
       "pinned",
     );

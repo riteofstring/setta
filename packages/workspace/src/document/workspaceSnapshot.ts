@@ -18,8 +18,6 @@ function freezeWorkspaceSnapshot<T>(value: T): T {
   return value;
 }
 
-// Public callbacks receive detached, deeply frozen state. They can inspect the invocation
-// context without retaining or mutating the package's canonical document objects.
 export function cloneFrozenWorkspaceSnapshot<T>(
   value: T,
 ): WorkspaceSnapshot<T> {

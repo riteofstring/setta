@@ -275,8 +275,6 @@ describe("WorkspaceToolbarGroup", () => {
     ]);
     expect(toggled).toBe(true);
 
-    // A contributed control paints host-owned state, so the host's own re-render is what updates
-    // it — the same contract the panes, the Outline, and the Inspector already follow.
     await render("before-minimap");
 
     expect(

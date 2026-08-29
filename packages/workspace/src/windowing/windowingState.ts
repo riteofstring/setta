@@ -41,7 +41,6 @@ export interface WorkspaceWindowBoundsUpdate {
   readonly bounds: WorkspaceWindowBounds;
 }
 
-/** One complete dock-resize publication: panel metrics and height/geometry move together. */
 export interface WorkspaceWindowDockLayoutUpdate {
   readonly id: string;
   readonly bounds: WorkspaceWindowBounds;
@@ -57,12 +56,11 @@ export interface OpenWorkspaceFloatingWindowInput {
   readonly bounds?: WorkspaceWindowBounds;
 }
 
-/** Metadata supplied by the document-facing section handoff boundary. */
 export interface ShowWorkspaceSectionInFloatingWindowInput {
   readonly id: string;
   readonly contentId: string;
   readonly sectionId: string;
-  /** Seed-only metadata; the section document remains the title authority. */
+
   readonly title: string;
   readonly bounds?: WorkspaceWindowBounds;
 }
@@ -207,17 +205,12 @@ function createDefaultBoundsWithinViewport(
   });
 }
 
-/** The frozen default floating size, centered within the host's inset work area. */
 export function createDefaultWorkspaceFloatingWindowBounds(
   viewport: WorkspaceWindowViewport,
 ): WorkspaceWindowBounds {
   return createDefaultBoundsWithinViewport(viewport);
 }
 
-/**
- * Live free-window guardrails. A host narrower than the minimum still keeps a
- * usable title bar and a 120px horizontal grab region reachable.
- */
 export function clampWorkspaceFloatingWindowBounds(
   boundsInput: WorkspaceWindowBounds,
   viewportInput: WorkspaceWindowViewport,
@@ -257,10 +250,6 @@ export function clampWorkspaceFloatingWindowBounds(
   });
 }
 
-/**
- * A snap transition caches its current free geometry. Windows restored from a
- * saved snapped layout intentionally have no cache and use the default float.
- */
 function resolveWorkspaceWindowBoundsForUnsnap(
   windowInput: WorkspaceFloatingWindow,
   viewport: WorkspaceWindowViewport,
@@ -369,12 +358,6 @@ function getSectionWindow(
   return state.windows.find((window) => window.sectionId === sectionId);
 }
 
-/**
- * Reveals the sole bound section window as a focused floating window. New
- * section instances use the package-reserved surface key; repeated requests
- * retain their identity and only seed geometry when returning from a non-float
- * owner.
- */
 export function showWorkspaceSectionInFloatingWindow(
   stateInput: WorkspaceWindowingState,
   input: ShowWorkspaceSectionInFloatingWindowInput,
@@ -413,7 +396,6 @@ export function showWorkspaceSectionInFloatingWindow(
   return createFocusedState(replaceWindow(state, revealed), revealed);
 }
 
-/** Moves a visible floating, docked, or maximized window into the bottom dock. */
 export function dockWorkspaceWindow(
   stateInput: WorkspaceWindowingState,
   id: string,
@@ -437,7 +419,6 @@ export function dockWorkspaceWindow(
   return replaceWindow(state, docked);
 }
 
-/** Undocking always restores the same instance as a focused, open floating window. */
 export function undockWorkspaceWindow(
   stateInput: WorkspaceWindowingState,
   id: string,
@@ -468,7 +449,6 @@ export function undockWorkspaceWindow(
   return createFocusedState(replaceWindow(state, undocked), undocked);
 }
 
-/** Returns a bound section's same instance to its canvas host without deleting it. */
 export function moveWorkspaceWindowToCanvasSection(
   stateInput: WorkspaceWindowingState,
   id: string,
@@ -499,7 +479,6 @@ export function moveWorkspaceWindowToCanvasSection(
   return replaceWindow(state, canvasOwned);
 }
 
-/** Reopen remains allowed in a layout-disabled host, as in the frozen reference. */
 export function reopenWorkspaceWindow(
   stateInput: WorkspaceWindowingState,
   id: string,
@@ -515,7 +494,6 @@ export function reopenWorkspaceWindow(
   return createFocusedState(replaceWindow(state, reopened), reopened);
 }
 
-/** Focus is local view behavior and remains available when layout editing is disabled. */
 export function focusWorkspaceWindow(
   stateInput: WorkspaceWindowingState,
   id: string,
@@ -609,11 +587,6 @@ export function setWorkspaceWindowBoundsAtomically(
   });
 }
 
-/**
- * Validates every docked panel before replacing any of them. Dock resize uses
- * this one transition so persisted width intent and panel geometry cannot
- * diverge between controlled publications.
- */
 export function setWorkspaceWindowDockLayoutAtomically(
   stateInput: WorkspaceWindowingState,
   updates: readonly WorkspaceWindowDockLayoutUpdate[],

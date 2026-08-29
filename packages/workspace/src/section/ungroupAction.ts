@@ -148,9 +148,6 @@ function restoreUngroupFocus(
   });
 }
 
-// One public structural action owns validation, the canonical document replacement, derived
-// geometry, selection pruning, focus restoration, and the single host notification. Every package
-// action surface and direct host invocation routes through this function.
 export function ungroupSections(
   host: WorkspaceHost,
   groupIds: ReadonlyArray<string>,

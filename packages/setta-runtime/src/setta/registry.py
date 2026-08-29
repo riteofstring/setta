@@ -1,5 +1,3 @@
-"""Generic registry interfaces for independently owned Setta applications."""
-
 from __future__ import annotations
 
 import os
@@ -31,8 +29,6 @@ class AppDescriptor:
 
 @dataclass
 class CommandContext:
-    """Process-local platform services made available to an app adapter."""
-
     runtime: PackagedRuntime
     sessions: LiveSessionStore
     supervisor: NativeServerSupervisor
@@ -58,17 +54,12 @@ class CommandContext:
             stdin=sys.stdin,
             stdout=sys.stdout,
             stderr=sys.stderr,
-            # Preserve a virtual environment's launcher path. Resolving this
-            # path on POSIX follows ``bin/python`` to the base interpreter and
-            # bypasses the environment's ``pyvenv.cfg``.
             launcher_python=Path(os.path.abspath(sys.executable)),
             browser_open=webbrowser.open,
         )
 
 
 class AppAdapter(Protocol):
-    """An app-owned adapter registered with the platform command."""
-
     @property
     def descriptor(self) -> AppDescriptor: ...
 
@@ -78,8 +69,6 @@ class AppAdapter(Protocol):
 
 
 class AppRegistry:
-    """The authoritative installed-app inventory and dispatch lookup."""
-
     def __init__(self, adapters: Sequence[AppAdapter]):
         by_id: dict[str, AppAdapter] = {}
         for adapter in adapters:

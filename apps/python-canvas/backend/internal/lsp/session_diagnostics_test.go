@@ -152,7 +152,7 @@ func handlePullDiagnosticsEnvelope(output io.Writer, envelope rpcEnvelope, confi
 	case "exit":
 		return configurationReceived, true, nil
 	case "":
-		// Capability-registration and refresh acknowledgements are responses.
+
 		return configurationReceived, false, nil
 	default:
 		return configurationReceived, false, fmt.Errorf("helper received unsupported method %q", envelope.Method)
@@ -204,7 +204,7 @@ func validateHelperDocumentSynchronization(configurationReceived bool) error {
 	if os.Getenv(configurationHelperEnvironment) == "1" && !configurationReceived {
 		return fmt.Errorf("document synchronized before Python configuration")
 	}
-	// Intentionally publish nothing. The client must request diagnostics.
+
 	return nil
 }
 

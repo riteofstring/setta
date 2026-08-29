@@ -8,7 +8,7 @@ from pathlib import Path
 TEST_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "scripts"))
 
-import check_auditwheel_report as auditwheel_report  # pyright: ignore[reportMissingImports]
+import check_auditwheel_report as auditwheel_report
 
 
 class AuditwheelReportValidationTests(unittest.TestCase):
@@ -58,8 +58,6 @@ class AuditwheelReportValidationTests(unittest.TestCase):
     def test_rejects_a_non_policy_external_shared_library(self) -> None:
         report = _report(
             "manylinux_2_28_x86_64",
-            # libgmodule is close to several policy libraries, but is not in
-            # the authoritative manylinux_2_28 whitelist.
             external_libraries={"libgmodule-2.0.so.0": "/usr/lib/libgmodule-2.0.so.0"},
         )
         with self.assertRaisesRegex(

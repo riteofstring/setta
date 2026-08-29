@@ -18,9 +18,6 @@ import {
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-// The package paints a contributed control from host-owned command state and repaints it with the
-// host's tree, so the host has to re-render the tree the workspace is mounted in when that state
-// changes. This is the playground doing exactly that.
 function PlaygroundToolbarHost() {
   usePlaygroundHostCommandState();
   return createElement(WorkspaceControls);
@@ -72,8 +69,6 @@ describe("playground toolbar contributions", () => {
     workspaceHost.dispose();
   });
 
-  // One sequence, because the host's status and toggle live in the module the playground registers
-  // its commands from: the run starts from the state a freshly loaded playground has.
   it("repaints a contributed control when the host command state behind it changes", async () => {
     expect(
       getControl("Clear host action status").getAttribute("aria-disabled"),

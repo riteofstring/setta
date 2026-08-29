@@ -1,12 +1,3 @@
-"""Private POSIX session guardian for one packaged native server.
-
-The public supervisor starts this module as a fresh session leader.  The
-native worker inherits its standard descriptors unchanged, so readiness and
-diagnostics cross the boundary as the original UTF-8 byte stream.  Keeping the
-guardian alive until cleanup makes its PID a stable session identifier while
-we stop workers which made their own process groups.
-"""
-
 from __future__ import annotations
 
 import ctypes
@@ -52,12 +43,10 @@ class _ProcessIdentity:
 
 
 class _CleanupFailure(RuntimeError):
-    """The guardian could not prove that its remaining session is clean."""
+    pass
 
 
 class _WorkerSignalForwarder:
-    """Wake the guardian lifecycle without directly targeting a worker PID."""
-
     def __init__(self) -> None:
         self._wake = threading.Event()
 
@@ -72,8 +61,6 @@ class _WorkerSignalForwarder:
 
 
 class _WorkerWaiter:
-    """Own the one worker wait/reap call without blocking signal escalation."""
-
     def __init__(
         self, worker: subprocess.Popen[bytes], forwarder: _WorkerSignalForwarder
     ) -> None:
@@ -100,7 +87,6 @@ class _WorkerWaiter:
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
-    """Run the private native worker and clean its POSIX session on exit."""
 
     command = _worker_command(arguments if arguments is not None else sys.argv[1:])
     if command is None:
@@ -142,21 +128,7 @@ def _stop_and_reap_worker_boundary(
     waiter: _WorkerWaiter,
     session_id: int,
 ) -> str | None:
-    """Keep this subreaper alive until its direct worker is actually reaped.
 
-    A process can take longer than the ordinary forced-reap budget to leave the
-    kernel (for example while an interruptible syscall unwinds). Returning at
-    that point would discard the Linux subreaper boundary and let an escaped
-    ``setsid`` descendant be reparented to init. Each pass remains bounded, but
-    the guardian itself stays alive and repeats containment until its waiter has
-    consumed the worker's exit status.
-    """
-
-    # The worker's waiter owns the direct-child reap. Until it finishes, a
-    # killed adopted descendant can be a zombie that only this still-running
-    # guardian can reap later. Keep enumeration and signal failures, but make
-    # the pre-reap survivor view provisional so it cannot turn a later-clean
-    # exit into a false cleanup failure.
     cleanup_failure = _cleanup_session(session_id, provisional_survivors=True)
     while not waiter.wait(_FORCED_WORKER_REAP_SECONDS):
         cleanup_failure = _join_cleanup_failures(
@@ -167,10 +139,6 @@ def _stop_and_reap_worker_boundary(
             _cleanup_session(session_id, provisional_survivors=True),
         )
 
-    # Linux makes this guardian the reaper for every orphaned worker
-    # descendant, including a descendant that called setsid(). Once the direct
-    # worker is reaped, make one final bounded cleanup/reap pass while this
-    # process is still the stable adoption boundary.
     cleanup_failure = _join_cleanup_failures(
         cleanup_failure, _cleanup_session(session_id, reap_adopted=True)
     )
@@ -239,17 +207,6 @@ def _cleanup_session(
     reap_adopted: bool = False,
     provisional_survivors: bool = False,
 ) -> str | None:
-    """Boundedly stop every still-live member of the guardian's session.
-
-    This runs after either worker exit or a forced guardian signal. It is an
-    intentionally small, fixed cleanup sequence rather than a tracker. The
-    guardian is still the session leader, so its live PID makes matching
-    numeric session IDs belong to this supervision boundary. POSIX has no portable atomic
-    inspect-and-signal operation, so a member may naturally exit between a
-    snapshot and delivery; an already-gone member is therefore harmless.
-    Other enumeration, permission, and final-survivor failures are returned so
-    a normal worker exit cannot falsely report a clean shutdown.
-    """
 
     try:
         members = _guardian_members(session_id)
@@ -306,14 +263,6 @@ def _session_members_from_snapshot(
 def _guardian_descendants(
     records: Sequence[_ProcessIdentity], snapshot_pid: int, guardian_pid: int
 ) -> tuple[_ProcessIdentity, ...]:
-    """Return the live process-tree boundary that a Linux subreaper owns.
-
-    A descendant that calls setsid() leaves the guardian's SID but remains a
-    child of the running worker. Once that worker exits, PR_SET_CHILD_SUBREAPER
-    reparents it to this guardian instead of init. We derive membership from a
-    single numeric PID/PPID snapshot, then re-snapshot immediately before every
-    delivery in _guardian_member_matches.
-    """
 
     by_pid = {record.pid: record for record in records}
     members: list[_ProcessIdentity] = []
@@ -502,8 +451,6 @@ def _signal_members(
     delivery: signal.Signals,
 ) -> None:
     for member in members:
-        # Re-check directly before delivery. This catches a PID that exited
-        # after the snapshot and was reused outside the live guardian boundary.
         if not _guardian_member_matches(session_id, member.pid):
             continue
         try:
@@ -519,13 +466,6 @@ def _signal_members(
 
 
 def _guardian_member_matches(guardian_pid: int, pid: int) -> bool:
-    """Revalidate a selected member before signaling it.
-
-    The guardian SID remains the authority on every POSIX platform. Linux also
-    accepts a live descendant of the subreaper so a worker's setsid() child is
-    still contained. A fresh snapshot makes an unrelated PID with the same
-    numeric value ineligible unless it is currently in that guardian tree.
-    """
 
     if _process_session_id(pid) == guardian_pid:
         return True
@@ -539,7 +479,6 @@ def _guardian_member_matches(guardian_pid: int, pid: int) -> bool:
 
 
 def _enable_linux_child_subreaper() -> None:
-    """Make this Linux guardian the reaper for orphaned worker descendants."""
 
     if not sys.platform.startswith("linux"):
         return
@@ -563,7 +502,6 @@ def _enable_linux_child_subreaper() -> None:
 
 
 def _reap_linux_adopted_children() -> str | None:
-    """Reap exited children adopted through the Linux subreaper boundary."""
 
     if not sys.platform.startswith("linux"):
         return None

@@ -142,8 +142,7 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
       return;
     }
     const { userSelectionRect } = getReactFlowStore(host).getState();
-    // We only want to trigger click functions when in selection mode if
-    // the user did not move the mouse.
+
     if (
       !userSelectionActive &&
       userSelectionRect &&
@@ -168,8 +167,6 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
     resetUserSelection();
   };
 
-  // The reference clears the selection through an app-level Escape shortcut; the package keeps
-  // the keyboard path on the pane itself.
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (
       event.target === event.currentTarget &&
@@ -208,8 +205,6 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
 
   const hasActiveSelection = isSelecting || userSelectionActive;
 
-  // The canvas pane owns background selection gestures and Escape without presenting itself as a
-  // false button.
   return (
     <div
       className="react-flow__pane"

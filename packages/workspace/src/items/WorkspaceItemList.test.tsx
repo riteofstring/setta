@@ -87,11 +87,6 @@ class CapturingResizeObserver {
 globalThis.ResizeObserver =
   CapturingResizeObserver as unknown as typeof ResizeObserver;
 
-// Freezes the registered item surface: rows render the canonical tree through the host
-// renderer with the reference's leaf/parent layouts and nested-children rail, selection
-// clicks commit canonically in item-select mode, mounting registers the drag-start list
-// view, and an active drag swaps the rows to the live projection with the temp placeholder.
-
 const LIST_KEY = "main";
 
 function makeItemTree(): WorkspaceSectionItemTree {
@@ -609,8 +604,9 @@ describe("WorkspaceItemList", () => {
       "setta-prevent-arrow-keys-moving-section",
     );
     expect(firstHandle.className).toContain("nopan nodrag");
-    expect(firstHandle.tagName).toBe("DIV");
-    expect(firstHandle.hasAttribute("tabindex")).toBe(false);
+    expect(firstHandle.tagName).toBe("BUTTON");
+    expect(firstHandle.getAttribute("aria-label")).toBe("Resize item columns");
+    expect(firstHandle.getAttribute("tabindex")).toBe("-1");
     expect([...handles].every((handle) => handle.tabIndex === -1)).toBe(true);
     expect(firstHandle.parentElement?.className).toContain(
       "section-center relative mx-auto h-[90%] w-0.5",
@@ -940,9 +936,7 @@ describe("WorkspaceItemList", () => {
       ),
     );
     expect(handles).not.toHaveLength(0);
-    expect(handles.every((handle) => !handle.hasAttribute("tabindex"))).toBe(
-      true,
-    );
+    expect(handles.every((handle) => handle.tabIndex === -1)).toBe(true);
     expect(
       host.querySelector(
         '[data-item-column-resize-handle="true"][tabindex="0"]',
@@ -959,8 +953,6 @@ describe("WorkspaceItemList", () => {
   });
 
   it("renders the nested-root layout when a non-group row has child rows", async () => {
-    // The reference's "renders the nested-root layout when top-level params have child rows":
-    // a leaf-styled row that carries children takes the subgrid nested-root layout.
     loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         panel: {
@@ -1004,7 +996,6 @@ describe("WorkspaceItemList", () => {
     expect(nestedRootRow.className).toContain("section-args-nested-key-value");
     expect(nestedRootRow.style.gridTemplateColumns).toContain("[c3]");
 
-    // Scoped to the row: the package list-area shell is also a `section-args-nested` grid.
     const rail = nestedRootRow.querySelector<HTMLElement>(
       "div.section-args-nested",
     );
@@ -1027,8 +1018,6 @@ describe("WorkspaceItemList", () => {
     );
     expect(shell.contains(getRowByContent(host, "item-a"))).toBe(true);
 
-    // Overflowing content flips the vertical wheel gate. Horizontal input still belongs to the
-    // canvas, and scrollability is re-measured through the reference's content observer.
     Object.defineProperty(shell, "scrollHeight", { value: 100 });
     await act(async () => {
       shell.setAttribute("data-remeasure", "overflow");
@@ -1088,8 +1077,6 @@ describe("WorkspaceItemList", () => {
       "!bg-[color:var(--setta-section-style-outline)]",
     );
 
-    // A style color that derives no theme leaves the row on the plain selected treatment,
-    // matching the section chrome's derived-theme gate.
     loadPanelWithStyleColor("");
     await mount();
     const plainRow = getRowByContent(host, "item-a");

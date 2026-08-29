@@ -48,8 +48,6 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
     });
   }, []);
 
-  // While the free-move mode is held, the selection box hands its surface to the dnd drag
-  // handle: the primary selected section activates from the box's hitbox element.
   useEffect(() => {
     setSelectionDragPrimaryId(host, primarySelectionId);
   }, [host, primarySelectionId]);
@@ -108,10 +106,9 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
         transform: transformString,
       }}
     >
-      {/* The selection group is a programmatic focus target whose arrow keys move the selected
-          sections; a button role would misrepresent the operation. */}
+      {}
       <div
-        tabIndex={-1} //needed for onKeyDown to work
+        tabIndex={-1}
         ref={nodeRef}
         role="group"
         aria-label={`${activeIds.length} selected sections: ${activeNames.join(", ")}`}

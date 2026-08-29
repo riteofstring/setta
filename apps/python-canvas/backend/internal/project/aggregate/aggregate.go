@@ -1,5 +1,3 @@
-// Package aggregate owns the validated authored Python Canvas project model.
-// It deliberately has no filesystem, HTTP, renderer, or provider dependency.
 package aggregate
 
 import (
@@ -10,9 +8,8 @@ import (
 )
 
 const (
-	// DefaultProjectName is the nonempty name allocated for a blank project.
 	DefaultProjectName = "Untitled Python Canvas"
-	// DefaultPythonSuffix preserves the documented editable suffix convention.
+
 	DefaultPythonSuffix = "state = SettaState()"
 
 	maxIDBytes                 = 256
@@ -28,28 +25,23 @@ const (
 )
 
 var (
-	// ErrValidation marks an invalid authored state or candidate command.
 	ErrValidation = errors.New("aggregate: validation failed")
-	// ErrProviderSignatureInvalid marks malformed data returned by the normalized
-	// provider boundary. It also wraps ErrValidation for the exact defect.
+
 	ErrProviderSignatureInvalid = errors.New("aggregate: provider signature invalid")
-	// ErrProjectNotFound identifies a command for a different project.
+
 	ErrProjectNotFound = errors.New("aggregate: project not found")
-	// ErrCallableNotFound identifies a command for a missing callable.
+
 	ErrCallableNotFound = errors.New("aggregate: callable not found")
-	// ErrParameterDictionaryNotFound identifies a command for a missing
-	// parameter dictionary.
+
 	ErrParameterDictionaryNotFound = errors.New("aggregate: parameter dictionary not found")
-	// ErrListNotFound identifies a command for a missing List of Objects.
+
 	ErrListNotFound = errors.New("aggregate: list not found")
-	// ErrRevisionConflict identifies a command bound to an older revision.
+
 	ErrRevisionConflict = errors.New("aggregate: revision conflict")
-	// ErrIDGeneratorRequired marks an operation that needs an opaque ID source.
+
 	ErrIDGeneratorRequired = errors.New("aggregate: ID generator is required")
 )
 
-// PassingStyle is the normalized provider call convention retained in authored
-// state. It is intentionally independent of any transport representation.
 type PassingStyle string
 
 const (
@@ -60,21 +52,17 @@ const (
 	PassingStyleVariadicKeyword     PassingStyle = "variadic_keyword"
 )
 
-// Project is the authored project identity and revision.
 type Project struct {
 	ID       string
 	Name     string
 	Revision int
 }
 
-// PythonTarget is the authored text outside the renderer-owned generated body.
 type PythonTarget struct {
 	Prefix string
 	Suffix string
 }
 
-// Parameter is one ordered callable argument record. Provider-owned metadata
-// remains present even when the authored expression is blank.
 type Parameter struct {
 	ID                 string
 	Name               string
@@ -86,7 +74,6 @@ type Parameter struct {
 	AuthoredExpression string
 }
 
-// Callable is one authored callable section and its ordered parameters.
 type Callable struct {
 	ID                 string
 	Name               string
@@ -94,8 +81,6 @@ type Callable struct {
 	Parameters         []Parameter
 }
 
-// State is the complete persisted authored aggregate. Derived Python, source
-// ranges, diagnostics, provider state, and materialization paths are absent.
 type State struct {
 	Project               Project
 	PythonTarget          PythonTarget
@@ -106,34 +91,25 @@ type State struct {
 	TopLevelSectionIDs    []string
 }
 
-// IDGenerator allocates one opaque stable ID. The aggregate validates every
-// generated result and never owns randomness or process state itself.
 type IDGenerator func() (string, error)
 
-// Candidate is a wholly validated next authored state. Changed is false for an
-// accepted idempotent command, in which case revision is unchanged.
 type Candidate struct {
 	State   State
 	Changed bool
 }
 
-// RenameProjectCommand replaces the one project's display name.
 type RenameProjectCommand struct {
 	ProjectID        string
 	ExpectedRevision int
 	Name             string
 }
 
-// CreateCallableCommand appends one empty callable with an allocated stable ID.
 type CreateCallableCommand struct {
 	ProjectID        string
 	ExpectedRevision int
 	Name             string
 }
 
-// CreateConfiguredCallableCommand creates one callable only after its
-// provider-derived signature and authored parameter values form one complete
-// valid candidate.
 type CreateConfiguredCallableCommand struct {
 	ProjectID          string
 	ExpectedRevision   int
@@ -142,9 +118,6 @@ type CreateConfiguredCallableCommand struct {
 	ParameterValues    map[string]string
 }
 
-// PreparedConfiguredCallable is an unpublished callable draft used only to
-// resolve the provider signature before the final candidate is constructed.
-// Its aggregate state remains at the current project revision until Finalize.
 type PreparedConfiguredCallable struct {
 	state              State
 	callableID         string
@@ -152,25 +125,18 @@ type PreparedConfiguredCallable struct {
 	parameterValues    map[string]string
 }
 
-// CallableID identifies the unpublished callable in the provider signature
-// request. It is allocated by the aggregate and never supplied by a client.
 func (prepared PreparedConfiguredCallable) CallableID() string {
 	return prepared.callableID
 }
 
-// AuthoredExpression returns the canonical expression that the provider must
-// resolve against the prepared draft.
 func (prepared PreparedConfiguredCallable) AuthoredExpression() string {
 	return prepared.authoredExpression
 }
 
-// SignatureState returns a defensive copy of the unpublished draft used to
-// render temporary provider code. It cannot mutate the prepared candidate.
 func (prepared PreparedConfiguredCallable) SignatureState() State {
 	return prepared.state.Clone()
 }
 
-// RenameCallableCommand replaces one callable display name.
 type RenameCallableCommand struct {
 	ProjectID        string
 	CallableID       string
@@ -178,14 +144,12 @@ type RenameCallableCommand struct {
 	Name             string
 }
 
-// DeleteCallableCommand removes one callable and its nested parameter records.
 type DeleteCallableCommand struct {
 	ProjectID        string
 	CallableID       string
 	ExpectedRevision int
 }
 
-// CommitCallableCommand supplies an authored dotted callable expression.
 type CommitCallableCommand struct {
 	ProjectID          string
 	CallableID         string
@@ -193,16 +157,12 @@ type CommitCallableCommand struct {
 	AuthoredExpression string
 }
 
-// RefreshCallableParametersCommand requests a fresh provider-owned signature
-// for the callable's already-persisted expression.
 type RefreshCallableParametersCommand struct {
 	ProjectID        string
 	CallableID       string
 	ExpectedRevision int
 }
 
-// ProviderParameter is an already normalized provider signature record. The
-// aggregate assigns its stable ID and zero-based original signature ordinal.
 type ProviderParameter struct {
 	Name           string
 	PassingStyle   PassingStyle
@@ -210,18 +170,14 @@ type ProviderParameter struct {
 	Default        *string
 }
 
-// ParameterProposal is the complete client-owned mutable portion of one
-// parameter-list row. Metadata is deliberately not accepted here.
 type ParameterProposal struct {
 	ID                 string
 	Name               string
 	AuthoredExpression string
-	// UI is nil for the canonical CodeParam presentation. Commands carry only
-	// an explicit non-default selection here.
+
 	UI *ParameterUI
 }
 
-// SetParametersCommand replaces one callable's complete ordered parameter list.
 type SetParametersCommand struct {
 	ProjectID        string
 	CallableID       string
@@ -229,7 +185,6 @@ type SetParametersCommand struct {
 	Parameters       []ParameterProposal
 }
 
-// SetTargetCommand replaces both editable outer Python regions as one command.
 type SetTargetCommand struct {
 	ProjectID        string
 	ExpectedRevision int
@@ -237,7 +192,6 @@ type SetTargetCommand struct {
 	Suffix           string
 }
 
-// NewBlank creates a genuinely empty project with a dynamically allocated ID.
 func NewBlank(nextID IDGenerator) (State, error) {
 	projectID, err := newStableID(nextID, nil)
 	if err != nil {
@@ -262,7 +216,6 @@ func NewBlank(nextID IDGenerator) (State, error) {
 	return state, nil
 }
 
-// Clone returns a defensive deep copy of the authored aggregate.
 func (state State) Clone() State {
 	clone := state
 	clone.Callables = make([]Callable, len(state.Callables))
@@ -284,8 +237,6 @@ func (state State) Clone() State {
 	return clone
 }
 
-// Validate confirms all persisted invariants without deriving any presentation
-// or provider state.
 func (state State) Validate() error {
 	if err := validateProjectState(state); err != nil {
 		return err
@@ -396,7 +347,6 @@ func claimProviderOrdinal(claimedOrdinals map[int]struct{}, ordinal *int, callab
 	return nil
 }
 
-// RenameProject validates and constructs one expected-revision candidate.
 func (state State) RenameProject(command RenameProjectCommand) (Candidate, error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return Candidate{}, err
@@ -413,8 +363,6 @@ func (state State) RenameProject(command RenameProjectCommand) (Candidate, error
 	return changedCandidate(candidate)
 }
 
-// CreateCallable appends an empty callable with no default expression or
-// provider-derived records.
 func (state State) CreateCallable(command CreateCallableCommand, nextID IDGenerator) (Candidate, error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return Candidate{}, err
@@ -437,9 +385,6 @@ func (state State) CreateCallable(command CreateCallableCommand, nextID IDGenera
 	return changedCandidate(candidate)
 }
 
-// PrepareCreateConfiguredCallable validates and builds an unpublished callable
-// draft without incrementing the project revision. The coordinator renders this
-// exact draft only for provider signature resolution; it is never persisted.
 func (state State) PrepareCreateConfiguredCallable(
 	command CreateConfiguredCallableCommand,
 	nextID IDGenerator,
@@ -483,8 +428,6 @@ func (state State) PrepareCreateConfiguredCallable(
 	}, nil
 }
 
-// Finalize validates one provider signature, applies the caller's values by
-// exact provider parameter name, and returns the one changed durable candidate.
 func (prepared PreparedConfiguredCallable) Finalize(
 	signature []ProviderParameter,
 	nextID IDGenerator,
@@ -556,7 +499,6 @@ func applyConfiguredParameterValues(parameters []Parameter, values map[string]st
 	return validationError("configured parameter %q is not in the provider signature", names[0])
 }
 
-// RenameCallable validates and constructs one expected-revision candidate.
 func (state State) RenameCallable(command RenameCallableCommand) (Candidate, error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return Candidate{}, err
@@ -577,7 +519,6 @@ func (state State) RenameCallable(command RenameCallableCommand) (Candidate, err
 	return changedCandidate(candidate)
 }
 
-// DeleteCallable removes exactly the named callable and its nested records.
 func (state State) DeleteCallable(command DeleteCallableCommand) (Candidate, error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return Candidate{}, err
@@ -588,8 +529,6 @@ func (state State) DeleteCallable(command DeleteCallableCommand) (Candidate, err
 	return state.deleteSectionSubtree(command.CallableID)
 }
 
-// PrepareCallableCommit validates and canonicalizes an expression-only
-// callable commit. Changed is false for a canonical recommit.
 func (state State) PrepareCallableCommit(command CommitCallableCommand) (expression string, changed bool, err error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return "", false, err
@@ -605,9 +544,6 @@ func (state State) PrepareCallableCommit(command CommitCallableCommand) (express
 	return expression, expression != state.Callables[callableIndex].AuthoredExpression, nil
 }
 
-// CommitCallable persists a changed canonical expression without coupling that
-// edit to provider signature resolution. Existing parameter records remain
-// intact until the caller explicitly refreshes them.
 func (state State) CommitCallable(command CommitCallableCommand) (Candidate, error) {
 	expression, changed, err := state.PrepareCallableCommit(command)
 	if err != nil {
@@ -625,8 +561,6 @@ func (state State) CommitCallable(command CommitCallableCommand) (Candidate, err
 	return changedCandidate(candidate)
 }
 
-// PrepareCallableParameterRefresh validates an explicit signature refresh and
-// returns the callable's current persisted expression.
 func (state State) PrepareCallableParameterRefresh(command RefreshCallableParametersCommand) (string, error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return "", err
@@ -642,9 +576,6 @@ func (state State) PrepareCallableParameterRefresh(command RefreshCallableParame
 	return expression, nil
 }
 
-// RefreshCallableParameters atomically replaces the callable's complete
-// parameter list with a provider-derived signature for its persisted
-// expression.
 func (state State) RefreshCallableParameters(
 	command RefreshCallableParametersCommand,
 	signature []ProviderParameter,
@@ -668,8 +599,6 @@ func (state State) RefreshCallableParameters(
 	return changedCandidate(candidate)
 }
 
-// SetParameters applies one complete parameter-list candidate while preserving
-// every retained provider record's immutable metadata.
 func (state State) SetParameters(command SetParametersCommand) (Candidate, error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return Candidate{}, err
@@ -805,8 +734,6 @@ func (builder *parameterProposalBuilder) claimName(index int, name string) error
 	return nil
 }
 
-// SetTarget updates the prefix and suffix together so the generated body never
-// becomes a client-controlled mutation target.
 func (state State) SetTarget(command SetTargetCommand) (Candidate, error) {
 	if err := state.validateProjectMutation(command.ProjectID, command.ExpectedRevision); err != nil {
 		return Candidate{}, err

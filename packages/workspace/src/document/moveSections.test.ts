@@ -27,9 +27,6 @@ import {
 } from "./stores";
 import type { WorkspaceSection } from "./types";
 
-// Freezes the package's single dnd commit funnel: the reference's
-// `moveSectionsWithBackend` canonical-state result minus its backend send.
-
 function makeSection(
   id: string,
   overrides: Partial<WorkspaceSection> = {},
@@ -309,8 +306,6 @@ describe("moveSections", () => {
   });
 
   it("preserves a node z-raise that has not reached a layout commit", () => {
-    // Selection raises the node z-index without immediately committing layout; the move
-    // funnel mirrors node z-order into the document before rebuilding.
     const nodes = new Map(testWorkspace.nodeInternals.getState().x);
     const leafNode = nodes.get("leaf");
     if (!leafNode) {

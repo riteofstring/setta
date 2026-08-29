@@ -11,11 +11,6 @@ import {
   getWorkspaceFocusScopeId,
 } from "./workspaceFocusScopes";
 
-// The reference's `focusAdjacentTopLevelSection` and the `focusOnSection` it calls
-// (`utils/focusManager.ts`): move along the canvas's top-level reading order from whatever the
-// keyboard is currently inside, make the target the single active section, and focus it the way
-// a click on it would leave focus.
-
 function getFocusedCanvasSectionId(
   host: WorkspaceHost,
   orderedSectionIds: ReadonlyArray<string>,
@@ -38,8 +33,6 @@ function getFocusedCanvasSectionId(
     : null;
 }
 
-// From outside the canvas the move starts at the edge it is travelling from; from a section it
-// stops at the ends of the order rather than wrapping, which is the reference's behavior.
 function getAdjacentTopLevelSectionId(
   host: WorkspaceHost,
   orderedSectionIds: ReadonlyArray<string>,
@@ -57,8 +50,6 @@ function getAdjacentTopLevelSectionId(
   );
 }
 
-// A group is focused as a whole; a leaf hands focus to its first control, and falls back to its
-// own container when it has none.
 function resolveSectionFocusTarget(
   host: WorkspaceHost,
   sectionId: string,
@@ -93,8 +84,7 @@ export function focusAdjacentTopLevelSection(
   if (targetId === null) {
     return false;
   }
-  // An unmounted target is resolved before anything changes, so a declined move leaves the
-  // active selection exactly as it was.
+
   const target = resolveSectionFocusTarget(host, targetId);
   if (!target) {
     return false;

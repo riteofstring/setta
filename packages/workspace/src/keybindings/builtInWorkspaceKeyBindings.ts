@@ -34,26 +34,16 @@ import {
 } from "../items/selectedItemMoves";
 import { getIsEditableTarget } from "./editableTarget";
 
-// Every keyboard-reachable workspace operation, with the chord it answers to unless a host rebinds
-// it. A binding runs the operation and reports whether it consumed the keypress; the dispatcher
-// owns the chord rules around it.
 export type WorkspaceKeyBindingDefinition = Readonly<{
   id: string;
   defaultChord: string | null;
   allowRepeat: boolean;
-  // The reference's engine suppresses the browser default for every chord it recognizes. A command
-  // binding instead hands an unavailable chord back to the browser, which is the accepted ungroup
-  // behavior: a workspace that cannot run the operation never swallows the shortcut. The parameter
-  // moves keep the reference's behavior because they decline on where the caret is rather than on
-  // what the document contains, and the caret must not act on the chord either.
+
   keepsChordWhenDeclined: boolean;
   getLabel: () => string;
   run: (event: KeyboardEvent) => boolean;
 }>;
 
-// A chord targets the active section selection, the same selection the section context menu and
-// the Inspector act on, and runs the command itself so the keyboard result cannot drift from the
-// pointer result.
 function runActiveSectionCommand(
   host: WorkspaceHost,
   commandId: string,
@@ -89,9 +79,6 @@ function createSectionCommandBinding(
   });
 }
 
-// A binding for an operation the package owns directly rather than through a command: it decides
-// for itself whether it ran, and an operation that could not run leaves the chord to the browser
-// the same way an unavailable command does.
 function createOperationBinding(
   id: string,
   label: string,
@@ -143,8 +130,6 @@ function activeSectionHasItemFilter(host: WorkspaceHost): boolean {
     : false;
 }
 
-// The reference's `focusOnSearch`: with exactly one section active the chord goes to that
-// section's Args filter, and anything else is not this section's filter to focus.
 function focusSoleActiveSectionItemFilter(host: WorkspaceHost): boolean {
   const activeIds = getActiveSectionIds(host);
   const soleActiveId = activeIds.length === 1 ? activeIds[0] : undefined;
@@ -153,11 +138,6 @@ function focusSoleActiveSectionItemFilter(host: WorkspaceHost): boolean {
     : focusSectionItemFilter(host, soleActiveId);
 }
 
-// The reference's Tab handling (`handleTabKeyDown`): hosts opt a subtree out with
-// [data-tab-native], and an active filter keeps native navigation available because structural
-// moves are suspended. Otherwise, while the active section has selected items the keypress
-// restructures instead of reaching the browser. The guards travel with the operation, so a host
-// that moves indentation onto another chord keeps them.
 function createItemIndentBinding(
   host: WorkspaceHost,
   id: string,
@@ -186,17 +166,6 @@ function createItemIndentBinding(
   });
 }
 
-// Registration order is the order a host listing shortcuts sees them in: what the chord acts on
-// — sections, then the selection over them, then the keyboard's place among them, then
-// parameters, then the view, then the surrounding panes. The reference ships "Mod + G",
-// "Shift + Mod + G", "Backspace", "Mod + A", "Mod + Shift + A", "Alt + J", "Alt + K",
-// "Alt + ArrowUp", "Alt + ArrowDown", "Tab", "Shift + Tab", "Mod + K", "F", "Equal", "Minus",
-// "Mod + Comma", "Z", "Ctrl + Shift + 2", "Ctrl + Shift + 3", and "Ctrl + Shift + 4" for these
-// operations. Locking has no reference shortcut, so it ships bindable and unbound rather than
-// with an invented chord. The reference's remaining focus chord, "Ctrl + Shift + 1", belongs to
-// its application header, which the package does not have. Its "Mod + K" is one shortcut with two
-// jobs: the sole active section's Args filter, or its application header's project search. Only
-// the first is a workspace surface, so the binding here does that job and declines the rest.
 export function listBuiltInWorkspaceKeyBindings(
   host: WorkspaceHost,
 ): ReadonlyArray<WorkspaceKeyBindingDefinition> {

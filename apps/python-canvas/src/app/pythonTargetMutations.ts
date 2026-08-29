@@ -94,8 +94,7 @@ export function createPythonTargetMutations(
       if (!(await persist())) {
         return;
       }
-      // Capture only after the forced persistence settles on the same serialized chain. Run
-      // therefore cannot race a still-debounced target edit or reuse its prior revision.
+
       const snapshot = requireCurrentSnapshot(environment);
       if (snapshot !== null) {
         await operation(snapshot);

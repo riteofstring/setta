@@ -7,7 +7,6 @@ import {
   type ReactNode,
 } from "react";
 
-/** The compact chrome tones mirror frozen-main controls; hosts own their meaning. */
 export type WorkspaceWindowSurfaceActionTone = "neutral" | "minimize" | "close";
 
 export type WorkspaceWindowSurfaceAction = {
@@ -416,10 +415,6 @@ function WorkspaceWindowHeader({
   );
 }
 
-/**
- * A domain-neutral floating-window frame. It owns chrome-local title editing;
- * its host owns window state, geometry, persistence, and action meanings.
- */
 export function WorkspaceWindowSurface(props: WorkspaceWindowSurfaceProps) {
   const {
     children,

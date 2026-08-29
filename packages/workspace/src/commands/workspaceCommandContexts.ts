@@ -14,8 +14,6 @@ import type {
 } from "./workspaceCommandTypes";
 import type { WorkspaceHost } from "../workspaceHost";
 
-// Document objects are replaced rather than mutated, so one detached snapshot per version serves
-// every command context that names it. Weak keys release the snapshot with the version it copied.
 const sectionSnapshots = new WeakMap<
   WorkspaceSection,
   WorkspaceSnapshot<WorkspaceSection>
@@ -89,9 +87,6 @@ export function createItemCommandContext(
   });
 }
 
-// Package applicability only reads its target, so presence checks that run on every paint — the
-// section header trigger — can ask about the live section instead of detaching a snapshot for it.
-// Host callbacks always receive the detached contexts built above.
 export function createLiveSectionCommandContext(
   host: WorkspaceHost,
   section: WorkspaceSection,

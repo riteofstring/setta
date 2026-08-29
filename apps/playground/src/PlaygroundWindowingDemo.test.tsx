@@ -52,6 +52,31 @@ function createPointerEvent(
   return event;
 }
 
+function requireValue<Value>(
+  value: Value | null | undefined,
+  description: string,
+): Value {
+  if (value === null || value === undefined) {
+    throw new Error(`Expected ${description}.`);
+  }
+  return value;
+}
+
+function requireElement<ElementType extends Element>(
+  root: ParentNode,
+  selector: string,
+  description: string,
+): ElementType {
+  return requireValue(root.querySelector<ElementType>(selector), description);
+}
+
+function parseDiagnosticEntries(log: string): Array<Record<string, unknown>> {
+  return log
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
+}
+
 function WindowingDemoHarness() {
   const [shellViewState, setShellViewState] = useState(
     createVisibleWindowSpacesViewState,
@@ -124,20 +149,27 @@ describe("playground floating-window demo", () => {
       '[data-section-id="idle-leaf"] [data-testid="section-window-toggle"]',
     );
 
-    const floatingSection = host.querySelector<HTMLElement>(
+    const floatingSection = requireElement<HTMLElement>(
+      host,
       '[data-testid="workspace-window-manager-window"] [data-testid="section-window-surface"][data-section-id="idle-leaf"]',
+      "the external Idle leaf window",
     );
-    const floatingWindow = floatingSection?.closest<HTMLElement>(
-      '[data-testid="workspace-window-manager-window"]',
+    const floatingWindow = requireValue(
+      floatingSection.closest<HTMLElement>(
+        '[data-testid="workspace-window-manager-window"]',
+      ),
+      "the external Idle leaf window frame",
     );
-    const title = floatingWindow?.querySelector<HTMLElement>(
+    const title = requireElement<HTMLElement>(
+      floatingWindow,
       '[data-setta-workspace-section-title-display="true"]',
+      "the external Idle leaf window title",
     );
-    if (!floatingSection || !floatingWindow || !title) {
-      throw new Error("Expected the external Idle leaf window and title.");
-    }
-    const viewport = host.querySelector<HTMLElement>(".react-flow__viewport");
-    if (!viewport) throw new Error("Expected the canvas viewport.");
+    const viewport = requireElement<HTMLElement>(
+      host,
+      ".react-flow__viewport",
+      "the canvas viewport",
+    );
     const transformBeforeWheel = viewport.style.transform;
     let wheelEvent: WheelEvent | undefined;
 
@@ -165,12 +197,11 @@ describe("playground floating-window demo", () => {
       );
       await Promise.resolve();
     });
-    const currentFloatingSection = host.querySelector<HTMLElement>(
+    const currentFloatingSection = requireElement<HTMLElement>(
+      host,
       '[data-testid="workspace-window-manager-window"] [data-testid="section-window-surface"][data-section-id="idle-leaf"]',
+      "the moved external Idle leaf window",
     );
-    if (!currentFloatingSection) {
-      throw new Error("Expected the moved external Idle leaf window.");
-    }
     await act(async () => {
       wheelEvent = new WheelEvent("wheel", {
         bubbles: true,
@@ -182,14 +213,12 @@ describe("playground floating-window demo", () => {
       await Promise.resolve();
     });
 
-    const log = host.querySelector<HTMLTextAreaElement>(
+    const log = requireElement<HTMLTextAreaElement>(
+      host,
       '[aria-label="Window interaction diagnostic log"]',
-    )?.value;
-    if (!log) throw new Error("Expected recorded window diagnostics.");
-    const entries = log
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => JSON.parse(line) as Record<string, unknown>);
+      "recorded window diagnostics",
+    ).value;
+    const entries = parseDiagnosticEntries(log);
 
     expect(
       entries.find((entry) => entry["event"] === "pointerdown"),

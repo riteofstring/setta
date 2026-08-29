@@ -65,9 +65,7 @@ export function WorkspaceItemFilterProvider({
     setQuery("");
     filterInputRef.current?.focus();
   }, []);
-  // The filter owner is what `workspace.focus-item-filter` reaches. A declared item area that
-  // renders no toolbar mounts no input, so the target reports that it took nothing and the
-  // operation declines. The reference focuses without scrolling the canvas to the control.
+
   const focusItemFilter = useCallback(() => {
     const input = filterInputRef.current;
     if (!input) {

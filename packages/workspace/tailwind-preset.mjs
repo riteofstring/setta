@@ -1,6 +1,3 @@
-// The setta palette from the frozen reference (`../setta-main/frontend/tailwind.config.js`).
-// The reference's fontFamily/keyframes/animation extensions are unused by the extraction slice.
-/** @type {{ darkMode: string; theme: { extend: { colors: Record<string, Record<string, string>> } } }} */
 export default {
   darkMode: "class",
   theme: {

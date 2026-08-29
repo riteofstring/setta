@@ -217,9 +217,7 @@ func finishLinuxGuardianTargetWithOperations(
 	if operations.reapChildren == nil {
 		return privateGuardianExit{}, errors.New("runner: Linux guardian target finish operations are unavailable")
 	}
-	// The target can already have exited while descendants remain adopted by
-	// this subreaper. Reap that kernel-owned tree before interpreting a Wait
-	// failure, so infrastructure failures cannot strand descendants.
+
 	reapErr := operations.reapChildren()
 	result, targetStatusErr := privateGuardianExitFromTarget(targetErr)
 	if reapErr != nil || targetStatusErr != nil {
@@ -279,10 +277,6 @@ func defaultLinuxGuardianReaperOperations() linuxGuardianReaperOperations {
 	}
 }
 
-// reapLinuxGuardianChildren is driven by the guardian's kernel child set.
-// The guardian is a PR_SET_CHILD_SUBREAPER, so killing each current direct
-// child makes every surviving descendant (including a setsid double-fork)
-// become a new direct child. The loop ends only after wait4 reports ECHILD.
 func reapLinuxGuardianChildren(operations linuxGuardianReaperOperations) error {
 	if operations.children == nil || operations.kill == nil || operations.waitOne == nil || operations.waitNoHang == nil {
 		return errors.New("runner: Linux guardian reaper operations are unavailable")
@@ -326,8 +320,7 @@ func reapLinuxGuardianWithoutChildren(operations linuxGuardianReaperOperations) 
 	if reaped {
 		return false, nil
 	}
-	// A child can be adopted between the task snapshot and the nonblocking
-	// wait. Take another kernel snapshot before deciding that the set is empty.
+
 	return false, nil
 }
 

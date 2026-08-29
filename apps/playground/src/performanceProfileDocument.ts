@@ -74,10 +74,6 @@ function createPerformanceLayout(): WorkspaceDocumentInput["topLevelSections"] {
   return topLevelSections;
 }
 
-// A deterministic production-profile document: 256 fixed-size registered leaves spread over a
-// 4,295 x 2,642 workspace-unit plane. Frozen main has no viewport-culling owner and renders every
-// top-level node, so the profile starts from that same behavior and records mounted-versus-visible
-// counts before any later optimization is considered.
 export const performanceProfileDocument: WorkspaceDocumentInput = {
   sections: createPerformanceSections(),
   topLevelSections: createPerformanceLayout(),

@@ -68,10 +68,6 @@ function commitItemPresentation(
   notifyWorkspaceDocumentChange(host);
 }
 
-// Each typed-item edit has one canonical replacement and one document notification. Label and
-// value updates preserve kind/configuration; kind changes require a complete control presentation;
-// configuration updates carry their kind so a stale Inspector cannot write options onto another
-// control after selection changes.
 export function setItemLabel(
   host: WorkspaceHost,
   sectionId: string,

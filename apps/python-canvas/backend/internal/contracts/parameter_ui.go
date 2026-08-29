@@ -27,8 +27,6 @@ const (
 	ParameterUITypeNestedV2   ParameterUITypeV2 = "NestedParam"
 )
 
-// ParameterUITypesV2 returns the complete closed V2 UI vocabulary in its
-// stable publication order.
 func ParameterUITypesV2() []ParameterUITypeV2 {
 	return []ParameterUITypeV2{
 		ParameterUITypeCodeV2,
@@ -47,8 +45,6 @@ func ParameterUITypesV2() []ParameterUITypeV2 {
 	}
 }
 
-// DefaultParameterUIV2 projects the authoritative aggregate default for one
-// supported UI type into its complete strict V2 envelope.
 func DefaultParameterUIV2(uiType ParameterUITypeV2) (ParameterUIV2, error) {
 	aggregateType := aggregate.ParameterUIType(uiType)
 	value := aggregate.DefaultParameterUI(aggregateType)
@@ -58,9 +54,6 @@ func DefaultParameterUIV2(uiType ParameterUITypeV2) (ParameterUIV2, error) {
 	return NewParameterUIV2(value)
 }
 
-// ParameterUIV2 is the strict transport envelope for one complete parameter
-// presentation. Configuration is decoded exactly once into an aggregate type
-// before a mutation crosses the HTTP boundary.
 type ParameterUIV2 struct {
 	Type          ParameterUITypeV2 `json:"type"`
 	Configuration json.RawMessage   `json:"configuration"`

@@ -33,8 +33,8 @@ type ItemColumnWidthState = {
 };
 
 type ItemColumnResizeHandlers = {
-  onColumnResizeStart: PointerEventHandler<HTMLDivElement>;
-  onColumnResizeDoubleClick: MouseEventHandler<HTMLDivElement>;
+  onColumnResizeStart: PointerEventHandler<HTMLButtonElement>;
+  onColumnResizeDoubleClick: MouseEventHandler<HTMLButtonElement>;
 };
 
 function getStyleTarget(outer: HTMLDivElement, sectionId: string): HTMLElement {
@@ -44,9 +44,7 @@ function getStyleTarget(outer: HTMLDivElement, sectionId: string): HTMLElement {
       `Item list for section ${sectionId} mounted inside section ${String(sectionSurface.dataset.sectionId)}.`,
     );
   }
-  // A normal canvas mount writes the shared variable on the enclosing section so every mounted
-  // list updates live. Standalone component tests/consumers without a section shell use the list
-  // outer itself, preserving the same inherited CSS contract.
+
   return sectionSurface ?? outer;
 }
 
@@ -210,7 +208,9 @@ export function useItemColumnWidth(
     setItemColumnWidth(host, sectionId, getItemColumnCssWidth(rawWidth));
   }, [host, outerRef, sectionId, setNewWidth]);
 
-  const onColumnResizeStart = useCallback<PointerEventHandler<HTMLDivElement>>(
+  const onColumnResizeStart = useCallback<
+    PointerEventHandler<HTMLButtonElement>
+  >(
     (event) => {
       event.preventDefault();
       const outer = outerRef.current;
@@ -307,7 +307,7 @@ export function useItemColumnWidth(
   );
 
   const onColumnResizeDoubleClick = useCallback<
-    MouseEventHandler<HTMLDivElement>
+    MouseEventHandler<HTMLButtonElement>
   >(
     (event) => {
       event.preventDefault();

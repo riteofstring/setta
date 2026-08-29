@@ -53,17 +53,6 @@ import { WorkspaceItemList } from "./WorkspaceItemList";
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-// The Phase 4 gate rejection's rendered-geometry regression: the compiled package stylesheet
-// once omitted the reference's named nested grid rules, so the browser placed a group's
-// children in implicit columns beside the group label instead of beneath it. This suite
-// compiles the shipped stylesheet from its real build input and config, mounts the rejected
-// scene (an `options` group with `momentum`/`decay` children), and resolves every nested
-// placement against the named lines the effective grid actually defines. A placement that
-// falls outside the definite grid is the rejected implicit-side-column collapse; two rows
-// resolving the same definite column span cannot share a grid row, so the children provably
-// stack beneath the label.
-
-// Under the jsdom environment `import.meta.url` is not a file URL; vitest's test path is.
 function getPackageRoot(): string {
   const testPath = expect.getState().testPath;
   if (!testPath) {
@@ -72,9 +61,6 @@ function getPackageRoot(): string {
   return join(dirname(testPath), "../..");
 }
 
-// The build's `tailwindcss` CLI inlines the build input's relative imports through
-// postcss-import before the Tailwind plugin runs; this pipeline does the same by hand and
-// fails loudly on any import shape it does not recognize.
 function inlineRelativeImports(css: string, fromDirectory: string): string {
   return css.replace(/^@import\s+(.+);$/gm, (statement, specifier: string) => {
     const relativePath = /^"(\.\/[^"]+)"$/.exec(specifier.trim())?.[1];
@@ -95,10 +81,6 @@ function parseAreaColumnNames(gridTemplateAreas: string): Array<string> {
   return firstRow.trim().split(/\s+/);
 }
 
-// Resolves a `start / end` grid-column of area names against the named lines the areas create
-// (area `name` spans lines `name-start`..`name-end`). Null means the name does not exist in
-// the definite grid, so the browser would place the element into implicit tracks — the
-// rejected beside-the-label collapse.
 function resolveNamedColumnSpan(
   areaColumns: Array<string>,
   gridColumn: string,
@@ -158,8 +140,7 @@ function loadRejectedScene() {
       itemArea: { toolbar: "authoring-and-filter" },
     },
   });
-  // The rejected `options` group scene plus the reference's nested-root case: a non-group
-  // row (`beta`) that carries a child, whose areas come from the stylesheet alone.
+
   const ids: Record<
     string,
     { label: string; group?: boolean; children: Array<string> }
@@ -225,9 +206,6 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
   let root: Root;
 
   beforeAll(async () => {
-    // The shipped stylesheet pipeline: the build input compiled by the package Tailwind
-    // config, with the content globs anchored to the package root so the scan does not
-    // depend on the test runner's working directory.
     const packageRoot = getPackageRoot();
     const configModule = (await import("../../tailwind.config.js")) as {
       default: Record<string, unknown>;
@@ -243,9 +221,7 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
         content: [join(packageRoot, "src/**/*.{ts,tsx}")],
       } as never),
     ]).process(input, { from: inputPath });
-    // jsdom logs "Could not parse CSS stylesheet" for Tailwind's empty custom-property
-    // defaults rules (`--tw-ring-inset: ;` and friends) and skips only those rules; browsers
-    // parse them, and no grid geometry lives in them.
+
     styleElement = document.createElement("style");
     styleElement.textContent = compiled.css;
     document.head.appendChild(styleElement);
@@ -338,7 +314,6 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
       "value",
     ]);
 
-    // Top-level leaves inset past the left gutter; a group row runs flush from it.
     const leafSpan = resolveNamedColumnSpan(
       areaColumns,
       getComputedStyle(getRow("item-alpha")).getPropertyValue("grid-column"),
@@ -353,8 +328,7 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
 
   it("stacks a group's children beneath its label instead of an implicit side column", () => {
     const groupRow = getRow("item-options");
-    // The inline row columns carry the reference's five `[c…]` lines (four tracks), and the
-    // stylesheet's `section-args-nested` areas must name exactly those four tracks.
+
     expect(groupRow.style.gridTemplateColumns.match(/\[c\d\]/g)).toHaveLength(
       5,
     );
@@ -368,9 +342,6 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
       "value",
     ]);
 
-    // jsdom's selector engine cannot match the escaped `[&>p]:` class browsers match, so the
-    // label's placement is resolved from the stylesheet rule itself: the row carries the
-    // variant class, the label is its direct `p` child, and the rule pins that pair.
     const label = host.querySelector<HTMLElement>(
       '[data-testid="label-item-options"]',
     );
@@ -392,9 +363,7 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
       areaColumns,
       getComputedStyle(rail).getPropertyValue("grid-column"),
     );
-    // Both resolve the same definite `key`..`value` span: grid items may not overlap under
-    // auto-placement, so the children's rail lands on the row after the label — beneath it,
-    // indented past the group's left gutter, never beside it in an implicit column.
+
     expect(labelSpan).toEqual({ startLine: 2, endLine: 5 });
     expect(railSpan).toEqual({ startLine: 2, endLine: 5 });
   });
@@ -435,9 +404,6 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
   });
 
   it("names the nested-root row's grid from the stylesheet alone", () => {
-    // A non-group row with children carries no inline grid-template-areas: the stylesheet's
-    // `.section-args-nested-key-value` must name its three inline tracks, and the rail then
-    // spans the full `key`..`value` width beneath the row-1-pinned `section-key` label.
     const nestedRootRow = getRow("item-beta");
     expect(nestedRootRow.className).toContain("section-args-nested-key-value");
     expect(nestedRootRow.style.gridTemplateAreas).toBe("");

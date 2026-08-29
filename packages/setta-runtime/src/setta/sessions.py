@@ -1,5 +1,3 @@
-"""Atomic, app-agnostic discovery records for foreground local sessions."""
-
 from __future__ import annotations
 
 import hashlib
@@ -41,8 +39,6 @@ _WINDOWS_ERROR_NOT_FOUND = 1168
 
 
 class _WindowsProcessApi(Protocol):
-    """The minimal Windows process-query boundary needed for liveness."""
-
     def open_query_handle(self, process_id: int) -> int: ...
 
     def last_error(self) -> int: ...
@@ -122,8 +118,6 @@ class SessionLease(AbstractContextManager["SessionLease"]):
 
 
 class LiveSessionStore:
-    """Stores only verified locator data, never application or project state."""
-
     def __init__(
         self,
         root: Path | None = None,
@@ -411,12 +405,6 @@ def default_session_root() -> Path:
 
 
 def process_is_alive(pid: int) -> bool:
-    """Return whether a process can still own a live-session record.
-
-    Windows uses a query-only process handle because ``os.kill(pid, 0)`` is
-    implemented as ``TerminateProcess`` by CPython there. POSIX keeps the
-    conventional signal-zero probe.
-    """
 
     return _process_is_alive(
         pid,
@@ -478,8 +466,6 @@ def _windows_process_is_alive(pid: int, api: _WindowsProcessApi | None = None) -
 
 
 class _CtypesWindowsProcessApi:
-    """Typed query-only kernel32 adapter kept behind the platform dispatch."""
-
     def __init__(self) -> None:
         import ctypes
         from ctypes import wintypes

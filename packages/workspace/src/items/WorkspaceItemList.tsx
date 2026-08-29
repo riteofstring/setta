@@ -39,31 +39,18 @@ import {
 import { useItemColumnWidth } from "./useItemColumnWidth";
 import { useWorkspaceHost } from "../workspaceHostContext";
 
-// The reference's `ParamDndList` as the registered item surface: the host mounts one list per
-// item area (the reference hard-codes its pinned/unpinned areas), names it with a list key,
-// supplies list membership and its visible set, and optionally renders
-// custom rows. Typed rows need no renderer. The mounted list registers its live view for drag-start
-// resolution. The package-owned per-section filter intersects that membership while preserving
-// the list and surviving row identities. List enablement follows the reference: item-select mode,
-// the edit-structure capability, and no active filter.
-
 export type WorkspaceItemListProps = {
   sectionId: string;
   listKey: ItemListKey;
-  // The list's top-level rows, in order. Every id must be a child of the item tree's root.
+
   topLevelItemIds: Array<string>;
-  // The list-membership seam (the reference's pinned/unpinned shown-param paths): an omitted set
-  // includes every item reachable from the top-level rows; an excluded item prunes its subtree.
+
   visibleItemIds?: Array<string>;
-  // Omit for a list made entirely of package-owned typed presentations. A custom opaque row
-  // fails specifically at render time when this extension renderer is absent.
+
   renderItem?: (context: ItemRowRenderContext) => ReactNode;
-  // Group rows keep the reference's parent-row layout even when empty. The default is
-  // structural for custom items; explicit typed groups always use their presentation kind.
+
   isGroupItem?: (item: WorkspaceItem) => boolean;
-  // Ephemeral host validation for this section, keyed by stable item id. Each replacement is
-  // validated as a complete registry and never enters or notifies the canonical document. A
-  // diagnosed id deleted before the host's next async render stays dormant until that replacement.
+
   itemDiagnostics?: WorkspaceItemDiagnosticRegistry;
 };
 
@@ -160,9 +147,6 @@ function useNormalizedItemDiagnostics(
     [compatibleItemIds, itemDiagnostics, sectionId],
   );
 
-  // A canonical deletion publishes before an asynchronous host can clear its diagnostic prop.
-  // Retain only current ids plus still-supplied, previously valid ids so that one expected state
-  // transition stays renderable without allowing an unknown id on first registration.
   useLayoutEffect(() => {
     knownItemIdsRef.current = {
       itemIds: new Set([...currentItemIds, ...Object.keys(normalized)]),
@@ -217,8 +201,6 @@ export function WorkspaceItemList({
   );
   const viewRef = useRef(view);
 
-  // Keeps the latest view for the registration effect below and refreshes a live
-  // registration in place, so re-renders never change the section's mount order.
   useEffect(() => {
     viewRef.current = view;
     if (isItemListViewRegistered(host, sectionId, view.listKey)) {
@@ -261,14 +243,6 @@ export function WorkspaceItemList({
   );
 }
 
-// The reference's list-area shell (`GetUnpinnedParams`): the outer column clips, and the inner
-// named nested grid owns the row placement lines the row classes reference, the scrolling, and
-// the row rhythm; a scrollable list keeps vertical wheel behavior while horizontal wheel input
-// still pans the canvas. The
-// reference's persisted min-height measurement stays application-side. The reference string
-// carries a `grid-cols-subgrid` its own stylesheet outranks with `.section-args-nested`; the
-// port drops that computed-dead utility so a host sheet loaded after the package sheet cannot
-// flip the winner across the package boundary.
 function ItemListShell({
   children,
   filterActive,
@@ -288,8 +262,7 @@ function ItemListShell({
       return;
     }
     const wasFilterActive = previousFilterActiveRef.current;
-    // Filtering can shrink the browser's scroll range before layout effects run. The scroll
-    // handler already owns the last unfiltered position, so only consume that snapshot here.
+
     if (wasFilterActive && !filterActive) {
       node.scrollTop = preservedScrollTopRef.current;
     }

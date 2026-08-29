@@ -1,7 +1,3 @@
-/**
- * Frozen-main responsive bottom-dock geometry. These values intentionally
- * match the reference UI so dock presenters can share one sizing authority.
- */
 export const WORKSPACE_BOTTOM_DOCK_WINDOW_GAP_PX = 12;
 export const WORKSPACE_BOTTOM_DOCK_COMPACT_PILL_WIDTH_PX = 28;
 export const WORKSPACE_BOTTOM_DOCK_CYCLE_CONTROL_BUTTON_WIDTH_PX = 24;
@@ -167,10 +163,6 @@ function shrinkDockWindowWidthsToFit(
   return nextWidths;
 }
 
-/**
- * Reserves horizontal dock-row space for recovery affordances. The manager
- * trigger remains reserved whenever its host renders it.
- */
 export function resolveWorkspaceBottomDockStripReservedWidthPx({
   nonClosedWindowCount,
   showManagerMenu,
@@ -197,7 +189,6 @@ export function resolveWorkspaceBottomDockStripReservedWidthPx({
   );
 }
 
-/** Returns the number of whole 280px-minimum panels that can fit in the row. */
 export function resolveWorkspaceMaxVisibleBottomDockWindowCount(
   totalWindowCount: number,
   availableWidthPx: number,
@@ -217,10 +208,6 @@ export function resolveWorkspaceMaxVisibleBottomDockWindowCount(
   return 0;
 }
 
-/**
- * Resolves desired panel widths in item order. Excess width is removed in
- * proportion to each panel's remaining shrink capacity, never below 280px.
- */
 export function resolveWorkspaceBottomDockWindowWidthsToFit<
   T extends { id: string },
 >(
@@ -269,7 +256,6 @@ export function resolveWorkspaceBottomDockWindowWidthsToFit<
   );
 }
 
-/** Chooses the frozen full-title, compact, cycle, or manager-menu pill mode. */
 export function resolveNextWorkspaceBottomDockPillDisplayMode({
   currentMode,
   stripPillCount,

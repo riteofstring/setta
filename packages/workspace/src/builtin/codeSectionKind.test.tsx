@@ -46,10 +46,6 @@ import { createWorkspaceCodeSection } from "./codeSectionKind";
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-// The registration half of the built-in Code Editor section: a host composes the helper's
-// definition with its own kinds, narrows what the registration accepts, and can leave it out
-// entirely. The data contract is validated where the document enters the package.
-
 const SECTION_ID = "code";
 
 function makeDocument(

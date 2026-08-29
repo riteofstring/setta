@@ -1,6 +1,5 @@
 import type { Selection as D3Selection } from "d3-selection";
-// Augments the d3 selection with `.transition()` (the runtime patch ships with d3-zoom's own
-// d3-transition dependency).
+
 import "d3-transition";
 import { getActiveSectionIds } from "../document/activeSections";
 import { getRootSelectedSectionIds } from "../document/sectionSelection";
@@ -68,8 +67,6 @@ export function getActiveSectionsBounds(
   );
 }
 
-// Measures a section through its registered DOM ref: the fallback for nested sections and
-// nodes that have not been measured yet.
 export function getSectionRect(
   host: WorkspaceHost,
   sectionId: string,
@@ -121,8 +118,6 @@ export function getNodesInside(
     handledSectionIds.add(node.id);
   }
 
-  // Nested sections have no node-internals entry; measure them through their registered DOM
-  // refs so a marquee can select them, as the reference does with its project sections sweep.
   for (const sectionId of Object.keys(
     getWorkspaceDocumentStore(host).getState().sections,
   )) {
@@ -139,9 +134,6 @@ export function getNodesInside(
   return visibleNodes;
 }
 
-// The visible pane in flow coordinates, from the reference's `utils/graph.ts`. The shell overlays
-// its pane regions on the full-size canvas, so the store records their physical insets and every
-// viewport consumer shares the same unobscured rectangle.
 export function getPaneRect(host: WorkspaceHost, s: ReactFlowState): Rect {
   const visibleCanvas = getVisibleCanvasRect(s, s.viewportInsets);
   if (!s.domNode) {

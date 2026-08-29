@@ -1,20 +1,7 @@
 import { PYTHON_KEYWORDS_V2 } from "../backend/generatedContract";
 
-// Main's parameter-name rules for a kwarg in a project that generates Python:
-// `validateParamNameInput` for the name on its own and `getParamNameDuplicateError` for the name
-// among its siblings. They live here because the row that shows the error and the controller that
-// refuses to propose the list both need the same answer, and because a name the store would
-// refuse must never be sent: the reference keeps what someone is typing and reports the problem
-// beside the row, rather than restoring the whole list underneath them.
-//
-// An app-authored record may stay blank while it is being written, exactly as main's new kwarg
-// does. A present name has to be a name Python can take as a keyword argument, and no two records
-// under this callable may claim the same one.
-
 const pythonKeywords: ReadonlySet<string> = new Set(PYTHON_KEYWORDS_V2);
 
-// The store's own `isPythonIdentifier`: a letter or underscore, then letters, digits, or
-// underscores. Go's `unicode.IsLetter` and `unicode.IsDigit` are the `L` and `Nd` categories.
 const pythonIdentifierPattern = /^[\p{L}_][\p{L}\p{Nd}_]*$/u;
 
 type ParameterNameRow = {
@@ -22,8 +9,6 @@ type ParameterNameRow = {
   id: string;
 };
 
-// The message each app-authored row should show, keyed by parameter ID. A row with nothing wrong
-// with its name, and every row whose name belongs to the resolved signature, is absent.
 export function parameterNameErrors(
   rows: ReadonlyArray<ParameterNameRow>,
 ): Record<string, string> {
@@ -48,8 +33,6 @@ export function parameterNameErrors(
   return errors;
 }
 
-// Whether this list carries a name the store would refuse. The mutation is the whole ordered
-// candidate, so one unusable name holds the whole proposal back until it is usable.
 export function hasBlockingParameterName(
   rows: ReadonlyArray<ParameterNameRow>,
 ): boolean {

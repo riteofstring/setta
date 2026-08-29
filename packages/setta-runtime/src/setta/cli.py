@@ -1,5 +1,3 @@
-"""The small, app-agnostic public `setta` command boundary."""
-
 from __future__ import annotations
 
 import sys
@@ -16,7 +14,6 @@ from .supervisor import NativeServerSupervisor
 
 
 def installed_apps() -> AppRegistry:
-    """Return the one authoritative inventory for this distribution."""
 
     return AppRegistry((PythonCanvasAdapter(),))
 
@@ -31,7 +28,6 @@ def run(
     registry: AppRegistry | None = None,
     context_factory: Callable[[], CommandContext] | None = None,
 ) -> int:
-    """Dispatch a command and turn typed failures into one stable JSON error."""
 
     selected_registry = registry or installed_apps()
     selected_context_factory = context_factory or _standard_context
@@ -92,7 +88,7 @@ def _doctor(
         raise InvalidInputError("doctor accepts only the optional --json flag.")
     checks: list[dict[str, object]] = []
     try:
-        runtime_check = context.runtime.check()  # type: ignore[union-attr]
+        runtime_check = context.runtime.check()
         checks.append({"name": "packaged-runtime", "status": "ok", **runtime_check})
     except SettaError as error:
         checks.append(

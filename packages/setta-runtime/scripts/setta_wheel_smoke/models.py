@@ -1,5 +1,3 @@
-"""Shared typed data and fail-closed parsing for wheel smoke acceptance."""
-
 from __future__ import annotations
 
 import html.parser
@@ -81,13 +79,11 @@ WINDOWS = os.name == "nt"
 
 
 class SmokeError(RuntimeError):
-    """One typed, user-visible wheel acceptance failure."""
+    pass
 
 
 @dataclass(frozen=True)
 class WheelInspection:
-    """Validated immutable facts from one wheel before it is installed."""
-
     path: Path
     version: str
     platform_tag: str
@@ -98,8 +94,6 @@ class WheelInspection:
 
 @dataclass(frozen=True)
 class ProcessResult:
-    """Bounded output from one completed child process."""
-
     command: tuple[str, ...]
     returncode: int
     stdout: bytes
@@ -108,8 +102,6 @@ class ProcessResult:
 
 @dataclass(frozen=True)
 class LiveSessionIdentity:
-    """Validated public ownership facts retained through smoke cleanup."""
-
     project_path: str
     url: str
     owner_pid: int
@@ -118,8 +110,6 @@ class LiveSessionIdentity:
 
 @dataclass(frozen=True)
 class HTTPResult:
-    """One bounded, no-redirect HTTP response."""
-
     url: str
     status: int
     content_type: str
@@ -127,23 +117,17 @@ class HTTPResult:
 
 
 class ReadableBytes(Protocol):
-    """The bounded-reader surface shared by ZIP, HTTP, and process streams."""
-
     def read(self, size: int = -1, /) -> bytes: ...
 
 
 @dataclass(frozen=True)
 class ProjectIdentity:
-    """The precise mutable project identity observed at one revision."""
-
     project_id: str
     name: str
     revision: int
 
 
 class BoundedBytes:
-    """Keep at most one process stream's configured bytes while draining it."""
-
     def __init__(self, limit: int):
         self._limit = limit
         self._content = bytearray()
@@ -168,15 +152,11 @@ class BoundedBytes:
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
-    """Reject redirect-following so every request stays at the public origin."""
-
     def redirect_request(self, *arguments: object, **keywords: object) -> None:
         del arguments, keywords
 
 
 class AssetReferences(html.parser.HTMLParser):
-    """Extract browser asset references without a JavaScript runtime."""
-
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.references: list[str] = []

@@ -150,9 +150,6 @@ function serializePreference(
   return JSON.stringify(preference);
 }
 
-// This is the application's only browser-storage boundary for pane presentation state. A failed
-// read is deliberately indistinguishable from a missing preference: presentation remains usable
-// and no project-level error is introduced.
 export function loadPythonCanvasShellViewState(
   storage: BrowserStorage | null = browserStorage(),
 ): WorkspaceShellViewState {
@@ -171,8 +168,6 @@ export function loadPythonCanvasShellViewState(
   }
 }
 
-// Call this only from a shell-originated state transition. In particular, initial state loading
-// never writes fallback defaults over an absent or malformed browser preference.
 export function persistPythonCanvasShellViewState(
   viewState: WorkspaceShellViewState,
   storage: BrowserStorage | null = browserStorage(),
@@ -186,7 +181,5 @@ export function persistPythonCanvasShellViewState(
   }
   try {
     storage.setItem(PYTHON_CANVAS_SHELL_PREFERENCE_KEY, serialized);
-  } catch {
-    // Browser storage can be disabled or quota-limited. Keep the valid in-memory shell state.
-  }
+  } catch {}
 }

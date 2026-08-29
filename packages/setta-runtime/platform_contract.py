@@ -1,10 +1,3 @@
-"""One authoritative compatibility contract for Setta platform wheels.
-
-The build runner selects a platform tag explicitly.  This module validates that
-selection against the staged native executable, rather than inferring a tag
-from the host Python version or operating-system release.
-"""
-
 from __future__ import annotations
 
 import re
@@ -35,11 +28,10 @@ _RELEASE_PLATFORM_TAGS = {
 
 
 class PlatformContractError(ValueError):
-    """A native artifact cannot truthfully support its requested wheel tag."""
+    pass
 
 
 def required_platform_tag(operating_system: str, architecture: str) -> str:
-    """Return the one supported release tag for a target architecture."""
 
     try:
         return _RELEASE_PLATFORM_TAGS[(operating_system, architecture)]
@@ -58,7 +50,6 @@ def release_platform_tag(
     architecture: str,
     requested_tag: str | None = None,
 ) -> str:
-    """Validate the release tag selection without consulting host platform data."""
 
     expected = required_platform_tag(operating_system, architecture)
     if operating_system == "linux" and requested_tag is None:
@@ -77,7 +68,6 @@ def release_platform_tag(
 def native_build_environment(
     inherited: Mapping[str, str], operating_system: str
 ) -> dict[str, str]:
-    """Return the exact compiler environment required for a native target."""
 
     environment = dict(inherited)
     if operating_system == "darwin":
@@ -99,7 +89,6 @@ def validate_native_binary(
     architecture: str,
     platform_tag: str,
 ) -> None:
-    """Prove the executable is compatible with its exact wheel contract."""
 
     release_platform_tag(operating_system, architecture, platform_tag)
     try:

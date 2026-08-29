@@ -1,17 +1,5 @@
 #!/usr/bin/env python3
-"""Check Setta runtime architecture and production-Python complexity.
 
-Production functions and methods have a cyclomatic-complexity ceiling of 12.
-The calculation starts at one and adds one for each ``if``, ``for``, ``while``,
-``except`` handler, conditional expression, boolean ``and``/``or`` operand
-after the first, match case after the first, and comprehension filter. Nested
-functions are measured independently rather than charged to their parent.
-
-The import rule keeps the platform root generic: ``setta.cli`` may register
-adapters through the ``setta.apps`` facade, but no core module may import an
-app implementation directly. App modules may use neutral platform services,
-but never import the root dispatcher or another app implementation.
-"""
 
 from __future__ import annotations
 

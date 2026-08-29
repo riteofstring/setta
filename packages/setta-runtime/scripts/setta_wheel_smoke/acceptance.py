@@ -1,5 +1,3 @@
-"""Clean-install public-CLI acceptance for one inspected Setta wheel."""
-
 from __future__ import annotations
 
 import json
@@ -15,6 +13,7 @@ from pathlib import Path, PurePosixPath
 
 from setta_wheel_smoke.inspection import inspect_wheel
 from setta_wheel_smoke.lifecycle import (
+    FailureCapture,
     assert_server_unavailable,
     assert_session_cleanup,
     cleanup_live_server,
@@ -75,7 +74,6 @@ def smoke_wheel(
     expected_platform_tag: str | None = None,
     keep_temporary_directory: bool = False,
 ) -> WheelInspection:
-    """Run the full clean-install acceptance for exactly one platform wheel."""
 
     inspection = inspect_wheel(wheel, expected_platform_tag=expected_platform_tag)
     launcher = require_python(python)
@@ -278,8 +276,8 @@ def exercise_live_server(
         environment=environment,
     )
     readiness_url = ""
-    failure: BaseException | None = None
-    try:
+    failure_capture = FailureCapture()
+    with failure_capture:
         readiness = parse_json_document(
             live.wait_for_readiness(OPEN_READY_TIMEOUT_SECONDS), "public open readiness"
         )
@@ -315,8 +313,7 @@ def exercise_live_server(
             temporary_root / "launcher-probe-operation.json",
         )
         assert_no_runner_artifacts(project_directory)
-    except BaseException as error:  # noqa: BLE001 - cleanup must run for every failure.
-        failure = error
+    failure = failure_capture.error
     cleanup_failure = cleanup_live_server(
         live,
         setta,

@@ -25,11 +25,6 @@ import {
 import { WorkspaceSectionWindowToggleButton } from "../../windowing/WorkspaceSectionWindowToggleButton";
 import { useOptionalWorkspaceWindowing } from "../../windowing/workspaceWindowingContext";
 
-// The reference's `SectionHeader`, trimmed to the slice-reachable groups: the leading icon,
-// tag-color indicator, and editable title, then the container controls (lock, minimize,
-// delete). Diagnostics, run/entry-code, attached-terminal, chat-follow, TextBlock display-mode,
-// and section-window controls left with their features. The measured-height tracking fed only
-// the params-area minimum height, which stayed application-side.
 const sectionHeaderBaseClassName =
   "section-title mx-2 flex flex-row items-center";
 const editingTitleBaseClassName =
@@ -44,11 +39,11 @@ const notEditingTitleBaseClassName =
 type SectionHeaderProps = {
   sectionId: string;
   hasSectionStyleTheme: boolean;
-  /** Window surfaces supply their own lifecycle controls through this slot. */
+
   extraControls?: ReactNode;
-  /** Canvas-only lock, minimize, and delete controls. */
+
   showSectionContainerControls?: boolean;
-  /** Controlled window drag and header attributes belong on the real header element. */
+
   headerProps?: Omit<ComponentPropsWithoutRef<"header">, "children" | "ref"> & {
     "data-testid"?: string;
   };
@@ -185,9 +180,6 @@ function SectionWindowControl({
   );
 }
 
-// The reference's `SectionTypeControls` slot: a registered kind places its own compact header
-// controls ahead of the container controls. The subscription resolves to null for every kind that
-// registers none, so a header without contributed controls never re-renders for its section.
 function SectionKindHeaderControls({
   sectionId,
   sectionKind,

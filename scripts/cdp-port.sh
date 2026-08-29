@@ -55,8 +55,8 @@ profile_suffix() {
   local root="$1"
 
   if command -v shasum >/dev/null 2>&1; then
-    # shasum is a perl script on macOS and can crash if the caller has an
-    # unsupported locale (e.g. LC_ALL=C.UTF-8). Force a safe locale.
+
+
     printf "%s" "$root" | LC_ALL=C LANG=C shasum -a 256 | awk '{print substr($1,1,12)}'
     return
   fi
@@ -79,8 +79,8 @@ MCP_BASE_DIR="${MCP_BASE_DIR:-${TMPDIR:-/tmp}/setta-mcp}"
 DEFAULT_MCP_RUN_DIR="${MCP_BASE_DIR}/${INSTANCE_NAME}-${PROFILE_SUFFIX}"
 MCP_RUN_DIR="${MCP_RUN_DIR:-${DEFAULT_MCP_RUN_DIR}}"
 
-# If the devtools Chrome for this worktree is running, report the actual
-# remote-debugging port from its command line.
+
+
 PID_FILE="${MCP_RUN_DIR}/devtools.pid"
 if [[ -f "${PID_FILE}" ]]; then
   PID="$(cat "${PID_FILE}" 2>/dev/null || true)"
@@ -94,9 +94,9 @@ if [[ -f "${PID_FILE}" ]]; then
   fi
 fi
 
-# If TMPDIR differs between shells (common on macOS), the pid file may not be
-# under the same MCP_RUN_DIR. Fall back to scanning running Chrome processes for
-# this worktree's devtools profile path.
+
+
+
 PROFILE_NEEDLE="setta-mcp/${INSTANCE_NAME}-${PROFILE_SUFFIX}/devtools-profile"
 PID_FROM_PS="$(
   ps -ax -o pid= -o command= 2>/dev/null \

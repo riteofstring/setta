@@ -18,11 +18,6 @@ import {
 import type { WorkspaceItem } from "../document/types";
 import type { WorkspaceItemDiagnosticRegistry } from "./itemDiagnostics";
 
-// The reference's app-level `ParamDndContext` (list context, `useParamDndChildrenForParent`,
-// and the `ParamDndProvider` sortable list). The package context additionally carries the
-// optional custom-row renderer, group predicate, and visible set. Typed rows render directly;
-// custom opaque rows read their host extension from this context at any recursive depth.
-
 export type ItemRowRenderContext = {
   sectionId: string;
   listKey: ItemListKey;
@@ -38,8 +33,8 @@ type ItemListContextValue = {
   itemDiagnostics: WorkspaceItemDiagnosticRegistry;
   renderItem?: (context: ItemRowRenderContext) => ReactNode;
   isGroupItem: (item: WorkspaceItem) => boolean;
-  onColumnResizeStart: PointerEventHandler<HTMLDivElement>;
-  onColumnResizeDoubleClick: MouseEventHandler<HTMLDivElement>;
+  onColumnResizeStart: PointerEventHandler<HTMLButtonElement>;
+  onColumnResizeDoubleClick: MouseEventHandler<HTMLButtonElement>;
 };
 
 const ItemListContext = createContext<ItemListContextValue | null>(null);
@@ -148,9 +143,6 @@ export function ItemListProvider({
     return flatItemIds.map(toDndId);
   }, [flatItemIds, isActiveList, listKey, rootId, tempChildren]);
 
-  // Frozen main keeps this provider mounted while item-select mode toggles and disables each
-  // row's sortable registration through the context flag. Preserving that element identity is
-  // also what keeps a constrained list's live scroll position when Mod+Shift is pressed.
   return (
     <ItemListContext.Provider value={contextValue}>
       <SortableContext

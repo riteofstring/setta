@@ -62,8 +62,8 @@ class _Supervisor:
         readiness = ServerReadiness(
             url="http://127.0.0.1:43123",
             app_id=APP_ID,
-            project_path=expected.project_path,  # type: ignore[attr-defined]
-            instance_nonce=expected.instance_nonce,  # type: ignore[attr-defined]
+            project_path=expected.project_path,
+            instance_nonce=expected.instance_nonce,
         )
         return SimpleNamespace(readiness=readiness, process=SimpleNamespace(pid=999))
 
@@ -98,8 +98,8 @@ class PythonCanvasAdapterTests(unittest.TestCase):
         self.assertIsNotNone(request)
         self.assertEqual(
             request.full_url, "http://127.0.0.1:43123/api/v2/runtime/session"
-        )  # type: ignore[union-attr]
-        self.assertEqual(request.get_header("Accept"), "application/json")  # type: ignore[union-attr]
+        )
+        self.assertEqual(request.get_header("Accept"), "application/json")
         self.assertEqual(opener.timeout, 2)
         document["instanceNonce"] = "other"
         with mock.patch(

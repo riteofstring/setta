@@ -17,11 +17,11 @@ from unittest import mock
 TEST_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "scripts"))
 
-import smoke_setta_wheel as smoke  # pyright: ignore[reportMissingImports]
+import smoke_setta_wheel as smoke
 from setta_wheel_smoke import (
-    acceptance,  # pyright: ignore[reportMissingImports]
-    models,  # pyright: ignore[reportMissingImports]
-    process,  # pyright: ignore[reportMissingImports]
+    acceptance,
+    models,
+    process,
 )
 
 

@@ -17,9 +17,7 @@ import type {
 export type WorkspaceToolbarEntry = Readonly<{
   checked: boolean | null;
   disabled: boolean;
-  // The sentence a refusing command shows, which only the command registry's actions have. The
-  // creation catalog is a list of sections to make rather than actions over workspace state, and
-  // it explains a disabled entry no more here than it does in the pane menu.
+
   disabledReason: string | null;
   icon: ComponentType<WorkspaceCommandIconProps>;
   key: string;
@@ -41,9 +39,6 @@ function getCreationCommandOrThrow(
   return command;
 }
 
-// A toolbar control acts from a fixed place on the shell, so it asks for a pane context with no
-// position: the creation operation resolves the empty space its section lands in, exactly as it
-// does for the chord that creates without a pointer.
 function resolveCreationEntry(
   host: WorkspaceHost,
   contribution: WorkspaceToolbarContribution,
@@ -85,8 +80,7 @@ function resolveCommandEntry(
     run: () => {
       entry.run();
     },
-    // A refusing control explains itself where it is, so the reason replaces the description the
-    // same way the menus replace an item's own description with it.
+
     tooltip: entry.disabledReason ?? contribution.description ?? entry.label,
   });
 }

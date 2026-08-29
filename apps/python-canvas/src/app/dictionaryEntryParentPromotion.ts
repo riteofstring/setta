@@ -12,9 +12,6 @@ type DictionaryEntryParentPromotionEnvironment = {
   isActive: () => boolean;
 };
 
-// Workspace subscriptions cannot commit synchronously. This bridge identifies
-// a leaf-to-parent promotion in the emitted document, then applies the local
-// typing update after that notification has returned.
 export function createDictionaryEntryParentPromotionScheduler({
   currentSnapshot,
   host,

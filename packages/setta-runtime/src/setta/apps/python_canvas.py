@@ -1,5 +1,3 @@
-"""Python Canvas's app-owned CLI adapter and live-session bridge."""
-
 from __future__ import annotations
 
 import json
@@ -29,8 +27,6 @@ _IDENTITY_PATH = "/api/v2/runtime/session"
 
 
 class PythonCanvasAdapter:
-    """Owns Python Canvas command parsing without exporting domain models upstream."""
-
     @property
     def descriptor(self) -> AppDescriptor:
         return AppDescriptor(
@@ -170,7 +166,6 @@ class PythonCanvasAdapter:
             try:
                 context.browser_open(session.url)
             except OSError:
-                # The server is live and the printed URL remains sufficient.
                 context.stderr.write(
                     "Setta could not open a browser automatically; use the printed URL.\n"
                 )
@@ -315,7 +310,7 @@ class PythonCanvasAdapter:
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args: object, **kwargs: object) -> None:  # type: ignore[override]
+    def redirect_request(self, *args: object, **kwargs: object) -> None:
         return None
 
 

@@ -1,10 +1,3 @@
-"""Zero-dependency PEP 517 backend for platform-specific Setta wheels.
-
-The backend deliberately accepts only a prevalidated staged runtime. It writes
-the wheel directly so a release build has no hidden build-backend dependency or
-universal-wheel fallback.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -31,7 +24,7 @@ _PLATFORM_TAG_CONFIG_SETTING = "setta-platform-tag"
 
 
 class BuildBackendError(RuntimeError):
-    """The project cannot safely produce a distributable wheel."""
+    pass
 
 
 @dataclass(frozen=True)

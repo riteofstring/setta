@@ -28,15 +28,8 @@ import { PlaygroundCodeSectionInspector } from "./sectionOptionInspectors";
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-// The built-in Code Editor section reaches this unrelated host entirely through public package
-// APIs: it is registered beside the host's own kinds in the one registration call, its document
-// data is the package's typed contract rather than host-decoded opaque data, and the host's own
-// Inspector UI authors that contract through the package's typed write.
-
 const SECTION_ID = "code-editor";
 
-// React tracks a controlled input's last value on the node itself, so a test that assigns
-// `value` directly is swallowed as "unchanged". Write through the native setter it wraps.
 function setNativeInputValue(input: HTMLInputElement, value: string) {
   const descriptor = Object.getOwnPropertyDescriptor(
     HTMLInputElement.prototype,
@@ -48,8 +41,6 @@ function setNativeInputValue(input: HTMLInputElement, value: string) {
   descriptor.set.call(input, value);
 }
 
-// The Inspector's controls are resolved by their own element type and order. Missing one is a
-// broken contribution rather than a soft assertion, and naming it keeps the failure readable.
 function requireControl<T extends HTMLElement>(
   control: T | null | undefined,
   description: string,
@@ -100,8 +91,6 @@ describe("the playground's built-in code section", () => {
   });
 
   it("authors every typed option from host Inspector UI", () => {
-    // The host renders this contribution; it reads the typed data rather than subscribing, so a
-    // render is how the Inspector picks up the option it just wrote.
     const renderInspector = () => {
       act(() => {
         root.render(
@@ -142,15 +131,13 @@ describe("the playground's built-in code section", () => {
     ).toBe(true);
     expect(wrapLines.closest("label")?.textContent).toContain("Wrap lines");
 
-    // The mode is a closed choice rather than a read-only switch, so the host authors all three
-    // presentations from the same typed write.
     expect([...mode.options].map((option) => option.value)).toStrictEqual([
       "editable",
       "read-only",
       "generated-document",
     ]);
     expect(mode.closest("label")?.textContent).toContain("Mode");
-    // Only the generated mode carries a region, so its offsets are not on offer until it does.
+
     expect(container.querySelectorAll('input[type="number"]')).toHaveLength(1);
 
     act(() => {
@@ -179,18 +166,13 @@ describe("the playground's built-in code section", () => {
       lineNumbers: false,
       indentWidth: 2,
       mode: "generated-document",
-      // Selecting the mode seeds the separator-bounded range this paint is built for, so the
-      // authored `import setta` line stays on the ordinary editing surface. Both edges are the
-      // seeded document's own boundaries — the end of its first line and the end of the document
-      // — rather than the expression the Inspector computes them with.
+
       generatedRegion: {
         from: "import setta".length,
         to: authored.code.length,
       },
     });
 
-    // The offsets are host-authored, and the Inspector may not write a region the package would
-    // reject at its data boundary.
     renderInspector();
     const generatedFrom = requireControl(
       container.querySelectorAll<HTMLInputElement>('input[type="number"]')[1],

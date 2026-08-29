@@ -10,9 +10,7 @@ import (
 
 const (
 	terminalGuardianSandboxExecPath = "/usr/bin/sandbox-exec"
-	// Seatbelt policies are inherited and cannot be relaxed by descendants.
-	// Permit process-group changes used by interactive job control, while deny
-	// only session creation so no shell descendant can leave this guardian SID.
+
 	terminalGuardianSandboxProfile = "(version 1) (allow default) (allow syscall-unix (syscall-number SYS_setpgid)) (deny syscall-unix (syscall-number SYS_setsid))"
 )
 

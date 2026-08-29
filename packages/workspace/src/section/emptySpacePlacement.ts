@@ -19,22 +19,9 @@ import type {
 import type { WorkspaceHost } from "../workspaceHost";
 import { getWorkspaceSectionSizeBounds } from "./resize/sectionSizingBounds";
 
-// Where a section goes when nobody pointed at a place for it. The reference sends this decision to
-// its backend (`CreateTopLevelSection` with a null position, the current top-level layout, and the
-// visible pane), which searches the same three places in the same order: inside the visible pane,
-// then beside it, then after everything the workspace already contains. The package is
-// backend-free, so it owns the search, and it reads the same inputs the reference sends: measured
-// top-level rectangles and the pane rectangle in flow coordinates.
-//
-// Sizes resolve exactly as the reference's `resolveAutoLayoutDimension` does — a measured or
-// explicit dimension wins, and an automatic one reserves the sizing policy's minimum for that axis
-// (never below 1). A section that grows past its reservation once it mounts is the same outcome
-// the reference produces.
-
 type WorkspaceEmptySpacePlacement = Readonly<{
   position: Position;
-  // Set when the section did not land in the visible pane, so the canvas has to travel to it. The
-  // reference's `panTo`: the point the viewport centers on.
+
   panTo: Position | null;
 }>;
 
@@ -96,8 +83,6 @@ function resolveSectionExtent(
   };
 }
 
-// The reference's `createTopLevelSectionLayoutDict`: the stored layout, with the canvas's own
-// measurements of anything it has already laid out written over it.
 function buildOccupiedRects(host: WorkspaceHost): Array<PlacementRect> {
   const { sections, topLevelSections } =
     getWorkspaceDocumentStore(host).getState();
@@ -173,8 +158,6 @@ function getOccupiedBounds(
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-// The reference's `gridStepForCreateTopLevelSection`: a search step proportional to the section
-// being placed, so a small section can slot into a small gap and a large one does not crawl.
 function getGridStep(extent: PlacementExtent): number {
   return Math.max(
     MINIMUM_GRID_STEP,
@@ -234,8 +217,6 @@ function getBottomBounds(
   };
 }
 
-// The reference's `candidateAspectScore`: how lopsided the workspace becomes if the section lands
-// here, so growth stays roughly square instead of running off in one direction.
 function getAspectScore(
   bounds: PlacementRect,
   candidate: Position,
@@ -288,8 +269,6 @@ function chooseAdjacentPosition(
   return bounds.w < bounds.h ? right : bottom;
 }
 
-// The reference's `findPositionAfterExisting`: reuse a gap inside what the workspace already
-// occupies, otherwise extend it on the side that keeps the workspace closest to square.
 function findPositionAfterExisting(
   rects: ReadonlyArray<PlacementRect>,
   extent: PlacementExtent,
@@ -315,8 +294,6 @@ function findPositionAfterExisting(
   );
 }
 
-// The reference's `resolveCreateTopLevelSectionPanTarget`: the created section's own middle,
-// pushed out to at least its minimum width so a wide section is framed by its leading edge.
 function getPanTarget(
   position: Position,
   extent: PlacementExtent,
@@ -340,17 +317,13 @@ export function resolveWorkspaceEmptySpacePlacement(
   const rects = buildOccupiedRects(host);
   const pane = getVisiblePaneRect(host);
 
-  // Without a measurable canvas there is no "visible" to prefer, so the search falls straight
-  // through to the workspace's own layout and the canvas stays where it is.
   if (!pane) {
     return Object.freeze({
       position: findPositionAfterExisting(rects, extent),
       panTo: null,
     });
   }
-  // The reference's `shouldUseCreateTopLevelSectionViewport`: a pane looking at empty space far
-  // from the workspace is not where new sections belong — they join the workspace, and the canvas
-  // travels to them.
+
   if (rects.length > 0 && !intersectsAny(pane, rects)) {
     const position = findPositionAfterExisting(rects, extent);
     return Object.freeze({

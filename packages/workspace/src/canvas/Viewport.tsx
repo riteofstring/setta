@@ -23,8 +23,7 @@ function Viewport({ children }: ViewportProps) {
       style={{ transform }}
     >
       {children}
-      {/* The reference's canvas tooltip parent: inside the transformed scene, outside every
-       * section's clipping box. */}
+      {}
       <div
         className={CODEMIRROR_TOOLTIP_PARENT_CLASS_NAME}
         ref={tooltipParentRef}

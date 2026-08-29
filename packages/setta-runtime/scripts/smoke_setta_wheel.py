@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Run the clean-install acceptance for one built Setta platform wheel.
 
-This is the sole command-line entrypoint. Its implementation is split into
-small, stdlib-only modules for archive inspection, process control, and live
-server acceptance.
-"""
 
 from __future__ import annotations
 
@@ -21,7 +16,6 @@ __all__ = ["SmokeError", "WheelInspection", "inspect_wheel", "main", "smoke_whee
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
-    """Parse the release-check contract and run one clean installation."""
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(

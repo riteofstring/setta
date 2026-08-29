@@ -1,8 +1,3 @@
-/**
- * Dependency-free in-page gesture instrumentation. This reimplements the useful mechanism from
- * workspace-blank-slate's interaction profiler for the extracted package's actual DOM: pointer
- * handler spans, animation-frame gaps, target mutations, long tasks, and page-scroll drift.
- */
 export const INTERACTION_PROBE_INIT_SCRIPT = `(() => {
   const state = {
     active: false,

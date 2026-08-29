@@ -1,17 +1,3 @@
-/* Package-scoped subset of Tailwind Preflight (tailwindcss 3.4.1), covering only the intrinsic
- * elements the package renders (including search and the dropdown's dl/dt/dd list).
- * The reference application runs under full Preflight; the compiled package stylesheet must not
- * reset host styles, so these declarations are scoped under the workspace surface marker class
- * (applied by the package to every root it renders, portals included) and written at Preflight's
- * effective cascade strength: zero selector specificity, so any class rule wins the tie while
- * user-agent defaults still lose. Host fonts remain host context exactly as in the reference,
- * whose body font stack is application-owned. */
-
-/* Frozen main applies `all: unset` to every button and input through its modal stylesheet.
- * Reproducing that rule across the workspace surface would reset controls supplied by a host
- * through the item renderer seam, so only package-owned native controls that depend on the
- * reset opt into it. This rule precedes both the extracted structural classes and Tailwind
- * utilities, which then rebuild the controls in the same order as main. */
 .setta-workspace-native-reset {
   all: unset;
 }

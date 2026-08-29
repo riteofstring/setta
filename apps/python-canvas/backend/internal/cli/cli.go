@@ -22,7 +22,6 @@ import (
 )
 
 const (
-	// MaxOperationBytes bounds one apply document before it is decoded or sent.
 	MaxOperationBytes = 1 << 20
 
 	defaultServiceURL          = "http://127.0.0.1:8080"
@@ -39,14 +38,10 @@ const (
 	exitCompletedPythonFailure = 3
 )
 
-// HTTPClient is the narrow seam used by the CLI. The production default is a
-// timeout-bounded client that refuses redirects.
 type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-// Options keeps process dependencies at the delivery boundary so the command
-// package stays testable and does not own a project engine.
 type Options struct {
 	Stdin      io.Reader
 	Stdout     io.Writer
@@ -89,8 +84,6 @@ type runCommandOptions struct {
 	runTimeout         time.Duration
 }
 
-// IsCommand reports whether arguments select the machine-readable CLI rather
-// than the existing server-startup argument surface.
 func IsCommand(arguments []string) bool {
 	if len(arguments) == 0 {
 		return false
@@ -103,7 +96,6 @@ func IsCommand(arguments []string) bool {
 	}
 }
 
-// Run executes one CLI command and returns its stable process exit status.
 func Run(ctx context.Context, arguments []string, options Options) int {
 	if ctx == nil {
 		ctx = context.Background()

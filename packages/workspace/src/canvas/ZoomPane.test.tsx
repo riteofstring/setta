@@ -36,9 +36,6 @@ import ZoomPane, {
   shouldAllowZoomFilterEvent,
 } from "./ZoomPane";
 
-// Ported from the reference fork's `container/ZoomPane.test.ts`. The drag-sorting filter case
-// returns with the dnd-kit batch that owns the drag-session store.
-
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
@@ -318,7 +315,7 @@ describe("getViewportInteractionActiveValue", () => {
   beforeEach(() => {
     testWorkspace.nodeInternals.getState().reset();
     testWorkspace.document.getState().reset();
-    // A saved camera, so mounting the zoom pane does not arm the fit-on-init path on its own.
+
     testWorkspace.document.setState({ viewport: { x: 0, y: 0, zoom: 1 } });
     testWorkspace.options.getState().reset();
     testWorkspace.reactFlow.setState({
@@ -1050,7 +1047,6 @@ describe("getViewportInteractionActiveValue", () => {
         );
       });
 
-      // Drag teardown should not clear the active wheel burst prematurely.
       expect(testWorkspace.reactFlow.getState().paneDragging).toBe(false);
       expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(
         true,
@@ -1096,8 +1092,7 @@ describe("getViewportInteractionActiveValue", () => {
         ],
       ]),
     });
-    // A document without a saved camera arms fit-on-init through the mount-time
-    // `getInitialCanvasViewport`; the initialization effect then completes the fit.
+
     testWorkspace.document.setState({ viewport: null });
     testWorkspace.reactFlow.setState({
       ...initialCanvasState,
@@ -1142,12 +1137,9 @@ describe("getViewportInteractionActiveValue", () => {
     const { host, root } = await renderZoomPane();
 
     try {
-      // Mounting with the saved camera normalizes the fit flags instead of arming.
       expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
       expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
 
-      // The shape of a mounted re-load without a saved camera: `armLoadedDocumentFitView`
-      // arms while d3 is already initialized, and the initialization effect retries.
       await act(async () => {
         testWorkspace.reactFlow.setState({
           fitViewOnInit: true,

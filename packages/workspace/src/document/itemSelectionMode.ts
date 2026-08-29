@@ -5,13 +5,6 @@ import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
 import { assertWorkspaceHostActive } from "../workspaceHostInternals";
 import type { WorkspaceHost } from "../workspaceHost";
 
-// The reference's param-select mode (`isSelectingParams` on `useMisc`, held active by the
-// `paramSelect` shortcut through `activateParamSelect`/`deactivateParamSelect`): runtime
-// interaction state, not part of the controlled document. Selection toggles and section clicks
-// consult it through the active-section policy, the dnd monitor gates item drags on it, and
-// the canvas key activations hold it through the Mod+Shift chord; hosts may also drive it
-// directly through these actions.
-
 export type ItemSelectionModeState = { isSelectingItems: boolean };
 
 function createItemSelectionModeStore() {
@@ -49,9 +42,6 @@ export function useItemSelectionMode<T>(
   );
 }
 
-// Canvas rows suppress their editors while item-selection mode owns pointer input. The Inspector
-// renders the editable item label in a separate configuration surface, so its subtree opts out
-// without changing the global mode or making multi-item selection unreachable.
 export const ItemSelectionModeAffectsControlsContext = createContext(true);
 
 export function useItemSelectionModeForControl(): boolean {

@@ -22,6 +22,13 @@ import {
   resolveCalendarKeyboardDate,
   shiftCalendarDateByMonths,
 } from "./calendarKeyboard";
+import {
+  formatMonthTitle,
+  parseCalendarSelectedDates,
+  resolveCalendarCellClassName,
+  resolveCalendarDateSelectionValue,
+  resolveCalendarSummaryText,
+} from "./calendarSelection";
 import type {
   DateCalendarWeekStart,
   DateControlMode,
@@ -45,18 +52,10 @@ import {
   splitIsoDateAndTimeParts,
 } from "./dateTimeUtils";
 
-// The remaining-controls milestone's date and time controls: the frozen
-// `TextParamDateTimeInput` ordinary-row presentation behind package-owned controlled-string
-// props. Date configuration selects the formatted native input or live calendar; time
-// configuration selects the native time input or formatted display. The package keeps no clock,
-// locale, persistence, or parameter-model state.
-
 const INTERACTION_BOUNDARY_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
-// Let the browser paint native date/time affordances for the active appearance. Without this,
-// Chromium keeps the default dark picker indicator over Setta's dark input surface.
+
 const NATIVE_DATE_TIME_COLOR_SCHEME_CLASS_NAME = "dark:[color-scheme:dark]";
-// Frozen main's global `input { all: unset }` makes these native inputs transparent. Keep the
-// equivalent paint local to the package instead of leaking that host-wide reset to consumers.
+
 const INPUT_BASE_CLASS_NAME = `${INTERACTION_BOUNDARY_CLASS_NAME} peer/textinput flex min-w-0 flex-1 self-center bg-transparent font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
 const FORMATTED_CLASS_NAME =
   "text-[10px] font-mono text-setta-500 dark:text-setta-400";
@@ -309,8 +308,6 @@ export function DateValueControl(props: DateValueControlProps) {
   return <DateValueControlCore {...props} presentation="item-row" />;
 }
 
-// Package-internal direct-on-canvas presentation. Date parsing, calendar state, selection, and
-// accessibility stay shared with the row control inside frozen main's full-area field wrapper.
 export function MetaDateValueControl(props: DateValueControlProps) {
   return <DateValueControlCore {...props} presentation="meta-control" />;
 }
@@ -377,8 +374,6 @@ export function TimeValueControl({ ...props }: TimeValueControlProps) {
 }
 
 export function MetaTimeValueControl(props: TimeValueControlProps) {
-  // Frozen main's direct-on-canvas Time dispatcher defaults to the formatted display, while the
-  // ordinary item-row Time control defaults to its editable native input.
   return (
     <TimeValueControlCore
       {...props}
@@ -658,145 +653,6 @@ function DisplayTimeValue({
       {transparent ? null : <span className={classes.border} />}
     </>
   );
-}
-
-function collectCalendarSelectionCandidates(parsed: unknown): Array<string> {
-  if (Array.isArray(parsed)) {
-    return parsed.filter((item): item is string => typeof item === "string");
-  }
-  return typeof parsed === "string" ? [parsed] : [];
-}
-
-function parseCalendarSelectionCandidates(rawValue: string): Array<string> {
-  const trimmed = rawValue.trim();
-  if (trimmed === "") {
-    return [];
-  }
-  try {
-    return collectCalendarSelectionCandidates(JSON.parse(trimmed));
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      return [trimmed];
-    }
-    throw error;
-  }
-}
-
-function parseCalendarSelectedDates(
-  rawValue: string,
-  selectionMode: DateSelectionMode,
-  includeTime: boolean,
-): Array<string> {
-  if (selectionMode === "single") {
-    const candidate = includeTime
-      ? (splitIsoDateAndTimeParts(rawValue)?.dateIso ?? "")
-      : rawValue;
-    const normalized = normalizeDateToIso(candidate, "iso");
-    return parseIsoDate(normalized) ? [normalized] : [];
-  }
-  const normalized = parseCalendarSelectionCandidates(rawValue)
-    .map((candidate) =>
-      normalizeDateToIso(
-        includeTime
-          ? (splitIsoDateAndTimeParts(candidate)?.dateIso ?? candidate)
-          : candidate,
-        "iso",
-      ),
-    )
-    .filter((candidate) => parseIsoDate(candidate) !== null);
-  return Array.from(new Set(normalized)).sort((left, right) =>
-    left.localeCompare(right),
-  );
-}
-
-function serializeCalendarSelectedDates(
-  selectedDates: Array<string>,
-  selectionMode: DateSelectionMode,
-): string {
-  const sorted = Array.from(new Set(selectedDates)).sort((left, right) =>
-    left.localeCompare(right),
-  );
-  if (selectionMode === "single") {
-    return sorted[0] ?? "";
-  }
-  return sorted.length === 0 ? "" : JSON.stringify(sorted);
-}
-
-function formatMonthTitle(year: number, monthIndex: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(Date.UTC(year, monthIndex, 1)));
-}
-
-function resolveCalendarCellClassName(
-  cell: CalendarMonthCell,
-  selected: boolean,
-  today: boolean,
-) {
-  const monthClass = cell.inCurrentMonth
-    ? "text-setta-700 dark:text-setta-200"
-    : "text-setta-400 dark:text-setta-500";
-  const selectedClass = selected
-    ? "bg-blue-500 text-white hover:bg-blue-500/90 dark:bg-blue-600 dark:text-white"
-    : "hover:bg-setta-200/40 dark:hover:bg-setta-700/60";
-  const todayClass = today ? "ring-1 ring-blue-400 dark:ring-blue-500" : "";
-  return `rounded px-1 py-1 text-xs font-medium ${monthClass} ${selectedClass} ${todayClass}`;
-}
-
-function resolveCalendarSummaryText({
-  selectedDates,
-  value,
-  selectionMode,
-  includeTime,
-  dateDisplayFormat,
-  timeDisplayFormat,
-}: {
-  selectedDates: Array<string>;
-  value: string;
-  selectionMode: DateSelectionMode;
-  includeTime: boolean;
-  dateDisplayFormat: DateDisplayFormat;
-  timeDisplayFormat: TimeDisplayFormat;
-}): string {
-  if (selectionMode === "multiple") {
-    return `${selectedDates.length} selected`;
-  }
-  if (includeTime && splitIsoDateAndTimeParts(value)) {
-    return formatDateTimeForDisplay({
-      raw: value,
-      dateDisplayFormat,
-      timeDisplayFormat,
-    });
-  }
-  return selectedDates[0] ?? "No date selected";
-}
-
-function resolveCalendarDateSelectionValue({
-  cellIsoDate,
-  isSelected,
-  selectedDates,
-  selectionMode,
-  includeTime,
-  selectedTimeValue,
-}: {
-  cellIsoDate: string;
-  isSelected: boolean;
-  selectedDates: Array<string>;
-  selectionMode: DateSelectionMode;
-  includeTime: boolean;
-  selectedTimeValue: string;
-}): string {
-  if (selectionMode === "multiple") {
-    const nextDates = isSelected
-      ? selectedDates.filter((date) => date !== cellIsoDate)
-      : [...selectedDates, cellIsoDate];
-    return serializeCalendarSelectedDates(nextDates, selectionMode);
-  }
-  return includeTime
-    ? combineIsoDateAndTimeParts(cellIsoDate, selectedTimeValue)
-    : serializeCalendarSelectedDates([cellIsoDate], selectionMode);
 }
 
 function CalendarDateButton({

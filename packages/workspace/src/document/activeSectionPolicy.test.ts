@@ -10,8 +10,6 @@ type PolicyCase = {
   expected: ActiveSectionPolicyResult;
 };
 
-// These cases characterize the reference's resolveActiveSectionChange for the interactions
-// reachable in the Phase 1 slice; expected values must not drift from the reference.
 describe("resolveActiveSectionChange", () => {
   it.each<PolicyCase>([
     {
@@ -35,8 +33,6 @@ describe("resolveActiveSectionChange", () => {
       },
     },
     {
-      // The reference's input-focus branch: activating an editing control makes its section
-      // the single active section and raises it.
       context: {
         interaction: "input-focus",
         activeIds: ["section-a", "section-b"],

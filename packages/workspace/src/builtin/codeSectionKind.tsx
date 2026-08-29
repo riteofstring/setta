@@ -26,18 +26,11 @@ import {
 import type { WorkspaceCodeSectionCompletionProvider } from "./codeSectionCompletion";
 import { WorkspaceCodeSectionBody } from "./WorkspaceCodeSectionBody";
 
-// The public registration seam for the built-in Code Editor section. The helper returns an
-// ordinary section-kind definition, so a host composes it with its own kinds in the single
-// `registerSectionKinds` call it already makes and can leave it out entirely. Nothing here
-// registers itself.
-
-// The reference's `codeSectionDefault.size`.
 const WORKSPACE_CODE_SECTION_DEFAULT_SIZE: SectionSize = {
   width: 500,
   height: "auto",
 };
 
-// The reference's `codeLanguageIconComponents`.
 const CODE_SECTION_LANGUAGE_ICONS: Record<
   WorkspaceCodeSectionLanguage,
   ComponentType<{ className?: string }>
@@ -54,18 +47,15 @@ const CODE_SECTION_LANGUAGE_ICONS: Record<
 };
 
 export type WorkspaceCodeSectionRegistration = {
-  // Replaces the language icon below with the host's own glyph.
   icon?: ComponentType<WorkspaceSectionKindIconProps>;
-  // Applied when a loaded code section omits its size.
+
   defaultSize?: SectionSize;
-  // Narrows the languages this registration accepts. A document naming a language outside the
-  // list fails at load with the rest of the data contract.
+
   languages?: ReadonlyArray<WorkspaceCodeSectionLanguage>;
   renderInspector?: (
     context: WorkspaceInspectorContributionContext,
   ) => ReactNode;
-  // A host-owned completion boundary for this registered Code section kind. It deliberately
-  // stays out of section data so a document remains portable and free of live service state.
+
   completionProvider?: WorkspaceCodeSectionCompletionProvider;
 };
 
@@ -118,8 +108,7 @@ export function createWorkspaceCodeSection(
       parseWorkspaceCodeSectionData(section.id, section.data, allowedLanguages);
     },
     icon: registration.icon ?? CodeSectionLanguageIcon,
-    // The editor owns its own scroller, so the package body slot only has to give it the
-    // section's remaining height.
+
     contentClassName: "flex min-h-0 flex-col",
     defaultSize:
       registration.defaultSize ?? WORKSPACE_CODE_SECTION_DEFAULT_SIZE,
