@@ -9,24 +9,17 @@ const THEMED_BUTTON_CLASS_NAME =
 
 export type WorkspaceSectionWindowToggleButtonProps = {
   sectionId: string;
-  /**
-   * The caller applies the main eligibility policy: no root, group, list-root,
-   * or meta-control section is eligible for section windowing.
-   */
+
   sectionWindowingSupported: boolean;
-  /** Whether the host currently permits changing section placement. */
+
   layoutEditable: boolean;
-  /** True only while the authoritative binding is visibly external to the canvas. */
+
   hasOpenExternalWindow: boolean;
   hasSectionStyleTheme?: boolean;
   onOpenInFloatingWindow: (sectionId: string) => void;
   onShowInCanvas: (sectionId: string) => void;
 };
 
-/**
- * A controlled section-header affordance. It deliberately owns no windowing
- * state, so the embedding host remains the single authority for bindings.
- */
 export function WorkspaceSectionWindowToggleButton({
   hasOpenExternalWindow,
   hasSectionStyleTheme = false,

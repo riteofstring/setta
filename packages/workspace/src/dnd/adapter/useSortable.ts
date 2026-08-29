@@ -114,8 +114,7 @@ export function useSortable({
     modifiers: dragModifiers,
     collisionDetector,
     transition: sortableTransition,
-    // Keep Setta's custom transform-based sortable behavior for list sortables.
-    // Optimistic DOM reordering can cause scroll jumps in constrained panes.
+
     plugins: sortablePlugins,
   });
   const isOver = isDropTarget;

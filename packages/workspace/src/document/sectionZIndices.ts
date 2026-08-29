@@ -6,8 +6,6 @@ function shouldNormalizeZIndices(
   nodeInternals: NodeInternalsState["x"],
   alwaysNormalize: boolean,
 ) {
-  // The reference treats its canonical layout writes (`incrementVersion=true`, e.g. every
-  // drag end) as "always normalize"; the threshold only governs the raise-only paths.
   if (alwaysNormalize) {
     return true;
   }
@@ -18,8 +16,6 @@ function shouldNormalizeZIndices(
   return maxZIndex > nodeInternals.size * 4;
 }
 
-// Renumbers every node densely: non-target nodes keep their relative order at 0..n-1, then
-// each target takes its input-position offset above them (missing targets leave gaps).
 function normalizeNodeZIndices(
   nodeInternals: NodeInternalsState["x"],
   sectionIds: Array<string>,

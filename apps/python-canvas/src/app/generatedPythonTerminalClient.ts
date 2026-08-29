@@ -136,9 +136,6 @@ export function mountGeneratedPythonTerminal({
   const unsubscribePanScrolling = subscribeWorkspaceCanvasPanScrolling(
     workspaceHost,
     (isPanScrolling) => {
-      // Suppress terminal-side scrolling while the canvas owns an active pan-scroll gesture.
-      // ZoomPane's narrow capture bridge handles xterm 6 propagation; this mirrors main's
-      // terminal-state contract until its 150 ms pan-scroll timer settles.
       session.terminal.options.scrollSensitivity = isPanScrolling
         ? Number.MIN_VALUE
         : 1;
@@ -203,7 +200,7 @@ function createTerminalSession({
     if (!session.isReady || session.socket?.readyState !== WebSocket.OPEN) {
       return;
     }
-    // Terminal input is binary UTF-8, including Ctrl+C (0x03), not a WebSocket text frame.
+
     session.socket.send(new TextEncoder().encode(data));
   });
   session.resizeDisposable.dispose();
@@ -409,10 +406,7 @@ function flushTerminalResize(session: TerminalSession): void {
 function fitTerminal(session: TerminalSession): void {
   try {
     session.fitAddon.fit();
-  } catch {
-    // xterm can briefly have no measurable cells while the canvas is mounting. The following
-    // ResizeObserver callback retries once the joined pane has dimensions.
-  }
+  } catch {}
 }
 
 function releaseTerminalSession(

@@ -30,9 +30,6 @@ const generatedPythonEditorSelector = labeledSelector(
   "Generated Python code editor, generated output read-only",
 );
 
-// This deliberately creates the consumer first: visual/forest order remains
-// Consumer then Producer, while the authored parameter reference must make the
-// emitted Producer assignment run first.
 export async function exerciseDependencyOrderingProductionAcceptance({
   backendOrigin,
   client,
@@ -224,8 +221,6 @@ def consume(value):
     "Creating Inputs changed existing visual section order.",
   );
 
-  // The page is intentionally mounted before the parameter edit. This catches
-  // stale Generated Python projections that only refresh after a section move.
   await openWorkspaceCanvas(client, previewOrigin);
   await activateAndSelectAllContentEditableTextBox(
     client,
@@ -282,8 +277,6 @@ def consume(value):
     "state.Consumer__value = state.Renamed_Inputs__dog",
   );
 
-  // Reloading makes the raw-headless UI consume the same public snapshot that
-  // was mutated above before it invokes the managed terminal run action.
   await openWorkspaceCanvas(client, previewOrigin);
   await runGeneratedPythonAndWaitForMarker(client, runtimeMarker);
 }

@@ -18,9 +18,6 @@ type DiagnosticPresentationTarget = Readonly<{
   kind: "callable" | "dictionary";
 }>;
 
-// A lagging snapshot intentionally has no canonical diagnostics. Keep the
-// last settled projection visible only for targets that still exist in its new
-// canonical section; a same-revision snapshot always replaces it exactly.
 export function retainLaggingDiagnosticPresentation(
   previous: WorkspaceSection,
   next: WorkspaceSection,

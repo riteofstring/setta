@@ -20,12 +20,6 @@ import {
 
 export { SECTION_SIZING_POLICY } from "./sectionSizingBounds";
 
-// The reference's section sizing policy (`useSettings.sectionSizingPolicy`), trimmed to the
-// slice-reachable branches of `useSectionMinMaxDims`. The values are the shipped defaults from
-// `internal/settingsstate/defaults.json` at 043d3b2e9 for the generic section shape; the
-// params/search measured-height minimums and per-application-type overrides left with their
-// features. The meta-control milestone restores frozen main's per-control minimum dimensions and
-// auto-only height modes through the registered presentation projection.
 type SectionMinMaxDims = {
   minHeight: number;
   maxHeight: number;

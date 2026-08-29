@@ -26,9 +26,6 @@ import {
 } from "./stores";
 import type { WorkspaceSection, WorkspaceSectionItemTree } from "./types";
 
-// Freezes the canonical item move funnel: the reference's `applyParamMove` optimistic result
-// minus its backend send, with the host notified once per applied move.
-
 function makeItemTree(
   childrenById: Record<string, Array<string>>,
 ): WorkspaceSectionItemTree {
@@ -202,9 +199,6 @@ describe("moveItems", () => {
   });
 
   it("leaves the tree untouched and silent when the first item is detached", () => {
-    // The root has no parent and an unknown id has no parent-map entry: both abort before
-    // anything mutates, the third documented silent-abort leg beside empty ids and
-    // out-of-range indices.
     moveItems(testWorkspace.host, {
       sectionId: "leaf",
       itemIds: ["item-root"],

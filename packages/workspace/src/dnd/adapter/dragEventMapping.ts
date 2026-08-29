@@ -96,8 +96,6 @@ function getCollisions(
   );
 }
 
-// Item drags promote collisions through the item children projection (keyed by list-scoped dnd
-// ids) instead of the section dnd children default.
 function getItemCollisionParentByChild(host: WorkspaceHost, active: Draggable) {
   const activeData = getActiveDragData(active);
   if (activeData?.type !== "item") {

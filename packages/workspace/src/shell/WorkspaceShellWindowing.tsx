@@ -33,10 +33,6 @@ function resolveWorkspaceShellWindowManager({
   return windowing ? <IntegratedWorkspaceWindowManager /> : windowManager;
 }
 
-/**
- * Keeps the integrated windowing provider outside the shell DOM while the
- * shell remains the owner of its positioned manager layer.
- */
 export function WorkspaceShellWindowingComposition({
   children,
   windowing,
@@ -50,7 +46,6 @@ export function WorkspaceShellWindowingComposition({
   );
 }
 
-/** The shell's pointer-transparent stacking slot for generic or integrated managers. */
 export function WorkspaceShellWindowManagerLayer({
   windowManager,
   windowing,

@@ -4,12 +4,6 @@ import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
 import { assertWorkspaceHostActive } from "../workspaceHostInternals";
 import type { WorkspaceHost } from "../workspaceHost";
 
-// The reference's param dnd bookkeeping store (`paramDndState.ts`), written in the package store
-// style (plain setState instead of the reference's immer middleware; identical observable state).
-// The package term for the reference's params is "items", and list keys are host-defined strings
-// where the reference hard-codes its pinned/unpinned param areas. The dnd-id wire constants stay
-// verbatim so the id encoding matches the reference exactly.
-
 export type ItemListKey = string;
 
 type ItemDndState = {
@@ -92,11 +86,6 @@ export function resetItemDndState(host: WorkspaceHost) {
 const ITEM_DND_LIST_KEY_SEPARATOR = "::settaParamList::";
 const ITEM_DND_TEMP_SUFFIX = "::TempParamDND";
 
-// Host-defined item ids and list keys ride the dnd-id encoding verbatim (the reference is
-// immune: its list keys are the closed pinned/unpinned union and its param ids are
-// app-generated). A value containing a reserved token would decode as the wrong item or
-// classify a real row as the temp placeholder, so the entry seams — document load and list
-// registration — fail loudly instead.
 export function assertNoReservedItemDndTokens(
   value: string,
   role: string,

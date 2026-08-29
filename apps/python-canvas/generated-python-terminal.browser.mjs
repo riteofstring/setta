@@ -289,9 +289,6 @@ export async function exerciseGeneratedPythonTerminalLifecycle(
   await assertManagedRunTranscript(client);
 }
 
-// Runs the current generated document through the production terminal UI and
-// waits for its observable Python output. Focused acceptances use this instead
-// of reaching into the terminal process boundary directly.
 export async function runGeneratedPythonAndWaitForMarker(client, marker) {
   await clickElementCenter(
     client,

@@ -529,10 +529,6 @@ export function PythonCanvasController() {
         }
         setParameterAuthoringPending(callableId, false);
         if (isCallableResolutionFailure(error)) {
-          // The expression commit is already durable and its Basedpyright
-          // diagnostics are canonical. A missing symbol can prevent signature
-          // help, but it must not turn that successful commit into a mutation
-          // failure or restore the preceding expression.
           updateCallableMutation(callableId, { kind: "idle" });
           return;
         }

@@ -11,9 +11,7 @@ import (
 
 const (
 	darwinSandboxExecutable = "/usr/bin/sandbox-exec"
-	// Keep the normal Python process model intact while making the process
-	// group a durable ownership boundary. Seatbelt applies this filter to the
-	// launched interpreter and every descendant across fork and exec.
+
 	darwinProcessContainmentProfile = "(version 1) (deny syscall-unix (syscall-number SYS_setsid) (syscall-number SYS_setpgid)) (allow default)"
 )
 

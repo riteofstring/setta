@@ -41,9 +41,6 @@ type diagnosticSeverityPayload struct {
 	value   int
 }
 
-// diagnosticCodePayload accepts the provider's optional diagnostic code only
-// as a nonblank string. The project layer receives normalized data rather than
-// retaining raw protocol shapes.
 type diagnosticCodePayload struct {
 	present bool
 	value   string
@@ -62,8 +59,6 @@ type unregistrationParamsPayload struct {
 	Unregistrations *[]registrationPayload `json:"unregisterations"`
 }
 
-// PullDiagnostics requests analysis for the exact synchronized document
-// revision instead of waiting for Basedpyright's ambient-analysis backoff.
 func (session *Session) PullDiagnostics(
 	ctx context.Context,
 	path string,
@@ -180,8 +175,7 @@ func (session *Session) dispatchServerRequest(envelope rpcEnvelope) {
 	case "client/unregisterCapability":
 		err = session.unregisterPullDiagnostics(envelope.Params)
 	case "workspace/diagnostic/refresh":
-		// Every generated revision explicitly pulls diagnostics, so acknowledging
-		// the refresh cannot leave stale derived state behind.
+
 	default:
 		err = fmt.Errorf("lsp: unsupported server request %q", envelope.Method)
 		if responseErr := session.writeServerError(envelope.ID, -32601, err.Error()); responseErr != nil {
@@ -203,8 +197,7 @@ func (session *Session) dispatchServerRequest(envelope rpcEnvelope) {
 }
 
 func (session *Session) dispatchServerNotification(rpcEnvelope) {
-	// Pull diagnostics are the sole diagnostic authority. Other server
-	// notifications are informational and do not mutate session state.
+
 }
 
 func (session *Session) registerPullDiagnostics(raw json.RawMessage) error {

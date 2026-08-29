@@ -4,9 +4,6 @@ import { getWorkspaceOptionsStore } from "./options";
 import { getReactFlowStore } from "./store";
 import type { Transform } from "./types";
 
-// The reference's `pointToRendererPoint`/`screenToFlowPosition` pair from the fork's viewport
-// helper. `ignoreGrid` skips snap-to-grid so DOM-measured rectangles convert without being
-// rounded onto the grid.
 const pointToRendererPoint = (
   { x, y }: Position,
   [tx, ty, tScale]: Transform,

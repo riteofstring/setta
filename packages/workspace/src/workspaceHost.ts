@@ -13,9 +13,6 @@ import type {
   WorkspaceDocumentInput,
 } from "./document/types";
 
-// The public host is the single lifetime and document boundary for one workspace instance.
-// Package actions that are not host methods take this value explicitly; no module can discover a
-// current or default host.
 export type WorkspaceHost = {
   dispose(): void;
   getSnapshot(): WorkspaceDocument;

@@ -7,11 +7,6 @@ import { Editable } from "./Editable";
 import { useEditableOnSubmit } from "./useEditableOnSubmit";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 
-// The reference's `SectionTitle`, trimmed to the slice: renaming is gated by
-// `canEditStructure`; the fixed presentation renders when editing is not allowed. The
-// backend name-validation pipeline and its error chrome stayed application-side with the
-// generated naming rules; a host that rejects a rename reported through the document-change
-// callback re-loads its authoritative document.
 export type SectionTitleClassNames = {
   editing?: string;
   notEditing?: string;
@@ -30,8 +25,6 @@ export function SectionTitle({ sectionId, titleProps }: SectionTitleProps) {
   );
   const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
 
-  // As the reference, both title presentations attach the tooltip handlers so holding the
-  // tooltip key while hovering shows the full name of a truncated title.
   if (canEditStructure) {
     return (
       <EditableTitle

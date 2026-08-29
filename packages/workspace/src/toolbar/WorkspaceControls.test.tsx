@@ -108,8 +108,7 @@ describe("WorkspaceControls", () => {
         (button) => button.dataset.settaWorkspaceTouchTarget === "compact",
       ),
     ).toBe(true);
-    // The reference renders dividers only after the edge/plugin groups, which left with their
-    // features — never between the viewport and minimap groups.
+
     expect(
       host
         .querySelector('[data-testid="rf__controls"]')
@@ -172,7 +171,7 @@ describe("WorkspaceControls", () => {
       "toggle minimap",
       "move minimap to right",
     ]);
-    // The reference draws its rule after each contributed group, and never between its own groups.
+
     expect(
       host
         .querySelector('[data-testid="rf__controls"]')

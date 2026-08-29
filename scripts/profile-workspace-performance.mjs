@@ -1,16 +1,3 @@
-/**
- * Repeatable Phase 5 production profile for the extracted package's real canvas composition.
- *
- * The script builds the package and playground, serves the production playground, creates a
- * dedicated headless Chrome process, and measures a deterministic 256-section route. Every pass
- * records a fresh initial render plus mounted-versus-visible (culling) counts, sustained
- * empty-pane panning, and top-level drag activation/movement. Timings are machine-local evidence,
- * not cross-machine CI thresholds; fixture drift, missing gesture work, page scroll, and browser
- * errors fail loudly.
- *
- * Usage: pnpm run performance:profile [-- --passes 3] [--skip-build]
- *        [--chrome-binary /absolute/path/to/chrome]
- */
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
@@ -37,8 +24,7 @@ import { repositoryRoot, run, runPnpm } from "./lib/process.mjs";
 
 const EXPECTED_SECTION_COUNT = 256;
 const EXPECTED_VISIBLE_SECTION_COUNT = 24;
-// Milestone B's accepted shell overlays both 32 px pane rails on the full canvas, and its
-// accepted playground chrome owns the remaining vertical space at this fixed profile viewport.
+
 const EXPECTED_CANVAS_SIZE = { height: 602, width: 1446 };
 const DRAG_TARGET_ID = "performance-drag-target";
 const PREVIEW_PORT = 4174;

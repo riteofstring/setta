@@ -13,8 +13,7 @@ import type {
 export type WorkspaceDocumentState = {
   sections: Record<string, WorkspaceSection>;
   topLevelSections: Record<string, TopLevelSectionLayout>;
-  // null means the document carries no saved camera; the canvas then fits the content on init,
-  // mirroring the reference's no-saved-viewport load path.
+
   viewport: Viewport | null;
   parentSectionMap: Record<string, string>;
 };
@@ -27,8 +26,7 @@ export type WorkspaceColorMode = "light" | "dark" | "system";
 
 export type WorkspaceAppearanceState = {
   colorMode: WorkspaceColorMode;
-  // Resolved appearance. Consumers read this value for host chrome; color-mode changes go
-  // through setWorkspaceColorMode so system preference changes and node projection stay synced.
+
   darkMode: boolean;
 };
 
@@ -209,9 +207,6 @@ export function useWorkspaceAppearance<T>(
   );
 }
 
-// Stages the next canonical state so any getState() read that fires while fn() publishes the
-// individual stores observes the document, derived node geometry, and selection together —
-// never a mid-publication mixture.
 export function runWithAtomicallyPublishedWorkspaceStores(
   host: WorkspaceHost,
   nextState: {

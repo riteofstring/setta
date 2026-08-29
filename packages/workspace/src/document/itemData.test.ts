@@ -26,8 +26,6 @@ import {
   useWorkspaceDocument,
 } from "./stores";
 
-// The custom-row persistence funnel: one canonical opaque-data replacement and one notification.
-
 function loadTestDocument() {
   registerSectionKinds(testWorkspace.host, {
     leaf: {

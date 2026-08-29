@@ -10,13 +10,6 @@ import {
 import { type TextValueLanguage } from "./textValueLanguages";
 import { getThemeScopeClassName, type TextValueTheme } from "./textValueTheme";
 
-// The reference's `DummyCodeMirror` idle layer, trimmed of its file-path/JSX variants: a
-// server-render-style highlight of the committed value (or its placeholder form) that stands
-// in for the live editor until activation. The highlight itself lives in
-// `highlightedCodeLines`, which the Text section's fenced Markdown blocks share. The role is the
-// one the live editor's content element advertises; the reference renders role-less nodes, but
-// this repository's accessibility gate requires the interactive role on the focusable layer.
-
 const lineWrapStyle: CSSProperties = {
   whiteSpace: "break-spaces",
   wordBreak: "break-word",
@@ -118,7 +111,6 @@ function PlaceholderCode({
   placeholder: string | undefined;
   style: CSSProperties;
 }) {
-  // returns <br/> if no placeholder, so that the div takes up space
   return (
     <span
       id={divId}

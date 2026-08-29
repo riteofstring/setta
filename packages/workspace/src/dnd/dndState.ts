@@ -8,11 +8,6 @@ import type { Disabled } from "./adapter";
 import { manualDndChildrenReset } from "./dndChildren";
 import type { BehaviorDropType } from "./dropTypes";
 
-// The reference's drag-session store (`dndState.ts`), written in the package store style
-// (plain setState instead of the reference's immer middleware; identical observable state). The
-// reference's project-switch reset registry is replaced by the package store lifecycle: the dnd
-// context resyncs from the document on mount and on document changes.
-
 type DragRect = {
   top: number;
   left: number;
@@ -137,11 +132,6 @@ export function forceDeactivateDnd(host: WorkspaceHost) {
   resetDndState(host);
 }
 
-// The load half of the reference's project-switch reset registry: a document load force-ends any
-// live drag session and prunes the per-section disable registry to the loaded document's
-// sections. Mounted sections that survive the load keep their registrations — their mount
-// effects do not re-run — while entries for removed sections would otherwise linger forever.
-// Runs after the document publication so the children resync reads the loaded document.
 export function resetDndSessionForLoadedDocument(
   host: WorkspaceHost,
   sectionIds: ReadonlySet<string>,

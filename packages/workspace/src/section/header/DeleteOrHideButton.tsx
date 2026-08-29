@@ -8,9 +8,6 @@ import { deleteSection } from "../../document/sectionMutations";
 import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 
-// The reference's `DeleteOrHideButton`. The hide/show variants belong to view modes, which
-// stayed application-side, so the slice always renders the reference's delete variant
-// (css.gg close glyph) gated by `canEditStructure`.
 type DeleteOrHideButtonProps = {
   sectionId: string;
   hasSectionStyleTheme?: boolean;

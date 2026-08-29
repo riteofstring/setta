@@ -21,10 +21,6 @@ import {
 import { moveWorkspaceWindowToCanvasSection } from "../../windowing/windowingState";
 import { useOptionalWorkspaceWindowing } from "../../windowing/workspaceWindowingContext";
 
-// The reference's `SectionContainerCoreResizabe`, cut at the renderer seam: application area
-// renderers, chat windowing, and section-window placeholders are replaced by registered content.
-// The meta-control presentation restores its package-owned headerless chrome at that seam. An
-// ordinary minimized section keeps its header and drops its body like the reference's `AreaSwitch`.
 type SectionContainerContentProps = {
   section: WorkspaceSection;
   hasSectionStyleTheme: boolean;
@@ -101,10 +97,6 @@ export function SectionContainerContent({
   );
 }
 
-/**
- * The single registered section-body composition shared by canvas and window
- * surfaces. It deliberately excludes canvas geometry, refs, and DnD chrome.
- */
 export function WorkspaceSectionBodyContent({
   definition,
   section,
@@ -131,8 +123,6 @@ export function WorkspaceSectionBodyContent({
   );
 }
 
-// The one public item-area order: application leading content, the declared toolbar, then the
-// registered item content — all inside the single package-owned item-filter provider.
 function renderItemArea(
   host: WorkspaceHost,
   section: WorkspaceSection,
@@ -140,9 +130,7 @@ function renderItemArea(
   hasSectionStyleTheme: boolean,
 ) {
   const itemArea = getWorkspaceItemAreaPresentationOrThrow(host, section);
-  // The toolbar's compact spacing belongs to this composition rather than to the declared mode,
-  // and the declared leading renderer is what selects it. The slot stays content-agnostic: its
-  // return value is rendered and never inspected.
+
   return (
     <WorkspaceItemFilterProvider
       hasSectionStyleTheme={hasSectionStyleTheme}

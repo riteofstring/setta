@@ -159,8 +159,6 @@ export function createGeneratedPythonTerminalRuntime({
 
   function run() {
     void runAfterTargetFlush(async (snapshot) => {
-      // Run remains visually enabled. When Create already owns the one shell request, join it
-      // before asking the run route to reuse that shell rather than adding a second pane/height.
       await creatingPromise;
       const sessionKey =
         state.sessionKey ?? makeSessionKey(snapshot.project.id);
@@ -175,8 +173,7 @@ export function createGeneratedPythonTerminalRuntime({
         if (!isActive()) {
           return;
         }
-        // Main does not reveal or focus an existing hidden terminal on Run. A missing runtime
-        // terminal is the only case that creates and shows an attached surface.
+
         if (state.status === "absent") {
           update({
             error: null,

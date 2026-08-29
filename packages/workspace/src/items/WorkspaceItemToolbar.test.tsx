@@ -271,7 +271,7 @@ describe("WorkspaceItemToolbar", () => {
     const toolbar = host.querySelector<HTMLElement>(".section-args");
     expect(toolbar?.dataset["workspaceItemToolbar"]).toBe("filter-only");
     expect(host.textContent).toContain("Args");
-    // No structural mutation control is exposed — not even a disabled one.
+
     for (const label of [
       "Add parameter",
       "Remove last parameter",
@@ -279,9 +279,7 @@ describe("WorkspaceItemToolbar", () => {
     ]) {
       expect(host.querySelector(`button[aria-label="${label}"]`)).toBeNull();
     }
-    // The retained filter surface is the same one the full mode renders, down to advertising the
-    // focus binding: this document loads "panel" as its sole active section, and jsdom reports no
-    // Mac user agent, so the shipped "Mod + K" resolves to this platform's label.
+
     expect(
       host.querySelector<HTMLInputElement>(
         "input.setta-workspace-item-filter-input",
@@ -291,14 +289,12 @@ describe("WorkspaceItemToolbar", () => {
   });
 
   it("takes the reference's compact spacing only when it follows leading content", async () => {
-    // The reference gives a toolbar that sits directly on a section's leading control `mt-0 pb-0`,
-    // so the card reads as one continuous field → Args stack.
     await mount("filter-only", true);
     expect(getToolbarSpacing().sort()).toEqual(["mt-0", "pb-0"]);
 
     await act(async () => root.unmount());
     root = createRoot(host);
-    // Every other item toolbar keeps the reference's ordinary step above and below it.
+
     await mount("authoring-and-filter", false);
     expect(getToolbarSpacing().sort()).toEqual(["mt-1", "pb-1"]);
   });

@@ -1,7 +1,3 @@
-// Package coordinator owns the durable private application transaction for a
-// Python Canvas project. It combines authored candidates with derived
-// materialization and the normalized provider boundary, but does not know HTTP
-// or public V2 contracts.
 package coordinator
 
 import (
@@ -16,33 +12,25 @@ import (
 )
 
 var (
-	// ErrProjectPathRequired marks startup without the one explicit authored
-	// project path.
 	ErrProjectPathRequired = errors.New("coordinator: project path is required")
-	// ErrMaterializerRequired marks a coordinator without its disposable
-	// derived-document participant.
+
 	ErrMaterializerRequired = errors.New("coordinator: materializer is required")
-	// ErrCoordinatorClosed marks an operation after Close.
+
 	ErrCoordinatorClosed = errors.New("coordinator: closed")
-	// ErrProviderUnavailable marks a request while no usable Basedpyright
-	// session is available. It is never replaced with an empty result.
+
 	ErrProviderUnavailable = errors.New("coordinator: provider unavailable")
-	// ErrProviderFailed wraps a concrete provider operation failure.
+
 	ErrProviderFailed = errors.New("coordinator: provider failed")
-	// ErrRenderFailed wraps an invalid derived-document rendering.
+
 	ErrRenderFailed = errors.New("coordinator: render failed")
-	// ErrMaterializationFailed wraps a derived-file stage/install/rollback
-	// failure.
+
 	ErrMaterializationFailed = errors.New("coordinator: materialization failed")
-	// ErrPersistenceFailed wraps authored-project staging or replacement
-	// failure.
+
 	ErrPersistenceFailed = errors.New("coordinator: persistence failed")
-	// ErrCompletionInvalid marks a malformed read-only completion context.
+
 	ErrCompletionInvalid = errors.New("coordinator: completion is invalid")
 )
 
-// ProviderAvailability is the explicit availability part of one normalized
-// Basedpyright status.
 type ProviderAvailability string
 
 const (
@@ -50,8 +38,6 @@ const (
 	ProviderAvailabilityUnavailable ProviderAvailability = "unavailable"
 )
 
-// ProviderLifecycleState is the provider's publication lifecycle, separate
-// from transport or process implementation details.
 type ProviderLifecycleState string
 
 const (
@@ -61,16 +47,12 @@ const (
 	ProviderLifecycleFailed     ProviderLifecycleState = "failed"
 )
 
-// ProviderStatus is the private, normalized provider state retained alongside
-// one published aggregate snapshot.
 type ProviderStatus struct {
 	Provider     string
 	Availability ProviderAvailability
 	State        ProviderLifecycleState
 }
 
-// Validate ensures a provider cannot claim incompatible availability and
-// lifecycle states.
 func (status ProviderStatus) Validate() error {
 	if strings.TrimSpace(status.Provider) == "" {
 		return fmt.Errorf("provider status has no provider")
@@ -106,8 +88,6 @@ func pendingProviderStatus() ProviderStatus {
 	}
 }
 
-// ProviderDiagnosticSeverity is normalized at the provider boundary, before
-// target mapping or public transport conversion.
 type ProviderDiagnosticSeverity string
 
 const (
@@ -116,8 +96,6 @@ const (
 	ProviderDiagnosticInformation ProviderDiagnosticSeverity = "information"
 )
 
-// ProviderDiagnostic is a validated UTF-8 byte range in one exact derived
-// document version.
 type ProviderDiagnostic struct {
 	Start    int
 	End      int
@@ -126,9 +104,6 @@ type ProviderDiagnostic struct {
 	Code     string
 }
 
-// Diagnostic is the coordinator's derived diagnostic, mapped by renderer-owned
-// ranges plus the aggregate's callable/parameter semantics. A nil TargetID
-// remains a document diagnostic.
 type Diagnostic struct {
 	ID       string
 	Start    int
@@ -139,8 +114,6 @@ type Diagnostic struct {
 	TargetID *string
 }
 
-// SignatureRequest contains the complete temporary candidate module that the
-// provider must inspect before a changed callable can replace its parameters.
 type SignatureRequest struct {
 	ProjectID          string
 	CallableID         string
@@ -149,39 +122,28 @@ type SignatureRequest struct {
 	CallOffset         int
 }
 
-// GeneratedDocumentRequest identifies the exact rendered document that needs
-// diagnostics. Revision is a monotonic LSP transport version, intentionally
-// distinct from the authored project revision so independently scheduled work
-// can synchronize each exact document in execution order.
 type GeneratedDocumentRequest struct {
 	Path     string
 	Revision int
 	Code     string
 }
 
-// GeneratedDocumentResult is a provider publication for one exact candidate
-// document version.
 type GeneratedDocumentResult struct {
 	Diagnostics    []ProviderDiagnostic
 	ProviderStatus ProviderStatus
 }
 
-// Provider is the complete normalized application port for the one pinned
-// Basedpyright session. Its implementation belongs in the LSP adapter.
 type Provider interface {
 	ResolveCallableSignature(context.Context, SignatureRequest) ([]aggregate.ProviderParameter, error)
 	SynchronizeGeneratedDocument(context.Context, GeneratedDocumentRequest) (GeneratedDocumentResult, error)
 	Close() error
 }
 
-// CompletionItem is the normalized, provider-independent completion result.
 type CompletionItem struct {
 	Label      string
 	InsertText string
 }
 
-// CallableCompletionRequest captures one uncommitted callable draft beside
-// the current canonical document. CursorOffsetUTF16 uses JavaScript offsets.
 type CallableCompletionRequest struct {
 	ProjectID          string
 	CallableID         string
@@ -190,35 +152,23 @@ type CallableCompletionRequest struct {
 	CursorOffsetUTF16  int
 }
 
-// UTF16Range describes an editor coordinate range in one complete draft.
 type UTF16Range struct {
 	Start int
 	End   int
 }
 
-// PythonTargetCompletionRequest is a validated complete target draft whose
-// protected renderer body is still exact. CursorOffsetByte is computed at the
-// coordinator boundary before the provider sees the request.
 type PythonTargetCompletionRequest struct {
 	Code             string
 	CursorOffsetByte int
 }
 
-// CompletionProvider is deliberately optional to the durable mutation port.
-// It prevents a provider without read-only completion support from weakening
-// the all-or-nothing mutation transaction.
 type CompletionProvider interface {
 	CompleteCallable(context.Context, CallableCompletionRequest) ([]CompletionItem, error)
 	CompletePythonTarget(context.Context, PythonTargetCompletionRequest) ([]CompletionItem, error)
 }
 
-// RenderFunc preserves renderer ownership while allowing focused failure
-// injection at the coordinator boundary.
 type RenderFunc func(aggregate.State) (renderer.Result, error)
 
-// Snapshot is the private published state. DiagnosticsRevision identifies the
-// authored revision for which Diagnostics and ProviderStatus have settled; it
-// may trail State.Project.Revision while structural analysis is outstanding.
 type Snapshot struct {
 	State               aggregate.State
 	Rendered            renderer.Result
@@ -227,8 +177,6 @@ type Snapshot struct {
 	ProviderStatus      ProviderStatus
 }
 
-// Clone returns a fully independent snapshot so callers cannot mutate the
-// coordinator's published state through maps or pointer metadata.
 func (snapshot Snapshot) Clone() Snapshot {
 	clone := snapshot
 	clone.State = snapshot.State.Clone()

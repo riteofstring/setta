@@ -3,13 +3,6 @@ import { getActiveSectionsStore, getWorkspaceDocumentStore } from "./stores";
 import type { WorkspaceDocument } from "./types";
 import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
 
-// The subscription half of the host document boundary. The reference pairs every canonical
-// write with a backend route (per-flag routes, `moveSectionsWithBackend`, `setSectionSizes`,
-// the debounced layout/viewport/active-ids sends); the package instead publishes one complete
-// serializable snapshot to this host's subscribers after each canonical commit. Debouncing is
-// transport policy and stays outside the package: the reference mirrors canonical state
-// immediately and debounces only its network sends.
-
 export type WorkspaceDocumentSubscription = (
   document: WorkspaceDocument,
 ) => void;
@@ -40,9 +33,6 @@ function getDocumentChangeState(host: WorkspaceHost): DocumentChangeState {
   return state;
 }
 
-// A serializable snapshot of the canonical workspace document. Store slices are shared, not
-// cloned — treat the returned document as immutable. Reads go through the patched getState, so
-// a snapshot taken during an atomic publication observes the staged state consistently.
 export function getWorkspaceDocument(host: WorkspaceHost): WorkspaceDocument {
   const documentState = getWorkspaceDocumentStore(host).getState();
   return {
@@ -85,8 +75,6 @@ export function notifyWorkspaceDocumentSubscribers(host: WorkspaceHost): void {
   }
 }
 
-// Host-initiated loads batch the internal mutations they perform and publish one final snapshot
-// once the loaded document is complete.
 export function runWithWorkspaceDocumentChangeNotificationsSuppressed(
   host: WorkspaceHost,
   fn: () => void,

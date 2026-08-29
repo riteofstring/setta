@@ -135,12 +135,9 @@ export type ProjectSnapshotProjectionOptions = Readonly<{
   keepAuthoredPython: boolean;
   keepDictionaryEntries: ReadonlySet<string>;
   keepParameterLists: ReadonlySet<string>;
-  // Creation returns a short-lived local section before the canonical server
-  // identity is known. Reconcile that placeholder in place on its response.
+
   pendingSectionIds: ReadonlyMap<string, string>;
-  // Other locally created sections can still be waiting in the serialized
-  // mutation queue. Keep their saved top-level presentation until each own
-  // creation response provides its canonical identity.
+
   unresolvedPendingSectionIds: ReadonlySet<string>;
 }>;
 
@@ -266,9 +263,6 @@ function projectWorkspaceDocumentWithDescriptors(
   };
 }
 
-// Publishes one complete canonical snapshot in a single workspace transaction.
-// The server owns data and placement; the client retains only section geometry,
-// local selection, filtering, and unresolved local item proposals.
 export function applyProjectSnapshotToWorkspace(
   host: WorkspaceHost,
   snapshot: ProjectSnapshotV2,
@@ -473,9 +467,6 @@ export function readCallableParameterItems(
   }));
 }
 
-// Returns only a complete placement proposal. A transient deletion or creation
-// intentionally returns null, leaving its typed create/delete command as the
-// sole owner of the mutation.
 export function workspaceForestProposal(
   document: WorkspaceDocument,
   snapshot: ProjectSnapshotV2,

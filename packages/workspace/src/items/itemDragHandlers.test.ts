@@ -50,11 +50,6 @@ import {
 } from "./itemDragHandlers";
 import { registerItemListView, resetItemListViews } from "./itemListRegistry";
 
-// Freezes the item drag lifecycle against the reference monitor: drag start snapshots the
-// tree, collapses the selection to draggable roots, and replaces the dragged items with the
-// temp placeholder; drag over moves the placeholder from resolved collisions; drag end maps
-// the placeholder position through the visible-insertion resolution into one canonical move.
-
 const LIST_KEY = "main";
 const ACTIVE_DND_ID = getItemDndId("item-a", LIST_KEY);
 const TEMP_ID = getTempItemDndId(ACTIVE_DND_ID);
@@ -218,8 +213,7 @@ describe("item drag lifecycle", () => {
     expect(state.listKey).toBe(LIST_KEY);
     expect(state.rootId).toBe("item-root");
     expect(state.draggingIds).toEqual(["item-a"]);
-    // No manager in the test, so measurement falls back to the reference defaults and the
-    // event rect.
+
     expect(state.placeholderWidth).toBe(220);
     expect(state.placeholderHeight).toBe(32);
     expect(state.activeRect).toEqual({
@@ -238,7 +232,6 @@ describe("item drag lifecycle", () => {
   });
 
   it("drags the shared-parent selection roots together and collapses cross-parent selections", () => {
-    // A document load releases item-select mode, so each mid-test reload re-enters it.
     loadTestDocument(["item-c", "item-d"]);
     activateItemSelect(testWorkspace.host);
     handleItemDragStart(testWorkspace.host, makeStartEvent("item-c"), null);
@@ -251,8 +244,7 @@ describe("item drag lifecycle", () => {
     loadTestDocument(["item-a", "item-c"]);
     activateItemSelect(testWorkspace.host);
     handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
-    // The reference's multi-parent toast stays application-side; the fallback drags only the
-    // active item and collapses the selection to it.
+
     expect(testWorkspace.itemDndState.getState().draggingIds).toEqual([
       "item-a",
     ]);
@@ -273,8 +265,7 @@ describe("item drag lifecycle", () => {
     changeCallback.mockClear();
     handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
     expect(testWorkspace.itemDndState.getState().activeId).toBeNull();
-    // The filter abort is side-effect-free: the selection collapse never commits and the
-    // host is never notified, as the reference checks its filter before anything mutates.
+
     expect(getPanelItemTree().selectedItemIds).toEqual([]);
     expect(changeCallback).not.toHaveBeenCalled();
   });

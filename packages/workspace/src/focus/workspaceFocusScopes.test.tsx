@@ -75,8 +75,6 @@ function appendButton(parent: HTMLElement, label: string): HTMLButtonElement {
   return button;
 }
 
-// Two leaf sections whose layout order is the reverse of the order they are appended in, so a
-// reading-order failure cannot pass by accident.
 function loadCanvasDocument() {
   registerSectionKinds(testWorkspace.host, {
     leaf: { renderContent: () => null },

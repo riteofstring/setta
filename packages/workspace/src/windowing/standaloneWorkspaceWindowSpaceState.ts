@@ -132,10 +132,6 @@ export function hydrateStandaloneWorkspaceWindowSpace(
   );
 }
 
-/**
- * A same-key refresh adopts saved presentation while retaining only local
- * focus and split-resize changes. A new id/revision replaces all local state.
- */
 export function hydrateStandaloneWorkspaceWindowSpaceState({
   currentWindows,
   previousHydratedWindows,
@@ -164,7 +160,6 @@ export function hydrateStandaloneWorkspaceWindowSpaceState({
   };
 }
 
-/** Focus is local-only and retains the frozen behavior for an already-top window. */
 export function focusStandaloneWorkspaceWindow(
   windows: readonly StandaloneWorkspaceWindow[],
   windowId: string,

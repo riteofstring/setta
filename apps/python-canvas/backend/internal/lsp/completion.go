@@ -11,9 +11,6 @@ import (
 
 const completionSnapshotSeparator = "\n\n"
 
-// CompleteCallable completes one uncommitted callable expression in a sibling
-// document. The canonical generated document is never opened, changed, or
-// written by this read-only query.
 func (provider *BasedpyrightProvider) CompleteCallable(
 	ctx context.Context,
 	request coordinator.CallableCompletionRequest,
@@ -29,8 +26,6 @@ func (provider *BasedpyrightProvider) CompleteCallable(
 	return provider.completeSnapshot(ctx, snapshotCode, draftStart+draftOffset)
 }
 
-// CompletePythonTarget uses the same temporary-document lifecycle as callable completion. Its
-// request is already a fully rendered candidate module and a renderer-derived byte boundary.
 func (provider *BasedpyrightProvider) CompletePythonTarget(
 	ctx context.Context,
 	request coordinator.PythonTargetCompletionRequest,

@@ -33,9 +33,6 @@ import {
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-// The workspace-shell typed-item regression: the unrelated playground supplies serialized
-// presentations and no row decoder. Package-owned labels and controls render directly, scalar
-// edits commit through the dedicated funnels, and only dropzone side effects use host handlers.
 const REFERENCE_VALUE_DUMMY_CLASSES = [
   "nopan",
   "nodrag",
@@ -54,14 +51,10 @@ const REFERENCE_VALUE_DUMMY_CLASSES = [
 const REFERENCE_VALUE_DIVIDER_CLASS_NAME =
   "section-value self-end border-b border-setta-200/50 dark:border-setta-600/30 peer-focus-within/textinput:border-blue-400";
 
-// Live main's complete outer `/settings` Dict measurement and the package shell border that
-// separates it from the inner surface the document and registered default describe.
 const RECORDED_OUTER_DICT_WIDTH_PX = 552;
 const RECORDED_OUTER_DICT_HEIGHT_PX = 352;
 const SHELL_BORDER_WIDTH_PX = 1;
 
-// Replaces the setup stub so the test can drive the package's resize-driven default split. The
-// import-time observer inside the built package already constructed against the stub.
 const observedResizeTargets = new Map<Element, ResizeObserverCallback>();
 
 class CapturingResizeObserver {
@@ -257,7 +250,7 @@ describe("the playground item renderer presentation contract", () => {
     act(() => {
       switchButton.click();
     });
-    // The package value funnel committed one canonical string update and re-rendered the control.
+
     expect(getDocumentItemValue("item-enabled")).toBe("false");
     expect(
       switchRow.querySelector<HTMLButtonElement>('button[role="switch"]')
@@ -453,8 +446,7 @@ describe("the playground item renderer presentation contract", () => {
     if (!input) {
       throw new Error("The choice row does not mount the dropdown control.");
     }
-    // The captured fixture's empty dropdown: the recorded pill presentation behind the
-    // reference "Search" placeholder, wrapped in the no-drag search shell.
+
     expect(input.value).toBe("");
     expect(input.placeholder).toBe("Search");
     for (const pillClass of [
@@ -488,7 +480,7 @@ describe("the playground item renderer presentation contract", () => {
     act(() => {
       gamma?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    // The package value funnel committed the picked choice and the re-rendered pill reflects it.
+
     expect(getDocumentItemValue("item-choice")).toBe("Gamma");
     expect(
       dropdownRow.querySelector<HTMLInputElement>('input[role="combobox"]')
@@ -603,8 +595,7 @@ describe("the playground item renderer presentation contract", () => {
         "The package-owned list outer is not observed for resizes.",
       );
     }
-    // The 550 x 350 inner fixture gives the list area live main's measured 550 px width;
-    // the reference default is half that minus the 18 px center offset: 257 px.
+
     Object.defineProperty(listOuter, "clientWidth", {
       configurable: true,
       value: 550,
@@ -632,9 +623,7 @@ describe("the playground item renderer presentation contract", () => {
   it("keeps the recorded fixture geometry and an inspectable row rhythm", () => {
     const layout = playgroundDocument.topLevelSections["item-panel"];
     expect(layout).toEqual({ x: 600, y: 216, w: 550, h: 350, zIndex: 4 });
-    // Document dimensions describe the inner section surface; the shell adds a 1 px border on
-    // every side, so the fixture must render main's complete 552 x 352 outer Dict measurement
-    // from the inner 550 x 350 — not by authoring the outer numbers directly.
+
     const outerWidth = (layout?.w ?? 0) + 2 * SHELL_BORDER_WIDTH_PX;
     const outerHeight = (layout?.h ?? 0) + 2 * SHELL_BORDER_WIDTH_PX;
     expect(outerWidth).toBe(RECORDED_OUTER_DICT_WIDTH_PX);
@@ -706,11 +695,6 @@ describe("the playground item renderer presentation contract", () => {
   });
 });
 
-// The registered kind declares which item toolbar the package composes, and only the package
-// renders it. These cases mount the whole playground document through the public canvas the app
-// itself uses, so the declared `authoring-and-filter` mode is read from the rendered item area
-// rather than from the registration literal: declaring `filter-only` or `hidden` would drop the
-// structural actions or the toolbar itself here.
 describe("the playground's declared item-area presentation", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -767,7 +751,7 @@ describe("the playground's declared item-area presentation", () => {
         ),
       );
     });
-    // The canvas renders nodes only once it has measured its wrapper, which jsdom never does.
+
     const wrapper = container.querySelector<HTMLElement>("div.react-flow");
     const measure = wrapper ? observedResizeTargets.get(wrapper) : undefined;
     if (!wrapper || !measure) {
@@ -800,15 +784,13 @@ describe("the playground's declared item-area presentation", () => {
   it("selects the full authoring toolbar for its editable item section", () => {
     const toolbar = getItemToolbar();
     expect(toolbar.dataset.workspaceItemToolbar).toBe("authoring-and-filter");
-    // The mode attribute is the only public toolbar hook, so read the Args label from the
-    // rendered text rather than from the package's private label class.
+
     expect(toolbar.textContent).toContain("Args");
-    // The host's registered item factory and the loaded items keep both structural actions
-    // operable; the loaded document selects nothing, so only the selection action is disabled.
+
     expect(getToolbarButton("Remove last parameter").disabled).toBe(false);
     expect(getToolbarButton("Add parameter").disabled).toBe(false);
     expect(getToolbarButton("Delete selected parameters").disabled).toBe(true);
-    // The retained filter surface belongs to the same toolbar in this mode.
+
     expect(
       toolbar.querySelector<HTMLInputElement>(
         'input[aria-label], input[placeholder="Filter"]',

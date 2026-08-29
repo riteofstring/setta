@@ -10,8 +10,6 @@ import (
 	"github.com/setta/python-canvas/backend/internal/project/renderer"
 )
 
-// ProjectService is the complete V2 application boundary used by the HTTP
-// adapter. It exposes canonical snapshots, never a mutable transport model.
 type ProjectService interface {
 	Snapshot() contracts.ProjectSnapshotV2
 	SubscribeProjectSnapshots(context.Context) <-chan contracts.ProjectSnapshotV2
@@ -39,18 +37,12 @@ type ProjectService interface {
 	CompletePythonTarget(context.Context, contracts.PythonTargetCompletionRequestV2) ([]contracts.CompletionItemV2, error)
 }
 
-// GeneratedProgram is the exact revision-bound rendered Python captured by
-// the project boundary for the terminal runtime. It never crosses the public
-// transport contract.
 type GeneratedProgram struct {
 	ProjectID string
 	Revision  int
 	Code      string
 }
 
-// CoordinatorService is the deliberately thin V2 delivery adapter around the
-// durable coordinator. Request-shape checks belong to HTTP/contracts; aggregate
-// semantics, rendering, provider synchronization, and persistence stay below.
 type CoordinatorService struct {
 	coordinator *coordinator.Coordinator
 }
@@ -76,9 +68,6 @@ func (service *CoordinatorService) Snapshot() contracts.ProjectSnapshotV2 {
 	return snapshot
 }
 
-// SubscribeProjectSnapshots maps the coordinator's latest-value publication
-// stream onto the public V2 contract. Closing the request context releases the
-// coordinator subscription; no timer or polling request is involved.
 func (service *CoordinatorService) SubscribeProjectSnapshots(ctx context.Context) <-chan contracts.ProjectSnapshotV2 {
 	stream := make(chan contracts.ProjectSnapshotV2, 1)
 	if service == nil || service.coordinator == nil {

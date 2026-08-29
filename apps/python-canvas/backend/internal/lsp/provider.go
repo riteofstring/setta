@@ -35,9 +35,6 @@ type BasedpyrightOptions struct {
 	DiagnosticTimeout time.Duration
 }
 
-// BasedpyrightProvider owns exactly one session backed by the command supplied
-// by the packaged launcher. It never searches PATH and accepts one canonical
-// generated file.
 type BasedpyrightProvider struct {
 	mu sync.Mutex
 
@@ -93,9 +90,6 @@ func NewBasedpyrightProvider(options BasedpyrightOptions) (*BasedpyrightProvider
 	}, nil
 }
 
-// ResolveBasedpyrightExecutable accepts only an exact absolute executable
-// path supplied at startup. The server must never discover source-checkout or
-// global dependencies at runtime.
 func ResolveBasedpyrightExecutable(command string) (string, error) {
 	command = strings.TrimSpace(command)
 	if command == "" {
@@ -204,10 +198,7 @@ func (provider *BasedpyrightProvider) SynchronizeGeneratedDocument(
 	if err != nil {
 		return coordinator.GeneratedDocumentResult{}, err
 	}
-	// The coordinator materializes this exact code before scheduling analysis.
-	// A newer structural commit may replace the disposable on-disk document while
-	// this queued revision is waiting for serialized provider access, so the
-	// request payload—not a later disk read—is the exact LSP document boundary.
+
 	if err := provider.session.SynchronizeDocument(ctx, path, "python", request.Revision, request.Code); err != nil {
 		return coordinator.GeneratedDocumentResult{}, err
 	}

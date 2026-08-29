@@ -3,8 +3,6 @@ import type { Selection as D3Selection } from "d3-selection";
 import type { ZoomBehavior } from "d3-zoom";
 import type { Node, Position } from "../document/types";
 
-// Canvas-slice types extracted from the reference fork (`forks/xyflow/core/types/`). The
-// connection/edge/handle types left with the excluded edge features.
 export type Transform = [number, number, number];
 
 export type CoordinateExtent = [[number, number], [number, number]];
@@ -32,8 +30,6 @@ export type PanOnScrollMode = "free" | "vertical" | "horizontal";
 
 export type SelectionMode = "partial" | "full";
 
-// The reference's `PanelPosition` trimmed to the corners the minimap panel reaches; the
-// top/center placements have no caller in the slice.
 export type PanelPosition = "bottom-left" | "bottom-right";
 
 export type FitViewOptions = {
@@ -95,7 +91,7 @@ export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>;
 export type NodeDragItem = {
   id: string;
   position: Position;
-  // distance from the mouse cursor to the node when start dragging
+
   distance: Position;
   width?: number | null;
   height?: number | null;

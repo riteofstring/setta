@@ -23,10 +23,6 @@ const (
 	privateGuardianFailure    byte = 5
 	privateGuardianRelease    byte = 1
 
-	// Starting the private helper can include a cold executable load and, on
-	// macOS, sandbox initialization. Keep that bounded without treating a
-	// normal loaded-machine start as a failed run. Termination has its own
-	// tighter bound below so cancellation cannot inherit this window.
 	privateGuardianStartupTimeout     = 5 * time.Second
 	privateGuardianTerminationTimeout = 2 * time.Second
 )
@@ -277,10 +273,7 @@ func (process *privateGuardianOwnedProcess) ownsCommandTermination() bool {
 	}
 	process.mutex.Lock()
 	defer process.mutex.Unlock()
-	// The parent may leave the direct guardian alive only after it has
-	// acknowledged that its owned tree is gone. If its status path stalls, the
-	// caller must retain the direct-process fallback so Run itself remains
-	// bounded and reports the containment failure.
+
 	return process.acknowledged
 }
 

@@ -15,10 +15,6 @@ import type { SectionDragListeners } from "./ContainerCore";
 import { SectionContainer } from "./SectionContainer";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 
-// The reference's `SortableSectionContainer.tsx` minus the edge-handle position updates, which
-// left with the excluded edge features. The reference's layout-variant class names collapse to
-// the group flow the slice renders.
-
 function SortableSectionContainerComponent({
   sectionId,
 }: {
@@ -46,7 +42,6 @@ function TempDNDSortableSectionContainerComponent({
   const [forceApplyTransform, setForceApplyTransform] = useState(true);
 
   useEffect(() => {
-    // we want to force the temp section to appear on first render
     setForceApplyTransform(false);
   }, []);
 
@@ -72,7 +67,6 @@ function RegularSortableSectionContainerComponent({
   const animateLayoutChanges = useAnimateLayoutChanges();
   const dndProps = useDndProps({ sectionId, isTopLevel: false });
 
-  // remove 'role' because we don't want sections to be "role=button"
   const {
     attributes,
     listeners,

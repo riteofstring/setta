@@ -109,8 +109,6 @@ describe("collision tracker", () => {
   });
 
   it("keeps item row collisions alive via vertical overlap when horizontal overlap is gone", () => {
-    // The reference's param-mode intersection fallback: a row dragged horizontally off its list
-    // still collides through vertical overlap x active width.
     const tracker = createCollisionTracker({
       host: testWorkspace.host,
       mode: "item",

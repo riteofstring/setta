@@ -20,15 +20,6 @@ import {
   type WorkspaceTextSectionFormat,
 } from "@setta/workspace";
 
-// The Inspector contributions the playground registers for the two built-in content sections.
-// They are the host's own authoring UI over package-owned typed data, so they live beside the
-// registry rather than inside it.
-
-// The package owns the code section's data contract and its editor; the host owns any UI that
-// authors those options. This contribution is that UI: it reads and writes the same typed data
-// the editor commits through, so every option is reachable without a package-invented settings
-// panel (frozen main's own code-area settings are entirely file-binding, which is application
-// state this package does not carry).
 function updatePlaygroundCodeSection(
   host: WorkspaceHost,
   sectionId: string,
@@ -41,10 +32,6 @@ function updatePlaygroundCodeSection(
   );
 }
 
-// Only the generated mode carries a region, so switching modes adds or drops it rather than
-// leaving a field the new mode may not have. A host that has no region in mind gets the same
-// separator-bounded range the package's paint is built for: from the end of the first line to the
-// start of the last, which leaves the surrounding text authorable on the ordinary editing surface.
 function withPlaygroundCodeMode(
   current: WorkspaceCodeSectionData,
   mode: WorkspaceCodeSectionMode,
@@ -82,9 +69,6 @@ function defaultPlaygroundGeneratedRegion(
     : { from: firstBreak, to: lastBreak + 1 };
 }
 
-// The offsets stay inside the document and keep the region non-empty, because the package rejects
-// anything else at its data boundary and an Inspector must not be able to author a section that
-// fails to load.
 function withPlaygroundGeneratedRegion(
   current: WorkspaceCodeSectionData,
   edge: "from" | "to",
@@ -191,8 +175,6 @@ export function PlaygroundCodeSectionInspector({
           >
             {WORKSPACE_CODE_SECTION_MODES.map((mode) => (
               <option
-                // A generated document has to have generated content, so an empty document
-                // cannot declare one.
                 disabled={mode === "generated-document" && data.code === ""}
                 key={mode}
                 value={mode}
@@ -230,8 +212,6 @@ export function PlaygroundCodeSectionInspector({
   );
 }
 
-// The text section's options are host UI over the same typed data the editor and the header
-// control commit through, so no option needs a package-invented settings panel.
 function updatePlaygroundTextSection(
   host: WorkspaceHost,
   sectionId: string,

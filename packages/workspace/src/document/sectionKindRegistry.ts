@@ -12,22 +12,13 @@ import {
 } from "../section/resize/sectionSizingBounds";
 import type { WorkspaceHost } from "../workspaceHost";
 
-// The registration half of the renderer seam: application-owned section kinds map to their
-// renderer and either ordinary header/default-size metadata or the direct-on-canvas presentation.
-// This replaces the reference's per-type area switch (`SectionContainerCoreResizabe`), header icon
-// record (`HeaderIcon`), and generated per-type constructors. Groups are the one package-owned kind
-// and never appear in the registry.
-
 export type MetaControlSectionPresentation = {
   type: "meta-control";
-  // The host resolves its opaque section data into the package control vocabulary. Keeping
-  // this projection on the registered kind lets the package apply control-specific sizing
-  // without adding a typed control model to WorkspaceSection.data.
+
   resolveControlKind: (
     section: Pick<WorkspaceSection, "id" | "kind" | "name" | "data">,
   ) => MetaControlKind;
-  // Frozen main's outboard adjustments button opens application-owned configuration. The
-  // package owns its placement and interaction boundary; the host owns what editing means.
+
   onEdit: (section: WorkspaceSection) => void;
 };
 
@@ -66,11 +57,6 @@ export type WorkspaceSectionKindIconProps = Readonly<{
   sectionId: string;
 }>;
 
-// The item toolbar is package-owned, so a kind that carries items declares which of its exact
-// behaviors it wants instead of leaving the package to infer one from a missing item factory,
-// a locked section, an empty tree, or application data.
-// The mode union is the public surface; this list stays module-private so registration has one
-// runtime source for it.
 const WORKSPACE_ITEM_TOOLBAR_MODES = [
   "authoring-and-filter",
   "filter-only",
@@ -80,22 +66,13 @@ const WORKSPACE_ITEM_TOOLBAR_MODES = [
 export type WorkspaceItemToolbarMode =
   (typeof WORKSPACE_ITEM_TOOLBAR_MODES)[number];
 
-// The one generic item-area contract: an application-owned leading control above the package's
-// item toolbar and registered item content. The slot is deliberately content-agnostic — the
-// package never learns what the leading control edits.
 export type WorkspaceItemAreaPresentation = Readonly<{
   renderLeadingContent?: (section: WorkspaceSection) => ReactNode;
   toolbar: WorkspaceItemToolbarMode;
 }>;
 
-// An ordinary registered kind may opt into the package's existing sortable child-section
-// surface. The capability deliberately names only the ordinary vertical flow: group-specific
-// orientation, overflow, chrome, and ungrouping remain package-owned group behavior.
 type WorkspaceNestedSectionsPresentation = "vertical";
 
-// A vertical container may further restrict its child sections without teaching Workspace about
-// application section kinds. Kinds that omit this capability retain the existing generic
-// behavior of accepting every section kind.
 type WorkspaceNestedSectionAcceptance = (section: WorkspaceSection) => boolean;
 
 type WorkspaceInspectorContributionInput =
@@ -111,72 +88,44 @@ export function createWorkspaceInspectorContributionContext(
 }
 
 type SectionKindBaseDefinition = {
-  // Rendered as the section body inside the package-owned shell, chrome, and header. The
-  // section carries the kind's opaque `data`; the package never interprets it. Ordinary
-  // registered content is placed in the package-owned body slot, so renderers never need a
-  // private section-grid class.
   renderContent: (section: WorkspaceSection) => ReactNode;
-  // Section icon component, rendered with each package surface's icon treatment. The explicit
-  // section ID lets data-driven icons paint consistently in headers, Outline, and future section
-  // surfaces without relying on a surface-specific hidden context. Kinds without one render the
-  // reference's `gg-menu` fallback glyph.
+
   icon?: ComponentType<WorkspaceSectionKindIconProps>;
-  // Custom section data and custom item data stay opaque to the package. A kind may project
-  // either selection into host-owned Inspector UI through this typed, deeply frozen snapshot.
+
   renderInspector?: (
     context: WorkspaceInspectorContributionContext,
   ) => ReactNode;
-  // Runs once per section of this kind at load, before the document is published. A kind whose
-  // `data` has a real shape parses it here so a malformed document fails at the boundary instead
-  // of on first paint. The built-in content sections register their own; a kind without one keeps
-  // its data opaque to the package, exactly as before.
+
   assertValidData?: (section: WorkspaceSection) => void;
 };
 
 export type SectionKindDefinition = SectionKindBaseDefinition &
   (
     | {
-        // Applied when an ordinary loaded section omits its size. Kinds without one load at the
-        // reference's auto/auto default, exactly like `createSectionSize()` without options.
         defaultSize?: SectionSize;
-        // Consumer-neutral bounds for this registered kind. The package intersects them with its
-        // global safety envelope at every geometry boundary.
+
         sizeConstraints?: WorkspaceSectionSizeConstraints;
-        // Appended to the package-owned body-slot wrapper. This is for host presentation such as
-        // padding or flex layout; the package continues to own the grid placement itself.
+
         contentClassName?: string;
-        // The host owns domain defaults and stable identity. The package calls this only for an
-        // explicit insertion request, then validates and places the returned complete item.
+
         createItem?: WorkspaceItemFactory;
-        // Custom opaque items have no package-owned label. Their owning kind may contribute one
-        // search string from frozen public snapshots without putting derived text in the document.
+
         getItemSearchableText?: WorkspaceItemSearchableText;
-        // Required of every kind whose documents carry an item tree. The package renders leading
-        // content, the declared toolbar, and registered content in that fixed order.
+
         itemArea?: WorkspaceItemAreaPresentation;
-        // Placed in the header's trailing control group, ahead of the container controls (lock,
-        // minimize, delete) — the reference's own slot for its per-type header controls. The
-        // built-in Text section's edit/render toggle is the package's one use of it.
+
         renderHeaderControls?: (section: WorkspaceSection) => ReactNode;
-        // Renders one host-owned surface immediately below the ordinary section surface. The
-        // package owns the joined outline and corner treatment while the host owns the attached
-        // surface's content and runtime lifecycle. A renderer may return null without changing
-        // the ordinary section presentation.
+
         renderAttachedContent?: (section: WorkspaceSection) => ReactNode;
-        // Replaces the generic delete wording for an ordinary kind when its destructive action
-        // has type-specific scope that must be clear before activation.
+
         deleteActionLabel?: string;
-        // Lets this ordinary kind own section children through the package's existing nested
-        // sortable surface. The one supported registered flow is vertical.
+
         nestedSections?: WorkspaceNestedSectionsPresentation;
-        // Narrows which source sections may enter this kind's nested-section surface. The
-        // package passes the opaque source section through unchanged.
+
         canAcceptNestedSection?: WorkspaceNestedSectionAcceptance;
         presentation?: undefined;
       }
     | {
-        // Direct-on-canvas kinds opt into package-owned chrome and per-control default/minimum
-        // geometry; a competing registered default would make that contract ambiguous.
         defaultSize?: never;
         sizeConstraints?: never;
         contentClassName?: never;
@@ -476,8 +425,6 @@ function assertSectionKindDefinition(
   }
 }
 
-// Replaces the registered kind set. Hosts register every kind once, before loading or
-// rendering documents that use them.
 export function registerSectionKinds(
   host: WorkspaceHost,
   kinds: Record<string, SectionKindDefinition>,
@@ -507,7 +454,6 @@ export function getRegisteredSectionKindOrThrow(
   return definition;
 }
 
-// Groups are package-owned and register nothing, so they contribute no header controls.
 export function getSectionKindHeaderControls(
   host: WorkspaceHost,
   kind: string,
@@ -521,8 +467,6 @@ export function getSectionKindHeaderControls(
     : null;
 }
 
-// Groups use the package-owned delete action wording. An ordinary registered kind can declare
-// the full scope of its own destructive action without replacing the package's control.
 export function getSectionKindDeleteActionLabel(
   host: WorkspaceHost,
   kind: string,
@@ -536,15 +480,12 @@ export function getSectionKindDeleteActionLabel(
     : null;
 }
 
-// Every section that carries items renders one coherent package-owned item area, so the
-// declaration is required rather than defaulted. Loading and rendering both resolve it here.
 export function getWorkspaceItemAreaPresentationOrThrow(
   host: WorkspaceHost,
   section: Pick<WorkspaceSection, "id" | "kind">,
 ): WorkspaceItemAreaPresentation {
   const definition = getRegisteredSectionKindOrThrow(host, section.kind);
-  // A meta-control kind cannot declare an item area at all, so name that constraint here rather
-  // than reporting the missing declaration it is forbidden to register.
+
   if (definition.presentation !== undefined) {
     throw new Error(
       `Section ${section.id} carries an item tree, but section kind ${section.kind} registers a ` +
@@ -634,8 +575,6 @@ export function getMetaControlPresentation(
   return presentation;
 }
 
-// Registered ordinary kinds may narrow the generic safety envelope. Meta controls and groups
-// retain their package-owned geometry and therefore do not expose registered constraints.
 export function getSectionKindSizeConstraints(
   host: WorkspaceHost,
   section: Pick<WorkspaceSection, "kind">,
@@ -649,10 +588,6 @@ export function getSectionKindSizeConstraints(
     : null;
 }
 
-// One capability check owns the package's distinction between a leaf and a section that may
-// contain sections. It includes the package-owned group kind, whose horizontal variant stays a
-// separate group concern, and registered ordinary kinds that explicitly declare the vertical
-// nested-section surface.
 export function canWorkspaceSectionOwnNestedSections(
   host: WorkspaceHost,
   section: Pick<WorkspaceSection, "kind">,
@@ -667,9 +602,6 @@ export function canWorkspaceSectionOwnNestedSections(
   );
 }
 
-// One predicate owns whether a source may enter a particular nested-section surface. Groups
-// retain their package-defined behavior; registered containers may opt into a generic source
-// predicate while kinds without one retain the existing accept-all behavior.
 export function canWorkspaceSectionAcceptNestedSection(
   host: WorkspaceHost,
   parent: Pick<WorkspaceSection, "kind">,

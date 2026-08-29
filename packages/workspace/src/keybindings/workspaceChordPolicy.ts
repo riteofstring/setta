@@ -1,11 +1,5 @@
 import type { ParsedWorkspaceChord } from "./workspaceChords";
 
-// Which chords a workspace binding may take from the browser and from an editable control. Both
-// rules are the reference's (`getShouldPreventDefault` and `getIgnoreWhenInInputField` in
-// `state/actions/keyActivations.ts`) and both are pure functions of the chord, so a host that
-// rebinds an operation inherits the same protections the shipped defaults have: bare keys reach
-// the page, editing chords reach the caret, and copy/paste always reaches the browser.
-
 type ChordPatternMode =
   | "no-modifiers"
   | "shift-only"
@@ -122,8 +116,6 @@ function matchesAnyChordPattern(
   return patterns.some((pattern) => matchesChordPattern(chord, pattern));
 }
 
-// Tab keeps the browser's focus order: a Tab binding decides for itself whether it consumed the
-// keypress, and it never blocks native tabbing when it declines.
 function isTabChord(chord: ParsedWorkspaceChord): boolean {
   return (
     chord.keys.length === 1 &&
@@ -225,8 +217,6 @@ const OTHER_PLATFORM_EDITING_CHORDS: ReadonlyArray<ChordPattern> = [
   { mode: "mod-or-ctrl", keys: ["KeyU"] },
 ];
 
-// A binding may suppress the browser default only for a chord the browser does not need: never for
-// a bare key, a modifier-only hold, Tab, or copy/paste.
 export function getChordSuppressesBrowserDefault(
   chord: ParsedWorkspaceChord,
 ): boolean {
@@ -242,9 +232,6 @@ export function getChordSuppressesBrowserDefault(
   return !matchesAnyChordPattern(chord, BROWSER_OWNED_CHORDS);
 }
 
-// Inside an input, textarea, select, or contenteditable editor, a binding whose chord is a native
-// editing chord stands down entirely. Escape and Tab are excluded because both keys have workspace
-// meaning inside editors.
 export function getChordYieldsToEditableTarget(
   chord: ParsedWorkspaceChord,
   macOS: boolean,

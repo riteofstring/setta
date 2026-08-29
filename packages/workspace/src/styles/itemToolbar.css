@@ -1,7 +1,3 @@
-/* Frozen main's compact kwargs-toolbar presentation, scoped to the package workspace. The
- * package omits main's application-owned pin and edge-input actions, while preserving the
- * established wrapping, label, and filter geometry for the actions it does own. */
-
 .setta-workspace-item-toolbar {
   container-type: inline-size;
 }
@@ -16,9 +12,6 @@
   }
 }
 
-/* Main uses the input's one-pixel bottom border as its focus cue. Chromium's native auto outline
- * paints a second rounded rectangle in the standalone package, so suppress only that redundant
- * focus-visible outline while retaining the border-color change authored by the component. */
 .setta-workspace-item-filter-input:focus-visible {
   outline: none;
 }

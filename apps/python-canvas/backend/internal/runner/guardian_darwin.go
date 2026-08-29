@@ -346,10 +346,7 @@ func (runtime darwinGuardianWorkerRuntime) containFailure(report *os.File, cause
 
 func holdDarwinGuardianWorkerForOuterCleanup(signals <-chan os.Signal) error {
 	for range signals {
-		// The outer guardian sent this group signal and still owns the grace
-		// period plus final SIGKILL. Keep this worker alive as the verified
-		// group leader so TERM-obeying descendants can clean up before that
-		// final signal reaches the whole group.
+
 	}
 	return errors.New("runner: macOS process worker signal stream ended before containment cleanup")
 }
@@ -460,10 +457,7 @@ func terminateDarwinWorker(command *exec.Cmd) error {
 func signalLiveDarwinWorkerGroup(processID int, signal syscall.Signal) error {
 	groupID, err := syscall.Getpgid(processID)
 	if errors.Is(err, syscall.ESRCH) {
-		// terminateDarwinWorker has not waited for its direct worker yet, so
-		// this PID cannot have been reused. Darwin reports ESRCH for an
-		// unreaped zombie group leader even while members of its process group
-		// survive. Signal that still-stable group identity directly.
+
 		return signalDarwinWorkerGroup(processID, signal)
 	}
 	if err != nil {

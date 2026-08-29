@@ -1,5 +1,3 @@
-// jsdom does not implement ResizeObserver, and @dnd-kit/dom constructs one at import time, so
-// component tests need the constructor before any test module loads.
 class ResizeObserverStub {
   observe() {}
   unobserve() {}
@@ -11,10 +9,6 @@ if (typeof globalThis.ResizeObserver === "undefined") {
     ResizeObserverStub;
 }
 
-// jsdom does not measure DOM ranges, and CodeMirror's coordinate lookups (posAtCoords during
-// the text control's pointer activation) call Range#getClientRects. Empty rect lists make
-// those lookups resolve to null, which the activation path already handles; the browser build
-// measures real geometry.
 const emptyRectList = () =>
   ({
     length: 0,

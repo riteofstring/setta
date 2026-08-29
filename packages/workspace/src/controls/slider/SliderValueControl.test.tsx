@@ -31,10 +31,6 @@ import {
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-// Freezes the package slider against the ordinary-row `SliderInput`: its exact class recipe,
-// Radix stepping and commit cadence, temporary numeric field parsing/clamping, Escape focus,
-// string seam, accessible names, and host/item-select disabledness.
-
 const SECTION_ID = "panel";
 
 describe("SliderValueControl", () => {
@@ -193,8 +189,6 @@ describe("SliderValueControl", () => {
     expect(onValueChange).toHaveBeenCalledOnce();
     expect(onValueChange).toHaveBeenCalledWith("6");
 
-    // Reproduce the controlled host accepting the live change before Radix closes the keyboard
-    // gesture on keyup.
     await mount({ value: "6", onValueChange, onValueCommit });
     await act(async () => {
       getThumb().dispatchEvent(

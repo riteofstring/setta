@@ -37,7 +37,9 @@
       "scripts/**"
     ]
   },
-  "quality": {},
+  "quality": {
+    "allowComments": false
+  },
   "portability": {},
   "modules": [
     {

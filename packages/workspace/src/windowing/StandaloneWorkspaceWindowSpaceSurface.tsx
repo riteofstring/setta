@@ -45,7 +45,7 @@ const SEAM_HIT_SIZE_PX = 8;
 export type StandaloneWorkspaceWindowSpaceSurfaceProps = {
   windowSpace: WorkspaceWindowSpace;
   renderers: WorkspaceWindowRenderers;
-  /** Changing this value deliberately discards standalone-only focus and seam edits. */
+
   revision?: string | number;
   ariaLabel?: string;
   className?: string;
@@ -270,10 +270,6 @@ function StandaloneWorkspaceSnapResizeHandle({
   );
 }
 
-/**
- * A deliberately limited, local-only presentation of one saved Window Space.
- * It never writes to the supplied space or calls a host persistence callback.
- */
 export function StandaloneWorkspaceWindowSpaceSurface({
   ariaLabel = "Saved Window Space",
   className,

@@ -27,10 +27,7 @@ function WorkspaceToolbarContributionControl({
   const host = useWorkspaceHost();
   const hostId = getWorkspaceHostDomId(host);
   const Icon = entry.icon;
-  // The package's own zoom controls stop at the zoom limits with nothing to say, so they use the
-  // reference's real `disabled`. A command that refuses has a sentence, and a control has to stay
-  // focusable and hoverable for the keyboard and the pointer to reach it, so a contributed control
-  // refuses through aria-disabled instead of leaving the tab order.
+
   return (
     <>
       <button
@@ -80,9 +77,6 @@ function WorkspaceToolbarContributionControl({
   );
 }
 
-// One contributed group, in the reference's shape: the controls the host placed here, then the
-// rule the reference draws after a non-empty contributed group. A host that contributes nothing
-// here renders nothing, including the rule, so the accepted toolbar is unchanged.
 export function WorkspaceToolbarGroup({
   placement,
 }: {

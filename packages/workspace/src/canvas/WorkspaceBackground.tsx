@@ -7,8 +7,6 @@ import { useReactFlow } from "./store";
 
 const PATTERN_OFFSET_DIVISOR = 2;
 
-// The visible canvas background from the frozen XYFlow fork. Pattern settings remain coupled to
-// the interaction grid so the dots/lines track the same coordinates used by drag and resize.
 export const WorkspaceBackground = memo(function WorkspaceBackground() {
   const host = useWorkspaceHost();
   const patternId = `${getWorkspaceHostDomId(host)}-background`;

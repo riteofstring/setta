@@ -16,13 +16,6 @@ import {
 import type { Position, WorkspaceSection } from "./types";
 import type { WorkspaceHost } from "../workspaceHost";
 
-// The reference's single dnd commit funnel (`moveSectionsWithBackend`,
-// `state/actions/sections/moveSections.ts`) minus the app-only branches: the optimistic-op
-// plumbing and backend routes stay application-side (the host publishes an updated snapshot
-// instead), and the code-section attached-terminal handling left with that feature. The
-// canonical document changes once per gesture, and the document, derived node geometry, and
-// selection publish atomically.
-
 type MoveSectionsInput = {
   sectionIds: Array<string>;
   newParentId: string | null;
@@ -37,9 +30,7 @@ export function moveSections(
   if (sectionIds.length === 0) {
     return;
   }
-  // The reference reads z-order from the live node internals; the package mirrors the current
-  // node z-indices into the layout snapshot first so raises that have not reached a drag-end
-  // layout commit survive the node-map rebuild below.
+
   const documentState = withNodeZIndicesMirrored(
     getWorkspaceDocumentStore(host).getState(),
     getNodeInternalsStore(host).getState().x,
@@ -76,9 +67,6 @@ export function moveSections(
   notifyWorkspaceDocumentChange(host);
 }
 
-// The live DnD path rejects invalid targets before it reaches this commit funnel, but callers
-// may also invoke the canonical move directly. Validate the complete structural request here so
-// a non-container, a cycle, or a parent-and-child selection cannot publish an invalid forest.
 function assertValidMoveSectionsInput(
   host: WorkspaceHost,
   documentState: WorkspaceDocumentState,
@@ -195,8 +183,6 @@ function moveSectionsToPane({
   };
 }
 
-// The reference assigns each newly top-level node the next z-index above the current maximum
-// while sections that already had a node keep theirs.
 function buildPaneDropLayouts(
   documentState: WorkspaceDocumentState,
   sectionIds: Array<string>,
@@ -274,8 +260,6 @@ function moveSectionsIntoParent({
     ),
   };
 
-  // Sections nested into a parent lose their top-level layout entry, mirroring the reference's
-  // defensive node/layout cleanup when moving into a parent.
   const topLevelSections = Object.fromEntries(
     Object.entries(documentState.topLevelSections).filter(
       ([id]) => !movingSet.has(id),

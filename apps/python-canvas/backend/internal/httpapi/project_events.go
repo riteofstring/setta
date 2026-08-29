@@ -7,9 +7,6 @@ import (
 	"github.com/setta/python-canvas/backend/internal/contracts"
 )
 
-// handleProjectEvents streams complete canonical snapshots as server-sent
-// events. A new subscription begins with the current snapshot, making native
-// EventSource reconnection a lossless catch-up boundary without polling.
 func handleProjectEvents(response http.ResponseWriter, request *http.Request, service ProjectService) {
 	if !requireMethod(response, request, http.MethodGet) || !rejectQuery(response, request) || !rejectRequestBody(response, request) {
 		return

@@ -1,4 +1,3 @@
-// Package httpapi exposes the loopback-only V2 HTTP boundary.
 package httpapi
 
 import (
@@ -203,8 +202,6 @@ func (payload targetCompletionPayload) contract() (contracts.PythonTargetComplet
 	}, true
 }
 
-// NewHandler creates only exact V2 routes. No legacy path, payload, or alias
-// is accepted after this public cutover.
 func NewHandler(service ProjectService, options HandlerOptions) (http.Handler, error) {
 	if service == nil {
 		return nil, ErrProjectServiceRequired
@@ -646,7 +643,6 @@ func isExactPath(request *http.Request, path string) bool {
 	return request.URL.Path == path && request.URL.RawPath == "" && request.URL.EscapedPath() == path
 }
 
-// ListenLoopback binds only the IPv4 loopback interface.
 func ListenLoopback(port uint16) (net.Listener, error) {
 	return listenLoopback(port, net.Listen)
 }
@@ -661,8 +657,6 @@ func listenLoopback(port uint16, listen listenFunc) (net.Listener, error) {
 	return listener, nil
 }
 
-// ServeLoopback binds the V2 service to loopback and shuts it down when the
-// caller's service context ends.
 func ServeLoopback(ctx context.Context, port uint16, service ProjectService, options HandlerOptions) error {
 	listener, err := ListenLoopback(port)
 	if err != nil {

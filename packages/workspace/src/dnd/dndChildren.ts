@@ -14,10 +14,6 @@ import { assertWorkspaceHostActive } from "../workspaceHostInternals";
 import type { WorkspaceHost } from "../workspaceHost";
 import { getDndSectionId, isTempSection } from "./dndIds";
 
-// The reference's dnd children store (`dndChildren.ts`): the live parent→children projection
-// the drag session mutates (temp placeholder insertion, live re-parenting) before one commit
-// funnel writes the document.
-
 type ZustandDndChildren = {
   x: Record<string, Array<string>>;
   y: Record<string, string>;
@@ -26,8 +22,8 @@ type ZustandDndChildren = {
 function createDndChildrenStore() {
   return createStore(
     withResetFn<ZustandDndChildren>(() => ({
-      x: {}, // parent id to list of children
-      y: {}, // child id to parent id
+      x: {},
+      y: {},
     })),
   );
 }
@@ -185,8 +181,6 @@ export function updateDndChildren(
   getDndChildrenStore(host).setState({ x: sectionIdsToChildren, y });
 }
 
-// The reference builds this projection in `getDisplayedSectionIdToChildren`
-// (`state/actions/sectionInfos.ts`); the package walks the resolved document instead.
 export function getDisplayedSectionIdToChildren(
   state: WorkspaceDocumentState,
 ): Record<string, Array<string>> {
@@ -204,8 +198,6 @@ export function getDisplayedSectionIdToChildren(
   return output;
 }
 
-// The reference's `manualDndChildrenReset`: resync the projection from the canonical document
-// after a drag settles.
 export function manualDndChildrenReset(host: WorkspaceHost) {
   updateDndChildren(
     host,

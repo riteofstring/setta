@@ -45,8 +45,6 @@ func decodeSectionState(fields map[string]json.RawMessage) (decodedSectionState,
 	}, nil
 }
 
-// diskDictionaryEntry marshals the recursive union through one of the two
-// closed JSON shapes. It never serializes both expression and children.
 type diskDictionaryEntry struct {
 	value aggregate.DictionaryEntry
 }

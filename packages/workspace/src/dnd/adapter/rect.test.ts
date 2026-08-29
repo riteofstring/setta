@@ -3,7 +3,6 @@ import { coerceClientRect, rectFromBoundingRect } from "./rect";
 
 describe("rect adapter utilities", () => {
   it("converts dnd-kit bounding rectangles to client rects", () => {
-    // Validates exact property mapping from geometry rectangles.
     const result = rectFromBoundingRect({
       top: 10,
       left: 20,
@@ -24,7 +23,6 @@ describe("rect adapter utilities", () => {
   });
 
   it("coerces client rects from left/top based shapes", () => {
-    // Validates right/bottom fallback computation when omitted.
     const result = coerceClientRect({
       left: 4,
       top: 6,
@@ -43,7 +41,6 @@ describe("rect adapter utilities", () => {
   });
 
   it("coerces client rects from x/y based shapes", () => {
-    // Validates conversion from DOMRect-like x/y fields.
     const result = coerceClientRect({
       x: 8,
       y: 12,
@@ -62,7 +59,6 @@ describe("rect adapter utilities", () => {
   });
 
   it("returns null when value cannot be interpreted as a rect", () => {
-    // Validates guards against malformed or partial values.
     expect(coerceClientRect(null)).toBeNull();
     expect(coerceClientRect({})).toBeNull();
     expect(coerceClientRect({ left: 0, top: 0, width: 10 })).toBeNull();

@@ -18,10 +18,6 @@ import {
   getSelectionDragPrimaryId,
 } from "./selectionDragHandle";
 
-// Both halves of the reference's `useDNDSensors.ts`: section drags have no distance
-// constraint — activation is gated purely by the held dnd mode — while item drags carry the
-// reference's 5 px distance constraint and activate only in item-select mode.
-
 type DndSource = {
   id: string | number;
   element?: Element;
@@ -124,11 +120,6 @@ function preventItemActivation(
 export function useItemDndSensors() {
   const host = useWorkspaceHost();
   return useMemo(() => {
-    // Only activate for item drags so the nested provider doesn't capture sections.
-    // Keep these sensors registered for the provider's lifetime: dnd-kit binds a
-    // manager's sensors when each draggable registers, so swapping an empty sensor
-    // set after item-select mode activates cannot make existing rows draggable.
-    // The activation guard reads both live gates at pointer or keyboard time.
     const pointerSensor = PointerSensor.configure({
       activationConstraints: (_event: Event, source: DndSource) => {
         if (getDragType(source) !== "item") {

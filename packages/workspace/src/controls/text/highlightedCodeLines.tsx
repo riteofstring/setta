@@ -8,12 +8,6 @@ import {
 } from "./textValueLanguages";
 import { getThemeHighlightStyle, type TextValueTheme } from "./textValueTheme";
 
-// The reference's server-render-style highlight, shared by every idle (non-editing) surface that
-// paints committed code: the item value editor's dummy layer and the Text section's fenced
-// Markdown code blocks. Both need the same `cm-line` structure and the same highlight classes the
-// live editor registers, so the parse and the decoration walk have one owner.
-// https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
-
 function buildDecorationRangeSet(
   code: string,
   theme: TextValueTheme,
@@ -31,7 +25,7 @@ function buildDecorationRangeSet(
         (markCache[style] = Decoration.mark({ class: style })),
     );
   });
-  // just the decorations NOT the code itself
+
   return builder.finish();
 }
 
@@ -70,8 +64,6 @@ function buildLineNodes(
   return currLineDivs;
 }
 
-// The unhighlighted form: one `cm-line` per source line, which a language without a registered
-// parser and the reference's plain fenced blocks both render.
 export function buildPlainCodeLines(code: string): Array<ReactNode> {
   return code.split("\n").map((line, index) => (
     <div key={`line-${index + 1}`} className="cm-line">
@@ -80,8 +72,6 @@ export function buildPlainCodeLines(code: string): Array<ReactNode> {
   ));
 }
 
-// Returns null when the language has no registered parser, so callers fall back to the plain form
-// instead of silently painting unhighlighted lines through the highlighted path.
 export function buildHighlightedCodeLines(
   code: string,
   theme: TextValueTheme,
@@ -92,7 +82,7 @@ export function buildHighlightedCodeLines(
     return null;
   }
   const decorationRangeSet = buildDecorationRangeSet(code, theme, parser);
-  // just the code content. MUST be array of lines
+
   const text = Text.of(code.split("\n"));
   const cursor = decorationRangeSet.iter();
   const outputDivs: Array<ReactNode> = [];

@@ -16,12 +16,6 @@ import {
   getWorkspaceSectionSizeBounds,
 } from "./resize/sectionSizingBounds";
 
-// The reference's resize commit funnel (`state/actions/sections/sectionSizes.ts` +
-// `persistSectionSizeChange` in CustomResizable), minus the embedded attached-terminal branch
-// that left with terminals. Width propagation stops at the nearest horizontal-group boundary:
-// the walk climbs while the current section is a vertical group, then writes the width onto
-// every descendant of the highest such ancestor.
-
 export type ResizeHandleDirection =
   | "bottom"
   | "bottomLeft"
@@ -104,8 +98,6 @@ function getSectionDescendants(
   return ids;
 }
 
-// The reference climbs with a predicate parent getter: the walk continues only while the
-// current section is a nested vertical (non-horizontal) group.
 function getHighestVerticalGroupAncestor(
   state: WorkspaceDocumentState,
   sectionId: string,
@@ -198,8 +190,6 @@ function clampRegisteredSectionSizes(
   };
 }
 
-// The single resize persistence funnel. The reference pairs the canonical write with a
-// `setSectionSizes` backend route; the host publishes its updated snapshot instead.
 export function persistSectionSizeChange(
   host: WorkspaceHost,
   sectionId: string,
@@ -228,10 +218,6 @@ export function persistSectionSizeChange(
   notifyWorkspaceDocumentChange(host);
 }
 
-// Applications that compose runtime-only UI below a section still need the one canonical geometry
-// write. Keep that capability deliberately narrow: it exposes neither document stores nor a second
-// resize implementation, so it retains the same constraints, width propagation, validation, and
-// single document publication as package-owned handles and Inspector edits.
 export function setWorkspaceSectionSize(
   host: WorkspaceHost,
   sectionId: string,

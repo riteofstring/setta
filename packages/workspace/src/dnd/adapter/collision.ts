@@ -15,11 +15,6 @@ import { isTempItem } from "../itemDndState";
 import { resolveOverCollision } from "./collisionCompare";
 import type { ClientRect, SettaCollision } from "./types";
 
-// The reference tracker's two modes ("section" | "param"): section trackers ignore the dragged
-// sections and read container orientation from the document; item trackers (the reference's
-// param mode) ignore temp item placeholders, keep collisions alive through a vertical-overlap
-// fallback when horizontal overlap is gone, and use the 30 px move-to-parent trigger threshold.
-
 type CollisionMode = "section" | "item";
 
 type ParentByChildMap = Record<string, string | null>;
@@ -416,7 +411,6 @@ function getResolvedIntersectionRatio({
     return 0;
   }
 
-  // Keep item collisions alive when dragging horizontally outside the row.
   return Number((verticalOverlap * activeRect.width).toFixed(4));
 }
 
@@ -499,8 +493,6 @@ function getCollisionScore({
     return intersectionRatio;
   }
 
-  // Keep ordering aligned with compareCollisions: prefer rawDist < 0 when sides differ,
-  // otherwise favor smaller abs distance with intersection as tie-breaker.
   const clampedAbsDist = Math.min(absTriggerDist, MAX_ABS_TRIGGER_DIST);
   const distScore = -Math.round(clampedAbsDist * 1000);
   const ratioScore = Math.min(

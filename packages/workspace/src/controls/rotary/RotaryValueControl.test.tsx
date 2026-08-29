@@ -31,10 +31,6 @@ import {
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-// Ports the frozen rotary characterization and adds the package boundary cases: exact visual
-// recipe, string commits, pointer capture, wheel ownership, host naming, focus restoration,
-// explicit controlled-value parsing, and host/item-select disabledness.
-
 const SECTION_ID = "panel";
 
 describe("RotaryValueControl", () => {
@@ -196,8 +192,7 @@ describe("RotaryValueControl", () => {
     await act(async () => {
       getKnob().dispatchEvent(event);
     });
-    // The manual-wheel boundary lets the canvas cancel browser history navigation synchronously.
-    // React still owns the value update through its delegated listener.
+
     expect(onValueChange).toHaveBeenCalledOnce();
     expect(onValueChange).toHaveBeenCalledWith("0.6");
   });

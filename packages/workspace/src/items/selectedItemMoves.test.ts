@@ -34,13 +34,6 @@ import {
   unindentSelectedItems,
 } from "./selectedItemMoves";
 
-// The reference's keyboard param moves in item terms: the offset cases port
-// `moveParams.test.ts` (single visible group, discontiguous reverse-order groups), the
-// indent/unindent cases port the backend `param_moves_test.go` orderings (previous-sibling
-// collapse, independent non-contiguous groups, promote-after-parent, multi-parent restore).
-// Package-seam cases freeze the registry visibility/filter gating, the capability gate, and
-// the active-section-first resolution.
-
 const changeCallback = vi.fn();
 
 function makeItemTree(

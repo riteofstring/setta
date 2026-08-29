@@ -1,5 +1,3 @@
-// Package lsp owns the bounded Basedpyright JSON-RPC session used by Python
-// Canvas. It has no HTTP or frontend dependencies.
 package lsp
 
 import "encoding/json"

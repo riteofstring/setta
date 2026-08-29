@@ -6,19 +6,9 @@ import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import { registerWorkspaceHostElement } from "../../workspaceHostInternals";
 
-// The reference's `StandardPopover` atom trimmed to the built-in controls' usage: a controlled
-// Radix popover portaled to the document body with the reference's default arrow paint. The
-// reference's optional close button, portal-container override, and uncontrolled-open fallback
-// have no control-slice caller and stay behind. Canvas repositioning is always on — every
-// control popover opens from a section on the pan/zoom surface, which is exactly the case the
-// reference flags with `repositionOnCanvasTransform`.
-
 const ARROW_CLASS_NAME =
   "[fill:rgb(229,_231,_235)] dark:[fill:rgb(51,_65,_85)]";
 
-// The canvas pans and zooms via CSS transforms, so Radix popovers portaled to document.body
-// need an explicit reposition signal to stay attached. One frame-coalesced synthetic
-// scroll/resize pair per transform change, exactly as the reference dispatches it.
 function useRepositionOnCanvasTransform(open: boolean) {
   const host = useWorkspaceHost();
   useEffect(() => {

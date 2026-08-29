@@ -7,11 +7,6 @@ import type {
 } from "../document/types";
 import type { WorkspaceHost } from "../workspaceHost";
 
-// Frozen main's `GetParamSwitch` filter in item terms. It fuzzy-matches display names, keeps
-// canonical row order, and includes every ancestor on a matching item's path. The package uses
-// typed presentation labels directly and delegates only custom opaque item text to the owning
-// section kind's explicit frozen-snapshot callback.
-
 type WorkspaceItemFilterResult = {
   filterActive: boolean;
   matchingItemIds: ReadonlySet<string>;

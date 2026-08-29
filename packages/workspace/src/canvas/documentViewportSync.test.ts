@@ -38,8 +38,6 @@ afterEach(() => {
   testWorkspace.reactFlow.setState({ ...initialCanvasState });
 });
 
-// A d3-zoom stand-in that records applied transforms and constrains identically to d3's
-// unconstrained infinite-extent behavior.
 function mountFakeZoomRuntime() {
   const applied: Array<ZoomTransform> = [];
   const fakeZoom = {
@@ -71,8 +69,6 @@ describe("getInitialCanvasViewport", () => {
   });
 
   it("normalizes stale armed fit flags in the saved-camera branch", () => {
-    // An unmount while a fit was armed leaves the flags behind; the next mount with a saved
-    // camera must not complete that stale fit over the saved viewport.
     testWorkspace.reactFlow.setState({
       fitViewOnInit: true,
       fitViewOnInitDone: false,
@@ -139,8 +135,6 @@ describe("startCanvasViewportDocumentSync", () => {
       fitViewOnInitDone: true,
     });
 
-    // The completed-fit transition clears the flag, and the follow-up event persists the fitted
-    // camera immediately (the reference's dispatchViewportUpdateImmediately branch).
     expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
     expect(testWorkspace.document.getState().viewport).toEqual({
       x: 16,

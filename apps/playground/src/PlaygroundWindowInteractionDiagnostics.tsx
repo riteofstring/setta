@@ -394,10 +394,7 @@ export function PlaygroundWindowInteractionDiagnostics({
   const appendDiagnostic = useCallback(
     (entry: Record<string, unknown>, deferPresentation = false) => {
       appendPlaygroundWindowDiagnosticLine(diagnosticLinesRef.current, entry);
-      // Pointer moves and wheel bursts stay memory-only until the next lifecycle event. This keeps
-      // full-fidelity traces without synchronous sessionStorage writes or React renders changing
-      // the interaction being measured. Pointer up, the next pointer down, or Stop recording
-      // flushes the complete accumulated log.
+
       if (deferPresentation) return;
       storeDiagnosticLines(diagnosticLinesRef.current);
       setRevision((current) => current + 1);

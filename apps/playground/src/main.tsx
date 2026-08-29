@@ -16,9 +16,6 @@ import { performanceProfileDocument } from "./performanceProfileDocument";
 import { playgroundDocument } from "./playgroundDocument";
 import { registerPlaygroundSectionKinds } from "./sectionKinds";
 
-// The appearance store must reflect the boot dark-mode class before the document loads,
-// because node projection derives style-color backgrounds from it. Kind registration also
-// precedes the load: loading validates section kinds against the registry.
 const workspaceHost = createWorkspaceHost();
 setWorkspaceColorMode(
   workspaceHost,

@@ -50,12 +50,6 @@ import {
 } from "./itemDndMonitorUtils";
 import { resolveItemListView } from "./itemListRegistry";
 
-// The reference's `ParamDndMonitor` drag lifecycle in item terms, minus the app-only branches:
-// the backend move route is the package `moveItems` funnel, the multi-parent-selection and
-// active-filter toasts stay application-side (the fallbacks they narrate are unchanged), and
-// the deployment-mode guard is the `canEditStructure` capability. The reference's no-op debug
-// channel is dropped.
-
 type ItemDragData = {
   type?: string;
   sectionId?: string;
@@ -149,8 +143,6 @@ export function handleItemDragStart(
     return;
   }
 
-  // The filter abort runs before the selection collapse can commit, as the reference checks
-  // its param filter before anything mutates.
   const view = resolveItemListView(host, sectionId, activeId, dragData.listKey);
   if (!view || view.filterActive) {
     return;
@@ -351,8 +343,6 @@ function resolveDraggingItemIds(
     return draggingIds;
   }
 
-  // The reference's multi-parent-selection toast stays application-side; the drag-only-the-
-  // active-item fallback is unchanged.
   selectOnlyItem(host, sectionId, activeId);
   return [activeId];
 }

@@ -1,5 +1,3 @@
-// Public package surface. Package-relative modules stay implementation details unless they are
-// re-exported here; consumers use this entry and the compiled stylesheet export only.
 export { createWorkspaceHost } from "./workspaceHost";
 export type { WorkspaceHost } from "./workspaceHost";
 export { WorkspaceProvider, useWorkspaceHost } from "./workspaceHostContext";
@@ -60,8 +58,7 @@ export type {
   WorkspaceGridPattern,
   WorkspaceInteractionOptions,
 } from "./canvas/options";
-// These two string unions appear in WorkspaceInteractionOptions; riding the index keeps
-// consumers off deep canvas-internal import paths.
+
 export type { PanOnScrollMode, SelectionMode } from "./canvas/types";
 export { focusWorkspaceSection } from "./canvas/viewportHelpers";
 export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas";

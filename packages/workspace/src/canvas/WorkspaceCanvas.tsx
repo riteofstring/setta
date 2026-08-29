@@ -25,8 +25,6 @@ import { getReactFlowStore } from "./store";
 import Viewport from "./Viewport";
 import { WorkspaceBackground } from "./WorkspaceBackground";
 
-// The reference UiPage's full-size canvas wrapper (`relative h-full min-h-0 w-full min-w-0`): the
-// minimap positions against this non-scrolling div and offsets itself by the overlay pane insets.
 const outerWrapperStyle: CSSProperties = {
   position: "relative",
   height: "100%",
@@ -40,15 +38,12 @@ const wrapperStyle: CSSProperties = {
   height: "100%",
   overflow: "hidden",
   position: "relative",
-  userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
+  userSelect: "none",
   overflowAnchor: "none",
 };
 
 const SCROLL_INIT = 5000;
 
-// The package composition of the reference's `<ReactFlow />`: edge renderers and app chrome hooks
-// stay with their excluded features; the reference canvas background is part of this visible slice.
-// Section bodies come from the host's registered section kinds, not from canvas props.
 export function WorkspaceCanvas() {
   const host = useWorkspaceHost();
   const ref = useRef<HTMLDivElement>(null);
@@ -96,9 +91,9 @@ export function WorkspaceCanvas() {
         ref={ref}
         onScroll={(e) => cancelOutScrolling(host, e, initialized)}
       >
-        {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to a large initial value*/}
-        {/* so that onScroll can be triggered in any direction. */}
-        {/* That way, we can leverage the browser's scroll behavior in any direction, if we want to. */}
+        {}
+        {}
+        {}
         <div
           style={{
             position: "relative",
@@ -164,8 +159,6 @@ function useWrapperDivDimensions(ref: RefObject<HTMLDivElement | null>) {
       });
     };
 
-    // ResizeObserver reports later changes, but its initial delivery is not a reliable first-paint
-    // boundary. Measure the mounted wrapper now so a loaded document never waits at 0 × 0.
     const initialBounds = wrapper.getBoundingClientRect();
     commitDimensions(initialBounds.width, initialBounds.height);
 

@@ -21,14 +21,9 @@ type WorkspaceMenuInvocationBase = {
 
 export type WorkspaceMenuInitialFocus = "first" | "last";
 
-// The section menu opens on three command surfaces; the invocation records which one so the
-// command registry offers exactly that surface's set.
 export type WorkspaceSectionMenuSurface = "context-menu" | "header" | "outline";
 
 export type WorkspaceMenuInvocation =
-  // A pane menu always opens at a point, so it keeps that point beside the command context it
-  // hands to actions: a command reports no position when its surface has no pointer, and the
-  // menu's own creation entries still create exactly where they were asked to.
   | (WorkspaceMenuInvocationBase & {
       kind: "pane";
       context: WorkspacePaneCommandContext;

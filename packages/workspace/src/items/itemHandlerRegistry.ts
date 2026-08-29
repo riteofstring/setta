@@ -150,9 +150,6 @@ function assertRegistration(
   );
 }
 
-// Replaces the complete handler set. Values/configuration remain serializable document state;
-// browser Files, host persistence, server pickers, attachment removal, and saved-secret actions
-// cross this explicit function registry keyed by the stable section/item identity.
 export function registerItemHandlers(
   host: WorkspaceHost,
   nextRegistrations: ReadonlyArray<WorkspaceItemHandlerRegistration>,

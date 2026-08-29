@@ -429,7 +429,6 @@ function isWorkspaceWindowEditableTarget(target: EventTarget | null): boolean {
   );
 }
 
-/** Frozen-main Mod shortcuts only; repeated, handled, and editable input stays untouched. */
 export function resolveWorkspaceWindowShortcut(
   event: KeyboardEvent,
 ): WorkspaceWindowShortcut | null {

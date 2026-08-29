@@ -11,19 +11,12 @@ import {
 import { createTheme } from "@uiw/codemirror-themes";
 import { useWorkspaceAppearance } from "../../document/stores";
 
-// The reference's `useCodeMirrorStyle` themes over its transparent common settings. The value
-// editor uses the GitHub theme; the editable item-name control uses the same green "boring"
-// theme as `ParamNameInput`. Appearance rides the package appearance store instead of the
-// reference's local-storage store.
-
 const commonSettings = {
   background: "#ffffff00",
   gutterBackground: "#FFFFFF00",
   gutterBorder: "#dddddd00",
 };
 
-// Module singletons: the dummy layer's highlight classes must be the same instances the live
-// editor and the style mount below register, or the class names would not line up.
 const githubDarkTheme = githubDarkInit({ settings: commonSettings });
 const githubLightTheme = githubLightInit({ settings: commonSettings });
 const greenDarkTheme = createGreenTheme(true, "#7ee787");
@@ -99,8 +92,6 @@ function getThemeSlot(
   return slot.value;
 }
 
-// The reference dummy's `theme[1][2].value` extraction: the highlight style the live editor
-// registers, reused by `highlightTree` so idle markup carries the same classes.
 export function getThemeHighlightStyle(theme: TextValueTheme): HighlightStyle {
   const highlightStyle = getThemeSlot(theme, 1, 2);
   if (!(highlightStyle instanceof HighlightStyle)) {
@@ -109,7 +100,6 @@ export function getThemeHighlightStyle(theme: TextValueTheme): HighlightStyle {
   return highlightStyle;
 }
 
-// The reference dummy's `theme[0][0]?.value || ""` scope-class extraction ("ͼ1 ͼ3 ...").
 export function getThemeScopeClassName(theme: TextValueTheme): string {
   const scopeClassName = getThemeSlot(theme, 0, 0);
   return typeof scopeClassName === "string" ? scopeClassName : "";
@@ -117,10 +107,6 @@ export function getThemeScopeClassName(theme: TextValueTheme): string {
 
 let textValueThemeStylesMounted = false;
 
-// The reference's `useCodeMirrorStyleLoader` over the four value/name themes: dummy layers
-// depend on CodeMirror css classes that only mount when a real editor instantiates them, so
-// the first control mounts an off-screen view once per document and immediately cycles through
-// all four reference themes. The injected style rules outlive the view.
 export function mountTextValueThemeStyles(): void {
   if (textValueThemeStylesMounted) {
     return;

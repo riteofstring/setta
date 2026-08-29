@@ -44,7 +44,6 @@ export type WorkspaceWindowSpacesPaneProps = {
   className?: string;
 };
 
-/** Controlled management UI for saved Window Spaces; persistence stays with the host. */
 export function WorkspaceWindowSpacesPane(
   props: WorkspaceWindowSpacesPaneProps,
 ) {

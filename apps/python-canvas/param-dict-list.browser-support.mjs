@@ -241,9 +241,6 @@ export async function assertListRootFixedHeight(
   return actual;
 }
 
-// A fixed-height List intentionally exposes only its right resize handle. Drive
-// that real handle diagonally so the browser attempts a large vertical resize
-// while the horizontal component still proves that width remains editable.
 export async function resizeListRootHorizontallyWhileAttemptingVerticalResize(
   client,
   listId,

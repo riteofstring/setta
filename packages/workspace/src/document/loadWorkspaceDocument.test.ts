@@ -97,8 +97,6 @@ function resetWorkspaceStores() {
   testWorkspace.menuState.getState().reset();
 }
 
-// A d3-zoom stand-in for the mounted-canvas re-load paths: it records applied transforms and
-// constrains identically to d3's unconstrained infinite-extent behavior.
 function mountFakeZoomRuntime() {
   const applied: Array<ZoomTransform> = [];
   const fakeZoom = {
@@ -191,8 +189,7 @@ describe("loadWorkspaceDocument", () => {
       sectionCount: number;
       activeIds: Array<string>;
     }> = [];
-    // Node internals publish first; a subscriber reading the other stores at that moment
-    // must already see the next document and selection, never the stale raw state.
+
     const unsubscribe = testWorkspace.nodeInternals.subscribe(() => {
       observed.push({
         sectionCount: Object.keys(testWorkspace.document.getState().sections)
@@ -855,8 +852,7 @@ describe("loadWorkspaceDocument", () => {
         selectedItemIds: [],
       }),
     ).toThrowError(/must contain only JSON values/);
-    // Host item ids ride the dnd-id wire encoding verbatim, so the reserved tokens are
-    // rejected at load instead of silently mis-decoding mid-drag.
+
     expect(() =>
       load({
         rootId: "item-root",
@@ -919,8 +915,6 @@ describe("loadWorkspaceDocument", () => {
     loadWorkspaceDocument(testWorkspace.host, makeDocument());
     const applied = mountFakeZoomRuntime();
 
-    // The loaded layout carries measured sizes, so the armed fit completes without waiting for
-    // a ResizeObserver pass; the fake d3 runtime records the fitted transform.
     loadWorkspaceDocument(testWorkspace.host, makeDocument({ viewport: null }));
 
     expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);

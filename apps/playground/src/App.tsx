@@ -113,8 +113,6 @@ function PlaygroundMark() {
   );
 }
 
-// The host observes canonical snapshots through its subscription method. The count lives in its
-// own component so per-frame viewport notifications re-render this readout, not the canvas.
 function GroupOverflowModeToggle() {
   const host = useWorkspaceHost();
   return (
@@ -515,8 +513,7 @@ const sectionTagColorPalette = [
 
 export function App() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
-  // The host commands this playground contributes to the toolbar read host state, so the workspace
-  // repaints with the tree it is mounted in whenever that state changes.
+
   usePlaygroundHostCommandState();
   const [shellViewState, setShellViewState] = useState(() =>
     createWorkspaceShellViewState(),
@@ -527,8 +524,6 @@ export function App() {
       PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS,
     );
 
-  // Package appearance is scoped to package roots. The playground mirrors the resolved mode only
-  // for its own host chrome; real hosts can style their surrounding application independently.
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
   }, [darkMode]);

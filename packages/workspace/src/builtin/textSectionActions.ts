@@ -10,10 +10,6 @@ import {
   type WorkspaceTextSectionData,
 } from "./textSectionData";
 
-// The typed read and write seam for the built-in text section's document data. The editor, the
-// header display-mode control, and any host UI over the same section go through these, so there
-// is one validated mutation path and one document change notification per edit.
-
 function getTextSection(
   host: WorkspaceHost,
   sectionId: string,
@@ -45,8 +41,7 @@ export function setWorkspaceTextSectionData(
 ): void {
   const section = getTextSection(host, sectionId);
   const nextData = parseWorkspaceTextSectionData(sectionId, data);
-  // The registration owns which formats and display modes it accepts; ask it before the write
-  // rather than duplicating its narrowing here.
+
   getRegisteredSectionKindOrThrow(host, section.kind).assertValidData?.({
     ...section,
     data: nextData,

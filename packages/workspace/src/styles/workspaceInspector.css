@@ -1,6 +1,3 @@
-/* Built-in Inspector. The pane title, empty-state scale, 12/16 labels, 30 px configuration
- * controls, colors, and spacing follow the frozen UI Editor capture. The selection-aware forms
- * add explicit focus/error/status behavior and keep all validation chrome inside the pane. */
 .setta-workspace-inspector,
 .setta-workspace-inspector-branch {
   min-width: 0;

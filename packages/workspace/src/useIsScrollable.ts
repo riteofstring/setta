@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-// Frozen main's shared scrollability observer. Item lists and bounded groups keep the same DOM
-// element mounted while content changes, so scroll ownership can react without remounting or
-// losing the live scroll position.
 export function useIsScrollable() {
   const [isScrollableVertical, setIsScrollableVertical] = useState(false);
   const [isScrollableHorizontal, setIsScrollableHorizontal] = useState(false);

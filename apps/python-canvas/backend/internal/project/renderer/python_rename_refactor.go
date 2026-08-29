@@ -7,9 +7,6 @@ import (
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 )
 
-// RewriteStateReferences updates parser-confirmed state.<path> reads in every
-// authored expression whose surviving target changed generated path. It leaves
-// deleted and unrendered targets alone so provider diagnostics remain honest.
 func RewriteStateReferences(
 	state aggregate.State,
 	oldPaths map[string]string,

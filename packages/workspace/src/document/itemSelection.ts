@@ -9,13 +9,6 @@ import { getWorkspaceDocumentStore } from "./stores";
 import type { WorkspaceSection } from "./types";
 import type { WorkspaceHost } from "../workspaceHost";
 
-// The reference's param selection primitives (`toggleParamSelected`/`unselectAllParams` in
-// `state/actions/sectionInfos.ts`, `selectOnlyParam` in `moveParams.ts`) minus the app-only
-// branches: the optimistic-op plumbing and per-toggle backend routes stay application-side —
-// the host publishes an updated snapshot instead. Selection lives on the canonical
-// item tree, so a toggle is a canonical commit followed by the same active-section policy
-// decision the reference applies.
-
 export function toggleItemSelected(
   host: WorkspaceHost,
   sectionId: string,
@@ -48,9 +41,6 @@ export function toggleItemSelected(
   });
 }
 
-// Replaces one section's item selection in a single canonical commit. `toggleItemSelected`
-// builds the same commit one row at a time; an operation that selects a whole set of rows at
-// once notifies the host once instead of once per row.
 export function setSelectedItems(
   host: WorkspaceHost,
   sectionId: string,
@@ -94,8 +84,6 @@ function areItemIdListsEqual(
   );
 }
 
-// Clears item selection across every section in one canonical commit; answers whether anything
-// was selected so callers (the reference's escape handling) can consume the keypress.
 export function unselectAllItems(host: WorkspaceHost): boolean {
   const documentStore = getWorkspaceDocumentStore(host);
   const documentState = documentStore.getState();

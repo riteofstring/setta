@@ -1,6 +1,3 @@
-// Package terminal owns the one transient interactive shell attached to
-// Generated Python. It deliberately knows neither HTTP nor the project
-// aggregate: callers provide only canonical generated code to Run.
 package terminal
 
 import (
@@ -27,8 +24,7 @@ const (
 	defaultHistoryLimit     = 64 * 1024
 	defaultAttachmentBuffer = 64
 	defaultTicketTTL        = time.Minute
-	// terminalMaximumDimension is shared with the transport contract so every
-	// platform fits Windows ConPTY's signed COORD fields.
+
 	terminalMaximumDimension = terminalbounds.MaximumDimension
 )
 
@@ -43,8 +39,6 @@ var (
 	ErrPythonUnavailable         = errors.New("terminal: Python interpreter is unavailable")
 )
 
-// Runtime is the narrow process boundary used by the HTTP adapter. There is
-// intentionally no caller-selected command, directory, or environment.
 type Runtime interface {
 	Open(columns int, rows int) (Session, bool, error)
 	Run(context.Context, string, int, int) (Session, bool, error)
@@ -70,9 +64,6 @@ type Session struct {
 	Rows    int
 }
 
-// Attachment captures a history-plus-live handoff. History is copied and the
-// live channel is registered while holding the same session lock, so a stream
-// cannot miss output between the retained bytes and live forwarding.
 type Attachment struct {
 	History []byte
 	Output  <-chan []byte
@@ -202,10 +193,6 @@ func (service *Service) Open(columns int, rows int) (Session, bool, error) {
 	return session.info(), created, nil
 }
 
-// Run creates or reuses the shell and writes a backend-owned Python command
-// into its PTY. Each immutable artifact retains its exact generated revision
-// until the session's Delete or Close cleanup. The command is never supplied
-// by a caller.
 func (service *Service) Run(ctx context.Context, code string, columns int, rows int) (Session, bool, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -242,8 +229,6 @@ func (service *Service) Run(ctx context.Context, code string, columns int, rows 
 	return session.info(), created, nil
 }
 
-// IssueTicket returns one opaque single-use ticket for the current live
-// session. It contains no project identity and is never accepted by REST.
 func (service *Service) IssueTicket() (string, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
@@ -267,8 +252,6 @@ func (service *Service) IssueTicket() (string, error) {
 	return value, nil
 }
 
-// Attach consumes a ticket and permits exactly one active browser stream. A
-// later hide/show detaches and obtains a new ticket without killing the PTY.
 func (service *Service) Attach(value string) (*Attachment, error) {
 	service.mu.Lock()
 	if service.closed {
@@ -347,8 +330,6 @@ func (service *Service) Delete(ctx context.Context) error {
 	return service.stopAndWait(ctx, session)
 }
 
-// Close terminates the shell and reaps it before returning. It is safe to call
-// from launcher shutdown more than once.
 func (service *Service) Close(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -645,8 +626,7 @@ func (session *session) finish(waitErr error) {
 	session.mu.Lock()
 	session.waitErr = errors.Join(session.waitErr, cleanupErr, stopErr)
 	session.mu.Unlock()
-	// Close only after owned artifacts are gone so Delete and launcher
-	// shutdown return with their process-boundary cleanup complete.
+
 	close(session.done)
 }
 
@@ -731,8 +711,7 @@ func createRunArtifact(directory string, code string) (created runArtifact, resu
 		return runArtifact{}, err
 	}
 	writer.committed = true
-	// The PTY starts in the project directory. Keep the absolute path only for
-	// backend cleanup; the terminal sees a concise relative artifact name.
+
 	return runArtifact{path: writer.path, relativePath: filepath.Base(writer.path)}, nil
 }
 
@@ -804,8 +783,7 @@ func removeRunArtifact(path string) error {
 	if path == "" {
 		return nil
 	}
-	// Clearing the read-only bit keeps backend cleanup portable: Windows does
-	// not delete a read-only file until its attribute is removed.
+
 	if err := os.Chmod(path, 0o600); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}

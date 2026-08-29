@@ -1,5 +1,3 @@
-// Package runner executes one immutable generated Python program without
-// involving the interactive terminal runtime.
 package runner
 
 import (
@@ -28,8 +26,6 @@ var (
 	ErrInvalidOutputLimit       = errors.New("runner: output limit must be positive")
 )
 
-// TerminationReason reports how the generated program ended. A nonzero Python
-// exit remains a completed result, while runner setup failures are errors.
 type TerminationReason string
 
 const (
@@ -39,22 +35,16 @@ const (
 	TerminationOutputLimit TerminationReason = "output_limit"
 )
 
-// Program is the exact immutable program captured by the coordinator.
 type Program struct {
 	ProjectID string
 	Revision  int
 	Code      string
 }
 
-// Request supplies an optional per-run execution deadline. A zero value uses
-// the service's configured default.
 type Request struct {
 	Timeout time.Duration
 }
 
-// Result carries bounded, independently captured program output. Output is
-// normalized to valid UTF-8 at the process boundary so it can cross the JSON
-// transport without a lossy encoder-side conversion.
 type Result struct {
 	ProjectID       string
 	Revision        int
@@ -67,16 +57,10 @@ type Result struct {
 	Elapsed         time.Duration
 }
 
-// Runtime is the narrow process boundary injected into HTTP. It deliberately
-// accepts only a coordinator-captured program, never a caller-selected command
-// or working directory.
 type Runtime interface {
 	Run(context.Context, Program, Request) (Result, error)
 }
 
-// Options contains every process selection owned by the startup boundary.
-// Interpreter and ProjectDirectory are required and never inferred from PATH
-// or the current working directory.
 type Options struct {
 	Interpreter      string
 	ProjectDirectory string
@@ -85,7 +69,6 @@ type Options struct {
 	OutputLimit      int
 }
 
-// Service executes generated Python through one explicit interpreter.
 type Service struct {
 	interpreter      string
 	projectDirectory string
@@ -132,9 +115,6 @@ func New(options Options) (*Service, error) {
 	}, nil
 }
 
-// Run writes the exact coordinator capture to a private temporary artifact,
-// executes it directly, captures both output streams independently, and
-// removes the artifact on every return path.
 func (service *Service) Run(ctx context.Context, program Program, request Request) (result Result, runErr error) {
 	setup, err := service.prepareRun(ctx, program, request)
 	if err != nil {
@@ -144,9 +124,6 @@ func (service *Service) Run(ctx context.Context, program Program, request Reques
 	return service.executeRun(setup, program)
 }
 
-// terminationState makes the first runner-enforced reason authoritative. It
-// is intentionally independent of process operations so the event loop can
-// reject repeated output, timer, and context signals before touching the OS.
 type terminationState struct {
 	reason TerminationReason
 }
@@ -159,18 +136,11 @@ func (state *terminationState) enforce(reason TerminationReason) bool {
 	return true
 }
 
-// stopOwnedProcess always attempts to stop the directly owned process after a
-// process-tree request. This guarantees that Run can reach Wait and drain both
-// pipes even when an OS-level tree operation itself reports an error.
 type ownedProcess interface {
 	terminate() error
 	finalize() error
 }
 
-// commandTerminationOwner is used only by a private guardian that keeps the
-// direct process alive while it shuts down and reaps its tree. Killing that
-// guardian from the parent before its acknowledgement would discard the
-// kernel ownership boundary that contains session-escaping descendants.
 type commandTerminationOwner interface {
 	ownsCommandTermination() bool
 }
@@ -399,10 +369,7 @@ func buildResult(program Program, stdout outputCapture, stderr outputCapture, wa
 			return Result{}, fmt.Errorf("runner: wait for generated Python: %w", waitErr)
 		}
 	}
-	// Runner-enforced terminations are authoritative. In particular, Windows
-	// can report a numeric TerminateProcess status after a timeout or output
-	// limit, but the public contract deliberately exposes no Python exit code
-	// for an interrupted program.
+
 	if result.Termination != TerminationExited {
 		return result, nil
 	}

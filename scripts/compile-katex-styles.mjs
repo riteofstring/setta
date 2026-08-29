@@ -4,35 +4,12 @@ import path from "node:path";
 
 import { repositoryRoot } from "./lib/process.mjs";
 
-// The package delivers one self-contained scoped stylesheet. `rehype-katex` emits markup that
-// only KaTeX's own stylesheet can lay out, so this step folds that stylesheet into the compiled
-// sheet rather than leaving a dependency CSS import in the built entry: a consumer imports no
-// dependency CSS, resolves no dependency fonts, and adds no bundler configuration, and a host
-// that never registers the built-in Text section still receives a coherent bundle.
-//
-// It runs after the Tailwind step because KaTeX's layout rules must outrank the typography the
-// rendered Markdown surface puts around them, which is the order the reference gets from
-// importing this stylesheet inside the component that renders math.
-//
-// Package-only design decisions recorded here:
-//   - every folded rule is scoped under the workspace surface marker class, so nothing here can
-//     style host content. KaTeX's one host-wide rule resets its equation counters on `body`;
-//     scoped, that becomes the workspace root itself, so equation numbering restarts per
-//     workspace rather than per document.
-//   - only the woff2 source of each face survives. KaTeX declares woff2, woff, and truetype for
-//     all twenty faces; the faces ship inlined here, and carrying three encodings would triple
-//     the stylesheet for formats no browser this package supports would choose.
-
 const packageRootRelative = "packages/workspace";
 const packageRoot = path.join(repositoryRoot, packageRootRelative);
 const stylesheetPath = path.join(packageRoot, "dist/styles.css");
 const scopeSelectorPrefix = ".setta-workspace";
 const foldedSectionMarker = "/* KaTeX math presentation, folded from";
 
-// Resolved from the package's own manifest, so the folded rules and faces are the pinned copy
-// installed beside the `rehype-katex` that renders the markup they lay out. That pin is why
-// `katex` stays a declared dependency although package runtime source does not import it: this
-// build entry point is its authoritative reader.
 const requireFromPackage = createRequire(
   path.join(packageRoot, "package.json"),
 );
@@ -42,8 +19,6 @@ const katexStylesheetPath = requireFromPackage.resolve(
 const katexRoot = path.dirname(katexStylesheetPath);
 const katexVersion = requireFromPackage("katex/package.json").version;
 
-// KaTeX ships one flat rule list, so a nested block would mean a stylesheet shape this fold has
-// never seen; it fails here instead of emitting rules it did not understand.
 function readBlocks(css) {
   const blocks = [];
   let depth = 0;
@@ -167,8 +142,7 @@ if (!existsSync(stylesheetPath)) {
 
 const { faceCount, rules } = foldKatexStylesheet();
 const compiled = readFileSync(stylesheetPath, "utf8");
-// A rebuilt sheet carries no folded section; re-running this step over an already folded sheet
-// replaces that section instead of appending a second copy.
+
 const markerIndex = compiled.indexOf(foldedSectionMarker);
 const tailwindOutput =
   markerIndex === -1 ? compiled : compiled.slice(0, markerIndex);

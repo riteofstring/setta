@@ -23,14 +23,9 @@ type conPTY interface {
 	Pid() int
 }
 
-// suspendedConPTY has created the trusted ConPTY root, but its first thread
-// cannot execute the configured shell until Resume succeeds. This closes the
-// otherwise unavoidable window between CreateProcess and Job assignment.
 type suspendedConPTY interface {
 	conPTY
-	// Abort stops a newly created root which has not reached Job assignment.
-	// CREATE_SUSPENDED prevents user code from running in that interval, but a
-	// rollback still has to terminate the otherwise-unowned process.
+
 	Abort() error
 	Resume() error
 }

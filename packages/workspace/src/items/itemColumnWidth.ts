@@ -1,8 +1,5 @@
 import type { WorkspaceSectionItemTree } from "../document/types";
 
-// Ported from frozen main's `columnWidthUtils.ts` and `useParamColumnWidth.ts`. Raw width includes
-// the center offset used by the drag math; the canonical/CSS width excludes it, matching main's
-// persisted `columnWidth` and private `--param-column-width` wire variable.
 export const ITEM_COLUMN_CENTER_OFFSET_PX = 18;
 const MIN_ITEM_VALUE_COLUMN_WIDTH_PX = 100;
 
