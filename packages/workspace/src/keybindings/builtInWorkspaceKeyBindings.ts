@@ -25,6 +25,10 @@ import {
   focusSectionItemFilter,
 } from "../items/itemFilterFocusRegistry";
 import { getSectionItemVisibility } from "../items/itemListRegistry";
+import {
+  hasWorkspaceNavigatorSurface,
+  openWorkspaceNavigator,
+} from "../navigator/workspaceNavigatorState";
 import type { WorkspaceHost } from "../workspaceHost";
 import {
   indentSelectedItems,
@@ -242,6 +246,32 @@ export function listBuiltInWorkspaceKeyBindings(
       "Mod + K",
       false,
       () => focusSoleActiveSectionItemFilter(host),
+    ),
+    createOperationBinding(
+      "workspace.open-find",
+      "Open workspace find",
+      "Mod + P",
+      false,
+      () => {
+        if (!hasWorkspaceNavigatorSurface(host)) {
+          return false;
+        }
+        openWorkspaceNavigator(host, "find");
+        return true;
+      },
+    ),
+    createOperationBinding(
+      "workspace.open-command-palette",
+      "Open command palette",
+      "Mod + Shift + P",
+      false,
+      () => {
+        if (!hasWorkspaceNavigatorSurface(host)) {
+          return false;
+        }
+        openWorkspaceNavigator(host, "commands");
+        return true;
+      },
     ),
     createOperationBinding("workspace.fit-view", "Fit view", "F", false, () =>
       onFitViewHandler(host),

@@ -24,6 +24,7 @@ import { hasWorkspaceItemPresentation } from "../document/itemPresentation";
 import { toggleItemSelected } from "../document/itemSelection";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { getItemOrThrow } from "../document/itemTree";
+import { useWorkspaceItemRevealTarget } from "../navigator/workspaceItemReveal";
 import {
   useWorkspaceAppearance,
   useWorkspaceDocument,
@@ -703,6 +704,7 @@ function ItemRowShell({
   children: ReactNode;
 }) {
   const host = useWorkspaceHost();
+  const setRevealTarget = useWorkspaceItemRevealTarget(sectionId, itemId);
   const quickInfoHandlers = getItemQuickInfoHandlers(host, quickInfo);
   const accessibilityProps = getItemRowAccessibilityProps({
     diagnosticSummary,
@@ -718,6 +720,13 @@ function ItemRowShell({
     onKeyDown: handleKeyDown,
     onMouseDownCapture: onMouseDown,
   };
+  const setItemRowRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      dndRef(element);
+      setRevealTarget(element);
+    },
+    [dndRef, setRevealTarget],
+  );
   function handleContextMenu(event: React.MouseEvent<HTMLDivElement>): void {
     if (shouldRetainNativeContextMenu(event.target, event.currentTarget)) {
       event.stopPropagation();
@@ -768,7 +777,7 @@ function ItemRowShell({
       }
       data-workspace-item-id={itemId}
       {...interactionHandlers}
-      ref={dndRef}
+      ref={setItemRowRef}
       {...(dndAttributes as React.HTMLAttributes<HTMLDivElement>)}
       {...(dndListeners as React.HTMLAttributes<HTMLDivElement>)}
       {...quickInfoHandlers}

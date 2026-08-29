@@ -36,6 +36,7 @@ import type {
   WorkspaceShellTabIconProps,
   WorkspaceShellViewState,
 } from "./workspaceShellTypes";
+import type { WorkspaceNavigatorConfiguration } from "../navigator/workspaceNavigatorTypes";
 
 const { shiftWorkspaceMapForLeadingPane } = vi.hoisted(() => ({
   shiftWorkspaceMapForLeadingPane: vi.fn(),
@@ -141,11 +142,13 @@ const INITIAL_TRAILING_TAB_ID = "details";
 function Harness({
   includeBuiltInInspector = true,
   leadingPaneShiftsCanvas = true,
+  navigator,
   onChange,
   windowManager,
 }: {
   includeBuiltInInspector?: boolean;
   leadingPaneShiftsCanvas?: boolean;
+  navigator?: WorkspaceNavigatorConfiguration;
   onChange: (viewState: WorkspaceShellViewState) => void;
   windowManager?: ReactNode;
 }) {
@@ -161,6 +164,7 @@ function Harness({
       includeBuiltInInspector={includeBuiltInInspector}
       leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
       leadingTabs={leadingTabs}
+      navigator={navigator}
       onViewStateChange={(nextState) => {
         onChange(nextState);
         setViewState(nextState);
@@ -366,6 +370,20 @@ describe("WorkspaceShell", () => {
       panel.compareDocumentPosition(resizeHandle) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("mounts the optional host-scoped navigator trigger through shell configuration", async () => {
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<Harness navigator={{ showTrigger: true }} onChange={onChange} />}
+        </WorkspaceTestProvider>,
+      );
+    });
+
+    expect(
+      host.querySelector('button[aria-label="Open workspace navigator"]'),
+    ).not.toBeNull();
   });
 
   it("places a host-composed window manager above the canvas and below shell chrome", async () => {

@@ -244,8 +244,9 @@ export function registerPlaygroundMenuExtensions(host: WorkspaceHost): void {
     {
       id: "playground-pane-position",
       scope: "pane",
-      surfaces: ["context-menu"],
+      surfaces: ["context-menu", "palette"],
       label: "Report position",
+      keywords: ["canvas", "coordinates"],
       run: (context) => {
         const position = context.workspacePosition;
         publishMenuExtensionStatus(
@@ -260,8 +261,9 @@ export function registerPlaygroundMenuExtensions(host: WorkspaceHost): void {
     {
       id: "playground-toolbar-highlight",
       scope: "pane",
-      surfaces: ["context-menu", "toolbar"],
+      surfaces: ["context-menu", "palette", "toolbar"],
       label: "Highlight host controls",
+      keywords: ["demo", "controls"],
       isChecked: (context) =>
         getHostCommandState(context.host).toolbarHighlightEnabled,
       run: (context) => {
@@ -288,8 +290,9 @@ export function registerPlaygroundMenuExtensions(host: WorkspaceHost): void {
     {
       id: "playground-section-selection",
       scope: "section",
-      surfaces: ["context-menu", "header"],
+      surfaces: ["context-menu", "header", "palette"],
       label: "Report selection",
+      keywords: ["active", "section"],
       run: (context) =>
         publishMenuExtensionStatus(
           context.host,
@@ -325,8 +328,9 @@ export function registerPlaygroundMenuExtensions(host: WorkspaceHost): void {
     {
       id: "playground-item-identity",
       scope: "item",
-      surfaces: ["context-menu"],
+      surfaces: ["context-menu", "palette"],
       label: "Report item",
+      keywords: ["parameter", "identity"],
       run: (context) =>
         publishMenuExtensionStatus(
           context.host,

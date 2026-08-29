@@ -53,6 +53,7 @@ const RUNTIME_EXPORTS = [
   "WorkspaceProvider",
   "WorkspaceItemLabel",
   "WorkspaceItemList",
+  "WorkspaceNavigator",
   "WorkspaceParameterConfigurationIcon",
   "WorkspaceParameterConfigurationView",
   "WorkspaceShell",
@@ -71,6 +72,7 @@ const RUNTIME_EXPORTS = [
   "buildWorkspaceFloatingSnapResizeSeams",
   "canSnapshotWorkspaceWindowSpace",
   "classifyWorkspaceFloatingSnapPreset",
+  "closeWorkspaceNavigator",
   "closeWorkspaceWindow",
   "commitWorkspaceDocument",
   "createWorkspaceHost",
@@ -104,6 +106,7 @@ const RUNTIME_EXPORTS = [
   "moveWorkspaceWindowToCanvasSection",
   "normalizeWorkspaceWindowBounds",
   "openWorkspaceFloatingWindow",
+  "openWorkspaceNavigator",
   "registerSectionKinds",
   "registerItemHandlers",
   "registerWorkspaceCommands",
@@ -149,6 +152,24 @@ const RUNTIME_EXPORTS = [
 describe("public package API", () => {
   it("exports only the ratified runtime surface", () => {
     expect(Object.keys(workspace).sort()).toEqual([...RUNTIME_EXPORTS].sort());
+  });
+
+  it("exposes the navigator through one host-scoped public contract", () => {
+    const mode: workspace.WorkspaceNavigatorMode = "commands";
+    const configuration = {
+      defaultMode: mode,
+      showTrigger: true,
+    } satisfies workspace.WorkspaceNavigatorConfiguration;
+    const closeParametersAreHostOnly: IsExactly<
+      Parameters<typeof workspace.closeWorkspaceNavigator>,
+      [host: workspace.WorkspaceHost]
+    > = true;
+
+    expect(configuration).toEqual({
+      defaultMode: "commands",
+      showTrigger: true,
+    });
+    expect(closeParametersAreHostOnly).toBe(true);
   });
 
   it("commits an app-owned section size through the canonical resize funnel", () => {

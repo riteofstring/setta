@@ -197,6 +197,7 @@ export type {
   WorkspaceItemSearchContext,
   WorkspaceItemSearchableText,
   WorkspaceItemToolbarMode,
+  WorkspaceSectionSearchableText,
   WorkspaceSectionKindIconProps,
 } from "./document/sectionKindRegistry";
 export type { WorkspaceSectionSizeConstraints } from "./section/resize/sectionSizingBounds";
@@ -270,6 +271,16 @@ export { WorkspaceItemLabel } from "./items/WorkspaceItemLabel";
 export type { WorkspaceItemLabelProps } from "./items/WorkspaceItemLabel";
 export { WorkspaceItemList } from "./items/WorkspaceItemList";
 export type { WorkspaceItemListProps } from "./items/WorkspaceItemList";
+export { WorkspaceNavigator } from "./navigator/WorkspaceNavigator";
+export {
+  closeWorkspaceNavigator,
+  openWorkspaceNavigator,
+} from "./navigator/workspaceNavigatorState";
+export type {
+  WorkspaceNavigatorConfiguration,
+  WorkspaceNavigatorMode,
+  WorkspaceNavigatorProps,
+} from "./navigator/workspaceNavigatorTypes";
 export { WorkspaceParameterConfigurationView } from "./shell/WorkspaceParameterConfigurationView";
 export {
   getWorkspaceKeyBindingConflicts,

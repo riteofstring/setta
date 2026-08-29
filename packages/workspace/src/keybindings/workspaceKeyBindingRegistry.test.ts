@@ -19,6 +19,11 @@ afterEachWorkspaceTestHost(() => {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry";
 import type { WorkspaceSectionInput } from "../document/types";
+import {
+  closeWorkspaceNavigator,
+  getWorkspaceNavigatorStore,
+  registerWorkspaceNavigatorSurface,
+} from "../navigator/workspaceNavigatorState";
 import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import {
   getResolvedWorkspaceKeyBindings,
@@ -100,6 +105,16 @@ describe("workspace key bindings", () => {
       chordLabel: "Ctrl + K",
       label: "Focus parameter filter",
     });
+    expect(getBinding("workspace.open-find")).toMatchObject({
+      chord: "Mod + P",
+      chordLabel: "Ctrl + P",
+      label: "Open workspace find",
+    });
+    expect(getBinding("workspace.open-command-palette")).toMatchObject({
+      chord: "Mod + Shift + P",
+      chordLabel: "Ctrl + Shift + P",
+      label: "Open command palette",
+    });
     expect(getBinding("workspace.select-all").chord).toBe("Mod + A");
     expect(getBinding("workspace.select-top-level-sections").chord).toBe(
       "Mod + Shift + A",
@@ -128,6 +143,32 @@ describe("workspace key bindings", () => {
       chordLabel: "Ctrl + Shift + 4",
       label: "Focus trailing pane",
     });
+  });
+
+  it("declines navigator chords until their host mounts the surface", () => {
+    const findBinding = getResolvedWorkspaceKeyBindings(host, false).find(
+      (binding) => binding.definition.id === "workspace.open-find",
+    );
+    const commandsBinding = getResolvedWorkspaceKeyBindings(host, false).find(
+      (binding) => binding.definition.id === "workspace.open-command-palette",
+    );
+    if (!findBinding || !commandsBinding) {
+      throw new Error("Missing workspace navigator key bindings.");
+    }
+    const event = new KeyboardEvent("keydown");
+
+    expect(findBinding.definition.run(event)).toBe(false);
+    expect(commandsBinding.definition.run(event)).toBe(false);
+
+    const unregister = registerWorkspaceNavigatorSurface(host);
+
+    expect(findBinding.definition.run(event)).toBe(true);
+    expect(getWorkspaceNavigatorStore(host).getState().mode).toBe("find");
+    closeWorkspaceNavigator(host);
+    expect(commandsBinding.definition.run(event)).toBe(true);
+    expect(getWorkspaceNavigatorStore(host).getState().mode).toBe("commands");
+
+    unregister();
   });
 
   it("offers locking as a bindable operation the reference gives no chord", () => {

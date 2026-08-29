@@ -295,6 +295,25 @@ describe("workspace command resolution", () => {
     expect(context.section).not.toBe(getSection("group"));
   });
 
+  it("keeps palette keywords on resolved command entries", () => {
+    registerWorkspaceCommands(testWorkspace.host, [
+      {
+        id: "host-palette-report",
+        scope: "section",
+        surfaces: ["palette"],
+        label: "Report selection",
+        keywords: ["report", "host"],
+        run: vi.fn(),
+      },
+    ]);
+
+    expect(
+      resolveWorkspaceCommandEntries("palette", contextFor("group")).find(
+        (entry) => entry.id === "host-palette-report",
+      )?.keywords,
+    ).toEqual(["report", "host"]);
+  });
+
   it("refuses a command whose context no longer matches its scope", () => {
     expect(() =>
       runWorkspaceCommandById("workspace.delete-item", contextFor("leaf")),

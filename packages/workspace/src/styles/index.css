@@ -1,6 +1,7 @@
 @import "./scopedBase.css";
 @import "./workspace.css";
 @import "./workspaceShell.css";
+@import "./workspaceNavigator.css";
 @import "./workspaceInspector.css";
 @import "./workspaceInspectorConfiguration.css";
 @import "./workspaceOutline.css";

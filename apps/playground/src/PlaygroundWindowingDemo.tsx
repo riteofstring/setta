@@ -394,6 +394,7 @@ export function PlaygroundWindowingDemo({
           ariaLabel="Playground workspace"
           leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
           leadingTabs={leadingTabs}
+          navigator={{}}
           onViewStateChange={onShellViewStateChange}
           sectionTagColorPalette={sectionTagColorPalette}
           trailingTabs={trailingTabs}

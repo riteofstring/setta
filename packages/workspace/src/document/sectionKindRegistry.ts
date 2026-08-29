@@ -52,6 +52,12 @@ export type WorkspaceItemSearchableText = (
   context: WorkspaceItemSearchContext,
 ) => string;
 
+export type WorkspaceSectionSearchableText = (
+  section: WorkspaceSnapshot<
+    Pick<WorkspaceSection, "id" | "kind" | "name" | "data">
+  >,
+) => string;
+
 export type WorkspaceSectionKindIconProps = Readonly<{
   className?: string;
   sectionId: string;
@@ -112,6 +118,8 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
 
         getItemSearchableText?: WorkspaceItemSearchableText;
 
+        getSectionSearchableText?: WorkspaceSectionSearchableText;
+
         itemArea?: WorkspaceItemAreaPresentation;
 
         renderHeaderControls?: (section: WorkspaceSection) => ReactNode;
@@ -131,6 +139,7 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         contentClassName?: never;
         createItem?: never;
         getItemSearchableText?: never;
+        getSectionSearchableText?: never;
         itemArea?: never;
         renderHeaderControls?: never;
         renderAttachedContent?: never;
@@ -334,6 +343,12 @@ function assertMetaControlDefinition(
   );
   assertMetaControlDoesNotRegister(
     kind,
+    "getSectionSearchableText",
+    definition.getSectionSearchableText,
+    "meta controls do not provide ordinary section search text.",
+  );
+  assertMetaControlDoesNotRegister(
+    kind,
     "renderHeaderControls",
     definition.renderHeaderControls,
     "its package-owned chrome has no section header.",
@@ -413,6 +428,11 @@ function assertSectionKindDefinition(
     kind,
     "getItemSearchableText",
     definition.getItemSearchableText,
+  );
+  assertOptionalSectionKindFunction(
+    kind,
+    "getSectionSearchableText",
+    definition.getSectionSearchableText,
   );
   if (definition.presentation !== undefined) {
     assertMetaControlDefinition(kind, definition);
@@ -555,6 +575,39 @@ export function getWorkspaceItemSearchableText(
   if (typeof searchableText !== "string") {
     throw new Error(
       `Section kind ${section.kind} returned non-string searchable text for item ${item.id}.`,
+    );
+  }
+  return searchableText;
+}
+
+export function getWorkspaceSectionSearchableText(
+  host: WorkspaceHost,
+  section: Pick<WorkspaceSection, "id" | "kind" | "name" | "data">,
+): string {
+  if (section.kind === GROUP_SECTION_KIND) {
+    return "";
+  }
+  const definition = getRegisteredSectionKindOrThrow(host, section.kind);
+  const getSearchableText =
+    definition.presentation === undefined
+      ? definition.getSectionSearchableText
+      : undefined;
+  if (!getSearchableText) {
+    return "";
+  }
+  const searchableText = getSearchableText(
+    cloneFrozenWorkspaceSnapshot({
+      id: section.id,
+      kind: section.kind,
+      name: section.name,
+      data: section.data,
+    }) as WorkspaceSnapshot<
+      Pick<WorkspaceSection, "id" | "kind" | "name" | "data">
+    >,
+  );
+  if (typeof searchableText !== "string") {
+    throw new Error(
+      `Section kind ${section.kind} returned non-string searchable text for section ${section.id}.`,
     );
   }
   return searchableText;

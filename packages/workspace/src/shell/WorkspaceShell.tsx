@@ -28,6 +28,7 @@ import { WorkspaceControls } from "../toolbar/WorkspaceControls";
 import { WorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import { registerWorkspaceHostElement } from "../workspaceHostInternals";
+import { WorkspaceNavigator } from "../navigator/WorkspaceNavigator";
 import { WorkspaceInspector } from "./WorkspaceInspector";
 import { WorkspaceOutline } from "./WorkspaceOutline";
 import { WorkspaceShellPane } from "./WorkspaceShellPane";
@@ -414,6 +415,7 @@ export function WorkspaceShell({
   includeBuiltInInspector = true,
   leadingPaneShiftsCanvas = true,
   leadingTabs,
+  navigator,
   onViewStateChange,
   sectionTagColorPalette,
   trailingTabs,
@@ -902,6 +904,12 @@ export function WorkspaceShell({
         <div className="setta-workspace-shell-controls">
           <WorkspaceControls />
         </div>
+        {navigator ? (
+          <WorkspaceNavigator
+            defaultMode={navigator.defaultMode}
+            showTrigger={navigator.showTrigger ?? true}
+          />
+        ) : null}
         <WorkspaceShellWindowManagerLayer
           windowManager={windowManager}
           windowing={windowing}

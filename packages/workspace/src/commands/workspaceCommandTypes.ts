@@ -17,6 +17,7 @@ export type WorkspaceCommandSurface =
   | "inspector"
   | "inspector-parameters"
   | "outline"
+  | "palette"
   | "toolbar";
 
 export type WorkspacePaneCommandContext = Readonly<{
@@ -55,6 +56,7 @@ type WorkspaceCommandDefinitionFor<
   scope: Scope;
   surfaces: ReadonlyArray<WorkspaceCommandSurface>;
   label: string;
+  keywords?: ReadonlyArray<string>;
   icon?: ComponentType<WorkspaceCommandIconProps>;
 
   getDisabledReason?: (context: Context) => string | null;

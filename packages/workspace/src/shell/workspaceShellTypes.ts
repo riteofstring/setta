@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode, RefObject } from "react";
+import type { WorkspaceNavigatorConfiguration } from "../navigator/workspaceNavigatorTypes";
 import type { WorkspaceSectionTagColorPalette } from "../section/sectionTagColors";
 import type { WorkspaceShellWindowingConfiguration } from "../windowing/workspaceWindowingContext";
 
@@ -53,6 +54,8 @@ export type WorkspaceShellProps = {
   trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
 
   includeBuiltInInspector?: boolean;
+
+  navigator?: WorkspaceNavigatorConfiguration;
 
   windowManager?: ReactNode;
 

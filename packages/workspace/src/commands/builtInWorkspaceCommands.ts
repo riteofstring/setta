@@ -150,7 +150,7 @@ function getSelectedItemCount(context: WorkspaceSectionCommandContext): number {
 const groupSectionsCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.group-sections",
   scope: "section",
-  surfaces: ["context-menu", "inspector", "outline"],
+  surfaces: ["context-menu", "inspector", "outline", "palette"],
   label: "Group",
   getDisabledReason: (context) => {
     const structureReason = getStructureReason(context.host);
@@ -183,7 +183,7 @@ const groupSectionsCommand: WorkspacePackageCommandDefinition = {
 const toggleGroupOverflowCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.toggle-group-overflow",
   scope: "section",
-  surfaces: ["context-menu", "header", "outline"],
+  surfaces: ["context-menu", "header", "outline", "palette"],
   label: "Overflow Mode",
 
   isApplicable: (context) => {
@@ -223,7 +223,7 @@ const toggleGroupOverflowCommand: WorkspacePackageCommandDefinition = {
 const ungroupSectionsCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.ungroup-sections",
   scope: "section",
-  surfaces: ["context-menu", "header", "inspector", "outline"],
+  surfaces: ["context-menu", "header", "inspector", "outline", "palette"],
   label: "Ungroup",
   isApplicable: (context) =>
     getLiveSectionTargets(context).sections.some(isGroupSection),
@@ -250,7 +250,7 @@ const deleteSectionsCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.delete-sections",
   scope: "section",
   tone: "danger",
-  surfaces: ["context-menu", "inspector", "outline"],
+  surfaces: ["context-menu", "inspector", "outline", "palette"],
   label: "Delete",
   getDisabledReason: (context) => {
     const structureReason = getStructureReason(context.host);
@@ -272,7 +272,7 @@ const deleteSectionsCommand: WorkspacePackageCommandDefinition = {
 const lockSectionsCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.lock-sections",
   scope: "section",
-  surfaces: ["context-menu", "outline"],
+  surfaces: ["context-menu", "outline", "palette"],
   label: "Lock Position & Size",
   isApplicable: (context) =>
     !areAllSectionsLocked(getLiveSectionTargets(context)),
@@ -290,7 +290,7 @@ const lockSectionsCommand: WorkspacePackageCommandDefinition = {
 const unlockSectionsCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.unlock-sections",
   scope: "section",
-  surfaces: ["context-menu", "outline"],
+  surfaces: ["context-menu", "outline", "palette"],
   label: "Unlock Position & Size",
   isApplicable: (context) =>
     areAllSectionsLocked(getLiveSectionTargets(context)),
@@ -308,7 +308,7 @@ const unlockSectionsCommand: WorkspacePackageCommandDefinition = {
 const insertItemCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.insert-item",
   scope: "section",
-  surfaces: ["inspector-parameters"],
+  surfaces: ["inspector-parameters", "palette"],
   label: "Add parameter",
   isApplicable: hasSectionItemTree,
   getDisabledReason: (context) => {
@@ -331,7 +331,7 @@ const deleteLastItemCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.delete-last-item",
   scope: "section",
   tone: "danger",
-  surfaces: ["inspector-parameters"],
+  surfaces: ["inspector-parameters", "palette"],
   label: "Remove last parameter",
   isApplicable: (context) =>
     hasSectionItemTree(context) && getSelectedItemCount(context) === 0,
@@ -356,7 +356,7 @@ const deleteSelectedItemsCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.delete-selected-items",
   scope: "section",
   tone: "danger",
-  surfaces: ["inspector-parameters"],
+  surfaces: ["inspector-parameters", "palette"],
   label: "Delete selected parameters",
   isApplicable: (context) =>
     hasSectionItemTree(context) && getSelectedItemCount(context) > 1,
@@ -376,7 +376,7 @@ const deleteItemCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.delete-item",
   scope: "item",
   tone: "danger",
-  surfaces: ["context-menu", "inspector-parameters"],
+  surfaces: ["context-menu", "inspector-parameters", "palette"],
   label: "Delete parameter",
   getDisabledReason: (context) => {
     const section = getLiveItemSection(context);

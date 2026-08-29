@@ -89,6 +89,51 @@ describe("workspace command registry", () => {
     ).toBe(true);
   });
 
+  it("offers palette commands in every scope and normalizes keywords", () => {
+    const commands = [
+      {
+        id: "palette-pane",
+        scope: "pane",
+        surfaces: ["palette"],
+        label: "Pane action",
+        keywords: ["  canvas  ", "workspace"],
+        run: vi.fn(),
+      },
+      {
+        id: "palette-section",
+        scope: "section",
+        surfaces: ["palette"],
+        label: "Section action",
+        run: vi.fn(),
+      },
+      {
+        id: "palette-item",
+        scope: "item",
+        surfaces: ["palette"],
+        label: "Item action",
+        run: vi.fn(),
+      },
+    ] satisfies ReadonlyArray<WorkspaceCommandDefinition>;
+
+    registerWorkspaceCommands(host, commands);
+
+    expect(
+      getWorkspaceCommands(host, "pane", "palette").find(
+        (command) => command.definition.id === "palette-pane",
+      )?.definition.keywords,
+    ).toEqual(["canvas", "workspace"]);
+    expect(
+      getWorkspaceCommands(host, "section", "palette").some(
+        (command) => command.definition.id === "palette-section",
+      ),
+    ).toBe(true);
+    expect(
+      getWorkspaceCommands(host, "item", "palette").some(
+        (command) => command.definition.id === "palette-item",
+      ),
+    ).toBe(true);
+  });
+
   it("rejects invalid identity, scope, and surface registrations", () => {
     expect(() =>
       registerWorkspaceCommands(host, [hostCommand({ id: "bad id" })]),
@@ -141,6 +186,21 @@ describe("workspace command registry", () => {
         } as unknown as Partial<WorkspaceCommandDefinition>),
       ]),
     ).toThrow(/getDisabledReason must be a function/);
+    expect(() =>
+      registerWorkspaceCommands(host, [
+        hostCommand({
+          keywords: "section" as unknown as ReadonlyArray<string>,
+        }),
+      ]),
+    ).toThrow(/keywords must be an array/);
+    expect(() =>
+      registerWorkspaceCommands(host, [hostCommand({ keywords: [" "] })]),
+    ).toThrow(/keywords must contain non-empty text/);
+    expect(() =>
+      registerWorkspaceCommands(host, [
+        hostCommand({ keywords: ["Section", " Section "] }),
+      ]),
+    ).toThrow(/lists the Section keyword twice/);
   });
 
   it("fails clearly when a surface asks for an unknown command id", () => {

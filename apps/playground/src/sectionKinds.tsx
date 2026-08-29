@@ -32,12 +32,14 @@ import {
   PlaygroundTextSectionInspector,
 } from "./sectionOptionInspectors";
 
-function getLeafBody(section: WorkspaceSection): string {
+function getLeafBody(
+  section: Readonly<{ data?: unknown; id: string }>,
+): string {
   const data = section.data;
   if (data === null || typeof data !== "object" || Array.isArray(data)) {
     throw new Error(`Leaf section ${section.id} is missing its body data.`);
   }
-  const body = data["body"];
+  const body = (data as Readonly<Record<string, unknown>>)["body"];
   if (typeof body !== "string") {
     throw new Error(`Leaf section ${section.id} is missing its body text.`);
   }
@@ -862,6 +864,7 @@ export function registerPlaygroundSectionKinds(host: WorkspaceHost): void {
   registerPlaygroundItemHandlers(host);
   registerSectionKinds(host, {
     leaf: {
+      getSectionSearchableText: getLeafBody,
       renderContent: (section) => <LeafSectionBody section={section} />,
       renderInspector: (context) => (
         <PlaygroundInspectorContribution context={context} />

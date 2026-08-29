@@ -20,15 +20,16 @@ const SURFACES_BY_SCOPE: Record<
   WorkspaceCommandScope,
   ReadonlyArray<WorkspaceCommandSurface>
 > = {
-  pane: ["context-menu", "toolbar"],
+  pane: ["context-menu", "palette", "toolbar"],
   section: [
     "context-menu",
     "header",
     "inspector",
     "inspector-parameters",
     "outline",
+    "palette",
   ],
-  item: ["context-menu", "inspector-parameters"],
+  item: ["context-menu", "inspector-parameters", "palette"],
 };
 
 export type RegisteredWorkspaceCommand = {
@@ -114,6 +115,36 @@ function assertCommandSurfaces(
   }
 }
 
+function normalizeCommandKeywords(
+  id: string,
+  keywords: unknown,
+): ReadonlyArray<string> | undefined {
+  if (keywords === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(keywords)) {
+    throw new Error(`Workspace command ${id} keywords must be an array.`);
+  }
+  const normalized: Array<string> = [];
+  const seen = new Set<string>();
+  for (const keyword of keywords) {
+    if (typeof keyword !== "string" || keyword.trim() === "") {
+      throw new Error(
+        `Workspace command ${id} keywords must contain non-empty text.`,
+      );
+    }
+    const trimmed = keyword.trim();
+    if (seen.has(trimmed)) {
+      throw new Error(
+        `Workspace command ${id} lists the ${trimmed} keyword twice.`,
+      );
+    }
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+  return Object.freeze(normalized);
+}
+
 function validateHostCommand(
   command: WorkspaceCommandDefinition,
   ids: Set<string>,
@@ -130,6 +161,7 @@ function validateHostCommand(
     );
   }
   assertCommandSurfaces(command.id, command.scope, command.surfaces);
+  const keywords = normalizeCommandKeywords(command.id, command.keywords);
   if (command.icon !== undefined && typeof command.icon !== "function") {
     throw new Error(
       `Workspace command ${command.id} icon must be a component.`,
@@ -153,6 +185,7 @@ function validateHostCommand(
     definition: Object.freeze({
       ...command,
       label: command.label.trim(),
+      ...(keywords === undefined ? {} : { keywords }),
       surfaces: Object.freeze([...command.surfaces]),
     }),
     origin: "host",

@@ -12,6 +12,16 @@ export function getWorkspaceCreationCommands(
   return commandsByHost.get(host) ?? [];
 }
 
+export function getWorkspaceCreationCommand(
+  host: WorkspaceHost,
+  id: string,
+): WorkspaceCreationCommand | null {
+  return (
+    getWorkspaceCreationCommands(host).find((command) => command.id === id) ??
+    null
+  );
+}
+
 export function setWorkspaceCreationCommands(
   host: WorkspaceHost,
   commands: ReadonlyArray<WorkspaceCreationCommand>,

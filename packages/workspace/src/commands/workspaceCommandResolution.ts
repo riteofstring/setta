@@ -19,13 +19,14 @@ export type WorkspaceCommandEntry = {
   disabledReason: string | null;
   icon?: ComponentType<WorkspaceCommandIconProps>;
   id: string;
+  keywords: ReadonlyArray<string>;
   label: string;
   origin: "host" | "package";
   run: () => WorkspaceCommandResult;
   tone: "danger" | null;
 };
 
-type WorkspaceCommandResult = {
+export type WorkspaceCommandResult = {
   ran: boolean;
   statusMessage: string | null;
 };
@@ -105,6 +106,7 @@ function toWorkspaceCommandEntry(
     disabledReason,
     ...(command.definition.icon ? { icon: command.definition.icon } : {}),
     id: command.definition.id,
+    keywords: command.definition.keywords ?? [],
     label: command.definition.label,
     origin: command.origin,
     run: () => runWorkspaceCommand(command, context),
