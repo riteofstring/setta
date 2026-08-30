@@ -19,6 +19,7 @@ import {
   getWorkspaceSavedViewsState,
   renameWorkspaceSavedView,
   reorderWorkspaceSavedView,
+  setWorkspaceSavedViewTabVisibility,
 } from "../saved-views/operations";
 import { getOrderedWorkspaceSavedViews } from "../saved-views/state";
 import type { WorkspaceHost } from "../workspaceHost";
@@ -30,10 +31,13 @@ import {
   type WorkspaceSavedViewDisabledReasons,
 } from "./WorkspaceSavedViewsPaneParts";
 
+type WorkspaceSavedViewFocusControl = HTMLButtonElement | HTMLInputElement;
+
 type WorkspaceSavedViewsPaneProps = {
   ariaLabel?: string;
   className?: string;
   initialFocusRef?: RefObject<HTMLElement | null>;
+  showTabBookmarks?: boolean;
 };
 
 function joinClassNames(
@@ -70,6 +74,7 @@ function useWorkspaceSavedViewDisabledReasons(
     delete: getWorkspaceSavedViewsOperationDisabledReason(host, "delete"),
     rename: getWorkspaceSavedViewsOperationDisabledReason(host, "rename"),
     reorder: getWorkspaceSavedViewsOperationDisabledReason(host, "reorder"),
+    tab: getWorkspaceSavedViewsOperationDisabledReason(host, "tab"),
     visibility: getWorkspaceSavedViewsOperationDisabledReason(
       host,
       "visibility",
@@ -81,6 +86,7 @@ export function WorkspaceSavedViewsPane({
   ariaLabel = "Saved Views",
   className,
   initialFocusRef,
+  showTabBookmarks = false,
 }: WorkspaceSavedViewsPaneProps) {
   const host = useWorkspaceHost();
   const documentState = useWorkspaceDocument((state) => state);
@@ -96,7 +102,9 @@ export function WorkspaceSavedViewsPane({
   const [status, setStatus] = useState("");
   const createActionRef = useRef<HTMLButtonElement>(null);
   const unavailableFocusRef = useRef<HTMLElement>(null);
-  const viewButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const viewButtonRefs = useRef(
+    new Map<string, WorkspaceSavedViewFocusControl>(),
+  );
   const requestedFocusViewIdRef = useRef<string | null>(null);
   const disabledReasons = useWorkspaceSavedViewDisabledReasons(host);
   const lastViewDeleteReason =
@@ -150,7 +158,7 @@ export function WorkspaceSavedViewsPane({
 
   function registerViewButton(
     viewId: string,
-    element: HTMLButtonElement | null,
+    element: WorkspaceSavedViewFocusControl | null,
   ): void {
     if (element) {
       viewButtonRefs.current.set(viewId, element);
@@ -229,6 +237,19 @@ export function WorkspaceSavedViewsPane({
     }
   }
 
+  function setTabVisibility(view: WorkspaceSavedView, visible: boolean): void {
+    const result = setWorkspaceSavedViewTabVisibility(host, view.id, visible);
+    if (result.status !== "unavailable") {
+      setStatus(
+        visible
+          ? `${view.name} is shown as a tab.`
+          : `${view.name} is no longer shown as a tab.`,
+      );
+      return;
+    }
+    setStatus(getUnavailableMessage(disabledReasons.tab));
+  }
+
   function toggleEditing(): void {
     const nextEditing = !editing;
     if (!setWorkspaceSavedViewEditing(host, nextEditing)) {
@@ -293,6 +314,7 @@ export function WorkspaceSavedViewsPane({
           move,
           renameView,
           reorderView,
+          setTabVisibility,
           validateName: (view, draft) =>
             getNameValidationError(view.id, draft, views),
         }}
@@ -301,6 +323,7 @@ export function WorkspaceSavedViewsPane({
         editing={editing}
         lastViewDeleteReason={lastViewDeleteReason}
         registerViewButton={registerViewButton}
+        showTabBookmarks={showTabBookmarks}
         views={views}
       />
       <p aria-live="polite" className="sr-only">

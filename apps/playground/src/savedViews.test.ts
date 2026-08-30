@@ -18,9 +18,9 @@ describe("playground saved views", () => {
     expect(getWorkspaceSavedViewsState(host)).toMatchObject({
       activeViewId: "overview",
       views: {
-        overview: { name: "Overview", sortIndex: 0 },
-        content: { name: "Content", sortIndex: 1 },
-        controls: { name: "Controls", sortIndex: 2 },
+        overview: { isTab: true, name: "Overview", sortIndex: 0 },
+        content: { isTab: true, name: "Content", sortIndex: 1 },
+        controls: { isTab: true, name: "Controls", sortIndex: 2 },
       },
     });
 

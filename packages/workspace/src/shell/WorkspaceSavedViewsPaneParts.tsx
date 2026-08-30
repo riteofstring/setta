@@ -7,7 +7,15 @@ import {
   useRef,
   useState,
 } from "react";
-import { FiBookmark, FiCheck, FiEdit3, FiPlus, FiTrash2 } from "react-icons/fi";
+import {
+  FiBookmark,
+  FiCheck,
+  FiCheckCircle,
+  FiCircle,
+  FiEdit3,
+  FiPlus,
+  FiTrash2,
+} from "react-icons/fi";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import type { WorkspaceSavedView } from "../document/types";
 
@@ -17,6 +25,7 @@ export type WorkspaceSavedViewDisabledReasons = {
   delete: string | null;
   rename: string | null;
   reorder: string | null;
+  tab: string | null;
   visibility: string | null;
 };
 
@@ -26,6 +35,7 @@ type WorkspaceSavedViewActions = {
   move: (view: WorkspaceSavedView, direction: -1 | 1) => void;
   renameView: (view: WorkspaceSavedView, draft: string) => string | null;
   reorderView: (view: WorkspaceSavedView, target: WorkspaceSavedView) => void;
+  setTabVisibility: (view: WorkspaceSavedView, visible: boolean) => void;
   validateName: (view: WorkspaceSavedView, draft: string) => string | null;
 };
 
@@ -42,11 +52,13 @@ function useWorkspaceSavedViewNameEditor({
   control,
   view,
   onRename,
+  registerInput,
   validateName,
 }: {
   control: { disabled: boolean; title: string };
   view: WorkspaceSavedView;
   onRename: (draft: string) => string | null;
+  registerInput: (element: HTMLInputElement | null) => void;
   validateName: (draft: string) => string | null;
 }) {
   const [draft, setDraft] = useState(view.name);
@@ -101,6 +113,7 @@ function useWorkspaceSavedViewNameEditor({
         aria-label={`Rename ${view.name}`}
         className="setta-workspace-saved-views-name-input"
         disabled={control.disabled}
+        ref={registerInput}
         title={control.title}
         value={draft}
         onBlur={submit}
@@ -123,23 +136,34 @@ function WorkspaceSavedViewActionButton({
   control,
   label,
   onClick,
+  pressed,
   tone,
 }: {
   children: ReactNode;
   control: { disabled: boolean; title: string };
   label: string;
   onClick: () => void;
+  pressed?: boolean;
   tone?: "danger";
 }) {
   return (
     <button
       aria-label={label}
+      aria-pressed={pressed}
       className="setta-workspace-saved-views-icon-button"
       data-tone={tone}
       disabled={control.disabled}
       title={control.title}
       type="button"
-      onClick={control.disabled ? undefined : onClick}
+      onClick={
+        control.disabled
+          ? undefined
+          : (event) => {
+              event.stopPropagation();
+              onClick();
+            }
+      }
+      onPointerDown={(event) => event.stopPropagation()}
     >
       {children}
     </button>
@@ -155,6 +179,7 @@ function WorkspaceSavedViewEditingRow({
   dropTarget,
   lastViewDeleteReason,
   registerViewButton,
+  showTabBookmarks,
   view,
   viewCount,
   onDragEnd,
@@ -185,10 +210,15 @@ function WorkspaceSavedViewEditingRow({
     disabledReasons.delete ?? lastViewDeleteReason,
     `Delete ${view.name}`,
   );
+  const tabControl = getControlState(
+    disabledReasons.tab,
+    view.isTab ? "Shown as a tab" : "Not shown as a tab",
+  );
   const nameEditor = useWorkspaceSavedViewNameEditor({
     control: renameControl,
     view,
     onRename: (draft) => actions.renameView(view, draft),
+    registerInput: (element) => registerViewButton(view.id, element),
     validateName: (draft) => actions.validateName(view, draft),
   });
 
@@ -234,18 +264,35 @@ function WorkspaceSavedViewEditingRow({
         <button
           aria-label={`Activate ${view.name}`}
           aria-pressed={active}
-          className="setta-workspace-saved-views-edit-activate"
+          className="setta-workspace-saved-views-select"
           disabled={activateControl.disabled}
-          ref={(element) => registerViewButton(view.id, element)}
           title={activateControl.title}
           type="button"
           onClick={
             activateControl.disabled ? undefined : () => actions.activate(view)
           }
         >
-          <FiBookmark aria-hidden="true" />
+          {active ? (
+            <FiCheckCircle aria-hidden="true" />
+          ) : (
+            <FiCircle aria-hidden="true" />
+          )}
         </button>
         {nameEditor.editor}
+        {showTabBookmarks ? (
+          <WorkspaceSavedViewActionButton
+            control={tabControl}
+            label={
+              view.isTab
+                ? `Hide ${view.name} from tabs`
+                : `Show ${view.name} as a tab`
+            }
+            pressed={view.isTab}
+            onClick={() => actions.setTabVisibility(view, !view.isTab)}
+          >
+            <FiBookmark aria-hidden="true" />
+          </WorkspaceSavedViewActionButton>
+        ) : null}
         <WorkspaceSavedViewActionButton
           control={deleteControl}
           label={`Delete ${view.name}`}
@@ -294,7 +341,6 @@ function WorkspaceSavedViewPresentationRow({
           activateControl.disabled ? undefined : () => actions.activate(view)
         }
       >
-        <FiBookmark aria-hidden="true" />
         <span>{view.name}</span>
       </button>
     </div>
@@ -309,8 +355,9 @@ type WorkspaceSavedViewsListProps = {
   lastViewDeleteReason: string | null;
   registerViewButton: (
     viewId: string,
-    element: HTMLButtonElement | null,
+    element: HTMLButtonElement | HTMLInputElement | null,
   ) => void;
+  showTabBookmarks: boolean;
   views: ReadonlyArray<WorkspaceSavedView>;
 };
 

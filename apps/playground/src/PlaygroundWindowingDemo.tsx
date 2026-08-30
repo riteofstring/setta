@@ -393,6 +393,7 @@ export function PlaygroundWindowingDemo({
         <WorkspaceShell
           ariaLabel="Playground workspace"
           includeBuiltInSavedViews={true}
+          includeSavedViewTabs={true}
           leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
           leadingTabs={leadingTabs}
           navigator={{}}

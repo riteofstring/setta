@@ -98,11 +98,14 @@ describe("WorkspaceSavedViewsPane", () => {
     registerSectionKinds(testWorkspace.host, {});
   });
 
-  async function render(): Promise<void> {
+  async function render(showTabBookmarks = false): Promise<void> {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          <WorkspaceSavedViewsPane initialFocusRef={initialFocusRef} />
+          <WorkspaceSavedViewsPane
+            initialFocusRef={initialFocusRef}
+            showTabBookmarks={showTabBookmarks}
+          />
         </WorkspaceTestProvider>,
       );
     });
@@ -166,6 +169,9 @@ describe("WorkspaceSavedViewsPane", () => {
     expect(initialFocusRef.current).toBe(getButton("Create view"));
     expect(
       container.querySelector('[aria-label="Delete Overview"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[aria-label="Show Overview as a tab"]'),
     ).toBeNull();
     await act(async () => {
       getButton("Edit saved view").click();
@@ -256,6 +262,33 @@ describe("WorkspaceSavedViewsPane", () => {
         '[data-testid="workspace-saved-view-drag-handle"]',
       ),
     ).toBeNull();
+  });
+
+  it("shows bookmark controls only when saved-view tabs are enabled", async () => {
+    loadDocument();
+    enableWorkspaceSavedViews(testWorkspace.host, {
+      id: "overview",
+      name: "Overview",
+    });
+    await render(true);
+
+    expect(
+      container.querySelector('[aria-label="Show Overview as a tab"]'),
+    ).toBeNull();
+    await act(async () => {
+      getButton("Edit saved view").click();
+    });
+    await act(async () => {
+      getButton("Show Overview as a tab").click();
+    });
+
+    expect(
+      testWorkspace.document.getState().savedViews?.views.overview?.isTab,
+    ).toBe(true);
+    expect(
+      getButton("Hide Overview from tabs").getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(getStatus().textContent).toBe("Overview is shown as a tab.");
   });
 
   it("ends edit mode when the pane is removed", async () => {

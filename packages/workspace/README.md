@@ -38,9 +38,9 @@ ends. A disposed host rejects later reads or writes.
 
 - `WorkspaceShell` is the package-owned integrated surface. It composes the canvas, controls,
   tooltip, logical leading/trailing rails, controlled panes, the built-in leading Outline, the
-  optional leading Saved Views pane, and the built-in trailing Inspector. Supplying `navigator`
-  also mounts the package-owned global Find and command palette. Hosts register additional typed
-  tabs with icons and content rendered from public props only. Its optional
+  optional leading Saved Views pane, the optional saved-view tab strip, and the built-in trailing
+  Inspector. Supplying `navigator` also mounts the package-owned global Find and command palette.
+  Hosts register additional typed tabs with icons and content rendered from public props only. Its optional
   `sectionTagColorPalette` is the complete host-supplied set of named Inspector categories;
   omitting it uses the captured package defaults.
 - `createWorkspaceShellViewState` creates the initial serializable pane state. Hosts own that value
@@ -143,6 +143,9 @@ documented content ownership and contain overscroll at the window boundary.
 The bottom dock uses the measured usable area between shell panes. Open dock panels shrink to their
 reference minimum before overflowing into the recovery strip; narrower hosts progressively use
 full pills, compact pills, cycle controls, and a menu. Minimized windows reopen from the strip.
+When saved-view tabs are visible, the integrated shell adds their height to the windowing viewport
+inset; a host-composed `windowManager` layer is constrained above the same strip. Docked panels,
+recovery pills, maximized windows, and floating bounds therefore share one bottom boundary.
 The window manager appears only when a closed instance or a width-hidden dock panel needs recovery.
 When present, it lists every instance, can focus visible windows, and can reopen closed windows.
 For editable section instances it can also move between canvas and floating placement or hide the
@@ -219,6 +222,13 @@ components, and render functions. The selected tab, visibility, current width, r
 width, Outline disclosure, and Outline keyboard focus are controlled serializable view state,
 deliberately separate from the canonical workspace document.
 
+`includeSavedViewTabs={true}` enables saved-view bookmarking and the package-owned bottom tab
+strip. It is independent of `includeBuiltInSavedViews`: the pane shows bookmark controls in Edit
+mode only when both are enabled, while a host can manage `isTab` headlessly and expose the tab
+strip without the built-in pane. The default `false` hides bookmark controls, ignores `isTab` for
+shell presentation, and reserves no bottom space. The strip itself appears only while at least one
+view is bookmarked.
+
 ```tsx
 const leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
   {
@@ -253,6 +263,7 @@ function HostWorkspace() {
   return (
     <WorkspaceShell
       includeBuiltInSavedViews
+      includeSavedViewTabs
       leadingTabs={leadingTabs}
       navigator={{}}
       sectionTagColorPalette={sectionTagColorPalette}
@@ -308,7 +319,8 @@ creating a second document subscription.
 ## Saved canvas views
 
 Saved views are opt-in named presentations of one workspace document. Each view owns a complete
-top-level layout, camera, and exact visibility value for every section. Section identity,
+top-level layout, camera, exact visibility value for every section, and an `isTab` bookmark value.
+Section identity,
 hierarchy, content, item values, authored sizes, shell panes, managed windows, diagnostics, and
 application runtime remain shared. Outside saved-view editing, a hidden parent removes its rendered
 subtree. The pane's Edit mode projects hidden sections on the canvas with reduced opacity and
@@ -317,7 +329,7 @@ rename, reorder, and delete controls. Section inclusion remains on the canvas in
 duplicated as a hierarchy in the pane. Inline name drafts validate as the user types; blur or Enter
 restores the last valid name when a draft is invalid, while Escape cancels the draft.
 
-The Playground provides three concrete examples: Overview shows the whole fixture, Content shows
+The Playground provides three bookmarked examples: Overview shows the whole fixture, Content shows
 only the item, code, and rendered/source text sections in a focused arrangement, and Controls shows
 only the meta-control sections in a compact grid. Switching among them changes what is visible,
 where the visible roots sit, and the camera without cloning any section data.
@@ -340,13 +352,15 @@ host.loadDocument({
   ...documentBase,
   savedViews: createWorkspaceSavedViewsState(documentBase, {
     id: "overview",
+    isTab: true,
     name: "Overview",
   }),
 });
 ```
 
-The public headless operations create, activate, rename, delete, reorder, and change visibility for
-views against an explicit host. `getWorkspaceSavedViewsOperationDisabledReason` exposes the same
+The public headless operations create, activate, rename, delete, reorder, change visibility, and
+set tab visibility for views against an explicit host. `setWorkspaceSavedViewTabVisibility` owns
+the bookmark mutation. `getWorkspaceSavedViewsOperationDisabledReason` exposes the same
 availability used by the pane. Management and visibility changes require `canEditLayout`;
 activation remains available in read-only layout mode because it selects an existing presentation.
 The last view cannot be deleted. Edit mode is host-scoped presentation runtime rather than
@@ -368,8 +382,9 @@ projects the persisted active layout and camera coherently. Persist later accept
 values from the ordinary host subscription.
 
 Saved views affect canvas sections. Shell pane state remains in `WorkspaceShellViewState`, and
-Window Spaces remain arrangements of managed floating and docked windows. View management and
-activation are intentionally excluded from structural history.
+Window Spaces remain arrangements of managed floating and docked windows. Bookmarking changes
+only which saved views receive shell tabs; it does not include managed windows in a saved view.
+View management and activation are intentionally excluded from structural history.
 
 ## Global Find and command palette
 

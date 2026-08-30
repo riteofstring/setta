@@ -57,6 +57,8 @@ export type WorkspaceShellProps = {
 
   includeBuiltInSavedViews?: boolean;
 
+  includeSavedViewTabs?: boolean;
+
   navigator?: WorkspaceNavigatorConfiguration;
 
   windowManager?: ReactNode;

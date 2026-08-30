@@ -48,14 +48,18 @@ nonserializable effects cross explicit registries and never enter `WorkspaceDocu
 Workspace owns saved canvas views because it already owns top-level geometry, viewport
 publication, section hierarchy, selection, focus, and rendered-node projection. An enabled
 document has one active saved view; each view contains a complete root layout, camera, and exact
-per-section visibility. Section records, hierarchy, authored sizes, item values, shell pane state,
-managed windows, diagnostics, and application runtime remain shared. A hidden ancestor suppresses
+per-section visibility plus whether it is bookmarked for optional shell-tab presentation. Section
+records, hierarchy, authored sizes, item values, shell pane state, managed windows, diagnostics,
+and application runtime remain shared. A hidden ancestor suppresses
 its rendered subtree in ordinary presentation. Host-scoped saved-view edit mode temporarily
 projects hidden roots and descendants at reduced opacity, admits them to focus and selection, and
 turns section controls and section commands into direct Show or Hide actions. Showing a descendant
 also restores its hidden ancestor path. The integrated pane keeps view switching compact, exposes
 management only in Edit mode, and leaves section inclusion with the canvas controls so the pane
-does not duplicate the document hierarchy.
+does not duplicate the document hierarchy. The optional saved-view tab surface alone exposes
+bookmark controls and renders bookmarked views at the bottom of the canvas. Its shell-owned height
+becomes the shared bottom boundary for integrated or host-composed window chrome, keeping docked
+windows and minimized-window recovery controls above the tab strip.
 
 The active view and the live top-level layout and viewport are one synchronized contract. Every
 live coordinate, measurement, stacking, or camera publication refreshes the active snapshot before

@@ -143,6 +143,7 @@ const INITIAL_TRAILING_TAB_ID = "details";
 function Harness({
   includeBuiltInInspector = true,
   includeBuiltInSavedViews = false,
+  includeSavedViewTabs = false,
   leadingPaneShiftsCanvas = true,
   navigator,
   onChange,
@@ -150,6 +151,7 @@ function Harness({
 }: {
   includeBuiltInInspector?: boolean;
   includeBuiltInSavedViews?: boolean;
+  includeSavedViewTabs?: boolean;
   leadingPaneShiftsCanvas?: boolean;
   navigator?: WorkspaceNavigatorConfiguration;
   onChange: (viewState: WorkspaceShellViewState) => void;
@@ -166,6 +168,7 @@ function Harness({
       ariaLabel="Test workspace"
       includeBuiltInInspector={includeBuiltInInspector}
       includeBuiltInSavedViews={includeBuiltInSavedViews}
+      includeSavedViewTabs={includeSavedViewTabs}
       leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
       leadingTabs={leadingTabs}
       navigator={navigator}
@@ -574,6 +577,47 @@ describe("WorkspaceShell", () => {
       "Saved views are not enabled for this workspace.",
     );
     expect(document.activeElement).toBe(pane);
+  });
+
+  it("renders opted-in saved-view tabs and reserves their custom window-manager inset", async () => {
+    await act(async () => {
+      enableWorkspaceSavedViews(testWorkspace.host, {
+        id: "overview",
+        isTab: true,
+        name: "Overview",
+      });
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {
+            <Harness
+              includeBuiltInSavedViews
+              includeSavedViewTabs
+              onChange={onChange}
+              windowManager={<div data-testid="host-window-manager" />}
+            />
+          }
+        </WorkspaceTestProvider>,
+      );
+    });
+    await resizeShell(800);
+
+    const tab = getButton("Overview");
+    const tabBar = host.querySelector<HTMLElement>(
+      '[data-testid="workspace-saved-view-tabs"]',
+    );
+    const manager = host.querySelector<HTMLElement>(
+      '[data-workspace-shell-window-manager="true"]',
+    );
+    const panel = host.querySelector<HTMLElement>(
+      '[role="tabpanel"][aria-label="Active saved view"]',
+    );
+    if (!tabBar || !manager || !panel) {
+      throw new Error("Expected saved-view tabs, panel, and window manager.");
+    }
+    expect(tab.getAttribute("role")).toBe("tab");
+    expect(tab.getAttribute("aria-selected")).toBe("true");
+    expect(tab.getAttribute("aria-controls")).toBe(panel.id);
+    expect(manager.style.insetBlockEnd).toBe("36px");
   });
 
   it("focuses the first saved-view activation control when layout editing is read-only", async () => {

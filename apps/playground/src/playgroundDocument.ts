@@ -698,6 +698,7 @@ function createPlaygroundSavedViews(
 ): WorkspaceSavedViewsState {
   const overviewState = createWorkspaceSavedViewsState(document, {
     id: "overview",
+    isTab: true,
     name: "Overview",
   });
   const overview = overviewState.views.overview;

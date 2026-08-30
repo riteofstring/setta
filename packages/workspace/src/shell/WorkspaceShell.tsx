@@ -12,7 +12,6 @@ import {
 } from "react";
 import { FiEdit3 } from "react-icons/fi";
 import { TbListTree } from "react-icons/tb";
-import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas";
 import { getReactFlowStore, useReactFlow } from "../canvas/store";
 import { shiftWorkspaceMapForLeadingPane } from "../canvas/viewportHelpers";
 import {
@@ -31,6 +30,11 @@ import { registerWorkspaceHostElement } from "../workspaceHostInternals";
 import { WorkspaceNavigator } from "../navigator/WorkspaceNavigator";
 import { WorkspaceInspector } from "./WorkspaceInspector";
 import { WorkspaceOutline } from "./WorkspaceOutline";
+import {
+  getWorkspaceShellSavedViewTabsHeight,
+  useHasWorkspaceShellSavedViewTabs,
+  WorkspaceShellCenter,
+} from "./WorkspaceShellCenter";
 import { WorkspaceShellPane } from "./WorkspaceShellPane";
 import { WorkspaceSavedViewsPane } from "./WorkspaceSavedViewsPane";
 import { WorkspaceSavedViewsIcon } from "./WorkspaceShellIcons";
@@ -90,6 +94,15 @@ type ShellFocusRegistry = {
   tabRefs: ShellTabRefs;
   panelRefs: ShellPanelRefs;
 };
+
+function getWorkspaceShellClassName(
+  scopeClassName: string,
+  className: string | undefined,
+): string {
+  return [scopeClassName, "setta-workspace-shell", className]
+    .filter(Boolean)
+    .join(" ");
+}
 
 function tabIndexForNavigationKey(
   key: string,
@@ -417,6 +430,7 @@ export function WorkspaceShell({
   className,
   includeBuiltInInspector = true,
   includeBuiltInSavedViews = false,
+  includeSavedViewTabs = false,
   leadingPaneShiftsCanvas = true,
   leadingTabs,
   navigator,
@@ -429,12 +443,17 @@ export function WorkspaceShell({
 }: WorkspaceShellProps) {
   assertWorkspaceShellWindowingConfiguration({ windowManager, windowing });
   const host = useWorkspaceHost();
+  const hasSavedViewTabs =
+    useHasWorkspaceShellSavedViewTabs(includeSavedViewTabs);
   const scopeClassName = useWorkspaceScopeClassName();
   const outlineInitialFocusRef = useRef<HTMLElement>(null);
   const savedViewsInitialFocusRef = useRef<HTMLElement>(null);
   const inspectorInitialFocusRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLElement>(null);
   const instanceId = `workspace-shell-${useId().replaceAll(":", "")}`;
+  const savedViewPanelId = `${instanceId}-saved-view-panel`;
+  const savedViewTabsHeight =
+    getWorkspaceShellSavedViewTabsHeight(hasSavedViewTabs);
   useWorkspaceFocusVisibility(rootRef);
   const [shellWidth, setShellWidth] = useState(0);
   const [liveViewState, setLiveViewState] =
@@ -509,13 +528,14 @@ export function WorkspaceShell({
               renderContent: () => (
                 <WorkspaceSavedViewsPane
                   initialFocusRef={savedViewsInitialFocusRef}
+                  showTabBookmarks={includeSavedViewTabs}
                 />
               ),
             },
             ...leadingTabs,
           ]
         : [outlineTab, ...leadingTabs],
-    [includeBuiltInSavedViews, leadingTabs, outlineTab],
+    [includeBuiltInSavedViews, includeSavedViewTabs, leadingTabs, outlineTab],
   );
   const inspectorTab = useMemo<WorkspaceShellTabDefinition>(
     () => ({
@@ -895,10 +915,13 @@ export function WorkspaceShell({
   };
 
   return (
-    <WorkspaceShellWindowingComposition windowing={windowing}>
+    <WorkspaceShellWindowingComposition
+      bottomInset={savedViewTabsHeight}
+      windowing={windowing}
+    >
       <section
         aria-label={ariaLabel}
-        className={`${scopeClassName} setta-workspace-shell${className ? ` ${className}` : ""}`}
+        className={getWorkspaceShellClassName(scopeClassName, className)}
         data-workspace-shell="true"
         ref={rootRef}
       >
@@ -911,9 +934,10 @@ export function WorkspaceShell({
           )}
           tabs={combinedLeadingTabs}
         />
-        <div className="setta-workspace-shell-center">
-          <WorkspaceCanvas />
-        </div>
+        <WorkspaceShellCenter
+          hasSavedViewTabs={hasSavedViewTabs}
+          savedViewPanelId={savedViewPanelId}
+        />
         <WorkspaceShellPane
           {...sharedPaneProps}
           pane="trailing"
@@ -933,6 +957,7 @@ export function WorkspaceShell({
           />
         ) : null}
         <WorkspaceShellWindowManagerLayer
+          bottomInset={savedViewTabsHeight}
           windowManager={windowManager}
           windowing={windowing}
         />
