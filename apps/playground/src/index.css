@@ -35,6 +35,58 @@ html.dark body {
   padding: 0.75rem 0 0;
 }
 
+.playground-focused-section-content {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.playground-focused-section-surface {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.playground-focused-section-route,
+.playground-focused-section-header-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--playground-border);
+  border-radius: 0.5rem;
+  padding: 0.4375rem 0.625rem;
+  color: var(--playground-text);
+  background: var(--playground-surface-raised);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.playground-focused-section-route:hover,
+.playground-focused-section-header-action:hover {
+  background: var(--playground-surface-hover);
+}
+
+.playground-focused-section-route:focus-visible,
+.playground-focused-section-header-action:focus-visible {
+  outline: 2px solid;
+  outline-offset: 2px;
+}
+
+.playground-focused-section-missing {
+  display: grid;
+  width: min(100%, 48rem);
+  align-self: flex-start;
+  margin: auto;
+  border: 1px solid var(--playground-border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  color: var(--playground-text);
+  background: var(--playground-surface);
+}
+
 html.dark .playground-shell {
   --playground-surface: hsl(220 24% 10% / 0.94);
   --playground-surface-raised: hsl(220 25% 12%);
@@ -638,6 +690,11 @@ html.dark .playground-section-option-control {
   .playground-shell {
     gap: 0.5rem;
     padding: 0.5rem 0 0;
+  }
+
+  .playground-focused-section-content {
+    padding-inline: 0.5rem;
+    padding-block-end: 0.5rem;
   }
 
   .playground-header {

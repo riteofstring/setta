@@ -14,7 +14,9 @@ const DEFAULT_URL = "http://localhost:5174/";
 const DEFAULT_VIEWPORT = { height: 696, width: 1_492 };
 const READY_TIMEOUT_MS = 15_000;
 
-const LAYOUT_SNAPSHOT_EXPRESSION = `(() => {
+function layoutSnapshotExpression(isFocusedSection) {
+  return `(() => {
+  const focusedSection = ${String(isFocusedSection)};
   const rect = (element) => {
     if (!element) {
       return null;
@@ -27,6 +29,30 @@ const LAYOUT_SNAPSHOT_EXPRESSION = `(() => {
       right: value.right,
       top: value.top,
       width: value.width,
+    };
+  };
+  const pixelValue = (value) => Number.parseFloat(value) || 0;
+  const contentBox = (element) => {
+    if (!element) {
+      return null;
+    }
+    const value = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    const leftInset =
+      pixelValue(style.borderLeftWidth) + pixelValue(style.paddingLeft);
+    const rightInset =
+      pixelValue(style.paddingRight) + pixelValue(style.borderRightWidth);
+    const topInset =
+      pixelValue(style.borderTopWidth) + pixelValue(style.paddingTop);
+    const bottomInset =
+      pixelValue(style.paddingBottom) + pixelValue(style.borderBottomWidth);
+    return {
+      bottom: value.bottom - bottomInset,
+      height: Math.max(0, value.height - topInset - bottomInset),
+      left: value.left + leftInset,
+      right: value.right - rightInset,
+      top: value.top + topInset,
+      width: Math.max(0, value.width - leftInset - rightInset),
     };
   };
   const approximatelyEqual = (left, right) => Math.abs(left - right) <= 1;
@@ -43,6 +69,20 @@ const LAYOUT_SNAPSHOT_EXPRESSION = `(() => {
   const flowElement = document.querySelector('.react-flow');
   const tabsElement = document.querySelector('[data-testid="workspace-saved-view-tabs"]');
   const minimapElement = document.querySelector('[data-testid="rf__minimap"]');
+  const focusedContentElement = document.querySelector(
+    '.playground-focused-section-content',
+  );
+  const focusedRootElement = document.querySelector(
+    '[data-workspace-standalone-section-surface="true"]',
+  );
+  const focusedInnerElement = focusedRootElement?.querySelector(
+    ':scope > [data-workspace-section-surface="true"]',
+  );
+  const focusedFrameElement = focusedInnerElement?.querySelector(':scope > div');
+  const focusedHeaderElement = focusedFrameElement?.querySelector(':scope > header');
+  const focusedBodyElement = focusedFrameElement?.querySelector(
+    ':scope > .section-main-full-w',
+  );
   const paneElements = Array.from(
     document.querySelectorAll('[data-workspace-shell-pane-region]'),
   );
@@ -52,6 +92,20 @@ const LAYOUT_SNAPSHOT_EXPRESSION = `(() => {
   const flow = rect(flowElement);
   const tabs = rect(tabsElement);
   const minimap = rect(minimapElement);
+  const focusedContent = rect(focusedContentElement);
+  const focusedContentRegion = contentBox(focusedContentElement);
+  const focusedRoot = rect(focusedRootElement);
+  const focusedInner = rect(focusedInnerElement);
+  const focusedFrame = rect(focusedFrameElement);
+  const focusedHeader = rect(focusedHeaderElement);
+  const focusedBody = rect(focusedBodyElement);
+  const focusedSections = Array.from(
+    focusedRootElement?.querySelectorAll('[data-section-id]') ?? [],
+  ).map((element) => ({
+    id: element.getAttribute('data-section-id'),
+    rect: rect(element),
+    sortable: element.hasAttribute('data-sortable-section-id'),
+  }));
   const panes = paneElements.map((element) => ({
     pane: element.getAttribute('data-workspace-shell-pane-region'),
     rect: rect(element),
@@ -59,41 +113,63 @@ const LAYOUT_SNAPSHOT_EXPRESSION = `(() => {
   const shellStyle = shellElement ? getComputedStyle(shellElement) : null;
   const minimapStyle = minimapElement ? getComputedStyle(minimapElement) : null;
   const tabsPresent = tabs !== null;
+  const shellAssertions = {
+    canvasAndFlowShareBounds: sameRect(canvas, flow),
+    minimapWithinFlow:
+      minimap === null || flow === null
+        ? null
+        : minimap.left >= flow.left - 1 &&
+          minimap.right <= flow.right + 1 &&
+          minimap.top >= flow.top - 1 &&
+          minimap.bottom <= flow.bottom + 1,
+    panesStopAboveTabs:
+      !tabsPresent
+        ? null
+        : panes.every(({ rect: paneRect }) =>
+            paneRect === null ? false : paneRect.bottom <= tabs.top + 1,
+          ),
+    tabsFollowFlow:
+      !tabsPresent || flow === null
+        ? null
+        : approximatelyEqual(flow.bottom, tabs.top),
+    tabsHaveReferenceHeight:
+      !tabsPresent ? null : approximatelyEqual(tabs.height, 36),
+    tabsSpanShell:
+      !tabsPresent || shell === null
+        ? null
+        : approximatelyEqual(tabs.left, shell.left) &&
+          approximatelyEqual(tabs.right, shell.right),
+  };
+  const focusedAssertions = {
+    focusedSurfaceFillsContent: sameRect(focusedContentRegion, focusedRoot),
+    focusedFrameFillsRoot: sameRect(focusedRoot, focusedFrame),
+  };
   return {
-    assertions: {
-      canvasAndFlowShareBounds: sameRect(canvas, flow),
-      minimapWithinFlow:
-        minimap === null || flow === null
-          ? null
-          : minimap.left >= flow.left - 1 &&
-            minimap.right <= flow.right + 1 &&
-            minimap.top >= flow.top - 1 &&
-            minimap.bottom <= flow.bottom + 1,
-      panesStopAboveTabs:
-        !tabsPresent
-          ? null
-          : panes.every(({ rect: paneRect }) =>
-              paneRect === null ? false : paneRect.bottom <= tabs.top + 1,
-            ),
-      tabsFollowFlow:
-        !tabsPresent || flow === null
-          ? null
-          : approximatelyEqual(flow.bottom, tabs.top),
-      tabsHaveReferenceHeight:
-        !tabsPresent ? null : approximatelyEqual(tabs.height, 36),
-      tabsSpanShell:
-        !tabsPresent || shell === null
-          ? null
-          : approximatelyEqual(tabs.left, shell.left) &&
-            approximatelyEqual(tabs.right, shell.right),
-    },
+    assertions: focusedSection ? focusedAssertions : shellAssertions,
     document: {
       devicePixelRatio: window.devicePixelRatio,
       readyState: document.readyState,
       title: document.title,
       url: location.href,
     },
-    rects: { canvas, center, flow, minimap, panes, shell, tabs },
+    mode: focusedSection ? "focused-section" : "workspace-shell",
+    rects: {
+      canvas,
+      center,
+      flow,
+      focusedBody,
+      focusedContent,
+      focusedContentRegion,
+      focusedFrame,
+      focusedHeader,
+      focusedInner,
+      focusedRoot,
+      focusedSections,
+      minimap,
+      panes,
+      shell,
+      tabs,
+    },
     styles: {
       minimap: minimapStyle
         ? {
@@ -112,6 +188,7 @@ const LAYOUT_SNAPSHOT_EXPRESSION = `(() => {
     },
   };
 })()`;
+}
 
 function argumentValue(name) {
   const index = process.argv.indexOf(`--${name}`);
@@ -143,6 +220,10 @@ function inspectionUrl() {
   return url.href;
 }
 
+function isFocusedSectionInspection(url) {
+  return new URL(url).searchParams.has("focused-section");
+}
+
 function screenshotPath() {
   const requested =
     argumentValue("screenshot") ??
@@ -164,14 +245,16 @@ async function evaluate(client, expression) {
   return response.result?.value;
 }
 
-async function waitForReady(client, requireTabs) {
+async function waitForReady(client, { focusedSection, requireTabs }) {
+  const surfaceReadyExpression = focusedSection
+    ? "document.querySelector('[data-workspace-standalone-section-surface=\"true\"]') !== null"
+    : "document.querySelector('[data-workspace-shell=\"true\"]') !== null && document.querySelector('.react-flow') !== null";
   const deadline = Date.now() + READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const ready = await evaluate(
       client,
       `document.readyState === "complete" &&
-        document.querySelector('[data-workspace-shell="true"]') !== null &&
-        document.querySelector('.react-flow') !== null &&
+        ${surfaceReadyExpression} &&
         (${String(requireTabs)} === false ||
           document.querySelector('[data-testid="workspace-saved-view-tabs"]') !== null)`,
     );
@@ -225,6 +308,7 @@ async function requireLiveUrl(url) {
 
 async function main() {
   const url = inspectionUrl();
+  const focusedSection = isFocusedSectionInspection(url);
   const viewport = {
     deviceScaleFactor: 1,
     height: positiveIntegerArgument("height", DEFAULT_VIEWPORT.height),
@@ -250,8 +334,11 @@ async function main() {
     const loaded = client.waitForEvent("Page.loadEventFired", READY_TIMEOUT_MS);
     await client.send("Page.navigate", { url });
     await loaded;
-    await waitForReady(client, requireTabs);
-    const geometry = await evaluate(client, LAYOUT_SNAPSHOT_EXPRESSION);
+    await waitForReady(client, { focusedSection, requireTabs });
+    const geometry = await evaluate(
+      client,
+      layoutSnapshotExpression(focusedSection),
+    );
     const screenshot = await client.send("Page.captureScreenshot", {
       captureBeyondViewport: false,
       format: "png",

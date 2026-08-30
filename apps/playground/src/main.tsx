@@ -7,6 +7,7 @@ import {
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { FocusedSectionApp } from "./FocusedSectionApp";
 import "./index.css";
 import {
   registerPlaygroundKeyBindings,
@@ -17,9 +18,16 @@ import { performanceProfileDocument } from "./performanceProfileDocument";
 import { playgroundDocument } from "./playgroundDocument";
 import { registerPlaygroundSectionKinds } from "./sectionKinds";
 
-const isPerformanceProfile = new URLSearchParams(window.location.search).has(
-  "performance-profile",
-);
+const searchParams = new URLSearchParams(window.location.search);
+const isPerformanceProfile = searchParams.has("performance-profile");
+const focusedSectionId = searchParams.get("focused-section");
+const requestedColorMode = searchParams.get("color-mode");
+if (requestedColorMode === "dark" || requestedColorMode === "light") {
+  document.documentElement.classList.toggle(
+    "dark",
+    requestedColorMode === "dark",
+  );
+}
 const workspaceHost = isPerformanceProfile
   ? createWorkspaceHost()
   : createWorkspaceHost({ history: { kind: "local" } });
@@ -46,7 +54,13 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <WorkspaceProvider host={workspaceHost}>
-      {isPerformanceProfile ? <PerformanceProfileApp /> : <App />}
+      {isPerformanceProfile ? (
+        <PerformanceProfileApp />
+      ) : focusedSectionId === null ? (
+        <App />
+      ) : (
+        <FocusedSectionApp sectionId={focusedSectionId} />
+      )}
     </WorkspaceProvider>
   </StrictMode>,
 );

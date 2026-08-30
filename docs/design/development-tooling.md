@@ -48,9 +48,12 @@ can corrupt the MCP transport stream; protocol stdout remains clean.
 
 `pnpm playground:inspect` launches an isolated headless Chrome target against an already running
 Playground. It does not build the package, start a server, or run an application test suite. The
-command waits for the real workspace shell and XYFlow surface, records their computed geometry,
-captures a viewport screenshot, reports browser exceptions and console errors, and exits nonzero
-when a measured layout invariant fails.
+default route waits for the real workspace shell and XYFlow surface, records their computed
+geometry, captures a viewport screenshot, reports browser exceptions and console errors, and exits
+nonzero when a measured layout invariant fails. A URL with `focused-section` selects the focused
+route inspection: it waits for the public standalone section root; records its content, frame,
+header, body, and descendant geometry; and requires both the root and section frame to fill their
+owners.
 
 The Playground resolves `@setta/workspace` from its built package. Start it with
 `pnpm --dir apps/playground dev`; that initial command builds the workspace. After any workspace
@@ -60,14 +63,20 @@ Vite process does not hot-reload unbuilt package source.
 The default target is `http://localhost:5174/`, the default viewport is 1492 by 696 CSS pixels, and
 the default screenshot is `/tmp/setta-playground-inspection.png`. Callers can provide `--url`,
 `--width`, `--height`, `--screenshot`, and `--chrome-binary`; `--require-tabs` additionally requires
-the saved-view tab strip. Browser-visible work is inspected through this command before handoff,
-and the resulting image is reviewed alongside the JSON receipt rather than inferred from source or
-build output.
+the saved-view tab strip in every route mode. Browser-visible work is inspected through this command
+before handoff, and the resulting image is reviewed alongside the JSON receipt rather than inferred
+from source or build output.
 
 ```sh
 pnpm playground:inspect -- --width 630 --height 364 --require-tabs \
   --screenshot /tmp/setta-playground-tabs.png
+pnpm playground:inspect -- \
+  --url 'http://localhost:5174/?focused-section=root-group&color-mode=light' \
+  --screenshot /tmp/setta-playground-focused-section.png
 ```
+
+The focused Playground route accepts `color-mode=light` or `color-mode=dark` so both appearances
+can be inspected deterministically.
 
 The inspection command and the production performance profile share one headless-Chrome lifecycle
 owner and the same CDP client. This keeps Chrome discovery, isolated profiles, startup timeouts,
