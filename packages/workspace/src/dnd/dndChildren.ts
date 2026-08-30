@@ -1,9 +1,10 @@
 import { createStore } from "zustand/vanilla";
 import { insertIntoArray } from "../document/arrayUtils";
+import { getSectionOrThrow } from "../document/documentSelectors";
 import {
-  getSectionOrThrow,
-  getTopLevelSectionIdsForDisplay,
-} from "../document/documentSelectors";
+  getVisibleSectionChildrenForDisplay,
+  getVisibleTopLevelSectionIdsForDisplay,
+} from "../document/savedViewDisplay";
 import {
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
@@ -185,13 +186,13 @@ export function getDisplayedSectionIdToChildren(
   state: WorkspaceDocumentState,
 ): Record<string, Array<string>> {
   const output: Record<string, Array<string>> = {};
-  const pending = [...getTopLevelSectionIdsForDisplay(state)];
+  const pending = [...getVisibleTopLevelSectionIdsForDisplay(state)];
   while (pending.length > 0) {
     const sectionId = pending.pop();
     if (sectionId === undefined) {
       break;
     }
-    const children = getSectionOrThrow(state, sectionId).children;
+    const children = getVisibleSectionChildrenForDisplay(state, sectionId);
     output[sectionId] = [...children];
     pending.push(...children);
   }

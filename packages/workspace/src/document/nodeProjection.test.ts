@@ -56,6 +56,7 @@ function makeDocumentState(
     sections: { leaf: makeSection("leaf") },
     topLevelSections: { leaf: { x: 10, y: 20, w: 224, h: 96, zIndex: 3 } },
     viewport: { x: 0, y: 0, zoom: 1 },
+    savedViews: null,
     parentSectionMap: {},
     ...overrides,
   };

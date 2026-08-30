@@ -1,6 +1,7 @@
 import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
 import { getWorkspaceDocumentStore } from "../document/stores";
+import { isWorkspaceSectionVisible } from "../document/savedViewDisplay";
 import type { Position } from "../document/types";
 import { prefersReducedWorkspaceMotion } from "../styles/motion";
 import type { WorkspaceHost } from "../workspaceHost";
@@ -239,8 +240,12 @@ export function focusWorkspaceSection(
   host: WorkspaceHost,
   sectionId: string,
 ): void {
-  if (!getWorkspaceDocumentStore(host).getState().sections[sectionId]) {
+  const documentState = getWorkspaceDocumentStore(host).getState();
+  if (!documentState.sections[sectionId]) {
     throw new Error(`Cannot focus unknown workspace section ${sectionId}.`);
+  }
+  if (!isWorkspaceSectionVisible(documentState, sectionId)) {
+    throw new Error(`Cannot focus hidden workspace section ${sectionId}.`);
   }
   const rect = getSectionRect(host, sectionId);
   if (!rect) {

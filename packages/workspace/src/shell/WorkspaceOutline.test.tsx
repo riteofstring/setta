@@ -112,6 +112,7 @@ function loadOutlineDocument(): void {
     },
     viewport: null,
     parentSectionMap: { bravo: "alpha", charlie: "alpha" },
+    savedViews: null,
   });
   testWorkspace.nodeInternals.setState({
     x: new Map([
@@ -266,6 +267,41 @@ describe("WorkspaceOutline", () => {
         .querySelector('[data-testid="leaf-icon"]')
         ?.getAttribute("data-icon-section-id"),
     ).toBe("bravo");
+  });
+
+  it("removes hidden nested branches while retaining the active view's visible rows", async () => {
+    const state = testWorkspace.document.getState();
+    await act(async () => {
+      testWorkspace.document.setState({
+        savedViews: {
+          activeViewId: "overview",
+          views: {
+            overview: {
+              id: "overview",
+              name: "Overview",
+              sectionVisibility: {
+                alpha: true,
+                bravo: false,
+                charlie: true,
+                echo: true,
+              },
+              sortIndex: 0,
+              topLevelSections: { ...state.topLevelSections },
+              viewport: null,
+            },
+          },
+        },
+      });
+    });
+
+    expect(
+      Array.from(host.querySelectorAll('[role="treeitem"]')).map((row) =>
+        row.getAttribute("data-workspace-outline-item"),
+      ),
+    ).toEqual(["alpha", "charlie", "echo"]);
+    expect(
+      host.querySelector('[data-workspace-outline-item="bravo"]'),
+    ).toBeNull();
   });
 
   it("filters fuzzy section names, reveals matching paths, and restores collapsed state", async () => {

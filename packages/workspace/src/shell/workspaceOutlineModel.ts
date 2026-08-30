@@ -1,9 +1,12 @@
 import { matchSorter } from "match-sorter";
 import {
   getSectionOrThrow,
-  getTopLevelSectionIdsForDisplay,
   isGroupSection,
 } from "../document/documentSelectors";
+import {
+  getVisibleSectionChildrenForDisplay,
+  getVisibleTopLevelSectionIdsForDisplay,
+} from "../document/savedViewDisplay";
 import type { WorkspaceDocumentState } from "../document/stores";
 import type { WorkspaceSection } from "../document/types";
 
@@ -32,7 +35,12 @@ function createNodes(
       depth,
       positionInSet: index + 1,
       setSize: sectionIds.length,
-      children: createNodes(state, section.children, sectionId, depth + 1),
+      children: createNodes(
+        state,
+        getVisibleSectionChildrenForDisplay(state, sectionId),
+        sectionId,
+        depth + 1,
+      ),
     };
   });
 }
@@ -40,7 +48,12 @@ function createNodes(
 export function createWorkspaceOutlineTree(
   state: WorkspaceDocumentState,
 ): Array<WorkspaceOutlineNode> {
-  return createNodes(state, getTopLevelSectionIdsForDisplay(state), null, 0);
+  return createNodes(
+    state,
+    getVisibleTopLevelSectionIdsForDisplay(state),
+    null,
+    0,
+  );
 }
 
 export function filterWorkspaceOutlineTree(

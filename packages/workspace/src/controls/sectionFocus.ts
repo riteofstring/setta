@@ -1,5 +1,8 @@
 import { getReactFlowStore } from "../canvas/store";
-import { getTopLevelSectionIdsForDisplay } from "../document/documentSelectors";
+import {
+  getVisibleSectionChildrenForDisplay,
+  getVisibleTopLevelSectionIdsForDisplay,
+} from "../document/savedViewDisplay";
 import {
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
@@ -64,9 +67,9 @@ export function resolveSectionFocusAfterRemoval(
         `Section ${sectionId} references unknown parent ${parentId}.`,
       );
     }
-    siblings = parent.children;
+    siblings = getVisibleSectionChildrenForDisplay(state, parentId);
   } else {
-    siblings = getTopLevelSectionIdsForDisplay(state);
+    siblings = getVisibleTopLevelSectionIdsForDisplay(state);
   }
   const index = siblings.indexOf(sectionId);
   if (index === -1) {

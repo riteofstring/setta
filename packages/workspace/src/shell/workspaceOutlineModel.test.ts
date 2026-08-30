@@ -45,6 +45,7 @@ function createDocument(): WorkspaceDocumentState {
       echo: { x: 300, y: 0, w: 200, h: 100, zIndex: 1 },
     },
     viewport: null,
+    savedViews: null,
     parentSectionMap: {
       bravo: "alpha",
       "group-charlie": "alpha",
@@ -85,6 +86,36 @@ describe("workspace Outline model", () => {
       ),
     ).toEqual(["alpha", "bravo", "group-charlie", "echo"]);
     expect(tree[0]?.children[1]?.children[0]?.section.id).toBe("delta");
+  });
+
+  it("omits hidden branches while retaining visible siblings", () => {
+    const state = createDocument();
+    state.savedViews = {
+      activeViewId: "overview",
+      views: {
+        overview: {
+          id: "overview",
+          name: "Overview",
+          sectionVisibility: {
+            alpha: true,
+            bravo: true,
+            "group-charlie": false,
+            delta: true,
+            echo: true,
+          },
+          sortIndex: 0,
+          topLevelSections: { ...state.topLevelSections },
+          viewport: null,
+        },
+      },
+    };
+
+    expect(
+      getWorkspaceOutlineVisibleEntries(
+        createWorkspaceOutlineTree(state),
+        [],
+      ).map((entry) => entry.section.id),
+    ).toEqual(["alpha", "bravo", "echo"]);
   });
 
   it("fuzzy-filters names while retaining canonical ancestor paths", () => {

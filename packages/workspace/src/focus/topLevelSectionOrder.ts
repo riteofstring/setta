@@ -1,4 +1,4 @@
-import { getTopLevelSectionIdsForDisplay } from "../document/documentSelectors";
+import { getVisibleTopLevelSectionIdsForDisplay } from "../document/savedViewDisplay";
 import { getWorkspaceDocumentStore } from "../document/stores";
 import type { WorkspaceHost } from "../workspaceHost";
 
@@ -6,7 +6,7 @@ export function getOrderedTopLevelSectionIds(
   host: WorkspaceHost,
 ): Array<string> {
   const state = getWorkspaceDocumentStore(host).getState();
-  return getTopLevelSectionIdsForDisplay(state)
+  return getVisibleTopLevelSectionIdsForDisplay(state)
     .map((sectionId) => {
       const layout = state.topLevelSections[sectionId];
       if (!layout) {

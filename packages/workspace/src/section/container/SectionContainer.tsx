@@ -4,6 +4,7 @@ import {
   getSectionOrThrow,
   isGroupSection,
 } from "../../document/documentSelectors";
+import { isWorkspaceSectionVisible } from "../../document/savedViewDisplay";
 import {
   canWorkspaceSectionOwnNestedSections,
   getRegisteredSectionKindOrThrow,
@@ -27,6 +28,9 @@ function SectionContainerComponent({
   dragListeners?: SectionDragListeners;
 }) {
   const host = useWorkspaceHost();
+  const visible = useWorkspaceDocument((x) =>
+    isWorkspaceSectionVisible(x, sectionId),
+  );
   const isGroup = useWorkspaceDocument((x) =>
     isGroupSection(getSectionOrThrow(x, sectionId)),
   );
@@ -43,6 +47,10 @@ function SectionContainerComponent({
     definition !== null && definition.presentation === undefined
       ? definition.renderAttachedContent
       : undefined;
+
+  if (!visible) {
+    return null;
+  }
 
   return (
     <ContainerSwitch

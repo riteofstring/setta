@@ -6,6 +6,7 @@ import type {
 
 export const WORKSPACE_SHELL_CLOSED_PANE_WIDTH = 40;
 export const WORKSPACE_OUTLINE_TAB_ID = "outline";
+export const WORKSPACE_SAVED_VIEWS_TAB_ID = "saved-views";
 export const WORKSPACE_INSPECTOR_TAB_ID = "inspector";
 const WORKSPACE_SHELL_INITIAL_LEADING_WIDTH = 335;
 const WORKSPACE_SHELL_INITIAL_TRAILING_WIDTH = 500;

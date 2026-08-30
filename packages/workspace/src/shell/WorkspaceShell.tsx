@@ -32,6 +32,8 @@ import { WorkspaceNavigator } from "../navigator/WorkspaceNavigator";
 import { WorkspaceInspector } from "./WorkspaceInspector";
 import { WorkspaceOutline } from "./WorkspaceOutline";
 import { WorkspaceShellPane } from "./WorkspaceShellPane";
+import { WorkspaceSavedViewsPane } from "./WorkspaceSavedViewsPane";
+import { WorkspaceSavedViewsIcon } from "./WorkspaceShellIcons";
 import {
   assertWorkspaceShellWindowingConfiguration,
   WorkspaceShellWindowManagerLayer,
@@ -48,6 +50,7 @@ import {
   toggleWorkspaceShellPaneFullWidth,
   WORKSPACE_INSPECTOR_TAB_ID,
   WORKSPACE_OUTLINE_TAB_ID,
+  WORKSPACE_SAVED_VIEWS_TAB_ID,
 } from "./workspaceShellLayout";
 import type {
   WorkspaceShellPane as WorkspaceShellPaneSide,
@@ -413,6 +416,7 @@ export function WorkspaceShell({
   ariaLabel = "Workspace",
   className,
   includeBuiltInInspector = true,
+  includeBuiltInSavedViews = false,
   leadingPaneShiftsCanvas = true,
   leadingTabs,
   navigator,
@@ -427,6 +431,7 @@ export function WorkspaceShell({
   const host = useWorkspaceHost();
   const scopeClassName = useWorkspaceScopeClassName();
   const outlineInitialFocusRef = useRef<HTMLElement>(null);
+  const savedViewsInitialFocusRef = useRef<HTMLElement>(null);
   const inspectorInitialFocusRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLElement>(null);
   const instanceId = `workspace-shell-${useId().replaceAll(":", "")}`;
@@ -492,8 +497,25 @@ export function WorkspaceShell({
     [requestViewState, viewState.outline],
   );
   const combinedLeadingTabs = useMemo(
-    () => [outlineTab, ...leadingTabs],
-    [leadingTabs, outlineTab],
+    () =>
+      includeBuiltInSavedViews
+        ? [
+            outlineTab,
+            {
+              id: WORKSPACE_SAVED_VIEWS_TAB_ID,
+              label: "Saved Views",
+              icon: WorkspaceSavedViewsIcon,
+              initialFocusRef: savedViewsInitialFocusRef,
+              renderContent: () => (
+                <WorkspaceSavedViewsPane
+                  initialFocusRef={savedViewsInitialFocusRef}
+                />
+              ),
+            },
+            ...leadingTabs,
+          ]
+        : [outlineTab, ...leadingTabs],
+    [includeBuiltInSavedViews, leadingTabs, outlineTab],
   );
   const inspectorTab = useMemo<WorkspaceShellTabDefinition>(
     () => ({

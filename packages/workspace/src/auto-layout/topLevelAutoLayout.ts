@@ -1,5 +1,5 @@
 import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { getTopLevelSectionIdsForDisplay } from "../document/documentSelectors";
+import { getVisibleTopLevelSectionIdsForDisplay } from "../document/savedViewDisplay";
 import { commitWorkspaceDocumentMutation } from "../document/loadWorkspaceDocument";
 import {
   getNodeInternalsStore,
@@ -140,7 +140,7 @@ function prepareAutoLayout(
     return { kind: "capability", reason: LAYOUT_DISABLED_REASON };
   }
   const state = getWorkspaceDocumentStore(host).getState();
-  const sectionIds = getTopLevelSectionIdsForDisplay(state);
+  const sectionIds = getVisibleTopLevelSectionIdsForDisplay(state);
   const movableCount = countMovableRectangles(state, sectionIds);
   if (movableCount === null) {
     return { kind: "geometry", reason: GEOMETRY_DISABLED_REASON };

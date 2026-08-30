@@ -98,6 +98,7 @@ function loadSelectionDocument(activeIds: Array<string>) {
     },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds,
+    savedViews: null,
   });
   documentChangeSpy.mockClear();
   testWorkspace.host.subscribe(documentChangeSpy);
@@ -216,5 +217,36 @@ describe("select-all actions", () => {
 
     expect(getActiveSectionIds(testWorkspace.host)).toEqual(["panel", "bare"]);
     expect(documentChangeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("selects only sections visible in the active saved view", () => {
+    loadSelectionDocument([]);
+    const state = testWorkspace.document.getState();
+    testWorkspace.document.setState({
+      savedViews: {
+        activeViewId: "overview",
+        views: {
+          overview: {
+            id: "overview",
+            name: "Overview",
+            sectionVisibility: {
+              bare: false,
+              group: true,
+              grouped: false,
+              panel: true,
+            },
+            sortIndex: 0,
+            topLevelSections: { ...state.topLevelSections },
+            viewport: state.viewport === null ? null : { ...state.viewport },
+          },
+        },
+      },
+    });
+
+    expect(selectAllInWorkspace(testWorkspace.host)).toBe(true);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["panel", "group"]);
+
+    selectAllTopLevelNonGroupSections(testWorkspace.host);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["panel"]);
   });
 });

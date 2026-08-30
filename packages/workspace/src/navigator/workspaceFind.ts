@@ -2,7 +2,11 @@ import { matchSorter } from "match-sorter";
 import { getSectionRect } from "../canvas/graph";
 import { focusWorkspaceSection } from "../canvas/viewportHelpers";
 import { getReactFlowStore } from "../canvas/store";
-import { getTopLevelSectionIdsForDisplay } from "../document/documentSelectors";
+import {
+  getVisibleSectionChildrenForDisplay,
+  getVisibleTopLevelSectionIdsForDisplay,
+  isWorkspaceSectionVisible,
+} from "../document/savedViewDisplay";
 import { getItemOrThrow } from "../document/itemTree";
 import {
   getWorkspaceItemSearchableText,
@@ -190,12 +194,15 @@ function collectWorkspaceFindResults(
     results.push(
       ...collectWorkspaceFindItems(host, section, sectionBreadcrumb),
     );
-    for (const childId of section.children) {
+    for (const childId of getVisibleSectionChildrenForDisplay(
+      state,
+      sectionId,
+    )) {
       visit(childId, sectionBreadcrumb);
     }
   }
 
-  for (const sectionId of getTopLevelSectionIdsForDisplay(state)) {
+  for (const sectionId of getVisibleTopLevelSectionIdsForDisplay(state)) {
     visit(sectionId, []);
   }
   return results;
@@ -208,6 +215,9 @@ function getWorkspaceFindSectionFocusUnavailableMessage(
   const documentState = getWorkspaceDocumentStore(host).getState();
   if (!documentState.sections[sectionId]) {
     return "This result is no longer available.";
+  }
+  if (!isWorkspaceSectionVisible(documentState, sectionId)) {
+    return "This section is hidden in the active saved view.";
   }
   const sectionRect = getSectionRect(host, sectionId);
   if (!sectionRect) {
@@ -247,11 +257,14 @@ function hasLiveWorkspaceFindItem(
   sectionId: string,
   itemId: string,
 ): boolean {
-  const section =
-    getWorkspaceDocumentStore(host).getState().sections[sectionId];
+  const documentState = getWorkspaceDocumentStore(host).getState();
+  const section = documentState.sections[sectionId];
   const itemTree = section?.itemTree;
   return Boolean(
-    itemTree && itemId !== itemTree.rootId && itemTree.items[itemId],
+    isWorkspaceSectionVisible(documentState, sectionId) &&
+    itemTree &&
+    itemId !== itemTree.rootId &&
+    itemTree.items[itemId],
   );
 }
 

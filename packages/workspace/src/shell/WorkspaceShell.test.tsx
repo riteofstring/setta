@@ -141,12 +141,14 @@ const INITIAL_TRAILING_TAB_ID = "details";
 
 function Harness({
   includeBuiltInInspector = true,
+  includeBuiltInSavedViews = false,
   leadingPaneShiftsCanvas = true,
   navigator,
   onChange,
   windowManager,
 }: {
   includeBuiltInInspector?: boolean;
+  includeBuiltInSavedViews?: boolean;
   leadingPaneShiftsCanvas?: boolean;
   navigator?: WorkspaceNavigatorConfiguration;
   onChange: (viewState: WorkspaceShellViewState) => void;
@@ -162,6 +164,7 @@ function Harness({
     <WorkspaceShell
       ariaLabel="Test workspace"
       includeBuiltInInspector={includeBuiltInInspector}
+      includeBuiltInSavedViews={includeBuiltInSavedViews}
       leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
       leadingTabs={leadingTabs}
       navigator={navigator}
@@ -539,6 +542,37 @@ describe("WorkspaceShell", () => {
     expect(tree?.tabIndex).toBe(0);
     expect(document.activeElement).toBe(filter);
     expect(getButton("Outline").getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("adds the opt-in saved-views tab after Outline and renders its unavailable state", async () => {
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<Harness includeBuiltInSavedViews onChange={onChange} />}
+        </WorkspaceTestProvider>,
+      );
+    });
+    await resizeShell(800);
+
+    expect(
+      Array.from(
+        host.querySelectorAll<HTMLButtonElement>(
+          '[data-workspace-shell-rail="leading"] button[role="tab"]',
+        ),
+      ).map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Outline", "Saved Views", "Notes", "Guide"]);
+
+    await act(async () => {
+      getButton("Saved Views").click();
+    });
+
+    const pane = host.querySelector<HTMLElement>(
+      '[data-testid="workspace-saved-views-pane"]',
+    );
+    expect(pane?.textContent).toContain(
+      "Saved views are not enabled for this workspace.",
+    );
+    expect(document.activeElement).toBe(pane);
   });
 
   it("prepends the built-in Inspector and focuses its reference empty state", async () => {

@@ -1,9 +1,7 @@
 import type { CSSProperties } from "react";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
-import {
-  getSectionOrThrow,
-  getTopLevelSectionIdsForDisplay,
-} from "./documentSelectors";
+import { getSectionOrThrow } from "./documentSelectors";
+import { getVisibleTopLevelSectionIdsForDisplay } from "./savedViewDisplay";
 import {
   getWorkspaceAppearanceStore,
   type NodeInternalsState,
@@ -93,7 +91,7 @@ export function createNodesMapFromDocumentChildren(
 ): Map<string, Node> {
   const nodesMap: Map<string, Node> = new Map();
   const darkMode = getWorkspaceAppearanceStore(host).getState().darkMode;
-  for (const sectionId of getTopLevelSectionIdsForDisplay(state)) {
+  for (const sectionId of getVisibleTopLevelSectionIdsForDisplay(state)) {
     const layout = state.topLevelSections[sectionId];
     if (!layout) {
       throw new Error(`Missing top-level layout for section ${sectionId}.`);

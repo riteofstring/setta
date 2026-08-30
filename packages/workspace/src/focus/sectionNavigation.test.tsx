@@ -82,6 +82,7 @@ function loadNavigationDocument() {
     },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
+    savedViews: null,
   });
 }
 
@@ -179,6 +180,37 @@ describe("focusAdjacentTopLevelSection", () => {
     expect(focusAdjacentTopLevelSection(testWorkspace.host, -1)).toBe(true);
     expect(document.activeElement).toBe(requireControl("bottom"));
     expect(getActiveSectionIds(testWorkspace.host)).toEqual(["bottom"]);
+  });
+
+  it("skips hidden top-level sections while navigating canvas focus", () => {
+    mountAllSections();
+    const state = testWorkspace.document.getState();
+    testWorkspace.document.setState({
+      savedViews: {
+        activeViewId: "overview",
+        views: {
+          overview: {
+            id: "overview",
+            name: "Overview",
+            sectionVisibility: {
+              bottom: true,
+              middle: true,
+              nested: true,
+              top: false,
+            },
+            sortIndex: 0,
+            topLevelSections: { ...state.topLevelSections },
+            viewport: state.viewport === null ? null : { ...state.viewport },
+          },
+        },
+      },
+    });
+
+    expect(focusAdjacentTopLevelSection(testWorkspace.host, 1)).toBe(true);
+    expect(document.activeElement).toBe(
+      scopeRoot.querySelector('[data-id="middle"]'),
+    );
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["middle"]);
   });
 
   it("walks forwards and backwards from the section the keyboard is inside", () => {

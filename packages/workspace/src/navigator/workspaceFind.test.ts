@@ -90,6 +90,7 @@ function installDocument({
     sections,
     topLevelSections,
     viewport: null,
+    savedViews: null,
   });
 }
 
@@ -231,6 +232,40 @@ describe("workspace Find", () => {
         label: "Duplicate",
       },
       { breadcrumb: "Project", kind: "section", label: "Notes" },
+    ]);
+  });
+
+  it("omits hidden saved-view branches and their items", () => {
+    registerSectionKinds(host, {
+      notes: { renderContent: () => null },
+      parameters: { renderContent: () => null },
+    });
+    installNestedDocument();
+    const state = getWorkspaceDocumentStore(host).getState();
+    getWorkspaceDocumentStore(host).setState({
+      savedViews: {
+        activeViewId: "overview",
+        views: {
+          overview: {
+            id: "overview",
+            name: "Overview",
+            sectionVisibility: {
+              nested: true,
+              notes: true,
+              parameters: false,
+              project: true,
+            },
+            sortIndex: 0,
+            topLevelSections: { ...state.topLevelSections },
+            viewport: null,
+          },
+        },
+      },
+    });
+
+    expect(buildWorkspaceFindResults(host).map((result) => result.id)).toEqual([
+      "section:project",
+      "section:notes",
     ]);
   });
 

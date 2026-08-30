@@ -355,6 +355,46 @@ describe("viewport zoom helpers", () => {
     expect(applied.y).toBe(861 / 2 - 95);
   });
 
+  it("rejects direct focus toward a section hidden by the active saved view", () => {
+    testWorkspace.document.setState({
+      parentSectionMap: {},
+      savedViews: {
+        activeViewId: "overview",
+        views: {
+          overview: {
+            id: "overview",
+            name: "Overview",
+            sectionVisibility: { "section-a": false },
+            sortIndex: 0,
+            topLevelSections: {
+              "section-a": { h: 100, w: 200, x: 0, y: 0, zIndex: 0 },
+            },
+            viewport: null,
+          },
+        },
+      },
+      sections: {
+        "section-a": {
+          children: [],
+          id: "section-a",
+          isHorizontalOrientation: false,
+          isMinimized: false,
+          kind: "leaf",
+          name: "Section A",
+          overflowMode: false,
+          positionAndSizeLocked: false,
+          size: { height: 100, width: 200 },
+          styleColor: null,
+          tagColor: null,
+        },
+      },
+    });
+
+    expect(() =>
+      focusWorkspaceSection(testWorkspace.host, "section-a"),
+    ).toThrowError("Cannot focus hidden workspace section section-a.");
+  });
+
   function elementAt(x: number, y: number): HTMLElement {
     return {
       getBoundingClientRect: () => ({ x, y }),

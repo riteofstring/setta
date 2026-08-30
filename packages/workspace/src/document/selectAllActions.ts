@@ -1,6 +1,10 @@
 import { getSectionItemVisibility } from "../items/itemListRegistry";
 import { getActiveSectionIds, setActiveSectionIds } from "./activeSections";
 import { isGroupSection } from "./documentSelectors";
+import {
+  getVisibleTopLevelSectionIdsForDisplay,
+  isWorkspaceSectionVisible,
+} from "./savedViewDisplay";
 import { setSelectedItems } from "./itemSelection";
 import { getItemOrThrow } from "./itemTree";
 import { getWorkspaceDocumentStore } from "./stores";
@@ -54,12 +58,18 @@ function selectAllVisibleItems(
 export function selectAllInWorkspace(host: WorkspaceHost): boolean {
   const activeIds = getActiveSectionIds(host);
   const soleActiveId = activeIds.length === 1 ? activeIds[0] : undefined;
+  const state = getWorkspaceDocumentStore(host).getState();
   if (soleActiveId !== undefined) {
+    if (!isWorkspaceSectionVisible(state, soleActiveId)) {
+      return false;
+    }
     return selectAllVisibleItems(host, soleActiveId);
   }
   setActiveSectionIds(
     host,
-    Object.keys(getWorkspaceDocumentStore(host).getState().sections),
+    Object.keys(state.sections).filter((sectionId) =>
+      isWorkspaceSectionVisible(state, sectionId),
+    ),
   );
   return true;
 }
@@ -68,7 +78,7 @@ export function selectAllTopLevelNonGroupSections(host: WorkspaceHost): void {
   const state = getWorkspaceDocumentStore(host).getState();
   setActiveSectionIds(
     host,
-    Object.keys(state.topLevelSections).filter((sectionId) => {
+    getVisibleTopLevelSectionIdsForDisplay(state).filter((sectionId) => {
       const section = state.sections[sectionId];
       return section !== undefined && !isGroupSection(section);
     }),
