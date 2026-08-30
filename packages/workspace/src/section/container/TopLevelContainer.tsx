@@ -5,10 +5,12 @@ import { useDndProps } from "../../dnd/useDndUtils";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 
 export function TopLevelContainer({
+  dimmed,
   isGroup,
   sectionId,
   children,
 }: {
+  dimmed: boolean;
   isGroup: boolean;
   sectionId: string;
   children: ReactNode;
@@ -27,6 +29,7 @@ export function TopLevelContainer({
 
   return (
     <DndSlotAndDndWatcher
+      dimmed={dimmed}
       isGroup={isGroup}
       sectionId={sectionId}
       isTopLevel={true}

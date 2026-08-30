@@ -10,6 +10,7 @@ import {
 import { DndSlot } from "./DndSlot";
 
 type DndWatcherProps = {
+  dimmed: boolean;
   isGroup: boolean;
   sectionId: string;
   isTopLevel: boolean;
@@ -20,6 +21,7 @@ type DndWatcherProps = {
 };
 
 function DndSlotAndDndWatcherComponent({
+  dimmed,
   isGroup,
   sectionId,
   isTopLevel,
@@ -40,6 +42,7 @@ function DndSlotAndDndWatcherComponent({
       sectionId={sectionId}
     >
       <DndWatcherAndContainer
+        dimmed={dimmed}
         isGroup={isGroup}
         sectionId={sectionId}
         isTopLevel={isTopLevel}
@@ -63,6 +66,7 @@ export const DndSlotAndDndWatcher = React.memo(
 );
 
 function DndWatcherAndContainerComponent({
+  dimmed,
   isGroup,
   sectionId,
   isTopLevel,
@@ -107,7 +111,7 @@ function DndWatcherAndContainerComponent({
   const className = isSorting || isMovingFree ? "nodrag" : "";
   const fullStyle = {
     ...style,
-    ...maybeGetOpacityStyle(isDraggingSelection, isSorting),
+    ...maybeGetOpacityStyle(dimmed, isDraggingSelection, isSorting),
   };
 
   return (
@@ -126,9 +130,13 @@ function DndWatcherAndContainerComponent({
 }
 
 function maybeGetOpacityStyle(
+  dimmed: boolean,
   isDraggingSelection: boolean,
   isSorting: boolean,
 ): CSSProperties {
+  if (dimmed) {
+    return { opacity: 0.3 };
+  }
   if (isDraggingSelection) {
     return { opacity: isSorting ? 0.85 : 0.5 };
   }

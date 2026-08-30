@@ -40,6 +40,12 @@ import {
 } from "../items/itemAuthoringActions";
 import { setGroupOverflowMode } from "../section/groupOverflowAction";
 import { ungroupSections } from "../section/ungroupAction";
+import {
+  getWorkspaceSavedViewSectionAction,
+  setWorkspaceSavedViewSectionsDisplayed,
+} from "../saved-views/editing";
+import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
+import { getWorkspaceSavedViewsOperationDisabledReason } from "../saved-views/operations";
 import { canGroupWorkspaceSections } from "../shell/workspaceInspectorModel";
 import type {
   WorkspaceItemCommandContext,
@@ -203,6 +209,37 @@ function getSelectedSectionIds(
   context: WorkspaceSectionCommandContext,
 ): Array<string> {
   return context.selectedSections.map((section) => section.id);
+}
+
+function getSavedViewSectionAction(
+  context: WorkspaceSectionCommandContext,
+): "hide" | "show" | null {
+  if (!isWorkspaceSavedViewEditing(context.host)) {
+    return null;
+  }
+  const targets = getLiveSectionTargets(context);
+  if (!targets.complete || targets.sections.length === 0) {
+    return null;
+  }
+  return getWorkspaceSavedViewSectionAction(
+    targets.state,
+    getSelectedSectionIds(context),
+  );
+}
+
+function getSavedViewVisibilityReason(
+  context: WorkspaceSectionCommandContext,
+): string | null {
+  const reason = getWorkspaceSavedViewsOperationDisabledReason(
+    context.host,
+    "visibility",
+  );
+  if (reason !== null) {
+    return reason;
+  }
+  return getLiveSectionTargets(context).complete
+    ? null
+    : MISSING_SECTION_REASON;
 }
 
 function areAllSectionsLocked(targets: LiveSectionTargets): boolean {
@@ -377,6 +414,42 @@ const deleteSectionsCommand: WorkspacePackageCommandDefinition = {
   },
 };
 
+const showSectionsInSavedViewCommand: WorkspacePackageCommandDefinition = {
+  id: "workspace.show-sections-in-saved-view",
+  scope: "section",
+  surfaces: ["context-menu", "header", "outline"],
+  label: "Show in View",
+  isApplicable: (context) => getSavedViewSectionAction(context) === "show",
+  getDisabledReason: getSavedViewVisibilityReason,
+  getStatusMessage: (context) =>
+    `${formatSectionCount(context.selectedSections.length, "section")} shown in the active view.`,
+  run: (context) => {
+    setWorkspaceSavedViewSectionsDisplayed(
+      context.host,
+      getSelectedSectionIds(context),
+      true,
+    );
+  },
+};
+
+const hideSectionsInSavedViewCommand: WorkspacePackageCommandDefinition = {
+  id: "workspace.hide-sections-in-saved-view",
+  scope: "section",
+  surfaces: ["context-menu", "header", "outline"],
+  label: "Hide from View",
+  isApplicable: (context) => getSavedViewSectionAction(context) === "hide",
+  getDisabledReason: getSavedViewVisibilityReason,
+  getStatusMessage: (context) =>
+    `${formatSectionCount(context.selectedSections.length, "section")} hidden from the active view.`,
+  run: (context) => {
+    setWorkspaceSavedViewSectionsDisplayed(
+      context.host,
+      getSelectedSectionIds(context),
+      false,
+    );
+  },
+};
+
 const lockSectionsCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.lock-sections",
   scope: "section",
@@ -513,6 +586,8 @@ export const builtInWorkspaceCommands: ReadonlyArray<WorkspacePackageCommandDefi
     groupSectionsCommand,
     toggleGroupOverflowCommand,
     ungroupSectionsCommand,
+    showSectionsInSavedViewCommand,
+    hideSectionsInSavedViewCommand,
     deleteSectionsCommand,
     lockSectionsCommand,
     unlockSectionsCommand,

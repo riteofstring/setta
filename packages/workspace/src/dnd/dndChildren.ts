@@ -1,6 +1,10 @@
 import { createStore } from "zustand/vanilla";
 import { insertIntoArray } from "../document/arrayUtils";
-import { getSectionOrThrow } from "../document/documentSelectors";
+import {
+  getSectionChildren,
+  getSectionOrThrow,
+  getTopLevelSectionIdsForDisplay,
+} from "../document/documentSelectors";
 import {
   getVisibleSectionChildrenForDisplay,
   getVisibleTopLevelSectionIdsForDisplay,
@@ -10,6 +14,7 @@ import {
   type WorkspaceDocumentState,
 } from "../document/stores";
 import { withResetFn } from "../state/storeUtils";
+import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
 import { assertWorkspaceHostActive } from "../workspaceHostInternals";
 import type { WorkspaceHost } from "../workspaceHost";
@@ -184,15 +189,22 @@ export function updateDndChildren(
 
 export function getDisplayedSectionIdToChildren(
   state: WorkspaceDocumentState,
+  includeHidden = false,
 ): Record<string, Array<string>> {
   const output: Record<string, Array<string>> = {};
-  const pending = [...getVisibleTopLevelSectionIdsForDisplay(state)];
+  const pending = [
+    ...(includeHidden
+      ? getTopLevelSectionIdsForDisplay(state)
+      : getVisibleTopLevelSectionIdsForDisplay(state)),
+  ];
   while (pending.length > 0) {
     const sectionId = pending.pop();
     if (sectionId === undefined) {
       break;
     }
-    const children = getVisibleSectionChildrenForDisplay(state, sectionId);
+    const children = includeHidden
+      ? getSectionChildren(state, sectionId)
+      : getVisibleSectionChildrenForDisplay(state, sectionId);
     output[sectionId] = [...children];
     pending.push(...children);
   }
@@ -200,8 +212,12 @@ export function getDisplayedSectionIdToChildren(
 }
 
 export function manualDndChildrenReset(host: WorkspaceHost) {
+  const state = getWorkspaceDocumentStore(host).getState();
   updateDndChildren(
     host,
-    getDisplayedSectionIdToChildren(getWorkspaceDocumentStore(host).getState()),
+    getDisplayedSectionIdToChildren(
+      state,
+      state.savedViews !== null && isWorkspaceSavedViewEditing(host),
+    ),
   );
 }

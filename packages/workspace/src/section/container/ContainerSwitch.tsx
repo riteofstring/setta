@@ -4,12 +4,14 @@ import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 import { TopLevelContainer } from "./TopLevelContainer";
 
 export function ContainerSwitch({
+  dimmed,
   isGroup,
   sectionId,
   dragListeners,
   children,
   isTopLevel,
 }: {
+  dimmed: boolean;
   isGroup: boolean;
   sectionId: string;
   dragListeners?: SectionDragListeners;
@@ -17,11 +19,12 @@ export function ContainerSwitch({
   isTopLevel: boolean;
 }) {
   return isTopLevel ? (
-    <TopLevelContainer isGroup={isGroup} sectionId={sectionId}>
+    <TopLevelContainer dimmed={dimmed} isGroup={isGroup} sectionId={sectionId}>
       {children}
     </TopLevelContainer>
   ) : (
     <DndSlotAndDndWatcher
+      dimmed={dimmed}
       isGroup={isGroup}
       sectionId={sectionId}
       isTopLevel={isTopLevel}

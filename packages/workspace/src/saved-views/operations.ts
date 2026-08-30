@@ -17,6 +17,7 @@ import {
   type WorkspaceDocumentState,
 } from "../document/stores";
 import { forceDeactivateDnd } from "../dnd/dndState";
+import { manualDndChildrenReset } from "../dnd/dndChildren";
 import { resetItemDragState } from "../items/itemDragHandlers";
 import type {
   TopLevelSectionLayout,
@@ -26,6 +27,7 @@ import type {
 } from "../document/types";
 import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import type { WorkspaceHost } from "../workspaceHost";
+import { isWorkspaceSavedViewEditing } from "./editingState";
 import {
   assertWorkspaceSavedViewsStateForDocument,
   createWorkspaceSavedViewsState,
@@ -182,17 +184,21 @@ function reconcileCandidateDocument(
 }
 
 function pruneActiveSectionIds(
+  host: WorkspaceHost,
   document: WorkspaceDocumentState,
   activeIds: Array<string>,
 ): Array<string> {
+  const includeHidden =
+    document.savedViews !== null && isWorkspaceSavedViewEditing(host);
   return activeIds.filter(
     (sectionId) =>
       document.sections[sectionId] !== undefined &&
-      isWorkspaceSavedViewSectionVisible(
-        document.savedViews,
-        document.parentSectionMap,
-        sectionId,
-      ),
+      (includeHidden ||
+        isWorkspaceSavedViewSectionVisible(
+          document.savedViews,
+          document.parentSectionMap,
+          sectionId,
+        )),
   );
 }
 
@@ -203,6 +209,7 @@ function publishSavedViewsDocument(
   const document = reconcileCandidateDocument(input.document);
   const activeSections = {
     activeIds: pruneActiveSectionIds(
+      host,
       document,
       getActiveSectionsStore(host).getState().activeIds,
     ),
@@ -233,6 +240,9 @@ function publishSavedViewsDocument(
       getActiveSectionsStore(host).setState(activeSections);
     },
   );
+  if (input.resetInteractions) {
+    manualDndChildrenReset(host);
+  }
   if (input.applyViewport) {
     runWithWorkspaceDocumentChangeNotificationsSuppressed(host, () => {
       armLoadedDocumentFitView(host, document.viewport);

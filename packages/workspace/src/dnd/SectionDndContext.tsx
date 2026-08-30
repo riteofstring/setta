@@ -1,6 +1,10 @@
 import _ from "lodash";
 import { useEffect, useMemo, type ReactNode } from "react";
-import { getWorkspaceDocumentStore } from "../document/stores";
+import {
+  getWorkspaceDocumentStore,
+  type WorkspaceDocumentState,
+} from "../document/stores";
+import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import { DragDropProvider } from "./adapter";
 import { createCollisionTracker } from "./adapter/collision";
@@ -21,12 +25,17 @@ import { useOnDragEnd as useOnDragEndMoveSection } from "./useMoveSection";
 function useDndChildrenDocumentSync() {
   const host = useWorkspaceHost();
   useEffect(() => {
-    let lastChildren = getDisplayedSectionIdToChildren(
+    const projectChildren = (state: WorkspaceDocumentState) =>
+      getDisplayedSectionIdToChildren(
+        state,
+        state.savedViews !== null && isWorkspaceSavedViewEditing(host),
+      );
+    let lastChildren = projectChildren(
       getWorkspaceDocumentStore(host).getState(),
     );
     updateDndChildren(host, lastChildren);
     return getWorkspaceDocumentStore(host).subscribe((state) => {
-      const nextChildren = getDisplayedSectionIdToChildren(state);
+      const nextChildren = projectChildren(state);
       if (_.isEqual(nextChildren, lastChildren)) {
         return;
       }

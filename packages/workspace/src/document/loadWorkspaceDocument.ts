@@ -47,6 +47,7 @@ import type {
   WorkspaceSection,
   WorkspaceSectionInput,
 } from "./types";
+import { setWorkspaceSavedViewEditingState } from "../saved-views/editingState";
 
 const SECTION_STYLE_COLOR_PATTERN = /^#?[0-9a-f]{6}$/iu;
 
@@ -210,6 +211,7 @@ type PreparedWorkspaceDocumentCommit = {
 function prepareWorkspaceDocumentCommit(
   host: WorkspaceHost,
   document: WorkspaceDocumentInput,
+  options: { includeHiddenSections?: boolean } = {},
 ): PreparedWorkspaceDocumentCommit {
   const { sections, parentSectionMap } = resolveAndValidateWorkspaceSections(
     host,
@@ -252,6 +254,7 @@ function prepareWorkspaceDocumentCommit(
     host,
     nextDocumentState,
     getNodeInternalsStore(host).getState().x,
+    options,
   );
   return {
     activeSections: {
@@ -330,9 +333,12 @@ export function loadWorkspaceDocument(
   host: WorkspaceHost,
   document: WorkspaceDocumentInput,
 ): void {
-  const prepared = prepareWorkspaceDocumentCommit(host, document);
+  const prepared = prepareWorkspaceDocumentCommit(host, document, {
+    includeHiddenSections: false,
+  });
 
   closeWorkspaceMenu(host, false);
+  setWorkspaceSavedViewEditingState(host, false);
   runWithWorkspaceDocumentChangeNotificationsSuppressed(host, () => {
     armLoadedDocumentFitView(host, document.viewport);
     publishPreparedWorkspaceDocument(host, prepared);

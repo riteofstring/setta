@@ -1,6 +1,10 @@
 import type { CSSProperties } from "react";
+import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
-import { getSectionOrThrow } from "./documentSelectors";
+import {
+  getSectionOrThrow,
+  getTopLevelSectionIdsForDisplay,
+} from "./documentSelectors";
 import { getVisibleTopLevelSectionIdsForDisplay } from "./savedViewDisplay";
 import {
   getWorkspaceAppearanceStore,
@@ -100,11 +104,20 @@ export function createNodesMapFromDocumentChildren(
   host: WorkspaceHost,
   state: WorkspaceDocumentState,
   nodes: NodeInternalsState["x"],
-  options: { useDocumentLayoutDimensions?: boolean } = {},
+  options: {
+    includeHiddenSections?: boolean;
+    useDocumentLayoutDimensions?: boolean;
+  } = {},
 ): Map<string, Node> {
   const nodesMap: Map<string, Node> = new Map();
   const darkMode = getWorkspaceAppearanceStore(host).getState().darkMode;
-  for (const sectionId of getVisibleTopLevelSectionIdsForDisplay(state)) {
+  const includeHidden =
+    options.includeHiddenSections ??
+    (state.savedViews !== null && isWorkspaceSavedViewEditing(host));
+  const sectionIds = includeHidden
+    ? getTopLevelSectionIdsForDisplay(state)
+    : getVisibleTopLevelSectionIdsForDisplay(state);
+  for (const sectionId of sectionIds) {
     const layout = state.topLevelSections[sectionId];
     if (!layout) {
       throw new Error(`Missing top-level layout for section ${sectionId}.`);

@@ -1,12 +1,18 @@
+import { getTopLevelSectionIdsForDisplay } from "../document/documentSelectors";
 import { getVisibleTopLevelSectionIdsForDisplay } from "../document/savedViewDisplay";
 import { getWorkspaceDocumentStore } from "../document/stores";
+import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
 import type { WorkspaceHost } from "../workspaceHost";
 
 export function getOrderedTopLevelSectionIds(
   host: WorkspaceHost,
 ): Array<string> {
   const state = getWorkspaceDocumentStore(host).getState();
-  return getVisibleTopLevelSectionIdsForDisplay(state)
+  const sectionIds =
+    state.savedViews !== null && isWorkspaceSavedViewEditing(host)
+      ? getTopLevelSectionIdsForDisplay(state)
+      : getVisibleTopLevelSectionIdsForDisplay(state);
+  return sectionIds
     .map((sectionId) => {
       const layout = state.topLevelSections[sectionId];
       if (!layout) {

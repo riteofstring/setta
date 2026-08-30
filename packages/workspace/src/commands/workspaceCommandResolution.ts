@@ -7,6 +7,7 @@ import { useItemDndState } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { useActiveSections, useWorkspaceDocument } from "../document/stores";
 import { useWorkspaceHistoryState } from "../history/workspaceHistory";
+import { useWorkspaceSavedViewEditing } from "../saved-views/editingState";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import {
   getWorkspaceCommandOrThrow,
@@ -155,6 +156,7 @@ export function useWorkspaceCommandState(): void {
   useWorkspaceCapabilities((state) => state);
   useItemDndState((state) => state.activeId);
   useWorkspaceHistoryState();
+  useWorkspaceSavedViewEditing();
   useSyncExternalStore(
     (listener) => subscribeWorkspaceClipboardAvailability(host, listener),
     () => getWorkspaceClipboardRuntimeState(host),

@@ -11,6 +11,7 @@ import {
   type SectionKindDefinition,
 } from "../../document/sectionKindRegistry";
 import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
+import { useWorkspaceSavedViewEditing } from "../../saved-views/editingState";
 import type { WorkspaceHost } from "../../workspaceHost";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import { getOutlineColor } from "../sectionColors";
@@ -54,9 +55,18 @@ function SectionContainerComponent({
   dragListeners?: SectionDragListeners;
 }) {
   const host = useWorkspaceHost();
-  const visible = useWorkspaceDocument((x) =>
-    isWorkspaceSectionVisible(x, sectionId),
-  );
+  const editingSavedView = useWorkspaceSavedViewEditing();
+  const presentation = useWorkspaceDocument((state) => {
+    const visible = isWorkspaceSectionVisible(state, sectionId);
+    const parentId = state.parentSectionMap[sectionId] ?? null;
+    const parentVisible =
+      parentId === null || isWorkspaceSectionVisible(state, parentId);
+    return {
+      dimmed: !visible && parentVisible,
+      savedViewsEnabled: state.savedViews !== null,
+      visible,
+    };
+  });
   const isGroup = useWorkspaceDocument((x) =>
     isGroupSection(getSectionOrThrow(x, sectionId)),
   );
@@ -72,7 +82,8 @@ function SectionContainerComponent({
     sectionKind,
   });
 
-  if (!visible) {
+  const showHidden = editingSavedView && presentation.savedViewsEnabled;
+  if (!presentation.visible && !showHidden) {
     return null;
   }
 
@@ -82,6 +93,7 @@ function SectionContainerComponent({
       sectionId={sectionId}
       dragListeners={dragListeners}
       isTopLevel={isTopLevel}
+      dimmed={showHidden && presentation.dimmed}
     >
       <SectionContainerContents
         canOwnNestedSections={canOwnNestedSections}

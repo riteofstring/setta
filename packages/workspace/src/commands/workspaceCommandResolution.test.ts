@@ -37,6 +37,8 @@ import type {
   WorkspaceSection,
   WorkspaceSectionInput,
 } from "../document/types";
+import { setWorkspaceSavedViewEditing } from "../saved-views/editing";
+import { enableWorkspaceSavedViews } from "../saved-views/operations";
 import {
   createPaneCommandContext,
   createSectionCommandContext,
@@ -192,6 +194,38 @@ describe("workspace command resolution", () => {
     expect(hasApplicableWorkspaceCommands("header", contextFor("leaf"))).toBe(
       false,
     );
+  });
+
+  it("offers direct show and hide commands while editing a saved view", () => {
+    enableWorkspaceSavedViews(testWorkspace.host, {
+      id: "overview",
+      name: "Overview",
+    });
+    setWorkspaceSavedViewEditing(testWorkspace.host, true);
+    const context = contextFor("leaf");
+
+    expect(
+      resolveWorkspaceCommandEntries("header", context).map(
+        (entry) => entry.id,
+      ),
+    ).toEqual(["workspace.hide-sections-in-saved-view"]);
+    expect(
+      runWorkspaceCommandById("workspace.hide-sections-in-saved-view", context),
+    ).toEqual({
+      ran: true,
+      statusMessage: "1 section hidden from the active view.",
+    });
+    expect(
+      resolveWorkspaceCommandEntries("header", context).map(
+        (entry) => entry.id,
+      ),
+    ).toEqual(["workspace.show-sections-in-saved-view"]);
+    expect(
+      runWorkspaceCommandById("workspace.show-sections-in-saved-view", context),
+    ).toEqual({
+      ran: true,
+      statusMessage: "1 section shown in the active view.",
+    });
   });
 
   it("offers registered clipboard actions on their command surfaces", () => {
