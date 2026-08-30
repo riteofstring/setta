@@ -113,6 +113,7 @@
 }
 
 .setta-workspace-saved-views-row {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 2rem;
@@ -166,6 +167,29 @@
   box-shadow: 0 0 0 1px rgb(248 113 113 / 20%);
 }
 
+.setta-workspace-saved-views-row-activate {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  padding: 0;
+}
+
+.setta-workspace-saved-views-row
+  > :not(.setta-workspace-saved-views-row-activate) {
+  position: relative;
+  z-index: 1;
+}
+
+.setta-workspace-saved-views-row:has(
+  .setta-workspace-saved-views-row-activate:focus-visible
+) {
+  outline: 2px solid rgb(37 99 235);
+  outline-offset: -2px;
+}
+
 .setta-workspace-saved-views-activate {
   display: flex;
   min-width: 0;
@@ -197,8 +221,7 @@
   color: rgb(30 64 175);
 }
 
-.setta-workspace-saved-views-drag-handle,
-.setta-workspace-saved-views-select {
+.setta-workspace-saved-views-drag-handle {
   display: inline-flex;
   width: 1.25rem;
   height: 1.75rem;
@@ -223,12 +246,7 @@
   cursor: grabbing;
 }
 
-.setta-workspace-saved-views-select[aria-pressed="true"] {
-  color: rgb(37 99 235);
-}
-
-.setta-workspace-saved-views-drag-handle:hover:not(:disabled),
-.setta-workspace-saved-views-select:hover:not(:disabled) {
+.setta-workspace-saved-views-drag-handle:hover:not(:disabled) {
   background: rgb(226 232 240);
   color: rgb(30 64 175);
 }
@@ -319,7 +337,7 @@
 .setta-workspace-saved-views-create:disabled,
 .setta-workspace-saved-views-edit:disabled,
 .setta-workspace-saved-views-drag-handle:disabled,
-.setta-workspace-saved-views-select:disabled,
+.setta-workspace-saved-views-row-activate:disabled,
 .setta-workspace-saved-views-icon-button:disabled,
 .setta-workspace-saved-views-activate:disabled,
 .setta-workspace-saved-views-name-input:disabled {
@@ -330,7 +348,6 @@
 .setta-workspace-saved-views-create:focus-visible,
 .setta-workspace-saved-views-edit:focus-visible,
 .setta-workspace-saved-views-drag-handle:focus-visible,
-.setta-workspace-saved-views-select:focus-visible,
 .setta-workspace-saved-views-icon-button:focus-visible,
 .setta-workspace-saved-views-activate:focus-visible {
   outline: 2px solid rgb(37 99 235);
@@ -409,19 +426,13 @@
   color: rgb(252 165 165);
 }
 
-.setta-workspace-dark .setta-workspace-saved-views-drag-handle,
-.setta-workspace-dark .setta-workspace-saved-views-select {
+.setta-workspace-dark .setta-workspace-saved-views-drag-handle {
   color: rgb(100 116 139);
 }
 
 .setta-workspace-dark
-  .setta-workspace-saved-views-drag-handle:hover:not(:disabled),
-.setta-workspace-dark .setta-workspace-saved-views-select:hover:not(:disabled) {
+  .setta-workspace-saved-views-drag-handle:hover:not(:disabled) {
   background: rgb(51 65 85);
-  color: rgb(191 219 254);
-}
-
-.setta-workspace-dark .setta-workspace-saved-views-select[aria-pressed="true"] {
   color: rgb(191 219 254);
 }
 

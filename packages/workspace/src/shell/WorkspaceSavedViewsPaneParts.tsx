@@ -7,15 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  FiBookmark,
-  FiCheck,
-  FiCheckCircle,
-  FiCircle,
-  FiEdit3,
-  FiPlus,
-  FiTrash2,
-} from "react-icons/fi";
+import { FiBookmark, FiCheck, FiEdit3, FiPlus, FiTrash2 } from "react-icons/fi";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import type { WorkspaceSavedView } from "../document/types";
 
@@ -264,20 +256,14 @@ function WorkspaceSavedViewEditingRow({
         <button
           aria-label={`Activate ${view.name}`}
           aria-pressed={active}
-          className="setta-workspace-saved-views-select"
+          className="setta-workspace-saved-views-row-activate"
           disabled={activateControl.disabled}
           title={activateControl.title}
           type="button"
           onClick={
             activateControl.disabled ? undefined : () => actions.activate(view)
           }
-        >
-          {active ? (
-            <FiCheckCircle aria-hidden="true" />
-          ) : (
-            <FiCircle aria-hidden="true" />
-          )}
-        </button>
+        />
         {nameEditor.editor}
         {showTabBookmarks ? (
           <WorkspaceSavedViewActionButton
