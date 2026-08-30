@@ -70,6 +70,9 @@ describe("playground toolbar contributions", () => {
   });
 
   it("repaints a contributed control when the host command state behind it changes", async () => {
+    expect(getControl("Auto Layout").getAttribute("aria-disabled")).toBe(
+      "true",
+    );
     expect(
       getControl("Clear host action status").getAttribute("aria-disabled"),
     ).toBe("true");

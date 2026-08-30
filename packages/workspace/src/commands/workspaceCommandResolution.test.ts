@@ -242,7 +242,9 @@ describe("workspace command resolution", () => {
 
   it("resolves and runs the top-level auto-layout pane command", () => {
     const context = createPaneCommandContext(testWorkspace.host, null);
-    const getAutoLayoutEntry = (surface: "context-menu" | "palette") => {
+    const getAutoLayoutEntry = (
+      surface: "context-menu" | "palette" | "toolbar",
+    ) => {
       const entry = resolveWorkspaceCommandEntries(surface, context).find(
         (candidate) => candidate.id === "workspace.auto-layout-top-level",
       );
@@ -260,11 +262,10 @@ describe("workspace command resolution", () => {
       keywords: ["arrange", "pack", "layout"],
       label: "Auto Layout",
     });
-    expect(
-      resolveWorkspaceCommandEntries("toolbar", context).some(
-        (entry) => entry.id === "workspace.auto-layout-top-level",
-      ),
-    ).toBe(false);
+    expect(getAutoLayoutEntry("toolbar")).toMatchObject({
+      keywords: ["arrange", "pack", "layout"],
+      label: "Auto Layout",
+    });
 
     expect(
       getWorkspaceTopLevelAutoLayoutDisabledReason(testWorkspace.host),

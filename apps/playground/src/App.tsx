@@ -390,8 +390,8 @@ function PlaygroundGuideMenu() {
           <div>
             <dt>Toolbar</dt>
             <dd>
-              Host controls sit above and below the zoom group. The top one adds
-              a note.
+              Add a note or use Auto Layout above the zoom group. Other host
+              controls sit below it.
             </dd>
           </div>
           <div>

@@ -64,7 +64,8 @@ finite live dimensions, and at least two roots must be unlocked. The action chan
 top-level `x` and `y` values, validates one complete next document, reprojects node geometry, and
 publishes one `section-move` transaction. It preserves hierarchy, dimensions, stacking, viewport,
 selection, and host data. The pane menu and palette command use the same availability result as
-direct callers, including the already-arranged no-op state.
+direct callers, including the already-arranged no-op state. The command also exposes the toolbar
+surface so a host can opt it into its contribution layout without duplicating the operation.
 
 ## Section clipboard authority
 

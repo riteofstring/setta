@@ -456,7 +456,8 @@ validation.
 
 The built-in pane menu and command palette offer **Auto Layout** when layout editing is enabled,
 every displayed top-level section has positive measured geometry, and at least two top-level
-sections are unlocked. Direct hosts use the same boundary:
+sections are unlocked. Hosts may contribute the same command to their package toolbar. Direct hosts
+use the same boundary:
 
 ```ts
 const reason = getWorkspaceTopLevelAutoLayoutDisabledReason(host);

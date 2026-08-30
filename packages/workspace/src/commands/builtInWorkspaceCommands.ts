@@ -174,7 +174,7 @@ const pasteSectionsCommand: WorkspacePackageCommandDefinition = {
 const autoLayoutTopLevelCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.auto-layout-top-level",
   scope: "pane",
-  surfaces: ["context-menu", "palette"],
+  surfaces: ["context-menu", "palette", "toolbar"],
   label: "Auto Layout",
   keywords: ["arrange", "pack", "layout"],
   getDisabledReason: (context) =>

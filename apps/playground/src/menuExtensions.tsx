@@ -120,6 +120,25 @@ function PlaygroundClearIcon({ className }: WorkspaceCommandIconProps) {
   );
 }
 
+function PlaygroundAutoLayoutIcon({ className }: WorkspaceCommandIconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      focusable="false"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      viewBox="0 0 16 16"
+    >
+      <rect height="3.5" rx="0.5" width="4.5" x="2" y="2.5" />
+      <rect height="3.5" rx="0.5" width="4.5" x="9.5" y="2.5" />
+      <rect height="3.5" rx="0.5" width="4.5" x="2" y="10" />
+      <rect height="3.5" rx="0.5" width="4.5" x="9.5" y="10" />
+    </svg>
+  );
+}
+
 function PlaygroundCreationIcon({ className }: WorkspaceCommandIconProps) {
   return (
     <svg
@@ -357,6 +376,13 @@ export function registerPlaygroundMenuExtensions(host: WorkspaceHost): void {
       icon: PlaygroundCreationIcon,
       placement: "before-viewport",
       description: "Add a host note in empty space",
+    },
+    {
+      kind: "command",
+      commandId: "workspace.auto-layout-top-level",
+      icon: PlaygroundAutoLayoutIcon,
+      placement: "before-viewport",
+      description: "Arrange unlocked top-level sections",
     },
     {
       kind: "command",
