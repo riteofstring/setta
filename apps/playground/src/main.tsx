@@ -1,5 +1,6 @@
 import {
   createWorkspaceHost,
+  registerWorkspaceClipboardAuthority,
   setWorkspaceColorMode,
   WorkspaceProvider,
 } from "@setta/workspace";
@@ -27,6 +28,10 @@ setWorkspaceColorMode(
   document.documentElement.classList.contains("dark") ? "dark" : "light",
 );
 registerPlaygroundSectionKinds(workspaceHost);
+registerWorkspaceClipboardAuthority(workspaceHost, {
+  id: "setta-playground",
+  kind: "local",
+});
 registerPlaygroundMenuExtensions(workspaceHost);
 registerPlaygroundKeyBindings(workspaceHost);
 workspaceHost.loadDocument(
