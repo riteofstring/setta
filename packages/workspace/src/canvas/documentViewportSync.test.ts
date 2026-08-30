@@ -16,7 +16,7 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import type { ZoomTransform } from "d3-zoom";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useWorkspaceDocument } from "../document/stores";
 import type { WorkspaceDocument } from "../document/types";
 import {
@@ -27,6 +27,8 @@ import {
 } from "./documentViewportSync";
 import { initialCanvasState, useReactFlow } from "./store";
 import type { ReactFlowState } from "./types";
+import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime";
+import type { WorkspaceXyflowInstance } from "./xyflow/types";
 
 beforeEach(() => {
   testWorkspace.document.getState().reset();
@@ -54,6 +56,17 @@ function mountFakeZoomRuntime() {
     height: 600,
   });
   return applied;
+}
+
+function mountFakeXyflowRuntime() {
+  const setViewport = vi.fn(() => Promise.resolve(true));
+  registerWorkspaceXyflowInstance(testWorkspace.host, {
+    getViewport: () => ({ x: 0, y: 0, zoom: 1 }),
+    screenToFlowPosition: vi.fn(),
+    setViewport,
+    zoomTo: vi.fn(() => Promise.resolve(true)),
+  } as unknown as WorkspaceXyflowInstance);
+  return setViewport;
 }
 
 describe("getInitialCanvasViewport", () => {
@@ -199,6 +212,27 @@ describe("applyLoadedDocumentViewport", () => {
     applyLoadedDocumentViewport(testWorkspace.host, { x: 0, y: 0, zoom: 500 });
 
     expect(applied[0]?.k).toBeLessThan(500);
+  });
+
+  it("pushes a loaded camera through the public XYFlow runtime", () => {
+    const setViewport = mountFakeXyflowRuntime();
+    testWorkspace.reactFlow.setState({
+      fitViewOnInit: true,
+      fitViewOnInitDone: false,
+    });
+
+    applyLoadedDocumentViewport(testWorkspace.host, {
+      x: 100,
+      y: -50,
+      zoom: 1.5,
+    });
+
+    expect(setViewport).toHaveBeenCalledWith({ x: 100, y: -50, zoom: 1.5 });
+    expect(testWorkspace.reactFlow.getState().transform).toEqual([
+      100, -50, 1.5,
+    ]);
+    expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
+    expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
   });
 
   it("does nothing for a missing camera or an unmounted canvas", () => {

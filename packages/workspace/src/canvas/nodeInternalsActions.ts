@@ -1,4 +1,5 @@
 import { publishNodeInternalsWithTopLevelLayout } from "../document/topLevelLayoutPublication";
+import { normalizeNodeZIndices } from "../document/sectionZIndices";
 import { getNodeInternalsStore } from "../document/stores";
 import type { Node } from "../document/types";
 import type { WorkspaceHost } from "../workspaceHost";
@@ -6,6 +7,7 @@ import { fitView } from "./fitView";
 import { getReactFlowStore } from "./store";
 import type { NodeDragItem } from "./types";
 import { getDimensions } from "./utils";
+import type { WorkspaceXyflowNodeDimensions } from "./xyflow/types";
 
 export function getNodes(host: WorkspaceHost): Array<Node> {
   return Array.from(getNodeInternalsStore(host).getState().x.values());
@@ -25,11 +27,18 @@ export function updateNodePositions(
 export function updateNodePositionsAndCommit(
   host: WorkspaceHost,
   nodeDragItems: Array<NodeDragItem>,
+  options: { normalizeZIndices?: Array<string> } = {},
 ): void {
   const nodeStore = getNodeInternalsStore(host);
+  const positionedNodes = createUpdatedNodePositions(
+    nodeStore.getState().x,
+    nodeDragItems,
+  );
   publishNodeInternalsWithTopLevelLayout(
     host,
-    createUpdatedNodePositions(nodeStore.getState().x, nodeDragItems),
+    options.normalizeZIndices
+      ? normalizeNodeZIndices(positionedNodes, options.normalizeZIndices)
+      : positionedNodes,
     "section-move",
   );
 }
@@ -106,6 +115,48 @@ export function updateNodeDimensionsFromResizeObserver(
   }
   publishNodeInternalsWithTopLevelLayout(host, newNodes, null);
   maybeCompleteInitialFitView(host);
+}
+
+export function updateNodeDimensionsFromXyflow(
+  host: WorkspaceHost,
+  dimensions: ReadonlyArray<WorkspaceXyflowNodeDimensions>,
+): void {
+  const nodeStore = getNodeInternalsStore(host);
+  const currentNodes = nodeStore.getState().x;
+  const newNodes = new Map(currentNodes);
+  let dimensionsChanged = false;
+
+  for (const measurement of dimensions) {
+    const node = newNodes.get(measurement.id);
+    if (!node) {
+      continue;
+    }
+    const width = getPositiveDimension(measurement.width, node.width);
+    const height = getPositiveDimension(measurement.height, node.height);
+    if (width === node.width && height === node.height) {
+      continue;
+    }
+    newNodes.set(node.id, { ...node, width, height });
+    dimensionsChanged = true;
+  }
+
+  if (dimensionsChanged) {
+    publishNodeInternalsWithTopLevelLayout(host, newNodes, null);
+  }
+}
+
+function getPositiveDimension(
+  measurement: number | undefined,
+  current: number | null,
+): number | null {
+  if (
+    measurement === undefined ||
+    !Number.isFinite(measurement) ||
+    measurement <= 0
+  ) {
+    return current;
+  }
+  return measurement;
 }
 
 function hasViewportNode(host: WorkspaceHost) {

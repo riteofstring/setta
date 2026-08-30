@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -9,21 +10,29 @@ import {
 } from "react";
 import { WorkspaceMenuLayer } from "../context-menu/WorkspaceMenuLayer";
 import { SectionDndContext } from "../dnd/SectionDndContext";
+import { getNodeInternalsStore } from "../document/stores";
 import { useWorkspaceFocusScope } from "../focus/workspaceFocusScopes";
 import { ResponsiveMiniMap } from "../minimap/ResponsiveMiniMap";
 import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { useWorkspaceHost } from "../workspaceHostContext";
+import type { WorkspaceHost } from "../workspaceHost";
 import { registerWorkspaceHostElement } from "../workspaceHostInternals";
 import { useCanvasViewportDocumentSync } from "./documentViewportSync";
-import FlowRenderer from "./FlowRenderer";
 import { useCanvasKeyActivations } from "./keyActivations";
-import NodeRenderer from "./NodeRenderer";
-import { useWorkspaceOptions } from "./options";
+import {
+  maybeCompleteInitialFitView,
+  raiseTempZIndex,
+  updateNodeDimensionsFromXyflow,
+  updateNodePositionsAndCommit,
+} from "./nodeInternalsActions";
+import { getWorkspaceOptionsStore, useWorkspaceOptions } from "./options";
 import { useWorkspacePointerLocation } from "./pointerLocation";
 import { getReactFlowStore } from "./store";
-import Viewport from "./Viewport";
-import { WorkspaceBackground } from "./WorkspaceBackground";
+import type { NodeDragItem } from "./types";
+import { WorkspaceXyflowAdapter } from "./xyflow/WorkspaceXyflowAdapter";
+import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
+import type { WorkspaceXyflowNodeDimensions } from "./xyflow/types";
 
 const outerWrapperStyle: CSSProperties = {
   position: "relative",
@@ -55,7 +64,35 @@ export function WorkspaceCanvas() {
   useWorkspaceFocusScope("canvas", ref);
   useCanvasKeyActivations();
   useWorkspacePointerLocation();
-  useCanvasViewportDocumentSync();
+  const { onViewportChange, viewport } = useCanvasViewportDocumentSync();
+
+  const handleXyflowRuntimeReady = useCallback(() => {
+    maybeCompleteInitialFitView(host);
+  }, [host]);
+
+  const handleXyflowNodeDimensionsChange = useCallback(
+    (dimensions: ReadonlyArray<WorkspaceXyflowNodeDimensions>) => {
+      updateNodeDimensionsFromXyflow(host, dimensions);
+    },
+    [host],
+  );
+
+  const handleXyflowDragCommit = useCallback(
+    (items: ReadonlyArray<NodeDragItem>) => {
+      commitWorkspaceXyflowNodeDrag(host, items);
+    },
+    [host],
+  );
+
+  const handleXyflowDragStart = useCallback(
+    (items: ReadonlyArray<NodeDragItem>) => {
+      raiseTempZIndex(
+        host,
+        items.map((item) => ({ id: item.id })),
+      );
+    },
+    [host],
+  );
 
   useLayoutEffect(() => {
     const root = focusVisibilityRootRef.current;
@@ -63,6 +100,19 @@ export function WorkspaceCanvas() {
       throw new Error("Workspace canvas root did not mount.");
     }
     return registerWorkspaceHostElement(host, root);
+  }, [host]);
+
+  useLayoutEffect(() => {
+    const domNode = ref.current;
+    if (!domNode) {
+      throw new Error("Workspace canvas scroll shell did not mount.");
+    }
+    getReactFlowStore(host).setState({ domNode });
+    return () => {
+      if (getReactFlowStore(host).getState().domNode === domNode) {
+        getReactFlowStore(host).setState({ domNode: null });
+      }
+    };
   }, [host]);
 
   useEffect(() => {
@@ -89,7 +139,7 @@ export function WorkspaceCanvas() {
         style={wrapperStyle}
         className={`${workspaceScopeClassName} react-flow`}
         ref={ref}
-        onScroll={(e) => cancelOutScrolling(host, e, initialized)}
+        onScroll={(e) => cancelWorkspaceCanvasScrolling(host, e, initialized)}
       >
         {}
         {}
@@ -104,11 +154,17 @@ export function WorkspaceCanvas() {
           }}
         >
           <SectionDndContext>
-            <FlowRenderer wrapperDimensions={wrapperDimensions}>
-              <Viewport>{readyToRender && <NodeRenderer />}</Viewport>
-            </FlowRenderer>
+            <WorkspaceXyflowAdapter
+              onDragCommit={handleXyflowDragCommit}
+              onDragStart={handleXyflowDragStart}
+              onNodeDimensionsChange={handleXyflowNodeDimensionsChange}
+              onRuntimeReady={handleXyflowRuntimeReady}
+              onViewportChange={onViewportChange}
+              renderNodes={readyToRender}
+              viewport={viewport}
+              wrapperDimensions={wrapperDimensions}
+            />
           </SectionDndContext>
-          <WorkspaceBackground />
         </div>
       </div>
       {showMinimap && <ResponsiveMiniMap />}
@@ -117,25 +173,72 @@ export function WorkspaceCanvas() {
   );
 }
 
-function cancelOutScrolling(
-  host: ReturnType<typeof useWorkspaceHost>,
+export function cancelWorkspaceCanvasScrolling(
+  host: WorkspaceHost,
   e: UIEvent<HTMLDivElement>,
   initialized: boolean,
 ) {
   if (!initialized) {
     return;
   }
-  const { d3Zoom, d3Selection, transform } = getReactFlowStore(host).getState();
-  if (!d3Zoom || !d3Selection) {
-    throw new Error("Canvas scrolled before the zoom pane initialized.");
+  const { currentTarget } = e;
+  const scrollLeft = currentTarget.scrollLeft - SCROLL_INIT;
+  const scrollTop = currentTarget.scrollTop - SCROLL_INIT;
+  const xyflowRuntime = getWorkspaceXyflowRuntime(host);
+  const viewport = xyflowRuntime.getViewport();
+  if (viewport) {
+    if (scrollLeft || scrollTop) {
+      void xyflowRuntime.setViewport({
+        x: viewport.x - scrollLeft,
+        y: viewport.y - scrollTop,
+        zoom: viewport.zoom,
+      });
+    }
+    currentTarget.scrollTop = SCROLL_INIT;
+    currentTarget.scrollLeft = SCROLL_INIT;
+    return;
   }
-  d3Zoom.translateBy(
-    d3Selection,
-    -(e.currentTarget.scrollLeft - SCROLL_INIT) / transform[2],
-    -(e.currentTarget.scrollTop - SCROLL_INIT) / transform[2],
-  );
-  e.currentTarget.scrollTop = SCROLL_INIT;
-  e.currentTarget.scrollLeft = SCROLL_INIT;
+  const { d3Zoom, d3Selection, transform } = getReactFlowStore(host).getState();
+  if (d3Zoom && d3Selection) {
+    d3Zoom.translateBy(
+      d3Selection,
+      -scrollLeft / transform[2],
+      -scrollTop / transform[2],
+    );
+  }
+  currentTarget.scrollTop = SCROLL_INIT;
+  currentTarget.scrollLeft = SCROLL_INIT;
+}
+
+export function commitWorkspaceXyflowNodeDrag(
+  host: WorkspaceHost,
+  items: ReadonlyArray<NodeDragItem>,
+): void {
+  const { snapGrid, snapToGrid } = getWorkspaceOptionsStore(host).getState();
+  const currentNodes = getNodeInternalsStore(host).getState().x;
+  const nodeItems = items.flatMap((item) => {
+    const currentNode = currentNodes.get(item.id);
+    if (!currentNode) {
+      return [];
+    }
+    const position = snapToGrid
+      ? {
+          x: snapGrid[0] * Math.round(item.position.x / snapGrid[0]),
+          y: snapGrid[1] * Math.round(item.position.y / snapGrid[1]),
+        }
+      : item.position;
+    return [
+      {
+        ...item,
+        position,
+      },
+    ];
+  });
+  if (nodeItems.length > 0) {
+    updateNodePositionsAndCommit(host, nodeItems, {
+      normalizeZIndices: nodeItems.map((item) => item.id),
+    });
+  }
 }
 
 function useWrapperDivDimensions(ref: RefObject<HTMLDivElement | null>) {

@@ -230,10 +230,23 @@ describe("canvas CodeMirror tooltip parent", () => {
       });
 
       const renderer = getRequiredElement(container, ".react-flow__renderer");
-      expect(renderer.style.width).toBe("1200px");
-      expect(renderer.style.height).toBe("800px");
+      const presentationRoot = renderer.parentElement?.parentElement;
+      if (!(presentationRoot instanceof HTMLElement)) {
+        throw new Error("The canvas rendered no XYFlow presentation root.");
+      }
+      expect(renderer.style.width).toBe("100%");
+      expect(renderer.style.height).toBe("100%");
+      expect(presentationRoot.style.width).toBe("1200px");
+      expect(presentationRoot.style.height).toBe("800px");
+      expect(presentationRoot.style.zIndex).toBe("");
+      expect(presentationRoot.nextElementSibling).toBe(
+        getRequiredElement(container, ".react-flow__background"),
+      );
       expect(testWorkspace.reactFlow.getState().width).toBe(1_200);
       expect(testWorkspace.reactFlow.getState().height).toBe(800);
+      expect(testWorkspace.reactFlow.getState().domNode).toBe(
+        getRequiredElement(container, "div.react-flow"),
+      );
     } finally {
       getBoundingClientRect.mockRestore();
     }
@@ -250,8 +263,9 @@ describe("canvas CodeMirror tooltip parent", () => {
     }
 
     expect(
-      parent.parentElement?.classList.contains("react-flow__viewport"),
+      parent.parentElement?.classList.contains("react-flow__viewport-portal"),
     ).toBe(true);
+    expect(parent.closest(".react-flow__viewport")).not.toBeNull();
 
     const section = getRequiredElement(
       container,

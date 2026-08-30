@@ -22,6 +22,8 @@ import type { WorkspaceSection } from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
 import { useWorkspaceOptions } from "./options";
 import { initialCanvasState, useReactFlow } from "./store";
+import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime";
+import type { WorkspaceXyflowInstance } from "./xyflow/types";
 import {
   focusWorkspaceSection,
   getCanZoomIn,
@@ -72,6 +74,18 @@ function setupZoomRuntime() {
     durations,
     transitionObject,
   };
+}
+
+function setupXyflowRuntime(viewport = { x: 0, y: 0, zoom: 1 }) {
+  const setViewport = vi.fn(() => Promise.resolve(true));
+  const zoomTo = vi.fn(() => Promise.resolve(true));
+  registerWorkspaceXyflowInstance(testWorkspace.host, {
+    getViewport: () => viewport,
+    screenToFlowPosition: vi.fn(),
+    setViewport,
+    zoomTo,
+  } as unknown as WorkspaceXyflowInstance);
+  return { setViewport, zoomTo };
 }
 
 describe("viewport zoom helpers", () => {
@@ -227,6 +241,22 @@ describe("viewport zoom helpers", () => {
     expect(applied.x).toBe(200 + 500 / 2 - 100 * 2);
     expect(applied.y).toBe(600 / 2 - 50 * 2);
     expect(durations).toEqual([120]);
+  });
+
+  it("setCenter preserves inset-aware geometry through the public XYFlow runtime", () => {
+    const { setViewport } = setupXyflowRuntime();
+    testWorkspace.reactFlow.setState({
+      width: 800,
+      height: 600,
+      viewportInsets: { top: 0, right: 100, bottom: 0, left: 200 },
+    });
+
+    setCenter(testWorkspace.host, 100, 50, { zoom: 2, duration: 120 });
+
+    expect(setViewport).toHaveBeenCalledWith(
+      { x: 250, y: 200, zoom: 2 },
+      { duration: 120 },
+    );
   });
 
   it("setCenter centers on the whole canvas when open panes cover it", () => {

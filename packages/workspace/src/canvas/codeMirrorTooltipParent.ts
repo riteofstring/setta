@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import { createStore } from "zustand/vanilla";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
 import { assertWorkspaceHostActive } from "../workspaceHostInternals";
@@ -38,13 +38,18 @@ export function useCodeMirrorTooltipParent(): HTMLElement | null {
 
 export function useCodeMirrorTooltipParentRef() {
   const host = useWorkspaceHost();
-  const ref = useRef<HTMLDivElement | null>(null);
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
+  const ref = useCallback((nextElement: HTMLDivElement | null) => {
+    setElement(nextElement);
+  }, []);
   useLayoutEffect(() => {
     const store = getCodeMirrorTooltipParentStore(host);
-    store.setState({ element: ref.current });
+    store.setState({ element });
     return () => {
-      store.setState({ element: null });
+      if (store.getState().element === element) {
+        store.setState({ element: null });
+      }
     };
-  }, [host]);
+  }, [element, host]);
   return ref;
 }

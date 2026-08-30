@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getDndStateStore } from "../../dnd/dndState";
-import {
-  MANUAL_WHEEL_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
-} from "../../interaction";
+import { NO_PAN_CLASS_NAME } from "../../interaction";
 import type { WorkspaceHost } from "../../workspaceHost";
 import { getReactFlowStore } from "../store";
 import type { WorkspaceInteractionOptions } from "../options";
@@ -26,11 +22,9 @@ export type WorkspaceXyflowWheelBehaviorOptions = Pick<
   WorkspaceInteractionOptions,
   | "maxZoom"
   | "minZoom"
-  | "panOnDrag"
   | "panOnScroll"
   | "panOnScrollMode"
   | "panOnScrollSpeed"
-  | "zoomOnDoubleClick"
   | "zoomOnPinch"
   | "zoomOnScroll"
 >;
@@ -97,11 +91,9 @@ function shouldHandleDefaultWheelEvent({
     return false;
   }
   if (
-    !options.panOnDrag &&
     !zoomOnScroll &&
     !options.panOnScroll &&
-    !options.zoomOnDoubleClick &&
-    !options.zoomOnPinch
+    !(options.zoomOnPinch && event.ctrlKey)
   ) {
     return false;
   }
@@ -203,8 +195,11 @@ export function useWorkspaceXyflowWheelBehavior({
 
   const onViewportMoveStart = useCallback(
     (event: MouseEvent | TouchEvent | null) => {
+      if (event === null) {
+        return;
+      }
       interactionRefs.current.isViewportMoving.current = true;
-      if (event?.type === "mousedown") {
+      if (event.type === "mousedown") {
         getReactFlowStore(host).setState({ paneDragging: true });
       }
       syncViewportInteractionActive();
@@ -214,10 +209,11 @@ export function useWorkspaceXyflowWheelBehavior({
 
   const onViewportMoveEnd = useCallback(
     (event: MouseEvent | TouchEvent | null) => {
-      interactionRefs.current.isViewportMoving.current = false;
-      if (event !== null) {
-        getReactFlowStore(host).setState({ paneDragging: false });
+      if (event === null) {
+        return;
       }
+      interactionRefs.current.isViewportMoving.current = false;
+      getReactFlowStore(host).setState({ paneDragging: false });
       syncViewportInteractionActive();
     },
     [host, syncViewportInteractionActive],
@@ -300,7 +296,10 @@ export function useWorkspaceXyflowWheelBehavior({
         }),
       );
     };
-    const handleWheelEvent = (event: WheelEvent): void => {
+    const handleWheelEvent = (
+      event: WheelEvent,
+      suppressUpstream: boolean,
+    ): void => {
       const { options } = latestRef.current;
       const { userSelectionActive, zoomActivationKeyPressed } =
         getReactFlowStore(host).getState();
@@ -323,33 +322,35 @@ export function useWorkspaceXyflowWheelBehavior({
         }
         return;
       }
+      if (
+        !shouldHandleDefaultWheelEvent({
+          event,
+          host,
+          options,
+          userSelectionActive,
+          zoomActivationKeyPressed,
+        })
+      ) {
+        return;
+      }
       event.preventDefault();
+      const pinchZoom = isPinchZoomWheelEvent({
+        event,
+        isMacOS,
+        zoomOnPinch: options.zoomOnPinch,
+      });
+      if (suppressUpstream || panOnScroll) {
+        event.stopImmediatePropagation();
+      }
 
       if (!panOnScroll) {
         startWheelZoomBurst();
-        if (
-          shouldHandleDefaultWheelEvent({
-            event,
-            host,
-            options,
-            userSelectionActive,
-            zoomActivationKeyPressed,
-          })
-        ) {
-          zoomToWheelPoint(event);
-        }
+        zoomToWheelPoint(event);
         scheduleWheelZoomBurstEnd();
         return;
       }
 
-      event.stopImmediatePropagation();
-      if (
-        isPinchZoomWheelEvent({
-          event,
-          isMacOS,
-          zoomOnPinch: options.zoomOnPinch,
-        })
-      ) {
+      if (pinchZoom) {
         startWheelZoomBurst();
         zoomToWheelPoint(event);
         scheduleWheelZoomBurstEnd();
@@ -370,31 +371,17 @@ export function useWorkspaceXyflowWheelBehavior({
       ensurePanScrollInteraction();
       schedulePanScrollInteractionEnd();
     };
-    const handlePanScrollCapture = (event: WheelEvent): void => {
-      const { options } = latestRef.current;
-      const { userSelectionActive, zoomActivationKeyPressed } =
-        getReactFlowStore(host).getState();
-      if (
-        !options.panOnScroll ||
-        zoomActivationKeyPressed ||
-        userSelectionActive ||
-        !interactionRefs.current.isPanScrolling.current ||
-        !isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) ||
-        isWrappedWithClass(event, MANUAL_WHEEL_CLASS_NAME)
-      ) {
-        return;
-      }
-      handleWheelEvent(event);
-    };
     const bridgeWorkspaceWindowWheelEvent = (event: WheelEvent): void => {
       if (!isWorkspaceWindowOverlayWheelEvent(host, event)) {
         return;
       }
-      handleWheelEvent(event);
+      handleWheelEvent(event, false);
+    };
+    const handleRendererWheelEvent = (event: WheelEvent): void => {
+      handleWheelEvent(event, true);
     };
 
-    renderer.addEventListener("wheel", handleWheelEvent, { passive: false });
-    renderer.addEventListener("wheel", handlePanScrollCapture, {
+    renderer.addEventListener("wheel", handleRendererWheelEvent, {
       capture: true,
       passive: false,
     });
@@ -406,8 +393,7 @@ export function useWorkspaceXyflowWheelBehavior({
     syncViewportInteractionActive();
 
     return () => {
-      renderer.removeEventListener("wheel", handleWheelEvent);
-      renderer.removeEventListener("wheel", handlePanScrollCapture, true);
+      renderer.removeEventListener("wheel", handleRendererWheelEvent, true);
       renderer.ownerDocument.removeEventListener(
         "wheel",
         bridgeWorkspaceWindowWheelEvent,

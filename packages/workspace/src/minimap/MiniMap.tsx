@@ -1,6 +1,4 @@
 import cc from "classcat";
-import { pointer, select } from "d3-selection";
-import { zoom, zoomIdentity, type D3ZoomEvent } from "d3-zoom";
 import {
   memo,
   useEffect,
@@ -15,6 +13,8 @@ import { getNodesBounds, getPaneRect } from "../canvas/graph";
 import { getReactFlowStore, useReactFlow } from "../canvas/store";
 import type { CoordinateExtent, ReactFlowState, Rect } from "../canvas/types";
 import { getBoundsOfRects } from "../canvas/utils";
+import { getWorkspaceXyflowRuntime } from "../canvas/xyflow/workspaceXyflowRuntime";
+import type { WorkspaceXyflowViewport } from "../canvas/xyflow/types";
 import {
   getActiveSectionsStore,
   useNodeInternals,
@@ -65,12 +65,19 @@ type MiniMapSelector = {
 };
 
 type MiniMapPanState = {
-  transform: ReactFlowState["transform"];
-  d3Selection: NonNullable<ReactFlowState["d3Selection"]>;
-  d3Zoom: NonNullable<ReactFlowState["d3Zoom"]>;
+  runtime: ReturnType<typeof getWorkspaceXyflowRuntime>;
+  viewport: WorkspaceXyflowViewport;
   translateExtent: ReactFlowState["translateExtent"];
   width: ReactFlowState["width"];
   height: ReactFlowState["height"];
+};
+
+type MiniMapMouseDragState = {
+  moved: boolean;
+  restoreSelection: () => void;
+  startX: number;
+  startY: number;
+  view: Window;
 };
 
 type XYWidthHeightParams = {
@@ -165,30 +172,46 @@ function getMiniMapDimension(
   return typeof value === "number" ? value : fallback;
 }
 
-function isMouseMoveEvent(
-  sourceEvent: Event | null | undefined,
-): sourceEvent is MouseEvent {
-  return sourceEvent?.type === "mousemove";
-}
-
 function getMiniMapPanState(host: WorkspaceHost): MiniMapPanState | null {
-  const { transform, d3Selection, d3Zoom, translateExtent, width, height } =
-    getReactFlowStore(host).getState();
-  if (!d3Selection || !d3Zoom) {
+  const runtime = getWorkspaceXyflowRuntime(host);
+  const viewport = runtime.getViewport();
+  if (!viewport) {
     return null;
   }
-  return { transform, d3Selection, d3Zoom, translateExtent, width, height };
+  const { translateExtent, width, height } = getReactFlowStore(host).getState();
+  return { runtime, viewport, translateExtent, width, height };
+}
+
+function constrainMiniMapViewport(
+  viewport: WorkspaceXyflowViewport,
+  extent: CoordinateExtent,
+  translateExtent: CoordinateExtent,
+): WorkspaceXyflowViewport {
+  const dx0 =
+    (extent[0][0] - viewport.x) / viewport.zoom - translateExtent[0][0];
+  const dx1 =
+    (extent[1][0] - viewport.x) / viewport.zoom - translateExtent[1][0];
+  const dy0 =
+    (extent[0][1] - viewport.y) / viewport.zoom - translateExtent[0][1];
+  const dy1 =
+    (extent[1][1] - viewport.y) / viewport.zoom - translateExtent[1][1];
+  const translateX =
+    dx1 > dx0 ? (dx0 + dx1) / 2 : Math.min(0, dx0) || Math.max(0, dx1);
+  const translateY =
+    dy1 > dy0 ? (dy0 + dy1) / 2 : Math.min(0, dy0) || Math.max(0, dy1);
+
+  return {
+    x: viewport.x + translateX * viewport.zoom,
+    y: viewport.y + translateY * viewport.zoom,
+    zoom: viewport.zoom,
+  };
 }
 
 function createMiniMapPanHandler(
   host: WorkspaceHost,
   viewScaleRef: { current: number },
 ) {
-  return (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
-    if (!isMouseMoveEvent(event.sourceEvent)) {
-      return;
-    }
-
+  return (event: MouseEvent) => {
     const panState = getMiniMapPanState(host);
     if (!panState) {
       return;
@@ -196,26 +219,84 @@ function createMiniMapPanHandler(
 
     const moveScale =
       viewScaleRef.current *
-      Math.max(panState.transform[2], Math.log(panState.transform[2]));
-    const position = {
-      x: panState.transform[0] - event.sourceEvent.movementX * moveScale,
-      y: panState.transform[1] - event.sourceEvent.movementY * moveScale,
-    };
+      Math.max(panState.viewport.zoom, Math.log(panState.viewport.zoom));
     const extent: CoordinateExtent = [
       [0, 0],
       [panState.width, panState.height],
     ];
 
-    const nextTransform = zoomIdentity
-      .translate(position.x, position.y)
-      .scale(panState.transform[2]);
-    const constrainedTransform = panState.d3Zoom.constrain()(
-      nextTransform,
+    const constrainedViewport = constrainMiniMapViewport(
+      {
+        x: panState.viewport.x - event.movementX * moveScale,
+        y: panState.viewport.y - event.movementY * moveScale,
+        zoom: panState.viewport.zoom,
+      },
       extent,
       panState.translateExtent,
     );
+    void panState.runtime.setViewport(constrainedViewport);
+  };
+}
 
-    panState.d3Zoom.transform(panState.d3Selection, constrainedTransform);
+function preventMiniMapNativeEvent(event: Event) {
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}
+
+function stopMiniMapNativeEventPropagation(event: Event) {
+  event.stopImmediatePropagation();
+}
+
+function isMiniMapGestureAllowed(event: {
+  button?: number;
+  ctrlKey: boolean;
+  type: string;
+}) {
+  return (!event.ctrlKey || event.type === "wheel") && !event.button;
+}
+
+function isMiniMapTouchable(svg: SVGSVGElement) {
+  return (
+    Boolean(svg.ownerDocument.defaultView?.navigator.maxTouchPoints) ||
+    "ontouchstart" in svg
+  );
+}
+
+function supportsMiniMapSelectStart(root: HTMLElement) {
+  return "onselectstart" in root;
+}
+
+function disableMiniMapTextSelection(view: Window) {
+  const root = view.document.documentElement;
+  view.addEventListener("dragstart", preventMiniMapNativeEvent, true);
+  if (supportsMiniMapSelectStart(root)) {
+    view.addEventListener("selectstart", preventMiniMapNativeEvent, true);
+    return () => {
+      view.removeEventListener("dragstart", preventMiniMapNativeEvent, true);
+      view.removeEventListener("selectstart", preventMiniMapNativeEvent, true);
+    };
+  }
+
+  const mozUserSelect = root.style.getPropertyValue("-moz-user-select");
+  root.style.setProperty("-moz-user-select", "none");
+  return () => {
+    view.removeEventListener("dragstart", preventMiniMapNativeEvent, true);
+    if (mozUserSelect) {
+      root.style.setProperty("-moz-user-select", mozUserSelect);
+      return;
+    }
+    root.style.removeProperty("-moz-user-select");
+  };
+}
+
+function suppressMiniMapClick(view: Window) {
+  view.addEventListener("click", preventMiniMapNativeEvent, true);
+  const timeout = view.setTimeout(() => {
+    view.removeEventListener("click", preventMiniMapNativeEvent, true);
+  }, 0);
+  return () => {
+    view.clearTimeout(timeout);
+    view.removeEventListener("click", preventMiniMapNativeEvent, true);
   };
 }
 
@@ -234,17 +315,179 @@ function bindMiniMapInteractions({
     return undefined;
   }
 
-  const selection = select(svg);
-  const zoomBehavior = zoom<SVGSVGElement, unknown>();
+  const pan = createMiniMapPanHandler(host, viewScaleRef);
+  const touchable = isMiniMapTouchable(svg);
+  if (touchable) {
+    svg.style.setProperty("-webkit-tap-highlight-color", "rgba(0,0,0,0)");
+  }
+  let dragState: MiniMapMouseDragState | null = null;
+  let touchActive = false;
+  let touchEnding = false;
+  let touchEndingTimeout: number | undefined;
+  let removeClickSuppression: (() => void) | null = null;
 
-  if (pannable) {
-    zoomBehavior.on("zoom", createMiniMapPanHandler(host, viewScaleRef));
+  const endMouseDrag = () => {
+    const currentDragState = dragState;
+    if (!currentDragState) {
+      return null;
+    }
+    currentDragState.view.removeEventListener(
+      "mousemove",
+      handleMouseMove,
+      true,
+    );
+    currentDragState.view.removeEventListener("mouseup", handleMouseUp, true);
+    currentDragState.restoreSelection();
+    dragState = null;
+    return currentDragState;
+  };
+
+  const handleMouseMove = (event: MouseEvent) => {
+    const currentDragState = dragState;
+    if (!currentDragState) {
+      return;
+    }
+    preventMiniMapNativeEvent(event);
+    if (!currentDragState.moved) {
+      const deltaX = event.clientX - currentDragState.startX;
+      const deltaY = event.clientY - currentDragState.startY;
+      currentDragState.moved = deltaX * deltaX + deltaY * deltaY > 0;
+    }
+    if (pannable) {
+      pan(event);
+    }
+  };
+
+  const handleMouseUp = (event: MouseEvent) => {
+    const currentDragState = endMouseDrag();
+    if (!currentDragState) {
+      return;
+    }
+    if (currentDragState.moved) {
+      removeClickSuppression?.();
+      removeClickSuppression = suppressMiniMapClick(currentDragState.view);
+    }
+    preventMiniMapNativeEvent(event);
+  };
+
+  const handleMouseDown = (event: MouseEvent) => {
+    if (touchEnding || !isMiniMapGestureAllowed(event)) {
+      return;
+    }
+    const view = event.view ?? svg.ownerDocument.defaultView;
+    if (!view) {
+      return;
+    }
+    dragState = {
+      moved: false,
+      restoreSelection: disableMiniMapTextSelection(view),
+      startX: event.clientX,
+      startY: event.clientY,
+      view,
+    };
+    view.addEventListener("mousemove", handleMouseMove, true);
+    view.addEventListener("mouseup", handleMouseUp, true);
+    stopMiniMapNativeEventPropagation(event);
+  };
+
+  const handleWheel = (event: WheelEvent) => {
+    if (!isMiniMapGestureAllowed(event) || event.deltaY === 0) {
+      return;
+    }
+    preventMiniMapNativeEvent(event);
+  };
+
+  const handleDoubleClick = (event: MouseEvent) => {
+    if (!isMiniMapGestureAllowed(event)) {
+      return;
+    }
+    preventMiniMapNativeEvent(event);
+  };
+
+  const handleTouchStart = (event: TouchEvent) => {
+    if (!isMiniMapGestureAllowed(event)) {
+      return;
+    }
+    touchActive = true;
+    stopMiniMapNativeEventPropagation(event);
+  };
+
+  const handleTouchMove = (event: TouchEvent) => {
+    if (!touchActive) {
+      return;
+    }
+    preventMiniMapNativeEvent(event);
+  };
+
+  const handleTouchEnd = (event: TouchEvent) => {
+    if (!touchActive) {
+      return;
+    }
+    stopMiniMapNativeEventPropagation(event);
+    if (event.touches.length > 0) {
+      return;
+    }
+    touchActive = false;
+    touchEnding = true;
+    const view = event.view ?? svg.ownerDocument.defaultView;
+    if (!view) {
+      return;
+    }
+    if (touchEndingTimeout !== undefined) {
+      view.clearTimeout(touchEndingTimeout);
+    }
+    touchEndingTimeout = view.setTimeout(() => {
+      touchEnding = false;
+      touchEndingTimeout = undefined;
+    }, 500);
+  };
+
+  svg.addEventListener("mousedown", handleMouseDown);
+  svg.addEventListener("wheel", handleWheel, { passive: false });
+  svg.addEventListener("dblclick", handleDoubleClick);
+  if (touchable) {
+    svg.addEventListener("touchstart", handleTouchStart);
+    svg.addEventListener("touchmove", handleTouchMove, { passive: false });
+    svg.addEventListener("touchend", handleTouchEnd);
+    svg.addEventListener("touchcancel", handleTouchEnd);
   }
 
-  selection.call(zoomBehavior);
-
   return () => {
-    selection.on("zoom", null);
+    endMouseDrag();
+    removeClickSuppression?.();
+    if (touchEndingTimeout !== undefined) {
+      const view = svg.ownerDocument.defaultView;
+      view?.clearTimeout(touchEndingTimeout);
+    }
+    svg.removeEventListener("mousedown", handleMouseDown);
+    svg.removeEventListener("wheel", handleWheel);
+    svg.removeEventListener("dblclick", handleDoubleClick);
+    if (touchable) {
+      svg.removeEventListener("touchstart", handleTouchStart);
+      svg.removeEventListener("touchmove", handleTouchMove);
+      svg.removeEventListener("touchend", handleTouchEnd);
+      svg.removeEventListener("touchcancel", handleTouchEnd);
+    }
+  };
+}
+
+function getMiniMapPointerPosition(event: ReactMouseEvent<SVGSVGElement>) {
+  const svg = event.currentTarget;
+  if (svg.createSVGPoint) {
+    const screenMatrix = svg.getScreenCTM();
+    if (screenMatrix) {
+      const point = svg.createSVGPoint();
+      point.x = event.clientX;
+      point.y = event.clientY;
+      const transformedPoint = point.matrixTransform(screenMatrix.inverse());
+      return { x: transformedPoint.x, y: transformedPoint.y };
+    }
+  }
+
+  const rect = svg.getBoundingClientRect();
+  return {
+    x: event.clientX - rect.left - svg.clientLeft,
+    y: event.clientY - rect.top - svg.clientTop,
   };
 }
 
@@ -256,8 +499,7 @@ function createMiniMapClickHandler(
   }
 
   return (event: ReactMouseEvent<SVGSVGElement>) => {
-    const rfCoord = pointer(event);
-    onClick(event, { x: rfCoord[0], y: rfCoord[1] });
+    onClick(event, getMiniMapPointerPosition(event));
   };
 }
 

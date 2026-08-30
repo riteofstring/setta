@@ -21,6 +21,8 @@ import type { Node } from "../document/types";
 import { fitView, onFitViewHandler } from "./fitView";
 import { useWorkspaceOptions } from "./options";
 import { initialCanvasState, useReactFlow } from "./store";
+import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime";
+import type { WorkspaceXyflowInstance } from "./xyflow/types";
 
 function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
   return {
@@ -64,6 +66,17 @@ function setupFitViewState(overrides: Partial<typeof initialCanvasState> = {}) {
   });
 
   return { d3Selection, transform, transition };
+}
+
+function mountXyflowRuntime() {
+  const setViewport = vi.fn(() => Promise.resolve(true));
+  registerWorkspaceXyflowInstance(testWorkspace.host, {
+    getViewport: () => ({ x: 0, y: 0, zoom: 1 }),
+    screenToFlowPosition: vi.fn(),
+    setViewport,
+    zoomTo: vi.fn(() => Promise.resolve(true)),
+  } as unknown as WorkspaceXyflowInstance);
+  return { setViewport };
 }
 
 describe("fitView", () => {
@@ -145,6 +158,24 @@ describe("fitView", () => {
     expect(transform).toHaveBeenCalledWith(
       d3Selection,
       expect.objectContaining({ x: 200, y: 237.5, k: 1.25 }),
+    );
+  });
+
+  it("preserves inset-aware fit geometry through the public XYFlow viewport API", () => {
+    const { setViewport } = mountXyflowRuntime();
+    testWorkspace.reactFlow.setState({
+      ...initialCanvasState,
+      width: 800,
+      height: 600,
+      viewportInsets: { top: 0, right: 100, bottom: 0, left: 200 },
+    });
+    setNodes([createNode({ id: "section-a", width: 400, height: 100 })]);
+
+    expect(fitView(testWorkspace.host, { duration: 0, padding: 0 })).toBe(true);
+
+    expect(setViewport).toHaveBeenCalledWith(
+      { x: 200, y: 237.5, zoom: 1.25 },
+      { duration: 0 },
     );
   });
 

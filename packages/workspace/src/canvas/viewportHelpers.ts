@@ -3,7 +3,10 @@ import _ from "lodash";
 import { getWorkspaceDocumentStore } from "../document/stores";
 import { isWorkspaceSectionVisible } from "../document/savedViewDisplay";
 import type { Position } from "../document/types";
-import { prefersReducedWorkspaceMotion } from "../styles/motion";
+import {
+  prefersReducedWorkspaceMotion,
+  resolveWorkspaceMotionDuration,
+} from "../styles/motion";
 import type { WorkspaceHost } from "../workspaceHost";
 import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
 import {
@@ -18,6 +21,7 @@ import { getReactFlowStore } from "./store";
 import type { ReactFlowState, Rect } from "./types";
 import { getVisibleCanvasRect } from "./viewportInsets";
 import { screenToFlowPosition } from "./viewportPosition";
+import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
 
 type TransitionOptions = {
   duration?: number;
@@ -59,10 +63,26 @@ function getZoomThrottleState(host: WorkspaceHost): ZoomThrottleState {
   }
   const state = {
     zoomIn: _.throttle((options?: TransitionOptions) => {
+      const xyflowRuntime = getWorkspaceXyflowRuntime(host);
+      const viewport = xyflowRuntime.getViewport();
+      if (viewport) {
+        void xyflowRuntime.zoomTo(viewport.zoom * 1.2, {
+          duration: resolveWorkspaceMotionDuration(options?.duration ?? 0),
+        });
+        return;
+      }
       const { d3Zoom, d3Selection } = getZoomRuntime(host);
       d3Zoom.scaleBy(getZoomTarget(d3Selection, options?.duration), 1.2);
     }, 50),
     zoomOut: _.throttle((options?: TransitionOptions) => {
+      const xyflowRuntime = getWorkspaceXyflowRuntime(host);
+      const viewport = xyflowRuntime.getViewport();
+      if (viewport) {
+        void xyflowRuntime.zoomTo(viewport.zoom / 1.2, {
+          duration: resolveWorkspaceMotionDuration(options?.duration ?? 0),
+        });
+        return;
+      }
       const { d3Zoom, d3Selection } = getZoomRuntime(host);
       d3Zoom.scaleBy(getZoomTarget(d3Selection, options?.duration), 1 / 1.2);
     }, 50),
@@ -92,6 +112,13 @@ function zoomTo(
   zoomLevel: number,
   options?: TransitionOptions,
 ) {
+  const xyflowRuntime = getWorkspaceXyflowRuntime(host);
+  if (xyflowRuntime.getInstance()) {
+    void xyflowRuntime.zoomTo(zoomLevel, {
+      duration: resolveWorkspaceMotionDuration(options?.duration ?? 0),
+    });
+    return;
+  }
   const { d3Zoom, d3Selection } = getZoomRuntime(host);
   d3Zoom.scaleTo(getZoomTarget(d3Selection, options?.duration), zoomLevel);
 }
@@ -102,6 +129,9 @@ export function resetZoom(host: WorkspaceHost) {
 }
 
 export function getIsZoomRuntimeReady(host: WorkspaceHost): boolean {
+  if (getWorkspaceXyflowRuntime(host).getInstance()) {
+    return true;
+  }
   const { d3Zoom, d3Selection } = getReactFlowStore(host).getState();
   return Boolean(d3Zoom && d3Selection);
 }
@@ -136,7 +166,6 @@ export function setCenter(
   y: number,
   options?: ZoomOptions,
 ) {
-  const { d3Zoom, d3Selection } = getZoomRuntime(host);
   const { width, height, viewportInsets } = getReactFlowStore(host).getState();
   const { maxZoom } = getWorkspaceOptionsStore(host).getState();
   const visibleCanvas = getVisibleCanvasRect({ width, height }, viewportInsets);
@@ -149,8 +178,17 @@ export function setCenter(
   const nextZoom = typeof options?.zoom === "number" ? options.zoom : maxZoom;
   const centerX = visibleCanvas.x + visibleCanvas.width / 2 - x * nextZoom;
   const centerY = visibleCanvas.y + visibleCanvas.height / 2 - y * nextZoom;
-  const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
+  const xyflowRuntime = getWorkspaceXyflowRuntime(host);
+  if (xyflowRuntime.getInstance()) {
+    void xyflowRuntime.setViewport(
+      { x: centerX, y: centerY, zoom: nextZoom },
+      { duration: resolveWorkspaceMotionDuration(options?.duration ?? 0) },
+    );
+    return;
+  }
 
+  const { d3Zoom, d3Selection } = getZoomRuntime(host);
+  const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
   d3Zoom.transform(getZoomTarget(d3Selection, options?.duration), transform);
 }
 
@@ -208,7 +246,6 @@ export function movePaneToIncludeElement(
   if (!getIsZoomRuntimeReady(host)) {
     return;
   }
-  const { d3Zoom, d3Selection } = getZoomRuntime(host);
   const rect = element.getBoundingClientRect();
   const translation = getPaneTranslationForPoint(
     screenToFlowPosition(host, { x: rect.x, y: rect.y }),
@@ -218,6 +255,17 @@ export function movePaneToIncludeElement(
   if (!translation) {
     return;
   }
+  const xyflowRuntime = getWorkspaceXyflowRuntime(host);
+  const viewport = xyflowRuntime.getViewport();
+  if (viewport) {
+    void xyflowRuntime.setViewport({
+      x: viewport.x - translation.x * viewport.zoom,
+      y: viewport.y - translation.y * viewport.zoom,
+      zoom: viewport.zoom,
+    });
+    return;
+  }
+  const { d3Zoom, d3Selection } = getZoomRuntime(host);
   d3Zoom.translateBy(d3Selection, -translation.x, -translation.y);
 }
 
@@ -226,6 +274,15 @@ export function shiftWorkspaceMapForLeadingPane(
   widthDiff: number,
 ): void {
   if (widthDiff === 0) {
+    return;
+  }
+  const xyflowRuntime = getWorkspaceXyflowRuntime(host);
+  const viewport = xyflowRuntime.getViewport();
+  if (viewport) {
+    void xyflowRuntime.setViewport(
+      { x: viewport.x + widthDiff, y: viewport.y, zoom: viewport.zoom },
+      { duration: resolveWorkspaceMotionDuration(100) },
+    );
     return;
   }
   const { d3Zoom, d3Selection } = getZoomRuntime(host);

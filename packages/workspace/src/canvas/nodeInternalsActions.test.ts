@@ -21,6 +21,7 @@ import type { Node, WorkspaceSection } from "../document/types";
 import {
   commitTopLevelLayoutToDocument,
   raiseTempZIndex,
+  updateNodeDimensionsFromXyflow,
   updateNodePositions,
 } from "./nodeInternalsActions";
 
@@ -112,6 +113,37 @@ describe("node-internals publication", () => {
     expect(nextNodes.get(untouched.id)).toBe(untouched);
     expect(nextNodes.get(stale.id)).toMatchObject({ tempZIndex: 4 });
     expect(nextNodes.get(stale.id)).not.toBe(stale);
+  });
+
+  it("publishes changed XYFlow measurements once without a position-frame write", () => {
+    const node = createNode({ id: "top", width: 100, height: 80 });
+    testWorkspace.document.setState({
+      sections: { top: createSection("top") },
+      topLevelSections: { top: { x: 0, y: 0, w: 100, h: 80, zIndex: 0 } },
+    });
+    testWorkspace.nodeInternals.setState({ x: new Map([[node.id, node]]) });
+    let notifications = 0;
+    testWorkspace.host.subscribe(() => {
+      notifications += 1;
+    });
+
+    updateNodeDimensionsFromXyflow(testWorkspace.host, [
+      { id: node.id, width: 120, height: 90 },
+    ]);
+
+    expect(testWorkspace.nodeInternals.getState().x.get(node.id)).toMatchObject(
+      {
+        width: 120,
+        height: 90,
+      },
+    );
+    expect(notifications).toBe(1);
+
+    updateNodeDimensionsFromXyflow(testWorkspace.host, [
+      { id: node.id, width: 120, height: 90 },
+    ]);
+
+    expect(notifications).toBe(1);
   });
 });
 

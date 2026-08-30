@@ -23,3 +23,9 @@ export type WorkspaceXyflowInstance =
 export type WorkspaceXyflowViewport = Viewport;
 
 export type WorkspaceXyflowPosition = XYPosition;
+
+export type WorkspaceXyflowNodeDimensions = {
+  id: string;
+  width?: number;
+  height?: number;
+};

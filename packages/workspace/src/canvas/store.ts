@@ -8,6 +8,7 @@ import type { WorkspaceHost } from "../workspaceHost";
 import { getActiveSectionsBounds } from "./graph";
 import type { CoordinateExtent, ReactFlowState, ReactFlowStore } from "./types";
 import { EMPTY_VIEWPORT_INSETS } from "./viewportInsets";
+import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
 
 export const infiniteExtent: CoordinateExtent = [
   [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY],
@@ -70,6 +71,16 @@ function createReactFlowStore(host: WorkspaceHost) {
         });
       },
       panBy: (delta: Position): boolean => {
+        const xyflowRuntime = getWorkspaceXyflowRuntime(host);
+        const viewport = xyflowRuntime.getViewport();
+        if (viewport && (delta.x || delta.y)) {
+          void xyflowRuntime.setViewport({
+            x: viewport.x + delta.x,
+            y: viewport.y + delta.y,
+            zoom: viewport.zoom,
+          });
+          return true;
+        }
         const {
           transform,
           width,

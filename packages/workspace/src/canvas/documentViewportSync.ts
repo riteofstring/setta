@@ -1,6 +1,6 @@
 import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
 import { getWorkspaceDocumentStore } from "../document/stores";
 import type { Viewport } from "../document/types";
@@ -11,6 +11,7 @@ import { getWorkspaceOptionsStore } from "./options";
 import { getReactFlowStore } from "./store";
 import type { CoordinateExtent } from "./types";
 import { clamp } from "./utils";
+import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
 
 export function getInitialCanvasViewport(host: WorkspaceHost): Viewport {
   const viewport = getWorkspaceDocumentStore(host).getState().viewport;
@@ -55,9 +56,69 @@ export function startCanvasViewportDocumentSync(host: WorkspaceHost) {
   );
 }
 
+function getViewportFromTransform([x, y, zoom]: [number, number, number]) {
+  return { x, y, zoom };
+}
+
+export function syncCanvasViewportTransform(
+  host: WorkspaceHost,
+  viewport: Viewport,
+): void {
+  const reactFlowStore = getReactFlowStore(host);
+  const transform: [number, number, number] = [
+    viewport.x,
+    viewport.y,
+    viewport.zoom,
+  ];
+  if (_.isEqual(reactFlowStore.getState().transform, transform)) {
+    return;
+  }
+  reactFlowStore.setState({ transform });
+}
+
 export function useCanvasViewportDocumentSync() {
   const host = useWorkspaceHost();
-  useEffect(() => startCanvasViewportDocumentSync(host), [host]);
+  const [viewport, setViewport] = useState(() =>
+    getInitialCanvasViewport(host),
+  );
+  const viewportRef = useRef(viewport);
+
+  const onViewportChange = useCallback(
+    (nextViewport: Viewport) => {
+      if (!_.isEqual(viewportRef.current, nextViewport)) {
+        viewportRef.current = nextViewport;
+        setViewport(nextViewport);
+      }
+      syncCanvasViewportTransform(host, nextViewport);
+    },
+    [host],
+  );
+
+  useEffect(() => {
+    const initialViewport = getInitialCanvasViewport(host);
+    viewportRef.current = initialViewport;
+    setViewport(initialViewport);
+    syncCanvasViewportTransform(host, initialViewport);
+    const stopDocumentSync = startCanvasViewportDocumentSync(host);
+    const stopTransformSync = getReactFlowStore(host).subscribe(
+      (state) => state.transform,
+      (transform) => {
+        const nextViewport = getViewportFromTransform(transform);
+        if (_.isEqual(viewportRef.current, nextViewport)) {
+          return;
+        }
+        viewportRef.current = nextViewport;
+        setViewport(nextViewport);
+      },
+      { equalityFn: _.isEqual },
+    );
+    return () => {
+      stopTransformSync();
+      stopDocumentSync();
+    };
+  }, [host]);
+
+  return { onViewportChange, viewport };
 }
 
 function getMountedCanvasZoomRuntime(host: WorkspaceHost) {
@@ -68,11 +129,18 @@ function getMountedCanvasZoomRuntime(host: WorkspaceHost) {
   return { d3Zoom, d3Selection };
 }
 
+function hasMountedCanvasViewportRuntime(host: WorkspaceHost): boolean {
+  return (
+    getWorkspaceXyflowRuntime(host).getInstance() !== null ||
+    getMountedCanvasZoomRuntime(host) !== null
+  );
+}
+
 export function armLoadedDocumentFitView(
   host: WorkspaceHost,
   nextViewport: Viewport | null,
 ): void {
-  if (nextViewport !== null || getMountedCanvasZoomRuntime(host) === null) {
+  if (nextViewport !== null || !hasMountedCanvasViewportRuntime(host)) {
     return;
   }
   getReactFlowStore(host).setState({
@@ -89,6 +157,23 @@ export function applyLoadedDocumentViewport(
   if (nextViewport === null) {
     return;
   }
+  const xyflowRuntime = getWorkspaceXyflowRuntime(host);
+  const { minZoom, maxZoom } = getWorkspaceOptionsStore(host).getState();
+  const clampedViewport = {
+    x: nextViewport.x,
+    y: nextViewport.y,
+    zoom: clamp(nextViewport.zoom, minZoom, maxZoom),
+  };
+  if (xyflowRuntime.getInstance()) {
+    getReactFlowStore(host).setState({
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
+    });
+    syncCanvasViewportTransform(host, clampedViewport);
+    void xyflowRuntime.setViewport(clampedViewport);
+    return;
+  }
   const runtime = getMountedCanvasZoomRuntime(host);
   if (runtime === null) {
     return;
@@ -101,10 +186,9 @@ export function applyLoadedDocumentViewport(
   });
 
   const { width, height, translateExtent } = getReactFlowStore(host).getState();
-  const { minZoom, maxZoom } = getWorkspaceOptionsStore(host).getState();
   const nextTransform = zoomIdentity
-    .translate(nextViewport.x, nextViewport.y)
-    .scale(clamp(nextViewport.zoom, minZoom, maxZoom));
+    .translate(clampedViewport.x, clampedViewport.y)
+    .scale(clampedViewport.zoom);
   const extent: CoordinateExtent = [
     [0, 0],
     [width, height],

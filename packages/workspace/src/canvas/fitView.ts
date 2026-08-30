@@ -6,6 +6,7 @@ import { getWorkspaceOptionsStore } from "./options";
 import { getReactFlowStore } from "./store";
 import type { FitViewOptions, ReactFlowState } from "./types";
 import { getVisibleCanvasRect } from "./viewportInsets";
+import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
 import type { WorkspaceHost } from "../workspaceHost";
 import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
 
@@ -17,6 +18,9 @@ type FitViewRuntime = {
   width: number;
   height: number;
   viewportInsets: ReactFlowState["viewportInsets"];
+};
+
+type D3FitViewRuntime = FitViewRuntime & {
   d3Zoom: NonNullable<ReactFlowState["d3Zoom"]>;
   d3Selection: NonNullable<ReactFlowState["d3Selection"]>;
 };
@@ -27,19 +31,9 @@ function getFitViewRuntime(
   state: ReactFlowState,
   initial: boolean,
 ): FitViewRuntime | null {
-  const {
-    width,
-    height,
-    viewportInsets,
-    d3Zoom,
-    d3Selection,
-    fitViewOnInitDone,
-    fitViewOnInit,
-  } = state;
+  const { width, height, viewportInsets, fitViewOnInitDone, fitViewOnInit } =
+    state;
 
-  if (!d3Zoom || !d3Selection) {
-    return null;
-  }
   if (initial && (!fitViewOnInit || fitViewOnInitDone)) {
     return null;
   }
@@ -49,7 +43,17 @@ function getFitViewRuntime(
     return null;
   }
 
-  return { width, height, viewportInsets, d3Zoom, d3Selection };
+  return { width, height, viewportInsets };
+}
+
+function getD3FitViewRuntime(
+  state: ReactFlowState,
+  runtime: FitViewRuntime,
+): D3FitViewRuntime | null {
+  if (!state.d3Zoom || !state.d3Selection) {
+    return null;
+  }
+  return { ...runtime, d3Zoom: state.d3Zoom, d3Selection: state.d3Selection };
 }
 
 function resolveFitViewZoomLimits(
@@ -89,7 +93,7 @@ function areNodesReadyForFitView(
 }
 
 function applyFitViewTransform(
-  runtime: FitViewRuntime,
+  runtime: D3FitViewRuntime,
   viewport: ReturnType<typeof getViewportForBounds>,
   duration?: number,
 ) {
@@ -113,10 +117,8 @@ export function fitView(
   host: WorkspaceHost,
   options: InternalFitViewOptions = {},
 ) {
-  const runtime = getFitViewRuntime(
-    getReactFlowStore(host).getState(),
-    !!options.initial,
-  );
+  const state = getReactFlowStore(host).getState();
+  const runtime = getFitViewRuntime(state, !!options.initial);
   if (!runtime) {
     return false;
   }
@@ -138,7 +140,18 @@ export function fitView(
     },
   );
 
-  applyFitViewTransform(runtime, viewport, options.duration);
+  const duration = resolveWorkspaceMotionDuration(options.duration ?? 0);
+  const xyflowRuntime = getWorkspaceXyflowRuntime(host);
+  if (xyflowRuntime.getInstance()) {
+    void xyflowRuntime.setViewport(viewport, { duration });
+    return true;
+  }
+
+  const d3Runtime = getD3FitViewRuntime(state, runtime);
+  if (!d3Runtime) {
+    return false;
+  }
+  applyFitViewTransform(d3Runtime, viewport, options.duration);
   return true;
 }
 

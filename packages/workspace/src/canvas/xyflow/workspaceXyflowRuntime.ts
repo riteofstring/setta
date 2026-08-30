@@ -1,6 +1,7 @@
 import { registerWorkspaceHostCleanup } from "../../workspaceHostInternals";
 import type { WorkspaceHost } from "../../workspaceHost";
 import { assertWorkspaceHostActive } from "../../workspaceHostInternals";
+import type { ViewportHelperFunctionOptions } from "@xyflow/react";
 import type {
   WorkspaceXyflowInstance,
   WorkspaceXyflowPosition,
@@ -13,7 +14,14 @@ type WorkspaceXyflowRuntime = {
   screenToFlowPosition(
     position: WorkspaceXyflowPosition,
   ): WorkspaceXyflowPosition | null;
-  setViewport(viewport: WorkspaceXyflowViewport): Promise<boolean>;
+  setViewport(
+    viewport: WorkspaceXyflowViewport,
+    options?: ViewportHelperFunctionOptions,
+  ): Promise<boolean>;
+  zoomTo(
+    zoom: number,
+    options?: ViewportHelperFunctionOptions,
+  ): Promise<boolean>;
 };
 
 type WorkspaceXyflowRuntimeState = {
@@ -34,8 +42,22 @@ function createWorkspaceXyflowRuntimeState(): WorkspaceXyflowRuntimeState {
       getViewport: () => state.instance?.getViewport() ?? null,
       screenToFlowPosition: (position) =>
         state.instance?.screenToFlowPosition(position) ?? null,
-      setViewport: (viewport) =>
-        state.instance?.setViewport(viewport) ?? Promise.resolve(false),
+      setViewport: (viewport, options) => {
+        if (!state.instance) {
+          return Promise.resolve(false);
+        }
+        return options === undefined
+          ? state.instance.setViewport(viewport)
+          : state.instance.setViewport(viewport, options);
+      },
+      zoomTo: (zoom, options) => {
+        if (!state.instance) {
+          return Promise.resolve(false);
+        }
+        return options === undefined
+          ? state.instance.zoomTo(zoom)
+          : state.instance.zoomTo(zoom, options);
+      },
     },
   };
   return state;

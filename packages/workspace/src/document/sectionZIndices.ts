@@ -17,7 +17,7 @@ function shouldNormalizeZIndices(
   return maxZIndex > nodeInternals.size * 4;
 }
 
-function normalizeNodeZIndices(
+export function normalizeNodeZIndices(
   nodeInternals: NodeInternalsState["x"],
   sectionIds: Array<string>,
 ) {
