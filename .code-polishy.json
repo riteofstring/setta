@@ -18,7 +18,10 @@
           "scripts/inspect-playground.mjs",
           "scripts/lib/cdp-client.mjs",
           "scripts/lib/headless-chrome.mjs",
-          "scripts/profile-workspace-performance.mjs"
+          "scripts/profile-workspace-performance.mjs",
+          "scripts/xyflow-parity/capture-playground.mjs",
+          "scripts/xyflow-parity/compare-playground.mjs",
+          "scripts/xyflow-parity/scenario-catalog.mjs"
         ]
       },
       {
@@ -47,6 +50,7 @@
       "apps/python-canvas/backend/cmd/python-canvas/main.go",
       "apps/python-canvas/src/main.tsx",
       "apps/python-canvas/vitest.setup.ts",
+      "apps/python-canvas/visual-parity/capture.mjs",
       "packages/workspace/tailwind-preset.mjs",
       "packages/workspace/tailwind.config.d.ts",
       "packages/workspace/vitest.setup.ts",
@@ -54,6 +58,8 @@
       "scripts/check-workspace-policy.mjs",
       "scripts/compile-katex-styles.mjs",
       "scripts/profile-workspace-performance.mjs",
+      "scripts/xyflow-parity/capture-playground.mjs",
+      "scripts/xyflow-parity/compare-playground.mjs",
       "scripts/verify-packed-consumer.mjs"
     ],
     "development": [
@@ -61,6 +67,7 @@
       "apps/python-canvas/vite.config.ts",
       "apps/python-canvas/vitest.config.ts",
       "apps/python-canvas/vitest.setup.ts",
+      "apps/python-canvas/visual-parity/**",
       "fixtures/**",
       "packages/workspace/tailwind.config.js",
       "packages/workspace/vite.config.ts",
@@ -88,7 +95,11 @@
     },
     {
       "name": "python-canvas-frontend",
-      "paths": ["apps/python-canvas/*", "apps/python-canvas/src/**"],
+      "paths": [
+        "apps/python-canvas/*",
+        "apps/python-canvas/src/**",
+        "apps/python-canvas/visual-parity/**"
+      ],
       "dependsOn": ["workspace", "python-canvas-backend"]
     },
     {

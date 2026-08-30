@@ -1,0 +1,449 @@
+{
+  "fixtures": {
+    "mixed-project": {
+      "source": "apps/python-canvas/testdata/param-dict-list-demo.json",
+      "sectionKinds": [
+        "python-canvas.callable",
+        "python-canvas.parameter-dictionary",
+        "python-canvas.list",
+        "setta.code"
+      ]
+    }
+  },
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "availability": "capturable",
+      "capture": "mixed-project",
+      "coverage": [
+        "callable",
+        "generated-python",
+        "parameter-dictionary",
+        "list-of-objects",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-mixed-project",
+      "state": "idle",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "callable-selected-focused-zoomed",
+      "coverage": [
+        "callable",
+        "selection",
+        "focus",
+        "zoom",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-callable-selected-focused-zoomed",
+      "state": "selected-focused-zoomed",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "callable-editing-diagnostic",
+      "coverage": [
+        "callable",
+        "editing",
+        "diagnostics",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-callable-editing-diagnostic",
+      "state": "editing-diagnostic",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "generated-python-focused",
+      "coverage": [
+        "generated-python",
+        "focus",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-generated-python-focused",
+      "state": "focused",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "generated-python-protected-scrolled",
+      "coverage": [
+        "generated-python",
+        "protected-range",
+        "scrolled-editor",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-generated-python-protected-scrolled",
+      "state": "protected-scrolled",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "parameter-dictionary-selected",
+      "coverage": [
+        "parameter-dictionary",
+        "selection",
+        "desktop",
+        "dark"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-dark-parameter-dictionary-selected",
+      "state": "selected",
+      "theme": "dark",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "parameter-dictionary-item-selected",
+      "coverage": [
+        "parameter-dictionary",
+        "nested-items",
+        "item-selection",
+        "desktop",
+        "dark"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-dark-parameter-dictionary-item-selected",
+      "state": "item-selected",
+      "theme": "dark",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "list-of-objects-selected",
+      "coverage": [
+        "list-of-objects",
+        "selection",
+        "desktop",
+        "dark"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-dark-list-of-objects-selected",
+      "state": "selected",
+      "theme": "dark",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "list-nested-drag-preview",
+      "coverage": [
+        "list-of-objects",
+        "nested-items",
+        "item-drag-preview",
+        "desktop",
+        "dark"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-dark-list-nested-drag-preview",
+      "state": "nested-drag-preview",
+      "theme": "dark",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "list-nested-post-drop",
+      "coverage": [
+        "list-of-objects",
+        "nested-items",
+        "item-drag-post-drop",
+        "desktop",
+        "dark"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-dark-list-nested-post-drop",
+      "state": "nested-drag-post-drop",
+      "theme": "dark",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "mixed-project",
+      "coverage": [
+        "callable",
+        "generated-python",
+        "parameter-dictionary",
+        "list-of-objects",
+        "narrow",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "narrow-light-mixed-project",
+      "state": "idle",
+      "theme": "light",
+      "viewport": "narrow"
+    },
+    {
+      "availability": "capturable",
+      "capture": "generated-python-focused",
+      "coverage": [
+        "generated-python",
+        "focus",
+        "narrow",
+        "dark"
+      ],
+      "fixture": "mixed-project",
+      "id": "narrow-dark-generated-python-focused",
+      "state": "focused",
+      "theme": "dark",
+      "viewport": "narrow"
+    },
+    {
+      "availability": "capturable",
+      "capture": "terminal-not-created",
+      "coverage": [
+        "generated-python",
+        "terminal",
+        "terminal-not-created",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-terminal-not-created",
+      "state": "not-created",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "terminal-hidden",
+      "coverage": [
+        "generated-python",
+        "terminal",
+        "terminal-hidden",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-terminal-hidden",
+      "state": "hidden-after-create",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "pending-callable-placeholder",
+      "coverage": [
+        "callable",
+        "pending-callable-placeholder",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-pending-callable-placeholder",
+      "sectionKinds": [
+        "python-canvas.callable-pending"
+      ],
+      "state": "pending-creation-hidden",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "canonical-callable-replacement",
+      "coverage": [
+        "callable",
+        "canonical-callable-replacement",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-canonical-callable-replacement",
+      "state": "canonical-creation-replacement",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "pending-param-dict-placeholder",
+      "coverage": [
+        "parameter-dictionary",
+        "pending-creation-placeholder",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-pending-param-dict-placeholder",
+      "sectionKinds": [
+        "python-canvas.parameter-dictionary-pending"
+      ],
+      "state": "pending-creation-hidden",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "pending-list-placeholder",
+      "coverage": [
+        "list-of-objects",
+        "pending-list-placeholder",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-pending-list-placeholder",
+      "sectionKinds": [
+        "python-canvas.list-pending"
+      ],
+      "state": "pending-creation-hidden",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "canonical-list-replacement",
+      "coverage": [
+        "list-of-objects",
+        "canonical-list-replacement",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-canonical-list-replacement",
+      "state": "canonical-creation-replacement",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "canonical-param-dict-replacement",
+      "coverage": [
+        "parameter-dictionary",
+        "canonical-creation-replacement",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-canonical-param-dict-replacement",
+      "state": "canonical-creation-replacement",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "saved-views-shell-panes",
+      "coverage": [
+        "saved-views",
+        "shell-panes",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-saved-views-shell-panes",
+      "state": "saved-views-leading-and-section-trailing",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "terminal-attached-running",
+      "coverage": [
+        "generated-python",
+        "terminal",
+        "terminal-running",
+        "desktop",
+        "light"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-light-terminal-attached-running",
+      "state": "attached-running",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "capturable",
+      "capture": "terminal-attached-scrolled",
+      "coverage": [
+        "generated-python",
+        "terminal",
+        "terminal-scrolled",
+        "desktop",
+        "dark"
+      ],
+      "fixture": "mixed-project",
+      "id": "desktop-dark-terminal-attached-scrolled",
+      "state": "attached-scrolled",
+      "theme": "dark",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "requires-product-seam",
+      "coverage": [
+        "terminal",
+        "terminal-floating"
+      ],
+      "fixture": "mixed-project",
+      "fixtureHook": {
+        "owner": "PythonCanvasView",
+        "requirement": "Expose the existing Generated Python terminal session through Workspace managed-window composition with public floating, bottom-dock, minimize, restore, and active-window controls."
+      },
+      "id": "desktop-light-terminal-floating",
+      "state": "floating",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "requires-product-seam",
+      "coverage": [
+        "terminal",
+        "terminal-docked"
+      ],
+      "fixture": "mixed-project",
+      "fixtureHook": {
+        "owner": "PythonCanvasView",
+        "requirement": "Expose the existing Generated Python terminal session through Workspace managed-window composition with public floating, bottom-dock, minimize, restore, and active-window controls."
+      },
+      "id": "desktop-light-terminal-bottom-docked",
+      "state": "bottom-docked",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "requires-product-seam",
+      "coverage": [
+        "terminal",
+        "terminal-minimized"
+      ],
+      "fixture": "mixed-project",
+      "fixtureHook": {
+        "owner": "PythonCanvasView",
+        "requirement": "Expose the existing Generated Python terminal session through Workspace managed-window composition with public floating, bottom-dock, minimize, restore, and active-window controls."
+      },
+      "id": "desktop-light-terminal-minimized",
+      "state": "minimized",
+      "theme": "light",
+      "viewport": "desktop"
+    },
+    {
+      "availability": "requires-product-seam",
+      "coverage": [
+        "terminal",
+        "terminal-restored"
+      ],
+      "fixture": "mixed-project",
+      "fixtureHook": {
+        "owner": "PythonCanvasView",
+        "requirement": "Expose the existing Generated Python terminal session through Workspace managed-window composition with public floating, bottom-dock, minimize, restore, and active-window controls."
+      },
+      "id": "desktop-light-terminal-restored",
+      "state": "restored",
+      "theme": "light",
+      "viewport": "desktop"
+    }
+  ]
+}
