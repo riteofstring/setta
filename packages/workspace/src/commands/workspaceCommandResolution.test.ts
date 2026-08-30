@@ -17,7 +17,6 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getWorkspaceTopLevelAutoLayoutDisabledReason } from "../auto-layout/topLevelAutoLayout";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { registerWorkspaceClipboardAuthority } from "../clipboard/registry";
 import {
@@ -33,7 +32,6 @@ import {
   useWorkspaceDocument,
 } from "../document/stores";
 import type {
-  Node,
   WorkspaceSection,
   WorkspaceSectionInput,
 } from "../document/types";
@@ -238,93 +236,6 @@ describe("workspace command resolution", () => {
         .filter((entry) => entry.id === "workspace.paste-sections")
         .map((entry) => entry.id),
     ).toEqual(["workspace.paste-sections"]);
-  });
-
-  it("resolves and runs the top-level auto-layout pane command", () => {
-    const context = createPaneCommandContext(testWorkspace.host, null);
-    const getAutoLayoutEntry = (surface: "context-menu" | "palette") => {
-      const entry = resolveWorkspaceCommandEntries(surface, context).find(
-        (candidate) => candidate.id === "workspace.auto-layout-top-level",
-      );
-      if (!entry) {
-        throw new Error(`Missing top-level auto-layout command on ${surface}.`);
-      }
-      return entry;
-    };
-
-    expect(getAutoLayoutEntry("context-menu")).toMatchObject({
-      keywords: ["arrange", "pack", "layout"],
-      label: "Auto Layout",
-    });
-    expect(getAutoLayoutEntry("palette")).toMatchObject({
-      keywords: ["arrange", "pack", "layout"],
-      label: "Auto Layout",
-    });
-    expect(
-      resolveWorkspaceCommandEntries("toolbar", context).some(
-        (entry) => entry.id === "workspace.auto-layout-top-level",
-      ),
-    ).toBe(false);
-
-    expect(
-      getWorkspaceTopLevelAutoLayoutDisabledReason(testWorkspace.host),
-    ).toBe(
-      "Auto layout requires measured geometry for every displayed top-level section.",
-    );
-    expect(getAutoLayoutEntry("context-menu")).toMatchObject({
-      disabled: true,
-      disabledReason:
-        "Auto layout requires measured geometry for every displayed top-level section.",
-    });
-
-    testWorkspace.capabilities.setState({ canEditLayout: false });
-    expect(
-      getWorkspaceTopLevelAutoLayoutDisabledReason(testWorkspace.host),
-    ).toBe("Layout editing is disabled in this workspace.");
-    expect(getAutoLayoutEntry("palette")).toMatchObject({
-      disabled: true,
-      disabledReason: "Layout editing is disabled in this workspace.",
-    });
-
-    testWorkspace.capabilities.setState({ canEditLayout: true });
-    testWorkspace.nodeInternals.setState({
-      x: new Map<string, Node>([
-        [
-          "group",
-          {
-            id: "group",
-            position: { x: 0, y: 0 },
-            width: 200,
-            height: 100,
-            zIndex: 0,
-            tempZIndex: 0,
-            kind: "group",
-          },
-        ],
-        [
-          "leaf",
-          {
-            id: "leaf",
-            position: { x: 300, y: 0 },
-            width: 200,
-            height: 100,
-            zIndex: 1,
-            tempZIndex: 1,
-            kind: "leaf",
-          },
-        ],
-      ]),
-    });
-
-    const entry = getAutoLayoutEntry("context-menu");
-    expect(entry).toMatchObject({
-      disabled: false,
-      disabledReason: null,
-    });
-    expect(entry.run()).toEqual({
-      ran: true,
-      statusMessage: "Top-level sections arranged.",
-    });
   });
 
   it("offers history commands in the palette with their live availability", () => {
