@@ -7,25 +7,9 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  FiBookmark,
-  FiCheck,
-  FiChevronDown,
-  FiEdit3,
-  FiLayers,
-  FiPlus,
-  FiTrash2,
-} from "react-icons/fi";
+import { FiBookmark, FiCheck, FiEdit3, FiPlus, FiTrash2 } from "react-icons/fi";
 import { RxDragHandleDots2 } from "react-icons/rx";
-import {
-  getSectionChildren,
-  getSectionOrThrow,
-  getTopLevelSectionIdsForDisplay,
-} from "../document/documentSelectors";
-import type { WorkspaceDocumentState } from "../document/stores";
 import type { WorkspaceSavedView } from "../document/types";
-import { setWorkspaceSavedViewSectionVisibility } from "../saved-views/operations";
-import { useWorkspaceHost } from "../workspaceHostContext";
 
 export type WorkspaceSavedViewDisabledReasons = {
   activate: string | null;
@@ -42,6 +26,7 @@ type WorkspaceSavedViewActions = {
   move: (view: WorkspaceSavedView, direction: -1 | 1) => void;
   renameView: (view: WorkspaceSavedView, draft: string) => string | null;
   reorderView: (view: WorkspaceSavedView, target: WorkspaceSavedView) => void;
+  validateName: (view: WorkspaceSavedView, draft: string) => string | null;
 };
 
 function getControlState(
@@ -57,10 +42,12 @@ function useWorkspaceSavedViewNameEditor({
   control,
   view,
   onRename,
+  validateName,
 }: {
   control: { disabled: boolean; title: string };
   view: WorkspaceSavedView;
   onRename: (draft: string) => string | null;
+  validateName: (draft: string) => string | null;
 }) {
   const [draft, setDraft] = useState(view.name);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -76,11 +63,20 @@ function useWorkspaceSavedViewNameEditor({
       cancelBlurRef.current = false;
       return;
     }
-    const nextError = onRename(draft);
-    setNameError(nextError);
-    if (nextError === null) {
-      setDraft(draft.trim());
+    const nextName = draft.trim();
+    if (validateName(draft) !== null || nextName === view.name) {
+      setDraft(view.name);
+      setNameError(null);
+      return;
     }
+    const operationError = onRename(draft);
+    if (operationError !== null) {
+      setDraft(view.name);
+      setNameError(operationError);
+      return;
+    }
+    setDraft(nextName);
+    setNameError(null);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
@@ -109,8 +105,9 @@ function useWorkspaceSavedViewNameEditor({
         value={draft}
         onBlur={submit}
         onChange={(event) => {
-          setDraft(event.currentTarget.value);
-          setNameError(null);
+          const nextDraft = event.currentTarget.value;
+          setDraft(nextDraft);
+          setNameError(validateName(nextDraft));
         }}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={onKeyDown}
@@ -192,6 +189,7 @@ function WorkspaceSavedViewEditingRow({
     control: renameControl,
     view,
     onRename: (draft) => actions.renameView(view, draft),
+    validateName: (draft) => actions.validateName(view, draft),
   });
 
   function onHandleKeyDown(event: KeyboardEvent<HTMLButtonElement>): void {
@@ -394,113 +392,6 @@ export function WorkspaceSavedViewsList(props: WorkspaceSavedViewsListProps) {
         ),
       )}
     </div>
-  );
-}
-
-function WorkspaceSavedViewSectionVisibilityRow({
-  disabledReason,
-  sectionId,
-  state,
-  view,
-  onStatus,
-}: {
-  disabledReason: string | null;
-  sectionId: string;
-  state: WorkspaceDocumentState;
-  view: WorkspaceSavedView;
-  onStatus: (message: string) => void;
-}) {
-  const host = useWorkspaceHost();
-  const section = getSectionOrThrow(state, sectionId);
-  const visible = view.sectionVisibility[sectionId];
-  const children = getSectionChildren(state, sectionId);
-
-  function setVisible(nextVisible: boolean): void {
-    const result = setWorkspaceSavedViewSectionVisibility(
-      host,
-      [sectionId],
-      nextVisible,
-    );
-    onStatus(
-      result.status === "unavailable"
-        ? (disabledReason ?? "Saved views are unavailable in this workspace.")
-        : `${section.name} is now ${nextVisible ? "visible" : "hidden"} in ${view.name}.`,
-    );
-  }
-
-  return (
-    <li className="setta-workspace-saved-views-visibility-row">
-      <label>
-        <input
-          aria-label={`${visible ? "Hide" : "Show"} ${section.name}`}
-          checked={visible}
-          disabled={disabledReason !== null}
-          title={disabledReason ?? undefined}
-          type="checkbox"
-          onChange={(event) => setVisible(event.currentTarget.checked)}
-        />
-        <span>{section.name}</span>
-      </label>
-      {children.length > 0 ? (
-        <ul className="setta-workspace-saved-views-visibility-children">
-          {children.map((childId) => (
-            <WorkspaceSavedViewSectionVisibilityRow
-              disabledReason={disabledReason}
-              key={childId}
-              sectionId={childId}
-              state={state}
-              view={view}
-              onStatus={onStatus}
-            />
-          ))}
-        </ul>
-      ) : null}
-    </li>
-  );
-}
-
-export function WorkspaceSavedViewsVisibility({
-  disabledReason,
-  state,
-  view,
-  onStatus,
-}: {
-  disabledReason: string | null;
-  state: WorkspaceDocumentState;
-  view: WorkspaceSavedView;
-  onStatus: (message: string) => void;
-}) {
-  return (
-    <details className="setta-workspace-saved-views-visibility">
-      <summary>
-        <span>
-          <FiLayers aria-hidden="true" />
-          Sections
-        </span>
-        <span className="setta-workspace-saved-views-visibility-summary">
-          Full list
-        </span>
-        <FiChevronDown
-          aria-hidden="true"
-          className="setta-workspace-saved-views-visibility-chevron"
-        />
-      </summary>
-      <p>
-        Use the canvas controls first. This list is available for precision.
-      </p>
-      <ul>
-        {getTopLevelSectionIdsForDisplay(state).map((sectionId) => (
-          <WorkspaceSavedViewSectionVisibilityRow
-            disabledReason={disabledReason}
-            key={sectionId}
-            sectionId={sectionId}
-            state={state}
-            view={view}
-            onStatus={onStatus}
-          />
-        ))}
-      </ul>
-    </details>
   );
 }
 

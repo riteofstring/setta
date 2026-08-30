@@ -27,7 +27,6 @@ import {
   WorkspaceSavedViewsEditNotice,
   WorkspaceSavedViewsHeader,
   WorkspaceSavedViewsList,
-  WorkspaceSavedViewsVisibility,
   type WorkspaceSavedViewDisabledReasons,
 } from "./WorkspaceSavedViewsPaneParts";
 
@@ -294,6 +293,8 @@ export function WorkspaceSavedViewsPane({
           move,
           renameView,
           reorderView,
+          validateName: (view, draft) =>
+            getNameValidationError(view.id, draft, views),
         }}
         activeViewId={activeView.id}
         disabledReasons={disabledReasons}
@@ -302,14 +303,6 @@ export function WorkspaceSavedViewsPane({
         registerViewButton={registerViewButton}
         views={views}
       />
-      {editing ? (
-        <WorkspaceSavedViewsVisibility
-          disabledReason={disabledReasons.visibility}
-          state={documentState}
-          view={activeView}
-          onStatus={setStatus}
-        />
-      ) : null}
       <p aria-live="polite" className="sr-only">
         {status}
       </p>

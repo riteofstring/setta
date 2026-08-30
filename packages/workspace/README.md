@@ -313,8 +313,9 @@ hierarchy, content, item values, authored sizes, shell panes, managed windows, d
 application runtime remain shared. Outside saved-view editing, a hidden parent removes its rendered
 subtree. The pane's Edit mode projects hidden sections on the canvas with reduced opacity and
 replaces each section's delete control with Show or Hide. View rows stay compact until Edit exposes
-rename, reorder, and delete controls. A collapsed Sections disclosure retains the complete
-hierarchy as a precise keyboard-accessible fallback.
+rename, reorder, and delete controls. Section inclusion remains on the canvas instead of being
+duplicated as a hierarchy in the pane. Inline name drafts validate as the user types; blur or Enter
+restores the last valid name when a draft is invalid, while Escape cancels the draft.
 
 The Playground provides three concrete examples: Overview shows the whole fixture, Content shows
 only the item, code, and rendered/source text sections in a focused arrangement, and Controls shows

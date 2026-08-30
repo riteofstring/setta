@@ -197,6 +197,7 @@ describe("WorkspaceSavedViewsPane", () => {
     expect(container.textContent).toContain(
       "Dimmed sections are hidden from this view.",
     );
+    expect(container.textContent).not.toContain("Full list");
     expect(getButton("Delete Overview").disabled).toBe(false);
 
     const nameInput = getElement<HTMLInputElement>(
@@ -255,49 +256,6 @@ describe("WorkspaceSavedViewsPane", () => {
         '[data-testid="workspace-saved-view-drag-handle"]',
       ),
     ).toBeNull();
-    expect(
-      container.querySelector(".setta-workspace-saved-views-visibility"),
-    ).toBeNull();
-  });
-
-  it("keeps the full section tree as a collapsed editing fallback", async () => {
-    loadDocument();
-    enableWorkspaceSavedViews(testWorkspace.host, {
-      id: "overview",
-      name: "Overview",
-    });
-    await render();
-
-    await act(async () => {
-      getButton("Edit saved view").click();
-    });
-    const visibilityDetails = getElement<HTMLDetailsElement>(
-      ".setta-workspace-saved-views-visibility",
-      "section visibility fallback",
-    );
-    const summary = getElement<HTMLElement>(
-      ".setta-workspace-saved-views-visibility summary",
-      "section visibility summary",
-    );
-    expect(visibilityDetails.open).toBe(false);
-    await act(async () => {
-      summary.click();
-    });
-    expect(visibilityDetails.open).toBe(true);
-
-    const groupVisibility = getElement<HTMLInputElement>(
-      'input[aria-label="Hide Group"]',
-      "Group visibility checkbox",
-    );
-    await act(async () => {
-      groupVisibility.click();
-    });
-    expect(
-      container.querySelector('input[aria-label="Show Group"]'),
-    ).not.toBeNull();
-    expect(
-      container.querySelector('input[aria-label="Hide Child"]'),
-    ).not.toBeNull();
   });
 
   it("ends edit mode when the pane is removed", async () => {
@@ -322,7 +280,7 @@ describe("WorkspaceSavedViewsPane", () => {
     expect(isWorkspaceSavedViewEditing(testWorkspace.host)).toBe(false);
   });
 
-  it("updates disabled states from capabilities and suppresses Escape rename blur", async () => {
+  it("restores invalid or canceled names and updates disabled states", async () => {
     loadDocument();
     enableWorkspaceSavedViews(testWorkspace.host, {
       id: "overview",
@@ -337,6 +295,21 @@ describe("WorkspaceSavedViewsPane", () => {
       'input[aria-label="Rename Overview"]',
       "saved-view name input",
     );
+    await act(async () => {
+      nameInput.focus();
+      setInputValue(nameInput, "");
+    });
+    expect(container.querySelector("[role='alert']")?.textContent).toBe(
+      "A saved view name is required.",
+    );
+    await act(async () => {
+      nameInput.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }),
+      );
+    });
+    expect(nameInput.value).toBe("Overview");
+    expect(container.querySelector("[role='alert']")).toBeNull();
+
     await act(async () => {
       nameInput.focus();
       setInputValue(nameInput, "Changed");

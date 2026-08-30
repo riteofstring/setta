@@ -54,8 +54,8 @@ its rendered subtree in ordinary presentation. Host-scoped saved-view edit mode 
 projects hidden roots and descendants at reduced opacity, admits them to focus and selection, and
 turns section controls and section commands into direct Show or Hide actions. Showing a descendant
 also restores its hidden ancestor path. The integrated pane keeps view switching compact, exposes
-management only in Edit mode, and retains the complete hierarchy under a collapsed Sections
-disclosure as the precision and accessibility fallback.
+management only in Edit mode, and leaves section inclusion with the canvas controls so the pane
+does not duplicate the document hierarchy.
 
 The active view and the live top-level layout and viewport are one synchronized contract. Every
 live coordinate, measurement, stacking, or camera publication refreshes the active snapshot before

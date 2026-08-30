@@ -31,7 +31,6 @@
   gap: 0.75rem;
 }
 
-.setta-workspace-saved-views-visibility > p,
 .setta-workspace-saved-views-unavailable,
 .setta-workspace-saved-views-disabled {
   margin-block-start: 0.25rem;
@@ -297,106 +296,13 @@
   line-height: 0.875rem;
 }
 
-.setta-workspace-saved-views-visibility {
-  border-top: 1px solid rgb(226 232 240);
-  padding-top: 0.5rem;
-}
-
-.setta-workspace-saved-views-visibility > summary {
-  display: grid;
-  min-height: 2rem;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 0.375rem;
-  cursor: pointer;
-  border-radius: 0.375rem;
-  padding: 0.25rem 0.375rem;
-  color: rgb(71 85 105);
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1rem;
-  list-style: none;
-}
-
-.setta-workspace-saved-views-visibility > summary::-webkit-details-marker {
-  display: none;
-}
-
-.setta-workspace-saved-views-visibility > summary:hover {
-  background: rgb(248 250 252);
-}
-
-.setta-workspace-saved-views-visibility > summary > span:first-child {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.setta-workspace-saved-views-visibility-summary {
-  color: rgb(100 116 139);
-  font-size: 0.6875rem;
-  font-weight: 500;
-}
-
-.setta-workspace-saved-views-visibility-chevron {
-  transition: transform 120ms ease;
-}
-
-.setta-workspace-saved-views-visibility[open]
-  .setta-workspace-saved-views-visibility-chevron {
-  transform: rotate(180deg);
-}
-
-.setta-workspace-saved-views-visibility > p {
-  padding-inline: 0.375rem;
-}
-
-.setta-workspace-saved-views-visibility > ul,
-.setta-workspace-saved-views-visibility-children {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-block: 0.5rem 0;
-  margin-inline: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.setta-workspace-saved-views-visibility > ul {
-  padding-inline: 0.375rem;
-}
-
-.setta-workspace-saved-views-visibility-children {
-  margin-block: 0.25rem 0;
-  margin-inline: 1.25rem 0;
-}
-
-.setta-workspace-saved-views-visibility-row > label {
-  display: flex;
-  min-width: 0;
-  min-height: 1.5rem;
-  align-items: center;
-  gap: 0.5rem;
-  color: rgb(51 65 85);
-  font-size: 0.75rem;
-  line-height: 1rem;
-}
-
-.setta-workspace-saved-views-visibility-row > label > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .setta-workspace-saved-views-create:disabled,
 .setta-workspace-saved-views-edit:disabled,
 .setta-workspace-saved-views-drag-handle:disabled,
 .setta-workspace-saved-views-edit-activate:disabled,
 .setta-workspace-saved-views-icon-button:disabled,
 .setta-workspace-saved-views-activate:disabled,
-.setta-workspace-saved-views-name-input:disabled,
-.setta-workspace-saved-views-visibility input:disabled {
+.setta-workspace-saved-views-name-input:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -407,9 +313,7 @@
 .setta-workspace-saved-views-edit-activate:focus-visible,
 .setta-workspace-saved-views-icon-button:focus-visible,
 .setta-workspace-saved-views-activate:focus-visible,
-.setta-workspace-saved-views-name-input:focus-visible,
-.setta-workspace-saved-views-visibility summary:focus-visible,
-.setta-workspace-saved-views-visibility input:focus-visible {
+.setta-workspace-saved-views-name-input:focus-visible {
   outline: 2px solid rgb(37 99 235);
   outline-offset: 2px;
 }
@@ -418,13 +322,10 @@
   color: rgb(203 213 225);
 }
 
-.setta-workspace-dark .setta-workspace-saved-views-pane h2,
-.setta-workspace-dark .setta-workspace-saved-views-visibility > summary {
+.setta-workspace-dark .setta-workspace-saved-views-pane h2 {
   color: rgb(226 232 240);
 }
 
-.setta-workspace-dark .setta-workspace-saved-views-visibility > p,
-.setta-workspace-dark .setta-workspace-saved-views-visibility-summary,
 .setta-workspace-dark .setta-workspace-saved-views-unavailable,
 .setta-workspace-dark .setta-workspace-saved-views-disabled {
   color: rgb(148 163 184);
@@ -443,8 +344,7 @@
   color: rgb(191 219 254);
 }
 
-.setta-workspace-dark .setta-workspace-saved-views-row:hover,
-.setta-workspace-dark .setta-workspace-saved-views-visibility > summary:hover {
+.setta-workspace-dark .setta-workspace-saved-views-row:hover {
   background: rgb(30 41 59);
 }
 
@@ -531,12 +431,4 @@
 .setta-workspace-dark .setta-workspace-saved-views-unavailable {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
-}
-
-.setta-workspace-dark .setta-workspace-saved-views-visibility {
-  border-color: rgb(51 65 85);
-}
-
-.setta-workspace-dark .setta-workspace-saved-views-visibility-row > label {
-  color: rgb(203 213 225);
 }
