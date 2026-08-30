@@ -29,6 +29,7 @@ import {
   type Mock,
 } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
+import { enableWorkspaceSavedViews } from "../saved-views/operations";
 import { WorkspaceShell } from "./WorkspaceShell";
 import { createWorkspaceShellViewState } from "./workspaceShellLayout";
 import type {
@@ -573,6 +574,39 @@ describe("WorkspaceShell", () => {
       "Saved views are not enabled for this workspace.",
     );
     expect(document.activeElement).toBe(pane);
+  });
+
+  it("focuses the first saved-view activation control when layout editing is read-only", async () => {
+    await act(async () => {
+      enableWorkspaceSavedViews(testWorkspace.host, {
+        id: "overview",
+        name: "Overview",
+      });
+      testWorkspace.capabilities.setState({ canEditLayout: false });
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<Harness includeBuiltInSavedViews onChange={onChange} />}
+        </WorkspaceTestProvider>,
+      );
+    });
+    await resizeShell(800);
+
+    await act(async () => {
+      getButton("Saved Views").click();
+    });
+
+    const createButton = host.querySelector<HTMLButtonElement>(
+      ".setta-workspace-saved-views-create",
+    );
+    const activateOverviewButton = host.querySelector<HTMLButtonElement>(
+      '[data-workspace-saved-view-id="overview"] .setta-workspace-saved-views-activate',
+    );
+    if (!createButton || !activateOverviewButton) {
+      throw new Error("Expected saved-view controls.");
+    }
+    expect(createButton.disabled).toBe(true);
+    expect(activateOverviewButton.disabled).toBe(false);
+    expect(document.activeElement).toBe(activateOverviewButton);
   });
 
   it("prepends the built-in Inspector and focuses its reference empty state", async () => {

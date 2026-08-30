@@ -200,7 +200,7 @@ export function WorkspaceSavedViewsPane({
   const [nameError, setNameError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
-  const firstActionRef = useRef<HTMLButtonElement>(null);
+  const createActionRef = useRef<HTMLButtonElement>(null);
   const unavailableFocusRef = useRef<HTMLElement>(null);
   const viewButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const requestedFocusViewIdRef = useRef<string | null>(null);
@@ -246,14 +246,20 @@ export function WorkspaceSavedViewsPane({
     if (!initialFocusRef) {
       return;
     }
-    const target = firstActionRef.current ?? unavailableFocusRef.current;
+    const target =
+      (createDisabledReason === null
+        ? createActionRef.current
+        : views
+            .map((view) => viewButtonRefs.current.get(view.id))
+            .find((button) => button?.disabled === false)) ??
+      unavailableFocusRef.current;
     initialFocusRef.current = target;
     return () => {
       if (initialFocusRef.current === target) {
         initialFocusRef.current = null;
       }
     };
-  }, [initialFocusRef, savedViews]);
+  }, [createDisabledReason, initialFocusRef, savedViews, views]);
 
   useLayoutEffect(() => {
     const requestedViewId = requestedFocusViewIdRef.current;
@@ -402,7 +408,7 @@ export function WorkspaceSavedViewsPane({
         <button
           className="setta-workspace-saved-views-create"
           disabled={createDisabledReason !== null}
-          ref={firstActionRef}
+          ref={createActionRef}
           title={createDisabledReason ?? "Create a saved view"}
           type="button"
           onClick={createDisabledReason === null ? create : undefined}
