@@ -42,7 +42,11 @@ const originalClipboard = Object.getOwnPropertyDescriptor(
 function ownHost(host: WorkspaceHost): WorkspaceHost {
   hosts.push(host);
   registerSectionKinds(host, {
-    leaf: { nestedSections: "vertical", renderContent: () => null },
+    leaf: {
+      itemArea: { toolbar: "authoring-and-filter" },
+      nestedSections: "vertical",
+      renderContent: () => null,
+    },
   });
   return host;
 }
@@ -471,6 +475,9 @@ describe("workspace section clipboard operations", () => {
     });
 
     const first = duplicateWorkspaceSelection(host);
+    await vi.waitFor(() => {
+      expect(deferredPaste.resolve).not.toBeNull();
+    });
     expect(getWorkspaceClipboardAvailability(host).pending).toBe(true);
     expect(await duplicateWorkspaceSelection(host)).toEqual({
       reason: "operation-pending",

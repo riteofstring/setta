@@ -66,7 +66,11 @@ describe("workspace command registry", () => {
         (command) => command.definition.id,
       ),
     ).toEqual(["workspace.delete-item"]);
-    expect(getWorkspaceCommands(host, "pane", "context-menu")).toEqual([]);
+    expect(
+      getWorkspaceCommands(host, "pane", "context-menu").map(
+        (command) => command.definition.id,
+      ),
+    ).toEqual(["workspace.paste-sections", "workspace.auto-layout-top-level"]);
   });
 
   it("replaces the previous host registration atomically", () => {

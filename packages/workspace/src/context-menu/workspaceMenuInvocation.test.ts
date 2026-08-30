@@ -129,8 +129,8 @@ describe("workspace menu invocation", () => {
     host.dispose();
   });
 
-  it("publishes a frozen pane context in workspace coordinates only when extensions exist", () => {
-    expect(openWorkspacePaneMenu(host, { x: 500, y: 300 }, owner)).toBe(false);
+  it("publishes a frozen pane context in workspace coordinates", () => {
+    expect(openWorkspacePaneMenu(host, { x: 500, y: 300 }, owner)).toBe(true);
     registerWorkspaceCreationCommands(host, [
       {
         id: "note",

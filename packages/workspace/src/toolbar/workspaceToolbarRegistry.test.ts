@@ -200,7 +200,7 @@ describe("workspace toolbar contributions", () => {
       getWorkspaceCommands(host, "pane", "toolbar").map(
         (command) => command.definition.id,
       ),
-    ).toEqual([toolbarCommand.id]);
+    ).toEqual(["workspace.auto-layout-top-level", toolbarCommand.id]);
   });
 
   it("refuses a creation registration that would strand a contributed control", () => {

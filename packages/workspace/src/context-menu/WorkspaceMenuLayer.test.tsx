@@ -209,7 +209,7 @@ describe("WorkspaceMenuLayer", () => {
     expect(menu?.getAttribute("aria-label")).toBe("Create a workspace section");
     expect(menu?.getAttribute("dir")).toBe("rtl");
     expect(menu?.classList.contains("setta-workspace")).toBe(true);
-    expect(document.body.querySelectorAll('[role="menuitem"]')).toHaveLength(1);
+    expect(document.body.querySelectorAll('[role="menuitem"]')).toHaveLength(2);
     expect(filter).not.toBeNull();
     expect(document.activeElement).toBe(filter);
 
