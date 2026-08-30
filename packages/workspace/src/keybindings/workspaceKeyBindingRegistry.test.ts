@@ -81,12 +81,14 @@ function pressHistoryBinding(
   workspaceHost: WorkspaceHost,
   target: EventTarget,
   shiftKey: boolean,
+  repeat = false,
 ): boolean {
   const event = new KeyboardEvent("keydown", {
     bubbles: true,
     cancelable: true,
     code: "KeyZ",
     ctrlKey: true,
+    repeat,
     shiftKey,
   });
   const dispatch = (candidate: Event) =>
@@ -271,7 +273,7 @@ describe("workspace key bindings", () => {
     }
   });
 
-  it("runs available history on the canvas and yields it to editable targets", () => {
+  it("runs and repeats available history on the canvas and yields it to editable targets", () => {
     const undo = vi.fn();
     const redo = vi.fn();
     const historyHost = createWorkspaceHost({
@@ -293,13 +295,17 @@ describe("workspace key bindings", () => {
     try {
       expect(pressHistoryBinding(historyHost, canvas, false)).toBe(true);
       expect(undo).toHaveBeenCalledTimes(1);
+      expect(pressHistoryBinding(historyHost, canvas, false, true)).toBe(true);
+      expect(undo).toHaveBeenCalledTimes(2);
       expect(pressHistoryBinding(historyHost, canvas, true)).toBe(true);
       expect(redo).toHaveBeenCalledTimes(1);
+      expect(pressHistoryBinding(historyHost, canvas, true, true)).toBe(true);
+      expect(redo).toHaveBeenCalledTimes(2);
 
       expect(pressHistoryBinding(historyHost, input, false)).toBe(false);
       expect(pressHistoryBinding(historyHost, input, true)).toBe(false);
-      expect(undo).toHaveBeenCalledTimes(1);
-      expect(redo).toHaveBeenCalledTimes(1);
+      expect(undo).toHaveBeenCalledTimes(2);
+      expect(redo).toHaveBeenCalledTimes(2);
     } finally {
       canvas.remove();
       input.remove();

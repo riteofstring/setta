@@ -81,11 +81,12 @@ function createPaneCommandBinding(
   host: WorkspaceHost,
   commandId: string,
   defaultChord: string,
+  allowRepeat = false,
 ): WorkspaceKeyBindingDefinition {
   return Object.freeze({
     id: commandId,
     defaultChord,
-    allowRepeat: false,
+    allowRepeat,
     keepsChordWhenDeclined: false,
     getLabel: () =>
       getWorkspaceCommandOrThrow(host, commandId).definition.label,
@@ -210,8 +211,8 @@ export function listBuiltInWorkspaceKeyBindings(
   host: WorkspaceHost,
 ): ReadonlyArray<WorkspaceKeyBindingDefinition> {
   return Object.freeze([
-    createPaneCommandBinding(host, "workspace.undo", "Mod + Z"),
-    createPaneCommandBinding(host, "workspace.redo", "Mod + Shift + Z"),
+    createPaneCommandBinding(host, "workspace.undo", "Mod + Z", true),
+    createPaneCommandBinding(host, "workspace.redo", "Mod + Shift + Z", true),
     createSectionCommandBinding(
       host,
       "workspace.copy-sections",
