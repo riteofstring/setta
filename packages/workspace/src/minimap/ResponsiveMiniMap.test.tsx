@@ -128,6 +128,25 @@ describe("ResponsiveMiniMap", () => {
     expect(panel.style.transform).toBe("translateX(-500px)");
   });
 
+  it("shrinks to fit a short canvas while preserving its aspect ratio", async () => {
+    testWorkspace.reactFlow.setState({ height: 120, width: 500 });
+
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<ResponsiveMiniMap />}
+        </WorkspaceTestProvider>,
+      );
+    });
+
+    const panel = getPanel();
+    expect(panel.style.width).toBe("120px");
+    expect(panel.style.height).toBe("90px");
+    const svg = panel.querySelector("svg");
+    expect(svg?.getAttribute("width")).toBe("120");
+    expect(svg?.getAttribute("height")).toBe("90");
+  });
+
   it("uses the dark mask colors in dark mode", async () => {
     testWorkspace.appearance.setState({ darkMode: true });
 
