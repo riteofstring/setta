@@ -12,12 +12,16 @@ import (
 const maxRequestBodyBytes int64 = 32 * 1024
 
 func decodeJSONBody(response http.ResponseWriter, request *http.Request, destination any) bool {
+	return decodeJSONBodyWithLimit(response, request, destination, maxRequestBodyBytes)
+}
+
+func decodeJSONBodyWithLimit(response http.ResponseWriter, request *http.Request, destination any, limit int64) bool {
 	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
 		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Request body must be JSON.")
 		return false
 	}
-	decoder := json.NewDecoder(http.MaxBytesReader(response, request.Body, maxRequestBodyBytes))
+	decoder := json.NewDecoder(http.MaxBytesReader(response, request.Body, limit))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(destination); err != nil {
 		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Request body is invalid.")

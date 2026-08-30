@@ -20,6 +20,8 @@ const (
 	ProjectParameterDictionariesPathV2 = "/api/v2/project/parameter-dictionaries"
 	ProjectListsPathV2                 = "/api/v2/project/lists"
 	ProjectForestPathV2                = "/api/v2/project/forest"
+	ProjectClipboardCopyPathV2         = "/api/v2/project/clipboard/copy"
+	ProjectClipboardPastePathV2        = "/api/v2/project/clipboard/paste"
 	ProjectTargetPathV2                = "/api/v2/project/target"
 	ProjectRunPathV2                   = "/api/v2/project/run"
 	ProjectTerminalPathV2              = "/api/v2/project/terminal"

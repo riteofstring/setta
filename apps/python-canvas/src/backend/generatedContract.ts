@@ -11,6 +11,9 @@ export const PROJECT_CONFIGURED_CALLABLE_PATH_V2 = "/api/v2/project/callables/co
 export const PROJECT_PARAMETER_DICTIONARIES_PATH_V2 = "/api/v2/project/parameter-dictionaries" as const;
 export const PROJECT_LISTS_PATH_V2 = "/api/v2/project/lists" as const;
 export const PROJECT_FOREST_PATH_V2 = "/api/v2/project/forest" as const;
+export const PROJECT_CLIPBOARD_COPY_PATH_V2 = "/api/v2/project/clipboard/copy" as const;
+export const PROJECT_CLIPBOARD_PASTE_PATH_V2 = "/api/v2/project/clipboard/paste" as const;
+export const PROJECT_CLIPBOARD_PAYLOAD_VERSION_V1 = 1 as const;
 export const PROJECT_TARGET_PATH_V2 = "/api/v2/project/target" as const;
 export const PROJECT_RUN_PATH_V2 = "/api/v2/project/run" as const;
 export const PROJECT_TERMINAL_PATH_V2 = "/api/v2/project/terminal" as const;
@@ -211,6 +214,13 @@ export type DictionaryEntryV2 = DictionaryLeafEntryV2 | DictionaryParentEntryV2;
 export interface DictionaryLeafEntryV2 { kind: typeof DICTIONARY_ENTRY_KIND_LEAF_V2; id: string; name: string; ui: Exclude<ParameterUIV2, { type: "NestedParam" }>; authoredExpression: string; }
 export interface DictionaryParentEntryV2 { kind: typeof DICTIONARY_ENTRY_KIND_PARENT_V2; id: string; name: string; ui: Extract<ParameterUIV2, { type: "NestedParam" }>; children: DictionaryEntryV2[]; }
 export interface ListV2 { id: string; name: string; childSectionIds: string[]; }
+export interface ProjectClipboardPayloadV1 {
+  version: typeof PROJECT_CLIPBOARD_PAYLOAD_VERSION_V1;
+  rootSectionIds: string[];
+  callables: CallableV2[];
+  parameterDictionaries: ParameterDictionaryV2[];
+  lists: ListV2[];
+}
 export interface ParameterV2 {
   id: string;
   name: string;
@@ -251,6 +261,10 @@ export interface IncrementListChildrenRequestV2 { projectId: string; expectedRev
 export interface DecrementListChildrenRequestV2 { projectId: string; expectedRevision: number; count: number; }
 export interface ListChildrenV2 { listId: string; childSectionIds: string[]; }
 export interface ReplaceSectionForestRequestV2 { projectId: string; expectedRevision: number; topLevelSectionIds: string[]; listChildren: ListChildrenV2[]; }
+export interface CopyProjectClipboardRequestV2 { projectId: string; observedRevision: number; rootSectionIds: string[]; }
+export interface CopyProjectClipboardResponseV2 { payload: ProjectClipboardPayloadV1; }
+export interface PasteProjectClipboardRequestV2 { projectId: string; expectedRevision: number; payload: ProjectClipboardPayloadV1; }
+export interface PasteProjectClipboardResponseV2 { snapshot: ProjectSnapshotV2; pastedRootSectionIds: string[]; }
 export interface SetPythonTargetRequestV2 { projectId: string; expectedRevision: number; prefix: string; suffix: string; }
 export interface CallableCompletionRequestV2 { projectId: string; authoredExpression: string; cursorOffsetUtf16: number; }
 export interface UTF16RangeV2 { start: number; end: number; }

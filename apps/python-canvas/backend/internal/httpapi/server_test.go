@@ -313,6 +313,8 @@ type stubProjectService struct {
 	captureGeneratedProgram   func(context.Context, string, int) (GeneratedProgram, error)
 	renameProject             func(context.Context, contracts.RenameProjectRequestV2) (contracts.ProjectSnapshotV2, error)
 	createConfiguredCallable  func(context.Context, contracts.CreateConfiguredCallableRequestV2) (contracts.ProjectSnapshotV2, error)
+	copyProjectClipboard      func(context.Context, contracts.CopyProjectClipboardRequestV2) (contracts.CopyProjectClipboardResponseV2, error)
+	pasteProjectClipboard     func(context.Context, contracts.PasteProjectClipboardRequestV2) (contracts.PasteProjectClipboardResponseV2, error)
 	commitCallable            func(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error)
 	refreshParameters         func(context.Context, string, contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
 	setParameters             func(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
@@ -410,6 +412,20 @@ func (service *stubProjectService) DecrementListChildren(context.Context, string
 
 func (service *stubProjectService) ReplaceSectionForest(context.Context, contracts.ReplaceSectionForestRequestV2) (contracts.ProjectSnapshotV2, error) {
 	return service.snapshot, nil
+}
+
+func (service *stubProjectService) CopyProjectClipboard(ctx context.Context, request contracts.CopyProjectClipboardRequestV2) (contracts.CopyProjectClipboardResponseV2, error) {
+	if service.copyProjectClipboard == nil {
+		return contracts.CopyProjectClipboardResponseV2{}, errors.New("clipboard copy is not expected in this test")
+	}
+	return service.copyProjectClipboard(ctx, request)
+}
+
+func (service *stubProjectService) PasteProjectClipboard(ctx context.Context, request contracts.PasteProjectClipboardRequestV2) (contracts.PasteProjectClipboardResponseV2, error) {
+	if service.pasteProjectClipboard == nil {
+		return contracts.PasteProjectClipboardResponseV2{}, errors.New("clipboard paste is not expected in this test")
+	}
+	return service.pasteProjectClipboard(ctx, request)
 }
 
 func (service *stubProjectService) CommitCallable(ctx context.Context, callableID string, request contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error) {

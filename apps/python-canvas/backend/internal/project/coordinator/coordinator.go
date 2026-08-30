@@ -281,6 +281,81 @@ func (coordinator *Coordinator) ReplaceSectionForest(ctx context.Context, comman
 	})
 }
 
+func (coordinator *Coordinator) CopySectionClipboard(
+	ctx context.Context,
+	command aggregate.CopySectionClipboardCommand,
+) (aggregate.SectionClipboardPayload, error) {
+	if coordinator == nil {
+		return aggregate.SectionClipboardPayload{}, ErrCoordinatorClosed
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	coordinator.mu.Lock()
+	defer coordinator.mu.Unlock()
+	if err := coordinator.requireOpen(ctx); err != nil {
+		return aggregate.SectionClipboardPayload{}, err
+	}
+	payload, err := coordinator.snapshot.State.CopySectionClipboard(command)
+	if err != nil {
+		return aggregate.SectionClipboardPayload{}, err
+	}
+	source, err := payload.State()
+	if err != nil {
+		return aggregate.SectionClipboardPayload{}, err
+	}
+	projectPaths, err := renderer.TargetPaths(coordinator.snapshot.State)
+	if err != nil {
+		return aggregate.SectionClipboardPayload{}, fmt.Errorf("allocate project clipboard paths: %w", err)
+	}
+	clipboardPaths, err := renderer.TargetPaths(source)
+	if err != nil {
+		return aggregate.SectionClipboardPayload{}, fmt.Errorf("allocate clipboard fragment paths: %w", err)
+	}
+	normalized, err := renderer.RewriteStateReferences(source, projectPaths, clipboardPaths)
+	if err != nil {
+		return aggregate.SectionClipboardPayload{}, fmt.Errorf("normalize clipboard references: %w", err)
+	}
+	payload.Callables = normalized.Callables
+	payload.ParameterDictionaries = normalized.ParameterDictionaries
+	payload.ParameterUIOverrides = normalized.ParameterUIOverrides
+	payload.Lists = normalized.Lists
+	if _, err := payload.State(); err != nil {
+		return aggregate.SectionClipboardPayload{}, err
+	}
+	return payload.Clone(), nil
+}
+
+func (coordinator *Coordinator) PasteSectionClipboard(
+	ctx context.Context,
+	command aggregate.PasteSectionClipboardCommand,
+) (Snapshot, []string, error) {
+	if coordinator == nil {
+		return Snapshot{}, nil, ErrCoordinatorClosed
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	coordinator.mu.Lock()
+	defer coordinator.mu.Unlock()
+	if err := coordinator.requireOpen(ctx); err != nil {
+		return Snapshot{}, nil, err
+	}
+	prepared, err := coordinator.snapshot.State.PasteSectionClipboard(command, coordinator.idGenerator)
+	if err != nil {
+		return Snapshot{}, nil, err
+	}
+	candidate, err := coordinator.prepareSectionClipboardCandidate(prepared)
+	if err != nil {
+		return Snapshot{}, nil, fmt.Errorf("%w: prepare clipboard references: %v", ErrRenderFailed, err)
+	}
+	snapshot, err := coordinator.applyPreparedStructuralCandidate(candidate)
+	if err != nil {
+		return Snapshot{}, nil, err
+	}
+	return snapshot, append([]string(nil), prepared.PastedRootSectionIDs...), nil
+}
+
 func (coordinator *Coordinator) SetParameters(ctx context.Context, command aggregate.SetParametersCommand) (Snapshot, error) {
 	return coordinator.mutate(ctx, func(state aggregate.State) (aggregate.Candidate, error) {
 		return state.SetParameters(command)
@@ -576,7 +651,10 @@ func (coordinator *Coordinator) applyStructuralCandidate(candidate aggregate.Can
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("%w: prepare structural candidate references: %v", ErrRenderFailed, err)
 	}
-	candidate = prepared
+	return coordinator.applyPreparedStructuralCandidate(prepared)
+}
+
+func (coordinator *Coordinator) applyPreparedStructuralCandidate(candidate aggregate.Candidate) (Snapshot, error) {
 	rendered, err := coordinator.render(candidate.State)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("%w: candidate: %v", ErrRenderFailed, err)

@@ -5,6 +5,71 @@ import (
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 )
 
+func callablesV2(state aggregate.State) ([]contracts.CallableV2, error) {
+	result := make([]contracts.CallableV2, 0, len(state.Callables))
+	for _, callable := range state.Callables {
+		parameters := make([]contracts.ParameterV2, 0, len(callable.Parameters))
+		for _, parameter := range callable.Parameters {
+			ui, err := contracts.NewParameterUIV2(state.ResolveParameterUI(parameter.ID))
+			if err != nil {
+				return nil, err
+			}
+			parameters = append(parameters, contracts.ParameterV2{
+				ID:                 parameter.ID,
+				Name:               parameter.Name,
+				NameEditable:       parameter.NameEditable,
+				PassingStyle:       contracts.ParameterPassingStyleV2(parameter.PassingStyle),
+				TypeAnnotation:     cloneString(parameter.TypeAnnotation),
+				Default:            cloneString(parameter.Default),
+				ProviderOrdinal:    cloneInt(parameter.ProviderOrdinal),
+				AuthoredExpression: parameter.AuthoredExpression,
+				UI:                 ui,
+			})
+		}
+		result = append(result, contracts.CallableV2{
+			ID:                 callable.ID,
+			Name:               callable.Name,
+			AuthoredExpression: callable.AuthoredExpression,
+			Parameters:         parameters,
+		})
+	}
+	return result, nil
+}
+
+func callablesFromV2(values []contracts.CallableV2) ([]aggregate.Callable, map[string]aggregate.ParameterUI, error) {
+	result := make([]aggregate.Callable, 0, len(values))
+	overrides := make(map[string]aggregate.ParameterUI)
+	for _, callable := range values {
+		parameters := make([]aggregate.Parameter, 0, len(callable.Parameters))
+		for _, parameter := range callable.Parameters {
+			ui, err := parameter.UI.Aggregate()
+			if err != nil {
+				return nil, nil, err
+			}
+			if !aggregate.SameParameterUI(ui, aggregate.DefaultParameterUI(aggregate.ParameterUITypeCode)) {
+				overrides[parameter.ID] = ui
+			}
+			parameters = append(parameters, aggregate.Parameter{
+				ID:                 parameter.ID,
+				Name:               parameter.Name,
+				NameEditable:       parameter.NameEditable,
+				PassingStyle:       aggregate.PassingStyle(parameter.PassingStyle),
+				TypeAnnotation:     cloneString(parameter.TypeAnnotation),
+				Default:            cloneString(parameter.Default),
+				ProviderOrdinal:    cloneInt(parameter.ProviderOrdinal),
+				AuthoredExpression: parameter.AuthoredExpression,
+			})
+		}
+		result = append(result, aggregate.Callable{
+			ID:                 callable.ID,
+			Name:               callable.Name,
+			AuthoredExpression: callable.AuthoredExpression,
+			Parameters:         parameters,
+		})
+	}
+	return result, overrides, nil
+}
+
 func parameterDictionariesV2(state aggregate.State) ([]contracts.ParameterDictionaryV2, error) {
 	result := make([]contracts.ParameterDictionaryV2, 0, len(state.ParameterDictionaries))
 	for _, value := range state.ParameterDictionaries {

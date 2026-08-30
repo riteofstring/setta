@@ -29,6 +29,8 @@ type ProjectService interface {
 	IncrementListChildren(context.Context, string, contracts.IncrementListChildrenRequestV2) (contracts.ProjectSnapshotV2, error)
 	DecrementListChildren(context.Context, string, contracts.DecrementListChildrenRequestV2) (contracts.ProjectSnapshotV2, error)
 	ReplaceSectionForest(context.Context, contracts.ReplaceSectionForestRequestV2) (contracts.ProjectSnapshotV2, error)
+	CopyProjectClipboard(context.Context, contracts.CopyProjectClipboardRequestV2) (contracts.CopyProjectClipboardResponseV2, error)
+	PasteProjectClipboard(context.Context, contracts.PasteProjectClipboardRequestV2) (contracts.PasteProjectClipboardResponseV2, error)
 	CommitCallable(context.Context, string, contracts.CommitCallableRequestV2) (contracts.ProjectSnapshotV2, error)
 	RefreshCallableParameters(context.Context, string, contracts.RefreshCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
 	SetCallableParameters(context.Context, string, contracts.SetCallableParametersRequestV2) (contracts.ProjectSnapshotV2, error)
@@ -254,27 +256,9 @@ func mappedSnapshot(snapshot coordinator.Snapshot, err error) (contracts.Project
 }
 
 func snapshotV2(snapshot coordinator.Snapshot) (contracts.ProjectSnapshotV2, error) {
-	callables := make([]contracts.CallableV2, 0, len(snapshot.State.Callables))
-	for _, callable := range snapshot.State.Callables {
-		parameters := make([]contracts.ParameterV2, 0, len(callable.Parameters))
-		for _, parameter := range callable.Parameters {
-			ui, err := contracts.NewParameterUIV2(snapshot.State.ResolveParameterUI(parameter.ID))
-			if err != nil {
-				return contracts.ProjectSnapshotV2{}, err
-			}
-			parameters = append(parameters, contracts.ParameterV2{
-				ID:                 parameter.ID,
-				Name:               parameter.Name,
-				NameEditable:       parameter.NameEditable,
-				PassingStyle:       contracts.ParameterPassingStyleV2(parameter.PassingStyle),
-				TypeAnnotation:     cloneString(parameter.TypeAnnotation),
-				Default:            cloneString(parameter.Default),
-				ProviderOrdinal:    cloneInt(parameter.ProviderOrdinal),
-				AuthoredExpression: parameter.AuthoredExpression,
-				UI:                 ui,
-			})
-		}
-		callables = append(callables, contracts.CallableV2{ID: callable.ID, Name: callable.Name, AuthoredExpression: callable.AuthoredExpression, Parameters: parameters})
+	callables, err := callablesV2(snapshot.State)
+	if err != nil {
+		return contracts.ProjectSnapshotV2{}, err
 	}
 	ranges := make(map[string]contracts.ByteRangeV2, len(snapshot.Rendered.SourceRangesByTargetID))
 	for targetID, sourceRange := range snapshot.Rendered.SourceRangesByTargetID {

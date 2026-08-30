@@ -87,3 +87,49 @@ func TestRewriteStateReferencesHandlesPathSwapAtomically(t *testing.T) {
 		t.Fatalf("swapped expression = %q", got)
 	}
 }
+
+func TestRewriteSectionReferencesScopesRewritesToSelectedSections(t *testing.T) {
+	t.Parallel()
+
+	state := aggregate.State{
+		Project:      aggregate.Project{ID: "project-scoped", Name: "Scoped", Revision: 1},
+		PythonTarget: aggregate.PythonTarget{Suffix: aggregate.DefaultPythonSuffix},
+		Callables: []aggregate.Callable{
+			{
+				ID: "callable-selected", Name: "Selected", AuthoredExpression: "selected",
+				Parameters: []aggregate.Parameter{{
+					ID:                 "parameter-selected",
+					Name:               "value",
+					NameEditable:       true,
+					PassingStyle:       aggregate.PassingStylePositionalOrKeyword,
+					AuthoredExpression: "state.Producer",
+				}},
+			},
+			{
+				ID: "callable-unselected", Name: "Unselected", AuthoredExpression: "unselected",
+				Parameters: []aggregate.Parameter{{
+					ID:                 "parameter-unselected",
+					Name:               "value",
+					NameEditable:       true,
+					PassingStyle:       aggregate.PassingStylePositionalOrKeyword,
+					AuthoredExpression: "state.Producer",
+				}},
+			},
+		},
+		TopLevelSectionIDs: []string{"callable-selected", "callable-unselected"},
+	}
+	rewritten, err := RewriteSectionReferences(
+		state,
+		[]string{"callable-selected"},
+		map[string]string{"Producer": "Renamed_Producer"},
+	)
+	if err != nil {
+		t.Fatalf("RewriteSectionReferences() error = %v", err)
+	}
+	if got := rewritten.Callables[0].Parameters[0].AuthoredExpression; got != "state.Renamed_Producer" {
+		t.Fatalf("selected expression = %q", got)
+	}
+	if got := rewritten.Callables[1].Parameters[0].AuthoredExpression; got != "state.Producer" {
+		t.Fatalf("unselected expression = %q", got)
+	}
+}

@@ -272,6 +272,10 @@ func dispatchProjectCollectionRoute(response http.ResponseWriter, request *http.
 		handleCreateConfiguredCallable(response, request, service)
 	case isExactPath(request, contracts.ProjectCallablesPathV2):
 		handleCreateCallable(response, request, service)
+	case isExactPath(request, contracts.ProjectClipboardCopyPathV2):
+		handleCopyProjectClipboard(response, request, service)
+	case isExactPath(request, contracts.ProjectClipboardPastePathV2):
+		handlePasteProjectClipboard(response, request, service)
 	case isExactPath(request, contracts.ProjectTargetPathV2):
 		handleTarget(response, request, service)
 	case isExactPath(request, contracts.ProjectTargetPathV2+"/completions"):

@@ -12,36 +12,116 @@ func RewriteStateReferences(
 	oldPaths map[string]string,
 	newPaths map[string]string,
 ) (aggregate.State, error) {
+	replacements := targetPathReplacements(oldPaths, newPaths)
+	sectionIDs := make([]string, 0, len(state.Callables)+len(state.ParameterDictionaries)+len(state.Lists))
+	for _, callable := range state.Callables {
+		sectionIDs = append(sectionIDs, callable.ID)
+	}
+	for _, dictionary := range state.ParameterDictionaries {
+		sectionIDs = append(sectionIDs, dictionary.ID)
+	}
+	for _, list := range state.Lists {
+		sectionIDs = append(sectionIDs, list.ID)
+	}
+	return RewriteSectionReferences(state, sectionIDs, replacements)
+}
+
+func RewriteSectionReferences(
+	state aggregate.State,
+	sectionIDs []string,
+	replacements map[string]string,
+) (aggregate.State, error) {
 	if err := state.Validate(); err != nil {
 		return aggregate.State{}, fmt.Errorf("rewrite references for validated project: %w", err)
 	}
-	replacements := targetPathReplacements(oldPaths, newPaths)
-	if len(replacements) == 0 {
+	selected, err := selectedSectionIDs(state, sectionIDs)
+	if err != nil {
+		return aggregate.State{}, err
+	}
+	if len(replacements) == 0 || len(selected) == 0 {
 		return state.Clone(), nil
 	}
 
 	rewritten := state.Clone()
-	for callableIndex := range rewritten.Callables {
-		expression, err := rewriteStateReferencesInExpression(rewritten.Callables[callableIndex].AuthoredExpression, replacements)
-		if err != nil {
-			return aggregate.State{}, fmt.Errorf("rewrite callable %q: %w", rewritten.Callables[callableIndex].ID, err)
-		}
-		rewritten.Callables[callableIndex].AuthoredExpression = expression
-		for parameterIndex := range rewritten.Callables[callableIndex].Parameters {
-			parameter := &rewritten.Callables[callableIndex].Parameters[parameterIndex]
-			expression, err := rewriteStateReferencesInExpression(parameter.AuthoredExpression, replacements)
-			if err != nil {
-				return aggregate.State{}, fmt.Errorf("rewrite parameter %q: %w", parameter.ID, err)
-			}
-			parameter.AuthoredExpression = expression
-		}
+	if err := rewriteSelectedCallableReferences(&rewritten, selected, replacements); err != nil {
+		return aggregate.State{}, err
 	}
-	for dictionaryIndex := range rewritten.ParameterDictionaries {
-		if err := rewriteDictionaryEntryReferences(rewritten.ParameterDictionaries[dictionaryIndex].Entries, replacements); err != nil {
-			return aggregate.State{}, fmt.Errorf("rewrite dictionary %q: %w", rewritten.ParameterDictionaries[dictionaryIndex].ID, err)
-		}
+	if err := rewriteSelectedDictionaryReferences(&rewritten, selected, replacements); err != nil {
+		return aggregate.State{}, err
 	}
 	return rewritten, nil
+}
+
+func rewriteSelectedCallableReferences(
+	state *aggregate.State,
+	selected map[string]struct{},
+	replacements map[string]string,
+) error {
+	for callableIndex := range state.Callables {
+		callable := &state.Callables[callableIndex]
+		if _, rewrite := selected[callable.ID]; !rewrite {
+			continue
+		}
+		expression, err := rewriteStateReferencesInExpression(callable.AuthoredExpression, replacements)
+		if err != nil {
+			return fmt.Errorf("rewrite callable %q: %w", callable.ID, err)
+		}
+		callable.AuthoredExpression = expression
+		if err := rewriteCallableParameterReferences(callable.Parameters, replacements); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func rewriteCallableParameterReferences(parameters []aggregate.Parameter, replacements map[string]string) error {
+	for parameterIndex := range parameters {
+		parameter := &parameters[parameterIndex]
+		expression, err := rewriteStateReferencesInExpression(parameter.AuthoredExpression, replacements)
+		if err != nil {
+			return fmt.Errorf("rewrite parameter %q: %w", parameter.ID, err)
+		}
+		parameter.AuthoredExpression = expression
+	}
+	return nil
+}
+
+func rewriteSelectedDictionaryReferences(
+	state *aggregate.State,
+	selected map[string]struct{},
+	replacements map[string]string,
+) error {
+	for dictionaryIndex := range state.ParameterDictionaries {
+		dictionary := &state.ParameterDictionaries[dictionaryIndex]
+		if _, rewrite := selected[dictionary.ID]; !rewrite {
+			continue
+		}
+		if err := rewriteDictionaryEntryReferences(dictionary.Entries, replacements); err != nil {
+			return fmt.Errorf("rewrite dictionary %q: %w", dictionary.ID, err)
+		}
+	}
+	return nil
+}
+
+func selectedSectionIDs(state aggregate.State, sectionIDs []string) (map[string]struct{}, error) {
+	known := make(map[string]struct{}, len(state.Callables)+len(state.ParameterDictionaries)+len(state.Lists))
+	for _, callable := range state.Callables {
+		known[callable.ID] = struct{}{}
+	}
+	for _, dictionary := range state.ParameterDictionaries {
+		known[dictionary.ID] = struct{}{}
+	}
+	for _, list := range state.Lists {
+		known[list.ID] = struct{}{}
+	}
+	selected := make(map[string]struct{}, len(sectionIDs))
+	for _, sectionID := range sectionIDs {
+		if _, exists := known[sectionID]; !exists {
+			return nil, fmt.Errorf("rewrite references for unknown section %q", sectionID)
+		}
+		selected[sectionID] = struct{}{}
+	}
+	return selected, nil
 }
 
 func targetPathReplacements(oldPaths map[string]string, newPaths map[string]string) map[string]string {
