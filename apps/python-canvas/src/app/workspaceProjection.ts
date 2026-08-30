@@ -267,6 +267,7 @@ function projectWorkspaceDocumentWithDescriptors(
     topLevelSections,
     viewport: null,
     activeIds: [],
+    savedViews: null,
   };
 }
 

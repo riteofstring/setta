@@ -1,7 +1,9 @@
 import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
 import {
+  createWorkspaceSavedViewsState,
   createWorkspaceHost,
   getWorkspaceCodeSectionData,
+  projectWorkspaceDocumentSavedViews,
   setItemPresentation,
   setWorkspaceCodeSectionData,
   type WorkspaceHost,
@@ -372,11 +374,11 @@ describe("Python Canvas V2 workspace projection", () => {
           {
             isHorizontalOrientation: true,
             isMinimized: true,
-            overflowMode: true,
+            overflowMode: false,
             positionAndSizeLocked: true,
-            size: { height: 90, width: 260 },
-            styleColor: "red",
-            tagColor: "orange",
+            size: { height: 50, width: 260 },
+            styleColor: "#ef4444",
+            tagColor: "#f97316",
           },
         ],
         [
@@ -387,8 +389,8 @@ describe("Python Canvas V2 workspace projection", () => {
             overflowMode: false,
             positionAndSizeLocked: false,
             size: { height: 180, width: 320 },
-            styleColor: "blue",
-            tagColor: "green",
+            styleColor: "#3b82f6",
+            tagColor: "#22c55e",
           },
         ],
         [
@@ -396,11 +398,11 @@ describe("Python Canvas V2 workspace projection", () => {
           {
             isHorizontalOrientation: true,
             isMinimized: false,
-            overflowMode: true,
+            overflowMode: false,
             positionAndSizeLocked: false,
             size: { height: 280, width: 460 },
-            styleColor: "purple",
-            tagColor: "pink",
+            styleColor: "#a855f7",
+            tagColor: "#ec4899",
           },
         ],
       ]),
@@ -416,18 +418,18 @@ describe("Python Canvas V2 workspace projection", () => {
     ).toMatchObject({
       isHorizontalOrientation: true,
       isMinimized: true,
-      overflowMode: true,
+      overflowMode: false,
       positionAndSizeLocked: true,
-      size: { height: 90, width: 260 },
-      styleColor: "red",
-      tagColor: "orange",
+      size: { height: 50, width: 260 },
+      styleColor: "#ef4444",
+      tagColor: "#f97316",
     });
     expect(
       host.getSnapshot().sections[callableSectionID("callable:pasted")],
     ).toMatchObject({
       size: { height: 180, width: 320 },
-      styleColor: "blue",
-      tagColor: "green",
+      styleColor: "#3b82f6",
+      tagColor: "#22c55e",
     });
     expect(
       host.getSnapshot().sections[
@@ -435,10 +437,10 @@ describe("Python Canvas V2 workspace projection", () => {
       ],
     ).toMatchObject({
       isHorizontalOrientation: true,
-      overflowMode: true,
+      overflowMode: false,
       size: { height: 280, width: 460 },
-      styleColor: "purple",
-      tagColor: "pink",
+      styleColor: "#a855f7",
+      tagColor: "#ec4899",
     });
     host.dispose();
   });
@@ -954,6 +956,116 @@ describe("Python Canvas V2 workspace projection", () => {
     );
     expect(host.getSnapshot().topLevelSections[firstId]).toEqual(firstLayout);
     expect(host.getSnapshot().topLevelSections[secondId]).toEqual(secondLayout);
+    host.dispose();
+  });
+
+  it("retains saved views while the package reconciles canonical section drift", () => {
+    const snapshot = dynamicSnapshot();
+    const host = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(host);
+    const initialDocument = projectWorkspaceDocument(snapshot);
+    const initialSavedViews = createWorkspaceSavedViewsState(initialDocument, {
+      id: "overview",
+      name: "Overview",
+    });
+    const firstId = callableSectionID("callable:first");
+    const overview = initialSavedViews.views.overview;
+    if (!overview) throw new Error("Missing Overview.");
+    const retainedLayout = {
+      ...overview.topLevelSections[firstId]!,
+      x: 720,
+      y: 360,
+    };
+    const savedViews = {
+      ...initialSavedViews,
+      views: {
+        ...initialSavedViews.views,
+        overview: {
+          ...overview,
+          topLevelSections: {
+            ...overview.topLevelSections,
+            [firstId]: retainedLayout,
+          },
+          viewport: { x: 120, y: 80, zoom: 1.25 },
+        },
+      },
+    };
+    host.loadDocument(
+      projectWorkspaceDocumentSavedViews({
+        ...initialDocument,
+        savedViews,
+      }),
+    );
+    const addedSnapshot = parseProjectSnapshotV2({
+      ...snapshot,
+      callables: [
+        ...snapshot.callables,
+        {
+          authoredExpression: "third",
+          id: "callable:third",
+          name: "Third callable",
+          parameters: [],
+        },
+      ],
+      generatedCode: {
+        ...snapshot.generatedCode,
+        sourceRangesByTargetId: {
+          ...snapshot.generatedCode.sourceRangesByTargetId,
+          "callable:third": { end: 2, start: 2 },
+        },
+      },
+      project: { ...snapshot.project, revision: snapshot.project.revision + 1 },
+      topLevelSectionIds: [
+        "callable:first",
+        "callable:second",
+        "callable:third",
+      ],
+    });
+    applyCanonicalSnapshot(host, addedSnapshot);
+    const addedDocument = host.getSnapshot();
+    const addedSavedViews = addedDocument.savedViews;
+    const thirdId = callableSectionID("callable:third");
+    if (addedSavedViews === null)
+      throw new Error("Expected reconciled saved views.");
+    expect(addedDocument.topLevelSections[firstId]).toEqual(retainedLayout);
+    expect(addedSavedViews.views.overview?.topLevelSections[firstId]).toEqual(
+      retainedLayout,
+    );
+    expect(addedSavedViews.views.overview?.sectionVisibility[thirdId]).toBe(
+      true,
+    );
+    expect(addedSavedViews.views.overview?.topLevelSections[thirdId]).toEqual(
+      addedDocument.topLevelSections[thirdId],
+    );
+    const deletedSnapshot = parseProjectSnapshotV2({
+      ...addedSnapshot,
+      callables: addedSnapshot.callables.filter(
+        (callable) => callable.id === "callable:first",
+      ),
+      generatedCode: {
+        ...addedSnapshot.generatedCode,
+        sourceRangesByTargetId: {
+          "callable:first": { end: 2, start: 2 },
+        },
+      },
+      project: {
+        ...addedSnapshot.project,
+        revision: addedSnapshot.project.revision + 1,
+      },
+      topLevelSectionIds: ["callable:first"],
+    });
+    applyCanonicalSnapshot(host, deletedSnapshot);
+    const deletedSavedViews = host.getSnapshot().savedViews;
+    if (deletedSavedViews === null)
+      throw new Error("Expected saved views after section deletion.");
+    expect(
+      deletedSavedViews.views.overview?.sectionVisibility[
+        callableSectionID("callable:second")
+      ],
+    ).toBeUndefined();
+    expect(
+      deletedSavedViews.views.overview?.topLevelSections[thirdId],
+    ).toBeUndefined();
     host.dispose();
   });
 

@@ -35,7 +35,9 @@ const mocks = vi.hoisted(() => ({
   fetchProjectSnapshot: vi.fn(),
   getWorkspaceCodeSectionData: vi.fn(),
   incrementListChildren: vi.fn(),
+  loadPythonCanvasSavedViews: vi.fn(),
   pasteProjectClipboard: vi.fn(),
+  persistPythonCanvasSavedViews: vi.fn(),
   refreshCallableParameters: vi.fn(),
   registerSectionKinds: vi.fn(),
   registerWorkspaceClipboardAuthority: vi.fn(),
@@ -159,6 +161,11 @@ vi.mock("@setta/workspace", async (importOriginal) => ({
     },
 }));
 
+vi.mock("./pythonCanvasSavedViewsPreferences", () => ({
+  loadPythonCanvasSavedViews: mocks.loadPythonCanvasSavedViews,
+  persistPythonCanvasSavedViews: mocks.persistPythonCanvasSavedViews,
+}));
+
 import { PythonCanvasApp } from "./PythonCanvasApp";
 import { ProjectClientError } from "../backend/client";
 import {
@@ -173,6 +180,8 @@ let root: Root | undefined;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.loadPythonCanvasSavedViews.mockReturnValue({ kind: "missing" });
+  mocks.persistPythonCanvasSavedViews.mockReturnValue({ kind: "persisted" });
   mocks.projectSnapshotStreamOptions = null;
   mocks.connectProjectSnapshotStream.mockImplementation((options) => {
     mocks.projectSnapshotStreamOptions = options;
@@ -277,8 +286,8 @@ describe("PythonCanvasApp concurrency", () => {
       overflowMode: true,
       positionAndSizeLocked: true,
       size: { height: "auto", width: 320 },
-      styleColor: "red",
-      tagColor: "orange",
+      styleColor: "#ef4444",
+      tagColor: "#f97316",
     });
     expect(mocks.commitWorkspaceDocument).toHaveBeenCalledTimes(1);
   });
@@ -881,6 +890,7 @@ function createHost(): WorkspaceHost {
     dispose: vi.fn(),
     getSnapshot: vi.fn().mockReturnValue({
       activeIds: [],
+      savedViews: null,
       sections: {},
       topLevelSections: {},
       viewport: null,
@@ -893,6 +903,7 @@ function createHost(): WorkspaceHost {
 function installWorkspaceHarness(): WorkspaceHarness {
   let document: WorkspaceDocument = {
     activeIds: [],
+    savedViews: null,
     sections: {},
     topLevelSections: {},
     viewport: null,
@@ -985,8 +996,8 @@ function clipboardPasteRequest() {
           overflowMode: true,
           positionAndSizeLocked: true,
           size: { height: "auto", width: 320 },
-          styleColor: "red",
-          tagColor: "orange",
+          styleColor: "#ef4444",
+          tagColor: "#f97316",
         },
       },
       topLevelLayouts: {

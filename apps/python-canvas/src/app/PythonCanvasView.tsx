@@ -236,6 +236,7 @@ function PythonCanvasWorkspaceShell({
     <WorkspaceShell
       ariaLabel="Python Canvas workspace"
       includeBuiltInInspector={false}
+      includeBuiltInSavedViews={true}
       leadingPaneShiftsCanvas={true}
       leadingTabs={EMPTY_SHELL_TABS}
       onViewStateChange={onViewStateChange}

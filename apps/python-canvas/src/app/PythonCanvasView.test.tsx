@@ -21,6 +21,7 @@ import {
 type ShellPropsCapture = {
   ariaLabel?: string;
   includeBuiltInInspector?: boolean;
+  includeBuiltInSavedViews?: boolean;
   leadingPaneShiftsCanvas?: boolean;
   leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
   onViewStateChange: (nextState: WorkspaceShellViewState) => void;
@@ -218,6 +219,7 @@ describe("PythonCanvasView", () => {
 
     expect(initialShell.ariaLabel).toBe("Python Canvas workspace");
     expect(initialShell.includeBuiltInInspector).toBe(false);
+    expect(initialShell.includeBuiltInSavedViews).toBe(true);
     expect(initialShell.leadingPaneShiftsCanvas).toBe(true);
     expect(initialShell.leadingTabs).toEqual([]);
     expect(initialShell.trailingTabs.map((tab) => tab.id)).toEqual([
@@ -283,6 +285,7 @@ describe("PythonCanvasView", () => {
     act(() => {
       host.publish({
         activeIds: [],
+        savedViews: null,
         sections: {},
         topLevelSections: {},
         viewport: null,
@@ -385,6 +388,7 @@ function renderView(
 function createWorkspaceHostForView(
   initialDocument: WorkspaceDocument = {
     activeIds: [],
+    savedViews: null,
     sections: {},
     topLevelSections: {},
     viewport: null,
@@ -414,6 +418,7 @@ function callableDocumentForParams(): WorkspaceDocument {
   const parameterId = "provider-parameter";
   return {
     activeIds: ["callable"],
+    savedViews: null,
     sections: {
       callable: {
         children: [],

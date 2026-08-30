@@ -33,11 +33,13 @@ import {
   forestMutationProposal,
   hasPythonTargetChange,
   isCallableResolutionFailure,
+  isNewerProjectSnapshot,
   mutationErrorMessage,
   sameProposedList,
   sectionStructureMutations,
   type AppController,
   type AppState,
+  type CanonicalSnapshotAcceptanceOptions,
   type MutationAnswer,
   type MutationState,
   type RevisionConflictDraft,
@@ -48,6 +50,10 @@ import {
   shouldKeepAuthoredPython,
 } from "./pythonCanvasProjectionRetention";
 import { createDictionaryEntryParentPromotionScheduler } from "./dictionaryEntryParentPromotion";
+import {
+  bootstrapPythonCanvasSavedViews,
+  createPythonCanvasSavedViewsPersistence,
+} from "./pythonCanvasSavedViews";
 import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import { createPythonCanvasMutations } from "./pythonCanvasMutations";
 import {
@@ -62,34 +68,12 @@ import {
 } from "./generatedPythonTerminalController";
 import { PythonCanvasView } from "./PythonCanvasView";
 
-const defaultCallableName = "New callable";
-const defaultParameterDictionaryName = "New Param Dict";
-const defaultListName = "New List of Objects";
-
 type CallableMutationStates = Record<string, MutationState>;
 type DictionaryMutationStates = Record<string, MutationState>;
 type ListMutationStates = Record<string, MutationState>;
 type CallableDrafts = Record<string, string>;
 type CompletionProviders = Record<string, TextValueCompletionProvider>;
 type CompletionErrors = Record<string, string>;
-type CanonicalSnapshotAcceptanceOptions = Readonly<{
-  activeSectionIds?: ProjectSnapshotProjectionOptions["activeSectionIds"];
-  canonicalRootLayoutOverrides?: ProjectSnapshotProjectionOptions["canonicalRootLayoutOverrides"];
-  canonicalSectionPresentationOverrides?: ProjectSnapshotProjectionOptions["canonicalSectionPresentationOverrides"];
-  pendingSectionIds?: ReadonlyMap<string, string>;
-  revisionConflictDraft?: RevisionConflictDraft;
-}>;
-function isNewerSnapshot(
-  candidate: ProjectSnapshotV2,
-  current: ProjectSnapshotV2,
-) {
-  return (
-    candidate.project.revision > current.project.revision ||
-    (candidate.project.revision === current.project.revision &&
-      candidate.diagnosticsRevision > current.diagnosticsRevision)
-  );
-}
-
 export function PythonCanvasController() {
   const [state, setState] = useState<AppState>({ kind: "loading" });
   const [callableDrafts, setCallableDrafts] = useState<CallableDrafts>({});
@@ -145,6 +129,15 @@ export function PythonCanvasController() {
         setAnnouncement(next);
       }
     };
+    const savedViewsPersistence = createPythonCanvasSavedViewsPersistence({
+      projectId: () => snapshot?.project.id ?? null,
+      reportFailure: () =>
+        updateAnnouncement({
+          kind: "error",
+          message:
+            "Python Canvas could not save saved views in this browser. Your current views remain open.",
+        }),
+    });
     const updateCallableMutation = (
       callableId: string,
       next: MutationState,
@@ -693,6 +686,7 @@ export function PythonCanvasController() {
       }
     };
     const handleWorkspaceDocumentChange = (document: WorkspaceDocument) => {
+      savedViewsPersistence.persist(document);
       const current = currentWorkspaceSnapshot();
       if (current === null) {
         return;
@@ -747,10 +741,7 @@ export function PythonCanvasController() {
                   "Python Canvas cannot create a callable before loading.",
                 );
               }
-              const name = nextCreatedSectionName(
-                snapshot,
-                defaultCallableName,
-              );
+              const name = nextCreatedSectionName(snapshot, "New callable");
               const sectionId = `python-canvas:pending-callable:${crypto.randomUUID()}`;
               const section = createPendingCallableSection(
                 snapshot,
@@ -771,10 +762,7 @@ export function PythonCanvasController() {
                   "Python Canvas cannot create a Param Dict before loading.",
                 );
               }
-              const name = nextCreatedSectionName(
-                snapshot,
-                defaultParameterDictionaryName,
-              );
+              const name = nextCreatedSectionName(snapshot, "New Param Dict");
               const sectionId = `python-canvas:pending-parameter-dictionary:${crypto.randomUUID()}`;
               const section = createPendingParameterDictionarySection(
                 sectionId,
@@ -794,7 +782,10 @@ export function PythonCanvasController() {
                   "Python Canvas cannot create a List of Objects before loading.",
                 );
               }
-              const name = nextCreatedSectionName(snapshot, defaultListName);
+              const name = nextCreatedSectionName(
+                snapshot,
+                "New List of Objects",
+              );
               const sectionId = `python-canvas:pending-list:${crypto.randomUUID()}`;
               const section = createPendingListSection(sectionId, name);
               mutations.createListFromPane(sectionId, name);
@@ -802,12 +793,27 @@ export function PythonCanvasController() {
             },
           },
         ]);
+        const initialSavedViews = bootstrapPythonCanvasSavedViews(
+          projectWorkspaceDocument(initialSnapshot),
+          initialSnapshot.project.id,
+        );
+        if (initialSavedViews.storageIssue !== null) {
+          updateAnnouncement({
+            kind: "error",
+            message:
+              initialSavedViews.storageIssue === "malformed"
+                ? "Saved views for this project could not be loaded. Python Canvas started with Overview."
+                : "Saved views are unavailable in this browser. Python Canvas will keep them for this session.",
+          });
+        }
         isProjectingRef.current = true;
+        savedViewsPersistence.beginInitialLoad(initialSavedViews.document);
         try {
-          host.loadDocument(projectWorkspaceDocument(initialSnapshot));
+          host.loadDocument(initialSavedViews.document);
         } finally {
           isProjectingRef.current = false;
         }
+        savedViewsPersistence.completeInitialLoad(host.getSnapshot());
         registerPythonCanvasWorkspaceClipboardAuthority({
           acceptCanonicalSnapshot: (
             nextSnapshot,
@@ -856,7 +862,7 @@ export function PythonCanvasController() {
                 });
                 return;
               }
-              if (!isNewerSnapshot(nextSnapshot, current)) {
+              if (!isNewerProjectSnapshot(nextSnapshot, current)) {
                 return;
               }
               acceptCanonicalSnapshot(nextSnapshot, {

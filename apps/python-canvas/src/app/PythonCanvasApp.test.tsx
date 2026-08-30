@@ -29,7 +29,9 @@ const mocks = vi.hoisted(() => ({
   fetchProjectSnapshot: vi.fn(),
   getWorkspaceCodeSectionData: vi.fn(),
   incrementListChildren: vi.fn(),
+  loadPythonCanvasSavedViews: vi.fn(),
   pasteProjectClipboard: vi.fn(),
+  persistPythonCanvasSavedViews: vi.fn(),
   refreshCallableParameters: vi.fn(),
   renameCallable: vi.fn(),
   renameList: vi.fn(),
@@ -305,6 +307,11 @@ vi.mock("./GeneratedPythonTerminal", () => ({
   GeneratedPythonTerminalSection: ({ editor }: { editor: ReactNode }) => editor,
 }));
 
+vi.mock("./pythonCanvasSavedViewsPreferences", () => ({
+  loadPythonCanvasSavedViews: mocks.loadPythonCanvasSavedViews,
+  persistPythonCanvasSavedViews: mocks.persistPythonCanvasSavedViews,
+}));
+
 vi.mock("@setta/workspace", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@setta/workspace")>()),
   WORKSPACE_CODE_SECTION_KIND: "setta.code",
@@ -385,6 +392,8 @@ let root: Root | undefined;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.loadPythonCanvasSavedViews.mockReturnValue({ kind: "missing" });
+  mocks.persistPythonCanvasSavedViews.mockReturnValue({ kind: "persisted" });
   mocks.projectSnapshotStreamOptions = null;
   mocks.connectProjectSnapshotStream.mockImplementation((options) => {
     mocks.projectSnapshotStreamOptions = options;
@@ -793,6 +802,7 @@ describe("PythonCanvasApp", () => {
     });
     let workspaceDocument: WorkspaceDocument = {
       activeIds: [],
+      savedViews: null,
       sections: {},
       topLevelSections: {},
       viewport: null,
@@ -1327,6 +1337,7 @@ function createHost(): WorkspaceHost {
     dispose: vi.fn(),
     getSnapshot: vi.fn().mockReturnValue({
       activeIds: [],
+      savedViews: null,
       sections: {},
       topLevelSections: {},
       viewport: null,
@@ -1339,6 +1350,7 @@ function createHost(): WorkspaceHost {
 function installWorkspaceHarness() {
   let document: WorkspaceDocument = {
     activeIds: [],
+    savedViews: null,
     sections: {},
     topLevelSections: {},
     viewport: null,

@@ -61,6 +61,7 @@ function documentWithActiveSection(
 ): WorkspaceDocument {
   return {
     activeIds,
+    savedViews: null,
     sections: {
       section: {
         children: [],

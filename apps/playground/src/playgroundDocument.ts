@@ -1,5 +1,6 @@
 import {
   createWorkspaceCodeSectionData,
+  createWorkspaceSavedViewsState,
   createWorkspaceTextSectionData,
   DEFAULT_META_CONTROL_SIZE,
   DROPZONE_META_CONTROL_SIZE,
@@ -12,6 +13,8 @@ import {
   type WorkspaceSectionData,
   type WorkspaceSectionInput,
   type WorkspaceSectionItemTree,
+  type WorkspaceSavedView,
+  type WorkspaceSavedViewsState,
   type WorkspaceTextSectionData,
 } from "@setta/workspace";
 
@@ -356,7 +359,7 @@ function makeMetaControlSection(
   };
 }
 
-export const playgroundDocument: WorkspaceDocumentInput = {
+const playgroundDocumentBase: WorkspaceDocumentInput = {
   sections: {
     "idle-leaf": makeLeafSection("idle-leaf", "Idle leaf", {
       tagColor: "#0f766e",
@@ -654,4 +657,179 @@ export const playgroundDocument: WorkspaceDocumentInput = {
   },
   viewport: { x: 0, y: 0, zoom: 1 },
   activeIds: [],
+  savedViews: null,
+};
+
+function createPlaygroundSavedView(
+  overview: WorkspaceSavedView,
+  document: WorkspaceDocumentInput,
+  {
+    id,
+    name,
+    sectionIds,
+    topLevelSections,
+    viewport,
+  }: {
+    id: string;
+    name: string;
+    sectionIds: ReadonlySet<string>;
+    topLevelSections: WorkspaceSavedView["topLevelSections"];
+    viewport: WorkspaceSavedView["viewport"];
+  },
+): WorkspaceSavedView {
+  return {
+    ...overview,
+    id,
+    name,
+    sectionVisibility: Object.fromEntries(
+      Object.keys(document.sections).map((sectionId) => [
+        sectionId,
+        sectionIds.has(sectionId),
+      ]),
+    ),
+    sortIndex: 0,
+    topLevelSections,
+    viewport,
+  };
+}
+
+function createPlaygroundSavedViews(
+  document: WorkspaceDocumentInput,
+): WorkspaceSavedViewsState {
+  const overviewState = createWorkspaceSavedViewsState(document, {
+    id: "overview",
+    name: "Overview",
+  });
+  const overview = overviewState.views.overview;
+  if (overview === undefined) {
+    throw new Error("The playground Overview view is unavailable.");
+  }
+  const content = createPlaygroundSavedView(overview, document, {
+    id: "content",
+    name: "Content",
+    sectionIds: new Set([
+      "item-panel",
+      "code-editor",
+      "text-rendered",
+      "text-source",
+    ]),
+    topLevelSections: {
+      ...overview.topLevelSections,
+      "item-panel": { h: 350, w: 550, x: 24, y: 24, zIndex: 0 },
+      "code-editor": { h: null, w: 500, x: 624, y: 24, zIndex: 1 },
+      "text-rendered": { h: 260, w: 500, x: 624, y: 420, zIndex: 2 },
+      "text-source": { h: 260, w: 500, x: 1_164, y: 420, zIndex: 3 },
+    },
+    viewport: { x: 0, y: 0, zoom: 1 },
+  });
+  const controls = createPlaygroundSavedView(overview, document, {
+    id: "controls",
+    name: "Controls",
+    sectionIds: new Set(
+      Object.keys(document.sections).filter((sectionId) =>
+        sectionId.startsWith("meta-"),
+      ),
+    ),
+    topLevelSections: {
+      ...overview.topLevelSections,
+      "meta-dropdown": {
+        h: DEFAULT_META_CONTROL_SIZE.height,
+        w: DEFAULT_META_CONTROL_SIZE.width,
+        x: 24,
+        y: 24,
+        zIndex: 0,
+      },
+      "meta-slider": {
+        h: DEFAULT_META_CONTROL_SIZE.height,
+        w: DEFAULT_META_CONTROL_SIZE.width,
+        x: 304,
+        y: 24,
+        zIndex: 1,
+      },
+      "meta-rotary": {
+        h: DEFAULT_META_CONTROL_SIZE.height,
+        w: DEFAULT_META_CONTROL_SIZE.width,
+        x: 584,
+        y: 24,
+        zIndex: 2,
+      },
+      "meta-switch": {
+        h: DEFAULT_META_CONTROL_SIZE.height,
+        w: DEFAULT_META_CONTROL_SIZE.width,
+        x: 864,
+        y: 24,
+        zIndex: 3,
+      },
+      "meta-text": {
+        h: DEFAULT_META_CONTROL_SIZE.height,
+        w: DEFAULT_META_CONTROL_SIZE.width,
+        x: 24,
+        y: 110,
+        zIndex: 4,
+      },
+      "meta-date": {
+        h: null,
+        w: DEFAULT_META_CONTROL_SIZE.width,
+        x: 304,
+        y: 110,
+        zIndex: 5,
+      },
+      "meta-time": {
+        h: DEFAULT_META_CONTROL_SIZE.height,
+        w: DEFAULT_META_CONTROL_SIZE.width,
+        x: 584,
+        y: 110,
+        zIndex: 6,
+      },
+      "meta-textarea": {
+        h: TEXTAREA_META_CONTROL_SIZE.height,
+        w: TEXTAREA_META_CONTROL_SIZE.width,
+        x: 864,
+        y: 110,
+        zIndex: 7,
+      },
+      "meta-password": {
+        h: DEFAULT_META_CONTROL_SIZE.height,
+        w: DEFAULT_META_CONTROL_SIZE.width,
+        x: 24,
+        y: 220,
+        zIndex: 8,
+      },
+      "meta-color": {
+        h: DEFAULT_META_CONTROL_SIZE.height,
+        w: DEFAULT_META_CONTROL_SIZE.width,
+        x: 304,
+        y: 220,
+        zIndex: 9,
+      },
+      "meta-button": {
+        h: DEFAULT_META_CONTROL_SIZE.height,
+        w: DEFAULT_META_CONTROL_SIZE.width,
+        x: 584,
+        y: 220,
+        zIndex: 10,
+      },
+      "meta-dropzone": {
+        h: DROPZONE_META_CONTROL_SIZE.height,
+        w: DROPZONE_META_CONTROL_SIZE.width,
+        x: 864,
+        y: 220,
+        zIndex: 11,
+      },
+    },
+    viewport: { x: 0, y: 0, zoom: 1 },
+  });
+  return {
+    activeViewId: overview.id,
+    views: {
+      [overview.id]: overview,
+      [content.id]: { ...content, sortIndex: 1 },
+      [controls.id]: { ...controls, sortIndex: 2 },
+    },
+  };
+}
+
+export const playgroundDocument: WorkspaceDocumentInput = {
+  ...playgroundDocumentBase,
+  savedViews: createPlaygroundSavedViews(playgroundDocumentBase),
 };

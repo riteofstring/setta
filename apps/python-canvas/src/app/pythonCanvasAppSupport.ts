@@ -14,6 +14,7 @@ import {
   callableSectionID,
   listSectionID,
   parameterDictionarySectionID,
+  type ProjectSnapshotProjectionOptions,
   readCallableParameterItems,
   readParameterDictionaryEntries,
   readGeneratedPythonTarget,
@@ -57,6 +58,25 @@ export type RevisionConflictDraft =
       kind: "dictionary";
     }
   | null;
+
+export type CanonicalSnapshotAcceptanceOptions = Readonly<{
+  activeSectionIds?: ProjectSnapshotProjectionOptions["activeSectionIds"];
+  canonicalRootLayoutOverrides?: ProjectSnapshotProjectionOptions["canonicalRootLayoutOverrides"];
+  canonicalSectionPresentationOverrides?: ProjectSnapshotProjectionOptions["canonicalSectionPresentationOverrides"];
+  pendingSectionIds?: ReadonlyMap<string, string>;
+  revisionConflictDraft?: RevisionConflictDraft;
+}>;
+
+export function isNewerProjectSnapshot(
+  candidate: ProjectSnapshotV2,
+  current: ProjectSnapshotV2,
+): boolean {
+  return (
+    candidate.project.revision > current.project.revision ||
+    (candidate.project.revision === current.project.revision &&
+      candidate.diagnosticsRevision > current.diagnosticsRevision)
+  );
+}
 
 export type SectionStructureMutation =
   | { kind: "delete"; sectionId: string; sectionKind: "callable" }
