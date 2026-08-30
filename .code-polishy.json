@@ -14,7 +14,11 @@
           "packages/workspace/vite.config.ts",
           "packages/workspace/vitest.setup.ts",
           "scripts/cdp-port.sh",
-          "scripts/chrome-devtools-mcp.sh"
+          "scripts/chrome-devtools-mcp.sh",
+          "scripts/inspect-playground.mjs",
+          "scripts/lib/cdp-client.mjs",
+          "scripts/lib/headless-chrome.mjs",
+          "scripts/profile-workspace-performance.mjs"
         ]
       },
       {

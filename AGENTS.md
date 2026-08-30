@@ -60,6 +60,12 @@
 ## Reviews and delivery
 
 - Agent review cannot replace policy checks or human approval.
+- Inspect every browser-visible change against an actual running target before
+  handoff. The Playground consumes the built workspace package, so rebuild
+  `@setta/workspace` after workspace source changes, then use
+  `pnpm playground:inspect` against the live URL and review both the emitted
+  geometry and screenshot. Source reasoning, jsdom, type checks, and builds do
+  not establish visual correctness.
 - Use the caller's checkout for ordinary interactive work. Use
   `code-polishy task-session` for unattended work or explicitly requested
   isolation.

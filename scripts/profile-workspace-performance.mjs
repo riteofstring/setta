@@ -1,19 +1,17 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import {
-  existsSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { createCdpPage } from "./lib/cdp-client.mjs";
+import {
+  startHeadlessChrome,
+  stopHeadlessChrome,
+  waitForHeadlessChrome,
+} from "./lib/headless-chrome.mjs";
 import {
   analyzeGestureSample,
   cdpMetricsDelta,
@@ -69,113 +67,6 @@ function positiveIntegerArgument(name, fallback) {
     throw new Error(`--${name} must be a positive integer.`);
   }
   return value;
-}
-
-function chromeBinaryPath() {
-  const explicitPath = argumentValue("chrome-binary");
-  if (explicitPath !== null) {
-    if (!path.isAbsolute(explicitPath)) {
-      throw new Error("--chrome-binary must be an absolute path.");
-    }
-    if (!existsSync(explicitPath)) {
-      throw new Error(`Chrome binary does not exist: ${explicitPath}.`);
-    }
-    return explicitPath;
-  }
-  if (process.platform !== "darwin") {
-    throw new Error("Non-macOS performance profiles require --chrome-binary.");
-  }
-  const defaultPath =
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-  if (!existsSync(defaultPath)) {
-    throw new Error(`Default Chrome binary does not exist: ${defaultPath}.`);
-  }
-  return defaultPath;
-}
-
-function startHeadlessChrome() {
-  const profileDirectory = mkdtempSync(
-    path.join(os.tmpdir(), "setta-workspace-profile-chrome-"),
-  );
-  const child = spawn(
-    chromeBinaryPath(),
-    [
-      "--headless=new",
-      "--disable-background-timer-throttling",
-      "--disable-backgrounding-occluded-windows",
-      "--disable-extensions",
-      "--disable-renderer-backgrounding",
-      "--no-default-browser-check",
-      "--no-first-run",
-      "--remote-debugging-port=0",
-      `--user-data-dir=${profileDirectory}`,
-      "about:blank",
-    ],
-    { stdio: ["ignore", "pipe", "pipe"] },
-  );
-  const output = { stderr: "", stdout: "" };
-  child.stderr.on("data", (chunk) => {
-    output.stderr = `${output.stderr}${String(chunk)}`.slice(-8_000);
-  });
-  child.stdout.on("data", (chunk) => {
-    output.stdout = `${output.stdout}${String(chunk)}`.slice(-8_000);
-  });
-  return { child, output, profileDirectory };
-}
-
-async function waitForHeadlessChrome(browser) {
-  const portFile = path.join(browser.profileDirectory, "DevToolsActivePort");
-  const deadline = Date.now() + 15_000;
-  while (Date.now() < deadline) {
-    if (browser.child.exitCode !== null) {
-      throw new Error(
-        `Headless Chrome exited with ${String(browser.child.exitCode)}.\n` +
-          `${browser.output.stderr || browser.output.stdout}`,
-      );
-    }
-    if (existsSync(portFile)) {
-      const [rawPort] = readFileSync(portFile, "utf8").split("\n");
-      const port = Number(rawPort);
-      if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
-        throw new Error(
-          `Headless Chrome wrote an invalid DevTools port: ${String(rawPort)}.`,
-        );
-      }
-      return port;
-    }
-    await delay(50);
-  }
-  throw new Error(
-    "Headless Chrome did not expose a DevTools port within 15 seconds.",
-  );
-}
-
-async function stopHeadlessChrome(browser) {
-  try {
-    if (browser.child.exitCode === null) {
-      const gracefulExit = once(browser.child, "exit");
-      browser.child.kill("SIGTERM");
-      const exitedGracefully = await Promise.race([
-        gracefulExit.then(() => true),
-        delay(2_000).then(() => false),
-      ]);
-      if (!exitedGracefully) {
-        const forcedExit = once(browser.child, "exit");
-        browser.child.kill("SIGKILL");
-        const exitedForcibly = await Promise.race([
-          forcedExit.then(() => true),
-          delay(2_000).then(() => false),
-        ]);
-        if (!exitedForcibly) {
-          throw new Error(
-            `Headless Chrome process ${String(browser.child.pid)} did not terminate.`,
-          );
-        }
-      }
-    }
-  } finally {
-    rmSync(browser.profileDirectory, { force: true, recursive: true });
-  }
 }
 
 function buildProfileSurface(skipBuild) {
@@ -869,7 +760,7 @@ async function main() {
   try {
     await waitForPreview(preview);
     console.error(`[performance] preview ready on ${PREVIEW_ORIGIN}`);
-    browser = startHeadlessChrome();
+    browser = startHeadlessChrome(argumentValue("chrome-binary"));
     const cdpPort = await waitForHeadlessChrome(browser);
     const page = await createCdpPage(cdpPort);
     client = page.client;
