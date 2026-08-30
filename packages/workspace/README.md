@@ -452,6 +452,34 @@ contributions)` places existing pane commands or creation commands in the packag
 `registerWorkspaceKeyBindings(host, bindings)` rebinds or unbinds known operations after conflict
 validation.
 
+### Top-level auto layout
+
+The built-in pane menu and command palette offer **Auto Layout** when layout editing is enabled,
+every displayed top-level section has positive measured geometry, and at least two top-level
+sections are unlocked. Direct hosts use the same boundary:
+
+```ts
+const reason = getWorkspaceTopLevelAutoLayoutDisabledReason(host);
+if (reason === null) {
+  autoLayoutTopLevelSections(host);
+}
+```
+
+The action keeps locked sections fixed as obstacles and changes only the `x` and `y` coordinates of
+unlocked top-level sections. Section dimensions, nesting, stacking, selection, viewport, and opaque
+data remain unchanged. One accepted arrangement publishes one complete document as a
+`section-move` transaction; an already-arranged workspace or fewer than two unlocked roots returns
+`"unchanged"` without publishing. A disabled capability or incomplete geometry rejects direct
+invocation with the same explanation shown by the command.
+
+`planWorkspaceTopLevelAutoLayout(rectangles, options?)` exposes the pure planner for hosts that need
+to preview or compose the same behavior. Its dependency-free, deterministic shelf packer evaluates
+multiple widths around the square-root-of-area baseline, prefers a compact balanced landscape,
+penalizes ragged shelves and unnecessary movement, and uses 48 workspace units of spacing by
+default. Locked rectangles stay at their supplied coordinates. The planner has no knowledge of
+host payloads or semantic relationships; a product that needs domain-specific grouping owns that
+policy before calling the package boundary.
+
 The package retains native context menus for inputs, editors, links, buttons, and explicit no-drag
 surfaces. Other menu owners support pointer, Context Menu key, and Shift+F10 invocation with
 viewport-edge placement, Escape dismissal, and focus restoration. Header menu buttons additionally

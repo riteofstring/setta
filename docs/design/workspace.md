@@ -43,6 +43,29 @@ once. Coupled resources such as a section forest, item tree, selection, and deri
 move through the same boundary. Browser objects, provider callbacks, file operations, and other
 nonserializable effects cross explicit registries and never enter `WorkspaceDocument`.
 
+## Top-level auto-layout authority
+
+Workspace owns generic top-level rectangle layout because it already owns measured section
+geometry, position locks, layout capability, canonical publication, and command availability. The
+pure planner receives detached rectangles and an optional gap; it never reads section payloads or
+infers product relationships. A host that needs semantic grouping remains responsible for that
+policy and can call the same public planner with its chosen inputs.
+
+The deterministic planner sorts unlocked rectangles by padded dimensions and stable document
+attributes, then evaluates several height-aware shelf widths around the square-root-of-area
+baseline. Candidate scoring combines occupied area, distance from a 4:3 landscape, shelf
+raggedness, and normalized movement. The current top-left anchor is preferred when it is valid.
+Locked roots remain fixed obstacles; outside candidates around their collective bounds guarantee a
+safe placement without introducing a general graph-layout dependency or an unbounded interior-gap
+search. The package default is 48 workspace units between rectangles.
+
+Availability resolves layout capability before geometry. Every displayed root must have positive
+finite live dimensions, and at least two roots must be unlocked. The action changes only unlocked
+top-level `x` and `y` values, validates one complete next document, reprojects node geometry, and
+publishes one `section-move` transaction. It preserves hierarchy, dimensions, stacking, viewport,
+selection, and host data. The pane menu and palette command use the same availability result as
+direct callers, including the already-arranged no-op state.
+
 ## Section clipboard authority
 
 Section clipboard support is host-scoped and opt-in. Workspace owns selection-root normalization,

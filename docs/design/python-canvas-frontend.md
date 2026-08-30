@@ -5,7 +5,7 @@ browser behavior remains in `apps/python-canvas/README.md`.
 
 ## Canonical projection
 
-The backend snapshot is authoritative for project identity, revision, authored data, section
+The backend snapshot is authoritative for project identity, revision, authored data, section forest
 placement, generated Python, provider status, and diagnostics. React projects one complete snapshot
 into `@setta/workspace` through `commitWorkspaceDocument`, so section data, structure, and selection
 never cross as separate canonical publications.
@@ -17,11 +17,14 @@ returns the canonical identity. It remains unpainted, reconciles in place to pre
 geometry, and does not remove unrelated placeholders still waiting in the serialized mutation
 queue.
 
-Generic workspace movement produces a complete placement proposal. Python Canvas translates that
-proposal into the matching typed server command; it does not treat the workspace document as a
-second durable project store. Application data coupled to structure follows the same authority. For
-example, promoting a dictionary leaf to a parent is computed purely during publication and applied
-after the workspace subscription returns, because subscriber callbacks cannot synchronously commit.
+Generic workspace forest movement produces a complete placement proposal. Python Canvas translates
+that proposal into the matching typed server command; it does not treat the workspace document as
+a second durable project store. Coordinate-only movement, including package-owned top-level auto
+layout, remains browser-local: forest comparison ignores geometry, and every later canonical
+projection retains the current root layouts. Application data coupled to structure follows the
+backend authority. For example, promoting a dictionary leaf to a parent is computed purely during
+publication and applied after the workspace subscription returns, because subscriber callbacks
+cannot synchronously commit.
 
 Canonical IDs are opaque. Workspace section IDs and structural item-root IDs use disjoint local
 namespaces so application identity is never inferred from a generated DOM or drag identifier.

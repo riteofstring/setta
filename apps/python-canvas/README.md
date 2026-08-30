@@ -95,6 +95,13 @@ the package-owned parameter configuration UI. The **Section** tab edits section 
 leading **Outline** mirrors the canonical forest. Pane presentation is browser-local view state and
 does not enter the project file.
 
+Right-click a blank part of the canvas and choose **Auto Layout** to arrange unlocked top-level
+sections with package-owned spacing. Locked roots, including Generated Python, remain fixed. The
+operation changes browser-local workspace coordinates only, so Python Canvas sends no backend
+forest mutation and retains the resulting geometry when a later canonical project snapshot is
+projected. Nesting and root order remain backend-authored placement and continue through the
+revision-checked forest command.
+
 Python Canvas currently leaves Workspace structural history disabled because the backend has no
 revision-safe undo authority. Structural Undo and Redo are therefore unavailable; Cmd/Ctrl+Z inside
 an active text editor continues to use that editor's local history.
