@@ -95,7 +95,7 @@ function StandaloneWorkspaceSectionSurfaceRoot({
       role="region"
     >
       <WorkspaceSectionSurface
-        className="flex min-h-0 flex-1"
+        className="flex min-h-0 flex-1 flex-col"
         headerActions={headerActions}
         headerProps={headerProps}
         includeDescendants
