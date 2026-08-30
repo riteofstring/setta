@@ -26,33 +26,52 @@ function assertPlainJsonObject(value: object): void {
   }
 }
 
-function assertJsonArray(
+function isCanonicalArrayIndex(propertyName: string): boolean {
+  const index = Number(propertyName);
+  return (
+    Number.isInteger(index) && index >= 0 && String(index) === propertyName
+  );
+}
+
+function assertEnumerableDataArrayProperty(
   value: Array<unknown>,
-  ancestors: Set<object>,
-  depth: number,
+  propertyName: string,
 ): void {
+  const descriptor = Object.getOwnPropertyDescriptor(value, propertyName);
+  if (!descriptor?.enumerable || !("value" in descriptor)) {
+    throw new Error(
+      "Clipboard JSON arrays must contain enumerable data properties.",
+    );
+  }
+}
+
+function assertJsonArrayProperty(
+  value: Array<unknown>,
+  propertyName: string,
+): void {
+  if (propertyName === "length") {
+    return;
+  }
+  if (!isCanonicalArrayIndex(propertyName)) {
+    throw new Error("Clipboard JSON arrays cannot contain named properties.");
+  }
+  assertEnumerableDataArrayProperty(value, propertyName);
+}
+
+function assertJsonArrayProperties(value: Array<unknown>): void {
   if (Object.getOwnPropertySymbols(value).length > 0) {
     throw new Error("Clipboard JSON arrays cannot contain symbol keys.");
   }
   for (const propertyName of Object.getOwnPropertyNames(value)) {
-    if (propertyName === "length") {
-      continue;
-    }
-    const index = Number(propertyName);
-    if (
-      !Number.isInteger(index) ||
-      index < 0 ||
-      String(index) !== propertyName
-    ) {
-      throw new Error("Clipboard JSON arrays cannot contain named properties.");
-    }
-    const descriptor = Object.getOwnPropertyDescriptor(value, propertyName);
-    if (!descriptor?.enumerable || !("value" in descriptor)) {
-      throw new Error(
-        "Clipboard JSON arrays must contain enumerable data properties.",
-      );
-    }
+    assertJsonArrayProperty(value, propertyName);
   }
+}
+
+function assertJsonArrayEntries(
+  value: Array<unknown>,
+  ancestors: Set<object>,
+  depth: number,
+): void {
   for (let index = 0; index < value.length; index += 1) {
     if (!Object.hasOwn(value, index)) {
       throw new Error("Clipboard JSON arrays cannot contain holes.");
@@ -63,6 +82,15 @@ function assertJsonArray(
       depth + 1,
     );
   }
+}
+
+function assertJsonArray(
+  value: Array<unknown>,
+  ancestors: Set<object>,
+  depth: number,
+): void {
+  assertJsonArrayProperties(value);
+  assertJsonArrayEntries(value, ancestors, depth);
 }
 
 function assertJsonObject(

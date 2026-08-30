@@ -106,7 +106,7 @@ function readItem(value: unknown, recordId: string): WorkspaceItem {
   };
 }
 
-function assertValidItemTree(tree: WorkspaceSectionItemTree): void {
+function assertValidItemParentClaims(tree: WorkspaceSectionItemTree): void {
   const parents = new Map<string, string>();
   for (const [itemId, item] of Object.entries(tree.items)) {
     for (const childId of item.children) {
@@ -120,6 +120,9 @@ function assertValidItemTree(tree: WorkspaceSectionItemTree): void {
       parents.set(childId, itemId);
     }
   }
+}
+
+function assertAllItemsReachable(tree: WorkspaceSectionItemTree): void {
   const reachable = new Set<string>();
   const visiting = new Set<string>();
   const visit = (itemId: string): void => {
@@ -144,11 +147,20 @@ function assertValidItemTree(tree: WorkspaceSectionItemTree): void {
   if (reachable.size !== Object.keys(tree.items).length) {
     fail();
   }
+}
+
+function assertValidSelectedItems(tree: WorkspaceSectionItemTree): void {
   for (const selectedItemId of tree.selectedItemIds) {
     if (!tree.items[selectedItemId] || selectedItemId === tree.rootId) {
       fail();
     }
   }
+}
+
+function assertValidItemTree(tree: WorkspaceSectionItemTree): void {
+  assertValidItemParentClaims(tree);
+  assertAllItemsReachable(tree);
+  assertValidSelectedItems(tree);
 }
 
 function readItemTree(
@@ -200,6 +212,41 @@ function readItemTree(
   return tree;
 }
 
+function readLocalSectionContent(
+  value: unknown,
+  itemCount: { value: number },
+): WorkspaceClipboardLocalSectionContent {
+  assertRecord(value);
+  assertKnownFields(value, ["data", "itemTree"]);
+  const data = Object.hasOwn(value, "data")
+    ? (readJsonValue(value["data"]) as WorkspaceSectionData)
+    : undefined;
+  const itemTree = Object.hasOwn(value, "itemTree")
+    ? readItemTree(value["itemTree"], itemCount)
+    : undefined;
+  return {
+    ...(data === undefined ? {} : { data }),
+    ...(itemTree === undefined ? {} : { itemTree }),
+  };
+}
+
+function assertPayloadSectionIds(
+  rawSections: UnknownRecord,
+  fragment: WorkspaceClipboardFragment,
+): Array<string> {
+  const sourceIds = Object.keys(fragment.sections);
+  const payloadIds = Object.keys(rawSections);
+  if (payloadIds.length !== sourceIds.length) {
+    fail();
+  }
+  for (const sectionId of payloadIds) {
+    if (!fragment.sections[sectionId]) {
+      fail();
+    }
+  }
+  return sourceIds;
+}
+
 function readLocalPayload(
   value: unknown,
   fragment: WorkspaceClipboardFragment,
@@ -208,11 +255,7 @@ function readLocalPayload(
   assertKnownFields(value, ["sections"]);
   assertRecord(value["sections"]);
   const rawSections = value["sections"];
-  const sourceIds = Object.keys(fragment.sections);
-  const payloadIds = Object.keys(rawSections);
-  if (payloadIds.length !== sourceIds.length) {
-    fail();
-  }
+  const sourceIds = assertPayloadSectionIds(rawSections, fragment);
   const itemCount = { value: 0 };
   const sections: Record<string, WorkspaceClipboardLocalSectionContent> =
     Object.create(null) as Record<
@@ -224,25 +267,7 @@ function readLocalPayload(
     if (!rawSection) {
       fail();
     }
-    assertRecord(rawSection);
-    assertKnownFields(rawSection, ["data", "itemTree"]);
-    let data: WorkspaceSectionData | undefined;
-    if (Object.hasOwn(rawSection, "data")) {
-      data = readJsonValue(rawSection["data"]) as WorkspaceSectionData;
-    }
-    let itemTree: WorkspaceSectionItemTree | undefined;
-    if (Object.hasOwn(rawSection, "itemTree")) {
-      itemTree = readItemTree(rawSection["itemTree"], itemCount);
-    }
-    sections[sectionId] = {
-      ...(data === undefined ? {} : { data }),
-      ...(itemTree === undefined ? {} : { itemTree }),
-    };
-  }
-  for (const sectionId of payloadIds) {
-    if (!fragment.sections[sectionId]) {
-      fail();
-    }
+    sections[sectionId] = readLocalSectionContent(rawSection, itemCount);
   }
   return { sections };
 }

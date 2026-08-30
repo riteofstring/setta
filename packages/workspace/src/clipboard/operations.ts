@@ -24,7 +24,6 @@ import {
   beginWorkspaceClipboardOperation,
   getWorkspaceClipboardAuthorityMetadata,
   getWorkspaceClipboardRuntimeState,
-  subscribeWorkspaceClipboardAvailability as subscribeWorkspaceClipboardRuntime,
 } from "./registry";
 import type {
   JsonValue,
@@ -34,7 +33,6 @@ import type {
   WorkspaceClipboardEnvelope,
   WorkspaceClipboardEnvelopeErrorCode,
   WorkspaceClipboardOperationLease,
-  WorkspaceClipboardRuntimeListener,
 } from "./types";
 
 type WorkspaceClipboardOperation = "copy" | "duplicate" | "paste";
@@ -130,9 +128,8 @@ function getClipboardSelectionCount(host: WorkspaceHost): number {
   return getActiveSectionIds(host).filter((id) => state.sections[id]).length;
 }
 
-function getPreflightReason(
+function getRuntimePreflightReason(
   host: WorkspaceHost,
-  operation: WorkspaceClipboardOperation,
 ): WorkspaceClipboardDeclineReason | null {
   if (!isWorkspaceHostActive(host)) {
     return "disposed";
@@ -144,28 +141,57 @@ function getPreflightReason(
   if (runtime.authority === null) {
     return "authority-unavailable";
   }
-  if (runtime.pending) {
-    return "operation-pending";
+  return runtime.pending ? "operation-pending" : null;
+}
+
+function getSelectionPreflightReason(
+  host: WorkspaceHost,
+  operation: WorkspaceClipboardOperation,
+): WorkspaceClipboardDeclineReason | null {
+  if (operation === "paste") {
+    return null;
   }
-  if (operation === "copy" || operation === "duplicate") {
-    if (getClipboardSelectionCount(host) === 0) {
-      return "no-selection";
-    }
-    if (operation === "copy" && hasNonemptyBrowserTextSelection()) {
-      return "native-selection";
-    }
+  if (getClipboardSelectionCount(host) === 0) {
+    return "no-selection";
   }
-  if (
-    operation !== "copy" &&
+  return operation === "copy" && hasNonemptyBrowserTextSelection()
+    ? "native-selection"
+    : null;
+}
+
+function getMutationPreflightReason(
+  host: WorkspaceHost,
+  operation: WorkspaceClipboardOperation,
+): WorkspaceClipboardDeclineReason | null {
+  return operation !== "copy" &&
     !getWorkspaceCapabilitiesStore(host).getState().canEditStructure
-  ) {
-    return "structural-editing-disabled";
-  }
-  if (
-    (operation === "copy" || operation === "paste") &&
+    ? "structural-editing-disabled"
+    : null;
+}
+
+function getBrowserPreflightReason(
+  operation: WorkspaceClipboardOperation,
+): WorkspaceClipboardDeclineReason | null {
+  return (operation === "copy" || operation === "paste") &&
     !canUseBrowserClipboard(operation)
-  ) {
-    return "clipboard-unavailable";
+    ? "clipboard-unavailable"
+    : null;
+}
+
+function getPreflightReason(
+  host: WorkspaceHost,
+  operation: WorkspaceClipboardOperation,
+): WorkspaceClipboardDeclineReason | null {
+  for (const resolveReason of [
+    () => getRuntimePreflightReason(host),
+    () => getSelectionPreflightReason(host, operation),
+    () => getMutationPreflightReason(host, operation),
+    () => getBrowserPreflightReason(operation),
+  ]) {
+    const reason = resolveReason();
+    if (reason !== null) {
+      return reason;
+    }
   }
   return null;
 }
@@ -233,15 +259,6 @@ export function getWorkspaceClipboardAvailability(
   });
 }
 
-export function subscribeWorkspaceClipboardAvailability(
-  host: WorkspaceHost,
-  listener: WorkspaceClipboardRuntimeListener,
-): () => void {
-  return isWorkspaceHostActive(host)
-    ? subscribeWorkspaceClipboardRuntime(host, listener)
-    : () => undefined;
-}
-
 function acquireWorkspaceClipboardOperation(
   host: WorkspaceHost,
   operation: WorkspaceClipboardOperation,
@@ -259,7 +276,9 @@ function acquireWorkspaceClipboardOperation(
   if (runtime.disposed || authority === null) {
     lease.release();
     return {
-      result: createDeclined(runtime.disposed ? "disposed" : "authority-unavailable"),
+      result: createDeclined(
+        runtime.disposed ? "disposed" : "authority-unavailable",
+      ),
     };
   }
   return { authority, lease };
@@ -298,10 +317,7 @@ function isSectionKindSupported(host: WorkspaceHost, kind: string): boolean {
   }
 }
 
-function getSectionWidth(
-  host: WorkspaceHost,
-  sectionId: string,
-): number {
+function getSectionWidth(host: WorkspaceHost, sectionId: string): number {
   const state = getWorkspaceDocumentStore(host).getState();
   const layout = state.topLevelSections[sectionId];
   const section = state.sections[sectionId];
@@ -334,9 +350,10 @@ function resolveTopLevelAncestor(
   return null;
 }
 
-function resolveWorkspaceClipboardPastePlacement(
-  host: WorkspaceHost,
-): { x: number; y: number } {
+function resolveWorkspaceClipboardPastePlacement(host: WorkspaceHost): {
+  x: number;
+  y: number;
+} {
   const pointer = getWorkspacePointerLocation(host);
   if (pointer) {
     const placement = screenToFlowPosition(host, pointer);
@@ -361,7 +378,8 @@ function resolveWorkspaceClipboardPastePlacement(
       x:
         Math.max(
           ...selectedLayouts.map(
-            ([sectionId, layout]) => layout.x + getSectionWidth(host, sectionId),
+            ([sectionId, layout]) =>
+              layout.x + getSectionWidth(host, sectionId),
           ),
         ) + 40,
       y: Math.min(...selectedLayouts.map(([, layout]) => layout.y)),
@@ -421,13 +439,20 @@ function scheduleWorkspaceClipboardFocus(
   });
 }
 
-function assertDelegatedPasteResult(
+function getDelegatedPasteResultRecord(
   value: unknown,
-): asserts value is Readonly<{ rootIds: ReadonlyArray<string> }> {
+): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Delegated workspace clipboard paste must return an object.");
+    throw new Error(
+      "Delegated workspace clipboard paste must return an object.",
+    );
   }
-  const candidate = value as Record<string, unknown>;
+  return value as Record<string, unknown>;
+}
+
+function getDelegatedPasteRootIds(
+  candidate: Record<string, unknown>,
+): ReadonlyArray<unknown> {
   if (
     Object.keys(candidate).length !== 1 ||
     !Object.hasOwn(candidate, "rootIds") ||
@@ -437,8 +462,12 @@ function assertDelegatedPasteResult(
       "Delegated workspace clipboard paste must return only canonical rootIds.",
     );
   }
+  return candidate["rootIds"];
+}
+
+function assertDelegatedRootIds(rootIds: ReadonlyArray<unknown>): void {
   const seen = new Set<string>();
-  for (const rootId of candidate["rootIds"]) {
+  for (const rootId of rootIds) {
     if (
       typeof rootId !== "string" ||
       rootId.trim() === "" ||
@@ -458,10 +487,21 @@ function assertDelegatedPasteResult(
   }
 }
 
+function assertDelegatedPasteResult(
+  value: unknown,
+): asserts value is Readonly<{ rootIds: ReadonlyArray<string> }> {
+  assertDelegatedRootIds(
+    getDelegatedPasteRootIds(getDelegatedPasteResultRecord(value)),
+  );
+}
+
 async function prepareDelegatedClipboardPayload(
   authority: Extract<WorkspaceClipboardAuthority, { kind: "delegated" }>,
   captured: ReturnType<typeof getCurrentCapture>,
-): Promise<JsonValue | WorkspaceClipboardOperationResult> {
+): Promise<
+  | Readonly<{ payload: JsonValue }>
+  | Readonly<{ result: WorkspaceClipboardOperationResult }>
+> {
   let payload: unknown;
   try {
     payload = await authority.prepareCopy({
@@ -470,21 +510,10 @@ async function prepareDelegatedClipboardPayload(
       source: captured.source,
     });
   } catch {
-    return createFailed("authority-copy-failed");
+    return { result: createFailed("authority-copy-failed") };
   }
   assertWorkspaceClipboardJsonValue(payload);
-  return payload;
-}
-
-function isOperationResult(
-  value: JsonValue | WorkspaceClipboardOperationResult,
-): value is WorkspaceClipboardOperationResult {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.hasOwn(value, "status")
-  );
+  return { payload };
 }
 
 export async function copyWorkspaceSelection(
@@ -496,12 +525,12 @@ export async function copyWorkspaceSelection(
   }
   try {
     const captured = getCurrentCapture(host);
-    const payload =
+    const prepared =
       acquired.authority.kind === "local"
-        ? createWorkspaceLocalClipboardPayload(captured)
+        ? { payload: createWorkspaceLocalClipboardPayload(captured) }
         : await prepareDelegatedClipboardPayload(acquired.authority, captured);
-    if (isOperationResult(payload)) {
-      return payload;
+    if ("result" in prepared) {
+      return prepared.result;
     }
     if (!isOperationCurrent(host, acquired.authority)) {
       return createDeclined("disposed");
@@ -513,7 +542,7 @@ export async function copyWorkspaceSelection(
     const text = serializeWorkspaceClipboardEnvelope({
       authority: getWorkspaceClipboardAuthorityMetadata(acquired.authority),
       fragment: captured.fragment,
-      payload,
+      payload: prepared.payload,
       schema: "setta.workspace.section-clipboard",
       version: 1,
     });
@@ -628,12 +657,12 @@ export async function duplicateWorkspaceSelection(
   }
   try {
     const captured = getCurrentCapture(host);
-    const payload =
+    const prepared =
       acquired.authority.kind === "local"
-        ? createWorkspaceLocalClipboardPayload(captured)
+        ? { payload: createWorkspaceLocalClipboardPayload(captured) }
         : await prepareDelegatedClipboardPayload(acquired.authority, captured);
-    if (isOperationResult(payload)) {
-      return payload;
+    if ("result" in prepared) {
+      return prepared.result;
     }
     if (!isOperationCurrent(host, acquired.authority)) {
       return createDeclined("disposed");
@@ -644,7 +673,7 @@ export async function duplicateWorkspaceSelection(
       {
         authority: getWorkspaceClipboardAuthorityMetadata(acquired.authority),
         fragment: captured.fragment,
-        payload,
+        payload: prepared.payload,
         schema: "setta.workspace.section-clipboard",
         version: 1,
       },

@@ -1,6 +1,30 @@
 export { createWorkspaceHost } from "./workspaceHost";
 export type { WorkspaceHost, WorkspaceHostOptions } from "./workspaceHost";
 export {
+  copyWorkspaceSelection,
+  duplicateWorkspaceSelection,
+  getWorkspaceClipboardAvailability,
+  pasteWorkspaceClipboard,
+} from "./clipboard/operations";
+export type {
+  WorkspaceClipboardAvailability,
+  WorkspaceClipboardOperationResult,
+} from "./clipboard/operations";
+export { registerWorkspaceClipboardAuthority } from "./clipboard/registry";
+export type {
+  JsonValue,
+  WorkspaceClipboardAuthority,
+  WorkspaceClipboardIdMaps,
+  WorkspaceClipboardItemDataCloneContext,
+  WorkspaceClipboardPastePlacement,
+  WorkspaceClipboardPasteRequest,
+  WorkspaceClipboardPasteResult,
+  WorkspaceClipboardPrepareCopyRequest,
+  WorkspaceClipboardSectionDataCloneContext,
+  WorkspaceDelegatedClipboardAuthority,
+  WorkspaceLocalClipboardAuthority,
+} from "./clipboard/types";
+export {
   getWorkspaceHistoryState,
   redoWorkspace,
   subscribeWorkspaceHistory,

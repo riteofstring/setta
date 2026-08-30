@@ -17,12 +17,13 @@ type WorkspaceClipboardRuntime = {
 
 const runtimesByHost = new WeakMap<WorkspaceHost, WorkspaceClipboardRuntime>();
 
-function assertWorkspaceClipboardAuthority(
-  authority: WorkspaceClipboardAuthority,
-): void {
+function assertAuthorityObject(authority: WorkspaceClipboardAuthority): void {
   if (!authority || typeof authority !== "object") {
     throw new Error("Workspace clipboard authority must be an object.");
   }
+}
+
+function assertAuthorityId(authority: WorkspaceClipboardAuthority): void {
   if (
     typeof authority.id !== "string" ||
     authority.id.trim() === "" ||
@@ -32,47 +33,52 @@ function assertWorkspaceClipboardAuthority(
       "Workspace clipboard authority requires a nonblank trimmed id.",
     );
   }
-  if (authority.kind === "local") {
-    const fields = new Set(["cloneItemData", "cloneSectionData", "id", "kind"]);
-    for (const field of Object.keys(authority)) {
-      if (!fields.has(field)) {
-        throw new Error(
-          `Workspace local clipboard authority has unknown field ${field}.`,
-        );
-      }
-    }
-    if (
-      authority.cloneItemData !== undefined &&
-      typeof authority.cloneItemData !== "function"
-    ) {
-      throw new Error(
-        "Workspace local clipboard cloneItemData must be a function.",
-      );
-    }
-    if (
-      authority.cloneSectionData !== undefined &&
-      typeof authority.cloneSectionData !== "function"
-    ) {
-      throw new Error(
-        "Workspace local clipboard cloneSectionData must be a function.",
-      );
-    }
-    return;
-  }
-  const fields = new Set([
-    "id",
-    "kind",
-    "paste",
-    "payloadVersion",
-    "prepareCopy",
-  ]);
+}
+
+function assertKnownAuthorityFields(
+  authority: WorkspaceClipboardAuthority,
+  fields: ReadonlyArray<string>,
+  authorityName: string,
+): void {
+  const knownFields = new Set(fields);
   for (const field of Object.keys(authority)) {
-    if (!fields.has(field)) {
+    if (!knownFields.has(field)) {
       throw new Error(
-        `Workspace delegated clipboard authority has unknown field ${field}.`,
+        `Workspace ${authorityName} clipboard authority has unknown field ${field}.`,
       );
     }
   }
+}
+
+function assertOptionalAuthorityCallback(value: unknown, name: string): void {
+  if (value !== undefined && typeof value !== "function") {
+    throw new Error(`Workspace local clipboard ${name} must be a function.`);
+  }
+}
+
+function assertLocalClipboardAuthority(
+  authority: Extract<WorkspaceClipboardAuthority, { kind: "local" }>,
+): void {
+  assertKnownAuthorityFields(
+    authority,
+    ["cloneItemData", "cloneSectionData", "id", "kind"],
+    "local",
+  );
+  assertOptionalAuthorityCallback(authority.cloneItemData, "cloneItemData");
+  assertOptionalAuthorityCallback(
+    authority.cloneSectionData,
+    "cloneSectionData",
+  );
+}
+
+function assertDelegatedClipboardAuthority(
+  authority: Extract<WorkspaceClipboardAuthority, { kind: "delegated" }>,
+): void {
+  assertKnownAuthorityFields(
+    authority,
+    ["id", "kind", "paste", "payloadVersion", "prepareCopy"],
+    "delegated",
+  );
   if (
     !Number.isInteger(authority.payloadVersion) ||
     authority.payloadVersion <= 0
@@ -91,6 +97,18 @@ function assertWorkspaceClipboardAuthority(
       "Workspace delegated clipboard authority paste must be a function.",
     );
   }
+}
+
+function assertWorkspaceClipboardAuthority(
+  authority: WorkspaceClipboardAuthority,
+): void {
+  assertAuthorityObject(authority);
+  assertAuthorityId(authority);
+  if (authority.kind === "local") {
+    assertLocalClipboardAuthority(authority);
+    return;
+  }
+  assertDelegatedClipboardAuthority(authority);
 }
 
 function publishWorkspaceClipboardRuntime(
@@ -170,12 +188,6 @@ export function getWorkspaceClipboardRuntimeState(
   return getWorkspaceClipboardRuntime(host).state;
 }
 
-export function getWorkspaceClipboardAuthority(
-  host: WorkspaceHost,
-): WorkspaceClipboardAuthority | null {
-  return getWorkspaceClipboardRuntimeState(host).authority;
-}
-
 export function getWorkspaceClipboardAuthorityMetadata(
   authority: WorkspaceClipboardAuthority,
 ): WorkspaceClipboardAuthorityMetadata {
@@ -201,13 +213,6 @@ export function subscribeWorkspaceClipboardAvailability(
   }
   runtime.listeners.add(listener);
   return () => runtime.listeners.delete(listener);
-}
-
-export function subscribeWorkspaceClipboardRuntimeState(
-  host: WorkspaceHost,
-  listener: WorkspaceClipboardRuntimeListener,
-): () => void {
-  return subscribeWorkspaceClipboardAvailability(host, listener);
 }
 
 export function beginWorkspaceClipboardOperation(

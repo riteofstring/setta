@@ -210,7 +210,9 @@ function readTopLevelLayout(value: unknown): WorkspaceClipboardTopLevelLayout {
   };
 }
 
-function assertValidFragmentTree(fragment: WorkspaceClipboardFragment): void {
+function createFragmentParentMap(
+  fragment: WorkspaceClipboardFragment,
+): Map<string, string> {
   const parentById = new Map<string, string>();
   for (const section of Object.values(fragment.sections)) {
     for (const childId of section.children) {
@@ -223,52 +225,80 @@ function assertValidFragmentTree(fragment: WorkspaceClipboardFragment): void {
       parentById.set(childId, section.id);
     }
   }
-  for (const rootId of fragment.roots) {
+  return parentById;
+}
+
+function assertFragmentRootsAreParentless(
+  roots: ReadonlyArray<string>,
+  parentById: ReadonlyMap<string, string>,
+): void {
+  for (const rootId of roots) {
     if (parentById.has(rootId)) {
       fail("invalid-envelope");
     }
   }
+}
+
+function visitFragmentSection(
+  fragment: WorkspaceClipboardFragment,
+  sectionId: string,
+  visiting: Set<string>,
+  reachable: Set<string>,
+): void {
+  if (visiting.has(sectionId)) {
+    fail("invalid-envelope");
+  }
+  if (reachable.has(sectionId)) {
+    return;
+  }
+  const section = fragment.sections[sectionId];
+  if (!section) {
+    fail("invalid-envelope");
+  }
+  visiting.add(sectionId);
+  for (const childId of section.children) {
+    visitFragmentSection(fragment, childId, visiting, reachable);
+  }
+  visiting.delete(sectionId);
+  reachable.add(sectionId);
+}
+
+function collectReachableFragmentSections(
+  fragment: WorkspaceClipboardFragment,
+): Set<string> {
   const reachable = new Set<string>();
   const visiting = new Set<string>();
-  const visit = (sectionId: string): void => {
-    if (visiting.has(sectionId)) {
-      fail("invalid-envelope");
-    }
-    if (reachable.has(sectionId)) {
-      return;
-    }
-    const section = fragment.sections[sectionId];
-    if (!section) {
-      fail("invalid-envelope");
-    }
-    visiting.add(sectionId);
-    for (const childId of section.children) {
-      visit(childId);
-    }
-    visiting.delete(sectionId);
-    reachable.add(sectionId);
-  };
   for (const rootId of fragment.roots) {
-    visit(rootId);
+    visitFragmentSection(fragment, rootId, visiting, reachable);
   }
+  return reachable;
+}
+
+function assertValidFragmentTree(fragment: WorkspaceClipboardFragment): void {
+  const parentById = createFragmentParentMap(fragment);
+  assertFragmentRootsAreParentless(fragment.roots, parentById);
+  const reachable = collectReachableFragmentSections(fragment);
   if (reachable.size !== Object.keys(fragment.sections).length) {
     fail("invalid-envelope");
   }
 }
 
-function readFragment(value: unknown): WorkspaceClipboardFragment {
-  assertRecord(value);
-  assertKnownFields(value, ["roots", "sections", "topLevelLayouts"]);
-  const roots = readIdentifierArray(value["roots"]);
+function readFragmentRoots(value: unknown): Array<string> {
+  const roots = readIdentifierArray(value);
   if (
     roots.length === 0 ||
     roots.length > WORKSPACE_CLIPBOARD_MAX_SECTION_COUNT
   ) {
     fail("invalid-envelope");
   }
-  assertRecord(value["sections"]);
-  const rawSections = value["sections"];
-  const entries = Object.entries(rawSections);
+  return roots;
+}
+
+function readFragmentSections(
+  value: unknown,
+): Record<string, WorkspaceClipboardSection> {
+  assertRecord(value);
+  const entries = Object.entries(value);
   if (
     entries.length === 0 ||
     entries.length > WORKSPACE_CLIPBOARD_MAX_SECTION_COUNT
@@ -282,9 +312,15 @@ function readFragment(value: unknown): WorkspaceClipboardFragment {
     readStableIdentifier(recordId);
     sections[recordId] = readSection(section, recordId);
   }
-  assertRecord(value["topLevelLayouts"]);
-  const rawLayouts = value["topLevelLayouts"];
-  const layoutEntries = Object.entries(rawLayouts);
+  return sections;
+}
+
+function readFragmentTopLevelLayouts(
+  value: unknown,
+  roots: ReadonlyArray<string>,
+): Record<string, WorkspaceClipboardTopLevelLayout> {
+  assertRecord(value);
+  const layoutEntries = Object.entries(value);
   if (layoutEntries.length !== roots.length) {
     fail("invalid-envelope");
   }
@@ -297,11 +333,25 @@ function readFragment(value: unknown): WorkspaceClipboardFragment {
     }
     topLevelLayouts[sectionId] = readTopLevelLayout(layout);
   }
+  return topLevelLayouts;
+}
+
+function assertFragmentRootsHaveLayouts(
+  roots: ReadonlyArray<string>,
+  sections: Readonly<Record<string, WorkspaceClipboardSection>>,
+  topLevelLayouts: Readonly<Record<string, WorkspaceClipboardTopLevelLayout>>,
+): void {
   for (const rootId of roots) {
     if (!sections[rootId] || !topLevelLayouts[rootId]) {
       fail("invalid-envelope");
     }
   }
+}
+
+function assertNormalizedFragmentRootLayouts(
+  roots: ReadonlyArray<string>,
+  topLevelLayouts: Readonly<Record<string, WorkspaceClipboardTopLevelLayout>>,
+): void {
   const firstRootId = roots[0];
   const firstLayout =
     firstRootId === undefined ? undefined : topLevelLayouts[firstRootId];
@@ -321,6 +371,19 @@ function readFragment(value: unknown): WorkspaceClipboardFragment {
   if (minimumX !== 0 || minimumY !== 0) {
     fail("invalid-envelope");
   }
+}
+
+function readFragment(value: unknown): WorkspaceClipboardFragment {
+  assertRecord(value);
+  assertKnownFields(value, ["roots", "sections", "topLevelLayouts"]);
+  const roots = readFragmentRoots(value["roots"]);
+  const sections = readFragmentSections(value["sections"]);
+  const topLevelLayouts = readFragmentTopLevelLayouts(
+    value["topLevelLayouts"],
+    roots,
+  );
+  assertFragmentRootsHaveLayouts(roots, sections, topLevelLayouts);
+  assertNormalizedFragmentRootLayouts(roots, topLevelLayouts);
   const fragment: WorkspaceClipboardFragment = {
     roots,
     sections,
@@ -376,35 +439,113 @@ function readEnvelope(value: unknown): WorkspaceClipboardEnvelope {
   };
 }
 
-function assertParseOptions(
+function assertParserOptionsObject(
   options: WorkspaceClipboardEnvelopeParseOptions,
 ): void {
   if (!options || typeof options !== "object") {
     throw new Error("Clipboard envelope parser options are required.");
   }
+}
+
+function assertSectionKindPredicate(
+  options: WorkspaceClipboardEnvelopeParseOptions,
+): void {
   if (typeof options.isSectionKindSupported !== "function") {
     throw new Error(
       "Clipboard envelope parser requires a section-kind predicate.",
     );
   }
+}
+
+function assertAuthorityParserOption(
+  authority: WorkspaceClipboardAuthorityMetadata,
+): void {
   if (
-    typeof options.authority?.id !== "string" ||
-    options.authority.id.trim() === "" ||
-    options.authority.id !== options.authority.id.trim() ||
-    !Number.isInteger(options.authority.payloadVersion) ||
-    options.authority.payloadVersion <= 0
+    typeof authority?.id !== "string" ||
+    authority.id.trim() === "" ||
+    authority.id !== authority.id.trim() ||
+    !Number.isInteger(authority.payloadVersion) ||
+    authority.payloadVersion <= 0
   ) {
     throw new Error(
       "Clipboard envelope parser requires valid authority metadata.",
     );
   }
+}
+
+function assertMaximumTextBytes(maxTextBytes: number | undefined): void {
   if (
-    options.maxTextBytes !== undefined &&
-    (!Number.isInteger(options.maxTextBytes) || options.maxTextBytes <= 0)
+    maxTextBytes !== undefined &&
+    (!Number.isInteger(maxTextBytes) || maxTextBytes <= 0)
   ) {
     throw new Error(
       "Clipboard envelope parser maxTextBytes must be a positive integer.",
     );
+  }
+}
+
+function assertParseOptions(
+  options: WorkspaceClipboardEnvelopeParseOptions,
+): void {
+  assertParserOptionsObject(options);
+  assertSectionKindPredicate(options);
+  assertAuthorityParserOption(options.authority);
+  assertMaximumTextBytes(options.maxTextBytes);
+}
+
+function parseClipboardEnvelopeJson(
+  text: string,
+): Readonly<{ ok: true; value: unknown }> | Readonly<{ ok: false }> {
+  try {
+    return { ok: true, value: JSON.parse(text) as unknown };
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return { ok: false };
+    }
+    throw error;
+  }
+}
+
+function assertEnvelopeAuthorityMatchesOptions(
+  envelope: WorkspaceClipboardEnvelope,
+  authority: WorkspaceClipboardAuthorityMetadata,
+): void {
+  if (envelope.authority.id !== authority.id) {
+    fail("authority-mismatch");
+  }
+  if (envelope.authority.payloadVersion !== authority.payloadVersion) {
+    fail("authority-version-mismatch");
+  }
+}
+
+function assertEnvelopeSectionKindsSupported(
+  envelope: WorkspaceClipboardEnvelope,
+  isSectionKindSupported: (kind: string) => boolean,
+): void {
+  for (const section of Object.values(envelope.fragment.sections)) {
+    if (!isSectionKindSupported(section.kind)) {
+      fail("unknown-section-kind");
+    }
+  }
+}
+
+function validateParsedClipboardEnvelope(
+  value: unknown,
+  options: WorkspaceClipboardEnvelopeParseOptions,
+): WorkspaceClipboardEnvelopeParseResult {
+  try {
+    const envelope = readEnvelope(value);
+    assertEnvelopeAuthorityMatchesOptions(envelope, options.authority);
+    assertEnvelopeSectionKindsSupported(
+      envelope,
+      options.isSectionKindSupported,
+    );
+    return { envelope, ok: true };
+  } catch (error) {
+    if (error instanceof WorkspaceClipboardEnvelopeValidationError) {
+      return { code: error.code, ok: false };
+    }
+    throw error;
   }
 }
 
@@ -421,37 +562,11 @@ export function parseWorkspaceClipboardEnvelope(
   if (getWorkspaceClipboardUtf8ByteLength(text) > maximumTextBytes) {
     return { code: "clipboard-too-large", ok: false };
   }
-  let value: unknown;
-  try {
-    value = JSON.parse(text) as unknown;
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      return { code: "invalid-json", ok: false };
-    }
-    throw error;
+  const parsed = parseClipboardEnvelopeJson(text);
+  if (!parsed.ok) {
+    return { code: "invalid-json", ok: false };
   }
-  try {
-    const envelope = readEnvelope(value);
-    if (envelope.authority.id !== options.authority.id) {
-      fail("authority-mismatch");
-    }
-    if (
-      envelope.authority.payloadVersion !== options.authority.payloadVersion
-    ) {
-      fail("authority-version-mismatch");
-    }
-    for (const section of Object.values(envelope.fragment.sections)) {
-      if (!options.isSectionKindSupported(section.kind)) {
-        fail("unknown-section-kind");
-      }
-    }
-    return { envelope, ok: true };
-  } catch (error) {
-    if (error instanceof WorkspaceClipboardEnvelopeValidationError) {
-      return { code: error.code, ok: false };
-    }
-    throw error;
-  }
+  return validateParsedClipboardEnvelope(parsed.value, options);
 }
 
 export function serializeWorkspaceClipboardEnvelope(

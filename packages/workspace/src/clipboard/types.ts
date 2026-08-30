@@ -2,7 +2,6 @@ import type {
   Position,
   TopLevelSectionLayout,
   WorkspaceDocument,
-  WorkspaceItem,
   WorkspaceSection,
   WorkspaceSectionData,
   WorkspaceSectionItemTree,
@@ -17,7 +16,7 @@ export const WORKSPACE_CLIPBOARD_MAX_TEXT_BYTES = 1_000_000;
 export const WORKSPACE_CLIPBOARD_MAX_SECTION_COUNT = 1_000;
 export const WORKSPACE_CLIPBOARD_MAX_ITEM_COUNT = 10_000;
 
-export type JsonPrimitive = boolean | null | number | string;
+type JsonPrimitive = boolean | null | number | string;
 
 export type JsonValue =
   JsonPrimitive | Array<JsonValue> | { [key: string]: JsonValue };
@@ -145,7 +144,7 @@ export type WorkspaceClipboardEnvelope = Readonly<{
   version: typeof WORKSPACE_CLIPBOARD_SCHEMA_VERSION;
 }>;
 
-export type WorkspaceClipboardIdentifierAllocator = Readonly<{
+type WorkspaceClipboardIdentifierAllocator = Readonly<{
   allocateItemId: (sourceSectionId: string, sourceItemId: string) => string;
   allocateSectionId: (sourceSectionId: string) => string;
 }>;
@@ -215,10 +214,3 @@ export type WorkspaceClipboardCaptureInput = Readonly<{
 export type WorkspaceClipboardLocalPayloadParseResult =
   | Readonly<{ ok: true; payload: WorkspaceLocalClipboardPayload }>
   | Readonly<{ code: "invalid-local-payload"; ok: false }>;
-
-export type WorkspaceClipboardPreparedPayload = Readonly<{
-  envelope: WorkspaceClipboardEnvelope;
-  localPayload: WorkspaceLocalClipboardPayload | null;
-}>;
-
-export type WorkspaceClipboardItemSource = WorkspaceSnapshot<WorkspaceItem>;

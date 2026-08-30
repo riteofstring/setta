@@ -45,7 +45,7 @@ function assertKnownSection(
   return section;
 }
 
-export function normalizeWorkspaceClipboardRootSelection(
+function normalizeWorkspaceClipboardRootSelection(
   input: Pick<
     WorkspaceClipboardCaptureInput,
     "activeIds" | "parentSectionMap" | "sections"
