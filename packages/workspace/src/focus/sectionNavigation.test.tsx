@@ -191,6 +191,7 @@ describe("focusAdjacentTopLevelSection", () => {
         views: {
           overview: {
             id: "overview",
+            isTab: false,
             name: "Overview",
             sectionVisibility: {
               bottom: true,

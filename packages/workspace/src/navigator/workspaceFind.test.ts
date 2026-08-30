@@ -248,6 +248,7 @@ describe("workspace Find", () => {
         views: {
           overview: {
             id: "overview",
+            isTab: false,
             name: "Overview",
             sectionVisibility: {
               nested: true,

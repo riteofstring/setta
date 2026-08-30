@@ -151,6 +151,7 @@ function parseView(value: unknown, recordId: string): WorkspaceSavedView {
     record,
     [
       "id",
+      "isTab",
       "name",
       "sortIndex",
       "topLevelSections",
@@ -162,6 +163,9 @@ function parseView(value: unknown, recordId: string): WorkspaceSavedView {
   assertId(record["id"], label);
   if (record["id"] !== recordId) {
     throw new Error(`${label} id must match its record key.`);
+  }
+  if (typeof record["isTab"] !== "boolean") {
+    throw new Error(`${label} isTab must be boolean.`);
   }
   if (typeof record["name"] !== "string" || record["name"].trim() === "") {
     throw new Error(`${label} requires a nonblank name.`);
@@ -177,6 +181,7 @@ function parseView(value: unknown, recordId: string): WorkspaceSavedView {
   }
   return {
     id: record["id"],
+    isTab: record["isTab"],
     name: record["name"],
     sortIndex: record["sortIndex"],
     topLevelSections: parseTopLevelSections(
@@ -397,7 +402,7 @@ export function assertWorkspaceSavedViewsStateForDocument(
 
 export function createWorkspaceSavedViewsState(
   document: WorkspaceSavedViewsDocument,
-  input: { id?: string; name?: string } = {},
+  input: { id?: string; isTab?: boolean; name?: string } = {},
 ): WorkspaceSavedViewsState {
   const id = input.id ?? "view-1";
   const name = input.name ?? "View 1";
@@ -410,6 +415,7 @@ export function createWorkspaceSavedViewsState(
     views: {
       [id]: {
         id,
+        isTab: input.isTab ?? false,
         name,
         sortIndex: 0,
         topLevelSections: copyLayouts(document.topLevelSections),

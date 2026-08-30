@@ -38,6 +38,7 @@ import {
   renameWorkspaceSavedView,
   reorderWorkspaceSavedView,
   setWorkspaceSavedViewSectionVisibility,
+  setWorkspaceSavedViewTabVisibility,
 } from "./operations";
 import {
   createWorkspaceSavedViewsState,
@@ -252,9 +253,17 @@ describe("workspace saved views", () => {
         },
       }),
     ).toThrow(/must be boolean/u);
+    expect(() =>
+      parseWorkspaceSavedViewsState({
+        ...valid,
+        views: {
+          overview: { ...valid.views["overview"], isTab: "yes" },
+        },
+      }),
+    ).toThrow(/isTab must be boolean/u);
   });
 
-  it("creates, activates, renames, reorders, deletes, and keeps view-only changes out of history", () => {
+  it("creates, activates, renames, bookmarks, reorders, deletes, and keeps view-only changes out of history", () => {
     const host = createHost(true);
     host.loadDocument(document());
 
@@ -266,6 +275,17 @@ describe("workspace saved views", () => {
     ).toMatchObject({ activeViewId: "detail", status: "applied" });
     expect(renameWorkspaceSavedView(host, "detail", "Details")).toMatchObject({
       status: "applied",
+      viewId: "detail",
+    });
+    expect(setWorkspaceSavedViewTabVisibility(host, "detail", true)).toEqual({
+      activeViewId: "detail",
+      status: "applied",
+      viewId: "detail",
+    });
+    expect(requireSavedViews(host).views.detail?.isTab).toBe(true);
+    expect(setWorkspaceSavedViewTabVisibility(host, "detail", true)).toEqual({
+      activeViewId: "detail",
+      status: "unchanged",
       viewId: "detail",
     });
     expect(reorderWorkspaceSavedView(host, "detail", 0)).toMatchObject({
@@ -665,6 +685,9 @@ describe("workspace saved views", () => {
     expect(createWorkspaceSavedView(host)).toMatchObject({
       status: "unavailable",
     });
+    expect(
+      setWorkspaceSavedViewTabVisibility(host, "detail", true),
+    ).toMatchObject({ status: "unavailable" });
     expect(activateWorkspaceSavedView(host, "view-1")).toMatchObject({
       activeViewId: "view-1",
       status: "applied",

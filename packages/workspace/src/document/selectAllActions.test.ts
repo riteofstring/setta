@@ -228,6 +228,7 @@ describe("select-all actions", () => {
         views: {
           overview: {
             id: "overview",
+            isTab: false,
             name: "Overview",
             sectionVisibility: {
               bare: false,

@@ -68,6 +68,7 @@ function createSavedViews(): NonNullable<WorkspaceDocumentState["savedViews"]> {
     views: {
       overview: {
         id: "overview",
+        isTab: false,
         name: "Overview",
         sectionVisibility: {
           child: false,

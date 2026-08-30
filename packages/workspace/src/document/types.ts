@@ -29,6 +29,7 @@ export type TopLevelSectionLayout = {
 export type WorkspaceSavedView = {
   id: string;
   name: string;
+  isTab: boolean;
   sortIndex: number;
   topLevelSections: Record<string, TopLevelSectionLayout>;
   viewport: Viewport | null;

@@ -278,6 +278,7 @@ describe("WorkspaceOutline", () => {
           views: {
             overview: {
               id: "overview",
+              isTab: false,
               name: "Overview",
               sectionVisibility: {
                 alpha: true,

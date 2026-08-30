@@ -232,6 +232,7 @@ export {
   renameWorkspaceSavedView,
   reorderWorkspaceSavedView,
   setWorkspaceSavedViewSectionVisibility,
+  setWorkspaceSavedViewTabVisibility,
 } from "./saved-views/operations";
 export {
   createWorkspaceSavedViewsState,

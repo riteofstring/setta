@@ -54,6 +54,7 @@ const SAVED_VIEWS_OPERATIONS = new Set<WorkspaceSavedViewsOperation>([
   "enable",
   "rename",
   "reorder",
+  "tab",
   "visibility",
 ]);
 const UNSAFE_VIEW_IDS = new Set(["__proto__", "constructor", "prototype"]);
@@ -264,6 +265,13 @@ function normalizeName(value: unknown, role: string): string {
   return name;
 }
 
+function normalizeTabVisibility(value: unknown): boolean {
+  if (typeof value !== "boolean") {
+    throw new Error("Saved view tab visibility must be boolean.");
+  }
+  return value;
+}
+
 function normalizeId(value: unknown, role: string): string {
   if (typeof value !== "string") {
     throw new Error(`${role} must be a string.`);
@@ -426,6 +434,7 @@ export function createWorkspaceSavedView(
   assertUniqueViewName(savedViews, name, null);
   const view: WorkspaceSavedView = {
     id,
+    isTab: normalizeTabVisibility(input.isTab ?? false),
     name,
     sortIndex: Object.keys(savedViews.views).length,
     topLevelSections: copyTopLevelSections(current.topLevelSections),
@@ -583,6 +592,40 @@ export function reorderWorkspaceSavedView(
       savedViews: {
         activeViewId: savedViews.activeViewId,
         views: createReorderedViews(savedViews, orderedViewIds),
+      },
+    },
+    resetInteractions: false,
+    useDocumentLayoutDimensions: false,
+  });
+  return applied(savedViews.activeViewId, view.id);
+}
+
+export function setWorkspaceSavedViewTabVisibility(
+  host: WorkspaceHost,
+  viewId: string,
+  visible: boolean,
+): WorkspaceSavedViewsOperationResult {
+  const reason = getOperationDisabledReason(host, "tab");
+  if (reason !== null) {
+    return unavailable(reason);
+  }
+  const current = getCurrentDocumentState(host);
+  const savedViews = getSavedViewsOrThrow(host);
+  const view = assertKnownView(savedViews, viewId);
+  const nextVisibility = normalizeTabVisibility(visible);
+  if (view.isTab === nextVisibility) {
+    return unchanged(savedViews.activeViewId, view.id);
+  }
+  publishSavedViewsDocument(host, {
+    applyViewport: false,
+    document: {
+      ...current,
+      savedViews: {
+        activeViewId: savedViews.activeViewId,
+        views: {
+          ...savedViews.views,
+          [view.id]: { ...view, isTab: nextVisibility },
+        },
       },
     },
     resetInteractions: false,

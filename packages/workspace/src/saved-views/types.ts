@@ -5,10 +5,12 @@ export type WorkspaceSavedViewsOperation =
   | "enable"
   | "rename"
   | "reorder"
+  | "tab"
   | "visibility";
 
 export type WorkspaceSavedViewCreateInput = {
   id?: string;
+  isTab?: boolean;
   name?: string;
 };
 

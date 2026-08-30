@@ -363,6 +363,7 @@ describe("viewport zoom helpers", () => {
         views: {
           overview: {
             id: "overview",
+            isTab: false,
             name: "Overview",
             sectionVisibility: { "section-a": false },
             sortIndex: 0,

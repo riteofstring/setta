@@ -95,6 +95,7 @@ describe("workspace Outline model", () => {
       views: {
         overview: {
           id: "overview",
+          isTab: false,
           name: "Overview",
           sectionVisibility: {
             alpha: true,
