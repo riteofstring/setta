@@ -41,6 +41,8 @@ import {
 } from "../items/selectedItemMoves";
 import { getIsEditableTarget } from "./editableTarget";
 
+const HISTORY_REPEAT_INTERVAL_MS = 100;
+
 export type WorkspaceKeyBindingDefinition = Readonly<{
   id: string;
   defaultChord: string | null;
@@ -81,16 +83,31 @@ function createPaneCommandBinding(
   host: WorkspaceHost,
   commandId: string,
   defaultChord: string,
-  allowRepeat = false,
+  repeatIntervalMs: number | null = null,
 ): WorkspaceKeyBindingDefinition {
+  let lastRunAt = Number.NEGATIVE_INFINITY;
   return Object.freeze({
     id: commandId,
     defaultChord,
-    allowRepeat,
+    allowRepeat: repeatIntervalMs !== null,
     keepsChordWhenDeclined: false,
     getLabel: () =>
       getWorkspaceCommandOrThrow(host, commandId).definition.label,
-    run: () => runPaneCommand(host, commandId),
+    run: (event: KeyboardEvent) => {
+      const now = Date.now();
+      if (
+        event.repeat &&
+        repeatIntervalMs !== null &&
+        now - lastRunAt < repeatIntervalMs
+      ) {
+        return true;
+      }
+      const ran = runPaneCommand(host, commandId);
+      if (ran && repeatIntervalMs !== null) {
+        lastRunAt = now;
+      }
+      return ran;
+    },
   });
 }
 
@@ -211,8 +228,18 @@ export function listBuiltInWorkspaceKeyBindings(
   host: WorkspaceHost,
 ): ReadonlyArray<WorkspaceKeyBindingDefinition> {
   return Object.freeze([
-    createPaneCommandBinding(host, "workspace.undo", "Mod + Z", true),
-    createPaneCommandBinding(host, "workspace.redo", "Mod + Shift + Z", true),
+    createPaneCommandBinding(
+      host,
+      "workspace.undo",
+      "Mod + Z",
+      HISTORY_REPEAT_INTERVAL_MS,
+    ),
+    createPaneCommandBinding(
+      host,
+      "workspace.redo",
+      "Mod + Shift + Z",
+      HISTORY_REPEAT_INTERVAL_MS,
+    ),
     createSectionCommandBinding(
       host,
       "workspace.copy-sections",

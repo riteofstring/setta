@@ -291,14 +291,23 @@ describe("workspace key bindings", () => {
     });
     const canvas = document.createElement("div");
     const input = document.createElement("input");
+    const now = vi.spyOn(Date, "now").mockReturnValue(0);
     document.body.append(canvas, input);
     try {
       expect(pressHistoryBinding(historyHost, canvas, false)).toBe(true);
       expect(undo).toHaveBeenCalledTimes(1);
+      now.mockReturnValue(50);
+      expect(pressHistoryBinding(historyHost, canvas, false, true)).toBe(true);
+      expect(undo).toHaveBeenCalledTimes(1);
+      now.mockReturnValue(100);
       expect(pressHistoryBinding(historyHost, canvas, false, true)).toBe(true);
       expect(undo).toHaveBeenCalledTimes(2);
       expect(pressHistoryBinding(historyHost, canvas, true)).toBe(true);
       expect(redo).toHaveBeenCalledTimes(1);
+      now.mockReturnValue(150);
+      expect(pressHistoryBinding(historyHost, canvas, true, true)).toBe(true);
+      expect(redo).toHaveBeenCalledTimes(1);
+      now.mockReturnValue(200);
       expect(pressHistoryBinding(historyHost, canvas, true, true)).toBe(true);
       expect(redo).toHaveBeenCalledTimes(2);
 
@@ -307,6 +316,7 @@ describe("workspace key bindings", () => {
       expect(undo).toHaveBeenCalledTimes(2);
       expect(redo).toHaveBeenCalledTimes(2);
     } finally {
+      now.mockRestore();
       canvas.remove();
       input.remove();
       historyHost.dispose();
