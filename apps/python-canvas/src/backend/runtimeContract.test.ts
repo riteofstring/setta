@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   ProjectSnapshotValidationError,
+  parseCopyProjectClipboardResponseV2,
   parseCompletionResponseV2,
   parseErrorResponseV2,
+  parsePasteProjectClipboardResponseV2,
+  parseProjectClipboardPayloadV1,
   parseProjectSnapshotV2,
 } from "./runtimeContract";
 
@@ -320,6 +323,55 @@ describe("V2 error and completion decoders", () => {
   });
 });
 
+describe("V2 clipboard decoders", () => {
+  it("strictly parses a closed clipboard payload and copy response", () => {
+    const payload = clipboardPayload();
+
+    expect(parseProjectClipboardPayloadV1(payload)).toEqual(payload);
+    expect(parseCopyProjectClipboardResponseV2({ payload })).toEqual({
+      payload,
+    });
+
+    for (const malformed of [
+      { ...payload, version: 2 },
+      { ...payload, unexpected: true },
+      { ...payload, rootSectionIds: [] },
+      { ...payload, rootSectionIds: ["callable:missing"] },
+      { payload, unexpected: true },
+    ]) {
+      expect(() =>
+        "payload" in malformed
+          ? parseCopyProjectClipboardResponseV2(malformed)
+          : parseProjectClipboardPayloadV1(malformed),
+      ).toThrow(ProjectSnapshotValidationError);
+    }
+  });
+
+  it("requires pasted roots to be unique top-level sections in the accepted snapshot", () => {
+    const snapshot = parseProjectSnapshotV2(dynamicSnapshot());
+
+    expect(
+      parsePasteProjectClipboardResponseV2({
+        pastedRootSectionIds: ["callable:one"],
+        snapshot,
+      }),
+    ).toEqual({ pastedRootSectionIds: ["callable:one"], snapshot });
+
+    for (const pastedRootSectionIds of [
+      [],
+      ["callable:missing"],
+      ["callable:one", "callable:one"],
+    ]) {
+      expect(() =>
+        parsePasteProjectClipboardResponseV2({
+          pastedRootSectionIds,
+          snapshot,
+        }),
+      ).toThrow(ProjectSnapshotValidationError);
+    }
+  });
+});
+
 function dynamicSnapshot() {
   return {
     ...projectSnapshotFixture,
@@ -363,5 +415,16 @@ function dynamicSnapshot() {
         "parameter:value": { end: 2, start: 2 },
       },
     },
+  };
+}
+
+function clipboardPayload() {
+  const snapshot = dynamicSnapshot();
+  return {
+    callables: snapshot.callables,
+    lists: [],
+    parameterDictionaries: [],
+    rootSectionIds: ["callable:one"],
+    version: 1,
   };
 }

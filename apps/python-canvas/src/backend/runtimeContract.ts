@@ -9,6 +9,7 @@ import {
   PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
   PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2,
   PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2,
+  PROJECT_CLIPBOARD_PAYLOAD_VERSION_V1,
   PROJECT_SNAPSHOT_VERSION_V2,
   PROVIDER_AVAILABILITY_AVAILABLE_V2,
   PROVIDER_AVAILABILITY_UNAVAILABLE_V2,
@@ -21,6 +22,7 @@ import {
   type APIErrorV2,
   type ByteRangeV2,
   type CallableV2,
+  type CopyProjectClipboardResponseV2,
   type CompletionItemV2,
   type CompletionResponseV2,
   type DiagnosticSeverityV2,
@@ -33,7 +35,9 @@ import {
   type ParameterDictionaryV2,
   type ParameterV2,
   type ProjectSnapshotV2,
+  type ProjectClipboardPayloadV1,
   type ProjectV2,
+  type PasteProjectClipboardResponseV2,
   type ProviderAvailabilityV2,
   type ProviderLifecycleStateV2,
   type ProviderStatusV2,
@@ -144,6 +148,90 @@ export function parseProjectSnapshotV2(value: unknown): ProjectSnapshotV2 {
     diagnosticsRevision,
     providerStatus: parseProviderStatus(record.providerStatus),
   };
+}
+
+export function parseProjectClipboardPayloadV1(
+  value: unknown,
+): ProjectClipboardPayloadV1 {
+  const record = readClosedRecord(value, "clipboard payload", [
+    "version",
+    "rootSectionIds",
+    "callables",
+    "parameterDictionaries",
+    "lists",
+  ]);
+  if (record.version !== PROJECT_CLIPBOARD_PAYLOAD_VERSION_V1) {
+    fail("clipboard payload.version", "is not supported");
+  }
+  const targetIds = new Set<string>();
+  const sectionIds = new Set<string>();
+  const callables = parseCallables(record.callables, targetIds, sectionIds);
+  const parameterDictionaries = parseParameterDictionaries(
+    record.parameterDictionaries,
+    targetIds,
+    sectionIds,
+  );
+  const lists = parseLists(record.lists, targetIds, sectionIds);
+  const rootSectionIds = parseSectionForest(
+    record.rootSectionIds,
+    lists,
+    sectionIds,
+    "rootSectionIds",
+  );
+  if (rootSectionIds.length === 0) {
+    fail("clipboard payload.rootSectionIds", "must include at least one root");
+  }
+  return {
+    callables,
+    lists,
+    parameterDictionaries,
+    rootSectionIds,
+    version: PROJECT_CLIPBOARD_PAYLOAD_VERSION_V1,
+  };
+}
+
+export function parseCopyProjectClipboardResponseV2(
+  value: unknown,
+): CopyProjectClipboardResponseV2 {
+  const record = readClosedRecord(value, "clipboard copy response", [
+    "payload",
+  ]);
+  return { payload: parseProjectClipboardPayloadV1(record.payload) };
+}
+
+export function parsePasteProjectClipboardResponseV2(
+  value: unknown,
+): PasteProjectClipboardResponseV2 {
+  const record = readClosedRecord(value, "clipboard paste response", [
+    "snapshot",
+    "pastedRootSectionIds",
+  ]);
+  const snapshot = parseProjectSnapshotV2(record.snapshot);
+  const knownTopLevelSectionIds = new Set(snapshot.topLevelSectionIds);
+  const seenPastedRootSectionIds = new Set<string>();
+  const pastedRootSectionIds = readArray(
+    record.pastedRootSectionIds,
+    "clipboard paste response.pastedRootSectionIds",
+    (entry, index) => {
+      const field = `clipboard paste response.pastedRootSectionIds[${String(index)}]`;
+      const id = readSectionId(entry, field);
+      if (seenPastedRootSectionIds.has(id)) {
+        fail(field, "must be unique");
+      }
+      if (!knownTopLevelSectionIds.has(id)) {
+        fail(field, "must reference a pasted top-level section");
+      }
+      seenPastedRootSectionIds.add(id);
+      return id;
+    },
+  );
+  if (pastedRootSectionIds.length === 0) {
+    fail(
+      "clipboard paste response.pastedRootSectionIds",
+      "must include at least one root",
+    );
+  }
+  return { pastedRootSectionIds, snapshot };
 }
 
 export function parseErrorResponseV2(value: unknown): ErrorResponseV2 {
@@ -405,12 +493,10 @@ function parseSectionForest(
   value: unknown,
   lists: readonly ListV2[],
   sectionIds: ReadonlySet<string>,
+  rootField = "topLevelSectionIds",
 ): string[] {
-  const topLevelSectionIds = readArray(
-    value,
-    "topLevelSectionIds",
-    (entry, index) =>
-      readSectionId(entry, `topLevelSectionIds[${String(index)}]`),
+  const topLevelSectionIds = readArray(value, rootField, (entry, index) =>
+    readSectionId(entry, `${rootField}[${String(index)}]`),
   );
   const placements = new Set<string>();
   const claimPlacement = (id: string, field: string): void => {
@@ -423,7 +509,7 @@ function parseSectionForest(
     placements.add(id);
   };
   topLevelSectionIds.forEach((id, index) => {
-    claimPlacement(id, `topLevelSectionIds[${String(index)}]`);
+    claimPlacement(id, `${rootField}[${String(index)}]`);
   });
 
   const childrenByList = new Map<string, readonly string[]>();
@@ -434,7 +520,7 @@ function parseSectionForest(
     });
   }
   if (placements.size !== sectionIds.size) {
-    fail("topLevelSectionIds", "must place every section exactly once");
+    fail(rootField, "must place every section exactly once");
   }
 
   const colors = new Map<string, "visiting" | "visited">();
@@ -470,7 +556,7 @@ function parseSectionForest(
   };
   topLevelSectionIds.forEach(visit);
   if (reachable.size !== sectionIds.size) {
-    fail("topLevelSectionIds", "must reach every section");
+    fail(rootField, "must reach every section");
   }
   return topLevelSectionIds;
 }

@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   commitCallable: vi.fn(),
   commitWorkspaceDocument: vi.fn(),
   connectProjectSnapshotStream: vi.fn(),
+  copyProjectClipboard: vi.fn(),
   createCallable: vi.fn(),
   createList: vi.fn(),
   createParameterDictionary: vi.fn(),
@@ -34,8 +35,10 @@ const mocks = vi.hoisted(() => ({
   fetchProjectSnapshot: vi.fn(),
   getWorkspaceCodeSectionData: vi.fn(),
   incrementListChildren: vi.fn(),
+  pasteProjectClipboard: vi.fn(),
   refreshCallableParameters: vi.fn(),
   registerSectionKinds: vi.fn(),
+  registerWorkspaceClipboardAuthority: vi.fn(),
   registerWorkspaceCreationCommands: vi.fn(),
   renameCallable: vi.fn(),
   renameList: vi.fn(),
@@ -59,8 +62,20 @@ type MockCreationCommand = {
   id: string;
 };
 
+type MockClipboardAuthority = {
+  canCopySelection: (request: { rootIds: ReadonlyArray<string> }) => boolean;
+  id: string;
+  kind: "delegated";
+  paste: (request: ReturnType<typeof clipboardPasteRequest>) => Promise<{
+    rootIds: string[];
+  }>;
+  payloadVersion: number;
+  prepareCopy: (request: { rootIds: string[] }) => Promise<unknown>;
+};
+
 type WorkspaceHarness = {
   getDocument: () => WorkspaceDocument;
+  host: WorkspaceHost;
   publish: (next: WorkspaceDocument) => void;
   replace: (next: WorkspaceDocument) => void;
 };
@@ -70,9 +85,23 @@ function MockWorkspaceCanvas() {
 }
 
 vi.mock("../backend/client", () => ({
-  ProjectClientError: class extends Error {},
+  ProjectClientError: class extends Error {
+    public readonly code: string | undefined;
+
+    public constructor(
+      _kind: unknown,
+      message: string,
+      _status?: number,
+      _cause?: unknown,
+      code?: string,
+    ) {
+      super(message);
+      this.code = code;
+    }
+  },
   commitCallable: mocks.commitCallable,
   connectProjectSnapshotStream: mocks.connectProjectSnapshotStream,
+  copyProjectClipboard: mocks.copyProjectClipboard,
   createCallable: mocks.createCallable,
   createList: mocks.createList,
   createParameterDictionary: mocks.createParameterDictionary,
@@ -82,6 +111,7 @@ vi.mock("../backend/client", () => ({
   deleteParameterDictionary: mocks.deleteParameterDictionary,
   fetchProjectSnapshot: mocks.fetchProjectSnapshot,
   incrementListChildren: mocks.incrementListChildren,
+  pasteProjectClipboard: mocks.pasteProjectClipboard,
   refreshCallableParameters: mocks.refreshCallableParameters,
   renameCallable: mocks.renameCallable,
   renameList: mocks.renameList,
@@ -115,6 +145,8 @@ vi.mock("@setta/workspace", async (importOriginal) => ({
   createWorkspaceHost: mocks.createWorkspaceHost,
   getWorkspaceCodeSectionData: mocks.getWorkspaceCodeSectionData,
   registerSectionKinds: mocks.registerSectionKinds,
+  registerWorkspaceClipboardAuthority:
+    mocks.registerWorkspaceClipboardAuthority,
   registerWorkspaceCreationCommands: mocks.registerWorkspaceCreationCommands,
   setItemData: mocks.setItemData,
   setWorkspaceColorMode: mocks.setWorkspaceColorMode,
@@ -128,7 +160,9 @@ vi.mock("@setta/workspace", async (importOriginal) => ({
 }));
 
 import { PythonCanvasApp } from "./PythonCanvasApp";
+import { ProjectClientError } from "../backend/client";
 import {
+  GENERATED_PYTHON_SECTION_ID,
   callableSectionID,
   parameterWorkspaceItemID,
   parameterDictionarySectionID,
@@ -166,6 +200,124 @@ afterEach(() => {
 });
 
 describe("PythonCanvasApp concurrency", () => {
+  it("registers a queued delegated clipboard authority that projects only the accepted snapshot", async () => {
+    const initialSnapshot = clipboardControllerSnapshot(1, ["callable:source"]);
+    const pastedSnapshot = clipboardControllerSnapshot(2, [
+      "callable:source",
+      "callable:pasted",
+    ]);
+    const workspace = installWorkspaceHarness();
+    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
+    mocks.copyProjectClipboard.mockResolvedValue({
+      payload: clipboardPayload(),
+    });
+    mocks.pasteProjectClipboard.mockResolvedValue({
+      pastedRootSectionIds: ["callable:pasted"],
+      snapshot: pastedSnapshot,
+    });
+
+    renderApp();
+    await flushEffects();
+
+    expect(mocks.registerWorkspaceClipboardAuthority).toHaveBeenCalledWith(
+      workspace.host,
+      expect.objectContaining({
+        id: "python-canvas",
+        kind: "delegated",
+        payloadVersion: 1,
+      }),
+    );
+    const authority = registeredClipboardAuthority();
+    expect(
+      authority.canCopySelection({
+        rootIds: [callableSectionID("callable:source")],
+      }),
+    ).toBe(true);
+    expect(
+      authority.canCopySelection({ rootIds: [GENERATED_PYTHON_SECTION_ID] }),
+    ).toBe(false);
+    expect(
+      authority.canCopySelection({
+        rootIds: ["python-canvas:pending-callable:source"],
+      }),
+    ).toBe(false);
+    await expect(
+      authority.prepareCopy({
+        rootIds: [callableSectionID("callable:source")],
+      }),
+    ).resolves.toEqual(clipboardPayload());
+    expect(mocks.copyProjectClipboard).toHaveBeenCalledWith({
+      observedRevision: initialSnapshot.project.revision,
+      projectId: initialSnapshot.project.id,
+      rootSectionIds: ["callable:source"],
+    });
+    expect(mocks.commitWorkspaceDocument).not.toHaveBeenCalled();
+
+    await expect(authority.paste(clipboardPasteRequest())).resolves.toEqual({
+      rootIds: [callableSectionID("callable:pasted")],
+    });
+    expect(mocks.pasteProjectClipboard).toHaveBeenCalledWith({
+      expectedRevision: initialSnapshot.project.revision,
+      payload: clipboardPayload(),
+      projectId: initialSnapshot.project.id,
+    });
+    expect(
+      workspace.getDocument().topLevelSections[
+        callableSectionID("callable:pasted")
+      ],
+    ).toEqual({ h: 180, w: 320, x: 800, y: 600, zIndex: 3 });
+    expect(workspace.getDocument().activeIds).toEqual([
+      callableSectionID("callable:pasted"),
+    ]);
+    expect(
+      workspace.getDocument().sections[callableSectionID("callable:pasted")],
+    ).toMatchObject({
+      isHorizontalOrientation: true,
+      isMinimized: true,
+      overflowMode: true,
+      positionAndSizeLocked: true,
+      size: { height: "auto", width: 320 },
+      styleColor: "red",
+      tagColor: "orange",
+    });
+    expect(mocks.commitWorkspaceDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes the canonical projection after a copy revision conflict without retrying", async () => {
+    const initialSnapshot = clipboardControllerSnapshot(1, ["callable:source"]);
+    const latestSnapshot = clipboardControllerSnapshot(2, ["callable:latest"]);
+    const workspace = installWorkspaceHarness();
+    mocks.fetchProjectSnapshot
+      .mockResolvedValueOnce(initialSnapshot)
+      .mockResolvedValueOnce(latestSnapshot);
+    mocks.copyProjectClipboard.mockRejectedValue(
+      new ProjectClientError(
+        "http",
+        "Project changed.",
+        409,
+        undefined,
+        "revision_conflict",
+      ),
+    );
+
+    renderApp();
+    await flushEffects();
+
+    await expect(
+      registeredClipboardAuthority().prepareCopy({
+        rootIds: [callableSectionID("callable:source")],
+      }),
+    ).rejects.toMatchObject({ code: "revision_conflict" });
+    expect(mocks.copyProjectClipboard).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(2);
+    expect(
+      workspace.getDocument().sections[callableSectionID("callable:latest")],
+    ).toBeDefined();
+    expect(
+      workspace.getDocument().sections[callableSectionID("callable:source")],
+    ).toBeUndefined();
+  });
+
   it("queues a later forest replacement from its surviving local order", async () => {
     const initialSnapshot = multiCallableSnapshot(1, [
       "callable:one",
@@ -779,6 +931,7 @@ function installWorkspaceHarness(): WorkspaceHarness {
   );
   return {
     getDocument: () => document,
+    host,
     publish: (next: WorkspaceDocument) => {
       document = next;
       subscriber?.(next);
@@ -787,6 +940,82 @@ function installWorkspaceHarness(): WorkspaceHarness {
       document = next;
     },
   };
+}
+
+function registeredClipboardAuthority(): MockClipboardAuthority {
+  const authority = mocks.registerWorkspaceClipboardAuthority.mock.calls.at(
+    -1,
+  )?.[1] as MockClipboardAuthority | undefined;
+  if (authority === undefined) {
+    throw new Error("Python Canvas did not register a clipboard authority.");
+  }
+  return authority;
+}
+
+function clipboardPayload() {
+  return {
+    callables: [
+      {
+        authoredExpression: "source",
+        id: "callable:source",
+        name: "Source callable",
+        parameters: [],
+      },
+    ],
+    lists: [],
+    parameterDictionaries: [],
+    rootSectionIds: ["callable:source"],
+    version: 1,
+  };
+}
+
+function clipboardPasteRequest() {
+  const sourceRootId = callableSectionID("callable:source");
+  return {
+    fragment: {
+      roots: [sourceRootId],
+      sections: {
+        [sourceRootId]: {
+          children: [],
+          id: sourceRootId,
+          isHorizontalOrientation: true,
+          isMinimized: true,
+          kind: "python-canvas.callable",
+          name: "Source callable",
+          overflowMode: true,
+          positionAndSizeLocked: true,
+          size: { height: "auto", width: 320 },
+          styleColor: "red",
+          tagColor: "orange",
+        },
+      },
+      topLevelLayouts: {
+        [sourceRootId]: { h: 180, w: 320, x: 0, y: 0, zIndex: 0 },
+      },
+    },
+    payload: clipboardPayload(),
+    payloadVersion: 1,
+    placement: { x: 800, y: 600 },
+    rootIds: [sourceRootId],
+  };
+}
+
+function clipboardControllerSnapshot(
+  revision: number,
+  callableIds: ReadonlyArray<string>,
+) {
+  return parseProjectSnapshotV2({
+    ...projectSnapshotFixture,
+    callables: callableIds.map((id) => ({
+      authoredExpression: id === "callable:source" ? "source" : "pasted",
+      id,
+      name: id,
+      parameters: [],
+    })),
+    diagnosticsRevision: revision,
+    project: { ...projectSnapshotFixture.project, revision },
+    topLevelSectionIds: [...callableIds],
+  });
 }
 
 function installLocalParameterDraft(

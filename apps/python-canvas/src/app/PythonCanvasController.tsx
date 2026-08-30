@@ -25,6 +25,7 @@ import {
   projectWorkspaceDocument,
   type ProjectSnapshotProjectionOptions,
 } from "./workspaceProjection";
+import { registerPythonCanvasWorkspaceClipboardAuthority } from "./workspaceClipboardAuthority";
 import type { PythonCanvasMutationContextValue } from "./PythonCanvasMutationContext";
 import {
   changedParameterCallableIds,
@@ -71,6 +72,13 @@ type ListMutationStates = Record<string, MutationState>;
 type CallableDrafts = Record<string, string>;
 type CompletionProviders = Record<string, TextValueCompletionProvider>;
 type CompletionErrors = Record<string, string>;
+type CanonicalSnapshotAcceptanceOptions = Readonly<{
+  activeSectionIds?: ProjectSnapshotProjectionOptions["activeSectionIds"];
+  canonicalRootLayoutOverrides?: ProjectSnapshotProjectionOptions["canonicalRootLayoutOverrides"];
+  canonicalSectionPresentationOverrides?: ProjectSnapshotProjectionOptions["canonicalSectionPresentationOverrides"];
+  pendingSectionIds?: ReadonlyMap<string, string>;
+  revisionConflictDraft?: RevisionConflictDraft;
+}>;
 function isNewerSnapshot(
   candidate: ProjectSnapshotV2,
   current: ProjectSnapshotV2,
@@ -259,6 +267,16 @@ export function PythonCanvasController() {
       mutationChain = mutationChain.then(run, run);
       return mutationChain;
     };
+    const enqueueClipboardOperation = <Result,>(
+      operation: () => Promise<Result>,
+    ): Promise<Result> => {
+      const queued = mutationChain.then(operation, operation);
+      mutationChain = queued.then(
+        () => undefined,
+        () => undefined,
+      );
+      return queued;
+    };
     const newCallableCompletionProvider = (callableId: string) =>
       createCallableCompletionProvider({
         callableId,
@@ -361,9 +379,15 @@ export function PythonCanvasController() {
     const acceptCanonicalSnapshot = (
       nextSnapshot: ProjectSnapshotV2,
       answer: MutationAnswer,
-      revisionConflictDraft: RevisionConflictDraft = null,
-      pendingSectionIds: ReadonlyMap<string, string> = new Map(),
+      options: CanonicalSnapshotAcceptanceOptions = {},
     ) => {
+      const {
+        activeSectionIds,
+        canonicalRootLayoutOverrides,
+        canonicalSectionPresentationOverrides,
+        pendingSectionIds = new Map(),
+        revisionConflictDraft = null,
+      } = options;
       snapshot = nextSnapshot;
       const document = host.getSnapshot();
       applyProjection(nextSnapshot, {
@@ -384,6 +408,9 @@ export function PythonCanvasController() {
           answer,
           revisionConflictDraft,
         ),
+        canonicalRootLayoutOverrides,
+        canonicalSectionPresentationOverrides,
+        activeSectionIds,
         pendingSectionIds,
         unresolvedPendingSectionIds,
       });
@@ -425,7 +452,13 @@ export function PythonCanvasController() {
         return;
       }
       snapshot = latest;
-      acceptCanonicalSnapshot(latest, { kind: "other" }, revisionConflictDraft);
+      acceptCanonicalSnapshot(
+        latest,
+        { kind: "other" },
+        {
+          revisionConflictDraft,
+        },
+      );
       reportFailure({
         kind: "error",
         message:
@@ -467,6 +500,12 @@ export function PythonCanvasController() {
       options.reportFailure({
         kind: "error",
         message: mutationErrorMessage(target, error),
+      });
+    };
+    const handleClipboardFailure = async (error: unknown) => {
+      await handleMutationFailure("the clipboard", error, {
+        reportFailure: updateAnnouncement,
+        restore: () => restoreCanonicalProject(),
       });
     };
     const finishCallableMutation = (callableId: string) => {
@@ -555,8 +594,19 @@ export function PythonCanvasController() {
         return remaining;
       });
     };
+    const acceptMutationCanonicalSnapshot = (
+      nextSnapshot: ProjectSnapshotV2,
+      answer: MutationAnswer,
+      revisionConflictDraft: RevisionConflictDraft = null,
+      pendingSectionIds: ReadonlyMap<string, string> = new Map(),
+    ) => {
+      acceptCanonicalSnapshot(nextSnapshot, answer, {
+        pendingSectionIds,
+        revisionConflictDraft,
+      });
+    };
     const mutations = createPythonCanvasMutations({
-      acceptCanonicalSnapshot,
+      acceptCanonicalSnapshot: acceptMutationCanonicalSnapshot,
       clearCallableCompletionError,
       clearCallableError,
       clearDictionaryError,
@@ -758,6 +808,30 @@ export function PythonCanvasController() {
         } finally {
           isProjectingRef.current = false;
         }
+        registerPythonCanvasWorkspaceClipboardAuthority({
+          acceptCanonicalSnapshot: (
+            nextSnapshot,
+            canonicalRootLayoutOverrides,
+            canonicalSectionPresentationOverrides,
+            activeSectionIds,
+          ) =>
+            acceptCanonicalSnapshot(
+              nextSnapshot,
+              { kind: "other" },
+              {
+                activeSectionIds,
+                canonicalRootLayoutOverrides,
+                canonicalSectionPresentationOverrides,
+              },
+            ),
+          currentSnapshot: () => snapshot,
+          enqueue: enqueueClipboardOperation,
+          handleCopyFailure: handleClipboardFailure,
+          handlePasteFailure: handleClipboardFailure,
+          host,
+          isActive: () => active,
+          updateAnnouncement,
+        });
         synchronizeReactProjection(initialSnapshot, null, null);
         setState({ kind: "ready", host });
         disconnectProjectSnapshotStream = connectProjectSnapshotStream({

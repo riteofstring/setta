@@ -283,6 +283,165 @@ describe("Python Canvas V2 workspace projection", () => {
     host.dispose();
   });
 
+  it("applies clipboard root layouts with copied dimensions and frontmost z-indices", () => {
+    const initialSnapshot = dynamicSnapshot();
+    const host = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(host);
+    host.loadDocument(projectWorkspaceDocument(initialSnapshot));
+    const pastedSnapshot = parseProjectSnapshotV2({
+      ...initialSnapshot,
+      callables: [
+        ...initialSnapshot.callables,
+        {
+          authoredExpression: "pasted",
+          id: "callable:pasted",
+          name: "Pasted callable",
+          parameters: [],
+        },
+      ],
+      project: {
+        ...initialSnapshot.project,
+        revision: initialSnapshot.project.revision + 1,
+      },
+      topLevelSectionIds: [
+        ...initialSnapshot.topLevelSectionIds,
+        "callable:pasted",
+      ],
+    });
+
+    applyProjectSnapshotToWorkspace(host, pastedSnapshot, {
+      canonicalRootLayoutOverrides: new Map([
+        ["callable:pasted", { h: 240, w: 360, x: 720, y: 480 }],
+      ]),
+      keepAuthoredPython: false,
+      keepDictionaryEntries: new Set(),
+      keepParameterLists: new Set(),
+      pendingSectionIds: new Map(),
+      unresolvedPendingSectionIds: new Set(),
+    });
+
+    expect(
+      host.getSnapshot().topLevelSections[callableSectionID("callable:pasted")],
+    ).toEqual({ h: 240, w: 360, x: 720, y: 480, zIndex: 4 });
+    host.dispose();
+  });
+
+  it("preserves copied presentation for accepted roots and descendants", () => {
+    const initialSnapshot = forestSnapshot();
+    const host = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(host);
+    host.loadDocument(projectWorkspaceDocument(initialSnapshot));
+    const pastedSnapshot = parseProjectSnapshotV2({
+      ...initialSnapshot,
+      callables: [
+        {
+          authoredExpression: "pasted",
+          id: "callable:pasted",
+          name: "Pasted callable",
+          parameters: [],
+        },
+      ],
+      diagnostics: [],
+      diagnosticsRevision: initialSnapshot.project.revision + 1,
+      lists: [
+        {
+          childSectionIds: ["callable:pasted", "dictionary:pasted"],
+          id: "list:pasted",
+          name: "Pasted list",
+        },
+      ],
+      parameterDictionaries: [
+        {
+          entries: [],
+          id: "dictionary:pasted",
+          name: "Pasted dictionary",
+        },
+      ],
+      project: {
+        ...initialSnapshot.project,
+        revision: initialSnapshot.project.revision + 1,
+      },
+      topLevelSectionIds: ["list:pasted"],
+    });
+
+    applyProjectSnapshotToWorkspace(host, pastedSnapshot, {
+      canonicalSectionPresentationOverrides: new Map([
+        [
+          "list:pasted",
+          {
+            isHorizontalOrientation: true,
+            isMinimized: true,
+            overflowMode: true,
+            positionAndSizeLocked: true,
+            size: { height: 90, width: 260 },
+            styleColor: "red",
+            tagColor: "orange",
+          },
+        ],
+        [
+          "callable:pasted",
+          {
+            isHorizontalOrientation: false,
+            isMinimized: false,
+            overflowMode: false,
+            positionAndSizeLocked: false,
+            size: { height: 180, width: 320 },
+            styleColor: "blue",
+            tagColor: "green",
+          },
+        ],
+        [
+          "dictionary:pasted",
+          {
+            isHorizontalOrientation: true,
+            isMinimized: false,
+            overflowMode: true,
+            positionAndSizeLocked: false,
+            size: { height: 280, width: 460 },
+            styleColor: "purple",
+            tagColor: "pink",
+          },
+        ],
+      ]),
+      keepAuthoredPython: false,
+      keepDictionaryEntries: new Set(),
+      keepParameterLists: new Set(),
+      pendingSectionIds: new Map(),
+      unresolvedPendingSectionIds: new Set(),
+    });
+
+    expect(
+      host.getSnapshot().sections[listSectionID("list:pasted")],
+    ).toMatchObject({
+      isHorizontalOrientation: true,
+      isMinimized: true,
+      overflowMode: true,
+      positionAndSizeLocked: true,
+      size: { height: 90, width: 260 },
+      styleColor: "red",
+      tagColor: "orange",
+    });
+    expect(
+      host.getSnapshot().sections[callableSectionID("callable:pasted")],
+    ).toMatchObject({
+      size: { height: 180, width: 320 },
+      styleColor: "blue",
+      tagColor: "green",
+    });
+    expect(
+      host.getSnapshot().sections[
+        parameterDictionarySectionID("dictionary:pasted")
+      ],
+    ).toMatchObject({
+      isHorizontalOrientation: true,
+      overflowMode: true,
+      size: { height: 280, width: 460 },
+      styleColor: "purple",
+      tagColor: "pink",
+    });
+    host.dispose();
+  });
+
   it("protects the generated body and its separators while preserving outer edits", () => {
     const snapshot = dynamicSnapshot();
     const host = createWorkspaceHost();

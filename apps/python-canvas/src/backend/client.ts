@@ -1,5 +1,7 @@
 import {
   PROJECT_CALLABLES_PATH_V2,
+  PROJECT_CLIPBOARD_COPY_PATH_V2,
+  PROJECT_CLIPBOARD_PASTE_PATH_V2,
   PROJECT_EVENTS_PATH_V2,
   PROJECT_FOREST_PATH_V2,
   PROJECT_LISTS_PATH_V2,
@@ -29,6 +31,8 @@ import {
   type CloseTerminalRequestV2,
   type CommitCallableRequestV2,
   type CompletionResponseV2,
+  type CopyProjectClipboardRequestV2,
+  type CopyProjectClipboardResponseV2,
   type CreateCallableRequestV2,
   type CreateListRequestV2,
   type CreateParameterDictionaryRequestV2,
@@ -37,6 +41,8 @@ import {
   type DeleteParameterDictionaryRequestV2,
   type DeleteCallableRequestV2,
   type ProjectSnapshotV2,
+  type PasteProjectClipboardRequestV2,
+  type PasteProjectClipboardResponseV2,
   type OpenTerminalRequestV2,
   type PythonTargetCompletionRequestV2,
   type RefreshCallableParametersRequestV2,
@@ -55,8 +61,10 @@ import {
 } from "./generatedContract";
 import {
   ProjectSnapshotValidationError,
+  parseCopyProjectClipboardResponseV2,
   parseCompletionResponseV2,
   parseErrorResponseV2,
+  parsePasteProjectClipboardResponseV2,
   parseProjectSnapshotV2,
 } from "./runtimeContract";
 import {
@@ -282,6 +290,28 @@ export function replaceSectionForest(
   );
 }
 
+export function copyProjectClipboard(
+  request: CopyProjectClipboardRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<CopyProjectClipboardResponseV2> {
+  return requestProjectClipboardCopy(
+    PROJECT_CLIPBOARD_COPY_PATH_V2,
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
+export function pasteProjectClipboard(
+  request: PasteProjectClipboardRequestV2,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<PasteProjectClipboardResponseV2> {
+  return requestProjectClipboardPaste(
+    PROJECT_CLIPBOARD_PASTE_PATH_V2,
+    jsonPost(request),
+    fetchImplementation,
+  );
+}
+
 export function commitCallable(
   callableId: string,
   request: CommitCallableRequestV2,
@@ -442,6 +472,56 @@ async function requestProjectSnapshot(
       throw new ProjectClientError(
         "invalid_response",
         "Project endpoint returned an invalid V2 snapshot.",
+        response.status,
+        cause,
+      );
+    }
+    throw cause;
+  }
+}
+
+async function requestProjectClipboardCopy(
+  path: string,
+  init: RequestInit,
+  fetchImplementation: typeof fetch,
+): Promise<CopyProjectClipboardResponseV2> {
+  const response = await request(path, init, fetchImplementation);
+  if (!response.ok) {
+    throw await responseError(response);
+  }
+  const payload = await responseJson(response);
+  try {
+    return parseCopyProjectClipboardResponseV2(payload);
+  } catch (cause) {
+    if (cause instanceof ProjectSnapshotValidationError) {
+      throw new ProjectClientError(
+        "invalid_response",
+        "Project clipboard copy endpoint returned an invalid response.",
+        response.status,
+        cause,
+      );
+    }
+    throw cause;
+  }
+}
+
+async function requestProjectClipboardPaste(
+  path: string,
+  init: RequestInit,
+  fetchImplementation: typeof fetch,
+): Promise<PasteProjectClipboardResponseV2> {
+  const response = await request(path, init, fetchImplementation);
+  if (!response.ok) {
+    throw await responseError(response);
+  }
+  const payload = await responseJson(response);
+  try {
+    return parsePasteProjectClipboardResponseV2(payload);
+  } catch (cause) {
+    if (cause instanceof ProjectSnapshotValidationError) {
+      throw new ProjectClientError(
+        "invalid_response",
+        "Project clipboard paste endpoint returned an invalid response.",
         response.status,
         cause,
       );

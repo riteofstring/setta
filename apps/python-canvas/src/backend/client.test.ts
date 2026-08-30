@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   PROJECT_CALLABLES_PATH_V2,
+  PROJECT_CLIPBOARD_COPY_PATH_V2,
+  PROJECT_CLIPBOARD_PASTE_PATH_V2,
   PROJECT_EVENTS_PATH_V2,
   PROJECT_FOREST_PATH_V2,
   PROJECT_LISTS_PATH_V2,
@@ -46,6 +48,7 @@ import {
   completeCallable,
   completePythonTarget,
   connectProjectSnapshotStream,
+  copyProjectClipboard,
   createCallable,
   createList,
   createParameterDictionary,
@@ -65,6 +68,7 @@ import {
   incrementListChildren,
   getTerminalTicket,
   openTerminal,
+  pasteProjectClipboard,
   runTerminal,
 } from "./client";
 
@@ -313,6 +317,48 @@ describe("Python Canvas V2 project client", () => {
     );
   });
 
+  it("uses typed clipboard copy and paste endpoints with closed responses", async () => {
+    const payload = clipboardPayload();
+    const copyRequest = {
+      observedRevision: 1,
+      projectId: "project:fixture",
+      rootSectionIds: ["callable:source"],
+    };
+    const pastedSnapshot = clipboardPastedSnapshot();
+    const pasteRequest = {
+      expectedRevision: 1,
+      payload,
+      projectId: "project:fixture",
+    };
+
+    await expectClipboardPost(
+      PROJECT_CLIPBOARD_COPY_PATH_V2,
+      copyRequest,
+      { payload },
+      (fetch) => copyProjectClipboard(copyRequest, fetch),
+    );
+    await expectClipboardPost(
+      PROJECT_CLIPBOARD_PASTE_PATH_V2,
+      pasteRequest,
+      {
+        pastedRootSectionIds: ["callable:pasted"],
+        snapshot: pastedSnapshot,
+      },
+      (fetch) => pasteProjectClipboard(pasteRequest, fetch),
+    );
+
+    await expect(
+      copyProjectClipboard(
+        copyRequest,
+        vi
+          .fn()
+          .mockResolvedValue(
+            createJsonResponse({ payload: { version: 1 } }),
+          ) as typeof fetch,
+      ),
+    ).rejects.toMatchObject({ kind: "invalid_response", status: 200 });
+  });
+
   it("uses the generated terminal routes and accepts only the close route's 204 boundary", async () => {
     const projectId = "project:fixture";
     const openRequest = { columns: 80, projectId, rows: 24 };
@@ -517,6 +563,29 @@ async function expectTerminalPost(
   );
 }
 
+async function expectClipboardPost(
+  path: string,
+  body: object,
+  responseBody: object,
+  invoke: (fetchImplementation: typeof fetch) => Promise<unknown>,
+): Promise<void> {
+  const fetchImplementation = vi
+    .fn()
+    .mockResolvedValue(createJsonResponse(responseBody));
+  await invoke(fetchImplementation as typeof fetch);
+  expect(fetchImplementation).toHaveBeenCalledWith(
+    path,
+    expect.objectContaining({
+      body: JSON.stringify(body),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    }),
+  );
+}
+
 function createJsonResponse(
   body: unknown,
 ): Response & { json: ReturnType<typeof vi.fn> } {
@@ -535,5 +604,37 @@ function createProjectSnapshotEventSource(): Pick<
     close: vi.fn(),
     onerror: null,
     onmessage: null,
+  };
+}
+
+function clipboardPayload() {
+  return {
+    callables: [
+      {
+        authoredExpression: "value",
+        id: "callable:source",
+        name: "Source",
+        parameters: [],
+      },
+    ],
+    lists: [],
+    parameterDictionaries: [],
+    rootSectionIds: ["callable:source"],
+    version: 1 as const,
+  };
+}
+
+function clipboardPastedSnapshot() {
+  return {
+    ...projectSnapshotFixture,
+    callables: [
+      {
+        authoredExpression: "value",
+        id: "callable:pasted",
+        name: "Pasted",
+        parameters: [],
+      },
+    ],
+    topLevelSectionIds: ["callable:pasted"],
   };
 }

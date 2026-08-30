@@ -69,6 +69,13 @@ import {
   parameterWorkspaceItemID,
 } from "./workspaceProjectionIds";
 import {
+  frontmostClipboardRootLayoutZIndexes,
+  projectClipboardActiveSectionIds,
+  projectClipboardSectionPresentation,
+  projectClipboardTopLevelLayout,
+  type ProjectClipboardProjectionOptions,
+} from "./workspaceClipboardProjection";
+import {
   CALLABLE_SECTION_SIZE,
   GENERATED_PYTHON_SECTION_SIZE,
   generatedPythonLayout,
@@ -131,15 +138,15 @@ type ProjectSectionDescriptor =
       workspaceId: string;
     };
 
-export type ProjectSnapshotProjectionOptions = Readonly<{
-  keepAuthoredPython: boolean;
-  keepDictionaryEntries: ReadonlySet<string>;
-  keepParameterLists: ReadonlySet<string>;
-
-  pendingSectionIds: ReadonlyMap<string, string>;
-
-  unresolvedPendingSectionIds: ReadonlySet<string>;
-}>;
+export type ProjectSnapshotProjectionOptions =
+  ProjectClipboardProjectionOptions &
+    Readonly<{
+      keepAuthoredPython: boolean;
+      keepDictionaryEntries: ReadonlySet<string>;
+      keepParameterLists: ReadonlySet<string>;
+      pendingSectionIds: ReadonlyMap<string, string>;
+      unresolvedPendingSectionIds: ReadonlySet<string>;
+    }>;
 
 export function createPendingCallableSection(
   snapshot: Pick<ProjectSnapshotV2, "providerStatus">,
@@ -287,12 +294,17 @@ export function applyProjectSnapshotToWorkspace(
       (pendingSectionId === undefined
         ? undefined
         : current.sections[pendingSectionId]);
-    sections[descriptor.workspaceId] = projectCanonicalResponseSection(
-      previous,
-      next,
-      descriptor,
-      options,
-      snapshot,
+    sections[descriptor.workspaceId] = projectClipboardSectionPresentation(
+      projectCanonicalResponseSection(
+        previous,
+        next,
+        descriptor,
+        options,
+        snapshot,
+      ),
+      options.canonicalSectionPresentationOverrides?.get(
+        descriptor.canonicalId,
+      ),
     );
   }
 
@@ -307,24 +319,25 @@ export function applyProjectSnapshotToWorkspace(
   const topLevelSections: WorkspaceDocument["topLevelSections"] = {
     [GENERATED_PYTHON_SECTION_ID]: generated.layout,
   };
+  const rootLayoutZIndexes = frontmostClipboardRootLayoutZIndexes(
+    options.canonicalRootLayoutOverrides,
+    current,
+    projected,
+  );
   for (const canonicalId of snapshot.topLevelSectionIds) {
     const descriptor = requireSectionDescriptor(
       descriptorByCanonicalID,
       canonicalId,
     );
-    const pendingSectionId = options.pendingSectionIds.get(canonicalId);
-    const layout =
-      current.topLevelSections[descriptor.workspaceId] ??
-      (pendingSectionId === undefined
-        ? undefined
-        : current.topLevelSections[pendingSectionId]) ??
-      projected.topLevelSections[descriptor.workspaceId];
-    if (layout === undefined) {
-      throw new Error(
-        `Python Canvas projection is missing top-level layout ${descriptor.workspaceId}.`,
-      );
-    }
-    topLevelSections[descriptor.workspaceId] = layout;
+    topLevelSections[descriptor.workspaceId] = projectClipboardTopLevelLayout({
+      canonicalId,
+      current,
+      override: options.canonicalRootLayoutOverrides?.get(canonicalId),
+      pendingSectionId: options.pendingSectionIds.get(canonicalId),
+      projected,
+      workspaceId: descriptor.workspaceId,
+      zIndex: rootLayoutZIndexes.get(canonicalId),
+    });
   }
   retainUnresolvedPendingSections(current, sections, topLevelSections, options);
 
@@ -332,12 +345,15 @@ export function applyProjectSnapshotToWorkspace(
     ...current,
     sections,
     topLevelSections,
-    activeIds: projectActiveSectionIds(
-      current.activeIds,
-      sections,
-      descriptors,
-      options.pendingSectionIds,
-    ),
+    activeIds:
+      options.activeSectionIds === undefined
+        ? projectActiveSectionIds(
+            current.activeIds,
+            sections,
+            descriptors,
+            options.pendingSectionIds,
+          )
+        : projectClipboardActiveSectionIds(options.activeSectionIds, sections),
   });
 }
 
