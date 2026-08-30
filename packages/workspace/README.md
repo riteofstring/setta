@@ -53,7 +53,8 @@ ends. A disposed host rejects later reads or writes.
   section selection remains in the workspace document.
 - `WorkspaceCanvas`, `WorkspaceControls`, and `WorkspaceTooltip` remain public for a host that
   intentionally does not want the integrated shell. The canvas fills its host element; a
-  standalone host owns the other surfaces' placement.
+  standalone host owns the other surfaces' placement. Pass `canvas` to `WorkspaceShell` or
+  `configuration` to `WorkspaceCanvas` to configure external drops and a controlled graph.
 - `WorkspaceNavigator` is the optional host-scoped Find and command surface for a standalone
   composition. `openWorkspaceNavigator` and `closeWorkspaceNavigator` let application chrome open
   that mounted surface without reaching into package state.
@@ -75,6 +76,72 @@ Application routing stays outside the shell. Navigator mode, query, active resul
 are ephemeral package runtime owned by the host; they never enter `WorkspaceDocument`. Registered
 pane content may use its own application state, but receives no package store, XYFlow panel,
 dnd-kit store, Tailwind utility, or package-private DOM selector as an extension API.
+
+## Canvas ingress, attention, and graphs
+
+`WorkspaceCanvasConfiguration` is the downstream boundary for application-owned canvas data. Keep
+the configuration referentially stable, normally with `useMemo`, and pass it through
+`WorkspaceShell.canvas` or `WorkspaceCanvas.configuration`.
+
+```tsx
+const canvas = useMemo<WorkspaceCanvasConfiguration>(
+  () => ({
+    externalDrop: {
+      canDrop: (transfer) => transfer.types.includes("application/x-host-card"),
+      onDrop: (transfer, position) =>
+        createCard(transfer.getData("application/x-host-card"), position),
+    },
+    graph: {
+      canConnect: (connection) => validateConnection(connection),
+      edges,
+      onConnect: (connection) =>
+        setEdges((value) => addEdge(value, connection)),
+      onDelete: (edgeIds) => setEdges((value) => removeEdges(value, edgeIds)),
+      onReconnect: ({ connection, edgeId }) =>
+        setEdges((value) => reconnectEdge(value, edgeId, connection)),
+      onSelectedEdgeIdsChange: setSelectedEdgeIds,
+      ports,
+      selectedEdgeIds,
+    },
+  }),
+  [edges, ports, selectedEdgeIds],
+);
+
+<WorkspaceShell canvas={canvas} {...shellProps} />;
+```
+
+External drop is a native `DataTransfer` seam on the bare canvas pane. Workspace calls `canDrop`
+during drag-over and again at drop time, accepts only an exact pane hit, converts the screen point
+to one workspace position, and calls `onDrop`. Drops over sections, controls, panes, or other
+Workspace UI stay with those surfaces. The host owns MIME parsing, authorization, document
+creation, persistence, errors, and notifications; `DataTransfer` never enters
+`WorkspaceDocument`.
+
+The graph is a complete controlled projection. Ports name a section, direction, and one of the
+`data`, `agentic`, or `workflow` families; edges reference those ports. Workspace validates the
+whole configuration before presenting family-specific ports and edges, connection previews,
+selection, reconnect handles, and delete gestures. The host remains the edge authority and must
+apply every callback to its controlled input. `canEditStructure` gates connect, reconnect, and
+delete while read-only edge selection remains available. Nested-section ports are supported.
+Workspace graph types deliberately contain no XYFlow types, and graph state is not stored in the
+workspace document.
+
+Multi-section attention is an imperative, host-scoped presentation aid:
+
+```tsx
+fitWorkspaceSections(host, ["source", "result"]);
+setWorkspaceSectionAttention(host, ["source", "result"]);
+
+setWorkspaceSectionAttention(host, []);
+```
+
+`fitWorkspaceSections` frames the union of the mounted section shells, including nested sections,
+with default padding `0.1`, maximum zoom `1`, and a reduced-motion-aware `500 ms` transition.
+Conflicting viewport gestures pause until that transition settles. `setWorkspaceSectionAttention`
+applies the package-owned animated outline independently; clearing it retains the outline for
+`650 ms` before removal. Both commands validate every requested section before changing runtime
+state and reject unknown, hidden, unmounted, or empty-bound sections. Attention is transient and is
+cleared by a complete document load.
 
 ## Managed windows, section handoff, and Window Spaces
 

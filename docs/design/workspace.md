@@ -52,11 +52,34 @@ mounted `WorkspaceHost` owns a separate instance and registration lifetime.
 
 Workspace remains the presentation owner. It supplies the background and grid, minimap, selection
 bounds, section shells and bodies, managed windows, controls, menus, portals, focus treatment, and
-all canvas CSS. The runtime receives no product edges, renders no handles or ports, and mounts no
-XYFlow background, controls, minimap, attribution, theme, or dependency stylesheet. All projected
-sections remain mounted, including offscreen sections, because editor state, terminal state,
-measurement, focus, and saved-view behavior depend on that continuity. XYFlow types, instances,
-edges, and ports are absent from the public Workspace contract.
+all canvas CSS. XYFlow still receives no product edges and renders no product handles or ports;
+Workspace renders its controlled graph as a Workspace-native viewport overlay and measures public
+ports against the section shells. This is required for nested sections, which are DOM descendants
+rather than independent XYFlow nodes. The application owns the complete port, edge, and selected
+edge inputs and applies connect, reconnect, delete, and selection callbacks. Those public values
+use Workspace types and remain outside `WorkspaceDocument`; XYFlow types, instances, and state stay
+absent from the public contract.
+
+The graph presentation preserves the local main branch's established `data`, `agentic`, and
+`workflow` families, source/target port treatment, connection preview, selection, reconnect, and
+delete behavior. Main is the UX and behavior reference, while this package expresses that behavior
+through the current upstream-renderer architecture rather than copying main's application stores or
+vendored renderer fork. XYFlow mounts no background, controls, minimap, attribution, theme, or
+dependency stylesheet. All projected sections remain mounted, including offscreen sections,
+because editor state, terminal state, measurement, focus, saved-view behavior, and graph geometry
+depend on that continuity.
+
+Native external drag data crosses one explicit canvas ingress boundary. Acceptance is synchronous
+and limited to an exact bare-pane target; after acceptance Workspace translates the screen point
+once and returns the original `DataTransfer` and drag event to the host. MIME interpretation,
+authorization, creation, persistence, and feedback remain application responsibilities. Browser
+objects never enter the document.
+
+Multi-section attention is host-owned transient presentation state. One command fits the union of
+validated mounted section-shell bounds and another controls the highlighted section set. A fit
+temporarily disables conflicting viewport input until the renderer transition settles; highlight
+removal lingers to preserve main's visual cadence. Complete document load clears the runtime. The
+feature neither changes selection nor writes presentation state into `WorkspaceDocument`.
 
 ## Extension and mutation boundaries
 
