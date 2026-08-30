@@ -42,7 +42,10 @@ import { useWorkspaceXyflowNodeDrag } from "./WorkspaceXyflowNodeDrag";
 import { WorkspaceXyflowSelection } from "./WorkspaceXyflowSelection";
 import { useWorkspaceXyflowWheelBehavior } from "./useWorkspaceXyflowWheelBehavior";
 import { createWorkspaceXyflowNodeProjector } from "./workspaceXyflowProjection";
-import { registerWorkspaceXyflowInstance } from "./workspaceXyflowRuntime";
+import {
+  getWorkspaceXyflowRuntime,
+  registerWorkspaceXyflowInstance,
+} from "./workspaceXyflowRuntime";
 import type {
   WorkspaceXyflowNodeChange,
   WorkspaceXyflowNodeDimensions,
@@ -101,7 +104,7 @@ function WorkspaceXyflowMeasurementObserver({
   fitPending: boolean;
   onNodesInitialized: () => void;
 }) {
-  const nodesInitialized = useNodesInitialized();
+  const nodesInitialized = useNodesInitialized({ includeHiddenNodes: true });
 
   useEffect(() => {
     if (nodesInitialized) {
@@ -168,6 +171,9 @@ export function WorkspaceXyflowAdapter({
     typeof createWorkspaceXyflowNodeProjector
   > | null>(null);
   const measuredDimensionsRef = useRef(new Map<string, MeasuredDimensions>());
+  const pendingDimensionsRef = useRef(
+    new Map<string, WorkspaceXyflowNodeDimensions>(),
+  );
   if (projectorRef.current === null) {
     projectorRef.current = createWorkspaceXyflowNodeProjector();
   }
@@ -289,10 +295,22 @@ export function WorkspaceXyflowAdapter({
         return [measurement];
       });
       if (dimensions.length > 0) {
+        if (!getWorkspaceXyflowRuntime(host).getInstance()) {
+          for (const dimension of dimensions) {
+            const current = pendingDimensionsRef.current.get(dimension.id);
+            pendingDimensionsRef.current.set(dimension.id, {
+              id: dimension.id,
+              height: dimension.height ?? current?.height,
+              width: dimension.width ?? current?.width,
+            });
+          }
+          return;
+        }
         onNodeDimensionsChange?.(dimensions);
+        onRuntimeReady?.();
       }
     },
-    [onNodeDimensionsChange],
+    [host, onNodeDimensionsChange, onRuntimeReady],
   );
 
   const handlePaneClick = useCallback(() => {
@@ -342,8 +360,17 @@ export function WorkspaceXyflowAdapter({
         host,
         instance,
       );
+      onRuntimeReady?.();
+      const pendingDimensions = Array.from(
+        pendingDimensionsRef.current.values(),
+      );
+      pendingDimensionsRef.current.clear();
+      if (pendingDimensions.length > 0) {
+        onNodeDimensionsChange?.(pendingDimensions);
+        onRuntimeReady?.();
+      }
     },
-    [host],
+    [host, onNodeDimensionsChange, onRuntimeReady],
   );
 
   const handleRootRef = useCallback((element: HTMLDivElement | null) => {
@@ -434,7 +461,7 @@ export function WorkspaceXyflowAdapter({
       <ReactFlow<WorkspaceXyflowSectionNode>
         ref={handleRootRef}
         id={getWorkspaceHostDomId(host)}
-        className={workspaceScopeClassName}
+        className={`${workspaceScopeClassName} setta-workspace-xyflow-root`}
         nodes={renderNodes ? projectedNodes : EMPTY_NODES}
         edges={EMPTY_EDGES}
         viewport={viewport}

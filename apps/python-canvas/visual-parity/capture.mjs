@@ -13,6 +13,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -71,6 +72,23 @@ const savedViewsTabSelector =
 const sectionTabSelector =
   '[data-workspace-shell-tab="trailing:section-settings"]';
 const savedViewsPaneSelector = '[data-testid="workspace-saved-views-pane"]';
+const canonicalCaptureNormalizations = Object.freeze({
+  "canonical-callable-replacement": Object.freeze({
+    collection: "callables",
+    sectionPrefix: "python-canvas:callable:",
+    stableId: "id:000000000000000000000000000000c1",
+  }),
+  "canonical-list-replacement": Object.freeze({
+    collection: "lists",
+    sectionPrefix: "python-canvas:list:",
+    stableId: "id:00000000000000000000000000000011",
+  }),
+  "canonical-param-dict-replacement": Object.freeze({
+    collection: "parameterDictionaries",
+    sectionPrefix: "python-canvas:parameter-dictionary:",
+    stableId: "id:000000000000000000000000000000d1",
+  }),
+});
 
 const captureActions = Object.freeze({
   ...createParityExtensionCaptureActions({
@@ -491,6 +509,28 @@ async function settleWorkspace(client, scenario) {
     client,
     "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))",
   );
+  await evaluate(
+    client,
+    `(() => {
+      const workspace = document.querySelector(".setta-workspace");
+      const animations = workspace instanceof HTMLElement
+        ? workspace.getAnimations({ subtree: true }).filter((animation) => {
+            const timing = animation.effect?.getTiming();
+            return timing !== undefined &&
+              Number.isFinite(Number(timing.duration)) &&
+              Number.isFinite(timing.iterations);
+          })
+        : [];
+      return Promise.race([
+        Promise.allSettled(animations.map((animation) => animation.finished)),
+        new Promise((resolve) => setTimeout(resolve, 1_000)),
+      ]);
+    })()`,
+  );
+  await evaluate(
+    client,
+    "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))",
+  );
 }
 
 async function activateSection(client, sectionId, description) {
@@ -624,6 +664,44 @@ async function waitForTerminalText(client, text, description) {
   );
 }
 
+async function terminalPresentation(client) {
+  return evaluate(
+    client,
+    `(() => {
+      const rows = document.querySelector(${JSON.stringify(terminalRowsSelector)});
+      const viewport = document.querySelector(${JSON.stringify(terminalViewportSelector)});
+      return rows instanceof HTMLElement && viewport instanceof HTMLElement
+        ? {
+            rows: rows.textContent ?? "",
+            scrollHeight: viewport.scrollHeight,
+            scrollTop: viewport.scrollTop,
+          }
+        : null;
+    })()`,
+  );
+}
+
+async function waitForStableTerminalPresentation(client, description) {
+  let previous = null;
+  let stableSamples = 0;
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const current = await terminalPresentation(client);
+    assert.notEqual(current, null, `${description} is missing.`);
+    const serialized = JSON.stringify(current);
+    if (serialized === previous) {
+      stableSamples += 1;
+      if (stableSamples === 3) {
+        return;
+      }
+    } else {
+      previous = serialized;
+      stableSamples = 0;
+    }
+    await delay(50);
+  }
+  throw new Error(`${description} did not settle.`);
+}
+
 async function captureTerminalNotCreated(client) {
   await waitFor(
     client,
@@ -656,11 +734,19 @@ async function captureTerminalHidden(client) {
 async function captureTerminalAttachedRunning(client) {
   const marker = "SETTA_PARITY_TERMINAL_RUNNING";
   await startTerminalRun(client);
+  await waitForStableTerminalPresentation(
+    client,
+    "the completed Generated Python terminal run",
+  );
   await executeTerminalCommand(
     client,
-    `python3 -c "import time; print('${marker}', flush=True); time.sleep(60)"`,
+    `printf '\\033[2J\\033[H${marker}\\n'; sleep 60`,
   );
   await waitForTerminalText(client, marker, "the running terminal marker");
+  await waitForStableTerminalPresentation(
+    client,
+    "the running Generated Python terminal presentation",
+  );
 }
 
 async function captureTerminalAttachedScrolled(client) {
@@ -857,6 +943,59 @@ async function collectPublicState(client) {
   );
 }
 
+function replaceExactJsonStrings(value, replacements) {
+  if (typeof value === "string") {
+    return replacements.get(value) ?? value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => replaceExactJsonStrings(item, replacements));
+  }
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      replacements.get(key) ?? key,
+      replaceExactJsonStrings(item, replacements),
+    ]),
+  );
+}
+
+function normalizeCanonicalCapture(
+  scenario,
+  initialSnapshot,
+  canonicalSnapshot,
+  publicState,
+) {
+  const configuration = canonicalCaptureNormalizations[scenario.capture];
+  if (configuration === undefined) {
+    return { canonicalSnapshot, publicState };
+  }
+  const initialIds = new Set(
+    initialSnapshot[configuration.collection].map((section) => section.id),
+  );
+  const created = canonicalSnapshot[configuration.collection].filter(
+    (section) => !initialIds.has(section.id),
+  );
+  assert.equal(
+    created.length,
+    1,
+    `${scenario.id} must create exactly one canonical section.`,
+  );
+  const runtimeId = created[0].id;
+  const replacements = new Map([
+    [runtimeId, configuration.stableId],
+    [
+      `${configuration.sectionPrefix}${runtimeId}`,
+      `${configuration.sectionPrefix}${configuration.stableId}`,
+    ],
+  ]);
+  return {
+    canonicalSnapshot: replaceExactJsonStrings(canonicalSnapshot, replacements),
+    publicState: replaceExactJsonStrings(publicState, replacements),
+  };
+}
+
 async function captureScenario(scenario) {
   let captured = null;
   await runAgainstCopiedProductionProject(
@@ -882,10 +1021,16 @@ async function captureScenario(scenario) {
       if (typeof screenshot.data !== "string") {
         throw new Error(`Chrome returned no screenshot for ${scenario.id}.`);
       }
-      captured = {
-        browser,
+      const normalized = normalizeCanonicalCapture(
+        scenario,
+        snapshot,
         canonicalSnapshot,
         publicState,
+      );
+      captured = {
+        browser,
+        canonicalSnapshot: normalized.canonicalSnapshot,
+        publicState: normalized.publicState,
         scenario,
         screenshot: screenshot.data,
         viewport: parityViewports[scenario.viewport],

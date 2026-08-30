@@ -41,6 +41,12 @@ import {
 } from "../param-dict-list.browser-support.mjs";
 
 const creationMenuSelector = '[aria-label="Create a workspace section"]';
+const pendingCreationUUIDs = Object.freeze({
+  "python-canvas.callable-pending": "00000000-0000-4000-8000-000000000001",
+  "python-canvas.list-pending": "00000000-0000-4000-8000-000000000002",
+  "python-canvas.parameter-dictionary-pending":
+    "00000000-0000-4000-8000-000000000003",
+});
 
 export function createParityExtensionCaptureActions(context) {
   return Object.freeze({
@@ -269,7 +275,7 @@ async function openCreationMenu(context, client, label) {
   );
 }
 
-async function chooseCreationMenuItem(client, label) {
+async function chooseCreationMenuItem(client, label, randomUUID = null) {
   const clicked = await evaluate(
     client,
     `(() => {
@@ -279,7 +285,25 @@ async function chooseCreationMenuItem(client, label) {
       if (!(item instanceof HTMLElement) || item.getAttribute("aria-disabled") === "true") {
         return false;
       }
-      item.click();
+      const randomUUID = ${JSON.stringify(randomUUID)};
+      const ownDescriptor = Object.getOwnPropertyDescriptor(crypto, "randomUUID");
+      if (randomUUID !== null) {
+        Object.defineProperty(crypto, "randomUUID", {
+          configurable: true,
+          value: () => randomUUID,
+        });
+      }
+      try {
+        item.click();
+      } finally {
+        if (randomUUID !== null) {
+          if (ownDescriptor === undefined) {
+            delete crypto.randomUUID;
+          } else {
+            Object.defineProperty(crypto, "randomUUID", ownDescriptor);
+          }
+        }
+      }
       return true;
     })()`,
   );
@@ -292,10 +316,16 @@ async function capturePendingCreationPlaceholder(
   label,
   pendingKind,
 ) {
+  const randomUUID = pendingCreationUUIDs[pendingKind];
+  assert.equal(
+    typeof randomUUID,
+    "string",
+    `The ${label} pending parity UUID is missing.`,
+  );
   await openCreationMenu(context, client, label);
   await installCreationResponseGate(client);
   try {
-    await chooseCreationMenuItem(client, label);
+    await chooseCreationMenuItem(client, label, randomUUID);
     await assertPendingCreationHidden(client, pendingKind, label);
   } catch (error) {
     await releaseCreationResponseGate(client);
