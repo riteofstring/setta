@@ -2,6 +2,7 @@ import {
   cloneFrozenWorkspaceClipboardJsonValue,
   cloneWorkspaceClipboardJsonValue,
 } from "./json";
+import { WORKSPACE_CLIPBOARD_MAX_ITEM_COUNT } from "./types";
 import type {
   JsonValue,
   WorkspaceClipboardCaptureInput,
@@ -27,6 +28,18 @@ type ResolvedRootLayout = Readonly<{
   layout: TopLevelSectionLayout;
   topLevelSectionId: string;
 }>;
+
+type WorkspaceClipboardItemCountSource = Readonly<{
+  itemTree?: Readonly<{ items: Readonly<Record<string, unknown>> }>;
+}>;
+
+export class WorkspaceClipboardItemCountLimitError extends Error {
+  constructor() {
+    super(
+      `Clipboard selection exceeds the ${WORKSPACE_CLIPBOARD_MAX_ITEM_COUNT} item limit.`,
+    );
+  }
+}
 
 function assertStableIdentifier(value: string, role: string): void {
   if (value.trim() === "" || value !== value.trim()) {
@@ -95,6 +108,40 @@ export function getWorkspaceClipboardSelectionRootIds(
   >,
 ): ReadonlyArray<string> {
   return Object.freeze(normalizeWorkspaceClipboardRootSelection(input));
+}
+
+function addSectionItemCount(
+  section: WorkspaceClipboardItemCountSource,
+  itemCount: { value: number },
+): void {
+  itemCount.value += Object.keys(section.itemTree?.items ?? {}).length;
+  if (itemCount.value > WORKSPACE_CLIPBOARD_MAX_ITEM_COUNT) {
+    throw new WorkspaceClipboardItemCountLimitError();
+  }
+}
+
+export function assertWorkspaceClipboardLocalItemCount(
+  input: WorkspaceClipboardCaptureInput,
+): void {
+  const rootIds = getWorkspaceClipboardSelectionRootIds(input);
+  const capturedIds = new Set<string>();
+  const itemCount = { value: 0 };
+  const visit = (sectionId: string): void => {
+    if (capturedIds.has(sectionId)) {
+      throw new Error(
+        `Clipboard capture section ${sectionId} is claimed more than once.`,
+      );
+    }
+    const section = assertKnownSection(input.sections, sectionId);
+    capturedIds.add(sectionId);
+    addSectionItemCount(section, itemCount);
+    for (const childId of section.children) {
+      visit(childId);
+    }
+  };
+  for (const rootId of rootIds) {
+    visit(rootId);
+  }
 }
 
 function toClipboardSection(
@@ -307,9 +354,19 @@ function cloneOptionalItemTree(
   ) as WorkspaceSectionItemTree;
 }
 
+function assertCapturedLocalPayloadItemCount(
+  captured: WorkspaceClipboardCapturedSelection,
+): void {
+  const itemCount = { value: 0 };
+  for (const section of Object.values(captured.source.sections)) {
+    addSectionItemCount(section, itemCount);
+  }
+}
+
 export function createWorkspaceLocalClipboardPayload(
   captured: WorkspaceClipboardCapturedSelection,
 ): WorkspaceLocalClipboardPayload {
+  assertCapturedLocalPayloadItemCount(captured);
   const sections: Record<string, WorkspaceClipboardLocalSectionContent> =
     Object.create(null) as Record<
       string,

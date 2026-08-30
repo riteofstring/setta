@@ -9,11 +9,13 @@ import type {
   WorkspaceDocument,
   WorkspaceItem,
   WorkspaceSection,
+  WorkspaceSectionItemTree,
 } from "../document/types";
 import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import { registerWorkspaceClipboardAuthority } from "./registry";
 import {
   WORKSPACE_CLIPBOARD_MAX_TEXT_BYTES,
+  WORKSPACE_CLIPBOARD_MAX_ITEM_COUNT,
   type WorkspaceClipboardAuthority,
   type WorkspaceClipboardCopyabilityRequest,
   type WorkspaceClipboardPasteRequest,
@@ -47,6 +49,17 @@ function ownHost(host: WorkspaceHost): WorkspaceHost {
 
 function createItem(id: string, data: Record<string, string>): WorkspaceItem {
   return { children: [], data, id };
+}
+
+function createMinimalItemTree(itemCount: number): WorkspaceSectionItemTree {
+  const root: WorkspaceItem = { children: [], id: "root" };
+  const items: Record<string, WorkspaceItem> = { root };
+  for (let index = 0; index < itemCount; index += 1) {
+    const id = `item-${index}`;
+    root.children.push(id);
+    items[id] = { children: [], id };
+  }
+  return { items, rootId: "root", selectedItemIds: [] };
 }
 
 function createSection(
@@ -383,6 +396,32 @@ describe("workspace section clipboard operations", () => {
 
     expect(await copyWorkspaceSelection(host)).toEqual({
       code: "clipboard-too-large",
+      status: "failed",
+    });
+    expect(browser.clipboard.writeText).not.toHaveBeenCalled();
+  });
+
+  it("rejects a local selection above the item limit before cloning or writing", async () => {
+    const host = ownHost(createWorkspaceHost());
+    const document = createDocument();
+    const child = document.sections.child;
+    if (!child) {
+      throw new Error("Expected the local clipboard fixture child.");
+    }
+    child.itemTree = createMinimalItemTree(WORKSPACE_CLIPBOARD_MAX_ITEM_COUNT);
+    host.loadDocument(document);
+    const browser = installClipboard();
+    registerWorkspaceClipboardAuthority(host, {
+      id: "local-test",
+      kind: "local",
+    });
+
+    expect(await copyWorkspaceSelection(host)).toEqual({
+      code: "clipboard-item-count-exceeded",
+      status: "failed",
+    });
+    expect(await duplicateWorkspaceSelection(host)).toEqual({
+      code: "clipboard-item-count-exceeded",
       status: "failed",
     });
     expect(browser.clipboard.writeText).not.toHaveBeenCalled();

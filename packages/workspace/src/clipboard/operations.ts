@@ -10,9 +10,11 @@ import { getSectionRefsStore } from "../section/sectionRefs";
 import type { WorkspaceHost } from "../workspaceHost";
 import { isWorkspaceHostActive } from "../workspaceHostInternals";
 import {
+  assertWorkspaceClipboardLocalItemCount,
   captureWorkspaceClipboardSelection,
   createWorkspaceLocalClipboardPayload,
   getWorkspaceClipboardSelectionRootIds,
+  WorkspaceClipboardItemCountLimitError,
 } from "./capture";
 import {
   parseWorkspaceClipboardEnvelope,
@@ -35,6 +37,7 @@ import type {
   WorkspaceClipboardAuthorityMetadata,
   WorkspaceClipboardAvailabilityAction,
   WorkspaceClipboardCopyabilityRequest,
+  WorkspaceClipboardCaptureInput,
   WorkspaceClipboardEnvelope,
   WorkspaceClipboardEnvelopeErrorCode,
   WorkspaceClipboardOperationLease,
@@ -59,6 +62,7 @@ type WorkspaceClipboardFailureCode =
   | WorkspaceClipboardEnvelopeErrorCode
   | "authority-copy-failed"
   | "authority-paste-failed"
+  | "clipboard-item-count-exceeded"
   | "clipboard-read-failed"
   | "clipboard-write-failed"
   | "invalid-local-payload";
@@ -314,25 +318,26 @@ function isOperationCurrent(
   return !runtime.disposed && runtime.authority === authority;
 }
 
-function getCurrentCapture(host: WorkspaceHost) {
+function getCurrentCaptureInput(
+  host: WorkspaceHost,
+): WorkspaceClipboardCaptureInput {
   const state = getWorkspaceDocumentStore(host).getState();
-  return captureWorkspaceClipboardSelection({
+  return {
     activeIds: getActiveSectionIds(host),
     parentSectionMap: state.parentSectionMap,
     sections: state.sections,
     topLevelSections: state.topLevelSections,
-  });
+  };
+}
+
+function getCurrentCapture(host: WorkspaceHost) {
+  return captureWorkspaceClipboardSelection(getCurrentCaptureInput(host));
 }
 
 function getCurrentSelectionRootIds(
   host: WorkspaceHost,
 ): ReadonlyArray<string> {
-  const state = getWorkspaceDocumentStore(host).getState();
-  return getWorkspaceClipboardSelectionRootIds({
-    activeIds: getActiveSectionIds(host),
-    parentSectionMap: state.parentSectionMap,
-    sections: state.sections,
-  });
+  return getWorkspaceClipboardSelectionRootIds(getCurrentCaptureInput(host));
 }
 
 function createDelegatedClipboardCopyRequest(
@@ -591,9 +596,37 @@ async function prepareWorkspaceClipboardPayload(
   | Readonly<{ payload: JsonValue }>
   | Readonly<{ result: WorkspaceClipboardOperationResult }>
 > {
-  return authority.kind === "local"
-    ? { payload: createWorkspaceLocalClipboardPayload(captured) }
-    : prepareDelegatedClipboardPayload(authority, captured);
+  if (authority.kind === "delegated") {
+    return prepareDelegatedClipboardPayload(authority, captured);
+  }
+  try {
+    return { payload: createWorkspaceLocalClipboardPayload(captured) };
+  } catch (error) {
+    if (error instanceof WorkspaceClipboardItemCountLimitError) {
+      return { result: createFailed("clipboard-item-count-exceeded") };
+    }
+    throw error;
+  }
+}
+
+function prepareWorkspaceClipboardCapture(
+  host: WorkspaceHost,
+  authority: WorkspaceClipboardAuthority,
+):
+  | Readonly<{ captured: ReturnType<typeof getCurrentCapture> }>
+  | Readonly<{ result: WorkspaceClipboardOperationResult }> {
+  try {
+    const input = getCurrentCaptureInput(host);
+    if (authority.kind === "local") {
+      assertWorkspaceClipboardLocalItemCount(input);
+    }
+    return { captured: captureWorkspaceClipboardSelection(input) };
+  } catch (error) {
+    if (error instanceof WorkspaceClipboardItemCountLimitError) {
+      return { result: createFailed("clipboard-item-count-exceeded") };
+    }
+    throw error;
+  }
 }
 
 function createDelegatedClipboardPasteRequest(
@@ -643,7 +676,11 @@ async function copyWorkspaceSelectionWithAuthority(
   host: WorkspaceHost,
   authority: WorkspaceClipboardAuthority,
 ): Promise<WorkspaceClipboardOperationResult> {
-  const captured = getCurrentCapture(host);
+  const capture = prepareWorkspaceClipboardCapture(host, authority);
+  if ("result" in capture) {
+    return capture.result;
+  }
+  const { captured } = capture;
   const prepared = await prepareWorkspaceClipboardPayload(authority, captured);
   if ("result" in prepared) {
     return prepared.result;
@@ -766,7 +803,11 @@ export async function duplicateWorkspaceSelection(
     return acquired.result;
   }
   try {
-    const captured = getCurrentCapture(host);
+    const capture = prepareWorkspaceClipboardCapture(host, acquired.authority);
+    if ("result" in capture) {
+      return capture.result;
+    }
+    const { captured } = capture;
     const prepared = await prepareWorkspaceClipboardPayload(
       acquired.authority,
       captured,
