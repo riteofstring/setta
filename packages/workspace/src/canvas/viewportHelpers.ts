@@ -14,6 +14,17 @@ import { getVisibleCanvasRect } from "./viewportInsets";
 import { screenToFlowPosition } from "./viewportPosition";
 import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
 
+export type WorkspaceViewportBoundsFitOptions = Readonly<{
+  duration: number;
+  maxZoom: number;
+  padding: number;
+}>;
+
+export type WorkspaceViewportBoundsFitResult = Readonly<{
+  duration: number;
+  transition: Promise<boolean>;
+}>;
+
 type TransitionOptions = {
   duration?: number;
 };
@@ -144,6 +155,69 @@ export function setCenter(
     { x: centerX, y: centerY, zoom: nextZoom },
     { duration: resolveWorkspaceMotionDuration(options?.duration ?? 0) },
   );
+}
+
+function assertWorkspaceViewportFitBounds(bounds: Rect): void {
+  if (
+    ![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite) ||
+    bounds.width <= 0 ||
+    bounds.height <= 0
+  ) {
+    throw new Error(
+      "Workspace viewport fit bounds must have finite, positive dimensions.",
+    );
+  }
+}
+
+function assertWorkspaceViewportFitOptions({
+  duration,
+  maxZoom,
+  padding,
+}: WorkspaceViewportBoundsFitOptions): void {
+  if (!Number.isFinite(padding) || padding < 0) {
+    throw new Error(
+      "Workspace viewport fit padding must be a finite, non-negative number.",
+    );
+  }
+  if (!Number.isFinite(maxZoom) || maxZoom <= 0) {
+    throw new Error(
+      "Workspace viewport fit maximum zoom must be a finite, positive number.",
+    );
+  }
+  if (!Number.isFinite(duration) || duration < 0) {
+    throw new Error(
+      "Workspace viewport fit duration must be a finite, non-negative number.",
+    );
+  }
+}
+
+export function fitWorkspaceViewportToBounds(
+  host: WorkspaceHost,
+  bounds: Rect,
+  options: WorkspaceViewportBoundsFitOptions,
+): WorkspaceViewportBoundsFitResult {
+  assertWorkspaceViewportFitBounds(bounds);
+  assertWorkspaceViewportFitOptions(options);
+
+  const { width, height, viewportInsets } = getReactFlowStore(host).getState();
+  const viewport = getViewportForBounds(
+    bounds,
+    width,
+    height,
+    { minZoom: 0, maxZoom: options.maxZoom },
+    { padding: options.padding, viewportInsets },
+  );
+  const runtime = getWorkspaceXyflowRuntime(host);
+  if (!runtime.getInstance()) {
+    throw new Error(
+      "Cannot fit workspace viewport bounds before the XYFlow runtime initialized.",
+    );
+  }
+  const duration = resolveWorkspaceMotionDuration(options.duration);
+  return {
+    duration,
+    transition: runtime.setViewport(viewport, { duration }),
+  };
 }
 
 export function zoomToPointerLocation(host: WorkspaceHost): boolean {

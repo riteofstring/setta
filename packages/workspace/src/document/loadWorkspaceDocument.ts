@@ -3,6 +3,7 @@ import {
   armLoadedDocumentFitView,
 } from "../canvas/documentViewportSync";
 import { maybeCompleteInitialFitView } from "../canvas/nodeInternalsActions";
+import { resetWorkspaceSectionAttention } from "../attention/workspaceSectionAttention";
 import { closeWorkspaceMenu } from "../context-menu/workspaceMenuState";
 import { resetDndSessionForLoadedDocument } from "../dnd/dndState";
 import { resetItemDragState } from "../items/itemDragHandlers";
@@ -337,6 +338,7 @@ export function loadWorkspaceDocument(
     includeHiddenSections: false,
   });
 
+  resetWorkspaceSectionAttention(host);
   closeWorkspaceMenu(host, false);
   setWorkspaceSavedViewEditingState(host, false);
   runWithWorkspaceDocumentChangeNotificationsSuppressed(host, () => {

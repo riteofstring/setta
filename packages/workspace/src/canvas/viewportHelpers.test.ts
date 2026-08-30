@@ -21,6 +21,7 @@ import { initialCanvasState } from "./store";
 import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime";
 import type { WorkspaceXyflowInstance } from "./xyflow/types";
 import {
+  fitWorkspaceViewportToBounds,
   focusWorkspaceSection,
   getCanZoomIn,
   getCanZoomOut,
@@ -140,6 +141,49 @@ describe("viewport zoom helpers", () => {
 
     expect(setViewport).toHaveBeenCalledWith(
       { x: 200, y: 200, zoom: 2 },
+      { duration: 0 },
+    );
+  });
+
+  it("fits explicit bounds inside the visible canvas and caps the camera zoom", () => {
+    const { setViewport } = setupXyflowRuntime();
+    testWorkspace.reactFlow.setState({
+      width: 800,
+      height: 600,
+      viewportInsets: { top: 0, right: 100, bottom: 0, left: 200 },
+    });
+
+    const fit = fitWorkspaceViewportToBounds(
+      testWorkspace.host,
+      { x: 100, y: 0, width: 200, height: 100 },
+      { duration: 120, maxZoom: 1, padding: 0 },
+    );
+
+    expect(fit.duration).toBe(120);
+
+    expect(setViewport).toHaveBeenCalledWith(
+      { x: 250, y: 250, zoom: 1 },
+      { duration: 120 },
+    );
+  });
+
+  it("removes explicit bounds-fit motion when reduced motion is requested", () => {
+    vi.stubGlobal("window", {
+      matchMedia: vi.fn(() => ({ matches: true })),
+    });
+    const { setViewport } = setupXyflowRuntime();
+    testWorkspace.reactFlow.setState({ width: 800, height: 600 });
+
+    const fit = fitWorkspaceViewportToBounds(
+      testWorkspace.host,
+      { x: 0, y: 0, width: 400, height: 300 },
+      { duration: 500, maxZoom: 1, padding: 0.1 },
+    );
+
+    expect(fit.duration).toBe(0);
+
+    expect(setViewport).toHaveBeenCalledWith(
+      { x: 200, y: 150, zoom: 1 },
       { duration: 0 },
     );
   });
