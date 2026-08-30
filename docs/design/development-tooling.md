@@ -76,11 +76,12 @@ and cleanup consistent without coupling visual inspection to the performance sui
 ## Workspace browser interaction acceptance
 
 `pnpm workspace:browser:test` builds Workspace and Playground, serves the production Playground,
-and drives an isolated Chrome target through the real XYFlow input path. The marquee acceptance
-starts with focus outside Workspace, keeps the default floating windows open, and Shift-drags from
-a bare pane point through the checklist window. Every sampled move must retain positive marquee
-geometry while the viewport stays fixed; mouse-up must produce a multi-section selection without
-closing the window or reporting a browser error.
+and drives an isolated Chrome target through the real XYFlow input path. The modifier-drag
+acceptance starts with focus outside Workspace and moves a section on its first Cmd/Ctrl drag from
+content that normally exercises XYFlow's no-drag filter. The marquee acceptance keeps the default
+floating windows open and Shift-drags from a bare pane point through the checklist window. Every
+sampled move must retain positive marquee geometry while the viewport stays fixed; mouse-up must
+produce a multi-section selection without closing the window or reporting a browser error.
 
 This suite owns browser event routing and gesture lifecycle acceptance. The parity harness owns
 visual comparison. Its deterministic screenshot setup closes floating windows for several canvas

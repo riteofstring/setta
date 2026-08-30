@@ -50,6 +50,7 @@ import {
 } from "../tooltip/WorkspaceTooltip";
 import { onFitViewHandler } from "./fitView";
 import { useCanvasKeyActivations } from "./keyActivations";
+import { useWorkspacePointerLocation } from "./pointerLocation";
 import { initialCanvasState, useReactFlow } from "./store";
 import { registerWorkspaceHostElement } from "../workspaceHostInternals";
 import {
@@ -108,7 +109,26 @@ const LEAF_KIND = {
 
 function KeyActivationsHost() {
   useCanvasKeyActivations();
+  useWorkspacePointerLocation();
   return <WorkspaceTooltip />;
+}
+
+function replaceElementFromPoint(target: Element): () => void {
+  const descriptor = Object.getOwnPropertyDescriptor(
+    document,
+    "elementFromPoint",
+  );
+  Object.defineProperty(document, "elementFromPoint", {
+    configurable: true,
+    value: () => target,
+  });
+  return () => {
+    if (descriptor) {
+      Object.defineProperty(document, "elementFromPoint", descriptor);
+      return;
+    }
+    Reflect.deleteProperty(document, "elementFromPoint");
+  };
 }
 
 function loadItemDocument(
@@ -317,6 +337,89 @@ describe("useCanvasKeyActivations", () => {
     expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(false);
 
     input.remove();
+  });
+
+  it("arms multi-selection for the workspace under the pointer when focus is outside", async () => {
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    const restoreElementFromPoint = replaceElementFromPoint(host);
+
+    try {
+      await act(async () => {
+        host.dispatchEvent(
+          new MouseEvent("mousemove", {
+            bubbles: true,
+            clientX: 40,
+            clientY: 40,
+          }),
+        );
+      });
+      await dispatchKey("keydown", "Control", {
+        ctrlKey: true,
+        target: input,
+      });
+
+      expect(testWorkspace.reactFlow.getState()).toMatchObject({
+        multiSelectionActive: true,
+        zoomActivationKeyPressed: true,
+      });
+
+      const copyEvent = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        code: "KeyC",
+        ctrlKey: true,
+        key: "c",
+      });
+      await act(async () => {
+        input.dispatchEvent(copyEvent);
+      });
+
+      expect(copyEvent.defaultPrevented).toBe(false);
+      expect(testWorkspace.reactFlow.getState()).toMatchObject({
+        multiSelectionActive: false,
+        zoomActivationKeyPressed: false,
+      });
+    } finally {
+      restoreElementFromPoint();
+      input.remove();
+    }
+  });
+
+  it("does not arm the focused workspace when the pointer belongs to another host", async () => {
+    const secondWorkspace = createWorkspaceTestHost();
+    const secondRoot = document.createElement("div");
+    document.body.appendChild(secondRoot);
+    const unregisterSecondRoot = registerWorkspaceHostElement(
+      secondWorkspace.host,
+      secondRoot,
+    );
+    const restoreElementFromPoint = replaceElementFromPoint(secondRoot);
+
+    try {
+      await act(async () => {
+        host.dispatchEvent(
+          new MouseEvent("mousemove", {
+            bubbles: true,
+            clientX: 60,
+            clientY: 60,
+          }),
+        );
+      });
+      await dispatchKey("keydown", "Control", {
+        ctrlKey: true,
+        target: host,
+      });
+
+      expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(
+        false,
+      );
+    } finally {
+      restoreElementFromPoint();
+      unregisterSecondRoot();
+      secondRoot.remove();
+      secondWorkspace.host.dispose();
+    }
   });
 
   it("does not re-arm multi-selection from auto-repeat mod keydowns after a release", async () => {

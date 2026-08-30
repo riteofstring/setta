@@ -15,6 +15,8 @@ import { repositoryRoot, runPnpm } from "./lib/process.mjs";
 const PREVIEW_PORT = 4_175;
 const PREVIEW_ORIGIN = `http://127.0.0.1:${String(PREVIEW_PORT)}`;
 const READY_TIMEOUT_MS = 15_000;
+const CONTROL_MODIFIER = 2;
+const META_MODIFIER = 4;
 const SHIFT_MODIFIER = 8;
 const MOVE_COUNT = 20;
 const VIEWPORT = {
@@ -186,6 +188,134 @@ async function waitForWorkspace(client) {
   throw new Error("The Playground did not reach an interactive state.");
 }
 
+async function preparePointerOwnedSectionDrag(client) {
+  return evaluate(
+    client,
+    `(() => {
+      const node = document.querySelector('.react-flow__node[data-id="meta-text"]');
+      const target = node?.querySelector('[role="textbox"]');
+      const surface = node?.querySelector('section');
+      if (!(node instanceof HTMLElement) || !(target instanceof HTMLElement) || !(surface instanceof HTMLElement)) {
+        throw new Error("The pointer-owned section drag surface is incomplete.");
+      }
+      const targetBounds = target.getBoundingClientRect();
+      const nodeBounds = node.getBoundingClientRect();
+      const start = {
+        x: targetBounds.left + targetBounds.width / 2,
+        y: targetBounds.top + targetBounds.height / 2,
+      };
+      const hit = document.elementFromPoint(start.x, start.y);
+      if (!(hit instanceof Element) || !hit.closest('.react-flow__node[data-id="meta-text"]')) {
+        throw new Error("The pointer-owned section drag target is covered.");
+      }
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      document.body.focus();
+      const macOS = navigator.userAgent.includes("Mac");
+      return {
+        activeElement: document.activeElement?.tagName ?? null,
+        end: { x: start.x + 80, y: start.y + 40 },
+        key: macOS
+          ? { code: "MetaLeft", key: "Meta", modifiers: ${String(META_MODIFIER)}, windowsVirtualKeyCode: 91 }
+          : { code: "ControlLeft", key: "Control", modifiers: ${String(CONTROL_MODIFIER)}, windowsVirtualKeyCode: 17 },
+        nodeBounds: {
+          height: nodeBounds.height,
+          left: nodeBounds.left,
+          top: nodeBounds.top,
+          width: nodeBounds.width,
+        },
+        start,
+        startHitHasNoDrag: Boolean(hit.closest('.nodrag')),
+      };
+    })()`,
+  );
+}
+
+async function readPointerOwnedSectionDragState(client, point) {
+  return evaluate(
+    client,
+    `(() => {
+      const node = document.querySelector('.react-flow__node[data-id="meta-text"]');
+      const surface = node?.querySelector('section');
+      if (!(node instanceof HTMLElement) || !(surface instanceof HTMLElement)) {
+        throw new Error("The pointer-owned section drag surface disappeared.");
+      }
+      const bounds = node.getBoundingClientRect();
+      const hit = document.elementFromPoint(${String(point.x)}, ${String(point.y)});
+      return {
+        bounds: {
+          height: bounds.height,
+          left: bounds.left,
+          top: bounds.top,
+          width: bounds.width,
+        },
+        hitHasNoDrag: Boolean(hit?.closest('.nodrag')),
+        surfacePointerEvents: getComputedStyle(surface).pointerEvents,
+      };
+    })()`,
+  );
+}
+
+async function dispatchPointerOwnedSectionDrag(client, path) {
+  await client.send("Input.dispatchMouseEvent", {
+    modifiers: 0,
+    type: "mouseMoved",
+    x: path.start.x,
+    y: path.start.y,
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    ...path.key,
+    type: "keyDown",
+  });
+  try {
+    const armed = await readPointerOwnedSectionDragState(client, path.start);
+    await client.send("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 1,
+      clickCount: 1,
+      modifiers: path.key.modifiers,
+      type: "mousePressed",
+      x: path.start.x,
+      y: path.start.y,
+    });
+    for (let step = 1; step <= MOVE_COUNT; step += 1) {
+      const progress = step / MOVE_COUNT;
+      await client.send("Input.dispatchMouseEvent", {
+        button: "left",
+        buttons: 1,
+        modifiers: path.key.modifiers,
+        type: "mouseMoved",
+        x: path.start.x + (path.end.x - path.start.x) * progress,
+        y: path.start.y + (path.end.y - path.start.y) * progress,
+      });
+      await delay(10);
+    }
+    await client.send("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 0,
+      clickCount: 1,
+      modifiers: path.key.modifiers,
+      type: "mouseReleased",
+      x: path.end.x,
+      y: path.end.y,
+    });
+    await delay(100);
+    return {
+      after: await readPointerOwnedSectionDragState(client, path.end),
+      armed,
+    };
+  } finally {
+    await client.send("Input.dispatchKeyEvent", {
+      code: path.key.code,
+      key: path.key.key,
+      modifiers: 0,
+      type: "keyUp",
+      windowsVirtualKeyCode: path.key.windowsVirtualKeyCode,
+    });
+  }
+}
+
 async function prepareMarqueePath(client) {
   return evaluate(
     client,
@@ -355,6 +485,36 @@ async function main() {
     await client.send("Page.navigate", { url: PREVIEW_ORIGIN });
     await loaded;
     await waitForWorkspace(client);
+    const sectionDragPath = await preparePointerOwnedSectionDrag(client);
+    assert.equal(
+      sectionDragPath.activeElement,
+      "BODY",
+      "The section drag must begin with keyboard focus outside Workspace.",
+    );
+    assert.equal(
+      sectionDragPath.startHitHasNoDrag,
+      true,
+      "The section drag target does not exercise XYFlow's no-drag filter.",
+    );
+    const sectionDrag = await dispatchPointerOwnedSectionDrag(
+      client,
+      sectionDragPath,
+    );
+    assert.equal(
+      sectionDrag.armed.surfacePointerEvents,
+      "none",
+      "The pointer-owned modifier did not arm section dragging.",
+    );
+    assert.equal(
+      sectionDrag.armed.hitHasNoDrag,
+      false,
+      "The armed section drag still hit no-drag content.",
+    );
+    assert.ok(
+      sectionDrag.after.bounds.left - sectionDragPath.nodeBounds.left > 60 &&
+        sectionDrag.after.bounds.top - sectionDragPath.nodeBounds.top > 25,
+      "The first pointer-owned modifier drag did not move the section.",
+    );
     const path = await prepareMarqueePath(client);
     assert.equal(
       path.activeElement,
@@ -410,6 +570,10 @@ async function main() {
           completedSelectionLabel: completed.completedSelectionLabel,
           floatingWindowSamples: checklistSamples.length,
           gestureSamples: samples.length,
+          pointerOwnedSectionDelta: {
+            x: sectionDrag.after.bounds.left - sectionDragPath.nodeBounds.left,
+            y: sectionDrag.after.bounds.top - sectionDragPath.nodeBounds.top,
+          },
           viewportTransform: completed.viewportTransform,
         },
         null,

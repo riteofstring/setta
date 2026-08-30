@@ -32,8 +32,12 @@ import {
 } from "../tooltip/WorkspaceTooltip";
 import { getReactFlowStore } from "./store";
 import { useWorkspaceHost } from "../workspaceHostContext";
-import { isWorkspaceHostElement } from "../workspaceHostInternals";
+import {
+  getWorkspaceHostForElement,
+  isWorkspaceHostElement,
+} from "../workspaceHostInternals";
 import type { WorkspaceHost } from "../workspaceHost";
+import { getWorkspacePointerLocation } from "./pointerLocation";
 import { isMacOs } from "./utils";
 
 function isBareTooltipKey(event: KeyboardEvent): boolean {
@@ -130,6 +134,7 @@ const modifierKeys = new Set(["Shift", "Meta", "Control", "Alt"]);
 type HoldMode = {
   chord: ParsedWorkspaceChord;
 
+  activateInPointerOwnedInput?: boolean;
   ignoreInInput: boolean;
   pressed: boolean;
   activate: () => void;
@@ -174,6 +179,7 @@ function createHoldChordTracker(host: WorkspaceHost, macOS: boolean) {
 
     {
       chord: RESERVED_WORKSPACE_GESTURES.multiSelection.chord,
+      activateInPointerOwnedInput: true,
       ignoreInInput: true,
       pressed: false,
       activate: () =>
@@ -221,7 +227,7 @@ function createHoldChordTracker(host: WorkspaceHost, macOS: boolean) {
   }
 
   return {
-    onKeyDown(event: KeyboardEvent) {
+    onKeyDown(event: KeyboardEvent, pointerOwned = false) {
       if (!modifierKeys.has(event.key)) {
         heldKeys.add(event.code);
       }
@@ -234,7 +240,9 @@ function createHoldChordTracker(host: WorkspaceHost, macOS: boolean) {
         if (
           mode.pressed ||
           event.repeat ||
-          (mode.ignoreInInput && editableTarget)
+          (mode.ignoreInInput &&
+            editableTarget &&
+            !(pointerOwned && mode.activateInPointerOwnedInput))
         ) {
           continue;
         }
@@ -368,6 +376,16 @@ function handleEscapeShortcut(
   runEscapeAction(host, event);
 }
 
+function getPointerWorkspaceHost(host: WorkspaceHost): WorkspaceHost | null {
+  const pointer = getWorkspacePointerLocation(host);
+  if (!pointer || typeof document.elementFromPoint !== "function") {
+    return null;
+  }
+  return getWorkspaceHostForElement(
+    document.elementFromPoint(pointer.x, pointer.y),
+  );
+}
+
 export function useCanvasKeyActivations() {
   const host = useWorkspaceHost();
   useEffect(() => {
@@ -406,10 +424,15 @@ export function useCanvasKeyActivations() {
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!isWorkspaceHostElement(host, event.target)) {
+      const keyboardOwned = isWorkspaceHostElement(host, event.target);
+      const pointerHost = getPointerWorkspaceHost(host);
+      const pointerOwned = pointerHost === host;
+      if (pointerOwned || (pointerHost === null && keyboardOwned)) {
+        chordTracker.onKeyDown(event, pointerOwned);
+      }
+      if (!keyboardOwned) {
         return;
       }
-      chordTracker.onKeyDown(event);
       handleTooltipKeyDown(event);
       runWorkspaceKeyBindings(host, event, macOS, chordTracker.heldKeysEqual);
       handleEscapeShortcut(host, event, chordTracker, macOS);

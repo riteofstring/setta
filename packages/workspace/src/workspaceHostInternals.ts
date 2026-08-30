@@ -8,6 +8,7 @@ type WorkspaceHostInternals = {
 };
 
 const internalsByHost = new WeakMap<WorkspaceHost, WorkspaceHostInternals>();
+const hostByRegisteredElement = new WeakMap<HTMLElement, WorkspaceHost>();
 let nextWorkspaceHostDomId = 1;
 
 export function initializeWorkspaceHost(host: WorkspaceHost): void {
@@ -59,7 +60,13 @@ export function registerWorkspaceHostElement(
     throw new Error("This workspace host has no lifecycle state.");
   }
   internals.elements.add(element);
-  return () => internals.elements.delete(element);
+  hostByRegisteredElement.set(element, host);
+  return () => {
+    internals.elements.delete(element);
+    if (hostByRegisteredElement.get(element) === host) {
+      hostByRegisteredElement.delete(element);
+    }
+  };
 }
 
 export function isWorkspaceHostElement(
@@ -71,6 +78,24 @@ export function isWorkspaceHostElement(
     return false;
   }
   return [...internals.elements].some((element) => element.contains(target));
+}
+
+export function getWorkspaceHostForElement(
+  target: EventTarget | null,
+): WorkspaceHost | null {
+  let current = target instanceof Node ? target : null;
+  while (current) {
+    if (current instanceof HTMLElement) {
+      const host = hostByRegisteredElement.get(current);
+      if (host && isWorkspaceHostActive(host)) {
+        return host;
+      }
+    }
+    current =
+      current.parentNode ??
+      (current instanceof ShadowRoot ? current.host : null);
+  }
+  return null;
 }
 
 export function getWorkspaceHostDomId(host: WorkspaceHost): string {
@@ -92,6 +117,11 @@ export function disposeWorkspaceHost(host: WorkspaceHost): void {
   internals.cleanup.clear();
   for (const cleanup of cleanups.reverse()) {
     cleanup();
+  }
+  for (const element of internals.elements) {
+    if (hostByRegisteredElement.get(element) === host) {
+      hostByRegisteredElement.delete(element);
+    }
   }
   internals.elements.clear();
 }

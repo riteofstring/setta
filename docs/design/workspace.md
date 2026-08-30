@@ -10,7 +10,10 @@ One `WorkspaceHost` is the lifetime boundary for one workspace. Registries, stor
 DOM roots, and runtime participants belong to that host. Package operations receive the host
 explicitly or resolve it from `WorkspaceProvider`; there is no current or default global host.
 DOM-root registration exists only to route document-level events back to their owning host,
-including portaled package surfaces.
+including portaled package surfaces. Held canvas gestures resolve their host from the current
+pointer target when it belongs to a registered Workspace surface, then fall back to the focused
+host when the pointer is outside every Workspace. Focus continues to own keyboard commands and
+editing shortcuts.
 
 `WorkspaceDocument` is the canonical serializable authority for sections, item trees, top-level
 geometry, viewport, selection, and optional saved canvas views. Appearance, menus, drag sessions,
