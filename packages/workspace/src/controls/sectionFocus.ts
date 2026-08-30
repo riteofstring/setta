@@ -36,6 +36,63 @@ function getSectionFocusElement(
   return refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
 }
 
+function getCanvasPane(host: WorkspaceHost): HTMLElement | null {
+  return (
+    getReactFlowStore(host)
+      .getState()
+      .domNode?.querySelector<HTMLElement>(".react-flow__pane") ?? null
+  );
+}
+
+export function captureSectionGroupingFocus(
+  host: WorkspaceHost,
+  groupedSectionIds: ReadonlyArray<string>,
+): HTMLElement | null {
+  if (
+    typeof document === "undefined" ||
+    !(document.activeElement instanceof HTMLElement)
+  ) {
+    return null;
+  }
+  const canvas = getReactFlowStore(host).getState().domNode;
+  if (!canvas?.contains(document.activeElement)) {
+    return null;
+  }
+  if (document.activeElement.matches(".react-flow__nodesselection-rect")) {
+    return document.activeElement;
+  }
+  const refs = getSectionRefsStore(host).getState();
+  return groupedSectionIds.some((sectionId) =>
+    (refs.selfOnly[sectionId] ?? refs.withNested[sectionId])?.contains(
+      document.activeElement,
+    ),
+  )
+    ? document.activeElement
+    : null;
+}
+
+export function restoreFocusAfterSectionGrouping(
+  host: WorkspaceHost,
+  previousFocus: HTMLElement | null,
+): void {
+  if (!previousFocus || typeof document === "undefined") {
+    return;
+  }
+  const activeElement = document.activeElement;
+  if (
+    activeElement !== previousFocus &&
+    activeElement !== document.body &&
+    activeElement !== document.documentElement
+  ) {
+    return;
+  }
+  const pane = getCanvasPane(host);
+  if (!pane) {
+    return;
+  }
+  pane.focus({ preventScroll: true });
+}
+
 export function handleSectionControlEscape(
   host: WorkspaceHost,
   event: SectionControlKeyboardEvent,
@@ -95,9 +152,7 @@ export function restoreFocusAfterSectionRemoval(
       section.focus({ preventScroll: true });
       return;
     }
-    const pane = getReactFlowStore(host)
-      .getState()
-      .domNode?.querySelector<HTMLElement>(".react-flow__pane");
+    const pane = getCanvasPane(host);
     if (!pane) {
       throw new Error(
         "Cannot restore focus after section removal without a mounted canvas pane.",

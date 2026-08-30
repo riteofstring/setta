@@ -10,6 +10,10 @@ import {
   pasteWorkspaceClipboard,
 } from "../clipboard/operations";
 import { getItemDndStateStore } from "../dnd/itemDndState";
+import {
+  captureSectionGroupingFocus,
+  restoreFocusAfterSectionGrouping,
+} from "../controls/sectionFocus";
 import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import { isGroupSection } from "../document/documentSelectors";
 import { getWorkspaceItemFactory } from "../document/sectionKindRegistry";
@@ -326,12 +330,15 @@ const groupSectionsCommand: WorkspacePackageCommandDefinition = {
     return `${formatSectionCount(getRootSelectedSectionCount(targets), "section")} grouped.`;
   },
   run: (context) => {
-    getReactFlowStore(context.host).setState({ nodesSelectionDims: null });
-    groupSections(
+    const selectedSectionIds = getSelectedSectionIds(context);
+    const previousFocus = captureSectionGroupingFocus(
       context.host,
-      getSelectedSectionIds(context),
-      `group-${crypto.randomUUID()}`,
+      selectedSectionIds,
     );
+    const groupId = `group-${crypto.randomUUID()}`;
+    getReactFlowStore(context.host).setState({ nodesSelectionDims: null });
+    groupSections(context.host, selectedSectionIds, groupId);
+    restoreFocusAfterSectionGrouping(context.host, previousFocus);
   },
 };
 

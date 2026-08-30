@@ -21,8 +21,10 @@ import { initialCanvasState, useReactFlow } from "../canvas/store";
 import type { WorkspaceDocumentState } from "../document/stores";
 import { useSectionRefs } from "../section/sectionRefs";
 import {
+  captureSectionGroupingFocus,
   focusSectionAfterEscape,
   resolveSectionFocusAfterRemoval,
+  restoreFocusAfterSectionGrouping,
   restoreFocusAfterSectionRemoval,
 } from "./sectionFocus";
 
@@ -133,6 +135,78 @@ describe("section removal focus", () => {
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
     expect(document.activeElement).toBe(pane);
+    canvas.remove();
+  });
+});
+
+describe("section grouping focus", () => {
+  it("keeps keyboard ownership while the focused selection is replaced", () => {
+    const canvas = document.createElement("div");
+    const pane = document.createElement("div");
+    const selection = document.createElement("div");
+    pane.className = "react-flow__pane";
+    selection.className = "react-flow__nodesselection-rect";
+    pane.tabIndex = -1;
+    selection.tabIndex = -1;
+    canvas.append(pane, selection);
+    document.body.appendChild(canvas);
+    testWorkspace.reactFlow.setState({ domNode: canvas });
+    selection.focus();
+
+    const previousFocus = captureSectionGroupingFocus(testWorkspace.host, [
+      "first",
+      "second",
+    ]);
+    selection.remove();
+    restoreFocusAfterSectionGrouping(testWorkspace.host, previousFocus);
+
+    expect(document.activeElement).toBe(pane);
+    canvas.remove();
+  });
+
+  it("preserves a newer focus destination", () => {
+    const canvas = document.createElement("div");
+    const pane = document.createElement("div");
+    const selection = document.createElement("div");
+    const destination = document.createElement("button");
+    pane.className = "react-flow__pane";
+    selection.className = "react-flow__nodesselection-rect";
+    pane.tabIndex = -1;
+    selection.tabIndex = -1;
+    canvas.append(pane, selection);
+    document.body.append(canvas, destination);
+    testWorkspace.reactFlow.setState({ domNode: canvas });
+    selection.focus();
+
+    const previousFocus = captureSectionGroupingFocus(testWorkspace.host, [
+      "first",
+      "second",
+    ]);
+    selection.remove();
+    destination.focus();
+    restoreFocusAfterSectionGrouping(testWorkspace.host, previousFocus);
+
+    expect(document.activeElement).toBe(destination);
+    canvas.remove();
+    destination.remove();
+  });
+
+  it("ignores focus in an unrelated canvas section", () => {
+    const canvas = document.createElement("div");
+    const grouped = document.createElement("div");
+    const unrelated = document.createElement("button");
+    canvas.append(grouped, unrelated);
+    document.body.appendChild(canvas);
+    testWorkspace.reactFlow.setState({ domNode: canvas });
+    testWorkspace.sectionRefs.setState({
+      withNested: { first: grouped },
+    });
+    unrelated.focus();
+
+    expect(
+      captureSectionGroupingFocus(testWorkspace.host, ["first"]),
+    ).toBeNull();
+    expect(document.activeElement).toBe(unrelated);
     canvas.remove();
   });
 });
