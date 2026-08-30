@@ -12,6 +12,7 @@ import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
 import { readCallableSectionData } from "../sections/CallableSection";
 import { readParameterDictionarySectionData } from "../sections/ParamDictSection";
 import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
+import { forestMutationProposal } from "./pythonCanvasAppSupport";
 import {
   CALLABLE_SECTION_KIND,
   GENERATED_PYTHON_SECTION_ID,
@@ -877,6 +878,83 @@ describe("Python Canvas V2 workspace projection", () => {
       ],
       topLevelSectionIds: ["list:objects", "dictionary:options"],
     });
+  });
+
+  it("keeps coordinate-only top-level layout changes out of forest mutations", () => {
+    const snapshot = dynamicSnapshot();
+    const document = projectWorkspaceDocument(snapshot);
+    const firstId = callableSectionID("callable:first");
+    const secondId = callableSectionID("callable:second");
+    const coordinateOnly = {
+      ...document,
+      topLevelSections: {
+        ...document.topLevelSections,
+        [firstId]: {
+          ...document.topLevelSections[firstId]!,
+          x: 720,
+          y: 360,
+        },
+        [secondId]: {
+          ...document.topLevelSections[secondId]!,
+          x: 48,
+          y: 624,
+        },
+      },
+    };
+
+    expect(workspaceForestProposal(coordinateOnly, snapshot)).toEqual(
+      workspaceForestProposal(document, snapshot),
+    );
+    expect(forestMutationProposal(coordinateOnly, snapshot)).toBeNull();
+  });
+
+  it("retains local top-level coordinates through a later canonical projection", () => {
+    const snapshot = dynamicSnapshot();
+    const host = createWorkspaceHost();
+    registerPythonCanvasSectionKinds(host);
+    host.loadDocument(projectWorkspaceDocument(snapshot));
+    const firstId = callableSectionID("callable:first");
+    const secondId = callableSectionID("callable:second");
+    const current = host.getSnapshot();
+    const firstLayout = {
+      ...current.topLevelSections[firstId]!,
+      x: 720,
+      y: 360,
+    };
+    const secondLayout = {
+      ...current.topLevelSections[secondId]!,
+      x: 48,
+      y: 624,
+    };
+    host.loadDocument({
+      ...current,
+      topLevelSections: {
+        ...current.topLevelSections,
+        [firstId]: firstLayout,
+        [secondId]: secondLayout,
+      },
+    });
+    const laterSnapshot = parseProjectSnapshotV2({
+      ...snapshot,
+      callables: snapshot.callables.map((callable) =>
+        callable.id === "callable:first"
+          ? { ...callable, name: "First callable updated" }
+          : callable,
+      ),
+      project: {
+        ...snapshot.project,
+        revision: snapshot.project.revision + 1,
+      },
+    });
+
+    applyCanonicalSnapshot(host, laterSnapshot);
+
+    expect(host.getSnapshot().sections[firstId]?.name).toBe(
+      "First callable updated",
+    );
+    expect(host.getSnapshot().topLevelSections[firstId]).toEqual(firstLayout);
+    expect(host.getSnapshot().topLevelSections[secondId]).toEqual(secondLayout);
+    host.dispose();
   });
 
   it("promotes a nested leaf once and keeps the resulting empty parent typed", () => {
