@@ -120,6 +120,9 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
       data-section-presentation={isMetaControl ? "meta-control" : "section"}
       data-section-active={isActiveSection ? "true" : "false"}
       data-workspace-section-shell="true"
+      data-workspace-section-style-themed={
+        hasSectionStyleTheme ? "true" : undefined
+      }
       style={sectionShellStyle}
     >
       <SectionContainerContent

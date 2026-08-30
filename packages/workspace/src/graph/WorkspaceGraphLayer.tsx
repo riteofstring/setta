@@ -3,6 +3,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent,
   type MouseEvent,
@@ -12,7 +13,11 @@ import { useReactFlow } from "../canvas/store";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import { getIsEditableTarget } from "../keybindings/editableTarget";
-import type { WorkspaceGraphEdge, WorkspaceGraphPortSide } from "./types";
+import type {
+  WorkspaceGraphEdge,
+  WorkspaceGraphPortFamily,
+  WorkspaceGraphPortSide,
+} from "./types";
 import {
   getWorkspaceGraphBezier,
   getWorkspaceGraphElementCenter,
@@ -36,6 +41,22 @@ type WorkspaceGraphGeometry = Readonly<{
 const EMPTY_GRAPH_GEOMETRY: WorkspaceGraphGeometry = {
   height: 0,
   ports: new Map(),
+  width: 0,
+};
+
+const EDGE_INTERACTION_WIDTH: Record<WorkspaceGraphPortFamily, number> = {
+  data: 16,
+  agentic: 16,
+  workflow: 18,
+};
+
+type WorkspaceGraphLabelBounds = Readonly<{
+  height: number;
+  width: number;
+}>;
+
+const EMPTY_LABEL_BOUNDS: WorkspaceGraphLabelBounds = {
+  height: 0,
   width: 0,
 };
 
@@ -113,6 +134,108 @@ function getWorkspaceGraphEdgeClassName({
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function WorkspaceGraphMeasuredEdgeLabel({
+  label,
+  x,
+  y,
+}: {
+  label: string;
+  x: number;
+  y: number;
+}) {
+  const textRef = useRef<SVGTextElement>(null);
+  const [bounds, setBounds] =
+    useState<WorkspaceGraphLabelBounds>(EMPTY_LABEL_BOUNDS);
+
+  useEffect(() => {
+    const textElement = textRef.current;
+    if (!textElement || typeof textElement.getBBox !== "function") {
+      return;
+    }
+    const nextBounds = textElement.getBBox();
+    setBounds({ height: nextBounds.height, width: nextBounds.width });
+  }, [label]);
+
+  return (
+    <g
+      className="setta-workspace-graph-edge-label"
+      transform={`translate(${x - bounds.width / 2} ${y - bounds.height / 2})`}
+      visibility={bounds.width ? "visible" : "hidden"}
+    >
+      <rect
+        className="setta-workspace-graph-edge-label-background"
+        height={bounds.height + 8}
+        rx={2}
+        ry={2}
+        width={bounds.width + 4}
+        x={-2}
+        y={-4}
+      />
+      <text
+        className="setta-workspace-graph-edge-label-text"
+        dy="0.3em"
+        ref={textRef}
+        y={bounds.height / 2}
+      >
+        {label}
+      </text>
+    </g>
+  );
+}
+
+function WorkspaceGraphWorkflowEdgeLabel({
+  label,
+  x,
+  y,
+}: {
+  label: string;
+  x: number;
+  y: number;
+}) {
+  const width = Math.max(80, label.length * 6 + 12);
+  return (
+    <g
+      className="setta-workspace-graph-edge-label"
+      transform={`translate(${x - width / 2} ${y - 10})`}
+    >
+      <rect
+        className="setta-workspace-graph-edge-label-background"
+        height={20}
+        rx={10}
+        ry={10}
+        width={width}
+      />
+      <text
+        className="setta-workspace-graph-edge-label-text"
+        textAnchor="middle"
+        x={width / 2}
+        y={13}
+      >
+        {label}
+      </text>
+    </g>
+  );
+}
+
+function WorkspaceGraphEdgeLabel({
+  edge,
+  x,
+  y,
+}: {
+  edge: WorkspaceGraphEdge;
+  x: number;
+  y: number;
+}) {
+  if (!edge.label) {
+    return null;
+  }
+  return edge.family === "workflow" ? (
+    <WorkspaceGraphWorkflowEdgeLabel label={edge.label} x={x} y={y} />
+  ) : (
+    <WorkspaceGraphMeasuredEdgeLabel label={edge.label} x={x} y={y} />
+  );
 }
 
 function WorkspaceGraphEdgePath({
@@ -231,30 +354,13 @@ function WorkspaceGraphEdgePath({
         d={bezier.path}
         fill="none"
         stroke="transparent"
-        strokeWidth={20}
+        strokeWidth={EDGE_INTERACTION_WIDTH[edge.family]}
       />
-      {edge.label ? (
-        <g
-          className="setta-workspace-graph-edge-label"
-          transform={`translate(${bezier.labelX} ${bezier.labelY})`}
-        >
-          <rect
-            className="setta-workspace-graph-edge-label-background"
-            height={18}
-            rx={9}
-            width={Math.max(36, edge.label.length * 6 + 12)}
-            x={-Math.max(36, edge.label.length * 6 + 12) / 2}
-            y={-9}
-          />
-          <text
-            className="setta-workspace-graph-edge-label-text"
-            textAnchor="middle"
-            y={3.5}
-          >
-            {edge.label}
-          </text>
-        </g>
-      ) : null}
+      <WorkspaceGraphEdgeLabel
+        edge={edge}
+        x={bezier.labelX}
+        y={bezier.labelY}
+      />
       {canReconnect ? (
         <>
           <circle

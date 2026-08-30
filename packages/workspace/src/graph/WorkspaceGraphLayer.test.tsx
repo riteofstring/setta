@@ -76,6 +76,7 @@ function createConfiguration(
       {
         family: "workflow",
         id: "workflow-edge",
+        label: "Ready",
         source: { portId: "workflow-source", sectionId: "source" },
         target: { portId: "workflow-target", sectionId: "nested" },
       },
@@ -323,7 +324,45 @@ describe("WorkspaceGraphLayer", () => {
       dataEdge
         .querySelector(".setta-workspace-graph-edge-interaction")
         ?.getAttribute("stroke-width"),
+    ).toBe("16");
+    expect(
+      agentEdge
+        .querySelector(".setta-workspace-graph-edge-interaction")
+        ?.getAttribute("stroke-width"),
+    ).toBe("16");
+    expect(
+      workflowEdge
+        .querySelector(".setta-workspace-graph-edge-interaction")
+        ?.getAttribute("stroke-width"),
+    ).toBe("18");
+    const workflowLabel = workflowEdge.querySelector(
+      ".setta-workspace-graph-edge-label",
+    );
+    expect(
+      workflowLabel
+        ?.querySelector(".setta-workspace-graph-edge-label-background")
+        ?.getAttribute("width"),
+    ).toBe("80");
+    expect(
+      workflowLabel
+        ?.querySelector(".setta-workspace-graph-edge-label-background")
+        ?.getAttribute("height"),
     ).toBe("20");
+    expect(
+      workflowLabel
+        ?.querySelector(".setta-workspace-graph-edge-label-background")
+        ?.getAttribute("rx"),
+    ).toBe("10");
+    expect(
+      workflowLabel
+        ?.querySelector(".setta-workspace-graph-edge-label-text")
+        ?.getAttribute("x"),
+    ).toBe("40");
+    expect(
+      workflowLabel
+        ?.querySelector(".setta-workspace-graph-edge-label-text")
+        ?.getAttribute("y"),
+    ).toBe("13");
   });
 
   it("keeps edge geometry fixed in workspace coordinates while the viewport pans", async () => {

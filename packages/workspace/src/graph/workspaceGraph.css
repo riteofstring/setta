@@ -17,8 +17,6 @@
 
 .setta-workspace .setta-workspace-graph-edge-path {
   fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .setta-workspace .setta-workspace-graph-edge-interaction {
@@ -29,7 +27,7 @@
 .setta-workspace
   .setta-workspace-graph-edge--data
   .setta-workspace-graph-edge-path {
-  stroke: #b1b1b7;
+  stroke: var(--setta-wire-color, #b1b1b7);
   stroke-width: 1;
 }
 
@@ -53,18 +51,11 @@
   .setta-workspace-graph-edge-path {
   stroke: #60a5fa;
   stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   stroke-dasharray: 7 5;
 }
 
-.setta-workspace
-  .setta-workspace-graph-edge--agentic:hover
-  .setta-workspace-graph-edge-path,
-.setta-workspace
-  .setta-workspace-graph-edge--agentic:focus
-  .setta-workspace-graph-edge-path,
-.setta-workspace
-  .setta-workspace-graph-edge--agentic:focus-visible
-  .setta-workspace-graph-edge-path,
 .setta-workspace
   .setta-workspace-graph-edge--agentic.setta-workspace-graph-edge--selected
   .setta-workspace-graph-edge-path {
@@ -94,17 +85,11 @@
   .setta-workspace-graph-edge-path {
   stroke: #f59e0b;
   stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: none;
 }
 
-.setta-workspace
-  .setta-workspace-graph-edge--workflow:hover
-  .setta-workspace-graph-edge-path,
-.setta-workspace
-  .setta-workspace-graph-edge--workflow:focus
-  .setta-workspace-graph-edge-path,
-.setta-workspace
-  .setta-workspace-graph-edge--workflow:focus-visible
-  .setta-workspace-graph-edge-path,
 .setta-workspace
   .setta-workspace-graph-edge--workflow.setta-workspace-graph-edge--selected
   .setta-workspace-graph-edge-path {
@@ -113,8 +98,8 @@
   filter: drop-shadow(0 0 4px rgb(234 88 12 / 0.24));
 }
 
-.setta-workspace .setta-workspace-graph-edge:focus,
-.setta-workspace .setta-workspace-graph-edge:focus-visible {
+.setta-workspace .setta-workspace-graph-edge--data:focus,
+.setta-workspace .setta-workspace-graph-edge--data:focus-visible {
   outline: none;
 }
 
@@ -123,16 +108,13 @@
 }
 
 .setta-workspace .setta-workspace-graph-edge-label-background {
-  fill: rgb(255 255 255 / 0.96);
-  stroke: rgb(100 116 139 / 0.36);
-  stroke-width: 1;
+  fill: white;
+  stroke: none;
 }
 
 .setta-workspace .setta-workspace-graph-edge-label-text {
-  fill: #334155;
+  fill: black;
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
 }
 
 .setta-workspace
@@ -154,12 +136,8 @@
 }
 
 .setta-workspace .setta-workspace-graph-connection-preview {
-  stroke: #60a5fa;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 7 5;
-  filter: drop-shadow(0 0 4px rgb(37 99 235 / 0.28));
+  stroke: var(--setta-wire-color, #b1b1b7);
+  stroke-width: 1;
 }
 
 .setta-workspace .setta-workspace-graph-port-safe-zone {
@@ -171,13 +149,14 @@
   --setta-workspace-graph-port-side-offset: -6px;
   --setta-workspace-graph-port-dot-offset: 0px;
   position: absolute;
-  z-index: 160;
+  z-index: 40;
   display: block;
   width: var(--setta-workspace-graph-port-safe-width);
   height: var(--setta-workspace-graph-port-safe-height);
   margin: 0;
   padding: 0;
   border: 0;
+  outline: none;
   background: transparent;
   box-sizing: border-box;
   cursor: crosshair;
@@ -223,6 +202,7 @@
   --setta-workspace-graph-port-safe-width: 32px;
   --setta-workspace-graph-port-side-offset: -32px;
   --setta-workspace-graph-port-dot-offset: 6px;
+  z-index: 160;
   opacity: 0;
 }
 
@@ -251,11 +231,6 @@
 }
 
 .setta-workspace
-  .setta-workspace-graph-port--data.setta-workspace-graph-port--disabled {
-  opacity: 0.45;
-}
-
-.setta-workspace
   :is(
     .setta-workspace-graph-port--agentic,
     .setta-workspace-graph-port--workflow
@@ -265,13 +240,30 @@
 
 .setta-workspace
   [data-workspace-section-shell="true"]:hover
-  .setta-workspace-graph-port--disabled,
-.setta-workspace .setta-workspace-graph-port--disabled:hover,
-.setta-workspace .setta-workspace-graph-port--disabled:focus-visible,
+  :is(
+    .setta-workspace-graph-port--agentic,
+    .setta-workspace-graph-port--workflow
+  ).setta-workspace-graph-port--disabled,
 .setta-workspace
-  .setta-workspace-graph-port--connected.setta-workspace-graph-port--disabled,
+  :is(
+    .setta-workspace-graph-port--agentic,
+    .setta-workspace-graph-port--workflow
+  ).setta-workspace-graph-port--disabled:hover,
 .setta-workspace
-  .setta-workspace-graph-port--connection-active.setta-workspace-graph-port--disabled {
+  :is(
+    .setta-workspace-graph-port--agentic,
+    .setta-workspace-graph-port--workflow
+  ).setta-workspace-graph-port--disabled:focus-visible,
+.setta-workspace
+  :is(
+    .setta-workspace-graph-port--agentic,
+    .setta-workspace-graph-port--workflow
+  ).setta-workspace-graph-port--connected.setta-workspace-graph-port--disabled,
+.setta-workspace
+  :is(
+    .setta-workspace-graph-port--agentic,
+    .setta-workspace-graph-port--workflow
+  ).setta-workspace-graph-port--connection-active.setta-workspace-graph-port--disabled {
   opacity: 0.45;
 }
 
@@ -285,6 +277,15 @@
   background: var(--setta-workspace-graph-port-color);
   box-sizing: border-box;
   transform: translateY(-50%);
+}
+
+.setta-workspace
+  .setta-workspace-graph-port--data
+  .setta-workspace-graph-port-dot {
+  transition:
+    background-color 80ms ease-out,
+    border-color 80ms ease-out,
+    box-shadow 80ms ease-out;
 }
 
 .setta-workspace
@@ -334,39 +335,6 @@
   background: transparent;
 }
 
-.setta-workspace
-  .setta-workspace-graph-port--candidate-valid
-  .setta-workspace-graph-port-dot {
-  border-color: #16a34a;
-  box-shadow: 0 0 0 3px rgb(22 163 74 / 0.18);
-}
-
-.setta-workspace
-  .setta-workspace-graph-port--candidate-valid.setta-workspace-graph-port--source
-  .setta-workspace-graph-port-dot {
-  background: #16a34a;
-}
-
-.setta-workspace
-  .setta-workspace-graph-port--candidate-invalid
-  .setta-workspace-graph-port-dot {
-  border-color: #ef4444;
-  box-shadow: 0 0 0 3px rgb(239 68 68 / 0.16);
-}
-
-.setta-workspace
-  .setta-workspace-graph-port--candidate-invalid.setta-workspace-graph-port--source
-  .setta-workspace-graph-port-dot {
-  background: #ef4444;
-}
-
-.setta-workspace
-  .setta-workspace-graph-port-safe-zone:focus-visible
-  .setta-workspace-graph-port-dot {
-  outline: 2px solid #2563eb;
-  outline-offset: 3px;
-}
-
 .setta-workspace.setta-workspace-dark .setta-workspace-graph-port-safe-zone {
   --setta-workspace-graph-port-color: hsl(219 25% 77%);
   --setta-workspace-graph-port-border-color: hsl(220 25% 11%);
@@ -380,6 +348,43 @@
 .setta-workspace.setta-workspace-dark .setta-workspace-graph-port--workflow {
   --setta-workspace-graph-port-color: #f59e0b;
   --setta-workspace-graph-port-border-color: #f59e0b;
+}
+
+.setta-workspace
+  [data-workspace-section-style-themed="true"]
+  > .setta-workspace-graph-port--data {
+  --setta-workspace-graph-port-color: var(--setta-section-style-arg-handle);
+  --setta-workspace-graph-port-border-color: var(
+    --setta-section-style-arg-handle
+  );
+}
+
+.setta-workspace
+  [data-workspace-section-style-themed="true"]
+  > .setta-workspace-graph-port--data:not(:disabled):hover
+  .setta-workspace-graph-port-dot {
+  border-color: var(--setta-section-style-arg-handle-hover);
+  background: var(--setta-section-style-arg-handle-hover);
+}
+
+.setta-workspace
+  [data-workspace-section-style-themed="true"]
+  > .setta-workspace-graph-port--data:not(:disabled):active
+  .setta-workspace-graph-port-dot {
+  border-color: var(--setta-section-style-arg-handle-active);
+  background: var(--setta-section-style-arg-handle-active);
+}
+
+.setta-workspace
+  [data-workspace-section-style-themed="true"]
+  > :is(
+    .setta-workspace-graph-port--agentic,
+    .setta-workspace-graph-port--workflow
+  ) {
+  --setta-workspace-graph-port-color: var(--setta-section-style-agentic-handle);
+  --setta-workspace-graph-port-border-color: var(
+    --setta-section-style-agentic-handle
+  );
 }
 
 .setta-workspace.setta-workspace-dark
@@ -412,16 +417,6 @@
   .setta-workspace-graph-edge-path {
   stroke: #fb923c;
   filter: drop-shadow(0 0 5px rgb(251 146 60 / 0.28));
-}
-
-.setta-workspace.setta-workspace-dark
-  .setta-workspace-graph-edge-label-background {
-  fill: rgb(30 41 59 / 0.96);
-  stroke: rgb(148 163 184 / 0.36);
-}
-
-.setta-workspace.setta-workspace-dark .setta-workspace-graph-edge-label-text {
-  fill: #e2e8f0;
 }
 
 .setta-workspace.setta-workspace-dark

@@ -19,7 +19,11 @@ import {
   getSectionOrThrow,
   GROUP_SECTION_KIND,
 } from "../../document/documentSelectors";
-import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
+import {
+  useActiveSections,
+  useWorkspaceAppearance,
+  useWorkspaceDocument,
+} from "../../document/stores";
 import { NO_WHEEL_CLASS_NAME } from "../../interaction";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import { WorkspaceGraphPorts } from "../../graph/WorkspaceGraphPorts";
@@ -32,6 +36,8 @@ import { SectionTitle } from "../header/SectionTitle";
 import { getOnSectionClick } from "../sectionClick";
 import { getOutlineColor } from "../sectionColors";
 import { useSectionRefAndInit } from "../sectionRefs";
+import { deriveSectionStyleTheme } from "../sectionStyleColors";
+import { resolveSectionStyleVars } from "../sectionStyleVars";
 
 export type SectionDragListeners = React.HTMLAttributes<HTMLDivElement>;
 export type SectionDragRef = (element: Element | null) => void;
@@ -119,8 +125,13 @@ function ContainerGroup({
     x.activeIds.includes(sectionId),
   );
   const showAttention = useWorkspaceSectionAttentionHighlight(sectionId);
+  const darkMode = useWorkspaceAppearance((x) => x.darkMode);
   const disablePointerEvents = useShouldDisablePointerEvents();
   const { ref: overflowRef, isScrollable } = useIsScrollable();
+  const sectionStyleTheme = section.styleColor
+    ? deriveSectionStyleTheme(section.styleColor, darkMode)
+    : null;
+  const hasSectionStyleTheme = sectionStyleTheme !== null;
 
   const outlineColor = getOutlineColor({ isActiveSection });
   const pointerSelectClassName =
@@ -129,7 +140,11 @@ function ContainerGroup({
     positionAndSizeLocked,
     outlineColor,
   );
-  const groupStyle = getGroupStyle(style, overflowMode, section.size);
+  const groupStyle = getGroupStyle(
+    { ...resolveSectionStyleVars(sectionStyleTheme), ...style },
+    overflowMode,
+    section.size,
+  );
   const contentClassName = getContentClassName(overflowMode, isScrollable);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -191,6 +206,9 @@ function ContainerGroup({
       data-group-overflow-mode={overflowMode ? "bounded" : "auto"}
       data-section-id={sectionId}
       data-workspace-section-shell="true"
+      data-workspace-section-style-themed={
+        hasSectionStyleTheme ? "true" : undefined
+      }
     >
       <div
         className={`${outlineClassName} setta-workspace-section-attention ${showAttention ? "setta-workspace-section-attention-active" : ""}`}

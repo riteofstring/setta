@@ -55,6 +55,11 @@ describe("Container group graph ports", () => {
   });
 
   it("renders a positioned controlled port on the group shell", async () => {
+    workspace.document.setState({
+      sections: {
+        group: { ...createGroupSection(), styleColor: "#3b82f6" },
+      },
+    });
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={workspace}>
@@ -94,6 +99,17 @@ describe("Container group graph ports", () => {
     expect(groupShell?.getAttribute("data-workspace-section-shell")).toBe(
       "true",
     );
+    expect(
+      groupShell?.getAttribute("data-workspace-section-style-themed"),
+    ).toBe("true");
+    expect(
+      groupShell?.style.getPropertyValue("--setta-section-style-arg-handle"),
+    ).toBe("#bad3fc");
+    expect(
+      groupShell?.style.getPropertyValue(
+        "--setta-section-style-agentic-handle",
+      ),
+    ).toBe("#80aef9");
     expect(groupShell?.contains(port)).toBe(true);
     expect(port?.getAttribute("data-port-side")).toBe("right");
     expect(port?.style.top).toBe("25%");
