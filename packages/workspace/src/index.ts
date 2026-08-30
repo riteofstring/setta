@@ -1,6 +1,20 @@
 export { createWorkspaceHost } from "./workspaceHost";
 export type { WorkspaceHost, WorkspaceHostOptions } from "./workspaceHost";
 export {
+  DEFAULT_WORKSPACE_TOP_LEVEL_AUTO_LAYOUT_GAP,
+  planWorkspaceTopLevelAutoLayout,
+} from "./auto-layout/planner";
+export type {
+  WorkspaceTopLevelAutoLayoutOptions,
+  WorkspaceTopLevelAutoLayoutPlan,
+  WorkspaceTopLevelAutoLayoutRectangle,
+} from "./auto-layout/planner";
+export {
+  autoLayoutTopLevelSections,
+  getWorkspaceTopLevelAutoLayoutDisabledReason,
+} from "./auto-layout/topLevelAutoLayout";
+export type { WorkspaceTopLevelAutoLayoutResult } from "./auto-layout/topLevelAutoLayout";
+export {
   copyWorkspaceSelection,
   duplicateWorkspaceSelection,
   getWorkspaceClipboardAvailability,

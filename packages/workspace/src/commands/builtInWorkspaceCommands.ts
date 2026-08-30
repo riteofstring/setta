@@ -1,5 +1,9 @@
 import { getReactFlowStore } from "../canvas/store";
 import {
+  autoLayoutTopLevelSections,
+  getWorkspaceTopLevelAutoLayoutDisabledReason,
+} from "../auto-layout/topLevelAutoLayout";
+import {
   copyWorkspaceSelection,
   duplicateWorkspaceSelection,
   getWorkspaceClipboardAvailability,
@@ -164,6 +168,20 @@ const pasteSectionsCommand: WorkspacePackageCommandDefinition = {
     getWorkspaceClipboardDisabledReason(context.host, "paste"),
   run: (context) => {
     void pasteWorkspaceClipboard(context.host);
+  },
+};
+
+const autoLayoutTopLevelCommand: WorkspacePackageCommandDefinition = {
+  id: "workspace.auto-layout-top-level",
+  scope: "pane",
+  surfaces: ["context-menu", "palette"],
+  label: "Auto Layout",
+  keywords: ["arrange", "pack", "layout"],
+  getDisabledReason: (context) =>
+    getWorkspaceTopLevelAutoLayoutDisabledReason(context.host),
+  getStatusMessage: () => "Top-level sections arranged.",
+  run: (context) => {
+    autoLayoutTopLevelSections(context.host);
   },
 };
 
@@ -490,6 +508,7 @@ export const builtInWorkspaceCommands: ReadonlyArray<WorkspacePackageCommandDefi
     redoWorkspaceCommand,
     copySectionsCommand,
     pasteSectionsCommand,
+    autoLayoutTopLevelCommand,
     duplicateSectionsCommand,
     groupSectionsCommand,
     toggleGroupOverflowCommand,

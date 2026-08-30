@@ -15,6 +15,7 @@ type IsRequiredProperty<Value, Key extends keyof Value> =
 const RUNTIME_EXPORTS = [
   "ColorValueControl",
   "DEFAULT_SECTION_TAG_COLOR_PALETTE",
+  "DEFAULT_WORKSPACE_TOP_LEVEL_AUTO_LAYOUT_GAP",
   "DEFAULT_META_CONTROL_SIZE",
   "DROPZONE_META_CONTROL_SIZE",
   "DateValueControl",
@@ -67,6 +68,7 @@ const RUNTIME_EXPORTS = [
   "WORKSPACE_INSPECTOR_TAB_ID",
   "WORKSPACE_OUTLINE_TAB_ID",
   "activateItemSelect",
+  "autoLayoutTopLevelSections",
   "buildWorkspaceFloatingSnapBounds",
   "buildWorkspaceFloatingSnapResizeBounds",
   "buildWorkspaceFloatingSnapResizeSeams",
@@ -103,6 +105,7 @@ const RUNTIME_EXPORTS = [
   "getWorkspaceTextSectionData",
   "getWorkspaceKeyBindingConflicts",
   "getWorkspaceKeyBindings",
+  "getWorkspaceTopLevelAutoLayoutDisabledReason",
   "insertWorkspaceItem",
   "maximizeWorkspaceWindow",
   "minimizeWorkspaceWindow",
@@ -112,6 +115,7 @@ const RUNTIME_EXPORTS = [
   "openWorkspaceFloatingWindow",
   "openWorkspaceNavigator",
   "pasteWorkspaceClipboard",
+  "planWorkspaceTopLevelAutoLayout",
   "registerSectionKinds",
   "registerItemHandlers",
   "registerWorkspaceClipboardAuthority",
@@ -161,6 +165,46 @@ const RUNTIME_EXPORTS = [
 describe("public package API", () => {
   it("exports only the ratified runtime surface", () => {
     expect(Object.keys(workspace).sort()).toEqual([...RUNTIME_EXPORTS].sort());
+  });
+
+  it("exposes deterministic top-level auto-layout through the public root", () => {
+    const options = {
+      gap: 24,
+    } satisfies workspace.WorkspaceTopLevelAutoLayoutOptions;
+    const rectangles = [
+      {
+        height: 120,
+        id: "first",
+        locked: false,
+        width: 200,
+        x: 0,
+        y: 0,
+        zIndex: 0,
+      },
+      {
+        height: 120,
+        id: "second",
+        locked: false,
+        width: 200,
+        x: 400,
+        y: 0,
+        zIndex: 1,
+      },
+    ] satisfies Array<workspace.WorkspaceTopLevelAutoLayoutRectangle>;
+    const plan = workspace.planWorkspaceTopLevelAutoLayout(rectangles, options);
+    const result: workspace.WorkspaceTopLevelAutoLayoutResult = "unchanged";
+    const availabilityParameters: IsExactly<
+      Parameters<typeof workspace.getWorkspaceTopLevelAutoLayoutDisabledReason>,
+      [
+        host: workspace.WorkspaceHost,
+        options?: workspace.WorkspaceTopLevelAutoLayoutOptions,
+      ]
+    > = true;
+
+    expect(workspace.DEFAULT_WORKSPACE_TOP_LEVEL_AUTO_LAYOUT_GAP).toBe(48);
+    expect(plan.positionsById["first"]?.x).toBeTypeOf("number");
+    expect(result).toBe("unchanged");
+    expect(availabilityParameters).toBe(true);
   });
 
   it("exposes the navigator through one host-scoped public contract", () => {
