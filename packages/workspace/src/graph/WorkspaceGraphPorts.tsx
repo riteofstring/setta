@@ -67,6 +67,9 @@ function WorkspaceGraphPortButton({ port }: { port: WorkspaceGraphPort }) {
     canEditStructure &&
     activeGraph.snapshot.onConnect !== undefined &&
     !port.disabled;
+  const canReceive =
+    canEditStructure && activeGraph.gesture !== null && !port.disabled;
+  const canInteract = canStart || canReceive;
   const className = [
     NO_DRAG_CLASS_NAME,
     NO_PAN_CLASS_NAME,
@@ -108,7 +111,7 @@ function WorkspaceGraphPortButton({ port }: { port: WorkspaceGraphPort }) {
   return (
     <button
       aria-label={port.label}
-      aria-disabled={!canStart}
+      aria-disabled={!canInteract}
       className={className}
       data-connection-state={connectionState}
       data-connected={connected}
@@ -117,7 +120,7 @@ function WorkspaceGraphPortButton({ port }: { port: WorkspaceGraphPort }) {
       data-port-type={port.type}
       data-section-id={port.sectionId}
       data-workspace-graph-port-id={port.id}
-      disabled={!canStart}
+      disabled={!canInteract}
       onPointerDown={onPointerDown}
       style={{ top: `${position * 100}%` }}
       type="button"

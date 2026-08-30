@@ -9,7 +9,10 @@ import {
 } from "../../test/workspaceTestHost";
 import type { WorkspaceSection } from "../document/types";
 import type { WorkspaceGraphConfiguration } from "./types";
-import { WorkspaceGraphProvider } from "./WorkspaceGraphContext";
+import {
+  useWorkspaceGraph,
+  WorkspaceGraphProvider,
+} from "./WorkspaceGraphContext";
 import { WorkspaceGraphPorts } from "./WorkspaceGraphPorts";
 
 (
@@ -73,7 +76,26 @@ function GraphPortsHarness({
       <div data-section-id="target">
         <WorkspaceGraphPorts sectionId="target" />
       </div>
+      <ReconnectTrigger />
     </WorkspaceGraphProvider>
+  );
+}
+
+function ReconnectTrigger() {
+  const graph = useWorkspaceGraph();
+  return (
+    <button
+      data-testid="workspace-graph-reconnect-trigger"
+      onPointerDown={(event) =>
+        graph?.beginReconnect(
+          "agent-edge",
+          "source",
+          { x: 120, y: 80 },
+          event.pointerId,
+        )
+      }
+      type="button"
+    />
   );
 }
 
@@ -231,6 +253,50 @@ describe("WorkspaceGraphPorts", () => {
     await dispatchPointer(source, "pointerdown");
     await dispatchPointer(target, "pointerup");
     expect(onConnect).not.toHaveBeenCalled();
+  });
+
+  it("enables candidate ports during reconnect-only gestures", async () => {
+    const onReconnect = vi.fn();
+    const baseConfiguration = createConfiguration(undefined);
+    const configuration: WorkspaceGraphConfiguration = {
+      ...baseConfiguration,
+      edges: [
+        {
+          family: "agentic",
+          id: "agent-edge",
+          source: { portId: "source-output", sectionId: "source" },
+          target: { portId: "target-input", sectionId: "target" },
+        },
+      ],
+      onReconnect,
+    };
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={workspace}>
+          <GraphPortsHarness configuration={configuration} />
+        </WorkspaceTestProvider>,
+      );
+    });
+
+    const source = getPort(host, "source-output");
+    const trigger = host.querySelector<HTMLButtonElement>(
+      '[data-testid="workspace-graph-reconnect-trigger"]',
+    );
+    if (!trigger) {
+      throw new Error("Workspace graph reconnect trigger did not render.");
+    }
+    expect(source.disabled).toBe(true);
+    await dispatchPointer(trigger, "pointerdown");
+    expect(source.disabled).toBe(false);
+    await dispatchPointer(source, "pointerup");
+    expect(onReconnect).toHaveBeenCalledWith({
+      connection: {
+        family: "agentic",
+        source: { portId: "source-output", sectionId: "source" },
+        target: { portId: "target-input", sectionId: "target" },
+      },
+      edgeId: "agent-edge",
+    });
   });
 
   it("marks configured disabled ports with the graph style contract", async () => {
