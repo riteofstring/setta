@@ -59,6 +59,8 @@ describe("workspace command registry", () => {
     ).toEqual([
       ["package", "workspace.toggle-group-overflow"],
       ["package", "workspace.ungroup-sections"],
+      ["package", "workspace.show-sections-in-saved-view"],
+      ["package", "workspace.hide-sections-in-saved-view"],
       ["host", "host-report"],
     ]);
     expect(

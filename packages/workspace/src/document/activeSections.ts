@@ -18,13 +18,12 @@ export function setActiveSectionIds(
     document.savedViews !== null && isWorkspaceSavedViewEditing(host);
   const visibleIds = ids.filter(
     (sectionId) =>
-      document.sections[sectionId] !== undefined &&
-      (includeHidden ||
-        isWorkspaceSavedViewSectionVisible(
-          document.savedViews,
-          document.parentSectionMap,
-          sectionId,
-        )),
+      includeHidden ||
+      isWorkspaceSavedViewSectionVisible(
+        document.savedViews,
+        document.parentSectionMap,
+        sectionId,
+      ),
   );
   if (_.isEqual(getActiveSectionIds(host), visibleIds)) {
     return;
