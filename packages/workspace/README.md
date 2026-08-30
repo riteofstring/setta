@@ -626,6 +626,67 @@ order: Left/Right Arrow adjusts by 10 px (Shift adjusts by 1 px), while activati
 the default split. Left/Right describe visual movement and therefore mirror under RTL. The remaining
 identical row targets stay pointer-accessible without adding one tab stop per row.
 
+## Section copy, paste, and duplicate
+
+Section clipboard support is opt-in per host. Register one complete local or delegated authority
+after section kinds and before users invoke clipboard commands. Workspace supplies **Copy** and
+**Duplicate** on section, Outline, and command-palette surfaces, plus **Paste** on pane and palette
+surfaces. The defaults are `Mod+C` and `Mod+V`; Duplicate has no default chord. Native inputs and
+CodeMirror keep their own clipboard behavior, and Copy also yields while browser text is selected.
+
+Use a local authority when `WorkspaceDocument` is the canonical data store and its opaque section
+and item values are JSON-compatible:
+
+```ts
+registerWorkspaceClipboardAuthority(host, {
+  id: "notes-workspace",
+  kind: "local",
+});
+```
+
+Workspace then normalizes selected roots, captures complete descendant subtrees, allocates all new
+section and item ids, preserves package-owned presentation and relative root layout, validates one
+complete candidate, and publishes it once. Optional `cloneSectionData` and `cloneItemData`
+callbacks can rewrite host-owned references using detached read-only old-to-new id maps. A local
+paste or duplicate selects the new roots and creates one structural-history transaction when local
+history is enabled.
+
+Use a delegated authority when another model or backend owns canonical identity and persistence:
+
+```ts
+registerWorkspaceClipboardAuthority(host, {
+  id: "host-project",
+  kind: "delegated",
+  payloadVersion: 1,
+  canCopySelection: ({ rootIds }) => rootIds.every(canCopyProjectSection),
+  prepareCopy: ({ rootIds }) => projectApi.copySections(rootIds),
+  paste: async ({ fragment, payload, placement, rootIds }) => {
+    const accepted = await projectApi.pasteSections(payload);
+    const projectedRootIds = projectAcceptedSnapshot(accepted, {
+      fragment,
+      placement,
+      sourceRootIds: rootIds,
+    });
+    return { rootIds: projectedRootIds };
+  },
+});
+```
+
+Workspace owns clipboard framing, structural validation, command state, placement proposals, and
+focus. The delegate owns domain eligibility, its versioned JSON payload, canonical id allocation,
+reference rewriting, persistence, revisions, and the accepted application projection. Return from
+`paste` only after that projection has published through `commitWorkspaceDocument`; Workspace never
+publishes an optimistic clone for a delegated authority. `canCopySelection` is optional and
+synchronous; use it to disable Copy and Duplicate for domain sections that cannot be exported.
+
+The text envelope is strict, authority-specific, and limited to 1 MB, 1,000 sections, and 10,000
+local item records. Unknown formats, authority or payload-version mismatches, malformed forests,
+unknown section kinds, and non-JSON payloads fail without changing the document. Duplicate prepares
+and pastes through the registered authority without reading or replacing the system clipboard.
+The headless `copyWorkspaceSelection`, `pasteWorkspaceClipboard`,
+`duplicateWorkspaceSelection`, and `getWorkspaceClipboardAvailability` operations expose typed
+results for custom application chrome.
+
 ## Structural history
 
 Structural history is host-scoped and disabled by default. Standalone consumers can opt into the

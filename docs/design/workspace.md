@@ -43,6 +43,31 @@ once. Coupled resources such as a section forest, item tree, selection, and deri
 move through the same boundary. Browser objects, provider callbacks, file operations, and other
 nonserializable effects cross explicit registries and never enter `WorkspaceDocument`.
 
+## Section clipboard authority
+
+Section clipboard support is host-scoped and opt-in. Workspace owns selection-root normalization,
+the versioned structural envelope, external-input validation, root placement, command availability,
+focus, and package-owned section presentation. The envelope is bounded before parsing and before
+writing, rejects a different authority or payload version, and carries no compatibility parser.
+Copy and paste yield to native editing surfaces; copy also yields to a browser text selection.
+Duplicate reuses the same prepared authority payload without reading or replacing the operating
+system clipboard.
+
+A local authority lets Workspace allocate every section and item id before cloning opaque values,
+then build and validate one complete candidate. Clone callbacks receive frozen source values and
+detached runtime-read-only id maps. The candidate publishes once, selects the new roots, and records
+one structural create transaction when local history is enabled. Outbound and inbound local data
+share the same section, item, JSON-depth, and text-size bounds, so Workspace never reports a local
+copy that its own parser cannot accept.
+
+A delegated authority owns domain copyability, its closed payload and version, canonical identity
+allocation, persistence, revisions, and accepted projection. Workspace passes frozen structural and
+source snapshots to preparation, then invokes paste only after the envelope matches the registered
+authority. It never publishes a speculative clone on this path. The delegate returns projected
+root ids only after its canonical mutation and complete `commitWorkspaceDocument` publication have
+succeeded; Workspace then focuses the first returned root. Authority registration snapshots a
+validated descriptor, and only one clipboard operation may be pending for a host.
+
 ## Structural history authority
 
 Structural history is an optional `WorkspaceHost` capability. Workspace owns the semantic boundary

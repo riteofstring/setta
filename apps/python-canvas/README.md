@@ -99,6 +99,20 @@ Python Canvas currently leaves Workspace structural history disabled because the
 revision-safe undo authority. Structural Undo and Redo are therefore unavailable; Cmd/Ctrl+Z inside
 an active text editor continues to use that editor's local history.
 
+Authored Python callable, Parameter Dictionary, and List of Objects sections support **Copy**,
+**Paste**, and **Duplicate** through Workspace menus and the command palette. `Cmd/Ctrl+C` and
+`Cmd/Ctrl+V` use the system clipboard; Duplicate leaves it unchanged. Copying a List includes its
+complete descendant subtree. Generated Python, pending creation placeholders, diagnostics, provider
+state, and terminal runtime are never copyable project content.
+
+Paste allocates fresh canonical ids and collision-free names in one revision-checked backend
+mutation. Internal parsed `state.*` references follow their cloned targets, while references outside
+the copied subtree remain external. The browser applies the copied relative root layout and section
+presentation only after the backend returns a complete accepted snapshot, then selects the new
+roots in that same Workspace publication. A revision conflict loads the latest project and reports
+the conflict without replaying the operation. Clipboard operations do not enable browser-local
+Workspace history.
+
 **Generated Python** is one combined document. The prefix and suffix are editable; the generated
 body from the canonical snapshot is protected. Completion requests include the whole document and
 the exact protected UTF-16 range. Generated assignments are ordered from parsed authored
@@ -115,6 +129,13 @@ are runtime state, not authored project data.
 snapshot and then publishes every authored or diagnostic update. The browser holds one stream and
 does not poll. EventSource reconnection catches up by receiving the current complete snapshot.
 
+`POST /api/v2/project/clipboard/copy` is a read-only preparation command bound to an observed
+revision and selected canonical root ids. It returns the closed clipboard V1 authored payload.
+`POST /api/v2/project/clipboard/paste` accepts that payload with an expected revision and returns
+one complete accepted snapshot plus the newly allocated canonical root ids. Workspace geometry and
+section chrome stay in the browser's structural envelope rather than entering Go transport or
+durable project state.
+
 `POST /api/v2/project/run` captures and executes one exact generated-code revision with bounded,
 separate stdout and stderr. `GET /api/v2/runtime/session` exposes only the identity used to verify a
 foreground live-session record. The production web app and every API route share one loopback
@@ -124,6 +145,12 @@ The coordinator validates a complete mutation before its persistence boundary. A
 replace the project file atomically and publish one canonical snapshot. Provider work may later
 publish a newer complete snapshot with settled diagnostics; unavailable provider work is surfaced
 as a typed state, never as a plausible empty result.
+
+Clipboard paste is one structural transaction rather than a loop over entity-create routes.
+Invalid payload, reference rewrite, render, materialization, or persistence failure publishes
+nothing. After durable acceptance, provider diagnostics follow the ordinary asynchronous structural
+analysis path; a later provider failure reports provider state without rolling back the authored
+paste.
 
 ## Local security and process lifetime
 

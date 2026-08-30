@@ -43,6 +43,23 @@ that exact durable revision. Queued structural analysis coalesces superseded wor
 provider request remains serialized. `DiagnosticsRevision` may trail the authored revision and is
 the explicit signal that diagnostics are still settling.
 
+Section paste is one of these structural mutations. A closed clipboard V1 payload contains only
+authored callables, Parameter Dictionaries, Lists of Objects, their forest, parameter values, and
+typed UI configuration. It excludes project identity, generated Python, diagnostics, provider
+status, terminal state, and browser layout. Copy validates an observed revision, captures the
+complete selected subtrees, and rewrites parser-confirmed internal `state.*` references from their
+project paths to self-contained fragment paths without writing.
+
+Paste validates the expected revision and complete external payload before persistence. The
+aggregate allocates all section, parameter, and dictionary-entry ids and collision-free display
+names before constructing one candidate; the coordinator then rewrites existing and cloned
+references against their distinct path maps. Render, materialization, or authored persistence
+failure leaves the published and durable project unchanged. Acceptance advances one revision and
+publishes one complete snapshot with the pasted root ids. Provider diagnostics begin after that
+durable structural boundary, so a later provider failure publishes failed provider status and does
+not retroactively roll back the accepted paste. Workspace placement and presentation remain
+frontend-owned and never enter the Go aggregate or transport payload.
+
 Coordinator shutdown cancels background analysis before waiting for the main mutation lock. A
 synchronous provider mutation can hold that lock while waiting for provider serialization, so the
 cancel-first order breaks the corresponding diagnostics wait cycle. Closing releases only provider

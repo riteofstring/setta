@@ -41,6 +41,28 @@ Callable expression commit and provider signature refresh remain separate mutati
 expression is durable even when a missing symbol prevents signature resolution. The UI keeps that
 canonical expression and its diagnostics instead of presenting provider failure as a reverted edit.
 
+## Delegated section clipboard
+
+Python Canvas registers one delegated Workspace clipboard authority after the first canonical
+snapshot and section-kind catalog are installed. Its synchronous copyability check accepts only
+authored callable, Parameter Dictionary, and List of Objects roots, so generated, pending, and
+unknown sections are disabled before an asynchronous copy starts. Copy and paste join the existing
+mutation chain and bind their requests to the snapshot project id and revision observed when their
+turn begins.
+
+The generated transport payload is parsed at the browser boundary and contains domain-authored
+entities only. Workspace's fragment remains the owner of section presentation and relative root
+geometry. After one accepted backend paste, the adapter validates the source and destination
+forests in parallel, including exact kinds and child order, maps copied presentation onto every new
+canonical section, places roots at the Workspace proposal with fresh frontmost z-indices, and
+selects the returned roots in the same complete projection publication. It never creates an
+optimistic section or local Workspace history entry.
+
+A revision conflict fetches and projects the latest complete snapshot, reports the conflict, and
+does not replay copy or paste. Ordinary failure restores the current canonical presentation. The
+delegate resolves paste only after `commitWorkspaceDocument` has accepted the returned snapshot;
+later delivery of that same revision through the event stream is ignored as already current.
+
 ## Workspace history boundary
 
 Python Canvas intentionally creates its `WorkspaceHost` without structural history. The backend
