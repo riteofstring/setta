@@ -33,7 +33,23 @@ export type WorkspaceAppearanceState = {
   darkMode: boolean;
 };
 
-function createWorkspaceDocumentStore() {
+type WorkspaceDocumentStoreState = WorkspaceDocumentState & {
+  reset: () => void;
+};
+
+type WorkspaceDocumentStore = StoreApi<WorkspaceDocumentStoreState>;
+
+function reconcileWorkspaceDocumentState<State extends WorkspaceDocumentState>(
+  state: State,
+): State {
+  if (state.savedViews === null) {
+    return state;
+  }
+  const savedViews = reconcileWorkspaceSavedViewsState(state.savedViews, state);
+  return savedViews === state.savedViews ? state : { ...state, savedViews };
+}
+
+function createWorkspaceDocumentStore(): WorkspaceDocumentStore {
   return createStore(
     withResetFn<WorkspaceDocumentState>(() => ({
       sections: {},
@@ -43,6 +59,21 @@ function createWorkspaceDocumentStore() {
       savedViews: null,
     })),
   );
+}
+
+function patchWorkspaceDocumentStoreSetState(
+  store: WorkspaceDocumentStore,
+): void {
+  const setRawState = store.setState.bind(store);
+  store.setState = ((partial, replace) => {
+    setRawState((current) => {
+      const update = typeof partial === "function" ? partial(current) : partial;
+      const next = (
+        replace ? update : { ...current, ...update }
+      ) as WorkspaceDocumentStoreState;
+      return reconcileWorkspaceDocumentState(next);
+    }, true);
+  }) as WorkspaceDocumentStore["setState"];
 }
 
 function createNodeInternalsStore() {
@@ -119,6 +150,7 @@ function createWorkspaceStoreSet(): WorkspaceStoreSet {
   const readRawNodeInternalsState = nodeInternals.getState.bind(nodeInternals);
   const readRawActiveSectionsState =
     activeSections.getState.bind(activeSections);
+  patchWorkspaceDocumentStoreSetState(document);
   patchPublishedWorkspaceStoreGetState(
     document,
     readRawWorkspaceDocumentState,
@@ -222,16 +254,9 @@ export function runWithAtomicallyPublishedWorkspaceStores(
 ) {
   const stores = getWorkspaceStoreSet(host);
   const previousPublication = stores.stagedPublication;
-  const reconciledDocument =
-    nextState.document.savedViews === null
-      ? nextState.document
-      : {
-          ...nextState.document,
-          savedViews: reconcileWorkspaceSavedViewsState(
-            nextState.document.savedViews,
-            nextState.document,
-          ),
-        };
+  const reconciledDocument = reconcileWorkspaceDocumentState(
+    nextState.document,
+  );
   stores.stagedPublication = {
     document: { ...stores.document.getState(), ...reconciledDocument },
     nodeInternals: {
@@ -245,9 +270,6 @@ export function runWithAtomicallyPublishedWorkspaceStores(
   };
   try {
     fn();
-    if (reconciledDocument !== nextState.document) {
-      stores.document.setState(reconciledDocument);
-    }
   } finally {
     stores.stagedPublication = previousPublication;
   }

@@ -127,6 +127,29 @@ describe("createNodesMapFromDocumentChildren", () => {
     });
   });
 
+  it("uses document layout dimensions when projecting a saved presentation", () => {
+    const existing: Node = {
+      id: "leaf",
+      position: { x: 0, y: 0 },
+      width: 500,
+      height: 400,
+      zIndex: 0,
+      tempZIndex: 0,
+      kind: "leaf",
+    };
+    const nodes = createNodesMapFromDocumentChildren(
+      testWorkspace.host,
+      makeDocumentState(),
+      new Map([["leaf", existing]]),
+      { useDocumentLayoutDimensions: true },
+    );
+    expect(nodes.get("leaf")).toMatchObject({
+      width: 224,
+      height: 96,
+      zIndex: 3,
+    });
+  });
+
   it("derives the node background from the section style color and appearance", () => {
     const state = makeDocumentState({
       sections: { leaf: makeSection("leaf", { styleColor: "#3b82f6" }) },

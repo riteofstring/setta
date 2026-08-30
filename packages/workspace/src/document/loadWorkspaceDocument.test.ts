@@ -27,7 +27,7 @@ import { setDndDisabled, useDndState } from "../dnd/dndState";
 import { updateItemChildren, useItemDndChildren } from "../dnd/itemDndChildren";
 import { setItemDndState, useItemDndState } from "../dnd/itemDndState";
 import { getWorkspaceDocument } from "./documentChangeCallback";
-import { getHighestAncestor } from "./documentSelectors";
+import { getHighestAncestor, getSectionOrThrow } from "./documentSelectors";
 import { activateItemSelect, useItemSelectionMode } from "./itemSelectionMode";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { registerSectionKinds } from "./sectionKindRegistry";
@@ -891,6 +891,64 @@ describe("loadWorkspaceDocument", () => {
         makeDocument({ activeIds: ["ghost"] }),
       ),
     ).toThrowError(/Active ids references unknown section ghost/);
+    expect(() =>
+      loadWorkspaceDocument(
+        testWorkspace.host,
+        makeDocument({
+          topLevelSections: {
+            toString: { x: 0, y: 0, w: 1, h: 1, zIndex: 0 },
+          },
+        }),
+      ),
+    ).toThrowError(/Top-level layout references unknown section toString/);
+    expect(() =>
+      loadWorkspaceDocument(
+        testWorkspace.host,
+        makeDocument({ activeIds: ["toString"] }),
+      ),
+    ).toThrowError(/Active ids references unknown section toString/);
+  });
+
+  it("preserves opaque own section keys without resolving inherited keys", () => {
+    const sections = Object.create(null) as Record<string, WorkspaceSection>;
+    const topLevelSections = Object.create(null) as Record<
+      string,
+      { h: number; w: number; x: number; y: number; zIndex: number }
+    >;
+    sections["toString"] = makeSection("toString");
+    sections["__proto__"] = makeSection("__proto__");
+    topLevelSections["toString"] = {
+      h: 96,
+      w: 224,
+      x: 0,
+      y: 0,
+      zIndex: 0,
+    };
+    topLevelSections["__proto__"] = {
+      h: 96,
+      w: 224,
+      x: 240,
+      y: 0,
+      zIndex: 1,
+    };
+
+    loadWorkspaceDocument(
+      testWorkspace.host,
+      makeDocument({
+        activeIds: ["toString", "__proto__"],
+        sections,
+        topLevelSections,
+      }),
+    );
+
+    const state = testWorkspace.document.getState();
+    expect(getSectionOrThrow(state, "toString").id).toBe("toString");
+    expect(getSectionOrThrow(state, "__proto__").id).toBe("__proto__");
+    expect(getHighestAncestor(testWorkspace.host, "toString")).toBe("toString");
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+      "toString",
+      "__proto__",
+    ]);
   });
 
   it("re-applies a loaded camera through d3-zoom on a mounted canvas", () => {

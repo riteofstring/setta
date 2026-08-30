@@ -50,11 +50,18 @@ import type {
 
 const SECTION_STYLE_COLOR_PATTERN = /^#?[0-9a-f]{6}$/iu;
 
+function getOwnRecordValue<Value>(
+  record: Record<string, Value>,
+  key: string,
+): Value | undefined {
+  return Object.hasOwn(record, key) ? record[key] : undefined;
+}
+
 function resolveLoadedSections(
   host: WorkspaceHost,
   sections: Record<string, WorkspaceSectionInput>,
 ): Record<string, WorkspaceSection> {
-  const resolved: Record<string, WorkspaceSection> = {};
+  const resolved = Object.create(null) as Record<string, WorkspaceSection>;
   for (const [sectionId, section] of Object.entries(sections)) {
     if (!isGroupSection(section)) {
       getRegisteredSectionKindOrThrow(host, section.kind);
@@ -115,7 +122,7 @@ function buildParentSectionMap(
   host: WorkspaceHost,
   sections: Record<string, WorkspaceSection>,
 ): Record<string, string> {
-  const parentSectionMap: Record<string, string> = {};
+  const parentSectionMap = Object.create(null) as Record<string, string>;
   for (const [sectionId, section] of Object.entries(sections)) {
     if (section.id !== sectionId) {
       throw new Error(
@@ -129,14 +136,14 @@ function buildParentSectionMap(
       throw new Error(`Section ${sectionId} cannot own nested sections.`);
     }
     for (const childId of section.children) {
-      const child = sections[childId];
+      const child = getOwnRecordValue(sections, childId);
       if (!child) {
         throw new Error(`Section ${sectionId} lists unknown child ${childId}.`);
       }
       if (!canWorkspaceSectionAcceptNestedSection(host, section, child)) {
         throw new Error(`Section ${childId} cannot be nested in ${sectionId}.`);
       }
-      const existingParentId = parentSectionMap[childId];
+      const existingParentId = getOwnRecordValue(parentSectionMap, childId);
       if (existingParentId !== undefined) {
         throw new Error(
           `Section ${childId} is claimed by parents ${existingParentId} and ${sectionId}.`,
@@ -151,13 +158,13 @@ function buildParentSectionMap(
 function assertAcyclicParentChains(parentSectionMap: Record<string, string>) {
   for (const startId of Object.keys(parentSectionMap)) {
     const visited = new Set<string>([startId]);
-    let parentId = parentSectionMap[startId] ?? null;
+    let parentId = getOwnRecordValue(parentSectionMap, startId) ?? null;
     while (parentId !== null) {
       if (visited.has(parentId)) {
         throw new Error(`Section ${startId} has a cyclic parent chain.`);
       }
       visited.add(parentId);
-      parentId = parentSectionMap[parentId] ?? null;
+      parentId = getOwnRecordValue(parentSectionMap, parentId) ?? null;
     }
   }
 }
@@ -188,7 +195,7 @@ function assertKnownSectionIds(
   role: string,
 ) {
   for (const sectionId of ids) {
-    if (!(sectionId in document.sections)) {
+    if (!Object.hasOwn(document.sections, sectionId)) {
       throw new Error(`${role} references unknown section ${sectionId}.`);
     }
   }

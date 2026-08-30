@@ -1,41 +1,11 @@
-import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
-import {
-  getNodeInternalsStore,
-  getWorkspaceDocumentStore,
-} from "../document/stores";
-import type { Node, TopLevelSectionLayout } from "../document/types";
+import { publishNodeInternalsWithTopLevelLayout } from "../document/topLevelLayoutPublication";
+import { getNodeInternalsStore } from "../document/stores";
+import type { Node } from "../document/types";
 import type { WorkspaceHost } from "../workspaceHost";
 import { fitView } from "./fitView";
 import { getReactFlowStore } from "./store";
 import type { NodeDragItem } from "./types";
 import { getDimensions } from "./utils";
-
-function topLevelLayoutsEqual(
-  current: Readonly<Record<string, TopLevelSectionLayout>>,
-  next: Readonly<Record<string, TopLevelSectionLayout>>,
-): boolean {
-  const currentIds = Object.keys(current);
-  const nextIds = Object.keys(next);
-  if (currentIds.length !== nextIds.length) {
-    return false;
-  }
-  return currentIds.every((sectionId, index) => {
-    if (nextIds[index] !== sectionId) {
-      return false;
-    }
-    const currentLayout = current[sectionId];
-    const nextLayout = next[sectionId];
-    return (
-      currentLayout !== undefined &&
-      nextLayout !== undefined &&
-      currentLayout.x === nextLayout.x &&
-      currentLayout.y === nextLayout.y &&
-      currentLayout.w === nextLayout.w &&
-      currentLayout.h === nextLayout.h &&
-      currentLayout.zIndex === nextLayout.zIndex
-    );
-  });
-}
 
 export function getNodes(host: WorkspaceHost): Array<Node> {
   return Array.from(getNodeInternalsStore(host).getState().x.values());
@@ -47,6 +17,27 @@ export function updateNodePositions(
 ) {
   const nodeStore = getNodeInternalsStore(host);
   const currentNodes = nodeStore.getState().x;
+  nodeStore.setState({
+    x: createUpdatedNodePositions(currentNodes, nodeDragItems),
+  });
+}
+
+export function updateNodePositionsAndCommit(
+  host: WorkspaceHost,
+  nodeDragItems: Array<NodeDragItem>,
+): void {
+  const nodeStore = getNodeInternalsStore(host);
+  publishNodeInternalsWithTopLevelLayout(
+    host,
+    createUpdatedNodePositions(nodeStore.getState().x, nodeDragItems),
+    "section-move",
+  );
+}
+
+function createUpdatedNodePositions(
+  currentNodes: ReadonlyMap<string, Node>,
+  nodeDragItems: Array<NodeDragItem>,
+): Map<string, Node> {
   const newNodes = new Map(currentNodes);
   for (const item of nodeDragItems) {
     const node = currentNodes.get(item.id);
@@ -56,7 +47,7 @@ export function updateNodePositions(
 
     newNodes.set(item.id, { ...node, position: item.position });
   }
-  nodeStore.setState({ x: newNodes });
+  return newNodes;
 }
 
 export function raiseTempZIndex(
@@ -84,38 +75,12 @@ export function raiseTempZIndex(
 export function commitTopLevelLayoutToDocument(
   host: WorkspaceHost,
   historyChangeKind: "section-move" | null = "section-move",
-) {
-  const documentStore = getWorkspaceDocumentStore(host);
-  const documentState = documentStore.getState();
-  const nodeInternals = getNodeInternalsStore(host).getState().x;
-  const isTopLevel = (sectionId: string) =>
-    (documentState.parentSectionMap[sectionId] ?? null) === null;
-
-  const nextLayouts: Record<string, TopLevelSectionLayout> = {};
-  for (const [sectionId, layout] of Object.entries(
-    documentState.topLevelSections,
-  )) {
-    if (sectionId in documentState.sections && isTopLevel(sectionId)) {
-      nextLayouts[sectionId] = { ...layout };
-    }
-  }
-  for (const node of nodeInternals.values()) {
-    if (!(node.id in documentState.sections) || !isTopLevel(node.id)) {
-      continue;
-    }
-    nextLayouts[node.id] = {
-      x: node.position.x,
-      y: node.position.y,
-      zIndex: node.zIndex,
-      w: node.width,
-      h: node.height,
-    };
-  }
-  if (topLevelLayoutsEqual(documentState.topLevelSections, nextLayouts)) {
-    return;
-  }
-  documentStore.setState({ topLevelSections: nextLayouts });
-  notifyWorkspaceDocumentChange(host, historyChangeKind);
+): void {
+  publishNodeInternalsWithTopLevelLayout(
+    host,
+    getNodeInternalsStore(host).getState().x,
+    historyChangeKind,
+  );
 }
 
 export function updateNodeDimensionsFromResizeObserver(
@@ -134,10 +99,12 @@ export function updateNodeDimensionsFromResizeObserver(
     dimensionsChanged =
       applyNodeDimensionUpdate(newNodes, entry) || dimensionsChanged;
   }
-  if (dimensionsChanged) {
-    nodeStore.setState({ x: newNodes });
+  if (!dimensionsChanged) {
+    commitTopLevelLayoutToDocument(host, null);
+    maybeCompleteInitialFitView(host);
+    return;
   }
-  commitTopLevelLayoutToDocument(host, null);
+  publishNodeInternalsWithTopLevelLayout(host, newNodes, null);
   maybeCompleteInitialFitView(host);
 }
 

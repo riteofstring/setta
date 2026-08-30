@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { getNodeInternalsStore, type NodeInternalsState } from "./stores";
+import { publishNodeInternalsWithTopLevelLayout } from "./topLevelLayoutPublication";
 import type { WorkspaceHost } from "../workspaceHost";
 
 function shouldNormalizeZIndices(
@@ -78,13 +79,12 @@ export function setZIndices(
   host: WorkspaceHost,
   sectionIds: Array<string>,
   alwaysNormalize: boolean = false,
-) {
+  historyChangeKind: "section-move" | null = null,
+): void {
   const nodeStore = getNodeInternalsStore(host);
   const nodeInternals = nodeStore.getState().x;
   const newValues = shouldNormalizeZIndices(nodeInternals, alwaysNormalize)
     ? normalizeNodeZIndices(nodeInternals, sectionIds)
     : raiseNodeZIndices(nodeInternals, sectionIds);
-  if (newValues !== nodeInternals) {
-    nodeStore.setState({ x: newValues });
-  }
+  publishNodeInternalsWithTopLevelLayout(host, newValues, historyChangeKind);
 }

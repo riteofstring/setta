@@ -17,6 +17,9 @@ export function getSectionOrThrow(
   state: WorkspaceDocumentState,
   sectionId: string,
 ): WorkspaceSection {
+  if (!Object.hasOwn(state.sections, sectionId)) {
+    throw new Error(`Unknown section ${sectionId}.`);
+  }
   const section = state.sections[sectionId];
   if (!section) {
     throw new Error(`Unknown section ${sectionId}.`);
@@ -49,7 +52,9 @@ export function getTopLevelSectionIdsForDisplay(
   state: WorkspaceDocumentState,
 ): Array<string> {
   return Object.keys(state.topLevelSections).filter((sectionId) => {
-    const parentId = state.parentSectionMap[sectionId] ?? null;
+    const parentId = Object.hasOwn(state.parentSectionMap, sectionId)
+      ? (state.parentSectionMap[sectionId] ?? null)
+      : null;
     return parentId === null;
   });
 }
@@ -78,11 +83,15 @@ export function getHighestAncestor(
 ): string {
   const parentSectionMap =
     getWorkspaceDocumentStore(host).getState().parentSectionMap;
-  let parentId = parentSectionMap[sectionId] ?? null;
+  let parentId = Object.hasOwn(parentSectionMap, sectionId)
+    ? (parentSectionMap[sectionId] ?? null)
+    : null;
   let highestAncestor = sectionId;
   while (parentId) {
     highestAncestor = parentId;
-    parentId = parentSectionMap[parentId] ?? null;
+    parentId = Object.hasOwn(parentSectionMap, parentId)
+      ? (parentSectionMap[parentId] ?? null)
+      : null;
   }
   return highestAncestor;
 }

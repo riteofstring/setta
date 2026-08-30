@@ -5,7 +5,6 @@ import {
 import { maybeCompleteInitialFitView } from "../canvas/nodeInternalsActions";
 import { closeWorkspaceMenu } from "../context-menu/workspaceMenuState";
 import {
-  getWorkspaceDocument,
   notifyWorkspaceDocumentChange,
   runWithWorkspaceDocumentChangeNotificationsSuppressed,
 } from "../document/documentChangeCallback";
@@ -61,6 +60,7 @@ type SavedViewsPublicationInput = {
   applyViewport: boolean;
   document: WorkspaceDocumentState;
   resetInteractions: boolean;
+  useDocumentLayoutDimensions: boolean;
 };
 
 type WorkspaceSavedViewsDeletion = {
@@ -92,7 +92,6 @@ function copyViewport(viewport: Viewport | null): Viewport | null {
 }
 
 function getCurrentDocumentState(host: WorkspaceHost): WorkspaceDocumentState {
-  getWorkspaceDocument(host);
   return getWorkspaceDocumentStore(host).getState();
 }
 
@@ -212,6 +211,9 @@ function publishSavedViewsDocument(
     host,
     document,
     getNodeInternalsStore(host).getState().x,
+    {
+      useDocumentLayoutDimensions: input.useDocumentLayoutDimensions,
+    },
   );
   if (input.resetInteractions) {
     closeWorkspaceMenu(host, false);
@@ -386,6 +388,7 @@ export function enableWorkspaceSavedViews(
     applyViewport: false,
     document: { ...current, savedViews },
     resetInteractions: false,
+    useDocumentLayoutDimensions: false,
   });
   return applied(savedViews.activeViewId, savedViews.activeViewId);
 }
@@ -429,6 +432,7 @@ export function createWorkspaceSavedView(
     applyViewport: true,
     document: { ...current, savedViews: nextSavedViews },
     resetInteractions: true,
+    useDocumentLayoutDimensions: true,
   });
   return applied(id, id);
 }
@@ -468,6 +472,7 @@ export function activateWorkspaceSavedView(
       viewport: copyViewport(target.viewport),
     },
     resetInteractions: true,
+    useDocumentLayoutDimensions: true,
   });
   return applied(target.id, target.id);
 }
@@ -499,6 +504,7 @@ export function renameWorkspaceSavedView(
       },
     },
     resetInteractions: false,
+    useDocumentLayoutDimensions: false,
   });
   return applied(savedViews.activeViewId, view.id);
 }
@@ -531,6 +537,7 @@ export function deleteWorkspaceSavedView(
         }
       : { ...current, savedViews: deletion.savedViews },
     resetInteractions: deletion.activated,
+    useDocumentLayoutDimensions: deletion.activated,
   });
   return applied(deletion.activeViewId, view.id);
 }
@@ -571,6 +578,7 @@ export function reorderWorkspaceSavedView(
       },
     },
     resetInteractions: false,
+    useDocumentLayoutDimensions: false,
   });
   return applied(savedViews.activeViewId, view.id);
 }
@@ -626,6 +634,7 @@ export function setWorkspaceSavedViewSectionVisibility(
       },
     },
     resetInteractions: true,
+    useDocumentLayoutDimensions: false,
   });
   return applied(savedViews.activeViewId, savedViews.activeViewId);
 }

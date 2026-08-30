@@ -455,7 +455,9 @@ export function isWorkspaceSavedViewSectionVisible(
     ) {
       return false;
     }
-    currentId = parentSectionMap[currentId] ?? null;
+    currentId = Object.hasOwn(parentSectionMap, currentId)
+      ? (parentSectionMap[currentId] ?? null)
+      : null;
   }
   return true;
 }
@@ -466,7 +468,7 @@ function buildParentSectionMap(
   const parentSectionMap = createRecord<string>();
   for (const [sectionId, section] of Object.entries(document.sections)) {
     for (const childId of section.children) {
-      if (document.sections[childId] !== undefined) {
+      if (Object.hasOwn(document.sections, childId)) {
         parentSectionMap[childId] = sectionId;
       }
     }

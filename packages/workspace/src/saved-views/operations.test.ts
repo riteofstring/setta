@@ -1,13 +1,18 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import { setActiveSectionIds } from "../document/activeSections";
+import { applyActiveSectionChange } from "../canvas/activeSectionController";
+import { updatePositions } from "../canvas/useUpdateNodePositions";
 import {
   getWorkspaceDocument,
   notifyWorkspaceDocumentChange,
 } from "../document/documentChangeCallback";
 import { commitWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { getWorkspaceDocumentStore } from "../document/stores";
+import {
+  getNodeInternalsStore,
+  getWorkspaceDocumentStore,
+} from "../document/stores";
 import { getReactFlowStore } from "../canvas/store";
 import { getWorkspaceMenuStateStore } from "../context-menu/workspaceMenuState";
 import {
@@ -284,6 +289,102 @@ describe("workspace saved views", () => {
     expect(host.getSnapshot().activeIds).toEqual(["beta"]);
     setActiveSectionIds(host, ["alpha", "beta"]);
     expect(host.getSnapshot().activeIds).toEqual(["beta"]);
+  });
+
+  it("projects target saved-view dimensions with matching document state to raw node subscribers", () => {
+    const host = createHost();
+    host.loadDocument(document());
+    enableWorkspaceSavedViews(host, { id: "overview", name: "Overview" });
+    createWorkspaceSavedView(host, { id: "detail", name: "Detail" });
+    commitWorkspaceDocument(host, {
+      ...host.getSnapshot(),
+      topLevelSections: {
+        ...host.getSnapshot().topLevelSections,
+        alpha: { h: 260, w: 480, x: 600, y: 40, zIndex: 7 },
+      },
+    });
+    activateWorkspaceSavedView(host, "overview");
+
+    const observations: Array<{
+      activeLayout: { h: number | null; w: number | null } | undefined;
+      documentLayout: { h: number | null; w: number | null } | undefined;
+      nodeHeight: number | null | undefined;
+      nodeWidth: number | null | undefined;
+    }> = [];
+    const unsubscribe = getNodeInternalsStore(host).subscribe((state) => {
+      const documentState = getWorkspaceDocumentStore(host).getState();
+      observations.push({
+        activeLayout:
+          documentState.savedViews?.views["detail"]?.topLevelSections["alpha"],
+        documentLayout: documentState.topLevelSections["alpha"],
+        nodeHeight: state.x.get("alpha")?.height,
+        nodeWidth: state.x.get("alpha")?.width,
+      });
+    });
+    try {
+      expect(activateWorkspaceSavedView(host, "detail")).toMatchObject({
+        activeViewId: "detail",
+        status: "applied",
+      });
+    } finally {
+      unsubscribe();
+    }
+
+    expect(observations).toHaveLength(1);
+    expect(observations[0]).toMatchObject({
+      activeLayout: { h: 260, w: 480 },
+      documentLayout: { h: 260, w: 480 },
+      nodeHeight: 260,
+      nodeWidth: 480,
+    });
+  });
+
+  it("records keyboard moves in the active saved view and restores them", () => {
+    const host = createHost(true);
+    host.loadDocument(document());
+    enableWorkspaceSavedViews(host, { id: "overview", name: "Overview" });
+    createWorkspaceSavedView(host, { id: "detail", name: "Detail" });
+    activateWorkspaceSavedView(host, "overview");
+
+    updatePositions(host, { isShiftPressed: false, x: 1, y: 0 });
+
+    expect(getWorkspaceHistoryState(host).canUndo).toBe(true);
+    expect(
+      requireSavedViews(host).views["overview"]?.topLevelSections["alpha"]?.x,
+    ).toBe(15);
+    activateWorkspaceSavedView(host, "detail");
+    expect(host.getSnapshot().topLevelSections["alpha"]?.x).toBe(0);
+    activateWorkspaceSavedView(host, "overview");
+    expect(host.getSnapshot().topLevelSections["alpha"]?.x).toBe(15);
+  });
+
+  it("persists focus stacking in the active saved view without structural history", () => {
+    const host = createHost(true);
+    host.loadDocument(document());
+    enableWorkspaceSavedViews(host, { id: "overview", name: "Overview" });
+    createWorkspaceSavedView(host, { id: "detail", name: "Detail" });
+    activateWorkspaceSavedView(host, "overview");
+
+    applyActiveSectionChange(host, {
+      interaction: "section-click",
+      sectionId: "alpha",
+    });
+
+    const raisedZIndex = host.getSnapshot().topLevelSections["alpha"]?.zIndex;
+    expect(raisedZIndex).toBeGreaterThan(
+      host.getSnapshot().topLevelSections["beta"]?.zIndex ?? 0,
+    );
+    expect(
+      requireSavedViews(host).views["overview"]?.topLevelSections["alpha"]
+        ?.zIndex,
+    ).toBe(raisedZIndex);
+    expect(getWorkspaceHistoryState(host).canUndo).toBe(false);
+    activateWorkspaceSavedView(host, "detail");
+    expect(host.getSnapshot().topLevelSections["alpha"]?.zIndex).toBe(0);
+    activateWorkspaceSavedView(host, "overview");
+    expect(host.getSnapshot().topLevelSections["alpha"]?.zIndex).toBe(
+      raisedZIndex,
+    );
   });
 
   it("deletes active views through the successor and fallback activation boundary", () => {

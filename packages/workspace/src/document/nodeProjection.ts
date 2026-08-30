@@ -65,18 +65,30 @@ export function reprojectNodeStylesForAppearance(
   return nextNodes;
 }
 
-function buildTopLevelSectionNode(
-  sectionId: string,
-  layout: TopLevelSectionLayout,
-  existingNode: Node | undefined,
-  section: WorkspaceSection,
-  darkMode: boolean,
-): Node {
+function buildTopLevelSectionNode({
+  darkMode,
+  existingNode,
+  layout,
+  section,
+  sectionId,
+  useDocumentLayoutDimensions,
+}: {
+  darkMode: boolean;
+  existingNode: Node | undefined;
+  layout: TopLevelSectionLayout;
+  section: WorkspaceSection;
+  sectionId: string;
+  useDocumentLayoutDimensions: boolean;
+}): Node {
   return {
     id: sectionId,
     position: { x: layout.x, y: layout.y },
-    width: existingNode?.width ?? layout.w,
-    height: existingNode?.height ?? layout.h,
+    width: useDocumentLayoutDimensions
+      ? layout.w
+      : (existingNode?.width ?? layout.w),
+    height: useDocumentLayoutDimensions
+      ? layout.h
+      : (existingNode?.height ?? layout.h),
     zIndex: layout.zIndex,
     tempZIndex: layout.zIndex,
     kind: section.kind,
@@ -88,6 +100,7 @@ export function createNodesMapFromDocumentChildren(
   host: WorkspaceHost,
   state: WorkspaceDocumentState,
   nodes: NodeInternalsState["x"],
+  options: { useDocumentLayoutDimensions?: boolean } = {},
 ): Map<string, Node> {
   const nodesMap: Map<string, Node> = new Map();
   const darkMode = getWorkspaceAppearanceStore(host).getState().darkMode;
@@ -98,13 +111,15 @@ export function createNodesMapFromDocumentChildren(
     }
     nodesMap.set(
       sectionId,
-      buildTopLevelSectionNode(
-        sectionId,
-        layout,
-        nodes.get(sectionId),
-        getSectionOrThrow(state, sectionId),
+      buildTopLevelSectionNode({
         darkMode,
-      ),
+        existingNode: nodes.get(sectionId),
+        layout,
+        section: getSectionOrThrow(state, sectionId),
+        sectionId,
+        useDocumentLayoutDimensions:
+          options.useDocumentLayoutDimensions === true,
+      }),
     );
   }
   return nodesMap;

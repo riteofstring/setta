@@ -8,11 +8,7 @@ import type { Position } from "../document/types";
 import { NO_DRAG_CLASS_NAME } from "../interaction";
 import { getDragItems, hasSelector } from "./dragItems";
 import { getCanvasGesturesStore } from "./gestureState";
-import {
-  commitTopLevelLayoutToDocument,
-  raiseTempZIndex,
-  updateNodePositions,
-} from "./nodeInternalsActions";
+import { raiseTempZIndex, updateNodePositions } from "./nodeInternalsActions";
 import { getWorkspaceOptionsStore } from "./options";
 import { getReactFlowStore } from "./store";
 import { useWorkspaceHost } from "../workspaceHostContext";
@@ -194,9 +190,8 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
           host,
           dragItems.current.map((dragItem) => dragItem.id),
           true,
+          "section-move",
         );
-
-        commitTopLevelLayoutToDocument(host, "section-move");
       };
 
       if (disabled) {

@@ -4,7 +4,6 @@ import type { WorkspaceHistoryChangeKind } from "../history/workspaceHistoryType
 import { getActiveSectionsStore, getWorkspaceDocumentStore } from "./stores";
 import type { WorkspaceDocument } from "./types";
 import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
-import { reconcileWorkspaceSavedViewsState } from "../saved-views/state";
 
 export type WorkspaceDocumentSubscription = (
   document: WorkspaceDocument,
@@ -37,19 +36,7 @@ function getDocumentChangeState(host: WorkspaceHost): DocumentChangeState {
 }
 
 export function getWorkspaceDocument(host: WorkspaceHost): WorkspaceDocument {
-  const documentStore = getWorkspaceDocumentStore(host);
-  const currentDocumentState = documentStore.getState();
-  const savedViews =
-    currentDocumentState.savedViews === null
-      ? null
-      : reconcileWorkspaceSavedViewsState(
-          currentDocumentState.savedViews,
-          currentDocumentState,
-        );
-  if (savedViews !== currentDocumentState.savedViews) {
-    documentStore.setState({ savedViews });
-  }
-  const documentState = documentStore.getState();
+  const documentState = getWorkspaceDocumentStore(host).getState();
   return {
     sections: documentState.sections,
     topLevelSections: documentState.topLevelSections,

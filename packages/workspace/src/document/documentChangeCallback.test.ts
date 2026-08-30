@@ -26,6 +26,7 @@ import {
   getWorkspaceDocumentStore,
 } from "./stores";
 import type { WorkspaceDocument, WorkspaceSection } from "./types";
+import { createWorkspaceSavedViewsState } from "../saved-views/state";
 
 function makeSection(
   id: string,
@@ -239,6 +240,43 @@ describe("document-change notification", () => {
     expect(observed.sections["leaf"]).toBeUndefined();
     expect(reported).toHaveLength(1);
     expect(reported[0]?.sections["leaf"]).toBeUndefined();
+  });
+
+  it("reconciles active saved views before raw document-store subscribers observe live layout and camera writes", () => {
+    const initial = host.getSnapshot();
+    commitWorkspaceDocument(host, {
+      ...initial,
+      savedViews: createWorkspaceSavedViewsState(initial, {
+        id: "overview",
+        name: "Overview",
+      }),
+    });
+    const documentStore = getWorkspaceDocumentStore(host);
+    const observed: Array<ReturnType<typeof documentStore.getState>> = [];
+    const unsubscribeDocumentStore = documentStore.subscribe((state) => {
+      observed.push(state);
+    });
+    try {
+      documentStore.setState({
+        topLevelSections: {
+          ...documentStore.getState().topLevelSections,
+          leaf: { h: 50, w: 100, x: 420, y: 24, zIndex: 0 },
+        },
+        viewport: { x: 30, y: 60, zoom: 1.5 },
+      });
+      notifyWorkspaceDocumentChange(host, null);
+    } finally {
+      unsubscribeDocumentStore();
+    }
+    expect(observed).toHaveLength(1);
+    expect(
+      observed[0]?.savedViews?.views["overview"]?.topLevelSections["leaf"],
+    ).toEqual({ h: 50, w: 100, x: 420, y: 24, zIndex: 0 });
+    expect(observed[0]?.savedViews?.views["overview"]?.viewport).toEqual({
+      x: 30,
+      y: 60,
+      zoom: 1.5,
+    });
   });
 });
 

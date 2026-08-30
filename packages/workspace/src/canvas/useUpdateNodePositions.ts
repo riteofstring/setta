@@ -1,7 +1,7 @@
 import { getActiveSectionIds } from "../document/activeSections";
 import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import type { WorkspaceHost } from "../workspaceHost";
-import { getNodes, updateNodePositions } from "./nodeInternalsActions";
+import { getNodes, updateNodePositionsAndCommit } from "./nodeInternalsActions";
 import { getWorkspaceOptionsStore } from "./options";
 import { getReactFlowStore } from "./store";
 
@@ -51,7 +51,7 @@ export const updatePositions = (
     };
   });
 
-  updateNodePositions(host, nodeUpdates);
+  updateNodePositionsAndCommit(host, nodeUpdates);
   if (nodesSelectionDims) {
     shiftNodesSelection({ x: positionDiffX, y: positionDiffY });
   }

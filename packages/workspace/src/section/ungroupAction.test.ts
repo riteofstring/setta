@@ -20,14 +20,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { updateNodeDimensionsFromResizeObserver } from "../canvas/nodeInternalsActions";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
+import {
+  commitWorkspaceDocument,
+  loadWorkspaceDocument,
+} from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
 } from "../document/stores";
-import type { WorkspaceSectionInput } from "../document/types";
+import type { Node, WorkspaceSectionInput } from "../document/types";
+import { createWorkspaceSavedViewsState } from "../saved-views/state";
 import { useSectionRefs } from "./sectionRefs";
 import { ungroupSections } from "./ungroupAction";
 import { registerWorkspaceHostElement } from "../workspaceHostInternals";
@@ -161,6 +165,56 @@ describe("ungroupSections", () => {
       w: 141,
       h: 91,
     });
+  });
+
+  it("publishes measured node dimensions with the matching active saved view to raw node subscribers", () => {
+    const canvas = document.createElement("div");
+    const viewport = document.createElement("div");
+    viewport.className = "react-flow__viewport";
+    canvas.append(viewport);
+    testWorkspace.reactFlow.setState({ domNode: canvas });
+    const initial = testWorkspace.host.getSnapshot();
+    commitWorkspaceDocument(testWorkspace.host, {
+      ...initial,
+      savedViews: createWorkspaceSavedViewsState(initial, {
+        id: "overview",
+        name: "Overview",
+      }),
+    });
+    const group = document.createElement("div");
+    group.dataset["id"] = "group";
+    Object.defineProperties(group, {
+      offsetHeight: { configurable: true, value: 160 },
+      offsetWidth: { configurable: true, value: 240 },
+    });
+    const observed: {
+      document: ReturnType<typeof testWorkspace.document.getState> | null;
+      node: Node | undefined;
+    } = { document: null, node: undefined };
+    const unsubscribe = testWorkspace.nodeInternals.subscribe((state) => {
+      observed.document = testWorkspace.document.getState();
+      observed.node = state.x.get("group");
+    });
+    try {
+      updateNodeDimensionsFromResizeObserver(testWorkspace.host, [
+        { target: group } as unknown as ResizeObserverEntry,
+      ]);
+    } finally {
+      unsubscribe();
+    }
+    const observedDocument = observed.document;
+    const observedNode = observed.node;
+    if (observedDocument === null || observedNode === undefined) {
+      throw new Error("Expected a measured node publication.");
+    }
+    expect(observedNode).toMatchObject({ height: 160, width: 240 });
+    expect(observedDocument.topLevelSections["group"]).toMatchObject({
+      h: 160,
+      w: 240,
+    });
+    expect(
+      observedDocument.savedViews?.views["overview"]?.topLevelSections["group"],
+    ).toMatchObject({ h: 160, w: 240 });
   });
 
   it("rejects unavailable structure capability without changing any store", () => {
