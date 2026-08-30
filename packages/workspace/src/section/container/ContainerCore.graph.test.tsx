@@ -91,6 +91,9 @@ describe("Container group graph ports", () => {
       '[data-workspace-graph-port-id="group-output"]',
     );
     expect(groupShell).not.toBeNull();
+    expect(groupShell?.getAttribute("data-workspace-section-shell")).toBe(
+      "true",
+    );
     expect(groupShell?.contains(port)).toBe(true);
     expect(port?.getAttribute("data-port-side")).toBe("right");
     expect(port?.style.top).toBe("25%");

@@ -76,7 +76,11 @@ function getWorkspaceGraphPortElement(
     "[data-workspace-graph-port-id]",
   )) {
     if (element.dataset.workspaceGraphPortId === portId) {
-      return element;
+      return (
+        element.querySelector<HTMLElement>(
+          "[data-workspace-graph-port-anchor]",
+        ) ?? element
+      );
     }
   }
   return null;
@@ -227,7 +231,7 @@ function WorkspaceGraphEdgePath({
         d={bezier.path}
         fill="none"
         stroke="transparent"
-        strokeWidth={16}
+        strokeWidth={20}
       />
       {edge.label ? (
         <g

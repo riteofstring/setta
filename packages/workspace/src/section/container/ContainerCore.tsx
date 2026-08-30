@@ -190,6 +190,7 @@ function ContainerGroup({
       style={groupStyle}
       data-group-overflow-mode={overflowMode ? "bounded" : "auto"}
       data-section-id={sectionId}
+      data-workspace-section-shell="true"
     >
       <div
         className={`${outlineClassName} setta-workspace-section-attention ${showAttention ? "setta-workspace-section-attention-active" : ""}`}

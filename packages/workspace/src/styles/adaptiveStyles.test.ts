@@ -91,9 +91,12 @@ describe("workspace adaptive stylesheet contract", () => {
     );
   });
 
-  it("promotes section compositor layers only while a viewport gesture runs", () => {
+  it("promotes only section shells so port centering survives viewport gestures", () => {
     expect(workspaceStyles).toMatch(
-      /\.setta-workspace\.react-flow\[data-viewport-interaction-active="true"\]\s+\[data-section-id\][^{]*\{[^}]*will-change: transform[^}]*transform: translateZ\(0\)[^}]*backface-visibility: hidden[^}]*isolation: isolate/su,
+      /\.setta-workspace\.react-flow\[data-viewport-interaction-active="true"\]\s+\[data-workspace-section-shell="true"\][^{]*\{[^}]*will-change: transform[^}]*transform: translateZ\(0\)[^}]*backface-visibility: hidden[^}]*isolation: isolate/su,
+    );
+    expect(workspaceStyles).not.toMatch(
+      /data-viewport-interaction-active="true"\]\s+\[data-section-id\]/su,
     );
 
     expect(workspaceStyles).not.toContain(

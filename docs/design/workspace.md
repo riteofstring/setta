@@ -64,10 +64,14 @@ The graph presentation preserves the local main branch's established `data`, `ag
 `workflow` families, source/target port treatment, connection preview, selection, reconnect, and
 delete behavior. Main is the UX and behavior reference, while this package expresses that behavior
 through the current upstream-renderer architecture rather than copying main's application stores or
-vendored renderer fork. XYFlow mounts no background, controls, minimap, attribution, theme, or
-dependency stylesheet. All projected sections remain mounted, including offscreen sections,
-because editor state, terminal state, measurement, focus, saved-view behavior, and graph geometry
-depend on that continuity.
+vendored renderer fork. Default edge colors and weights plus port color, size, spacing, fill, ring,
+and reveal cadence follow that reference in light and dark themes. Each visible port dot owns its
+measured graph endpoint; any larger family hover target owns interaction only. Viewport compositor
+promotion targets explicit section shells so it cannot replace a port's centering transform while
+panning. XYFlow mounts no background, controls, minimap, attribution, theme, or dependency
+stylesheet. All projected sections remain mounted, including offscreen sections, because editor
+state, terminal state, measurement, focus, saved-view behavior, and graph geometry depend on that
+continuity.
 
 Native external drag data crosses one explicit canvas ingress boundary. Acceptance is synchronous
 and limited to an exact bare-pane target; after acceptance Workspace translates the screen point

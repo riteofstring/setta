@@ -311,6 +311,7 @@ describe("SectionContainer", () => {
     const shell = getRequiredElement(host, '[data-section-id="leaf"]');
     expect(shell.getAttribute("data-section-type")).toBe("leaf");
     expect(shell.getAttribute("data-section-active")).toBe("false");
+    expect(shell.getAttribute("data-workspace-section-shell")).toBe("true");
     expectSectionGroupSemantics(shell, "Leaf section section");
     expect(shell.className).toContain("rounded-lg");
 

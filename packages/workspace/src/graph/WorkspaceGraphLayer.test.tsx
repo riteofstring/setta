@@ -138,7 +138,7 @@ function createConfiguration(
 
 function GraphPortElement({ portId }: { portId: string }) {
   const ref = useCallback(
-    (element: HTMLButtonElement | null) => {
+    (element: HTMLSpanElement | null) => {
       if (!element) {
         return;
       }
@@ -163,7 +163,9 @@ function GraphPortElement({ portId }: { portId: string }) {
     [portId],
   );
   return (
-    <button data-workspace-graph-port-id={portId} ref={ref} type="button" />
+    <button data-workspace-graph-port-id={portId} type="button">
+      <span data-workspace-graph-port-anchor="true" ref={ref} />
+    </button>
   );
 }
 
@@ -317,6 +319,37 @@ describe("WorkspaceGraphLayer", () => {
         .querySelector(".setta-workspace-graph-edge-path")
         ?.getAttribute("d"),
     ).toContain("192.5,142.5");
+    expect(
+      dataEdge
+        .querySelector(".setta-workspace-graph-edge-interaction")
+        ?.getAttribute("stroke-width"),
+    ).toBe("20");
+  });
+
+  it("keeps edge geometry fixed in workspace coordinates while the viewport pans", async () => {
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={workspace}>
+          <GraphLayerHarness configuration={createConfiguration()} />
+        </WorkspaceTestProvider>,
+      );
+    });
+
+    const before = getEdge(host, "agent-edge")
+      .querySelector(".setta-workspace-graph-edge-path")
+      ?.getAttribute("d");
+    for (const [portId, rect] of Object.entries(portRects)) {
+      portRects[portId] = { left: rect.left + 60, top: rect.top + 40 };
+    }
+    await act(async () => {
+      workspace.reactFlow.setState({ transform: [80, 70, 2] });
+      await Promise.resolve();
+    });
+
+    const after = getEdge(host, "agent-edge")
+      .querySelector(".setta-workspace-graph-edge-path")
+      ?.getAttribute("d");
+    expect(after).toBe(before);
   });
 
   it("removes edges whose endpoint is hidden from the rendered section tree", async () => {

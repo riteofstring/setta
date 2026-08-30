@@ -100,7 +100,10 @@ function WorkspaceGraphPortButton({ port }: { port: WorkspaceGraphPort }) {
     }
     event.preventDefault();
     event.stopPropagation();
-    const rect = event.currentTarget.getBoundingClientRect();
+    const anchor = event.currentTarget.querySelector<HTMLElement>(
+      "[data-workspace-graph-port-anchor]",
+    );
+    const rect = (anchor ?? event.currentTarget).getBoundingClientRect();
     activeGraph.beginConnection(
       port.id,
       { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
@@ -118,14 +121,17 @@ function WorkspaceGraphPortButton({ port }: { port: WorkspaceGraphPort }) {
       data-port-family={port.family}
       data-port-side={side}
       data-port-type={port.type}
-      data-section-id={port.sectionId}
       data-workspace-graph-port-id={port.id}
       disabled={!canInteract}
       onPointerDown={onPointerDown}
       style={{ top: `${position * 100}%` }}
       type="button"
     >
-      <span aria-hidden="true" className="setta-workspace-graph-port-dot" />
+      <span
+        aria-hidden="true"
+        className="setta-workspace-graph-port-dot"
+        data-workspace-graph-port-anchor="true"
+      />
     </button>
   );
 }

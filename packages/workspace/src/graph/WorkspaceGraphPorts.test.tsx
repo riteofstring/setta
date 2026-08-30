@@ -110,16 +110,22 @@ function getPort(host: HTMLElement, portId: string): HTMLButtonElement {
 }
 
 function setPortRect(port: HTMLButtonElement, left: number, top: number): void {
-  Object.defineProperty(port, "getBoundingClientRect", {
+  const anchor = port.querySelector<HTMLElement>(
+    "[data-workspace-graph-port-anchor]",
+  );
+  if (!anchor) {
+    throw new Error("Workspace graph port anchor did not render.");
+  }
+  Object.defineProperty(anchor, "getBoundingClientRect", {
     configurable: true,
     value: () =>
       ({
-        bottom: top + 28,
-        height: 28,
+        bottom: top + 14,
+        height: 14,
         left,
-        right: left + 32,
+        right: left + 14,
         top,
-        width: 32,
+        width: 14,
       }) as DOMRect,
   });
 }
@@ -184,6 +190,10 @@ describe("WorkspaceGraphPorts", () => {
     expect(target.getAttribute("data-port-type")).toBe("target");
     expect(source.getAttribute("aria-label")).toBe("Source output");
     expect(target.getAttribute("aria-label")).toBe("Target input");
+    expect(source.hasAttribute("data-section-id")).toBe(false);
+    expect(
+      source.querySelector('[data-workspace-graph-port-anchor="true"]'),
+    ).not.toBeNull();
   });
 
   it("normalizes target-originated gestures before proposing a connection", async () => {

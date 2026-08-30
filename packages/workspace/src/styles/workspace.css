@@ -311,7 +311,7 @@ input.setta-workspace-native-color::-moz-focus-inner {
 }
 
 .setta-workspace.react-flow[data-viewport-interaction-active="true"]
-  [data-section-id] {
+  [data-workspace-section-shell="true"] {
   will-change: transform;
   transform: translateZ(0);
   backface-visibility: hidden;
