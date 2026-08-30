@@ -16,7 +16,12 @@ import { performanceProfileDocument } from "./performanceProfileDocument";
 import { playgroundDocument } from "./playgroundDocument";
 import { registerPlaygroundSectionKinds } from "./sectionKinds";
 
-const workspaceHost = createWorkspaceHost();
+const isPerformanceProfile = new URLSearchParams(window.location.search).has(
+  "performance-profile",
+);
+const workspaceHost = isPerformanceProfile
+  ? createWorkspaceHost()
+  : createWorkspaceHost({ history: { kind: "local" } });
 setWorkspaceColorMode(
   workspaceHost,
   document.documentElement.classList.contains("dark") ? "dark" : "light",
@@ -24,9 +29,6 @@ setWorkspaceColorMode(
 registerPlaygroundSectionKinds(workspaceHost);
 registerPlaygroundMenuExtensions(workspaceHost);
 registerPlaygroundKeyBindings(workspaceHost);
-const isPerformanceProfile = new URLSearchParams(window.location.search).has(
-  "performance-profile",
-);
 workspaceHost.loadDocument(
   isPerformanceProfile ? performanceProfileDocument : playgroundDocument,
 );

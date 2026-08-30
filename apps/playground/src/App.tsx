@@ -370,6 +370,13 @@ function PlaygroundGuideMenu() {
             </dd>
           </div>
           <div>
+            <dt>Structural history</dt>
+            <dd>
+              Change section structure, then press Cmd/Ctrl+Z to undo and
+              Cmd/Ctrl+Shift+Z to redo.
+            </dd>
+          </div>
+          <div>
             <dt>Parameters</dt>
             <dd>
               Hold Cmd/Ctrl+Shift and click rows. Use Alt+Arrow to move or Tab
