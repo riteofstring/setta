@@ -465,9 +465,7 @@
 }
 
 .setta-workspace-saved-view-tabs {
-  position: absolute;
-  inset-block-end: 0;
-  inset-inline: 0;
+  position: relative;
   z-index: 20;
   display: flex;
   box-sizing: border-box;
@@ -475,6 +473,8 @@
   min-height: 2.25rem;
   flex: 0 0 2.25rem;
   align-items: flex-end;
+  grid-column: 1 / -1;
+  grid-row: 2;
   overflow: hidden;
   border-top: 1px solid rgb(203 213 225 / 75%);
   background: rgb(255 255 255);

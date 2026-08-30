@@ -22,6 +22,11 @@
   inset-block: 0;
 }
 
+.setta-workspace-shell[data-saved-view-tabs="true"]
+  > .setta-workspace-shell-pane-region {
+  inset-block-end: 2.25rem;
+}
+
 .setta-workspace-shell-pane-region[data-workspace-shell-pane-region="leading"] {
   inset-inline-start: 0;
 }
