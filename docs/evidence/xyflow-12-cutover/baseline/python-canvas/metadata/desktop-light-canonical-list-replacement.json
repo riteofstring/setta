@@ -173,7 +173,7 @@
         ]
       },
       {
-        "id": "id:31f5059756b802e0bfaff1a1f1d8d579",
+        "id": "id:00000000000000000000000000000011",
         "name": "New List of Objects 3",
         "childSectionIds": []
       }
@@ -189,7 +189,7 @@
       "id:0b1aaef3d0c7914cdf5623543b02e59d",
       "id:c98d31b2ef29468b7fc7285f9a5f1974",
       "id:cd3d70d16c3dee3238112959efaaee36",
-      "id:31f5059756b802e0bfaff1a1f1d8d579"
+      "id:00000000000000000000000000000011"
     ],
     "generatedCode": {
       "code": "import math\n\nclass SettaState:\n    def __init__(state):\n        state.New_callable__x = 3\n        state.New_callable = math.sqrt(state.New_callable__x)\n        state.New_List_of_Objects__0 = None\n        state.New_List_of_Objects = [state.New_List_of_Objects__0]\n        state.New_callable_2 = None\n        state.New_Param_Dict__radius = 4\n        state.New_Param_Dict = {\"radius\": state.New_Param_Dict__radius}\n        state.New_Param_Dict_2 = {}\n        state.New_Param_Dict_3 = {}\n        state.New_callable_3 = None\n        state.New_Param_Dict_4 = {}\n        state.New_callable_4 = None\n        state.New_List_of_Objects_2__0 = None\n        state.New_List_of_Objects_2__1 = None\n        state.New_List_of_Objects_2__2 = None\n        state.New_List_of_Objects_2__3 = None\n        state.New_List_of_Objects_2__4 = None\n        state.New_List_of_Objects_2__5 = None\n        state.New_List_of_Objects_2__6 = None\n        state.New_List_of_Objects_2 = [\n            state.New_List_of_Objects_2__0,\n            state.New_List_of_Objects_2__1,\n            state.New_List_of_Objects_2__2,\n            state.New_List_of_Objects_2__3,\n            state.New_List_of_Objects_2__4,\n            state.New_List_of_Objects_2__5,\n            state.New_List_of_Objects_2__6,\n        ]\n        state.New_List_of_Objects_3 = []\n\nstate = SettaState()",
@@ -830,7 +830,7 @@
         "ariaLabel": "New List of Objects 3 section with nested sections, selected",
         "ariaSelected": null,
         "dragging": false,
-        "id": "python-canvas:list:id:31f5059756b802e0bfaff1a1f1d8d579",
+        "id": "python-canvas:list:id:00000000000000000000000000000011",
         "rect": {
           "bottom": 20.696969985961914,
           "height": 19.696969985961914,

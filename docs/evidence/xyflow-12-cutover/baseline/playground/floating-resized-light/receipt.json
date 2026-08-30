@@ -1,23 +1,6 @@
 {
   "capture": {
-    "baselineSourceGuard": {
-      "ignoredTestDiffPaths": [
-        "packages/workspace/src/shell/WorkspaceShell.test.tsx"
-      ],
-      "permittedUnreachableDiffPaths": [
-        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowAdapter.test.tsx",
-        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowAdapter.tsx",
-        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowNode.tsx",
-        "packages/workspace/src/canvas/xyflow/types.ts",
-        "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.test.ts",
-        "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.ts",
-        "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.test.ts",
-        "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.ts",
-        "packages/workspace/src/canvas/xyflow/workspaceXyflowRuntime.test.ts",
-        "packages/workspace/src/canvas/xyflow/workspaceXyflowRuntime.ts"
-      ],
-      "rejectedProductSourceDiffPaths": []
-    },
+    "baselineSourceGuard": null,
     "builtWorkspace": {
       "directory": "packages/workspace/dist",
       "files": [
@@ -1490,7 +1473,7 @@
       "revision": "@db8ceb709fe92f3bb010fb982d6300e54de6dc6a",
       "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36"
     },
-    "captureCommit": "0e9c43152882264d518f67e5b0b7b7e5a5b3e2dc",
+    "captureCommit": "93df97256f7d81a183c05deed1d0b8e4fee6747e",
     "frozenReferenceCommit": "65f8cafa94c2c4768622ae570f6051332158ddc8",
     "liveResponses": {
       "document": {
@@ -1516,11 +1499,55 @@
       }
     },
     "mode": "baseline",
-    "recordedAt": "2026-08-31T06:11:27.240Z",
+    "recordedAt": "2026-08-31T07:01:02.780Z",
+    "runtimeReference": {
+      "acceptedBaseline": {
+        "captureCommit": "0e9c43152882264d518f67e5b0b7b7e5a5b3e2dc",
+        "frozenReferenceCommit": "65f8cafa94c2c4768622ae570f6051332158ddc8",
+        "manifestPath": "docs/evidence/xyflow-12-cutover/baseline/playground/manifest.json",
+        "manifestSha256": "31c3cc3c975d46a43db85cec375f6c45b71cc5212d9e6cee2dbc63f7444f1eda"
+      },
+      "currentSourceDiffPaths": [
+        "packages/workspace/src/canvas/WorkspaceCanvas.test.ts",
+        "packages/workspace/src/canvas/WorkspaceCanvas.tsx",
+        "packages/workspace/src/canvas/codeMirrorTooltipParent.test.tsx",
+        "packages/workspace/src/canvas/codeMirrorTooltipParent.ts",
+        "packages/workspace/src/canvas/documentViewportSync.test.ts",
+        "packages/workspace/src/canvas/documentViewportSync.ts",
+        "packages/workspace/src/canvas/documentViewportSyncControlled.test.tsx",
+        "packages/workspace/src/canvas/fitView.test.ts",
+        "packages/workspace/src/canvas/fitView.ts",
+        "packages/workspace/src/canvas/nodeInternalsActions.test.ts",
+        "packages/workspace/src/canvas/nodeInternalsActions.ts",
+        "packages/workspace/src/canvas/store.ts",
+        "packages/workspace/src/canvas/viewportHelpers.test.ts",
+        "packages/workspace/src/canvas/viewportHelpers.ts",
+        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowAdapter.test.tsx",
+        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowAdapter.tsx",
+        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowNode.tsx",
+        "packages/workspace/src/canvas/xyflow/types.ts",
+        "packages/workspace/src/canvas/xyflow/useWorkspaceXyflowWheelBehavior.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.test.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.test.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowRuntime.test.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowRuntime.ts",
+        "packages/workspace/src/canvas/zoomWheelBehavior.ts",
+        "packages/workspace/src/document/sectionZIndices.ts",
+        "packages/workspace/src/shell/WorkspaceShell.test.tsx"
+      ],
+      "verification": {
+        "builtWorkspace": true,
+        "chrome": true,
+        "liveResponseHashes": true
+      }
+    },
     "sourceUrl": "http://localhost:5174/",
     "stabilization": {
+      "documentChangeReadout": "normalized-to-zero",
       "fontReadiness": "document.fonts.ready",
-      "postActionDelayMs": 100,
+      "postActionDelayMs": 250,
       "settledFrames": 2
     }
   },
@@ -3079,10 +3106,13 @@
     }
   ],
   "scenario": {
-    "catalogVersion": "2",
+    "catalogVersion": "3",
     "coverage": [
       "windows"
     ],
+    "absentSelectors": [],
+    "invisibleSelectors": [],
+    "visibleSelectors": [],
     "fixtureId": "playground-document",
     "id": "floating-resized-light",
     "theme": "light",

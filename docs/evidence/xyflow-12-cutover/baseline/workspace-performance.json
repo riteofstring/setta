@@ -1,10 +1,10 @@
 {
   "context": {
     "artifactSha256": {
-      "packageDist": "aa739bff87b643dc0c8c7f17f94a80f858684766e5a7d78febc14b323f08e68d",
+      "packageDist": "f086d10c0a949ab5def9e6f23f10c5217b464b165b1203737aa03eda192c49ec",
       "playgroundDist": "2694ce229c2051dda2957438b183471b46d6f3a1c11e61b45c07d4df5e1dc223"
     },
-    "baseCommit": "f5b22f911e06e2663c8a54a258d5c4435729d63b",
+    "baseCommit": "65f8cafa94c2c4768622ae570f6051332158ddc8",
     "environment": {
       "architecture": "arm64",
       "chrome": "Chrome/152.0.7977.42",
@@ -29,26 +29,26 @@
       }
     },
     "profileInputSha256": "f381a7a2f1a9257cea869b1447623df506d6dcb7772d4cef660473ce168e51b4",
-    "recordedAt": "2026-08-31T05:06:14.639Z"
+    "recordedAt": "2026-08-31T19:57:43.946Z"
   },
   "observations": {
     "drag": [
       {
         "activation": {
-          "maxGapMs": 16.8,
+          "maxGapMs": 16.7,
           "over20Count": 0,
           "over32Count": 0,
           "over50Count": 0
         },
-        "firstFrameAfterDownMs": 12.9,
-        "firstMutationAfterDownMs": 17,
-        "firstTargetMutationAfterDownMs": 17,
+        "firstFrameAfterDownMs": 10.6,
+        "firstMutationAfterDownMs": 15.9,
+        "firstTargetMutationAfterDownMs": 15.9,
         "frameCount": 113,
         "initialTargetStyle": "transform: translate(855px, 210px); pointer-events: all; visibility: visible; z-index: 19;",
         "finalTargetStyle": "transform: translate(1005px, 285px); pointer-events: all; visibility: visible; z-index: 255;",
         "longTasks": [],
         "maxMoveHandlerMs": 0.2,
-        "maxMoveIntervalMs": 17.7,
+        "maxMoveIntervalMs": 18.6,
         "meanMoveIntervalMs": 16.7,
         "moveCount": 96,
         "overall": {
@@ -72,11 +72,11 @@
         "targetMutationCount": 98,
         "cdp": {
           "LayoutCount": 96,
-          "RecalcStyleCount": 110,
-          "LayoutDurationMs": 2.9,
-          "RecalcStyleDurationMs": 22.8,
-          "ScriptDurationMs": 102.2,
-          "TaskDurationMs": 251
+          "RecalcStyleCount": 109,
+          "LayoutDurationMs": 3.9,
+          "RecalcStyleDurationMs": 26.9,
+          "ScriptDurationMs": 136.6,
+          "TaskDurationMs": 325.3
         },
         "counts": {
           "after": {
@@ -110,15 +110,15 @@
           "over32Count": 0,
           "over50Count": 0
         },
-        "firstFrameAfterDownMs": 1.8,
-        "firstMutationAfterDownMs": 22.1,
-        "firstTargetMutationAfterDownMs": 22.1,
-        "frameCount": 114,
+        "firstFrameAfterDownMs": 11.5,
+        "firstMutationAfterDownMs": 16.9,
+        "firstTargetMutationAfterDownMs": 16.9,
+        "frameCount": 113,
         "initialTargetStyle": "transform: translate(855px, 210px); pointer-events: all; visibility: visible; z-index: 19;",
         "finalTargetStyle": "transform: translate(1005px, 285px); pointer-events: all; visibility: visible; z-index: 255;",
         "longTasks": [],
         "maxMoveHandlerMs": 0.2,
-        "maxMoveIntervalMs": 17.6,
+        "maxMoveIntervalMs": 18.6,
         "meanMoveIntervalMs": 16.7,
         "moveCount": 96,
         "overall": {
@@ -131,8 +131,8 @@
           "x": 0,
           "y": 0
         },
-        "pointerDownHandlerMs": 0.1,
-        "pointerUpHandlerMs": 0,
+        "pointerDownHandlerMs": 0.2,
+        "pointerUpHandlerMs": 0.2,
         "sustained": {
           "maxGapMs": 16.8,
           "over20Count": 0,
@@ -142,11 +142,11 @@
         "targetMutationCount": 98,
         "cdp": {
           "LayoutCount": 96,
-          "RecalcStyleCount": 109,
-          "LayoutDurationMs": 3,
-          "RecalcStyleDurationMs": 22.7,
-          "ScriptDurationMs": 92.5,
-          "TaskDurationMs": 233.2
+          "RecalcStyleCount": 110,
+          "LayoutDurationMs": 4.2,
+          "RecalcStyleDurationMs": 28.2,
+          "ScriptDurationMs": 132.8,
+          "TaskDurationMs": 326.8
         },
         "counts": {
           "after": {
@@ -180,16 +180,16 @@
           "over32Count": 0,
           "over50Count": 0
         },
-        "firstFrameAfterDownMs": 0.5,
-        "firstMutationAfterDownMs": 20.6,
-        "firstTargetMutationAfterDownMs": 20.6,
-        "frameCount": 115,
+        "firstFrameAfterDownMs": 2.9,
+        "firstMutationAfterDownMs": 5.8,
+        "firstTargetMutationAfterDownMs": 5.8,
+        "frameCount": 113,
         "initialTargetStyle": "transform: translate(855px, 210px); pointer-events: all; visibility: visible; z-index: 19;",
         "finalTargetStyle": "transform: translate(1005px, 285px); pointer-events: all; visibility: visible; z-index: 255;",
         "longTasks": [],
         "maxMoveHandlerMs": 0.2,
-        "maxMoveIntervalMs": 32.6,
-        "meanMoveIntervalMs": 16.8,
+        "maxMoveIntervalMs": 18.6,
+        "meanMoveIntervalMs": 16.7,
         "moveCount": 96,
         "overall": {
           "maxGapMs": 16.8,
@@ -202,7 +202,7 @@
           "y": 0
         },
         "pointerDownHandlerMs": 0.2,
-        "pointerUpHandlerMs": 0,
+        "pointerUpHandlerMs": 0.1,
         "sustained": {
           "maxGapMs": 16.8,
           "over20Count": 0,
@@ -213,10 +213,10 @@
         "cdp": {
           "LayoutCount": 96,
           "RecalcStyleCount": 109,
-          "LayoutDurationMs": 2.9,
-          "RecalcStyleDurationMs": 22.7,
-          "ScriptDurationMs": 102.7,
-          "TaskDurationMs": 240.6
+          "LayoutDurationMs": 3,
+          "RecalcStyleDurationMs": 21.3,
+          "ScriptDurationMs": 107.2,
+          "TaskDurationMs": 246
         },
         "counts": {
           "after": {
@@ -247,166 +247,26 @@
     "pan": [
       {
         "activation": {
-          "maxGapMs": 16.7,
-          "over20Count": 0,
-          "over32Count": 0,
+          "maxGapMs": 33.3,
+          "over20Count": 1,
+          "over32Count": 1,
           "over50Count": 0
         },
-        "firstFrameAfterDownMs": 0.2,
-        "firstMutationAfterDownMs": 4.1,
-        "firstTargetMutationAfterDownMs": 25.2,
-        "frameCount": 115,
+        "firstFrameAfterDownMs": 6.3,
+        "firstMutationAfterDownMs": 5.1,
+        "firstTargetMutationAfterDownMs": 48.1,
+        "frameCount": 117,
         "initialTargetStyle": "transform: translate(0px, 0px) scale(1);",
         "finalTargetStyle": "transform: translate(180px, 90px) scale(1);",
         "longTasks": [],
-        "maxMoveHandlerMs": 0.2,
-        "maxMoveIntervalMs": 32.6,
-        "meanMoveIntervalMs": 16.8,
+        "maxMoveHandlerMs": 0.1,
+        "maxMoveIntervalMs": 33.5,
+        "meanMoveIntervalMs": 17.2,
         "moveCount": 96,
         "overall": {
-          "maxGapMs": 16.8,
-          "over20Count": 0,
-          "over32Count": 0,
-          "over50Count": 0
-        },
-        "pageScrollDelta": {
-          "x": 0,
-          "y": 0
-        },
-        "pointerDownHandlerMs": 0.2,
-        "pointerUpHandlerMs": 0.1,
-        "sustained": {
-          "maxGapMs": 16.8,
-          "over20Count": 0,
-          "over32Count": 0,
-          "over50Count": 0
-        },
-        "targetMutationCount": 96,
-        "cdp": {
-          "LayoutCount": 96,
-          "RecalcStyleCount": 99,
-          "LayoutDurationMs": 5.7,
-          "RecalcStyleDurationMs": 12.9,
-          "ScriptDurationMs": 342,
-          "TaskDurationMs": 973.6
-        },
-        "counts": {
-          "after": {
-            "canvas": {
-              "height": 602,
-              "width": 1446
-            },
-            "culledTopLevelNodes": 0,
-            "expectedTopLevelNodes": 256,
-            "mountedOffscreenTopLevelNodes": 241,
-            "mountedTopLevelNodes": 256,
-            "visibleTopLevelNodes": 15
-          },
-          "before": {
-            "canvas": {
-              "height": 602,
-              "width": 1446
-            },
-            "culledTopLevelNodes": 0,
-            "expectedTopLevelNodes": 256,
-            "mountedOffscreenTopLevelNodes": 232,
-            "mountedTopLevelNodes": 256,
-            "visibleTopLevelNodes": 24
-          }
-        }
-      },
-      {
-        "activation": {
-          "maxGapMs": 16.7,
-          "over20Count": 0,
-          "over32Count": 0,
-          "over50Count": 0
-        },
-        "firstFrameAfterDownMs": 6,
-        "firstMutationAfterDownMs": 3.5,
-        "firstTargetMutationAfterDownMs": 29.2,
-        "frameCount": 114,
-        "initialTargetStyle": "transform: translate(0px, 0px) scale(1);",
-        "finalTargetStyle": "transform: translate(180px, 90px) scale(1);",
-        "longTasks": [],
-        "maxMoveHandlerMs": 0.2,
-        "maxMoveIntervalMs": 17.6,
-        "meanMoveIntervalMs": 16.7,
-        "moveCount": 96,
-        "overall": {
-          "maxGapMs": 16.8,
-          "over20Count": 0,
-          "over32Count": 0,
-          "over50Count": 0
-        },
-        "pageScrollDelta": {
-          "x": 0,
-          "y": 0
-        },
-        "pointerDownHandlerMs": 0.1,
-        "pointerUpHandlerMs": 0,
-        "sustained": {
-          "maxGapMs": 16.8,
-          "over20Count": 0,
-          "over32Count": 0,
-          "over50Count": 0
-        },
-        "targetMutationCount": 96,
-        "cdp": {
-          "LayoutCount": 96,
-          "RecalcStyleCount": 99,
-          "LayoutDurationMs": 5.5,
-          "RecalcStyleDurationMs": 12.9,
-          "ScriptDurationMs": 332.3,
-          "TaskDurationMs": 1000.2
-        },
-        "counts": {
-          "after": {
-            "canvas": {
-              "height": 602,
-              "width": 1446
-            },
-            "culledTopLevelNodes": 0,
-            "expectedTopLevelNodes": 256,
-            "mountedOffscreenTopLevelNodes": 241,
-            "mountedTopLevelNodes": 256,
-            "visibleTopLevelNodes": 15
-          },
-          "before": {
-            "canvas": {
-              "height": 602,
-              "width": 1446
-            },
-            "culledTopLevelNodes": 0,
-            "expectedTopLevelNodes": 256,
-            "mountedOffscreenTopLevelNodes": 232,
-            "mountedTopLevelNodes": 256,
-            "visibleTopLevelNodes": 24
-          }
-        }
-      },
-      {
-        "activation": {
-          "maxGapMs": 16.7,
-          "over20Count": 0,
-          "over32Count": 0,
-          "over50Count": 0
-        },
-        "firstFrameAfterDownMs": 15.8,
-        "firstMutationAfterDownMs": 3.9,
-        "firstTargetMutationAfterDownMs": 26.4,
-        "frameCount": 114,
-        "initialTargetStyle": "transform: translate(0px, 0px) scale(1);",
-        "finalTargetStyle": "transform: translate(180px, 90px) scale(1);",
-        "longTasks": [],
-        "maxMoveHandlerMs": 0.2,
-        "maxMoveIntervalMs": 30.4,
-        "meanMoveIntervalMs": 16.8,
-        "moveCount": 96,
-        "overall": {
-          "maxGapMs": 16.8,
-          "over20Count": 0,
-          "over32Count": 0,
+          "maxGapMs": 33.3,
+          "over20Count": 1,
+          "over32Count": 1,
           "over50Count": 0
         },
         "pageScrollDelta": {
@@ -427,8 +287,148 @@
           "RecalcStyleCount": 99,
           "LayoutDurationMs": 5.5,
           "RecalcStyleDurationMs": 13.5,
-          "ScriptDurationMs": 352.5,
-          "TaskDurationMs": 1136.6
+          "ScriptDurationMs": 332.1,
+          "TaskDurationMs": 946.8
+        },
+        "counts": {
+          "after": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 241,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 15
+          },
+          "before": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 232,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 24
+          }
+        }
+      },
+      {
+        "activation": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "firstFrameAfterDownMs": 15.3,
+        "firstMutationAfterDownMs": 5.4,
+        "firstTargetMutationAfterDownMs": 29.6,
+        "frameCount": 116,
+        "initialTargetStyle": "transform: translate(0px, 0px) scale(1);",
+        "finalTargetStyle": "transform: translate(180px, 90px) scale(1);",
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.2,
+        "maxMoveIntervalMs": 33.3,
+        "meanMoveIntervalMs": 17.1,
+        "moveCount": 96,
+        "overall": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 0.1,
+        "pointerUpHandlerMs": 0.1,
+        "sustained": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "targetMutationCount": 96,
+        "cdp": {
+          "LayoutCount": 96,
+          "RecalcStyleCount": 99,
+          "LayoutDurationMs": 5.3,
+          "RecalcStyleDurationMs": 14.1,
+          "ScriptDurationMs": 322.4,
+          "TaskDurationMs": 976.6
+        },
+        "counts": {
+          "after": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 241,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 15
+          },
+          "before": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 232,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 24
+          }
+        }
+      },
+      {
+        "activation": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "firstFrameAfterDownMs": 10.3,
+        "firstMutationAfterDownMs": 5.7,
+        "firstTargetMutationAfterDownMs": 31.8,
+        "frameCount": 125,
+        "initialTargetStyle": "transform: translate(0px, 0px) scale(1);",
+        "finalTargetStyle": "transform: translate(180px, 90px) scale(1);",
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.2,
+        "maxMoveIntervalMs": 33.5,
+        "meanMoveIntervalMs": 18.6,
+        "moveCount": 96,
+        "overall": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 0.1,
+        "pointerUpHandlerMs": 0.1,
+        "sustained": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "targetMutationCount": 96,
+        "cdp": {
+          "LayoutCount": 96,
+          "RecalcStyleCount": 99,
+          "LayoutDurationMs": 5.3,
+          "RecalcStyleDurationMs": 14.5,
+          "ScriptDurationMs": 334.3,
+          "TaskDurationMs": 1061.2
         },
         "counts": {
           "after": {
@@ -470,29 +470,29 @@
           "visibleTopLevelNodes": 24
         },
         "load": {
-          "domContentLoadedMs": 198.80000001192093,
-          "loadEventEndMs": 199,
+          "domContentLoadedMs": 176,
+          "loadEventEndMs": 176.0999999642372,
           "longTasks": [
             {
-              "duration": 77,
-              "startTime": 121.70000004768372
+              "duration": 75,
+              "startTime": 100.89999997615814
             },
             {
-              "duration": 159,
-              "startTime": 199.4000000357628
+              "duration": 152,
+              "startTime": 176.5999999642372
             }
           ],
           "mountedNodeCount": 256,
-          "nodeReadyAtMs": 358.4000000357628,
-          "settledAtMs": 381.10000002384186
+          "nodeReadyAtMs": 328.5999999642372,
+          "settledAtMs": 349.5999999642372
         },
         "cdp": {
           "LayoutCount": 4,
           "RecalcStyleCount": 4,
-          "LayoutDurationMs": 21,
-          "RecalcStyleDurationMs": 28.6,
-          "ScriptDurationMs": 202.6,
-          "TaskDurationMs": 290.3
+          "LayoutDurationMs": 19.7,
+          "RecalcStyleDurationMs": 28,
+          "ScriptDurationMs": 194.8,
+          "TaskDurationMs": 281.5
         },
         "pass": 1
       },
@@ -509,25 +509,25 @@
           "visibleTopLevelNodes": 24
         },
         "load": {
-          "domContentLoadedMs": 66.80000001192093,
-          "loadEventEndMs": 66.80000001192093,
+          "domContentLoadedMs": 68.89999997615814,
+          "loadEventEndMs": 69,
           "longTasks": [
             {
-              "duration": 135,
-              "startTime": 79.40000003576279
+              "duration": 124,
+              "startTime": 80.79999995231628
             }
           ],
           "mountedNodeCount": 256,
-          "nodeReadyAtMs": 214.30000001192093,
-          "settledAtMs": 234.5
+          "nodeReadyAtMs": 205.5,
+          "settledAtMs": 223.5
         },
         "cdp": {
           "LayoutCount": 4,
           "RecalcStyleCount": 4,
-          "LayoutDurationMs": 12.7,
-          "RecalcStyleDurationMs": 28.9,
-          "ScriptDurationMs": 122.4,
-          "TaskDurationMs": 194.1
+          "LayoutDurationMs": 11.7,
+          "RecalcStyleDurationMs": 27.3,
+          "ScriptDurationMs": 112.1,
+          "TaskDurationMs": 182.1
         },
         "pass": 2
       },
@@ -544,25 +544,25 @@
           "visibleTopLevelNodes": 24
         },
         "load": {
-          "domContentLoadedMs": 59.5,
-          "loadEventEndMs": 59.60000002384186,
+          "domContentLoadedMs": 64.90000003576279,
+          "loadEventEndMs": 65,
           "longTasks": [
             {
-              "duration": 126,
-              "startTime": 59.80000001192093
+              "duration": 122,
+              "startTime": 65.10000002384186
             }
           ],
           "mountedNodeCount": 256,
-          "nodeReadyAtMs": 186.60000002384186,
-          "settledAtMs": 207
+          "nodeReadyAtMs": 187.30000001192093,
+          "settledAtMs": 206.80000001192093
         },
         "cdp": {
           "LayoutCount": 4,
           "RecalcStyleCount": 4,
-          "LayoutDurationMs": 11,
-          "RecalcStyleDurationMs": 28.2,
-          "ScriptDurationMs": 115.5,
-          "TaskDurationMs": 172.7
+          "LayoutDurationMs": 10.8,
+          "RecalcStyleDurationMs": 27.8,
+          "ScriptDurationMs": 110.3,
+          "TaskDurationMs": 169.2
         },
         "pass": 3
       }
@@ -578,21 +578,21 @@
         "maxActivationFrameGapMs": 16.8,
         "maxLongTaskMs": 0,
         "maxSustainedFrameGapMs": 16.8,
-        "medianFirstTargetMutationAfterDownMs": 20.6,
-        "medianScriptDurationMs": 102.2,
-        "medianTaskDurationMs": 240.6
+        "medianFirstTargetMutationAfterDownMs": 15.9,
+        "medianScriptDurationMs": 132.8,
+        "medianTaskDurationMs": 325.3
       },
       "pan": {
-        "maxActivationFrameGapMs": 16.7,
+        "maxActivationFrameGapMs": 33.3,
         "maxLongTaskMs": 0,
         "maxSustainedFrameGapMs": 16.8,
-        "medianScriptDurationMs": 342,
-        "medianTaskDurationMs": 1000.2
+        "medianScriptDurationMs": 332.1,
+        "medianTaskDurationMs": 976.6
       },
       "render": {
-        "maxLongTaskMs": 159,
-        "medianNodeReadyAtMs": 214.3,
-        "medianSettledAtMs": 234.5
+        "maxLongTaskMs": 152,
+        "medianNodeReadyAtMs": 205.5,
+        "medianSettledAtMs": 223.5
       }
     }
   }

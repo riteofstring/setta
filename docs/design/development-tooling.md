@@ -87,7 +87,7 @@ node scripts/xyflow-parity/capture-playground.mjs --mode candidate \
   --reference-commit 65f8cafa94c2c4768622ae570f6051332158ddc8 \
   --output-dir /tmp/setta-playground-candidate
 node scripts/xyflow-parity/compare-playground.mjs \
-  --baseline-dir "$PWD/docs/evidence/xyflow-12-cutover/baseline/playground-expanded" \
+  --baseline-dir "$PWD/docs/evidence/xyflow-12-cutover/baseline/playground" \
   --candidate-dir /tmp/setta-playground-candidate \
   --output-dir /tmp/setta-playground-comparison
 node apps/python-canvas/visual-parity/capture.mjs --mode candidate \

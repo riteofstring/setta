@@ -1,6 +1,6 @@
 {
-  "baselineRoot": "/Users/kevin/Documents/AppDevelopment/setta/docs/evidence/xyflow-12-cutover/baseline",
-  "captureRevision": "0e9c43152882264d518f67e5b0b7b7e5a5b3e2dc",
+  "baselineRoot": "/private/tmp/setta-xyflow-baseline-stable/docs/evidence/xyflow-12-cutover/baseline",
+  "captureRevision": "65f8cafa94c2c4768622ae570f6051332158ddc8",
   "capturedScenarioIds": [
     "desktop-light-mixed-project",
     "desktop-light-callable-selected-focused-zoomed",
@@ -93,19 +93,7 @@
     }
   ],
   "mode": "baseline",
-  "productSourceDifferencesFromReference": [
-    "packages/workspace/src/canvas/xyflow/WorkspaceXyflowAdapter.test.tsx",
-    "packages/workspace/src/canvas/xyflow/WorkspaceXyflowAdapter.tsx",
-    "packages/workspace/src/canvas/xyflow/WorkspaceXyflowNode.tsx",
-    "packages/workspace/src/canvas/xyflow/types.ts",
-    "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.test.ts",
-    "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.ts",
-    "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.test.ts",
-    "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.ts",
-    "packages/workspace/src/canvas/xyflow/workspaceXyflowRuntime.test.ts",
-    "packages/workspace/src/canvas/xyflow/workspaceXyflowRuntime.ts",
-    "packages/workspace/src/shell/WorkspaceShell.test.tsx"
-  ],
+  "productSourceDifferencesFromReference": [],
   "referenceRevision": "65f8cafa94c2c4768622ae570f6051332158ddc8",
   "runtimeArtifactHashes": {
     "apps/python-canvas/dist/assets/index-BmqEX2l-.js": "95804102c47cc722efa330d736ab71c8816879abaf324c3c099b806a68ee279f",
@@ -167,12 +155,6 @@
     "packages/workspace/dist/types/canvas/viewportInsets.d.ts": "f7a6e14662ce341dae4b8db34f0f2d61598546eb091f1af073138815c1a8c3fa",
     "packages/workspace/dist/types/canvas/viewportPosition.d.ts": "54f15931ee06c55e7044b0ac2794c229a2e986636d6631b8ae05163fe679526b",
     "packages/workspace/dist/types/canvas/wrapNode.d.ts": "b125ba858be1ad71b2dd22c7889e449026c96457d31ee73c3f80b8d1ff3dd7ff",
-    "packages/workspace/dist/types/canvas/xyflow/WorkspaceXyflowAdapter.d.ts": "706165447f8dcfed5fa76b21c1ec456077b93f3cd513dda7ed37116b76910d5f",
-    "packages/workspace/dist/types/canvas/xyflow/WorkspaceXyflowNode.d.ts": "669600754ff15f92f313612f811a58d766da8469ccdfdf166d7251966e475b3a",
-    "packages/workspace/dist/types/canvas/xyflow/types.d.ts": "6773a18927db5fff51a9adbee299058b615216220c45b3461f6a392db8d3e103",
-    "packages/workspace/dist/types/canvas/xyflow/workspaceXyflowChanges.d.ts": "0022f0d3ade151f62a5926639de1f12eadeb39946fb65c4b55def7b688d76c68",
-    "packages/workspace/dist/types/canvas/xyflow/workspaceXyflowProjection.d.ts": "a7e76e7cc6a723c193bf0ff8c12c28a604444d646f4b1699bf1865ef170d7d90",
-    "packages/workspace/dist/types/canvas/xyflow/workspaceXyflowRuntime.d.ts": "0b315e4d935416efc8fcc13659384c3a2d197fab45b1de9de03b7f4472f129be",
     "packages/workspace/dist/types/canvas/zoomWheelBehavior.d.ts": "b51f436643ffe4969f2f33fbcb5be66bae357e0ba7afa7a7c0cad99ef28b70b2",
     "packages/workspace/dist/types/clipboard/capture.d.ts": "2a2aa3b6cd23668340acbcfb277ea81ba1cb6316e3e884946b735f7f87ce539e",
     "packages/workspace/dist/types/clipboard/envelope.d.ts": "6879d734895319cff3bd68c33ac2ca1efa415563af984e429f6e96097f879ef0",

@@ -1,0 +1,41 @@
+{
+  "artifacts": {
+    "geometryDiff": "scenarios/desktop-light-terminal-hidden/geometry-diff.json",
+    "pixelDiff": "scenarios/desktop-light-terminal-hidden/pixel-diff.png",
+    "pixelDiffRecords": "scenarios/desktop-light-terminal-hidden/pixel-diff.ndjson"
+  },
+  "baseline": {
+    "metadataSha256": "cfb0ae7a44840814fe41cf16eff7190c44c2b8b632c037b74dbc57615b507047",
+    "screenshotSha256": "2a5fdf6e9965323b4c36f966d810291cbc608850632e4a770a14efb272398f18"
+  },
+  "candidate": {
+    "metadataSha256": "cfb0ae7a44840814fe41cf16eff7190c44c2b8b632c037b74dbc57615b507047",
+    "screenshotSha256": "2098f9a35e71dd72fdc3291cb9fa9a6f231d5fce81c67e61ce67aab860f4fd16"
+  },
+  "contract": {
+    "differenceCount": 0,
+    "differences": [],
+    "passed": true
+  },
+  "geometry": {
+    "differenceCount": 0,
+    "differences": [],
+    "passed": true,
+    "tolerance": 0.25
+  },
+  "id": "desktop-light-terminal-hidden",
+  "passed": true,
+  "pixels": {
+    "antialiasPixels": 0,
+    "changedPixels": 18,
+    "dimensionsDiffer": false,
+    "differenceRecordCount": 18,
+    "differenceRecordsFormat": "ndjson",
+    "differenceRecordsSha256": "e0d81dcfa45abaa7dda08092eb29af8125855ef7f780844a518ead2346bbbfac",
+    "edgeRasterComponents": 2,
+    "edgeRasterPixels": 18,
+    "maximumChannelDifference": 23,
+    "meaningfulPixels": 0,
+    "passed": true
+  }
+}

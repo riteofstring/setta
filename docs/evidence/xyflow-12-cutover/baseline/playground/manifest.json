@@ -1,23 +1,6 @@
 {
   "capture": {
-    "baselineSourceGuard": {
-      "ignoredTestDiffPaths": [
-        "packages/workspace/src/shell/WorkspaceShell.test.tsx"
-      ],
-      "permittedUnreachableDiffPaths": [
-        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowAdapter.test.tsx",
-        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowAdapter.tsx",
-        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowNode.tsx",
-        "packages/workspace/src/canvas/xyflow/types.ts",
-        "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.test.ts",
-        "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.ts",
-        "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.test.ts",
-        "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.ts",
-        "packages/workspace/src/canvas/xyflow/workspaceXyflowRuntime.test.ts",
-        "packages/workspace/src/canvas/xyflow/workspaceXyflowRuntime.ts"
-      ],
-      "rejectedProductSourceDiffPaths": []
-    },
+    "baselineSourceGuard": null,
     "chrome": {
       "binary": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
       "jsVersion": "15.2.124.8",
@@ -1490,7 +1473,7 @@
         }
       ]
     },
-    "captureCommit": "0e9c43152882264d518f67e5b0b7b7e5a5b3e2dc",
+    "captureCommit": "93df97256f7d81a183c05deed1d0b8e4fee6747e",
     "frozenReferenceCommit": "65f8cafa94c2c4768622ae570f6051332158ddc8",
     "liveResponses": {
       "document": {
@@ -1515,21 +1498,65 @@
         "url": "http://localhost:5174/src/index.css"
       }
     },
+    "runtimeReference": {
+      "acceptedBaseline": {
+        "captureCommit": "0e9c43152882264d518f67e5b0b7b7e5a5b3e2dc",
+        "frozenReferenceCommit": "65f8cafa94c2c4768622ae570f6051332158ddc8",
+        "manifestPath": "docs/evidence/xyflow-12-cutover/baseline/playground/manifest.json",
+        "manifestSha256": "31c3cc3c975d46a43db85cec375f6c45b71cc5212d9e6cee2dbc63f7444f1eda"
+      },
+      "currentSourceDiffPaths": [
+        "packages/workspace/src/canvas/WorkspaceCanvas.test.ts",
+        "packages/workspace/src/canvas/WorkspaceCanvas.tsx",
+        "packages/workspace/src/canvas/codeMirrorTooltipParent.test.tsx",
+        "packages/workspace/src/canvas/codeMirrorTooltipParent.ts",
+        "packages/workspace/src/canvas/documentViewportSync.test.ts",
+        "packages/workspace/src/canvas/documentViewportSync.ts",
+        "packages/workspace/src/canvas/documentViewportSyncControlled.test.tsx",
+        "packages/workspace/src/canvas/fitView.test.ts",
+        "packages/workspace/src/canvas/fitView.ts",
+        "packages/workspace/src/canvas/nodeInternalsActions.test.ts",
+        "packages/workspace/src/canvas/nodeInternalsActions.ts",
+        "packages/workspace/src/canvas/store.ts",
+        "packages/workspace/src/canvas/viewportHelpers.test.ts",
+        "packages/workspace/src/canvas/viewportHelpers.ts",
+        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowAdapter.test.tsx",
+        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowAdapter.tsx",
+        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowNode.tsx",
+        "packages/workspace/src/canvas/xyflow/types.ts",
+        "packages/workspace/src/canvas/xyflow/useWorkspaceXyflowWheelBehavior.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.test.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.test.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowRuntime.test.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowRuntime.ts",
+        "packages/workspace/src/canvas/zoomWheelBehavior.ts",
+        "packages/workspace/src/document/sectionZIndices.ts",
+        "packages/workspace/src/shell/WorkspaceShell.test.tsx"
+      ],
+      "verification": {
+        "builtWorkspace": true,
+        "chrome": true,
+        "liveResponseHashes": true
+      }
+    },
     "mode": "baseline",
-    "recordedAt": "2026-08-31T06:11:41.379Z",
+    "recordedAt": "2026-08-31T07:02:09.671Z",
     "sourceUrl": "http://localhost:5174/",
     "stabilization": {
       "fontReadiness": "document.fonts.ready",
-      "postActionDelayMs": 100,
+      "postActionDelayMs": 250,
       "settledFrames": 2
     }
   },
   "catalog": {
-    "catalogVersion": "2",
+    "catalogVersion": "3",
     "completeCatalog": true,
     "requiredCoverage": [
       "docking",
       "controls",
+      "control-popovers",
       "locks",
       "marquee",
       "menus",
@@ -1537,9 +1564,13 @@
       "minimize",
       "overlay",
       "panes",
+      "saved-views",
       "sections",
       "selection",
+      "sizing",
+      "themes",
       "viewport",
+      "window-spaces",
       "windows"
     ],
     "selectedScenarioIds": [
@@ -1573,7 +1604,227 @@
       "section-context-menu-light",
       "workspace-find-light",
       "section-actions-popover-light",
-      "registered-section-families-wide-light"
+      "registered-section-families-wide-light",
+      "section-resized-light",
+      "group-orientation-vertical-light",
+      "saved-views-pane-light",
+      "saved-views-edit-light",
+      "saved-view-content-active-light",
+      "controls-snap-toggle-focus-light",
+      "controls-minimap-hidden-light",
+      "minimap-right-light",
+      "pane-creation-menu-light",
+      "item-selection-light",
+      "item-columns-resized-light",
+      "item-dropdown-popover-light",
+      "item-color-popover-light",
+      "meta-dropdown-popover-light",
+      "meta-date-calendar-light",
+      "canvas-wide-dark",
+      "snap-committed-section-drag-light",
+      "floating-maximized-light",
+      "generic-window-minimized-light",
+      "generic-window-reopened-light",
+      "section-window-handoff-light",
+      "dock-resized-light",
+      "window-spaces-pane-light",
+      "window-space-saved-light",
+      "window-space-restored-light"
+    ],
+    "coverageLedger": [
+      {
+        "state": "pane-leading-trailing-and-none",
+        "scenarios": [
+          "pane-leading-only-light",
+          "pane-both-light",
+          "pane-trailing-only-light",
+          "pane-none-light"
+        ]
+      },
+      {
+        "state": "pane-saved-views",
+        "scenarios": [
+          "saved-views-pane-light",
+          "saved-views-edit-light",
+          "saved-view-content-active-light"
+        ]
+      },
+      {
+        "state": "pane-window-spaces",
+        "scenarios": [
+          "window-spaces-pane-light",
+          "window-space-saved-light",
+          "window-space-restored-light"
+        ]
+      },
+      {
+        "state": "pane-creation-menu",
+        "scenarios": [
+          "pane-creation-menu-light"
+        ]
+      },
+      {
+        "state": "minimap-focus-drag-and-theme",
+        "scenarios": [
+          "minimap-focused-light",
+          "minimap-dragged-light",
+          "minimap-focused-dark-compact"
+        ]
+      },
+      {
+        "state": "minimap-side-and-hidden",
+        "scenarios": [
+          "minimap-right-light",
+          "controls-minimap-hidden-light"
+        ]
+      },
+      {
+        "state": "section-family-leaf-group-item-meta-code-text",
+        "scenarios": [
+          "registered-section-families-wide-light"
+        ]
+      },
+      {
+        "state": "section-orientation-and-drag",
+        "scenarios": [
+          "group-orientation-vertical-light",
+          "section-dragged-light"
+        ]
+      },
+      {
+        "state": "section-resize-lock-minimize-restore",
+        "scenarios": [
+          "section-resized-light",
+          "section-locked-light",
+          "section-minimized-light",
+          "section-restored-light"
+        ]
+      },
+      {
+        "state": "section-selection-and-marquee",
+        "scenarios": [
+          "section-multiselection-light",
+          "marquee-in-progress-light",
+          "marquee-completed-light"
+        ]
+      },
+      {
+        "state": "item-selection-and-column-resize",
+        "scenarios": [
+          "item-selection-light",
+          "item-columns-resized-light"
+        ]
+      },
+      {
+        "state": "item-dropdown-color-and-date-surfaces",
+        "scenarios": [
+          "item-dropdown-popover-light",
+          "item-color-popover-light",
+          "meta-dropdown-popover-light",
+          "meta-date-calendar-light"
+        ]
+      },
+      {
+        "state": "native-picker-surfaces",
+        "unsupportedState": "browser-native-picker-surfaces"
+      },
+      {
+        "state": "workspace-controls-focus-toggle-and-snap",
+        "scenarios": [
+          "controls-snap-toggle-focus-light",
+          "snap-committed-section-drag-light"
+        ]
+      },
+      {
+        "state": "workspace-control-tooltip",
+        "unsupportedState": "workspace-tooltip-surface"
+      },
+      {
+        "state": "snap-preview",
+        "unsupportedState": "snap-preview-overlay"
+      },
+      {
+        "state": "canvas-pan-zoom-and-light-dark",
+        "scenarios": [
+          "viewport-zoom-pan-light",
+          "canvas-wide-dark"
+        ]
+      },
+      {
+        "state": "section-context-menu-find-and-action-popover",
+        "scenarios": [
+          "section-context-menu-light",
+          "workspace-find-light",
+          "section-actions-popover-light"
+        ]
+      },
+      {
+        "state": "section-and-window-overlay-wheel",
+        "scenarios": [
+          "section-overlay-wheel-light",
+          "window-overlay-wheel-light"
+        ]
+      },
+      {
+        "state": "floating-window-focus-move-and-resize",
+        "scenarios": [
+          "floating-focused-light",
+          "floating-unfocused-light",
+          "floating-moved-light",
+          "floating-resized-light"
+        ]
+      },
+      {
+        "state": "floating-window-maximize",
+        "scenarios": [
+          "floating-maximized-light"
+        ]
+      },
+      {
+        "state": "generic-window-move",
+        "unsupportedState": "generic-window-title-drag"
+      },
+      {
+        "state": "generic-window-minimize-and-reopen",
+        "scenarios": [
+          "generic-window-minimized-light",
+          "generic-window-reopened-light"
+        ]
+      },
+      {
+        "state": "section-window-handoff",
+        "scenarios": [
+          "section-window-handoff-light"
+        ]
+      },
+      {
+        "state": "dock-place-minimize-recovery-and-resize",
+        "scenarios": [
+          "floating-docked-light",
+          "section-window-docked-light",
+          "section-window-dock-minimized-light",
+          "section-window-dock-restored-light",
+          "dock-resized-light"
+        ]
+      }
+    ],
+    "unsupportedStates": [
+      {
+        "id": "browser-native-picker-surfaces",
+        "reason": "Chrome-owned native color and file picker surfaces are outside Page.captureScreenshot."
+      },
+      {
+        "id": "workspace-tooltip-surface",
+        "reason": "The mounted Playground fixture does not render WorkspaceTooltip, so control tooltip handlers have no document surface to capture."
+      },
+      {
+        "id": "generic-window-title-drag",
+        "reason": "The mounted generic Playground windows reject layout movement, so no visible committed state is available."
+      },
+      {
+        "id": "snap-preview-overlay",
+        "reason": "The mounted renderer exposes committed snap state but no stable preview overlay selector during a held drag."
+      }
     ]
   },
   "schemaVersion": 1,
@@ -1948,6 +2199,306 @@
         "height": 720,
         "mobile": false,
         "width": 3440
+      }
+    },
+    {
+      "id": "section-resized-light",
+      "receipt": "section-resized-light/receipt.json",
+      "screenshot": "section-resized-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "group-orientation-vertical-light",
+      "receipt": "group-orientation-vertical-light/receipt.json",
+      "screenshot": "group-orientation-vertical-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "saved-views-pane-light",
+      "receipt": "saved-views-pane-light/receipt.json",
+      "screenshot": "saved-views-pane-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "saved-views-edit-light",
+      "receipt": "saved-views-edit-light/receipt.json",
+      "screenshot": "saved-views-edit-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "saved-view-content-active-light",
+      "receipt": "saved-view-content-active-light/receipt.json",
+      "screenshot": "saved-view-content-active-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "controls-snap-toggle-focus-light",
+      "receipt": "controls-snap-toggle-focus-light/receipt.json",
+      "screenshot": "controls-snap-toggle-focus-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "controls-minimap-hidden-light",
+      "receipt": "controls-minimap-hidden-light/receipt.json",
+      "screenshot": "controls-minimap-hidden-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "minimap-right-light",
+      "receipt": "minimap-right-light/receipt.json",
+      "screenshot": "minimap-right-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "pane-creation-menu-light",
+      "receipt": "pane-creation-menu-light/receipt.json",
+      "screenshot": "pane-creation-menu-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "item-selection-light",
+      "receipt": "item-selection-light/receipt.json",
+      "screenshot": "item-selection-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1200,
+        "mobile": false,
+        "width": 3440
+      }
+    },
+    {
+      "id": "item-columns-resized-light",
+      "receipt": "item-columns-resized-light/receipt.json",
+      "screenshot": "item-columns-resized-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1200,
+        "mobile": false,
+        "width": 3440
+      }
+    },
+    {
+      "id": "item-dropdown-popover-light",
+      "receipt": "item-dropdown-popover-light/receipt.json",
+      "screenshot": "item-dropdown-popover-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1200,
+        "mobile": false,
+        "width": 3440
+      }
+    },
+    {
+      "id": "item-color-popover-light",
+      "receipt": "item-color-popover-light/receipt.json",
+      "screenshot": "item-color-popover-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1200,
+        "mobile": false,
+        "width": 3440
+      }
+    },
+    {
+      "id": "meta-dropdown-popover-light",
+      "receipt": "meta-dropdown-popover-light/receipt.json",
+      "screenshot": "meta-dropdown-popover-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1200,
+        "mobile": false,
+        "width": 3440
+      }
+    },
+    {
+      "id": "meta-date-calendar-light",
+      "receipt": "meta-date-calendar-light/receipt.json",
+      "screenshot": "meta-date-calendar-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1200,
+        "mobile": false,
+        "width": 3440
+      }
+    },
+    {
+      "id": "canvas-wide-dark",
+      "receipt": "canvas-wide-dark/receipt.json",
+      "screenshot": "canvas-wide-dark/screenshot.png",
+      "theme": "dark",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 720,
+        "mobile": false,
+        "width": 3440
+      }
+    },
+    {
+      "id": "snap-committed-section-drag-light",
+      "receipt": "snap-committed-section-drag-light/receipt.json",
+      "screenshot": "snap-committed-section-drag-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "floating-maximized-light",
+      "receipt": "floating-maximized-light/receipt.json",
+      "screenshot": "floating-maximized-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "generic-window-minimized-light",
+      "receipt": "generic-window-minimized-light/receipt.json",
+      "screenshot": "generic-window-minimized-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "generic-window-reopened-light",
+      "receipt": "generic-window-reopened-light/receipt.json",
+      "screenshot": "generic-window-reopened-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "section-window-handoff-light",
+      "receipt": "section-window-handoff-light/receipt.json",
+      "screenshot": "section-window-handoff-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "dock-resized-light",
+      "receipt": "dock-resized-light/receipt.json",
+      "screenshot": "dock-resized-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "window-spaces-pane-light",
+      "receipt": "window-spaces-pane-light/receipt.json",
+      "screenshot": "window-spaces-pane-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "window-space-saved-light",
+      "receipt": "window-space-saved-light/receipt.json",
+      "screenshot": "window-space-saved-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      }
+    },
+    {
+      "id": "window-space-restored-light",
+      "receipt": "window-space-restored-light/receipt.json",
+      "screenshot": "window-space-restored-light/screenshot.png",
+      "theme": "light",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
       }
     }
   ]

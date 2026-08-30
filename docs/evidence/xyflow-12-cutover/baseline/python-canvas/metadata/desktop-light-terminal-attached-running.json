@@ -866,7 +866,7 @@
         "x": 513.727294921875,
         "y": 603.4697265625
       },
-      "rows": "'/opt/homebrew/opt/python@3.14/bin/python3.14' '.setta-run-2589933996.py'kevin@kevins-MacBook-Pro setta-python-canvas-browser-QM9EsY % '/opt/homebrew/opt/python@3.14/bin/python3.14' '.setta-run-2589933996.py'kevin@kevins-MacBook-Pro setta-python-canvas-browser-QM9EsY % python3 -c \"import time; print('SETTA_PARITY_TERMINAL_RUNNING', flush=True); time.sleep(60)\"SETTA_PARITY_TERMINAL_RUNNING ",
+      "rows": "SETTA_PARITY_TERMINAL_RUNNING ",
       "toggleLabel": "Hide terminal",
       "viewport": {
         "clientHeight": 218,
