@@ -157,14 +157,14 @@ describe("workspace adaptive stylesheet contract", () => {
     );
   });
 
-  it("keeps shortcut focus suppression scoped away from section selection paint", () => {
+  it("keeps pane focus paint suppressed without affecting section selection paint", () => {
     expect(focusVisibilityStyles).not.toContain(
       '.setta-workspace:not([data-workspace-keyboard-focus="true"]) :focus',
     );
     expect(focusVisibilityStyles).toMatch(
-      /\.setta-workspace \.react-flow__pane:focus-visible\s*\{[^}]*outline: none/su,
+      /\.setta-workspace \.react-flow__pane:focus,[\s\S]*\.setta-workspace \.react-flow__pane:focus-visible\s*\{[^}]*outline: none/su,
     );
-    expect(focusVisibilityStyles).toContain(
+    expect(focusVisibilityStyles).not.toContain(
       '[data-workspace-keyboard-focus="true"] .react-flow__pane:focus',
     );
   });

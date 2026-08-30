@@ -1,3 +1,4 @@
+.setta-workspace .react-flow__pane:focus,
 .setta-workspace .react-flow__pane:focus-visible {
   outline: none;
 }
@@ -13,7 +14,6 @@
   outline: none;
 }
 
-[data-workspace-keyboard-focus="true"] .react-flow__pane:focus,
 [data-workspace-keyboard-focus="true"] .setta-workspace-outline:focus {
   outline: 2px solid rgb(37 99 235);
   outline-offset: -2px;
