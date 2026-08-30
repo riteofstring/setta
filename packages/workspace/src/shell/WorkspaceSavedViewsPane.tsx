@@ -25,6 +25,7 @@ import {
   setWorkspaceSavedViewSectionVisibility,
 } from "../saved-views/operations";
 import { getOrderedWorkspaceSavedViews } from "../saved-views/state";
+import type { WorkspaceHost } from "../workspaceHost";
 import { useWorkspaceHost } from "../workspaceHostContext";
 
 type WorkspaceSavedViewsPaneProps = {
@@ -177,6 +178,249 @@ function WorkspaceSavedViewNameEditor({
   );
 }
 
+type WorkspaceSavedViewDisabledReasons = {
+  activate: string | null;
+  create: string | null;
+  delete: string | null;
+  rename: string | null;
+  reorder: string | null;
+  visibility: string | null;
+};
+
+type WorkspaceSavedViewActions = {
+  activate: (view: WorkspaceSavedView) => void;
+  cancelRename: () => void;
+  changeName: (nextDraft: string) => void;
+  deleteView: (view: WorkspaceSavedView) => void;
+  move: (view: WorkspaceSavedView, direction: -1 | 1) => void;
+  startRename: (view: WorkspaceSavedView) => void;
+  submitRename: (view: WorkspaceSavedView) => void;
+};
+
+type WorkspaceSavedViewControlState = {
+  disabled: boolean;
+  title: string;
+};
+
+type WorkspaceSavedViewListProps = {
+  actions: WorkspaceSavedViewActions;
+  activeViewId: string;
+  disabledReasons: WorkspaceSavedViewDisabledReasons;
+  inputRef: RefObject<HTMLInputElement | null>;
+  lastViewDeleteReason: string | null;
+  nameDraft: string;
+  nameError: string | null;
+  registerViewButton: (
+    viewId: string,
+    element: HTMLButtonElement | null,
+  ) => void;
+  renamingViewId: string | null;
+  views: ReadonlyArray<WorkspaceSavedView>;
+};
+
+function getWorkspaceSavedViewControlState(
+  disabledReason: string | null,
+  enabledTitle: string,
+): WorkspaceSavedViewControlState {
+  if (disabledReason !== null) {
+    return { disabled: true, title: disabledReason };
+  }
+  return { disabled: false, title: enabledTitle };
+}
+
+function getWorkspaceSavedViewBoundaryDisabledReason(
+  disabledReason: string | null,
+  atBoundary: boolean,
+  boundaryTitle: string,
+): string | null {
+  if (disabledReason !== null) {
+    return disabledReason;
+  }
+  if (atBoundary) {
+    return boundaryTitle;
+  }
+  return null;
+}
+
+function WorkspaceSavedViewRow({
+  actions,
+  activeViewId,
+  disabledReasons,
+  index,
+  inputRef,
+  lastViewDeleteReason,
+  nameDraft,
+  nameError,
+  registerViewButton,
+  renamingViewId,
+  view,
+  viewCount,
+}: Omit<WorkspaceSavedViewListProps, "views"> & {
+  index: number;
+  view: WorkspaceSavedView;
+  viewCount: number;
+}) {
+  const active = view.id === activeViewId;
+  const renaming = view.id === renamingViewId;
+  const activateControl = getWorkspaceSavedViewControlState(
+    disabledReasons.activate,
+    `Activate ${view.name}`,
+  );
+  const renameControl = getWorkspaceSavedViewControlState(
+    disabledReasons.rename,
+    `Rename ${view.name}`,
+  );
+  const upControl = getWorkspaceSavedViewControlState(
+    getWorkspaceSavedViewBoundaryDisabledReason(
+      disabledReasons.reorder,
+      index === 0,
+      "Already first",
+    ),
+    `Move ${view.name} up`,
+  );
+  const downControl = getWorkspaceSavedViewControlState(
+    getWorkspaceSavedViewBoundaryDisabledReason(
+      disabledReasons.reorder,
+      index === viewCount - 1,
+      "Already last",
+    ),
+    `Move ${view.name} down`,
+  );
+  const deleteControl = getWorkspaceSavedViewControlState(
+    disabledReasons.delete ?? lastViewDeleteReason,
+    `Delete ${view.name}`,
+  );
+
+  return (
+    <div
+      className="setta-workspace-saved-views-row"
+      data-active={String(active)}
+      data-workspace-saved-view-id={view.id}
+      role="listitem"
+    >
+      {renaming ? (
+        <WorkspaceSavedViewNameEditor
+          draft={nameDraft}
+          inputRef={inputRef}
+          nameError={nameError}
+          onCancel={actions.cancelRename}
+          onChange={actions.changeName}
+          onSubmit={() => actions.submitRename(view)}
+        />
+      ) : (
+        <button
+          aria-pressed={active}
+          className="setta-workspace-saved-views-activate"
+          disabled={activateControl.disabled}
+          ref={(element) => registerViewButton(view.id, element)}
+          title={activateControl.title}
+          type="button"
+          onClick={
+            activateControl.disabled ? undefined : () => actions.activate(view)
+          }
+        >
+          {view.name}
+        </button>
+      )}
+      <div className="setta-workspace-saved-views-row-actions">
+        <button
+          aria-label={`Rename ${view.name}`}
+          disabled={renameControl.disabled}
+          title={renameControl.title}
+          type="button"
+          onClick={
+            renameControl.disabled ? undefined : () => actions.startRename(view)
+          }
+        >
+          Rename
+        </button>
+        <button
+          aria-label={`Move ${view.name} up`}
+          disabled={upControl.disabled}
+          title={upControl.title}
+          type="button"
+          onClick={
+            upControl.disabled ? undefined : () => actions.move(view, -1)
+          }
+        >
+          Up
+        </button>
+        <button
+          aria-label={`Move ${view.name} down`}
+          disabled={downControl.disabled}
+          title={downControl.title}
+          type="button"
+          onClick={
+            downControl.disabled ? undefined : () => actions.move(view, 1)
+          }
+        >
+          Down
+        </button>
+        <button
+          aria-label={`Delete ${view.name}`}
+          disabled={deleteControl.disabled}
+          title={deleteControl.title}
+          type="button"
+          onClick={
+            deleteControl.disabled ? undefined : () => actions.deleteView(view)
+          }
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceSavedViewsList(props: WorkspaceSavedViewListProps) {
+  const { views, ...rowProps } = props;
+  return (
+    <div className="setta-workspace-saved-views-list" role="list">
+      {views.map((view, index) => (
+        <WorkspaceSavedViewRow
+          {...rowProps}
+          index={index}
+          key={view.id}
+          view={view}
+          viewCount={views.length}
+        />
+      ))}
+    </div>
+  );
+}
+
+function WorkspaceSavedViewsEditNotice({
+  disabledReason,
+}: {
+  disabledReason: string | null;
+}) {
+  if (disabledReason === null) {
+    return null;
+  }
+  return (
+    <p className="setta-workspace-saved-views-disabled" role="status">
+      {disabledReason} You can still switch views.
+    </p>
+  );
+}
+
+function useWorkspaceSavedViewDisabledReasons(
+  host: WorkspaceHost,
+): WorkspaceSavedViewDisabledReasons {
+  useWorkspaceCapabilities((capabilities) => capabilities.canEditLayout);
+  return {
+    activate: getWorkspaceSavedViewsOperationDisabledReason(host, "activate"),
+    create: getWorkspaceSavedViewsOperationDisabledReason(host, "create"),
+    delete: getWorkspaceSavedViewsOperationDisabledReason(host, "delete"),
+    rename: getWorkspaceSavedViewsOperationDisabledReason(host, "rename"),
+    reorder: getWorkspaceSavedViewsOperationDisabledReason(host, "reorder"),
+    visibility: getWorkspaceSavedViewsOperationDisabledReason(
+      host,
+      "visibility",
+    ),
+  };
+}
+
 export function WorkspaceSavedViewsPane({
   ariaLabel = "Saved Views",
   className,
@@ -184,9 +428,6 @@ export function WorkspaceSavedViewsPane({
 }: WorkspaceSavedViewsPaneProps) {
   const host = useWorkspaceHost();
   const documentState = useWorkspaceDocument((state) => state);
-  const layoutEditingEnabled = useWorkspaceCapabilities(
-    (capabilities) => capabilities.canEditLayout,
-  );
   const savedViews = documentState.savedViews;
   const views = useMemo(
     () => (savedViews ? getOrderedWorkspaceSavedViews(savedViews) : []),
@@ -205,20 +446,7 @@ export function WorkspaceSavedViewsPane({
   const viewButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const requestedFocusViewIdRef = useRef<string | null>(null);
   const suppressRenameSubmitRef = useRef(false);
-  const disabledReasons = useMemo(
-    () => ({
-      activate: getWorkspaceSavedViewsOperationDisabledReason(host, "activate"),
-      create: getWorkspaceSavedViewsOperationDisabledReason(host, "create"),
-      delete: getWorkspaceSavedViewsOperationDisabledReason(host, "delete"),
-      rename: getWorkspaceSavedViewsOperationDisabledReason(host, "rename"),
-      reorder: getWorkspaceSavedViewsOperationDisabledReason(host, "reorder"),
-      visibility: getWorkspaceSavedViewsOperationDisabledReason(
-        host,
-        "visibility",
-      ),
-    }),
-    [host, layoutEditingEnabled, savedViews],
-  );
+  const disabledReasons = useWorkspaceSavedViewDisabledReasons(host);
   const createDisabledReason = disabledReasons.create;
   const activateDisabledReason = disabledReasons.activate;
   const renameDisabledReason = disabledReasons.rename;
@@ -416,128 +644,30 @@ export function WorkspaceSavedViewsPane({
           Create view
         </button>
       </header>
-      {createDisabledReason ? (
-        <p className="setta-workspace-saved-views-disabled" role="status">
-          {createDisabledReason} You can still switch views.
-        </p>
-      ) : null}
-      <div className="setta-workspace-saved-views-list" role="list">
-        {views.map((view, index) => {
-          const active = view.id === activeView.id;
-          const renaming = renamingViewId === view.id;
-          return (
-            <div
-              className="setta-workspace-saved-views-row"
-              data-active={active ? "true" : "false"}
-              data-workspace-saved-view-id={view.id}
-              key={view.id}
-              role="listitem"
-            >
-              {renaming ? (
-                <WorkspaceSavedViewNameEditor
-                  draft={nameDraft}
-                  inputRef={nameInputRef}
-                  nameError={nameError}
-                  onCancel={cancelRename}
-                  onChange={(nextDraft) => {
-                    setNameDraft(nextDraft);
-                    setNameError(null);
-                  }}
-                  onSubmit={() => submitRename(view)}
-                />
-              ) : (
-                <button
-                  aria-pressed={active}
-                  className="setta-workspace-saved-views-activate"
-                  disabled={activateDisabledReason !== null}
-                  ref={(element) => registerViewButton(view.id, element)}
-                  title={activateDisabledReason ?? `Activate ${view.name}`}
-                  type="button"
-                  onClick={
-                    activateDisabledReason === null
-                      ? () => activate(view)
-                      : undefined
-                  }
-                >
-                  {view.name}
-                </button>
-              )}
-              <div className="setta-workspace-saved-views-row-actions">
-                <button
-                  aria-label={`Rename ${view.name}`}
-                  disabled={renameDisabledReason !== null}
-                  title={renameDisabledReason ?? `Rename ${view.name}`}
-                  type="button"
-                  onClick={
-                    renameDisabledReason === null
-                      ? () => startRename(view)
-                      : undefined
-                  }
-                >
-                  Rename
-                </button>
-                <button
-                  aria-label={`Move ${view.name} up`}
-                  disabled={reorderDisabledReason !== null || index === 0}
-                  title={
-                    reorderDisabledReason ??
-                    (index === 0 ? "Already first" : `Move ${view.name} up`)
-                  }
-                  type="button"
-                  onClick={
-                    reorderDisabledReason === null && index > 0
-                      ? () => move(view, -1)
-                      : undefined
-                  }
-                >
-                  Up
-                </button>
-                <button
-                  aria-label={`Move ${view.name} down`}
-                  disabled={
-                    reorderDisabledReason !== null || index === views.length - 1
-                  }
-                  title={
-                    reorderDisabledReason ??
-                    (index === views.length - 1
-                      ? "Already last"
-                      : `Move ${view.name} down`)
-                  }
-                  type="button"
-                  onClick={
-                    reorderDisabledReason === null && index < views.length - 1
-                      ? () => move(view, 1)
-                      : undefined
-                  }
-                >
-                  Down
-                </button>
-                <button
-                  aria-label={`Delete ${view.name}`}
-                  disabled={
-                    deleteDisabledReason !== null ||
-                    lastViewDeleteReason !== null
-                  }
-                  title={
-                    deleteDisabledReason ??
-                    lastViewDeleteReason ??
-                    `Delete ${view.name}`
-                  }
-                  type="button"
-                  onClick={
-                    deleteDisabledReason === null &&
-                    lastViewDeleteReason === null
-                      ? () => deleteView(view)
-                      : undefined
-                  }
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <WorkspaceSavedViewsEditNotice disabledReason={createDisabledReason} />
+      <WorkspaceSavedViewsList
+        actions={{
+          activate,
+          cancelRename,
+          changeName: (nextDraft) => {
+            setNameDraft(nextDraft);
+            setNameError(null);
+          },
+          deleteView,
+          move,
+          startRename,
+          submitRename,
+        }}
+        activeViewId={activeView.id}
+        disabledReasons={disabledReasons}
+        inputRef={nameInputRef}
+        lastViewDeleteReason={lastViewDeleteReason}
+        nameDraft={nameDraft}
+        nameError={nameError}
+        registerViewButton={registerViewButton}
+        renamingViewId={renamingViewId}
+        views={views}
+      />
       <section
         aria-label={`Visible sections in ${activeView.name}`}
         className="setta-workspace-saved-views-visibility"
