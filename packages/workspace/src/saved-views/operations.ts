@@ -237,12 +237,10 @@ function publishSavedViewsDocument(
     runWithWorkspaceDocumentChangeNotificationsSuppressed(host, () => {
       armLoadedDocumentFitView(host, document.viewport);
       applyLoadedDocumentViewport(host, document.viewport);
+      maybeCompleteInitialFitView(host);
     });
   }
   notifyWorkspaceDocumentChange(host, null);
-  if (input.applyViewport) {
-    maybeCompleteInitialFitView(host);
-  }
 }
 
 function normalizeName(value: unknown, role: string): string {

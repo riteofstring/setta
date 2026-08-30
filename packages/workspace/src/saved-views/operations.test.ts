@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import { setActiveSectionIds } from "../document/activeSections";
 import { applyActiveSectionChange } from "../canvas/activeSectionController";
+import { startCanvasViewportDocumentSync } from "../canvas/documentViewportSync";
 import { updatePositions } from "../canvas/useUpdateNodePositions";
 import {
   getWorkspaceDocument,
@@ -21,6 +22,7 @@ import {
   setActiveDnd,
 } from "../dnd/dndState";
 import type {
+  WorkspaceDocument,
   WorkspaceDocumentInput,
   WorkspaceSectionInput,
 } from "../document/types";
@@ -102,6 +104,53 @@ function requireSavedViews(host: WorkspaceHost) {
     throw new Error("Expected saved views to be enabled.");
   }
   return savedViews;
+}
+
+function mountFittedCanvas(host: WorkspaceHost): {
+  stopViewportSync: () => void;
+  transforms: Array<{ x: number; y: number; zoom: number }>;
+} {
+  const transforms: Array<{ x: number; y: number; zoom: number }> = [];
+  const stopViewportSync = startCanvasViewportDocumentSync(host);
+  getReactFlowStore(host).setState({
+    d3Selection: {} as never,
+    d3Zoom: {
+      constrain: () => (transform: unknown) => transform,
+      transform: (
+        _selection: unknown,
+        transform: { k: number; x: number; y: number },
+      ) => {
+        transforms.push({
+          x: transform.x,
+          y: transform.y,
+          zoom: transform.k,
+        });
+        getReactFlowStore(host).setState({
+          transform: [transform.x, transform.y, transform.k],
+        });
+      },
+    } as never,
+    height: 600,
+    width: 800,
+  });
+  return { stopViewportSync, transforms };
+}
+
+function expectOneFittedSavedViewPublication(
+  publications: Array<WorkspaceDocument>,
+  activeViewId: string,
+  transforms: Array<{ x: number; y: number; zoom: number }>,
+): void {
+  expect(publications).toHaveLength(1);
+  const publication = publications[0];
+  if (publication === undefined || publication.viewport === null) {
+    throw new Error("Expected one publication with a fitted viewport.");
+  }
+  expect(publication.savedViews?.activeViewId).toBe(activeViewId);
+  expect(publication.savedViews?.views[activeViewId]?.viewport).toEqual(
+    publication.viewport,
+  );
+  expect(transforms).toHaveLength(1);
 }
 
 afterEach(() => {
@@ -492,35 +541,54 @@ describe("workspace saved views", () => {
     });
   });
 
-  it("completes fit view when active deletion selects a null-camera successor", () => {
+  it("publishes a fitted camera once when activating a null-camera saved view", () => {
     const host = createHost();
     host.loadDocument(document());
     enableWorkspaceSavedViews(host, { id: "overview", name: "Overview" });
     createWorkspaceSavedView(host, { id: "detail", name: "Detail" });
     commitWorkspaceDocument(host, { ...host.getSnapshot(), viewport: null });
     activateWorkspaceSavedView(host, "overview");
-    const transforms: Array<unknown> = [];
-    getReactFlowStore(host).setState({
-      d3Selection: {} as never,
-      d3Zoom: {
-        constrain: () => (transform: unknown) => transform,
-        transform: (_selection: unknown, transform: unknown) => {
-          transforms.push(transform);
-        },
-      } as never,
-      height: 600,
-      width: 800,
+    const { stopViewportSync, transforms } = mountFittedCanvas(host);
+    const publications: Array<WorkspaceDocument> = [];
+    const unsubscribe = host.subscribe((publication) => {
+      publications.push(publication);
     });
+    try {
+      expect(activateWorkspaceSavedView(host, "detail")).toMatchObject({
+        activeViewId: "detail",
+        status: "applied",
+      });
+    } finally {
+      unsubscribe();
+      stopViewportSync();
+    }
 
-    expect(deleteWorkspaceSavedView(host, "overview")).toMatchObject({
-      activeViewId: "detail",
-      status: "applied",
+    expectOneFittedSavedViewPublication(publications, "detail", transforms);
+  });
+
+  it("publishes a fitted camera once when active deletion selects a null-camera successor", () => {
+    const host = createHost();
+    host.loadDocument(document());
+    enableWorkspaceSavedViews(host, { id: "overview", name: "Overview" });
+    createWorkspaceSavedView(host, { id: "detail", name: "Detail" });
+    commitWorkspaceDocument(host, { ...host.getSnapshot(), viewport: null });
+    activateWorkspaceSavedView(host, "overview");
+    const { stopViewportSync, transforms } = mountFittedCanvas(host);
+    const publications: Array<WorkspaceDocument> = [];
+    const unsubscribe = host.subscribe((publication) => {
+      publications.push(publication);
     });
-    expect(getReactFlowStore(host).getState()).toMatchObject({
-      fitViewOnInit: true,
-      fitViewOnInitDone: true,
-    });
-    expect(transforms).toHaveLength(1);
+    try {
+      expect(deleteWorkspaceSavedView(host, "overview")).toMatchObject({
+        activeViewId: "detail",
+        status: "applied",
+      });
+    } finally {
+      unsubscribe();
+      stopViewportSync();
+    }
+
+    expectOneFittedSavedViewPublication(publications, "detail", transforms);
   });
 
   it("reconciles section drift and exposes a bootstrap projection for persisted active views", () => {
