@@ -65,7 +65,9 @@ function attachHandlers(
   const onDragOver = listeners.get("dragover");
   const onDrop = listeners.get("drop");
   if (!onDragOver || !onDrop) {
-    throw new Error("Workspace external drop did not attach both pane listeners.");
+    throw new Error(
+      "Workspace external drop did not attach both pane listeners.",
+    );
   }
   return {
     addEventListener,
@@ -128,10 +130,7 @@ describe("Workspace external drop handlers", () => {
   it("leaves a rejected bare-pane drag untouched", () => {
     const dataTransfer = createDataTransfer("move");
     const canDrop = vi.fn(() => false);
-    const handlers = attachHandlers(
-      workspace,
-      createConfiguration(canDrop),
-    );
+    const handlers = attachHandlers(workspace, createConfiguration(canDrop));
     const event = createDragEvent({
       currentTarget: handlers.pane,
       dataTransfer,
@@ -236,11 +235,7 @@ describe("Workspace external drop handlers", () => {
     expect(canDrop).toHaveBeenCalledWith(dataTransfer);
     expect(event.preventDefault).toHaveBeenCalledTimes(1);
     expect(onDrop).toHaveBeenCalledTimes(1);
-    expect(onDrop).toHaveBeenCalledWith(
-      dataTransfer,
-      { x: 40, y: 40 },
-      event,
-    );
+    expect(onDrop).toHaveBeenCalledWith(dataTransfer, { x: 40, y: 40 }, event);
   });
 
   it("keeps handlers and coordinates isolated by host", () => {
@@ -303,14 +298,10 @@ describe("Workspace external drop handlers", () => {
     } as unknown as HTMLElement;
 
     expect(() =>
-      attachWorkspaceExternalDropHandlers(
-        workspace.host,
-        pane,
-        {
-          canDrop,
-          onDrop: null,
-        } as unknown as WorkspaceExternalDropConfiguration,
-      ),
+      attachWorkspaceExternalDropHandlers(workspace.host, pane, {
+        canDrop,
+        onDrop: null,
+      } as unknown as WorkspaceExternalDropConfiguration),
     ).toThrow(
       "Workspace external drop configuration requires canDrop and onDrop callbacks.",
     );
