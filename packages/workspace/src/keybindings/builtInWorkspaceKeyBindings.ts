@@ -97,6 +97,7 @@ function createSectionCommandBinding(
   host: WorkspaceHost,
   commandId: string,
   defaultChord: string | null,
+  yieldsToTextSelection = false,
 ): WorkspaceKeyBindingDefinition {
   return Object.freeze({
     id: commandId,
@@ -105,8 +106,17 @@ function createSectionCommandBinding(
     keepsChordWhenDeclined: false,
     getLabel: () =>
       getWorkspaceCommandOrThrow(host, commandId).definition.label,
-    run: () => runActiveSectionCommand(host, commandId),
+    run: () => {
+      if (yieldsToTextSelection && hasNonemptyBrowserTextSelection()) {
+        return false;
+      }
+      return runActiveSectionCommand(host, commandId);
+    },
   });
+}
+
+function hasNonemptyBrowserTextSelection(): boolean {
+  return (document.getSelection()?.toString().length ?? 0) > 0;
 }
 
 function createOperationBinding(
@@ -202,6 +212,14 @@ export function listBuiltInWorkspaceKeyBindings(
   return Object.freeze([
     createPaneCommandBinding(host, "workspace.undo", "Mod + Z"),
     createPaneCommandBinding(host, "workspace.redo", "Mod + Shift + Z"),
+    createSectionCommandBinding(
+      host,
+      "workspace.copy-sections",
+      "Mod + C",
+      true,
+    ),
+    createPaneCommandBinding(host, "workspace.paste-sections", "Mod + V"),
+    createSectionCommandBinding(host, "workspace.duplicate-sections", null),
     createSectionCommandBinding(host, "workspace.group-sections", "Mod + G"),
     createSectionCommandBinding(
       host,

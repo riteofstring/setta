@@ -21,6 +21,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
+import { registerWorkspaceClipboardAuthority } from "../clipboard/registry";
 import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
@@ -264,6 +265,44 @@ describe("WorkspaceMenuLayer", () => {
       "created",
     ]);
     expect(testWorkspace.menuState.getState().invocation).toBeNull();
+  });
+
+  it("renders registered clipboard commands in section and pane menus", async () => {
+    registerWorkspaceClipboardAuthority(testWorkspace.host, {
+      id: "test-local",
+      kind: "local",
+    });
+    openWorkspaceSectionMenu(
+      testWorkspace.host,
+      "existing",
+      "context-menu",
+      { x: 150, y: 100 },
+      owner,
+    );
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceMenuLayer />}
+        </WorkspaceTestProvider>,
+      );
+    });
+
+    expect(getMenuItems().map((entry) => entry.textContent)).toEqual(
+      expect.arrayContaining(["Copy", "Duplicate"]),
+    );
+
+    await act(async () => {
+      openWorkspacePaneMenu(testWorkspace.host, { x: 150, y: 100 }, owner);
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceMenuLayer />}
+        </WorkspaceTestProvider>,
+      );
+    });
+
+    expect(getMenuItems().map((entry) => entry.textContent)).toEqual(
+      expect.arrayContaining(["Paste"]),
+    );
   });
 
   it("deletes an item through the package action before separately grouped host actions", async () => {

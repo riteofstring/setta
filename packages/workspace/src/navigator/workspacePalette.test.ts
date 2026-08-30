@@ -18,6 +18,7 @@ afterEachWorkspaceTestHost(() => {
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState } from "../canvas/store";
+import { registerWorkspaceClipboardAuthority } from "../clipboard/registry";
 import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry";
 import { setActiveSectionIds } from "../document/activeSections";
@@ -182,6 +183,40 @@ describe("workspace palette model", () => {
     expect(deleteEntry.run()).toEqual({
       ran: false,
       statusMessage: "Structural editing is disabled in this workspace.",
+    });
+  });
+
+  it("projects registered clipboard commands with their configured shortcuts", () => {
+    loadWorkspace(testWorkspace, { leaf: createLeaf("leaf") }, ["leaf"]);
+    registerWorkspaceClipboardAuthority(testWorkspace.host, {
+      id: "test-local",
+      kind: "local",
+    });
+
+    expect(getPaletteEntry("command:workspace.copy-sections")).toMatchObject({
+      group: "Commands",
+      keyBindingId: "workspace.copy-sections",
+      label: "Copy",
+      shortcutLabel: getWorkspaceKeyBindingChordLabel(
+        testWorkspace.host,
+        "workspace.copy-sections",
+      ),
+    });
+    expect(getPaletteEntry("command:workspace.paste-sections")).toMatchObject({
+      group: "Commands",
+      keyBindingId: "workspace.paste-sections",
+      label: "Paste",
+      shortcutLabel: getWorkspaceKeyBindingChordLabel(
+        testWorkspace.host,
+        "workspace.paste-sections",
+      ),
+    });
+    expect(
+      getPaletteEntry("command:workspace.duplicate-sections"),
+    ).toMatchObject({
+      group: "Commands",
+      keyBindingId: "workspace.duplicate-sections",
+      label: "Duplicate",
     });
   });
 

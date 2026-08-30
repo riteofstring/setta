@@ -1,4 +1,10 @@
 import { getReactFlowStore } from "../canvas/store";
+import {
+  copyWorkspaceSelection,
+  duplicateWorkspaceSelection,
+  getWorkspaceClipboardAvailability,
+  pasteWorkspaceClipboard,
+} from "../clipboard/operations";
 import { getItemDndStateStore } from "../dnd/itemDndState";
 import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import { isGroupSection } from "../document/documentSelectors";
@@ -96,6 +102,19 @@ function getLayoutReason(
     : LAYOUT_REASON;
 }
 
+function hasWorkspaceClipboardAuthority(
+  host: WorkspaceSectionCommandContext["host"],
+): boolean {
+  return getWorkspaceClipboardAvailability(host).authority !== null;
+}
+
+function getWorkspaceClipboardDisabledReason(
+  host: WorkspaceSectionCommandContext["host"],
+  operation: "copy" | "duplicate" | "paste",
+): string | null {
+  return getWorkspaceClipboardAvailability(host)[operation].disabledReason;
+}
+
 const undoWorkspaceCommand: WorkspacePackageCommandDefinition = {
   id: "workspace.undo",
   scope: "pane",
@@ -117,6 +136,48 @@ const redoWorkspaceCommand: WorkspacePackageCommandDefinition = {
     getWorkspaceHistoryState(context.host).redoDisabledReason ?? null,
   run: (context) => {
     redoWorkspace(context.host);
+  },
+};
+
+const copySectionsCommand: WorkspacePackageCommandDefinition = {
+  id: "workspace.copy-sections",
+  scope: "section",
+  surfaces: ["context-menu", "outline", "palette"],
+  label: "Copy",
+  keywords: ["clipboard"],
+  isApplicable: (context) => hasWorkspaceClipboardAuthority(context.host),
+  getDisabledReason: (context) =>
+    getWorkspaceClipboardDisabledReason(context.host, "copy"),
+  run: (context) => {
+    void copyWorkspaceSelection(context.host);
+  },
+};
+
+const pasteSectionsCommand: WorkspacePackageCommandDefinition = {
+  id: "workspace.paste-sections",
+  scope: "pane",
+  surfaces: ["context-menu", "palette"],
+  label: "Paste",
+  keywords: ["clipboard"],
+  isApplicable: (context) => hasWorkspaceClipboardAuthority(context.host),
+  getDisabledReason: (context) =>
+    getWorkspaceClipboardDisabledReason(context.host, "paste"),
+  run: (context) => {
+    void pasteWorkspaceClipboard(context.host);
+  },
+};
+
+const duplicateSectionsCommand: WorkspacePackageCommandDefinition = {
+  id: "workspace.duplicate-sections",
+  scope: "section",
+  surfaces: ["context-menu", "outline", "palette"],
+  label: "Duplicate",
+  keywords: ["copy", "clipboard"],
+  isApplicable: (context) => hasWorkspaceClipboardAuthority(context.host),
+  getDisabledReason: (context) =>
+    getWorkspaceClipboardDisabledReason(context.host, "duplicate"),
+  run: (context) => {
+    void duplicateWorkspaceSelection(context.host);
   },
 };
 
@@ -427,6 +488,9 @@ export const builtInWorkspaceCommands: ReadonlyArray<WorkspacePackageCommandDefi
   Object.freeze([
     undoWorkspaceCommand,
     redoWorkspaceCommand,
+    copySectionsCommand,
+    pasteSectionsCommand,
+    duplicateSectionsCommand,
     groupSectionsCommand,
     toggleGroupOverflowCommand,
     ungroupSectionsCommand,

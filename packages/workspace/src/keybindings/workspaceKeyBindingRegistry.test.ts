@@ -128,6 +128,24 @@ describe("workspace key bindings", () => {
       label: "Redo",
       origin: "default",
     });
+    expect(getBinding("workspace.copy-sections")).toMatchObject({
+      chord: "Mod + C",
+      chordLabel: "Ctrl + C",
+      label: "Copy",
+      origin: "default",
+    });
+    expect(getBinding("workspace.paste-sections")).toMatchObject({
+      chord: "Mod + V",
+      chordLabel: "Ctrl + V",
+      label: "Paste",
+      origin: "default",
+    });
+    expect(getBinding("workspace.duplicate-sections")).toMatchObject({
+      chord: null,
+      chordLabel: null,
+      label: "Duplicate",
+      origin: "default",
+    });
     expect(getBinding("workspace.group-sections")).toMatchObject({
       chord: "Mod + G",
       chordLabel: "Ctrl + G",
@@ -220,6 +238,36 @@ describe("workspace key bindings", () => {
       expect(pressHistoryBinding(host, canvas, true)).toBe(false);
     } finally {
       canvas.remove();
+    }
+  });
+
+  it("yields Mod+C to a nonempty browser text selection", () => {
+    const selection = document.getSelection();
+    const selectedText = document.createElement("span");
+    selectedText.textContent = "Copied browser text";
+    document.body.append(selectedText);
+    const range = document.createRange();
+    range.selectNodeContents(selectedText);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    const event = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "KeyC",
+      ctrlKey: true,
+    });
+
+    try {
+      runWorkspaceKeyBindings(
+        host,
+        event,
+        false,
+        (codes) => codes.length === 1 && codes[0] === "KeyC",
+      );
+      expect(event.defaultPrevented).toBe(false);
+    } finally {
+      selection?.removeAllRanges();
+      selectedText.remove();
     }
   });
 
@@ -532,6 +580,28 @@ describe("workspace key bindings", () => {
         resolved.find((binding) => binding.definition.id === "workspace.redo"),
       ).toMatchObject({
         suppressesBrowserDefault: true,
+        yieldsToEditableTarget: true,
+      });
+    }
+  });
+
+  it("yields copy and paste chords to editable targets on every platform", () => {
+    for (const macOS of [true, false]) {
+      const resolved = getResolvedWorkspaceKeyBindings(host, macOS);
+      expect(
+        resolved.find(
+          (binding) => binding.definition.id === "workspace.copy-sections",
+        ),
+      ).toMatchObject({
+        suppressesBrowserDefault: false,
+        yieldsToEditableTarget: true,
+      });
+      expect(
+        resolved.find(
+          (binding) => binding.definition.id === "workspace.paste-sections",
+        ),
+      ).toMatchObject({
+        suppressesBrowserDefault: false,
         yieldsToEditableTarget: true,
       });
     }

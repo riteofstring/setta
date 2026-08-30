@@ -18,6 +18,7 @@ afterEachWorkspaceTestHost(() => {
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
+import { registerWorkspaceClipboardAuthority } from "../clipboard/registry";
 import {
   getWorkspaceCapabilitiesStore,
   useWorkspaceCapabilities,
@@ -187,6 +188,54 @@ describe("workspace command resolution", () => {
     expect(hasApplicableWorkspaceCommands("header", contextFor("leaf"))).toBe(
       false,
     );
+  });
+
+  it("offers registered clipboard actions on their command surfaces", () => {
+    registerWorkspaceClipboardAuthority(testWorkspace.host, {
+      id: "test-local",
+      kind: "local",
+    });
+
+    const sectionContext = contextFor("group");
+    const clipboardEntries = (
+      surface: "context-menu" | "outline" | "palette",
+    ) =>
+      resolveWorkspaceCommandEntries(surface, sectionContext)
+        .filter(
+          (entry) =>
+            entry.id === "workspace.copy-sections" ||
+            entry.id === "workspace.duplicate-sections",
+        )
+        .map((entry) => entry.id);
+
+    expect(clipboardEntries("context-menu")).toEqual([
+      "workspace.copy-sections",
+      "workspace.duplicate-sections",
+    ]);
+    expect(clipboardEntries("outline")).toEqual([
+      "workspace.copy-sections",
+      "workspace.duplicate-sections",
+    ]);
+    expect(clipboardEntries("palette")).toEqual([
+      "workspace.copy-sections",
+      "workspace.duplicate-sections",
+    ]);
+    expect(
+      resolveWorkspaceCommandEntries(
+        "context-menu",
+        createPaneCommandContext(testWorkspace.host, null),
+      )
+        .filter((entry) => entry.id === "workspace.paste-sections")
+        .map((entry) => entry.id),
+    ).toEqual(["workspace.paste-sections"]);
+    expect(
+      resolveWorkspaceCommandEntries(
+        "palette",
+        createPaneCommandContext(testWorkspace.host, null),
+      )
+        .filter((entry) => entry.id === "workspace.paste-sections")
+        .map((entry) => entry.id),
+    ).toEqual(["workspace.paste-sections"]);
   });
 
   it("offers history commands in the palette with their live availability", () => {

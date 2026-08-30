@@ -1,8 +1,13 @@
-import type { ComponentType } from "react";
+import { useSyncExternalStore, type ComponentType } from "react";
+import {
+  getWorkspaceClipboardRuntimeState,
+  subscribeWorkspaceClipboardAvailability,
+} from "../clipboard/registry";
 import { useItemDndState } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useWorkspaceDocument } from "../document/stores";
+import { useActiveSections, useWorkspaceDocument } from "../document/stores";
 import { useWorkspaceHistoryState } from "../history/workspaceHistory";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import {
   getWorkspaceCommandOrThrow,
   getWorkspaceCommands,
@@ -144,10 +149,17 @@ export function hasApplicableWorkspaceCommands(
 }
 
 export function useWorkspaceCommandState(): void {
+  const host = useWorkspaceHost();
   useWorkspaceDocument((state) => state);
+  useActiveSections((state) => state.activeIds);
   useWorkspaceCapabilities((state) => state);
   useItemDndState((state) => state.activeId);
   useWorkspaceHistoryState();
+  useSyncExternalStore(
+    (listener) => subscribeWorkspaceClipboardAvailability(host, listener),
+    () => getWorkspaceClipboardRuntimeState(host),
+    () => getWorkspaceClipboardRuntimeState(host),
+  );
 }
 
 export function useWorkspaceCommandEntries(
