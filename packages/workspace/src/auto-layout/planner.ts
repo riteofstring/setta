@@ -54,6 +54,15 @@ const SHELF_WIDTH_FACTORS = Object.freeze([
   1.6,
   2,
 ]);
+const RECTANGLE_FIELDS = Object.freeze([
+  "id",
+  "x",
+  "y",
+  "width",
+  "height",
+  "zIndex",
+  "locked",
+]);
 
 function assertFinite(value: unknown, label: string): asserts value is number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -84,6 +93,55 @@ function compareStrings(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+function assertRectangleFields(
+  candidate: Record<string, unknown>,
+  index: number,
+): void {
+  for (const field of RECTANGLE_FIELDS) {
+    if (!Object.hasOwn(candidate, field)) {
+      throw new Error(`Rectangle ${index} is missing ${field}.`);
+    }
+  }
+}
+
+function validateRectangle(
+  rectangle: unknown,
+  index: number,
+  ids: Set<string>,
+): WorkspaceTopLevelAutoLayoutRectangle {
+  if (
+    rectangle === null ||
+    typeof rectangle !== "object" ||
+    Array.isArray(rectangle)
+  ) {
+    throw new Error(`Rectangle ${index} must be an object.`);
+  }
+  const candidate = rectangle as Record<string, unknown>;
+  assertRectangleFields(candidate, index);
+  const { height, id, locked, width, x, y, zIndex } = candidate;
+  if (typeof id !== "string") {
+    throw new Error(`Rectangle ${index} id must be a string.`);
+  }
+  if (id.length === 0) {
+    throw new Error(`Rectangle ${index} id must not be empty.`);
+  }
+  if (ids.has(id)) {
+    throw new Error(
+      `Auto-layout rectangles cannot contain duplicate id ${id}.`,
+    );
+  }
+  ids.add(id);
+  assertFinite(x, `Rectangle ${id} x`);
+  assertFinite(y, `Rectangle ${id} y`);
+  assertPositiveFinite(width, `Rectangle ${id} width`);
+  assertPositiveFinite(height, `Rectangle ${id} height`);
+  assertFinite(zIndex, `Rectangle ${id} zIndex`);
+  if (typeof locked !== "boolean") {
+    throw new Error(`Rectangle ${id} locked must be a boolean.`);
+  }
+  return { height, id, locked, width, x, y, zIndex };
+}
+
 function validateRectangles(
   rectangles: ReadonlyArray<WorkspaceTopLevelAutoLayoutRectangle>,
 ): Array<WorkspaceTopLevelAutoLayoutRectangle> {
@@ -91,48 +149,9 @@ function validateRectangles(
     throw new Error("Auto-layout rectangles must be an array.");
   }
   const ids = new Set<string>();
-  return rectangles.map((rectangle, index) => {
-    if (
-      rectangle === null ||
-      typeof rectangle !== "object" ||
-      Array.isArray(rectangle)
-    ) {
-      throw new Error(`Rectangle ${index} must be an object.`);
-    }
-    const candidate = rectangle as Record<string, unknown>;
-    for (const field of [
-      "id",
-      "x",
-      "y",
-      "width",
-      "height",
-      "zIndex",
-      "locked",
-    ]) {
-      if (!Object.hasOwn(candidate, field)) {
-        throw new Error(`Rectangle ${index} is missing ${field}.`);
-      }
-    }
-    const { height, id, locked, width, x, y, zIndex } = candidate;
-    if (typeof id !== "string") {
-      throw new Error(`Rectangle ${index} id must be a string.`);
-    }
-    if (ids.has(id)) {
-      throw new Error(
-        `Auto-layout rectangles cannot contain duplicate id ${id}.`,
-      );
-    }
-    ids.add(id);
-    assertFinite(x, `Rectangle ${id} x`);
-    assertFinite(y, `Rectangle ${id} y`);
-    assertPositiveFinite(width, `Rectangle ${id} width`);
-    assertPositiveFinite(height, `Rectangle ${id} height`);
-    assertFinite(zIndex, `Rectangle ${id} zIndex`);
-    if (typeof locked !== "boolean") {
-      throw new Error(`Rectangle ${id} locked must be a boolean.`);
-    }
-    return { height, id, locked, width, x, y, zIndex };
-  });
+  return rectangles.map((rectangle, index) =>
+    validateRectangle(rectangle, index, ids),
+  );
 }
 
 export function resolveWorkspaceTopLevelAutoLayoutGap(
@@ -467,6 +486,41 @@ function compareCandidates(
   );
 }
 
+function createEvaluatedCandidates(
+  movable: ReadonlyArray<MovableRectangle>,
+  locked: ReadonlyArray<WorkspaceTopLevelAutoLayoutRectangle>,
+  anchor: Readonly<{ x: number; y: number }>,
+  gap: number,
+): Array<EvaluatedCandidate> {
+  const candidates: Array<EvaluatedCandidate> = [];
+  for (const shelfWidth of createShelfWidthCandidates(movable)) {
+    const packed = packShelfCandidate(movable, shelfWidth, gap);
+    for (const origin of createCandidateOrigins(anchor, packed, locked, gap)) {
+      const placements = positionPackedCandidate(packed, origin);
+      if (!isCandidateClear(placements, locked, gap)) {
+        continue;
+      }
+      candidates.push({
+        origin,
+        placements,
+        score: createCandidateScore(packed, placements),
+        shelfWidth,
+      });
+    }
+  }
+  return candidates;
+}
+
+function candidateMatchesCurrentPositions(
+  candidate: EvaluatedCandidate,
+): boolean {
+  return candidate.placements.every(
+    (placement) =>
+      placement.x === placement.rectangle.x &&
+      placement.y === placement.rectangle.y,
+  );
+}
+
 function createPlan(
   rectangles: ReadonlyArray<WorkspaceTopLevelAutoLayoutRectangle>,
   placements: ReadonlyArray<PackedPlacement>,
@@ -511,35 +565,13 @@ export function planWorkspaceTopLevelAutoLayout(
     }),
     { x: movable[0]?.x ?? 0, y: movable[0]?.y ?? 0 },
   );
-  let best: EvaluatedCandidate | null = null;
-  for (const shelfWidth of createShelfWidthCandidates(movable)) {
-    const packed = packShelfCandidate(movable, shelfWidth, gap);
-    for (const origin of createCandidateOrigins(anchor, packed, locked, gap)) {
-      const placements = positionPackedCandidate(packed, origin);
-      if (!isCandidateClear(placements, locked, gap)) {
-        continue;
-      }
-      if (
-        placements.every(
-          (placement) =>
-            placement.x === placement.rectangle.x &&
-            placement.y === placement.rectangle.y,
-        )
-      ) {
-        return createPlan(validated, placements);
-      }
-      const candidate: EvaluatedCandidate = {
-        origin,
-        placements,
-        score: createCandidateScore(packed, placements),
-        shelfWidth,
-      };
-      if (best === null || compareCandidates(candidate, best) < 0) {
-        best = candidate;
-      }
-    }
+  const candidates = createEvaluatedCandidates(movable, locked, anchor, gap);
+  const current = candidates.find(candidateMatchesCurrentPositions);
+  if (current) {
+    return createPlan(validated, current.placements);
   }
-  if (best === null) {
+  const best = candidates.sort(compareCandidates)[0];
+  if (!best) {
     throw new Error("Auto-layout could not place the movable rectangles.");
   }
   return createPlan(validated, best.placements);

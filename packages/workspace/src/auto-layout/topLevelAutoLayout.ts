@@ -29,11 +29,13 @@ const GEOMETRY_DISABLED_REASON =
   "Auto layout requires measured geometry for every displayed top-level section.";
 const ALREADY_ARRANGED_REASON = "Top-level sections are already arranged.";
 
+type UnavailableAutoLayoutPreparation = Readonly<{
+  kind: "capability" | "geometry" | "insufficient" | "unchanged";
+  reason: string;
+}>;
+
 type AutoLayoutPreparation =
-  | Readonly<{
-      kind: "capability" | "geometry" | "insufficient" | "unchanged";
-      reason: string;
-    }>
+  | UnavailableAutoLayoutPreparation
   | Readonly<{
       document: WorkspaceDocument;
       kind: "ready";
@@ -174,41 +176,60 @@ export function getWorkspaceTopLevelAutoLayoutDisabledReason(
   return preparation.kind === "ready" ? null : preparation.reason;
 }
 
+function resolveUnavailableAutoLayout(
+  preparation: UnavailableAutoLayoutPreparation,
+): WorkspaceTopLevelAutoLayoutResult {
+  if (preparation.kind === "insufficient" || preparation.kind === "unchanged") {
+    return "unchanged";
+  }
+  throw new Error(preparation.reason);
+}
+
+function applyAutoLayoutPlan(
+  document: WorkspaceDocument,
+  rectangles: ReadonlyArray<WorkspaceTopLevelAutoLayoutRectangle>,
+  plan: WorkspaceTopLevelAutoLayoutPlan,
+): WorkspaceDocument["topLevelSections"] {
+  const topLevelSections = { ...document.topLevelSections };
+  for (const rectangle of rectangles) {
+    if (rectangle.locked) {
+      continue;
+    }
+    const position = plan.positionsById[rectangle.id];
+    if (!position) {
+      throw new Error(`Auto-layout plan is missing section ${rectangle.id}.`);
+    }
+    const layout = topLevelSections[rectangle.id];
+    if (!layout) {
+      throw new Error(`Auto-layout plan is missing section ${rectangle.id}.`);
+    }
+    topLevelSections[rectangle.id] = {
+      ...layout,
+      x: position.x,
+      y: position.y,
+    };
+  }
+  return topLevelSections;
+}
+
 export function autoLayoutTopLevelSections(
   host: WorkspaceHost,
   options?: WorkspaceTopLevelAutoLayoutOptions,
 ): WorkspaceTopLevelAutoLayoutResult {
   const preparation = prepareAutoLayout(host, options);
   if (preparation.kind !== "ready") {
-    if (
-      preparation.kind === "insufficient" ||
-      preparation.kind === "unchanged"
-    ) {
-      return "unchanged";
-    }
-    throw new Error(preparation.reason);
-  }
-  const topLevelSections = { ...preparation.document.topLevelSections };
-  for (const rectangle of preparation.rectangles) {
-    if (rectangle.locked) {
-      continue;
-    }
-    const position = preparation.plan.positionsById[rectangle.id];
-    const layout = topLevelSections[rectangle.id];
-    if (!position || !layout) {
-      throw new Error(`Auto-layout plan is missing section ${rectangle.id}.`);
-    }
-    if (layout.x !== position.x || layout.y !== position.y) {
-      topLevelSections[rectangle.id] = {
-        ...layout,
-        x: position.x,
-        y: position.y,
-      };
-    }
+    return resolveUnavailableAutoLayout(preparation);
   }
   commitWorkspaceDocumentMutation(
     host,
-    { ...preparation.document, topLevelSections },
+    {
+      ...preparation.document,
+      topLevelSections: applyAutoLayoutPlan(
+        preparation.document,
+        preparation.rectangles,
+        preparation.plan,
+      ),
+    },
     "section-move",
   );
   return "applied";

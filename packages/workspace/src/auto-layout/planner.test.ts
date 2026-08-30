@@ -186,6 +186,9 @@ describe("planWorkspaceTopLevelAutoLayout", () => {
   });
 
   it("rejects duplicate ids and invalid geometry or gaps", () => {
+    expect(() => planWorkspaceTopLevelAutoLayout([rectangle("")])).toThrow(
+      "must not be empty",
+    );
     expect(() =>
       planWorkspaceTopLevelAutoLayout([
         rectangle("duplicate"),
