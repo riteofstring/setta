@@ -31,6 +31,7 @@ const RUNTIME_EXPORTS = [
   "NO_WHEEL_CLASS_NAME",
   "PasswordValueControl",
   "RotaryValueControl",
+  "StandaloneWorkspaceSectionSurface",
   "SliderValueControl",
   "StandaloneWorkspaceWindowSpaceSurface",
   "SwitchValueControl",
@@ -243,6 +244,27 @@ describe("public package API", () => {
       showTrigger: true,
     });
     expect(closeParametersAreHostOnly).toBe(true);
+  });
+
+  it("exposes a focused standalone section projection through the public root", () => {
+    const props = {
+      ariaLabel: "Research section",
+      className: "focused-section-route",
+      headerActions: null,
+      headerProps: { "data-testid": "focused-section-header" },
+      sectionId: "research",
+    } satisfies ComponentProps<
+      typeof workspace.StandaloneWorkspaceSectionSurface
+    >;
+    const surfaceProps: workspace.StandaloneWorkspaceSectionSurfaceProps =
+      props;
+    const sectionIdRequired: IsRequiredProperty<
+      workspace.StandaloneWorkspaceSectionSurfaceProps,
+      "sectionId"
+    > = true;
+
+    expect(surfaceProps.sectionId).toBe("research");
+    expect(sectionIdRequired).toBe(true);
   });
 
   it("exposes controlled canvas ingress, attention, and graph contracts", () => {

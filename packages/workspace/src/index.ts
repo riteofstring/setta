@@ -532,6 +532,8 @@ export type {
 } from "./windowing/WorkspaceWindowSpacesPane";
 export { StandaloneWorkspaceWindowSpaceSurface } from "./windowing/StandaloneWorkspaceWindowSpaceSurface";
 export type { StandaloneWorkspaceWindowSpaceSurfaceProps } from "./windowing/StandaloneWorkspaceWindowSpaceSurface";
+export { StandaloneWorkspaceSectionSurface } from "./standalone/StandaloneWorkspaceSectionSurface";
+export type { StandaloneWorkspaceSectionSurfaceProps } from "./standalone/StandaloneWorkspaceSectionSurface";
 export { WorkspaceControls } from "./toolbar/WorkspaceControls";
 export { registerWorkspaceToolbarContributions } from "./toolbar/workspaceToolbarRegistry";
 export type {

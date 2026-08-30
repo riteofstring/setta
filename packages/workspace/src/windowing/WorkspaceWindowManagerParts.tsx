@@ -1,7 +1,7 @@
 import { type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { FiMaximize2, FiMinimize2, FiMinus, FiX } from "react-icons/fi";
 import { MdFlipToFront, MdVerticalAlignBottom } from "react-icons/md";
-import { WorkspaceSectionWindowSurface } from "./WorkspaceSectionWindowSurface";
+import { WorkspaceSectionSurface } from "../section/WorkspaceSectionSurface";
 import {
   WORKSPACE_WINDOW_FREE_RESIZE_DIRECTIONS,
   type WorkspaceFreeResizeDirection,
@@ -287,7 +287,9 @@ export function WorkspaceManagedWindowFrame({
           }
         : undefined;
     return (
-      <WorkspaceSectionWindowSurface
+      <WorkspaceSectionSurface
+        dataTestId="section-window-surface"
+        dataWorkspaceSectionWindowSurface
         headerActions={
           layoutEditable ? renderSectionWindowActions(actions, window.id) : null
         }
