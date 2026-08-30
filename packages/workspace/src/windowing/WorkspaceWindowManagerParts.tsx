@@ -289,7 +289,6 @@ export function WorkspaceManagedWindowFrame({
     return (
       <WorkspaceSectionSurface
         dataTestId="section-window-surface"
-        dataWorkspaceSectionWindowSurface
         headerActions={
           layoutEditable ? renderSectionWindowActions(actions, window.id) : null
         }

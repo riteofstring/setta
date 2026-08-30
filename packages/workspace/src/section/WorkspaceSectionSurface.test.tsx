@@ -136,7 +136,6 @@ describe("WorkspaceSectionSurface", () => {
     const onWindowAction = vi.fn();
     await mount({
       dataTestId: "section-window-surface",
-      dataWorkspaceSectionWindowSurface: true,
       headerActions: createElement(
         "button",
         {
@@ -163,7 +162,7 @@ describe("WorkspaceSectionSurface", () => {
     );
     expect(surface.dataset.sectionId).toBe(SECTION_ID);
     expect(surface.dataset.sectionType).toBe("text");
-    expect(surface.dataset.workspaceSectionWindowSurface).toBe("true");
+    expect(surface.dataset.workspaceSectionSurface).toBe("true");
     expect(header.className).toContain("section-title");
     expect(header.className).toContain("window-header-drag-handle");
     expect(

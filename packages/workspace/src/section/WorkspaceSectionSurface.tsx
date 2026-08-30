@@ -38,7 +38,6 @@ type WorkspaceSectionSurfaceProps = {
 
   className?: string;
   dataTestId?: string;
-  dataWorkspaceSectionWindowSurface?: boolean;
   headerActions?: ReactNode;
   headerProps?: WorkspaceSectionSurfaceHeaderProps;
   includeDescendants?: boolean;
@@ -87,16 +86,9 @@ function getWorkspaceSectionSurfaceAppearance({
   };
 }
 
-function getWorkspaceSectionWindowSurfaceAttribute(
-  isWindowSurface: boolean,
-): "true" | undefined {
-  return isWindowSurface ? "true" : undefined;
-}
-
 export function WorkspaceSectionSurface({
   className,
   dataTestId,
-  dataWorkspaceSectionWindowSurface = false,
   headerActions = null,
   headerProps,
   includeDescendants = false,
@@ -147,9 +139,6 @@ export function WorkspaceSectionSurface({
       data-section-type={section.kind}
       data-testid={dataTestId}
       data-workspace-section-surface="true"
-      data-workspace-section-window-surface={getWorkspaceSectionWindowSurfaceAttribute(
-        dataWorkspaceSectionWindowSurface,
-      )}
       style={resolveSectionStyleVars(sectionStyleTheme)}
     >
       <div className={innerShellClassName}>

@@ -55,6 +55,10 @@ ends. A disposed host rejects later reads or writes.
   intentionally does not want the integrated shell. The canvas fills its host element; a
   standalone host owns the other surfaces' placement. Pass `canvas` to `WorkspaceShell` or
   `configuration` to `WorkspaceCanvas` to configure external drops and a controlled graph.
+- `StandaloneWorkspaceSectionSurface` renders one section and its descendant tree without a
+  canvas. It is the focused-section composition for an application route, tab, panel, or secondary
+  window. The application supplies the host, route resolution, loading and error states, and any
+  root-header action.
 - `WorkspaceNavigator` is the optional host-scoped Find and command surface for a standalone
   composition. `openWorkspaceNavigator` and `closeWorkspaceNavigator` let application chrome open
   that mounted surface without reaching into package state.
@@ -76,6 +80,39 @@ Application routing stays outside the shell. Navigator mode, query, active resul
 are ephemeral package runtime owned by the host; they never enter `WorkspaceDocument`. Registered
 pane content may use its own application state, but receives no package store, XYFlow panel,
 dnd-kit store, Tailwind utility, or package-private DOM selector as an extension API.
+
+## Standalone section and subtree surface
+
+Use `StandaloneWorkspaceSectionSurface` when a downstream route should focus on one section while
+retaining the same section chrome, registered content, nested layout, focus, and section
+drag-and-drop behavior as the workspace. The surface fills its containing block and must be
+mounted under the `WorkspaceProvider` that owns the loaded document and section registrations.
+
+```tsx
+function FocusedSectionRoute({ sectionId }: { sectionId: string }) {
+  return (
+    <main className="h-screen">
+      <StandaloneWorkspaceSectionSurface
+        sectionId={sectionId}
+        ariaLabel="Focused research section"
+        headerActions={<OpenInCanvasButton sectionId={sectionId} />}
+      />
+    </main>
+  );
+}
+```
+
+For example, a research application can resolve `/projects/:projectId/sections/:slug`, authorize
+the project, load its `WorkspaceDocument`, map the stable slug to a section id, and render that
+section in a dedicated browser tab. Workspace owns section lookup, root chrome, registered-kind
+rendering, group orientation, recursive descendants, descendant saved-view visibility, focus
+routing, and the section drag boundary. The application owns the URL and slug, authorization,
+document loading and persistence, not-found and error presentation, product data and providers,
+and the `OpenInCanvasButton` navigation effect.
+
+A focused surface is an alternative projection of stateful section content. Render either it or
+the canvas/managed-window projection for a given section under one host; do not mount two live
+copies of the same section content under that host.
 
 ## Canvas ingress, attention, and graphs
 

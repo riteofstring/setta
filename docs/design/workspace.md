@@ -33,6 +33,22 @@ application-projection boundary `commitWorkspaceDocument` performs the same comp
 and atomic publication without those external-load lifecycle resets. Partial store writes are not
 an alternate document API.
 
+## Standalone section projection boundary
+
+The public standalone section surface is a package-owned projection of one canonical section and
+the descendant tree that section may own. It shares section lookup, chrome, registered-kind body
+rendering, nested layout, descendant saved-view visibility, focus routing, and section drag
+behavior with the canvas and managed-window presentations. The requested root always projects.
+Its root is registered to the current host so global interaction dispatch remains instance-scoped
+even when an application places the surface outside the integrated shell.
+
+The application selects the root section and owns route identifiers, authorization, document
+loading and persistence, unavailable states, product providers, and application-specific header
+actions. The package does not interpret a route, fetch a document, or navigate between the focused
+surface and the canvas. Because registered content may own editor or provider state, one host may
+have only one live rendering of a section at a time. A focused route therefore replaces that
+section's canvas or managed-window projection rather than duplicating it.
+
 ## Private canvas renderer boundary
 
 Workspace uses upstream, exact-pinned `@xyflow/react` as a private, host-scoped canvas renderer.
