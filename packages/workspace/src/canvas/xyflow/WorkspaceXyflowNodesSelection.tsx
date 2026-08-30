@@ -1,32 +1,39 @@
 import cc from "classcat";
 import _ from "lodash";
 import React, { useEffect, useRef, type KeyboardEvent } from "react";
-import { openWorkspaceSelectionMenu } from "../context-menu/workspaceMenuInvocation";
+import { openWorkspaceSelectionMenu } from "../../context-menu/workspaceMenuInvocation";
 import {
   getOwnerKeyboardMenuPoint,
   isWorkspaceMenuKeyboardEvent,
-} from "../context-menu/workspaceMenuOwnership";
-import { useDndMode } from "../dnd/dndState";
+} from "../../context-menu/workspaceMenuOwnership";
+import { useDndMode } from "../../dnd/dndState";
 import {
   setSelectionDragHandle,
   setSelectionDragPrimaryId,
-} from "../dnd/selectionDragHandle";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { getSectionOrThrow } from "../document/documentSelectors";
-import { useActiveSections, useWorkspaceDocument } from "../document/stores";
-import { NO_PAN_CLASS_NAME } from "../interaction";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { useReactFlow } from "./store";
-import type { Rect } from "./types";
-import useDrag from "./useDrag";
-import { updatePositions } from "./useUpdateNodePositions";
-import { arrowKeyDiffs } from "./wrapNode";
+} from "../../dnd/selectionDragHandle";
+import { useWorkspaceCapabilities } from "../../document/capabilities";
+import { getSectionOrThrow } from "../../document/documentSelectors";
+import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
+import type { Position } from "../../document/types";
+import { NO_PAN_CLASS_NAME } from "../../interaction";
+import { useWorkspaceHost } from "../../workspaceHostContext";
+import { useReactFlow } from "../store";
+import type { Rect } from "../types";
+import { updatePositions } from "../useUpdateNodePositions";
+import { useWorkspaceXyflowNodesSelectionDrag } from "./useWorkspaceXyflowNodesSelectionDrag";
 
-function NodesSelectionComponent({ x, y, width, height }: Rect) {
+const arrowKeyDiffs: Record<string, Position> = {
+  ArrowUp: { x: 0, y: -1 },
+  ArrowDown: { x: 0, y: 1 },
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 },
+};
+
+function WorkspaceXyflowNodesSelectionComponent({ x, y, width, height }: Rect) {
   const host = useWorkspaceHost();
   const transformString = useReactFlow(
-    (s) =>
-      `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
+    (state) =>
+      `translate(${state.transform[0]}px,${state.transform[1]}px) scale(${state.transform[2]})`,
   );
   const { isSorting, isMovingFree } = useDndMode();
   const canEditLayout = useWorkspaceCapabilities(
@@ -58,7 +65,7 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
     };
   }, [host]);
 
-  useDrag({
+  useWorkspaceXyflowNodesSelectionDrag({
     nodeRef,
     disabled: !canEditLayout,
   });
@@ -106,7 +113,6 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
         transform: transformString,
       }}
     >
-      {}
       <div
         tabIndex={-1}
         ref={nodeRef}
@@ -137,11 +143,16 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
   );
 }
 
-function NodesSelectionDragHandleComponent({ x, y, width, height }: Rect) {
+function WorkspaceXyflowNodesSelectionDragHandleComponent({
+  x,
+  y,
+  width,
+  height,
+}: Rect) {
   const host = useWorkspaceHost();
   const transformString = useReactFlow(
-    (s) =>
-      `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
+    (state) =>
+      `translate(${state.transform[0]}px,${state.transform[1]}px) scale(${state.transform[2]})`,
   );
   const nodeRef = useRef<HTMLDivElement>(null);
 
@@ -177,22 +188,32 @@ function NodesSelectionDragHandleComponent({ x, y, width, height }: Rect) {
   );
 }
 
-const NodesSelection = React.memo(NodesSelectionComponent);
-const NodesSelectionDragHandle = React.memo(NodesSelectionDragHandleComponent);
+const WorkspaceXyflowNodesSelection = React.memo(
+  WorkspaceXyflowNodesSelectionComponent,
+);
+const WorkspaceXyflowNodesSelectionDragHandle = React.memo(
+  WorkspaceXyflowNodesSelectionDragHandleComponent,
+);
 
-function NodesSelectionWrapperComponent() {
+function WorkspaceXyflowNodesSelectionWrapperComponent() {
   const nodesSelectionDims = useReactFlow(
-    (s) => s.nodesSelectionDims,
+    (state) => state.nodesSelectionDims,
     _.isEqual,
   );
-  return nodesSelectionDims && <NodesSelection {...nodesSelectionDims} />;
+  return (
+    nodesSelectionDims && (
+      <WorkspaceXyflowNodesSelection {...nodesSelectionDims} />
+    )
+  );
 }
 
-export const NodesSelectionWrapper = React.memo(NodesSelectionWrapperComponent);
+export const WorkspaceXyflowNodesSelectionWrapper = React.memo(
+  WorkspaceXyflowNodesSelectionWrapperComponent,
+);
 
-function NodesSelectionDragHandleWrapperComponent() {
+function WorkspaceXyflowNodesSelectionDragHandleWrapperComponent() {
   const nodesSelectionDims = useReactFlow(
-    (s) => s.nodesSelectionDims,
+    (state) => state.nodesSelectionDims,
     _.isEqual,
   );
   const { isMovingFree } = useDndMode();
@@ -202,9 +223,9 @@ function NodesSelectionDragHandleWrapperComponent() {
   if (!nodesSelectionDims || !isMovingFree || !canEditLayout) {
     return null;
   }
-  return <NodesSelectionDragHandle {...nodesSelectionDims} />;
+  return <WorkspaceXyflowNodesSelectionDragHandle {...nodesSelectionDims} />;
 }
 
-export const NodesSelectionDragHandleWrapper = React.memo(
-  NodesSelectionDragHandleWrapperComponent,
+export const WorkspaceXyflowNodesSelectionDragHandleWrapper = React.memo(
+  WorkspaceXyflowNodesSelectionDragHandleWrapperComponent,
 );

@@ -1,16 +1,42 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { shallow } from "zustand/shallow";
 import { applyActiveSectionChange } from "../activeSectionController";
 import { getNodesInside } from "../graph";
-import {
-  NodesSelectionDragHandleWrapper,
-  NodesSelectionWrapper,
-} from "../NodesSelection";
 import { getWorkspaceOptionsStore } from "../options";
-import { getReactFlowStore } from "../store";
-import UserSelection from "../UserSelection";
+import { getReactFlowStore, useReactFlow } from "../store";
 import { getEventPosition } from "../utils";
 import { useWorkspaceHost } from "../../workspaceHostContext";
+import {
+  WorkspaceXyflowNodesSelectionDragHandleWrapper,
+  WorkspaceXyflowNodesSelectionWrapper,
+} from "./WorkspaceXyflowNodesSelection";
+
+function WorkspaceXyflowUserSelection() {
+  const { userSelectionActive, userSelectionRect } = useReactFlow(
+    (state) => ({
+      userSelectionActive: state.userSelectionActive,
+      userSelectionRect: state.userSelectionRect,
+    }),
+    shallow,
+  );
+  const isActive = userSelectionActive && userSelectionRect;
+
+  if (!isActive) {
+    return null;
+  }
+
+  return (
+    <div
+      className="react-flow__selection react-flow__container"
+      style={{
+        width: userSelectionRect.width,
+        height: userSelectionRect.height,
+        transform: `translate(${userSelectionRect.x}px, ${userSelectionRect.y}px)`,
+      }}
+    />
+  );
+}
 
 type WorkspaceXyflowSelectionProps = {
   rootElement: HTMLDivElement | null;
@@ -188,13 +214,13 @@ export function WorkspaceXyflowSelection({
     <>
       {createPortal(
         <>
-          <NodesSelectionDragHandleWrapper />
-          <NodesSelectionWrapper />
+          <WorkspaceXyflowNodesSelectionDragHandleWrapper />
+          <WorkspaceXyflowNodesSelectionWrapper />
         </>,
         pane,
       )}
       {selectionPortalElement
-        ? createPortal(<UserSelection />, selectionPortalElement)
+        ? createPortal(<WorkspaceXyflowUserSelection />, selectionPortalElement)
         : null}
     </>
   );

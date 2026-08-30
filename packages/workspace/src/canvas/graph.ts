@@ -1,6 +1,3 @@
-import type { Selection as D3Selection } from "d3-selection";
-
-import "d3-transition";
 import { getActiveSectionIds } from "../document/activeSections";
 import { getRootSelectedSectionIds } from "../document/sectionSelection";
 import {
@@ -9,7 +6,6 @@ import {
 } from "../document/stores";
 import type { Node, Viewport } from "../document/types";
 import { getSectionRefsStore } from "../section/sectionRefs";
-import { resolveWorkspaceMotionDuration } from "../styles/motion";
 import type { WorkspaceHost } from "../workspaceHost";
 import type { ReactFlowState, Rect, Transform, ViewportInsets } from "./types";
 import {
@@ -197,15 +193,6 @@ export const getViewportForBounds = (
   const y = visibleCanvas.y + visibleCanvas.height / 2 - boundsCenterY * zoom;
 
   return { x, y, zoom };
-};
-
-export const getD3Transition = (
-  selection: D3Selection<Element, unknown, null, undefined>,
-  duration = 0,
-) => {
-  return selection
-    .transition()
-    .duration(resolveWorkspaceMotionDuration(duration));
 };
 
 function getSectionBounds(

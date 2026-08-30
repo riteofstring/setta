@@ -47,9 +47,9 @@ vi.mock("@xyflow/react", () => ({
   },
 }));
 
-vi.mock("../NodesSelection", () => ({
-  NodesSelectionDragHandleWrapper: () => null,
-  NodesSelectionWrapper: () => null,
+vi.mock("./WorkspaceXyflowNodesSelection", () => ({
+  WorkspaceXyflowNodesSelectionDragHandleWrapper: () => null,
+  WorkspaceXyflowNodesSelectionWrapper: () => null,
 }));
 
 vi.mock("../../section/container/SectionContainer", () => ({

@@ -186,25 +186,12 @@ export function cancelWorkspaceCanvasScrolling(
   const scrollTop = currentTarget.scrollTop - SCROLL_INIT;
   const xyflowRuntime = getWorkspaceXyflowRuntime(host);
   const viewport = xyflowRuntime.getViewport();
-  if (viewport) {
-    if (scrollLeft || scrollTop) {
-      void xyflowRuntime.setViewport({
-        x: viewport.x - scrollLeft,
-        y: viewport.y - scrollTop,
-        zoom: viewport.zoom,
-      });
-    }
-    currentTarget.scrollTop = SCROLL_INIT;
-    currentTarget.scrollLeft = SCROLL_INIT;
-    return;
-  }
-  const { d3Zoom, d3Selection, transform } = getReactFlowStore(host).getState();
-  if (d3Zoom && d3Selection) {
-    d3Zoom.translateBy(
-      d3Selection,
-      -scrollLeft / transform[2],
-      -scrollTop / transform[2],
-    );
+  if (viewport && (scrollLeft || scrollTop)) {
+    void xyflowRuntime.setViewport({
+      x: viewport.x - scrollLeft,
+      y: viewport.y - scrollTop,
+      zoom: viewport.zoom,
+    });
   }
   currentTarget.scrollTop = SCROLL_INIT;
   currentTarget.scrollLeft = SCROLL_INIT;

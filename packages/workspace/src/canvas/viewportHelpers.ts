@@ -1,24 +1,15 @@
-import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
 import { getWorkspaceDocumentStore } from "../document/stores";
 import { isWorkspaceSectionVisible } from "../document/savedViewDisplay";
 import type { Position } from "../document/types";
-import {
-  prefersReducedWorkspaceMotion,
-  resolveWorkspaceMotionDuration,
-} from "../styles/motion";
+import { resolveWorkspaceMotionDuration } from "../styles/motion";
 import type { WorkspaceHost } from "../workspaceHost";
 import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
-import {
-  getD3Transition,
-  getPaneRect,
-  getSectionRect,
-  getViewportForBounds,
-} from "./graph";
+import { getPaneRect, getSectionRect, getViewportForBounds } from "./graph";
 import { getWorkspaceOptionsStore } from "./options";
 import { getWorkspacePointerLocation } from "./pointerLocation";
 import { getReactFlowStore } from "./store";
-import type { ReactFlowState, Rect } from "./types";
+import type { Rect } from "./types";
 import { getVisibleCanvasRect } from "./viewportInsets";
 import { screenToFlowPosition } from "./viewportPosition";
 import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
@@ -32,21 +23,12 @@ type ZoomOptions = TransitionOptions & {
 };
 
 function getZoomRuntime(host: WorkspaceHost) {
-  const { d3Zoom, d3Selection } = getReactFlowStore(host).getState();
-  if (!d3Zoom || !d3Selection) {
+  const runtime = getWorkspaceXyflowRuntime(host);
+  const viewport = runtime.getViewport();
+  if (!viewport) {
     throw new Error("Cannot zoom before the zoom pane initialized.");
   }
-  return { d3Zoom, d3Selection };
-}
-
-function getZoomTarget(
-  selection: NonNullable<ReactFlowState["d3Selection"]>,
-  duration?: number,
-) {
-  if (prefersReducedWorkspaceMotion()) {
-    return selection;
-  }
-  return getD3Transition(selection, duration ?? 0);
+  return { runtime, viewport };
 }
 
 type ZoomThrottleState = {
@@ -63,28 +45,16 @@ function getZoomThrottleState(host: WorkspaceHost): ZoomThrottleState {
   }
   const state = {
     zoomIn: _.throttle((options?: TransitionOptions) => {
-      const xyflowRuntime = getWorkspaceXyflowRuntime(host);
-      const viewport = xyflowRuntime.getViewport();
-      if (viewport) {
-        void xyflowRuntime.zoomTo(viewport.zoom * 1.2, {
-          duration: resolveWorkspaceMotionDuration(options?.duration ?? 0),
-        });
-        return;
-      }
-      const { d3Zoom, d3Selection } = getZoomRuntime(host);
-      d3Zoom.scaleBy(getZoomTarget(d3Selection, options?.duration), 1.2);
+      const { runtime, viewport } = getZoomRuntime(host);
+      void runtime.zoomTo(viewport.zoom * 1.2, {
+        duration: resolveWorkspaceMotionDuration(options?.duration ?? 0),
+      });
     }, 50),
     zoomOut: _.throttle((options?: TransitionOptions) => {
-      const xyflowRuntime = getWorkspaceXyflowRuntime(host);
-      const viewport = xyflowRuntime.getViewport();
-      if (viewport) {
-        void xyflowRuntime.zoomTo(viewport.zoom / 1.2, {
-          duration: resolveWorkspaceMotionDuration(options?.duration ?? 0),
-        });
-        return;
-      }
-      const { d3Zoom, d3Selection } = getZoomRuntime(host);
-      d3Zoom.scaleBy(getZoomTarget(d3Selection, options?.duration), 1 / 1.2);
+      const { runtime, viewport } = getZoomRuntime(host);
+      void runtime.zoomTo(viewport.zoom / 1.2, {
+        duration: resolveWorkspaceMotionDuration(options?.duration ?? 0),
+      });
     }, 50),
   };
   throttleStatesByHost.set(host, state);
@@ -112,15 +82,10 @@ function zoomTo(
   zoomLevel: number,
   options?: TransitionOptions,
 ) {
-  const xyflowRuntime = getWorkspaceXyflowRuntime(host);
-  if (xyflowRuntime.getInstance()) {
-    void xyflowRuntime.zoomTo(zoomLevel, {
-      duration: resolveWorkspaceMotionDuration(options?.duration ?? 0),
-    });
-    return;
-  }
-  const { d3Zoom, d3Selection } = getZoomRuntime(host);
-  d3Zoom.scaleTo(getZoomTarget(d3Selection, options?.duration), zoomLevel);
+  const { runtime } = getZoomRuntime(host);
+  void runtime.zoomTo(zoomLevel, {
+    duration: resolveWorkspaceMotionDuration(options?.duration ?? 0),
+  });
 }
 
 export function resetZoom(host: WorkspaceHost) {
@@ -129,11 +94,7 @@ export function resetZoom(host: WorkspaceHost) {
 }
 
 export function getIsZoomRuntimeReady(host: WorkspaceHost): boolean {
-  if (getWorkspaceXyflowRuntime(host).getInstance()) {
-    return true;
-  }
-  const { d3Zoom, d3Selection } = getReactFlowStore(host).getState();
-  return Boolean(d3Zoom && d3Selection);
+  return getWorkspaceXyflowRuntime(host).getInstance() !== null;
 }
 
 export function getCanZoomIn(host: WorkspaceHost): boolean {
@@ -178,18 +139,11 @@ export function setCenter(
   const nextZoom = typeof options?.zoom === "number" ? options.zoom : maxZoom;
   const centerX = visibleCanvas.x + visibleCanvas.width / 2 - x * nextZoom;
   const centerY = visibleCanvas.y + visibleCanvas.height / 2 - y * nextZoom;
-  const xyflowRuntime = getWorkspaceXyflowRuntime(host);
-  if (xyflowRuntime.getInstance()) {
-    void xyflowRuntime.setViewport(
-      { x: centerX, y: centerY, zoom: nextZoom },
-      { duration: resolveWorkspaceMotionDuration(options?.duration ?? 0) },
-    );
-    return;
-  }
-
-  const { d3Zoom, d3Selection } = getZoomRuntime(host);
-  const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
-  d3Zoom.transform(getZoomTarget(d3Selection, options?.duration), transform);
+  const { runtime } = getZoomRuntime(host);
+  void runtime.setViewport(
+    { x: centerX, y: centerY, zoom: nextZoom },
+    { duration: resolveWorkspaceMotionDuration(options?.duration ?? 0) },
+  );
 }
 
 export function zoomToPointerLocation(host: WorkspaceHost): boolean {
@@ -255,18 +209,12 @@ export function movePaneToIncludeElement(
   if (!translation) {
     return;
   }
-  const xyflowRuntime = getWorkspaceXyflowRuntime(host);
-  const viewport = xyflowRuntime.getViewport();
-  if (viewport) {
-    void xyflowRuntime.setViewport({
-      x: viewport.x - translation.x * viewport.zoom,
-      y: viewport.y - translation.y * viewport.zoom,
-      zoom: viewport.zoom,
-    });
-    return;
-  }
-  const { d3Zoom, d3Selection } = getZoomRuntime(host);
-  d3Zoom.translateBy(d3Selection, -translation.x, -translation.y);
+  const { runtime, viewport } = getZoomRuntime(host);
+  void runtime.setViewport({
+    x: viewport.x - translation.x * viewport.zoom,
+    y: viewport.y - translation.y * viewport.zoom,
+    zoom: viewport.zoom,
+  });
 }
 
 export function shiftWorkspaceMapForLeadingPane(
@@ -276,21 +224,11 @@ export function shiftWorkspaceMapForLeadingPane(
   if (widthDiff === 0) {
     return;
   }
-  const xyflowRuntime = getWorkspaceXyflowRuntime(host);
-  const viewport = xyflowRuntime.getViewport();
-  if (viewport) {
-    void xyflowRuntime.setViewport(
-      { x: viewport.x + widthDiff, y: viewport.y, zoom: viewport.zoom },
-      { duration: resolveWorkspaceMotionDuration(100) },
-    );
-    return;
-  }
-  const { d3Zoom, d3Selection } = getZoomRuntime(host);
-  const {
-    transform: [x, y, zoom],
-  } = getReactFlowStore(host).getState();
-  const nextTransform = zoomIdentity.translate(x + widthDiff, y).scale(zoom);
-  d3Zoom.transform(getZoomTarget(d3Selection, 100), nextTransform);
+  const { runtime, viewport } = getZoomRuntime(host);
+  void runtime.setViewport(
+    { x: viewport.x + widthDiff, y: viewport.y, zoom: viewport.zoom },
+    { duration: resolveWorkspaceMotionDuration(100) },
+  );
 }
 
 export function focusWorkspaceSection(

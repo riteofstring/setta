@@ -20,9 +20,9 @@ afterEachWorkspaceTestHost(() => {
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useWorkspaceOptions } from "../canvas/options";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { zoomIn, zoomOut } from "../canvas/viewportHelpers";
+import { initialCanvasState } from "../canvas/store";
+import { registerWorkspaceXyflowInstance } from "../canvas/xyflow/workspaceXyflowRuntime";
+import type { WorkspaceXyflowInstance } from "../canvas/xyflow/types";
 import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import { WorkspaceControls } from "./WorkspaceControls";
 import { registerWorkspaceToolbarContributions } from "./workspaceToolbarRegistry";
@@ -30,6 +30,17 @@ import { registerWorkspaceToolbarContributions } from "./workspaceToolbarRegistr
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
+
+function mountXyflowRuntime() {
+  const zoomTo = vi.fn(() => Promise.resolve(true));
+  registerWorkspaceXyflowInstance(testWorkspace.host, {
+    getViewport: () => ({ x: 0, y: 0, zoom: 1 }),
+    screenToFlowPosition: vi.fn(),
+    setViewport: vi.fn(() => Promise.resolve(true)),
+    zoomTo,
+  } as unknown as WorkspaceXyflowInstance);
+  return { zoomTo };
+}
 
 describe("WorkspaceControls", () => {
   let host: HTMLDivElement;
@@ -208,19 +219,7 @@ describe("WorkspaceControls", () => {
   });
 
   it("zooms on primary pointer-down without repeating on the following click", async () => {
-    const scaleBy = vi.fn();
-    const transitionObject = { id: "transition" };
-    const d3Selection = {
-      transition: () => ({ duration: () => transitionObject }),
-    } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
-    await act(async () => {
-      testWorkspace.reactFlow.setState({
-        d3Selection,
-        d3Zoom: { scaleBy } as unknown as NonNullable<
-          typeof initialCanvasState.d3Zoom
-        >,
-      });
-    });
+    const { zoomTo } = mountXyflowRuntime();
 
     await act(async () => {
       getButton("zoom in").dispatchEvent(
@@ -228,7 +227,7 @@ describe("WorkspaceControls", () => {
       );
     });
 
-    expect(scaleBy).toHaveBeenCalledWith(transitionObject, 1.2);
+    expect(zoomTo).toHaveBeenCalledWith(1.2, { duration: 0 });
 
     await act(async () => {
       getButton("zoom in").dispatchEvent(
@@ -236,23 +235,11 @@ describe("WorkspaceControls", () => {
       );
     });
 
-    expect(scaleBy).toHaveBeenCalledTimes(1);
+    expect(zoomTo).toHaveBeenCalledTimes(1);
   });
 
   it("keeps non-pointer click activation for keyboard and assistive technology", async () => {
-    const scaleBy = vi.fn();
-    const transitionObject = { id: "transition" };
-    const d3Selection = {
-      transition: () => ({ duration: () => transitionObject }),
-    } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
-    await act(async () => {
-      testWorkspace.reactFlow.setState({
-        d3Selection,
-        d3Zoom: { scaleBy } as unknown as NonNullable<
-          typeof initialCanvasState.d3Zoom
-        >,
-      });
-    });
+    const { zoomTo } = mountXyflowRuntime();
 
     await act(async () => {
       getButton("zoom out").dispatchEvent(
@@ -260,7 +247,7 @@ describe("WorkspaceControls", () => {
       );
     });
 
-    expect(scaleBy).toHaveBeenCalledWith(transitionObject, 1 / 1.2);
+    expect(zoomTo).toHaveBeenCalledWith(1 / 1.2, { duration: 0 });
   });
 
   it("toggles snap to grid on the interaction options", async () => {

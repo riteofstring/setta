@@ -43,32 +43,7 @@ function setNodes(nodes: Array<Node>) {
   });
 }
 
-const transitionObject = { id: "transition" };
-
 function setupFitViewState(overrides: Partial<typeof initialCanvasState> = {}) {
-  const transform = vi.fn();
-  const transition = vi.fn(() => ({ duration: () => transitionObject }));
-  const d3Selection = {
-    id: "selection",
-    transition,
-  } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
-  const d3Zoom = { transform } as unknown as NonNullable<
-    typeof initialCanvasState.d3Zoom
-  >;
-
-  testWorkspace.reactFlow.setState({
-    ...initialCanvasState,
-    width: 800,
-    height: 600,
-    d3Selection,
-    d3Zoom,
-    ...overrides,
-  });
-
-  return { d3Selection, transform, transition };
-}
-
-function mountXyflowRuntime() {
   const setViewport = vi.fn(() => Promise.resolve(true));
   registerWorkspaceXyflowInstance(testWorkspace.host, {
     getViewport: () => ({ x: 0, y: 0, zoom: 1 }),
@@ -76,6 +51,14 @@ function mountXyflowRuntime() {
     setViewport,
     zoomTo: vi.fn(() => Promise.resolve(true)),
   } as unknown as WorkspaceXyflowInstance);
+
+  testWorkspace.reactFlow.setState({
+    ...initialCanvasState,
+    width: 800,
+    height: 600,
+    ...overrides,
+  });
+
   return { setViewport };
 }
 
@@ -94,7 +77,7 @@ describe("fitView", () => {
   });
 
   it("caps initial fit zoom to the default zoom level", () => {
-    const { d3Selection, transform } = setupFitViewState({
+    const { setViewport } = setupFitViewState({
       fitViewOnInit: true,
       fitViewOnInitDone: false,
     });
@@ -104,15 +87,14 @@ describe("fitView", () => {
       true,
     );
 
-    expect(transform).toHaveBeenCalledTimes(1);
-    expect(transform).toHaveBeenCalledWith(
-      d3Selection,
-      expect.objectContaining({ k: 1 }),
+    expect(setViewport).toHaveBeenCalledWith(
+      expect.objectContaining({ zoom: 1 }),
+      { duration: 0 },
     );
   });
 
   it("filters to explicit fitView targets before checking node measurement", () => {
-    const { transform } = setupFitViewState();
+    const { setViewport } = setupFitViewState();
     setNodes([
       createNode({ id: "target" }),
       createNode({ id: "unmeasured", width: null, height: null }),
@@ -121,58 +103,40 @@ describe("fitView", () => {
     expect(fitView(testWorkspace.host, { nodes: [{ id: "target" }] })).toBe(
       true,
     );
-    expect(transform).toHaveBeenCalledTimes(1);
+    expect(setViewport).toHaveBeenCalledTimes(1);
 
-    transform.mockClear();
+    setViewport.mockClear();
 
     expect(fitView(testWorkspace.host)).toBe(false);
-    expect(transform).not.toHaveBeenCalled();
+    expect(setViewport).not.toHaveBeenCalled();
   });
 
-  it("uses a transition wrapper only for positive durations", () => {
-    const { d3Selection, transform } = setupFitViewState();
+  it("passes the requested duration to the XYFlow viewport runtime", () => {
+    const { setViewport } = setupFitViewState();
     setNodes([createNode({ id: "section-a" })]);
 
     expect(fitView(testWorkspace.host, { duration: 120 })).toBe(true);
-    expect(transform).toHaveBeenCalledWith(
-      transitionObject,
-      expect.objectContaining({ k: expect.any(Number) }),
+    expect(setViewport).toHaveBeenCalledWith(
+      expect.objectContaining({ zoom: expect.any(Number) }),
+      { duration: 120 },
     );
 
-    transform.mockClear();
+    setViewport.mockClear();
 
     expect(fitView(testWorkspace.host, { duration: 0 })).toBe(true);
-    expect(transform).toHaveBeenCalledWith(
-      d3Selection,
-      expect.objectContaining({ k: expect.any(Number) }),
+    expect(setViewport).toHaveBeenCalledWith(
+      expect.objectContaining({ zoom: expect.any(Number) }),
+      { duration: 0 },
     );
   });
 
   it("fits nodes inside the canvas area left visible by shell panes", () => {
-    const { d3Selection, transform } = setupFitViewState({
+    const { setViewport } = setupFitViewState({
       viewportInsets: { top: 0, right: 100, bottom: 0, left: 200 },
     });
     setNodes([createNode({ id: "section-a", width: 400, height: 100 })]);
 
     expect(fitView(testWorkspace.host, { duration: 0, padding: 0 })).toBe(true);
-    expect(transform).toHaveBeenCalledWith(
-      d3Selection,
-      expect.objectContaining({ x: 200, y: 237.5, k: 1.25 }),
-    );
-  });
-
-  it("preserves inset-aware fit geometry through the public XYFlow viewport API", () => {
-    const { setViewport } = mountXyflowRuntime();
-    testWorkspace.reactFlow.setState({
-      ...initialCanvasState,
-      width: 800,
-      height: 600,
-      viewportInsets: { top: 0, right: 100, bottom: 0, left: 200 },
-    });
-    setNodes([createNode({ id: "section-a", width: 400, height: 100 })]);
-
-    expect(fitView(testWorkspace.host, { duration: 0, padding: 0 })).toBe(true);
-
     expect(setViewport).toHaveBeenCalledWith(
       { x: 200, y: 237.5, zoom: 1.25 },
       { duration: 0 },
@@ -183,29 +147,28 @@ describe("fitView", () => {
     vi.stubGlobal("window", {
       matchMedia: vi.fn(() => ({ matches: true })),
     });
-    const { d3Selection, transform, transition } = setupFitViewState();
+    const { setViewport } = setupFitViewState();
     setNodes([createNode({ id: "section-a" })]);
 
     expect(fitView(testWorkspace.host, { duration: 120 })).toBe(true);
 
-    expect(transition).not.toHaveBeenCalled();
-    expect(transform).toHaveBeenCalledWith(
-      d3Selection,
-      expect.objectContaining({ k: expect.any(Number) }),
+    expect(setViewport).toHaveBeenCalledWith(
+      expect.objectContaining({ zoom: expect.any(Number) }),
+      { duration: 0 },
     );
   });
 
   it("onFitViewHandler fits with the transition duration, then arms fitViewOnInit", () => {
     vi.useFakeTimers();
     try {
-      const { transform } = setupFitViewState();
+      const { setViewport } = setupFitViewState();
       setNodes([createNode({ id: "section-a" })]);
 
       onFitViewHandler(testWorkspace.host);
 
-      expect(transform).toHaveBeenCalledWith(
-        transitionObject,
-        expect.objectContaining({ k: expect.any(Number) }),
+      expect(setViewport).toHaveBeenCalledWith(
+        expect.objectContaining({ zoom: expect.any(Number) }),
+        { duration: testWorkspace.options.getState().transitionDuration },
       );
       expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
 
@@ -224,15 +187,14 @@ describe("fitView", () => {
     });
     vi.useFakeTimers();
     try {
-      const { d3Selection, transform, transition } = setupFitViewState();
+      const { setViewport } = setupFitViewState();
       setNodes([createNode({ id: "section-a" })]);
 
       onFitViewHandler(testWorkspace.host);
 
-      expect(transition).not.toHaveBeenCalled();
-      expect(transform).toHaveBeenCalledWith(
-        d3Selection,
-        expect.objectContaining({ k: expect.any(Number) }),
+      expect(setViewport).toHaveBeenCalledWith(
+        expect.objectContaining({ zoom: expect.any(Number) }),
+        { duration: 0 },
       );
       vi.advanceTimersByTime(9);
       expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
@@ -244,11 +206,11 @@ describe("fitView", () => {
   });
 
   it("onFitViewHandler is a no-op while fitViewOnInit is armed", () => {
-    const { transform } = setupFitViewState({ fitViewOnInit: true });
+    const { setViewport } = setupFitViewState({ fitViewOnInit: true });
     setNodes([createNode({ id: "section-a" })]);
 
     onFitViewHandler(testWorkspace.host);
 
-    expect(transform).not.toHaveBeenCalled();
+    expect(setViewport).not.toHaveBeenCalled();
   });
 });

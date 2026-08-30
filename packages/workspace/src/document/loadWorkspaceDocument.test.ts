@@ -15,10 +15,10 @@ afterEachWorkspaceTestHost(() => {
   testWorkspace.host.dispose();
 });
 
-import type { ZoomTransform } from "d3-zoom";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import type { ReactFlowState } from "../canvas/types";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { initialCanvasState } from "../canvas/store";
+import { registerWorkspaceXyflowInstance } from "../canvas/xyflow/workspaceXyflowRuntime";
+import type { WorkspaceXyflowInstance } from "../canvas/xyflow/types";
 import {
   publishWorkspaceMenuInvocation,
   useWorkspaceMenuState,
@@ -98,22 +98,19 @@ function resetWorkspaceStores() {
   testWorkspace.menuState.getState().reset();
 }
 
-function mountFakeZoomRuntime() {
-  const applied: Array<ZoomTransform> = [];
-  const fakeZoom = {
-    constrain: () => (transform: ZoomTransform) => transform,
-    transform: (_selection: unknown, transform: ZoomTransform) => {
-      applied.push(transform);
-    },
-  } as unknown as NonNullable<ReactFlowState["d3Zoom"]>;
-  const fakeSelection = {} as NonNullable<ReactFlowState["d3Selection"]>;
+function mountFakeXyflowRuntime() {
+  const setViewport = vi.fn(() => Promise.resolve(true));
+  registerWorkspaceXyflowInstance(testWorkspace.host, {
+    getViewport: () => ({ x: 0, y: 0, zoom: 1 }),
+    screenToFlowPosition: vi.fn(),
+    setViewport,
+    zoomTo: vi.fn(() => Promise.resolve(true)),
+  } as unknown as WorkspaceXyflowInstance);
   testWorkspace.reactFlow.setState({
-    d3Zoom: fakeZoom,
-    d3Selection: fakeSelection,
     width: 800,
     height: 600,
   });
-  return applied;
+  return { setViewport };
 }
 
 describe("loadWorkspaceDocument", () => {
@@ -951,9 +948,9 @@ describe("loadWorkspaceDocument", () => {
     ]);
   });
 
-  it("re-applies a loaded camera through d3-zoom on a mounted canvas", () => {
+  it("re-applies a loaded camera through XYFlow on a mounted canvas", () => {
     loadWorkspaceDocument(testWorkspace.host, makeDocument());
-    const applied = mountFakeZoomRuntime();
+    const { setViewport } = mountFakeXyflowRuntime();
     testWorkspace.reactFlow.setState({
       fitViewOnInit: true,
       fitViewOnInitDone: false,
@@ -964,20 +961,19 @@ describe("loadWorkspaceDocument", () => {
       makeDocument({ viewport: { x: 60, y: -40, zoom: 1.25 } }),
     );
 
-    expect(applied).toHaveLength(1);
-    expect(applied[0]).toMatchObject({ x: 60, y: -40, k: 1.25 });
+    expect(setViewport).toHaveBeenCalledWith({ x: 60, y: -40, zoom: 1.25 });
     expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
     expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
   });
 
   it("arms and immediately completes fit-on-init when re-loading without a saved camera", () => {
     loadWorkspaceDocument(testWorkspace.host, makeDocument());
-    const applied = mountFakeZoomRuntime();
+    const { setViewport } = mountFakeXyflowRuntime();
 
     loadWorkspaceDocument(testWorkspace.host, makeDocument({ viewport: null }));
 
     expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
-    expect(applied).toHaveLength(1);
+    expect(setViewport).toHaveBeenCalledTimes(1);
     expect(testWorkspace.document.getState().viewport).toBeNull();
   });
 

@@ -6,7 +6,6 @@ import type { WorkspaceHost } from "../workspaceHost";
 import { fitView } from "./fitView";
 import { getReactFlowStore } from "./store";
 import type { NodeDragItem } from "./types";
-import { getDimensions } from "./utils";
 import type { WorkspaceXyflowNodeDimensions } from "./xyflow/types";
 
 export function getNodes(host: WorkspaceHost): Array<Node> {
@@ -92,31 +91,6 @@ export function commitTopLevelLayoutToDocument(
   );
 }
 
-export function updateNodeDimensionsFromResizeObserver(
-  host: WorkspaceHost,
-  entries: Array<ResizeObserverEntry>,
-) {
-  if (!hasViewportNode(host)) {
-    return;
-  }
-
-  const nodeStore = getNodeInternalsStore(host);
-  const currentNodes = nodeStore.getState().x;
-  const newNodes = new Map(currentNodes);
-  let dimensionsChanged = false;
-  for (const entry of entries) {
-    dimensionsChanged =
-      applyNodeDimensionUpdate(newNodes, entry) || dimensionsChanged;
-  }
-  if (!dimensionsChanged) {
-    commitTopLevelLayoutToDocument(host, null);
-    maybeCompleteInitialFitView(host);
-    return;
-  }
-  publishNodeInternalsWithTopLevelLayout(host, newNodes, null);
-  maybeCompleteInitialFitView(host);
-}
-
 export function updateNodeDimensionsFromXyflow(
   host: WorkspaceHost,
   dimensions: ReadonlyArray<WorkspaceXyflowNodeDimensions>,
@@ -157,44 +131,6 @@ function getPositiveDimension(
     return current;
   }
   return measurement;
-}
-
-function hasViewportNode(host: WorkspaceHost) {
-  return !!getReactFlowStore(host)
-    .getState()
-    .domNode?.querySelector(".react-flow__viewport");
-}
-
-function applyNodeDimensionUpdate(
-  newNodes: Map<string, Node>,
-  entry: ResizeObserverEntry,
-): boolean {
-  const target = entry.target;
-  if (!(target instanceof HTMLDivElement)) {
-    throw new Error("Node resize observer received a non-node element.");
-  }
-  const nodeId = target.getAttribute("data-id");
-  if (!nodeId) {
-    throw new Error(
-      "Node resize observer received an element without a node id.",
-    );
-  }
-  const node = newNodes.get(nodeId);
-  if (!node) {
-    return false;
-  }
-  const dimensions = getDimensions(target);
-  if (!dimensions.width || !dimensions.height) {
-    return false;
-  }
-  if (node.width === dimensions.width && node.height === dimensions.height) {
-    return false;
-  }
-  newNodes.set(node.id, {
-    ...node,
-    ...dimensions,
-  });
-  return true;
 }
 
 export function maybeCompleteInitialFitView(host: WorkspaceHost) {

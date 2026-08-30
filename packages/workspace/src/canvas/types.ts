@@ -1,6 +1,3 @@
-import type { D3DragEvent, SubjectPosition } from "d3-drag";
-import type { Selection as D3Selection } from "d3-selection";
-import type { ZoomBehavior } from "d3-zoom";
 import type { Node, Position } from "../document/types";
 
 export type Transform = [number, number, number];
@@ -55,10 +52,6 @@ export type ReactFlowStore = {
   isPanScrolling: boolean;
   viewportInteractionActive: boolean;
 
-  d3Zoom: ZoomBehavior<Element, unknown> | null;
-  d3Selection: D3Selection<Element, unknown, null, undefined> | null;
-  d3ZoomHandler:
-    ((this: Element, event: WheelEvent, d: unknown) => void) | undefined;
   translateExtent: CoordinateExtent;
   nodeDragThreshold: number;
 
@@ -85,8 +78,6 @@ type ReactFlowActions = {
 };
 
 export type ReactFlowState = ReactFlowStore & ReactFlowActions;
-
-export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>;
 
 export type NodeDragItem = {
   id: string;

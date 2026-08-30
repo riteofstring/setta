@@ -2,6 +2,7 @@ import { matchSorter } from "match-sorter";
 import { getSectionRect } from "../canvas/graph";
 import { focusWorkspaceSection } from "../canvas/viewportHelpers";
 import { getReactFlowStore } from "../canvas/store";
+import { getWorkspaceXyflowRuntime } from "../canvas/xyflow/workspaceXyflowRuntime";
 import {
   getVisibleSectionChildrenForDisplay,
   getVisibleTopLevelSectionIdsForDisplay,
@@ -238,9 +239,8 @@ function getWorkspaceFindSectionBoundsUnavailableMessage(
 function getWorkspaceFindCanvasUnavailableMessage(
   host: WorkspaceHost,
 ): string | null {
-  const { d3Selection, d3Zoom, height, width } =
-    getReactFlowStore(host).getState();
-  if (!d3Selection || !d3Zoom) {
+  const { height, width } = getReactFlowStore(host).getState();
+  if (!getWorkspaceXyflowRuntime(host).getInstance()) {
     return "The workspace canvas is not ready.";
   }
   if (width <= 0 || height <= 0) {

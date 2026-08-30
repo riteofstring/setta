@@ -1,4 +1,3 @@
-import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
@@ -6,10 +5,8 @@ import { getWorkspaceDocumentStore } from "../document/stores";
 import type { Viewport } from "../document/types";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import type { WorkspaceHost } from "../workspaceHost";
-import { useWorkspaceOptions } from "./options";
 import { getWorkspaceOptionsStore } from "./options";
 import { getReactFlowStore } from "./store";
-import type { CoordinateExtent } from "./types";
 import { clamp } from "./utils";
 import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
 
@@ -121,19 +118,8 @@ export function useCanvasViewportDocumentSync() {
   return { onViewportChange, viewport };
 }
 
-function getMountedCanvasZoomRuntime(host: WorkspaceHost) {
-  const { d3Zoom, d3Selection } = getReactFlowStore(host).getState();
-  if (!d3Zoom || !d3Selection) {
-    return null;
-  }
-  return { d3Zoom, d3Selection };
-}
-
 function hasMountedCanvasViewportRuntime(host: WorkspaceHost): boolean {
-  return (
-    getWorkspaceXyflowRuntime(host).getInstance() !== null ||
-    getMountedCanvasZoomRuntime(host) !== null
-  );
+  return getWorkspaceXyflowRuntime(host).getInstance() !== null;
 }
 
 export function armLoadedDocumentFitView(
@@ -164,18 +150,7 @@ export function applyLoadedDocumentViewport(
     y: nextViewport.y,
     zoom: clamp(nextViewport.zoom, minZoom, maxZoom),
   };
-  if (xyflowRuntime.getInstance()) {
-    getReactFlowStore(host).setState({
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
-      fitViewOnInitOptions: undefined,
-    });
-    syncCanvasViewportTransform(host, clampedViewport);
-    void xyflowRuntime.setViewport(clampedViewport);
-    return;
-  }
-  const runtime = getMountedCanvasZoomRuntime(host);
-  if (runtime === null) {
+  if (!xyflowRuntime.getInstance()) {
     return;
   }
 
@@ -184,19 +159,6 @@ export function applyLoadedDocumentViewport(
     fitViewOnInitDone: true,
     fitViewOnInitOptions: undefined,
   });
-
-  const { width, height, translateExtent } = getReactFlowStore(host).getState();
-  const nextTransform = zoomIdentity
-    .translate(clampedViewport.x, clampedViewport.y)
-    .scale(clampedViewport.zoom);
-  const extent: CoordinateExtent = [
-    [0, 0],
-    [width, height],
-  ];
-  const constrainedTransform = runtime.d3Zoom.constrain()(
-    nextTransform,
-    extent,
-    translateExtent,
-  );
-  runtime.d3Zoom.transform(runtime.d3Selection, constrainedTransform);
+  syncCanvasViewportTransform(host, clampedViewport);
+  void xyflowRuntime.setViewport(clampedViewport);
 }

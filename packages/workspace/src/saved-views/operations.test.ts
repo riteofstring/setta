@@ -15,6 +15,8 @@ import {
   getWorkspaceDocumentStore,
 } from "../document/stores";
 import { getReactFlowStore } from "../canvas/store";
+import { registerWorkspaceXyflowInstance } from "../canvas/xyflow/workspaceXyflowRuntime";
+import type { WorkspaceXyflowInstance } from "../canvas/xyflow/types";
 import { getWorkspaceMenuStateStore } from "../context-menu/workspaceMenuState";
 import {
   activateDndMovingFreeMode,
@@ -113,24 +115,22 @@ function mountFittedCanvas(host: WorkspaceHost): {
 } {
   const transforms: Array<{ x: number; y: number; zoom: number }> = [];
   const stopViewportSync = startCanvasViewportDocumentSync(host);
+  registerWorkspaceXyflowInstance(host, {
+    getViewport: () => {
+      const [x, y, zoom] = getReactFlowStore(host).getState().transform;
+      return { x, y, zoom };
+    },
+    screenToFlowPosition: () => ({ x: 0, y: 0 }),
+    setViewport: (viewport) => {
+      transforms.push(viewport);
+      getReactFlowStore(host).setState({
+        transform: [viewport.x, viewport.y, viewport.zoom],
+      });
+      return Promise.resolve(true);
+    },
+    zoomTo: () => Promise.resolve(true),
+  } as unknown as WorkspaceXyflowInstance);
   getReactFlowStore(host).setState({
-    d3Selection: {} as never,
-    d3Zoom: {
-      constrain: () => (transform: unknown) => transform,
-      transform: (
-        _selection: unknown,
-        transform: { k: number; x: number; y: number },
-      ) => {
-        transforms.push({
-          x: transform.x,
-          y: transform.y,
-          zoom: transform.k,
-        });
-        getReactFlowStore(host).setState({
-          transform: [transform.x, transform.y, transform.k],
-        });
-      },
-    } as never,
     height: 600,
     width: 800,
   });

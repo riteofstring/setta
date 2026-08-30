@@ -15,7 +15,6 @@ afterEachWorkspaceTestHost(() => {
   testWorkspace.host.dispose();
 });
 
-import type { ZoomTransform } from "d3-zoom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useWorkspaceDocument } from "../document/stores";
 import type { WorkspaceDocument } from "../document/types";
@@ -26,7 +25,6 @@ import {
   startCanvasViewportDocumentSync,
 } from "./documentViewportSync";
 import { initialCanvasState, useReactFlow } from "./store";
-import type { ReactFlowState } from "./types";
 import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime";
 import type { WorkspaceXyflowInstance } from "./xyflow/types";
 
@@ -40,24 +38,6 @@ afterEach(() => {
   testWorkspace.reactFlow.setState({ ...initialCanvasState });
 });
 
-function mountFakeZoomRuntime() {
-  const applied: Array<ZoomTransform> = [];
-  const fakeZoom = {
-    constrain: () => (transform: ZoomTransform) => transform,
-    transform: (_selection: unknown, transform: ZoomTransform) => {
-      applied.push(transform);
-    },
-  } as unknown as NonNullable<ReactFlowState["d3Zoom"]>;
-  const fakeSelection = {} as NonNullable<ReactFlowState["d3Selection"]>;
-  testWorkspace.reactFlow.setState({
-    d3Zoom: fakeZoom,
-    d3Selection: fakeSelection,
-    width: 800,
-    height: 600,
-  });
-  return applied;
-}
-
 function mountFakeXyflowRuntime() {
   const setViewport = vi.fn(() => Promise.resolve(true));
   registerWorkspaceXyflowInstance(testWorkspace.host, {
@@ -66,6 +46,7 @@ function mountFakeXyflowRuntime() {
     setViewport,
     zoomTo: vi.fn(() => Promise.resolve(true)),
   } as unknown as WorkspaceXyflowInstance);
+  testWorkspace.reactFlow.setState({ width: 800, height: 600 });
   return setViewport;
 }
 
@@ -169,7 +150,7 @@ describe("startCanvasViewportDocumentSync", () => {
 
 describe("armLoadedDocumentFitView", () => {
   it("arms fit-on-init on a mounted canvas for a document without a saved camera", () => {
-    mountFakeZoomRuntime();
+    mountFakeXyflowRuntime();
     armLoadedDocumentFitView(testWorkspace.host, null);
 
     expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(true);
@@ -180,41 +161,14 @@ describe("armLoadedDocumentFitView", () => {
     armLoadedDocumentFitView(testWorkspace.host, null);
     expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
 
-    mountFakeZoomRuntime();
+    mountFakeXyflowRuntime();
     armLoadedDocumentFitView(testWorkspace.host, { x: 1, y: 2, zoom: 1 });
     expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
   });
 });
 
 describe("applyLoadedDocumentViewport", () => {
-  it("pushes the loaded camera through d3-zoom and cancels any pending fit", () => {
-    const applied = mountFakeZoomRuntime();
-    testWorkspace.reactFlow.setState({
-      fitViewOnInit: true,
-      fitViewOnInitDone: false,
-    });
-
-    applyLoadedDocumentViewport(testWorkspace.host, {
-      x: 100,
-      y: -50,
-      zoom: 1.5,
-    });
-
-    expect(applied).toHaveLength(1);
-    expect(applied[0]).toMatchObject({ x: 100, y: -50, k: 1.5 });
-    expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
-    expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
-  });
-
-  it("clamps the loaded zoom to the option limits", () => {
-    const applied = mountFakeZoomRuntime();
-
-    applyLoadedDocumentViewport(testWorkspace.host, { x: 0, y: 0, zoom: 500 });
-
-    expect(applied[0]?.k).toBeLessThan(500);
-  });
-
-  it("pushes a loaded camera through the public XYFlow runtime", () => {
+  it("pushes the loaded camera through XYFlow and cancels any pending fit", () => {
     const setViewport = mountFakeXyflowRuntime();
     testWorkspace.reactFlow.setState({
       fitViewOnInit: true,
@@ -228,19 +182,29 @@ describe("applyLoadedDocumentViewport", () => {
     });
 
     expect(setViewport).toHaveBeenCalledWith({ x: 100, y: -50, zoom: 1.5 });
-    expect(testWorkspace.reactFlow.getState().transform).toEqual([
-      100, -50, 1.5,
-    ]);
     expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
     expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
+  });
+
+  it("clamps the loaded zoom to the option limits", () => {
+    const setViewport = mountFakeXyflowRuntime();
+
+    applyLoadedDocumentViewport(testWorkspace.host, { x: 0, y: 0, zoom: 500 });
+
+    expect(setViewport.mock.calls[0]?.[0]).toMatchObject({
+      zoom: expect.any(Number),
+    });
+    expect(
+      (setViewport.mock.calls[0]?.[0] as { zoom: number }).zoom,
+    ).toBeLessThan(500);
   });
 
   it("does nothing for a missing camera or an unmounted canvas", () => {
     applyLoadedDocumentViewport(testWorkspace.host, { x: 1, y: 2, zoom: 1 });
     expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(false);
 
-    const applied = mountFakeZoomRuntime();
+    const setViewport = mountFakeXyflowRuntime();
     applyLoadedDocumentViewport(testWorkspace.host, null);
-    expect(applied).toHaveLength(0);
+    expect(setViewport).not.toHaveBeenCalled();
   });
 });

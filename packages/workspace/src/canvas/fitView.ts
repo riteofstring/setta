@@ -1,6 +1,5 @@
-import { zoomIdentity } from "d3-zoom";
 import { resolveWorkspaceMotionDuration } from "../styles/motion";
-import { getD3Transition, getNodesBounds, getViewportForBounds } from "./graph";
+import { getNodesBounds, getViewportForBounds } from "./graph";
 import { getNodes } from "./nodeInternalsActions";
 import { getWorkspaceOptionsStore } from "./options";
 import { getReactFlowStore } from "./store";
@@ -18,11 +17,6 @@ type FitViewRuntime = {
   width: number;
   height: number;
   viewportInsets: ReactFlowState["viewportInsets"];
-};
-
-type D3FitViewRuntime = FitViewRuntime & {
-  d3Zoom: NonNullable<ReactFlowState["d3Zoom"]>;
-  d3Selection: NonNullable<ReactFlowState["d3Selection"]>;
 };
 
 const DEFAULT_FIT_VIEW_PADDING = 0.1;
@@ -44,16 +38,6 @@ function getFitViewRuntime(
   }
 
   return { width, height, viewportInsets };
-}
-
-function getD3FitViewRuntime(
-  state: ReactFlowState,
-  runtime: FitViewRuntime,
-): D3FitViewRuntime | null {
-  if (!state.d3Zoom || !state.d3Selection) {
-    return null;
-  }
-  return { ...runtime, d3Zoom: state.d3Zoom, d3Selection: state.d3Selection };
 }
 
 function resolveFitViewZoomLimits(
@@ -92,27 +76,6 @@ function areNodesReadyForFitView(
   return nodes.length > 0 && nodes.every((node) => node.width && node.height);
 }
 
-function applyFitViewTransform(
-  runtime: D3FitViewRuntime,
-  viewport: ReturnType<typeof getViewportForBounds>,
-  duration?: number,
-) {
-  const nextTransform = zoomIdentity
-    .translate(viewport.x, viewport.y)
-    .scale(viewport.zoom);
-  const resolvedDuration = resolveWorkspaceMotionDuration(duration ?? 0);
-
-  if (resolvedDuration > 0) {
-    runtime.d3Zoom.transform(
-      getD3Transition(runtime.d3Selection, resolvedDuration),
-      nextTransform,
-    );
-    return;
-  }
-
-  runtime.d3Zoom.transform(runtime.d3Selection, nextTransform);
-}
-
 export function fitView(
   host: WorkspaceHost,
   options: InternalFitViewOptions = {},
@@ -142,16 +105,10 @@ export function fitView(
 
   const duration = resolveWorkspaceMotionDuration(options.duration ?? 0);
   const xyflowRuntime = getWorkspaceXyflowRuntime(host);
-  if (xyflowRuntime.getInstance()) {
-    void xyflowRuntime.setViewport(viewport, { duration });
-    return true;
-  }
-
-  const d3Runtime = getD3FitViewRuntime(state, runtime);
-  if (!d3Runtime) {
+  if (!xyflowRuntime.getInstance()) {
     return false;
   }
-  applyFitViewTransform(d3Runtime, viewport, options.duration);
+  void xyflowRuntime.setViewport(viewport, { duration });
   return true;
 }
 

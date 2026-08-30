@@ -17,17 +17,13 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
+import { initialCanvasState } from "../canvas/store";
+import { registerWorkspaceXyflowInstance } from "../canvas/xyflow/workspaceXyflowRuntime";
+import type { WorkspaceXyflowInstance } from "../canvas/xyflow/types";
 import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes";
 import { getActiveSectionIds } from "../document/activeSections";
-import { useWorkspaceCapabilities } from "../document/capabilities";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
-import {
-  useActiveSections,
-  useNodeInternals,
-  useWorkspaceDocument,
-} from "../document/stores";
 import type { WorkspaceSectionInput } from "../document/types";
 import { createWorkspaceSectionFromCommand } from "./createSectionAction";
 
@@ -57,16 +53,15 @@ function createCommand(overrides: Partial<WorkspaceCreationCommand> = {}) {
   } satisfies WorkspaceCreationCommand;
 }
 
-function setupZoomRuntime() {
-  const transform = vi.fn();
-  const d3Selection = {
-    transition: () => ({ duration: () => ({ id: "transition" }) }),
-  } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
-  const d3Zoom = { transform } as unknown as NonNullable<
-    typeof initialCanvasState.d3Zoom
-  >;
-  testWorkspace.reactFlow.setState({ d3Selection, d3Zoom });
-  return transform;
+function setupXyflowRuntime() {
+  const setViewport = vi.fn(() => Promise.resolve(true));
+  registerWorkspaceXyflowInstance(testWorkspace.host, {
+    getViewport: () => ({ x: 0, y: 0, zoom: 1 }),
+    screenToFlowPosition: vi.fn(),
+    setViewport,
+    zoomTo: vi.fn(() => Promise.resolve(true)),
+  } as unknown as WorkspaceXyflowInstance);
+  return { setViewport };
 }
 
 function loadWorkspace(layouts: Record<string, { x: number; y: number }>) {
@@ -147,7 +142,7 @@ describe("creating a section without a pointer", () => {
 
   it("travels to a section it had to place out of sight", () => {
     loadWorkspace({ existing: { x: 2000, y: 2000 } });
-    const transform = setupZoomRuntime();
+    const { setViewport } = setupXyflowRuntime();
 
     expect(
       createWorkspaceSectionFromCommand(testWorkspace.host, createCommand()),
@@ -159,16 +154,16 @@ describe("creating a section without a pointer", () => {
       x: 2000,
       y: 2144,
     });
-    expect(transform).toHaveBeenCalledTimes(1);
+    expect(setViewport).toHaveBeenCalledTimes(1);
   });
 
   it("leaves the canvas alone when the section lands in view", () => {
     loadWorkspace({});
-    const transform = setupZoomRuntime();
+    const { setViewport } = setupXyflowRuntime();
 
     createWorkspaceSectionFromCommand(testWorkspace.host, createCommand());
 
-    expect(transform).not.toHaveBeenCalled();
+    expect(setViewport).not.toHaveBeenCalled();
   });
 
   it("declines without creating anything when the workspace forbids structural edits", () => {

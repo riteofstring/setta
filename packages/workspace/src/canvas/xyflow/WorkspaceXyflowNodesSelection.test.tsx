@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../../test/workspaceTestHost";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,19 +20,19 @@ afterEachWorkspaceTestHost(() => {
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useWorkspaceMenuState } from "../context-menu/workspaceMenuState";
-import { useDndState } from "../dnd/dndState";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { useWorkspaceMenuState } from "../../context-menu/workspaceMenuState";
+import { useDndState } from "../../dnd/dndState";
+import { useWorkspaceCapabilities } from "../../document/capabilities";
+import { loadWorkspaceDocument } from "../../document/loadWorkspaceDocument";
+import { registerSectionKinds } from "../../document/sectionKindRegistry";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
-import { NodesSelectionWrapper } from "./NodesSelection";
-import { initialCanvasState, useReactFlow } from "./store";
+} from "../../document/stores";
+import type { WorkspaceSection } from "../../document/types";
+import { initialCanvasState, useReactFlow } from "../store";
+import { WorkspaceXyflowNodesSelectionWrapper } from "./WorkspaceXyflowNodesSelection";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -64,7 +64,7 @@ function resetState(): void {
   testWorkspace.reactFlow.setState({ ...initialCanvasState });
 }
 
-describe("NodesSelection context menu", () => {
+describe("WorkspaceXyflowNodesSelection context menu", () => {
   let host: HTMLDivElement;
   let root: Root;
 
@@ -95,7 +95,7 @@ describe("NodesSelection context menu", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<NodesSelectionWrapper />}
+          {<WorkspaceXyflowNodesSelectionWrapper />}
         </WorkspaceTestProvider>,
       );
     });

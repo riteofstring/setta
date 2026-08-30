@@ -1,4 +1,3 @@
-import { zoomIdentity } from "d3-zoom";
 import { subscribeWithSelector } from "zustand/middleware";
 import { createStore } from "zustand/vanilla";
 import type { Position } from "../document/types";
@@ -20,9 +19,6 @@ export const initialCanvasState: ReactFlowStore = {
   height: 0,
   viewportInsets: EMPTY_VIEWPORT_INSETS,
   transform: [0, 0, 1],
-  d3Zoom: null,
-  d3Selection: null,
-  d3ZoomHandler: undefined,
   translateExtent: infiniteExtent,
   nodesSelectionDims: null,
   userSelectionActive: false,
@@ -44,7 +40,7 @@ export const initialCanvasState: ReactFlowStore = {
 
 function createReactFlowStore(host: WorkspaceHost) {
   return createStore<ReactFlowState>()(
-    subscribeWithSelector((set, get) => ({
+    subscribeWithSelector((set) => ({
       ...initialCanvasState,
       setNodesSelection: (selectedNodesCount, ignoreGrid = false) => {
         set({
@@ -71,51 +67,20 @@ function createReactFlowStore(host: WorkspaceHost) {
         });
       },
       panBy: (delta: Position): boolean => {
-        const xyflowRuntime = getWorkspaceXyflowRuntime(host);
-        const viewport = xyflowRuntime.getViewport();
-        if (viewport && (delta.x || delta.y)) {
-          void xyflowRuntime.setViewport({
-            x: viewport.x + delta.x,
-            y: viewport.y + delta.y,
-            zoom: viewport.zoom,
-          });
-          return true;
-        }
-        const {
-          transform,
-          width,
-          height,
-          d3Zoom,
-          d3Selection,
-          translateExtent,
-        } = get();
-
-        if (!d3Zoom || !d3Selection || (!delta.x && !delta.y)) {
+        if (!delta.x && !delta.y) {
           return false;
         }
-
-        const nextTransform = zoomIdentity
-          .translate(transform[0] + delta.x, transform[1] + delta.y)
-          .scale(transform[2]);
-
-        const extent: CoordinateExtent = [
-          [0, 0],
-          [width, height],
-        ];
-
-        const constrainedTransform = d3Zoom.constrain()(
-          nextTransform,
-          extent,
-          translateExtent,
-        );
-        d3Zoom.transform(d3Selection, constrainedTransform);
-
-        const transformChanged =
-          transform[0] !== constrainedTransform.x ||
-          transform[1] !== constrainedTransform.y ||
-          transform[2] !== constrainedTransform.k;
-
-        return transformChanged;
+        const xyflowRuntime = getWorkspaceXyflowRuntime(host);
+        const viewport = xyflowRuntime.getViewport();
+        if (!viewport) {
+          return false;
+        }
+        void xyflowRuntime.setViewport({
+          x: viewport.x + delta.x,
+          y: viewport.y + delta.y,
+          zoom: viewport.zoom,
+        });
+        return true;
       },
     })),
   );
