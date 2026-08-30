@@ -266,12 +266,13 @@ Each commit stages only task-owned files and preserves unrelated work.
 
 ## Required verification
 
-- Exact affected Vitest files while each slice is edited.
-- `code-polishy test --changed` after integration.
+- Add exact affected Vitest coverage while each slice is edited, but do not execute tests per the
+  caller's explicit constraint.
 - Workspace build before every live Playground inspection.
 - `pnpm playground:inspect` against a running Playground with geometry and screenshot review.
-- The repository's browser interaction and packed-consumer contract suites selected by policy.
-- `code-polishy merge-gate --base main` once for the final candidate.
+- Run non-test packed-consumer build and browser inspection checks where available.
+- Skip test-running quality gates, including `code-polishy test --changed` and
+  `code-polishy merge-gate`, and report that intentional verification gap at handoff.
 
 ## Non-goals
 
