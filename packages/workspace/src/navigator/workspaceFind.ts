@@ -208,17 +208,23 @@ function collectWorkspaceFindResults(
   return results;
 }
 
-function getWorkspaceFindSectionFocusUnavailableMessage(
-  host: WorkspaceHost,
+function getWorkspaceFindSectionDocumentUnavailableMessage(
+  documentState: WorkspaceDocumentState,
   sectionId: string,
 ): string | null {
-  const documentState = getWorkspaceDocumentStore(host).getState();
   if (!documentState.sections[sectionId]) {
     return "This result is no longer available.";
   }
   if (!isWorkspaceSectionVisible(documentState, sectionId)) {
     return "This section is hidden in the active saved view.";
   }
+  return null;
+}
+
+function getWorkspaceFindSectionBoundsUnavailableMessage(
+  host: WorkspaceHost,
+  sectionId: string,
+): string | null {
   const sectionRect = getSectionRect(host, sectionId);
   if (!sectionRect) {
     return "This section is not currently mounted.";
@@ -226,6 +232,12 @@ function getWorkspaceFindSectionFocusUnavailableMessage(
   if (sectionRect.width <= 0 || sectionRect.height <= 0) {
     return "This section has no visible bounds.";
   }
+  return null;
+}
+
+function getWorkspaceFindCanvasUnavailableMessage(
+  host: WorkspaceHost,
+): string | null {
   const { d3Selection, d3Zoom, height, width } =
     getReactFlowStore(host).getState();
   if (!d3Selection || !d3Zoom) {
@@ -235,6 +247,26 @@ function getWorkspaceFindSectionFocusUnavailableMessage(
     return "The workspace canvas has no visible bounds.";
   }
   return null;
+}
+
+function getWorkspaceFindSectionFocusUnavailableMessage(
+  host: WorkspaceHost,
+  sectionId: string,
+): string | null {
+  const documentUnavailableMessage =
+    getWorkspaceFindSectionDocumentUnavailableMessage(
+      getWorkspaceDocumentStore(host).getState(),
+      sectionId,
+    );
+  if (documentUnavailableMessage) {
+    return documentUnavailableMessage;
+  }
+  const boundsUnavailableMessage =
+    getWorkspaceFindSectionBoundsUnavailableMessage(host, sectionId);
+  if (boundsUnavailableMessage) {
+    return boundsUnavailableMessage;
+  }
+  return getWorkspaceFindCanvasUnavailableMessage(host);
 }
 
 function activateWorkspaceFindSection(
