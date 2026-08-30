@@ -64,6 +64,8 @@ export function WorkspaceXyflowSelection({
       return;
     }
 
+    let isTrackingSelection = false;
+
     const clearSuppressedClick = () => {
       suppressNextPaneClickRef.current = false;
       if (clearSuppressedClickRef.current !== undefined) {
@@ -90,41 +92,20 @@ export function WorkspaceXyflowSelection({
       previousSelectedCountRef.current = 0;
     };
 
-    const handleMouseDown = (event: MouseEvent) => {
-      const canvasState = getReactFlowStore(host).getState();
-      containerBoundsRef.current = canvasState.domNode?.getBoundingClientRect();
-
-      if (!canvasState.selectionKeyPressed && !isMarqueeMouseChord(event)) {
+    function stopTrackingSelection() {
+      if (!isTrackingSelection) {
         return;
       }
-      if (
-        event.button !== 0 ||
-        event.target !== pane ||
-        !containerBoundsRef.current
-      ) {
+      isTrackingSelection = false;
+      window.removeEventListener("mousemove", handleMouseMove, true);
+      window.removeEventListener("mouseup", handleMouseUp, true);
+      window.removeEventListener("blur", handleWindowBlur);
+    }
+
+    function handleMouseMove(event: MouseEvent) {
+      if (!isTrackingSelection) {
         return;
       }
-
-      event.stopImmediatePropagation();
-      const { x, y } = getEventPosition(event, containerBoundsRef.current);
-      previousSelectedCountRef.current = 0;
-      applyActiveSectionChange(host, {
-        interaction: "selection-rect",
-        selectedIds: [],
-      });
-      getReactFlowStore(host).setState({
-        userSelectionRect: {
-          width: 0,
-          height: 0,
-          startX: x,
-          startY: y,
-          x,
-          y,
-        },
-      });
-    };
-
-    const handleMouseMove = (event: MouseEvent) => {
       const canvasState = getReactFlowStore(host).getState();
       const userSelectionRect = canvasState.userSelectionRect;
       if (
@@ -168,18 +149,16 @@ export function WorkspaceXyflowSelection({
       getReactFlowStore(host).setState({
         userSelectionRect: nextUserSelectionRect,
       });
-    };
+    }
 
-    const handleMouseUp = (event: MouseEvent) => {
-      if (event.button !== 0) {
+    function handleMouseUp(event: MouseEvent) {
+      if (!isTrackingSelection || event.button !== 0) {
         return;
       }
+      stopTrackingSelection();
       const canvasState = getReactFlowStore(host).getState();
       if (!canvasState.userSelectionRect) {
-        if (canvasState.selectionKeyPressed) {
-          canvasState.setNodesSelection(previousSelectedCountRef.current, true);
-          resetUserSelection();
-        }
+        resetUserSelection();
         return;
       }
 
@@ -187,28 +166,66 @@ export function WorkspaceXyflowSelection({
       scheduleSuppressedClickReset();
       canvasState.setNodesSelection(previousSelectedCountRef.current, true);
       resetUserSelection();
-    };
+    }
 
-    const handleMouseLeave = () => {
-      const canvasState = getReactFlowStore(host).getState();
-      if (!canvasState.userSelectionRect) {
+    function handleWindowBlur() {
+      if (!isTrackingSelection) {
         return;
       }
+      stopTrackingSelection();
+      const canvasState = getReactFlowStore(host).getState();
       if (canvasState.userSelectionActive) {
         canvasState.setNodesSelection(previousSelectedCountRef.current);
       }
       resetUserSelection();
+    }
+
+    const handleMouseDown = (event: MouseEvent) => {
+      const canvasState = getReactFlowStore(host).getState();
+      containerBoundsRef.current = canvasState.domNode?.getBoundingClientRect();
+
+      if (!canvasState.selectionKeyPressed && !isMarqueeMouseChord(event)) {
+        return;
+      }
+      if (
+        event.button !== 0 ||
+        event.target !== pane ||
+        !containerBoundsRef.current
+      ) {
+        return;
+      }
+
+      event.stopImmediatePropagation();
+      isTrackingSelection = true;
+      window.addEventListener("mousemove", handleMouseMove, true);
+      window.addEventListener("mouseup", handleMouseUp, true);
+      window.addEventListener("blur", handleWindowBlur);
+      const { x, y } = getEventPosition(event, containerBoundsRef.current);
+      previousSelectedCountRef.current = 0;
+      applyActiveSectionChange(host, {
+        interaction: "selection-rect",
+        selectedIds: [],
+      });
+      getReactFlowStore(host).setState({
+        userSelectionRect: {
+          width: 0,
+          height: 0,
+          startX: x,
+          startY: y,
+          x,
+          y,
+        },
+      });
     };
 
     pane.addEventListener("mousedown", handleMouseDown, true);
-    pane.addEventListener("mousemove", handleMouseMove);
-    pane.addEventListener("mouseup", handleMouseUp);
-    pane.addEventListener("mouseleave", handleMouseLeave);
     return () => {
       pane.removeEventListener("mousedown", handleMouseDown, true);
-      pane.removeEventListener("mousemove", handleMouseMove);
-      pane.removeEventListener("mouseup", handleMouseUp);
-      pane.removeEventListener("mouseleave", handleMouseLeave);
+      const wasTrackingSelection = isTrackingSelection;
+      stopTrackingSelection();
+      if (wasTrackingSelection) {
+        resetUserSelection();
+      }
       clearSuppressedClick();
     };
   }, [host, pane, suppressNextPaneClickRef]);

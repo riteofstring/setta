@@ -60,6 +60,7 @@ function createRectElement(rect: {
 
 describe("WorkspaceXyflowSelection", () => {
   let canvas: HTMLDivElement;
+  let floatingOverlay: HTMLDivElement;
   let pane: HTMLDivElement;
   let renderHost: HTMLDivElement;
   let root: Root;
@@ -69,12 +70,13 @@ describe("WorkspaceXyflowSelection", () => {
   beforeEach(async () => {
     testWorkspace = createWorkspaceTestHost();
     canvas = createRectElement({ x: 0, y: 0, width: 800, height: 600 });
+    floatingOverlay = document.createElement("div");
     renderHost = document.createElement("div");
     xyflowRoot = document.createElement("div");
     pane = document.createElement("div");
     pane.className = "react-flow__pane";
     xyflowRoot.appendChild(pane);
-    document.body.append(canvas, renderHost, xyflowRoot);
+    document.body.append(canvas, renderHost, xyflowRoot, floatingOverlay);
     testWorkspace.document.setState({
       sections: {
         root: createSection("root", ["nested-a", "nested-b"]),
@@ -125,6 +127,7 @@ describe("WorkspaceXyflowSelection", () => {
         <WorkspaceTestProvider workspace={testWorkspace}>
           <WorkspaceXyflowSelection
             rootElement={xyflowRoot}
+            selectionPortalElement={pane}
             suppressNextPaneClickRef={{ current: false }}
           />
         </WorkspaceTestProvider>,
@@ -135,6 +138,7 @@ describe("WorkspaceXyflowSelection", () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     canvas.remove();
+    floatingOverlay.remove();
     renderHost.remove();
     xyflowRoot.remove();
     testWorkspace.host.dispose();
@@ -222,5 +226,69 @@ describe("WorkspaceXyflowSelection", () => {
       "nested-b",
     ]);
     expect(pane.querySelector(".react-flow__selection")).not.toBeNull();
+
+    await act(async () => {
+      pane.dispatchEvent(
+        new MouseEvent("mouseup", {
+          bubbles: true,
+          button: 0,
+          clientX: 180,
+          clientY: 180,
+          shiftKey: true,
+        }),
+      );
+    });
+  });
+
+  it("keeps a Shift marquee active while crossing a floating overlay", async () => {
+    testWorkspace.reactFlow.setState({ selectionKeyPressed: false });
+
+    await act(async () => {
+      pane.dispatchEvent(
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+          shiftKey: true,
+        }),
+      );
+      floatingOverlay.dispatchEvent(
+        new MouseEvent("mousemove", {
+          bubbles: true,
+          button: 0,
+          clientX: 180,
+          clientY: 180,
+          shiftKey: true,
+        }),
+      );
+    });
+
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+      "nested-a",
+      "nested-b",
+    ]);
+    expect(pane.querySelector(".react-flow__selection")).not.toBeNull();
+
+    await act(async () => {
+      floatingOverlay.dispatchEvent(
+        new MouseEvent("mouseup", {
+          bubbles: true,
+          button: 0,
+          clientX: 180,
+          clientY: 180,
+          shiftKey: true,
+        }),
+      );
+    });
+
+    expect(testWorkspace.reactFlow.getState()).toMatchObject({
+      nodesSelectionDims: { x: 20, y: 30, width: 140, height: 120 },
+      userSelectionActive: false,
+      userSelectionRect: null,
+    });
+    expect(
+      pane.querySelector(".react-flow__nodesselection-rect"),
+    ).not.toBeNull();
   });
 });
