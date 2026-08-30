@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
 import { getWorkspaceDocumentStore } from "../document/stores";
 import type { Viewport } from "../document/types";
@@ -53,10 +53,6 @@ export function startCanvasViewportDocumentSync(host: WorkspaceHost) {
   );
 }
 
-function getViewportFromTransform([x, y, zoom]: [number, number, number]) {
-  return { x, y, zoom };
-}
-
 export function syncCanvasViewportTransform(
   host: WorkspaceHost,
   viewport: Viewport,
@@ -75,47 +71,21 @@ export function syncCanvasViewportTransform(
 
 export function useCanvasViewportDocumentSync() {
   const host = useWorkspaceHost();
-  const [viewport, setViewport] = useState(() =>
-    getInitialCanvasViewport(host),
-  );
-  const viewportRef = useRef(viewport);
+  const [defaultViewport] = useState(() => getInitialCanvasViewport(host));
 
   const onViewportChange = useCallback(
     (nextViewport: Viewport) => {
-      if (!_.isEqual(viewportRef.current, nextViewport)) {
-        viewportRef.current = nextViewport;
-        setViewport(nextViewport);
-      }
       syncCanvasViewportTransform(host, nextViewport);
     },
     [host],
   );
 
   useEffect(() => {
-    const initialViewport = getInitialCanvasViewport(host);
-    viewportRef.current = initialViewport;
-    setViewport(initialViewport);
-    syncCanvasViewportTransform(host, initialViewport);
-    const stopDocumentSync = startCanvasViewportDocumentSync(host);
-    const stopTransformSync = getReactFlowStore(host).subscribe(
-      (state) => state.transform,
-      (transform) => {
-        const nextViewport = getViewportFromTransform(transform);
-        if (_.isEqual(viewportRef.current, nextViewport)) {
-          return;
-        }
-        viewportRef.current = nextViewport;
-        setViewport(nextViewport);
-      },
-      { equalityFn: _.isEqual },
-    );
-    return () => {
-      stopTransformSync();
-      stopDocumentSync();
-    };
-  }, [host]);
+    syncCanvasViewportTransform(host, defaultViewport);
+    return startCanvasViewportDocumentSync(host);
+  }, [defaultViewport, host]);
 
-  return { onViewportChange, viewport };
+  return { defaultViewport, onViewportChange };
 }
 
 function hasMountedCanvasViewportRuntime(host: WorkspaceHost): boolean {

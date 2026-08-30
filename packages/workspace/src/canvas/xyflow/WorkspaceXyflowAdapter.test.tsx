@@ -181,7 +181,7 @@ describe("WorkspaceXyflowAdapter", () => {
       adapterRoot.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           <WorkspaceXyflowAdapter
-            viewport={{ x: 0, y: 0, zoom: 2 }}
+            defaultViewport={{ x: 0, y: 0, zoom: 2 }}
             onViewportChange={onViewportChange}
             onDragCommit={onDragCommit}
             onDragStart={onDragStart}
@@ -309,7 +309,7 @@ describe("WorkspaceXyflowAdapter", () => {
       adapterRoot.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           <WorkspaceXyflowAdapter
-            viewport={{ x: 0, y: 0, zoom: 1 }}
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
             onViewportChange={vi.fn()}
             onNodeDimensionsChange={onNodeDimensionsChange}
             wrapperDimensions={{ width: 800, height: 600 }}
@@ -352,7 +352,7 @@ describe("WorkspaceXyflowAdapter", () => {
       adapterRoot.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           <WorkspaceXyflowAdapter
-            viewport={{ x: 0, y: 0, zoom: 1 }}
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
             onRuntimeReady={onRuntimeReady}
             onViewportChange={vi.fn()}
             wrapperDimensions={{ width: 800, height: 600 }}
@@ -368,7 +368,7 @@ describe("WorkspaceXyflowAdapter", () => {
       adapterRoot.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           <WorkspaceXyflowAdapter
-            viewport={{ x: 0, y: 0, zoom: 1 }}
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
             onRuntimeReady={onRuntimeReady}
             onViewportChange={vi.fn()}
             wrapperDimensions={{ width: 800, height: 600 }}
@@ -390,7 +390,7 @@ describe("WorkspaceXyflowAdapter", () => {
       adapterRoot.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           <WorkspaceXyflowAdapter
-            viewport={{ x: 0, y: 0, zoom: 1 }}
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
             onViewportChange={vi.fn()}
             wrapperDimensions={{ width: 800, height: 600 }}
           />
@@ -422,7 +422,7 @@ describe("WorkspaceXyflowAdapter", () => {
       adapterRoot.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           <WorkspaceXyflowAdapter
-            viewport={{ x: 0, y: 0, zoom: 1 }}
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
             onViewportChange={vi.fn()}
             wrapperDimensions={{ width: 800, height: 600 }}
           />
@@ -447,7 +447,7 @@ describe("WorkspaceXyflowAdapter", () => {
       adapterRoot.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           <WorkspaceXyflowAdapter
-            viewport={{ x: 0, y: 0, zoom: 1 }}
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
             onViewportChange={vi.fn()}
             wrapperDimensions={{ width: 800, height: 600 }}
           />
@@ -468,7 +468,7 @@ describe("WorkspaceXyflowAdapter", () => {
       adapterRoot.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           <WorkspaceXyflowAdapter
-            viewport={{ x: 0, y: 0, zoom: 1 }}
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
             onViewportChange={vi.fn()}
             wrapperDimensions={{ width: 800, height: 600 }}
           />

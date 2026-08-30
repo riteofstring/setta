@@ -16,13 +16,19 @@ import {
   promoteStagingDirectory,
 } from "./artifact-output.mjs";
 
-const COMPARISON_SCHEMA_VERSION = 1;
+const COMPARISON_SCHEMA_VERSION = 2;
 const CAPTURE_SCHEMA_VERSION = 1;
 const PNG_SIGNATURE = Buffer.from("89504e470d0a1a0a", "hex");
 const DEFAULT_GEOMETRY_TOLERANCE = 0.25;
 const DEFAULT_PIXEL_TOLERANCE = 4;
 const DEFAULT_ANTIALIAS_TOLERANCE = 16;
 const DEFAULT_MAX_ANTIALIAS_PIXELS = 128;
+const EDGE_RASTER_CHANNEL_TOLERANCE = 68;
+const EDGE_RASTER_MAX_COMPONENTS = 4;
+const EDGE_RASTER_MAX_COMPONENT_HEIGHT = 3;
+const EDGE_RASTER_MAX_COMPONENT_PIXELS = 12;
+const EDGE_RASTER_MAX_COMPONENT_WIDTH = 6;
+const EDGE_RASTER_MAX_PIXELS = 36;
 const NUMBER_PATTERN = /-?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?/gi;
 const CRC_TABLE = new Uint32Array(256);
 
@@ -843,6 +849,105 @@ function hasEdgeContrast(image, x, y) {
   });
 }
 
+function hasNearbyEdgeContrast(image, x, y) {
+  for (let yOffset = -1; yOffset <= 1; yOffset += 1) {
+    for (let xOffset = -1; xOffset <= 1; xOffset += 1) {
+      const neighborX = x + xOffset;
+      const neighborY = y + yOffset;
+      if (
+        neighborX >= 0 &&
+        neighborX < image.width &&
+        neighborY >= 0 &&
+        neighborY < image.height &&
+        hasEdgeContrast(image, neighborX, neighborY)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function collectChangedPixelComponents(entries, imageWidth) {
+  const entriesByOffset = new Map(
+    entries.map((entry) => [entry.offset, entry]),
+  );
+  const visited = new Set();
+  const components = [];
+  for (const entry of entries) {
+    if (visited.has(entry.offset)) {
+      continue;
+    }
+    const component = [];
+    const pending = [entry];
+    visited.add(entry.offset);
+    while (pending.length > 0) {
+      const current = pending.pop();
+      component.push(current);
+      for (let yOffset = -1; yOffset <= 1; yOffset += 1) {
+        for (let xOffset = -1; xOffset <= 1; xOffset += 1) {
+          if (xOffset === 0 && yOffset === 0) {
+            continue;
+          }
+          const x = current.x + xOffset;
+          const y = current.y + yOffset;
+          if (x < 0 || x >= imageWidth || y < 0) {
+            continue;
+          }
+          const neighborOffset = (y * imageWidth + x) * 4;
+          const neighbor = entriesByOffset.get(neighborOffset);
+          if (neighbor && !visited.has(neighborOffset)) {
+            visited.add(neighborOffset);
+            pending.push(neighbor);
+          }
+        }
+      }
+    }
+    components.push(component);
+  }
+  return components;
+}
+
+function selectEdgeRasterPixels(entries, baseline, candidate) {
+  const components = collectChangedPixelComponents(entries, baseline.width);
+  const accepted = components.filter((component) => {
+    if (!component.some((entry) => !entry.antialiased)) {
+      return false;
+    }
+    const xs = component.map((entry) => entry.x);
+    const ys = component.map((entry) => entry.y);
+    return (
+      component.length <= EDGE_RASTER_MAX_COMPONENT_PIXELS &&
+      Math.max(...xs) - Math.min(...xs) + 1 <=
+        EDGE_RASTER_MAX_COMPONENT_WIDTH &&
+      Math.max(...ys) - Math.min(...ys) + 1 <=
+        EDGE_RASTER_MAX_COMPONENT_HEIGHT &&
+      component.every(
+        (entry) =>
+          entry.difference <= EDGE_RASTER_CHANNEL_TOLERANCE &&
+          hasNearbyEdgeContrast(baseline, entry.x, entry.y) &&
+          hasNearbyEdgeContrast(candidate, entry.x, entry.y),
+      )
+    );
+  });
+  const pixelCount = accepted.reduce(
+    (total, component) => total + component.length,
+    0,
+  );
+  if (
+    accepted.length > EDGE_RASTER_MAX_COMPONENTS ||
+    pixelCount > EDGE_RASTER_MAX_PIXELS
+  ) {
+    return { componentCount: 0, offsets: new Set() };
+  }
+  return {
+    componentCount: accepted.length,
+    offsets: new Set(
+      accepted.flatMap((component) => component.map((entry) => entry.offset)),
+    ),
+  };
+}
+
 function comparePixels(baseline, candidate, options) {
   if (
     baseline.width !== candidate.width ||
@@ -852,7 +957,9 @@ function comparePixels(baseline, candidate, options) {
   }
   const diff = Buffer.alloc(baseline.data.length);
   let antialiasPixels = 0;
+  const bufferedEntries = [];
   let changedPixels = 0;
+  let edgeRasterEligible = true;
   let maximumChannelDifference = 0;
   let meaningfulPixels = 0;
   for (let y = 0; y < baseline.height; y += 1) {
@@ -872,6 +979,7 @@ function comparePixels(baseline, candidate, options) {
         difference <= options.antialiasTolerance &&
         hasEdgeContrast(baseline, x, y) &&
         hasEdgeContrast(candidate, x, y);
+      const entry = { antialiased, difference, offset, x, y };
       if (antialiased) {
         antialiasPixels += 1;
         diff[offset] = 255;
@@ -885,12 +993,45 @@ function comparePixels(baseline, candidate, options) {
         diff[offset + 2] = 0;
         diff[offset + 3] = 220;
       }
+      if (edgeRasterEligible) {
+        bufferedEntries.push(entry);
+        if (
+          meaningfulPixels > EDGE_RASTER_MAX_PIXELS ||
+          bufferedEntries.length >
+            EDGE_RASTER_MAX_PIXELS + options.maxAntialiasPixels
+        ) {
+          edgeRasterEligible = false;
+        }
+      }
     }
   }
+  const edgeRaster = edgeRasterEligible
+    ? selectEdgeRasterPixels(bufferedEntries, baseline, candidate)
+    : { componentCount: 0, offsets: new Set() };
+  let edgeRasterAntialiasPixels = 0;
+  let edgeRasterMeaningfulPixels = 0;
+  for (const entry of bufferedEntries) {
+    if (!edgeRaster.offsets.has(entry.offset)) {
+      continue;
+    }
+    if (entry.antialiased) {
+      edgeRasterAntialiasPixels += 1;
+    } else {
+      edgeRasterMeaningfulPixels += 1;
+    }
+    diff[entry.offset] = 255;
+    diff[entry.offset + 1] = 183;
+    diff[entry.offset + 2] = 64;
+    diff[entry.offset + 3] = 180;
+  }
+  antialiasPixels -= edgeRasterAntialiasPixels;
+  meaningfulPixels -= edgeRasterMeaningfulPixels;
   return {
     antialiasPixels,
     changedPixels,
     diff: { data: diff, height: baseline.height, width: baseline.width },
+    edgeRasterComponents: edgeRaster.componentCount,
+    edgeRasterPixels: edgeRaster.offsets.size,
     maximumChannelDifference,
     meaningfulPixels,
     passed:
@@ -1094,6 +1235,8 @@ function compareScenario(baseline, candidate, options, stagingDirectory) {
     pixels: {
       antialiasPixels: pixels.antialiasPixels,
       changedPixels: pixels.changedPixels,
+      edgeRasterComponents: pixels.edgeRasterComponents,
+      edgeRasterPixels: pixels.edgeRasterPixels,
       maximumChannelDifference: pixels.maximumChannelDifference,
       meaningfulPixels: pixels.meaningfulPixels,
       passed: pixels.passed,
@@ -1173,6 +1316,14 @@ function comparisonReceipt(options, comparison, error) {
     comparedAt: new Date().toISOString(),
     configuration: {
       antialiasTolerance: options.antialiasTolerance,
+      edgeRasterPolicy: {
+        channelTolerance: EDGE_RASTER_CHANNEL_TOLERANCE,
+        maxComponentHeight: EDGE_RASTER_MAX_COMPONENT_HEIGHT,
+        maxComponentPixels: EDGE_RASTER_MAX_COMPONENT_PIXELS,
+        maxComponentWidth: EDGE_RASTER_MAX_COMPONENT_WIDTH,
+        maxComponents: EDGE_RASTER_MAX_COMPONENTS,
+        maxPixels: EDGE_RASTER_MAX_PIXELS,
+      },
       geometryTolerance: options.geometryTolerance,
       maxAntialiasPixels: options.maxAntialiasPixels,
       pixelTolerance: options.pixelTolerance,

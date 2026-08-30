@@ -64,7 +64,7 @@ export function WorkspaceCanvas() {
   useWorkspaceFocusScope("canvas", ref);
   useCanvasKeyActivations();
   useWorkspacePointerLocation();
-  const { onViewportChange, viewport } = useCanvasViewportDocumentSync();
+  const { defaultViewport, onViewportChange } = useCanvasViewportDocumentSync();
 
   const handleXyflowRuntimeReady = useCallback(() => {
     maybeCompleteInitialFitView(host);
@@ -161,7 +161,7 @@ export function WorkspaceCanvas() {
               onRuntimeReady={handleXyflowRuntimeReady}
               onViewportChange={onViewportChange}
               renderNodes={readyToRender}
-              viewport={viewport}
+              defaultViewport={defaultViewport}
               wrapperDimensions={wrapperDimensions}
             />
           </SectionDndContext>

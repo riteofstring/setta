@@ -14,6 +14,7 @@ import {
   wheelDelta,
 } from "../wheelPolicy";
 import type { WorkspaceXyflowViewport } from "./types";
+import { getWorkspaceXyflowRuntime } from "./workspaceXyflowRuntime";
 
 const VIEWPORT_INTERACTION_ACTIVE_ATTRIBUTE =
   "data-viewport-interaction-active";
@@ -50,13 +51,6 @@ type WheelBehaviorLatest = {
   options: WorkspaceXyflowWheelBehaviorOptions;
   setViewport: WorkspaceXyflowViewportSetter;
 };
-
-function areViewportsEqual(
-  left: WorkspaceXyflowViewport,
-  right: WorkspaceXyflowViewport,
-): boolean {
-  return left.x === right.x && left.y === right.y && left.zoom === right.zoom;
-}
 
 function markViewportInteractionActive(
   host: WorkspaceHost,
@@ -152,20 +146,19 @@ function getPointerAnchoredViewport({
 
 export function useWorkspaceXyflowWheelBehavior({
   host,
+  initialViewport,
   options,
   renderer,
   setViewport,
-  viewport,
 }: {
   host: WorkspaceHost;
+  initialViewport: WorkspaceXyflowViewport;
   options: WorkspaceXyflowWheelBehaviorOptions;
   renderer: HTMLElement | null;
   setViewport: WorkspaceXyflowViewportSetter;
-  viewport: WorkspaceXyflowViewport;
 }): WorkspaceXyflowWheelBehaviorHandlers {
   const latestRef = useRef<WheelBehaviorLatest>({ options, setViewport });
-  const viewportRef = useRef(viewport);
-  const renderedViewportRef = useRef(viewport);
+  const viewportRef = useRef(initialViewport);
   const interactionRefs = useRef<WheelInteractionRefs>({
     isPanScrolling: { current: false },
     isViewportMoving: { current: false },
@@ -175,10 +168,6 @@ export function useWorkspaceXyflowWheelBehavior({
   });
 
   latestRef.current = { options, setViewport };
-  if (!areViewportsEqual(renderedViewportRef.current, viewport)) {
-    renderedViewportRef.current = viewport;
-    viewportRef.current = viewport;
-  }
 
   const syncViewportInteractionActive = useCallback(() => {
     const interaction = interactionRefs.current;
@@ -280,7 +269,8 @@ export function useWorkspaceXyflowWheelBehavior({
     };
     const zoomToWheelPoint = (event: WheelEvent): void => {
       const { maxZoom, minZoom } = latestRef.current.options;
-      const currentViewport = viewportRef.current;
+      const currentViewport =
+        getWorkspaceXyflowRuntime(host).getViewport() ?? viewportRef.current;
       const currentZoom = currentViewport.zoom || 1;
       const nextZoom = clamp(
         currentZoom * Math.pow(2, wheelDelta(event)),
@@ -357,7 +347,8 @@ export function useWorkspaceXyflowWheelBehavior({
         return;
       }
 
-      const currentViewport = viewportRef.current;
+      const currentViewport =
+        getWorkspaceXyflowRuntime(host).getViewport() ?? viewportRef.current;
       const { deltaX, deltaY } = resolvePanOnScrollDelta({
         event,
         isMacOS,

@@ -54,6 +54,7 @@ import type {
 } from "./types";
 
 type WorkspaceXyflowAdapterProps = {
+  defaultViewport: WorkspaceXyflowViewport;
   onDragCommit?: (items: ReadonlyArray<NodeDragItem>) => void;
   onDragStart?: (items: ReadonlyArray<NodeDragItem>) => void;
   onNodeDimensionsChange?: (
@@ -62,7 +63,6 @@ type WorkspaceXyflowAdapterProps = {
   onRuntimeReady?: () => void;
   onViewportChange: (viewport: WorkspaceXyflowViewport) => void;
   renderNodes?: boolean;
-  viewport: WorkspaceXyflowViewport;
   wrapperDimensions: { width: number; height: number };
 };
 
@@ -133,13 +133,13 @@ function sectionIdsMatch(
 }
 
 export function WorkspaceXyflowAdapter({
+  defaultViewport,
   onDragCommit,
   onDragStart,
   onNodeDimensionsChange,
   onRuntimeReady,
   onViewportChange,
   renderNodes = true,
-  viewport,
   wrapperDimensions,
 }: WorkspaceXyflowAdapterProps) {
   const host = useWorkspaceHost();
@@ -154,6 +154,7 @@ export function WorkspaceXyflowAdapter({
     (state) => state.panActivationKeyPressed,
   );
   const nodeDragThreshold = useReactFlow((state) => state.nodeDragThreshold);
+  const viewportZoom = useReactFlow((state) => state.transform[2]);
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const fitPending = useReactFlow(
     (state) => state.fitViewOnInit && !state.fitViewOnInitDone,
@@ -388,10 +389,10 @@ export function WorkspaceXyflowAdapter({
   const { onViewportMoveEnd, onViewportMoveStart } =
     useWorkspaceXyflowWheelBehavior({
       host,
+      initialViewport: defaultViewport,
       options: effectiveWheelOptions,
       renderer: rendererElement,
-      setViewport: onViewportChange,
-      viewport,
+      setViewport: getWorkspaceXyflowRuntime(host).setViewport,
     });
 
   useEffect(() => {
@@ -464,7 +465,7 @@ export function WorkspaceXyflowAdapter({
         className={`${workspaceScopeClassName} setta-workspace-xyflow-root`}
         nodes={renderNodes ? projectedNodes : EMPTY_NODES}
         edges={EMPTY_EDGES}
-        viewport={viewport}
+        defaultViewport={defaultViewport}
         onViewportChange={onViewportChange}
         onInit={handleInit}
         onNodesChange={handleNodesChange}
@@ -485,7 +486,7 @@ export function WorkspaceXyflowAdapter({
         zoomOnPinch={viewportInteractionEnabled && zoomOnPinch}
         zoomOnDoubleClick={viewportInteractionEnabled && zoomOnDoubleClick}
         paneClickDistance={0}
-        nodeDragThreshold={nodeDragThreshold * viewport.zoom}
+        nodeDragThreshold={nodeDragThreshold * viewportZoom}
         snapToGrid={false}
         snapGrid={snapGrid}
         autoPanOnNodeDrag={false}
