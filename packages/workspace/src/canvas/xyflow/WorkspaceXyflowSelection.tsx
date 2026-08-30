@@ -44,6 +44,10 @@ type WorkspaceXyflowSelectionProps = {
   suppressNextPaneClickRef: { current: boolean };
 };
 
+function isMarqueeMouseChord(event: MouseEvent): boolean {
+  return event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
+}
+
 export function WorkspaceXyflowSelection({
   rootElement,
   selectionPortalElement,
@@ -90,8 +94,10 @@ export function WorkspaceXyflowSelection({
       const canvasState = getReactFlowStore(host).getState();
       containerBoundsRef.current = canvasState.domNode?.getBoundingClientRect();
 
+      if (!canvasState.selectionKeyPressed && !isMarqueeMouseChord(event)) {
+        return;
+      }
       if (
-        !canvasState.selectionKeyPressed ||
         event.button !== 0 ||
         event.target !== pane ||
         !containerBoundsRef.current
@@ -99,6 +105,7 @@ export function WorkspaceXyflowSelection({
         return;
       }
 
+      event.stopImmediatePropagation();
       const { x, y } = getEventPosition(event, containerBoundsRef.current);
       previousSelectedCountRef.current = 0;
       applyActiveSectionChange(host, {
@@ -121,7 +128,7 @@ export function WorkspaceXyflowSelection({
       const canvasState = getReactFlowStore(host).getState();
       const userSelectionRect = canvasState.userSelectionRect;
       if (
-        !canvasState.selectionKeyPressed ||
+        (!canvasState.selectionKeyPressed && !isMarqueeMouseChord(event)) ||
         !containerBoundsRef.current ||
         !userSelectionRect
       ) {
@@ -193,12 +200,12 @@ export function WorkspaceXyflowSelection({
       resetUserSelection();
     };
 
-    pane.addEventListener("mousedown", handleMouseDown);
+    pane.addEventListener("mousedown", handleMouseDown, true);
     pane.addEventListener("mousemove", handleMouseMove);
     pane.addEventListener("mouseup", handleMouseUp);
     pane.addEventListener("mouseleave", handleMouseLeave);
     return () => {
-      pane.removeEventListener("mousedown", handleMouseDown);
+      pane.removeEventListener("mousedown", handleMouseDown, true);
       pane.removeEventListener("mousemove", handleMouseMove);
       pane.removeEventListener("mouseup", handleMouseUp);
       pane.removeEventListener("mouseleave", handleMouseLeave);

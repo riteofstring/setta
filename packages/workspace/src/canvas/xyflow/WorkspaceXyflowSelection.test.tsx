@@ -187,4 +187,40 @@ describe("WorkspaceXyflowSelection", () => {
     ).not.toBeNull();
     expect(pane.querySelector(".react-flow__selection")).toBeNull();
   });
+
+  it("starts a Shift marquee when keyboard focus is outside the Workspace host", async () => {
+    testWorkspace.reactFlow.setState({ selectionKeyPressed: false });
+    let downstreamMouseDown = false;
+    pane.addEventListener("mousedown", () => {
+      downstreamMouseDown = true;
+    });
+
+    await act(async () => {
+      pane.dispatchEvent(
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+          shiftKey: true,
+        }),
+      );
+      pane.dispatchEvent(
+        new MouseEvent("mousemove", {
+          bubbles: true,
+          button: 0,
+          clientX: 180,
+          clientY: 180,
+          shiftKey: true,
+        }),
+      );
+    });
+
+    expect(downstreamMouseDown).toBe(false);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+      "nested-a",
+      "nested-b",
+    ]);
+    expect(pane.querySelector(".react-flow__selection")).not.toBeNull();
+  });
 });
