@@ -14,11 +14,13 @@ import { useWorkspaceHost } from "../../workspaceHostContext";
 
 type WorkspaceXyflowSelectionProps = {
   rootElement: HTMLDivElement | null;
+  selectionPortalElement: HTMLElement | null;
   suppressNextPaneClickRef: { current: boolean };
 };
 
 export function WorkspaceXyflowSelection({
   rootElement,
+  selectionPortalElement,
   suppressNextPaneClickRef,
 }: WorkspaceXyflowSelectionProps) {
   const host = useWorkspaceHost();
@@ -182,12 +184,18 @@ export function WorkspaceXyflowSelection({
     return null;
   }
 
-  return createPortal(
+  return (
     <>
-      <NodesSelectionDragHandleWrapper />
-      <NodesSelectionWrapper />
-      <UserSelection />
-    </>,
-    pane,
+      {createPortal(
+        <>
+          <NodesSelectionDragHandleWrapper />
+          <NodesSelectionWrapper />
+        </>,
+        pane,
+      )}
+      {selectionPortalElement
+        ? createPortal(<UserSelection />, selectionPortalElement)
+        : null}
+    </>
   );
 }

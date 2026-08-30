@@ -68,6 +68,32 @@ const EMPTY_EDGES: [] = [];
 const EMPTY_NODES: Array<WorkspaceXyflowSectionNode> = [];
 const EMPTY_SECTION_IDS: ReadonlySet<string> = new Set();
 
+type MeasuredDimensions = {
+  height: number | undefined;
+  width: number | undefined;
+};
+
+function mergeMeasuredDimensions(
+  current: MeasuredDimensions | undefined,
+  next: WorkspaceXyflowNodeDimensions,
+): MeasuredDimensions {
+  return {
+    height: next.height ?? current?.height,
+    width: next.width ?? current?.width,
+  };
+}
+
+function measuredDimensionsEqual(
+  left: MeasuredDimensions | undefined,
+  right: MeasuredDimensions,
+): boolean {
+  return (
+    left !== undefined &&
+    left.height === right.height &&
+    left.width === right.width
+  );
+}
+
 function WorkspaceXyflowMeasurementObserver({
   fitPending,
   onNodesInitialized,
@@ -141,6 +167,7 @@ export function WorkspaceXyflowAdapter({
   const projectorRef = useRef<ReturnType<
     typeof createWorkspaceXyflowNodeProjector
   > | null>(null);
+  const measuredDimensionsRef = useRef(new Map<string, MeasuredDimensions>());
   if (projectorRef.current === null) {
     projectorRef.current = createWorkspaceXyflowNodeProjector();
   }
@@ -164,6 +191,17 @@ export function WorkspaceXyflowAdapter({
       sections,
     ],
   );
+
+  useEffect(() => {
+    const renderedIds = renderNodes
+      ? new Set(projectedNodes.map((node) => node.id))
+      : EMPTY_SECTION_IDS;
+    for (const sectionId of measuredDimensionsRef.current.keys()) {
+      if (!renderedIds.has(sectionId)) {
+        measuredDimensionsRef.current.delete(sectionId);
+      }
+    }
+  }, [projectedNodes, renderNodes]);
   const unregisterInstanceRef = useRef<(() => void) | null>(null);
   const rootElementRef = useRef<HTMLDivElement | null>(null);
   const suppressNextPaneClickRef = useRef(false);
@@ -237,13 +275,18 @@ export function WorkspaceXyflowAdapter({
         if (change.type !== "dimensions") {
           return [];
         }
-        return [
-          {
-            id: change.id,
-            width: change.dimensions?.width,
-            height: change.dimensions?.height,
-          },
-        ];
+        const measurement = {
+          id: change.id,
+          width: change.dimensions?.width,
+          height: change.dimensions?.height,
+        };
+        const current = measuredDimensionsRef.current.get(change.id);
+        const next = mergeMeasuredDimensions(current, measurement);
+        if (measuredDimensionsEqual(current, next)) {
+          return [];
+        }
+        measuredDimensionsRef.current.set(change.id, next);
+        return [measurement];
       });
       if (dimensions.length > 0) {
         onNodeDimensionsChange?.(dimensions);
@@ -411,6 +454,7 @@ export function WorkspaceXyflowAdapter({
         panOnDrag={effectivePanOnDrag}
         panOnScroll={false}
         zoomOnScroll={false}
+        preventScrolling={false}
         zoomOnPinch={viewportInteractionEnabled && zoomOnPinch}
         zoomOnDoubleClick={viewportInteractionEnabled && zoomOnDoubleClick}
         paneClickDistance={0}
@@ -451,6 +495,7 @@ export function WorkspaceXyflowAdapter({
       </ReactFlow>
       <WorkspaceXyflowSelection
         rootElement={rootElement}
+        selectionPortalElement={rootElement?.parentElement ?? null}
         suppressNextPaneClickRef={suppressNextPaneClickRef}
       />
     </div>
