@@ -105,6 +105,7 @@ const RUNTIME_EXPORTS = [
   "duplicateWorkspaceSelection",
   "dockWorkspaceWindow",
   "focusWorkspaceSection",
+  "fitWorkspaceSections",
   "focusWorkspaceWindow",
   "getWorkspaceCodeSectionData",
   "getWorkspaceClipboardAvailability",
@@ -155,6 +156,7 @@ const RUNTIME_EXPORTS = [
   "setSectionData",
   "setSectionTagColor",
   "setWorkspaceSectionSize",
+  "setWorkspaceSectionAttention",
   "setWorkspaceSavedViewSectionVisibility",
   "setWorkspaceSavedViewTabVisibility",
   "setWorkspaceCodeSectionData",
@@ -241,6 +243,68 @@ describe("public package API", () => {
       showTrigger: true,
     });
     expect(closeParametersAreHostOnly).toBe(true);
+  });
+
+  it("exposes controlled canvas ingress, attention, and graph contracts", () => {
+    const ports = [
+      {
+        family: "data",
+        id: "source",
+        label: "Data output",
+        sectionId: "source-section",
+        type: "source",
+      },
+      {
+        family: "data",
+        id: "target",
+        label: "Data input",
+        sectionId: "target-section",
+        type: "target",
+      },
+    ] satisfies ReadonlyArray<workspace.WorkspaceGraphPort>;
+    const graph = {
+      canConnect: (connection) => connection.family === "data",
+      edges: [
+        {
+          family: "data",
+          id: "edge",
+          source: { portId: "source", sectionId: "source-section" },
+          target: { portId: "target", sectionId: "target-section" },
+        },
+      ],
+      ports,
+      selectedEdgeIds: new Set<string>(),
+    } satisfies workspace.WorkspaceGraphConfiguration;
+    const configuration = {
+      externalDrop: {
+        canDrop: (dataTransfer) => dataTransfer.types.includes("text/plain"),
+        onDrop: (_dataTransfer, _position, _event) => undefined,
+      },
+      graph,
+    } satisfies workspace.WorkspaceCanvasConfiguration;
+    const canvasProps = {
+      configuration,
+    } satisfies ComponentProps<typeof workspace.WorkspaceCanvas>;
+    const fitParameters: IsExactly<
+      Parameters<typeof workspace.fitWorkspaceSections>,
+      [
+        host: workspace.WorkspaceHost,
+        sectionIds: ReadonlyArray<string>,
+        options?: workspace.WorkspaceSectionFitOptions,
+      ]
+    > = true;
+    const attentionParameters: IsExactly<
+      Parameters<typeof workspace.setWorkspaceSectionAttention>,
+      [host: workspace.WorkspaceHost, sectionIds: ReadonlyArray<string>]
+    > = true;
+    const exposesXyflow: "xyflow" extends keyof workspace.WorkspaceCanvasConfiguration
+      ? true
+      : false = false;
+
+    expect(canvasProps.configuration).toBe(configuration);
+    expect(fitParameters).toBe(true);
+    expect(attentionParameters).toBe(true);
+    expect(exposesXyflow).toBe(false);
   });
 
   it("exposes one opt-in structural history contract", () => {

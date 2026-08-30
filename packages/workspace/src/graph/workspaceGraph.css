@@ -1,0 +1,341 @@
+.setta-workspace .react-flow__nodes {
+  position: relative;
+  z-index: 1;
+}
+
+.setta-workspace .setta-workspace-graph-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.setta-workspace .setta-workspace-graph-edge {
+  pointer-events: none;
+}
+
+.setta-workspace .setta-workspace-graph-edge-path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.setta-workspace .setta-workspace-graph-edge-interaction {
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.setta-workspace
+  .setta-workspace-graph-edge--data
+  .setta-workspace-graph-edge-path {
+  stroke: #94a3b8;
+  stroke-width: 1.4;
+}
+
+.setta-workspace
+  .setta-workspace-graph-edge--data:hover
+  .setta-workspace-graph-edge-path,
+.setta-workspace
+  .setta-workspace-graph-edge--data:focus
+  .setta-workspace-graph-edge-path,
+.setta-workspace
+  .setta-workspace-graph-edge--data:focus-visible
+  .setta-workspace-graph-edge-path,
+.setta-workspace
+  .setta-workspace-graph-edge--data.setta-workspace-graph-edge--selected
+  .setta-workspace-graph-edge-path {
+  stroke: #2563eb;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 3px rgb(37 99 235 / 0.25));
+}
+
+.setta-workspace
+  .setta-workspace-graph-edge--agentic
+  .setta-workspace-graph-edge-path {
+  stroke: #60a5fa;
+  stroke-width: 1.7;
+  stroke-dasharray: 7 5;
+}
+
+.setta-workspace
+  .setta-workspace-graph-edge--agentic:hover
+  .setta-workspace-graph-edge-path,
+.setta-workspace
+  .setta-workspace-graph-edge--agentic:focus
+  .setta-workspace-graph-edge-path,
+.setta-workspace
+  .setta-workspace-graph-edge--agentic:focus-visible
+  .setta-workspace-graph-edge-path,
+.setta-workspace
+  .setta-workspace-graph-edge--agentic.setta-workspace-graph-edge--selected
+  .setta-workspace-graph-edge-path {
+  stroke: #2563eb;
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 4px rgb(37 99 235 / 0.32));
+}
+
+.setta-workspace
+  .setta-workspace-graph-edge--agentic.setta-workspace-graph-edge--running
+  .setta-workspace-graph-edge-path {
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 4px rgb(37 99 235 / 0.35));
+}
+
+.setta-workspace
+  .setta-workspace-graph-edge--agentic.setta-workspace-graph-edge--missing
+  .setta-workspace-graph-edge-path {
+  stroke: #ef4444;
+  stroke-width: 2.2;
+  stroke-dasharray: 8 5;
+  filter: drop-shadow(0 0 6px rgb(239 68 68 / 0.35));
+}
+
+.setta-workspace
+  .setta-workspace-graph-edge--workflow
+  .setta-workspace-graph-edge-path {
+  stroke: #f59e0b;
+  stroke-width: 2.2;
+}
+
+.setta-workspace
+  .setta-workspace-graph-edge--workflow:hover
+  .setta-workspace-graph-edge-path,
+.setta-workspace
+  .setta-workspace-graph-edge--workflow:focus
+  .setta-workspace-graph-edge-path,
+.setta-workspace
+  .setta-workspace-graph-edge--workflow:focus-visible
+  .setta-workspace-graph-edge-path,
+.setta-workspace
+  .setta-workspace-graph-edge--workflow.setta-workspace-graph-edge--selected
+  .setta-workspace-graph-edge-path {
+  stroke: #ea580c;
+  stroke-width: 2.8;
+  filter: drop-shadow(0 0 4px rgb(234 88 12 / 0.24));
+}
+
+.setta-workspace .setta-workspace-graph-edge:focus,
+.setta-workspace .setta-workspace-graph-edge:focus-visible {
+  outline: none;
+}
+
+.setta-workspace .setta-workspace-graph-edge-label {
+  pointer-events: none;
+}
+
+.setta-workspace .setta-workspace-graph-edge-label-background {
+  fill: rgb(255 255 255 / 0.96);
+  stroke: rgb(100 116 139 / 0.36);
+  stroke-width: 1;
+}
+
+.setta-workspace .setta-workspace-graph-edge-label-text {
+  fill: #334155;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.setta-workspace .setta-workspace-graph-edge [data-workspace-graph-reconnect] {
+  pointer-events: all;
+  cursor: crosshair;
+}
+
+.setta-workspace .setta-workspace-graph-connection-preview {
+  stroke: #60a5fa;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 7 5;
+  filter: drop-shadow(0 0 4px rgb(37 99 235 / 0.28));
+}
+
+.setta-workspace .setta-workspace-graph-port-safe-zone {
+  --setta-workspace-graph-port-color: #64748b;
+  --setta-workspace-graph-port-surface: #ffffff;
+  position: absolute;
+  z-index: 160;
+  display: block;
+  width: 32px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 120ms ease-out;
+  touch-action: none;
+}
+
+.setta-workspace .setta-workspace-graph-port-safe-zone--left {
+  left: -32px;
+  clip-path: polygon(0 35%, 100% 0, 100% 100%, 0 65%);
+}
+
+.setta-workspace .setta-workspace-graph-port-safe-zone--right {
+  right: -32px;
+  clip-path: polygon(0 0, 100% 35%, 100% 65%, 0 100%);
+}
+
+.setta-workspace [data-section-id]:hover .setta-workspace-graph-port-safe-zone,
+.setta-workspace .setta-workspace-graph-port-safe-zone:hover,
+.setta-workspace .setta-workspace-graph-port-safe-zone:focus-visible,
+.setta-workspace .setta-workspace-graph-port--connected,
+.setta-workspace .setta-workspace-graph-port--connection-active {
+  opacity: 1;
+}
+
+.setta-workspace .setta-workspace-graph-port--disabled {
+  opacity: 0.42;
+}
+
+.setta-workspace .setta-workspace-graph-port-dot {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--setta-workspace-graph-port-color);
+  border-radius: 9999px;
+  background: var(--setta-workspace-graph-port-surface);
+  box-shadow: 0 0 0 1px rgb(15 23 42 / 0.08);
+  transform: translateY(-50%);
+}
+
+.setta-workspace
+  .setta-workspace-graph-port-safe-zone--left
+  .setta-workspace-graph-port-dot {
+  left: 0;
+}
+
+.setta-workspace
+  .setta-workspace-graph-port-safe-zone--right
+  .setta-workspace-graph-port-dot {
+  right: 0;
+}
+
+.setta-workspace .setta-workspace-graph-port--data {
+  --setta-workspace-graph-port-color: #64748b;
+}
+
+.setta-workspace .setta-workspace-graph-port--agentic {
+  --setta-workspace-graph-port-color: #3b82f6;
+}
+
+.setta-workspace .setta-workspace-graph-port--workflow {
+  --setta-workspace-graph-port-color: #f59e0b;
+}
+
+.setta-workspace
+  .setta-workspace-graph-port--source
+  .setta-workspace-graph-port-dot {
+  background: var(--setta-workspace-graph-port-color);
+}
+
+.setta-workspace
+  .setta-workspace-graph-port--target
+  .setta-workspace-graph-port-dot {
+  background: var(--setta-workspace-graph-port-surface);
+}
+
+.setta-workspace
+  .setta-workspace-graph-port--candidate-valid
+  .setta-workspace-graph-port-dot {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgb(22 163 74 / 0.18);
+}
+
+.setta-workspace
+  .setta-workspace-graph-port--candidate-valid.setta-workspace-graph-port--source
+  .setta-workspace-graph-port-dot {
+  background: #16a34a;
+}
+
+.setta-workspace
+  .setta-workspace-graph-port--candidate-invalid
+  .setta-workspace-graph-port-dot {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgb(239 68 68 / 0.16);
+}
+
+.setta-workspace
+  .setta-workspace-graph-port--candidate-invalid.setta-workspace-graph-port--source
+  .setta-workspace-graph-port-dot {
+  background: #ef4444;
+}
+
+.setta-workspace
+  .setta-workspace-graph-port-safe-zone:focus-visible
+  .setta-workspace-graph-port-dot {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+}
+
+:where(
+    .setta-workspace.setta-workspace-dark,
+    .setta-workspace.setta-workspace-dark *
+  )
+  .setta-workspace-graph-port-safe-zone {
+  --setta-workspace-graph-port-surface: #1e293b;
+}
+
+:where(
+    .setta-workspace.setta-workspace-dark,
+    .setta-workspace.setta-workspace-dark *
+  )
+  .setta-workspace-graph-edge--data
+  .setta-workspace-graph-edge-path {
+  stroke: #94a3b8;
+}
+
+:where(
+    .setta-workspace.setta-workspace-dark,
+    .setta-workspace.setta-workspace-dark *
+  )
+  .setta-workspace-graph-edge--agentic
+  .setta-workspace-graph-edge-path {
+  stroke: #60a5fa;
+}
+
+:where(
+    .setta-workspace.setta-workspace-dark,
+    .setta-workspace.setta-workspace-dark *
+  )
+  .setta-workspace-graph-edge--agentic.setta-workspace-graph-edge--missing
+  .setta-workspace-graph-edge-path {
+  stroke: #f87171;
+  filter: drop-shadow(0 0 6px rgb(248 113 113 / 0.4));
+}
+
+:where(
+    .setta-workspace.setta-workspace-dark,
+    .setta-workspace.setta-workspace-dark *
+  )
+  .setta-workspace-graph-edge--workflow
+  .setta-workspace-graph-edge-path {
+  stroke: #fbbf24;
+}
+
+:where(
+    .setta-workspace.setta-workspace-dark,
+    .setta-workspace.setta-workspace-dark *
+  )
+  .setta-workspace-graph-edge-label-background {
+  fill: rgb(30 41 59 / 0.96);
+  stroke: rgb(251 191 36 / 0.36);
+}
+
+:where(
+    .setta-workspace.setta-workspace-dark,
+    .setta-workspace.setta-workspace-dark *
+  )
+  .setta-workspace-graph-edge-label-text {
+  fill: #fde68a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setta-workspace .setta-workspace-graph-port-safe-zone {
+    transition-duration: 0.01ms;
+  }
+}

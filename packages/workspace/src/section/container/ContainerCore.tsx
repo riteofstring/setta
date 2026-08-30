@@ -5,6 +5,7 @@ import React, {
   type MouseEvent,
   type ReactNode,
 } from "react";
+import { useWorkspaceSectionAttentionHighlight } from "../../attention/workspaceSectionAttention";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController";
 import { useShouldDisablePointerEvents } from "../../canvas/useShouldDisablePointerEvents";
 import { openWorkspaceSectionMenu } from "../../context-menu/workspaceMenuInvocation";
@@ -21,6 +22,7 @@ import {
 import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
 import { NO_WHEEL_CLASS_NAME } from "../../interaction";
 import { useWorkspaceHost } from "../../workspaceHostContext";
+import { WorkspaceGraphPorts } from "../../graph/WorkspaceGraphPorts";
 import { useIsScrollable } from "../../useIsScrollable";
 import { ChangeOrientationButton } from "../header/ChangeOrientationButton";
 import { DeleteOrHideButton } from "../header/DeleteOrHideButton";
@@ -116,6 +118,7 @@ function ContainerGroup({
   const isActiveSection = useActiveSections((x) =>
     x.activeIds.includes(sectionId),
   );
+  const showAttention = useWorkspaceSectionAttentionHighlight(sectionId);
   const disablePointerEvents = useShouldDisablePointerEvents();
   const { ref: overflowRef, isScrollable } = useIsScrollable();
 
@@ -186,9 +189,10 @@ function ContainerGroup({
       tabIndex={-1}
       style={groupStyle}
       data-group-overflow-mode={overflowMode ? "bounded" : "auto"}
+      data-section-id={sectionId}
     >
       <div
-        className={outlineClassName}
+        className={`${outlineClassName} setta-workspace-section-attention ${showAttention ? "setta-workspace-section-attention-active" : ""}`}
         data-section-active={isActiveSection ? "true" : "false"}
         data-workspace-group-selection-outline="true"
       />
@@ -200,6 +204,7 @@ function ContainerGroup({
         <EmptyGroupDropHint hasNested={hasNested} />
         {children}
       </div>
+      <WorkspaceGraphPorts sectionId={sectionId} />
     </div>
   );
 }

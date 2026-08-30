@@ -12,12 +12,17 @@ import { WorkspaceMenuLayer } from "../context-menu/WorkspaceMenuLayer";
 import { SectionDndContext } from "../dnd/SectionDndContext";
 import { getNodeInternalsStore } from "../document/stores";
 import { useWorkspaceFocusScope } from "../focus/workspaceFocusScopes";
+import { WorkspaceGraphProvider } from "../graph/WorkspaceGraphContext";
 import { ResponsiveMiniMap } from "../minimap/ResponsiveMiniMap";
 import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import type { WorkspaceHost } from "../workspaceHost";
 import { registerWorkspaceHostElement } from "../workspaceHostInternals";
+import {
+  assertWorkspaceCanvasConfiguration,
+  type WorkspaceCanvasConfiguration,
+} from "./configuration";
 import { useCanvasViewportDocumentSync } from "./documentViewportSync";
 import { useCanvasKeyActivations } from "./keyActivations";
 import {
@@ -53,7 +58,12 @@ const wrapperStyle: CSSProperties = {
 
 const SCROLL_INIT = 5000;
 
-export function WorkspaceCanvas() {
+export type WorkspaceCanvasProps = Readonly<{
+  configuration?: WorkspaceCanvasConfiguration;
+}>;
+
+export function WorkspaceCanvas({ configuration }: WorkspaceCanvasProps = {}) {
+  assertWorkspaceCanvasConfiguration(configuration);
   const host = useWorkspaceHost();
   const ref = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
@@ -128,45 +138,48 @@ export function WorkspaceCanvas() {
   const showMinimap = useWorkspaceOptions((x) => x.showMinimap);
 
   return (
-    <div
-      style={outerWrapperStyle}
-      className={workspaceScopeClassName}
-      role="region"
-      aria-label="Workspace canvas"
-      ref={focusVisibilityRootRef}
-    >
+    <WorkspaceGraphProvider configuration={configuration?.graph}>
       <div
-        style={wrapperStyle}
-        className={`${workspaceScopeClassName} react-flow`}
-        ref={ref}
-        onScroll={(e) => cancelWorkspaceCanvasScrolling(host, e, initialized)}
+        style={outerWrapperStyle}
+        className={workspaceScopeClassName}
+        role="region"
+        aria-label="Workspace canvas"
+        ref={focusVisibilityRootRef}
       >
         <div
-          style={{
-            position: "relative",
-            height: `${SCROLL_INIT}px`,
-            width: `${SCROLL_INIT}px`,
-            top: `${SCROLL_INIT}px`,
-            left: `${SCROLL_INIT}px`,
-          }}
+          style={wrapperStyle}
+          className={`${workspaceScopeClassName} react-flow`}
+          ref={ref}
+          onScroll={(e) => cancelWorkspaceCanvasScrolling(host, e, initialized)}
         >
-          <SectionDndContext>
-            <WorkspaceXyflowAdapter
-              onDragCommit={handleXyflowDragCommit}
-              onDragStart={handleXyflowDragStart}
-              onNodeDimensionsChange={handleXyflowNodeDimensionsChange}
-              onRuntimeReady={handleXyflowRuntimeReady}
-              onViewportChange={onViewportChange}
-              renderNodes={readyToRender}
-              defaultViewport={defaultViewport}
-              wrapperDimensions={wrapperDimensions}
-            />
-          </SectionDndContext>
+          <div
+            style={{
+              position: "relative",
+              height: `${SCROLL_INIT}px`,
+              width: `${SCROLL_INIT}px`,
+              top: `${SCROLL_INIT}px`,
+              left: `${SCROLL_INIT}px`,
+            }}
+          >
+            <SectionDndContext>
+              <WorkspaceXyflowAdapter
+                externalDrop={configuration?.externalDrop}
+                onDragCommit={handleXyflowDragCommit}
+                onDragStart={handleXyflowDragStart}
+                onNodeDimensionsChange={handleXyflowNodeDimensionsChange}
+                onRuntimeReady={handleXyflowRuntimeReady}
+                onViewportChange={onViewportChange}
+                renderNodes={readyToRender}
+                defaultViewport={defaultViewport}
+                wrapperDimensions={wrapperDimensions}
+              />
+            </SectionDndContext>
+          </div>
         </div>
+        {showMinimap && <ResponsiveMiniMap />}
+        <WorkspaceMenuLayer />
       </div>
-      {showMinimap && <ResponsiveMiniMap />}
-      <WorkspaceMenuLayer />
-    </div>
+    </WorkspaceGraphProvider>
   );
 }
 

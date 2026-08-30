@@ -428,6 +428,7 @@ function getPointerResizeState(
 
 export function WorkspaceShell({
   ariaLabel = "Workspace",
+  canvas,
   className,
   includeBuiltInInspector = true,
   includeBuiltInSavedViews = false,
@@ -937,6 +938,7 @@ export function WorkspaceShell({
           tabs={combinedLeadingTabs}
         />
         <WorkspaceShellCenter
+          canvas={canvas}
           hasSavedViewTabs={hasSavedViewTabs}
           savedViewPanelId={savedViewPanelId}
         />

@@ -1,4 +1,5 @@
 import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas";
+import type { WorkspaceCanvasConfiguration } from "../canvas/configuration";
 import { useWorkspaceDocument } from "../document/stores";
 import { WORKSPACE_SAVED_VIEW_TABS_HEIGHT_PX } from "./WorkspaceSavedViewTabs";
 
@@ -20,9 +21,11 @@ export function getWorkspaceShellSavedViewTabsHeight(
 }
 
 export function WorkspaceShellCenter({
+  canvas,
   hasSavedViewTabs,
   savedViewPanelId,
 }: {
+  canvas?: WorkspaceCanvasConfiguration;
   hasSavedViewTabs: boolean;
   savedViewPanelId: string;
 }) {
@@ -33,7 +36,7 @@ export function WorkspaceShellCenter({
         data-saved-view-tabs="false"
       >
         <div className="setta-workspace-shell-canvas">
-          <WorkspaceCanvas />
+          <WorkspaceCanvas configuration={canvas} />
         </div>
       </div>
     );
@@ -46,7 +49,7 @@ export function WorkspaceShellCenter({
         id={savedViewPanelId}
         role="tabpanel"
       >
-        <WorkspaceCanvas />
+        <WorkspaceCanvas configuration={canvas} />
       </div>
     </div>
   );

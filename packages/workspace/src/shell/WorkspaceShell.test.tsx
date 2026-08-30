@@ -29,6 +29,7 @@ import {
   type Mock,
 } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
+import type { WorkspaceCanvasConfiguration } from "../canvas/configuration";
 import { enableWorkspaceSavedViews } from "../saved-views/operations";
 import { WorkspaceShell } from "./WorkspaceShell";
 import { createWorkspaceShellViewState } from "./workspaceShellLayout";
@@ -39,12 +40,18 @@ import type {
 } from "./workspaceShellTypes";
 import type { WorkspaceNavigatorConfiguration } from "../navigator/workspaceNavigatorTypes";
 
-const { shiftWorkspaceMapForLeadingPane } = vi.hoisted(() => ({
-  shiftWorkspaceMapForLeadingPane: vi.fn(),
-}));
+const { shiftWorkspaceMapForLeadingPane, workspaceCanvasProps } = vi.hoisted(
+  () => ({
+    shiftWorkspaceMapForLeadingPane: vi.fn(),
+    workspaceCanvasProps: vi.fn(),
+  }),
+);
 
 vi.mock("../canvas/WorkspaceCanvas", () => ({
-  WorkspaceCanvas: () => <div data-testid="workspace-canvas" />,
+  WorkspaceCanvas: (props: unknown) => {
+    workspaceCanvasProps(props);
+    return <div data-testid="workspace-canvas" />;
+  },
 }));
 vi.mock("../canvas/viewportHelpers", () => ({
   shiftWorkspaceMapForLeadingPane,
@@ -141,6 +148,7 @@ const INITIAL_LEADING_TAB_ID = "notes";
 const INITIAL_TRAILING_TAB_ID = "details";
 
 function Harness({
+  canvas,
   includeBuiltInInspector = true,
   includeBuiltInSavedViews = false,
   includeSavedViewTabs = false,
@@ -149,6 +157,7 @@ function Harness({
   onChange,
   windowManager,
 }: {
+  canvas?: WorkspaceCanvasConfiguration;
   includeBuiltInInspector?: boolean;
   includeBuiltInSavedViews?: boolean;
   includeSavedViewTabs?: boolean;
@@ -166,6 +175,7 @@ function Harness({
   return (
     <WorkspaceShell
       ariaLabel="Test workspace"
+      canvas={canvas}
       includeBuiltInInspector={includeBuiltInInspector}
       includeBuiltInSavedViews={includeBuiltInSavedViews}
       includeSavedViewTabs={includeSavedViewTabs}
@@ -241,6 +251,7 @@ describe("WorkspaceShell", () => {
     document.body.appendChild(host);
     root = createRoot(host);
     onChange = vi.fn();
+    workspaceCanvasProps.mockClear();
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
@@ -379,6 +390,27 @@ describe("WorkspaceShell", () => {
       panel.compareDocumentPosition(resizeHandle) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("forwards one canvas configuration through the integrated shell", async () => {
+    const canvas: WorkspaceCanvasConfiguration = {
+      externalDrop: {
+        canDrop: () => true,
+        onDrop: () => undefined,
+      },
+    };
+
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          <Harness canvas={canvas} onChange={onChange} />
+        </WorkspaceTestProvider>,
+      );
+    });
+
+    expect(workspaceCanvasProps).toHaveBeenLastCalledWith({
+      configuration: canvas,
+    });
   });
 
   it("mounts the optional host-scoped navigator trigger through shell configuration", async () => {

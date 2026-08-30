@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode, RefObject } from "react";
+import type { WorkspaceCanvasConfiguration } from "../canvas/configuration";
 import type { WorkspaceNavigatorConfiguration } from "../navigator/workspaceNavigatorTypes";
 import type { WorkspaceSectionTagColorPalette } from "../section/sectionTagColors";
 import type { WorkspaceShellWindowingConfiguration } from "../windowing/workspaceWindowingContext";
@@ -49,6 +50,8 @@ export type WorkspaceShellTabDefinition = {
 export type WorkspaceShellProps = {
   viewState: WorkspaceShellViewState;
   onViewStateChange: (nextState: WorkspaceShellViewState) => void;
+
+  canvas?: WorkspaceCanvasConfiguration;
 
   leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
   trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;

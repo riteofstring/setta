@@ -112,8 +112,33 @@ export type {
 } from "./canvas/options";
 
 export type { PanOnScrollMode, SelectionMode } from "./canvas/types";
+export type { WorkspaceCanvasConfiguration } from "./canvas/configuration";
+export type {
+  WorkspaceExternalDropCallback,
+  WorkspaceExternalDropCanDrop,
+  WorkspaceExternalDropConfiguration,
+} from "./canvas/external-drop/types";
+export {
+  fitWorkspaceSections,
+  setWorkspaceSectionAttention,
+} from "./attention/workspaceSectionAttention";
+export type { WorkspaceSectionFitOptions } from "./attention/workspaceSectionAttention";
 export { focusWorkspaceSection } from "./canvas/viewportHelpers";
 export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas";
+export type { WorkspaceCanvasProps } from "./canvas/WorkspaceCanvas";
+export type {
+  WorkspaceGraphConfiguration,
+  WorkspaceGraphConnection,
+  WorkspaceGraphConnectionValidator,
+  WorkspaceGraphEdge,
+  WorkspaceGraphEdgeStatus,
+  WorkspaceGraphPort,
+  WorkspaceGraphPortFamily,
+  WorkspaceGraphPortReference,
+  WorkspaceGraphPortSide,
+  WorkspaceGraphPortType,
+  WorkspaceGraphReconnect,
+} from "./graph/types";
 export { registerWorkspaceCommands } from "./commands/workspaceCommandRegistry";
 export type {
   WorkspaceCommandContext,

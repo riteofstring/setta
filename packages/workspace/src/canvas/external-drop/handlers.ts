@@ -16,9 +16,9 @@ type WorkspaceExternalDropHandlers = {
   onDrop: (event: DragEvent) => void;
 };
 
-function getWorkspaceExternalDropCallbacks(
+export function assertWorkspaceExternalDropConfiguration(
   configuration: WorkspaceExternalDropConfiguration,
-): WorkspaceExternalDropCallbacks {
+): asserts configuration is WorkspaceExternalDropConfiguration {
   if (
     configuration === null ||
     typeof configuration !== "object" ||
@@ -32,12 +32,9 @@ function getWorkspaceExternalDropCallbacks(
       "Workspace external drop configuration requires canDrop and onDrop callbacks.",
     );
   }
-  return { canDrop, onDrop };
 }
 
-function isWorkspaceExternalDropPaneEvent(
-  event: DragEvent,
-): boolean {
+function isWorkspaceExternalDropPaneEvent(event: DragEvent): boolean {
   return event.target === event.currentTarget;
 }
 
@@ -45,7 +42,8 @@ function createWorkspaceExternalDropHandlers(
   host: WorkspaceHost,
   configuration: WorkspaceExternalDropConfiguration,
 ): WorkspaceExternalDropHandlers {
-  const { canDrop, onDrop } = getWorkspaceExternalDropCallbacks(configuration);
+  assertWorkspaceExternalDropConfiguration(configuration);
+  const { canDrop, onDrop }: WorkspaceExternalDropCallbacks = configuration;
 
   return {
     onDragOver: (event) => {

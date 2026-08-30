@@ -1,4 +1,5 @@
 import type { KeyboardEvent, MouseEvent } from "react";
+import { useWorkspaceSectionAttentionHighlight } from "../../attention/workspaceSectionAttention";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController";
 import { openWorkspaceSectionMenu } from "../../context-menu/workspaceMenuInvocation";
 import {
@@ -17,6 +18,7 @@ import {
   useWorkspaceDocument,
 } from "../../document/stores";
 import { useWorkspaceHost } from "../../workspaceHostContext";
+import { WorkspaceGraphPorts } from "../../graph/WorkspaceGraphPorts";
 import { getSectionContainerShellClassName } from "../sectionChrome";
 import { getOnSectionClick } from "../sectionClick";
 import { useSectionRefAndInit } from "../sectionRefs";
@@ -30,6 +32,7 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
   const isActiveSection = useActiveSections((x) =>
     x.activeIds.includes(sectionId),
   );
+  const showAttention = useWorkspaceSectionAttentionHighlight(sectionId);
   const darkMode = useWorkspaceAppearance((x) => x.darkMode);
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isMetaControl = getMetaControlPresentation(host, section) !== null;
@@ -97,7 +100,7 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
 
   return (
     <div
-      className={`${sectionShellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
+      className={`${sectionShellClassName} setta-workspace-section-attention ${showAttention ? "setta-workspace-section-attention-active" : ""} ${isActiveSection ? "z-[150]" : "z-10"}`}
       onClick={getOnSectionClick(host, sectionId)}
       onContextMenu={onContextMenu}
       onKeyDown={onKeyDown}
@@ -122,6 +125,7 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
         section={section}
         hasSectionStyleTheme={hasSectionStyleTheme}
       />
+      <WorkspaceGraphPorts sectionId={sectionId} />
     </div>
   );
 }

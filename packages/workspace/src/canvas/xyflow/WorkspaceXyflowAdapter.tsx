@@ -7,6 +7,7 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
+import { useWorkspaceSectionAttentionTransitioning } from "../../attention/workspaceSectionAttention";
 import { openWorkspacePaneMenu } from "../../context-menu/workspaceMenuInvocation";
 import {
   getOwnerKeyboardMenuPoint,
@@ -37,6 +38,9 @@ import { useWorkspaceOptions } from "../options";
 import { getReactFlowStore, useReactFlow } from "../store";
 import type { NodeDragItem } from "../types";
 import { WorkspaceBackground } from "../WorkspaceBackground";
+import { WorkspaceGraphLayer } from "../../graph/WorkspaceGraphLayer";
+import { attachWorkspaceExternalDropHandlers } from "../external-drop/handlers";
+import type { WorkspaceExternalDropConfiguration } from "../external-drop/types";
 import { WorkspaceXyflowNode } from "./WorkspaceXyflowNode";
 import { useWorkspaceXyflowNodeDrag } from "./WorkspaceXyflowNodeDrag";
 import { WorkspaceXyflowSelection } from "./WorkspaceXyflowSelection";
@@ -55,6 +59,7 @@ import type {
 
 type WorkspaceXyflowAdapterProps = {
   defaultViewport: WorkspaceXyflowViewport;
+  externalDrop?: WorkspaceExternalDropConfiguration;
   onDragCommit?: (items: ReadonlyArray<NodeDragItem>) => void;
   onDragStart?: (items: ReadonlyArray<NodeDragItem>) => void;
   onNodeDimensionsChange?: (
@@ -67,7 +72,7 @@ type WorkspaceXyflowAdapterProps = {
 };
 
 const nodeTypes = { workspace: WorkspaceXyflowNode };
-const EMPTY_EDGES: [] = [];
+const EMPTY_XYFLOW_EDGES: [] = [];
 const EMPTY_NODES: Array<WorkspaceXyflowSectionNode> = [];
 const EMPTY_SECTION_IDS: ReadonlySet<string> = new Set();
 
@@ -134,6 +139,7 @@ function sectionIdsMatch(
 
 export function WorkspaceXyflowAdapter({
   defaultViewport,
+  externalDrop,
   onDragCommit,
   onDragStart,
   onNodeDimensionsChange,
@@ -164,6 +170,7 @@ export function WorkspaceXyflowAdapter({
     (state) => state.canEditLayout,
   );
   const { isMovingFree, isSorting } = useDndMode();
+  const attentionTransitioning = useWorkspaceSectionAttentionTransitioning();
   const nodes = useNodeInternals((state) => state.x);
   const sections = useWorkspaceDocument((state) => state.sections);
   const [draggingSectionIds, setDraggingSectionIds] =
@@ -229,7 +236,8 @@ export function WorkspaceXyflowAdapter({
     zoomOnPinch,
     zoomOnScroll,
   } = useWorkspaceOptions((state) => state);
-  const viewportInteractionEnabled = !isSorting && !isMovingFree;
+  const viewportInteractionEnabled =
+    !isSorting && !isMovingFree && !attentionTransitioning;
   const effectivePanOnDrag =
     viewportInteractionEnabled && !selectionKeyPressed && !userSelectionActive
       ? panOnDrag
@@ -448,6 +456,15 @@ export function WorkspaceXyflowAdapter({
     };
   }, [effectivePanOnDrag, handlePaneClick, host, rootElement]);
 
+  useEffect(() => {
+    const pane =
+      rootElement?.querySelector<HTMLDivElement>(".react-flow__pane");
+    if (!pane || !externalDrop) {
+      return;
+    }
+    return attachWorkspaceExternalDropHandlers(host, pane, externalDrop);
+  }, [externalDrop, host, rootElement]);
+
   return (
     <div
       style={{
@@ -464,7 +481,7 @@ export function WorkspaceXyflowAdapter({
         id={getWorkspaceHostDomId(host)}
         className={`${workspaceScopeClassName} setta-workspace-xyflow-root`}
         nodes={renderNodes ? projectedNodes : EMPTY_NODES}
-        edges={EMPTY_EDGES}
+        edges={EMPTY_XYFLOW_EDGES}
         defaultViewport={defaultViewport}
         onViewportChange={onViewportChange}
         onInit={handleInit}
@@ -515,6 +532,7 @@ export function WorkspaceXyflowAdapter({
           onNodesInitialized={handleNodesInitialized}
         />
         <ViewportPortal>
+          <WorkspaceGraphLayer rootElement={rootElement} />
           <div
             className={CODEMIRROR_TOOLTIP_PARENT_CLASS_NAME}
             ref={tooltipParentRef}
