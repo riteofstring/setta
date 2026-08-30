@@ -6,6 +6,7 @@ import {
 } from "./types";
 import {
   assertWorkspaceClipboardJsonValue,
+  cloneFrozenWorkspaceClipboardJsonValue,
   getWorkspaceClipboardUtf8ByteLength,
 } from "./json";
 import type {
@@ -21,6 +22,10 @@ import type {
 } from "./types";
 
 type UnknownRecord = Record<string, unknown>;
+
+type WorkspaceClipboardEnvelopeSerializeResult =
+  | Readonly<{ ok: true; text: string }>
+  | Readonly<{ code: "clipboard-too-large"; ok: false }>;
 
 class WorkspaceClipboardEnvelopeValidationError extends Error {
   readonly code: WorkspaceClipboardEnvelopeErrorCode;
@@ -540,7 +545,12 @@ function validateParsedClipboardEnvelope(
       envelope,
       options.isSectionKindSupported,
     );
-    return { envelope, ok: true };
+    return {
+      envelope: cloneFrozenWorkspaceClipboardJsonValue(
+        envelope as unknown as JsonValue,
+      ) as unknown as WorkspaceClipboardEnvelope,
+      ok: true,
+    };
   } catch (error) {
     if (error instanceof WorkspaceClipboardEnvelopeValidationError) {
       return { code: error.code, ok: false };
@@ -571,7 +581,11 @@ export function parseWorkspaceClipboardEnvelope(
 
 export function serializeWorkspaceClipboardEnvelope(
   envelope: WorkspaceClipboardEnvelope,
-): string {
+): WorkspaceClipboardEnvelopeSerializeResult {
   const normalized = readEnvelope(envelope);
-  return JSON.stringify(normalized);
+  const text = JSON.stringify(normalized);
+  return getWorkspaceClipboardUtf8ByteLength(text) >
+    WORKSPACE_CLIPBOARD_MAX_TEXT_BYTES
+    ? { code: "clipboard-too-large", ok: false }
+    : { ok: true, text };
 }

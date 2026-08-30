@@ -12,12 +12,16 @@ import { isWorkspaceHostActive } from "../workspaceHostInternals";
 import {
   captureWorkspaceClipboardSelection,
   createWorkspaceLocalClipboardPayload,
+  getWorkspaceClipboardSelectionRootIds,
 } from "./capture";
 import {
   parseWorkspaceClipboardEnvelope,
   serializeWorkspaceClipboardEnvelope,
 } from "./envelope";
-import { assertWorkspaceClipboardJsonValue } from "./json";
+import {
+  assertWorkspaceClipboardJsonValue,
+  cloneFrozenWorkspaceClipboardJsonValue,
+} from "./json";
 import { parseWorkspaceLocalClipboardPayload } from "./localPayload";
 import { planWorkspaceLocalClipboardPaste } from "./planner";
 import {
@@ -30,9 +34,13 @@ import type {
   WorkspaceClipboardAuthority,
   WorkspaceClipboardAuthorityMetadata,
   WorkspaceClipboardAvailabilityAction,
+  WorkspaceClipboardCopyabilityRequest,
   WorkspaceClipboardEnvelope,
   WorkspaceClipboardEnvelopeErrorCode,
   WorkspaceClipboardOperationLease,
+  WorkspaceClipboardPastePlacement,
+  WorkspaceClipboardPasteRequest,
+  WorkspaceClipboardPrepareCopyRequest,
 } from "./types";
 
 type WorkspaceClipboardOperation = "copy" | "duplicate" | "paste";
@@ -44,13 +52,13 @@ type WorkspaceClipboardDeclineReason =
   | "native-selection"
   | "no-selection"
   | "operation-pending"
+  | "selection-not-copyable"
   | "structural-editing-disabled";
 
 type WorkspaceClipboardFailureCode =
   | WorkspaceClipboardEnvelopeErrorCode
   | "authority-copy-failed"
   | "authority-paste-failed"
-  | "authority-result-invalid"
   | "clipboard-read-failed"
   | "clipboard-write-failed"
   | "invalid-local-payload";
@@ -178,7 +186,7 @@ function getBrowserPreflightReason(
     : null;
 }
 
-function getPreflightReason(
+function getBasePreflightReason(
   host: WorkspaceHost,
   operation: WorkspaceClipboardOperation,
 ): WorkspaceClipboardDeclineReason | null {
@@ -194,6 +202,14 @@ function getPreflightReason(
     }
   }
   return null;
+}
+
+function getPreflightReason(
+  host: WorkspaceHost,
+  operation: WorkspaceClipboardOperation,
+): WorkspaceClipboardDeclineReason | null {
+  const baseReason = getBasePreflightReason(host, operation);
+  return baseReason ?? getDelegatedCopyabilityPreflightReason(host, operation);
 }
 
 function getDisabledReason(
@@ -219,6 +235,9 @@ function getDisabledReason(
   }
   if (reason === "operation-pending") {
     return "A clipboard operation is already in progress.";
+  }
+  if (reason === "selection-not-copyable") {
+    return "The selected sections cannot be copied by this workspace.";
   }
   return "Structural editing is disabled in this workspace.";
 }
@@ -303,6 +322,55 @@ function getCurrentCapture(host: WorkspaceHost) {
     sections: state.sections,
     topLevelSections: state.topLevelSections,
   });
+}
+
+function getCurrentSelectionRootIds(
+  host: WorkspaceHost,
+): ReadonlyArray<string> {
+  const state = getWorkspaceDocumentStore(host).getState();
+  return getWorkspaceClipboardSelectionRootIds({
+    activeIds: getActiveSectionIds(host),
+    parentSectionMap: state.parentSectionMap,
+    sections: state.sections,
+  });
+}
+
+function createDelegatedClipboardCopyRequest(
+  captured: ReturnType<typeof getCurrentCapture>,
+): WorkspaceClipboardPrepareCopyRequest {
+  return Object.freeze({
+    fragment: captured.fragment,
+    rootIds: captured.fragment.roots,
+    source: captured.source,
+  });
+}
+
+function createDelegatedClipboardCopyabilityRequest(
+  host: WorkspaceHost,
+): WorkspaceClipboardCopyabilityRequest {
+  return Object.freeze({ rootIds: getCurrentSelectionRootIds(host) });
+}
+
+function getDelegatedCopyabilityPreflightReason(
+  host: WorkspaceHost,
+  operation: WorkspaceClipboardOperation,
+): WorkspaceClipboardDeclineReason | null {
+  if (operation === "paste") {
+    return null;
+  }
+  const authority = getWorkspaceClipboardRuntimeState(host).authority;
+  if (authority?.kind !== "delegated" || !authority.canCopySelection) {
+    return null;
+  }
+  const canCopy = authority.canCopySelection(
+    createDelegatedClipboardCopyabilityRequest(host),
+  );
+  if (typeof canCopy !== "boolean") {
+    throw new Error(
+      "Workspace delegated clipboard canCopySelection must return a boolean.",
+    );
+  }
+  return canCopy ? null : "selection-not-copyable";
 }
 
 function isSectionKindSupported(host: WorkspaceHost, kind: string): boolean {
@@ -504,16 +572,91 @@ async function prepareDelegatedClipboardPayload(
 > {
   let payload: unknown;
   try {
-    payload = await authority.prepareCopy({
-      fragment: captured.fragment,
-      rootIds: captured.fragment.roots,
-      source: captured.source,
-    });
+    payload = await authority.prepareCopy(
+      createDelegatedClipboardCopyRequest(captured),
+    );
   } catch {
     return { result: createFailed("authority-copy-failed") };
   }
   assertWorkspaceClipboardJsonValue(payload);
-  return { payload };
+  return {
+    payload: cloneFrozenWorkspaceClipboardJsonValue(payload),
+  };
+}
+
+async function prepareWorkspaceClipboardPayload(
+  authority: WorkspaceClipboardAuthority,
+  captured: ReturnType<typeof getCurrentCapture>,
+): Promise<
+  | Readonly<{ payload: JsonValue }>
+  | Readonly<{ result: WorkspaceClipboardOperationResult }>
+> {
+  return authority.kind === "local"
+    ? { payload: createWorkspaceLocalClipboardPayload(captured) }
+    : prepareDelegatedClipboardPayload(authority, captured);
+}
+
+function createDelegatedClipboardPasteRequest(
+  envelope: WorkspaceClipboardEnvelope,
+  placement: WorkspaceClipboardPastePlacement,
+): WorkspaceClipboardPasteRequest {
+  return Object.freeze({
+    fragment: envelope.fragment,
+    payload: envelope.payload,
+    payloadVersion: envelope.authority.payloadVersion,
+    placement: Object.freeze({ ...placement }),
+    rootIds: envelope.fragment.roots,
+  });
+}
+
+async function writeWorkspaceClipboardEnvelope(
+  host: WorkspaceHost,
+  authority: WorkspaceClipboardAuthority,
+  captured: ReturnType<typeof getCurrentCapture>,
+  payload: JsonValue,
+): Promise<WorkspaceClipboardOperationResult> {
+  const serialized = serializeWorkspaceClipboardEnvelope({
+    authority: getWorkspaceClipboardAuthorityMetadata(authority),
+    fragment: captured.fragment,
+    payload,
+    schema: "setta.workspace.section-clipboard",
+    version: 1,
+  });
+  if (!serialized.ok) {
+    return createFailed(serialized.code);
+  }
+  const clipboard = getBrowserClipboard();
+  if (typeof clipboard?.writeText !== "function") {
+    return createDeclined("clipboard-unavailable");
+  }
+  try {
+    await clipboard.writeText(serialized.text);
+  } catch {
+    return createFailed("clipboard-write-failed");
+  }
+  return isOperationCurrent(host, authority)
+    ? createSuccessful("copied", captured.fragment.roots)
+    : createDeclined("disposed");
+}
+
+async function copyWorkspaceSelectionWithAuthority(
+  host: WorkspaceHost,
+  authority: WorkspaceClipboardAuthority,
+): Promise<WorkspaceClipboardOperationResult> {
+  const captured = getCurrentCapture(host);
+  const prepared = await prepareWorkspaceClipboardPayload(authority, captured);
+  if ("result" in prepared) {
+    return prepared.result;
+  }
+  if (!isOperationCurrent(host, authority)) {
+    return createDeclined("disposed");
+  }
+  return writeWorkspaceClipboardEnvelope(
+    host,
+    authority,
+    captured,
+    prepared.payload,
+  );
 }
 
 export async function copyWorkspaceSelection(
@@ -524,36 +667,7 @@ export async function copyWorkspaceSelection(
     return acquired.result;
   }
   try {
-    const captured = getCurrentCapture(host);
-    const prepared =
-      acquired.authority.kind === "local"
-        ? { payload: createWorkspaceLocalClipboardPayload(captured) }
-        : await prepareDelegatedClipboardPayload(acquired.authority, captured);
-    if ("result" in prepared) {
-      return prepared.result;
-    }
-    if (!isOperationCurrent(host, acquired.authority)) {
-      return createDeclined("disposed");
-    }
-    const clipboard = getBrowserClipboard();
-    if (typeof clipboard?.writeText !== "function") {
-      return createDeclined("clipboard-unavailable");
-    }
-    const text = serializeWorkspaceClipboardEnvelope({
-      authority: getWorkspaceClipboardAuthorityMetadata(acquired.authority),
-      fragment: captured.fragment,
-      payload: prepared.payload,
-      schema: "setta.workspace.section-clipboard",
-      version: 1,
-    });
-    try {
-      await clipboard.writeText(text);
-    } catch {
-      return createFailed("clipboard-write-failed");
-    }
-    return isOperationCurrent(host, acquired.authority)
-      ? createSuccessful("copied", captured.fragment.roots)
-      : createDeclined("disposed");
+    return await copyWorkspaceSelectionWithAuthority(host, acquired.authority);
   } finally {
     acquired.lease.release();
   }
@@ -591,13 +705,9 @@ async function pastePreparedWorkspaceClipboard(
   }
   let result: unknown;
   try {
-    result = await authority.paste({
-      fragment: envelope.fragment,
-      payload: envelope.payload,
-      payloadVersion: envelope.authority.payloadVersion,
-      placement,
-      rootIds: envelope.fragment.roots,
-    });
+    result = await authority.paste(
+      createDelegatedClipboardPasteRequest(envelope, placement),
+    );
   } catch {
     return createFailed("authority-paste-failed");
   }
@@ -657,10 +767,10 @@ export async function duplicateWorkspaceSelection(
   }
   try {
     const captured = getCurrentCapture(host);
-    const prepared =
-      acquired.authority.kind === "local"
-        ? { payload: createWorkspaceLocalClipboardPayload(captured) }
-        : await prepareDelegatedClipboardPayload(acquired.authority, captured);
+    const prepared = await prepareWorkspaceClipboardPayload(
+      acquired.authority,
+      captured,
+    );
     if ("result" in prepared) {
       return prepared.result;
     }

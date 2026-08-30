@@ -67,6 +67,10 @@ export type WorkspaceClipboardPrepareCopyRequest = Readonly<{
   source: WorkspaceClipboardSource;
 }>;
 
+export type WorkspaceClipboardCopyabilityRequest = Readonly<{
+  rootIds: ReadonlyArray<string>;
+}>;
+
 export type WorkspaceClipboardPastePlacement = Readonly<Position>;
 
 export type WorkspaceClipboardPasteRequest = Readonly<{
@@ -82,6 +86,7 @@ export type WorkspaceClipboardPasteResult = Readonly<{
 }>;
 
 export type WorkspaceDelegatedClipboardAuthority = Readonly<{
+  canCopySelection?: (request: WorkspaceClipboardCopyabilityRequest) => boolean;
   id: string;
   kind: "delegated";
   paste: (

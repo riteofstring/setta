@@ -14,6 +14,7 @@ export { registerWorkspaceClipboardAuthority } from "./clipboard/registry";
 export type {
   JsonValue,
   WorkspaceClipboardAuthority,
+  WorkspaceClipboardCopyabilityRequest,
   WorkspaceClipboardIdMaps,
   WorkspaceClipboardItemDataCloneContext,
   WorkspaceClipboardPastePlacement,

@@ -21,6 +21,13 @@ import type {
 } from "../document/types";
 import type { WorkspaceSnapshot } from "../document/workspaceSnapshot";
 
+const NESTED_ROOT_LAYOUT_CASCADE_OFFSET = 40;
+
+type ResolvedRootLayout = Readonly<{
+  layout: TopLevelSectionLayout;
+  topLevelSectionId: string;
+}>;
+
 function assertStableIdentifier(value: string, role: string): void {
   if (value.trim() === "" || value !== value.trim()) {
     throw new Error(`${role} must be a nonblank trimmed identifier.`);
@@ -81,6 +88,15 @@ function normalizeWorkspaceClipboardRootSelection(
   });
 }
 
+export function getWorkspaceClipboardSelectionRootIds(
+  input: Pick<
+    WorkspaceClipboardCaptureInput,
+    "activeIds" | "parentSectionMap" | "sections"
+  >,
+): ReadonlyArray<string> {
+  return Object.freeze(normalizeWorkspaceClipboardRootSelection(input));
+}
+
 function toClipboardSection(
   section: WorkspaceSection,
 ): WorkspaceClipboardSection {
@@ -110,7 +126,7 @@ function cloneSourceSection(
 function resolveRootLayout(
   input: WorkspaceClipboardCaptureInput,
   sectionId: string,
-): TopLevelSectionLayout {
+): ResolvedRootLayout {
   const visited = new Set<string>();
   let currentId: string | null = sectionId;
   while (currentId !== null) {
@@ -122,7 +138,7 @@ function resolveRootLayout(
     visited.add(currentId);
     const layout = input.topLevelSections[currentId];
     if (layout) {
-      return layout;
+      return { layout, topLevelSectionId: currentId };
     }
     const parentId: string | null = input.parentSectionMap[currentId] ?? null;
     if (parentId !== null) {
@@ -135,18 +151,66 @@ function resolveRootLayout(
   );
 }
 
+function resolveRootLayoutDimensions(
+  input: WorkspaceClipboardCaptureInput,
+  rootId: string,
+  resolved: ResolvedRootLayout,
+): Pick<WorkspaceClipboardTopLevelLayout, "h" | "w"> {
+  if (rootId === resolved.topLevelSectionId) {
+    return { h: resolved.layout.h, w: resolved.layout.w };
+  }
+  const section = assertKnownSection(input.sections, rootId);
+  return {
+    h: section.size.height === "auto" ? null : section.size.height,
+    w: section.size.width === "auto" ? null : section.size.width,
+  };
+}
+
 function normalizeRootLayouts(
   input: WorkspaceClipboardCaptureInput,
   rootIds: ReadonlyArray<string>,
 ): Record<string, WorkspaceClipboardTopLevelLayout> {
-  const sourceLayouts = rootIds.map(
-    (rootId) => [rootId, resolveRootLayout(input, rootId)] as const,
+  const sourceLayouts = rootIds.map((rootId) => {
+    const resolved = resolveRootLayout(input, rootId);
+    return [rootId, resolved] as const;
+  });
+  const nestedRootCountByTopLevelId = new Map<string, number>();
+  const unnormalizedLayouts: Record<string, WorkspaceClipboardTopLevelLayout> =
+    Object.create(null) as Record<string, WorkspaceClipboardTopLevelLayout>;
+  for (const [rootId, resolved] of sourceLayouts) {
+    const nestedRootIndex =
+      rootId === resolved.topLevelSectionId
+        ? 0
+        : (nestedRootCountByTopLevelId.get(resolved.topLevelSectionId) ?? 0);
+    if (rootId !== resolved.topLevelSectionId) {
+      nestedRootCountByTopLevelId.set(
+        resolved.topLevelSectionId,
+        nestedRootIndex + 1,
+      );
+    }
+    const dimensions = resolveRootLayoutDimensions(input, rootId, resolved);
+    unnormalizedLayouts[rootId] = {
+      ...dimensions,
+      x:
+        resolved.layout.x + nestedRootIndex * NESTED_ROOT_LAYOUT_CASCADE_OFFSET,
+      y:
+        resolved.layout.y + nestedRootIndex * NESTED_ROOT_LAYOUT_CASCADE_OFFSET,
+      zIndex: resolved.layout.zIndex,
+    };
+  }
+  const minimumX = Math.min(
+    ...Object.values(unnormalizedLayouts).map((layout) => layout.x),
   );
-  const minimumX = Math.min(...sourceLayouts.map(([, layout]) => layout.x));
-  const minimumY = Math.min(...sourceLayouts.map(([, layout]) => layout.y));
+  const minimumY = Math.min(
+    ...Object.values(unnormalizedLayouts).map((layout) => layout.y),
+  );
   const layouts: Record<string, WorkspaceClipboardTopLevelLayout> =
     Object.create(null) as Record<string, WorkspaceClipboardTopLevelLayout>;
-  for (const [rootId, layout] of sourceLayouts) {
+  for (const rootId of rootIds) {
+    const layout = unnormalizedLayouts[rootId];
+    if (!layout) {
+      throw new Error(`Clipboard capture root ${rootId} has no layout.`);
+    }
     layouts[rootId] = {
       h: layout.h,
       w: layout.w,
@@ -158,10 +222,26 @@ function normalizeRootLayouts(
   return layouts;
 }
 
+function cloneFrozenClipboardFragment(
+  fragment: WorkspaceClipboardFragment,
+): WorkspaceClipboardFragment {
+  return cloneFrozenWorkspaceClipboardJsonValue(
+    fragment as unknown as JsonValue,
+  ) as unknown as WorkspaceClipboardFragment;
+}
+
+function cloneFrozenClipboardSource(
+  source: WorkspaceClipboardSource,
+): WorkspaceClipboardSource {
+  return cloneFrozenWorkspaceClipboardJsonValue(
+    source as unknown as JsonValue,
+  ) as unknown as WorkspaceClipboardSource;
+}
+
 export function captureWorkspaceClipboardSelection(
   input: WorkspaceClipboardCaptureInput,
 ): WorkspaceClipboardCapturedSelection {
-  const rootIds = normalizeWorkspaceClipboardRootSelection(input);
+  const rootIds = getWorkspaceClipboardSelectionRootIds(input);
   if (rootIds.length === 0) {
     throw new Error(
       "Clipboard capture requires at least one selected section.",
@@ -201,7 +281,10 @@ export function captureWorkspaceClipboardSelection(
     topLevelLayouts: normalizeRootLayouts(input, rootIds),
   };
   const source: WorkspaceClipboardSource = { sections: sourceSections };
-  return { fragment, source };
+  return {
+    fragment: cloneFrozenClipboardFragment(fragment),
+    source: cloneFrozenClipboardSource(source),
+  };
 }
 
 function cloneOptionalSectionData(

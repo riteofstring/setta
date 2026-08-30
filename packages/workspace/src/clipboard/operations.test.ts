@@ -13,6 +13,13 @@ import type {
 import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import { registerWorkspaceClipboardAuthority } from "./registry";
 import {
+  WORKSPACE_CLIPBOARD_MAX_TEXT_BYTES,
+  type WorkspaceClipboardAuthority,
+  type WorkspaceClipboardCopyabilityRequest,
+  type WorkspaceClipboardPasteRequest,
+  type WorkspaceClipboardPrepareCopyRequest,
+} from "./types";
+import {
   copyWorkspaceSelection,
   duplicateWorkspaceSelection,
   getWorkspaceClipboardAvailability,
@@ -145,11 +152,27 @@ describe("workspace section clipboard operations", () => {
         itemCloneContexts.push(
           context.itemIdsBySection.get("child")?.get("item"),
         );
+        expect(Object.isFrozen(context)).toBe(true);
+        expect(Object.isFrozen(source)).toBe(true);
+        expect(() => {
+          (context.sectionIds as unknown as Map<string, string>).set(
+            "child",
+            "corrupted",
+          );
+        }).toThrow();
+        expect(() => {
+          (context.itemIdsBySection.get("child") as Map<string, string>).set(
+            "item",
+            "corrupted",
+          );
+        }).toThrow();
         expect(source).toEqual({ value: "item-source" });
         return { clonedItemId: context.sourceItemId, value: "item-source" };
       },
       cloneSectionData: (source, context) => {
         sectionCloneContexts.push(context.sectionIds.get("child"));
+        expect(Object.isFrozen(context)).toBe(true);
+        expect(Object.isFrozen(source)).toBe(true);
         expect(source).toEqual({ value: "source" });
         return { clonedSectionId: context.sourceSectionId, value: "source" };
       },
@@ -208,8 +231,32 @@ describe("workspace section clipboard operations", () => {
   it("keeps delegated copy and duplicate authority-owned without speculative publication", async () => {
     const host = ownHost(createWorkspaceHost());
     host.loadDocument(createDocument());
-    const prepareCopy = vi.fn(async () => ({ status: "domain-payload" }));
-    const paste = vi.fn(async () => ({ rootIds: ["accepted-root"] }));
+    const prepareCopy = vi.fn(
+      async (request: WorkspaceClipboardPrepareCopyRequest) => {
+        expect(Object.isFrozen(request)).toBe(true);
+        expect(Object.isFrozen(request.fragment)).toBe(true);
+        expect(Object.isFrozen(request.source)).toBe(true);
+        expect(() => {
+          (request.fragment.roots as Array<string>).push("injected-root");
+        }).toThrow();
+        expect(() => {
+          (
+            request.fragment.sections.group as unknown as { name: string }
+          ).name = "mutated";
+        }).toThrow();
+        return { status: "domain-payload" };
+      },
+    );
+    const paste = vi.fn(async (request: WorkspaceClipboardPasteRequest) => {
+      expect(Object.isFrozen(request)).toBe(true);
+      expect(Object.isFrozen(request.fragment)).toBe(true);
+      expect(Object.isFrozen(request.payload)).toBe(true);
+      expect(Object.isFrozen(request.placement)).toBe(true);
+      expect(() => {
+        (request.placement as { x: number }).x = 999;
+      }).toThrow();
+      return { rootIds: ["accepted-root"] };
+    });
     registerWorkspaceClipboardAuthority(host, {
       id: "delegated-test",
       kind: "delegated",
@@ -231,6 +278,114 @@ describe("workspace section clipboard operations", () => {
       }),
     );
     expect(host.getSnapshot()).toEqual(createDocument());
+  });
+
+  it("lets delegated authorities synchronously decline uncopyable selections", async () => {
+    const host = ownHost(createWorkspaceHost());
+    host.loadDocument(createDocument());
+    installClipboard();
+    const canCopySelection = vi.fn(
+      (request: WorkspaceClipboardCopyabilityRequest) => {
+        expect(Object.isFrozen(request)).toBe(true);
+        expect(Object.isFrozen(request.rootIds)).toBe(true);
+        expect(() => {
+          (request.rootIds as Array<string>).push("injected-root");
+        }).toThrow();
+        return false;
+      },
+    );
+    const prepareCopy = vi.fn(async () => ({ copied: true }));
+    registerWorkspaceClipboardAuthority(host, {
+      canCopySelection,
+      id: "delegated-test",
+      kind: "delegated",
+      paste: async () => ({ rootIds: ["accepted-root"] }),
+      payloadVersion: 1,
+      prepareCopy,
+    });
+
+    expect(getWorkspaceClipboardAvailability(host).copy).toEqual({
+      disabledReason:
+        "The selected sections cannot be copied by this workspace.",
+      enabled: false,
+    });
+    expect(getWorkspaceClipboardAvailability(host).duplicate).toEqual({
+      disabledReason:
+        "The selected sections cannot be copied by this workspace.",
+      enabled: false,
+    });
+    expect(await copyWorkspaceSelection(host)).toEqual({
+      reason: "selection-not-copyable",
+      status: "declined",
+    });
+    expect(await duplicateWorkspaceSelection(host)).toEqual({
+      reason: "selection-not-copyable",
+      status: "declined",
+    });
+    expect(canCopySelection).toHaveBeenCalled();
+    expect(prepareCopy).not.toHaveBeenCalled();
+  });
+
+  it("keeps the registered authority descriptor independent from caller mutation", async () => {
+    const host = ownHost(createWorkspaceHost());
+    host.loadDocument(createDocument());
+    const originalPrepareCopy = vi.fn(async () => ({ copied: true }));
+    const replacementPrepareCopy = vi.fn(async () => ({ copied: false }));
+    const authority = {
+      id: "stable-authority",
+      kind: "delegated" as const,
+      paste: async () => ({ rootIds: ["accepted-root"] }),
+      payloadVersion: 4,
+      prepareCopy: originalPrepareCopy,
+    };
+    registerWorkspaceClipboardAuthority(host, authority);
+    authority.id = "changed-authority";
+    authority.payloadVersion = 5;
+    authority.prepareCopy = replacementPrepareCopy;
+
+    expect(getWorkspaceClipboardAvailability(host).authority).toEqual({
+      id: "stable-authority",
+      payloadVersion: 4,
+    });
+    expect(await duplicateWorkspaceSelection(host)).toEqual({
+      rootIds: ["accepted-root"],
+      status: "duplicated",
+    });
+    expect(originalPrepareCopy).toHaveBeenCalledOnce();
+    expect(replacementPrepareCopy).not.toHaveBeenCalled();
+  });
+
+  it("rejects authority kinds outside the closed registration union", () => {
+    const host = ownHost(createWorkspaceHost());
+
+    expect(() =>
+      registerWorkspaceClipboardAuthority(host, {
+        id: "invalid-authority",
+        kind: "other",
+        paste: async () => ({ rootIds: ["accepted-root"] }),
+        payloadVersion: 1,
+        prepareCopy: async () => ({ copied: true }),
+      } as unknown as WorkspaceClipboardAuthority),
+    ).toThrow("kind must be local or delegated");
+  });
+
+  it("rejects oversized outbound clipboard text before writing it", async () => {
+    const host = ownHost(createWorkspaceHost());
+    host.loadDocument(createDocument());
+    const browser = installClipboard();
+    registerWorkspaceClipboardAuthority(host, {
+      id: "delegated-test",
+      kind: "delegated",
+      paste: async () => ({ rootIds: ["accepted-root"] }),
+      payloadVersion: 1,
+      prepareCopy: async () => "x".repeat(WORKSPACE_CLIPBOARD_MAX_TEXT_BYTES),
+    });
+
+    expect(await copyWorkspaceSelection(host)).toEqual({
+      code: "clipboard-too-large",
+      status: "failed",
+    });
+    expect(browser.clipboard.writeText).not.toHaveBeenCalled();
   });
 
   it("rejects unavailable copy paths and invalid external clipboard input without publication", async () => {

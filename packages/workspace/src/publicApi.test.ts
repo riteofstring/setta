@@ -212,6 +212,22 @@ describe("public package API", () => {
     expect(createParameters).toBe(true);
   });
 
+  it("types delegated clipboard eligibility as an adapter-owned boundary", () => {
+    const request = {
+      rootIds: ["section-1"],
+    } satisfies workspace.WorkspaceClipboardCopyabilityRequest;
+    const authority = {
+      canCopySelection: (candidate) => candidate.rootIds.length === 1,
+      id: "adapter",
+      kind: "delegated",
+      paste: async () => ({ rootIds: ["accepted-section"] }),
+      payloadVersion: 1,
+      prepareCopy: async () => ({ copied: true }),
+    } satisfies workspace.WorkspaceDelegatedClipboardAuthority;
+
+    expect(authority.canCopySelection?.(request)).toBe(true);
+  });
+
   it("commits an app-owned section size through the canonical resize funnel", () => {
     const host = workspace.createWorkspaceHost();
     workspace.registerSectionKinds(host, {

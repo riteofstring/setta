@@ -56,6 +56,17 @@ function assertOptionalAuthorityCallback(value: unknown, name: string): void {
   }
 }
 
+function assertOptionalDelegatedAuthorityCallback(
+  value: unknown,
+  name: string,
+): void {
+  if (value !== undefined && typeof value !== "function") {
+    throw new Error(
+      `Workspace delegated clipboard ${name} must be a function.`,
+    );
+  }
+}
+
 function assertLocalClipboardAuthority(
   authority: Extract<WorkspaceClipboardAuthority, { kind: "local" }>,
 ): void {
@@ -76,8 +87,19 @@ function assertDelegatedClipboardAuthority(
 ): void {
   assertKnownAuthorityFields(
     authority,
-    ["id", "kind", "paste", "payloadVersion", "prepareCopy"],
+    [
+      "canCopySelection",
+      "id",
+      "kind",
+      "paste",
+      "payloadVersion",
+      "prepareCopy",
+    ],
     "delegated",
+  );
+  assertOptionalDelegatedAuthorityCallback(
+    authority.canCopySelection,
+    "canCopySelection",
   );
   if (
     !Number.isInteger(authority.payloadVersion) ||
@@ -108,7 +130,40 @@ function assertWorkspaceClipboardAuthority(
     assertLocalClipboardAuthority(authority);
     return;
   }
-  assertDelegatedClipboardAuthority(authority);
+  if (authority.kind === "delegated") {
+    assertDelegatedClipboardAuthority(authority);
+    return;
+  }
+  throw new Error(
+    "Workspace clipboard authority kind must be local or delegated.",
+  );
+}
+
+function createRegisteredWorkspaceClipboardAuthority(
+  authority: WorkspaceClipboardAuthority,
+): WorkspaceClipboardAuthority {
+  if (authority.kind === "local") {
+    return Object.freeze({
+      ...(authority.cloneItemData === undefined
+        ? {}
+        : { cloneItemData: authority.cloneItemData }),
+      ...(authority.cloneSectionData === undefined
+        ? {}
+        : { cloneSectionData: authority.cloneSectionData }),
+      id: authority.id,
+      kind: "local",
+    });
+  }
+  return Object.freeze({
+    ...(authority.canCopySelection === undefined
+      ? {}
+      : { canCopySelection: authority.canCopySelection }),
+    id: authority.id,
+    kind: "delegated",
+    paste: authority.paste,
+    payloadVersion: authority.payloadVersion,
+    prepareCopy: authority.prepareCopy,
+  });
 }
 
 function publishWorkspaceClipboardRuntime(
@@ -164,6 +219,8 @@ export function registerWorkspaceClipboardAuthority(
   authority: WorkspaceClipboardAuthority,
 ): void {
   assertWorkspaceClipboardAuthority(authority);
+  const registeredAuthority =
+    createRegisteredWorkspaceClipboardAuthority(authority);
   const runtime = getWorkspaceClipboardRuntime(host);
   if (runtime.state.disposed) {
     throw new Error(
@@ -176,7 +233,7 @@ export function registerWorkspaceClipboardAuthority(
     );
   }
   publishWorkspaceClipboardRuntime(runtime, {
-    authority,
+    authority: registeredAuthority,
     disposed: false,
     pending: false,
   });

@@ -151,6 +151,92 @@ function allocateItemIds(
   return sections;
 }
 
+class DetachedReadonlyMap<Key, Value> implements ReadonlyMap<Key, Value> {
+  readonly #values: Map<Key, Value>;
+
+  constructor(values: ReadonlyMap<Key, Value>) {
+    this.#values = new Map(values);
+  }
+
+  get size(): number {
+    return this.#values.size;
+  }
+
+  [Symbol.iterator](): MapIterator<[Key, Value]> {
+    return this.#values[Symbol.iterator]();
+  }
+
+  entries(): MapIterator<[Key, Value]> {
+    return this.#values.entries();
+  }
+
+  forEach(
+    callbackfn: (value: Value, key: Key, map: ReadonlyMap<Key, Value>) => void,
+    thisArg?: unknown,
+  ): void {
+    this.#values.forEach((value, key) => {
+      callbackfn.call(thisArg, value, key, this);
+    });
+  }
+
+  get(key: Key): Value | undefined {
+    return this.#values.get(key);
+  }
+
+  has(key: Key): boolean {
+    return this.#values.has(key);
+  }
+
+  keys(): MapIterator<Key> {
+    return this.#values.keys();
+  }
+
+  values(): MapIterator<Value> {
+    return this.#values.values();
+  }
+}
+
+function createDetachedReadonlyMap<Key, Value>(
+  values: ReadonlyMap<Key, Value>,
+): ReadonlyMap<Key, Value> {
+  return Object.freeze(new DetachedReadonlyMap(values));
+}
+
+function createDetachedClipboardIdMaps(
+  maps: WorkspaceClipboardIdMaps,
+): WorkspaceClipboardIdMaps {
+  const itemIdsBySection = new Map<string, ReadonlyMap<string, string>>();
+  for (const [sectionId, itemIds] of maps.itemIdsBySection) {
+    itemIdsBySection.set(sectionId, createDetachedReadonlyMap(itemIds));
+  }
+  return Object.freeze({
+    itemIdsBySection: createDetachedReadonlyMap(itemIdsBySection),
+    sectionIds: createDetachedReadonlyMap(maps.sectionIds),
+  });
+}
+
+function createSectionDataCloneContext(
+  maps: WorkspaceClipboardIdMaps,
+  sourceSectionId: string,
+): WorkspaceClipboardSectionDataCloneContext {
+  return Object.freeze({
+    ...createDetachedClipboardIdMaps(maps),
+    sourceSectionId,
+  });
+}
+
+function createItemDataCloneContext(
+  maps: WorkspaceClipboardIdMaps,
+  sourceSectionId: string,
+  sourceItemId: string,
+): WorkspaceClipboardItemDataCloneContext {
+  return Object.freeze({
+    ...createDetachedClipboardIdMaps(maps),
+    sourceItemId,
+    sourceSectionId,
+  });
+}
+
 function getMappedIdentifier(
   ids: ReadonlyMap<string, string>,
   sourceId: string,
@@ -174,10 +260,7 @@ function cloneSectionData(
   const source = cloneFrozenWorkspaceClipboardJsonValue(
     value,
   ) as unknown as WorkspaceSnapshot<WorkspaceSectionData>;
-  const context: WorkspaceClipboardSectionDataCloneContext = {
-    ...maps,
-    sourceSectionId,
-  };
+  const context = createSectionDataCloneContext(maps, sourceSectionId);
   const cloned = input.authority.cloneSectionData
     ? input.authority.cloneSectionData(source, context)
     : source;
@@ -196,11 +279,11 @@ function cloneItemData(
   const source = cloneFrozenWorkspaceClipboardJsonValue(
     value,
   ) as unknown as WorkspaceSnapshot<WorkspaceSectionData>;
-  const context: WorkspaceClipboardItemDataCloneContext = {
-    ...maps,
-    sourceItemId,
+  const context = createItemDataCloneContext(
+    maps,
     sourceSectionId,
-  };
+    sourceItemId,
+  );
   const cloned = input.authority.cloneItemData
     ? input.authority.cloneItemData(source, context)
     : source;
