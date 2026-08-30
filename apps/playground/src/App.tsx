@@ -2,18 +2,23 @@ import {
   createWorkspaceShellViewState,
   DEFAULT_SECTION_TAG_COLOR_PALETTE,
   deleteSelectedWorkspaceItems,
+  fitWorkspaceSections,
   insertWorkspaceItem,
   setGroupOverflowMode,
   setSectionTagColor,
   setWorkspaceColorMode,
+  setWorkspaceSectionAttention,
   useWorkspaceAppearance,
   useWorkspaceHost,
   type WorkspaceItemDiagnosticRegistry,
+  type WorkspaceCanvasConfiguration,
+  type WorkspaceGraphEdge,
+  type WorkspaceGraphPort,
   type WorkspaceSectionTagColorPalette,
   type WorkspaceShellTabDefinition,
   type WorkspaceShellTabIconProps,
 } from "@setta/workspace";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HostShortcutConflictAction,
   PlaygroundMenuActionReadout,
@@ -30,6 +35,127 @@ import { PlaygroundWindowingDemo } from "./PlaygroundWindowingDemo";
 type PlaygroundIconProps = {
   className?: string;
 };
+
+const PLAYGROUND_EXTERNAL_DROP_TYPE =
+  "application/x-setta-workspace-playground";
+const PLAYGROUND_ATTENTION_SECTION_IDS = [
+  "idle-leaf",
+  "locked-leaf",
+  "styled-leaf",
+] as const;
+
+const PLAYGROUND_GRAPH_PORTS = [
+  {
+    family: "data",
+    id: "idle-data-source",
+    label: "Idle leaf data output",
+    position: 0.3,
+    sectionId: "idle-leaf",
+    type: "source",
+  },
+  {
+    family: "data",
+    id: "locked-data-target",
+    label: "Locked leaf data input",
+    position: 0.3,
+    sectionId: "locked-leaf",
+    type: "target",
+  },
+  {
+    family: "data",
+    id: "styled-data-target",
+    label: "Styled leaf data input",
+    position: 0.3,
+    sectionId: "styled-leaf",
+    type: "target",
+  },
+  {
+    family: "agentic",
+    id: "idle-agentic-source",
+    label: "Idle leaf agentic output",
+    position: 0.5,
+    sectionId: "idle-leaf",
+    type: "source",
+  },
+  {
+    family: "agentic",
+    id: "locked-agentic-target",
+    label: "Locked leaf agentic input",
+    position: 0.5,
+    sectionId: "locked-leaf",
+    type: "target",
+  },
+  {
+    family: "agentic",
+    id: "styled-agentic-target",
+    label: "Styled leaf agentic input",
+    position: 0.5,
+    sectionId: "styled-leaf",
+    type: "target",
+  },
+  {
+    family: "workflow",
+    id: "locked-workflow-source",
+    label: "Locked leaf workflow output",
+    position: 0.7,
+    sectionId: "locked-leaf",
+    type: "source",
+  },
+  {
+    family: "workflow",
+    id: "idle-workflow-target",
+    label: "Idle leaf workflow input",
+    position: 0.7,
+    sectionId: "idle-leaf",
+    type: "target",
+  },
+  {
+    family: "workflow",
+    id: "styled-workflow-target",
+    label: "Styled leaf workflow input",
+    position: 0.7,
+    sectionId: "styled-leaf",
+    type: "target",
+  },
+] as const satisfies ReadonlyArray<WorkspaceGraphPort>;
+
+const PLAYGROUND_GRAPH_EDGES = [
+  {
+    family: "data",
+    id: "playground-data-edge",
+    label: "data",
+    source: { portId: "idle-data-source", sectionId: "idle-leaf" },
+    target: { portId: "locked-data-target", sectionId: "locked-leaf" },
+  },
+  {
+    family: "agentic",
+    id: "playground-agentic-edge",
+    label: "agentic",
+    source: { portId: "idle-agentic-source", sectionId: "idle-leaf" },
+    status: "running",
+    target: { portId: "styled-agentic-target", sectionId: "styled-leaf" },
+  },
+  {
+    family: "workflow",
+    id: "playground-workflow-edge",
+    label: "workflow",
+    source: { portId: "locked-workflow-source", sectionId: "locked-leaf" },
+    target: { portId: "styled-workflow-target", sectionId: "styled-leaf" },
+  },
+] as const satisfies ReadonlyArray<WorkspaceGraphEdge>;
+
+function graphConnectionMatchesEdge(
+  connection: Pick<WorkspaceGraphEdge, "family" | "source" | "target">,
+  edge: WorkspaceGraphEdge,
+): boolean {
+  return (
+    connection.family === edge.family &&
+    connection.source.portId === edge.source.portId &&
+    connection.source.sectionId === edge.source.sectionId &&
+    connection.target.portId === edge.target.portId &&
+    connection.target.sectionId === edge.target.sectionId
+  );
+}
 
 function AppearanceIcon({ className }: PlaygroundIconProps) {
   return (
@@ -277,15 +403,98 @@ function ReloadDocumentButton() {
   );
 }
 
+function PlaygroundCanvasActions({
+  onRestoreGraph,
+  onStatusChange,
+  status,
+}: {
+  onRestoreGraph: () => void;
+  onStatusChange: (status: string) => void;
+  status: string;
+}) {
+  const host = useWorkspaceHost();
+
+  return (
+    <div aria-label="Canvas feature fixtures" role="group">
+      <button
+        className="playground-menu-action"
+        draggable
+        onDragStart={(event) => {
+          event.dataTransfer.effectAllowed = "copy";
+          event.dataTransfer.setData(
+            PLAYGROUND_EXTERNAL_DROP_TYPE,
+            "Playground canvas payload",
+          );
+        }}
+        type="button"
+      >
+        <span>Drag sample onto canvas</span>
+        <span className="playground-menu-action-meta">External drop</span>
+      </button>
+      <button
+        className="playground-menu-action"
+        onClick={() => {
+          try {
+            fitWorkspaceSections(host, PLAYGROUND_ATTENTION_SECTION_IDS);
+            setWorkspaceSectionAttention(
+              host,
+              PLAYGROUND_ATTENTION_SECTION_IDS,
+            );
+            onStatusChange("Fit and highlighted the three graph sections.");
+          } catch (error) {
+            onStatusChange(
+              error instanceof Error
+                ? error.message
+                : "The graph sections could not be highlighted.",
+            );
+          }
+        }}
+        type="button"
+      >
+        <span>Fit and highlight graph</span>
+        <span className="playground-menu-action-meta">Attention</span>
+      </button>
+      <button
+        className="playground-menu-action"
+        onClick={() => {
+          setWorkspaceSectionAttention(host, []);
+          onStatusChange("Cleared graph attention with the 650ms linger.");
+        }}
+        type="button"
+      >
+        <span>Clear graph highlight</span>
+        <span className="playground-menu-action-meta">650 ms linger</span>
+      </button>
+      <button
+        className="playground-menu-action"
+        onClick={onRestoreGraph}
+        type="button"
+      >
+        <span>Restore sample edges</span>
+        <span className="playground-menu-action-meta">Controlled graph</span>
+      </button>
+      <p aria-live="polite" className="playground-host-action-status">
+        {status}
+      </p>
+    </div>
+  );
+}
+
 function PlaygroundActionMenu({
+  canvasStatus,
   leadingPaneShiftsCanvas,
   onClearDiagnostics,
+  onCanvasStatusChange,
+  onRestoreGraph,
   onToggleLeadingPaneShift,
   onShowDiagnostics,
   onUpdateDiagnostics,
 }: {
+  canvasStatus: string;
   leadingPaneShiftsCanvas: boolean;
   onClearDiagnostics: () => void;
+  onCanvasStatusChange: (status: string) => void;
+  onRestoreGraph: () => void;
   onToggleLeadingPaneShift: () => void;
   onShowDiagnostics: () => void;
   onUpdateDiagnostics: () => void;
@@ -306,6 +515,14 @@ function PlaygroundActionMenu({
           <h2>Sections</h2>
           <GroupOverflowModeToggle />
           <SectionTagColorToggle />
+        </section>
+        <section className="playground-menu-group">
+          <h2>Canvas</h2>
+          <PlaygroundCanvasActions
+            onRestoreGraph={onRestoreGraph}
+            onStatusChange={onCanvasStatusChange}
+            status={canvasStatus}
+          />
         </section>
         <section className="playground-menu-group">
           <h2>Shell</h2>
@@ -520,6 +737,7 @@ const sectionTagColorPalette = [
 
 export function App() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
+  const nextGraphEdgeNumber = useRef(1);
 
   usePlaygroundHostCommandState();
   const [shellViewState, setShellViewState] = useState(() =>
@@ -530,6 +748,72 @@ export function App() {
     useState<WorkspaceItemDiagnosticRegistry>(
       PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS,
     );
+  const [graphEdges, setGraphEdges] = useState<
+    ReadonlyArray<WorkspaceGraphEdge>
+  >(() => [...PLAYGROUND_GRAPH_EDGES]);
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [canvasStatus, setCanvasStatus] = useState(
+    "Graph, attention, and external drop are ready.",
+  );
+
+  const canvas = useMemo<WorkspaceCanvasConfiguration>(
+    () => ({
+      externalDrop: {
+        canDrop: (dataTransfer) =>
+          Array.from(dataTransfer.types).includes(
+            PLAYGROUND_EXTERNAL_DROP_TYPE,
+          ),
+        onDrop: (dataTransfer, position) => {
+          const label =
+            dataTransfer.getData(PLAYGROUND_EXTERNAL_DROP_TYPE) ||
+            "Playground payload";
+          setCanvasStatus(
+            `${label} dropped at ${Math.round(position.x)}, ${Math.round(position.y)}.`,
+          );
+        },
+      },
+      graph: {
+        canConnect: (connection) =>
+          connection.source.sectionId !== connection.target.sectionId &&
+          !graphEdges.some((edge) =>
+            graphConnectionMatchesEdge(connection, edge),
+          ),
+        edges: graphEdges,
+        onConnect: (connection) => {
+          const id = `playground-created-edge-${nextGraphEdgeNumber.current}`;
+          nextGraphEdgeNumber.current += 1;
+          setGraphEdges((current) => [...current, { ...connection, id }]);
+          setCanvasStatus(`Created ${connection.family} edge ${id}.`);
+        },
+        onDelete: (edgeIds) => {
+          const deletedIds = new Set(edgeIds);
+          setGraphEdges((current) =>
+            current.filter((edge) => !deletedIds.has(edge.id)),
+          );
+          setSelectedEdgeIds(new Set());
+          setCanvasStatus(`Deleted ${edgeIds.length} selected edge(s).`);
+        },
+        onReconnect: ({ connection, edgeId }) => {
+          setGraphEdges((current) =>
+            current.map((edge) =>
+              edge.id === edgeId
+                ? { ...edge, ...connection, id: edgeId }
+                : edge,
+            ),
+          );
+          setCanvasStatus(`Reconnected ${edgeId}.`);
+        },
+        onSelectedEdgeIdsChange: (edgeIds) => {
+          setSelectedEdgeIds(new Set(edgeIds));
+        },
+        ports: PLAYGROUND_GRAPH_PORTS,
+        selectedEdgeIds,
+      },
+    }),
+    [graphEdges, selectedEdgeIds],
+  );
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -551,8 +835,15 @@ export function App() {
           <AppearanceToggle darkMode={darkMode} />
           <ReloadDocumentButton />
           <PlaygroundActionMenu
+            canvasStatus={canvasStatus}
             leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
+            onCanvasStatusChange={setCanvasStatus}
             onClearDiagnostics={() => setItemDiagnostics({})}
+            onRestoreGraph={() => {
+              setGraphEdges([...PLAYGROUND_GRAPH_EDGES]);
+              setSelectedEdgeIds(new Set());
+              setCanvasStatus("Restored the three reference graph edges.");
+            }}
             onToggleLeadingPaneShift={() =>
               setLeadingPaneShiftsCanvas((enabled) => !enabled)
             }
@@ -568,6 +859,7 @@ export function App() {
       </header>
       <PlaygroundWindowingDemo
         baseTrailingTabs={baseTrailingTabs}
+        canvas={canvas}
         itemDiagnostics={itemDiagnostics}
         leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
         leadingTabs={leadingTabs}

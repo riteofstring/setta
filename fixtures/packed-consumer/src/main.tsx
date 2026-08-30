@@ -19,14 +19,24 @@ import {
   WorkspaceShell,
   type MetaControlDefinition,
   type WorkspaceCreationContext,
+  type WorkspaceCanvasConfiguration,
   type WorkspaceDocumentInput,
+  type WorkspaceGraphEdge,
+  type WorkspaceGraphPort,
   type WorkspaceSection,
   type WorkspaceSectionInput,
   type WorkspaceShellTabDefinition,
   type WorkspaceShellTabIconProps,
 } from "@setta/workspace";
 import "@setta/workspace/styles.css";
-import { StrictMode, useEffect, useState, useSyncExternalStore } from "react";
+import {
+  StrictMode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createRoot } from "react-dom/client";
 import "./consumer.css";
 
@@ -257,6 +267,90 @@ const consumerDocument: WorkspaceDocumentInput = {
   savedViews: null,
 };
 
+const consumerGraphPorts = [
+  {
+    family: "data",
+    id: "packed-welcome-data-source",
+    label: "Welcome note data output",
+    position: 0.3,
+    sectionId: "welcome-note",
+    type: "source",
+  },
+  {
+    family: "data",
+    id: "packed-items-data-target",
+    label: "Packed items data input",
+    position: 0.3,
+    sectionId: "packed-items",
+    type: "target",
+  },
+  {
+    family: "agentic",
+    id: "packed-nested-agentic-source",
+    label: "Nested note agentic output",
+    position: 0.5,
+    sectionId: "nested-note",
+    type: "source",
+  },
+  {
+    family: "agentic",
+    id: "packed-welcome-agentic-target",
+    label: "Welcome note agentic input",
+    position: 0.5,
+    sectionId: "welcome-note",
+    type: "target",
+  },
+  {
+    family: "workflow",
+    id: "packed-time-workflow-source",
+    label: "Packed time workflow output",
+    position: 0.7,
+    sectionId: "packed-time",
+    type: "source",
+  },
+  {
+    family: "workflow",
+    id: "packed-items-workflow-target",
+    label: "Packed items workflow input",
+    position: 0.7,
+    sectionId: "packed-items",
+    type: "target",
+  },
+] as const satisfies ReadonlyArray<WorkspaceGraphPort>;
+
+const consumerGraphEdges = [
+  {
+    family: "data",
+    id: "packed-data-edge",
+    source: { portId: "packed-welcome-data-source", sectionId: "welcome-note" },
+    target: { portId: "packed-items-data-target", sectionId: "packed-items" },
+  },
+  {
+    family: "agentic",
+    id: "packed-agentic-edge",
+    source: {
+      portId: "packed-nested-agentic-source",
+      sectionId: "nested-note",
+    },
+    target: {
+      portId: "packed-welcome-agentic-target",
+      sectionId: "welcome-note",
+    },
+  },
+  {
+    family: "workflow",
+    id: "packed-workflow-edge",
+    source: {
+      portId: "packed-time-workflow-source",
+      sectionId: "packed-time",
+    },
+    target: {
+      portId: "packed-items-workflow-target",
+      sectionId: "packed-items",
+    },
+  },
+] as const satisfies ReadonlyArray<WorkspaceGraphEdge>;
+
 function DocumentChangeReadout() {
   const workspaceHost = useWorkspaceHost();
   const [documentChangeCount, setDocumentChangeCount] = useState(0);
@@ -373,8 +467,50 @@ const consumerTrailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
 function ConsumerApp() {
   const workspaceHost = useWorkspaceHost();
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
+  const nextGraphEdgeNumber = useRef(1);
   const [shellViewState, setShellViewState] = useState(() =>
     createWorkspaceShellViewState(),
+  );
+  const [graphEdges, setGraphEdges] = useState<
+    ReadonlyArray<WorkspaceGraphEdge>
+  >(() => [...consumerGraphEdges]);
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const canvas = useMemo<WorkspaceCanvasConfiguration>(
+    () => ({
+      graph: {
+        canConnect: (connection) =>
+          connection.source.sectionId !== connection.target.sectionId,
+        edges: graphEdges,
+        onConnect: (connection) => {
+          const id = `packed-created-edge-${nextGraphEdgeNumber.current}`;
+          nextGraphEdgeNumber.current += 1;
+          setGraphEdges((current) => [...current, { ...connection, id }]);
+        },
+        onDelete: (edgeIds) => {
+          const deletedIds = new Set(edgeIds);
+          setGraphEdges((current) =>
+            current.filter((edge) => !deletedIds.has(edge.id)),
+          );
+          setSelectedEdgeIds(new Set());
+        },
+        onReconnect: ({ connection, edgeId }) => {
+          setGraphEdges((current) =>
+            current.map((edge) =>
+              edge.id === edgeId
+                ? { ...edge, ...connection, id: edgeId }
+                : edge,
+            ),
+          );
+        },
+        onSelectedEdgeIdsChange: (edgeIds) =>
+          setSelectedEdgeIds(new Set(edgeIds)),
+        ports: consumerGraphPorts,
+        selectedEdgeIds,
+      },
+    }),
+    [graphEdges, selectedEdgeIds],
   );
 
   useEffect(() => {
@@ -413,6 +549,7 @@ function ConsumerApp() {
       <div className="consumer-workspace">
         <WorkspaceShell
           ariaLabel="Packed consumer workspace"
+          canvas={canvas}
           leadingTabs={consumerLeadingTabs}
           onViewStateChange={setShellViewState}
           trailingTabs={consumerTrailingTabs}

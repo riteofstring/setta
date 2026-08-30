@@ -10,6 +10,7 @@ import {
   WorkspaceWindowingError,
   type OpenWorkspaceFloatingWindowInput,
   type WorkspaceFloatingWindow,
+  type WorkspaceCanvasConfiguration,
   type WorkspaceItemDiagnosticRegistry,
   type WorkspaceSectionTagColorPalette,
   type WorkspaceShellTabDefinition,
@@ -27,6 +28,7 @@ import { PlaygroundWindowInteractionDiagnostics } from "./PlaygroundWindowIntera
 
 type PlaygroundWindowingDemoProps = {
   readonly baseTrailingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
+  readonly canvas?: WorkspaceCanvasConfiguration;
   readonly itemDiagnostics: WorkspaceItemDiagnosticRegistry;
   readonly leadingPaneShiftsCanvas: boolean;
   readonly leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
@@ -288,6 +290,7 @@ function deletePlaygroundWindowSpace(
 
 export function PlaygroundWindowingDemo({
   baseTrailingTabs,
+  canvas,
   itemDiagnostics,
   leadingPaneShiftsCanvas,
   leadingTabs,
@@ -392,6 +395,7 @@ export function PlaygroundWindowingDemo({
       <PlaygroundItemDiagnosticsProvider diagnostics={itemDiagnostics}>
         <WorkspaceShell
           ariaLabel="Playground workspace"
+          canvas={canvas}
           includeBuiltInSavedViews={true}
           includeSavedViewTabs={true}
           leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
