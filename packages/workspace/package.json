@@ -46,6 +46,7 @@
     "@uiw/codemirror-theme-github": "4.21.21",
     "@uiw/codemirror-themes": "4.23.0",
     "@uiw/react-codemirror": "4.21.21",
+    "@xyflow/react": "12.11.5",
     "classcat": "5.0.3",
     "d3-drag": "3.0.0",
     "d3-interpolate": "3.0.1",
