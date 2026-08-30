@@ -89,4 +89,36 @@ describe("DndSlot", () => {
     expect(DROP_FEEDBACK_Z_INDEX).toBeLessThan(DRAG_PREVIEW_Z_INDEX);
     expect(overlay?.textContent).toContain("No nesting");
   });
+
+  it("scales feedback with the viewport while preserving a readable range", async () => {
+    testWorkspace.reactFlow.setState({ transform: [0, 0, 0.1] });
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(DndSlot, {
+            behaviorDropType: BehaviorDropTypeEnum.INVALID,
+            children: createElement("div", null, "section"),
+            isGroup: false,
+            sectionId: "target",
+          })}
+        </WorkspaceTestProvider>,
+      );
+    });
+    const overlay = document.body.querySelector<HTMLElement>(
+      "[data-dnd-slot-overlay='true']",
+    );
+    const feedback = overlay?.firstElementChild as HTMLElement | undefined;
+    expect(feedback?.style.transform).toBe("scale(0.35)");
+    expect(feedback?.style.transformOrigin).toBe("center");
+
+    await act(async () => {
+      testWorkspace.reactFlow.setState({ transform: [0, 0, 0.6] });
+    });
+    expect(feedback?.style.transform).toBe("scale(0.6)");
+
+    await act(async () => {
+      testWorkspace.reactFlow.setState({ transform: [0, 0, 2] });
+    });
+    expect(feedback?.style.transform).toBe("scale(1)");
+  });
 });

@@ -1,6 +1,8 @@
 import { useLayoutEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { RiDragDropFill } from "react-icons/ri";
+import { useReactFlow } from "../../canvas/store";
+import { clamp } from "../../canvas/utils";
 import {
   BehaviorDropTypeEnum,
   behaviorToPretty,
@@ -151,6 +153,7 @@ function DndSlotInner({
   isGroup: boolean;
 }) {
   const invalid = behaviorDropType === BehaviorDropTypeEnum.INVALID;
+  const scale = useReactFlow((state) => clamp(state.transform[2], 0.35, 1));
   return (
     <div
       className={`grid h-8 min-w-60 select-none place-items-center rounded-full  text-sm font-bold uppercase tracking-widest text-white shadow-md backdrop-blur-sm motion-safe:transition-opacity ${
@@ -158,6 +161,7 @@ function DndSlotInner({
           ? "[background-color:rgba(185,_28,_28,_0.65)]"
           : "[background-color:rgba(37,_99,_235,_0.8)]"
       } ${isGroup && "mb-8"}`}
+      style={{ transform: `scale(${scale})`, transformOrigin: "center" }}
     >
       <div className="flex items-center gap-2">
         <RiDragDropFill />
