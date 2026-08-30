@@ -152,6 +152,20 @@
   border-color: rgb(248 113 113);
 }
 
+.setta-workspace-saved-views-row:has(
+  .setta-workspace-saved-views-name-input:focus-visible
+) {
+  border-color: rgb(96 165 250);
+  box-shadow: 0 0 0 1px rgb(96 165 250 / 25%);
+}
+
+.setta-workspace-saved-views-row[data-invalid="true"]:has(
+    .setta-workspace-saved-views-name-input:focus-visible
+  ) {
+  border-color: rgb(248 113 113);
+  box-shadow: 0 0 0 1px rgb(248 113 113 / 20%);
+}
+
 .setta-workspace-saved-views-activate {
   display: flex;
   min-width: 0;
@@ -289,10 +303,20 @@
   color: rgb(30 64 175);
 }
 
+.setta-workspace-saved-views-row[data-invalid="true"]
+  .setta-workspace-saved-views-name-input {
+  color: rgb(185 28 28);
+}
+
+.setta-workspace-saved-views-name-input:focus-visible {
+  outline: none;
+}
+
 .setta-workspace-saved-views-error {
   padding-inline: 0.5rem;
   color: rgb(185 28 28);
   font-size: 0.6875rem;
+  font-weight: 500;
   line-height: 0.875rem;
 }
 
@@ -312,8 +336,7 @@
 .setta-workspace-saved-views-drag-handle:focus-visible,
 .setta-workspace-saved-views-edit-activate:focus-visible,
 .setta-workspace-saved-views-icon-button:focus-visible,
-.setta-workspace-saved-views-activate:focus-visible,
-.setta-workspace-saved-views-name-input:focus-visible {
+.setta-workspace-saved-views-activate:focus-visible {
   outline: 2px solid rgb(37 99 235);
   outline-offset: 2px;
 }
@@ -383,6 +406,13 @@
 .setta-workspace-dark
   .setta-workspace-saved-views-edit-activate[aria-pressed="true"] {
   color: rgb(191 219 254);
+}
+
+.setta-workspace-dark
+  .setta-workspace-saved-views-row[data-invalid="true"]
+  .setta-workspace-saved-views-name-input,
+.setta-workspace-dark .setta-workspace-saved-views-error {
+  color: rgb(252 165 165);
 }
 
 .setta-workspace-dark
