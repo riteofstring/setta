@@ -199,23 +199,35 @@ describe("WorkspaceSavedViewsPane", () => {
     );
     expect(getButton("Delete Overview").disabled).toBe(false);
 
-    await act(async () => {
-      getButton("Rename View 1").click();
-    });
     const nameInput = getElement<HTMLInputElement>(
-      'input[aria-label="Saved view name"]',
+      'input[aria-label="Rename View 1"]',
       "saved-view name input",
     );
     await act(async () => {
+      nameInput.focus();
       setInputValue(nameInput, "Dashboard");
       nameInput.dispatchEvent(
         new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }),
       );
     });
-    expect(getButton("Dashboard").textContent).toBe("Dashboard");
+    expect(
+      getElement<HTMLInputElement>(
+        'input[aria-label="Rename Dashboard"]',
+        "renamed saved-view input",
+      ).value,
+    ).toBe("Dashboard");
 
+    const overviewRow = getElement<HTMLElement>(
+      '[data-workspace-saved-view-id="overview"]',
+      "Overview row",
+    );
     await act(async () => {
-      getButton("Move Dashboard up").click();
+      getButton("Reorder Dashboard").dispatchEvent(
+        new Event("dragstart", { bubbles: true }),
+      );
+    });
+    await act(async () => {
+      overviewRow.dispatchEvent(new Event("drop", { bubbles: true }));
     });
     expect(
       testWorkspace.document.getState().savedViews?.views["view-1"]?.sortIndex,
@@ -225,7 +237,7 @@ describe("WorkspaceSavedViewsPane", () => {
     ).toBe(1);
 
     await act(async () => {
-      getButton("Overview").click();
+      getButton("Activate Overview").click();
     });
     expect(testWorkspace.document.getState().savedViews?.activeViewId).toBe(
       "overview",
@@ -236,7 +248,12 @@ describe("WorkspaceSavedViewsPane", () => {
       getButton("Finish editing saved view").click();
     });
     expect(
-      container.querySelector('[aria-label="Rename Overview"]'),
+      container.querySelector('input[aria-label="Rename Overview"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        '[data-testid="workspace-saved-view-drag-handle"]',
+      ),
     ).toBeNull();
     expect(
       container.querySelector(".setta-workspace-saved-views-visibility"),
@@ -316,21 +333,18 @@ describe("WorkspaceSavedViewsPane", () => {
     await act(async () => {
       getButton("Edit saved view").click();
     });
-    await act(async () => {
-      getButton("Rename Overview").click();
-    });
     const nameInput = getElement<HTMLInputElement>(
-      'input[aria-label="Saved view name"]',
+      'input[aria-label="Rename Overview"]',
       "saved-view name input",
     );
     await act(async () => {
+      nameInput.focus();
       setInputValue(nameInput, "Changed");
     });
     await act(async () => {
       nameInput.dispatchEvent(
         new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
       );
-      nameInput.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
     });
     expect(
       testWorkspace.document.getState().savedViews?.views.overview?.name,

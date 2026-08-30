@@ -94,33 +94,14 @@ export function WorkspaceSavedViewsPane({
     ? (savedViews.views[savedViews.activeViewId] ?? null)
     : null;
   const editing = useWorkspaceSavedViewEditing();
-  const [renamingViewId, setRenamingViewId] = useState<string | null>(null);
-  const [nameDraft, setNameDraft] = useState("");
-  const [nameError, setNameError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
-  const nameInputRef = useRef<HTMLInputElement>(null);
   const createActionRef = useRef<HTMLButtonElement>(null);
   const unavailableFocusRef = useRef<HTMLElement>(null);
   const viewButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const requestedFocusViewIdRef = useRef<string | null>(null);
-  const suppressRenameSubmitRef = useRef(false);
   const disabledReasons = useWorkspaceSavedViewDisabledReasons(host);
   const lastViewDeleteReason =
     views.length === 1 ? "The last saved view cannot be deleted." : null;
-
-  useEffect(() => {
-    if (renamingViewId && (!editing || !savedViews?.views[renamingViewId])) {
-      setRenamingViewId(null);
-      setNameError(null);
-    }
-  }, [editing, renamingViewId, savedViews]);
-
-  useEffect(() => {
-    if (renamingViewId) {
-      nameInputRef.current?.focus({ preventScroll: true });
-      nameInputRef.current?.select();
-    }
-  }, [renamingViewId]);
 
   useEffect(() => {
     if (editing && disabledReasons.visibility !== null) {
@@ -166,7 +147,7 @@ export function WorkspaceSavedViewsPane({
     }
     requestedFocusViewIdRef.current = null;
     target.focus({ preventScroll: true });
-  }, [renamingViewId, savedViews]);
+  }, [savedViews]);
 
   function registerViewButton(
     viewId: string,
@@ -201,42 +182,20 @@ export function WorkspaceSavedViewsPane({
     setStatus(getUnavailableMessage(disabledReasons.create));
   }
 
-  function startRename(view: WorkspaceSavedView): void {
-    setRenamingViewId(view.id);
-    setNameDraft(view.name);
-    setNameError(null);
-  }
-
-  function cancelRename(): void {
-    const viewId = renamingViewId;
-    suppressRenameSubmitRef.current = true;
-    setRenamingViewId(null);
-    setNameError(null);
-    if (viewId) {
-      requestedFocusViewIdRef.current = viewId;
-    }
-  }
-
-  function submitRename(view: WorkspaceSavedView): void {
-    if (suppressRenameSubmitRef.current) {
-      suppressRenameSubmitRef.current = false;
-      return;
-    }
-    const nextError = getNameValidationError(view.id, nameDraft, views);
+  function renameView(view: WorkspaceSavedView, draft: string): string | null {
+    const nextError = getNameValidationError(view.id, draft, views);
     if (nextError) {
-      setNameError(nextError);
-      return;
+      return nextError;
     }
-    const nextName = nameDraft.trim();
+    const nextName = draft.trim();
     const result = renameWorkspaceSavedView(host, view.id, nextName);
     if (result.status !== "unavailable") {
-      requestedFocusViewIdRef.current = view.id;
-      setRenamingViewId(null);
-      setNameError(null);
       setStatus(`Renamed saved view to ${nextName}.`);
-      return;
+      return null;
     }
-    setNameError(getUnavailableMessage(disabledReasons.rename));
+    const message = getUnavailableMessage(disabledReasons.rename);
+    setStatus(message);
+    return message;
   }
 
   function deleteView(view: WorkspaceSavedView): void {
@@ -251,21 +210,24 @@ export function WorkspaceSavedViewsPane({
     setStatus(getUnavailableMessage(disabledReasons.delete));
   }
 
-  function move(view: WorkspaceSavedView, direction: -1 | 1): void {
-    const index = views.findIndex((candidate) => candidate.id === view.id);
-    const target = views[index + direction];
-    if (!target) {
-      return;
-    }
+  function reorderView(
+    view: WorkspaceSavedView,
+    target: WorkspaceSavedView,
+  ): void {
     const result = reorderWorkspaceSavedView(host, view.id, target.sortIndex);
     if (result.status !== "unavailable") {
-      requestedFocusViewIdRef.current = view.id;
-      setStatus(
-        `Moved ${view.name} ${direction === -1 ? "up" : "down"} in saved views.`,
-      );
+      setStatus(`Moved ${view.name} in saved views.`);
       return;
     }
     setStatus(getUnavailableMessage(disabledReasons.reorder));
+  }
+
+  function move(view: WorkspaceSavedView, direction: -1 | 1): void {
+    const index = views.findIndex((candidate) => candidate.id === view.id);
+    const target = views[index + direction];
+    if (target) {
+      reorderView(view, target);
+    }
   }
 
   function toggleEditing(): void {
@@ -273,10 +235,6 @@ export function WorkspaceSavedViewsPane({
     if (!setWorkspaceSavedViewEditing(host, nextEditing)) {
       setStatus(getUnavailableMessage(disabledReasons.visibility));
       return;
-    }
-    if (!nextEditing) {
-      setRenamingViewId(null);
-      setNameError(null);
     }
     setStatus(
       nextEditing
@@ -332,25 +290,16 @@ export function WorkspaceSavedViewsPane({
       <WorkspaceSavedViewsList
         actions={{
           activate,
-          cancelRename,
-          changeName: (nextDraft) => {
-            setNameDraft(nextDraft);
-            setNameError(null);
-          },
           deleteView,
           move,
-          startRename,
-          submitRename,
+          renameView,
+          reorderView,
         }}
         activeViewId={activeView.id}
         disabledReasons={disabledReasons}
         editing={editing}
-        inputRef={nameInputRef}
         lastViewDeleteReason={lastViewDeleteReason}
-        nameDraft={nameDraft}
-        nameError={nameError}
         registerViewButton={registerViewButton}
-        renamingViewId={renamingViewId}
         views={views}
       />
       {editing ? (

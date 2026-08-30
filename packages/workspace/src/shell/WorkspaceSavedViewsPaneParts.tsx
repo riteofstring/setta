@@ -1,7 +1,14 @@
-import { type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import {
-  FiArrowDown,
-  FiArrowUp,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  FiBookmark,
   FiCheck,
   FiChevronDown,
   FiEdit3,
@@ -9,6 +16,7 @@ import {
   FiPlus,
   FiTrash2,
 } from "react-icons/fi";
+import { RxDragHandleDots2 } from "react-icons/rx";
 import {
   getSectionChildren,
   getSectionOrThrow,
@@ -30,12 +38,10 @@ export type WorkspaceSavedViewDisabledReasons = {
 
 type WorkspaceSavedViewActions = {
   activate: (view: WorkspaceSavedView) => void;
-  cancelRename: () => void;
-  changeName: (nextDraft: string) => void;
   deleteView: (view: WorkspaceSavedView) => void;
   move: (view: WorkspaceSavedView, direction: -1 | 1) => void;
-  startRename: (view: WorkspaceSavedView) => void;
-  submitRename: (view: WorkspaceSavedView) => void;
+  renameView: (view: WorkspaceSavedView, draft: string) => string | null;
+  reorderView: (view: WorkspaceSavedView, target: WorkspaceSavedView) => void;
 };
 
 function getControlState(
@@ -47,63 +53,72 @@ function getControlState(
     : { disabled: true, title: disabledReason };
 }
 
-function getBoundaryReason(
-  disabledReason: string | null,
-  atBoundary: boolean,
-  boundaryTitle: string,
-): string | null {
-  if (disabledReason !== null) {
-    return disabledReason;
-  }
-  return atBoundary ? boundaryTitle : null;
-}
-
-function WorkspaceSavedViewNameEditor({
-  draft,
-  inputRef,
-  nameError,
-  onCancel,
-  onChange,
-  onSubmit,
+function useWorkspaceSavedViewNameEditor({
+  control,
+  view,
+  onRename,
 }: {
-  draft: string;
-  inputRef: RefObject<HTMLInputElement | null>;
-  nameError: string | null;
-  onCancel: () => void;
-  onChange: (nextDraft: string) => void;
-  onSubmit: () => void;
+  control: { disabled: boolean; title: string };
+  view: WorkspaceSavedView;
+  onRename: (draft: string) => string | null;
 }) {
+  const [draft, setDraft] = useState(view.name);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const cancelBlurRef = useRef(false);
+
+  useEffect(() => {
+    setDraft(view.name);
+    setNameError(null);
+  }, [view.id, view.name]);
+
+  function submit(): void {
+    if (cancelBlurRef.current) {
+      cancelBlurRef.current = false;
+      return;
+    }
+    const nextError = onRename(draft);
+    setNameError(nextError);
+    if (nextError === null) {
+      setDraft(draft.trim());
+    }
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key === "Escape") {
       event.preventDefault();
-      onCancel();
+      cancelBlurRef.current = true;
+      setDraft(view.name);
+      setNameError(null);
+      event.currentTarget.blur();
       return;
     }
     if (event.key === "Enter") {
       event.preventDefault();
-      onSubmit();
+      event.currentTarget.blur();
     }
   }
 
-  return (
-    <div className="setta-workspace-saved-views-name-editor">
+  return {
+    editor: (
       <input
         aria-invalid={nameError ? true : undefined}
-        aria-label="Saved view name"
+        aria-label={`Rename ${view.name}`}
         className="setta-workspace-saved-views-name-input"
-        ref={inputRef}
+        disabled={control.disabled}
+        title={control.title}
         value={draft}
-        onBlur={onSubmit}
-        onChange={(event) => onChange(event.currentTarget.value)}
+        onBlur={submit}
+        onChange={(event) => {
+          setDraft(event.currentTarget.value);
+          setNameError(null);
+        }}
+        onClick={(event) => event.stopPropagation()}
         onKeyDown={onKeyDown}
+        onPointerDown={(event) => event.stopPropagation()}
       />
-      {nameError ? (
-        <p className="setta-workspace-saved-views-error" role="alert">
-          {nameError}
-        </p>
-      ) : null}
-    </div>
-  );
+    ),
+    nameError,
+  };
 }
 
 function WorkspaceSavedViewActionButton({
@@ -134,27 +149,33 @@ function WorkspaceSavedViewActionButton({
   );
 }
 
-function WorkspaceSavedViewRow({
+function WorkspaceSavedViewEditingRow({
   actions,
   activeViewId,
+  canReorder,
   disabledReasons,
-  editing,
-  index,
-  inputRef,
+  dragged,
+  dropTarget,
   lastViewDeleteReason,
-  nameDraft,
-  nameError,
   registerViewButton,
-  renamingViewId,
   view,
   viewCount,
+  onDragEnd,
+  onDragOver,
+  onDragStart,
+  onDrop,
 }: WorkspaceSavedViewsListProps & {
-  index: number;
+  canReorder: boolean;
+  dragged: boolean;
+  dropTarget: boolean;
   view: WorkspaceSavedView;
   viewCount: number;
+  onDragEnd: () => void;
+  onDragOver: (event: DragEvent<HTMLDivElement>) => void;
+  onDragStart: (event: DragEvent<HTMLButtonElement>) => void;
+  onDrop: (event: DragEvent<HTMLDivElement>) => void;
 }) {
   const active = view.id === activeViewId;
-  const renaming = editing && view.id === renamingViewId;
   const activateControl = getControlState(
     disabledReasons.activate,
     `Activate ${view.name}`,
@@ -163,43 +184,59 @@ function WorkspaceSavedViewRow({
     disabledReasons.rename,
     `Rename ${view.name}`,
   );
-  const upControl = getControlState(
-    getBoundaryReason(disabledReasons.reorder, index === 0, "Already first"),
-    `Move ${view.name} up`,
-  );
-  const downControl = getControlState(
-    getBoundaryReason(
-      disabledReasons.reorder,
-      index === viewCount - 1,
-      "Already last",
-    ),
-    `Move ${view.name} down`,
-  );
   const deleteControl = getControlState(
     disabledReasons.delete ?? lastViewDeleteReason,
     `Delete ${view.name}`,
   );
+  const nameEditor = useWorkspaceSavedViewNameEditor({
+    control: renameControl,
+    view,
+    onRename: (draft) => actions.renameView(view, draft),
+  });
+
+  function onHandleKeyDown(event: KeyboardEvent<HTMLButtonElement>): void {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") {
+      return;
+    }
+    event.preventDefault();
+    actions.move(view, event.key === "ArrowUp" ? -1 : 1);
+  }
 
   return (
-    <div
-      className="setta-workspace-saved-views-row"
-      data-active={String(active)}
-      data-workspace-saved-view-id={view.id}
-      role="listitem"
-    >
-      {renaming ? (
-        <WorkspaceSavedViewNameEditor
-          draft={nameDraft}
-          inputRef={inputRef}
-          nameError={nameError}
-          onCancel={actions.cancelRename}
-          onChange={actions.changeName}
-          onSubmit={() => actions.submitRename(view)}
-        />
-      ) : (
+    <div className="setta-workspace-saved-views-row-wrap">
+      <div
+        className="setta-workspace-saved-views-row"
+        data-active={String(active)}
+        data-dragging={String(dragged)}
+        data-drop-target={String(dropTarget)}
+        data-invalid={String(nameEditor.nameError !== null)}
+        data-workspace-saved-view-id={view.id}
+        role="listitem"
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
+        {viewCount > 1 ? (
+          <button
+            aria-label={`Reorder ${view.name}`}
+            className="setta-workspace-saved-views-drag-handle"
+            data-testid="workspace-saved-view-drag-handle"
+            disabled={!canReorder}
+            draggable={canReorder}
+            title={`Reorder ${view.name}. Use Up and Down Arrow keys or drag.`}
+            type="button"
+            onClick={(event) => event.stopPropagation()}
+            onDragEnd={onDragEnd}
+            onDragStart={onDragStart}
+            onKeyDown={onHandleKeyDown}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <RxDragHandleDots2 aria-hidden="true" />
+          </button>
+        ) : null}
         <button
+          aria-label={`Activate ${view.name}`}
           aria-pressed={active}
-          className="setta-workspace-saved-views-activate"
+          className="setta-workspace-saved-views-edit-activate"
           disabled={activateControl.disabled}
           ref={(element) => registerViewButton(view.id, element)}
           title={activateControl.title}
@@ -208,45 +245,60 @@ function WorkspaceSavedViewRow({
             activateControl.disabled ? undefined : () => actions.activate(view)
           }
         >
-          <span className="setta-workspace-saved-views-active-icon">
-            {active ? <FiCheck aria-hidden="true" /> : null}
-          </span>
-          <span>{view.name}</span>
+          <FiBookmark aria-hidden="true" />
         </button>
-      )}
-      {editing && !renaming ? (
-        <div className="setta-workspace-saved-views-row-actions">
-          <WorkspaceSavedViewActionButton
-            control={renameControl}
-            label={`Rename ${view.name}`}
-            onClick={() => actions.startRename(view)}
-          >
-            <FiEdit3 aria-hidden="true" />
-          </WorkspaceSavedViewActionButton>
-          <WorkspaceSavedViewActionButton
-            control={upControl}
-            label={`Move ${view.name} up`}
-            onClick={() => actions.move(view, -1)}
-          >
-            <FiArrowUp aria-hidden="true" />
-          </WorkspaceSavedViewActionButton>
-          <WorkspaceSavedViewActionButton
-            control={downControl}
-            label={`Move ${view.name} down`}
-            onClick={() => actions.move(view, 1)}
-          >
-            <FiArrowDown aria-hidden="true" />
-          </WorkspaceSavedViewActionButton>
-          <WorkspaceSavedViewActionButton
-            control={deleteControl}
-            label={`Delete ${view.name}`}
-            tone="danger"
-            onClick={() => actions.deleteView(view)}
-          >
-            <FiTrash2 aria-hidden="true" />
-          </WorkspaceSavedViewActionButton>
-        </div>
+        {nameEditor.editor}
+        <WorkspaceSavedViewActionButton
+          control={deleteControl}
+          label={`Delete ${view.name}`}
+          tone="danger"
+          onClick={() => actions.deleteView(view)}
+        >
+          <FiTrash2 aria-hidden="true" />
+        </WorkspaceSavedViewActionButton>
+      </div>
+      {nameEditor.nameError ? (
+        <p className="setta-workspace-saved-views-error" role="alert">
+          {nameEditor.nameError}
+        </p>
       ) : null}
+    </div>
+  );
+}
+
+function WorkspaceSavedViewPresentationRow({
+  actions,
+  activeViewId,
+  disabledReasons,
+  registerViewButton,
+  view,
+}: WorkspaceSavedViewsListProps & { view: WorkspaceSavedView }) {
+  const active = view.id === activeViewId;
+  const activateControl = getControlState(
+    disabledReasons.activate,
+    `Activate ${view.name}`,
+  );
+  return (
+    <div
+      className="setta-workspace-saved-views-row"
+      data-active={String(active)}
+      data-workspace-saved-view-id={view.id}
+      role="listitem"
+    >
+      <button
+        aria-pressed={active}
+        className="setta-workspace-saved-views-activate"
+        disabled={activateControl.disabled}
+        ref={(element) => registerViewButton(view.id, element)}
+        title={activateControl.title}
+        type="button"
+        onClick={
+          activateControl.disabled ? undefined : () => actions.activate(view)
+        }
+      >
+        <FiBookmark aria-hidden="true" />
+        <span>{view.name}</span>
+      </button>
     </div>
   );
 }
@@ -256,30 +308,91 @@ type WorkspaceSavedViewsListProps = {
   activeViewId: string;
   disabledReasons: WorkspaceSavedViewDisabledReasons;
   editing: boolean;
-  inputRef: RefObject<HTMLInputElement | null>;
   lastViewDeleteReason: string | null;
-  nameDraft: string;
-  nameError: string | null;
   registerViewButton: (
     viewId: string,
     element: HTMLButtonElement | null,
   ) => void;
-  renamingViewId: string | null;
   views: ReadonlyArray<WorkspaceSavedView>;
 };
 
 export function WorkspaceSavedViewsList(props: WorkspaceSavedViewsListProps) {
+  const [draggedViewId, setDraggedViewId] = useState<string | null>(null);
+  const [dropTargetViewId, setDropTargetViewId] = useState<string | null>(null);
+  const canReorder =
+    props.editing &&
+    props.disabledReasons.reorder === null &&
+    props.views.length > 1;
+
+  function finishDrag(): void {
+    setDraggedViewId(null);
+    setDropTargetViewId(null);
+  }
+
+  function startDrag(
+    event: DragEvent<HTMLButtonElement>,
+    view: WorkspaceSavedView,
+  ): void {
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", view.id);
+    }
+    setDraggedViewId(view.id);
+  }
+
+  function dragOver(
+    event: DragEvent<HTMLDivElement>,
+    view: WorkspaceSavedView,
+  ): void {
+    if (!canReorder || draggedViewId === view.id) {
+      return;
+    }
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "move";
+    }
+    setDropTargetViewId(view.id);
+  }
+
+  function drop(
+    event: DragEvent<HTMLDivElement>,
+    target: WorkspaceSavedView,
+  ): void {
+    event.preventDefault();
+    const sourceId =
+      draggedViewId || event.dataTransfer?.getData("text/plain") || null;
+    const source = props.views.find((view) => view.id === sourceId);
+    if (canReorder && source && source.id !== target.id) {
+      props.actions.reorderView(source, target);
+    }
+    finishDrag();
+  }
+
   return (
     <div className="setta-workspace-saved-views-list" role="list">
-      {props.views.map((view, index) => (
-        <WorkspaceSavedViewRow
-          {...props}
-          index={index}
-          key={view.id}
-          view={view}
-          viewCount={props.views.length}
-        />
-      ))}
+      {props.views.map((view) =>
+        props.editing ? (
+          <WorkspaceSavedViewEditingRow
+            {...props}
+            canReorder={canReorder}
+            dragged={draggedViewId === view.id}
+            dropTarget={dropTargetViewId === view.id}
+            key={view.id}
+            view={view}
+            viewCount={props.views.length}
+            onDragEnd={finishDrag}
+            onDragOver={(event) => dragOver(event, view)}
+            onDragStart={(event) => startDrag(event, view)}
+            onDrop={(event) => drop(event, view)}
+          />
+        ) : (
+          <WorkspaceSavedViewPresentationRow
+            {...props}
+            key={view.id}
+            view={view}
+          />
+        ),
+      )}
     </div>
   );
 }
@@ -410,10 +523,7 @@ export function WorkspaceSavedViewsHeader({
   const EditingIcon = presentation.icon;
   return (
     <header className="setta-workspace-saved-views-heading">
-      <div>
-        <h2>Saved Views</h2>
-        <p>{presentation.description}</p>
-      </div>
+      <h2>Saved Views</h2>
       <div className="setta-workspace-saved-views-heading-actions">
         <button
           aria-label={presentation.label}
@@ -439,7 +549,7 @@ export function WorkspaceSavedViewsHeader({
           onClick={createDisabledReason === null ? onCreate : undefined}
         >
           <FiPlus aria-hidden="true" />
-          New view
+          New View
         </button>
       </div>
     </header>
@@ -450,14 +560,12 @@ function getSavedViewsEditingPresentation(editing: boolean) {
   if (editing) {
     return {
       buttonText: "Done",
-      description: "Choose what belongs in the active view on the canvas.",
       icon: FiCheck,
       label: "Finish editing saved view",
     };
   }
   return {
     buttonText: "Edit",
-    description: "Switch canvas presentations.",
     icon: FiEdit3,
     label: "Edit saved view",
   };
