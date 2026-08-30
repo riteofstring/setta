@@ -144,6 +144,7 @@ function loadItemDocument(
     topLevelSections: { panel: { x: 0, y: 0, w: 280, h: 240, zIndex: 0 } },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds,
+    savedViews: null,
   });
 }
 
@@ -197,6 +198,7 @@ function loadUngroupDocument(activeIds: Array<string> = ["group"]) {
     },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds,
+    savedViews: null,
   });
 }
 
@@ -844,6 +846,7 @@ describe("useCanvasKeyActivations", () => {
         topLevelSections: {},
         viewport: { x: 0, y: 0, zoom: 1 },
         activeIds: [],
+        savedViews: null,
       });
       testWorkspace.reactFlow.setState({ width: 800, height: 600 });
       registerWorkspaceCreationCommands(testWorkspace.host, [

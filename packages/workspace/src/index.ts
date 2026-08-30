@@ -222,6 +222,30 @@ export type { WorkspaceCapabilitiesState } from "./document/capabilities";
 export type { WorkspaceDocumentSubscription } from "./document/documentChangeCallback";
 export { useWorkspaceDocumentSnapshot } from "./document/useWorkspaceDocumentSnapshot";
 export { commitWorkspaceDocument } from "./document/loadWorkspaceDocument";
+export {
+  activateWorkspaceSavedView,
+  createWorkspaceSavedView,
+  deleteWorkspaceSavedView,
+  enableWorkspaceSavedViews,
+  getWorkspaceSavedViewsOperationDisabledReason,
+  getWorkspaceSavedViewsState,
+  renameWorkspaceSavedView,
+  reorderWorkspaceSavedView,
+  setWorkspaceSavedViewSectionVisibility,
+} from "./saved-views/operations";
+export {
+  createWorkspaceSavedViewsState,
+  getOrderedWorkspaceSavedViews,
+  isWorkspaceSavedViewSectionVisible,
+  parseWorkspaceSavedViewsState,
+  projectWorkspaceDocumentSavedViews,
+} from "./saved-views/state";
+export type {
+  WorkspaceSavedViewCreateInput,
+  WorkspaceSavedViewsEnableInput,
+  WorkspaceSavedViewsOperation,
+  WorkspaceSavedViewsOperationResult,
+} from "./saved-views/types";
 export { GROUP_SECTION_KIND } from "./document/documentSelectors";
 export { setItemData } from "./document/itemData";
 export {
@@ -290,6 +314,8 @@ export type {
   WorkspaceSectionData,
   WorkspaceSectionInput,
   WorkspaceSectionItemTree,
+  WorkspaceSavedView,
+  WorkspaceSavedViewsState,
   WorkspaceSwitchItemControlConfiguration,
   WorkspaceTextAreaItemControlConfiguration,
   WorkspaceTextItemControlConfiguration,
@@ -355,13 +381,17 @@ export { ungroupSections } from "./section/ungroupAction";
 export { WorkspaceShell } from "./shell/WorkspaceShell";
 export {
   WorkspaceParameterConfigurationIcon,
+  WorkspaceSavedViewsIcon,
   WorkspaceSectionSettingsIcon,
 } from "./shell/WorkspaceShellIcons";
+export { WorkspaceSavedViewsPane } from "./shell/WorkspaceSavedViewsPane";
+export type { WorkspaceSavedViewsPaneProps } from "./shell/WorkspaceSavedViewsPane";
 export { WorkspaceSectionEditor } from "./shell/WorkspaceInspector";
 export type { WorkspaceSectionEditorProps } from "./shell/WorkspaceInspector";
 export {
   WORKSPACE_INSPECTOR_TAB_ID,
   WORKSPACE_OUTLINE_TAB_ID,
+  WORKSPACE_SAVED_VIEWS_TAB_ID,
   createWorkspaceShellViewState,
 } from "./shell/workspaceShellLayout";
 export type {

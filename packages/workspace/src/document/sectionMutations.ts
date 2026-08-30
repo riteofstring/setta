@@ -225,6 +225,7 @@ export function deleteSections(
     topLevelSections,
     viewport: documentState.viewport,
     parentSectionMap,
+    savedViews: documentState.savedViews,
   };
   const nextNodesMap = createNodesMapFromDocumentChildren(
     host,

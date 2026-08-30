@@ -144,6 +144,7 @@ describe("WorkspaceItemConfigurationEditor", () => {
       },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["leaf"],
+      savedViews: null,
     });
     onChange.mockClear();
   }

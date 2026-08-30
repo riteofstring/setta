@@ -1,0 +1,510 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
+import { setActiveSectionIds } from "../document/activeSections";
+import {
+  getWorkspaceDocument,
+  notifyWorkspaceDocumentChange,
+} from "../document/documentChangeCallback";
+import { commitWorkspaceDocument } from "../document/loadWorkspaceDocument";
+import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { getWorkspaceDocumentStore } from "../document/stores";
+import { getReactFlowStore } from "../canvas/store";
+import { getWorkspaceMenuStateStore } from "../context-menu/workspaceMenuState";
+import {
+  activateDndMovingFreeMode,
+  getDndStateStore,
+  setActiveDnd,
+} from "../dnd/dndState";
+import type {
+  WorkspaceDocumentInput,
+  WorkspaceSectionInput,
+} from "../document/types";
+import { getWorkspaceHistoryState } from "../history/workspaceHistory";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+import {
+  activateWorkspaceSavedView,
+  createWorkspaceSavedView,
+  deleteWorkspaceSavedView,
+  enableWorkspaceSavedViews,
+  getWorkspaceSavedViewsOperationDisabledReason,
+  getWorkspaceSavedViewsState,
+  renameWorkspaceSavedView,
+  reorderWorkspaceSavedView,
+  setWorkspaceSavedViewSectionVisibility,
+} from "./operations";
+import {
+  createWorkspaceSavedViewsState,
+  parseWorkspaceSavedViewsState,
+  projectWorkspaceDocumentSavedViews,
+} from "./state";
+
+const hosts: Array<WorkspaceHost> = [];
+
+function section(
+  id: string,
+  overrides: Partial<WorkspaceSectionInput> = {},
+): WorkspaceSectionInput {
+  return {
+    children: [],
+    id,
+    isHorizontalOrientation: false,
+    isMinimized: false,
+    kind: "leaf",
+    name: id,
+    overflowMode: false,
+    positionAndSizeLocked: false,
+    size: { height: 100, width: 200 },
+    styleColor: null,
+    tagColor: null,
+    ...overrides,
+  };
+}
+
+function document(
+  overrides: Partial<WorkspaceDocumentInput> = {},
+): WorkspaceDocumentInput {
+  return {
+    activeIds: ["alpha", "beta"],
+    savedViews: null,
+    sections: {
+      alpha: section("alpha"),
+      beta: section("beta"),
+      group: section("group", { children: ["nested"], kind: "group" }),
+      nested: section("nested"),
+    },
+    topLevelSections: {
+      alpha: { h: 100, w: 200, x: 0, y: 0, zIndex: 0 },
+      beta: { h: 100, w: 200, x: 240, y: 0, zIndex: 1 },
+      group: { h: 160, w: 320, x: 0, y: 220, zIndex: 2 },
+    },
+    viewport: { x: 0, y: 0, zoom: 1 },
+    ...overrides,
+  };
+}
+
+function createHost(history = false): WorkspaceHost {
+  const host = createWorkspaceHost(
+    history ? { history: { kind: "local" } } : {},
+  );
+  registerSectionKinds(host, { leaf: { renderContent: () => null } });
+  hosts.push(host);
+  return host;
+}
+
+function requireSavedViews(host: WorkspaceHost) {
+  const savedViews = getWorkspaceSavedViewsState(host);
+  if (savedViews === null) {
+    throw new Error("Expected saved views to be enabled.");
+  }
+  return savedViews;
+}
+
+afterEach(() => {
+  for (const host of hosts.splice(0)) {
+    host.dispose();
+  }
+});
+
+describe("workspace saved views", () => {
+  it("strictly parses view records and rejects malformed ids, names, ordering, and geometry", () => {
+    const valid = createWorkspaceSavedViewsState(document(), {
+      id: "overview",
+      name: "Overview",
+    });
+    expect(parseWorkspaceSavedViewsState(valid)).toEqual(valid);
+
+    expect(() =>
+      parseWorkspaceSavedViewsState({
+        ...valid,
+        activeViewId: "missing",
+      }),
+    ).toThrow(/does not exist/u);
+    expect(() =>
+      parseWorkspaceSavedViewsState({
+        activeViewId: "constructor",
+        views: {
+          constructor: valid.views["overview"],
+        },
+      }),
+    ).toThrow(/reserved id/u);
+    expect(() =>
+      parseWorkspaceSavedViewsState({
+        activeViewId: "overview",
+        views: {
+          overview: valid.views["overview"],
+          detail: {
+            ...valid.views["overview"],
+            id: "detail",
+            sortIndex: 1,
+          },
+        },
+      }),
+    ).toThrow(/duplicated/u);
+    expect(() =>
+      parseWorkspaceSavedViewsState({
+        activeViewId: "overview",
+        views: {
+          overview: valid.views["overview"],
+          detail: {
+            ...valid.views["overview"],
+            id: "detail",
+            name: "Detail",
+            sortIndex: 0,
+          },
+        },
+      }),
+    ).toThrow(/sort index 0 is duplicated/u);
+    expect(() =>
+      parseWorkspaceSavedViewsState({
+        activeViewId: "overview",
+        views: {
+          overview: { ...valid.views["overview"], sortIndex: 1 },
+        },
+      }),
+    ).toThrow(/contiguous/u);
+    expect(() =>
+      parseWorkspaceSavedViewsState({
+        ...valid,
+        views: {
+          overview: {
+            ...valid.views["overview"],
+            topLevelSections: {
+              ...valid.views["overview"]?.topLevelSections,
+              alpha: { h: 100, w: 200, x: Number.NaN, y: 0, zIndex: 0 },
+            },
+          },
+        },
+      }),
+    ).toThrow(/finite number/u);
+    expect(() =>
+      parseWorkspaceSavedViewsState({
+        ...valid,
+        views: {
+          overview: {
+            ...valid.views["overview"],
+            viewport: { x: 0, y: 0, zoom: 0 },
+          },
+        },
+      }),
+    ).toThrow(/greater than zero/u);
+    expect(() =>
+      parseWorkspaceSavedViewsState({
+        ...valid,
+        views: {
+          overview: {
+            ...valid.views["overview"],
+            sectionVisibility: { alpha: "yes" },
+          },
+        },
+      }),
+    ).toThrow(/must be boolean/u);
+  });
+
+  it("creates, activates, renames, reorders, deletes, and keeps view-only changes out of history", () => {
+    const host = createHost(true);
+    host.loadDocument(document());
+
+    expect(
+      enableWorkspaceSavedViews(host, { id: "overview", name: "Overview" }),
+    ).toMatchObject({ activeViewId: "overview", status: "applied" });
+    expect(
+      createWorkspaceSavedView(host, { id: "detail", name: "Detail" }),
+    ).toMatchObject({ activeViewId: "detail", status: "applied" });
+    expect(renameWorkspaceSavedView(host, "detail", "Details")).toMatchObject({
+      status: "applied",
+      viewId: "detail",
+    });
+    expect(reorderWorkspaceSavedView(host, "detail", 0)).toMatchObject({
+      status: "applied",
+      viewId: "detail",
+    });
+    expect(
+      Object.values(requireSavedViews(host).views)
+        .sort((left, right) => left.sortIndex - right.sortIndex)
+        .map((view) => view.id),
+    ).toEqual(["detail", "overview"]);
+    expect(getWorkspaceHistoryState(host).canUndo).toBe(false);
+
+    expect(deleteWorkspaceSavedView(host, "overview")).toMatchObject({
+      activeViewId: "detail",
+      status: "applied",
+    });
+    expect(deleteWorkspaceSavedView(host, "detail")).toEqual({
+      reason: "The last saved view cannot be deleted.",
+      status: "unavailable",
+    });
+    expect(getWorkspaceHistoryState(host).canUndo).toBe(false);
+  });
+
+  it("atomically restores the selected presentation and prunes hidden selection", () => {
+    const host = createHost();
+    host.loadDocument(document());
+    enableWorkspaceSavedViews(host, { id: "overview", name: "Overview" });
+    createWorkspaceSavedView(host, { id: "detail", name: "Detail" });
+    commitWorkspaceDocument(host, {
+      ...host.getSnapshot(),
+      topLevelSections: {
+        ...host.getSnapshot().topLevelSections,
+        alpha: { h: 100, w: 200, x: 500, y: 40, zIndex: 0 },
+      },
+      viewport: { x: 80, y: 40, zoom: 1.5 },
+    });
+    expect(
+      requireSavedViews(host).views["detail"]?.topLevelSections["alpha"]?.x,
+    ).toBe(500);
+    expect(requireSavedViews(host).views["detail"]?.viewport).toEqual({
+      x: 80,
+      y: 40,
+      zoom: 1.5,
+    });
+    setWorkspaceSavedViewSectionVisibility(host, ["alpha"], false);
+
+    let publications = 0;
+    const unsubscribe = host.subscribe(() => {
+      publications += 1;
+    });
+    try {
+      expect(activateWorkspaceSavedView(host, "overview")).toMatchObject({
+        activeViewId: "overview",
+        status: "applied",
+      });
+      setActiveSectionIds(host, ["alpha", "beta"]);
+      publications = 0;
+      expect(activateWorkspaceSavedView(host, "detail")).toMatchObject({
+        activeViewId: "detail",
+        status: "applied",
+      });
+    } finally {
+      unsubscribe();
+    }
+
+    expect(publications).toBe(1);
+    expect(host.getSnapshot().topLevelSections["alpha"]?.x).toBe(500);
+    expect(host.getSnapshot().viewport).toEqual({ x: 80, y: 40, zoom: 1.5 });
+    expect(host.getSnapshot().activeIds).toEqual(["beta"]);
+    setActiveSectionIds(host, ["alpha", "beta"]);
+    expect(host.getSnapshot().activeIds).toEqual(["beta"]);
+  });
+
+  it("deletes active views through the successor and fallback activation boundary", () => {
+    const host = createHost();
+    host.loadDocument(document());
+    enableWorkspaceSavedViews(host, { id: "overview", name: "Overview" });
+    createWorkspaceSavedView(host, { id: "middle", name: "Middle" });
+    commitWorkspaceDocument(host, {
+      ...host.getSnapshot(),
+      topLevelSections: {
+        ...host.getSnapshot().topLevelSections,
+        alpha: { h: 100, w: 200, x: 300, y: 0, zIndex: 0 },
+      },
+    });
+    activateWorkspaceSavedView(host, "overview");
+    createWorkspaceSavedView(host, { id: "detail", name: "Detail" });
+    commitWorkspaceDocument(host, {
+      ...host.getSnapshot(),
+      topLevelSections: {
+        ...host.getSnapshot().topLevelSections,
+        alpha: { h: 100, w: 200, x: 600, y: 0, zIndex: 0 },
+      },
+    });
+    activateWorkspaceSavedView(host, "middle");
+
+    expect(deleteWorkspaceSavedView(host, "middle")).toMatchObject({
+      activeViewId: "detail",
+      status: "applied",
+    });
+    expect(host.getSnapshot().topLevelSections["alpha"]?.x).toBe(600);
+    expect(activateWorkspaceSavedView(host, "detail")).toMatchObject({
+      status: "unchanged",
+    });
+    expect(deleteWorkspaceSavedView(host, "detail")).toMatchObject({
+      activeViewId: "overview",
+      status: "applied",
+    });
+    expect(host.getSnapshot().topLevelSections["alpha"]?.x).toBe(0);
+  });
+
+  it("publishes visibility once, prunes selection, and resets stale interaction state", () => {
+    const host = createHost();
+    host.loadDocument(document());
+    enableWorkspaceSavedViews(host);
+    getWorkspaceMenuStateStore(host).setState({ invocation: {} as never });
+    setActiveDnd(host, {
+      activeId: "alpha",
+      activeIsTopLevel: true,
+      activeRect: null,
+      height: null,
+      width: null,
+    });
+    activateDndMovingFreeMode(host);
+    let publications = 0;
+    const unsubscribe = host.subscribe(() => {
+      publications += 1;
+    });
+    try {
+      expect(
+        setWorkspaceSavedViewSectionVisibility(host, ["alpha"], false),
+      ).toMatchObject({ status: "applied" });
+    } finally {
+      unsubscribe();
+    }
+    expect(publications).toBe(1);
+    expect(host.getSnapshot().activeIds).toEqual(["beta"]);
+    expect(getWorkspaceMenuStateStore(host).getState().invocation).toBeNull();
+    expect(getDndStateStore(host).getState()).toMatchObject({
+      activeId: null,
+      isMovingFree: false,
+    });
+  });
+
+  it("synchronizes direct live layout and viewport publications into only the active host", () => {
+    const alpha = createHost();
+    const beta = createHost();
+    alpha.loadDocument(document());
+    beta.loadDocument(document());
+    enableWorkspaceSavedViews(alpha, { id: "alpha", name: "Alpha" });
+    enableWorkspaceSavedViews(beta, { id: "beta", name: "Beta" });
+    getWorkspaceDocumentStore(alpha).setState({
+      topLevelSections: {
+        ...getWorkspaceDocument(alpha).topLevelSections,
+        alpha: { h: 100, w: 200, x: 360, y: 0, zIndex: 0 },
+      },
+      viewport: { x: 30, y: 60, zoom: 1.25 },
+    });
+    notifyWorkspaceDocumentChange(alpha, null);
+
+    expect(
+      requireSavedViews(alpha).views["alpha"]?.topLevelSections["alpha"]?.x,
+    ).toBe(360);
+    expect(requireSavedViews(alpha).views["alpha"]?.viewport).toEqual({
+      x: 30,
+      y: 60,
+      zoom: 1.25,
+    });
+    expect(
+      requireSavedViews(beta).views["beta"]?.topLevelSections["alpha"]?.x,
+    ).toBe(0);
+    expect(requireSavedViews(beta).views["beta"]?.viewport).toEqual({
+      x: 0,
+      y: 0,
+      zoom: 1,
+    });
+  });
+
+  it("completes fit view when active deletion selects a null-camera successor", () => {
+    const host = createHost();
+    host.loadDocument(document());
+    enableWorkspaceSavedViews(host, { id: "overview", name: "Overview" });
+    createWorkspaceSavedView(host, { id: "detail", name: "Detail" });
+    commitWorkspaceDocument(host, { ...host.getSnapshot(), viewport: null });
+    activateWorkspaceSavedView(host, "overview");
+    const transforms: Array<unknown> = [];
+    getReactFlowStore(host).setState({
+      d3Selection: {} as never,
+      d3Zoom: {
+        constrain: () => (transform: unknown) => transform,
+        transform: (_selection: unknown, transform: unknown) => {
+          transforms.push(transform);
+        },
+      } as never,
+      height: 600,
+      width: 800,
+    });
+
+    expect(deleteWorkspaceSavedView(host, "overview")).toMatchObject({
+      activeViewId: "detail",
+      status: "applied",
+    });
+    expect(getReactFlowStore(host).getState()).toMatchObject({
+      fitViewOnInit: true,
+      fitViewOnInitDone: true,
+    });
+    expect(transforms).toHaveLength(1);
+  });
+
+  it("reconciles section drift and exposes a bootstrap projection for persisted active views", () => {
+    const source = document();
+    const savedViews = createWorkspaceSavedViewsState(source, {
+      id: "overview",
+      name: "Overview",
+    });
+    const savedView = savedViews.views["overview"];
+    if (!savedView) {
+      throw new Error("Expected an overview view.");
+    }
+    const persisted = {
+      activeViewId: "overview",
+      views: {
+        overview: {
+          ...savedView,
+          sectionVisibility: { ...savedView.sectionVisibility, alpha: false },
+          topLevelSections: {
+            ...savedView.topLevelSections,
+            alpha: { h: 100, w: 200, x: 700, y: 0, zIndex: 0 },
+          },
+          viewport: { x: 90, y: 20, zoom: 2 },
+        },
+      },
+    };
+    const projected = projectWorkspaceDocumentSavedViews({
+      ...source,
+      activeIds: ["alpha", "beta"],
+      savedViews: persisted,
+    });
+    expect(projected.topLevelSections["alpha"]?.x).toBe(700);
+    expect(projected.viewport).toEqual({ x: 90, y: 20, zoom: 2 });
+    expect(projected.activeIds).toEqual(["beta"]);
+
+    const host = createHost();
+    host.loadDocument(projected);
+    host.loadDocument({
+      ...host.getSnapshot(),
+      activeIds: [],
+      sections: {
+        alpha: section("alpha"),
+        gamma: section("gamma"),
+      },
+      topLevelSections: {
+        alpha: { h: 100, w: 200, x: 700, y: 0, zIndex: 0 },
+        gamma: { h: 100, w: 200, x: 960, y: 0, zIndex: 1 },
+      },
+    });
+    const reconciled = requireSavedViews(host).views["overview"];
+    expect(reconciled?.sectionVisibility).toEqual({
+      alpha: false,
+      gamma: true,
+    });
+    expect(reconciled?.topLevelSections["gamma"]).toEqual({
+      h: 100,
+      w: 200,
+      x: 960,
+      y: 0,
+      zIndex: 1,
+    });
+  });
+
+  it("reports capability availability while allowing activation without layout editing", () => {
+    const host = createHost();
+    host.loadDocument(document());
+    enableWorkspaceSavedViews(host);
+    createWorkspaceSavedView(host, { id: "detail", name: "Detail" });
+    getWorkspaceCapabilitiesStore(host).setState({ canEditLayout: false });
+
+    expect(getWorkspaceSavedViewsOperationDisabledReason(host, "create")).toBe(
+      "Editing saved views requires permission to edit workspace layout.",
+    );
+    expect(createWorkspaceSavedView(host)).toMatchObject({
+      status: "unavailable",
+    });
+    expect(activateWorkspaceSavedView(host, "view-1")).toMatchObject({
+      activeViewId: "view-1",
+      status: "applied",
+    });
+    expect(() =>
+      getWorkspaceSavedViewsOperationDisabledReason(host, "unknown" as never),
+    ).toThrow(/Unknown saved views operation/u);
+    expect(() => activateWorkspaceSavedView(host, "constructor")).toThrow(
+      /reserved id/u,
+    );
+  });
+});

@@ -103,6 +103,7 @@ describe("workspace menu invocation", () => {
       },
       viewport: { x: -200, y: 100, zoom: 2 },
       activeIds: ["alpha"],
+      savedViews: null,
     });
     canvas = document.createElement("div");
     canvas.getBoundingClientRect = () =>

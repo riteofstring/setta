@@ -55,6 +55,7 @@ function loadTestDocument(
       [SECTION_ID]: { h: 96, w: 224, x: 0, y: 0, zIndex: 0 },
     },
     viewport: { x: 0, y: 0, zoom: 1 },
+    savedViews: null,
   });
 }
 

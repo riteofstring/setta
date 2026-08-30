@@ -180,6 +180,7 @@ function moveSectionsToPane({
       documentState.parentSectionMap,
       movingSet,
     ),
+    savedViews: documentState.savedViews,
   };
 }
 
@@ -278,6 +279,7 @@ function moveSectionsIntoParent({
     topLevelSections,
     viewport: documentState.viewport,
     parentSectionMap,
+    savedViews: documentState.savedViews,
   };
 }
 

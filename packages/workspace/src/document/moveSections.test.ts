@@ -69,6 +69,7 @@ function loadTestDocument() {
     },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
+    savedViews: null,
   });
 }
 
@@ -90,6 +91,7 @@ function loadVerticalContainerDocument() {
     },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
+    savedViews: null,
   });
 }
 
@@ -191,6 +193,7 @@ describe("moveSections", () => {
       },
       viewport: null,
       activeIds: [],
+      savedViews: null,
     });
 
     expect(() =>
@@ -294,6 +297,7 @@ describe("moveSections", () => {
       },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: [],
+      savedViews: null,
     });
     expect(() =>
       moveSections(testWorkspace.host, {

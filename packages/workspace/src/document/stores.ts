@@ -2,12 +2,14 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
 import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import { reconcileWorkspaceSavedViewsState } from "../saved-views/state";
 import type { WorkspaceHost } from "../workspaceHost";
 import type {
   Node,
   TopLevelSectionLayout,
   Viewport,
   WorkspaceSection,
+  WorkspaceSavedViewsState,
 } from "./types";
 
 export type WorkspaceDocumentState = {
@@ -16,6 +18,7 @@ export type WorkspaceDocumentState = {
 
   viewport: Viewport | null;
   parentSectionMap: Record<string, string>;
+  savedViews: WorkspaceSavedViewsState | null;
 };
 
 export type NodeInternalsState = { x: Map<string, Node> };
@@ -37,6 +40,7 @@ function createWorkspaceDocumentStore() {
       topLevelSections: {},
       viewport: null,
       parentSectionMap: {},
+      savedViews: null,
     })),
   );
 }
@@ -218,8 +222,18 @@ export function runWithAtomicallyPublishedWorkspaceStores(
 ) {
   const stores = getWorkspaceStoreSet(host);
   const previousPublication = stores.stagedPublication;
+  const reconciledDocument =
+    nextState.document.savedViews === null
+      ? nextState.document
+      : {
+          ...nextState.document,
+          savedViews: reconcileWorkspaceSavedViewsState(
+            nextState.document.savedViews,
+            nextState.document,
+          ),
+        };
   stores.stagedPublication = {
-    document: { ...stores.document.getState(), ...nextState.document },
+    document: { ...stores.document.getState(), ...reconciledDocument },
     nodeInternals: {
       ...stores.nodeInternals.getState(),
       ...nextState.nodeInternals,
@@ -231,6 +245,9 @@ export function runWithAtomicallyPublishedWorkspaceStores(
   };
   try {
     fn();
+    if (reconciledDocument !== nextState.document) {
+      stores.document.setState(reconciledDocument);
+    }
   } finally {
     stores.stagedPublication = previousPublication;
   }

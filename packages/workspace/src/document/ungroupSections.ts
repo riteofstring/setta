@@ -496,6 +496,7 @@ export function prepareUngroupSections(
     ),
     viewport: state.viewport,
     parentSectionMap: buildParentSectionMap(sections),
+    savedViews: state.savedViews,
   };
   const focusContext: UngroupFocusContext = {
     state,

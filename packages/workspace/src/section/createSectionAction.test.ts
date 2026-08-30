@@ -96,6 +96,7 @@ function loadWorkspace(layouts: Record<string, { x: number; y: number }>) {
     ),
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
+    savedViews: null,
   });
 }
 

@@ -55,6 +55,7 @@ function loadTagColorDocument(
     topLevelSections: { leaf: { x: 0, y: 0, w: 240, h: 120, zIndex: 0 } },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: ["leaf"],
+    savedViews: null,
   });
 }
 

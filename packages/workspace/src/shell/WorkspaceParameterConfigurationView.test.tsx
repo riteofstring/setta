@@ -70,6 +70,7 @@ describe("WorkspaceParameterConfigurationView", () => {
         parameters: { h: 200, w: 300, x: 0, y: 0, zIndex: 0 },
       },
       viewport: null,
+      savedViews: null,
     });
     container = document.createElement("div");
     document.body.append(container);

@@ -97,6 +97,7 @@ function loadPanel(
     topLevelSections: { panel: { x: 0, y: 0, w: 280, h: 240, zIndex: 0 } },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
+    savedViews: null,
   });
   if (options.register !== false) {
     registerItemListView(testWorkspace.host, "panel", {
@@ -260,6 +261,7 @@ describe("selected item move gating", () => {
       },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["second"],
+      savedViews: null,
     });
     registerItemListView(testWorkspace.host, "second", {
       listKey: "main",

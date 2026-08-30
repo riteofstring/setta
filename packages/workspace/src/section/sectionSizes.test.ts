@@ -38,6 +38,7 @@ function makeState(
     topLevelSections: {},
     viewport: null,
     parentSectionMap,
+    savedViews: null,
   };
 }
 

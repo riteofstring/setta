@@ -59,6 +59,7 @@ function makeState(): WorkspaceDocumentState {
       "nested-a": "nested-group",
       "nested-b": "nested-group",
     },
+    savedViews: null,
   };
 }
 

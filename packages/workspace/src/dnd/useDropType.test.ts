@@ -84,6 +84,7 @@ function seedDocument(
     topLevelSections,
     viewport: null,
     activeIds: [],
+    savedViews: null,
   });
 }
 

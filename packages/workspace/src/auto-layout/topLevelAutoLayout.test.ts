@@ -72,6 +72,7 @@ function documentWithSections(
       locked: { ...dimensions, x: 0, y: 0, zIndex: 4 },
     },
     viewport: { x: 80, y: 120, zoom: 1.25 },
+    savedViews: null,
   };
 }
 

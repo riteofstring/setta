@@ -1,6 +1,7 @@
 import _ from "lodash";
 import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
-import { getActiveSectionsStore } from "./stores";
+import { isWorkspaceSavedViewSectionVisible } from "../saved-views/state";
+import { getActiveSectionsStore, getWorkspaceDocumentStore } from "./stores";
 import type { WorkspaceHost } from "../workspaceHost";
 
 export function getActiveSectionIds(host: WorkspaceHost): Array<string> {
@@ -11,9 +12,17 @@ export function setActiveSectionIds(
   host: WorkspaceHost,
   ids: Array<string>,
 ): void {
-  if (_.isEqual(getActiveSectionIds(host), ids)) {
+  const document = getWorkspaceDocumentStore(host).getState();
+  const visibleIds = ids.filter((sectionId) =>
+    isWorkspaceSavedViewSectionVisible(
+      document.savedViews,
+      document.parentSectionMap,
+      sectionId,
+    ),
+  );
+  if (_.isEqual(getActiveSectionIds(host), visibleIds)) {
     return;
   }
-  getActiveSectionsStore(host).setState({ activeIds: ids });
+  getActiveSectionsStore(host).setState({ activeIds: visibleIds });
   notifyWorkspaceDocumentChange(host, null);
 }

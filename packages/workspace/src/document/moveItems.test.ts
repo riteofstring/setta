@@ -78,6 +78,7 @@ function loadTestDocument(childrenById: Record<string, Array<string>>) {
     topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
+    savedViews: null,
   });
 }
 
@@ -244,6 +245,7 @@ describe("moveItems", () => {
       topLevelSections: { bare: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: [],
+      savedViews: null,
     });
     expect(() =>
       moveItems(testWorkspace.host, {

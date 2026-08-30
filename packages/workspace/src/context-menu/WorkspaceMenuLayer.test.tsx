@@ -132,6 +132,7 @@ describe("WorkspaceMenuLayer", () => {
       topLevelSections: { existing: { x: 0, y: 0, w: 200, h: 100, zIndex: 0 } },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["existing"],
+      savedViews: null,
     });
     registerWorkspaceCreationCommands(testWorkspace.host, [
       {
@@ -324,6 +325,7 @@ describe("WorkspaceMenuLayer", () => {
       topLevelSections: { existing: { x: 0, y: 0, w: 200, h: 100, zIndex: 0 } },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["existing"],
+      savedViews: null,
     });
     registerWorkspaceCommands(testWorkspace.host, [
       {
@@ -393,6 +395,7 @@ describe("WorkspaceMenuLayer", () => {
       topLevelSections: { existing: { x: 0, y: 0, w: 200, h: 100, zIndex: 0 } },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["existing"],
+      savedViews: null,
     });
     const hostAction = vi.fn();
     registerWorkspaceCommands(testWorkspace.host, [
@@ -536,6 +539,7 @@ describe("WorkspaceMenuLayer", () => {
       },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["existing", "locked"],
+      savedViews: null,
     });
     const onChange = vi.fn();
     testWorkspace.host.subscribe(onChange);
@@ -598,6 +602,7 @@ describe("WorkspaceMenuLayer", () => {
       },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["group"],
+      savedViews: null,
     });
     const onHostAction = vi.fn();
     registerWorkspaceCommands(testWorkspace.host, [
@@ -740,6 +745,7 @@ describe("WorkspaceMenuLayer", () => {
       },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["group", "leaf"],
+      savedViews: null,
     });
     const onChange = vi.fn();
     testWorkspace.host.subscribe(onChange);
@@ -795,6 +801,7 @@ describe("WorkspaceMenuLayer", () => {
       },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["group"],
+      savedViews: null,
     });
     const onChange = vi.fn();
     testWorkspace.host.subscribe(onChange);
@@ -855,6 +862,7 @@ describe("WorkspaceMenuLayer", () => {
       },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["group", "leaf"],
+      savedViews: null,
     });
     openWorkspaceSectionMenu(
       testWorkspace.host,

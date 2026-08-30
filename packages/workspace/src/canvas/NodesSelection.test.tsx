@@ -84,6 +84,7 @@ describe("NodesSelection context menu", () => {
       },
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["alpha", "bravo"],
+      savedViews: null,
     });
     testWorkspace.reactFlow.setState({
       nodesSelectionDims: { x: 0, y: 0, width: 250, height: 50 },

@@ -10,8 +10,9 @@ export function useWorkspaceDocumentSnapshot(): WorkspaceDocument {
   );
   const viewport = useWorkspaceDocument((state) => state.viewport);
   const activeIds = useActiveSections((state) => state.activeIds);
+  const savedViews = useWorkspaceDocument((state) => state.savedViews);
   return useMemo(
-    () => ({ activeIds, sections, topLevelSections, viewport }),
-    [activeIds, sections, topLevelSections, viewport],
+    () => ({ activeIds, savedViews, sections, topLevelSections, viewport }),
+    [activeIds, savedViews, sections, topLevelSections, viewport],
   );
 }

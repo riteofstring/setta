@@ -228,6 +228,7 @@ describe("workspace item reveal registry", () => {
         section: { h: 120, w: 240, x: 0, y: 0, zIndex: 0 },
       },
       viewport: null,
+      savedViews: null,
     });
     const element = document.createElement("div");
     document.body.appendChild(element);

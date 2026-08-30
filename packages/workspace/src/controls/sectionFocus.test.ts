@@ -42,6 +42,7 @@ function makeState(): WorkspaceDocumentState {
     },
     viewport: null,
     parentSectionMap: { "nested-a": "group", "nested-b": "group" },
+    savedViews: null,
   };
 }
 

@@ -30,6 +30,7 @@ export function createWorkspaceHistoryReplayDocument({
       source.topLevelSections,
       live.topLevelSections,
     ),
+    savedViews: structuredClone(live.savedViews),
     viewport: structuredClone(live.viewport),
   };
 }

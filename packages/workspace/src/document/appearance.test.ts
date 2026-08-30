@@ -53,6 +53,7 @@ function makeStyledDocument(): WorkspaceDocumentState {
     topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
     viewport: { x: 0, y: 0, zoom: 1 },
     parentSectionMap: {},
+    savedViews: null,
   };
 }
 

@@ -60,6 +60,8 @@ const RUNTIME_EXPORTS = [
   "WorkspaceShell",
   "WorkspaceSectionEditor",
   "WorkspaceSectionSettingsIcon",
+  "WorkspaceSavedViewsIcon",
+  "WorkspaceSavedViewsPane",
   "WorkspaceTooltip",
   "WorkspaceWindowManager",
   "WorkspaceWindowSurface",
@@ -67,7 +69,9 @@ const RUNTIME_EXPORTS = [
   "WorkspaceWindowingError",
   "WORKSPACE_INSPECTOR_TAB_ID",
   "WORKSPACE_OUTLINE_TAB_ID",
+  "WORKSPACE_SAVED_VIEWS_TAB_ID",
   "activateItemSelect",
+  "activateWorkspaceSavedView",
   "autoLayoutTopLevelSections",
   "buildWorkspaceFloatingSnapBounds",
   "buildWorkspaceFloatingSnapResizeBounds",
@@ -81,6 +85,8 @@ const RUNTIME_EXPORTS = [
   "createWorkspaceHost",
   "createWorkspaceCodeSection",
   "createWorkspaceCodeSectionData",
+  "createWorkspaceSavedView",
+  "createWorkspaceSavedViewsState",
   "createWorkspaceTextSection",
   "createWorkspaceTextSectionData",
   "createWorkspaceShellViewState",
@@ -95,6 +101,7 @@ const RUNTIME_EXPORTS = [
   "deleteLastWorkspaceItem",
   "deleteSelectedWorkspaceItems",
   "deleteWorkspaceItems",
+  "deleteWorkspaceSavedView",
   "duplicateWorkspaceSelection",
   "dockWorkspaceWindow",
   "focusWorkspaceSection",
@@ -102,6 +109,9 @@ const RUNTIME_EXPORTS = [
   "getWorkspaceCodeSectionData",
   "getWorkspaceClipboardAvailability",
   "getWorkspaceHistoryState",
+  "getOrderedWorkspaceSavedViews",
+  "getWorkspaceSavedViewsOperationDisabledReason",
+  "getWorkspaceSavedViewsState",
   "getWorkspaceTextSectionData",
   "getWorkspaceKeyBindingConflicts",
   "getWorkspaceKeyBindings",
@@ -115,7 +125,9 @@ const RUNTIME_EXPORTS = [
   "openWorkspaceFloatingWindow",
   "openWorkspaceNavigator",
   "pasteWorkspaceClipboard",
+  "parseWorkspaceSavedViewsState",
   "planWorkspaceTopLevelAutoLayout",
+  "projectWorkspaceDocumentSavedViews",
   "registerSectionKinds",
   "registerItemHandlers",
   "registerWorkspaceClipboardAuthority",
@@ -126,11 +138,13 @@ const RUNTIME_EXPORTS = [
   "renameWorkspaceWindow",
   "reopenWorkspaceWindow",
   "redoWorkspace",
+  "renameWorkspaceSavedView",
   "resizeWorkspaceFloatingWindow",
   "resolveWorkspaceFloatingSnapPresetFromPointer",
   "resolveWorkspaceWindowWorkArea",
   "restoreWorkspaceWindow",
   "restoreWorkspaceWindowSpace",
+  "reorderWorkspaceSavedView",
   "setItemData",
   "setItemControlConfiguration",
   "setItemHelpText",
@@ -141,6 +155,7 @@ const RUNTIME_EXPORTS = [
   "setSectionData",
   "setSectionTagColor",
   "setWorkspaceSectionSize",
+  "setWorkspaceSavedViewSectionVisibility",
   "setWorkspaceCodeSectionData",
   "setWorkspaceTextSectionData",
   "setWorkspaceWindowBoundsAtomically",
@@ -160,6 +175,8 @@ const RUNTIME_EXPORTS = [
   "useWorkspaceDocumentSnapshot",
   "useWorkspaceHost",
   "useWorkspaceOptions",
+  "enableWorkspaceSavedViews",
+  "isWorkspaceSavedViewSectionVisible",
 ] as const;
 
 describe("public package API", () => {
@@ -256,6 +273,27 @@ describe("public package API", () => {
     expect(createParameters).toBe(true);
   });
 
+  it("exposes saved views as a validated host-scoped document capability", () => {
+    const operation: workspace.WorkspaceSavedViewsOperation = "visibility";
+    const input = {
+      id: "overview",
+      name: "Overview",
+    } satisfies workspace.WorkspaceSavedViewCreateInput;
+    const documentRequiresSavedViews: IsRequiredProperty<
+      workspace.WorkspaceDocument,
+      "savedViews"
+    > = true;
+    const activationParameters: IsExactly<
+      Parameters<typeof workspace.activateWorkspaceSavedView>,
+      [host: workspace.WorkspaceHost, viewId: string]
+    > = true;
+
+    expect(operation).toBe("visibility");
+    expect(input).toEqual({ id: "overview", name: "Overview" });
+    expect(documentRequiresSavedViews).toBe(true);
+    expect(activationParameters).toBe(true);
+  });
+
   it("types delegated clipboard eligibility as an adapter-owned boundary", () => {
     const request = {
       rootIds: ["section-1"],
@@ -296,6 +334,7 @@ describe("public package API", () => {
       },
       topLevelSections: { leaf: { h: 100, w: 200, x: 0, y: 0, zIndex: 0 } },
       viewport: { x: 0, y: 0, zoom: 1 },
+      savedViews: null,
     });
 
     const publications: Array<workspace.WorkspaceDocument> = [];

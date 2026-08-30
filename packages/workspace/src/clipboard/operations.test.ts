@@ -108,6 +108,7 @@ function createDocument(): WorkspaceDocument {
       other: { h: 80, w: 160, x: 280, y: 20, zIndex: 1 },
     },
     viewport: { x: 0, y: 0, zoom: 1 },
+    savedViews: null,
   };
 }
 

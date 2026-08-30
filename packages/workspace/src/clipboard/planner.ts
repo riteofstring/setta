@@ -472,6 +472,7 @@ export function planWorkspaceLocalClipboardPaste(
       sections,
       topLevelSections,
       viewport: input.document.viewport,
+      savedViews: input.document.savedViews,
     },
     rootIds,
     sectionIds,

@@ -27,6 +27,12 @@ import {
 } from "./sectionKindRegistry";
 import { resolveWorkspaceSectionSize } from "./sectionSize";
 import {
+  assertWorkspaceSavedViewsStateForDocument,
+  isWorkspaceSavedViewSectionVisible,
+  parseWorkspaceSavedViewsState,
+  reconcileWorkspaceSavedViewsState,
+} from "../saved-views/state";
+import {
   getActiveSectionsStore,
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
@@ -209,11 +215,31 @@ function prepareWorkspaceDocumentCommit(
   );
   assertKnownSectionIds(document, document.activeIds, "Active ids");
 
+  const savedViews =
+    document.savedViews === null
+      ? null
+      : reconcileWorkspaceSavedViewsState(
+          parseWorkspaceSavedViewsState(document.savedViews),
+          {
+            sections,
+            topLevelSections: document.topLevelSections,
+            viewport: document.viewport,
+          },
+        );
+  if (savedViews !== null) {
+    assertWorkspaceSavedViewsStateForDocument(savedViews, {
+      sections,
+      topLevelSections: document.topLevelSections,
+      viewport: document.viewport,
+    });
+  }
+
   const nextDocumentState: WorkspaceDocumentState = {
     sections,
     topLevelSections: document.topLevelSections,
     viewport: document.viewport,
     parentSectionMap,
+    savedViews,
   };
   const nextNodesMap = createNodesMapFromDocumentChildren(
     host,
@@ -221,7 +247,15 @@ function prepareWorkspaceDocumentCommit(
     getNodeInternalsStore(host).getState().x,
   );
   return {
-    activeSections: { activeIds: document.activeIds },
+    activeSections: {
+      activeIds: document.activeIds.filter((sectionId) =>
+        isWorkspaceSavedViewSectionVisible(
+          savedViews,
+          parentSectionMap,
+          sectionId,
+        ),
+      ),
+    },
     document: nextDocumentState,
     nodeInternals: { x: nextNodesMap },
   };

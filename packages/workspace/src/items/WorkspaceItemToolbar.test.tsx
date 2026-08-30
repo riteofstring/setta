@@ -66,6 +66,7 @@ function loadDocument(): void {
     topLevelSections: { panel: { x: 0, y: 0, w: 260, h: 180, zIndex: 0 } },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: ["panel"],
+    savedViews: null,
   });
 }
 

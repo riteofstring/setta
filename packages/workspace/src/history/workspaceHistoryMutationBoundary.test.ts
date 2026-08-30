@@ -177,6 +177,7 @@ function createDocument(): WorkspaceDocumentInput {
       items: { h: 120, w: 240, x: 260, y: 180, zIndex: 4 },
     },
     viewport: { x: 0, y: 0, zoom: 1 },
+    savedViews: null,
   };
 }
 

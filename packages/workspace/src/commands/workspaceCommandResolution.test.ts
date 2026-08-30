@@ -113,6 +113,7 @@ function loadGroupDocument(): void {
     },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: ["group"],
+    savedViews: null,
   });
 }
 
@@ -128,6 +129,7 @@ function createLocalHistoryHost() {
     },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: ["history"],
+    savedViews: null,
   });
   deleteSections(host, ["history"]);
   return host;

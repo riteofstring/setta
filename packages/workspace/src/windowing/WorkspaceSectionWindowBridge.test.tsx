@@ -132,6 +132,7 @@ describe("workspace section/window bridge", () => {
         [SECTION_ID]: { h: 260, w: 420, x: 0, y: 0, zIndex: 0 },
       },
       viewport: { x: 0, y: 0, zoom: 1 },
+      savedViews: null,
     });
   });
 

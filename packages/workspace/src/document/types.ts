@@ -26,6 +26,20 @@ export type TopLevelSectionLayout = {
   zIndex: number;
 };
 
+export type WorkspaceSavedView = {
+  id: string;
+  name: string;
+  sortIndex: number;
+  topLevelSections: Record<string, TopLevelSectionLayout>;
+  viewport: Viewport | null;
+  sectionVisibility: Record<string, boolean>;
+};
+
+export type WorkspaceSavedViewsState = {
+  activeViewId: string;
+  views: Record<string, WorkspaceSavedView>;
+};
+
 export type WorkspaceSectionData =
   | string
   | number
@@ -251,6 +265,7 @@ export type WorkspaceDocument = {
 
   viewport: Viewport | null;
   activeIds: Array<string>;
+  savedViews: WorkspaceSavedViewsState | null;
 };
 
 export type WorkspaceDocumentInput = Omit<WorkspaceDocument, "sections"> & {

@@ -160,6 +160,7 @@ describe("WorkspaceToolbarGroup", () => {
       topLevelSections: {},
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: [],
+      savedViews: null,
     });
     host = document.createElement("div");
     document.body.appendChild(host);
@@ -399,6 +400,7 @@ describe("WorkspaceToolbarGroup", () => {
         },
         viewport: { x: 0, y: 0, zoom: 1 },
         activeIds: [],
+        savedViews: null,
       });
     });
 

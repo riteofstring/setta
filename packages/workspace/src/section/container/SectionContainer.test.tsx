@@ -93,6 +93,7 @@ function loadTestDocument(
     },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
+    savedViews: null,
   });
 }
 
@@ -127,6 +128,7 @@ function loadDeepDocument() {
     },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
+    savedViews: null,
   });
 }
 
@@ -146,6 +148,7 @@ function loadVerticalContainerDocument() {
     },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
+    savedViews: null,
   });
 }
 
@@ -178,6 +181,7 @@ function loadMetaControlDocument(
     topLevelSections: { meta: { x: 0, y: 0, w: 200, h: 44, zIndex: 0 } },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
+    savedViews: null,
   });
 }
 

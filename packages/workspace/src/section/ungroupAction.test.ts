@@ -69,6 +69,7 @@ function loadUngroupDocument(): void {
     },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: ["group", "sibling"],
+    savedViews: null,
   });
 }
 
