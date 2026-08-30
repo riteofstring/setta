@@ -678,7 +678,7 @@ the sole way to communicate state or meaning.
 
 Package motion is opt-in. The compiled CSS emits accepted transitions only under
 `(prefers-reduced-motion: no-preference)` and neutralizes the retained sortable wrappers under the
-reduced preference. Package-owned d3 camera commands resolve requested durations to zero as well.
+reduced preference. Package-owned camera commands resolve requested durations to zero as well.
 Motion inside a registered host renderer remains host policy; renderers should apply the same media
 preference to their own animation.
 
@@ -705,8 +705,8 @@ content breakpoint and a compact 320 px shell.
 `host.loadDocument(document)` replaces the canonical workspace state with a host-supplied
 serializable document (sections, top-level layout, camera, selection, and saved-view state or an
 explicit `null`). A load validates the complete document before publication, re-applies its camera
-through d3-zoom — or re-arms fit-on-init when `viewport` is `null` — and ends active drag sessions
-so a host can swap documents without remounting `WorkspaceCanvas`.
+through the private canvas runtime — or re-arms fit-on-init when `viewport` is `null` — and ends
+active drag sessions so a host can swap documents without remounting `WorkspaceCanvas`.
 
 `host.subscribe(listener)` reports every later canonical publication, including explicit loads and
 package-initiated selection, move, resize, rename, flag, color, delete, measurement, and viewport

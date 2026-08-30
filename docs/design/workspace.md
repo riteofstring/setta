@@ -30,6 +30,30 @@ application-projection boundary `commitWorkspaceDocument` performs the same comp
 and atomic publication without those external-load lifecycle resets. Partial store writes are not
 an alternate document API.
 
+## Private canvas renderer boundary
+
+Workspace uses exact-pinned `@xyflow/react` as a private, host-scoped canvas renderer. It supplies
+the pane transform, pointer pan and zoom mechanics, node measurement, marquee mechanics, and
+top-level node drag mechanics. The adapter projects the current Workspace section and geometry
+stores into controlled XYFlow nodes and translates renderer events back through the existing
+document, selection, measurement, drag, and history operations. The XYFlow store is a transient
+render projection and never becomes document or application authority.
+
+The viewport is initialized through XYFlow's uncontrolled `defaultViewport` path so pointer pan
+and zoom update the renderer without putting the full Workspace React tree on the gesture hot
+path. Every accepted viewport change is still mirrored synchronously through Workspace's existing
+canonical publication boundary. Programmatic fit, saved-view activation, document load, minimap,
+and scroll-bridge commands read and update the current host's private renderer instance. Each
+mounted `WorkspaceHost` owns a separate instance and registration lifetime.
+
+Workspace remains the presentation owner. It supplies the background and grid, minimap, selection
+bounds, section shells and bodies, managed windows, controls, menus, portals, focus treatment, and
+all canvas CSS. The runtime receives no product edges, renders no handles or ports, and mounts no
+XYFlow background, controls, minimap, attribution, theme, or dependency stylesheet. All projected
+sections remain mounted, including offscreen sections, because editor state, terminal state,
+measurement, focus, and saved-view behavior depend on that continuity. XYFlow types, instances,
+edges, and ports are absent from the public Workspace contract.
+
 ## Extension and mutation boundaries
 
 Registration calls replace one complete host-owned catalog. Candidate section kinds, commands,

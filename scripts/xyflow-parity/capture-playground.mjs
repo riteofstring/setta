@@ -50,8 +50,6 @@ const PERMITTED_UNREACHABLE_SOURCE_PATHS = new Set([
   "packages/workspace/src/canvas/xyflow/WorkspaceXyflowAdapter.tsx",
   "packages/workspace/src/canvas/xyflow/WorkspaceXyflowNode.tsx",
   "packages/workspace/src/canvas/xyflow/types.ts",
-  "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.test.ts",
-  "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.ts",
   "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.test.ts",
   "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.ts",
   "packages/workspace/src/canvas/xyflow/workspaceXyflowRuntime.test.ts",

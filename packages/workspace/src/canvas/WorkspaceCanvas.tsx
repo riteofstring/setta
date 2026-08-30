@@ -141,9 +141,6 @@ export function WorkspaceCanvas() {
         ref={ref}
         onScroll={(e) => cancelWorkspaceCanvasScrolling(host, e, initialized)}
       >
-        {}
-        {}
-        {}
         <div
           style={{
             position: "relative",

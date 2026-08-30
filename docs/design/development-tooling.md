@@ -72,3 +72,50 @@ pnpm playground:inspect -- --width 630 --height 364 --require-tabs \
 The inspection command and the production performance profile share one headless-Chrome lifecycle
 owner and the same CDP client. This keeps Chrome discovery, isolated profiles, startup timeouts,
 and cleanup consistent without coupling visual inspection to the performance suite.
+
+## Canvas renderer parity evidence
+
+The XYFlow parity harnesses compare a candidate against immutable captures from the accepted
+reference commit. Playground capture owns the Workspace and managed-window catalog; Python Canvas
+capture owns its registered section kinds, canonical projection states, terminal presentation,
+themes, and viewport variants. Both captures record screenshots, computed geometry, canonical
+documents, focus and interaction state, fixture identity, browser identity, source identity, and
+built-artifact hashes. Candidate output always goes to a new caller-selected directory.
+
+```sh
+node scripts/xyflow-parity/capture-playground.mjs --mode candidate \
+  --reference-commit 65f8cafa94c2c4768622ae570f6051332158ddc8 \
+  --output-dir /tmp/setta-playground-candidate
+node scripts/xyflow-parity/compare-playground.mjs \
+  --baseline-dir "$PWD/docs/evidence/xyflow-12-cutover/baseline/playground-expanded" \
+  --candidate-dir /tmp/setta-playground-candidate \
+  --output-dir /tmp/setta-playground-comparison
+node apps/python-canvas/visual-parity/capture.mjs --mode candidate \
+  --reference-revision 65f8cafa94c2c4768622ae570f6051332158ddc8 \
+  --output /tmp/setta-python-canvas-candidate
+node apps/python-canvas/visual-parity/compare.mjs \
+  --baseline-dir "$PWD/docs/evidence/xyflow-12-cutover/baseline/python-canvas" \
+  --candidate-dir /tmp/setta-python-canvas-candidate \
+  --output-dir /tmp/setta-python-canvas-comparison
+```
+
+Comparison requires exact scenario and image dimensions, exact captured contracts, and no
+unexplained geometry difference above 0.25 CSS pixels. Ordinary pixel tolerance is four channel
+values. Font and raster antialiasing may consume at most 128 edge pixels at a channel difference
+of 16. A separate bounded edge-raster allowance accepts at most 36 pixels across four components;
+each component is at most 6 by 3 pixels and 12 pixels total, every accepted pixel must remain next
+to matching edge contrast in both images, and no channel may differ by more than 68. These bounds
+admit isolated rasterization noise and reject coherent movement, recoloring, missing content, or a
+redesign. A human reviews the full baseline and candidate images plus every nonempty diff.
+
+The production profile builds Workspace and Playground, serves the deterministic 256-section
+route, and writes one machine-local JSON record:
+
+```sh
+pnpm performance:profile -- --output /tmp/setta-workspace-performance.json
+```
+
+The acceptance decision prioritizes activation and sustained frame gaps, first visible mutation,
+long tasks, complete mounted-node counts, and absence of host-page scroll or browser errors.
+Scripting, style, layout, and total task duration remain recorded so a renderer change cannot hide
+extra CPU work behind a smooth frame cadence.
