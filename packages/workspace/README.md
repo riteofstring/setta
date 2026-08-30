@@ -310,8 +310,11 @@ creating a second document subscription.
 Saved views are opt-in named presentations of one workspace document. Each view owns a complete
 top-level layout, camera, and exact visibility value for every section. Section identity,
 hierarchy, content, item values, authored sizes, shell panes, managed windows, diagnostics, and
-application runtime remain shared. A hidden parent removes its rendered subtree; the Saved Views
-pane keeps the complete hierarchy available so every hidden section can be shown again.
+application runtime remain shared. Outside saved-view editing, a hidden parent removes its rendered
+subtree. The pane's Edit mode projects hidden sections on the canvas with reduced opacity and
+replaces each section's delete control with Show or Hide. View rows stay compact until Edit exposes
+rename, reorder, and delete controls. A collapsed Sections disclosure retains the complete
+hierarchy as a precise keyboard-accessible fallback.
 
 The Playground provides three concrete examples: Overview shows the whole fixture, Content shows
 only the item, code, and rendered/source text sections in a focused arrangement, and Controls shows
@@ -345,7 +348,9 @@ The public headless operations create, activate, rename, delete, reorder, and ch
 views against an explicit host. `getWorkspaceSavedViewsOperationDisabledReason` exposes the same
 availability used by the pane. Management and visibility changes require `canEditLayout`;
 activation remains available in read-only layout mode because it selects an existing presentation.
-The last view cannot be deleted.
+The last view cannot be deleted. Edit mode is host-scoped presentation runtime rather than
+serialized document state; leaving the pane or loading a document ends it and removes hidden
+sections from focus and selection again.
 
 Every accepted switch first captures the outgoing live layout and camera, then atomically projects
 the target, prunes hidden selection, resets stale interactions, applies the camera, and publishes

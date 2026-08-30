@@ -23,6 +23,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import { enableWorkspaceSavedViews } from "../saved-views/operations";
+import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
 import { WorkspaceSavedViewsPane } from "./WorkspaceSavedViewsPane";
 
 (
@@ -129,6 +130,17 @@ describe("WorkspaceSavedViewsPane", () => {
     return status;
   }
 
+  function getElement<ElementType extends Element>(
+    selector: string,
+    label: string,
+  ): ElementType {
+    const element = container.querySelector<ElementType>(selector);
+    if (!element) {
+      throw new Error(`Expected ${label}.`);
+    }
+    return element;
+  }
+
   it("renders an unavailable state with a stable focus target", async () => {
     await render();
 
@@ -142,7 +154,7 @@ describe("WorkspaceSavedViewsPane", () => {
     expect(initialFocusRef.current).toBe(pane);
   });
 
-  it("manages views and keeps a complete visibility tree recoverable", async () => {
+  it("keeps switching compact and reveals management in edit mode", async () => {
     loadDocument();
     enableWorkspaceSavedViews(testWorkspace.host, {
       id: "overview",
@@ -152,10 +164,19 @@ describe("WorkspaceSavedViewsPane", () => {
 
     expect(getButton("Overview").getAttribute("aria-pressed")).toBe("true");
     expect(initialFocusRef.current).toBe(getButton("Create view"));
+    expect(
+      container.querySelector('[aria-label="Delete Overview"]'),
+    ).toBeNull();
+    await act(async () => {
+      getButton("Edit saved view").click();
+    });
     expect(getButton("Delete Overview").disabled).toBe(true);
     expect(getButton("Delete Overview").title).toBe(
       "The last saved view cannot be deleted.",
     );
+    await act(async () => {
+      getButton("Finish editing saved view").click();
+    });
 
     await act(async () => {
       getButton("Create view").click();
@@ -166,14 +187,25 @@ describe("WorkspaceSavedViewsPane", () => {
     expect(getButton("View 1").getAttribute("aria-pressed")).toBe("true");
 
     await act(async () => {
+      getButton("Edit saved view").click();
+    });
+    expect(
+      container
+        .querySelector('[data-testid="workspace-saved-views-pane"]')
+        ?.getAttribute("data-workspace-saved-view-editing"),
+    ).toBe("true");
+    expect(container.textContent).toContain(
+      "Dimmed sections are hidden from this view.",
+    );
+    expect(getButton("Delete Overview").disabled).toBe(false);
+
+    await act(async () => {
       getButton("Rename View 1").click();
     });
-    const nameInput = container.querySelector<HTMLInputElement>(
+    const nameInput = getElement<HTMLInputElement>(
       'input[aria-label="Saved view name"]',
+      "saved-view name input",
     );
-    if (!nameInput) {
-      throw new Error("Expected saved-view name input.");
-    }
     await act(async () => {
       setInputValue(nameInput, "Dashboard");
       nameInput.dispatchEvent(
@@ -200,12 +232,46 @@ describe("WorkspaceSavedViewsPane", () => {
     );
     expect(getStatus().textContent).toBe("Overview is now active.");
 
-    const groupVisibility = container.querySelector<HTMLInputElement>(
-      'input[aria-label="Hide Group"]',
+    await act(async () => {
+      getButton("Finish editing saved view").click();
+    });
+    expect(
+      container.querySelector('[aria-label="Rename Overview"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector(".setta-workspace-saved-views-visibility"),
+    ).toBeNull();
+  });
+
+  it("keeps the full section tree as a collapsed editing fallback", async () => {
+    loadDocument();
+    enableWorkspaceSavedViews(testWorkspace.host, {
+      id: "overview",
+      name: "Overview",
+    });
+    await render();
+
+    await act(async () => {
+      getButton("Edit saved view").click();
+    });
+    const visibilityDetails = getElement<HTMLDetailsElement>(
+      ".setta-workspace-saved-views-visibility",
+      "section visibility fallback",
     );
-    if (!groupVisibility) {
-      throw new Error("Expected Group visibility checkbox.");
-    }
+    const summary = getElement<HTMLElement>(
+      ".setta-workspace-saved-views-visibility summary",
+      "section visibility summary",
+    );
+    expect(visibilityDetails.open).toBe(false);
+    await act(async () => {
+      summary.click();
+    });
+    expect(visibilityDetails.open).toBe(true);
+
+    const groupVisibility = getElement<HTMLInputElement>(
+      'input[aria-label="Hide Group"]',
+      "Group visibility checkbox",
+    );
     await act(async () => {
       groupVisibility.click();
     });
@@ -217,6 +283,28 @@ describe("WorkspaceSavedViewsPane", () => {
     ).not.toBeNull();
   });
 
+  it("ends edit mode when the pane is removed", async () => {
+    loadDocument();
+    enableWorkspaceSavedViews(testWorkspace.host, {
+      id: "overview",
+      name: "Overview",
+    });
+    await render();
+    await act(async () => {
+      getButton("Edit saved view").click();
+    });
+    expect(isWorkspaceSavedViewEditing(testWorkspace.host)).toBe(true);
+
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          <div />
+        </WorkspaceTestProvider>,
+      );
+    });
+    expect(isWorkspaceSavedViewEditing(testWorkspace.host)).toBe(false);
+  });
+
   it("updates disabled states from capabilities and suppresses Escape rename blur", async () => {
     loadDocument();
     enableWorkspaceSavedViews(testWorkspace.host, {
@@ -226,14 +314,15 @@ describe("WorkspaceSavedViewsPane", () => {
     await render();
 
     await act(async () => {
+      getButton("Edit saved view").click();
+    });
+    await act(async () => {
       getButton("Rename Overview").click();
     });
-    const nameInput = container.querySelector<HTMLInputElement>(
+    const nameInput = getElement<HTMLInputElement>(
       'input[aria-label="Saved view name"]',
+      "saved-view name input",
     );
-    if (!nameInput) {
-      throw new Error("Expected saved-view name input.");
-    }
     await act(async () => {
       setInputValue(nameInput, "Changed");
     });

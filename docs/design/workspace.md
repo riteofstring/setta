@@ -50,8 +50,12 @@ publication, section hierarchy, selection, focus, and rendered-node projection. 
 document has one active saved view; each view contains a complete root layout, camera, and exact
 per-section visibility. Section records, hierarchy, authored sizes, item values, shell pane state,
 managed windows, diagnostics, and application runtime remain shared. A hidden ancestor suppresses
-its rendered subtree, while canonical traversal remains complete for structural mutations and the
-Saved Views management pane.
+its rendered subtree in ordinary presentation. Host-scoped saved-view edit mode temporarily
+projects hidden roots and descendants at reduced opacity, admits them to focus and selection, and
+turns section controls and section commands into direct Show or Hide actions. Showing a descendant
+also restores its hidden ancestor path. The integrated pane keeps view switching compact, exposes
+management only in Edit mode, and retains the complete hierarchy under a collapsed Sections
+disclosure as the precision and accessibility fallback.
 
 The active view and the live top-level layout and viewport are one synchronized contract. Every
 live coordinate, measurement, stacking, or camera publication refreshes the active snapshot before
@@ -60,6 +64,8 @@ stages the target presentation, visible node projection, pruned selection, and a
 one publication boundary. It also resets interactions that may reference unmounted sections and
 applies the target camera. Activation is presentation selection and remains available without
 layout-edit capability; create, rename, delete, reorder, and visibility operations require it.
+Leaving the integrated pane or loading a replacement document ends transient edit mode and prunes
+hidden focus and selection.
 
 Complete document replacement parses the saved-view shape before writing and reconciles only valid
 section-set drift. Deleted section and root ids are pruned from every view; new sections become
