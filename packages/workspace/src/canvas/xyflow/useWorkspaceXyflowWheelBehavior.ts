@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getDndStateStore } from "../../dnd/dndState";
-import { NO_PAN_CLASS_NAME } from "../../interaction";
 import type { WorkspaceHost } from "../../workspaceHost";
 import { getReactFlowStore } from "../store";
 import type { WorkspaceInteractionOptions } from "../options";
@@ -93,13 +92,6 @@ function shouldHandleDefaultWheelEvent({
   }
   const { isMovingFree, isSorting } = getDndStateStore(host).getState();
   if (isMovingFree || isSorting) {
-    return false;
-  }
-  if (
-    options.panOnScroll &&
-    !zoomActivationKeyPressed &&
-    isWrappedWithClass(event, NO_PAN_CLASS_NAME)
-  ) {
     return false;
   }
   if (event.ctrlKey && !options.zoomOnPinch) {
