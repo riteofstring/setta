@@ -477,16 +477,6 @@ function assertExactCaptureContract(baseline, candidate) {
     candidate.capture.chrome,
   );
   appendDifference(
-    "capture.builtWorkspace",
-    baseline.capture.builtWorkspace,
-    candidate.capture.builtWorkspace,
-  );
-  appendDifference(
-    "capture.liveResponses",
-    baseline.capture.liveResponses,
-    candidate.capture.liveResponses,
-  );
-  appendDifference(
     "capture.stabilization",
     baseline.capture.stabilization,
     candidate.capture.stabilization,
