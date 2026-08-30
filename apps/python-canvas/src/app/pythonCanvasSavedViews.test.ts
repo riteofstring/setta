@@ -8,7 +8,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { forestMutationProposal } from "./pythonCanvasAppSupport";
 import { callableSnapshot } from "./pythonCanvasAppTestFixtures";
-import { projectWorkspaceDocument } from "./workspaceProjection";
+import {
+  callableSectionID,
+  projectWorkspaceDocument,
+} from "./workspaceProjection";
 
 const mocks = vi.hoisted(() => ({
   loadPythonCanvasSavedViews: vi.fn(),
@@ -234,9 +237,24 @@ describe("Python Canvas saved views", () => {
     expect(mocks.persistPythonCanvasSavedViews).not.toHaveBeenCalled();
   });
 
-  it("keeps saved-view-only changes outside backend forest proposals", () => {
-    const snapshot = callableSnapshot(1, []);
+  it("keeps active saved-view stacking outside backend forest proposals", () => {
+    const initialSnapshot = callableSnapshot(1, []);
+    const snapshot = {
+      ...initialSnapshot,
+      callables: [
+        ...initialSnapshot.callables,
+        {
+          authoredExpression: "second",
+          id: "callable:two",
+          name: "Two callable",
+          parameters: [],
+        },
+      ],
+      topLevelSectionIds: ["callable:one", "callable:two"],
+    };
     const document = projectWorkspaceDocument(snapshot);
+    const firstSectionId = callableSectionID("callable:one");
+    const secondSectionId = callableSectionID("callable:two");
     const savedViews = createWorkspaceSavedViewsState(document, {
       id: "overview",
       name: "Overview",
@@ -245,13 +263,38 @@ describe("Python Canvas saved views", () => {
     if (overview === undefined) {
       throw new Error("Expected Overview.");
     }
+    const firstLayout = overview.topLevelSections[firstSectionId];
+    const secondLayout = overview.topLevelSections[secondSectionId];
+    if (firstLayout === undefined || secondLayout === undefined) {
+      throw new Error("Expected Overview top-level layouts.");
+    }
     const viewOnlyDocument = {
       ...document,
+      activeIds: [secondSectionId],
+      topLevelSections: {
+        ...document.topLevelSections,
+        [firstSectionId]: {
+          ...document.topLevelSections[firstSectionId]!,
+          zIndex: 1,
+        },
+        [secondSectionId]: {
+          ...document.topLevelSections[secondSectionId]!,
+          zIndex: 0,
+        },
+      },
       savedViews: {
         ...savedViews,
         views: {
           ...savedViews.views,
-          overview: { ...overview, viewport: { x: 12, y: 8, zoom: 1 } },
+          overview: {
+            ...overview,
+            topLevelSections: {
+              ...overview.topLevelSections,
+              [firstSectionId]: { ...firstLayout, zIndex: 1 },
+              [secondSectionId]: { ...secondLayout, zIndex: 0 },
+            },
+            viewport: { x: 12, y: 8, zoom: 1 },
+          },
         },
       },
     };

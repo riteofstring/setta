@@ -171,6 +171,7 @@ import { ProjectClientError } from "../backend/client";
 import {
   GENERATED_PYTHON_SECTION_ID,
   callableSectionID,
+  listSectionID,
   parameterWorkspaceItemID,
   parameterDictionarySectionID,
 } from "./workspaceProjection";
@@ -327,22 +328,55 @@ describe("PythonCanvasApp concurrency", () => {
     ).toBeUndefined();
   });
 
-  it("queues a later forest replacement from its surviving local order", async () => {
+  it("keeps z-index reordering browser-local", async () => {
     const initialSnapshot = multiCallableSnapshot(1, [
       "callable:one",
       "callable:two",
       "callable:three",
     ]);
-    const firstCanonicalSnapshot = multiCallableSnapshot(2, [
-      "callable:two",
-      "callable:one",
-      "callable:three",
-    ]);
-    const latestCanonicalSnapshot = multiCallableSnapshot(3, [
-      "callable:three",
-      "callable:two",
-      "callable:one",
-    ]);
+    const firstViewOrder = ["callable:two", "callable:one", "callable:three"];
+    const secondViewOrder = ["callable:three", "callable:two", "callable:one"];
+    const workspace = installWorkspaceHarness();
+    mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
+
+    renderApp();
+    await flushEffects();
+
+    workspace.publish(
+      reorderTopLevelCallables(workspace.getDocument(), firstViewOrder),
+    );
+    await flushEffects();
+    expect(mocks.replaceSectionForest).not.toHaveBeenCalled();
+    expect(topLevelCallableIds(workspace.getDocument())).toEqual(
+      firstViewOrder,
+    );
+
+    workspace.publish(
+      reorderTopLevelCallables(workspace.getDocument(), secondViewOrder),
+    );
+    await flushEffects();
+    expect(mocks.replaceSectionForest).not.toHaveBeenCalled();
+    expect(topLevelCallableIds(workspace.getDocument())).toEqual(
+      secondViewOrder,
+    );
+  });
+
+  it("queues a later forest replacement from surviving list membership", async () => {
+    const initialSnapshot = multiCallableListSnapshot(
+      1,
+      [],
+      ["list:objects", "callable:one", "callable:two", "callable:three"],
+    );
+    const firstCanonicalSnapshot = multiCallableListSnapshot(
+      2,
+      ["callable:one"],
+      ["list:objects", "callable:two", "callable:three"],
+    );
+    const latestCanonicalSnapshot = multiCallableListSnapshot(
+      3,
+      ["callable:one", "callable:two"],
+      ["list:objects", "callable:three"],
+    );
     const firstRequest = deferred<ReturnType<typeof parseProjectSnapshotV2>>();
     const workspace = installWorkspaceHarness();
     mocks.fetchProjectSnapshot.mockResolvedValue(initialSnapshot);
@@ -354,24 +388,20 @@ describe("PythonCanvasApp concurrency", () => {
     await flushEffects();
 
     workspace.publish(
-      reorderTopLevelCallables(
-        workspace.getDocument(),
-        firstCanonicalSnapshot.topLevelSectionIds,
-      ),
+      nestCallableInObjectsList(workspace.getDocument(), "callable:one"),
     );
     await flushEffects();
     expect(mocks.replaceSectionForest).toHaveBeenCalledWith({
       expectedRevision: initialSnapshot.project.revision,
-      listChildren: [],
+      listChildren: [
+        { childSectionIds: ["callable:one"], listId: "list:objects" },
+      ],
       projectId: initialSnapshot.project.id,
       topLevelSectionIds: firstCanonicalSnapshot.topLevelSectionIds,
     });
 
     workspace.publish(
-      reorderTopLevelCallables(
-        workspace.getDocument(),
-        latestCanonicalSnapshot.topLevelSectionIds,
-      ),
+      nestCallableInObjectsList(workspace.getDocument(), "callable:two"),
     );
     await flushEffects();
     expect(mocks.replaceSectionForest).toHaveBeenCalledTimes(1);
@@ -384,13 +414,18 @@ describe("PythonCanvasApp concurrency", () => {
     expect(mocks.replaceSectionForest).toHaveBeenCalledTimes(2);
     expect(mocks.replaceSectionForest).toHaveBeenLastCalledWith({
       expectedRevision: firstCanonicalSnapshot.project.revision,
-      listChildren: [],
+      listChildren: [
+        {
+          childSectionIds: ["callable:one", "callable:two"],
+          listId: "list:objects",
+        },
+      ],
       projectId: firstCanonicalSnapshot.project.id,
       topLevelSectionIds: latestCanonicalSnapshot.topLevelSectionIds,
     });
-    expect(topLevelCallableIds(workspace.getDocument())).toEqual(
-      latestCanonicalSnapshot.topLevelSectionIds,
-    );
+    expect(topLevelCallableIds(workspace.getDocument())).toEqual([
+      "callable:three",
+    ]);
   });
 
   it("reconciles concurrent pane placeholders in their own saved layouts", async () => {
@@ -1123,6 +1158,26 @@ function multiCallableSnapshot(revision: number, topLevelSectionIds: string[]) {
   });
 }
 
+function multiCallableListSnapshot(
+  revision: number,
+  childSectionIds: string[],
+  topLevelSectionIds: string[],
+) {
+  return parseProjectSnapshotV2({
+    ...projectSnapshotFixture,
+    callables: ["callable:one", "callable:two", "callable:three"].map((id) => ({
+      authoredExpression: "",
+      id,
+      name: id,
+      parameters: [],
+    })),
+    diagnosticsRevision: revision,
+    lists: [{ childSectionIds, id: "list:objects", name: "Objects" }],
+    project: { ...projectSnapshotFixture.project, revision },
+    topLevelSectionIds,
+  });
+}
+
 function singleCallableSnapshot(
   revision: number,
   parameters: ReadonlyArray<Record<string, unknown>>,
@@ -1225,6 +1280,34 @@ function reorderTopLevelCallables(
     topLevelSections[sectionId] = { ...layout, zIndex };
   }
   return { ...document, topLevelSections };
+}
+
+function nestCallableInObjectsList(
+  document: WorkspaceDocument,
+  callableId: string,
+): WorkspaceDocument {
+  const listId = listSectionID("list:objects");
+  const callableWorkspaceId = callableSectionID(callableId);
+  const list = document.sections[listId];
+  if (
+    list === undefined ||
+    document.topLevelSections[callableWorkspaceId] === undefined
+  ) {
+    throw new Error(`Missing list or callable ${callableId}.`);
+  }
+  const { [callableWorkspaceId]: _, ...topLevelSections } =
+    document.topLevelSections;
+  return {
+    ...document,
+    sections: {
+      ...document.sections,
+      [listId]: {
+        ...list,
+        children: [...list.children, callableWorkspaceId],
+      },
+    },
+    topLevelSections,
+  };
 }
 
 function topLevelCallableIds(document: WorkspaceDocument): string[] {

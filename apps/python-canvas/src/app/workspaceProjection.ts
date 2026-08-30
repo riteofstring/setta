@@ -495,6 +495,7 @@ export function workspaceForestProposal(
     document,
     snapshot.lists,
     projectSectionDescriptors(snapshot),
+    snapshot.topLevelSectionIds,
   );
 }
 

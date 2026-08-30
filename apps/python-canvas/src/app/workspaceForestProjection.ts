@@ -11,6 +11,7 @@ export function projectWorkspaceForestProposal(
   document: WorkspaceDocument,
   lists: ReadonlyArray<ListV2>,
   descriptors: ReadonlyArray<ForestSectionDescriptor>,
+  snapshotTopLevelSectionIds: ReadonlyArray<string>,
 ): {
   listChildren: Array<{ childSectionIds: string[]; listId: string }>;
   topLevelSectionIds: string[];
@@ -34,6 +35,7 @@ export function projectWorkspaceForestProposal(
   const topLevelSectionIds = projectTopLevelSectionIDs(
     document,
     descriptorByWorkspaceID,
+    snapshotTopLevelSectionIds,
   );
   if (!addUniquePlacements(placements, topLevelSectionIds)) {
     return null;
@@ -74,28 +76,25 @@ function projectListChildren(
 function projectTopLevelSectionIDs(
   document: WorkspaceDocument,
   descriptorByWorkspaceID: ReadonlyMap<string, ForestSectionDescriptor>,
+  snapshotTopLevelSectionIds: ReadonlyArray<string>,
 ): string[] {
-  return Object.entries(document.topLevelSections)
-    .map(([workspaceId, layout]) => ({
-      descriptor: descriptorByWorkspaceID.get(workspaceId),
-      workspaceId,
-      zIndex: layout.zIndex,
-    }))
-    .filter(
-      (
-        entry,
-      ): entry is {
-        descriptor: ForestSectionDescriptor;
-        workspaceId: string;
-        zIndex: number;
-      } => entry.descriptor !== undefined,
-    )
-    .sort(
-      (left, right) =>
-        left.zIndex - right.zIndex ||
-        left.workspaceId.localeCompare(right.workspaceId),
-    )
-    .map(({ descriptor }) => descriptor.canonicalId);
+  const documentTopLevelSectionIds = Object.keys(
+    document.topLevelSections,
+  ).flatMap((workspaceId) => {
+    const descriptor = descriptorByWorkspaceID.get(workspaceId);
+    return descriptor === undefined ? [] : [descriptor.canonicalId];
+  });
+  const documentTopLevelSectionIdSet = new Set(documentTopLevelSectionIds);
+  const retainedSectionIds = snapshotTopLevelSectionIds.filter((sectionId) =>
+    documentTopLevelSectionIdSet.has(sectionId),
+  );
+  const retainedSectionIdSet = new Set(retainedSectionIds);
+  return [
+    ...retainedSectionIds,
+    ...documentTopLevelSectionIds.filter(
+      (sectionId) => !retainedSectionIdSet.has(sectionId),
+    ),
+  ];
 }
 
 function addUniquePlacements(

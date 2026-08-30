@@ -874,7 +874,7 @@ describe("Python Canvas V2 workspace projection", () => {
       },
     };
 
-    expect(workspaceForestProposal(moved, snapshot)).toEqual({
+    expect(forestMutationProposal(moved, snapshot)).toEqual({
       listChildren: [
         { childSectionIds: ["callable:child"], listId: "list:objects" },
       ],
