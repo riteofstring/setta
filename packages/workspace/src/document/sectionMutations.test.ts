@@ -254,6 +254,23 @@ describe("groupSections", () => {
     expect(state.parentSectionMap["created-nested-group"]).toBe("group");
   });
 
+  it("groups selected roots while preserving selected descendants inside their group", () => {
+    groupSections(
+      testWorkspace.host,
+      ["group", "nested", "nested-b", "leaf"],
+      "created-group",
+    );
+
+    const state = testWorkspace.document.getState();
+    expect(state.sections["created-group"]?.children).toEqual([
+      "leaf",
+      "group",
+    ]);
+    expect(state.sections.group?.children).toEqual(["nested", "nested-b"]);
+    expect(state.parentSectionMap.nested).toBe("group");
+    expect(state.parentSectionMap.group).toBe("created-group");
+  });
+
   it("rejects selections whose sections do not share one parent", () => {
     expect(() =>
       groupSections(testWorkspace.host, ["leaf", "nested"], "invalid-group"),

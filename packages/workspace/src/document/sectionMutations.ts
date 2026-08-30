@@ -8,6 +8,7 @@ import {
   createNodesMapFromDocumentChildren,
   reprojectNodeStylesForAppearance,
 } from "./nodeProjection";
+import { getRootSelectedSectionIds } from "./sectionSelection";
 import {
   getActiveSectionsStore,
   getNodeInternalsStore,
@@ -401,16 +402,17 @@ export function groupSections(
   groupId: string,
 ): void {
   const uniqueIds = getUniqueSectionIds(host, sectionIds);
-  if (uniqueIds.length < 2) {
-    throw new Error("Grouping requires at least two distinct sections.");
+  const documentState = getWorkspaceDocumentStore(host).getState();
+  const { rootIds } = getRootSelectedSectionIds(documentState, uniqueIds);
+  if (rootIds.length < 2) {
+    throw new Error("Grouping requires at least two independent sections.");
   }
   if (typeof groupId !== "string" || groupId.trim() === "") {
     throw new Error("A new group requires a nonblank section id.");
   }
-  const documentState = getWorkspaceDocumentStore(host).getState();
   const nextDocumentState = createGroupedDocumentState(
     documentState,
-    uniqueIds,
+    rootIds,
     groupId.trim(),
   );
   const nextNodesMap = createNodesMapFromDocumentChildren(

@@ -1,5 +1,9 @@
 import { getSectionOrThrow } from "../document/documentSelectors";
 import { getItemOrThrow } from "../document/itemTree";
+import {
+  getRootSelectedSectionIds,
+  getSharedParentId,
+} from "../document/sectionSelection";
 import type { WorkspaceDocumentState } from "../document/stores";
 import type { WorkspaceItem, WorkspaceSection } from "../document/types";
 
@@ -107,15 +111,12 @@ export function canGroupWorkspaceSections(
   state: WorkspaceDocumentState,
   sections: ReadonlyArray<WorkspaceSection>,
 ): boolean {
-  if (sections.length < 2) {
-    return false;
-  }
-  const first = sections[0];
-  if (!first) {
-    return false;
-  }
-  const parentId = state.parentSectionMap[first.id] ?? null;
-  return sections.every(
-    (section) => (state.parentSectionMap[section.id] ?? null) === parentId,
+  const { rootIds } = getRootSelectedSectionIds(
+    state,
+    sections.map((section) => section.id),
   );
+  if (rootIds.length < 2) {
+    return false;
+  }
+  return getSharedParentId(state, rootIds) !== undefined;
 }

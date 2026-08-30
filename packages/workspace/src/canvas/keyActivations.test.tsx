@@ -697,8 +697,8 @@ describe("useCanvasKeyActivations", () => {
       registerWorkspaceKeyBindings(testWorkspace.host, []);
     });
 
-    it("groups the active selection on Mod+G", async () => {
-      loadUngroupDocument(["group", "leaf"]);
+    it("groups the active selection roots on Mod+G", async () => {
+      loadUngroupDocument(["group", "child", "leaf"]);
 
       const event = await dispatchChord({
         key: "g",

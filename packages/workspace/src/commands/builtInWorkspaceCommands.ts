@@ -13,6 +13,7 @@ import { getItemDndStateStore } from "../dnd/itemDndState";
 import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import { isGroupSection } from "../document/documentSelectors";
 import { getWorkspaceItemFactory } from "../document/sectionKindRegistry";
+import { getRootSelectedSectionIds } from "../document/sectionSelection";
 import {
   getWorkspaceHistoryState,
   redoWorkspace,
@@ -211,6 +212,13 @@ function getSelectedSectionIds(
   return context.selectedSections.map((section) => section.id);
 }
 
+function getRootSelectedSectionCount(targets: LiveSectionTargets): number {
+  return getRootSelectedSectionIds(
+    targets.state,
+    targets.sections.map((section) => section.id),
+  ).rootIds.length;
+}
+
 function getSavedViewSectionAction(
   context: WorkspaceSectionCommandContext,
 ): "hide" | "show" | null {
@@ -306,15 +314,17 @@ const groupSectionsCommand: WorkspacePackageCommandDefinition = {
     if (!targets.complete) {
       return MISSING_SECTION_REASON;
     }
-    if (targets.sections.length < 2) {
+    if (getRootSelectedSectionCount(targets) < 2) {
       return "Grouping needs at least two selected sections.";
     }
     return canGroupWorkspaceSections(targets.state, targets.sections)
       ? null
       : "Grouping is unavailable because these sections do not share one parent.";
   },
-  getStatusMessage: (context) =>
-    `${formatSectionCount(context.selectedSections.length, "section")} grouped.`,
+  getStatusMessage: (context) => {
+    const targets = getLiveSectionTargets(context);
+    return `${formatSectionCount(getRootSelectedSectionCount(targets), "section")} grouped.`;
+  },
   run: (context) => {
     getReactFlowStore(context.host).setState({ nodesSelectionDims: null });
     groupSections(
