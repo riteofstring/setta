@@ -271,9 +271,11 @@ describe("WorkspaceShell", () => {
   }
 
   function getButton(label: string): HTMLButtonElement {
-    const button = host.querySelector<HTMLButtonElement>(
-      `button[aria-label="${label}"]`,
-    );
+    const button =
+      host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`) ??
+      Array.from(host.querySelectorAll<HTMLButtonElement>("button")).find(
+        (candidate) => candidate.textContent?.trim() === label,
+      );
     if (!button) {
       throw new Error(`Expected button ${label}.`);
     }
