@@ -95,6 +95,19 @@ the package-owned parameter configuration UI. The **Section** tab edits section 
 leading **Outline** mirrors the canonical forest. Pane presentation is browser-local view state and
 does not enter the project file.
 
+The leading **Saved Views** tab manages named canvas presentations for the current project. A view
+captures top-level section positions, the camera, and which sections are visible; callable content,
+parameter values, list hierarchy, pane state, terminals, and project data remain shared. Python
+Canvas starts with an Overview view and stores later accepted view changes in one strict versioned
+browser payload scoped to the canonical project id. A malformed or unavailable value falls back to
+the valid in-memory Overview state and is reported in the app.
+
+Switching views or changing their visibility is browser-local. It sends no backend forest mutation,
+and later canonical project snapshots retain the active presentation while reconciling added and
+deleted sections. Workspace owns validation, switching, visibility behavior, and the management
+pane; Python Canvas owns this storage policy and its failure feedback. Structural Undo and Redo do
+not include saved-view changes.
+
 Right-click a blank part of the canvas and choose **Auto Layout** to arrange unlocked top-level
 sections with package-owned spacing. Locked roots, including Generated Python, remain fixed. The
 operation changes browser-local workspace coordinates only, so Python Canvas sends no backend

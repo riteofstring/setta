@@ -37,11 +37,12 @@ ends. A disposed host rejects later reads or writes.
 ## Public composition surface
 
 - `WorkspaceShell` is the package-owned integrated surface. It composes the canvas, controls,
-  tooltip, logical leading/trailing rails, controlled panes, the built-in leading Outline, and the
-  built-in trailing Inspector. Supplying `navigator` also mounts the package-owned global Find and
-  command palette. Hosts register additional typed tabs with icons and content rendered from public
-  props only. Its optional `sectionTagColorPalette` is the complete host-supplied set of named
-  Inspector categories; omitting it uses the captured package defaults.
+  tooltip, logical leading/trailing rails, controlled panes, the built-in leading Outline, the
+  optional leading Saved Views pane, and the built-in trailing Inspector. Supplying `navigator`
+  also mounts the package-owned global Find and command palette. Hosts register additional typed
+  tabs with icons and content rendered from public props only. Its optional
+  `sectionTagColorPalette` is the complete host-supplied set of named Inspector categories;
+  omitting it uses the captured package defaults.
 - `createWorkspaceShellViewState` creates the initial serializable pane state. Hosts own that value
   and apply the shell's single `onViewStateChange` callback directly or persist it separately from
   `WorkspaceDocument`. The same value owns Outline disclosure and roving-focus state; canonical
@@ -207,9 +208,11 @@ it. Creating application sections from tooltip text remains host application beh
 
 ## Controlled workspace shell
 
-The built-in `Outline` is always the first leading tab. The built-in `Inspector` is the first
-trailing tab when enabled, which is the default; `includeBuiltInInspector={false}` lets a host own
-the complete trailing catalog. `WORKSPACE_OUTLINE_TAB_ID` is always reserved, and
+The built-in `Outline` is always the first leading tab. Setting
+`includeBuiltInSavedViews={true}` adds Saved Views immediately after it. The built-in `Inspector` is
+the first trailing tab when enabled, which is the default; `includeBuiltInInspector={false}` lets a
+host own the complete trailing catalog. `WORKSPACE_OUTLINE_TAB_ID` is always reserved,
+`WORKSPACE_SAVED_VIEWS_TAB_ID` is reserved while its built-in tab is enabled, and
 `WORKSPACE_INSPECTOR_TAB_ID` is reserved while that built-in tab is enabled. A host supplies zero or
 more additional tabs on either side with unique stable ids, non-empty labels, decorative icon
 components, and render functions. The selected tab, visibility, current width, remembered non-full
@@ -249,6 +252,7 @@ function HostWorkspace() {
 
   return (
     <WorkspaceShell
+      includeBuiltInSavedViews
       leadingTabs={leadingTabs}
       navigator={{}}
       sectionTagColorPalette={sectionTagColorPalette}
@@ -300,6 +304,66 @@ Hosts that need separate contextual panes can disable the generic Inspector with
 consistent. `WorkspaceParameterConfigurationView` receives the owning `sectionId`. Host pane
 content can use `useWorkspaceDocumentSnapshot()` to derive contextual availability without
 creating a second document subscription.
+
+## Saved canvas views
+
+Saved views are opt-in named presentations of one workspace document. Each view owns a complete
+top-level layout, camera, and exact visibility value for every section. Section identity,
+hierarchy, content, item values, authored sizes, shell panes, managed windows, diagnostics, and
+application runtime remain shared. A hidden parent removes its rendered subtree; the Saved Views
+pane keeps the complete hierarchy available so every hidden section can be shown again.
+
+The Playground provides three concrete examples: Overview shows the whole fixture, Content shows
+only the item, code, and rendered/source text sections in a focused arrangement, and Controls shows
+only the meta-control sections in a compact grid. Switching among them changes what is visible,
+where the visible roots sit, and the camera without cloning any section data.
+
+Set `WorkspaceDocument.savedViews` to `null` to disable the capability. An enabled state has one
+active view and at least one validated `WorkspaceSavedView`. `createWorkspaceSavedViewsState`
+creates the first all-visible view from a document, and `includeBuiltInSavedViews` exposes the
+package-owned management pane:
+
+```tsx
+const documentBase: WorkspaceDocumentInput = {
+  activeIds: [],
+  savedViews: null,
+  sections,
+  topLevelSections,
+  viewport: null,
+};
+
+host.loadDocument({
+  ...documentBase,
+  savedViews: createWorkspaceSavedViewsState(documentBase, {
+    id: "overview",
+    name: "Overview",
+  }),
+});
+```
+
+The public headless operations create, activate, rename, delete, reorder, and change visibility for
+views against an explicit host. `getWorkspaceSavedViewsOperationDisabledReason` exposes the same
+availability used by the pane. Management and visibility changes require `canEditLayout`;
+activation remains available in read-only layout mode because it selects an existing presentation.
+The last view cannot be deleted.
+
+Every accepted switch first captures the outgoing live layout and camera, then atomically projects
+the target, prunes hidden selection, resets stale interactions, applies the camera, and publishes
+once. Live movement, measurement, stacking, and viewport updates continuously refresh the active
+view. Complete document commits reconcile structural drift deterministically: deleted ids are
+removed, new sections start visible in every view, and new roots receive the incoming live layout.
+
+Workspace owns these generic invariants and UI. The host owns whether the feature is enabled and
+all persistence, revisions, conflicts, sharing, routes, analytics, and product-specific defaults.
+For a persisted state entering with a fresh application projection, first validate it with
+`parseWorkspaceSavedViewsState`, attach it to the document, and call
+`projectWorkspaceDocumentSavedViews` before `loadDocument`; that helper reconciles section drift and
+projects the persisted active layout and camera coherently. Persist later accepted `savedViews`
+values from the ordinary host subscription.
+
+Saved views affect canvas sections. Shell pane state remains in `WorkspaceShellViewState`, and
+Window Spaces remain arrangements of managed floating and docked windows. View management and
+activation are intentionally excluded from structural history.
 
 ## Global Find and command palette
 
@@ -617,10 +681,10 @@ content breakpoint and a compact 320 px shell.
 ## Controlled document and subscriptions
 
 `host.loadDocument(document)` replaces the canonical workspace state with a host-supplied
-serializable document (sections, top-level layout, camera, and selection). A load validates the
-complete document before publication, re-applies its camera through d3-zoom — or re-arms
-fit-on-init when `viewport` is `null` — and ends active drag sessions so a host can swap documents
-without remounting `WorkspaceCanvas`.
+serializable document (sections, top-level layout, camera, selection, and saved-view state or an
+explicit `null`). A load validates the complete document before publication, re-applies its camera
+through d3-zoom — or re-arms fit-on-init when `viewport` is `null` — and ends active drag sessions
+so a host can swap documents without remounting `WorkspaceCanvas`.
 
 `host.subscribe(listener)` reports every later canonical publication, including explicit loads and
 package-initiated selection, move, resize, rename, flag, color, delete, measurement, and viewport
@@ -748,11 +812,12 @@ name, minimize, accent, and tag-color operations. It also records item insertion
 reorder/reparent, and column width. One completed resize gesture is one entry. Current
 `canEditStructure` and `canEditLayout` capabilities gate the operation being replayed.
 
-Viewport, selection-only, opaque section and item data, typed item presentation and values,
-automatic geometry normalization, and built-in editor changes do not create entries. Replay keeps
-the live viewport and later unrecorded data, item presentation, and derived geometry while restoring
-the recorded selection. `host.loadDocument(...)` and `commitWorkspaceDocument(...)` clear local
-history because both establish a new external document authority.
+Viewport, selection-only, saved-view management and activation, opaque section and item data, typed
+item presentation and values, automatic geometry normalization, and built-in editor changes do not
+create entries. Replay keeps the live viewport, saved views, and later unrecorded data, item
+presentation, and derived geometry while restoring the recorded selection.
+`host.loadDocument(...)` and `commitWorkspaceDocument(...)` clear local history because both
+establish a new external document authority.
 
 Applications with a backend or product-wide history can delegate authority instead:
 

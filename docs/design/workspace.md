@@ -13,10 +13,10 @@ DOM-root registration exists only to route document-level events back to their o
 including portaled package surfaces.
 
 `WorkspaceDocument` is the canonical serializable authority for sections, item trees, top-level
-geometry, viewport, and selection. Appearance, menus, drag sessions, completion services,
-diagnostics, shell view state, and windowing state remain host-owned runtime or view inputs. A
-section kind parses package- or host-owned data once when a document enters the package. Opaque
-host data is validated for serializability and otherwise remains uninterpreted.
+geometry, viewport, selection, and optional saved canvas views. Appearance, menus, drag sessions,
+completion services, diagnostics, shell view state, and windowing state remain host-owned runtime
+or view inputs. A section kind parses package- or host-owned data once when a document enters the
+package. Opaque host data is validated for serializability and otherwise remains uninterpreted.
 
 Every complete document replacement validates all cross-resource invariants before the first
 store write. Internal publication stages the document, node geometry, and selection together so a
@@ -42,6 +42,38 @@ Package mutations validate the complete request, construct one next canonical va
 once. Coupled resources such as a section forest, item tree, selection, and derived node geometry
 move through the same boundary. Browser objects, provider callbacks, file operations, and other
 nonserializable effects cross explicit registries and never enter `WorkspaceDocument`.
+
+## Saved-view presentation authority
+
+Workspace owns saved canvas views because it already owns top-level geometry, viewport
+publication, section hierarchy, selection, focus, and rendered-node projection. An enabled
+document has one active saved view; each view contains a complete root layout, camera, and exact
+per-section visibility. Section records, hierarchy, authored sizes, item values, shell pane state,
+managed windows, diagnostics, and application runtime remain shared. A hidden ancestor suppresses
+its rendered subtree, while canonical traversal remains complete for structural mutations and the
+Saved Views management pane.
+
+The active view and the live top-level layout and viewport are one synchronized contract. Every
+live coordinate, measurement, stacking, or camera publication refreshes the active snapshot before
+a document subscriber observes it. Activation first captures the outgoing presentation, then
+stages the target presentation, visible node projection, pruned selection, and active id through
+one publication boundary. It also resets interactions that may reference unmounted sections and
+applies the target camera. Activation is presentation selection and remains available without
+layout-edit capability; create, rename, delete, reorder, and visibility operations require it.
+
+Complete document replacement parses the saved-view shape before writing and reconciles only valid
+section-set drift. Deleted section and root ids are pruned from every view; new sections become
+visible in every view; new roots receive the incoming live layout. Existing inactive presentations
+remain unchanged, and the incoming live layout and viewport refresh the active view. A host loading
+persisted views beside a fresh application projection uses the package bootstrap projection to
+reverse that last precedence deliberately: reconcile the persisted state, then project its active
+layout and camera into one coherent document before loading.
+
+The package owns constructors, validation, reconciliation, headless operations, visibility-aware
+canvas, Outline, Find, focus and selection behavior, plus the optional integrated pane. Consumers
+own enablement, persistence, revisions, sync, conflicts, routes, sharing, analytics, and
+product-specific seed views. Saved views do not overlap with shell pane state or Window Spaces,
+which arrange managed floating and docked windows.
 
 ## Top-level auto-layout authority
 
@@ -108,12 +140,13 @@ Replay uses the complete-document validation and atomic publication boundary, re
 recorded selection, preserves the live viewport, and returns focus to a surviving selected section
 or the canvas. Current structure and layout capabilities gate each navigation step.
 
-Viewport, selection-only, opaque section and item data, typed item presentation and values, and
-automatic geometry normalization do not create structural entries. Local replay compares its
-recorded source endpoint with the live document so later unrecorded data, presentation, and derived
-geometry survive an unrelated structural undo. The source endpoint is refreshed when an entry
-moves between stacks, preserving those values when an entity is removed and later recreated by
-redo. CodeMirror retains its independent editor history.
+Viewport, selection-only, saved-view management and activation, opaque section and item data, typed
+item presentation and values, and automatic geometry normalization do not create structural
+entries. Local replay compares its recorded source endpoint with the live document so later
+unrecorded saved views, data, presentation, and derived geometry survive an unrelated structural
+undo. The source endpoint is refreshed when an entry moves between stacks, preserving those values
+when an entity is removed and later recreated by redo. CodeMirror retains its independent editor
+history.
 
 `loadDocument` and `commitWorkspaceDocument` are synchronization replacements rather than
 package-authored edits. They clear local history so snapshots never cross a new canonical

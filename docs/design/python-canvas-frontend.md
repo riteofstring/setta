@@ -11,20 +11,21 @@ into `@setta/workspace` through `commitWorkspaceDocument`, so section data, stru
 never cross as separate canonical publications.
 
 The browser retains only view or interaction state that the server does not own: workspace
-geometry, local selection and filtering, pane presentation, unresolved item proposals, and
-short-lived creation placeholders. A placeholder exists only until its typed create response
-returns the canonical identity. It remains unpainted, reconciles in place to preserve its chosen
-geometry, and does not remove unrelated placeholders still waiting in the serialized mutation
-queue.
+geometry and saved views, local selection and filtering, pane presentation, unresolved item
+proposals, and short-lived creation placeholders. A placeholder exists only until its typed create
+response returns the canonical identity. It remains unpainted, reconciles in place to preserve its
+chosen geometry, and does not remove unrelated placeholders still waiting in the serialized
+mutation queue.
 
 Generic workspace forest movement produces a complete placement proposal. Python Canvas translates
 that proposal into the matching typed server command; it does not treat the workspace document as
 a second durable project store. Coordinate-only movement, including package-owned top-level auto
-layout, remains browser-local: forest comparison ignores geometry, and every later canonical
-projection retains the current root layouts. Application data coupled to structure follows the
-backend authority. For example, promoting a dictionary leaf to a parent is computed purely during
-publication and applied after the workspace subscription returns, because subscriber callbacks
-cannot synchronously commit.
+layout and saved-view activation, remains browser-local: forest comparison ignores geometry and
+saved views, and every later canonical projection retains the current active root layout and
+reconciled view state. Application data coupled to structure follows the backend authority. For
+example, promoting a dictionary leaf to a parent is computed purely during publication and applied
+after the workspace subscription returns, because subscriber callbacks cannot synchronously
+commit.
 
 Canonical IDs are opaque. Workspace section IDs and structural item-root IDs use disjoint local
 namespaces so application identity is never inferred from a generated DOM or drag identifier.
@@ -106,10 +107,21 @@ Run joins an in-flight create request rather than allocating another shell. Runn
 existing hidden terminal does not reveal it; only creating a missing runtime opens the attached
 surface. Terminal input uses binary UTF-8 WebSocket frames, including control bytes.
 
-Shell pane preferences are the application's only browser-storage boundary. A missing, malformed,
-disabled, or quota-limited storage value falls back to valid in-memory presentation without
-creating a project error. Initial fallback loading never writes defaults over absent or malformed
-storage; persistence occurs only after a shell-originated state change.
+Shell pane preferences and saved views are the application's two browser-storage boundaries. Saved
+views use a strict versioned payload under an exact canonical-project-id key. Initial projection
+loads a valid saved state through Workspace's bootstrap projection or seeds one Overview view, then
+retains that state across later backend projections while Workspace reconciles added and deleted
+canonical sections. The initial load never writes a fallback over absent, malformed, or unavailable
+storage; persistence begins with the first later accepted saved-view change.
+
+Saved-view persistence runs independently of backend mutation comparison. Switching, renaming,
+reordering, changing visibility, or moving the active view therefore cannot enqueue a forest
+mutation or add coordinate fields to the Go contract. A missing, malformed, disabled, or
+quota-limited storage value leaves a valid in-memory state and reports application feedback without
+creating project state or claiming persistence success. Persistence compares canonical saved-view
+content, so a fresh projection with unchanged content does not rewrite storage and one failed state
+is not retried or re-announced until the saved views change. Neither browser-storage boundary
+carries a compatibility parser.
 
 Application feedback stays outside package-private DOM. Completion errors, terminal state, pending
 commit presentation, and contextual pane content use public workspace composition seams and
