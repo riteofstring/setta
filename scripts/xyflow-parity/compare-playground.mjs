@@ -298,6 +298,52 @@ function assertBaselineSourceGuard(value, label) {
   return record;
 }
 
+function assertRuntimeReference(value, label) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const record = assertRecord(value, label);
+  const acceptedBaseline = assertRecord(
+    record.acceptedBaseline,
+    `${label}.acceptedBaseline`,
+  );
+  assertString(
+    acceptedBaseline.captureCommit,
+    `${label}.acceptedBaseline.captureCommit`,
+  );
+  assertString(
+    acceptedBaseline.frozenReferenceCommit,
+    `${label}.acceptedBaseline.frozenReferenceCommit`,
+  );
+  assertString(
+    acceptedBaseline.manifestPath,
+    `${label}.acceptedBaseline.manifestPath`,
+  );
+  const manifestSha256 = assertString(
+    acceptedBaseline.manifestSha256,
+    `${label}.acceptedBaseline.manifestSha256`,
+  );
+  if (!/^[0-9a-f]{64}$/.test(manifestSha256)) {
+    throw new Error(`${label}.acceptedBaseline.manifestSha256 is invalid.`);
+  }
+  assertArray(
+    record.currentSourceDiffPaths,
+    `${label}.currentSourceDiffPaths`,
+  ).forEach((entry, index) =>
+    assertString(entry, `${label}.currentSourceDiffPaths[${index}]`),
+  );
+  const verification = assertRecord(
+    record.verification,
+    `${label}.verification`,
+  );
+  for (const key of ["builtWorkspace", "chrome", "liveResponseHashes"]) {
+    if (verification[key] !== true) {
+      throw new Error(`${label}.verification.${key} must be true.`);
+    }
+  }
+  return record;
+}
+
 function safeArtifactPath(directory, artifactPath, label) {
   const relativePath = assertString(artifactPath, label);
   if (path.isAbsolute(relativePath)) {
@@ -360,6 +406,7 @@ function assertCaptureManifest(manifest, expectedMode, label) {
   assertString(chrome.userAgent, `${label}.capture.chrome.userAgent`);
   assertString(chrome.binary, `${label}.capture.chrome.binary`);
   assertString(capture.sourceUrl, `${label}.capture.sourceUrl`);
+  assertRecord(capture.stabilization, `${label}.capture.stabilization`);
   assertBuiltWorkspace(
     capture.builtWorkspace,
     `${label}.capture.builtWorkspace`,
@@ -369,6 +416,10 @@ function assertCaptureManifest(manifest, expectedMode, label) {
     capture.baselineSourceGuard,
     `${label}.capture.baselineSourceGuard`,
   );
+  const runtimeReference = assertRuntimeReference(
+    capture.runtimeReference,
+    `${label}.capture.runtimeReference`,
+  );
   if (
     expectedMode === "baseline" &&
     baselineSourceGuard?.rejectedProductSourceDiffPaths.length > 0
@@ -377,7 +428,12 @@ function assertCaptureManifest(manifest, expectedMode, label) {
   }
   const catalog = assertRecord(record.catalog, `${label}.catalog`);
   assertString(catalog.catalogVersion, `${label}.catalog.catalogVersion`);
+  if (typeof catalog.completeCatalog !== "boolean") {
+    throw new Error(`${label}.catalog.completeCatalog must be boolean.`);
+  }
   assertArray(catalog.requiredCoverage, `${label}.catalog.requiredCoverage`);
+  assertArray(catalog.coverageLedger, `${label}.catalog.coverageLedger`);
+  assertArray(catalog.unsupportedStates, `${label}.catalog.unsupportedStates`);
   const selectedScenarioIds = assertArray(
     catalog.selectedScenarioIds,
     `${label}.catalog.selectedScenarioIds`,
@@ -400,7 +456,7 @@ function assertCaptureManifest(manifest, expectedMode, label) {
   if (!sameValue(ids, selectedScenarioIds)) {
     throw new Error(`${label} scenario list does not match its catalog.`);
   }
-  return { capture, catalog, manifest: record, scenarios };
+  return { capture, catalog, manifest: record, runtimeReference, scenarios };
 }
 
 function assertExactCaptureContract(baseline, candidate) {
@@ -421,6 +477,21 @@ function assertExactCaptureContract(baseline, candidate) {
     candidate.capture.chrome,
   );
   appendDifference(
+    "capture.builtWorkspace",
+    baseline.capture.builtWorkspace,
+    candidate.capture.builtWorkspace,
+  );
+  appendDifference(
+    "capture.liveResponses",
+    baseline.capture.liveResponses,
+    candidate.capture.liveResponses,
+  );
+  appendDifference(
+    "capture.stabilization",
+    baseline.capture.stabilization,
+    candidate.capture.stabilization,
+  );
+  appendDifference(
     "capture.sourceUrl",
     baseline.capture.sourceUrl,
     candidate.capture.sourceUrl,
@@ -434,6 +505,21 @@ function assertExactCaptureContract(baseline, candidate) {
     "catalog.requiredCoverage",
     baseline.catalog.requiredCoverage,
     candidate.catalog.requiredCoverage,
+  );
+  appendDifference(
+    "catalog.completeCatalog",
+    baseline.catalog.completeCatalog,
+    candidate.catalog.completeCatalog,
+  );
+  appendDifference(
+    "catalog.coverageLedger",
+    baseline.catalog.coverageLedger,
+    candidate.catalog.coverageLedger,
+  );
+  appendDifference(
+    "catalog.unsupportedStates",
+    baseline.catalog.unsupportedStates,
+    candidate.catalog.unsupportedStates,
   );
   appendDifference(
     "catalog.selectedScenarioIds",
@@ -508,7 +594,11 @@ function assertReceipt(
     capture.sourceUrl !== manifestCapture.sourceUrl ||
     !sameValue(capture.builtWorkspace, manifestCapture.builtWorkspace) ||
     !sameValue(capture.liveResponses, manifestCapture.liveResponses) ||
-    !sameValue(capture.baselineSourceGuard, manifestCapture.baselineSourceGuard)
+    !sameValue(
+      capture.baselineSourceGuard,
+      manifestCapture.baselineSourceGuard,
+    ) ||
+    !sameValue(capture.runtimeReference, manifestCapture.runtimeReference)
   ) {
     throw new Error(
       `${label} receipt capture metadata does not match its manifest.`,
@@ -1069,6 +1159,7 @@ function compareCaptures(options, stagingDirectory) {
       liveResponses: baselineManifest.capture.liveResponses,
       manifestSha256: sha256(baselineManifestPath),
       path: options.baselineDir,
+      runtimeReference: baselineManifest.runtimeReference,
     },
     candidate: {
       builtWorkspace: candidateManifest.capture.builtWorkspace,
@@ -1078,6 +1169,7 @@ function compareCaptures(options, stagingDirectory) {
       liveResponses: candidateManifest.capture.liveResponses,
       manifestSha256: sha256(candidateManifestPath),
       path: options.candidateDir,
+      runtimeReference: candidateManifest.runtimeReference,
     },
     results,
   };

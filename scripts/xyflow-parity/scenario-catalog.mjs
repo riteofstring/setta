@@ -1,6 +1,7 @@
 const DESKTOP_VIEWPORT = Object.freeze({ height: 696, width: 1_492 });
 const COMPACT_VIEWPORT = Object.freeze({ height: 364, width: 630 });
 const WIDE_VIEWPORT = Object.freeze({ height: 720, width: 3_440 });
+const TALL_WIDE_VIEWPORT = Object.freeze({ height: 1_200, width: 3_440 });
 
 const sectionSelector = (sectionId) => `[data-section-id="${sectionId}"]`;
 const ACTION_KINDS = new Set([
@@ -16,11 +17,12 @@ const ACTION_KINDS = new Set([
 ]);
 const MODIFIERS = new Set(["alt", "control", "meta", "shift"]);
 
-export const SCENARIO_CATALOG_VERSION = "2";
+export const SCENARIO_CATALOG_VERSION = "3";
 
 export const REQUIRED_SCENARIO_COVERAGE = Object.freeze([
   "docking",
   "controls",
+  "control-popovers",
   "locks",
   "marquee",
   "menus",
@@ -28,10 +30,192 @@ export const REQUIRED_SCENARIO_COVERAGE = Object.freeze([
   "minimize",
   "overlay",
   "panes",
+  "saved-views",
   "sections",
   "selection",
+  "sizing",
+  "themes",
   "viewport",
+  "window-spaces",
   "windows",
+]);
+
+export const PLAYGROUND_PARITY_UNSUPPORTED_STATES = Object.freeze([
+  {
+    id: "browser-native-picker-surfaces",
+    reason:
+      "Chrome-owned native color and file picker surfaces are outside Page.captureScreenshot.",
+  },
+  {
+    id: "workspace-tooltip-surface",
+    reason:
+      "The mounted Playground fixture does not render WorkspaceTooltip, so control tooltip handlers have no document surface to capture.",
+  },
+  {
+    id: "generic-window-title-drag",
+    reason:
+      "The mounted generic Playground windows reject layout movement, so no visible committed state is available.",
+  },
+  {
+    id: "snap-preview-overlay",
+    reason:
+      "The mounted renderer exposes committed snap state but no stable preview overlay selector during a held drag.",
+  },
+]);
+
+export const PLAYGROUND_PARITY_COVERAGE_LEDGER = Object.freeze([
+  {
+    state: "pane-leading-trailing-and-none",
+    scenarios: [
+      "pane-leading-only-light",
+      "pane-both-light",
+      "pane-trailing-only-light",
+      "pane-none-light",
+    ],
+  },
+  {
+    state: "pane-saved-views",
+    scenarios: [
+      "saved-views-pane-light",
+      "saved-views-edit-light",
+      "saved-view-content-active-light",
+    ],
+  },
+  {
+    state: "pane-window-spaces",
+    scenarios: [
+      "window-spaces-pane-light",
+      "window-space-saved-light",
+      "window-space-restored-light",
+    ],
+  },
+  {
+    state: "pane-creation-menu",
+    scenarios: ["pane-creation-menu-light"],
+  },
+  {
+    state: "minimap-focus-drag-and-theme",
+    scenarios: [
+      "minimap-focused-light",
+      "minimap-dragged-light",
+      "minimap-focused-dark-compact",
+    ],
+  },
+  {
+    state: "minimap-side-and-hidden",
+    scenarios: ["minimap-right-light", "controls-minimap-hidden-light"],
+  },
+  {
+    state: "section-family-leaf-group-item-meta-code-text",
+    scenarios: ["registered-section-families-wide-light"],
+  },
+  {
+    state: "section-orientation-and-drag",
+    scenarios: ["group-orientation-vertical-light", "section-dragged-light"],
+  },
+  {
+    state: "section-resize-lock-minimize-restore",
+    scenarios: [
+      "section-resized-light",
+      "section-locked-light",
+      "section-minimized-light",
+      "section-restored-light",
+    ],
+  },
+  {
+    state: "section-selection-and-marquee",
+    scenarios: [
+      "section-multiselection-light",
+      "marquee-in-progress-light",
+      "marquee-completed-light",
+    ],
+  },
+  {
+    state: "item-selection-and-column-resize",
+    scenarios: ["item-selection-light", "item-columns-resized-light"],
+  },
+  {
+    state: "item-dropdown-color-and-date-surfaces",
+    scenarios: [
+      "item-dropdown-popover-light",
+      "item-color-popover-light",
+      "meta-dropdown-popover-light",
+      "meta-date-calendar-light",
+    ],
+  },
+  {
+    state: "native-picker-surfaces",
+    unsupportedState: "browser-native-picker-surfaces",
+  },
+  {
+    state: "workspace-controls-focus-toggle-and-snap",
+    scenarios: [
+      "controls-snap-toggle-focus-light",
+      "snap-committed-section-drag-light",
+    ],
+  },
+  {
+    state: "workspace-control-tooltip",
+    unsupportedState: "workspace-tooltip-surface",
+  },
+  {
+    state: "snap-preview",
+    unsupportedState: "snap-preview-overlay",
+  },
+  {
+    state: "canvas-pan-zoom-and-light-dark",
+    scenarios: ["viewport-zoom-pan-light", "canvas-wide-dark"],
+  },
+  {
+    state: "section-context-menu-find-and-action-popover",
+    scenarios: [
+      "section-context-menu-light",
+      "workspace-find-light",
+      "section-actions-popover-light",
+    ],
+  },
+  {
+    state: "section-and-window-overlay-wheel",
+    scenarios: ["section-overlay-wheel-light", "window-overlay-wheel-light"],
+  },
+  {
+    state: "floating-window-focus-move-and-resize",
+    scenarios: [
+      "floating-focused-light",
+      "floating-unfocused-light",
+      "floating-moved-light",
+      "floating-resized-light",
+    ],
+  },
+  {
+    state: "floating-window-maximize",
+    scenarios: ["floating-maximized-light"],
+  },
+  {
+    state: "generic-window-move",
+    unsupportedState: "generic-window-title-drag",
+  },
+  {
+    state: "generic-window-minimize-and-reopen",
+    scenarios: [
+      "generic-window-minimized-light",
+      "generic-window-reopened-light",
+    ],
+  },
+  {
+    state: "section-window-handoff",
+    scenarios: ["section-window-handoff-light"],
+  },
+  {
+    state: "dock-place-minimize-recovery-and-resize",
+    scenarios: [
+      "floating-docked-light",
+      "section-window-docked-light",
+      "section-window-dock-minimized-light",
+      "section-window-dock-restored-light",
+      "dock-resized-light",
+    ],
+  },
 ]);
 
 export const PLAYGROUND_PARITY_SETUP_ACTIONS = Object.freeze([
@@ -699,6 +883,540 @@ export const PLAYGROUND_PARITY_SCENARIOS = Object.freeze([
     viewport: WIDE_VIEWPORT,
     viewportId: "wide",
   },
+  {
+    actions: [
+      {
+        delta: { x: 84, y: 48 },
+        id: "resize-styled-leaf",
+        kind: "drag",
+        selector:
+          '[data-section-id="styled-leaf"] .section-resize-handle-bottom-right',
+      },
+    ],
+    coverage: ["sections", "sizing"],
+    fixtureId: "playground-document",
+    id: "section-resized-light",
+    requiredSelectors: [
+      '[data-section-id="styled-leaf"] .section-resize-handle-bottom-right',
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "stack-root-group-children",
+        selector:
+          '[data-id="root-group"] button[aria-label="Flow children horizontally"]',
+      },
+    ],
+    coverage: ["sections"],
+    fixtureId: "playground-document",
+    id: "group-orientation-vertical-light",
+    requiredSelectors: [
+      '[data-id="root-group"] button[aria-label="Stack children vertically"]',
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "open-saved-views-pane",
+        selector: '[data-workspace-shell-tab="leading:saved-views"]',
+      },
+    ],
+    coverage: ["panes", "saved-views"],
+    fixtureId: "playground-document",
+    id: "saved-views-pane-light",
+    requiredSelectors: [
+      '[data-pane="leading"][data-visible="true"]',
+      ".setta-workspace-saved-views-heading",
+      '[data-workspace-saved-view-id="overview"]',
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "open-saved-views-pane",
+        selector: '[data-workspace-shell-tab="leading:saved-views"]',
+      },
+      {
+        id: "edit-saved-views",
+        selector: '[aria-label="Edit saved view"]',
+      },
+    ],
+    coverage: ["panes", "saved-views"],
+    fixtureId: "playground-document",
+    id: "saved-views-edit-light",
+    requiredSelectors: [
+      '[aria-label="Finish editing saved view"][aria-pressed="true"]',
+      '[data-testid="workspace-saved-view-drag-handle"]',
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "open-saved-views-pane",
+        selector: '[data-workspace-shell-tab="leading:saved-views"]',
+      },
+      {
+        id: "activate-content-saved-view",
+        selector:
+          '[data-workspace-saved-view-id="content"] button[aria-pressed="false"]',
+      },
+    ],
+    coverage: ["saved-views", "viewport"],
+    fixtureId: "playground-document",
+    id: "saved-view-content-active-light",
+    requiredSelectors: [
+      '[data-workspace-saved-view-id="content"] button[aria-pressed="true"]',
+      '[data-testid="workspace-saved-view-tabs"]',
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "disable-snap-to-grid",
+        selector: '[aria-label="toggle snap to grid"]',
+      },
+    ],
+    coverage: ["controls", "selection"],
+    fixtureId: "playground-document",
+    id: "controls-snap-toggle-focus-light",
+    requiredSelectors: [
+      '[aria-label="toggle snap to grid"][aria-pressed="false"]:focus',
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "hide-minimap",
+        selector: '[aria-label="toggle minimap"]',
+      },
+    ],
+    absentSelectors: ['[data-testid="rf__minimap"]'],
+    coverage: ["controls", "minimap"],
+    fixtureId: "playground-document",
+    id: "controls-minimap-hidden-light",
+    requiredSelectors: ['[aria-label="toggle minimap"][aria-pressed="false"]'],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "move-minimap-to-right",
+        selector: '[data-testid="rf__toggle-minimap-side"]',
+      },
+    ],
+    coverage: ["controls", "minimap"],
+    fixtureId: "playground-document",
+    id: "minimap-right-light",
+    requiredSelectors: [
+      '[aria-label="move minimap to left"]',
+      '[data-testid="rf__minimap"]',
+    ],
+    visibleSelectors: ['[data-testid="rf__minimap"]'],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "open-pane-creation-menu",
+        kind: "context-menu",
+        relativePoint: { x: 0.56, y: 0.56 },
+        selector: ".react-flow__pane",
+      },
+    ],
+    coverage: ["menus", "panes"],
+    fixtureId: "playground-document",
+    id: "pane-creation-menu-light",
+    requiredSelectors: ['[role="menu"]', '[role="menuitem"]'],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "focus-item-panel",
+        kind: "section-click",
+        sectionId: "item-panel",
+      },
+      {
+        id: "select-alpha-item",
+        modifiers: ["meta", "shift"],
+        relativePoint: { x: 0.08, y: 0.5 },
+        selector:
+          '[data-section-id="item-panel"] [data-workspace-item-id="item-alpha"]',
+      },
+    ],
+    coverage: ["selection"],
+    fixtureId: "playground-document",
+    id: "item-selection-light",
+    requiredSelectors: [
+      '[data-workspace-item-id="item-alpha"][class*="!bg-blue-700"]',
+    ],
+    theme: "light",
+    viewport: TALL_WIDE_VIEWPORT,
+    viewportId: "tall-wide",
+  },
+  {
+    actions: [
+      {
+        delta: { x: 86, y: 0 },
+        id: "resize-alpha-item-columns",
+        kind: "drag",
+        selector:
+          '[data-section-id="item-panel"] [data-workspace-item-id="item-alpha"] [data-item-column-resize-handle="true"]',
+      },
+    ],
+    coverage: ["sizing"],
+    fixtureId: "playground-document",
+    id: "item-columns-resized-light",
+    requiredSelectors: [
+      '[data-section-id="item-panel"] [data-item-column-resize-handle="true"]',
+    ],
+    theme: "light",
+    viewport: TALL_WIDE_VIEWPORT,
+    viewportId: "tall-wide",
+  },
+  {
+    actions: [
+      {
+        deltaY: 500,
+        id: "scroll-item-panel-to-choice",
+        kind: "wheel",
+        selector:
+          '[data-section-id="item-panel"] .section-args-nested.setta-native-wheel-y',
+      },
+      {
+        id: "open-item-dropdown",
+        selector:
+          '[data-section-id="item-panel"] [aria-label="Open choice value choices"]',
+      },
+    ],
+    coverage: ["control-popovers", "overlay"],
+    fixtureId: "playground-document",
+    id: "item-dropdown-popover-light",
+    requiredSelectors: ['[role="listbox"][aria-label="choice value choices"]'],
+    visibleSelectors: ['[role="listbox"][aria-label="choice value choices"]'],
+    theme: "light",
+    viewport: TALL_WIDE_VIEWPORT,
+    viewportId: "tall-wide",
+  },
+  {
+    actions: [
+      {
+        deltaY: 500,
+        id: "scroll-item-panel-to-color",
+        kind: "wheel",
+        selector:
+          '[data-section-id="item-panel"] .section-args-nested.setta-native-wheel-y',
+      },
+      {
+        id: "open-item-color-popover",
+        selector:
+          '[data-section-id="item-panel"] [aria-label="accent value: Green"]',
+      },
+    ],
+    coverage: ["control-popovers", "overlay"],
+    fixtureId: "playground-document",
+    id: "item-color-popover-light",
+    requiredSelectors: [
+      '[role="dialog"][aria-label="accent value choices"]',
+      '[role="listbox"][aria-label="accent value choices"]',
+    ],
+    visibleSelectors: ['[role="dialog"][aria-label="accent value choices"]'],
+    theme: "light",
+    viewport: TALL_WIDE_VIEWPORT,
+    viewportId: "tall-wide",
+  },
+  {
+    actions: [
+      {
+        id: "focus-meta-dropdown",
+        selector: '[data-section-id="meta-dropdown"] input[role="combobox"]',
+      },
+      {
+        code: "ArrowDown",
+        id: "open-meta-dropdown",
+        kind: "key",
+        key: "ArrowDown",
+        windowsVirtualKeyCode: 40,
+      },
+    ],
+    coverage: ["control-popovers", "overlay"],
+    fixtureId: "playground-document",
+    id: "meta-dropdown-popover-light",
+    requiredSelectors: [
+      '[role="listbox"][aria-label="Dropdown value choices"]',
+    ],
+    visibleSelectors: ['[role="listbox"][aria-label="Dropdown value choices"]'],
+    theme: "light",
+    viewport: TALL_WIDE_VIEWPORT,
+    viewportId: "tall-wide",
+  },
+  {
+    actions: [],
+    coverage: ["control-popovers", "controls"],
+    fixtureId: "playground-document",
+    id: "meta-date-calendar-light",
+    requiredSelectors: [
+      '[data-section-id="meta-date"] [role="grid"][aria-label*="Date value"]',
+    ],
+    visibleSelectors: [
+      '[data-section-id="meta-date"] [role="grid"][aria-label*="Date value"]',
+    ],
+    theme: "light",
+    viewport: TALL_WIDE_VIEWPORT,
+    viewportId: "tall-wide",
+  },
+  {
+    actions: [],
+    coverage: ["minimap", "sections", "themes"],
+    fixtureId: "playground-document",
+    id: "canvas-wide-dark",
+    requiredSelectors: [
+      "html.dark",
+      '[data-testid="rf__minimap"]',
+      sectionSelector("item-panel"),
+      sectionSelector("meta-color"),
+    ],
+    theme: "dark",
+    viewport: WIDE_VIEWPORT,
+    viewportId: "wide",
+  },
+  {
+    actions: [
+      {
+        delta: { x: 83, y: 43 },
+        id: "move-section-with-snap-committed",
+        kind: "section-drag",
+        sectionId: "styled-leaf",
+      },
+    ],
+    coverage: ["controls", "sections"],
+    fixtureId: "playground-document",
+    id: "snap-committed-section-drag-light",
+    requiredSelectors: [
+      '[aria-label="toggle snap to grid"][aria-pressed="true"]',
+      sectionSelector("styled-leaf"),
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "maximize-reference-note",
+        selector:
+          '[data-workspace-window-id="playground-reference-note-window"] [data-testid="workspace-window-maximize"]',
+      },
+    ],
+    coverage: ["windows"],
+    fixtureId: "playground-document",
+    fixtureSetup: false,
+    id: "floating-maximized-light",
+    requiredSelectors: [
+      '[data-workspace-window-id="playground-reference-note-window"][data-workspace-window-maximized="true"]',
+      '[data-testid="workspace-window-restore"]',
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "minimize-reference-note",
+        selector:
+          '[data-workspace-window-id="playground-reference-note-window"] [data-testid="workspace-window-minimize"]',
+      },
+    ],
+    absentSelectors: [
+      '[data-workspace-window-id="playground-reference-note-window"][data-testid="workspace-window-manager-window"]',
+    ],
+    coverage: ["minimize", "windows"],
+    fixtureId: "playground-document",
+    fixtureSetup: false,
+    id: "generic-window-minimized-light",
+    requiredSelectors: ['[aria-label="Restore Reference note"]'],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "minimize-reference-note",
+        selector:
+          '[data-workspace-window-id="playground-reference-note-window"] [data-testid="workspace-window-minimize"]',
+      },
+      {
+        id: "restore-reference-note",
+        selector: '[aria-label="Restore Reference note"]',
+      },
+    ],
+    absentSelectors: ['[aria-label="Restore Reference note"]'],
+    coverage: ["minimize", "windows"],
+    fixtureId: "playground-document",
+    fixtureSetup: false,
+    id: "generic-window-reopened-light",
+    requiredSelectors: [
+      '[data-workspace-window-id="playground-reference-note-window"][data-testid="workspace-window-manager-window"]',
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "open-styled-leaf-window",
+        selector:
+          '[data-section-id="styled-leaf"] [data-testid="section-window-toggle"]',
+      },
+      {
+        id: "show-styled-leaf-in-canvas",
+        selector:
+          '[data-workspace-window-id="workspace-section-window:styled-leaf"] [data-testid="workspace-window-show-in-canvas"]',
+      },
+    ],
+    invisibleSelectors: [
+      '[data-workspace-window-id="workspace-section-window:styled-leaf"][data-testid="workspace-window-manager-window"]',
+    ],
+    coverage: ["sections", "windows"],
+    fixtureId: "playground-document",
+    id: "section-window-handoff-light",
+    requiredSelectors: [
+      '[data-section-id="styled-leaf"][role="group"]',
+      '[data-section-id="styled-leaf"] [data-testid="section-window-toggle"]',
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "open-styled-leaf-window",
+        selector:
+          '[data-section-id="styled-leaf"] [data-testid="section-window-toggle"]',
+      },
+      {
+        id: "dock-styled-leaf-window",
+        selector:
+          '[data-workspace-window-id="workspace-section-window:styled-leaf"] [data-testid="workspace-window-dock"]',
+      },
+      {
+        delta: { x: 0, y: -84 },
+        id: "resize-bottom-dock",
+        kind: "drag",
+        selector:
+          '[data-workspace-window-id="workspace-section-window:styled-leaf"] [data-testid="workspace-bottom-dock-resize-handle"][data-direction="top"]',
+      },
+    ],
+    coverage: ["docking", "sizing", "windows"],
+    fixtureId: "playground-document",
+    id: "dock-resized-light",
+    requiredSelectors: [
+      '[data-workspace-window-id="workspace-section-window:styled-leaf"][data-testid="workspace-bottom-dock-window-panel"]',
+      '[data-testid="workspace-bottom-dock-resize-handle"]',
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "open-window-spaces-pane",
+        selector: '[data-workspace-shell-tab="trailing:host-window-spaces"]',
+      },
+    ],
+    coverage: ["panes", "window-spaces"],
+    fixtureId: "playground-document",
+    fixtureSetup: false,
+    id: "window-spaces-pane-light",
+    requiredSelectors: [
+      '[data-pane="trailing"][data-visible="true"]',
+      '[data-testid="workspace-window-space-save"]',
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "open-window-spaces-pane",
+        selector: '[data-workspace-shell-tab="trailing:host-window-spaces"]',
+      },
+      {
+        id: "save-window-space",
+        selector: '[data-testid="workspace-window-space-save"]',
+      },
+    ],
+    coverage: ["window-spaces", "windows"],
+    fixtureId: "playground-document",
+    fixtureSetup: false,
+    id: "window-space-saved-light",
+    requiredSelectors: [
+      '[data-workspace-window-space-id="playground-window-space-1"]',
+      '[data-testid="workspace-window-space-restore"]',
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
+  {
+    actions: [
+      {
+        id: "open-window-spaces-pane",
+        selector: '[data-workspace-shell-tab="trailing:host-window-spaces"]',
+      },
+      {
+        id: "save-window-space",
+        selector: '[data-testid="workspace-window-space-save"]',
+      },
+      {
+        id: "restore-window-space",
+        selector:
+          '[data-workspace-window-space-id="playground-window-space-1"] [data-testid="workspace-window-space-restore"]',
+      },
+    ],
+    coverage: ["window-spaces", "windows"],
+    fixtureId: "playground-document",
+    fixtureSetup: false,
+    id: "window-space-restored-light",
+    requiredSelectors: [
+      '[data-workspace-window-space-id="playground-window-space-1"]',
+      '[data-testid="workspace-window-manager-window"]',
+    ],
+    theme: "light",
+    viewport: DESKTOP_VIEWPORT,
+    viewportId: "desktop",
+  },
 ]);
 
 function assert(condition, message) {
@@ -831,6 +1549,12 @@ function validateActions(actions, context) {
           isPositiveInteger(action.windowsVirtualKeyCode),
         `${context} action ${action.id} has an invalid key description.`,
       );
+      if (action.hold !== undefined) {
+        assert(
+          typeof action.hold === "boolean",
+          `${context} action ${action.id} has invalid hold state.`,
+        );
+      }
     }
   }
 }
@@ -870,6 +1594,30 @@ export function validateScenarioCatalog(
         scenario.requiredSelectors.length > 0,
       `Parity scenario ${scenario.id} needs at least one required selector.`,
     );
+    assert(
+      scenario.absentSelectors === undefined ||
+        (Array.isArray(scenario.absentSelectors) &&
+          scenario.absentSelectors.every(
+            (selector) => typeof selector === "string" && selector.length > 0,
+          )),
+      `Parity scenario ${scenario.id} has invalid absent selectors.`,
+    );
+    assert(
+      scenario.visibleSelectors === undefined ||
+        (Array.isArray(scenario.visibleSelectors) &&
+          scenario.visibleSelectors.every(
+            (selector) => typeof selector === "string" && selector.length > 0,
+          )),
+      `Parity scenario ${scenario.id} has invalid visible selectors.`,
+    );
+    assert(
+      scenario.invisibleSelectors === undefined ||
+        (Array.isArray(scenario.invisibleSelectors) &&
+          scenario.invisibleSelectors.every(
+            (selector) => typeof selector === "string" && selector.length > 0,
+          )),
+      `Parity scenario ${scenario.id} has invalid invisible selectors.`,
+    );
     validateActions(scenario.actions, `Parity scenario ${scenario.id}`);
     assert(
       Array.isArray(scenario.coverage) && scenario.coverage.length > 0,
@@ -885,9 +1633,66 @@ export function validateScenarioCatalog(
       `Parity scenario catalog is missing ${label} coverage.`,
     );
   }
+  const unsupportedIds = new Set();
+  for (const state of PLAYGROUND_PARITY_UNSUPPORTED_STATES) {
+    assert(
+      state !== null &&
+        typeof state === "object" &&
+        typeof state.id === "string" &&
+        /^[a-z0-9-]+$/.test(state.id) &&
+        typeof state.reason === "string" &&
+        state.reason.length > 0,
+      "Every unsupported parity state needs a kebab-case id and reason.",
+    );
+    assert(
+      !unsupportedIds.has(state.id),
+      `Duplicate unsupported parity state id: ${state.id}.`,
+    );
+    unsupportedIds.add(state.id);
+  }
+  const ledgerStates = new Set();
+  for (const entry of PLAYGROUND_PARITY_COVERAGE_LEDGER) {
+    assert(
+      entry !== null &&
+        typeof entry === "object" &&
+        typeof entry.state === "string" &&
+        /^[a-z0-9-]+$/.test(entry.state),
+      "Every parity coverage ledger entry needs a kebab-case state.",
+    );
+    assert(
+      !ledgerStates.has(entry.state),
+      `Duplicate parity coverage ledger state: ${entry.state}.`,
+    );
+    ledgerStates.add(entry.state);
+    const scenarioIds = entry.scenarios;
+    const hasScenarios = Array.isArray(scenarioIds) && scenarioIds.length > 0;
+    const hasUnsupportedState =
+      typeof entry.unsupportedState === "string" &&
+      entry.unsupportedState.length > 0;
+    assert(
+      hasScenarios !== hasUnsupportedState,
+      `Parity coverage ledger entry ${entry.state} must map to scenarios or one unsupported state.`,
+    );
+    if (hasScenarios) {
+      for (const scenarioId of scenarioIds) {
+        assert(
+          typeof scenarioId === "string" && ids.has(scenarioId),
+          `Parity coverage ledger entry ${entry.state} has an unknown scenario.`,
+        );
+      }
+    }
+    if (hasUnsupportedState) {
+      assert(
+        unsupportedIds.has(entry.unsupportedState),
+        `Parity coverage ledger entry ${entry.state} has an unknown unsupported state.`,
+      );
+    }
+  }
   return {
     coverage: [...coverage].sort(),
+    coverageLedger: PLAYGROUND_PARITY_COVERAGE_LEDGER,
     scenarioCount: scenarios.length,
+    unsupportedStates: PLAYGROUND_PARITY_UNSUPPORTED_STATES,
   };
 }
 

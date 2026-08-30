@@ -1,5 +1,6 @@
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -25,6 +26,8 @@ import {
 import {
   PLAYGROUND_PARITY_SCENARIOS,
   PLAYGROUND_PARITY_SETUP_ACTIONS,
+  PLAYGROUND_PARITY_UNSUPPORTED_STATES,
+  PLAYGROUND_PARITY_COVERAGE_LEDGER,
   REQUIRED_SCENARIO_COVERAGE,
   SCENARIO_CATALOG_VERSION,
   selectParityScenarios,
@@ -33,8 +36,9 @@ import {
 
 const DEFAULT_URL = "http://localhost:5174/";
 const READY_TIMEOUT_MS = 15_000;
-const SETTLE_DELAY_MS = 100;
+const SETTLE_DELAY_MS = 250;
 const DRAG_MOVE_DELAY_MS = 8;
+const CHROME_START_ATTEMPTS = 3;
 const CAPTURE_SCHEMA_VERSION = 1;
 const PNG_SIGNATURE = "89504e470d0a1a0a";
 const GOVERNED_PRODUCT_SOURCE_PATHS = [
@@ -193,6 +197,7 @@ function usage() {
     "  --device-scale-factor <number>   Override the default device scale factor of 1",
     "  --chrome-binary <absolute-path>  Headless Chrome binary",
     "  --reference-commit <full-sha>    Frozen product reference commit",
+    "  --runtime-reference-manifest <absolute-path>  Accepted baseline runtime manifest for an unchanged live artifact",
     "  --validate-catalog               Validate the catalog without launching Chrome",
     "  --help                           Show this message",
   ].join("\n");
@@ -207,6 +212,7 @@ function parseArguments(argv) {
     mode: null,
     outputDir: null,
     referenceCommit: null,
+    runtimeReferenceManifest: null,
     scenarioIds: [],
     url: null,
     validateCatalog: false,
@@ -234,6 +240,7 @@ function parseArguments(argv) {
         "mode",
         "output-dir",
         "reference-commit",
+        "runtime-reference-manifest",
         "scenario",
         "url",
         "width",
@@ -304,6 +311,22 @@ function normalizeOptions(options) {
       "--reference-commit must be a full 40-character lowercase commit SHA.",
     );
   }
+  if (
+    options.runtimeReferenceManifest !== null &&
+    !path.isAbsolute(options.runtimeReferenceManifest)
+  ) {
+    throw new Error(
+      "--runtime-reference-manifest must be an absolute manifest path.",
+    );
+  }
+  if (
+    options.runtimeReferenceManifest !== null &&
+    options.mode !== "baseline"
+  ) {
+    throw new Error(
+      "--runtime-reference-manifest is available only for baseline capture.",
+    );
+  }
   return {
     chromeBinary: options.chromeBinary,
     deviceScaleFactor:
@@ -320,6 +343,10 @@ function normalizeOptions(options) {
     mode: options.mode,
     outputDir: path.resolve(options.outputDir),
     referenceCommit: resolveCommit(options.referenceCommit),
+    runtimeReferenceManifest:
+      options.runtimeReferenceManifest === null
+        ? null
+        : path.resolve(options.runtimeReferenceManifest),
     scenarioIds: options.scenarioIds,
     url: url.href,
     width:
@@ -383,6 +410,31 @@ async function waitForReady(client) {
     await delay(50);
   }
   throw new Error("The Playground did not reach an inspectable state.");
+}
+
+function isTransientChromeStartError(error) {
+  return (
+    error instanceof Error &&
+    error.message.startsWith("Headless Chrome wrote an invalid DevTools port:")
+  );
+}
+
+async function startReadyHeadlessChrome(chromeBinary) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= CHROME_START_ATTEMPTS; attempt += 1) {
+    const browser = startHeadlessChrome(chromeBinary);
+    try {
+      return { browser, port: await waitForHeadlessChrome(browser) };
+    } catch (error) {
+      await stopHeadlessChrome(browser);
+      if (!isTransientChromeStartError(error)) {
+        throw error;
+      }
+      lastError = error;
+      await delay(50);
+    }
+  }
+  throw lastError;
 }
 
 function pageIssueCollector(client) {
@@ -853,10 +905,16 @@ async function typeText(client, action) {
   };
 }
 
-async function key(client, action) {
+async function key(client, action, heldKey) {
+  if (action.hold === true && heldKey.value !== null) {
+    throw new Error(
+      `Key action ${action.id} cannot start while a key is held.`,
+    );
+  }
   const modifiers = modifierMask(action.modifiers);
   const modifierNames = action.modifiers ?? [];
   await pressModifiers(client, modifierNames);
+  let retained = false;
   try {
     await client.send("Input.dispatchKeyEvent", {
       code: action.code,
@@ -866,26 +924,59 @@ async function key(client, action) {
       type: "keyDown",
       windowsVirtualKeyCode: action.windowsVirtualKeyCode,
     });
-    await client.send("Input.dispatchKeyEvent", {
-      code: action.code,
-      key: action.key,
-      modifiers,
-      type: "keyUp",
-      windowsVirtualKeyCode: action.windowsVirtualKeyCode,
-    });
+    if (action.hold === true) {
+      heldKey.value = {
+        code: action.code,
+        key: action.key,
+        modifiers,
+        modifierNames,
+        windowsVirtualKeyCode: action.windowsVirtualKeyCode,
+      };
+      retained = true;
+    } else {
+      await client.send("Input.dispatchKeyEvent", {
+        code: action.code,
+        key: action.key,
+        modifiers,
+        type: "keyUp",
+        windowsVirtualKeyCode: action.windowsVirtualKeyCode,
+      });
+    }
   } finally {
-    await releaseModifiers(client, modifierNames);
+    if (!retained) {
+      await releaseModifiers(client, modifierNames);
+    }
   }
   await settle(client);
   return {
     id: action.id,
     key: action.key,
     kind: "key",
+    held: action.hold === true,
     modifiers: modifierNames,
   };
 }
 
-async function executeAction(client, action, heldPointer) {
+async function releaseHeldKey(client, heldKey) {
+  const held = heldKey.value;
+  if (held === null) {
+    return;
+  }
+  heldKey.value = null;
+  try {
+    await client.send("Input.dispatchKeyEvent", {
+      code: held.code,
+      key: held.key,
+      modifiers: held.modifiers,
+      type: "keyUp",
+      windowsVirtualKeyCode: held.windowsVirtualKeyCode,
+    });
+  } finally {
+    await releaseModifiers(client, held.modifierNames);
+  }
+}
+
+async function executeAction(client, action, heldPointer, heldKey) {
   const kind = action.kind ?? "click";
   if (kind === "click") {
     return click(client, action);
@@ -909,7 +1000,7 @@ async function executeAction(client, action, heldPointer) {
     return typeText(client, action);
   }
   if (kind === "key") {
-    return key(client, action);
+    return key(client, action, heldKey);
   }
   throw new Error(`Unsupported scenario action kind: ${kind}.`);
 }
@@ -925,6 +1016,71 @@ async function assertSelectorsPresent(client, selectors, context) {
   if (missing.length > 0) {
     throw new Error(`${context} is missing: ${missing.join(", ")}.`);
   }
+}
+
+async function assertSelectorsAbsent(client, selectors, context) {
+  const present = await evaluate(
+    client,
+    `(() => {
+      const selectors = ${JSON.stringify(selectors)};
+      return selectors.filter((selector) => document.querySelector(selector) !== null);
+    })()`,
+  );
+  if (present.length > 0) {
+    throw new Error(`${context} unexpectedly contains: ${present.join(", ")}.`);
+  }
+}
+
+async function assertSelectorsVisible(client, selectors, context) {
+  const hidden = await evaluate(
+    client,
+    `(() => {
+      const selectors = ${JSON.stringify(selectors)};
+      return selectors.filter((selector) => ![...document.querySelectorAll(selector)].some((element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) > 0 && rect.width > 0 && rect.height > 0;
+      }));
+    })()`,
+  );
+  if (hidden.length > 0) {
+    throw new Error(
+      `${context} has no visible match for: ${hidden.join(", ")}.`,
+    );
+  }
+}
+
+async function assertSelectorsInvisible(client, selectors, context) {
+  const visible = await evaluate(
+    client,
+    `(() => {
+      const selectors = ${JSON.stringify(selectors)};
+      return selectors.filter((selector) => [...document.querySelectorAll(selector)].some((element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) > 0 && rect.width > 0 && rect.height > 0;
+      }));
+    })()`,
+  );
+  if (visible.length > 0) {
+    throw new Error(
+      `${context} has a visible match for: ${visible.join(", ")}.`,
+    );
+  }
+}
+
+async function normalizeDocumentChangeReadout(client) {
+  return evaluate(
+    client,
+    `(() => {
+      const readout = document.querySelector('.playground-change-status');
+      const count = readout?.querySelector('.playground-change-status-count');
+      if (!readout || !count) throw new Error('Playground document change readout is missing.');
+      count.textContent = '0';
+      readout.setAttribute('aria-label', '0 document changes reported');
+      return 'normalized-to-zero';
+    })()`,
+  );
 }
 
 function assertGeometry(geometry, scenario) {
@@ -986,24 +1142,41 @@ async function captureScenario({
   await waitForReady(client);
   const interactions = [];
   const heldPointer = { value: null };
+  const heldKey = { value: null };
   try {
     if (scenario.fixtureSetup !== false) {
       for (const action of PLAYGROUND_PARITY_SETUP_ACTIONS) {
         interactions.push({
-          ...(await executeAction(client, action, heldPointer)),
+          ...(await executeAction(client, action, heldPointer, heldKey)),
           phase: "fixture-setup",
         });
       }
     }
     for (const action of scenario.actions) {
       interactions.push({
-        ...(await executeAction(client, action, heldPointer)),
+        ...(await executeAction(client, action, heldPointer, heldKey)),
         phase: "scenario",
       });
     }
+    const documentChangeReadout = await normalizeDocumentChangeReadout(client);
     await assertSelectorsPresent(
       client,
       scenario.requiredSelectors,
+      scenario.id,
+    );
+    await assertSelectorsAbsent(
+      client,
+      scenario.absentSelectors ?? [],
+      scenario.id,
+    );
+    await assertSelectorsVisible(
+      client,
+      scenario.visibleSelectors ?? [],
+      scenario.id,
+    );
+    await assertSelectorsInvisible(
+      client,
+      scenario.invisibleSelectors ?? [],
       scenario.id,
     );
     issues.assertNone(`${scenario.id} before screenshot`);
@@ -1046,8 +1219,10 @@ async function captureScenario({
         liveResponses: context.liveResponses,
         mode: options.mode,
         recordedAt: new Date().toISOString(),
+        runtimeReference: context.runtimeReference,
         sourceUrl: options.url,
         stabilization: {
+          documentChangeReadout,
           fontReadiness: "document.fonts.ready",
           postActionDelayMs: SETTLE_DELAY_MS,
           settledFrames: 2,
@@ -1058,6 +1233,9 @@ async function captureScenario({
       scenario: {
         catalogVersion: SCENARIO_CATALOG_VERSION,
         coverage: scenario.coverage,
+        absentSelectors: scenario.absentSelectors ?? [],
+        invisibleSelectors: scenario.invisibleSelectors ?? [],
+        visibleSelectors: scenario.visibleSelectors ?? [],
         fixtureId: scenario.fixtureId,
         id: scenario.id,
         theme: scenario.theme,
@@ -1073,6 +1251,7 @@ async function captureScenario({
     return receipt;
   } finally {
     await releaseHeldPointer(client, heldPointer);
+    await releaseHeldKey(client, heldKey);
   }
 }
 
@@ -1178,6 +1357,133 @@ function sameArtifactHashes(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function sameValue(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function readRuntimeReferenceManifest(manifestPath, referenceCommit) {
+  if (!existsSync(manifestPath)) {
+    throw new Error(
+      `Runtime reference manifest does not exist: ${manifestPath}.`,
+    );
+  }
+  const status = lstatSync(manifestPath);
+  if (!status.isFile() || status.isSymbolicLink()) {
+    throw new Error(
+      `Runtime reference manifest must be a real file: ${manifestPath}.`,
+    );
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `Runtime reference manifest is not readable JSON: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (
+    manifest === null ||
+    typeof manifest !== "object" ||
+    Array.isArray(manifest) ||
+    manifest.schemaVersion !== CAPTURE_SCHEMA_VERSION ||
+    manifest.capture === null ||
+    typeof manifest.capture !== "object" ||
+    Array.isArray(manifest.capture) ||
+    manifest.capture.mode !== "baseline"
+  ) {
+    throw new Error(
+      "Runtime reference manifest must be a baseline capture with the supported schema.",
+    );
+  }
+  const capture = manifest.capture;
+  if (capture.frozenReferenceCommit !== referenceCommit) {
+    throw new Error(
+      `Runtime reference manifest frozen reference ${String(capture.frozenReferenceCommit)} does not match ${referenceCommit}.`,
+    );
+  }
+  if (
+    capture.chrome === null ||
+    typeof capture.chrome !== "object" ||
+    Array.isArray(capture.chrome) ||
+    capture.builtWorkspace === null ||
+    typeof capture.builtWorkspace !== "object" ||
+    Array.isArray(capture.builtWorkspace) ||
+    capture.liveResponses === null ||
+    typeof capture.liveResponses !== "object" ||
+    Array.isArray(capture.liveResponses)
+  ) {
+    throw new Error(
+      "Runtime reference manifest lacks Chrome, workspace artifact, or live response metadata.",
+    );
+  }
+  for (const responseName of ["document", "javascript", "stylesheet"]) {
+    const response = capture.liveResponses[responseName];
+    if (
+      response === null ||
+      typeof response !== "object" ||
+      Array.isArray(response) ||
+      !/^[0-9a-f]{64}$/.test(response.sha256)
+    ) {
+      throw new Error(
+        `Runtime reference manifest has invalid ${responseName} response metadata.`,
+      );
+    }
+  }
+  return {
+    capture,
+    manifestPath,
+    manifestSha256: createHash("sha256")
+      .update(readFileSync(manifestPath))
+      .digest("hex"),
+  };
+}
+
+function sameLiveResponseHashes(left, right) {
+  return ["document", "javascript", "stylesheet"].every(
+    (responseName) =>
+      left?.[responseName]?.sha256 === right?.[responseName]?.sha256,
+  );
+}
+
+function assertRuntimeReferenceArtifact(
+  reference,
+  builtWorkspace,
+  liveResponses,
+) {
+  if (!sameArtifactHashes(reference.capture.builtWorkspace, builtWorkspace)) {
+    throw new Error(
+      "The built workspace artifact does not exactly match the runtime reference manifest.",
+    );
+  }
+  if (!sameLiveResponseHashes(reference.capture.liveResponses, liveResponses)) {
+    throw new Error(
+      "Live Playground document, JavaScript, or stylesheet hashes do not match the runtime reference manifest.",
+    );
+  }
+}
+
+function runtimeReferenceReceipt(reference, referenceCommit, chrome) {
+  if (!sameValue(reference.capture.chrome, chrome)) {
+    throw new Error(
+      "Chrome identity does not exactly match the runtime reference manifest.",
+    );
+  }
+  return {
+    acceptedBaseline: {
+      captureCommit: reference.capture.captureCommit,
+      frozenReferenceCommit: reference.capture.frozenReferenceCommit,
+      manifestPath: path.relative(repositoryRoot, reference.manifestPath),
+      manifestSha256: reference.manifestSha256,
+    },
+    currentSourceDiffPaths: governedProductSourceChanges(referenceCommit),
+    verification: {
+      builtWorkspace: true,
+      chrome: true,
+      liveResponseHashes: true,
+    },
+  };
+}
+
 function governedProductSourceChanges(referenceCommit) {
   const changed = run(
     "git",
@@ -1258,6 +1564,8 @@ async function main() {
           catalogVersion: SCENARIO_CATALOG_VERSION,
           coverage: catalog.coverage,
           scenarioCount: catalog.scenarioCount,
+          coverageLedger: catalog.coverageLedger,
+          unsupportedStates: catalog.unsupportedStates,
         },
         null,
         2,
@@ -1268,18 +1576,33 @@ async function main() {
   const options = normalizeOptions(parsed);
   const scenarios = selectParityScenarios(options.scenarioIds);
   assertEmptyOutputDirectory(options.outputDir);
+  const runtimeReference =
+    options.runtimeReferenceManifest === null
+      ? null
+      : readRuntimeReferenceManifest(
+          options.runtimeReferenceManifest,
+          options.referenceCommit,
+        );
   const baselineSourceGuard =
-    options.mode === "baseline"
+    options.mode === "baseline" && runtimeReference === null
       ? assertBaselineProductSource(options.referenceCommit)
       : null;
   const builtWorkspace = workspaceDistArtifactHashes();
   const liveResponses = await livePlaygroundResponseHashes(options.url);
+  if (runtimeReference !== null) {
+    assertRuntimeReferenceArtifact(
+      runtimeReference,
+      builtWorkspace,
+      liveResponses,
+    );
+  }
   const stagingDirectory = createStagingDirectory(options.outputDir);
   let browser = null;
   let client = null;
   try {
-    browser = startHeadlessChrome(options.chromeBinary);
-    const port = await waitForHeadlessChrome(browser);
+    const startedChrome = await startReadyHeadlessChrome(options.chromeBinary);
+    browser = startedChrome.browser;
+    const { port } = startedChrome;
     const page = await createCdpPage(port);
     client = page.client;
     await Promise.all([
@@ -1292,19 +1615,28 @@ async function main() {
     try {
       const { jsVersion, product, revision, userAgent } =
         await client.send("Browser.getVersion");
+      const chrome = {
+        binary: browser.child.spawnfile ?? options.chromeBinary ?? "default",
+        jsVersion,
+        product,
+        revision,
+        userAgent,
+      };
       const context = {
         baselineSourceGuard,
-        chrome: {
-          binary: browser.child.spawnfile ?? options.chromeBinary ?? "default",
-          jsVersion,
-          product,
-          revision,
-          userAgent,
-        },
+        chrome,
         builtWorkspace,
         captureCommit: currentCommit(),
         frozenReferenceCommit: options.referenceCommit,
         liveResponses,
+        runtimeReference:
+          runtimeReference === null
+            ? null
+            : runtimeReferenceReceipt(
+                runtimeReference,
+                options.referenceCommit,
+                chrome,
+              ),
       };
       const receipts = [];
       for (const scenario of scenarios) {
@@ -1334,6 +1666,13 @@ async function main() {
       ) {
         throw new Error("Live Playground responses changed during capture.");
       }
+      if (runtimeReference !== null) {
+        assertRuntimeReferenceArtifact(
+          runtimeReference,
+          workspaceDistArtifactHashes(),
+          await livePlaygroundResponseHashes(options.url),
+        );
+      }
       const manifest = {
         capture: {
           ...context,
@@ -1352,6 +1691,8 @@ async function main() {
             scenarios.length === PLAYGROUND_PARITY_SCENARIOS.length,
           requiredCoverage: REQUIRED_SCENARIO_COVERAGE,
           selectedScenarioIds: scenarios.map((scenario) => scenario.id),
+          coverageLedger: PLAYGROUND_PARITY_COVERAGE_LEDGER,
+          unsupportedStates: PLAYGROUND_PARITY_UNSUPPORTED_STATES,
         },
         schemaVersion: CAPTURE_SCHEMA_VERSION,
         scenarios: receipts.map((receipt) => ({
