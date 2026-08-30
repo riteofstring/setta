@@ -17,7 +17,7 @@ afterEachWorkspaceTestHost(() => {
   testWorkspace.host.dispose();
 });
 
-import { act, createElement, type ReactNode } from "react";
+import { act, createElement, Profiler, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../../canvas/store";
@@ -373,6 +373,31 @@ describe("SectionContainer", () => {
     expect(shell.getAttribute("style")).toBe(restingStyle);
     expect(shell.style.willChange).toBe("");
     expect(shell.style.transform).toBe("");
+  });
+
+  it("does not rerender section presentation when only the viewport changes", async () => {
+    const onRender = vi.fn();
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          <SectionDndContext>
+            <Profiler id="section" onRender={onRender}>
+              <SectionHost sectionId="leaf" />
+            </Profiler>
+          </SectionDndContext>
+        </WorkspaceTestProvider>,
+      );
+    });
+    const settledRenderCount = onRender.mock.calls.length;
+    expect(settledRenderCount).toBeGreaterThan(0);
+
+    await act(async () => {
+      testWorkspace.document.setState({
+        viewport: { x: 80, y: 40, zoom: 1 },
+      });
+    });
+
+    expect(onRender).toHaveBeenCalledTimes(settledRenderCount);
   });
 
   it("opens section menus from pointer or keyboard while retaining native control menus", async () => {

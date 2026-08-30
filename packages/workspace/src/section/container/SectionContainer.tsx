@@ -10,7 +10,11 @@ import {
   getRegisteredSectionKindOrThrow,
   type SectionKindDefinition,
 } from "../../document/sectionKindRegistry";
-import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
+import {
+  useActiveSections,
+  useWorkspaceDocument,
+  type WorkspaceDocumentState,
+} from "../../document/stores";
 import { useWorkspaceSavedViewEditing } from "../../saved-views/editingState";
 import type { WorkspaceHost } from "../../workspaceHost";
 import { useWorkspaceHost } from "../../workspaceHostContext";
@@ -26,6 +30,22 @@ type SectionAttachedContentRenderer = NonNullable<
     { presentation?: undefined }
   >["renderAttachedContent"]
 >;
+
+type SectionVisibilityPresentation =
+  "hidden-by-ancestor" | "hidden-directly" | "visible";
+
+function getSectionVisibilityPresentation(
+  state: WorkspaceDocumentState,
+  sectionId: string,
+): SectionVisibilityPresentation {
+  if (isWorkspaceSectionVisible(state, sectionId)) {
+    return "visible";
+  }
+  const parentId = state.parentSectionMap[sectionId] ?? null;
+  return parentId === null || isWorkspaceSectionVisible(state, parentId)
+    ? "hidden-directly"
+    : "hidden-by-ancestor";
+}
 
 function getSectionAttachedContentRenderer({
   host,
@@ -56,17 +76,9 @@ function SectionContainerComponent({
 }) {
   const host = useWorkspaceHost();
   const editingSavedView = useWorkspaceSavedViewEditing();
-  const presentation = useWorkspaceDocument((state) => {
-    const visible = isWorkspaceSectionVisible(state, sectionId);
-    const parentId = state.parentSectionMap[sectionId] ?? null;
-    const parentVisible =
-      parentId === null || isWorkspaceSectionVisible(state, parentId);
-    return {
-      dimmed: !visible && parentVisible,
-      savedViewsEnabled: state.savedViews !== null,
-      visible,
-    };
-  });
+  const visibilityPresentation = useWorkspaceDocument((state) =>
+    getSectionVisibilityPresentation(state, sectionId),
+  );
   const isGroup = useWorkspaceDocument((x) =>
     isGroupSection(getSectionOrThrow(x, sectionId)),
   );
@@ -82,8 +94,8 @@ function SectionContainerComponent({
     sectionKind,
   });
 
-  const showHidden = editingSavedView && presentation.savedViewsEnabled;
-  if (!presentation.visible && !showHidden) {
+  const showHidden = editingSavedView && visibilityPresentation !== "visible";
+  if (visibilityPresentation !== "visible" && !showHidden) {
     return null;
   }
 
@@ -93,7 +105,7 @@ function SectionContainerComponent({
       sectionId={sectionId}
       dragListeners={dragListeners}
       isTopLevel={isTopLevel}
-      dimmed={showHidden && presentation.dimmed}
+      dimmed={showHidden && visibilityPresentation === "hidden-directly"}
     >
       <SectionContainerContents
         canOwnNestedSections={canOwnNestedSections}
