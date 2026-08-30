@@ -25,7 +25,7 @@ export function ChangeOrientationButton({
 
   return (
     <button
-      className="nodrag justify-content-center me-1 flex inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-400 hover:text-setta-500 focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-400"
+      className="nodrag justify-content-center flex inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-400 hover:text-setta-500 focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-400"
       onClick={() => toggleGroupOrientation(host, sectionId)}
       aria-label={
         isHorizontalOrientation
@@ -36,11 +36,15 @@ export function ChangeOrientationButton({
       data-setta-workspace-touch-target="compact"
     >
       {!isHorizontalOrientation ? (
-        <TbArrowBigDownLinesFilled aria-hidden="true" focusable="false" />
+        <TbArrowBigDownLinesFilled
+          aria-hidden="true"
+          className="h-4 w-4"
+          focusable="false"
+        />
       ) : (
         <TbArrowBigRightLinesFilled
           aria-hidden="true"
-          className="rtl:scale-x-[-1]"
+          className="h-4 w-4 rtl:scale-x-[-1]"
           focusable="false"
         />
       )}

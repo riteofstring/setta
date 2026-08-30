@@ -92,12 +92,13 @@ function getButtonClassName(styleState: LockPositionButtonStyleState): string {
   } = getToneClassNames(styleState);
   const sizeClassName = styleState.isGroup ? "h-5 w-5" : "h-4 w-4";
   return [
-    "nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2",
+    "nodrag flex inline-flex shrink-0 cursor-pointer items-center justify-center focus-visible:ring-2",
     focusRingClassName,
     backgroundClassName,
     getIconSizeClassName(styleState),
     textClassName,
-    "me-1 rounded-full p-0",
+    styleState.isGroup ? "" : "me-1",
+    "rounded-full p-0",
     hoverClassName,
     sizeClassName,
     styleState.canEditLayout ? "" : "cursor-not-allowed opacity-50",

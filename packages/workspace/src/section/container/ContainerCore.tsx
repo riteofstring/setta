@@ -275,15 +275,12 @@ function GroupHeader({
         <GroupSectionTitle sectionId={sectionId} />
       </div>
       <div
-        className="z-10 ms-auto flex items-center"
+        className="z-10 ms-auto flex items-center gap-1"
         data-setta-workspace-compact-control-group="true"
       >
         <ChangeOrientationButton sectionId={sectionId} />
         <LockPositionButton sectionId={sectionId} />
-        <DeleteOrHideButton
-          sectionId={sectionId}
-          size="min-w-4 h-4 scale-150  "
-        />
+        <DeleteOrHideButton sectionId={sectionId} />
       </div>
     </div>
   );

@@ -5,6 +5,10 @@ import {
   restoreFocusAfterSectionRemoval,
 } from "../../controls/sectionFocus";
 import { useWorkspaceCapabilities } from "../../document/capabilities";
+import {
+  getSectionOrThrow,
+  isGroupSection,
+} from "../../document/documentSelectors";
 import { deleteSection } from "../../document/sectionMutations";
 import { useWorkspaceDocument } from "../../document/stores";
 import {
@@ -20,17 +24,22 @@ type DeleteOrHideButtonProps = {
   sectionId: string;
   hasSectionStyleTheme?: boolean;
   label?: string;
-  size?: string;
+};
+
+type DeleteOrHideButtonPresentationProps = {
+  hasSectionStyleTheme: boolean;
+  isGroup: boolean;
+  sectionId: string;
 };
 
 function getButtonClassName({
   hasSectionStyleTheme,
-  size,
+  isGroup,
   disabled,
   visibilityMode,
 }: {
   hasSectionStyleTheme: boolean;
-  size: string | undefined;
+  isGroup: boolean;
   disabled: boolean;
   visibilityMode: boolean;
 }): string {
@@ -41,7 +50,8 @@ function getButtonClassName({
   const cursorClass = disabled
     ? "cursor-not-allowed opacity-50"
     : "cursor-pointer";
-  return `focus-visible:ring-2 inline-flex items-center nodrag flex justify-center ${defaultBg} ${defaultColor} rounded-full p-0 ${size ?? "h-4 min-w-4"} ${cursorClass}`;
+  const sizeClass = isGroup ? "h-5 min-w-5 w-5" : "h-4 min-w-4";
+  return `focus-visible:ring-2 inline-flex items-center nodrag flex shrink-0 justify-center ${defaultBg} ${defaultColor} rounded-full p-0 ${sizeClass} ${cursorClass}`;
 }
 
 function getButtonDefaults(
@@ -71,10 +81,9 @@ function getButtonDefaults(
 
 function SavedViewVisibilityButton({
   hasSectionStyleTheme,
+  isGroup,
   sectionId,
-  size,
-}: Required<Pick<DeleteOrHideButtonProps, "hasSectionStyleTheme">> &
-  Pick<DeleteOrHideButtonProps, "sectionId" | "size">) {
+}: DeleteOrHideButtonPresentationProps) {
   const host = useWorkspaceHost();
   useWorkspaceCapabilities((capabilities) => capabilities.canEditLayout);
   const documentState = useWorkspaceDocument((state) => state);
@@ -104,7 +113,7 @@ function SavedViewVisibilityButton({
       className={getButtonClassName({
         disabled,
         hasSectionStyleTheme,
-        size,
+        isGroup,
         visibilityMode: true,
       })}
       data-setta-workspace-touch-target="compact"
@@ -117,18 +126,17 @@ function SavedViewVisibilityButton({
         content: disabledReason ?? label,
       })}
     >
-      <Icon aria-hidden="true" />
+      <Icon aria-hidden="true" className={isGroup ? "h-4 w-4" : undefined} />
     </button>
   );
 }
 
 function DeleteSectionButton({
   hasSectionStyleTheme,
+  isGroup,
   label,
   sectionId,
-  size,
-}: Required<Pick<DeleteOrHideButtonProps, "hasSectionStyleTheme" | "label">> &
-  Pick<DeleteOrHideButtonProps, "sectionId" | "size">) {
+}: DeleteOrHideButtonPresentationProps & { label: string }) {
   const host = useWorkspaceHost();
   const canEditStructure = useWorkspaceCapabilities(
     (capabilities) => capabilities.canEditStructure,
@@ -154,7 +162,7 @@ function DeleteSectionButton({
       className={getButtonClassName({
         disabled: !canEditStructure,
         hasSectionStyleTheme,
-        size,
+        isGroup,
         visibilityMode: false,
       })}
       data-setta-workspace-touch-target="compact"
@@ -164,7 +172,10 @@ function DeleteSectionButton({
       onClick={onClick}
       {...getWorkspaceTooltipHandlers(host, { content: label })}
     >
-      <i aria-hidden="true" className="gg-close" />
+      <i
+        aria-hidden="true"
+        className={isGroup ? "gg-close [--ggs:.75]" : "gg-close"}
+      />
     </button>
   );
 }
@@ -173,9 +184,11 @@ export function DeleteOrHideButton({
   sectionId,
   hasSectionStyleTheme = false,
   label = "Delete section",
-  size,
 }: DeleteOrHideButtonProps) {
   const editing = useWorkspaceSavedViewEditing();
+  const isGroup = useWorkspaceDocument((state) =>
+    isGroupSection(getSectionOrThrow(state, sectionId)),
+  );
   const savedViewsEnabled = useWorkspaceDocument(
     (state) => state.savedViews !== null,
   );
@@ -183,17 +196,17 @@ export function DeleteOrHideButton({
     return (
       <SavedViewVisibilityButton
         hasSectionStyleTheme={hasSectionStyleTheme}
+        isGroup={isGroup}
         sectionId={sectionId}
-        size={size}
       />
     );
   }
   return (
     <DeleteSectionButton
       hasSectionStyleTheme={hasSectionStyleTheme}
+      isGroup={isGroup}
       label={label}
       sectionId={sectionId}
-      size={size}
     />
   );
 }
