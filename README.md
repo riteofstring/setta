@@ -4,6 +4,10 @@ Setta is an extensible local application platform. Its installable Python distri
 `setta` umbrella command; Python Canvas is its first app. This repository also contains the
 backend-free `@setta/workspace` package and its playground consumer.
 
+`@setta/workspace` uses the exact-pinned upstream `@xyflow/react` package behind its private canvas
+adapter. The repository contains no vendored XYFlow fork, and downstream applications consume only
+the Workspace API.
+
 ```sh
 python -m pip install setta
 setta apps

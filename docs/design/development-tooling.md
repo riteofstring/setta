@@ -86,14 +86,15 @@ This suite owns browser event routing and gesture lifecycle acceptance. The pari
 visual comparison. Its deterministic screenshot setup closes floating windows for several canvas
 scenarios, so it cannot substitute for the interaction suite's live pane-to-overlay path.
 
-## Canvas renderer parity evidence
+## Upstream canvas renderer parity evidence
 
-The XYFlow parity harnesses compare a candidate against immutable captures from the accepted
-reference commit. Playground capture owns the Workspace and managed-window catalog; Python Canvas
-capture owns its registered section kinds, canonical projection states, terminal presentation,
-themes, and viewport variants. Both captures record screenshots, computed geometry, canonical
-documents, focus and interaction state, fixture identity, browser identity, source identity, and
-built-artifact hashes. Candidate output always goes to a new caller-selected directory.
+The XYFlow parity harnesses compare the current upstream-backed renderer against immutable captures
+from the accepted pre-cutover reference commit. Playground capture owns the Workspace and
+managed-window catalog; Python Canvas capture owns its registered section kinds, canonical
+projection states, terminal presentation, themes, and viewport variants. Both captures record
+screenshots, computed geometry, canonical documents, focus and interaction state, fixture identity,
+browser identity, source identity, and built-artifact hashes. Candidate output always goes to a new
+caller-selected directory.
 
 ```sh
 node scripts/xyflow-parity/capture-playground.mjs --mode candidate \
@@ -120,6 +121,10 @@ each component is at most 6 by 3 pixels and 12 pixels total, every accepted pixe
 to matching edge contrast in both images, and no channel may differ by more than 68. These bounds
 admit isolated rasterization noise and reject coherent movement, recoloring, missing content, or a
 redesign. A human reviews the full baseline and candidate images plus every nonempty diff.
+
+The checked-in `docs/evidence/xyflow-12-cutover` directory is the historical acceptance record for
+the completed migration. It is neither an active implementation plan nor a second renderer source;
+retaining it preserves the visual and performance proof without giving it design authority.
 
 The production profile builds Workspace and Playground, serves the deterministic 256-section
 route, and writes one machine-local JSON record:

@@ -4,6 +4,10 @@ The Setta workspace UI is a standalone TypeScript/React package. Its public surf
 root exported from `src/index.ts`; package-relative modules are implementation details.
 `@setta/workspace` is private and unpublished in this repository.
 
+Canvas rendering uses the repository's exact-pinned upstream `@xyflow/react` dependency behind a
+package-private adapter. Workspace contains no vendored XYFlow fork, and consumers do not import
+XYFlow or depend on its API, state, styles, or DOM structure.
+
 Each `createWorkspaceHost()` owns one workspace document and all of its interaction state. A host
 registers its extension catalogs, loads one controlled serializable document, configures appearance,
 and mounts the integrated shell or an intentionally standalone canvas. There is no default or
@@ -624,6 +628,10 @@ React and React DOM are host-provided peers with the documented compatible range
 the frozen product reference runs `react 19.1.1`, and the package uses React 19 ref-as-prop
 components, so React 18 and below are not supported. All other runtime dependencies are
 exact-pinned under the repository dependency policy.
+
+The upstream `@xyflow/react` runtime is a direct private implementation dependency. Workspace owns
+its projection and interaction adapters, presentation, and public contract; applications such as
+Python Canvas receive no XYFlow types or renderer instance.
 
 The menu primitive is exact-pinned at `@radix-ui/react-dropdown-menu 2.1.15`. Frozen main uses
 `2.1.2`, but that release resolves `react-remove-scroll 2.6.0`, whose peer range excludes the

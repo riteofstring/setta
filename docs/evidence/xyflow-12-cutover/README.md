@@ -1,10 +1,14 @@
 # XYFlow 12 cutover evidence
 
-This directory records the private Workspace renderer cutover from reference commit
-`65f8cafa94c2c4768622ae570f6051332158ddc8` to candidate product commit
+This historical directory records the completed private Workspace renderer cutover from reference
+commit `65f8cafa94c2c4768622ae570f6051332158ddc8` to candidate product commit
 `6fe6c007927f868d36734d0cd583ffbc7b752917`. The `baseline` directory contains the
 immutable full visual captures and same-machine performance reference. The `accepted` directory
 contains final comparison receipts and diff images plus the candidate performance record.
+
+Current architecture is owned by `docs/design/workspace.md`: Workspace now uses the upstream
+package with no vendored XYFlow fork. This directory is evidence only. The completed implementation
+plan is intentionally absent from the working tree and remains available in Git history.
 
 ## Visual result
 

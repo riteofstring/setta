@@ -32,9 +32,10 @@ an alternate document API.
 
 ## Private canvas renderer boundary
 
-Workspace uses exact-pinned `@xyflow/react` as a private, host-scoped canvas renderer. It supplies
-the pane transform, pointer pan and zoom mechanics, node measurement, marquee mechanics, and
-top-level node drag mechanics. The adapter projects the current Workspace section and geometry
+Workspace uses upstream, exact-pinned `@xyflow/react` as a private, host-scoped canvas renderer.
+There is no vendored XYFlow source, fork compatibility layer, or alternate renderer. Upstream
+supplies the pane transform, pointer pan and zoom mechanics, node measurement, marquee mechanics,
+and top-level node drag mechanics. The adapter projects the current Workspace section and geometry
 stores into controlled XYFlow nodes and translates renderer events back through the existing
 document, selection, measurement, drag, and history operations. The XYFlow store is a transient
 render projection and never becomes document or application authority.
