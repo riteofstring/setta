@@ -1,5 +1,6 @@
 import {
   createWorkspaceSavedViewsState,
+  parseWorkspaceSavedViewsState,
   type WorkspaceDocument,
   type WorkspaceDocumentInput,
 } from "@setta/workspace";
@@ -144,6 +145,93 @@ describe("Python Canvas saved views", () => {
 
     persistence.persist(secondUpdate);
     expect(reportFailure).toHaveBeenCalledOnce();
+  });
+
+  it("does not repeat a failed write for unchanged saved views and retries changed views", () => {
+    mocks.persistPythonCanvasSavedViews
+      .mockReturnValueOnce({ kind: "unavailable" })
+      .mockReturnValueOnce({ kind: "persisted" });
+    const document = emptyDocument();
+    const savedViews = createWorkspaceSavedViewsState(document, {
+      id: "overview",
+      name: "Overview",
+    });
+    const completeDocument = { ...document, savedViews } as WorkspaceDocument;
+    const reportFailure = vi.fn();
+    const persistence = createPythonCanvasSavedViewsPersistence({
+      projectId: () => "project:one",
+      reportFailure,
+    });
+    persistence.beginInitialLoad(completeDocument);
+    persistence.completeInitialLoad(completeDocument);
+    const overview = requireSavedViews(completeDocument).views.overview;
+    if (overview === undefined) {
+      throw new Error("Expected Overview.");
+    }
+    const failedUpdate = {
+      ...completeDocument,
+      savedViews: {
+        ...savedViews,
+        views: {
+          ...savedViews.views,
+          overview: { ...overview, viewport: { x: 24, y: 16, zoom: 1 } },
+        },
+      },
+    };
+
+    persistence.persist(failedUpdate);
+    persistence.persist({ ...failedUpdate, viewport: { x: 4, y: 8, zoom: 1 } });
+
+    expect(mocks.persistPythonCanvasSavedViews).toHaveBeenCalledTimes(1);
+    expect(reportFailure).toHaveBeenCalledOnce();
+    const changedUpdate = {
+      ...failedUpdate,
+      savedViews: {
+        ...failedUpdate.savedViews,
+        views: {
+          ...failedUpdate.savedViews.views,
+          overview: {
+            ...failedUpdate.savedViews.views.overview,
+            viewport: { x: 48, y: 32, zoom: 1 },
+          },
+        },
+      },
+    };
+
+    persistence.persist(changedUpdate);
+
+    expect(mocks.persistPythonCanvasSavedViews).toHaveBeenCalledTimes(2);
+    expect(mocks.persistPythonCanvasSavedViews).toHaveBeenLastCalledWith(
+      "project:one",
+      changedUpdate.savedViews,
+    );
+    expect(reportFailure).toHaveBeenCalledOnce();
+  });
+
+  it("deduplicates semantically unchanged saved views after a backend projection", () => {
+    const document = emptyDocument();
+    const savedViews = createWorkspaceSavedViewsState(document, {
+      id: "overview",
+      name: "Overview",
+    });
+    const completeDocument = { ...document, savedViews } as WorkspaceDocument;
+    const persistence = createPythonCanvasSavedViewsPersistence({
+      projectId: () => "project:one",
+      reportFailure: vi.fn(),
+    });
+    persistence.beginInitialLoad(completeDocument);
+    persistence.completeInitialLoad(completeDocument);
+    const reprojected = {
+      ...completeDocument,
+      savedViews: parseWorkspaceSavedViewsState(
+        JSON.parse(JSON.stringify(savedViews)),
+      ),
+    } as WorkspaceDocument;
+
+    expect(reprojected.savedViews).not.toBe(savedViews);
+    persistence.persist(reprojected);
+
+    expect(mocks.persistPythonCanvasSavedViews).not.toHaveBeenCalled();
   });
 
   it("keeps saved-view-only changes outside backend forest proposals", () => {
