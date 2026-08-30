@@ -34,6 +34,7 @@ import {
   type NodeInternalsState,
   type WorkspaceDocumentState,
 } from "./stores";
+import type { WorkspaceHistoryChangeKind } from "../history/workspaceHistoryTypes";
 import type { WorkspaceHost } from "../workspaceHost";
 import type {
   WorkspaceDocumentInput,
@@ -246,6 +247,16 @@ export function commitWorkspaceDocument(
   publishPreparedWorkspaceDocument(host, prepared);
   synchronizeWorkspaceHistory(host, "projection", getWorkspaceDocument(host));
   notifyWorkspaceDocumentChange(host, null);
+}
+
+export function commitWorkspaceDocumentMutation(
+  host: WorkspaceHost,
+  document: WorkspaceDocumentInput,
+  historyChangeKind: WorkspaceHistoryChangeKind,
+): void {
+  const prepared = prepareWorkspaceDocumentCommit(host, document);
+  publishPreparedWorkspaceDocument(host, prepared);
+  notifyWorkspaceDocumentChange(host, historyChangeKind);
 }
 
 export function replayWorkspaceHistoryDocument(

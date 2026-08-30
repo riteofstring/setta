@@ -31,6 +31,11 @@ export function assertWorkspaceHostActive(host: WorkspaceHost): void {
   }
 }
 
+export function isWorkspaceHostActive(host: WorkspaceHost): boolean {
+  const internals = internalsByHost.get(host);
+  return internals !== undefined && !internals.disposed;
+}
+
 export function registerWorkspaceHostCleanup(
   host: WorkspaceHost,
   cleanup: () => void,
