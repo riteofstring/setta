@@ -100,6 +100,33 @@ describe("resolveDragBaseRect", () => {
 });
 
 describe("resolveSelectionBoundingRect", () => {
+  it("uses the displayed section rect for a single free-move drag", () => {
+    expect(
+      resolveSelectionBoundingRect({
+        draggingIds: ["nested-leaf"],
+        draggingRectsById: {
+          "nested-leaf": {
+            left: 20,
+            top: 30,
+            right: 220,
+            bottom: 150,
+            width: 200,
+            height: 120,
+          },
+        },
+        isMovingFree: true,
+        isItemDrag: false,
+      }),
+    ).toEqual({
+      left: 20,
+      top: 30,
+      right: 220,
+      bottom: 150,
+      width: 200,
+      height: 120,
+    });
+  });
+
   it("combines all dragged section rects for free-move multi-selection", () => {
     expect(
       resolveSelectionBoundingRect({

@@ -257,9 +257,5 @@ export function resolveSelectionBoundingRect({
     return null;
   }
 
-  if (draggingIds.length < 2) {
-    return null;
-  }
-
   return resolveRectBoundsById(draggingIds, draggingRectsById);
 }
