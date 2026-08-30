@@ -227,7 +227,8 @@ strip. It is independent of `includeBuiltInSavedViews`: the pane shows bookmark 
 mode only when both are enabled, while a host can manage `isTab` headlessly and expose the tab
 strip without the built-in pane. The default `false` hides bookmark controls, ignores `isTab` for
 shell presentation, and reserves no bottom space. The strip itself appears only while at least one
-view is bookmarked.
+view is bookmarked. When visible, it spans the shell and panes, rails, canvas, package controls,
+and window chrome all stop above it.
 
 ```tsx
 const leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [

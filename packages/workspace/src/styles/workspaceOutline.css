@@ -258,3 +258,9 @@
   min-height: 0;
   flex-direction: column;
 }
+
+.setta-workspace-shell[data-saved-view-tabs="true"]
+  > .setta-workspace-shell-controls {
+  inset-block-end: calc(2.25rem + 4px);
+  max-height: calc(100% - 2.25rem - 16px);
+}

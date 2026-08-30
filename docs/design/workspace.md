@@ -57,9 +57,10 @@ turns section controls and section commands into direct Show or Hide actions. Sh
 also restores its hidden ancestor path. The integrated pane keeps view switching compact, exposes
 management only in Edit mode, and leaves section inclusion with the canvas controls so the pane
 does not duplicate the document hierarchy. The optional saved-view tab surface alone exposes
-bookmark controls and renders bookmarked views at the bottom of the canvas. Its shell-owned height
-becomes the shared bottom boundary for integrated or host-composed window chrome, keeping docked
-windows and minimized-window recovery controls above the tab strip.
+bookmark controls and renders bookmarked views at the bottom of the shell. Its shell-owned height
+becomes a shell-wide bottom row and the shared bottom boundary for panes, rails, canvas,
+package controls, and integrated or host-composed window chrome. Docked windows and
+minimized-window recovery controls stay above the tab strip.
 
 The active view and the live top-level layout and viewport are one synchronized contract. Every
 live coordinate, measurement, stacking, or camera publication refreshes the active snapshot before

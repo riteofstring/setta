@@ -12,6 +12,7 @@ export const WORKSPACE_SAVED_VIEW_TABS_HEIGHT_PX = 36;
 
 type WorkspaceSavedViewTabsProps = {
   panelId: string;
+  visible: boolean;
 };
 
 function getNavigationIndex(
@@ -35,6 +36,7 @@ function getNavigationIndex(
 
 export function WorkspaceSavedViewTabs({
   panelId,
+  visible,
 }: WorkspaceSavedViewTabsProps) {
   const host = useWorkspaceHost();
   const savedViews = useWorkspaceDocument((state) => state.savedViews);
@@ -48,7 +50,7 @@ export function WorkspaceSavedViewTabs({
   const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
   const [status, setStatus] = useState("");
 
-  if (!savedViews || views.length === 0) {
+  if (!visible || !savedViews || views.length === 0) {
     return null;
   }
 

@@ -36,6 +36,7 @@ import {
   WorkspaceShellCenter,
 } from "./WorkspaceShellCenter";
 import { WorkspaceShellPane } from "./WorkspaceShellPane";
+import { WorkspaceSavedViewTabs } from "./WorkspaceSavedViewTabs";
 import { WorkspaceSavedViewsPane } from "./WorkspaceSavedViewsPane";
 import { WorkspaceSavedViewsIcon } from "./WorkspaceShellIcons";
 import {
@@ -922,6 +923,7 @@ export function WorkspaceShell({
       <section
         aria-label={ariaLabel}
         className={getWorkspaceShellClassName(scopeClassName, className)}
+        data-saved-view-tabs={String(hasSavedViewTabs)}
         data-workspace-shell="true"
         ref={rootRef}
       >
@@ -946,6 +948,10 @@ export function WorkspaceShell({
             getWorkspaceShellPaneTrueWidth(displayState.trailing),
           )}
           tabs={combinedTrailingTabs}
+        />
+        <WorkspaceSavedViewTabs
+          panelId={savedViewPanelId}
+          visible={hasSavedViewTabs}
         />
         <div className="setta-workspace-shell-controls">
           <WorkspaceControls />

@@ -608,15 +608,22 @@ describe("WorkspaceShell", () => {
     const manager = host.querySelector<HTMLElement>(
       '[data-workspace-shell-window-manager="true"]',
     );
+    const shell = host.querySelector<HTMLElement>(
+      '[data-workspace-shell="true"]',
+    );
     const panel = host.querySelector<HTMLElement>(
       '[role="tabpanel"][aria-label="Active saved view"]',
     );
-    if (!tabBar || !manager || !panel) {
-      throw new Error("Expected saved-view tabs, panel, and window manager.");
+    if (!tabBar || !manager || !panel || !shell) {
+      throw new Error(
+        "Expected saved-view tabs, panel, shell, and window manager.",
+      );
     }
     expect(tab.getAttribute("role")).toBe("tab");
     expect(tab.getAttribute("aria-selected")).toBe("true");
     expect(tab.getAttribute("aria-controls")).toBe(panel.id);
+    expect(tabBar.parentElement).toBe(shell);
+    expect(shell.dataset.savedViewTabs).toBe("true");
     expect(manager.style.insetBlockEnd).toBe("36px");
   });
 

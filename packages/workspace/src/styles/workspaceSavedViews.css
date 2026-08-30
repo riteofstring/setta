@@ -465,7 +465,9 @@
 }
 
 .setta-workspace-saved-view-tabs {
-  position: relative;
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline: 0;
   z-index: 20;
   display: flex;
   box-sizing: border-box;

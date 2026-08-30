@@ -1,9 +1,6 @@
 import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas";
 import { useWorkspaceDocument } from "../document/stores";
-import {
-  WorkspaceSavedViewTabs,
-  WORKSPACE_SAVED_VIEW_TABS_HEIGHT_PX,
-} from "./WorkspaceSavedViewTabs";
+import { WORKSPACE_SAVED_VIEW_TABS_HEIGHT_PX } from "./WorkspaceSavedViewTabs";
 
 export function useHasWorkspaceShellSavedViewTabs(
   includeSavedViewTabs: boolean,
@@ -51,7 +48,6 @@ export function WorkspaceShellCenter({
       >
         <WorkspaceCanvas />
       </div>
-      <WorkspaceSavedViewTabs panelId={savedViewPanelId} />
     </div>
   );
 }

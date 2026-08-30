@@ -34,6 +34,13 @@
   overflow: hidden;
 }
 
+.setta-workspace-shell[data-saved-view-tabs="true"]
+  > .setta-workspace-shell-pane-region,
+.setta-workspace-shell[data-saved-view-tabs="true"]
+  > .setta-workspace-shell-center {
+  margin-block-end: 2.25rem;
+}
+
 .setta-workspace-shell-canvas {
   position: relative;
   min-width: 0;
