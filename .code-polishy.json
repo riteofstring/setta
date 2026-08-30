@@ -19,6 +19,7 @@
           "scripts/lib/cdp-client.mjs",
           "scripts/lib/headless-chrome.mjs",
           "scripts/profile-workspace-performance.mjs",
+          "scripts/workspace-browser-interactions.mjs",
           "scripts/xyflow-parity/capture-playground.mjs",
           "scripts/xyflow-parity/compare-playground.mjs",
           "scripts/xyflow-parity/scenario-catalog.mjs"
@@ -59,6 +60,7 @@
       "scripts/check-workspace-policy.mjs",
       "scripts/compile-katex-styles.mjs",
       "scripts/profile-workspace-performance.mjs",
+      "scripts/workspace-browser-interactions.mjs",
       "scripts/xyflow-parity/capture-playground.mjs",
       "scripts/xyflow-parity/compare-playground.mjs",
       "scripts/verify-packed-consumer.mjs"
@@ -367,6 +369,23 @@
         ],
         "runOn": ["recommended", "full"],
         "timeoutSeconds": 300
+      },
+      {
+        "name": "workspace-browser-interactions",
+        "kind": "browser",
+        "scope": "repository",
+        "cost": "standard",
+        "paths": [
+          "apps/playground/**",
+          "packages/workspace/src/canvas/**",
+          "packages/workspace/src/windowing/**",
+          "scripts/lib/cdp-client.mjs",
+          "scripts/lib/headless-chrome.mjs",
+          "scripts/workspace-browser-interactions.mjs"
+        ],
+        "argv": ["pnpm", "run", "workspace:browser:test"],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 900
       },
       {
         "name": "python-canvas-browser",

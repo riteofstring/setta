@@ -73,6 +73,19 @@ The inspection command and the production performance profile share one headless
 owner and the same CDP client. This keeps Chrome discovery, isolated profiles, startup timeouts,
 and cleanup consistent without coupling visual inspection to the performance suite.
 
+## Workspace browser interaction acceptance
+
+`pnpm workspace:browser:test` builds Workspace and Playground, serves the production Playground,
+and drives an isolated Chrome target through the real XYFlow input path. The marquee acceptance
+starts with focus outside Workspace, keeps the default floating windows open, and Shift-drags from
+a bare pane point through the checklist window. Every sampled move must retain positive marquee
+geometry while the viewport stays fixed; mouse-up must produce a multi-section selection without
+closing the window or reporting a browser error.
+
+This suite owns browser event routing and gesture lifecycle acceptance. The parity harness owns
+visual comparison. Its deterministic screenshot setup closes floating windows for several canvas
+scenarios, so it cannot substitute for the interaction suite's live pane-to-overlay path.
+
 ## Canvas renderer parity evidence
 
 The XYFlow parity harnesses compare a candidate against immutable captures from the accepted
