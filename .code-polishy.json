@@ -50,7 +50,6 @@
       "apps/python-canvas/backend/cmd/python-canvas/main.go",
       "apps/python-canvas/src/main.tsx",
       "apps/python-canvas/vitest.setup.ts",
-      "apps/python-canvas/visual-parity/compare.mjs",
       "apps/python-canvas/visual-parity/capture.mjs",
       "packages/workspace/tailwind-preset.mjs",
       "packages/workspace/tailwind.config.d.ts",
