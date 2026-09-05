@@ -132,6 +132,14 @@ to matching edge contrast in both images, and no channel may differ by more than
 admit isolated rasterization noise and reject coherent movement, recoloring, missing content, or a
 redesign. A human reviews the full baseline and candidate images plus every nonempty diff.
 
+The shared parity image module is the sole owner of PNG validation, RGBA diff generation, and the
+bounded pixel and edge-raster policy used by both comparators. Each comparator owns its capture
+contract and receipt shape while consuming those common image results. Playground capture keeps
+browser actions, geometry collection, artifact provenance, and command orchestration in separate
+modules. Its scenario catalog has one validating public aggregate assembled from canvas,
+interface, and managed-window scenario groups; the aggregate preserves catalog order and remains
+the comparison contract.
+
 The checked-in `docs/evidence/xyflow-12-cutover` directory is the historical acceptance record for
 the completed migration. It is neither an active implementation plan nor a second renderer source;
 retaining it preserves the visual and performance proof without giving it design authority.

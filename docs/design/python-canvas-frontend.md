@@ -126,3 +126,13 @@ carries a compatibility parser.
 Application feedback stays outside package-private DOM. Completion errors, terminal state, pending
 commit presentation, and contextual pane content use public workspace composition seams and
 application-labelled live regions.
+
+## Visual parity tooling boundaries
+
+The Python Canvas parity capture serializes browser-visible public state at one boundary and
+normalizes fixture-created canonical identifiers before publishing artifacts. A separate
+provenance owner resolves source revisions and hashes the built Python Canvas and Workspace
+artifacts. Comparison keeps recursive public-state classification and catalog comparison separate:
+geometry fields receive the fixed CSS-pixel tolerance, while all other public state and manifest
+contracts remain exact. PNG decoding and bounded pixel classification come from the shared parity
+image owner used by the Playground comparator.
