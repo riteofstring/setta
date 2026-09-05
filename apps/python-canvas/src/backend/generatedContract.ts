@@ -7,52 +7,90 @@ export const PROJECT_PATH_V2 = "/api/v2/project" as const;
 export const PROJECT_EVENTS_PATH_V2 = "/api/v2/project/events" as const;
 export const PROJECT_RENAME_PATH_V2 = "/api/v2/project/rename" as const;
 export const PROJECT_CALLABLES_PATH_V2 = "/api/v2/project/callables" as const;
-export const PROJECT_CONFIGURED_CALLABLE_PATH_V2 = "/api/v2/project/callables/configured" as const;
-export const PROJECT_PARAMETER_DICTIONARIES_PATH_V2 = "/api/v2/project/parameter-dictionaries" as const;
+export const PROJECT_PARAMETER_DICTIONARIES_PATH_V2 =
+  "/api/v2/project/parameter-dictionaries" as const;
 export const PROJECT_LISTS_PATH_V2 = "/api/v2/project/lists" as const;
 export const PROJECT_FOREST_PATH_V2 = "/api/v2/project/forest" as const;
-export const PROJECT_CLIPBOARD_COPY_PATH_V2 = "/api/v2/project/clipboard/copy" as const;
-export const PROJECT_CLIPBOARD_PASTE_PATH_V2 = "/api/v2/project/clipboard/paste" as const;
+export const PROJECT_CLIPBOARD_COPY_PATH_V2 =
+  "/api/v2/project/clipboard/copy" as const;
+export const PROJECT_CLIPBOARD_PASTE_PATH_V2 =
+  "/api/v2/project/clipboard/paste" as const;
 export const PROJECT_CLIPBOARD_PAYLOAD_VERSION_V1 = 1 as const;
 export const PROJECT_TARGET_PATH_V2 = "/api/v2/project/target" as const;
-export const PROJECT_RUN_PATH_V2 = "/api/v2/project/run" as const;
 export const PROJECT_TERMINAL_PATH_V2 = "/api/v2/project/terminal" as const;
-export const PROJECT_TERMINAL_RUN_PATH_V2 = "/api/v2/project/terminal/run" as const;
-export const PROJECT_TERMINAL_CLOSE_PATH_V2 = "/api/v2/project/terminal/close" as const;
-export const PROJECT_TERMINAL_TICKET_PATH_V2 = "/api/v2/project/terminal/ticket" as const;
-export const PROJECT_TERMINAL_STREAM_PATH_V2 = "/api/v2/project/terminal/stream" as const;
-export const RUNTIME_SESSION_PATH_V2 = "/api/v2/runtime/session" as const;
-export const RUNTIME_SESSION_SCHEMA_VERSION_V1 = "python-canvas-session/v1" as const;
-export const RUNTIME_SESSION_APP_ID_V1 = "python-canvas" as const;
-export const MAX_RUN_TIMEOUT_MILLISECONDS_V2 = 300000 as const;
-export const MAX_TERMINAL_DIMENSION_V2 = 32767 as const;
+export const PROJECT_TERMINAL_RUN_PATH_V2 =
+  "/api/v2/project/terminal/run" as const;
+export const PROJECT_TERMINAL_CLOSE_PATH_V2 =
+  "/api/v2/project/terminal/close" as const;
+export const PROJECT_TERMINAL_TICKET_PATH_V2 =
+  "/api/v2/project/terminal/ticket" as const;
+export const PROJECT_TERMINAL_STREAM_PATH_V2 =
+  "/api/v2/project/terminal/stream" as const;
 
 export function projectCallableRenamePath(callableId: string): string {
-  return "/api/v2/project/callables/" + encodeURIComponent(callableId) + "/rename";
+  return (
+    "/api/v2/project/callables/" + encodeURIComponent(callableId) + "/rename"
+  );
 }
 export function projectCallableDeletePath(callableId: string): string {
-  return "/api/v2/project/callables/" + encodeURIComponent(callableId) + "/delete";
+  return (
+    "/api/v2/project/callables/" + encodeURIComponent(callableId) + "/delete"
+  );
 }
 export function projectCallableCommitPath(callableId: string): string {
-  return "/api/v2/project/callables/" + encodeURIComponent(callableId) + "/commit";
+  return (
+    "/api/v2/project/callables/" + encodeURIComponent(callableId) + "/commit"
+  );
 }
-export function projectCallableRefreshParametersPath(callableId: string): string {
-  return "/api/v2/project/callables/" + encodeURIComponent(callableId) + "/refresh-parameters";
+export function projectCallableRefreshParametersPath(
+  callableId: string,
+): string {
+  return (
+    "/api/v2/project/callables/" +
+    encodeURIComponent(callableId) +
+    "/refresh-parameters"
+  );
 }
 export function projectCallableParametersPath(callableId: string): string {
-  return "/api/v2/project/callables/" + encodeURIComponent(callableId) + "/parameters";
+  return (
+    "/api/v2/project/callables/" +
+    encodeURIComponent(callableId) +
+    "/parameters"
+  );
 }
 export function projectCallableCompletionsPath(callableId: string): string {
-  return "/api/v2/project/callables/" + encodeURIComponent(callableId) + "/completions";
+  return (
+    "/api/v2/project/callables/" +
+    encodeURIComponent(callableId) +
+    "/completions"
+  );
 }
-export function projectParameterDictionaryRenamePath(dictionaryId: string): string {
-  return "/api/v2/project/parameter-dictionaries/" + encodeURIComponent(dictionaryId) + "/rename";
+export function projectParameterDictionaryRenamePath(
+  dictionaryId: string,
+): string {
+  return (
+    "/api/v2/project/parameter-dictionaries/" +
+    encodeURIComponent(dictionaryId) +
+    "/rename"
+  );
 }
-export function projectParameterDictionaryDeletePath(dictionaryId: string): string {
-  return "/api/v2/project/parameter-dictionaries/" + encodeURIComponent(dictionaryId) + "/delete";
+export function projectParameterDictionaryDeletePath(
+  dictionaryId: string,
+): string {
+  return (
+    "/api/v2/project/parameter-dictionaries/" +
+    encodeURIComponent(dictionaryId) +
+    "/delete"
+  );
 }
-export function projectParameterDictionaryEntriesPath(dictionaryId: string): string {
-  return "/api/v2/project/parameter-dictionaries/" + encodeURIComponent(dictionaryId) + "/entries";
+export function projectParameterDictionaryEntriesPath(
+  dictionaryId: string,
+): string {
+  return (
+    "/api/v2/project/parameter-dictionaries/" +
+    encodeURIComponent(dictionaryId) +
+    "/entries"
+  );
 }
 export function projectListRenamePath(listId: string): string {
   return "/api/v2/project/lists/" + encodeURIComponent(listId) + "/rename";
@@ -66,13 +104,18 @@ export function projectListIncrementPath(listId: string): string {
 export function projectListDecrementPath(listId: string): string {
   return "/api/v2/project/lists/" + encodeURIComponent(listId) + "/decrement";
 }
-export const PROJECT_TARGET_COMPLETIONS_PATH_V2 = "/api/v2/project/target/completions" as const;
+export const PROJECT_TARGET_COMPLETIONS_PATH_V2 =
+  "/api/v2/project/target/completions" as const;
 
-export const PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V2 = "positional_only" as const;
-export const PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2 = "positional_or_keyword" as const;
+export const PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V2 =
+  "positional_only" as const;
+export const PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2 =
+  "positional_or_keyword" as const;
 export const PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V2 = "keyword_only" as const;
-export const PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2 = "variadic_positional" as const;
-export const PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2 = "variadic_keyword" as const;
+export const PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2 =
+  "variadic_positional" as const;
+export const PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2 =
+  "variadic_keyword" as const;
 export const DICTIONARY_ENTRY_KIND_LEAF_V2 = "leaf" as const;
 export const DICTIONARY_ENTRY_KIND_PARENT_V2 = "parent" as const;
 export const DIAGNOSTIC_SEVERITY_ERROR_V2 = "error" as const;
@@ -133,8 +176,7 @@ export type ParameterPassingStyleV2 =
   | typeof PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2
   | typeof PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2;
 export type DictionaryEntryKindV2 =
-  | typeof DICTIONARY_ENTRY_KIND_LEAF_V2
-  | typeof DICTIONARY_ENTRY_KIND_PARENT_V2;
+  typeof DICTIONARY_ENTRY_KIND_LEAF_V2 | typeof DICTIONARY_ENTRY_KIND_PARENT_V2;
 export type DiagnosticSeverityV2 =
   | typeof DIAGNOSTIC_SEVERITY_ERROR_V2
   | typeof DIAGNOSTIC_SEVERITY_WARNING_V2
@@ -178,20 +220,86 @@ export type ParameterUIV2 =
   | { type: "TextAreaParam"; configuration: TextAreaParameterUIConfigurationV2 }
   | { type: "DropzoneParam"; configuration: DropzoneParameterUIConfigurationV2 }
   | { type: "NestedParam"; configuration: Record<string, never> };
-export interface TextParameterUIConfigurationV2 { disabled: boolean; placeholder: string | null; singleLine: boolean; wrapLines: boolean; }
-export interface CodeParameterUIConfigurationV2 extends TextParameterUIConfigurationV2 { language: "python" | "typescript" | "javascript" | "json" | "yaml" | "toml" | "markdown"; }
-export interface TextAreaParameterUIConfigurationV2 { disabled: boolean; language: CodeParameterUIConfigurationV2["language"] | null; placeholder: string | null; }
-export interface SwitchParameterUIConfigurationV2 { disabled: boolean; }
-export interface DropdownChoiceGroupV2 { group: string; choices: string[]; }
-export interface DropdownParameterUIConfigurationV2 { disabled: boolean; placeholder: string | null; flatChoices: string[] | null; groupedChoices: DropdownChoiceGroupV2[] | null; }
-export interface ColorChoiceV2 { color: string; description: string; }
-export interface ColorParameterUIConfigurationV2 { disabled: boolean; choices: ColorChoiceV2[] | null; }
-export interface NumericParameterUIConfigurationV2 { disabled: boolean; min: number; max: number; step: number; }
-export interface PasswordParameterUIConfigurationV2 { disabled: boolean; placeholder: string | null; }
-export interface DateParameterUIConfigurationV2 { disabled: boolean; displayFormat: "iso" | "us" | "eu" | "long"; controlMode: "input" | "calendar"; selectionMode: "single" | "multiple"; weekStart: "sunday" | "monday"; includeTime: boolean; timeDisplayFormat: "twenty_four_hour" | "twelve_hour"; }
-export interface TimeParameterUIConfigurationV2 { disabled: boolean; controlMode: "input" | "display"; displayFormat: "twenty_four_hour" | "twelve_hour"; transparent: boolean; scale: number; font: "clock" | "monospace" | "system"; }
-export interface DropzonePolicyV2 { maxAttachments: number | null; maxFileBytes: number; maxTotalBytes: number | null; allowedMimePrefixes: string[]; }
-export interface DropzoneParameterUIConfigurationV2 { disabled: boolean; placeholder: string; policy: DropzonePolicyV2; }
+interface TextParameterUIConfigurationV2 {
+  disabled: boolean;
+  placeholder: string | null;
+  singleLine: boolean;
+  wrapLines: boolean;
+}
+interface CodeParameterUIConfigurationV2 extends TextParameterUIConfigurationV2 {
+  language:
+    | "python"
+    | "typescript"
+    | "javascript"
+    | "json"
+    | "yaml"
+    | "toml"
+    | "markdown";
+}
+interface TextAreaParameterUIConfigurationV2 {
+  disabled: boolean;
+  language: CodeParameterUIConfigurationV2["language"] | null;
+  placeholder: string | null;
+}
+interface SwitchParameterUIConfigurationV2 {
+  disabled: boolean;
+}
+interface DropdownChoiceGroupV2 {
+  group: string;
+  choices: string[];
+}
+interface DropdownParameterUIConfigurationV2 {
+  disabled: boolean;
+  placeholder: string | null;
+  flatChoices: string[] | null;
+  groupedChoices: DropdownChoiceGroupV2[] | null;
+}
+interface ColorChoiceV2 {
+  color: string;
+  description: string;
+}
+interface ColorParameterUIConfigurationV2 {
+  disabled: boolean;
+  choices: ColorChoiceV2[] | null;
+}
+interface NumericParameterUIConfigurationV2 {
+  disabled: boolean;
+  min: number;
+  max: number;
+  step: number;
+}
+interface PasswordParameterUIConfigurationV2 {
+  disabled: boolean;
+  placeholder: string | null;
+}
+interface DateParameterUIConfigurationV2 {
+  disabled: boolean;
+  displayFormat: "iso" | "us" | "eu" | "long";
+  controlMode: "input" | "calendar";
+  selectionMode: "single" | "multiple";
+  weekStart: "sunday" | "monday";
+  includeTime: boolean;
+  timeDisplayFormat: "twenty_four_hour" | "twelve_hour";
+}
+interface TimeParameterUIConfigurationV2 {
+  disabled: boolean;
+  controlMode: "input" | "display";
+  displayFormat: "twenty_four_hour" | "twelve_hour";
+  transparent: boolean;
+  scale: number;
+  font: "clock" | "monospace" | "system";
+}
+interface DropzonePolicyV2 {
+  maxAttachments: number | null;
+  maxFileBytes: number;
+  maxTotalBytes: number | null;
+  allowedMimePrefixes: string[];
+}
+interface DropzoneParameterUIConfigurationV2 {
+  disabled: boolean;
+  placeholder: string;
+  policy: DropzonePolicyV2;
+}
 
 export interface ProjectSnapshotV2 {
   version: typeof PROJECT_SNAPSHOT_VERSION_V2;
@@ -206,14 +314,46 @@ export interface ProjectSnapshotV2 {
   diagnosticsRevision: number;
   providerStatus: ProviderStatusV2;
 }
-export interface ProjectV2 { id: string; name: string; revision: number; }
-export interface PythonTargetV2 { prefix: string; suffix: string; }
-export interface CallableV2 { id: string; name: string; authoredExpression: string; parameters: ParameterV2[]; }
-export interface ParameterDictionaryV2 { id: string; name: string; entries: DictionaryEntryV2[]; }
+export interface ProjectV2 {
+  id: string;
+  name: string;
+  revision: number;
+}
+export interface PythonTargetV2 {
+  prefix: string;
+  suffix: string;
+}
+export interface CallableV2 {
+  id: string;
+  name: string;
+  authoredExpression: string;
+  parameters: ParameterV2[];
+}
+export interface ParameterDictionaryV2 {
+  id: string;
+  name: string;
+  entries: DictionaryEntryV2[];
+}
 export type DictionaryEntryV2 = DictionaryLeafEntryV2 | DictionaryParentEntryV2;
-export interface DictionaryLeafEntryV2 { kind: typeof DICTIONARY_ENTRY_KIND_LEAF_V2; id: string; name: string; ui: Exclude<ParameterUIV2, { type: "NestedParam" }>; authoredExpression: string; }
-export interface DictionaryParentEntryV2 { kind: typeof DICTIONARY_ENTRY_KIND_PARENT_V2; id: string; name: string; ui: Extract<ParameterUIV2, { type: "NestedParam" }>; children: DictionaryEntryV2[]; }
-export interface ListV2 { id: string; name: string; childSectionIds: string[]; }
+interface DictionaryLeafEntryV2 {
+  kind: typeof DICTIONARY_ENTRY_KIND_LEAF_V2;
+  id: string;
+  name: string;
+  ui: Exclude<ParameterUIV2, { type: "NestedParam" }>;
+  authoredExpression: string;
+}
+interface DictionaryParentEntryV2 {
+  kind: typeof DICTIONARY_ENTRY_KIND_PARENT_V2;
+  id: string;
+  name: string;
+  ui: Extract<ParameterUIV2, { type: "NestedParam" }>;
+  children: DictionaryEntryV2[];
+}
+export interface ListV2 {
+  id: string;
+  name: string;
+  childSectionIds: string[];
+}
 export interface ProjectClipboardPayloadV1 {
   version: typeof PROJECT_CLIPBOARD_PAYLOAD_VERSION_V1;
   rootSectionIds: string[];
@@ -230,70 +370,204 @@ export interface ParameterV2 {
   default: string | null;
   providerOrdinal: number | null;
   authoredExpression: string;
-	ui: Exclude<ParameterUIV2, { type: "NestedParam" }>;
+  ui: Exclude<ParameterUIV2, { type: "NestedParam" }>;
 }
-export interface ByteRangeV2 { start: number; end: number; }
+export interface ByteRangeV2 {
+  start: number;
+  end: number;
+}
 export interface GeneratedCodeV2 {
   code: string;
   body: string;
   generatedBodyRange: ByteRangeV2;
   sourceRangesByTargetId: Record<string, ByteRangeV2>;
 }
-export interface DiagnosticV2 { id: string; severity: DiagnosticSeverityV2; message: string; start: number; end: number; targetId: string | null; }
-export interface ProviderStatusV2 { provider: typeof PROVIDER_BASEDPYRIGHT_V2; status: ProviderAvailabilityV2; state: ProviderLifecycleStateV2; }
-export interface RenameProjectRequestV2 { projectId: string; expectedRevision: number; name: string; }
-export interface CreateCallableRequestV2 { projectId: string; expectedRevision: number; name: string; }
-export interface CreateConfiguredCallableRequestV2 { projectId: string; expectedRevision: number; name: string; authoredExpression: string; parameterValues?: Record<string, string>; }
-export interface RenameCallableRequestV2 { projectId: string; expectedRevision: number; name: string; }
-export interface DeleteCallableRequestV2 { projectId: string; expectedRevision: number; }
-export interface CommitCallableRequestV2 { projectId: string; expectedRevision: number; authoredExpression: string; }
-export interface RefreshCallableParametersRequestV2 { projectId: string; expectedRevision: number; }
-export interface ParameterProposalV2 { id: string; name: string; authoredExpression: string; ui: Exclude<ParameterUIV2, { type: "NestedParam" }>; }
-export interface SetCallableParametersRequestV2 { projectId: string; expectedRevision: number; parameters: ParameterProposalV2[]; }
-export interface CreateParameterDictionaryRequestV2 { projectId: string; expectedRevision: number; name: string; }
-export interface RenameParameterDictionaryRequestV2 { projectId: string; expectedRevision: number; name: string; }
-export interface DeleteParameterDictionaryRequestV2 { projectId: string; expectedRevision: number; }
-export interface SetParameterDictionaryEntriesRequestV2 { projectId: string; expectedRevision: number; entries: DictionaryEntryV2[]; }
-export interface CreateListRequestV2 { projectId: string; expectedRevision: number; name: string; }
-export interface RenameListRequestV2 { projectId: string; expectedRevision: number; name: string; }
-export interface DeleteListRequestV2 { projectId: string; expectedRevision: number; }
-export interface IncrementListChildrenRequestV2 { projectId: string; expectedRevision: number; count: number; }
-export interface DecrementListChildrenRequestV2 { projectId: string; expectedRevision: number; count: number; }
-export interface ListChildrenV2 { listId: string; childSectionIds: string[]; }
-export interface ReplaceSectionForestRequestV2 { projectId: string; expectedRevision: number; topLevelSectionIds: string[]; listChildren: ListChildrenV2[]; }
-export interface CopyProjectClipboardRequestV2 { projectId: string; observedRevision: number; rootSectionIds: string[]; }
-export interface CopyProjectClipboardResponseV2 { payload: ProjectClipboardPayloadV1; }
-export interface PasteProjectClipboardRequestV2 { projectId: string; expectedRevision: number; payload: ProjectClipboardPayloadV1; }
-export interface PasteProjectClipboardResponseV2 { snapshot: ProjectSnapshotV2; pastedRootSectionIds: string[]; }
-export interface SetPythonTargetRequestV2 { projectId: string; expectedRevision: number; prefix: string; suffix: string; }
-export interface CallableCompletionRequestV2 { projectId: string; authoredExpression: string; cursorOffsetUtf16: number; }
-export interface UTF16RangeV2 { start: number; end: number; }
-export interface PythonTargetCompletionRequestV2 { projectId: string; code: string; protectedBodyRange: UTF16RangeV2; cursorOffsetUtf16: number; }
-export interface RunGeneratedProgramRequestV2 { projectId: string; expectedRevision: number; runTimeoutMilliseconds?: number; }
-export type GeneratedProgramTerminationReasonV2 = "exited" | "signaled" | "timed_out" | "output_limit";
-export interface GeneratedProgramRunResultV2 {
-  projectId: string;
-  revision: number;
-  stdout: string;
-  stderr: string;
-  stdoutTruncated: boolean;
-  stderrTruncated: boolean;
-  exitCode?: number;
-  terminationReason: GeneratedProgramTerminationReasonV2;
-  elapsedMilliseconds: number;
+export interface DiagnosticV2 {
+  id: string;
+  severity: DiagnosticSeverityV2;
+  message: string;
+  start: number;
+  end: number;
+  targetId: string | null;
 }
-export interface OpenTerminalRequestV2 { projectId: string; columns: number; rows: number; }
-export interface RunTerminalRequestV2 { projectId: string; expectedRevision: number; columns: number; rows: number; }
-export interface CloseTerminalRequestV2 { projectId: string; }
-export interface TerminalTicketRequestV2 { projectId: string; }
-export interface TerminalSessionV2 { created: boolean; columns: number; rows: number; }
-export interface TerminalTicketV2 { ticket: string; }
-export interface RuntimeSessionIdentityV2 { schemaVersion: typeof RUNTIME_SESSION_SCHEMA_VERSION_V1; appId: typeof RUNTIME_SESSION_APP_ID_V1; projectPath: string; instanceNonce: string; }
-export interface TerminalStreamReadyV2 { type: typeof TERMINAL_STREAM_READY_TYPE_V2; }
-export interface TerminalStreamResizeV2 { type: typeof TERMINAL_STREAM_RESIZE_TYPE_V2; columns: number; rows: number; }
-export interface CompletionItemV2 { label: string; insertText: string; }
-export interface CompletionResponseV2 { items: CompletionItemV2[]; }
+export interface ProviderStatusV2 {
+  provider: typeof PROVIDER_BASEDPYRIGHT_V2;
+  status: ProviderAvailabilityV2;
+  state: ProviderLifecycleStateV2;
+}
+export interface CreateCallableRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  name: string;
+}
+export interface RenameCallableRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  name: string;
+}
+export interface DeleteCallableRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+}
+export interface CommitCallableRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  authoredExpression: string;
+}
+export interface RefreshCallableParametersRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+}
+export interface ParameterProposalV2 {
+  id: string;
+  name: string;
+  authoredExpression: string;
+  ui: Exclude<ParameterUIV2, { type: "NestedParam" }>;
+}
+export interface SetCallableParametersRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  parameters: ParameterProposalV2[];
+}
+export interface CreateParameterDictionaryRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  name: string;
+}
+export interface RenameParameterDictionaryRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  name: string;
+}
+export interface DeleteParameterDictionaryRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+}
+export interface SetParameterDictionaryEntriesRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  entries: DictionaryEntryV2[];
+}
+export interface CreateListRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  name: string;
+}
+export interface RenameListRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  name: string;
+}
+export interface DeleteListRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+}
+export interface IncrementListChildrenRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  count: number;
+}
+export interface DecrementListChildrenRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  count: number;
+}
+export interface ListChildrenV2 {
+  listId: string;
+  childSectionIds: string[];
+}
+export interface ReplaceSectionForestRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  topLevelSectionIds: string[];
+  listChildren: ListChildrenV2[];
+}
+export interface CopyProjectClipboardRequestV2 {
+  projectId: string;
+  observedRevision: number;
+  rootSectionIds: string[];
+}
+export interface CopyProjectClipboardResponseV2 {
+  payload: ProjectClipboardPayloadV1;
+}
+export interface PasteProjectClipboardRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  payload: ProjectClipboardPayloadV1;
+}
+export interface PasteProjectClipboardResponseV2 {
+  snapshot: ProjectSnapshotV2;
+  pastedRootSectionIds: string[];
+}
+export interface SetPythonTargetRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  prefix: string;
+  suffix: string;
+}
+export interface CallableCompletionRequestV2 {
+  projectId: string;
+  authoredExpression: string;
+  cursorOffsetUtf16: number;
+}
+interface UTF16RangeV2 {
+  start: number;
+  end: number;
+}
+export interface PythonTargetCompletionRequestV2 {
+  projectId: string;
+  code: string;
+  protectedBodyRange: UTF16RangeV2;
+  cursorOffsetUtf16: number;
+}
+export interface OpenTerminalRequestV2 {
+  projectId: string;
+  columns: number;
+  rows: number;
+}
+export interface RunTerminalRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  columns: number;
+  rows: number;
+}
+export interface CloseTerminalRequestV2 {
+  projectId: string;
+}
+export interface TerminalTicketRequestV2 {
+  projectId: string;
+}
+export interface TerminalSessionV2 {
+  created: boolean;
+  columns: number;
+  rows: number;
+}
+export interface TerminalTicketV2 {
+  ticket: string;
+}
+export interface TerminalStreamReadyV2 {
+  type: typeof TERMINAL_STREAM_READY_TYPE_V2;
+}
+export interface TerminalStreamResizeV2 {
+  type: typeof TERMINAL_STREAM_RESIZE_TYPE_V2;
+  columns: number;
+  rows: number;
+}
+export interface CompletionItemV2 {
+  label: string;
+  insertText: string;
+}
+export interface CompletionResponseV2 {
+  items: CompletionItemV2[];
+}
 export type APIErrorV2 =
   | { code: Exclude<APIErrorCodeV2, "revision_conflict">; message: string }
-  | { code: "revision_conflict"; message: string; expectedRevision: number; currentRevision: number };
-export interface ErrorResponseV2 { error: APIErrorV2; }
+  | {
+      code: "revision_conflict";
+      message: string;
+      expectedRevision: number;
+      currentRevision: number;
+    };
+export interface ErrorResponseV2 {
+  error: APIErrorV2;
+}
