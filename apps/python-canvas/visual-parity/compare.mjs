@@ -1,44 +1,39 @@
 import { createHash } from "node:crypto";
 import {
   existsSync,
-  closeSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
-  openSync,
   readFileSync,
   realpathSync,
   renameSync,
   rmSync,
-  writeSync,
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
-import { deflateSync, inflateSync } from "node:zlib";
+
+import {
+  comparePixels,
+  createPixelDifferenceWriter,
+  decodePng,
+  DEFAULT_ANTIALIAS_TOLERANCE,
+  DEFAULT_GEOMETRY_TOLERANCE,
+  DEFAULT_MAX_ANTIALIAS_PIXELS,
+  DEFAULT_PIXEL_TOLERANCE,
+  EDGE_RASTER_POLICY,
+  MAX_IMAGE_PIXELS,
+  writeRgbaPng,
+} from "../../../scripts/lib/parity-image.mjs";
+import {
+  addDifference,
+  comparePublicState,
+  createDifferenceCollector,
+  sameValue,
+} from "./comparison-values.mjs";
+import { compareCatalogs } from "./compare-catalogs.mjs";
 
 const CAPTURE_SCHEMA_VERSION = 1;
 const COMPARISON_SCHEMA_VERSION = 2;
-const DEFAULT_ANTIALIAS_TOLERANCE = 16;
-const DEFAULT_GEOMETRY_TOLERANCE = 0.25;
-const DEFAULT_MAX_ANTIALIAS_PIXELS = 128;
-const DEFAULT_PIXEL_TOLERANCE = 4;
-const EDGE_RASTER_CHANNEL_TOLERANCE = 68;
-const EDGE_RASTER_MAX_COMPONENTS = 4;
-const EDGE_RASTER_MAX_COMPONENT_HEIGHT = 3;
-const EDGE_RASTER_MAX_COMPONENT_PIXELS = 12;
-const EDGE_RASTER_MAX_COMPONENT_WIDTH = 6;
-const EDGE_RASTER_MAX_PIXELS = 36;
-const MAX_IMAGE_PIXELS = 20_000_000;
-const PNG_SIGNATURE = Buffer.from("89504e470d0a1a0a", "hex");
-const CRC_TABLE = new Uint32Array(256);
-
-for (let index = 0; index < CRC_TABLE.length; index += 1) {
-  let value = index;
-  for (let bit = 0; bit < 8; bit += 1) {
-    value = (value >>> 1) ^ (value & 1 ? 0xedb88320 : 0);
-  }
-  CRC_TABLE[index] = value >>> 0;
-}
 
 function usage() {
   return [
@@ -314,51 +309,25 @@ function safeScenarioPath(directory, id, extension, label) {
   return filePath;
 }
 
-function sameValue(left, right) {
-  if (Object.is(left, right)) {
-    return true;
-  }
-  if (Array.isArray(left) && Array.isArray(right)) {
-    return (
-      left.length === right.length &&
-      left.every((entry, index) => sameValue(entry, right[index]))
-    );
-  }
-  if (
-    left !== null &&
-    right !== null &&
-    typeof left === "object" &&
-    typeof right === "object" &&
-    !Array.isArray(left) &&
-    !Array.isArray(right)
-  ) {
-    const leftKeys = Object.keys(left).sort();
-    const rightKeys = Object.keys(right).sort();
-    return (
-      sameValue(leftKeys, rightKeys) &&
-      leftKeys.every((key) => sameValue(left[key], right[key]))
-    );
-  }
-  return false;
-}
-
 function sha256(filePath) {
   return createHash("sha256").update(readFileSync(filePath)).digest("hex");
 }
 
-function assertViewport(value, label) {
-  const viewport = assertRecord(value, label);
-  assertExactKeys(viewport, ["deviceScaleFactor", "height", "width"], label);
+function assertPositiveViewportValues(viewport, label) {
   for (const key of ["width", "height", "deviceScaleFactor"]) {
     if (!Number.isFinite(viewport[key]) || viewport[key] <= 0) {
       throw new Error(`${label}.${key} must be a positive finite number.`);
     }
   }
+}
+
+function assertIntegerViewport(viewport, label) {
   if (!Number.isInteger(viewport.width) || !Number.isInteger(viewport.height)) {
     throw new Error(`${label} width and height must be integers.`);
   }
-  const width = Math.round(viewport.width * viewport.deviceScaleFactor);
-  const height = Math.round(viewport.height * viewport.deviceScaleFactor);
+}
+
+function assertSupportedScreenshotBounds(width, height, label) {
   if (
     !Number.isSafeInteger(width) ||
     !Number.isSafeInteger(height) ||
@@ -368,6 +337,16 @@ function assertViewport(value, label) {
   ) {
     throw new Error(`${label} exceeds the supported screenshot bounds.`);
   }
+}
+
+function assertViewport(value, label) {
+  const viewport = assertRecord(value, label);
+  assertExactKeys(viewport, ["deviceScaleFactor", "height", "width"], label);
+  assertPositiveViewportValues(viewport, label);
+  assertIntegerViewport(viewport, label);
+  const width = Math.round(viewport.width * viewport.deviceScaleFactor);
+  const height = Math.round(viewport.height * viewport.deviceScaleFactor);
+  assertSupportedScreenshotBounds(width, height, label);
   return { height, width };
 }
 
@@ -457,6 +436,67 @@ function assertManifest(value, label) {
   return { fixtures, manifest, scenarios: checkedScenarios };
 }
 
+function assertReceiptRevisions(receipt, label) {
+  for (const field of ["captureRevision", "referenceRevision"]) {
+    const revision = assertString(receipt[field], `${label}.${field}`);
+    if (!/^[0-9a-f]{40}$/u.test(revision)) {
+      throw new Error(`${label}.${field} is not a full commit revision.`);
+    }
+  }
+}
+
+function assertCapturedScenarioIds(receipt, manifest, label) {
+  const capturedScenarioIds = assertUniqueStrings(
+    receipt.capturedScenarioIds,
+    `${label}.capturedScenarioIds`,
+  );
+  const expectedScenarioIds = manifest.scenarios
+    .filter((scenario) => scenario.availability === "capturable")
+    .map((scenario) => scenario.id);
+  if (!sameValue(capturedScenarioIds, expectedScenarioIds)) {
+    throw new Error(
+      `${label}.capturedScenarioIds must include every capturable scenario in manifest order.`,
+    );
+  }
+}
+
+function assertDeferredScenarios(receipt, manifest, label) {
+  const deferredScenarios = manifest.scenarios.filter(
+    (scenario) => scenario.availability !== "capturable",
+  );
+  if (!sameValue(receipt.deferredScenarios, deferredScenarios)) {
+    throw new Error(`${label}.deferredScenarios does not match its manifest.`);
+  }
+}
+
+function assertSourceDifferences(receipt, label) {
+  const sourceDifferences = assertArray(
+    receipt.productSourceDifferencesFromReference,
+    `${label}.productSourceDifferencesFromReference`,
+  );
+  sourceDifferences.forEach((entry, index) =>
+    assertString(
+      entry,
+      `${label}.productSourceDifferencesFromReference[${index}]`,
+    ),
+  );
+}
+
+function assertRuntimeArtifactHashes(receipt, label) {
+  const hashes = assertRecord(
+    receipt.runtimeArtifactHashes,
+    `${label}.runtimeArtifactHashes`,
+  );
+  for (const [filePath, digest] of Object.entries(hashes)) {
+    if (path.isAbsolute(filePath) || filePath.startsWith("..")) {
+      throw new Error(`${label}.runtimeArtifactHashes has an unsafe path.`);
+    }
+    if (typeof digest !== "string" || !/^[0-9a-f]{64}$/u.test(digest)) {
+      throw new Error(`${label}.runtimeArtifactHashes has an invalid digest.`);
+    }
+  }
+}
+
 function assertCaptureReceipt(value, manifest, expectedMode, label) {
   const receipt = assertRecord(value, label);
   assertExactKeys(
@@ -481,52 +521,11 @@ function assertCaptureReceipt(value, manifest, expectedMode, label) {
     throw new Error(`${label}.mode must be ${expectedMode}.`);
   }
   assertString(receipt.baselineRoot, `${label}.baselineRoot`);
-  for (const field of ["captureRevision", "referenceRevision"]) {
-    const revision = assertString(receipt[field], `${label}.${field}`);
-    if (!/^[0-9a-f]{40}$/u.test(revision)) {
-      throw new Error(`${label}.${field} is not a full commit revision.`);
-    }
-  }
-  const capturedScenarioIds = assertUniqueStrings(
-    receipt.capturedScenarioIds,
-    `${label}.capturedScenarioIds`,
-  );
-  const expectedScenarioIds = manifest.scenarios
-    .filter((scenario) => scenario.availability === "capturable")
-    .map((scenario) => scenario.id);
-  if (!sameValue(capturedScenarioIds, expectedScenarioIds)) {
-    throw new Error(
-      `${label}.capturedScenarioIds must include every capturable scenario in manifest order.`,
-    );
-  }
-  const deferredScenarios = manifest.scenarios.filter(
-    (scenario) => scenario.availability !== "capturable",
-  );
-  if (!sameValue(receipt.deferredScenarios, deferredScenarios)) {
-    throw new Error(`${label}.deferredScenarios does not match its manifest.`);
-  }
-  const sourceDifferences = assertArray(
-    receipt.productSourceDifferencesFromReference,
-    `${label}.productSourceDifferencesFromReference`,
-  );
-  sourceDifferences.forEach((entry, index) =>
-    assertString(
-      entry,
-      `${label}.productSourceDifferencesFromReference[${index}]`,
-    ),
-  );
-  const hashes = assertRecord(
-    receipt.runtimeArtifactHashes,
-    `${label}.runtimeArtifactHashes`,
-  );
-  for (const [filePath, digest] of Object.entries(hashes)) {
-    if (path.isAbsolute(filePath) || filePath.startsWith("..")) {
-      throw new Error(`${label}.runtimeArtifactHashes has an unsafe path.`);
-    }
-    if (typeof digest !== "string" || !/^[0-9a-f]{64}$/u.test(digest)) {
-      throw new Error(`${label}.runtimeArtifactHashes has an invalid digest.`);
-    }
-  }
+  assertReceiptRevisions(receipt, label);
+  assertCapturedScenarioIds(receipt, manifest, label);
+  assertDeferredScenarios(receipt, manifest, label);
+  assertSourceDifferences(receipt, label);
+  assertRuntimeArtifactHashes(receipt, label);
   return receipt;
 }
 
@@ -557,719 +556,6 @@ function assertMetadata(value, scenario, label) {
   }
   const dimensions = assertViewport(metadata.viewport, `${label}.viewport`);
   return { browser, canonicalSnapshot, dimensions, metadata, publicState };
-}
-
-function paeth(left, up, upLeft) {
-  const prediction = left + up - upLeft;
-  const leftDistance = Math.abs(prediction - left);
-  const upDistance = Math.abs(prediction - up);
-  const upLeftDistance = Math.abs(prediction - upLeft);
-  if (leftDistance <= upDistance && leftDistance <= upLeftDistance) {
-    return left;
-  }
-  return upDistance <= upLeftDistance ? up : upLeft;
-}
-
-function crc32(data) {
-  let value = 0xffffffff;
-  for (const byte of data) {
-    value = CRC_TABLE[(value ^ byte) & 0xff] ^ (value >>> 8);
-  }
-  return (value ^ 0xffffffff) >>> 0;
-}
-
-function decodePng(filePath) {
-  const image = readFileSync(filePath);
-  if (!image.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
-    throw new Error(`${filePath} is not a PNG.`);
-  }
-  let offset = PNG_SIGNATURE.length;
-  let header = null;
-  const dataChunks = [];
-  let ended = false;
-  while (offset < image.length) {
-    if (offset + 12 > image.length) {
-      throw new Error(`${filePath} has a truncated PNG chunk.`);
-    }
-    const length = image.readUInt32BE(offset);
-    const type = image.subarray(offset + 4, offset + 8).toString("ascii");
-    const dataStart = offset + 8;
-    const dataEnd = dataStart + length;
-    if (dataEnd + 4 > image.length) {
-      throw new Error(`${filePath} has an invalid PNG chunk length.`);
-    }
-    const chunk = image.subarray(dataStart, dataEnd);
-    const expectedCrc = image.readUInt32BE(dataEnd);
-    if (
-      crc32(Buffer.concat([Buffer.from(type, "ascii"), chunk])) !== expectedCrc
-    ) {
-      throw new Error(`${filePath} has an invalid PNG checksum.`);
-    }
-    if (type === "IHDR") {
-      if (
-        header !== null ||
-        chunk.length !== 13 ||
-        offset !== PNG_SIGNATURE.length
-      ) {
-        throw new Error(`${filePath} has an invalid PNG header.`);
-      }
-      header = {
-        bitDepth: chunk.readUInt8(8),
-        colorType: chunk.readUInt8(9),
-        compression: chunk.readUInt8(10),
-        filter: chunk.readUInt8(11),
-        height: chunk.readUInt32BE(4),
-        interlace: chunk.readUInt8(12),
-        width: chunk.readUInt32BE(0),
-      };
-    } else if (type === "IDAT") {
-      dataChunks.push(chunk);
-    } else if (type === "IEND") {
-      if (chunk.length !== 0) {
-        throw new Error(`${filePath} has an invalid PNG end chunk.`);
-      }
-      ended = true;
-      offset = dataEnd + 4;
-      break;
-    }
-    offset = dataEnd + 4;
-  }
-  if (offset !== image.length || !header || !ended || dataChunks.length === 0) {
-    throw new Error(`${filePath} has incomplete PNG data.`);
-  }
-  if (
-    header.width <= 0 ||
-    header.height <= 0 ||
-    header.width * header.height > MAX_IMAGE_PIXELS ||
-    header.bitDepth !== 8 ||
-    ![2, 6].includes(header.colorType) ||
-    header.compression !== 0 ||
-    header.filter !== 0 ||
-    header.interlace !== 0
-  ) {
-    throw new Error(`${filePath} uses an unsupported PNG encoding.`);
-  }
-  const bytesPerPixel = header.colorType === 6 ? 4 : 3;
-  const rowLength = header.width * bytesPerPixel;
-  const expectedLength = (rowLength + 1) * header.height;
-  let inflated;
-  try {
-    inflated = inflateSync(Buffer.concat(dataChunks), {
-      maxOutputLength: expectedLength,
-    });
-  } catch (error) {
-    throw new Error(
-      `${filePath} has unreadable PNG data: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-  if (inflated.length !== expectedLength) {
-    throw new Error(`${filePath} has an unexpected PNG data length.`);
-  }
-  const unfiltered = Buffer.alloc(rowLength * header.height);
-  for (let row = 0; row < header.height; row += 1) {
-    const sourceOffset = row * (rowLength + 1);
-    const destinationOffset = row * rowLength;
-    const filter = inflated[sourceOffset];
-    if (filter > 4) {
-      throw new Error(`${filePath} has an unsupported PNG filter.`);
-    }
-    for (let column = 0; column < rowLength; column += 1) {
-      const source = inflated[sourceOffset + 1 + column];
-      const left =
-        column >= bytesPerPixel
-          ? unfiltered[destinationOffset + column - bytesPerPixel]
-          : 0;
-      const up =
-        row > 0 ? unfiltered[destinationOffset - rowLength + column] : 0;
-      const upLeft =
-        row > 0 && column >= bytesPerPixel
-          ? unfiltered[destinationOffset - rowLength + column - bytesPerPixel]
-          : 0;
-      const predictor =
-        filter === 0
-          ? 0
-          : filter === 1
-            ? left
-            : filter === 2
-              ? up
-              : filter === 3
-                ? Math.floor((left + up) / 2)
-                : paeth(left, up, upLeft);
-      unfiltered[destinationOffset + column] = (source + predictor) & 0xff;
-    }
-  }
-  const rgba = Buffer.alloc(header.width * header.height * 4);
-  for (
-    let sourceOffset = 0, destinationOffset = 0;
-    sourceOffset < unfiltered.length;
-    sourceOffset += bytesPerPixel, destinationOffset += 4
-  ) {
-    rgba[destinationOffset] = unfiltered[sourceOffset];
-    rgba[destinationOffset + 1] = unfiltered[sourceOffset + 1];
-    rgba[destinationOffset + 2] = unfiltered[sourceOffset + 2];
-    rgba[destinationOffset + 3] =
-      bytesPerPixel === 4 ? unfiltered[sourceOffset + 3] : 0xff;
-  }
-  return { data: rgba, height: header.height, width: header.width };
-}
-
-function pngChunk(type, data) {
-  const typeBuffer = Buffer.from(type, "ascii");
-  const length = Buffer.alloc(4);
-  length.writeUInt32BE(data.length, 0);
-  const checksum = Buffer.alloc(4);
-  checksum.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])), 0);
-  return Buffer.concat([length, typeBuffer, data, checksum]);
-}
-
-function writeRgbaPng(filePath, image) {
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(image.width, 0);
-  header.writeUInt32BE(image.height, 4);
-  header.writeUInt8(8, 8);
-  header.writeUInt8(6, 9);
-  const rowLength = image.width * 4;
-  const raw = Buffer.alloc((rowLength + 1) * image.height);
-  for (let row = 0; row < image.height; row += 1) {
-    const sourceOffset = row * rowLength;
-    const destinationOffset = row * (rowLength + 1);
-    raw[destinationOffset] = 0;
-    image.data.copy(
-      raw,
-      destinationOffset + 1,
-      sourceOffset,
-      sourceOffset + rowLength,
-    );
-  }
-  writeFileSync(
-    filePath,
-    Buffer.concat([
-      PNG_SIGNATURE,
-      pngChunk("IHDR", header),
-      pngChunk("IDAT", deflateSync(raw)),
-      pngChunk("IEND", Buffer.alloc(0)),
-    ]),
-  );
-}
-
-function channelDifference(left, right, offset) {
-  return Math.max(
-    Math.abs(left[offset] - right[offset]),
-    Math.abs(left[offset + 1] - right[offset + 1]),
-    Math.abs(left[offset + 2] - right[offset + 2]),
-    Math.abs(left[offset + 3] - right[offset + 3]),
-  );
-}
-
-function hasEdgeContrast(image, x, y) {
-  const offset = (y * image.width + x) * 4;
-  const neighbors = [
-    [x - 1, y],
-    [x + 1, y],
-    [x, y - 1],
-    [x, y + 1],
-  ];
-  return neighbors.some(([neighborX, neighborY]) => {
-    if (
-      neighborX < 0 ||
-      neighborX >= image.width ||
-      neighborY < 0 ||
-      neighborY >= image.height
-    ) {
-      return false;
-    }
-    const neighborOffset = (neighborY * image.width + neighborX) * 4;
-    return (
-      Math.max(
-        Math.abs(image.data[offset] - image.data[neighborOffset]),
-        Math.abs(image.data[offset + 1] - image.data[neighborOffset + 1]),
-        Math.abs(image.data[offset + 2] - image.data[neighborOffset + 2]),
-        Math.abs(image.data[offset + 3] - image.data[neighborOffset + 3]),
-      ) > 8
-    );
-  });
-}
-
-function hasNearbyEdgeContrast(image, x, y) {
-  for (let yOffset = -1; yOffset <= 1; yOffset += 1) {
-    for (let xOffset = -1; xOffset <= 1; xOffset += 1) {
-      const neighborX = x + xOffset;
-      const neighborY = y + yOffset;
-      if (
-        neighborX >= 0 &&
-        neighborX < image.width &&
-        neighborY >= 0 &&
-        neighborY < image.height &&
-        hasEdgeContrast(image, neighborX, neighborY)
-      ) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function dimensionDiffImage() {
-  return {
-    data: Buffer.from([255, 0, 0, 220]),
-    height: 1,
-    width: 1,
-  };
-}
-
-function pixelDifferenceRecord(
-  baseline,
-  candidate,
-  offset,
-  classification,
-  difference,
-  x,
-  y,
-) {
-  return {
-    baseline: [...baseline.subarray(offset, offset + 4)],
-    candidate: [...candidate.subarray(offset, offset + 4)],
-    classification,
-    difference,
-    x,
-    y,
-  };
-}
-
-function createPixelDifferenceWriter(filePath) {
-  const descriptor = openSync(filePath, "w");
-  let buffer = "";
-  let count = 0;
-  let closed = false;
-  const flush = () => {
-    if (buffer.length > 0) {
-      writeSync(descriptor, buffer, undefined, "utf8");
-      buffer = "";
-    }
-  };
-  return {
-    append(record) {
-      if (closed) {
-        throw new Error(`Pixel diff writer is already closed: ${filePath}.`);
-      }
-      buffer += `${JSON.stringify(record)}\n`;
-      count += 1;
-      if (buffer.length >= 65_536) {
-        flush();
-      }
-    },
-    close() {
-      if (!closed) {
-        flush();
-        closeSync(descriptor);
-        closed = true;
-      }
-    },
-    get count() {
-      return count;
-    },
-  };
-}
-
-function appendPixelDifference(
-  baseline,
-  candidate,
-  entry,
-  classification,
-  differenceWriter,
-  diff,
-) {
-  differenceWriter.append(
-    pixelDifferenceRecord(
-      baseline.data,
-      candidate.data,
-      entry.offset,
-      classification,
-      entry.difference,
-      entry.x,
-      entry.y,
-    ),
-  );
-  diff[entry.offset] = 255;
-  diff[entry.offset + 1] = classification === "meaningful" ? 0 : 183;
-  diff[entry.offset + 2] = classification === "edge-raster" ? 64 : 0;
-  diff[entry.offset + 3] = classification === "meaningful" ? 220 : 180;
-}
-
-function collectChangedPixelComponents(entries, imageWidth) {
-  const entriesByOffset = new Map(
-    entries.map((entry) => [entry.offset, entry]),
-  );
-  const visited = new Set();
-  const components = [];
-  for (const entry of entries) {
-    if (visited.has(entry.offset)) {
-      continue;
-    }
-    const component = [];
-    const pending = [entry];
-    visited.add(entry.offset);
-    while (pending.length > 0) {
-      const current = pending.pop();
-      component.push(current);
-      for (let yOffset = -1; yOffset <= 1; yOffset += 1) {
-        for (let xOffset = -1; xOffset <= 1; xOffset += 1) {
-          if (xOffset === 0 && yOffset === 0) {
-            continue;
-          }
-          const x = current.x + xOffset;
-          const y = current.y + yOffset;
-          if (x < 0 || y < 0) {
-            continue;
-          }
-          const neighborOffset = (y * imageWidth + x) * 4;
-          const neighbor = entriesByOffset.get(neighborOffset);
-          if (neighbor && !visited.has(neighborOffset)) {
-            visited.add(neighborOffset);
-            pending.push(neighbor);
-          }
-        }
-      }
-    }
-    components.push(component);
-  }
-  return components;
-}
-
-function selectEdgeRasterPixels(entries, baseline, candidate) {
-  const components = collectChangedPixelComponents(entries, baseline.width);
-  const accepted = components.filter((component) => {
-    if (!component.some((entry) => !entry.antialiased)) {
-      return false;
-    }
-    const xs = component.map((entry) => entry.x);
-    const ys = component.map((entry) => entry.y);
-    return (
-      component.length <= EDGE_RASTER_MAX_COMPONENT_PIXELS &&
-      Math.max(...xs) - Math.min(...xs) + 1 <=
-        EDGE_RASTER_MAX_COMPONENT_WIDTH &&
-      Math.max(...ys) - Math.min(...ys) + 1 <=
-        EDGE_RASTER_MAX_COMPONENT_HEIGHT &&
-      component.every(
-        (entry) =>
-          entry.difference <= EDGE_RASTER_CHANNEL_TOLERANCE &&
-          hasNearbyEdgeContrast(baseline, entry.x, entry.y) &&
-          hasNearbyEdgeContrast(candidate, entry.x, entry.y),
-      )
-    );
-  });
-  const pixelCount = accepted.reduce(
-    (total, component) => total + component.length,
-    0,
-  );
-  if (
-    accepted.length > EDGE_RASTER_MAX_COMPONENTS ||
-    pixelCount > EDGE_RASTER_MAX_PIXELS
-  ) {
-    return { componentCount: 0, offsets: new Set() };
-  }
-  return {
-    componentCount: accepted.length,
-    offsets: new Set(
-      accepted.flatMap((component) => component.map((entry) => entry.offset)),
-    ),
-  };
-}
-
-function comparePixels(baseline, candidate, options, differenceWriter) {
-  if (
-    baseline.width !== candidate.width ||
-    baseline.height !== candidate.height
-  ) {
-    differenceWriter.append({
-      baseline: { height: baseline.height, width: baseline.width },
-      candidate: { height: candidate.height, width: candidate.width },
-      classification: "dimension-mismatch",
-    });
-    return {
-      antialiasPixels: 0,
-      changedPixels: 0,
-      diff: dimensionDiffImage(),
-      dimensionsDiffer: true,
-      edgeRasterComponents: 0,
-      edgeRasterPixels: 0,
-      maximumChannelDifference: null,
-      meaningfulPixels: 1,
-      passed: false,
-    };
-  }
-  const diff = Buffer.alloc(baseline.data.length);
-  let antialiasPixels = 0;
-  let bufferedEntries = [];
-  let changedPixels = 0;
-  let edgeRasterEligible = true;
-  let maximumChannelDifference = 0;
-  let meaningfulPixels = 0;
-  for (let y = 0; y < baseline.height; y += 1) {
-    for (let x = 0; x < baseline.width; x += 1) {
-      const offset = (y * baseline.width + x) * 4;
-      const difference = channelDifference(
-        baseline.data,
-        candidate.data,
-        offset,
-      );
-      maximumChannelDifference = Math.max(maximumChannelDifference, difference);
-      if (difference <= options.pixelTolerance) {
-        continue;
-      }
-      changedPixels += 1;
-      const antialiased =
-        difference <= options.antialiasTolerance &&
-        hasEdgeContrast(baseline, x, y) &&
-        hasEdgeContrast(candidate, x, y);
-      if (antialiased) {
-        antialiasPixels += 1;
-      } else {
-        meaningfulPixels += 1;
-      }
-      const entry = { antialiased, difference, offset, x, y };
-      if (edgeRasterEligible) {
-        bufferedEntries.push(entry);
-        if (
-          meaningfulPixels > EDGE_RASTER_MAX_PIXELS ||
-          bufferedEntries.length >
-            EDGE_RASTER_MAX_PIXELS + options.maxAntialiasPixels
-        ) {
-          edgeRasterEligible = false;
-          for (const bufferedEntry of bufferedEntries) {
-            appendPixelDifference(
-              baseline,
-              candidate,
-              bufferedEntry,
-              bufferedEntry.antialiased ? "antialias" : "meaningful",
-              differenceWriter,
-              diff,
-            );
-          }
-          bufferedEntries = [];
-        }
-      } else {
-        appendPixelDifference(
-          baseline,
-          candidate,
-          entry,
-          antialiased ? "antialias" : "meaningful",
-          differenceWriter,
-          diff,
-        );
-      }
-    }
-  }
-  const edgeRaster = edgeRasterEligible
-    ? selectEdgeRasterPixels(bufferedEntries, baseline, candidate)
-    : { componentCount: 0, offsets: new Set() };
-  let edgeRasterAntialiasPixels = 0;
-  let edgeRasterMeaningfulPixels = 0;
-  for (const entry of bufferedEntries) {
-    const isEdgeRaster = edgeRaster.offsets.has(entry.offset);
-    if (isEdgeRaster) {
-      if (entry.antialiased) {
-        edgeRasterAntialiasPixels += 1;
-      } else {
-        edgeRasterMeaningfulPixels += 1;
-      }
-    }
-    appendPixelDifference(
-      baseline,
-      candidate,
-      entry,
-      isEdgeRaster
-        ? "edge-raster"
-        : entry.antialiased
-          ? "antialias"
-          : "meaningful",
-      differenceWriter,
-      diff,
-    );
-  }
-  antialiasPixels -= edgeRasterAntialiasPixels;
-  meaningfulPixels -= edgeRasterMeaningfulPixels;
-  return {
-    antialiasPixels,
-    changedPixels,
-    diff: { data: diff, height: baseline.height, width: baseline.width },
-    dimensionsDiffer: false,
-    edgeRasterComponents: edgeRaster.componentCount,
-    edgeRasterPixels: edgeRaster.offsets.size,
-    maximumChannelDifference,
-    meaningfulPixels,
-    passed:
-      meaningfulPixels === 0 && antialiasPixels <= options.maxAntialiasPixels,
-  };
-}
-
-function createDifferenceCollector() {
-  return { count: 0, differences: [] };
-}
-
-function addDifference(collector, difference) {
-  collector.count += 1;
-  collector.differences.push(difference);
-}
-
-function isGeometryPath(pathSegments) {
-  const segments = pathSegments
-    .filter((segment) => typeof segment === "string")
-    .filter((segment) => segment !== "publicState");
-  const last = segments[segments.length - 1];
-  if (segments.includes("rect")) {
-    return true;
-  }
-  if (segments[0] === "terminal" && segments[1] === "pane") {
-    return true;
-  }
-  if (
-    segments[0] === "terminal" &&
-    segments[1] === "viewport" &&
-    ["clientHeight", "scrollHeight", "scrollTop"].includes(last)
-  ) {
-    return true;
-  }
-  if (
-    segments[0] === "generatedEditor" &&
-    segments[1] === "scroller" &&
-    ["clientHeight", "scrollHeight", "scrollTop"].includes(last)
-  ) {
-    return true;
-  }
-  if (
-    segments[0] === "viewport" &&
-    ["documentHeight", "documentWidth", "height", "width"].includes(last)
-  ) {
-    return true;
-  }
-  return (
-    segments[0] === "viewport" &&
-    segments[1] === "matrix" &&
-    ["x", "y", "zoom"].includes(last)
-  );
-}
-
-function pathLabel(pathSegments) {
-  return pathSegments
-    .reduce(
-      (label, segment) =>
-        typeof segment === "number"
-          ? `${label}[${segment}]`
-          : `${label}.${segment}`,
-      "",
-    )
-    .slice(1);
-}
-
-function comparePublicStateValue(
-  baseline,
-  candidate,
-  pathSegments,
-  tolerance,
-  contract,
-  geometry,
-) {
-  const label = pathLabel(pathSegments);
-  if (typeof baseline === "number" && typeof candidate === "number") {
-    if (isGeometryPath(pathSegments)) {
-      const difference = Math.abs(baseline - candidate);
-      if (difference > tolerance) {
-        addDifference(geometry, {
-          baseline,
-          candidate,
-          difference,
-          path: label,
-        });
-      }
-      return;
-    }
-    if (!Object.is(baseline, candidate)) {
-      addDifference(contract, { baseline, candidate, field: label });
-    }
-    return;
-  }
-  if (Array.isArray(baseline) && Array.isArray(candidate)) {
-    if (baseline.length !== candidate.length) {
-      addDifference(contract, {
-        baseline: baseline.length,
-        candidate: candidate.length,
-        field: `${label}.length`,
-      });
-      return;
-    }
-    for (let index = 0; index < baseline.length; index += 1) {
-      comparePublicStateValue(
-        baseline[index],
-        candidate[index],
-        [...pathSegments, index],
-        tolerance,
-        contract,
-        geometry,
-      );
-    }
-    return;
-  }
-  if (
-    baseline !== null &&
-    candidate !== null &&
-    typeof baseline === "object" &&
-    typeof candidate === "object" &&
-    !Array.isArray(baseline) &&
-    !Array.isArray(candidate)
-  ) {
-    const baselineKeys = Object.keys(baseline).sort();
-    const candidateKeys = Object.keys(candidate).sort();
-    if (!sameValue(baselineKeys, candidateKeys)) {
-      addDifference(contract, {
-        baseline: baselineKeys,
-        candidate: candidateKeys,
-        field: `${label}.keys`,
-      });
-      return;
-    }
-    for (const key of baselineKeys) {
-      comparePublicStateValue(
-        baseline[key],
-        candidate[key],
-        [...pathSegments, key],
-        tolerance,
-        contract,
-        geometry,
-      );
-    }
-    return;
-  }
-  if (!Object.is(baseline, candidate)) {
-    const collector = isGeometryPath(pathSegments) ? geometry : contract;
-    addDifference(collector, {
-      baseline,
-      candidate,
-      field: label,
-      ...(collector === geometry ? { difference: null, path: label } : {}),
-    });
-  }
-}
-
-function comparePublicState(baseline, candidate, tolerance) {
-  const contract = createDifferenceCollector();
-  const geometry = createDifferenceCollector();
-  comparePublicStateValue(
-    baseline,
-    candidate,
-    ["publicState"],
-    tolerance,
-    contract,
-    geometry,
-  );
-  return {
-    contract,
-    geometry: {
-      ...geometry,
-      passed: geometry.count === 0,
-      tolerance,
-    },
-  };
 }
 
 function compareExactField(contract, field, baseline, candidate) {
@@ -1350,176 +636,6 @@ function loadCapture(directory, expectedMode, label) {
     receipt,
     receiptPath,
     scenarios,
-  };
-}
-
-function sortScenarios(scenarios) {
-  return [...scenarios].sort((left, right) => left.id.localeCompare(right.id));
-}
-
-function scenariosById(scenarios) {
-  return new Map(scenarios.map((scenario) => [scenario.id, scenario]));
-}
-
-function compareCatalogEntries(
-  baselineEntries,
-  candidateEntries,
-  label,
-  contract,
-) {
-  const baselineById = new Map(baselineEntries);
-  const candidateById = new Map(candidateEntries);
-  const missingFromCandidate = [];
-  const extraInCandidate = [];
-  const changed = [];
-  for (const [id, baseline] of baselineEntries) {
-    const candidate = candidateById.get(id);
-    if (candidate === undefined) {
-      missingFromCandidate.push({ baseline, id });
-      addDifference(contract, {
-        baseline,
-        candidate: null,
-        field: `${label}.${id}`,
-        kind: "missing-from-candidate",
-      });
-      continue;
-    }
-    if (!sameValue(baseline, candidate)) {
-      changed.push({ baseline, candidate, id });
-      addDifference(contract, {
-        baseline,
-        candidate,
-        field: `${label}.${id}`,
-        kind: "changed",
-      });
-    }
-  }
-  for (const [id, candidate] of candidateEntries) {
-    if (baselineById.has(id)) {
-      continue;
-    }
-    extraInCandidate.push({ candidate, id });
-    addDifference(contract, {
-      baseline: null,
-      candidate,
-      field: `${label}.${id}`,
-      kind: "extra-in-candidate",
-    });
-  }
-  return {
-    changed,
-    extraInCandidate,
-    missingFromCandidate,
-  };
-}
-
-function groupUnsupportedScenarios(scenarios) {
-  const grouped = new Map();
-  for (const scenario of sortScenarios(scenarios)) {
-    const group = grouped.get(scenario.fixture) ?? [];
-    group.push(scenario);
-    grouped.set(scenario.fixture, group);
-  }
-  return [...grouped.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([fixture, fixtureScenarios]) => ({
-      fixture,
-      scenarios: fixtureScenarios,
-    }));
-}
-
-function compareCatalogs(baseline, candidate) {
-  const contract = createDifferenceCollector();
-  const baselineFixtures = Object.entries(baseline.manifest.fixtures).sort(
-    ([left], [right]) => left.localeCompare(right),
-  );
-  const candidateFixtures = Object.entries(candidate.manifest.fixtures).sort(
-    ([left], [right]) => left.localeCompare(right),
-  );
-  const fixtures = compareCatalogEntries(
-    baselineFixtures,
-    candidateFixtures,
-    "fixtures",
-    contract,
-  );
-  const baselineScenarios = sortScenarios(baseline.manifest.scenarios);
-  const candidateScenarios = sortScenarios(candidate.manifest.scenarios);
-  const scenarios = compareCatalogEntries(
-    baselineScenarios.map((scenario) => [scenario.id, scenario]),
-    candidateScenarios.map((scenario) => [scenario.id, scenario]),
-    "scenarios",
-    contract,
-  );
-  if (
-    baseline.receipt.referenceRevision !== candidate.receipt.referenceRevision
-  ) {
-    addDifference(contract, {
-      baseline: baseline.receipt.referenceRevision,
-      candidate: candidate.receipt.referenceRevision,
-      field: "receipt.referenceRevision",
-      kind: "changed",
-    });
-  }
-  const baselineCapturable = baselineScenarios.filter(
-    (scenario) => scenario.availability === "capturable",
-  );
-  const candidateCapturable = candidateScenarios.filter(
-    (scenario) => scenario.availability === "capturable",
-  );
-  const baselineUnsupported = baselineScenarios.filter(
-    (scenario) => scenario.availability !== "capturable",
-  );
-  const candidateUnsupported = candidateScenarios.filter(
-    (scenario) => scenario.availability !== "capturable",
-  );
-  const baselineCapturableById = scenariosById(baselineCapturable);
-  const candidateCapturableById = scenariosById(candidateCapturable);
-  const baselineUnsupportedById = scenariosById(baselineUnsupported);
-  const candidateUnsupportedById = scenariosById(candidateUnsupported);
-  const missingCapturableFromCandidate = baselineCapturable.filter(
-    (scenario) => !candidateCapturableById.has(scenario.id),
-  );
-  const extraCapturableInCandidate = candidateCapturable.filter(
-    (scenario) => !baselineCapturableById.has(scenario.id),
-  );
-  const missingUnsupportedFromCandidate = baselineUnsupported.filter(
-    (scenario) => !candidateUnsupportedById.has(scenario.id),
-  );
-  const extraUnsupportedInCandidate = candidateUnsupported.filter(
-    (scenario) => !baselineUnsupportedById.has(scenario.id),
-  );
-  const comparedCapturableScenarioIds = baselineCapturable
-    .filter((scenario) => candidateCapturableById.has(scenario.id))
-    .map((scenario) => scenario.id);
-  return {
-    contract: {
-      differenceCount: contract.count,
-      differences: contract.differences,
-      passed: contract.count === 0,
-    },
-    fixtures,
-    scenarios: {
-      baselineCapturable,
-      baselineUnsupported,
-      candidateCapturable,
-      candidateUnsupported,
-      changed: scenarios.changed,
-      comparedCapturableScenarioIds,
-      extraCapturableInCandidate,
-      extraInCandidate: scenarios.extraInCandidate,
-      extraUnsupportedInCandidate,
-      missingCapturableFromCandidate,
-      missingFromCandidate: scenarios.missingFromCandidate,
-      missingUnsupportedFromCandidate,
-    },
-    unsupportedByFixture: {
-      baseline: groupUnsupportedScenarios(baselineUnsupported),
-      candidate: groupUnsupportedScenarios(candidateUnsupported),
-      extraInCandidate: groupUnsupportedScenarios(extraUnsupportedInCandidate),
-      missingFromCandidate: groupUnsupportedScenarios(
-        missingUnsupportedFromCandidate,
-      ),
-    },
   };
 }
 
@@ -1690,44 +806,83 @@ function compareCaptures(options, stagingDirectory) {
   };
 }
 
-function comparisonReceipt(options, comparison, error) {
-  const results = comparison?.results ?? [];
-  const catalog = comparison?.catalog ?? null;
-  const unsupportedFixtureStates = catalog?.unsupportedByFixture ?? {
+function comparisonResults(comparison) {
+  return comparison === null ? [] : comparison.results;
+}
+
+function comparisonCatalog(comparison) {
+  return comparison === null ? null : comparison.catalog;
+}
+
+function emptyUnsupportedFixtureStates() {
+  return {
     baseline: [],
     candidate: [],
     extraInCandidate: [],
     missingFromCandidate: [],
   };
-  const supportedParityPassed =
-    error === null && results.every((result) => result.passed);
-  const catalogPassed = error === null && catalog?.contract.passed === true;
+}
+
+function unsupportedFixtureStatesFor(catalog) {
+  if (catalog === null || catalog.unsupportedByFixture === undefined) {
+    return emptyUnsupportedFixtureStates();
+  }
+  return catalog.unsupportedByFixture;
+}
+
+function supportedParityPassed(error, results) {
+  if (error !== null) {
+    return false;
+  }
+  return results.every((result) => result.passed);
+}
+
+function catalogComparisonPassed(error, catalog) {
+  return error === null && catalog !== null && catalog.contract.passed === true;
+}
+
+function coverageComplete(unsupportedFixtureStates) {
+  return (
+    unsupportedFixtureStates.baseline.length === 0 &&
+    unsupportedFixtureStates.candidate.length === 0
+  );
+}
+
+function comparisonEndpoint(comparison, key, pathValue) {
+  return comparison === null ? { path: pathValue } : comparison[key];
+}
+
+function comparisonError(error) {
+  return error === null ? null : error.message;
+}
+
+function comparisonReceipt(options, comparison, error) {
+  const results = comparisonResults(comparison);
+  const catalog = comparisonCatalog(comparison);
+  const unsupportedFixtureStates = unsupportedFixtureStatesFor(catalog);
+  const supportedPassed = supportedParityPassed(error, results);
+  const catalogPassed = catalogComparisonPassed(error, catalog);
   return {
-    baseline: comparison?.baseline ?? { path: options.baselineDir },
-    candidate: comparison?.candidate ?? { path: options.candidateDir },
+    baseline: comparisonEndpoint(comparison, "baseline", options.baselineDir),
+    candidate: comparisonEndpoint(
+      comparison,
+      "candidate",
+      options.candidateDir,
+    ),
     catalog,
     configuration: {
       antialiasTolerance: options.antialiasTolerance,
-      edgeRasterPolicy: {
-        channelTolerance: EDGE_RASTER_CHANNEL_TOLERANCE,
-        maxComponentHeight: EDGE_RASTER_MAX_COMPONENT_HEIGHT,
-        maxComponentPixels: EDGE_RASTER_MAX_COMPONENT_PIXELS,
-        maxComponentWidth: EDGE_RASTER_MAX_COMPONENT_WIDTH,
-        maxComponents: EDGE_RASTER_MAX_COMPONENTS,
-        maxPixels: EDGE_RASTER_MAX_PIXELS,
-      },
+      edgeRasterPolicy: EDGE_RASTER_POLICY,
       geometryTolerance: options.geometryTolerance,
       maxAntialiasPixels: options.maxAntialiasPixels,
       pixelTolerance: options.pixelTolerance,
     },
-    coverageComplete:
-      unsupportedFixtureStates.baseline.length === 0 &&
-      unsupportedFixtureStates.candidate.length === 0,
-    error: error === null ? null : error.message,
-    passed: catalogPassed && supportedParityPassed,
+    coverageComplete: coverageComplete(unsupportedFixtureStates),
+    error: comparisonError(error),
+    passed: catalogPassed && supportedPassed,
     results,
     schemaVersion: COMPARISON_SCHEMA_VERSION,
-    supportedParityPassed,
+    supportedParityPassed: supportedPassed,
     unsupportedFixtureStates,
   };
 }

@@ -8,37 +8,26 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { deflateSync, inflateSync } from "node:zlib";
 
 import {
   assertEmptyOutputDirectory,
   createStagingDirectory,
   promoteStagingDirectory,
 } from "./artifact-output.mjs";
+import { compareGeometry } from "./compare-geometry.mjs";
+import {
+  comparePixels,
+  decodePng,
+  DEFAULT_ANTIALIAS_TOLERANCE,
+  DEFAULT_GEOMETRY_TOLERANCE,
+  DEFAULT_MAX_ANTIALIAS_PIXELS,
+  DEFAULT_PIXEL_TOLERANCE,
+  EDGE_RASTER_POLICY,
+  writeRgbaPng,
+} from "../lib/parity-image.mjs";
 
 const COMPARISON_SCHEMA_VERSION = 2;
 const CAPTURE_SCHEMA_VERSION = 1;
-const PNG_SIGNATURE = Buffer.from("89504e470d0a1a0a", "hex");
-const DEFAULT_GEOMETRY_TOLERANCE = 0.25;
-const DEFAULT_PIXEL_TOLERANCE = 4;
-const DEFAULT_ANTIALIAS_TOLERANCE = 16;
-const DEFAULT_MAX_ANTIALIAS_PIXELS = 128;
-const EDGE_RASTER_CHANNEL_TOLERANCE = 68;
-const EDGE_RASTER_MAX_COMPONENTS = 4;
-const EDGE_RASTER_MAX_COMPONENT_HEIGHT = 3;
-const EDGE_RASTER_MAX_COMPONENT_PIXELS = 12;
-const EDGE_RASTER_MAX_COMPONENT_WIDTH = 6;
-const EDGE_RASTER_MAX_PIXELS = 36;
-const NUMBER_PATTERN = /-?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?/gi;
-const CRC_TABLE = new Uint32Array(256);
-
-for (let index = 0; index < CRC_TABLE.length; index += 1) {
-  let value = index;
-  for (let bit = 0; bit < 8; bit += 1) {
-    value = (value >>> 1) ^ (value & 1 ? 0xedb88320 : 0);
-  }
-  CRC_TABLE[index] = value >>> 0;
-}
 
 function usage() {
   return [
@@ -384,15 +373,7 @@ function sameValue(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function assertCaptureManifest(manifest, expectedMode, label) {
-  const record = assertRecord(manifest, label);
-  if (record.schemaVersion !== CAPTURE_SCHEMA_VERSION) {
-    throw new Error(`${label} has unsupported schema version.`);
-  }
-  const capture = assertRecord(record.capture, `${label}.capture`);
-  if (capture.mode !== expectedMode) {
-    throw new Error(`${label} must be a ${expectedMode} capture.`);
-  }
+function assertCaptureCommits(capture, label) {
   const frozenReferenceCommit = assertString(
     capture.frozenReferenceCommit,
     `${label}.capture.frozenReferenceCommit`,
@@ -407,31 +388,18 @@ function assertCaptureManifest(manifest, expectedMode, label) {
   if (!/^[0-9a-f]{40}$/.test(captureCommit)) {
     throw new Error(`${label} has an invalid capture commit.`);
   }
+}
+
+function assertCaptureBrowser(capture, label) {
   const chrome = assertRecord(capture.chrome, `${label}.capture.chrome`);
   assertString(chrome.product, `${label}.capture.chrome.product`);
   assertString(chrome.userAgent, `${label}.capture.chrome.userAgent`);
   assertString(chrome.binary, `${label}.capture.chrome.binary`);
   assertString(capture.sourceUrl, `${label}.capture.sourceUrl`);
   assertRecord(capture.stabilization, `${label}.capture.stabilization`);
-  assertBuiltWorkspace(
-    capture.builtWorkspace,
-    `${label}.capture.builtWorkspace`,
-  );
-  assertLiveResponses(capture.liveResponses, `${label}.capture.liveResponses`);
-  const baselineSourceGuard = assertBaselineSourceGuard(
-    capture.baselineSourceGuard,
-    `${label}.capture.baselineSourceGuard`,
-  );
-  const runtimeReference = assertRuntimeReference(
-    capture.runtimeReference,
-    `${label}.capture.runtimeReference`,
-  );
-  if (
-    expectedMode === "baseline" &&
-    baselineSourceGuard?.rejectedProductSourceDiffPaths.length > 0
-  ) {
-    throw new Error(`${label} accepted mounted product source differences.`);
-  }
+}
+
+function assertCaptureCatalog(record, label) {
   const catalog = assertRecord(record.catalog, `${label}.catalog`);
   assertString(catalog.catalogVersion, `${label}.catalog.catalogVersion`);
   if (typeof catalog.completeCatalog !== "boolean") {
@@ -440,6 +408,10 @@ function assertCaptureManifest(manifest, expectedMode, label) {
   assertArray(catalog.requiredCoverage, `${label}.catalog.requiredCoverage`);
   assertArray(catalog.coverageLedger, `${label}.catalog.coverageLedger`);
   assertArray(catalog.unsupportedStates, `${label}.catalog.unsupportedStates`);
+  return catalog;
+}
+
+function assertManifestScenarios(record, catalog, label) {
   const selectedScenarioIds = assertArray(
     catalog.selectedScenarioIds,
     `${label}.catalog.selectedScenarioIds`,
@@ -462,6 +434,41 @@ function assertCaptureManifest(manifest, expectedMode, label) {
   if (!sameValue(ids, selectedScenarioIds)) {
     throw new Error(`${label} scenario list does not match its catalog.`);
   }
+  return scenarios;
+}
+
+function assertCaptureManifest(manifest, expectedMode, label) {
+  const record = assertRecord(manifest, label);
+  if (record.schemaVersion !== CAPTURE_SCHEMA_VERSION) {
+    throw new Error(`${label} has unsupported schema version.`);
+  }
+  const capture = assertRecord(record.capture, `${label}.capture`);
+  if (capture.mode !== expectedMode) {
+    throw new Error(`${label} must be a ${expectedMode} capture.`);
+  }
+  assertCaptureCommits(capture, label);
+  assertCaptureBrowser(capture, label);
+  assertBuiltWorkspace(
+    capture.builtWorkspace,
+    `${label}.capture.builtWorkspace`,
+  );
+  assertLiveResponses(capture.liveResponses, `${label}.capture.liveResponses`);
+  const baselineSourceGuard = assertBaselineSourceGuard(
+    capture.baselineSourceGuard,
+    `${label}.capture.baselineSourceGuard`,
+  );
+  const runtimeReference = assertRuntimeReference(
+    capture.runtimeReference,
+    `${label}.capture.runtimeReference`,
+  );
+  if (
+    expectedMode === "baseline" &&
+    baselineSourceGuard?.rejectedProductSourceDiffPaths.length > 0
+  ) {
+    throw new Error(`${label} accepted mounted product source differences.`);
+  }
+  const catalog = assertCaptureCatalog(record, label);
+  const scenarios = assertManifestScenarios(record, catalog, label);
   return { capture, catalog, manifest: record, runtimeReference, scenarios };
 }
 
@@ -550,6 +557,87 @@ function expectedScreenshotDimensions(viewport, label) {
   };
 }
 
+function assertCanonicalArtifactPaths(entry, id, label) {
+  if (
+    entry.receipt !== `${id}/receipt.json` ||
+    entry.screenshot !== `${id}/screenshot.png`
+  ) {
+    throw new Error(`${label} has non-canonical artifact paths.`);
+  }
+}
+
+function receiptCaptureContract(capture) {
+  return {
+    mode: capture.mode,
+    captureCommit: capture.captureCommit,
+    frozenReferenceCommit: capture.frozenReferenceCommit,
+    chrome: capture.chrome,
+    sourceUrl: capture.sourceUrl,
+    builtWorkspace: capture.builtWorkspace,
+    liveResponses: capture.liveResponses,
+    baselineSourceGuard: capture.baselineSourceGuard,
+    runtimeReference: capture.runtimeReference,
+  };
+}
+
+function assertReceiptCapture(receipt, expectedMode, manifestCapture, label) {
+  const capture = assertRecord(receipt.capture, `${label}.capture`);
+  const expected = receiptCaptureContract({
+    ...manifestCapture,
+    mode: expectedMode,
+  });
+  if (!sameValue(receiptCaptureContract(capture), expected)) {
+    throw new Error(
+      `${label} receipt capture metadata does not match its manifest.`,
+    );
+  }
+}
+
+function assertReceiptScenario(receipt, entry, id, label) {
+  const scenario = assertRecord(receipt.scenario, `${label}.scenario`);
+  if (
+    scenario.id !== id ||
+    scenario.theme !== entry.theme ||
+    !sameValue(receipt.viewport, entry.viewport)
+  ) {
+    throw new Error(
+      `${label} receipt scenario metadata does not match its manifest.`,
+    );
+  }
+}
+
+function assertReceiptScreenshot(receipt, entry, label) {
+  const screenshot = assertRecord(receipt.screenshot, `${label}.screenshot`);
+  if (screenshot.file !== entry.screenshot) {
+    throw new Error(
+      `${label} receipt screenshot path does not match its manifest.`,
+    );
+  }
+  const expectedDimensions = expectedScreenshotDimensions(
+    receipt.viewport,
+    `${label}.viewport`,
+  );
+  if (!sameValue(screenshot.dimensions, expectedDimensions)) {
+    throw new Error(
+      `${label} receipt screenshot dimensions do not match its viewport.`,
+    );
+  }
+}
+
+function assertReceiptGeometry(receipt, label) {
+  const geometry = assertRecord(receipt.geometry, `${label}.geometry`);
+  assertRecord(geometry.document, `${label}.geometry.document`);
+  const elements = assertRecord(
+    geometry.elements,
+    `${label}.geometry.elements`,
+  );
+  assertRecord(elements.shell, `${label}.geometry.elements.shell`);
+  assertRecord(elements.flow, `${label}.geometry.elements.flow`);
+  for (const field of ["nodes", "panes", "sections", "selection", "windows"]) {
+    assertArray(geometry[field], `${label}.geometry.${field}`);
+  }
+}
+
 function assertReceipt(
   captureDirectory,
   manifestScenario,
@@ -559,12 +647,7 @@ function assertReceipt(
 ) {
   const entry = assertRecord(manifestScenario, label);
   const id = assertString(entry.id, `${label}.id`);
-  if (
-    entry.receipt !== `${id}/receipt.json` ||
-    entry.screenshot !== `${id}/screenshot.png`
-  ) {
-    throw new Error(`${label} has non-canonical artifact paths.`);
-  }
+  assertCanonicalArtifactPaths(entry, id, label);
   const receiptPath = safeArtifactPath(
     captureDirectory,
     entry.receipt,
@@ -581,587 +664,17 @@ function assertReceipt(
     readJson(receiptPath, `${label} receipt`),
     label,
   );
-  const capture = assertRecord(receipt.capture, `${label}.capture`);
-  if (
-    capture.mode !== expectedMode ||
-    capture.captureCommit !== manifestCapture.captureCommit ||
-    capture.frozenReferenceCommit !== manifestCapture.frozenReferenceCommit ||
-    !sameValue(capture.chrome, manifestCapture.chrome) ||
-    capture.sourceUrl !== manifestCapture.sourceUrl ||
-    !sameValue(capture.builtWorkspace, manifestCapture.builtWorkspace) ||
-    !sameValue(capture.liveResponses, manifestCapture.liveResponses) ||
-    !sameValue(
-      capture.baselineSourceGuard,
-      manifestCapture.baselineSourceGuard,
-    ) ||
-    !sameValue(capture.runtimeReference, manifestCapture.runtimeReference)
-  ) {
-    throw new Error(
-      `${label} receipt capture metadata does not match its manifest.`,
-    );
-  }
-  const scenario = assertRecord(receipt.scenario, `${label}.scenario`);
-  if (
-    scenario.id !== id ||
-    scenario.theme !== entry.theme ||
-    !sameValue(receipt.viewport, entry.viewport)
-  ) {
-    throw new Error(
-      `${label} receipt scenario metadata does not match its manifest.`,
-    );
-  }
-  const screenshot = assertRecord(receipt.screenshot, `${label}.screenshot`);
-  if (screenshot.file !== entry.screenshot) {
-    throw new Error(
-      `${label} receipt screenshot path does not match its manifest.`,
-    );
-  }
-  const expectedDimensions = expectedScreenshotDimensions(
-    receipt.viewport,
-    `${label}.viewport`,
-  );
-  if (!sameValue(screenshot.dimensions, expectedDimensions)) {
-    throw new Error(
-      `${label} receipt screenshot dimensions do not match its viewport.`,
-    );
-  }
-  const geometry = assertRecord(receipt.geometry, `${label}.geometry`);
-  assertRecord(geometry.document, `${label}.geometry.document`);
-  const elements = assertRecord(
-    geometry.elements,
-    `${label}.geometry.elements`,
-  );
-  assertRecord(elements.shell, `${label}.geometry.elements.shell`);
-  assertRecord(elements.flow, `${label}.geometry.elements.flow`);
-  for (const field of ["nodes", "panes", "sections", "selection", "windows"]) {
-    assertArray(geometry[field], `${label}.geometry.${field}`);
-  }
+  assertReceiptCapture(receipt, expectedMode, manifestCapture, label);
+  assertReceiptScenario(receipt, entry, id, label);
+  assertReceiptScreenshot(receipt, entry, label);
+  assertReceiptGeometry(receipt, label);
   return { id, receipt, receiptPath, screenshotPath };
 }
 
-function paeth(left, up, upLeft) {
-  const prediction = left + up - upLeft;
-  const leftDistance = Math.abs(prediction - left);
-  const upDistance = Math.abs(prediction - up);
-  const upLeftDistance = Math.abs(prediction - upLeft);
-  if (leftDistance <= upDistance && leftDistance <= upLeftDistance) {
-    return left;
-  }
-  return upDistance <= upLeftDistance ? up : upLeft;
-}
-
-function decodePng(filePath) {
-  const image = readFileSync(filePath);
-  if (!image.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
-    throw new Error(`${filePath} is not a PNG.`);
-  }
-  let offset = PNG_SIGNATURE.length;
-  let header = null;
-  const dataChunks = [];
-  let ended = false;
-  while (offset < image.length) {
-    if (offset + 12 > image.length) {
-      throw new Error(`${filePath} has a truncated PNG chunk.`);
-    }
-    const length = image.readUInt32BE(offset);
-    const type = image.subarray(offset + 4, offset + 8).toString("ascii");
-    const dataStart = offset + 8;
-    const dataEnd = dataStart + length;
-    if (dataEnd + 4 > image.length) {
-      throw new Error(`${filePath} has an invalid PNG chunk length.`);
-    }
-    const chunk = image.subarray(dataStart, dataEnd);
-    if (type === "IHDR") {
-      if (header !== null || chunk.length !== 13) {
-        throw new Error(`${filePath} has an invalid PNG header.`);
-      }
-      header = {
-        bitDepth: chunk.readUInt8(8),
-        colorType: chunk.readUInt8(9),
-        compression: chunk.readUInt8(10),
-        filter: chunk.readUInt8(11),
-        height: chunk.readUInt32BE(4),
-        interlace: chunk.readUInt8(12),
-        width: chunk.readUInt32BE(0),
-      };
-    } else if (type === "IDAT") {
-      dataChunks.push(chunk);
-    } else if (type === "IEND") {
-      ended = true;
-      offset = dataEnd + 4;
-      break;
-    }
-    offset = dataEnd + 4;
-  }
-  if (!header || !ended || dataChunks.length === 0) {
-    throw new Error(`${filePath} has incomplete PNG data.`);
-  }
-  if (
-    header.width <= 0 ||
-    header.height <= 0 ||
-    header.bitDepth !== 8 ||
-    ![2, 6].includes(header.colorType) ||
-    header.compression !== 0 ||
-    header.filter !== 0 ||
-    header.interlace !== 0
-  ) {
-    throw new Error(`${filePath} uses an unsupported PNG encoding.`);
-  }
-  const sourceBytesPerPixel = header.colorType === 6 ? 4 : 3;
-  const rowLength = header.width * sourceBytesPerPixel;
-  const inflated = inflateSync(Buffer.concat(dataChunks));
-  const expectedLength = (rowLength + 1) * header.height;
-  if (inflated.length !== expectedLength) {
-    throw new Error(`${filePath} has an unexpected PNG data length.`);
-  }
-  const unfiltered = Buffer.alloc(rowLength * header.height);
-  for (let row = 0; row < header.height; row += 1) {
-    const sourceOffset = row * (rowLength + 1);
-    const destinationOffset = row * rowLength;
-    const filter = inflated[sourceOffset];
-    if (filter > 4) {
-      throw new Error(`${filePath} has an unsupported PNG filter.`);
-    }
-    for (let column = 0; column < rowLength; column += 1) {
-      const source = inflated[sourceOffset + 1 + column];
-      const left =
-        column >= sourceBytesPerPixel
-          ? unfiltered[destinationOffset + column - sourceBytesPerPixel]
-          : 0;
-      const up =
-        row > 0 ? unfiltered[destinationOffset - rowLength + column] : 0;
-      const upLeft =
-        row > 0 && column >= sourceBytesPerPixel
-          ? unfiltered[
-              destinationOffset - rowLength + column - sourceBytesPerPixel
-            ]
-          : 0;
-      const predictor =
-        filter === 0
-          ? 0
-          : filter === 1
-            ? left
-            : filter === 2
-              ? up
-              : filter === 3
-                ? Math.floor((left + up) / 2)
-                : paeth(left, up, upLeft);
-      unfiltered[destinationOffset + column] = (source + predictor) & 0xff;
-    }
-  }
-  const rgba = Buffer.alloc(header.width * header.height * 4);
-  for (
-    let sourceOffset = 0, destinationOffset = 0;
-    sourceOffset < unfiltered.length;
-    sourceOffset += sourceBytesPerPixel, destinationOffset += 4
-  ) {
-    rgba[destinationOffset] = unfiltered[sourceOffset];
-    rgba[destinationOffset + 1] = unfiltered[sourceOffset + 1];
-    rgba[destinationOffset + 2] = unfiltered[sourceOffset + 2];
-    rgba[destinationOffset + 3] =
-      sourceBytesPerPixel === 4 ? unfiltered[sourceOffset + 3] : 0xff;
-  }
-  return { data: rgba, height: header.height, width: header.width };
-}
-
-function crc32(data) {
-  let value = 0xffffffff;
-  for (const byte of data) {
-    value = CRC_TABLE[(value ^ byte) & 0xff] ^ (value >>> 8);
-  }
-  return (value ^ 0xffffffff) >>> 0;
-}
-
-function pngChunk(type, data) {
-  const typeBuffer = Buffer.from(type, "ascii");
-  const length = Buffer.alloc(4);
-  length.writeUInt32BE(data.length, 0);
-  const checksum = Buffer.alloc(4);
-  checksum.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])), 0);
-  return Buffer.concat([length, typeBuffer, data, checksum]);
-}
-
-function writeRgbaPng(filePath, image) {
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(image.width, 0);
-  header.writeUInt32BE(image.height, 4);
-  header.writeUInt8(8, 8);
-  header.writeUInt8(6, 9);
-  const rowLength = image.width * 4;
-  const raw = Buffer.alloc((rowLength + 1) * image.height);
-  for (let row = 0; row < image.height; row += 1) {
-    const sourceOffset = row * rowLength;
-    const destinationOffset = row * (rowLength + 1);
-    raw[destinationOffset] = 0;
-    image.data.copy(
-      raw,
-      destinationOffset + 1,
-      sourceOffset,
-      sourceOffset + rowLength,
-    );
-  }
-  writeFileSync(
-    filePath,
-    Buffer.concat([
-      PNG_SIGNATURE,
-      pngChunk("IHDR", header),
-      pngChunk("IDAT", deflateSync(raw)),
-      pngChunk("IEND", Buffer.alloc(0)),
-    ]),
-  );
-}
-
-function channelDifference(left, right, offset) {
-  return Math.max(
-    Math.abs(left[offset] - right[offset]),
-    Math.abs(left[offset + 1] - right[offset + 1]),
-    Math.abs(left[offset + 2] - right[offset + 2]),
-    Math.abs(left[offset + 3] - right[offset + 3]),
-  );
-}
-
-function hasEdgeContrast(image, x, y) {
-  const offset = (y * image.width + x) * 4;
-  const neighbors = [
-    [x - 1, y],
-    [x + 1, y],
-    [x, y - 1],
-    [x, y + 1],
-  ];
-  return neighbors.some(([neighborX, neighborY]) => {
-    if (
-      neighborX < 0 ||
-      neighborX >= image.width ||
-      neighborY < 0 ||
-      neighborY >= image.height
-    ) {
-      return false;
-    }
-    const neighborOffset = (neighborY * image.width + neighborX) * 4;
-    return (
-      Math.max(
-        Math.abs(image.data[offset] - image.data[neighborOffset]),
-        Math.abs(image.data[offset + 1] - image.data[neighborOffset + 1]),
-        Math.abs(image.data[offset + 2] - image.data[neighborOffset + 2]),
-        Math.abs(image.data[offset + 3] - image.data[neighborOffset + 3]),
-      ) > 8
-    );
-  });
-}
-
-function hasNearbyEdgeContrast(image, x, y) {
-  for (let yOffset = -1; yOffset <= 1; yOffset += 1) {
-    for (let xOffset = -1; xOffset <= 1; xOffset += 1) {
-      const neighborX = x + xOffset;
-      const neighborY = y + yOffset;
-      if (
-        neighborX >= 0 &&
-        neighborX < image.width &&
-        neighborY >= 0 &&
-        neighborY < image.height &&
-        hasEdgeContrast(image, neighborX, neighborY)
-      ) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function collectChangedPixelComponents(entries, imageWidth) {
-  const entriesByOffset = new Map(
-    entries.map((entry) => [entry.offset, entry]),
-  );
-  const visited = new Set();
-  const components = [];
-  for (const entry of entries) {
-    if (visited.has(entry.offset)) {
-      continue;
-    }
-    const component = [];
-    const pending = [entry];
-    visited.add(entry.offset);
-    while (pending.length > 0) {
-      const current = pending.pop();
-      component.push(current);
-      for (let yOffset = -1; yOffset <= 1; yOffset += 1) {
-        for (let xOffset = -1; xOffset <= 1; xOffset += 1) {
-          if (xOffset === 0 && yOffset === 0) {
-            continue;
-          }
-          const x = current.x + xOffset;
-          const y = current.y + yOffset;
-          if (x < 0 || x >= imageWidth || y < 0) {
-            continue;
-          }
-          const neighborOffset = (y * imageWidth + x) * 4;
-          const neighbor = entriesByOffset.get(neighborOffset);
-          if (neighbor && !visited.has(neighborOffset)) {
-            visited.add(neighborOffset);
-            pending.push(neighbor);
-          }
-        }
-      }
-    }
-    components.push(component);
-  }
-  return components;
-}
-
-function selectEdgeRasterPixels(entries, baseline, candidate) {
-  const components = collectChangedPixelComponents(entries, baseline.width);
-  const accepted = components.filter((component) => {
-    if (!component.some((entry) => !entry.antialiased)) {
-      return false;
-    }
-    const xs = component.map((entry) => entry.x);
-    const ys = component.map((entry) => entry.y);
-    return (
-      component.length <= EDGE_RASTER_MAX_COMPONENT_PIXELS &&
-      Math.max(...xs) - Math.min(...xs) + 1 <=
-        EDGE_RASTER_MAX_COMPONENT_WIDTH &&
-      Math.max(...ys) - Math.min(...ys) + 1 <=
-        EDGE_RASTER_MAX_COMPONENT_HEIGHT &&
-      component.every(
-        (entry) =>
-          entry.difference <= EDGE_RASTER_CHANNEL_TOLERANCE &&
-          hasNearbyEdgeContrast(baseline, entry.x, entry.y) &&
-          hasNearbyEdgeContrast(candidate, entry.x, entry.y),
-      )
-    );
-  });
-  const pixelCount = accepted.reduce(
-    (total, component) => total + component.length,
-    0,
-  );
-  if (
-    accepted.length > EDGE_RASTER_MAX_COMPONENTS ||
-    pixelCount > EDGE_RASTER_MAX_PIXELS
-  ) {
-    return { componentCount: 0, offsets: new Set() };
-  }
-  return {
-    componentCount: accepted.length,
-    offsets: new Set(
-      accepted.flatMap((component) => component.map((entry) => entry.offset)),
-    ),
-  };
-}
-
-function comparePixels(baseline, candidate, options) {
-  if (
-    baseline.width !== candidate.width ||
-    baseline.height !== candidate.height
-  ) {
-    throw new Error("Screenshot dimensions differ.");
-  }
-  const diff = Buffer.alloc(baseline.data.length);
-  let antialiasPixels = 0;
-  const bufferedEntries = [];
-  let changedPixels = 0;
-  let edgeRasterEligible = true;
-  let maximumChannelDifference = 0;
-  let meaningfulPixels = 0;
-  for (let y = 0; y < baseline.height; y += 1) {
-    for (let x = 0; x < baseline.width; x += 1) {
-      const offset = (y * baseline.width + x) * 4;
-      const difference = channelDifference(
-        baseline.data,
-        candidate.data,
-        offset,
-      );
-      maximumChannelDifference = Math.max(maximumChannelDifference, difference);
-      if (difference <= options.pixelTolerance) {
-        continue;
-      }
-      changedPixels += 1;
-      const antialiased =
-        difference <= options.antialiasTolerance &&
-        hasEdgeContrast(baseline, x, y) &&
-        hasEdgeContrast(candidate, x, y);
-      const entry = { antialiased, difference, offset, x, y };
-      if (antialiased) {
-        antialiasPixels += 1;
-        diff[offset] = 255;
-        diff[offset + 1] = 183;
-        diff[offset + 2] = 0;
-        diff[offset + 3] = 180;
-      } else {
-        meaningfulPixels += 1;
-        diff[offset] = 255;
-        diff[offset + 1] = 0;
-        diff[offset + 2] = 0;
-        diff[offset + 3] = 220;
-      }
-      if (edgeRasterEligible) {
-        bufferedEntries.push(entry);
-        if (
-          meaningfulPixels > EDGE_RASTER_MAX_PIXELS ||
-          bufferedEntries.length >
-            EDGE_RASTER_MAX_PIXELS + options.maxAntialiasPixels
-        ) {
-          edgeRasterEligible = false;
-        }
-      }
-    }
-  }
-  const edgeRaster = edgeRasterEligible
-    ? selectEdgeRasterPixels(bufferedEntries, baseline, candidate)
-    : { componentCount: 0, offsets: new Set() };
-  let edgeRasterAntialiasPixels = 0;
-  let edgeRasterMeaningfulPixels = 0;
-  for (const entry of bufferedEntries) {
-    if (!edgeRaster.offsets.has(entry.offset)) {
-      continue;
-    }
-    if (entry.antialiased) {
-      edgeRasterAntialiasPixels += 1;
-    } else {
-      edgeRasterMeaningfulPixels += 1;
-    }
-    diff[entry.offset] = 255;
-    diff[entry.offset + 1] = 183;
-    diff[entry.offset + 2] = 64;
-    diff[entry.offset + 3] = 180;
-  }
-  antialiasPixels -= edgeRasterAntialiasPixels;
-  meaningfulPixels -= edgeRasterMeaningfulPixels;
-  return {
-    antialiasPixels,
-    changedPixels,
-    diff: { data: diff, height: baseline.height, width: baseline.width },
-    edgeRasterComponents: edgeRaster.componentCount,
-    edgeRasterPixels: edgeRaster.offsets.size,
-    maximumChannelDifference,
-    meaningfulPixels,
-    passed:
-      meaningfulPixels === 0 && antialiasPixels <= options.maxAntialiasPixels,
-  };
-}
-
-function transformNumbers(value) {
-  return [...value.matchAll(NUMBER_PATTERN)].map((match) => Number(match[0]));
-}
-
-function transformShape(value) {
-  return value.replace(NUMBER_PATTERN, "#");
-}
-
-function compareGeometryValue(
-  baseline,
-  candidate,
-  pathLabel,
-  tolerance,
-  differences,
-) {
-  if (typeof baseline === "number" && typeof candidate === "number") {
-    const difference = Math.abs(baseline - candidate);
-    if (difference > tolerance) {
-      differences.push({
-        baseline,
-        candidate,
-        difference,
-        path: pathLabel,
-      });
-    }
-    return;
-  }
-  if (
-    typeof baseline === "string" &&
-    typeof candidate === "string" &&
-    pathLabel.endsWith(".style.transform") &&
-    transformShape(baseline) === transformShape(candidate)
-  ) {
-    const baselineNumbers = transformNumbers(baseline);
-    const candidateNumbers = transformNumbers(candidate);
-    if (baselineNumbers.length === candidateNumbers.length) {
-      for (let index = 0; index < baselineNumbers.length; index += 1) {
-        compareGeometryValue(
-          baselineNumbers[index],
-          candidateNumbers[index],
-          `${pathLabel}[${index}]`,
-          tolerance,
-          differences,
-        );
-      }
-      return;
-    }
-  }
-  if (Array.isArray(baseline) && Array.isArray(candidate)) {
-    if (baseline.length !== candidate.length) {
-      differences.push({
-        baseline: baseline.length,
-        candidate: candidate.length,
-        difference: null,
-        path: `${pathLabel}.length`,
-      });
-      return;
-    }
-    for (let index = 0; index < baseline.length; index += 1) {
-      compareGeometryValue(
-        baseline[index],
-        candidate[index],
-        `${pathLabel}[${index}]`,
-        tolerance,
-        differences,
-      );
-    }
-    return;
-  }
-  if (
-    baseline !== null &&
-    candidate !== null &&
-    typeof baseline === "object" &&
-    typeof candidate === "object" &&
-    !Array.isArray(baseline) &&
-    !Array.isArray(candidate)
-  ) {
-    const baselineKeys = Object.keys(baseline).sort();
-    const candidateKeys = Object.keys(candidate).sort();
-    if (!sameValue(baselineKeys, candidateKeys)) {
-      differences.push({
-        baseline: baselineKeys,
-        candidate: candidateKeys,
-        difference: null,
-        path: `${pathLabel}.keys`,
-      });
-      return;
-    }
-    for (const key of baselineKeys) {
-      compareGeometryValue(
-        baseline[key],
-        candidate[key],
-        `${pathLabel}.${key}`,
-        tolerance,
-        differences,
-      );
-    }
-    return;
-  }
-  if (baseline !== candidate) {
-    differences.push({
-      baseline,
-      candidate,
-      difference: null,
-      path: pathLabel,
-    });
-  }
-}
-
-function compareGeometry(baseline, candidate, tolerance) {
+function scenarioContractDifferences(baseline, candidate) {
   const differences = [];
-  compareGeometryValue(baseline, candidate, "geometry", tolerance, differences);
-  return {
-    differences,
-    passed: differences.length === 0,
-    tolerance,
-  };
-}
-
-function compareScenario(baseline, candidate, options, stagingDirectory) {
-  const contractDifferences = [];
   if (baseline.id !== candidate.id) {
-    contractDifferences.push({
+    differences.push({
       baseline: baseline.id,
       candidate: candidate.id,
       field: "scenario.id",
@@ -1171,7 +684,7 @@ function compareScenario(baseline, candidate, options, stagingDirectory) {
     baseline.receipt.scenario.theme !== candidate.receipt.scenario.theme ||
     !sameValue(baseline.receipt.viewport, candidate.receipt.viewport)
   ) {
-    contractDifferences.push({
+    differences.push({
       baseline: {
         theme: baseline.receipt.scenario.theme,
         viewport: baseline.receipt.viewport,
@@ -1183,24 +696,42 @@ function compareScenario(baseline, candidate, options, stagingDirectory) {
       field: "scenario.theme-or-viewport",
     });
   }
-  const baselineImage = decodePng(baseline.screenshotPath);
-  const candidateImage = decodePng(candidate.screenshotPath);
-  const expectedDimensions = expectedScreenshotDimensions(
-    baseline.receipt.viewport,
-    `scenario ${baseline.id} viewport`,
-  );
+  return differences;
+}
+
+function appendScreenshotDimensionDifference(
+  differences,
+  baselineImage,
+  candidateImage,
+  expected,
+) {
   if (
-    baselineImage.width !== expectedDimensions.width ||
-    baselineImage.height !== expectedDimensions.height ||
-    candidateImage.width !== expectedDimensions.width ||
-    candidateImage.height !== expectedDimensions.height
+    baselineImage.width !== expected.width ||
+    baselineImage.height !== expected.height ||
+    candidateImage.width !== expected.width ||
+    candidateImage.height !== expected.height
   ) {
-    contractDifferences.push({
+    differences.push({
       baseline: { height: baselineImage.height, width: baselineImage.width },
       candidate: { height: candidateImage.height, width: candidateImage.width },
       field: "screenshot.dimensions",
     });
   }
+}
+
+function compareScenario(baseline, candidate, options, stagingDirectory) {
+  const contractDifferences = scenarioContractDifferences(baseline, candidate);
+  const baselineImage = decodePng(baseline.screenshotPath);
+  const candidateImage = decodePng(candidate.screenshotPath);
+  appendScreenshotDimensionDifference(
+    contractDifferences,
+    baselineImage,
+    candidateImage,
+    expectedScreenshotDimensions(
+      baseline.receipt.viewport,
+      `scenario ${baseline.id} viewport`,
+    ),
+  );
   const geometry = compareGeometry(
     baseline.receipt.geometry,
     candidate.receipt.geometry,
@@ -1316,14 +847,7 @@ function comparisonReceipt(options, comparison, error) {
     comparedAt: new Date().toISOString(),
     configuration: {
       antialiasTolerance: options.antialiasTolerance,
-      edgeRasterPolicy: {
-        channelTolerance: EDGE_RASTER_CHANNEL_TOLERANCE,
-        maxComponentHeight: EDGE_RASTER_MAX_COMPONENT_HEIGHT,
-        maxComponentPixels: EDGE_RASTER_MAX_COMPONENT_PIXELS,
-        maxComponentWidth: EDGE_RASTER_MAX_COMPONENT_WIDTH,
-        maxComponents: EDGE_RASTER_MAX_COMPONENTS,
-        maxPixels: EDGE_RASTER_MAX_PIXELS,
-      },
+      edgeRasterPolicy: EDGE_RASTER_POLICY,
       geometryTolerance: options.geometryTolerance,
       maxAntialiasPixels: options.maxAntialiasPixels,
       pixelTolerance: options.pixelTolerance,
