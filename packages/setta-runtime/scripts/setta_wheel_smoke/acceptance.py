@@ -494,7 +494,8 @@ def exercise_same_origin_terminal(origin_url: str, project_id: str) -> None:
             or document != {"created": True, "columns": 80, "rows": 24}
         ):
             raise SmokeError(
-                "same-origin terminal open did not publish the expected transient session"
+                "same-origin terminal open did not publish the expected transient "
+                "session"
             )
     finally:
         if opened:

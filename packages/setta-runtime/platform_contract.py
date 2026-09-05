@@ -59,7 +59,8 @@ def release_platform_tag(
         )
     if requested_tag is not None and requested_tag != expected:
         raise PlatformContractError(
-            f"{operating_system}-{architecture} must use wheel platform tag {expected}, "
+            f"{operating_system}-{architecture} must use wheel platform tag "
+            f"{expected}, "
             f"not {requested_tag}."
         )
     return expected

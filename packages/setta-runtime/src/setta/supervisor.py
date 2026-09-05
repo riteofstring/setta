@@ -200,7 +200,8 @@ class _WindowsProcessTree:
             wintypes.HANDLE(handle), wintypes.UINT(1)
         ):
             terminate_error = _windows_os_error(
-                "Unable to terminate the native server process tree after release failure"
+                "Unable to terminate the native server process tree after release "
+                "failure"
             )
         if self._kernel32.CloseHandle(wintypes.HANDLE(handle)):
             self._handle = None
@@ -312,7 +313,7 @@ class NativeServerSupervisor:
                 error,
                 self._cleanup_failed_start(process, launched.tree),
             )
-            raise AssertionError("startup cleanup unexpectedly returned")
+            raise AssertionError("startup cleanup unexpectedly returned") from error
         except (KeyboardInterrupt, SystemExit) as error:
             _raise_control_flow_after_cleanup(
                 error,

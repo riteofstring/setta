@@ -489,7 +489,7 @@ class NativeServerSupervisorTests(unittest.TestCase):
         process.kill.assert_not_called()
         self.assertEqual(kernel32.CloseHandle.call_count, 2)
 
-    def test_windows_root_exit_surfaces_job_release_failure_after_terminating_descendants(
+    def test_windows_root_exit_surfaces_job_release_failure(
         self,
     ) -> None:
         kernel32 = mock.Mock()
@@ -726,7 +726,8 @@ class NativeServerSupervisorTests(unittest.TestCase):
                 "    'url': 'http://127.0.0.1:43123',\n"
                 "}\n"
                 "sys.stdout.buffer.write(\n"
-                "    json.dumps(readiness, ensure_ascii=False).encode('utf-8') + b'\\n'\n"
+                "    json.dumps(readiness, ensure_ascii=False).encode('utf-8') "
+                "+ b'\\n'\n"
                 ")\n"
                 "sys.stdout.buffer.flush()\n"
                 "sys.stdin.read()\n",
@@ -785,7 +786,8 @@ class NativeServerSupervisorTests(unittest.TestCase):
                 "import sys\n"
                 "from pathlib import Path\n"
                 "print(json.dumps({'app': 'fixture-app', 'nonce': 'nonce', "
-                "'project': '/project', 'url': 'http://127.0.0.1:43123'}), flush=True)\n"
+                "'project': '/project', "
+                "'url': 'http://127.0.0.1:43123'}), flush=True)\n"
                 "sys.stdin.read()\n"
                 "Path(sys.argv[1]).write_text('eof', encoding='utf-8')\n",
                 encoding="utf-8",

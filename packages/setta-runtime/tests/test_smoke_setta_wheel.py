@@ -14,17 +14,12 @@ import zipfile
 from pathlib import Path
 from unittest import mock
 
-TEST_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime"))
-sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "scripts"))
-
+from scripts import _smoke_setta_wheel as smoke
 from scripts.setta_wheel_smoke import (
     acceptance,
     models,
     process,
 )
-
-from scripts import smoke_setta_wheel as smoke
 
 
 class WheelInspectionTests(unittest.TestCase):
@@ -73,7 +68,10 @@ class WheelInspectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             wheel = _write_wheel(
                 Path(temporary_directory),
-                entry_points="[console_scripts]\nsetta = setta.cli:main\npython-canvas = setta.cli:main\n",
+                entry_points=(
+                    "[console_scripts]\nsetta = setta.cli:main\n"
+                    "python-canvas = setta.cli:main\n"
+                ),
             )
             with self.assertRaisesRegex(smoke.SmokeError, "retired python-canvas"):
                 smoke.inspect_wheel(wheel)
@@ -378,14 +376,17 @@ class WheelSmokeContainmentTests(unittest.TestCase):
                 "signal.signal(signal.SIGINT, signal.SIG_IGN)\n"
                 "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
                 "child = subprocess.Popen((sys.executable, '-c', "
-                '"import signal,time;signal.signal(signal.SIGTERM,signal.SIG_IGN);time.sleep(60)"))\n'
-                f"Path({str(child_marker)!r}).write_text(str(child.pid), encoding='ascii')\n"
+                '"import signal,time;signal.signal(signal.SIGTERM,'
+                'signal.SIG_IGN);time.sleep(60)"))\n'
+                f"Path({str(child_marker)!r}).write_text("
+                "str(child.pid), encoding='ascii')\n"
                 "time.sleep(60)\n"
             )
             outer_source = (
                 "import subprocess, sys\n"
-                f"child = subprocess.Popen((sys.executable, '-c', {guardian_source!r}), "
-                "start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n"
+                "child = subprocess.Popen((sys.executable, '-c', "
+                f"{guardian_source!r}), start_new_session=True, "
+                "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n"
                 "print(child.pid, flush=True)\n"
             )
             completed = subprocess.run(
@@ -462,7 +463,8 @@ class WheelSmokeContainmentTests(unittest.TestCase):
                 ) as unavailable,
                 self.assertRaisesRegex(
                     models.SmokeError,
-                    "primary acceptance failure; cleanup also failed: session cleanup failure",
+                    "primary acceptance failure; cleanup also failed: "
+                    "session cleanup failure",
                 ),
             ):
                 acceptance.exercise_live_server(
@@ -726,7 +728,10 @@ def _write_wheel(
             0o644,
         ),
         "setta-1.2.3.dist-info/WHEEL": (
-            b"Wheel-Version: 1.0\nRoot-Is-Purelib: false\nTag: py3-none-macosx_13_0_arm64\n",
+            (
+                b"Wheel-Version: 1.0\nRoot-Is-Purelib: false\n"
+                b"Tag: py3-none-macosx_13_0_arm64\n"
+            ),
             0o644,
         ),
         "setta-1.2.3.dist-info/entry_points.txt": (entry_points.encode("utf-8"), 0o644),

@@ -168,7 +168,8 @@ class _WindowsForegroundTree:
             wintypes.HANDLE(handle), wintypes.UINT(1)
         ):
             terminate_error = _windows_os_error(
-                "unable to terminate foreground process containment after release failure"
+                "unable to terminate foreground process containment after release "
+                "failure"
             )
         if self._kernel32.CloseHandle(wintypes.HANDLE(handle)):
             self._handle = None
@@ -533,7 +534,8 @@ def _start_windows_foreground(
         if cleanup:
             details = "; ".join(str(cleanup_error) for cleanup_error in cleanup)
             raise SmokeError(
-                f"cannot execute {command[0]!r}; foreground cleanup also failed: {details}"
+                f"cannot execute {command[0]!r}; foreground cleanup also failed: "
+                f"{details}"
             ) from error
         raise SmokeError(f"cannot execute {command[0]!r}") from error
     return (process, tree)
@@ -593,10 +595,7 @@ def start_reader(
 def read_stream_chunk(stream: ReadableBytes) -> bytes:
 
     read_one = getattr(stream, "read1", None)
-    if callable(read_one):
-        chunk = read_one(64 * 1024)
-    else:
-        chunk = stream.read(64 * 1024)
+    chunk = read_one(64 * 1024) if callable(read_one) else stream.read(64 * 1024)
     if not isinstance(chunk, bytes):
         raise SmokeError("process stream did not produce bytes")
     return chunk
@@ -942,7 +941,7 @@ def runtime_path(scripts: Path) -> str:
 
 
 def windows_system_directory() -> Path:
-    root = os.environ.get("SystemRoot") or os.environ.get("SYSTEMROOT")
+    root = os.environ.get("SYSTEMROOT")
     if not root:
         raise SmokeError("Windows runtime has no SystemRoot for its platform shell")
     system_directory = (Path(root) / "System32").resolve(strict=False)

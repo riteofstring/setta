@@ -171,7 +171,8 @@ class PackagedRuntime:
         path = self.root.joinpath(*relative.parts)
         if not path.is_dir() or path.is_symlink():
             raise RuntimeAssetError(
-                f"The packaged runtime directory {relative_path!r} is missing or invalid."
+                f"The packaged runtime directory {relative_path!r} is missing or "
+                "invalid."
             )
         _require_inside_root(path, self.root)
         return path
@@ -421,7 +422,8 @@ def _load_canonical_manifest(root: Path) -> RuntimeManifest:
 def _validate_asset_hash(path: Path, asset: RuntimeAsset) -> None:
     if _sha256(path) != asset.sha256:
         raise RuntimeAssetError(
-            f"The packaged runtime asset {asset.path!r} does not match its manifest hash."
+            f"The packaged runtime asset {asset.path!r} does not match its manifest "
+            "hash."
         )
 
 

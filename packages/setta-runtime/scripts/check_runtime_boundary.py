@@ -42,7 +42,10 @@ def main(arguments: Sequence[str] | None = None) -> int:
         "--complexity-limit",
         type=int,
         default=MAX_PRODUCTION_COMPLEXITY,
-        help=f"maximum per-function cyclomatic complexity (default: {MAX_PRODUCTION_COMPLEXITY})",
+        help=(
+            "maximum per-function cyclomatic complexity "
+            f"(default: {MAX_PRODUCTION_COMPLEXITY})"
+        ),
     )
     namespace = parser.parse_args(arguments)
     if namespace.complexity_limit < 1:
@@ -86,7 +89,8 @@ def check_complexity(
                         path,
                         function.lineno,
                         "complexity",
-                        f"{function.name} has cyclomatic complexity {complexity}; limit is {limit}",
+                        f"{function.name} has cyclomatic complexity {complexity}; "
+                        f"limit is {limit}",
                     )
                 )
     return findings
@@ -152,7 +156,10 @@ def _import_violation(importer: str, imported: str) -> str | None:
     is_app_import = imported == "setta.apps" or imported.startswith("setta.apps.")
     if importer == "setta.cli":
         if imported.startswith("setta.apps."):
-            return "the root dispatcher must register apps through the setta.apps facade, not an app implementation"
+            return (
+                "the root dispatcher must register apps through the setta.apps "
+                "facade, not an app implementation"
+            )
         return None
     if not is_app and is_app_import:
         return "platform core modules must not depend on app adapters"

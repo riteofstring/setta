@@ -1,19 +1,16 @@
 from __future__ import annotations
 
-import sys
 import tempfile
 import unittest
 from pathlib import Path
-
-TEST_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime"))
-sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "scripts"))
 
 from scripts.check_runtime_boundary import (
     MAX_PRODUCTION_COMPLEXITY,
     check_complexity,
     check_import_boundaries,
 )
+
+TEST_ROOT = Path(__file__).resolve().parents[3]
 
 
 class RuntimeBoundaryCheckerTests(unittest.TestCase):
@@ -26,7 +23,9 @@ class RuntimeBoundaryCheckerTests(unittest.TestCase):
         with _fixture_source(
             {
                 "setta/__init__.py": "",
-                "setta/cli.py": "from setta.apps.python_canvas import PythonCanvasAdapter\n",
+                "setta/cli.py": (
+                    "from setta.apps.python_canvas import PythonCanvasAdapter\n"
+                ),
                 "setta/apps/__init__.py": "",
                 "setta/apps/python_canvas.py": "",
             }

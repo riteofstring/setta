@@ -1,13 +1,9 @@
 from __future__ import annotations
 
 import struct
-import sys
 import tempfile
 import unittest
 from pathlib import Path
-
-TEST_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime"))
 
 from platform_contract import (
     PlatformContractError,

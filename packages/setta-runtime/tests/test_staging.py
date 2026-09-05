@@ -3,17 +3,12 @@ from __future__ import annotations
 import json
 import os
 import struct
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-TEST_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "scripts"))
-sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime"))
-
 from platform_contract import required_platform_tag
-from scripts.stage_setta_wheel import StageError, StageInputs, parse_target, stage
+from scripts._stage_setta_wheel import StageError, StageInputs, parse_target, stage
 from setta.runtime import (
     PackagedRuntime,
     RuntimeTarget,

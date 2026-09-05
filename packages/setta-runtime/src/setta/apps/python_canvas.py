@@ -96,7 +96,8 @@ class PythonCanvasAdapter:
     def _open(self, arguments: Sequence[str], context: CommandContext) -> int:
         if _is_help(arguments):
             context.stdout.write(
-                "Usage: setta python-canvas open --project PATH [--create] [--no-open]\n"
+                "Usage: setta python-canvas open --project PATH "
+                "[--create] [--no-open]\n"
             )
             return 0
         parsed = _parse_options(
@@ -167,7 +168,8 @@ class PythonCanvasAdapter:
                 context.browser_open(session.url)
             except OSError:
                 context.stderr.write(
-                    "Setta could not open a browser automatically; use the printed URL.\n"
+                    "Setta could not open a browser automatically; use the printed "
+                    "URL.\n"
                 )
         try:
             return supervisor.wait_foreground(managed)
@@ -302,9 +304,19 @@ class PythonCanvasAdapter:
     @staticmethod
     def _write_live_command_help(command: str, context: CommandContext) -> None:
         usage = {
-            "snapshot": "Usage: setta python-canvas snapshot (--project PATH | --url URL) [--wait-diagnostics] [--timeout DURATION] [--pretty]\n",
-            "apply": "Usage: setta python-canvas apply (--project PATH | --url URL) --file PATH|- [--wait-diagnostics] [--timeout DURATION] [--pretty]\n",
-            "run": "Usage: setta python-canvas run (--project PATH | --url URL) [--wait-diagnostics] [--diagnostics-timeout DURATION] [--run-timeout DURATION] [--pretty]\n",
+            "snapshot": (
+                "Usage: setta python-canvas snapshot (--project PATH | --url URL) "
+                "[--wait-diagnostics] [--timeout DURATION] [--pretty]\n"
+            ),
+            "apply": (
+                "Usage: setta python-canvas apply (--project PATH | --url URL) "
+                "--file PATH|- [--wait-diagnostics] [--timeout DURATION] [--pretty]\n"
+            ),
+            "run": (
+                "Usage: setta python-canvas run (--project PATH | --url URL) "
+                "[--wait-diagnostics] [--diagnostics-timeout DURATION] "
+                "[--run-timeout DURATION] [--pretty]\n"
+            ),
         }
         context.stdout.write(usage[command])
 

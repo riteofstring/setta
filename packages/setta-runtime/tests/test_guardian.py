@@ -337,7 +337,8 @@ class GuardianIntegrationTests(unittest.TestCase):
                 "    'import os, signal, sys, time; '\n"
                 "    'from pathlib import Path; '\n"
                 "    'os.setsid(); signal.signal(signal.SIGTERM, signal.SIG_IGN); '\n"
-                "    'Path(sys.argv[1]).write_text(str(os.getpid()), encoding=\"utf-8\"); '\n"
+                "    'Path(sys.argv[1]).write_text(str(os.getpid()), "
+                'encoding="utf-8"); \'\n'
                 "    'time.sleep(60)'\n"
                 ")\n"
                 "marker = Path(sys.argv[1])\n"
@@ -503,7 +504,8 @@ class GuardianIntegrationTests(unittest.TestCase):
                 "        raise SystemExit(24)\n"
                 "    time.sleep(0.01)\n"
                 "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
-                "(marker.parent / 'worker-ready').write_text('ready', encoding='utf-8')\n"
+                "(marker.parent / 'worker-ready').write_text("
+                "'ready', encoding='utf-8')\n"
                 "while True:\n"
                 "    time.sleep(1)\n",
                 encoding="utf-8",
@@ -566,7 +568,8 @@ class GuardianIntegrationTests(unittest.TestCase):
                 "        raise SystemExit(24)\n"
                 "    time.sleep(0.01)\n"
                 "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
-                "(marker.parent / 'worker-ready').write_text('ready', encoding='utf-8')\n"
+                "(marker.parent / 'worker-ready').write_text("
+                "'ready', encoding='utf-8')\n"
                 "while True:\n"
                 "    time.sleep(1)\n",
                 encoding="utf-8",

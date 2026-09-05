@@ -13,13 +13,9 @@ import zipfile
 from pathlib import Path
 from unittest import mock
 
-TEST_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime"))
-sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "scripts"))
-
 import setta_build_backend as backend
 from platform_contract import required_platform_tag
-from scripts.stage_setta_wheel import StageInputs, stage
+from scripts._stage_setta_wheel import StageInputs, stage
 from setta.runtime import RuntimeTarget, current_target
 
 
@@ -86,8 +82,9 @@ class SettaBuildBackendTests(unittest.TestCase):
             self.assertIn("Requires-Dist: basedpyright==1.39.9", metadata)
             self.assertIn("Requires-Dist: nodejs-wheel-binaries==24.16.0", metadata)
             self.assertIn("Root-Is-Purelib: false", wheel)
+            platform_tag = wheel_name.removesuffix(".whl").split("-py3-none-", 1)[1]
             self.assertIn(
-                f"Tag: py3-none-{wheel_name.removesuffix('.whl').split('-py3-none-', 1)[1]}",
+                f"Tag: py3-none-{platform_tag}",
                 wheel,
             )
             self.assertIn("setta = setta.cli:main", entry_points)

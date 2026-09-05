@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import os
 import re
@@ -65,7 +66,11 @@ class BuildContext:
 
     @property
     def wheel_name(self) -> str:
-        return f"{self.project.normalized_name}-{self.project.version}-py3-none-{self.platform_tag}.whl"
+        project = self.project
+        return (
+            f"{project.normalized_name}-{project.version}-py3-none-"
+            f"{self.platform_tag}.whl"
+        )
 
 
 def get_requires_for_build_wheel(
@@ -221,10 +226,8 @@ def _validated_runtime_platform(
             "The staged Setta runtime is missing or invalid."
         ) from error
     finally:
-        try:
+        with contextlib.suppress(ValueError):
             sys.path.remove(source_root_text)
-        except ValueError:
-            pass
     try:
         tag = release_platform_tag(
             target.os, target.arch, _platform_tag_from_config(config_settings)

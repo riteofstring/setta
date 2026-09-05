@@ -257,14 +257,14 @@ class LiveSessionStore:
                 if self._lock_belongs_to_current_process(lock_path):
                     raise SessionAlreadyRunningError(
                         "Another Setta command is starting or inspecting this project."
-                    )
+                    ) from None
                 if self._lock_is_stale(lock_path):
                     _unlink_if_exists(lock_path)
                     continue
                 if self._now() >= deadline:
                     raise SessionAlreadyRunningError(
                         "Another Setta command is starting or inspecting this project."
-                    )
+                    ) from None
                 self._sleep(_LOCK_POLL_SECONDS)
                 continue
             except OSError as error:

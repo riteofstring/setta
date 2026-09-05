@@ -1,13 +1,7 @@
 from __future__ import annotations
 
 import json
-import sys
 import unittest
-from pathlib import Path
-
-TEST_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime"))
-sys.path.insert(0, str(TEST_ROOT / "packages" / "setta-runtime" / "scripts"))
 
 from scripts import check_auditwheel_report as auditwheel_report
 
@@ -51,7 +45,8 @@ class AuditwheelReportValidationTests(unittest.TestCase):
             auditwheel_report.AuditwheelReportError, "generic linux"
         ):
             auditwheel_report._assert_report(
-                'wheel is consistent with the following platform tag: "linux_x86_64".\n',
+                "wheel is consistent with the following platform tag: "
+                '"linux_x86_64".\n',
                 expected_architecture="x86_64",
                 max_glibc_minor=28,
             )
@@ -73,7 +68,8 @@ class AuditwheelReportValidationTests(unittest.TestCase):
 
     def test_rejects_a_malformed_external_library_section(self) -> None:
         report = (
-            'wheel is consistent with the following platform tag: "manylinux_2_28_x86_64".\n'
+            "wheel is consistent with the following platform tag: "
+            '"manylinux_2_28_x86_64".\n'
             "The following external shared libraries are required by the wheel:\n"
             "{not json}\n"
         )

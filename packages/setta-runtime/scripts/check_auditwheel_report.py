@@ -191,7 +191,8 @@ def _assert_external_library_policy(report: str) -> None:
     if non_policy_libraries:
         joined = ", ".join(non_policy_libraries)
         raise AuditwheelReportError(
-            f"auditwheel reports non-policy external shared libraries requiring repair: {joined}"
+            "auditwheel reports non-policy external shared libraries requiring "
+            f"repair: {joined}"
         )
 
 
