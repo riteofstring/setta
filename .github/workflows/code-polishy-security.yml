@@ -12,7 +12,7 @@ jobs:
   supply-chain:
     runs-on:
       - self-hosted
-      - code-polishy-0.21.4-9bd5214c
+      - code-polishy-0.22.0-1cbe9ec2
     timeout-minutes: 30
     steps:
       - name: Check out repository

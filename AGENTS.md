@@ -1,9 +1,11 @@
 ## Authority and communication
 
 - Run the installed `code-polishy` release pinned by `.code-polishy.lock.json`;
-  use the installation prefix's stable launcher when it is absent from `PATH`.
+  if absent from `PATH`, use the installation prefix's stable launcher.
 - Before changing the repository, run `code-polishy docs read agent-workflows`
   and follow its version-matched request-capture and delivery rules.
+- During an upgrade, outgoing guidance governs until the exact incoming release
+  atomically rewrites the lock; that cutover activates incoming guidance.
 - `.code-polishy.json` declares modules, dependency direction, capabilities,
   commands, test suites, artifacts, and exceptions; it cannot weaken the locked
   baseline.
@@ -47,14 +49,12 @@
 - Run supplemental suites only when the caller explicitly requests them, a
   checked-in event workflow invokes them, or the version-matched release
   checklist selects them. Declarations, including
-  `tests.requiredSupplementalKinds`, never authorize execution. Credentialed,
-  destructive, and live-provider probes require a named external approval gate.
-- The first stable release candidate runs all supplemental suites once. After a
-  failure, rerun only failed suites plus passes invalidated by changes to their
-  tested production files or tests, or their own commands or configuration.
-  Exact `code-polishy test --suite` evidence composes with remaining valid
-  passes; rerun all only when shared mutation infrastructure, toolchain, or
-  selection changes, or impact cannot be bounded.
+  `tests.requiredSupplementalKinds`, never authorize execution. Exact reruns
+  record receipts. On a stable candidate, use `test --supplemental --resume` to
+  run only missing, failed, expired, or invalidated suites. Run all only without
+  a trusted baseline, after shared infrastructure, toolchain, or selection
+  changes, or when impact is unbounded. Credentialed, destructive, and
+  live-provider probes require a named external approval gate.
 
 ## Reviews and delivery
 
@@ -62,19 +62,23 @@
 - Use the caller's checkout for ordinary interactive work. Use
   `code-polishy task-session` for unattended work or explicitly requested
   isolation.
-- For ordinary Markdown-only work, run `code-polishy format --git-changes` and
-  skip application tests. Fix documentation findings directly without asking
-  the user for authorization. Control and declared product-input Markdown
-  follow ordinary source verification.
-- During active development, run the narrowest useful exact test after a
-  coherent runnable change. Do not test after every edit or chat turn. Use
-  `code-polishy test --changed` for broader feedback at a completed task
-  boundary. At a merge checkpoint, resolve the base from an explicit target,
-  checked-in guidance, `origin/HEAD`, then `origin/main` or `origin/master`.
-- Run one successful `code-polishy merge-gate --base <merge-target>` for the
-  final candidate and let it select the level. Resume only an unchanged failed
-  candidate; source or policy changes require a fresh gate. Summarize the result
-  in plain language.
+- For ordinary Markdown-only work, run `code-polishy format --git-changes`, fix
+  its findings, and skip application tests. Verify control and product-input
+  Markdown as source.
+- Checkout, fetch, clean merge or rebase, tagging, and push prep require no
+  tests. After resolving a conflict, run one affected exact test; prose-only
+  conflicts follow the Markdown rule.
+- During development, run the narrowest useful exact test after a coherent
+  runnable change, not after every edit or chat turn. Use
+  `code-polishy test --changed` at a completed source boundary only when a final
+  gate will not immediately follow. Resolve the merge base from an explicit
+  target, checked-in guidance, `origin/HEAD`, then `origin/main` or
+  `origin/master`.
+- Honor `verification.finalGateOwner`. Use `code-polishy merge-gate --base REF`
+  once, locally or in its checked-in CI workflow. Duplicate only when the caller
+  requests independent evidence.
+  An exact passed identity executes nothing. Resume only an unchanged failed
+  candidate. Summarize the result in plain language.
 - Commit all completed task-owned changes after required verification unless the
   caller explicitly requests an uncommitted handoff. Keep commits coherent and
   free of unrelated user work. Push, publish, and pull-request operations require

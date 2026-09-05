@@ -12,3 +12,4 @@ tmp/
 .env.*
 .claude
 /.code-polishy-reports/
+/.code-polishy-artifacts/
