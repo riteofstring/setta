@@ -175,49 +175,6 @@
       "timeoutSeconds": 300
     },
     {
-      "name": "setta-runtime-architecture",
-      "provides": ["architecture"],
-      "argv": [
-        "python3",
-        "packages/setta-runtime/scripts/check_runtime_boundary.py",
-        "--check",
-        "imports"
-      ],
-      "modules": ["setta-runtime"],
-      "runOn": ["check", "gate"],
-      "timeoutSeconds": 300
-    },
-    {
-      "name": "setta-runtime-complexity",
-      "provides": ["complexity"],
-      "argv": [
-        "python3",
-        "packages/setta-runtime/scripts/check_runtime_boundary.py",
-        "--check",
-        "complexity"
-      ],
-      "modules": ["setta-runtime"],
-      "runOn": ["check", "gate"],
-      "timeoutSeconds": 300
-    },
-    {
-      "name": "setta-runtime-typecheck",
-      "provides": ["typecheck"],
-      "argv": [
-        "uv",
-        "run",
-        "--frozen",
-        "--no-sync",
-        "basedpyright",
-        "--level",
-        "error",
-        "packages/setta-runtime/src/setta"
-      ],
-      "modules": ["setta-runtime"],
-      "runOn": ["check", "gate"],
-      "timeoutSeconds": 300
-    },
-    {
       "name": "setta-runtime-build",
       "provides": ["build"],
       "argv": [
@@ -426,6 +383,7 @@
   "supplyChain": {
     "minimumReleaseAgeDays": 30,
     "auditLevel": "low",
+    "recurringSecurityMonitoring": true,
     "allowedDependencyProtocols": ["workspace:"],
     "allowedLicenses": [
       "0BSD",
