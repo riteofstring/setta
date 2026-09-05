@@ -11,11 +11,6 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max));
 }
 
-export const getDimensions = (node: HTMLDivElement): Dimensions => ({
-  width: node.offsetWidth,
-  height: node.offsetHeight,
-});
-
 const getWheelDeltaModeFactor = (deltaMode: number): number => {
   if (deltaMode === 1) {
     return 0.05;

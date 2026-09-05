@@ -141,6 +141,21 @@ type HoldMode = {
   deactivate: () => void;
 };
 
+function shouldActivateHoldMode(
+  mode: HoldMode,
+  event: KeyboardEvent,
+  editableTarget: boolean,
+  pointerOwned: boolean,
+): boolean {
+  if (mode.pressed || event.repeat) {
+    return false;
+  }
+  if (!mode.ignoreInInput || !editableTarget) {
+    return true;
+  }
+  return pointerOwned && mode.activateInPointerOwnedInput === true;
+}
+
 function createHoldChordTracker(host: WorkspaceHost, macOS: boolean) {
   const heldKeys = new Set<string>();
 
@@ -238,11 +253,7 @@ function createHoldChordTracker(host: WorkspaceHost, macOS: boolean) {
           continue;
         }
         if (
-          mode.pressed ||
-          event.repeat ||
-          (mode.ignoreInInput &&
-            editableTarget &&
-            !(pointerOwned && mode.activateInPointerOwnedInput))
+          !shouldActivateHoldMode(mode, event, editableTarget, pointerOwned)
         ) {
           continue;
         }

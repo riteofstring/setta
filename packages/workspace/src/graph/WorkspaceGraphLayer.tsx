@@ -15,6 +15,7 @@ import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import { getIsEditableTarget } from "../keybindings/editableTarget";
 import type {
   WorkspaceGraphEdge,
+  WorkspaceGraphPort,
   WorkspaceGraphPortFamily,
   WorkspaceGraphPortSide,
 } from "./types";
@@ -26,6 +27,8 @@ import {
 } from "./geometry";
 import { getWorkspaceGraphPortSide } from "./validation";
 import { useWorkspaceGraph } from "./WorkspaceGraphContext";
+
+type ActiveWorkspaceGraph = NonNullable<ReturnType<typeof useWorkspaceGraph>>;
 
 type WorkspaceGraphPortGeometry = Readonly<{
   point: WorkspaceGraphPoint;
@@ -134,6 +137,50 @@ function getWorkspaceGraphEdgeClassName({
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function consumeGraphKeyboardEvent(event: {
+  preventDefault: () => void;
+  stopPropagation: () => void;
+}): void {
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function isGraphEdgeActivationKey(key: string): boolean {
+  return key === "Enter" || key === " ";
+}
+
+function isGraphEdgeDeletionKey(key: string): boolean {
+  return key === "Delete" || key === "Backspace";
+}
+
+function canClearGraphEdgeSelection(
+  graph: ActiveWorkspaceGraph,
+  canSelect: boolean,
+): boolean {
+  return canSelect && graph.snapshot.selectedEdgeIds.size > 0;
+}
+
+function canDeleteGraphEdgeSelection(
+  graph: ActiveWorkspaceGraph,
+  canEditStructure: boolean,
+): boolean {
+  return (
+    canEditStructure &&
+    graph.snapshot.onDelete !== undefined &&
+    graph.snapshot.selectedEdgeIds.size > 0
+  );
+}
+
+function isWorkspaceGraphKeyboardTarget(
+  event: globalThis.KeyboardEvent,
+  rootElement: HTMLElement,
+): boolean {
+  if (!(event.target instanceof Node)) {
+    return false;
+  }
+  return rootElement.contains(event.target) && !getIsEditableTarget(event);
 }
 
 function WorkspaceGraphMeasuredEdgeLabel({
@@ -287,36 +334,30 @@ function WorkspaceGraphEdgePath({
   }
 
   function onKeyDown(event: KeyboardEvent<SVGGElement>) {
-    if (event.key === "Enter" || event.key === " ") {
+    if (isGraphEdgeActivationKey(event.key)) {
       if (!canSelect) {
         return;
       }
-      event.preventDefault();
-      event.stopPropagation();
+      consumeGraphKeyboardEvent(event);
       activeGraph.selectEdge(edge.id, event.metaKey || event.ctrlKey);
       return;
     }
     if (event.key === "Escape") {
-      if (!canSelect || activeGraph.snapshot.selectedEdgeIds.size === 0) {
+      if (!canClearGraphEdgeSelection(activeGraph, canSelect)) {
         return;
       }
-      event.preventDefault();
-      event.stopPropagation();
+      consumeGraphKeyboardEvent(event);
       activeGraph.clearSelection();
       return;
     }
-    if (event.key === "Delete" || event.key === "Backspace") {
-      if (
-        !canEditStructure ||
-        !activeGraph.snapshot.onDelete ||
-        activeGraph.snapshot.selectedEdgeIds.size === 0
-      ) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      activeGraph.deleteSelectedEdges();
+    if (
+      !isGraphEdgeDeletionKey(event.key) ||
+      !canDeleteGraphEdgeSelection(activeGraph, canEditStructure)
+    ) {
+      return;
     }
+    consumeGraphKeyboardEvent(event);
+    activeGraph.deleteSelectedEdges();
   }
 
   function onReconnectPointerDown(
@@ -387,6 +428,99 @@ function WorkspaceGraphEdgePath({
   );
 }
 
+type WorkspaceGraphConnectionPreviewEndpoints = Readonly<{
+  source: WorkspaceGraphPoint;
+  sourceSide: WorkspaceGraphPortSide;
+  target: WorkspaceGraphPoint;
+  targetSide: WorkspaceGraphPortSide;
+}>;
+
+function getDefaultConnectionPreviewEndpoints(
+  originPort: WorkspaceGraphPort,
+  origin: WorkspaceGraphPoint,
+  pointerPoint: WorkspaceGraphPoint,
+): WorkspaceGraphConnectionPreviewEndpoints {
+  const sourceSide = getWorkspaceGraphPortSide(originPort);
+  return {
+    source: origin,
+    sourceSide,
+    target: pointerPoint,
+    targetSide: getOppositeSide(sourceSide),
+  };
+}
+
+function getConnectPreviewEndpoints(
+  graph: ActiveWorkspaceGraph,
+  originPort: WorkspaceGraphPort,
+  origin: WorkspaceGraphPoint,
+  pointerPoint: WorkspaceGraphPoint,
+  fallback: WorkspaceGraphConnectionPreviewEndpoints,
+): WorkspaceGraphConnectionPreviewEndpoints {
+  if (graph.gesture?.kind !== "connect" || originPort.type !== "target") {
+    return fallback;
+  }
+  const targetSide = getWorkspaceGraphPortSide(originPort);
+  return {
+    source: pointerPoint,
+    sourceSide: getOppositeSide(targetSide),
+    target: origin,
+    targetSide,
+  };
+}
+
+function getReconnectPreviewEndpoints(
+  graph: ActiveWorkspaceGraph,
+  geometry: WorkspaceGraphGeometry,
+  pointerPoint: WorkspaceGraphPoint,
+  fallback: WorkspaceGraphConnectionPreviewEndpoints,
+): WorkspaceGraphConnectionPreviewEndpoints {
+  if (graph.gesture?.kind !== "reconnect") {
+    return fallback;
+  }
+  const fixedPort = graph.snapshot.portsById.get(graph.gesture.fixedPortId);
+  const fixed = fixedPort ? geometry.ports.get(fixedPort.id)?.point : undefined;
+  if (!fixedPort || !fixed) {
+    return fallback;
+  }
+  const fixedSide = getWorkspaceGraphPortSide(fixedPort);
+  if (fixedPort.type === "source") {
+    return {
+      source: fixed,
+      sourceSide: fixedSide,
+      target: pointerPoint,
+      targetSide: getOppositeSide(fixedSide),
+    };
+  }
+  return {
+    source: pointerPoint,
+    sourceSide: getOppositeSide(fixedSide),
+    target: fixed,
+    targetSide: fixedSide,
+  };
+}
+
+function getConnectionPreviewEndpoints(
+  graph: ActiveWorkspaceGraph,
+  geometry: WorkspaceGraphGeometry,
+  originPort: WorkspaceGraphPort,
+  origin: WorkspaceGraphPoint,
+  pointerPoint: WorkspaceGraphPoint,
+): WorkspaceGraphConnectionPreviewEndpoints {
+  const fallback = getDefaultConnectionPreviewEndpoints(
+    originPort,
+    origin,
+    pointerPoint,
+  );
+  const connect = getConnectPreviewEndpoints(
+    graph,
+    originPort,
+    origin,
+    pointerPoint,
+    fallback,
+  );
+  return getReconnectPreviewEndpoints(graph, geometry, pointerPoint, connect);
+}
+
 function WorkspaceGraphConnectionPreview({
   geometry,
   rootElement,
@@ -416,36 +550,14 @@ function WorkspaceGraphConnectionPreview({
       rootRect,
       transform,
     );
-  let source = origin;
-  let sourceSide = getWorkspaceGraphPortSide(originPort);
-  let target = pointerPoint;
-  let targetSide = getOppositeSide(sourceSide);
-
-  if (graph.gesture.kind === "connect" && originPort.type === "target") {
-    source = pointerPoint;
-    sourceSide = getOppositeSide(getWorkspaceGraphPortSide(originPort));
-    target = origin;
-    targetSide = getWorkspaceGraphPortSide(originPort);
-  }
-  if (graph.gesture.kind === "reconnect") {
-    const fixedPort = graph.snapshot.portsById.get(graph.gesture.fixedPortId);
-    const fixed = fixedPort
-      ? geometry.ports.get(fixedPort.id)?.point
-      : undefined;
-    if (fixedPort && fixed) {
-      if (fixedPort.type === "source") {
-        source = fixed;
-        sourceSide = getWorkspaceGraphPortSide(fixedPort);
-        target = pointerPoint;
-        targetSide = getOppositeSide(sourceSide);
-      } else {
-        source = pointerPoint;
-        sourceSide = getOppositeSide(getWorkspaceGraphPortSide(fixedPort));
-        target = fixed;
-        targetSide = getWorkspaceGraphPortSide(fixedPort);
-      }
-    }
-  }
+  const { source, sourceSide, target, targetSide } =
+    getConnectionPreviewEndpoints(
+      graph,
+      geometry,
+      originPort,
+      origin,
+      pointerPoint,
+    );
   const bezier = getWorkspaceGraphBezier(
     source,
     sourceSide,
@@ -460,6 +572,34 @@ function WorkspaceGraphConnectionPreview({
       fill="none"
     />
   );
+}
+
+function getWorkspaceGraphGeometry(
+  graph: ActiveWorkspaceGraph,
+  rootElement: HTMLElement,
+  transform: readonly [number, number, number],
+): WorkspaceGraphGeometry {
+  const rootRect = getRootRect(rootElement);
+  const ports = new Map<string, WorkspaceGraphPortGeometry>();
+  for (const port of graph.snapshot.ports) {
+    const element = getWorkspaceGraphPortElement(rootElement, port.id);
+    if (!element) {
+      continue;
+    }
+    ports.set(port.id, {
+      point: getWorkspaceGraphViewportPoint(
+        getWorkspaceGraphElementCenter(element.getBoundingClientRect()),
+        rootRect,
+        transform,
+      ),
+      side: getWorkspaceGraphPortSide(port),
+    });
+  }
+  return {
+    height: rootRect.height,
+    ports,
+    width: rootRect.width,
+  };
 }
 
 export function WorkspaceGraphLayer({
@@ -485,27 +625,7 @@ export function WorkspaceGraphLayer({
       );
       return;
     }
-    const rootRect = getRootRect(rootElement);
-    const ports = new Map<string, WorkspaceGraphPortGeometry>();
-    for (const port of graph.snapshot.ports) {
-      const element = getWorkspaceGraphPortElement(rootElement, port.id);
-      if (!element) {
-        continue;
-      }
-      ports.set(port.id, {
-        point: getWorkspaceGraphViewportPoint(
-          getWorkspaceGraphElementCenter(element.getBoundingClientRect()),
-          rootRect,
-          transform,
-        ),
-        side: getWorkspaceGraphPortSide(port),
-      });
-    }
-    const next = {
-      height: rootRect.height,
-      ports,
-      width: rootRect.width,
-    };
+    const next = getWorkspaceGraphGeometry(graph, rootElement, transform);
     setGeometry((current) =>
       graphGeometryEqual(current, next) ? current : next,
     );
@@ -560,37 +680,26 @@ export function WorkspaceGraphLayer({
       return;
     }
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (
-        !(event.target instanceof Node) ||
-        !rootElement.contains(event.target) ||
-        getIsEditableTarget(event)
-      ) {
+      if (!isWorkspaceGraphKeyboardTarget(event, rootElement)) {
         return;
       }
       if (event.key === "Escape") {
-        if (
-          !graph.snapshot.onSelectedEdgeIdsChange ||
-          graph.snapshot.selectedEdgeIds.size === 0
-        ) {
+        const canSelect = graph.snapshot.onSelectedEdgeIdsChange !== undefined;
+        if (!canClearGraphEdgeSelection(graph, canSelect)) {
           return;
         }
-        event.preventDefault();
-        event.stopPropagation();
+        consumeGraphKeyboardEvent(event);
         graph.clearSelection();
         return;
       }
-      if (event.key === "Delete" || event.key === "Backspace") {
-        if (
-          !canEditStructure ||
-          !graph.snapshot.onDelete ||
-          graph.snapshot.selectedEdgeIds.size === 0
-        ) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        graph.deleteSelectedEdges();
+      if (
+        !isGraphEdgeDeletionKey(event.key) ||
+        !canDeleteGraphEdgeSelection(graph, canEditStructure)
+      ) {
+        return;
       }
+      consumeGraphKeyboardEvent(event);
+      graph.deleteSelectedEdges();
     };
     rootElement.addEventListener("keydown", onKeyDown);
     return () => rootElement.removeEventListener("keydown", onKeyDown);

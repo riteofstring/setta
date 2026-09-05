@@ -26,7 +26,10 @@ import {
 } from "./documentViewportSync";
 import { initialCanvasState, useReactFlow } from "./store";
 import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime";
-import type { WorkspaceXyflowInstance } from "./xyflow/types";
+import type {
+  WorkspaceXyflowInstance,
+  WorkspaceXyflowViewport,
+} from "./xyflow/types";
 
 beforeEach(() => {
   testWorkspace.document.getState().reset();
@@ -39,7 +42,9 @@ afterEach(() => {
 });
 
 function mountFakeXyflowRuntime() {
-  const setViewport = vi.fn(() => Promise.resolve(true));
+  const setViewport = vi.fn((_viewport: WorkspaceXyflowViewport) =>
+    Promise.resolve(true),
+  );
   registerWorkspaceXyflowInstance(testWorkspace.host, {
     getViewport: () => ({ x: 0, y: 0, zoom: 1 }),
     screenToFlowPosition: vi.fn(),
@@ -191,12 +196,11 @@ describe("applyLoadedDocumentViewport", () => {
 
     applyLoadedDocumentViewport(testWorkspace.host, { x: 0, y: 0, zoom: 500 });
 
-    expect(setViewport.mock.calls[0]?.[0]).toMatchObject({
+    const appliedViewport = setViewport.mock.calls[0]?.[0];
+    expect(appliedViewport).toMatchObject({
       zoom: expect.any(Number),
     });
-    expect(
-      (setViewport.mock.calls[0]?.[0] as { zoom: number }).zoom,
-    ).toBeLessThan(500);
+    expect(appliedViewport?.zoom).toBeLessThan(500);
   });
 
   it("does nothing for a missing camera or an unmounted canvas", () => {

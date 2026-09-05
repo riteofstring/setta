@@ -41,7 +41,7 @@ type WorkspaceXyflowProjectionEntry = WorkspaceXyflowProjectionValues & {
   width: number | null;
 };
 
-export type WorkspaceXyflowNodeProjector = (
+type WorkspaceXyflowNodeProjector = (
   input: WorkspaceXyflowProjectionInput,
 ) => Array<WorkspaceXyflowSectionNode>;
 
@@ -102,17 +102,24 @@ function getProjectionValues({
   };
 }
 
-function entryMatches(
+function entryGeometryMatches(
   entry: WorkspaceXyflowProjectionEntry,
   node: WorkspaceNode,
-  values: WorkspaceXyflowProjectionValues,
 ): boolean {
   return (
     entry.positionX === node.position.x &&
     entry.positionY === node.position.y &&
     entry.width === node.width &&
     entry.height === node.height &&
-    entry.tempZIndex === node.tempZIndex &&
+    entry.tempZIndex === node.tempZIndex
+  );
+}
+
+function entryValuesMatch(
+  entry: WorkspaceXyflowProjectionEntry,
+  values: WorkspaceXyflowProjectionValues,
+): boolean {
+  return (
     entry.draggable === values.draggable &&
     entry.dragging === values.dragging &&
     entry.initialHeight === values.initialHeight &&
@@ -120,6 +127,14 @@ function entryMatches(
     entry.readyToBeVisible === values.readyToBeVisible &&
     entry.selected === values.selected
   );
+}
+
+function entryMatches(
+  entry: WorkspaceXyflowProjectionEntry,
+  node: WorkspaceNode,
+  values: WorkspaceXyflowProjectionValues,
+): boolean {
+  return entryGeometryMatches(entry, node) && entryValuesMatch(entry, values);
 }
 
 function createProjectedNode(

@@ -6,9 +6,9 @@ export type WorkspaceGraphPoint = Readonly<{
   y: number;
 }>;
 
-export type WorkspaceGraphViewportTransform = readonly [number, number, number];
+type WorkspaceGraphViewportTransform = readonly [number, number, number];
 
-export type WorkspaceGraphBezier = Readonly<{
+type WorkspaceGraphBezier = Readonly<{
   labelX: number;
   labelY: number;
   path: string;

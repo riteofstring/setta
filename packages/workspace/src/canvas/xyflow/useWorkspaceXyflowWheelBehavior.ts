@@ -17,7 +17,7 @@ import { getWorkspaceXyflowRuntime } from "./workspaceXyflowRuntime";
 const VIEWPORT_INTERACTION_ACTIVE_ATTRIBUTE =
   "data-viewport-interaction-active";
 
-export type WorkspaceXyflowWheelBehaviorOptions = Pick<
+type WorkspaceXyflowWheelBehaviorOptions = Pick<
   WorkspaceInteractionOptions,
   | "maxZoom"
   | "minZoom"
@@ -28,11 +28,11 @@ export type WorkspaceXyflowWheelBehaviorOptions = Pick<
   | "zoomOnScroll"
 >;
 
-export type WorkspaceXyflowViewportSetter = (
+type WorkspaceXyflowViewportSetter = (
   viewport: WorkspaceXyflowViewport,
 ) => void | Promise<unknown>;
 
-export type WorkspaceXyflowWheelBehaviorHandlers = {
+type WorkspaceXyflowWheelBehaviorHandlers = {
   onViewportMoveEnd: (event: MouseEvent | TouchEvent | null) => void;
   onViewportMoveStart: (event: MouseEvent | TouchEvent | null) => void;
 };
@@ -65,6 +65,25 @@ function markViewportInteractionActive(
   canvas.removeAttribute(VIEWPORT_INTERACTION_ACTIVE_ATTRIBUTE);
 }
 
+function hasEnabledWheelGesture(
+  event: WheelEvent,
+  options: WorkspaceXyflowWheelBehaviorOptions,
+  zoomActivationKeyPressed: boolean,
+): boolean {
+  if (zoomActivationKeyPressed || options.zoomOnScroll) {
+    return true;
+  }
+  if (options.panOnScroll) {
+    return true;
+  }
+  return options.zoomOnPinch && event.ctrlKey;
+}
+
+function isWheelInteractionBlockedByDnd(host: WorkspaceHost): boolean {
+  const { isMovingFree, isSorting } = getDndStateStore(host).getState();
+  return isMovingFree || isSorting;
+}
+
 function shouldHandleDefaultWheelEvent({
   event,
   host,
@@ -78,29 +97,49 @@ function shouldHandleDefaultWheelEvent({
   userSelectionActive: boolean;
   zoomActivationKeyPressed: boolean;
 }): boolean {
-  const zoomOnScroll = zoomActivationKeyPressed || options.zoomOnScroll;
   if (userSelectionActive) {
     return false;
   }
-  if (
-    !zoomOnScroll &&
-    !options.panOnScroll &&
-    !(options.zoomOnPinch && event.ctrlKey)
-  ) {
+  if (!hasEnabledWheelGesture(event, options, zoomActivationKeyPressed)) {
     return false;
   }
-  const { isMovingFree, isSorting } = getDndStateStore(host).getState();
-  if (isMovingFree || isSorting) {
+  if (isWheelInteractionBlockedByDnd(host)) {
     return false;
   }
-  if (event.ctrlKey && !options.zoomOnPinch) {
-    return false;
-  }
+  return !event.ctrlKey || options.zoomOnPinch;
+}
+
+function getEffectivePanOnScroll(
+  options: WorkspaceXyflowWheelBehaviorOptions,
+  userSelectionActive: boolean,
+  zoomActivationKeyPressed: boolean,
+): boolean {
   return (
-    zoomOnScroll ||
-    options.panOnScroll ||
-    (options.zoomOnPinch && event.ctrlKey)
+    options.panOnScroll && !zoomActivationKeyPressed && !userSelectionActive
   );
+}
+
+function acceptsCanvasWheelTarget(
+  event: WheelEvent,
+  disposition: ReturnType<typeof resolveWheelTargetDisposition>,
+): boolean {
+  if (disposition === "canvas") {
+    return true;
+  }
+  if (disposition === "manual") {
+    event.preventDefault();
+  }
+  return false;
+}
+
+function suppressWheelUpstream(
+  event: WheelEvent,
+  suppressUpstream: boolean,
+  panOnScroll: boolean,
+): void {
+  if (suppressUpstream || panOnScroll) {
+    event.stopImmediatePropagation();
+  }
 }
 
 function getWheelPoint(
@@ -277,6 +316,31 @@ export function useWorkspaceXyflowWheelBehavior({
         }),
       );
     };
+    const runWheelZoom = (event: WheelEvent): void => {
+      startWheelZoomBurst();
+      zoomToWheelPoint(event);
+      scheduleWheelZoomBurstEnd();
+    };
+    const panViewportForWheel = (
+      event: WheelEvent,
+      isMacOS: boolean,
+      options: WorkspaceXyflowWheelBehaviorOptions,
+    ): void => {
+      const currentViewport =
+        getWorkspaceXyflowRuntime(host).getViewport() ?? viewportRef.current;
+      const { deltaX, deltaY } = resolvePanOnScrollDelta({
+        event,
+        isMacOS,
+        panOnScrollMode: options.panOnScrollMode,
+      });
+      updateViewport({
+        x: currentViewport.x - deltaX * options.panOnScrollSpeed,
+        y: currentViewport.y - deltaY * options.panOnScrollSpeed,
+        zoom: currentViewport.zoom,
+      });
+      ensurePanScrollInteraction();
+      schedulePanScrollInteractionEnd();
+    };
     const handleWheelEvent = (
       event: WheelEvent,
       suppressUpstream: boolean,
@@ -284,10 +348,11 @@ export function useWorkspaceXyflowWheelBehavior({
       const { options } = latestRef.current;
       const { userSelectionActive, zoomActivationKeyPressed } =
         getReactFlowStore(host).getState();
-      const panOnScroll =
-        options.panOnScroll &&
-        !zoomActivationKeyPressed &&
-        !userSelectionActive;
+      const panOnScroll = getEffectivePanOnScroll(
+        options,
+        userSelectionActive,
+        zoomActivationKeyPressed,
+      );
       const isMacOS = isMacOs();
       const targetDisposition = resolveWheelTargetDisposition({
         event,
@@ -297,10 +362,7 @@ export function useWorkspaceXyflowWheelBehavior({
         zoomActivationKeyPressed,
         zoomOnPinch: options.zoomOnPinch,
       });
-      if (targetDisposition !== "canvas") {
-        if (targetDisposition === "manual") {
-          event.preventDefault();
-        }
+      if (!acceptsCanvasWheelTarget(event, targetDisposition)) {
         return;
       }
       if (
@@ -320,38 +382,12 @@ export function useWorkspaceXyflowWheelBehavior({
         isMacOS,
         zoomOnPinch: options.zoomOnPinch,
       });
-      if (suppressUpstream || panOnScroll) {
-        event.stopImmediatePropagation();
-      }
-
-      if (!panOnScroll) {
-        startWheelZoomBurst();
-        zoomToWheelPoint(event);
-        scheduleWheelZoomBurstEnd();
+      suppressWheelUpstream(event, suppressUpstream, panOnScroll);
+      if (!panOnScroll || pinchZoom) {
+        runWheelZoom(event);
         return;
       }
-
-      if (pinchZoom) {
-        startWheelZoomBurst();
-        zoomToWheelPoint(event);
-        scheduleWheelZoomBurstEnd();
-        return;
-      }
-
-      const currentViewport =
-        getWorkspaceXyflowRuntime(host).getViewport() ?? viewportRef.current;
-      const { deltaX, deltaY } = resolvePanOnScrollDelta({
-        event,
-        isMacOS,
-        panOnScrollMode: options.panOnScrollMode,
-      });
-      updateViewport({
-        x: currentViewport.x - deltaX * options.panOnScrollSpeed,
-        y: currentViewport.y - deltaY * options.panOnScrollSpeed,
-        zoom: currentViewport.zoom,
-      });
-      ensurePanScrollInteraction();
-      schedulePanScrollInteractionEnd();
+      panViewportForWheel(event, isMacOS, options);
     };
     const bridgeWorkspaceWindowWheelEvent = (event: WheelEvent): void => {
       if (!isWorkspaceWindowOverlayWheelEvent(host, event)) {

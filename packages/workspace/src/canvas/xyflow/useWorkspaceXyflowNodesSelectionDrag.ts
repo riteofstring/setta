@@ -235,13 +235,7 @@ export function useWorkspaceXyflowNodesSelectionDrag({
       }
     };
 
-    function handlePointerMove(event: PointerEvent) {
-      if (event.pointerId !== pointerId.current) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopImmediatePropagation();
+    const recordPointerMovement = (event: PointerEvent): void => {
       const origin = pointerOrigin.current;
       if (
         origin &&
@@ -249,29 +243,46 @@ export function useWorkspaceXyflowNodesSelectionDrag({
       ) {
         pointerMoved.current = true;
       }
+    };
+
+    const startDragAfterThreshold = (pointerPosition: Position): void => {
+      if (dragStarted.current) {
+        return;
+      }
+      const previousPosition = lastPos.current;
+      if (!previousPosition) {
+        throw new Error("Drag moved without an initial pointer position.");
+      }
+      const distance = Math.hypot(
+        pointerPosition.x - previousPosition.x,
+        pointerPosition.y - previousPosition.y,
+      );
+      if (distance > getReactFlowStore(host).getState().nodeDragThreshold) {
+        startDrag(pointerPosition);
+      }
+    };
+
+    const pointerPositionsMatch = (left: Position, right: Position): boolean =>
+      left.x === right.x && left.y === right.y;
+
+    function handlePointerMove(event: PointerEvent) {
+      if (event.pointerId !== pointerId.current) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      recordPointerMovement(event);
 
       const pointerPosition = getPointerPosition(event);
       startAutoPanIfNeeded();
-      if (!dragStarted.current) {
-        const previousPosition = lastPos.current;
-        if (!previousPosition) {
-          throw new Error("Drag moved without an initial pointer position.");
-        }
-        const distance = Math.hypot(
-          pointerPosition.x - previousPosition.x,
-          pointerPosition.y - previousPosition.y,
-        );
-        if (distance > getReactFlowStore(host).getState().nodeDragThreshold) {
-          startDrag(pointerPosition);
-        }
-      }
+      startDragAfterThreshold(pointerPosition);
 
       const previousPosition = lastPos.current;
       if (
         !dragStarted.current ||
         !previousPosition ||
-        (previousPosition.x === pointerPosition.x &&
-          previousPosition.y === pointerPosition.y)
+        pointerPositionsMatch(previousPosition, pointerPosition)
       ) {
         return;
       }
@@ -291,14 +302,22 @@ export function useWorkspaceXyflowNodesSelectionDrag({
       endPointerSession(event);
     }
 
-    const handlePointerDown = (event: PointerEvent) => {
+    const canStartPointerSession = (event: PointerEvent): boolean => {
       if (
         pointerId.current !== null ||
         !event.isPrimary ||
-        event.button !== 0 ||
-        !(event.target instanceof Element) ||
-        hasSelector(event.target, `.${NO_DRAG_CLASS_NAME}`, nodeRef)
+        event.button !== 0
       ) {
+        return false;
+      }
+      if (!(event.target instanceof Element)) {
+        return false;
+      }
+      return !hasSelector(event.target, `.${NO_DRAG_CLASS_NAME}`, nodeRef);
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!canStartPointerSession(event)) {
         return;
       }
 

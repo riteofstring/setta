@@ -34,7 +34,10 @@ import {
   useCodeMirrorTooltipParentRef,
 } from "../codeMirrorTooltipParent";
 import { computeReadyToBeVisible } from "../fitView";
-import { useWorkspaceOptions } from "../options";
+import {
+  useWorkspaceOptions,
+  type WorkspaceInteractionOptions,
+} from "../options";
 import { getReactFlowStore, useReactFlow } from "../store";
 import type { NodeDragItem } from "../types";
 import { WorkspaceBackground } from "../WorkspaceBackground";
@@ -137,6 +140,106 @@ function sectionIdsMatch(
   );
 }
 
+function collectChangedNodeDimensions(
+  changes: ReadonlyArray<WorkspaceXyflowNodeChange>,
+  measuredDimensions: Map<string, MeasuredDimensions>,
+): Array<WorkspaceXyflowNodeDimensions> {
+  const dimensions: Array<WorkspaceXyflowNodeDimensions> = [];
+  for (const change of changes) {
+    if (change.type !== "dimensions") {
+      continue;
+    }
+    const measurement = {
+      id: change.id,
+      width: change.dimensions?.width,
+      height: change.dimensions?.height,
+    };
+    const current = measuredDimensions.get(change.id);
+    const next = mergeMeasuredDimensions(current, measurement);
+    if (measuredDimensionsEqual(current, next)) {
+      continue;
+    }
+    measuredDimensions.set(change.id, next);
+    dimensions.push(measurement);
+  }
+  return dimensions;
+}
+
+function queuePendingNodeDimensions(
+  dimensions: ReadonlyArray<WorkspaceXyflowNodeDimensions>,
+  pendingDimensions: Map<string, WorkspaceXyflowNodeDimensions>,
+): void {
+  for (const dimension of dimensions) {
+    const current = pendingDimensions.get(dimension.id);
+    pendingDimensions.set(dimension.id, {
+      id: dimension.id,
+      height: dimension.height ?? current?.height,
+      width: dimension.width ?? current?.width,
+    });
+  }
+}
+
+function getViewportInteractionEnabled(
+  isSorting: boolean,
+  isMovingFree: boolean,
+  attentionTransitioning: boolean,
+): boolean {
+  return !isSorting && !isMovingFree && !attentionTransitioning;
+}
+
+function getEffectivePanOnDrag(
+  enabled: boolean,
+  selectionKeyPressed: boolean,
+  userSelectionActive: boolean,
+  panOnDrag: WorkspaceInteractionOptions["panOnDrag"],
+): WorkspaceInteractionOptions["panOnDrag"] {
+  if (!enabled || selectionKeyPressed || userSelectionActive) {
+    return false;
+  }
+  return panOnDrag;
+}
+
+function getEffectiveWheelOptions(
+  options: Pick<
+    WorkspaceInteractionOptions,
+    | "maxZoom"
+    | "minZoom"
+    | "panOnScroll"
+    | "panOnScrollMode"
+    | "panOnScrollSpeed"
+    | "zoomOnPinch"
+    | "zoomOnScroll"
+  >,
+  enabled: boolean,
+) {
+  return {
+    maxZoom: options.maxZoom,
+    minZoom: options.minZoom,
+    panOnScroll: enabled && options.panOnScroll,
+    panOnScrollMode: options.panOnScrollMode,
+    panOnScrollSpeed: options.panOnScrollSpeed,
+    zoomOnPinch: enabled && options.zoomOnPinch,
+    zoomOnScroll: enabled && options.zoomOnScroll,
+  };
+}
+
+function getRenderedNodes(
+  renderNodes: boolean,
+  projectedNodes: Array<WorkspaceXyflowSectionNode>,
+): Array<WorkspaceXyflowSectionNode> {
+  return renderNodes ? projectedNodes : EMPTY_NODES;
+}
+
+function getEnabledOption(enabled: boolean, value: boolean): boolean {
+  return enabled && value;
+}
+
+function getSelectionPortalElement(
+  rootElement: HTMLDivElement | null,
+): HTMLElement | null {
+  return rootElement?.parentElement ?? null;
+}
+
 export function WorkspaceXyflowAdapter({
   defaultViewport,
   externalDrop,
@@ -236,21 +339,39 @@ export function WorkspaceXyflowAdapter({
     zoomOnPinch,
     zoomOnScroll,
   } = useWorkspaceOptions((state) => state);
-  const viewportInteractionEnabled =
-    !isSorting && !isMovingFree && !attentionTransitioning;
-  const effectivePanOnDrag =
-    viewportInteractionEnabled && !selectionKeyPressed && !userSelectionActive
-      ? panOnDrag
-      : false;
-  const effectiveWheelOptions = {
-    maxZoom,
-    minZoom,
-    panOnScroll: viewportInteractionEnabled && panOnScroll,
-    panOnScrollMode,
-    panOnScrollSpeed,
-    zoomOnPinch: viewportInteractionEnabled && zoomOnPinch,
-    zoomOnScroll: viewportInteractionEnabled && zoomOnScroll,
-  };
+  const viewportInteractionEnabled = getViewportInteractionEnabled(
+    isSorting,
+    isMovingFree,
+    attentionTransitioning,
+  );
+  const effectivePanOnDrag = getEffectivePanOnDrag(
+    viewportInteractionEnabled,
+    selectionKeyPressed,
+    userSelectionActive,
+    panOnDrag,
+  );
+  const effectiveWheelOptions = getEffectiveWheelOptions(
+    {
+      maxZoom,
+      minZoom,
+      panOnScroll,
+      panOnScrollMode,
+      panOnScrollSpeed,
+      zoomOnPinch,
+      zoomOnScroll,
+    },
+    viewportInteractionEnabled,
+  );
+  const renderedNodes = getRenderedNodes(renderNodes, projectedNodes);
+  const effectiveZoomOnPinch = getEnabledOption(
+    viewportInteractionEnabled,
+    zoomOnPinch,
+  );
+  const effectiveZoomOnDoubleClick = getEnabledOption(
+    viewportInteractionEnabled,
+    zoomOnDoubleClick,
+  );
+  const selectionPortalElement = getSelectionPortalElement(rootElement);
 
   useEffect(
     () => () => {
@@ -286,38 +407,19 @@ export function WorkspaceXyflowAdapter({
 
   const handleNodesChange = useCallback(
     (changes: Array<WorkspaceXyflowNodeChange>) => {
-      const dimensions = changes.flatMap((change) => {
-        if (change.type !== "dimensions") {
-          return [];
-        }
-        const measurement = {
-          id: change.id,
-          width: change.dimensions?.width,
-          height: change.dimensions?.height,
-        };
-        const current = measuredDimensionsRef.current.get(change.id);
-        const next = mergeMeasuredDimensions(current, measurement);
-        if (measuredDimensionsEqual(current, next)) {
-          return [];
-        }
-        measuredDimensionsRef.current.set(change.id, next);
-        return [measurement];
-      });
-      if (dimensions.length > 0) {
-        if (!getWorkspaceXyflowRuntime(host).getInstance()) {
-          for (const dimension of dimensions) {
-            const current = pendingDimensionsRef.current.get(dimension.id);
-            pendingDimensionsRef.current.set(dimension.id, {
-              id: dimension.id,
-              height: dimension.height ?? current?.height,
-              width: dimension.width ?? current?.width,
-            });
-          }
-          return;
-        }
-        onNodeDimensionsChange?.(dimensions);
-        onRuntimeReady?.();
+      const dimensions = collectChangedNodeDimensions(
+        changes,
+        measuredDimensionsRef.current,
+      );
+      if (dimensions.length === 0) {
+        return;
       }
+      if (!getWorkspaceXyflowRuntime(host).getInstance()) {
+        queuePendingNodeDimensions(dimensions, pendingDimensionsRef.current);
+        return;
+      }
+      onNodeDimensionsChange?.(dimensions);
+      onRuntimeReady?.();
     },
     [host, onNodeDimensionsChange, onRuntimeReady],
   );
@@ -480,7 +582,7 @@ export function WorkspaceXyflowAdapter({
         ref={handleRootRef}
         id={getWorkspaceHostDomId(host)}
         className={`${workspaceScopeClassName} setta-workspace-xyflow-root`}
-        nodes={renderNodes ? projectedNodes : EMPTY_NODES}
+        nodes={renderedNodes}
         edges={EMPTY_XYFLOW_EDGES}
         defaultViewport={defaultViewport}
         onViewportChange={onViewportChange}
@@ -500,8 +602,8 @@ export function WorkspaceXyflowAdapter({
         panOnScroll={false}
         zoomOnScroll={false}
         preventScrolling={false}
-        zoomOnPinch={viewportInteractionEnabled && zoomOnPinch}
-        zoomOnDoubleClick={viewportInteractionEnabled && zoomOnDoubleClick}
+        zoomOnPinch={effectiveZoomOnPinch}
+        zoomOnDoubleClick={effectiveZoomOnDoubleClick}
         paneClickDistance={0}
         nodeDragThreshold={nodeDragThreshold * viewportZoom}
         snapToGrid={false}
@@ -541,7 +643,7 @@ export function WorkspaceXyflowAdapter({
       </ReactFlow>
       <WorkspaceXyflowSelection
         rootElement={rootElement}
-        selectionPortalElement={rootElement?.parentElement ?? null}
+        selectionPortalElement={selectionPortalElement}
         suppressNextPaneClickRef={suppressNextPaneClickRef}
       />
     </div>

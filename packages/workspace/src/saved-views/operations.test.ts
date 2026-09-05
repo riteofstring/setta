@@ -16,7 +16,10 @@ import {
 } from "../document/stores";
 import { getReactFlowStore } from "../canvas/store";
 import { registerWorkspaceXyflowInstance } from "../canvas/xyflow/workspaceXyflowRuntime";
-import type { WorkspaceXyflowInstance } from "../canvas/xyflow/types";
+import type {
+  WorkspaceXyflowInstance,
+  WorkspaceXyflowViewport,
+} from "../canvas/xyflow/types";
 import { getWorkspaceMenuStateStore } from "../context-menu/workspaceMenuState";
 import {
   activateDndMovingFreeMode,
@@ -121,7 +124,7 @@ function mountFittedCanvas(host: WorkspaceHost): {
       return { x, y, zoom };
     },
     screenToFlowPosition: () => ({ x: 0, y: 0 }),
-    setViewport: (viewport) => {
+    setViewport: (viewport: WorkspaceXyflowViewport) => {
       transforms.push(viewport);
       getReactFlowStore(host).setState({
         transform: [viewport.x, viewport.y, viewport.zoom],

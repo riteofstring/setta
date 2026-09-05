@@ -47,6 +47,56 @@ function isWorkspaceGraphPortConnected(
   );
 }
 
+type ActiveWorkspaceGraph = NonNullable<ReturnType<typeof useWorkspaceGraph>>;
+
+function getWorkspaceGraphPortPermissions(
+  graph: ActiveWorkspaceGraph,
+  port: WorkspaceGraphPort,
+  canEditStructure: boolean,
+): { canReceive: boolean; canStart: boolean } {
+  const enabled = canEditStructure && !port.disabled;
+  return {
+    canStart: enabled && graph.snapshot.onConnect !== undefined,
+    canReceive: enabled && graph.gesture !== null,
+  };
+}
+
+function getWorkspaceGraphPortClassName({
+  connected,
+  connectionState,
+  graph,
+  port,
+  side,
+}: {
+  connected: boolean;
+  connectionState: WorkspaceGraphPortConnectionState;
+  graph: ActiveWorkspaceGraph;
+  port: WorkspaceGraphPort;
+  side: ReturnType<typeof getWorkspaceGraphPortSide>;
+}): string {
+  return [
+    NO_DRAG_CLASS_NAME,
+    NO_PAN_CLASS_NAME,
+    SETTA_PREVENT_SECTION_ACTIVE_CSS,
+    SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+    "setta-workspace-graph-port-safe-zone",
+    `setta-workspace-graph-port-safe-zone--${side}`,
+    `setta-workspace-graph-port--${port.family}`,
+    `setta-workspace-graph-port--${port.type}`,
+    connected ? "setta-workspace-graph-port--connected" : null,
+    graph.gesture ? "setta-workspace-graph-port--connection-active" : null,
+    port.disabled ? "setta-workspace-graph-port--disabled" : null,
+    connectionState === "valid"
+      ? "setta-workspace-graph-port--candidate-valid"
+      : null,
+    connectionState === "invalid"
+      ? "setta-workspace-graph-port--candidate-invalid"
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 function WorkspaceGraphPortButton({ port }: { port: WorkspaceGraphPort }) {
   const graph = useWorkspaceGraph();
   const canEditStructure = useWorkspaceCapabilities(
@@ -63,36 +113,19 @@ function WorkspaceGraphPortButton({ port }: { port: WorkspaceGraphPort }) {
     activeGraph,
     port,
   );
-  const canStart =
-    canEditStructure &&
-    activeGraph.snapshot.onConnect !== undefined &&
-    !port.disabled;
-  const canReceive =
-    canEditStructure && activeGraph.gesture !== null && !port.disabled;
+  const { canReceive, canStart } = getWorkspaceGraphPortPermissions(
+    activeGraph,
+    port,
+    canEditStructure,
+  );
   const canInteract = canStart || canReceive;
-  const className = [
-    NO_DRAG_CLASS_NAME,
-    NO_PAN_CLASS_NAME,
-    SETTA_PREVENT_SECTION_ACTIVE_CSS,
-    SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
-    "setta-workspace-graph-port-safe-zone",
-    `setta-workspace-graph-port-safe-zone--${side}`,
-    `setta-workspace-graph-port--${port.family}`,
-    `setta-workspace-graph-port--${port.type}`,
-    connected ? "setta-workspace-graph-port--connected" : null,
-    activeGraph.gesture
-      ? "setta-workspace-graph-port--connection-active"
-      : null,
-    port.disabled ? "setta-workspace-graph-port--disabled" : null,
-    connectionState === "valid"
-      ? "setta-workspace-graph-port--candidate-valid"
-      : null,
-    connectionState === "invalid"
-      ? "setta-workspace-graph-port--candidate-invalid"
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const className = getWorkspaceGraphPortClassName({
+    connected,
+    connectionState,
+    graph: activeGraph,
+    port,
+    side,
+  });
 
   function onPointerDown(event: PointerEvent<HTMLButtonElement>) {
     if (!canStart || event.button !== 0) {

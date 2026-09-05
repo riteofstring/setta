@@ -53,7 +53,7 @@ export function startCanvasViewportDocumentSync(host: WorkspaceHost) {
   );
 }
 
-export function syncCanvasViewportTransform(
+function syncCanvasViewportTransform(
   host: WorkspaceHost,
   viewport: Viewport,
 ): void {

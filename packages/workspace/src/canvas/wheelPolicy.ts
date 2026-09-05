@@ -13,7 +13,7 @@ type PanOnScrollDelta = {
   deltaY: number;
 };
 
-export type WheelTargetDisposition = "canvas" | "manual" | "native";
+type WheelTargetDisposition = "canvas" | "manual" | "native";
 
 const WORKSPACE_WINDOW_MANAGER_OVERLAY_WINDOW_SELECTOR =
   "article.setta-workspace-window-manager-window[data-workspace-window-id]";
@@ -26,10 +26,7 @@ export const wheelDelta = (event: WheelEvent) => {
   return getWheelDelta(event, factor);
 };
 
-export const isWrappedWithClass = (
-  event: Event,
-  className?: string,
-): boolean => {
+const isWrappedWithClass = (event: Event, className?: string): boolean => {
   if (!className) {
     return false;
   }
@@ -52,7 +49,7 @@ export function isPinchZoomWheelEvent({
   return event.ctrlKey && zoomOnPinch && isMacOS;
 }
 
-export function isNativeVerticalWheelEvent(
+function isNativeVerticalWheelEvent(
   event: WheelEvent,
   isMacOS: boolean,
 ): boolean {

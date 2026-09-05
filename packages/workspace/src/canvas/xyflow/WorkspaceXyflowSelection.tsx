@@ -5,6 +5,7 @@ import { applyActiveSectionChange } from "../activeSectionController";
 import { getNodesInside } from "../graph";
 import { getWorkspaceOptionsStore } from "../options";
 import { getReactFlowStore, useReactFlow } from "../store";
+import type { ReactFlowState } from "../types";
 import { getEventPosition } from "../utils";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import {
@@ -46,6 +47,32 @@ type WorkspaceXyflowSelectionProps = {
 
 function isMarqueeMouseChord(event: MouseEvent): boolean {
   return event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
+}
+
+type WorkspaceUserSelectionRect = NonNullable<
+  ReactFlowState["userSelectionRect"]
+>;
+
+function resizeUserSelectionRect(
+  current: WorkspaceUserSelectionRect,
+  mousePosition: { x: number; y: number },
+): WorkspaceUserSelectionRect {
+  const startX = current.startX ?? 0;
+  const startY = current.startY ?? 0;
+  return {
+    ...current,
+    x: mousePosition.x < startX ? mousePosition.x : startX,
+    y: mousePosition.y < startY ? mousePosition.y : startY,
+    width: Math.abs(mousePosition.x - startX),
+    height: Math.abs(mousePosition.y - startY),
+  };
+}
+
+function hasSelectionActivation(
+  state: ReactFlowState,
+  event: MouseEvent,
+): boolean {
+  return state.selectionKeyPressed || isMarqueeMouseChord(event);
 }
 
 export function WorkspaceXyflowSelection({
@@ -108,11 +135,11 @@ export function WorkspaceXyflowSelection({
       }
       const canvasState = getReactFlowStore(host).getState();
       const userSelectionRect = canvasState.userSelectionRect;
-      if (
-        (!canvasState.selectionKeyPressed && !isMarqueeMouseChord(event)) ||
-        !containerBoundsRef.current ||
-        !userSelectionRect
-      ) {
+      const containerBounds = containerBoundsRef.current;
+      if (!containerBounds || !userSelectionRect) {
+        return;
+      }
+      if (!hasSelectionActivation(canvasState, event)) {
         return;
       }
 
@@ -121,16 +148,11 @@ export function WorkspaceXyflowSelection({
         nodesSelectionDims: null,
       });
 
-      const mousePosition = getEventPosition(event, containerBoundsRef.current);
-      const startX = userSelectionRect.startX ?? 0;
-      const startY = userSelectionRect.startY ?? 0;
-      const nextUserSelectionRect = {
-        ...userSelectionRect,
-        x: mousePosition.x < startX ? mousePosition.x : startX,
-        y: mousePosition.y < startY ? mousePosition.y : startY,
-        width: Math.abs(mousePosition.x - startX),
-        height: Math.abs(mousePosition.y - startY),
-      };
+      const mousePosition = getEventPosition(event, containerBounds);
+      const nextUserSelectionRect = resizeUserSelectionRect(
+        userSelectionRect,
+        mousePosition,
+      );
       const selectedIds = getNodesInside(
         host,
         nextUserSelectionRect,

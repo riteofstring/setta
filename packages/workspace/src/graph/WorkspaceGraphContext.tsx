@@ -20,12 +20,12 @@ import {
   type WorkspaceGraphSnapshot,
 } from "./validation";
 
-export type WorkspaceGraphClientPoint = Readonly<{
+type WorkspaceGraphClientPoint = Readonly<{
   x: number;
   y: number;
 }>;
 
-export type WorkspaceGraphGesture =
+type WorkspaceGraphGesture =
   | Readonly<{
       kind: "connect";
       originPoint: WorkspaceGraphClientPoint;
@@ -88,6 +88,29 @@ function detachSelectedEdgeIds(
   edgeIds: ReadonlySet<string>,
 ): ReadonlySet<string> {
   return new Set(edgeIds);
+}
+
+function completeWorkspaceGraphGesture(
+  gesture: WorkspaceGraphGesture,
+  snapshot: WorkspaceGraphSnapshot,
+  portId: string,
+): void {
+  const firstPortId =
+    gesture.kind === "connect" ? gesture.originPortId : gesture.fixedPortId;
+  const result = evaluateWorkspaceGraphConnection(
+    snapshot,
+    firstPortId,
+    portId,
+  );
+  if (!result.connection || !result.valid) {
+    return;
+  }
+  const connection = detachWorkspaceGraphConnection(result.connection);
+  if (gesture.kind === "connect") {
+    snapshot.onConnect?.(connection);
+    return;
+  }
+  snapshot.onReconnect?.(Object.freeze({ connection, edgeId: gesture.edgeId }));
 }
 
 export function WorkspaceGraphProvider({
@@ -190,26 +213,7 @@ export function WorkspaceGraphProvider({
       if (!current || !snapshot || !portId) {
         return;
       }
-      const firstPortId =
-        current.kind === "connect" ? current.originPortId : current.fixedPortId;
-      const result = evaluateWorkspaceGraphConnection(
-        snapshot,
-        firstPortId,
-        portId,
-      );
-      if (!result.connection || !result.valid) {
-        return;
-      }
-      if (current.kind === "connect") {
-        snapshot.onConnect?.(detachWorkspaceGraphConnection(result.connection));
-      } else {
-        snapshot.onReconnect?.(
-          Object.freeze({
-            connection: detachWorkspaceGraphConnection(result.connection),
-            edgeId: current.edgeId,
-          }),
-        );
-      }
+      completeWorkspaceGraphGesture(current, snapshot, portId);
     },
     [gesture, snapshot],
   );

@@ -17,7 +17,7 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { updateNodeDimensionsFromResizeObserver } from "../canvas/nodeInternalsActions";
+import { updateNodeDimensionsFromXyflow } from "../canvas/nodeInternalsActions";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import {
@@ -151,9 +151,9 @@ describe("ungroupSections", () => {
     });
 
     ungroupSections(testWorkspace.host, ["group"]);
-    updateNodeDimensionsFromResizeObserver(testWorkspace.host, [
-      { target: childA } as unknown as ResizeObserverEntry,
-      { target: childB } as unknown as ResizeObserverEntry,
+    updateNodeDimensionsFromXyflow(testWorkspace.host, [
+      { id: "child-a", width: childA.offsetWidth, height: childA.offsetHeight },
+      { id: "child-b", width: childB.offsetWidth, height: childB.offsetHeight },
     ]);
 
     expect(reported).toHaveLength(1);
@@ -196,8 +196,8 @@ describe("ungroupSections", () => {
       observed.node = state.x.get("group");
     });
     try {
-      updateNodeDimensionsFromResizeObserver(testWorkspace.host, [
-        { target: group } as unknown as ResizeObserverEntry,
+      updateNodeDimensionsFromXyflow(testWorkspace.host, [
+        { id: "group", width: group.offsetWidth, height: group.offsetHeight },
       ]);
     } finally {
       unsubscribe();

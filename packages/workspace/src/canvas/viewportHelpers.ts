@@ -20,7 +20,7 @@ export type WorkspaceViewportBoundsFitOptions = Readonly<{
   padding: number;
 }>;
 
-export type WorkspaceViewportBoundsFitResult = Readonly<{
+type WorkspaceViewportBoundsFitResult = Readonly<{
   duration: number;
   transition: Promise<boolean>;
 }>;

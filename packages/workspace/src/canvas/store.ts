@@ -9,7 +9,7 @@ import type { CoordinateExtent, ReactFlowState, ReactFlowStore } from "./types";
 import { EMPTY_VIEWPORT_INSETS } from "./viewportInsets";
 import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
 
-export const infiniteExtent: CoordinateExtent = [
+const infiniteExtent: CoordinateExtent = [
   [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY],
   [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY],
 ];

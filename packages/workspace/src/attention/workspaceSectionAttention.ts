@@ -18,8 +18,8 @@ import type { Rect } from "../canvas/types";
 
 export const WORKSPACE_SECTION_ATTENTION_LINGER_DURATION = 650;
 export const WORKSPACE_SECTION_FIT_DURATION = 500;
-export const WORKSPACE_SECTION_FIT_MAXIMUM_ZOOM = 1;
-export const WORKSPACE_SECTION_FIT_PADDING = 0.1;
+const WORKSPACE_SECTION_FIT_MAXIMUM_ZOOM = 1;
+const WORKSPACE_SECTION_FIT_PADDING = 0.1;
 
 export type WorkspaceSectionFitOptions = Readonly<{
   duration?: number;
@@ -27,7 +27,7 @@ export type WorkspaceSectionFitOptions = Readonly<{
   padding?: number;
 }>;
 
-export type WorkspaceSectionAttentionState = Readonly<{
+type WorkspaceSectionAttentionState = Readonly<{
   isTransitioning: boolean;
   sectionIds: ReadonlyArray<string>;
 }>;
@@ -148,15 +148,24 @@ function getValidatedWorkspaceSectionBounds(
   };
 }
 
+function assertWorkspaceSectionFitOptions(
+  options: WorkspaceSectionFitOptions | undefined,
+): void {
+  if (options === undefined) {
+    return;
+  }
+  if (options === null || typeof options !== "object") {
+    throw new Error("Workspace section fit options must be an object.");
+  }
+  if (Array.isArray(options)) {
+    throw new Error("Workspace section fit options must be an object.");
+  }
+}
+
 function resolveWorkspaceSectionFitOptions(
   options: WorkspaceSectionFitOptions | undefined,
 ): WorkspaceViewportBoundsFitOptions {
-  if (
-    options !== undefined &&
-    (options === null || typeof options !== "object" || Array.isArray(options))
-  ) {
-    throw new Error("Workspace section fit options must be an object.");
-  }
+  assertWorkspaceSectionFitOptions(options);
   return {
     duration: options?.duration ?? WORKSPACE_SECTION_FIT_DURATION,
     maxZoom: options?.maxZoom ?? WORKSPACE_SECTION_FIT_MAXIMUM_ZOOM,
@@ -271,13 +280,6 @@ function useWorkspaceSectionAttentionStore<T>(
     selector,
     equalityFn,
   );
-}
-
-export function useWorkspaceSectionAttention<T>(
-  selector: (state: WorkspaceSectionAttentionState) => T,
-  equalityFn?: (left: T, right: T) => boolean,
-): T {
-  return useWorkspaceSectionAttentionStore(selector, equalityFn);
 }
 
 export function useWorkspaceSectionAttentionTransitioning(): boolean {

@@ -248,6 +248,18 @@ function getEdge(host: HTMLElement, edgeId: string): SVGGElement {
   return edge;
 }
 
+function getEdgeElementAttribute(
+  edge: ParentNode,
+  selector: string,
+  attribute: string,
+): string | null {
+  const element = edge.querySelector(selector);
+  if (!element) {
+    throw new Error(`Workspace graph element ${selector} did not render.`);
+  }
+  return element.getAttribute(attribute);
+}
+
 async function dispatchPointer(
   target: EventTarget,
   type: "pointerdown" | "pointerup",
@@ -311,57 +323,80 @@ describe("WorkspaceGraphLayer", () => {
     expect(agentEdge.className.baseVal).toContain("--running");
     expect(workflowEdge.className.baseVal).toContain("--workflow");
     expect(
-      dataEdge
-        .querySelector(".setta-workspace-graph-edge-path")
-        ?.getAttribute("d"),
+      getEdgeElementAttribute(
+        dataEdge,
+        ".setta-workspace-graph-edge-path",
+        "d",
+      ),
     ).toContain("M42.5,27.5");
     expect(
-      workflowEdge
-        .querySelector(".setta-workspace-graph-edge-path")
-        ?.getAttribute("d"),
+      getEdgeElementAttribute(
+        workflowEdge,
+        ".setta-workspace-graph-edge-path",
+        "d",
+      ),
     ).toContain("192.5,142.5");
     expect(
-      dataEdge
-        .querySelector(".setta-workspace-graph-edge-interaction")
-        ?.getAttribute("stroke-width"),
+      getEdgeElementAttribute(
+        dataEdge,
+        ".setta-workspace-graph-edge-interaction",
+        "stroke-width",
+      ),
     ).toBe("16");
     expect(
-      agentEdge
-        .querySelector(".setta-workspace-graph-edge-interaction")
-        ?.getAttribute("stroke-width"),
+      getEdgeElementAttribute(
+        agentEdge,
+        ".setta-workspace-graph-edge-interaction",
+        "stroke-width",
+      ),
     ).toBe("16");
     expect(
-      workflowEdge
-        .querySelector(".setta-workspace-graph-edge-interaction")
-        ?.getAttribute("stroke-width"),
+      getEdgeElementAttribute(
+        workflowEdge,
+        ".setta-workspace-graph-edge-interaction",
+        "stroke-width",
+      ),
     ).toBe("18");
     const workflowLabel = workflowEdge.querySelector(
       ".setta-workspace-graph-edge-label",
     );
+    if (!workflowLabel) {
+      throw new Error("Workspace graph workflow label did not render.");
+    }
     expect(
-      workflowLabel
-        ?.querySelector(".setta-workspace-graph-edge-label-background")
-        ?.getAttribute("width"),
+      getEdgeElementAttribute(
+        workflowLabel,
+        ".setta-workspace-graph-edge-label-background",
+        "width",
+      ),
     ).toBe("80");
     expect(
-      workflowLabel
-        ?.querySelector(".setta-workspace-graph-edge-label-background")
-        ?.getAttribute("height"),
+      getEdgeElementAttribute(
+        workflowLabel,
+        ".setta-workspace-graph-edge-label-background",
+        "height",
+      ),
     ).toBe("20");
     expect(
-      workflowLabel
-        ?.querySelector(".setta-workspace-graph-edge-label-background")
-        ?.getAttribute("rx"),
+      getEdgeElementAttribute(
+        workflowLabel,
+        ".setta-workspace-graph-edge-label-background",
+        "rx",
+      ),
     ).toBe("10");
     expect(
-      workflowLabel
-        ?.querySelector(".setta-workspace-graph-edge-label-text")
-        ?.getAttribute("x"),
+      getEdgeElementAttribute(
+        workflowLabel,
+        ".setta-workspace-graph-edge-label-text",
+        "x",
+      ),
     ).toBe("40");
     expect(
-      workflowLabel
-        ?.querySelector(".setta-workspace-graph-edge-label-text")
-        ?.getAttribute("y"),
+      getEdgeElementAttribute(
+        workflowLabel,
+        ".setta-workspace-graph-edge-label-text",
+        "y",
+      ),
     ).toBe("13");
   });
 

@@ -418,4 +418,4 @@ export function evaluateWorkspaceGraphConnection(
   return Object.freeze({ connection, valid });
 }
 
-export type { WorkspaceGraphConnectionEvaluation, WorkspaceGraphSnapshot };
+export type { WorkspaceGraphSnapshot };
