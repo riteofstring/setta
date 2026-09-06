@@ -1412,13 +1412,28 @@ async function exerciseBrowser(client, origin) {
 
   await exerciseLiveSource(client, origin);
 
+  const beforeDrawing = await jsonRequest(origin, "/api/v1/project");
+  const beforeDrawingObjects =
+    beforeDrawing.sections.drawing.data.scene.objects.length;
   await drawStrokeBeforeRelease(client, origin);
-  await delay(300);
+  const afterStroke = await waitForProject(
+    origin,
+    "one durable drawing gesture",
+    (candidate) =>
+      candidate.sections.drawing.data.scene.objects.length >
+      beforeDrawingObjects,
+  );
+  assert.equal(afterStroke.revision, beforeDrawing.revision + 1);
+
   await clickButton(client, "Add rectangle");
-  await delay(300);
-  const project = await jsonRequest(origin, "/api/v1/project");
-  assert.ok(project.revision >= 2);
-  assert.ok(project.sections.drawing.data.scene.objects.length >= 2);
+  const project = await waitForProject(
+    origin,
+    "one durable rectangle addition",
+    (candidate) =>
+      candidate.sections.drawing.data.scene.objects.length >
+      afterStroke.sections.drawing.data.scene.objects.length,
+  );
+  assert.equal(project.revision, afterStroke.revision + 1);
 
   await clickButton(client, "Fail");
   await waitFor(

@@ -11,6 +11,7 @@ function canvasContext(element: HTMLCanvasElement): CanvasRenderingContext2D {
       height,
       width,
     }),
+    drawImage: vi.fn(),
     createLinearGradient: () => ({ addColorStop: () => {} }),
     createPattern: () => null,
     createRadialGradient: () => ({ addColorStop: () => {} }),
@@ -117,9 +118,15 @@ describe("retained drawing runtime", () => {
       scenePoint: move,
       viewportPoint: move,
     });
+    const lowerCanvasDraw = vi.spyOn(
+      drawing.canvas.contextContainer,
+      "drawImage",
+    );
+    lowerCanvasDraw.mockClear();
     brush.onMouseUp({ e: pointerEvent(), pointer: move });
     expect(drawing.canvas.getObjects().length).toBe(2);
     expect(previewed).toHaveBeenCalled();
+    expect(lowerCanvasDraw).toHaveBeenCalled();
 
     drawing.setTool("erase");
     expect(drawing.canvas.isDrawingMode).toBe(false);
@@ -172,6 +179,16 @@ describe("retained drawing runtime", () => {
     await roundTrip.loadScene(scene);
     expect(roundTrip.canvas.getObjects()).toHaveLength(1);
     expect(roundTrip.toScene()).toEqual(scene);
+    const emptyScene = { objects: [], version: "7.4.0" };
+    const emptySceneLoad = roundTrip.loadScene(emptyScene);
+    expect(roundTrip.canvas.getObjects()).toHaveLength(1);
+    expect(await emptySceneLoad).toBe(true);
+    expect(roundTrip.canvas.getObjects()).toHaveLength(0);
+    const supersededLoad = roundTrip.loadScene(emptyScene);
+    const latestLoad = roundTrip.loadScene(scene);
+    expect(await supersededLoad).toBe(false);
+    expect(await latestLoad).toBe(true);
+    expect(roundTrip.canvas.renderOnAddRemove).toBe(true);
     expect(roundTrip.toDataURL()).toMatch(/^data:image\/png;base64,/);
     const capture = await roundTrip.captureSnapshot();
     expect(capture.scene).toEqual(scene);

@@ -20,6 +20,7 @@ import {
   type DrawingHistoryState,
   type DrawingTool,
 } from "./drawingRuntime";
+import { DrawingSceneAuthority } from "./drawingSceneAuthority";
 import { DrawingSettlementQueue } from "./drawingSettlementQueue";
 import { DrawingToolbarIcon } from "./DrawingToolbarIcon";
 import { readDrawingSectionData } from "./sectionData";
@@ -109,8 +110,8 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const drawingRef = useRef<RealtimeDrawingRuntime | null>(null);
+  const sceneAuthorityRef = useRef<DrawingSceneAuthority | null>(null);
   const settlementRef = useRef<DrawingSettlementQueue | null>(null);
-  const lastLoadedSceneRef = useRef<string | null>(null);
   const [brushColor, setBrushColor] = useState("#111827");
   const [brushWidth, setBrushWidth] = useState(4);
   const [history, setHistory] = useState(INITIAL_HISTORY_STATE);
@@ -134,13 +135,21 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     if (element === null) {
       return;
     }
+    const initialScene = sceneRef.current;
+    const sceneAuthority = new DrawingSceneAuthority(initialScene);
     let settlement: DrawingSettlementQueue | null = null;
     const drawing = new RealtimeDrawingRuntime(element, {
       background,
       height,
       onHistoryChange: setHistory,
-      onPreview: () => settlement?.preview(),
-      onSettled: () => settlement?.settle(),
+      onPreview: () => {
+        sceneAuthority.localChange();
+        settlement?.preview();
+      },
+      onSettled: () => {
+        sceneAuthority.localChange();
+        settlement?.settle();
+      },
       width,
     });
     const stage = stageRef.current;
@@ -148,6 +157,10 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       void drawing.dispose();
       return;
     }
+    const preventSectionActivation = (event: MouseEvent) => {
+      event.stopPropagation();
+    };
+    stage.addEventListener("click", preventSectionActivation);
     const resizeObserver = new ResizeObserver((entries) => {
       const bounds = entries[0]?.contentRect;
       if (bounds !== undefined) {
@@ -161,14 +174,18 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         canEmitSnapshot(projectRef.current, runtimeRef.current, section.id),
       capture: () => drawing.captureSnapshot(),
       capturePreview: () => drawing.capturePreview(),
-      commit: (nextScene) => {
-        lastLoadedSceneRef.current = JSON.stringify(nextScene);
-        return actions.commitSectionData(section.id, {
+      commit: async (nextScene) => {
+        const pending = sceneAuthority.prepareCommit(nextScene);
+        const committed = await actions.commitSectionData(section.id, {
           background,
           height,
           scene: nextScene,
           width,
         });
+        if (committed) {
+          sceneAuthority.acknowledge(pending, drawing.toScene());
+        }
+        return committed;
       },
       delayMilliseconds: SETTLE_DELAY_MILLISECONDS,
       emit: (reference) => {
@@ -188,22 +205,32 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       previewDelayMilliseconds: PREVIEW_DELAY_MILLISECONDS,
       upload: actions.uploadContent,
     });
+    sceneAuthorityRef.current = sceneAuthority;
     settlementRef.current = settlement;
     drawingRef.current = drawing;
-    const initialScene = sceneRef.current;
-    lastLoadedSceneRef.current = JSON.stringify(initialScene);
-    void drawing.loadScene(initialScene).catch((error: unknown) => {
-      actions.reportError(
-        error instanceof Error
-          ? error.message
-          : "Realtime could not load the drawing scene.",
-      );
-    });
+    void drawing
+      .loadScene(initialScene)
+      .then((loaded) => {
+        if (loaded) {
+          sceneAuthority.loaded(initialScene);
+        }
+      })
+      .catch((error: unknown) => {
+        actions.reportError(
+          error instanceof Error
+            ? error.message
+            : "Realtime could not load the drawing scene.",
+        );
+      });
     return () => {
+      stage.removeEventListener("click", preventSectionActivation);
       resizeObserver.disconnect();
       settlement?.dispose();
       if (settlementRef.current === settlement) {
         settlementRef.current = null;
+      }
+      if (sceneAuthorityRef.current === sceneAuthority) {
+        sceneAuthorityRef.current = null;
       }
       drawingRef.current = null;
       void drawing.dispose();
@@ -218,16 +245,26 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
 
   useEffect(() => {
     const drawing = drawingRef.current;
-    const sceneKey = JSON.stringify(scene);
-    if (drawing !== null && sceneKey !== lastLoadedSceneRef.current) {
-      lastLoadedSceneRef.current = sceneKey;
-      void drawing.loadScene(scene).catch((error: unknown) => {
-        actions.reportError(
-          error instanceof Error
-            ? error.message
-            : "Realtime could not load the drawing scene.",
-        );
-      });
+    const sceneAuthority = sceneAuthorityRef.current;
+    if (
+      drawing !== null &&
+      sceneAuthority !== null &&
+      sceneAuthority.shouldLoad(scene)
+    ) {
+      void drawing
+        .loadScene(scene)
+        .then((loaded) => {
+          if (loaded) {
+            sceneAuthority.loaded(scene);
+          }
+        })
+        .catch((error: unknown) => {
+          actions.reportError(
+            error instanceof Error
+              ? error.message
+              : "Realtime could not load the drawing scene.",
+          );
+        });
     }
   }, [actions, scene]);
 

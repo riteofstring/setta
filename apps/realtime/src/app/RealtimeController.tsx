@@ -411,6 +411,9 @@ export function RealtimeController() {
       if (!projectCanAdvance(nextProject)) {
         return false;
       }
+      if (projectRef.current?.revision === nextProject.revision) {
+        return true;
+      }
       const resolved = await resolveProjectSource(nextProject);
       return (
         resolved !== null &&

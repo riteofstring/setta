@@ -16,6 +16,8 @@ drawing interaction, and other disposable view state. Project projection retains
 canonical backend snapshots. A durable mutation is sent only at a coherent commit boundary with
 the observed project identity and revision. Conflicts fetch or await the newest complete snapshot
 and remain explicit; the client does not replay a mutation against state the user did not edit.
+The HTTP mutation response and project EventSource may deliver the same revision in either order;
+an already accepted revision is an acknowledgement, not a second projection.
 
 The Realtime app supplies its own section kinds and product providers through Workspace's public
 registries. Realtime section implementations remain app-owned until another concrete consumer
@@ -75,7 +77,14 @@ and dark mode as native sections.
 The drawing section uses one exact-pinned Fabric.js release for its retained objects, hit testing,
 brushes, erasing, selection, transforms, serialization, filters, history, and raster export. Setta
 owns the section shell, canonical scene encoding, durable gesture boundary, event name, content
-upload, and snapshot coalescing. A completed gesture persists one coherent vector scene.
+upload, and snapshot coalescing. Canvas gestures do not activate or reorder the outer Workspace
+section. A completed gesture persists one coherent vector scene.
+
+The visible Fabric scene is browser-authoritative from the first local change until the matching
+durable scene is acknowledged. Canonical scenes hydrate only while that local state is clean, so a
+delayed project snapshot cannot resurrect erased objects or replace a newer stroke. Scene hydration
+keeps the prior lower-canvas frame visible until object enlivening completes, restores Fabric's
+interaction state after superseded loads, and renders the settled frame synchronously.
 
 When every matching binding uses `latest` with zero debounce, the browser treats its invocation
 status as one local completion-paced capacity credit. It captures and uploads the first eligible

@@ -48,6 +48,7 @@ export class RealtimeDrawingRuntime {
   private readonly onHistoryChange: (state: DrawingHistoryState) => void;
   private readonly onPreview: () => void;
   private readonly onSettled: () => void;
+  private readonly renderOnAddRemove: boolean;
   private sceneLoad: AbortController | null = null;
 
   public constructor(
@@ -72,6 +73,7 @@ export class RealtimeDrawingRuntime {
     brush.color = "#111827";
     brush.width = 4;
     this.canvas.freeDrawingBrush = brush;
+    this.renderOnAddRemove = this.canvas.renderOnAddRemove;
     this.canvas.on("path:created", this.handleSettled);
     this.canvas.on("object:modified", this.handleSettled);
     this.canvas.on("mouse:down", this.handlePointerStart);
@@ -234,40 +236,50 @@ export class RealtimeDrawingRuntime {
     return true;
   }
 
-  public async loadScene(scene: WorkspaceSectionData): Promise<void> {
-    await this.applyScene(scene);
+  public async loadScene(scene: WorkspaceSectionData): Promise<boolean> {
+    if (!(await this.applyScene(scene))) {
+      return false;
+    }
     this.history = [this.toScene()];
     this.historyIndex = 0;
     this.publishHistoryState();
+    return true;
   }
 
-  private async applyScene(scene: WorkspaceSectionData): Promise<void> {
+  private async applyScene(scene: WorkspaceSectionData): Promise<boolean> {
     this.sceneLoad?.abort();
     const controller = new AbortController();
     this.sceneLoad = controller;
     this.loading = true;
+    this.canvas.isDrawingMode = false;
+    this.canvas.selection = false;
+    this.canvas.skipTargetFind = true;
     try {
-      this.canvas.clear();
-      this.canvas.backgroundColor = this.background;
       if (isSceneObject(scene)) {
         await this.canvas.loadFromJSON(scene, undefined, {
           signal: controller.signal,
         });
+      } else {
+        this.canvas.clear();
       }
       if (this.sceneLoad !== controller) {
-        return;
+        return false;
       }
       this.canvas.backgroundColor = this.background;
-      this.canvas.requestRenderAll();
-      this.setTool(this.tool);
+      return true;
     } catch (error) {
       if (this.sceneLoad === controller && !controller.signal.aborted) {
         throw error;
       }
+      return false;
     } finally {
       if (this.sceneLoad === controller) {
         this.loading = false;
         this.sceneLoad = null;
+        this.canvas.renderOnAddRemove = this.renderOnAddRemove;
+        this.canvas.skipTargetFind = false;
+        this.setTool(this.tool);
+        this.canvas.renderAll();
       }
     }
   }
@@ -333,6 +345,7 @@ export class RealtimeDrawingRuntime {
     if (this.loading) {
       return;
     }
+    this.canvas.renderAll();
     const scene = this.toScene();
     const current = this.history[this.historyIndex];
     if (
@@ -368,6 +381,9 @@ export class RealtimeDrawingRuntime {
     } else if (this.tool === "erase") {
       this.erasing = true;
       this.erasedInGesture = this.eraseTarget(event);
+      if (this.erasedInGesture) {
+        this.onPreview();
+      }
     }
   };
 

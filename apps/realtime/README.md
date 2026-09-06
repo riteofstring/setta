@@ -208,11 +208,13 @@ current complete snapshots while retaining browser-owned selection and minimized
 
 Fabric.js owns retained drawing objects, free drawing, erasing, selection, transforms, history,
 serialization, and raster export. Realtime persists the vector scene only after a coherent
-gesture. For a completion-paced binding, the browser captures and uploads the first eligible
-composited raster immediately, then retains only one dirty preview or final snapshot while the
-binding is occupied. It performs no additional capture or upload until invocation completion
-restores capacity. A settled final snapshot takes priority over lossy preview work and remains
-pending until it can be sent, without turning pointer movement into durable project mutations.
+gesture. While a local gesture is unsettled or awaiting acknowledgement, delayed project snapshots
+cannot replace it, and drawing on the inner canvas does not reorder or persist the outer section.
+For a completion-paced binding, the browser captures and uploads the first eligible composited
+raster immediately, then retains only one dirty preview or final snapshot while the binding is
+occupied. It performs no additional capture or upload until invocation completion restores
+capacity. A settled final snapshot takes priority over lossy preview work and remains pending until
+it can be sent, without turning pointer movement into durable project mutations.
 
 `latest` runs at most one invocation for a binding and retains at most its newest queued or
 debounced input. A new event supersedes only replaced pending work; it does not cancel or suppress
