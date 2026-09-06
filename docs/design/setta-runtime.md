@@ -39,6 +39,10 @@ The supervisor's containment boundary owns the native server and descendants unt
 idempotent shutdown completes. Errors and lifecycle state are application-neutral. The server owns
 its private worker descendants; closing the outer supervisor must still clean the complete tree.
 
+After publishing a verified Realtime session, its adapter requests one runtime load before it
+reports the public URL or opens the browser. Opening an interactive application therefore presents
+an initialized worker, while later source edits remain explicit reload operations.
+
 ## Build and verification direction
 
 Workspace builds before application frontends. Every frontend and native server builds before

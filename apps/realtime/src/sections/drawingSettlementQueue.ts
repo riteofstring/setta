@@ -18,6 +18,10 @@ type DrawingSettlementQueueOptions = {
 };
 
 export class DrawingSettlementQueue {
+  private blockedSnapshot: {
+    revision: number;
+    snapshot: DrawingSnapshot;
+  } | null = null;
   private readyRevision = 0;
   private revision = 0;
   private running = false;
@@ -31,6 +35,7 @@ export class DrawingSettlementQueue {
       return;
     }
     const revision = ++this.revision;
+    this.blockedSnapshot = null;
     if (this.timer !== null) {
       window.clearTimeout(this.timer);
     }
@@ -44,6 +49,7 @@ export class DrawingSettlementQueue {
   public dispose(): void {
     this.stopped = true;
     ++this.revision;
+    this.blockedSnapshot = null;
     this.readyRevision = 0;
     if (this.timer !== null) {
       window.clearTimeout(this.timer);
@@ -51,22 +57,40 @@ export class DrawingSettlementQueue {
     }
   }
 
-  private async process(revision: number): Promise<void> {
-    const snapshot = await this.options.capture();
-    if (this.stopped || revision !== this.revision) {
+  public resume(): void {
+    const blocked = this.blockedSnapshot;
+    if (this.stopped || blocked === null || !this.options.canEmit()) {
       return;
     }
-    const committed = await this.options.commit(snapshot.scene);
-    if (!committed || this.stopped || revision !== this.revision) {
-      return;
+    this.readyRevision = blocked.revision;
+    void this.drain();
+  }
+
+  private async process(revision: number): Promise<boolean> {
+    const blocked = this.blockedSnapshot;
+    const snapshot =
+      blocked?.revision === revision
+        ? blocked.snapshot
+        : await this.options.capture();
+    if (this.stopped || revision !== this.revision) {
+      return true;
+    }
+    if (blocked?.revision !== revision) {
+      const committed = await this.options.commit(snapshot.scene);
+      if (!committed || this.stopped || revision !== this.revision) {
+        return true;
+      }
     }
     if (!this.options.canEmit()) {
-      return;
+      this.blockedSnapshot = { revision, snapshot };
+      return false;
     }
+    this.blockedSnapshot = null;
     const reference = await this.options.upload(snapshot.blob);
     if (!this.stopped && revision === this.revision) {
       this.options.emit(reference);
     }
+    return true;
   }
 
   private async drain(): Promise<void> {
@@ -79,13 +103,18 @@ export class DrawingSettlementQueue {
         const revision = this.readyRevision;
         this.readyRevision = 0;
         try {
-          await this.process(revision);
+          if (!(await this.process(revision))) {
+            break;
+          }
         } catch (error) {
           this.options.onError(error);
         }
       }
     } finally {
       this.running = false;
+      if (!this.stopped && this.readyRevision !== 0 && this.options.canEmit()) {
+        void this.drain();
+      }
     }
   }
 }

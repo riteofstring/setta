@@ -140,4 +140,39 @@ describe("drawing settlement queue", () => {
     expect(upload).not.toHaveBeenCalled();
     queue.dispose();
   });
+
+  it("emits a persisted drawing when invocation becomes available", async () => {
+    vi.useFakeTimers();
+    let canEmit = false;
+    const snapshot: DrawingSnapshot = {
+      blob: new Blob(["scene"], { type: "image/png" }),
+      scene: { objects: [{ id: "waiting" }] },
+    };
+    const capture = vi.fn(async () => snapshot);
+    const commit = vi.fn(async () => true);
+    const upload = vi.fn(async () => reference("waiting"));
+    const emit = vi.fn();
+    const queue = new DrawingSettlementQueue({
+      canEmit: () => canEmit,
+      capture,
+      commit,
+      delayMilliseconds: 180,
+      emit,
+      onError: vi.fn(),
+      upload,
+    });
+
+    queue.settle();
+    await vi.advanceTimersByTimeAsync(180);
+    await flushMicrotasks();
+    canEmit = true;
+    queue.resume();
+    await flushMicrotasks();
+
+    expect(capture).toHaveBeenCalledOnce();
+    expect(commit).toHaveBeenCalledOnce();
+    expect(upload).toHaveBeenCalledWith(snapshot.blob);
+    expect(emit).toHaveBeenCalledWith(reference("waiting"));
+    queue.dispose();
+  });
 });
