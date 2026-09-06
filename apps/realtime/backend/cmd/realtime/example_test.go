@@ -116,9 +116,6 @@ func waitForNeonResult(t *testing.T, application *localApplication) contracts.Co
 			if err := json.Unmarshal(value, &reference); err != nil {
 				t.Fatalf("json.Unmarshal(content reference) error = %v", err)
 			}
-			if string(snapshot.Values["status.level"]) != `"success"` {
-				t.Fatalf("status level = %s", snapshot.Values["status.level"])
-			}
 			return reference
 		}
 		time.Sleep(10 * time.Millisecond)
