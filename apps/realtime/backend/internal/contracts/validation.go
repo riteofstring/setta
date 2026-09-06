@@ -34,6 +34,9 @@ var (
 )
 
 func DecodeStrict(data []byte, target any) error {
+	if !utf8.Valid(data) {
+		return errors.New("contracts: JSON is not valid UTF-8")
+	}
 	if err := validateUniqueJSON(data); err != nil {
 		return err
 	}
@@ -233,6 +236,15 @@ func validateSections(sections map[string]Section, layout Layout) error {
 	if err := validateForestMembership(sections, parents, layout.TopLevelSections); err != nil {
 		return err
 	}
+	codeSections := 0
+	for _, section := range sections {
+		if section.Kind == "code" {
+			codeSections++
+		}
+	}
+	if codeSections > 1 {
+		return errors.New("contracts: project has multiple entrypoint code sections")
+	}
 	if err := validateSectionCycles(sections, layout.TopLevelSections); err != nil {
 		return err
 	}
@@ -347,7 +359,7 @@ func (section Section) validateIdentityAndSize() error {
 	if !validID(section.ID) {
 		return errors.New("section id is invalid")
 	}
-	if !slices.Contains([]string{"input", "output", "button", "status", "drawing"}, section.Kind) {
+	if !slices.Contains([]string{"input", "output", "button", "status", "drawing", "code"}, section.Kind) {
 		return errors.New("section kind is unsupported")
 	}
 	if err := validateText(section.Name, true); err != nil {
@@ -508,6 +520,8 @@ func validateSectionData(kind string, data json.RawMessage) error {
 		return validateStatusSectionData(data)
 	case "drawing":
 		return validateDrawingSectionData(data)
+	case "code":
+		return validateCodeSectionData(data)
 	default:
 		return errors.New("section kind is unsupported")
 	}
@@ -566,6 +580,17 @@ func validateDrawingSectionData(data json.RawMessage) error {
 		return errors.New("drawing background is invalid")
 	}
 	return validateJSON(value.Scene)
+}
+
+func validateCodeSectionData(data json.RawMessage) error {
+	var value CodeSectionData
+	if err := DecodeStrict(data, &value); err != nil {
+		return fmt.Errorf("code data: %w", err)
+	}
+	if value.Source != "entrypoint" {
+		return errors.New("code data source is unsupported")
+	}
+	return nil
 }
 
 func validateReference(value json.RawMessage, sections map[string]Section) error {
@@ -740,6 +765,54 @@ func (request DirectInvokeRequest) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (document RuntimeSourceDocument) Validate() error {
+	if !validID(document.ProjectID) {
+		return errors.New("contracts: entrypoint source project id is invalid")
+	}
+	if err := (RuntimeDeclaration{Kind: "python", Entrypoint: document.Entrypoint}).Validate(); err != nil {
+		return err
+	}
+	if !validSourceVersion(document.Version) {
+		return errors.New("contracts: entrypoint source version is invalid")
+	}
+	if err := validateText(document.Source, false); err != nil {
+		return fmt.Errorf("contracts: entrypoint source: %w", err)
+	}
+	return nil
+}
+
+func (request ApplyRuntimeSourceRequest) Validate() error {
+	document := RuntimeSourceDocument{
+		ProjectID: request.ProjectID, Entrypoint: request.Entrypoint,
+		Version: request.ExpectedVersion, Source: request.Source,
+	}
+	return document.Validate()
+}
+
+func (result ApplyRuntimeSourceResult) Validate() error {
+	if err := result.Source.Validate(); err != nil {
+		return err
+	}
+	switch result.Activation.State {
+	case "activated":
+		if result.Activation.Error != nil {
+			return errors.New("contracts: activated entrypoint source has an error")
+		}
+	case "rejected":
+		if result.Activation.Error == nil || !handlerPattern.MatchString(result.Activation.Error.Code) || validateText(result.Activation.Error.Message, true) != nil {
+			return errors.New("contracts: rejected entrypoint source error is invalid")
+		}
+	default:
+		return errors.New("contracts: entrypoint source activation is invalid")
+	}
+	return nil
+}
+
+func validSourceVersion(value string) bool {
+	digest, err := hex.DecodeString(value)
+	return err == nil && len(digest) == 32 && value == strings.ToLower(value)
 }
 
 func validID(value string) bool {

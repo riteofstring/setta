@@ -16,6 +16,7 @@ import (
 	"github.com/setta/realtime/backend/internal/content"
 	"github.com/setta/realtime/backend/internal/contracts"
 	"github.com/setta/realtime/backend/internal/project"
+	"github.com/setta/realtime/backend/internal/source"
 )
 
 type fakeCoordinator struct {
@@ -23,6 +24,10 @@ type fakeCoordinator struct {
 	project contracts.Project
 	runtime contracts.RuntimeSnapshot
 	events  []contracts.RuntimeEvent
+	source  contracts.RuntimeSourceDocument
+	applied []contracts.ApplyRuntimeSourceRequest
+	result  contracts.ApplyRuntimeSourceResult
+	srcErr  error
 }
 
 func (coordinator *fakeCoordinator) ProjectSnapshot() (contracts.Project, error) {
@@ -41,6 +46,19 @@ func (coordinator *fakeCoordinator) Apply(request contracts.ApplyRequest) (contr
 
 func (coordinator *fakeCoordinator) Reload(context.Context) (contracts.InitializeResult, error) {
 	return contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "python", Handlers: []string{}}, nil
+}
+
+func (coordinator *fakeCoordinator) RuntimeSource() (contracts.RuntimeSourceDocument, error) {
+	coordinator.mu.Lock()
+	defer coordinator.mu.Unlock()
+	return coordinator.source, coordinator.srcErr
+}
+
+func (coordinator *fakeCoordinator) ApplyRuntimeSource(_ context.Context, request contracts.ApplyRuntimeSourceRequest) (contracts.ApplyRuntimeSourceResult, error) {
+	coordinator.mu.Lock()
+	defer coordinator.mu.Unlock()
+	coordinator.applied = append(coordinator.applied, request)
+	return coordinator.result, coordinator.srcErr
 }
 
 func (coordinator *fakeCoordinator) Invoke(context.Context, string, contracts.DirectInvokeRequest) (contracts.InvokeResult, error) {
@@ -92,7 +110,11 @@ func testHandler(t *testing.T, serverURL string) (*Handler, *fakeCoordinator, *c
 		_ = projects.Close()
 		t.Fatalf("content.Open() error = %v", err)
 	}
-	coordinator := &fakeCoordinator{project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}, PublishedByBinding: map[string]contracts.InvocationIdentity{}}}
+	sourceDocument := contracts.RuntimeSourceDocument{ProjectID: projectSnapshot.ID, Entrypoint: "app.py", Version: strings.Repeat("a", 64), Source: "handlers = {}\n"}
+	coordinator := &fakeCoordinator{
+		project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}, PublishedByBinding: map[string]contracts.InvocationIdentity{}},
+		source: sourceDocument, result: contracts.ApplyRuntimeSourceResult{Source: sourceDocument, Activation: contracts.RuntimeSourceActivation{State: "activated"}},
+	}
 	handler, err := New(coordinator, projects, contentStore, projectRoot, "nonce", serverURL)
 	if err != nil {
 		_ = projects.Close()
@@ -147,6 +169,109 @@ func TestMutationRequiresExactOriginAndStrictJSON(t *testing.T) {
 	handler.ServeHTTP(invalid, request)
 	if invalid.Code != http.StatusBadRequest {
 		t.Fatalf("invalid response = %d %q", invalid.Code, invalid.Body.String())
+	}
+}
+
+func TestRuntimeSourceReadAllowsAbsentOrExactOriginAndRejectsForeignOrigin(t *testing.T) {
+	handler, coordinator, _, cleanup := testHandler(t, "http://127.0.0.1:8123")
+	defer cleanup()
+	for name, origin := range map[string]string{"absent": "", "exact": "http://127.0.0.1:8123"} {
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/runtime/source", nil)
+		if origin != "" {
+			request.Header.Set("Origin", origin)
+		}
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s origin response = %d %q", name, response.Code, response.Body.String())
+		}
+		var document contracts.RuntimeSourceDocument
+		if err := json.Unmarshal(response.Body.Bytes(), &document); err != nil || document != coordinator.source {
+			t.Fatalf("%s origin document = %#v, error = %v", name, document, err)
+		}
+	}
+	foreign := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/runtime/source", nil)
+	request.Header.Set("Origin", "http://evil.example")
+	handler.ServeHTTP(foreign, request)
+	if foreign.Code != http.StatusForbidden {
+		t.Fatalf("foreign origin response = %d %q", foreign.Code, foreign.Body.String())
+	}
+	queried := httptest.NewRecorder()
+	handler.ServeHTTP(queried, httptest.NewRequest(http.MethodGet, "/api/v1/runtime/source?path=other.py", nil))
+	if queried.Code != http.StatusBadRequest {
+		t.Fatalf("query response = %d %q", queried.Code, queried.Body.String())
+	}
+}
+
+func TestRuntimeSourceApplyRequiresExactOriginAndReturnsActivation(t *testing.T) {
+	handler, coordinator, _, cleanup := testHandler(t, "http://127.0.0.1:8123")
+	defer cleanup()
+	payload := `{"projectId":"` + coordinator.source.ProjectID + `","entrypoint":"app.py","expectedVersion":"` + coordinator.source.Version + `","source":"handlers = {}\\n"}`
+	forbidden := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/runtime/source", strings.NewReader(payload))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(forbidden, request)
+	if forbidden.Code != http.StatusForbidden {
+		t.Fatalf("missing origin response = %d %q", forbidden.Code, forbidden.Body.String())
+	}
+	coordinator.result = contracts.ApplyRuntimeSourceResult{
+		Source:     coordinator.source,
+		Activation: contracts.RuntimeSourceActivation{State: "rejected", Error: &contracts.StructuredError{Code: "load_error", Message: "invalid syntax"}},
+	}
+	accepted := httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPut, "/api/v1/runtime/source", strings.NewReader(payload))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "http://127.0.0.1:8123")
+	handler.ServeHTTP(accepted, request)
+	if accepted.Code != http.StatusOK {
+		t.Fatalf("apply response = %d %q", accepted.Code, accepted.Body.String())
+	}
+	var result contracts.ApplyRuntimeSourceResult
+	if err := json.Unmarshal(accepted.Body.Bytes(), &result); err != nil || result.Activation.State != "rejected" || result.Activation.Error == nil {
+		t.Fatalf("apply result = %#v, error = %v", result, err)
+	}
+	if len(coordinator.applied) != 1 || coordinator.applied[0].Entrypoint != "app.py" {
+		t.Fatalf("applied requests = %#v", coordinator.applied)
+	}
+}
+
+func TestRuntimeSourceConflictReturnsTypedConflict(t *testing.T) {
+	handler, coordinator, _, cleanup := testHandler(t, "http://127.0.0.1:8123")
+	defer cleanup()
+	coordinator.srcErr = source.ErrConflict
+	payload := `{"projectId":"` + coordinator.source.ProjectID + `","entrypoint":"app.py","expectedVersion":"` + coordinator.source.Version + `","source":"changed"}`
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/runtime/source", strings.NewReader(payload))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "http://127.0.0.1:8123")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), `"code":"source_conflict"`) {
+		t.Fatalf("conflict response = %d %q", response.Code, response.Body.String())
+	}
+}
+
+func TestRuntimeSourceApplyRejectsUnknownFieldsAndMapsSourceOverflow(t *testing.T) {
+	handler, coordinator, _, cleanup := testHandler(t, "http://127.0.0.1:8123")
+	defer cleanup()
+	payload := `{"projectId":"` + coordinator.source.ProjectID + `","entrypoint":"app.py","expectedVersion":"` + coordinator.source.Version + `","source":"changed","extra":true}`
+	unknown := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/runtime/source", strings.NewReader(payload))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "http://127.0.0.1:8123")
+	handler.ServeHTTP(unknown, request)
+	if unknown.Code != http.StatusBadRequest || len(coordinator.applied) != 0 {
+		t.Fatalf("unknown field response = %d %q, applied = %#v", unknown.Code, unknown.Body.String(), coordinator.applied)
+	}
+	coordinator.srcErr = source.ErrTooLarge
+	payload = `{"projectId":"` + coordinator.source.ProjectID + `","entrypoint":"app.py","expectedVersion":"` + coordinator.source.Version + `","source":"changed"}`
+	overflow := httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPut, "/api/v1/runtime/source", strings.NewReader(payload))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "http://127.0.0.1:8123")
+	handler.ServeHTTP(overflow, request)
+	if overflow.Code != http.StatusRequestEntityTooLarge || !strings.Contains(overflow.Body.String(), `"code":"source_too_large"`) {
+		t.Fatalf("overflow response = %d %q", overflow.Code, overflow.Body.String())
 	}
 }
 

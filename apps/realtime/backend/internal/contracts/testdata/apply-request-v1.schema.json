@@ -772,6 +772,87 @@
             "data"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "children": {
+              "items": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 1024,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "source": {
+                  "const": "entrypoint"
+                }
+              },
+              "required": [
+                "source"
+              ],
+              "type": "object"
+            },
+            "height": {
+              "$ref": "#/$defs/sizeValue"
+            },
+            "id": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "isHorizontalOrientation": {
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "code"
+            },
+            "name": {
+              "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+              "type": "string"
+            },
+            "overflowMode": {
+              "type": "boolean"
+            },
+            "positionAndSizeLocked": {
+              "type": "boolean"
+            },
+            "styleColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tagColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "width": {
+              "$ref": "#/$defs/sizeValue"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "name",
+            "width",
+            "height",
+            "overflowMode",
+            "positionAndSizeLocked",
+            "isHorizontalOrientation",
+            "styleColor",
+            "tagColor",
+            "children",
+            "data"
+          ],
+          "type": "object"
         }
       ]
     },

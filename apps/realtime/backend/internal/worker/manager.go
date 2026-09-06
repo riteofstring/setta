@@ -177,10 +177,32 @@ func (manager *Manager) Reload(ctx context.Context, projectRoot string, declarat
 	}
 	manager.lifecycle.Lock()
 	defer manager.lifecycle.Unlock()
+	if err := manager.stopActiveLocked(); err != nil {
+		return contracts.InitializeResult{}, err
+	}
+	spec := reloadSpec{projectRoot: root, runtime: declaration}
+	process, result, err := manager.startProcess(ctx, spec, true)
+	if err != nil {
+		return contracts.InitializeResult{}, err
+	}
+	manager.install(process)
+	return result, nil
+}
+
+func (manager *Manager) Stop() error {
+	if manager == nil {
+		return ErrManagerClosed
+	}
+	manager.lifecycle.Lock()
+	defer manager.lifecycle.Unlock()
+	return manager.stopActiveLocked()
+}
+
+func (manager *Manager) stopActiveLocked() error {
 	manager.mu.Lock()
 	if manager.closed {
 		manager.mu.Unlock()
-		return contracts.InitializeResult{}, ErrManagerClosed
+		return ErrManagerClosed
 	}
 	previous := manager.active
 	manager.active = nil
@@ -191,16 +213,10 @@ func (manager *Manager) Reload(ctx context.Context, projectRoot string, declarat
 	manager.mu.Unlock()
 	if previous != nil {
 		if err := manager.stopProcess(previous, true); err != nil {
-			return contracts.InitializeResult{}, err
+			return err
 		}
 	}
-	spec := reloadSpec{projectRoot: root, runtime: declaration}
-	process, result, err := manager.startProcess(ctx, spec, true)
-	if err != nil {
-		return contracts.InitializeResult{}, err
-	}
-	manager.install(process)
-	return result, nil
+	return nil
 }
 
 func (manager *Manager) Invoke(ctx context.Context, params contracts.InvokeParams) (contracts.InvokeResult, error) {

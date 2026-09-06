@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/setta/realtime/backend/internal/content"
 	"github.com/setta/realtime/backend/internal/contracts"
 	"github.com/setta/realtime/backend/internal/project"
+	"github.com/setta/realtime/backend/internal/source"
 	"github.com/setta/realtime/backend/internal/worker"
 )
 
@@ -25,16 +27,33 @@ type fakeWorker struct {
 	updates                 chan contracts.RuntimeUpdate
 	started                 chan contracts.InvokeParams
 	replies                 map[string]chan contracts.InvokeResult
+	reloadResult            contracts.InitializeResult
+	reloadErr               error
+	reloads                 []contracts.RuntimeDeclaration
+	stops                   int
 	cooperativeCancellation bool
 	closed                  bool
 }
 
 func newFakeWorker() *fakeWorker {
-	return &fakeWorker{updates: make(chan contracts.RuntimeUpdate, 16), started: make(chan contracts.InvokeParams, 128), replies: make(map[string]chan contracts.InvokeResult)}
+	return &fakeWorker{
+		updates: make(chan contracts.RuntimeUpdate, 16), started: make(chan contracts.InvokeParams, 128), replies: make(map[string]chan contracts.InvokeResult),
+		reloadResult: contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "python", Handlers: []string{"stylize"}},
+	}
 }
 
-func (worker *fakeWorker) Reload(context.Context, string, contracts.RuntimeDeclaration) (contracts.InitializeResult, error) {
-	return contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "python", Handlers: []string{"stylize"}}, nil
+func (worker *fakeWorker) Reload(_ context.Context, _ string, declaration contracts.RuntimeDeclaration) (contracts.InitializeResult, error) {
+	worker.mu.Lock()
+	defer worker.mu.Unlock()
+	worker.reloads = append(worker.reloads, declaration)
+	return worker.reloadResult, worker.reloadErr
+}
+
+func (worker *fakeWorker) Stop() error {
+	worker.mu.Lock()
+	defer worker.mu.Unlock()
+	worker.stops++
+	return nil
 }
 
 func (worker *fakeWorker) Invoke(ctx context.Context, params contracts.InvokeParams) (contracts.InvokeResult, error) {
@@ -317,6 +336,212 @@ func TestDirectInvokeRequiresExplicitReload(t *testing.T) {
 	_, err := coordinator.Invoke(context.Background(), "stylize", contracts.DirectInvokeRequest{Arguments: map[string]json.RawMessage{}, Content: []contracts.ContentReference{}})
 	if err != ErrWorkerNotReady {
 		t.Fatalf("Invoke() error = %v, want worker not ready", err)
+	}
+}
+
+func TestRuntimeSourceApplySavesThenReloadsAndPublishesLifecycle(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	if err := os.WriteFile(filepath.Join(coordinator.projectRoot, "app.py"), []byte("handlers = {}\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	document, err := coordinator.RuntimeSource()
+	if err != nil {
+		t.Fatalf("RuntimeSource() error = %v", err)
+	}
+	projectBefore, err := coordinator.ProjectSnapshot()
+	if err != nil {
+		t.Fatalf("ProjectSnapshot(before) error = %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stream, err := coordinator.Subscribe(ctx)
+	if err != nil {
+		t.Fatalf("Subscribe() error = %v", err)
+	}
+	initial := <-stream
+	result, err := coordinator.ApplyRuntimeSource(context.Background(), contracts.ApplyRuntimeSourceRequest{
+		ProjectID: document.ProjectID, Entrypoint: document.Entrypoint, ExpectedVersion: document.Version, Source: "handlers = {\"stylize\": lambda: None}\n",
+	})
+	if err != nil {
+		t.Fatalf("ApplyRuntimeSource() error = %v", err)
+	}
+	assertActivatedSource(t, result, document.Version)
+	starting := receiveRuntimeEnvelope(t, stream, func(envelope contracts.RuntimeEnvelope) bool {
+		return envelope.Snapshot != nil && envelope.Snapshot.WorkerState == "starting"
+	})
+	ready := receiveRuntimeEnvelope(t, stream, func(envelope contracts.RuntimeEnvelope) bool {
+		return envelope.Snapshot != nil && envelope.Snapshot.WorkerState == "ready"
+	})
+	assertSourceReloadSessions(t, initial, starting, ready)
+	assertSavedRuntimeSource(t, filepath.Join(coordinator.projectRoot, "app.py"), result.Source.Source)
+	assertWorkerReloads(t, worker, 1)
+	assertProjectRevision(t, coordinator, projectBefore.Revision)
+}
+
+func assertActivatedSource(t *testing.T, result contracts.ApplyRuntimeSourceResult, previousVersion string) {
+	t.Helper()
+	if err := result.Validate(); err != nil || result.Activation.State != "activated" || result.Source.Version == previousVersion {
+		t.Fatalf("source result = %#v, validation error = %v", result, err)
+	}
+}
+
+func assertSourceReloadSessions(t *testing.T, initial contracts.RuntimeEnvelope, starting contracts.RuntimeEnvelope, ready contracts.RuntimeEnvelope) {
+	t.Helper()
+	if initial.Snapshot == nil || starting.Snapshot.SessionID == initial.Snapshot.SessionID || ready.Snapshot.SessionID != starting.Snapshot.SessionID {
+		t.Fatalf("source reload sessions = initial %#v, starting %#v, ready %#v", initial.Snapshot, starting.Snapshot, ready.Snapshot)
+	}
+}
+
+func assertSavedRuntimeSource(t *testing.T, path string, expected string) {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil || string(content) != expected {
+		t.Fatalf("saved source = %q, error = %v", content, err)
+	}
+}
+
+func assertWorkerReloads(t *testing.T, worker *fakeWorker, expected int) {
+	t.Helper()
+	worker.mu.Lock()
+	reloads := append([]contracts.RuntimeDeclaration(nil), worker.reloads...)
+	worker.mu.Unlock()
+	if len(reloads) != expected {
+		t.Fatalf("worker reloads = %#v", reloads)
+	}
+	if expected > 0 && reloads[len(reloads)-1].Entrypoint != "app.py" {
+		t.Fatalf("worker reloads = %#v", reloads)
+	}
+}
+
+func assertProjectRevision(t *testing.T, coordinator *Coordinator, expected uint64) {
+	t.Helper()
+	projectSnapshot, err := coordinator.ProjectSnapshot()
+	if err != nil || projectSnapshot.Revision != expected {
+		t.Fatalf("project snapshot = %#v, error = %v", projectSnapshot, err)
+	}
+}
+
+func TestRuntimeSourceConflictDoesNotWriteOrReload(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	path := filepath.Join(coordinator.projectRoot, "app.py")
+	if err := os.WriteFile(path, []byte("handlers = {}\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	document, err := coordinator.RuntimeSource()
+	if err != nil {
+		t.Fatalf("RuntimeSource() error = %v", err)
+	}
+	before, err := coordinator.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	_, err = coordinator.ApplyRuntimeSource(context.Background(), contracts.ApplyRuntimeSourceRequest{
+		ProjectID: document.ProjectID, Entrypoint: document.Entrypoint, ExpectedVersion: strings.Repeat("0", 64), Source: "changed\n",
+	})
+	if !errors.Is(err, source.ErrConflict) {
+		t.Fatalf("ApplyRuntimeSource() error = %v", err)
+	}
+	after, snapshotErr := coordinator.Snapshot()
+	content, readErr := os.ReadFile(path)
+	worker.mu.Lock()
+	reloadCount := len(worker.reloads)
+	worker.mu.Unlock()
+	if snapshotErr != nil || after.SessionID != before.SessionID || string(content) != document.Source || readErr != nil || reloadCount != 0 {
+		t.Fatalf("conflict state = snapshot %#v, source %q, reloads %d, errors %v %v", after, content, reloadCount, snapshotErr, readErr)
+	}
+}
+
+func TestRuntimeSourceApplyReturnsSavedDocumentWhenActivationFails(t *testing.T) {
+	for name, configure := range map[string]func(*fakeWorker){
+		"load": func(worker *fakeWorker) {
+			worker.reloadResult = contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "python", Handlers: []string{}, LoadError: &contracts.StructuredError{Code: "load_error", Message: "invalid syntax"}}
+		},
+		"reload": func(worker *fakeWorker) {
+			worker.reloadErr = errors.New("worker launch failed")
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			coordinator, worker := testCoordinator(t)
+			defer coordinator.Close()
+			configure(worker)
+			path := filepath.Join(coordinator.projectRoot, "app.py")
+			if err := os.WriteFile(path, []byte("handlers = {}\n"), 0o600); err != nil {
+				t.Fatalf("WriteFile() error = %v", err)
+			}
+			document, err := coordinator.RuntimeSource()
+			if err != nil {
+				t.Fatalf("RuntimeSource() error = %v", err)
+			}
+			result, err := coordinator.ApplyRuntimeSource(context.Background(), contracts.ApplyRuntimeSourceRequest{
+				ProjectID: document.ProjectID, Entrypoint: document.Entrypoint, ExpectedVersion: document.Version, Source: "broken source\n",
+			})
+			if err != nil {
+				t.Fatalf("ApplyRuntimeSource() error = %v", err)
+			}
+			if err := result.Validate(); err != nil || result.Activation.State != "rejected" || result.Activation.Error == nil || result.Source.Source != "broken source\n" {
+				t.Fatalf("ApplyRuntimeSource() = %#v, validation error = %v", result, err)
+			}
+			content, readErr := os.ReadFile(path)
+			snapshot, snapshotErr := coordinator.Snapshot()
+			if readErr != nil || string(content) != result.Source.Source || snapshotErr != nil || snapshot.WorkerState != "failed" {
+				t.Fatalf("failure state = source %q, snapshot %#v, errors %v %v", content, snapshot, readErr, snapshotErr)
+			}
+			worker.mu.Lock()
+			worker.reloadErr = nil
+			worker.reloadResult = contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "python", Handlers: []string{"stylize"}}
+			worker.mu.Unlock()
+			current, err := coordinator.RuntimeSource()
+			if err != nil {
+				t.Fatalf("RuntimeSource(recovery) error = %v", err)
+			}
+			recovered, err := coordinator.ApplyRuntimeSource(context.Background(), contracts.ApplyRuntimeSourceRequest{
+				ProjectID: current.ProjectID, Entrypoint: current.Entrypoint, ExpectedVersion: current.Version, Source: "handlers = {}\n",
+			})
+			if err != nil || recovered.Activation.State != "activated" {
+				t.Fatalf("ApplyRuntimeSource(recovery) = %#v, error = %v", recovered, err)
+			}
+			snapshot, snapshotErr = coordinator.Snapshot()
+			if snapshotErr != nil || snapshot.WorkerState != "ready" {
+				t.Fatalf("recovered snapshot = %#v, error = %v", snapshot, snapshotErr)
+			}
+		})
+	}
+}
+
+func TestRuntimeSourceApplyStopsCurrentWorkerWhenReloadPreparationFails(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	path := filepath.Join(coordinator.projectRoot, "app.py")
+	if err := os.WriteFile(path, []byte("handlers = {}\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if _, err := coordinator.Reload(context.Background()); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	document, err := coordinator.RuntimeSource()
+	if err != nil {
+		t.Fatalf("RuntimeSource() error = %v", err)
+	}
+	coordinator.newSessionID = func() (string, error) { return "", errors.New("session identity unavailable") }
+	result, err := coordinator.ApplyRuntimeSource(context.Background(), contracts.ApplyRuntimeSourceRequest{
+		ProjectID: document.ProjectID, Entrypoint: document.Entrypoint, ExpectedVersion: document.Version, Source: "replacement\n",
+	})
+	if err != nil {
+		t.Fatalf("ApplyRuntimeSource() error = %v", err)
+	}
+	if err := result.Validate(); err != nil || result.Activation.State != "rejected" || result.Source.Source != "replacement\n" {
+		t.Fatalf("ApplyRuntimeSource() = %#v, validation error = %v", result, err)
+	}
+	content, readErr := os.ReadFile(path)
+	snapshot, snapshotErr := coordinator.Snapshot()
+	worker.mu.Lock()
+	stops := worker.stops
+	reloads := len(worker.reloads)
+	worker.mu.Unlock()
+	if readErr != nil || string(content) != result.Source.Source || snapshotErr != nil || snapshot.WorkerState != "failed" || len(snapshot.Values) != 0 || stops != 1 || reloads != 1 {
+		t.Fatalf("preparation failure = source %q, snapshot %#v, stops %d, reloads %d, errors %v %v", content, snapshot, stops, reloads, readErr, snapshotErr)
 	}
 }
 

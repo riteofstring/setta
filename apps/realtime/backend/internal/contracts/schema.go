@@ -114,6 +114,70 @@ func DirectInvokeRequestSchema() map[string]any {
 	}
 }
 
+func RuntimeSourceDocumentSchema() map[string]any {
+	definitions := entrypointSourceSchemaDefinitions()
+	result := definitions["document"].(map[string]any)
+	result["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+	result["$id"] = "https://setta.local/schemas/realtime/runtime-source-v1.schema.json"
+	result["title"] = "Setta Realtime Runtime Source V1"
+	return result
+}
+
+func ApplyRuntimeSourceRequestSchema() map[string]any {
+	return map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"$id":     "https://setta.local/schemas/realtime/apply-runtime-source-request-v1.schema.json",
+		"title":   "Setta Realtime Apply Runtime Source Request V1",
+		"type":    "object",
+		"required": []string{
+			"projectId", "entrypoint", "expectedVersion", "source",
+		},
+		"properties": map[string]any{
+			"projectId": idSchema(), "entrypoint": requiredTextSchema(), "expectedVersion": sourceVersionSchema(), "source": sourceTextSchema(),
+		},
+		"additionalProperties": false,
+	}
+}
+
+func ApplyRuntimeSourceResultSchema() map[string]any {
+	definitions := entrypointSourceSchemaDefinitions()
+	definitions["error"] = objectSchema([]string{"code", "message"}, map[string]any{"code": handlerNameSchema(), "message": requiredTextSchema()})
+	variant := func(activation string, failure map[string]any) map[string]any {
+		return objectSchema([]string{"source", "activation"}, map[string]any{
+			"source": map[string]any{"$ref": "#/$defs/document"},
+			"activation": objectSchema([]string{"state", "error"}, map[string]any{
+				"state": map[string]any{"const": activation}, "error": failure,
+			}),
+		})
+	}
+	return map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"$id":     "https://setta.local/schemas/realtime/apply-runtime-source-result-v1.schema.json",
+		"title":   "Setta Realtime Apply Runtime Source Result V1",
+		"$defs":   definitions,
+		"oneOf": []any{
+			variant("activated", map[string]any{"type": "null"}),
+			variant("rejected", map[string]any{"$ref": "#/$defs/error"}),
+		},
+	}
+}
+
+func entrypointSourceSchemaDefinitions() map[string]any {
+	return map[string]any{
+		"document": objectSchema([]string{"projectId", "entrypoint", "version", "source"}, map[string]any{
+			"projectId": idSchema(), "entrypoint": requiredTextSchema(), "version": sourceVersionSchema(), "source": sourceTextSchema(),
+		}),
+	}
+}
+
+func sourceVersionSchema() map[string]any {
+	return map[string]any{"type": "string", "pattern": `^[0-9a-f]{64}$`}
+}
+
+func sourceTextSchema() map[string]any {
+	return map[string]any{"type": "string", "maxLength": maximumStringBytes, "pattern": `^[^\x00]*$`}
+}
+
 func RuntimeSchema() map[string]any {
 	definitions := map[string]any{
 		"jsonValue": jsonValueSchema(),
@@ -342,6 +406,7 @@ func sectionSchema() map[string]any {
 		base("drawing", objectSchema([]string{"scene", "width", "height", "background"}, map[string]any{
 			"scene": map[string]any{"$ref": "#/$defs/jsonValue"}, "width": boundedIntegerSchema(1, 8192), "height": boundedIntegerSchema(1, 8192), "background": map[string]any{"type": "string", "pattern": `^#[0-9A-Fa-f]{6}$`},
 		})),
+		base("code", objectSchema([]string{"source"}, map[string]any{"source": map[string]any{"const": "entrypoint"}})),
 	}}
 }
 

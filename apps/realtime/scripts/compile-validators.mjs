@@ -28,6 +28,18 @@ const contentReferenceSchemaPath = new URL(
   "../backend/internal/contracts/testdata/content-reference-v1.schema.json",
   import.meta.url,
 );
+const runtimeSourceSchemaPath = new URL(
+  "../backend/internal/contracts/testdata/runtime-source-v1.schema.json",
+  import.meta.url,
+);
+const applyRuntimeSourceRequestSchemaPath = new URL(
+  "../backend/internal/contracts/testdata/apply-runtime-source-request-v1.schema.json",
+  import.meta.url,
+);
+const applyRuntimeSourceResultSchemaPath = new URL(
+  "../backend/internal/contracts/testdata/apply-runtime-source-result-v1.schema.json",
+  import.meta.url,
+);
 const outputPath = new URL(
   "../src/backend/generatedValidators.js",
   import.meta.url,
@@ -43,6 +55,9 @@ const [
   runtimeSchema,
   runtimeCommandSchema,
   contentReferenceSchema,
+  runtimeSourceSchema,
+  applyRuntimeSourceRequestSchema,
+  applyRuntimeSourceResultSchema,
 ] = await Promise.all(
   [
     applyRequestSchemaPath,
@@ -50,6 +65,9 @@ const [
     runtimeSchemaPath,
     runtimeCommandSchemaPath,
     contentReferenceSchemaPath,
+    runtimeSourceSchemaPath,
+    applyRuntimeSourceRequestSchemaPath,
+    applyRuntimeSourceResultSchemaPath,
   ].map(async (path) => JSON.parse(await readFile(path, "utf8"))),
 );
 const ajv = new Ajv2020({
@@ -62,14 +80,20 @@ ajv.addSchema(projectSchema, "project");
 ajv.addSchema(runtimeSchema, "runtimeEnvelope");
 ajv.addSchema(runtimeCommandSchema, "runtimeCommand");
 ajv.addSchema(contentReferenceSchema, "contentReference");
+ajv.addSchema(runtimeSourceSchema, "runtimeSource");
+ajv.addSchema(applyRuntimeSourceRequestSchema, "applyRuntimeSourceRequest");
+ajv.addSchema(applyRuntimeSourceResultSchema, "applyRuntimeSourceResult");
 const source = `${standaloneCode(ajv, {
   validateApplyRequestDocument: "applyRequest",
+  validateApplyRuntimeSourceRequestDocument: "applyRuntimeSourceRequest",
+  validateApplyRuntimeSourceResultDocument: "applyRuntimeSourceResult",
   validateContentReferenceDocument: "contentReference",
   validateProjectDocument: "project",
   validateRuntimeCommandDocument: "runtimeCommand",
   validateRuntimeEnvelopeDocument: "runtimeEnvelope",
+  validateRuntimeSourceDocument: "runtimeSource",
 })}\n`;
-const declaration = `export declare function validateApplyRequestDocument(value: unknown): boolean;\nexport declare function validateContentReferenceDocument(value: unknown): boolean;\nexport declare function validateProjectDocument(value: unknown): boolean;\nexport declare function validateRuntimeCommandDocument(value: unknown): boolean;\nexport declare function validateRuntimeEnvelopeDocument(value: unknown): boolean;\n`;
+const declaration = `export declare function validateApplyRequestDocument(value: unknown): boolean;\nexport declare function validateApplyRuntimeSourceRequestDocument(value: unknown): boolean;\nexport declare function validateApplyRuntimeSourceResultDocument(value: unknown): boolean;\nexport declare function validateContentReferenceDocument(value: unknown): boolean;\nexport declare function validateProjectDocument(value: unknown): boolean;\nexport declare function validateRuntimeCommandDocument(value: unknown): boolean;\nexport declare function validateRuntimeEnvelopeDocument(value: unknown): boolean;\nexport declare function validateRuntimeSourceDocument(value: unknown): boolean;\n`;
 
 if (check) {
   const [currentSource, currentDeclaration] = await Promise.all([

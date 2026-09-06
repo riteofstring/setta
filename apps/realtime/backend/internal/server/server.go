@@ -20,6 +20,7 @@ import (
 	"github.com/setta/realtime/backend/internal/contracts"
 	"github.com/setta/realtime/backend/internal/localweb"
 	"github.com/setta/realtime/backend/internal/project"
+	"github.com/setta/realtime/backend/internal/source"
 )
 
 const maximumJSONBytes = 4 << 20
@@ -27,6 +28,8 @@ const maximumJSONBytes = 4 << 20
 type Coordinator interface {
 	ProjectSnapshot() (contracts.Project, error)
 	Apply(contracts.ApplyRequest) (contracts.Project, error)
+	RuntimeSource() (contracts.RuntimeSourceDocument, error)
+	ApplyRuntimeSource(context.Context, contracts.ApplyRuntimeSourceRequest) (contracts.ApplyRuntimeSourceResult, error)
 	Reload(context.Context) (contracts.InitializeResult, error)
 	Invoke(context.Context, string, contracts.DirectInvokeRequest) (contracts.InvokeResult, error)
 	Snapshot() (contracts.RuntimeSnapshot, error)
@@ -67,6 +70,7 @@ func New(coordinator Coordinator, projects ProjectStore, contentStore ContentSto
 	handler.mux.HandleFunc("/api/v1/project/apply", handler.apply)
 	handler.mux.HandleFunc("/api/v1/project/events", handler.projectEvents)
 	handler.mux.HandleFunc("/api/v1/runtime", handler.runtime)
+	handler.mux.HandleFunc("/api/v1/runtime/source", handler.runtimeSource)
 	handler.mux.HandleFunc("/api/v1/runtime/snapshot", handler.runtimeSnapshot)
 	handler.mux.HandleFunc("/api/v1/runtime/reload", handler.reload)
 	handler.mux.HandleFunc("/api/v1/runtime/invoke/", handler.invoke)
@@ -160,6 +164,51 @@ func (handler *Handler) runtime(response http.ResponseWriter, request *http.Requ
 	defer connection.CloseNow()
 	connection.SetReadLimit(maximumJSONBytes)
 	handler.serveRuntime(request.Context(), connection)
+}
+
+func (handler *Handler) runtimeSource(response http.ResponseWriter, request *http.Request) {
+	switch request.Method {
+	case http.MethodGet:
+		handler.readRuntimeSource(response, request)
+	case http.MethodPut:
+		handler.applyRuntimeSource(response, request)
+	default:
+		response.Header().Set("Allow", http.MethodGet+", "+http.MethodPut)
+		writeError(response, http.StatusMethodNotAllowed, "method_not_allowed", "The request method is not allowed.")
+	}
+}
+
+func (handler *Handler) readRuntimeSource(response http.ResponseWriter, request *http.Request) {
+	if !exactRequest(response, request, http.MethodGet, false) {
+		return
+	}
+	if origin := request.Header.Get("Origin"); origin != "" && !localweb.OriginAllowed(request, handler.serverURL) {
+		writeError(response, http.StatusForbidden, "forbidden_origin", "The request origin is not allowed.")
+		return
+	}
+	document, err := handler.coordinator.RuntimeSource()
+	if err != nil {
+		writeFailure(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, document)
+}
+
+func (handler *Handler) applyRuntimeSource(response http.ResponseWriter, request *http.Request) {
+	if !handler.mutationRequest(response, request, http.MethodPut, true) {
+		return
+	}
+	var command contracts.ApplyRuntimeSourceRequest
+	if err := decodeRequest(request, &command); err != nil {
+		writeFailure(response, err)
+		return
+	}
+	result, err := handler.coordinator.ApplyRuntimeSource(request.Context(), command)
+	if err != nil {
+		writeFailure(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
 }
 
 func (handler *Handler) serveRuntime(parent context.Context, connection *websocket.Conn) {
@@ -343,7 +392,11 @@ func (handler *Handler) identity(response http.ResponseWriter, request *http.Req
 }
 
 func (handler *Handler) commandRequest(response http.ResponseWriter, request *http.Request, jsonBody bool) bool {
-	if !exactRequest(response, request, http.MethodPost, true) {
+	return handler.mutationRequest(response, request, http.MethodPost, jsonBody)
+}
+
+func (handler *Handler) mutationRequest(response http.ResponseWriter, request *http.Request, method string, jsonBody bool) bool {
+	if !exactRequest(response, request, method, true) {
 		return false
 	}
 	if !localweb.OriginAllowed(request, handler.serverURL) {
@@ -414,12 +467,16 @@ func writeFailure(response http.ResponseWriter, err error) {
 	status := http.StatusBadRequest
 	code := "invalid_request"
 	switch {
+	case errors.Is(err, source.ErrConflict):
+		status, code = http.StatusConflict, "source_conflict"
 	case errors.Is(err, project.ErrRevisionConflict), errors.Is(err, project.ErrIdentityConflict):
 		status, code = http.StatusConflict, "revision_conflict"
 	case errors.Is(err, content.ErrNotFound):
 		status, code = http.StatusNotFound, "content_not_found"
 	case errors.Is(err, content.ErrTooLarge):
 		status, code = http.StatusRequestEntityTooLarge, "content_too_large"
+	case errors.Is(err, source.ErrTooLarge):
+		status, code = http.StatusRequestEntityTooLarge, "source_too_large"
 	case errors.Is(err, content.ErrCapacity):
 		status, code = http.StatusInsufficientStorage, "content_capacity"
 	}

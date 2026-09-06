@@ -211,6 +211,31 @@ handlers = {}
 	}
 }
 
+func TestManagerStopLeavesManagerReloadable(t *testing.T) {
+	projectRoot := t.TempDir()
+	writeFixtureEntrypoint(t, projectRoot, `def value():
+    return {"value": 1}
+
+handlers = {"value": value}
+`)
+	manager := newFixtureManager(t, Options{})
+	initializeManager(t, manager, projectRoot, []string{"value"})
+	if err := manager.Stop(); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+	if _, err := manager.Invoke(testContext(t), fixtureInvokeParams("stopped", 1, "value", map[string]json.RawMessage{})); !errors.Is(err, ErrWorkerNotReady) {
+		t.Fatalf("Invoke() after stop error = %v", err)
+	}
+	if err := manager.Stop(); err != nil {
+		t.Fatalf("second Stop() error = %v", err)
+	}
+	initializeManager(t, manager, projectRoot, []string{"value"})
+	result := invokeManager(t, manager, "reloaded", 2, "value")
+	if string(result.Outputs["value"]) != "1" {
+		t.Fatalf("Invoke() after reload = %#v", result)
+	}
+}
+
 func TestManagerRejectsMismatchedStagedContent(t *testing.T) {
 	projectRoot := t.TempDir()
 	writeFixtureEntrypoint(t, projectRoot, `def inspect(blob):

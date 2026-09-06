@@ -16,6 +16,7 @@ import (
 	"github.com/setta/realtime/backend/internal/contracts"
 	"github.com/setta/realtime/backend/internal/project"
 	"github.com/setta/realtime/backend/internal/scheduler"
+	"github.com/setta/realtime/backend/internal/source"
 )
 
 var (
@@ -28,6 +29,7 @@ var (
 
 type Worker interface {
 	Reload(context.Context, string, contracts.RuntimeDeclaration) (contracts.InitializeResult, error)
+	Stop() error
 	Invoke(context.Context, contracts.InvokeParams) (contracts.InvokeResult, error)
 	Updates() <-chan contracts.RuntimeUpdate
 	Close() error
@@ -47,6 +49,7 @@ type Coordinator struct {
 	projectRoot        string
 	projects           *project.Store
 	content            *content.Store
+	sources            *source.Store
 	worker             Worker
 	scheduler          *scheduler.Scheduler
 	sessionID          string
@@ -62,6 +65,7 @@ type Coordinator struct {
 	closed             bool
 	updatesDone        chan struct{}
 	logsDone           chan struct{}
+	newSessionID       func() (string, error)
 }
 
 func New(projectRoot string, projects *project.Store, contentStore *content.Store, worker Worker) (*Coordinator, error) {
@@ -80,13 +84,19 @@ func New(projectRoot string, projects *project.Store, contentStore *content.Stor
 	if err != nil {
 		return nil, err
 	}
+	sources, err := source.Open(projectRoot)
+	if err != nil {
+		configured.Close()
+		return nil, err
+	}
 	coordinator := &Coordinator{
-		projectRoot: projectRoot, projects: projects, content: contentStore, worker: worker, scheduler: configured,
+		projectRoot: projectRoot, projects: projects, content: contentStore, sources: sources, worker: worker, scheduler: configured,
 		sessionID: sessionID, workerState: "stopped", values: make(map[string]json.RawMessage),
 		invocations: make(map[string]contracts.InvocationStatus), bindings: bindings,
 		invocationBindings: make(map[string]contracts.Binding), sequences: make(map[string]uint64), active: make(map[string]struct{}),
 		publishedByBinding: make(map[string]contracts.InvocationIdentity),
 		subscribers:        make(map[chan contracts.RuntimeEnvelope]struct{}), updatesDone: make(chan struct{}), logsDone: make(chan struct{}),
+		newSessionID: func() (string, error) { return randomID("session") },
 	}
 	go coordinator.consumeUpdates()
 	if _, supported := worker.(LogSource); supported {
@@ -132,6 +142,56 @@ func (coordinator *Coordinator) Apply(request contracts.ApplyRequest) (contracts
 	return candidate, nil
 }
 
+func (coordinator *Coordinator) RuntimeSource() (contracts.RuntimeSourceDocument, error) {
+	if coordinator == nil {
+		return contracts.RuntimeSourceDocument{}, ErrClosed
+	}
+	coordinator.mutations.Lock()
+	defer coordinator.mutations.Unlock()
+	coordinator.mu.Lock()
+	closed := coordinator.closed
+	coordinator.mu.Unlock()
+	if closed {
+		return contracts.RuntimeSourceDocument{}, ErrClosed
+	}
+	projectSnapshot, err := coordinator.projects.Snapshot()
+	if err != nil {
+		return contracts.RuntimeSourceDocument{}, err
+	}
+	return coordinator.sources.Read(projectSnapshot)
+}
+
+func (coordinator *Coordinator) ApplyRuntimeSource(ctx context.Context, request contracts.ApplyRuntimeSourceRequest) (contracts.ApplyRuntimeSourceResult, error) {
+	if coordinator == nil {
+		return contracts.ApplyRuntimeSourceResult{}, ErrClosed
+	}
+	coordinator.mutations.Lock()
+	defer coordinator.mutations.Unlock()
+	coordinator.mu.Lock()
+	closed := coordinator.closed
+	coordinator.mu.Unlock()
+	if closed {
+		return contracts.ApplyRuntimeSourceResult{}, ErrClosed
+	}
+	projectSnapshot, err := coordinator.projects.Snapshot()
+	if err != nil {
+		return contracts.ApplyRuntimeSourceResult{}, err
+	}
+	document, err := coordinator.sources.Apply(projectSnapshot, request)
+	if err != nil {
+		return contracts.ApplyRuntimeSourceResult{}, err
+	}
+	initialized, reloadErr := coordinator.reloadLocked(ctx, projectSnapshot, true)
+	activation := contracts.RuntimeSourceActivation{State: "activated"}
+	if reloadErr != nil {
+		activation = contracts.RuntimeSourceActivation{State: "rejected", Error: &contracts.StructuredError{Code: "reload_error", Message: reloadErr.Error()}}
+	} else if initialized.LoadError != nil {
+		failure := *initialized.LoadError
+		activation = contracts.RuntimeSourceActivation{State: "rejected", Error: &failure}
+	}
+	return contracts.ApplyRuntimeSourceResult{Source: document, Activation: activation}, nil
+}
+
 func (coordinator *Coordinator) Reload(ctx context.Context) (contracts.InitializeResult, error) {
 	if coordinator == nil {
 		return contracts.InitializeResult{}, ErrClosed
@@ -142,13 +202,23 @@ func (coordinator *Coordinator) Reload(ctx context.Context) (contracts.Initializ
 	if err != nil {
 		return contracts.InitializeResult{}, err
 	}
+	return coordinator.reloadLocked(ctx, projectSnapshot, false)
+}
+
+func (coordinator *Coordinator) reloadLocked(ctx context.Context, projectSnapshot contracts.Project, failOnPreparationError bool) (contracts.InitializeResult, error) {
 	replacement, bindings, err := configuredScheduler(projectSnapshot)
 	if err != nil {
+		if failOnPreparationError {
+			err = errors.Join(err, coordinator.failSourceActivationLocked())
+		}
 		return contracts.InitializeResult{}, err
 	}
-	sessionID, err := randomID("session")
+	sessionID, err := coordinator.newSessionID()
 	if err != nil {
 		replacement.Close()
+		if failOnPreparationError {
+			err = errors.Join(err, coordinator.failSourceActivationLocked())
+		}
 		return contracts.InitializeResult{}, err
 	}
 	coordinator.mu.Lock()
@@ -181,6 +251,23 @@ func (coordinator *Coordinator) Reload(ctx context.Context) (contracts.Initializ
 	coordinator.publishSnapshotLocked()
 	coordinator.mu.Unlock()
 	return result, reloadErr
+}
+
+func (coordinator *Coordinator) failSourceActivationLocked() error {
+	coordinator.mu.Lock()
+	previous := coordinator.scheduler
+	coordinator.workerState = "failed"
+	coordinator.values = make(map[string]json.RawMessage)
+	coordinator.invocations = make(map[string]contracts.InvocationStatus)
+	coordinator.invocationBindings = make(map[string]contracts.Binding)
+	coordinator.sequences = make(map[string]uint64)
+	coordinator.publishedByBinding = make(map[string]contracts.InvocationIdentity)
+	coordinator.active = make(map[string]struct{})
+	coordinator.publishSnapshotLocked()
+	coordinator.mu.Unlock()
+	stopErr := coordinator.worker.Stop()
+	previous.Close()
+	return stopErr
 }
 
 func (coordinator *Coordinator) Invoke(ctx context.Context, handler string, request contracts.DirectInvokeRequest) (contracts.InvokeResult, error) {
@@ -611,6 +698,8 @@ func (coordinator *Coordinator) Close() error {
 	if coordinator == nil {
 		return nil
 	}
+	coordinator.mutations.Lock()
+	defer coordinator.mutations.Unlock()
 	coordinator.mu.Lock()
 	if coordinator.closed {
 		coordinator.mu.Unlock()

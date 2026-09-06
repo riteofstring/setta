@@ -37,6 +37,14 @@ func (coordinator *fakeCoordinator) Apply(request contracts.ApplyRequest) (contr
 	return coordinator.applyResult, nil
 }
 
+func (coordinator *fakeCoordinator) RuntimeSource() (contracts.RuntimeSourceDocument, error) {
+	return contracts.RuntimeSourceDocument{}, nil
+}
+
+func (coordinator *fakeCoordinator) ApplyRuntimeSource(context.Context, contracts.ApplyRuntimeSourceRequest) (contracts.ApplyRuntimeSourceResult, error) {
+	return contracts.ApplyRuntimeSourceResult{}, nil
+}
+
 func (coordinator *fakeCoordinator) Reload(context.Context) (contracts.InitializeResult, error) {
 	coordinator.reloadCount++
 	return coordinator.reloadResult, nil
@@ -142,7 +150,7 @@ func TestSchemaEmitsVersionedCommandsAndContracts(t *testing.T) {
 	if document.SchemaVersion != "setta-realtime-schema/v1" || len(document.Commands) != 5 {
 		t.Fatalf("schema identity = %#v", document)
 	}
-	if document.Schemas.ApplyRequest["$id"] == nil || document.Schemas.DirectInvokeRequest["$id"] == nil || document.Schemas.Project["$id"] == nil || document.Schemas.Runtime["$id"] == nil || document.Schemas.RuntimeCommand["$id"] == nil {
+	if document.Schemas.ApplyRequest["$id"] == nil || document.Schemas.ApplyRuntimeSourceRequest["$id"] == nil || document.Schemas.ApplyRuntimeSourceResult["$id"] == nil || document.Schemas.DirectInvokeRequest["$id"] == nil || document.Schemas.Project["$id"] == nil || document.Schemas.Runtime["$id"] == nil || document.Schemas.RuntimeCommand["$id"] == nil || document.Schemas.RuntimeSource["$id"] == nil {
 		t.Fatalf("schema contracts = %#v", document.Schemas)
 	}
 }

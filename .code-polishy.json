@@ -98,10 +98,13 @@
         "name": "realtime-contracts",
         "outputs": [
           "apps/realtime/backend/internal/contracts/testdata/apply-request-v1.schema.json",
+          "apps/realtime/backend/internal/contracts/testdata/apply-runtime-source-request-v1.schema.json",
+          "apps/realtime/backend/internal/contracts/testdata/apply-runtime-source-result-v1.schema.json",
           "apps/realtime/backend/internal/contracts/testdata/direct-invoke-request-v1.schema.json",
           "apps/realtime/backend/internal/contracts/testdata/project-v1.schema.json",
           "apps/realtime/backend/internal/contracts/testdata/runtime-v1.schema.json",
           "apps/realtime/backend/internal/contracts/testdata/runtime-command-v1.schema.json",
+          "apps/realtime/backend/internal/contracts/testdata/runtime-source-v1.schema.json",
           "apps/realtime/backend/internal/contracts/testdata/worker-v1.schema.json",
           "apps/realtime/backend/internal/contracts/testdata/content-reference-v1.schema.json",
           "apps/realtime/src/backend/generatedContract.ts",

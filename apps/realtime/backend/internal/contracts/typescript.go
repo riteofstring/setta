@@ -3,8 +3,11 @@ package contracts
 func TypeScriptContract() string {
 	return `import {
   validateApplyRequestDocument,
+  validateApplyRuntimeSourceRequestDocument,
+  validateApplyRuntimeSourceResultDocument,
   validateContentReferenceDocument,
   validateProjectDocument,
+  validateRuntimeSourceDocument,
   validateRuntimeCommandDocument,
   validateRuntimeEnvelopeDocument,
 } from "./generatedValidators.js";
@@ -26,7 +29,7 @@ export type RuntimeDeclaration = {
 
 export type Section = {
   id: string;
-  kind: "input" | "output" | "button" | "status" | "drawing";
+  kind: "input" | "output" | "button" | "status" | "drawing" | "code";
   name: string;
   width: SizeValue;
   height: SizeValue;
@@ -97,6 +100,24 @@ export type ApplyRequest = {
   expectedRevision: number;
   operations: Array<ProjectOperation>;
 };
+
+export type RuntimeSourceDocument = {
+  projectId: string;
+  entrypoint: string;
+  version: string;
+  source: string;
+};
+
+export type ApplyRuntimeSourceRequest = {
+  projectId: string;
+  entrypoint: string;
+  expectedVersion: string;
+  source: string;
+};
+
+export type ApplyRuntimeSourceResult =
+  | { source: RuntimeSourceDocument; activation: { state: "activated"; error: null } }
+  | { source: RuntimeSourceDocument; activation: { state: "rejected"; error: StructuredError } };
 
 export type InvocationIdentity = {
   sessionId: string;
@@ -172,6 +193,18 @@ export type RuntimeCommand = RuntimeEvent | RuntimeCancelRequest;
 
 export function validateApplyRequest(value: unknown): value is ApplyRequest {
   return validateApplyRequestDocument(value);
+}
+
+export function validateRuntimeSource(value: unknown): value is RuntimeSourceDocument {
+  return validateRuntimeSourceDocument(value);
+}
+
+export function validateApplyRuntimeSourceRequest(value: unknown): value is ApplyRuntimeSourceRequest {
+  return validateApplyRuntimeSourceRequestDocument(value);
+}
+
+export function validateApplyRuntimeSourceResult(value: unknown): value is ApplyRuntimeSourceResult {
+  return validateApplyRuntimeSourceResultDocument(value);
 }
 
 export function validateProject(value: unknown): value is Project {

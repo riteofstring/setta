@@ -34,13 +34,16 @@ type schemaResult struct {
 }
 
 type schemas struct {
-	ApplyRequest        map[string]any `json:"applyRequest"`
-	ContentReference    map[string]any `json:"contentReference"`
-	DirectInvokeRequest map[string]any `json:"directInvokeRequest"`
-	Project             map[string]any `json:"project"`
-	Runtime             map[string]any `json:"runtime"`
-	RuntimeCommand      map[string]any `json:"runtimeCommand"`
-	Worker              map[string]any `json:"worker"`
+	ApplyRequest              map[string]any `json:"applyRequest"`
+	ApplyRuntimeSourceRequest map[string]any `json:"applyRuntimeSourceRequest"`
+	ApplyRuntimeSourceResult  map[string]any `json:"applyRuntimeSourceResult"`
+	ContentReference          map[string]any `json:"contentReference"`
+	DirectInvokeRequest       map[string]any `json:"directInvokeRequest"`
+	Project                   map[string]any `json:"project"`
+	Runtime                   map[string]any `json:"runtime"`
+	RuntimeCommand            map[string]any `json:"runtimeCommand"`
+	RuntimeSource             map[string]any `json:"runtimeSource"`
+	Worker                    map[string]any `json:"worker"`
 }
 
 type cliSchemaDocument struct {
@@ -104,13 +107,16 @@ func schemaDocument() cliSchemaDocument {
 			{Code: "runtime_failed", ExitCode: 1, Description: "The coordinator or runtime operation failed."},
 		},
 		Schemas: schemas{
-			ApplyRequest:        contracts.ApplyRequestSchema(),
-			ContentReference:    contracts.ContentReferenceSchema(),
-			DirectInvokeRequest: contracts.DirectInvokeRequestSchema(),
-			Project:             contracts.ProjectSchema(),
-			Runtime:             contracts.RuntimeSchema(),
-			RuntimeCommand:      contracts.RuntimeCommandSchema(),
-			Worker:              contracts.WorkerSchema(),
+			ApplyRequest:              contracts.ApplyRequestSchema(),
+			ApplyRuntimeSourceRequest: contracts.ApplyRuntimeSourceRequestSchema(),
+			ApplyRuntimeSourceResult:  contracts.ApplyRuntimeSourceResultSchema(),
+			ContentReference:          contracts.ContentReferenceSchema(),
+			DirectInvokeRequest:       contracts.DirectInvokeRequestSchema(),
+			Project:                   contracts.ProjectSchema(),
+			Runtime:                   contracts.RuntimeSchema(),
+			RuntimeCommand:            contracts.RuntimeCommandSchema(),
+			RuntimeSource:             contracts.RuntimeSourceDocumentSchema(),
+			Worker:                    contracts.WorkerSchema(),
 		},
 	}
 }

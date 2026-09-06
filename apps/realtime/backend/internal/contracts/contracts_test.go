@@ -46,6 +46,30 @@ func TestProjectRejectsPythonSpecificContractValue(t *testing.T) {
 	}
 }
 
+func TestProjectAcceptsAtMostOneEntrypointCodeSection(t *testing.T) {
+	project := fixtureProject()
+	project.Sections["source"] = Section{
+		ID: "source", Kind: "code", Name: "Callbacks", Width: SizeValue{Value: 480}, Height: SizeValue{Value: 320},
+		Children: []string{}, Data: json.RawMessage(`{"source":"entrypoint"}`),
+	}
+	project.Layout.TopLevelSections["source"] = TopLevelSectionLayout{X: 0, Y: 400, ZIndex: 3}
+	if err := project.Validate(); err != nil {
+		t.Fatalf("Validate(single code section) error = %v", err)
+	}
+	duplicate := project.Sections["source"]
+	duplicate.ID = "source-copy"
+	project.Sections[duplicate.ID] = duplicate
+	project.Layout.TopLevelSections[duplicate.ID] = TopLevelSectionLayout{X: 520, Y: 400, ZIndex: 4}
+	if err := project.Validate(); err == nil || !strings.Contains(err.Error(), "multiple entrypoint code sections") {
+		t.Fatalf("Validate(duplicate code section) error = %v", err)
+	}
+	duplicate.Kind = "code"
+	duplicate.Data = json.RawMessage(`{"source":"file","path":"app.py"}`)
+	if err := duplicate.Validate(); err == nil {
+		t.Fatal("Validate(code data) accepted a second source authority")
+	}
+}
+
 func TestApplyIsRevisionCheckedAndAtomic(t *testing.T) {
 	project := fixtureProject()
 	request := ApplyRequest{
@@ -88,6 +112,36 @@ func TestDecodeStrictRejectsTrailingAndUnknownFields(t *testing.T) {
 	}
 	if err := DecodeStrict([]byte(`{"projectId":"p","projectId":"other","expectedRevision":0,"operations":[]}`), &request); err == nil {
 		t.Fatal("DecodeStrict() error = nil, want duplicate field")
+	}
+	if err := DecodeStrict([]byte{'{', '"', 'x', '"', ':', '"', 0xff, '"', '}'}, &map[string]string{}); err == nil {
+		t.Fatal("DecodeStrict() error = nil, want invalid UTF-8")
+	}
+}
+
+func TestRuntimeSourceContractsAreClosedVersionedAndValidateActivation(t *testing.T) {
+	document := RuntimeSourceDocument{ProjectID: "project-source", Entrypoint: "app.py", Version: strings.Repeat("a", 64), Source: "handlers = {}\n"}
+	request := ApplyRuntimeSourceRequest{ProjectID: document.ProjectID, Entrypoint: document.Entrypoint, ExpectedVersion: document.Version, Source: document.Source}
+	activated := ApplyRuntimeSourceResult{Source: document, Activation: RuntimeSourceActivation{State: "activated"}}
+	rejected := ApplyRuntimeSourceResult{Source: document, Activation: RuntimeSourceActivation{State: "rejected", Error: &StructuredError{Code: "load_error", Message: "invalid syntax"}}}
+	for name, candidate := range map[string]interface{ Validate() error }{
+		"document": document, "request": request, "activated": activated, "rejected": rejected,
+	} {
+		if err := candidate.Validate(); err != nil {
+			t.Fatalf("%s Validate() error = %v", name, err)
+		}
+	}
+	invalid := activated
+	invalid.Activation.Error = &StructuredError{Code: "load_error", Message: "unexpected"}
+	if err := invalid.Validate(); err == nil {
+		t.Fatal("activated result accepted an error")
+	}
+	for _, schema := range []map[string]any{RuntimeSourceDocumentSchema(), ApplyRuntimeSourceRequestSchema(), ApplyRuntimeSourceResultSchema()} {
+		if schema["additionalProperties"] != false && schema["oneOf"] == nil {
+			t.Fatalf("source schema is open: %#v", schema)
+		}
+		if id, _ := schema["$id"].(string); !strings.HasPrefix(id, "https://setta.local/schemas/realtime/") {
+			t.Fatalf("source schema id = %q", id)
+		}
 	}
 }
 

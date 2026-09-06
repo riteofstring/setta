@@ -139,6 +139,10 @@ type DrawingSectionData struct {
 	Background string          `json:"background"`
 }
 
+type CodeSectionData struct {
+	Source string `json:"source"`
+}
+
 type ApplyRequest struct {
 	ProjectID        string            `json:"projectId"`
 	ExpectedRevision uint64            `json:"expectedRevision"`
@@ -268,6 +272,30 @@ type RuntimeCancelRequest struct {
 type DirectInvokeRequest struct {
 	Arguments map[string]json.RawMessage `json:"arguments"`
 	Content   []ContentReference         `json:"content"`
+}
+
+type RuntimeSourceDocument struct {
+	ProjectID  string `json:"projectId"`
+	Entrypoint string `json:"entrypoint"`
+	Version    string `json:"version"`
+	Source     string `json:"source"`
+}
+
+type ApplyRuntimeSourceRequest struct {
+	ProjectID       string `json:"projectId"`
+	Entrypoint      string `json:"entrypoint"`
+	ExpectedVersion string `json:"expectedVersion"`
+	Source          string `json:"source"`
+}
+
+type ApplyRuntimeSourceResult struct {
+	Source     RuntimeSourceDocument   `json:"source"`
+	Activation RuntimeSourceActivation `json:"activation"`
+}
+
+type RuntimeSourceActivation struct {
+	State string           `json:"state"`
+	Error *StructuredError `json:"error"`
 }
 
 type RuntimeEnvelope struct {

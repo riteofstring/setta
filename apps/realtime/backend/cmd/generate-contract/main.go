@@ -49,6 +49,18 @@ func generatedOutputs() ([]output, error) {
 	if err != nil {
 		return nil, err
 	}
+	runtimeSource, err := encodeSchema(contracts.RuntimeSourceDocumentSchema())
+	if err != nil {
+		return nil, err
+	}
+	applyRuntimeSourceRequest, err := encodeSchema(contracts.ApplyRuntimeSourceRequestSchema())
+	if err != nil {
+		return nil, err
+	}
+	applyRuntimeSourceResult, err := encodeSchema(contracts.ApplyRuntimeSourceResultSchema())
+	if err != nil {
+		return nil, err
+	}
 	project, err := encodeSchema(contracts.ProjectSchema())
 	if err != nil {
 		return nil, err
@@ -72,6 +84,9 @@ func generatedOutputs() ([]output, error) {
 	return []output{
 		{path: "internal/contracts/testdata/apply-request-v1.schema.json", data: applyRequest},
 		{path: "internal/contracts/testdata/direct-invoke-request-v1.schema.json", data: directInvokeRequest},
+		{path: "internal/contracts/testdata/runtime-source-v1.schema.json", data: runtimeSource},
+		{path: "internal/contracts/testdata/apply-runtime-source-request-v1.schema.json", data: applyRuntimeSourceRequest},
+		{path: "internal/contracts/testdata/apply-runtime-source-result-v1.schema.json", data: applyRuntimeSourceResult},
 		{path: "internal/contracts/testdata/project-v1.schema.json", data: project},
 		{path: "internal/contracts/testdata/runtime-v1.schema.json", data: runtime},
 		{path: "internal/contracts/testdata/runtime-command-v1.schema.json", data: runtimeCommand},
