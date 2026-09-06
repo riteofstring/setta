@@ -306,6 +306,8 @@ export type {
   WorkspaceSectionKindIconProps,
 } from "./document/sectionKindRegistry";
 export type { WorkspaceSectionSizeConstraints } from "./section/resize/sectionSizingBounds";
+export { WorkspaceSectionHeaderAction } from "./section/header/WorkspaceSectionHeaderAction";
+export type { WorkspaceSectionHeaderActionProps } from "./section/header/WorkspaceSectionHeaderAction";
 export { setWorkspaceSectionSize } from "./section/sectionSizes";
 export { useWorkspaceAppearance } from "./document/stores";
 export type {

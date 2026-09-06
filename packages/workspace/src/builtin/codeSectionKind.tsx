@@ -21,6 +21,7 @@ import type { SectionSize, WorkspaceSection } from "../document/types";
 import {
   parseWorkspaceCodeSectionData,
   WORKSPACE_CODE_SECTION_LANGUAGES,
+  type WorkspaceCodeSectionData,
   type WorkspaceCodeSectionLanguage,
 } from "./codeSectionData";
 import type { WorkspaceCodeSectionCompletionProvider } from "./codeSectionCompletion";
@@ -57,6 +58,10 @@ export type WorkspaceCodeSectionRegistration = {
   ) => ReactNode;
 
   completionProvider?: WorkspaceCodeSectionCompletionProvider;
+
+  onSubmit?: (sectionId: string, data: WorkspaceCodeSectionData) => void;
+
+  renderHeaderControls?: (section: WorkspaceSection) => ReactNode;
 };
 
 function CodeSectionLanguageIcon({
@@ -101,6 +106,7 @@ export function createWorkspaceCodeSection(
       <WorkspaceCodeSectionBody
         allowedLanguages={allowedLanguages}
         completionProvider={registration.completionProvider}
+        onSubmit={registration.onSubmit}
         section={section}
       />
     ),
@@ -112,6 +118,9 @@ export function createWorkspaceCodeSection(
     contentClassName: "flex min-h-0 flex-col",
     defaultSize:
       registration.defaultSize ?? WORKSPACE_CODE_SECTION_DEFAULT_SIZE,
+    ...(registration.renderHeaderControls === undefined
+      ? {}
+      : { renderHeaderControls: registration.renderHeaderControls }),
     ...(registration.renderInspector === undefined
       ? {}
       : { renderInspector: registration.renderInspector }),

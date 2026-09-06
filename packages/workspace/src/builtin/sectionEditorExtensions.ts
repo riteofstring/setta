@@ -245,6 +245,7 @@ type SectionEditorExtensionsOptions = {
   diagnostics: ReadonlyArray<WorkspaceCodeSectionDiagnostic>;
   presentation: WorkspaceSectionEditorPresentation;
   onEscape: () => void;
+  onSubmit: ((change: WorkspaceSectionEditorChange) => void) | undefined;
   sectionId: string;
   completionLanguage: WorkspaceCodeSectionLanguage;
   completionProvider: WorkspaceCodeSectionCompletionProvider | undefined;
@@ -265,6 +266,7 @@ export function getSectionEditorExtensions({
   diagnostics,
   presentation,
   onEscape,
+  onSubmit,
   sectionId,
   completionLanguage,
   completionProvider,
@@ -318,6 +320,7 @@ export function getSectionEditorExtensions({
   const enabledCompletionProvider = isSectionEditorEditable(presentation)
     ? completionProvider
     : undefined;
+  const enabledSubmit = getEnabledSectionEditorSubmit(presentation, onSubmit);
   const completionEnabled = enabledCompletionProvider !== undefined;
   if (enabledCompletionProvider !== undefined) {
     if (tooltipParent !== null) {
@@ -344,25 +347,72 @@ export function getSectionEditorExtensions({
   extensions.push(
     Prec.highest(
       EditorView.domEventHandlers({
-        keydown: (event, view) => {
-          const completionResult = handleSectionCompletionKeydown(event, {
+        keydown: (event, view) =>
+          handleSectionEditorKeydown(event, view, {
             completionEnabled,
-            view,
-          });
-          if (completionResult !== null) {
-            return completionResult;
-          }
-          if (event.key === "Escape" || event.code === "Escape") {
-            event.stopPropagation();
-            onEscape();
-            return true;
-          }
-          return false;
-        },
+            onEscape,
+            onSubmit: enabledSubmit,
+            readGeneratedRegion,
+          }),
       }),
     ),
   );
   return { extensions, readGeneratedRegion };
+}
+
+function getEnabledSectionEditorSubmit(
+  presentation: WorkspaceSectionEditorPresentation,
+  onSubmit: ((change: WorkspaceSectionEditorChange) => void) | undefined,
+) {
+  return isSectionEditorEditable(presentation) ? onSubmit : undefined;
+}
+
+function handleSectionEditorKeydown(
+  event: KeyboardEvent,
+  view: EditorView,
+  options: {
+    completionEnabled: boolean;
+    onEscape: () => void;
+    onSubmit: ((change: WorkspaceSectionEditorChange) => void) | undefined;
+    readGeneratedRegion: WorkspaceSectionEditorCompilation["readGeneratedRegion"];
+  },
+): boolean {
+  if (options.onSubmit !== undefined && isSectionEditorSubmitKey(event, view)) {
+    event.preventDefault();
+    event.stopPropagation();
+    options.onSubmit({
+      generatedRegion: options.readGeneratedRegion(view.state),
+      text: view.state.doc.toString(),
+    });
+    return true;
+  }
+  const completionResult = handleSectionCompletionKeydown(event, {
+    completionEnabled: options.completionEnabled,
+    view,
+  });
+  if (completionResult !== null) {
+    return completionResult;
+  }
+  if (event.key !== "Escape" && event.code !== "Escape") {
+    return false;
+  }
+  event.stopPropagation();
+  options.onEscape();
+  return true;
+}
+
+function isSectionEditorSubmitKey(
+  event: KeyboardEvent,
+  view: EditorView,
+): boolean {
+  return (
+    !event.isComposing &&
+    !view.composing &&
+    !event.altKey &&
+    !event.shiftKey &&
+    (event.ctrlKey || event.metaKey) &&
+    (event.key === "Enter" || event.code === "Enter")
+  );
 }
 
 function getSectionCompletionSource({

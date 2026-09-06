@@ -46,6 +46,7 @@ type WorkspaceSectionEditorProps = {
   presentation: WorkspaceSectionEditorPresentation;
 
   onChange: (change: WorkspaceSectionEditorChange) => void;
+  onSubmit?: (change: WorkspaceSectionEditorChange) => void;
 };
 
 export function WorkspaceSectionEditor({
@@ -61,6 +62,7 @@ export function WorkspaceSectionEditor({
   diagnostics,
   presentation,
   onChange,
+  onSubmit,
 }: WorkspaceSectionEditorProps) {
   const isEditable = isSectionEditorEditable(presentation);
   const isGeneratedDocument = presentation.mode === "generated-document";
@@ -127,6 +129,7 @@ export function WorkspaceSectionEditor({
         diagnostics,
         presentation,
         onEscape,
+        onSubmit,
         completionLanguage: completionLanguage ?? "plaintext",
         completionProvider,
         completionRequests,
@@ -141,6 +144,7 @@ export function WorkspaceSectionEditor({
       indentWidth,
       language,
       onEscape,
+      onSubmit,
       presentation,
       sectionId,
       completionTooltipParent,
@@ -181,7 +185,13 @@ export function WorkspaceSectionEditor({
 
   return (
     <article
-      aria-keyshortcuts={isEditable ? "Enter Escape" : undefined}
+      aria-keyshortcuts={
+        isEditable
+          ? onSubmit === undefined
+            ? "Enter Escape"
+            : "Enter Escape Control+Enter Meta+Enter"
+          : undefined
+      }
       aria-label={ariaLabel}
       className={`${WRAPPER_BASE_CLASS_NAME} ${WRAPPER_PRESENTATION_CLASS_NAME}${isGeneratedDocument ? ` ${GENERATED_DOCUMENT_CLASS_NAME}` : ""} ${overflowClassName} ${wheelClassName}`}
       data-workspace-section-editor={presentation.mode}

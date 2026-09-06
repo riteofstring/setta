@@ -258,6 +258,18 @@ describe("built-in code section body", () => {
     await mount(section);
   }
 
+  async function mountWithSubmit(
+    onSubmit: (sectionId: string, data: WorkspaceCodeSectionData) => void,
+    section: WorkspaceSectionInput = makeCodeSection(),
+  ) {
+    definition = createWorkspaceCodeSection({ onSubmit });
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+      [WORKSPACE_CODE_SECTION_KIND]: definition,
+    });
+    await mount(section);
+  }
+
   async function waitForCompletion(
     view: EditorView,
     expected: "active" | null,
@@ -890,6 +902,141 @@ describe("built-in code section body", () => {
 
     expect(documentEscape).not.toHaveBeenCalled();
     document.removeEventListener("keydown", documentEscape);
+  });
+
+  it("submits the exact editor text with either platform shortcut", async () => {
+    const onSubmit = vi.fn();
+    await mountWithSubmit(onSubmit);
+    const view = getView();
+    expect(getWrapper().getAttribute("aria-keyshortcuts")).toBe(
+      "Enter Escape Control+Enter Meta+Enter",
+    );
+    const bubbled = vi.fn();
+    document.addEventListener("keydown", bubbled);
+    const controlEnter = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Enter",
+      ctrlKey: true,
+      key: "Enter",
+    });
+
+    await act(async () => {
+      view.dispatch({
+        changes: { from: view.state.doc.length, insert: "gamma = 3\n" },
+        userEvent: "input.type",
+      });
+      view.contentDOM.dispatchEvent(controlEnter);
+    });
+    expect(controlEnter.defaultPrevented).toBe(true);
+    expect(bubbled).not.toHaveBeenCalled();
+    expect(onSubmit).toHaveBeenLastCalledWith(
+      SECTION_ID,
+      expect.objectContaining({
+        code: "alpha = 1\nbeta = 2\ngamma = 3\n",
+      }),
+    );
+
+    await act(async () => {
+      view.contentDOM.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          code: "Enter",
+          key: "Enter",
+          metaKey: true,
+        }),
+      );
+    });
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+    document.removeEventListener("keydown", bubbled);
+  });
+
+  it("does not submit for plain Enter or while composing", async () => {
+    const onSubmit = vi.fn();
+    await mountWithSubmit(onSubmit);
+    const view = getView();
+    await act(async () => {
+      view.contentDOM.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          code: "Enter",
+          key: "Enter",
+        }),
+      );
+      view.contentDOM.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          code: "Enter",
+          ctrlKey: true,
+          isComposing: true,
+          key: "Enter",
+        }),
+      );
+    });
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("submits through an open completion popup", async () => {
+    const onSubmit = vi.fn();
+    const completionProvider: WorkspaceCodeSectionCompletionProvider = vi.fn(
+      async () => ({
+        from: 0,
+        options: [{ insertText: "alpha", label: "alpha" }],
+        to: 0,
+      }),
+    );
+    definition = createWorkspaceCodeSection({
+      completionProvider,
+      onSubmit,
+    });
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+      [WORKSPACE_CODE_SECTION_KIND]: definition,
+    });
+    await mount();
+    const view = getView();
+    await act(async () => {
+      startCompletion(view);
+    });
+    await waitForCompletion(view, "active");
+
+    await act(async () => {
+      view.contentDOM.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          code: "Enter",
+          ctrlKey: true,
+          key: "Enter",
+        }),
+      );
+    });
+    expect(onSubmit).toHaveBeenCalledOnce();
+  });
+
+  it("does not submit a read-only or locked section", async () => {
+    const onSubmit = vi.fn();
+    await mountWithSubmit(onSubmit, makeCodeSection({ mode: "read-only" }));
+    getView().contentDOM.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        code: "Enter",
+        ctrlKey: true,
+        key: "Enter",
+      }),
+    );
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await remount(makeCodeSection({}, { positionAndSizeLocked: true }));
+    getView().contentDOM.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        code: "Enter",
+        key: "Enter",
+        metaKey: true,
+      }),
+    );
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("requests outer generated-Python completions with live UTF-16 context and lets the popup own its keys", async () => {

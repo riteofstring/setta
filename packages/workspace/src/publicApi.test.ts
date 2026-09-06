@@ -60,6 +60,7 @@ const RUNTIME_EXPORTS = [
   "WorkspaceParameterConfigurationView",
   "WorkspaceShell",
   "WorkspaceSectionEditor",
+  "WorkspaceSectionHeaderAction",
   "WorkspaceSectionSettingsIcon",
   "WorkspaceSavedViewsIcon",
   "WorkspaceSavedViewsPane",

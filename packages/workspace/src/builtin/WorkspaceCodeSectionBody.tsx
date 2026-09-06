@@ -91,12 +91,14 @@ type WorkspaceCodeSectionBodyProps = {
   section: WorkspaceSection;
   allowedLanguages: ReadonlyArray<WorkspaceCodeSectionLanguage>;
   completionProvider?: WorkspaceCodeSectionCompletionProvider;
+  onSubmit?: (sectionId: string, data: WorkspaceCodeSectionData) => void;
 };
 
 export function WorkspaceCodeSectionBody({
   section,
   allowedLanguages,
   completionProvider,
+  onSubmit,
 }: WorkspaceCodeSectionBodyProps) {
   const host = useWorkspaceHost();
   const sectionId = section.id;
@@ -155,6 +157,28 @@ export function WorkspaceCodeSectionBody({
     [host, sectionId],
   );
 
+  const handleSubmit = useCallback(
+    (change: WorkspaceSectionEditorChange) => {
+      if (onSubmit === undefined) {
+        return;
+      }
+      const liveSection = getSectionOrThrow(
+        getWorkspaceDocumentStore(host).getState(),
+        sectionId,
+      );
+      if (liveSection.positionAndSizeLocked) {
+        return;
+      }
+      const liveData = getWorkspaceCodeSectionData(host, sectionId);
+      const nextData = nextCodeSectionData(liveData, change) ?? liveData;
+      if (nextData !== liveData) {
+        setWorkspaceCodeSectionData(host, sectionId, nextData);
+      }
+      onSubmit(sectionId, nextData);
+    },
+    [host, onSubmit, sectionId],
+  );
+
   return (
     <WorkspaceSectionEditor
       ariaLabel={resolveEditorAriaLabel(section.name, presentation)}
@@ -165,6 +189,7 @@ export function WorkspaceCodeSectionBody({
       lineNumbers={data.lineNumbers}
       diagnostics={diagnostics}
       onChange={onChange}
+      onSubmit={onSubmit === undefined ? undefined : handleSubmit}
       presentation={presentation}
       sectionId={sectionId}
       value={data.code}
