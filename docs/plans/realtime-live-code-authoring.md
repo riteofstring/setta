@@ -67,17 +67,20 @@ explicit reconciliation.
 
 Add one closed, versioned source-document contract at `/api/v1/runtime/source`:
 
-- exact-origin `GET` returns the closed `{projectId, entrypoint, version, source}` document;
+- same-origin-readable `GET` returns the closed `{projectId, entrypoint, version, source}` document
+  and rejects a supplied foreign Origin;
 - exact-origin `PUT` accepts the closed `{projectId, entrypoint, expectedVersion, source}` apply
   request with bounded valid UTF-8 and the exact version returned by `GET` or an accepted `PUT`;
   and
 - the apply result reports the accepted saved source document separately from the activation
   outcome (`activated` or `rejected`) and diagnostic.
 
-Both methods enforce the local server's exact Origin policy. Unsupported methods, request bodies on
-`GET`, unknown fields, oversized source, malformed UTF-8, entrypoint escape, and symlink escape fail
-before file access or mutation. A version mismatch returns a structured conflict and performs
-neither the write nor reload.
+The mutating `PUT` requires the local server's exact Origin. A same-origin browser `GET` may omit
+the Origin header, so host enforcement and the browser's same-origin read policy protect that
+side-effect-free response; any supplied foreign Origin is rejected. Unsupported methods, request
+bodies on `GET`, unknown fields, oversized source, malformed UTF-8, entrypoint escape, and symlink
+escape fail before file access or mutation. A version mismatch returns a structured conflict and
+performs neither the write nor reload.
 
 The version is a concurrency token, not a project revision. Project mutations and source writes
 remain separate authorities: changing layout must not invalidate a source draft, and writing source

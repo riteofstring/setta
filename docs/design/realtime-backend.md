@@ -65,12 +65,14 @@ Go strictly decodes the same closed shapes.
 
 ## Live entrypoint source
 
-The exact-origin `GET /api/v1/runtime/source` response is the closed document
-`{projectId, entrypoint, version, source}`. The exact-origin `PUT /api/v1/runtime/source` request is
-the closed document `{projectId, entrypoint, expectedVersion, source}`. Both operations bind the
-request to the current project and its normalized declared entrypoint; callers cannot select
-another path. The opaque version hashes the exact file bytes and is independent of the project
-revision.
+The `GET /api/v1/runtime/source` response is the closed document
+`{projectId, entrypoint, version, source}`. It permits the missing Origin produced by an ordinary
+same-origin browser read and rejects any supplied foreign Origin; loopback Host enforcement and the
+browser's same-origin read policy protect the side-effect-free response. The mutating
+`PUT /api/v1/runtime/source` requires the exact configured Origin and accepts the closed document
+`{projectId, entrypoint, expectedVersion, source}`. Both operations bind the request to the current
+project and its normalized declared entrypoint; callers cannot select another path. The opaque
+version hashes the exact file bytes and is independent of the project revision.
 
 Reads and writes accept only bounded valid UTF-8. A write compares `expectedVersion` against the
 current bytes, then writes through a synced sibling and atomically renames it. Conflict, invalid

@@ -45,8 +45,8 @@ invocation is queued, while still rejecting an output older than the host's publ
 Binary data travels through the shared HTTP content path, while runtime messages contain content
 references.
 
-Realtime reads and applies source through exact-origin `GET` and `PUT`
-`/api/v1/runtime/source`. It owns the source document, local draft, dirty comparison, apply
+Realtime reads source through the same-origin-readable `GET /api/v1/runtime/source` and applies it
+through an exact-origin `PUT` to the same path. It owns the source document, local draft, dirty comparison, apply
 serialization, version conflict, diagnostics, and the distinction between saved source and live
 activation. Typing never writes or reloads. **Apply & reload** and Mod-Enter invoke the same one
 operation. Its result reports activation as `activated` or `rejected`, while runtime WebSocket state

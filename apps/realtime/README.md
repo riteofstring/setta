@@ -106,12 +106,13 @@ browser-local draft. **Apply & reload** and Mod-Enter invoke the same explicit o
 no autosave, reload per keystroke, or browser refresh. The existing global **Reload runtime** action
 still reloads the on-disk entrypoint and never writes a dirty browser draft.
 
-The exact-origin `GET /api/v1/runtime/source` response is
-`{projectId, entrypoint, version, source}`. `PUT /api/v1/runtime/source` accepts
-`{projectId, entrypoint, expectedVersion, source}`. The endpoint exposes only the current normalized
-entrypoint, accepts bounded valid UTF-8, and atomically compare-and-swaps the file using its opaque
-content version. A stale version, wrong project or entrypoint, invalid source body, or path escape
-does not write or reload.
+The same-origin-readable `GET /api/v1/runtime/source` response is
+`{projectId, entrypoint, version, source}`; it accepts the absent Origin of a normal same-origin
+browser read and rejects a supplied foreign Origin. Exact-origin `PUT /api/v1/runtime/source`
+accepts `{projectId, entrypoint, expectedVersion, source}`. The endpoint exposes only the current
+normalized entrypoint, accepts bounded valid UTF-8, and atomically compare-and-swaps the file using
+its opaque content version. A stale version, wrong project or entrypoint, invalid source body, or
+path escape does not write or reload.
 
 An accepted PUT saves `app.py` before activation and reports the saved source separately from an
 `activated` or `rejected` outcome. Replacement is deliberately non-overlapping: the current worker and its owned
