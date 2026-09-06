@@ -28,7 +28,7 @@ import { useSectionEditorHeight } from "./useSectionEditorHeight";
 
 const WRAPPER_BASE_CLASS_NAME = `${NO_PAN_CLASS_NAME} ${NO_DRAG_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} min-h-0 flex-1 cursor-auto [&_*]:!outline-0`;
 
-const WRAPPER_PRESENTATION_CLASS_NAME = `rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent`;
+const WRAPPER_PRESENTATION_CLASS_NAME = `rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent`;
 
 const GENERATED_DOCUMENT_CLASS_NAME = "setta-workspace-generated-document";
 

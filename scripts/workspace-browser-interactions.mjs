@@ -188,6 +188,59 @@ async function waitForWorkspace(client) {
   throw new Error("The Playground did not reach an interactive state.");
 }
 
+async function inspectCodeGutterHorizontalScroll(client) {
+  return evaluate(
+    client,
+    `(() => {
+      const node = document.querySelector('.react-flow__node[data-id="code-editor"]');
+      const scroller = node?.querySelector('.cm-scroller');
+      const content = node?.querySelector('.cm-content');
+      const gutter = node?.querySelector('.cm-gutters');
+      if (!(scroller instanceof HTMLElement) || !(content instanceof HTMLElement) || !(gutter instanceof HTMLElement)) {
+        throw new Error("The code editor gutter surface is incomplete.");
+      }
+      const previousMinWidth = content.style.minWidth;
+      const previousScrollLeft = scroller.scrollLeft;
+      const gutterLeftBefore = gutter.getBoundingClientRect().left;
+      content.style.minWidth = String(scroller.clientWidth + 800) + "px";
+      scroller.scrollLeft = 400;
+      const gutterLeftAfter = gutter.getBoundingClientRect().left;
+      const result = {
+        backgroundColor: getComputedStyle(gutter).backgroundColor,
+        gutterLeftDelta: gutterLeftAfter - gutterLeftBefore,
+        scrollLeft: scroller.scrollLeft,
+      };
+      content.style.minWidth = previousMinWidth;
+      scroller.scrollLeft = previousScrollLeft;
+      return result;
+    })()`,
+  );
+}
+
+async function navigateToWorkspace(client, url) {
+  const loaded = client.waitForEvent("Page.loadEventFired", READY_TIMEOUT_MS);
+  await client.send("Page.navigate", { url });
+  await loaded;
+  await waitForWorkspace(client);
+}
+
+function assertCodeGutter(codeGutter, expectedBackgroundColor) {
+  assert.ok(
+    codeGutter.scrollLeft > 0,
+    "The code editor did not enter horizontal overflow.",
+  );
+  assert.equal(
+    codeGutter.gutterLeftDelta,
+    0,
+    "The line-number gutter did not remain pinned during horizontal scrolling.",
+  );
+  assert.equal(
+    codeGutter.backgroundColor,
+    expectedBackgroundColor,
+    "Horizontally scrolled code remained visible through the line-number gutter.",
+  );
+}
+
 async function preparePointerOwnedSectionDrag(client) {
   return evaluate(
     client,
@@ -481,10 +534,12 @@ async function main() {
     ({ client } = await createCdpPage(port));
     await configureClient(client);
     const issues = collectPageIssues(client);
-    const loaded = client.waitForEvent("Page.loadEventFired", READY_TIMEOUT_MS);
-    await client.send("Page.navigate", { url: PREVIEW_ORIGIN });
-    await loaded;
-    await waitForWorkspace(client);
+    await navigateToWorkspace(client, `${PREVIEW_ORIGIN}?color-mode=light`);
+    const lightCodeGutter = await inspectCodeGutterHorizontalScroll(client);
+    assertCodeGutter(lightCodeGutter, "rgb(239, 241, 246)");
+    await navigateToWorkspace(client, `${PREVIEW_ORIGIN}?color-mode=dark`);
+    const darkCodeGutter = await inspectCodeGutterHorizontalScroll(client);
+    assertCodeGutter(darkCodeGutter, "rgb(16, 20, 27)");
     const sectionDragPath = await preparePointerOwnedSectionDrag(client);
     assert.equal(
       sectionDragPath.activeElement,
@@ -567,6 +622,10 @@ async function main() {
     console.log(
       JSON.stringify(
         {
+          codeGutters: {
+            dark: darkCodeGutter,
+            light: lightCodeGutter,
+          },
           completedSelectionLabel: completed.completedSelectionLabel,
           floatingWindowSamples: checklistSamples.length,
           gestureSamples: samples.length,

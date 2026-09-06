@@ -11,14 +11,20 @@ import {
 import { createTheme } from "@uiw/codemirror-themes";
 import { useWorkspaceAppearance } from "../../document/stores";
 
-const commonSettings = {
+const lightSettings = {
   background: "#ffffff00",
-  gutterBackground: "#FFFFFF00",
+  gutterBackground: "var(--setta-section-style-bg, hsl(222, 28%, 95%))",
   gutterBorder: "#dddddd00",
 };
 
-const githubDarkTheme = githubDarkInit({ settings: commonSettings });
-const githubLightTheme = githubLightInit({ settings: commonSettings });
+const darkSettings = {
+  background: "#ffffff00",
+  gutterBackground: "var(--setta-section-style-bg, hsl(220, 25%, 8.5%))",
+  gutterBorder: "#dddddd00",
+};
+
+const githubDarkTheme = githubDarkInit({ settings: darkSettings });
+const githubLightTheme = githubLightInit({ settings: lightSettings });
 const greenDarkTheme = createGreenTheme(true, "#7ee787");
 const greenLightTheme = createGreenTheme(false, "hsla(157, 100%, 28%, 1)");
 
@@ -31,7 +37,10 @@ function createGreenTheme(darkMode: boolean, color: string): TextValueTheme {
     : defaultSettingsGithubLight;
   return createTheme({
     theme: darkMode ? "dark" : "light",
-    settings: { ...githubSettings, ...commonSettings },
+    settings: {
+      ...githubSettings,
+      ...(darkMode ? darkSettings : lightSettings),
+    },
     styles: [
       { tag: [tags.comment, tags.bracket], color },
       { tag: tags.variableName, color },
