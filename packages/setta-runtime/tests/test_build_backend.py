@@ -15,7 +15,7 @@ from unittest import mock
 
 import setta_build_backend as backend
 from platform_contract import required_platform_tag
-from scripts._stage_setta_wheel import StageInputs, stage
+from scripts._stage_setta_wheel import StageAppInputs, StageInputs, stage
 from setta.runtime import RuntimeTarget, current_target
 
 
@@ -37,8 +37,7 @@ class SettaBuildBackendTests(unittest.TestCase):
     def _runtime_root(self) -> Path:
         return stage(
             StageInputs(
-                native_server=self.native,
-                web_root=self.web,
+                apps=(StageAppInputs("python-canvas", self.native, self.web),),
                 output=self.root / "stage",
                 target=self.target,
                 wheel_platform_tag=required_platform_tag(
@@ -144,8 +143,7 @@ class SettaBuildBackendTests(unittest.TestCase):
         native.chmod(0o755)
         runtime_root = stage(
             StageInputs(
-                native_server=native,
-                web_root=self.web,
+                apps=(StageAppInputs("python-canvas", native, self.web),),
                 output=self.root / "linux-stage",
                 target=target,
                 wheel_platform_tag="manylinux_2_28_x86_64",

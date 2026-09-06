@@ -37,7 +37,6 @@ class CommandContext:
     stderr: TextIO
     launcher_python: Path
     browser_open: Callable[[str], bool]
-    basedpyright_resolver: Callable[[], Path] | None = None
 
     @classmethod
     def standard(
