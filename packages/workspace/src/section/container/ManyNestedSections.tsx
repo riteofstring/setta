@@ -10,20 +10,29 @@ import {
 } from "../../document/documentSelectors";
 import { useWorkspaceDocument } from "../../document/stores";
 import { useWorkspaceHost } from "../../workspaceHostContext";
-import { SortableSectionContainer } from "./SortableSectionContainer";
+import {
+  SortableSectionContainer,
+  type SortableSectionRenderer,
+} from "./SortableSectionContainer";
 
 export function MaybeManyNestedSections({
   isGroup,
+  renderSection,
   sectionId,
 }: {
   isGroup: boolean;
+  renderSection: SortableSectionRenderer;
   sectionId: string;
 }) {
   const hasNested = useHasTempNested(sectionId);
   return (
     hasNested && (
       <div className="flex flex-col">
-        <ManyNestedSections isGroup={isGroup} sectionId={sectionId} />
+        <ManyNestedSections
+          isGroup={isGroup}
+          renderSection={renderSection}
+          sectionId={sectionId}
+        />
       </div>
     )
   );
@@ -31,9 +40,11 @@ export function MaybeManyNestedSections({
 
 function ManyNestedSections({
   isGroup,
+  renderSection,
   sectionId,
 }: {
   isGroup: boolean;
+  renderSection: SortableSectionRenderer;
   sectionId: string;
 }) {
   const childIds = useDndChildren((x) => x.x[sectionId] ?? [], _.isEqual);
@@ -48,6 +59,7 @@ function ManyNestedSections({
         childIds={childIds}
         isGroup={isGroup}
         isHorizontalOrientation={isHorizontalOrientation}
+        renderSection={renderSection}
         sectionId={sectionId}
       />
     </DNDSortable>
@@ -58,11 +70,13 @@ function NestedSectionsWithMargin({
   childIds,
   isGroup,
   isHorizontalOrientation,
+  renderSection,
   sectionId,
 }: {
   childIds: Array<string>;
   isGroup: boolean;
   isHorizontalOrientation: boolean;
+  renderSection: SortableSectionRenderer;
   sectionId: string;
 }) {
   const host = useWorkspaceHost();
@@ -88,8 +102,9 @@ function NestedSectionsWithMargin({
       <div className={containerClassName}>
         {childIds.map((childId) => (
           <SortableSectionContainer
-            sectionId={childId}
             key={`Nested-Sec-${childId}`}
+            renderSection={renderSection}
+            sectionId={childId}
           />
         ))}
       </div>

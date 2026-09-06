@@ -121,6 +121,15 @@ export const SectionContainer = React.memo(SectionContainerComponent, (p, n) =>
   _.isEqual(p.dragListeners, n.dragListeners),
 );
 
+export function renderNestedSectionContainer(
+  sectionId: string,
+  dragListeners: SectionDragListeners,
+) {
+  return (
+    <SectionContainer dragListeners={dragListeners} sectionId={sectionId} />
+  );
+}
+
 function SectionContainerContents({
   canOwnNestedSections,
   isGroup,
@@ -133,10 +142,20 @@ function SectionContainerContents({
   sectionId: string;
 }) {
   if (isGroup) {
-    return <MaybeManyNestedSections isGroup sectionId={sectionId} />;
+    return (
+      <MaybeManyNestedSections
+        isGroup
+        renderSection={renderNestedSectionContainer}
+        sectionId={sectionId}
+      />
+    );
   }
   const nestedSections = canOwnNestedSections ? (
-    <MaybeManyNestedSections isGroup={false} sectionId={sectionId} />
+    <MaybeManyNestedSections
+      isGroup={false}
+      renderSection={renderNestedSectionContainer}
+      sectionId={sectionId}
+    />
   ) : null;
   if (renderAttachedContent) {
     return (

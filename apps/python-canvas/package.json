@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./project-snapshot-v2.json": "./backend/internal/contracts/testdata/project-snapshot-v2.json",
+    "./styles.css": "./src/index.css"
+  },
   "scripts": {
     "build": "tsc --noEmit -p tsconfig.json && vite build",
     "browser:test": "node vertical-slice.browser.mjs",

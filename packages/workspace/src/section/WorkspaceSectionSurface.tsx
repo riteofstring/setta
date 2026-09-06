@@ -23,6 +23,7 @@ import { DEFAULT_SECTION_BG_COLOR } from "./sectionColors";
 import { deriveSectionStyleTheme } from "./sectionStyleColors";
 import { resolveSectionStyleVars } from "./sectionStyleVars";
 import { MaybeManyNestedSections } from "./container/ManyNestedSections";
+import { renderNestedSectionContainer } from "./container/SectionContainer";
 import { WorkspaceSectionBodyContent } from "./container/SectionContainerContent";
 import { SectionHeader } from "./header/SectionHeader";
 
@@ -184,7 +185,11 @@ function WorkspaceSectionSurfaceMain({
   if (isGroup) {
     return (
       <div className="min-h-0 flex-1 overflow-auto">
-        <MaybeManyNestedSections isGroup sectionId={section.id} />
+        <MaybeManyNestedSections
+          isGroup
+          renderSection={renderNestedSectionContainer}
+          sectionId={section.id}
+        />
       </div>
     );
   }
@@ -200,7 +205,11 @@ function WorkspaceSectionSurfaceMain({
       />
       {includeDescendants && canOwnNestedSections ? (
         <div className="min-h-0 overflow-auto">
-          <MaybeManyNestedSections isGroup={false} sectionId={section.id} />
+          <MaybeManyNestedSections
+            isGroup={false}
+            renderSection={renderNestedSectionContainer}
+            sectionId={section.id}
+          />
         </div>
       ) : null}
     </>

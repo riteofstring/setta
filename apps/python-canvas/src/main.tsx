@@ -2,7 +2,7 @@ import { createRoot } from "react-dom/client";
 import "@setta/workspace/styles.css";
 
 import { PythonCanvasApp } from "./app/PythonCanvasApp";
-import "./index.css";
+import "@setta/python-canvas/styles.css";
 
 const rootElement = document.getElementById("root");
 

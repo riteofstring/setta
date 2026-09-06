@@ -98,6 +98,17 @@ export function getWorkspaceHostForElement(
   return null;
 }
 
+export function getWorkspaceHostElements(
+  host: WorkspaceHost,
+): ReadonlyArray<HTMLElement> {
+  assertWorkspaceHostActive(host);
+  const internals = internalsByHost.get(host);
+  if (!internals) {
+    throw new Error("This workspace host has no lifecycle state.");
+  }
+  return [...internals.elements];
+}
+
 export function getWorkspaceHostDomId(host: WorkspaceHost): string {
   assertWorkspaceHostActive(host);
   const internals = internalsByHost.get(host);

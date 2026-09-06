@@ -1,6 +1,6 @@
 import { resolveWorkspaceMotionDuration } from "../styles/motion";
 import { getNodesBounds, getViewportForBounds } from "./graph";
-import { getNodes } from "./nodeInternalsActions";
+import { getNodes } from "./nodeInternals";
 import { getWorkspaceOptionsStore } from "./options";
 import { getReactFlowStore } from "./store";
 import type { FitViewOptions, ReactFlowState } from "./types";

@@ -15,10 +15,8 @@ import {
   type WorkspaceTestHost,
   WorkspaceTestProvider,
 } from "../../test/workspaceTestHost";
-import {
-  IntegratedWorkspaceWindowManager,
-  WorkspaceWindowingContextProvider,
-} from "./workspaceWindowingContext";
+import { WorkspaceWindowingContextProvider } from "./workspaceWindowingContext";
+import { IntegratedWorkspaceWindowManager } from "./IntegratedWorkspaceWindowManager";
 import {
   createWorkspaceWindowingState,
   createWorkspaceWindowViewport,

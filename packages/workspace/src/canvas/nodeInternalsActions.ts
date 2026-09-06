@@ -8,10 +8,6 @@ import { getReactFlowStore } from "./store";
 import type { NodeDragItem } from "./types";
 import type { WorkspaceXyflowNodeDimensions } from "./xyflow/types";
 
-export function getNodes(host: WorkspaceHost): Array<Node> {
-  return Array.from(getNodeInternalsStore(host).getState().x.values());
-}
-
 export function updateNodePositions(
   host: WorkspaceHost,
   nodeDragItems: Array<NodeDragItem>,

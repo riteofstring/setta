@@ -38,7 +38,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createRoot } from "react-dom/client";
-import "./consumer.css";
+import "@setta/packed-consumer-source/styles.css";
 
 function getNoteText(section: WorkspaceSection): string {
   const data = section.data;

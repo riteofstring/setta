@@ -2,7 +2,7 @@ import type { WorkspaceDocument } from "@setta/workspace";
 import { createWorkspaceHost } from "@setta/workspace";
 import { describe, expect, it } from "vitest";
 
-import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
+import projectSnapshotFixture from "@setta/python-canvas/project-snapshot-v2.json";
 import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
 import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";
 import {

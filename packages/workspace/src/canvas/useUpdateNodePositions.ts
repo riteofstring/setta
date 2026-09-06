@@ -1,7 +1,8 @@
 import { getActiveSectionIds } from "../document/activeSections";
 import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import type { WorkspaceHost } from "../workspaceHost";
-import { getNodes, updateNodePositionsAndCommit } from "./nodeInternalsActions";
+import { getNodes } from "./nodeInternals";
+import { updateNodePositionsAndCommit } from "./nodeInternalsActions";
 import { getWorkspaceOptionsStore } from "./options";
 import { getReactFlowStore } from "./store";
 

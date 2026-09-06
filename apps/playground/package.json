@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./styles.css": "./src/index.css"
+  },
   "scripts": {
     "dev": "pnpm --filter @setta/workspace run build && vite --port 5174 --strictPort",
     "build": "vite build",

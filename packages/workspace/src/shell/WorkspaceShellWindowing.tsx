@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
+import { IntegratedWorkspaceWindowManager } from "../windowing/IntegratedWorkspaceWindowManager";
 import {
-  IntegratedWorkspaceWindowManager,
   WorkspaceWindowingContextProvider,
   type WorkspaceShellWindowingConfiguration,
 } from "../windowing/workspaceWindowingContext";

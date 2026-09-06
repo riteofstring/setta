@@ -4,7 +4,9 @@ import type { Position } from "../document/types";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
 import { assertWorkspaceHostActive } from "../workspaceHostInternals";
 import type { WorkspaceHost } from "../workspaceHost";
-import { getActiveSectionsBounds } from "./graph";
+import { resolveActiveSectionsBounds } from "./activeSectionBounds";
+import { resolveScreenToFlowPosition } from "./flowPosition";
+import { getWorkspaceOptionsStore } from "./options";
 import type { CoordinateExtent, ReactFlowState, ReactFlowStore } from "./types";
 import { EMPTY_VIEWPORT_INSETS } from "./viewportInsets";
 import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
@@ -40,13 +42,23 @@ export const initialCanvasState: ReactFlowStore = {
 
 function createReactFlowStore(host: WorkspaceHost) {
   return createStore<ReactFlowState>()(
-    subscribeWithSelector((set) => ({
+    subscribeWithSelector((set, get) => ({
       ...initialCanvasState,
       setNodesSelection: (selectedNodesCount, ignoreGrid = false) => {
         set({
           nodesSelectionDims:
             selectedNodesCount > 1
-              ? getActiveSectionsBounds(host, ignoreGrid)
+              ? resolveActiveSectionsBounds(
+                  host,
+                  (position, shouldIgnoreGrid) =>
+                    resolveScreenToFlowPosition(
+                      position,
+                      get(),
+                      getWorkspaceOptionsStore(host).getState(),
+                      shouldIgnoreGrid,
+                    ),
+                  ignoreGrid,
+                )
               : null,
         });
       },

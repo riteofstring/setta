@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./styles.css": "./src/consumer.css"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json --pretty false && vite build"
   },

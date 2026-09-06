@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from "react";
 import _ from "lodash";
-import { getReactFlowStore } from "../canvas/store";
 import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import {
   cloneFrozenWorkspaceSnapshot,
@@ -11,6 +10,7 @@ import { getSectionRefsStore } from "../section/sectionRefs";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import {
   assertWorkspaceHostActive,
+  getWorkspaceHostElements,
   registerWorkspaceHostCleanup,
 } from "../workspaceHostInternals";
 import type { WorkspaceHost } from "../workspaceHost";
@@ -562,9 +562,9 @@ function restoreWorkspaceHistoryFocus(
         return;
       }
     }
-    const pane = getReactFlowStore(host)
-      .getState()
-      .domNode?.querySelector<HTMLElement>(".react-flow__pane");
+    const pane = getWorkspaceHostElements(host)
+      .map((element) => element.querySelector<HTMLElement>(".react-flow__pane"))
+      .find((element) => element !== null);
     pane?.focus({ preventScroll: true });
   });
   runtime.focusFrames.add(frame);

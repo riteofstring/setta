@@ -1,65 +1,30 @@
-import { getActiveSectionIds } from "../document/activeSections";
-import { getRootSelectedSectionIds } from "../document/sectionSelection";
 import {
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
 } from "../document/stores";
 import type { Node, Viewport } from "../document/types";
-import { getSectionRefsStore } from "../section/sectionRefs";
 import type { WorkspaceHost } from "../workspaceHost";
-import type { ReactFlowState, Rect, Transform, ViewportInsets } from "./types";
 import {
-  boxToRect,
-  clamp,
-  getBoundsOfBoxes,
-  getOverlappingArea,
-  rectToBox,
-} from "./utils";
+  resolveActiveSectionsBounds,
+  resolveSectionRect,
+} from "./activeSectionBounds";
+import { getNodesBounds, hasPositiveRectBounds } from "./nodeBounds";
+import type { ReactFlowState, Rect, Transform, ViewportInsets } from "./types";
+import { clamp, getOverlappingArea } from "./utils";
 import { EMPTY_VIEWPORT_INSETS, getVisibleCanvasRect } from "./viewportInsets";
 import { screenToFlowPosition } from "./viewportPosition";
 
-export const getNodesBounds = (
-  nodes: Array<Pick<Node, "position" | "width" | "height">>,
-): Rect => {
-  if (nodes.length === 0) {
-    return { x: 0, y: 0, width: 0, height: 0 };
-  }
-
-  const box = nodes.reduce(
-    (currBox, node) => {
-      const { x, y } = node.position;
-      return getBoundsOfBoxes(
-        currBox,
-        rectToBox({
-          x,
-          y,
-          width: node.width || 0,
-          height: node.height || 0,
-        }),
-      );
-    },
-    { x: Infinity, y: Infinity, x2: -Infinity, y2: -Infinity },
-  );
-
-  return boxToRect(box);
-};
+export { getNodesBounds } from "./nodeBounds";
 
 export function getActiveSectionsBounds(
   host: WorkspaceHost,
   ignoreGrid = false,
 ) {
-  const activeSectionIds = getActiveSectionIds(host);
-  const { rootIds } = getRootSelectedSectionIds(
-    getWorkspaceDocumentStore(host).getState(),
-    activeSectionIds,
-  );
-  return (
-    getSectionBounds(host, rootIds, ignoreGrid) ?? {
-      x: 0,
-      y: 0,
-      width: 0,
-      height: 0,
-    }
+  return resolveActiveSectionsBounds(
+    host,
+    (position, shouldIgnoreGrid) =>
+      screenToFlowPosition(host, position, shouldIgnoreGrid),
+    ignoreGrid,
   );
 }
 
@@ -68,17 +33,13 @@ export function getSectionRect(
   sectionId: string,
   ignoreGrid = false,
 ): Rect | null {
-  const ref =
-    getSectionRefsStore(host).getState().selfOnly[sectionId] ??
-    getSectionRefsStore(host).getState().withNested[sectionId];
-  if (!ref) {
-    return null;
-  }
-
-  const { clientWidth: width, clientHeight: height } = ref;
-  const { x: _x, y: _y } = ref.getBoundingClientRect();
-  const { x, y } = screenToFlowPosition(host, { x: _x, y: _y }, ignoreGrid);
-  return { x, y, width, height };
+  return resolveSectionRect(
+    host,
+    sectionId,
+    (position, shouldIgnoreGrid) =>
+      screenToFlowPosition(host, position, shouldIgnoreGrid),
+    ignoreGrid,
+  );
 }
 
 export function getNodesInside(
@@ -195,44 +156,6 @@ export const getViewportForBounds = (
   return { x, y, zoom };
 };
 
-function getSectionBounds(
-  host: WorkspaceHost,
-  sectionIds: Array<string>,
-  ignoreGrid = false,
-): Rect | null {
-  const nodeInternals = getNodeInternalsStore(host).getState().x;
-  const sections = sectionIds.flatMap((sectionId) => {
-    const node = nodeInternals.get(sectionId);
-    if (node && hasPositiveRectBounds(node.width, node.height)) {
-      return [
-        {
-          position: { x: node.position.x, y: node.position.y },
-          width: node.width,
-          height: node.height,
-        },
-      ];
-    }
-
-    const rect = getSectionRect(host, sectionId, ignoreGrid);
-    if (!rect || !hasPositiveRectBounds(rect.width, rect.height)) {
-      return [];
-    }
-    return [
-      {
-        position: { x: rect.x, y: rect.y },
-        width: rect.width,
-        height: rect.height,
-      },
-    ];
-  });
-
-  if (sections.length === 0) {
-    return null;
-  }
-
-  return getNodesBounds(sections);
-}
-
 function isSectionOverlappingWithRect(
   host: WorkspaceHost,
   sectionId: string,
@@ -284,16 +207,4 @@ function isNodeOverlappingWithRect(
 
 function hasMeasuredNodeBounds(node: Node) {
   return hasPositiveRectBounds(node.width, node.height);
-}
-
-function hasPositiveRectBounds(
-  width: number | null | undefined,
-  height: number | null | undefined,
-): boolean {
-  return (
-    typeof width === "number" &&
-    typeof height === "number" &&
-    width > 0 &&
-    height > 0
-  );
 }

@@ -7,7 +7,6 @@ import {
 } from "react";
 import { useWorkspaceDocument } from "../document/stores";
 import { useWorkspaceHost } from "../workspaceHostContext";
-import { WorkspaceWindowManager } from "./WorkspaceWindowManager";
 import type { WorkspaceWindowRenderers } from "./WorkspaceWindowManagerParts";
 import { reconcileWorkspaceSectionWindowBindings } from "./workspaceSectionWindowing";
 import type {
@@ -79,25 +78,4 @@ export function WorkspaceWindowingContextProvider({
 
 export function useOptionalWorkspaceWindowing(): WorkspaceWindowingContextValue | null {
   return useContext(WorkspaceWindowingContext);
-}
-
-export function IntegratedWorkspaceWindowManager() {
-  const windowing = useContext(WorkspaceWindowingContext);
-  if (!windowing) {
-    throw new Error(
-      "IntegratedWorkspaceWindowManager requires WorkspaceWindowingContextProvider.",
-    );
-  }
-  return (
-    <WorkspaceWindowManager
-      ariaLabel={windowing.ariaLabel}
-      boundaryInsets={windowing.viewport.insets}
-      className={windowing.className}
-      layoutEditable={windowing.layoutEditable}
-      onStateChange={windowing.onStateChange}
-      renderers={windowing.renderers}
-      shortcuts={windowing.shortcuts}
-      state={windowing.state}
-    />
-  );
 }

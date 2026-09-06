@@ -8,7 +8,7 @@ import {
   type WorkspaceHost,
 } from "@setta/workspace";
 
-import projectSnapshotFixture from "../../backend/internal/contracts/testdata/project-snapshot-v2.json";
+import projectSnapshotFixture from "@setta/python-canvas/project-snapshot-v2.json";
 import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
 import { ProjectClientError } from "../backend/client";
 
