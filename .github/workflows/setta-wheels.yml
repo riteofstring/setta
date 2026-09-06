@@ -111,6 +111,7 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           uv sync --frozen
+          uv sync --frozen --no-build --no-install-project --project apps/realtime/examples/neon-sketch/fixture
       - name: Test the native server boundaries
         shell: bash
         env:
@@ -232,6 +233,7 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           uv sync --frozen
+          uv sync --frozen --no-build --no-install-project --project apps/realtime/examples/neon-sketch/fixture
       - name: Test the native server boundaries
         shell: bash
         run: |
@@ -385,6 +387,7 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           uv sync --frozen
+          uv sync --frozen --no-build --no-install-project --project apps/realtime/examples/neon-sketch/fixture
       - name: Test the native server boundaries
         run: |
           go -C apps/python-canvas/backend test ./...
