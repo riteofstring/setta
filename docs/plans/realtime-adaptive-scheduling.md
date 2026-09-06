@@ -1,6 +1,6 @@
 # Realtime adaptive scheduling implementation plan
 
-Status: in progress
+Status: implemented
 
 ## Outcome
 
