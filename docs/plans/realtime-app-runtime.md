@@ -105,6 +105,36 @@ their existing boundary tests, such as loopback authority enforcement, productio
 validation, and platform process-tree ownership. Keep project aggregates, coordinators, routes,
 and transport documents in their owning apps.
 
+## Dependency selection
+
+Add a production dependency only when it removes a substantial owned subsystem, has broad public
+adoption, is actively maintained, and can remain behind a Setta-owned boundary. Pin every direct
+dependency exactly and complete the repository dependency review before installation.
+
+The planned additions are:
+
+- [Fabric.js](https://github.com/fabricjs/fabric.js) for the drawing section's retained object
+  model, brushes, selection, transforms, filters, and image and scene serialization; and
+- [Ajv](https://ajv.js.org/) to compile Go-generated JSON Schema into standalone browser validators
+  for project, HTTP, and WebSocket documents.
+
+Fabric.js and Ajv are both mature, broadly used projects. The implementation must still validate
+the exact required feature set and candidate release before pinning them. A popular package does
+not waive fit, license, supply-chain, bundle-size, or behavior review.
+
+Retain the dependencies already proven in this repository: `@setta/workspace`, its existing
+Zustand and Radix foundations, and `github.com/coder/websocket`. Use Go and Python standard-library
+facilities for the worker bootstrap and its small control protocol. Do not add a niche RPC package,
+a second frontend state system, or a general distributed-job framework.
+
+If a later accepted scenario requires continuous microphone or camera transport, evaluate
+[Pion WebRTC](https://github.com/pion/webrtc) as the Go media implementation. Pion is not an initial
+dependency and must not be added for bounded drawing snapshots or ordinary events.
+
+Python application dependencies remain ordinary project dependencies. Projects may use standard
+`pyproject.toml`, `.venv`, and `uv.lock` files; Setta does not define a package format or dependency
+resolver of its own.
+
 ## Authored project model
 
 A project directory contains an authored project document and a normal Python entrypoint. The
@@ -114,6 +144,8 @@ exact default paths will follow the existing local-project convention:
 .local/realtime/
   project.json
   app.py
+  pyproject.toml            optional standard Python project metadata
+  uv.lock                   optional project lockfile
 ```
 
 The strict, versioned project document owns:
@@ -188,6 +220,10 @@ Use one transport for each kind of state:
 - HTTP uploads and downloads carry large binary content; WebSocket messages carry content
   references rather than duplicate encoded payloads.
 
+The Go contract generator also emits JSON Schema. Ajv compiles standalone frontend validators at
+build time so external documents receive runtime validation without creating a second handwritten
+TypeScript contract. Go remains the contract owner and strictly decodes the same closed shapes.
+
 Reconnect receives current complete project and runtime snapshots. It does not replay arbitrary
 listener history or request a force refresh. Every runtime event and result includes a session,
 binding, and invocation identity. A result for a superseded invocation cannot update its targets.
@@ -199,20 +235,25 @@ settled image snapshots and does not require WebRTC.
 
 ## Worker contract and future languages
 
-Go defines a private, versioned worker protocol independent of Python. The minimum message set is:
+Go defines a private, versioned worker protocol independent of Python. Use JSON-RPC 2.0 with the
+widely implemented Language Server Protocol `Content-Length` framing already exercised by the
+Python Canvas backend. The protocol version is negotiated by `initialize`; Setta owns the method
+names and payload schemas. The minimum method set is:
 
-- `initialize`, followed by `ready` or a structured load error;
-- `invoke`, carrying invocation identity, handler name, arguments, and staged content references;
-- zero or more `update` messages carrying progress, output values, or artifacts;
-- `complete` or `error`;
-- `cancel`; and
-- `shutdown`.
+- `initialize`, whose response contains ready metadata or a structured load error;
+- `runtime/invoke`, carrying invocation identity, handler name, arguments, and staged content
+  references;
+- zero or more `runtime/update` notifications carrying progress, output values, or artifacts;
+- the `runtime/invoke` response, carrying completion or a structured error;
+- `$/cancelRequest` for cooperative cancellation; and
+- `shutdown` for bounded worker cleanup.
 
-The transport uses framed messages on a dedicated inherited channel or local IPC endpoint.
-Arbitrary application stdout and stderr remain logs and can never corrupt protocol framing. JSON
-values form the portable value subset. Large values use validated, invocation-scoped content
-references. Do not expose pickle, Python exceptions, modules, callables, or Python UI objects in
-the host contract.
+The transport uses a dedicated inherited channel or local IPC endpoint. Reuse or narrowly extract
+the existing Go LSP framing behavior and implement the small Python peer with the standard library;
+do not require an RPC package in every project environment. Arbitrary application stdout and
+stderr remain logs and can never corrupt protocol framing. JSON values form the portable value
+subset. Large values use validated, invocation-scoped content references. Do not expose pickle,
+Python exceptions, modules, callables, or Python UI objects in the host contract.
 
 The Python adapter uses the already selected project interpreter and a packaged standard-library
 bootstrap so project virtual-environment dependencies remain importable without requiring Setta to
@@ -271,9 +312,9 @@ detached thread or child process is still terminated with its owning worker.
 ## Drawing section
 
 Rebuild the drawing section around an exact-pinned external retained-mode drawing library rather
-than porting the bespoke main-branch canvas implementation. Fabric.js is the initial candidate;
-validate pointer, touch, eraser, selection, transform, serialization, and export behavior before
-pinning it. Follow the dependency-review workflow before installation.
+than porting the bespoke main-branch canvas implementation. Fabric.js is the selected library.
+Validate pointer, touch, eraser, selection, transform, serialization, and export behavior against
+the candidate exact release before installation, then follow the dependency-review workflow.
 
 The library owns drawing objects, hit testing, transforms, selection, and image export inside the
 section. Setta owns section chrome, canonical section data, event naming, persistence boundaries,
@@ -318,9 +359,8 @@ The plan adopts these Gradio concepts:
 Gradio's current Server mode confirms that a custom frontend can sit above named Python APIs,
 queues, and SSE streaming. It is not selected as the Realtime host: FastAPI and Gradio's public
 wire, file, and session behavior would duplicate the existing Go host and make another language
-adapter emulate Gradio. A prototype may compare it with the private Python worker only if measured
-implementation risk remains after the worker contract is specified; it must stay behind the Go
-adapter and cannot become a frontend dependency.
+adapter emulate Gradio. Gradio and Streamlit remain research references rather than production
+dependencies.
 
 The plan adopts these Streamlit concepts:
 
@@ -336,6 +376,12 @@ the useful scoped-execution boundary.
 
 Research references:
 
+- [Fabric.js](https://github.com/fabricjs/fabric.js)
+- [Ajv JSON Schema validator](https://ajv.js.org/)
+- [JSON-RPC 2.0](https://www.jsonrpc.org/specification)
+- [Language Server Protocol base framing](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#baseProtocol)
+- [Pion WebRTC](https://github.com/pion/webrtc)
+- [uv project layout](https://docs.astral.sh/uv/concepts/projects/layout/)
 - [Gradio Server mode](https://www.gradio.app/guides/server-mode)
 - [Gradio Blocks and event listeners](https://www.gradio.app/guides/blocks-and-event-listeners)
 - [Gradio queuing](https://www.gradio.app/guides/queuing)
@@ -356,10 +402,12 @@ Research references:
    implementation.
 2. Specify the strict project, browser transport, artifact, and worker protocol documents.
 3. Record exact reusable invariants and extraction candidates from Python Canvas.
-4. Validate Fabric.js against the required drawing interactions without importing main's drawing
+4. Generate JSON Schema from the Go contract and prove Ajv standalone validation for representative
+   project and WebSocket documents.
+5. Validate Fabric.js against the required drawing interactions without importing main's drawing
    implementation.
-5. Build protocol fixtures for ordinary return, streaming, failure, cancellation, log isolation,
-   and worker crash.
+6. Build JSON-RPC protocol fixtures for ordinary return, streaming, failure, cancellation, log
+   isolation, and worker crash.
 
 Exit when the contracts can describe the counter and drawing-stylization scenarios without a
 listener registry, discovered dependency graph, or Python-specific host value.
@@ -376,7 +424,8 @@ Exit when Realtime opens and edits a project without starting or importing Pytho
 
 ### Phase 2: Python worker
 
-1. Implement the language-neutral worker adapter interface and conformance harness.
+1. Implement the language-neutral JSON-RPC worker adapter interface and conformance harness using
+   the established LSP framing.
 2. Launch the packaged Python bootstrap with the selected project interpreter inside the existing
    platform process-lifetime boundary.
 3. Implement initialization, handler invocation, streaming, structured errors, logs, explicit
@@ -435,7 +484,9 @@ runtime language without any Python-specific frontend behavior.
 - Browser reconnection receives complete current project and runtime state without replay logic.
 - Large values use one content-reference path.
 - The drawing section uses an exact-pinned external drawing engine.
+- Frontend boundary validators are generated from the Go-owned schemas and compiled by Ajv.
 - The worker protocol passes a non-Python fixture and contains no Python serialization types.
+- The Python worker bootstrap requires no project-installed RPC framework.
 - The project contains no listener discovery, registration, coverage, temporary-ID, share-session,
   or force-refresh mechanism.
 - No Realtime command or runtime path requires Python Canvas.
