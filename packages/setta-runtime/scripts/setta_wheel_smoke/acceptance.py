@@ -409,19 +409,19 @@ def exercise_realtime_server(
                 instance_nonce=nonce,
             )
         )
-        reloaded = run_json_command(
+        snapshot = run_json_command(
             (
                 str(setta),
                 REALTIME_APP_ID,
-                "reload",
+                "snapshot",
                 "--project-root",
                 str(project),
             ),
             environment,
             cwd,
-            "live Realtime reload",
+            "live Realtime snapshot",
         )
-        assert_realtime_reload(reloaded)
+        assert_realtime_ready(snapshot)
         assert_realtime_invoke(
             setta,
             environment,
@@ -473,15 +473,10 @@ def write_realtime_entrypoint(path: Path) -> None:
         ) from error
 
 
-def assert_realtime_reload(document: Mapping[str, object]) -> None:
-    expected = {
-        "protocolVersion": 1,
-        "runtimeKind": "python",
-        "handlers": ["increment"],
-        "loadError": None,
-    }
-    if document != expected:
-        raise SmokeError("live Realtime reload did not initialize the entrypoint")
+def assert_realtime_ready(document: Mapping[str, object]) -> None:
+    runtime = require_object(document.get("runtime"), "live Realtime runtime")
+    if runtime.get("workerState") != "ready":
+        raise SmokeError("Realtime open did not initialize the entrypoint")
 
 
 def assert_realtime_invoke(

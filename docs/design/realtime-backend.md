@@ -110,8 +110,9 @@ not report success before owned processes and staged artifacts are gone.
 ## Public coordinator commands
 
 `schema`, `snapshot`, `apply`, `reload`, and `invoke` call the same coordinator used by HTTP and
-WebSocket handlers. `apply` is revision checked; `reload` explicitly replaces the worker after
-validating the current entrypoint; `invoke` runs one named handler with bounded test input. Source
-editing and dependency installation remain ordinary filesystem and project-environment operations.
-There is no listener discovery, dependency catalog, implicit reload, temporary ID, coverage,
-share-session, or force-refresh path.
+WebSocket handlers. `apply` is revision checked; `open` performs one initial `reload` before it
+presents the browser; later `reload` commands explicitly replace the worker after validating the
+current entrypoint; `invoke` runs one named handler with bounded test input. Source editing and
+dependency installation remain ordinary filesystem and project-environment operations. There is
+no listener discovery, dependency catalog, implicit reload after source edits, temporary ID,
+coverage, share-session, or force-refresh path.

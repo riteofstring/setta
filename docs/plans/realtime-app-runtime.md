@@ -197,12 +197,14 @@ The app exposes strict commands through the existing Setta app registry:
 - `setta realtime schema` describes project operations and runtime errors;
 - `setta realtime snapshot` returns the canonical project and runtime status;
 - `setta realtime apply` performs one revision-checked project mutation;
-- `setta realtime reload` validates and starts the current Python entrypoint; and
+- `setta realtime open` starts the current Python entrypoint before presenting the browser;
+- `setta realtime reload` validates and replaces the current Python entrypoint; and
 - `setta realtime invoke` runs one named handler with bounded test input.
 
 The browser and CLI use the same coordinator. AI edits `app.py` as an ordinary file and uses the
-CLI to build and inspect the UI, bindings, and runtime. Reload is explicit after a source edit;
-there is no implicit listener re-registration or dependency-catalog refresh.
+CLI to build and inspect the UI, bindings, and runtime. Opening performs the initial load, while
+reload remains explicit after a source edit; there is no implicit listener re-registration or
+dependency-catalog refresh.
 
 Python Canvas remains optional. A handoff consists only of AI copying a useful ordinary function
 or module into the Realtime project, importing an existing local package, or reusing an ordinary
