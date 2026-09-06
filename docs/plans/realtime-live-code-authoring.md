@@ -31,10 +31,11 @@ Realtime owns these source states:
 - `error`: reading, writing, conflict checking, validation, or reload failed with a visible
   diagnostic.
 
-The action is enabled only for an editable dirty draft with no apply already running. Mod-Enter
-invokes the same action. Ordinary typing changes only the browser draft: it neither mutates
-`project.json`, writes `app.py`, reloads the worker, nor refreshes the page. Locking the section
-makes the editor read-only through the same section-lock convention as other editable sections.
+The action is enabled for an editable dirty draft with no apply already running, and also for a
+clean saved draft whose previous activation was rejected so it can be retried. Mod-Enter invokes
+the same action. Ordinary typing changes only the browser draft: it neither mutates `project.json`,
+writes `app.py`, reloads the worker, nor refreshes the page. Locking the section makes the editor
+read-only through the same section-lock convention as other editable sections.
 
 An accepted apply updates the canonical source version. It returns the editor to `live` only when
 the matching runtime replacement reports ready. If activation is rejected after the save, the draft
@@ -59,9 +60,9 @@ targets. The project validator rejects a second Code section and every other dat
 A disposable local Workspace document may hold the source draft and editor undo state. Realtime
 strips those bytes from the authored projection back to Go, so a canonical project snapshot, layout
 edit, rename, or reconnect cannot copy a draft into `project.json` or silently replace a dirty
-draft. Project SSE reprojection preserves a dirty draft. Reconnection may refresh source only when
-the local editor is clean; otherwise it reports that the canonical version changed and requires an
-explicit reconciliation.
+draft. Project SSE reprojection preserves a dirty draft. A source-version conflict reads the
+current canonical source as the new baseline, keeps the local draft for comparison, and requires
+an explicit reconciliation.
 
 ## Source HTTP contract
 
@@ -235,7 +236,8 @@ Focused frontend and Workspace tests must prove:
 - the local Workspace draft never becomes source-bearing project data or a project operation;
 - typing marks the draft dirty without a request or reload;
 - the native header action and Mod-Enter invoke the same single operation;
-- applying, clean, locked, and disconnected states enable or disable the action correctly;
+- applying, clean, locked, unavailable-source, and activation-rejected states enable or disable
+  the action correctly, including recovery while the runtime socket is unavailable;
 - success waits for matching runtime readiness, while conflict and reload diagnostics stay visible;
 - project projection preserves a dirty source draft; and
 - any new generic header primitive has native styling, focus, accessible naming, and disabled

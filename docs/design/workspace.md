@@ -293,6 +293,19 @@ therefore allow a later undo to restore superseded generated text while bypassin
 range filter and leaving the editor with a range that no longer describes its document. Existing
 user history is mapped through the synchronization and later user edits remain undoable.
 
+An optional Code-section submit callback is an application-effect boundary, not persistence owned
+by Workspace. Mod-Enter reads the editor document synchronously, publishes that same value through
+the existing controlled section-data path, and then gives the validated data to the registered
+host callback. The handler exists only for an editable, unlocked presentation and runs ahead of
+completion keys so a visible completion popup cannot capture the application chord. Workspace owns
+the keyboard and editor consistency; the application owns saving, activation, errors, and retries.
+
+Host-contributed header semantics remain application-owned, while
+`WorkspaceSectionHeaderAction` owns their native header presentation. Keeping the compact target,
+tooltip behavior, focus treatment, disabled state, and default or section-themed colors in one
+package primitive prevents registered controls from depending on private header classes without
+letting product state enter Workspace.
+
 Completion is opt-in through the registered Code-section provider. The implicit completion source
 from the React wrapper remains disabled. Each canvas owns one tooltip parent inside its transformed
 scene and outside section clipping, keyed by host so two mounted canvases cannot share or steal a

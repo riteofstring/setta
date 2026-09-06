@@ -1088,6 +1088,12 @@ to global Find. Its detached, deeply frozen snapshot contains only `id`, `kind`,
 `data`; the callback returns one string and cannot mutate the document. Meta-control kinds cannot
 register this callback. Section name and kind remain searchable without it.
 
+`WorkspaceSectionHeaderAction` is the package-owned primitive for a host action contributed through
+`renderHeaderControls(section)`. It supplies the same compact touch target, focus ring, tooltip,
+disabled treatment, and default or section-themed light/dark styling as the built-in header
+controls. The host supplies the accessible label, icon, busy state, and effect; Workspace does not
+interpret the action.
+
 An ordinary kind whose sections carry an `itemTree` must declare its item-area presentation:
 
 ```ts
@@ -1297,6 +1303,8 @@ registerSectionKinds(host, {
   }),
   [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
     languages: ["python", "json"],
+    onSubmit: (sectionId, data) => applyCode(sectionId, data.code),
+    renderHeaderControls: (section) => <ApplyCodeControl section={section} />,
     renderInspector: (context) => <CodeSectionSettings context={context} />,
   }),
 });
@@ -1312,6 +1320,14 @@ creation surface stay host-owned: sections carry the `name` the host gives them,
 built-in appears in a creation menu is decided by the host's own
 `registerWorkspaceCreationCommands(host, commands)` catalog, which builds the section with these
 creation defaults.
+
+An optional Code registration `onSubmit(sectionId, data)` receives the exact current controlled
+data when an editable, unlocked editor handles Ctrl-Enter or Command-Enter. The editor publishes
+any pending text through its ordinary document mutation before calling the host. The chord is
+consumed ahead of completion handling; plain Enter, composition, read-only mode, and a locked
+section do not submit. The callback is only an effect seam: persistence, validation, loading state,
+diagnostics, and retry policy remain application responsibilities. `renderHeaderControls` can pair
+that shortcut with a visible action without coupling either behavior to the built-in editor.
 
 Their presentation ships in the one compiled stylesheet. The rendered Markdown surface compiles
 from the Tailwind typography plugin under the package-owned `setta-prose` class name, and KaTeX's
