@@ -172,6 +172,53 @@ func TestPythonBootstrapReportsEntrypointLoadFailure(t *testing.T) {
 	runtime.shutdown(t)
 }
 
+func TestPythonBootstrapLoadsCurrentEntrypointWhenBytecodeMetadataMatches(t *testing.T) {
+	projectRoot := t.TempDir()
+	entrypoint := filepath.Join(projectRoot, "app.py")
+	staleSource := "def value():\n    return 7\n\nhandlers = {\"value\": value}\n"
+	currentSource := "def value():\n    return 1\n\nhandlers = {\"value\": value}\n"
+	if len(staleSource) != len(currentSource) {
+		t.Fatal("fixture sources differ in size")
+	}
+	writeFixtureEntrypoint(t, projectRoot, staleSource)
+	modified := time.Unix(1_700_000_000, 0)
+	if err := os.Chtimes(entrypoint, modified, modified); err != nil {
+		t.Fatalf("set stale source timestamp: %v", err)
+	}
+	interpreter, err := exec.LookPath("python3")
+	if err != nil {
+		t.Skip("python3 is required for worker bootstrap coverage")
+	}
+	compile := exec.Command(
+		interpreter,
+		"-I",
+		"-S",
+		"-c",
+		"import py_compile,sys; py_compile.compile(sys.argv[1], doraise=True, invalidation_mode=py_compile.PycInvalidationMode.TIMESTAMP)",
+		entrypoint,
+	)
+	if output, err := compile.CombinedOutput(); err != nil {
+		t.Fatalf("compile stale bytecode: %v: %s", err, output)
+	}
+	writeFixtureEntrypoint(t, projectRoot, currentSource)
+	if err := os.Chtimes(entrypoint, modified, modified); err != nil {
+		t.Fatalf("restore source timestamp: %v", err)
+	}
+	runtime := startPythonFixture(t)
+	initializeFixture(t, runtime.client, projectRoot, []string{"value"})
+	result, err := runtime.client.Invoke(
+		testContext(t),
+		fixtureInvokeParams("current-source", 1, "value", map[string]json.RawMessage{}),
+	)
+	if err != nil {
+		t.Fatalf("Invoke(value) error = %v", err)
+	}
+	if result.Error != nil || string(result.Outputs["value"]) != "1" {
+		t.Fatalf("current source result = %#v", result)
+	}
+	runtime.shutdown(t)
+}
+
 func TestGoFixtureWorkerPassesTheLanguageNeutralContract(t *testing.T) {
 	command := exec.Command(os.Args[0], "-test.run=^TestGoFixtureWorkerProcess$")
 	command.Env = append(os.Environ(), fixtureWorkerEnvironment+"=1")

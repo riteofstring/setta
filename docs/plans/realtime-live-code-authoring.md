@@ -155,8 +155,10 @@ runtime replacement. Go remains the contract owner; regenerate TypeScript declar
 Schema fixtures, and standalone browser validators from the Go definitions.
 
 The worker protocol continues to own Python import, initialization, diagnostics, shutdown, and
-readiness. Python never serves the source endpoint or writes its own entrypoint. The content store
-and runtime artifact store are not source stores and must not be reused as one.
+readiness. It compiles the entrypoint's current source bytes without reading or writing that file's
+timestamp-based bytecode cache, while imports made by the entrypoint keep ordinary Python behavior.
+Python never serves the source endpoint or writes its own entrypoint. The content store and runtime
+artifact store are not source stores and must not be reused as one.
 
 ## Playground fixture and repository hygiene
 
@@ -233,6 +235,8 @@ Focused backend tests must prove:
 - `PUT` rejects wrong origin, unknown fields, oversized or invalid source, path escape, and stale
   versions without mutation or reload;
 - a valid update atomically changes `app.py`, returns a new version, and starts exactly one reload;
+- rapid equal-size updates with an unchanged filesystem timestamp execute the newest source rather
+  than cached entrypoint bytecode;
 - concurrent updates cannot both win with one expected version;
 - successful activation stops the predecessor and leaves exactly one ready worker; and
 - rejected activation keeps the accepted bytes, leaves the runtime failed, returns the diagnostic,

@@ -143,10 +143,13 @@ packaged Python bootstrap and a minimal non-Python fixture worker.
 
 The Python bootstrap is packaged by Setta and uses only the standard library for the protocol. It
 runs with the already selected project interpreter so ordinary project dependencies remain
-importable without installing Setta into the project environment. It imports the declared
-entrypoint once per worker lifetime, runs bounded startup and shutdown hooks, invokes named
-exports, iterates generators and async generators, closes cooperative work, and reports conversion
-or execution failures structurally.
+importable without installing Setta into the project environment. A dedicated source loader
+compiles the declared entrypoint's current bytes directly and does not read or write its bytecode
+cache; rapid equal-size edits with the same filesystem timestamp therefore cannot reactivate stale
+code. Imports performed by the entrypoint retain ordinary Python import behavior. The bootstrap
+loads the entrypoint once per worker lifetime, runs bounded startup and shutdown hooks, invokes
+named exports, iterates generators and async generators, closes cooperative work, and reports
+conversion or execution failures structurally.
 
 ## Local host and process lifetime
 

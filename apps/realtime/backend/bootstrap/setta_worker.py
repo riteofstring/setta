@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import importlib.machinery
 import importlib.util
 import inspect
 import json
@@ -28,6 +29,12 @@ class ProtocolFailure(Exception):
 
 class InvocationCancelled(Exception):
     pass
+
+
+class EntrypointLoader(importlib.machinery.SourceFileLoader):
+    def get_code(self, fullname):
+        source = self.get_data(self.path)
+        return self.source_to_code(source, self.path)
 
 
 def _pairs_object(pairs):
@@ -426,8 +433,10 @@ class Worker:
         return entrypoint_path
 
     def _load_handlers(self, entrypoint_path):
+        module_name = "setta_realtime_app"
+        loader = EntrypointLoader(module_name, str(entrypoint_path))
         specification = importlib.util.spec_from_file_location(
-            "setta_realtime_app", entrypoint_path
+            module_name, entrypoint_path, loader=loader
         )
         if specification is None or specification.loader is None:
             raise ProtocolFailure("entrypoint cannot be imported")

@@ -133,7 +133,9 @@ and its owned descendants stop before the new worker starts, avoiding doubled mo
 memory, and process-lifetime side effects. Runtime state reports `starting`, `ready`, or `failed`.
 If startup fails, the accepted bytes remain saved, the worker remains failed, and the interface
 displays the diagnostic. Correct the source and Apply again, or correct the file externally and use
-global Reload.
+global Reload. Each new worker compiles the entrypoint's current source bytes directly rather than
+trusting a timestamp-based Python bytecode cache, so rapid same-size callback edits activate the
+saved version.
 
 ## Python handlers
 
