@@ -36,19 +36,6 @@ PUBLIC_OPEN_SCHEMA = "setta-open/v1"
 SESSION_SCHEMA = "setta-live-session/v1"
 RUNTIME_SESSION_SCHEMA = "python-canvas-session/v1"
 APP_ID = "python-canvas"
-APP_DESCRIPTORS = (
-    {
-        "id": "python-canvas",
-        "name": "Python Canvas",
-        "summary": "Author and run one local Python project.",
-    },
-    {
-        "id": "realtime",
-        "name": "Realtime",
-        "summary": "Build and run one local interactive application.",
-    },
-)
-APP_IDS = tuple(str(descriptor["id"]) for descriptor in APP_DESCRIPTORS)
 APPLIED_PROJECT_NAME = "Setta Wheel Acceptance"
 REQUIRED_OFFLINE_SCHEMA_COMMANDS = frozenset(
     {"schema", "open", "session.inspect", "snapshot", "apply", "run"}
@@ -95,19 +82,13 @@ class SmokeError(RuntimeError):
 
 
 @dataclass(frozen=True)
-class InspectedRuntimeApp:
-    app_id: str
-    native_member: str
-    web_members: tuple[str, ...]
-
-
-@dataclass(frozen=True)
 class WheelInspection:
     path: Path
     version: str
     platform_tag: str
     target: tuple[str, str]
-    apps: tuple[InspectedRuntimeApp, ...]
+    native_member: str
+    web_members: tuple[str, ...]
 
 
 @dataclass(frozen=True)

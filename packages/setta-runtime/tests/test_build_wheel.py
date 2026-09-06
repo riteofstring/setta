@@ -7,19 +7,18 @@ from pathlib import Path
 from unittest import mock
 
 from scripts import _build_setta_wheel as build_setta_wheel
-from scripts._stage_setta_wheel import StageAppInputs
 from setta.runtime import RuntimeTarget
 
 
 class WheelBuildContractTests(unittest.TestCase):
-    def test_frontend_builds_shared_workspace_before_sorted_apps(self) -> None:
+    def test_frontend_builds_shared_workspace_before_python_canvas(self) -> None:
         with (
             mock.patch.object(
                 build_setta_wheel.shutil, "which", return_value="/tools/pnpm"
             ),
             mock.patch.object(build_setta_wheel, "_run") as run,
         ):
-            build_setta_wheel._run_frontend_build(None, {})
+            build_setta_wheel._run_frontend_build(None)
         self.assertEqual(
             run.call_args_list,
             [
@@ -29,10 +28,6 @@ class WheelBuildContractTests(unittest.TestCase):
                 ),
                 mock.call(
                     ["/tools/pnpm", "--filter", "@setta/python-canvas", "run", "build"],
-                    build_setta_wheel.ROOT,
-                ),
-                mock.call(
-                    ["/tools/pnpm", "--filter", "@setta/realtime", "run", "build"],
                     build_setta_wheel.ROOT,
                 ),
             ],
@@ -82,7 +77,6 @@ class WheelBuildContractTests(unittest.TestCase):
             mock.patch.object(build_setta_wheel, "_run") as run,
         ):
             build_setta_wheel._run_native_build(
-                build_setta_wheel._APPS[0],
                 Path("/tmp/python-canvas"),
                 None,
                 RuntimeTarget(os="darwin", arch="arm64"),
@@ -140,11 +134,8 @@ class WheelBuildContractTests(unittest.TestCase):
                 mock.patch.object(build_setta_wheel, "stage") as stage,
             ):
                 result = build_setta_wheel._stage_and_maybe_wheel(
-                    (
-                        StageAppInputs(
-                            "fixture-app", Path("native-server"), Path("web")
-                        ),
-                    ),
+                    Path("native-server"),
+                    Path("web"),
                     namespace,
                     target,
                     "macosx_13_0_arm64",
@@ -154,53 +145,6 @@ class WheelBuildContractTests(unittest.TestCase):
                 self.assertFalse(default_stage.exists())
                 self.assertEqual(stage.call_args.kwargs, {})
                 self.assertEqual(stage.call_args.args[0].output, default_stage)
-
-    def test_path_overrides_require_unique_registered_app_ids(self) -> None:
-        self.assertEqual(
-            build_setta_wheel._path_overrides(
-                ["realtime=/tmp/realtime"], "--native-server"
-            ),
-            {"realtime": Path("/tmp/realtime")},
-        )
-        for values in (["unknown=/tmp/server"], ["realtime=/a", "realtime=/b"]):
-            with (
-                self.subTest(values=values),
-                self.assertRaises(build_setta_wheel.BuildError),
-            ):
-                build_setta_wheel._path_overrides(values, "--native-server")
-
-    def test_build_stages_every_registered_app_from_explicit_inputs(self) -> None:
-        target = RuntimeTarget(os="darwin", arch="arm64")
-        namespace = build_setta_wheel.argparse.Namespace(
-            target=None,
-            wheel_platform_tag="macosx_13_0_arm64",
-            native_server=["realtime=/native/realtime", "python-canvas=/native/canvas"],
-            web_root=["realtime=/web/realtime", "python-canvas=/web/canvas"],
-            skip_frontend_build=True,
-            stage_only=True,
-            stage_dir=Path("/stage"),
-        )
-        with (
-            mock.patch.object(build_setta_wheel, "current_target", return_value=target),
-            mock.patch.object(
-                build_setta_wheel,
-                "_stage_and_maybe_wheel",
-                return_value=Path("/stage"),
-            ) as stage,
-        ):
-            self.assertEqual(build_setta_wheel.build(namespace), Path("/stage"))
-        apps = stage.call_args.args[0]
-        self.assertEqual(
-            apps,
-            (
-                StageAppInputs(
-                    "python-canvas", Path("/native/canvas"), Path("/web/canvas")
-                ),
-                StageAppInputs(
-                    "realtime", Path("/native/realtime"), Path("/web/realtime")
-                ),
-            ),
-        )
 
     def test_custom_stage_directory_is_never_cleared_by_the_orchestrator(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

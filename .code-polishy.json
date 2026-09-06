@@ -44,18 +44,6 @@
         "module": "python-canvas-frontend"
       },
       {
-        "path": "docs/design/realtime-backend.md",
-        "module": "realtime-backend"
-      },
-      {
-        "path": "docs/design/realtime-frontend.md",
-        "module": "realtime-frontend"
-      },
-      {
-        "path": "docs/design/setta-runtime.md",
-        "module": "setta-runtime"
-      },
-      {
         "path": "docs/design/workspace.md",
         "module": "workspace"
       }
@@ -93,44 +81,6 @@
           ],
           "timeoutSeconds": 300
         }
-      },
-      {
-        "name": "realtime-contracts",
-        "outputs": [
-          "apps/realtime/backend/internal/contracts/testdata/project-v1.schema.json",
-          "apps/realtime/backend/internal/contracts/testdata/runtime-v1.schema.json",
-          "apps/realtime/backend/internal/contracts/testdata/runtime-command-v1.schema.json",
-          "apps/realtime/backend/internal/contracts/testdata/worker-v1.schema.json",
-          "apps/realtime/backend/internal/contracts/testdata/content-reference-v1.schema.json",
-          "apps/realtime/src/backend/generatedContract.ts",
-          "apps/realtime/src/backend/generatedValidators.js",
-          "apps/realtime/src/backend/generatedValidators.d.ts"
-        ],
-        "inputs": [
-          "apps/realtime/backend/cmd/generate-contract/*.go",
-          "apps/realtime/backend/internal/contracts/*.go",
-          "apps/realtime/scripts/compile-validators.mjs"
-        ],
-        "generate": {
-          "argv": [
-            "pnpm",
-            "--filter",
-            "@setta/realtime",
-            "run",
-            "contract:generate"
-          ],
-          "timeoutSeconds": 300
-        },
-        "verify": {
-          "argv": [
-            "pnpm",
-            "--filter",
-            "@setta/realtime",
-            "run",
-            "contract:check"
-          ],
-          "timeoutSeconds": 300
-        }
       }
     ]
   },
@@ -138,10 +88,6 @@
     "generated": [
       "apps/python-canvas/backend/internal/contracts/testdata/project-snapshot-v2.json",
       "apps/python-canvas/src/backend/generatedContract.ts",
-      "apps/realtime/backend/internal/contracts/testdata/*.schema.json",
-      "apps/realtime/src/backend/generatedContract.ts",
-      "apps/realtime/src/backend/generatedValidators.js",
-      "apps/realtime/src/backend/generatedValidators.d.ts",
       "docs/evidence/**/*.json",
       "docs/evidence/**/*.json.gz"
     ],
@@ -152,9 +98,6 @@
       "apps/python-canvas/vitest.setup.ts",
       "apps/python-canvas/visual-parity/compare.mjs",
       "apps/python-canvas/visual-parity/capture.mjs",
-      "apps/realtime/backend/cmd/realtime/main.go",
-      "apps/realtime/src/main.tsx",
-      "apps/realtime/vitest.setup.ts",
       "packages/workspace/tailwind-preset.mjs",
       "packages/workspace/tailwind.config.d.ts",
       "packages/workspace/vitest.setup.ts",
@@ -173,10 +116,6 @@
       "apps/python-canvas/vitest.config.ts",
       "apps/python-canvas/vitest.setup.ts",
       "apps/python-canvas/visual-parity/**",
-      "apps/realtime/vite.config.ts",
-      "apps/realtime/vitest.config.ts",
-      "apps/realtime/vitest.setup.ts",
-      "apps/realtime/scripts/**",
       "fixtures/**",
       "packages/workspace/tailwind.config.js",
       "packages/workspace/vite.config.ts",
@@ -212,15 +151,6 @@
       "dependsOn": ["workspace", "python-canvas-backend"]
     },
     {
-      "name": "realtime-backend",
-      "paths": ["apps/realtime/backend/**"]
-    },
-    {
-      "name": "realtime-frontend",
-      "paths": ["apps/realtime/*", "apps/realtime/src/**"],
-      "dependsOn": ["workspace", "realtime-backend"]
-    },
-    {
       "name": "setta-runtime",
       "paths": [
         "packages/setta-runtime/**",
@@ -228,12 +158,7 @@
         "uv.lock",
         "uv.toml"
       ],
-      "dependsOn": [
-        "python-canvas-backend",
-        "python-canvas-frontend",
-        "realtime-backend",
-        "realtime-frontend"
-      ]
+      "dependsOn": ["python-canvas-backend", "python-canvas-frontend"]
     }
   ],
   "checks": [
@@ -279,23 +204,6 @@
       "timeoutSeconds": 900
     },
     {
-      "name": "realtime-backend-build",
-      "provides": ["build"],
-      "argv": ["go", "build", "./..."],
-      "cwd": "apps/realtime/backend",
-      "modules": ["realtime-backend"],
-      "runOn": ["build"],
-      "timeoutSeconds": 300
-    },
-    {
-      "name": "realtime-frontend-build",
-      "provides": ["build"],
-      "argv": ["pnpm", "--filter", "@setta/realtime", "run", "build"],
-      "modules": ["realtime-frontend"],
-      "runOn": ["build"],
-      "timeoutSeconds": 900
-    },
-    {
       "name": "workspace-package-policy",
       "provides": ["workspace-policy"],
       "argv": ["node", "scripts/check-workspace-policy.mjs"],
@@ -308,15 +216,6 @@
       "provides": ["lock-sync"],
       "argv": ["uv", "lock", "--check"],
       "modules": ["setta-runtime"],
-      "runOn": ["supply-chain"],
-      "timeoutSeconds": 300
-    },
-    {
-      "name": "realtime-go-lock-sync",
-      "provides": ["lock-sync"],
-      "argv": ["go", "mod", "tidy", "-diff"],
-      "cwd": "apps/realtime/backend",
-      "modules": ["realtime-backend"],
       "runOn": ["supply-chain"],
       "timeoutSeconds": 300
     },
@@ -340,9 +239,6 @@
       "apps/python-canvas/*.test.mjs",
       "apps/python-canvas/src/**/*.test.ts",
       "apps/python-canvas/src/**/*.test.tsx",
-      "apps/realtime/backend/**/*_test.go",
-      "apps/realtime/src/**/*.test.ts",
-      "apps/realtime/src/**/*.test.tsx",
       "packages/setta-runtime/tests/**",
       "packages/workspace/src/**/*.test.ts",
       "packages/workspace/src/**/*.test.tsx"
@@ -382,19 +278,6 @@
         "paths": ["packages/setta-runtime/tests/**"],
         "module": "setta-runtime",
         "focusedSuite": "setta-runtime-focused"
-      },
-      {
-        "paths": ["apps/realtime/backend/**/*_test.go"],
-        "module": "realtime-backend",
-        "focusedSuite": "realtime-backend-focused"
-      },
-      {
-        "paths": [
-          "apps/realtime/src/**/*.test.ts",
-          "apps/realtime/src/**/*.test.tsx"
-        ],
-        "module": "realtime-frontend",
-        "focusedSuite": "realtime-frontend-focused"
       }
     ],
     "requiredKinds": ["component", "browser", "contract"],
@@ -475,53 +358,6 @@
         "argv": ["pnpm", "--filter", "@setta/python-canvas", "test"],
         "runOn": ["focused", "recommended", "full"],
         "timeoutSeconds": 600
-      },
-      {
-        "name": "realtime-backend-focused",
-        "kind": "unit",
-        "scope": "module",
-        "cost": "quick",
-        "modules": ["realtime-backend"],
-        "paths": ["apps/realtime/backend/**/*_test.go"],
-        "argv": ["go", "test", "./..."],
-        "cwd": "apps/realtime/backend",
-        "runOn": ["focused", "recommended", "full"],
-        "timeoutSeconds": 300
-      },
-      {
-        "name": "realtime-frontend-focused",
-        "kind": "component",
-        "scope": "module",
-        "cost": "quick",
-        "modules": ["realtime-frontend"],
-        "paths": [
-          "apps/realtime/src/**/*.test.ts",
-          "apps/realtime/src/**/*.test.tsx"
-        ],
-        "argv": ["pnpm", "--filter", "@setta/realtime", "run", "test"],
-        "runOn": ["focused", "recommended", "full"],
-        "timeoutSeconds": 600
-      },
-      {
-        "name": "realtime-contract-drift",
-        "kind": "contract",
-        "scope": "repository",
-        "cost": "quick",
-        "paths": [
-          "apps/realtime/backend/internal/contracts/**",
-          "apps/realtime/src/backend/**",
-          "apps/realtime/scripts/compile-validators.mjs",
-          "apps/realtime/package.json"
-        ],
-        "argv": [
-          "pnpm",
-          "--filter",
-          "@setta/realtime",
-          "run",
-          "contract:check"
-        ],
-        "runOn": ["recommended", "full"],
-        "timeoutSeconds": 300
       },
       {
         "name": "python-canvas-contract-drift",
@@ -641,27 +477,9 @@
         "name": "go",
         "versionFile": "apps/python-canvas/backend/.go-version",
         "source": "go-toolchain"
-      },
-      {
-        "name": "realtime-go",
-        "versionFile": "apps/realtime/backend/.go-version",
-        "source": "go-toolchain"
       }
     ],
     "releaseAgeAssessments": [
-      {
-        "id": "fast-uri-3-1-6-security-fix",
-        "ecosystem": "pnpm",
-        "package": "fast-uri",
-        "version": "3.1.6",
-        "scope": "pnpm-lock.yaml",
-        "category": "security-fix",
-        "evidence": "https://github.com/fastify/fast-uri/security/advisories/GHSA-5jgf-p345-68v8",
-        "reason": "This exact release fixes the high-severity host-confusion and SSRF vulnerabilities in the newest dependency release old enough for ordinary admission.",
-        "owner": "realtime-frontend",
-        "reviewed": "2026-09-07",
-        "expires": "2026-09-22"
-      },
       {
         "id": "xyflow-react-12-11-5-supported-release",
         "ecosystem": "pnpm",
@@ -700,32 +518,6 @@
         "owner": "python-canvas-backend",
         "reviewed": "2026-08-26",
         "expires": "2026-09-12"
-      },
-      {
-        "id": "realtime-go-1-26-6-security-fix",
-        "ecosystem": "artifact",
-        "package": "realtime-go",
-        "version": "1.26.6",
-        "scope": "apps/realtime/backend/.go-version",
-        "category": "security-fix",
-        "evidence": "https://groups.google.com/g/golang-announce/c/94pEornpRlI/m/_JhCbsOZBAAJ",
-        "reason": "Go 1.26.6 fixes CVE-2026-56865 and CVE-2026-56864 in cmd/go checksum verification used when Setta resolves backend modules; retaining 1.26.2 would allow a malicious GOPROXY, or coordinated GOPROXY and GOSUMDB, to persist attacker-controlled module content.",
-        "owner": "realtime-backend",
-        "reviewed": "2026-09-07",
-        "expires": "2026-09-12"
-      }
-    ],
-    "dependencyOverridePolicies": [
-      {
-        "id": "fast-uri-security-fix",
-        "ecosystem": "pnpm",
-        "path": "package.json",
-        "field": "pnpm.overrides",
-        "contentSha256": "f4b60c0a7fbf9308dde0b4562a5b2ea674d5c41d314304eb347e7e1a421ce742",
-        "reason": "Ajv allows the vulnerable fast-uri release; force the first fixed 3.x release until normal minimum-age resolution can select it without an override.",
-        "owner": "realtime-frontend",
-        "reviewed": "2026-09-07",
-        "expires": "2026-09-22"
       }
     ]
   }

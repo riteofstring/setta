@@ -31,42 +31,27 @@ class PackagedRuntimeTests(unittest.TestCase):
         index.write_text("<!doctype html>", encoding="utf-8")
         self._write_manifest()
 
-    def _write_manifest(self, *, include_second_app: bool = False) -> None:
+    def _write_manifest(self) -> None:
         files = [
             self.root / "bin" / "server",
             self.root / "fixture" / "web" / "index.html",
         ]
-        apps = [
-            {
-                "id": "fixture-app",
-                "nativeServer": "bin/server",
-                "webRoot": "fixture/web",
-            }
-        ]
-        if include_second_app:
-            files.extend(
-                [
-                    self.root / "bin" / "second",
-                    self.root / "second" / "web" / "index.html",
-                ]
-            )
-            apps.append(
-                {
-                    "id": "second-app",
-                    "nativeServer": "bin/second",
-                    "webRoot": "second/web",
-                }
-            )
         assets = [
             {
-                "executable": path.parent.name == "bin",
+                "executable": path.name == "server",
                 "path": path.relative_to(self.root).as_posix(),
                 "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             }
-            for path in sorted(files)
+            for path in files
         ]
         document = {
-            "apps": apps,
+            "apps": [
+                {
+                    "id": "fixture-app",
+                    "nativeServer": "bin/server",
+                    "webRoot": "fixture/web",
+                }
+            ],
             "assets": assets,
             "formatVersion": MANIFEST_FORMAT,
             "target": current_target().document(),
@@ -79,18 +64,6 @@ class PackagedRuntimeTests(unittest.TestCase):
         self.assertEqual(
             PackagedRuntime(self.root).app("fixture-app").web_root.name, "web"
         )
-
-    def test_manifest_resolves_multiple_sorted_apps(self) -> None:
-        native = self.root / "bin" / "second"
-        native.write_bytes(b"second server")
-        native.chmod(0o755)
-        index = self.root / "second" / "web" / "index.html"
-        index.parent.mkdir(parents=True)
-        index.write_text("<!doctype html>", encoding="utf-8")
-        self._write_manifest(include_second_app=True)
-        runtime = PackagedRuntime(self.root)
-        self.assertEqual(tuple(runtime.manifest().apps), ("fixture-app", "second-app"))
-        self.assertEqual(runtime.app("second-app").native_server, native)
 
     def test_rejects_regular_file_not_declared_in_manifest(self) -> None:
         (self.root / "fixture" / "web" / "undeclared.js").write_text(
