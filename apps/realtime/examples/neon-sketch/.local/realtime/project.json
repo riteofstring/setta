@@ -45,6 +45,22 @@
       "data": {
         "value": "Your processed drawing will appear here."
       }
+    },
+    "callback": {
+      "id": "callback",
+      "kind": "code",
+      "name": "Realtime callback",
+      "width": 1064,
+      "height": 520,
+      "overflowMode": false,
+      "positionAndSizeLocked": false,
+      "isHorizontalOrientation": false,
+      "styleColor": null,
+      "tagColor": null,
+      "children": [],
+      "data": {
+        "source": "entrypoint"
+      }
     }
   },
   "layout": {
@@ -61,6 +77,13 @@
         "y": 24,
         "width": 520,
         "height": 400,
+        "zIndex": 1
+      },
+      "callback": {
+        "x": 24,
+        "y": 448,
+        "width": 1064,
+        "height": 520,
         "zIndex": 1
       }
     },

@@ -473,6 +473,16 @@ function projectOperations() {
       ),
       layout(528, 416, 360, 96),
     ],
+    [
+      section(
+        "source",
+        "code",
+        "Python source",
+        { source: "entrypoint" },
+        [480, 360],
+      ),
+      layout(912, 152, 480, 360),
+    ],
   ];
   return [
     { name: "Realtime Browser Acceptance", op: "setName" },
@@ -636,6 +646,118 @@ async function waitForProject(origin, description, predicate) {
     return project;
   }
   throw new Error(`${description} did not reach the Realtime project.`);
+}
+
+async function waitForRuntimeSource(origin, description, predicate) {
+  const deadline = Date.now() + timeoutMilliseconds;
+  while (Date.now() < deadline) {
+    const source = await jsonRequest(origin, "/api/v1/runtime/source");
+    if (predicate(source)) {
+      return source;
+    }
+    await delay(75);
+  }
+  throw new Error(`${description} did not reach the Realtime source store.`);
+}
+
+const sourceSectionSelector =
+  '[data-workspace-section-shell="true"][data-section-id="source"]';
+const sourceEditorSelector = `${sourceSectionSelector} .cm-content[contenteditable="true"]`;
+
+async function replaceSourceDraft(client, source, marker) {
+  const selected = await evaluate(
+    client,
+    `(() => {
+      const editor = document.querySelector(${JSON.stringify(sourceEditorSelector)});
+      if (!(editor instanceof HTMLElement)) {
+        return false;
+      }
+      editor.focus({ preventScroll: true });
+      const selection = window.getSelection();
+      if (selection === null) {
+        return false;
+      }
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document.dispatchEvent(new Event("selectionchange"));
+      return document.activeElement === editor;
+    })()`,
+  );
+  assert.equal(selected, true, "The Python source editor was not editable.");
+  await client.send("Input.insertText", { text: source });
+  await waitFor(
+    client,
+    `the Python source draft containing ${marker}`,
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sourceSectionSelector)});
+      const editor = document.querySelector(${JSON.stringify(sourceEditorSelector)});
+      return section?.querySelector('[data-runtime-source-dirty="true"]') !== null &&
+        editor?.textContent?.includes(${JSON.stringify(marker)}) === true;
+    })()`,
+  );
+}
+
+async function submitSourceShortcut(client) {
+  const submitted = await evaluate(
+    client,
+    `(() => {
+      const editor = document.querySelector(${JSON.stringify(sourceEditorSelector)});
+      if (!(editor instanceof HTMLElement)) {
+        return false;
+      }
+      editor.focus({ preventScroll: true });
+      for (const type of ["keydown", "keyup"]) {
+        editor.dispatchEvent(new KeyboardEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          code: "Enter",
+          ctrlKey: true,
+          key: "Enter",
+        }));
+      }
+      return true;
+    })()`,
+  );
+  assert.equal(submitted, true, "Mod-Enter had no Python source editor.");
+}
+
+async function resetWorkerStateObservation(client) {
+  await evaluate(
+    client,
+    `(() => {
+      globalThis.__realtimeObservedWorkerStates = [];
+      if (globalThis.__realtimeWorkerStateObserver !== undefined) {
+        return true;
+      }
+      const record = () => {
+        const state = document.querySelector("[data-worker-state]")?.getAttribute("data-worker-state");
+        const observed = globalThis.__realtimeObservedWorkerStates;
+        if (typeof state === "string" && Array.isArray(observed) && observed.at(-1) !== state) {
+          observed.push(state);
+        }
+      };
+      const observer = new MutationObserver(record);
+      observer.observe(document.body, { attributes: true, childList: true, subtree: true });
+      globalThis.__realtimeWorkerStateObserver = observer;
+      return true;
+    })()`,
+  );
+}
+
+function workerStatesExpression(...states) {
+  return `(() => {
+    const observed = globalThis.__realtimeObservedWorkerStates;
+    return Array.isArray(observed) && ${states
+      .map((state) => `observed.includes(${JSON.stringify(state)})`)
+      .join(" && ")};
+  })()`;
+}
+
+function assertSourceAbsentFromProject(project, sourceMarker) {
+  assert.deepEqual(project.sections.source?.data, { source: "entrypoint" });
+  assert.equal(JSON.stringify(project).includes(sourceMarker), false);
 }
 
 async function activateSection(client, sectionId) {
@@ -1089,6 +1211,124 @@ async function drawStrokeBeforeRelease(client, origin) {
   }
 }
 
+async function exerciseLiveSource(client, origin) {
+  const initialSource = await jsonRequest(origin, "/api/v1/runtime/source");
+  assert.equal(initialSource.entrypoint, "app.py");
+  assert.match(initialSource.version, /^[a-f0-9]{64}$/u);
+  assert.match(initialSource.source, /count \+= 1/u);
+  await waitFor(
+    client,
+    "the loaded Python source editor",
+    `(() => {
+      const editor = document.querySelector(${JSON.stringify(sourceEditorSelector)});
+      const action = document.querySelector(
+        ${JSON.stringify(`${sourceSectionSelector} button[aria-label="Apply & reload"]`)},
+      );
+      return editor?.textContent?.includes("def increment") === true &&
+        action instanceof HTMLButtonElement && action.disabled;
+    })()`,
+  );
+
+  const projectBefore = await jsonRequest(origin, "/api/v1/project");
+  assertSourceAbsentFromProject(projectBefore, "count += 1");
+  const pageIdentity = `live-source-${Date.now().toString(36)}`;
+  await evaluate(
+    client,
+    `globalThis.__realtimeLiveSourcePageIdentity = ${JSON.stringify(pageIdentity)}`,
+  );
+
+  const changedSource = initialSource.source.replace("count += 1", "count += 7");
+  assert.notEqual(changedSource, initialSource.source);
+  await replaceSourceDraft(client, changedSource, "count += 7");
+  await resetWorkerStateObservation(client);
+  await submitSourceShortcut(client);
+  const changedDocument = await waitForRuntimeSource(
+    origin,
+    "the changed Python source",
+    (source) => source.source === changedSource,
+  );
+  assert.notEqual(changedDocument.version, initialSource.version);
+  await waitFor(
+    client,
+    "the activated changed Python source",
+    `document.querySelector('[data-worker-state="ready"]') !== null &&
+      document.querySelector(${JSON.stringify(sourceSectionSelector)})?.querySelector('[data-runtime-source-dirty="false"]') !== null`,
+  );
+  await waitFor(
+    client,
+    "the changed source worker lifecycle",
+    workerStatesExpression("starting", "ready"),
+  );
+  await clickButton(client, "Increment");
+  await waitFor(
+    client,
+    "the changed increment behavior",
+    outputExpression("Counter result", 'value === "7"'),
+  );
+
+  const malformedSource = "def browser_invalid(:\n";
+  await replaceSourceDraft(client, malformedSource, "browser_invalid");
+  await resetWorkerStateObservation(client);
+  await clickSectionButton(client, "source", "Apply & reload");
+  const rejectedDocument = await waitForRuntimeSource(
+    origin,
+    "the saved malformed Python source",
+    (source) => source.source === malformedSource,
+  );
+  assert.notEqual(rejectedDocument.version, changedDocument.version);
+  await waitFor(
+    client,
+    "the rejected Python source diagnostic",
+    `(() => {
+      const text = document.body.textContent?.toLowerCase() ?? "";
+      return document.querySelector('[data-worker-state="failed"]') !== null &&
+        document.querySelector(${JSON.stringify(sourceSectionSelector)})?.querySelector('[data-runtime-source-dirty="false"]') !== null &&
+        text.includes("rejected") && text.includes("syntax");
+    })()`,
+  );
+  await waitFor(
+    client,
+    "the malformed source worker lifecycle",
+    workerStatesExpression("starting", "failed"),
+  );
+
+  await replaceSourceDraft(client, initialSource.source, "count += 1");
+  await resetWorkerStateObservation(client);
+  await clickSectionButton(client, "source", "Apply & reload");
+  const recoveredDocument = await waitForRuntimeSource(
+    origin,
+    "the recovered Python source",
+    (source) => source.source === initialSource.source,
+  );
+  assert.notEqual(recoveredDocument.version, rejectedDocument.version);
+  await waitFor(
+    client,
+    "the recovered Python worker",
+    `document.querySelector('[data-worker-state="ready"]') !== null &&
+      document.querySelector(${JSON.stringify(sourceSectionSelector)})?.querySelector('[data-runtime-source-dirty="false"]') !== null`,
+  );
+  await waitFor(
+    client,
+    "the recovered source worker lifecycle",
+    workerStatesExpression("starting", "ready"),
+  );
+  await clickButton(client, "Increment");
+  await waitFor(
+    client,
+    "the recovered increment behavior",
+    outputExpression("Counter result", 'value === "1"'),
+  );
+
+  const projectAfter = await jsonRequest(origin, "/api/v1/project");
+  assertSourceAbsentFromProject(projectAfter, "count += 7");
+  assertSourceAbsentFromProject(projectAfter, "browser_invalid");
+  assert.equal(
+    await evaluate(client, "globalThis.__realtimeLiveSourcePageIdentity"),
+    pageIdentity,
+    "Applying Python source refreshed the browser page.",
+  );
+}
+
 async function exerciseBrowser(client, origin) {
   const loaded = client.waitForEvent(
     "Page.loadEventFired",
@@ -1143,6 +1383,8 @@ async function exerciseBrowser(client, origin) {
     "the second ordinary return",
     outputExpression("Counter result", 'value === "2"'),
   );
+
+  await exerciseLiveSource(client, origin);
 
   await drawStrokeBeforeRelease(client, origin);
   await delay(300);
