@@ -287,7 +287,7 @@ describe("drawing settlement queue", () => {
     queue.dispose();
   });
 
-  it("prioritizes the final settled frame after capacity returns", async () => {
+  it("persists and prioritizes the final settled frame while busy", async () => {
     let canEmit = true;
     const preview: DrawingSnapshot = {
       blob: new Blob(["preview"], { type: "image/png" }),
@@ -327,14 +327,15 @@ describe("drawing settlement queue", () => {
     await flushMicrotasks();
 
     expect(capturePreview).toHaveBeenCalledOnce();
-    expect(capture).not.toHaveBeenCalled();
+    expect(capture).toHaveBeenCalledOnce();
+    expect(commit).toHaveBeenCalledWith(settled.scene);
     expect(upload).toHaveBeenCalledOnce();
 
     canEmit = true;
     queue.resume();
     await flushMicrotasks();
     expect(capture).toHaveBeenCalledOnce();
-    expect(commit).toHaveBeenCalledWith(settled.scene);
+    expect(commit).toHaveBeenCalledOnce();
     expect(upload).toHaveBeenCalledTimes(2);
     expect(emit).toHaveBeenLastCalledWith(reference("settled"));
     queue.dispose();

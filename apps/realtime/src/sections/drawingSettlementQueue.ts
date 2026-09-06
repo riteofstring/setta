@@ -165,14 +165,6 @@ export class DrawingSettlementQueue {
     return emitted;
   }
 
-  private deferUntilCapacity(revision: number): boolean {
-    if (!this.options.isCompletionPaced() || this.canProcess()) {
-      return false;
-    }
-    this.readyRevision = revision;
-    return true;
-  }
-
   private pauseCaptureFailure(revision: number): void {
     if (this.isCurrent(revision)) {
       this.readyRevision = revision;
@@ -249,9 +241,6 @@ export class DrawingSettlementQueue {
   }
 
   private async process(revision: number): Promise<boolean> {
-    if (this.deferUntilCapacity(revision)) {
-      return false;
-    }
     const blocked = this.activeSnapshot(revision);
     let snapshot: DrawingSnapshot;
     try {
@@ -267,10 +256,7 @@ export class DrawingSettlementQueue {
     if (this.stopped) {
       return;
     }
-    const finalReady =
-      this.readyRevision !== 0 &&
-      !this.retryPaused &&
-      (!this.options.isCompletionPaced() || this.canProcess());
+    const finalReady = this.readyRevision !== 0 && !this.retryPaused;
     if (finalReady || (this.previewReady && this.canProcess())) {
       void this.drain();
     }

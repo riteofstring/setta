@@ -618,14 +618,22 @@ async function clickSectionButton(client, sectionId, label) {
   );
 }
 
-async function waitForProject(origin, description, predicate) {
-  const deadline = Date.now() + timeoutMilliseconds;
+async function findProject(origin, predicate, waitMilliseconds) {
+  const deadline = Date.now() + waitMilliseconds;
   while (Date.now() < deadline) {
     const project = await jsonRequest(origin, "/api/v1/project");
     if (predicate(project)) {
       return project;
     }
     await delay(75);
+  }
+  return null;
+}
+
+async function waitForProject(origin, description, predicate) {
+  const project = await findProject(origin, predicate, timeoutMilliseconds);
+  if (project !== null) {
+    return project;
   }
   throw new Error(`${description} did not reach the Realtime project.`);
 }
@@ -762,7 +770,7 @@ async function dragSection(client, sectionId, delta) {
   });
 }
 
-async function resizeSection(client, sectionId, delta) {
+async function dragResizeHandle(client, sectionId, delta) {
   const start = await evaluate(
     client,
     `(() => {
@@ -815,6 +823,24 @@ async function resizeSection(client, sectionId, delta) {
     x: start.x + delta.x,
     y: start.y + delta.y,
   });
+}
+
+async function resizeSection(client, origin, sectionId, delta, initialWidth) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await dragResizeHandle(client, sectionId, delta);
+    const project = await findProject(
+      origin,
+      (candidate) => candidate.sections[sectionId]?.width !== initialWidth,
+      1_500,
+    );
+    if (project !== null) {
+      return project;
+    }
+    await activateSection(client, sectionId);
+  }
+  throw new Error(
+    `The Realtime section ${sectionId} did not persist a resize after three observed gestures.`,
+  );
 }
 
 async function exerciseWorkspaceSection(client, origin) {
@@ -875,12 +901,13 @@ async function exerciseWorkspaceSection(client, origin) {
     typeof beforeCanvasWidth === "number" && beforeCanvasWidth > 0,
     "The drawing canvas was not measurable before its section resize.",
   );
-  await resizeSection(client, "drawing", { x: -96, y: 0 });
-  await waitForProject(origin, "the drawing section resize", (project) => {
-    const before = beforeResize.sections.drawing;
-    const after = project.sections.drawing;
-    return after?.width !== before?.width;
-  });
+  await resizeSection(
+    client,
+    origin,
+    "drawing",
+    { x: -96, y: 0 },
+    beforeResize.sections.drawing.width,
+  );
   await waitFor(
     client,
     "the responsive drawing canvas",
