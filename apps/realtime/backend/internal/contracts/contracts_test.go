@@ -118,6 +118,21 @@ func TestHTTPAndWorkerSchemasPublishClosedVersionedContracts(t *testing.T) {
 	if sequence["minimum"] != 1 {
 		t.Fatalf("runtime sequence schema = %#v", sequence)
 	}
+	snapshot := runtimeDefinitions["snapshot"].(map[string]any)
+	snapshotProperties := snapshot["properties"].(map[string]any)
+	if _, exists := snapshotProperties["publishedByBinding"]; !exists {
+		t.Fatal("runtime snapshot schema omits published output identities")
+	}
+	required := snapshot["required"].([]string)
+	publishedRequired := false
+	for _, name := range required {
+		if name == "publishedByBinding" {
+			publishedRequired = true
+		}
+	}
+	if !publishedRequired {
+		t.Fatalf("runtime snapshot required fields = %#v", required)
+	}
 }
 
 func fixtureProject() Project {

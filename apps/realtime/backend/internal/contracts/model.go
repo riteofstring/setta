@@ -280,10 +280,11 @@ type RuntimeEnvelope struct {
 }
 
 type RuntimeSnapshot struct {
-	SessionID   string                      `json:"sessionId"`
-	WorkerState string                      `json:"workerState"`
-	Values      map[string]json.RawMessage  `json:"values"`
-	Invocations map[string]InvocationStatus `json:"invocations"`
+	SessionID          string                        `json:"sessionId"`
+	WorkerState        string                        `json:"workerState"`
+	Values             map[string]json.RawMessage    `json:"values"`
+	Invocations        map[string]InvocationStatus   `json:"invocations"`
+	PublishedByBinding map[string]InvocationIdentity `json:"publishedByBinding"`
 }
 
 type InvocationStatus struct {

@@ -92,7 +92,7 @@ func testHandler(t *testing.T, serverURL string) (*Handler, *fakeCoordinator, *c
 		_ = projects.Close()
 		t.Fatalf("content.Open() error = %v", err)
 	}
-	coordinator := &fakeCoordinator{project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}}}
+	coordinator := &fakeCoordinator{project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}, PublishedByBinding: map[string]contracts.InvocationIdentity{}}}
 	handler, err := New(coordinator, projects, contentStore, projectRoot, "nonce", serverURL)
 	if err != nil {
 		_ = projects.Close()
@@ -209,7 +209,7 @@ func TestRuntimeSocketStartsWithSnapshotAndAcceptsStrictEvent(t *testing.T) {
 		t.Fatalf("content.Open() error = %v", err)
 	}
 	defer contentStore.Close()
-	coordinator := &fakeCoordinator{project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}}}
+	coordinator := &fakeCoordinator{project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}, PublishedByBinding: map[string]contracts.InvocationIdentity{}}}
 	testServer := httptest.NewUnstartedServer(nil)
 	serverURL := "http://" + testServer.Listener.Addr().String()
 	handler, err := New(coordinator, projects, contentStore, projectRoot, "nonce", serverURL)

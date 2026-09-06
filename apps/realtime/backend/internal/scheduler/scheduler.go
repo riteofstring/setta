@@ -31,18 +31,22 @@ type Task struct {
 	Drop         func()
 }
 
+type Submission struct {
+	ReplacedInvocationIDs []string
+}
+
 type bindingState struct {
-	config    Config
-	running   int
-	queued    int
-	debounced *Task
-	timer     *time.Timer
+	config              Config
+	running             int
+	queued              int
+	delayedInvocationID string
+	timer               *time.Timer
 }
 
 type queuedTask struct {
-	task      Task
-	binding   *bindingState
-	groupName string
+	task    Task
+	binding *bindingState
+	ready   bool
 }
 
 type groupState struct {
@@ -99,21 +103,21 @@ func New(configurations map[string]Config) (*Scheduler, error) {
 	return scheduler, nil
 }
 
-func (scheduler *Scheduler) Submit(task Task) error {
+func (scheduler *Scheduler) Submit(task Task) (Submission, error) {
 	if task.InvocationID == "" || task.BindingID == "" || task.Run == nil {
-		return errors.New("scheduler: task is invalid")
+		return Submission{}, errors.New("scheduler: task is invalid")
 	}
 	scheduler.mu.Lock()
 	defer scheduler.mu.Unlock()
 	if scheduler.closed {
-		return ErrClosed
+		return Submission{}, ErrClosed
 	}
 	if _, exists := scheduler.active[task.InvocationID]; exists || scheduler.hasQueuedInvocationLocked(task.InvocationID) {
-		return errors.New("scheduler: invocation identity is duplicated")
+		return Submission{}, errors.New("scheduler: invocation identity is duplicated")
 	}
 	binding := scheduler.bindings[task.BindingID]
 	if binding == nil {
-		return ErrBindingUnknown
+		return Submission{}, ErrBindingUnknown
 	}
 	if binding.config.DebounceMilliseconds > 0 {
 		return scheduler.debounceLocked(binding, task)
@@ -121,17 +125,26 @@ func (scheduler *Scheduler) Submit(task Task) error {
 	return scheduler.enqueueLocked(binding, task)
 }
 
-func (scheduler *Scheduler) debounceLocked(binding *bindingState, task Task) error {
-	if binding.config.Mode == "once" && (binding.running > 0 || binding.queued > 0 || binding.debounced != nil) {
-		return ErrBusy
+func (scheduler *Scheduler) debounceLocked(binding *bindingState, task Task) (Submission, error) {
+	group := scheduler.groups[binding.config.ConcurrencyGroup]
+	if group == nil {
+		return Submission{}, ErrBindingUnknown
 	}
-	if binding.config.Mode == "parallel" && binding.running+binding.queued >= maximumGroupQueue {
-		return ErrQueueFull
+	if binding.config.Mode == "once" && (binding.running > 0 || binding.queued > 0) {
+		return Submission{}, ErrBusy
 	}
-	if binding.debounced != nil {
-		dropTask(*binding.debounced)
+	index := scheduler.debouncedReplacementIndexLocked(group, binding)
+	result := Submission{}
+	if index >= 0 {
+		result = scheduler.replaceQueuedLocked(group, index, task, false)
+	} else {
+		if len(group.queue) >= maximumGroupQueue {
+			return Submission{}, ErrQueueFull
+		}
+		group.queue = append(group.queue, queuedTask{task: task, binding: binding})
+		binding.queued++
 	}
-	binding.debounced = &task
+	binding.delayedInvocationID = task.InvocationID
 	if binding.timer != nil {
 		binding.timer.Stop()
 	}
@@ -139,7 +152,8 @@ func (scheduler *Scheduler) debounceLocked(binding *bindingState, task Task) err
 	binding.timer = time.AfterFunc(delay, func() {
 		scheduler.releaseDebounced(task.BindingID, task.InvocationID)
 	})
-	return nil
+	scheduler.dispatchLocked(group)
+	return result, nil
 }
 
 func (scheduler *Scheduler) releaseDebounced(bindingID string, invocationID string) {
@@ -149,51 +163,94 @@ func (scheduler *Scheduler) releaseDebounced(bindingID string, invocationID stri
 		return
 	}
 	binding := scheduler.bindings[bindingID]
-	if binding == nil || binding.debounced == nil || binding.debounced.InvocationID != invocationID {
+	if binding == nil || binding.delayedInvocationID != invocationID {
 		return
 	}
-	task := *binding.debounced
-	binding.debounced = nil
-	binding.timer = nil
-	if err := scheduler.enqueueLocked(binding, task); err != nil {
-		dropTask(task)
-	}
-}
-
-func (scheduler *Scheduler) enqueueLocked(binding *bindingState, task Task) error {
 	group := scheduler.groups[binding.config.ConcurrencyGroup]
 	if group == nil {
-		return ErrBindingUnknown
+		return
+	}
+	index := scheduler.queuedInvocationIndexLocked(group, invocationID)
+	if index < 0 {
+		return
+	}
+	group.queue[index].ready = true
+	binding.delayedInvocationID = ""
+	binding.timer = nil
+	scheduler.dispatchLocked(group)
+}
+
+func (scheduler *Scheduler) enqueueLocked(binding *bindingState, task Task) (Submission, error) {
+	group := scheduler.groups[binding.config.ConcurrencyGroup]
+	if group == nil {
+		return Submission{}, ErrBindingUnknown
 	}
 	switch binding.config.Mode {
 	case "once":
 		if binding.running > 0 || binding.queued > 0 {
-			return ErrBusy
+			return Submission{}, ErrBusy
 		}
 	case "latest":
-		if scheduler.replaceLatestQueuedLocked(group, binding, task) {
-			return nil
-		}
-	case "parallel":
-		if len(group.queue) >= maximumGroupQueue {
-			return ErrQueueFull
+		if index := scheduler.queuedBindingIndexLocked(group, binding); index >= 0 {
+			result := scheduler.replaceQueuedLocked(group, index, task, true)
+			scheduler.clearDelayedLocked(binding)
+			scheduler.dispatchLocked(group)
+			return result, nil
 		}
 	}
-	group.queue = append(group.queue, queuedTask{task: task, binding: binding, groupName: binding.config.ConcurrencyGroup})
+	if len(group.queue) >= maximumGroupQueue {
+		return Submission{}, ErrQueueFull
+	}
+	group.queue = append(group.queue, queuedTask{task: task, binding: binding, ready: true})
 	binding.queued++
 	scheduler.dispatchLocked(group)
-	return nil
+	return Submission{}, nil
 }
 
-func (scheduler *Scheduler) replaceLatestQueuedLocked(group *groupState, binding *bindingState, task Task) bool {
-	for index := len(group.queue) - 1; index >= 0; index-- {
+func (scheduler *Scheduler) debouncedReplacementIndexLocked(group *groupState, binding *bindingState) int {
+	if binding.config.Mode == "latest" {
+		return scheduler.queuedBindingIndexLocked(group, binding)
+	}
+	if binding.delayedInvocationID == "" {
+		return -1
+	}
+	return scheduler.queuedInvocationIndexLocked(group, binding.delayedInvocationID)
+
+}
+
+func (scheduler *Scheduler) queuedBindingIndexLocked(group *groupState, binding *bindingState) int {
+	for index := range group.queue {
 		if group.queue[index].binding == binding {
-			dropTask(group.queue[index].task)
-			group.queue[index].task = task
-			return true
+			return index
 		}
 	}
-	return false
+	return -1
+}
+
+func (scheduler *Scheduler) queuedInvocationIndexLocked(group *groupState, invocationID string) int {
+	for index := range group.queue {
+		if group.queue[index].task.InvocationID == invocationID {
+			return index
+		}
+	}
+	return -1
+}
+
+func (scheduler *Scheduler) replaceQueuedLocked(group *groupState, index int, task Task, ready bool) Submission {
+	replaced := group.queue[index].task
+	dropTask(replaced)
+	group.queue[index].task = task
+	group.queue[index].ready = ready
+	return Submission{ReplacedInvocationIDs: []string{replaced.InvocationID}}
+
+}
+
+func (scheduler *Scheduler) clearDelayedLocked(binding *bindingState) {
+	binding.delayedInvocationID = ""
+	if binding.timer != nil {
+		binding.timer.Stop()
+		binding.timer = nil
+	}
 }
 
 func (scheduler *Scheduler) dispatchLocked(group *groupState) {
@@ -216,11 +273,18 @@ func (scheduler *Scheduler) dispatchLocked(group *groupState) {
 
 func (scheduler *Scheduler) nextRunnableLocked(group *groupState) int {
 	for index, queued := range group.queue {
-		if queued.binding.running < queued.binding.config.ConcurrencyLimit {
+		if queued.ready && queued.binding.running < bindingConcurrencyLimit(queued.binding) {
 			return index
 		}
 	}
 	return -1
+}
+
+func bindingConcurrencyLimit(binding *bindingState) int {
+	if binding.config.Mode == "parallel" {
+		return binding.config.ConcurrencyLimit
+	}
+	return 1
 }
 
 func (scheduler *Scheduler) run(ctx context.Context, task Task) {
@@ -248,23 +312,16 @@ func (scheduler *Scheduler) Cancel(invocationID string) bool {
 		active.cancel()
 		return true
 	}
-	for _, binding := range scheduler.bindings {
-		if binding.debounced != nil && binding.debounced.InvocationID == invocationID {
-			dropTask(*binding.debounced)
-			binding.debounced = nil
-			if binding.timer != nil {
-				binding.timer.Stop()
-				binding.timer = nil
-			}
-			return true
-		}
-	}
 	for _, group := range scheduler.groups {
 		for index, queued := range group.queue {
 			if queued.task.InvocationID == invocationID {
 				dropTask(queued.task)
 				queued.binding.queued--
+				if queued.binding.delayedInvocationID == invocationID {
+					scheduler.clearDelayedLocked(queued.binding)
+				}
 				group.queue = append(group.queue[:index], group.queue[index+1:]...)
+				scheduler.dispatchLocked(group)
 				return true
 			}
 		}
@@ -276,11 +333,8 @@ func (scheduler *Scheduler) Pending() int {
 	scheduler.mu.Lock()
 	defer scheduler.mu.Unlock()
 	total := len(scheduler.active)
-	for _, binding := range scheduler.bindings {
-		if binding.debounced != nil {
-			total++
-		}
-		total += binding.queued
+	for _, group := range scheduler.groups {
+		total += len(group.queue)
 	}
 	return total
 }
@@ -297,10 +351,8 @@ func (scheduler *Scheduler) Close() {
 		if binding.timer != nil {
 			binding.timer.Stop()
 		}
-		if binding.debounced != nil {
-			dropTask(*binding.debounced)
-			binding.debounced = nil
-		}
+		binding.delayedInvocationID = ""
+		binding.timer = nil
 	}
 	for _, group := range scheduler.groups {
 		for _, queued := range group.queue {
@@ -319,11 +371,6 @@ func dropTask(task Task) {
 }
 
 func (scheduler *Scheduler) hasQueuedInvocationLocked(invocationID string) bool {
-	for _, binding := range scheduler.bindings {
-		if binding.debounced != nil && binding.debounced.InvocationID == invocationID {
-			return true
-		}
-	}
 	for _, group := range scheduler.groups {
 		for _, queued := range group.queue {
 			if queued.task.InvocationID == invocationID {

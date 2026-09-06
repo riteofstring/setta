@@ -135,6 +135,7 @@ export type RuntimeSnapshot = {
   workerState: "stopped" | "starting" | "ready" | "failed" | "replacing";
   values: Record<string, JsonValue>;
   invocations: Record<string, InvocationStatus>;
+  publishedByBinding: Record<string, InvocationIdentity>;
 };
 
 export type RuntimeUpdate = {

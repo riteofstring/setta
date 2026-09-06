@@ -81,7 +81,14 @@ func (worker *fakeWorker) replyError(invocationID string, code string) {
 	channel <- contracts.InvokeResult{Outputs: map[string]json.RawMessage{}, Error: &contracts.StructuredError{Code: code, Message: code}}
 }
 
-func TestLatestBindingRejectsOlderResultAndStaysBounded(t *testing.T) {
+func (worker *fakeWorker) finish(invocationID string) {
+	worker.mu.Lock()
+	channel := worker.replies[invocationID]
+	worker.mu.Unlock()
+	channel <- contracts.InvokeResult{Outputs: map[string]json.RawMessage{}}
+}
+
+func TestLatestBindingPublishesRunningResultAndStaysBounded(t *testing.T) {
 	coordinator, worker := testCoordinator(t)
 	defer coordinator.Close()
 	if _, err := coordinator.Reload(context.Background()); err != nil {
@@ -104,16 +111,26 @@ func TestLatestBindingRejectsOlderResultAndStaysBounded(t *testing.T) {
 	first := receiveInvocation(t, worker.started)
 	worker.reply(first.Identity.InvocationID, `"old"`)
 	newest := receiveInvocation(t, worker.started)
+	current, err := coordinator.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if value := string(current.Values["result.contentRef"]); value != `"old"` {
+		t.Fatalf("running invocation result = %s, want old", value)
+	}
+	if published := current.PublishedByBinding["stylize"]; published != first.Identity {
+		t.Fatalf("published identity = %#v, want %#v", published, first.Identity)
+	}
 	worker.reply(newest.Identity.InvocationID, `"new"`)
 	deadline := time.Now().Add(time.Second)
 	for {
-		current, err := coordinator.Snapshot()
+		current, err = coordinator.Snapshot()
 		if err != nil {
 			t.Fatalf("Snapshot() error = %v", err)
 		}
 		if string(current.Values["result.contentRef"]) == `"new"` {
-			if string(current.Values["result.contentRef"]) == `"old"` {
-				t.Fatal("older result replaced the newest result")
+			if published := current.PublishedByBinding["stylize"]; published != newest.Identity {
+				t.Fatalf("published identity = %#v, want %#v", published, newest.Identity)
 			}
 			break
 		}
@@ -137,7 +154,7 @@ func TestSubscriptionBeginsWithCompleteCurrentRuntimeSnapshot(t *testing.T) {
 		t.Fatalf("Subscribe() error = %v", err)
 	}
 	envelope := <-stream
-	if envelope.Type != "snapshot" || envelope.Snapshot == nil || envelope.Snapshot.WorkerState != "ready" || envelope.Snapshot.SessionID == "" {
+	if envelope.Type != "snapshot" || envelope.Snapshot == nil || envelope.Snapshot.WorkerState != "ready" || envelope.Snapshot.SessionID == "" || envelope.Snapshot.PublishedByBinding == nil {
 		t.Fatalf("initial envelope = %#v", envelope)
 	}
 }
@@ -168,9 +185,130 @@ func TestSuccessfulReturnPublishesFinalBrowserUpdate(t *testing.T) {
 	if envelope.Update == nil || envelope.Update.Identity != invocation.Identity || string(envelope.Update.Outputs["image"]) != `"final"` {
 		t.Fatalf("final update = %#v", envelope.Update)
 	}
+	current, err := coordinator.Snapshot()
+	if err != nil || current.PublishedByBinding["stylize"] != invocation.Identity {
+		t.Fatalf("published identity = %#v, error = %v", current.PublishedByBinding["stylize"], err)
+	}
 	receiveRuntimeEnvelope(t, stream, func(envelope contracts.RuntimeEnvelope) bool {
 		return envelope.Invocation != nil && envelope.Invocation.Identity == invocation.Identity && envelope.Invocation.State == "completed"
 	})
+}
+
+func TestLatestBindingStreamsWhileNewerInvocationIsPending(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	if _, err := coordinator.Reload(context.Background()); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	snapshot, _ := coordinator.Snapshot()
+	event := contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
+	if _, err := coordinator.HandleEvent(event); err != nil {
+		t.Fatalf("HandleEvent(first) error = %v", err)
+	}
+	first := receiveInvocation(t, worker.started)
+	if _, err := coordinator.HandleEvent(event); err != nil {
+		t.Fatalf("HandleEvent(second) error = %v", err)
+	}
+	progress := 0.5
+	coordinator.acceptUpdate(contracts.RuntimeUpdate{
+		Identity: first.Identity, Progress: &progress, Message: "Preview",
+		Outputs: map[string]json.RawMessage{"image": json.RawMessage(`"streamed"`)}, Artifacts: []contracts.WorkerArtifact{},
+	})
+	current, err := coordinator.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if value := string(current.Values["result.contentRef"]); value != `"streamed"` {
+		t.Fatalf("streamed value = %s", value)
+	}
+	if published := current.PublishedByBinding["stylize"]; published != first.Identity {
+		t.Fatalf("published identity = %#v, want %#v", published, first.Identity)
+	}
+	worker.finish(first.Identity.InvocationID)
+	second := receiveInvocation(t, worker.started)
+	worker.finish(second.Identity.InvocationID)
+}
+
+func TestProgressOnlyUpdateDoesNotAdvancePublishedOutput(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	invocation := startDrawingInvocation(t, coordinator, worker)
+	progress := 0.5
+	coordinator.acceptUpdate(contracts.RuntimeUpdate{
+		Identity: invocation.Identity, Progress: &progress, Message: "Working",
+		Outputs: map[string]json.RawMessage{}, Artifacts: []contracts.WorkerArtifact{},
+	})
+	snapshot, err := coordinator.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if len(snapshot.PublishedByBinding) != 0 {
+		t.Fatalf("published identities = %#v, want empty", snapshot.PublishedByBinding)
+	}
+	worker.finish(invocation.Identity.InvocationID)
+}
+
+func TestOlderParallelOutputCannotReplaceNewerPublishedOutput(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	configureBindingScheduling(t, coordinator, "parallel", 2)
+	if _, err := coordinator.Reload(context.Background()); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	snapshot, _ := coordinator.Snapshot()
+	event := contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
+	for index := 0; index < 2; index++ {
+		if _, err := coordinator.HandleEvent(event); err != nil {
+			t.Fatalf("HandleEvent(%d) error = %v", index, err)
+		}
+	}
+	left := receiveInvocation(t, worker.started)
+	right := receiveInvocation(t, worker.started)
+	older, newer := left, right
+	if older.Identity.Sequence > newer.Identity.Sequence {
+		older, newer = newer, older
+	}
+	coordinator.acceptUpdate(contracts.RuntimeUpdate{
+		Identity: newer.Identity, Outputs: map[string]json.RawMessage{"image": json.RawMessage(`"new"`)}, Artifacts: []contracts.WorkerArtifact{},
+	})
+	coordinator.acceptUpdate(contracts.RuntimeUpdate{
+		Identity: older.Identity, Outputs: map[string]json.RawMessage{"image": json.RawMessage(`"old"`)}, Artifacts: []contracts.WorkerArtifact{},
+	})
+	current, err := coordinator.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if value := string(current.Values["result.contentRef"]); value != `"new"` {
+		t.Fatalf("runtime value = %s, want new", value)
+	}
+	if published := current.PublishedByBinding["stylize"]; published != newer.Identity {
+		t.Fatalf("published identity = %#v, want %#v", published, newer.Identity)
+	}
+	worker.finish(older.Identity.InvocationID)
+	worker.finish(newer.Identity.InvocationID)
+}
+
+func TestSubscriptionSnapshotRecoversPublishedOutputIdentity(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	invocation := startDrawingInvocation(t, coordinator, worker)
+	coordinator.acceptUpdate(contracts.RuntimeUpdate{
+		Identity: invocation.Identity, Outputs: map[string]json.RawMessage{"image": json.RawMessage(`"preview"`)}, Artifacts: []contracts.WorkerArtifact{},
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stream, err := coordinator.Subscribe(ctx)
+	if err != nil {
+		t.Fatalf("Subscribe() error = %v", err)
+	}
+	envelope := <-stream
+	if envelope.Snapshot == nil || envelope.Snapshot.PublishedByBinding["stylize"] != invocation.Identity {
+		t.Fatalf("subscription snapshot = %#v", envelope.Snapshot)
+	}
+	if value := string(envelope.Snapshot.Values["result.contentRef"]); value != `"preview"` {
+		t.Fatalf("subscription value = %s", value)
+	}
+	worker.finish(invocation.Identity.InvocationID)
 }
 
 func TestDirectInvokeRequiresExplicitReload(t *testing.T) {
@@ -210,6 +348,31 @@ func TestCancellationRemovesActiveInvocation(t *testing.T) {
 		}
 		time.Sleep(time.Millisecond)
 	}
+}
+
+func TestCancellationDispatchesLatestPendingInvocation(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	if _, err := coordinator.Reload(context.Background()); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	snapshot, _ := coordinator.Snapshot()
+	event := contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
+	if _, err := coordinator.HandleEvent(event); err != nil {
+		t.Fatalf("HandleEvent(first) error = %v", err)
+	}
+	first := receiveInvocation(t, worker.started)
+	if _, err := coordinator.HandleEvent(event); err != nil {
+		t.Fatalf("HandleEvent(second) error = %v", err)
+	}
+	if err := coordinator.Cancel(contracts.RuntimeCancelRequest{Type: "cancel", Identity: first.Identity}); err != nil {
+		t.Fatalf("Cancel() error = %v", err)
+	}
+	second := receiveInvocation(t, worker.started)
+	if second.Identity.Sequence != first.Identity.Sequence+1 {
+		t.Fatalf("second sequence = %d, want %d", second.Identity.Sequence, first.Identity.Sequence+1)
+	}
+	worker.finish(second.Identity.InvocationID)
 }
 
 func TestCancellationRemainsTerminalAfterCooperativeWorkerResult(t *testing.T) {
@@ -318,6 +481,26 @@ func assertInvocationState(t *testing.T, coordinator *Coordinator, invocationID 
 	}
 	if state := snapshot.Invocations[invocationID].State; state != expected {
 		t.Fatalf("invocation state = %q, want %q", state, expected)
+	}
+}
+
+func configureBindingScheduling(t *testing.T, coordinator *Coordinator, mode string, concurrencyLimit int) {
+	t.Helper()
+	projectSnapshot, err := coordinator.ProjectSnapshot()
+	if err != nil {
+		t.Fatalf("ProjectSnapshot() error = %v", err)
+	}
+	binding := projectSnapshot.Bindings[0]
+	binding.Scheduling.Mode = mode
+	binding.Scheduling.ConcurrencyLimit = concurrencyLimit
+	operation, err := json.Marshal(contracts.SetBindingOperation{Operation: "setBinding", Binding: binding})
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if _, err := coordinator.Apply(contracts.ApplyRequest{
+		ProjectID: projectSnapshot.ID, ExpectedRevision: projectSnapshot.Revision, Operations: []json.RawMessage{operation},
+	}); err != nil {
+		t.Fatalf("Apply() error = %v", err)
 	}
 }
 

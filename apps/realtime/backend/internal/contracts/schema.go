@@ -137,7 +137,7 @@ func RuntimeSchema() map[string]any {
 			"type": "object", "maxProperties": maximumOutputs, "propertyNames": handlerNameSchema(), "additionalProperties": map[string]any{"$ref": "#/$defs/jsonValue"},
 		},
 	})
-	definitions["snapshot"] = objectSchema([]string{"sessionId", "workerState", "values", "invocations"}, map[string]any{
+	definitions["snapshot"] = objectSchema([]string{"sessionId", "workerState", "values", "invocations", "publishedByBinding"}, map[string]any{
 		"sessionId":   idSchema(),
 		"workerState": map[string]any{"enum": []string{"stopped", "starting", "ready", "failed", "replacing"}},
 		"values": map[string]any{
@@ -145,6 +145,9 @@ func RuntimeSchema() map[string]any {
 		},
 		"invocations": map[string]any{
 			"type": "object", "maxProperties": maximumBindings * 68, "propertyNames": idSchema(), "additionalProperties": map[string]any{"$ref": "#/$defs/invocation"},
+		},
+		"publishedByBinding": map[string]any{
+			"type": "object", "maxProperties": maximumBindings, "propertyNames": idSchema(), "additionalProperties": map[string]any{"$ref": "#/$defs/identity"},
 		},
 	})
 	definitions["log"] = objectSchema([]string{"stream", "text"}, map[string]any{
