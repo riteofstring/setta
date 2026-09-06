@@ -14,16 +14,13 @@ import type {
 
 export type { ProjectOperation } from "../backend/generatedContract";
 
-function projectSection(
-  section: Section,
-  previous: WorkspaceSection | undefined,
-): WorkspaceSection {
+function projectSection(section: Section): WorkspaceSection {
   return {
     children: [...section.children],
     data: section.data as WorkspaceSectionData,
     id: section.id,
     isHorizontalOrientation: section.isHorizontalOrientation,
-    isMinimized: previous?.isMinimized ?? false,
+    isMinimized: false,
     kind: section.kind,
     name: section.name,
     overflowMode: section.overflowMode,
@@ -34,14 +31,11 @@ function projectSection(
   };
 }
 
-export function projectWorkspaceDocument(
-  project: Project,
-  previous?: WorkspaceDocument,
-): WorkspaceDocument {
+export function projectWorkspaceDocument(project: Project): WorkspaceDocument {
   const sections = Object.fromEntries(
     Object.entries(project.sections).map(([id, section]) => [
       id,
-      projectSection(section, previous?.sections[id]),
+      projectSection(section),
     ]),
   );
   const topLevelSections = Object.fromEntries(
@@ -57,10 +51,7 @@ export function projectWorkspaceDocument(
     ]),
   );
   return {
-    activeIds:
-      previous?.activeIds.filter(
-        (sectionId) => sections[sectionId] !== undefined,
-      ) ?? [],
+    activeIds: [],
     savedViews: null,
     sections,
     topLevelSections,

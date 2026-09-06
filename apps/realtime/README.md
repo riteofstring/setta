@@ -140,12 +140,12 @@ Direct invocation input has the same portable value boundary:
 
 ## Browser behavior
 
-Realtime renders one ordinary editable `@setta/workspace` host and shell. Workspace owns section
-selection, movement, resizing, locking, minimization, naming, the Inspector, section chrome, and
-its upstream XYFlow canvas; Realtime does not add a mode layer or alternate section renderer.
-Project snapshots arrive as complete SSE values. Runtime snapshots, events, cancellations,
-invocation status, updates, and logs use one WebSocket. Reconnection replaces local state from
-current complete snapshots while retaining browser-owned selection and minimized presentation.
+The default presentation is Use mode. Use and Author render through the same `@setta/workspace`
+host, shell, section registry, section chrome, and upstream XYFlow canvas. Use disables structural
+and layout editing and omits the Inspector; it is not a separate frontend or project model. Project
+snapshots arrive as complete SSE values. Runtime snapshots, events, cancellations, invocation
+status, updates, and logs use one WebSocket. Reconnection replaces local state from current
+complete snapshots.
 
 Fabric.js owns retained drawing objects, free drawing, erasing, selection, transforms, history,
 serialization, and raster export. Realtime persists the vector scene only after a coherent

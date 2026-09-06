@@ -11,11 +11,10 @@ external snapshot with generated Ajv standalone validators and projects one comp
 one `@setta/workspace` host. It does not maintain a second authored store or merge separately
 delivered section and forest fragments.
 
-The browser owns pointer-rate input, active selection, minimized presentation, focus, drafts,
-drawing interaction, and other disposable view state. Project projection retains that state across
-canonical backend snapshots. A durable mutation is sent only at a coherent commit boundary with
-the observed project identity and revision. Conflicts fetch or await the newest complete snapshot
-and remain explicit; the client does not replay a mutation against state the user did not edit.
+The browser owns pointer-rate input, focus, drafts, drawing interaction, and other disposable view
+state. A durable mutation is sent only at a coherent commit boundary with the observed project
+identity and revision. Conflicts fetch or await the newest complete snapshot and remain explicit;
+the client does not replay a mutation against state the user did not edit.
 
 The Realtime app supplies its own section kinds and product providers through Workspace's public
 registries. Realtime section implementations remain app-owned until another concrete consumer
@@ -49,12 +48,12 @@ active drawing gesture, throttled composited raster previews may emit by content
 turning pointer movement into durable project mutations. The outer Workspace canvas remains its
 existing upstream XYFlow projection.
 
-Realtime renders one ordinary, editable `WorkspaceShell`, Workspace host, section registry,
-section chrome, and upstream XYFlow canvas. It retains Workspace's native section selection,
-movement, resizing, locking, minimization, naming, and Inspector instead of introducing an app
-mode or presentation adapter. Realtime does not wrap the Workspace in a second product header;
-connection and runtime actions live in the Workspace Runtime tab instead of reserving a full-width
-row.
+Both Use and Author render through the same `WorkspaceShell`, Workspace host, section registry,
+section chrome, and upstream XYFlow canvas. Use is a read-only Workspace capability configuration
+that preserves the authored layout and omits the Inspector. It is not a second section or layout
+renderer, project format, or Python-authored UI tree. Realtime does not wrap the Workspace in a
+second product header; connection and runtime actions live in the Workspace Runtime tab instead
+of reserving a full-width row.
 
 ## Generated validation boundary
 

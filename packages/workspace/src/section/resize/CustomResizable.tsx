@@ -108,10 +108,10 @@ export function CustomResizable({
   const host = useWorkspaceHost();
   const { minHeight, maxHeight, minWidth, maxWidth, heightSizeMode } =
     useSectionMinMaxDims(sectionId);
-  const { isMinimized, size } = useWorkspaceDocument((x) => {
-    const section = getSectionOrThrow(x, sectionId);
-    return { isMinimized: section.isMinimized, size: section.size };
-  }, _.isEqual);
+  const size = useWorkspaceDocument(
+    (x) => getSectionOrThrow(x, sectionId).size,
+    _.isEqual,
+  );
   const canEditLayout = useWorkspaceCapabilities((x) => x.canEditLayout);
   const disablePointerEvents = useShouldDisablePointerEvents();
   const snapGrid = useWorkspaceOptions((x) => x.snapGrid);
@@ -276,9 +276,6 @@ export function CustomResizable({
   }, [host, sectionId]);
 
   useEffect(() => {
-    if (isMinimized) {
-      return;
-    }
     if (heightSizeMode === "auto-only" && size.height !== "auto") {
       persistSectionSizeChange(host, sectionId, { height: "auto" }, null);
       return;
@@ -302,7 +299,6 @@ export function CustomResizable({
     maxHeight,
     minWidth,
     maxWidth,
-    isMinimized,
     sectionId,
     size,
     canEditLayout,

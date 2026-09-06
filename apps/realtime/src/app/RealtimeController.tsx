@@ -178,7 +178,7 @@ export function RealtimeController() {
       try {
         commitWorkspaceDocument(
           workspaceHost,
-          projectWorkspaceDocument(nextProject, workspaceHost.getSnapshot()),
+          projectWorkspaceDocument(nextProject),
         );
         projectRef.current = nextProject;
         setProject(nextProject);

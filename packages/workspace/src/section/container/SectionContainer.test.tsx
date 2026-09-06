@@ -951,28 +951,6 @@ describe("SectionContainer", () => {
     expect(host.querySelector('[aria-label="Expand section"]')).not.toBeNull();
   });
 
-  it("restores a manually sized section after minimizing it", async () => {
-    await mount("leaf");
-
-    await act(async () => {
-      getRequiredElement(host, '[aria-label="Minimize section"]').click();
-    });
-    expect(testWorkspace.host.getSnapshot().sections.leaf).toMatchObject({
-      isMinimized: true,
-      size: { height: 96, width: 224 },
-    });
-    expect(host.querySelector('[data-testid="section-body"]')).toBeNull();
-
-    await act(async () => {
-      getRequiredElement(host, '[aria-label="Expand section"]').click();
-    });
-    expect(testWorkspace.host.getSnapshot().sections.leaf).toMatchObject({
-      isMinimized: false,
-      size: { height: 96, width: 224 },
-    });
-    expect(host.querySelector('[data-testid="section-body"]')).not.toBeNull();
-  });
-
   it("renders group chrome with its controls and the nested leaf", async () => {
     await mount("group");
 

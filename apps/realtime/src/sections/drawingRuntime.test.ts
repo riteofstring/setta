@@ -73,14 +73,6 @@ describe("retained drawing runtime", () => {
       onSettled: settled,
       width: 320,
     });
-    drawing.resizeToFit(160, 200);
-    expect(drawing.canvas.wrapperEl.style.width).toBe("160px");
-    expect(drawing.canvas.wrapperEl.style.height).toBe("120px");
-    expect(drawing.canvas.getWidth()).toBe(320);
-    expect(drawing.canvas.getHeight()).toBe(240);
-    drawing.resizeToFit(800, 300);
-    expect(drawing.canvas.wrapperEl.style.width).toBe("400px");
-    expect(drawing.canvas.wrapperEl.style.height).toBe("300px");
 
     const retained = drawing.addRectangle();
     expect(drawing.canvas.getObjects()).toEqual([retained]);

@@ -25,7 +25,6 @@ export function createRealtimeSectionKinds(): RealtimeSectionKindCatalog {
       renderContent: (section) => <ButtonSection section={section} />,
     },
     drawing: {
-      contentClassName: "flex min-h-0 flex-col",
       defaultSize: { height: 480, width: 640 },
       nestedSections: "vertical",
       renderContent: (section) => <DrawingSection section={section} />,

@@ -19,7 +19,6 @@ import {
   type DrawingTool,
 } from "./drawingRuntime";
 import { DrawingSettlementQueue } from "./drawingSettlementQueue";
-import { DrawingToolbarIcon } from "./DrawingToolbarIcon";
 import { readDrawingSectionData } from "./sectionData";
 
 const SETTLE_DELAY_MILLISECONDS = 180;
@@ -28,18 +27,12 @@ const INITIAL_HISTORY_STATE: DrawingHistoryState = {
   canRedo: false,
   canUndo: false,
 };
-const DRAWING_TOOL_LABELS: Record<DrawingTool, string> = {
-  draw: "Draw",
-  erase: "Eraser",
-  select: "Select",
-};
 
 export function DrawingSection({ section }: { section: WorkspaceSection }) {
   const { actions, runtime } = useRealtime();
   const data = readDrawingSectionData(section.data);
   const { background, height, width } = data;
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
   const drawingRef = useRef<RealtimeDrawingRuntime | null>(null);
   const settlementRef = useRef<DrawingSettlementQueue | null>(null);
   const lastLoadedSceneRef = useRef<string | null>(null);
@@ -72,19 +65,6 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       onSettled: () => settlement?.settle(),
       width,
     });
-    const stage = stageRef.current;
-    if (stage === null) {
-      void drawing.dispose();
-      return;
-    }
-    const resizeObserver = new ResizeObserver((entries) => {
-      const bounds = entries[0]?.contentRect;
-      if (bounds !== undefined) {
-        drawing.resizeToFit(bounds.width, bounds.height);
-      }
-    });
-    resizeObserver.observe(stage);
-    drawing.resizeToFit(stage.clientWidth, stage.clientHeight);
     settlement = new DrawingSettlementQueue({
       canEmit: () => runtimeCanInvoke(runtimeRef.current),
       capture: () => drawing.captureSnapshot(),
@@ -124,7 +104,6 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       );
     });
     return () => {
-      resizeObserver.disconnect();
       settlement?.dispose();
       if (settlementRef.current === settlement) {
         settlementRef.current = null;
@@ -180,15 +159,15 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         <div className="realtime-drawing-tool-group">
           {(["select", "draw", "erase"] as const).map((candidate) => (
             <button
-              aria-label={DRAWING_TOOL_LABELS[candidate]}
               aria-pressed={tool === candidate}
-              className={`realtime-drawing-tool-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+              className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
               key={candidate}
               onClick={() => chooseTool(candidate)}
-              title={DRAWING_TOOL_LABELS[candidate]}
               type="button"
             >
-              <DrawingToolbarIcon name={candidate} />
+              {candidate === "erase"
+                ? "Eraser"
+                : `${candidate[0]?.toUpperCase()}${candidate.slice(1)}`}
             </button>
           ))}
         </div>
@@ -202,7 +181,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
             />
           </label>
           <label className="realtime-drawing-size" title="Brush size">
-            <span className="realtime-drawing-size-label">Size</span>
+            <span>Size</span>
             <input
               aria-label="Brush size"
               className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
@@ -214,7 +193,6 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
               type="range"
               value={brushWidth}
             />
-            <output>{brushWidth}px</output>
           </label>
         </div>
         <div className="realtime-drawing-tool-group">
@@ -225,7 +203,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
             title="Add rectangle"
             type="button"
           >
-            <DrawingToolbarIcon name="rectangle" />
+            □
           </button>
           <button
             aria-label="Add ellipse"
@@ -234,7 +212,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
             title="Add ellipse"
             type="button"
           >
-            <DrawingToolbarIcon name="ellipse" />
+            ○
           </button>
         </div>
         <div className="realtime-drawing-tool-group">
@@ -246,7 +224,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
             title="Undo"
             type="button"
           >
-            <DrawingToolbarIcon name="undo" />
+            ↶
           </button>
           <button
             aria-label="Redo"
@@ -256,7 +234,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
             title="Redo"
             type="button"
           >
-            <DrawingToolbarIcon name="redo" />
+            ↷
           </button>
           <button
             aria-label="Delete selection"
@@ -265,22 +243,19 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
             title="Delete selection"
             type="button"
           >
-            <DrawingToolbarIcon name="delete" />
+            ⌫
           </button>
           <button
-            aria-label="Clear drawing"
-            className={`realtime-drawing-clear-button realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+            className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
             onClick={() => drawingRef.current?.clear()}
-            title="Clear drawing"
             type="button"
           >
-            <DrawingToolbarIcon name="clear" />
+            Clear
           </button>
         </div>
       </div>
       <div
         className={`realtime-drawing-stage ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
-        ref={stageRef}
       >
         <canvas aria-label={section.name} ref={canvasRef} />
       </div>

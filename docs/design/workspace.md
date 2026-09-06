@@ -24,8 +24,6 @@ geometry, viewport, selection, and optional saved canvas views. Appearance, menu
 completion services, diagnostics, shell view state, and windowing state remain host-owned runtime
 or view inputs. A section kind parses package- or host-owned data once when a document enters the
 package. Opaque host data is validated for serializability and otherwise remains uninterpreted.
-Minimization constrains a section's rendered surface to its header without replacing the section's
-authored size; expanding the section restores that size.
 
 Every complete document replacement validates all cross-resource invariants before the first
 store write. Internal publication stages the document, node geometry, and selection together so a
