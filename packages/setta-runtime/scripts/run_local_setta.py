@@ -7,9 +7,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
-
 
 ROOT = Path(__file__).resolve().parents[3]
 BUILD_SCRIPT = ROOT / "packages" / "setta-runtime" / "scripts" / "build_setta_wheel.py"

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -60,8 +59,7 @@ class LocalSettaRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             environment = root / "environment"
-            uv = shutil.which("uv")
-            self.assertIsNotNone(uv)
+            uv = run_local_setta._required_command("uv")
             subprocess.run(
                 [uv, "venv", "--python", sys.executable, str(environment)],
                 check=True,
