@@ -52,7 +52,10 @@ activation. Typing never writes or reloads. **Apply & reload** and Mod-Enter inv
 operation. Its result reports activation as `activated` or `rejected`, while runtime WebSocket state
 independently reports the worker as `starting`, `ready`, or `failed`, without a browser
 refresh. A failed activation leaves the editor clean against the accepted saved version, marks the
-runtime failed, and keeps the diagnostic visible for a corrected Apply or global Reload.
+runtime failed, and keeps the diagnostic visible for a corrected Apply or global Reload. The HTTP
+source action remains available while that runtime socket is unavailable because it is also the
+recovery path. A stale-version response refreshes the canonical comparison baseline without
+discarding the local draft.
 
 ## Sections and presentation
 

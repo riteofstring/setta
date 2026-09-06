@@ -1,6 +1,6 @@
 # Realtime live code authoring implementation plan
 
-Status: in progress
+Status: implemented
 
 ## Outcome
 
@@ -124,7 +124,7 @@ Realtime owns:
 
 - loading the current source document and retaining its version;
 - the draft, dirty comparison, apply serialization, and stale-conflict recovery;
-- mapping backend diagnostics into the editor and section status;
+- mapping backend diagnostics into visible Realtime feedback and section-action state;
 - enabling the header action and Mod-Enter shortcut; and
 - deciding when an applied version becomes live from runtime state.
 
@@ -257,7 +257,7 @@ artifact, restart, and shutdown coverage remains intact.
 - No source write or reload occurs per keystroke, and Apply requires no browser refresh.
 - Stale browser drafts cannot overwrite an externally changed entrypoint.
 - Runtime state reports whether the saved version is starting, ready, or failed.
-- Invalid code has the exact tested worker-retention behavior stated in durable documentation.
+- Invalid code has the exact tested worker-replacement behavior stated in durable documentation.
 - External Reload continues to reload the current on-disk source independently of a dirty draft.
 - Workspace remains source-agnostic and owns only reusable editor and header presentation.
 - Example runtime-content and worker staging directories are ignored while authored project inputs

@@ -114,13 +114,17 @@ normalized entrypoint, accepts bounded valid UTF-8, and atomically compare-and-s
 its opaque content version. A stale version, wrong project or entrypoint, invalid source body, or
 path escape does not write or reload.
 
+On a stale version, Realtime reads the current file as the new comparison baseline while retaining
+the browser draft for review. Source Apply remains available when the runtime worker or its socket
+is failed, so correcting rejected code does not depend on an already healthy worker.
+
 An accepted PUT saves `app.py` before activation and reports the saved source separately from an
-`activated` or `rejected` outcome. Replacement is deliberately non-overlapping: the current worker and its owned
-descendants stop before the new worker starts, avoiding doubled model, GPU, device, memory, and
-process-lifetime side effects. Runtime state reports `starting`, `ready`, or `failed`. If startup
-fails, the accepted bytes remain saved, the worker remains failed, and the clean editor displays
-the diagnostic. Correct the source and Apply again, or correct the file externally and use global
-Reload.
+`activated` or `rejected` outcome. Replacement is deliberately non-overlapping: the current worker
+and its owned descendants stop before the new worker starts, avoiding doubled model, GPU, device,
+memory, and process-lifetime side effects. Runtime state reports `starting`, `ready`, or `failed`.
+If startup fails, the accepted bytes remain saved, the worker remains failed, and the interface
+displays the diagnostic. Correct the source and Apply again, or correct the file externally and use
+global Reload.
 
 ## Python handlers
 

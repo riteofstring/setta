@@ -61,7 +61,8 @@ channels.
 
 The Go contract definitions own JSON Schema for project, HTTP, WebSocket, artifact, and worker
 documents. Generated browser declarations and Ajv standalone validators derive from those schemas;
-Go strictly decodes the same closed shapes.
+Go strictly decodes the same closed shapes. The offline `realtime schema` document includes the
+source read, apply request, and apply result schemas beside the other public contracts.
 
 ## Live entrypoint source
 
