@@ -32,9 +32,17 @@ class InvocationCancelled(Exception):
 
 
 class EntrypointLoader(importlib.machinery.SourceFileLoader):
+    def __init__(self, fullname, path):
+        super().__init__(fullname, path)
+        self.current_code = None
+
     def get_code(self, fullname):
-        source = self.get_data(self.path)
-        return self.source_to_code(source, self.path)
+        if fullname != self.name:
+            raise ImportError(f"loader cannot provide module {fullname}")
+        if self.current_code is None:
+            source = self.get_data(self.path)
+            self.current_code = self.source_to_code(source, self.path)
+        return self.current_code
 
 
 def _pairs_object(pairs):
@@ -435,6 +443,7 @@ class Worker:
     def _load_handlers(self, entrypoint_path):
         module_name = "setta_realtime_app"
         loader = EntrypointLoader(module_name, str(entrypoint_path))
+        loader.get_code(module_name)
         specification = importlib.util.spec_from_file_location(
             module_name, entrypoint_path, loader=loader
         )
