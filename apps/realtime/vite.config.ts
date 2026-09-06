@@ -9,6 +9,16 @@ const apiProxy = {
 };
 
 export default defineConfig({
+  build: {
+    chunkSizeWarningLimit: 3_000,
+    rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.code !== "MODULE_LEVEL_DIRECTIVE") {
+          warn(warning);
+        }
+      },
+    },
+  },
   server: {
     proxy: apiProxy,
   },

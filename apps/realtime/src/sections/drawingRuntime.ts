@@ -1,5 +1,6 @@
 import {
   Canvas,
+  Ellipse,
   FabricImage,
   PencilBrush,
   Rect,
@@ -12,9 +13,16 @@ import type { DrawingSnapshot } from "./drawingSettlementQueue";
 
 export type DrawingTool = "select" | "draw" | "erase";
 
+export type DrawingHistoryState = {
+  canRedo: boolean;
+  canUndo: boolean;
+};
+
 type DrawingRuntimeOptions = {
   background: string;
   height: number;
+  onHistoryChange: (state: DrawingHistoryState) => void;
+  onPreview: () => void;
   onSettled: () => void;
   width: number;
 };
@@ -27,11 +35,16 @@ function isSceneObject(
 
 export class RealtimeDrawingRuntime {
   public readonly canvas: Canvas;
-  public tool: DrawingTool = "select";
+  public tool: DrawingTool = "draw";
   private readonly background: string;
+  private drawing = false;
   private erasing = false;
   private erasedInGesture = false;
+  private history: WorkspaceSectionData[] = [];
+  private historyIndex = -1;
   private loading = false;
+  private readonly onHistoryChange: (state: DrawingHistoryState) => void;
+  private readonly onPreview: () => void;
   private readonly onSettled: () => void;
   private sceneLoad: AbortController | null = null;
 
@@ -40,6 +53,8 @@ export class RealtimeDrawingRuntime {
     options: DrawingRuntimeOptions,
   ) {
     this.background = options.background;
+    this.onHistoryChange = options.onHistoryChange;
+    this.onPreview = options.onPreview;
     this.onSettled = options.onSettled;
     this.canvas = new Canvas(element, {
       backgroundColor: options.background,
@@ -51,13 +66,17 @@ export class RealtimeDrawingRuntime {
     });
     const brush = new PencilBrush(this.canvas);
     brush.color = "#111827";
-    brush.width = 3;
+    brush.width = 4;
     this.canvas.freeDrawingBrush = brush;
     this.canvas.on("path:created", this.handleSettled);
     this.canvas.on("object:modified", this.handleSettled);
-    this.canvas.on("mouse:down", this.handleEraseStart);
-    this.canvas.on("mouse:move", this.handleEraseMove);
-    this.canvas.on("mouse:up", this.handleEraseEnd);
+    this.canvas.on("mouse:down", this.handlePointerStart);
+    this.canvas.on("mouse:move", this.handlePointerMove);
+    this.canvas.on("mouse:up", this.handlePointerEnd);
+    this.setTool("draw");
+    this.history = [this.toScene()];
+    this.historyIndex = 0;
+    this.publishHistoryState();
   }
 
   public setTool(tool: DrawingTool): void {
@@ -90,7 +109,26 @@ export class RealtimeDrawingRuntime {
     this.setTool("select");
     this.canvas.setActiveObject(object);
     this.canvas.requestRenderAll();
-    this.notifySettled();
+    this.recordSettledChange();
+    return object;
+  }
+
+  public addEllipse(): FabricObject {
+    const offset = this.canvas.getObjects().length * 12;
+    const object = new Ellipse({
+      fill: "rgba(37, 99, 235, 0.12)",
+      left: 36 + offset,
+      rx: 54,
+      ry: 38,
+      stroke: "#2563eb",
+      strokeWidth: 2,
+      top: 36 + offset,
+    });
+    this.canvas.add(object);
+    this.setTool("select");
+    this.canvas.setActiveObject(object);
+    this.canvas.requestRenderAll();
+    this.recordSettledChange();
     return object;
   }
 
@@ -125,10 +163,60 @@ export class RealtimeDrawingRuntime {
     }
     this.canvas.remove(...objects);
     this.canvas.requestRenderAll();
+    this.recordSettledChange();
+  }
+
+  public deleteSelection(): boolean {
+    const objects = this.canvas.getActiveObjects();
+    if (objects.length === 0) {
+      return false;
+    }
+    this.canvas.discardActiveObject();
+    this.canvas.remove(...objects);
+    this.canvas.requestRenderAll();
+    this.recordSettledChange();
+    return true;
+  }
+
+  public setBrush(color: string, width: number): void {
+    const brush = this.canvas.freeDrawingBrush;
+    if (brush === undefined) {
+      return;
+    }
+    brush.color = color;
+    brush.width = width;
+  }
+
+  public async undo(): Promise<boolean> {
+    if (this.historyIndex <= 0) {
+      return false;
+    }
+    this.historyIndex -= 1;
+    await this.applyScene(this.history[this.historyIndex]!);
+    this.publishHistoryState();
     this.notifySettled();
+    return true;
+  }
+
+  public async redo(): Promise<boolean> {
+    if (this.historyIndex >= this.history.length - 1) {
+      return false;
+    }
+    this.historyIndex += 1;
+    await this.applyScene(this.history[this.historyIndex]!);
+    this.publishHistoryState();
+    this.notifySettled();
+    return true;
   }
 
   public async loadScene(scene: WorkspaceSectionData): Promise<void> {
+    await this.applyScene(scene);
+    this.history = [this.toScene()];
+    this.historyIndex = 0;
+    this.publishHistoryState();
+  }
+
+  private async applyScene(scene: WorkspaceSectionData): Promise<void> {
     this.sceneLoad?.abort();
     const controller = new AbortController();
     this.sceneLoad = controller;
@@ -181,6 +269,25 @@ export class RealtimeDrawingRuntime {
     return { blob, scene };
   }
 
+  public async capturePreview(): Promise<DrawingSnapshot> {
+    const element = document.createElement("canvas");
+    element.width = this.canvas.lowerCanvasEl.width;
+    element.height = this.canvas.lowerCanvasEl.height;
+    const context = element.getContext("2d");
+    if (context === null) {
+      throw new Error("Realtime could not capture the drawing preview.");
+    }
+    context.drawImage(this.canvas.lowerCanvasEl, 0, 0);
+    context.drawImage(this.canvas.upperCanvasEl, 0, 0);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      element.toBlob(resolve, "image/png"),
+    );
+    if (blob === null) {
+      throw new Error("Realtime could not export the drawing preview.");
+    }
+    return { blob, scene: this.toScene() };
+  }
+
   public async dispose(): Promise<void> {
     this.sceneLoad?.abort();
     this.sceneLoad = null;
@@ -194,36 +301,71 @@ export class RealtimeDrawingRuntime {
   };
 
   private readonly handleSettled = (): void => {
-    this.notifySettled();
+    this.recordSettledChange();
   };
+
+  private recordSettledChange(): void {
+    if (this.loading) {
+      return;
+    }
+    const scene = this.toScene();
+    const current = this.history[this.historyIndex];
+    if (
+      current !== undefined &&
+      JSON.stringify(current) === JSON.stringify(scene)
+    ) {
+      this.notifySettled();
+      return;
+    }
+    this.history = this.history.slice(0, this.historyIndex + 1);
+    this.history.push(scene);
+    this.historyIndex = this.history.length - 1;
+    this.publishHistoryState();
+    this.notifySettled();
+  }
+
+  private publishHistoryState(): void {
+    this.onHistoryChange({
+      canRedo:
+        this.historyIndex >= 0 && this.historyIndex < this.history.length - 1,
+      canUndo: this.historyIndex > 0,
+    });
+  }
 
   private eraseTarget(event: TPointerEventInfo): boolean {
     const target = event.target ?? this.canvas.findTarget(event.e).target;
     return target === undefined ? false : this.eraseObject(target);
   }
 
-  private readonly handleEraseStart = (event: TPointerEventInfo): void => {
-    if (this.tool !== "erase") {
-      return;
-    }
-    this.erasing = true;
-    this.erasedInGesture = this.eraseTarget(event);
-  };
-
-  private readonly handleEraseMove = (event: TPointerEventInfo): void => {
-    if (this.tool === "erase" && this.erasing) {
-      this.erasedInGesture = this.eraseTarget(event) || this.erasedInGesture;
+  private readonly handlePointerStart = (event: TPointerEventInfo): void => {
+    if (this.tool === "draw") {
+      this.drawing = true;
+    } else if (this.tool === "erase") {
+      this.erasing = true;
+      this.erasedInGesture = this.eraseTarget(event);
     }
   };
 
-  private readonly handleEraseEnd = (): void => {
-    if (!this.erasing) {
-      return;
+  private readonly handlePointerMove = (event: TPointerEventInfo): void => {
+    if (this.tool === "draw" && this.drawing) {
+      this.onPreview();
+    } else if (this.tool === "erase" && this.erasing) {
+      const erased = this.eraseTarget(event);
+      this.erasedInGesture = erased || this.erasedInGesture;
+      if (erased) {
+        this.onPreview();
+      }
     }
-    this.erasing = false;
-    if (this.erasedInGesture) {
-      this.notifySettled();
+  };
+
+  private readonly handlePointerEnd = (): void => {
+    this.drawing = false;
+    if (this.erasing) {
+      this.erasing = false;
+      if (this.erasedInGesture) {
+        this.recordSettledChange();
+      }
+      this.erasedInGesture = false;
     }
-    this.erasedInGesture = false;
   };
 }

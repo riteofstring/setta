@@ -69,10 +69,7 @@ def neon_glitch(drawing):
         target = pathlib.Path(output.name)
     try:
         yield {
-            "outputs": {
-                "level": "success",
-                "status": "Neon-glitch processing complete. Keep drawing to update it.",
-            },
+            "outputs": {},
             "progress": 1,
             "message": "Rendering neon-glitch image",
             "artifacts": [

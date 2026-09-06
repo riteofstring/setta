@@ -647,6 +647,53 @@ async function waitForDrawingResult(client, origin) {
   }
 }
 
+async function drawStrokeBeforeRelease(client, origin) {
+  const bounds = await evaluate(
+    client,
+    `(() => {
+      const canvas = document.querySelector(".realtime-drawing-stage .upper-canvas");
+      if (!(canvas instanceof HTMLCanvasElement)) {
+        return null;
+      }
+      const rect = canvas.getBoundingClientRect();
+      return { height: rect.height, width: rect.width, x: rect.x, y: rect.y };
+    })()`,
+  );
+  assert.ok(bounds !== null && bounds.width > 100 && bounds.height > 100);
+  const startX = bounds.x + bounds.width * 0.25;
+  const startY = bounds.y + bounds.height * 0.35;
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: startX,
+    y: startY,
+  });
+  try {
+    for (let index = 1; index <= 8; index += 1) {
+      await client.send("Input.dispatchMouseEvent", {
+        button: "left",
+        buttons: 1,
+        type: "mouseMoved",
+        x: startX + index * 18,
+        y: startY + Math.sin(index) * 30,
+      });
+      await delay(30);
+    }
+    await waitForDrawingResult(client, origin);
+  } finally {
+    await client.send("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 0,
+      clickCount: 1,
+      type: "mouseReleased",
+      x: startX + 8 * 18,
+      y: startY + Math.sin(8) * 30,
+    });
+  }
+}
+
 async function exerciseBrowser(client, origin) {
   const loaded = client.waitForEvent(
     "Page.loadEventFired",
@@ -657,8 +704,17 @@ async function exerciseBrowser(client, origin) {
   await waitFor(
     client,
     "the connected Realtime use surface",
-    `document.querySelector(".realtime-mode-use") !== null &&
-      document.querySelector(".realtime-connection-connected") !== null`,
+    `(() => {
+      const stage = document.querySelector(".realtime-drawing-stage");
+      const canvas = stage?.querySelector(".canvas-container");
+      return document.querySelector(".realtime-mode-use") !== null &&
+        document.querySelector(".realtime-connection-connected") !== null &&
+        document.querySelector(".realtime-app-chrome") === null &&
+        stage instanceof HTMLElement &&
+        canvas instanceof HTMLElement &&
+        getComputedStyle(stage).padding === "0px" &&
+        getComputedStyle(canvas).borderWidth === "0px";
+    })()`,
   );
   await waitFor(
     client,
@@ -688,11 +744,13 @@ async function exerciseBrowser(client, origin) {
     outputExpression("Counter result", 'value === "2"'),
   );
 
-  await clickButton(client, "Rectangle");
-  await waitForDrawingResult(client, origin);
+  await drawStrokeBeforeRelease(client, origin);
+  await delay(300);
+  await clickButton(client, "Add rectangle");
+  await delay(300);
   const project = await jsonRequest(origin, "/api/v1/project");
   assert.ok(project.revision >= 2);
-  assert.ok(project.sections.drawing.data.scene.objects.length >= 1);
+  assert.ok(project.sections.drawing.data.scene.objects.length >= 2);
 
   await clickButton(client, "Fail");
   await waitFor(

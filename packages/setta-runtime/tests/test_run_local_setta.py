@@ -12,9 +12,13 @@ from scripts import run_local_setta
 
 
 class LocalSettaRunnerTests(unittest.TestCase):
-    def test_run_builds_and_reinstalls_before_forwarding_arguments(self) -> None:
+    def test_realtime_run_reuses_unrelated_app_assets(self) -> None:
         wheel = Path("/tmp/current-setta.whl")
         executable = Path("/tmp/local-setta")
+        reusable = run_local_setta.ReusableAppAssets(
+            native_server=Path("/installed/python-canvas"),
+            web_root=Path("/installed/python-canvas-web"),
+        )
         with (
             mock.patch.object(
                 run_local_setta,
@@ -24,6 +28,12 @@ class LocalSettaRunnerTests(unittest.TestCase):
             mock.patch.object(
                 run_local_setta, "_pinned_go", return_value=Path("/tools/go")
             ),
+            mock.patch.object(
+                run_local_setta,
+                "_reusable_app_assets",
+                return_value=reusable,
+            ),
+            mock.patch.object(run_local_setta, "_build_realtime_frontend") as frontend,
             mock.patch.object(run_local_setta, "_run") as run,
             mock.patch.object(
                 run_local_setta, "_build_current_wheel", return_value=wheel
@@ -42,7 +52,9 @@ class LocalSettaRunnerTests(unittest.TestCase):
         run.assert_called_once_with(
             ["/tools/pnpm", "install", "--frozen-lockfile"], run_local_setta.ROOT
         )
+        frontend.assert_called_once_with("/tools/pnpm", Path("/tools/go"))
         self.assertEqual(build.call_args.args[0], Path("/tools/go"))
+        self.assertEqual(build.call_args.args[2], reusable)
         install.assert_called_once_with("/tools/uv", wheel)
         foreground.assert_called_once_with(
             [
@@ -53,6 +65,61 @@ class LocalSettaRunnerTests(unittest.TestCase):
                 "example",
             ],
             run_local_setta.ROOT,
+        )
+
+    def test_first_run_builds_every_packaged_app(self) -> None:
+        wheel = Path("/tmp/current-setta.whl")
+        with (
+            mock.patch.object(
+                run_local_setta,
+                "_required_command",
+                side_effect=["/tools/uv", "/tools/pnpm"],
+            ),
+            mock.patch.object(
+                run_local_setta, "_pinned_go", return_value=Path("/tools/go")
+            ),
+            mock.patch.object(
+                run_local_setta, "_reusable_app_assets", return_value=None
+            ),
+            mock.patch.object(run_local_setta, "_build_realtime_frontend") as frontend,
+            mock.patch.object(run_local_setta, "_run"),
+            mock.patch.object(
+                run_local_setta, "_build_current_wheel", return_value=wheel
+            ) as build,
+            mock.patch.object(
+                run_local_setta,
+                "_install_current_wheel",
+                return_value=Path("/tmp/local-setta"),
+            ),
+            mock.patch.object(run_local_setta, "_run_foreground", return_value=0),
+        ):
+            self.assertEqual(run_local_setta.run(("realtime", "open")), 0)
+        frontend.assert_not_called()
+        self.assertIsNone(build.call_args.args[2])
+
+    def test_targeted_wheel_build_reuses_unrelated_app_paths(self) -> None:
+        reusable = run_local_setta.ReusableAppAssets(
+            native_server=Path("/installed/python-canvas"),
+            web_root=Path("/installed/python-canvas-web"),
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            wheel_directory = Path(temporary_directory)
+            wheel = wheel_directory / "setta.whl"
+            wheel.touch()
+            with mock.patch.object(run_local_setta, "_run") as run:
+                built = run_local_setta._build_current_wheel(
+                    Path("/tools/go"), wheel_directory, reusable
+                )
+        self.assertEqual(built, wheel)
+        command = run.call_args.args[0]
+        self.assertIn("--skip-frontend-build", command)
+        self.assertIn(
+            "python-canvas=/installed/python-canvas",
+            command,
+        )
+        self.assertIn(
+            "python-canvas=/installed/python-canvas-web",
+            command,
         )
 
     def test_install_replaces_same_version_setta_with_current_wheel(self) -> None:

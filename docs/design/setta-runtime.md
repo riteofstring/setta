@@ -53,5 +53,8 @@ and source-checkout fallbacks.
 The repository-local runner always builds a fresh wheel into a temporary directory and reinstalls
 the same-version `setta` package into a repository-owned environment with the package cache
 disabled. This keeps release versions deterministic while ensuring a local playground launch
-cannot reuse an older unpacked `uv tool run` environment. Installed releases continue to use the
-ordinary `setta` entry point.
+cannot reuse an older unpacked `uv tool run` environment. After the first complete build, a
+Realtime launch rebuilds Realtime and its Workspace dependency while reusing the installed Python
+Canvas native and web assets. The resulting wheel remains complete without rebuilding an unrelated
+app on every Realtime playground launch. Installed releases continue to use the ordinary `setta`
+entry point.

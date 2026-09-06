@@ -80,6 +80,7 @@ describe("Realtime workspace presentation", () => {
       element.querySelector('[data-workspace-shell="true"]'),
     ).not.toBeNull();
     expect(element.querySelector(".realtime-app-header")).toBeNull();
+    expect(element.querySelector(".realtime-app-chrome")).toBeNull();
     expect(
       element.querySelector(
         '[data-workspace-shell-pane-region="trailing"] .realtime-runtime-pane-controls',
@@ -186,6 +187,11 @@ describe("Realtime workspace presentation", () => {
     expect(element.textContent).toContain("Runtime unavailable");
     expect(element.textContent).toContain("Handler exploded");
     expect(element.textContent).toContain("Runtime logs (1)");
+    expect(
+      element.querySelector(
+        '[data-workspace-shell-pane-region="trailing"] [aria-label="Runtime activity"]',
+      ),
+    ).not.toBeNull();
     expect(
       element.querySelector(".realtime-action")?.hasAttribute("disabled"),
     ).toBe(true);

@@ -41,11 +41,12 @@ status sections render only canonical session values and invocation state addres
 binding outputs.
 
 The drawing section uses one exact-pinned Fabric.js release for its retained objects, hit testing,
-brushes, erasing, selection, transforms, serialization, filters, and raster export. Setta owns the
-section shell, canonical scene encoding, durable gesture boundary, event name, content upload, and
-snapshot coalescing. Pointer movement stays local. One coherent completed gesture persists the
-vector scene, and one settled raster snapshot may emit by content reference. The outer Workspace
-canvas remains its existing upstream XYFlow projection.
+brushes, erasing, selection, transforms, serialization, filters, history, and raster export. Setta
+owns the section shell, canonical scene encoding, durable gesture boundary, event name, content
+upload, and snapshot coalescing. A completed gesture persists one coherent vector scene. During an
+active drawing gesture, throttled composited raster previews may emit by content reference without
+turning pointer movement into durable project mutations. The outer Workspace canvas remains its
+existing upstream XYFlow projection.
 
 Both Use and Author render through the same `WorkspaceShell`, Workspace host, section registry,
 section chrome, and upstream XYFlow canvas. Use is a read-only Workspace capability configuration

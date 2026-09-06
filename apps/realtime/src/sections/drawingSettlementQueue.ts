@@ -10,10 +10,12 @@ export type DrawingSnapshot = {
 type DrawingSettlementQueueOptions = {
   canEmit: () => boolean;
   capture: () => Promise<DrawingSnapshot>;
+  capturePreview: () => Promise<DrawingSnapshot>;
   commit: (scene: WorkspaceSectionData) => Promise<boolean>;
   delayMilliseconds: number;
   emit: (reference: ContentReference) => void;
   onError: (error: unknown) => void;
+  previewDelayMilliseconds: number;
   upload: (blob: Blob) => Promise<ContentReference>;
 };
 
@@ -23,6 +25,8 @@ export class DrawingSettlementQueue {
     snapshot: DrawingSnapshot;
   } | null = null;
   private readyRevision = 0;
+  private previewReady = false;
+  private previewTimer: number | null = null;
   private revision = 0;
   private running = false;
   private stopped = false;
@@ -46,11 +50,27 @@ export class DrawingSettlementQueue {
     }, this.options.delayMilliseconds);
   }
 
+  public preview(): void {
+    if (this.stopped || !this.options.canEmit() || this.previewTimer !== null) {
+      return;
+    }
+    this.previewTimer = window.setTimeout(() => {
+      this.previewTimer = null;
+      this.previewReady = true;
+      void this.drain();
+    }, this.options.previewDelayMilliseconds);
+  }
+
   public dispose(): void {
     this.stopped = true;
     ++this.revision;
     this.blockedSnapshot = null;
     this.readyRevision = 0;
+    this.previewReady = false;
+    if (this.previewTimer !== null) {
+      window.clearTimeout(this.previewTimer);
+      this.previewTimer = null;
+    }
     if (this.timer !== null) {
       window.clearTimeout(this.timer);
       this.timer = null;
@@ -107,8 +127,27 @@ export class DrawingSettlementQueue {
   }
 
   private continueDrain(): void {
-    if (!this.stopped && this.readyRevision !== 0 && this.options.canEmit()) {
+    if (
+      !this.stopped &&
+      (this.readyRevision !== 0 ||
+        (this.previewReady && this.options.canEmit()))
+    ) {
       void this.drain();
+    }
+  }
+
+  private async processPreview(): Promise<void> {
+    this.previewReady = false;
+    if (!this.options.canEmit()) {
+      return;
+    }
+    const snapshot = await this.options.capturePreview();
+    if (this.stopped || !this.options.canEmit()) {
+      return;
+    }
+    const reference = await this.options.upload(snapshot.blob);
+    if (!this.stopped) {
+      this.options.emit(reference);
     }
   }
 
@@ -118,12 +157,16 @@ export class DrawingSettlementQueue {
     }
     this.running = true;
     try {
-      while (!this.stopped && this.readyRevision !== 0) {
-        const revision = this.readyRevision;
-        this.readyRevision = 0;
+      while (!this.stopped && (this.readyRevision !== 0 || this.previewReady)) {
         try {
-          if (!(await this.process(revision))) {
-            break;
+          if (this.readyRevision !== 0) {
+            const revision = this.readyRevision;
+            this.readyRevision = 0;
+            if (!(await this.process(revision))) {
+              break;
+            }
+          } else {
+            await this.processPreview();
           }
         } catch (error) {
           this.options.onError(error);

@@ -27,6 +27,7 @@ export type RealtimeActions = {
 
 type RealtimeContextValue = {
   actions: RealtimeActions;
+  error: string | null;
   project: Project;
   runtime: RuntimeViewState;
 };

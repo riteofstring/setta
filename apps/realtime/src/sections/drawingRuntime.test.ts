@@ -60,25 +60,35 @@ describe("retained drawing runtime", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
       (callback) => callback(new Blob(["setta"], { type: "image/png" })),
     );
+    const historyChanged = vi.fn();
+    const previewed = vi.fn();
     const settled = vi.fn();
     const element = document.createElement("canvas");
     document.body.append(element);
     const drawing = new RealtimeDrawingRuntime(element, {
       background: "#ffffff",
       height: 240,
+      onHistoryChange: historyChanged,
+      onPreview: previewed,
       onSettled: settled,
       width: 320,
     });
 
     const retained = drawing.addRectangle();
     expect(drawing.canvas.getObjects()).toEqual([retained]);
+    expect(await drawing.undo()).toBe(true);
+    expect(drawing.canvas.getObjects()).toHaveLength(0);
+    expect(await drawing.redo()).toBe(true);
+    expect(drawing.canvas.getObjects()).toHaveLength(1);
+    const restored = drawing.canvas.getObjects()[0]!;
 
     drawing.setTool("select");
-    expect(retained.selectable).toBe(true);
-    retained.set({ left: 64, scaleX: 1.5, top: 48 });
-    retained.setCoords();
-    drawing.canvas.fire("object:modified", { target: retained });
-    expect(drawing.canvas.getActiveObject()).toBe(retained);
+    expect(restored.selectable).toBe(true);
+    drawing.canvas.setActiveObject(restored);
+    restored.set({ left: 64, scaleX: 1.5, top: 48 });
+    restored.setCoords();
+    drawing.canvas.fire("object:modified", { target: restored });
+    expect(drawing.canvas.getActiveObject()).toBe(restored);
 
     drawing.setTool("draw");
     expect(drawing.canvas.isDrawingMode).toBe(true);
@@ -86,10 +96,22 @@ describe("retained drawing runtime", () => {
     const brush = drawing.canvas.freeDrawingBrush!;
     const down = new Point(12, 12);
     const move = new Point(48, 42);
+    drawing.canvas.fire("mouse:down", {
+      alreadySelected: false,
+      e: pointerEvent("pointerdown"),
+      scenePoint: down,
+      viewportPoint: down,
+    });
     brush.onMouseDown(down, { e: pointerEvent(), pointer: down });
     brush.onMouseMove(move, { e: pointerEvent(), pointer: move });
+    drawing.canvas.fire("mouse:move", {
+      e: pointerEvent(),
+      scenePoint: move,
+      viewportPoint: move,
+    });
     brush.onMouseUp({ e: pointerEvent(), pointer: move });
     expect(drawing.canvas.getObjects().length).toBe(2);
+    expect(previewed).toHaveBeenCalled();
 
     drawing.setTool("erase");
     expect(drawing.canvas.isDrawingMode).toBe(false);
@@ -134,6 +156,8 @@ describe("retained drawing runtime", () => {
     const roundTrip = new RealtimeDrawingRuntime(roundTripElement, {
       background: "#ffffff",
       height: 240,
+      onHistoryChange: vi.fn(),
+      onPreview: vi.fn(),
       onSettled: vi.fn(),
       width: 320,
     });

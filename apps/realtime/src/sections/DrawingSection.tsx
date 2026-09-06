@@ -13,11 +13,20 @@ import {
   runtimeCanInvoke,
   runtimeValueKey,
 } from "../app/runtimeState";
-import { RealtimeDrawingRuntime, type DrawingTool } from "./drawingRuntime";
+import {
+  RealtimeDrawingRuntime,
+  type DrawingHistoryState,
+  type DrawingTool,
+} from "./drawingRuntime";
 import { DrawingSettlementQueue } from "./drawingSettlementQueue";
 import { readDrawingSectionData } from "./sectionData";
 
 const SETTLE_DELAY_MILLISECONDS = 180;
+const PREVIEW_DELAY_MILLISECONDS = 90;
+const INITIAL_HISTORY_STATE: DrawingHistoryState = {
+  canRedo: false,
+  canUndo: false,
+};
 
 export function DrawingSection({ section }: { section: WorkspaceSection }) {
   const { actions, runtime } = useRealtime();
@@ -27,7 +36,10 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
   const drawingRef = useRef<RealtimeDrawingRuntime | null>(null);
   const settlementRef = useRef<DrawingSettlementQueue | null>(null);
   const lastLoadedSceneRef = useRef<string | null>(null);
-  const [tool, setTool] = useState<DrawingTool>("select");
+  const [brushColor, setBrushColor] = useState("#111827");
+  const [brushWidth, setBrushWidth] = useState(4);
+  const [history, setHistory] = useState(INITIAL_HISTORY_STATE);
+  const [tool, setTool] = useState<DrawingTool>("draw");
   const scene = resolveRuntimeValue(
     runtime.values,
     runtimeValueKey(section.id, "scene"),
@@ -48,19 +60,24 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     const drawing = new RealtimeDrawingRuntime(element, {
       background,
       height,
+      onHistoryChange: setHistory,
+      onPreview: () => settlement?.preview(),
       onSettled: () => settlement?.settle(),
       width,
     });
     settlement = new DrawingSettlementQueue({
       canEmit: () => runtimeCanInvoke(runtimeRef.current),
       capture: () => drawing.captureSnapshot(),
-      commit: (nextScene) =>
-        actions.commitSectionData(section.id, {
+      capturePreview: () => drawing.capturePreview(),
+      commit: (nextScene) => {
+        lastLoadedSceneRef.current = JSON.stringify(nextScene);
+        return actions.commitSectionData(section.id, {
           background,
           height,
           scene: nextScene,
           width,
-        }),
+        });
+      },
       delayMilliseconds: SETTLE_DELAY_MILLISECONDS,
       emit: (reference) => {
         actions.emit(section.id, "snapshot", { contentRef: reference });
@@ -72,6 +89,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
             : "Realtime could not settle the drawing.",
         );
       },
+      previewDelayMilliseconds: PREVIEW_DELAY_MILLISECONDS,
       upload: actions.uploadContent,
     });
     settlementRef.current = settlement;
@@ -121,6 +139,16 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     drawingRef.current?.setTool(nextTool);
   };
 
+  const changeBrushColor = (nextColor: string) => {
+    setBrushColor(nextColor);
+    drawingRef.current?.setBrush(nextColor, brushWidth);
+  };
+
+  const changeBrushWidth = (nextWidth: number) => {
+    setBrushWidth(nextWidth);
+    drawingRef.current?.setBrush(brushColor, nextWidth);
+  };
+
   return (
     <div className="realtime-drawing">
       <div
@@ -128,32 +156,103 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         className="realtime-drawing-toolbar"
         role="toolbar"
       >
-        {(["select", "draw", "erase"] as const).map((candidate) => (
+        <div className="realtime-drawing-tool-group">
+          {(["select", "draw", "erase"] as const).map((candidate) => (
+            <button
+              aria-pressed={tool === candidate}
+              className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+              key={candidate}
+              onClick={() => chooseTool(candidate)}
+              type="button"
+            >
+              {candidate === "erase"
+                ? "Eraser"
+                : `${candidate[0]?.toUpperCase()}${candidate.slice(1)}`}
+            </button>
+          ))}
+        </div>
+        <div className="realtime-drawing-tool-group realtime-drawing-brush-controls">
+          <label aria-label="Brush color" title="Brush color">
+            <input
+              className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+              onChange={(event) => changeBrushColor(event.currentTarget.value)}
+              type="color"
+              value={brushColor}
+            />
+          </label>
+          <label className="realtime-drawing-size" title="Brush size">
+            <span>Size</span>
+            <input
+              aria-label="Brush size"
+              className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+              max={24}
+              min={1}
+              onChange={(event) =>
+                changeBrushWidth(Number(event.currentTarget.value))
+              }
+              type="range"
+              value={brushWidth}
+            />
+          </label>
+        </div>
+        <div className="realtime-drawing-tool-group">
           <button
-            aria-pressed={tool === candidate}
-            className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            key={candidate}
-            onClick={() => chooseTool(candidate)}
+            aria-label="Add rectangle"
+            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+            onClick={() => drawingRef.current?.addRectangle()}
+            title="Add rectangle"
             type="button"
           >
-            {candidate[0]?.toUpperCase()}
-            {candidate.slice(1)}
+            □
           </button>
-        ))}
-        <button
-          className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-          onClick={() => drawingRef.current?.addRectangle()}
-          type="button"
-        >
-          Rectangle
-        </button>
-        <button
-          className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-          onClick={() => drawingRef.current?.clear()}
-          type="button"
-        >
-          Clear
-        </button>
+          <button
+            aria-label="Add ellipse"
+            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+            onClick={() => drawingRef.current?.addEllipse()}
+            title="Add ellipse"
+            type="button"
+          >
+            ○
+          </button>
+        </div>
+        <div className="realtime-drawing-tool-group">
+          <button
+            aria-label="Undo"
+            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+            disabled={!history.canUndo}
+            onClick={() => void drawingRef.current?.undo()}
+            title="Undo"
+            type="button"
+          >
+            ↶
+          </button>
+          <button
+            aria-label="Redo"
+            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+            disabled={!history.canRedo}
+            onClick={() => void drawingRef.current?.redo()}
+            title="Redo"
+            type="button"
+          >
+            ↷
+          </button>
+          <button
+            aria-label="Delete selection"
+            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+            onClick={() => drawingRef.current?.deleteSelection()}
+            title="Delete selection"
+            type="button"
+          >
+            ⌫
+          </button>
+          <button
+            className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+            onClick={() => drawingRef.current?.clear()}
+            type="button"
+          >
+            Clear
+          </button>
+        </div>
       </div>
       <div
         className={`realtime-drawing-stage ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}

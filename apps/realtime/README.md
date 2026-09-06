@@ -23,14 +23,17 @@ standard library and browser-native SVG filters:
 pnpm realtime:playground
 ```
 
-This repository-local command installs the frozen workspace dependencies, builds the current
-Workspace and both packaged applications, replaces the repository-owned local Setta environment
-from the newly built wheel, and opens Neon Sketch. It does not reuse `uv tool run`'s cached
-same-version environment. Use `setta realtime open` for an installed release.
+This repository-local command installs the frozen workspace dependencies, rebuilds Workspace and
+Realtime, replaces the repository-owned local Setta environment from a complete new wheel, and
+opens Neon Sketch. After the first complete build, it reuses the installed Python Canvas assets
+instead of rebuilding that unrelated app. It does not reuse `uv tool run`'s cached same-version
+environment. Use `setta realtime open` for an installed release.
 
-Choose **Draw**, make a mark, and the processed result appears beside the drawing. The example is
-an ordinary Realtime project: its authored document is under `.local/realtime/project.json`, and
-its editable handler is `app.py`. It requires no GPU, model download, or project dependency.
+Draw a mark and the processed result updates beside the pointer while the stroke is active. The
+toolbar also provides selection, whole-object erasing, brush color and size, rectangle and ellipse
+insertion, undo, redo, selected-object deletion, and clearing. The example is an ordinary Realtime
+project: its authored document is under `.local/realtime/project.json`, and its editable handler is
+`app.py`. It requires no GPU, model download, or project dependency.
 
 `open` loads the current entrypoint before opening the browser, owns one foreground session, and
 stops when its Setta supervisor exits. When that session is running, `snapshot`, `apply`, `reload`,
@@ -144,9 +147,10 @@ snapshots arrive as complete SSE values. Runtime snapshots, events, cancellation
 status, updates, and logs use one WebSocket. Reconnection replaces local state from current
 complete snapshots.
 
-Fabric.js owns retained drawing objects, free drawing, erasing, selection, transforms,
-serialization, and raster export. Pointer movement stays local. Realtime persists the vector scene
-and uploads one raster input only after a coherent settled gesture.
+Fabric.js owns retained drawing objects, free drawing, erasing, selection, transforms, history,
+serialization, and raster export. Realtime persists the vector scene only after a coherent
+gesture. While drawing, it uploads throttled composited raster previews so a binding can update
+before pointer release without persisting pointer-rate project mutations.
 
 Only the newest applicable invocation may update a binding target. `latest` retains one pending
 event, `once` rejects overlap, and `parallel` remains within declared binding and group bounds. A

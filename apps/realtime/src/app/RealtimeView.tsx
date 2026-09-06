@@ -125,7 +125,7 @@ function RuntimeFeedback({
 }
 
 function RealtimeRuntimePane() {
-  const { actions, project, runtime } = useRealtime();
+  const { actions, error, project, runtime } = useRealtime();
   const [reloading, setReloading] = useState(false);
   const handleReload = async () => {
     setReloading(true);
@@ -178,6 +178,7 @@ function RealtimeRuntimePane() {
           <dd>{activeInvocations}</dd>
         </div>
       </dl>
+      <RuntimeFeedback error={error} runtime={runtime} />
     </div>
   );
 }
@@ -195,11 +196,8 @@ function ReadyRealtimeView({
       <p aria-live="polite" className="realtime-announcer" role="status">
         Realtime ready.
       </p>
-      <RealtimeContext.Provider value={{ actions, project, runtime }}>
+      <RealtimeContext.Provider value={{ actions, error, project, runtime }}>
         <WorkspaceProvider host={host}>
-          <div className="realtime-app-chrome">
-            <RuntimeFeedback error={error} runtime={runtime} />
-          </div>
           <div className="realtime-workspace">
             <RealtimeWorkspace host={host} mode={mode} />
           </div>

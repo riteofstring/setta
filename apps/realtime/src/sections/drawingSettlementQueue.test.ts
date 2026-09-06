@@ -40,10 +40,12 @@ describe("drawing settlement queue", () => {
     const queue = new DrawingSettlementQueue({
       canEmit: () => true,
       capture,
+      capturePreview: capture,
       commit,
       delayMilliseconds: 180,
       emit,
       onError: vi.fn(),
+      previewDelayMilliseconds: 90,
       upload,
     });
 
@@ -86,10 +88,12 @@ describe("drawing settlement queue", () => {
     const queue = new DrawingSettlementQueue({
       canEmit: () => true,
       capture,
+      capturePreview: capture,
       commit: vi.fn(async () => true),
       delayMilliseconds: 180,
       emit,
       onError: vi.fn(),
+      previewDelayMilliseconds: 90,
       upload,
     });
 
@@ -125,10 +129,15 @@ describe("drawing settlement queue", () => {
         blob: new Blob(["scene"], { type: "image/png" }),
         scene,
       })),
+      capturePreview: vi.fn(async () => ({
+        blob: new Blob(["preview"], { type: "image/png" }),
+        scene,
+      })),
       commit,
       delayMilliseconds: 180,
       emit: vi.fn(),
       onError: vi.fn(),
+      previewDelayMilliseconds: 90,
       upload,
     });
 
@@ -155,10 +164,12 @@ describe("drawing settlement queue", () => {
     const queue = new DrawingSettlementQueue({
       canEmit: () => canEmit,
       capture,
+      capturePreview: capture,
       commit,
       delayMilliseconds: 180,
       emit,
       onError: vi.fn(),
+      previewDelayMilliseconds: 90,
       upload,
     });
 
@@ -173,6 +184,53 @@ describe("drawing settlement queue", () => {
     expect(commit).toHaveBeenCalledOnce();
     expect(upload).toHaveBeenCalledWith(snapshot.blob);
     expect(emit).toHaveBeenCalledWith(reference("waiting"));
+    queue.dispose();
+  });
+
+  it("streams throttled drawing previews before a gesture settles", async () => {
+    vi.useFakeTimers();
+    const settled: DrawingSnapshot = {
+      blob: new Blob(["settled"], { type: "image/png" }),
+      scene: { objects: [{ id: "settled" }] },
+    };
+    const preview: DrawingSnapshot = {
+      blob: new Blob(["preview"], { type: "image/png" }),
+      scene: { objects: [] },
+    };
+    const capturePreview = vi.fn(async () => preview);
+    const commit = vi.fn(async () => true);
+    const upload = vi
+      .fn<(blob: Blob) => Promise<ContentReference>>()
+      .mockResolvedValueOnce(reference("preview"))
+      .mockResolvedValueOnce(reference("settled"));
+    const emit = vi.fn();
+    const queue = new DrawingSettlementQueue({
+      canEmit: () => true,
+      capture: vi.fn(async () => settled),
+      capturePreview,
+      commit,
+      delayMilliseconds: 180,
+      emit,
+      onError: vi.fn(),
+      previewDelayMilliseconds: 90,
+      upload,
+    });
+
+    queue.preview();
+    queue.preview();
+    await vi.advanceTimersByTimeAsync(90);
+    await flushMicrotasks();
+
+    expect(capturePreview).toHaveBeenCalledOnce();
+    expect(commit).not.toHaveBeenCalled();
+    expect(emit).toHaveBeenCalledWith(reference("preview"));
+
+    queue.settle();
+    await vi.advanceTimersByTimeAsync(180);
+    await flushMicrotasks();
+
+    expect(commit).toHaveBeenCalledWith(settled.scene);
+    expect(emit).toHaveBeenLastCalledWith(reference("settled"));
     queue.dispose();
   });
 });
