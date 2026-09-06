@@ -137,13 +137,23 @@ class RealtimeAdapterTests(unittest.TestCase):
         self,
     ) -> None:
         project = self.root / "project"
-        self.assertEqual(
-            RealtimeAdapter().dispatch(
-                ("open", "--project-root", str(project), "--create", "--no-open"),
-                self.context,
-            ),
-            0,
-        )
+        opener = _CommandOpener({"handlers": ["run"], "loadError": None})
+        with mock.patch(
+            "setta.apps.realtime.urllib.request.build_opener", return_value=opener
+        ):
+            self.assertEqual(
+                RealtimeAdapter().dispatch(
+                    (
+                        "open",
+                        "--project-root",
+                        str(project),
+                        "--create",
+                        "--no-open",
+                    ),
+                    self.context,
+                ),
+                0,
+            )
         canonical = str(project.resolve(strict=False))
         command = self.supervisor.command
         self.assertIsNotNone(command)
@@ -169,6 +179,14 @@ class RealtimeAdapterTests(unittest.TestCase):
             ],
         )
         self.assertEqual(json.loads(self.stdout.getvalue())["appId"], APP_ID)
+        self.assertEqual(
+            opener.request.full_url if opener.request else None,
+            "http://127.0.0.1:43123/api/v1/runtime/reload",
+        )
+        self.assertEqual(
+            opener.request.get_header("Origin") if opener.request else None,
+            "http://127.0.0.1:43123",
+        )
 
     def test_project_commands_canonicalize_and_forward_the_project_root(self) -> None:
         project = self.root / "project" / ".." / "project"

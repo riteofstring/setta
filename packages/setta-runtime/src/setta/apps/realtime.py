@@ -140,6 +140,12 @@ class RealtimeAdapter:
             finally:
                 if not published:
                     context.supervisor.stop(managed)
+        try:
+            _read_live_response(_runtime_reload_request(session))
+        except BaseException:
+            context.sessions.remove_if_owned(session)
+            context.supervisor.stop(managed)
+            raise
         write_json(
             context.stdout,
             {
@@ -320,6 +326,15 @@ def _live_request(
         body = body if body is not None else b""
     return urllib.request.Request(
         session.url + path, data=body, headers=headers, method=method
+    )
+
+
+def _runtime_reload_request(session: LiveSession) -> urllib.request.Request:
+    return urllib.request.Request(
+        session.url + "/api/v1/runtime/reload",
+        data=b"",
+        headers={"Accept": "application/json", "Origin": session.url},
+        method="POST",
     )
 
 
