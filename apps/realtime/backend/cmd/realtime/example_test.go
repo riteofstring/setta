@@ -35,7 +35,7 @@ func TestNeonSketchExampleProcessesDrawing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reload() error = %v", err)
 	}
-	if initialized.LoadError != nil || len(initialized.Handlers) != 1 || initialized.Handlers[0] != "neon_glitch" {
+	if initialized.LoadError != nil || len(initialized.Handlers) != 2 || initialized.Handlers[0] != "neon_glitch" || initialized.Handlers[1] != "pillow_risograph" {
 		t.Fatalf("Reload() = %#v", initialized)
 	}
 	var source bytes.Buffer
@@ -60,7 +60,7 @@ func TestNeonSketchExampleProcessesDrawing(t *testing.T) {
 	accepted, err := application.coordinator.HandleEvent(contracts.RuntimeEvent{
 		Type: "event", SessionID: runtimeSnapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: payload,
 	})
-	if err != nil || accepted != 1 {
+	if err != nil || accepted != 2 {
 		t.Fatalf("HandleEvent() = %d, %v", accepted, err)
 	}
 	result := waitForNeonResult(t, application)

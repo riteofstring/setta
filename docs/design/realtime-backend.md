@@ -29,7 +29,8 @@ The checked-in Neon example is an immutable project fixture rather than the live
 The repository-local launcher copies that fixture into an ignored working directory and the
 backend reads and writes only the copy. This keeps callback source, drawing state, content, worker
 staging, and future runtime-owned files out of the tracked source tree without changing ordinary
-Realtime project ownership.
+Realtime project ownership. The fixture's exact-pinned Pillow dependency remains ordinary Python
+project metadata and is installed only into the ignored working project's environment.
 
 A project may contain zero or one `code` section. Its closed data is exactly
 `{"source":"entrypoint"}`: the section projects the file selected by `runtime.entrypoint` and does
@@ -103,6 +104,11 @@ for the newest retained input. Running work is not cancelled or marked supersede
 newer event arrived. The scheduler reports the exact pending invocation it replaced so the
 coordinator can mark that invocation `superseded` without inferring task state from submission
 order. A nonzero debounce remains a deliberate trailing admission delay.
+
+One source event may schedule several bindings. Distinct concurrency groups admit independent
+handlers concurrently, and each binding publishes to its own targets as soon as its updates arrive;
+there is no cross-binding output barrier. The Neon fixture uses this fan-out for its SVG and Pillow
+renderers while retaining one bounded `latest` slot per renderer.
 
 Each binding keeps separate highest-submitted and highest-published identities. Invocation status
 follows submitted work. An active invocation's update or final output remains publishable while a

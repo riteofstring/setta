@@ -282,6 +282,11 @@ The built-in Text and Code sections share one controlled CodeMirror assembly. A 
 the value that the editor already contains, so unrelated workspace publications do not replace its
 document or discard cursor, selection, scroll, focus, and local undo state.
 
+The editor measures horizontal and vertical native overflow independently. A dominant wheel axis
+stays with CodeMirror only when that axis can scroll; an axis without overflow remains available to
+Workspace canvas panning. Primary pointer interaction remains editor-owned for selection and
+editing regardless of wheel ownership.
+
 A generated document carries one explicit protected range. User transactions map that range with
 their accepted edits; a host replacement supplies its own next text and range together and is not
 mapped through itself. Any user transaction touching the protected range is rejected as a whole,

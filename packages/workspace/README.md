@@ -715,12 +715,14 @@ reusable palette editing and persistence remain host-owned. A valid document col
 current palette stays visible as an explicit Custom choice rather than silently selecting another
 category.
 
-Custom interactive renderer content uses only the four exported interaction-boundary constants:
+Custom interactive renderer content uses only the five exported interaction-boundary constants:
 `NO_DRAG_CLASS_NAME` prevents section/item drag activation and `NO_PAN_CLASS_NAME` preserves the
 element's pointer interaction. `NO_WHEEL_CLASS_NAME` preserves browser-native wheel behavior such
 as scrolling. `MANUAL_WHEEL_CLASS_NAME` is for controls with an `onWheel` handler: the control still
 receives the event, while the canvas synchronously prevents Chrome from latching horizontal
-Back/Forward navigation. Package controls apply these boundaries themselves.
+Back/Forward navigation. `SETTA_PREVENT_SECTION_ACTIVE_CSS` suppresses the section's transient
+pressed outline while its marked interactive descendant is active without changing selection.
+Package controls apply these boundaries themselves.
 
 An attached host surface that must suspend its own scrolling while the canvas owns a pan-scroll
 gesture can use `subscribeWorkspaceCanvasPanScrolling(host, listener)`. The returned function

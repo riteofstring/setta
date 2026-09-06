@@ -26,6 +26,14 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
         workspace_patch.start()
         self.addCleanup(fixture_patch.stop)
         self.addCleanup(workspace_patch.stop)
+        which_patch = mock.patch.object(
+            run_realtime_playground.shutil, "which", return_value="/tools/uv"
+        )
+        run_patch = mock.patch.object(run_realtime_playground.subprocess, "run")
+        self.which = which_patch.start()
+        self.run = run_patch.start()
+        self.addCleanup(which_patch.stop)
+        self.addCleanup(run_patch.stop)
 
     def test_first_run_seeds_fixture_and_opens_staged_workspace(self) -> None:
         _write_project(self.fixture, "fixture")
@@ -44,6 +52,19 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
                 str(self.workspace),
             ]
         )
+        self.run.assert_called_once_with(
+            [
+                "/tools/uv",
+                "sync",
+                "--frozen",
+                "--no-build",
+                "--no-install-project",
+                "--project",
+                str(self.workspace),
+            ],
+            cwd=self.workspace,
+            check=True,
+        )
 
     def test_existing_workspace_is_preserved_before_open(self) -> None:
         _write_project(self.fixture, "fixture")
@@ -56,6 +77,34 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual(_file_tree(self.workspace), before)
         local_main.assert_called_once()
+
+    def test_environment_sync_failure_prevents_open(self) -> None:
+        _write_project(self.fixture, "fixture")
+        self.run.side_effect = run_realtime_playground.subprocess.CalledProcessError(
+            1, ["uv", "sync"]
+        )
+        stderr = io.StringIO()
+        with (
+            mock.patch.object(run_realtime_playground.sys, "stderr", stderr),
+            mock.patch.object(run_local_setta, "main") as local_main,
+        ):
+            status = run_realtime_playground.main([])
+        self.assertEqual(status, 1)
+        self.assertIn("cannot sync project environment", stderr.getvalue())
+        local_main.assert_not_called()
+
+    def test_missing_uv_prevents_open(self) -> None:
+        _write_project(self.fixture, "fixture")
+        self.which.return_value = None
+        stderr = io.StringIO()
+        with (
+            mock.patch.object(run_realtime_playground.sys, "stderr", stderr),
+            mock.patch.object(run_local_setta, "main") as local_main,
+        ):
+            status = run_realtime_playground.main([])
+        self.assertEqual(status, 1)
+        self.assertIn("uv is required", stderr.getvalue())
+        local_main.assert_not_called()
 
     def test_missing_required_fixture_file_does_not_create_workspace(self) -> None:
         _write_project(self.fixture, "fixture")

@@ -1,4 +1,5 @@
 import base64
+import io
 import pathlib
 import struct
 import tempfile
@@ -80,4 +81,51 @@ def neon_glitch(drawing):
         target.unlink(missing_ok=True)
 
 
-globals()["handlers"] = {"neon_glitch": neon_glitch}
+def _pillow_risograph(image):
+    from PIL import Image, ImageChops, ImageFilter, ImageOps
+
+    with Image.open(io.BytesIO(image)) as source:
+        rgba = source.convert("RGBA")
+    flattened = Image.new("RGB", rgba.size, "white")
+    flattened.paste(rgba, mask=rgba.getchannel("A"))
+    strokes = ImageOps.autocontrast(ImageOps.invert(ImageOps.grayscale(flattened)))
+    outline = ImageChops.subtract(strokes.filter(ImageFilter.MaxFilter(9)), strokes)
+    shadow = strokes.filter(ImageFilter.GaussianBlur(5))
+    result = Image.new("RGB", flattened.size, "#fff7ed")
+    result.paste("#fde68a", mask=shadow)
+    result.paste("#fb7185", mask=outline)
+    result.paste("#172554", mask=strokes)
+    rgba.close()
+    flattened.close()
+    strokes.close()
+    outline.close()
+    shadow.close()
+    return result
+
+
+def pillow_risograph(drawing):
+    source, _, _ = _drawing_png(drawing)
+    image = _pillow_risograph(source)
+    with tempfile.NamedTemporaryFile(
+        prefix="setta-risograph-", suffix=".png", delete=False
+    ) as output:
+        target = pathlib.Path(output.name)
+    try:
+        image.save(target, format="PNG", compress_level=1)
+        yield {
+            "outputs": {},
+            "progress": 1,
+            "message": "Rendering Pillow risograph",
+            "artifacts": [
+                {"name": "image", "mediaType": "image/png", "path": str(target)}
+            ],
+        }
+    finally:
+        image.close()
+        target.unlink(missing_ok=True)
+
+
+globals()["handlers"] = {
+    "neon_glitch": neon_glitch,
+    "pillow_risograph": pillow_risograph,
+}

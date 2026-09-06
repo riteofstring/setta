@@ -78,7 +78,10 @@ The drawing section uses one exact-pinned Fabric.js release for its retained obj
 brushes, erasing, selection, transforms, serialization, filters, history, and raster export. Setta
 owns the section shell, canonical scene encoding, durable gesture boundary, event name, content
 upload, and snapshot coalescing. Canvas gestures do not activate or reorder the outer Workspace
-section. A completed gesture persists one coherent vector scene.
+section or trigger its transient pressed outline. Primary pointer drag remains local to Fabric,
+while wheel input over the non-scrolling drawing stage remains available to Workspace panning. A
+completed gesture persists one coherent vector scene. The Code editor similarly retains pointer
+selection while Workspace receives a wheel axis on which the editor has no native overflow.
 
 The visible Fabric scene is browser-authoritative from the first local change until the matching
 durable scene is acknowledged. Canonical scenes hydrate only while that local state is clean, so a
@@ -93,7 +96,9 @@ pointer movement records only one dirty preview marker and performs no raster ca
 A terminal matching invocation replenishes the credit and drains the newest state. Settling clears
 obsolete preview work, retains one final raster until it can be sent, and gives that final work
 priority when capacity returns. The Go scheduler remains the correctness boundary; browser
-admission only avoids waste for the current single-owner local product.
+admission only avoids waste for the current single-owner local product. With multiple matching
+bindings, the capacity credit returns after every binding is terminal. Their results may still
+publish independently, and distinct concurrency groups allow independent scheduler admission.
 
 Other policies retain the bounded fixed preview timer. Completion-paced work does not use an EWMA
 or another estimate because completion itself supplies capacity feedback. Generator updates remain

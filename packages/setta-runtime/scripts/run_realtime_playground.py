@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 from collections.abc import Sequence
@@ -30,6 +31,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
         return 2
     try:
         workspace = prepare_workspace()
+        _sync_environment(workspace)
     except PlaygroundError as error:
         sys.stderr.write(f"run_realtime_playground: {error}\n")
         return 1
@@ -75,6 +77,28 @@ def _open_workspace(workspace: Path) -> int:
     from scripts import run_local_setta
 
     return run_local_setta.main(["realtime", "open", "--project-root", str(workspace)])
+
+
+def _sync_environment(workspace: Path) -> None:
+    uv = shutil.which("uv")
+    if uv is None:
+        raise PlaygroundError("uv is required")
+    try:
+        subprocess.run(
+            [
+                uv,
+                "sync",
+                "--frozen",
+                "--no-build",
+                "--no-install-project",
+                "--project",
+                str(workspace),
+            ],
+            cwd=workspace,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise PlaygroundError(f"cannot sync project environment: {error}") from error
 
 
 def _validate_project(root: Path, label: str) -> None:

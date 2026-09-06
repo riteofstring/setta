@@ -975,6 +975,68 @@ async function resizeSection(client, origin, sectionId, delta, initialWidth) {
   );
 }
 
+async function exerciseDrawingSurfaceInteraction(client, origin) {
+  await activateSection(client, "counter");
+  const point = await evaluate(
+    client,
+    `(() => {
+      const canvas = document.querySelector(".realtime-drawing-stage .upper-canvas");
+      if (!(canvas instanceof HTMLCanvasElement)) {
+        return null;
+      }
+      const rect = canvas.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    })()`,
+  );
+  assert.ok(point !== null, "The drawing surface was not pointer-addressable.");
+  await client.send("Input.dispatchMouseEvent", {
+    buttons: 0,
+    type: "mouseMoved",
+    x: point.x,
+    y: point.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: point.x,
+    y: point.y,
+  });
+  try {
+    const outlineColor = await evaluate(
+      client,
+      `getComputedStyle(document.querySelector('[data-workspace-section-shell="true"][data-section-id="drawing"]')).outlineColor`,
+    );
+    assert.ok(
+      outlineColor === "rgba(0, 0, 0, 0)" || outlineColor === "transparent",
+      `Drawing pressed outline was ${String(outlineColor)}.`,
+    );
+  } finally {
+    await client.send("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 0,
+      clickCount: 1,
+      type: "mouseReleased",
+      x: point.x,
+      y: point.y,
+    });
+  }
+  const beforeWheel = await jsonRequest(origin, "/api/v1/project");
+  await client.send("Input.dispatchMouseEvent", {
+    deltaX: 96,
+    deltaY: 0,
+    type: "mouseWheel",
+    x: point.x,
+    y: point.y,
+  });
+  await waitForProject(
+    origin,
+    "drawing-surface wheel panning",
+    (project) => project.layout.viewport.x !== beforeWheel.layout.viewport.x,
+  );
+}
+
 async function exerciseWorkspaceSection(client, origin) {
   await activateSection(client, "drawing");
   await clickSectionButton(client, "drawing", "Lock position and size");
@@ -1057,9 +1119,10 @@ async function exerciseWorkspaceSection(client, origin) {
         canvasRect.width <= stageRect.width + 1 &&
         canvasRect.height <= stageRect.height + 1 &&
         canvasRect.width < ${String(beforeCanvasWidth)} - 5 &&
-        Math.abs(canvasRect.width / canvasRect.height - expectedRatio) < 0.02;
+      Math.abs(canvasRect.width / canvasRect.height - expectedRatio) < 0.02;
     })()`,
   );
+  await exerciseDrawingSurfaceInteraction(client, origin);
 }
 
 function outputExpression(name, predicate) {

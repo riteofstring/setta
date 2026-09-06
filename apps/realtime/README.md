@@ -16,8 +16,9 @@ setta realtime invoke --project-root ./my-app --handler increment --file input.j
 
 ## Drawing playground
 
-The checked-in playground turns each settled drawing into a neon-glitch image using only Python's
-standard library and browser-native SVG filters:
+The checked-in playground fans each drawing snapshot out to two realtime handlers. One keeps the
+standard-library and browser-native SVG neon effect; the other uses Pillow image operations to
+produce a warm risograph treatment:
 
 ```console
 pnpm realtime:playground
@@ -30,18 +31,24 @@ instead of rebuilding that unrelated app. It does not reuse `uv tool run`'s cach
 environment. Before launch it seeds `tmp/realtime-playground/neon-sketch` from the immutable
 checked-in fixture when that ignored working project is absent. Later launches preserve drawings
 and applied callback edits in the ignored copy; remove that directory to reset it from the fixture.
+An existing copy is deliberately not migrated. Back up any callback edits and reset it once to pick
+up a newer fixture layout or callback. The launcher synchronizes the working project's exact frozen
+dependencies into its ignored `.venv` without building source distributions.
 Generated Realtime contracts are checked without being rewritten and Go module resolution is
 read-only during this build, so launching the playground does not repair or update tracked inputs.
 Use `setta realtime open` for an installed release.
 
-Draw a mark and the processed result updates beside the pointer while the stroke is active. The
-toolbar also provides selection, whole-object erasing, brush color and size, rectangle and ellipse
-insertion, undo, redo, selected-object deletion, and clearing. The example is an ordinary Realtime
-project: inside the ignored working copy its authored document is `.local/realtime/project.json`
-and its editable handler is `app.py`. The tracked source under
+Draw a mark and both processed results update while the stroke is active. The two bindings have
+independent concurrency groups, so the SVG and Pillow handlers are admitted and publish without
+waiting on each other. The toolbar also provides selection, whole-object erasing, brush color and
+size, rectangle and ellipse insertion, undo, redo, selected-object deletion, and clearing. The
+example is an ordinary Realtime project: inside the ignored working copy its authored document is
+`.local/realtime/project.json` and its editable handler is `app.py`. Change the three palette colors
+in `_pillow_risograph`, or the `MaxFilter` size, then use **Apply & reload** for an immediate visual
+variation. The tracked source under
 `apps/realtime/examples/neon-sketch/fixture` is only the immutable seed. Playground activity never
-modifies that fixture or adds runtime state to Git. It requires no GPU, model download, or project
-dependency.
+modifies that fixture or adds runtime state to Git. It requires no GPU or model download; Pillow is
+the example project's sole exact-pinned dependency.
 
 `open` loads the current entrypoint before opening the browser, owns one foreground session, and
 stops when its Setta supervisor exits. When that session is running, `snapshot`, `apply`, `reload`,
@@ -106,6 +113,11 @@ Zero debounce starts idle work immediately. While it runs, `latest` retains only
 input and starts that input when capacity returns, so the handler's observed completion rate adapts
 the cadence without a guessed timing interval. A nonzero debounce remains an explicit trailing
 delay for interactions that should wait for input to become quiet.
+
+One event may fan out to multiple bindings. Independent work should use distinct concurrency groups
+so each handler can start and publish separately. Drawing preview admission waits until every
+matching completion-paced binding is terminal before emitting the next snapshot, so the slowest
+matching handler bounds input cadence without blocking faster outputs from appearing first.
 
 ## Live source editing
 

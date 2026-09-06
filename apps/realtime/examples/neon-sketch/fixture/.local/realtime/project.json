@@ -35,7 +35,7 @@
       "kind": "output",
       "name": "Neon result",
       "width": 520,
-      "height": 400,
+      "height": 310,
       "overflowMode": false,
       "positionAndSizeLocked": false,
       "isHorizontalOrientation": false,
@@ -43,14 +43,30 @@
       "tagColor": null,
       "children": [],
       "data": {
-        "value": "Your processed drawing will appear here."
+        "value": "Your neon drawing will appear here."
+      }
+    },
+    "pillow-result": {
+      "id": "pillow-result",
+      "kind": "output",
+      "name": "Pillow risograph",
+      "width": 520,
+      "height": 310,
+      "overflowMode": false,
+      "positionAndSizeLocked": false,
+      "isHorizontalOrientation": false,
+      "styleColor": null,
+      "tagColor": null,
+      "children": [],
+      "data": {
+        "value": "Your Pillow-processed drawing will appear here."
       }
     },
     "callback": {
       "id": "callback",
       "kind": "code",
       "name": "Realtime callback",
-      "width": 1064,
+      "width": 520,
       "height": 520,
       "overflowMode": false,
       "positionAndSizeLocked": false,
@@ -76,13 +92,20 @@
         "x": 568,
         "y": 24,
         "width": 520,
-        "height": 400,
+        "height": 310,
+        "zIndex": 1
+      },
+      "pillow-result": {
+        "x": 568,
+        "y": 358,
+        "width": 520,
+        "height": 310,
         "zIndex": 1
       },
       "callback": {
         "x": 24,
         "y": 448,
-        "width": 1064,
+        "width": 520,
         "height": 520,
         "zIndex": 1
       }
@@ -107,12 +130,35 @@
       "scheduling": {
         "mode": "latest",
         "debounceMilliseconds": 0,
-        "concurrencyGroup": "image-processing",
+        "concurrencyGroup": "neon-rendering",
         "concurrencyLimit": 1
       },
       "outputs": {
         "image": {
           "sectionId": "result",
+          "field": "contentRef"
+        }
+      }
+    },
+    {
+      "id": "render-risograph",
+      "trigger": {
+        "sectionId": "drawing",
+        "event": "snapshot"
+      },
+      "handler": "pillow_risograph",
+      "arguments": {
+        "drawing": "$event.contentRef"
+      },
+      "scheduling": {
+        "mode": "latest",
+        "debounceMilliseconds": 0,
+        "concurrencyGroup": "pillow-rendering",
+        "concurrencyLimit": 1
+      },
+      "outputs": {
+        "image": {
+          "sectionId": "pillow-result",
           "field": "contentRef"
         }
       }

@@ -64,6 +64,11 @@ complete working project beneath the repository's ignored `tmp/` tree when absen
 required files as regular non-symlinks, and launches the packaged runtime against that working root.
 It never opens the fixture directly. An existing working project is preserved so drawing and live
 source edits survive another local launch without becoming repository changes.
+Before launch, the runner synchronizes the working project's frozen Python lock into an ignored
+project-local environment, excludes the virtual project itself, and rejects source distributions.
+This makes declared callback libraries available without treating dependency resolution or build
+hooks as part of application startup. A preserved older working copy keeps its own authored source,
+layout, and lock until the caller explicitly resets it from the immutable fixture.
 Playground wheel builds validate checked-in generated Realtime contracts in check-only mode, and
 all Go compilation uses read-only module resolution, so setup cannot rewrite governed source or
 module locks.
