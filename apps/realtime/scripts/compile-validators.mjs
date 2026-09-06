@@ -83,7 +83,7 @@ ajv.addSchema(contentReferenceSchema, "contentReference");
 ajv.addSchema(runtimeSourceSchema, "runtimeSource");
 ajv.addSchema(applyRuntimeSourceRequestSchema, "applyRuntimeSourceRequest");
 ajv.addSchema(applyRuntimeSourceResultSchema, "applyRuntimeSourceResult");
-const source = `${standaloneCode(ajv, {
+const standalone = standaloneCode(ajv, {
   validateApplyRequestDocument: "applyRequest",
   validateApplyRuntimeSourceRequestDocument: "applyRuntimeSourceRequest",
   validateApplyRuntimeSourceResultDocument: "applyRuntimeSourceResult",
@@ -92,7 +92,15 @@ const source = `${standaloneCode(ajv, {
   validateRuntimeCommandDocument: "runtimeCommand",
   validateRuntimeEnvelopeDocument: "runtimeEnvelope",
   validateRuntimeSourceDocument: "runtimeSource",
-})}\n`;
+});
+const browserStandalone = standalone.replace(
+  /const (func\d+) = require\("ajv\/dist\/runtime\/ucs2length"\)\.default;/gu,
+  "const $1 = ucs2Length;",
+);
+if (browserStandalone.includes("require(")) {
+  throw new Error("generated validators contain an unsupported runtime import");
+}
+const source = `${browserStandalone === standalone ? "" : 'import ucs2Length from "ajv/dist/runtime/ucs2length.js";\n'}${browserStandalone}\n`;
 const declaration = `export declare function validateApplyRequestDocument(value: unknown): boolean;\nexport declare function validateApplyRuntimeSourceRequestDocument(value: unknown): boolean;\nexport declare function validateApplyRuntimeSourceResultDocument(value: unknown): boolean;\nexport declare function validateContentReferenceDocument(value: unknown): boolean;\nexport declare function validateProjectDocument(value: unknown): boolean;\nexport declare function validateRuntimeCommandDocument(value: unknown): boolean;\nexport declare function validateRuntimeEnvelopeDocument(value: unknown): boolean;\nexport declare function validateRuntimeSourceDocument(value: unknown): boolean;\n`;
 
 if (check) {
