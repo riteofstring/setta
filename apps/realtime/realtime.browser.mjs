@@ -582,7 +582,17 @@ async function waitFor(client, description, expression) {
     }
     await delay(75);
   }
-  throw new Error(`${description} did not occur within 30 seconds.`);
+  const observed = await evaluate(
+    client,
+    `({
+      body: document.body.textContent?.slice(0, 2_000) ?? "",
+      title: document.title,
+      url: location.href,
+    })`,
+  );
+  throw new Error(
+    `${description} did not occur within 30 seconds: ${JSON.stringify(observed)}`,
+  );
 }
 
 async function clickButton(client, label) {
@@ -1312,12 +1322,25 @@ async function exerciseLiveSource(client, origin) {
     "the recovered source worker lifecycle",
     workerStatesExpression("starting", "ready"),
   );
-  await clickButton(client, "Increment");
   await waitFor(
     client,
-    "the recovered increment behavior",
-    outputExpression("Counter result", 'value === "1"'),
+    "the recovered source output reset",
+    outputExpression("Counter result", 'value === "null"'),
   );
+  await clickButton(client, "Increment");
+  try {
+    await waitFor(
+      client,
+      "the recovered increment behavior",
+      outputExpression("Counter result", 'value === "1"'),
+    );
+  } catch (caught) {
+    const runtime = await jsonRequest(origin, "/api/v1/runtime/snapshot");
+    throw new Error(
+      `${caught instanceof Error ? caught.message : String(caught)} Runtime: ${JSON.stringify(runtime)}`,
+      { cause: caught },
+    );
+  }
 
   const projectAfter = await jsonRequest(origin, "/api/v1/project");
   assertSourceAbsentFromProject(projectAfter, "count += 7");
@@ -1398,7 +1421,7 @@ async function exerciseBrowser(client, origin) {
   await waitFor(
     client,
     "the visible handler failure",
-    `document.body.textContent?.includes("intentional browser failure") === true`,
+    `document.querySelector(".realtime-runtime-feedback")?.textContent?.includes("intentional browser failure") === true`,
   );
 
   await clickButton(client, "Start slow");
@@ -1421,7 +1444,7 @@ async function exerciseBrowser(client, origin) {
     client,
     "the restarted Python worker",
     `document.querySelector('[data-worker-state="ready"]') !== null &&
-      !document.body.textContent?.includes("intentional browser failure")`,
+      !(document.querySelector(".realtime-runtime-feedback")?.textContent ?? "").includes("intentional browser failure")`,
   );
   await clickButton(client, "Increment");
   await waitFor(
@@ -1535,7 +1558,14 @@ handlers = {
     }),
   ]);
   const issues = collectBrowserIssues(client);
-  await exerciseBrowser(client, origin);
+  try {
+    await exerciseBrowser(client, origin);
+  } catch (caught) {
+    throw new Error(
+      `${caught instanceof Error ? caught.message : String(caught)} Browser issues: ${JSON.stringify(issues)}`,
+      { cause: caught },
+    );
+  }
   assert.deepEqual(issues, [], "Realtime reported browser errors.");
 } finally {
   client?.close();
