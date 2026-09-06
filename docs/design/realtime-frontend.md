@@ -31,8 +31,11 @@ listener replay, polling, force refresh, or locally reconstructed queues.
 
 Every outgoing event is tied to an exact source section and event name. Every update is tied to a
 session, binding, and invocation. The frontend applies only host-authorized current outputs and
-never infers applicability from arrival order. Binary data travels through the shared HTTP content
-path, while runtime messages contain content references.
+never equates newest submitted status with newest publishable output. Runtime snapshots provide a
+published identity per binding. The browser may therefore apply a completed output while a newer
+invocation is queued, while still rejecting an output older than the host's published watermark.
+Binary data travels through the shared HTTP content path, while runtime messages contain content
+references.
 
 ## Sections and presentation
 
@@ -44,10 +47,22 @@ binding outputs.
 The drawing section uses one exact-pinned Fabric.js release for its retained objects, hit testing,
 brushes, erasing, selection, transforms, serialization, filters, history, and raster export. Setta
 owns the section shell, canonical scene encoding, durable gesture boundary, event name, content
-upload, and snapshot coalescing. A completed gesture persists one coherent vector scene. During an
-active drawing gesture, throttled composited raster previews may emit by content reference without
-turning pointer movement into durable project mutations. The outer Workspace canvas remains its
-existing upstream XYFlow projection.
+upload, and snapshot coalescing. A completed gesture persists one coherent vector scene.
+
+When every matching binding uses `latest` with zero debounce, the browser treats its invocation
+status as one local completion-paced capacity credit. It captures and uploads the first eligible
+preview immediately and consumes the credit after a successful event send. While occupied,
+pointer movement records only one dirty preview marker and performs no raster capture or upload.
+A terminal matching invocation replenishes the credit and drains the newest state. Settling clears
+obsolete preview work, retains one final raster until it can be sent, and gives that final work
+priority when capacity returns. The Go scheduler remains the correctness boundary; browser
+admission only avoids waste for the current single-owner local product.
+
+Other policies retain the bounded fixed preview timer. Completion-paced work does not use an EWMA
+or another estimate because completion itself supplies capacity feedback. Generator updates remain
+the existing progressive-output path; the frontend adds no typed preview/final transport, result
+cache, batching layer, or Python authoring SDK. The outer Workspace canvas remains its existing
+upstream XYFlow projection.
 
 Realtime renders one ordinary, editable `WorkspaceShell`, Workspace host, section registry,
 section chrome, and upstream XYFlow canvas. It retains Workspace's native section selection,

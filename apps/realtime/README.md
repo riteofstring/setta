@@ -78,7 +78,22 @@ request without changing the project.
 The initial section kinds are `input`, `output`, `button`, `status`, and `drawing`. A binding names
 one exact event and handler, resolves `$event.FIELD` and `$sections.SECTION.FIELD` arguments from one
 canonical snapshot, declares possible output targets, and selects `once`, `latest`, or `parallel`
-scheduling with an explicit concurrency group and limit.
+scheduling with an explicit concurrency group and limit. The recommended policy for a continuously
+changing interactive input is completion paced:
+
+```json
+{
+  "mode": "latest",
+  "debounceMilliseconds": 0,
+  "concurrencyGroup": "image-processing",
+  "concurrencyLimit": 1
+}
+```
+
+Zero debounce starts idle work immediately. While it runs, `latest` retains only the newest pending
+input and starts that input when capacity returns, so the handler's observed completion rate adapts
+the cadence without a guessed timing interval. A nonzero debounce remains an explicit trailing
+delay for interactions that should wait for input to become quiet.
 
 ## Python handlers
 
@@ -105,7 +120,9 @@ handlers = {"increment": increment, "stream": stream}
 
 A generator or async generator streams each yielded value. Awaitables are supported. Exceptions
 become structured handler errors, while stdout and stderr become bounded runtime logs and never
-share the protocol channel.
+share the protocol channel. Generator updates remain the single progressive-output mechanism: they
+may carry progress, messages, JSON outputs, and artifacts, while handler completion remains the
+definitive final boundary.
 
 A content-reference argument remains a dictionary and gains a worker-private absolute `path`.
 Handlers read the file at that path; the path never reaches the browser. Large output files are
@@ -149,13 +166,25 @@ current complete snapshots while retaining browser-owned selection and minimized
 
 Fabric.js owns retained drawing objects, free drawing, erasing, selection, transforms, history,
 serialization, and raster export. Realtime persists the vector scene only after a coherent
-gesture. While drawing, it uploads throttled composited raster previews so a binding can update
-before pointer release without persisting pointer-rate project mutations.
+gesture. For a completion-paced binding, the browser captures and uploads the first eligible
+composited raster immediately, then retains only one dirty preview or final snapshot while the
+binding is occupied. It performs no additional capture or upload until invocation completion
+restores capacity. A settled final snapshot takes priority over lossy preview work and remains
+pending until it can be sent, without turning pointer movement into durable project mutations.
 
-Only the newest applicable invocation may update a binding target. `latest` retains one pending
-event, `once` rejects overlap, and `parallel` remains within declared binding and group bounds. A
-Cancel action removes queued work or requests cooperative worker cancellation. A timeout or crash
-replaces the whole worker process because arbitrary synchronous Python cannot be safely interrupted.
+`latest` runs at most one invocation for a binding and retains at most its newest queued or
+debounced input. A new event supersedes only replaced pending work; it does not cancel or suppress
+work that is already running. Submitted status and published output use separate sequence
+watermarks, so a running invocation may publish while newer work waits, but an older late output
+can never replace a newer published output. `once` rejects overlap, and `parallel` remains within
+declared binding and group bounds. A Cancel action removes queued work or requests cooperative
+worker cancellation. A timeout or crash replaces the whole worker process because arbitrary
+synchronous Python cannot be safely interrupted.
+
+Completion itself is the automatic feedback signal; Realtime does not estimate handler time with
+an EWMA. It also does not add automatic cancellation, result caching, cross-session batching,
+typed preview/final messages, or a Python scheduling decorator. Expensive models and clients can
+already load once through module initialization or the worker `startup` hook.
 
 ## Local security and lifecycle
 

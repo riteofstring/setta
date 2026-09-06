@@ -45,7 +45,9 @@ reconnection catches up without replay or force-refresh state.
 One WebSocket carries closed ephemeral messages for the current runtime snapshot, events,
 invocation status, streamed updates, structured errors, and bounded logs. Reconnection starts with
 the complete current runtime snapshot. Every event and result carries session, binding, and
-invocation identity. Only the newest applicable invocation may update a target.
+invocation identity. Runtime snapshots carry both current invocation status and the published
+identity for each binding, allowing reconnect and slow-subscriber snapshot replacement to preserve
+the distinction between submitted work and applied output.
 
 Large binary values use one HTTP content store. WebSocket and worker messages carry validated
 content references. References are scoped to their owning invocation until the host deliberately
@@ -58,10 +60,25 @@ Go strictly decodes the same closed shapes.
 
 ## Scheduling and runtime state
 
-Scheduling exists only in Go. `once` admits no concurrent duplicate, `latest` keeps at most one
-pending event while active work runs, and `parallel` admits only the explicit limit. Bindings may
-share a concurrency group; the effective limit is the lowest declared member limit and every queue
-is bounded. Debounce replaces an unstarted event with the newest complete event.
+Scheduling exists only in Go. `once` admits no concurrent duplicate, `latest` runs at most one
+invocation for a binding and keeps at most one pending event, and `parallel` admits only the
+explicit limit. The one `latest` pending slot covers both queued and debounced work, so a delayed
+candidate cannot hide behind another queued candidate. Bindings may share a concurrency group;
+the effective limit is the lowest declared member limit and every queue is bounded.
+
+`latest` with zero debounce is the completion-paced automatic policy. Idle work starts immediately.
+Input arriving while it runs replaces only pending work, and completion releases the binding slot
+for the newest retained input. Running work is not cancelled or marked superseded merely because a
+newer event arrived. The scheduler reports the exact pending invocation it replaced so the
+coordinator can mark that invocation `superseded` without inferring task state from submission
+order. A nonzero debounce remains a deliberate trailing admission delay.
+
+Each binding keeps separate highest-submitted and highest-published identities. Invocation status
+follows submitted work. An active invocation's update or final output remains publishable while a
+newer invocation is pending, provided its sequence is not older than the published-output
+watermark. Publishing a newer output advances that watermark and prevents any later older output
+from regressing target values. Progress or message-only updates remain observable without
+advancing the output watermark. Complete runtime snapshots include published identities.
 
 Authored project state is durable and revisioned. Runtime session values are JSON-compatible,
 Go-owned, and present in the current runtime snapshot. Process resources are worker-owned and live
@@ -72,6 +89,12 @@ Cancellation removes queued work and requests cooperative cancellation from an a
 Timeout or hard stop replaces the complete worker because arbitrary synchronous Python or native
 code cannot be safely interrupted in process. Observable status distinguishes queued cancellation,
 cooperative completion, timeout, worker crash, and host-forced replacement.
+
+Handler completion provides the adaptive feedback signal; the scheduler does not estimate runtime
+with an EWMA. Generator and async-generator updates remain the progressive-output contract, and
+normal invocation completion remains its final boundary. Automatic handler cancellation, graph
+invalidation, deterministic result caching, cross-session batching, typed preview/final messages,
+and a Python scheduling SDK are separate contracts and are not part of this design.
 
 ## Worker boundary
 
