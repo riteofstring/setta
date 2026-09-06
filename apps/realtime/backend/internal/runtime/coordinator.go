@@ -368,10 +368,6 @@ func (coordinator *Coordinator) rollbackBindingLocked(invocationID string) {
 	delete(coordinator.invocationBindings, invocationID)
 }
 
-func terminalState(state string) bool {
-	return state == "completed" || state == "cancelled" || state == "timedOut" || state == "failed" || state == "crashed" || state == "superseded"
-}
-
 func (coordinator *Coordinator) runInvocation(ctx context.Context, binding contracts.Binding, identity contracts.InvocationIdentity, arguments map[string]json.RawMessage, references []contracts.ContentReference) {
 	defer coordinator.content.DeleteReferences(references)
 	coordinator.mu.Lock()

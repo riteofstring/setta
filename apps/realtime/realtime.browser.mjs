@@ -976,6 +976,29 @@ async function visibleDrawingResult(client) {
   );
 }
 
+async function observeDrawingResult(client, observedResults) {
+  const result = await visibleDrawingResult(client);
+  if (
+    result === null ||
+    typeof result !== "object" ||
+    !Number.isInteger(result.sequence) ||
+    observedResults.at(-1)?.sequence === result.sequence
+  ) {
+    return false;
+  }
+  assert.equal(result.mediaType, "image/png");
+  assert.equal(result.exists, true);
+  assert.ok(result.bytes > 0);
+  assert.match(result.sha256, /^[a-f0-9]{64}$/u);
+  const previous = observedResults.at(-1);
+  if (previous !== undefined) {
+    assert.ok(result.sequence > previous.sequence);
+    assert.notEqual(result.sha256, previous.sha256);
+  }
+  observedResults.push(result);
+  return observedResults.length >= 2;
+}
+
 async function drawStrokeBeforeRelease(client, origin) {
   const bounds = await evaluate(
     client,
@@ -1018,26 +1041,7 @@ async function drawStrokeBeforeRelease(client, origin) {
         y: finalY,
       });
       await delay(60);
-      const result = await visibleDrawingResult(client);
-      if (
-        result === null ||
-        typeof result !== "object" ||
-        !Number.isInteger(result.sequence) ||
-        observedResults.at(-1)?.sequence === result.sequence
-      ) {
-        continue;
-      }
-      assert.equal(result.mediaType, "image/png");
-      assert.equal(result.exists, true);
-      assert.ok(result.bytes > 0);
-      assert.match(result.sha256, /^[a-f0-9]{64}$/u);
-      const previous = observedResults.at(-1);
-      if (previous !== undefined) {
-        assert.ok(result.sequence > previous.sequence);
-        assert.notEqual(result.sha256, previous.sha256);
-      }
-      observedResults.push(result);
-      if (observedResults.length >= 2) {
+      if (await observeDrawingResult(client, observedResults)) {
         break;
       }
     }

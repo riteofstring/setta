@@ -171,6 +171,30 @@ function outputValues(
   return values;
 }
 
+function acceptsUpdatePresentation(
+  state: RuntimeViewState,
+  update: RuntimeUpdate,
+): boolean {
+  const bindingId = update.identity.bindingId;
+  return (
+    isIdentityCurrent(update.identity, state.updates[bindingId]?.identity) &&
+    isIdentityCurrent(update.identity, state.publishedByBinding[bindingId])
+  );
+}
+
+function acceptsUpdateOutputs(
+  state: RuntimeViewState,
+  update: RuntimeUpdate,
+): boolean {
+  return (
+    Object.keys(update.outputs).length > 0 &&
+    isIdentityCurrent(
+      update.identity,
+      state.publishedByBinding[update.identity.bindingId],
+    )
+  );
+}
+
 function acceptUpdate(
   state: RuntimeViewState,
   update: RuntimeUpdate,
@@ -180,14 +204,8 @@ function acceptUpdate(
     return state;
   }
   const bindingId = update.identity.bindingId;
-  const previousUpdate = state.updates[bindingId];
-  const published = state.publishedByBinding[bindingId];
-  const acceptsPresentation =
-    isIdentityCurrent(update.identity, previousUpdate?.identity) &&
-    isIdentityCurrent(update.identity, published);
-  const hasOutputs = Object.keys(update.outputs).length > 0;
-  const acceptsOutputs =
-    hasOutputs && isIdentityCurrent(update.identity, published);
+  const acceptsPresentation = acceptsUpdatePresentation(state, update);
+  const acceptsOutputs = acceptsUpdateOutputs(state, update);
   if (!acceptsPresentation && !acceptsOutputs) {
     return state;
   }

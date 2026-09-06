@@ -20,6 +20,11 @@ type DrawingSettlementQueueOptions = {
   upload: (blob: Blob) => Promise<ContentReference>;
 };
 
+type PendingDrawingSnapshot = {
+  reference: ContentReference | null;
+  snapshot: DrawingSnapshot;
+};
+
 export class DrawingSettlementQueue {
   private blockedSnapshot: {
     reference: ContentReference | null;
@@ -124,10 +129,7 @@ export class DrawingSettlementQueue {
     );
   }
 
-  private activeSnapshot(revision: number): {
-    reference: ContentReference | null;
-    snapshot: DrawingSnapshot;
-  } | null {
+  private activeSnapshot(revision: number): PendingDrawingSnapshot | null {
     const blocked = this.blockedSnapshot;
     return blocked !== null && blocked.revision === revision
       ? { reference: blocked.reference, snapshot: blocked.snapshot }
@@ -163,45 +165,36 @@ export class DrawingSettlementQueue {
     return emitted;
   }
 
-  private async process(revision: number): Promise<boolean> {
-    if (this.options.isCompletionPaced() && !this.canProcess()) {
-      this.readyRevision = revision;
+  private deferUntilCapacity(revision: number): boolean {
+    if (!this.options.isCompletionPaced() || this.canProcess()) {
       return false;
     }
-    const blocked = this.activeSnapshot(revision);
-    let snapshot: DrawingSnapshot;
-    try {
-      snapshot = blocked?.snapshot ?? (await this.options.capture());
-    } catch (error) {
-      if (this.isCurrent(revision)) {
-        this.readyRevision = revision;
-        this.retryPaused = true;
-      }
-      throw error;
+    this.readyRevision = revision;
+    return true;
+  }
+
+  private pauseCaptureFailure(revision: number): void {
+    if (this.isCurrent(revision)) {
+      this.readyRevision = revision;
+      this.retryPaused = true;
     }
-    if (!this.isCurrent(revision)) {
-      return true;
+  }
+
+  private retainUploadFailure(
+    revision: number,
+    snapshot: DrawingSnapshot,
+  ): void {
+    if (this.isCurrent(revision)) {
+      this.retryPaused = true;
+      this.block(revision, snapshot, null);
     }
-    if (blocked === null && !(await this.persist(revision, snapshot))) {
-      return true;
-    }
-    if (!this.canProcess()) {
-      return this.block(revision, snapshot, blocked?.reference ?? null);
-    }
-    let reference: ContentReference;
-    try {
-      reference =
-        blocked?.reference ?? (await this.options.upload(snapshot.blob));
-    } catch (error) {
-      if (this.isCurrent(revision)) {
-        this.retryPaused = true;
-        this.block(revision, snapshot, null);
-      }
-      throw error;
-    }
-    if (!this.isCurrent(revision)) {
-      return true;
-    }
+  }
+
+  private completeFinal(
+    revision: number,
+    snapshot: DrawingSnapshot,
+    reference: ContentReference,
+  ): boolean {
     if (!this.canProcess()) {
       return this.block(revision, snapshot, reference);
     }
@@ -211,6 +204,63 @@ export class DrawingSettlementQueue {
     }
     this.blockedSnapshot = null;
     return !this.options.isCompletionPaced();
+  }
+
+  private persistCaptured(
+    revision: number,
+    blocked: PendingDrawingSnapshot | null,
+    snapshot: DrawingSnapshot,
+  ): boolean | Promise<boolean> {
+    return blocked === null ? this.persist(revision, snapshot) : true;
+  }
+
+  private uploadReference(
+    blocked: PendingDrawingSnapshot | null,
+    snapshot: DrawingSnapshot,
+  ): ContentReference | Promise<ContentReference> {
+    return blocked?.reference ?? this.options.upload(snapshot.blob);
+  }
+
+  private async processCaptured(
+    revision: number,
+    blocked: PendingDrawingSnapshot | null,
+    snapshot: DrawingSnapshot,
+  ): Promise<boolean> {
+    if (!this.isCurrent(revision)) {
+      return true;
+    }
+    if (!(await this.persistCaptured(revision, blocked, snapshot))) {
+      return true;
+    }
+    if (!this.canProcess()) {
+      return this.block(revision, snapshot, blocked?.reference ?? null);
+    }
+    let reference: ContentReference;
+    try {
+      reference = await this.uploadReference(blocked, snapshot);
+    } catch (error) {
+      this.retainUploadFailure(revision, snapshot);
+      throw error;
+    }
+    if (!this.isCurrent(revision)) {
+      return true;
+    }
+    return this.completeFinal(revision, snapshot, reference);
+  }
+
+  private async process(revision: number): Promise<boolean> {
+    if (this.deferUntilCapacity(revision)) {
+      return false;
+    }
+    const blocked = this.activeSnapshot(revision);
+    let snapshot: DrawingSnapshot;
+    try {
+      snapshot = blocked?.snapshot ?? (await this.options.capture());
+    } catch (error) {
+      this.pauseCaptureFailure(revision);
+      throw error;
+    }
+    return this.processCaptured(revision, blocked, snapshot);
   }
 
   private continueDrain(): void {
