@@ -1,13 +1,19 @@
 import {
   type ApplyRequest,
+  type ApplyRuntimeSourceRequest,
+  type ApplyRuntimeSourceResult,
   type ContentReference,
   type Project,
   type ProjectOperation,
+  type RuntimeSourceDocument,
   type RuntimeEnvelope,
   type RuntimeCommand,
   validateContentReference,
   validateApplyRequest,
+  validateApplyRuntimeSourceRequest,
+  validateApplyRuntimeSourceResult,
   validateProject,
+  validateRuntimeSource,
   validateRuntimeEnvelope,
   validateRuntimeCommand,
 } from "./generatedContract";
@@ -17,6 +23,7 @@ const PROJECT_APPLY_PATH = "/api/v1/project/apply";
 export const PROJECT_EVENTS_PATH = "/api/v1/project/events";
 export const RUNTIME_PATH = "/api/v1/runtime";
 export const RUNTIME_RELOAD_PATH = "/api/v1/runtime/reload";
+export const RUNTIME_SOURCE_PATH = "/api/v1/runtime/source";
 export const CONTENT_PATH = "/api/v1/content";
 
 export class RealtimeClientError extends Error {
@@ -60,6 +67,28 @@ function assertContentReference(value: unknown): ContentReference {
     );
   }
   return value as ContentReference;
+}
+
+function assertRuntimeSource(value: unknown): RuntimeSourceDocument {
+  if (!validateRuntimeSource(value)) {
+    throw new RealtimeClientError(
+      "invalid-response",
+      "Realtime received an invalid runtime source document.",
+    );
+  }
+  return value;
+}
+
+function assertApplyRuntimeSourceResult(
+  value: unknown,
+): ApplyRuntimeSourceResult {
+  if (!validateApplyRuntimeSourceResult(value)) {
+    throw new RealtimeClientError(
+      "invalid-response",
+      "Realtime received an invalid runtime source result.",
+    );
+  }
+  return value;
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -153,6 +182,53 @@ export async function reloadRuntime(
     { headers: { Accept: "application/json" }, method: "POST" },
     fetchImplementation,
   );
+}
+
+export async function fetchRuntimeSource(
+  fetchImplementation: typeof fetch = fetch,
+): Promise<RuntimeSourceDocument> {
+  const response = await request(
+    RUNTIME_SOURCE_PATH,
+    { headers: { Accept: "application/json" }, method: "GET" },
+    fetchImplementation,
+  );
+  return assertRuntimeSource(await readJson(response));
+}
+
+export async function applyRuntimeSource(
+  command: ApplyRuntimeSourceRequest,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<ApplyRuntimeSourceResult> {
+  if (!validateApplyRuntimeSourceRequest(command)) {
+    throw new RealtimeClientError(
+      "invalid-request",
+      "Realtime generated an invalid runtime source command.",
+    );
+  }
+  const response = await request(
+    RUNTIME_SOURCE_PATH,
+    {
+      body: JSON.stringify(command),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      method: "PUT",
+    },
+    fetchImplementation,
+  );
+  const result = assertApplyRuntimeSourceResult(await readJson(response));
+  if (
+    result.source.projectId !== command.projectId ||
+    result.source.entrypoint !== command.entrypoint ||
+    result.source.source !== command.source
+  ) {
+    throw new RealtimeClientError(
+      "invalid-response",
+      "Realtime received a runtime source result that did not match the request.",
+    );
+  }
+  return result;
 }
 
 export type ProjectEventSource = Pick<

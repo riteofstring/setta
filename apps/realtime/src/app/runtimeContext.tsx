@@ -6,10 +6,12 @@ import type {
   Project,
   RuntimeCancelRequest,
   RuntimeEvent,
+  RuntimeSourceDocument,
 } from "../backend/generatedContract";
 import type { RuntimeViewState } from "./runtimeState";
 
 export type RealtimeActions = {
+  applyRuntimeSource: (sectionId: string, source: string) => Promise<boolean>;
   cancel: (identity: RuntimeCancelRequest["identity"]) => boolean;
   commitSectionData: (
     sectionId: string,
@@ -25,11 +27,31 @@ export type RealtimeActions = {
   uploadContent: (content: Blob) => Promise<ContentReference>;
 };
 
+type RuntimeSourceNotice = {
+  kind: "error" | "success";
+  message: string;
+};
+
+export type RuntimeSourceViewState = {
+  activationRejected: boolean;
+  document: RuntimeSourceDocument | null;
+  notice: RuntimeSourceNotice | null;
+  status: "unavailable" | "loading" | "ready" | "applying";
+};
+
+export const initialRuntimeSourceViewState: RuntimeSourceViewState = {
+  activationRejected: false,
+  document: null,
+  notice: null,
+  status: "unavailable",
+};
+
 type RealtimeContextValue = {
   actions: RealtimeActions;
   error: string | null;
   project: Project;
   runtime: RuntimeViewState;
+  source: RuntimeSourceViewState;
 };
 
 export const RealtimeContext = createContext<RealtimeContextValue | null>(null);

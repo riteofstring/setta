@@ -7,11 +7,14 @@ import {
   PROJECT_EVENTS_PATH,
   RUNTIME_PATH,
   RUNTIME_RELOAD_PATH,
+  RUNTIME_SOURCE_PATH,
   RealtimeClientError,
   applyProject,
+  applyRuntimeSource,
   connectProjectEvents,
   connectRuntime,
   fetchProject,
+  fetchRuntimeSource,
   reloadRuntime,
   type ProjectEventSource,
   type RuntimeSocket,
@@ -91,6 +94,117 @@ describe("realtime client boundary", () => {
       headers: { Accept: "application/json" },
       method: "POST",
     });
+  });
+
+  it("loads and applies the declared entrypoint source", async () => {
+    const source = {
+      entrypoint: "main.py",
+      projectId: "project-main",
+      source: "value = 1\n",
+      version: "a".repeat(64),
+    };
+    const fetchImplementation = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(source), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            activation: { error: null, state: "activated" },
+            source: {
+              ...source,
+              source: "value = 2\n",
+              version: "b".repeat(64),
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch;
+
+    await expect(fetchRuntimeSource(fetchImplementation)).resolves.toEqual(
+      source,
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      RUNTIME_SOURCE_PATH,
+      {
+        headers: { Accept: "application/json" },
+        method: "GET",
+      },
+    );
+    await expect(
+      applyRuntimeSource(
+        {
+          entrypoint: source.entrypoint,
+          expectedVersion: source.version,
+          projectId: source.projectId,
+          source: "value = 2\n",
+        },
+        fetchImplementation,
+      ),
+    ).resolves.toMatchObject({ activation: { state: "activated" } });
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      RUNTIME_SOURCE_PATH,
+      {
+        body: JSON.stringify({
+          entrypoint: "main.py",
+          expectedVersion: "a".repeat(64),
+          projectId: "project-main",
+          source: "value = 2\n",
+        }),
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        method: "PUT",
+      },
+    );
+  });
+
+  it("rejects invalid source commands and mismatched source results", async () => {
+    const fetchImplementation = vi.fn() as unknown as typeof fetch;
+    await expect(
+      applyRuntimeSource(
+        {
+          entrypoint: "main.py",
+          expectedVersion: "not-a-version",
+          projectId: "project-main",
+          source: "value = 2\n",
+        },
+        fetchImplementation,
+      ),
+    ).rejects.toMatchObject({ kind: "invalid-request" });
+    expect(fetchImplementation).not.toHaveBeenCalled();
+
+    const mismatchedFetch = vi.fn(async () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            activation: { error: null, state: "activated" },
+            source: {
+              entrypoint: "main.py",
+              projectId: "project-main",
+              source: "different source\n",
+              version: "b".repeat(64),
+            },
+          }),
+          { status: 200 },
+        ),
+      ),
+    ) as unknown as typeof fetch;
+    await expect(
+      applyRuntimeSource(
+        {
+          entrypoint: "main.py",
+          expectedVersion: "a".repeat(64),
+          projectId: "project-main",
+          source: "value = 2\n",
+        },
+        mismatchedFetch,
+      ),
+    ).rejects.toMatchObject({ kind: "invalid-response" });
   });
 
   it("closes an authored snapshot stream when generated validation fails", () => {

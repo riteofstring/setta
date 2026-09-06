@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { WORKSPACE_CODE_SECTION_KIND } from "@setta/workspace";
 
 import { createRealtimeSectionKinds } from "./realtimeSectionKinds";
 
@@ -11,12 +12,21 @@ describe("realtime section registry", () => {
       "drawing",
       "input",
       "output",
+      WORKSPACE_CODE_SECTION_KIND,
       "status",
     ]);
+    const runtimeKinds = [
+      "button",
+      "drawing",
+      "input",
+      "output",
+      "status",
+    ] as const;
     expect(
-      Object.values(catalog).every(
-        (definition) => definition.nestedSections === "vertical",
+      runtimeKinds.every(
+        (kind) => catalog[kind]!.nestedSections === "vertical",
       ),
     ).toBe(true);
+    expect(catalog[WORKSPACE_CODE_SECTION_KIND].nestedSections).toBeUndefined();
   });
 });

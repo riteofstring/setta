@@ -1,12 +1,15 @@
-import type {
-  WorkspaceDocument,
-  WorkspaceSection,
-  WorkspaceSectionData,
+import {
+  WORKSPACE_CODE_SECTION_KIND,
+  createWorkspaceCodeSectionData,
+  type WorkspaceDocument,
+  type WorkspaceSection,
+  type WorkspaceSectionData,
 } from "@setta/workspace";
 
 import type {
   Project,
   ProjectOperation,
+  RuntimeSourceDocument,
   Section,
   TopLevelSectionLayout,
   Viewport,
@@ -17,14 +20,22 @@ export type { ProjectOperation } from "../backend/generatedContract";
 function projectSection(
   section: Section,
   previous: WorkspaceSection | undefined,
+  source: RuntimeSourceDocument | null,
+  preserveSourceDraft: boolean,
 ): WorkspaceSection {
+  const content = projectSectionContent(
+    section,
+    previous,
+    source,
+    preserveSourceDraft,
+  );
   return {
     children: [...section.children],
-    data: section.data as WorkspaceSectionData,
+    data: content.data,
     id: section.id,
     isHorizontalOrientation: section.isHorizontalOrientation,
     isMinimized: previous?.isMinimized ?? false,
-    kind: section.kind,
+    kind: content.kind,
     name: section.name,
     overflowMode: section.overflowMode,
     positionAndSizeLocked: section.positionAndSizeLocked,
@@ -34,14 +45,65 @@ function projectSection(
   };
 }
 
+function projectSectionContent(
+  section: Section,
+  previous: WorkspaceSection | undefined,
+  source: RuntimeSourceDocument | null,
+  preserveSourceDraft: boolean,
+): { data: WorkspaceSectionData; kind: string } {
+  if (section.kind !== "code") {
+    return { data: section.data as WorkspaceSectionData, kind: section.kind };
+  }
+  if (preserveSourceDraft && previous?.kind === WORKSPACE_CODE_SECTION_KIND) {
+    return {
+      data: previous.data ?? projectCodeSectionData(source, section.id),
+      kind: WORKSPACE_CODE_SECTION_KIND,
+    };
+  }
+  return {
+    data: projectCodeSectionData(source, section.id),
+    kind: WORKSPACE_CODE_SECTION_KIND,
+  };
+}
+
+function projectCodeSectionData(
+  source: RuntimeSourceDocument | null,
+  sectionId: string,
+): WorkspaceSectionData {
+  if (source === null) {
+    throw new Error(
+      `Realtime code section ${sectionId} requires its runtime source document.`,
+    );
+  }
+  return createWorkspaceCodeSectionData({
+    code: source.source,
+    language: "python",
+    mode: "editable",
+  });
+}
+
 export function projectWorkspaceDocument(
   project: Project,
   previous?: WorkspaceDocument,
+  source: RuntimeSourceDocument | null = null,
+  preserveSourceDraft = true,
 ): WorkspaceDocument {
+  if (
+    source !== null &&
+    (source.projectId !== project.id ||
+      source.entrypoint !== project.runtime.entrypoint)
+  ) {
+    throw new Error("Realtime received source for another project entrypoint.");
+  }
   const sections = Object.fromEntries(
     Object.entries(project.sections).map(([id, section]) => [
       id,
-      projectSection(section, previous?.sections[id]),
+      projectSection(
+        section,
+        previous?.sections[id],
+        source,
+        preserveSourceDraft,
+      ),
     ]),
   );
   const topLevelSections = Object.fromEntries(
@@ -68,14 +130,26 @@ export function projectWorkspaceDocument(
   };
 }
 
-function canonicalSection(section: WorkspaceSection): Section {
+function canonicalSection(
+  section: WorkspaceSection,
+  current: Section | undefined,
+): Section {
+  if (
+    section.kind === WORKSPACE_CODE_SECTION_KIND &&
+    current?.kind !== "code"
+  ) {
+    throw new Error(
+      `Realtime cannot persist local code section ${section.id} as project data.`,
+    );
+  }
+  const codeSection = current?.kind === "code";
   return {
     children: [...section.children],
-    data: section.data ?? null,
+    data: codeSection ? current.data : (section.data ?? null),
     height: section.size.height,
     id: section.id,
     isHorizontalOrientation: section.isHorizontalOrientation,
-    kind: section.kind,
+    kind: codeSection ? "code" : section.kind,
     name: section.name,
     overflowMode: section.overflowMode,
     positionAndSizeLocked: section.positionAndSizeLocked,
@@ -155,9 +229,9 @@ export function workspaceDocumentOperations(
   for (const [sectionId, workspaceSection] of Object.entries(
     document.sections,
   )) {
-    const section = canonicalSection(workspaceSection);
-    const layout = canonicalLayout(document, sectionId);
     const currentSection = project.sections[sectionId];
+    const section = canonicalSection(workspaceSection, currentSection);
+    const layout = canonicalLayout(document, sectionId);
     const currentLayout = project.layout.topLevelSections[sectionId] ?? null;
     if (
       currentSection === undefined ||
@@ -178,6 +252,11 @@ export function replaceSectionDataOperation(
   const section = project.sections[sectionId];
   if (section === undefined) {
     throw new Error(`Realtime section ${sectionId} is not in the project.`);
+  }
+  if (section.kind === "code") {
+    throw new Error(
+      `Realtime code section ${sectionId} must use the runtime source boundary.`,
+    );
   }
   return {
     layout: project.layout.topLevelSections[sectionId] ?? null,

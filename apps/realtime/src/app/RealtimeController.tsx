@@ -3,25 +3,30 @@ import {
   commitWorkspaceDocument,
   createWorkspaceHost,
   setWorkspaceColorMode,
+  WORKSPACE_CODE_SECTION_KIND,
   type WorkspaceDocument,
-  type WorkspaceSectionData,
   type WorkspaceHost,
+  type WorkspaceSection,
+  type WorkspaceSectionData,
 } from "@setta/workspace";
 
 import {
   RealtimeClientError,
   applyProject,
+  applyRuntimeSource as applyRuntimeSourceRequest,
   connectProjectEvents,
   connectRuntime,
   fetchProject,
+  fetchRuntimeSource,
   reloadRuntime,
   uploadContent,
 } from "../backend/client";
 import type {
+  ApplyRuntimeSourceResult,
   ContentReference,
   Project,
   RuntimeCommand,
-  RuntimeEvent,
+  RuntimeSourceDocument,
 } from "../backend/generatedContract";
 import {
   projectWorkspaceDocument,
@@ -42,7 +47,11 @@ import {
   registerRealtimeSectionKinds,
   type RealtimeSectionKindCatalog,
 } from "./realtimeSectionKinds";
-import type { RealtimeActions } from "./runtimeContext";
+import {
+  initialRuntimeSourceViewState,
+  type RealtimeActions,
+  type RuntimeSourceViewState,
+} from "./runtimeContext";
 import { RealtimeView } from "./RealtimeView";
 
 type EnqueueMutation = (
@@ -71,6 +80,104 @@ function newStagingId(): string {
   );
 }
 
+function runtimeSourceSectionId(project: Project): string | null {
+  return (
+    Object.values(project.sections).find((section) => section.kind === "code")
+      ?.id ?? null
+  );
+}
+
+function sourceMatchesProject(
+  source: RuntimeSourceDocument,
+  project: Project,
+): boolean {
+  return (
+    source.projectId === project.id &&
+    source.entrypoint === project.runtime.entrypoint
+  );
+}
+
+function sourceFailureMessage(prefix: string, caught: unknown): string {
+  return `${prefix}: ${errorMessage(caught)}`;
+}
+
+function sourceRequestIsCurrent(
+  active: boolean,
+  generation: number,
+  currentGeneration: number,
+): boolean {
+  return active && generation === currentGeneration;
+}
+
+function sourceStatus(
+  document: RuntimeSourceDocument | null,
+): RuntimeSourceViewState["status"] {
+  return document === null ? "unavailable" : "ready";
+}
+
+function workspaceSectionAllowsSourceApply(
+  section: WorkspaceSection | undefined,
+): boolean {
+  return (
+    section?.kind === WORKSPACE_CODE_SECTION_KIND &&
+    !section.positionAndSizeLocked &&
+    (section.data as { mode?: unknown }).mode === "editable"
+  );
+}
+
+function sourceStateAllowsApply(
+  project: Project,
+  source: RuntimeSourceViewState,
+  document: RuntimeSourceDocument,
+  sectionId: string,
+  nextSource: string,
+): boolean {
+  return (
+    source.status === "ready" &&
+    runtimeSourceSectionId(project) === sectionId &&
+    (source.activationRejected || nextSource !== document.source)
+  );
+}
+
+function appliedSourceState(
+  result: ApplyRuntimeSourceResult,
+): RuntimeSourceViewState {
+  if (result.activation.state === "rejected") {
+    return {
+      activationRejected: true,
+      document: result.source,
+      notice: {
+        kind: "error",
+        message: `Runtime source was saved, but activation was rejected: ${result.activation.error.message}`,
+      },
+      status: "ready",
+    };
+  }
+  return {
+    activationRejected: false,
+    document: result.source,
+    notice: {
+      kind: "success",
+      message: "Runtime source was saved and activated.",
+    },
+    status: "ready",
+  };
+}
+
+function sourceResultMatchesCurrentProject(
+  active: boolean,
+  project: Project | null,
+  result: ApplyRuntimeSourceResult,
+  sectionId: string,
+): boolean {
+  return (
+    active &&
+    project !== null &&
+    sourceMatchesProject(result.source, project) &&
+    runtimeSourceSectionId(project) === sectionId
+  );
+}
+
 export function RealtimeController() {
   const [host, setHost] = useState<WorkspaceHost | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -78,17 +185,31 @@ export function RealtimeController() {
     initialRuntimeViewState,
   );
   const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<RuntimeSourceViewState>(
+    initialRuntimeSourceViewState,
+  );
   const projectRef = useRef<Project | null>(null);
   const runtimeRef = useRef<RuntimeViewState>(initialRuntimeViewState);
+  const sourceRef = useRef<RuntimeSourceViewState>(
+    initialRuntimeSourceViewState,
+  );
   const runtimeTransportRef = useRef<RuntimeTransport | null>(null);
   const enqueueRef = useRef<EnqueueMutation | null>(null);
+  const applyRuntimeSourceRef = useRef<
+    ((sectionId: string, source: string) => Promise<boolean>) | null
+  >(null);
   const catalogRef = useRef<RealtimeSectionKindCatalog | null>(null);
   if (catalogRef.current === null) {
-    catalogRef.current = createRealtimeSectionKinds();
+    catalogRef.current = createRealtimeSectionKinds((sectionId, data) => {
+      void applyRuntimeSourceRef.current?.(sectionId, data.code);
+    });
   }
 
   const actions = useMemo<RealtimeActions>(
     () => ({
+      applyRuntimeSource: (sectionId, nextSource) =>
+        applyRuntimeSourceRef.current?.(sectionId, nextSource) ??
+        Promise.resolve(false),
       cancel: (identity) =>
         runtimeTransportRef.current?.send({ identity, type: "cancel" }) ??
         false,
@@ -146,6 +267,15 @@ export function RealtimeController() {
     let disconnectProjectEvents: (() => void) | null = null;
     let retryTimer: number | null = null;
     let runtimeGeneration = 0;
+    let sourceGeneration = 0;
+
+    const replaceSource = (next: RuntimeSourceViewState) => {
+      if (!active) {
+        return;
+      }
+      sourceRef.current = next;
+      setSource(next);
+    };
 
     const updateRuntime = (
       transform: (current: RuntimeViewState) => RuntimeViewState,
@@ -160,28 +290,60 @@ export function RealtimeController() {
       });
     };
 
+    const projectCanAdvance = (nextProject: Project): boolean => {
+      const current = projectRef.current;
+      if (current === null) {
+        return true;
+      }
+      if (nextProject.id !== current.id) {
+        setError("Realtime rejected a snapshot for another project.");
+        return false;
+      }
+      return nextProject.revision >= current.revision;
+    };
+
     const acceptProject = (
       nextProject: Project,
+      sourceDocument: RuntimeSourceDocument | null,
+      preserveSourceDraft: boolean,
       clearError = true,
     ): boolean => {
-      const current = projectRef.current;
-      if (current !== null) {
-        if (nextProject.id !== current.id) {
-          setError("Realtime rejected a snapshot for another project.");
-          return false;
-        }
-        if (nextProject.revision < current.revision) {
-          return false;
-        }
+      if (!projectCanAdvance(nextProject)) {
+        return false;
+      }
+      const sourceSectionId = runtimeSourceSectionId(nextProject);
+      if (
+        sourceSectionId !== null &&
+        (sourceDocument === null ||
+          !sourceMatchesProject(sourceDocument, nextProject))
+      ) {
+        setError("Realtime rejected source for another project entrypoint.");
+        return false;
       }
       projecting = true;
       try {
         commitWorkspaceDocument(
           workspaceHost,
-          projectWorkspaceDocument(nextProject, workspaceHost.getSnapshot()),
+          projectWorkspaceDocument(
+            nextProject,
+            workspaceHost.getSnapshot(),
+            sourceDocument,
+            preserveSourceDraft,
+          ),
         );
         projectRef.current = nextProject;
         setProject(nextProject);
+        if (sourceSectionId === null) {
+          ++sourceGeneration;
+          replaceSource(initialRuntimeSourceViewState);
+        } else if (sourceRef.current.document !== sourceDocument) {
+          replaceSource({
+            activationRejected: false,
+            document: sourceDocument,
+            notice: null,
+            status: "ready",
+          });
+        }
         if (clearError) {
           setError(null);
         }
@@ -191,10 +353,81 @@ export function RealtimeController() {
       }
     };
 
+    const resolveProjectSource = async (
+      nextProject: Project,
+    ): Promise<{
+      document: RuntimeSourceDocument | null;
+      preserveDraft: boolean;
+    } | null> => {
+      if (runtimeSourceSectionId(nextProject) === null) {
+        ++sourceGeneration;
+        return { document: null, preserveDraft: false };
+      }
+      const current = sourceRef.current.document;
+      if (current !== null && sourceMatchesProject(current, nextProject)) {
+        return { document: current, preserveDraft: true };
+      }
+      const previous = sourceRef.current;
+      const generation = ++sourceGeneration;
+      replaceSource({
+        activationRejected: false,
+        document: previous.document,
+        notice: null,
+        status: "loading",
+      });
+      try {
+        const document = await fetchRuntimeSource();
+        if (!sourceRequestIsCurrent(active, generation, sourceGeneration)) {
+          return null;
+        }
+        if (!sourceMatchesProject(document, nextProject)) {
+          throw new Error(
+            "Realtime received source for another project entrypoint.",
+          );
+        }
+        return { document, preserveDraft: false };
+      } catch (caught) {
+        if (sourceRequestIsCurrent(active, generation, sourceGeneration)) {
+          replaceSource({
+            ...previous,
+            notice: {
+              kind: "error",
+              message: sourceFailureMessage(
+                "Runtime source could not be loaded",
+                caught,
+              ),
+            },
+            status: sourceStatus(previous.document),
+          });
+        }
+        throw caught;
+      }
+    };
+
+    const acceptPublishedProject = async (
+      nextProject: Project,
+      clearError = true,
+    ): Promise<boolean> => {
+      if (!projectCanAdvance(nextProject)) {
+        return false;
+      }
+      const resolved = await resolveProjectSource(nextProject);
+      return (
+        resolved !== null &&
+        active &&
+        acceptProject(
+          nextProject,
+          resolved.document,
+          resolved.preserveDraft,
+          clearError,
+        )
+      );
+    };
+
     const recoverConflict = async () => {
       const latest = await fetchProject();
       if (active) {
-        acceptProject(latest);
+        await acceptPublishedProject(latest);
       }
     };
 
@@ -203,7 +436,7 @@ export function RealtimeController() {
         return;
       }
       if (!isRevisionConflict(caught)) {
-        acceptProject(current, false);
+        acceptProject(current, sourceRef.current.document, true, false);
         setError(errorMessage(caught));
         return;
       }
@@ -239,7 +472,7 @@ export function RealtimeController() {
             return;
           }
           const nextProject = await applyProject(current, operations);
-          resolveResult(active && acceptProject(nextProject));
+          resolveResult(active && (await acceptPublishedProject(nextProject)));
         } catch (caught) {
           await handleMutationFailure(caught, current);
           resolveResult(false);
@@ -249,6 +482,151 @@ export function RealtimeController() {
       return result;
     };
     enqueueRef.current = enqueue;
+
+    const recoverSourceConflict = async (
+      requestProject: Project,
+      baseline: RuntimeSourceViewState,
+    ) => {
+      try {
+        const latest = await fetchRuntimeSource();
+        const currentProject = projectRef.current;
+        if (
+          !active ||
+          currentProject === null ||
+          currentProject.id !== requestProject.id ||
+          currentProject.runtime.entrypoint !==
+            requestProject.runtime.entrypoint ||
+          !sourceMatchesProject(latest, currentProject)
+        ) {
+          return;
+        }
+        replaceSource({
+          activationRejected: false,
+          document: latest,
+          notice: {
+            kind: "error",
+            message:
+              "Runtime source changed on disk. Review your draft and apply again.",
+          },
+          status: "ready",
+        });
+      } catch (caught) {
+        replaceSource({
+          ...baseline,
+          notice: {
+            kind: "error",
+            message: sourceFailureMessage(
+              "Runtime source conflict recovery failed",
+              caught,
+            ),
+          },
+          status: sourceStatus(baseline.document),
+        });
+      }
+    };
+
+    type SourceApplication = {
+      baseline: RuntimeSourceViewState;
+      document: RuntimeSourceDocument;
+      project: Project;
+    };
+
+    const prepareSourceApplication = (
+      sectionId: string,
+      nextSource: string,
+    ): SourceApplication | null => {
+      const project = projectRef.current;
+      const baseline = sourceRef.current;
+      const document = baseline.document;
+      if (project === null || document === null) {
+        return null;
+      }
+      if (
+        !sourceStateAllowsApply(
+          project,
+          baseline,
+          document,
+          sectionId,
+          nextSource,
+        ) ||
+        !workspaceSectionAllowsSourceApply(
+          workspaceHost.getSnapshot().sections[sectionId],
+        )
+      ) {
+        return null;
+      }
+      return { baseline, document, project };
+    };
+
+    const acceptAppliedSource = (
+      sectionId: string,
+      result: ApplyRuntimeSourceResult,
+    ): boolean => {
+      if (
+        !sourceResultMatchesCurrentProject(
+          active,
+          projectRef.current,
+          result,
+          sectionId,
+        )
+      ) {
+        return false;
+      }
+      replaceSource(appliedSourceState(result));
+      return true;
+    };
+
+    const handleSourceApplyFailure = async (
+      caught: unknown,
+      application: SourceApplication,
+    ): Promise<boolean> => {
+      if (!active) {
+        return false;
+      }
+      if (isRevisionConflict(caught)) {
+        await recoverSourceConflict(application.project, application.baseline);
+        return false;
+      }
+      replaceSource({
+        ...application.baseline,
+        notice: {
+          kind: "error",
+          message: sourceFailureMessage(
+            "Runtime source could not be applied",
+            caught,
+          ),
+        },
+        status: "ready",
+      });
+      return false;
+    };
+
+    const applyRuntimeSource = async (
+      sectionId: string,
+      nextSource: string,
+    ): Promise<boolean> => {
+      const application = prepareSourceApplication(sectionId, nextSource);
+      if (application === null) {
+        return false;
+      }
+      replaceSource({
+        ...application.baseline,
+        notice: null,
+        status: "applying",
+      });
+      try {
+        const result = await applyRuntimeSourceRequest({
+          entrypoint: application.document.entrypoint,
+          expectedVersion: application.document.version,
+          projectId: application.document.projectId,
+          source: nextSource,
+        });
+        return acceptAppliedSource(sectionId, result);
+      } catch (caught) {
+        return handleSourceApplyFailure(caught, application);
+      }
+    };
+    applyRuntimeSourceRef.current = applyRuntimeSource;
 
     const unsubscribeWorkspace = workspaceHost.subscribe(
       (document: WorkspaceDocument) => {
@@ -311,7 +689,7 @@ export function RealtimeController() {
     const start = async () => {
       try {
         const initialProject = await fetchProject();
-        if (!active || !acceptProject(initialProject)) {
+        if (!active || !(await acceptPublishedProject(initialProject))) {
           return;
         }
         setHost(workspaceHost);
@@ -323,7 +701,11 @@ export function RealtimeController() {
           },
           onProject: (nextProject) => {
             if (active) {
-              acceptProject(nextProject);
+              void acceptPublishedProject(nextProject).catch((caught) => {
+                if (active) {
+                  setError(errorMessage(caught));
+                }
+              });
             }
           },
         });
@@ -339,7 +721,9 @@ export function RealtimeController() {
     return () => {
       active = false;
       ++runtimeGeneration;
+      ++sourceGeneration;
       enqueueRef.current = null;
+      applyRuntimeSourceRef.current = null;
       disconnectProjectEvents?.();
       runtimeTransportRef.current?.close();
       runtimeTransportRef.current = null;
@@ -349,6 +733,7 @@ export function RealtimeController() {
       unsubscribeWorkspace();
       workspaceHost.dispose();
       projectRef.current = null;
+      sourceRef.current = initialRuntimeSourceViewState;
     };
   }, []);
 
@@ -359,6 +744,7 @@ export function RealtimeController() {
       host={host}
       project={project}
       runtime={runtime}
+      source={source}
     />
   );
 }

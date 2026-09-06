@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { createWorkspaceHost } from "@setta/workspace";
+import {
+  WORKSPACE_CODE_SECTION_KIND,
+  createWorkspaceHost,
+  type WorkspaceCodeSectionData,
+} from "@setta/workspace";
 
+import type {
+  Project,
+  RuntimeSourceDocument,
+} from "../backend/generatedContract";
 import { makeProject } from "../testProject";
 import {
   createRealtimeSectionKinds,
@@ -8,8 +16,48 @@ import {
 } from "./realtimeSectionKinds";
 import {
   projectWorkspaceDocument,
+  replaceSectionDataOperation,
   workspaceDocumentOperations,
 } from "./projectProjection";
+
+function withCodeSection(project: Project): Project {
+  return {
+    ...project,
+    layout: {
+      ...project.layout,
+      topLevelSections: {
+        ...project.layout.topLevelSections,
+        "code-main": { height: 420, width: 560, x: 940, y: 24, zIndex: 3 },
+      },
+    },
+    sections: {
+      ...project.sections,
+      "code-main": {
+        children: [],
+        data: { source: "entrypoint" },
+        height: 420,
+        id: "code-main",
+        isHorizontalOrientation: false,
+        kind: "code",
+        name: "main.py",
+        overflowMode: false,
+        positionAndSizeLocked: false,
+        styleColor: null,
+        tagColor: null,
+        width: 560,
+      },
+    },
+  };
+}
+
+function makeRuntimeSource(source = "value = 1\n"): RuntimeSourceDocument {
+  return {
+    entrypoint: "main.py",
+    projectId: "project-main",
+    source,
+    version: "a".repeat(64),
+  };
+}
 
 describe("project workspace projection", () => {
   it("projects one complete canonical project without local fragments", () => {
@@ -83,5 +131,104 @@ describe("project workspace projection", () => {
     expect(next.activeIds).toEqual(["drawing-main"]);
     expect(next.sections["drawing-main"]?.isMinimized).toBe(true);
     expect(workspaceDocumentOperations(project, next)).toEqual([]);
+  });
+
+  it("projects entrypoint source into the native editable Python section", () => {
+    const project = withCodeSection(makeProject());
+    const document = projectWorkspaceDocument(
+      project,
+      undefined,
+      makeRuntimeSource(),
+      false,
+    );
+    const code = document.sections["code-main"];
+
+    expect(code?.kind).toBe(WORKSPACE_CODE_SECTION_KIND);
+    expect(code?.data).toMatchObject({
+      code: "value = 1\n",
+      language: "python",
+      mode: "editable",
+    });
+    expect(workspaceDocumentOperations(project, document)).toEqual([]);
+  });
+
+  it("keeps a dirty source draft across project snapshots", () => {
+    const project = withCodeSection(makeProject());
+    const source = makeRuntimeSource();
+    const previous = projectWorkspaceDocument(
+      project,
+      undefined,
+      source,
+      false,
+    );
+    (previous.sections["code-main"]!.data as WorkspaceCodeSectionData).code =
+      "value = 2\n";
+
+    const next = projectWorkspaceDocument(
+      { ...project, revision: project.revision + 1 },
+      previous,
+      source,
+    );
+
+    expect(
+      (next.sections["code-main"]!.data as WorkspaceCodeSectionData).code,
+    ).toBe("value = 2\n");
+    expect(workspaceDocumentOperations(project, next)).toEqual([]);
+  });
+
+  it("replaces a disposable draft when a source target is projected", () => {
+    const project = withCodeSection(makeProject());
+    const previous = projectWorkspaceDocument(
+      project,
+      undefined,
+      makeRuntimeSource("old\n"),
+      false,
+    );
+    (previous.sections["code-main"]!.data as WorkspaceCodeSectionData).code =
+      "draft\n";
+
+    const next = projectWorkspaceDocument(
+      project,
+      previous,
+      makeRuntimeSource("new\n"),
+      false,
+    );
+    expect(
+      (next.sections["code-main"]!.data as WorkspaceCodeSectionData).code,
+    ).toBe("new\n");
+  });
+
+  it("persists code layout without putting draft bytes in the project", () => {
+    const project = withCodeSection(makeProject());
+    const document = projectWorkspaceDocument(
+      project,
+      undefined,
+      makeRuntimeSource(),
+      false,
+    );
+    const section = document.sections["code-main"]!;
+    (section.data as WorkspaceCodeSectionData).code = "secret draft\n";
+    section.name = "entrypoint.py";
+    document.topLevelSections["code-main"]!.x = 1_020;
+
+    expect(workspaceDocumentOperations(project, document)).toEqual([
+      {
+        layout: { height: 420, width: 560, x: 1_020, y: 24, zIndex: 3 },
+        op: "upsertSection",
+        section: {
+          ...project.sections["code-main"],
+          data: { source: "entrypoint" },
+          name: "entrypoint.py",
+        },
+      },
+    ]);
+  });
+
+  it("rejects generic project-data replacement for entrypoint source", () => {
+    expect(() =>
+      replaceSectionDataOperation(withCodeSection(makeProject()), "code-main", {
+        code: "draft bytes",
+      }),
+    ).toThrow(/must use the runtime source boundary/u);
   });
 });

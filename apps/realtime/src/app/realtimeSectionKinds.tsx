@@ -1,24 +1,43 @@
 import {
+  WORKSPACE_CODE_SECTION_KIND,
+  createWorkspaceCodeSection,
   registerSectionKinds,
   type SectionKindDefinition,
+  type WorkspaceCodeSectionData,
   type WorkspaceHost,
 } from "@setta/workspace";
 
 import { ButtonSection } from "../sections/ButtonSection";
 import { DrawingSection } from "../sections/DrawingSection";
+import { EntrypointCodeControl } from "../sections/EntrypointCodeControl";
 import { InputSection } from "../sections/InputSection";
 import { OutputSection } from "../sections/OutputSection";
 import { StatusSection } from "../sections/StatusSection";
 
-type RealtimeSectionKind = "input" | "output" | "button" | "status" | "drawing";
+type RealtimeSectionKind =
+  | "input"
+  | "output"
+  | "button"
+  | "status"
+  | "drawing"
+  | typeof WORKSPACE_CODE_SECTION_KIND;
 
 export type RealtimeSectionKindCatalog = Record<
   RealtimeSectionKind,
   SectionKindDefinition
 >;
 
-export function createRealtimeSectionKinds(): RealtimeSectionKindCatalog {
+export function createRealtimeSectionKinds(
+  onSubmit?: (sectionId: string, data: WorkspaceCodeSectionData) => void,
+): RealtimeSectionKindCatalog {
   return {
+    [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
+      languages: ["python"],
+      onSubmit,
+      renderHeaderControls: (section) => (
+        <EntrypointCodeControl section={section} />
+      ),
+    }),
     button: {
       defaultSize: { height: 112, width: 240 },
       nestedSections: "vertical",

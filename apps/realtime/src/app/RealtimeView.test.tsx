@@ -12,7 +12,10 @@ import {
   createRealtimeSectionKinds,
   registerRealtimeSectionKinds,
 } from "./realtimeSectionKinds";
-import type { RealtimeActions } from "./runtimeContext";
+import {
+  initialRuntimeSourceViewState,
+  type RealtimeActions,
+} from "./runtimeContext";
 import { initialRuntimeViewState } from "./runtimeState";
 import { RealtimeView } from "./RealtimeView";
 
@@ -42,6 +45,7 @@ describe("Realtime workspace presentation", () => {
     document.body.append(element);
     const root = createRoot(element);
     const actions: RealtimeActions = {
+      applyRuntimeSource: vi.fn(async () => true),
       cancel: vi.fn(() => true),
       commitSectionData: vi.fn(
         async (_sectionId: string, _data: WorkspaceSectionData) => true,
@@ -71,6 +75,7 @@ describe("Realtime workspace presentation", () => {
             sessionId: "session-main",
             workerState: "ready",
           }}
+          source={initialRuntimeSourceViewState}
         />,
       );
     });
@@ -144,6 +149,7 @@ describe("Realtime workspace presentation", () => {
     const root = createRoot(element);
     const reload = vi.fn(async () => true);
     const actions: RealtimeActions = {
+      applyRuntimeSource: vi.fn(async () => true),
       cancel: vi.fn(() => true),
       commitSectionData: vi.fn(async () => true),
       emit: vi.fn(() => true),
@@ -187,6 +193,7 @@ describe("Realtime workspace presentation", () => {
           host={host}
           project={project}
           runtime={runtime}
+          source={initialRuntimeSourceViewState}
         />,
       );
     });
