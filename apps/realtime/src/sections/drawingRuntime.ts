@@ -42,6 +42,8 @@ export class RealtimeDrawingRuntime {
   private erasedInGesture = false;
   private history: WorkspaceSectionData[] = [];
   private historyIndex = -1;
+  private readonly logicalHeight: number;
+  private readonly logicalWidth: number;
   private loading = false;
   private readonly onHistoryChange: (state: DrawingHistoryState) => void;
   private readonly onPreview: () => void;
@@ -53,6 +55,8 @@ export class RealtimeDrawingRuntime {
     options: DrawingRuntimeOptions,
   ) {
     this.background = options.background;
+    this.logicalHeight = options.height;
+    this.logicalWidth = options.width;
     this.onHistoryChange = options.onHistoryChange;
     this.onPreview = options.onPreview;
     this.onSettled = options.onSettled;
@@ -185,6 +189,27 @@ export class RealtimeDrawingRuntime {
     }
     brush.color = color;
     brush.width = width;
+  }
+
+  public resizeToFit(availableWidth: number, availableHeight: number): void {
+    if (
+      !Number.isFinite(availableWidth) ||
+      !Number.isFinite(availableHeight) ||
+      availableWidth <= 0 ||
+      availableHeight <= 0
+    ) {
+      return;
+    }
+    const scale = Math.min(
+      availableWidth / this.logicalWidth,
+      availableHeight / this.logicalHeight,
+    );
+    const width = Math.max(1, Math.floor(this.logicalWidth * scale));
+    const height = Math.max(1, Math.floor(this.logicalHeight * scale));
+    this.canvas.setDimensions(
+      { height: `${height}px`, width: `${width}px` },
+      { cssOnly: true },
+    );
   }
 
   public async undo(): Promise<boolean> {

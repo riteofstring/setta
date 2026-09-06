@@ -364,25 +364,27 @@ input {
 
 .realtime-drawing {
   display: grid;
+  flex: 1 1 auto;
   overflow: hidden;
-  height: 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
   grid-template-rows: auto minmax(0, 1fr);
   background: #fff;
+  container-type: inline-size;
 }
 
 .realtime-drawing-toolbar {
   z-index: 2;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 7px 10px;
+  align-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
   border-bottom: 1px solid #e4e7ec;
-  background: #f8fafc;
-  scrollbar-width: none;
-  white-space: nowrap;
-}
-
-.realtime-drawing-toolbar::-webkit-scrollbar {
-  display: none;
+  background: rgba(248, 250, 252, 0.96);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  user-select: none;
 }
 
 .realtime-drawing-tool-group {
@@ -390,34 +392,37 @@ input {
   align-items: center;
   flex: 0 0 auto;
   gap: 2px;
-}
-
-.realtime-drawing-tool-group + .realtime-drawing-tool-group {
-  padding-left: 8px;
-  border-left: 1px solid #dbe2ea;
+  min-height: 32px;
+  padding: 2px;
+  border-radius: 9px;
+  background: rgba(226, 232, 240, 0.58);
 }
 
 .realtime-drawing-toolbar button {
-  min-width: 30px;
-  min-height: 30px;
-  padding: 5px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: 6px;
   color: #475467;
   background: transparent;
-  font-size: 11px;
-  font-weight: 650;
   cursor: pointer;
 }
 
 .realtime-drawing-toolbar button[aria-pressed="true"] {
-  color: #3538cd;
-  background: #e0e7ff;
+  color: #2563eb;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.1),
+    inset 0 0 0 1px rgba(148, 163, 184, 0.24);
 }
 
 .realtime-drawing-toolbar button:hover:not(:disabled) {
-  color: #1d2939;
-  background: #e9eef5;
+  color: #2563eb;
+  background: rgba(255, 255, 255, 0.78);
 }
 
 .realtime-drawing-toolbar button:focus-visible,
@@ -427,27 +432,40 @@ input {
 }
 
 .realtime-drawing-toolbar button:disabled {
-  color: #b8c0cc;
+  color: #a8b1bf;
   cursor: default;
+  opacity: 0.55;
 }
 
 .realtime-drawing-icon-button {
-  font-size: 18px !important;
-  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.realtime-drawing-toolbar-icon {
+  width: 17px;
+  height: 17px;
+  overflow: visible;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .realtime-drawing-brush-controls {
-  gap: 7px;
+  gap: 5px;
 }
 
 .realtime-drawing-brush-controls input[type="color"] {
   display: block;
-  width: 26px;
-  height: 26px;
-  padding: 2px;
-  border: 1px solid #cbd5e1;
+  width: 28px;
+  height: 28px;
+  padding: 3px;
+  border: 0;
   border-radius: 999px;
   background: #fff;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.1),
+    inset 0 0 0 1px #cbd5e1;
   cursor: pointer;
 }
 
@@ -464,16 +482,32 @@ input {
 .realtime-drawing-size {
   display: flex;
   align-items: center;
-  gap: 5px;
-  color: #667085;
-  font-size: 10px;
+  height: 28px;
+  gap: 6px;
+  padding: 0 6px;
+  color: #475467;
+  font-size: 11px;
   font-weight: 650;
 }
 
-.realtime-drawing-size input {
-  width: 58px;
-  accent-color: #4f46e5;
+.realtime-drawing-size input[type="range"] {
+  width: 70px;
+  height: 14px;
+  margin: 0;
+  accent-color: #2563eb;
   cursor: pointer;
+}
+
+.realtime-drawing-size output {
+  min-width: 27px;
+  color: #667085;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.realtime-drawing-toolbar .realtime-drawing-clear-button:hover:not(:disabled) {
+  color: #fff;
+  background: #dc2626;
 }
 
 .realtime-drawing-stage {
@@ -489,5 +523,32 @@ input {
   overflow: hidden;
   max-width: 100%;
   max-height: 100%;
+  border: 0;
+  margin: auto;
   touch-action: none;
+}
+
+.realtime-drawing-stage canvas {
+  display: block;
+}
+
+@container (max-width: 440px) {
+  .realtime-drawing-toolbar {
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .realtime-drawing-size-label {
+    display: none;
+  }
+
+  .realtime-drawing-size input[type="range"] {
+    width: 56px;
+  }
+}
+
+@container (max-width: 320px) {
+  .realtime-drawing-size output {
+    display: none;
+  }
 }

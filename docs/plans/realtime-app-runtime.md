@@ -61,10 +61,11 @@ The Python worker owns:
 - conversion between Python values and the worker contract; and
 - cooperative handler cleanup during reload and shutdown.
 
-The browser owns pointer-rate interaction, drawing presentation, focus, drafts, and other UI state
-that does not need to cross the process boundary. `@setta/workspace` remains the reusable outer
-workspace and section-composition layer. Realtime section implementations stay in the new app
-unless a second concrete product proves that one is genuinely generic.
+The browser owns pointer-rate interaction, selection, minimized presentation, drawing presentation,
+focus, drafts, and other UI state that does not need to cross the process boundary.
+`@setta/workspace` remains the reusable outer workspace and section-composition layer. Realtime
+section implementations stay in the new app unless a second concrete product proves that one is
+genuinely generic.
 
 Python does not own another public web server. Running the user code as a child keeps Python's
 ecosystem while preserving the existing Go backend, local security, persistence, and process
@@ -455,9 +456,9 @@ applicable result reaches the target section.
 3. Emit settled raster snapshots by content reference.
 4. Complete the drawing-to-Python-to-result scenario, including progress, errors, cancellation,
    reload, and worker restart.
-5. Render Use and Author through the same `@setta/workspace` host, `WorkspaceShell`, section
-   registry, section chrome, and upstream XYFlow canvas. Configure Use as read-only and omit the
-   Inspector; do not create a second section or layout renderer.
+5. Render one ordinary editable `@setta/workspace` host and `WorkspaceShell`. Keep Workspace's
+   section registry, section chrome, selection, movement, resizing, locking, minimization, naming,
+   Inspector, and upstream XYFlow canvas; do not add an app mode or alternate section renderer.
 
 Exit when AI can construct the complete example directly in Realtime and a user can open and use
 it without Python Canvas.

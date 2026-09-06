@@ -1,10 +1,9 @@
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   WorkspaceProvider,
   WorkspaceParameterConfigurationIcon,
   WorkspaceShell,
   createWorkspaceShellViewState,
-  setWorkspaceCapabilities,
   type WorkspaceHost,
   type WorkspaceShellTabDefinition,
   type WorkspaceShellViewState,
@@ -40,15 +39,6 @@ type RealtimeViewProps = {
   project: Project | null;
   runtime: RuntimeViewState;
 };
-
-function initialMode(): "author" | "use" {
-  if (typeof window === "undefined") {
-    return "use";
-  }
-  return new URLSearchParams(window.location.search).get("mode") === "author"
-    ? "author"
-    : "use";
-}
 
 function runtimeTitle(runtime: RuntimeDeclaration): string {
   return `${runtime.kind}: ${runtime.entrypoint}`;
@@ -190,16 +180,15 @@ function ReadyRealtimeView({
   project,
   runtime,
 }: RealtimeViewProps & { host: WorkspaceHost; project: Project }) {
-  const [mode] = useState<"author" | "use">(initialMode);
   return (
-    <main className={`realtime-app realtime-mode-${mode}`}>
+    <main className="realtime-app">
       <p aria-live="polite" className="realtime-announcer" role="status">
         Realtime ready.
       </p>
       <RealtimeContext.Provider value={{ actions, error, project, runtime }}>
         <WorkspaceProvider host={host}>
           <div className="realtime-workspace">
-            <RealtimeWorkspace host={host} mode={mode} />
+            <RealtimeWorkspace />
           </div>
         </WorkspaceProvider>
       </RealtimeContext.Provider>
@@ -209,7 +198,7 @@ function ReadyRealtimeView({
 
 function LoadingRealtimeView({ error }: { error: string | null }) {
   return (
-    <main className="realtime-app realtime-mode-use">
+    <main className="realtime-app">
       <p aria-live="polite" className="realtime-announcer" role="status">
         Loading Realtime.
       </p>
@@ -234,23 +223,10 @@ export function RealtimeView(props: RealtimeViewProps) {
   );
 }
 
-function RealtimeWorkspace({
-  host,
-  mode,
-}: {
-  host: WorkspaceHost;
-  mode: "author" | "use";
-}) {
+function RealtimeWorkspace() {
   const [viewState, setViewState] = useState<WorkspaceShellViewState>(() =>
     createWorkspaceShellViewState({ trailingTabId: "runtime" }),
   );
-  useLayoutEffect(() => {
-    const editable = mode === "author";
-    setWorkspaceCapabilities(host, {
-      canEditLayout: editable,
-      canEditStructure: editable,
-    });
-  }, [host, mode]);
   const handleViewStateChange = useCallback(
     (next: WorkspaceShellViewState) => setViewState(next),
     [],
@@ -258,7 +234,7 @@ function RealtimeWorkspace({
   return (
     <WorkspaceShell
       ariaLabel="Realtime workspace"
-      includeBuiltInInspector={mode === "author"}
+      includeBuiltInInspector
       includeBuiltInSavedViews={false}
       leadingPaneShiftsCanvas={true}
       leadingTabs={EMPTY_TABS}
