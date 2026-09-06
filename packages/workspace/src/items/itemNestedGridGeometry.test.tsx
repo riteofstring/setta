@@ -63,7 +63,7 @@ function getPackageRoot(): string {
 
 function inlineRelativeImports(css: string, fromDirectory: string): string {
   return css.replace(/^@import\s+(.+);$/gm, (statement, specifier: string) => {
-    const relativePath = /^"(\.\/[^"]+)"$/.exec(specifier.trim())?.[1];
+    const relativePath = /^"((?:\.\.?\/)+[^"]+)"$/.exec(specifier.trim())?.[1];
     if (!relativePath) {
       throw new Error(`unsupported stylesheet import: ${statement}`);
     }

@@ -88,8 +88,8 @@ describe("workspace graph stylesheet contract", () => {
     expect(workspaceGraphStyles).toContain(
       "--setta-workspace-graph-port-color: var(--setta-section-style-arg-handle)",
     );
-    expect(workspaceGraphStyles).toContain(
-      "--setta-workspace-graph-port-color: var(\n    --setta-section-style-agentic-handle\n  )",
+    expect(workspaceGraphStyles).toMatch(
+      /--setta-workspace-graph-port-color:\s*var\(\s*--setta-section-style-agentic-handle\s*\)/su,
     );
     expect(workspaceGraphStyles).toContain("background-color 80ms ease-out");
     expect(workspaceGraphStyles).not.toContain(

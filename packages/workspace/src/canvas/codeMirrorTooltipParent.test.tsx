@@ -239,9 +239,11 @@ describe("canvas CodeMirror tooltip parent", () => {
       expect(presentationRoot.style.width).toBe("1200px");
       expect(presentationRoot.style.height).toBe("800px");
       expect(presentationRoot.style.zIndex).toBe("");
-      expect(presentationRoot.nextElementSibling).toBe(
-        getRequiredElement(container, ".react-flow__background"),
-      );
+      expect(
+        presentationRoot.contains(
+          getRequiredElement(container, ".react-flow__background"),
+        ),
+      ).toBe(true);
       expect(testWorkspace.reactFlow.getState().width).toBe(1_200);
       expect(testWorkspace.reactFlow.getState().height).toBe(800);
       expect(testWorkspace.reactFlow.getState().domNode).toBe(

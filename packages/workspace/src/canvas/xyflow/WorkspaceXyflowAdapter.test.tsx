@@ -195,7 +195,7 @@ describe("WorkspaceXyflowAdapter", () => {
     expect(props.id).toBe(testWorkspace.domId);
     expect(props.proOptions).toEqual({ hideAttribution: true });
     expect(props.onlyRenderVisibleElements).toBe(false);
-    expect(props.disableKeyboardA11y).toBeUndefined();
+    expect(props.disableKeyboardA11y).toBe(true);
     expect(props.selectionOnDrag).toBe(false);
     expect(props.selectNodesOnDrag).toBe(false);
     expect(props.elementsSelectable).toBe(false);
@@ -319,6 +319,11 @@ describe("WorkspaceXyflowAdapter", () => {
     });
 
     await act(async () => {
+      getReactFlowProps().onInit?.(
+        {} as Parameters<
+          NonNullable<ReactFlowProps<WorkspaceXyflowSectionNode>["onInit"]>
+        >[0],
+      );
       getReactFlowProps().onNodesChange?.([
         {
           id: "section",
@@ -485,22 +490,24 @@ describe("WorkspaceXyflowAdapter", () => {
 
     await act(async () => {
       nodeRoot.render(
-        createElement(nodeType, {
-          id: "section",
-          type: "workspace",
-          data: { sectionId: "section" },
-          width: 200,
-          height: 100,
-          dragging: false,
-          zIndex: 0,
-          selectable: true,
-          deletable: false,
-          selected: false,
-          draggable: true,
-          isConnectable: false,
-          positionAbsoluteX: 10,
-          positionAbsoluteY: 20,
-        }),
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(nodeType, {
+            id: "section",
+            type: "workspace",
+            data: { sectionId: "section" },
+            width: 200,
+            height: 100,
+            dragging: false,
+            zIndex: 0,
+            selectable: true,
+            deletable: false,
+            selected: false,
+            draggable: true,
+            isConnectable: false,
+            positionAbsoluteX: 10,
+            positionAbsoluteY: 20,
+          })}
+        </WorkspaceTestProvider>,
       );
     });
 
