@@ -27,12 +27,6 @@ _IDENTITY_PATH = "/api/v2/runtime/session"
 
 
 class PythonCanvasAdapter:
-    def __init__(
-        self,
-        basedpyright_resolver: Callable[[], Path] = resolve_basedpyright_entrypoint,
-    ):
-        self._basedpyright_resolver = basedpyright_resolver
-
     @property
     def descriptor(self) -> AppDescriptor:
         return AppDescriptor(
@@ -75,7 +69,7 @@ class PythonCanvasAdapter:
                 {"name": "packaged-runtime", "status": "error", "code": error.code}
             )
         try:
-            entrypoint = self._basedpyright()
+            entrypoint = self._basedpyright(context)
             checks.append(
                 {
                     "name": "basedpyright",
@@ -114,7 +108,7 @@ class PythonCanvasAdapter:
         project = _required_value(parsed, "--project", "open requires --project PATH.")
         canonical = self._sessions(context).canonical_project_path(project)
         runtime = self._runtime(context).app(APP_ID)
-        basedpyright = self._basedpyright()
+        basedpyright = self._basedpyright(context)
         nonce = secrets.token_urlsafe(32)
         supervisor = self._supervisor(context)
         sessions = self._sessions(context)
@@ -257,8 +251,12 @@ class PythonCanvasAdapter:
     def _supervisor(context: CommandContext) -> NativeServerSupervisor:
         return context.supervisor
 
-    def _basedpyright(self) -> Path:
-        return self._basedpyright_resolver()
+    @staticmethod
+    def _basedpyright(context: CommandContext) -> Path:
+        resolver = getattr(context, "basedpyright_resolver", None)
+        if resolver is not None:
+            return resolver()
+        return resolve_basedpyright_entrypoint()
 
     @staticmethod
     def _validate_live_session(session: LiveSession) -> bool:

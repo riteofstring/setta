@@ -13,10 +13,5 @@
     "performance:profile": "node scripts/profile-workspace-performance.mjs",
     "playground:inspect": "node scripts/inspect-playground.mjs",
     "workspace:browser:test": "node scripts/workspace-browser-interactions.mjs"
-  },
-  "pnpm": {
-    "overrides": {
-      "fast-uri": "3.1.6"
-    }
   }
 }

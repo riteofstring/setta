@@ -9,10 +9,9 @@ from collections.abc import Sequence
 from pathlib import Path, PurePosixPath
 
 from .models import (
-    APP_IDS,
+    APP_ID,
     FORBIDDEN_ARCHIVE_ROOTS,
     FORBIDDEN_ARCHIVE_SEGMENTS,
-    InspectedRuntimeApp,
     MAX_WHEEL_ENTRIES,
     MAX_WHEEL_TEXT_BYTES,
     MAX_WHEEL_UNCOMPRESSED_BYTES,
@@ -51,7 +50,9 @@ def inspect_wheel(
                     f"{expected_platform_tag!r}"
                 )
             validate_record(archive, infos, dist_info)
-            target, apps = validate_runtime_manifest(archive, infos, names, tag)
+            target, native_member, web_members = validate_runtime_manifest(
+                archive, infos, names, tag
+            )
     except (OSError, UnicodeDecodeError, ValueError, zipfile.BadZipFile) as error:
         if isinstance(error, SmokeError):
             raise
@@ -61,7 +62,8 @@ def inspect_wheel(
         version=version,
         platform_tag=tag,
         target=target,
-        apps=apps,
+        native_member=native_member,
+        web_members=web_members,
     )
 
 
@@ -219,7 +221,7 @@ def validate_runtime_manifest(
     infos: Sequence[zipfile.ZipInfo],
     names: set[str],
     platform_tag: str,
-) -> tuple[tuple[str, str], tuple[InspectedRuntimeApp, ...]]:
+) -> tuple[tuple[str, str], str, tuple[str, ...]]:
     raw_manifest = parse_json_document(
         read_archive_bytes(archive, RUNTIME_MANIFEST_PATH, MAX_WHEEL_TEXT_BYTES),
         "runtime manifest",
@@ -231,8 +233,10 @@ def validate_runtime_manifest(
         raise SmokeError("runtime manifest has an unsupported format version")
     manifest_target = _runtime_manifest_target(manifest["target"], platform_tag)
     asset_paths = _runtime_manifest_assets(archive, names, manifest["assets"])
-    apps = _runtime_manifest_apps(infos, names, manifest["apps"], asset_paths)
-    return manifest_target, apps
+    native_member, web_members = _runtime_manifest_app(
+        infos, names, manifest["apps"], asset_paths
+    )
+    return manifest_target, native_member, web_members
 
 
 def _runtime_manifest_target(value: object, platform_tag: str) -> tuple[str, str]:
@@ -304,38 +308,21 @@ def _runtime_asset_fields(value: object) -> tuple[str, str, bool]:
     return path, digest, executable
 
 
-def _runtime_manifest_apps(
-    infos: Sequence[zipfile.ZipInfo],
-    names: set[str],
-    value: object,
-    asset_paths: dict[str, bool],
-) -> tuple[InspectedRuntimeApp, ...]:
-    apps = require_list(value, "runtime apps")
-    app_ids = [app.get("id") if isinstance(app, dict) else None for app in apps]
-    if tuple(app_ids) != APP_IDS:
-        raise SmokeError(
-            "runtime manifest does not contain the canonical app inventory"
-        )
-    return tuple(_runtime_manifest_app(infos, names, app, asset_paths) for app in apps)
-
-
 def _runtime_manifest_app(
     infos: Sequence[zipfile.ZipInfo],
     names: set[str],
     value: object,
     asset_paths: dict[str, bool],
-) -> InspectedRuntimeApp:
-    app = require_object(value, "runtime app")
-    if set(app) != {"id", "nativeServer", "webRoot"}:
-        raise SmokeError("runtime manifest has an invalid app")
-    app_id = app.get("id")
+) -> tuple[str, tuple[str, ...]]:
+    apps = require_list(value, "runtime apps")
+    if len(apps) != 1:
+        raise SmokeError("runtime manifest must contain exactly one app")
+    app = require_object(apps[0], "runtime app")
+    if set(app) != {"id", "nativeServer", "webRoot"} or app.get("id") != APP_ID:
+        raise SmokeError("runtime manifest has an invalid Python Canvas app")
     native_relative = app.get("nativeServer")
     web_root = app.get("webRoot")
-    if (
-        not isinstance(app_id, str)
-        or not isinstance(native_relative, str)
-        or not isinstance(web_root, str)
-    ):
+    if not isinstance(native_relative, str) or not isinstance(web_root, str):
         raise SmokeError("runtime manifest app paths are invalid")
     safe_runtime_relative_path(native_relative)
     safe_runtime_relative_path(web_root)
@@ -349,10 +336,10 @@ def _runtime_manifest_app(
     index = web_prefix + "index.html"
     web_members = tuple(sorted(name for name in names if name.startswith(web_prefix)))
     if index not in web_members:
-        raise SmokeError(f"wheel has no packaged {app_id} index.html")
+        raise SmokeError("wheel has no packaged Python Canvas index.html")
     if not any(name.startswith(web_prefix + "assets/") for name in web_members):
-        raise SmokeError(f"wheel has no packaged {app_id} hashed asset")
-    return InspectedRuntimeApp(app_id, native_member, web_members)
+        raise SmokeError("wheel has no packaged Python Canvas hashed asset")
+    return native_member, web_members
 
 
 def read_archive_text(archive: zipfile.ZipFile, name: str) -> str:

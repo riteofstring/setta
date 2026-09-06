@@ -19,8 +19,6 @@ from .lifecycle import (
     cleanup_live_server,
 )
 from .models import (
-    APP_DESCRIPTORS,
-    APP_IDS,
     APP_ID,
     APPLIED_PROJECT_NAME,
     COMMAND_TIMEOUT_SECONDS,
@@ -166,9 +164,15 @@ def assert_installed_root_commands(
     ):
         raise SmokeError("setta apps --json has an invalid public shape")
     app_documents = require_list(apps["apps"], "setta app list")
-    if app_documents != list(APP_DESCRIPTORS):
+    if app_documents != [
+        {
+            "id": APP_ID,
+            "name": "Python Canvas",
+            "summary": "Author and run one local Python project.",
+        }
+    ]:
         raise SmokeError(
-            "setta apps --json does not expose the canonical installed app inventory"
+            "setta apps --json does not expose the installed Python Canvas app"
         )
     module = run_process(
         (str(python), "-m", "setta"),
@@ -203,11 +207,15 @@ def assert_doctor(document: Mapping[str, object]) -> None:
     ):
         raise SmokeError("setta doctor --json did not validate packaged runtime assets")
     apps = require_list(document["apps"], "doctor apps")
-    app_ids = tuple(app.get("id") if isinstance(app, dict) else None for app in apps)
-    if app_ids != APP_IDS or any(
-        not isinstance(app, dict) or app.get("status") != "ok" for app in apps
+    if (
+        len(apps) != 1
+        or not isinstance(apps[0], dict)
+        or apps[0].get("id") != APP_ID
+        or apps[0].get("status") != "ok"
     ):
-        raise SmokeError("setta doctor --json did not validate every installed app")
+        raise SmokeError(
+            "setta doctor --json did not validate Python Canvas and Basedpyright"
+        )
 
 
 def assert_offline_schema(

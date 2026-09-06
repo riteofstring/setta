@@ -116,24 +116,6 @@ class LiveSessionStoreTests(unittest.TestCase):
         with self.assertRaises(SessionNotFoundError):
             self.store.resolve("fixture-app", self.project, self._verify)
 
-    def test_identical_project_paths_are_isolated_by_app_id(self) -> None:
-        first = self._session("first")
-        second = replace(first, app_id="second-app", instance_nonce="second")
-        with self.store.claim("fixture-app", self.project, self._verify) as lease:
-            lease.publish(first)
-        with self.store.claim("second-app", self.project, self._verify) as lease:
-            lease.publish(second)
-        self.assertEqual(
-            self.store.resolve("fixture-app", self.project, self._verify), first
-        )
-        self.assertEqual(
-            self.store.resolve("second-app", self.project, self._verify), second
-        )
-        self.store.remove_if_owned(first)
-        self.assertEqual(
-            self.store.resolve("second-app", self.project, self._verify), second
-        )
-
 
 class ProcessLivenessTests(unittest.TestCase):
     def test_posix_dispatch_uses_signal_zero_probe(self) -> None:

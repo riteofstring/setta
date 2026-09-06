@@ -5,7 +5,6 @@ import os
 import shutil
 import subprocess
 import tempfile
-from dataclasses import dataclass
 from pathlib import Path
 
 from platform_contract import (
@@ -13,13 +12,7 @@ from platform_contract import (
     native_build_environment,
     release_platform_tag,
 )
-from scripts._stage_setta_wheel import (
-    StageAppInputs,
-    StageError,
-    StageInputs,
-    parse_target,
-    stage,
-)
+from scripts._stage_setta_wheel import StageError, StageInputs, parse_target, stage
 from setta.runtime import (
     PackagedRuntime,
     RuntimeAssetError,
@@ -32,33 +25,6 @@ _REQUIRED_UV_VERSION = "0.8.19"
 _DEFAULT_STAGE_DIR = ROOT / "build" / "setta-wheel" / "stage"
 
 
-@dataclass(frozen=True)
-class BuildApp:
-    app_id: str
-    frontend_package: str
-    frontend_root: Path
-    backend_root: Path
-    native_command: str
-
-
-_APPS = (
-    BuildApp(
-        "python-canvas",
-        "@setta/python-canvas",
-        ROOT / "apps" / "python-canvas" / "dist",
-        ROOT / "apps" / "python-canvas" / "backend",
-        "./cmd/python-canvas",
-    ),
-    BuildApp(
-        "realtime",
-        "@setta/realtime",
-        ROOT / "apps" / "realtime" / "dist",
-        ROOT / "apps" / "realtime" / "backend",
-        "./cmd/realtime",
-    ),
-)
-
-
 class BuildError(Exception):
     pass
 
@@ -69,16 +35,10 @@ def main(arguments: list[str] | None = None) -> int:
         "--target", help="current build target; defaults to this machine"
     )
     parser.add_argument(
-        "--native-server",
-        action="append",
-        metavar="APP_ID=PATH",
-        help="use an already-built native server for one registered app",
+        "--native-server", type=Path, help="use an already-built native server"
     )
     parser.add_argument(
-        "--web-root",
-        action="append",
-        metavar="APP_ID=PATH",
-        help="use an already-built production web tree for one registered app",
+        "--web-root", type=Path, help="use an already-built production web tree"
     )
     parser.add_argument(
         "--stage-dir",
@@ -118,39 +78,28 @@ def build(namespace: argparse.Namespace) -> Path:
         )
     except PlatformContractError as error:
         raise BuildError(str(error)) from error
-    web_overrides = _path_overrides(getattr(namespace, "web_root", None), "--web-root")
-    native_overrides = _path_overrides(
-        getattr(namespace, "native_server", None), "--native-server"
-    )
-    if not getattr(namespace, "skip_frontend_build", False):
-        _run_frontend_build(getattr(namespace, "pnpm", None), web_overrides)
+    web_root = namespace.web_root or ROOT / "apps" / "python-canvas" / "dist"
+    if not namespace.skip_frontend_build and namespace.web_root is None:
+        _run_frontend_build(namespace.pnpm)
+    if namespace.native_server is not None:
+        native_server = namespace.native_server
+        return _stage_and_maybe_wheel(
+            native_server, web_root, namespace, target, platform_tag
+        )
     with tempfile.TemporaryDirectory(
         prefix="setta-native-build-"
     ) as temporary_directory:
         suffix = ".exe" if target.os == "windows" else ""
-        temporary = Path(temporary_directory)
-        staged_apps: list[StageAppInputs] = []
-        for app in _APPS:
-            native_server = native_overrides.get(app.app_id)
-            if native_server is None:
-                native_server = temporary / f"{app.app_id}{suffix}"
-                _run_native_build(
-                    app, native_server, getattr(namespace, "go", None), target
-                )
-            staged_apps.append(
-                StageAppInputs(
-                    app_id=app.app_id,
-                    native_server=native_server,
-                    web_root=web_overrides.get(app.app_id, app.frontend_root),
-                )
-            )
+        native_server = Path(temporary_directory) / f"python-canvas{suffix}"
+        _run_native_build(native_server, namespace.go, target)
         return _stage_and_maybe_wheel(
-            tuple(staged_apps), namespace, target, platform_tag
+            native_server, web_root, namespace, target, platform_tag
         )
 
 
 def _stage_and_maybe_wheel(
-    apps: tuple[StageAppInputs, ...],
+    native_server: Path,
+    web_root: Path,
     namespace: argparse.Namespace,
     target: RuntimeTarget,
     platform_tag: str,
@@ -158,17 +107,17 @@ def _stage_and_maybe_wheel(
     stage_directory = _stage_directory_for(namespace, target)
     stage(
         StageInputs(
-            apps=apps,
+            native_server=native_server,
+            web_root=web_root,
             output=stage_directory,
             target=target,
             wheel_platform_tag=platform_tag,
         )
     )
-    if getattr(namespace, "stage_only", False):
+    if namespace.stage_only:
         return stage_directory
-    wheel_dir = getattr(namespace, "wheel_dir", ROOT / "dist")
-    _run_uv_build(wheel_dir, platform_tag)
-    return wheel_dir
+    _run_uv_build(namespace.wheel_dir, platform_tag)
+    return namespace.wheel_dir
 
 
 def _stage_directory_for(namespace: argparse.Namespace, target: RuntimeTarget) -> Path:
@@ -227,23 +176,16 @@ def _has_exact_non_symlink_children(directory: Path, expected: set[str]) -> bool
     )
 
 
-def _run_frontend_build(
-    explicit_pnpm: Path | None, web_overrides: dict[str, Path]
-) -> None:
+def _run_frontend_build(explicit_pnpm: Path | None) -> None:
     pnpm = str(explicit_pnpm) if explicit_pnpm is not None else shutil.which("pnpm")
     if pnpm is None:
         raise BuildError("pnpm is required to build the production web application")
     _run([pnpm, "--filter", "@setta/workspace", "run", "build"], ROOT)
-    for app in _APPS:
-        if app.app_id not in web_overrides:
-            _run([pnpm, "--filter", app.frontend_package, "run", "build"], ROOT)
+    _run([pnpm, "--filter", "@setta/python-canvas", "run", "build"], ROOT)
 
 
 def _run_native_build(
-    app: BuildApp,
-    output: Path,
-    explicit_go: Path | None,
-    target: RuntimeTarget,
+    output: Path, explicit_go: Path | None, target: RuntimeTarget
 ) -> None:
     go = str(explicit_go) if explicit_go is not None else shutil.which("go")
     if go is None:
@@ -252,28 +194,17 @@ def _run_native_build(
         [
             go,
             "-C",
-            str(app.backend_root),
+            str(ROOT / "apps" / "python-canvas" / "backend"),
             "build",
             "-trimpath",
             "-buildvcs=false",
             "-o",
             str(output),
-            app.native_command,
+            "./cmd/python-canvas",
         ],
         ROOT,
         environment=native_build_environment(os.environ, target.os),
     )
-
-
-def _path_overrides(values: list[str] | None, flag: str) -> dict[str, Path]:
-    overrides: dict[str, Path] = {}
-    known = {app.app_id for app in _APPS}
-    for value in values or []:
-        app_id, separator, raw_path = value.partition("=")
-        if not separator or app_id not in known or not raw_path or app_id in overrides:
-            raise BuildError(f"{flag} requires one unique registered APP_ID=PATH value")
-        overrides[app_id] = Path(raw_path)
-    return overrides
 
 
 def _run_uv_build(wheel_dir: Path, platform_tag: str) -> None:

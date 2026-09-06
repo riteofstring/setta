@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import cast
 from unittest import mock
 
-from setta.cli import installed_apps, run
+from setta.cli import run
 from setta.registry import AppDescriptor, AppRegistry, CommandContext
 from setta.runtime import PackagedRuntime
 from setta.sessions import LiveSessionStore
@@ -76,12 +76,6 @@ class RootCliTests(unittest.TestCase):
                 ],
                 "schemaVersion": "setta-apps/v1",
             },
-        )
-
-    def test_installed_registry_exposes_both_independent_apps(self) -> None:
-        self.assertEqual(
-            tuple(item.app_id for item in installed_apps().descriptors()),
-            ("python-canvas", "realtime"),
         )
 
     def test_root_dispatches_a_fixture_app_without_domain_branching(self) -> None:
