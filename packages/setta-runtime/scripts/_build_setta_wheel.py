@@ -123,7 +123,11 @@ def build(namespace: argparse.Namespace) -> Path:
         getattr(namespace, "native_server", None), "--native-server"
     )
     if not getattr(namespace, "skip_frontend_build", False):
-        _run_frontend_build(getattr(namespace, "pnpm", None), web_overrides)
+        _run_frontend_build(
+            getattr(namespace, "pnpm", None),
+            web_overrides,
+            getattr(namespace, "go", None),
+        )
     with tempfile.TemporaryDirectory(
         prefix="setta-native-build-"
     ) as temporary_directory:
@@ -228,15 +232,44 @@ def _has_exact_non_symlink_children(directory: Path, expected: set[str]) -> bool
 
 
 def _run_frontend_build(
-    explicit_pnpm: Path | None, web_overrides: dict[str, Path]
+    explicit_pnpm: Path | None,
+    web_overrides: dict[str, Path],
+    explicit_go: Path | None = None,
 ) -> None:
     pnpm = str(explicit_pnpm) if explicit_pnpm is not None else shutil.which("pnpm")
     if pnpm is None:
         raise BuildError("pnpm is required to build the production web application")
-    _run([pnpm, "--filter", "@setta/workspace", "run", "build"], ROOT)
+    environment = _frontend_build_environment(explicit_go)
+    _run_frontend_command(
+        [pnpm, "--filter", "@setta/workspace", "run", "build"], environment
+    )
     for app in _APPS:
         if app.app_id not in web_overrides:
-            _run([pnpm, "--filter", app.frontend_package, "run", "build"], ROOT)
+            _run_frontend_command(
+                [pnpm, "--filter", app.frontend_package, "run", "build"],
+                environment,
+            )
+
+
+def _frontend_build_environment(explicit_go: Path | None) -> dict[str, str] | None:
+    if explicit_go is None:
+        return None
+    environment = os.environ.copy()
+    inherited = environment.get("PATH")
+    path_entries = [str(explicit_go.parent)]
+    if inherited:
+        path_entries.append(inherited)
+    environment["PATH"] = os.pathsep.join(path_entries)
+    return environment
+
+
+def _run_frontend_command(
+    command: list[str], environment: dict[str, str] | None
+) -> None:
+    if environment is None:
+        _run(command, ROOT)
+        return
+    _run(command, ROOT, environment=environment)
 
 
 def _run_native_build(

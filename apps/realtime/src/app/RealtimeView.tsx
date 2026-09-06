@@ -125,18 +125,50 @@ function RuntimeFeedback({
 }
 
 function RealtimeRuntimePane() {
-  const { project, runtime } = useRealtime();
+  const { actions, project, runtime } = useRealtime();
+  const [reloading, setReloading] = useState(false);
+  const handleReload = async () => {
+    setReloading(true);
+    try {
+      await actions.reload();
+    } finally {
+      setReloading(false);
+    }
+  };
+  const reloadDisabled =
+    reloading ||
+    runtime.connection !== "connected" ||
+    runtime.workerState === "starting" ||
+    runtime.workerState === "replacing";
   const activeInvocations = Object.values(runtime.invocations).filter(
     (invocation) => !TERMINAL_INVOCATION_STATES.has(invocation.state),
   ).length;
   return (
     <div className="realtime-runtime-pane">
       <h2>Runtime</h2>
+      <div className="realtime-runtime-pane-controls">
+        <span
+          className={`realtime-connection realtime-connection-${runtime.connection}`}
+        >
+          {runtime.connection}
+        </span>
+        <span
+          className={`realtime-worker-state realtime-worker-state-${runtime.workerState}`}
+          data-worker-state={runtime.workerState}
+          role="status"
+        >
+          Worker: {runtime.workerState}
+        </span>
+        <button
+          className="realtime-reload"
+          disabled={reloadDisabled}
+          onClick={() => void handleReload()}
+          type="button"
+        >
+          Reload runtime
+        </button>
+      </div>
       <dl>
-        <div>
-          <dt>Worker</dt>
-          <dd>{runtime.workerState}</dd>
-        </div>
         <div>
           <dt>Entrypoint</dt>
           <dd>{runtimeTitle(project.runtime)}</dd>
@@ -157,21 +189,7 @@ function ReadyRealtimeView({
   project,
   runtime,
 }: RealtimeViewProps & { host: WorkspaceHost; project: Project }) {
-  const [mode, setMode] = useState<"author" | "use">(initialMode);
-  const [reloading, setReloading] = useState(false);
-  const handleReload = async () => {
-    setReloading(true);
-    try {
-      await actions.reload();
-    } finally {
-      setReloading(false);
-    }
-  };
-  const reloadDisabled =
-    reloading ||
-    runtime.connection !== "connected" ||
-    runtime.workerState === "starting" ||
-    runtime.workerState === "replacing";
+  const [mode] = useState<"author" | "use">(initialMode);
   return (
     <main className={`realtime-app realtime-mode-${mode}`}>
       <p aria-live="polite" className="realtime-announcer" role="status">
@@ -180,48 +198,6 @@ function ReadyRealtimeView({
       <RealtimeContext.Provider value={{ actions, project, runtime }}>
         <WorkspaceProvider host={host}>
           <div className="realtime-app-chrome">
-            <header className="realtime-app-header">
-              <div>
-                <span
-                  className="realtime-app-eyebrow"
-                  title={runtimeTitle(project.runtime)}
-                >
-                  Setta Realtime
-                </span>
-                <h1>{project.name}</h1>
-              </div>
-              <div className="realtime-app-controls">
-                <span
-                  className={`realtime-connection realtime-connection-${runtime.connection}`}
-                >
-                  {runtime.connection}
-                </span>
-                <span
-                  className={`realtime-worker-state realtime-worker-state-${runtime.workerState}`}
-                  data-worker-state={runtime.workerState}
-                  role="status"
-                >
-                  Worker: {runtime.workerState}
-                </span>
-                <button
-                  className="realtime-reload"
-                  disabled={reloadDisabled}
-                  onClick={() => void handleReload()}
-                  type="button"
-                >
-                  Reload runtime
-                </button>
-                {mode === "author" ? (
-                  <button
-                    className="realtime-mode-exit"
-                    onClick={() => setMode("use")}
-                    type="button"
-                  >
-                    Use
-                  </button>
-                ) : null}
-              </div>
-            </header>
             <RuntimeFeedback error={error} runtime={runtime} />
           </div>
           <div className="realtime-workspace">

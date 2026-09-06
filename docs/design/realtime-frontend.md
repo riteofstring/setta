@@ -50,7 +50,9 @@ canvas remains its existing upstream XYFlow projection.
 Both Use and Author render through the same `WorkspaceShell`, Workspace host, section registry,
 section chrome, and upstream XYFlow canvas. Use is a read-only Workspace capability configuration
 that preserves the authored layout and omits the Inspector. It is not a second section or layout
-renderer, project format, or Python-authored UI tree.
+renderer, project format, or Python-authored UI tree. Realtime does not wrap the Workspace in a
+second product header; connection and runtime actions live in the Workspace Runtime tab instead
+of reserving a full-width row.
 
 ## Generated validation boundary
 

@@ -79,6 +79,12 @@ describe("Realtime workspace presentation", () => {
     expect(
       element.querySelector('[data-workspace-shell="true"]'),
     ).not.toBeNull();
+    expect(element.querySelector(".realtime-app-header")).toBeNull();
+    expect(
+      element.querySelector(
+        '[data-workspace-shell-pane-region="trailing"] .realtime-runtime-pane-controls',
+      ),
+    ).not.toBeNull();
     expect(
       element.querySelector('[data-section-id="input-main"]')?.textContent,
     ).toContain("Prompt");

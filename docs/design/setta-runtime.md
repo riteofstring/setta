@@ -45,3 +45,9 @@ Workspace builds before application frontends. Every frontend and native server 
 staging, and the wheel backend packages only those verified roots. CI trigger and build matrices
 cover every registered app. Runtime boundary checks reject undeclared files, missing app assets,
 and source-checkout fallbacks.
+
+The repository-local runner always builds a fresh wheel into a temporary directory and reinstalls
+the same-version `setta` package into a repository-owned environment with the package cache
+disabled. This keeps release versions deterministic while ensuring a local playground launch
+cannot reuse an older unpacked `uv tool run` environment. Installed releases continue to use the
+ordinary `setta` entry point.

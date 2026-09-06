@@ -38,6 +38,24 @@ class WheelBuildContractTests(unittest.TestCase):
             ],
         )
 
+    def test_frontend_build_uses_explicit_go_for_nested_contract_generation(
+        self,
+    ) -> None:
+        explicit_go = Path("/locked/go/bin/go")
+        with (
+            mock.patch.object(
+                build_setta_wheel.shutil, "which", return_value="/tools/pnpm"
+            ),
+            mock.patch.object(build_setta_wheel, "_run") as run,
+        ):
+            build_setta_wheel._run_frontend_build(None, {}, explicit_go)
+        for call in run.call_args_list:
+            environment = call.kwargs["environment"]
+            self.assertEqual(
+                environment["PATH"].split(build_setta_wheel.os.pathsep)[0],
+                str(explicit_go.parent),
+            )
+
     def test_wheel_build_uses_locked_backend_without_build_isolation(self) -> None:
         with (
             tempfile.TemporaryDirectory() as temporary_directory,

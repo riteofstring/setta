@@ -20,8 +20,13 @@ The checked-in playground turns each settled drawing into a neon-glitch image us
 standard library and browser-native SVG filters:
 
 ```console
-setta realtime open --project-root ./apps/realtime/examples/neon-sketch
+pnpm realtime:playground
 ```
+
+This repository-local command installs the frozen workspace dependencies, builds the current
+Workspace and both packaged applications, replaces the repository-owned local Setta environment
+from the newly built wheel, and opens Neon Sketch. It does not reuse `uv tool run`'s cached
+same-version environment. Use `setta realtime open` for an installed release.
 
 Choose **Draw**, make a mark, and the processed result appears beside the drawing. The example is
 an ordinary Realtime project: its authored document is under `.local/realtime/project.json`, and
