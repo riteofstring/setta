@@ -1,4 +1,5 @@
 import {
+  validateApplyRequestDocument,
   validateContentReferenceDocument,
   validateProjectDocument,
   validateRuntimeCommandDocument,
@@ -78,6 +79,22 @@ export type Project = {
   configuration: Record<string, JsonValue>;
 };
 
+export type ProjectOperation =
+  | { op: "setName"; name: string }
+  | { op: "setRuntime"; runtime: RuntimeDeclaration }
+  | { op: "upsertSection"; section: Section; layout: TopLevelSectionLayout | null }
+  | { op: "deleteSection"; sectionId: string }
+  | { op: "setBinding"; binding: Binding }
+  | { op: "deleteBinding"; bindingId: string }
+  | { op: "setConfiguration"; configuration: Record<string, JsonValue> }
+  | { op: "setViewport"; viewport: Viewport | null };
+
+export type ApplyRequest = {
+  projectId: string;
+  expectedRevision: number;
+  operations: Array<ProjectOperation>;
+};
+
 export type InvocationIdentity = {
   sessionId: string;
   bindingId: string;
@@ -148,6 +165,10 @@ export type RuntimeCancelRequest = {
 };
 
 export type RuntimeCommand = RuntimeEvent | RuntimeCancelRequest;
+
+export function validateApplyRequest(value: unknown): value is ApplyRequest {
+  return validateApplyRequestDocument(value);
+}
 
 export function validateProject(value: unknown): value is Project {
   return validateProjectDocument(value);

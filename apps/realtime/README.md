@@ -142,5 +142,8 @@ descendant cleanup, not a security sandbox.
 The private language-neutral worker contract is JSON-RPC 2.0 with strict LSP `Content-Length`
 framing. A later language adapter must implement the same `initialize`, `runtime/invoke`,
 `runtime/update`, `$/cancelRequest`, and `shutdown` lifecycle and pass the existing non-Python
-conformance fixture. It is then selected behind the Go worker-manager boundary; project bindings,
-scheduling, browser transport, and frontend code do not change.
+conformance fixture. Registration is compile-time at `openLocalApplication`: the runtime-kind
+selection constructs an implementation of the coordinator's `runtime.Worker` interface and its
+optional artifact and log sources. Unsupported kinds remain errors. The new adapter may add its own
+launcher and containment implementation, but project bindings, scheduling, browser transport, and
+frontend code do not change.

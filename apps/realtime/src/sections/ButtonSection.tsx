@@ -5,6 +5,7 @@ import {
 } from "@setta/workspace";
 
 import { useRealtime } from "../app/runtimeContext";
+import { runtimeCanInvoke } from "../app/runtimeState";
 import { readButtonSectionData } from "./sectionData";
 
 const ACTIVE_INVOCATION_STATES = new Set(["queued", "running", "streaming"]);
@@ -23,9 +24,7 @@ export function ButtonSection({ section }: { section: WorkspaceSection }) {
     <button
       aria-busy={busy}
       className={`realtime-action ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-      disabled={
-        runtime.connection !== "connected" || runtime.sessionId === null
-      }
+      disabled={!runtimeCanInvoke(runtime)}
       onClick={() => actions.emit(section.id, "press", null)}
       type="button"
     >

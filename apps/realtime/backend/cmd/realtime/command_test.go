@@ -142,7 +142,7 @@ func TestSchemaEmitsVersionedCommandsAndContracts(t *testing.T) {
 	if document.SchemaVersion != "setta-realtime-schema/v1" || len(document.Commands) != 5 {
 		t.Fatalf("schema identity = %#v", document)
 	}
-	if document.Schemas.Project["$id"] == nil || document.Schemas.Runtime["$id"] == nil || document.Schemas.RuntimeCommand["$id"] == nil {
+	if document.Schemas.ApplyRequest["$id"] == nil || document.Schemas.DirectInvokeRequest["$id"] == nil || document.Schemas.Project["$id"] == nil || document.Schemas.Runtime["$id"] == nil || document.Schemas.RuntimeCommand["$id"] == nil {
 		t.Fatalf("schema contracts = %#v", document.Schemas)
 	}
 }

@@ -1,5 +1,221 @@
 {
   "$defs": {
+    "cancelParams": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "oneOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "contentReference": {
+      "additionalProperties": false,
+      "properties": {
+        "byteLength": {
+          "maximum": 268435456,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "invocationId": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "mediaType": {
+          "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "mediaType",
+        "byteLength",
+        "sha256",
+        "invocationId"
+      ],
+      "type": "object"
+    },
+    "emptyObject": {
+      "additionalProperties": false,
+      "properties": {},
+      "required": [],
+      "type": "object"
+    },
+    "identity": {
+      "additionalProperties": false,
+      "properties": {
+        "bindingId": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "invocationId": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "sessionId": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "bindingId",
+        "invocationId",
+        "sequence"
+      ],
+      "type": "object"
+    },
+    "initializeParams": {
+      "additionalProperties": false,
+      "properties": {
+        "entrypoint": {
+          "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+          "type": "string"
+        },
+        "projectRoot": {
+          "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+          "type": "string"
+        },
+        "protocolVersion": {
+          "const": 1
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "projectRoot",
+        "entrypoint"
+      ],
+      "type": "object"
+    },
+    "initializeResult": {
+      "additionalProperties": false,
+      "properties": {
+        "handlers": {
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "loadError": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/structuredError"
+            }
+          ]
+        },
+        "protocolVersion": {
+          "const": 1
+        },
+        "runtimeKind": {
+          "pattern": "^[a-z][a-z0-9-]{0,63}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "runtimeKind",
+        "handlers",
+        "loadError"
+      ],
+      "type": "object"
+    },
+    "invokeParams": {
+      "additionalProperties": false,
+      "properties": {
+        "arguments": {
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          },
+          "maxProperties": 128,
+          "propertyNames": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "content": {
+          "items": {
+            "$ref": "#/$defs/contentReference"
+          },
+          "maxItems": 128,
+          "type": "array"
+        },
+        "handler": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "type": "string"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "identity",
+        "handler",
+        "arguments",
+        "content"
+      ],
+      "type": "object"
+    },
+    "invokeResult": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/structuredError"
+            }
+          ]
+        },
+        "outputs": {
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          },
+          "maxProperties": 128,
+          "propertyNames": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "outputs",
+        "error"
+      ],
+      "type": "object"
+    },
     "jsonValue": {
       "anyOf": [
         {
@@ -34,6 +250,9 @@
         "code": {
           "type": "integer"
         },
+        "data": {
+          "$ref": "#/$defs/jsonValue"
+        },
         "message": {
           "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
           "type": "string"
@@ -42,6 +261,89 @@
       "required": [
         "code",
         "message"
+      ],
+      "type": "object"
+    },
+    "structuredError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "type": "string"
+        },
+        "message": {
+          "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "type": "object"
+    },
+    "update": {
+      "additionalProperties": false,
+      "properties": {
+        "artifacts": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "mediaType": {
+                "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+                "type": "string"
+              },
+              "name": {
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+                "type": "string"
+              },
+              "path": {
+                "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "mediaType",
+              "path"
+            ],
+            "type": "object"
+          },
+          "maxItems": 128,
+          "type": "array"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "message": {
+          "type": "string"
+        },
+        "outputs": {
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          },
+          "maxProperties": 128,
+          "propertyNames": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "progress": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "identity",
+        "progress",
+        "message",
+        "outputs",
+        "artifacts"
       ],
       "type": "object"
     }
@@ -53,20 +355,88 @@
       "additionalProperties": false,
       "properties": {
         "id": {
-          "type": [
-            "string",
-            "integer"
+          "oneOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
           ]
         },
         "jsonrpc": {
           "const": "2.0"
         },
         "method": {
-          "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
-          "type": "string"
+          "const": "initialize"
         },
         "params": {
-          "$ref": "#/$defs/jsonValue"
+          "$ref": "#/$defs/initializeParams"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "id",
+        "method",
+        "params"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "oneOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "method": {
+          "const": "runtime/invoke"
+        },
+        "params": {
+          "$ref": "#/$defs/invokeParams"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "id",
+        "method",
+        "params"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "oneOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "method": {
+          "const": "shutdown"
+        },
+        "params": {
+          "$ref": "#/$defs/emptyObject"
         }
       },
       "required": [
@@ -84,11 +454,30 @@
           "const": "2.0"
         },
         "method": {
-          "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
-          "type": "string"
+          "const": "runtime/update"
         },
         "params": {
-          "$ref": "#/$defs/jsonValue"
+          "$ref": "#/$defs/update"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "method",
+        "params"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "method": {
+          "const": "$/cancelRequest"
+        },
+        "params": {
+          "$ref": "#/$defs/cancelParams"
         }
       },
       "required": [
@@ -102,16 +491,31 @@
       "additionalProperties": false,
       "properties": {
         "id": {
-          "type": [
-            "string",
-            "integer"
+          "oneOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
           ]
         },
         "jsonrpc": {
           "const": "2.0"
         },
         "result": {
-          "$ref": "#/$defs/jsonValue"
+          "oneOf": [
+            {
+              "$ref": "#/$defs/initializeResult"
+            },
+            {
+              "$ref": "#/$defs/invokeResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -128,9 +532,14 @@
           "$ref": "#/$defs/rpcError"
         },
         "id": {
-          "type": [
-            "string",
-            "integer"
+          "oneOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
           ]
         },
         "jsonrpc": {

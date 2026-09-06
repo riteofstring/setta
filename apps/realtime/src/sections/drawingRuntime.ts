@@ -1,11 +1,14 @@
 import {
   Canvas,
+  FabricImage,
   PencilBrush,
   Rect,
   type FabricObject,
   type TPointerEventInfo,
 } from "fabric";
 import type { WorkspaceSectionData } from "@setta/workspace";
+
+import type { DrawingSnapshot } from "./drawingSettlementQueue";
 
 export type DrawingTool = "select" | "draw" | "erase";
 
@@ -40,6 +43,7 @@ export class RealtimeDrawingRuntime {
     this.onSettled = options.onSettled;
     this.canvas = new Canvas(element, {
       backgroundColor: options.background,
+      enablePointerEvents: true,
       height: options.height,
       preserveObjectStacking: true,
       selection: true,
@@ -88,6 +92,21 @@ export class RealtimeDrawingRuntime {
     this.canvas.requestRenderAll();
     this.notifySettled();
     return object;
+  }
+
+  public addFilteredImage(
+    source: HTMLCanvasElement,
+    imageFilters: FabricImage["filters"],
+  ): FabricImage {
+    const image = new FabricImage(source, { left: 24, top: 24 });
+    image.filters = [...imageFilters];
+    image.applyFilters();
+    this.canvas.add(image);
+    this.setTool("select");
+    this.canvas.setActiveObject(image);
+    this.canvas.requestRenderAll();
+    this.notifySettled();
+    return image;
   }
 
   public eraseObject(object: FabricObject): boolean {
@@ -154,6 +173,12 @@ export class RealtimeDrawingRuntime {
       throw new Error("Realtime could not export the drawing snapshot.");
     }
     return blob;
+  }
+
+  public async captureSnapshot(): Promise<DrawingSnapshot> {
+    const scene = this.toScene();
+    const blob = await this.toBlob();
+    return { blob, scene };
   }
 
   public async dispose(): Promise<void> {

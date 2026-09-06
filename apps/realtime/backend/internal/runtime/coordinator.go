@@ -205,6 +205,7 @@ func (coordinator *Coordinator) Invoke(ctx context.Context, handler string, requ
 	if err != nil {
 		return contracts.InvokeResult{}, err
 	}
+	defer coordinator.content.DeleteReferences(references)
 	return coordinator.worker.Invoke(ctx, contracts.InvokeParams{Identity: identity, Handler: handler, Arguments: arguments, Content: references})
 }
 
@@ -249,15 +250,20 @@ func matchingBindings(bindings []contracts.Binding, event contracts.RuntimeEvent
 
 func (coordinator *Coordinator) scheduleBindings(projectSnapshot contracts.Project, event contracts.RuntimeEvent, bindings []contracts.Binding) (int, error) {
 	accepted := 0
+	references := []contracts.ContentReference{}
 	for _, binding := range bindings {
-		if err := coordinator.scheduleBinding(projectSnapshot, event, binding); err != nil {
+		owned, err := coordinator.scheduleBinding(projectSnapshot, event, binding)
+		references = appendUniqueReferences(references, owned)
+		if err != nil {
 			if errors.Is(err, scheduler.ErrBusy) || errors.Is(err, scheduler.ErrQueueFull) {
 				continue
 			}
+			_ = coordinator.content.DeleteReferences(references)
 			return accepted, err
 		}
 		accepted++
 	}
+	_ = coordinator.content.DeleteReferences(references)
 	return accepted, nil
 }
 
@@ -287,29 +293,30 @@ func (coordinator *Coordinator) Cancel(request contracts.RuntimeCancelRequest) e
 	return nil
 }
 
-func (coordinator *Coordinator) scheduleBinding(projectSnapshot contracts.Project, event contracts.RuntimeEvent, binding contracts.Binding) error {
+func (coordinator *Coordinator) scheduleBinding(projectSnapshot contracts.Project, event contracts.RuntimeEvent, binding contracts.Binding) ([]contracts.ContentReference, error) {
 	coordinator.mu.Lock()
 	identity, arguments, rawReferences, err := coordinator.prepareBindingLocked(projectSnapshot, event, binding)
 	coordinator.mu.Unlock()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	prepared, references, err := coordinator.prepareArguments(arguments, rawReferences, identity.InvocationID)
 	if err != nil {
-		return err
+		return rawReferences, err
 	}
 	coordinator.mu.Lock()
 	if coordinator.closed {
 		coordinator.mu.Unlock()
-		_ = coordinator.content.DeleteInvocation(identity.InvocationID)
-		return ErrClosed
+		_ = coordinator.content.DeleteReferences(references)
+		return rawReferences, ErrClosed
 	}
 	err = coordinator.submitBindingLocked(binding, identity, prepared, references)
 	coordinator.mu.Unlock()
 	if err != nil {
-		_ = coordinator.content.DeleteInvocation(identity.InvocationID)
+		_ = coordinator.content.DeleteReferences(references)
+		return rawReferences, err
 	}
-	return err
+	return rawReferences, nil
 }
 
 func (coordinator *Coordinator) prepareBindingLocked(projectSnapshot contracts.Project, event contracts.RuntimeEvent, binding contracts.Binding) (contracts.InvocationIdentity, map[string]json.RawMessage, []contracts.ContentReference, error) {
@@ -332,6 +339,8 @@ func (coordinator *Coordinator) submitBindingLocked(binding contracts.Binding, i
 	coordinator.invocationBindings[identity.InvocationID] = binding
 	task := scheduler.Task{InvocationID: identity.InvocationID, BindingID: binding.ID, Run: func(ctx context.Context) {
 		coordinator.runInvocation(ctx, binding, identity, arguments, references)
+	}, Drop: func() {
+		_ = coordinator.content.DeleteReferences(references)
 	}}
 	err := coordinator.scheduler.Submit(task)
 	if err != nil {
@@ -372,10 +381,11 @@ func (coordinator *Coordinator) rollbackBindingLocked(bindingID string, invocati
 }
 
 func terminalState(state string) bool {
-	return state == "completed" || state == "failed" || state == "cancelled"
+	return state == "completed" || state == "cancelled" || state == "timedOut" || state == "failed" || state == "crashed" || state == "superseded"
 }
 
 func (coordinator *Coordinator) runInvocation(ctx context.Context, binding contracts.Binding, identity contracts.InvocationIdentity, arguments map[string]json.RawMessage, references []contracts.ContentReference) {
+	defer coordinator.content.DeleteReferences(references)
 	coordinator.mu.Lock()
 	status, exists := coordinator.invocations[identity.InvocationID]
 	if !exists || coordinator.closed {
@@ -407,25 +417,40 @@ func (coordinator *Coordinator) runInvocation(ctx context.Context, binding contr
 		coordinator.pruneInvocationsLocked(binding.ID)
 		return
 	}
+	status = coordinator.finishInvocationLocked(binding, identity, status, result, err)
+	coordinator.invocations[identity.InvocationID] = status
+	coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "invocation", Invocation: &status})
+	coordinator.pruneInvocationsLocked(binding.ID)
+}
+
+func (coordinator *Coordinator) finishInvocationLocked(binding contracts.Binding, identity contracts.InvocationIdentity, status contracts.InvocationStatus, result contracts.InvokeResult, err error) contracts.InvocationStatus {
 	if err != nil {
-		failure := &contracts.StructuredError{Code: "worker_failure", Message: err.Error()}
-		if errors.Is(err, context.Canceled) {
-			status.State = "cancelled"
-			failure.Code = "cancelled"
-		} else {
-			status.State = "crashed"
-		}
-		status.Error = failure
+		status.State, status.Error = invocationFailure(err)
 	} else if result.Error != nil {
 		status.State = resultErrorState(result.Error)
 		status.Error = result.Error
 	} else {
 		coordinator.applyOutputsLocked(binding, result.Outputs)
+		if len(result.Outputs) > 0 {
+			update := contracts.BrowserRuntimeUpdate{Identity: identity, Outputs: cloneRawMap(result.Outputs)}
+			coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "update", Update: &update})
+		}
 		status.State = "completed"
 	}
-	coordinator.invocations[identity.InvocationID] = status
-	coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "invocation", Invocation: &status})
-	coordinator.pruneInvocationsLocked(binding.ID)
+	return status
+}
+
+func invocationFailure(err error) (string, *contracts.StructuredError) {
+	failure := &contracts.StructuredError{Code: "worker_failure", Message: err.Error()}
+	if errors.Is(err, context.Canceled) {
+		failure.Code = "cancelled"
+		return "cancelled", failure
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		failure.Code = "timed_out"
+		return "timedOut", failure
+	}
+	return "crashed", failure
 }
 
 func resultErrorState(failure *contracts.StructuredError) string {
@@ -452,38 +477,60 @@ func (coordinator *Coordinator) acceptUpdate(update contracts.RuntimeUpdate) {
 	if !exists {
 		return
 	}
-	if coordinator.latest[binding.ID] == update.Identity.Sequence {
-		status := coordinator.invocations[update.Identity.InvocationID]
-		if status.State == "running" {
-			status.State = "streaming"
-			coordinator.invocations[update.Identity.InvocationID] = status
-			coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "invocation", Invocation: &status})
-		}
-		outputs := cloneRawMap(update.Outputs)
-		if source, supported := coordinator.worker.(ArtifactSource); supported {
-			for _, artifact := range update.Artifacts {
-				reader, err := source.OpenArtifact(update.Identity, artifact.Path)
-				if err != nil {
-					continue
-				}
-				reference, err := coordinator.content.Put(update.Identity.InvocationID, artifact.MediaType, reader)
-				_ = reader.Close()
-				if err != nil {
-					continue
-				}
-				encoded, err := json.Marshal(reference)
-				if err == nil {
-					outputs[artifact.Name] = encoded
-				}
-			}
-		}
-		coordinator.applyOutputsLocked(binding, outputs)
-		update.Outputs = outputs
+	status, accepted := coordinator.updateStatusLocked(binding, update.Identity)
+	if !accepted {
+		return
 	}
+	if status.State == "running" {
+		status.State = "streaming"
+		coordinator.invocations[update.Identity.InvocationID] = status
+		coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "invocation", Invocation: &status})
+	}
+	outputs := cloneRawMap(update.Outputs)
+	coordinator.adoptArtifactsLocked(update, outputs)
+	coordinator.applyOutputsLocked(binding, outputs)
+	update.Outputs = outputs
 	browserUpdate := contracts.BrowserRuntimeUpdate{
 		Identity: update.Identity, Progress: update.Progress, Message: update.Message, Outputs: update.Outputs,
 	}
 	coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "update", Update: &browserUpdate})
+}
+
+func (coordinator *Coordinator) updateStatusLocked(binding contracts.Binding, identity contracts.InvocationIdentity) (contracts.InvocationStatus, bool) {
+	status, exists := coordinator.invocations[identity.InvocationID]
+	if !exists || status.Identity != identity {
+		return contracts.InvocationStatus{}, false
+	}
+	if coordinator.latest[binding.ID] != identity.Sequence || !updateAcceptingState(status.State) {
+		return contracts.InvocationStatus{}, false
+	}
+	return status, true
+}
+
+func (coordinator *Coordinator) adoptArtifactsLocked(update contracts.RuntimeUpdate, outputs map[string]json.RawMessage) {
+	source, supported := coordinator.worker.(ArtifactSource)
+	if !supported {
+		return
+	}
+	for _, artifact := range update.Artifacts {
+		reader, err := source.OpenArtifact(update.Identity, artifact.Path)
+		if err != nil {
+			continue
+		}
+		reference, err := coordinator.content.Put(update.Identity.InvocationID, artifact.MediaType, reader)
+		_ = reader.Close()
+		if err != nil {
+			continue
+		}
+		encoded, err := json.Marshal(reference)
+		if err == nil {
+			outputs[artifact.Name] = encoded
+		}
+	}
+}
+
+func updateAcceptingState(state string) bool {
+	return state == "running" || state == "streaming" || state == "completed"
 }
 
 func (coordinator *Coordinator) consumeLogs() {
@@ -739,26 +786,77 @@ func resolveArguments(project contracts.Project, eventPayload json.RawMessage, a
 		return nil, nil, err
 	}
 	resolved := make(map[string]json.RawMessage, len(arguments))
+	references := []contracts.ContentReference{}
 	for name, argument := range arguments {
-		encoded, err := resolveArgument(project, eventValue, argument)
+		encoded, discovered, err := resolveArgument(project, eventValue, argument)
 		if err != nil {
 			return nil, nil, err
 		}
 		resolved[name] = encoded
+		references = appendUniqueReferences(references, discovered)
 	}
-	return resolved, []contracts.ContentReference{}, nil
+	return resolved, references, nil
 }
 
-func resolveArgument(project contracts.Project, eventValue any, argument json.RawMessage) (json.RawMessage, error) {
+func resolveArgument(project contracts.Project, eventValue any, argument json.RawMessage) (json.RawMessage, []contracts.ContentReference, error) {
 	var reference string
 	if err := json.Unmarshal(argument, &reference); err != nil || !strings.HasPrefix(reference, "$") {
-		return append(json.RawMessage(nil), argument...), nil
+		return append(json.RawMessage(nil), argument...), nil, nil
 	}
 	value, err := resolveReference(project, eventValue, reference)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return json.Marshal(value)
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !strings.HasPrefix(reference, "$event.") {
+		return encoded, nil, nil
+	}
+	references, err := contentReferencesInValue(value)
+	return encoded, references, err
+}
+
+func contentReferencesInValue(value any) ([]contracts.ContentReference, error) {
+	switch typed := value.(type) {
+	case []any:
+		result := []contracts.ContentReference{}
+		for _, item := range typed {
+			references, err := contentReferencesInValue(item)
+			if err != nil {
+				return nil, err
+			}
+			result = appendUniqueReferences(result, references)
+		}
+		return result, nil
+	case map[string]any:
+		if looksLikeContentReference(typed) {
+			encoded, err := json.Marshal(typed)
+			if err != nil {
+				return nil, err
+			}
+			var reference contracts.ContentReference
+			if err := contracts.DecodeStrict(encoded, &reference); err != nil {
+				return nil, err
+			}
+			if err := reference.Validate(); err != nil {
+				return nil, err
+			}
+			return []contracts.ContentReference{reference}, nil
+		}
+		result := []contracts.ContentReference{}
+		for _, item := range typed {
+			references, err := contentReferencesInValue(item)
+			if err != nil {
+				return nil, err
+			}
+			result = appendUniqueReferences(result, references)
+		}
+		return result, nil
+	default:
+		return nil, nil
+	}
 }
 
 func resolveReference(project contracts.Project, eventValue any, reference string) (any, error) {

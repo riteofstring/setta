@@ -42,6 +42,22 @@ export function runtimeValueKey(sectionId: string, field: string): string {
   return `${sectionId}.${field}`;
 }
 
+export function resolveRuntimeValue(
+  values: Record<string, JsonValue>,
+  key: string,
+  fallback: JsonValue,
+): JsonValue {
+  return Object.hasOwn(values, key) ? values[key]! : fallback;
+}
+
+export function runtimeCanInvoke(state: RuntimeViewState): boolean {
+  return (
+    state.connection === "connected" &&
+    state.sessionId !== null &&
+    state.workerState === "ready"
+  );
+}
+
 function compareIdentity(
   left: InvocationIdentity,
   right: InvocationIdentity,
@@ -77,11 +93,13 @@ function replaceSnapshot(
   snapshot: RuntimeSnapshot,
 ): RuntimeViewState {
   const { invocations, latestByBinding } = latestInvocations(snapshot);
+  const sessionChanged = state.sessionId !== snapshot.sessionId;
   return {
     ...state,
-    error: null,
+    error: sessionChanged ? null : state.error,
     invocations,
     latestByBinding,
+    logs: sessionChanged ? [] : state.logs,
     sessionId: snapshot.sessionId,
     updates: {},
     values: { ...snapshot.values },

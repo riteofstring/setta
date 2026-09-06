@@ -29,7 +29,7 @@
           "type": "string"
         },
         "sequence": {
-          "minimum": 0,
+          "minimum": 1,
           "type": "integer"
         },
         "sessionId": {

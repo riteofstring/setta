@@ -244,6 +244,117 @@ class PublicContractValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(smoke.SmokeError, "public AI-native commands"):
             acceptance.assert_offline_schema_document(document)
 
+    def test_realtime_schema_requires_the_exact_public_command_set(self) -> None:
+        document: dict[str, object] = {
+            "schemaVersion": "setta-realtime-schema/v1",
+            "commands": {
+                name: {} for name in ("apply", "invoke", "reload", "schema", "snapshot")
+            },
+            "operations": [],
+            "inputs": [],
+            "results": [],
+            "errors": [],
+            "schemas": {},
+        }
+        acceptance.assert_realtime_offline_schema_document(document)
+        commands = models.require_object(document["commands"], "Realtime commands")
+        commands.pop("invoke")
+        with self.assertRaisesRegex(smoke.SmokeError, "public commands"):
+            acceptance.assert_realtime_offline_schema_document(document)
+
+    def test_realtime_readiness_web_root_and_identity_are_exact(self) -> None:
+        project = "/tmp/realtime-project"
+        origin = "http://127.0.0.1:43123"
+        readiness: dict[str, object] = {
+            "schemaVersion": "setta-open/v1",
+            "appId": "realtime",
+            "projectPath": project,
+            "url": origin,
+        }
+        self.assertEqual(
+            acceptance.assert_realtime_open_readiness(readiness, project), origin
+        )
+        responses = [
+            models.HTTPResult(
+                url=origin + "/",
+                status=200,
+                content_type="text/html",
+                body=b'<script src="/assets/app.js"></script>',
+            ),
+            models.HTTPResult(
+                url=origin + "/assets/app.js",
+                status=200,
+                content_type="text/javascript",
+                body=b"export {};",
+            ),
+            models.HTTPResult(
+                url=origin + "/api/v2/runtime/session",
+                status=200,
+                content_type="application/json",
+                body=json.dumps(
+                    {
+                        "schemaVersion": "realtime-session/v1",
+                        "appId": "realtime",
+                        "projectPath": project,
+                        "instanceNonce": "x" * 32,
+                    }
+                ).encode(),
+            ),
+        ]
+        with mock.patch.object(
+            acceptance, "http_get", side_effect=responses
+        ) as request:
+            nonce = acceptance.assert_realtime_web_and_identity(origin, project)
+        self.assertEqual(nonce, "x" * 32)
+        self.assertEqual(
+            [call.args[0] for call in request.call_args_list],
+            [
+                origin + "/",
+                origin + "/assets/app.js",
+                origin + "/api/v2/runtime/session",
+            ],
+        )
+
+    def test_realtime_invoke_uses_the_installed_cli_and_reaps_its_input(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            input_path = root / "invoke.json"
+
+            def invoke(
+                command: object, *arguments: object, **keywords: object
+            ) -> dict[str, object]:
+                self.assertEqual(
+                    command,
+                    (
+                        "/clean/bin/setta",
+                        "realtime",
+                        "invoke",
+                        "--project-root",
+                        "/project",
+                        "--handler",
+                        "increment",
+                        "--file",
+                        str(input_path),
+                    ),
+                )
+                self.assertEqual(
+                    json.loads(input_path.read_text(encoding="utf-8")),
+                    {"arguments": {"value": 41}, "content": []},
+                )
+                return {"outputs": {"value": 42}, "error": None}
+
+            with mock.patch.object(acceptance, "run_json_command", side_effect=invoke):
+                acceptance.assert_realtime_invoke(
+                    Path("/clean/bin/setta"),
+                    {},
+                    root,
+                    Path("/project"),
+                    input_path,
+                )
+            self.assertFalse(input_path.exists())
+
     def test_blank_project_run_requires_normal_zero_exit(self) -> None:
         result: dict[str, object] = {
             "projectId": "id:project",
@@ -373,6 +484,42 @@ class PublicContractValidationTests(unittest.TestCase):
 
 
 class WheelSmokeContainmentTests(unittest.TestCase):
+    def test_clean_install_runs_both_installed_app_acceptance_flows(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            with (
+                mock.patch.object(acceptance, "run_process"),
+                mock.patch.object(
+                    acceptance, "venv_python", return_value=Path("/clean/python")
+                ),
+                mock.patch.object(
+                    acceptance, "venv_scripts", return_value=Path("/clean/bin")
+                ),
+                mock.patch.object(
+                    acceptance, "venv_setta", return_value=Path("/clean/bin/setta")
+                ),
+                mock.patch.object(acceptance, "runtime_environment", return_value={}),
+                mock.patch.object(acceptance, "assert_no_retired_alias"),
+                mock.patch.object(acceptance, "assert_installed_root_commands"),
+                mock.patch.object(acceptance, "assert_offline_schema") as canvas_schema,
+                mock.patch.object(
+                    acceptance, "assert_realtime_offline_schema"
+                ) as realtime_schema,
+                mock.patch.object(acceptance, "exercise_live_server") as canvas_live,
+                mock.patch.object(
+                    acceptance, "exercise_realtime_server"
+                ) as realtime_live,
+            ):
+                acceptance.run_clean_install(
+                    Path("/dist/setta.whl"), Path("/launcher/python"), root
+                )
+        canvas_schema.assert_called_once()
+        realtime_schema.assert_called_once()
+        canvas_live.assert_called_once()
+        realtime_live.assert_called_once_with(
+            Path("/clean/bin/setta"), {}, root / "unrelated-working-directory", root
+        )
+
     @unittest.skipIf(process._WINDOWS, "POSIX-only retained session containment")
     def test_retained_posix_session_stops_app_after_outer_launcher_exits(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

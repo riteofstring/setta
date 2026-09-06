@@ -97,6 +97,8 @@
       {
         "name": "realtime-contracts",
         "outputs": [
+          "apps/realtime/backend/internal/contracts/testdata/apply-request-v1.schema.json",
+          "apps/realtime/backend/internal/contracts/testdata/direct-invoke-request-v1.schema.json",
           "apps/realtime/backend/internal/contracts/testdata/project-v1.schema.json",
           "apps/realtime/backend/internal/contracts/testdata/runtime-v1.schema.json",
           "apps/realtime/backend/internal/contracts/testdata/runtime-command-v1.schema.json",
@@ -601,6 +603,20 @@
         ],
         "runOn": ["recommended", "full"],
         "timeoutSeconds": 300
+      },
+      {
+        "name": "realtime-browser",
+        "kind": "browser",
+        "scope": "repository",
+        "cost": "standard",
+        "paths": [
+          "apps/realtime/**",
+          "scripts/lib/cdp-client.mjs",
+          "scripts/lib/headless-chrome.mjs"
+        ],
+        "argv": ["pnpm", "--filter", "@setta/realtime", "run", "browser:test"],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 600
       },
       {
         "name": "packed-consumer-contract",

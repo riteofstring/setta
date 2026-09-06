@@ -1,6 +1,6 @@
 import type { WorkspaceSection } from "@setta/workspace";
 
-import { runtimeValueKey } from "../app/runtimeState";
+import { resolveRuntimeValue, runtimeValueKey } from "../app/runtimeState";
 import { useRealtime } from "../app/runtimeContext";
 import { contentUrl } from "../backend/client";
 import {
@@ -26,8 +26,11 @@ function presentValue(value: unknown): string {
 export function OutputSection({ section }: { section: WorkspaceSection }) {
   const { runtime } = useRealtime();
   const data = readOutputSectionData(section.data);
-  const value =
-    runtime.values[runtimeValueKey(section.id, "value")] ?? data.value;
+  const value = resolveRuntimeValue(
+    runtime.values,
+    runtimeValueKey(section.id, "value"),
+    data.value,
+  );
   const reference =
     contentReference(
       runtime.values[runtimeValueKey(section.id, "contentRef")],

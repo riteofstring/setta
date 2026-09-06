@@ -14,6 +14,7 @@ import {
   connectProjectEvents,
   connectRuntime,
   fetchProject,
+  reloadRuntime,
   uploadContent,
 } from "../backend/client";
 import type {
@@ -32,6 +33,7 @@ import {
   applyRuntimeEnvelope,
   beginRuntimeReplacement,
   initialRuntimeViewState,
+  runtimeCanInvoke,
   setRuntimeConnection,
   type RuntimeViewState,
 } from "./runtimeState";
@@ -102,8 +104,9 @@ export function RealtimeController() {
             ]);
       },
       emit: (sectionId, event, payload) => {
-        const sessionId = runtimeRef.current.sessionId;
-        if (sessionId === null) {
+        const currentRuntime = runtimeRef.current;
+        const sessionId = currentRuntime.sessionId;
+        if (!runtimeCanInvoke(currentRuntime) || sessionId === null) {
           return false;
         }
         return (
@@ -115,6 +118,16 @@ export function RealtimeController() {
             type: "event",
           }) ?? false
         );
+      },
+      reload: async () => {
+        setError(null);
+        try {
+          await reloadRuntime();
+          return true;
+        } catch (caught) {
+          setError(errorMessage(caught));
+          return false;
+        }
       },
       reportError: setError,
       uploadContent: (content: Blob): Promise<ContentReference> =>

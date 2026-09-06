@@ -14,17 +14,23 @@ func TestLatestRetainsOnlyNewestPendingTask(t *testing.T) {
 	defer scheduler.Close()
 	started := make(chan string, 3)
 	release := make(chan struct{})
+	dropped := make(chan string, 1)
 	if err := scheduler.Submit(task("one", "draw", started, release)); err != nil {
 		t.Fatalf("Submit(one) error = %v", err)
 	}
 	if received := receive(t, started); received != "one" {
 		t.Fatalf("started = %q", received)
 	}
-	if err := scheduler.Submit(task("two", "draw", started, release)); err != nil {
+	second := task("two", "draw", started, release)
+	second.Drop = func() { dropped <- "two" }
+	if err := scheduler.Submit(second); err != nil {
 		t.Fatalf("Submit(two) error = %v", err)
 	}
 	if err := scheduler.Submit(task("three", "draw", started, release)); err != nil {
 		t.Fatalf("Submit(three) error = %v", err)
+	}
+	if received := receive(t, dropped); received != "two" {
+		t.Fatalf("dropped = %q, want replaced task", received)
 	}
 	if pending := scheduler.Pending(); pending != 2 {
 		t.Fatalf("Pending() = %d, want active plus newest", pending)
@@ -108,6 +114,7 @@ func TestCancelRemovesQueuedAndCancelsActive(t *testing.T) {
 	defer scheduler.Close()
 	started := make(chan string, 2)
 	cancelled := make(chan string, 1)
+	dropped := make(chan string, 1)
 	if err := scheduler.Submit(Task{InvocationID: "one", BindingID: "draw", Run: func(ctx context.Context) {
 		started <- "one"
 		<-ctx.Done()
@@ -116,11 +123,14 @@ func TestCancelRemovesQueuedAndCancelsActive(t *testing.T) {
 		t.Fatalf("Submit(one) error = %v", err)
 	}
 	receive(t, started)
-	if err := scheduler.Submit(Task{InvocationID: "two", BindingID: "draw", Run: func(context.Context) { started <- "two" }}); err != nil {
+	if err := scheduler.Submit(Task{InvocationID: "two", BindingID: "draw", Run: func(context.Context) { started <- "two" }, Drop: func() { dropped <- "two" }}); err != nil {
 		t.Fatalf("Submit(two) error = %v", err)
 	}
 	if !scheduler.Cancel("two") || scheduler.Pending() != 1 {
 		t.Fatalf("Cancel(queued) failed, pending = %d", scheduler.Pending())
+	}
+	if received := receive(t, dropped); received != "two" {
+		t.Fatalf("dropped = %q, want cancelled task", received)
 	}
 	if !scheduler.Cancel("one") {
 		t.Fatal("Cancel(active) = false")

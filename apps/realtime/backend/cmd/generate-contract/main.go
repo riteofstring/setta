@@ -41,6 +41,14 @@ func main() {
 }
 
 func generatedOutputs() ([]output, error) {
+	applyRequest, err := encodeSchema(contracts.ApplyRequestSchema())
+	if err != nil {
+		return nil, err
+	}
+	directInvokeRequest, err := encodeSchema(contracts.DirectInvokeRequestSchema())
+	if err != nil {
+		return nil, err
+	}
 	project, err := encodeSchema(contracts.ProjectSchema())
 	if err != nil {
 		return nil, err
@@ -62,6 +70,8 @@ func generatedOutputs() ([]output, error) {
 		return nil, err
 	}
 	return []output{
+		{path: "internal/contracts/testdata/apply-request-v1.schema.json", data: applyRequest},
+		{path: "internal/contracts/testdata/direct-invoke-request-v1.schema.json", data: directInvokeRequest},
 		{path: "internal/contracts/testdata/project-v1.schema.json", data: project},
 		{path: "internal/contracts/testdata/runtime-v1.schema.json", data: runtime},
 		{path: "internal/contracts/testdata/runtime-command-v1.schema.json", data: runtimeCommand},

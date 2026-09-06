@@ -216,6 +216,31 @@ func (store *Store) DeleteInvocation(invocationID string) error {
 	return nil
 }
 
+func (store *Store) DeleteReferences(references []contracts.ContentReference) error {
+	for _, reference := range references {
+		if err := reference.Validate(); err != nil {
+			return err
+		}
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if store.closed {
+		return ErrClosed
+	}
+	for _, reference := range references {
+		record, exists := store.records[reference.ID]
+		if !exists || record.reference != reference {
+			continue
+		}
+		if err := os.Remove(record.path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("content: remove value: %w", err)
+		}
+		store.bytes -= record.reference.ByteLength
+		delete(store.records, reference.ID)
+	}
+	return nil
+}
+
 func (store *Store) Close() error {
 	store.mu.Lock()
 	defer store.mu.Unlock()

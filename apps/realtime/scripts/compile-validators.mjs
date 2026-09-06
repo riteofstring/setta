@@ -12,6 +12,10 @@ const projectSchemaPath = new URL(
   "../backend/internal/contracts/testdata/project-v1.schema.json",
   import.meta.url,
 );
+const applyRequestSchemaPath = new URL(
+  "../backend/internal/contracts/testdata/apply-request-v1.schema.json",
+  import.meta.url,
+);
 const runtimeSchemaPath = new URL(
   "../backend/internal/contracts/testdata/runtime-v1.schema.json",
   import.meta.url,
@@ -34,12 +38,14 @@ const declarationPath = new URL(
 );
 
 const [
+  applyRequestSchema,
   projectSchema,
   runtimeSchema,
   runtimeCommandSchema,
   contentReferenceSchema,
 ] = await Promise.all(
   [
+    applyRequestSchemaPath,
     projectSchemaPath,
     runtimeSchemaPath,
     runtimeCommandSchemaPath,
@@ -51,17 +57,19 @@ const ajv = new Ajv2020({
   code: { esm: true, source: true },
   strict: true,
 });
+ajv.addSchema(applyRequestSchema, "applyRequest");
 ajv.addSchema(projectSchema, "project");
 ajv.addSchema(runtimeSchema, "runtimeEnvelope");
 ajv.addSchema(runtimeCommandSchema, "runtimeCommand");
 ajv.addSchema(contentReferenceSchema, "contentReference");
 const source = `${standaloneCode(ajv, {
+  validateApplyRequestDocument: "applyRequest",
   validateContentReferenceDocument: "contentReference",
   validateProjectDocument: "project",
   validateRuntimeCommandDocument: "runtimeCommand",
   validateRuntimeEnvelopeDocument: "runtimeEnvelope",
 })}\n`;
-const declaration = `export declare function validateContentReferenceDocument(value: unknown): boolean;\nexport declare function validateProjectDocument(value: unknown): boolean;\nexport declare function validateRuntimeCommandDocument(value: unknown): boolean;\nexport declare function validateRuntimeEnvelopeDocument(value: unknown): boolean;\n`;
+const declaration = `export declare function validateApplyRequestDocument(value: unknown): boolean;\nexport declare function validateContentReferenceDocument(value: unknown): boolean;\nexport declare function validateProjectDocument(value: unknown): boolean;\nexport declare function validateRuntimeCommandDocument(value: unknown): boolean;\nexport declare function validateRuntimeEnvelopeDocument(value: unknown): boolean;\n`;
 
 if (check) {
   const [currentSource, currentDeclaration] = await Promise.all([

@@ -14,6 +14,7 @@ from typing import Self, cast
 from unittest import mock
 
 from setta.apps.realtime import APP_ID, RealtimeAdapter
+from setta.errors import InvalidInputError
 from setta.registry import CommandContext
 from setta.runtime import PackagedRuntime, RuntimeApp
 from setta.sessions import LiveSession, LiveSessionStore
@@ -123,6 +124,15 @@ class RealtimeAdapterTests(unittest.TestCase):
             browser_open=lambda _url: True,
         )
 
+    def live_session(self, project: Path) -> LiveSession:
+        return LiveSession(
+            app_id=APP_ID,
+            project_path=str(project.resolve(strict=False)),
+            url="http://127.0.0.1:43123",
+            owner_pid=1,
+            instance_nonce="nonce",
+        )
+
     def test_open_launches_the_realtime_server_with_exact_generic_contract(
         self,
     ) -> None:
@@ -227,13 +237,7 @@ class RealtimeAdapterTests(unittest.TestCase):
 
     def test_reload_uses_the_live_coordinator_when_available(self) -> None:
         project = self.root / "project"
-        session = LiveSession(
-            app_id=APP_ID,
-            project_path=str(project.resolve(strict=False)),
-            url="http://127.0.0.1:43123",
-            owner_pid=1,
-            instance_nonce="nonce",
-        )
+        session = self.live_session(project)
         opener = _CommandOpener({"handlers": ["counter"]})
         with (
             mock.patch.object(self.sessions, "resolve", return_value=session),
@@ -261,6 +265,105 @@ class RealtimeAdapterTests(unittest.TestCase):
             opener.request.get_header("Origin") if opener.request else None,
             session.url,
         )
+
+    def test_live_invoke_reads_a_regular_file_with_a_bounded_acquisition(self) -> None:
+        project = self.root / "project"
+        source = self.root / "invoke.json"
+        body = b'{"arguments":{"value":41},"content":[]}'
+        source.write_bytes(body)
+        opener = _CommandOpener({"outputs": {"value": 42}, "error": None})
+        with (
+            mock.patch.object(
+                self.sessions, "resolve", return_value=self.live_session(project)
+            ),
+            mock.patch(
+                "setta.apps.realtime.urllib.request.build_opener",
+                return_value=opener,
+            ),
+        ):
+            result = RealtimeAdapter().dispatch(
+                (
+                    "invoke",
+                    "--project-root",
+                    str(project),
+                    "--handler",
+                    "increment",
+                    "--file",
+                    str(source),
+                ),
+                self.context,
+            )
+        self.assertEqual(result, 0)
+        self.assertEqual(opener.request.data if opener.request else None, body)
+
+    def test_live_apply_rejects_a_symlink_input(self) -> None:
+        project = self.root / "project"
+        target = self.root / "target.json"
+        target.write_bytes(b"{}")
+        source = self.root / "input.json"
+        try:
+            source.symlink_to(target)
+        except OSError as error:
+            self.skipTest(f"symlinks unavailable: {error}")
+        with (
+            mock.patch.object(
+                self.sessions, "resolve", return_value=self.live_session(project)
+            ),
+            self.assertRaisesRegex(InvalidInputError, "non-symlink"),
+        ):
+            RealtimeAdapter().dispatch(
+                (
+                    "apply",
+                    "--project-root",
+                    str(project),
+                    "--file",
+                    str(source),
+                ),
+                self.context,
+            )
+
+    def test_live_invoke_rejects_a_nonregular_or_oversized_input(self) -> None:
+        project = self.root / "project"
+        with (
+            mock.patch.object(
+                self.sessions, "resolve", return_value=self.live_session(project)
+            ),
+            self.assertRaisesRegex(InvalidInputError, "regular non-symlink"),
+        ):
+            RealtimeAdapter().dispatch(
+                (
+                    "invoke",
+                    "--project-root",
+                    str(project),
+                    "--handler",
+                    "increment",
+                    "--file",
+                    str(self.root),
+                ),
+                self.context,
+            )
+        oversized = self.root / "oversized.json"
+        with oversized.open("wb") as destination:
+            destination.seek(4 * 1024 * 1024)
+            destination.write(b"x")
+        with (
+            mock.patch.object(
+                self.sessions, "resolve", return_value=self.live_session(project)
+            ),
+            self.assertRaisesRegex(InvalidInputError, "byte limit"),
+        ):
+            RealtimeAdapter().dispatch(
+                (
+                    "invoke",
+                    "--project-root",
+                    str(project),
+                    "--handler",
+                    "increment",
+                    "--file",
+                    str(oversized),
+                ),
+                self.context,
+            )
 
     def test_help_exposes_only_the_realtime_command_surface(self) -> None:
         self.assertEqual(RealtimeAdapter().dispatch(("--help",), self.context), 0)

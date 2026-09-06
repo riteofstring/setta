@@ -31,7 +31,11 @@ from .models import (
     OPEN_CLOSE_TIMEOUT_SECONDS,
     OPEN_READY_TIMEOUT_SECONDS,
     PUBLIC_OPEN_SCHEMA,
+    REALTIME_APP_ID,
+    REALTIME_RUNTIME_SESSION_SCHEMA,
+    REALTIME_SCHEMA,
     REQUIRED_OFFLINE_SCHEMA_COMMANDS,
+    REQUIRED_REALTIME_SCHEMA_COMMANDS,
     RUN_ALLOWANCE_MILLISECONDS,
     RUN_TIMEOUT_SECONDS,
     RUNTIME_SESSION_SCHEMA,
@@ -133,7 +137,9 @@ def run_clean_install(wheel: Path, launcher: Path, temporary_root: Path) -> None
     assert_no_retired_alias(venv_scripts(environment_root), environment)
     assert_installed_root_commands(setta, python, environment, unrelated, wheel)
     assert_offline_schema(setta, environment, unrelated)
+    assert_realtime_offline_schema(setta, environment, unrelated)
     exercise_live_server(setta, environment, unrelated, temporary_root, python)
+    exercise_realtime_server(setta, environment, unrelated, temporary_root)
 
 
 def assert_installed_root_commands(
@@ -243,6 +249,37 @@ def assert_offline_schema_document(document: Mapping[str, object]) -> None:
         raise SmokeError("offline Python Canvas schema omits public AI-native commands")
 
 
+def assert_realtime_offline_schema(
+    setta: Path, environment: Mapping[str, str], cwd: Path
+) -> None:
+    document = run_json_command(
+        (str(setta), REALTIME_APP_ID, "schema"),
+        environment,
+        cwd,
+        "offline Realtime schema",
+    )
+    assert_realtime_offline_schema_document(document)
+
+
+def assert_realtime_offline_schema_document(
+    document: Mapping[str, object],
+) -> None:
+    required = {
+        "commands",
+        "errors",
+        "inputs",
+        "operations",
+        "results",
+        "schemaVersion",
+        "schemas",
+    }
+    if set(document) != required or document.get("schemaVersion") != REALTIME_SCHEMA:
+        raise SmokeError("offline Realtime schema has an invalid shape")
+    commands = require_object(document["commands"], "offline Realtime commands")
+    if set(commands) != REQUIRED_REALTIME_SCHEMA_COMMANDS:
+        raise SmokeError("offline Realtime schema omits public commands")
+
+
 def exercise_live_server(
     setta: Path,
     environment: Mapping[str, str],
@@ -332,6 +369,192 @@ def exercise_live_server(
         raise cleanup_failure
 
 
+def exercise_realtime_server(
+    setta: Path,
+    environment: Mapping[str, str],
+    cwd: Path,
+    temporary_root: Path,
+) -> None:
+    project = temporary_root / "realtime-project"
+    project.mkdir(mode=0o700)
+    write_realtime_entrypoint(project / "app.py")
+    expected_project = str(project.resolve(strict=True))
+    live = start_foreground_open(
+        (
+            str(setta),
+            REALTIME_APP_ID,
+            "open",
+            "--project-root",
+            str(project),
+            "--create",
+            "--no-open",
+        ),
+        cwd=cwd,
+        environment=environment,
+    )
+    readiness_url = ""
+    failure_capture = FailureCapture()
+    with failure_capture:
+        readiness = parse_json_document(
+            live.wait_for_readiness(OPEN_READY_TIMEOUT_SECONDS),
+            "Realtime public open readiness",
+        )
+        readiness_url = assert_realtime_open_readiness(readiness, expected_project)
+        nonce = assert_realtime_web_and_identity(readiness_url, expected_project)
+        live.retain_app_session(
+            LiveSessionIdentity(
+                project_path=expected_project,
+                url=readiness_url,
+                owner_pid=live.process.pid,
+                instance_nonce=nonce,
+            )
+        )
+        reloaded = run_json_command(
+            (
+                str(setta),
+                REALTIME_APP_ID,
+                "reload",
+                "--project-root",
+                str(project),
+            ),
+            environment,
+            cwd,
+            "live Realtime reload",
+        )
+        assert_realtime_reload(reloaded)
+        assert_realtime_invoke(
+            setta,
+            environment,
+            cwd,
+            project,
+            temporary_root / "realtime-invoke.json",
+        )
+    failure = failure_capture.error
+    cleanup_failure = cleanup_live_server(
+        live,
+        setta,
+        environment,
+        cwd,
+        project,
+        readiness_url,
+        failed=failure is not None,
+        close_foreground=close_foreground_open,
+        session_cleanup=assert_realtime_session_cleanup,
+        server_unavailable=assert_server_unavailable,
+    )
+    if failure is not None:
+        if cleanup_failure is not None:
+            if isinstance(failure, SmokeError):
+                raise SmokeError(
+                    f"{failure}; cleanup also failed: {cleanup_failure}"
+                ) from failure
+            failure.add_note(
+                f"Setta wheel smoke cleanup also failed: {cleanup_failure}"
+            )
+        raise failure
+    if cleanup_failure is not None:
+        raise cleanup_failure
+
+
+def write_realtime_entrypoint(path: Path) -> None:
+    source = (
+        b"def increment(value=0):\n"
+        b"    return {'value': value + 1}\n"
+        b"\n"
+        b"handlers = {'increment': increment}\n"
+    )
+    try:
+        with path.open("xb") as destination:
+            destination.write(source)
+        path.chmod(0o600)
+    except OSError as error:
+        raise SmokeError(
+            "unable to write the Realtime acceptance entrypoint"
+        ) from error
+
+
+def assert_realtime_reload(document: Mapping[str, object]) -> None:
+    expected = {
+        "protocolVersion": 1,
+        "runtimeKind": "python",
+        "handlers": ["increment"],
+        "loadError": None,
+    }
+    if document != expected:
+        raise SmokeError("live Realtime reload did not initialize the entrypoint")
+
+
+def assert_realtime_invoke(
+    setta: Path,
+    environment: Mapping[str, str],
+    cwd: Path,
+    project: Path,
+    input_path: Path,
+) -> None:
+    write_operation(
+        input_path,
+        {"arguments": {"value": 41}, "content": []},
+        "Realtime invoke",
+    )
+    try:
+        result = run_json_command(
+            (
+                str(setta),
+                REALTIME_APP_ID,
+                "invoke",
+                "--project-root",
+                str(project),
+                "--handler",
+                "increment",
+                "--file",
+                str(input_path),
+            ),
+            environment,
+            cwd,
+            "live Realtime invoke",
+        )
+    finally:
+        remove_realtime_invoke_input(input_path)
+    if result != {"outputs": {"value": 42}, "error": None}:
+        raise SmokeError("live Realtime invoke did not return the expected output")
+
+
+def remove_realtime_invoke_input(path: Path) -> None:
+    try:
+        path.unlink()
+    except OSError as error:
+        raise SmokeError("unable to remove the Realtime invoke input") from error
+
+
+def assert_realtime_session_cleanup(
+    setta: Path,
+    environment: Mapping[str, str],
+    cwd: Path,
+    project: Path,
+    *,
+    timeout: float = COMMAND_TIMEOUT_SECONDS,
+) -> None:
+    result = run_process(
+        (
+            str(setta),
+            REALTIME_APP_ID,
+            "snapshot",
+            "--project-root",
+            str(project),
+        ),
+        cwd=cwd,
+        env=environment,
+        timeout=timeout,
+        label="Realtime post-shutdown snapshot",
+    )
+    document = require_object(
+        parse_json_document(result.stdout, "Realtime post-shutdown snapshot output"),
+        "Realtime post-shutdown snapshot output",
+    )
+    if set(document) != {"project", "runtime"}:
+        raise SmokeError("Realtime shutdown did not restore offline project access")
+
+
 def close_foreground_open(live: ForegroundOpen) -> None:
     try:
         closed = live.close_gracefully(OPEN_CLOSE_TIMEOUT_SECONDS)
@@ -383,6 +606,54 @@ def assert_open_readiness(document: object, expected_project: str) -> str:
         raise SmokeError("public open readiness has no URL")
     validate_exact_loopback_origin(url)
     return url
+
+
+def assert_realtime_open_readiness(document: object, expected_project: str) -> str:
+    readiness = require_object(document, "Realtime public open readiness")
+    if set(readiness) != {"appId", "projectPath", "schemaVersion", "url"}:
+        raise SmokeError("Realtime public open readiness has an invalid shape")
+    if (
+        readiness.get("schemaVersion") != PUBLIC_OPEN_SCHEMA
+        or readiness.get("appId") != REALTIME_APP_ID
+        or readiness.get("projectPath") != expected_project
+    ):
+        raise SmokeError("Realtime public open readiness has an invalid identity")
+    url = readiness.get("url")
+    if not isinstance(url, str):
+        raise SmokeError("Realtime public open readiness has no URL")
+    validate_exact_loopback_origin(url)
+    return url
+
+
+def assert_realtime_web_and_identity(origin_url: str, project_path: str) -> str:
+    root = http_get(origin_url + "/")
+    if (
+        root.status != 200
+        or not root.content_type.startswith("text/html")
+        or not root.body
+    ):
+        raise SmokeError("Realtime did not serve root HTML from the public origin")
+    asset = http_get(find_same_origin_asset(origin_url, root.body))
+    if asset.status != 200 or not asset.body or not asset.content_type:
+        raise SmokeError("Realtime did not serve its packaged web root")
+    identity = http_get(origin_url + "/api/v2/runtime/session")
+    document = require_object(
+        parse_json_document(identity.body, "Realtime session identity response"),
+        "Realtime session identity response",
+    )
+    nonce = document.get("instanceNonce")
+    if (
+        identity.status != 200
+        or identity.content_type != "application/json"
+        or set(document) != {"appId", "instanceNonce", "projectPath", "schemaVersion"}
+        or document.get("schemaVersion") != REALTIME_RUNTIME_SESSION_SCHEMA
+        or document.get("appId") != REALTIME_APP_ID
+        or document.get("projectPath") != project_path
+        or not isinstance(nonce, str)
+        or len(nonce) < 16
+    ):
+        raise SmokeError("Realtime session identity does not match public readiness")
+    return nonce
 
 
 def assert_session(

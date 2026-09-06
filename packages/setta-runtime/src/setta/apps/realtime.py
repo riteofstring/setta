@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import stat
 import subprocess
 import urllib.error
 import urllib.parse
@@ -345,15 +346,44 @@ def _live_input(
     if source == "-":
         body = context.stdin.read(_MAXIMUM_COMMAND_BYTES + 1).encode("utf-8")
     else:
-        try:
-            body = Path(source).read_bytes()
-        except OSError as error:
-            raise InvalidInputError(
-                f"Unable to read Realtime input file {source!r}."
-            ) from error
+        body = _read_live_file(source)
     if len(body) > _MAXIMUM_COMMAND_BYTES:
         raise InvalidInputError("Realtime input exceeds the byte limit.")
     return body
+
+
+def _read_live_file(source: str) -> bytes:
+    path = Path(source)
+    descriptor = -1
+    try:
+        path_information = path.lstat()
+        if stat.S_ISLNK(path_information.st_mode) or not stat.S_ISREG(
+            path_information.st_mode
+        ):
+            raise InvalidInputError(
+                f"Realtime input file {source!r} must be a regular non-symlink file."
+            )
+        flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(path, flags)
+        opened_information = os.fstat(descriptor)
+        if not stat.S_ISREG(opened_information.st_mode) or not os.path.samestat(
+            path_information, opened_information
+        ):
+            raise InvalidInputError(
+                f"Realtime input file {source!r} must be a regular non-symlink file."
+            )
+        with os.fdopen(descriptor, "rb") as stream:
+            descriptor = -1
+            return stream.read(_MAXIMUM_COMMAND_BYTES + 1)
+    except InvalidInputError:
+        raise
+    except OSError as error:
+        raise InvalidInputError(
+            f"Unable to read Realtime input file {source!r}."
+        ) from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
 
 
 def _read_live_response(request: urllib.request.Request) -> object:

@@ -36,6 +36,9 @@ PUBLIC_OPEN_SCHEMA = "setta-open/v1"
 SESSION_SCHEMA = "setta-live-session/v1"
 RUNTIME_SESSION_SCHEMA = "python-canvas-session/v1"
 APP_ID = "python-canvas"
+REALTIME_APP_ID = "realtime"
+REALTIME_RUNTIME_SESSION_SCHEMA = "realtime-session/v1"
+REALTIME_SCHEMA = "setta-realtime-schema/v1"
 APP_DESCRIPTORS = (
     {
         "id": "python-canvas",
@@ -52,6 +55,9 @@ APP_IDS = tuple(str(descriptor["id"]) for descriptor in APP_DESCRIPTORS)
 APPLIED_PROJECT_NAME = "Setta Wheel Acceptance"
 REQUIRED_OFFLINE_SCHEMA_COMMANDS = frozenset(
     {"schema", "open", "session.inspect", "snapshot", "apply", "run"}
+)
+REQUIRED_REALTIME_SCHEMA_COMMANDS = frozenset(
+    {"apply", "invoke", "reload", "schema", "snapshot"}
 )
 PLATFORM_TAG_TARGETS = {
     "macosx_13_0_arm64": ("darwin", "arm64"),

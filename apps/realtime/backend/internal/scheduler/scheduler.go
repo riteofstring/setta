@@ -28,6 +28,7 @@ type Task struct {
 	InvocationID string
 	BindingID    string
 	Run          func(context.Context)
+	Drop         func()
 }
 
 type bindingState struct {
@@ -127,6 +128,9 @@ func (scheduler *Scheduler) debounceLocked(binding *bindingState, task Task) err
 	if binding.config.Mode == "parallel" && binding.running+binding.queued >= maximumGroupQueue {
 		return ErrQueueFull
 	}
+	if binding.debounced != nil {
+		dropTask(*binding.debounced)
+	}
 	binding.debounced = &task
 	if binding.timer != nil {
 		binding.timer.Stop()
@@ -151,7 +155,9 @@ func (scheduler *Scheduler) releaseDebounced(bindingID string, invocationID stri
 	task := *binding.debounced
 	binding.debounced = nil
 	binding.timer = nil
-	_ = scheduler.enqueueLocked(binding, task)
+	if err := scheduler.enqueueLocked(binding, task); err != nil {
+		dropTask(task)
+	}
 }
 
 func (scheduler *Scheduler) enqueueLocked(binding *bindingState, task Task) error {
@@ -182,6 +188,7 @@ func (scheduler *Scheduler) enqueueLocked(binding *bindingState, task Task) erro
 func (scheduler *Scheduler) replaceLatestQueuedLocked(group *groupState, binding *bindingState, task Task) bool {
 	for index := len(group.queue) - 1; index >= 0; index-- {
 		if group.queue[index].binding == binding {
+			dropTask(group.queue[index].task)
 			group.queue[index].task = task
 			return true
 		}
@@ -243,6 +250,7 @@ func (scheduler *Scheduler) Cancel(invocationID string) bool {
 	}
 	for _, binding := range scheduler.bindings {
 		if binding.debounced != nil && binding.debounced.InvocationID == invocationID {
+			dropTask(*binding.debounced)
 			binding.debounced = nil
 			if binding.timer != nil {
 				binding.timer.Stop()
@@ -254,6 +262,7 @@ func (scheduler *Scheduler) Cancel(invocationID string) bool {
 	for _, group := range scheduler.groups {
 		for index, queued := range group.queue {
 			if queued.task.InvocationID == invocationID {
+				dropTask(queued.task)
 				queued.binding.queued--
 				group.queue = append(group.queue[:index], group.queue[index+1:]...)
 				return true
@@ -288,13 +297,25 @@ func (scheduler *Scheduler) Close() {
 		if binding.timer != nil {
 			binding.timer.Stop()
 		}
-		binding.debounced = nil
+		if binding.debounced != nil {
+			dropTask(*binding.debounced)
+			binding.debounced = nil
+		}
 	}
 	for _, group := range scheduler.groups {
+		for _, queued := range group.queue {
+			dropTask(queued.task)
+		}
 		group.queue = nil
 	}
 	scheduler.mu.Unlock()
 	scheduler.wait.Wait()
+}
+
+func dropTask(task Task) {
+	if task.Drop != nil {
+		task.Drop()
+	}
 }
 
 func (scheduler *Scheduler) hasQueuedInvocationLocked(invocationID string) bool {

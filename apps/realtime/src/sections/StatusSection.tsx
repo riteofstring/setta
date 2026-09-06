@@ -1,7 +1,11 @@
 import type { WorkspaceSection } from "@setta/workspace";
 
 import { useRealtime } from "../app/runtimeContext";
-import { runtimeValueKey, type RuntimeViewState } from "../app/runtimeState";
+import {
+  resolveRuntimeValue,
+  runtimeValueKey,
+  type RuntimeViewState,
+} from "../app/runtimeState";
 import type {
   Binding,
   InvocationStatus,
@@ -21,17 +25,22 @@ function targetBindingIds(bindings: Binding[], sectionId: string): string[] {
     .map((binding) => binding.id);
 }
 
-function activeInvocation(
+function latestInvocation(
   bindingIds: string[],
   runtime: RuntimeViewState,
 ): InvocationStatus | undefined {
-  return bindingIds
-    .map((bindingId) => runtime.invocations[bindingId])
-    .find(
-      (invocation) =>
-        invocation !== undefined &&
-        ACTIVE_INVOCATION_STATES.has(invocation.state),
-    );
+  let latest: InvocationStatus | undefined;
+  for (const bindingId of bindingIds) {
+    const invocation = runtime.invocations[bindingId];
+    if (
+      invocation !== undefined &&
+      (latest === undefined ||
+        invocation.identity.sequence > latest.identity.sequence)
+    ) {
+      latest = invocation;
+    }
+  }
+  return latest;
 }
 
 function latestUpdate(
@@ -60,8 +69,11 @@ function statusPresentation(
 ) {
   const messageValue = runtime.values[runtimeValueKey(sectionId, "message")];
   const levelValue = runtime.values[runtimeValueKey(sectionId, "level")];
-  const progressValue =
-    runtime.values[runtimeValueKey(sectionId, "progress")] ?? update?.progress;
+  const progressValue = resolveRuntimeValue(
+    runtime.values,
+    runtimeValueKey(sectionId, "progress"),
+    update?.progress ?? null,
+  );
   return {
     level: typeof levelValue === "string" ? levelValue : data.level,
     message:
@@ -75,37 +87,74 @@ function statusPresentation(
   };
 }
 
-export function StatusSection({ section }: { section: WorkspaceSection }) {
-  const { actions, project, runtime } = useRealtime();
-  const data = readStatusSectionData(section.data);
-  const bindingIds = targetBindingIds(project.bindings, section.id);
-  const invocation = activeInvocation(bindingIds, runtime);
-  const { level, message, progress } = statusPresentation(
-    runtime,
-    section.id,
-    data,
-    latestUpdate(bindingIds, runtime),
-  );
+function StatusProgress({
+  message,
+  progress,
+}: {
+  message: string;
+  progress: number | null;
+}) {
+  if (progress === null) {
+    return null;
+  }
+  return <progress aria-label={message} max={1} value={progress} />;
+}
+
+function InvocationControl({
+  invocation,
+  onCancel,
+}: {
+  invocation: InvocationStatus | undefined;
+  onCancel: (invocation: InvocationStatus) => void;
+}) {
+  if (invocation === undefined) {
+    return null;
+  }
+  const active = ACTIVE_INVOCATION_STATES.has(invocation.state);
   return (
-    <div className={`realtime-status realtime-status-${level}`} role="status">
-      <div className="realtime-status-heading">
-        <span>{message}</span>
-        <span>
-          {progress === null ? null : `${Math.round(progress * 100)}%`}
-        </span>
-      </div>
-      {progress === null ? null : (
-        <progress aria-label={message} max={1} value={progress} />
-      )}
-      {invocation === undefined ? null : (
+    <>
+      <span className="realtime-status-invocation">{invocation.state}</span>
+      {!active ? null : (
         <button
           className="realtime-status-cancel"
-          onClick={() => actions.cancel(invocation.identity)}
+          onClick={() => onCancel(invocation)}
           type="button"
         >
           Cancel
         </button>
       )}
+    </>
+  );
+}
+
+export function StatusSection({ section }: { section: WorkspaceSection }) {
+  const { actions, project, runtime } = useRealtime();
+  const data = readStatusSectionData(section.data);
+  const bindingIds = targetBindingIds(project.bindings, section.id);
+  const invocation = latestInvocation(bindingIds, runtime);
+  const presentation = statusPresentation(
+    runtime,
+    section.id,
+    data,
+    latestUpdate(bindingIds, runtime),
+  );
+  const level = invocation?.error ? "error" : presentation.level;
+  const message = invocation?.error?.message ?? presentation.message;
+  return (
+    <div className={`realtime-status realtime-status-${level}`} role="status">
+      <div className="realtime-status-heading">
+        <span>{message}</span>
+        <span>
+          {presentation.progress === null
+            ? null
+            : `${Math.round(presentation.progress * 100)}%`}
+        </span>
+      </div>
+      <InvocationControl
+        invocation={invocation}
+        onCancel={(current) => actions.cancel(current.identity)}
+      />
+      <StatusProgress message={message} progress={presentation.progress} />
     </div>
   );
 }

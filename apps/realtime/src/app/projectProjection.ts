@@ -6,19 +6,13 @@ import type {
 
 import type {
   Project,
+  ProjectOperation,
   Section,
   TopLevelSectionLayout,
   Viewport,
 } from "../backend/generatedContract";
 
-export type ProjectOperation =
-  | { op: "deleteSection"; sectionId: string }
-  | { op: "setViewport"; viewport: Viewport | null }
-  | {
-      op: "upsertSection";
-      section: Section;
-      layout: TopLevelSectionLayout | null;
-    };
+export type { ProjectOperation } from "../backend/generatedContract";
 
 function projectSection(section: Section): WorkspaceSection {
   return {

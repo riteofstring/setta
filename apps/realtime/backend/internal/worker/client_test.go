@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -175,14 +177,58 @@ func TestGoFixtureWorkerPassesTheLanguageNeutralContract(t *testing.T) {
 	command.Env = append(os.Environ(), fixtureWorkerEnvironment+"=1")
 	runtime := startFixtureCommand(t, command)
 	projectRoot := t.TempDir()
-	initializeFixture(t, runtime.client, projectRoot, []string{"echo"})
-	params := fixtureInvokeParams("go-fixture", 1, "echo", map[string]json.RawMessage{"value": json.RawMessage(`{"portable":true}`)})
-	result, updates := invokeAndCollectUpdates(t, runtime.client, params, 1)
-	if result.Error != nil || string(result.Outputs["value"]) != `{"portable":true}` {
-		t.Fatalf("Go fixture result = %#v", result)
+	initializeFixture(t, runtime.client, projectRoot, []string{"cancel", "crash", "echo", "fail", "logs", "stream"})
+	params := fixtureInvokeParams("go-return", 1, "echo", map[string]json.RawMessage{"value": json.RawMessage(`{"portable":true}`)})
+	result, err := runtime.client.Invoke(testContext(t), params)
+	if err != nil || result.Error != nil || string(result.Outputs["value"]) != `{"portable":true}` {
+		t.Fatalf("Go fixture result = %#v, error = %v", result, err)
 	}
-	assertUpdateValues(t, updates, []string{`{"portable":true}`})
+	stream := fixtureInvokeParams("go-stream", 2, "stream", map[string]json.RawMessage{})
+	result, updates := invokeAndCollectUpdates(t, runtime.client, stream, 2)
+	if result.Error != nil || len(result.Outputs) != 0 {
+		t.Fatalf("Go fixture stream result = %#v", result)
+	}
+	assertUpdateValues(t, updates, []string{"0", "1"})
+	result, err = runtime.client.Invoke(testContext(t), fixtureInvokeParams("go-error", 3, "fail", map[string]json.RawMessage{}))
+	if err != nil || result.Error == nil || result.Error.Code != "handler_error" {
+		t.Fatalf("Go fixture error result = %#v, error = %v", result, err)
+	}
+	invocation, err := runtime.client.StartInvoke(fixtureInvokeParams("go-cancel", 4, "cancel", map[string]json.RawMessage{}))
+	if err != nil {
+		t.Fatalf("StartInvoke(cancel) error = %v", err)
+	}
+	readUpdate(t, runtime.client.Updates())
+	if err := invocation.Cancel(); err != nil {
+		t.Fatalf("Cancel() error = %v", err)
+	}
+	result, err = invocation.Await(testContext(t))
+	if err != nil || result.Error == nil || result.Error.Code != "cancelled" {
+		t.Fatalf("Go fixture cancel result = %#v, error = %v", result, err)
+	}
+	result, err = runtime.client.Invoke(testContext(t), fixtureInvokeParams("go-logs", 5, "logs", map[string]json.RawMessage{}))
+	if err != nil || result.Error != nil {
+		t.Fatalf("Go fixture log result = %#v, error = %v", result, err)
+	}
 	runtime.shutdown(t)
+	stdout, _ := runtime.stdout.Snapshot()
+	stderr, _ := runtime.stderr.Snapshot()
+	if !strings.Contains(stdout, "go fixture stdout") || !strings.Contains(stderr, "go fixture stderr") {
+		t.Fatalf("Go fixture logs = %q, %q", stdout, stderr)
+	}
+}
+
+func TestGoFixtureWorkerCrashFailsThePendingInvocation(t *testing.T) {
+	command := exec.Command(os.Args[0], "-test.run=^TestGoFixtureWorkerProcess$")
+	command.Env = append(os.Environ(), fixtureWorkerEnvironment+"=1")
+	runtime := startFixtureCommand(t, command)
+	initializeFixture(t, runtime.client, t.TempDir(), []string{"cancel", "crash", "echo", "fail", "logs", "stream"})
+	_, err := runtime.client.Invoke(testContext(t), fixtureInvokeParams("go-crash", 1, "crash", map[string]json.RawMessage{}))
+	if err == nil || !errors.Is(err, io.EOF) {
+		t.Fatalf("Invoke(crash) error = %v, want stream EOF", err)
+	}
+	if err := runtime.wait(); err == nil || runtime.command.ProcessState.ExitCode() != 23 {
+		t.Fatalf("Go fixture crash state = %#v, error = %v", runtime.command.ProcessState, err)
+	}
 }
 
 func TestGoFixtureWorkerProcess(t *testing.T) {
@@ -195,6 +241,7 @@ func TestGoFixtureWorkerProcess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewFramer() error = %v", err)
 	}
+	state := goFixtureState{}
 	for {
 		payload, err := framer.Read()
 		if err != nil {
@@ -204,38 +251,89 @@ func TestGoFixtureWorkerProcess(t *testing.T) {
 		if err != nil {
 			t.Fatalf("decodeWireMessage() error = %v", err)
 		}
-		switch message.Method {
-		case InitializeMethod:
-			writeFixtureMessage(t, framer, wireMessage{
-				JSONRPC: "2.0",
-				ID:      message.ID,
-				Result:  mustJSON(t, contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "fixture", Handlers: []string{"echo"}}),
-			})
-		case InvokeMethod:
-			var params contracts.InvokeParams
-			if err := contracts.DecodeStrict(message.Params, &params); err != nil {
-				t.Fatalf("decode invoke params: %v", err)
-			}
-			outputs := map[string]json.RawMessage{"value": params.Arguments["value"]}
-			writeFixtureMessage(t, framer, wireMessage{
-				JSONRPC: "2.0",
-				Method:  UpdateMethod,
-				Params: mustJSON(t, contracts.RuntimeUpdate{
-					Identity: params.Identity, Outputs: outputs, Artifacts: []contracts.WorkerArtifact{},
-				}),
-			})
-			writeFixtureMessage(t, framer, wireMessage{
-				JSONRPC: "2.0",
-				ID:      message.ID,
-				Result:  mustJSON(t, contracts.InvokeResult{Outputs: outputs}),
-			})
-		case ShutdownMethod:
-			writeFixtureMessage(t, framer, wireMessage{JSONRPC: "2.0", ID: message.ID, Result: json.RawMessage("null")})
+		if state.handle(t, framer, message) {
 			return
-		default:
-			t.Fatalf("unexpected fixture method %q", message.Method)
 		}
 	}
+}
+
+type goFixtureState struct {
+	pendingID json.RawMessage
+}
+
+func (state *goFixtureState) handle(t *testing.T, framer *Framer, message wireMessage) bool {
+	t.Helper()
+	switch message.Method {
+	case InitializeMethod:
+		result := contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "fixture", Handlers: []string{"cancel", "crash", "echo", "fail", "logs", "stream"}}
+		writeFixtureMessage(t, framer, wireMessage{JSONRPC: "2.0", ID: message.ID, Result: mustJSON(t, result)})
+	case InvokeMethod:
+		state.invoke(t, framer, message)
+	case CancelMethod:
+		state.cancel(t, framer, message)
+	case ShutdownMethod:
+		writeFixtureMessage(t, framer, wireMessage{JSONRPC: "2.0", ID: message.ID, Result: json.RawMessage("null")})
+		return true
+	default:
+		t.Fatalf("unexpected fixture method %q", message.Method)
+	}
+	return false
+}
+
+func (state *goFixtureState) invoke(t *testing.T, framer *Framer, message wireMessage) {
+	t.Helper()
+	var params contracts.InvokeParams
+	if err := contracts.DecodeStrict(message.Params, &params); err != nil {
+		t.Fatalf("decode invoke params: %v", err)
+	}
+	switch params.Handler {
+	case "echo":
+		state.respond(t, framer, message.ID, contracts.InvokeResult{Outputs: map[string]json.RawMessage{"value": params.Arguments["value"]}})
+	case "stream":
+		state.update(t, framer, params.Identity, "0")
+		state.update(t, framer, params.Identity, "1")
+		state.respond(t, framer, message.ID, contracts.InvokeResult{Outputs: map[string]json.RawMessage{}})
+	case "fail":
+		state.respond(t, framer, message.ID, contracts.InvokeResult{Outputs: map[string]json.RawMessage{}, Error: &contracts.StructuredError{Code: "handler_error", Message: "fixture failure"}})
+	case "cancel":
+		state.pendingID = append(json.RawMessage(nil), message.ID...)
+		state.update(t, framer, params.Identity, "0")
+	case "logs":
+		_, _ = fmt.Fprintln(os.Stdout, "go fixture stdout")
+		_, _ = fmt.Fprintln(os.Stderr, "go fixture stderr")
+		state.respond(t, framer, message.ID, contracts.InvokeResult{Outputs: map[string]json.RawMessage{}})
+	case "crash":
+		os.Exit(23)
+	default:
+		t.Fatalf("unexpected fixture handler %q", params.Handler)
+	}
+}
+
+func (state *goFixtureState) cancel(t *testing.T, framer *Framer, message wireMessage) {
+	t.Helper()
+	var params struct {
+		ID uint64 `json:"id"`
+	}
+	if err := contracts.DecodeStrict(message.Params, &params); err != nil {
+		t.Fatalf("decode cancel params: %v", err)
+	}
+	if string(state.pendingID) != strconv.FormatUint(params.ID, 10) {
+		t.Fatalf("cancel request id = %d, pending = %s", params.ID, state.pendingID)
+	}
+	result := contracts.InvokeResult{Outputs: map[string]json.RawMessage{}, Error: &contracts.StructuredError{Code: "cancelled", Message: "cancelled"}}
+	state.respond(t, framer, state.pendingID, result)
+	state.pendingID = nil
+}
+
+func (state *goFixtureState) update(t *testing.T, framer *Framer, identity contracts.InvocationIdentity, value string) {
+	t.Helper()
+	update := contracts.RuntimeUpdate{Identity: identity, Outputs: map[string]json.RawMessage{"value": json.RawMessage(value)}, Artifacts: []contracts.WorkerArtifact{}}
+	writeFixtureMessage(t, framer, wireMessage{JSONRPC: "2.0", Method: UpdateMethod, Params: mustJSON(t, update)})
+}
+
+func (state *goFixtureState) respond(t *testing.T, framer *Framer, id json.RawMessage, result contracts.InvokeResult) {
+	t.Helper()
+	writeFixtureMessage(t, framer, wireMessage{JSONRPC: "2.0", ID: id, Result: mustJSON(t, result)})
 }
 
 type fixtureRuntime struct {

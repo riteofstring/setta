@@ -1,4 +1,4 @@
-import { Point } from "fabric";
+import { Point, filters } from "fabric";
 import { describe, expect, it, vi } from "vitest";
 
 import { RealtimeDrawingRuntime } from "./drawingRuntime";
@@ -26,23 +26,39 @@ function canvasContext(element: HTMLCanvasElement): CanvasRenderingContext2D {
   }) as unknown as CanvasRenderingContext2D;
 }
 
-function pointerEvent(): MouseEvent {
-  return new MouseEvent("pointermove", {
+function pointerEvent(
+  type = "pointermove",
+  clientX = 20,
+  clientY = 20,
+  pointerType = "mouse",
+): PointerEvent {
+  const event = new MouseEvent(type, {
+    button: 0,
     bubbles: true,
-    clientX: 20,
-    clientY: 20,
+    buttons: type === "pointerup" ? 0 : 1,
+    clientX,
+    clientY,
   });
+  Object.defineProperties(event, {
+    isPrimary: { value: true },
+    pointerId: { value: 1 },
+    pointerType: { value: pointerType },
+  });
+  return event as PointerEvent;
 }
 
 describe("retained drawing runtime", () => {
   it("draws, erases, selects, transforms, round-trips, and reaches raster export", async () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
-      function (this: HTMLCanvasElement) {
-        return canvasContext(this);
+      function (this: HTMLCanvasElement, contextId: string) {
+        return contextId === "2d" ? canvasContext(this) : null;
       },
     );
     vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue(
       "data:image/png;base64,c2V0dGE=",
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
+      (callback) => callback(new Blob(["setta"], { type: "image/png" })),
     );
     const settled = vi.fn();
     const element = document.createElement("canvas");
@@ -77,8 +93,40 @@ describe("retained drawing runtime", () => {
 
     drawing.setTool("erase");
     expect(drawing.canvas.isDrawingMode).toBe(false);
-    expect(drawing.eraseObject(retained)).toBe(true);
+    drawing.canvas.calcOffset();
+    drawing.canvas.upperCanvasEl.dispatchEvent(
+      pointerEvent("pointerdown", 80, 60, "touch"),
+    );
+    document.dispatchEvent(pointerEvent("pointerup", 80, 60, "touch"));
     expect(drawing.canvas.getObjects()).toHaveLength(1);
+
+    const imageSource = document.createElement("canvas");
+    imageSource.width = 2;
+    imageSource.height = 2;
+    const image = drawing.addFilteredImage(imageSource, [
+      new filters.Grayscale(),
+    ]);
+    const filteredScene = drawing.toScene() as {
+      objects: Array<{ filters?: Array<{ type: string }>; type: string }>;
+    };
+    const serializedImage = filteredScene.objects.find(
+      (object) => object.type === "Image",
+    );
+    expect(image.filters[0]).toBeInstanceOf(filters.Grayscale);
+    expect(serializedImage?.filters).toEqual([
+      expect.objectContaining({ type: "Grayscale" }),
+    ]);
+    const serializedFilter = serializedImage?.filters?.[0];
+    if (serializedFilter === undefined) {
+      throw new Error("Fabric did not serialize the image filter.");
+    }
+    const restoredFilter = await filters.Grayscale.fromObject(serializedFilter);
+    image.filters = [restoredFilter];
+    image.applyFilters();
+    expect(image.toObject().filters).toEqual([
+      expect.objectContaining({ type: "Grayscale" }),
+    ]);
+    drawing.eraseObject(image);
 
     const scene = drawing.toScene();
     const roundTripElement = document.createElement("canvas");
@@ -93,6 +141,9 @@ describe("retained drawing runtime", () => {
     expect(roundTrip.canvas.getObjects()).toHaveLength(1);
     expect(roundTrip.toScene()).toEqual(scene);
     expect(roundTrip.toDataURL()).toMatch(/^data:image\/png;base64,/);
+    const capture = await roundTrip.captureSnapshot();
+    expect(capture.scene).toEqual(scene);
+    expect(capture.blob.type).toBe("image/png");
     expect(settled).toHaveBeenCalled();
 
     await roundTrip.dispose();

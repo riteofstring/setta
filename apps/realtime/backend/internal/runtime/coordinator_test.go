@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -140,6 +142,37 @@ func TestSubscriptionBeginsWithCompleteCurrentRuntimeSnapshot(t *testing.T) {
 	}
 }
 
+func TestSuccessfulReturnPublishesFinalBrowserUpdate(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	if _, err := coordinator.Reload(context.Background()); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stream, err := coordinator.Subscribe(ctx)
+	if err != nil {
+		t.Fatalf("Subscribe() error = %v", err)
+	}
+	<-stream
+	snapshot, _ := coordinator.Snapshot()
+	event := contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
+	if _, err := coordinator.HandleEvent(event); err != nil {
+		t.Fatalf("HandleEvent() error = %v", err)
+	}
+	invocation := receiveInvocation(t, worker.started)
+	worker.reply(invocation.Identity.InvocationID, `"final"`)
+	envelope := receiveRuntimeEnvelope(t, stream, func(envelope contracts.RuntimeEnvelope) bool {
+		return envelope.Type == "update"
+	})
+	if envelope.Update == nil || envelope.Update.Identity != invocation.Identity || string(envelope.Update.Outputs["image"]) != `"final"` {
+		t.Fatalf("final update = %#v", envelope.Update)
+	}
+	receiveRuntimeEnvelope(t, stream, func(envelope contracts.RuntimeEnvelope) bool {
+		return envelope.Invocation != nil && envelope.Invocation.Identity == invocation.Identity && envelope.Invocation.State == "completed"
+	})
+}
+
 func TestDirectInvokeRequiresExplicitReload(t *testing.T) {
 	coordinator, _ := testCoordinator(t)
 	defer coordinator.Close()
@@ -190,6 +223,52 @@ func TestCancellationRemainsTerminalAfterCooperativeWorkerResult(t *testing.T) {
 	worker.replyError(invocation.Identity.InvocationID, "cancelled")
 	waitForInvocationInactive(t, coordinator, invocation.Identity.InvocationID)
 	assertInvocationState(t, coordinator, invocation.Identity.InvocationID, "cancelled")
+}
+
+func TestCancellationRejectsLateWorkerUpdates(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	worker.cooperativeCancellation = true
+	invocation := startDrawingInvocation(t, coordinator, worker)
+	if err := coordinator.Cancel(contracts.RuntimeCancelRequest{Type: "cancel", Identity: invocation.Identity}); err != nil {
+		t.Fatalf("Cancel() error = %v", err)
+	}
+	coordinator.acceptUpdate(contracts.RuntimeUpdate{
+		Identity:  invocation.Identity,
+		Outputs:   map[string]json.RawMessage{"image": json.RawMessage(`"late"`)},
+		Artifacts: []contracts.WorkerArtifact{},
+	})
+	worker.replyError(invocation.Identity.InvocationID, "cancelled")
+	waitForInvocationInactive(t, coordinator, invocation.Identity.InvocationID)
+	snapshot, err := coordinator.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if _, exists := snapshot.Values["result.contentRef"]; exists {
+		t.Fatalf("cancelled update changed values = %#v", snapshot.Values)
+	}
+	assertInvocationState(t, coordinator, invocation.Identity.InvocationID, "cancelled")
+}
+
+func TestCompletedInvocationAcceptsBufferedStreamUpdate(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	invocation := startDrawingInvocation(t, coordinator, worker)
+	worker.reply(invocation.Identity.InvocationID, `"ordinary"`)
+	waitForInvocationInactive(t, coordinator, invocation.Identity.InvocationID)
+	assertInvocationState(t, coordinator, invocation.Identity.InvocationID, "completed")
+	coordinator.acceptUpdate(contracts.RuntimeUpdate{
+		Identity:  invocation.Identity,
+		Outputs:   map[string]json.RawMessage{"image": json.RawMessage(`"streamed"`)},
+		Artifacts: []contracts.WorkerArtifact{},
+	})
+	snapshot, err := coordinator.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if value := string(snapshot.Values["result.contentRef"]); value != `"streamed"` {
+		t.Fatalf("buffered update value = %s", value)
+	}
 }
 
 func TestWorkerCancellationResultIsClassifiedAsCancelled(t *testing.T) {
@@ -257,6 +336,115 @@ func TestDrawingSnapshotRunsPythonAndAdoptsStreamedArtifact(t *testing.T) {
 		t.Fatalf("HandleEvent() error = %v", err)
 	}
 	assertStyledArtifact(t, coordinator, contentStore)
+}
+
+func TestDirectInvokeDeletesPreparedContentAndPreservesSource(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	if _, err := coordinator.Reload(context.Background()); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	source, err := coordinator.content.Put("browser", "text/plain", bytes.NewBufferString("source"))
+	if err != nil {
+		t.Fatalf("content.Put() error = %v", err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, invokeErr := coordinator.Invoke(context.Background(), "stylize", contracts.DirectInvokeRequest{
+			Arguments: map[string]json.RawMessage{}, Content: []contracts.ContentReference{source},
+		})
+		done <- invokeErr
+	}()
+	invocation := receiveInvocation(t, worker.started)
+	worker.reply(invocation.Identity.InvocationID, `"done"`)
+	if err := <-done; err != nil {
+		t.Fatalf("Invoke() error = %v", err)
+	}
+	if _, err := coordinator.content.Open(invocation.Content[0]); !errors.Is(err, content.ErrNotFound) {
+		t.Fatalf("Open(prepared) error = %v, want not found", err)
+	}
+	reader, err := coordinator.content.Open(source)
+	if err != nil {
+		t.Fatalf("Open(source) error = %v", err)
+	}
+	reader.Close()
+}
+
+func TestLatestBindingReclaimsReplacedContent(t *testing.T) {
+	coordinator, _ := testCoordinator(t)
+	defer coordinator.Close()
+	if _, err := coordinator.Reload(context.Background()); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	snapshot, _ := coordinator.Snapshot()
+	for index := 0; index < content.MaximumRecords+8; index++ {
+		scope := "browser-" + strconv.Itoa(index)
+		source, err := coordinator.content.Put(scope, "image/png", bytes.NewBufferString("frame"))
+		if err != nil {
+			t.Fatalf("content.Put(%d) error = %v", index, err)
+		}
+		payload, err := json.Marshal(map[string]contracts.ContentReference{"contentRef": source})
+		if err != nil {
+			t.Fatalf("json.Marshal() error = %v", err)
+		}
+		_, err = coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: payload})
+		if err != nil {
+			t.Fatalf("HandleEvent(%d) error = %v", index, err)
+		}
+		if _, err := coordinator.content.Open(source); !errors.Is(err, content.ErrNotFound) {
+			t.Fatalf("Open(event source %d) error = %v, want not found", index, err)
+		}
+	}
+}
+
+func TestBusyBindingReclaimsRejectedEventContent(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	projectSnapshot, err := coordinator.ProjectSnapshot()
+	if err != nil {
+		t.Fatalf("ProjectSnapshot() error = %v", err)
+	}
+	binding := projectSnapshot.Bindings[0]
+	binding.Scheduling.Mode = "once"
+	operation, err := json.Marshal(contracts.SetBindingOperation{Operation: "setBinding", Binding: binding})
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if _, err := coordinator.Apply(contracts.ApplyRequest{ProjectID: projectSnapshot.ID, ExpectedRevision: projectSnapshot.Revision, Operations: []json.RawMessage{operation}}); err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	if _, err := coordinator.Reload(context.Background()); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	runtimeSnapshot, _ := coordinator.Snapshot()
+	firstSource, err := coordinator.content.Put("browser-first", "image/png", bytes.NewBufferString("first"))
+	if err != nil {
+		t.Fatalf("Put(first) error = %v", err)
+	}
+	firstPayload, err := json.Marshal(map[string]contracts.ContentReference{"contentRef": firstSource})
+	if err != nil {
+		t.Fatalf("Marshal(first) error = %v", err)
+	}
+	if _, err := coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", SessionID: runtimeSnapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: firstPayload}); err != nil {
+		t.Fatalf("HandleEvent(first) error = %v", err)
+	}
+	invocation := receiveInvocation(t, worker.started)
+	secondSource, err := coordinator.content.Put("browser-second", "image/png", bytes.NewBufferString("second"))
+	if err != nil {
+		t.Fatalf("Put(second) error = %v", err)
+	}
+	secondPayload, err := json.Marshal(map[string]contracts.ContentReference{"contentRef": secondSource})
+	if err != nil {
+		t.Fatalf("Marshal(second) error = %v", err)
+	}
+	accepted, err := coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", SessionID: runtimeSnapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: secondPayload})
+	if err != nil || accepted != 0 {
+		t.Fatalf("HandleEvent(second) = %d, %v", accepted, err)
+	}
+	if _, err := coordinator.content.Open(secondSource); !errors.Is(err, content.ErrNotFound) {
+		t.Fatalf("Open(rejected source) error = %v, want not found", err)
+	}
+	worker.reply(invocation.Identity.InvocationID, `"done"`)
 }
 
 func pythonDrawingCoordinator(t *testing.T) (*Coordinator, *content.Store) {
@@ -398,5 +586,21 @@ func receiveInvocation(t *testing.T, channel <-chan contracts.InvokeParams) cont
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for invocation")
 		return contracts.InvokeParams{}
+	}
+}
+
+func receiveRuntimeEnvelope(t *testing.T, stream <-chan contracts.RuntimeEnvelope, accept func(contracts.RuntimeEnvelope) bool) contracts.RuntimeEnvelope {
+	t.Helper()
+	deadline := time.After(time.Second)
+	for {
+		select {
+		case envelope := <-stream:
+			if accept(envelope) {
+				return envelope
+			}
+		case <-deadline:
+			t.Fatal("timed out waiting for runtime envelope")
+			return contracts.RuntimeEnvelope{}
+		}
 	}
 }

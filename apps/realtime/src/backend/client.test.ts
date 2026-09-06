@@ -1,20 +1,37 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { makeProject } from "../testProject";
 import {
   CONTENT_PATH,
   PROJECT_PATH,
   PROJECT_EVENTS_PATH,
   RUNTIME_PATH,
+  RUNTIME_RELOAD_PATH,
   RealtimeClientError,
+  applyProject,
   connectProjectEvents,
   connectRuntime,
   fetchProject,
+  reloadRuntime,
   type ProjectEventSource,
   type RuntimeSocket,
   uploadContent,
 } from "./client";
 
 describe("realtime client boundary", () => {
+  it("rejects an outgoing HTTP command that violates the generated apply schema", async () => {
+    const fetchImplementation = vi.fn() as unknown as typeof fetch;
+
+    await expect(
+      applyProject(
+        makeProject(),
+        [{ name: "", op: "setName" }],
+        fetchImplementation,
+      ),
+    ).rejects.toMatchObject({ kind: "invalid-request" });
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
   it("rejects a successful HTTP response that violates the generated project schema", async () => {
     const fetchImplementation = vi.fn(
       async () =>
@@ -60,6 +77,18 @@ describe("realtime client boundary", () => {
         "Content-Type": "image/png",
         "X-Setta-Invocation-ID": "drawing-stage-1",
       },
+      method: "POST",
+    });
+  });
+
+  it("requests runtime reload through the existing HTTP command boundary", async () => {
+    const fetchImplementation = vi.fn(
+      async () => new Response(null, { status: 200 }),
+    ) as unknown as typeof fetch;
+
+    await expect(reloadRuntime(fetchImplementation)).resolves.toBeUndefined();
+    expect(fetchImplementation).toHaveBeenCalledWith(RUNTIME_RELOAD_PATH, {
+      headers: { Accept: "application/json" },
       method: "POST",
     });
   });

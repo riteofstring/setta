@@ -9,6 +9,8 @@ import {
   applyRuntimeEnvelope,
   beginRuntimeReplacement,
   initialRuntimeViewState,
+  resolveRuntimeValue,
+  runtimeCanInvoke,
   runtimeValueKey,
 } from "./runtimeState";
 
@@ -139,5 +141,71 @@ describe("runtime state", () => {
     expect(replacing.latestByBinding).toEqual({});
     expect(replacing.connection).toBe("connecting");
     expect(replacing.values).toEqual(state.values);
+  });
+
+  it("clears diagnostics only when a snapshot changes the session", () => {
+    let state = apply(initialRuntimeViewState, {
+      snapshot: {
+        invocations: {},
+        sessionId: "session-main",
+        values: {},
+        workerState: "ready",
+      },
+      type: "snapshot",
+    });
+    state = apply(state, {
+      log: { stream: "stdout", text: "previous worker" },
+      type: "log",
+    });
+    state = apply(state, {
+      error: { code: "runtime_failed", message: "previous failure" },
+      type: "error",
+    });
+
+    const sameSession = apply(state, {
+      snapshot: {
+        invocations: {},
+        sessionId: "session-main",
+        values: {},
+        workerState: "ready",
+      },
+      type: "snapshot",
+    });
+    expect(sameSession.logs).toEqual(state.logs);
+    expect(sameSession.error).toEqual(state.error);
+
+    const replacement = apply(sameSession, {
+      snapshot: {
+        invocations: {},
+        sessionId: "session-replaced",
+        values: {},
+        workerState: "ready",
+      },
+      type: "snapshot",
+    });
+    expect(replacement.logs).toEqual([]);
+    expect(replacement.error).toBeNull();
+  });
+
+  it("preserves explicit null values and authorizes invocation only when ready", () => {
+    const key = runtimeValueKey("output-main", "value");
+    expect(resolveRuntimeValue({ [key]: null }, key, "authored")).toBeNull();
+    expect(resolveRuntimeValue({}, key, "authored")).toBe("authored");
+    expect(
+      runtimeCanInvoke({
+        ...initialRuntimeViewState,
+        connection: "connected",
+        sessionId: "session-main",
+        workerState: "ready",
+      }),
+    ).toBe(true);
+    expect(
+      runtimeCanInvoke({
+        ...initialRuntimeViewState,
+        connection: "connected",
+        sessionId: "session-main",
+        workerState: "failed",
+      }),
+    ).toBe(false);
   });
 });

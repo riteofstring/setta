@@ -1,9 +1,12 @@
 import {
+  type ApplyRequest,
   type ContentReference,
   type Project,
+  type ProjectOperation,
   type RuntimeEnvelope,
   type RuntimeCommand,
   validateContentReference,
+  validateApplyRequest,
   validateProject,
   validateRuntimeEnvelope,
   validateRuntimeCommand,
@@ -13,11 +16,13 @@ export const PROJECT_PATH = "/api/v1/project";
 const PROJECT_APPLY_PATH = "/api/v1/project/apply";
 export const PROJECT_EVENTS_PATH = "/api/v1/project/events";
 export const RUNTIME_PATH = "/api/v1/runtime";
+export const RUNTIME_RELOAD_PATH = "/api/v1/runtime/reload";
 export const CONTENT_PATH = "/api/v1/content";
 
 export class RealtimeClientError extends Error {
   public constructor(
-    public readonly kind: "network" | "http" | "invalid-response",
+    public readonly kind:
+      "network" | "http" | "invalid-request" | "invalid-response",
     message: string,
     public readonly status?: number,
     public readonly cause?: unknown,
@@ -111,17 +116,24 @@ export async function fetchProject(
 
 export async function applyProject(
   project: Project,
-  operations: ReadonlyArray<unknown>,
+  operations: ReadonlyArray<ProjectOperation>,
   fetchImplementation: typeof fetch = fetch,
 ): Promise<Project> {
+  const command: ApplyRequest = {
+    expectedRevision: project.revision,
+    operations: [...operations],
+    projectId: project.id,
+  };
+  if (!validateApplyRequest(command)) {
+    throw new RealtimeClientError(
+      "invalid-request",
+      "Realtime generated an invalid project command.",
+    );
+  }
   const response = await request(
     PROJECT_APPLY_PATH,
     {
-      body: JSON.stringify({
-        expectedRevision: project.revision,
-        operations,
-        projectId: project.id,
-      }),
+      body: JSON.stringify(command),
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
@@ -131,6 +143,16 @@ export async function applyProject(
     fetchImplementation,
   );
   return assertProject(await readJson(response));
+}
+
+export async function reloadRuntime(
+  fetchImplementation: typeof fetch = fetch,
+): Promise<void> {
+  await request(
+    RUNTIME_RELOAD_PATH,
+    { headers: { Accept: "application/json" }, method: "POST" },
+    fetchImplementation,
+  );
 }
 
 export type ProjectEventSource = Pick<

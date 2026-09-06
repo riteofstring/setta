@@ -8,8 +8,13 @@ import {
 } from "@setta/workspace";
 
 import { useRealtime } from "../app/runtimeContext";
-import { runtimeValueKey } from "../app/runtimeState";
+import {
+  resolveRuntimeValue,
+  runtimeCanInvoke,
+  runtimeValueKey,
+} from "../app/runtimeState";
 import { RealtimeDrawingRuntime, type DrawingTool } from "./drawingRuntime";
+import { DrawingSettlementQueue } from "./drawingSettlementQueue";
 import { readDrawingSectionData } from "./sectionData";
 
 const SETTLE_DELAY_MILLISECONDS = 180;
@@ -17,70 +22,55 @@ const SETTLE_DELAY_MILLISECONDS = 180;
 export function DrawingSection({ section }: { section: WorkspaceSection }) {
   const { actions, runtime } = useRealtime();
   const data = readDrawingSectionData(section.data);
+  const { background, height, width } = data;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef<RealtimeDrawingRuntime | null>(null);
-  const settleTimerRef = useRef<number | null>(null);
-  const settleSequenceRef = useRef(0);
-  const settleRef = useRef<() => void>(() => {});
   const lastLoadedSceneRef = useRef<string | null>(null);
   const [tool, setTool] = useState<DrawingTool>("select");
-  const runtimeScene = runtime.values[runtimeValueKey(section.id, "scene")];
-  const scene = (runtimeScene ?? data.scene) as WorkspaceSectionData;
+  const scene = resolveRuntimeValue(
+    runtime.values,
+    runtimeValueKey(section.id, "scene"),
+    data.scene,
+  ) as WorkspaceSectionData;
   const sceneRef = useRef(scene);
+  const runtimeRef = useRef(runtime);
   sceneRef.current = scene;
-
-  settleRef.current = () => {
-    if (settleTimerRef.current !== null) {
-      window.clearTimeout(settleTimerRef.current);
-    }
-    settleTimerRef.current = window.setTimeout(() => {
-      settleTimerRef.current = null;
-      const drawing = drawingRef.current;
-      if (drawing === null) {
-        return;
-      }
-      const sequence = ++settleSequenceRef.current;
-      const nextScene = drawing.toScene();
-      void actions
-        .commitSectionData(section.id, { ...data, scene: nextScene })
-        .then(async (committed) => {
-          if (
-            !committed ||
-            drawingRef.current !== drawing ||
-            sequence !== settleSequenceRef.current
-          ) {
-            return;
-          }
-          const reference = await actions.uploadContent(await drawing.toBlob());
-          if (
-            drawingRef.current === drawing &&
-            sequence === settleSequenceRef.current
-          ) {
-            actions.emit(section.id, "snapshot", {
-              contentRef: reference,
-            });
-          }
-        })
-        .catch((error: unknown) => {
-          actions.reportError(
-            error instanceof Error
-              ? error.message
-              : "Realtime could not settle the drawing.",
-          );
-        });
-    }, SETTLE_DELAY_MILLISECONDS);
-  };
+  runtimeRef.current = runtime;
 
   useEffect(() => {
     const element = canvasRef.current;
     if (element === null) {
       return;
     }
+    let settlement: DrawingSettlementQueue | null = null;
     const drawing = new RealtimeDrawingRuntime(element, {
-      background: data.background,
-      height: data.height,
-      onSettled: () => settleRef.current(),
-      width: data.width,
+      background,
+      height,
+      onSettled: () => settlement?.settle(),
+      width,
+    });
+    settlement = new DrawingSettlementQueue({
+      canEmit: () => runtimeCanInvoke(runtimeRef.current),
+      capture: () => drawing.captureSnapshot(),
+      commit: (nextScene) =>
+        actions.commitSectionData(section.id, {
+          background,
+          height,
+          scene: nextScene,
+          width,
+        }),
+      delayMilliseconds: SETTLE_DELAY_MILLISECONDS,
+      emit: (reference) => {
+        actions.emit(section.id, "snapshot", { contentRef: reference });
+      },
+      onError: (error) => {
+        actions.reportError(
+          error instanceof Error
+            ? error.message
+            : "Realtime could not settle the drawing.",
+        );
+      },
+      upload: actions.uploadContent,
     });
     drawingRef.current = drawing;
     const initialScene = sceneRef.current;
@@ -93,14 +83,11 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       );
     });
     return () => {
+      settlement?.dispose();
       drawingRef.current = null;
-      if (settleTimerRef.current !== null) {
-        window.clearTimeout(settleTimerRef.current);
-        settleTimerRef.current = null;
-      }
       void drawing.dispose();
     };
-  }, [actions, data.background, data.height, data.width]);
+  }, [actions, background, height, section.id, width]);
 
   useEffect(() => {
     const drawing = drawingRef.current;

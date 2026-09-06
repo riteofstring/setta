@@ -1,29 +1,7 @@
 package contracts
 
 func ProjectSchema() map[string]any {
-	definitions := map[string]any{
-		"jsonValue": jsonValueSchema(),
-		"sizeValue": map[string]any{"anyOf": []any{
-			map[string]any{"type": "number", "exclusiveMinimum": 0},
-			map[string]any{"const": "auto"},
-		}},
-		"runtime": objectSchema([]string{"kind", "entrypoint"}, map[string]any{
-			"kind":       map[string]any{"type": "string", "pattern": `^[a-z][a-z0-9-]{0,63}$`},
-			"entrypoint": requiredTextSchema(),
-		}),
-		"topLevelLayout": objectSchema([]string{"x", "y", "width", "height", "zIndex"}, map[string]any{
-			"x":      map[string]any{"type": "number"},
-			"y":      map[string]any{"type": "number"},
-			"width":  nullablePositiveNumberSchema(),
-			"height": nullablePositiveNumberSchema(),
-			"zIndex": map[string]any{"type": "integer"},
-		}),
-		"viewport": objectSchema([]string{"x", "y", "zoom"}, map[string]any{
-			"x": map[string]any{"type": "number"}, "y": map[string]any{"type": "number"}, "zoom": map[string]any{"type": "number", "exclusiveMinimum": 0},
-		}),
-		"binding": bindingSchema(),
-		"section": sectionSchema(),
-	}
+	definitions := projectSchemaDefinitions()
 	return map[string]any{
 		"$schema":  "https://json-schema.org/draft/2020-12/schema",
 		"$id":      "https://setta.local/schemas/realtime/project-v1.schema.json",
@@ -64,11 +42,83 @@ func ProjectSchema() map[string]any {
 	}
 }
 
+func projectSchemaDefinitions() map[string]any {
+	return map[string]any{
+		"jsonValue": jsonValueSchema(),
+		"sizeValue": map[string]any{"anyOf": []any{
+			map[string]any{"type": "number", "exclusiveMinimum": 0},
+			map[string]any{"const": "auto"},
+		}},
+		"runtime": objectSchema([]string{"kind", "entrypoint"}, map[string]any{
+			"kind":       map[string]any{"type": "string", "pattern": `^[a-z][a-z0-9-]{0,63}$`},
+			"entrypoint": requiredTextSchema(),
+		}),
+		"topLevelLayout": objectSchema([]string{"x", "y", "width", "height", "zIndex"}, map[string]any{
+			"x":      map[string]any{"type": "number"},
+			"y":      map[string]any{"type": "number"},
+			"width":  nullablePositiveNumberSchema(),
+			"height": nullablePositiveNumberSchema(),
+			"zIndex": map[string]any{"type": "integer"},
+		}),
+		"viewport": objectSchema([]string{"x", "y", "zoom"}, map[string]any{
+			"x": map[string]any{"type": "number"}, "y": map[string]any{"type": "number"}, "zoom": map[string]any{"type": "number", "exclusiveMinimum": 0},
+		}),
+		"binding": bindingSchema(),
+		"section": sectionSchema(),
+	}
+}
+
+func ApplyRequestSchema() map[string]any {
+	definitions := projectSchemaDefinitions()
+	definitions["operation"] = map[string]any{"oneOf": operationSchemas()}
+	return map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"$id":     "https://setta.local/schemas/realtime/apply-request-v1.schema.json",
+		"title":   "Setta Realtime Apply Request V1",
+		"$defs":   definitions,
+		"type":    "object",
+		"required": []string{
+			"projectId", "expectedRevision", "operations",
+		},
+		"properties": map[string]any{
+			"projectId":        idSchema(),
+			"expectedRevision": map[string]any{"type": "integer", "minimum": 0},
+			"operations": map[string]any{
+				"type": "array", "minItems": 1, "maxItems": 128, "items": map[string]any{"$ref": "#/$defs/operation"},
+			},
+		},
+		"additionalProperties": false,
+	}
+}
+
+func DirectInvokeRequestSchema() map[string]any {
+	return map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"$id":     "https://setta.local/schemas/realtime/direct-invoke-request-v1.schema.json",
+		"title":   "Setta Realtime Direct Invoke Request V1",
+		"$defs": map[string]any{
+			"jsonValue":        jsonValueSchema(),
+			"contentReference": contentReferenceObjectSchema(),
+		},
+		"type":     "object",
+		"required": []string{"arguments", "content"},
+		"properties": map[string]any{
+			"arguments": map[string]any{
+				"type": "object", "maxProperties": maximumArguments, "propertyNames": handlerNameSchema(), "additionalProperties": map[string]any{"$ref": "#/$defs/jsonValue"},
+			},
+			"content": map[string]any{
+				"type": "array", "maxItems": maximumArguments, "items": map[string]any{"$ref": "#/$defs/contentReference"},
+			},
+		},
+		"additionalProperties": false,
+	}
+}
+
 func RuntimeSchema() map[string]any {
 	definitions := map[string]any{
 		"jsonValue": jsonValueSchema(),
 		"identity": objectSchema([]string{"sessionId", "bindingId", "invocationId", "sequence"}, map[string]any{
-			"sessionId": idSchema(), "bindingId": idSchema(), "invocationId": idSchema(), "sequence": map[string]any{"type": "integer", "minimum": 0},
+			"sessionId": idSchema(), "bindingId": idSchema(), "invocationId": idSchema(), "sequence": map[string]any{"type": "integer", "minimum": 1},
 		}),
 		"error": objectSchema([]string{"code", "message"}, map[string]any{
 			"code": idSchema(), "message": textSchema(),
@@ -138,11 +188,16 @@ func RuntimeCommandSchema() map[string]any {
 }
 
 func ContentReferenceSchema() map[string]any {
+	schema := contentReferenceObjectSchema()
+	schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+	schema["$id"] = "https://setta.local/schemas/realtime/content-reference-v1.schema.json"
+	schema["title"] = "Setta Realtime Content Reference V1"
+	return schema
+}
+
+func contentReferenceObjectSchema() map[string]any {
 	return map[string]any{
-		"$schema": "https://json-schema.org/draft/2020-12/schema",
-		"$id":     "https://setta.local/schemas/realtime/content-reference-v1.schema.json",
-		"title":   "Setta Realtime Content Reference V1",
-		"type":    "object",
+		"type": "object",
 		"required": []string{
 			"id", "mediaType", "byteLength", "sha256", "invocationId",
 		},
@@ -158,30 +213,103 @@ func ContentReferenceSchema() map[string]any {
 }
 
 func WorkerSchema() map[string]any {
+	definitions := workerSchemaDefinitions()
 	return map[string]any{
 		"$schema": "https://json-schema.org/draft/2020-12/schema",
 		"$id":     "https://setta.local/schemas/realtime/worker-v1.schema.json",
 		"title":   "Setta Realtime Worker Protocol V1",
-		"$defs": map[string]any{
-			"jsonValue": jsonValueSchema(),
-			"rpcError": objectSchema([]string{"code", "message"}, map[string]any{
-				"code": map[string]any{"type": "integer"}, "message": requiredTextSchema(),
-			}),
-		},
+		"$defs":   definitions,
 		"oneOf": []any{
-			objectSchema([]string{"jsonrpc", "id", "method", "params"}, map[string]any{
-				"jsonrpc": map[string]any{"const": "2.0"}, "id": map[string]any{"type": []string{"string", "integer"}}, "method": requiredTextSchema(), "params": map[string]any{"$ref": "#/$defs/jsonValue"},
-			}),
-			objectSchema([]string{"jsonrpc", "method", "params"}, map[string]any{
-				"jsonrpc": map[string]any{"const": "2.0"}, "method": requiredTextSchema(), "params": map[string]any{"$ref": "#/$defs/jsonValue"},
-			}),
+			workerRequestSchema("initialize", "#/$defs/initializeParams"),
+			workerRequestSchema("runtime/invoke", "#/$defs/invokeParams"),
+			workerRequestSchema("shutdown", "#/$defs/emptyObject"),
+			workerNotificationSchema("runtime/update", "#/$defs/update"),
+			workerNotificationSchema("$/cancelRequest", "#/$defs/cancelParams"),
 			objectSchema([]string{"jsonrpc", "id", "result"}, map[string]any{
-				"jsonrpc": map[string]any{"const": "2.0"}, "id": map[string]any{"type": []string{"string", "integer"}}, "result": map[string]any{"$ref": "#/$defs/jsonValue"},
+				"jsonrpc": map[string]any{"const": "2.0"}, "id": workerIDSchema(), "result": map[string]any{"oneOf": []any{
+					map[string]any{"$ref": "#/$defs/initializeResult"}, map[string]any{"$ref": "#/$defs/invokeResult"}, map[string]any{"type": "null"},
+				}},
 			}),
 			objectSchema([]string{"jsonrpc", "id", "error"}, map[string]any{
-				"jsonrpc": map[string]any{"const": "2.0"}, "id": map[string]any{"type": []string{"string", "integer"}}, "error": map[string]any{"$ref": "#/$defs/rpcError"},
+				"jsonrpc": map[string]any{"const": "2.0"}, "id": workerIDSchema(), "error": map[string]any{"$ref": "#/$defs/rpcError"},
 			}),
 		},
+	}
+}
+
+func workerSchemaDefinitions() map[string]any {
+	identity := objectSchema([]string{"sessionId", "bindingId", "invocationId", "sequence"}, map[string]any{
+		"sessionId": idSchema(), "bindingId": idSchema(), "invocationId": idSchema(), "sequence": map[string]any{"type": "integer", "minimum": 1},
+	})
+	structuredError := objectSchema([]string{"code", "message"}, map[string]any{"code": handlerNameSchema(), "message": requiredTextSchema()})
+	outputs := map[string]any{"type": "object", "maxProperties": maximumOutputs, "propertyNames": handlerNameSchema(), "additionalProperties": map[string]any{"$ref": "#/$defs/jsonValue"}}
+	artifact := objectSchema([]string{"name", "mediaType", "path"}, map[string]any{"name": handlerNameSchema(), "mediaType": requiredTextSchema(), "path": requiredTextSchema()})
+	return map[string]any{
+		"jsonValue":        jsonValueSchema(),
+		"identity":         identity,
+		"structuredError":  structuredError,
+		"contentReference": contentReferenceObjectSchema(),
+		"emptyObject":      objectSchema([]string{}, map[string]any{}),
+		"initializeParams": objectSchema([]string{"protocolVersion", "projectRoot", "entrypoint"}, map[string]any{
+			"protocolVersion": map[string]any{"const": WorkerProtocolVersion}, "projectRoot": requiredTextSchema(), "entrypoint": requiredTextSchema(),
+		}),
+		"initializeResult": objectSchema([]string{"protocolVersion", "runtimeKind", "handlers", "loadError"}, map[string]any{
+			"protocolVersion": map[string]any{"const": WorkerProtocolVersion}, "runtimeKind": map[string]any{"type": "string", "pattern": `^[a-z][a-z0-9-]{0,63}$`},
+			"handlers": map[string]any{"type": "array", "maxItems": maximumArguments, "uniqueItems": true, "items": handlerNameSchema()}, "loadError": nullableRef("#/$defs/structuredError"),
+		}),
+		"invokeParams": objectSchema([]string{"identity", "handler", "arguments", "content"}, map[string]any{
+			"identity": map[string]any{"$ref": "#/$defs/identity"}, "handler": handlerNameSchema(), "arguments": outputs,
+			"content": map[string]any{"type": "array", "maxItems": maximumArguments, "items": map[string]any{"$ref": "#/$defs/contentReference"}},
+		}),
+		"invokeResult": objectSchema([]string{"outputs", "error"}, map[string]any{
+			"outputs": outputs, "error": nullableRef("#/$defs/structuredError"),
+		}),
+		"update": objectSchema([]string{"identity", "progress", "message", "outputs", "artifacts"}, map[string]any{
+			"identity": map[string]any{"$ref": "#/$defs/identity"}, "progress": map[string]any{"type": []string{"number", "null"}, "minimum": 0, "maximum": 1},
+			"message": textSchema(), "outputs": outputs, "artifacts": map[string]any{"type": "array", "maxItems": maximumOutputs, "items": artifact},
+		}),
+		"cancelParams": objectSchema([]string{"id"}, map[string]any{"id": workerIDSchema()}),
+		"rpcError": objectSchema([]string{"code", "message"}, map[string]any{
+			"code": map[string]any{"type": "integer"}, "message": requiredTextSchema(), "data": map[string]any{"$ref": "#/$defs/jsonValue"},
+		}),
+	}
+}
+
+func workerRequestSchema(method string, params string) map[string]any {
+	return objectSchema([]string{"jsonrpc", "id", "method", "params"}, map[string]any{
+		"jsonrpc": map[string]any{"const": "2.0"}, "id": workerIDSchema(), "method": map[string]any{"const": method}, "params": map[string]any{"$ref": params},
+	})
+}
+
+func workerNotificationSchema(method string, params string) map[string]any {
+	return objectSchema([]string{"jsonrpc", "method", "params"}, map[string]any{
+		"jsonrpc": map[string]any{"const": "2.0"}, "method": map[string]any{"const": method}, "params": map[string]any{"$ref": params},
+	})
+}
+
+func workerIDSchema() map[string]any {
+	return map[string]any{"oneOf": []any{map[string]any{"type": "string", "minLength": 1}, map[string]any{"type": "integer"}}}
+}
+
+func operationSchemas() []any {
+	return []any{
+		objectSchema([]string{"op", "name"}, map[string]any{"op": map[string]any{"const": "setName"}, "name": requiredTextSchema()}),
+		objectSchema([]string{"op", "runtime"}, map[string]any{"op": map[string]any{"const": "setRuntime"}, "runtime": map[string]any{"$ref": "#/$defs/runtime"}}),
+		objectSchema([]string{"op", "section", "layout"}, map[string]any{
+			"op": map[string]any{"const": "upsertSection"}, "section": map[string]any{"$ref": "#/$defs/section"},
+			"layout": map[string]any{"oneOf": []any{map[string]any{"type": "null"}, map[string]any{"$ref": "#/$defs/topLevelLayout"}}},
+		}),
+		objectSchema([]string{"op", "sectionId"}, map[string]any{"op": map[string]any{"const": "deleteSection"}, "sectionId": idSchema()}),
+		objectSchema([]string{"op", "binding"}, map[string]any{"op": map[string]any{"const": "setBinding"}, "binding": map[string]any{"$ref": "#/$defs/binding"}}),
+		objectSchema([]string{"op", "bindingId"}, map[string]any{"op": map[string]any{"const": "deleteBinding"}, "bindingId": idSchema()}),
+		objectSchema([]string{"op", "configuration"}, map[string]any{
+			"op": map[string]any{"const": "setConfiguration"}, "configuration": map[string]any{
+				"type": "object", "maxProperties": maximumConfiguration, "propertyNames": idSchema(), "additionalProperties": map[string]any{"$ref": "#/$defs/jsonValue"},
+			},
+		}),
+		objectSchema([]string{"op", "viewport"}, map[string]any{
+			"op": map[string]any{"const": "setViewport"}, "viewport": map[string]any{"oneOf": []any{map[string]any{"type": "null"}, map[string]any{"$ref": "#/$defs/viewport"}}},
+		}),
 	}
 }
 

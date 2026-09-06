@@ -18,6 +18,7 @@ import {
 } from "@setta/workspace";
 
 import type {
+  InvocationStatus,
   Project,
   RuntimeDeclaration,
   SizeValue,
@@ -50,81 +51,188 @@ function runtimeTitle(runtime: RuntimeDeclaration): string {
   return `${runtime.kind}: ${runtime.entrypoint}`;
 }
 
-export function RealtimeView(props: RealtimeViewProps) {
+const TERMINAL_INVOCATION_STATES = new Set([
+  "completed",
+  "cancelled",
+  "timedOut",
+  "failed",
+  "crashed",
+  "superseded",
+]);
+
+function terminalInvocations(
+  runtime: RuntimeViewState,
+): Array<[string, InvocationStatus]> {
+  return Object.entries(runtime.invocations).filter(([, invocation]) =>
+    TERMINAL_INVOCATION_STATES.has(invocation.state),
+  );
+}
+
+function RuntimeFeedback({
+  error,
+  runtime,
+}: {
+  error: string | null;
+  runtime: RuntimeViewState;
+}) {
+  const outcomes = terminalInvocations(runtime);
+  const visible =
+    error !== null ||
+    runtime.error !== null ||
+    outcomes.length > 0 ||
+    runtime.logs.length > 0;
+  if (!visible) {
+    return null;
+  }
+  return (
+    <section
+      aria-label="Runtime activity"
+      className="realtime-runtime-feedback"
+    >
+      {error === null ? null : <p role="alert">{error}</p>}
+      {runtime.error === null ? null : (
+        <p role="alert">
+          <strong>{runtime.error.code}</strong>: {runtime.error.message}
+        </p>
+      )}
+      {outcomes.length === 0 ? null : (
+        <ul aria-label="Invocation outcomes">
+          {outcomes.map(([bindingId, invocation]) => (
+            <li key={bindingId}>
+              <strong>{bindingId}</strong>: {invocation.state}
+              {invocation.error === null
+                ? null
+                : ` — ${invocation.error.message}`}
+            </li>
+          ))}
+        </ul>
+      )}
+      {runtime.logs.length === 0 ? null : (
+        <details className="realtime-runtime-logs">
+          <summary>Runtime logs ({runtime.logs.length})</summary>
+          <pre>
+            {runtime.logs
+              .map((log) => `[${log.stream}] ${log.text}`)
+              .join("\n")}
+          </pre>
+        </details>
+      )}
+    </section>
+  );
+}
+
+function ReadyRealtimeView({
+  actions,
+  catalog,
+  error,
+  host,
+  project,
+  runtime,
+}: RealtimeViewProps & { host: WorkspaceHost; project: Project }) {
   const [mode, setMode] = useState<"author" | "use">(initialMode);
-  const ready = props.host !== null && props.project !== null;
+  const [reloading, setReloading] = useState(false);
+  const handleReload = async () => {
+    setReloading(true);
+    try {
+      await actions.reload();
+    } finally {
+      setReloading(false);
+    }
+  };
+  const reloadDisabled =
+    reloading ||
+    runtime.connection !== "connected" ||
+    runtime.workerState === "starting" ||
+    runtime.workerState === "replacing";
   return (
     <main className={`realtime-app realtime-mode-${mode}`}>
       <p aria-live="polite" className="realtime-announcer" role="status">
-        {ready
-          ? "Realtime ready."
-          : props.error === null
-            ? "Loading Realtime."
-            : ""}
+        Realtime ready.
       </p>
-      <p className="realtime-announcer" role="alert">
-        {props.error}
-      </p>
-      {ready ? (
-        <RealtimeContext.Provider
-          value={{
-            actions: props.actions,
-            project: props.project!,
-            runtime: props.runtime,
-          }}
-        >
-          <WorkspaceProvider host={props.host!}>
+      <RealtimeContext.Provider value={{ actions, project, runtime }}>
+        <WorkspaceProvider host={host}>
+          <div className="realtime-app-chrome">
             <header className="realtime-app-header">
               <div>
                 <span
                   className="realtime-app-eyebrow"
-                  title={runtimeTitle(props.project!.runtime)}
+                  title={runtimeTitle(project.runtime)}
                 >
                   Setta Realtime
                 </span>
-                <h1>{props.project!.name}</h1>
+                <h1>{project.name}</h1>
               </div>
               <div className="realtime-app-controls">
                 <span
-                  className={`realtime-connection realtime-connection-${props.runtime.connection}`}
+                  className={`realtime-connection realtime-connection-${runtime.connection}`}
                 >
-                  {props.runtime.connection}
+                  {runtime.connection}
                 </span>
-                <div
-                  aria-label="Presentation mode"
-                  className="realtime-mode-toggle"
-                  role="group"
+                <span
+                  className={`realtime-worker-state realtime-worker-state-${runtime.workerState}`}
+                  data-worker-state={runtime.workerState}
+                  role="status"
                 >
+                  Worker: {runtime.workerState}
+                </span>
+                <button
+                  className="realtime-reload"
+                  disabled={reloadDisabled}
+                  onClick={() => void handleReload()}
+                  type="button"
+                >
+                  Reload runtime
+                </button>
+                {mode === "author" ? (
                   <button
-                    aria-pressed={mode === "use"}
+                    className="realtime-mode-exit"
                     onClick={() => setMode("use")}
                     type="button"
                   >
                     Use
                   </button>
-                  <button
-                    aria-pressed={mode === "author"}
-                    onClick={() => setMode("author")}
-                    type="button"
-                  >
-                    Author
-                  </button>
-                </div>
+                ) : null}
               </div>
             </header>
-            <div className="realtime-workspace">
-              {mode === "author" ? (
-                <AuthorWorkspace />
-              ) : (
-                <UseWorkspace catalog={props.catalog} />
-              )}
-            </div>
-          </WorkspaceProvider>
-        </RealtimeContext.Provider>
-      ) : (
-        <div className="realtime-loading" aria-hidden="true" />
-      )}
+            <RuntimeFeedback error={error} runtime={runtime} />
+          </div>
+          <div className="realtime-workspace">
+            {mode === "author" ? (
+              <AuthorWorkspace />
+            ) : (
+              <UseWorkspace catalog={catalog} />
+            )}
+          </div>
+        </WorkspaceProvider>
+      </RealtimeContext.Provider>
     </main>
+  );
+}
+
+function LoadingRealtimeView({ error }: { error: string | null }) {
+  return (
+    <main className="realtime-app realtime-mode-use">
+      <p aria-live="polite" className="realtime-announcer" role="status">
+        Loading Realtime.
+      </p>
+      <div className="realtime-loading-state">
+        {error === null ? null : (
+          <p className="realtime-initial-error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="realtime-loading" aria-hidden="true" />
+      </div>
+    </main>
+  );
+}
+
+export function RealtimeView(props: RealtimeViewProps) {
+  const ready = props.host !== null && props.project !== null;
+  return ready ? (
+    <ReadyRealtimeView {...props} host={props.host!} project={props.project!} />
+  ) : (
+    <LoadingRealtimeView error={props.error} />
   );
 }
 

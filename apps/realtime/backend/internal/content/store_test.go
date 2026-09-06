@@ -5,6 +5,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/setta/realtime/backend/internal/contracts"
 )
 
 func TestStoreUsesOneValidatedReferencePath(t *testing.T) {
@@ -55,6 +57,27 @@ func TestDeleteInvocationRemovesOnlyItsValues(t *testing.T) {
 	reader, err := store.Open(second)
 	if err != nil {
 		t.Fatalf("Open(second) error = %v", err)
+	}
+	reader.Close()
+}
+
+func TestDeleteReferencesPreservesOtherInvocationValues(t *testing.T) {
+	store, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	defer store.Close()
+	input, _ := store.Put("invocation-one", "text/plain", strings.NewReader("input"))
+	output, _ := store.Put("invocation-one", "text/plain", strings.NewReader("output"))
+	if err := store.DeleteReferences([]contracts.ContentReference{input}); err != nil {
+		t.Fatalf("DeleteReferences() error = %v", err)
+	}
+	if _, err := store.Open(input); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Open(input) error = %v, want not found", err)
+	}
+	reader, err := store.Open(output)
+	if err != nil {
+		t.Fatalf("Open(output) error = %v", err)
 	}
 	reader.Close()
 }

@@ -91,6 +91,35 @@ func TestDecodeStrictRejectsTrailingAndUnknownFields(t *testing.T) {
 	}
 }
 
+func TestHTTPAndWorkerSchemasPublishClosedVersionedContracts(t *testing.T) {
+	apply := ApplyRequestSchema()
+	direct := DirectInvokeRequestSchema()
+	if apply["$id"] != "https://setta.local/schemas/realtime/apply-request-v1.schema.json" || direct["$id"] != "https://setta.local/schemas/realtime/direct-invoke-request-v1.schema.json" {
+		t.Fatalf("HTTP schema identities = %q, %q", apply["$id"], direct["$id"])
+	}
+	applyProperties := apply["properties"].(map[string]any)
+	operations := applyProperties["operations"].(map[string]any)
+	if operations["minItems"] != 1 || operations["maxItems"] != 128 || apply["additionalProperties"] != false || direct["additionalProperties"] != false {
+		t.Fatalf("HTTP schema bounds = %#v, %#v", apply, direct)
+	}
+	worker, err := json.Marshal(WorkerSchema())
+	if err != nil {
+		t.Fatalf("json.Marshal(worker) error = %v", err)
+	}
+	for _, method := range []string{"initialize", "runtime/invoke", "runtime/update", "$/cancelRequest", "shutdown"} {
+		if !strings.Contains(string(worker), `"const":"`+method+`"`) {
+			t.Fatalf("worker schema omits exact method %q", method)
+		}
+	}
+	runtimeDefinitions := RuntimeSchema()["$defs"].(map[string]any)
+	identity := runtimeDefinitions["identity"].(map[string]any)
+	properties := identity["properties"].(map[string]any)
+	sequence := properties["sequence"].(map[string]any)
+	if sequence["minimum"] != 1 {
+		t.Fatalf("runtime sequence schema = %#v", sequence)
+	}
+}
+
 func fixtureProject() Project {
 	width := 420.0
 	height := 260.0
