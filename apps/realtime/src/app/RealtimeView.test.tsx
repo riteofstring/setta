@@ -27,8 +27,7 @@ describe("Realtime workspace presentation", () => {
     vi.restoreAllMocks();
   });
 
-  it("opens Use mode in the Workspace shell with editing disabled", async () => {
-    window.history.replaceState({}, "", "/?mode=use");
+  it("opens the normal editable Workspace shell", async () => {
     const project = makeProject();
     project.sections = { "input-main": project.sections["input-main"]! };
     project.layout.topLevelSections = {
@@ -94,16 +93,29 @@ describe("Realtime workspace presentation", () => {
     expect(
       element.querySelector('[aria-label="Presentation mode"]'),
     ).toBeNull();
+    const lock = element.querySelector<HTMLButtonElement>(
+      '[data-section-id="input-main"] [aria-label="Lock position and size"]',
+    );
+    const remove = element.querySelector<HTMLButtonElement>(
+      '[data-section-id="input-main"] [aria-label="Delete section"]',
+    );
+    expect(lock?.disabled).toBe(false);
+    expect(remove?.disabled).toBe(false);
+    await act(async () => lock?.click());
     expect(
-      element.querySelector<HTMLButtonElement>(
-        '[data-section-id="input-main"] [aria-label="Lock position and size"]',
-      )?.disabled,
+      host.getSnapshot().sections["input-main"]?.positionAndSizeLocked,
     ).toBe(true);
-    expect(
-      element.querySelector<HTMLButtonElement>(
-        '[data-section-id="input-main"] [aria-label="Delete section"]',
-      )?.disabled,
-    ).toBe(true);
+    const minimize = element.querySelector<HTMLButtonElement>(
+      '[data-section-id="input-main"] [aria-label="Minimize section"]',
+    );
+    await act(async () => minimize?.click());
+    expect(host.getSnapshot().sections["input-main"]?.isMinimized).toBe(true);
+    await act(async () =>
+      element
+        .querySelector<HTMLElement>('[data-section-id="input-main"]')
+        ?.click(),
+    );
+    expect(host.getSnapshot().activeIds).toEqual(["input-main"]);
 
     await act(async () => root.unmount());
     host.dispose();
@@ -111,7 +123,6 @@ describe("Realtime workspace presentation", () => {
   });
 
   it("renders lifecycle outcomes and reloads while invocation stays disabled", async () => {
-    window.history.replaceState({}, "", "/?mode=use");
     const project = makeProject();
     project.sections = {
       "button-main": project.sections["button-main"]!,

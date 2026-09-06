@@ -65,4 +65,23 @@ describe("project workspace projection", () => {
       { op: "setViewport", viewport: { x: 120, y: 80, zoom: 1.5 } },
     ]);
   });
+
+  it("retains Workspace-owned selection and minimization across snapshots", () => {
+    const project = makeProject();
+    const previous = projectWorkspaceDocument(project);
+    previous.activeIds = ["drawing-main", "removed-section"];
+    previous.sections["drawing-main"]!.isMinimized = true;
+
+    const next = projectWorkspaceDocument(
+      {
+        ...project,
+        revision: project.revision + 1,
+      },
+      previous,
+    );
+
+    expect(next.activeIds).toEqual(["drawing-main"]);
+    expect(next.sections["drawing-main"]?.isMinimized).toBe(true);
+    expect(workspaceDocumentOperations(project, next)).toEqual([]);
+  });
 });

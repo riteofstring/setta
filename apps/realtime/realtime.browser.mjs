@@ -594,6 +594,315 @@ async function clickButton(client, label) {
   assert.equal(clicked, true, `${label} was not an enabled browser action.`);
 }
 
+async function clickSectionButton(client, sectionId, label) {
+  const clicked = await evaluate(
+    client,
+    `(() => {
+      const section = document.querySelector(
+        ${JSON.stringify(`[data-workspace-section-shell="true"][data-section-id="${sectionId}"]`)},
+      );
+      const button = Array.from(section?.querySelectorAll("button") ?? []).find(
+        (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)},
+      );
+      if (!(button instanceof HTMLButtonElement) || button.disabled) {
+        return false;
+      }
+      button.click();
+      return true;
+    })()`,
+  );
+  assert.equal(
+    clicked,
+    true,
+    `${label} was not enabled for Realtime section ${sectionId}.`,
+  );
+}
+
+async function waitForProject(origin, description, predicate) {
+  const deadline = Date.now() + timeoutMilliseconds;
+  while (Date.now() < deadline) {
+    const project = await jsonRequest(origin, "/api/v1/project");
+    if (predicate(project)) {
+      return project;
+    }
+    await delay(75);
+  }
+  throw new Error(`${description} did not reach the Realtime project.`);
+}
+
+async function activateSection(client, sectionId) {
+  const activated = await evaluate(
+    client,
+    `(() => {
+      const section = document.querySelector(
+        ${JSON.stringify(`[data-workspace-section-shell="true"][data-section-id="${sectionId}"]`)},
+      );
+      if (!(section instanceof HTMLElement)) {
+        return false;
+      }
+      section.click();
+      return true;
+    })()`,
+  );
+  assert.equal(activated, true, `Realtime section ${sectionId} was absent.`);
+  await waitFor(
+    client,
+    `Realtime section ${sectionId} selection`,
+    `document.querySelector(${JSON.stringify(`[data-workspace-section-shell="true"][data-section-id="${sectionId}"]`)})?.getAttribute("data-section-active") === "true"`,
+  );
+}
+
+async function renameSection(client, sectionId, name) {
+  const beganEditing = await evaluate(
+    client,
+    `(() => {
+      const title = document.querySelector(
+        ${JSON.stringify(`[data-workspace-section-shell="true"][data-section-id="${sectionId}"] [data-setta-workspace-section-title-display="true"]`)},
+      );
+      if (!(title instanceof HTMLElement)) {
+        return false;
+      }
+      title.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 2 }));
+      return true;
+    })()`,
+  );
+  assert.equal(
+    beganEditing,
+    true,
+    `Realtime section ${sectionId} had no title.`,
+  );
+  const inputSelector = `[data-workspace-section-shell="true"][data-section-id="${sectionId}"] input[aria-label="Section title"]`;
+  await waitFor(
+    client,
+    `Realtime section ${sectionId} title editor`,
+    `document.activeElement === document.querySelector(${JSON.stringify(inputSelector)})`,
+  );
+  const selected = await evaluate(
+    client,
+    `(() => {
+      const input = document.querySelector(${JSON.stringify(inputSelector)});
+      if (!(input instanceof HTMLInputElement)) {
+        return false;
+      }
+      input.select();
+      return true;
+    })()`,
+  );
+  assert.equal(
+    selected,
+    true,
+    `Realtime section ${sectionId} was not editable.`,
+  );
+  await client.send("Input.insertText", { text: name });
+  await client.send("Input.dispatchKeyEvent", {
+    code: "Enter",
+    key: "Enter",
+    type: "keyDown",
+    windowsVirtualKeyCode: 13,
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    code: "Enter",
+    key: "Enter",
+    type: "keyUp",
+    windowsVirtualKeyCode: 13,
+  });
+  await waitFor(
+    client,
+    `Realtime section ${sectionId} renamed title`,
+    `document.querySelector(${JSON.stringify(`[data-workspace-section-shell="true"][data-section-id="${sectionId}"] [aria-label=${JSON.stringify(`${name}, edit section title`)}]`)}) instanceof HTMLElement`,
+  );
+}
+
+async function dragSection(client, sectionId, delta) {
+  const start = await evaluate(
+    client,
+    `(() => {
+      const title = document.querySelector(
+        ${JSON.stringify(`[data-workspace-section-shell="true"][data-section-id="${sectionId}"] [data-setta-workspace-section-title-display="true"]`)},
+      );
+      if (!(title instanceof HTMLElement) || title.closest(".nodrag") !== null) {
+        return null;
+      }
+      const rect = title.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    })()`,
+  );
+  assert.ok(start !== null, `Realtime section ${sectionId} was not draggable.`);
+  await client.send("Input.dispatchMouseEvent", {
+    buttons: 0,
+    type: "mouseMoved",
+    x: start.x,
+    y: start.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: start.x,
+    y: start.y,
+  });
+  for (let step = 1; step <= 8; step += 1) {
+    await client.send("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 1,
+      type: "mouseMoved",
+      x: start.x + (delta.x * step) / 8,
+      y: start.y + (delta.y * step) / 8,
+    });
+    await delay(20);
+  }
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: start.x + delta.x,
+    y: start.y + delta.y,
+  });
+}
+
+async function resizeSection(client, sectionId, delta) {
+  const start = await evaluate(
+    client,
+    `(() => {
+      const handle = document.querySelector(
+        ${JSON.stringify(`.react-flow__node[data-id="${sectionId}"] .section-resize-handle-right`)},
+      );
+      if (!(handle instanceof HTMLElement)) {
+        return null;
+      }
+      const rect = handle.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        return null;
+      }
+      const point = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      return document.elementFromPoint(point.x, point.y)?.closest(".section-resize-handle-right") === handle
+        ? point
+        : null;
+    })()`,
+  );
+  assert.ok(start !== null, `Realtime section ${sectionId} was not resizable.`);
+  await client.send("Input.dispatchMouseEvent", {
+    buttons: 0,
+    type: "mouseMoved",
+    x: start.x,
+    y: start.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: start.x,
+    y: start.y,
+  });
+  for (let step = 1; step <= 8; step += 1) {
+    await client.send("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 1,
+      type: "mouseMoved",
+      x: start.x + (delta.x * step) / 8,
+      y: start.y + (delta.y * step) / 8,
+    });
+    await delay(20);
+  }
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: start.x + delta.x,
+    y: start.y + delta.y,
+  });
+}
+
+async function exerciseWorkspaceSection(client, origin) {
+  await activateSection(client, "drawing");
+  await clickSectionButton(client, "drawing", "Lock position and size");
+  await waitForProject(
+    origin,
+    "the drawing section lock",
+    (project) => project.sections.drawing?.positionAndSizeLocked === true,
+  );
+  await waitFor(
+    client,
+    "the drawing section selection after its persisted lock",
+    `document.querySelector('[data-workspace-section-shell="true"][data-section-id="drawing"]')?.getAttribute("data-section-active") === "true"`,
+  );
+  await clickSectionButton(client, "drawing", "Unlock position and size");
+  await waitForProject(
+    origin,
+    "the drawing section unlock",
+    (project) => project.sections.drawing?.positionAndSizeLocked === false,
+  );
+
+  await clickSectionButton(client, "drawing", "Minimize section");
+  await waitFor(
+    client,
+    "the minimized drawing section",
+    `document.querySelector('[data-workspace-section-shell="true"][data-section-id="drawing"] button[aria-label="Expand section"]') instanceof HTMLButtonElement &&
+      document.querySelector(".realtime-drawing-stage") === null`,
+  );
+  await clickSectionButton(client, "drawing", "Expand section");
+  await waitFor(
+    client,
+    "the expanded drawing section",
+    `document.querySelector(".realtime-drawing-stage .upper-canvas") instanceof HTMLCanvasElement`,
+  );
+
+  await renameSection(client, "drawing", "Drawing workspace section");
+  await waitForProject(
+    origin,
+    "the drawing section rename",
+    (project) => project.sections.drawing?.name === "Drawing workspace section",
+  );
+
+  const beforeMove = await jsonRequest(origin, "/api/v1/project");
+  await dragSection(client, "drawing", { x: 72, y: 48 });
+  await waitForProject(origin, "the drawing section movement", (project) => {
+    const before = beforeMove.layout.topLevelSections.drawing;
+    const after = project.layout.topLevelSections.drawing;
+    return after?.x !== before?.x || after?.y !== before?.y;
+  });
+
+  const beforeResize = await jsonRequest(origin, "/api/v1/project");
+  const beforeCanvasWidth = await evaluate(
+    client,
+    `document.querySelector(".realtime-drawing-stage .lower-canvas")?.getBoundingClientRect().width ?? null`,
+  );
+  assert.ok(
+    typeof beforeCanvasWidth === "number" && beforeCanvasWidth > 0,
+    "The drawing canvas was not measurable before its section resize.",
+  );
+  await resizeSection(client, "drawing", { x: -96, y: 0 });
+  await waitForProject(origin, "the drawing section resize", (project) => {
+    const before = beforeResize.sections.drawing;
+    const after = project.sections.drawing;
+    return after?.width !== before?.width;
+  });
+  await waitFor(
+    client,
+    "the responsive drawing canvas",
+    `(() => {
+      const stage = document.querySelector(".realtime-drawing-stage");
+      const canvas = stage?.querySelector(".lower-canvas");
+      if (!(stage instanceof HTMLElement) || !(canvas instanceof HTMLCanvasElement)) {
+        return false;
+      }
+      const stageRect = stage.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      const expectedRatio = 440 / 280;
+      return stageRect.height > 0 &&
+        canvas.width === 440 && canvas.height === 280 &&
+        canvasRect.width <= stageRect.width + 1 &&
+        canvasRect.height <= stageRect.height + 1 &&
+        canvasRect.width < ${String(beforeCanvasWidth)} - 5 &&
+        Math.abs(canvasRect.width / canvasRect.height - expectedRatio) < 0.02;
+    })()`,
+  );
+}
+
 function outputExpression(name, predicate) {
   return `(() => {
     const section = Array.from(document.querySelectorAll('[data-workspace-section-shell="true"]')).find(
@@ -659,9 +968,12 @@ async function drawStrokeBeforeRelease(client, origin) {
       return { height: rect.height, width: rect.width, x: rect.x, y: rect.y };
     })()`,
   );
-  assert.ok(bounds !== null && bounds.width > 100 && bounds.height > 100);
-  const startX = bounds.x + bounds.width * 0.25;
-  const startY = bounds.y + bounds.height * 0.35;
+  assert.ok(
+    bounds !== null && bounds.width > 20 && bounds.height > 20,
+    `The drawing canvas was not pointer-sized: ${JSON.stringify(bounds)}.`,
+  );
+  const startX = bounds.x + bounds.width * 0.2;
+  const startY = bounds.y + bounds.height * 0.5;
   await client.send("Input.dispatchMouseEvent", {
     button: "left",
     buttons: 1,
@@ -672,12 +984,13 @@ async function drawStrokeBeforeRelease(client, origin) {
   });
   try {
     for (let index = 1; index <= 8; index += 1) {
+      const progress = index / 8;
       await client.send("Input.dispatchMouseEvent", {
         button: "left",
         buttons: 1,
         type: "mouseMoved",
-        x: startX + index * 18,
-        y: startY + Math.sin(index) * 30,
+        x: startX + bounds.width * 0.6 * progress,
+        y: startY + Math.sin(index) * bounds.height * 0.15,
       });
       await delay(30);
     }
@@ -688,8 +1001,8 @@ async function drawStrokeBeforeRelease(client, origin) {
       buttons: 0,
       clickCount: 1,
       type: "mouseReleased",
-      x: startX + 8 * 18,
-      y: startY + Math.sin(8) * 30,
+      x: startX + bounds.width * 0.6,
+      y: startY + Math.sin(8) * bounds.height * 0.15,
     });
   }
 }
@@ -703,13 +1016,16 @@ async function exerciseBrowser(client, origin) {
   await loaded;
   await waitFor(
     client,
-    "the connected Realtime use surface",
+    "the connected editable Realtime workspace",
     `(() => {
       const stage = document.querySelector(".realtime-drawing-stage");
       const canvas = stage?.querySelector(".canvas-container");
-      return document.querySelector(".realtime-mode-use") !== null &&
-        document.querySelector(".realtime-connection-connected") !== null &&
+      const section = document.querySelector('[data-workspace-section-shell="true"][data-section-id="drawing"]');
+      return document.querySelector(".realtime-connection-connected") !== null &&
         document.querySelector(".realtime-app-chrome") === null &&
+        section?.querySelector('button[aria-label="Lock position and size"]:not(:disabled)') !== null &&
+        section?.querySelector('button[aria-label="Minimize section"]') !== null &&
+        section?.querySelector('[data-setta-workspace-section-title-display="true"]') !== null &&
         stage instanceof HTMLElement &&
         canvas instanceof HTMLElement &&
         getComputedStyle(stage).padding === "0px" &&
@@ -723,6 +1039,8 @@ async function exerciseBrowser(client, origin) {
       (button) => button.textContent?.trim() === "Reload runtime" && !button.disabled,
     )`,
   );
+
+  await exerciseWorkspaceSection(client, origin);
 
   await clickButton(client, "Reload runtime");
   await waitFor(
