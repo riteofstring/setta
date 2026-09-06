@@ -32,11 +32,10 @@ Choose **Draw**, make a mark, and the processed result appears beside the drawin
 an ordinary Realtime project: its authored document is under `.local/realtime/project.json`, and
 its editable handler is `app.py`. It requires no GPU, model download, or project dependency.
 
-`open` loads the current entrypoint before opening the browser, owns one foreground session, and
-stops when its Setta supervisor exits. When that session is running, `snapshot`, `apply`, `reload`,
-and `invoke` address its live coordinator. Without a live session, the same commands operate
-through a bounded local coordinator. `schema` is offline and is the authoritative description of
-commands, operations, results, errors, and generated contracts.
+`open` owns one foreground session and stops when its Setta supervisor exits. When that session is
+running, `snapshot`, `apply`, `reload`, and `invoke` address its live coordinator. Without a live
+session, the same commands operate through a bounded local coordinator. `schema` is offline and is
+the authoritative description of commands, operations, results, errors, and generated contracts.
 
 A project uses ordinary files:
 
