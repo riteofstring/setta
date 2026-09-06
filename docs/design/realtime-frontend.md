@@ -22,6 +22,14 @@ registries. Realtime section implementations remain app-owned until another conc
 requires an identical contract. Workspace continues to own outer canvas, windowing, section
 chrome, document validation, and composition.
 
+Source authoring follows the same authority boundary. A project may project its declared runtime
+entrypoint through one optional `code` section whose closed data is exactly
+`{"source":"entrypoint"}`. The entrypoint file remains canonical. A disposable local Workspace
+document may hold the source draft and editor undo state, but Realtime strips those bytes when it
+projects authored state back to Go. The source, content version, draft, diagnostics, dirty state,
+and activation state never enter `project.json`. Canonical project SSE reprojection preserves a
+dirty local draft instead of overwriting or persisting it.
+
 ## Runtime delivery
 
 One EventSource owns complete authored snapshots. One WebSocket owns the current runtime snapshot,
@@ -37,12 +45,28 @@ invocation is queued, while still rejecting an output older than the host's publ
 Binary data travels through the shared HTTP content path, while runtime messages contain content
 references.
 
+Realtime reads and applies source through exact-origin `GET` and `PUT`
+`/api/v1/runtime/source`. It owns the source document, local draft, dirty comparison, apply
+serialization, version conflict, diagnostics, and the distinction between saved source and live
+activation. Typing never writes or reloads. **Apply & reload** and Mod-Enter invoke the same one
+operation. Its result reports activation as `activated` or `rejected`, while runtime WebSocket state
+independently reports the worker as `starting`, `ready`, or `failed`, without a browser
+refresh. A failed activation leaves the editor clean against the accepted saved version, marks the
+runtime failed, and keeps the diagnostic visible for a corrected Apply or global Reload.
+
 ## Sections and presentation
 
-The initial catalog contains bounded input, output, button, status, and drawing sections. Inputs
-commit authored values at their documented boundaries. Buttons emit explicit actions. Output and
-status sections render only canonical session values and invocation state addressed by declared
-binding outputs.
+The initial catalog contains bounded input, output, button, status, drawing, and optional singular
+code sections. Inputs commit authored values at their documented boundaries. Buttons emit explicit
+actions. Output and status sections render only canonical session values and invocation state
+addressed by declared binding outputs. The code section has no binding event or output semantics;
+it is an editor projection of the declared entrypoint.
+
+Workspace owns a reusable controlled Code editor, generic native header-action placement and
+styling, and the Mod-Enter key seam. Realtime supplies the draft value, action, disabled state,
+Python presentation, network behavior, and runtime meaning. This keeps Workspace source-agnostic
+while giving the Code section the same header controls, focus behavior, accessibility, light mode,
+and dark mode as native sections.
 
 The drawing section uses one exact-pinned Fabric.js release for its retained objects, hit testing,
 brushes, erasing, selection, transforms, serialization, filters, history, and raster export. Setta

@@ -51,9 +51,10 @@ my-app/
   uv.lock
 ```
 
-Only `project.json` is Setta-authored state. Python metadata and locking remain standard project
-choices. Realtime uses the nearest valid `.venv` at or above the project directory, otherwise the
-Python interpreter that launched Setta.
+Only `project.json` is Setta-authored project state. The file selected by `runtime.entrypoint`,
+currently `app.py`, is the sole source authority. Python metadata and locking remain standard
+project choices. Realtime uses the nearest valid `.venv` at or above the project directory,
+otherwise the Python interpreter that launched Setta.
 
 ## Project mutations
 
@@ -75,11 +76,14 @@ The operation union is `setName`, `setRuntime`, `upsertSection`, `deleteSection`
 invalid section forests, broken binding references, and stale project revisions fail the complete
 request without changing the project.
 
-The initial section kinds are `input`, `output`, `button`, `status`, and `drawing`. A binding names
-one exact event and handler, resolves `$event.FIELD` and `$sections.SECTION.FIELD` arguments from one
-canonical snapshot, declares possible output targets, and selects `once`, `latest`, or `parallel`
-scheduling with an explicit concurrency group and limit. The recommended policy for a continuously
-changing interactive input is completion paced:
+The initial section kinds are `input`, `output`, `button`, `status`, `drawing`, and `code`. A
+project may contain at most one `code` section, and its data is exactly
+`{"source":"entrypoint"}`. It projects the declared entrypoint without copying source, drafts,
+versions, or diagnostics into `project.json`. A binding names one exact event and handler, resolves
+`$event.FIELD` and `$sections.SECTION.FIELD` arguments from one canonical snapshot, declares
+possible output targets, and selects `once`, `latest`, or `parallel` scheduling with an explicit
+concurrency group and limit. The recommended policy for a continuously changing interactive input
+is completion paced:
 
 ```json
 {
@@ -94,6 +98,28 @@ Zero debounce starts idle work immediately. While it runs, `latest` retains only
 input and starts that input when capacity returns, so the handler's observed completion rate adapts
 the cadence without a guessed timing interval. A nonzero debounce remains an explicit trailing
 delay for interactions that should wait for input to become quiet.
+
+## Live source editing
+
+The optional Code section uses Workspace's native editor and header controls. Typing changes only a
+browser-local draft. **Apply & reload** and Mod-Enter invoke the same explicit operation; there is
+no autosave, reload per keystroke, or browser refresh. The existing global **Reload runtime** action
+still reloads the on-disk entrypoint and never writes a dirty browser draft.
+
+The exact-origin `GET /api/v1/runtime/source` response is
+`{projectId, entrypoint, version, source}`. `PUT /api/v1/runtime/source` accepts
+`{projectId, entrypoint, expectedVersion, source}`. The endpoint exposes only the current normalized
+entrypoint, accepts bounded valid UTF-8, and atomically compare-and-swaps the file using its opaque
+content version. A stale version, wrong project or entrypoint, invalid source body, or path escape
+does not write or reload.
+
+An accepted PUT saves `app.py` before activation and reports the saved source separately from an
+`activated` or `rejected` outcome. Replacement is deliberately non-overlapping: the current worker and its owned
+descendants stop before the new worker starts, avoiding doubled model, GPU, device, memory, and
+process-lifetime side effects. Runtime state reports `starting`, `ready`, or `failed`. If startup
+fails, the accepted bytes remain saved, the worker remains failed, and the clean editor displays
+the diagnostic. Correct the source and Apply again, or correct the file externally and use global
+Reload.
 
 ## Python handlers
 

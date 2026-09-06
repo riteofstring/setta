@@ -25,6 +25,11 @@ declaration, bindings, and durable application configuration. It never stores di
 listener state, queues, active invocations, logs, generated artifacts, browser pointers, or
 connection state.
 
+A project may contain zero or one `code` section. Its closed data is exactly
+`{"source":"entrypoint"}`: the section projects the file selected by `runtime.entrypoint` and does
+not own source. The declared entrypoint, currently `app.py`, is the sole source authority. Source
+bytes, versions, drafts, diagnostics, and activation state never enter the project document.
+
 Creation is exclusive. Loading rejects unknown fields, invalid unions, incompatible versions, and
 missing required state. A mutation checks project identity and expected revision, constructs and
 validates one complete candidate, writes replacement bytes through a synced sibling on the same
@@ -57,6 +62,23 @@ channels.
 The Go contract definitions own JSON Schema for project, HTTP, WebSocket, artifact, and worker
 documents. Generated browser declarations and Ajv standalone validators derive from those schemas;
 Go strictly decodes the same closed shapes.
+
+## Live entrypoint source
+
+The exact-origin `GET /api/v1/runtime/source` response is the closed document
+`{projectId, entrypoint, version, source}`. The exact-origin `PUT /api/v1/runtime/source` request is
+the closed document `{projectId, entrypoint, expectedVersion, source}`. Both operations bind the
+request to the current project and its normalized declared entrypoint; callers cannot select
+another path. The opaque version hashes the exact file bytes and is independent of the project
+revision.
+
+Reads and writes accept only bounded valid UTF-8. A write compares `expectedVersion` against the
+current bytes, then writes through a synced sibling and atomically renames it. Conflict, invalid
+encoding, size overflow, entrypoint mismatch, and path or symlink escape leave the file and runtime
+unchanged. An accepted compare-and-swap saves the source before activation. Its result reports the
+saved source document separately from the `activated` or `rejected` activation outcome. Runtime
+WebSocket state independently reports `starting`, `ready`, or `failed`; persistence success never
+implies that the new code is live.
 
 ## Scheduling and runtime state
 
@@ -130,12 +152,21 @@ Linux child-subreaper ownership, and the established macOS guardian restrictions
 platforms fail closed when descendants cannot be owned. Shutdown is bounded, idempotent, and does
 not report success before owned processes and staged artifacts are gone.
 
+Source activation deliberately performs bounded destructive replacement: the coordinator stops
+the current worker and its owned descendants before launching the saved entrypoint. It does not
+overlap old and new workers because model, GPU, device, memory, and other resourceful runtimes can
+otherwise consume resources twice and repeat process-lifetime side effects. Runtime snapshots
+publish `starting`, `ready`, or `failed`. If startup fails, the accepted bytes remain canonical,
+the worker remains failed, and the diagnostic is returned and published; the user can apply a
+corrected source or invoke the global reload after an external correction.
+
 ## Public coordinator commands
 
 `schema`, `snapshot`, `apply`, `reload`, and `invoke` call the same coordinator used by HTTP and
 WebSocket handlers. `apply` is revision checked; `open` performs one initial `reload` before it
 presents the browser; later `reload` commands explicitly replace the worker after validating the
-current entrypoint; `invoke` runs one named handler with bounded test input. Source editing and
-dependency installation remain ordinary filesystem and project-environment operations. There is
-no listener discovery, dependency catalog, implicit reload after source edits, temporary ID,
-coverage, share-session, or force-refresh path.
+current entrypoint; `invoke` runs one named handler with bounded test input. The source endpoint is
+the only browser write path for the declared entrypoint. Dependency installation remains an
+ordinary project-environment operation. There is no listener discovery, dependency catalog,
+autosave, implicit reload after ordinary filesystem edits, temporary ID, coverage, share-session,
+or force-refresh path.
