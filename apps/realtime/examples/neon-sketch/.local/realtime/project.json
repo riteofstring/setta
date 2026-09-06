@@ -83,7 +83,7 @@
       },
       "scheduling": {
         "mode": "latest",
-        "debounceMilliseconds": 120,
+        "debounceMilliseconds": 0,
         "concurrencyGroup": "image-processing",
         "concurrencyLimit": 1
       },

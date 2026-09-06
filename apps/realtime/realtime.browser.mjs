@@ -956,6 +956,26 @@ async function waitForDrawingResult(client, origin) {
   }
 }
 
+async function visibleDrawingResult(client) {
+  return evaluate(
+    client,
+    `(() => {
+      const section = Array.from(document.querySelectorAll('[data-workspace-section-shell="true"]')).find(
+        (candidate) => candidate.getAttribute("aria-label")?.startsWith("Drawing result section"),
+      );
+      const text = section?.querySelector(".realtime-output-value")?.textContent?.trim();
+      if (typeof text !== "string" || text === "") {
+        return null;
+      }
+      try {
+        return JSON.parse(text);
+      } catch {
+        return null;
+      }
+    })()`,
+  );
+}
+
 async function drawStrokeBeforeRelease(client, origin) {
   const bounds = await evaluate(
     client,
@@ -982,18 +1002,49 @@ async function drawStrokeBeforeRelease(client, origin) {
     x: startX,
     y: startY,
   });
+  const observedResults = [];
+  let finalX = startX;
+  let finalY = startY;
   try {
-    for (let index = 1; index <= 8; index += 1) {
-      const progress = index / 8;
+    const deadline = Date.now() + 4_000;
+    for (let index = 1; Date.now() < deadline; index += 1) {
+      finalX = startX + bounds.width * 0.3 * (1 + Math.sin(index / 3));
+      finalY = startY + Math.sin(index / 2) * bounds.height * 0.15;
       await client.send("Input.dispatchMouseEvent", {
         button: "left",
         buttons: 1,
         type: "mouseMoved",
-        x: startX + bounds.width * 0.6 * progress,
-        y: startY + Math.sin(index) * bounds.height * 0.15,
+        x: finalX,
+        y: finalY,
       });
-      await delay(30);
+      await delay(60);
+      const result = await visibleDrawingResult(client);
+      if (
+        result === null ||
+        typeof result !== "object" ||
+        !Number.isInteger(result.sequence) ||
+        observedResults.at(-1)?.sequence === result.sequence
+      ) {
+        continue;
+      }
+      assert.equal(result.mediaType, "image/png");
+      assert.equal(result.exists, true);
+      assert.ok(result.bytes > 0);
+      assert.match(result.sha256, /^[a-f0-9]{64}$/u);
+      const previous = observedResults.at(-1);
+      if (previous !== undefined) {
+        assert.ok(result.sequence > previous.sequence);
+        assert.notEqual(result.sha256, previous.sha256);
+      }
+      observedResults.push(result);
+      if (observedResults.length >= 2) {
+        break;
+      }
     }
+    assert.ok(
+      observedResults.length >= 2,
+      `Only ${String(observedResults.length)} drawing result became visible during the sustained stroke.`,
+    );
     await waitForDrawingResult(client, origin);
   } finally {
     await client.send("Input.dispatchMouseEvent", {
@@ -1001,8 +1052,8 @@ async function drawStrokeBeforeRelease(client, origin) {
       buttons: 0,
       clickCount: 1,
       type: "mouseReleased",
-      x: startX + bounds.width * 0.6,
-      y: startY + Math.sin(8) * bounds.height * 0.15,
+      x: finalX,
+      y: finalY,
     });
   }
 }
@@ -1133,6 +1184,7 @@ try {
 import os
 
 count = 0
+drawing_sequence = 0
 
 def increment():
     global count
@@ -1153,13 +1205,17 @@ async def slow():
             "outputs": {},
         }
 
-def inspect_drawing(drawing):
+async def inspect_drawing(drawing):
+    global drawing_sequence
+    drawing_sequence += 1
+    sequence = drawing_sequence
     yield {
         "artifacts": [],
         "progress": 0.5,
         "message": "Inspecting",
         "outputs": {},
     }
+    await asyncio.sleep(0.5)
     yield {
         "artifacts": [],
         "progress": 1,
@@ -1169,6 +1225,8 @@ def inspect_drawing(drawing):
                 "bytes": drawing["byteLength"],
                 "exists": os.path.isfile(drawing["path"]),
                 "mediaType": drawing["mediaType"],
+                "sequence": sequence,
+                "sha256": drawing["sha256"],
             },
             "message": "Complete",
             "progress": 1,
