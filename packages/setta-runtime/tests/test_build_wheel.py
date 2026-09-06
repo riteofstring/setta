@@ -106,6 +106,7 @@ class WheelBuildContractTests(unittest.TestCase):
                 RuntimeTarget(os="darwin", arch="arm64"),
             )
         environment = run.call_args.kwargs["environment"]
+        self.assertIn("-mod=readonly", run.call_args.args[0])
         self.assertEqual(environment["MACOSX_DEPLOYMENT_TARGET"], "13.0")
         self.assertIn("-mmacosx-version-min=13.0", environment["CGO_CFLAGS"])
         self.assertIn("-mmacosx-version-min=13.0", environment["CGO_LDFLAGS"])

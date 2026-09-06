@@ -25,6 +25,12 @@ declaration, bindings, and durable application configuration. It never stores di
 listener state, queues, active invocations, logs, generated artifacts, browser pointers, or
 connection state.
 
+The checked-in Neon example is an immutable project fixture rather than the live playground root.
+The repository-local launcher copies that fixture into an ignored working directory and the
+backend reads and writes only the copy. This keeps callback source, drawing state, content, worker
+staging, and future runtime-owned files out of the tracked source tree without changing ordinary
+Realtime project ownership.
+
 A project may contain zero or one `code` section. Its closed data is exactly
 `{"source":"entrypoint"}`: the section projects the file selected by `runtime.entrypoint` and does
 not own source. The declared entrypoint, currently `app.py`, is the sole source authority. Source

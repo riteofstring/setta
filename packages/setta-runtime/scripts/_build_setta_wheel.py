@@ -287,6 +287,7 @@ def _run_native_build(
             "-C",
             str(app.backend_root),
             "build",
+            "-mod=readonly",
             "-trimpath",
             "-buildvcs=false",
             "-o",

@@ -13,5 +13,5 @@ tmp/
 .claude
 /.code-polishy-reports/
 /.code-polishy-artifacts/
-/apps/realtime/examples/*/.local/realtime/.runtime-content-*/
-/apps/realtime/examples/*/.local/realtime/.setta-realtime-worker-*/
+/apps/realtime/examples/neon-sketch/.local/
+/apps/realtime/examples/neon-sketch/app.py

@@ -12,7 +12,7 @@
     "consumer:check": "node scripts/verify-packed-consumer.mjs",
     "performance:profile": "node scripts/profile-workspace-performance.mjs",
     "playground:inspect": "node scripts/inspect-playground.mjs",
-    "realtime:playground": "python3 packages/setta-runtime/scripts/run_local_setta.py realtime open --project-root ./apps/realtime/examples/neon-sketch",
+    "realtime:playground": "python3 packages/setta-runtime/scripts/run_realtime_playground.py",
     "workspace:browser:test": "node scripts/workspace-browser-interactions.mjs"
   },
   "pnpm": {

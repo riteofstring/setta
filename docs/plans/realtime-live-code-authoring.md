@@ -11,7 +11,8 @@ currently `app.py`.
 
 The entrypoint file remains the only canonical source. The project document owns the presence,
 layout, and presentation of the Code section but never embeds a copy of the Python source. A browser
-draft is disposable until the user chooses **Apply & reload** or presses Mod-Enter.
+draft is disposable until the user chooses the labeled **Apply** action or presses Mod-Enter. The
+action saves the entrypoint and reloads the runtime as one operation.
 
 This is a focused playground feature, not a general file browser, IDE, dependency editor, automatic
 hot-reload service, or multi-user source collaboration system.
@@ -19,8 +20,10 @@ hot-reload service, or multi-user source collaboration system.
 ## User experience
 
 The Code section uses Workspace's CodeMirror-based Python editor and ordinary section chrome. Its
-header contains one native Workspace-style **Apply & reload** action ahead of the standard window,
-lock, minimize, and delete controls.
+header contains one native Workspace-style **Apply** action with a play glyph ahead of the standard
+window, lock, minimize, and delete controls. Its tooltip names the complete **Apply & reload**
+operation and keyboard shortcut; a standalone circular-arrow icon is reserved for reload behavior
+that does not also save a draft.
 
 Realtime owns these source states:
 
@@ -155,27 +158,31 @@ The worker protocol continues to own Python import, initialization, diagnostics,
 readiness. Python never serves the source endpoint or writes its own entrypoint. The content store
 and runtime artifact store are not source stores and must not be reused as one.
 
-## Generated artifacts and repository hygiene
+## Playground fixture and repository hygiene
 
-Runtime content and worker staging directories beneath examples are disposable process artifacts:
+The checked-in Neon example is an immutable fixture beneath
+`apps/realtime/examples/neon-sketch/fixture`. `pnpm realtime:playground` seeds a persistent working
+project at `tmp/realtime-playground/neon-sketch` when it is absent and launches only that copy.
+Later launches preserve the working copy, so applied callback edits and drawings remain available
+without modifying the fixture. Removing the ignored working directory resets the playground from
+the fixture on the next launch.
 
-```text
-apps/realtime/examples/*/.local/realtime/.runtime-content-*/
-apps/realtime/examples/*/.local/realtime/.setta-realtime-worker-*/
-```
-
-Ignore only those exact generated directory families. Continue tracking each example's
-`.local/realtime/project.json`, `app.py`, and other authored inputs. Tests create runtime artifacts
-in temporary state and verify cleanup; they do not rely on ignored directories already present in a
-developer checkout.
+The repository-wide `tmp/` rule excludes the complete working project, including its mutable
+`.local/realtime/project.json`, `app.py`, uploaded content, worker staging, caches, and future
+runtime-owned files. Legacy mutable files at the former example root are ignored as well, allowing
+an existing developer session to finish without surfacing its state in Git. Tests use temporary
+working projects and verify fixture copying and preservation directly. The playground build checks
+generated contracts without rewriting them and runs Go with read-only module resolution, so build
+setup cannot turn drift into tracked changes.
 
 ## Implementation batches and commits
 
 ### Batch 1: current plan and hygiene
 
 1. Replace the completed Realtime foundation and adaptive-scheduling plans with this current plan.
-2. Add exact ignore rules for example runtime-content and worker staging directories.
-3. Leave authored example project documents and existing local runtime state untouched.
+2. Keep the checked-in example inputs immutable and launch from a complete ignored working copy.
+3. Preserve existing local callback and drawing state while removing those mutable copies from Git
+   tracking.
 
 Commit this documentation-only milestone independently.
 
@@ -211,7 +218,7 @@ Keep Workspace and Realtime changes in separate commits when both modules change
 
 ### Batch 5: playground, durable docs, and acceptance
 
-1. Add the optional Code section to the intended Realtime playground layout without changing its
+1. Add the optional Code section to the intended Realtime playground fixture without changing its
    canonical source ownership.
 2. Document source editing, Apply-and-reload, external reload, conflicts, security, and actual
    failure behavior in the Realtime README and mapped frontend/backend rationale.
@@ -243,6 +250,13 @@ Focused frontend and Workspace tests must prove:
 - any new generic header primitive has native styling, focus, accessible naming, and disabled
   behavior in light and dark modes.
 
+Focused playground-runner tests must prove that a missing ignored workspace is seeded from the
+complete immutable fixture, an existing workspace is preserved byte-for-byte, required files must
+be regular non-symlinks, and the launched project root is the ignored workspace rather than the
+tracked fixture. A failed or interrupted seed must leave no partial final workspace. Build
+verification must also prove the tracked fixture, generated contracts, and Go module locks remain
+byte-identical.
+
 Browser acceptance must edit the temporary project's `app.py` through the Code section, apply it,
 observe starting and ready lifecycle state, and invoke behavior from the new worker without a page
 refresh. It must also prove that a malformed edit reports the documented failure outcome and that a
@@ -260,5 +274,5 @@ artifact, restart, and shutdown coverage remains intact.
 - Invalid code has the exact tested worker-replacement behavior stated in durable documentation.
 - External Reload continues to reload the current on-disk source independently of a dirty draft.
 - Workspace remains source-agnostic and owns only reusable editor and header presentation.
-- Example runtime-content and worker staging directories are ignored while authored project inputs
-  remain tracked.
+- The checked-in example fixture remains immutable, while callback edits, project mutations,
+  runtime content, worker staging, and caches live only in the ignored playground workspace.

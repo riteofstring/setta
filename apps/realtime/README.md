@@ -27,13 +27,21 @@ This repository-local command installs the frozen workspace dependencies, rebuil
 Realtime, replaces the repository-owned local Setta environment from a complete new wheel, and
 opens Neon Sketch. After the first complete build, it reuses the installed Python Canvas assets
 instead of rebuilding that unrelated app. It does not reuse `uv tool run`'s cached same-version
-environment. Use `setta realtime open` for an installed release.
+environment. Before launch it seeds `tmp/realtime-playground/neon-sketch` from the immutable
+checked-in fixture when that ignored working project is absent. Later launches preserve drawings
+and applied callback edits in the ignored copy; remove that directory to reset it from the fixture.
+Generated Realtime contracts are checked without being rewritten and Go module resolution is
+read-only during this build, so launching the playground does not repair or update tracked inputs.
+Use `setta realtime open` for an installed release.
 
 Draw a mark and the processed result updates beside the pointer while the stroke is active. The
 toolbar also provides selection, whole-object erasing, brush color and size, rectangle and ellipse
 insertion, undo, redo, selected-object deletion, and clearing. The example is an ordinary Realtime
-project: its authored document is under `.local/realtime/project.json`, and its editable handler is
-`app.py`. It requires no GPU, model download, or project dependency.
+project: inside the ignored working copy its authored document is `.local/realtime/project.json`
+and its editable handler is `app.py`. The tracked source under
+`apps/realtime/examples/neon-sketch/fixture` is only the immutable seed. Playground activity never
+modifies that fixture or adds runtime state to Git. It requires no GPU, model download, or project
+dependency.
 
 `open` loads the current entrypoint before opening the browser, owns one foreground session, and
 stops when its Setta supervisor exits. When that session is running, `snapshot`, `apply`, `reload`,
@@ -102,7 +110,8 @@ delay for interactions that should wait for input to become quiet.
 ## Live source editing
 
 The optional Code section uses Workspace's native editor and header controls. Typing changes only a
-browser-local draft. **Apply & reload** and Mod-Enter invoke the same explicit operation; there is
+browser-local draft. The labeled **Apply** action (whose tooltip names the complete **Apply &
+reload** operation) and Mod-Enter invoke the same explicit operation; there is
 no autosave, reload per keystroke, or browser refresh. The existing global **Reload runtime** action
 still reloads the on-disk entrypoint and never writes a dirty browser draft.
 

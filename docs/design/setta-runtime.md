@@ -58,3 +58,12 @@ Realtime launch rebuilds Realtime and its Workspace dependency while reusing the
 Canvas native and web assets. The resulting wheel remains complete without rebuilding an unrelated
 app on every Realtime playground launch. Installed releases continue to use the ordinary `setta`
 entry point.
+
+The Realtime playground runner treats the checked-in example as an immutable seed. It creates one
+complete working project beneath the repository's ignored `tmp/` tree when absent, validates the
+required files as regular non-symlinks, and launches the packaged runtime against that working root.
+It never opens the fixture directly. An existing working project is preserved so drawing and live
+source edits survive another local launch without becoming repository changes.
+Playground wheel builds validate checked-in generated Realtime contracts in check-only mode, and
+all Go compilation uses read-only module resolution, so setup cannot rewrite governed source or
+module locks.

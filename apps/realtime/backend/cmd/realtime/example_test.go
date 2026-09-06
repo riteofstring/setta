@@ -84,7 +84,7 @@ func copyNeonSketchExample(t *testing.T) string {
 	if !ok {
 		t.Fatal("runtime.Caller() could not locate the example test")
 	}
-	sourceRoot := filepath.Join(filepath.Dir(current), "..", "..", "..", "examples", "neon-sketch")
+	sourceRoot := filepath.Join(filepath.Dir(current), "..", "..", "..", "examples", "neon-sketch", "fixture")
 	targetRoot := t.TempDir()
 	for _, relative := range []string{"app.py", filepath.Join(".local", "realtime", "project.json")} {
 		value, err := os.ReadFile(filepath.Join(sourceRoot, relative))
