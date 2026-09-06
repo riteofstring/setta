@@ -363,6 +363,13 @@ input {
 }
 
 .realtime-drawing {
+  --realtime-drawing-control-background: hsl(219 25% 77% / 30%);
+  --realtime-drawing-control-color: hsl(219 25% 34%);
+  --realtime-drawing-control-hover: hsl(219 24% 89%);
+  --realtime-drawing-control-muted: hsl(220 25% 67%);
+  --realtime-drawing-control-track: hsl(219 24% 89%);
+  --realtime-drawing-surface: hsl(222 28% 95%);
+  --realtime-drawing-surface-border: rgb(255 255 255);
   display: grid;
   flex: 1 1 auto;
   overflow: hidden;
@@ -370,19 +377,30 @@ input {
   min-width: 0;
   min-height: 0;
   grid-template-rows: auto minmax(0, 1fr);
-  background: #fff;
+  background: var(--realtime-drawing-surface);
   container-type: inline-size;
+}
+
+.setta-workspace.setta-workspace-dark .realtime-drawing {
+  --realtime-drawing-control-background: hsl(220 26% 14% / 50%);
+  --realtime-drawing-control-color: hsl(220 26% 57%);
+  --realtime-drawing-control-hover: hsl(220 27% 6%);
+  --realtime-drawing-control-muted: hsl(219 25% 45%);
+  --realtime-drawing-control-track: hsl(219 26% 23%);
+  --realtime-drawing-surface: hsl(220 25% 8.5%);
+  --realtime-drawing-surface-border: hsl(219 26% 23%);
+  color-scheme: dark;
 }
 
 .realtime-drawing-toolbar {
   z-index: 2;
   align-content: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
-  padding: 8px 10px;
-  border-bottom: 1px solid #e4e7ec;
-  background: rgba(248, 250, 252, 0.96);
+  padding: 12px;
+  border-bottom: 1px solid var(--realtime-drawing-surface-border);
+  background: var(--realtime-drawing-surface);
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
   user-select: none;
 }
@@ -393,36 +411,30 @@ input {
   flex: 0 0 auto;
   gap: 2px;
   min-height: 32px;
-  padding: 2px;
-  border-radius: 9px;
-  background: rgba(226, 232, 240, 0.58);
 }
 
 .realtime-drawing-toolbar button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
-  color: #475467;
-  background: transparent;
+  border-radius: 8px;
+  color: var(--realtime-drawing-control-color);
+  background: var(--realtime-drawing-control-background);
   cursor: pointer;
 }
 
 .realtime-drawing-toolbar button[aria-pressed="true"] {
-  color: #2563eb;
-  background: #fff;
-  box-shadow:
-    0 1px 2px rgba(16, 24, 40, 0.1),
-    inset 0 0 0 1px rgba(148, 163, 184, 0.24);
+  color: #3b82f6;
+  box-shadow: inset 0 0 0 1px currentColor;
 }
 
 .realtime-drawing-toolbar button:hover:not(:disabled) {
-  color: #2563eb;
-  background: rgba(255, 255, 255, 0.78);
+  color: #3b82f6;
+  background: var(--realtime-drawing-control-hover);
 }
 
 .realtime-drawing-toolbar button:focus-visible,
@@ -432,9 +444,9 @@ input {
 }
 
 .realtime-drawing-toolbar button:disabled {
-  color: #a8b1bf;
+  color: var(--realtime-drawing-control-muted);
   cursor: default;
-  opacity: 0.55;
+  opacity: 0.45;
 }
 
 .realtime-drawing-icon-button {
@@ -442,8 +454,8 @@ input {
 }
 
 .realtime-drawing-toolbar-icon {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   overflow: visible;
   stroke: currentColor;
   stroke-linecap: round;
@@ -457,15 +469,13 @@ input {
 
 .realtime-drawing-brush-controls input[type="color"] {
   display: block;
-  width: 28px;
-  height: 28px;
-  padding: 3px;
-  border: 0;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: #fff;
-  box-shadow:
-    0 1px 2px rgba(16, 24, 40, 0.1),
-    inset 0 0 0 1px #cbd5e1;
+  background: var(--realtime-drawing-control-background);
+  box-shadow: inset 0 0 0 1px var(--realtime-drawing-control-track);
   cursor: pointer;
 }
 
@@ -482,25 +492,67 @@ input {
 .realtime-drawing-size {
   display: flex;
   align-items: center;
-  height: 28px;
+  height: 32px;
   gap: 6px;
-  padding: 0 6px;
-  color: #475467;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--realtime-drawing-control-color);
+  background: var(--realtime-drawing-control-background);
   font-size: 11px;
   font-weight: 650;
 }
 
 .realtime-drawing-size input[type="range"] {
+  appearance: none;
   width: 70px;
   height: 14px;
   margin: 0;
+  background: transparent;
   accent-color: #2563eb;
   cursor: pointer;
 }
 
+.realtime-drawing-size input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--realtime-drawing-control-track);
+}
+
+.realtime-drawing-size input[type="range"]::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: -4.5px;
+  appearance: none;
+  border: 2px solid var(--realtime-drawing-control-muted);
+  border-radius: 999px;
+  background: var(--realtime-drawing-surface);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 24%);
+}
+
+.realtime-drawing-size input[type="range"]::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--realtime-drawing-control-track);
+}
+
+.realtime-drawing-size input[type="range"]::-moz-range-progress {
+  height: 3px;
+  border-radius: 999px;
+  background: #3b82f6;
+}
+
+.realtime-drawing-size input[type="range"]::-moz-range-thumb {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--realtime-drawing-control-muted);
+  border-radius: 999px;
+  background: var(--realtime-drawing-surface);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 24%);
+}
+
 .realtime-drawing-size output {
   min-width: 27px;
-  color: #667085;
+  color: var(--realtime-drawing-control-color);
   font-variant-numeric: tabular-nums;
   text-align: end;
 }
@@ -535,7 +587,7 @@ input {
 @container (max-width: 440px) {
   .realtime-drawing-toolbar {
     gap: 4px;
-    padding: 6px;
+    padding: 8px;
   }
 
   .realtime-drawing-size-label {
