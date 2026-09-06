@@ -18,10 +18,6 @@ type DrawingSettlementQueueOptions = {
 };
 
 export class DrawingSettlementQueue {
-  private blockedSnapshot: {
-    revision: number;
-    snapshot: DrawingSnapshot;
-  } | null = null;
   private readyRevision = 0;
   private revision = 0;
   private running = false;
@@ -35,7 +31,6 @@ export class DrawingSettlementQueue {
       return;
     }
     const revision = ++this.revision;
-    this.blockedSnapshot = null;
     if (this.timer !== null) {
       window.clearTimeout(this.timer);
     }
@@ -49,7 +44,6 @@ export class DrawingSettlementQueue {
   public dispose(): void {
     this.stopped = true;
     ++this.revision;
-    this.blockedSnapshot = null;
     this.readyRevision = 0;
     if (this.timer !== null) {
       window.clearTimeout(this.timer);
@@ -57,58 +51,21 @@ export class DrawingSettlementQueue {
     }
   }
 
-  public resume(): void {
-    const blocked = this.blockedSnapshot;
-    if (this.stopped || blocked === null || !this.options.canEmit()) {
+  private async process(revision: number): Promise<void> {
+    const snapshot = await this.options.capture();
+    if (this.stopped || revision !== this.revision) {
       return;
     }
-    this.readyRevision = blocked.revision;
-    void this.drain();
-  }
-
-  private activeSnapshot(revision: number): DrawingSnapshot | null {
-    const blocked = this.blockedSnapshot;
-    return blocked !== null && blocked.revision === revision
-      ? blocked.snapshot
-      : null;
-  }
-
-  private isCurrent(revision: number): boolean {
-    return !this.stopped && revision === this.revision;
-  }
-
-  private async persist(
-    revision: number,
-    snapshot: DrawingSnapshot,
-  ): Promise<boolean> {
     const committed = await this.options.commit(snapshot.scene);
-    return committed && this.isCurrent(revision);
-  }
-
-  private async process(revision: number): Promise<boolean> {
-    const blocked = this.activeSnapshot(revision);
-    const snapshot = blocked ?? (await this.options.capture());
-    if (!this.isCurrent(revision)) {
-      return true;
-    }
-    if (blocked === null && !(await this.persist(revision, snapshot))) {
-      return true;
+    if (!committed || this.stopped || revision !== this.revision) {
+      return;
     }
     if (!this.options.canEmit()) {
-      this.blockedSnapshot = { revision, snapshot };
-      return false;
+      return;
     }
-    this.blockedSnapshot = null;
     const reference = await this.options.upload(snapshot.blob);
-    if (this.isCurrent(revision)) {
+    if (!this.stopped && revision === this.revision) {
       this.options.emit(reference);
-    }
-    return true;
-  }
-
-  private continueDrain(): void {
-    if (!this.stopped && this.readyRevision !== 0 && this.options.canEmit()) {
-      void this.drain();
     }
   }
 
@@ -122,16 +79,13 @@ export class DrawingSettlementQueue {
         const revision = this.readyRevision;
         this.readyRevision = 0;
         try {
-          if (!(await this.process(revision))) {
-            break;
-          }
+          await this.process(revision);
         } catch (error) {
           this.options.onError(error);
         }
       }
     } finally {
       this.running = false;
-      this.continueDrain();
     }
   }
 }

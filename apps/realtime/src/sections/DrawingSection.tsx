@@ -25,7 +25,6 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
   const { background, height, width } = data;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef<RealtimeDrawingRuntime | null>(null);
-  const settlementRef = useRef<DrawingSettlementQueue | null>(null);
   const lastLoadedSceneRef = useRef<string | null>(null);
   const [tool, setTool] = useState<DrawingTool>("select");
   const scene = resolveRuntimeValue(
@@ -35,7 +34,6 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
   ) as WorkspaceSectionData;
   const sceneRef = useRef(scene);
   const runtimeRef = useRef(runtime);
-  const canInvoke = runtimeCanInvoke(runtime);
   sceneRef.current = scene;
   runtimeRef.current = runtime;
 
@@ -74,7 +72,6 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       },
       upload: actions.uploadContent,
     });
-    settlementRef.current = settlement;
     drawingRef.current = drawing;
     const initialScene = sceneRef.current;
     lastLoadedSceneRef.current = JSON.stringify(initialScene);
@@ -87,19 +84,10 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     });
     return () => {
       settlement?.dispose();
-      if (settlementRef.current === settlement) {
-        settlementRef.current = null;
-      }
       drawingRef.current = null;
       void drawing.dispose();
     };
   }, [actions, background, height, section.id, width]);
-
-  useEffect(() => {
-    if (canInvoke) {
-      settlementRef.current?.resume();
-    }
-  }, [canInvoke]);
 
   useEffect(() => {
     const drawing = drawingRef.current;
