@@ -739,6 +739,48 @@
         "expires": "2026-09-12"
       }
     ],
+    "vulnerabilityAssessments": [
+      {
+        "id": "vitest-mocker-redirect-unreachable",
+        "ecosystem": "pnpm",
+        "advisory": "GHSA-82fw-gwwq-j7x9",
+        "package": "vitest",
+        "affectedVersion": "4.1.10",
+        "scope": "pnpm-lock.yaml",
+        "severity": "moderate",
+        "status": "not-affected",
+        "basis": "unreachable",
+        "reason": "The unauthenticated path requires the public mockerPlugin or interceptorPlugin on a reachable Vite HMR socket; Setta uses only Node or jsdom vitest run configurations with no Browser Mode, API listener, or affected plugin import.",
+        "impact": "No Setta process accepts remote redirect-mock registration, so an untrusted client cannot reach the arbitrary file-read sink.",
+        "evidence": "https://github.com/riteofstring/setta/blob/realtime-app-plan/docs/evidence/security/vitest-mocker-assessment-2026-09-09.md",
+        "tracking": "https://github.com/riteofstring/setta/blob/realtime-app-plan/docs/evidence/security/vitest-mocker-assessment-2026-09-09.md",
+        "owner": "frontend-test-tooling",
+        "approvedBy": "kevin",
+        "approval": "https://github.com/riteofstring/setta/blob/realtime-app-plan/docs/evidence/security/vitest-mocker-assessment-2026-09-09.md",
+        "reviewed": "2026-09-09",
+        "expires": "2026-09-18"
+      },
+      {
+        "id": "vitest-mocker-package-redirect-unreachable",
+        "ecosystem": "pnpm",
+        "advisory": "GHSA-82fw-gwwq-j7x9",
+        "package": "@vitest/mocker",
+        "affectedVersion": "4.1.10",
+        "scope": "pnpm-lock.yaml",
+        "severity": "moderate",
+        "status": "not-affected",
+        "basis": "unreachable",
+        "reason": "The vulnerable package is present only behind Vitest's Node or jsdom runner; Setta exposes no public mocker interceptor WebSocket registration path and imports no affected plugin.",
+        "impact": "No Setta process accepts remote redirect-mock registration, so an untrusted client cannot reach the arbitrary file-read sink.",
+        "evidence": "https://github.com/riteofstring/setta/blob/realtime-app-plan/docs/evidence/security/vitest-mocker-assessment-2026-09-09.md",
+        "tracking": "https://github.com/riteofstring/setta/blob/realtime-app-plan/docs/evidence/security/vitest-mocker-assessment-2026-09-09.md",
+        "owner": "frontend-test-tooling",
+        "approvedBy": "kevin",
+        "approval": "https://github.com/riteofstring/setta/blob/realtime-app-plan/docs/evidence/security/vitest-mocker-assessment-2026-09-09.md",
+        "reviewed": "2026-09-09",
+        "expires": "2026-09-18"
+      }
+    ],
     "dependencyOverridePolicies": [
       {
         "id": "fast-uri-security-fix",
