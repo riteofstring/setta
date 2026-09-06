@@ -422,7 +422,7 @@ describe("built-in code section body", () => {
     expect(view.contentDOM.classList.contains("cm-lineWrapping")).toBe(false);
   });
 
-  it("fills a fixed-height body and owns horizontal trackpad overflow", async () => {
+  it("owns only the editor axes with native overflow", async () => {
     await mount(
       makeCodeSection(
         {
@@ -444,14 +444,32 @@ describe("built-in code section body", () => {
     });
     await reportResize(view.scrollDOM);
 
-    expect(getWrapper().classList.contains("nowheel")).toBe(true);
+    expect(getWrapper().classList.contains("setta-native-wheel-x")).toBe(true);
+    expect(getWrapper().classList.contains("setta-native-wheel-y")).toBe(false);
 
-    Object.defineProperty(view.scrollDOM, "scrollWidth", {
-      configurable: true,
-      value: 300,
+    Object.defineProperties(view.scrollDOM, {
+      scrollHeight: { configurable: true, value: 700 },
+      scrollWidth: { configurable: true, value: 300 },
     });
     await reportResize(view.scrollDOM);
-    expect(getWrapper().classList.contains("nowheel")).toBe(false);
+    expect(getWrapper().classList.contains("setta-native-wheel-x")).toBe(false);
+    expect(getWrapper().classList.contains("setta-native-wheel-y")).toBe(true);
+
+    Object.defineProperties(view.scrollDOM, {
+      scrollHeight: { configurable: true, value: 700 },
+      scrollWidth: { configurable: true, value: 700 },
+    });
+    await reportResize(view.scrollDOM);
+    expect(getWrapper().classList.contains("setta-native-wheel-x")).toBe(true);
+    expect(getWrapper().classList.contains("setta-native-wheel-y")).toBe(true);
+
+    Object.defineProperties(view.scrollDOM, {
+      scrollHeight: { configurable: true, value: 300 },
+      scrollWidth: { configurable: true, value: 300 },
+    });
+    await reportResize(view.scrollDOM);
+    expect(getWrapper().classList.contains("setta-native-wheel-x")).toBe(false);
+    expect(getWrapper().classList.contains("setta-native-wheel-y")).toBe(false);
   });
 
   it("commits each edit through one document mutation and one notification", async () => {

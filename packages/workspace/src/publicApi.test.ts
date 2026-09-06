@@ -29,6 +29,7 @@ const RUNTIME_EXPORTS = [
   "NO_DRAG_CLASS_NAME",
   "NO_PAN_CLASS_NAME",
   "NO_WHEEL_CLASS_NAME",
+  "SETTA_PREVENT_SECTION_ACTIVE_CSS",
   "PasswordValueControl",
   "RotaryValueControl",
   "StandaloneWorkspaceSectionSurface",

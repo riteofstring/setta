@@ -1,5 +1,6 @@
 import {
   MANUAL_WHEEL_CLASS_NAME,
+  NATIVE_HORIZONTAL_WHEEL_CLASS_NAME,
   NATIVE_VERTICAL_WHEEL_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
 } from "../interaction";
@@ -60,6 +61,17 @@ function isNativeVerticalWheelEvent(
   );
 }
 
+function isNativeHorizontalWheelEvent(
+  event: WheelEvent,
+  isMacOS: boolean,
+): boolean {
+  return (
+    isWrappedWithClass(event, NATIVE_HORIZONTAL_WHEEL_CLASS_NAME) &&
+    ((!isMacOS && event.shiftKey) ||
+      Math.abs(event.deltaX) > Math.abs(event.deltaY))
+  );
+}
+
 export function resolvePanOnScrollDelta({
   event,
   isMacOS,
@@ -109,7 +121,8 @@ export function resolveWheelTargetDisposition({
     return "canvas";
   }
   return isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) ||
-    isNativeVerticalWheelEvent(event, isMacOS)
+    isNativeVerticalWheelEvent(event, isMacOS) ||
+    isNativeHorizontalWheelEvent(event, isMacOS)
     ? "native"
     : "canvas";
 }

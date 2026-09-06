@@ -4,6 +4,8 @@ export const NO_WHEEL_CLASS_NAME = "nowheel";
 
 export const NATIVE_VERTICAL_WHEEL_CLASS_NAME = "setta-native-wheel-y";
 
+export const NATIVE_HORIZONTAL_WHEEL_CLASS_NAME = "setta-native-wheel-x";
+
 export const MANUAL_WHEEL_CLASS_NAME = "setta-manual-wheel";
 
 export const NO_PAN_CLASS_NAME = "nopan";

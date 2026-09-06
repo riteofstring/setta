@@ -10,7 +10,10 @@ import { computeReadyToBeVisible } from "../canvas/fitView";
 import { useReactFlow } from "../canvas/store";
 import { getSectionOrThrow } from "../document/documentSelectors";
 import { useWorkspaceDocument } from "../document/stores";
-import { NO_WHEEL_CLASS_NAME } from "../interaction";
+import {
+  NATIVE_HORIZONTAL_WHEEL_CLASS_NAME,
+  NATIVE_VERTICAL_WHEEL_CLASS_NAME,
+} from "../interaction";
 import { useResizeEvent } from "../section/resize/resizeEvents";
 import { useSectionMinMaxDims } from "../section/resize/sizingPolicy";
 
@@ -67,13 +70,20 @@ export function useSectionEditorHeight(sectionId: string): SectionEditorHeight {
       key: wheelMeasureKeyRef.current,
       read: (measuredView) => {
         const scroller = measuredView.scrollDOM;
-        return (
-          scroller.scrollHeight - scroller.clientHeight > 1 ||
-          scroller.scrollWidth - scroller.clientWidth > 1
-        );
+        return {
+          horizontal: scroller.scrollWidth - scroller.clientWidth > 1,
+          vertical: scroller.scrollHeight - scroller.clientHeight > 1,
+        };
       },
-      write: (hasNativeOverflow) => {
-        setWheelClassName(hasNativeOverflow ? NO_WHEEL_CLASS_NAME : "");
+      write: ({ horizontal, vertical }) => {
+        setWheelClassName(
+          [
+            horizontal ? NATIVE_HORIZONTAL_WHEEL_CLASS_NAME : "",
+            vertical ? NATIVE_VERTICAL_WHEEL_CLASS_NAME : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
+        );
       },
     });
   }, []);

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
   type WorkspaceSection,
   type WorkspaceSectionData,
 } from "@setta/workspace";
@@ -392,7 +392,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         </div>
       </div>
       <div
-        className={`realtime-drawing-stage ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
+        className={`realtime-drawing-stage ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`}
         ref={stageRef}
       >
         <canvas aria-label={section.name} ref={canvasRef} />
