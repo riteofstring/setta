@@ -151,6 +151,25 @@ export class DrawingSettlementQueue {
     }
   }
 
+  private async processNext(): Promise<boolean> {
+    if (this.readyRevision === 0) {
+      await this.processPreview();
+      return true;
+    }
+    const revision = this.readyRevision;
+    this.readyRevision = 0;
+    return this.process(revision);
+  }
+
+  private async drainOne(): Promise<boolean> {
+    try {
+      return await this.processNext();
+    } catch (error) {
+      this.options.onError(error);
+      return true;
+    }
+  }
+
   private async drain(): Promise<void> {
     if (this.running || this.stopped) {
       return;
@@ -158,18 +177,8 @@ export class DrawingSettlementQueue {
     this.running = true;
     try {
       while (!this.stopped && (this.readyRevision !== 0 || this.previewReady)) {
-        try {
-          if (this.readyRevision !== 0) {
-            const revision = this.readyRevision;
-            this.readyRevision = 0;
-            if (!(await this.process(revision))) {
-              break;
-            }
-          } else {
-            await this.processPreview();
-          }
-        } catch (error) {
-          this.options.onError(error);
+        if (!(await this.drainOne())) {
+          break;
         }
       }
     } finally {
