@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "project": {
     "kind": "application",
     "capabilities": ["backend", "frontend", "ui"]
@@ -46,6 +46,41 @@
       {
         "path": "docs/design/workspace.md",
         "module": "workspace"
+      }
+    ]
+  },
+  "generation": {
+    "producers": [
+      {
+        "name": "python-canvas-contracts",
+        "outputs": [
+          "apps/python-canvas/backend/internal/contracts/testdata/project-snapshot-v2.json",
+          "apps/python-canvas/src/backend/generatedContract.ts"
+        ],
+        "inputs": [
+          "apps/python-canvas/backend/cmd/generate-contract/*.go",
+          "apps/python-canvas/backend/internal/contracts/*.go"
+        ],
+        "generate": {
+          "argv": [
+            "pnpm",
+            "--filter",
+            "@setta/python-canvas",
+            "run",
+            "contract:generate"
+          ],
+          "timeoutSeconds": 300
+        },
+        "verify": {
+          "argv": [
+            "pnpm",
+            "--filter",
+            "@setta/python-canvas",
+            "run",
+            "contract:check"
+          ],
+          "timeoutSeconds": 300
+        }
       }
     ]
   },
@@ -197,6 +232,54 @@
     }
   ],
   "tests": {
+    "paths": [
+      "apps/playground/src/**/*.test.ts",
+      "apps/playground/src/**/*.test.tsx",
+      "apps/python-canvas/backend/**/*_test.go",
+      "apps/python-canvas/*.test.mjs",
+      "apps/python-canvas/src/**/*.test.ts",
+      "apps/python-canvas/src/**/*.test.tsx",
+      "packages/setta-runtime/tests/**",
+      "packages/workspace/src/**/*.test.ts",
+      "packages/workspace/src/**/*.test.tsx"
+    ],
+    "ownership": [
+      {
+        "paths": [
+          "packages/workspace/src/**/*.test.ts",
+          "packages/workspace/src/**/*.test.tsx"
+        ],
+        "module": "workspace",
+        "focusedSuite": "workspace-focused"
+      },
+      {
+        "paths": [
+          "apps/playground/src/**/*.test.ts",
+          "apps/playground/src/**/*.test.tsx"
+        ],
+        "module": "playground",
+        "focusedSuite": "playground-focused"
+      },
+      {
+        "paths": ["apps/python-canvas/backend/**/*_test.go"],
+        "module": "python-canvas-backend",
+        "focusedSuite": "python-canvas-backend-focused"
+      },
+      {
+        "paths": [
+          "apps/python-canvas/*.test.mjs",
+          "apps/python-canvas/src/**/*.test.ts",
+          "apps/python-canvas/src/**/*.test.tsx"
+        ],
+        "module": "python-canvas-frontend",
+        "focusedSuite": "python-canvas-frontend-focused"
+      },
+      {
+        "paths": ["packages/setta-runtime/tests/**"],
+        "module": "setta-runtime",
+        "focusedSuite": "setta-runtime-focused"
+      }
+    ],
     "requiredKinds": ["component", "browser", "contract"],
     "suites": [
       {
@@ -205,6 +288,7 @@
         "scope": "module",
         "cost": "quick",
         "modules": ["setta-runtime"],
+        "paths": ["packages/setta-runtime/tests/**"],
         "argv": [
           "python3",
           "-m",
@@ -226,17 +310,13 @@
         "scope": "module",
         "cost": "quick",
         "modules": ["workspace"],
-        "argv": [
-          "pnpm",
-          "--filter",
-          "@setta/workspace",
-          "exec",
-          "vitest",
-          "run",
-          "src/publicApi.test.ts"
+        "paths": [
+          "packages/workspace/src/**/*.test.ts",
+          "packages/workspace/src/**/*.test.tsx"
         ],
+        "argv": ["pnpm", "--filter", "@setta/workspace", "test"],
         "runOn": ["focused", "recommended", "full"],
-        "timeoutSeconds": 300
+        "timeoutSeconds": 1200
       },
       {
         "name": "playground-focused",
@@ -244,15 +324,13 @@
         "scope": "module",
         "cost": "quick",
         "modules": ["playground"],
-        "argv": [
-          "pnpm",
-          "--filter",
-          "@setta/playground",
-          "run",
-          "test:focused"
+        "paths": [
+          "apps/playground/src/**/*.test.ts",
+          "apps/playground/src/**/*.test.tsx"
         ],
+        "argv": ["pnpm", "--filter", "@setta/playground", "test"],
         "runOn": ["focused", "recommended", "full"],
-        "timeoutSeconds": 300
+        "timeoutSeconds": 1200
       },
       {
         "name": "python-canvas-backend-focused",
@@ -260,6 +338,7 @@
         "scope": "module",
         "cost": "quick",
         "modules": ["python-canvas-backend"],
+        "paths": ["apps/python-canvas/backend/**/*_test.go"],
         "argv": ["go", "test", "./..."],
         "cwd": "apps/python-canvas/backend",
         "runOn": ["focused", "recommended", "full"],
@@ -271,29 +350,14 @@
         "scope": "module",
         "cost": "quick",
         "modules": ["python-canvas-frontend"],
+        "paths": [
+          "apps/python-canvas/*.test.mjs",
+          "apps/python-canvas/src/**/*.test.ts",
+          "apps/python-canvas/src/**/*.test.tsx"
+        ],
         "argv": ["pnpm", "--filter", "@setta/python-canvas", "test"],
         "runOn": ["focused", "recommended", "full"],
         "timeoutSeconds": 600
-      },
-      {
-        "name": "workspace-component",
-        "kind": "component",
-        "scope": "module",
-        "cost": "standard",
-        "modules": ["workspace"],
-        "argv": ["pnpm", "--filter", "@setta/workspace", "test"],
-        "runOn": ["recommended", "full"],
-        "timeoutSeconds": 1200
-      },
-      {
-        "name": "playground-component",
-        "kind": "component",
-        "scope": "module",
-        "cost": "standard",
-        "modules": ["playground"],
-        "argv": ["pnpm", "--filter", "@setta/playground", "test"],
-        "runOn": ["recommended", "full"],
-        "timeoutSeconds": 1200
       },
       {
         "name": "python-canvas-contract-drift",
@@ -454,19 +518,6 @@
         "owner": "python-canvas-backend",
         "reviewed": "2026-08-26",
         "expires": "2026-09-12"
-      },
-      {
-        "id": "nanoid-zero-size-security-fix",
-        "ecosystem": "pnpm",
-        "package": "nanoid",
-        "version": "3.3.18",
-        "scope": "pnpm-lock.yaml",
-        "category": "security-fix",
-        "evidence": "https://osv.dev/vulnerability/GHSA-2v37-7h3g-55p8",
-        "reason": "This exact release fixes the high-severity infinite-loop vulnerability in the resolved nanoid 3.x line.",
-        "owner": "workspace-extraction",
-        "reviewed": "2026-08-16",
-        "expires": "2026-09-06"
       }
     ]
   }
