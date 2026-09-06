@@ -15,6 +15,7 @@ import type {
 import { getCanvasGesturesStore } from "../gestureState";
 import { WorkspaceXyflowAdapter } from "./WorkspaceXyflowAdapter";
 import type { WorkspaceXyflowSectionNode } from "./types";
+import { getWorkspaceXyflowRuntime } from "./workspaceXyflowRuntime";
 
 const capturedReactFlow = vi.hoisted(() => ({
   nodesInitialized: false,
@@ -115,6 +116,14 @@ function getReactFlowProps(): ReactFlowProps<WorkspaceXyflowSectionNode> {
     throw new Error("Workspace XYFlow adapter did not render ReactFlow.");
   }
   return props as ReactFlowProps<WorkspaceXyflowSectionNode>;
+}
+
+function createReactFlowInstance(): Parameters<
+  NonNullable<ReactFlowProps<WorkspaceXyflowSectionNode>["onInit"]>
+>[0] {
+  return {} as Parameters<
+    NonNullable<ReactFlowProps<WorkspaceXyflowSectionNode>["onInit"]>
+  >[0];
 }
 
 beforeEach(() => {
@@ -319,11 +328,7 @@ describe("WorkspaceXyflowAdapter", () => {
     });
 
     await act(async () => {
-      getReactFlowProps().onInit?.(
-        {} as Parameters<
-          NonNullable<ReactFlowProps<WorkspaceXyflowSectionNode>["onInit"]>
-        >[0],
-      );
+      getReactFlowProps().onInit?.(createReactFlowInstance());
       getReactFlowProps().onNodesChange?.([
         {
           id: "section",
@@ -348,6 +353,39 @@ describe("WorkspaceXyflowAdapter", () => {
     }
     expect(presentationRoot.style.height).toBe("600px");
     expect(presentationRoot.style.width).toBe("800px");
+  });
+
+  it("ignores delayed renderer initialization after unmount", async () => {
+    const lateWorkspace = createWorkspaceTestHost();
+    const lateHost = document.createElement("div");
+    const lateRoot = createRoot(lateHost);
+    document.body.appendChild(lateHost);
+
+    await act(async () => {
+      lateRoot.render(
+        <WorkspaceTestProvider workspace={lateWorkspace}>
+          <WorkspaceXyflowAdapter
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+            onViewportChange={vi.fn()}
+            wrapperDimensions={{ width: 800, height: 600 }}
+          />
+        </WorkspaceTestProvider>,
+      );
+    });
+    const onInit = getReactFlowProps().onInit;
+    const instance = createReactFlowInstance();
+
+    await act(async () => {
+      lateRoot.unmount();
+    });
+    expect(() => onInit?.(instance)).not.toThrow();
+    expect(getWorkspaceXyflowRuntime(lateWorkspace.host).getInstance()).toBe(
+      null,
+    );
+
+    lateWorkspace.host.dispose();
+    expect(() => onInit?.(instance)).not.toThrow();
+    lateHost.remove();
   });
 
   it("waits for public node measurement before completing an initial fit", async () => {

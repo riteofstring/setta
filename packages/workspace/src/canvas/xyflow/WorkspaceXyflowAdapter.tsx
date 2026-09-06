@@ -320,6 +320,7 @@ export function WorkspaceXyflowAdapter({
     }
   }, [projectedNodes, renderNodes]);
   const unregisterInstanceRef = useRef<(() => void) | null>(null);
+  const mountedRef = useRef(true);
   const rootElementRef = useRef<HTMLDivElement | null>(null);
   const suppressNextPaneClickRef = useRef(false);
   const [rootElement, setRootElement] = useState<HTMLDivElement | null>(null);
@@ -373,13 +374,14 @@ export function WorkspaceXyflowAdapter({
   );
   const selectionPortalElement = getSelectionPortalElement(rootElement);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
       unregisterInstanceRef.current?.();
       unregisterInstanceRef.current = null;
-    },
-    [host],
-  );
+    };
+  }, [host]);
 
   const handleNodesInitialized = useCallback(() => {
     onRuntimeReady?.();
@@ -466,6 +468,9 @@ export function WorkspaceXyflowAdapter({
 
   const handleInit = useCallback(
     (instance: Parameters<typeof registerWorkspaceXyflowInstance>[1]) => {
+      if (!mountedRef.current) {
+        return;
+      }
       unregisterInstanceRef.current?.();
       unregisterInstanceRef.current = registerWorkspaceXyflowInstance(
         host,
