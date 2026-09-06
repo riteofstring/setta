@@ -1,18 +1,11 @@
-import {
-  useCallback,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import {
   WorkspaceProvider,
+  WorkspaceParameterConfigurationIcon,
   WorkspaceShell,
   createWorkspaceShellViewState,
-  useWorkspaceDocumentSnapshot,
-  type SectionKindDefinition,
-  type WorkspaceDocument,
+  setWorkspaceCapabilities,
   type WorkspaceHost,
-  type WorkspaceSection,
   type WorkspaceShellTabDefinition,
   type WorkspaceShellViewState,
 } from "@setta/workspace";
@@ -21,17 +14,27 @@ import type {
   InvocationStatus,
   Project,
   RuntimeDeclaration,
-  SizeValue,
 } from "../backend/generatedContract";
-import type { RealtimeSectionKindCatalog } from "./realtimeSectionKinds";
-import { RealtimeContext, type RealtimeActions } from "./runtimeContext";
+import {
+  RealtimeContext,
+  useRealtime,
+  type RealtimeActions,
+} from "./runtimeContext";
 import type { RuntimeViewState } from "./runtimeState";
 
 const EMPTY_TABS: ReadonlyArray<WorkspaceShellTabDefinition> = [];
+const REALTIME_RUNTIME_TAB: WorkspaceShellTabDefinition = {
+  icon: WorkspaceParameterConfigurationIcon,
+  id: "runtime",
+  label: "Runtime",
+  renderContent: () => <RealtimeRuntimePane />,
+};
+const REALTIME_RUNTIME_TABS: ReadonlyArray<WorkspaceShellTabDefinition> = [
+  REALTIME_RUNTIME_TAB,
+];
 
 type RealtimeViewProps = {
   actions: RealtimeActions;
-  catalog: RealtimeSectionKindCatalog;
   error: string | null;
   host: WorkspaceHost | null;
   project: Project | null;
@@ -121,9 +124,34 @@ function RuntimeFeedback({
   );
 }
 
+function RealtimeRuntimePane() {
+  const { project, runtime } = useRealtime();
+  const activeInvocations = Object.values(runtime.invocations).filter(
+    (invocation) => !TERMINAL_INVOCATION_STATES.has(invocation.state),
+  ).length;
+  return (
+    <div className="realtime-runtime-pane">
+      <h2>Runtime</h2>
+      <dl>
+        <div>
+          <dt>Worker</dt>
+          <dd>{runtime.workerState}</dd>
+        </div>
+        <div>
+          <dt>Entrypoint</dt>
+          <dd>{runtimeTitle(project.runtime)}</dd>
+        </div>
+        <div>
+          <dt>Active invocations</dt>
+          <dd>{activeInvocations}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 function ReadyRealtimeView({
   actions,
-  catalog,
   error,
   host,
   project,
@@ -197,11 +225,7 @@ function ReadyRealtimeView({
             <RuntimeFeedback error={error} runtime={runtime} />
           </div>
           <div className="realtime-workspace">
-            {mode === "author" ? (
-              <AuthorWorkspace />
-            ) : (
-              <UseWorkspace catalog={catalog} />
-            )}
+            <RealtimeWorkspace host={host} mode={mode} />
           </div>
         </WorkspaceProvider>
       </RealtimeContext.Provider>
@@ -236,134 +260,37 @@ export function RealtimeView(props: RealtimeViewProps) {
   );
 }
 
-function AuthorWorkspace() {
+function RealtimeWorkspace({
+  host,
+  mode,
+}: {
+  host: WorkspaceHost;
+  mode: "author" | "use";
+}) {
   const [viewState, setViewState] = useState<WorkspaceShellViewState>(() =>
-    createWorkspaceShellViewState(),
+    createWorkspaceShellViewState({ trailingTabId: "runtime" }),
   );
+  useLayoutEffect(() => {
+    const editable = mode === "author";
+    setWorkspaceCapabilities(host, {
+      canEditLayout: editable,
+      canEditStructure: editable,
+    });
+  }, [host, mode]);
   const handleViewStateChange = useCallback(
     (next: WorkspaceShellViewState) => setViewState(next),
     [],
   );
   return (
     <WorkspaceShell
-      ariaLabel="Realtime authoring workspace"
-      includeBuiltInInspector={true}
+      ariaLabel="Realtime workspace"
+      includeBuiltInInspector={mode === "author"}
       includeBuiltInSavedViews={false}
       leadingPaneShiftsCanvas={true}
       leadingTabs={EMPTY_TABS}
       onViewStateChange={handleViewStateChange}
-      trailingTabs={EMPTY_TABS}
+      trailingTabs={REALTIME_RUNTIME_TABS}
       viewState={viewState}
     />
-  );
-}
-
-function numericSize(value: SizeValue, fallback: number) {
-  return typeof value === "number" ? value : fallback;
-}
-
-function renderSectionBody(
-  section: WorkspaceSection,
-  definition: SectionKindDefinition,
-): ReactNode {
-  return definition.renderContent(section);
-}
-
-function UseSection({
-  catalog,
-  document,
-  section,
-}: {
-  catalog: RealtimeSectionKindCatalog;
-  document: WorkspaceDocument;
-  section: WorkspaceSection;
-}) {
-  const definition = catalog[section.kind as keyof RealtimeSectionKindCatalog];
-  if (definition === undefined) {
-    return null;
-  }
-  return (
-    <section className={`realtime-use-section realtime-use-${section.kind}`}>
-      <h2>{section.name}</h2>
-      <div className="realtime-use-section-content">
-        {renderSectionBody(section, definition)}
-      </div>
-      {section.children.length === 0 ? null : (
-        <div className="realtime-use-nested">
-          {section.children.map((childId) => {
-            const child = document.sections[childId];
-            return child === undefined ? null : (
-              <UseSection
-                catalog={catalog}
-                document={document}
-                key={childId}
-                section={child}
-              />
-            );
-          })}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function UseWorkspace({ catalog }: { catalog: RealtimeSectionKindCatalog }) {
-  const document = useWorkspaceDocumentSnapshot();
-  const entries = Object.entries(document.topLevelSections).sort(
-    ([, left], [, right]) => left.zIndex - right.zIndex,
-  );
-  const bounds = entries.reduce(
-    (current, [sectionId, layout]) => {
-      const section = document.sections[sectionId];
-      if (section === undefined) {
-        return current;
-      }
-      const width = layout.w ?? numericSize(section.size.width, 320);
-      const height = layout.h ?? numericSize(section.size.height, 180);
-      return {
-        height: Math.max(current.height, layout.y + height + 48),
-        width: Math.max(current.width, layout.x + width + 48),
-      };
-    },
-    { height: 480, width: 720 },
-  );
-  const viewport = document.viewport;
-  const planeStyle: CSSProperties = {
-    height: bounds.height,
-    transform:
-      viewport === null
-        ? undefined
-        : `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
-    transformOrigin: "0 0",
-    width: bounds.width,
-  };
-  return (
-    <div className="realtime-use-viewport">
-      <div className="realtime-use-plane" style={planeStyle}>
-        {entries.map(([sectionId, layout]) => {
-          const section = document.sections[sectionId];
-          if (section === undefined) {
-            return null;
-          }
-          const style: CSSProperties = {
-            height: layout.h ?? numericSize(section.size.height, 180),
-            left: layout.x,
-            position: "absolute",
-            top: layout.y,
-            width: layout.w ?? numericSize(section.size.width, 320),
-            zIndex: layout.zIndex,
-          };
-          return (
-            <div key={sectionId} style={style}>
-              <UseSection
-                catalog={catalog}
-                document={document}
-                section={section}
-              />
-            </div>
-          );
-        })}
-      </div>
-    </div>
   );
 }

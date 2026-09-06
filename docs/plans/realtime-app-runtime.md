@@ -453,8 +453,9 @@ applicable result reaches the target section.
 3. Emit settled raster snapshots by content reference.
 4. Complete the drawing-to-Python-to-result scenario, including progress, errors, cancellation,
    reload, and worker restart.
-5. Add a use-focused presentation that preserves the authored layout without exposing authoring
-   controls during ordinary interaction.
+5. Render Use and Author through the same `@setta/workspace` host, `WorkspaceShell`, section
+   registry, section chrome, and upstream XYFlow canvas. Configure Use as read-only and omit the
+   Inspector; do not create a second section or layout renderer.
 
 Exit when AI can construct the complete example directly in Realtime and a user can open and use
 it without Python Canvas.

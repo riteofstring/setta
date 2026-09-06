@@ -596,8 +596,8 @@ async function clickButton(client, label) {
 
 function outputExpression(name, predicate) {
   return `(() => {
-    const section = Array.from(document.querySelectorAll(".realtime-use-section")).find(
-      (candidate) => candidate.querySelector("h2")?.textContent?.trim() === ${JSON.stringify(name)},
+    const section = Array.from(document.querySelectorAll('[data-workspace-section-shell="true"]')).find(
+      (candidate) => candidate.getAttribute("aria-label")?.startsWith(${JSON.stringify(`${name} section`)}),
     );
     const value = section?.querySelector(".realtime-output-value")?.textContent?.trim();
     return typeof value === "string" && (${predicate});

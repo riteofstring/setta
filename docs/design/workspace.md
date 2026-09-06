@@ -15,6 +15,10 @@ pointer target when it belongs to a registered Workspace surface, then fall back
 host when the pointer is outside every Workspace. Focus continues to own keyboard commands and
 editing shortcuts.
 
+Applications set the host's structure and layout edit authority through
+`setWorkspaceCapabilities`. Read-only presentation remains a configuration of the same host,
+shell, canvas, and section projection rather than requiring an application-owned renderer.
+
 `WorkspaceDocument` is the canonical serializable authority for sections, item trees, top-level
 geometry, viewport, selection, and optional saved canvas views. Appearance, menus, drag sessions,
 completion services, diagnostics, shell view state, and windowing state remain host-owned runtime

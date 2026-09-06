@@ -242,7 +242,10 @@ export type {
 export type { TextValueLanguage } from "./controls/text/textValueLanguages";
 export { ItemDndContext } from "./dnd/ItemDndContext";
 export { setWorkspaceColorMode } from "./document/appearance";
-export { useWorkspaceCapabilities } from "./document/capabilities";
+export {
+  setWorkspaceCapabilities,
+  useWorkspaceCapabilities,
+} from "./document/capabilities";
 export type { WorkspaceCapabilitiesState } from "./document/capabilities";
 export type { WorkspaceDocumentSubscription } from "./document/documentChangeCallback";
 export { useWorkspaceDocumentSnapshot } from "./document/useWorkspaceDocumentSnapshot";

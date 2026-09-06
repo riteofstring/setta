@@ -1,6 +1,6 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createWorkspaceHost,
   type WorkspaceSectionData,
@@ -16,8 +16,18 @@ import type { RealtimeActions } from "./runtimeContext";
 import { initialRuntimeViewState } from "./runtimeState";
 import { RealtimeView } from "./RealtimeView";
 
-describe("Realtime use presentation", () => {
-  it("opens in a use-focused surface with the authored layout and no authoring shell", async () => {
+describe("Realtime workspace presentation", () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(0, 0, 1200, 800),
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("opens Use mode in the Workspace shell with editing disabled", async () => {
     window.history.replaceState({}, "", "/?mode=use");
     const project = makeProject();
     project.sections = { "input-main": project.sections["input-main"]! };
@@ -53,7 +63,6 @@ describe("Realtime use presentation", () => {
       root.render(
         <RealtimeView
           actions={actions}
-          catalog={catalog}
           error={null}
           host={host}
           project={project}
@@ -67,19 +76,27 @@ describe("Realtime use presentation", () => {
       );
     });
 
-    expect(element.querySelector(".realtime-use-viewport")).not.toBeNull();
-    expect(element.querySelector(".realtime-use-plane")?.textContent).toContain(
-      "Prompt",
-    );
-    expect(element.querySelector(".workspace-shell")).toBeNull();
+    expect(
+      element.querySelector('[data-workspace-shell="true"]'),
+    ).not.toBeNull();
+    expect(
+      element.querySelector('[data-section-id="input-main"]')?.textContent,
+    ).toContain("Prompt");
+    expect(element.querySelector(".realtime-use-viewport")).toBeNull();
     expect(element.textContent).not.toContain("Author");
     expect(
       element.querySelector('[aria-label="Presentation mode"]'),
     ).toBeNull();
     expect(
-      element.querySelector<HTMLElement>(".realtime-use-plane > div")?.style
-        .left,
-    ).toBe("288px");
+      element.querySelector<HTMLButtonElement>(
+        '[data-section-id="input-main"] [aria-label="Lock position and size"]',
+      )?.disabled,
+    ).toBe(true);
+    expect(
+      element.querySelector<HTMLButtonElement>(
+        '[data-section-id="input-main"] [aria-label="Delete section"]',
+      )?.disabled,
+    ).toBe(true);
 
     await act(async () => root.unmount());
     host.dispose();
@@ -148,7 +165,6 @@ describe("Realtime use presentation", () => {
       root.render(
         <RealtimeView
           actions={actions}
-          catalog={catalog}
           error="Transport warning"
           host={host}
           project={project}

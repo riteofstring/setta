@@ -131,10 +131,12 @@ Direct invocation input has the same portable value boundary:
 
 ## Browser behavior
 
-The default presentation is Use mode. Author mode projects the same complete document through
-`@setta/workspace`; it is not a second project model. Project snapshots arrive as complete SSE
-values. Runtime snapshots, events, cancellations, invocation status, updates, and logs use one
-WebSocket. Reconnection replaces local state from current complete snapshots.
+The default presentation is Use mode. Use and Author render through the same `@setta/workspace`
+host, shell, section registry, section chrome, and upstream XYFlow canvas. Use disables structural
+and layout editing and omits the Inspector; it is not a separate frontend or project model. Project
+snapshots arrive as complete SSE values. Runtime snapshots, events, cancellations, invocation
+status, updates, and logs use one WebSocket. Reconnection replaces local state from current
+complete snapshots.
 
 Fabric.js owns retained drawing objects, free drawing, erasing, selection, transforms,
 serialization, and raster export. Pointer movement stays local. Realtime persists the vector scene

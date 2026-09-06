@@ -34,6 +34,27 @@ export function getWorkspaceCapabilitiesStore(host: WorkspaceHost) {
   return store;
 }
 
+export function setWorkspaceCapabilities(
+  host: WorkspaceHost,
+  capabilities: WorkspaceCapabilitiesState,
+): void {
+  if (
+    typeof capabilities !== "object" ||
+    capabilities === null ||
+    Array.isArray(capabilities) ||
+    typeof capabilities.canEditLayout !== "boolean" ||
+    typeof capabilities.canEditStructure !== "boolean"
+  ) {
+    throw new Error(
+      "Workspace capabilities require boolean canEditLayout and canEditStructure values.",
+    );
+  }
+  getWorkspaceCapabilitiesStore(host).setState({
+    canEditLayout: capabilities.canEditLayout,
+    canEditStructure: capabilities.canEditStructure,
+  });
+}
+
 export function useWorkspaceCapabilities<T>(
   selector: (state: WorkspaceCapabilitiesState) => T,
   equalityFn?: (left: T, right: T) => boolean,

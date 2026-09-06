@@ -355,7 +355,6 @@ export function RealtimeController() {
   return (
     <RealtimeView
       actions={actions}
-      catalog={catalogRef.current}
       error={error}
       host={host}
       project={project}

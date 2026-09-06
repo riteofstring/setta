@@ -47,9 +47,10 @@ snapshot coalescing. Pointer movement stays local. One coherent completed gestur
 vector scene, and one settled raster snapshot may emit by content reference. The outer Workspace
 canvas remains its existing upstream XYFlow projection.
 
-Ordinary use has a presentation-focused surface that preserves authored layout while hiding
-authoring controls. It is another projection of the same canonical document and section registry,
-not a separate project format or Python-authored UI tree.
+Both Use and Author render through the same `WorkspaceShell`, Workspace host, section registry,
+section chrome, and upstream XYFlow canvas. Use is a read-only Workspace capability configuration
+that preserves the authored layout and omits the Inspector. It is not a second section or layout
+renderer, project format, or Python-authored UI tree.
 
 ## Generated validation boundary
 

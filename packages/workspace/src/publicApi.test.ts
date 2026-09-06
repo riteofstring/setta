@@ -161,6 +161,7 @@ const RUNTIME_EXPORTS = [
   "setWorkspaceSavedViewSectionVisibility",
   "setWorkspaceSavedViewTabVisibility",
   "setWorkspaceCodeSectionData",
+  "setWorkspaceCapabilities",
   "setWorkspaceTextSectionData",
   "setWorkspaceWindowBoundsAtomically",
   "setWorkspaceWindowDockLayoutAtomically",

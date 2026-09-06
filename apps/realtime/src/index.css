@@ -223,6 +223,41 @@ input {
   grid-template-rows: auto minmax(0, 1fr);
 }
 
+.realtime-runtime-pane {
+  padding: 18px;
+  color: #344054;
+}
+
+.realtime-runtime-pane h2 {
+  margin: 0 0 18px;
+  color: #101828;
+  font-size: 16px;
+}
+
+.realtime-runtime-pane dl {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.realtime-runtime-pane dl > div {
+  display: grid;
+  gap: 3px;
+}
+
+.realtime-runtime-pane dt {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.realtime-runtime-pane dd {
+  margin: 0;
+  font-size: 13px;
+}
+
 .realtime-initial-error {
   margin: 24px 32px 0;
   padding: 12px 14px;
@@ -244,68 +279,6 @@ input {
   to {
     background-position: -160% 0;
   }
-}
-
-.realtime-use-viewport {
-  overflow: auto;
-  width: 100%;
-  height: 100%;
-  padding: 24px;
-}
-
-.realtime-use-plane {
-  position: relative;
-  min-width: 100%;
-  min-height: 100%;
-}
-
-.realtime-use-section {
-  display: flex;
-  overflow: hidden;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  flex-direction: column;
-  border: 1px solid rgba(146, 156, 178, 0.28);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 12px 36px rgba(33, 44, 72, 0.09);
-}
-
-.realtime-use-section h2 {
-  margin: 0;
-  padding: 13px 16px 11px;
-  border-bottom: 1px solid #eaecf0;
-  color: #344054;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.realtime-use-section-content {
-  overflow: auto;
-  min-height: 0;
-  flex: 1;
-  padding: 16px;
-}
-
-.realtime-use-drawing .realtime-use-section-content {
-  overflow: hidden;
-  padding: 0;
-}
-
-.realtime-use-nested {
-  display: flex;
-  min-height: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 10px;
-  padding: 10px;
-}
-
-.realtime-use-nested > .realtime-use-section {
-  min-height: 120px;
 }
 
 .realtime-field {
