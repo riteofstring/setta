@@ -67,11 +67,11 @@ function getSectionAttachedContentRenderer({
 
 function SectionContainerComponent({
   sectionId,
-  isTopLevel = false,
+  isTopLevel,
   dragListeners,
 }: {
   sectionId: string;
-  isTopLevel?: boolean;
+  isTopLevel: boolean;
   dragListeners?: SectionDragListeners;
 }) {
   const host = useWorkspaceHost();
@@ -88,6 +88,9 @@ function SectionContainerComponent({
   const sectionKind = useWorkspaceDocument(
     (x) => getSectionOrThrow(x, sectionId).kind,
   );
+  const isCanonicalTopLevel = useWorkspaceDocument((x) =>
+    Object.hasOwn(x.topLevelSections, sectionId),
+  );
   const renderAttachedContent = getSectionAttachedContentRenderer({
     host,
     isGroup,
@@ -96,6 +99,9 @@ function SectionContainerComponent({
 
   const showHidden = editingSavedView && visibilityPresentation !== "visible";
   if (visibilityPresentation !== "visible" && !showHidden) {
+    return null;
+  }
+  if (isTopLevel !== isCanonicalTopLevel) {
     return null;
   }
 
@@ -126,7 +132,11 @@ export function renderNestedSectionContainer(
   dragListeners: SectionDragListeners,
 ) {
   return (
-    <SectionContainer dragListeners={dragListeners} sectionId={sectionId} />
+    <SectionContainer
+      dragListeners={dragListeners}
+      isTopLevel={false}
+      sectionId={sectionId}
+    />
   );
 }
 

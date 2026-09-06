@@ -203,7 +203,7 @@ function SectionHost({ sectionId }: { sectionId: string }) {
   if (!exists) {
     return null;
   }
-  return createElement(SectionContainer, { sectionId });
+  return createElement(SectionContainer, { isTopLevel: true, sectionId });
 }
 
 function renderSectionBody(section: WorkspaceSection): ReactNode {
@@ -360,6 +360,46 @@ describe("SectionContainer", () => {
     expect(
       testWorkspace.sectionRefs.getState().withNested["leaf"],
     ).toBeInstanceOf(HTMLElement);
+  });
+
+  it("renders only the canonical section placement during a nesting handoff", async () => {
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          <SectionDndContext>
+            <SectionContainer isTopLevel sectionId="leaf" />
+            <SectionContainer isTopLevel={false} sectionId="leaf" />
+          </SectionDndContext>
+        </WorkspaceTestProvider>,
+      );
+    });
+
+    expect(host.querySelectorAll('[data-section-id="leaf"]')).toHaveLength(1);
+    const topLevelLeaf = host.querySelector('[data-section-id="leaf"]');
+
+    const current = testWorkspace.host.getSnapshot();
+    const group = current.sections.group;
+    const groupLayout = current.topLevelSections.group;
+    if (group === undefined || groupLayout === undefined) {
+      throw new Error("Expected the top-level group section.");
+    }
+    await act(async () => {
+      loadWorkspaceDocument(testWorkspace.host, {
+        ...current,
+        sections: {
+          ...current.sections,
+          group: { ...group, children: [...group.children, "leaf"] },
+        },
+        topLevelSections: {
+          group: groupLayout,
+        },
+      });
+    });
+
+    expect(host.querySelectorAll('[data-section-id="leaf"]')).toHaveLength(1);
+    expect(host.querySelector('[data-section-id="leaf"]')).not.toBe(
+      topLevelLeaf,
+    );
   });
 
   it("does not rewrite every section shell when viewport interaction starts", async () => {

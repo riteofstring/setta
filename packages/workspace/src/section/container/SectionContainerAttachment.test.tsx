@@ -82,7 +82,7 @@ describe("SectionContainer registered attachment", () => {
       root.render(
         <WorkspaceTestProvider workspace={workspace}>
           <SectionDndContext>
-            <SectionContainer sectionId="leaf" />
+            <SectionContainer isTopLevel sectionId="leaf" />
           </SectionDndContext>
         </WorkspaceTestProvider>,
       );

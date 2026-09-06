@@ -94,7 +94,7 @@ describe("saved view editing presentation", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           <SectionDndContext>
-            <SectionContainer sectionId="leaf" />
+            <SectionContainer isTopLevel sectionId="leaf" />
           </SectionDndContext>
         </WorkspaceTestProvider>,
       );
