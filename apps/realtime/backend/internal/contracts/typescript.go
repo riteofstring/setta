@@ -17,7 +17,7 @@ export type JsonValue =
   | Array<JsonValue>
   | { [key: string]: JsonValue };
 
-export type SizeValue = number | "auto";
+type SizeValue = number | "auto";
 
 export type RuntimeDeclaration = {
   kind: string;
