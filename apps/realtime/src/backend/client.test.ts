@@ -147,6 +147,7 @@ describe("realtime client boundary", () => {
     const envelope = {
       snapshot: {
         invocations: {},
+        publishedByBinding: {},
         sessionId: "session-main",
         values: {},
         workerState: "ready",

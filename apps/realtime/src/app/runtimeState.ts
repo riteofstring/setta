@@ -20,6 +20,7 @@ export type RuntimeViewState = {
   invocations: Record<string, InvocationStatus>;
   latestByBinding: Record<string, InvocationIdentity>;
   logs: RuntimeLog[];
+  publishedByBinding: Record<string, InvocationIdentity>;
   sessionId: string | null;
   updates: Record<string, RuntimeUpdate>;
   values: Record<string, JsonValue>;
@@ -32,6 +33,7 @@ export const initialRuntimeViewState: RuntimeViewState = {
   invocations: {},
   latestByBinding: {},
   logs: [],
+  publishedByBinding: {},
   sessionId: null,
   updates: {},
   values: {},
@@ -100,6 +102,7 @@ function replaceSnapshot(
     invocations,
     latestByBinding,
     logs: sessionChanged ? [] : state.logs,
+    publishedByBinding: { ...snapshot.publishedByBinding },
     sessionId: snapshot.sessionId,
     updates: {},
     values: { ...snapshot.values },
@@ -136,18 +139,15 @@ function acceptInvocation(
   };
 }
 
-function isCurrentUpdate(
-  state: RuntimeViewState,
-  update: RuntimeUpdate,
+function isIdentityCurrent(
+  identity: InvocationIdentity,
+  previous: InvocationIdentity | undefined,
 ): boolean {
-  if (update.identity.sessionId !== state.sessionId) {
-    return false;
-  }
-  const current = state.latestByBinding[update.identity.bindingId];
   return (
-    current !== undefined &&
-    current.invocationId === update.identity.invocationId &&
-    current.sequence === update.identity.sequence
+    previous === undefined ||
+    (identity.sequence === previous.sequence
+      ? identity.invocationId === previous.invocationId
+      : identity.sequence > previous.sequence)
   );
 }
 
@@ -176,16 +176,32 @@ function acceptUpdate(
   update: RuntimeUpdate,
   project: Project,
 ): RuntimeViewState {
-  if (!isCurrentUpdate(state, update)) {
+  if (update.identity.sessionId !== state.sessionId) {
+    return state;
+  }
+  const bindingId = update.identity.bindingId;
+  const previousUpdate = state.updates[bindingId];
+  const published = state.publishedByBinding[bindingId];
+  const acceptsPresentation =
+    isIdentityCurrent(update.identity, previousUpdate?.identity) &&
+    isIdentityCurrent(update.identity, published);
+  const hasOutputs = Object.keys(update.outputs).length > 0;
+  const acceptsOutputs =
+    hasOutputs && isIdentityCurrent(update.identity, published);
+  if (!acceptsPresentation && !acceptsOutputs) {
     return state;
   }
   return {
     ...state,
-    updates: {
-      ...state.updates,
-      [update.identity.bindingId]: update,
-    },
-    values: { ...state.values, ...outputValues(project, update) },
+    publishedByBinding: acceptsOutputs
+      ? { ...state.publishedByBinding, [bindingId]: update.identity }
+      : state.publishedByBinding,
+    updates: acceptsPresentation
+      ? { ...state.updates, [bindingId]: update }
+      : state.updates,
+    values: acceptsOutputs
+      ? { ...state.values, ...outputValues(project, update) }
+      : state.values,
   };
 }
 
@@ -224,6 +240,7 @@ export function beginRuntimeReplacement(
     error: null,
     invocations: {},
     latestByBinding: {},
+    publishedByBinding: {},
     sessionId: null,
     updates: {},
     workerState: "replacing",

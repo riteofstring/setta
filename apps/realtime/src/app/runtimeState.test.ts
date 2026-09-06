@@ -31,10 +31,13 @@ function apply(
 }
 
 describe("runtime state", () => {
-  it("replaces from complete snapshots and rejects stale invocation updates", () => {
+  it("publishes a completed output ahead of a newer queued invocation", () => {
     let state = apply(initialRuntimeViewState, {
       snapshot: {
         invocations: {},
+        publishedByBinding: {
+          "binding-main": identity(2, "invocation-baseline"),
+        },
         sessionId: "session-main",
         values: { [runtimeValueKey("output-main", "value")]: "baseline" },
         workerState: "ready",
@@ -49,22 +52,27 @@ describe("runtime state", () => {
       },
       type: "invocation",
     });
-    const stale = apply(state, {
+    const completed = apply(state, {
       type: "update",
       update: {
         identity: identity(3, "invocation-old"),
-        message: "late",
-        outputs: { result: "stale" },
-        progress: 0.9,
+        message: "complete",
+        outputs: { result: "useful" },
+        progress: 1,
       },
     });
 
-    expect(stale).toBe(state);
-    expect(stale.values[runtimeValueKey("output-main", "value")]).toBe(
-      "baseline",
+    expect(completed.values[runtimeValueKey("output-main", "value")]).toBe(
+      "useful",
+    );
+    expect(completed.latestByBinding["binding-main"]).toEqual(
+      identity(4, "invocation-new"),
+    );
+    expect(completed.publishedByBinding["binding-main"]).toEqual(
+      identity(3, "invocation-old"),
     );
 
-    const accepted = apply(state, {
+    const newer = apply(completed, {
       type: "update",
       update: {
         identity: identity(4, "invocation-new"),
@@ -73,12 +81,67 @@ describe("runtime state", () => {
         progress: 1,
       },
     });
-    expect(accepted.values[runtimeValueKey("output-main", "value")]).toBe(
-      "fresh",
-    );
-    expect(accepted.values[runtimeValueKey("status-main", "message")]).toBe(
+    expect(newer.values[runtimeValueKey("output-main", "value")]).toBe("fresh");
+    expect(newer.values[runtimeValueKey("status-main", "message")]).toBe(
       "Complete",
     );
+
+    const late = apply(newer, {
+      type: "update",
+      update: {
+        identity: identity(3, "invocation-old"),
+        message: "late",
+        outputs: { result: "stale" },
+        progress: 1,
+      },
+    });
+    expect(late).toBe(newer);
+  });
+
+  it("does not advance the published output watermark for progress alone", () => {
+    let state = apply(initialRuntimeViewState, {
+      snapshot: {
+        invocations: {},
+        publishedByBinding: {
+          "binding-main": identity(2, "invocation-baseline"),
+        },
+        sessionId: "session-main",
+        values: { [runtimeValueKey("output-main", "value")]: "baseline" },
+        workerState: "ready",
+      },
+      type: "snapshot",
+    });
+    state = apply(state, {
+      type: "update",
+      update: {
+        identity: identity(4, "invocation-progress"),
+        message: "working",
+        outputs: {},
+        progress: 0.5,
+      },
+    });
+
+    expect(state.publishedByBinding["binding-main"]).toEqual(
+      identity(2, "invocation-baseline"),
+    );
+    expect(state.updates["binding-main"]?.message).toBe("working");
+
+    state = apply(state, {
+      type: "update",
+      update: {
+        identity: identity(3, "invocation-complete"),
+        message: "complete",
+        outputs: { result: "useful" },
+        progress: 1,
+      },
+    });
+    expect(state.values[runtimeValueKey("output-main", "value")]).toBe(
+      "useful",
+    );
+    expect(state.publishedByBinding["binding-main"]).toEqual(
+      identity(3, "invocation-complete"),
+    );
+    expect(state.updates["binding-main"]?.message).toBe("working");
   });
 
   it("rejects updates from replaced sessions and same-sequence impostors", () => {
@@ -90,6 +153,9 @@ describe("runtime state", () => {
             identity: identity(8, "invocation-current"),
             state: "streaming",
           },
+        },
+        publishedByBinding: {
+          "binding-main": identity(8, "invocation-current"),
         },
         sessionId: "session-main",
         values: {},
@@ -108,6 +174,17 @@ describe("runtime state", () => {
     expect(state.latestByBinding["binding-main"]?.invocationId).toBe(
       "invocation-current",
     );
+
+    const impostor = apply(state, {
+      type: "update",
+      update: {
+        identity: identity(8, "invocation-impostor"),
+        message: "impostor",
+        outputs: { result: "wrong" },
+        progress: 1,
+      },
+    });
+    expect(impostor).toBe(state);
 
     const otherSession = {
       ...identity(8, "invocation-current"),
@@ -129,6 +206,7 @@ describe("runtime state", () => {
     const state = apply(initialRuntimeViewState, {
       snapshot: {
         invocations: {},
+        publishedByBinding: {},
         sessionId: "session-main",
         values: { [runtimeValueKey("output-main", "value")]: "visible" },
         workerState: "ready",
@@ -139,6 +217,7 @@ describe("runtime state", () => {
     const replacing = beginRuntimeReplacement(state);
     expect(replacing.sessionId).toBeNull();
     expect(replacing.latestByBinding).toEqual({});
+    expect(replacing.publishedByBinding).toEqual({});
     expect(replacing.connection).toBe("connecting");
     expect(replacing.values).toEqual(state.values);
   });
@@ -147,6 +226,7 @@ describe("runtime state", () => {
     let state = apply(initialRuntimeViewState, {
       snapshot: {
         invocations: {},
+        publishedByBinding: {},
         sessionId: "session-main",
         values: {},
         workerState: "ready",
@@ -165,6 +245,7 @@ describe("runtime state", () => {
     const sameSession = apply(state, {
       snapshot: {
         invocations: {},
+        publishedByBinding: {},
         sessionId: "session-main",
         values: {},
         workerState: "ready",
@@ -177,6 +258,7 @@ describe("runtime state", () => {
     const replacement = apply(sameSession, {
       snapshot: {
         invocations: {},
+        publishedByBinding: {},
         sessionId: "session-replaced",
         values: {},
         workerState: "ready",

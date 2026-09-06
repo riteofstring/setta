@@ -12,7 +12,9 @@ import {
   resolveRuntimeValue,
   runtimeCanInvoke,
   runtimeValueKey,
+  type RuntimeViewState,
 } from "../app/runtimeState";
+import type { Binding, Project } from "../backend/generatedContract";
 import {
   RealtimeDrawingRuntime,
   type DrawingHistoryState,
@@ -33,9 +35,75 @@ const DRAWING_TOOL_LABELS: Record<DrawingTool, string> = {
   erase: "Eraser",
   select: "Select",
 };
+const TERMINAL_INVOCATION_STATES = new Set([
+  "cancelled",
+  "completed",
+  "crashed",
+  "failed",
+  "superseded",
+  "timedOut",
+]);
+
+function snapshotBindings(project: Project, sectionId: string): Binding[] {
+  return project.bindings.filter(
+    (binding) =>
+      binding.trigger.sectionId === sectionId &&
+      binding.trigger.event === "snapshot",
+  );
+}
+
+function isCompletionPaced(project: Project, sectionId: string): boolean {
+  const bindings = snapshotBindings(project, sectionId);
+  return (
+    bindings.length > 0 &&
+    bindings.every(
+      (binding) =>
+        binding.scheduling.mode === "latest" &&
+        binding.scheduling.debounceMilliseconds === 0,
+    )
+  );
+}
+
+function canEmitSnapshot(
+  project: Project,
+  runtime: RuntimeViewState,
+  sectionId: string,
+): boolean {
+  if (!runtimeCanInvoke(runtime)) {
+    return false;
+  }
+  if (!isCompletionPaced(project, sectionId)) {
+    return true;
+  }
+  return snapshotBindings(project, sectionId).every((binding) => {
+    const invocation = runtime.invocations[binding.id];
+    return (
+      invocation === undefined ||
+      TERMINAL_INVOCATION_STATES.has(invocation.state)
+    );
+  });
+}
+
+function snapshotCapacityKey(
+  project: Project,
+  runtime: RuntimeViewState,
+  sectionId: string,
+): string {
+  return JSON.stringify({
+    bindings: snapshotBindings(project, sectionId).map((binding) => ({
+      debounceMilliseconds: binding.scheduling.debounceMilliseconds,
+      id: binding.id,
+      invocation: runtime.invocations[binding.id] ?? null,
+      mode: binding.scheduling.mode,
+    })),
+    connection: runtime.connection,
+    sessionId: runtime.sessionId,
+    workerState: runtime.workerState,
+  });
+}
 
 export function DrawingSection({ section }: { section: WorkspaceSection }) {
-  const { actions, runtime } = useRealtime();
+  const { actions, project, runtime } = useRealtime();
   const data = readDrawingSectionData(section.data);
   const { background, height, width } = data;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -53,9 +121,12 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     data.scene,
   ) as WorkspaceSectionData;
   const sceneRef = useRef(scene);
+  const projectRef = useRef(project);
   const runtimeRef = useRef(runtime);
-  const canInvoke = runtimeCanInvoke(runtime);
+  const snapshotCanEmit = canEmitSnapshot(project, runtime, section.id);
+  const capacityKey = snapshotCapacityKey(project, runtime, section.id);
   sceneRef.current = scene;
+  projectRef.current = project;
   runtimeRef.current = runtime;
 
   useEffect(() => {
@@ -86,7 +157,8 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     resizeObserver.observe(stage);
     drawing.resizeToFit(stage.clientWidth, stage.clientHeight);
     settlement = new DrawingSettlementQueue({
-      canEmit: () => runtimeCanInvoke(runtimeRef.current),
+      canEmit: () =>
+        canEmitSnapshot(projectRef.current, runtimeRef.current, section.id),
       capture: () => drawing.captureSnapshot(),
       capturePreview: () => drawing.capturePreview(),
       commit: (nextScene) => {
@@ -100,8 +172,12 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       },
       delayMilliseconds: SETTLE_DELAY_MILLISECONDS,
       emit: (reference) => {
-        actions.emit(section.id, "snapshot", { contentRef: reference });
+        return actions.emit(section.id, "snapshot", {
+          contentRef: reference,
+        });
       },
+      isCompletionPaced: () =>
+        isCompletionPaced(projectRef.current, section.id),
       onError: (error) => {
         actions.reportError(
           error instanceof Error
@@ -135,10 +211,10 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
   }, [actions, background, height, section.id, width]);
 
   useEffect(() => {
-    if (canInvoke) {
+    if (snapshotCanEmit) {
       settlementRef.current?.resume();
     }
-  }, [canInvoke]);
+  }, [capacityKey, snapshotCanEmit]);
 
   useEffect(() => {
     const drawing = drawingRef.current;

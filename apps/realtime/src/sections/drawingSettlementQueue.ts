@@ -13,7 +13,8 @@ type DrawingSettlementQueueOptions = {
   capturePreview: () => Promise<DrawingSnapshot>;
   commit: (scene: WorkspaceSectionData) => Promise<boolean>;
   delayMilliseconds: number;
-  emit: (reference: ContentReference) => void;
+  emit: (reference: ContentReference) => boolean;
+  isCompletionPaced: () => boolean;
   onError: (error: unknown) => void;
   previewDelayMilliseconds: number;
   upload: (blob: Blob) => Promise<ContentReference>;
@@ -21,12 +22,15 @@ type DrawingSettlementQueueOptions = {
 
 export class DrawingSettlementQueue {
   private blockedSnapshot: {
+    reference: ContentReference | null;
     revision: number;
     snapshot: DrawingSnapshot;
   } | null = null;
+  private capacityConsumed = false;
   private readyRevision = 0;
   private previewReady = false;
   private previewTimer: number | null = null;
+  private retryPaused = false;
   private revision = 0;
   private running = false;
   private stopped = false;
@@ -40,8 +44,20 @@ export class DrawingSettlementQueue {
     }
     const revision = ++this.revision;
     this.blockedSnapshot = null;
+    this.retryPaused = false;
     if (this.timer !== null) {
       window.clearTimeout(this.timer);
+      this.timer = null;
+    }
+    if (this.options.isCompletionPaced()) {
+      if (this.previewTimer !== null) {
+        window.clearTimeout(this.previewTimer);
+        this.previewTimer = null;
+      }
+      this.previewReady = false;
+      this.readyRevision = revision;
+      void this.drain();
+      return;
     }
     this.timer = window.setTimeout(() => {
       this.timer = null;
@@ -51,7 +67,15 @@ export class DrawingSettlementQueue {
   }
 
   public preview(): void {
-    if (this.stopped || !this.options.canEmit() || this.previewTimer !== null) {
+    if (this.stopped) {
+      return;
+    }
+    if (this.options.isCompletionPaced()) {
+      this.previewReady = true;
+      void this.drain();
+      return;
+    }
+    if (!this.options.canEmit() || this.previewTimer !== null) {
       return;
     }
     this.previewTimer = window.setTimeout(() => {
@@ -78,18 +102,35 @@ export class DrawingSettlementQueue {
   }
 
   public resume(): void {
-    const blocked = this.blockedSnapshot;
-    if (this.stopped || blocked === null || !this.options.canEmit()) {
+    if (this.stopped || !this.options.canEmit()) {
       return;
     }
-    this.readyRevision = blocked.revision;
+    this.retryPaused = false;
+    if (this.options.isCompletionPaced()) {
+      this.capacityConsumed = false;
+    }
+    const blocked = this.blockedSnapshot;
+    if (blocked !== null) {
+      this.readyRevision = blocked.revision;
+    }
     void this.drain();
   }
 
-  private activeSnapshot(revision: number): DrawingSnapshot | null {
+  private canProcess(): boolean {
+    return (
+      this.options.canEmit() &&
+      !this.retryPaused &&
+      (!this.options.isCompletionPaced() || !this.capacityConsumed)
+    );
+  }
+
+  private activeSnapshot(revision: number): {
+    reference: ContentReference | null;
+    snapshot: DrawingSnapshot;
+  } | null {
     const blocked = this.blockedSnapshot;
     return blocked !== null && blocked.revision === revision
-      ? blocked.snapshot
+      ? { reference: blocked.reference, snapshot: blocked.snapshot }
       : null;
   }
 
@@ -105,56 +146,117 @@ export class DrawingSettlementQueue {
     return committed && this.isCurrent(revision);
   }
 
+  private block(
+    revision: number,
+    snapshot: DrawingSnapshot,
+    reference: ContentReference | null,
+  ): false {
+    this.blockedSnapshot = { reference, revision, snapshot };
+    return false;
+  }
+
+  private sent(reference: ContentReference): boolean {
+    const emitted = this.options.emit(reference);
+    if (emitted && this.options.isCompletionPaced()) {
+      this.capacityConsumed = true;
+    }
+    return emitted;
+  }
+
   private async process(revision: number): Promise<boolean> {
+    if (this.options.isCompletionPaced() && !this.canProcess()) {
+      this.readyRevision = revision;
+      return false;
+    }
     const blocked = this.activeSnapshot(revision);
-    const snapshot = blocked ?? (await this.options.capture());
+    let snapshot: DrawingSnapshot;
+    try {
+      snapshot = blocked?.snapshot ?? (await this.options.capture());
+    } catch (error) {
+      if (this.isCurrent(revision)) {
+        this.readyRevision = revision;
+        this.retryPaused = true;
+      }
+      throw error;
+    }
     if (!this.isCurrent(revision)) {
       return true;
     }
     if (blocked === null && !(await this.persist(revision, snapshot))) {
       return true;
     }
-    if (!this.options.canEmit()) {
-      this.blockedSnapshot = { revision, snapshot };
-      return false;
+    if (!this.canProcess()) {
+      return this.block(revision, snapshot, blocked?.reference ?? null);
+    }
+    let reference: ContentReference;
+    try {
+      reference =
+        blocked?.reference ?? (await this.options.upload(snapshot.blob));
+    } catch (error) {
+      if (this.isCurrent(revision)) {
+        this.retryPaused = true;
+        this.block(revision, snapshot, null);
+      }
+      throw error;
+    }
+    if (!this.isCurrent(revision)) {
+      return true;
+    }
+    if (!this.canProcess()) {
+      return this.block(revision, snapshot, reference);
+    }
+    if (!this.sent(reference)) {
+      this.retryPaused = true;
+      return this.block(revision, snapshot, reference);
     }
     this.blockedSnapshot = null;
-    const reference = await this.options.upload(snapshot.blob);
-    if (this.isCurrent(revision)) {
-      this.options.emit(reference);
-    }
-    return true;
+    return !this.options.isCompletionPaced();
   }
 
   private continueDrain(): void {
-    if (
-      !this.stopped &&
-      (this.readyRevision !== 0 ||
-        (this.previewReady && this.options.canEmit()))
-    ) {
+    if (this.stopped) {
+      return;
+    }
+    const finalReady =
+      this.readyRevision !== 0 &&
+      !this.retryPaused &&
+      (!this.options.isCompletionPaced() || this.canProcess());
+    if (finalReady || (this.previewReady && this.canProcess())) {
       void this.drain();
     }
   }
 
-  private async processPreview(): Promise<void> {
-    this.previewReady = false;
-    if (!this.options.canEmit()) {
-      return;
+  private async processPreview(): Promise<boolean> {
+    if (!this.canProcess()) {
+      return false;
     }
+    this.previewReady = false;
+    const revision = this.revision;
     const snapshot = await this.options.capturePreview();
-    if (this.stopped || !this.options.canEmit()) {
-      return;
+    if (!this.isCurrent(revision)) {
+      return true;
+    }
+    if (!this.canProcess()) {
+      this.previewReady = true;
+      return false;
     }
     const reference = await this.options.upload(snapshot.blob);
-    if (!this.stopped) {
-      this.options.emit(reference);
+    if (!this.isCurrent(revision)) {
+      return true;
     }
+    if (!this.canProcess()) {
+      this.previewReady = true;
+      return false;
+    }
+    if (!this.sent(reference)) {
+      return true;
+    }
+    return !this.options.isCompletionPaced();
   }
 
   private async processNext(): Promise<boolean> {
     if (this.readyRevision === 0) {
-      await this.processPreview();
-      return true;
+      return this.processPreview();
     }
     const revision = this.readyRevision;
     this.readyRevision = 0;
@@ -166,7 +268,7 @@ export class DrawingSettlementQueue {
       return await this.processNext();
     } catch (error) {
       this.options.onError(error);
-      return true;
+      return false;
     }
   }
 
