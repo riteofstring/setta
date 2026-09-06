@@ -31,7 +31,7 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
         )
         run_patch = mock.patch.object(run_realtime_playground.subprocess, "run")
         self.which = which_patch.start()
-        self.run = run_patch.start()
+        self.subprocess_run = run_patch.start()
         self.addCleanup(which_patch.stop)
         self.addCleanup(run_patch.stop)
 
@@ -52,7 +52,7 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
                 str(self.workspace),
             ]
         )
-        self.run.assert_called_once_with(
+        self.subprocess_run.assert_called_once_with(
             [
                 "/tools/uv",
                 "sync",
@@ -80,8 +80,8 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
 
     def test_environment_sync_failure_prevents_open(self) -> None:
         _write_project(self.fixture, "fixture")
-        self.run.side_effect = run_realtime_playground.subprocess.CalledProcessError(
-            1, ["uv", "sync"]
+        self.subprocess_run.side_effect = (
+            run_realtime_playground.subprocess.CalledProcessError(1, ["uv", "sync"])
         )
         stderr = io.StringIO()
         with (
