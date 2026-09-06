@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "id": "project-neon-sketch",
+  "revision": 0,
+  "name": "Neon Sketch",
+  "runtime": {
+    "kind": "python",
+    "entrypoint": "app.py"
+  },
+  "sections": {
+    "drawing": {
+      "id": "drawing",
+      "kind": "drawing",
+      "name": "Draw here",
+      "width": 520,
+      "height": 400,
+      "overflowMode": false,
+      "positionAndSizeLocked": false,
+      "isHorizontalOrientation": false,
+      "styleColor": null,
+      "tagColor": null,
+      "children": [],
+      "data": {
+        "background": "#ffffff",
+        "height": 320,
+        "scene": {
+          "objects": [],
+          "version": "7.4.0"
+        },
+        "width": 480
+      }
+    },
+    "result": {
+      "id": "result",
+      "kind": "output",
+      "name": "Neon result",
+      "width": 520,
+      "height": 400,
+      "overflowMode": false,
+      "positionAndSizeLocked": false,
+      "isHorizontalOrientation": false,
+      "styleColor": null,
+      "tagColor": null,
+      "children": [],
+      "data": {
+        "value": "Your processed drawing will appear here."
+      }
+    },
+    "status": {
+      "id": "status",
+      "kind": "status",
+      "name": "Processing status",
+      "width": 1080,
+      "height": 96,
+      "overflowMode": false,
+      "positionAndSizeLocked": false,
+      "isHorizontalOrientation": false,
+      "styleColor": null,
+      "tagColor": null,
+      "children": [],
+      "data": {
+        "level": "info",
+        "message": "Choose Draw and make a mark. Processing starts automatically."
+      }
+    }
+  },
+  "layout": {
+    "topLevelSections": {
+      "drawing": {
+        "x": 24,
+        "y": 24,
+        "width": 520,
+        "height": 400,
+        "zIndex": 1
+      },
+      "result": {
+        "x": 568,
+        "y": 24,
+        "width": 520,
+        "height": 400,
+        "zIndex": 1
+      },
+      "status": {
+        "x": 24,
+        "y": 448,
+        "width": 1064,
+        "height": 96,
+        "zIndex": 1
+      }
+    },
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  },
+  "bindings": [
+    {
+      "id": "stylize-drawing",
+      "trigger": {
+        "sectionId": "drawing",
+        "event": "snapshot"
+      },
+      "handler": "neon_glitch",
+      "arguments": {
+        "drawing": "$event.contentRef"
+      },
+      "scheduling": {
+        "mode": "latest",
+        "debounceMilliseconds": 120,
+        "concurrencyGroup": "image-processing",
+        "concurrencyLimit": 1
+      },
+      "outputs": {
+        "image": {
+          "sectionId": "result",
+          "field": "contentRef"
+        },
+        "level": {
+          "sectionId": "status",
+          "field": "level"
+        },
+        "status": {
+          "sectionId": "status",
+          "field": "message"
+        }
+      }
+    }
+  ],
+  "configuration": {}
+}

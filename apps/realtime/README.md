@@ -14,6 +14,19 @@ setta realtime reload --project-root ./my-app --pretty
 setta realtime invoke --project-root ./my-app --handler increment --file input.json --pretty
 ```
 
+## Drawing playground
+
+The checked-in playground turns each settled drawing into a neon-glitch image using only Python's
+standard library and browser-native SVG filters:
+
+```console
+setta realtime open --project-root ./apps/realtime/examples/neon-sketch
+```
+
+Choose **Draw**, make a mark, and the processed result appears beside the drawing. The example is
+an ordinary Realtime project: its authored document is under `.local/realtime/project.json`, and
+its editable handler is `app.py`. It requires no GPU, model download, or project dependency.
+
 `open` owns one foreground session and stops when its Setta supervisor exits. When that session is
 running, `snapshot`, `apply`, `reload`, and `invoke` address its live coordinator. Without a live
 session, the same commands operate through a bounded local coordinator. `schema` is offline and is

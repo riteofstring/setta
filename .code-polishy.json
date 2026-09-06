@@ -155,6 +155,7 @@
       "apps/python-canvas/visual-parity/compare.mjs",
       "apps/python-canvas/visual-parity/capture.mjs",
       "apps/realtime/backend/cmd/realtime/main.go",
+      "apps/realtime/examples/neon-sketch/app.py",
       "apps/realtime/src/main.tsx",
       "apps/realtime/vitest.setup.ts",
       "packages/workspace/tailwind-preset.mjs",
@@ -215,7 +216,7 @@
     },
     {
       "name": "realtime-backend",
-      "paths": ["apps/realtime/backend/**"]
+      "paths": ["apps/realtime/backend/**", "apps/realtime/examples/**"]
     },
     {
       "name": "realtime-frontend",
