@@ -8,7 +8,13 @@ import unittest
 from pathlib import Path
 
 from platform_contract import required_platform_tag
-from scripts._stage_setta_wheel import StageError, StageInputs, parse_target, stage
+from scripts._stage_setta_wheel import (
+    StageAppInputs,
+    StageError,
+    StageInputs,
+    parse_target,
+    stage,
+)
 from setta.runtime import (
     PackagedRuntime,
     RuntimeTarget,
@@ -35,17 +41,32 @@ class WheelStagingTests(unittest.TestCase):
         )
         self.native.write_bytes(_native_binary(self.target))
         self.native.chmod(0o755)
+        self.realtime_native = self.root / (
+            "realtime.exe" if self.target.os == "windows" else "realtime"
+        )
+        self.realtime_native.write_bytes(_native_binary(self.target))
+        self.realtime_native.chmod(0o755)
         self.web = self.root / "web"
         (self.web / "assets").mkdir(parents=True)
         (self.web / "index.html").write_text("<!doctype html>", encoding="utf-8")
         (self.web / "assets" / "app.js").write_text(
             "console.log('setta')", encoding="utf-8"
         )
+        self.realtime_web = self.root / "realtime-web"
+        (self.realtime_web / "assets").mkdir(parents=True)
+        (self.realtime_web / "index.html").write_text(
+            "<!doctype html>", encoding="utf-8"
+        )
+        (self.realtime_web / "assets" / "app.js").write_text(
+            "console.log('realtime')", encoding="utf-8"
+        )
 
     def _inputs(self, output: Path) -> StageInputs:
         return StageInputs(
-            native_server=self.native,
-            web_root=self.web,
+            apps=(
+                StageAppInputs("realtime", self.realtime_native, self.realtime_web),
+                StageAppInputs("python-canvas", self.native, self.web),
+            ),
             output=output,
             target=self.target,
             wheel_platform_tag=required_platform_tag(self.target.os, self.target.arch),
@@ -65,15 +86,32 @@ class WheelStagingTests(unittest.TestCase):
                 "bin/python-canvas.exe"
                 if self.target.os == "windows"
                 else "bin/python-canvas",
+                "bin/realtime.exe" if self.target.os == "windows" else "bin/realtime",
                 "python-canvas/web/assets/app.js",
                 "python-canvas/web/index.html",
+                "realtime/web/assets/app.js",
+                "realtime/web/index.html",
             ],
         )
+        self.assertEqual(tuple(manifest.apps), ("python-canvas", "realtime"))
 
     def test_staging_is_deterministic_for_identical_inputs(self) -> None:
         first = stage(self._inputs(self.root / "stage-one"))
         second = stage(self._inputs(self.root / "stage-two"))
         self.assertEqual(_tree_bytes(first), _tree_bytes(second))
+
+    def test_rejects_duplicate_app_ids_before_creating_output(self) -> None:
+        output = self.root / "duplicate-stage"
+        inputs = self._inputs(output)
+        duplicate = StageInputs(
+            apps=(inputs.apps[0], inputs.apps[0]),
+            output=output,
+            target=inputs.target,
+            wheel_platform_tag=inputs.wheel_platform_tag,
+        )
+        with self.assertRaisesRegex(StageError, "invalid or duplicated"):
+            stage(duplicate)
+        self.assertFalse(output.exists())
 
     def test_rejects_a_web_symlink_before_it_can_enter_the_runtime(self) -> None:
         link = self.web / "assets" / "linked.js"

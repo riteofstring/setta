@@ -12,6 +12,7 @@ minimumReleaseAgeIgnoreMissingTime: false
 minimumReleaseAgeExclude:
   - "@xyflow/react@12.11.5"
   - "@xyflow/system@0.0.81"
+  - "fast-uri@3.1.6"
 trustPolicy: no-downgrade
 trustLockfile: false
 blockExoticSubdeps: true

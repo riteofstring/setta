@@ -1,6 +1,6 @@
 # Standalone Realtime App implementation plan
 
-Status: proposed
+Status: implemented
 
 This plan adds a `realtime` app beside Python Canvas. It lets AI author a local interactive user
 interface and connect its events to arbitrary Python code. Python Canvas can help someone prototype

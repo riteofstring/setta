@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import re
 import shutil
 import stat
 import tempfile
@@ -24,7 +25,7 @@ from setta.runtime import (
 )
 
 ROOT = Path(__file__).resolve().parents[3]
-_APP_ID = "python-canvas"
+_APP_ID = re.compile(r"^[a-z][a-z0-9-]*$")
 
 
 class StageError(Exception):
@@ -32,9 +33,15 @@ class StageError(Exception):
 
 
 @dataclass(frozen=True)
-class StageInputs:
+class StageAppInputs:
+    app_id: str
     native_server: Path
     web_root: Path
+
+
+@dataclass(frozen=True)
+class StageInputs:
+    apps: tuple[StageAppInputs, ...]
     output: Path
     target: RuntimeTarget
     wheel_platform_tag: str | None = None
@@ -42,8 +49,13 @@ class StageInputs:
 
 def main(arguments: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--native-server", required=True, type=Path)
-    parser.add_argument("--web-root", required=True, type=Path)
+    parser.add_argument(
+        "--app",
+        action="append",
+        nargs=3,
+        required=True,
+        metavar=("APP_ID", "NATIVE_SERVER", "WEB_ROOT"),
+    )
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument(
         "--target", required=True, help="platform target, for example darwin-arm64"
@@ -56,8 +68,10 @@ def main(arguments: list[str] | None = None) -> int:
     try:
         stage(
             StageInputs(
-                native_server=namespace.native_server,
-                web_root=namespace.web_root,
+                apps=tuple(
+                    StageAppInputs(app_id, Path(native_server), Path(web_root))
+                    for app_id, native_server, web_root in namespace.app
+                ),
                 output=namespace.output,
                 target=parse_target(namespace.target),
                 wheel_platform_tag=namespace.wheel_platform_tag,
@@ -80,28 +94,25 @@ def parse_target(value: str) -> RuntimeTarget:
 
 
 def stage(inputs: StageInputs) -> Path:
-
-    native_server = _require_regular_file(inputs.native_server, "native server")
-    web_files = _collect_web_files(inputs.web_root)
     platform_tag = _release_platform_tag(inputs)
-    _validate_native_binary(native_server, inputs.target, platform_tag)
+    apps = _validated_apps(inputs.apps, inputs.target, platform_tag)
     output = _prepare_output_path(inputs.output)
     temporary = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent))
     published = False
     try:
         runtime_root = temporary / "setta" / "_runtime"
-        native_name = (
-            "python-canvas.exe" if inputs.target.os == "windows" else "python-canvas"
-        )
-        staged_native = runtime_root / "bin" / native_name
-        staged_native.parent.mkdir(parents=True, exist_ok=False)
-        _copy_regular_file(native_server, staged_native, executable=True)
-        staged_web_root = runtime_root / _APP_ID / "web"
-        for source, relative in web_files:
-            destination = staged_web_root.joinpath(*relative.parts)
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            _copy_regular_file(source, destination, executable=False)
-        manifest = _manifest_for(runtime_root, inputs.target, native_name)
+        (runtime_root / "bin").mkdir(parents=True, exist_ok=False)
+        for app, native_server, web_files in apps:
+            native_name = _native_name(app.app_id, inputs.target)
+            _copy_regular_file(
+                native_server, runtime_root / "bin" / native_name, executable=True
+            )
+            staged_web_root = runtime_root / app.app_id / "web"
+            for source, relative in web_files:
+                destination = staged_web_root.joinpath(*relative.parts)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                _copy_regular_file(source, destination, executable=False)
+        manifest = _manifest_for(runtime_root, inputs.target, apps)
         manifest_path = runtime_root / "manifest.json"
         manifest_path.write_bytes(_canonical_json_bytes(manifest))
         _fsync_tree(runtime_root)
@@ -116,6 +127,33 @@ def stage(inputs: StageInputs) -> Path:
         if not published:
             shutil.rmtree(temporary, ignore_errors=True)
     return output / "setta" / "_runtime"
+
+
+def _validated_apps(
+    values: tuple[StageAppInputs, ...],
+    target: RuntimeTarget,
+    platform_tag: str,
+) -> tuple[tuple[StageAppInputs, Path, list[tuple[Path, Path]]], ...]:
+    if not values:
+        raise StageError("at least one packaged app is required")
+    app_ids: set[str] = set()
+    validated: list[tuple[StageAppInputs, Path, list[tuple[Path, Path]]]] = []
+    for app in values:
+        if not _APP_ID.fullmatch(app.app_id) or app.app_id in app_ids:
+            raise StageError(
+                f"packaged app ID is invalid or duplicated: {app.app_id!r}"
+            )
+        app_ids.add(app.app_id)
+        native_server = _require_regular_file(
+            app.native_server, f"{app.app_id} native server"
+        )
+        _validate_native_binary(native_server, target, platform_tag)
+        validated.append((app, native_server, _collect_web_files(app.web_root)))
+    return tuple(sorted(validated, key=lambda value: value[0].app_id))
+
+
+def _native_name(app_id: str, target: RuntimeTarget) -> str:
+    return f"{app_id}.exe" if target.os == "windows" else app_id
 
 
 def _prepare_output_path(value: Path) -> Path:
@@ -225,13 +263,16 @@ def _copy_regular_file(source: Path, destination: Path, *, executable: bool) -> 
 
 
 def _manifest_for(
-    runtime_root: Path, target: RuntimeTarget, native_name: str
+    runtime_root: Path,
+    target: RuntimeTarget,
+    apps: tuple[tuple[StageAppInputs, Path, list[tuple[Path, Path]]], ...],
 ) -> dict[str, object]:
+    native_paths = {f"bin/{_native_name(app.app_id, target)}" for app, _, _ in apps}
     assets: list[dict[str, object]] = []
     for source, relative in _all_staged_regular_files(runtime_root):
         assets.append(
             {
-                "executable": relative.as_posix() == f"bin/{native_name}",
+                "executable": relative.as_posix() in native_paths,
                 "path": relative.as_posix(),
                 "sha256": _sha256(source),
             }
@@ -240,10 +281,11 @@ def _manifest_for(
     return {
         "apps": [
             {
-                "id": _APP_ID,
-                "nativeServer": f"bin/{native_name}",
-                "webRoot": f"{_APP_ID}/web",
+                "id": app.app_id,
+                "nativeServer": f"bin/{_native_name(app.app_id, target)}",
+                "webRoot": f"{app.app_id}/web",
             }
+            for app, _, _ in apps
         ],
         "assets": assets,
         "formatVersion": MANIFEST_FORMAT,

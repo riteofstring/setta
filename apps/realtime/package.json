@@ -1,0 +1,28 @@
+{
+  "name": "@setta/realtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm --filter @setta/workspace run build && pnpm run contract:generate && tsc --noEmit -p tsconfig.json && vite build",
+    "dev": "vite",
+    "test": "pnpm --filter @setta/workspace run build && vitest run",
+    "contract:generate": "go -C backend run ./cmd/generate-contract && node scripts/compile-validators.mjs",
+    "contract:check": "go -C backend run ./cmd/generate-contract -check && node scripts/compile-validators.mjs --check"
+  },
+  "dependencies": {
+    "@setta/workspace": "workspace:*",
+    "ajv": "8.20.0",
+    "fabric": "7.4.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.12",
+    "@types/react-dom": "19.1.8",
+    "jsdom": "28.1.0",
+    "typescript": "6.0.3",
+    "vite": "6.4.3",
+    "vitest": "4.1.10"
+  }
+}

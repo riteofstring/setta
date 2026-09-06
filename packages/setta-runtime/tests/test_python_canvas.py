@@ -134,10 +134,9 @@ class PythonCanvasAdapterTests(unittest.TestCase):
                     stderr=sys.stderr,
                     launcher_python=Path(sys.executable),
                     browser_open=lambda _url: True,
-                    basedpyright_resolver=lambda: Path("/basedpyright"),
                 )
                 self.assertEqual(
-                    PythonCanvasAdapter().dispatch(
+                    PythonCanvasAdapter(lambda: Path("/basedpyright")).dispatch(
                         ("open", "--project", str(temporary / "project"), "--no-open"),
                         context,
                     ),
