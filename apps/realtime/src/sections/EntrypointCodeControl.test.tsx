@@ -122,6 +122,10 @@ describe("entrypoint code header control", () => {
     expect(button.getAttribute("aria-label")).toBe("Apply & reload");
     expect(button.title).toContain("Ctrl/⌘+Enter");
     expect(button.className).toContain("text-setta-600");
+    expect(button.textContent).toBe("Apply");
+    expect(
+      button.querySelector('[data-runtime-source-action-icon="play"]'),
+    ).not.toBeNull();
 
     await act(async () => button.click());
     expect(applyRuntimeSource).toHaveBeenCalledWith("code-main", "draft\n");
@@ -150,6 +154,10 @@ describe("entrypoint code header control", () => {
     });
     expect(button.disabled).toBe(true);
     expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(button.textContent).toBe("Applying…");
+    expect(
+      button.querySelector('[data-runtime-source-action-icon="busy"]'),
+    ).not.toBeNull();
 
     button = await render(
       makeSection("draft\n", { positionAndSizeLocked: true }),
