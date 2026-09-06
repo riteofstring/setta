@@ -1,0 +1,790 @@
+{
+  "$defs": {
+    "binding": {
+      "additionalProperties": false,
+      "properties": {
+        "arguments": {
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          },
+          "maxProperties": 128,
+          "propertyNames": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "handler": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "outputs": {
+          "additionalProperties": {
+            "additionalProperties": false,
+            "properties": {
+              "field": {
+                "enum": [
+                  "value",
+                  "contentRef",
+                  "message",
+                  "level",
+                  "progress",
+                  "scene"
+                ]
+              },
+              "sectionId": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "sectionId",
+              "field"
+            ],
+            "type": "object"
+          },
+          "maxProperties": 128,
+          "propertyNames": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "scheduling": {
+          "additionalProperties": false,
+          "properties": {
+            "concurrencyGroup": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "concurrencyLimit": {
+              "maximum": 64,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "debounceMilliseconds": {
+              "maximum": 60000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "mode": {
+              "enum": [
+                "once",
+                "latest",
+                "parallel"
+              ]
+            }
+          },
+          "required": [
+            "mode",
+            "debounceMilliseconds",
+            "concurrencyGroup",
+            "concurrencyLimit"
+          ],
+          "type": "object"
+        },
+        "trigger": {
+          "additionalProperties": false,
+          "properties": {
+            "event": {
+              "enum": [
+                "change",
+                "submit",
+                "press",
+                "snapshot"
+              ]
+            },
+            "sectionId": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "sectionId",
+            "event"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "trigger",
+        "handler",
+        "arguments",
+        "scheduling",
+        "outputs"
+      ],
+      "type": "object"
+    },
+    "jsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "runtime": {
+      "additionalProperties": false,
+      "properties": {
+        "entrypoint": {
+          "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+          "type": "string"
+        },
+        "kind": {
+          "pattern": "^[a-z][a-z0-9-]{0,63}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "entrypoint"
+      ],
+      "type": "object"
+    },
+    "section": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "children": {
+              "items": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 1024,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "inputKind": {
+                  "enum": [
+                    "text",
+                    "number",
+                    "boolean"
+                  ]
+                },
+                "label": {
+                  "type": "string"
+                },
+                "value": {
+                  "$ref": "#/$defs/jsonValue"
+                }
+              },
+              "required": [
+                "inputKind",
+                "value",
+                "label"
+              ],
+              "type": "object"
+            },
+            "height": {
+              "$ref": "#/$defs/sizeValue"
+            },
+            "id": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "isHorizontalOrientation": {
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "input"
+            },
+            "name": {
+              "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+              "type": "string"
+            },
+            "overflowMode": {
+              "type": "boolean"
+            },
+            "positionAndSizeLocked": {
+              "type": "boolean"
+            },
+            "styleColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tagColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "width": {
+              "$ref": "#/$defs/sizeValue"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "name",
+            "width",
+            "height",
+            "overflowMode",
+            "positionAndSizeLocked",
+            "isHorizontalOrientation",
+            "styleColor",
+            "tagColor",
+            "children",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "children": {
+              "items": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 1024,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label"
+              ],
+              "type": "object"
+            },
+            "height": {
+              "$ref": "#/$defs/sizeValue"
+            },
+            "id": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "isHorizontalOrientation": {
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "button"
+            },
+            "name": {
+              "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+              "type": "string"
+            },
+            "overflowMode": {
+              "type": "boolean"
+            },
+            "positionAndSizeLocked": {
+              "type": "boolean"
+            },
+            "styleColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tagColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "width": {
+              "$ref": "#/$defs/sizeValue"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "name",
+            "width",
+            "height",
+            "overflowMode",
+            "positionAndSizeLocked",
+            "isHorizontalOrientation",
+            "styleColor",
+            "tagColor",
+            "children",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "children": {
+              "items": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 1024,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "$ref": "#/$defs/jsonValue"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "height": {
+              "$ref": "#/$defs/sizeValue"
+            },
+            "id": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "isHorizontalOrientation": {
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "output"
+            },
+            "name": {
+              "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+              "type": "string"
+            },
+            "overflowMode": {
+              "type": "boolean"
+            },
+            "positionAndSizeLocked": {
+              "type": "boolean"
+            },
+            "styleColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tagColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "width": {
+              "$ref": "#/$defs/sizeValue"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "name",
+            "width",
+            "height",
+            "overflowMode",
+            "positionAndSizeLocked",
+            "isHorizontalOrientation",
+            "styleColor",
+            "tagColor",
+            "children",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "children": {
+              "items": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 1024,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "level": {
+                  "enum": [
+                    "idle",
+                    "info",
+                    "success",
+                    "error"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "level",
+                "message"
+              ],
+              "type": "object"
+            },
+            "height": {
+              "$ref": "#/$defs/sizeValue"
+            },
+            "id": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "isHorizontalOrientation": {
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "status"
+            },
+            "name": {
+              "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+              "type": "string"
+            },
+            "overflowMode": {
+              "type": "boolean"
+            },
+            "positionAndSizeLocked": {
+              "type": "boolean"
+            },
+            "styleColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tagColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "width": {
+              "$ref": "#/$defs/sizeValue"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "name",
+            "width",
+            "height",
+            "overflowMode",
+            "positionAndSizeLocked",
+            "isHorizontalOrientation",
+            "styleColor",
+            "tagColor",
+            "children",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "children": {
+              "items": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 1024,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "background": {
+                  "pattern": "^#[0-9A-Fa-f]{6}$",
+                  "type": "string"
+                },
+                "height": {
+                  "maximum": 8192,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "scene": {
+                  "$ref": "#/$defs/jsonValue"
+                },
+                "width": {
+                  "maximum": 8192,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "scene",
+                "width",
+                "height",
+                "background"
+              ],
+              "type": "object"
+            },
+            "height": {
+              "$ref": "#/$defs/sizeValue"
+            },
+            "id": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "isHorizontalOrientation": {
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "drawing"
+            },
+            "name": {
+              "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+              "type": "string"
+            },
+            "overflowMode": {
+              "type": "boolean"
+            },
+            "positionAndSizeLocked": {
+              "type": "boolean"
+            },
+            "styleColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tagColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "width": {
+              "$ref": "#/$defs/sizeValue"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "name",
+            "width",
+            "height",
+            "overflowMode",
+            "positionAndSizeLocked",
+            "isHorizontalOrientation",
+            "styleColor",
+            "tagColor",
+            "children",
+            "data"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "sizeValue": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "const": "auto"
+        }
+      ]
+    },
+    "topLevelLayout": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "zIndex": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height",
+        "zIndex"
+      ],
+      "type": "object"
+    },
+    "viewport": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "zoom": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "zoom"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://setta.local/schemas/realtime/project-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bindings": {
+      "items": {
+        "$ref": "#/$defs/binding"
+      },
+      "maxItems": 1024,
+      "type": "array"
+    },
+    "configuration": {
+      "additionalProperties": {
+        "$ref": "#/$defs/jsonValue"
+      },
+      "maxProperties": 512,
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "layout": {
+      "additionalProperties": false,
+      "properties": {
+        "topLevelSections": {
+          "additionalProperties": {
+            "$ref": "#/$defs/topLevelLayout"
+          },
+          "maxProperties": 1024,
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "viewport": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/viewport"
+            }
+          ]
+        }
+      },
+      "required": [
+        "topLevelSections",
+        "viewport"
+      ],
+      "type": "object"
+    },
+    "name": {
+      "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "runtime": {
+      "$ref": "#/$defs/runtime"
+    },
+    "sections": {
+      "additionalProperties": {
+        "$ref": "#/$defs/section"
+      },
+      "maxProperties": 1024,
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "version": {
+      "const": 1
+    }
+  },
+  "required": [
+    "version",
+    "id",
+    "revision",
+    "name",
+    "runtime",
+    "sections",
+    "layout",
+    "bindings",
+    "configuration"
+  ],
+  "title": "Setta Realtime Project V1",
+  "type": "object"
+}

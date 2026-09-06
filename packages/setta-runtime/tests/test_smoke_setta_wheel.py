@@ -30,9 +30,16 @@ class WheelInspectionTests(unittest.TestCase):
         self.assertEqual(inspection.version, "1.2.3")
         self.assertEqual(inspection.platform_tag, "macosx_13_0_arm64")
         self.assertEqual(inspection.target, ("darwin", "arm64"))
-        self.assertEqual(inspection.native_member, "setta/_runtime/bin/python-canvas")
+        self.assertEqual(
+            tuple(app.app_id for app in inspection.apps),
+            ("python-canvas", "realtime"),
+        )
+        self.assertEqual(
+            inspection.apps[1].native_member, "setta/_runtime/bin/realtime"
+        )
         self.assertIn(
-            "setta/_runtime/python-canvas/web/index.html", inspection.web_members
+            "setta/_runtime/realtime/web/index.html",
+            inspection.apps[1].web_members,
         )
 
     def test_rejects_a_source_tree_path_even_when_recorded(self) -> None:
@@ -51,6 +58,7 @@ class WheelInspectionTests(unittest.TestCase):
                 extra_entries={
                     "setta/apps/__init__.py": b"",
                     "setta/apps/python_canvas.py": b"",
+                    "setta/apps/realtime.py": b"",
                 },
             )
             smoke.inspect_wheel(wheel)
@@ -689,8 +697,14 @@ def _write_wheel(
     wheel = directory / "setta-1.2.3-py3-none-macosx_13_0_arm64.whl"
     runtime = {
         "bin/python-canvas": (b"native-server", True),
+        "bin/realtime": (b"native-server", True),
         "python-canvas/web/assets/app-abc.js": (b"console.log('setta')", False),
         "python-canvas/web/index.html": (
+            b"<script src='/assets/app-abc.js'></script>",
+            False,
+        ),
+        "realtime/web/assets/app-abc.js": (b"console.log('realtime')", False),
+        "realtime/web/index.html": (
             b"<script src='/assets/app-abc.js'></script>",
             False,
         ),
@@ -709,7 +723,12 @@ def _write_wheel(
                 "id": "python-canvas",
                 "nativeServer": "bin/python-canvas",
                 "webRoot": "python-canvas/web",
-            }
+            },
+            {
+                "id": "realtime",
+                "nativeServer": "bin/realtime",
+                "webRoot": "realtime/web",
+            },
         ],
         "assets": assets,
         "formatVersion": "setta-runtime/v1",

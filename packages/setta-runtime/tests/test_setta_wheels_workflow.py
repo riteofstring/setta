@@ -24,6 +24,8 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
             "fixtures/packed-consumer/package.json",
             "fixtures/packed-consumer/package.template.json",
             "apps/playground/package.json",
+            "apps/realtime/src/main.tsx",
+            "apps/realtime/backend/cmd/realtime/main.go",
         ):
             self.assertTrue(
                 _is_covered_by_any_path_filter(build_input, pull_request_paths),
@@ -45,6 +47,7 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
 
         for required in (
             "go -C apps/python-canvas/backend mod verify",
+            "go -C apps/realtime/backend mod verify",
             'host_go_mod_cache="$(go env GOMODCACHE)"',
             'test -d "$host_go_mod_cache"',
             "mkdir -p build/setta-native/go-build-cache",
@@ -61,9 +64,51 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
             self.assertIn(required, linux)
 
         self.assertLess(
-            linux.index("go -C apps/python-canvas/backend mod verify"),
-            linux.index("Build the CGO server in pinned manylinux 2.28"),
+            linux.index("go -C apps/realtime/backend mod verify"),
+            linux.index("Build both native servers in pinned manylinux 2.28"),
         )
+        self.assertEqual(linux.count("--network none"), 3)
+
+    def test_every_platform_builds_and_packages_both_registered_apps(self) -> None:
+        contents = WORKFLOW.read_text(encoding="utf-8")
+        jobs = {
+            "macos": contents.split("\n  macos-wheel:\n", 1)[1].split(
+                "\n  linux-wheel:\n", 1
+            )[0],
+            "linux": contents.split("\n  linux-wheel:\n", 1)[1].split(
+                "\n  windows-wheel:\n", 1
+            )[0],
+            "windows": contents.split("\n  windows-wheel:\n", 1)[1],
+        }
+
+        for name, job in jobs.items():
+            with self.subTest(job=name):
+                for required in (
+                    "go -C apps/python-canvas/backend test ./...",
+                    "go -C apps/python-canvas/backend mod verify",
+                    "go -C apps/realtime/backend test ./...",
+                    "go -C apps/realtime/backend mod verify",
+                    "pnpm --filter @setta/workspace run build",
+                    "pnpm --filter @setta/python-canvas run build",
+                    "pnpm --filter @setta/realtime run build",
+                    '--native-server "python-canvas=',
+                    '--native-server "realtime=',
+                    '--web-root "python-canvas=apps/python-canvas/dist"',
+                    '--web-root "realtime=apps/realtime/dist"',
+                    "--skip-frontend-build",
+                    "apps/realtime/backend/.go-version",
+                ):
+                    self.assertIn(required, job)
+                self.assertEqual(job.count('--native-server "python-canvas='), 1)
+                self.assertEqual(job.count('--native-server "realtime='), 1)
+
+        for backend in ("python-canvas", "realtime"):
+            self.assertIn(f"go -C apps/{backend}/backend build", jobs["macos"])
+            self.assertIn(f"go -C apps/{backend}/backend build", jobs["windows"])
+            self.assertIn(f"--workdir /workspace/apps/{backend}/backend", jobs["linux"])
+            self.assertIn(f"-o /workspace/build/setta-native/{backend}", jobs["linux"])
+
+        self.assertNotIn("--native-server build/setta-native", contents)
 
     def test_linux_abi_audit_uses_the_digest_pinned_image_tool(self) -> None:
         contents = WORKFLOW.read_text(encoding="utf-8")

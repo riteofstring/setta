@@ -262,7 +262,7 @@ class NativeServerSupervisor:
             launched = _start_process(command, cwd)
         except OSError as error:
             raise RuntimeExecutionError(
-                "Unable to start the packaged Python Canvas server."
+                "Unable to start the packaged native server."
             ) from error
         process = launched.process
         try:
@@ -294,10 +294,15 @@ class NativeServerSupervisor:
             if process.poll() is not None:
                 raise RuntimeExecutionError(
                     _startup_message(
-                        "The packaged Python Canvas server exited during startup.",
+                        "The packaged native server exited during startup.",
                         stderr,
                     )
                 )
+            threading.Thread(
+                target=_drain_stream,
+                args=(cast(IO[str], process.stdout), _BoundedBytes(0)),
+                daemon=True,
+            ).start()
             managed = ManagedServer(
                 process=process,
                 readiness=readiness,
@@ -721,7 +726,7 @@ def _read_one_line(stream: IO[str], timeout: float) -> str:
         value = result.get(timeout=timeout)
     except queue.Empty as error:
         raise RuntimeExecutionError(
-            "The packaged Python Canvas server did not become ready in time."
+            "The packaged native server did not become ready in time."
         ) from error
     if isinstance(value, Exception):
         raise RuntimeExecutionError(

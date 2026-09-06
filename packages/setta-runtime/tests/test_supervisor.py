@@ -806,3 +806,28 @@ class NativeServerSupervisorTests(unittest.TestCase):
             self.assertTrue(managed.stdin.closed)
             self.assertEqual(managed.process.poll(), 0)
             self.assertEqual(marker.read_text(encoding="utf-8"), "eof")
+
+    def test_stdout_after_readiness_is_drained_without_blocking_exit(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary = Path(temporary_directory)
+            stub = temporary / "server.py"
+            stub.write_text(
+                "import json\n"
+                "import sys\n"
+                "print(json.dumps({'app': 'fixture-app', 'nonce': 'nonce', "
+                "'project': '/project', "
+                "'url': 'http://127.0.0.1:43123'}), flush=True)\n"
+                "sys.stdout.write('x' * (1024 * 1024))\n"
+                "sys.stdout.flush()\n",
+                encoding="utf-8",
+            )
+            supervisor = NativeServerSupervisor(readiness_timeout=2)
+            managed = supervisor.start(
+                [sys.executable, stub],
+                ExpectedReadiness(
+                    app_id="fixture-app",
+                    project_path="/project",
+                    instance_nonce="nonce",
+                ),
+            )
+            self.assertEqual(supervisor.wait_foreground(managed), 0)

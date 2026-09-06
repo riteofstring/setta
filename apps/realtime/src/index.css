@@ -1,0 +1,411 @@
+:root {
+  color: #172033;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  background: #eef1f6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.realtime-app {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  background:
+    radial-gradient(
+      circle at 75% 0%,
+      rgba(46, 93, 234, 0.09),
+      transparent 32rem
+    ),
+    #eef1f6;
+}
+
+.realtime-announcer {
+  position: fixed;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.realtime-app-header {
+  z-index: 20;
+  display: flex;
+  min-height: 70px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 12px 22px;
+  border-bottom: 1px solid rgba(117, 128, 153, 0.24);
+  background: rgba(250, 251, 253, 0.92);
+  box-shadow: 0 8px 30px rgba(24, 35, 58, 0.06);
+  backdrop-filter: blur(18px);
+}
+
+.realtime-app-header h1 {
+  margin: 2px 0 0;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.realtime-app-eyebrow {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.realtime-app-controls,
+.realtime-mode-toggle,
+.realtime-drawing-toolbar,
+.realtime-status-heading {
+  display: flex;
+  align-items: center;
+}
+
+.realtime-app-controls {
+  gap: 14px;
+}
+
+.realtime-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: capitalize;
+}
+
+.realtime-connection::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #98a2b3;
+  content: "";
+}
+
+.realtime-connection-connected::before {
+  background: #12b76a;
+  box-shadow: 0 0 0 3px rgba(18, 183, 106, 0.14);
+}
+
+.realtime-connection-invalid::before,
+.realtime-connection-disconnected::before {
+  background: #f04438;
+}
+
+.realtime-mode-toggle {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #d7dce5;
+  border-radius: 10px;
+  background: #eef1f6;
+}
+
+.realtime-mode-toggle button,
+.realtime-drawing-toolbar button {
+  border: 0;
+  border-radius: 7px;
+  color: #475467;
+  background: transparent;
+  cursor: pointer;
+}
+
+.realtime-mode-toggle button {
+  padding: 6px 11px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.realtime-mode-toggle button[aria-pressed="true"] {
+  color: #1d2939;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(16, 24, 40, 0.12);
+}
+
+.realtime-workspace,
+.realtime-loading {
+  min-width: 0;
+  min-height: 0;
+}
+
+.realtime-loading {
+  margin: 32px;
+  border-radius: 20px;
+  background: linear-gradient(105deg, #e4e7ec 25%, #f2f4f7 40%, #e4e7ec 55%);
+  background-size: 260% 100%;
+  animation: realtime-loading 1.4s ease infinite;
+}
+
+@keyframes realtime-loading {
+  to {
+    background-position: -160% 0;
+  }
+}
+
+.realtime-use-viewport {
+  overflow: auto;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+}
+
+.realtime-use-plane {
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.realtime-use-section {
+  display: flex;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  border: 1px solid rgba(146, 156, 178, 0.28);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 36px rgba(33, 44, 72, 0.09);
+}
+
+.realtime-use-section h2 {
+  margin: 0;
+  padding: 13px 16px 11px;
+  border-bottom: 1px solid #eaecf0;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.realtime-use-section-content {
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+  padding: 16px;
+}
+
+.realtime-use-drawing .realtime-use-section-content {
+  overflow: hidden;
+  padding: 0;
+}
+
+.realtime-use-nested {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+}
+
+.realtime-use-nested > .realtime-use-section {
+  min-height: 120px;
+}
+
+.realtime-field {
+  display: grid;
+  gap: 8px;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.realtime-field input[type="text"],
+.realtime-field input[type="number"] {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 11px;
+  border: 1px solid #d0d5dd;
+  border-radius: 9px;
+  outline: none;
+  color: #101828;
+  background: #fff;
+}
+
+.realtime-field input:focus {
+  border-color: #6172f3;
+  box-shadow: 0 0 0 3px rgba(97, 114, 243, 0.14);
+}
+
+.realtime-switch-field {
+  display: flex;
+  align-items: center;
+}
+
+.realtime-switch-field input {
+  width: 18px;
+  height: 18px;
+  accent-color: #444ce7;
+}
+
+.realtime-field-error {
+  min-height: 16px;
+  color: #d92d20;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.realtime-action {
+  min-width: 120px;
+  min-height: 40px;
+  padding: 9px 16px;
+  border: 1px solid #3538cd;
+  border-radius: 10px;
+  color: #fff;
+  background: #444ce7;
+  box-shadow: 0 2px 6px rgba(53, 56, 205, 0.22);
+  cursor: pointer;
+}
+
+.realtime-action:disabled {
+  border-color: #d0d5dd;
+  color: #98a2b3;
+  background: #f2f4f7;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.realtime-output-value {
+  overflow: auto;
+  height: 100%;
+  margin: 0;
+  color: #1d2939;
+  font:
+    12px/1.55 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+}
+
+.realtime-output-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.realtime-status {
+  display: grid;
+  gap: 10px;
+  color: #475467;
+  font-size: 13px;
+}
+
+.realtime-status-heading {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.realtime-status progress {
+  width: 100%;
+  height: 7px;
+  border: 0;
+  border-radius: 999px;
+  accent-color: #444ce7;
+}
+
+.realtime-status-cancel {
+  justify-self: start;
+  padding: 6px 10px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  color: #344054;
+  background: #fff;
+  cursor: pointer;
+}
+
+.realtime-status-success {
+  color: #027a48;
+}
+
+.realtime-status-error {
+  color: #b42318;
+}
+
+.realtime-drawing {
+  display: grid;
+  overflow: hidden;
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: #f8fafc;
+}
+
+.realtime-drawing-toolbar {
+  z-index: 2;
+  gap: 3px;
+  padding: 7px;
+  border-bottom: 1px solid #e4e7ec;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.realtime-drawing-toolbar button {
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.realtime-drawing-toolbar button[aria-pressed="true"] {
+  color: #3538cd;
+  background: #eef4ff;
+}
+
+.realtime-drawing-stage {
+  overflow: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px;
+}
+
+.realtime-drawing-stage .canvas-container {
+  overflow: hidden;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(16, 24, 40, 0.08);
+}
+
+@media (max-width: 640px) {
+  .realtime-app-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .realtime-app-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
