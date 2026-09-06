@@ -48,8 +48,9 @@ references.
 Realtime reads source through the same-origin-readable `GET /api/v1/runtime/source` and applies it
 through an exact-origin `PUT` to the same path. It owns the source document, local draft, dirty comparison, apply
 serialization, version conflict, diagnostics, and the distinction between saved source and live
-activation. Typing never writes or reloads. **Apply & reload** and Mod-Enter invoke the same one
-operation. Its result reports activation as `activated` or `rejected`, while runtime WebSocket state
+activation. Typing never writes or reloads. The visible **Apply** action, whose tooltip names the
+complete **Apply & reload** operation, and Mod-Enter invoke the same one operation. Its result
+reports activation as `activated` or `rejected`, while runtime WebSocket state
 independently reports the worker as `starting`, `ready`, or `failed`, without a browser
 refresh. A failed activation leaves the editor clean against the accepted saved version, marks the
 runtime failed, and keeps the diagnostic visible for a corrected Apply or global Reload. The HTTP
