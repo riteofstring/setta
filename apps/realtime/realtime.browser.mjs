@@ -1247,7 +1247,10 @@ async function exerciseLiveSource(client, origin) {
     `globalThis.__realtimeLiveSourcePageIdentity = ${JSON.stringify(pageIdentity)}`,
   );
 
-  const changedSource = initialSource.source.replace("count += 1", "count += 7");
+  const changedSource = initialSource.source.replace(
+    "count += 1",
+    "count += 7",
+  );
   assert.notEqual(changedSource, initialSource.source);
   await replaceSourceDraft(client, changedSource, "count += 7");
   await resetWorkerStateObservation(client);
