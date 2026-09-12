@@ -39,7 +39,7 @@ export type DrawingCanvasResizeRequest = {
   width: number;
 };
 
-export type DrawingCanvasDocument = {
+type DrawingCanvasDocument = {
   height: number;
   scene: WorkspaceSectionData;
   width: number;
@@ -78,6 +78,14 @@ function canvasAnchorOffset(
 ): { x: number; y: number } {
   const factor = DRAWING_CANVAS_ANCHOR_FACTORS[anchor];
   return { x: widthDelta * factor.x, y: heightDelta * factor.y };
+}
+
+function isDrawingCanvasDimension(value: number): boolean {
+  return (
+    Number.isInteger(value) &&
+    value >= DRAWING_CANVAS_MIN_SIZE &&
+    value <= DRAWING_CANVAS_MAX_SIZE
+  );
 }
 
 function isSceneObject(
@@ -269,12 +277,8 @@ export class RealtimeDrawingRuntime {
   public resizeCanvas(request: DrawingCanvasResizeRequest): boolean {
     if (
       this.loading ||
-      !Number.isInteger(request.width) ||
-      !Number.isInteger(request.height) ||
-      request.width < DRAWING_CANVAS_MIN_SIZE ||
-      request.height < DRAWING_CANVAS_MIN_SIZE ||
-      request.width > DRAWING_CANVAS_MAX_SIZE ||
-      request.height > DRAWING_CANVAS_MAX_SIZE ||
+      !isDrawingCanvasDimension(request.width) ||
+      !isDrawingCanvasDimension(request.height) ||
       (request.width === this.logicalWidth &&
         request.height === this.logicalHeight)
     ) {

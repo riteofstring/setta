@@ -29,6 +29,8 @@ type CanvasSize = {
   width: number;
 };
 
+type DrawingArtworkResizeMode = "keep-artwork" | "scale-artwork";
+
 type Feedback =
   | { kind: "error"; message: string }
   | { kind: "status"; message: string }
@@ -49,6 +51,12 @@ const CANVAS_ANCHORS: Array<{
   { label: "Bottom right anchor", value: "bottom-right" },
 ];
 
+const ARTWORK_BEHAVIOR_HELP: Record<DrawingArtworkResizeMode, string> = {
+  "keep-artwork":
+    "The anchor chooses where existing artwork stays when bounds change.",
+  "scale-artwork": "Artwork positions and dimensions scale with the canvas.",
+};
+
 function readCanvasDimension(value: string): number | null {
   const dimension = Number(value);
   return Number.isInteger(dimension) &&
@@ -66,6 +74,44 @@ function linkedDimension(value: string, ratio: number): string | null {
   return String(Math.round(dimension * ratio));
 }
 
+function resolveDrawingCanvasSize(
+  host: ReturnType<typeof useWorkspaceHost>,
+  sectionId: string,
+  persisted: CanvasSize,
+): CanvasSize {
+  return getDrawingCanvasSize(host, sectionId) ?? persisted;
+}
+
+function drawingDimensionInputAccessibility(
+  feedback: Feedback,
+  feedbackId: string,
+): { "aria-describedby"?: string; "aria-invalid"?: true } {
+  return feedback?.kind === "error"
+    ? { "aria-describedby": feedbackId, "aria-invalid": true }
+    : {};
+}
+
+function DrawingInspectorFeedback({
+  feedback,
+  id,
+}: {
+  feedback: Feedback;
+  id: string;
+}) {
+  if (feedback === null) {
+    return null;
+  }
+  return (
+    <p
+      className={`realtime-drawing-inspector-feedback realtime-drawing-inspector-feedback-${feedback.kind}`}
+      id={id}
+      role={feedback.kind === "error" ? "alert" : "status"}
+    >
+      {feedback.message}
+    </p>
+  );
+}
+
 export function DrawingInspector({
   data,
   isMinimized,
@@ -79,27 +125,26 @@ export function DrawingInspector({
   const persisted = readDrawingSectionData(
     data as WorkspaceSectionData | undefined,
   );
-  const initialSize = getDrawingCanvasSize(host, sectionId) ?? {
+  const persistedSize = {
     height: persisted.height,
     width: persisted.width,
   };
+  const initialSize = resolveDrawingCanvasSize(host, sectionId, persistedSize);
   const [anchor, setAnchor] = useState<DrawingCanvasAnchor>("center");
   const [baseline, setBaseline] = useState<CanvasSize>(initialSize);
   const [constrainProportions, setConstrainProportions] = useState(true);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [heightDraft, setHeightDraft] = useState(String(initialSize.height));
-  const [mode, setMode] = useState<"keep-artwork" | "scale-artwork">(
-    "keep-artwork",
-  );
+  const [mode, setMode] = useState<DrawingArtworkResizeMode>("keep-artwork");
   const [widthDraft, setWidthDraft] = useState(String(initialSize.width));
   const descriptionId = useId();
   const feedbackId = useId();
 
   useEffect(() => {
-    const size = getDrawingCanvasSize(host, sectionId) ?? {
+    const size = resolveDrawingCanvasSize(host, sectionId, {
       height: persisted.height,
       width: persisted.width,
-    };
+    });
     setBaseline(size);
     setHeightDraft(String(size.height));
     setWidthDraft(String(size.width));
@@ -182,8 +227,15 @@ export function DrawingInspector({
     setFeedback({ kind: "status", message: "Section fitted to the canvas." });
   }
 
-  const hasError = feedback?.kind === "error";
-  const fitDisabled = isMinimized || positionAndSizeLocked || !canEditLayout;
+  const dimensionInputAccessibility = drawingDimensionInputAccessibility(
+    feedback,
+    feedbackId,
+  );
+  const fitDisabled = [
+    isMinimized,
+    positionAndSizeLocked,
+    !canEditLayout,
+  ].includes(true);
 
   return (
     <section
@@ -204,8 +256,6 @@ export function DrawingInspector({
           <span>Width</span>
           <div className="realtime-drawing-inspector-dimension">
             <input
-              aria-describedby={hasError ? feedbackId : undefined}
-              aria-invalid={hasError || undefined}
               aria-label="Canvas width"
               className="setta-workspace-inspector-input"
               inputMode="numeric"
@@ -215,6 +265,7 @@ export function DrawingInspector({
               step={1}
               type="number"
               value={widthDraft}
+              {...dimensionInputAccessibility}
             />
             <span>px</span>
           </div>
@@ -223,8 +274,6 @@ export function DrawingInspector({
           <span>Height</span>
           <div className="realtime-drawing-inspector-dimension">
             <input
-              aria-describedby={hasError ? feedbackId : undefined}
-              aria-invalid={hasError || undefined}
               aria-label="Canvas height"
               className="setta-workspace-inspector-input"
               inputMode="numeric"
@@ -234,6 +283,7 @@ export function DrawingInspector({
               step={1}
               type="number"
               value={heightDraft}
+              {...dimensionInputAccessibility}
             />
             <span>px</span>
           </div>
@@ -292,9 +342,7 @@ export function DrawingInspector({
         </div>
       </fieldset>
       <p className="realtime-drawing-inspector-help">
-        {mode === "keep-artwork"
-          ? "The anchor chooses where existing artwork stays when bounds change."
-          : "Artwork positions and dimensions scale with the canvas."}
+        {ARTWORK_BEHAVIOR_HELP[mode]}
       </p>
       <div className="realtime-drawing-inspector-actions">
         <button
@@ -314,15 +362,7 @@ export function DrawingInspector({
           Fit frame to canvas
         </button>
       </div>
-      {feedback === null ? null : (
-        <p
-          className={`realtime-drawing-inspector-feedback realtime-drawing-inspector-feedback-${feedback.kind}`}
-          id={feedbackId}
-          role={feedback.kind === "error" ? "alert" : "status"}
-        >
-          {feedback.message}
-        </p>
-      )}
+      <DrawingInspectorFeedback feedback={feedback} id={feedbackId} />
     </section>
   );
 }

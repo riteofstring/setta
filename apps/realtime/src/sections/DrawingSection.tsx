@@ -200,7 +200,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     let settlement: DrawingSettlementQueue | null = null;
     const drawing = new RealtimeDrawingRuntime(element, {
       background,
-      height,
+      height: initialDocument.height,
       onHistoryChange: setHistory,
       onPreview: () => {
         sceneAuthority.localChange();
@@ -210,7 +210,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         sceneAuthority.localChange();
         settlement?.settle();
       },
-      width,
+      width: initialDocument.width,
     });
     const stage = stageRef.current;
     if (stage === null) {
