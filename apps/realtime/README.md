@@ -16,10 +16,11 @@ setta realtime invoke --project-root ./my-app --handler increment --file input.j
 
 ## Drawing playground
 
-The checked-in playground fans each drawing snapshot out to two realtime handlers, then joins their
-outputs in a third handler. One branch keeps the standard-library and browser-native SVG neon
-effect, the other uses Pillow image operations to produce a warm risograph treatment, and the join
-embeds both results in a combined SVG:
+The checked-in Signal Bloom Press playground turns one editable geometric sketch into a visible
+three-stage pipeline. The first handler separates a reusable ink plate and drawing profile. Two
+independently scheduled branches consume that exact plate to produce an SVG aurora treatment and a
+Pillow risograph treatment. A final join waits for both images and the matching profile, then lays
+them into an editorial poster:
 
 ```console
 pnpm realtime:playground
@@ -27,8 +28,8 @@ pnpm realtime:playground
 
 On its first run, this repository-local command installs the frozen workspace dependencies, builds
 Workspace and Realtime, installs a complete wheel into the repository-owned local Setta
-environment, and opens Neon Sketch. Later runs fingerprint the relevant source, lock, platform, and
-toolchain inputs and reuse that validated install when nothing changed. A cache miss rebuilds
+environment, and opens Signal Bloom Press. Later runs fingerprint the relevant source, lock,
+platform, and toolchain inputs and reuse that validated install when nothing changed. A cache miss rebuilds
 Realtime and Workspace while reusing installed Python Canvas assets after the first complete build.
 It does not use `uv tool run`'s cached same-version environment. Before launch it seeds
 `tmp/realtime-playground/neon-sketch` from the immutable checked-in fixture when that ignored
@@ -41,21 +42,23 @@ Generated Realtime contracts are checked without being rewritten and Go module r
 read-only during this build, so launching the playground does not repair or update tracked inputs.
 Use `setta realtime open` for an installed release.
 
-Draw a mark and both intermediate results update while the stroke is active; the combined result
-updates after both branches complete. The SVG and Pillow bindings have independent concurrency
-groups, so they are admitted and publish without waiting on each other. Their outputs carry one run
-lineage into the `combine` handler and can never be paired with results from another drawing
-snapshot. The compact drawing toolbar provides Select, Pen, Highlighter, Eraser, and Text tools, a
-**Line & shape** menu, image insertion, contextual creation and selection colors, and undo and redo.
+The seeded bloom is ordinary editable Fabric artwork: move it, recolor it, erase it, or draw over it.
+The preparation stage runs first, both treatment plates then update independently, and the poster
+appears only after the join has received both plates and their same-run profile. The aurora and
+risograph bindings have independent concurrency groups, so they publish without waiting on each
+other. Their outputs carry one run lineage into `compose_poster` and can never be paired with
+results from another drawing snapshot. The compact drawing toolbar provides Select, Pen,
+Highlighter, Eraser, and Text tools, a **Line & shape** menu, image insertion, contextual creation
+and selection colors, and undo and redo.
 Grid controls, canvas sizing and clearing, detailed object appearance, typography, arrangement,
 grouping, locking, and deletion live in the right-side Inspector. The example is an ordinary
 Realtime project: inside the ignored working copy its authored document is
 `.local/realtime/project.json` and its editable entrypoint is `app.py`.
-Change the three palette colors in `_pillow_risograph`, or the `MaxFilter` size, then use **Apply &
-reload** for an immediate visual variation. The tracked source under
-`apps/realtime/examples/neon-sketch/fixture` is only the immutable seed. Playground activity never
-modifies that fixture or adds runtime state to Git. It requires no GPU or model download; Pillow is
-the example project's sole exact-pinned dependency.
+Change the channel colors in `_aurora_svg`, the offset inks in `_riso_print`, or the typography in
+`_poster_svg`, then use **Apply & reload** for an immediate visual variation. The tracked source
+under `apps/realtime/examples/neon-sketch/fixture` is only the immutable seed. Playground activity
+never modifies that fixture or adds runtime state to Git. It requires no GPU or model download;
+Pillow is the example project's sole exact-pinned dependency.
 
 `open` loads the current entrypoint before opening the browser, owns one foreground session, and
 stops when its Setta supervisor exits. When that session is running, `snapshot`, `apply`, `reload`,
@@ -132,12 +135,12 @@ delay for interactions that should wait for input to become quiet.
 Realtime projects handler bindings through Workspace's controlled graph surface:
 
 ```text
-Drawing ─┬→ [neon_glitch] ──────→ Neon result
-         └→ [pillow_risograph] ──→ Riso result
+Drawing → [prepare_sketch] ─mask─┬→ [aurora_bloom] → Aurora plate
+                                 └→ [riso_split] ───→ Riso plate
 
-[neon_glitch].image ─────┐
-                          ├→ [combine] → Combined result
-[pillow_risograph].image ─┘
+[prepare_sketch].profile ─┐
+[aurora_bloom].image ─────┼→ [compose_poster] → Signal Bloom poster
+[riso_split].image ───────┘
 
 Code: app.py
 ```
@@ -146,25 +149,26 @@ The join binding in that graph uses structured binding-output references:
 
 ```json
 {
-  "id": "combine-results",
+  "id": "compose-poster",
   "trigger": {
     "kind": "join",
     "mode": "all",
     "inputs": {
-      "neon": { "bindingId": "stylize-drawing", "output": "image" },
+      "aurora": { "bindingId": "render-aurora", "output": "image" },
+      "profile": { "bindingId": "prepare-drawing", "output": "profile" },
       "riso": { "bindingId": "render-risograph", "output": "image" }
     }
   },
-  "handler": "combine",
+  "handler": "compose_poster",
   "arguments": {},
   "scheduling": {
     "mode": "latest",
     "debounceMilliseconds": 0,
-    "concurrencyGroup": "combine-rendering",
+    "concurrencyGroup": "poster-composition",
     "concurrencyLimit": 1
   },
   "outputs": {
-    "image": {
+    "poster": {
       "target": { "sectionId": "final-result", "field": "contentRef" }
     }
   }

@@ -23,9 +23,9 @@ func TestNeonSketchExampleProcessesDrawing(t *testing.T) {
 	application := openNeonSketchExample(t)
 	reference := putExampleDrawing(t, application)
 	emitExampleDrawing(t, application, reference)
-	assertNeonExampleResult(t, application)
-	assertPillowExampleResult(t, application)
-	assertCombinedExampleResult(t, application)
+	assertAuroraExampleResult(t, application)
+	assertRisographExampleResult(t, application)
+	assertPosterExampleResult(t, application)
 }
 
 func openNeonSketchExample(t *testing.T) *localApplication {
@@ -40,7 +40,7 @@ func openNeonSketchExample(t *testing.T) *localApplication {
 	if err != nil {
 		t.Fatalf("Reload() error = %v", err)
 	}
-	if initialized.LoadError != nil || len(initialized.Handlers) != 3 || initialized.Handlers[0] != "combine" || initialized.Handlers[1] != "neon_glitch" || initialized.Handlers[2] != "pillow_risograph" {
+	if initialized.LoadError != nil || len(initialized.Handlers) != 4 || initialized.Handlers[0] != "aurora_bloom" || initialized.Handlers[1] != "compose_poster" || initialized.Handlers[2] != "prepare_sketch" || initialized.Handlers[3] != "riso_split" {
 		t.Fatalf("Reload() = %#v", initialized)
 	}
 	return application
@@ -79,15 +79,15 @@ func emitExampleDrawing(t *testing.T, application *localApplication, reference c
 	accepted, err := application.coordinator.HandleEvent(contracts.RuntimeEvent{
 		Type: "event", Cause: "interaction", SessionID: runtimeSnapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: payload,
 	})
-	if err != nil || accepted != 2 {
+	if err != nil || accepted != 1 {
 		t.Fatalf("HandleEvent() = %d, %v", accepted, err)
 	}
 }
 
-func assertNeonExampleResult(t *testing.T, application *localApplication) {
+func assertAuroraExampleResult(t *testing.T, application *localApplication) {
 	t.Helper()
-	neon := waitForExampleResult(t, application, "result.contentRef")
-	reader, err := application.content.Open(neon)
+	aurora := waitForExampleResult(t, application, "aurora-result.contentRef")
+	reader, err := application.content.Open(aurora)
 	if err != nil {
 		t.Fatalf("content.Open() error = %v", err)
 	}
@@ -96,45 +96,46 @@ func assertNeonExampleResult(t *testing.T, application *localApplication) {
 	if err != nil {
 		t.Fatalf("io.ReadAll() error = %v", err)
 	}
-	if neon.MediaType != "image/svg+xml" || !strings.Contains(string(artifact), "data:image/png;base64,") || !strings.Contains(string(artifact), "filter=\"url(#neon)\"") {
-		t.Fatalf("neon artifact = %q, reference = %#v", artifact, neon)
+	if aurora.MediaType != "image/svg+xml" || !strings.Contains(string(artifact), "AURORA CHANNEL") || !strings.Contains(string(artifact), "data:image/png;base64,") || !strings.Contains(string(artifact), "filter=\"url(#bloom)\"") {
+		t.Fatalf("aurora artifact = %q, reference = %#v", artifact, aurora)
 	}
 }
 
-func assertPillowExampleResult(t *testing.T, application *localApplication) {
+func assertRisographExampleResult(t *testing.T, application *localApplication) {
 	t.Helper()
-	pillow := waitForExampleResult(t, application, "pillow-result.contentRef")
-	pillowReader, err := application.content.Open(pillow)
+	risograph := waitForExampleResult(t, application, "riso-result.contentRef")
+	risographReader, err := application.content.Open(risograph)
 	if err != nil {
-		t.Fatalf("content.Open(Pillow) error = %v", err)
+		t.Fatalf("content.Open(risograph) error = %v", err)
 	}
-	defer pillowReader.Close()
-	processed, err := png.Decode(pillowReader)
+	defer risographReader.Close()
+	processed, err := png.Decode(risographReader)
 	if err != nil {
-		t.Fatalf("png.Decode(Pillow) error = %v", err)
+		t.Fatalf("png.Decode(risograph) error = %v", err)
 	}
-	background := color.NRGBAModel.Convert(processed.At(0, 0)).(color.NRGBA)
+	background := color.NRGBAModel.Convert(processed.At(10, 10)).(color.NRGBA)
 	stroke := color.NRGBAModel.Convert(processed.At(32, 20)).(color.NRGBA)
-	if pillow.MediaType != "image/png" || processed.Bounds() != image.Rect(0, 0, 64, 40) || background != (color.NRGBA{R: 0xff, G: 0xf7, B: 0xed, A: 0xff}) || stroke != (color.NRGBA{R: 0x17, G: 0x25, B: 0x54, A: 0xff}) {
-		t.Fatalf("Pillow artifact bounds = %v, background = %#v, stroke = %#v, reference = %#v", processed.Bounds(), background, stroke, pillow)
+	paperLike := background.R > 0xe0 && background.G > 0xd0 && background.B > 0xb0
+	if risograph.MediaType != "image/png" || processed.Bounds() != image.Rect(0, 0, 64, 40) || !paperLike || stroke != (color.NRGBA{R: 0x17, G: 0x25, B: 0x54, A: 0xff}) {
+		t.Fatalf("risograph artifact bounds = %v, background = %#v, stroke = %#v, reference = %#v", processed.Bounds(), background, stroke, risograph)
 	}
 }
 
-func assertCombinedExampleResult(t *testing.T, application *localApplication) {
+func assertPosterExampleResult(t *testing.T, application *localApplication) {
 	t.Helper()
-	combined := waitForExampleResult(t, application, "final-result.contentRef")
-	reader, err := application.content.Open(combined)
+	poster := waitForExampleResult(t, application, "final-result.contentRef")
+	reader, err := application.content.Open(poster)
 	if err != nil {
-		t.Fatalf("content.Open(combined) error = %v", err)
+		t.Fatalf("content.Open(poster) error = %v", err)
 	}
 	defer reader.Close()
 	artifact, err := io.ReadAll(reader)
 	if err != nil {
-		t.Fatalf("io.ReadAll(combined) error = %v", err)
+		t.Fatalf("io.ReadAll(poster) error = %v", err)
 	}
 	text := string(artifact)
-	if combined.MediaType != "image/svg+xml" || !strings.Contains(text, "Neon + Risograph") || !strings.Contains(text, "data:image/svg+xml;base64,") || !strings.Contains(text, "data:image/png;base64,") {
-		t.Fatalf("combined artifact = %q, reference = %#v", artifact, combined)
+	if poster.MediaType != "image/svg+xml" || !strings.Contains(text, "DRAW ONCE.") || !strings.Contains(text, "RENDER TWICE.") || !strings.Contains(text, "data:image/svg+xml;base64,") || !strings.Contains(text, "data:image/png;base64,") {
+		t.Fatalf("poster artifact = %q, reference = %#v", artifact, poster)
 	}
 }
 

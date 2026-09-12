@@ -25,7 +25,8 @@ declaration, bindings, and durable application configuration. It never stores di
 listener state, queues, active invocations, logs, generated artifacts, browser pointers, or
 connection state.
 
-The checked-in Neon example is an immutable project fixture rather than the live playground root.
+The checked-in Signal Bloom example is an immutable project fixture rather than the live
+playground root.
 The repository-local launcher copies that fixture into an ignored working directory and the
 backend reads and writes only the copy. This keeps callback source, drawing state, content, worker
 staging, and future runtime-owned files out of the tracked source tree without changing ordinary
@@ -134,8 +135,9 @@ binding publishes display updates as soon as they arrive. An all-input join is t
 cross-binding completion barrier: it becomes runnable only after every referenced producer in the
 same run completes successfully and provides the declared output. Producer completion uses
 accumulated streamed and final outputs, so a generator's empty final return does not erase its
-latest yielded value. The Neon fixture fans out to SVG and Pillow renderers and joins those exact
-lineage-matched results in a third handler.
+latest yielded value. The Signal Bloom fixture prepares one reusable drawing artifact, fans it out
+to SVG and Pillow renderers, then joins those exact lineage-matched results and their preparation
+metadata in a poster compositor.
 
 Each binding keeps separate highest-submitted and highest-published identities. Invocation status
 follows submitted work. An active invocation's update or final output remains publishable while a
