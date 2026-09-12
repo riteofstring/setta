@@ -22,6 +22,7 @@ export type RuntimeViewState = {
   latestByBinding: Record<string, InvocationIdentity>;
   logs: RuntimeLog[];
   publishedByBinding: Record<string, InvocationIdentity>;
+  publishedUpdateSequences: Record<string, number>;
   retainedByBinding: Record<string, boolean>;
   sessionId: string | null;
   updates: Record<string, RuntimeUpdate>;
@@ -37,6 +38,7 @@ export const initialRuntimeViewState: RuntimeViewState = {
   latestByBinding: {},
   logs: [],
   publishedByBinding: {},
+  publishedUpdateSequences: {},
   retainedByBinding: {},
   sessionId: null,
   updates: {},
@@ -108,6 +110,7 @@ function replaceSnapshot(
     latestByBinding,
     logs: sessionChanged ? [] : state.logs,
     publishedByBinding: { ...snapshot.publishedByBinding },
+    publishedUpdateSequences: {},
     retainedByBinding: { ...snapshot.retainedByBinding },
     sessionId: snapshot.sessionId,
     updates: {},
@@ -196,16 +199,16 @@ function acceptsUpdateOutputs(
   state: RuntimeViewState,
   update: RuntimeUpdate,
 ): boolean {
-  const previous = state.updates[update.identity.bindingId];
+  const bindingId = update.identity.bindingId;
+  const previousIdentity = state.publishedByBinding[bindingId];
+  const previousUpdateSequence = state.publishedUpdateSequences[bindingId];
   return (
     Object.keys(update.outputs).length > 0 &&
-    (previous === undefined ||
-      previous.identity.invocationId !== update.identity.invocationId ||
-      update.updateSequence > previous.updateSequence) &&
-    isIdentityCurrent(
-      update.identity,
-      state.publishedByBinding[update.identity.bindingId],
-    )
+    isIdentityCurrent(update.identity, previousIdentity) &&
+    (previousIdentity === undefined ||
+      previousIdentity.invocationId !== update.identity.invocationId ||
+      previousUpdateSequence === undefined ||
+      update.updateSequence > previousUpdateSequence)
   );
 }
 
@@ -228,6 +231,12 @@ function acceptUpdate(
     publishedByBinding: acceptsOutputs
       ? { ...state.publishedByBinding, [bindingId]: update.identity }
       : state.publishedByBinding,
+    publishedUpdateSequences: acceptsOutputs
+      ? {
+          ...state.publishedUpdateSequences,
+          [bindingId]: update.updateSequence,
+        }
+      : state.publishedUpdateSequences,
     retainedByBinding: acceptsOutputs
       ? { ...state.retainedByBinding, [bindingId]: false }
       : state.retainedByBinding,
@@ -277,6 +286,7 @@ export function beginRuntimeReplacement(
     handlers: [],
     latestByBinding: {},
     publishedByBinding: {},
+    publishedUpdateSequences: {},
     sessionId: null,
     updates: {},
     workerState: "replacing",

@@ -7,8 +7,13 @@ import {
 
 import { realtimeAutomaticStartupSource } from "../app/realtimeGraph";
 import { useRealtime } from "../app/runtimeContext";
-import type { JsonValue } from "../backend/generatedContract";
+import type { Binding, JsonValue, Project } from "../backend/generatedContract";
 import { readHandlerSectionData } from "./sectionData";
+
+const HANDLER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
+const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const MAXIMUM_BINDING_ARGUMENTS = 128;
+const MAXIMUM_BINDING_OUTPUTS = 128;
 
 function parseArguments(value: string): Record<string, JsonValue> | null {
   try {
@@ -23,6 +28,86 @@ function parseArguments(value: string): Record<string, JsonValue> | null {
   }
 }
 
+function invalidReference(
+  value: JsonValue,
+  sections: Project["sections"],
+): boolean {
+  if (typeof value !== "string" || !value.startsWith("$")) {
+    return false;
+  }
+  if (value.startsWith("$event.")) {
+    return value.slice("$event.".length).length === 0;
+  }
+  if (value.startsWith("$sections.")) {
+    const parts = value.split(".");
+    return (
+      parts.length < 3 ||
+      !Object.hasOwn(sections, parts[1] ?? "") ||
+      (parts[2] ?? "").length === 0
+    );
+  }
+  return true;
+}
+
+function argumentsError(
+  value: Record<string, JsonValue>,
+  binding: Binding,
+  project: Project,
+): string | null {
+  const names = Object.keys(value);
+  if (names.length > MAXIMUM_BINDING_ARGUMENTS) {
+    return `Arguments cannot contain more than ${MAXIMUM_BINDING_ARGUMENTS} entries.`;
+  }
+  const invalidName = names.find((name) => !HANDLER_NAME_PATTERN.test(name));
+  if (invalidName !== undefined) {
+    return `Argument name ${JSON.stringify(invalidName)} must be a valid Python parameter name.`;
+  }
+  if (binding.trigger.kind === "join") {
+    const inputs = binding.trigger.inputs;
+    const collision = names.find((name) => Object.hasOwn(inputs, name));
+    if (collision !== undefined) {
+      return `Argument ${JSON.stringify(collision)} is supplied by a connected input.`;
+    }
+  }
+  const invalidArgumentReference = Object.entries(value).find(([, argument]) =>
+    invalidReference(argument, project.sections),
+  );
+  return invalidArgumentReference === undefined
+    ? null
+    : `Argument ${JSON.stringify(invalidArgumentReference[0])} has an invalid reference.`;
+}
+
+function parseOutputNames(value: string): string[] | string {
+  if (value.trim().length === 0) {
+    return [];
+  }
+  const names = value.split(",").map((name) => name.trim());
+  if (names.some((name) => !HANDLER_NAME_PATTERN.test(name))) {
+    return "Outputs must be comma-separated valid Python names.";
+  }
+  if (new Set(names).size !== names.length) {
+    return "Output names must be unique.";
+  }
+  return names.length > MAXIMUM_BINDING_OUTPUTS
+    ? `Outputs cannot contain more than ${MAXIMUM_BINDING_OUTPUTS} entries.`
+    : names;
+}
+
+function parseBoundedInteger(
+  value: string,
+  label: string,
+  minimum: number,
+  maximum: number,
+): number | string {
+  const parsed = Number(value);
+  return value.trim().length > 0 &&
+    Number.isInteger(parsed) &&
+    parsed >= minimum &&
+    parsed <= maximum
+    ? parsed
+    : `${label} must be a whole number from ${minimum} through ${maximum}.`;
+}
+
 export function HandlerInspector({ data }: { data: unknown }) {
   const { actions, project, runtime } = useRealtime();
   const { bindingId } = readHandlerSectionData(data);
@@ -31,12 +116,22 @@ export function HandlerInspector({ data }: { data: unknown }) {
   );
   const [argumentsDraft, setArgumentsDraft] = useState("");
   const [outputDraft, setOutputDraft] = useState("");
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [concurrencyGroupDraft, setConcurrencyGroupDraft] = useState("");
+  const [debounceDraft, setDebounceDraft] = useState("");
+  const [concurrencyLimitDraft, setConcurrencyLimitDraft] = useState("");
+  const [shapeFeedback, setShapeFeedback] = useState<string | null>(null);
+  const [schedulingFeedback, setSchedulingFeedback] = useState<string | null>(
+    null,
+  );
   useEffect(() => {
     if (binding !== undefined) {
       setArgumentsDraft(JSON.stringify(binding.arguments, null, 2));
       setOutputDraft(Object.keys(binding.outputs).sort().join(", "));
-      setFeedback(null);
+      setConcurrencyGroupDraft(binding.scheduling.concurrencyGroup);
+      setDebounceDraft(String(binding.scheduling.debounceMilliseconds));
+      setConcurrencyLimitDraft(String(binding.scheduling.concurrencyLimit));
+      setShapeFeedback(null);
+      setSchedulingFeedback(null);
     }
   }, [binding]);
   if (binding === undefined) {
@@ -47,24 +142,64 @@ export function HandlerInspector({ data }: { data: unknown }) {
   const interactionClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
   const saveShape = async () => {
     const argumentsValue = parseArguments(argumentsDraft);
-    const outputNames = [
-      ...new Set(
-        outputDraft
-          .split(",")
-          .map((name) => name.trim())
-          .filter(Boolean),
-      ),
-    ];
     if (argumentsValue === null) {
-      setFeedback("Arguments must be a JSON object.");
+      setShapeFeedback("Arguments must be a JSON object.");
+      return;
+    }
+    const argumentProblem = argumentsError(argumentsValue, binding, project);
+    if (argumentProblem !== null) {
+      setShapeFeedback(argumentProblem);
+      return;
+    }
+    const outputNames = parseOutputNames(outputDraft);
+    if (typeof outputNames === "string") {
+      setShapeFeedback(outputNames);
       return;
     }
     const saved = await actions.updateBinding(bindingId, {
       arguments: argumentsValue,
       outputNames,
     });
-    setFeedback(
+    setShapeFeedback(
       saved ? "Binding shape saved." : "Binding shape was not saved.",
+    );
+  };
+  const saveScheduling = async () => {
+    if (!ID_PATTERN.test(concurrencyGroupDraft)) {
+      setSchedulingFeedback(
+        "Concurrency group must be 1–128 letters, numbers, dots, underscores, colons, or hyphens and start with a letter or number.",
+      );
+      return;
+    }
+    const debounceMilliseconds = parseBoundedInteger(
+      debounceDraft,
+      "Debounce milliseconds",
+      0,
+      60_000,
+    );
+    if (typeof debounceMilliseconds === "string") {
+      setSchedulingFeedback(debounceMilliseconds);
+      return;
+    }
+    const concurrencyLimit = parseBoundedInteger(
+      concurrencyLimitDraft,
+      "Concurrency limit",
+      1,
+      64,
+    );
+    if (typeof concurrencyLimit === "string") {
+      setSchedulingFeedback(concurrencyLimit);
+      return;
+    }
+    const saved = await actions.updateBinding(bindingId, {
+      scheduling: {
+        concurrencyGroup: concurrencyGroupDraft,
+        concurrencyLimit,
+        debounceMilliseconds,
+      },
+    });
+    setSchedulingFeedback(
+      saved ? "Scheduling saved." : "Scheduling was not saved.",
     );
   };
   return (
@@ -127,7 +262,7 @@ export function HandlerInspector({ data }: { data: unknown }) {
         >
           Save inputs and outputs
         </button>
-        {feedback === null ? null : <p role="status">{feedback}</p>}
+        {shapeFeedback === null ? null : <p role="status">{shapeFeedback}</p>}
       </WorkspaceInspectorSettingsGroup>
       <WorkspaceInspectorSettingsGroup title="Scheduling">
         <label className="setta-workspace-inspector-config-row">
@@ -156,13 +291,9 @@ export function HandlerInspector({ data }: { data: unknown }) {
             aria-label="Concurrency group"
             className={interactionClassName}
             onChange={(event) =>
-              void actions.updateBinding(bindingId, {
-                scheduling: {
-                  concurrencyGroup: event.currentTarget.value,
-                },
-              })
+              setConcurrencyGroupDraft(event.currentTarget.value)
             }
-            value={binding.scheduling.concurrencyGroup}
+            value={concurrencyGroupDraft}
           />
         </label>
         <label className="realtime-handler-inspector-field">
@@ -170,16 +301,12 @@ export function HandlerInspector({ data }: { data: unknown }) {
           <input
             aria-label="Debounce milliseconds"
             className={interactionClassName}
+            max={60_000}
             min={0}
-            onChange={(event) =>
-              void actions.updateBinding(bindingId, {
-                scheduling: {
-                  debounceMilliseconds: Number(event.currentTarget.value),
-                },
-              })
-            }
+            onChange={(event) => setDebounceDraft(event.currentTarget.value)}
+            step={1}
             type="number"
-            value={binding.scheduling.debounceMilliseconds}
+            value={debounceDraft}
           />
         </label>
         <label className="realtime-handler-inspector-field">
@@ -187,18 +314,26 @@ export function HandlerInspector({ data }: { data: unknown }) {
           <input
             aria-label="Concurrency limit"
             className={interactionClassName}
+            max={64}
             min={1}
             onChange={(event) =>
-              void actions.updateBinding(bindingId, {
-                scheduling: {
-                  concurrencyLimit: Number(event.currentTarget.value),
-                },
-              })
+              setConcurrencyLimitDraft(event.currentTarget.value)
             }
+            step={1}
             type="number"
-            value={binding.scheduling.concurrencyLimit}
+            value={concurrencyLimitDraft}
           />
         </label>
+        <button
+          className={`setta-workspace-inspector-primary-action ${interactionClassName}`}
+          onClick={() => void saveScheduling()}
+          type="button"
+        >
+          Save scheduling
+        </button>
+        {schedulingFeedback === null ? null : (
+          <p role="status">{schedulingFeedback}</p>
+        )}
       </WorkspaceInspectorSettingsGroup>
       <WorkspaceInspectorSettingsGroup title="Materialization">
         <label className="setta-workspace-inspector-checkbox">

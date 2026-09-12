@@ -8,6 +8,7 @@ import type { Binding, Project } from "../backend/generatedContract";
 import { makeProject } from "../testProject";
 import {
   canConnectRealtimeGraph,
+  canReconnectRealtimeGraph,
   connectRealtimeGraphOperations,
   deleteRealtimeGraphOperations,
   pruneRealtimeSelectedEdgeIds,
@@ -243,7 +244,73 @@ describe("Realtime graph projection", () => {
     });
   });
 
-  it("atomically disconnects joins orphaned by an event-edge edit", () => {
+  it("replaces a unary join producer without disconnecting or clamping it", () => {
+    const project = withConsumer(makeProject());
+    project.bindings[0] = {
+      ...project.bindings[0]!,
+      trigger: {
+        event: "change",
+        kind: "event",
+        sectionId: "input-main",
+      },
+    };
+    project.bindings[1] = {
+      ...project.bindings[1]!,
+      materialization: {
+        retention: "lastSuccessful",
+        startup: "ifMissing",
+      },
+    };
+    project.bindings.push({
+      ...project.bindings[0]!,
+      id: "binding-alternate",
+      outputs: { alternate: {} },
+    });
+    project.sections["handler-alternate"] = {
+      ...project.sections["handler-main"]!,
+      data: { bindingId: "binding-alternate" },
+      id: "handler-alternate",
+    };
+    project.layout.topLevelSections["handler-alternate"] = {
+      ...project.layout.topLevelSections["handler-main"]!,
+      x: 1240,
+    };
+    const graph = projectRealtimeGraph(project);
+    const joinEdge = graph.edges.find(
+      (candidate) =>
+        candidate.target.sectionId === "handler-combine" &&
+        candidate.label === "input",
+    )!;
+    const reconnect = {
+      connection: connection(
+        port(graph.ports, "handler-alternate", "alternate", "source"),
+        port(graph.ports, "handler-combine", "input", "target"),
+      ),
+      edgeId: joinEdge.id,
+    };
+
+    expect(canReconnectRealtimeGraph(project, reconnect)).toBe(true);
+    expect(reconnectRealtimeGraphOperations(project, reconnect)).toEqual([
+      {
+        binding: {
+          ...project.bindings[1]!,
+          trigger: {
+            inputs: {
+              input: {
+                bindingId: "binding-alternate",
+                output: "alternate",
+              },
+            },
+            kind: "join",
+            mode: "all",
+          },
+        },
+        op: "setBinding",
+      },
+    ]);
+  });
+
+  it("disconnects orphaned joins on deletion but preserves valid joins on reconnect", () => {
     const project = withConsumer(makeProject());
     const graph = projectRealtimeGraph(project);
     const triggerEdge = graph.edges.find(
@@ -291,23 +358,93 @@ describe("Realtime graph projection", () => {
       connection: connection(drawingSource, triggerTarget),
       edgeId: triggerEdge.id,
     });
-    expect(reconnected).toHaveLength(2);
-    expect(reconnected).toEqual(
+    expect(reconnected).toEqual([
+      {
+        binding: {
+          ...project.bindings[0]!,
+          trigger: {
+            event: "snapshot",
+            kind: "event",
+            sectionId: "drawing-main",
+          },
+        },
+        op: "setBinding",
+      },
+    ]);
+    expect(project.bindings[1]!.trigger).toEqual({
+      inputs: {
+        input: { bindingId: "binding-main", output: "result" },
+      },
+      kind: "join",
+      mode: "all",
+    });
+  });
+
+  it("prunes only downstream inputs made ambiguous by a root reconnect", () => {
+    const project = withConsumer(makeProject());
+    project.bindings.push({
+      ...project.bindings[0]!,
+      id: "binding-alternate",
+      outputs: { alternate: {} },
+    });
+    project.bindings[1] = {
+      ...project.bindings[1]!,
+      arguments: {},
+      trigger: {
+        inputs: {
+          input: { bindingId: "binding-main", output: "result" },
+          other: { bindingId: "binding-alternate", output: "alternate" },
+        },
+        kind: "join",
+        mode: "all",
+      },
+    };
+    project.sections["handler-alternate"] = {
+      ...project.sections["handler-main"]!,
+      data: { bindingId: "binding-alternate" },
+      id: "handler-alternate",
+    };
+    project.layout.topLevelSections["handler-alternate"] = {
+      ...project.layout.topLevelSections["handler-main"]!,
+      x: 1240,
+    };
+    const graph = projectRealtimeGraph(project);
+    const triggerEdge = graph.edges.find(
+      (candidate) =>
+        candidate.family === "workflow" &&
+        candidate.target.sectionId === "handler-main",
+    )!;
+
+    const operations = reconnectRealtimeGraphOperations(project, {
+      connection: connection(
+        port(graph.ports, "drawing-main", "snapshot", "source"),
+        port(graph.ports, "handler-main", "trigger", "target"),
+      ),
+      edgeId: triggerEdge.id,
+    });
+
+    expect(operations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           binding: expect.objectContaining({
             id: "binding-main",
-            trigger: {
-              event: "snapshot",
-              kind: "event",
-              sectionId: "drawing-main",
-            },
+            trigger: expect.objectContaining({ event: "snapshot" }),
           }),
         }),
         expect.objectContaining({
           binding: expect.objectContaining({
+            arguments: { input: null },
             id: "binding-combine",
-            trigger: { kind: "disconnected" },
+            trigger: {
+              inputs: {
+                other: {
+                  bindingId: "binding-alternate",
+                  output: "alternate",
+                },
+              },
+              kind: "join",
+              mode: "all",
+            },
           }),
         }),
       ]),
@@ -405,6 +542,12 @@ describe("Realtime graph projection", () => {
         candidate.target.sectionId === "output-main",
     )!;
     expect(
+      canReconnectRealtimeGraph(project, {
+        connection: nextConnection,
+        edgeId: edge.id,
+      }),
+    ).toBe(true);
+    expect(
       reconnectRealtimeGraphOperations(project, {
         connection: nextConnection,
         edgeId: edge.id,
@@ -500,5 +643,82 @@ describe("Realtime graph projection", () => {
         op: "setBinding",
       },
     ]);
+  });
+
+  it("preserves automatic materialization and descendants across eligible root reconnects", () => {
+    const project = withConsumer(makeProject());
+    project.bindings[0] = {
+      ...project.bindings[0]!,
+      materialization: {
+        retention: "lastSuccessful",
+        startup: "whenStale",
+      },
+      trigger: {
+        event: "change",
+        kind: "event",
+        sectionId: "input-main",
+      },
+    };
+    project.bindings[1] = {
+      ...project.bindings[1]!,
+      materialization: {
+        retention: "session",
+        startup: "always",
+      },
+    };
+    const graph = projectRealtimeGraph(project);
+    const triggerEdge = graph.edges.find(
+      (candidate) => candidate.family === "workflow",
+    )!;
+    const reconnect = {
+      connection: connection(
+        port(graph.ports, "drawing-main", "snapshot", "source"),
+        port(graph.ports, "handler-main", "trigger", "target"),
+      ),
+      edgeId: triggerEdge.id,
+    };
+
+    expect(canReconnectRealtimeGraph(project, reconnect)).toBe(true);
+    expect(reconnectRealtimeGraphOperations(project, reconnect)).toEqual([
+      {
+        binding: {
+          ...project.bindings[0]!,
+          trigger: {
+            event: "snapshot",
+            kind: "event",
+            sectionId: "drawing-main",
+          },
+        },
+        op: "setBinding",
+      },
+    ]);
+    expect(project.bindings[1]!.trigger.kind).toBe("join");
+    expect(project.bindings[1]!.materialization?.startup).toBe("always");
+  });
+
+  it("omits a removed join placeholder when arguments are already at the limit", () => {
+    const project = withConsumer(makeProject());
+    project.bindings[1] = {
+      ...project.bindings[1]!,
+      arguments: Object.fromEntries(
+        Array.from({ length: 128 }, (_, index) => [`arg_${index}`, null]),
+      ),
+    };
+    const graph = projectRealtimeGraph(project);
+    const joinEdge = graph.edges.find(
+      (candidate) =>
+        candidate.target.sectionId === "handler-combine" &&
+        candidate.label === "input",
+    )!;
+
+    const operations = deleteRealtimeGraphOperations(project, [joinEdge.id]);
+
+    expect(operations).toHaveLength(1);
+    if (operations[0]?.op !== "setBinding") {
+      throw new Error("Expected a binding mutation.");
+    }
+    expect(Object.keys(operations[0].binding.arguments)).toHaveLength(128);
+    expect(operations[0].binding.arguments).not.toHaveProperty("input");
+    expect(operations[0].binding.trigger).toEqual({ kind: "disconnected" });
   });
 });

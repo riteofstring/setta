@@ -34,6 +34,8 @@ type RealtimeGraphProjection = {
   ports: WorkspaceGraphPort[];
 };
 
+const MAXIMUM_BINDING_ARGUMENTS = 128;
+
 export function pruneRealtimeSelectedEdgeIds(
   selectedEdgeIds: ReadonlySet<string>,
   edges: ReadonlyArray<WorkspaceGraphEdge>,
@@ -412,6 +414,25 @@ function manualStartupBinding(binding: Binding): Binding {
       };
 }
 
+function preserveInputsAsArguments(
+  binding: Binding,
+  inputNames: ReadonlyArray<string>,
+): Binding["arguments"] {
+  const next = { ...binding.arguments };
+  let count = Object.keys(next).length;
+  for (const inputName of [...inputNames].sort()) {
+    if (Object.hasOwn(next, inputName)) {
+      continue;
+    }
+    if (count >= MAXIMUM_BINDING_ARGUMENTS) {
+      continue;
+    }
+    next[inputName] = null;
+    count += 1;
+  }
+  return next;
+}
+
 function pruneJoinInputsFromProducers(
   bindings: Binding[],
   producerIds: ReadonlySet<string>,
@@ -441,10 +462,12 @@ function pruneJoinInputsFromProducers(
         return binding;
       }
       const inputs = { ...binding.trigger.inputs };
-      const argumentsWithRemovedInputs = { ...binding.arguments };
+      const argumentsWithRemovedInputs = preserveInputsAsArguments(
+        binding,
+        removedInputNames,
+      );
       for (const inputName of removedInputNames) {
         delete inputs[inputName];
-        argumentsWithRemovedInputs[inputName] = null;
       }
       const changed = { ...binding, arguments: argumentsWithRemovedInputs };
       if (Object.keys(inputs).length === 0) {
@@ -480,10 +503,12 @@ function pruneRemovedProducerOutputs(
       return binding;
     }
     const inputs = { ...binding.trigger.inputs };
-    const argumentsWithRemovedInputs = { ...binding.arguments };
+    const argumentsWithRemovedInputs = preserveInputsAsArguments(
+      binding,
+      removedInputNames,
+    );
     for (const inputName of removedInputNames) {
       delete inputs[inputName];
-      argumentsWithRemovedInputs[inputName] = null;
     }
     const changed = { ...binding, arguments: argumentsWithRemovedInputs };
     if (Object.keys(inputs).length === 0) {
@@ -517,7 +542,7 @@ function detachEdge(project: Project, edgeId: string): Binding[] | null {
         delete inputs[inputName];
         const nextBinding = {
           ...binding,
-          arguments: { ...binding.arguments, [inputName]: null },
+          arguments: preserveInputsAsArguments(binding, [inputName]),
         };
         if (Object.keys(inputs).length === 0) {
           invalidatedProducerIds.add(binding.id);
@@ -549,9 +574,53 @@ function detachEdge(project: Project, edgeId: string): Binding[] | null {
   return pruneJoinInputsFromProducers(next, invalidatedProducerIds);
 }
 
+function detachEdgeForReconnect(
+  project: Project,
+  edgeId: string,
+): Binding[] | null {
+  const next = project.bindings.map((binding) => {
+    if (
+      binding.trigger.kind === "event" &&
+      triggerEdgeId(binding.id) === edgeId
+    ) {
+      return { ...binding, trigger: { kind: "disconnected" as const } };
+    }
+    if (binding.trigger.kind === "join") {
+      const inputName = Object.keys(binding.trigger.inputs).find(
+        (candidate) => joinEdgeId(binding.id, candidate) === edgeId,
+      );
+      if (inputName !== undefined) {
+        const inputs = { ...binding.trigger.inputs };
+        delete inputs[inputName];
+        return {
+          ...binding,
+          arguments: preserveInputsAsArguments(binding, [inputName]),
+          trigger:
+            Object.keys(inputs).length === 0
+              ? ({ kind: "disconnected" } as const)
+              : ({ inputs, kind: "join", mode: "all" } as const),
+        };
+      }
+    }
+    const outputName = Object.keys(binding.outputs).find(
+      (candidate) => displayEdgeId(binding.id, candidate) === edgeId,
+    );
+    return outputName === undefined
+      ? binding
+      : {
+          ...binding,
+          outputs: { ...binding.outputs, [outputName]: {} },
+        };
+  });
+  return next.some((binding, index) => binding !== project.bindings[index])
+    ? next
+    : null;
+}
+
 function connectionMeanings(
   project: Project,
   connection: WorkspaceGraphConnection,
+  replacingEdgeId?: string,
 ): { source: PortMeaning; target: PortMeaning } | null {
   const graph = projectRealtimeGraph(project);
   const sourcePort = graph.ports.find(
@@ -576,6 +645,7 @@ function connectionMeanings(
   }
   const targetOccupied = graph.edges.some(
     (edge) =>
+      edge.id !== replacingEdgeId &&
       edge.target.sectionId === connection.target.sectionId &&
       edge.target.portId === connection.target.portId,
   );
@@ -597,9 +667,10 @@ function connectEventBinding(
   }
   const argumentsWithFormerInputs = { ...binding.arguments };
   if (binding.trigger.kind === "join") {
-    for (const inputName of Object.keys(binding.trigger.inputs)) {
-      argumentsWithFormerInputs[inputName] = null;
-    }
+    Object.assign(
+      argumentsWithFormerInputs,
+      preserveInputsAsArguments(binding, Object.keys(binding.trigger.inputs)),
+    );
   }
   const connected: Binding = {
     ...binding,
@@ -620,16 +691,7 @@ function connectEventTrigger(
   source: EventMeaning,
   target: HandlerTriggerMeaning,
 ): Binding[] {
-  const targetRoot = bindingRootKey(project, target.bindingId);
-  const nextRoot = JSON.stringify([source.sectionId, source.event]);
-  const bindings =
-    targetRoot !== null && targetRoot !== nextRoot
-      ? pruneJoinInputsFromProducers(
-          project.bindings,
-          new Set([target.bindingId]),
-        )
-      : project.bindings;
-  return bindings.map((binding) =>
+  return project.bindings.map((binding) =>
     connectEventBinding(binding, source, target),
   );
 }
@@ -678,25 +740,17 @@ function connectJoinInput(
   const targetBinding = project.bindings.find(
     (binding) => binding.id === target.bindingId,
   );
-  const targetRoot = bindingRootKey(project, target.bindingId);
   if (sourceRoot === null || targetBinding === undefined) {
     return null;
   }
-  if (targetBinding.trigger.kind === "join" && targetRoot !== sourceRoot) {
-    return null;
-  }
-  const bindings =
-    targetBinding.trigger.kind === "event" && targetRoot !== sourceRoot
-      ? pruneJoinInputsFromProducers(
-          project.bindings,
-          new Set([target.bindingId]),
-        )
-      : project.bindings;
   const automaticStartup =
     realtimeAutomaticStartupSource(project, source.bindingId) !== null;
-  return bindings.map((binding) =>
+  const bindings = project.bindings.map((binding) =>
     connectJoinBinding(binding, source, target, automaticStartup),
   );
+  return bindingRoot({ ...project, bindings }, target.bindingId) === null
+    ? null
+    : bindings;
 }
 
 function sinkIsOccupied(project: Project, target: SinkMeaning): boolean {
@@ -738,14 +792,10 @@ function connectDisplayTarget(
   );
 }
 
-function connectBindings(
+function connectMeanings(
   project: Project,
-  connection: WorkspaceGraphConnection,
+  meanings: { source: PortMeaning; target: PortMeaning },
 ): Binding[] | null {
-  const meanings = connectionMeanings(project, connection);
-  if (meanings === null) {
-    return null;
-  }
   const { source, target } = meanings;
   if (source.kind === "event" && target.kind === "handlerTrigger") {
     return connectEventTrigger(project, source, target);
@@ -756,6 +806,174 @@ function connectBindings(
   return source.kind === "handlerOutput" && target.kind === "sink"
     ? connectDisplayTarget(project, source, target)
     : null;
+}
+
+function bindingDependencyDepth(
+  project: Project,
+  bindingId: string,
+  visiting: ReadonlySet<string> = new Set(),
+): number {
+  if (visiting.has(bindingId)) {
+    return 0;
+  }
+  const binding = project.bindings.find(
+    (candidate) => candidate.id === bindingId,
+  );
+  if (binding?.trigger.kind !== "join") {
+    return 0;
+  }
+  const nextVisiting = new Set(visiting).add(bindingId);
+  return (
+    1 +
+    Math.max(
+      0,
+      ...Object.values(binding.trigger.inputs).map((input) =>
+        bindingDependencyDepth(project, input.bindingId, nextVisiting),
+      ),
+    )
+  );
+}
+
+function normalizeEditedBindings(
+  previousProject: Project,
+  bindings: Binding[],
+): Binding[] {
+  let next = bindings;
+  while (true) {
+    const candidate = { ...previousProject, bindings: next };
+    const invalid = next
+      .filter((binding) => binding.trigger.kind === "join")
+      .sort(
+        (left, right) =>
+          bindingDependencyDepth(candidate, left.id) -
+            bindingDependencyDepth(candidate, right.id) ||
+          left.id.localeCompare(right.id),
+      )
+      .find((binding) => bindingRoot(candidate, binding.id) === null);
+    if (invalid === undefined || invalid.trigger.kind !== "join") {
+      break;
+    }
+    const previousRoot = bindingRootKey(previousProject, invalid.id);
+    const roots = Object.entries(invalid.trigger.inputs).map(
+      ([inputName, input]) => ({
+        inputName,
+        root: bindingRootKey(candidate, input.bindingId),
+      }),
+    );
+    const availableRoots = [
+      ...new Set(roots.flatMap(({ root }) => (root === null ? [] : [root]))),
+    ].sort();
+    const retainedRoot =
+      previousRoot !== null && availableRoots.includes(previousRoot)
+        ? previousRoot
+        : (availableRoots[0] ?? null);
+    const removedInputNames = roots
+      .filter(({ root }) => root === null || root !== retainedRoot)
+      .map(({ inputName }) => inputName);
+    if (removedInputNames.length === 0) {
+      break;
+    }
+    next = next.map((binding) => {
+      if (binding.id !== invalid.id || binding.trigger.kind !== "join") {
+        return binding;
+      }
+      const inputs = { ...binding.trigger.inputs };
+      for (const inputName of removedInputNames) {
+        delete inputs[inputName];
+      }
+      return {
+        ...binding,
+        arguments: preserveInputsAsArguments(binding, removedInputNames),
+        trigger:
+          Object.keys(inputs).length === 0
+            ? ({ kind: "disconnected" } as const)
+            : ({ inputs, kind: "join", mode: "all" } as const),
+      };
+    });
+  }
+  const candidate = { ...previousProject, bindings: next };
+  return next.map((binding) =>
+    binding.materialization !== undefined &&
+    binding.materialization.startup !== "manual" &&
+    realtimeAutomaticStartupSource(candidate, binding.id) === null
+      ? manualStartupBinding(binding)
+      : binding,
+  );
+}
+
+function connectBindings(
+  project: Project,
+  connection: WorkspaceGraphConnection,
+): Binding[] | null {
+  const meanings = connectionMeanings(project, connection);
+  if (meanings === null) {
+    return null;
+  }
+  const bindings = connectMeanings(project, meanings);
+  return bindings === null ? null : normalizeEditedBindings(project, bindings);
+}
+
+function samePortReference(
+  left: WorkspaceGraphEdge["source"],
+  right: WorkspaceGraphEdge["source"],
+): boolean {
+  return left.portId === right.portId && left.sectionId === right.sectionId;
+}
+
+function connectionReplacesEdge(
+  edge: WorkspaceGraphEdge,
+  connection: WorkspaceGraphConnection,
+): boolean {
+  return (
+    edge.family === connection.family &&
+    (samePortReference(edge.source, connection.source) ||
+      samePortReference(edge.target, connection.target))
+  );
+}
+
+function connectionMatchesEdge(
+  edge: WorkspaceGraphEdge,
+  connection: WorkspaceGraphConnection,
+): boolean {
+  return (
+    samePortReference(edge.source, connection.source) &&
+    samePortReference(edge.target, connection.target)
+  );
+}
+
+function reconnectBindings(
+  project: Project,
+  reconnect: WorkspaceGraphReconnect,
+): Binding[] | null {
+  const edge = projectRealtimeGraph(project).edges.find(
+    (candidate) => candidate.id === reconnect.edgeId,
+  );
+  if (
+    edge === undefined ||
+    !connectionReplacesEdge(edge, reconnect.connection)
+  ) {
+    return null;
+  }
+  const meanings = connectionMeanings(
+    project,
+    reconnect.connection,
+    reconnect.edgeId,
+  );
+  if (meanings === null) {
+    return null;
+  }
+  if (connectionMatchesEdge(edge, reconnect.connection)) {
+    return project.bindings;
+  }
+  const detached = detachEdgeForReconnect(project, reconnect.edgeId);
+  if (detached === null) {
+    return null;
+  }
+  const bindings = connectMeanings(
+    { ...project, bindings: detached },
+    meanings,
+  );
+  return bindings === null ? null : normalizeEditedBindings(project, bindings);
 }
 
 function bindingRootKey(project: Project, bindingId: string): string | null {
@@ -889,6 +1107,13 @@ export function canConnectRealtimeGraph(
   return connectBindings(project, connection) !== null;
 }
 
+export function canReconnectRealtimeGraph(
+  project: Project,
+  reconnect: WorkspaceGraphReconnect,
+): boolean {
+  return reconnectBindings(project, reconnect) !== null;
+}
+
 export function connectRealtimeGraphOperations(
   project: Project,
   connection: WorkspaceGraphConnection,
@@ -917,12 +1142,8 @@ export function reconnectRealtimeGraphOperations(
   project: Project,
   reconnect: WorkspaceGraphReconnect,
 ): ProjectOperation[] {
-  const detached = detachEdge(project, reconnect.edgeId);
-  if (detached === null) {
-    return [];
-  }
   return bindingOperations(
     project.bindings,
-    connectBindings({ ...project, bindings: detached }, reconnect.connection),
+    reconnectBindings(project, reconnect),
   );
 }

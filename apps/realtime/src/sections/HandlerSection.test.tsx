@@ -28,6 +28,22 @@ function actions(): RealtimeActions {
   };
 }
 
+function setInputValue(
+  input: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+): void {
+  const prototype =
+    input instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+  if (!setter) {
+    throw new Error("Expected a native input value setter.");
+  }
+  setter.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 describe("handler section authoring", () => {
   let element: HTMLDivElement;
   let root: Root;
@@ -128,6 +144,149 @@ describe("handler section authoring", () => {
 
     expect(runtimeActions.updateBinding).toHaveBeenCalledWith("binding-main", {
       handler: "render",
+    });
+  });
+
+  it("explains invalid binding shape and permits zero outputs", async () => {
+    const project = makeProject();
+    const runtimeActions = actions();
+    await act(async () =>
+      root.render(
+        <RealtimeContext.Provider
+          value={{
+            actions: runtimeActions,
+            error: null,
+            project,
+            runtime: initialRuntimeViewState,
+            source: initialRuntimeSourceViewState,
+          }}
+        >
+          <HandlerInspector data={{ bindingId: "binding-main" }} />
+        </RealtimeContext.Provider>,
+      ),
+    );
+    const argumentsInput = element.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="Handler arguments"]',
+    )!;
+    const outputsInput = element.querySelector<HTMLInputElement>(
+      'input[aria-label="Handler outputs"]',
+    )!;
+    const save = Array.from(element.querySelectorAll("button")).find(
+      (button) => button.textContent === "Save inputs and outputs",
+    )!;
+
+    await act(async () => {
+      setInputValue(argumentsInput, '{"source":"$sections.missing.value"}');
+      save.click();
+    });
+    expect(runtimeActions.updateBinding).not.toHaveBeenCalled();
+    expect(element.textContent).toContain(
+      'Argument "source" has an invalid reference.',
+    );
+
+    await act(async () => {
+      setInputValue(argumentsInput, "{}");
+      setInputValue(outputsInput, "bad-name");
+      save.click();
+    });
+    expect(runtimeActions.updateBinding).not.toHaveBeenCalled();
+    expect(element.textContent).toContain(
+      "Outputs must be comma-separated valid Python names.",
+    );
+
+    await act(async () => {
+      setInputValue(
+        outputsInput,
+        Array.from({ length: 129 }, (_, index) => `output_${index}`).join(","),
+      );
+      save.click();
+    });
+    expect(runtimeActions.updateBinding).not.toHaveBeenCalled();
+    expect(element.textContent).toContain(
+      "Outputs cannot contain more than 128 entries.",
+    );
+
+    await act(async () => {
+      setInputValue(outputsInput, "");
+      save.click();
+    });
+    expect(runtimeActions.updateBinding).toHaveBeenCalledWith("binding-main", {
+      arguments: {},
+      outputNames: [],
+    });
+  });
+
+  it("validates scheduling drafts before submitting them", async () => {
+    const project = makeProject();
+    const runtimeActions = actions();
+    await act(async () =>
+      root.render(
+        <RealtimeContext.Provider
+          value={{
+            actions: runtimeActions,
+            error: null,
+            project,
+            runtime: initialRuntimeViewState,
+            source: initialRuntimeSourceViewState,
+          }}
+        >
+          <HandlerInspector data={{ bindingId: "binding-main" }} />
+        </RealtimeContext.Provider>,
+      ),
+    );
+    const groupInput = element.querySelector<HTMLInputElement>(
+      'input[aria-label="Concurrency group"]',
+    )!;
+    const debounceInput = element.querySelector<HTMLInputElement>(
+      'input[aria-label="Debounce milliseconds"]',
+    )!;
+    const limitInput = element.querySelector<HTMLInputElement>(
+      'input[aria-label="Concurrency limit"]',
+    )!;
+    const save = Array.from(element.querySelectorAll("button")).find(
+      (button) => button.textContent === "Save scheduling",
+    )!;
+    const edit = (input: HTMLInputElement, value: string) => {
+      setInputValue(input, value);
+    };
+
+    await act(async () => {
+      edit(groupInput, "not valid");
+      save.click();
+    });
+    expect(runtimeActions.updateBinding).not.toHaveBeenCalled();
+    expect(element.textContent).toContain("Concurrency group must be");
+
+    await act(async () => {
+      edit(groupInput, "workers.main");
+      edit(debounceInput, "1.5");
+      save.click();
+    });
+    expect(runtimeActions.updateBinding).not.toHaveBeenCalled();
+    expect(element.textContent).toContain(
+      "Debounce milliseconds must be a whole number",
+    );
+
+    await act(async () => {
+      edit(debounceInput, "60000");
+      edit(limitInput, "65");
+      save.click();
+    });
+    expect(runtimeActions.updateBinding).not.toHaveBeenCalled();
+    expect(element.textContent).toContain(
+      "Concurrency limit must be a whole number from 1 through 64.",
+    );
+
+    await act(async () => {
+      edit(limitInput, "64");
+      save.click();
+    });
+    expect(runtimeActions.updateBinding).toHaveBeenCalledWith("binding-main", {
+      scheduling: {
+        concurrencyGroup: "workers.main",
+        concurrencyLimit: 64,
+        debounceMilliseconds: 60_000,
+      },
     });
   });
 

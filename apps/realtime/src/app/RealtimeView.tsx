@@ -24,6 +24,7 @@ import {
 import type { RuntimeViewState } from "./runtimeState";
 import {
   canConnectRealtimeGraph,
+  canReconnectRealtimeGraph,
   pruneRealtimeSelectedEdgeIds,
   projectRealtimeGraph,
 } from "./realtimeGraph";
@@ -358,6 +359,9 @@ function RealtimeWorkspace() {
         canConnect: (
           connection: Parameters<typeof canConnectRealtimeGraph>[1],
         ) => canConnectRealtimeGraph(project, connection),
+        canReconnect: (
+          reconnect: Parameters<typeof canReconnectRealtimeGraph>[1],
+        ) => canReconnectRealtimeGraph(project, reconnect),
         edges: projection.edges,
         onConnect: (connection: Parameters<typeof actions.connectGraph>[0]) => {
           void actions.connectGraph(connection);

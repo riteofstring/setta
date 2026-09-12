@@ -153,6 +153,21 @@ describe("runtime state", () => {
       identity(3, "invocation-complete"),
     );
     expect(state.updates["binding-main"]?.message).toBe("working");
+
+    const duplicate = apply(state, {
+      type: "update",
+      update: {
+        identity: identity(3, "invocation-complete"),
+        message: "duplicate",
+        outputs: { result: "duplicate" },
+        progress: 0.75,
+        updateSequence: 1,
+      },
+    });
+    expect(duplicate).toBe(state);
+    expect(duplicate.values[runtimeValueKey("output-main", "value")]).toBe(
+      "useful",
+    );
   });
 
   it("does not let a duplicate update overwrite presentation or output", () => {
