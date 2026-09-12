@@ -638,6 +638,34 @@ async function clickSectionButton(client, sectionId, label) {
   );
 }
 
+async function dispatchDrawingShortcut(
+  client,
+  { code, key, modKey = false, shiftKey = false },
+) {
+  const handled = await evaluate(
+    client,
+    `(() => {
+      const stage = document.querySelector(".realtime-drawing-stage");
+      if (!(stage instanceof HTMLElement)) {
+        return false;
+      }
+      const macOS = /Mac|iPhone|iPad/.test(navigator.platform);
+      stage.focus({ preventScroll: true });
+      const event = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        code: ${JSON.stringify(code)},
+        ctrlKey: ${String(modKey)} && !macOS,
+        key: ${JSON.stringify(key)},
+        metaKey: ${String(modKey)} && macOS,
+        shiftKey: ${String(shiftKey)},
+      });
+      return !stage.dispatchEvent(event);
+    })()`,
+  );
+  assert.equal(handled, true, `Drawing shortcut ${key} was not handled.`);
+}
+
 async function findProject(origin, predicate, waitMilliseconds) {
   const deadline = Date.now() + waitMilliseconds;
   while (Date.now() < deadline) {
@@ -1156,6 +1184,188 @@ async function exerciseDrawingInspector(client, origin) {
   await clickButton(client, "Runtime");
 }
 
+async function exerciseDrawingAuthoring(client, origin, initialProject) {
+  await activateSection(client, "drawing");
+  await clickButton(client, "Inspector");
+  await waitFor(
+    client,
+    "the selected drawing object Inspector",
+    `document.querySelector('[aria-label="Drawing selection"]')?.getAttribute("data-state") === "selected" &&
+      document.querySelector('input[aria-label="Fill color"]') instanceof HTMLInputElement`,
+  );
+  const fillChanged = await evaluate(
+    client,
+    `(() => {
+      const input = document.querySelector('input[aria-label="Fill color"]');
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      if (!(input instanceof HTMLInputElement) || setter === undefined) {
+        return false;
+      }
+      setter.call(input, "#dc2626");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
+    })()`,
+  );
+  assert.equal(
+    fillChanged,
+    true,
+    "The selected drawing fill was not editable.",
+  );
+  const styled = await waitForProject(
+    origin,
+    "one durable drawing style change",
+    (candidate) =>
+      candidate.sections.drawing.data.scene.objects.some(
+        (object) => object.type === "Rect" && object.fill === "#dc2626",
+      ),
+  );
+  assert.equal(styled.revision, initialProject.revision + 1);
+
+  await dispatchDrawingShortcut(client, {
+    code: "KeyD",
+    key: "d",
+    modKey: true,
+  });
+  const duplicated = await waitForProject(
+    origin,
+    "one durable drawing duplication",
+    (candidate) =>
+      candidate.sections.drawing.data.scene.objects.length ===
+      styled.sections.drawing.data.scene.objects.length + 1,
+  );
+  assert.equal(duplicated.revision, styled.revision + 1);
+
+  await dispatchDrawingShortcut(client, {
+    code: "KeyA",
+    key: "a",
+    modKey: true,
+  });
+  await dispatchDrawingShortcut(client, {
+    code: "KeyG",
+    key: "g",
+    modKey: true,
+  });
+  const grouped = await waitForProject(
+    origin,
+    "one durable drawing group",
+    (candidate) => {
+      const objects = candidate.sections.drawing.data.scene.objects;
+      return objects.length === 1 && objects[0]?.type === "Group";
+    },
+  );
+  assert.equal(grouped.revision, duplicated.revision + 1);
+
+  await clickSectionButton(client, "drawing", "Undo");
+  const ungrouped = await waitForProject(
+    origin,
+    "the undone drawing group",
+    (candidate) =>
+      candidate.sections.drawing.data.scene.objects.length ===
+      duplicated.sections.drawing.data.scene.objects.length,
+  );
+  await clickSectionButton(client, "drawing", "Redo");
+  const regrouped = await waitForProject(
+    origin,
+    "the redone drawing group",
+    (candidate) => {
+      const objects = candidate.sections.drawing.data.scene.objects;
+      return objects.length === 1 && objects[0]?.type === "Group";
+    },
+  );
+  assert.equal(regrouped.revision, ungrouped.revision + 1);
+
+  const viewRevision = regrouped.revision;
+  const beforeView = await evaluate(
+    client,
+    `(() => {
+      const wrapper = document.querySelector(".realtime-drawing-stage .canvas-container");
+      const canvas = document.querySelector(".realtime-drawing-stage .lower-canvas");
+      return wrapper instanceof HTMLElement && canvas instanceof HTMLCanvasElement
+        ? {
+            height: canvas.height,
+            transform: wrapper.style.transform,
+            width: canvas.width,
+            zoom: document.querySelector('[aria-label="Canvas zoom"]')?.textContent,
+          }
+        : null;
+    })()`,
+  );
+  assert.ok(beforeView !== null, "The drawing viewport was not measurable.");
+  await clickSectionButton(client, "drawing", "Zoom in");
+  await clickSectionButton(client, "drawing", "Show grid");
+  await clickSectionButton(client, "drawing", "Snap to grid");
+  await waitFor(
+    client,
+    "the local drawing zoom and grid",
+    `(() => {
+      const grid = document.querySelector(".realtime-drawing-grid");
+      const canvas = document.querySelector(".realtime-drawing-stage .lower-canvas");
+      const zoom = document.querySelector('[aria-label="Canvas zoom"]')?.textContent;
+      return grid instanceof HTMLElement && !grid.hidden &&
+        getComputedStyle(grid).backgroundSize !== "auto" &&
+        canvas instanceof HTMLCanvasElement &&
+        canvas.width === ${String(beforeView.width)} &&
+        canvas.height === ${String(beforeView.height)} &&
+        zoom !== ${JSON.stringify(beforeView.zoom)};
+    })()`,
+  );
+
+  await clickSectionButton(client, "drawing", "Hand");
+  const panStart = await evaluate(
+    client,
+    `(() => {
+      const stage = document.querySelector(".realtime-drawing-stage");
+      const wrapper = stage?.querySelector(".canvas-container");
+      if (!(stage instanceof HTMLElement) || !(wrapper instanceof HTMLElement)) {
+        return null;
+      }
+      const bounds = stage.getBoundingClientRect();
+      return {
+        transform: wrapper.style.transform,
+        x: bounds.left + bounds.width / 2,
+        y: bounds.top + bounds.height / 2,
+      };
+    })()`,
+  );
+  assert.ok(panStart !== null, "The drawing hand tool was not addressable.");
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: panStart.x,
+    y: panStart.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    type: "mouseMoved",
+    x: panStart.x + 32,
+    y: panStart.y + 24,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: panStart.x + 32,
+    y: panStart.y + 24,
+  });
+  await waitFor(
+    client,
+    "the local drawing hand pan",
+    `document.querySelector(".realtime-drawing-stage .canvas-container")?.style.transform !== ${JSON.stringify(panStart.transform)}`,
+  );
+  await delay(250);
+  const afterView = await jsonRequest(origin, "/api/v1/project");
+  assert.equal(
+    afterView.revision,
+    viewRevision,
+    "Drawing viewport controls changed the project revision.",
+  );
+  await clickButton(client, "Runtime");
+}
+
 async function exerciseWorkspaceSection(client, origin) {
   await activateSection(client, "drawing");
   await clickSectionButton(client, "drawing", "Lock position and size");
@@ -1622,6 +1832,7 @@ async function exerciseBrowser(client, origin) {
       afterStroke.sections.drawing.data.scene.objects.length,
   );
   assert.equal(project.revision, afterStroke.revision + 1);
+  await exerciseDrawingAuthoring(client, origin, project);
 
   await clickButton(client, "Fail");
   await waitFor(
