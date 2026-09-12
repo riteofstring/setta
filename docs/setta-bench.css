@@ -601,11 +601,18 @@ h1 {
   content: "";
 }
 
-.pillow-thumb::before {
-  filter: blur(0.45px);
+.contain-thumb::before {
+  top: 25%;
+  left: 39%;
+  width: 22%;
+  height: 48%;
 }
 
-.sharp-thumb::before {
+.cover-thumb::before {
+  top: 6%;
+  left: 25%;
+  width: 50%;
+  height: 88%;
   border-color: #7dd3fc;
 }
 
@@ -1976,18 +1983,33 @@ h1 {
   content: "";
 }
 
-.artifact-preview[data-renderer="pillow"]::before {
-  filter: blur(0.55px);
+.artifact-preview[data-renderer="contain"]::before {
+  width: 30px;
+  height: 48px;
   box-shadow:
     0 0 0 2px rgb(96 165 250 / 14%),
     0 13px 18px rgb(0 0 0 / 34%);
 }
 
-.artifact-preview[data-renderer="sharp"]::before {
+.artifact-preview[data-renderer="contain"]::after {
+  top: 18px;
+  width: 13px;
+  height: 6px;
+}
+
+.artifact-preview[data-renderer="cover"]::before {
+  width: 58px;
+  height: 88px;
   border-color: rgb(125 211 252 / 92%);
   box-shadow:
     0 0 0 1px rgb(125 211 252 / 8%),
     0 13px 18px rgb(0 0 0 / 34%);
+}
+
+.artifact-preview[data-renderer="cover"]::after {
+  top: -1px;
+  width: 24px;
+  height: 11px;
 }
 
 .artifact-preview span {

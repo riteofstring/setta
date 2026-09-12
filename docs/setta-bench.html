@@ -92,7 +92,7 @@
           <a href="#workflow">Workflow</a>
           <a href="#mockups">Product views</a>
           <a href="#boundaries">Scope</a>
-          <a href="plans/setta-bench.md">Read the plan</a>
+          <a href="../apps/bench/README.md">App guide</a>
         </nav>
       </div>
     </header>
@@ -108,8 +108,8 @@
           </p>
           <div class="hero-actions">
             <a class="primary-link" href="#mockups">Explore the product</a>
-            <a class="secondary-link" href="plans/setta-bench.md"
-              >Open the implementation plan</a
+            <a class="secondary-link" href="design/bench-frontend.md"
+              >Read the frontend design</a
             >
           </div>
         </div>
@@ -120,22 +120,24 @@
         >
           <div class="hero-run-head">
             <div class="hero-run-title">
-              <span class="live-dot"></span> Thumbnail comparison
+              <span class="live-dot"></span> Product thumbnail strategies
             </div>
             <div class="run-id">LAUNCH 0042</div>
           </div>
           <div class="hero-run-body">
             <div class="run-row">
               <div>
-                <div class="run-name">Pillow Canvas</div>
-                <div class="run-meta">10 product images · Python Canvas</div>
+                <div class="run-name">Contain</div>
+                <div class="run-meta">
+                  10 colorful PNGs · preserve full image
+                </div>
               </div>
               <div class="run-status">complete</div>
             </div>
             <div class="run-row">
               <div>
-                <div class="run-name">Sharp CLI</div>
-                <div class="run-meta">10 product images · local command</div>
+                <div class="run-name">Cover</div>
+                <div class="run-meta">10 colorful PNGs · crop to fill</div>
               </div>
               <div class="run-status">complete</div>
             </div>
@@ -145,7 +147,7 @@
               <strong>20 / 20</strong><span>cases executed</span>
             </div>
             <div class="hero-stat">
-              <strong>38 KB</strong><span>smaller median</span>
+              <strong>1.8 KB</strong><span>median size gap</span>
             </div>
             <div class="hero-stat">
               <strong>2 / 2</strong><span>runs complete</span>
@@ -187,7 +189,7 @@
               <use href="#icon-play"></use>
             </svg>
             <strong>Run 2 candidates</strong>
-            <span>freeze revision 7</span>
+            <span>freeze revision 0</span>
           </div>
           <article class="workflow-layer generated-layer">
             <div class="workflow-layer-label">Generated · Runs</div>
@@ -234,9 +236,9 @@
             <div class="loop-accent"></div>
             <h3>Align the same case</h3>
             <div class="review-pair" aria-hidden="true">
-              <span class="review-thumb pillow-thumb"></span>
-              <span class="review-versus">glass-bottle</span>
-              <span class="review-thumb sharp-thumb"></span>
+              <span class="review-thumb contain-thumb"></span>
+              <span class="review-versus">sunset-bottle</span>
+              <span class="review-thumb cover-thumb"></span>
             </div>
             <p>
               Compare finds the matching case ID in two completed runs, then
@@ -248,49 +250,50 @@
         <figure class="case-trace">
           <figcaption>
             <span class="case-trace-kicker">One case, end to end</span>
-            <strong>What happens to <code>glass-bottle</code></strong>
+            <strong>What happens to <code>sunset-bottle</code></strong>
           </figcaption>
           <div class="case-trace-grid">
             <div class="trace-node trace-source">
               <span class="trace-node-kind">Case input</span>
-              <strong>glass-bottle</strong>
-              <code>cases/glass-bottle.png</code>
+              <strong>sunset-bottle</strong>
+              <code>inputs/product-01.png</code>
             </div>
             <div class="trace-branches">
               <div class="trace-run">
                 <div>
                   <span class="trace-node-kind">Run BN-0042-01</span>
-                  <strong>Pillow Canvas</strong>
-                  <code>revision pc:42</code>
+                  <strong>Contain</strong>
+                  <code>--mode contain</code>
                 </div>
                 <div class="trace-output">
-                  <span class="trace-thumbnail pillow-thumb"></span>
-                  <span><b>142 KB</b><small>181 ms</small></span>
+                  <span class="trace-thumbnail contain-thumb"></span>
+                  <span><b>6.8 KB</b><small>30 ms</small></span>
                 </div>
               </div>
               <div class="trace-run">
                 <div>
                   <span class="trace-node-kind">Run BN-0042-02</span>
-                  <strong>Sharp CLI</strong>
-                  <code>sharp-cli 0.34</code>
+                  <strong>Cover</strong>
+                  <code>--mode cover</code>
                 </div>
                 <div class="trace-output">
-                  <span class="trace-thumbnail sharp-thumb"></span>
-                  <span><b>119 KB</b><small>66 ms</small></span>
+                  <span class="trace-thumbnail cover-thumb"></span>
+                  <span><b>7.3 KB</b><small>35 ms</small></span>
                 </div>
               </div>
             </div>
             <div class="trace-node trace-checks">
               <span class="trace-node-kind">Same checks for both</span>
-              <strong>Shared checks</strong>
+              <strong>Thumbnail quality</strong>
               <span class="trace-finding"><b>✓</b> 512 × 512</span>
               <span class="trace-finding"><b>✓</b> no more than 160 KB</span>
             </div>
           </div>
           <div class="case-trace-note">
-            Pillow and Sharp do not feed into each other. They independently
-            receive the same case; Bench records both outputs and aligns them by
-            <code>case_id</code> in Compare.
+            Contain and Cover invoke the same Go standard-library binary with
+            different modes. They independently receive the same case; Bench
+            records both outputs and aligns them by <code>caseId</code> in
+            Compare.
           </div>
         </figure>
       </section>
@@ -434,7 +437,7 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Thumbnail comparison
+                                  Product thumbnail strategies
                                 </span>
                               </div>
                             </div>
@@ -455,7 +458,7 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Product images
+                                  Colorful catalog images
                                 </span>
                               </div>
                             </div>
@@ -476,7 +479,7 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Pillow Canvas
+                                  Contain
                                 </span>
                               </div>
                             </div>
@@ -497,7 +500,7 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Sharp CLI
+                                  Cover
                                 </span>
                               </div>
                             </div>
@@ -521,7 +524,7 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Shared checks
+                                  Thumbnail quality
                                 </span>
                               </div>
                             </div>
@@ -587,7 +590,7 @@
                           <header class="setta-section-header">
                             <span class="setta-section-menu"></span>
                             <span class="setta-section-title"
-                              >Product images</span
+                              >Colorful catalog images</span
                             >
                             <span class="setta-section-actions">
                               <span class="setta-section-action">⌑</span>
@@ -615,9 +618,7 @@
                           <span class="setta-port out"></span>
                           <header class="setta-section-header">
                             <span class="setta-section-menu"></span>
-                            <span class="setta-section-title"
-                              >Pillow Canvas</span
-                            >
+                            <span class="setta-section-title">Contain</span>
                             <span class="setta-section-actions">
                               <span class="setta-section-action">⌑</span>
                               <span class="setta-section-action">−</span>
@@ -632,7 +633,7 @@
                             <div class="setta-item-row">
                               <span class="setta-item-key">source</span>
                               <span class="setta-item-value"
-                                >Canvas · pc:42</span
+                                >Go · --mode contain</span
                               >
                             </div>
                           </div>
@@ -646,7 +647,7 @@
                           <span class="setta-port out"></span>
                           <header class="setta-section-header">
                             <span class="setta-section-menu"></span>
-                            <span class="setta-section-title"> Sharp CLI </span>
+                            <span class="setta-section-title"> Cover </span>
                             <span class="setta-section-actions">
                               <span class="setta-section-action">⌑</span>
                               <span class="setta-section-action">−</span>
@@ -660,7 +661,9 @@
                             </div>
                             <div class="setta-item-row">
                               <span class="setta-item-key">source</span>
-                              <span class="setta-item-value">CLI · 0.34</span>
+                              <span class="setta-item-value"
+                                >Go · --mode cover</span
+                              >
                             </div>
                           </div>
                         </article>
@@ -673,7 +676,7 @@
                           <header class="setta-section-header">
                             <span class="setta-section-menu"></span>
                             <span class="setta-section-title">
-                              Shared checks
+                              Thumbnail quality
                             </span>
                             <span class="setta-section-actions">
                               <span class="setta-section-action">⌑</span>
@@ -754,7 +757,7 @@
                           <div class="setta-workspace-inspector">
                             <div class="setta-workspace-inspector-editor">
                               <div class="setta-inspector-identity">
-                                <strong>Shared checks</strong
+                                <strong>Thumbnail quality</strong
                                 ><span>check set</span>
                               </div>
                               <div class="setta-inspector-group-label">
@@ -924,9 +927,9 @@
               <div>
                 <h3>Runs view</h3>
                 <p>
-                  Launch 0042 created two immutable rows: one candidate run for
-                  Pillow and one for Sharp. Each row groups that candidate's ten
-                  case executions and preserves its frozen source revision.
+                  One launch created two immutable rows: one candidate run for
+                  Contain and one for Cover. Each row groups that candidate's
+                  ten case executions and preserves its frozen command.
                 </p>
               </div>
               <div class="scene-caption">
@@ -1094,10 +1097,10 @@
                           <div class="setta-workspace-window-surface-body">
                             <div class="run-window-summary">
                               <div>
-                                <strong>Thumbnail comparison</strong>
+                                <strong>Product thumbnail strategies</strong>
                                 <span>
-                                  project rev 7 · 2 candidates · Product images
-                                  v1
+                                  project rev 0 · 2 candidates · Colorful
+                                  catalog images
                                 </span>
                               </div>
                               <div class="run-window-counts">
@@ -1113,7 +1116,7 @@
                                     <th>Candidate</th>
                                     <th>Origin</th>
                                     <th>Status</th>
-                                    <th>Checks</th>
+                                    <th>Cases</th>
                                     <th>Median size</th>
                                     <th>Duration</th>
                                   </tr>
@@ -1121,25 +1124,25 @@
                                 <tbody>
                                   <tr aria-selected="true">
                                     <td class="table-id">BN-0042-02</td>
-                                    <td>Sharp CLI</td>
+                                    <td>Cover</td>
                                     <td>command</td>
                                     <td>
                                       <span class="status-label">Complete</span>
                                     </td>
                                     <td>10 / 10</td>
-                                    <td>88 KB</td>
-                                    <td>1.8s</td>
+                                    <td>11.0 KB</td>
+                                    <td>350 ms</td>
                                   </tr>
                                   <tr>
                                     <td class="table-id">BN-0042-01</td>
-                                    <td>Pillow Canvas</td>
-                                    <td>Python Canvas</td>
+                                    <td>Contain</td>
+                                    <td>command</td>
                                     <td>
                                       <span class="status-label">Complete</span>
                                     </td>
                                     <td>10 / 10</td>
-                                    <td>126 KB</td>
-                                    <td>2.4s</td>
+                                    <td>9.3 KB</td>
+                                    <td>300 ms</td>
                                   </tr>
                                 </tbody>
                               </table>
@@ -1211,12 +1214,12 @@
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Checks
+                                  Failed checks
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  10 / 10
+                                  0
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
@@ -1228,7 +1231,7 @@
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  88 KB
+                                  11.0 KB
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
@@ -1240,7 +1243,7 @@
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  1.8s
+                                  350 ms
                                 </span>
                               </div>
                               <div class="setta-inspector-group-label">
@@ -1255,7 +1258,7 @@
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  rev 7
+                                  rev 0
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
@@ -1267,7 +1270,7 @@
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  sharp-cli 0.34
+                                  thumbnail-candidate --mode cover
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
@@ -1279,7 +1282,7 @@
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  Product images v1
+                                  Colorful catalog images
                                 </span>
                               </div>
                               <div class="setta-inspector-group-label">
@@ -1287,7 +1290,7 @@
                               </div>
                               <div class="setta-log-lines">
                                 <div>10 case results adopted</div>
-                                <div>3 checks finalized</div>
+                                <div>2 checks finalized per case</div>
                                 <div><em>run completed successfully</em></div>
                               </div>
                             </div>
@@ -1372,8 +1375,9 @@
                 <h3>Compare view</h3>
                 <p>
                   Select two completed runs, then Bench joins their results by
-                  stable case ID. Here both <code>glass-bottle</code> artifacts,
-                  measurements, and check findings occupy matching surfaces.
+                  stable case ID. Here both
+                  <code>sunset-bottle</code> artifacts, measurements, and check
+                  findings occupy matching surfaces.
                 </p>
               </div>
               <div class="scene-caption">
@@ -1456,7 +1460,7 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Pillow Canvas vs Sharp CLI
+                                  Contain vs Cover
                                 </span>
                               </div>
                             </div>
@@ -1555,7 +1559,7 @@
                               <use href="#icon-document"></use>
                             </svg>
                             <span class="setta-workspace-window-surface-title">
-                              Pillow Canvas · BN-0042-01
+                              Contain · BN-0042-01
                             </span>
                             <span
                               class="setta-workspace-window-surface-actions"
@@ -1576,26 +1580,26 @@
                           <div class="comparison-window-body">
                             <div class="comparison-metrics">
                               <div class="comparison-metric">
-                                <strong>10 / 10</strong><span>checks</span>
+                                <strong>0</strong><span>failed checks</span>
                               </div>
                               <div class="comparison-metric">
-                                <strong>126 KB</strong><span>median size</span>
+                                <strong>9.3 KB</strong><span>median size</span>
                               </div>
                               <div class="comparison-metric">
-                                <strong>2.4s</strong><span>duration</span>
+                                <strong>300 ms</strong><span>duration</span>
                               </div>
                             </div>
                             <div class="case-review">
                               <div
                                 class="artifact-preview"
-                                data-renderer="pillow"
+                                data-renderer="contain"
                                 role="img"
-                                aria-label="Pillow thumbnail preview with a slightly soft bottle edge"
+                                aria-label="Contain thumbnail preview preserving the full product image"
                               >
-                                <span>pillow output</span>
+                                <span>contain output</span>
                               </div>
                               <div class="case-review-head">
-                                <span>Case 07 · glass-bottle.png</span>
+                                <span>Case 01 · product-01.png</span>
                                 <span class="status-label">Passed</span>
                               </div>
                               <div class="case-result">
@@ -1604,11 +1608,11 @@
                               </div>
                               <div class="case-result">
                                 <span>File size</span>
-                                <code>132 KB</code>
+                                <code>6.8 KB</code>
                               </div>
                               <div class="case-result">
                                 <span>Visual note</span>
-                                <code>slight edge halo</code>
+                                <code>full scene retained</code>
                               </div>
                             </div>
                           </div>
@@ -1620,7 +1624,7 @@
                               <use href="#icon-document"></use>
                             </svg>
                             <span class="setta-workspace-window-surface-title">
-                              Sharp CLI · BN-0042-02
+                              Cover · BN-0042-02
                             </span>
                             <span class="recommended">preferred</span>
                             <span
@@ -1642,26 +1646,26 @@
                           <div class="comparison-window-body">
                             <div class="comparison-metrics">
                               <div class="comparison-metric">
-                                <strong>10 / 10</strong><span>checks</span>
+                                <strong>0</strong><span>failed checks</span>
                               </div>
                               <div class="comparison-metric">
-                                <strong>88 KB</strong><span>median size</span>
+                                <strong>11.0 KB</strong><span>median size</span>
                               </div>
                               <div class="comparison-metric">
-                                <strong>1.8s</strong><span>duration</span>
+                                <strong>350 ms</strong><span>duration</span>
                               </div>
                             </div>
                             <div class="case-review">
                               <div
                                 class="artifact-preview"
-                                data-renderer="sharp"
+                                data-renderer="cover"
                                 role="img"
-                                aria-label="Sharp thumbnail preview with a clean bottle edge"
+                                aria-label="Cover thumbnail preview cropping the source to fill the square"
                               >
-                                <span>sharp output</span>
+                                <span>cover output</span>
                               </div>
                               <div class="case-review-head">
-                                <span>Case 07 · glass-bottle.png</span>
+                                <span>Case 01 · product-01.png</span>
                                 <span class="status-label">Passed</span>
                               </div>
                               <div class="case-result">
@@ -1670,11 +1674,11 @@
                               </div>
                               <div class="case-result">
                                 <span>File size</span>
-                                <code class="good">86 KB</code>
+                                <code>7.3 KB</code>
                               </div>
                               <div class="case-result">
                                 <span>Visual note</span>
-                                <code class="good">clean edge</code>
+                                <code class="good">frame filled</code>
                               </div>
                             </div>
                           </div>
@@ -1733,7 +1737,7 @@
                           <div class="setta-workspace-inspector">
                             <div class="setta-workspace-inspector-editor">
                               <div class="setta-inspector-identity">
-                                <strong>Sharp CLI</strong>
+                                <strong>Cover</strong>
                                 <span>comparison</span>
                               </div>
                               <div class="setta-inspector-group-label">
@@ -1750,7 +1754,7 @@
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  −38 KB
+                                  +1.8 KB
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
@@ -1762,7 +1766,7 @@
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  −0.6s
+                                  +50 ms
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
@@ -1789,7 +1793,7 @@
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  4 / 4
+                                  10 / 10
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
@@ -1809,7 +1813,7 @@
                                 <span
                                   class="setta-workspace-inspector-config-input"
                                 >
-                                  crisper and smaller
+                                  stronger shelf presence
                                 </span>
                               </div>
                               <span
@@ -1916,12 +1920,14 @@
             </p>
             <div class="architecture-list">
               <div class="architecture-item">
-                Python Canvas · runnable candidate
+                Contain mode · Go standard-library command
               </div>
               <div class="architecture-item">
-                Local command · second candidate
+                Cover mode · the same Go binary
               </div>
-              <div class="architecture-item">JSONL manifest · ten cases</div>
+              <div class="architecture-item">
+                JSONL manifest · ten colorful PNG cases
+              </div>
               <div class="architecture-item">
                 Shared evaluator · small checks
               </div>
@@ -1978,8 +1984,8 @@
           <div class="tool-flow-card">
             <strong>Build</strong>
             <span
-              >Export one Python Canvas callable or point Bench at a local
-              command.</span
+              >Run the checked-in Go modes or import one Python Canvas
+              callable.</span
             >
           </div>
           <div class="flow-arrow" aria-hidden="true">→</div>
@@ -2011,8 +2017,8 @@
           platform.
         </p>
         <div class="hero-actions">
-          <a class="primary-link" href="plans/setta-bench.md"
-            >Read the complete plan</a
+          <a class="primary-link" href="../apps/bench/README.md"
+            >Read the app guide</a
           >
           <a class="secondary-link" href="app-ideas.md"
             >Return to the app ideas</a
@@ -2023,9 +2029,9 @@
 
     <footer class="site-footer">
       <div class="page-shell footer-inner">
-        <span>Setta Bench · proposed application</span>
+        <span>Setta Bench · focused local comparison app</span>
         <span class="footer-links">
-          <a href="plans/setta-bench.md">Plan</a>
+          <a href="design/bench-backend.md">Backend design</a>
           <a href="app-ideas.md">App ideas</a>
         </span>
       </div>
