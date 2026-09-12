@@ -82,6 +82,12 @@ edge inputs and applies connect, reconnect, delete, and selection callbacks. Tho
 use Workspace types and remain outside `WorkspaceDocument`; XYFlow types, instances, and state stay
 absent from the public contract.
 
+New connections use the host's required synchronous connection validator. Replacement validation
+may depend on which controlled edge is being replaced, so an optional reconnect validator receives
+both that edge ID and the detached candidate connection during hover and drop. Without it,
+reconnects retain the new-connection policy. Workspace does not speculate about target occupancy or
+mutate the controlled edge set before the host accepts the replacement.
+
 The graph presentation preserves the local main branch's established `data`, `agentic`, and
 `workflow` families, source/target port treatment, connection preview, selection, reconnect, and
 delete behavior. Main is the UX and behavior reference, while this package expresses that behavior

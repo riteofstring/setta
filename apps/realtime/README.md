@@ -16,9 +16,10 @@ setta realtime invoke --project-root ./my-app --handler increment --file input.j
 
 ## Drawing playground
 
-The checked-in playground fans each drawing snapshot out to two realtime handlers. One keeps the
-standard-library and browser-native SVG neon effect; the other uses Pillow image operations to
-produce a warm risograph treatment:
+The checked-in playground fans each drawing snapshot out to two realtime handlers, then joins their
+outputs in a third handler. One branch keeps the standard-library and browser-native SVG neon
+effect, the other uses Pillow image operations to produce a warm risograph treatment, and the join
+embeds both results in a combined SVG:
 
 ```console
 pnpm realtime:playground
@@ -40,14 +41,16 @@ Generated Realtime contracts are checked without being rewritten and Go module r
 read-only during this build, so launching the playground does not repair or update tracked inputs.
 Use `setta realtime open` for an installed release.
 
-Draw a mark and both processed results update while the stroke is active. The two bindings have
-independent concurrency groups, so the SVG and Pillow handlers are admitted and publish without
-waiting on each other. The compact drawing toolbar provides Select, Pen, Highlighter, Eraser, and
-Text tools, a **Line & shape** menu, image insertion, contextual creation and selection colors, and
-undo and redo. Grid controls, canvas sizing and clearing, detailed object appearance, typography,
-arrangement, grouping, locking, and deletion live in the right-side Inspector. The example is an
-ordinary Realtime project: inside the ignored working copy its authored document is
-`.local/realtime/project.json` and its editable handler is `app.py`.
+Draw a mark and both intermediate results update while the stroke is active; the combined result
+updates after both branches complete. The SVG and Pillow bindings have independent concurrency
+groups, so they are admitted and publish without waiting on each other. Their outputs carry one run
+lineage into the `combine` handler and can never be paired with results from another drawing
+snapshot. The compact drawing toolbar provides Select, Pen, Highlighter, Eraser, and Text tools, a
+**Line & shape** menu, image insertion, contextual creation and selection colors, and undo and redo.
+Grid controls, canvas sizing and clearing, detailed object appearance, typography, arrangement,
+grouping, locking, and deletion live in the right-side Inspector. The example is an ordinary
+Realtime project: inside the ignored working copy its authored document is
+`.local/realtime/project.json` and its editable entrypoint is `app.py`.
 Change the three palette colors in `_pillow_risograph`, or the `MaxFilter` size, then use **Apply &
 reload** for an immediate visual variation. The tracked source under
 `apps/realtime/examples/neon-sketch/fixture` is only the immutable seed. Playground activity never
@@ -95,14 +98,20 @@ The operation union is `setName`, `setRuntime`, `upsertSection`, `deleteSection`
 invalid section forests, broken binding references, and stale project revisions fail the complete
 request without changing the project.
 
-The initial section kinds are `input`, `output`, `button`, `status`, `drawing`, and `code`. A
-project may contain at most one `code` section, and its data is exactly
-`{"source":"entrypoint"}`. It projects the declared entrypoint without copying source, drafts,
-versions, or diagnostics into `project.json`. A binding names one exact event and handler, resolves
-`$event.FIELD` and `$sections.SECTION.FIELD` arguments from one canonical snapshot, declares
-possible output targets, and selects `once`, `latest`, or `parallel` scheduling with an explicit
-concurrency group and limit. The recommended policy for a continuously changing interactive input
-is completion paced:
+Project contract version 2 supports `input`, `output`, `button`, `status`, `drawing`, `handler`, and
+`code` sections. Each `handler` section has exactly `{"bindingId":"..."}` and projects one binding
+as an executable graph node. The validator enforces a one-to-one relationship between handler
+sections and bindings. A project may also contain at most one optional `code` section, whose data is
+exactly `{"source":"entrypoint"}`. It is the shared source editor for the declared entrypoint, not a
+callback node, and never copies source, drafts, versions, or diagnostics into `project.json`.
+
+A binding has an `event`, `join`, or `disconnected` trigger. Event bindings resolve
+`$event.FIELD` and `$sections.SECTION.FIELD` arguments from one frozen event and project snapshot.
+An all-input join maps named inputs to logical outputs of upstream bindings. Logical outputs exist
+independently of their optional display targets, so intermediate values need no output section.
+`disconnected` is a valid authoring state for a handler node with no incoming trigger. A binding
+selects `once`, `latest`, or `parallel` scheduling with an explicit concurrency group and limit. The
+recommended policy for a continuously changing interactive input is completion paced:
 
 ```json
 {
@@ -117,6 +126,58 @@ Zero debounce starts idle work immediately. While it runs, `latest` retains only
 input and starts that input when capacity returns, so the handler's observed completion rate adapts
 the cadence without a guessed timing interval. A nonzero debounce remains an explicit trailing
 delay for interactions that should wait for input to become quiet.
+
+### Handler pipelines
+
+Realtime projects handler bindings through Workspace's controlled graph surface:
+
+```text
+Drawing ─┬→ [neon_glitch] ──────→ Neon result
+         └→ [pillow_risograph] ──→ Riso result
+
+[neon_glitch].image ─────┐
+                          ├→ [combine] → Combined result
+[pillow_risograph].image ─┘
+
+Code: app.py
+```
+
+The join binding in that graph uses structured binding-output references:
+
+```json
+{
+  "id": "combine-results",
+  "trigger": {
+    "kind": "join",
+    "mode": "all",
+    "inputs": {
+      "neon": { "bindingId": "stylize-drawing", "output": "image" },
+      "riso": { "bindingId": "render-risograph", "output": "image" }
+    }
+  },
+  "handler": "combine",
+  "arguments": {},
+  "scheduling": {
+    "mode": "latest",
+    "debounceMilliseconds": 0,
+    "concurrencyGroup": "combine-rendering",
+    "concurrencyLimit": 1
+  },
+  "outputs": {
+    "image": {
+      "target": { "sectionId": "final-result", "field": "contentRef" }
+    }
+  }
+}
+```
+
+Workflow ports connect section events to handler triggers. Data ports connect handler outputs to
+named join inputs or to display sinks. Realtime serializes connect, reconnect, and delete mutations;
+the backend validates the complete candidate and remains final authority. It rejects missing
+bindings or ports, incompatible port families, self-edges, cycles, orphan joins, and joins whose
+producers do not share one root event. Deleting a producer or output removes dependent join inputs
+and recursively disconnects joins left without a producer. Reconnecting is one final-state mutation,
+so eligible startup policy and unaffected descendants survive the replacement.
 
 ### Startup and retained outputs
 
@@ -138,18 +199,28 @@ under the runtime-owned `.local/realtime/materializations` directory rather than
 
 `startup` is `always`, `whenStale`, `ifMissing`, or `manual`. `whenStale` compares the active source
 version, handler, and resolved arguments; `ifMissing` computes only when no saved result exists.
-Automatic startup is available for `change` and `snapshot` bindings, whose input and drawing
-sections can provide a canonical initial value. Use `manual` for `submit` and `press` bindings.
+Automatic startup is available throughout pipelines rooted in `change` or `snapshot`, whose input
+and drawing sections can provide a canonical initial value. Realtime keys an initialization attempt
+by the complete upstream binding graph, so an ancestor edit retries an affected downstream join.
+Use `manual` for pipelines rooted in `submit` or `press`.
 
-Only successful handler completion replaces a saved materialization. During an automatic refresh,
-the output section labels and continues showing the saved result; a failed refresh leaves it
-intact. This lets a project retain its last useful result when recomputation is expensive or an
-external resource later becomes unavailable.
+Only successful handler completion replaces a saved materialization. A matching retained result is
+adopted into the current startup run before it can satisfy a join; an unrelated or stale displayed
+value never does. During an automatic refresh, the output section labels and continues showing the
+saved result; a failed refresh leaves it intact. This lets a project retain its last useful result
+when recomputation is expensive or an external resource later becomes unavailable.
 
-One event may fan out to multiple bindings. Independent work should use distinct concurrency groups
-so each handler can start and publish separately. Drawing preview admission waits until every
-matching completion-paced binding is terminal before emitting the next snapshot, so the slowest
-matching handler bounds input cadence without blocking faster outputs from appearing first.
+Every accepted root event receives one run ID and a frozen event payload and project revision. It
+may fan out to multiple bindings, and an all-input join waits for every producer in that same run to
+complete successfully. Streamed outputs may update display targets immediately, but downstream
+handlers are released only after the worker's complete, contiguous update sequence has arrived;
+their arguments use the invocation's accumulated outputs. Failure, cancellation, supersession,
+source activation, project changes, and shutdown recursively invalidate affected descendants.
+
+Independent work should use distinct concurrency groups so each handler can start and publish
+separately. Drawing preview admission waits until every matching root binding is terminal before
+emitting the next snapshot, so the slowest matching handler bounds input cadence without blocking
+faster outputs from appearing first.
 
 ## Live source editing
 
@@ -250,6 +321,13 @@ Project snapshots arrive as complete SSE values. Runtime snapshots, events, canc
 invocation status, updates, and logs use one WebSocket. Reconnection replaces local state from
 current complete snapshots while retaining browser-owned selection and minimized presentation.
 
+Handler nodes, binding ports, and edges are Realtime-owned projections into Workspace's generic
+controlled graph APIs. Realtime does not persist Workspace graph types. A handler node shows its
+selected function, whether that function was discovered in the active entrypoint, input and output
+names, run ID, state, progress, message, error, and a Cancel action when applicable. Its Inspector
+edits function name, argument JSON, output names, scheduling, and materialization. The Runtime pane
+lists discovered handlers and can create a disconnected binding and its handler section atomically.
+
 Fabric.js owns retained drawing objects, free drawing, erasing, selection, transforms, history,
 serialization, and raster export. Realtime persists the vector scene only after a coherent gesture
 or command. While a local change is unsettled or awaiting acknowledgement, delayed project
@@ -309,19 +387,21 @@ occupied. It performs no additional capture or upload until invocation completio
 capacity. A settled final snapshot takes priority over lossy preview work and remains pending until
 it can be sent, without turning pointer movement into durable project mutations.
 
-`latest` runs at most one invocation for a binding and retains at most its newest queued or
-debounced input. A new event supersedes only replaced pending work; it does not cancel or suppress
-work that is already running. Submitted status and published output use separate sequence
-watermarks, so a running invocation may publish while newer work waits, but an older late output
-can never replace a newer published output. `once` rejects overlap, and `parallel` remains within
-declared binding and group bounds. A Cancel action removes queued work or requests cooperative
-worker cancellation. A timeout or crash replaces the whole worker process because arbitrary
-synchronous Python cannot be safely interrupted.
+Waiting join nodes participate in the same scheduling policy as queued, debounced, and running
+work. `latest` runs at most one invocation for a binding and retains at most its newest waiting,
+queued, or debounced lineage. A new event supersedes only replaced pending work; it does not cancel
+work already running in that binding. Invalidating an upstream node does cancel or block any active
+or pending descendants. Submitted status and published output use separate sequence watermarks, so
+a running invocation may publish while newer work waits, but an older late output can never replace
+a newer published output. `once` rejects overlap, and `parallel` remains within declared binding and
+group bounds. A Cancel action removes queued work or requests cooperative worker cancellation. A
+timeout or crash replaces the whole worker process because arbitrary synchronous Python cannot be
+safely interrupted.
 
 Completion itself is the automatic feedback signal; Realtime does not estimate handler time with
-an EWMA. It also does not add automatic cancellation, result caching, cross-session batching,
-typed preview/final messages, or a Python scheduling decorator. Expensive models and clients can
-already load once through module initialization or the worker `startup` hook.
+an EWMA. It does not add general result caching, cross-session batching, typed preview/final
+messages, or a Python scheduling decorator. Expensive models and clients can already load once
+through module initialization or the worker `startup` hook.
 
 ## Local security and lifecycle
 
@@ -330,11 +410,13 @@ all production assets, and keeps every API route outside SPA fallback. User Pyth
 runs with the current user's permissions; process ownership provides bounded lifetime and
 descendant cleanup, not a security sandbox.
 
-The private language-neutral worker contract is JSON-RPC 2.0 with strict LSP `Content-Length`
-framing. A later language adapter must implement the same `initialize`, `runtime/invoke`,
-`runtime/update`, `$/cancelRequest`, and `shutdown` lifecycle and pass the existing non-Python
-conformance fixture. Registration is compile-time at `openLocalApplication`: the runtime-kind
-selection constructs an implementation of the coordinator's `runtime.Worker` interface and its
-optional artifact and log sources. Unsupported kinds remain errors. The new adapter may add its own
-launcher and containment implementation, but project bindings, scheduling, browser transport, and
-frontend code do not change.
+The private version 2 language-neutral worker contract is JSON-RPC 2.0 with strict LSP
+`Content-Length` framing. Each `runtime/update` has a contiguous `updateSequence`, and the invocation
+result reports `updateCount`, so completion cannot race its final streamed output. A later language
+adapter must implement the same `initialize`, `runtime/invoke`, `runtime/update`,
+`$/cancelRequest`, and `shutdown` lifecycle and pass the existing non-Python conformance fixture.
+Registration is compile-time at `openLocalApplication`: the runtime-kind selection constructs an
+implementation of the coordinator's `runtime.Worker` interface and its optional artifact and log
+sources. Unsupported kinds remain errors. The new adapter may add its own launcher and containment
+implementation, but project bindings, scheduling, browser transport, and frontend code do not
+change.

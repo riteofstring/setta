@@ -130,6 +130,8 @@ const canvas = useMemo<WorkspaceCanvasConfiguration>(
     },
     graph: {
       canConnect: (connection) => validateConnection(connection),
+      canReconnect: ({ connection, edgeId }) =>
+        validateReplacement(edgeId, connection),
       edges,
       onConnect: (connection) =>
         setEdges((value) => addEdge(value, connection)),
@@ -162,6 +164,10 @@ apply every callback to its controlled input. `canEditStructure` gates connect, 
 delete while read-only edge selection remains available. Nested-section ports are supported.
 Workspace graph types deliberately contain no XYFlow types, and graph state is not stored in the
 workspace document.
+
+`canConnect` validates a new edge. A host whose replacement rules differ supplies optional
+`canReconnect`, which receives the proposed connection and the ID of the edge it replaces during
+both hover and drop evaluation. When omitted, reconnect validation falls back to `canConnect`.
 
 Multi-section attention is an imperative, host-scoped presentation aid:
 

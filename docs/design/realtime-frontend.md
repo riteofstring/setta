@@ -24,6 +24,13 @@ registries. Realtime section implementations remain app-owned until another conc
 requires an identical contract. Workspace continues to own outer canvas, windowing, section
 chrome, document validation, and composition.
 
+Realtime projects its bindings into Workspace's generic controlled graph API. Source-section event
+ports and handler trigger ports use the workflow family; handler inputs, outputs, and display sinks
+use the data family. Realtime derives deterministic ports and edges from the canonical project and
+converts connect, reconnect, and delete gestures back into serialized project operations. Workspace
+graph records remain disposable view data and never enter `project.json`; Go validates the complete
+result and remains final graph authority.
+
 Source authoring follows the same authority boundary. A project may project its declared runtime
 entrypoint through one optional `code` section whose closed data is exactly
 `{"source":"entrypoint"}`. The entrypoint file remains canonical. A disposable local Workspace
@@ -31,6 +38,11 @@ document may hold the source draft and editor undo state, but Realtime strips th
 projects authored state back to Go. The source, content version, draft, diagnostics, dirty state,
 and activation state never enter `project.json`. Canonical project SSE reprojection preserves a
 dirty local draft instead of overwriting or persisting it.
+
+Each binding has one app-owned `handler` section whose closed data contains only `bindingId`. It is
+the graph and runtime-state projection of an independently scheduled callback. It is deliberately
+different from the optional code section, which edits the single shared entrypoint and has no
+trigger, input, or output ports.
 
 ## Runtime delivery
 
@@ -41,14 +53,19 @@ listener replay, polling, force refresh, or locally reconstructed queues.
 
 Every outgoing event is tied to an exact source section and event name and declares whether it came
 from a user interaction or startup initialization. Stateful input and drawing sections emit at
-most one startup event for an eligible binding configuration in each ready runtime session; the Go
-host remains authoritative for policy and deduplication. Every update is tied to a session,
-binding, and invocation. The frontend applies only host-authorized current outputs and
+most one startup event for each eligible binding-and-ancestor configuration in a ready runtime
+session; a changed upstream graph creates a new initialization claim. This includes automatic joins
+whose compiled root is `change` or `snapshot`; the Go host remains authoritative for policy,
+adoption, and deduplication. Every update is tied to a session, run, binding, invocation, and
+invocation-local update sequence. The frontend applies only host-authorized current outputs and
 never equates newest submitted status with newest publishable output. Runtime snapshots provide a
-published identity per binding and identify outputs restored from last-successful materialization.
+published identity per binding, discovered handler names, and outputs restored from last-successful
+materialization.
 The browser may therefore apply a completed output while a newer invocation is queued, while still
-rejecting an output older than the host's published watermark. Binary data travels through the
-shared HTTP content path, while runtime messages contain content references.
+rejecting an output older than the host's published watermark. Presentation and output updates keep
+separate sequence watermarks, so a duplicate older-invocation output cannot be accepted merely
+because a newer invocation owns the visible progress state. Binary data travels through the shared
+HTTP content path, while runtime messages contain content references.
 
 Realtime reads source through the same-origin-readable `GET /api/v1/runtime/source` and applies it
 through an exact-origin `PUT` to the same path. It owns the source document, local draft, dirty comparison, apply
@@ -65,7 +82,7 @@ discarding the local draft.
 
 ## Sections and presentation
 
-The initial catalog contains bounded input, output, button, status, drawing, and optional singular
+The catalog contains bounded input, output, button, status, drawing, handler, and optional singular
 code sections. Inputs commit authored values at their documented boundaries. Buttons emit explicit
 actions. Output and status sections render only host-canonical runtime values and invocation state
 addressed by declared binding outputs. A retained value remains visible while startup refresh runs
@@ -73,6 +90,25 @@ or fails and is labeled as a saved result until a successful current-session res
 An eligible output with no value presents its initialization state rather than an unexplained empty
 surface. The code section has no binding event or output semantics; it is an editor projection of
 the declared entrypoint.
+
+A handler section presents the selected handler and its discovery state, named input and output
+ports, current run ID, queued, waiting, running, streaming, completed, blocked, failed, or cancelled
+state, progress, message, error, and a contextual Cancel action. Its Inspector owns handler name,
+argument JSON, logical output names, scheduling, and materialization. Draft validation mirrors the
+contract's identifier, reference, count, and scheduling bounds before submitting one mutation. The
+Runtime pane lists discovered entrypoint handlers and creates a disconnected binding and matching
+handler section in one revision-checked mutation.
+
+Graph edits are serialized so one project revision is in flight at a time. Workspace passes
+reconnect candidates to Realtime with the replaced edge ID, allowing validation against the final
+graph rather than the still-projected old edge. Reconnecting preserves automatic materialization
+when the final root remains eligible and prunes only downstream inputs made invalid by changed root
+ancestry. Reconnecting to a `press` or `submit` root clamps automatic materialization to `manual`.
+Removing an event edge leaves the handler disconnected. Removing a producer, output port, or join
+edge removes the exact join inputs, restores their ordinary argument placeholders as `null` when
+the argument limit permits, and recursively disconnects joins with no remaining producer. Local
+checks reject incompatible port families, occupied targets, self-connections, cycles, and ambiguous
+root ancestry before the backend performs final validation.
 
 Workspace owns a reusable controlled Code editor, generic native header-action placement and
 styling, and the Mod-Enter key seam. Realtime supplies the draft value, action, disabled state,
@@ -194,22 +230,24 @@ pointer movement records only one dirty preview marker and performs no raster ca
 A terminal matching invocation replenishes the credit and drains the newest state. Settling clears
 obsolete preview work, retains one final raster until it can be sent, and gives that final work
 priority when capacity returns. The Go scheduler remains the correctness boundary; browser
-admission only avoids waste for the current single-owner local product. With multiple matching
-bindings, the capacity credit returns after every binding is terminal. Their results may still
-publish independently, and distinct concurrency groups allow independent scheduler admission.
+admission only avoids waste for the current single-owner local product. With multiple matching root
+bindings, the capacity credit returns after every root binding is terminal. Their results may still
+publish independently, and downstream joins continue under Go-owned scheduling and lineage.
 
 Other policies retain the bounded fixed preview timer. Completion-paced work does not use an EWMA
 or another estimate because completion itself supplies capacity feedback. Generator updates remain
 the existing progressive-output path; the frontend adds no typed preview/final transport, general
-result cache, batching layer, or Python authoring SDK. The outer Workspace canvas remains its existing
-upstream XYFlow projection.
+result cache, batching layer, or Python authoring SDK. Go's contiguous update barrier, rather than
+browser arrival timing, determines when a downstream join is ready.
 
 Realtime renders one ordinary, editable `WorkspaceShell`, Workspace host, section registry,
 section chrome, and upstream XYFlow canvas. It retains Workspace's native section selection,
 movement, resizing, locking, minimization, naming, and Inspector instead of introducing an app
 mode or presentation adapter. Realtime does not wrap the Workspace in a second product header;
 connection and runtime actions live in the Workspace Runtime tab instead of reserving a full-width
-row.
+row. This feature changes only Realtime's use of existing graph extension points plus Workspace's
+generic replacement-aware validation callback; it adds no pipeline-specific source or persistence
+to `@setta/workspace`.
 
 ## Generated validation boundary
 

@@ -37,19 +37,31 @@ A project may contain zero or one `code` section. Its closed data is exactly
 not own source. The declared entrypoint, currently `app.py`, is the sole source authority. Source
 bytes, versions, drafts, diagnostics, and activation state never enter the project document.
 
+Each binding has exactly one app-owned `handler` section whose closed data contains its binding ID.
+The handler section is an authoring and runtime-state projection, not another source authority. The
+project contract enforces the one-to-one relationship; deleting either side removes the other and
+prunes incident pipeline relationships in the same validated mutation.
+
 Creation is exclusive. Loading rejects unknown fields, invalid unions, incompatible versions, and
 missing required state. A mutation checks project identity and expected revision, constructs and
 validates one complete candidate, writes replacement bytes through a synced sibling on the same
 filesystem, and atomically renames it. Success increments the revision once and publishes the
 complete snapshot once; conflict and persistence failure leave canonical state unchanged.
 
-Each binding names one exact source section event, one exact handler, resolved argument
-expressions, declared outputs, a scheduling policy, and an optional materialization policy. Go
-resolves arguments from one event and one canonical state snapshot before enqueueing. Display names
-never become aliases or identities. Materialization independently chooses whether the last
-successful outputs remain session-only or survive runtime restarts, and whether startup runs the
-binding always, only when its compute fingerprint is stale, only when no retained result exists, or
-only after an interaction.
+Each binding names one exact handler, resolved argument expressions, logical outputs, a scheduling
+policy, an optional materialization policy, and one closed trigger variant: source-section `event`,
+all-input runtime `join`, or authoring-state `disconnected`. A join input references one named
+logical output of another binding. Logical outputs may independently target a display field; an
+intermediate output needs no section sink. Go resolves event and section expressions from one frozen
+root event and canonical project snapshot before enqueueing. Display names never become aliases or
+identities. Materialization independently chooses whether the last successful outputs remain
+session-only or survive runtime restarts, and whether startup runs the binding always, only when its
+compute fingerprint is stale, only when no retained result exists, or only after an interaction.
+
+Contract validation compiles the bindings into deterministic topological, parent, child,
+descendant, reachability, and root-ancestry indexes. It rejects missing bindings or output ports,
+self-edges, cycles, orphan joins, and joins with ambiguous root events. Version 2 introduced this
+closed project shape; public HTTP routes remain under `/api/v1`.
 
 ## Browser transports
 
@@ -59,18 +71,19 @@ snapshot after each accepted mutation. Slow subscribers may skip superseded snap
 reconnection catches up without replay or force-refresh state.
 
 One WebSocket carries closed runtime messages for the current runtime snapshot, interaction and
-startup events,
-invocation status, streamed updates, structured errors, and bounded logs. Reconnection starts with
-the complete current runtime snapshot. Every event and result carries session, binding, and
-invocation identity. Runtime snapshots carry both current invocation status and the published
-identity for each binding, plus which bindings are currently showing a retained result, allowing
-reconnect and slow-subscriber snapshot replacement to preserve the distinction between submitted
-work and applied output.
+startup events, invocation status, streamed updates, structured errors, and bounded logs.
+Reconnection starts with the complete current runtime snapshot. Every invocation and result carries
+session, run, binding, invocation, and sequence identity. Runtime snapshots carry discovered
+handlers, current invocation status, the published identity for each binding, and which bindings
+are currently showing a retained result. Reconnect and slow-subscriber snapshot replacement thus
+preserve both graph-node availability and the distinction between submitted work and applied
+output.
 
 Large binary values use one HTTP content store. WebSocket and worker messages carry validated
-content references. References are scoped to their owning invocation until the host deliberately
-adopts an output. Paths, encoded binary payloads, and arbitrary URLs are not alternate content
-channels.
+content references. The coordinator rescopes the frozen root payload to its run, gives every
+consumer an invocation-owned clone, and deletes unprotected intermediates when the run becomes
+terminal. Published values and retained materializations remain protected until replaced. Paths,
+encoded binary payloads, and arbitrary URLs are not alternate content channels.
 
 The Go contract definitions own JSON Schema for project, HTTP, WebSocket, artifact, and worker
 documents. Generated browser declarations and Ajv standalone validators derive from those schemas;
@@ -98,11 +111,15 @@ implies that the new code is live.
 
 ## Scheduling and runtime state
 
-Scheduling exists only in Go. `once` admits no concurrent duplicate, `latest` runs at most one
-invocation for a binding and keeps at most one pending event, and `parallel` admits only the
-explicit limit. The one `latest` pending slot covers both queued and debounced work, so a delayed
-candidate cannot hide behind another queued candidate. Bindings may share a concurrency group;
-the effective limit is the lowest declared member limit and every queue is bounded.
+Scheduling exists only in Go. All selected pipeline nodes are reserved before roots are released;
+joins enter `waiting` until their dependencies complete. Waiting, queued, debounced, and running
+work all participate in binding admission. `once` admits no concurrent lineage, `latest` runs at
+most one invocation for a binding and keeps at most one pending lineage, and `parallel` admits only
+the explicit limit. The one `latest` pending slot covers waiting, queued, and debounced work, so a
+delayed candidate cannot hide behind another candidate. Bindings may share a concurrency group; the
+effective limit is the lowest declared member limit and every queue is bounded. If reserving a
+valid graph exceeds queue capacity, the complete event admission rolls back and returns an error;
+it never executes a truncated graph.
 
 `latest` with zero debounce is the completion-paced automatic policy. Idle work starts immediately.
 Input arriving while it runs replaces only pending work, and completion releases the binding slot
@@ -111,10 +128,14 @@ newer event arrived. The scheduler reports the exact pending invocation it repla
 coordinator can mark that invocation `superseded` without inferring task state from submission
 order. A nonzero debounce remains a deliberate trailing admission delay.
 
-One source event may schedule several bindings. Distinct concurrency groups admit independent
-handlers concurrently, and each binding publishes to its own targets as soon as its updates arrive;
-there is no cross-binding output barrier. The Neon fixture uses this fan-out for its SVG and Pillow
-renderers while retaining one bounded `latest` slot per renderer.
+Each accepted root event creates one run with a frozen payload and project revision, then selects
+every reachable binding. Distinct concurrency groups admit fan-out handlers concurrently, and each
+binding publishes display updates as soon as they arrive. An all-input join is the deliberate
+cross-binding completion barrier: it becomes runnable only after every referenced producer in the
+same run completes successfully and provides the declared output. Producer completion uses
+accumulated streamed and final outputs, so a generator's empty final return does not erase its
+latest yielded value. The Neon fixture fans out to SVG and Pillow renderers and joins those exact
+lineage-matched results in a third handler.
 
 Each binding keeps separate highest-submitted and highest-published identities. Invocation status
 follows submitted work. An active invocation's update or final output remains publishable while a
@@ -123,6 +144,11 @@ watermark. Publishing a newer output advances that watermark and prevents any la
 from regressing target values. Progress or message-only updates remain observable without
 advancing the output watermark. Complete runtime snapshots include published identities.
 
+Every worker update also carries a contiguous invocation-local `updateSequence`, and invocation
+completion reports `updateCount`. The coordinator waits for exactly that complete sequence before
+making success visible to downstream joins. A gap, duplicate, wrong identity, or late update cannot
+release or publish into an invalid lineage.
+
 Authored project state is durable and revisioned. Runtime values are JSON-compatible and Go-owned.
 Session-retained values live only in the current runtime snapshot. A binding configured for
 last-successful retention also stores one atomic runtime-owned materialization beneath
@@ -130,24 +156,36 @@ last-successful retention also stores one atomic runtime-owned materialization b
 are restored before worker startup so a failed or unavailable refresh does not erase the last
 usable result. A materialization is replaced only after successful handler completion, never from
 an incomplete stream or failed invocation. Retained content is copied into the current session
-content store and receives fresh content-reference identities. Corrupt or missing retained state is
-treated as unavailable rather than authored project corruption. Process resources remain
+content store and receives fresh content-reference identities. A retained result can satisfy a
+startup dependency only when its fingerprint matches and the coordinator adopts it into the new run
+lineage. Stale `ifMissing` ancestry blocks the affected branch instead of mixing values from
+different computations. Corrupt or missing retained state is treated as unavailable rather than
+authored project corruption. Applying a project reconciles removed or retargeted published values
+and protected content before publishing the replacement snapshot. Process resources remain
 worker-owned for one worker lifetime, and browser interaction state remains local and disposable.
 
-Cancellation removes queued work and requests cooperative cancellation from an active worker.
-Timeout or hard stop replaces the complete worker because arbitrary synchronous Python or native
-code cannot be safely interrupted in process. Observable status distinguishes queued cancellation,
+Cancellation removes queued work or requests cooperative cancellation from an active worker and
+marks all unstarted descendants `blocked`. Failure and supersession do the same; an already active
+descendant receives cooperative cancellation. Project replacement, source activation, reload, and
+coordinator shutdown invalidate every affected run before replacing scheduling or worker state.
+Every late update is checked against its still-current invocation and run. Timeout or hard stop
+replaces the complete worker because arbitrary synchronous Python or native code cannot be safely
+interrupted in process. Observable status distinguishes waiting, blocked, queued cancellation,
 cooperative completion, timeout, worker crash, and host-forced replacement.
 
 Handler completion provides the adaptive feedback signal; the scheduler does not estimate runtime
 with an EWMA. Generator and async-generator updates remain the progressive-output contract, and
 normal invocation completion remains its final and materialization boundary. A startup event is a
 state-initialization signal rather than a user interaction. Go remains authoritative for its
-policy, deduplicates it once per binding and runtime session, and compares a stable fingerprint of
-the active entrypoint version, handler, and normalized resolved arguments for `whenStale`.
-Automatic handler cancellation, graph invalidation, general deterministic result memoization,
-cross-session batching, typed preview/final messages, and a Python scheduling SDK are separate
-contracts and are not part of this design.
+policy and provisionally claims each target before its dependencies run, preventing duplicate
+startup lineages while allowing a target that was never reached to retry. The claim identity covers
+the target's complete ancestor binding graph. Each eligible target selects its required ancestors,
+its reachable descendants, and dependencies of those descendants; unrelated sibling branches do
+not run. The coordinator compares a stable fingerprint of the active entrypoint version, handler,
+and normalized resolved arguments for `whenStale`. Automatic startup is valid only for bindings
+whose compiled root ancestry is `change` or `snapshot`. General deterministic result memoization,
+cross-session batching, typed preview/final messages, and a Python scheduling SDK are not part of
+this design.
 
 ## Worker boundary
 
@@ -155,8 +193,10 @@ The private versioned worker protocol is JSON-RPC 2.0 over Language Server Proto
 `Content-Length` framing on a dedicated inherited channel. Application stdout and stderr are
 separate bounded logs and can never enter framing bytes. `initialize` negotiates the protocol;
 `runtime/invoke` carries identity, handler, values, and staged references; `runtime/update`
-notifications stream progress and outputs; `$/cancelRequest` requests cooperative cancellation;
-and `shutdown` starts bounded cleanup.
+notifications stream progress and outputs with `updateSequence`; the invocation result reports
+`updateCount`; `$/cancelRequest` requests cooperative cancellation; and `shutdown` starts bounded
+cleanup. The private worker and browser runtime contract families are version 2 so run lineage and
+the update completion barrier are explicit rather than inferred.
 
 JSON values and validated content references are the complete portable value set. Python
 exceptions become structured errors. Pickle, Python objects, modules, callables, and frontend
