@@ -246,7 +246,7 @@ class PublicContractValidationTests(unittest.TestCase):
 
     def test_realtime_schema_requires_the_exact_public_command_set(self) -> None:
         document: dict[str, object] = {
-            "schemaVersion": "setta-realtime-schema/v1",
+            "schemaVersion": "setta-realtime-schema/v2",
             "commands": {
                 name: {} for name in ("apply", "invoke", "reload", "schema", "snapshot")
             },

@@ -45,7 +45,7 @@ func (coordinator *fakeCoordinator) Apply(request contracts.ApplyRequest) (contr
 }
 
 func (coordinator *fakeCoordinator) Reload(context.Context) (contracts.InitializeResult, error) {
-	return contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "python", Handlers: []string{}}, nil
+	return contracts.InitializeResult{ProtocolVersion: contracts.WorkerProtocolVersion, RuntimeKind: "python", Handlers: []string{}}, nil
 }
 
 func (coordinator *fakeCoordinator) RuntimeSource() (contracts.RuntimeSourceDocument, error) {
@@ -112,7 +112,7 @@ func testHandler(t *testing.T, serverURL string) (*Handler, *fakeCoordinator, *c
 	}
 	sourceDocument := contracts.RuntimeSourceDocument{ProjectID: projectSnapshot.ID, Entrypoint: "app.py", Version: strings.Repeat("a", 64), Source: "handlers = {}\n"}
 	coordinator := &fakeCoordinator{
-		project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}, PublishedByBinding: map[string]contracts.InvocationIdentity{}, RetainedByBinding: map[string]bool{}},
+		project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Handlers: []string{}, Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}, PublishedByBinding: map[string]contracts.InvocationIdentity{}, RetainedByBinding: map[string]bool{}},
 		source: sourceDocument, result: contracts.ApplyRuntimeSourceResult{Source: sourceDocument, Activation: contracts.RuntimeSourceActivation{State: "activated"}},
 	}
 	handler, err := New(coordinator, projects, contentStore, projectRoot, "nonce", serverURL)
@@ -334,7 +334,7 @@ func TestRuntimeSocketStartsWithSnapshotAndAcceptsStrictEvent(t *testing.T) {
 		t.Fatalf("content.Open() error = %v", err)
 	}
 	defer contentStore.Close()
-	coordinator := &fakeCoordinator{project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}, PublishedByBinding: map[string]contracts.InvocationIdentity{}, RetainedByBinding: map[string]bool{}}}
+	coordinator := &fakeCoordinator{project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Handlers: []string{}, Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}, PublishedByBinding: map[string]contracts.InvocationIdentity{}, RetainedByBinding: map[string]bool{}}}
 	testServer := httptest.NewUnstartedServer(nil)
 	serverURL := "http://" + testServer.Listener.Addr().String()
 	handler, err := New(coordinator, projects, contentStore, projectRoot, "nonce", serverURL)

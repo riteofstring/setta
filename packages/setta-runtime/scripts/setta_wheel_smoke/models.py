@@ -38,7 +38,7 @@ RUNTIME_SESSION_SCHEMA = "python-canvas-session/v1"
 APP_ID = "python-canvas"
 REALTIME_APP_ID = "realtime"
 REALTIME_RUNTIME_SESSION_SCHEMA = "realtime-session/v1"
-REALTIME_SCHEMA = "setta-realtime-schema/v1"
+REALTIME_SCHEMA = "setta-realtime-schema/v2"
 APP_DESCRIPTORS = (
     {
         "id": "python-canvas",
