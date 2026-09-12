@@ -639,7 +639,47 @@ async function clickSectionButton(client, sectionId, label) {
 }
 
 async function chooseSectionMenuItem(client, sectionId, label, itemLabel) {
-  await clickSectionButton(client, sectionId, label);
+  const triggerPoint = await evaluate(
+    client,
+    `(() => {
+      const section = document.querySelector(
+        ${JSON.stringify(`[data-workspace-section-shell="true"][data-section-id="${sectionId}"]`)},
+      );
+      const button = Array.from(section?.querySelectorAll("button") ?? []).find(
+        (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)},
+      );
+      if (!(button instanceof HTMLButtonElement) || button.disabled) {
+        return null;
+      }
+      const bounds = button.getBoundingClientRect();
+      return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
+    })()`,
+  );
+  assert.ok(
+    triggerPoint !== null,
+    `${label} was not enabled for Realtime section ${sectionId}.`,
+  );
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: triggerPoint.x,
+    y: triggerPoint.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: triggerPoint.x,
+    y: triggerPoint.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: triggerPoint.x,
+    y: triggerPoint.y,
+  });
   await waitFor(
     client,
     `${label} menu item ${itemLabel}`,
