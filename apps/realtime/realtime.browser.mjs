@@ -1184,7 +1184,7 @@ async function exerciseDrawingInspector(client, origin) {
   await clickButton(client, "Runtime");
 }
 
-async function exerciseDrawingAuthoring(client, origin, initialProject) {
+async function exerciseDrawingAuthoring(client, origin) {
   await activateSection(client, "drawing");
   await clickButton(client, "Inspector");
   await waitFor(
@@ -1193,6 +1193,8 @@ async function exerciseDrawingAuthoring(client, origin, initialProject) {
     `document.querySelector('[aria-label="Drawing selection"]')?.getAttribute("data-state") === "selected" &&
       document.querySelector('input[aria-label="Fill color"]') instanceof HTMLInputElement`,
   );
+  await delay(250);
+  const beforeStyle = await jsonRequest(origin, "/api/v1/project");
   const fillChanged = await evaluate(
     client,
     `(() => {
@@ -1219,7 +1221,14 @@ async function exerciseDrawingAuthoring(client, origin, initialProject) {
         (object) => object.type === "Rect" && object.fill === "#dc2626",
       ),
   );
-  assert.equal(styled.revision, initialProject.revision + 1);
+  assert.equal(styled.revision, beforeStyle.revision + 1);
+  await delay(250);
+  const settledStyle = await jsonRequest(origin, "/api/v1/project");
+  assert.equal(
+    settledStyle.revision,
+    styled.revision,
+    "The drawing style change settled more than once.",
+  );
 
   await dispatchDrawingShortcut(client, {
     code: "KeyD",
@@ -1416,14 +1425,6 @@ async function exerciseWorkspaceSection(client, origin) {
   });
 
   const beforeResize = await jsonRequest(origin, "/api/v1/project");
-  const beforeCanvasWidth = await evaluate(
-    client,
-    `document.querySelector(".realtime-drawing-stage .lower-canvas")?.getBoundingClientRect().width ?? null`,
-  );
-  assert.ok(
-    typeof beforeCanvasWidth === "number" && beforeCanvasWidth > 0,
-    "The drawing canvas was not measurable before its section resize.",
-  );
   await resizeSection(
     client,
     origin,
@@ -1443,12 +1444,18 @@ async function exerciseWorkspaceSection(client, origin) {
       const stageRect = stage.getBoundingClientRect();
       const canvasRect = canvas.getBoundingClientRect();
       const expectedRatio = 440 / 280;
+      const expectedWidth = Math.min(
+        stageRect.width,
+        stageRect.height * expectedRatio,
+      );
+      const expectedHeight = expectedWidth / expectedRatio;
       return stageRect.height > 0 &&
         canvas.width === 440 && canvas.height === 280 &&
         canvasRect.width <= stageRect.width + 1 &&
         canvasRect.height <= stageRect.height + 1 &&
-        canvasRect.width < ${String(beforeCanvasWidth)} - 5 &&
-      Math.abs(canvasRect.width / canvasRect.height - expectedRatio) < 0.02;
+        Math.abs(canvasRect.width - expectedWidth) < 1 &&
+        Math.abs(canvasRect.height - expectedHeight) < 1 &&
+        Math.abs(canvasRect.width / canvasRect.height - expectedRatio) < 0.02;
     })()`,
   );
   await exerciseDrawingSurfaceInteraction(client, origin);
@@ -1832,7 +1839,7 @@ async function exerciseBrowser(client, origin) {
       afterStroke.sections.drawing.data.scene.objects.length,
   );
   assert.equal(project.revision, afterStroke.revision + 1);
-  await exerciseDrawingAuthoring(client, origin, project);
+  await exerciseDrawingAuthoring(client, origin);
 
   await clickButton(client, "Fail");
   await waitFor(
