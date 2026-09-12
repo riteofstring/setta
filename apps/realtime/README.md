@@ -24,13 +24,15 @@ produce a warm risograph treatment:
 pnpm realtime:playground
 ```
 
-This repository-local command installs the frozen workspace dependencies, rebuilds Workspace and
-Realtime, replaces the repository-owned local Setta environment from a complete new wheel, and
-opens Neon Sketch. After the first complete build, it reuses the installed Python Canvas assets
-instead of rebuilding that unrelated app. It does not reuse `uv tool run`'s cached same-version
-environment. Before launch it seeds `tmp/realtime-playground/neon-sketch` from the immutable
-checked-in fixture when that ignored working project is absent. Later launches preserve drawings
-and applied callback edits in the ignored copy; remove that directory to reset it from the fixture.
+On its first run, this repository-local command installs the frozen workspace dependencies, builds
+Workspace and Realtime, installs a complete wheel into the repository-owned local Setta
+environment, and opens Neon Sketch. Later runs fingerprint the relevant source, lock, platform, and
+toolchain inputs and reuse that validated install when nothing changed. A cache miss rebuilds
+Realtime and Workspace while reusing installed Python Canvas assets after the first complete build.
+It does not use `uv tool run`'s cached same-version environment. Before launch it seeds
+`tmp/realtime-playground/neon-sketch` from the immutable checked-in fixture when that ignored
+working project is absent. Later launches preserve drawings and applied callback edits in the
+ignored copy; remove that directory to reset it from the fixture.
 An existing copy is deliberately not migrated. Back up any callback edits and reset it once to pick
 up a newer fixture layout or callback. The launcher synchronizes the working project's exact frozen
 dependencies into its ignored `.venv` without building source distributions.
@@ -257,17 +259,18 @@ and settles one durable position on release. Settled snapshots exclude selection
 handles, and text cursors.
 
 The compact drawing toolbar provides Select, Pen, translucent Highlighter, Eraser, and Text tools,
-a Setta-styled **Line & shape** menu, image insertion, and undo and redo. Text is placed by
-clicking its intended origin; lines and arrows use the pointer endpoints, while rectangles and
-ellipses use the press and current pointer as opposite corners instead of expanding around the
-initial press. A new text box enters editing immediately, and completed placement returns to
-Select. Contextual controls expose Pen and Highlighter color and width, text and line color, and
-shape fill and stroke beside the active tool. Concrete colors remain available in the same toolbar
-controls when a compatible object is selected. The Inspector opens only its contextual **Selection**
-card; mixed or disabled paint, opacity, rectangle radius, text properties, and object actions live
-there. Secondary **Arrange & align** and document-level **Canvas** cards stay collapsed until
-needed. Canvas also holds the undoable, destructive **Clear drawing** action. Mixed values remain
-explicit, and locked objects remain selectable for unlocking but
+a Setta-styled **Line & shape** menu, image insertion, and undo and redo. Images can be chosen from
+the toolbar or dropped onto the drawing; a dropped image is placed at the drop point. Text is
+placed by clicking its intended origin; lines and arrows use the pointer endpoints, while
+rectangles and ellipses use the press and current pointer as opposite corners instead of expanding
+around the initial press. A new text box enters editing immediately, and completed placement
+returns to Select. Contextual controls expose Pen and Highlighter color and width, text and line
+color, and shape fill and stroke beside the active tool. Concrete colors remain available in the
+same toolbar controls when a compatible object is selected. The Inspector opens only its
+contextual **Selection** card; mixed or disabled paint, opacity, rectangle radius, text properties,
+and object actions live there. Secondary **Arrange & align** and document-level **Canvas** cards
+stay collapsed until needed. Canvas also holds the undoable, destructive **Clear drawing** action.
+Mixed values remain explicit, and locked objects remain selectable for unlocking but
 cannot be changed by geometry or destructive commands. A mixed lock selection offers **Unlock
 all** directly.
 
@@ -293,9 +296,12 @@ size** can preserve artwork size using a nine-point anchor or scale the artwork 
 the complete scene and dimensions undo and redo together. **Fit frame to canvas** is a one-shot action
 and does not lock the section's aspect ratio. Image content shown by an output section likewise uses
 centered contain fitting without changing the source image; there is no separate `image` section kind.
-Drawing image insertion accepts PNG, JPEG, and WebP files up to 20 MB, corrects source orientation,
-downscales the longest edge to at most 2048 pixels, and embeds a bounded WebP representation in the
-retained scene. Pressure-shaped brush geometry and smart alignment guides are not exposed.
+Drawing image insertion accepts one dropped or picked PNG, JPEG, or WebP file up to 20 MB, corrects
+source orientation, downscales the longest edge to at most 2048 pixels, and embeds a bounded WebP
+representation in the retained scene. The artboard highlights during a file drag; a drop is mapped
+through the fitted canvas even when XYFlow has zoomed the section, then centered at that point and
+kept inside the logical bounds. Pressure-shaped brush geometry and smart alignment guides are not
+exposed.
 
 For a completion-paced binding, the browser captures and uploads the first eligible composited
 raster immediately, then retains only one dirty preview or final snapshot while the binding is

@@ -171,12 +171,16 @@ so toolbar wrapping does not leave accidental padding. Image content references 
 sections use centered contain fitting and never mutate their source pixels when the outer section
 changes. A dedicated image section is not part of the current section catalog. Drawing image
 insertion deliberately embeds a browser-prepared data URL in the Fabric scene rather than retaining
-an ephemeral invocation content reference. Input is limited to PNG, JPEG, and WebP files no larger
-than 20 MB; decoding honors source orientation, the longest edge is capped at 2048 pixels, and
-iterative WebP encoding must fit within 600 KiB. These bounds make the image durable with the scene
-without adding a project asset lifecycle. Object-edge snapping and temporary smart guides remain
-outside this increment; grid snapping and explicit alignment provide deterministic precision
-without pointer-rate React state or exported guide artifacts.
+an ephemeral invocation content reference. The toolbar picker and a single-file drop onto the
+drawing stage share that preparation boundary. A file drag gives the drawing exclusive ownership
+and visibly marks the artboard; its drop point is converted through Fabric's fitted scene
+coordinates, then the imported image is centered there and constrained to the logical canvas. Input
+is limited to PNG, JPEG, and WebP files no larger than 20 MB; decoding honors source orientation,
+the longest edge is capped at 2048 pixels, and iterative WebP encoding must fit within 600 KiB.
+These bounds make the image durable with the scene without adding a project asset lifecycle.
+Object-edge snapping and temporary smart guides remain outside this increment; grid snapping and
+explicit alignment provide deterministic precision without pointer-rate React state or exported
+guide artifacts.
 
 Raster snapshot capture exports Fabric's lower scene canvas without its interactive upper canvas,
 so selection borders, transform handles, and text cursors cannot enter settled output. Only an

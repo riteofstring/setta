@@ -50,14 +50,21 @@ staging, and the wheel backend packages only those verified roots. CI trigger an
 cover every registered app. Runtime boundary checks reject undeclared files, missing app assets,
 and source-checkout fallbacks.
 
-The repository-local runner always builds a fresh wheel into a temporary directory and reinstalls
-the same-version `setta` package into a repository-owned environment with the package cache
-disabled. This keeps release versions deterministic while ensuring a local playground launch
-cannot reuse an older unpacked `uv tool run` environment. After the first complete build, a
-Realtime launch rebuilds Realtime and its Workspace dependency while reusing the installed Python
-Canvas native and web assets. The resulting wheel remains complete without rebuilding an unrelated
-app on every Realtime playground launch. Installed releases continue to use the ordinary `setta`
-entry point.
+The repository-local Realtime runner fingerprints the platform, pinned toolchain, package locks,
+Workspace and Realtime build inputs, and packaged runtime sources. An installed Realtime runtime
+is reused only when its executable and packaged assets remain valid and an atomically written
+record matches that fingerprint. The first launch or any mismatch builds a fresh wheel into a
+temporary directory and reinstalls the same-version `setta` package into a repository-owned
+environment with the package cache disabled. A successful install publishes the new record before
+the application opens. This prevents an older unpacked `uv tool run` environment from becoming an
+implicit cache while avoiding dependency installation, compilation, wheel creation, and reinstall
+when no relevant input changed.
+
+On a Realtime cache miss after the first complete build, the runner rebuilds Realtime and its
+Workspace dependency while reusing the installed Python Canvas native and web assets. The resulting
+wheel remains complete without rebuilding an unrelated app. Playground project content is not a
+build input, so ordinary drawing and callback edits do not invalidate the packaged application.
+Installed releases continue to use the ordinary `setta` entry point.
 
 The Realtime playground runner treats the checked-in example as an immutable seed. It creates one
 complete working project beneath the repository's ignored `tmp/` tree when absent, validates the
