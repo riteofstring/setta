@@ -41,6 +41,11 @@ class WheelStagingTests(unittest.TestCase):
         )
         self.native.write_bytes(_native_binary(self.target))
         self.native.chmod(0o755)
+        self.bench_native = self.root / (
+            "bench.exe" if self.target.os == "windows" else "bench"
+        )
+        self.bench_native.write_bytes(_native_binary(self.target))
+        self.bench_native.chmod(0o755)
         self.realtime_native = self.root / (
             "realtime.exe" if self.target.os == "windows" else "realtime"
         )
@@ -51,6 +56,12 @@ class WheelStagingTests(unittest.TestCase):
         (self.web / "index.html").write_text("<!doctype html>", encoding="utf-8")
         (self.web / "assets" / "app.js").write_text(
             "console.log('setta')", encoding="utf-8"
+        )
+        self.bench_web = self.root / "bench-web"
+        (self.bench_web / "assets").mkdir(parents=True)
+        (self.bench_web / "index.html").write_text("<!doctype html>", encoding="utf-8")
+        (self.bench_web / "assets" / "app.js").write_text(
+            "console.log('bench')", encoding="utf-8"
         )
         self.realtime_web = self.root / "realtime-web"
         (self.realtime_web / "assets").mkdir(parents=True)
@@ -64,6 +75,7 @@ class WheelStagingTests(unittest.TestCase):
     def _inputs(self, output: Path) -> StageInputs:
         return StageInputs(
             apps=(
+                StageAppInputs("bench", self.bench_native, self.bench_web),
                 StageAppInputs("realtime", self.realtime_native, self.realtime_web),
                 StageAppInputs("python-canvas", self.native, self.web),
             ),
@@ -83,6 +95,9 @@ class WheelStagingTests(unittest.TestCase):
         self.assertEqual(
             sorted(manifest.assets),
             [
+                "bench/web/assets/app.js",
+                "bench/web/index.html",
+                "bin/bench.exe" if self.target.os == "windows" else "bin/bench",
                 "bin/python-canvas.exe"
                 if self.target.os == "windows"
                 else "bin/python-canvas",
@@ -93,7 +108,7 @@ class WheelStagingTests(unittest.TestCase):
                 "realtime/web/index.html",
             ],
         )
-        self.assertEqual(tuple(manifest.apps), ("python-canvas", "realtime"))
+        self.assertEqual(tuple(manifest.apps), ("bench", "python-canvas", "realtime"))
 
     def test_staging_is_deterministic_for_identical_inputs(self) -> None:
         first = stage(self._inputs(self.root / "stage-one"))

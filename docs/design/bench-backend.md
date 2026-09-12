@@ -38,6 +38,12 @@ candidate, freezes candidate configuration and project revision, durably writes 
 and only then makes work eligible to execute. Terminal run and case results are immutable. Rerun
 creates a new launch from the stored specification instead of editing history.
 
+V1 records the Bench project revision and the complete resolved launch inputs, but it does not add
+a Git subprocess or record commit and dirty-state labels for ordinary command candidates. Those
+labels would imply stronger source reproducibility than Bench provides while their working-tree
+files remain external and mutable. Source-revision capture stays out of scope until the associated
+runnable material can be frozen as one coherent provenance unit.
+
 ## Execution boundary
 
 Each case runs in a fresh contained child process under a coordinator-owned concurrency limit. The
@@ -69,6 +75,7 @@ Runtime state is separate from the project document:
 .local/bench/runs/<launch-id>/launch.json
 .local/bench/runs/<launch-id>/<run-id>.json
 .local/bench/runs/<launch-id>/artifacts/<run-id>/<case-id>/...
+.local/bench/imports/<import-id>/...
 .local/bench/reviews.json
 .local/bench/staging/...
 ```
@@ -89,7 +96,11 @@ HTTP request context.
 Python Canvas exports a versioned, public Bench candidate bundle rather than sharing internal
 packages. The bundle identifies its source project, revision, callable, deep link, command, and
 frozen runnable directory. Bench validates and copies the material into project-owned storage at
-acceptance. Once accepted, source-project changes cannot silently alter a Bench run.
+acceptance. Each accepted import receives a new immutable directory. Re-importing updates the
+authored candidate reference but retains older directories because stored launches may reference
+them for reruns; V1 performs no automatic provenance garbage collection. Startup removes only
+abandoned import staging directories. Once accepted, source-project changes cannot silently alter a
+Bench run.
 
 The repository playground uses ordinary command candidates and the same public process protocol.
 It therefore validates the core application without depending on another Setta application while

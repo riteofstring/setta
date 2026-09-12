@@ -23,6 +23,8 @@ from .models import (
     APP_ID,
     APP_IDS,
     APPLIED_PROJECT_NAME,
+    BENCH_APP_ID,
+    BENCH_RUNTIME_SESSION_SCHEMA,
     COMMAND_TIMEOUT_SECONDS,
     HTTP_TIMEOUT_SECONDS,
     MAX_HTTP_BODY_BYTES,
@@ -138,6 +140,7 @@ def run_clean_install(wheel: Path, launcher: Path, temporary_root: Path) -> None
     assert_installed_root_commands(setta, python, environment, unrelated, wheel)
     assert_offline_schema(setta, environment, unrelated)
     assert_realtime_offline_schema(setta, environment, unrelated)
+    exercise_bench_server(setta, environment, unrelated, temporary_root)
     exercise_live_server(setta, environment, unrelated, temporary_root, python)
     exercise_realtime_server(setta, environment, unrelated, temporary_root)
 
@@ -456,6 +459,109 @@ def exercise_realtime_server(
         raise cleanup_failure
 
 
+def exercise_bench_server(
+    setta: Path,
+    environment: Mapping[str, str],
+    cwd: Path,
+    temporary_root: Path,
+) -> None:
+    project = temporary_root / "bench-project"
+    project.mkdir(mode=0o700)
+    expected_project = str(project.resolve(strict=True))
+    live = start_foreground_open(
+        (
+            str(setta),
+            BENCH_APP_ID,
+            "open",
+            "--project-root",
+            str(project),
+            "--create",
+            "--no-open",
+        ),
+        cwd=cwd,
+        environment=environment,
+    )
+    readiness_url = ""
+    failure_capture = FailureCapture()
+    with failure_capture:
+        readiness = parse_json_document(
+            live.wait_for_readiness(OPEN_READY_TIMEOUT_SECONDS),
+            "Bench public open readiness",
+        )
+        readiness_url = assert_bench_open_readiness(readiness, expected_project)
+        nonce = assert_bench_web_and_identity(readiness_url, expected_project)
+        live.retain_app_session(
+            LiveSessionIdentity(
+                project_path=expected_project,
+                url=readiness_url,
+                owner_pid=live.process.pid,
+                instance_nonce=nonce,
+            )
+        )
+    failure = failure_capture.error
+    cleanup_failure = cleanup_live_server(
+        live,
+        setta,
+        environment,
+        cwd,
+        project,
+        readiness_url,
+        failed=failure is not None,
+        close_foreground=close_foreground_open,
+        session_cleanup=assert_bench_session_cleanup,
+        server_unavailable=assert_server_unavailable,
+    )
+    if failure is not None:
+        if cleanup_failure is not None:
+            if isinstance(failure, SmokeError):
+                raise SmokeError(
+                    f"{failure}; cleanup also failed: {cleanup_failure}"
+                ) from failure
+            failure.add_note(
+                f"Setta wheel smoke cleanup also failed: {cleanup_failure}"
+            )
+        raise failure
+    if cleanup_failure is not None:
+        raise cleanup_failure
+
+
+def assert_bench_session_cleanup(
+    setta: Path,
+    environment: Mapping[str, str],
+    cwd: Path,
+    project: Path,
+    *,
+    timeout: float = COMMAND_TIMEOUT_SECONDS,
+) -> None:
+    live = start_foreground_open(
+        (
+            str(setta),
+            BENCH_APP_ID,
+            "open",
+            "--project-root",
+            str(project),
+            "--no-open",
+        ),
+        cwd=cwd,
+        environment=environment,
+    )
+    readiness_url = ""
+    try:
+        readiness = parse_json_document(
+            live.wait_for_readiness(timeout), "Bench cleanup reopen readiness"
+        )
+        readiness_url = assert_bench_open_readiness(
+            readiness, str(project.resolve(strict=True))
+        )
+        close_foreground_open(live)
+    except BaseException:
+        live.terminate()
+        raise
+    finally:
+        live.cleanup_retained_session()
+    assert_server_unavailable(readiness_url, timeout=timeout)
+
+
 def write_realtime_entrypoint(path: Path) -> None:
     source = (
         b"def increment(value=0):\n"
@@ -618,6 +724,54 @@ def assert_realtime_open_readiness(document: object, expected_project: str) -> s
         raise SmokeError("Realtime public open readiness has no URL")
     validate_exact_loopback_origin(url)
     return url
+
+
+def assert_bench_open_readiness(document: object, expected_project: str) -> str:
+    readiness = require_object(document, "Bench public open readiness")
+    if set(readiness) != {"appId", "projectPath", "schemaVersion", "url"}:
+        raise SmokeError("Bench public open readiness has an invalid shape")
+    if (
+        readiness.get("schemaVersion") != PUBLIC_OPEN_SCHEMA
+        or readiness.get("appId") != BENCH_APP_ID
+        or readiness.get("projectPath") != expected_project
+    ):
+        raise SmokeError("Bench public open readiness has an invalid identity")
+    url = readiness.get("url")
+    if not isinstance(url, str):
+        raise SmokeError("Bench public open readiness has no URL")
+    validate_exact_loopback_origin(url)
+    return url
+
+
+def assert_bench_web_and_identity(origin_url: str, project_path: str) -> str:
+    root = http_get(origin_url + "/")
+    if (
+        root.status != 200
+        or not root.content_type.startswith("text/html")
+        or not root.body
+    ):
+        raise SmokeError("Bench did not serve root HTML from the public origin")
+    asset = http_get(find_same_origin_asset(origin_url, root.body))
+    if asset.status != 200 or not asset.body or not asset.content_type:
+        raise SmokeError("Bench did not serve its packaged web root")
+    identity = http_get(origin_url + "/api/v1/runtime/session")
+    document = require_object(
+        parse_json_document(identity.body, "Bench session identity response"),
+        "Bench session identity response",
+    )
+    nonce = document.get("instanceNonce")
+    if (
+        identity.status != 200
+        or identity.content_type != "application/json"
+        or set(document) != {"appId", "instanceNonce", "projectPath", "schemaVersion"}
+        or document.get("schemaVersion") != BENCH_RUNTIME_SESSION_SCHEMA
+        or document.get("appId") != BENCH_APP_ID
+        or document.get("projectPath") != project_path
+        or not isinstance(nonce, str)
+        or len(nonce) < 16
+    ):
+        raise SmokeError("Bench session identity does not match public readiness")
+    return nonce
 
 
 def assert_realtime_web_and_identity(origin_url: str, project_path: str) -> str:

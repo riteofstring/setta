@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "id": "product-thumbnails",
+  "revision": 0,
+  "name": "Product thumbnail strategies",
+  "caseSet": {
+    "id": "catalog-images",
+    "name": "Colorful catalog images",
+    "manifest": "cases.jsonl"
+  },
+  "candidates": [
+    {
+      "id": "contain",
+      "name": "Contain",
+      "command": {
+        "argv": ["thumbnail-candidate", "run", "--mode", "contain"],
+        "workingDirectory": "."
+      },
+      "origin": null
+    },
+    {
+      "id": "cover",
+      "name": "Cover",
+      "command": {
+        "argv": ["thumbnail-candidate", "run", "--mode", "cover"],
+        "workingDirectory": "."
+      },
+      "origin": null
+    }
+  ],
+  "evaluator": {
+    "id": "thumbnail-quality",
+    "name": "Thumbnail quality",
+    "checks": [
+      {
+        "id": "file-size",
+        "name": "PNG is under 160 KB",
+        "kind": "artifact_max_bytes",
+        "artifactName": "thumbnail",
+        "maximumBytes": 160000,
+        "width": null,
+        "height": null
+      },
+      {
+        "id": "dimensions",
+        "name": "Exactly 512 × 512",
+        "kind": "image_dimensions",
+        "artifactName": "thumbnail",
+        "maximumBytes": null,
+        "width": 512,
+        "height": 512
+      }
+    ]
+  },
+  "execution": {
+    "concurrency": 2,
+    "timeoutMilliseconds": 10000
+  },
+  "presentation": {
+    "sections": {
+      "catalog-images": {
+        "x": 40,
+        "y": 160,
+        "width": 300,
+        "height": 360,
+        "zIndex": 1
+      },
+      "contain": {
+        "x": 440,
+        "y": 40,
+        "width": 320,
+        "height": 260,
+        "zIndex": 2
+      },
+      "cover": {
+        "x": 440,
+        "y": 380,
+        "width": 320,
+        "height": 260,
+        "zIndex": 3
+      },
+      "thumbnail-quality": {
+        "x": 860,
+        "y": 160,
+        "width": 320,
+        "height": 360,
+        "zIndex": 4
+      }
+    },
+    "viewport": {
+      "x": 80,
+      "y": 70,
+      "zoom": 0.85
+    }
+  }
+}

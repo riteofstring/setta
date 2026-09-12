@@ -46,37 +46,49 @@ func (bundle BenchCandidateBundleV1) Validate() error {
 	if bundle.Version != BenchCandidateBundleVersionV1 {
 		return ValidationError{Field: "version", Problem: "must be 1"}
 	}
-	if bundle.Source.Application != "python-canvas" {
+	if err := validateBenchCandidateSource(bundle.Source); err != nil {
+		return err
+	}
+	return validateBenchCandidate(bundle.Candidate)
+}
+
+func validateBenchCandidateSource(source BenchCandidateSourceV1) error {
+	if source.Application != "python-canvas" {
 		return ValidationError{Field: "source.application", Problem: "must be python-canvas"}
 	}
-	if !ValidBenchCandidateID(bundle.Source.ProjectID) {
-		return ValidationError{Field: "source.projectId", Problem: "is incompatible with the Bench candidate contract"}
+	if err := requireStableID("source.projectId", source.ProjectID); err != nil {
+		return err
 	}
-	if bundle.Source.ProjectRevision < 1 {
+	if source.ProjectRevision < 1 {
 		return ValidationError{Field: "source.projectRevision", Problem: "must be positive"}
 	}
-	if !ValidBenchCandidateID(bundle.Source.CallableID) {
-		return ValidationError{Field: "source.callableId", Problem: "is incompatible with the Bench candidate contract"}
-	}
-	if err := requireSafeBenchDeepLink(bundle.Source.DeepLink); err != nil {
+	if err := requireStableID("source.callableId", source.CallableID); err != nil {
 		return err
 	}
-	if !ValidBenchCandidateID(bundle.Candidate.ID) {
+	return requireSafeBenchDeepLink(source.DeepLink)
+}
+
+func validateBenchCandidate(candidate BenchCandidateV1) error {
+	if !ValidBenchCandidateID(candidate.ID) {
 		return ValidationError{Field: "candidate.id", Problem: "is incompatible with the Bench candidate contract"}
 	}
-	if err := requireDisplayName("candidate.name", bundle.Candidate.Name); err != nil {
+	if err := requireDisplayName("candidate.name", candidate.Name); err != nil {
 		return err
 	}
-	if len(bundle.Candidate.Command.Argv) != 2 {
+	return validateBenchCandidateCommand(candidate.Command)
+}
+
+func validateBenchCandidateCommand(command BenchCandidateCommandV1) error {
+	if len(command.Argv) != 2 {
 		return ValidationError{Field: "candidate.command.argv", Problem: "must contain the interpreter and candidate.py"}
 	}
-	if !filepath.IsAbs(bundle.Candidate.Command.Argv[0]) {
+	if !filepath.IsAbs(command.Argv[0]) {
 		return ValidationError{Field: "candidate.command.argv[0]", Problem: "must be an absolute interpreter path"}
 	}
-	if bundle.Candidate.Command.Argv[1] != "candidate.py" {
+	if command.Argv[1] != "candidate.py" {
 		return ValidationError{Field: "candidate.command.argv[1]", Problem: "must be candidate.py"}
 	}
-	if bundle.Candidate.Command.WorkingDirectory != "." {
+	if command.WorkingDirectory != "." {
 		return ValidationError{Field: "candidate.command.workingDirectory", Problem: "must be the bundle root"}
 	}
 	return nil

@@ -12,7 +12,7 @@ from scripts import run_local_setta
 
 
 class LocalSettaRunnerTests(unittest.TestCase):
-    def test_realtime_run_reuses_unrelated_app_assets(self) -> None:
+    def test_selected_app_run_reuses_every_available_unrelated_app(self) -> None:
         wheel = Path("/tmp/current-setta.whl")
         executable = Path("/tmp/local-setta")
         reusable = run_local_setta.ReusableAppAssets(
@@ -30,12 +30,12 @@ class LocalSettaRunnerTests(unittest.TestCase):
             ),
             mock.patch.object(
                 run_local_setta,
-                "_realtime_build_fingerprint",
+                "_selected_app_build_fingerprint",
                 return_value="realtime-inputs",
             ),
             mock.patch.object(
                 run_local_setta,
-                "_cached_realtime_executable",
+                "_cached_app_executable",
                 return_value=None,
             ),
             mock.patch.object(
@@ -43,8 +43,7 @@ class LocalSettaRunnerTests(unittest.TestCase):
                 "_reusable_app_assets",
                 return_value=reusable,
             ),
-            mock.patch.object(run_local_setta, "_record_realtime_build") as record,
-            mock.patch.object(run_local_setta, "_build_realtime_frontend") as frontend,
+            mock.patch.object(run_local_setta, "_record_app_build") as record,
             mock.patch.object(run_local_setta, "_run") as run,
             mock.patch.object(
                 run_local_setta, "_build_current_wheel", return_value=wheel
@@ -63,11 +62,13 @@ class LocalSettaRunnerTests(unittest.TestCase):
         run.assert_called_once_with(
             ["/tools/pnpm", "install", "--frozen-lockfile"], run_local_setta.ROOT
         )
-        frontend.assert_called_once_with("/tools/pnpm", Path("/tools/go"))
         self.assertEqual(build.call_args.args[0], Path("/tools/go"))
-        self.assertEqual(build.call_args.args[2], reusable)
+        self.assertEqual(
+            build.call_args.args[2],
+            {"bench": reusable, "python-canvas": reusable},
+        )
         install.assert_called_once_with("/tools/uv", wheel)
-        record.assert_called_once_with("realtime-inputs")
+        record.assert_called_once_with("realtime", "realtime-inputs")
         foreground.assert_called_once_with(
             [
                 str(executable),
@@ -92,19 +93,18 @@ class LocalSettaRunnerTests(unittest.TestCase):
             ),
             mock.patch.object(
                 run_local_setta,
-                "_realtime_build_fingerprint",
+                "_selected_app_build_fingerprint",
                 return_value="realtime-inputs",
             ),
             mock.patch.object(
                 run_local_setta,
-                "_cached_realtime_executable",
+                "_cached_app_executable",
                 return_value=None,
             ),
             mock.patch.object(
                 run_local_setta, "_reusable_app_assets", return_value=None
             ),
-            mock.patch.object(run_local_setta, "_record_realtime_build") as record,
-            mock.patch.object(run_local_setta, "_build_realtime_frontend") as frontend,
+            mock.patch.object(run_local_setta, "_record_app_build") as record,
             mock.patch.object(run_local_setta, "_run"),
             mock.patch.object(
                 run_local_setta, "_build_current_wheel", return_value=wheel
@@ -117,21 +117,20 @@ class LocalSettaRunnerTests(unittest.TestCase):
             mock.patch.object(run_local_setta, "_run_foreground", return_value=0),
         ):
             self.assertEqual(run_local_setta.run(("realtime", "open")), 0)
-        frontend.assert_not_called()
-        self.assertIsNone(build.call_args.args[2])
-        record.assert_called_once_with("realtime-inputs")
+        self.assertEqual(build.call_args.args[2], {})
+        record.assert_called_once_with("realtime", "realtime-inputs")
 
-    def test_realtime_run_reuses_current_installed_build(self) -> None:
+    def test_bench_run_reuses_current_installed_build(self) -> None:
         executable = Path("/installed/setta")
         with (
             mock.patch.object(
                 run_local_setta,
-                "_realtime_build_fingerprint",
-                return_value="realtime-inputs",
+                "_selected_app_build_fingerprint",
+                return_value="bench-inputs",
             ),
             mock.patch.object(
                 run_local_setta,
-                "_cached_realtime_executable",
+                "_cached_app_executable",
                 return_value=executable,
             ) as cached,
             mock.patch.object(run_local_setta, "_required_command") as required,
@@ -139,32 +138,31 @@ class LocalSettaRunnerTests(unittest.TestCase):
                 run_local_setta, "_run_foreground", return_value=9
             ) as foreground,
         ):
-            status = run_local_setta.run(
-                ("realtime", "open", "--project-root", "example")
-            )
+            status = run_local_setta.run(("bench", "open", "--project-root", "example"))
         self.assertEqual(status, 9)
-        cached.assert_called_once_with("realtime-inputs")
+        cached.assert_called_once_with("bench", "bench-inputs")
         required.assert_not_called()
         foreground.assert_called_once_with(
-            [str(executable), "realtime", "open", "--project-root", "example"],
+            [str(executable), "bench", "open", "--project-root", "example"],
             run_local_setta.ROOT,
         )
 
-    def test_realtime_build_fingerprint_tracks_input_content(self) -> None:
+    def test_selected_app_build_fingerprint_tracks_input_content(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
-            source = root / "source.ts"
+            source = root / "apps" / "realtime" / "source.ts"
+            source.parent.mkdir(parents=True)
             source.write_text("first", encoding="utf-8")
             with (
                 mock.patch.object(run_local_setta, "ROOT", root),
-                mock.patch.object(run_local_setta, "REALTIME_BUILD_INPUTS", (source,)),
+                mock.patch.object(run_local_setta, "COMMON_BUILD_INPUTS", ()),
             ):
-                first = run_local_setta._realtime_build_fingerprint()
+                first = run_local_setta._selected_app_build_fingerprint("realtime")
                 source.write_text("second", encoding="utf-8")
-                second = run_local_setta._realtime_build_fingerprint()
+                second = run_local_setta._selected_app_build_fingerprint("realtime")
         self.assertNotEqual(first, second)
 
-    def test_realtime_build_record_requires_exact_current_install(self) -> None:
+    def test_app_build_record_requires_exact_app_and_current_install(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             environment = root / "environment"
@@ -184,12 +182,16 @@ class LocalSettaRunnerTests(unittest.TestCase):
                     ),
                 ),
             ):
-                run_local_setta._record_realtime_build("current")
+                run_local_setta._record_app_build("realtime", "current")
                 self.assertEqual(
-                    run_local_setta._cached_realtime_executable("current"), setta
+                    run_local_setta._cached_app_executable("realtime", "current"),
+                    setta,
                 )
                 self.assertIsNone(
-                    run_local_setta._cached_realtime_executable("changed")
+                    run_local_setta._cached_app_executable("realtime", "changed")
+                )
+                self.assertIsNone(
+                    run_local_setta._cached_app_executable("bench", "current")
                 )
 
     def test_targeted_wheel_build_reuses_unrelated_app_paths(self) -> None:
@@ -203,11 +205,13 @@ class LocalSettaRunnerTests(unittest.TestCase):
             wheel.touch()
             with mock.patch.object(run_local_setta, "_run") as run:
                 built = run_local_setta._build_current_wheel(
-                    Path("/tools/go"), wheel_directory, reusable
+                    Path("/tools/go"),
+                    wheel_directory,
+                    {"python-canvas": reusable},
                 )
         self.assertEqual(built, wheel)
         command = run.call_args.args[0]
-        self.assertIn("--skip-frontend-build", command)
+        self.assertNotIn("--skip-frontend-build", command)
         self.assertIn(
             "python-canvas=/installed/python-canvas",
             command,

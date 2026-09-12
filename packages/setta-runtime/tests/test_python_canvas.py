@@ -157,6 +157,7 @@ class PythonCanvasAdapterTests(unittest.TestCase):
             ("snapshot", "--help"),
             ("apply", "--help"),
             ("run", "--help"),
+            ("export-bench", "--help"),
         ):
             with self.subTest(arguments=arguments):
                 stdout = io.StringIO()
@@ -174,3 +175,79 @@ class PythonCanvasAdapterTests(unittest.TestCase):
                 self.assertTrue(
                     stdout.getvalue().startswith("Usage: setta python-canvas")
                 )
+
+    def test_export_bench_resolves_a_project_and_forwards_native_arguments(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            project = root / "project"
+            sessions = LiveSessionStore(
+                root / "sessions", process_alive=lambda _pid: True
+            )
+            session = LiveSession(
+                app_id=APP_ID,
+                project_path=str(project.resolve(strict=False)),
+                url="http://127.0.0.1:43123",
+                owner_pid=1,
+                instance_nonce="nonce",
+            )
+            context = CommandContext(
+                runtime=cast(PackagedRuntime, _Runtime()),
+                sessions=sessions,
+                supervisor=cast(NativeServerSupervisor, object()),
+                stdin=io.StringIO(),
+                stdout=io.StringIO(),
+                stderr=io.StringIO(),
+                launcher_python=Path(sys.executable),
+                browser_open=lambda _url: True,
+            )
+            with (
+                mock.patch.object(sessions, "resolve", return_value=session),
+                mock.patch(
+                    "setta.apps.python_canvas.subprocess.run",
+                    return_value=SimpleNamespace(returncode=0),
+                ) as run,
+            ):
+                self.assertEqual(
+                    PythonCanvasAdapter().dispatch(
+                        (
+                            "export-bench",
+                            "--project",
+                            str(project),
+                            "--callable",
+                            "resize",
+                            "--output",
+                            "bench-project",
+                            "--name",
+                            "Thumbnail resize",
+                            "--deep-link",
+                            "http://127.0.0.1:43123/callable/resize",
+                            "--diagnostics-timeout",
+                            "3s",
+                        ),
+                        context,
+                    ),
+                    0,
+                )
+        self.assertEqual(
+            run.call_args.args[0],
+            [
+                "/native/python-canvas",
+                "export-bench",
+                "--url",
+                session.url,
+                "--python",
+                str(context.launcher_python),
+                "--callable",
+                "resize",
+                "--output",
+                "bench-project",
+                "--name",
+                "Thumbnail resize",
+                "--deep-link",
+                "http://127.0.0.1:43123/callable/resize",
+                "--diagnostics-timeout",
+                "3s",
+            ],
+        )

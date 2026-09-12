@@ -8,6 +8,7 @@
     "node": "25.2.1"
   },
   "scripts": {
+    "bench:playground": "python3 packages/setta-runtime/scripts/run_bench_playground.py",
     "build": "pnpm --filter @setta/workspace run build",
     "consumer:check": "node scripts/verify-packed-consumer.mjs",
     "performance:profile": "node scripts/profile-workspace-performance.mjs",

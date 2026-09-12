@@ -28,6 +28,10 @@ class WheelBuildContractTests(unittest.TestCase):
                     build_setta_wheel.ROOT,
                 ),
                 mock.call(
+                    ["/tools/pnpm", "--filter", "@setta/bench", "run", "build"],
+                    build_setta_wheel.ROOT,
+                ),
+                mock.call(
                     ["/tools/pnpm", "--filter", "@setta/python-canvas", "run", "build"],
                     build_setta_wheel.ROOT,
                 ),
@@ -193,8 +197,16 @@ class WheelBuildContractTests(unittest.TestCase):
         namespace = build_setta_wheel.argparse.Namespace(
             target=None,
             wheel_platform_tag="macosx_13_0_arm64",
-            native_server=["realtime=/native/realtime", "python-canvas=/native/canvas"],
-            web_root=["realtime=/web/realtime", "python-canvas=/web/canvas"],
+            native_server=[
+                "bench=/native/bench",
+                "realtime=/native/realtime",
+                "python-canvas=/native/canvas",
+            ],
+            web_root=[
+                "bench=/web/bench",
+                "realtime=/web/realtime",
+                "python-canvas=/web/canvas",
+            ],
             skip_frontend_build=True,
             stage_only=True,
             stage_dir=Path("/stage"),
@@ -212,6 +224,7 @@ class WheelBuildContractTests(unittest.TestCase):
         self.assertEqual(
             apps,
             (
+                StageAppInputs("bench", Path("/native/bench"), Path("/web/bench")),
                 StageAppInputs(
                     "python-canvas", Path("/native/canvas"), Path("/web/canvas")
                 ),

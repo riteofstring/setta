@@ -49,6 +49,11 @@ type benchExportResult struct {
 	CandidateID     string `json:"candidateId"`
 }
 
+type benchBundleFile struct {
+	name    string
+	content []byte
+}
+
 func runBenchExportCommand(ctx context.Context, arguments []string, options Options) int {
 	command, help, failure := parseBenchExportArguments(arguments)
 	if help {
@@ -59,58 +64,62 @@ func runBenchExportCommand(ctx context.Context, arguments []string, options Opti
 		writeFailure(options.Stderr, failure, false)
 		return failure.exitCode
 	}
-	client, failure := newServiceClient(command.url, options.HTTPClient)
+	result, failure := createBenchExport(ctx, command, options.HTTPClient)
 	if failure != nil {
 		writeFailure(options.Stderr, failure, command.pretty)
 		return failure.exitCode
 	}
-	snapshot, failure := client.snapshot(ctx)
-	if failure == nil {
-		timeout, timeoutFailure := parseDiagnosticTimeout(command.diagnosticsTimeout)
-		if timeoutFailure != nil {
-			failure = timeoutFailure
-		} else {
-			snapshot, failure = settleDiagnostics(ctx, client, snapshot, timeout)
-		}
-	}
-	if failure != nil {
-		writeFailure(options.Stderr, failure, command.pretty)
-		return failure.exitCode
-	}
-	bundle, runtimeDocument, program, failure := buildBenchBundle(snapshot, command)
-	if failure != nil {
-		writeFailure(options.Stderr, failure, command.pretty)
-		return failure.exitCode
-	}
-	identity, failure := client.runtimeSession(ctx)
-	if failure != nil {
-		writeFailure(options.Stderr, failure, command.pretty)
-		return failure.exitCode
-	}
-	environment, err := pythonenv.Resolve(ctx, pythonenv.Options{
-		ProjectPath: identity.ProjectPath, LauncherPython: command.python,
-	})
-	if err != nil {
-		failure = inputFailure("python_environment_invalid", "The Python Canvas environment cannot be exported: "+safeOperationErrorReason(err))
-		writeFailure(options.Stderr, failure, command.pretty)
-		return failure.exitCode
-	}
-	bundle.Candidate.Command.Argv[0] = environment.InterpreterPath()
-	if err := bundle.Validate(); err != nil {
-		writeFailure(options.Stderr, unexpectedFailure("internal_error", "Unable to build a valid Bench candidate bundle."), command.pretty)
-		return exitUnexpectedFailure
-	}
-	directory, err := writeBenchBundle(command.output, bundle, runtimeDocument, program)
-	if err != nil {
-		writeFailure(options.Stderr, inputFailure("export_failed", "The Bench candidate bundle could not be created: "+safeOperationErrorReason(err)), command.pretty)
-		return exitInputOrTypedV2Failure
-	}
-	result := benchExportResult{SchemaVersion: "python-canvas-bench-export/v1", BundleDirectory: directory, CandidateID: bundle.Candidate.ID}
 	if err := writeJSON(options.Stdout, result, command.pretty); err != nil {
 		writeFailure(options.Stderr, unexpectedFailure("internal_error", "Unable to write command output."), command.pretty)
 		return exitUnexpectedFailure
 	}
 	return exitSuccess
+}
+
+func createBenchExport(ctx context.Context, command benchExportCommandOptions, httpClient HTTPClient) (benchExportResult, *commandFailure) {
+	client, failure := newServiceClient(command.url, httpClient)
+	if failure != nil {
+		return benchExportResult{}, failure
+	}
+	snapshot, failure := settledBenchExportSnapshot(ctx, client, command.diagnosticsTimeout)
+	if failure != nil {
+		return benchExportResult{}, failure
+	}
+	bundle, runtimeDocument, program, failure := buildBenchBundle(snapshot, command)
+	if failure != nil {
+		return benchExportResult{}, failure
+	}
+	identity, failure := client.runtimeSession(ctx)
+	if failure != nil {
+		return benchExportResult{}, failure
+	}
+	environment, err := pythonenv.Resolve(ctx, pythonenv.Options{
+		ProjectPath: identity.ProjectPath, LauncherPython: command.python,
+	})
+	if err != nil {
+		return benchExportResult{}, inputFailure("python_environment_invalid", "The Python Canvas environment cannot be exported: "+safeOperationErrorReason(err))
+	}
+	bundle.Candidate.Command.Argv[0] = environment.InterpreterPath()
+	if err := bundle.Validate(); err != nil {
+		return benchExportResult{}, unexpectedFailure("internal_error", "Unable to build a valid Bench candidate bundle.")
+	}
+	directory, err := writeBenchBundle(command.output, bundle, runtimeDocument, program)
+	if err != nil {
+		return benchExportResult{}, inputFailure("export_failed", "The Bench candidate bundle could not be created: "+safeOperationErrorReason(err))
+	}
+	return benchExportResult{SchemaVersion: "python-canvas-bench-export/v1", BundleDirectory: directory, CandidateID: bundle.Candidate.ID}, nil
+}
+
+func settledBenchExportSnapshot(ctx context.Context, client *serviceClient, diagnosticTimeout string) (contracts.ProjectSnapshotV2, *commandFailure) {
+	snapshot, failure := client.snapshot(ctx)
+	if failure != nil {
+		return contracts.ProjectSnapshotV2{}, failure
+	}
+	timeout, failure := parseDiagnosticTimeout(diagnosticTimeout)
+	if failure != nil {
+		return contracts.ProjectSnapshotV2{}, failure
+	}
+	return settleDiagnostics(ctx, client, snapshot, timeout)
 }
 
 func parseBenchExportArguments(arguments []string) (benchExportCommandOptions, bool, *commandFailure) {
@@ -146,36 +155,59 @@ func validateBenchExportArguments(command benchExportCommandOptions) *commandFai
 	if _, err := validateServiceURL(command.url); err != nil {
 		return inputFailure("invalid_url", "The service URL must be an absolute loopback HTTP URL without a base path, query, user info, or fragment.")
 	}
-	for _, required := range []struct {
-		label string
-		value string
-	}{{label: "callable", value: command.callableID}, {label: "output", value: command.output}, {label: "python", value: command.python}} {
-		if strings.TrimSpace(required.value) == "" || strings.TrimSpace(required.value) != required.value || !utf8.ValidString(required.value) || strings.ContainsRune(required.value, '\x00') {
-			return inputFailure("invalid_input", "Export requires a valid --"+required.label+" value.")
-		}
+	if failure := validateBenchExportRequiredValues(command); failure != nil {
+		return failure
 	}
-	if !filepath.IsAbs(command.python) {
-		return inputFailure("invalid_input", "Export requires --python to be an absolute path.")
-	}
-	info, err := os.Stat(command.python)
-	if err != nil || !info.Mode().IsRegular() {
-		return inputFailure("invalid_input", "Export requires --python to name an existing regular file.")
+	if failure := validateBenchExportInterpreter(command.python); failure != nil {
+		return failure
 	}
 	if command.name != "" && invalidBenchText(command.name, 160) {
 		return inputFailure("invalid_input", "Candidate name must be trimmed valid text no longer than 160 bytes.")
 	}
 	if command.deepLink != "" {
-		parsed, err := url.Parse(command.deepLink)
-		if err != nil {
-			return inputFailure("invalid_input", "Deep link must be an absolute HTTP or HTTPS URL without user information.")
-		}
-		scheme := strings.ToLower(parsed.Scheme)
-		if parsed.Host == "" || parsed.User != nil || scheme != "http" && scheme != "https" || invalidBenchText(command.deepLink, 4096) {
-			return inputFailure("invalid_input", "Deep link must be an absolute HTTP or HTTPS URL without user information.")
+		if failure := validateBenchExportDeepLink(command.deepLink); failure != nil {
+			return failure
 		}
 	}
-	if _, failure := parseDiagnosticTimeout(command.diagnosticsTimeout); failure != nil {
-		return failure
+	_, failure := parseDiagnosticTimeout(command.diagnosticsTimeout)
+	return failure
+}
+
+func validateBenchExportRequiredValues(command benchExportCommandOptions) *commandFailure {
+	for _, required := range []struct {
+		label string
+		value string
+	}{{label: "callable", value: command.callableID}, {label: "output", value: command.output}, {label: "python", value: command.python}} {
+		if invalidBenchExportRequiredValue(required.value) {
+			return inputFailure("invalid_input", "Export requires a valid --"+required.label+" value.")
+		}
+	}
+	return nil
+}
+
+func invalidBenchExportRequiredValue(value string) bool {
+	return strings.TrimSpace(value) == "" || strings.TrimSpace(value) != value || !utf8.ValidString(value) || strings.ContainsRune(value, '\x00')
+}
+
+func validateBenchExportInterpreter(python string) *commandFailure {
+	if !filepath.IsAbs(python) {
+		return inputFailure("invalid_input", "Export requires --python to be an absolute path.")
+	}
+	info, err := os.Stat(python)
+	if err != nil || !info.Mode().IsRegular() {
+		return inputFailure("invalid_input", "Export requires --python to name an existing regular file.")
+	}
+	return nil
+}
+
+func validateBenchExportDeepLink(value string) *commandFailure {
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return inputFailure("invalid_input", "Deep link must be an absolute HTTP or HTTPS URL without user information.")
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if parsed.Host == "" || parsed.User != nil || scheme != "http" && scheme != "https" || invalidBenchText(value, 4096) {
+		return inputFailure("invalid_input", "Deep link must be an absolute HTTP or HTTPS URL without user information.")
 	}
 	return nil
 }
@@ -185,30 +217,16 @@ func invalidBenchText(value string, maximum int) bool {
 }
 
 func buildBenchBundle(snapshot contracts.ProjectSnapshotV2, command benchExportCommandOptions) (contracts.BenchCandidateBundleV1, benchRuntimeDocument, []byte, *commandFailure) {
-	for _, diagnostic := range snapshot.Diagnostics {
-		if diagnostic.Severity == contracts.DiagnosticSeverityErrorV2 {
-			return contracts.BenchCandidateBundleV1{}, benchRuntimeDocument{}, nil, inputFailure("diagnostics_failed", "The selected project has error diagnostics and cannot be exported.")
-		}
+	if benchExportHasErrorDiagnostics(snapshot.Diagnostics) {
+		return contracts.BenchCandidateBundleV1{}, benchRuntimeDocument{}, nil, inputFailure("diagnostics_failed", "The selected project has error diagnostics and cannot be exported.")
 	}
-	var selected *contracts.CallableV2
-	for index := range snapshot.Callables {
-		if snapshot.Callables[index].ID == command.callableID {
-			selected = &snapshot.Callables[index]
-			break
-		}
-	}
+	selected := findBenchExportCallable(snapshot.Callables, command.callableID)
 	if selected == nil {
 		return contracts.BenchCandidateBundleV1{}, benchRuntimeDocument{}, nil, inputFailure("callable_not_found", "The selected callable does not exist in the current project revision.")
 	}
-	if !contracts.ValidBenchCandidateID(snapshot.Project.ID) || !contracts.ValidBenchCandidateID(selected.ID) {
-		return contracts.BenchCandidateBundleV1{}, benchRuntimeDocument{}, nil, inputFailure("unsupported_source_identity", "The selected project and callable identities must be compatible with the Bench candidate contract.")
-	}
-	parameters := make([]benchRuntimeParameter, 0, len(selected.Parameters))
-	for _, parameter := range selected.Parameters {
-		if parameter.Name == "" || parameter.AuthoredExpression == "" && parameter.Default == nil {
-			return contracts.BenchCandidateBundleV1{}, benchRuntimeDocument{}, nil, inputFailure("callable_incomplete", "The selected callable contains an incomplete parameter.")
-		}
-		parameters = append(parameters, benchRuntimeParameter{Name: parameter.Name, PassingStyle: parameter.PassingStyle, HasDefault: parameter.Default != nil})
+	parameters, failure := buildBenchRuntimeParameters(selected.Parameters)
+	if failure != nil {
+		return contracts.BenchCandidateBundleV1{}, benchRuntimeDocument{}, nil, failure
 	}
 	name := command.name
 	if name == "" {
@@ -238,6 +256,37 @@ func buildBenchBundle(snapshot contracts.ProjectSnapshotV2, command benchExportC
 	return bundle, runtime, []byte(snapshot.GeneratedCode.Code), nil
 }
 
+func benchExportHasErrorDiagnostics(diagnostics []contracts.DiagnosticV2) bool {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Severity == contracts.DiagnosticSeverityErrorV2 {
+			return true
+		}
+	}
+	return false
+}
+
+func findBenchExportCallable(callables []contracts.CallableV2, callableID string) *contracts.CallableV2 {
+	for index := range callables {
+		if callables[index].ID == callableID {
+			return &callables[index]
+		}
+	}
+	return nil
+}
+
+func buildBenchRuntimeParameters(parameters []contracts.ParameterV2) ([]benchRuntimeParameter, *commandFailure) {
+	runtimeParameters := make([]benchRuntimeParameter, 0, len(parameters))
+	for _, parameter := range parameters {
+		if parameter.Name == "" || parameter.AuthoredExpression == "" && parameter.Default == nil {
+			return nil, inputFailure("callable_incomplete", "The selected callable contains an incomplete parameter.")
+		}
+		runtimeParameters = append(runtimeParameters, benchRuntimeParameter{
+			Name: parameter.Name, PassingStyle: parameter.PassingStyle, HasDefault: parameter.Default != nil,
+		})
+	}
+	return runtimeParameters, nil
+}
+
 func (client *serviceClient) runtimeSession(ctx context.Context) (contracts.RuntimeSessionIdentityV2, *commandFailure) {
 	content, failure := client.requestContent(ctx, http.MethodGet, contracts.RuntimeSessionPathV2, nil, defaultRequestTimeout)
 	if failure != nil {
@@ -251,20 +300,9 @@ func (client *serviceClient) runtimeSession(ctx context.Context) (contracts.Runt
 }
 
 func writeBenchBundle(output string, bundle contracts.BenchCandidateBundleV1, runtime benchRuntimeDocument, program []byte) (string, error) {
-	absolute, err := filepath.Abs(output)
+	absolute, parent, err := resolveBenchBundleDestination(output)
 	if err != nil {
-		return "", fmt.Errorf("resolve output: %w", err)
-	}
-	absolute = filepath.Clean(absolute)
-	if _, err := os.Lstat(absolute); err == nil {
-		return "", errors.New("output already exists")
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("inspect output: %w", err)
-	}
-	parent := filepath.Dir(absolute)
-	parentInfo, err := os.Stat(parent)
-	if err != nil || !parentInfo.IsDir() {
-		return "", errors.New("output parent is not an existing directory")
+		return "", err
 	}
 	staging, err := os.MkdirTemp(parent, ".setta-bench-export-*")
 	if err != nil {
@@ -276,29 +314,12 @@ func writeBenchBundle(output string, bundle contracts.BenchCandidateBundleV1, ru
 			_ = os.RemoveAll(staging)
 		}
 	}()
-	manifest, err := json.MarshalIndent(bundle, "", "  ")
+	files, err := encodeBenchBundleFiles(bundle, runtime, program)
 	if err != nil {
-		return "", fmt.Errorf("encode manifest: %w", err)
+		return "", err
 	}
-	manifest = append(manifest, '\n')
-	runtimeContent, err := json.MarshalIndent(runtime, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("encode runtime: %w", err)
-	}
-	runtimeContent = append(runtimeContent, '\n')
-	files := []struct {
-		name    string
-		content []byte
-	}{
-		{name: "bench-candidate.json", content: manifest},
-		{name: "runtime.json", content: runtimeContent},
-		{name: "program.py", content: program},
-		{name: "candidate.py", content: []byte(benchCandidatePython)},
-	}
-	for _, file := range files {
-		if err := writeBenchBundleFile(filepath.Join(staging, file.name), file.content); err != nil {
-			return "", err
-		}
+	if err := writeBenchBundleFiles(staging, files); err != nil {
+		return "", err
 	}
 	if err := syncBenchBundleDirectory(staging); err != nil {
 		return "", fmt.Errorf("sync bundle directory: %w", err)
@@ -311,6 +332,51 @@ func writeBenchBundle(output string, bundle contracts.BenchCandidateBundleV1, ru
 		return "", fmt.Errorf("sync bundle parent: %w", err)
 	}
 	return absolute, nil
+}
+
+func resolveBenchBundleDestination(output string) (string, string, error) {
+	absolute, err := filepath.Abs(output)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve output: %w", err)
+	}
+	absolute = filepath.Clean(absolute)
+	if _, err := os.Lstat(absolute); err == nil {
+		return "", "", errors.New("output already exists")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", "", fmt.Errorf("inspect output: %w", err)
+	}
+	parent := filepath.Dir(absolute)
+	parentInfo, err := os.Stat(parent)
+	if err != nil || !parentInfo.IsDir() {
+		return "", "", errors.New("output parent is not an existing directory")
+	}
+	return absolute, parent, nil
+}
+
+func encodeBenchBundleFiles(bundle contracts.BenchCandidateBundleV1, runtime benchRuntimeDocument, program []byte) ([]benchBundleFile, error) {
+	manifest, err := json.MarshalIndent(bundle, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("encode manifest: %w", err)
+	}
+	runtimeContent, err := json.MarshalIndent(runtime, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("encode runtime: %w", err)
+	}
+	return []benchBundleFile{
+		{name: "bench-candidate.json", content: append(manifest, '\n')},
+		{name: "runtime.json", content: append(runtimeContent, '\n')},
+		{name: "program.py", content: program},
+		{name: "candidate.py", content: []byte(benchCandidatePython)},
+	}, nil
+}
+
+func writeBenchBundleFiles(root string, files []benchBundleFile) error {
+	for _, file := range files {
+		if err := writeBenchBundleFile(filepath.Join(root, file.name), file.content); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func syncBenchBundleDirectory(path string) error {

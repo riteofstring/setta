@@ -43,6 +43,13 @@ class BuildApp:
 
 _APPS = (
     BuildApp(
+        "bench",
+        "@setta/bench",
+        ROOT / "apps" / "bench" / "dist",
+        ROOT / "apps" / "bench" / "backend",
+        "./cmd/bench",
+    ),
+    BuildApp(
         "python-canvas",
         "@setta/python-canvas",
         ROOT / "apps" / "python-canvas" / "dist",

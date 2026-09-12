@@ -444,7 +444,6 @@
       "apps/realtime/src/**/*.test.ts",
       "apps/realtime/src/**/*.test.tsx",
       "apps/bench/backend/**/*_test.go",
-      "apps/bench/*.test.mjs",
       "apps/bench/src/**/*.test.ts",
       "apps/bench/src/**/*.test.tsx",
       "packages/setta-runtime/tests/**",
@@ -507,7 +506,6 @@
       },
       {
         "paths": [
-          "apps/bench/*.test.mjs",
           "apps/bench/src/**/*.test.ts",
           "apps/bench/src/**/*.test.tsx"
         ],
@@ -639,7 +637,6 @@
         "cost": "quick",
         "modules": ["bench-frontend"],
         "paths": [
-          "apps/bench/*.test.mjs",
           "apps/bench/src/**/*.test.ts",
           "apps/bench/src/**/*.test.tsx"
         ],
@@ -918,7 +915,7 @@
         "reason": "Go 1.26.6 fixes CVE-2026-56865 and CVE-2026-56864 in cmd/go checksum verification used when Setta resolves backend modules; retaining an older toolchain would admit attacker-controlled module content from a malicious proxy or coordinated proxy and checksum service.",
         "owner": "bench-backend",
         "reviewed": "2026-09-12",
-        "expires": "2026-09-19"
+        "expires": "2026-09-13"
       }
     ],
     "vulnerabilityAssessments": [

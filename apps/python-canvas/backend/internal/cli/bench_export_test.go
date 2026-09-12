@@ -15,6 +15,41 @@ import (
 )
 
 func TestExportBenchCreatesAnExecutableRevisionBoundBundle(t *testing.T) {
+	python, projectPath, venvPython := prepareBenchExportEnvironment(t)
+	snapshot := exportableSnapshot(t)
+	server := serveBenchExportSnapshot(t, snapshot, projectPath)
+	defer server.Close()
+
+	output := filepath.Join(t.TempDir(), "bench-candidate")
+	_, bundle := exportBenchBundleForTest(t, server, python, output)
+	if bundle.Source.ProjectID != snapshot.Project.ID || bundle.Source.ProjectRevision != snapshot.Project.Revision || bundle.Source.CallableID != "callable:multiply" {
+		t.Fatalf("bundle source = %#v", bundle.Source)
+	}
+	if bundle.Candidate.Command.Argv[0] != venvPython {
+		t.Fatalf("bundle interpreter = %q, want project venv %q", bundle.Candidate.Command.Argv[0], venvPython)
+	}
+
+	executionOutput := filepath.Join(t.TempDir(), "case-output")
+	if err := os.Mkdir(executionOutput, 0o700); err != nil {
+		t.Fatalf("create case output: %v", err)
+	}
+	envelope := executeBenchCandidate(t, bundle, output, executionOutput, "test", map[string]int{"value": 7})
+	if envelope.Type != "result" || envelope.Output != 21 {
+		t.Fatalf("candidate output = %#v", envelope)
+	}
+	envelope = executeBenchCandidate(t, bundle, output, executionOutput, "default", map[string]int{})
+	if envelope.Type != "result" || envelope.Output != 15 {
+		t.Fatalf("default candidate output = %#v", envelope)
+	}
+}
+
+type benchCandidateEnvelope struct {
+	Type   string `json:"type"`
+	Output int    `json:"output"`
+}
+
+func prepareBenchExportEnvironment(t *testing.T) (string, string, string) {
+	t.Helper()
 	python, err := exec.LookPath("python3")
 	if err != nil {
 		t.Fatal("python3 is required for the Python Canvas boundary suite")
@@ -36,8 +71,12 @@ func TestExportBenchCreatesAnExecutableRevisionBoundBundle(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		venvPython = filepath.Join(venvRoot, "Scripts", "python.exe")
 	}
-	snapshot := exportableSnapshot(t)
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+	return python, projectPath, venvPython
+}
+
+func serveBenchExportSnapshot(t *testing.T, snapshot contracts.ProjectSnapshotV2, projectPath string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if request.Method != http.MethodGet {
 			t.Errorf("unexpected request %s %s", request.Method, request.URL.Path)
 			response.WriteHeader(http.StatusNotFound)
@@ -58,9 +97,10 @@ func TestExportBenchCreatesAnExecutableRevisionBoundBundle(t *testing.T) {
 			response.WriteHeader(http.StatusNotFound)
 		}
 	}))
-	defer server.Close()
+}
 
-	output := filepath.Join(t.TempDir(), "bench-candidate")
+func exportBenchBundleForTest(t *testing.T, server *httptest.Server, python string, output string) (benchExportResult, contracts.BenchCandidateBundleV1) {
+	t.Helper()
 	exitCode, stdout, stderr := runForTest(t, []string{
 		"export-bench", "--url", server.URL, "--callable", "callable:multiply", "--output", output, "--python", python,
 	}, "", server.Client())
@@ -82,49 +122,34 @@ func TestExportBenchCreatesAnExecutableRevisionBoundBundle(t *testing.T) {
 	if err := decodeStrictJSON(manifestContent, &bundle); err != nil || bundle.Validate() != nil {
 		t.Fatalf("bundle = %#v, decode error = %v, validation error = %v", bundle, err, bundle.Validate())
 	}
-	if bundle.Source.ProjectID != snapshot.Project.ID || bundle.Source.ProjectRevision != snapshot.Project.Revision || bundle.Source.CallableID != "callable:multiply" {
-		t.Fatalf("bundle source = %#v", bundle.Source)
-	}
-	if bundle.Candidate.Command.Argv[0] != venvPython {
-		t.Fatalf("bundle interpreter = %q, want project venv %q", bundle.Candidate.Command.Argv[0], venvPython)
-	}
+	return result, bundle
+}
 
-	executionOutput := filepath.Join(t.TempDir(), "case-output")
-	if err := os.Mkdir(executionOutput, 0o700); err != nil {
-		t.Fatalf("create case output: %v", err)
+func executeBenchCandidate(t *testing.T, bundle contracts.BenchCandidateBundleV1, root string, outputDirectory string, caseID string, input map[string]int) benchCandidateEnvelope {
+	t.Helper()
+	request, err := json.Marshal(map[string]any{
+		"protocolVersion": "bench-candidate/v1",
+		"runId":           "run:" + caseID,
+		"case": map[string]any{
+			"id": caseID, "name": caseID, "input": input, "expected": nil,
+		},
+		"outputDirectory": outputDirectory,
+	})
+	if err != nil {
+		t.Fatalf("encode candidate request: %v", err)
 	}
-	request := []byte(`{"protocolVersion":"bench-candidate/v1","runId":"run:test","case":{"id":"case:test","name":"Test","input":{"value":7},"expected":null},"outputDirectory":` + quotedJSON(t, executionOutput) + `}`)
 	command := exec.Command(bundle.Candidate.Command.Argv[0], "candidate.py")
-	command.Dir = output
+	command.Dir = root
 	command.Stdin = bytes.NewReader(request)
-	candidateOutput, err := command.Output()
+	output, err := command.Output()
 	if err != nil {
 		t.Fatalf("execute exported candidate: %v", err)
 	}
-	var envelope struct {
-		Type   string `json:"type"`
-		Output int    `json:"output"`
+	var envelope benchCandidateEnvelope
+	if err := json.Unmarshal(output, &envelope); err != nil {
+		t.Fatalf("decode candidate output %q: %v", output, err)
 	}
-	if err := json.Unmarshal(candidateOutput, &envelope); err != nil {
-		t.Fatalf("decode candidate output %q: %v", candidateOutput, err)
-	}
-	if envelope.Type != "result" || envelope.Output != 21 {
-		t.Fatalf("candidate output = %#v", envelope)
-	}
-	defaultRequest := []byte(`{"protocolVersion":"bench-candidate/v1","runId":"run:default","case":{"id":"case:default","name":"Default","input":{},"expected":null},"outputDirectory":` + quotedJSON(t, executionOutput) + `}`)
-	defaultCommand := exec.Command(bundle.Candidate.Command.Argv[0], "candidate.py")
-	defaultCommand.Dir = output
-	defaultCommand.Stdin = bytes.NewReader(defaultRequest)
-	defaultOutput, err := defaultCommand.Output()
-	if err != nil {
-		t.Fatalf("execute exported candidate with default: %v", err)
-	}
-	if err := json.Unmarshal(defaultOutput, &envelope); err != nil {
-		t.Fatalf("decode default candidate output %q: %v", defaultOutput, err)
-	}
-	if envelope.Type != "result" || envelope.Output != 15 {
-		t.Fatalf("default candidate output = %#v", envelope)
-	}
+	return envelope
 }
 
 func TestExportBenchRejectsErrorDiagnostics(t *testing.T) {
@@ -200,13 +225,4 @@ func exportableSnapshot(t *testing.T) contracts.ProjectSnapshotV2 {
 		t.Fatalf("exportable snapshot: %v", err)
 	}
 	return snapshot
-}
-
-func quotedJSON(t *testing.T, value string) string {
-	t.Helper()
-	content, err := json.Marshal(value)
-	if err != nil {
-		t.Fatalf("quote JSON: %v", err)
-	}
-	return string(content)
 }

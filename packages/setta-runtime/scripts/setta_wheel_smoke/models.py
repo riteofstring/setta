@@ -36,10 +36,17 @@ PUBLIC_OPEN_SCHEMA = "setta-open/v1"
 SESSION_SCHEMA = "setta-live-session/v1"
 RUNTIME_SESSION_SCHEMA = "python-canvas-session/v1"
 APP_ID = "python-canvas"
+BENCH_APP_ID = "bench"
+BENCH_RUNTIME_SESSION_SCHEMA = "bench-session/v1"
 REALTIME_APP_ID = "realtime"
 REALTIME_RUNTIME_SESSION_SCHEMA = "realtime-session/v1"
 REALTIME_SCHEMA = "setta-realtime-schema/v2"
 APP_DESCRIPTORS = (
+    {
+        "id": "bench",
+        "name": "Bench",
+        "summary": "Compare code-based experiments against repeatable cases.",
+    },
     {
         "id": "python-canvas",
         "name": "Python Canvas",

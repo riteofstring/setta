@@ -16,8 +16,9 @@ ROOT = Path(__file__).resolve().parents[3]
 BUILD_SCRIPT = ROOT / "packages" / "setta-runtime" / "scripts" / "build_setta_wheel.py"
 LOCAL_ENVIRONMENT = ROOT / "build" / "setta-wheel" / "local-environment"
 LOCAL_BUILD_STATE = ROOT / "build" / "setta-wheel" / "local-build.json"
-LOCAL_BUILD_STATE_FORMAT = 1
-REALTIME_BUILD_INPUTS = (
+LOCAL_BUILD_STATE_FORMAT = 2
+REGISTERED_APP_IDS = ("bench", "python-canvas", "realtime")
+COMMON_BUILD_INPUTS = (
     ROOT / ".code-polishy.lock.json",
     ROOT / ".node-version",
     ROOT / "LICENSE",
@@ -37,20 +38,19 @@ REALTIME_BUILD_INPUTS = (
     ROOT / "packages" / "workspace" / "tsconfig.build.json",
     ROOT / "packages" / "workspace" / "tsconfig.json",
     ROOT / "packages" / "workspace" / "vite.config.ts",
-    ROOT / "apps" / "realtime" / "backend",
-    ROOT / "apps" / "realtime" / "index.html",
-    ROOT / "apps" / "realtime" / "package.json",
-    ROOT / "apps" / "realtime" / "scripts",
-    ROOT / "apps" / "realtime" / "src",
-    ROOT / "apps" / "realtime" / "tsconfig.json",
-    ROOT / "apps" / "realtime" / "vite.config.ts",
     ROOT / "packages" / "setta-runtime" / "licenses",
     ROOT / "packages" / "setta-runtime" / "platform_contract.py",
     ROOT / "packages" / "setta-runtime" / "scripts",
     ROOT / "packages" / "setta-runtime" / "setta_build_backend.py",
     ROOT / "packages" / "setta-runtime" / "src",
 )
-BUILD_INPUT_IGNORED_DIRECTORIES = {".ruff_cache", "__pycache__"}
+BUILD_INPUT_IGNORED_DIRECTORIES = {
+    ".ruff_cache",
+    "__pycache__",
+    "dist",
+    "examples",
+    "node_modules",
+}
 BUILD_INPUT_IGNORED_SUFFIXES = {".pyc"}
 
 
@@ -77,9 +77,14 @@ def main(arguments: Sequence[str] | None = None) -> int:
 
 
 def run(arguments: Sequence[str]) -> int:
-    fingerprint = _realtime_build_fingerprint() if arguments[0] == "realtime" else None
+    app_id = arguments[0]
+    fingerprint = (
+        _selected_app_build_fingerprint(app_id)
+        if app_id in REGISTERED_APP_IDS
+        else None
+    )
     if fingerprint is not None:
-        cached = _cached_realtime_executable(fingerprint)
+        cached = _cached_app_executable(app_id, fingerprint)
         if cached is not None:
             sys.stdout.write("run_local_setta: reusing unchanged local build\n")
             return _run_foreground([str(cached), *arguments], ROOT)
@@ -87,25 +92,29 @@ def run(arguments: Sequence[str]) -> int:
     pnpm = _required_command("pnpm")
     go = _pinned_go()
     _run([pnpm, "install", "--frozen-lockfile"], ROOT)
-    reusable = (
-        _reusable_app_assets("python-canvas") if arguments[0] == "realtime" else None
-    )
-    if reusable is not None:
-        _build_realtime_frontend(pnpm, go)
+    reusable = {
+        reusable_id: assets
+        for reusable_id in REGISTERED_APP_IDS
+        if reusable_id != app_id
+        and (assets := _reusable_app_assets(reusable_id)) is not None
+    }
     with tempfile.TemporaryDirectory(prefix="setta-local-wheel-") as wheel_directory:
         wheel = _build_current_wheel(go, Path(wheel_directory), reusable)
         setta = _install_current_wheel(uv, wheel)
     if fingerprint is not None:
-        _record_realtime_build(fingerprint)
+        _record_app_build(app_id, fingerprint)
     return _run_foreground([str(setta), *arguments], ROOT)
 
 
-def _realtime_build_fingerprint() -> str:
+def _selected_app_build_fingerprint(app_id: str) -> str:
+    if app_id not in REGISTERED_APP_IDS:
+        raise LocalRunError(f"unknown packaged app: {app_id}")
     digest = hashlib.sha256()
     digest.update(
         f"{platform.system()}\0{platform.machine()}\0{sys.implementation.cache_tag}\0".encode()
     )
-    for path in _build_input_files(REALTIME_BUILD_INPUTS):
+    app_root = ROOT / "apps" / app_id
+    for path in _build_input_files((*COMMON_BUILD_INPUTS, app_root)):
         try:
             relative = path.relative_to(ROOT).as_posix()
             payload = path.read_bytes()
@@ -141,24 +150,26 @@ def _build_input_files(inputs: Sequence[Path]) -> tuple[Path, ...]:
     return tuple(sorted(files, key=lambda candidate: candidate.as_posix()))
 
 
-def _cached_realtime_executable(fingerprint: str) -> Path | None:
+def _cached_app_executable(app_id: str, fingerprint: str) -> Path | None:
     try:
         document = json.loads(LOCAL_BUILD_STATE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
     if document != {
+        "appId": app_id,
         "fingerprint": fingerprint,
         "format": LOCAL_BUILD_STATE_FORMAT,
     }:
         return None
     _, setta = _environment_executables(LOCAL_ENVIRONMENT)
-    if not setta.is_file() or _reusable_app_assets("realtime") is None:
+    if not setta.is_file() or _reusable_app_assets(app_id) is None:
         return None
     return setta
 
 
-def _record_realtime_build(fingerprint: str) -> None:
+def _record_app_build(app_id: str, fingerprint: str) -> None:
     document = {
+        "appId": app_id,
         "fingerprint": fingerprint,
         "format": LOCAL_BUILD_STATE_FORMAT,
     }
@@ -182,7 +193,7 @@ def _record_realtime_build(fingerprint: str) -> None:
 def _build_current_wheel(
     go: Path,
     wheel_directory: Path,
-    reusable: ReusableAppAssets | None = None,
+    reusable: dict[str, ReusableAppAssets] | None = None,
 ) -> Path:
     command = [
         sys.executable,
@@ -192,14 +203,13 @@ def _build_current_wheel(
         "--wheel-dir",
         str(wheel_directory),
     ]
-    if reusable is not None:
+    for app_id, assets in sorted((reusable or {}).items()):
         command.extend(
             [
-                "--skip-frontend-build",
                 "--native-server",
-                f"python-canvas={reusable.native_server}",
+                f"{app_id}={assets.native_server}",
                 "--web-root",
-                f"python-canvas={reusable.web_root}",
+                f"{app_id}={assets.web_root}",
             ]
         )
     _run(command, ROOT)
@@ -207,20 +217,6 @@ def _build_current_wheel(
     if len(wheels) != 1 or not wheels[0].is_file():
         raise LocalRunError("the local build did not produce exactly one wheel")
     return wheels[0]
-
-
-def _build_realtime_frontend(pnpm: str, go: Path) -> None:
-    environment = os.environ.copy()
-    inherited_path = environment.get("PATH")
-    path_entries = [str(go.parent)]
-    if inherited_path:
-        path_entries.append(inherited_path)
-    environment["PATH"] = os.pathsep.join(path_entries)
-    _run(
-        [pnpm, "--filter", "@setta/realtime", "run", "build"],
-        ROOT,
-        environment=environment,
-    )
 
 
 def _reusable_app_assets(app_id: str) -> ReusableAppAssets | None:
