@@ -1560,7 +1560,9 @@ async function exerciseBrowser(client, origin) {
         stage instanceof HTMLElement &&
         canvas instanceof HTMLElement &&
         getComputedStyle(stage).padding === "0px" &&
-        getComputedStyle(canvas).borderWidth === "0px";
+        getComputedStyle(stage).backgroundColor !== "rgb(255, 255, 255)" &&
+        getComputedStyle(canvas).borderWidth === "0px" &&
+        getComputedStyle(canvas).boxShadow !== "none";
     })()`,
   );
   await waitFor(

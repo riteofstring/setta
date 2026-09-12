@@ -392,6 +392,9 @@ input {
   --realtime-drawing-control-track: hsl(219 24% 89%);
   --realtime-drawing-surface: hsl(222 28% 95%);
   --realtime-drawing-surface-border: rgb(255 255 255);
+  --realtime-drawing-stage: hsl(220 14% 84%);
+  --realtime-drawing-artboard-edge: hsl(220 16% 55% / 65%);
+  --realtime-drawing-artboard-shadow: rgb(15 23 42 / 24%);
   display: grid;
   flex: 1 1 auto;
   overflow: hidden;
@@ -411,6 +414,9 @@ input {
   --realtime-drawing-control-track: hsl(219 26% 23%);
   --realtime-drawing-surface: hsl(220 25% 8.5%);
   --realtime-drawing-surface-border: hsl(219 26% 23%);
+  --realtime-drawing-stage: hsl(220 20% 14%);
+  --realtime-drawing-artboard-edge: hsl(219 22% 42% / 80%);
+  --realtime-drawing-artboard-shadow: rgb(0 0 0 / 45%);
   color-scheme: dark;
 }
 
@@ -849,7 +855,7 @@ input {
   min-width: 0;
   min-height: 0;
   place-items: center;
-  background: #fff;
+  background: var(--realtime-drawing-stage);
 }
 
 .realtime-drawing-stage .canvas-container {
@@ -858,6 +864,9 @@ input {
   max-height: 100%;
   border: 0;
   margin: auto;
+  box-shadow:
+    0 0 0 1px var(--realtime-drawing-artboard-edge),
+    0 2px 12px var(--realtime-drawing-artboard-shadow);
   touch-action: none;
 }
 

@@ -224,7 +224,8 @@ gesture. While a local gesture is unsettled or awaiting acknowledgement, delayed
 cannot replace it, and drawing on the inner canvas does not reorder or persist the outer section.
 The drawing keeps its logical pixel dimensions and object coordinates when its outer section is
 resized; it stays centered and uniformly contained, so the freely sized frame may provide deliberate
-padding. The right-side Inspector has explicit **Drawing canvas** controls. Width and height are
+padding. A contrasting surround and artboard edge distinguish that non-drawable frame space from
+the canvas. The right-side Inspector has explicit **Drawing canvas** controls. Width and height are
 proportionally linked by default but can be unlinked. **Apply canvas size** can preserve artwork size
 using a nine-point anchor or scale the artwork with the bounds, and the complete scene and dimensions
 undo and redo together. **Fit frame to canvas** is a one-shot action and does not lock the section's

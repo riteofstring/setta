@@ -92,12 +92,14 @@ interaction state after superseded loads, and renders the settled frame synchron
 The drawing's logical width, height, and object coordinates are content state, distinct from the
 outer Workspace section size. Resizing the outer section changes only the available viewport; the
 logical canvas remains centered and uniformly contain-fitted without a scene mutation, snapshot,
-or aspect-ratio lock on the section frame. The drawing section contributes explicit canvas controls
-to the right-side Inspector. Width and height start proportionally linked but may be unlinked. One
-Apply either keeps artwork dimensions and translates objects from a selected nine-point anchor, or
-scales object positions and dimensions with the new bounds. The resulting dimensions and scene are
-one drawing history entry and one durable settlement, so undo and redo restore them together and a
-delayed canonical acknowledgement cannot split their authority.
+or aspect-ratio lock on the section frame. A contrasting stage surround and non-sizing artboard edge
+distinguish non-drawable letterbox space without adding canvas padding. The drawing section
+contributes explicit canvas controls to the right-side Inspector. Width and height start
+proportionally linked but may be unlinked. One Apply either keeps artwork dimensions and translates
+objects from a selected nine-point anchor, or scales object positions and dimensions with the new
+bounds. The resulting dimensions and scene are one drawing history entry and one durable settlement,
+so undo and redo restore them together and a delayed canonical acknowledgement cannot split their
+authority.
 
 Fit frame to canvas is a one-shot layout action, not a persistent constraint. It measures the
 section chrome and the drawing toolbar at the target width before changing the outer section once,
